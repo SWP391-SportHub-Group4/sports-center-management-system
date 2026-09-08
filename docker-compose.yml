@@ -1,0 +1,44 @@
+# MVP scope theo Design v2, mục 6: chỉ Postgres + Backend + Frontend.
+# Redis / RabbitMQ / Nginx / AI service riêng CHƯA thêm — chỉ thêm khi flow thực sự cần.
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: sporthub-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: sporthub
+      POSTGRES_USER: sporthub
+      POSTGRES_PASSWORD: change_me_local_only
+    ports:
+      - "5432:5432"
+    volumes:
+      - sporthub_pgdata:/var/lib/postgresql/data
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: SportHub.API/Dockerfile
+    container_name: sporthub-backend
+    restart: unless-stopped
+    depends_on:
+      - postgres
+    environment:
+      ConnectionStrings__Default: "Host=postgres;Database=sporthub;Username=sporthub;Password=change_me_local_only"
+      ASPNETCORE_ENVIRONMENT: Development
+    ports:
+      - "5000:8080"
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: sporthub-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: "http://localhost:5000"
+    ports:
+      - "3000:3000"
+
+volumes:
+  sporthub_pgdata:

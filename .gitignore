@@ -1,0 +1,20 @@
+## .NET
+backend/**/bin/
+backend/**/obj/
+*.user
+
+## Node / Next.js
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.env*.local
+
+## Python (ai/ reserved for future)
+ai/**/__pycache__/
+ai/**/.venv/
+
+## OS / IDE
+.vs/
+.idea/
+.vscode/
+.DS_Store
