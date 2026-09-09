@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SportHub.Repository.Entities;
 
 namespace SportHub.Repository;
 
@@ -10,9 +11,21 @@ public class SportHubDbContext : DbContext
     {
     }
 
+    // 1) Identity/RBAC
+    public DbSet<Role> Roles => Set<Role>();
+    public DbSet<User> Users => Set<User>();
+
+    // 2) Membership
+    public DbSet<MembershipPackage> MembershipPackages => Set<MembershipPackage>();
+    public DbSet<MemberPackage> MemberPackages => Set<MemberPackage>();
+    public DbSet<MemberTrainingProfile> MemberTrainingProfiles => Set<MemberTrainingProfile>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
         // modelBuilder.ApplyConfigurationsFromAssembly(typeof(SportHubDbContext).Assembly);
+        // TODO: cấu hình enum->string (UPPER_SNAKE_CASE), unique index LOWER(Email) (BR-49),
+        // IsConcurrencyToken cho MemberPackage.Version — chưa làm ở bước scaffold này,
+        // xem docs/00-Source-of-Truth.md §7 Open Questions (convention serialize enum).
     }
 }

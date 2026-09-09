@@ -49,53 +49,87 @@ Khi có mâu thuẫn, đọc theo thứ tự sau (trên > dưới):
 
 ## 2. Entity đã chốt (Domain Model)
 
-> Điền vào sau họp. Mỗi entity: tên, field chính, quan hệ, module sở hữu.
-> Entity nào **chưa** nằm trong bảng này thì **chưa được coi là đã chốt** — ai cần thêm entity mới phải update bảng này trước khi code.
+> Đồng bộ với ERD v2 (`Center-Management-System-Design-v2.md` §1) — nguồn field đầy đủ nhất là `entity-field-purpose.md`, bảng dưới chỉ tóm tắt để tra nhanh module sở hữu + enum dùng. Entity nào **chưa** nằm trong bảng này thì **chưa được coi là đã chốt**.
+>
+> **Cập nhật 09/09/2026:** bảng này trước đó là khung nháp, thiếu 11 entity đã có trong ERD v2 và dùng sai tên/module cho vài entity còn lại — đã đồng bộ lại đầy đủ theo ERD v2 hiện hành.
 
-| Entity | Module sở hữu | Field chính (nháp) | Quan hệ chính | Ghi chú |
-|---|---|---|---|---|
-| User | Identity | Id, Email, PasswordHash, Role | 1—1 với Member/Coach/Staff profile? | Role: xem Enum §3 |
-| Member | Membership | Id, UserId, ... | N—1 User, N—1 MembershipPackage | |
-| MembershipPackage | Membership | Id, Name, Price, DurationDays | 1—N Member | |
-| Class | Scheduling | Id, SubjectId, RoomId, CoachId | N—1 Room, N—1 Coach | |
-| ClassSchedule / Session | Scheduling | Id, ClassId, StartTime, EndTime | N—1 Class | |
-| Enrollment | Scheduling | Id, MemberId, ClassId, Status | N—1 Member, N—1 Class | |
-| Payment | Payment | Id, MemberId, Amount, Method, Status | N—1 Member | |
-| Invoice | Payment | Id, PaymentId, ... | 1—1 Payment? | |
-| Attendance | Training | Id, EnrollmentId/SessionId, Status | N—1 Session | optional flow |
-| TrainingPlan | Training | Id, MemberId, CoachId, Content | N—1 Member, N—1 Coach | optional flow |
-| WorkoutSuggestion | AI | (xem `IAiRecommendationService`) | — | optional flow, không phải bảng DB bắt buộc |
-
-*(Bảng trên là khung nháp dựa theo README/design doc hiện có — cần đối chiếu lại với Business Rules doc và chốt lại trong buổi họp.)*
+| Entity | Module sở hữu | PK | Field chính | Quan hệ chính | Enum dùng | Ghi chú |
+|---|---|---|---|---|---|---|
+| `Role` | Identity | `RoleID` (int) | RoleName | 1—N `User` | `UserRole` | seed data, 4 dòng cố định |
+| `User` | Identity | `UserID` (uuid) | FullName, Email, PasswordHash, Phone, RoleID | N—1 `Role`; 1—N hầu hết entity khác (chủ thể thao tác) | `UserStatus` | |
+| `MemberTrainingProfile` | Membership | `ProfileID` (uuid) | MemberID (unique), Goal, ExperienceLevel | 1—1 `User` (Member) | `ExperienceLevel` | input bắt buộc cho AI suggestion (BR-26) |
+| `CoachMemberRelationship` | Training | `RelationshipID` (uuid) | CoachID, MemberID, SourceType, ClassID (nullable) | N—1 `User` (2 phía) | `RelationshipSourceType`, `RelationshipStatus` | unique khi ACTIVE (ràng buộc #7, BR-23/24) |
+| `MembershipPackage` | Membership | `PackageID` (int) | Name, Price, DurationDays, SessionLimit | 1—N `MemberPackage` | — | |
+| `MemberPackage` | Membership | `MemberPackageID` (uuid) | MemberID, PackageID, RemainingSessions, Version | N—1 `User`, N—1 `MembershipPackage`; 1—N `Enrollment` | `MemberPackageStatus` | state machine §4; optimistic concurrency qua `Version` |
+| `Room` | Scheduling | `RoomID` (int) | Name, Capacity | 1—N `Class`, `ClassSession` | — | |
+| `Class` | Scheduling | `ClassID` (int) | Name, Discipline, DefaultRoomID, DefaultCoachID | N—1 `Room`; 1—N `ClassRecurrence`, `ClassSession` | `ClassStatus` | |
+| `ClassRecurrence` | Scheduling | `RecurrenceID` (int) | ClassID, DaysOfWeek, StartTimeLocal, EndTimeLocal, Timezone | N—1 `Class`; 1—N `ClassSession` | — | định nghĩa pattern, không phải buổi cụ thể |
+| `ClassSession` | Scheduling | `SessionID` (uuid) | ClassID, RecurrenceID (nullable), RoomID, CoachID, StartAtUtc, EndAtUtc, ConfirmedCount | N—1 `Class`, `ClassRecurrence` (nullable), `Room`; 1—N `Enrollment`, `Attendance` | `ClassSessionStatus` | chưa có state diagram riêng — xem §4 |
+| `Enrollment` | Scheduling | `EnrollmentID` (uuid) | SessionID, MemberID, MemberPackageID | N—1 `ClassSession`, `User`, `MemberPackage`; 1—1 `Attendance` | `EnrollmentStatus` | state machine §4; ràng buộc #1–#4 (Design v2 §3) |
+| `Attendance` | Scheduling | `AttendanceID` (uuid) | EnrollmentID, SessionID, MemberID, CheckInTime | N—1 `Enrollment`, `ClassSession`, `User` | `AttendanceStatus` | state machine §4 (đã sửa 09/09/2026, thêm nhánh Absent) |
+| `WorkoutPlan` | Training | `PlanID` (uuid) | MemberID, CoachID, RelationshipID, Goal, Level | N—1 `User` (2 phía), `CoachMemberRelationship`; 1—N `WorkoutPlanItem` | — | chỉ tạo được khi quan hệ ACTIVE (BR-23) |
+| `WorkoutPlanItem` | Training | `ItemID` (uuid) | PlanID, Exercise, Sets, Reps | N—1 `WorkoutPlan` | — | |
+| `WorkoutResult` | Training | `ResultID` (uuid) | SessionID, MemberID, CoachID, ProgressNote, CoachComment | N—1 `ClassSession`, `User` (2 phía) | — | chỉ Coach dạy buổi đó mới ghi được (BR-24) |
+| `Invoice` | Payment | `InvoiceID` (uuid) | InvoiceNumber (unique), MemberID, IssuedByUserID, MemberPackageID (nullable), TotalAmount | N—1 `User` (2 phía), `MemberPackage`; 1—N `InvoiceItem`, `Payment`, `PaymentAdjustment` | `InvoiceStatus` | state machine §4; không bao giờ bị xóa (BR-40) |
+| `InvoiceItem` | Payment | `ItemID` (uuid) | InvoiceID, Description, Amount, RelatedEntityType | N—1 `Invoice` | `InvoiceItemRelatedEntityType` | |
+| `Payment` | Payment | `PaymentID` (uuid) | InvoiceID, Amount, Method, ReferenceCode, ReceivedByUserID | N—1 `Invoice`, `User`; 1—N `PaymentAdjustment` | `PaymentMethod`, `PaymentStatus` | tổng SUCCESS không vượt Invoice.TotalAmount (BR-41) |
+| `PaymentAdjustment` | Payment | `AdjustmentID` (uuid) | InvoiceID, PaymentID (nullable), Type, Amount, Reason, RequestedByUserID, ApprovedByUserID | N—1 `Invoice`, `Payment` (nullable), `User` (2 phía) | `PaymentAdjustmentType`, `PaymentAdjustmentStatus` | state machine §4; Manager duyệt, không tự duyệt (BR-42) |
+| `Notification` | *(chưa gán — không thuộc 6 module hiện có ở backend, xem Open Questions)* | `NotificationID` (uuid) | UserID, Channel, SourceEventType, SourceEntityID (nullable), Message | N—1 `User` | `NotificationChannel`, `NotificationSourceEventType`, `NotificationStatus` | MVP: lưu trong DB, không gửi SMS/email thật (§1.3) |
+| `AiLog` | AI | `LogID` (uuid) | UserID, QueryType, InputPayload, ResponsePayload, ResponseTimeMs | N—1 `User` | — | `QueryType` là chuỗi tự do (vd `WORKOUT_SUGGESTION`), không phải enum kín |
+| `AuditLog` | *(chưa gán — không thuộc 6 module hiện có ở backend, xem Open Questions)* | `AuditID` (uuid) | UserID, Action, TargetEntity, TargetID, OldValue, NewValue | N—1 `User` | — | `Action` là chuỗi tự do (vd `UPDATE_PACKAGE_STATUS`), không phải enum kín |
 
 ---
 
 ## 3. Enum đã chốt
 
-> Mỗi enum: tên, giá trị, ý nghĩa. Đây là nơi DUY NHẤT định nghĩa enum — không định nghĩa lại rải rác trong code/docs khác.
+> Đây là nơi DUY NHẤT định nghĩa enum — ERD (`Center-Management-System-Design-v2.md` §1) chỉ **tham chiếu** tên enum, không lặp lại danh sách giá trị. Không định nghĩa lại rải rác trong code/docs khác.
+>
+> **Quy ước:** tên member enum trong C# viết `PascalCase` (đúng convention §5.4). Chuỗi lưu DB / trả về qua API dùng `UPPER_SNAKE_CASE` (khớp toàn bộ giá trị mẫu đã có sẵn trong ERD/Business Rules trước đây) — ví dụ `MemberPackageStatus.PendingPayment` ↔ chuỗi `"PENDING_PAYMENT"`. Cơ chế serialize cụ thể (`JsonStringEnumConverter` + naming policy, hay map thủ công) **chưa chốt** — xem Open Questions.
+>
+> **Cập nhật 09/09/2026:** trước đó chỉ có 6/19 enum được liệt kê (5 enum còn lại toàn dấu `?`), và `UserRole` ghi giá trị không khớp ERD (`CenterManager` vs ERD ghi `MANAGER`). Đã điền đầy đủ 19 enum theo đúng giá trị đã dùng thống nhất trong ERD v2 / `entity-field-purpose.md` / Business Rules v1.2, và sửa `UserRole` cho khớp ERD.
 
-| Enum | Giá trị | Ghi chú |
-|---|---|---|
-| `UserRole` | CenterManager, Coach, Member, Receptionist | Khớp 4 vai trò trong đề bài |
-| `MembershipStatus` | ? | Active / Expired / Cancelled... — chốt trong họp |
-| `EnrollmentStatus` | ? | Pending / Confirmed / Cancelled... |
-| `PaymentStatus` | ? | Pending / Paid / Failed / Refunded... |
-| `PaymentMethod` | ? | Cash / BankTransfer / Card... (MVP thủ công, xem §1.3) |
-| `AttendanceStatus` | ? | Present / Absent / Late... |
+| Enum (C#) | Giá trị (PascalCase) | Dùng ở field | Ghi chú |
+|---|---|---|---|
+| `UserRole` | `CenterManager, Coach, Member, Receptionist` | `Role.RoleName`, `User.RoleID` (FK), JWT role claim | Khớp 4 vai trò trong đề bài. **Sửa:** ERD trước đây ghi `MANAGER` — chuẩn hoá về `CENTER_MANAGER` để khớp tên enum |
+| `UserStatus` | `Active, Banned, Deactivated` | `User.Status` | Không xoá cứng user (giữ lịch sử Payment/Attendance) |
+| `ExperienceLevel` | `Beginner, Intermediate, Advanced` | `MemberTrainingProfile.ExperienceLevel` | |
+| `RelationshipSourceType` | `ClassBased, Personal, AssignedByManager` | `CoachMemberRelationship.SourceType` | |
+| `RelationshipStatus` | `Active, Ended` | `CoachMemberRelationship.Status` | Chỉ 1 quan hệ `Active` giữa 1 cặp Coach–Member tại 1 thời điểm (ràng buộc #7) |
+| `MemberPackageStatus` | `PendingPayment, Active, Expired, Cancelled` | `MemberPackage.Status` | State machine: §4 / Design v2 §2.1 |
+| `ClassStatus` | `Active, Archived` | `Class.Status` | |
+| `ClassSessionStatus` | `Scheduled, Rescheduled, Cancelled, Completed` | `ClassSession.Status` | Chưa có state diagram riêng — xem §4 |
+| `EnrollmentStatus` | `Confirmed, CancelledOnTime, CancelledLate` | `Enrollment.Status` | State machine: §4 / Design v2 §2.2 |
+| `AttendanceStatus` | `Present, Absent, NoShow` | `Attendance.Status` | `Present`/`Absent` ghi tay, `NoShow` do `AttendanceFinalizerJob` tự sinh (BR-53). State machine: §4 / Design v2 §2.2 |
+| `InvoiceStatus` | `Issued, PartiallyPaid, Paid, Void` | `Invoice.Status` | State machine: §4 / Design v2 §2.3 |
+| `InvoiceItemRelatedEntityType` | `Package, ClassFee, Penalty` | `InvoiceItem.RelatedEntityType` | |
+| `PaymentMethod` | `Cash, Card, Transfer, EWallet` | `Payment.Method` | MVP ghi nhận thủ công, không qua cổng thật (§1.3) |
+| `PaymentStatus` | `Pending, Success, Failed` | `Payment.Status` | Chỉ `Success` tính vào tổng đã thu (BR-41) |
+| `PaymentAdjustmentType` | `Refund, Correction, Discount` | `PaymentAdjustment.Type` | |
+| `PaymentAdjustmentStatus` | `Requested, Approved, Rejected, Completed` | `PaymentAdjustment.Status` | State machine: §4 / Design v2 §2.4 |
+| `NotificationChannel` | `InApp, Email, Sms` | `Notification.Channel` | MVP: chỉ `InApp` thật sự hoạt động, `Email`/`Sms` chỉ lưu log (§1.3) |
+| `NotificationSourceEventType` | `ClassCancelled, ScheduleChanged, PackageExpiring, PaymentReceived` | `Notification.SourceEventType` | |
+| `NotificationStatus` | `Pending, Sent, Failed, Read` | `Notification.Status` | |
+
+*(`AiLog.QueryType` và `AuditLog.Action` là chuỗi tự do, không phải enum kín — xem ghi chú ở bảng Entity mục 2.)*
 
 ---
 
 ## 4. State Machine đã chốt
 
-> Với mỗi entity có "trạng thái" (status), vẽ rõ luồng chuyển trạng thái hợp lệ — tránh mỗi người code một kiểu.
+> Sơ đồ Mermaid đầy đủ nằm ở `Center-Management-System-Design-v2.md` §2 — mục này chỉ tóm tắt luồng để tra nhanh, không lặp lại toàn bộ diagram (tránh 2 nơi có thể lệch nhau như đã xảy ra với `Attendance`, xem dòng dưới).
+>
+> **Cập nhật 09/09/2026:** trước đó mục này chỉ có 3 dòng placeholder `? → ? → ?` dù Design v2 §2 đã có diagram Mermaid đầy đủ từ trước — đã đồng bộ lại. Đồng thời phát hiện và sửa 1 lỗi thật: diagram `Attendance` trong Design v2 §2.2 thiếu hẳn nhánh `Absent` dù ERD và `entity-field-purpose.md` đều liệt kê `Absent` là 1 trong 3 giá trị hợp lệ của `AttendanceStatus` (đã bổ sung, xem Design v2 §2.2).
 
-- **Enrollment**: `? → ? → ?` (ví dụ: Pending → Confirmed → (Completed | Cancelled))
-- **Payment**: `? → ? → ?`
-- **Membership**: `? → ? → ?` (ví dụ: Active → Expiring → Expired, hoặc Cancelled)
-
-*(Điền sơ đồ/bullet trong buổi họp — có thể vẽ Mermaid ở đây sau.)*
+- **MemberPackage**: `PendingPayment → Active → (Expired | Cancelled)`, hoặc `PendingPayment → Cancelled` nếu hết hạn giữ chỗ trước khi thanh toán. Diagram: Design v2 §2.1.
+- **Enrollment**: `Confirmed → (CancelledOnTime | CancelledLate)`, hoặc `Confirmed → [chuyển sang Attendance khi session kết thúc]`. Diagram: Design v2 §2.2.
+- **Attendance**: `[Attendance] → (Present | Absent | NoShow)` — `Present`/`Absent`: Coach/Receptionist ghi tay; `NoShow`: `AttendanceFinalizerJob` tự sinh sau `EndAtUtc` nếu không check-in và không có `Absent` ghi tay (BR-53). Diagram: Design v2 §2.2 (**đã sửa 09/09/2026** — thêm nhánh `Absent`).
+- **Invoice**: `Issued → (PartiallyPaid → Paid | Paid)`; `Paid` giữ nguyên khi có Adjustment `Completed` (chỉ ghi thêm dòng, BR-40); `Issued → Void` chỉ khi Adjustment loại `Correction` toàn phần được duyệt. Diagram: Design v2 §2.3.
+- **PaymentAdjustment**: `Requested → (Approved → Completed | Rejected)` — Manager duyệt, không được tự duyệt yêu cầu mình tạo (BR-42). Diagram: Design v2 §2.4.
+- **ClassSession**: `Scheduled → (Rescheduled | Cancelled | Completed)` — **chưa có state diagram chi tiết trong Design v2, cần bổ sung** (xem Open Questions §7).
+- **Payment**: `Pending → (Success | Failed)` — không có diagram riêng, được tổng hợp qua vòng đời Invoice (Design v2 §2.3).
 
 ---
+
 
 ## 5. Quy ước chung (Conventions)
 
@@ -136,9 +170,10 @@ Khi có mâu thuẫn, đọc theo thứ tự sau (trên > dưới):
 
 ## 7. Open Questions (chưa chốt — cần họp quyết định)
 
-- [ ] <câu hỏi 1>
-- [ ] <câu hỏi 2>
-- [ ] <câu hỏi 3>
+- [ ] Cơ chế serialize enum (JSON API response / lưu string trong DB): dùng `JsonStringEnumConverter` với naming policy `UPPER_SNAKE_CASE`, hay map thủ công ở DTO layer? (phát sinh khi điền §3 ngày 09/09/2026)
+- [ ] `ClassSession` chưa có state diagram chi tiết (chỉ có 4 giá trị liệt kê trong ERD: `Scheduled, Rescheduled, Cancelled, Completed`) — cần vẽ rõ điều kiện chuyển trạng thái, đặc biệt `Rescheduled` (có tạo `ClassSession` mới hay chỉ đổi field tại chỗ — xem `RescheduledFromSessionID`)
+- [ ] `Notification` và `AuditLog` không thuộc 6 module backend hiện có (Identity/Membership/Scheduling/Payment/Training/AI) — cần quyết định: tạo module `Shared`/`Notification` riêng, hay gộp vào 1 module sẵn có?
+- [ ] <câu hỏi khác>
 
 ---
 
@@ -146,6 +181,7 @@ Khi có mâu thuẫn, đọc theo thứ tự sau (trên > dưới):
 
 | Ngày | Thay đổi | Người sửa |
 |---|---|---|
+| 09/09/2026 | Điền đầy đủ Entity (§2, +11 entity), Enum (§3, 6→19 enum, sửa `UserRole` khớp ERD), State Machine (§4, đồng bộ từ Design v2 §2) — trước đó phần lớn là placeholder `?`/nháp dù ERD và diagram thật đã có sẵn trong `Center-Management-System-Design-v2.md`. Đồng thời sửa 1 lỗi thật: state diagram `Attendance` (Design v2 §2.2) thiếu nhánh `Absent` dù ERD/`entity-field-purpose.md` đều liệt kê 3 giá trị (Present/Absent/NoShow) — đã bổ sung. Cập nhật ERD (Design v2 §1): mọi field status/type đổi từ `string` sang tên enum tương ứng (tham chiếu SSOT §3), không lặp lại danh sách giá trị. | Hồ Lê Thiên An |
 | 09/09/2026 | Hạ Flow 6 (AI assistant) từ "optional nhóm chọn làm" (§1.2) xuống "stretch — chỉ làm nếu còn thời gian" (§1.4 mới); cập nhật đồng bộ `Requirements.md`, `Center-Management-System-Design-v2.md` §4.4, `entity-field-purpose.md`, `README.md`, và đánh dấu BR-27/BR-28/BR-29 trong `SportManagement_BusinessRules_v1.2.docx` | Hồ Lê Thiên An |
 | 08/09/2026 | Tạo sườn ban đầu | Hồ Lê Thiên An |
 | 08/09/2026 | Thêm `Extensions/CorsExtensions.cs` (policy `Default`, đọc `Cors:AllowedOrigins`), `Extensions/SwaggerExtensions.cs`, `Extensions/JwtExtensions.cs` (stub) + `Middleware/` skeleton; bật CORS cho FE `http://localhost:3000` trong `Program.cs` | Hồ Lê Thiên An |

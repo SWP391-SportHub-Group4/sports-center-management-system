@@ -84,18 +84,18 @@ erDiagram
         string PasswordHash
         string Phone
         int RoleID FK
-        string Status "ACTIVE, BANNED, DEACTIVATED"
+        UserStatus Status "enum, xem SSOT §3"
         datetime CreatedAt
     }
     ROLES {
         int RoleID PK
-        string RoleName "MANAGER, COACH, MEMBER, RECEPTIONIST"
+        UserRole RoleName "enum, xem SSOT §3"
     }
     MEMBER_TRAINING_PROFILE {
         uuid ProfileID PK
         uuid MemberID FK "unique"
         string Goal
-        string ExperienceLevel "BEGINNER, INTERMEDIATE, ADVANCED"
+        ExperienceLevel ExperienceLevel "enum, xem SSOT §3"
         string Notes
         datetime UpdatedAt
     }
@@ -103,9 +103,9 @@ erDiagram
         uuid RelationshipID PK
         uuid CoachID FK
         uuid MemberID FK
-        string SourceType "CLASS_BASED, PERSONAL, ASSIGNED_BY_MANAGER"
+        RelationshipSourceType SourceType "enum, xem SSOT §3"
         int ClassID FK "nullable"
-        string Status "ACTIVE, ENDED"
+        RelationshipStatus Status "enum, xem SSOT §3"
         datetime StartedAt
         datetime EndedAt
     }
@@ -123,7 +123,7 @@ erDiagram
         date StartDate
         date EndDate
         int RemainingSessions "nullable"
-        string Status "PENDING_PAYMENT, ACTIVE, EXPIRED, CANCELLED"
+        MemberPackageStatus Status "enum, xem SSOT §3"
         int Version "optimistic concurrency"
     }
     ROOMS {
@@ -138,7 +138,7 @@ erDiagram
         int DefaultRoomID FK
         uuid DefaultCoachID FK "nullable"
         int Capacity
-        string Status "ACTIVE, ARCHIVED"
+        ClassStatus Status "enum, xem SSOT §3"
     }
     CLASS_RECURRENCE {
         int RecurrenceID PK
@@ -160,7 +160,7 @@ erDiagram
         datetime EndAtUtc
         int Capacity
         int ConfirmedCount "denormalized, atomic increment"
-        string Status "SCHEDULED, RESCHEDULED, CANCELLED, COMPLETED"
+        ClassSessionStatus Status "enum, xem SSOT §3"
         uuid RescheduledFromSessionID FK "nullable"
     }
     ENROLLMENTS {
@@ -168,7 +168,7 @@ erDiagram
         uuid SessionID FK
         uuid MemberID FK
         uuid MemberPackageID FK
-        string Status "CONFIRMED, CANCELLED_ON_TIME, CANCELLED_LATE"
+        EnrollmentStatus Status "enum, xem SSOT §3"
         datetime RegisteredAt
         datetime CancelledAt
         uuid CancelledByUserID FK "nullable, may differ from MemberID (Receptionist)"
@@ -178,7 +178,7 @@ erDiagram
         uuid EnrollmentID FK
         uuid SessionID FK
         uuid MemberID FK
-        string Status "PRESENT, ABSENT, NO_SHOW"
+        AttendanceStatus Status "enum, xem SSOT §3"
         datetime CheckInTime "nullable"
         uuid CheckedInByUserID FK "nullable"
     }
@@ -215,7 +215,7 @@ erDiagram
         uuid IssuedByUserID FK
         uuid MemberPackageID FK "nullable"
         decimal TotalAmount
-        string Status "ISSUED, PARTIALLY_PAID, PAID, VOID"
+        InvoiceStatus Status "enum, xem SSOT §3"
         datetime IssuedAt
     }
     INVOICE_ITEMS {
@@ -223,16 +223,16 @@ erDiagram
         uuid InvoiceID FK
         string Description
         decimal Amount
-        string RelatedEntityType "PACKAGE, CLASS_FEE, PENALTY"
+        InvoiceItemRelatedEntityType RelatedEntityType "enum, xem SSOT §3"
         uuid RelatedEntityID "nullable"
     }
     PAYMENTS {
         uuid PaymentID PK
         uuid InvoiceID FK
         decimal Amount
-        string Method "CASH, CARD, TRANSFER, EWALLET"
+        PaymentMethod Method "enum, xem SSOT §3"
         string ReferenceCode "external gateway ref, nullable"
-        string Status "PENDING, SUCCESS, FAILED"
+        PaymentStatus Status "enum, xem SSOT §3"
         uuid ReceivedByUserID FK
         datetime PaidAt
     }
@@ -240,10 +240,10 @@ erDiagram
         uuid AdjustmentID PK
         uuid InvoiceID FK
         uuid PaymentID FK "nullable"
-        string Type "REFUND, CORRECTION, DISCOUNT"
+        PaymentAdjustmentType Type "enum, xem SSOT §3"
         decimal Amount
         string Reason
-        string Status "REQUESTED, APPROVED, REJECTED, COMPLETED"
+        PaymentAdjustmentStatus Status "enum, xem SSOT §3"
         uuid RequestedByUserID FK
         uuid ApprovedByUserID FK "nullable"
         datetime CreatedAt
@@ -252,11 +252,11 @@ erDiagram
     NOTIFICATIONS {
         uuid NotificationID PK
         uuid UserID FK
-        string Channel "IN_APP, EMAIL, SMS"
-        string SourceEventType "CLASS_CANCELLED, SCHEDULE_CHANGED, PACKAGE_EXPIRING, PAYMENT_RECEIVED"
+        NotificationChannel Channel "enum, xem SSOT §3"
+        NotificationSourceEventType SourceEventType "enum, xem SSOT §3"
         uuid SourceEntityID "nullable"
         string Message
-        string Status "PENDING, SENT, FAILED, READ"
+        NotificationStatus Status "enum, xem SSOT §3"
         int RetryCount
         datetime LastAttemptAt
         datetime SentAt
@@ -282,6 +282,8 @@ erDiagram
         datetime Timestamp
     }
 ```
+
+> **Cập nhật 09/09/2026:** mọi field trạng thái/loại (trước đây khai `string "GIÁ_TRỊ_1, GIÁ_TRỊ_2, ..."`) đã đổi sang tên enum tương ứng (`UserStatus`, `MemberPackageStatus`, `AttendanceStatus`, ...). Danh sách giá trị đầy đủ của từng enum **chỉ định nghĩa 1 lần** ở `00-Source-of-Truth.md` §3 — ERD ở đây không lặp lại để tránh 2 nơi lệch nhau (đã xảy ra với `Attendance`/`Absent`, xem §2.2 bên dưới và SSOT §4). `AI_LOGS.QueryType` và `AUDIT_LOGS.Action` vẫn giữ `string` vì là giá trị tự do, không phải enum kín.
 
 ### Thay đổi chính so với v1
 
@@ -310,6 +312,8 @@ stateDiagram-v2
 
 ### 2.2 Enrollment → Attendance
 
+> **Sửa 09/09/2026:** diagram trước đây thiếu nhánh `ABSENT` dù `AttendanceStatus` (SSOT §3) có 3 giá trị (`Present, Absent, NoShow`) — đã bổ sung bên dưới.
+
 ```mermaid
 stateDiagram-v2
     [*] --> CONFIRMED: đăng ký (kiểm tra BR-16, giữ chỗ atomic)
@@ -317,10 +321,12 @@ stateDiagram-v2
     CONFIRMED --> CANCELLED_LATE: hủy sau deadline — KHÔNG hoàn credit
     CONFIRMED --> [Attendance]: session kết thúc
     [Attendance] --> PRESENT: check-in trước/trong buổi (BR-22)
-    [Attendance] --> NO_SHOW: hết giờ session mà không check-in, không hủy (BR-20)
+    [Attendance] --> ABSENT: Coach/Receptionist ghi tay khi vắng có lý do (BR-53)
+    [Attendance] --> NO_SHOW: hết giờ session mà không check-in VÀ không được ghi Absent thủ công (BR-20, BR-53)
     CANCELLED_ON_TIME --> [*]
     CANCELLED_LATE --> [*]
     PRESENT --> [*]
+    ABSENT --> [*]
     NO_SHOW --> [*]
 ```
 *Job nền (`AttendanceFinalizerJob`) chạy sau `EndAtUtc` của mỗi session: mọi `Enrollment.Status = CONFIRMED` chưa có `Attendance` → tạo `Attendance.Status = NO_SHOW`.*
