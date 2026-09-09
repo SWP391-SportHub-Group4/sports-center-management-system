@@ -445,12 +445,14 @@ Không được để các ràng buộc này chỉ nằm ở API layer — phả
 
 ### 4.4 (Phụ) AI & Notification — giữ ở sprint sau nhưng liệt kê để không lệch v1
 
-| Method | Endpoint | Actor |
-|---|---|---|
-| POST | `/api/ai/workout-suggestions` | Coach — chỉ khi có `COACH_MEMBER_RELATIONSHIP` ACTIVE với member |
-| POST | `/api/ai/chat` | Member (self) |
-| GET | `/api/notifications/me` | Tất cả |
-| PUT | `/api/notifications/{id}/read` | Chủ sở hữu |
+> Flow 6 (AI assistant / `/api/ai/chat`) đã hạ xuống **stretch — chỉ làm nếu còn thời gian** (xem `00-Source-of-Truth.md` §1.4, cập nhật 09/09/2026). Endpoint dưới đây được giữ lại trong tài liệu để không mất traceability, nhưng **không nằm trong scope cam kết** — không sinh code cho endpoint này trừ khi Flow 1–5 đã xong và nhóm quyết định làm thêm.
+
+| Method | Endpoint | Actor | Ghi chú |
+|---|---|---|---|
+| POST | `/api/ai/workout-suggestions` | Coach — chỉ khi có `COACH_MEMBER_RELATIONSHIP` ACTIVE với member | Flow 5 — optional, cam kết |
+| POST | `/api/ai/chat` | Member (self) | **Flow 6 — stretch, chỉ làm nếu còn thời gian** |
+| GET | `/api/notifications/me` | Tất cả | |
+| PUT | `/api/notifications/{id}/read` | Chủ sở hữu | |
 
 ---
 
@@ -499,7 +501,7 @@ Kết quả: MVP chỉ còn **1 backend (ASP.NET Core modular monolith) + 1 Post
 2. **Membership** — MembershipPackages, MemberPackages, MemberTrainingProfile
 3. **Lớp/Lịch/Booking** — Classes, ClassRecurrence, ClassSessions (+ job sinh session), Enrollments, Attendance, ràng buộc #1–#4 ở mục 3
 4. **Payment/Invoice/Report** — Invoices, InvoiceItems, Payments, PaymentAdjustments, `/reports/*`
-5. *(Sprint sau)* Training/Workout đầy đủ + AI suggestion + Notification queue thật
+5. *(Sprint sau)* Training/Workout đầy đủ + AI suggestion (Flow 5) + Notification queue thật — **AI assistant/chat (Flow 6) không nằm trong bước này, chỉ làm nếu còn thời gian sau bước 5 (xem SSOT §1.4)**
 
 ---
 

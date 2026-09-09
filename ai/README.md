@@ -17,3 +17,10 @@ chỉ cần:
 
 Chưa cần tạo code gì ở đây cho tới khi bước "Training/AI" (Design v2, mục 7,
 bước 5) bắt đầu.
+
+> **Lưu ý phạm vi (09/09/2026):** `IAiRecommendationService` (gợi ý bài tập —
+> Flow 5) là phần **cam kết làm**. AI assistant/chat (Flow 6, `POST
+> /api/ai/chat`) đã hạ xuống **stretch — chỉ làm nếu còn thời gian sau khi
+> xong Flow 1–5**, xem `docs/00-Source-of-Truth.md` §1.4. Không sinh
+> interface/controller/service nào cho AI chat trừ khi nhóm xác nhận sẽ làm
+> Flow 6.

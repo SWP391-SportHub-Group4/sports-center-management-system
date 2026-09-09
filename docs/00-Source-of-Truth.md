@@ -2,7 +2,7 @@
 
 > Mục đích: 1 nơi duy nhất để AI / FE / BE tra cứu khi có mâu thuẫn giữa các tài liệu.
 > Nếu file này và một doc khác nói khác nhau → **file này thắng**, trừ khi có ghi chú "xem chi tiết tại...".
-> Cập nhật lần cuối: 08/09/2026 — người cập nhật: Hồ Lê Thiên An
+> Cập nhật lần cuối: 09/09/2026 — người cập nhật: Hồ Lê Thiên An
 
 ---
 
@@ -32,7 +32,6 @@ Khi có mâu thuẫn, đọc theo thứ tự sau (trên > dưới):
 
 - [ ] Flow 4 — Training & attendance management
 - [ ] Flow 5 — AI workout recommendation
-- [ ] Flow 6 — AI assistant
 
 ### 1.3 Out-of-scope (ghi rõ để khỏi cãi nhau giữa kỳ)
 
@@ -41,6 +40,10 @@ Khi có mâu thuẫn, đọc theo thứ tự sau (trên > dưới):
 - [ ] <ví dụ: mobile app riêng>
 - [ ] <ví dụ: notification qua SMS/email thật — MVP chỉ lưu trong DB / log>
 - [ ] <thêm...>
+
+### 1.4 Stretch (chỉ làm nếu còn thời gian sau khi xong Flow 1–5 — không tính vào scope cam kết)
+
+- [ ] Flow 6 — AI assistant — **đã hạ khỏi optional cam kết ngày 09/09/2026**; chỉ triển khai nếu Flow 1–5 xong sớm và còn dư thời gian. Không code/API/entity nào cho flow này được coi là bắt buộc; xem `BR-27`–`BR-29` trong `SportManagement_BusinessRules_v1.2.docx` (đã đánh dấu tương ứng) và endpoint `POST /api/ai/chat` trong `Center-Management-System-Design-v2.md` §4.4 (đã đánh dấu tương ứng).
 
 ---
 
@@ -143,6 +146,7 @@ Khi có mâu thuẫn, đọc theo thứ tự sau (trên > dưới):
 
 | Ngày | Thay đổi | Người sửa |
 |---|---|---|
+| 09/09/2026 | Hạ Flow 6 (AI assistant) từ "optional nhóm chọn làm" (§1.2) xuống "stretch — chỉ làm nếu còn thời gian" (§1.4 mới); cập nhật đồng bộ `Requirements.md`, `Center-Management-System-Design-v2.md` §4.4, `entity-field-purpose.md`, `README.md`, và đánh dấu BR-27/BR-28/BR-29 trong `SportManagement_BusinessRules_v1.2.docx` | Hồ Lê Thiên An |
 | 08/09/2026 | Tạo sườn ban đầu | Hồ Lê Thiên An |
 | 08/09/2026 | Thêm `Extensions/CorsExtensions.cs` (policy `Default`, đọc `Cors:AllowedOrigins`), `Extensions/SwaggerExtensions.cs`, `Extensions/JwtExtensions.cs` (stub) + `Middleware/` skeleton; bật CORS cho FE `http://localhost:3000` trong `Program.cs` | Hồ Lê Thiên An |
 | 08/09/2026 | Nâng target framework 3 project backend từ `net8.0` lên `net10.0` (LTS) — .NET 8/9 EOL 10/11/2026; update NuGet: EFCore/JwtBearer 10.0.11, Npgsql.EFCore.PostgreSQL 10.0.3, Swashbuckle 10.2.3; Dockerfile SDK/runtime image → 10.0 | Hồ Lê Thiên An |

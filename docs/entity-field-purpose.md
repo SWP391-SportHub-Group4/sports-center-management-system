@@ -286,13 +286,13 @@
 | `LastAttemptAt` / `SentAt` | Mốc lần thử gần nhất / mốc gửi thành công |
 
 ### `AI_LOGS`
-**Mục đích:** log mọi lượt gọi tính năng AI (gợi ý bài tập, AI assistant) — phục vụ debug, đo hiệu năng, và audit việc AI trả lời gì cho ai.
+**Mục đích:** log mọi lượt gọi tính năng AI (gợi ý bài tập — Flow 5) — phục vụ debug, đo hiệu năng, và audit việc AI trả lời gì cho ai. *(AI assistant/chat — Flow 6 — đã hạ xuống stretch, chỉ log nếu flow đó thực sự được triển khai; xem `00-Source-of-Truth.md` §1.4.)*
 
 | Field | Vai trò |
 |---|---|
 | `LogID` (PK) | Định danh |
 | `UserID` (FK) | Ai gọi AI |
-| `QueryType` | Loại truy vấn (vd `WORKOUT_SUGGESTION`) |
+| `QueryType` | Loại truy vấn (vd `WORKOUT_SUGGESTION`; `CHAT` chỉ áp dụng nếu Flow 6 — stretch — được triển khai) |
 | `InputPayload` (jsonb) | Input thực tế gửi cho AI — debug khi kết quả sai |
 | `ResponsePayload` (jsonb) | Kết quả AI trả về |
 | `ResponseTimeMs` | Đo hiệu năng, phát hiện AI chậm/timeout |

@@ -38,7 +38,7 @@
 * Xem lịch tập cá nhân và thông tin huấn luyện viên.
 * Xem lịch sử điểm danh và kết quả tập luyện.
 * Xem kế hoạch tập luyện và nhận xét từ huấn luyện viên.
-* Gửi câu hỏi cho hệ thống AI về lịch tập, bài tập hoặc các dịch vụ của trung tâm.
+* *(Stretch — Flow 6, chỉ làm nếu còn thời gian)* Gửi câu hỏi cho hệ thống AI về lịch tập, bài tập hoặc các dịch vụ của trung tâm.
 * Nhận thông báo về lịch học, thay đổi lịch hoặc thời hạn gói thành viên.
 
 ### Receptionist (Nhân viên Lễ tân)
@@ -60,7 +60,9 @@
 * **Flow 2:** Class booking and schedule management (Quản lý đăng ký lớp và lịch trình)
 * **Flow 3:** Payment and report management (Quản lý thanh toán và báo cáo)
 
-### Optional Flows (Tùy chọn / Mở rộng)
+### Optional Flows (Tùy chọn — nhóm cam kết làm)
 * **Flow 4:** Training and attendance management (Quản lý tập luyện và điểm danh)
 * **Flow 5:** AI workout recommendation (Gợi ý bài tập bằng AI)
-* **Flow 6:** AI assistant (Trợ lý AI hỗ trợ giải đáp)
+
+### Stretch Goal (chỉ làm nếu còn thời gian sau khi xong Flow 1–5 — xem `00-Source-of-Truth.md` §1.4)
+* **Flow 6:** AI assistant (Trợ lý AI hỗ trợ giải đáp) — **không tính vào scope cam kết**, chỉ triển khai nếu còn dư thời gian.

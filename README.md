@@ -62,6 +62,6 @@ cd frontend && npm install && npm run dev
 2. Membership
 3. Lớp/Lịch/Booking
 4. Payment/Invoice/Report
-5. (Sprint sau) Training/Workout đầy đủ + AI + Notification queue thật
+5. (Sprint sau) Training/Workout đầy đủ + AI suggestion (Flow 5) + Notification queue thật — AI assistant/chat (Flow 6) là stretch, chỉ làm nếu còn dư thời gian (xem SSOT §1.4)
 
 Xem chi tiết: [`docs/Center-Management-System-Design-v2.md`](docs/Center-Management-System-Design-v2.md)
