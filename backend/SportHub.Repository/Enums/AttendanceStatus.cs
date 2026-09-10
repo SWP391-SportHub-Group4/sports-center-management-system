@@ -5,7 +5,7 @@ namespace SportHub.Repository.Enums;
 // (vd AttendanceStatus.Present <-> "PRESENT") — cơ chế serialize cụ thể chưa chốt, xem SSOT §7 Open Questions.
 /// <summary>
 /// Điểm danh. Present/Absent ghi tay (BR-53), NoShow do AttendanceFinalizerJob tự sinh. State machine: SSOT §4 / Design v2 §2.2.
-/// Dùng ở: Attendance.Status.
+/// Dùng ở: Attendance.status.
 /// </summary>
 public enum AttendanceStatus
 {

@@ -5,7 +5,7 @@ namespace SportHub.Repository.Enums;
 // (vd RelationshipStatus.Active <-> "ACTIVE") — cơ chế serialize cụ thể chưa chốt, xem SSOT §7 Open Questions.
 /// <summary>
 /// Trạng thái quan hệ Coach–Member. Chỉ 1 quan hệ Active giữa 1 cặp Coach–Member tại 1 thời điểm (ràng buộc #7).
-/// Dùng ở: CoachMemberRelationship.Status.
+/// Dùng ở: CoachMemberRelationship.status.
 /// </summary>
 public enum RelationshipStatus
 {

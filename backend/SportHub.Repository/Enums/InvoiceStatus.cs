@@ -5,7 +5,7 @@ namespace SportHub.Repository.Enums;
 // (vd InvoiceStatus.Issued <-> "ISSUED") — cơ chế serialize cụ thể chưa chốt, xem SSOT §7 Open Questions.
 /// <summary>
 /// Vòng đời hóa đơn. State machine: SSOT §4 / Design v2 §2.3.
-/// Dùng ở: Invoice.Status.
+/// Dùng ở: Invoice.status.
 /// </summary>
 public enum InvoiceStatus
 {

@@ -5,7 +5,7 @@ namespace SportHub.Repository.Enums;
 // (vd UserStatus.Active <-> "ACTIVE") — cơ chế serialize cụ thể chưa chốt, xem SSOT §7 Open Questions.
 /// <summary>
 /// Trạng thái tài khoản — không xoá cứng user (giữ lịch sử Payment/Attendance).
-/// Dùng ở: User.Status.
+/// Dùng ở: UserAccount.status.
 /// </summary>
 public enum UserStatus
 {

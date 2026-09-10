@@ -5,7 +5,7 @@ namespace SportHub.Repository.Enums;
 // (vd UserRole.CenterManager <-> "CENTER_MANAGER") — cơ chế serialize cụ thể chưa chốt, xem SSOT §7 Open Questions.
 /// <summary>
 /// Vai trò người dùng — khớp 4 vai trò trong đề bài.
-/// Dùng ở: Role.RoleName, User.RoleID (FK), JWT role claim.
+/// Dùng ở: Role.role_name, UserAccount.role_id (FK), JWT role claim.
 /// </summary>
 public enum UserRole
 {

@@ -5,7 +5,7 @@ namespace SportHub.Repository.Enums;
 // (vd PaymentAdjustmentStatus.Requested <-> "REQUESTED") — cơ chế serialize cụ thể chưa chốt, xem SSOT §7 Open Questions.
 /// <summary>
 /// Vòng đời yêu cầu điều chỉnh thanh toán — Manager duyệt, không tự duyệt (BR-42). State machine: SSOT §4 / Design v2 §2.4.
-/// Dùng ở: PaymentAdjustment.Status.
+/// Dùng ở: PaymentAdjustment.status.
 /// </summary>
 public enum PaymentAdjustmentStatus
 {

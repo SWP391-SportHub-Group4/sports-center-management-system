@@ -5,7 +5,7 @@ namespace SportHub.Repository.Enums;
 // (vd NotificationSourceEventType.ClassCancelled <-> "CLASS_CANCELLED") — cơ chế serialize cụ thể chưa chốt, xem SSOT §7 Open Questions.
 /// <summary>
 /// Sự kiện nguồn phát sinh thông báo.
-/// Dùng ở: Notification.SourceEventType.
+/// Dùng ở: Notification.source_event_type.
 /// </summary>
 public enum NotificationSourceEventType
 {

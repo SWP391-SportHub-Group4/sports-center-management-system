@@ -5,7 +5,7 @@ namespace SportHub.Repository.Enums;
 // (vd NotificationStatus.Pending <-> "PENDING") — cơ chế serialize cụ thể chưa chốt, xem SSOT §7 Open Questions.
 /// <summary>
 /// Trạng thái gửi/đọc của 1 thông báo.
-/// Dùng ở: Notification.Status.
+/// Dùng ở: Notification.status.
 /// </summary>
 public enum NotificationStatus
 {

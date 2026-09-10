@@ -5,7 +5,7 @@ namespace SportHub.Repository.Enums;
 // (vd InvoiceItemRelatedEntityType.Package <-> "PACKAGE") — cơ chế serialize cụ thể chưa chốt, xem SSOT §7 Open Questions.
 /// <summary>
 /// Loại đối tượng mà 1 dòng hóa đơn tham chiếu tới.
-/// Dùng ở: InvoiceItem.RelatedEntityType.
+/// Dùng ở: InvoiceItem.related_entity_type.
 /// </summary>
 public enum InvoiceItemRelatedEntityType
 {

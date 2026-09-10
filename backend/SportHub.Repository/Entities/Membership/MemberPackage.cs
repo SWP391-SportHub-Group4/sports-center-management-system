@@ -8,30 +8,31 @@ namespace SportHub.Repository.Entities;
 // State machine: docs/00-Source-of-Truth.md §4 / Design v2 §2.1.
 public class MemberPackage
 {
-    public Guid MemberPackageID { get; set; }
+    public Guid member_package_id { get; set; }
 
-    public Guid MemberID { get; set; }
+    public Guid member_id { get; set; }
 
-    public User? Member { get; set; }
+    public UserAccount? Member { get; set; }
 
-    public int PackageID { get; set; }
+    public int package_id { get; set; }
 
     public MembershipPackage? Package { get; set; }
 
-    public DateTime StartDate { get; set; }
+    public DateOnly start_date { get; set; }
 
     // Xác định gói còn hiệu lực theo thời gian hay không (điều kiện Expired, BR-11).
-    public DateTime EndDate { get; set; }
+    public DateOnly end_date { get; set; }
 
     // Trừ nguyên tử (atomic) mỗi lần Enrollment thành công (ràng buộc #3) — chặn
-    // overbooking theo buổi. Nullable = không giới hạn (khớp SessionLimit gốc).
-    public int? RemainingSessions { get; set; }
+    // overbooking theo buổi. Nullable = không giới hạn (khớp session_limit gốc).
+    public int? remaining_sessions { get; set; }
 
     // PendingPayment -> Active -> Expired/Cancelled — chỉ gói Active mới được dùng để enroll.
-    public MemberPackageStatus Status { get; set; }
+    public MemberPackageStatus status { get; set; }
 
     // Optimistic concurrency — tránh lost-update khi 2 request cùng sửa 1 gói
-    // cùng lúc (ràng buộc #8). Cần cấu hình IsConcurrencyToken() ở Fluent API
-    // khi thêm EF Core configuration (chưa làm ở bước này).
-    public int Version { get; set; }
+    // cùng lúc (ràng buộc #8) — cấu hình IsConcurrencyToken() ở AppDbContext.
+    public int version { get; set; }
+
+    public ICollection<Enrollment> Enrollments { get; set; } = new List<Enrollment>();
 }

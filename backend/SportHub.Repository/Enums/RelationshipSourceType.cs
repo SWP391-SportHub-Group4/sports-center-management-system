@@ -5,7 +5,7 @@ namespace SportHub.Repository.Enums;
 // (vd RelationshipSourceType.ClassBased <-> "CLASS_BASED") — cơ chế serialize cụ thể chưa chốt, xem SSOT §7 Open Questions.
 /// <summary>
 /// Nguồn gốc quan hệ Coach–Member — dùng để audit/giải trình quyền truy cập.
-/// Dùng ở: CoachMemberRelationship.SourceType.
+/// Dùng ở: CoachMemberRelationship.source_type.
 /// </summary>
 public enum RelationshipSourceType
 {

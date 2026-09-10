@@ -5,7 +5,7 @@ namespace SportHub.Repository.Enums;
 // (vd NotificationChannel.InApp <-> "IN_APP") — cơ chế serialize cụ thể chưa chốt, xem SSOT §7 Open Questions.
 /// <summary>
 /// Kênh gửi thông báo. MVP: chỉ InApp thật sự hoạt động, Email/Sms chỉ lưu log (SSOT §1.3).
-/// Dùng ở: Notification.Channel.
+/// Dùng ở: Notification.channel.
 /// </summary>
 public enum NotificationChannel
 {

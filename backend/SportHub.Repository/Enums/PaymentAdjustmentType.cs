@@ -5,7 +5,7 @@ namespace SportHub.Repository.Enums;
 // (vd PaymentAdjustmentType.Refund <-> "REFUND") — cơ chế serialize cụ thể chưa chốt, xem SSOT §7 Open Questions.
 /// <summary>
 /// Loại điều chỉnh thanh toán.
-/// Dùng ở: PaymentAdjustment.Type.
+/// Dùng ở: PaymentAdjustment.type.
 /// </summary>
 public enum PaymentAdjustmentType
 {

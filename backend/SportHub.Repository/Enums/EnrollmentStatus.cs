@@ -5,7 +5,7 @@ namespace SportHub.Repository.Enums;
 // (vd EnrollmentStatus.Confirmed <-> "CONFIRMED") — cơ chế serialize cụ thể chưa chốt, xem SSOT §7 Open Questions.
 /// <summary>
 /// Vòng đời đăng ký lớp của Member. State machine: SSOT §4 / Design v2 §2.2.
-/// Dùng ở: Enrollment.Status.
+/// Dùng ở: Enrollment.status.
 /// </summary>
 public enum EnrollmentStatus
 {

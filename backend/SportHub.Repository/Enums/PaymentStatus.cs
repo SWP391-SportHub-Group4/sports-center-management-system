@@ -5,7 +5,7 @@ namespace SportHub.Repository.Enums;
 // (vd PaymentStatus.Pending <-> "PENDING") — cơ chế serialize cụ thể chưa chốt, xem SSOT §7 Open Questions.
 /// <summary>
 /// Trạng thái giao dịch thanh toán. Chỉ Success tính vào tổng đã thu (BR-41).
-/// Dùng ở: Payment.Status.
+/// Dùng ở: Payment.status.
 /// </summary>
 public enum PaymentStatus
 {

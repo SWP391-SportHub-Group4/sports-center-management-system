@@ -5,7 +5,7 @@ namespace SportHub.Repository.Enums;
 // (vd ClassSessionStatus.Scheduled <-> "SCHEDULED") — cơ chế serialize cụ thể chưa chốt, xem SSOT §7 Open Questions.
 /// <summary>
 /// Trạng thái 1 buổi học cụ thể. Chưa có state diagram riêng — xem SSOT §4.
-/// Dùng ở: ClassSession.Status.
+/// Dùng ở: ClassSession.status.
 /// </summary>
 public enum ClassSessionStatus
 {

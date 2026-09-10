@@ -5,7 +5,7 @@ namespace SportHub.Repository.Enums;
 // (vd ClassStatus.Active <-> "ACTIVE") — cơ chế serialize cụ thể chưa chốt, xem SSOT §7 Open Questions.
 /// <summary>
 /// Trạng thái lớp học.
-/// Dùng ở: Class.Status.
+/// Dùng ở: Class.status.
 /// </summary>
 public enum ClassStatus
 {

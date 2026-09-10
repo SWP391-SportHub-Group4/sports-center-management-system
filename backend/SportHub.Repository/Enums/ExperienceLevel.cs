@@ -5,7 +5,7 @@ namespace SportHub.Repository.Enums;
 // (vd ExperienceLevel.Beginner <-> "BEGINNER") — cơ chế serialize cụ thể chưa chốt, xem SSOT §7 Open Questions.
 /// <summary>
 /// Trình độ tập luyện của Member — input cho AI suggestion (BR-26) và Coach điều chỉnh độ khó.
-/// Dùng ở: MemberTrainingProfile.ExperienceLevel.
+/// Dùng ở: MemberTrainingProfile.experience_level.
 /// </summary>
 public enum ExperienceLevel
 {
