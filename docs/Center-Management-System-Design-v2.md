@@ -38,22 +38,25 @@ Tài liệu này bổ sung/chỉnh sửa thiết kế v1 theo đúng các điể
 
 ```mermaid
 erDiagram
-    ROLES ||--o{ USERS : "has"
-    USERS ||--o{ MEMBER_PACKAGES : "purchases"
-    USERS ||--o| MEMBER_TRAINING_PROFILE : "has (Member only)"
-    USERS ||--o{ COACH_MEMBER_RELATIONSHIP : "coach side"
-    USERS ||--o{ COACH_MEMBER_RELATIONSHIP : "member side"
-    USERS ||--o{ CLASSES : "coaches (default, nullable)"
-    USERS ||--o{ ENROLLMENTS : "member enrolls"
-    USERS ||--o{ WORKOUT_PLANS : "member has / coach creates"
-    USERS ||--o{ WORKOUT_RESULTS : "member of / recorded by coach"
-    USERS ||--o{ INVOICES : "billed to"
-    USERS ||--o{ INVOICES : "issued by (staff)"
-    USERS ||--o{ PAYMENTS : "received by (staff)"
-    USERS ||--o{ PAYMENT_ADJUSTMENTS : "requested by / approved by"
-    USERS ||--o{ NOTIFICATIONS : "receives"
-    USERS ||--o{ AI_LOGS : "initiates"
-    USERS ||--o{ AUDIT_LOGS : "performs"
+    ROLES ||--o{ USER_ACCOUNTS : "has"
+    USER_ACCOUNTS ||--o| USER_CREDENTIALS : "has (1-1, local auth)"
+    USER_ACCOUNTS ||--o| USER_PROFILES : "has (1-1, display info)"
+    USER_ACCOUNTS ||--o{ USER_EXTERNAL_LOGINS : "links (Google..., 1-N)"
+    USER_ACCOUNTS ||--o{ MEMBER_PACKAGES : "purchases"
+    USER_ACCOUNTS ||--o| MEMBER_TRAINING_PROFILE : "has (Member only)"
+    USER_ACCOUNTS ||--o{ COACH_MEMBER_RELATIONSHIP : "coach side"
+    USER_ACCOUNTS ||--o{ COACH_MEMBER_RELATIONSHIP : "member side"
+    USER_ACCOUNTS ||--o{ CLASSES : "coaches (default, nullable)"
+    USER_ACCOUNTS ||--o{ ENROLLMENTS : "member enrolls"
+    USER_ACCOUNTS ||--o{ WORKOUT_PLANS : "member has / coach creates"
+    USER_ACCOUNTS ||--o{ WORKOUT_RESULTS : "recorded by coach"
+    USER_ACCOUNTS ||--o{ INVOICES : "billed to"
+    USER_ACCOUNTS ||--o{ INVOICES : "issued by (staff)"
+    USER_ACCOUNTS ||--o{ PAYMENTS : "received by (staff)"
+    USER_ACCOUNTS ||--o{ PAYMENT_ADJUSTMENTS : "requested by / approved by"
+    USER_ACCOUNTS ||--o{ NOTIFICATIONS : "receives"
+    USER_ACCOUNTS ||--o{ AI_LOGS : "initiates"
+    USER_ACCOUNTS ||--o{ AUDIT_LOGS : "performs"
 
     MEMBERSHIP_PACKAGES ||--o{ MEMBER_PACKAGES : "defines"
     MEMBER_PACKAGES ||--o{ INVOICES : "billed by (nullable)"
@@ -65,9 +68,8 @@ erDiagram
     CLASS_RECURRENCE ||--o{ CLASS_SESSIONS : "generates"
     CLASSES ||--o{ CLASS_SESSIONS : "ad-hoc session (nullable recurrence)"
     CLASS_SESSIONS ||--o{ ENROLLMENTS : "booked in"
-    CLASS_SESSIONS ||--o{ ATTENDANCE : "produces"
-    ENROLLMENTS ||--o| ATTENDANCE : "results in"
-    CLASS_SESSIONS ||--o{ WORKOUT_RESULTS : "recorded in"
+    ENROLLMENTS ||--o| ATTENDANCE : "results in (1-1, UNIQUE enrollment_id)"
+    ENROLLMENTS ||--o{ WORKOUT_RESULTS : "recorded in (đảm bảo member có đăng ký session)"
 
     COACH_MEMBER_RELATIONSHIP ||--o{ WORKOUT_PLANS : "authorizes"
     WORKOUT_PLANS ||--o{ WORKOUT_PLAN_ITEMS : "contains"
@@ -77,221 +79,240 @@ erDiagram
     INVOICES ||--o{ PAYMENT_ADJUSTMENTS : "corrected/refunded by"
     PAYMENTS ||--o{ PAYMENT_ADJUSTMENTS : "may be reversed by"
 
-    USERS {
-        uuid UserID PK
-        string FullName
-        string Email
-        string PasswordHash
-        string Phone
-        int RoleID FK
-        UserStatus Status "enum, xem SSOT §3"
-        datetime CreatedAt
+    USER_ACCOUNTS {
+        uuid user_id PK
+        string email UK "case-insensitive, BR-1/BR-49"
+        int role_id FK
+        UserStatus status "enum, xem SSOT §3"
+        datetime created_at
+    }
+    USER_CREDENTIALS {
+        uuid user_id PK, FK "1-1 với USER_ACCOUNTS"
+        string password_hash "nullable — account tạo thuần qua Google không có"
+    }
+    USER_PROFILES {
+        uuid user_id PK, FK "1-1 với USER_ACCOUNTS"
+        string full_name
+        string phone UK "nullable, unique nếu có giá trị, BR-54"
+    }
+    USER_EXTERNAL_LOGINS {
+        uuid external_login_id PK
+        uuid user_id FK "N-1 với USER_ACCOUNTS"
+        ExternalAuthProvider provider "enum, xem SSOT §3"
+        string provider_user_id UK "composite unique (provider, provider_user_id)"
+        string refresh_token "nullable, MVP chưa mã hoá — xem Open Questions"
+        datetime created_at
     }
     ROLES {
-        int RoleID PK
-        UserRole RoleName "enum, xem SSOT §3"
+        int role_id PK
+        UserRole role_name UK "enum, xem SSOT §3; unique, BR-55"
     }
     MEMBER_TRAINING_PROFILE {
-        uuid ProfileID PK
-        uuid MemberID FK "unique"
-        string Goal
-        ExperienceLevel ExperienceLevel "enum, xem SSOT §3"
-        string Notes
-        datetime UpdatedAt
+        uuid profile_id PK
+        uuid member_id FK, UK "1-1 với UserAccount (Member)"
+        string goal
+        ExperienceLevel experience_level "enum, xem SSOT §3"
+        string notes
+        datetime updated_at
     }
     COACH_MEMBER_RELATIONSHIP {
-        uuid RelationshipID PK
-        uuid CoachID FK
-        uuid MemberID FK
-        RelationshipSourceType SourceType "enum, xem SSOT §3"
-        int ClassID FK "nullable"
-        RelationshipStatus Status "enum, xem SSOT §3"
-        datetime StartedAt
-        datetime EndedAt
+        uuid relationship_id PK
+        uuid coach_id FK
+        uuid member_id FK
+        RelationshipSourceType source_type "enum, xem SSOT §3"
+        int class_id FK "nullable"
+        RelationshipStatus status "enum, xem SSOT §3"
+        datetime started_at
+        datetime ended_at
     }
     MEMBERSHIP_PACKAGES {
-        int PackageID PK
-        string Name
-        decimal Price
-        int DurationDays
-        int SessionLimit "nullable = unlimited"
+        int package_id PK
+        string name UK "unique trong catalog, BR-56"
+        decimal price
+        int duration_days
+        int session_limit "nullable = unlimited"
     }
     MEMBER_PACKAGES {
-        uuid MemberPackageID PK
-        uuid MemberID FK
-        int PackageID FK
-        date StartDate
-        date EndDate
-        int RemainingSessions "nullable"
-        MemberPackageStatus Status "enum, xem SSOT §3"
-        int Version "optimistic concurrency"
+        uuid member_package_id PK
+        uuid member_id FK
+        int package_id FK
+        date start_date
+        date end_date
+        int remaining_sessions "nullable"
+        MemberPackageStatus status "enum, xem SSOT §3"
+        int version "optimistic concurrency"
     }
     ROOMS {
-        int RoomID PK
-        string Name
-        int Capacity
+        int room_id PK
+        string name UK "unique toàn trung tâm, BR-57"
+        int capacity
     }
     CLASSES {
-        int ClassID PK
-        string Name
-        string Discipline
-        int DefaultRoomID FK
-        uuid DefaultCoachID FK "nullable"
-        int Capacity
-        ClassStatus Status "enum, xem SSOT §3"
+        int class_id PK
+        string name
+        string discipline
+        int default_room_id FK
+        uuid default_coach_id FK "nullable"
+        int capacity
+        ClassStatus status "enum, xem SSOT §3"
     }
     CLASS_RECURRENCE {
-        int RecurrenceID PK
-        int ClassID FK
-        string DaysOfWeek "e.g. MON,WED,FRI"
-        time StartTimeLocal
-        time EndTimeLocal
-        string Timezone "e.g. Asia/Ho_Chi_Minh"
-        date EffectiveFrom
-        date EffectiveTo "nullable"
+        int recurrence_id PK
+        int class_id FK
+        string days_of_week "e.g. MON,WED,FRI"
+        time start_time_local
+        time end_time_local
+        string timezone "e.g. Asia/Ho_Chi_Minh"
+        date effective_from
+        date effective_to "nullable"
     }
     CLASS_SESSIONS {
-        uuid SessionID PK
-        int ClassID FK
-        int RecurrenceID FK "nullable, null = ad-hoc/rescheduled"
-        int RoomID FK
-        uuid CoachID FK
-        datetime StartAtUtc
-        datetime EndAtUtc
-        int Capacity
-        int ConfirmedCount "denormalized, atomic increment"
-        ClassSessionStatus Status "enum, xem SSOT §3"
-        uuid RescheduledFromSessionID FK "nullable"
+        uuid session_id PK
+        int class_id FK
+        int recurrence_id FK "nullable, null = ad-hoc/rescheduled"
+        int room_id FK
+        uuid coach_id FK
+        datetime start_at_utc
+        datetime end_at_utc
+        int capacity
+        int confirmed_count "denormalized, atomic increment"
+        ClassSessionStatus status "enum, xem SSOT §3"
+        uuid rescheduled_from_session_id FK "nullable"
     }
     ENROLLMENTS {
-        uuid EnrollmentID PK
-        uuid SessionID FK
-        uuid MemberID FK
-        uuid MemberPackageID FK
-        EnrollmentStatus Status "enum, xem SSOT §3"
-        datetime RegisteredAt
-        datetime CancelledAt
-        uuid CancelledByUserID FK "nullable, may differ from MemberID (Receptionist)"
+        uuid enrollment_id PK
+        uuid session_id FK
+        uuid member_id FK
+        uuid member_package_id FK
+        EnrollmentStatus status "enum, xem SSOT §3"
+        datetime registered_at
+        datetime cancelled_at
+        uuid cancelled_by_user_id FK "nullable, may differ from member_id (Receptionist)"
     }
     ATTENDANCE {
-        uuid AttendanceID PK
-        uuid EnrollmentID FK
-        uuid SessionID FK
-        uuid MemberID FK
-        AttendanceStatus Status "enum, xem SSOT §3"
-        datetime CheckInTime "nullable"
-        uuid CheckedInByUserID FK "nullable"
+        uuid attendance_id PK
+        uuid enrollment_id FK, UK "1-1 với Enrollment; session_id/member_id suy ra qua đây, không denormalize (10/09/2026 (3))"
+        AttendanceStatus status "enum, xem SSOT §3"
+        datetime check_in_time "nullable"
+        uuid checked_in_by_user_id FK "nullable"
     }
     WORKOUT_PLANS {
-        uuid PlanID PK
-        uuid MemberID FK
-        uuid CoachID FK
-        uuid RelationshipID FK
-        string Goal
-        string Level
-        datetime CreatedAt
+        uuid plan_id PK
+        uuid member_id FK
+        uuid coach_id FK
+        uuid relationship_id FK
+        string goal
+        string level
+        datetime created_at
     }
     WORKOUT_PLAN_ITEMS {
-        uuid ItemID PK
-        uuid PlanID FK
-        string Exercise
-        int Sets
-        int Reps
-        string Notes
+        uuid item_id PK
+        uuid plan_id FK
+        string exercise
+        int sets
+        int reps
+        string notes
     }
     WORKOUT_RESULTS {
-        uuid ResultID PK
-        uuid SessionID FK
-        uuid MemberID FK
-        uuid CoachID FK
-        string ProgressNote
-        string CoachComment
-        datetime RecordedAt
+        uuid result_id PK
+        uuid enrollment_id FK "session_id/member_id suy ra qua Enrollment — đảm bảo Member thực sự có đăng ký session đó (10/09/2026 (3))"
+        uuid coach_id FK
+        string progress_note
+        string coach_comment
+        datetime recorded_at
     }
     INVOICES {
-        uuid InvoiceID PK
-        string InvoiceNumber "unique, human-readable"
-        uuid MemberID FK
-        uuid IssuedByUserID FK
-        uuid MemberPackageID FK "nullable"
-        decimal TotalAmount
-        InvoiceStatus Status "enum, xem SSOT §3"
-        datetime IssuedAt
+        uuid invoice_id PK
+        string invoice_number UK "unique, human-readable, sinh từ DB sequence, BR-58"
+        uuid member_id FK
+        uuid issued_by_user_id FK
+        uuid member_package_id FK "nullable"
+        decimal total_amount
+        InvoiceStatus status "enum, xem SSOT §3"
+        datetime issued_at
     }
     INVOICE_ITEMS {
-        uuid ItemID PK
-        uuid InvoiceID FK
-        string Description
-        decimal Amount
-        InvoiceItemRelatedEntityType RelatedEntityType "enum, xem SSOT §3"
-        uuid RelatedEntityID "nullable"
+        uuid item_id PK
+        uuid invoice_id FK
+        string description
+        decimal amount
+        InvoiceItemRelatedEntityType related_entity_type "enum, xem SSOT §3"
+        uuid related_entity_id "nullable"
     }
     PAYMENTS {
-        uuid PaymentID PK
-        uuid InvoiceID FK
-        decimal Amount
-        PaymentMethod Method "enum, xem SSOT §3"
-        string ReferenceCode "external gateway ref, nullable"
-        PaymentStatus Status "enum, xem SSOT §3"
-        uuid ReceivedByUserID FK
-        datetime PaidAt
+        uuid payment_id PK
+        uuid invoice_id FK
+        decimal amount
+        PaymentMethod method "enum, xem SSOT §3"
+        string reference_code "external gateway ref, nullable"
+        PaymentStatus status "enum, xem SSOT §3"
+        uuid received_by_user_id FK
+        datetime paid_at
     }
     PAYMENT_ADJUSTMENTS {
-        uuid AdjustmentID PK
-        uuid InvoiceID FK
-        uuid PaymentID FK "nullable"
-        PaymentAdjustmentType Type "enum, xem SSOT §3"
-        decimal Amount
-        string Reason
-        PaymentAdjustmentStatus Status "enum, xem SSOT §3"
-        uuid RequestedByUserID FK
-        uuid ApprovedByUserID FK "nullable"
-        datetime CreatedAt
-        datetime ResolvedAt "nullable"
+        uuid adjustment_id PK
+        uuid invoice_id FK
+        uuid payment_id FK "nullable"
+        PaymentAdjustmentType type "enum, xem SSOT §3"
+        decimal amount
+        string reason
+        PaymentAdjustmentStatus status "enum, xem SSOT §3"
+        uuid requested_by_user_id FK
+        uuid approved_by_user_id FK "nullable"
+        datetime created_at
+        datetime resolved_at "nullable"
     }
     NOTIFICATIONS {
-        uuid NotificationID PK
-        uuid UserID FK
-        NotificationChannel Channel "enum, xem SSOT §3"
-        NotificationSourceEventType SourceEventType "enum, xem SSOT §3"
-        uuid SourceEntityID "nullable"
-        string Message
-        NotificationStatus Status "enum, xem SSOT §3"
-        int RetryCount
-        datetime LastAttemptAt
-        datetime SentAt
+        uuid notification_id PK
+        uuid user_id FK
+        NotificationChannel channel "enum, xem SSOT §3"
+        NotificationSourceEventType source_event_type "enum, xem SSOT §3"
+        uuid source_entity_id "nullable"
+        string message
+        NotificationStatus status "enum, xem SSOT §3"
+        int retry_count
+        datetime last_attempt_at
+        datetime sent_at
     }
     AI_LOGS {
-        uuid LogID PK
-        uuid UserID FK
-        string QueryType
-        jsonb InputPayload
-        jsonb ResponsePayload
-        int ResponseTimeMs
-        datetime CreatedAt
+        uuid log_id PK
+        uuid user_id FK
+        string query_type
+        jsonb input_payload
+        jsonb response_payload
+        int response_time_ms
+        datetime created_at
     }
     AUDIT_LOGS {
-        uuid AuditID PK
-        uuid UserID FK
-        string Action
-        string TargetEntity
-        uuid TargetID
-        jsonb OldValue "nullable"
-        jsonb NewValue "nullable"
-        string IPAddress
-        datetime Timestamp
+        uuid audit_id PK
+        uuid user_id FK
+        string action
+        string target_entity
+        uuid target_id
+        jsonb old_value "nullable"
+        jsonb new_value "nullable"
+        string ip_address
+        datetime timestamp
     }
 ```
 
-> **Cập nhật 09/09/2026:** mọi field trạng thái/loại (trước đây khai `string "GIÁ_TRỊ_1, GIÁ_TRỊ_2, ..."`) đã đổi sang tên enum tương ứng (`UserStatus`, `MemberPackageStatus`, `AttendanceStatus`, ...). Danh sách giá trị đầy đủ của từng enum **chỉ định nghĩa 1 lần** ở `00-Source-of-Truth.md` §3 — ERD ở đây không lặp lại để tránh 2 nơi lệch nhau (đã xảy ra với `Attendance`/`Absent`, xem §2.2 bên dưới và SSOT §4). `AI_LOGS.QueryType` và `AUDIT_LOGS.Action` vẫn giữ `string` vì là giá trị tự do, không phải enum kín.
+> **Naming (cập nhật 10/09/2026):** tên field/attribute trong mỗi entity block ở trên đã đổi từ `PascalCase` sang `snake_case` (vd `UserID` → `user_id`), khớp `00-Source-of-Truth.md` §5.4. Tên bảng (`USER_ACCOUNTS`, `MEMBER_TRAINING_PROFILE`...) và tên kiểu enum (`UserStatus`, `ExperienceLevel`...) giữ nguyên `PascalCase`/UPPER_CASE, không đổi.
+>
+> **Unique constraints (cập nhật 10/09/2026):** đã đánh dấu `UK` cho mọi field unique (ngoài PK) trong ERD trên — `USER_ACCOUNTS.email` (BR-1/BR-49), `USER_PROFILES.phone` (BR-54, nullable — chỉ unique khi có giá trị), `ROLES.role_name` (BR-55), `MEMBERSHIP_PACKAGES.name` (BR-56), `ROOMS.name` (BR-57), `INVOICES.invoice_number` (BR-58, đã có sẵn ở constraint #5 mục 3), `MEMBER_TRAINING_PROFILE.member_id` (FK, UK — quan hệ 1–1 với UserAccount), `USER_EXTERNAL_LOGINS.provider_user_id` (composite UK cùng `provider` — 1 tài khoản Google không link được vào 2 `UserAccount`). Nguồn business rule đầy đủ: `SportManagement_BusinessRules_v1.2.docx` §L (Unique Constraints Summary). Ràng buộc unique dạng composite/partial (`Enrollment`, `CoachMemberRelationship` khi ACTIVE/CONFIRMED; `USER_EXTERNAL_LOGINS` composite) không thể hiện bằng `UK` trên 1 field trong ERD — xem bảng ràng buộc DB ở mục 3 bên dưới (#1, #7, #15, #16).
+>
+> **Cập nhật 10/09/2026 (2) — Google Login:** tách `USERS` thành `USER_ACCOUNTS` (định danh + vòng đời), `USER_CREDENTIALS` (auth nội bộ, 1-1), `USER_PROFILES` (hiển thị, 1-1), `USER_EXTERNAL_LOGINS` (auth ngoài — Google, 1-N — mới, phục vụ đăng nhập Google nay là flow bắt buộc). Chi tiết lý do + business rule chống account pre-hijacking: `00-Source-of-Truth.md` §2 (cập nhật 10/09/2026 (2)) và §7 Open Questions. FK ở mọi entity khác không đổi tên cột (`member_id`, `coach_id`, `issued_by_user_id`...), chỉ đổi entity đích từ `USERS` sang `USER_ACCOUNTS`.
+>
+> **Cập nhật 10/09/2026 (3) — Chuẩn hoá Attendance/WorkoutResult:** `ATTENDANCE` bỏ `session_id`/`member_id`, chỉ giữ `enrollment_id` (thêm `UK` — enforce đúng quan hệ 1-1 với `ENROLLMENTS` mà ERD đã vẽ nhưng trước đó chưa có ràng buộc DB, xem constraint #17 mục 3). `WORKOUT_RESULTS` đổi `session_id` + `member_id` (2 FK độc lập, không có gì đảm bảo Member thực sự đăng ký session đó) thành 1 FK `enrollment_id` — DB tự chặn việc ghi kết quả tập cho cặp (session, member) không có `Enrollment` khớp; `coach_id` giữ nguyên. Chi tiết lý do: `00-Source-of-Truth.md` §2 (cập nhật 10/09/2026 (3)).
+
+> **Cập nhật 09/09/2026:** mọi field trạng thái/loại (trước đây khai `string "GIÁ_TRỊ_1, GIÁ_TRỊ_2, ..."`) đã đổi sang tên enum tương ứng (`UserStatus`, `MemberPackageStatus`, `AttendanceStatus`, ...). Danh sách giá trị đầy đủ của từng enum **chỉ định nghĩa 1 lần** ở `00-Source-of-Truth.md` §3 — ERD ở đây không lặp lại để tránh 2 nơi lệch nhau (đã xảy ra với `Attendance`/`Absent`, xem §2.2 bên dưới và SSOT §4). `AI_LOGS.query_type` và `AUDIT_LOGS.action` vẫn giữ `string` vì là giá trị tự do, không phải enum kín.
 
 ### Thay đổi chính so với v1
 
 - **Payment tách khỏi Invoice**: `INVOICES` (hóa đơn, bất biến) → `INVOICE_ITEMS` (dòng chi tiết) → `PAYMENTS` (từng giao dịch thu tiền, có thể trả góp/nhiều lần) → `PAYMENT_ADJUSTMENTS` (refund/correction, có workflow duyệt riêng, đúng BR-40/BR-42).
-- **Lịch lặp tách khỏi session cụ thể**: `CLASS_RECURRENCE` định nghĩa pattern (ngày trong tuần, giờ, timezone, hiệu lực từ-đến); một job định kỳ sinh `CLASS_SESSIONS` trước N tuần. Mỗi `CLASS_SESSION` có thể bị **override** (đổi phòng/coach/giờ qua `RescheduledFromSessionID`) hoặc **CANCELLED** độc lập mà không ảnh hưởng pattern gốc.
-- **`ConfirmedCount` denormalized** trên `CLASS_SESSIONS` để chống overbooking bằng transaction, thay vì COUNT() mỗi lần (xem mục 3).
+- **Lịch lặp tách khỏi session cụ thể**: `CLASS_RECURRENCE` định nghĩa pattern (ngày trong tuần, giờ, timezone, hiệu lực từ-đến); một job định kỳ sinh `CLASS_SESSIONS` trước N tuần. Mỗi `CLASS_SESSION` có thể bị **override** (đổi phòng/coach/giờ qua `rescheduled_from_session_id`) hoặc **CANCELLED** độc lập mà không ảnh hưởng pattern gốc.
+- **`confirmed_count` denormalized** trên `CLASS_SESSIONS` để chống overbooking bằng transaction, thay vì COUNT() mỗi lần (xem mục 3).
 - **`MEMBER_TRAINING_PROFILE`** và **`COACH_MEMBER_RELATIONSHIP`** mới — cần thiết để AI suggestion (BR-26) và Workout Plan (BR-23) có dữ liệu goal/level/quan hệ thật, không phải tham số client tự gửi.
-- **Notification & Audit Log** mở rộng theo đúng góp ý: trạng thái gửi, kênh, nguồn sự kiện, retry; audit có `OldValue`/`NewValue` dạng JSONB để truy vết thay đổi thực tế.
+- **Notification & Audit Log** mở rộng theo đúng góp ý: trạng thái gửi, kênh, nguồn sự kiện, retry; audit có `old_value`/`new_value` dạng JSONB để truy vết thay đổi thực tế.
 
 ---
 
@@ -304,7 +325,7 @@ stateDiagram-v2
     [*] --> PENDING_PAYMENT: tạo khi Member/Receptionist chọn gói (đồng thời tạo Invoice ISSUED, BR-30 v1.2)
     PENDING_PAYMENT --> ACTIVE: Invoice liên kết chuyển PAID (BR-30)
     PENDING_PAYMENT --> CANCELLED: hết hạn giữ chỗ / hủy trước khi thanh toán
-    ACTIVE --> EXPIRED: EndDate qua HOẶC RemainingSessions = 0 (BR-11)
+    ACTIVE --> EXPIRED: end_date qua HOẶC remaining_sessions = 0 (BR-11)
     ACTIVE --> CANCELLED: Manager hủy thủ công (hoàn tiền qua Adjustment)
     EXPIRED --> [*]
     CANCELLED --> [*]
@@ -329,15 +350,15 @@ stateDiagram-v2
     ABSENT --> [*]
     NO_SHOW --> [*]
 ```
-*Job nền (`AttendanceFinalizerJob`) chạy sau `EndAtUtc` của mỗi session: mọi `Enrollment.Status = CONFIRMED` chưa có `Attendance` → tạo `Attendance.Status = NO_SHOW`.*
+*Job nền (`AttendanceFinalizerJob`) chạy sau `end_at_utc` của mỗi session: mọi `Enrollment.status = CONFIRMED` chưa có `Attendance` → tạo `Attendance.status = NO_SHOW`.*
 
 ### 2.3 Invoice
 
 ```mermaid
 stateDiagram-v2
     [*] --> ISSUED: tạo Invoice + InvoiceItems NGAY khi chọn gói/dịch vụ, TRƯỚC khi thanh toán (BR-30 v1.2)
-    ISSUED --> PARTIALLY_PAID: tổng Payment SUCCESS < TotalAmount
-    ISSUED --> PAID: tổng Payment SUCCESS = TotalAmount
+    ISSUED --> PARTIALLY_PAID: tổng Payment SUCCESS < total_amount
+    ISSUED --> PAID: tổng Payment SUCCESS = total_amount
     PARTIALLY_PAID --> PAID: đủ tiền
     PAID --> PAID: Adjustment COMPLETED (không đổi status, chỉ ghi thêm dòng, BR-40)
     ISSUED --> VOID: chỉ khi Adjustment loại CORRECTION toàn phần được duyệt
@@ -366,22 +387,32 @@ Không được để các ràng buộc này chỉ nằm ở API layer — phả
 |---|---|---|
 | 1 | Không đăng ký trùng vào cùng 1 session | `UNIQUE INDEX ux_enrollment_active ON enrollments(session_id, member_id) WHERE status = 'CONFIRMED'` (partial unique index — cho phép đăng ký lại sau khi hủy) |
 | 2 | Không vượt sức chứa session (chống overbooking khi nhiều request đồng thời) | Trong 1 transaction: `UPDATE class_sessions SET confirmed_count = confirmed_count + 1 WHERE session_id = :id AND confirmed_count < capacity RETURNING confirmed_count;` — nếu 0 rows affected → 409 Conflict. Không dùng `SELECT COUNT(*)` rồi `INSERT` riêng lẻ (race condition). |
-| 3 | Trừ `RemainingSessions` nguyên tử | Cùng transaction với bước 2: `UPDATE member_packages SET remaining_sessions = remaining_sessions - 1 WHERE member_package_id = :id AND status = 'ACTIVE' AND (remaining_sessions IS NULL OR remaining_sessions > 0) RETURNING remaining_sessions;` — 0 rows affected → 409 (BR-16 vi phạm) |
-| 4 | Rollback đồng bộ khi hủy đăng ký đúng hạn | 1 transaction: cập nhật `Enrollment.Status`, hoàn `RemainingSessions += 1`, giảm `ConfirmedCount -= 1` |
-| 5 | Không trùng số hóa đơn | `UNIQUE(InvoiceNumber)`; `InvoiceNumber` sinh theo sequence DB (`nextval`), không phải random ở app layer, tránh trùng khi 2 request song song |
-| 6 | Tổng Payment không vượt Invoice.TotalAmount (BR-41) | Constraint kiểm tra ở service layer trong transaction `SELECT ... FOR UPDATE` trên `Invoices` row trước khi `INSERT INTO payments`, tránh 2 payment cùng lúc vượt tổng |
+| 3 | Trừ `remaining_sessions` nguyên tử | Cùng transaction với bước 2: `UPDATE member_packages SET remaining_sessions = remaining_sessions - 1 WHERE member_package_id = :id AND status = 'ACTIVE' AND (remaining_sessions IS NULL OR remaining_sessions > 0) RETURNING remaining_sessions;` — 0 rows affected → 409 (BR-16 vi phạm) |
+| 4 | Rollback đồng bộ khi hủy đăng ký đúng hạn | 1 transaction: cập nhật `Enrollment.status`, hoàn `remaining_sessions += 1`, giảm `confirmed_count -= 1` |
+| 5 | Không trùng số hóa đơn | `UNIQUE(invoice_number)`; `invoice_number` sinh theo sequence DB (`nextval`), không phải random ở app layer, tránh trùng khi 2 request song song |
+| 6 | Tổng Payment không vượt Invoice.total_amount (BR-41) | Constraint kiểm tra ở service layer trong transaction `SELECT ... FOR UPDATE` trên `Invoices` row trước khi `INSERT INTO payments`, tránh 2 payment cùng lúc vượt tổng |
 | 7 | Không tạo trùng quan hệ Coach–Member đang hoạt động | `UNIQUE INDEX ux_relationship_active ON coach_member_relationship(coach_id, member_id) WHERE status = 'ACTIVE'` (partial unique, cùng mẫu #1) — tránh 2 relationship ACTIVE trùng lặp làm sai điều kiện BR-23/BR-24 |
-| 8 | Optimistic concurrency cho `MemberPackage` | Cột `Version` (`xmin` của Postgres có thể tận dụng, hoặc cột version tường minh) để tránh lost update khi Manager sửa cùng lúc Enrollment trừ session |
-| 9 | Email không phân biệt hoa/thường (BR-49) | `UNIQUE INDEX ux_users_email_lower ON users(LOWER(email))`, hoặc dùng kiểu `citext` của Postgres cho cột `Email` |
+| 8 | Optimistic concurrency cho `MemberPackage` | Cột `version` (`xmin` của Postgres có thể tận dụng, hoặc cột version tường minh) để tránh lost update khi Manager sửa cùng lúc Enrollment trừ session |
+| 9 | Email không phân biệt hoa/thường (BR-49) | `UNIQUE INDEX ux_user_accounts_email_lower ON user_accounts(LOWER(email))`, hoặc dùng kiểu `citext` của Postgres cho cột `email` |
 | 10 | Capacity session không vượt MIN(Room, Class) (BR-51) | `CHECK (capacity <= room_capacity_at_creation)` áp ở tầng service khi generate/reschedule session; Manager chỉ được set capacity ≤ giá trị này |
+| 11 | Số điện thoại không trùng, chỉ khi có giá trị (BR-54) | `UNIQUE INDEX ux_user_profiles_phone ON user_profiles(phone) WHERE phone IS NOT NULL` (partial unique — cho phép nhiều user cùng để trống `phone`) |
+| 12 | Tên vai trò không trùng (BR-55) | `UNIQUE(role_name)` trên bảng `roles`; kết hợp seed data cố định 4 dòng, không cho tạo thêm role qua API ở MVP |
+| 13 | Tên gói thành viên không trùng trong catalog (BR-56) | `UNIQUE(name)` trên bảng `membership_packages`; Manager tạo/sửa tên trùng → 409 Conflict |
+| 14 | Tên phòng tập không trùng (BR-57) | `UNIQUE(name)` trên bảng `rooms`; Manager tạo phòng trùng tên → 409 Conflict |
+| 15 | 1 tài khoản provider ngoài (vd Google) không link được vào 2 `UserAccount` khác nhau | `UNIQUE(provider, provider_user_id)` trên bảng `user_external_logins` (mới, 10/09/2026 (2)) |
+| 16 | 1 `UserAccount` không link trùng cùng 1 provider 2 lần | `UNIQUE(user_id, provider)` trên bảng `user_external_logins` (mới, 10/09/2026 (2)) |
+| 17 | 1 Enrollment chỉ có tối đa 1 Attendance (1-1) | `UNIQUE(enrollment_id)` trên bảng `attendance` (mới, 10/09/2026 (3)) — trước đó ERD đã ghi quan hệ 1-1 nhưng chưa có ràng buộc DB thật |
 
 ### 3.1 Ràng buộc nghiệp vụ bổ sung (không phải DB constraint thuần — cần chốt ở service layer)
 
 | Ràng buộc | Nội dung | BR liên quan |
 |---|---|---|
-| Nơi cấu hình deadline hủy lớp | Lưu trong bảng cấu hình hệ thống (`SystemSettings` hoặc field `CancellationDeadlineHours` trên `MembershipPackages`/`Classes` nếu muốn cấu hình theo từng loại), do Center Manager chỉnh qua `PUT /api/settings`; đọc giá trị **tại thời điểm hủy**, không hardcode trong code | BR-50 |
-| Công thức refund/adjustment mặc định | `REFUND.Amount = Invoice.TotalAmount × (MemberPackage.RemainingSessions / MembershipPackage.SessionLimit)` cho gói theo buổi; theo tỷ lệ ngày còn lại cho gói theo thời hạn. Manager có thể override khi duyệt | BR-52 |
-| Khi nào Attendance = Absent vs No-show | `Absent`: Coach/Receptionist **chủ động ghi tay** (vd. có lý do chính đáng); `No-show`: **job tự động** sinh ra sau `EndAtUtc` khi Enrollment CONFIRMED không có check-in và không hủy đúng hạn | BR-53 |
+| Nơi cấu hình deadline hủy lớp | Lưu trong bảng cấu hình hệ thống (`SystemSettings` hoặc field `cancellation_deadline_hours` trên `MembershipPackages`/`Classes` nếu muốn cấu hình theo từng loại), do Center Manager chỉnh qua `PUT /api/settings`; đọc giá trị **tại thời điểm hủy**, không hardcode trong code | BR-50 |
+| Công thức refund/adjustment mặc định | `REFUND.amount = Invoice.total_amount × (MemberPackage.remaining_sessions / MembershipPackage.session_limit)` cho gói theo buổi; theo tỷ lệ ngày còn lại cho gói theo thời hạn. Manager có thể override khi duyệt | BR-52 |
+| Khi nào Attendance = Absent vs No-show | `Absent`: Coach/Receptionist **chủ động ghi tay** (vd. có lý do chính đáng); `No-show`: **job tự động** sinh ra sau `end_at_utc` khi Enrollment CONFIRMED không có check-in và không hủy đúng hạn | BR-53 |
+| Google login — không tự tạo/tự link account trùng email | Nếu `/api/auth/google` nhận email đã tồn tại ở `UserAccounts` nhưng chưa có `UserExternalLogin` khớp (`provider=Google`) → từ chối, **không** tự tạo account mới, **không** tự link — trả lỗi yêu cầu đăng nhập password trước rồi vào Cài đặt để link. Chỉ link khi request đến từ user đã có JWT hợp lệ (`POST /api/auth/google/link`). Chặn kiểu tấn công account pre-hijacking (OWASP) — xem `00-Source-of-Truth.md` §7 Open Questions | *(BR mới — chưa chép chính thức vào Business Rules v1.2, xem Open Question tương ứng)* |
+| Đăng nhập password chỉ khi có credential nội bộ | `POST /api/auth/login` chỉ cho phép khi `UserCredentials.password_hash IS NOT NULL` cho `user_id` đó (account tạo thuần qua Google chưa từng có password) | *(BR mới, cùng nhóm trên)* |
+| WorkoutResult chỉ tạo được khi Enrollment còn hợp lệ | FK `enrollment_id` (10/09/2026 (3)) chỉ đảm bảo Enrollment *tồn tại*, chưa đảm bảo còn hợp lệ — service phải chặn tạo `WorkoutResult` nếu `Enrollment.status != Confirmed`. **Chưa chốt**: có bắt buộc thêm `Attendance.status = Present` mới cho ghi hay không — xem `00-Source-of-Truth.md` §7 Open Questions | *(BR mới — chưa chép chính thức vào Business Rules v1.2)* |
 
 ---
 
@@ -393,8 +424,10 @@ Không được để các ràng buộc này chỉ nằm ở API layer — phả
 
 | Method | Endpoint | Actor | Nguồn định danh |
 |---|---|---|---|
-| POST | `/api/auth/register` | Public | body: email, password |
-| POST | `/api/auth/login` | Public | — |
+| POST | `/api/auth/register` | Public | body: email, password — tạo `UserAccount` + `UserCredential` (local) |
+| POST | `/api/auth/login` | Public | chỉ hợp lệ nếu `UserCredential.password_hash != null` (xem §3.1) |
+| POST | `/api/auth/google` | Public | login hoặc tạo mới `UserAccount` (RoleID=Member) + `UserExternalLogin` qua Google; không tự tạo/tự link nếu email đã tồn tại (§3.1) |
+| POST | `/api/auth/google/link` | Member/Coach/Receptionist/Manager | JWT bắt buộc — link `UserExternalLogin` vào `user_id` hiện tại, chỉ khi đã đăng nhập (§3.1) |
 | GET | `/api/users/me` | Member/Coach/Receptionist/Manager | JWT |
 | PUT | `/api/users/me` | Member/Coach/Receptionist | JWT — chỉ sửa hồ sơ của chính mình |
 | POST | `/api/users/staff` | **Manager only** | body: role=COACH/RECEPTIONIST (BR-2) |
@@ -503,7 +536,7 @@ Kết quả: MVP chỉ còn **1 backend (ASP.NET Core modular monolith) + 1 Post
 
 ## 7. Thứ tự code MVP (xác nhận theo đề xuất của bạn)
 
-1. **Identity/RBAC** — Users, Roles, JWT/OAuth2, endpoint `/auth/*`, `/users/*`
+1. **Identity/RBAC** — Roles, UserAccounts, UserCredentials, UserProfiles, UserExternalLogins, JWT + Google OAuth2, endpoint `/auth/*`, `/users/*`
 2. **Membership** — MembershipPackages, MemberPackages, MemberTrainingProfile
 3. **Lớp/Lịch/Booking** — Classes, ClassRecurrence, ClassSessions (+ job sinh session), Enrollments, Attendance, ràng buộc #1–#4 ở mục 3
 4. **Payment/Invoice/Report** — Invoices, InvoiceItems, Payments, PaymentAdjustments, `/reports/*`
@@ -515,6 +548,6 @@ Kết quả: MVP chỉ còn **1 backend (ASP.NET Core modular monolith) + 1 Post
 
 - [ ] Duyệt lại 4 rule mới (BR-40 → BR-43) và cập nhật vào file Business Rules chính thức
 - [ ] Xác nhận `CLASS_SESSIONS` được **pre-generate** (không tính on-the-fly) — ảnh hưởng job scheduler
-- [ ] Xác nhận cơ chế `ConfirmedCount` denormalized thay vì COUNT() mỗi lần
+- [ ] Xác nhận cơ chế `confirmed_count` denormalized thay vì COUNT() mỗi lần
 - [ ] Xác nhận endpoint `on-behalf` cho Receptionist có Audit Log bắt buộc, không opt-out
 - [ ] Xác nhận PDF report dùng thư viện nào (ảnh hưởng BR-48: 20 trang / 15 giây)
