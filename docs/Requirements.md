@@ -1,7 +1,10 @@
 # Yêu Cầu Hệ Thống Quản Lý Trung Tâm (Center Management System)
 
+> Bản yêu cầu đã đồng bộ ngày 11/09/2026 theo BR người dùng cung cấp và SSOT §0.2. Đề bài gốc có bốn tác nhân; nhóm bổ sung System Administrator và chuyển quyền quản trị tài khoản từ Manager sang Administrator. Scope các flow giữ nguyên.
+
 ## 1. Danh sách Tác nhân & Vai trò (Actors & Roles)
 
+* **System Administrator** – Quản trị viên hệ thống
 * **Center Manager** – Quản lý trung tâm
 * **Coach** – Huấn luyện viên
 * **Member** – Học viên / Thành viên
@@ -11,13 +14,20 @@
 
 ## 2. Chi Tiết Yêu Cầu Chức Năng Theo Vai Trò
 
+### System Administrator (Quản trị viên)
+* Tạo tài khoản Administrator, Manager, Coach, Receptionist; gán/đổi vai trò (BR-2/3).
+* Khóa/mở khóa tài khoản, cấm tự khóa và khóa Administrator hoạt động cuối cùng (BR-6).
+* Administrator đầu tiên khởi tạo khi triển khai; mọi thao tác quan trọng phải ghi audit theo BR-7.
+* Quyền thu hồi vai trò cuối cùng và quyền đọc audit còn chờ SSOT AUTH-01.
+
 ### Center Manager (Quản lý Trung tâm)
 * Quản lý danh sách thành viên, huấn luyện viên và nhân viên của trung tâm.
 * Quản lý các lớp học, bộ môn, phòng tập và lịch hoạt động.
 * Phân công huấn luyện viên phụ trách từng lớp học.
 * Xem báo cáo số lượng thành viên, tình trạng đăng ký lớp và doanh thu theo thời gian.
 * Quản lý các gói thành viên, học phí và thời hạn sử dụng.
-* Phân quyền truy cập hệ thống cho từng vai trò.
+* Quản lý cấu hình nghiệp vụ; không cấp/đổi vai trò người dùng (BR-39).
+* Hủy/dời buổi chưa bắt đầu theo BR-54; hệ thống hủy đăng ký, hoàn lượt và thông báo, không tự giữ chỗ buổi mới.
 * Xem lịch sử thao tác quan trọng trên hệ thống.
 
 ### Coach (Huấn luyện viên)
@@ -34,7 +44,8 @@
 * Đăng ký tài khoản và cập nhật thông tin cá nhân.
 * Xem các gói thành viên và đăng ký/gia hạn gói tập.
 * Xem danh sách các lớp học và lịch học.
-* Đăng ký hoặc hủy đăng ký lớp học.
+* Đăng ký hoặc hủy đăng ký từng ClassSession; chính sách hạn hủy gắn lúc xác nhận đăng ký (BR-17/18/50).
+* Tự đăng ký lại khi trung tâm hủy/dời buổi (BR-54).
 * Xem lịch tập cá nhân và thông tin huấn luyện viên.
 * Xem lịch sử điểm danh và kết quả tập luyện.
 * Xem kế hoạch tập luyện và nhận xét từ huấn luyện viên.
@@ -48,7 +59,8 @@
 * Kiểm tra trạng thái gói tập và thời hạn sử dụng của thành viên.
 * Điểm danh thành viên khi đến trung tâm.
 * Đăng ký lớp học hoặc hỗ trợ hủy lớp cho thành viên.
-* Ghi nhận các khoản thanh toán và in/xuất hóa đơn.
+* Ghi nhận khoản tiền trung tâm thực nhận và in/xuất hóa đơn. Invoice tạo trước thu tiền; gói chỉ kích hoạt khi thanh toán đủ (BR-30).
+* Theo dõi hạn hai tháng từ phát hành hoặc 12 tháng từ cọc đầu tiên trong hạn; các lần nộp tiếp không gia hạn (BR-55). Xử lý quá hạn còn chờ PAY-01.
 * Tiếp nhận và ghi nhận các yêu cầu hỗ trợ từ thành viên.
 
 ---

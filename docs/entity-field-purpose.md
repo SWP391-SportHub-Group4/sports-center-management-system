@@ -50,14 +50,14 @@
 
 | Field | Vai trò |
 |---|---|
-| `external_login_id` (PK) | Định danh dòng link |
-| `user_id` (FK → USER_ACCOUNTS) | Provider này thuộc về user nào |
-| `provider` | `GOOGLE` (enum `ExternalAuthProvider`, xem SSOT §3) — hiện chỉ Google, mở rộng provider khác không cần đổi entity |
-| `provider_user_id` | ID phía provider trả về (Google `sub`) — cùng `provider` tạo **unique composite**, chặn 1 tài khoản Google bị link vào 2 `USER_ACCOUNTS` khác nhau |
-| `refresh_token` | Nullable, MVP **chưa mã hoá** — nợ kỹ thuật, xem Open Questions ở `00-Source-of-Truth.md` §7. Không lưu access token vì sống ngắn hạn, không cần persist |
-| `created_at` | Mốc link provider — cũng là mốc dùng để kiểm tra `(user_id, provider)` unique (1 user không link trùng 1 provider 2 lần) |
-
-**Business rule đăng nhập Google (chưa chép chính thức vào Business Rules v1.2 — xem Open Questions):** nếu `POST /api/auth/google` nhận email đã tồn tại ở `USER_ACCOUNTS` nhưng chưa có `USER_EXTERNAL_LOGINS` khớp → **không** tự tạo account mới, **không** tự link — trả lỗi yêu cầu đăng nhập password trước rồi link từ Cài đặt (`POST /api/auth/google/link`, cần JWT). Chặn kiểu tấn công account pre-hijacking.
+| `UserID` (PK) | Định danh duy nhất, dùng làm khóa ngoại ở gần như mọi entity khác (member, coach, staff đều trỏ về đây) |
+| `FullName` | Hiển thị UI, in hóa đơn, thông báo |
+| `Email` | Định danh đăng nhập — **unique không phân biệt hoa/thường** (BR-49, index `LOWER(email)`) |
+| `PasswordHash` | Lưu hash, không bao giờ lưu plaintext — dùng để xác thực khi login |
+| `Phone` | Liên hệ, có thể dùng cho notification kênh SMS sau này |
+| `RoleID` (FK → ROLES) | Quyết định phân quyền (RBAC) — 1 user chỉ có 1 role |
+| `Status` | `ACTIVE / BANNED / DEACTIVATED` — kiểm soát user có được login/thao tác hay không, không xóa cứng user (giữ lịch sử payment/attendance) |
+| `CreatedAt` | Audit, hiển thị "thành viên từ ngày..." |
 
 ### `ROLES`
 **Mục đích:** danh mục cố định 4 vai trò trong hệ thống, tách riêng để RBAC dễ mở rộng (thêm role mới không cần đổi schema `USER_ACCOUNTS`).
@@ -197,11 +197,12 @@
 
 | Field | Vai trò |
 |---|---|
-| `attendance_id` (PK) | Định danh |
-| `enrollment_id` (FK, **unique**) | Điểm danh cho lượt đăng ký nào — **unique** enforce đúng quan hệ 1-1 (constraint #17). `session_id`/`member_id` **không** lưu riêng nữa (bỏ 10/09/2026 (4)) — Enrollment đã đại diện "Member tham gia Session" nên 2 field này suy ra 100% qua `enrollment_id`, giữ lại chỉ tạo rủi ro lệch dữ liệu mà không có lợi ích thật ở quy mô đồ án |
-| `status` | `PRESENT/ABSENT/NO_SHOW` — `PRESENT`/`ABSENT` do người ghi tay, `NO_SHOW` do `AttendanceFinalizerJob` tự sinh sau `end_at_utc` nếu không có check-in |
-| `check_in_time` (nullable) | Thời điểm check-in thật (nếu có) |
-| `checked_in_by_user_id` (FK, nullable) | Ai thực hiện check-in (Coach/Receptionist) — null nếu do job tự động tạo (NO_SHOW) |
+| `AttendanceID` (PK) | Định danh |
+| `EnrollmentID` (FK) | Điểm danh cho lượt đăng ký nào |
+| `SessionID` / `MemberID` (FK) | Denormalize để query nhanh (khỏi join qua Enrollment) |
+| `Status` | `PRESENT/ABSENT/NO_SHOW` — `PRESENT`/`ABSENT` do người ghi tay, `NO_SHOW` do `AttendanceFinalizerJob` tự sinh sau `EndAtUtc` nếu không có check-in |
+| `CheckInTime` (nullable) | Thời điểm check-in thật (nếu có) |
+| `CheckedInByUserID` (FK, nullable) | Ai thực hiện check-in (Coach/Receptionist) — null nếu do job tự động tạo (NO_SHOW) |
 
 ---
 
@@ -350,3 +351,10 @@
 ---
 
 *Nguồn: `docs/Center-Management-System-Design-v2.md` §1 (ERD), §2 (state transition), §3 (constraints). Field nào còn dấu `?` hoặc chưa rõ nghiệp vụ — hỏi lại BA/team lead trước khi code, đừng tự suy diễn (đúng nguyên tắc ở `docs/00-Source-of-Truth.md` §6).*
+
+## Các dữ liệu nghiệp vụ cần thiết kế tiếp
+
+- BR-50 cần bảo toàn chính sách hạn hủy tại thời điểm xác nhận đăng ký; chưa tự thêm field hoặc bảng phiên bản ngoài SSOT.
+- BR-55 cần hạn ban đầu hai tháng và mốc cọc đầu tiên để xác định hạn 12 tháng; lần thu tiếp không kéo dài. Chưa có schema được chốt cho deadline, chưa thêm enum quá hạn.
+- BR-54 giữ lịch sử đăng ký, hoàn lượt đúng một lần; gói hết hạn có dùng được lượt hoàn không chờ MEM-01.
+- Công thức thu/hoàn/điều chỉnh trong phần Payment là diễn giải BR-41/43/52 còn chờ PAY-02, không đủ điều kiện triển khai. Quyền ghi audit bao gồm Administrator; quyền đọc audit của Administrator chờ AUTH-01.

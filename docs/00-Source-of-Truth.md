@@ -2,7 +2,11 @@
 
 > Mục đích: 1 nơi duy nhất để AI / FE / BE tra cứu khi có mâu thuẫn giữa các tài liệu.
 > Nếu file này và một doc khác nói khác nhau → **file này thắng**, trừ khi có ghi chú "xem chi tiết tại...".
+<<<<<<< Updated upstream
 > Cập nhật lần cuối: 10/09/2026 — người cập nhật: Hồ Lê Thiên An
+=======
+> Cập nhật lần cuối: 11/09/2026 — Codex theo yêu cầu người dùng (đồng bộ bản BR người dùng cung cấp; lịch sử tác giả xem §8)
+>>>>>>> Stashed changes
 
 ---
 
@@ -11,12 +15,39 @@
 Khi có mâu thuẫn, đọc theo thứ tự sau (trên > dưới):
 
 1. `docs/00-Source-of-Truth.md` (file này) — quyết định đã chốt, không tranh cãi lại trong sprint hiện tại
-2. `docs/SportManagement_BusinessRules_v1.2.docx` — business rules chi tiết
+2. `docs/SportManagement_BusinessRules_v1.2.docx` — business rules chi tiết; `docs/Business-Rules.md` là bản văn bản đồng nội dung để review GitHub
 3. `docs/Center-Management-System-Design-v2.md` — thiết kế kỹ thuật/kiến trúc
 4. `docs/Requirements.md` — yêu cầu gốc từ đề bài
 5. Mọi thứ khác (Slack/Zalo/note họp miệng) — **không tính là nguồn chính thức** trừ khi được chép lại vào 1 trong 4 file trên
 
-**Quy tắc cứng:** Nếu 2 doc mâu thuẫn và chưa kịp cập nhật file này → dừng lại, hỏi trong nhóm, **không tự thêm/đổi entity, field, hay flow để "cho chạy được"**. Ghi lại câu hỏi vào mục 6 (Open Questions) thay vì tự quyết.
+**Quy tắc cứng:** Nếu 2 doc mâu thuẫn và chưa kịp cập nhật file này → dừng lại, hỏi trong nhóm, **không tự thêm/đổi entity, field, hay flow để "cho chạy được"**. Ghi lại câu hỏi vào mục 7 (Open Questions) thay vì tự quyết.
+
+---
+
+### 0.1 Phân loại lại yêu cầu ngày 11/09/2026
+
+Theo yêu cầu chuyển các mục phân loại nhầm ra khỏi Business Rules, xem chi tiết tại [Non-Functional-Requirements.md](Non-Functional-Requirements.md). Đây là nguồn quản lý được SSOT ủy quyền riêng cho nội dung trước đây mang mã **BR-34, BR-35, BR-36, BR-37, BR-38 và BR-48**, có ưu tiên trên nội dung lịch sử tương ứng trong Word và Design v2; không ghi đè SSOT.
+
+- BR-34 → NFR-NOTIFY-01; giải pháp kỹ thuật → Design v2 §6 (ARCH-NOTIFY-01).
+- BR-35/36/37/38 → NFR-PERF-API-01 / NFR-AVAIL-01 / NFR-BACKUP-01 / NFR-SEC-01.
+- BR-48 → NFR-PERF-REPORT-01 và FR-REPORT-RETRY-01.
+- Giữ mã BR cũ làm chỉ dẫn lịch sử, không tái sử dụng hoặc đánh lại các BR còn lại. Giữ các ngưỡng gốc; điều kiện nghiệm thu chưa rõ phải được chốt riêng.
+- Phân loại này không chốt thêm scope, role, entity, enum hoặc state. `FAILED` trong yêu cầu xuất báo cáo chưa phải enum được chốt. Outbox/job trong Design v2 là thiết kế kỹ thuật; các entity phụ thuộc vẫn phải được chốt theo §2 trước khi code.
+- Mật khẩu lưu bằng băm, thống nhất BR-5; tác vụ xuất báo cáo chỉ bị coi là thất bại khi thực sự thất bại, không suy ra từ mất kết nối phía người dùng.
+
+---
+
+### 0.2 Quyết định nghiệp vụ đồng bộ ngày 11/09/2026
+
+Nguồn được chấp nhận cho đợt đồng bộ này: bản BR do người dùng cung cấp, đã chép vào Word và [Business-Rules.md](Business-Rules.md). Sáu mục chuyển NFR vẫn theo §0.1. Các quyết định sau ghi đè mô tả cũ trong tài liệu phụ:
+
+- **BR-2/3/6/7/39:** năm vai trò; System Administrator tạo tài khoản đặc quyền, gán/đổi vai trò và khóa/mở khóa. Administrator đầu tiên khởi tạo lúc triển khai; Administrator hiện có được tạo thêm Administrator. Không tự khóa hoặc khóa Administrator hoạt động cuối cùng. Audit bao gồm Administrator và lý do khóa/mở khóa. Manager giữ cấu hình nghiệp vụ, không quản lý vai trò; báo cáo doanh thu vẫn Manager-only (BR-32/43).
+- **BR-50:** chính sách hạn hủy gắn với thời điểm xác nhận đăng ký; thay đổi cấu hình không hồi tố. Hủy tại hoặc trước deadline là đúng hạn. Cách lưu chính sách/phiên bản cần thiết kế, chưa tự chốt field mới.
+- **BR-20/21/53:** tối đa một Attendance cho mỗi Member–ClassSession. Chỉ tạo No-show sau buổi thực tế diễn ra và kết thúc, với đăng ký còn hiệu lực chưa có Attendance; không ghi đè Present/Absent, không ghi No-show cho đăng ký đã hủy. Coach được phân công hoặc Receptionist ghi Present/Absent.
+- **BR-54/33:** Manager chỉ hủy/dời buổi chưa bắt đầu. Hệ thống hủy các đăng ký còn hiệu lực, hoàn lượt đã trừ, không phạt trễ/No-show, giữ lịch sử. Dời lịch tạo buổi thay thế liên kết buổi cũ; không tự chuyển đăng ký hoặc giữ chỗ. Thông báo nêu việc hủy, hoàn lượt và cần đăng ký lại. Tên enum hủy do trung tâm chưa chốt.
+- **BR-30/55:** Invoice + InvoiceItem tạo trước thu tiền; chỉ nhận đủ mới kích hoạt gói. Hạn ban đầu hai tháng từ phát hành; cọc đầu tiên trong hạn đặt lại hạn tất toán thành 12 tháng từ khoản cọc đầu tiên; các khoản sau không gia hạn. Không tự thêm trạng thái quá hạn, tự hủy, mất cọc hoặc nhận tiền muộn khi BR chưa quy định.
+
+Bản BR mới không chứa mọi đề xuất đã trao đổi: quyền thu hồi vai trò Administrator cuối cùng, hạn hủy cá nhân sau khi buổi bắt đầu, xử lý gói hết hạn và tiền quá hạn vẫn được ghi mở tại §7. Quyết định nghiệp vụ đã chốt không đồng nghĩa mọi schema trong Design v2 đã được duyệt.
 
 ---
 
@@ -53,7 +84,25 @@ Khi có mâu thuẫn, đọc theo thứ tự sau (trên > dưới):
 >
 > **Cập nhật 09/09/2026:** bảng này trước đó là khung nháp, thiếu 11 entity đã có trong ERD v2 và dùng sai tên/module cho vài entity còn lại — đã đồng bộ lại đầy đủ theo ERD v2 hiện hành.
 
+<<<<<<< Updated upstream
 > **Cập nhật 10/09/2026:** tên field/property trong cột "PK" và "Field chính" đã đổi từ `PascalCase` sang `snake_case` (vd `RoleID` → `role_id`) theo quyết định naming mới ở §5.4. Tên Entity/Class (`Role`, `User`...) và tên Enum (`UserRole`...) giữ nguyên `PascalCase`, không đổi.
+=======
+| Entity | Module sở hữu | Field chính (nháp) | Quan hệ chính | Ghi chú |
+|---|---|---|---|---|
+| User | Identity | Id, Email, PasswordHash, Role | 1—1 với Member/Coach/Staff profile? | Role: xem Enum §3 |
+| Member | Membership | Id, UserId, ... | N—1 User; 1—N MemberPackage | Gói mua theo BR-9/10 |
+| MemberPackage | Membership | Id; các field chi tiết chờ đối soát | N—1 Member, N—1 MembershipPackage | BR-9/10/16/30; chưa chốt schema đầy đủ |
+| MembershipPackage | Membership | Id, Name, Price, DurationDays | 1—N MemberPackage | Danh mục gói |
+| Class | Scheduling | Id, SubjectId, RoomId, CoachId (nullable) | N—1 Room, N—1 Coach (tùy chọn) | |
+| ClassSession | Scheduling | Id, ClassId, StartTime, EndTime | N—1 Class | |
+| Enrollment | Scheduling | Id, MemberId, SessionId, Status | N—1 Member, N—1 ClassSession | BR-16/19/54; Class suy ra qua Session, enum hủy do trung tâm chờ chốt |
+| Payment | Payment | Id, InvoiceId, Amount, Method, Status | N—1 Invoice | BR-30/41; một khoản thu thuộc đúng một hóa đơn |
+| Invoice | Payment | Id; field hạn thanh toán chờ chốt | 1—N Payment, 1—N InvoiceItem; liên kết MemberPackage | BR-30/55 |
+| InvoiceItem | Payment | Id, InvoiceId; field chi tiết chờ chốt | N—1 Invoice | BR-30 |
+| Attendance | Training | Id; các FK chi tiết chờ chốt; Status | N—1 ClassSession; tối đa 1 bản ghi/Member/Session | BR-21; optional flow |
+| TrainingPlan | Training | Id, MemberId, CoachId, Content | N—1 Member, N—1 Coach | optional flow |
+| WorkoutSuggestion | AI | (xem `IAiRecommendationService`) | — | optional flow, không phải bảng DB bắt buộc |
+>>>>>>> Stashed changes
 
 > **Cập nhật 10/09/2026 (2) — Google Login:** tách entity `User` thành 4 entity: `UserAccount` (định danh + vòng đời — email, role, status), `UserCredential` (auth nội bộ — password_hash, 1—1 với `UserAccount`), `UserProfile` (thông tin hiển thị — full_name, phone, 1—1 với `UserAccount`), `UserExternalLogin` (auth ngoài, vd Google — quan hệ 1—N vì 1 user có thể gắn nhiều provider). Lý do: hỗ trợ đăng nhập Google (đã chốt là flow bắt buộc, không còn stretch), và tách rõ dữ liệu có vòng đời khác nhau (identity/auth/profile) để giảm conflict khi nhiều người cùng sửa song song. **FK ở toàn bộ entity khác không đổi tên cột** (`member_id`, `coach_id`, `issued_by_user_id`, `received_by_user_id`, `requested_by_user_id`, `approved_by_user_id`, `user_id`...) — chỉ đổi entity đích từ `User` sang `UserAccount`. `UserCredential.password_hash` là nullable (account tạo thuần qua Google không có password nội bộ). Entity `User` (dòng cũ) coi như **đã bị thay thế**, không dùng nữa.
 
@@ -97,6 +146,7 @@ Khi có mâu thuẫn, đọc theo thứ tự sau (trên > dưới):
 >
 > **Cập nhật 09/09/2026:** trước đó chỉ có 6/19 enum được liệt kê (5 enum còn lại toàn dấu `?`), và `UserRole` ghi giá trị không khớp ERD (`CenterManager` vs ERD ghi `MANAGER`). Đã điền đầy đủ 19 enum theo đúng giá trị đã dùng thống nhất trong ERD v2 / `entity-field-purpose.md` / Business Rules v1.2, và sửa `UserRole` cho khớp ERD.
 
+<<<<<<< Updated upstream
 > **Lưu ý naming:** cột "Dùng ở field" bên dưới dùng tên field `snake_case` (khớp §5.4/§2 sau cập nhật 10/09/2026); tên Entity trước dấu `.` (`Role`, `UserAccount`...) và tên Enum vẫn giữ `PascalCase`.
 
 > **Cập nhật 10/09/2026 (2):** thêm enum `ExternalAuthProvider` (mới, phục vụ `UserExternalLogin` — xem §2); sửa 2 dòng "Dùng ở field" của `UserRole`/`UserStatus` từ `User.*` sang `UserAccount.*` cho khớp việc tách entity.
@@ -125,6 +175,16 @@ Khi có mâu thuẫn, đọc theo thứ tự sau (trên > dưới):
 | `ExternalAuthProvider` | `Google` | `UserExternalLogin.provider` | Mới 10/09/2026 (2). Hiện chỉ `Google`; thêm provider khác sau (Facebook...) không cần đổi entity |
 
 *(`AiLog.query_type` và `AuditLog.action` là chuỗi tự do, không phải enum kín — xem ghi chú ở bảng Entity mục 2.)*
+=======
+| Enum | Giá trị | Ghi chú |
+|---|---|---|
+| `UserRole` | SystemAdministrator, CenterManager, Coach, Member, Receptionist | BR-2/3 bản cập nhật; đúng một vai trò mỗi tài khoản |
+| `MembershipStatus` | ? | Active / Expired / Cancelled... — chốt trong họp |
+| `EnrollmentStatus` | ? | Pending / Confirmed / Cancelled... |
+| `PaymentStatus` | ? | Pending / Paid / Failed / Refunded... |
+| `PaymentMethod` | ? | Cash / BankTransfer / Card... (MVP thủ công, xem §1.3) |
+| `AttendanceStatus` | Present, Absent, NoShow | BR-20/21/53; NoShow là cách viết mã của No-show, không có Late |
+>>>>>>> Stashed changes
 
 ---
 
@@ -186,6 +246,7 @@ Khi có mâu thuẫn, đọc theo thứ tự sau (trên > dưới):
 
 ## 7. Open Questions (chưa chốt — cần họp quyết định)
 
+<<<<<<< Updated upstream
 - [ ] Cơ chế serialize enum (JSON API response / lưu string trong DB): dùng `JsonStringEnumConverter` với naming policy `UPPER_SNAKE_CASE`, hay map thủ công ở DTO layer? (phát sinh khi điền §3 ngày 09/09/2026)
 - [ ] `ClassSession` chưa có state diagram chi tiết (chỉ có 4 giá trị liệt kê trong ERD: `Scheduled, Rescheduled, Cancelled, Completed`) — cần vẽ rõ điều kiện chuyển trạng thái, đặc biệt `Rescheduled` (có tạo `ClassSession` mới hay chỉ đổi field tại chỗ — xem `rescheduled_from_session_id`)
 - [ ] `Notification` và `AuditLog` không thuộc 6 module backend hiện có (Identity/Membership/Scheduling/Payment/Training/AI) — cần quyết định: tạo module `Shared`/`Notification` riêng, hay gộp vào 1 module sẵn có?
@@ -194,6 +255,23 @@ Khi có mâu thuẫn, đọc theo thứ tự sau (trên > dưới):
 - [ ] Business rule chi tiết cho luồng Google login (không tự tạo/tự link account trùng email khi chưa xác thực, chặn account pre-hijacking) — cần chép chính thức vào `SportManagement_BusinessRules_v1.2.docx` dưới dạng BR mới, hiện mới chỉ thống nhất miệng/chat nhóm (phát sinh khi thêm entity 10/09/2026 (2))
 - [ ] `WorkoutResult` chỉ nên tạo được khi `Enrollment.status = Confirmed` (member chưa hủy đăng ký) — FK `enrollment_id` mới (10/09/2026 (3)) chỉ đảm bảo Enrollment *tồn tại*, không đảm bảo còn hợp lệ; cần chép rule này chính thức vào `SportManagement_BusinessRules_v1.2.docx`, và cân nhắc có nên yêu cầu thêm `Attendance.status = Present` mới cho ghi WorkoutResult hay không (chưa quyết định)
 - [ ] <câu hỏi khác>
+=======
+- [x] **CS-01:** dùng tên ClassSession cho buổi học trong bộ tài liệu đồng bộ.
+- [x] **CS-02:** Enrollment đăng ký theo ClassSession (BR-16/19/54); Class suy ra qua Session.
+- [ ] **CS-03:** chốt FK và schema Attendance; tính duy nhất Member–Session và ba trạng thái đã chốt theo BR-21.
+- [ ] **CS-04:** chốt field mở rộng ClassSession, lịch lặp, room/coach thực tế, capacity và enum hủy do trung tâm trước khi code; ERD là đề xuất.
+- [ ] **CS-05:** Coach có thể trống lúc tạo Class (BR-12); còn cần chốt điều kiện phân công trước khi buổi diễn ra.
+- [x] **CS-06:** dời lịch tạo buổi thay thế, giữ liên kết buổi cũ theo BR-54; không sửa tại chỗ để tiếp tục đăng ký cũ. Tên enum và cơ chế kết thúc buổi còn theo CS-04/07.
+- [ ] **CS-07:** giới hạn Manager hủy/dời trước giờ bắt đầu đã chốt. Cần chốt tác nhân hoàn tất buổi, sửa điểm danh sớm hoặc sai và mở lại trạng thái cuối.
+- [x] **CS-08:** BR-54/33 chốt hủy đăng ký còn hiệu lực, hoàn lượt, thông báo và học viên tự đăng ký lại; không giữ chỗ. Khả năng dùng lượt trên gói hết hạn theo MEM-01.
+- [ ] **AUTH-01:** BR-6 cấm khóa Administrator cuối cùng nhưng chưa cấm thu hồi vai trò cuối cùng; chốt bảo vệ thao tác đổi vai trò và quyền xem audit của Administrator.
+- [ ] **BOOK-01:** BR-17 bản gửi chưa giới hạn hủy cá nhân trước giờ bắt đầu; chốt hạn cuối hủy, quy tắc chống trùng lịch và gói phải bao phủ ngày buổi học hay chỉ ngày đăng ký.
+- [ ] **MEM-01:** gói hết lượt được hoàn có trở lại Active không; lượt hoàn về gói hết thời hạn sử dụng thế nào; thời điểm bắt đầu gói sau thanh toán.
+- [ ] **PAY-01:** BR-55 đã chốt hai tháng/12 tháng; còn cách tính tháng/ngày cuối tháng, hạn chính xác, mức cọc tối thiểu, nhận tiền muộn, mất cọc và tiền nộp thêm. Không tự hủy hóa đơn hoặc tạo enum quá hạn.
+- [ ] **PAY-02:** đối soát BR-41/43/52 về tổng đã thu, tổng đã hoàn, điều chỉnh và giới hạn hoàn. Ví dụ thu đủ 1.000.000 rồi hoàn 200.000 làm công thức hiện tại BR-41 không còn đúng nếu tổng Payment lịch sử không đổi. Giữ nguyên BR để nhóm sửa, không triển khai công thức mâu thuẫn.
+- [ ] **AI-01:** xử lý hội viên chưa đủ 30 ngày lịch sử theo BR-26. BR-28 vẫn là NFR hiệu năng còn trong bản gửi; chốt đợt phân loại tiếp theo cho BR-4/5/7/27/28, chưa tự di chuyển thêm.
+- [ ] **NFR-REVIEW-01:** chốt điều kiện đo API/PDF, kỳ đo uptime, tiêu chí sao lưu/khôi phục và cách xác định tác vụ xuất báo cáo thất bại; xem `Non-Functional-Requirements.md` §2–3.
+>>>>>>> Stashed changes
 
 ---
 
@@ -211,3 +289,5 @@ Khi có mâu thuẫn, đọc theo thứ tự sau (trên > dưới):
 | 08/09/2026 | Thêm `Extensions/CorsExtensions.cs` (policy `Default`, đọc `Cors:AllowedOrigins`), `Extensions/SwaggerExtensions.cs`, `Extensions/JwtExtensions.cs` (stub) + `Middleware/` skeleton; bật CORS cho FE `http://localhost:3000` trong `Program.cs` | Hồ Lê Thiên An |
 | 08/09/2026 | Nâng target framework 3 project backend từ `net8.0` lên `net10.0` (LTS) — .NET 8/9 EOL 10/11/2026; update NuGet: EFCore/JwtBearer 10.0.11, Npgsql.EFCore.PostgreSQL 10.0.3, Swashbuckle 10.2.3; Dockerfile SDK/runtime image → 10.0 | Hồ Lê Thiên An |
 | 08/09/2026 | Sửa reference ở mục 0 từ `SportManagement_BusinessRules_v1.1.docx` (stale, file đã lên v1.2) → `SportManagement_BusinessRules_v1.2.docx`, khớp với `Center-Management-System-Design-v2.md` | Hồ Lê Thiên An |
+| 11/09/2026 | Phân loại lại BR-34–38 và BR-48; ủy quyền tài liệu NFR tại §0.1, giữ chỉ dẫn trong Word và đồng bộ Design v2. Không thay đổi domain/RBAC. | Codex theo yêu cầu người dùng |
+| 11/09/2026 | Đồng bộ bản BR mới: năm vai trò, BR-50/54/55, điểm danh; đối soát quan hệ domain cốt lõi và ghi rõ các chính sách còn mở. | Codex theo bản người dùng cung cấp |

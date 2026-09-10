@@ -81,3 +81,7 @@ Host=localhost;Port=5435;Database=sporthub;Username=sporthub;Password=Soicodoc12
 > Đây là password dev dùng chung cho môi trường local, không phải secret thật — đừng tái sử dụng cho môi trường khác.
 
 Xem chi tiết: [`docs/Center-Management-System-Design-v2.md`](docs/Center-Management-System-Design-v2.md)
+
+## Tài liệu nghiệp vụ đồng bộ ngày 11/09/2026
+
+Đọc [SSOT](docs/00-Source-of-Truth.md) trước; [Business Rules dạng Markdown](docs/Business-Rules.md) đồng nội dung với bản Word để review trên GitHub. [Design v2](docs/Center-Management-System-Design-v2.md) và [ClassSession state diagram](docs/ClassSession-diagram.md) phân biệt quyết định nghiệp vụ đã chốt với schema/state còn đề xuất. Các vấn đề chưa quyết định nằm tại SSOT §7; không triển khai theo giả định.
