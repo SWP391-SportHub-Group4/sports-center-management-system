@@ -133,7 +133,7 @@
 | `ClassID` (FK) | Buổi học thuộc lớp nào |
 | `RecurrenceID` (FK, nullable) | Sinh ra từ pattern nào — `null` nghĩa là session ad-hoc hoặc đã bị reschedule tách khỏi pattern |
 | `RoomID` (FK) | Phòng thực tế của buổi này (có thể khác `Classes.DefaultRoomID` nếu đổi phòng) |
-| `CoachID` (FK) | HLV thực tế dạy buổi này (có thể khác default nếu đổi HLV) |
+| `CoachID` (FK) | HLV thực tế dạy buổi này (có thể k711 098hác default nếu đổi HLV) |
 | `StartAtUtc` / `EndAtUtc` | Mốc thời gian tuyệt đối (UTC) — dùng để check trùng lịch, tính deadline hủy, tính No-show |
 | `Capacity` | Sức chứa thực tế buổi này (≤ MIN(Room, Class) tại thời điểm tạo — Manager chỉ được hạ, BR-51) |
 | `ConfirmedCount` | **Denormalized**, tăng/giảm nguyên tử mỗi khi có Enrollment CONFIRMED/hủy — dùng để chặn overbooking bằng 1 UPDATE có điều kiện thay vì COUNT() (constraint #2) |

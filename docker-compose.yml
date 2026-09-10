@@ -8,9 +8,9 @@ services:
     environment:
       POSTGRES_DB: sporthub
       POSTGRES_USER: sporthub
-      POSTGRES_PASSWORD: change_me_local_only
+      POSTGRES_PASSWORD: Soicodoc123@
     ports:
-      - "5432:5432"
+      - "5435:5432"
     volumes:
       - sporthub_pgdata:/var/lib/postgresql/data
 
@@ -23,7 +23,7 @@ services:
     depends_on:
       - postgres
     environment:
-      ConnectionStrings__Default: "Host=postgres;Database=sporthub;Username=sporthub;Password=change_me_local_only"
+      ConnectionStrings__Default: "Host=postgres;Database=sporthub;Username=sporthub;Password=Soicodoc123@"
       ASPNETCORE_ENVIRONMENT: Development
     ports:
       - "5000:8080"

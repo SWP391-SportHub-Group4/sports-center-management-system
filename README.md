@@ -51,17 +51,33 @@ Target framework: **net10.0** (cả 3 project). Modules trống chỉ có `.gitk
 ## Chạy local
 
 ```bash
-docker compose up -d          # Postgres
+docker compose up -d          # Postgres + Backend + Frontend
+```
+
+Chạy xong sẽ có 3 container: `sporthub-postgres`, `sporthub-backend`, `sporthub-frontend`. Kiểm tra bằng `docker ps` hoặc Docker Desktop.
+
+Muốn chạy backend/frontend ngoài Docker (debug trực tiếp trong Rider/VS Code) thì tắt container tương ứng rồi chạy thủ công:
+
+```bash
 cd backend/SportHub.API && dotnet run
 cd frontend && npm install && npm run dev
 ```
 
-## Thứ tự code (theo Design v2, mục 7)
+### Thông tin kết nối DB (local)
 
-1. Identity/RBAC
-2. Membership
-3. Lớp/Lịch/Booking
-4. Payment/Invoice/Report
-5. (Sprint sau) Training/Workout đầy đủ + AI suggestion (Flow 5) + Notification queue thật — AI assistant/chat (Flow 6) là stretch, chỉ làm nếu còn dư thời gian (xem SSOT §1.4)
+| Field | Giá trị |
+|---|---|
+| Host | `localhost` |
+| Port | `5435` |
+| Database | `sporthub` |
+| Username | `sporthub` |
+| Password | `Soicodoc123@` |
+
+Connection string tương ứng (đã có sẵn trong `appsettings.json`):
+```
+Host=localhost;Port=5435;Database=sporthub;Username=sporthub;Password=Soicodoc123@
+```
+
+> Đây là password dev dùng chung cho môi trường local, không phải secret thật — đừng tái sử dụng cho môi trường khác.
 
 Xem chi tiết: [`docs/Center-Management-System-Design-v2.md`](docs/Center-Management-System-Design-v2.md)
