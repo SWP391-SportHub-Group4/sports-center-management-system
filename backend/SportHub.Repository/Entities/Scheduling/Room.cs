@@ -1,16 +1,12 @@
 namespace SportHub.Repository.Entities;
 
-// Nguồn: docs/00-Source-of-Truth.md §2 (Entity đã chốt) — module Scheduling.
-// Danh mục phòng tập vật lý của trung tâm.
 public class Room
 {
-    public int RoomId { get; set; }
+    public int RoomId { get; set; } // PK
 
-    // Unique toàn trung tâm (BR-57, ràng buộc #14).
-    public string Name { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty; // unique toàn trung tâm
 
-    // Trần sức chứa vật lý — dùng để tính ClassSession.capacity = MIN(Room, Class) (BR-51).
-    public int Capacity { get; set; }
+    public int Capacity { get; set; } // trần sức chứa vật lý
 
     public ICollection<Class> Classes { get; set; } = new List<Class>();
     public ICollection<ClassSession> Sessions { get; set; } = new List<ClassSession>();

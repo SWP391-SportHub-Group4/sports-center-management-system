@@ -2,31 +2,23 @@ using SportHub.Repository.Enums;
 
 namespace SportHub.Repository.Entities;
 
-// Nguồn: docs/00-Source-of-Truth.md §2 (Entity đã chốt) — module Payment.
-// Từng GIAO DỊCH THU TIỀN thật cho 1 Invoice — tách khỏi Invoice vì có thể trả
-// nhiều lần/nhiều phương thức (Invoice bất biến, Payment là các lần thu nối tiếp).
 public class Payment
 {
-    public Guid PaymentId { get; set; }
+    public Guid PaymentId { get; set; } // PK
 
-    public Guid InvoiceId { get; set; }
+    public Guid InvoiceId { get; set; } // FK -> Invoice
 
     public Invoice? Invoice { get; set; }
 
-    // Tổng amount (status SUCCESS) không được vượt Invoice.total_amount (BR-41, ràng buộc #6).
-    public decimal Amount { get; set; }
+    public decimal Amount { get; set; } // số tiền lần thu này
 
-    // CASH/CARD/TRANSFER/EWALLET — MVP chủ yếu ghi nhận thủ công.
-    public PaymentMethod Method { get; set; }
+    public PaymentMethod Method { get; set; } // Cash/Card/Transfer/EWallet
 
-    // Nullable — mã tham chiếu từ cổng thanh toán ngoài (nếu có).
-    public string? ReferenceCode { get; set; }
+    public string? ReferenceCode { get; set; } // mã tham chiếu từ cổng ngoài, nếu có
 
-    // PENDING/SUCCESS/FAILED — chỉ SUCCESS mới tính vào tổng đã thu.
-    public PaymentStatus Status { get; set; }
+    public PaymentStatus Status { get; set; } // Pending/Success/Failed — chỉ Success tính vào tổng đã thu
 
-    // Nhân viên nào nhận tiền — audit, thường Receptionist.
-    public Guid ReceivedByUserId { get; set; }
+    public Guid ReceivedByUserId { get; set; } // FK -> UserAccount, nhân viên nhận tiền
 
     public UserAccount? ReceivedByUser { get; set; }
 

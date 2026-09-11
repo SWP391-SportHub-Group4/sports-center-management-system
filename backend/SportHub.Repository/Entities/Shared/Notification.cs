@@ -2,35 +2,25 @@ using SportHub.Repository.Enums;
 
 namespace SportHub.Repository.Entities;
 
-// Nguồn: docs/00-Source-of-Truth.md §2 (Entity đã chốt).
-// Module sở hữu CHƯA gán chính thức (không thuộc 6 module hiện có ở backend —
-// Identity/Membership/Scheduling/Payment/Training/AI) — xem SSOT §7 Open
-// Questions. Tạm đặt ở thư mục Entities/Shared, không tạo Module/ riêng cho tới
-// khi nhóm chốt. MVP: lưu trong DB, không gửi SMS/email thật (SSOT §1.3).
 public class Notification
 {
-    public Guid NotificationId { get; set; }
+    public Guid NotificationId { get; set; } // PK
 
-    public Guid UserId { get; set; }
+    public Guid UserId { get; set; } // FK -> UserAccount
 
     public UserAccount? User { get; set; }
 
-    // IN_APP/EMAIL/SMS — MVP: chỉ InApp thật sự hoạt động.
-    public NotificationChannel Channel { get; set; }
+    public NotificationChannel Channel { get; set; } // InApp/Email/Sms — MVP chỉ InApp hoạt động thật
 
-    // Loại sự kiện sinh ra thông báo này.
-    public NotificationSourceEventType SourceEventType { get; set; }
+    public NotificationSourceEventType SourceEventType { get; set; } // sự kiện sinh ra thông báo này
 
-    // Nullable — trỏ tới entity gây ra sự kiện (vd session_id nếu là CLASS_CANCELLED).
-    public Guid? SourceEntityId { get; set; }
+    public Guid? SourceEntityId { get; set; } // trỏ tới entity gây ra sự kiện (vd SessionId)
 
     public string Message { get; set; } = string.Empty;
 
-    // PENDING/SENT/FAILED/READ — vòng đời gửi + đã đọc chưa.
-    public NotificationStatus Status { get; set; }
+    public NotificationStatus Status { get; set; } // Pending/Sent/Failed/Read
 
-    // Số lần đã thử gửi lại (khi FAILED).
-    public int RetryCount { get; set; }
+    public int RetryCount { get; set; } // số lần thử gửi lại khi Failed
 
     public DateTime? LastAttemptAt { get; set; }
 

@@ -97,6 +97,14 @@ public class SportHubDbContext : DbContext
             entity.HasKey(e => e.RoleId);
             // Unique — 4 giá trị cố định, seed data (BR-55, ràng buộc #12).
             entity.HasIndex(e => e.RoleName).IsUnique();
+
+            // Seed 4 role cố định (SSOT §2/§3) — migration sẽ tự insert, không cần insert tay.
+            entity.HasData(
+                new Role { RoleId = 1, RoleName = Enums.UserRole.CenterManager },
+                new Role { RoleId = 2, RoleName = Enums.UserRole.Coach },
+                new Role { RoleId = 3, RoleName = Enums.UserRole.Member },
+                new Role { RoleId = 4, RoleName = Enums.UserRole.Receptionist }
+            );
         });
 
         modelBuilder.Entity<UserAccount>(entity =>
