@@ -1,20 +1,91 @@
+using System.Security.Claims;
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.IdentityModel.Tokens;
+using SportHub.Repository.Enums;
+using SportHub.Service.Utils.JWTService;
+
 namespace SportHub.API.Extensions;
 
-/// <summary>
-/// STUB — chưa implement. Xem TODO (bước 1 - Identity/RBAC) trong Program.cs cũ
-/// và docs/Center-Management-System-Design-v2.md mục 7.
-/// Khi làm Identity/RBAC, chuyển 2 dòng comment trong Program.cs vào đây:
-///   services.AddAuthentication(...).AddJwtBearer(...);
-///   services.AddAuthorization(options => { /* policies theo bảng RBAC */ });
-/// và đọc secret/issuer/audience từ appsettings (mục "Jwt": { "Issuer", "Audience", "Key" } — CHƯA có, cần thêm).
-/// </summary>
+// Token phải chứa claim ClaimTypes.NameIdentifier (user id) và ClaimTypes.Role (nameof(UserRole.x))
+// — xem SportHub.Service.Utils.JWTService.JwtService.GenerateAccessToken
 public static class JwtExtensions
 {
+    public const string CenterManagerPolicy = nameof(CenterManagerPolicy);
+    public const string CoachPolicy = nameof(CoachPolicy);
+    public const string MemberPolicy = nameof(MemberPolicy);
+    public const string ReceptionistPolicy = nameof(ReceptionistPolicy);
+    public const string AttendanceCheckInPolicy = nameof(AttendanceCheckInPolicy); // Coach + Receptionist
+
     public static IServiceCollection AddSportHubJwtAuthentication(
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        // TODO: implement khi làm Identity/RBAC (không phải phần của skeleton này).
+        services
+            .AddOptions<JwtOptions>()
+            .Bind(configuration.GetSection(nameof(JwtOptions)))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
+        var jwtOptions = configuration.GetSection(nameof(JwtOptions)).Get<JwtOptions>()
+            ?? throw new InvalidOperationException($"Thiếu section '{nameof(JwtOptions)}' trong config.");
+
+        var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.SecretKey));
+
+        services
+            .AddAuthentication(options =>
+            {
+                options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+                options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+            })
+            .AddJwtBearer(options =>
+            {
+                options.MapInboundClaims = false;
+                options.TokenValidationParameters = new TokenValidationParameters
+                {
+                    ValidateIssuer = true,
+                    ValidateAudience = true,
+                    ValidateLifetime = true,
+                    ValidateIssuerSigningKey = true,
+                    ValidIssuer = jwtOptions.Issuer,
+                    ValidAudience = jwtOptions.Audience,
+                    IssuerSigningKey = signingKey,
+                    ValidAlgorithms = new[] { SecurityAlgorithms.HmacSha256 },
+                    ClockSkew = TimeSpan.FromMinutes(1),
+                    NameClaimType = ClaimTypes.NameIdentifier,
+                    RoleClaimType = ClaimTypes.Role,
+                };
+
+                options.Events = new JwtBearerEvents
+                {
+                    OnChallenge = context =>
+                    {
+                        context.HandleResponse();
+                        context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                        context.Response.ContentType = "application/json";
+                        return context.Response.WriteAsync(
+                            """{"error":"unauthorized","message":"Token thiếu, sai định dạng hoặc đã hết hạn."}""");
+                    },
+                    OnForbidden = context =>
+                    {
+                        context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                        context.Response.ContentType = "application/json";
+                        return context.Response.WriteAsync(
+                            """{"error":"forbidden","message":"Tài khoản không có quyền thực hiện hành động này."}""");
+                    }
+                };
+            });
+
+        services.AddAuthorizationBuilder()
+            .SetFallbackPolicy(new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build())
+            .AddPolicy(CenterManagerPolicy, p => p.RequireRole(nameof(UserRole.CenterManager)))
+            .AddPolicy(CoachPolicy, p => p.RequireRole(nameof(UserRole.Coach)))
+            .AddPolicy(MemberPolicy, p => p.RequireRole(nameof(UserRole.Member)))
+            .AddPolicy(ReceptionistPolicy, p => p.RequireRole(nameof(UserRole.Receptionist)))
+            .AddPolicy(AttendanceCheckInPolicy, p => p.RequireRole(
+                nameof(UserRole.Coach), nameof(UserRole.Receptionist)));
+
         return services;
     }
 }
