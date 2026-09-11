@@ -5,28 +5,28 @@ namespace SportHub.Repository.Entities;
 // CoachMemberRelationship ACTIVE với Member đó (đảm bảo đúng quyền phụ trách, BR-23).
 public class WorkoutPlan
 {
-    public Guid plan_id { get; set; }
+    public Guid PlanId { get; set; }
 
-    public Guid member_id { get; set; }
+    public Guid MemberId { get; set; }
 
     public UserAccount? Member { get; set; }
 
-    public Guid coach_id { get; set; }
+    public Guid CoachId { get; set; }
 
     public UserAccount? Coach { get; set; }
 
     // Trỏ về đúng quan hệ Coach–Member cho phép hành động này — dùng để authorize + audit.
-    public Guid relationship_id { get; set; }
+    public Guid RelationshipId { get; set; }
 
     public CoachMemberRelationship? Relationship { get; set; }
 
     // Copy/snapshot mục tiêu & trình độ tại thời điểm lập plan (có thể khác
     // MemberTrainingProfile hiện tại nếu profile đã update sau đó).
-    public string goal { get; set; } = string.Empty;
+    public string Goal { get; set; } = string.Empty;
 
-    public string level { get; set; } = string.Empty;
+    public string Level { get; set; } = string.Empty;
 
-    public DateTime created_at { get; set; }
+    public DateTime CreatedAt { get; set; }
 
     public ICollection<WorkoutPlanItem> Items { get; set; } = new List<WorkoutPlanItem>();
 }

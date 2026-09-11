@@ -5,18 +5,18 @@ namespace SportHub.Repository.Entities;
 // tập (1–N).
 public class WorkoutPlanItem
 {
-    public Guid item_id { get; set; }
+    public Guid ItemId { get; set; }
 
-    public Guid plan_id { get; set; }
+    public Guid PlanId { get; set; }
 
     public WorkoutPlan? Plan { get; set; }
 
-    public string exercise { get; set; } = string.Empty;
+    public string Exercise { get; set; } = string.Empty;
 
-    public int sets { get; set; }
+    public int Sets { get; set; }
 
-    public int reps { get; set; }
+    public int Reps { get; set; }
 
     // Ghi chú thêm (tempo, nghỉ giữa hiệp...).
-    public string? notes { get; set; }
+    public string? Notes { get; set; }
 }

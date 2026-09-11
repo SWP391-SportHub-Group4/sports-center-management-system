@@ -6,22 +6,22 @@ namespace SportHub.Repository.Entities;
 // xuống stretch, chỉ log nếu flow đó thực sự được triển khai; SSOT §1.4.)
 public class AiLog
 {
-    public Guid log_id { get; set; }
+    public Guid LogId { get; set; }
 
-    public Guid user_id { get; set; }
+    public Guid UserId { get; set; }
 
     public UserAccount? User { get; set; }
 
     // Loại truy vấn (vd "WORKOUT_SUGGESTION") — chuỗi tự do, KHÔNG phải enum kín.
-    public string query_type { get; set; } = string.Empty;
+    public string QueryType { get; set; } = string.Empty;
 
     // jsonb — input thực tế gửi cho AI, debug khi kết quả sai.
-    public string input_payload { get; set; } = string.Empty;
+    public string InputPayload { get; set; } = string.Empty;
 
     // jsonb — kết quả AI trả về.
-    public string response_payload { get; set; } = string.Empty;
+    public string ResponsePayload { get; set; } = string.Empty;
 
-    public int response_time_ms { get; set; }
+    public int ResponseTimeMs { get; set; }
 
-    public DateTime created_at { get; set; }
+    public DateTime CreatedAt { get; set; }
 }

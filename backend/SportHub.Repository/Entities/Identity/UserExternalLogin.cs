@@ -8,23 +8,23 @@ namespace SportHub.Repository.Entities;
 // gắn nhiều provider theo thời gian.
 public class UserExternalLogin
 {
-    public Guid external_login_id { get; set; }
+    public Guid ExternalLoginId { get; set; }
 
-    public Guid user_id { get; set; }
+    public Guid UserId { get; set; }
 
     public UserAccount? UserAccount { get; set; }
 
     // GOOGLE — hiện chỉ Google, mở rộng provider khác không cần đổi entity.
-    public ExternalAuthProvider provider { get; set; }
+    public ExternalAuthProvider Provider { get; set; }
 
     // ID phía provider trả về (Google `sub`) — cùng `provider` tạo unique composite
     // (ràng buộc #15) — chặn 1 tài khoản Google bị link vào 2 UserAccount khác nhau.
-    public string provider_user_id { get; set; } = string.Empty;
+    public string ProviderUserId { get; set; } = string.Empty;
 
     // Nullable, MVP CHƯA mã hoá — nợ kỹ thuật, xem SSOT §7 Open Questions.
     // Không lưu access token vì sống ngắn hạn, không cần persist.
-    public string? refresh_token { get; set; }
+    public string? RefreshToken { get; set; }
 
     // Mốc link provider — cũng là mốc dùng cho ràng buộc #16 (user_id, provider unique).
-    public DateTime created_at { get; set; }
+    public DateTime CreatedAt { get; set; }
 }

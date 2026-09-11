@@ -8,31 +8,31 @@ namespace SportHub.Repository.Entities;
 // ràng buộc #1–#4 (Design v2 §3).
 public class Enrollment
 {
-    public Guid enrollment_id { get; set; }
+    public Guid EnrollmentId { get; set; }
 
-    public Guid session_id { get; set; }
+    public Guid SessionId { get; set; }
 
     public ClassSession? Session { get; set; }
 
-    public Guid member_id { get; set; }
+    public Guid MemberId { get; set; }
 
     public UserAccount? Member { get; set; }
 
     // Gói nào bị trừ remaining_sessions cho lượt đăng ký này.
-    public Guid member_package_id { get; set; }
+    public Guid MemberPackageId { get; set; }
 
     public MemberPackage? MemberPackage { get; set; }
 
     // CONFIRMED/CANCELLED_ON_TIME/CANCELLED_LATE — quyết định có hoàn credit hay
     // không (BR-17/18).
-    public EnrollmentStatus status { get; set; }
+    public EnrollmentStatus Status { get; set; }
 
-    public DateTime registered_at { get; set; }
+    public DateTime RegisteredAt { get; set; }
 
-    public DateTime? cancelled_at { get; set; }
+    public DateTime? CancelledAt { get; set; }
 
     // Nullable — ai bấm hủy, có thể khác Member (vd Receptionist hủy giúp) — audit.
-    public Guid? cancelled_by_user_id { get; set; }
+    public Guid? CancelledByUserId { get; set; }
 
     public UserAccount? CancelledByUser { get; set; }
 

@@ -11,20 +11,18 @@ namespace SportHub.Repository.Entities;
 // sang UserAccount.
 public class UserAccount
 {
-    public Guid user_id { get; set; }
+    public Guid UserId { get; set; }
 
-    // Unique không phân biệt hoa/thường (BR-1/BR-49, ràng buộc #9) — cấu hình qua
-    // cột kiểu citext ở Fluent API (AppDbContext), xem Design v2 §3.
-    public string email { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
 
-    public int role_id { get; set; }
+    public int RoleId { get; set; }
 
     public Role? Role { get; set; }
 
     // ACTIVE/BANNED/DEACTIVATED — không xoá cứng user (giữ lịch sử Payment/Attendance).
-    public UserStatus status { get; set; }
+    public UserStatus Status { get; set; }
 
-    public DateTime created_at { get; set; }
+    public DateTime CreatedAt { get; set; }
 
     // 1—1: local auth (nullable — account Google-only có thể chưa có row này).
     public UserCredential? Credential { get; set; }

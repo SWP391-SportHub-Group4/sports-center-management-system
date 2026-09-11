@@ -11,22 +11,22 @@ namespace SportHub.Repository.Entities;
 // phải tự check thêm.
 public class WorkoutResult
 {
-    public Guid result_id { get; set; }
+    public Guid ResultId { get; set; }
 
-    public Guid enrollment_id { get; set; }
+    public Guid EnrollmentId { get; set; }
 
     public Enrollment? Enrollment { get; set; }
 
     // Ai ghi nhận — không suy ra được qua Enrollment nên vẫn giữ FK riêng.
-    public Guid coach_id { get; set; }
+    public Guid CoachId { get; set; }
 
     public UserAccount? Coach { get; set; }
 
     // Ghi chú tiến độ (khách quan — vd "nâng được thêm 5kg").
-    public string? progress_note { get; set; }
+    public string? ProgressNote { get; set; }
 
     // Nhận xét của Coach (định tính).
-    public string? coach_comment { get; set; }
+    public string? CoachComment { get; set; }
 
-    public DateTime recorded_at { get; set; }
+    public DateTime RecordedAt { get; set; }
 }

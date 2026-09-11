@@ -7,11 +7,11 @@ namespace SportHub.Repository.Entities;
 public class UserCredential
 {
     // PK, đồng thời là FK → UserAccount (quan hệ 1–1, dùng chung giá trị user_id).
-    public Guid user_id { get; set; }
+    public Guid UserId { get; set; }
 
     public UserAccount? UserAccount { get; set; }
 
     // Nullable: account tạo thuần qua Google (chưa từng đặt password nội bộ) để trống.
     // POST /api/auth/login chỉ cho phép khi field này khác null.
-    public string? password_hash { get; set; }
+    public string? PasswordHash { get; set; }
 }

@@ -8,20 +8,20 @@ namespace SportHub.Repository.Entities;
 // tham số (dễ bị giả mạo/không chính xác). Chi tiết field: docs/entity-field-purpose.md § MEMBER_TRAINING_PROFILE.
 public class MemberTrainingProfile
 {
-    public Guid profile_id { get; set; }
+    public Guid ProfileId { get; set; }
 
     // Unique — 1 Member chỉ có 1 hồ sơ (ràng buộc 1–1 với UserAccount).
-    public Guid member_id { get; set; }
+    public Guid MemberId { get; set; }
 
     public UserAccount? Member { get; set; }
 
-    public string goal { get; set; } = string.Empty;
+    public string Goal { get; set; } = string.Empty;
 
-    public ExperienceLevel experience_level { get; set; }
+    public ExperienceLevel ExperienceLevel { get; set; }
 
     // Ghi chú tự do (chấn thương, hạn chế...) — Coach tham khảo khi lên plan.
-    public string? notes { get; set; }
+    public string? Notes { get; set; }
 
     // Biết hồ sơ có đang cũ/stale không (AI dựa vào profile cũ có thể gợi ý sai).
-    public DateTime updated_at { get; set; }
+    public DateTime UpdatedAt { get; set; }
 }

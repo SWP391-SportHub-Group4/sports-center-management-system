@@ -14,9 +14,6 @@ public static class SwaggerExtensions
                 Title = "SportHub API",
                 Version = "v1",
             });
-
-            // TODO (sau khi có JWT - xem JwtExtensions.cs): thêm SecurityDefinition + SecurityRequirement
-            // để Swagger UI có nút "Authorize" nhập Bearer token.
         });
 
         return services;

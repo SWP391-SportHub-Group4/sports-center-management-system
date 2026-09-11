@@ -8,22 +8,22 @@ namespace SportHub.Repository.Entities;
 // trùng lặp có thể lệch nhau. State machine: SSOT §4 / Design v2 §2.2.
 public class Attendance
 {
-    public Guid attendance_id { get; set; }
+    public Guid AttendanceId { get; set; }
 
     // Unique — enforce đúng quan hệ 1-1 với Enrollment (ràng buộc #17).
-    public Guid enrollment_id { get; set; }
+    public Guid EnrollmentId { get; set; }
 
     public Enrollment? Enrollment { get; set; }
 
     // PRESENT/ABSENT: Coach/Receptionist ghi tay. NO_SHOW: AttendanceFinalizerJob
     // tự sinh sau end_at_utc nếu không check-in và không có Absent ghi tay (BR-53).
-    public AttendanceStatus status { get; set; }
+    public AttendanceStatus Status { get; set; }
 
-    public DateTime? check_in_time { get; set; }
+    public DateTime? CheckInTime { get; set; }
 
     // Nullable — ai thực hiện check-in (Coach/Receptionist); null nếu do job tự
     // động tạo (NO_SHOW).
-    public Guid? checked_in_by_user_id { get; set; }
+    public Guid? CheckedInByUserId { get; set; }
 
     public UserAccount? CheckedInByUser { get; set; }
 }

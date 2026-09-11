@@ -5,8 +5,12 @@ using SportHub.Repository;
 var builder = WebApplication.CreateBuilder(args);
 
 // ---- DB (Postgres) ----
+// Entity/property dùng PascalCase (chuẩn C#) — UseSnakeCaseNamingConvention() tự
+// động map sang tên cột/bảng snake_case (chuẩn Postgres) khi sinh SQL/migration.
 builder.Services.AddDbContext<SportHubDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("Default")));
+    options
+        .UseNpgsql(builder.Configuration.GetConnectionString("Default"))
+        .UseSnakeCaseNamingConvention());
 
 // ---- CORS (FE Next.js port 3000) ----
 builder.Services.AddSportHubCors(builder.Configuration);

@@ -7,13 +7,13 @@ namespace SportHub.Repository.Entities;
 public class UserProfile
 {
     // PK, đồng thời là FK → UserAccount (quan hệ 1–1, dùng chung giá trị user_id).
-    public Guid user_id { get; set; }
+    public Guid UserId { get; set; }
 
     public UserAccount? UserAccount { get; set; }
 
-    public string full_name { get; set; } = string.Empty;
+    public string FullName { get; set; } = string.Empty;
 
     // Unique nếu có giá trị (nullable, cho phép nhiều user cùng để trống; BR-54,
     // ràng buộc #11 — partial unique index WHERE phone IS NOT NULL).
-    public string? phone { get; set; }
+    public string? Phone { get; set; }
 }
