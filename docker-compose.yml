@@ -1,16 +1,14 @@
-# MVP scope theo Design v2, mục 6: chỉ Postgres + Backend + Frontend.
-# Redis / RabbitMQ / Nginx / AI service riêng CHƯA thêm — chỉ thêm khi flow thực sự cần.
 services:
   postgres:
     image: postgres:16-alpine
     container_name: sporthub-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: sporthub
-      POSTGRES_USER: sporthub
-      POSTGRES_PASSWORD: Soicodoc123@
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
-      - "5435:5432"
+      - "${POSTGRES_PORT}:5432"
     volumes:
       - sporthub_pgdata:/var/lib/postgresql/data
 
@@ -23,7 +21,8 @@ services:
     depends_on:
       - postgres
     environment:
-      ConnectionStrings__Default: "Host=postgres;Database=sporthub;Username=sporthub;Password=Soicodoc123@"
+      ConnectionStrings__Default: "Host=postgres;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}"
+      JwtOptions__SecretKey: ${JwtOptions__SecretKey}
       ASPNETCORE_ENVIRONMENT: Development
     ports:
       - "5000:8080"
@@ -36,7 +35,7 @@ services:
     depends_on:
       - backend
     environment:
-      NEXT_PUBLIC_API_BASE_URL: "http://localhost:5000"
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL}
     ports:
       - "3000:3000"
 

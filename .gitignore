@@ -3,6 +3,9 @@ backend/**/bin/
 backend/**/obj/
 *.user
 
+## Env
+.env
+
 ## Node / Next.js
 frontend/node_modules/
 frontend/.next/
