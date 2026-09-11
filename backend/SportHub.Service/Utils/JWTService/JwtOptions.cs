@@ -10,7 +10,7 @@ public class JwtOptions
     [Required]
     public string Audience { get; set; } = string.Empty;
 
-    [Required, MinLength(32)] // HMAC-SHA256 cần key >= 256 bit
+    [Required, MinLength(32)]
     public string SecretKey { get; set; } = string.Empty;
 
     [Range(1, 1440)]

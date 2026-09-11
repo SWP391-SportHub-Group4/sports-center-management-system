@@ -8,7 +8,6 @@ namespace SportHub.Service.Utils.JWTService;
 
 public static class JwtService
 {
-    // Helper chuẩn hoá claim (đúng ClaimTypes mà JwtExtensions dùng để validate/authorize)
     public static string GenerateAccessToken(Guid userId, UserRole role, JwtOptions options)
     {
         var claims = new[]
@@ -29,7 +28,7 @@ public static class JwtService
             issuer: options.Issuer,
             audience: options.Audience,
             claims: claims,
-            expires: DateTime.UtcNow.AddMinutes(options.AccessTokenExpiryMinutes), // UtcNow, không dùng Now (lệch giờ server)
+            expires: DateTime.UtcNow.AddMinutes(options.AccessTokenExpiryMinutes),
             signingCredentials: signingCredentials
         );
 

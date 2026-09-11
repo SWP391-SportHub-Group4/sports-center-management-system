@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -8,15 +9,13 @@ using SportHub.Service.Utils.JWTService;
 
 namespace SportHub.API.Extensions;
 
-// Token phải chứa claim ClaimTypes.NameIdentifier (user id) và ClaimTypes.Role (nameof(UserRole.x))
-// — xem SportHub.Service.Utils.JWTService.JwtService.GenerateAccessToken
 public static class JwtExtensions
 {
     public const string CenterManagerPolicy = nameof(CenterManagerPolicy);
     public const string CoachPolicy = nameof(CoachPolicy);
     public const string MemberPolicy = nameof(MemberPolicy);
     public const string ReceptionistPolicy = nameof(ReceptionistPolicy);
-    public const string AttendanceCheckInPolicy = nameof(AttendanceCheckInPolicy); // Coach + Receptionist
+    public const string AttendanceCheckInPolicy = nameof(AttendanceCheckInPolicy);
 
     public static IServiceCollection AddSportHubJwtAuthentication(
         this IServiceCollection services,
@@ -30,6 +29,17 @@ public static class JwtExtensions
 
         var jwtOptions = configuration.GetSection(nameof(JwtOptions)).Get<JwtOptions>()
             ?? throw new InvalidOperationException($"Thiếu section '{nameof(JwtOptions)}' trong config.");
+
+        var validationResults = new List<ValidationResult>();
+        if (!Validator.TryValidateObject(jwtOptions, new ValidationContext(jwtOptions), validationResults, true))
+        {
+            var errors = string.Join(" | ", validationResults.Select(r => r.ErrorMessage));
+            throw new InvalidOperationException(
+                $"Cấu hình JwtOptions không hợp lệ: {errors}. " +
+                "Dev: set trong appsettings.Development.json. " +
+                "Production: set qua biến môi trường JwtOptions__SecretKey (>= 32 ký tự), " +
+                "không để giá trị mặc định trong appsettings.json.");
+        }
 
         var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.SecretKey));
 

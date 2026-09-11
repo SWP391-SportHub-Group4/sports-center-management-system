@@ -5,7 +5,7 @@ namespace SportHub.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[AllowAnonymous] // fallback policy yêu cầu auth mặc định -> health check cần public
+[AllowAnonymous]
 public class HealthController : ControllerBase
 {
     [HttpGet]
