@@ -14,6 +14,19 @@ public static class SwaggerExtensions
                 Title = "SportHub API",
                 Version = "v1",
             });
+
+            options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+            {
+                Type = SecuritySchemeType.Http,
+                Scheme = "bearer",
+                BearerFormat = "JWT",
+                Description = "Dán access token vào đây (không cần gõ chữ \"Bearer \")",
+            });
+
+            options.AddSecurityRequirement(document => new OpenApiSecurityRequirement
+            {
+                [new OpenApiSecuritySchemeReference("Bearer", document)] = [],
+            });
         });
 
         return services;
