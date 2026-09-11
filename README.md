@@ -27,17 +27,20 @@ backend/
 │   ├── Extensions/                # IServiceCollection/WebApplication extension methods (giữ Program.cs gọn)
 │   │   ├── CorsExtensions.cs      # policy "Default", đọc Cors:AllowedOrigins (đã dùng)
 │   │   ├── SwaggerExtensions.cs   # AddSportHubSwagger / UseSportHubSwagger (đã dùng)
-│   │   └── JwtExtensions.cs       # STUB — chưa implement, chờ Identity/RBAC
+│   │   └── JwtExtensions.cs       # AddSportHubJwtAuthentication — JWT Bearer + Policy theo RBAC Matrix (docs mục 5)
 │   ├── Middleware/                # trống — .gitkeep, chưa có middleware custom nào
 │   ├── Modules/                   # trống — .gitkeep, mỗi thư mục = 1 flow, chờ Controller theo module
 │   │   ├── AI/  Identity/  Membership/  Payment/  Scheduling/  Training/
 │   ├── Program.cs
 │   └── appsettings*.json
 ├── SportHub.Service/               # Business logic theo module
-│   └── Modules/
-│       ├── AI/
-│       │   └── IAiRecommendationService.cs   # code thật duy nhất trong Service hiện tại
-│       └── Identity/ Membership/ Payment/ Scheduling/ Training/   # trống — .gitkeep
+│   ├── Modules/
+│   │   ├── AI/
+│   │   │   └── IAiRecommendationService.cs   # code thật duy nhất trong Modules hiện tại
+│   │   └── Identity/ Membership/ Payment/ Scheduling/ Training/   # trống — .gitkeep
+│   └── Utils/JWTService/
+│       ├── JwtOptions.cs          # bind từ config section "JwtOptions"
+│       └── JwtService.cs          # GenerateAccessToken(userId, role, options)
 └── SportHub.Repository/            # EF Core: DbContext, Entities, Migrations
     ├── SportHubDbContext.cs
     ├── Entities/                   # trống — .gitkeep
@@ -50,18 +53,34 @@ Target framework: **net10.0** (cả 3 project). Modules trống chỉ có `.gitk
 
 ## Chạy local
 
+### Cách 1: Docker Compose (cả 3 service)
+
 ```bash
-docker compose up -d          # Postgres + Backend + Frontend
+cp .env.example .env          # lần đầu — xem giá trị mẫu trong .env.example
+docker compose up -d
 ```
 
 Chạy xong sẽ có 3 container: `sporthub-postgres`, `sporthub-backend`, `sporthub-frontend`. Kiểm tra bằng `docker ps` hoặc Docker Desktop.
 
-Muốn chạy backend/frontend ngoài Docker (debug trực tiếp trong Rider/VS Code) thì tắt container tương ứng rồi chạy thủ công:
+| Thành phần | Link |
+|---|---|
+| Backend — Swagger UI | http://localhost:5000/swagger |
+| Frontend | http://localhost:3000 |
+
+### Cách 2: Chạy riêng từng phần (debug trong Rider/VS Code)
+
+Tắt container tương ứng trong docker-compose trước khi chạy thủ công để tránh trùng port:
 
 ```bash
 cd backend/SportHub.API && dotnet run
 cd frontend && npm install && npm run dev
 ```
+
+| Thành phần | Link |
+|---|---|
+| Backend — Swagger UI (http) | http://localhost:5100/swagger |
+| Backend — Swagger UI (https) | https://localhost:7100/swagger |
+| Frontend | http://localhost:3000 |
 
 ### Thông tin kết nối DB (local)
 
