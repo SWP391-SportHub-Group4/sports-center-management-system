@@ -296,7 +296,9 @@ erDiagram
     }
 ```
 
-> **Naming (cập nhật 10/09/2026):** tên field/attribute trong mỗi entity block ở trên đã đổi từ `PascalCase` sang `snake_case` (vd `UserID` → `user_id`), khớp `00-Source-of-Truth.md` §5.4. Tên bảng (`USER_ACCOUNTS`, `MEMBER_TRAINING_PROFILE`...) và tên kiểu enum (`UserStatus`, `ExperienceLevel`...) giữ nguyên `PascalCase`/UPPER_CASE, không đổi.
+> **Naming (cập nhật 10/09/2026):** tên field/attribute trong mỗi entity block ở trên đã đổi từ `PascalCase` sang `snake_case` (vd `UserID` → `user_id`), khớp `00-Source-of-Truth.md` §5.4 (tại thời điểm đó). Tên bảng (`USER_ACCOUNTS`, `MEMBER_TRAINING_PROFILE`...) và tên kiểu enum (`UserStatus`, `ExperienceLevel`...) giữ nguyên `PascalCase`/UPPER_CASE, không đổi.
+>
+> **Cập nhật 11/09/2026 — tách 2 tầng naming:** `00-Source-of-Truth.md` §5.4 đã đảo ngược naming **property C#** (entity trong code) từ `snake_case` về `PascalCase` (vd `RoleId`, `UserId`) — xem SSOT §2/§3/§5.4. **ERD ở mục này mô tả tầng DB (Postgres), không đổi theo** — cột vẫn `snake_case` như trên (`user_id`, `role_id`...), vì package `EFCore.NamingConventions` (`.UseSnakeCaseNamingConvention()` ở `Program.cs`) tự map property `PascalCase` (code) ↔ cột `snake_case` (DB) — 2 tầng khác nhau, không cần đồng bộ 1-1 nữa. Bảng ràng buộc DB (§3) và raw SQL trong `SportHubDbContext.cs` tiếp tục dùng tên cột `snake_case` như ERD dưới đây, không đổi.
 >
 > **Unique constraints (cập nhật 10/09/2026):** đã đánh dấu `UK` cho mọi field unique (ngoài PK) trong ERD trên — `USER_ACCOUNTS.email` (BR-1/BR-49), `USER_PROFILES.phone` (BR-54, nullable — chỉ unique khi có giá trị), `ROLES.role_name` (BR-55), `MEMBERSHIP_PACKAGES.name` (BR-56), `ROOMS.name` (BR-57), `INVOICES.invoice_number` (BR-58, đã có sẵn ở constraint #5 mục 3), `MEMBER_TRAINING_PROFILE.member_id` (FK, UK — quan hệ 1–1 với UserAccount), `USER_EXTERNAL_LOGINS.provider_user_id` (composite UK cùng `provider` — 1 tài khoản Google không link được vào 2 `UserAccount`). Nguồn business rule đầy đủ: `SportManagement_BusinessRules_v1.2.docx` §L (Unique Constraints Summary). Ràng buộc unique dạng composite/partial (`Enrollment`, `CoachMemberRelationship` khi ACTIVE/CONFIRMED; `USER_EXTERNAL_LOGINS` composite) không thể hiện bằng `UK` trên 1 field trong ERD — xem bảng ràng buộc DB ở mục 3 bên dưới (#1, #7, #15, #16).
 >
@@ -350,7 +352,7 @@ stateDiagram-v2
     ABSENT --> [*]
     NO_SHOW --> [*]
 ```
-*Job nền (`AttendanceFinalizerJob`) chạy sau `end_at_utc` của mỗi session: mọi `Enrollment.status = CONFIRMED` chưa có `Attendance` → tạo `Attendance.status = NO_SHOW`.*
+*Job nền (`AttendanceFinalizerJob`) chạy sau `end_at_utc` của mỗi session: mọi `Enrollment.Status = CONFIRMED` chưa có `Attendance` → tạo `Attendance.Status = NO_SHOW`.*
 
 ### 2.3 Invoice
 
@@ -408,11 +410,11 @@ Không được để các ràng buộc này chỉ nằm ở API layer — phả
 | Ràng buộc | Nội dung | BR liên quan |
 |---|---|---|
 | Nơi cấu hình deadline hủy lớp | Lưu trong bảng cấu hình hệ thống (`SystemSettings` hoặc field `cancellation_deadline_hours` trên `MembershipPackages`/`Classes` nếu muốn cấu hình theo từng loại), do Center Manager chỉnh qua `PUT /api/settings`; đọc giá trị **tại thời điểm hủy**, không hardcode trong code | BR-50 |
-| Công thức refund/adjustment mặc định | `REFUND.amount = Invoice.total_amount × (MemberPackage.remaining_sessions / MembershipPackage.session_limit)` cho gói theo buổi; theo tỷ lệ ngày còn lại cho gói theo thời hạn. Manager có thể override khi duyệt | BR-52 |
+| Công thức refund/adjustment mặc định | `REFUND.Amount = Invoice.TotalAmount × (MemberPackage.RemainingSessions / MembershipPackage.SessionLimit)` cho gói theo buổi; theo tỷ lệ ngày còn lại cho gói theo thời hạn. Manager có thể override khi duyệt | BR-52 |
 | Khi nào Attendance = Absent vs No-show | `Absent`: Coach/Receptionist **chủ động ghi tay** (vd. có lý do chính đáng); `No-show`: **job tự động** sinh ra sau `end_at_utc` khi Enrollment CONFIRMED không có check-in và không hủy đúng hạn | BR-53 |
-| Google login — không tự tạo/tự link account trùng email | Nếu `/api/auth/google` nhận email đã tồn tại ở `UserAccounts` nhưng chưa có `UserExternalLogin` khớp (`provider=Google`) → từ chối, **không** tự tạo account mới, **không** tự link — trả lỗi yêu cầu đăng nhập password trước rồi vào Cài đặt để link. Chỉ link khi request đến từ user đã có JWT hợp lệ (`POST /api/auth/google/link`). Chặn kiểu tấn công account pre-hijacking (OWASP) — xem `00-Source-of-Truth.md` §7 Open Questions | *(BR mới — chưa chép chính thức vào Business Rules v1.2, xem Open Question tương ứng)* |
-| Đăng nhập password chỉ khi có credential nội bộ | `POST /api/auth/login` chỉ cho phép khi `UserCredentials.password_hash IS NOT NULL` cho `user_id` đó (account tạo thuần qua Google chưa từng có password) | *(BR mới, cùng nhóm trên)* |
-| WorkoutResult chỉ tạo được khi Enrollment còn hợp lệ | FK `enrollment_id` (10/09/2026 (3)) chỉ đảm bảo Enrollment *tồn tại*, chưa đảm bảo còn hợp lệ — service phải chặn tạo `WorkoutResult` nếu `Enrollment.status != Confirmed`. **Chưa chốt**: có bắt buộc thêm `Attendance.status = Present` mới cho ghi hay không — xem `00-Source-of-Truth.md` §7 Open Questions | *(BR mới — chưa chép chính thức vào Business Rules v1.2)* |
+| Google login — không tự tạo/tự link account trùng email | Nếu `/api/auth/google` nhận email đã tồn tại ở `UserAccounts` nhưng chưa có `UserExternalLogin` khớp (`Provider=Google`) → từ chối, **không** tự tạo account mới, **không** tự link — trả lỗi yêu cầu đăng nhập password trước rồi vào Cài đặt để link. Chỉ link khi request đến từ user đã có JWT hợp lệ (`POST /api/auth/google/link`). Chặn kiểu tấn công account pre-hijacking (OWASP) — xem `00-Source-of-Truth.md` §7 Open Questions | *(BR mới — chưa chép chính thức vào Business Rules v1.2, xem Open Question tương ứng)* |
+| Đăng nhập password chỉ khi có credential nội bộ | `POST /api/auth/login` chỉ cho phép khi `UserCredential.PasswordHash IS NOT NULL` cho `UserId` đó (account tạo thuần qua Google chưa từng có password) | *(BR mới, cùng nhóm trên)* |
+| WorkoutResult chỉ tạo được khi Enrollment còn hợp lệ | FK `EnrollmentId` (10/09/2026 (3)) chỉ đảm bảo Enrollment *tồn tại*, chưa đảm bảo còn hợp lệ — service phải chặn tạo `WorkoutResult` nếu `Enrollment.Status != Confirmed`. **Chưa chốt**: có bắt buộc thêm `Attendance.Status = Present` mới cho ghi hay không — xem `00-Source-of-Truth.md` §7 Open Questions | *(BR mới — chưa chép chính thức vào Business Rules v1.2)* |
 
 ---
 
