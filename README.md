@@ -10,46 +10,69 @@ Monorepo cho hệ thống quản lý trung tâm thể hình — xem đầy đủ
 
 ```
 sports-center-management-system/
-├── backend/     # ASP.NET Core Web API (modular monolith) — mở bằng Rider
+├── backend/     # ASP.NET Core Web API (feature-based modular monolith, 10 project) — mở bằng Rider
 ├── frontend/    # Next.js — mở bằng VS Code
 ├── ai/          # Reserved — AI hiện đang là module bên trong backend, xem ai/README.md
 ├── docs/        # Business Rules, Design v2 (ERD, API, RBAC...)
 └── docker-compose.yml
 ```
 
-## Skeleton backend hiện tại (tạm — sẽ xoá khỏi README khi có code thật, xem lịch sử ở SSOT §8)
+## Backend — Feature-based Modular Monolith (10 project)
+
+Refactor từ 3 project theo tầng (`SportHub.API`/`SportHub.Service`/`SportHub.Repository`) sang 10 project theo module nghiệp vụ, hoàn tất 12/09/2026 — không đổi schema DB, không thêm business logic. Chi tiết đầy đủ (lý do, dependency graph, 2 lỗ hổng phát hiện khi thực thi) xem [`docs/claude-plans/monolith-refactor-plan.md`](docs/claude-plans/monolith-refactor-plan.md).
 
 ```
 backend/
-├── SportHub.API/                  # Web API — controllers, DI wiring
+├── SportHub.API/                  # Composition root — Program.cs, DbContext, Migrations, controller
 │   ├── Controllers/
 │   │   └── HealthController.cs
-│   ├── Extensions/                # IServiceCollection/WebApplication extension methods (giữ Program.cs gọn)
-│   │   ├── CorsExtensions.cs      # policy "Default", đọc Cors:AllowedOrigins (đã dùng)
-│   │   ├── SwaggerExtensions.cs   # AddSportHubSwagger / UseSportHubSwagger (đã dùng)
-│   │   └── JwtExtensions.cs       # AddSportHubJwtAuthentication — JWT Bearer + Policy theo RBAC Matrix (docs mục 5)
-│   ├── Middleware/                # trống — .gitkeep, chưa có middleware custom nào
-│   ├── Modules/                   # trống — .gitkeep, mỗi thư mục = 1 flow, chờ Controller theo module
-│   │   ├── AI/  Identity/  Membership/  Payment/  Scheduling/  Training/
-│   ├── Program.cs
-│   └── appsettings*.json
-├── SportHub.Service/               # Business logic theo module
-│   ├── Modules/
-│   │   ├── AI/
-│   │   │   └── IAiRecommendationService.cs   # code thật duy nhất trong Modules hiện tại
-│   │   └── Identity/ Membership/ Payment/ Scheduling/ Training/   # trống — .gitkeep
-│   └── Utils/JWTService/
-│       ├── JwtOptions.cs          # bind từ config section "JwtOptions"
-│       └── JwtService.cs          # GenerateAccessToken(userId, role, options)
-└── SportHub.Repository/            # EF Core: DbContext, Entities, Migrations
-    ├── SportHubDbContext.cs
-    ├── Entities/                   # trống — .gitkeep
-    ├── Migrations/                 # trống — .gitkeep
-    └── Modules/
-        └── Identity/ Membership/ Payment/ Scheduling/ Training/      # trống — .gitkeep
+│   ├── Persistence/
+│   │   └── SportHubDbContext.cs
+│   ├── Migrations/
+│   ├── Extensions/
+│   │   ├── CorsExtensions.cs
+│   │   ├── SwaggerExtensions.cs
+│   │   └── AuthorizationPolicyExtensions.cs
+│   └── Program.cs / appsettings*.json
+├── SportHub.BuildingBlocks/       # Hạ tầng dùng chung — KHÔNG phụ thuộc bất kỳ module nghiệp vụ nào
+│   ├── Abstractions/Persistence/ISportHubDbContext.cs
+│   └── Infrastructure/Authentication/{JwtOptions,JwtService,JwtBearerExtensions}.cs
+├── SportHub.Identity/             # Role, UserAccount, UserCredential, UserProfile, UserExternalLogin
+├── SportHub.Membership/           # MembershipPackage, MemberPackage, MemberTrainingProfile
+├── SportHub.Scheduling/           # Room, Class, ClassRecurrence, ClassSession, Enrollment, Attendance
+├── SportHub.Training/             # CoachMemberRelationship, WorkoutPlan, WorkoutPlanItem, WorkoutResult
+├── SportHub.Payment/              # Invoice, InvoiceItem, Payment, PaymentAdjustment
+├── SportHub.Notification/         # Notification
+├── SportHub.AI/                   # AiLog, IAiRecommendationService (interface có sẵn, chưa có implementation)
+└── SportHub.Audit/                # AuditLog — module riêng vì có FK thật sang UserAccount (Identity)
 ```
 
-Target framework: **net10.0** (cả 3 project). Modules trống chỉ có `.gitkeep` để giữ cấu trúc git — code Controller/Service/Entity theo từng module sẽ được thêm dần theo đúng thứ tự ở mục "Thứ tự code" bên dưới. Entity/enum/state cho từng module: xem `docs/00-Source-of-Truth.md` §2–4 trước khi code.
+Mỗi module (trừ `API`/`BuildingBlocks`) dùng chung 1 cấu trúc nội bộ:
+
+```
+SportHub.<Module>/
+├── <Module>ModuleMarker.cs
+├── Domain/
+│   ├── Entities/        # Entity thật, di chuyển nguyên trạng từ SportHub.Repository cũ
+│   └── Enums/           # Enum thật
+├── Application/          # trống — .gitkeep, chờ code Controller/Service theo module
+│                         #   ngoại lệ: SportHub.AI/Application/Interfaces/IAiRecommendationService.cs (có sẵn)
+└── Infrastructure/Persistence/Configurations/   # IEntityTypeConfiguration<T>, 1 file / entity
+```
+
+Dependency giữa các module (không có vòng lặp — sơ đồ đầy đủ + lý do từng mũi tên xem trong plan):
+
+```
+SportHub.API   → BuildingBlocks + tất cả module
+Scheduling     → Identity, Membership, BuildingBlocks
+Training       → Identity, Scheduling, BuildingBlocks
+Payment        → Identity, Membership, BuildingBlocks
+Membership / AI / Notification / Audit → Identity, BuildingBlocks
+Identity       → BuildingBlocks
+BuildingBlocks → (không phụ thuộc module nào)
+```
+
+Target framework: **net10.0** (cả 10 project). `Application/`/`Api/` của mọi module đang trống — chưa có Controller/Service/use case thật nào (đúng phạm vi "thuần structural" của đợt refactor này). Code nghiệp vụ đầu tiên sẽ bắt đầu từ Identity (Auth) — xem [`docs/claude-plans/auth-register-login-plan.md`](docs/claude-plans/auth-register-login-plan.md). Entity/enum/state cho từng module: xem `docs/00-Source-of-Truth.md` §2–4 trước khi code.
 
 ## Chạy local
 
