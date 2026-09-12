@@ -27,6 +27,4 @@ public class Enrollment
     public UserAccount? CancelledByUser { get; set; }
 
     public Attendance? Attendance { get; set; } // 1-1
-
-    public ICollection<WorkoutResult> WorkoutResults { get; set; } = new List<WorkoutResult>();
 }

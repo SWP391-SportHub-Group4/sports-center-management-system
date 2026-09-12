@@ -22,5 +22,4 @@ public class Class
 
     public ICollection<ClassRecurrence> Recurrences { get; set; } = new List<ClassRecurrence>();
     public ICollection<ClassSession> Sessions { get; set; } = new List<ClassSession>();
-    public ICollection<CoachMemberRelationship> CoachMemberRelationships { get; set; } = new List<CoachMemberRelationship>();
 }

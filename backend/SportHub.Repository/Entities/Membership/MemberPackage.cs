@@ -21,6 +21,4 @@ public class MemberPackage
     public MemberPackageStatus Status { get; set; } // PendingPayment/Active/Expired/Cancelled
 
     public int Version { get; set; } // optimistic concurrency token
-
-    public ICollection<Enrollment> Enrollments { get; set; } = new List<Enrollment>();
 }

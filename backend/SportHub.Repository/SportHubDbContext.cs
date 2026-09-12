@@ -242,7 +242,7 @@ public class SportHubDbContext : DbContext
                 .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasOne(e => e.Class)
-                .WithMany(c => c.CoachMemberRelationships)
+                .WithMany()
                 .HasForeignKey(e => e.ClassId)
                 .IsRequired(false)
                 .OnDelete(DeleteBehavior.Restrict);
@@ -347,7 +347,7 @@ public class SportHubDbContext : DbContext
                 .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasOne(e => e.MemberPackage)
-                .WithMany(mp => mp.Enrollments)
+                .WithMany()
                 .HasForeignKey(e => e.MemberPackageId)
                 .OnDelete(DeleteBehavior.Restrict);
 
@@ -419,7 +419,7 @@ public class SportHubDbContext : DbContext
             entity.HasKey(e => e.ResultId);
 
             entity.HasOne(e => e.Enrollment)
-                .WithMany(en => en.WorkoutResults)
+                .WithMany()
                 .HasForeignKey(e => e.EnrollmentId)
                 .OnDelete(DeleteBehavior.Restrict);
 
