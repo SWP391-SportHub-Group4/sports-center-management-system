@@ -4,7 +4,7 @@ using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.IdentityModel.Tokens;
-using SportHub.Repository.Enums;
+using SportHub.Repository.Enums.Identity;
 using SportHub.Service.Utils.JWTService;
 
 namespace SportHub.API.Extensions;

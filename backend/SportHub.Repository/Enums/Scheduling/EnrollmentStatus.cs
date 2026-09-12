@@ -1,4 +1,4 @@
-namespace SportHub.Repository.Enums;
+namespace SportHub.Repository.Enums.Scheduling;
 
 // Vòng đời đăng ký lớp của Member.
 public enum EnrollmentStatus

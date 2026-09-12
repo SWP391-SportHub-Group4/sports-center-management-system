@@ -1,6 +1,4 @@
-using SportHub.Repository.Enums;
-
-namespace SportHub.Repository.Entities;
+namespace SportHub.Repository.Entities.Payment;
 
 public class Payment
 {

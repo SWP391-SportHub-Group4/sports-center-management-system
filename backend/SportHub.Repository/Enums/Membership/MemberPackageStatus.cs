@@ -1,4 +1,4 @@
-namespace SportHub.Repository.Enums;
+namespace SportHub.Repository.Enums.Membership;
 
 // Vòng đời gói tập của 1 Member.
 public enum MemberPackageStatus

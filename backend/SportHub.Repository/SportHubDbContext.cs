@@ -101,11 +101,11 @@ public class SportHubDbContext : DbContext
             // Seed 5 role cố định (SSOT §2/§3) — migration sẽ tự insert, không cần insert tay.
             // SystemAdministrator (RoleId=5) bổ sung do thiết kế hệ thống (BR-2/BR-3), không có trong đề bài gốc.
             entity.HasData(
-                new Role { RoleId = 1, RoleName = Enums.UserRole.CenterManager },
-                new Role { RoleId = 2, RoleName = Enums.UserRole.Coach },
-                new Role { RoleId = 3, RoleName = Enums.UserRole.Member },
-                new Role { RoleId = 4, RoleName = Enums.UserRole.Receptionist },
-                new Role { RoleId = 5, RoleName = Enums.UserRole.SystemAdministrator }
+                new Role { RoleId = 1, RoleName = UserRole.CenterManager },
+                new Role { RoleId = 2, RoleName = UserRole.Coach },
+                new Role { RoleId = 3, RoleName = UserRole.Member },
+                new Role { RoleId = 4, RoleName = UserRole.Receptionist },
+                new Role { RoleId = 5, RoleName = UserRole.SystemAdministrator }
             );
         });
 
@@ -229,7 +229,7 @@ public class SportHubDbContext : DbContext
             // (partial unique index, RelationshipStatus.Active = 0).
             entity.HasIndex(e => new { e.CoachId, e.MemberId })
                 .IsUnique()
-                .HasFilter($"status = {(int)Enums.RelationshipStatus.Active}");
+                .HasFilter($"status = {(int)RelationshipStatus.Active}");
 
             entity.HasOne(e => e.Coach)
                 .WithMany()
@@ -334,7 +334,7 @@ public class SportHubDbContext : DbContext
             // index, EnrollmentStatus.Confirmed = 0) — cho phép đăng ký lại sau khi hủy.
             entity.HasIndex(e => new { e.SessionId, e.MemberId })
                 .IsUnique()
-                .HasFilter($"status = {(int)Enums.EnrollmentStatus.Confirmed}");
+                .HasFilter($"status = {(int)EnrollmentStatus.Confirmed}");
 
             entity.HasOne(e => e.Session)
                 .WithMany(s => s.Enrollments)

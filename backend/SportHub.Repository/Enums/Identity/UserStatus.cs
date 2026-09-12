@@ -1,4 +1,4 @@
-namespace SportHub.Repository.Enums;
+namespace SportHub.Repository.Enums.Identity;
 
 // Trạng thái tài khoản — không xoá cứng user (giữ lịch sử Payment/Attendance).
 public enum UserStatus

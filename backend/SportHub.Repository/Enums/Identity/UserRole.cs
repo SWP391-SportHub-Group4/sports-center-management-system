@@ -1,4 +1,4 @@
-namespace SportHub.Repository.Enums;
+namespace SportHub.Repository.Enums.Identity;
 
 public enum UserRole
 {

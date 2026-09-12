@@ -1,4 +1,4 @@
-namespace SportHub.Repository.Entities;
+namespace SportHub.Repository.Entities.AI;
 
 public class AiLog
 {

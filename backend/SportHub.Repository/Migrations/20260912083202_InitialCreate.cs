@@ -9,7 +9,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace SportHub.Repository.Migrations
 {
     /// <inheritdoc />
-    public partial class AddRoleSeedData : Migration
+    public partial class InitialCreate : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -705,7 +705,8 @@ namespace SportHub.Repository.Migrations
                     { 1, 0 },
                     { 2, 1 },
                     { 3, 2 },
-                    { 4, 3 }
+                    { 4, 3 },
+                    { 5, 4 }
                 });
 
             migrationBuilder.CreateIndex(

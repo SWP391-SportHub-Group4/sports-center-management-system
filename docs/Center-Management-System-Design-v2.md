@@ -398,7 +398,7 @@ Không được để các ràng buộc này chỉ nằm ở API layer — phả
 | 9 | Email không phân biệt hoa/thường (BR-49) | `UNIQUE INDEX ux_user_accounts_email_lower ON user_accounts(LOWER(email))`, hoặc dùng kiểu `citext` của Postgres cho cột `email` |
 | 10 | Capacity session không vượt MIN(Room, Class) (BR-51) | `CHECK (capacity <= room_capacity_at_creation)` áp ở tầng service khi generate/reschedule session; Manager chỉ được set capacity ≤ giá trị này |
 | 11 | Số điện thoại không trùng, chỉ khi có giá trị (BR-54) | `UNIQUE INDEX ux_user_profiles_phone ON user_profiles(phone) WHERE phone IS NOT NULL` (partial unique — cho phép nhiều user cùng để trống `phone`) |
-| 12 | Tên vai trò không trùng (BR-55) | `UNIQUE(role_name)` trên bảng `roles`; kết hợp seed data cố định 4 dòng, không cho tạo thêm role qua API ở MVP |
+| 12 | Tên vai trò không trùng (BR-55) | `UNIQUE(role_name)` trên bảng `roles`; kết hợp seed data cố định **5 dòng** (bổ sung `SystemAdministrator`, cập nhật 11/09/2026 — xem `00-Source-of-Truth.md` §2/§8), không cho tạo thêm role qua API ở MVP |
 | 13 | Tên gói thành viên không trùng trong catalog (BR-56) | `UNIQUE(name)` trên bảng `membership_packages`; Manager tạo/sửa tên trùng → 409 Conflict |
 | 14 | Tên phòng tập không trùng (BR-57) | `UNIQUE(name)` trên bảng `rooms`; Manager tạo phòng trùng tên → 409 Conflict |
 | 15 | 1 tài khoản provider ngoài (vd Google) không link được vào 2 `UserAccount` khác nhau | `UNIQUE(provider, provider_user_id)` trên bảng `user_external_logins` (mới, 10/09/2026 (2)) |
@@ -432,8 +432,8 @@ Không được để các ràng buộc này chỉ nằm ở API layer — phả
 | POST | `/api/auth/google/link` | Member/Coach/Receptionist/Manager | JWT bắt buộc — link `UserExternalLogin` vào `user_id` hiện tại, chỉ khi đã đăng nhập (§3.1) |
 | GET | `/api/users/me` | Member/Coach/Receptionist/Manager | JWT |
 | PUT | `/api/users/me` | Member/Coach/Receptionist | JWT — chỉ sửa hồ sơ của chính mình |
-| POST | `/api/users/staff` | **Manager only** | body: role=COACH/RECEPTIONIST (BR-2) |
-| PUT | `/api/users/{userId}/status` | **Manager only** | ban/unban (BR-6) |
+| POST | `/api/users/staff` | **System Administrator only** | body: role=SYSTEM_ADMINISTRATOR/CENTER_MANAGER/COACH/RECEPTIONIST — chuyển từ Manager sang System Administrator (BR-2, cập nhật 11/09/2026) |
+| PUT | `/api/users/{userId}/status` | **System Administrator only** | ban/unban — chuyển từ Manager sang System Administrator (BR-6, cập nhật 11/09/2026) |
 | GET | `/api/members` | Receptionist/Manager | tìm kiếm hội viên |
 | POST | `/api/members` | Receptionist | đăng ký hội viên tại quầy |
 | GET | `/api/members/me/profile` | Member | JWT |
@@ -499,24 +499,26 @@ Không được để các ràng buộc này chỉ nằm ở API layer — phả
 
 ## 5. Bảng quyền theo endpoint (RBAC Matrix rút gọn)
 
-| Nhóm chức năng | Manager | Coach | Member | Receptionist |
-|---|:---:|:---:|:---:|:---:|
-| Tạo tài khoản Staff/Coach | ✅ | ❌ | ❌ | ❌ |
-| Ban/Unban user | ✅ | ❌ | ❌ | ❌ |
-| CRUD Membership Package (catalog) | ✅ | ❌ | 👁 Read | 👁 Read |
-| Mua/gán MemberPackage | 👁 | ❌ | ✅ (self) | ✅ (on-behalf) |
-| CRUD Class / Recurrence | ✅ | 👁 (lớp mình dạy) | 👁 | 👁 |
-| Reschedule/Cancel session | ✅ | ❌ | ❌ | ❌ |
-| Đăng ký/Hủy lớp | 👁 | ❌ | ✅ (self) | ✅ (on-behalf) |
-| Check-in điểm danh | 👁 | ✅ (lớp mình dạy) | ❌ | ✅ |
-| Tạo Workout Plan / Result | 👁 | ✅ (relationship ACTIVE) | 👁 (read-only) | ❌ |
-| Tạo Invoice / ghi Payment | 👁 | ❌ | ❌ | ✅ |
-| Tạo Adjustment (refund) | 👁 | ❌ | ❌ | ✅ (request) |
-| Duyệt Adjustment | ✅ | ❌ | ❌ | ❌ |
-| Xem báo cáo doanh thu | ✅ | ❌ | ❌ | ❌ |
-| Xem Audit Log | ✅ | ❌ | ❌ | ❌ |
+> **Cập nhật 11/09/2026 — bổ sung role System Administrator (5 role):** theo Business Rules v1.2 (BR-2, BR-3) và SRS v1.1, `SystemAdministrator` là role riêng, tách khỏi `CenterManager` — xem `00-Source-of-Truth.md` §2/§3/§8. Quyền "Tạo tài khoản Staff/Coach" (BR-2) và "Ban/Unban user" (BR-6) **chuyển từ Manager sang System Administrator** so với bản trước. Phạm vi quyền System Administrator ở các dòng còn lại (report, Audit Log, duyệt Adjustment...) **chưa được Business Rules chốt rõ** — tạm để ❌, xem Open Question tương ứng ở `00-Source-of-Truth.md` §7.
 
-*(👁 = chỉ xem, không có quyền ghi; ✅ = có quyền hành động)*
+| Nhóm chức năng | System Administrator | Manager | Coach | Member | Receptionist |
+|---|:---:|:---:|:---:|:---:|:---:|
+| Tạo tài khoản Staff/Coach/Admin | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Ban/Unban user | ✅ | ❌ | ❌ | ❌ | ❌ |
+| CRUD Membership Package (catalog) | ❌ | ✅ | ❌ | 👁 Read | 👁 Read |
+| Mua/gán MemberPackage | ❌ | 👁 | ❌ | ✅ (self) | ✅ (on-behalf) |
+| CRUD Class / Recurrence | ❌ | ✅ | 👁 (lớp mình dạy) | 👁 | 👁 |
+| Reschedule/Cancel session | ❌ | ✅ | ❌ | ❌ | ❌ |
+| Đăng ký/Hủy lớp | ❌ | 👁 | ❌ | ✅ (self) | ✅ (on-behalf) |
+| Check-in điểm danh | ❌ | 👁 | ✅ (lớp mình dạy) | ❌ | ✅ |
+| Tạo Workout Plan / Result | ❌ | 👁 | ✅ (relationship ACTIVE) | 👁 (read-only) | ❌ |
+| Tạo Invoice / ghi Payment | ❌ | 👁 | ❌ | ❌ | ✅ |
+| Tạo Adjustment (refund) | ❌ | 👁 | ❌ | ❌ | ✅ (request) |
+| Duyệt Adjustment | ❌ | ✅ | ❌ | ❌ | ❌ |
+| Xem báo cáo doanh thu | ❌ | ✅ | ❌ | ❌ | ❌ |
+| Xem Audit Log | ❓ | ✅ | ❌ | ❌ | ❌ |
+
+*(👁 = chỉ xem, không có quyền ghi; ✅ = có quyền hành động; ❓ = chưa chốt trong Business Rules, xem Open Question)*
 
 ---
 

@@ -1,4 +1,4 @@
-namespace SportHub.Repository.Enums;
+namespace SportHub.Repository.Enums.Membership;
 
 // Trình độ tập luyện của Member.
 public enum ExperienceLevel
