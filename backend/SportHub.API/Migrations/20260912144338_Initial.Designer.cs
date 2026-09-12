@@ -12,8 +12,8 @@ using SportHub.API.Persistence;
 namespace SportHub.API.Migrations
 {
     [DbContext(typeof(SportHubDbContext))]
-    [Migration("20260912123957_InitialCreate")]
-    partial class InitialCreate
+    [Migration("20260912144338_Initial")]
+    partial class Initial
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
