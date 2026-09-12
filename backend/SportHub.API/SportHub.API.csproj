@@ -20,6 +20,15 @@
 
   <ItemGroup>
     <ProjectReference Include="..\SportHub.Service\SportHub.Service.csproj" />
+    <ProjectReference Include="..\SportHub.BuildingBlocks\SportHub.BuildingBlocks.csproj" />
+    <ProjectReference Include="..\SportHub.Identity\SportHub.Identity.csproj" />
+    <ProjectReference Include="..\SportHub.Membership\SportHub.Membership.csproj" />
+    <ProjectReference Include="..\SportHub.Scheduling\SportHub.Scheduling.csproj" />
+    <ProjectReference Include="..\SportHub.Training\SportHub.Training.csproj" />
+    <ProjectReference Include="..\SportHub.Payment\SportHub.Payment.csproj" />
+    <ProjectReference Include="..\SportHub.Notification\SportHub.Notification.csproj" />
+    <ProjectReference Include="..\SportHub.AI\SportHub.AI.csproj" />
+    <ProjectReference Include="..\SportHub.Audit\SportHub.Audit.csproj" />
   </ItemGroup>
 
   <ItemGroup>
