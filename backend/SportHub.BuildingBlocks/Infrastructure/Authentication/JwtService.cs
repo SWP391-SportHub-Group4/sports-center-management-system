@@ -2,18 +2,21 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using Microsoft.IdentityModel.Tokens;
-using SportHub.Repository.Enums.Identity;
 
-namespace SportHub.Service.Utils.JWTService;
+namespace SportHub.BuildingBlocks.Infrastructure.Authentication;
 
 public static class JwtService
 {
-    public static string GenerateAccessToken(Guid userId, UserRole role, JwtOptions options)
+    // Nhận role dạng string thay vì enum UserRole — BuildingBlocks không được phép
+    // phụ thuộc module nghiệp vụ Identity (mục 3). Không có caller nào trước khi
+    // đổi (rg "GenerateAccessToken" chỉ khớp định nghĩa), nên đổi signature an toàn,
+    // không ảnh hưởng behavior gì đang chạy.
+    public static string GenerateAccessToken(Guid userId, string role, JwtOptions options)
     {
         var claims = new[]
         {
             new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
-            new Claim(ClaimTypes.Role, role.ToString()),
+            new Claim(ClaimTypes.Role, role),
         };
 
         return GenerateToken(claims, options);

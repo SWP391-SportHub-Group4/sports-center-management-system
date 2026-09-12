@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace SportHub.Service.Utils.JWTService;
+namespace SportHub.BuildingBlocks.Infrastructure.Authentication;
 
 public class JwtOptions
 {

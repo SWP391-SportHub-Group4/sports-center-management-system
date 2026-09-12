@@ -2,22 +2,21 @@ using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
-using SportHub.Repository.Enums.Identity;
-using SportHub.Service.Utils.JWTService;
 
-namespace SportHub.API.Extensions;
+namespace SportHub.BuildingBlocks.Infrastructure.Authentication;
 
-public static class JwtExtensions
+// Chỉ phần JWT bearer wiring dùng chung (đọc JwtOptions, validate token, xử lý
+// 401/403 mặc định). Phần policy theo role (CenterManagerPolicy, CoachPolicy...)
+// tách sang SportHub.API/Extensions/AuthorizationPolicyExtensions.cs vì cần
+// enum UserRole của module Identity — BuildingBlocks không được phụ thuộc
+// module nghiệp vụ nào (mục 3, mục 8).
+public static class JwtBearerExtensions
 {
-    public const string CenterManagerPolicy = nameof(CenterManagerPolicy);
-    public const string CoachPolicy = nameof(CoachPolicy);
-    public const string MemberPolicy = nameof(MemberPolicy);
-    public const string ReceptionistPolicy = nameof(ReceptionistPolicy);
-    public const string AttendanceCheckInPolicy = nameof(AttendanceCheckInPolicy);
-
-    public static IServiceCollection AddSportHubJwtAuthentication(
+    public static IServiceCollection AddSportHubJwtBearer(
         this IServiceCollection services,
         IConfiguration configuration)
     {
@@ -86,15 +85,6 @@ public static class JwtExtensions
                     }
                 };
             });
-
-        services.AddAuthorizationBuilder()
-            .SetFallbackPolicy(new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build())
-            .AddPolicy(CenterManagerPolicy, p => p.RequireRole(nameof(UserRole.CenterManager)))
-            .AddPolicy(CoachPolicy, p => p.RequireRole(nameof(UserRole.Coach)))
-            .AddPolicy(MemberPolicy, p => p.RequireRole(nameof(UserRole.Member)))
-            .AddPolicy(ReceptionistPolicy, p => p.RequireRole(nameof(UserRole.Receptionist)))
-            .AddPolicy(AttendanceCheckInPolicy, p => p.RequireRole(
-                nameof(UserRole.Coach), nameof(UserRole.Receptionist)));
 
         return services;
     }

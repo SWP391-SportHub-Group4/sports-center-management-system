@@ -1,7 +1,9 @@
 using DotNetEnv;
 using Microsoft.EntityFrameworkCore;
 using SportHub.API.Extensions;
-using SportHub.Repository;
+using SportHub.API.Persistence;
+using SportHub.BuildingBlocks.Abstractions.Persistence;
+using SportHub.BuildingBlocks.Infrastructure.Authentication;
 
 LoadRootEnvIfPresent();
 
@@ -11,10 +13,12 @@ builder.Services.AddDbContext<SportHubDbContext>(options =>
     options
         .UseNpgsql(builder.Configuration.GetConnectionString("Default"))
         .UseSnakeCaseNamingConvention());
+builder.Services.AddScoped<ISportHubDbContext>(sp => sp.GetRequiredService<SportHubDbContext>());
 
 builder.Services.AddSportHubCors(builder.Configuration);
 
-builder.Services.AddSportHubJwtAuthentication(builder.Configuration);
+builder.Services.AddSportHubJwtBearer(builder.Configuration);
+builder.Services.AddSportHubAuthorizationPolicies();
 
 builder.Services.AddControllers();
 builder.Services.AddSportHubSwagger();

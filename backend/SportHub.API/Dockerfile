@@ -8,8 +8,15 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 COPY ["SportHub.API/SportHub.API.csproj", "SportHub.API/"]
-COPY ["SportHub.Service/SportHub.Service.csproj", "SportHub.Service/"]
-COPY ["SportHub.Repository/SportHub.Repository.csproj", "SportHub.Repository/"]
+COPY ["SportHub.BuildingBlocks/SportHub.BuildingBlocks.csproj", "SportHub.BuildingBlocks/"]
+COPY ["SportHub.Identity/SportHub.Identity.csproj", "SportHub.Identity/"]
+COPY ["SportHub.Membership/SportHub.Membership.csproj", "SportHub.Membership/"]
+COPY ["SportHub.Scheduling/SportHub.Scheduling.csproj", "SportHub.Scheduling/"]
+COPY ["SportHub.Training/SportHub.Training.csproj", "SportHub.Training/"]
+COPY ["SportHub.Payment/SportHub.Payment.csproj", "SportHub.Payment/"]
+COPY ["SportHub.Notification/SportHub.Notification.csproj", "SportHub.Notification/"]
+COPY ["SportHub.AI/SportHub.AI.csproj", "SportHub.AI/"]
+COPY ["SportHub.Audit/SportHub.Audit.csproj", "SportHub.Audit/"]
 RUN dotnet restore "SportHub.API/SportHub.API.csproj"
 COPY . .
 WORKDIR "/src/SportHub.API"
