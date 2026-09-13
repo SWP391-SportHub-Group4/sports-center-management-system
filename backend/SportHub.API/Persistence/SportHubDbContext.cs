@@ -16,25 +16,6 @@ using SportHub.Training.Domain.Entities;
 
 namespace SportHub.API.Persistence;
 
-// DbSet cho từng entity theo thứ tự code ở docs/Center-Management-System-Design-v2.md, mục 7:
-// 1) Identity/RBAC  2) Membership  3) Training (hồ sơ/quan hệ)  4) Scheduling  5) Training (Workout)
-// 6) Payment  7) AI  8) Notification  9) Audit
-//
-// Naming: field/property = PascalCase theo chuẩn C# (cập nhật — trước đây snake_case
-// theo §5.4). Cột DB vẫn giữ snake_case (chuẩn Postgres) qua
-// UseSnakeCaseNamingConvention() (Program.cs) — EFCore.NamingConventions tự động
-// convert PascalCase property -> snake_case column, nên các raw SQL trong từng
-// IEntityTypeConfiguration<T> (HasCheckConstraint/HasFilter) không cần đổi. Enum vẫn
-// lưu dạng mặc định của EF Core (int) — cơ chế serialize/lưu string UPPER_SNAKE_CASE
-// CHƯA CHỐT (SSOT §7 Open Questions), không tự quyết ở bước này.
-//
-// Composition root (mục 6, mục 9): class này sống ở SportHub.API — nơi duy nhất được
-// phép biết mặt cả 8 module — và implement ISportHubDbContext (SportHub.BuildingBlocks)
-// để module nghiệp vụ nào cần truy vấn DB có thể phụ thuộc ngược interface đó thay vì
-// phụ thuộc thẳng SportHub.API. Cấu hình Fluent API của từng entity đã chuyển hết sang
-// IEntityTypeConfiguration<T> trong Infrastructure/Persistence/Configurations/ của
-// đúng module sở hữu — nạp qua ApplyConfigurationsFromAssembly bên dưới thay vì gọi
-// trực tiếp Configure*() như bản gốc (SportHub.Repository/SportHubDbContext.cs, 559 dòng).
 public class SportHubDbContext : DbContext, ISportHubDbContext
 {
     public SportHubDbContext(DbContextOptions<SportHubDbContext> options) : base(options)
@@ -97,9 +78,9 @@ public class SportHubDbContext : DbContext, ISportHubDbContext
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(MembershipModuleMarker).Assembly);
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(SchedulingModuleMarker).Assembly);
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(TrainingModuleMarker).Assembly);
-        modelBuilder.ApplyConfigurationsFromAssembly(typeof(SportHub.Payment.PaymentModuleMarker).Assembly);
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(Payment.PaymentModuleMarker).Assembly);
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AiModuleMarker).Assembly);
-        modelBuilder.ApplyConfigurationsFromAssembly(typeof(SportHub.Notification.NotificationModuleMarker).Assembly);
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(Notification.NotificationModuleMarker).Assembly);
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AuditModuleMarker).Assembly);
 
         // TODO (chưa làm — SSOT §7 Open Questions, "không tự quyết"):
