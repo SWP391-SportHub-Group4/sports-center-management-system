@@ -2,7 +2,7 @@
 
 Monorepo cho hệ thống quản lý trung tâm thể hình — xem đầy đủ thiết kế trong `docs/`.
 
-> ⚠️ **Trước khi code / trước khi hỏi AI sinh code:** đọc [`docs/00-Source-of-Truth.md`](docs/00-Source-of-Truth.md) trước.
+> **Trước khi code :** đọc [`docs/00-Source-of-Truth.md`](docs/00-Source-of-Truth.md) trước.
 > Đây là nguồn duy nhất chốt scope MVP, entity/enum/state, và quy ước ID/money/timezone — nếu file đó và
 > doc khác (design v2, business rules...) mâu thuẫn nhau thì `00-Source-of-Truth.md` thắng.
 
@@ -18,8 +18,6 @@ sports-center-management-system/
 ```
 
 ## Backend — Feature-based Modular Monolith (10 project)
-
-Refactor từ 3 project theo tầng (`SportHub.API`/`SportHub.Service`/`SportHub.Repository`) sang 10 project theo module nghiệp vụ, hoàn tất 12/09/2026 — không đổi schema DB, không thêm business logic. Chi tiết đầy đủ (lý do, dependency graph, 2 lỗ hổng phát hiện khi thực thi) xem [`docs/claude-plans/monolith-refactor-plan.md`](docs/claude-plans/monolith-refactor-plan.md).
 
 ```
 backend/
@@ -72,7 +70,7 @@ Identity       → BuildingBlocks
 BuildingBlocks → (không phụ thuộc module nào)
 ```
 
-Target framework: **net10.0** (cả 10 project). `Application/`/`Api/` của mọi module đang trống — chưa có Controller/Service/use case thật nào (đúng phạm vi "thuần structural" của đợt refactor này). Code nghiệp vụ đầu tiên sẽ bắt đầu từ Identity (Auth) — xem [`docs/claude-plans/auth-register-login-plan.md`](docs/claude-plans/auth-register-login-plan.md). Entity/enum/state cho từng module: xem `docs/00-Source-of-Truth.md` §2–4 trước khi code.
+Target framework: **net10.0** (cả 10 project). `Application/`/`Api/` của mọi module đang trống — chưa có Controller/Service/use case thật nào (đúng phạm vi "thuần structural" của đợt refactor này). Code nghiệp vụ đầu tiên sẽ bắt đầu từ Identity (Auth). Entity/enum/state cho từng module: xem `docs/00-Source-of-Truth.md` §2–4 trước khi code.
 
 ## Chạy local
 
@@ -104,22 +102,5 @@ cd frontend && npm install && npm run dev
 | Backend — Swagger UI (http) | http://localhost:5100/swagger |
 | Backend — Swagger UI (https) | https://localhost:7100/swagger |
 | Frontend | http://localhost:3000 |
-
-### Thông tin kết nối DB (local)
-
-| Field | Giá trị |
-|---|---|
-| Host | `localhost` |
-| Port | `5435` |
-| Database | `sporthub` |
-| Username | `sporthub` |
-| Password | `Soicodoc123@` |
-
-Connection string tương ứng (đã có sẵn trong `appsettings.json`):
-```
-Host=localhost;Port=5435;Database=sporthub;Username=sporthub;Password=Soicodoc123@
-```
-
-> Đây là password dev dùng chung cho môi trường local, không phải secret thật — đừng tái sử dụng cho môi trường khác.
 
 Xem chi tiết: [`docs/Center-Management-System-Design-v2.md`](docs/Center-Management-System-Design-v2.md)
