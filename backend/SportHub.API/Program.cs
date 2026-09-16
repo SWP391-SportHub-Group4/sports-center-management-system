@@ -1,9 +1,16 @@
+using System.Text.Json;
 using DotNetEnv;
 using Microsoft.EntityFrameworkCore;
 using SportHub.API.Extensions;
+using SportHub.API.Middleware;
 using SportHub.API.Persistence;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.Infrastructure.Authentication;
+using SportHub.Identity;
+using SportHub.Identity.Application.Interfaces;
+using SportHub.Identity.Application.Services;
+using SportHub.Identity.Infrastructure.Repositories;
+using SportHub.Identity.Infrastructure.Security;
 
 LoadRootEnvIfPresent();
 
@@ -20,10 +27,21 @@ builder.Services.AddSportHubCors(builder.Configuration);
 builder.Services.AddSportHubJwtBearer(builder.Configuration);
 builder.Services.AddSportHubAuthorizationPolicies();
 
-builder.Services.AddControllers();
+builder.Services.AddScoped<IUserAccountRepository, UserAccountRepository>();
+builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
+builder.Services.AddScoped<IAuthService, AuthService>();
+
+builder.Services.AddControllers()
+    .AddApplicationPart(typeof(IdentityModuleMarker).Assembly)
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+    });
 builder.Services.AddSportHubSwagger();
 
 var app = builder.Build();
+
+app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 app.UseSportHubSwagger();
 
