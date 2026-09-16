@@ -1,5 +1,7 @@
 using System.Text.Json;
+using System.Threading.RateLimiting;
 using DotNetEnv;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using SportHub.API.Extensions;
 using SportHub.API.Middleware;
@@ -27,6 +29,22 @@ builder.Services.AddSportHubCors(builder.Configuration);
 builder.Services.AddSportHubJwtBearer(builder.Configuration);
 builder.Services.AddSportHubAuthorizationPolicies();
 
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+    options.AddPolicy("auth-register", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 5,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst
+            }));
+});
+
 builder.Services.AddScoped<IUserAccountRepository, UserAccountRepository>();
 builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
 builder.Services.AddScoped<IAuthService, AuthService>();
@@ -47,6 +65,7 @@ app.UseSportHubSwagger();
 
 app.UseHttpsRedirection();
 app.UseCors(CorsExtensions.PolicyName);
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
