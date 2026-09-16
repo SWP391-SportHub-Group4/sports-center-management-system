@@ -18,8 +18,6 @@ public class RegisterRequest
     public string? Phone { get; set; }
 }
 
-// BCrypt (BCrypt.Net-Next) silently truncates input beyond 72 UTF-8 bytes instead of
-// throwing, so this must be rejected at validation time rather than left to the hasher.
 public sealed class MaxPasswordBytesAttribute(int maxBytes) : ValidationAttribute
 {
     protected override ValidationResult? IsValid(object? value, ValidationContext validationContext)
