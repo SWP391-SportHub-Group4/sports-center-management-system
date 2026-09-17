@@ -29,9 +29,6 @@ public sealed class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<Ex
                 case InvalidCredentialsException:
                     await WriteErrorAsync(context, StatusCodes.Status401Unauthorized, "invalid_credentials", ex.Message);
                     break;
-                case PasswordNotSetException:
-                    await WriteErrorAsync(context, StatusCodes.Status409Conflict, "password_not_set", ex.Message);
-                    break;
                 case AccountBlockedException blocked:
                     await WriteErrorAsync(
                         context,
