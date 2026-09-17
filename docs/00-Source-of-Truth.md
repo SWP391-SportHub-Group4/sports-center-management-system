@@ -2,7 +2,7 @@
 
 > Mục đích: 1 nơi duy nhất để AI / FE / BE tra cứu khi có mâu thuẫn giữa các tài liệu.
 > Nếu file này và một doc khác nói khác nhau → **file này thắng**, trừ khi có ghi chú "xem chi tiết tại...".
-> Cập nhật lần cuối: 11/09/2026 — người cập nhật: Hồ Lê Thiên An (qua Claude)
+> Cập nhật lần cuối: 18/09/2026 — bổ sung truy vết BR v1.3 và đặc tả bảo mật login qua Codex theo yêu cầu người dùng; chưa phải xác nhận hoàn tất triển khai.
 
 ---
 
@@ -11,12 +11,14 @@
 Khi có mâu thuẫn, đọc theo thứ tự sau (trên > dưới):
 
 1. `docs/00-Source-of-Truth.md` (file này) — quyết định đã chốt, không tranh cãi lại trong sprint hiện tại
-2. `docs/SportManagement_BusinessRules_v1.2.docx` — business rules chi tiết
+2. `docs/SportManagement_BusinessRules.docx` — business rules chi tiết; bản hiện có là **v1.3 (bản hợp nhất), 14/09/2026**
 3. `docs/Center-Management-System-Design-v2.md` — thiết kế kỹ thuật/kiến trúc
 4. `docs/Requirements.md` — yêu cầu gốc từ đề bài
 5. Mọi thứ khác (Slack/Zalo/note họp miệng) — **không tính là nguồn chính thức** trừ khi được chép lại vào 1 trong 4 file trên
 
 **Quy tắc cứng:** Nếu 2 doc mâu thuẫn và chưa kịp cập nhật file này → dừng lại, hỏi trong nhóm, **không tự thêm/đổi entity, field, hay flow để "cho chạy được"**. Ghi lại câu hỏi vào mục 6 (Open Questions) thay vì tự quyết.
+
+**Đối chiếu 18/09/2026:** tên `SportManagement_BusinessRules_v1.2.docx` ở ghi chú lịch sử bên dưới chỉ phiên bản cũ; file chính thức hiện có là mục 2. Trong bản hợp nhất, unique phone là **BR-62** (trước đây BR-54), unique role là **BR-63** (trước đây BR-55); không dùng các mã cũ cho hai ràng buộc này. BR-59/BR-60 về Google link/password đã có trong bản chính thức. Open Questions nằm ở **§7**.
 
 ---
 
@@ -67,10 +69,10 @@ Khi có mâu thuẫn, đọc theo thứ tự sau (trên > dưới):
 
 | Entity | Module sở hữu | PK | Field chính | Quan hệ chính | Enum dùng | Ghi chú |
 |---|---|---|---|---|---|---|
-| `Role` | Identity | `RoleId` (int) | RoleName (unique) | 1—N `UserAccount` | `UserRole` | seed data, **5 dòng cố định** (bổ sung `SystemAdministrator` theo BR-2/BR-3, cập nhật 11/09/2026); unique BR-55 |
+| `Role` | Identity | `RoleId` (int) | RoleName (unique) | 1—N `UserAccount` | `UserRole` | seed data, **5 dòng cố định** (bổ sung `SystemAdministrator` theo BR-2/BR-3, cập nhật 11/09/2026); unique BR-63 (v1.3) |
 | `UserAccount` | Identity | `UserId` (uuid) | Email (unique), RoleId, Status | N—1 `Role`; 1—1 `UserCredential`, `UserProfile`; 1—N `UserExternalLogin`, hầu hết entity khác (chủ thể thao tác) | `UserStatus` | email unique BR-1/BR-49; bảng định danh + vòng đời, tách khỏi Credential/Profile 10/09/2026 (2) |
 | `UserCredential` | Identity | `UserId` (uuid, PK/FK) | PasswordHash (nullable) | 1—1 `UserAccount` | — | nullable vì account Google-only không có password; auth service chỉ cần query bảng này |
-| `UserProfile` | Identity | `UserId` (uuid, PK/FK) | FullName, Phone (unique, nullable) | 1—1 `UserAccount` | — | phone unique BR-54; thông tin hiển thị, không liên quan cơ chế đăng nhập/phân quyền |
+| `UserProfile` | Identity | `UserId` (uuid, PK/FK) | FullName, Phone (unique, nullable) | 1—1 `UserAccount` | — | phone unique BR-62 (v1.3); thông tin hiển thị, không liên quan cơ chế đăng nhập/phân quyền |
 | `UserExternalLogin` | Identity | `ExternalLoginId` (uuid) | UserId, Provider, ProviderUserId, RefreshToken (nullable) | N—1 `UserAccount` | `ExternalAuthProvider` | unique (provider, provider_user_id) và (user_id, provider); refresh_token MVP chưa mã hoá — xem Open Questions |
 | `MemberTrainingProfile` | Membership | `ProfileId` (uuid) | MemberId (unique), Goal, ExperienceLevel | 1—1 `UserAccount` (Member) | `ExperienceLevel` | input bắt buộc cho AI suggestion (BR-26) |
 | `CoachMemberRelationship` | Training | `RelationshipId` (uuid) | CoachId, MemberId, SourceType, ClassId (nullable) | N—1 `UserAccount` (2 phía) | `RelationshipSourceType`, `RelationshipStatus` | unique khi ACTIVE (ràng buộc #7, BR-23/24) |
@@ -183,6 +185,27 @@ Khi có mâu thuẫn, đọc theo thứ tự sau (trên > dưới):
 
 ---
 
+### 5.6 Bảo mật login và hiệu lực JWT — đặc tả bổ sung 18/09/2026
+
+Nguồn nghiệp vụ: [Business Rules v1.3](SportManagement_BusinessRules.docx), BR-2–7, BR-35, BR-38, BR-49, BR-59–60. Chi tiết file/code/test: [plan bảo mật login](login-security-hardening-plan.md). Mục này ghi quyết định triển khai của task theo yêu cầu người dùng, không phải biên bản PO duyệt hoặc xác nhận code đã đạt nghiệm thu.
+
+- **Lỗi login:** email không tồn tại, credential/hash thiếu hoặc password sai đều trả `401 invalid_credentials`, message `Invalid email or password`. BR-60 không bắt buộc trả 409; không dùng `password_not_set` để tiết lộ tài khoản chưa có password.
+- **Timing:** login hợp lệ về DTO thực hiện một lần BCrypt thật hoặc dummy cùng cost, trước khi kết luận credential không hợp lệ. Không đặt password/credential mới khi dummy verify. Mục tiêu giảm khác biệt xử lý, không cam kết thời gian tuyệt đối bằng nhau.
+- **Rate limit:** policy riêng `auth-login`, 10 request/IP/1 phút fixed window, không queue; vượt quota trả `429 too_many_requests`. Đây là cấu hình kỹ thuật ban đầu, không phải số liệu từ BR. Register giữ quota riêng. Limiter theo instance; khi có proxy phải cấu hình trusted proxy, không tin trực tiếp header client.
+- **BR-6 trên request:** chỉ account `Active` được dùng JWT tại thời điểm kiểm tra DB sau validation token. Áp dụng cả 5 role, kể cả SystemAdministrator. Không cache trạng thái ở MVP. Account Banned/Deactivated/không tồn tại bị từ chối bằng challenge `401 unauthorized`; Active thiếu role vẫn `403 forbidden`. Login có password đúng nhưng account không Active giữ lỗi 403 như hợp đồng hiện tại.
+- **Hiệu lực:** sau khi khóa commit, request xác thực tiếp theo bị chặn; không hủy request đã chạy. Mở khóa cho phép token cũ còn hạn dùng lại. Thu hồi token vĩnh viễn/security stamp/logout-all/kết nối dài thuộc scope riêng.
+- **Đầy đủ BR-6/BR-7:** chỉ SystemAdministrator được khóa/mở khóa; không tự khóa hoặc khóa SystemAdministrator hoạt động cuối cùng; thao tác phải có Audit Log gồm actor, action, target, thời điểm và lý do. Các kiểm soát tại endpoint đổi trạng thái thuộc task quản lý tài khoản, không được báo hoàn thành chỉ từ JWT hook. Rate limit không tự đổi status thành Banned.
+- **BR-35/BR-38:** yêu cầu API tiêu chuẩn trung bình ≤ 200 ms và HTTPS vẫn áp dụng. Đo overhead BCrypt/query DB, báo điều kiện đo và trường hợp chưa đạt; không tự giảm bảo mật hoặc tuyên bố login được miễn yêu cầu. Không coi HTTPS redirect đơn lẻ là bằng chứng deployment đã an toàn.
+- **Kiến trúc/hợp đồng hiện tại:** wiring kiểm tra account ở API; BuildingBlocks không tham chiếu Identity. Giữ schema DB và token hiện có: user ID đọc từ `ClaimTypes.NameIdentifier`, role hiện phát theo tên enum PascalCase để khớp policy. Quy ước enum tổng thể ở §3 chưa được đổi bởi task này; không tự chuyển JWT sang UPPER_SNAKE_CASE hoặc `sub` chỉ dựa trên ví dụ thiết kế cũ.
+
+Trạng thái tại lần cập nhật này (18/09/2026, sau khi có bằng chứng test):
+
+- **Đã triển khai và đã kiểm chứng bằng test tự động** (`backend/SportHub.Security.Tests`, 65 test pass trên PostgreSQL 16-alpine thật qua Testcontainers): lỗi chung 401 cho cả 3 nhánh thất bại; dummy verification (`IPasswordHasher.VerifyDummy`, BCrypt cost 11 khớp `Hash`); policy `auth-login` 10 req/IP/phút độc lập với `auth-register`; kiểm tra `IsActiveAsync` trong `OnTokenValidated` áp dụng cho cả 5 role.
+- **BR-35 — đo được, chưa kết luận cho môi trường production.** Máy đo: Windows 11, 20 logical CPU, PostgreSQL 16-alpine (Testcontainers), BCrypt cost 11, 30 request tuần tự sau 5 warm-up, concurrency 1, mỗi request một partition rate limit riêng. Kết quả: login email không tồn tại mean 149.7 ms / p95 192.9 ms; login sai password mean 137.9 ms / p95 159.5 ms; login thành công mean 130.0 ms / p95 152.1 ms; GET endpoint protected mean 3.4 ms / p95 4.7 ms. Thành phần: một lần BCrypt ≈ 133 ms, một query `IsActiveAsync` ≈ 1.1 ms. Mean của login vẫn dưới 200 ms nhưng **biên an toàn mỏng** — p95 đã chạm 193 ms; cần đo lại trên phần cứng deploy thật trước khi coi BR-35 là đạt. Không hạ BCrypt cost và không bỏ query `IsActiveAsync` để làm đẹp số liệu.
+- **Chưa đáp ứng, thuộc task khác — không được báo hoàn thành:** phần còn lại của BR-6/BR-7 tại endpoint đổi trạng thái (chỉ SystemAdministrator được khóa/mở khóa, cấm tự khóa, bảo vệ SystemAdministrator Active cuối cùng, Audit Log kèm lý do trong cùng transaction); thu hồi token vĩnh viễn (security stamp/token version, logout-all, refresh token, WebSocket); nghiệm thu HTTPS thật tại deployment (BR-38) — test chạy trên HTTP của TestServer nên **không** phải bằng chứng cho mục này.
+
+Tham chiếu mã BR trong plan là bản đồ truy vết, không thêm hay đánh số lại BR chính thức.
+
 ## 6. Quy tắc xử lý khi docs mâu thuẫn / thiếu
 
 1. **Không tự thêm entity/field/enum mới** để "cho code chạy" — nếu thiếu, thêm vào mục **Open Questions** bên dưới và hỏi người phụ trách domain đó (BA/team lead) trước khi code.
@@ -198,7 +221,7 @@ Khi có mâu thuẫn, đọc theo thứ tự sau (trên > dưới):
 - [ ] `ClassSession` chưa có state diagram chi tiết (chỉ có 4 giá trị liệt kê trong ERD: `Scheduled, Rescheduled, Cancelled, Completed`) — cần vẽ rõ điều kiện chuyển trạng thái, đặc biệt `Rescheduled` (có tạo `ClassSession` mới hay chỉ đổi field tại chỗ — xem `RescheduledFromSessionId`)
 - [ ] Naming field trong DTO/JSON API (request/response body) **vẫn CHƯA chốt** — property C# nay là `PascalCase` (§5.4, đảo lại 11/09/2026) nhưng đó là naming ở tầng entity, không tự quyết định naming JSON; cần chốt `camelCase` (phổ biến với FE Next.js/TS) hay đồng bộ `PascalCase`/`snake_case` với entity trước khi code Controller/DTO, tránh code xong rồi đổi lại
 - [ ] `UserExternalLogin.RefreshToken` MVP chưa mã hoá tại rest — cần chốt có mã hoá (vd Data Protection API) trước khi lưu data thật hay chấp nhận nợ kỹ thuật cho scope đồ án (phát sinh khi thêm entity 10/09/2026 (2))
-- [ ] Business rule chi tiết cho luồng Google login (không tự tạo/tự link account trùng email khi chưa xác thực, chặn account pre-hijacking) — cần chép chính thức vào `SportManagement_BusinessRules_v1.2.docx` dưới dạng BR mới, hiện mới chỉ thống nhất miệng/chat nhóm (phát sinh khi thêm entity 10/09/2026 (2))
+- [x] Business rule Google link và login password đã có chính thức ở BR-59/BR-60 trong `SportManagement_BusinessRules.docx` v1.3; đóng câu hỏi thiếu văn bản sau khi đối chiếu 18/09/2026. Đây không phải xác nhận code Google Login đã hoàn thành.
 - [ ] `WorkoutResult` chỉ nên tạo được khi `Enrollment.Status = Confirmed` (member chưa hủy đăng ký) — FK `EnrollmentId` mới (10/09/2026 (3)) chỉ đảm bảo Enrollment *tồn tại*, không đảm bảo còn hợp lệ; cần chép rule này chính thức vào `SportManagement_BusinessRules_v1.2.docx`, và cân nhắc có nên yêu cầu thêm `Attendance.Status = Present` mới cho ghi WorkoutResult hay không (chưa quyết định)
 - [ ] Phạm vi quyền `SystemAdministrator` ngoài BR-2 (tạo tài khoản `SystemAdministrator`/`CenterManager`/`Coach`/`Receptionist`, gán vai trò) và BR-6 (khóa/mở khóa tài khoản) — có được xem báo cáo doanh thu (`/reports/*`), Audit Log, hay cấu hình hệ thống (`cancellation_deadline_hours`...) hay không? Business Rules v1.2 chưa nói rõ; RBAC matrix tạm để `SystemAdministrator` = ❌ cho các mục ngoài 2 việc trên (xem `Center-Management-System-Design-v2.md` §5, cập nhật 11/09/2026) (phát sinh khi bổ sung role 11/09/2026)
 - [ ] <câu hỏi khác>
@@ -209,6 +232,8 @@ Khi có mâu thuẫn, đọc theo thứ tự sau (trên > dưới):
 
 | Ngày | Thay đổi | Người sửa |
 |---|---|---|
+| 18/09/2026 | Triển khai §5.6: thêm `IPasswordHasher.VerifyDummy` (BCrypt cost 11) để mọi login hợp lệ DTO tốn đúng một phép BCrypt; thêm policy rate limit `auth-login` (10 req/IP/phút, 429 `too_many_requests`, quota tách khỏi register); thêm `IUserAccountRepository.IsActiveAsync` + hook `OnTokenValidated` tại `SportHub.API` để chặn JWT của tài khoản bị khóa/xóa (BR-6, phần request). Thêm project `SportHub.Security.Tests` (65 test, PostgreSQL thật qua Testcontainers). Cập nhật trạng thái §5.6 kèm số đo BR-35 và danh sách hạng mục CHƯA đạt. | Hồ Lê Thiên An (qua Claude) |
+| 18/09/2026 | Đối chiếu Business Rules v1.3: sửa nguồn hiện hành và mã unique phone/role; đóng câu hỏi BR-59/60 đã có văn bản; bổ sung §5.6 và dẫn plan triển khai timing, rate limit, hiệu lực JWT. Ghi đầy đủ ranh giới BR-6/7, yêu cầu BR-35/38 và trạng thái chưa nghiệm thu. | Codex theo yêu cầu người dùng |
 | 12/09/2026 | **Chính thức hoá module `Notification` và `Audit`** (§2, §7): `Notification`/`AuditLog` trước đây chưa gán module (Open Question cũ) — nay tách thành 2 module riêng thay vì gộp vào 6 module sẵn có, vì bắt đầu tách `SportHub.Repository`/`SportHub.Service` thành project riêng theo module (`docs/claude-plans/monolith-refactor-plan.md`) nên mỗi entity bắt buộc phải thuộc đúng 1 project/module. `Audit` tách riêng khỏi `Identity`/`BuildingBlocks` vì `AuditLog.UserId` là FK thật sang `UserAccount`, đặt ở `BuildingBlocks` (tầng hạ tầng dùng chung, không phụ thuộc module nghiệp vụ nào) sẽ gây phụ thuộc ngược. Cập nhật cột "Module sở hữu" (§2) cho 2 entity này, xoá Open Question tương ứng (§7). | Hồ Lê Thiên An (qua Claude) |
 | 11/09/2026 | **Bổ sung role `SystemAdministrator` (5 role)** (§2, §3): đồng bộ Entity `Role` và enum `UserRole` theo Business Rules v1.2 (BR-2, BR-3) — trước đó doc/enum chỉ có 4 role (`CenterManager, Coach, Member, Receptionist`), chưa khớp Business Rules đã có `SystemAdministrator` từ trước. Quyền tạo tài khoản Staff/Coach (BR-2) và khóa/mở khóa tài khoản (BR-6) chuyển từ `CenterManager` sang `SystemAdministrator` — đồng bộ RBAC matrix + actor API trong `Center-Management-System-Design-v2.md` §4.1/§5. Thêm Open Question mới (§7): phạm vi quyền `SystemAdministrator` ngoài 2 việc trên chưa được Business Rules chốt rõ. **Chỉ sửa doc ở bước này — migration/enum trong code (`UserRole.cs`, `AddRoleSeedData`) chưa cập nhật.** | Hồ Lê Thiên An (qua Claude) |
 | 11/09/2026 | **Đảo ngược naming property/field entity C# (§5.4) từ `snake_case` về `PascalCase`** (vd `user_id` → `UserId`, `class_id` → `ClassId`) — đúng convention chuẩn của C#, đảo ngược quyết định 10/09/2026. Cột **DB** (Postgres) **không đổi**, vẫn `snake_case` như trước — thêm package `EFCore.NamingConventions` + gọi `.UseSnakeCaseNamingConvention()` ở `Program.cs` để EF Core tự map property PascalCase ↔ cột snake_case, nên raw SQL viết tay (check constraint, filter) trong `SportHubDbContext.cs` không cần sửa. Áp dụng lại toàn bộ tên field ở bảng Entity (§2, cột PK/Field chính) và cột "Dùng ở field" trong bảng Enum (§3); cập nhật §7 (Open Questions) cho khớp. Đồng bộ 2 file liên quan: `entity-field-purpose.md` (đổi tương tự), `Center-Management-System-Design-v2.md` §1 (chỉ ghi chú thêm — ERD/bảng vật lý vẫn giữ `snake_case` vì đó là tên cột DB, không đổi). **Lần này code sửa TRƯỚC** (`SportHub.Repository/Entities/*.cs`, `SportHubDbContext.cs`, `Program.cs`, `SportHub.Repository.csproj`), doc cập nhật đồng bộ ở bước này (khác quy trình "doc trước, code sau" của lần đổi 10/09/2026). | Hồ Lê Thiên An (qua Claude) |
