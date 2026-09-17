@@ -73,4 +73,57 @@ public sealed class AuthService(
             }
         };
     }
+
+    public async Task<AuthResponse> LoginAsync(
+        LoginRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        // Không ToLower: cột Email là citext nên == đã case-insensitive ở tầng DB (BR-49).
+        // Password giữ nguyên, KHÔNG Trim — khoảng trắng trong password có ý nghĩa.
+        var email = request.Email.Trim();
+
+        var user = await repository.FindByEmailForLoginAsync(email, cancellationToken);
+
+        if (user is null)
+        {
+            throw new InvalidCredentialsException();
+        }
+
+        // BR-60: chưa từng đặt password thì không thể verify — chặn trước khi gọi Verify.
+        if (string.IsNullOrEmpty(user.Credential?.PasswordHash))
+        {
+            throw new PasswordNotSetException();
+        }
+
+        if (!passwordHasher.Verify(request.Password, user.Credential.PasswordHash))
+        {
+            throw new InvalidCredentialsException();
+        }
+
+        // Check Status SAU khi password đã đúng: nếu check trước, kẻ tấn công dò được
+        // "account này bị khoá" chỉ bằng email, không cần biết password.
+        if (user.Status != UserStatus.Active)
+        {
+            throw new AccountBlockedException(user.Status);
+        }
+
+        var token = JwtService.GenerateAccessToken(
+            user.UserId,
+            user.Role!.RoleName.ToString(),
+            jwtOptions.Value);
+
+        return new AuthResponse
+        {
+            AccessToken = token,
+            User = new UserSummaryDto
+            {
+                UserId = user.UserId,
+                Email = user.Email,
+                // ?. / ?? chỉ là lớp phòng thủ cho dữ liệu cũ thiếu UserProfile;
+                // với Include đúng ở repository, trường hợp bình thường luôn có giá trị thật.
+                FullName = user.Profile?.FullName ?? string.Empty,
+                Role = user.Role!.RoleName.ToString()
+            }
+        };
+    }
 }
