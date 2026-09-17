@@ -89,10 +89,11 @@ public sealed class AuthService(
             throw new InvalidCredentialsException();
         }
 
-        // BR-60: chưa từng đặt password thì không thể verify — chặn trước khi gọi Verify.
+        // BR-60: tài khoản chưa đặt password không thể đăng nhập bằng password.
+        // Trả cùng lỗi như email không tồn tại/sai password để không lộ trạng thái credential.
         if (string.IsNullOrEmpty(user.Credential?.PasswordHash))
         {
-            throw new PasswordNotSetException();
+            throw new InvalidCredentialsException();
         }
 
         if (!passwordHasher.Verify(request.Password, user.Credential.PasswordHash))
