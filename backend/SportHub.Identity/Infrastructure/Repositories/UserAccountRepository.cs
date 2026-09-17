@@ -17,6 +17,17 @@ public sealed class UserAccountRepository(ISportHubDbContext db) : IUserAccountR
     public Task<Role> GetRoleAsync(UserRole roleName, CancellationToken cancellationToken = default)
         => db.Set<Role>().SingleAsync(r => r.RoleName == roleName, cancellationToken);
 
+    // Include đủ 3 navigation ngay từ đây: DbContext không bật lazy loading proxy, nên
+    // thiếu Include(Profile) thì user.Profile luôn null ở AuthService và response trả
+    // fullName = "" cho MỌI user — bug im lặng, không throw gì.
+    // SingleOrDefault (không phải FirstOrDefault): email unique (BR-49), >1 dòng là dữ liệu hỏng.
+    public Task<UserAccount?> FindByEmailForLoginAsync(string email, CancellationToken cancellationToken = default)
+        => db.Set<UserAccount>()
+            .Include(u => u.Credential)
+            .Include(u => u.Role)
+            .Include(u => u.Profile)
+            .SingleOrDefaultAsync(u => u.Email == email, cancellationToken);
+
     public async Task AddAndSaveAsync(UserAccount account, CancellationToken cancellationToken = default)
     {
         db.Set<UserAccount>().Add(account);
