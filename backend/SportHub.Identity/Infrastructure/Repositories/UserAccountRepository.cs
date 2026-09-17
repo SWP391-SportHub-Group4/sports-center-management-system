@@ -28,6 +28,13 @@ public sealed class UserAccountRepository(ISportHubDbContext db) : IUserAccountR
             .Include(u => u.Profile)
             .SingleOrDefaultAsync(u => u.Email == email, cancellationToken);
 
+    // Chỉ hỏi DB đúng một câu bool, KHÔNG Include và không tải credential/profile:
+    // hàm này chạy trên MỌI request đã xác thực nên phải rẻ nhất có thể.
+    // Cũng không đọc từ entity đang được track (có thể là snapshot cũ của request trước).
+    public Task<bool> IsActiveAsync(Guid userId, CancellationToken cancellationToken = default)
+        => db.Set<UserAccount>()
+            .AnyAsync(u => u.UserId == userId && u.Status == UserStatus.Active, cancellationToken);
+
     public async Task AddAndSaveAsync(UserAccount account, CancellationToken cancellationToken = default)
     {
         db.Set<UserAccount>().Add(account);
