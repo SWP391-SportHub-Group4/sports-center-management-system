@@ -84,15 +84,13 @@ public sealed class AuthService(
 
         var user = await repository.FindByEmailForLoginAsync(email, cancellationToken);
 
-        if (user is null)
+        // Gộp 2 nhánh "không có hash thật để verify" (email không tồn tại, BR-60 chưa đặt
+        // password) vào cùng một chỗ, và chạy VerifyDummy trước khi throw: nếu thiếu, hai
+        // nhánh này trả 401 gần như tức thì trong khi nhánh sai password tốn ~1 lần BCrypt,
+        // đủ để dò xem email có tồn tại hay không chỉ bằng thời gian phản hồi.
+        if (user is null || string.IsNullOrEmpty(user.Credential?.PasswordHash))
         {
-            throw new InvalidCredentialsException();
-        }
-
-        // BR-60: tài khoản chưa đặt password không thể đăng nhập bằng password.
-        // Trả cùng lỗi như email không tồn tại/sai password để không lộ trạng thái credential.
-        if (string.IsNullOrEmpty(user.Credential?.PasswordHash))
-        {
+            passwordHasher.VerifyDummy(request.Password);
             throw new InvalidCredentialsException();
         }
 
