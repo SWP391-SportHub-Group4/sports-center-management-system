@@ -1,5 +1,7 @@
 # Yêu Cầu Hệ Thống Quản Lý Trung Tâm (Center Management System)
 
+> SportHub là hệ thống quản lý **trung tâm thể thao đa bộ môn**: Gym/Fitness (ra vào tự do), Personal Training, Yoga, Group X — 1 trung tâm duy nhất, không đa chi nhánh. Chi tiết chốt bộ môn: `docs/00-Source-of-Truth.md` §1.1.
+
 ## 1. Danh sách Tác nhân & Vai trò (Actors & Roles)
 
 * **Center Manager** – Quản lý trung tâm

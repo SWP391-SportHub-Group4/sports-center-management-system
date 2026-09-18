@@ -1,3 +1,4 @@
+using SportHub.Identity.Domain.Enums;
 using SportHub.Identity.Domain.Exceptions;
 
 namespace SportHub.API.Middleware;
@@ -24,6 +25,16 @@ public sealed class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<Ex
                     break;
                 case PhoneAlreadyExistsException:
                     await WriteErrorAsync(context, StatusCodes.Status409Conflict, "phone_already_exists", ex.Message);
+                    break;
+                case InvalidCredentialsException:
+                    await WriteErrorAsync(context, StatusCodes.Status401Unauthorized, "invalid_credentials", ex.Message);
+                    break;
+                case AccountBlockedException blocked:
+                    await WriteErrorAsync(
+                        context,
+                        StatusCodes.Status403Forbidden,
+                        blocked.Status == UserStatus.Banned ? "account_banned" : "account_deactivated",
+                        ex.Message);
                     break;
                 default:
                     logger.LogError(ex, "Unhandled exception while processing {Method} {Path}", context.Request.Method, context.Request.Path);

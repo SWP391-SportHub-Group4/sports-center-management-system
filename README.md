@@ -1,6 +1,6 @@
 # Sports Center Management System (SWP391)
 
-Monorepo cho hệ thống quản lý trung tâm thể hình — xem đầy đủ thiết kế trong `docs/`.
+Monorepo cho hệ thống quản lý trung tâm thể thao đa bộ môn (Gym, Personal Training, Yoga, Group X) — xem đầy đủ thiết kế trong `docs/`.
 
 > **Trước khi code :** đọc [`docs/00-Source-of-Truth.md`](docs/00-Source-of-Truth.md) trước.
 > Đây là nguồn duy nhất chốt scope MVP, entity/enum/state, và quy ước ID/money/timezone — nếu file đó và

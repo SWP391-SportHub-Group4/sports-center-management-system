@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using SportHub.API.Extensions;
 using SportHub.API.Middleware;
 using SportHub.API.Persistence;
+using SportHub.API.RateLimiting;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.Infrastructure.Authentication;
 using SportHub.Identity;
@@ -27,6 +28,9 @@ builder.Services.AddScoped<ISportHubDbContext>(sp => sp.GetRequiredService<Sport
 builder.Services.AddSportHubCors(builder.Configuration);
 
 builder.Services.AddSportHubJwtBearer(builder.Configuration);
+// BR-6: chặn token của tài khoản bị khoá/xoá ngay tại bước xác thực request.
+// Phải gọi SAU AddSportHubJwtBearer — PostConfigure bổ sung OnTokenValidated vào Events đã có.
+builder.Services.AddAccountStatusJwtValidation();
 builder.Services.AddSportHubAuthorizationPolicies();
 
 builder.Services.AddRateLimiter(options =>
@@ -43,6 +47,9 @@ builder.Services.AddRateLimiter(options =>
                 QueueLimit = 0,
                 QueueProcessingOrder = QueueProcessingOrder.OldestFirst
             }));
+
+    // Login dùng policy riêng (10/phút theo IP) — quota và response 429 độc lập với register.
+    options.AddPolicy<string, LoginRateLimitPolicy>(LoginRateLimitPolicy.PolicyName);
 });
 
 builder.Services.AddScoped<IUserAccountRepository, UserAccountRepository>();
@@ -64,6 +71,9 @@ app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.UseSportHubSwagger();
 
 app.UseHttpsRedirection();
+// UseRouting tường minh trước UseRateLimiter: limiter phải biết endpoint đã chọn thì mới
+// áp đúng [EnableRateLimiting] của action.
+app.UseRouting();
 app.UseCors(CorsExtensions.PolicyName);
 app.UseRateLimiter();
 app.UseAuthentication();
@@ -85,3 +95,7 @@ static void LoadRootEnvIfPresent()
         }
     }
 }
+
+// Lộ entry point cho WebApplicationFactory<Program> trong SportHub.Security.Tests.
+// Top-level statements sinh ra class Program internal; test host cần nó public.
+public partial class Program;

@@ -17,4 +17,12 @@ public interface IUserAccountRepository
     Task AddAndSaveAsync(
         UserAccount account,
         CancellationToken cancellationToken = default);
+
+    Task<UserAccount?> FindByEmailForLoginAsync(
+        string email,
+        CancellationToken cancellationToken = default);
+    
+    Task<bool> IsActiveAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default);
 }
