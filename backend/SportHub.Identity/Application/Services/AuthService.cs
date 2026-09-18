@@ -78,16 +78,9 @@ public sealed class AuthService(
         LoginRequest request,
         CancellationToken cancellationToken = default)
     {
-        // Không ToLower: cột Email là citext nên == đã case-insensitive ở tầng DB (BR-49).
-        // Password giữ nguyên, KHÔNG Trim — khoảng trắng trong password có ý nghĩa.
         var email = request.Email.Trim();
 
         var user = await repository.FindByEmailForLoginAsync(email, cancellationToken);
-
-        // Gộp 2 nhánh "không có hash thật để verify" (email không tồn tại, BR-60 chưa đặt
-        // password) vào cùng một chỗ, và chạy VerifyDummy trước khi throw: nếu thiếu, hai
-        // nhánh này trả 401 gần như tức thì trong khi nhánh sai password tốn ~1 lần BCrypt,
-        // đủ để dò xem email có tồn tại hay không chỉ bằng thời gian phản hồi.
         if (user is null || string.IsNullOrEmpty(user.Credential?.PasswordHash))
         {
             passwordHasher.VerifyDummy(request.Password);
@@ -98,9 +91,7 @@ public sealed class AuthService(
         {
             throw new InvalidCredentialsException();
         }
-
-        // Check Status SAU khi password đã đúng: nếu check trước, kẻ tấn công dò được
-        // "account này bị khoá" chỉ bằng email, không cần biết password.
+        
         if (user.Status != UserStatus.Active)
         {
             throw new AccountBlockedException(user.Status);
@@ -118,8 +109,6 @@ public sealed class AuthService(
             {
                 UserId = user.UserId,
                 Email = user.Email,
-                // ?. / ?? chỉ là lớp phòng thủ cho dữ liệu cũ thiếu UserProfile;
-                // với Include đúng ở repository, trường hợp bình thường luôn có giá trị thật.
                 FullName = user.Profile?.FullName ?? string.Empty,
                 Role = user.Role!.RoleName.ToString()
             }
