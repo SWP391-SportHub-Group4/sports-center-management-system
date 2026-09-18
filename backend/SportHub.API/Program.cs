@@ -14,6 +14,10 @@ using SportHub.Identity.Application.Interfaces;
 using SportHub.Identity.Application.Services;
 using SportHub.Identity.Infrastructure.Repositories;
 using SportHub.Identity.Infrastructure.Security;
+using SportHub.Scheduling;
+using SportHub.Scheduling.Application.Interfaces;
+using SportHub.Scheduling.Application.Services;
+using SportHub.Scheduling.Infrastructure.Repositories;
 
 LoadRootEnvIfPresent();
 
@@ -56,8 +60,12 @@ builder.Services.AddScoped<IUserAccountRepository, UserAccountRepository>();
 builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 
+builder.Services.AddScoped<IGymCheckInRepository, GymCheckInRepository>();
+builder.Services.AddScoped<IGymCheckInService, GymCheckInService>();
+
 builder.Services.AddControllers()
     .AddApplicationPart(typeof(IdentityModuleMarker).Assembly)
+    .AddApplicationPart(typeof(SchedulingModuleMarker).Assembly)
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;

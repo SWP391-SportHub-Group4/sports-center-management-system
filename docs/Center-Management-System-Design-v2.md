@@ -300,7 +300,7 @@ erDiagram
         uuid check_in_id PK
         uuid member_id FK
         uuid checked_in_by_user_id FK "receptionist, not null"
-        datetime check_in_time_utc
+        datetime check_in_time
     }
 ```
 

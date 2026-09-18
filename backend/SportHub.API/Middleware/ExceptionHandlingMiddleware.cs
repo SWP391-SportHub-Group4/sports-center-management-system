@@ -1,5 +1,6 @@
 using SportHub.Identity.Domain.Enums;
 using SportHub.Identity.Domain.Exceptions;
+using SportHub.Scheduling.Domain.Exceptions;
 
 namespace SportHub.API.Middleware;
 
@@ -28,6 +29,19 @@ public sealed class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<Ex
                     break;
                 case InvalidCredentialsException:
                     await WriteErrorAsync(context, StatusCodes.Status401Unauthorized, "invalid_credentials", ex.Message);
+                    break;
+                // Scheduling — Gym check-in (BR-64) và ràng buộc bộ môn (SSOT §1.1).
+                case MemberNotFoundException:
+                    await WriteErrorAsync(context, StatusCodes.Status404NotFound, "member_not_found", ex.Message);
+                    break;
+                case NoActiveMemberPackageException:
+                    await WriteErrorAsync(context, StatusCodes.Status409Conflict, "no_active_member_package", ex.Message);
+                    break;
+                case InvalidDisciplineException:
+                    await WriteErrorAsync(context, StatusCodes.Status400BadRequest, "invalid_discipline", ex.Message);
+                    break;
+                case InvalidClassCapacityException:
+                    await WriteErrorAsync(context, StatusCodes.Status400BadRequest, "invalid_class_capacity", ex.Message);
                     break;
                 case AccountBlockedException blocked:
                     await WriteErrorAsync(
