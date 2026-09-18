@@ -53,8 +53,8 @@ SportHub.<Module>/
 ├── Domain/
 │   ├── Entities/        # Entity thật, di chuyển nguyên trạng từ SportHub.Repository cũ
 │   └── Enums/           # Enum thật
-├── Application/          # trống — .gitkeep, chờ code Controller/Service theo module
-│                         #   ngoại lệ: SportHub.AI/Application/Interfaces/IAiRecommendationService.cs (có sẵn)
+├── Application/          # module services/use cases, DTOs and interfaces
+│                         # Identity/Application/Auth: Google login/link; AI includes IAiRecommendationService
 └── Infrastructure/Persistence/Configurations/   # IEntityTypeConfiguration<T>, 1 file / entity
 ```
 
@@ -70,7 +70,7 @@ Identity       → BuildingBlocks
 BuildingBlocks → (không phụ thuộc module nào)
 ```
 
-Target framework: **net10.0** (cả 10 project). `Application/`/`Api/` của mọi module đang trống — chưa có Controller/Service/use case thật nào (đúng phạm vi "thuần structural" của đợt refactor này). Code nghiệp vụ đầu tiên sẽ bắt đầu từ Identity (Auth). Entity/enum/state cho từng module: xem `docs/00-Source-of-Truth.md` §2–4 trước khi code.
+Target framework: **net10.0** (10 application projects, plus `SportHub.Identity.Tests`). Identity implements Google login/link: the controller lives in `SportHub.API/Controllers`, business logic in `SportHub.Identity/Application/Auth`, and Google token verification in `SportHub.Identity/Infrastructure/Authentication`. See [Google authentication](docs/google-auth.md) for configuration and API usage. Other modules remain mostly structural scaffolding. Before implementing a module, consult `docs/00-Source-of-Truth.md` sections 2–4 for its entities, enums and states.
 
 ## Chạy local
 
