@@ -57,6 +57,8 @@ erDiagram
     USER_ACCOUNTS ||--o{ NOTIFICATIONS : "receives"
     USER_ACCOUNTS ||--o{ AI_LOGS : "initiates"
     USER_ACCOUNTS ||--o{ AUDIT_LOGS : "performs"
+    USER_ACCOUNTS ||--o{ GYM_CHECKINS : "member checks in (18/09/2026)"
+    USER_ACCOUNTS ||--o{ GYM_CHECKINS : "checked in by (receptionist)"
 
     MEMBERSHIP_PACKAGES ||--o{ MEMBER_PACKAGES : "defines"
     MEMBER_PACKAGES ||--o{ INVOICES : "billed by (nullable)"
@@ -294,6 +296,12 @@ erDiagram
         string ip_address
         datetime timestamp
     }
+    GYM_CHECKINS {
+        uuid check_in_id PK
+        uuid member_id FK
+        uuid checked_in_by_user_id FK "receptionist, not null"
+        datetime check_in_time_utc
+    }
 ```
 
 > **Naming (cập nhật 10/09/2026):** tên field/attribute trong mỗi entity block ở trên đã đổi từ `PascalCase` sang `snake_case` (vd `UserID` → `user_id`), khớp `00-Source-of-Truth.md` §5.4 (tại thời điểm đó). Tên bảng (`USER_ACCOUNTS`, `MEMBER_TRAINING_PROFILE`...) và tên kiểu enum (`UserStatus`, `ExperienceLevel`...) giữ nguyên `PascalCase`/UPPER_CASE, không đổi.
@@ -404,6 +412,7 @@ Không được để các ràng buộc này chỉ nằm ở API layer — phả
 | 15 | 1 tài khoản provider ngoài (vd Google) không link được vào 2 `UserAccount` khác nhau | `UNIQUE(provider, provider_user_id)` trên bảng `user_external_logins` (mới, 10/09/2026 (2)) |
 | 16 | 1 `UserAccount` không link trùng cùng 1 provider 2 lần | `UNIQUE(user_id, provider)` trên bảng `user_external_logins` (mới, 10/09/2026 (2)) |
 | 17 | 1 Enrollment chỉ có tối đa 1 Attendance (1-1) | `UNIQUE(enrollment_id)` trên bảng `attendance` (mới, 10/09/2026 (3)) — trước đó ERD đã ghi quan hệ 1-1 nhưng chưa có ràng buộc DB thật |
+| 18 | `GymCheckIn` chỉ tạo được khi Member có ≥1 `MemberPackage` đang `Active` (mới, 18/09/2026, BR-64) | Service layer kiểm tra (JOIN `member_packages`, không phải DB CHECK constraint thuần vì cần điều kiện động) trong transaction tạo `GymCheckIn`; 0 gói Active → 409 Conflict |
 
 ### 3.1 Ràng buộc nghiệp vụ bổ sung (không phải DB constraint thuần — cần chốt ở service layer)
 
@@ -445,6 +454,9 @@ Không được để các ràng buộc này chỉ nằm ở API layer — phả
 | GET | `/api/members/me/packages` | Member | JWT |
 | GET | `/api/members/{memberId}/packages` | Receptionist/Manager/Coach (own relationship) | |
 | POST | `/api/member-packages` | Member (self) hoặc Receptionist (on-behalf) | Trong **cùng 1 transaction**: tạo `MemberPackage` (PENDING_PAYMENT) + `Invoice`+`InvoiceItems` (ISSUED) — đúng BR-30 v1.2, Invoice sinh ngay khi chọn gói, không chờ thanh toán |
+| POST | `/api/gym-checkins` | **Receptionist** | body: `targetMemberId` — service kiểm tra Member có ≥1 `MemberPackage` Active trước khi tạo (mới, 18/09/2026, BR-64) |
+| GET | `/api/members/me/gym-checkins` | Member | JWT — lịch sử ra vào Gym của chính mình |
+| GET | `/api/members/{memberId}/gym-checkins` | Receptionist/Manager | xem lịch sử 1 Member |
 
 ### 4.2 Flow — Đặt lớp / Lịch (Booking)
 
@@ -517,6 +529,8 @@ Không được để các ràng buộc này chỉ nằm ở API layer — phả
 | Duyệt Adjustment | ❌ | ✅ | ❌ | ❌ | ❌ |
 | Xem báo cáo doanh thu | ❌ | ✅ | ❌ | ❌ | ❌ |
 | Xem Audit Log | ❓ | ✅ | ❌ | ❌ | ❌ |
+| Ghi nhận Gym Check-in (mới, 18/09/2026) | ❌ | 👁 | ❌ | ❌ | ✅ |
+| Xem lịch sử Gym Check-in (mới, 18/09/2026) | ❌ | 👁 (tất cả) | ❌ | 👁 (chính mình) | ✅ (tra cứu) |
 
 *(👁 = chỉ xem, không có quyền ghi; ✅ = có quyền hành động; ❓ = chưa chốt trong Business Rules, xem Open Question)*
 
