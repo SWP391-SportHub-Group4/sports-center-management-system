@@ -44,6 +44,7 @@ public class SportHubDbContext : DbContext, ISportHubDbContext
     public DbSet<ClassSession> ClassSessions => Set<ClassSession>();
     public DbSet<Enrollment> Enrollments => Set<Enrollment>();
     public DbSet<Attendance> Attendances => Set<Attendance>();
+    public DbSet<GymCheckIn> GymCheckIns => Set<GymCheckIn>();
 
     // 5) Training — Workout
     public DbSet<WorkoutPlan> WorkoutPlans => Set<WorkoutPlan>();

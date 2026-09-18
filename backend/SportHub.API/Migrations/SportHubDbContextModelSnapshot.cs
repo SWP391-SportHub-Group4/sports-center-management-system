@@ -756,7 +756,12 @@ namespace SportHub.API.Migrations
                     b.HasIndex("DefaultRoomId")
                         .HasDatabaseName("ix_classes_default_room_id");
 
-                    b.ToTable("classes", (string)null);
+                    b.ToTable("classes", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_classes_discipline_allowed", "discipline IN ('PersonalTraining', 'Yoga', 'GroupX')");
+
+                            t.HasCheckConstraint("CK_classes_personal_training_capacity", "discipline <> 'PersonalTraining' OR capacity = 1");
+                        });
                 });
 
             modelBuilder.Entity("SportHub.Scheduling.Domain.Entities.ClassRecurrence", b =>
@@ -931,6 +936,38 @@ namespace SportHub.API.Migrations
                         .HasFilter("status = 0");
 
                     b.ToTable("enrollments", (string)null);
+                });
+
+            modelBuilder.Entity("SportHub.Scheduling.Domain.Entities.GymCheckIn", b =>
+                {
+                    b.Property<Guid>("CheckInId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("check_in_id");
+
+                    b.Property<DateTime>("CheckInTime")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("check_in_time");
+
+                    b.Property<Guid>("CheckedInByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("checked_in_by_user_id");
+
+                    b.Property<Guid>("MemberId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("member_id");
+
+                    b.HasKey("CheckInId")
+                        .HasName("pk_gym_checkins");
+
+                    b.HasIndex("CheckedInByUserId")
+                        .HasDatabaseName("ix_gym_checkins_checked_in_by_user_id");
+
+                    b.HasIndex("MemberId", "CheckInTime")
+                        .IsDescending(false, true)
+                        .HasDatabaseName("ix_gym_checkins_member_id_check_in_time");
+
+                    b.ToTable("gym_checkins", (string)null);
                 });
 
             modelBuilder.Entity("SportHub.Scheduling.Domain.Entities.Room", b =>
@@ -1487,6 +1524,27 @@ namespace SportHub.API.Migrations
                     b.Navigation("MemberPackage");
 
                     b.Navigation("Session");
+                });
+
+            modelBuilder.Entity("SportHub.Scheduling.Domain.Entities.GymCheckIn", b =>
+                {
+                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", "CheckedInByUser")
+                        .WithMany()
+                        .HasForeignKey("CheckedInByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_gym_checkins_user_accounts_checked_in_by_user_id");
+
+                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", "Member")
+                        .WithMany()
+                        .HasForeignKey("MemberId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_gym_checkins_user_accounts_member_id");
+
+                    b.Navigation("CheckedInByUser");
+
+                    b.Navigation("Member");
                 });
 
             modelBuilder.Entity("SportHub.Training.Domain.Entities.CoachMemberRelationship", b =>
