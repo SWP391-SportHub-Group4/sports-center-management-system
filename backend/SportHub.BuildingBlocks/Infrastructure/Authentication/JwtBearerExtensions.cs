@@ -74,14 +74,14 @@ public static class JwtBearerExtensions
                         context.Response.StatusCode = StatusCodes.Status401Unauthorized;
                         context.Response.ContentType = "application/json";
                         return context.Response.WriteAsync(
-                            """{"error":"unauthorized","message":"Token thiếu, sai định dạng hoặc đã hết hạn."}""");
+                            """{"error":"unauthorized","message":"The token is missing, invalid, or expired."}""");
                     },
                     OnForbidden = context =>
                     {
                         context.Response.StatusCode = StatusCodes.Status403Forbidden;
                         context.Response.ContentType = "application/json";
                         return context.Response.WriteAsync(
-                            """{"error":"forbidden","message":"Tài khoản không có quyền thực hiện hành động này."}""");
+                            """{"error":"forbidden","message":"Your account does not have permission to perform this action."}""");
                     }
                 };
             });

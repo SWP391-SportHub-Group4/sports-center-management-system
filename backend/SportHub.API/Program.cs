@@ -14,6 +14,10 @@ using SportHub.Identity.Application.Interfaces;
 using SportHub.Identity.Application.Services;
 using SportHub.Identity.Infrastructure.Repositories;
 using SportHub.Identity.Infrastructure.Security;
+using SportHub.Identity.Application.Auth;
+using SportHub.Identity.Infrastructure.Authentication;
+using Microsoft.IdentityModel.Protocols;
+using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 
 LoadRootEnvIfPresent();
 
@@ -32,6 +36,13 @@ builder.Services.AddSportHubJwtBearer(builder.Configuration);
 // Phải gọi SAU AddSportHubJwtBearer — PostConfigure bổ sung OnTokenValidated vào Events đã có.
 builder.Services.AddAccountStatusJwtValidation();
 builder.Services.AddSportHubAuthorizationPolicies();
+builder.Services.Configure<GoogleAuthOptions>(builder.Configuration.GetSection("GoogleAuth"));
+builder.Services.AddSingleton<IConfigurationManager<OpenIdConnectConfiguration>>(
+    new ConfigurationManager<OpenIdConnectConfiguration>(
+        "https://accounts.google.com/.well-known/openid-configuration",
+        new OpenIdConnectConfigurationRetriever()));
+builder.Services.AddSingleton<IGoogleTokenVerifier, GoogleTokenVerifier>();
+builder.Services.AddScoped<GoogleAuthService>();
 
 builder.Services.AddRateLimiter(options =>
 {
