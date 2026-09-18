@@ -9,6 +9,7 @@ namespace SportHub.API.Extensions;
 // Identity, nên phần này ở lại đây (mục 3, mục 8, mục 9).
 public static class AuthorizationPolicyExtensions
 {
+    public const string SystemAdministratorPolicy = nameof(SystemAdministratorPolicy);
     public const string CenterManagerPolicy = nameof(CenterManagerPolicy);
     public const string CoachPolicy = nameof(CoachPolicy);
     public const string MemberPolicy = nameof(MemberPolicy);
@@ -19,6 +20,7 @@ public static class AuthorizationPolicyExtensions
     {
         services.AddAuthorizationBuilder()
             .SetFallbackPolicy(new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build())
+            .AddPolicy(SystemAdministratorPolicy, p => p.RequireRole(nameof(UserRole.SystemAdministrator)))
             .AddPolicy(CenterManagerPolicy, p => p.RequireRole(nameof(UserRole.CenterManager)))
             .AddPolicy(CoachPolicy, p => p.RequireRole(nameof(UserRole.Coach)))
             .AddPolicy(MemberPolicy, p => p.RequireRole(nameof(UserRole.Member)))
