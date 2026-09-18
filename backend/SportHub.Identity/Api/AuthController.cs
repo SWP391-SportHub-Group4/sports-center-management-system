@@ -24,9 +24,6 @@ public class AuthController(IAuthService authService) : ControllerBase
     }
 
     [AllowAnonymous]
-    // Tên policy để literal: policy được định nghĩa ở SportHub.API
-    // (RateLimiting/LoginRateLimitPolicy.cs) và module Identity KHÔNG được phụ thuộc ngược
-    // lên composition root. Phải khớp LoginRateLimitPolicy.PolicyName — có test chốt việc này.
     [EnableRateLimiting("auth-login")]
     [HttpPost("login")]
     public async Task<IActionResult> Login(
