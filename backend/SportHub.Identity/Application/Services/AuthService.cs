@@ -73,4 +73,45 @@ public sealed class AuthService(
             }
         };
     }
+
+    public async Task<AuthResponse> LoginAsync(
+        LoginRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var email = request.Email.Trim();
+
+        var user = await repository.FindByEmailForLoginAsync(email, cancellationToken);
+        if (user is null || string.IsNullOrEmpty(user.Credential?.PasswordHash))
+        {
+            passwordHasher.VerifyDummy(request.Password);
+            throw new InvalidCredentialsException();
+        }
+
+        if (!passwordHasher.Verify(request.Password, user.Credential.PasswordHash))
+        {
+            throw new InvalidCredentialsException();
+        }
+        
+        if (user.Status != UserStatus.Active)
+        {
+            throw new AccountBlockedException(user.Status);
+        }
+
+        var token = JwtService.GenerateAccessToken(
+            user.UserId,
+            user.Role!.RoleName.ToString(),
+            jwtOptions.Value);
+
+        return new AuthResponse
+        {
+            AccessToken = token,
+            User = new UserSummaryDto
+            {
+                UserId = user.UserId,
+                Email = user.Email,
+                FullName = user.Profile?.FullName ?? string.Empty,
+                Role = user.Role!.RoleName.ToString()
+            }
+        };
+    }
 }
