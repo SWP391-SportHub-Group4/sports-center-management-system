@@ -1,9 +1,13 @@
+using Microsoft.AspNetCore.Identity;
 using DotNetEnv;
 using Microsoft.EntityFrameworkCore;
 using SportHub.API.Extensions;
+using SportHub.API.Middleware;
+using SportHub.API.Modules.Identity.Admin;
 using SportHub.API.Persistence;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.Infrastructure.Authentication;
+using SportHub.Identity.Domain.Entities;
 
 LoadRootEnvIfPresent();
 
@@ -20,6 +24,9 @@ builder.Services.AddSportHubCors(builder.Configuration);
 builder.Services.AddSportHubJwtBearer(builder.Configuration);
 builder.Services.AddSportHubAuthorizationPolicies();
 
+builder.Services.AddScoped<IPasswordHasher<UserAccount>, PasswordHasher<UserAccount>>();
+builder.Services.AddScoped<AdminUserService>();
+
 builder.Services.AddControllers();
 builder.Services.AddSportHubSwagger();
 
@@ -30,6 +37,7 @@ app.UseSportHubSwagger();
 app.UseHttpsRedirection();
 app.UseCors(CorsExtensions.PolicyName);
 app.UseAuthentication();
+app.UseMiddleware<CurrentAccountGuardMiddleware>();
 app.UseAuthorization();
 app.MapControllers();
 

@@ -1,3 +1,4 @@
+using System.IdentityModel.Tokens.Jwt;
 using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
 using System.Text;
@@ -62,8 +63,8 @@ public static class JwtBearerExtensions
                     IssuerSigningKey = signingKey,
                     ValidAlgorithms = new[] { SecurityAlgorithms.HmacSha256 },
                     ClockSkew = TimeSpan.FromMinutes(1),
-                    NameClaimType = ClaimTypes.NameIdentifier,
-                    RoleClaimType = ClaimTypes.Role,
+                    NameClaimType = JwtRegisteredClaimNames.Sub,
+                    RoleClaimType = "role",
                 };
 
                 options.Events = new JwtBearerEvents

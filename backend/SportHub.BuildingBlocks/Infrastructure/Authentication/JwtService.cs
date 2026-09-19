@@ -15,8 +15,8 @@ public static class JwtService
     {
         var claims = new[]
         {
-            new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
-            new Claim(ClaimTypes.Role, role),
+            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new Claim("role", role),
         };
 
         return GenerateToken(claims, options);
