@@ -10,7 +10,7 @@ Monorepo cho hệ thống quản lý trung tâm thể thao đa bộ môn (Gym, P
 
 ```
 sports-center-management-system/
-├── backend/     # ASP.NET Core Web API (feature-based modular monolith, 10 project) — mở bằng Rider
+├── backend/     # ASP.NET Core Web API (feature-based modular monolith, 11 project) — mở bằng Rider
 ├── frontend/    # Next.js — mở bằng VS Code
 ├── ai/          # Reserved — AI hiện đang là module bên trong backend, xem ai/README.md
 ├── docs/        # Business Rules, Design v2 (ERD, API, RBAC...)
@@ -22,10 +22,11 @@ sports-center-management-system/
 Xem [`docs/RUNBOOK.md`](docs/RUNBOOK.md) — có tài khoản demo cho cả 5 vai trò và đường đi cụ thể
 để xem từng Flow 1–5 trên giao diện.
 
-Trạng thái triển khai từng business rule (BR-1 → BR-64):
-[`docs/br-implementation-matrix.md`](docs/br-implementation-matrix.md).
-Các quyết định phải tự đưa ra khi tài liệu chưa chốt — và những mục **cần PO duyệt** —
-nằm ở [`docs/implementation-decisions.md`](docs/implementation-decisions.md).
+Quyết định đã duyệt ngày 22/09/2026: [biên bản](docs/implementation-decisions.md).
+Business Rules hiện hành: [Word v1.4](docs/SportManagement_BusinessRules.docx) và [bản Markdown để review](docs/business-rules-v1.4.md).
+Kế hoạch tiếp tục: [Claude 23/09/2026](docs/claude-continuation-plan-2026-09-23.md).
+
+Đây là đặc tả đích; chưa xác nhận code đáp ứng v1.4. Matrix/status sẽ được Claude tạo từ kiểm chứng mới theo plan; không dùng kết quả tests cũ để kết luận các rule mới đã đạt.
 
 ## Backend — Feature-based Modular Monolith (11 project)
 

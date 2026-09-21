@@ -2,7 +2,7 @@
 
 > Mục đích: 1 nơi duy nhất để AI / FE / BE tra cứu khi có mâu thuẫn giữa các tài liệu.
 > Nếu file này và một doc khác nói khác nhau → **file này thắng**, trừ khi có ghi chú "xem chi tiết tại...".
-> Cập nhật lần cuối: 18/09/2026 — bổ sung truy vết BR v1.3 và đặc tả bảo mật login qua Codex theo yêu cầu người dùng; chưa phải xác nhận hoàn tất triển khai.
+> Cập nhật lần cuối: 22/09/2026 — người dùng duyệt chính sách và schema v1.4; đây là đặc tả, chưa xác nhận code đã đạt. Chi tiết: [quyết định đã duyệt](implementation-decisions.md); kế hoạch tiếp tục: [23/09/2026](claude-continuation-plan-2026-09-23.md).
 
 ---
 
@@ -11,12 +11,12 @@
 Khi có mâu thuẫn, đọc theo thứ tự sau (trên > dưới):
 
 1. `docs/00-Source-of-Truth.md` (file này) — quyết định đã chốt, không tranh cãi lại trong sprint hiện tại
-2. `docs/SportManagement_BusinessRules.docx` — business rules chi tiết; bản hiện có là **v1.3 (bản hợp nhất), 14/09/2026**
+2. `docs/SportManagement_BusinessRules.docx` — business rules chi tiết; bản hiện có là **v1.4, 22/09/2026** (bản diff Markdown: `business-rules-v1.4.md`, đồng bộ cùng nội dung quy tắc)
 3. `docs/Center-Management-System-Design-v2.md` — thiết kế kỹ thuật/kiến trúc
 4. `docs/Requirements.md` — yêu cầu gốc từ đề bài
 5. Mọi thứ khác (Slack/Zalo/note họp miệng) — **không tính là nguồn chính thức** trừ khi được chép lại vào 1 trong 4 file trên
 
-**Quy tắc cứng:** Nếu 2 doc mâu thuẫn và chưa kịp cập nhật file này → dừng lại, hỏi trong nhóm, **không tự thêm/đổi entity, field, hay flow để "cho chạy được"**. Ghi lại câu hỏi vào mục 6 (Open Questions) thay vì tự quyết.
+**Quy tắc cứng:** Nếu 2 doc mâu thuẫn và chưa kịp cập nhật file này → dừng lại, hỏi trong nhóm, **không tự thêm/đổi entity, field, hay flow để "cho chạy được"**. Ghi lại câu hỏi vào mục 7 (Open Questions) thay vì tự quyết.
 
 **Đối chiếu 18/09/2026:** tên `SportManagement_BusinessRules_v1.2.docx` ở ghi chú lịch sử bên dưới chỉ phiên bản cũ; file chính thức hiện có là mục 2. Trong bản hợp nhất, unique phone là **BR-62** (trước đây BR-54), unique role là **BR-63** (trước đây BR-55); không dùng các mã cũ cho hai ràng buộc này. BR-59/BR-60 về Google link/password đã có trong bản chính thức. Open Questions nằm ở **§7**.
 
@@ -48,10 +48,10 @@ Khi có mâu thuẫn, đọc theo thứ tự sau (trên > dưới):
 
 - [x] Đa chi nhánh / multi-tenant — 1 lần deploy SportHub = 1 trung tâm duy nhất, không có entity `Center`/`Branch`. Không nhầm với "đa bộ môn" (multi-discipline) — đa bộ môn trong CÙNG 1 trung tâm là IN-SCOPE, xem §1.1.
 - [x] Các bộ môn ngoài 4 bộ môn đã chốt ở §1.1 (vd Boxing, Cầu lông, Bơi lội, Bóng rổ...)
-- [ ] <ví dụ: thanh toán online qua cổng thật (VNPay/Momo) — MVP chỉ ghi nhận thủ công>
-- [ ] <ví dụ: mobile app riêng>
-- [ ] <ví dụ: notification qua SMS/email thật — MVP chỉ lưu trong DB / log>
-- [ ] <thêm...>
+- [x] Cổng thanh toán thật VNPay/Momo — MVP ghi nhận thu/hoàn thủ công có xác nhận và audit.
+- [x] Mobile app riêng.
+- [x] Gửi SMS/email thật — MVP thông báo trong app; kênh khác chỉ log.
+
 
 ### 1.4 Stretch (chỉ làm nếu còn thời gian sau khi xong Flow 1–5 — không tính vào scope cam kết)
 
@@ -60,6 +60,8 @@ Khi có mâu thuẫn, đọc theo thứ tự sau (trên > dưới):
 ---
 
 ## 2. Entity đã chốt (Domain Model)
+
+**22/09/2026:** module `Administration` được chấp nhận làm nơi điều phối quản trị và sở hữu SystemSetting/ReportExport, tránh dependency cycle Identity–Audit. BuildingBlocks không phụ thuộc domain. Bảng này và §5.7 gồm schema đích đã duyệt, không khẳng định migration đã đủ.
 
 > Đồng bộ với ERD v2 (`Center-Management-System-Design-v2.md` §1) — nguồn field đầy đủ nhất là `entity-field-purpose.md`, bảng dưới chỉ tóm tắt để tra nhanh module sở hữu + enum dùng. Entity nào **chưa** nằm trong bảng này thì **chưa được coi là đã chốt**.
 >
@@ -88,25 +90,28 @@ Khi có mâu thuẫn, đọc theo thứ tự sau (trên > dưới):
 | `UserExternalLogin` | Identity | `ExternalLoginId` (uuid) | UserId, Provider, ProviderUserId, RefreshToken (nullable) | N—1 `UserAccount` | `ExternalAuthProvider` | unique (provider, provider_user_id) và (user_id, provider); refresh_token MVP chưa mã hoá — xem Open Questions |
 | `MemberTrainingProfile` | Membership | `ProfileId` (uuid) | MemberId (unique), Goal, ExperienceLevel | 1—1 `UserAccount` (Member) | `ExperienceLevel` | input bắt buộc cho AI suggestion (BR-26) |
 | `CoachMemberRelationship` | Training | `RelationshipId` (uuid) | CoachId, MemberId, SourceType, ClassId (nullable) | N—1 `UserAccount` (2 phía) | `RelationshipSourceType`, `RelationshipStatus` | unique khi ACTIVE (ràng buộc #7, BR-23/24) |
-| `MembershipPackage` | Membership | `PackageId` (int) | Name (unique), Price, DurationDays, SessionLimit | 1—N `MemberPackage` | — | unique BR-56 |
-| `MemberPackage` | Membership | `MemberPackageId` (uuid) | MemberId, PackageId, RemainingSessions, Version | N—1 `UserAccount`, N—1 `MembershipPackage`; 1—N `Enrollment` | `MemberPackageStatus` | state machine §4; optimistic concurrency qua `Version` |
+| `MembershipPackage` | Membership | `PackageId` (int) | Name (unique), Price, DurationDays, SessionLimit, IsActive, Description (nullable) | 1—N `MemberPackage` | — | unique BR-56 |
+| `MemberPackage` | Membership | `MemberPackageId` (uuid) | MemberId, PackageId, RemainingSessions, Version, StackingApprovedByUserId (nullable), StackingApprovedAtUtc (nullable), StackingApprovalReason (nullable) | N—1 `UserAccount`, N—1 `MembershipPackage`; 1—N `Enrollment` | `MemberPackageStatus` | state machine §4; optimistic concurrency qua `Version` |
 | `Room` | Scheduling | `RoomId` (int) | Name (unique), Capacity | 1—N `Class`, `ClassSession` | — | unique BR-57 |
 | `Class` | Scheduling | `ClassId` (int) | Name, Discipline, DefaultRoomId, DefaultCoachId | N—1 `Room`; 1—N `ClassRecurrence`, `ClassSession` | `ClassStatus` | |
 | `ClassRecurrence` | Scheduling | `RecurrenceId` (int) | ClassId, DaysOfWeek, StartTimeLocal, EndTimeLocal, Timezone | N—1 `Class`; 1—N `ClassSession` | — | định nghĩa pattern, không phải buổi cụ thể |
-| `ClassSession` | Scheduling | `SessionId` (uuid) | ClassId, RecurrenceId (nullable), RoomId, CoachId, StartAtUtc, EndAtUtc, ConfirmedCount | N—1 `Class`, `ClassRecurrence` (nullable), `Room`; 1—N `Enrollment`, `Attendance` | `ClassSessionStatus` | chưa có state diagram riêng — xem §4 |
-| `Enrollment` | Scheduling | `EnrollmentId` (uuid) | SessionId, MemberId, MemberPackageId | N—1 `ClassSession`, `UserAccount`, `MemberPackage`; 1—1 `Attendance`, 1—N `WorkoutResult` | `EnrollmentStatus` | state machine §4; ràng buộc #1–#4 (Design v2 §3) |
+| `ClassSession` | Scheduling | `SessionId` (uuid) | ClassId, RecurrenceId (nullable), RoomId, CoachId, StartAtUtc, EndAtUtc, Capacity, BaselineCapacity, ConfirmedCount | N—1 `Class`, `ClassRecurrence` (nullable), `Room`; 1—N `Enrollment`, `Attendance` | `ClassSessionStatus` | BR-54; xem §4 và Design v2 |
+| `Enrollment` | Scheduling | `EnrollmentId` (uuid) | SessionId, MemberId, MemberPackageId, CancellationDeadlineHours | N—1 `ClassSession`, `UserAccount`, `MemberPackage`; 1—1 `Attendance`, 1—N `WorkoutResult` | `EnrollmentStatus` | state machine §4; ràng buộc #1–#4 (Design v2 §3) |
 | `Attendance` | Scheduling | `AttendanceId` (uuid) | EnrollmentId (unique), CheckInTime | 1—1 `Enrollment` | `AttendanceStatus` | state machine §4 (đã sửa 09/09/2026, thêm nhánh Absent); bỏ `session_id`/`member_id` 10/09/2026 (3) — suy ra qua `Enrollment`, không denormalize |
 | `WorkoutPlan` | Training | `PlanId` (uuid) | MemberId, CoachId, RelationshipId, Goal, Level | N—1 `UserAccount` (2 phía), `CoachMemberRelationship`; 1—N `WorkoutPlanItem` | — | chỉ tạo được khi quan hệ ACTIVE (BR-23) |
 | `WorkoutPlanItem` | Training | `ItemId` (uuid) | PlanId, Exercise, Sets, Reps | N—1 `WorkoutPlan` | — | |
-| `WorkoutResult` | Training | `ResultId` (uuid) | EnrollmentId, CoachId, ProgressNote, CoachComment | N—1 `Enrollment`, `UserAccount` (coach) | — | chỉ Coach dạy buổi đó mới ghi được (BR-24); chỉ tạo được khi `Enrollment.Status = Confirmed` (BR mới, xem §7); bỏ `session_id`/`member_id` 10/09/2026 (3) — suy ra qua `Enrollment`, đảm bảo Member thực sự có đăng ký session đó |
-| `Invoice` | Payment | `InvoiceId` (uuid) | InvoiceNumber (unique), MemberId, IssuedByUserId, MemberPackageId (nullable), TotalAmount | N—1 `UserAccount` (2 phía), `MemberPackage`; 1—N `InvoiceItem`, `Payment`, `PaymentAdjustment` | `InvoiceStatus` | state machine §4; không bao giờ bị xóa (BR-40); invoice_number unique BR-58 |
+| `WorkoutResult` | Training | `ResultId` (uuid) | EnrollmentId, CoachId, ProgressNote, CoachComment | N—1 `Enrollment`, `UserAccount` (coach) | — | chỉ Coach dạy buổi đó mới ghi được (BR-24); chỉ tạo được khi `Enrollment.Status = Confirmed` (BR-61); không thêm điều kiện Present; bỏ `session_id`/`member_id` 10/09/2026 (3) — suy ra qua `Enrollment`, đảm bảo Member thực sự có đăng ký session đó |
+| `Invoice` | Payment | `InvoiceId` (uuid) | InvoiceNumber (unique), MemberId, IssuedByUserId, MemberPackageId (nullable), TotalAmount, DueDateUtc, FirstDepositAtUtc (nullable) | N—1 `UserAccount` (2 phía), `MemberPackage`; 1—N `InvoiceItem`, `Payment`, `PaymentAdjustment` | `InvoiceStatus` | state machine §4; không bao giờ bị xóa (BR-40); invoice_number unique BR-58 |
 | `InvoiceItem` | Payment | `ItemId` (uuid) | InvoiceId, Description, Amount, RelatedEntityType | N—1 `Invoice` | `InvoiceItemRelatedEntityType` | |
-| `Payment` | Payment | `PaymentId` (uuid) | InvoiceId, Amount, Method, ReferenceCode, ReceivedByUserId | N—1 `Invoice`, `UserAccount`; 1—N `PaymentAdjustment` | `PaymentMethod`, `PaymentStatus` | tổng SUCCESS không vượt Invoice.TotalAmount (BR-41) |
-| `PaymentAdjustment` | Payment | `AdjustmentId` (uuid) | InvoiceId, PaymentId (nullable), Type, Amount, Reason, RequestedByUserId, ApprovedByUserId | N—1 `Invoice`, `Payment` (nullable), `UserAccount` (2 phía) | `PaymentAdjustmentType`, `PaymentAdjustmentStatus` | state machine §4; Manager duyệt, không tự duyệt (BR-42) |
+| `Payment` | Payment | `PaymentId` (uuid) | InvoiceId, Amount, Method, ReferenceCode, ReceivedByUserId | N—1 `Invoice`, `UserAccount`; 1—N `PaymentAdjustment` | `PaymentMethod`, `PaymentStatus` | thu mới không vượt Outstanding (BR-41 v1.4, §5.7) |
+| `PaymentAdjustment` | Payment | `AdjustmentId` (uuid) | InvoiceId, PaymentId (nullable), Type, Amount, Reason, RequestedByUserId, ApprovedByUserId, ApprovedAtUtc, CompletedAtUtc, CompletedByUserId, RefundMethod, RefundReferenceCode | N—1 `Invoice`, `Payment` (nullable), `UserAccount` (2 phía) | `PaymentAdjustmentType`, `PaymentAdjustmentStatus` | state machine §4; Manager duyệt, không tự duyệt (BR-42) |
 | `Notification` | Notification | `NotificationId` (uuid) | UserId, Channel, SourceEventType, SourceEntityId (nullable), Message | N—1 `UserAccount` | `NotificationChannel`, `NotificationSourceEventType`, `NotificationStatus` | MVP: lưu trong DB, không gửi SMS/email thật (§1.3) |
 | `AiLog` | AI | `LogId` (uuid) | UserId, QueryType, InputPayload, ResponsePayload, ResponseTimeMs | N—1 `UserAccount` | — | `QueryType` là chuỗi tự do (vd `WORKOUT_SUGGESTION`), không phải enum kín |
-| `AuditLog` | Audit | `AuditId` (uuid) | UserId, Action, TargetEntity, TargetId, OldValue, NewValue | N—1 `UserAccount` | — | `Action` là chuỗi tự do (vd `UPDATE_PACKAGE_STATUS`), không phải enum kín |
+| `AuditLog` | Audit | `AuditId` (uuid) | UserId, Action, TargetEntity, TargetId (string), OldValue, NewValue | N—1 `UserAccount` | — | `Action` là chuỗi tự do (vd `UPDATE_PACKAGE_STATUS`), không phải enum kín |
 | `GymCheckIn` | Scheduling | `CheckInId` (uuid) | MemberId, CheckedInByUserId, CheckInTime | N—1 `UserAccount` (2 phía: member, receptionist) | — | Mới 18/09/2026. Không qua `Class`/`Enrollment`/`Attendance`; điều kiện ≥1 `MemberPackage` Active (BR-64); không trừ `RemainingSessions`; chỉ Receptionist tạo được |
+
+| `SystemSetting` | Administration | `Key` (string) | Value, ValueType, UpdatedAt, UpdatedByUserId (nullable) | FK actor tới UserAccount | — | Chỉ Manager chỉnh; key được whitelist, kiểm kiểu và giới hạn; seed 12h/7 ngày |
+| `ReportExport` | Administration | `ReportExportId` (uuid) | ReportType, RequestedByUserId, ParametersJson, Format, Status, RowCount, SizeBytes, FailureReason, CreatedAt, CompletedAt, ExpiresAt, IsDeleted, DeletedAt | FK RequestedByUserId tới UserAccount | ReportExportStatus | File riêng tư ngoài DB, locator suy ra từ ID + format trong storage root; không nhận path từ client |
 
 ---
 
@@ -114,7 +119,7 @@ Khi có mâu thuẫn, đọc theo thứ tự sau (trên > dưới):
 
 > Đây là nơi DUY NHẤT định nghĩa enum — ERD (`Center-Management-System-Design-v2.md` §1) chỉ **tham chiếu** tên enum, không lặp lại danh sách giá trị. Không định nghĩa lại rải rác trong code/docs khác.
 >
-> **Quy ước:** tên member enum trong C# viết `PascalCase` (đúng convention §5.4). Chuỗi lưu DB / trả về qua API dùng `UPPER_SNAKE_CASE` (khớp toàn bộ giá trị mẫu đã có sẵn trong ERD/Business Rules trước đây) — ví dụ `MemberPackageStatus.PendingPayment` ↔ chuỗi `"PENDING_PAYMENT"`. Cơ chế serialize cụ thể (`JsonStringEnumConverter` + naming policy, hay map thủ công) **chưa chốt** — xem Open Questions.
+> **Quy ước đã chốt 22/09/2026:** enum C# PascalCase; enum request/response/query API nghiệp vụ UPPER_SNAKE_CASE. JWT role giữ PascalCase theo §5.6. DB giữ kiểu lưu và ordinal/index hiện có trong đợt này; không tự migrate enum DB sang string. Serialize bằng converter/mapping có contract tests; DTO property camelCase.
 >
 > **Cập nhật 09/09/2026:** trước đó chỉ có 6/19 enum được liệt kê (5 enum còn lại toàn dấu `?`), và `UserRole` ghi giá trị không khớp ERD (`CenterManager` vs ERD ghi `MANAGER`). Đã điền đầy đủ 19 enum theo đúng giá trị đã dùng thống nhất trong ERD v2 / `entity-field-purpose.md` / Business Rules v1.2, và sửa `UserRole` cho khớp ERD.
 
@@ -145,6 +150,8 @@ Khi có mâu thuẫn, đọc theo thứ tự sau (trên > dưới):
 | `NotificationStatus` | `Pending, Sent, Failed, Read` | `Notification.Status` | |
 | `ExternalAuthProvider` | `Google` | `UserExternalLogin.Provider` | Mới 10/09/2026 (2). Hiện chỉ `Google`; thêm provider khác sau (Facebook...) không cần đổi entity |
 
+| `ReportExportStatus` | `Pending, Completed, Failed` | `ReportExport.Status` | Pending → Completed khi file sẵn sàng, hoặc Failed; retry có kiểm soát |
+
 *(`AiLog.QueryType` và `AuditLog.Action` là chuỗi tự do, không phải enum kín — xem ghi chú ở bảng Entity mục 2.)*
 
 ---
@@ -155,12 +162,12 @@ Khi có mâu thuẫn, đọc theo thứ tự sau (trên > dưới):
 >
 > **Cập nhật 09/09/2026:** trước đó mục này chỉ có 3 dòng placeholder `? → ? → ?` dù Design v2 §2 đã có diagram Mermaid đầy đủ từ trước — đã đồng bộ lại. Đồng thời phát hiện và sửa 1 lỗi thật: diagram `Attendance` trong Design v2 §2.2 thiếu hẳn nhánh `Absent` dù ERD và `entity-field-purpose.md` đều liệt kê `Absent` là 1 trong 3 giá trị hợp lệ của `AttendanceStatus` (đã bổ sung, xem Design v2 §2.2).
 
-- **MemberPackage**: `PendingPayment → Active → (Expired | Cancelled)`, hoặc `PendingPayment → Cancelled` nếu hết hạn giữ chỗ trước khi thanh toán. Diagram: Design v2 §2.1.
+- **MemberPackage**: `PendingPayment → Active → (Expired | Cancelled)`; thêm `Expired → Active` có điều kiện BR-11 v1.4 khi hoàn lượt. Hết hạn invoice không tự hủy gói pending; điều kiện xử lý pending quá hạn cần chốt §7. Kích hoạt ngày trả đủ theo giờ VN, không reset khi retry.
 - **Enrollment**: `Confirmed → (CancelledOnTime | CancelledLate)`, hoặc `Confirmed → [chuyển sang Attendance khi session kết thúc]`. Diagram: Design v2 §2.2.
 - **Attendance**: `[Attendance] → (Present | Absent | NoShow)` — `Present`/`Absent`: Coach/Receptionist ghi tay; `NoShow`: `AttendanceFinalizerJob` tự sinh sau `end_at_utc` nếu không check-in và không có `Absent` ghi tay (BR-53). Diagram: Design v2 §2.2 (**đã sửa 09/09/2026** — thêm nhánh `Absent`).
 - **Invoice**: `Issued → (PartiallyPaid → Paid | Paid)`; `Paid` giữ nguyên khi có Adjustment `Completed` (chỉ ghi thêm dòng, BR-40); `Issued → Void` chỉ khi Adjustment loại `Correction` toàn phần được duyệt. Diagram: Design v2 §2.3.
-- **PaymentAdjustment**: `Requested → (Approved → Completed | Rejected)` — Manager duyệt, không được tự duyệt yêu cầu mình tạo (BR-42). Diagram: Design v2 §2.4.
-- **ClassSession**: `Scheduled → (Rescheduled | Cancelled | Completed)` — **chưa có state diagram chi tiết trong Design v2, cần bổ sung** (xem Open Questions §7).
+- **PaymentAdjustment**: `Requested → (Approved → Completed | Rejected)` — Manager duyệt, không được tự duyệt. Refund chỉ Completed khi Receptionist xác nhận thực trả, riêng ngày/actor; không gộp với approve (BR-42 v1.4). Diagram: Design v2 §2.4.
+- **ClassSession**: `Scheduled → (Rescheduled | Cancelled | Completed)`; hủy/dời trước khi bắt đầu, dời tạo buổi thay thế có liên kết và hủy/hoàn booking cũ theo BR-54; không chuyển Member tự động.
 - **Payment**: `Pending → (Success | Failed)` — không có diagram riêng, được tổng hợp qua vòng đời Invoice (Design v2 §2.3).
 
 ---
@@ -169,8 +176,8 @@ Khi có mâu thuẫn, đọc theo thứ tự sau (trên > dưới):
 ## 5. Quy ước chung (Conventions)
 
 ### 5.1 ID
-- Kiểu ID: `Guid` (uuid) cho mọi entity — **không** dùng auto-increment `int` để tránh lộ số lượng record / trùng khi merge dữ liệu demo.
-- Sinh ở tầng nào: <DB default `gen_random_uuid()` hay generate ở app layer trước khi insert?> — chốt trong họp.
+- Kiểu ID theo §2: catalog Role/MembershipPackage/Room/Class/ClassRecurrence giữ int; nghiệp vụ giữ Guid; SystemSetting dùng key string. Không mass-migrate ID. ID không thay thế authorization.
+- Giữ cơ chế sinh ID hiện có; InvoiceNumber bắt buộc từ DB sequence theo BR-58.
 
 ### 5.2 Tiền tệ (Money)
 - Đơn vị: VND, lưu dạng số nguyên (không có phần thập phân) — **không dùng `float`/`double`**, dùng `decimal`.
@@ -179,7 +186,7 @@ Khi có mâu thuẫn, đọc theo thứ tự sau (trên > dưới):
 
 ### 5.3 Thời gian (Timezone)
 - Lưu DB: UTC (`timestamptz` trong Postgres).
-- Hiển thị: convert sang `Asia/Ho_Chi_Minh` (UTC+7) ở tầng FE (hoặc BE trả kèm cả UTC, FE tự convert) — chốt 1 cách duy nhất trong họp, tránh chỗ convert chỗ không.
+- API truyền thời điểm UTC; FE hiển thị Asia/Ho_Chi_Minh. Quy tắc ngày gói DateOnly tính tại backend theo Asia/Ho_Chi_Minh; ngày cuối inclusive.
 - Định dạng truyền qua API: ISO 8601 (`yyyy-MM-ddTHH:mm:ssZ`).
 
 ### 5.4 Naming
@@ -188,8 +195,8 @@ Khi có mâu thuẫn, đọc theo thứ tự sau (trên > dưới):
 - **Cột DB (Postgres): vẫn `snake_case`** — vd `user_id`, `class_id`, `full_name` — không đổi so với trước, và **không cần tự map tay**: package `EFCore.NamingConventions` + `.UseSnakeCaseNamingConvention()` (cấu hình 1 dòng ở `SportHub.API/Program.cs`, `AddDbContext<SportHubDbContext>`) tự động convert property `PascalCase` → tên cột `snake_case` khi EF Core sinh SQL/migration. Raw SQL viết tay (check constraint, index filter trong `SportHubDbContext.cs`) vẫn tham chiếu tên cột `snake_case` như cũ, không cần sửa.
 - Enum type name (`UserRole`...) và Entity/Class name không đổi, vẫn PascalCase.
 - Enum member (C#): PascalCase (không đổi — xem §3).
-- API route: `kebab-case` hoặc `camelCase`? — chốt 1 kiểu, ví dụ `/api/membership-packages`.
-- DTO suffix: `...Request` / `...Response` (không dùng Entity trực tiếp làm response). Naming field bên trong DTO/JSON request-response **chưa chốt** (camelCase theo convention JS/TS phổ biến, hay `PascalCase`/`snake_case` đồng bộ với entity) — xem Open Questions §7.
+- Route API mới dùng kebab-case, giữ tương thích các route hiện có.
+- DTO suffix: `...Request` / `...Response`, không trả entity trực tiếp. JSON property camelCase, enum nghiệp vụ UPPER_SNAKE_CASE; JWT role ngoại lệ PascalCase.
 
 ### 5.5 Soft delete vs hard delete
 - Mặc định: soft delete (`is_deleted` / `deleted_at`) cho entity có liên quan lịch sử (Payment, Attendance, Enrollment...).
@@ -219,6 +226,20 @@ Trạng thái tại lần cập nhật này (18/09/2026, sau khi có bằng ch�
 
 Tham chiếu mã BR trong plan là bản đồ truy vết, không thêm hay đánh số lại BR chính thức.
 
+### 5.7 Quyết định v1.4 đã duyệt ngày 22/09/2026
+
+Nguồn phê duyệt: người dùng đồng ý khuyến nghị review và yêu cầu cập nhật tài liệu. [Biên bản quyết định](implementation-decisions.md) là diễn giải chi tiết được mục này dẫn chiếu, bao gồm công thức, ví dụ, giới hạn và §4 còn mở. Những ghi chú lịch sử ở §2/§8 không ghi đè quyết định mới.
+
+- A1–A7 được duyệt với điều kiện trong biên bản; mặc định hủy 12h, nhắc hạn 7 ngày, Manager cấu hình; không sửa snapshot booking cũ.
+- BR-41/42/43 v1.4 thay công thức cộng mọi Adjustment: Discount/Correction giảm nghĩa vụ; Refund Completed mới giảm thực thu. GrossCollected − RefundedAmount = NetCollected; TotalAmount − Discount/Correction Completed = NetPayable; Outstanding = max(0, NetPayable − NetCollected); RefundDue = max(0, NetCollected − NetPayable). Không giảm nghĩa vụ hai lần cho cùng một khoản hoàn.
+- Metadata PaymentAdjustment được duyệt: ApprovedAtUtc, CompletedAtUtc, CompletedByUserId (FK), RefundMethod (PaymentMethod nullable), RefundReferenceCode nullable. Refund Completed bắt buộc actor/thời điểm/phương thức thực trả; chuyển khoản có mã tham chiếu, tiền mặt có audit/xác nhận quầy. ResolvedAt cũ giữ cho tương thích, không dùng thay ngày thực trả. Không tự backfill bằng chứng hoàn từ dữ liệu thiếu chứng cứ.
+- ReportExport.Format là string whitelist Csv/Pdf (không thêm enum); ExpiresAt ít nhất CompletedAt + 6 tháng cho file thành công. File ID + format lưu trong storage root riêng tư; download kiểm quyền. PDF BR-48 bắt buộc; CSV không thay thế.
+- Cộng dồn chỉ ngoại lệ Manager cho cùng PackageId, lưu actor/time/reason, giữ gói riêng. StartDate là ngày trả đủ giờ VN, EndDate = StartDate + DurationDays − 1.
+- Đổi role phải chặn token role cũ từ request sau; không đồng nghĩa thu hồi token vĩnh viễn. Quan hệ cá nhân do Manager quản lý; Coach không tự cấp quyền. Chi tiết ClassBased xem §7.
+- BR-13/16 chặn trùng phòng/Coach/Member bằng khoảng [start, end), kể cả concurrency. BR-51 giữ baseline lúc tạo.
+- Google Login, AI thật, PDF, backup/HTTPS/uptime giữ trong scope tương ứng. Không có cấu hình ngoài hệ thống thì ghi chưa nghiệm thu, không dùng fixture chứng minh hoàn thành.
+
+
 ## 6. Quy tắc xử lý khi docs mâu thuẫn / thiếu
 
 1. **Không tự thêm entity/field/enum mới** để "cho code chạy" — nếu thiếu, thêm vào mục **Open Questions** bên dưới và hỏi người phụ trách domain đó (BA/team lead) trước khi code.
@@ -228,16 +249,16 @@ Tham chiếu mã BR trong plan là bản đồ truy vết, không thêm hay đá
 
 ---
 
-## 7. Open Questions (chưa chốt — cần họp quyết định)
+## 7. Open Questions và các mục đã đóng
 
-- [ ] Cơ chế serialize enum (JSON API response / lưu string trong DB): dùng `JsonStringEnumConverter` với naming policy `UPPER_SNAKE_CASE`, hay map thủ công ở DTO layer? (phát sinh khi điền §3 ngày 09/09/2026)
-- [ ] `ClassSession` chưa có state diagram chi tiết (chỉ có 4 giá trị liệt kê trong ERD: `Scheduled, Rescheduled, Cancelled, Completed`) — cần vẽ rõ điều kiện chuyển trạng thái, đặc biệt `Rescheduled` (có tạo `ClassSession` mới hay chỉ đổi field tại chỗ — xem `RescheduledFromSessionId`)
-- [ ] Naming field trong DTO/JSON API (request/response body) **vẫn CHƯA chốt** — property C# nay là `PascalCase` (§5.4, đảo lại 11/09/2026) nhưng đó là naming ở tầng entity, không tự quyết định naming JSON; cần chốt `camelCase` (phổ biến với FE Next.js/TS) hay đồng bộ `PascalCase`/`snake_case` với entity trước khi code Controller/DTO, tránh code xong rồi đổi lại
-- [ ] `UserExternalLogin.RefreshToken` MVP chưa mã hoá tại rest — cần chốt có mã hoá (vd Data Protection API) trước khi lưu data thật hay chấp nhận nợ kỹ thuật cho scope đồ án (phát sinh khi thêm entity 10/09/2026 (2))
-- [x] Business rule Google link và login password đã có chính thức ở BR-59/BR-60 trong `SportManagement_BusinessRules.docx` v1.3; đóng câu hỏi thiếu văn bản sau khi đối chiếu 18/09/2026. Đây không phải xác nhận code Google Login đã hoàn thành.
-- [ ] `WorkoutResult` chỉ nên tạo được khi `Enrollment.Status = Confirmed` (member chưa hủy đăng ký) — FK `EnrollmentId` mới (10/09/2026 (3)) chỉ đảm bảo Enrollment *tồn tại*, không đảm bảo còn hợp lệ; cần chép rule này chính thức vào `SportManagement_BusinessRules_v1.2.docx`, và cân nhắc có nên yêu cầu thêm `Attendance.Status = Present` mới cho ghi WorkoutResult hay không (chưa quyết định)
-- [ ] Phạm vi quyền `SystemAdministrator` ngoài BR-2 (tạo tài khoản `SystemAdministrator`/`CenterManager`/`Coach`/`Receptionist`, gán vai trò) và BR-6 (khóa/mở khóa tài khoản) — có được xem báo cáo doanh thu (`/reports/*`), Audit Log, hay cấu hình hệ thống (`cancellation_deadline_hours`...) hay không? Business Rules v1.2 chưa nói rõ; RBAC matrix tạm để `SystemAdministrator` = ❌ cho các mục ngoài 2 việc trên (xem `Center-Management-System-Design-v2.md` §5, cập nhật 11/09/2026) (phát sinh khi bổ sung role 11/09/2026)
-- [ ] <câu hỏi khác>
+- [x] A1–A7, ID catalog int, JSON camelCase, API enum UPPER_SNAKE_CASE và JWT PascalCase: đã duyệt 22/09, xem §2/3/5.7. DB enum giữ hiện trạng.
+- [x] Reschedule tạo buổi mới theo BR-54; WorkoutResult cần Enrollment Confirmed theo BR-61, không tự thêm Present.
+- [x] Google explicit link và credential nullable theo BR-59/60; chưa đồng nghĩa integration đã test thật. Không lưu Google refresh token trong scope login chỉ xác minh ID token; nếu thêm lưu token phải thiết kế bảo vệ riêng.
+- [ ] Điểm kết thúc và quyền đọc lịch sử của quan hệ ClassBased; không cho phép tự suy ra quyền vô hạn từ một booking.
+- [ ] Quy trình Manager xử lý hóa đơn quá hạn; hiện chặn thu thông thường, không tự gia hạn/void/tịch thu cọc.
+- [ ] Refund theo ngày có tính ngày hiện tại là chưa dùng không; tác động hủy dịch vụ/hoàn tiền lên gói và booking tương lai. Không tự hủy gói từ một Refund.
+- [ ] Quyền SystemAdministrator ngoài quản trị tài khoản/role vẫn không được tự mở rộng; hiện deny báo cáo/cấu hình/Audit khi chưa có quyền rõ.
+- [ ] Chi tiết soft-delete theo từng entity chưa có field: không tự thêm field/xóa lịch sử; Invoice tuyệt đối không xóa.
 
 ---
 
@@ -245,6 +266,7 @@ Tham chiếu mã BR trong plan là bản đồ truy vết, không thêm hay đá
 
 | Ngày | Thay đổi | Người sửa |
 |---|---|---|
+| 22/09/2026 | Duyệt A1–A7 và chính sách v1.4; sửa đối soát thu/hoàn, state hồi phục gói có điều kiện, naming contract; giữ PDF/AI/Google trong scope. Đồng bộ Word/Markdown/SRS/Design và plan 23/09. Chưa xác nhận code đạt. | Người dùng duyệt; Codex cập nhật |
 | 18/09/2026 | **Triển khai scope đa bộ môn ở tầng code** (theo `docs/multidiscipline-refactor-plan.md`). Chốt 4 điểm còn treo ở bước 1 của kế hoạch: (1) `Class.Discipline` GIỮ kiểu string, ba giá trị chính thức gom vào `SportHub.Scheduling/Domain/Constants/Disciplines.cs` + validator `ClassRules` + 2 DB CHECK (`CK_classes_discipline_allowed`, `CK_classes_personal_training_capacity`) — không thêm enum nghiệp vụ mới ngoài SSOT; (2) `Class.DefaultCoachId` GIỮ nullable kể cả với Personal Training — HLV bắt buộc nằm ở `ClassSession.CoachId` (đã not-null), "PT gán 1 Coach" được bảo đảm bằng `Capacity = 1` chứ không bằng việc siết nullability ở Class; (3) cột thời gian của `GymCheckIn` chốt là `check_in_time` (property `CheckInTime`, UTC) theo SSOT §2 và tiền lệ `Attendance.CheckInTime` — ERD Design v2 §1 đã sửa từ `check_in_time_utc` cho khớp; (4) BR-64 chỉ xét `MemberPackage.Status = Active`, KHÔNG thêm điều kiện `EndDate`/`RemainingSessions > 0` — việc chuyển `Active → Expired` khi quá hạn hoặc hết buổi thuộc BR-11 (Design v2 §2.1), không nhân bản vào rule check-in. Thêm entity/migration `gym_checkins`, service + 3 endpoint + policy RBAC riêng (không tái dụng `AttendanceCheckInPolicy` vì policy đó còn cho Coach), và project test `SportHub.Scheduling.Tests`. | Hồ Lê Thiên An (qua Claude) |
 | 18/09/2026 | **Chốt 4 bộ môn chính thức** (Gym/Fitness, Personal Training, Yoga, Group X — §1.1) cho hướng "trung tâm thể thao đa bộ môn"; xác nhận đa chi nhánh vẫn ngoài scope (§1.3). Thêm entity mới `GymCheckIn` (§2, module Scheduling, BR-64 trong `SportManagement_BusinessRules.docx`) vì Gym không đặt lịch qua Class — Lễ tân điểm danh trực tiếp, điều kiện ≥1 MemberPackage Active, không trừ buổi. Chi tiết: `claude/citigym-multidiscipline-scope-plan.md` (Project doc). | Hồ Lê Thiên An (qua Claude) |
 | 18/09/2026 | Triển khai §5.6: thêm `IPasswordHasher.VerifyDummy` (BCrypt cost 11) để mọi login hợp lệ DTO tốn đúng một phép BCrypt; thêm policy rate limit `auth-login` (10 req/IP/phút, 429 `too_many_requests`, quota tách khỏi register); thêm `IUserAccountRepository.IsActiveAsync` + hook `OnTokenValidated` tại `SportHub.API` để chặn JWT của tài khoản bị khóa/xóa (BR-6, phần request). Thêm project `SportHub.Security.Tests` (65 test, PostgreSQL thật qua Testcontainers). Cập nhật trạng thái §5.6 kèm số đo BR-35 và danh sách hạng mục CHƯA đạt. | Hồ Lê Thiên An (qua Claude) |

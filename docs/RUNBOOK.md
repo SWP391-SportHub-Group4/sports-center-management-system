@@ -2,6 +2,8 @@
 
 Hướng dẫn chạy toàn bộ hệ thống (PostgreSQL → API → giao diện) và thử từng vai trò.
 
+> **22/09/2026:** các đường đi dưới đây mô tả bản demo trước v1.4, chưa được kiểm chứng lại. Đặc biệt Refund phải tách approve/complete; PDF và AI thật còn cần hoàn thiện theo [plan 23/09](claude-continuation-plan-2026-09-23.md).
+
 ## 1. Yêu cầu
 
 - Docker Desktop (cho PostgreSQL)
@@ -85,9 +87,9 @@ xác thực.
 
 1. `letan@sporthub.vn` → **Tra cứu hóa đơn**: thu tiền, tạo yêu cầu điều chỉnh.
 2. `manager@sporthub.vn` → **Duyệt điều chỉnh**: duyệt hoặc từ chối. Yêu cầu do chính mình tạo
-   sẽ không có nút duyệt (BR-42).
+   sẽ không có nút duyệt; backend cũng phải chặn (BR-42). Theo v1.4, duyệt Refund chưa là thực trả; cần bước Receptionist xác nhận thực trả riêng, đang chờ code theo plan.
 3. `manager@sporthub.vn` → **Báo cáo doanh thu**: số liệu theo ngày, chọn cột rồi xuất CSV, tải
-   về, thử lại khi lỗi, xóa (BR-44 → BR-48).
+   về, thử lại khi lỗi. V1.4 chỉ cho xóa sau retention; CSV chưa đáp ứng phần PDF của BR-48.
 
 ### Flow 4 — Điểm danh & tập luyện
 
@@ -101,7 +103,7 @@ xác thực.
 vào bắt buộc của BR-26 và thời gian phản hồi đã ghi vào `AI_Logs` (BR-27).
 
 Bản cài đặt hiện tại chạy theo bộ luật cục bộ (`RuleBasedAiRecommendationService`) — không cần
-API key, kết quả tất định. Đổi sang LLM thật chỉ cần thay bản cài đặt của `IAiRecommendationService`.
+API key, kết quả tất định; đây là demo/test, chưa nghiệm thu Flow 5. Provider thật cần cấu hình, xử lý lỗi và kiểm thử integration theo plan.
 
 ### Gym / Fitness
 

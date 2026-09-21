@@ -68,3 +68,16 @@
 
 ### Stretch Goal (chỉ làm nếu còn thời gian sau khi xong Flow 1–5 — xem `00-Source-of-Truth.md` §1.4)
 * **Flow 6:** AI assistant (Trợ lý AI hỗ trợ giải đáp) — **không tính vào scope cam kết**, chỉ triển khai nếu còn dư thời gian.
+
+## Quyết định bổ sung đã duyệt 22/09/2026
+
+Business Rules v1.4 và SSOT là nguồn hiện hành; [implementation-decisions](implementation-decisions.md) ghi chi tiết. Flow 1–5 giữ nguyên scope; Google Login, AI provider thật và PDF BR-48 phải hoàn thiện. CSV/fixture/demo không thay thế nghiệm thu. Backup hằng ngày, HTTPS và uptime thuộc requirements vận hành, không bị loại bỏ.
+
+- Manager cấu hình mặc định hủy 12 giờ, nhắc hạn 7 ngày; deadline snapshot theo booking.
+- Ngày gói bắt đầu khi thanh toán đủ theo giờ VN, ngày cuối inclusive; hoàn lượt có thể hồi phục gói hết lượt còn hạn theo BR-11, tôn trọng BR-10.
+- Không trùng lịch phòng/Coach/Member. Cộng dồn cùng PackageId cần Manager duyệt; không gộp ngày/lượt.
+- Hóa đơn quá hạn chặn thu thông thường, không tự void/tịch thu cọc. Ngoại lệ còn chờ chính sách cụ thể.
+- Discount/Correction giảm nghĩa vụ; Refund Completed cần xác nhận tiền thực trả sau duyệt; báo cáo không trừ cả hai cho cùng dòng tiền.
+- Quan hệ cá nhân do Manager quản lý, Coach không tự cấp quyền. Token role cũ bị từ chối sau đổi role.
+
+Chi tiết còn mở và kế hoạch thực hiện: [SSOT §7](00-Source-of-Truth.md), [plan Claude 23/09](claude-continuation-plan-2026-09-23.md). Đây là thay đổi đặc tả, chưa phải báo cáo hoàn thành.
