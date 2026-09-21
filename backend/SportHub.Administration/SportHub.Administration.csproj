@@ -1,0 +1,36 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      Module quản trị: gom các thao tác của System Administrator (BR-2, BR-6, BR-7) và
+      Center Manager (BR-39, BR-44..BR-48) lại một chỗ.
+
+      Đặt ở module riêng thay vì nhét vào Identity vì thao tác khoá/mở khoá/đổi vai trò BẮT
+      BUỘC ghi Audit Log trong cùng transaction (BR-7). Module Audit đã tham chiếu Identity
+      (AuditLog.UserId là FK thật), nên nếu Identity quay lại tham chiếu Audit thì thành vòng.
+      Administration nằm "trên" cả hai nên tham chiếu xuôi được cả hai.
+    -->
+    <ProjectReference Include="..\SportHub.BuildingBlocks\SportHub.BuildingBlocks.csproj" />
+    <ProjectReference Include="..\SportHub.Identity\SportHub.Identity.csproj" />
+    <ProjectReference Include="..\SportHub.Audit\SportHub.Audit.csproj" />
+    <ProjectReference Include="..\SportHub.Membership\SportHub.Membership.csproj" />
+    <ProjectReference Include="..\SportHub.Payment\SportHub.Payment.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.11" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.11" />
+    <PackageReference Include="BCrypt.Net-Next" Version="4.2.0" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>

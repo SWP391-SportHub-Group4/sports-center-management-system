@@ -27,6 +27,16 @@ public class Invoice
 
     public DateTime IssuedAt { get; set; }
 
+    // BR-55. Lúc phát hành: IssuedAt + 2 tháng. Khi nhận khoản Success ĐẦU TIÊN:
+    // FirstDepositAtUtc = PaidAt và DueDateUtc = PaidAt + 12 tháng. Khoản thứ hai trở đi
+    // không đụng vào hai field này.
+    //
+    // Lưu tường minh thay vì suy ra khi đọc: suy ra phải quét toàn bộ Payment mỗi lần đọc,
+    // và kết quả sẽ ĐỔI nếu sau đó một Payment bị chuyển sang Failed.
+    public DateTime DueDateUtc { get; set; }
+
+    public DateTime? FirstDepositAtUtc { get; set; }
+
     public ICollection<InvoiceItem> Items { get; set; } = new List<InvoiceItem>();
     public ICollection<Payment> Payments { get; set; } = new List<Payment>();
     public ICollection<PaymentAdjustment> Adjustments { get; set; } = new List<PaymentAdjustment>();

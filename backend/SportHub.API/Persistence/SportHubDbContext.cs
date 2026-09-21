@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using SportHub.Administration;
+using SportHub.Administration.Domain.Entities;
 using SportHub.AI;
 using SportHub.AI.Domain.Entities;
 using SportHub.Audit;
@@ -66,6 +68,11 @@ public class SportHubDbContext : DbContext, ISportHubDbContext
     // 9) Audit
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
+    // 10) Administration — cấu hình hệ thống (BR-39/BR-50) và tệp xuất báo cáo (BR-44..BR-48).
+    // Hai entity này CHƯA có trong SSOT §2 — xem docs/implementation-decisions.md A1, A4.
+    public DbSet<SystemSetting> SystemSettings => Set<SystemSetting>();
+    public DbSet<ReportExport> ReportExports => Set<ReportExport>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -83,6 +90,15 @@ public class SportHubDbContext : DbContext, ISportHubDbContext
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AiModuleMarker).Assembly);
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(Notification.NotificationModuleMarker).Assembly);
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AuditModuleMarker).Assembly);
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(AdministrationModuleMarker).Assembly);
+
+        // BR-58 — InvoiceNumber sinh từ DB sequence, không bao giờ gán ngẫu nhiên ở tầng ứng
+        // dụng. Khai báo ở đây (thay vì trong IEntityTypeConfiguration) vì sequence là đối
+        // tượng cấp database, không gắn với một entity type nào.
+        // Đọc qua nextval() trong Payment/Infrastructure/InvoiceNumberGenerator.cs.
+        modelBuilder.HasSequence<long>(Payment.Infrastructure.InvoiceNumberGenerator.SequenceName)
+            .StartsAt(1)
+            .IncrementsBy(1);
 
         // TODO (chưa làm — SSOT §7 Open Questions, "không tự quyết"):
         // - Cơ chế serialize/lưu enum dạng string UPPER_SNAKE_CASE (JsonStringEnumConverter
