@@ -1,3 +1,4 @@
+using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.Identity.Domain.Enums;
 using SportHub.Identity.Domain.Exceptions;
 using SportHub.Scheduling.Domain.Exceptions;
@@ -49,6 +50,12 @@ public sealed class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<Ex
                         StatusCodes.Status403Forbidden,
                         blocked.Status == UserStatus.Banned ? "account_banned" : "account_deactivated",
                         ex.Message);
+                    break;
+                // Lỗi nghiệp vụ của các module mới: status + error code đi kèm chính exception,
+                // nên composition root không phải liệt kê từng kiểu một. Đặt SAU các case cụ
+                // thể ở trên để không đổi hợp đồng lỗi mà test hiện có đang kiểm chứng.
+                case AppException appException:
+                    await WriteErrorAsync(context, appException.StatusCode, appException.ErrorCode, ex.Message);
                     break;
                 default:
                     logger.LogError(ex, "Unhandled exception while processing {Method} {Path}", context.Request.Method, context.Request.Path);
