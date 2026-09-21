@@ -27,6 +27,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SportHub.Security.Tests", "
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SportHub.Identity.Tests", "SportHub.Identity.Tests\SportHub.Identity.Tests.csproj", "{741463DB-783D-44A9-A88B-271AC8438640}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SportHub.Scheduling.Tests", "SportHub.Scheduling.Tests\SportHub.Scheduling.Tests.csproj", "{4702C306-79B0-4E42-ACD1-0577CD5DC457}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -181,6 +183,18 @@ Global
 		{741463DB-783D-44A9-A88B-271AC8438640}.Release|x64.Build.0 = Release|Any CPU
 		{741463DB-783D-44A9-A88B-271AC8438640}.Release|x86.ActiveCfg = Release|Any CPU
 		{741463DB-783D-44A9-A88B-271AC8438640}.Release|x86.Build.0 = Release|Any CPU
+		{4702C306-79B0-4E42-ACD1-0577CD5DC457}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4702C306-79B0-4E42-ACD1-0577CD5DC457}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4702C306-79B0-4E42-ACD1-0577CD5DC457}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{4702C306-79B0-4E42-ACD1-0577CD5DC457}.Debug|x64.Build.0 = Debug|Any CPU
+		{4702C306-79B0-4E42-ACD1-0577CD5DC457}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{4702C306-79B0-4E42-ACD1-0577CD5DC457}.Debug|x86.Build.0 = Debug|Any CPU
+		{4702C306-79B0-4E42-ACD1-0577CD5DC457}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4702C306-79B0-4E42-ACD1-0577CD5DC457}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4702C306-79B0-4E42-ACD1-0577CD5DC457}.Release|x64.ActiveCfg = Release|Any CPU
+		{4702C306-79B0-4E42-ACD1-0577CD5DC457}.Release|x64.Build.0 = Release|Any CPU
+		{4702C306-79B0-4E42-ACD1-0577CD5DC457}.Release|x86.ActiveCfg = Release|Any CPU
+		{4702C306-79B0-4E42-ACD1-0577CD5DC457}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

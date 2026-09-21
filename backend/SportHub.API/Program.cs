@@ -18,6 +18,10 @@ using SportHub.Identity.Application.Auth;
 using SportHub.Identity.Infrastructure.Authentication;
 using Microsoft.IdentityModel.Protocols;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
+using SportHub.Scheduling;
+using SportHub.Scheduling.Application.Interfaces;
+using SportHub.Scheduling.Application.Services;
+using SportHub.Scheduling.Infrastructure.Repositories;
 
 LoadRootEnvIfPresent();
 
@@ -67,8 +71,12 @@ builder.Services.AddScoped<IUserAccountRepository, UserAccountRepository>();
 builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 
+builder.Services.AddScoped<IGymCheckInRepository, GymCheckInRepository>();
+builder.Services.AddScoped<IGymCheckInService, GymCheckInService>();
+
 builder.Services.AddControllers()
     .AddApplicationPart(typeof(IdentityModuleMarker).Assembly)
+    .AddApplicationPart(typeof(SchedulingModuleMarker).Assembly)
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;

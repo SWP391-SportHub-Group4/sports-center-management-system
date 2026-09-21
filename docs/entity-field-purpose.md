@@ -146,7 +146,7 @@
 |---|---|
 | `ClassId` (PK) | Định danh lớp |
 | `Name` | Hiển thị cho Member chọn |
-| `Discipline` | Bộ môn (Yoga, Gym, Boxing...) — filter/tìm kiếm |
+| `Discipline` | Bộ môn — giá trị hợp lệ (chốt 18/09/2026): `PersonalTraining`, `Yoga`, `GroupX`. KHÔNG có `Gym` — Gym/Fitness ra vào tự do, không qua `Class`, xem `GYM_CHECKINS` bên dưới |
 | `DefaultRoomId` (FK) | Phòng mặc định khi sinh session, có thể bị override ở từng session |
 | `DefaultCoachId` (FK, nullable) | HLV mặc định phụ trách lớp, cũng có thể override ở từng session |
 | `Capacity` | Sức chứa mặc định của lớp — 1 trong 2 yếu tố tính MIN(Room, Class) cho session (BR-51) |
@@ -204,6 +204,18 @@
 | `Status` | `PRESENT/ABSENT/NO_SHOW` — `PRESENT`/`ABSENT` do người ghi tay, `NO_SHOW` do `AttendanceFinalizerJob` tự sinh sau `EndAtUtc` nếu không có check-in |
 | `CheckInTime` (nullable) | Thời điểm check-in thật (nếu có) |
 | `CheckedInByUserId` (FK, nullable) | Ai thực hiện check-in (Coach/Receptionist) — null nếu do job tự động tạo (NO_SHOW) |
+
+### `GYM_CHECKINS` (mới, 18/09/2026)
+**Mục đích:** ghi nhận Member ra vào tập Gym/Fitness **tự do, không qua đặt lịch** — tách hẳn khỏi `CLASS_SESSIONS`/`ENROLLMENTS`/`ATTENDANCE` (những entity đó chỉ dùng cho Personal Training/Yoga/Group X, xem field `Discipline` ở `CLASSES` phía trên). Chỉ Lễ tân (Receptionist) tạo được — xem BR-64.
+
+| Field | Vai trò |
+|---|---|
+| `CheckInId` (PK) | Định danh |
+| `MemberId` (FK) | Ai check-in |
+| `CheckedInByUserId` (FK, not null) | Lễ tân nào thực hiện — luôn có giá trị, không phải self-service |
+| `CheckInTime` | Mốc check-in (UTC) |
+
+Điều kiện tạo (BR-64): Member phải có ≥1 `MemberPackage` đang `Active` tại thời điểm check-in; không giới hạn số lần/ngày; **không** trừ `RemainingSessions` của bất kỳ gói nào (khác `Enrollment`). Không lưu `MemberPackageId` — chỉ cần kiểm tra tồn tại, không cần biết dùng gói nào.
 
 ---
 

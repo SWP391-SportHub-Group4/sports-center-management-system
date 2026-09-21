@@ -30,6 +30,15 @@ Khi có mâu thuẫn, đọc theo thứ tự sau (trên > dưới):
 - [ ] Flow 2 — Class booking & schedule management
 - [ ] Flow 3 — Payment & report management
 
+> **Bổ sung 18/09/2026 — Bộ môn (Discipline) trong scope:** 1 trung tâm duy nhất (không đa chi nhánh, xem §1.3), nhưng **đa bộ môn** — 4 bộ môn chính thức, chốt cùng ngày (chi tiết + lý do đầy đủ: `claude/citigym-multidiscipline-scope-plan.md`, Project doc):
+>
+> | Bộ môn | Cơ chế | `Class.Discipline` |
+> |---|---|---|
+> | Gym / Fitness | Ra vào tự do, KHÔNG đặt lịch — điểm danh qua entity mới `GymCheckIn` (xem §2) | Không xuất hiện — không có `Class` nào cho Gym |
+> | Personal Training | Đặt lịch qua `Class`, `Capacity = 1`, gán 1 Coach | `"PersonalTraining"` |
+> | Yoga | Đặt lịch qua `Class` (lớp nhóm) | `"Yoga"` |
+> | Group X / Aerobic / HIIT | Đặt lịch qua `Class` (lớp nhóm) | `"GroupX"` |
+
 ### 1.2 In-scope (optional nhưng nhóm chọn làm)
 
 - [ ] Flow 4 — Training & attendance management
@@ -37,7 +46,8 @@ Khi có mâu thuẫn, đọc theo thứ tự sau (trên > dưới):
 
 ### 1.3 Out-of-scope (ghi rõ để khỏi cãi nhau giữa kỳ)
 
-- [ ] <ví dụ: multi-center / multi-tenant>
+- [x] Đa chi nhánh / multi-tenant — 1 lần deploy SportHub = 1 trung tâm duy nhất, không có entity `Center`/`Branch`. Không nhầm với "đa bộ môn" (multi-discipline) — đa bộ môn trong CÙNG 1 trung tâm là IN-SCOPE, xem §1.1.
+- [x] Các bộ môn ngoài 4 bộ môn đã chốt ở §1.1 (vd Boxing, Cầu lông, Bơi lội, Bóng rổ...)
 - [ ] <ví dụ: thanh toán online qua cổng thật (VNPay/Momo) — MVP chỉ ghi nhận thủ công>
 - [ ] <ví dụ: mobile app riêng>
 - [ ] <ví dụ: notification qua SMS/email thật — MVP chỉ lưu trong DB / log>
@@ -67,6 +77,8 @@ Khi có mâu thuẫn, đọc theo thứ tự sau (trên > dưới):
 >
 > **Cập nhật 12/09/2026 — Chính thức hoá module `Notification` và `Audit`:** `Notification` và `AuditLog` trước đây chưa gán module (xem Open Question cũ ở §7), nay chính thức tách thành 2 module riêng — `Notification` (chứa `Notification`) và `Audit` (chứa `AuditLog`) — thay vì gộp vào 1 trong 6 module sẵn có. Lý do tách riêng `Audit` khỏi `Identity`/`BuildingBlocks`: `AuditLog.UserId` là FK thật sang `UserAccount` (Identity), nếu đặt `AuditLog` ở tầng hạ tầng dùng chung (`BuildingBlocks`) thì tầng đó sẽ phải phụ thuộc ngược vào module nghiệp vụ `Identity` — vi phạm nguyên tắc `BuildingBlocks` không phụ thuộc module nào. Quyết định này chốt tại `docs/claude-plans/monolith-refactor-plan.md` (mục 2, 5) khi tách `SportHub.Repository`/`SportHub.Service` thành project riêng theo module. Đã cập nhật cột "Module sở hữu" ở bảng Entity (§2, dòng `Notification`/`AuditLog`) và xoá Open Question tương ứng ở §7.
 
+> **Cập nhật 18/09/2026 — Bộ môn (Discipline) + Gym Check-in:** chốt 4 bộ môn chính thức (Gym/Fitness, Personal Training, Yoga, Group X — xem §1.1). Gym/Fitness KHÔNG đặt lịch qua `Class` — thêm entity mới `GymCheckIn` (module Scheduling) để Lễ tân điểm danh khi Member đến tập tự do, tách khỏi `Enrollment`/`Attendance`. Chi tiết field/BR/API/RBAC: `claude/citigym-multidiscipline-scope-plan.md` (Project doc) §2.
+
 | Entity | Module sở hữu | PK | Field chính | Quan hệ chính | Enum dùng | Ghi chú |
 |---|---|---|---|---|---|---|
 | `Role` | Identity | `RoleId` (int) | RoleName (unique) | 1—N `UserAccount` | `UserRole` | seed data, **5 dòng cố định** (bổ sung `SystemAdministrator` theo BR-2/BR-3, cập nhật 11/09/2026); unique BR-63 (v1.3) |
@@ -94,6 +106,7 @@ Khi có mâu thuẫn, đọc theo thứ tự sau (trên > dưới):
 | `Notification` | Notification | `NotificationId` (uuid) | UserId, Channel, SourceEventType, SourceEntityId (nullable), Message | N—1 `UserAccount` | `NotificationChannel`, `NotificationSourceEventType`, `NotificationStatus` | MVP: lưu trong DB, không gửi SMS/email thật (§1.3) |
 | `AiLog` | AI | `LogId` (uuid) | UserId, QueryType, InputPayload, ResponsePayload, ResponseTimeMs | N—1 `UserAccount` | — | `QueryType` là chuỗi tự do (vd `WORKOUT_SUGGESTION`), không phải enum kín |
 | `AuditLog` | Audit | `AuditId` (uuid) | UserId, Action, TargetEntity, TargetId, OldValue, NewValue | N—1 `UserAccount` | — | `Action` là chuỗi tự do (vd `UPDATE_PACKAGE_STATUS`), không phải enum kín |
+| `GymCheckIn` | Scheduling | `CheckInId` (uuid) | MemberId, CheckedInByUserId, CheckInTime | N—1 `UserAccount` (2 phía: member, receptionist) | — | Mới 18/09/2026. Không qua `Class`/`Enrollment`/`Attendance`; điều kiện ≥1 `MemberPackage` Active (BR-64); không trừ `RemainingSessions`; chỉ Receptionist tạo được |
 
 ---
 
@@ -232,6 +245,8 @@ Tham chiếu mã BR trong plan là bản đồ truy vết, không thêm hay đá
 
 | Ngày | Thay đổi | Người sửa |
 |---|---|---|
+| 18/09/2026 | **Triển khai scope đa bộ môn ở tầng code** (theo `docs/multidiscipline-refactor-plan.md`). Chốt 4 điểm còn treo ở bước 1 của kế hoạch: (1) `Class.Discipline` GIỮ kiểu string, ba giá trị chính thức gom vào `SportHub.Scheduling/Domain/Constants/Disciplines.cs` + validator `ClassRules` + 2 DB CHECK (`CK_classes_discipline_allowed`, `CK_classes_personal_training_capacity`) — không thêm enum nghiệp vụ mới ngoài SSOT; (2) `Class.DefaultCoachId` GIỮ nullable kể cả với Personal Training — HLV bắt buộc nằm ở `ClassSession.CoachId` (đã not-null), "PT gán 1 Coach" được bảo đảm bằng `Capacity = 1` chứ không bằng việc siết nullability ở Class; (3) cột thời gian của `GymCheckIn` chốt là `check_in_time` (property `CheckInTime`, UTC) theo SSOT §2 và tiền lệ `Attendance.CheckInTime` — ERD Design v2 §1 đã sửa từ `check_in_time_utc` cho khớp; (4) BR-64 chỉ xét `MemberPackage.Status = Active`, KHÔNG thêm điều kiện `EndDate`/`RemainingSessions > 0` — việc chuyển `Active → Expired` khi quá hạn hoặc hết buổi thuộc BR-11 (Design v2 §2.1), không nhân bản vào rule check-in. Thêm entity/migration `gym_checkins`, service + 3 endpoint + policy RBAC riêng (không tái dụng `AttendanceCheckInPolicy` vì policy đó còn cho Coach), và project test `SportHub.Scheduling.Tests`. | Hồ Lê Thiên An (qua Claude) |
+| 18/09/2026 | **Chốt 4 bộ môn chính thức** (Gym/Fitness, Personal Training, Yoga, Group X — §1.1) cho hướng "trung tâm thể thao đa bộ môn"; xác nhận đa chi nhánh vẫn ngoài scope (§1.3). Thêm entity mới `GymCheckIn` (§2, module Scheduling, BR-64 trong `SportManagement_BusinessRules.docx`) vì Gym không đặt lịch qua Class — Lễ tân điểm danh trực tiếp, điều kiện ≥1 MemberPackage Active, không trừ buổi. Chi tiết: `claude/citigym-multidiscipline-scope-plan.md` (Project doc). | Hồ Lê Thiên An (qua Claude) |
 | 18/09/2026 | Triển khai §5.6: thêm `IPasswordHasher.VerifyDummy` (BCrypt cost 11) để mọi login hợp lệ DTO tốn đúng một phép BCrypt; thêm policy rate limit `auth-login` (10 req/IP/phút, 429 `too_many_requests`, quota tách khỏi register); thêm `IUserAccountRepository.IsActiveAsync` + hook `OnTokenValidated` tại `SportHub.API` để chặn JWT của tài khoản bị khóa/xóa (BR-6, phần request). Thêm project `SportHub.Security.Tests` (65 test, PostgreSQL thật qua Testcontainers). Cập nhật trạng thái §5.6 kèm số đo BR-35 và danh sách hạng mục CHƯA đạt. | Hồ Lê Thiên An (qua Claude) |
 | 18/09/2026 | Đối chiếu Business Rules v1.3: sửa nguồn hiện hành và mã unique phone/role; đóng câu hỏi BR-59/60 đã có văn bản; bổ sung §5.6 và dẫn plan triển khai timing, rate limit, hiệu lực JWT. Ghi đầy đủ ranh giới BR-6/7, yêu cầu BR-35/38 và trạng thái chưa nghiệm thu. | Codex theo yêu cầu người dùng |
 | 12/09/2026 | **Chính thức hoá module `Notification` và `Audit`** (§2, §7): `Notification`/`AuditLog` trước đây chưa gán module (Open Question cũ) — nay tách thành 2 module riêng thay vì gộp vào 6 module sẵn có, vì bắt đầu tách `SportHub.Repository`/`SportHub.Service` thành project riêng theo module (`docs/claude-plans/monolith-refactor-plan.md`) nên mỗi entity bắt buộc phải thuộc đúng 1 project/module. `Audit` tách riêng khỏi `Identity`/`BuildingBlocks` vì `AuditLog.UserId` là FK thật sang `UserAccount`, đặt ở `BuildingBlocks` (tầng hạ tầng dùng chung, không phụ thuộc module nghiệp vụ nào) sẽ gây phụ thuộc ngược. Cập nhật cột "Module sở hữu" (§2) cho 2 entity này, xoá Open Question tương ứng (§7). | Hồ Lê Thiên An (qua Claude) |
