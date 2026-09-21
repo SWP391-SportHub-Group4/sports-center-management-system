@@ -1,12 +1,14 @@
 # Center Management System — Design v2 (Addendum trước khi code)
 
+> Cập nhật 22/09/2026 theo Business Rules v1.4; schema/state dưới đây là thiết kế đích đã duyệt, chưa xác nhận code đã khớp. Chi tiết: [biên bản](implementation-decisions.md).
+
 Tài liệu này bổ sung/chỉnh sửa thiết kế v1 theo đúng các điểm review. Không lặp lại phần đã đúng ở v1 (Actors, Use Case, kiến trúc tổng thể) — chỉ tập trung vào phần thiếu, và **thay thế hoàn toàn** phần ERD/API ở v1.
 
 ---
 
 ## 0. Traceability — mapping Business Rules cũ → mới
 
-*(v1.2)* File `SportManagement_BusinessRules_v1.2.docx` hiện là **nguồn sự thật duy nhất** cho toàn bộ Business Rules — tài liệu Design này chỉ tham chiếu đến, không định nghĩa lại. Bảng dưới đây là mapping lịch sử (để hiểu vì sao số ID không liên tục), không phải danh sách việc cần làm.
+Nguồn hiện hành: SSOT, rồi `SportManagement_BusinessRules.docx` v1.4 (bản diff `business-rules-v1.4.md`). Bảng dưới đây là mapping lịch sử (để hiểu vì sao số ID không liên tục), không phải danh sách việc cần làm.
 
 | Rule cũ (v1, không còn dùng) | Rule chính thức hiện tại | Ghi chú |
 |---|---|---|
@@ -15,7 +17,7 @@ Tài liệu này bổ sung/chỉnh sửa thiết kế v1 theo đúng các điể
 | Original BR-03 | **BR-20**, **BR-21** | No-show tracking |
 | Original BR-04 | **BR-26** | AI cần đủ 3 tham số |
 | Original BR-05 | **BR-30** | Invoice tạo ngay khi chọn gói (trước khi thanh toán); Payment cập nhật trạng thái Invoice — xem Mục 2.3 |
-| Original BR-06 | **BR-2**, **BR-32**, **BR-39** | Quyền Manager: tạo Staff/Coach, xem báo cáo, cấu hình hệ thống |
+| Original BR-06 | **BR-2**, **BR-32**, **BR-39** | Admin tạo Staff/Coach; Manager xem báo cáo và cấu hình |
 
 **Đã bổ sung ở v1.1 (nhóm H — Payment & Invoice):** BR-40 (Invoice bất biến), BR-41 (Payment gắn 1 Invoice, không vượt tổng), BR-42 (Adjustment cần Manager duyệt), BR-43 (báo cáo doanh thu trừ adjustment).
 
@@ -95,7 +97,7 @@ erDiagram
     USER_PROFILES {
         uuid user_id PK, FK "1-1 với USER_ACCOUNTS"
         string full_name
-        string phone UK "nullable, unique nếu có giá trị, BR-54"
+        string phone UK "nullable, unique nếu có giá trị, BR-62"
     }
     USER_EXTERNAL_LOGINS {
         uuid external_login_id PK
@@ -107,7 +109,7 @@ erDiagram
     }
     ROLES {
         int role_id PK
-        UserRole role_name UK "enum, xem SSOT §3; unique, BR-55"
+        UserRole role_name UK "enum, xem SSOT §3; unique, BR-63"
     }
     MEMBER_TRAINING_PROFILE {
         uuid profile_id PK
@@ -133,6 +135,8 @@ erDiagram
         decimal price
         int duration_days
         int session_limit "nullable = unlimited"
+        bool is_active
+        string description "nullable"
     }
     MEMBER_PACKAGES {
         uuid member_package_id PK
@@ -143,6 +147,9 @@ erDiagram
         int remaining_sessions "nullable"
         MemberPackageStatus status "enum, xem SSOT §3"
         int version "optimistic concurrency"
+        uuid stacking_approved_by_user_id FK "nullable"
+        datetime stacking_approved_at_utc "nullable"
+        string stacking_approval_reason "nullable"
     }
     ROOMS {
         int room_id PK
@@ -177,6 +184,7 @@ erDiagram
         datetime start_at_utc
         datetime end_at_utc
         int capacity
+        int baseline_capacity "immutable at creation"
         int confirmed_count "denormalized, atomic increment"
         ClassSessionStatus status "enum, xem SSOT §3"
         uuid rescheduled_from_session_id FK "nullable"
@@ -187,6 +195,7 @@ erDiagram
         uuid member_id FK
         uuid member_package_id FK
         EnrollmentStatus status "enum, xem SSOT §3"
+        int cancellation_deadline_hours "snapshot"
         datetime registered_at
         datetime cancelled_at
         uuid cancelled_by_user_id FK "nullable, may differ from member_id (Receptionist)"
@@ -231,6 +240,8 @@ erDiagram
         uuid member_package_id FK "nullable"
         decimal total_amount
         InvoiceStatus status "enum, xem SSOT §3"
+        datetime due_date_utc
+        datetime first_deposit_at_utc "nullable"
         datetime issued_at
     }
     INVOICE_ITEMS {
@@ -262,7 +273,12 @@ erDiagram
         uuid requested_by_user_id FK
         uuid approved_by_user_id FK "nullable"
         datetime created_at
-        datetime resolved_at "nullable"
+        datetime resolved_at "legacy resolution timestamp"
+        datetime approved_at_utc "nullable"
+        datetime completed_at_utc "nullable until executed"
+        uuid completed_by_user_id FK "nullable until executed"
+        PaymentMethod refund_method "nullable"
+        string refund_reference_code "nullable"
     }
     NOTIFICATIONS {
         uuid notification_id PK
@@ -290,12 +306,39 @@ erDiagram
         uuid user_id FK
         string action
         string target_entity
-        uuid target_id
+        string target_id
         jsonb old_value "nullable"
         jsonb new_value "nullable"
         string ip_address
         datetime timestamp
     }
+    SYSTEM_SETTINGS {
+        string key PK
+        string value
+        string value_type
+        datetime updated_at
+        uuid updated_by_user_id FK "nullable for seed"
+    }
+    REPORT_EXPORTS {
+        uuid report_export_id PK
+        uuid requested_by_user_id FK
+        string report_type
+        jsonb parameters_json
+        string format "Csv or Pdf"
+        ReportExportStatus status
+        int row_count
+        bigint size_bytes
+        string failure_reason "nullable"
+        datetime created_at
+        datetime completed_at "nullable"
+        datetime expires_at "at least completion plus 6 months"
+        bool is_deleted
+        datetime deleted_at "nullable"
+    }
+    USER_ACCOUNTS ||--o{ REPORT_EXPORTS : "requests"
+    USER_ACCOUNTS |o--o{ SYSTEM_SETTINGS : "updates"
+    USER_ACCOUNTS |o--o{ MEMBER_PACKAGES : "approves stacking"
+    USER_ACCOUNTS |o--o{ PAYMENT_ADJUSTMENTS : "confirms refund"
     GYM_CHECKINS {
         uuid check_in_id PK
         uuid member_id FK
@@ -308,7 +351,7 @@ erDiagram
 >
 > **Cập nhật 11/09/2026 — tách 2 tầng naming:** `00-Source-of-Truth.md` §5.4 đã đảo ngược naming **property C#** (entity trong code) từ `snake_case` về `PascalCase` (vd `RoleId`, `UserId`) — xem SSOT §2/§3/§5.4. **ERD ở mục này mô tả tầng DB (Postgres), không đổi theo** — cột vẫn `snake_case` như trên (`user_id`, `role_id`...), vì package `EFCore.NamingConventions` (`.UseSnakeCaseNamingConvention()` ở `Program.cs`) tự map property `PascalCase` (code) ↔ cột `snake_case` (DB) — 2 tầng khác nhau, không cần đồng bộ 1-1 nữa. Bảng ràng buộc DB (§3) và raw SQL trong `SportHubDbContext.cs` tiếp tục dùng tên cột `snake_case` như ERD dưới đây, không đổi.
 >
-> **Unique constraints (cập nhật 10/09/2026):** đã đánh dấu `UK` cho mọi field unique (ngoài PK) trong ERD trên — `USER_ACCOUNTS.email` (BR-1/BR-49), `USER_PROFILES.phone` (BR-54, nullable — chỉ unique khi có giá trị), `ROLES.role_name` (BR-55), `MEMBERSHIP_PACKAGES.name` (BR-56), `ROOMS.name` (BR-57), `INVOICES.invoice_number` (BR-58, đã có sẵn ở constraint #5 mục 3), `MEMBER_TRAINING_PROFILE.member_id` (FK, UK — quan hệ 1–1 với UserAccount), `USER_EXTERNAL_LOGINS.provider_user_id` (composite UK cùng `provider` — 1 tài khoản Google không link được vào 2 `UserAccount`). Nguồn business rule đầy đủ: `SportManagement_BusinessRules_v1.2.docx` §L (Unique Constraints Summary). Ràng buộc unique dạng composite/partial (`Enrollment`, `CoachMemberRelationship` khi ACTIVE/CONFIRMED; `USER_EXTERNAL_LOGINS` composite) không thể hiện bằng `UK` trên 1 field trong ERD — xem bảng ràng buộc DB ở mục 3 bên dưới (#1, #7, #15, #16).
+> **Unique constraints (cập nhật 10/09/2026):** đã đánh dấu `UK` cho mọi field unique (ngoài PK) trong ERD trên — `USER_ACCOUNTS.email` (BR-1/BR-49), `USER_PROFILES.phone` (BR-62, nullable — chỉ unique khi có giá trị), `ROLES.role_name` (BR-63), `MEMBERSHIP_PACKAGES.name` (BR-56), `ROOMS.name` (BR-57), `INVOICES.invoice_number` (BR-58, đã có sẵn ở constraint #5 mục 3), `MEMBER_TRAINING_PROFILE.member_id` (FK, UK — quan hệ 1–1 với UserAccount), `USER_EXTERNAL_LOGINS.provider_user_id` (composite UK cùng `provider` — 1 tài khoản Google không link được vào 2 `UserAccount`). Nguồn business rule đầy đủ: `SportManagement_BusinessRules.docx` §L (Unique Constraints Summary). Ràng buộc unique dạng composite/partial (`Enrollment`, `CoachMemberRelationship` khi ACTIVE/CONFIRMED; `USER_EXTERNAL_LOGINS` composite) không thể hiện bằng `UK` trên 1 field trong ERD — xem bảng ràng buộc DB ở mục 3 bên dưới (#1, #7, #15, #16).
 >
 > **Cập nhật 10/09/2026 (2) — Google Login:** tách `USERS` thành `USER_ACCOUNTS` (định danh + vòng đời), `USER_CREDENTIALS` (auth nội bộ, 1-1), `USER_PROFILES` (hiển thị, 1-1), `USER_EXTERNAL_LOGINS` (auth ngoài — Google, 1-N — mới, phục vụ đăng nhập Google nay là flow bắt buộc). Chi tiết lý do + business rule chống account pre-hijacking: `00-Source-of-Truth.md` §2 (cập nhật 10/09/2026 (2)) và §7 Open Questions. FK ở mọi entity khác không đổi tên cột (`member_id`, `coach_id`, `issued_by_user_id`...), chỉ đổi entity đích từ `USERS` sang `USER_ACCOUNTS`.
 >
@@ -334,11 +377,18 @@ erDiagram
 stateDiagram-v2
     [*] --> PENDING_PAYMENT: tạo khi Member/Receptionist chọn gói (đồng thời tạo Invoice ISSUED, BR-30 v1.2)
     PENDING_PAYMENT --> ACTIVE: Invoice liên kết chuyển PAID (BR-30)
-    PENDING_PAYMENT --> CANCELLED: hết hạn giữ chỗ / hủy trước khi thanh toán
+    %% PendingPayment không tự Cancelled do quá hạn invoice; xem SSOT §7.
     ACTIVE --> EXPIRED: end_date qua HOẶC remaining_sessions = 0 (BR-11)
     ACTIVE --> CANCELLED: Manager hủy thủ công (hoàn tiền qua Adjustment)
-    EXPIRED --> [*]
+    EXPIRED --> ACTIVE: hoàn lượt hợp lệ, còn hạn, không vi phạm BR-10
     CANCELLED --> [*]
+```
+
+**Bổ sung BR-11 v1.4:** Expired → Active chỉ khi hoàn lượt hợp lệ cho gói hết lượt còn trong hạn và không vi phạm BR-10; không hồi phục Cancelled. Nếu xung đột gói, hoàn credit nhưng giữ Expired để Manager xử lý.
+
+```mermaid
+stateDiagram-v2
+    Expired --> Active: hoàn lượt hợp lệ và đủ điều kiện BR-11
 ```
 
 ### 2.2 Enrollment → Attendance
@@ -348,7 +398,7 @@ stateDiagram-v2
 ```mermaid
 stateDiagram-v2
     [*] --> CONFIRMED: đăng ký (kiểm tra BR-16, giữ chỗ atomic)
-    CONFIRMED --> CANCELLED_ON_TIME: hủy trước deadline (BR-17) — hoàn credit (BR-18)
+    CONFIRMED --> CANCELLED_ON_TIME: hủy tại hoặc trước deadline snapshot (BR-17) — hoàn credit (BR-18)
     CONFIRMED --> CANCELLED_LATE: hủy sau deadline — KHÔNG hoàn credit
     CONFIRMED --> [Attendance]: session kết thúc
     [Attendance] --> PRESENT: check-in trước/trong buổi (BR-22)
@@ -360,18 +410,18 @@ stateDiagram-v2
     ABSENT --> [*]
     NO_SHOW --> [*]
 ```
-*Job nền (`AttendanceFinalizerJob`) chạy sau `end_at_utc` của mỗi session: mọi `Enrollment.Status = CONFIRMED` chưa có `Attendance` → tạo `Attendance.Status = NO_SHOW`.*
+*Job nền (`AttendanceFinalizerJob`) chạy sau `end_at_utc` của mỗi session: chỉ session thực sự diễn ra/kết thúc (không Cancelled/Rescheduled), `Enrollment.Status = CONFIRMED` chưa có `Attendance` → tạo `Attendance.Status = NO_SHOW`.*
 
 ### 2.3 Invoice
 
 ```mermaid
 stateDiagram-v2
     [*] --> ISSUED: tạo Invoice + InvoiceItems NGAY khi chọn gói/dịch vụ, TRƯỚC khi thanh toán (BR-30 v1.2)
-    ISSUED --> PARTIALLY_PAID: tổng Payment SUCCESS < total_amount
-    ISSUED --> PAID: tổng Payment SUCCESS = total_amount
+    ISSUED --> PARTIALLY_PAID: có thu và còn Outstanding
+    ISSUED --> PAID: trả đủ nghĩa vụ NetPayable
     PARTIALLY_PAID --> PAID: đủ tiền
     PAID --> PAID: Adjustment COMPLETED (không đổi status, chỉ ghi thêm dòng, BR-40)
-    ISSUED --> VOID: chỉ khi Adjustment loại CORRECTION toàn phần được duyệt
+    ISSUED --> VOID: Correction toàn phần hợp lệ, chưa có Payment Success
     note right of VOID: Invoice KHÔNG BAO GIỜ bị xóa (BR-40), chỉ chuyển VOID và giữ nguyên lịch sử
 ```
 
@@ -382,7 +432,7 @@ stateDiagram-v2
     [*] --> REQUESTED: Receptionist tạo (BR-42)
     REQUESTED --> APPROVED: Manager duyệt (không được tự duyệt)
     REQUESTED --> REJECTED: Manager từ chối
-    APPROVED --> COMPLETED: hệ thống áp dụng vào Invoice/Payment
+    APPROVED --> COMPLETED: Refund cần Receptionist xác nhận thực trả; Discount/Correction áp dụng nghĩa vụ
     REJECTED --> [*]
     COMPLETED --> [*]
 ```
@@ -400,13 +450,13 @@ Không được để các ràng buộc này chỉ nằm ở API layer — phả
 | 3 | Trừ `remaining_sessions` nguyên tử | Cùng transaction với bước 2: `UPDATE member_packages SET remaining_sessions = remaining_sessions - 1 WHERE member_package_id = :id AND status = 'ACTIVE' AND (remaining_sessions IS NULL OR remaining_sessions > 0) RETURNING remaining_sessions;` — 0 rows affected → 409 (BR-16 vi phạm) |
 | 4 | Rollback đồng bộ khi hủy đăng ký đúng hạn | 1 transaction: cập nhật `Enrollment.status`, hoàn `remaining_sessions += 1`, giảm `confirmed_count -= 1` |
 | 5 | Không trùng số hóa đơn | `UNIQUE(invoice_number)`; `invoice_number` sinh theo sequence DB (`nextval`), không phải random ở app layer, tránh trùng khi 2 request song song |
-| 6 | Tổng Payment không vượt Invoice.total_amount (BR-41) | Constraint kiểm tra ở service layer trong transaction `SELECT ... FOR UPDATE` trên `Invoices` row trước khi `INSERT INTO payments`, tránh 2 payment cùng lúc vượt tổng |
+| 6 | Khoản thu mới không vượt Outstanding (BR-41 v1.4) | Constraint kiểm tra ở service layer trong transaction `SELECT ... FOR UPDATE` trên `Invoices` row trước khi `INSERT INTO payments`, tránh 2 payment cùng lúc vượt tổng |
 | 7 | Không tạo trùng quan hệ Coach–Member đang hoạt động | `UNIQUE INDEX ux_relationship_active ON coach_member_relationship(coach_id, member_id) WHERE status = 'ACTIVE'` (partial unique, cùng mẫu #1) — tránh 2 relationship ACTIVE trùng lặp làm sai điều kiện BR-23/BR-24 |
 | 8 | Optimistic concurrency cho `MemberPackage` | Cột `version` (`xmin` của Postgres có thể tận dụng, hoặc cột version tường minh) để tránh lost update khi Manager sửa cùng lúc Enrollment trừ session |
 | 9 | Email không phân biệt hoa/thường (BR-49) | `UNIQUE INDEX ux_user_accounts_email_lower ON user_accounts(LOWER(email))`, hoặc dùng kiểu `citext` của Postgres cho cột `email` |
-| 10 | Capacity session không vượt MIN(Room, Class) (BR-51) | `CHECK (capacity <= room_capacity_at_creation)` áp ở tầng service khi generate/reschedule session; Manager chỉ được set capacity ≤ giá trị này |
-| 11 | Số điện thoại không trùng, chỉ khi có giá trị (BR-54) | `UNIQUE INDEX ux_user_profiles_phone ON user_profiles(phone) WHERE phone IS NOT NULL` (partial unique — cho phép nhiều user cùng để trống `phone`) |
-| 12 | Tên vai trò không trùng (BR-55) | `UNIQUE(role_name)` trên bảng `roles`; kết hợp seed data cố định **5 dòng** (bổ sung `SystemAdministrator`, cập nhật 11/09/2026 — xem `00-Source-of-Truth.md` §2/§8), không cho tạo thêm role qua API ở MVP |
+| 10 | Capacity session không vượt MIN(Room, Class) (BR-51) | DB CHECK `0 < capacity AND capacity <= baseline_capacity AND confirmed_count <= capacity`; service/transaction kiểm thêm sức chứa phòng hiện tại |
+| 11 | Số điện thoại không trùng, chỉ khi có giá trị (BR-62) | `UNIQUE INDEX ux_user_profiles_phone ON user_profiles(phone) WHERE phone IS NOT NULL` (partial unique — cho phép nhiều user cùng để trống `phone`) |
+| 12 | Tên vai trò không trùng (BR-63) | `UNIQUE(role_name)` trên bảng `roles`; kết hợp seed data cố định **5 dòng** (bổ sung `SystemAdministrator`, cập nhật 11/09/2026 — xem `00-Source-of-Truth.md` §2/§8), không cho tạo thêm role qua API ở MVP |
 | 13 | Tên gói thành viên không trùng trong catalog (BR-56) | `UNIQUE(name)` trên bảng `membership_packages`; Manager tạo/sửa tên trùng → 409 Conflict |
 | 14 | Tên phòng tập không trùng (BR-57) | `UNIQUE(name)` trên bảng `rooms`; Manager tạo phòng trùng tên → 409 Conflict |
 | 15 | 1 tài khoản provider ngoài (vd Google) không link được vào 2 `UserAccount` khác nhau | `UNIQUE(provider, provider_user_id)` trên bảng `user_external_logins` (mới, 10/09/2026 (2)) |
@@ -418,18 +468,18 @@ Không được để các ràng buộc này chỉ nằm ở API layer — phả
 
 | Ràng buộc | Nội dung | BR liên quan |
 |---|---|---|
-| Nơi cấu hình deadline hủy lớp | Lưu trong bảng cấu hình hệ thống (`SystemSettings` hoặc field `cancellation_deadline_hours` trên `MembershipPackages`/`Classes` nếu muốn cấu hình theo từng loại), do Center Manager chỉnh qua `PUT /api/settings`; đọc giá trị **tại thời điểm hủy**, không hardcode trong code | BR-50 |
-| Công thức refund/adjustment mặc định | `REFUND.Amount = Invoice.TotalAmount × (MemberPackage.RemainingSessions / MembershipPackage.SessionLimit)` cho gói theo buổi; theo tỷ lệ ngày còn lại cho gói theo thời hạn. Manager có thể override khi duyệt | BR-52 |
+| Cấu hình deadline | SystemSetting do Manager chỉnh, mặc định 12h; Enrollment snapshot tại lúc Confirmed, hủy dùng snapshot chứ không đọc cấu hình mới | BR-50 |
+| Refund mặc định | Tỷ lệ chưa dùng, làm tròn gần nhất (nửa đồng lên); trần thực thu còn lại và RefundDue. Discount/Correction giảm nghĩa vụ, Refund xác nhận thực trả riêng; công thức đầy đủ ở implementation-decisions §2 | BR-41/42/52 |
 | Khi nào Attendance = Absent vs No-show | `Absent`: Coach/Receptionist **chủ động ghi tay** (vd. có lý do chính đáng); `No-show`: **job tự động** sinh ra sau `end_at_utc` khi Enrollment CONFIRMED không có check-in và không hủy đúng hạn | BR-53 |
-| Google login — không tự tạo/tự link account trùng email | Nếu `/api/auth/google` nhận email đã tồn tại ở `UserAccounts` nhưng chưa có `UserExternalLogin` khớp (`Provider=Google`) → từ chối, **không** tự tạo account mới, **không** tự link — trả lỗi yêu cầu đăng nhập password trước rồi vào Cài đặt để link. Chỉ link khi request đến từ user đã có JWT hợp lệ (`POST /api/auth/google/link`). Chặn kiểu tấn công account pre-hijacking (OWASP) — xem `00-Source-of-Truth.md` §7 Open Questions | *(BR mới — chưa chép chính thức vào Business Rules v1.2, xem Open Question tương ứng)* |
-| Đăng nhập password chỉ khi có credential nội bộ | `POST /api/auth/login` chỉ cho phép khi `UserCredential.PasswordHash IS NOT NULL` cho `UserId` đó (account tạo thuần qua Google chưa từng có password) | *(BR mới, cùng nhóm trên)* |
-| WorkoutResult chỉ tạo được khi Enrollment còn hợp lệ | FK `EnrollmentId` (10/09/2026 (3)) chỉ đảm bảo Enrollment *tồn tại*, chưa đảm bảo còn hợp lệ — service phải chặn tạo `WorkoutResult` nếu `Enrollment.Status != Confirmed`. **Chưa chốt**: có bắt buộc thêm `Attendance.Status = Present` mới cho ghi hay không — xem `00-Source-of-Truth.md` §7 Open Questions | *(BR mới — chưa chép chính thức vào Business Rules v1.2)* |
+| Google login — không tự tạo/tự link account trùng email | Nếu `/api/auth/google` nhận email đã tồn tại ở `UserAccounts` nhưng chưa có `UserExternalLogin` khớp (`Provider=Google`) → từ chối, **không** tự tạo account mới, **không** tự link — trả lỗi yêu cầu đăng nhập password trước rồi vào Cài đặt để link. Chỉ link khi request đến từ user đã có JWT hợp lệ (`POST /api/auth/google/link`). Chặn kiểu tấn công account pre-hijacking (OWASP) — xem `00-Source-of-Truth.md` §7 Open Questions | BR-59 |
+| Đăng nhập password chỉ khi có credential nội bộ | `POST /api/auth/login` chỉ cho phép khi `UserCredential.PasswordHash IS NOT NULL` cho `UserId` đó (account tạo thuần qua Google chưa từng có password) | BR-60 |
+| WorkoutResult chỉ tạo được khi Enrollment còn hợp lệ | FK `EnrollmentId` (10/09/2026 (3)) chỉ đảm bảo Enrollment *tồn tại*, chưa đảm bảo còn hợp lệ — service phải chặn tạo `WorkoutResult` nếu `Enrollment.Status != Confirmed`. Không thêm điều kiện Present ngoài BR-61 | BR-61 |
 
 ---
 
 ## 4. API đầy đủ cho 3 flow bắt buộc
 
-**Quy ước bắt buộc cho mọi endpoint có "self" action:** `memberId`/`coachId` KHÔNG được nhận từ request body/query khi hành động là cho chính người gọi — backend lấy từ `JWT.sub`. Chỉ khi Manager/Receptionist thao tác **thay cho người khác** thì endpoint mới nhận `targetUserId` tường minh, kèm kiểm tra RBAC + ghi Audit Log bắt buộc.
+**Quy ước bắt buộc cho mọi endpoint có "self" action:** `memberId`/`coachId` KHÔNG được nhận từ request body/query khi hành động là cho chính người gọi — backend lấy từ `ClaimTypes.NameIdentifier` theo SSOT §5.6. Chỉ khi Manager/Receptionist thao tác **thay cho người khác** thì endpoint mới nhận `targetUserId` tường minh, kèm kiểm tra RBAC + ghi Audit Log bắt buộc.
 
 ### 4.1 Flow — Quản lý hội viên (Membership)
 
@@ -490,6 +540,7 @@ Không được để các ràng buộc này chỉ nằm ở API layer — phả
 | GET | `/api/invoices/{invoiceId}/payments` | Chủ sở hữu/Receptionist/Manager | |
 | POST | `/api/invoices/{invoiceId}/adjustments` | Receptionist | tạo yêu cầu refund/correction (BR-42) |
 | PUT | `/api/adjustments/{adjustmentId}/approve` | **Manager only** | không được là người tạo yêu cầu |
+| POST | `/api/adjustments/{adjustmentId}/complete` | **Receptionist only** | Đề xuất endpoint triển khai: chỉ Refund Approved, xác nhận thực trả, lưu actor/time/method/reference; idempotent BR-42 |
 | PUT | `/api/adjustments/{adjustmentId}/reject` | **Manager only** | |
 | GET | `/api/reports/revenue?from=&to=&groupBy=day\|week\|month` | **Manager only** | (BR-32, BR-43) |
 | GET | `/api/reports/membership-summary` | **Manager only** | số lượng hội viên theo trạng thái gói |
@@ -569,3 +620,18 @@ Kết quả: MVP chỉ còn **1 backend (ASP.NET Core modular monolith) + 1 Post
 - [ ] Xác nhận cơ chế `confirmed_count` denormalized thay vì COUNT() mỗi lần
 - [ ] Xác nhận endpoint `on-behalf` cho Receptionist có Audit Log bắt buộc, không opt-out
 - [ ] Xác nhận PDF report dùng thư viện nào (ảnh hưởng BR-48: 20 trang / 15 giây)
+
+## 8. Đối soát và nghiệm thu v1.4
+
+Theo [implementation-decisions §2](implementation-decisions.md): giảm nghĩa vụ và chuyển tiền là hai tác động riêng. Báo cáo thu ròng trừ Refund Completed theo ngày thực trả; Discount/Correction hiển thị riêng, không trừ hai lần. Không dùng ResolvedAt thay CompletedAtUtc. Refund do hủy dịch vụ cần căn cứ giảm nghĩa vụ; không tự tạo giảm trùng với Discount đã có.
+
+Mọi đoạn SQL dùng status dạng chuỗi trong phần minh họa ở §3 là pseudocode nghiệp vụ: migrations phải dùng representation enum DB thực tế đang có, không tự đổi ordinal/index. Chống race bằng transaction/lock hoặc constraint thích hợp; CHECK không kiểm được dữ liệu ở bảng khác.
+
+```mermaid
+stateDiagram-v2
+    Scheduled --> Rescheduled: Manager trước giờ bắt đầu, tạo buổi thay thế
+    Scheduled --> Cancelled: Manager trước giờ bắt đầu
+    Scheduled --> Completed: buổi thực sự diễn ra và kết thúc
+```
+
+ReportExport lưu metadata ở Administration, nội dung ngoài DB trong private storage; Format whitelist Csv/Pdf. Xóa trước CompletedAt + 6 tháng bị từ chối. PDF/Google/AI thật còn là acceptance gate; backup/HTTPS/uptime thuộc vận hành, không được đánh dấu ngoài scope. Kế hoạch kiểm chứng: `claude-continuation-plan-2026-09-23.md`.

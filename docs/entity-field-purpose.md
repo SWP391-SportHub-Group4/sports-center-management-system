@@ -1,7 +1,7 @@
 # Mục đích các Entity & vai trò từng Field (SportHub)
 
 > Rút ra từ ERD v2 (`docs/Center-Management-System-Design-v2.md` §1), state transition (§2) và bảng ràng buộc DB (§3).
-> File tham khảo nhanh — **chưa** đưa vào `docs/`, không phải nguồn chính thức; nếu có sai lệch, `docs/Center-Management-System-Design-v2.md` và `docs/00-Source-of-Truth.md` mới là nguồn thật.
+> File tham khảo trong `docs/`; SSOT và Business Rules v1.4 là nguồn ưu tiên; nếu có sai lệch, `docs/Center-Management-System-Design-v2.md` và `docs/00-Source-of-Truth.md` mới là nguồn thật.
 >
 > **Cập nhật 10/09/2026:** tên field trong cột "Field" (và mọi tham chiếu `Entity.Field` trong phần Mục đích) đã đổi từ `PascalCase` sang `snake_case` (vd `RoleID` → `role_id`) theo quyết định naming mới ở `00-Source-of-Truth.md` §5.4. Tên bảng (`USERS`, `MEMBER_TRAINING_PROFILE`...) và tên class/job (`AttendanceFinalizerJob`...) giữ nguyên, không đổi. **Chỉ sửa doc, chưa đụng code.**
 >
@@ -45,7 +45,7 @@
 |---|---|
 | `UserId` (PK, FK → USER_ACCOUNTS) | Cùng giá trị PK với `UserAccount.UserId` — quan hệ 1–1 |
 | `FullName` | Hiển thị UI, in hóa đơn, thông báo |
-| `Phone` | Liên hệ, có thể dùng cho notification kênh SMS sau này — **unique nếu có giá trị** (nullable, cho phép nhiều user cùng để trống; BR-54) |
+| `Phone` | Liên hệ, có thể dùng cho notification kênh SMS sau này — **unique nếu có giá trị** (nullable, cho phép nhiều user cùng để trống; BR-62) |
 
 ### `USER_EXTERNAL_LOGINS`
 **Mục đích:** đăng nhập qua provider ngoài (Google, sau này có thể thêm Facebook...) — quan hệ **1-N thật** với `USER_ACCOUNTS` (khác `USER_CREDENTIALS`/`USER_PROFILES` là 1-1), vì 1 user có thể gắn nhiều provider theo thời gian. Đây là lý do entity này cần tách bảng riêng thay vì nhét thêm cột `google_id`/`google_refresh_token`... trực tiếp vào `USER_ACCOUNTS`.
@@ -56,10 +56,10 @@
 | `UserId` (FK → USER_ACCOUNTS) | Provider này thuộc về user nào |
 | `Provider` | `GOOGLE` (enum `ExternalAuthProvider`, xem SSOT §3) — hiện chỉ Google, mở rộng provider khác không cần đổi entity |
 | `ProviderUserId` | ID phía provider trả về (Google `sub`) — cùng `Provider` tạo **unique composite**, chặn 1 tài khoản Google bị link vào 2 `USER_ACCOUNTS` khác nhau |
-| `RefreshToken` | Nullable, MVP **chưa mã hoá** — nợ kỹ thuật, xem Open Questions ở `00-Source-of-Truth.md` §7. Không lưu access token vì sống ngắn hạn, không cần persist |
+| `RefreshToken` | Nullable; scope Google login hiện không lưu refresh token. Nếu bổ sung lưu trữ phải thiết kế bảo vệ riêng, không lưu thô |
 | `CreatedAt` | Mốc link provider — cũng là mốc dùng để kiểm tra `(UserId, Provider)` unique (1 user không link trùng 1 provider 2 lần) |
 
-**Business rule đăng nhập Google (chưa chép chính thức vào Business Rules v1.2 — xem Open Questions):** nếu `POST /api/auth/google` nhận email đã tồn tại ở `USER_ACCOUNTS` nhưng chưa có `USER_EXTERNAL_LOGINS` khớp → **không** tự tạo account mới, **không** tự link — trả lỗi yêu cầu đăng nhập password trước rồi link từ Cài đặt (`POST /api/auth/google/link`, cần JWT). Chặn kiểu tấn công account pre-hijacking.
+**Business rule đăng nhập Google (BR-59/60 chính thức):** nếu `POST /api/auth/google` nhận email đã tồn tại ở `USER_ACCOUNTS` nhưng chưa có `USER_EXTERNAL_LOGINS` khớp → **không** tự tạo account mới, **không** tự link — trả lỗi yêu cầu đăng nhập password trước rồi link từ Cài đặt (`POST /api/auth/google/link`, cần JWT). Chặn kiểu tấn công account pre-hijacking.
 
 ### `ROLES`
 **Mục đích:** danh mục cố định 4 vai trò trong hệ thống, tách riêng để RBAC dễ mở rộng (thêm role mới không cần đổi schema `USER_ACCOUNTS`).
@@ -67,7 +67,7 @@
 | Field | Vai trò |
 |---|---|
 | `RoleId` (PK) | Khóa để `UserAccount.RoleId` trỏ vào |
-| `RoleName` | `MANAGER, COACH, MEMBER, RECEPTIONIST` — dùng để check quyền ở middleware/policy — **unique** (4 giá trị cố định, seed data; BR-55) |
+| `RoleName` | 5 giá trị cố định theo SSOT UserRole; API UPPER_SNAKE_CASE, JWT PascalCase. Seed unique (BR-63), không phải 4 role |
 
 ---
 
@@ -123,7 +123,7 @@
 | `PackageId` (FK) | Mua theo template gói nào |
 | `StartDate` / `EndDate` | Xác định gói còn hiệu lực theo thời gian hay không (điều kiện `EXPIRED`, BR-11) |
 | `RemainingSessions` | Số buổi còn lại — **trừ nguyên tử (atomic)** mỗi lần Enrollment thành công (constraint #3), là điều kiện chặn overbooking theo buổi |
-| `Status` | `PENDING_PAYMENT → ACTIVE → EXPIRED/CANCELLED` — xem state machine §2.1; chỉ gói `ACTIVE` mới được dùng để enroll |
+| `Status` | Vòng đời theo SSOT §4/BR-11 v1.4; có Expired → Active có điều kiện khi hoàn lượt, không hồi phục Cancelled; chỉ Active được enroll |
 | `Version` | Optimistic concurrency — tránh lost-update khi 2 request cùng sửa 1 gói cùng lúc (constraint #8) |
 
 ---
@@ -250,7 +250,7 @@
 | Field | Vai trò |
 |---|---|
 | `ResultId` (PK) | Định danh |
-| `EnrollmentId` (FK) | Kết quả của lượt đăng ký nào — thay cho `session_id` + `member_id` cũ (2 FK độc lập, không ràng buộc lẫn nhau — trước đây DB không chặn được việc ghi kết quả cho 1 Member chưa từng đăng ký session đó). Đổi 10/09/2026 (4): dùng `EnrollmentId` khiến DB tự đảm bảo tính toàn vẹn này; `SessionId`/`MemberId` suy ra qua JOIN `ENROLLMENTS` khi cần. **Lưu ý:** FK chỉ đảm bảo Enrollment tồn tại, chưa đảm bảo còn hợp lệ (`Status = CONFIRMED`) — service layer phải tự check thêm (xem Open Questions) |
+| `EnrollmentId` (FK) | Kết quả của lượt đăng ký nào — thay cho `session_id` + `member_id` cũ (2 FK độc lập, không ràng buộc lẫn nhau — trước đây DB không chặn được việc ghi kết quả cho 1 Member chưa từng đăng ký session đó). Đổi 10/09/2026 (4): dùng `EnrollmentId` khiến DB tự đảm bảo tính toàn vẹn này; `SessionId`/`MemberId` suy ra qua JOIN `ENROLLMENTS` khi cần. **Lưu ý:** FK chỉ đảm bảo Enrollment tồn tại, chưa đảm bảo còn hợp lệ (`Status = CONFIRMED`) — service phải kiểm tra BR-61; không thêm điều kiện Present |
 | `CoachId` (FK) | Ai ghi nhận — không suy ra được qua Enrollment nên vẫn giữ FK riêng |
 | `ProgressNote` | Ghi chú tiến độ (khách quan — vd "nâng được thêm 5kg") |
 | `CoachComment` | Nhận xét của Coach (định tính) |
@@ -270,7 +270,7 @@
 | `MemberId` (FK) | Hóa đơn xuất cho ai |
 | `IssuedByUserId` (FK) | Nhân viên nào xuất (thường Receptionist) — audit |
 | `MemberPackageId` (FK, nullable) | Nếu hóa đơn gắn với 1 gói cụ thể thì trỏ tới đó (nullable vì có thể là phí khác, vd penalty) |
-| `TotalAmount` | Tổng tiền phải thu — chuẩn để so sánh với tổng `Payment.Amount` (constraint #6, BR-41) |
+| `TotalAmount` | Giá trị gốc hóa đơn bất biến; NetPayable/Outstanding suy ra theo BR-41 v1.4, không cộng Refund vào giảm nghĩa vụ |
 | `Status` | `ISSUED → PARTIALLY_PAID → PAID` hoặc `→ VOID` — xem state machine §2.3 |
 | `IssuedAt` | Mốc xuất hóa đơn |
 
@@ -293,7 +293,7 @@
 |---|---|
 | `PaymentId` (PK) | Định danh giao dịch |
 | `InvoiceId` (FK) | Thanh toán cho hóa đơn nào |
-| `Amount` | Số tiền của lần thu này — tổng các `Amount` (status SUCCESS) không được vượt `Invoice.TotalAmount` (BR-41, constraint #6) |
+| `Amount` | Số tiền của lần thu này — khoản thu mới không vượt Outstanding theo BR-41 v1.4 và không quá hạn thanh toán |
 | `Method` | `CASH/CARD/TRANSFER/EWALLET` — MVP chủ yếu ghi nhận thủ công |
 | `ReferenceCode` (nullable) | Mã tham chiếu từ cổng thanh toán ngoài (nếu có) |
 | `Status` | `PENDING/SUCCESS/FAILED` — chỉ `SUCCESS` mới tính vào tổng đã thu |
@@ -311,10 +311,10 @@
 | `Type` | `REFUND/CORRECTION/DISCOUNT` — loại điều chỉnh, quyết định công thức tính (BR-52 cho REFUND) |
 | `Amount` | Số tiền điều chỉnh |
 | `Reason` | Lý do — bắt buộc để Manager duyệt có căn cứ |
-| `Status` | `REQUESTED → APPROVED/REJECTED → COMPLETED` — Receptionist tạo, **Manager phải duyệt, không được tự duyệt** (BR-42), xem state machine §2.4 |
+| `Status` | Requested → Approved → Completed hoặc Requested → Rejected. Refund cần xác nhận thực trả riêng sau duyệt; không gộp approve/complete (BR-42 v1.4) |
 | `RequestedByUserId` (FK) | Ai yêu cầu |
 | `ApprovedByUserId` (FK, nullable) | Ai duyệt — null nếu chưa duyệt/bị từ chối |
-| `CreatedAt` / `ResolvedAt` (nullable) | Mốc tạo yêu cầu / mốc xử lý xong — SLA, báo cáo |
+| `CreatedAt` / `ResolvedAt` (nullable) | Mốc tạo / xử lý legacy; báo cáo hoàn tiền dùng CompletedAtUtc riêng, không dùng ngày duyệt |
 
 ---
 
@@ -364,3 +364,29 @@
 ---
 
 *Nguồn: `docs/Center-Management-System-Design-v2.md` §1 (ERD), §2 (state transition), §3 (constraints). Field nào còn dấu `?` hoặc chưa rõ nghiệp vụ — hỏi lại BA/team lead trước khi code, đừng tự suy diễn (đúng nguyên tắc ở `docs/00-Source-of-Truth.md` §6).*
+
+## Bổ sung field đã duyệt ngày 22/09/2026
+
+Phần này mô tả schema đích v1.4, áp dụng thay mô tả cũ của các field liên quan. Chưa khẳng định code đã có đủ. Xem SSOT §2/5.7 và implementation-decisions.
+
+| Entity.Field | Mục đích và ràng buộc |
+|---|---|
+| Enrollment.CancellationDeadlineHours | int không âm, snapshot lúc Confirmed, mặc định cấu hình 12h; không cập nhật theo setting mới |
+| SystemSetting.Key/Value/ValueType | Key string whitelist, value có kiểm kiểu; Manager chỉnh 12h hủy/7 ngày nhắc hạn |
+| SystemSetting.UpdatedAt/UpdatedByUserId | UTC và FK actor, actor có thể null cho seed; chỉnh qua UI có audit |
+| ClassSession.BaselineCapacity | int, MIN(Room, Class) lúc tạo, bất biến; Capacity <= baseline và phòng thực tế |
+| Invoice.DueDateUtc/FirstDepositAtUtc | hạn tháng lịch và cọc đầu hợp lệ; nullable cọc; trả đủ lần đầu không phải cọc |
+| MemberPackage.StackingApprovedByUserId/StackingApprovedAtUtc/StackingApprovalReason | FK Manager, thời điểm UTC, lý do; tất cả có khi ngoại lệ được duyệt, không tự kích hoạt chưa trả đủ |
+| MembershipPackage.IsActive/Description | bool bán mới, mô tả nullable; ngừng bán không tước quyền gói đã bán |
+| AuditLog.TargetId | string cùng TargetEntity để ghi entity có khóa Guid/int/string; không phải một FK chung tới mọi bảng |
+| PaymentAdjustment.ApprovedAtUtc | thời điểm duyệt, nullable trước duyệt; không chứng minh đã trả tiền |
+| PaymentAdjustment.CompletedAtUtc/CompletedByUserId | UTC và FK người xác nhận, bắt buộc khi Refund thực trả; không backfill từ ngày duyệt nếu thiếu chứng cứ |
+| PaymentAdjustment.RefundMethod/RefundReferenceCode | PaymentMethod nullable và mã tham chiếu nullable; bắt buộc method cho Refund Completed, chuyển khoản có reference; tiền mặt có xác nhận quầy/audit |
+| ReportExport.ReportExportId/RequestedByUserId | Guid ID, FK chủ sở hữu; download qua API kiểm quyền |
+| ReportExport.ReportType/ParametersJson/Format | loại report whitelist, filter và cột đã chọn, string format Csv/Pdf; không nhận storage path từ client |
+| ReportExport.Status/FailureReason | ReportExportStatus theo SSOT; Failed lưu lỗi an toàn, retry; Completed chỉ khi file sẵn sàng |
+| ReportExport.RowCount/SizeBytes | số dòng và kích thước file thành công |
+| ReportExport.CreatedAt/CompletedAt/ExpiresAt | thời điểm UTC; giữ file thành công ít nhất 6 tháng kể từ CompletedAt |
+| ReportExport.IsDeleted/DeletedAt | chỉ xóa sau retention; list/download phải chặn link cũ; file riêng tư suy ra từ ID/format dưới storage root |
+
+Các đại lượng NetPayable, GrossCollected, RefundedAmount, NetCollected, Outstanding và RefundDue là giá trị suy ra theo biên bản §2, không yêu cầu thêm cột dư thừa. Enum API không quyết định kiểu lưu enum DB. Ngày gói DateOnly dùng lịch Việt Nam, ngày cuối inclusive.
