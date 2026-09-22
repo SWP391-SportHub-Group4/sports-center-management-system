@@ -16,17 +16,17 @@ namespace SportHub.Scheduling.Application.Services;
 
 public interface IEnrollmentService
 {
-    Task<EnrollmentDto> CreateAsync(
+    Task<EnrollmentResponse> CreateAsync(
         CreateEnrollmentRequest request, Guid memberId, Guid actorUserId, CancellationToken ct = default);
 
-    Task<EnrollmentDto> CancelAsync(Guid enrollmentId, Guid actorUserId, CancellationToken ct = default);
+    Task<EnrollmentResponse> CancelAsync(Guid enrollmentId, Guid actorUserId, CancellationToken ct = default);
 
-    Task<IReadOnlyList<EnrollmentDto>> GetByMemberAsync(
+    Task<IReadOnlyList<EnrollmentResponse>> GetByMemberAsync(
         Guid memberId, bool upcomingOnly, CancellationToken ct = default);
 
-    Task<EnrollmentDto> GetAsync(Guid enrollmentId, CancellationToken ct = default);
+    Task<EnrollmentResponse> GetAsync(Guid enrollmentId, CancellationToken ct = default);
 
-    Task<IReadOnlyList<MemberSessionDto>> GetMemberScheduleAsync(
+    Task<IReadOnlyList<MemberSessionResponse>> GetMemberScheduleAsync(
         Guid memberId, DateOnly fromDate, DateOnly toDate, string? discipline, CancellationToken ct = default);
 }
 
@@ -41,7 +41,7 @@ public sealed class EnrollmentService(
     IAuditWriter audit,
     IClock clock) : IEnrollmentService
 {
-    public async Task<EnrollmentDto> CreateAsync(
+    public async Task<EnrollmentResponse> CreateAsync(
         CreateEnrollmentRequest request,
         Guid memberId,
         Guid actorUserId,
@@ -170,7 +170,7 @@ public sealed class EnrollmentService(
     /// BR-17/BR-18 — hủy đăng ký. Đúng hạn (tại hoặc trước mốc BR-50) thì hoàn lượt; trễ hạn
     /// thì không. Mốc tính theo số giờ đã CHỤP vào đăng ký, không phải cấu hình hiện hành.
     /// </summary>
-    public async Task<EnrollmentDto> CancelAsync(
+    public async Task<EnrollmentResponse> CancelAsync(
         Guid enrollmentId,
         Guid actorUserId,
         CancellationToken ct = default)
@@ -239,7 +239,7 @@ public sealed class EnrollmentService(
         return await GetAsync(enrollmentId, ct);
     }
 
-    public async Task<IReadOnlyList<EnrollmentDto>> GetByMemberAsync(
+    public async Task<IReadOnlyList<EnrollmentResponse>> GetByMemberAsync(
         Guid memberId,
         bool upcomingOnly,
         CancellationToken ct = default)
@@ -258,13 +258,13 @@ public sealed class EnrollmentService(
             .ToListAsync(ct);
     }
 
-    public async Task<EnrollmentDto> GetAsync(Guid enrollmentId, CancellationToken ct = default)
+    public async Task<EnrollmentResponse> GetAsync(Guid enrollmentId, CancellationToken ct = default)
         => await db.Set<Enrollment>().AsNoTracking().Where(e => e.EnrollmentId == enrollmentId).Select(Projection())
                .SingleOrDefaultAsync(ct)
            ?? throw new NotFoundException("enrollment_not_found", "Không tìm thấy đăng ký.");
 
     /// <summary>Lịch lớp kèm tình trạng đăng ký của chính hội viên — màn hình đặt lịch.</summary>
-    public async Task<IReadOnlyList<MemberSessionDto>> GetMemberScheduleAsync(
+    public async Task<IReadOnlyList<MemberSessionResponse>> GetMemberScheduleAsync(
         Guid memberId,
         DateOnly fromDate,
         DateOnly toDate,
@@ -292,8 +292,8 @@ public sealed class EnrollmentService(
 
         return await query
             .OrderBy(s => s.StartAtUtc)
-            .Select(s => new MemberSessionDto(
-                new ClassSessionDto(
+            .Select(s => new MemberSessionResponse(
+                new ClassSessionResponse(
                     s.SessionId, s.ClassId, s.Class!.Name, s.Class.Discipline,
                     s.RoomId, s.Room!.Name, s.CoachId,
                     s.Coach!.Profile != null ? s.Coach.Profile.FullName : s.Coach.Email,
@@ -345,8 +345,8 @@ public sealed class EnrollmentService(
                    "Hội viên không có gói thành viên nào đang hoạt động và còn số buổi (BR-16).");
     }
 
-    private static System.Linq.Expressions.Expression<Func<Enrollment, EnrollmentDto>> Projection()
-        => e => new EnrollmentDto(
+    private static System.Linq.Expressions.Expression<Func<Enrollment, EnrollmentResponse>> Projection()
+        => e => new EnrollmentResponse(
             e.EnrollmentId,
             e.SessionId,
             e.MemberId,
@@ -359,7 +359,7 @@ public sealed class EnrollmentService(
             e.CancellationDeadlineHours,
             e.Session!.StartAtUtc.AddHours(-e.CancellationDeadlineHours),
             e.Attendance == null ? null : e.Attendance.Status.ToString(),
-            new ClassSessionDto(
+            new ClassSessionResponse(
                 e.Session.SessionId, e.Session.ClassId, e.Session.Class!.Name, e.Session.Class.Discipline,
                 e.Session.RoomId, e.Session.Room!.Name, e.Session.CoachId,
                 e.Session.Coach!.Profile != null ? e.Session.Coach.Profile.FullName : e.Session.Coach.Email,

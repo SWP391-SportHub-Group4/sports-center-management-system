@@ -2,7 +2,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace SportHub.Scheduling.Application.DTOs;
 
-public sealed record RoomDto(int RoomId, string Name, int Capacity, int ActiveClassCount);
+public sealed record RoomResponse(int RoomId, string Name, int Capacity, int ActiveClassCount);
 
 public sealed class SaveRoomRequest
 {
@@ -13,7 +13,7 @@ public sealed class SaveRoomRequest
     public int Capacity { get; set; }
 }
 
-public sealed record ClassRecurrenceDto(
+public sealed record ClassRecurrenceResponse(
     int RecurrenceId,
     string DaysOfWeek,
     TimeOnly StartTimeLocal,
@@ -22,7 +22,7 @@ public sealed record ClassRecurrenceDto(
     DateOnly EffectiveFrom,
     DateOnly? EffectiveTo);
 
-public sealed record ClassDto(
+public sealed record ClassResponse(
     int ClassId,
     string Name,
     string Discipline,
@@ -33,7 +33,7 @@ public sealed record ClassDto(
     string? DefaultCoachName,
     int Capacity,
     string Status,
-    IReadOnlyList<ClassRecurrenceDto> Recurrences);
+    IReadOnlyList<ClassRecurrenceResponse> Recurrences);
 
 public sealed class SaveClassRequest
 {
@@ -73,7 +73,7 @@ public sealed class SaveRecurrenceRequest
     public DateOnly? EffectiveTo { get; set; }
 }
 
-public sealed record ClassSessionDto(
+public sealed record ClassSessionResponse(
     Guid SessionId,
     int ClassId,
     string ClassName,
@@ -92,7 +92,7 @@ public sealed record ClassSessionDto(
     bool IsFull);
 
 /// <summary>Buổi học kèm tình trạng đăng ký của chính người đang xem — dùng cho màn hình hội viên.</summary>
-public sealed record MemberSessionDto(ClassSessionDto Session, Guid? MyEnrollmentId, string? MyEnrollmentStatus);
+public sealed record MemberSessionResponse(ClassSessionResponse Session, Guid? MyEnrollmentId, string? MyEnrollmentStatus);
 
 public sealed class CreateAdHocSessionRequest
 {
@@ -152,7 +152,7 @@ public sealed class RescheduleSessionRequest
     public string Reason { get; set; } = string.Empty;
 }
 
-public sealed record EnrollmentDto(
+public sealed record EnrollmentResponse(
     Guid EnrollmentId,
     Guid SessionId,
     Guid MemberId,
@@ -165,7 +165,7 @@ public sealed record EnrollmentDto(
     int CancellationDeadlineHours,
     DateTime CancellationDeadlineUtc,
     string? AttendanceStatus,
-    ClassSessionDto Session);
+    ClassSessionResponse Session);
 
 public sealed class CreateEnrollmentRequest
 {
@@ -182,7 +182,7 @@ public sealed class CreateEnrollmentRequest
     public Guid? MemberId { get; set; }
 }
 
-public sealed record AttendanceDto(
+public sealed record AttendanceResponse(
     Guid AttendanceId,
     Guid EnrollmentId,
     Guid MemberId,
@@ -201,11 +201,11 @@ public sealed class MarkAttendanceRequest
     public string Status { get; set; } = string.Empty;
 }
 
-public sealed record SessionRosterDto(
-    ClassSessionDto Session,
-    IReadOnlyList<RosterEntryDto> Entries);
+public sealed record SessionRosterResponse(
+    ClassSessionResponse Session,
+    IReadOnlyList<RosterEntryResponse> Entries);
 
-public sealed record RosterEntryDto(
+public sealed record RosterEntryResponse(
     Guid EnrollmentId,
     Guid MemberId,
     string MemberEmail,

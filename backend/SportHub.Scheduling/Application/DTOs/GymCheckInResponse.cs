@@ -1,6 +1,6 @@
 namespace SportHub.Scheduling.Application.DTOs;
 
-public sealed class GymCheckInDto
+public sealed class GymCheckInResponse
 {
     public Guid CheckInId { get; init; }
 

@@ -11,19 +11,19 @@ namespace SportHub.Scheduling.Application.Services;
 
 public interface IClassService
 {
-    Task<IReadOnlyList<ClassDto>> GetAllAsync(string? discipline, bool includeArchived, CancellationToken ct = default);
+    Task<IReadOnlyList<ClassResponse>> GetAllAsync(string? discipline, bool includeArchived, CancellationToken ct = default);
 
-    Task<ClassDto> GetAsync(int classId, CancellationToken ct = default);
+    Task<ClassResponse> GetAsync(int classId, CancellationToken ct = default);
 
-    Task<ClassDto> CreateAsync(SaveClassRequest request, Guid actorUserId, CancellationToken ct = default);
+    Task<ClassResponse> CreateAsync(SaveClassRequest request, Guid actorUserId, CancellationToken ct = default);
 
-    Task<ClassDto> UpdateAsync(int classId, SaveClassRequest request, Guid actorUserId, CancellationToken ct = default);
+    Task<ClassResponse> UpdateAsync(int classId, SaveClassRequest request, Guid actorUserId, CancellationToken ct = default);
 
-    Task<ClassDto> SetStatusAsync(int classId, ClassStatus status, Guid actorUserId, CancellationToken ct = default);
+    Task<ClassResponse> SetStatusAsync(int classId, ClassStatus status, Guid actorUserId, CancellationToken ct = default);
 
-    Task<ClassDto> AddRecurrenceAsync(int classId, SaveRecurrenceRequest request, Guid actorUserId, CancellationToken ct = default);
+    Task<ClassResponse> AddRecurrenceAsync(int classId, SaveRecurrenceRequest request, Guid actorUserId, CancellationToken ct = default);
 
-    Task<ClassDto> DeleteRecurrenceAsync(int classId, int recurrenceId, Guid actorUserId, CancellationToken ct = default);
+    Task<ClassResponse> DeleteRecurrenceAsync(int classId, int recurrenceId, Guid actorUserId, CancellationToken ct = default);
 }
 
 /// <summary>
@@ -47,7 +47,7 @@ public sealed class ClassService(ISportHubDbContext db, IAuditWriter audit) : IC
 
     public const string VietnamTimezoneId = "Asia/Ho_Chi_Minh";
 
-    public async Task<IReadOnlyList<ClassDto>> GetAllAsync(
+    public async Task<IReadOnlyList<ClassResponse>> GetAllAsync(
         string? discipline,
         bool includeArchived,
         CancellationToken ct = default)
@@ -67,12 +67,12 @@ public sealed class ClassService(ISportHubDbContext db, IAuditWriter audit) : IC
         return await query.OrderBy(c => c.Name).Select(Projection()).ToListAsync(ct);
     }
 
-    public async Task<ClassDto> GetAsync(int classId, CancellationToken ct = default)
+    public async Task<ClassResponse> GetAsync(int classId, CancellationToken ct = default)
         => await db.Set<Class>().AsNoTracking().Where(c => c.ClassId == classId).Select(Projection())
                .SingleOrDefaultAsync(ct)
            ?? throw new NotFoundException("class_not_found", "Không tìm thấy lớp học.");
 
-    public async Task<ClassDto> CreateAsync(
+    public async Task<ClassResponse> CreateAsync(
         SaveClassRequest request,
         Guid actorUserId,
         CancellationToken ct = default)
@@ -108,7 +108,7 @@ public sealed class ClassService(ISportHubDbContext db, IAuditWriter audit) : IC
         return await GetAsync(entity.ClassId, ct);
     }
 
-    public async Task<ClassDto> UpdateAsync(
+    public async Task<ClassResponse> UpdateAsync(
         int classId,
         SaveClassRequest request,
         Guid actorUserId,
@@ -142,7 +142,7 @@ public sealed class ClassService(ISportHubDbContext db, IAuditWriter audit) : IC
         return await GetAsync(classId, ct);
     }
 
-    public async Task<ClassDto> SetStatusAsync(
+    public async Task<ClassResponse> SetStatusAsync(
         int classId,
         ClassStatus status,
         Guid actorUserId,
@@ -167,7 +167,7 @@ public sealed class ClassService(ISportHubDbContext db, IAuditWriter audit) : IC
         return await GetAsync(classId, ct);
     }
 
-    public async Task<ClassDto> AddRecurrenceAsync(
+    public async Task<ClassResponse> AddRecurrenceAsync(
         int classId,
         SaveRecurrenceRequest request,
         Guid actorUserId,
@@ -219,7 +219,7 @@ public sealed class ClassService(ISportHubDbContext db, IAuditWriter audit) : IC
         return await GetAsync(classId, ct);
     }
 
-    public async Task<ClassDto> DeleteRecurrenceAsync(
+    public async Task<ClassResponse> DeleteRecurrenceAsync(
         int classId,
         int recurrenceId,
         Guid actorUserId,
@@ -303,8 +303,8 @@ public sealed class ClassService(ISportHubDbContext db, IAuditWriter audit) : IC
            + $"\"roomId\":{c.DefaultRoomId},\"coachId\":{(c.DefaultCoachId is null ? "null" : $"\"{c.DefaultCoachId}\"")},"
            + $"\"capacity\":{c.Capacity},\"status\":\"{c.Status}\"}}";
 
-    private static System.Linq.Expressions.Expression<Func<Class, ClassDto>> Projection()
-        => c => new ClassDto(
+    private static System.Linq.Expressions.Expression<Func<Class, ClassResponse>> Projection()
+        => c => new ClassResponse(
             c.ClassId,
             c.Name,
             c.Discipline,
@@ -319,7 +319,7 @@ public sealed class ClassService(ISportHubDbContext db, IAuditWriter audit) : IC
             c.Status.ToString(),
             c.Recurrences
                 .OrderBy(r => r.StartTimeLocal)
-                .Select(r => new ClassRecurrenceDto(
+                .Select(r => new ClassRecurrenceResponse(
                     r.RecurrenceId, r.DaysOfWeek, r.StartTimeLocal, r.EndTimeLocal,
                     r.Timezone, r.EffectiveFrom, r.EffectiveTo))
                 .ToList());

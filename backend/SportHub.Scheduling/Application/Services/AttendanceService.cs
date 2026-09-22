@@ -9,11 +9,11 @@ namespace SportHub.Scheduling.Application.Services;
 
 public interface IAttendanceService
 {
-    Task<AttendanceDto> MarkAsync(
+    Task<AttendanceResponse> MarkAsync(
         Guid enrollmentId, MarkAttendanceRequest request, Guid actorUserId, bool actorIsReceptionist,
         CancellationToken ct = default);
 
-    Task<IReadOnlyList<AttendanceDto>> GetBySessionAsync(Guid sessionId, CancellationToken ct = default);
+    Task<IReadOnlyList<AttendanceResponse>> GetBySessionAsync(Guid sessionId, CancellationToken ct = default);
 }
 
 /// <summary>
@@ -25,7 +25,7 @@ public sealed class AttendanceService(
     IAuditWriter audit,
     IClock clock) : IAttendanceService
 {
-    public async Task<AttendanceDto> MarkAsync(
+    public async Task<AttendanceResponse> MarkAsync(
         Guid enrollmentId,
         MarkAttendanceRequest request,
         Guid actorUserId,
@@ -97,7 +97,7 @@ public sealed class AttendanceService(
         return await GetOneAsync(attendance.AttendanceId, ct);
     }
 
-    public async Task<IReadOnlyList<AttendanceDto>> GetBySessionAsync(
+    public async Task<IReadOnlyList<AttendanceResponse>> GetBySessionAsync(
         Guid sessionId,
         CancellationToken ct = default)
         => await db.Set<Attendance>()
@@ -106,13 +106,13 @@ public sealed class AttendanceService(
             .Select(Projection())
             .ToListAsync(ct);
 
-    private async Task<AttendanceDto> GetOneAsync(Guid attendanceId, CancellationToken ct)
+    private async Task<AttendanceResponse> GetOneAsync(Guid attendanceId, CancellationToken ct)
         => await db.Set<Attendance>().AsNoTracking().Where(a => a.AttendanceId == attendanceId).Select(Projection())
                .SingleOrDefaultAsync(ct)
            ?? throw new NotFoundException("attendance_not_found", "Không tìm thấy bản ghi điểm danh.");
 
-    private static System.Linq.Expressions.Expression<Func<Attendance, AttendanceDto>> Projection()
-        => a => new AttendanceDto(
+    private static System.Linq.Expressions.Expression<Func<Attendance, AttendanceResponse>> Projection()
+        => a => new AttendanceResponse(
             a.AttendanceId,
             a.EnrollmentId,
             a.Enrollment!.MemberId,
