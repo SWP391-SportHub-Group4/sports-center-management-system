@@ -23,7 +23,7 @@ Xem [`docs/RUNBOOK.md`](docs/RUNBOOK.md) — có tài khoản demo cho cả 5 va
 để xem từng Flow 1–5 trên giao diện.
 
 Quyết định đã duyệt ngày 22/09/2026: [biên bản](docs/implementation-decisions.md).
-Business Rules hiện hành: [Word v1.4](docs/SportManagement_BusinessRules.docx) và [bản Markdown để review](docs/business-rules-v1.4.md).
+Business Rules hiện hành: [Word v1.4](docs/SportManagement_BusinessRules.docx) — bản Markdown mirror trước đây (`docs/business-rules-v1.4.md`) đã gộp xong nội dung vào file Word này và bị xoá ngày 22/09/2026 để khỏi trùng lặp.
 Kế hoạch tiếp tục: [Claude 23/09/2026](docs/claude-continuation-plan-2026-09-23.md).
 
 Đây là đặc tả đích; chưa xác nhận code đáp ứng v1.4. Matrix/status sẽ được Claude tạo từ kiểm chứng mới theo plan; không dùng kết quả tests cũ để kết luận các rule mới đã đạt.
@@ -69,7 +69,12 @@ SportHub.<Module>/
 │   ├── Entities/        # Entity thật, di chuyển nguyên trạng từ SportHub.Repository cũ
 │   └── Enums/           # Enum thật
 ├── Domain/Rules/         # Bất biến nghiệp vụ dùng chung giữa các use case (vd MemberPackageRules)
-├── Application/          # DTO + service: use case của module
+├── Application/          # use case của module — Interface/Service tách riêng, DTO/Command tách theo request-response
+│   ├── Interfaces/       # IFooService — hợp đồng, Controller inject qua đây (BẮT BUỘC, không khai báo trong Services/)
+│   ├── Services/         # FooService — cài đặt interface, chứa logic thật
+│   ├── DTOs/             # Response — kết quả trả ra, gom theo tính năng (vd DTOs/Packages/)
+│   ├── Commands/         # Request — dữ liệu nhận vào, gom theo tính năng (vd Commands/Packages/)
+│   └── Queries/          # Reserved — tham số đọc hiện truyền thẳng qua method argument, chưa dùng
 ├── Api/                  # Controller của module (nạp vào MVC qua AddApplicationPart ở SportHub.API)
 └── Infrastructure/Persistence/Configurations/   # IEntityTypeConfiguration<T>, 1 file / entity
 ```
