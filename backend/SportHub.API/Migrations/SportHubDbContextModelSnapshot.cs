@@ -96,6 +96,12 @@ namespace SportHub.API.Migrations
                         .HasColumnType("character varying(1000)")
                         .HasColumnName("failure_reason");
 
+                    b.Property<string>("Format")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("format");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean")
                         .HasColumnName("is_deleted");
@@ -133,7 +139,10 @@ namespace SportHub.API.Migrations
                     b.HasIndex("RequestedByUserId", "CreatedAt")
                         .HasDatabaseName("ix_report_exports_requested_by_user_id_created_at");
 
-                    b.ToTable("report_exports", (string)null);
+                    b.ToTable("report_exports", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_report_exports_format_allowed", "format IN ('Csv', 'Pdf')");
+                        });
                 });
 
             modelBuilder.Entity("SportHub.Administration.Domain.Entities.SystemSetting", b =>
@@ -776,9 +785,21 @@ namespace SportHub.API.Migrations
                         .HasColumnType("numeric(18,0)")
                         .HasColumnName("amount");
 
+                    b.Property<DateTime?>("ApprovedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("approved_at_utc");
+
                     b.Property<Guid?>("ApprovedByUserId")
                         .HasColumnType("uuid")
                         .HasColumnName("approved_by_user_id");
+
+                    b.Property<DateTime?>("CompletedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("completed_at_utc");
+
+                    b.Property<Guid?>("CompletedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("completed_by_user_id");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -788,6 +809,10 @@ namespace SportHub.API.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("invoice_id");
 
+                    b.Property<bool>("LegacyPayoutUnverified")
+                        .HasColumnType("boolean")
+                        .HasColumnName("legacy_payout_unverified");
+
                     b.Property<Guid?>("PaymentId")
                         .HasColumnType("uuid")
                         .HasColumnName("payment_id");
@@ -796,6 +821,20 @@ namespace SportHub.API.Migrations
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("reason");
+
+                    b.Property<int?>("RefundMethod")
+                        .HasColumnType("integer")
+                        .HasColumnName("refund_method");
+
+                    b.Property<string>("RefundReferenceCode")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("refund_reference_code");
+
+                    b.Property<decimal>("RequestedAmount")
+                        .HasPrecision(18)
+                        .HasColumnType("numeric(18,0)")
+                        .HasColumnName("requested_amount");
 
                     b.Property<Guid>("RequestedByUserId")
                         .HasColumnType("uuid")
@@ -819,6 +858,9 @@ namespace SportHub.API.Migrations
                     b.HasIndex("ApprovedByUserId")
                         .HasDatabaseName("ix_payment_adjustments_approved_by_user_id");
 
+                    b.HasIndex("CompletedByUserId")
+                        .HasDatabaseName("ix_payment_adjustments_completed_by_user_id");
+
                     b.HasIndex("InvoiceId")
                         .HasDatabaseName("ix_payment_adjustments_invoice_id");
 
@@ -828,7 +870,12 @@ namespace SportHub.API.Migrations
                     b.HasIndex("RequestedByUserId")
                         .HasDatabaseName("ix_payment_adjustments_requested_by_user_id");
 
-                    b.ToTable("payment_adjustments", (string)null);
+                    b.ToTable("payment_adjustments", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_payment_adjustments_completed_has_date", "status <> 3 OR legacy_payout_unverified OR completed_at_utc IS NOT NULL");
+
+                            t.HasCheckConstraint("CK_payment_adjustments_refund_completed_evidence", "(type <> 0 OR status <> 3)\nOR legacy_payout_unverified\nOR (completed_at_utc IS NOT NULL\n    AND completed_by_user_id IS NOT NULL\n    AND refund_method IS NOT NULL)");
+                        });
                 });
 
             modelBuilder.Entity("SportHub.Scheduling.Domain.Entities.Attendance", b =>
@@ -1560,6 +1607,12 @@ namespace SportHub.API.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_payment_adjustments_user_accounts_approved_by_user_id");
 
+                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", "CompletedByUser")
+                        .WithMany()
+                        .HasForeignKey("CompletedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_payment_adjustments_user_accounts_completed_by_user_id");
+
                     b.HasOne("SportHub.Payment.Domain.Entities.Invoice", "Invoice")
                         .WithMany("Adjustments")
                         .HasForeignKey("InvoiceId")
@@ -1581,6 +1634,8 @@ namespace SportHub.API.Migrations
                         .HasConstraintName("fk_payment_adjustments_user_accounts_requested_by_user_id");
 
                     b.Navigation("ApprovedByUser");
+
+                    b.Navigation("CompletedByUser");
 
                     b.Navigation("Invoice");
 

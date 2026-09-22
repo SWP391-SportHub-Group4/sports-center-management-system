@@ -82,7 +82,12 @@ export default function AdjustmentsPage() {
               }}
             >
               <option value="">Tất cả</option>
-              {["Requested", "Completed", "Rejected"].map((value) => (
+              {/*
+                BR-42 v1.4 — "Approved" là trạng thái thật và quan trọng: Refund đã duyệt
+                nhưng quầy chưa chi tiền. Thiếu nó khỏi bộ lọc thì Manager không có cách nào
+                thấy danh sách khoản đang treo.
+              */}
+              {["Requested", "Approved", "Completed", "Rejected"].map((value) => (
                 <option key={value} value={value}>
                   {label(value)}
                 </option>
@@ -125,7 +130,14 @@ export default function AdjustmentsPage() {
                     <tr key={item.adjustmentId}>
                       <td>{item.invoiceNumber}</td>
                       <td>{label(item.type)}</td>
-                      <td className="num">{formatMoney(item.amount)}</td>
+                      <td className="num">
+                        {formatMoney(item.amount)}
+                        {item.requestedAmount !== item.amount && (
+                          <div className="small muted">
+                            đề nghị {formatMoney(item.requestedAmount)}
+                          </div>
+                        )}
+                      </td>
                       <td className="small">{item.reason}</td>
                       <td className="small">
                         {item.requestedByName}
@@ -135,11 +147,28 @@ export default function AdjustmentsPage() {
                       </td>
                       <td>
                         <StatusChip value={item.status} />
+                        {/*
+                          BR-42 v1.4 — Approved KHÔNG phải đã trả tiền. Nói rõ ở đây để Manager
+                          không tưởng việc mình bấm duyệt là đã kết thúc quy trình.
+                        */}
+                        {item.awaitingPayout && (
+                          <div className="small" style={{ color: "var(--warn-700)" }}>
+                            Chờ lễ tân trả tiền
+                          </div>
+                        )}
                       </td>
                       <td className="small">
                         {item.approvedByName ?? "—"}
-                        {item.resolvedAt && (
-                          <div className="muted">{formatDateTime(item.resolvedAt)}</div>
+                        {item.approvedAtUtc && (
+                          <div className="muted">Duyệt {formatDateTime(item.approvedAtUtc)}</div>
+                        )}
+                        {item.type === "Refund" && item.completedAtUtc && (
+                          <div className="muted">
+                            Đã trả {formatDateTime(item.completedAtUtc)}
+                            {item.completedByName && ` · ${item.completedByName}`}
+                            {item.refundMethod && ` · ${label(item.refundMethod)}`}
+                            {item.refundReferenceCode && ` · ${item.refundReferenceCode}`}
+                          </div>
                         )}
                       </td>
                       <td className="right">
@@ -203,9 +232,16 @@ export default function AdjustmentsPage() {
           <form id="adjustment-form" className="form" onSubmit={submit}>
             <div className="alert alert--info">
               Hóa đơn <strong>{target.invoiceNumber}</strong> · {label(target.type)} ·{" "}
-              {formatMoney(target.amount)}
+              {formatMoney(target.requestedAmount)} (số đề nghị)
               <div className="small">Lý do yêu cầu: {target.reason}</div>
             </div>
+
+            {mode === "approve" && target.type === "Refund" && (
+              <div className="alert alert--warn">
+                Phê duyệt chỉ cho phép hoàn — <strong>tiền chưa ra khỏi quầy</strong>. Sau bước
+                này Lễ tân phải xác nhận đã thực trả thì số dư và báo cáo mới thay đổi (BR-42).
+              </div>
+            )}
 
             {mode === "approve" && (
               <Field

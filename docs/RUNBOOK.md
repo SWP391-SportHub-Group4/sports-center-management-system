@@ -52,7 +52,7 @@ Mật khẩu chung: **`Sporthub@123`**
 
 | Vai trò | Email | Vào được gì |
 |---|---|---|
-| Quản trị hệ thống | `admin@sporthub.vn` | Tài khoản & vai trò, nhật ký thao tác |
+| Quản trị hệ thống | `admin@sporthub.vn` | Tài khoản & vai trò; không có quyền xem Audit Log nghiệp vụ khi chưa được chốt trong SSOT |
 | Quản lý trung tâm | `manager@sporthub.vn` | Phòng, lớp, lịch, gói, duyệt điều chỉnh, báo cáo, cấu hình |
 | Lễ tân | `letan@sporthub.vn` | Gym check-in, bán gói, thu tiền, đăng ký hộ, điểm danh |
 | HLV Yoga | `coach.yoga@sporthub.vn` | Lịch dạy, điểm danh, kế hoạch tập, gợi ý AI |
@@ -85,11 +85,29 @@ xác thực.
 
 ### Flow 3 — Thanh toán & báo cáo
 
+Hoàn tiền đi qua **ba bước, hai người** (BR-42 v1.4). Duyệt **không phải** là trả tiền:
+
 1. `letan@sporthub.vn` → **Tra cứu hóa đơn**: thu tiền, tạo yêu cầu điều chỉnh.
+   Bảng hóa đơn có cột **Cần hoàn** tách khỏi **Thực thu**.
 2. `manager@sporthub.vn` → **Duyệt điều chỉnh**: duyệt hoặc từ chối. Yêu cầu do chính mình tạo
-   sẽ không có nút duyệt; backend cũng phải chặn (BR-42). Theo v1.4, duyệt Refund chưa là thực trả; cần bước Receptionist xác nhận thực trả riêng, đang chờ code theo plan.
-3. `manager@sporthub.vn` → **Báo cáo doanh thu**: số liệu theo ngày, chọn cột rồi xuất CSV, tải
-   về, thử lại khi lỗi. V1.4 chỉ cho xóa sau retention; CSV chưa đáp ứng phần PDF của BR-48.
+   không có nút duyệt và backend chặn bằng 403 (BR-42).
+   - `Discount`/`Correction`: duyệt xong là `Completed` ngay — chỉ giảm nghĩa vụ, không có
+     tiền chuyển đi.
+   - `Refund`: duyệt xong dừng ở **`Approved`**. Số thực thu, số đã hoàn và báo cáo doanh thu
+     **không đổi** ở bước này. Dòng đó hiện nhãn "Chờ lễ tân trả tiền".
+3. `letan@sporthub.vn` → mở lại hóa đơn → bảng **Điều chỉnh** → nút **Xác nhận đã trả**.
+   Chỉ bấm SAU KHI tiền đã thực sự ra khỏi quầy. Nhập phương thức trả và mã tham chiếu
+   (bắt buộc với Card/Transfer/EWallet, không bắt buộc với tiền mặt). Đây là thời điểm duy
+   nhất `RefundedAmount` tăng và là ngày mà báo cáo dùng để quy kỳ (BR-43).
+   API: `POST /api/payment-adjustments/{adjustmentId}/complete`.
+4. `manager@sporthub.vn` → **Báo cáo doanh thu**: **Thu ròng = Đã thu − Đã hoàn**.
+   **Giảm nghĩa vụ** (Discount/Correction) là cột riêng và **không** trừ vào thu ròng — trừ
+   cả hai sẽ tính hai lần cho cùng một khoản (BR-43).
+   Chọn cột rồi xuất CSV. V1.4 chỉ cho xóa sau retention; **CSV chưa đáp ứng phần PDF bắt
+   buộc của BR-48** — xem blocker B3 trong [implementation-status.md](implementation-status.md).
+
+> Bản ghi hoàn tiền tạo TRƯỚC 22/09/2026 không có bằng chứng thực trả và được cách ly riêng.
+> Cách đối soát: [legacy-refund-reconciliation.md](legacy-refund-reconciliation.md).
 
 ### Flow 4 — Điểm danh & tập luyện
 
@@ -126,6 +144,25 @@ Chạy trong chính tiến trình API (`SportHub.API/Jobs`):
 cd backend && dotnet test SportHub.sln
 ```
 
+**Các suite integration cần một PostgreSQL thật.** Mặc định chúng dựng container qua
+Testcontainers, nên **Docker Desktop phải đang chạy** — nếu không, mọi test integration fail
+với `DockerUnavailableException` (đây chính là blocker B1 hiện tại, xem
+[implementation-status.md](implementation-status.md)).
+
+Khi không dùng được Docker, suite `SportHub.Payment.Tests` chấp nhận một PostgreSQL có sẵn
+qua biến môi trường. **Phải trỏ vào một DB trống, tách riêng** — suite chạy migration và ghi
+dữ liệu thật:
+
+```bash
+SPORTHUB_TEST_POSTGRES="Host=localhost;Port=5432;Database=sporthub_payment_tests;Username=postgres;Password=..." dotnet test backend/SportHub.Payment.Tests/SportHub.Payment.Tests.csproj
+```
+
+Chỉ chạy unit test (không cần DB, không cần Docker):
+
+```bash
+cd backend && dotnet test SportHub.Payment.Tests/SportHub.Payment.Tests.csproj --filter "FullyQualifiedName~Unit"
+```
+
 ```bash
 cd frontend && npm run lint && npm run typecheck && npm run build
 ```
@@ -147,3 +184,13 @@ bash scripts/e2e-business-rules.sh
 
 Cấu hình nghiệp vụ (hạn hủy đăng ký, ngưỡng nhắc hạn gói) **không** nằm ở file cấu hình mà ở
 màn hình **Cấu hình hệ thống** của Quản lý Trung tâm (BR-39).
+
+## 8. Đối chiếu sau khi Claude cập nhật v1.4
+
+Chạy theo [plan 23/09/2026](claude-continuation-plan-2026-09-23.md). Các kết quả dưới đây là tiêu chí cần đạt, chưa phải kết quả đã chạy:
+
+- Thu đủ ngay lần đầu không tạo mốc cọc; cọc đầu hợp lệ mới gia hạn hóa đơn; sau hạn chặn thu thông thường.
+- Hóa đơn thu đủ 3 triệu, Discount 500 nghìn: cần hoàn 500 nghìn nhưng đã hoàn vẫn 0. Manager approve Refund chưa đổi số thực thu. Receptionist complete mới ghi đã hoàn 500 nghìn; báo cáo trừ tiền ở ngày thực trả.
+- Hủy đúng hạn sau khi dùng lượt cuối: lượt được hoàn, gói còn ngày và không vướng BR-10 được hồi phục; gói quá ngày/Cancelled không tự hồi phục.
+- Manager xuất PDF với cột đã chọn; file chỉ tải qua kiểm quyền và không xóa trước CompletedAt +6 tháng.
+- Không reset database/volume để làm sạch các lần thử. Dùng DB demo riêng; kiểm cấu hình DB trước mọi script có ghi dữ liệu.

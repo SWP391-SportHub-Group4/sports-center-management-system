@@ -21,6 +21,10 @@ public interface IPaymentAdjustmentService
     Task<PaymentAdjustmentResponse> ApproveAsync(
         Guid adjustmentId, ApproveAdjustmentRequest request, Guid actorUserId, CancellationToken ct = default);
 
+    /// <summary>BR-42 v1.4 — Lễ tân xác nhận đã thực trả Refund đã duyệt; chỉ đây mới tăng RefundedAmount.</summary>
+    Task<PaymentAdjustmentResponse> CompleteRefundAsync(
+        Guid adjustmentId, CompleteAdjustmentRequest request, Guid actorUserId, CancellationToken ct = default);
+
     Task<PaymentAdjustmentResponse> RejectAsync(
         Guid adjustmentId, string reason, Guid actorUserId, CancellationToken ct = default);
 }

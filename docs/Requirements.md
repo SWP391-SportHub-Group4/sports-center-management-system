@@ -4,6 +4,7 @@
 
 ## 1. Danh sách Tác nhân & Vai trò (Actors & Roles)
 
+* **System Administrator** – Quản trị tài khoản và vai trò hệ thống
 * **Center Manager** – Quản lý trung tâm
 * **Coach** – Huấn luyện viên
 * **Member** – Học viên / Thành viên
@@ -13,13 +14,18 @@
 
 ## 2. Chi Tiết Yêu Cầu Chức Năng Theo Vai Trò
 
+### System Administrator (Quản trị Hệ thống)
+* Tạo tài khoản System Administrator, Center Manager, Coach và Receptionist; gán hoặc đổi vai trò theo BR-2.
+* Khóa/mở khóa tài khoản có lý do và Audit Log; không tự khóa hoặc khóa System Administrator hoạt động cuối cùng theo BR-6/7.
+* Quyền đổi vai trò có hiệu lực từ request xác thực tiếp theo; không mặc nhiên có quyền nghiệp vụ của Manager hoặc quyền xem báo cáo/Audit.
+
 ### Center Manager (Quản lý Trung tâm)
 * Quản lý danh sách thành viên, huấn luyện viên và nhân viên của trung tâm.
 * Quản lý các lớp học, bộ môn, phòng tập và lịch hoạt động.
 * Phân công huấn luyện viên phụ trách từng lớp học.
 * Xem báo cáo số lượng thành viên, tình trạng đăng ký lớp và doanh thu theo thời gian.
 * Quản lý các gói thành viên, học phí và thời hạn sử dụng.
-* Phân quyền truy cập hệ thống cho từng vai trò.
+* Cấu hình chính sách nghiệp vụ của trung tâm; quyền gán/đổi vai trò thuộc System Administrator.
 * Xem lịch sử thao tác quan trọng trên hệ thống.
 
 ### Coach (Huấn luyện viên)
@@ -51,6 +57,7 @@
 * Điểm danh thành viên khi đến trung tâm.
 * Đăng ký lớp học hoặc hỗ trợ hủy lớp cho thành viên.
 * Ghi nhận các khoản thanh toán và in/xuất hóa đơn.
+* Tạo yêu cầu điều chỉnh; xác nhận thực trả cho Refund đã được Manager duyệt. Không tự duyệt yêu cầu hoặc coi phê duyệt là đã trả tiền.
 * Tiếp nhận và ghi nhận các yêu cầu hỗ trợ từ thành viên.
 
 ---

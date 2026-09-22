@@ -27,8 +27,9 @@ public sealed class InvoiceQueryService(ISportHubDbContext db, IClock clock) : I
         string MemberEmail,
         string MemberName,
         decimal TotalAmount,
-        decimal Collected,
-        decimal Adjusted,
+        decimal GrossCollected,
+        decimal ObligationReduction,
+        decimal RefundedAmount,
         InvoiceStatus Status,
         DateTime IssuedAt,
         DateTime DueDateUtc,
@@ -163,12 +164,12 @@ public sealed class InvoiceQueryService(ISportHubDbContext db, IClock clock) : I
                       .SingleOrDefaultAsync(ct)
                   ?? throw new NotFoundException("invoice_not_found", "Không tìm thấy hóa đơn.");
 
-        return new InvoiceBalance(row.TotalAmount, row.Adjusted, row.Collected);
+        return new InvoiceBalance(row.TotalAmount, row.GrossCollected, row.ObligationReduction, row.RefundedAmount);
     }
 
     private static InvoiceSummaryResponse ToSummary(InvoiceRow row, DateTime now)
     {
-        var balance = new InvoiceBalance(row.TotalAmount, row.Adjusted, row.Collected);
+        var balance = new InvoiceBalance(row.TotalAmount, row.GrossCollected, row.ObligationReduction, row.RefundedAmount);
 
         return new InvoiceSummaryResponse(
             row.InvoiceId,
@@ -177,11 +178,13 @@ public sealed class InvoiceQueryService(ISportHubDbContext db, IClock clock) : I
             row.MemberEmail,
             row.MemberName,
             row.TotalAmount,
-            balance.TotalCollected,
-            balance.CompletedAdjustments,
+            balance.GrossCollected,
+            balance.ObligationReduction,
+            balance.RefundedAmount,
+            balance.NetCollected,
             balance.NetPayable,
             balance.Outstanding,
-            balance.RefundedAmount,
+            balance.RefundDue,
             row.Status.ToString(),
             row.IssuedAt,
             row.DueDateUtc,
@@ -201,8 +204,17 @@ public sealed class InvoiceQueryService(ISportHubDbContext db, IClock clock) : I
             // BR-41: chỉ Payment SUCCESS mới tính vào tổng đã thu.
             i.Payments.Where(p => p.Status == PaymentStatus.Success).Sum(p => (decimal?)p.Amount) ?? 0m,
 
-            // BR-41: chỉ Adjustment COMPLETED mới trừ khỏi trần được phép thu.
-            i.Adjustments.Where(a => a.Status == PaymentAdjustmentStatus.Completed).Sum(a => (decimal?)a.Amount) ?? 0m,
+            // BR-41 v1.4 — giảm NGHĨA VỤ: chỉ Discount/Correction đã Completed.
+            i.Adjustments
+                .Where(a => a.Status == PaymentAdjustmentStatus.Completed
+                            && a.Type != PaymentAdjustmentType.Refund)
+                .Sum(a => (decimal?)a.Amount) ?? 0m,
+
+            // BR-41 v1.4 — giảm TIỀN THỰC THU: chỉ Refund đã Completed (đã có xác nhận thực trả).
+            i.Adjustments
+                .Where(a => a.Status == PaymentAdjustmentStatus.Completed
+                            && a.Type == PaymentAdjustmentType.Refund)
+                .Sum(a => (decimal?)a.Amount) ?? 0m,
             i.Status,
             i.IssuedAt,
             i.DueDateUtc,
@@ -218,6 +230,7 @@ public sealed class InvoiceQueryService(ISportHubDbContext db, IClock clock) : I
             a.PaymentId,
             a.Type.ToString(),
             a.Amount,
+            a.RequestedAmount,
             a.Reason,
             a.Status.ToString(),
             a.RequestedByUserId,
@@ -226,7 +239,18 @@ public sealed class InvoiceQueryService(ISportHubDbContext db, IClock clock) : I
             a.ApprovedByUser == null
                 ? null
                 : a.ApprovedByUser.Profile != null ? a.ApprovedByUser.Profile.FullName : a.ApprovedByUser.Email,
+            a.CompletedByUserId,
+            a.CompletedByUser == null
+                ? null
+                : a.CompletedByUser.Profile != null ? a.CompletedByUser.Profile.FullName : a.CompletedByUser.Email,
+            a.RefundMethod == null ? null : a.RefundMethod.ToString(),
+            a.RefundReferenceCode,
             a.CreatedAt,
+            a.ApprovedAtUtc,
+            a.CompletedAtUtc,
+
+            // Cờ cho màn hình quầy: Refund đã duyệt nhưng tiền chưa ra khỏi quầy (BR-42 v1.4).
+            a.Type == PaymentAdjustmentType.Refund && a.Status == PaymentAdjustmentStatus.Approved,
             a.ResolvedAt);
 
     private static InvoiceStatus ParseStatus(string status)

@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Configuration;
+using SportHub.Administration.Domain.Entities;
 
 namespace SportHub.Administration.Infrastructure;
 
@@ -8,11 +9,11 @@ namespace SportHub.Administration.Infrastructure;
 /// </summary>
 public interface IReportStorage
 {
-    Task WriteAsync(Guid reportExportId, byte[] content, CancellationToken ct = default);
+    Task WriteAsync(Guid reportExportId, string format, byte[] content, CancellationToken ct = default);
 
-    Task<byte[]?> ReadAsync(Guid reportExportId, CancellationToken ct = default);
+    Task<byte[]?> ReadAsync(Guid reportExportId, string format, CancellationToken ct = default);
 
-    Task DeleteAsync(Guid reportExportId, CancellationToken ct = default);
+    Task DeleteAsync(Guid reportExportId, string format, CancellationToken ct = default);
 }
 
 /// <summary>
@@ -39,21 +40,22 @@ public sealed class FileSystemReportStorage : IReportStorage
         Directory.CreateDirectory(_root);
     }
 
-    public async Task WriteAsync(Guid reportExportId, byte[] content, CancellationToken ct = default)
-        => await File.WriteAllBytesAsync(PathFor(reportExportId), content, ct);
+    public async Task WriteAsync(
+        Guid reportExportId, string format, byte[] content, CancellationToken ct = default)
+        => await File.WriteAllBytesAsync(PathFor(reportExportId, format), content, ct);
 
-    public async Task<byte[]?> ReadAsync(Guid reportExportId, CancellationToken ct = default)
+    public async Task<byte[]?> ReadAsync(Guid reportExportId, string format, CancellationToken ct = default)
     {
-        var path = PathFor(reportExportId);
+        var path = PathFor(reportExportId, format);
 
         // File có thể đã bị dọn ngoài ứng dụng (BR-46 chỉ yêu cầu giữ TỐI THIỂU 6 tháng).
         // Trả null để service báo lỗi có nghĩa thay vì ném IOException thô.
         return File.Exists(path) ? await File.ReadAllBytesAsync(path, ct) : null;
     }
 
-    public Task DeleteAsync(Guid reportExportId, CancellationToken ct = default)
+    public Task DeleteAsync(Guid reportExportId, string format, CancellationToken ct = default)
     {
-        var path = PathFor(reportExportId);
+        var path = PathFor(reportExportId, format);
 
         if (File.Exists(path))
         {
@@ -64,5 +66,6 @@ public sealed class FileSystemReportStorage : IReportStorage
     }
 
     // Guid.ToString("D") chỉ sinh chữ số hex và dấu gạch — không thể chứa ".." hay dấu phân cách đường dẫn.
-    private string PathFor(Guid reportExportId) => Path.Combine(_root, $"{reportExportId:D}.csv");
+    private string PathFor(Guid reportExportId, string format)
+        => Path.Combine(_root, $"{reportExportId:D}.{ReportFormats.Extension(format)}");
 }

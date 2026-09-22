@@ -11,7 +11,7 @@
 Khi có mâu thuẫn, đọc theo thứ tự sau (trên > dưới):
 
 1. `docs/00-Source-of-Truth.md` (file này) — quyết định đã chốt, không tranh cãi lại trong sprint hiện tại
-2. `docs/SportManagement_BusinessRules.docx` — business rules chi tiết; bản hiện có là **v1.4, 22/09/2026** (bản diff Markdown: `business-rules-v1.4.md`, đồng bộ cùng nội dung quy tắc)
+2. `docs/SportManagement_BusinessRules.docx` — business rules chi tiết; bản hiện có là **v1.4, 22/09/2026**, đã gộp đầy đủ nội dung được duyệt. Không còn duy trì bản Markdown mirror; không tạo lại `business-rules-v1.4.md` làm nguồn song song.
 3. `docs/Center-Management-System-Design-v2.md` — thiết kế kỹ thuật/kiến trúc
 4. `docs/Requirements.md` — yêu cầu gốc từ đề bài
 5. Mọi thứ khác (Slack/Zalo/note họp miệng) — **không tính là nguồn chính thức** trừ khi được chép lại vào 1 trong 4 file trên
@@ -109,7 +109,6 @@ Khi có mâu thuẫn, đọc theo thứ tự sau (trên > dưới):
 | `AiLog` | AI | `LogId` (uuid) | UserId, QueryType, InputPayload, ResponsePayload, ResponseTimeMs | N—1 `UserAccount` | — | `QueryType` là chuỗi tự do (vd `WORKOUT_SUGGESTION`), không phải enum kín |
 | `AuditLog` | Audit | `AuditId` (uuid) | UserId, Action, TargetEntity, TargetId (string), OldValue, NewValue | N—1 `UserAccount` | — | `Action` là chuỗi tự do (vd `UPDATE_PACKAGE_STATUS`), không phải enum kín |
 | `GymCheckIn` | Scheduling | `CheckInId` (uuid) | MemberId, CheckedInByUserId, CheckInTime | N—1 `UserAccount` (2 phía: member, receptionist) | — | Mới 18/09/2026. Không qua `Class`/`Enrollment`/`Attendance`; điều kiện ≥1 `MemberPackage` Active (BR-64); không trừ `RemainingSessions`; chỉ Receptionist tạo được |
-
 | `SystemSetting` | Administration | `Key` (string) | Value, ValueType, UpdatedAt, UpdatedByUserId (nullable) | FK actor tới UserAccount | — | Chỉ Manager chỉnh; key được whitelist, kiểm kiểu và giới hạn; seed 12h/7 ngày |
 | `ReportExport` | Administration | `ReportExportId` (uuid) | ReportType, RequestedByUserId, ParametersJson, Format, Status, RowCount, SizeBytes, FailureReason, CreatedAt, CompletedAt, ExpiresAt, IsDeleted, DeletedAt | FK RequestedByUserId tới UserAccount | ReportExportStatus | File riêng tư ngoài DB, locator suy ra từ ID + format trong storage root; không nhận path từ client |
 
@@ -129,14 +128,14 @@ Khi có mâu thuẫn, đọc theo thứ tự sau (trên > dưới):
 
 | Enum (C#) | Giá trị (PascalCase) | Dùng ở field | Ghi chú |
 |---|---|---|---|
-| `UserRole` | `SystemAdministrator, CenterManager, Coach, Member, Receptionist` | `Role.RoleName`, `UserAccount.RoleId` (FK), JWT role claim | **5 role theo Business Rules v1.2 (BR-2/BR-3), cập nhật 11/09/2026** — bổ sung `SystemAdministrator`, tách khỏi `CenterManager`; chuỗi DB tương ứng `SYSTEM_ADMINISTRATOR`. ERD trước đây ghi `MANAGER` — chuẩn hoá về `CENTER_MANAGER` để khớp tên enum |
+| `UserRole` | `SystemAdministrator, CenterManager, Coach, Member, Receptionist` | `Role.RoleName`, `UserAccount.RoleId` (FK), JWT role claim | 5 role theo BR-2/3. API nghiệp vụ dùng SYSTEM_ADMINISTRATOR/CENTER_MANAGER; JWT giữ PascalCase. DB giữ mapping hiện có, không suy ra chuỗi lưu DB từ API enum. |
 | `UserStatus` | `Active, Banned, Deactivated` | `UserAccount.Status` | Không xoá cứng user (giữ lịch sử Payment/Attendance) |
 | `ExperienceLevel` | `Beginner, Intermediate, Advanced` | `MemberTrainingProfile.ExperienceLevel` | |
 | `RelationshipSourceType` | `ClassBased, Personal, AssignedByManager` | `CoachMemberRelationship.SourceType` | |
 | `RelationshipStatus` | `Active, Ended` | `CoachMemberRelationship.Status` | Chỉ 1 quan hệ `Active` giữa 1 cặp Coach–Member tại 1 thời điểm (ràng buộc #7) |
 | `MemberPackageStatus` | `PendingPayment, Active, Expired, Cancelled` | `MemberPackage.Status` | State machine: §4 / Design v2 §2.1 |
 | `ClassStatus` | `Active, Archived` | `Class.Status` | |
-| `ClassSessionStatus` | `Scheduled, Rescheduled, Cancelled, Completed` | `ClassSession.Status` | Chưa có state diagram riêng — xem §4 |
+| `ClassSessionStatus` | `Scheduled, Rescheduled, Cancelled, Completed` | `ClassSession.Status` | Xem §4 và Design v2 §8, state diagram đã bổ sung theo BR-54 |
 | `EnrollmentStatus` | `Confirmed, CancelledOnTime, CancelledLate` | `Enrollment.Status` | State machine: §4 / Design v2 §2.2 |
 | `AttendanceStatus` | `Present, Absent, NoShow` | `Attendance.Status` | `Present`/`Absent` ghi tay, `NoShow` do `AttendanceFinalizerJob` tự sinh (BR-53). State machine: §4 / Design v2 §2.2 |
 | `InvoiceStatus` | `Issued, PartiallyPaid, Paid, Void` | `Invoice.Status` | State machine: §4 / Design v2 §2.3 |
@@ -149,7 +148,6 @@ Khi có mâu thuẫn, đọc theo thứ tự sau (trên > dưới):
 | `NotificationSourceEventType` | `ClassCancelled, ScheduleChanged, PackageExpiring, PaymentReceived` | `Notification.SourceEventType` | |
 | `NotificationStatus` | `Pending, Sent, Failed, Read` | `Notification.Status` | |
 | `ExternalAuthProvider` | `Google` | `UserExternalLogin.Provider` | Mới 10/09/2026 (2). Hiện chỉ `Google`; thêm provider khác sau (Facebook...) không cần đổi entity |
-
 | `ReportExportStatus` | `Pending, Completed, Failed` | `ReportExport.Status` | Pending → Completed khi file sẵn sàng, hoặc Failed; retry có kiểm soát |
 
 *(`AiLog.QueryType` và `AuditLog.Action` là chuỗi tự do, không phải enum kín — xem ghi chú ở bảng Entity mục 2.)*
@@ -207,7 +205,7 @@ Khi có mâu thuẫn, đọc theo thứ tự sau (trên > dưới):
 
 ### 5.6 Bảo mật login và hiệu lực JWT — đặc tả bổ sung 18/09/2026
 
-Nguồn nghiệp vụ: [Business Rules v1.3](SportManagement_BusinessRules.docx), BR-2–7, BR-35, BR-38, BR-49, BR-59–60. Chi tiết file/code/test: [plan bảo mật login](login-security-hardening-plan.md). Mục này ghi quyết định triển khai của task theo yêu cầu người dùng, không phải biên bản PO duyệt hoặc xác nhận code đã đạt nghiệm thu.
+Nguồn nghiệp vụ khi triển khai 18/09: Business Rules v1.3; bản hiện hành là [Business Rules v1.4](SportManagement_BusinessRules.docx), BR-2–7, BR-35, BR-38, BR-49, BR-59–60. Plan bảo mật login lịch sử không có trong checkout hiện tại; đối chiếu code và `backend/SportHub.Security.Tests` cho bằng chứng thực thi. Mục này ghi quyết định triển khai của task theo yêu cầu người dùng; trạng thái kiểm chứng lịch sử không thay thế nghiệm thu v1.4.
 
 - **Lỗi login:** email không tồn tại, credential/hash thiếu hoặc password sai đều trả `401 invalid_credentials`, message `Invalid email or password`. BR-60 không bắt buộc trả 409; không dùng `password_not_set` để tiết lộ tài khoản chưa có password.
 - **Timing:** login hợp lệ về DTO thực hiện một lần BCrypt thật hoặc dummy cùng cost, trước khi kết luận credential không hợp lệ. Không đặt password/credential mới khi dummy verify. Mục tiêu giảm khác biệt xử lý, không cam kết thời gian tuyệt đối bằng nhau.
@@ -266,7 +264,7 @@ Nguồn phê duyệt: người dùng đồng ý khuyến nghị review và yêu 
 
 | Ngày | Thay đổi | Người sửa |
 |---|---|---|
-| 22/09/2026 | Duyệt A1–A7 và chính sách v1.4; sửa đối soát thu/hoàn, state hồi phục gói có điều kiện, naming contract; giữ PDF/AI/Google trong scope. Đồng bộ Word/Markdown/SRS/Design và plan 23/09. Chưa xác nhận code đạt. | Người dùng duyệt; Codex cập nhật |
+| 22/09/2026 | Duyệt A1–A7 và chính sách v1.4; sửa đối soát thu/hoàn, state hồi phục gói có điều kiện, naming contract; giữ PDF/AI/Google trong scope. Người dùng đã gộp v1.4 vào Word; bỏ tham chiếu mirror đã xóa, đồng bộ Requirements/Design/field docs và bổ sung plan 23/09. Chưa xác nhận code đạt. | Người dùng duyệt; Codex cập nhật |
 | 18/09/2026 | **Triển khai scope đa bộ môn ở tầng code** (theo `docs/multidiscipline-refactor-plan.md`). Chốt 4 điểm còn treo ở bước 1 của kế hoạch: (1) `Class.Discipline` GIỮ kiểu string, ba giá trị chính thức gom vào `SportHub.Scheduling/Domain/Constants/Disciplines.cs` + validator `ClassRules` + 2 DB CHECK (`CK_classes_discipline_allowed`, `CK_classes_personal_training_capacity`) — không thêm enum nghiệp vụ mới ngoài SSOT; (2) `Class.DefaultCoachId` GIỮ nullable kể cả với Personal Training — HLV bắt buộc nằm ở `ClassSession.CoachId` (đã not-null), "PT gán 1 Coach" được bảo đảm bằng `Capacity = 1` chứ không bằng việc siết nullability ở Class; (3) cột thời gian của `GymCheckIn` chốt là `check_in_time` (property `CheckInTime`, UTC) theo SSOT §2 và tiền lệ `Attendance.CheckInTime` — ERD Design v2 §1 đã sửa từ `check_in_time_utc` cho khớp; (4) BR-64 chỉ xét `MemberPackage.Status = Active`, KHÔNG thêm điều kiện `EndDate`/`RemainingSessions > 0` — việc chuyển `Active → Expired` khi quá hạn hoặc hết buổi thuộc BR-11 (Design v2 §2.1), không nhân bản vào rule check-in. Thêm entity/migration `gym_checkins`, service + 3 endpoint + policy RBAC riêng (không tái dụng `AttendanceCheckInPolicy` vì policy đó còn cho Coach), và project test `SportHub.Scheduling.Tests`. | Hồ Lê Thiên An (qua Claude) |
 | 18/09/2026 | **Chốt 4 bộ môn chính thức** (Gym/Fitness, Personal Training, Yoga, Group X — §1.1) cho hướng "trung tâm thể thao đa bộ môn"; xác nhận đa chi nhánh vẫn ngoài scope (§1.3). Thêm entity mới `GymCheckIn` (§2, module Scheduling, BR-64 trong `SportManagement_BusinessRules.docx`) vì Gym không đặt lịch qua Class — Lễ tân điểm danh trực tiếp, điều kiện ≥1 MemberPackage Active, không trừ buổi. Chi tiết: `claude/citigym-multidiscipline-scope-plan.md` (Project doc). | Hồ Lê Thiên An (qua Claude) |
 | 18/09/2026 | Triển khai §5.6: thêm `IPasswordHasher.VerifyDummy` (BCrypt cost 11) để mọi login hợp lệ DTO tốn đúng một phép BCrypt; thêm policy rate limit `auth-login` (10 req/IP/phút, 429 `too_many_requests`, quota tách khỏi register); thêm `IUserAccountRepository.IsActiveAsync` + hook `OnTokenValidated` tại `SportHub.API` để chặn JWT của tài khoản bị khóa/xóa (BR-6, phần request). Thêm project `SportHub.Security.Tests` (65 test, PostgreSQL thật qua Testcontainers). Cập nhật trạng thái §5.6 kèm số đo BR-35 và danh sách hạng mục CHƯA đạt. | Hồ Lê Thiên An (qua Claude) |

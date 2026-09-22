@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using SportHub.BuildingBlocks.Abstractions.Audit;
 using SportHub.BuildingBlocks.Abstractions.Configuration;
+using SportHub.BuildingBlocks.Abstractions.Notifications;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.Abstractions.Training;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
@@ -25,6 +26,7 @@ public sealed class EnrollmentService(
     ISystemSettingProvider settings,
     ICoachRelationshipRegistrar coachRelationships,
     IAuditWriter audit,
+    INotificationWriter notifications,
     IClock clock) : IEnrollmentService
 {
     public async Task<EnrollmentResponse> CreateAsync(
@@ -199,6 +201,8 @@ public sealed class EnrollmentService(
             .ExecuteUpdateAsync(s => s.SetProperty(x => x.ConfirmedCount, x => x.ConfirmedCount - 1), ct);
 
         var refunded = false;
+        var reactivated = false;
+        var needsManagerReview = false;
 
         // BR-18 — chỉ hủy ĐÚNG HẠN mới hoàn lượt.
         if (status == EnrollmentStatus.CancelledOnTime)
@@ -208,7 +212,24 @@ public sealed class EnrollmentService(
 
             if (package is not null)
             {
-                MemberPackageRules.RestoreSession(package, VietnamTime.TodayLocal(clock));
+                // BR-10/BR-11 v1.4 — lượt LUÔN được hoàn, nhưng chỉ mở lại Expired → Active khi
+                // không có gói khác cùng PackageId đang Active. Vướng thì giữ Expired và báo
+                // cần Manager xử lý ngoại lệ, tuyệt đối không nuốt lượt của hội viên.
+                var blockedByStacking = await db.Set<MemberPackage>()
+                    .AnyAsync(
+                        mp => mp.MemberId == package.MemberId
+                              && mp.PackageId == package.PackageId
+                              && mp.MemberPackageId != package.MemberPackageId
+                              && mp.Status == MemberPackageStatus.Active,
+                        ct);
+
+                reactivated = MemberPackageRules.RestoreSession(
+                    package, VietnamTime.TodayLocal(clock), blockedByStacking);
+
+                needsManagerReview = !reactivated
+                                     && package.Status == MemberPackageStatus.Expired
+                                     && blockedByStacking;
+
                 refunded = true;
             }
         }
@@ -217,7 +238,21 @@ public sealed class EnrollmentService(
             actorUserId, "CANCEL_ENROLLMENT", nameof(Enrollment), enrollmentId.ToString(),
             OldValue: $"{{\"status\":\"{EnrollmentStatus.Confirmed}\"}}",
             NewValue: $"{{\"status\":\"{status}\",\"sessionRefunded\":{refunded.ToString().ToLowerInvariant()},"
+                      + $"\"packageReactivated\":{reactivated.ToString().ToLowerInvariant()},"
+                      + $"\"needsManagerReview\":{needsManagerReview.ToString().ToLowerInvariant()},"
                       + $"\"deadlineHours\":{enrollment.CancellationDeadlineHours}}}"));
+
+        // BR-11 — hội viên phải biết lượt đã về nhưng gói vẫn chưa dùng lại được, nếu không họ
+        // sẽ tưởng việc hoàn lượt thất bại.
+        if (needsManagerReview)
+        {
+            notifications.Queue(new NotificationRequest(
+                enrollment.MemberId,
+                NotificationEvents.ScheduleChanged,
+                "Lượt tập đã được hoàn lại, nhưng gói của bạn chưa mở lại được do đang có một gói "
+                + "cùng loại còn hiệu lực. Vui lòng liên hệ quản lý trung tâm để được xử lý (BR-10).",
+                enrollment.MemberPackageId));
+        }
 
         await db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);

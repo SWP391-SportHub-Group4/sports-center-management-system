@@ -7,6 +7,7 @@ using SportHub.BuildingBlocks.SharedKernel.Time;
 using SportHub.Identity.Domain.Entities;
 using SportHub.Identity.Domain.Enums;
 using SportHub.Membership.Domain.Entities;
+using SportHub.Membership.Domain.Enums;
 using SportHub.Membership.Domain.Rules;
 using SportHub.Scheduling.Application.Commands;
 using SportHub.Scheduling.Application.DTOs;
@@ -489,6 +490,20 @@ public sealed class ClassSessionService(
             .Where(mp => packageIds.Contains(mp.MemberPackageId))
             .ToListAsync(ct);
 
+        // BR-10 — một truy vấn cho cả lô thay vì một truy vấn mỗi enrollment: buổi học đông
+        // có thể có vài chục đăng ký và vòng lặp N+1 ở đây nằm trong transaction hủy buổi.
+        var memberIds = packages.Select(p => p.MemberId).Distinct().ToList();
+        var catalogIds = packages.Select(p => p.PackageId).Distinct().ToList();
+
+        var activeSamePackage = (await db.Set<MemberPackage>()
+                .AsNoTracking()
+                .Where(mp => memberIds.Contains(mp.MemberId)
+                             && catalogIds.Contains(mp.PackageId)
+                             && mp.Status == MemberPackageStatus.Active)
+                .Select(mp => new { mp.MemberId, mp.PackageId, mp.MemberPackageId })
+                .ToListAsync(ct))
+            .ToList();
+
         var today = VietnamTime.TodayLocal(clock);
         var now = clock.UtcNow;
         var startLocal = VietnamTime.ToLocal(session.StartAtUtc);
@@ -512,7 +527,14 @@ public sealed class ClassSessionService(
 
             if (package is not null)
             {
-                MemberPackageRules.RestoreSession(package, today);
+                // BR-10/BR-11 v1.4 — như nhánh hủy tự nguyện: luôn hoàn lượt, chỉ mở lại gói khi
+                // không đụng gói cùng loại đang Active.
+                var blockedByStacking = activeSamePackage.Any(
+                    other => other.MemberId == package.MemberId
+                             && other.PackageId == package.PackageId
+                             && other.MemberPackageId != package.MemberPackageId);
+
+                MemberPackageRules.RestoreSession(package, today, blockedByStacking);
             }
 
             // BR-33 — nội dung phải nêu rõ: đăng ký cũ đã hủy, lượt đã hoàn, cần đăng ký lại,

@@ -120,6 +120,19 @@ public class PaymentAdjustmentsController(IPaymentAdjustmentService adjustments)
         CancellationToken ct)
         => Ok(await adjustments.ApproveAsync(adjustmentId, request, User.RequireUserId(), ct));
 
+    /// <summary>
+    /// BR-42 v1.4 — Lễ tân xác nhận đã THỰC TRẢ. Cố ý là policy FrontDesk chứ không phải
+    /// CenterManager: người duyệt và người chi tiền phải tách nhau, gộp lại thì Manager tự
+    /// duyệt rồi tự xác nhận đã trả mà không ai đối chứng.
+    /// </summary>
+    [Authorize(Policy = SportHubPolicies.FrontDesk)]
+    [HttpPost("{adjustmentId:guid}/complete")]
+    public async Task<IActionResult> Complete(
+        Guid adjustmentId,
+        [FromBody] CompleteAdjustmentRequest request,
+        CancellationToken ct)
+        => Ok(await adjustments.CompleteRefundAsync(adjustmentId, request, User.RequireUserId(), ct));
+
     [Authorize(Policy = SportHubPolicies.CenterManager)]
     [HttpPost("{adjustmentId:guid}/reject")]
     public async Task<IActionResult> Reject(

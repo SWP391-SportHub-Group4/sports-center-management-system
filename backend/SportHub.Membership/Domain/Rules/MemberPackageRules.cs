@@ -68,24 +68,43 @@ public static class MemberPackageRules
     /// <summary>
     /// Hoàn một lượt (BR-18 khi huỷ đúng hạn, BR-54 khi trung tâm huỷ/dời buổi).
     ///
-    /// Nhánh Expired → Active: gói vừa Expired CHỈ vì hết buổi mà vẫn còn hạn thì được mở lại.
-    /// Đây là state transition CHƯA có trong SSOT §4 — xem implementation-decisions.md C2
-    /// (CẦN DUYỆT). Không tự gia hạn EndDate: gói hết hạn theo ngày thì lượt được cộng lại
-    /// nhưng vẫn không dùng được, và gói đã Cancelled cũng không được hồi sinh.
+    /// Nhánh Expired → Active (BR-11 v1.4, đã duyệt): gói Expired CHỈ vì hết lượt, vẫn nằm
+    /// trong khoảng StartDate–EndDate theo ngày VN, và không vi phạm BR-10 thì được mở lại.
+    ///
+    /// Lượt LUÔN được hoàn kể cả khi không mở lại được — BR-11 nói rõ: vướng BR-10 thì vẫn
+    /// hoàn lượt, giữ Expired và báo cần Manager xử lý. Mất lượt là thiệt hại thật của hội
+    /// viên, không được lấy một xung đột trạng thái làm cớ để nuốt nó.
+    ///
+    /// Không tự gia hạn EndDate; gói Cancelled không hồi sinh.
     /// </summary>
-    public static void RestoreSession(MemberPackage package, DateOnly todayLocal)
+    /// <param name="blockedByStacking">
+    /// BR-10: đã có gói khác cùng PackageId đang Active. Caller phải truy vấn DB để biết, nên
+    /// truyền vào đây thay vì rule tự đoán.
+    /// </param>
+    /// <returns>true nếu gói được mở lại Expired → Active.</returns>
+    public static bool RestoreSession(MemberPackage package, DateOnly todayLocal, bool blockedByStacking = false)
     {
-        if (package.RemainingSessions is null)
+        if (package.RemainingSessions is not null)
         {
-            return;
+            package.RemainingSessions += 1;
         }
 
-        package.RemainingSessions += 1;
-
-        if (package.Status == MemberPackageStatus.Expired && todayLocal <= package.EndDate)
+        if (package.Status != MemberPackageStatus.Expired)
         {
-            package.Status = MemberPackageStatus.Active;
+            return false;
         }
+
+        // Hết hạn theo NGÀY thì không mở lại — chỉ gói hết vì hết LƯỢT mới đủ điều kiện.
+        var withinPeriod = package.StartDate <= todayLocal && todayLocal <= package.EndDate;
+        var hasSessionAfterRestore = package.RemainingSessions is null or > 0;
+
+        if (!withinPeriod || !hasSessionAfterRestore || blockedByStacking)
+        {
+            return false;
+        }
+
+        package.Status = MemberPackageStatus.Active;
+        return true;
     }
 
     /// <summary>

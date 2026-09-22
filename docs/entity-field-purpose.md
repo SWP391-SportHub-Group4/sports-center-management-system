@@ -1,7 +1,7 @@
 # Mục đích các Entity & vai trò từng Field (SportHub)
 
 > Rút ra từ ERD v2 (`docs/Center-Management-System-Design-v2.md` §1), state transition (§2) và bảng ràng buộc DB (§3).
-> File tham khảo trong `docs/`; SSOT và Business Rules v1.4 là nguồn ưu tiên; nếu có sai lệch, `docs/Center-Management-System-Design-v2.md` và `docs/00-Source-of-Truth.md` mới là nguồn thật.
+> Thứ tự ưu tiên: `00-Source-of-Truth.md` → `SportManagement_BusinessRules.docx` v1.4 đã gộp → `Center-Management-System-Design-v2.md` → tài liệu field này. Không duy trì bản Markdown mirror của Business Rules.
 >
 > **Cập nhật 10/09/2026:** tên field trong cột "Field" (và mọi tham chiếu `Entity.Field` trong phần Mục đích) đã đổi từ `PascalCase` sang `snake_case` (vd `RoleID` → `role_id`) theo quyết định naming mới ở `00-Source-of-Truth.md` §5.4. Tên bảng (`USERS`, `MEMBER_TRAINING_PROFILE`...) và tên class/job (`AttendanceFinalizerJob`...) giữ nguyên, không đổi. **Chỉ sửa doc, chưa đụng code.**
 >

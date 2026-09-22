@@ -8,7 +8,7 @@ Tài liệu này bổ sung/chỉnh sửa thiết kế v1 theo đúng các điể
 
 ## 0. Traceability — mapping Business Rules cũ → mới
 
-Nguồn hiện hành: SSOT, rồi `SportManagement_BusinessRules.docx` v1.4 (bản diff `business-rules-v1.4.md`). Bảng dưới đây là mapping lịch sử (để hiểu vì sao số ID không liên tục), không phải danh sách việc cần làm.
+Nguồn hiện hành: SSOT, rồi `SportManagement_BusinessRules.docx` v1.4 đã gộp. Bản Markdown mirror đã xóa, không còn là nguồn tham chiếu. Bảng dưới đây là mapping lịch sử (để hiểu vì sao số ID không liên tục), không phải danh sách việc cần làm.
 
 | Rule cũ (v1, không còn dùng) | Rule chính thức hiện tại | Ghi chú |
 |---|---|---|
@@ -442,6 +442,8 @@ stateDiagram-v2
 ## 3. Ràng buộc & Transaction bắt buộc ở tầng DB
 
 Không được để các ràng buộc này chỉ nằm ở API layer — phải có ở schema/transaction:
+
+Các literal enum như `'CONFIRMED'`/`'ACTIVE'` trong SQL minh họa bên dưới là ký hiệu nghiệp vụ, **không phải script migration chạy trực tiếp**. Theo SSOT §3, DB giữ mapping/ordinal hiện có; kiểm tra configuration và migration thật trước khi viết predicate. API UPPER_SNAKE_CASE không đổi kiểu lưu DB.
 
 | # | Ràng buộc | Cơ chế |
 |---|---|---|

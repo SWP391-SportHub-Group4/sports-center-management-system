@@ -57,7 +57,7 @@ export default function MyInvoicesPage() {
                     <td>{item.invoiceNumber}</td>
                     <td className="nowrap small">{formatDate(item.issuedAt)}</td>
                     <td className="num">{formatMoney(item.totalAmount)}</td>
-                    <td className="num">{formatMoney(item.collectedAmount)}</td>
+                    <td className="num">{formatMoney(item.netCollected)}</td>
                     <td className="num">{formatMoney(item.outstanding)}</td>
                     <td className="nowrap small">
                       {formatDate(item.dueDateUtc)}
@@ -159,13 +159,33 @@ export default function MyInvoicesPage() {
                     </div>
                   )}
 
+                  {/*
+                    BR-41 v1.4 — hội viên phải phân biệt được "trung tâm còn nợ mình" với
+                    "trung tâm đã trả rồi": gộp hai con số là lý do người dùng không đối
+                    chiếu được với thực tế.
+                  */}
                   <div className="alert alert--info">
                     Tổng tiền {formatMoney(data.summary.totalAmount)} · Đã thu{" "}
-                    {formatMoney(data.summary.collectedAmount)} · Còn lại{" "}
-                    {formatMoney(data.summary.outstanding)}
-                    {data.summary.refundedAmount > 0 &&
-                      ` · Đã hoàn ${formatMoney(data.summary.refundedAmount)}`}
+                    {formatMoney(data.summary.grossCollected)}
+                    {data.summary.obligationReduction > 0 &&
+                      ` · Được giảm ${formatMoney(data.summary.obligationReduction)}`}{" "}
+                    · Còn phải trả {formatMoney(data.summary.outstanding)}
                   </div>
+
+                  {data.summary.refundDue > 0 && (
+                    <div className="alert alert--warn">
+                      Trung tâm cần hoàn lại bạn{" "}
+                      <strong>{formatMoney(data.summary.refundDue)}</strong>. Khoản này chưa
+                      được chi trả — vui lòng liên hệ quầy lễ tân.
+                    </div>
+                  )}
+
+                  {data.summary.refundedAmount > 0 && (
+                    <div className="alert alert--success">
+                      Đã hoàn cho bạn{" "}
+                      <strong>{formatMoney(data.summary.refundedAmount)}</strong>.
+                    </div>
+                  )}
                 </div>
               ) : null
             }

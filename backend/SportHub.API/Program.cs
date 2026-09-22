@@ -110,6 +110,7 @@ builder.Services.AddScoped<IUserAdminService, UserAdminService>();
 builder.Services.AddScoped<ISystemSettingService, SystemSettingService>();
 builder.Services.AddScoped<IAuditQueryService, AuditQueryService>();
 builder.Services.AddSingleton<IReportStorage, FileSystemReportStorage>();
+builder.Services.AddSingleton<IReportPdfRenderer, ReportPdfRenderer>();
 builder.Services.AddScoped<IReportExportService, ReportExportService>();
 
 // Membership
@@ -134,6 +135,7 @@ builder.Services.AddScoped<IInvoiceNumberGenerator, InvoiceNumberGenerator>();
 builder.Services.AddScoped<IInvoiceQueryService, InvoiceQueryService>();
 builder.Services.AddScoped<IPackagePurchaseService, PackagePurchaseService>();
 builder.Services.AddScoped<IPaymentRecordingService, PaymentRecordingService>();
+builder.Services.AddScoped<IPackageActivationService, PackageActivationService>();
 builder.Services.AddScoped<IPaymentAdjustmentService, PaymentAdjustmentService>();
 builder.Services.AddScoped<IRevenueReportService, RevenueReportService>();
 

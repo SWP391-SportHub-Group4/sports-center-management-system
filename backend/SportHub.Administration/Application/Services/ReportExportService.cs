@@ -31,7 +31,8 @@ public sealed record ReportExportResponse(
     string? FailureReason,
     DateTime CreatedAt,
     DateTime? CompletedAt,
-    DateTime ExpiresAt);
+    DateTime ExpiresAt,
+    string Format);
 
 public sealed class CreateReportExportRequest
 {
@@ -51,18 +52,26 @@ public sealed class CreateReportExportRequest
     /// </summary>
     [Required, MinLength(1)]
     public List<string> Columns { get; set; } = [];
+
+    /// <summary>
+    /// Csv hoặc Pdf (SSOT §5.7 whitelist). BR-48: PDF bắt buộc và CSV không thay thế, nên giá
+    /// trị lạ bị TỪ CHỐI chứ không âm thầm rơi về Csv. Bỏ trống thì giữ Csv để không phá
+    /// client cũ.
+    /// </summary>
+    public string? Format { get; set; }
 }
 
 /// <summary>
 /// Báo cáo/tệp xuất đã tạo — BR-44 (chỉ cột được chọn), BR-45 (ownership), BR-46 (giữ ≥6 tháng),
 /// BR-47 (xoá thì link cũ hết truy cập), BR-48 (trạng thái FAILED + tạo lại).
 ///
-/// MVP chỉ xuất CSV. Phần PDF của BR-48 (≤20 trang trong 15 giây) CHƯA LÀM — xem
-/// implementation-decisions.md mục D; không được coi BR-48 là đã đạt.
+/// BR-48 v1.4: hỗ trợ CSV và PDF. PDF là định dạng BẮT BUỘC, CSV không thay thế được.
+/// Ngưỡng "20 trang trong 15 giây" cần đo trên dữ liệu thật — xem implementation-status.md.
 /// </summary>
 public sealed class ReportExportService(
     ISportHubDbContext db,
     IReportStorage storage,
+    IReportPdfRenderer pdf,
     IAuditWriter audit,
     IClock clock) : IReportExportService
 {
@@ -144,6 +153,13 @@ public sealed class ReportExportService(
             throw new BadRequestException("no_columns_selected", "Phải chọn ít nhất một cột để xuất (BR-44).");
         }
 
+        var format = request.Format is null
+            ? ReportFormats.Csv
+            : ReportFormats.Normalize(request.Format)
+              ?? throw new BadRequestException(
+                  "unknown_report_format",
+                  $"Định dạng không hợp lệ: '{request.Format}'. Hợp lệ: {string.Join(", ", ReportFormats.All)}.");
+
         var (fromDate, toDate) = request.ToDate < request.FromDate
             ? (request.ToDate, request.FromDate)
             : (request.FromDate, request.ToDate);
@@ -159,10 +175,14 @@ public sealed class ReportExportService(
             {
                 fromDate = fromDate.ToString("yyyy-MM-dd"),
                 toDate = toDate.ToString("yyyy-MM-dd"),
-                columns
+                columns,
+                format
             }),
+            Format = format,
             Status = ReportExportStatus.Pending,
             CreatedAt = now,
+
+            // Mốc tạm. BR-46 v1.4 tính từ CompletedAt nên RunAsync đặt lại khi file xong.
             ExpiresAt = now.AddMonths(RetentionMonths)
         };
 
@@ -193,10 +213,13 @@ public sealed class ReportExportService(
                 "report_not_ready", $"Báo cáo đang ở trạng thái {export.Status}, chưa tải về được.");
         }
 
-        var content = await storage.ReadAsync(export.ReportExportId, ct)
+        var content = await storage.ReadAsync(export.ReportExportId, export.Format, ct)
             ?? throw new NotFoundException("report_file_missing", "Tệp báo cáo không còn trên hệ thống.");
 
-        return ($"{export.ReportType.ToLowerInvariant()}-{export.CreatedAt:yyyyMMdd-HHmmss}.csv", content);
+        var fileName = $"{export.ReportType.ToLowerInvariant()}-{export.CreatedAt:yyyyMMdd-HHmmss}"
+                       + $".{ReportFormats.Extension(export.Format)}";
+
+        return (fileName, content);
     }
 
     public async Task DeleteAsync(
@@ -212,7 +235,7 @@ public sealed class ReportExportService(
         export.IsDeleted = true;
         export.DeletedAt = clock.UtcNow;
 
-        await storage.DeleteAsync(reportExportId, ct);
+        await storage.DeleteAsync(reportExportId, export.Format, ct);
 
         audit.Write(new AuditEntry(
             actorUserId, "DELETE_REPORT_EXPORT", nameof(ReportExport), reportExportId.ToString(),
@@ -273,22 +296,32 @@ public sealed class ReportExportService(
     {
         try
         {
-            var csv = export.ReportType switch
+            // Dữ liệu được dựng MỘT lần rồi mới chọn cách serialize: CSV và PDF của cùng một
+            // tham số phải cho cùng nội dung, và hai truy vấn riêng là cách để chúng lệch nhau.
+            var rows = export.ReportType switch
             {
-                ReportTypes.Revenue => await BuildRevenueCsvAsync(fromDate, toDate, columns, ct),
-                ReportTypes.MemberSummary => await BuildMemberSummaryCsvAsync(columns, ct),
+                ReportTypes.Revenue => await BuildRevenueRowsAsync(fromDate, toDate, columns, ct),
+                ReportTypes.MemberSummary => await BuildMemberSummaryRowsAsync(columns, ct),
                 _ => throw new BadRequestException("unknown_report_type", "Loại báo cáo không hợp lệ.")
             };
 
-            // BOM UTF-8 để Excel trên Windows không hiển thị sai dấu tiếng Việt.
-            var bytes = Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(csv.Content)).ToArray();
+            var bytes = export.Format == ReportFormats.Pdf
+                ? RenderPdf(export, fromDate, toDate, columns, rows)
+                : RenderCsv(columns, rows);
 
-            await storage.WriteAsync(export.ReportExportId, bytes, ct);
+            await storage.WriteAsync(export.ReportExportId, export.Format, bytes, ct);
+
+            var completedAt = clock.UtcNow;
 
             export.Status = ReportExportStatus.Completed;
-            export.RowCount = csv.RowCount;
+            export.RowCount = rows.Count;
             export.SizeBytes = bytes.LongLength;
-            export.CompletedAt = clock.UtcNow;
+            export.CompletedAt = completedAt;
+
+            // BR-46 v1.4 — giữ ít nhất 6 tháng KỂ TỪ KHI HOÀN TẤT. Mốc đặt lúc tạo (bản cũ)
+            // ngắn hơn đúng bằng thời gian sinh file, và với bản retry thì lệch hẳn một lần
+            // chờ.
+            export.ExpiresAt = completedAt.AddMonths(RetentionMonths);
             export.FailureReason = null;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -303,7 +336,7 @@ public sealed class ReportExportService(
         await db.SaveChangesAsync(ct);
     }
 
-    private async Task<(string Content, int RowCount)> BuildRevenueCsvAsync(
+    private async Task<IReadOnlyList<IReadOnlyList<string>>> BuildRevenueRowsAsync(
         DateOnly fromDate,
         DateOnly toDate,
         IReadOnlyList<string> columns,
@@ -323,21 +356,29 @@ public sealed class ReportExportService(
                 MemberEmail = i.Member!.Email,
                 MemberName = i.Member.Profile != null ? i.Member.Profile.FullName : string.Empty,
                 i.TotalAmount,
-                Collected = i.Payments.Where(p => p.Status == PaymentStatus.Success)
+                GrossCollected = i.Payments.Where(p => p.Status == PaymentStatus.Success)
                     .Sum(p => (decimal?)p.Amount) ?? 0m,
-                Adjusted = i.Adjustments.Where(a => a.Status == PaymentAdjustmentStatus.Completed)
+
+                // BR-41 v1.4 — hai loại điều chỉnh tách riêng: giảm nghĩa vụ vs tiền thực hoàn.
+                ObligationReduction = i.Adjustments
+                    .Where(a => a.Status == PaymentAdjustmentStatus.Completed
+                                && a.Type != PaymentAdjustmentType.Refund)
+                    .Sum(a => (decimal?)a.Amount) ?? 0m,
+                RefundedAmount = i.Adjustments
+                    .Where(a => a.Status == PaymentAdjustmentStatus.Completed
+                                && a.Type == PaymentAdjustmentType.Refund)
                     .Sum(a => (decimal?)a.Amount) ?? 0m,
                 i.Status,
                 i.DueDateUtc
             })
             .ToListAsync(ct);
 
-        var builder = new StringBuilder();
-        builder.AppendLine(string.Join(',', columns.Select(CsvEscape)));
+        var table = new List<IReadOnlyList<string>>(rows.Count);
 
         foreach (var row in rows)
         {
-            var balance = new InvoiceBalance(row.TotalAmount, row.Adjusted, row.Collected);
+            var balance = new InvoiceBalance(
+                row.TotalAmount, row.GrossCollected, row.ObligationReduction, row.RefundedAmount);
 
             var values = columns.Select(column => column switch
             {
@@ -346,22 +387,25 @@ public sealed class ReportExportService(
                 "memberEmail" => row.MemberEmail,
                 "memberName" => row.MemberName,
                 "totalAmount" => row.TotalAmount.ToString("0", CultureInfo.InvariantCulture),
-                "collectedAmount" => balance.TotalCollected.ToString("0", CultureInfo.InvariantCulture),
-                "adjustmentAmount" => balance.CompletedAdjustments.ToString("0", CultureInfo.InvariantCulture),
-                "netAmount" => (balance.TotalCollected - balance.CompletedAdjustments)
-                    .ToString("0", CultureInfo.InvariantCulture),
+                "collectedAmount" => balance.GrossCollected.ToString("0", CultureInfo.InvariantCulture),
+                "obligationReduction" => balance.ObligationReduction.ToString("0", CultureInfo.InvariantCulture),
+                "refundedAmount" => balance.RefundedAmount.ToString("0", CultureInfo.InvariantCulture),
+                "netCollected" => balance.NetCollected.ToString("0", CultureInfo.InvariantCulture),
+                "netPayable" => balance.NetPayable.ToString("0", CultureInfo.InvariantCulture),
+                "outstanding" => balance.Outstanding.ToString("0", CultureInfo.InvariantCulture),
+                "refundDue" => balance.RefundDue.ToString("0", CultureInfo.InvariantCulture),
                 "status" => row.Status.ToString(),
                 "dueDate" => VietnamTime.ToLocal(row.DueDateUtc).ToString("yyyy-MM-dd"),
                 _ => string.Empty
             });
 
-            builder.AppendLine(string.Join(',', values.Select(CsvEscape)));
+            table.Add([.. values]);
         }
 
-        return (builder.ToString(), rows.Count);
+        return table;
     }
 
-    private async Task<(string Content, int RowCount)> BuildMemberSummaryCsvAsync(
+    private async Task<IReadOnlyList<IReadOnlyList<string>>> BuildMemberSummaryRowsAsync(
         IReadOnlyList<string> columns,
         CancellationToken ct)
     {
@@ -401,8 +445,7 @@ public sealed class ReportExportService(
             .Select(g => new { MemberId = g.Key, Total = g.Sum(p => p.Amount) })
             .ToDictionaryAsync(x => x.MemberId, x => x.Total, ct);
 
-        var builder = new StringBuilder();
-        builder.AppendLine(string.Join(',', columns.Select(CsvEscape)));
+        var table = new List<IReadOnlyList<string>>(rows.Count);
 
         foreach (var row in rows)
         {
@@ -421,10 +464,10 @@ public sealed class ReportExportService(
                 _ => string.Empty
             });
 
-            builder.AppendLine(string.Join(',', values.Select(CsvEscape)));
+            table.Add([.. values]);
         }
 
-        return (builder.ToString(), rows.Count);
+        return table;
     }
 
     private async Task<ReportExport> LoadForActorAsync(
@@ -458,6 +501,47 @@ public sealed class ReportExportService(
                .Where(r => r.ReportExportId == reportExportId).Select(Projection()).SingleOrDefaultAsync(ct)
            ?? throw new NotFoundException("report_not_found", "Không tìm thấy báo cáo.");
 
+    private static byte[] RenderCsv(IReadOnlyList<string> columns, IReadOnlyList<IReadOnlyList<string>> rows)
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine(string.Join(',', columns.Select(CsvEscape)));
+
+        foreach (var row in rows)
+        {
+            builder.AppendLine(string.Join(',', row.Select(CsvEscape)));
+        }
+
+        // BOM UTF-8 để Excel trên Windows không hiển thị sai dấu tiếng Việt.
+        return [.. Encoding.UTF8.GetPreamble(), .. Encoding.UTF8.GetBytes(builder.ToString())];
+    }
+
+    /// <summary>BR-48 — PDF thuộc scope bắt buộc, CSV không thay thế.</summary>
+    private byte[] RenderPdf(
+        ReportExport export,
+        DateOnly fromDate,
+        DateOnly toDate,
+        IReadOnlyList<string> columns,
+        IReadOnlyList<IReadOnlyList<string>> rows)
+    {
+        var numeric = columns
+            .Select((column, index) => (column, index))
+            .Where(x => ReportColumnLabels.IsNumeric(x.column))
+            .Select(x => x.index)
+            .ToHashSet();
+
+        var subtitle = export.ReportType == ReportTypes.Revenue
+            ? $"Kỳ {fromDate:dd/MM/yyyy} – {toDate:dd/MM/yyyy} · {rows.Count} dòng · "
+              + $"Xuất lúc {VietnamTime.ToLocal(clock.UtcNow):HH:mm dd/MM/yyyy} (giờ Việt Nam)"
+            : $"{rows.Count} hội viên · Xuất lúc {VietnamTime.ToLocal(clock.UtcNow):HH:mm dd/MM/yyyy} (giờ Việt Nam)";
+
+        return pdf.Render(new ReportTable(
+            ReportColumnLabels.ReportTitle(export.ReportType),
+            subtitle,
+            [.. columns.Select(ReportColumnLabels.For)],
+            rows,
+            numeric));
+    }
+
     // Quy tắc CSV (RFC 4180): bọc nháy kép khi có dấu phẩy/nháy/xuống dòng, và nhân đôi nháy bên trong.
     private static string CsvEscape(string? value)
     {
@@ -481,7 +565,8 @@ public sealed class ReportExportService(
             r.FailureReason,
             r.CreatedAt,
             r.CompletedAt,
-            r.ExpiresAt);
+            r.ExpiresAt,
+            r.Format);
 
     private sealed record ExportParameters(string FromDate, string ToDate, List<string> Columns);
 }
