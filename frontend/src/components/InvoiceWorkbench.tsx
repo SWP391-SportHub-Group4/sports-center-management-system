@@ -14,7 +14,12 @@ import {
 import { api } from "@/lib/apiClient";
 import { formatDate, formatDateTime, formatMoney, label } from "@/lib/format";
 import { useAction, useApi } from "@/lib/useApi";
-import type { InvoiceDetailDto, InvoiceSummaryDto, Paged } from "@/lib/types";
+import type {
+  InvoiceDetailDto,
+  InvoiceSummaryDto,
+  Paged,
+  PaymentAdjustmentDto,
+} from "@/lib/types";
 
 /**
  * Tra cứu hóa đơn + thu tiền + tạo yêu cầu điều chỉnh.
@@ -31,6 +36,7 @@ export function InvoiceWorkbench() {
 
   const payment = useAction();
   const adjustment = useAction();
+  const payout = useAction();
 
   const [paymentForm, setPaymentForm] = useState({ amount: "", method: "Cash", reference: "" });
   const [adjustmentForm, setAdjustmentForm] = useState({
@@ -38,6 +44,10 @@ export function InvoiceWorkbench() {
     amount: "",
     reason: "",
   });
+
+  /** Refund đang chờ xác nhận thực trả; null = dialog đóng. */
+  const [payoutTarget, setPayoutTarget] = useState<PaymentAdjustmentDto | null>(null);
+  const [payoutForm, setPayoutForm] = useState({ method: "Cash", reference: "", note: "" });
 
   const invoices = useApi(
     (signal) =>
@@ -105,6 +115,37 @@ export function InvoiceWorkbench() {
     }
   };
 
+  const openPayout = (item: PaymentAdjustmentDto) => {
+    payout.reset();
+    setPayoutTarget(item);
+    setPayoutForm({ method: "Cash", reference: "", note: "" });
+  };
+
+  /**
+   * BR-42 v1.4 — bước xác nhận THỰC TRẢ. Cố ý không có ô nhập số tiền: số đã được Manager
+   * chốt lúc duyệt và quầy không được trả khác số đó.
+   */
+  const submitPayout = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!payoutTarget) return;
+
+    const done = await payout.run(
+      () =>
+        api.post(`/api/payment-adjustments/${payoutTarget.adjustmentId}/complete`, {
+          refundMethod: payoutForm.method,
+          refundReferenceCode: payoutForm.reference.trim() || null,
+          note: payoutForm.note.trim(),
+        }),
+      "Đã ghi nhận thực trả. Số dư và báo cáo đã cập nhật.",
+    );
+
+    if (done !== null) {
+      setPayoutTarget(null);
+      detail.reload();
+      invoices.reload();
+    }
+  };
+
   return (
     <>
       <Card title="Bộ lọc">
@@ -163,8 +204,9 @@ export function InvoiceWorkbench() {
                   "Số hóa đơn",
                   "Hội viên",
                   { text: "Tổng tiền", numeric: true },
-                  { text: "Đã thu", numeric: true },
-                  { text: "Còn lại", numeric: true },
+                  { text: "Thực thu", numeric: true },
+                  { text: "Còn phải thu", numeric: true },
+                  { text: "Cần hoàn", numeric: true },
                   "Hạn",
                   "Trạng thái",
                   "",
@@ -178,8 +220,17 @@ export function InvoiceWorkbench() {
                       <div className="small muted">{invoice.memberEmail}</div>
                     </td>
                     <td className="num">{formatMoney(invoice.totalAmount)}</td>
-                    <td className="num">{formatMoney(invoice.collectedAmount)}</td>
+                    <td className="num">{formatMoney(invoice.netCollected)}</td>
                     <td className="num">{formatMoney(invoice.outstanding)}</td>
+                    <td className="num">
+                      {invoice.refundDue > 0 ? (
+                        <strong style={{ color: "var(--danger-700)" }}>
+                          {formatMoney(invoice.refundDue)}
+                        </strong>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
                     <td className="nowrap small">
                       {formatDate(invoice.dueDateUtc)}
                       {invoice.isOverdue && (
@@ -223,11 +274,30 @@ export function InvoiceWorkbench() {
                 <div className="stack">
                   <div className="alert alert--info">
                     <strong>{data.summary.invoiceNumber}</strong> — {data.summary.memberName}
+                    {/*
+                      BR-41 v1.4 — "cần hoàn" và "đã hoàn" là hai con số khác nhau và phải
+                      hiện riêng: một khoản được duyệt hoàn nhưng chưa chi thì vẫn là tiền
+                      trung tâm đang giữ của hội viên.
+                    */}
                     <div className="small">
                       Tổng {formatMoney(data.summary.totalAmount)} · Đã thu{" "}
-                      {formatMoney(data.summary.collectedAmount)} · Điều chỉnh{" "}
-                      {formatMoney(data.summary.adjustmentAmount)} · Còn lại{" "}
-                      {formatMoney(data.summary.outstanding)}
+                      {formatMoney(data.summary.grossCollected)}
+                      {data.summary.obligationReduction > 0 &&
+                        ` · Giảm nghĩa vụ ${formatMoney(data.summary.obligationReduction)}`}
+                      {" · Nghĩa vụ "}
+                      {formatMoney(data.summary.netPayable)} · Thực thu{" "}
+                      {formatMoney(data.summary.netCollected)}
+                    </div>
+                    <div className="small">
+                      Còn phải thu <strong>{formatMoney(data.summary.outstanding)}</strong>
+                      {data.summary.refundDue > 0 && (
+                        <>
+                          {" · "}
+                          <strong style={{ color: "var(--danger-700)" }}>
+                            Cần hoàn {formatMoney(data.summary.refundDue)}
+                          </strong>
+                        </>
+                      )}
                       {data.summary.refundedAmount > 0 &&
                         ` · Đã hoàn ${formatMoney(data.summary.refundedAmount)}`}
                     </div>
@@ -271,15 +341,52 @@ export function InvoiceWorkbench() {
                     <div>
                       <h3>Điều chỉnh</h3>
                       <Table
-                        headers={["Loại", { text: "Số tiền", numeric: true }, "Lý do", "Trạng thái"]}
+                        headers={[
+                          "Loại",
+                          { text: "Số tiền", numeric: true },
+                          "Lý do",
+                          "Trạng thái",
+                          "",
+                        ]}
                       >
                         {data.adjustments.map((item) => (
                           <tr key={item.adjustmentId}>
                             <td>{label(item.type)}</td>
-                            <td className="num">{formatMoney(item.amount)}</td>
+                            <td className="num">
+                              {formatMoney(item.amount)}
+                              {item.requestedAmount !== item.amount && (
+                                <div className="small muted">
+                                  đề nghị {formatMoney(item.requestedAmount)}
+                                </div>
+                              )}
+                            </td>
                             <td className="small">{item.reason}</td>
                             <td>
                               <StatusChip value={item.status} />
+                              {item.awaitingPayout && (
+                                <div className="small" style={{ color: "var(--danger-700)" }}>
+                                  Chờ lễ tân trả tiền
+                                </div>
+                              )}
+                              {item.completedAtUtc && item.type === "Refund" && (
+                                <div className="small muted">
+                                  Đã trả {formatDateTime(item.completedAtUtc)}
+                                  {item.completedByName && ` · ${item.completedByName}`}
+                                  {item.refundMethod && ` · ${label(item.refundMethod)}`}
+                                  {item.refundReferenceCode && ` · ${item.refundReferenceCode}`}
+                                </div>
+                              )}
+                            </td>
+                            <td className="right">
+                              {item.awaitingPayout && (
+                                <button
+                                  type="button"
+                                  className="btn btn--sm"
+                                  onClick={() => openPayout(item)}
+                                >
+                                  Xác nhận đã trả
+                                </button>
+                              )}
                             </td>
                           </tr>
                         ))}
@@ -393,6 +500,73 @@ export function InvoiceWorkbench() {
               ) : null
             }
           </AsyncSection>
+        </Dialog>
+      )}
+
+      {payoutTarget && (
+        <Dialog title="Xác nhận đã trả tiền hoàn" onClose={() => setPayoutTarget(null)}>
+          <form className="form" onSubmit={submitPayout}>
+            <div className="alert alert--info">
+              Hoàn <strong>{formatMoney(payoutTarget.amount)}</strong> cho hóa đơn{" "}
+              {payoutTarget.invoiceNumber}.
+              <div className="small">
+                Số tiền đã được Quản lý Trung tâm duyệt
+                {payoutTarget.approvedAtUtc && ` ngày ${formatDate(payoutTarget.approvedAtUtc)}`}
+                {payoutTarget.approvedByName && ` bởi ${payoutTarget.approvedByName}`} và không
+                sửa được ở bước này (BR-42). Chỉ bấm xác nhận SAU KHI tiền đã thực sự được trả
+                cho hội viên.
+              </div>
+            </div>
+
+            <div className="form form--inline">
+              <Field label="Hình thức trả">
+                <select
+                  value={payoutForm.method}
+                  onChange={(event) =>
+                    setPayoutForm({ ...payoutForm, method: event.target.value })
+                  }
+                >
+                  {["Cash", "Card", "Transfer", "EWallet"].map((method) => (
+                    <option key={method} value={method}>
+                      {label(method)}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field
+                label={
+                  payoutForm.method === "Cash"
+                    ? "Mã tham chiếu (không bắt buộc với tiền mặt)"
+                    : "Mã tham chiếu (bắt buộc)"
+                }
+              >
+                <input
+                  value={payoutForm.reference}
+                  required={payoutForm.method !== "Cash"}
+                  onChange={(event) =>
+                    setPayoutForm({ ...payoutForm, reference: event.target.value })
+                  }
+                />
+              </Field>
+            </div>
+
+            <Field label="Ghi chú đối soát">
+              <input
+                value={payoutForm.note}
+                required
+                minLength={3}
+                onChange={(event) => setPayoutForm({ ...payoutForm, note: event.target.value })}
+              />
+            </Field>
+
+            <Feedback error={payout.error} success={payout.success} />
+
+            <div>
+              <button type="submit" className="btn btn--sm" disabled={payout.busy}>
+                Xác nhận đã trả
+              </button>
+            </div>
+          </form>
         </Dialog>
       )}
     </>

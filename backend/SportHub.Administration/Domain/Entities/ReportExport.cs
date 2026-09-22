@@ -30,6 +30,12 @@ public class ReportExport
     /// </summary>
     public string ParametersJson { get; set; } = "{}";
 
+    /// <summary>
+    /// Định dạng tệp. String whitelist Csv/Pdf theo SSOT §5.7 — cố tình KHÔNG phải enum để
+    /// thêm định dạng sau này không phải migrate kiểu cột. Giá trị hợp lệ: <see cref="ReportFormats"/>.
+    /// </summary>
+    public string Format { get; set; } = ReportFormats.Csv;
+
     public ReportExportStatus Status { get; set; }
 
     public int RowCount { get; set; }
@@ -42,7 +48,11 @@ public class ReportExport
 
     public DateTime? CompletedAt { get; set; }
 
-    /// <summary>BR-46 — CreatedAt + 6 tháng. Không có job nào xoá trước mốc này.</summary>
+    /// <summary>
+    /// BR-46 v1.4 — <b>CompletedAt</b> + 6 tháng, không phải CreatedAt: quy tắc nói "kể từ thời
+    /// điểm hoàn tất". Bản ghi chưa Completed chưa có mốc giữ file nào vì chưa có file.
+    /// Không có job nào xoá trước mốc này.
+    /// </summary>
     public DateTime ExpiresAt { get; set; }
 
     /// <summary>
@@ -70,8 +80,11 @@ public static class ReportTypes
         {
             [Revenue] =
             [
+                // BR-41 v1.4 — "adjustmentAmount"/"netAmount" cũ gộp giảm nghĩa vụ với tiền hoàn
+                // thành một số vô nghĩa; thay bằng các đại lượng tách bạch của InvoiceBalance.
                 "invoiceNumber", "issuedAt", "memberEmail", "memberName", "totalAmount",
-                "collectedAmount", "adjustmentAmount", "netAmount", "status", "dueDate"
+                "collectedAmount", "obligationReduction", "refundedAmount", "netCollected",
+                "netPayable", "outstanding", "refundDue", "status", "dueDate"
             ],
             [MemberSummary] =
             [
@@ -81,4 +94,28 @@ public static class ReportTypes
         };
 
     public static bool IsKnown(string reportType) => AllowedColumns.ContainsKey(reportType);
+}
+
+/// <summary>
+/// Định dạng tệp xuất được phép (SSOT §5.7 — string whitelist, không thêm enum mới).
+///
+/// BR-48: PDF thuộc scope BẮT BUỘC và CSV không thay thế PDF.
+/// </summary>
+public static class ReportFormats
+{
+    public const string Csv = "Csv";
+
+    public const string Pdf = "Pdf";
+
+    public static readonly IReadOnlyList<string> All = [Csv, Pdf];
+
+    /// <summary>Chuẩn hoá chuỗi client gửi; trả null nếu không nằm trong whitelist.</summary>
+    public static string? Normalize(string? value)
+        => All.FirstOrDefault(f => string.Equals(f, value?.Trim(), StringComparison.OrdinalIgnoreCase));
+
+    public static string Extension(string format)
+        => string.Equals(format, Pdf, StringComparison.OrdinalIgnoreCase) ? "pdf" : "csv";
+
+    public static string ContentType(string format)
+        => string.Equals(format, Pdf, StringComparison.OrdinalIgnoreCase) ? "application/pdf" : "text/csv";
 }

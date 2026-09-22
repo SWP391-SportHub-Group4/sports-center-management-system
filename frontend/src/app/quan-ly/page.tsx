@@ -62,9 +62,9 @@ export default function ManagerDashboardPage() {
     >
       <div className="grid grid--stats">
         <Stat
-          label="Doanh thu ròng tháng này"
+          label="Thu ròng tháng này"
           value={formatMoney(revenue.data?.netRevenue ?? 0)}
-          hint={`Đã thu ${formatMoney(revenue.data?.totalCollected ?? 0)}, trừ điều chỉnh ${formatMoney(revenue.data?.totalAdjusted ?? 0)}`}
+          hint={`Đã thu ${formatMoney(revenue.data?.totalCollected ?? 0)}, trừ đã hoàn ${formatMoney(revenue.data?.totalRefunded ?? 0)}`}
         />
         <Stat
           label="Điều chỉnh chờ duyệt"

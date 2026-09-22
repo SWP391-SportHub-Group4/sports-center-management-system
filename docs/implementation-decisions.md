@@ -1,6 +1,6 @@
 # Quyết định triển khai đã duyệt ngày 22/09/2026
 
-Người dùng đã đồng ý các khuyến nghị trong phiên review và yêu cầu cập nhật tài liệu để push GitHub. Biên bản này ghi phạm vi phê duyệt, không xác nhận code đã đáp ứng. Nguồn cao nhất vẫn là `00-Source-of-Truth.md`; nội dung quy tắc đã đồng bộ vào Business Rules v1.4. File quyết định cũ được Claude dẫn không có trong checkout tại thời điểm cập nhật; các mã A/C giữ để truy vết cuộc review.
+Người dùng đã đồng ý các khuyến nghị trong phiên review và yêu cầu cập nhật tài liệu để push GitHub. Biên bản này ghi phạm vi phê duyệt, không xác nhận code đã đáp ứng. Nguồn cao nhất vẫn là `00-Source-of-Truth.md`; nội dung quy tắc đã được người dùng gộp vào `SportManagement_BusinessRules.docx` v1.4. Các mã A/C giữ để truy vết cuộc review, không phải mã BR mới. Tiếp tục triển khai theo [plan ngày 23/09/2026](claude-continuation-plan-2026-09-23.md).
 
 ## 1. Các quyết định có hiệu lực
 

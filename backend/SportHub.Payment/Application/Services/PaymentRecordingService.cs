@@ -28,6 +28,7 @@ public sealed class PaymentRecordingService(
     IInvoiceQueryService invoiceQuery,
     IAuditWriter audit,
     INotificationWriter notifications,
+    IPackageActivationService packageActivation,
     IClock clock) : IPaymentRecordingService
 {
     public async Task<InvoiceDetailResponse> RecordAsync(
@@ -47,8 +48,16 @@ public sealed class PaymentRecordingService(
 
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
 
-        var invoice = await db.Set<Invoice>().SingleOrDefaultAsync(i => i.InvoiceId == invoiceId, ct)
-            ?? throw new NotFoundException("invoice_not_found", "Không tìm thấy hóa đơn.");
+        // KHOÁ hàng hoá đơn trước khi đọc số dư. Đọc-bên-trong-transaction là CHƯA đủ ở mức
+        // cô lập mặc định Read Committed của PostgreSQL: hai transaction song song cùng nhìn
+        // thấy ảnh chụp trước khi nhau ghi, cùng kết luận còn đủ Outstanding, và cùng được
+        // chấp nhận — thu vượt trần BR-41. Đã tái hiện được bằng test
+        // DepositAndActivationTests.Hai_khoan_thu_dong_thoi_khong_vuot_tran (thu 2 triệu trên
+        // hoá đơn 1 triệu).
+        //
+        // Khoá ở HOÁ ĐƠN chứ không ở từng khoản thu: trần là đại lượng của hoá đơn, nên hoá
+        // đơn mới là điểm tuần tự hoá đúng.
+        var invoice = await LockInvoiceAsync(invoiceId, ct);
 
         if (invoice.Status == InvoiceStatus.Void)
         {
@@ -58,6 +67,18 @@ public sealed class PaymentRecordingService(
         // Đọc số dư BÊN TRONG transaction: đọc trước khi mở transaction sẽ để hở khe cho hai
         // khoản thu đồng thời cùng nhìn thấy một số dư cũ và cùng được chấp nhận (vượt BR-41).
         var balance = await invoiceQuery.GetBalanceAsync(invoiceId, ct);
+        var now = clock.UtcNow;
+
+        // BR-55 — sau hạn thì đường thu THÔNG THƯỜNG bị chặn. Cố ý chỉ chặn, không tự Void hoá
+        // đơn, không tự Cancel gói và không tịch thu cọc: quy trình Manager xử lý quá hạn chưa
+        // được chốt (SSOT §7), nên hệ thống dừng lại và để người quyết định.
+        if (now > invoice.DueDateUtc)
+        {
+            throw new ConflictException(
+                "invoice_overdue",
+                $"Hóa đơn đã quá hạn thanh toán ({invoice.DueDateUtc:dd/MM/yyyy}). "
+                + "Cần Center Manager xử lý ngoại lệ trước khi thu tiếp (BR-55).");
+        }
 
         if (!InvoiceMath.CanAcceptPayment(balance, amount))
         {
@@ -65,8 +86,6 @@ public sealed class PaymentRecordingService(
                 "payment_exceeds_invoice_balance",
                 $"Số tiền vượt quá phần còn phải thu ({balance.Outstanding:N0} VND) của hóa đơn (BR-41).");
         }
-
-        var now = clock.UtcNow;
 
         db.Set<Domain.Entities.Payment>().Add(new Domain.Entities.Payment
         {
@@ -83,21 +102,28 @@ public sealed class PaymentRecordingService(
             PaidAt = now
         });
 
-        // BR-55 — chỉ khoản Success ĐẦU TIÊN mới dời hạn sang 12 tháng; khoản sau không gia hạn.
-        if (invoice.FirstDepositAtUtc is null)
+        var updatedBalance = balance with { GrossCollected = balance.GrossCollected + amount };
+
+        // BR-55 — chỉ CỌC mới gia hạn. "Cọc" = khoản Success đầu tiên mà SAU khi thu vẫn còn
+        // Outstanding; trả đủ ngay lần đầu không phải cọc nên không được hưởng 12 tháng.
+        // Ngoài ra cọc phải nhận TẠI HOẶC TRƯỚC hạn ban đầu — nhận sau hạn thì không có gì
+        // để gia hạn nữa.
+        var isFirstSuccessfulPayment = balance.GrossCollected == 0m && invoice.FirstDepositAtUtc is null;
+        var leavesBalanceOutstanding = updatedBalance.Outstanding > 0m;
+
+        if (isFirstSuccessfulPayment && leavesBalanceOutstanding && now <= invoice.DueDateUtc)
         {
             invoice.FirstDepositAtUtc = now;
             invoice.DueDateUtc = InvoiceMath.DueDateAfterFirstDeposit(now);
         }
 
-        var updatedBalance = balance with { TotalCollected = balance.TotalCollected + amount };
         var previousStatus = invoice.Status;
         invoice.Status = InvoiceMath.DeriveStatus(invoice.Status, updatedBalance);
 
         audit.Write(new AuditEntry(
             actorUserId, "RECORD_PAYMENT", nameof(Invoice), invoiceId.ToString(),
-            OldValue: $"{{\"status\":\"{previousStatus}\",\"collected\":{balance.TotalCollected}}}",
-            NewValue: $"{{\"status\":\"{invoice.Status}\",\"collected\":{updatedBalance.TotalCollected},"
+            OldValue: $"{{\"status\":\"{previousStatus}\",\"collected\":{balance.GrossCollected}}}",
+            NewValue: $"{{\"status\":\"{invoice.Status}\",\"collected\":{updatedBalance.GrossCollected},"
                       + $"\"amount\":{amount},\"method\":\"{method}\"}}"));
 
         notifications.Queue(new NotificationRequest(
@@ -107,11 +133,8 @@ public sealed class PaymentRecordingService(
             + $"Còn lại {updatedBalance.Outstanding:N0} VND.",
             invoiceId));
 
-        // BR-30 — gói chỉ chuyển Active sau khi hoá đơn được thanh toán ĐẦY ĐỦ.
-        if (invoice.Status == InvoiceStatus.Paid && invoice.MemberPackageId is not null)
-        {
-            await ActivatePackageAsync(invoice, actorUserId, ct);
-        }
+        // BR-30 — gói chỉ chuyển Active sau khi nghĩa vụ hoá đơn được thoả ĐẦY ĐỦ.
+        await packageActivation.ActivateIfObligationMetAsync(invoice, updatedBalance, actorUserId, ct);
 
         await db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
@@ -119,41 +142,17 @@ public sealed class PaymentRecordingService(
         return await invoiceQuery.GetDetailAsync(invoiceId, ct);
     }
 
-    private async Task ActivatePackageAsync(Invoice invoice, Guid actorUserId, CancellationToken ct)
+    /// <summary>
+    /// Khoá hàng hoá đơn trong transaction hiện tại (BR-41 — "khóa/kiểm tra số dư nguyên tử").
+    /// Trả về entity CÓ tracking để các thay đổi sau đó vẫn được SaveChanges ghi lại.
+    /// </summary>
+    private async Task<Invoice> LockInvoiceAsync(Guid invoiceId, CancellationToken ct)
     {
-        var memberPackage = await db.Set<MemberPackage>()
-            .SingleOrDefaultAsync(mp => mp.MemberPackageId == invoice.MemberPackageId, ct);
+        var locked = await db.Set<Invoice>()
+            .FromSqlRaw("SELECT * FROM invoices WHERE invoice_id = {0} FOR UPDATE", invoiceId)
+            .ToListAsync(ct);
 
-        // Gói đã bị huỷ trước khi thu đủ thì KHÔNG hồi sinh: SSOT §4 không có nhánh
-        // Cancelled → Active. Tiền đã thu vẫn còn trên hoá đơn và xử lý qua PaymentAdjustment (BR-42).
-        if (memberPackage is null || memberPackage.Status != MemberPackageStatus.PendingPayment)
-        {
-            return;
-        }
-
-        var catalog = await db.Set<MembershipPackage>()
-            .SingleAsync(p => p.PackageId == memberPackage.PackageId, ct);
-
-        // Quyết định C4: gói chạy từ NGÀY thanh toán đủ (giờ VN), không phải từ ngày phát hành
-        // hoá đơn — hội viên trả góp hai tháng không bị mất hai tháng sử dụng.
-        var (startDate, endDate) = MemberPackageRules.ComputePeriod(
-            VietnamTime.TodayLocal(clock), catalog.DurationDays);
-
-        memberPackage.StartDate = startDate;
-        memberPackage.EndDate = endDate;
-        memberPackage.RemainingSessions = catalog.SessionLimit;
-        memberPackage.Status = MemberPackageStatus.Active;
-
-        audit.Write(new AuditEntry(
-            actorUserId, "ACTIVATE_MEMBER_PACKAGE", nameof(MemberPackage), memberPackage.MemberPackageId.ToString(),
-            OldValue: $"{{\"status\":\"{MemberPackageStatus.PendingPayment}\"}}",
-            NewValue: $"{{\"status\":\"{MemberPackageStatus.Active}\",\"startDate\":\"{startDate:yyyy-MM-dd}\","
-                      + $"\"endDate\":\"{endDate:yyyy-MM-dd}\"}}"));
-
-        notifications.Queue(new NotificationRequest(
-            invoice.MemberId,
-            NotificationEvents.PaymentReceived,
-            $"Gói {catalog.Name} đã được kích hoạt, hiệu lực từ {startDate:dd/MM/yyyy} đến {endDate:dd/MM/yyyy}.",
-            memberPackage.MemberPackageId));
+        return locked.SingleOrDefault()
+               ?? throw new NotFoundException("invoice_not_found", "Không tìm thấy hóa đơn.");
     }
 }

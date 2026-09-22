@@ -143,7 +143,13 @@ public class ReportExportsController(IReportExportService exports) : ControllerB
         var (fileName, content) = await exports.DownloadAsync(
             reportExportId, User.RequireUserId(), User.IsInRole(SportHubRoleNames.CenterManager), ct);
 
-        return File(content, "text/csv", fileName);
+        // Content type suy ra từ đuôi file do service quyết định, không hard-code CSV:
+        // trả PDF dưới nhãn text/csv thì trình duyệt mở ra rác.
+        var contentType = fileName.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)
+            ? "application/pdf"
+            : "text/csv";
+
+        return File(content, contentType, fileName);
     }
 
     [HttpPost("{reportExportId:guid}/retry")]

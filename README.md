@@ -26,6 +26,8 @@ Quyết định đã duyệt ngày 22/09/2026: [biên bản](docs/implementation
 Business Rules hiện hành: [Word v1.4](docs/SportManagement_BusinessRules.docx) — bản Markdown mirror trước đây (`docs/business-rules-v1.4.md`) đã gộp xong nội dung vào file Word này và bị xoá ngày 22/09/2026 để khỏi trùng lặp.
 Kế hoạch tiếp tục: [Claude 23/09/2026](docs/claude-continuation-plan-2026-09-23.md).
 
+Plan có prompt giao việc ở mục 10; ưu tiên sửa đối soát thu/hoàn và tách approve/complete, sau đó hạn gói/lịch, contract API, PDF và tích hợp thật. Các chính sách đã duyệt không cần duyệt lại; chi tiết còn mở theo SSOT §7.
+
 Đây là đặc tả đích; chưa xác nhận code đáp ứng v1.4. Matrix/status sẽ được Claude tạo từ kiểm chứng mới theo plan; không dùng kết quả tests cũ để kết luận các rule mới đã đạt.
 
 ## Backend — Feature-based Modular Monolith (11 project)
