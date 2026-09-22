@@ -1,11 +1,13 @@
 using Microsoft.EntityFrameworkCore;
 using SportHub.Administration.Application.DTOs;
+using SportHub.Administration.Application.Interfaces;
 using SportHub.Audit.Domain.Entities;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
+using SportHub.BuildingBlocks.SharedKernel.Pagination;
 
 namespace SportHub.Administration.Application.Services;
 
-public sealed record AuditLogDto(
+public sealed record AuditLogResponse(
     Guid AuditId,
     Guid UserId,
     string ActorEmail,
@@ -17,20 +19,13 @@ public sealed record AuditLogDto(
     string IpAddress,
     DateTime Timestamp);
 
-public interface IAuditQueryService
-{
-    Task<PagedResult<AuditLogDto>> SearchAsync(
-        string? action, string? targetEntity, DateTime? fromUtc, DateTime? toUtc,
-        int page, int pageSize, CancellationToken ct = default);
-}
-
 /// <summary>
 /// Đọc Audit Log (BR-7 — "Center Manager xem lịch sử thao tác").
 /// Chỉ đọc: không có endpoint nào sửa/xoá audit, nếu không nhật ký mất giá trị làm bằng chứng.
 /// </summary>
 public sealed class AuditQueryService(ISportHubDbContext db) : IAuditQueryService
 {
-    public async Task<PagedResult<AuditLogDto>> SearchAsync(
+    public async Task<PagedResult<AuditLogResponse>> SearchAsync(
         string? action,
         string? targetEntity,
         DateTime? fromUtc,
@@ -70,7 +65,7 @@ public sealed class AuditQueryService(ISportHubDbContext db) : IAuditQueryServic
             .OrderByDescending(a => a.Timestamp)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
-            .Select(a => new AuditLogDto(
+            .Select(a => new AuditLogResponse(
                 a.AuditId,
                 a.UserId,
                 a.User!.Email,
@@ -83,6 +78,12 @@ public sealed class AuditQueryService(ISportHubDbContext db) : IAuditQueryServic
                 a.Timestamp))
             .ToListAsync(ct);
 
-        return new PagedResult<AuditLogDto>(items, page, pageSize, total);
+        return new PagedResult<AuditLogResponse>
+        {
+            Items = items,
+            Page = page,
+            PageSize = pageSize,
+            TotalCount = total
+        };
     }
 }

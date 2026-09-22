@@ -2,13 +2,9 @@ using Microsoft.EntityFrameworkCore;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.SharedKernel.Time;
 using SportHub.Payment.Application.DTOs;
+using SportHub.Payment.Application.Interfaces;
 
 namespace SportHub.Payment.Application.Services;
-
-public interface IRevenueReportService
-{
-    Task<RevenueReportDto> GetAsync(DateOnly fromDate, DateOnly toDate, CancellationToken ct = default);
-}
 
 /// <summary>
 /// Báo cáo doanh thu (BR-32, BR-43 — chỉ Center Manager; số liệu phải TRỪ các khoản điều
@@ -20,7 +16,7 @@ public interface IRevenueReportService
 /// </summary>
 public sealed class RevenueReportService(ISportHubDbContext db) : IRevenueReportService
 {
-    public async Task<RevenueReportDto> GetAsync(
+    public async Task<RevenueReportResponse> GetAsync(
         DateOnly fromDate,
         DateOnly toDate,
         CancellationToken ct = default)
@@ -58,20 +54,20 @@ public sealed class RevenueReportService(ISportHubDbContext db) : IRevenueReport
             .GroupBy(a => DateOnly.FromDateTime(VietnamTime.ToLocal(a.ResolvedAt)))
             .ToDictionary(g => g.Key, g => g.Sum(a => a.Amount));
 
-        var daily = new List<RevenueReportRowDto>();
+        var daily = new List<RevenueReportRowResponse>();
 
         for (var day = fromDate; day <= toDate; day = day.AddDays(1))
         {
             var collected = collectedByDay.GetValueOrDefault(day);
             var adjusted = adjustedByDay.GetValueOrDefault(day);
 
-            daily.Add(new RevenueReportRowDto(day, collected, adjusted, collected - adjusted));
+            daily.Add(new RevenueReportRowResponse(day, collected, adjusted, collected - adjusted));
         }
 
         var totalCollected = collectedByDay.Values.Sum();
         var totalAdjusted = adjustedByDay.Values.Sum();
 
-        return new RevenueReportDto(
+        return new RevenueReportResponse(
             fromDate,
             toDate,
             totalCollected,

@@ -1,3 +1,4 @@
+using SportHub.BuildingBlocks.SharedKernel.Pagination;
 using SportHub.Scheduling.Application.DTOs;
 using SportHub.Scheduling.Application.Interfaces;
 

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using SportHub.AI.Application.Interfaces;
 using SportHub.AI.Application.Services;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.Api;
@@ -10,7 +11,7 @@ using SportHub.Training.Domain.Enums;
 
 namespace SportHub.AI.Api;
 
-public sealed record AiLogDto(
+public sealed record AiLogResponse(
     Guid LogId, Guid UserId, string QueryType, string InputPayload, string ResponsePayload,
     int ResponseTimeMs, DateTime CreatedAt);
 
@@ -71,7 +72,7 @@ public class AiController(IWorkoutRecommendationService recommendations, ISportH
         var logs = await query
             .OrderByDescending(l => l.CreatedAt)
             .Take(Math.Clamp(limit, 1, 200))
-            .Select(l => new AiLogDto(
+            .Select(l => new AiLogResponse(
                 l.LogId, l.UserId, l.QueryType, l.InputPayload, l.ResponsePayload, l.ResponseTimeMs, l.CreatedAt))
             .ToListAsync(ct);
 

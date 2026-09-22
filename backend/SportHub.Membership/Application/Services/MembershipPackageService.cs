@@ -3,20 +3,11 @@ using Npgsql;
 using SportHub.BuildingBlocks.Abstractions.Audit;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
+using SportHub.Membership.Application.Commands;
 using SportHub.Membership.Application.DTOs;
+using SportHub.Membership.Application.Interfaces;
 
 namespace SportHub.Membership.Application.Services;
-
-public interface IMembershipPackageService
-{
-    Task<IReadOnlyList<MembershipPackageDto>> GetAllAsync(bool includeInactive, CancellationToken ct = default);
-
-    Task<MembershipPackageDto> CreateAsync(SaveMembershipPackageRequest request, Guid actorUserId, CancellationToken ct = default);
-
-    Task<MembershipPackageDto> UpdateAsync(int packageId, SaveMembershipPackageRequest request, Guid actorUserId, CancellationToken ct = default);
-
-    Task<MembershipPackageDto> SetActiveAsync(int packageId, bool isActive, Guid actorUserId, CancellationToken ct = default);
-}
 
 /// <summary>
 /// Danh mục gói thành viên — BR-8 (chỉ Center Manager tạo/sửa/ngừng áp dụng),
@@ -26,7 +17,7 @@ public sealed class MembershipPackageService(
     ISportHubDbContext db,
     IAuditWriter audit) : IMembershipPackageService
 {
-    public async Task<IReadOnlyList<MembershipPackageDto>> GetAllAsync(
+    public async Task<IReadOnlyList<MembershipPackageResponse>> GetAllAsync(
         bool includeInactive,
         CancellationToken ct = default)
     {
@@ -39,12 +30,12 @@ public sealed class MembershipPackageService(
 
         return await query
             .OrderBy(p => p.Price)
-            .Select(p => new MembershipPackageDto(
+            .Select(p => new MembershipPackageResponse(
                 p.PackageId, p.Name, p.Price, p.DurationDays, p.SessionLimit, p.Description, p.IsActive))
             .ToListAsync(ct);
     }
 
-    public async Task<MembershipPackageDto> CreateAsync(
+    public async Task<MembershipPackageResponse> CreateAsync(
         SaveMembershipPackageRequest request,
         Guid actorUserId,
         CancellationToken ct = default)
@@ -77,7 +68,7 @@ public sealed class MembershipPackageService(
         return Map(package);
     }
 
-    public async Task<MembershipPackageDto> UpdateAsync(
+    public async Task<MembershipPackageResponse> UpdateAsync(
         int packageId,
         SaveMembershipPackageRequest request,
         Guid actorUserId,
@@ -106,7 +97,7 @@ public sealed class MembershipPackageService(
         return Map(package);
     }
 
-    public async Task<MembershipPackageDto> SetActiveAsync(
+    public async Task<MembershipPackageResponse> SetActiveAsync(
         int packageId,
         bool isActive,
         Guid actorUserId,
@@ -151,6 +142,6 @@ public sealed class MembershipPackageService(
            + $"\"durationDays\":{p.DurationDays},\"sessionLimit\":{(p.SessionLimit?.ToString() ?? "null")},"
            + $"\"isActive\":{p.IsActive.ToString().ToLowerInvariant()}}}";
 
-    private static MembershipPackageDto Map(MembershipPackage p)
+    private static MembershipPackageResponse Map(MembershipPackage p)
         => new(p.PackageId, p.Name, p.Price, p.DurationDays, p.SessionLimit, p.Description, p.IsActive);
 }

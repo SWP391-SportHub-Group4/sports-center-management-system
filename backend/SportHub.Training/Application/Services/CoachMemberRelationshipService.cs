@@ -6,24 +6,11 @@ using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.BuildingBlocks.SharedKernel.Time;
 using SportHub.Identity.Domain.Entities;
 using SportHub.Identity.Domain.Enums;
+using SportHub.Training.Application.Commands;
 using SportHub.Training.Application.DTOs;
+using SportHub.Training.Application.Interfaces;
 
 namespace SportHub.Training.Application.Services;
-
-public interface ICoachMemberRelationshipService : ICoachRelationshipRegistrar
-{
-    Task<IReadOnlyList<CoachMemberRelationshipDto>> SearchAsync(
-        Guid? coachId, Guid? memberId, bool activeOnly, CancellationToken ct = default);
-
-    Task<CoachMemberRelationshipDto> CreateAsync(
-        CreateRelationshipRequest request, Guid actorUserId, CancellationToken ct = default);
-
-    Task<CoachMemberRelationshipDto> EndAsync(
-        Guid relationshipId, string reason, Guid actorUserId, CancellationToken ct = default);
-
-    // EnsureClassBasedAsync kế thừa từ ICoachRelationshipRegistrar: module Scheduling gọi qua
-    // abstraction đó khi hội viên đăng ký lớp, không tham chiếu trực tiếp module Training.
-}
 
 /// <summary>
 /// Quan hệ huấn luyện Coach–Member — nền tảng phân quyền của BR-23 (ai được lập kế hoạch tập).
@@ -37,7 +24,7 @@ public sealed class CoachMemberRelationshipService(
     IAuditWriter audit,
     IClock clock) : ICoachMemberRelationshipService
 {
-    public async Task<IReadOnlyList<CoachMemberRelationshipDto>> SearchAsync(
+    public async Task<IReadOnlyList<CoachMemberRelationshipResponse>> SearchAsync(
         Guid? coachId,
         Guid? memberId,
         bool activeOnly,
@@ -63,7 +50,7 @@ public sealed class CoachMemberRelationshipService(
         return await query.OrderByDescending(r => r.StartedAt).Select(Projection()).ToListAsync(ct);
     }
 
-    public async Task<CoachMemberRelationshipDto> CreateAsync(
+    public async Task<CoachMemberRelationshipResponse> CreateAsync(
         CreateRelationshipRequest request,
         Guid actorUserId,
         CancellationToken ct = default)
@@ -126,7 +113,7 @@ public sealed class CoachMemberRelationshipService(
         return await GetOneAsync(relationship.RelationshipId, ct);
     }
 
-    public async Task<CoachMemberRelationshipDto> EndAsync(
+    public async Task<CoachMemberRelationshipResponse> EndAsync(
         Guid relationshipId,
         string reason,
         Guid actorUserId,
@@ -199,14 +186,14 @@ public sealed class CoachMemberRelationshipService(
         }
     }
 
-    private async Task<CoachMemberRelationshipDto> GetOneAsync(Guid relationshipId, CancellationToken ct)
+    private async Task<CoachMemberRelationshipResponse> GetOneAsync(Guid relationshipId, CancellationToken ct)
         => await db.Set<CoachMemberRelationship>().AsNoTracking()
                .Where(r => r.RelationshipId == relationshipId).Select(Projection()).SingleOrDefaultAsync(ct)
            ?? throw new NotFoundException("relationship_not_found", "Không tìm thấy quan hệ huấn luyện.");
 
-    private static System.Linq.Expressions.Expression<Func<CoachMemberRelationship, CoachMemberRelationshipDto>>
+    private static System.Linq.Expressions.Expression<Func<CoachMemberRelationship, CoachMemberRelationshipResponse>>
         Projection()
-        => r => new CoachMemberRelationshipDto(
+        => r => new CoachMemberRelationshipResponse(
             r.RelationshipId,
             r.CoachId,
             r.Coach!.Profile != null ? r.Coach.Profile.FullName : r.Coach.Email,

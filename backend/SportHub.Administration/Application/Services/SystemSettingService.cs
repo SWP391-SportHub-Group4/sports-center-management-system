@@ -1,26 +1,20 @@
-using System.ComponentModel.DataAnnotations;
 using Microsoft.EntityFrameworkCore;
+using SportHub.Administration.Application.Interfaces;
 using SportHub.BuildingBlocks.Abstractions.Audit;
 using SportHub.BuildingBlocks.Abstractions.Configuration;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.BuildingBlocks.SharedKernel.Time;
+using System.ComponentModel.DataAnnotations;
 
 namespace SportHub.Administration.Application.Services;
 
-public sealed record SystemSettingDto(string Key, string Value, string Description, DateTime UpdatedAt);
+public sealed record SystemSettingResponse(string Key, string Value, string Description, DateTime UpdatedAt);
 
 public sealed class UpdateSystemSettingRequest
 {
     [Required]
     public string Value { get; set; } = string.Empty;
-}
-
-public interface ISystemSettingService
-{
-    Task<IReadOnlyList<SystemSettingDto>> GetAllAsync(CancellationToken ct = default);
-
-    Task<SystemSettingDto> UpdateAsync(string key, string value, Guid actorUserId, CancellationToken ct = default);
 }
 
 /// <summary>
@@ -41,14 +35,14 @@ public sealed class SystemSettingService(
             [SystemSettingKeys.PackageExpiringReminderDays] = (1, 90)
         };
 
-    public async Task<IReadOnlyList<SystemSettingDto>> GetAllAsync(CancellationToken ct = default)
+    public async Task<IReadOnlyList<SystemSettingResponse>> GetAllAsync(CancellationToken ct = default)
         => await db.Set<SystemSetting>()
             .AsNoTracking()
             .OrderBy(s => s.Key)
-            .Select(s => new SystemSettingDto(s.Key, s.Value, s.Description, s.UpdatedAt))
+            .Select(s => new SystemSettingResponse(s.Key, s.Value, s.Description, s.UpdatedAt))
             .ToListAsync(ct);
 
-    public async Task<SystemSettingDto> UpdateAsync(
+    public async Task<SystemSettingResponse> UpdateAsync(
         string key,
         string value,
         Guid actorUserId,
@@ -82,6 +76,6 @@ public sealed class SystemSettingService(
 
         await db.SaveChangesAsync(ct);
 
-        return new SystemSettingDto(setting.Key, setting.Value, setting.Description, setting.UpdatedAt);
+        return new SystemSettingResponse(setting.Key, setting.Value, setting.Description, setting.UpdatedAt);
     }
 }

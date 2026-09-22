@@ -1,3 +1,5 @@
+using SportHub.Membership.Application.DTOs;
+using SportHub.BuildingBlocks.SharedKernel.Pagination;
 using SportHub.Scheduling.Application.DTOs;
 
 namespace SportHub.Scheduling.Application.Interfaces;

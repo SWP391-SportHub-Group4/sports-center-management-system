@@ -1,8 +1,9 @@
-using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SportHub.BuildingBlocks.Api;
+using SportHub.Membership.Application.Interfaces;
 using SportHub.Membership.Application.Services;
+using System.ComponentModel.DataAnnotations;
 
 namespace SportHub.Membership.Api;
 

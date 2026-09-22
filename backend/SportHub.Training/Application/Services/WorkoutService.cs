@@ -5,24 +5,11 @@ using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.BuildingBlocks.SharedKernel.Time;
 using SportHub.Scheduling.Domain.Entities;
 using SportHub.Scheduling.Domain.Enums;
+using SportHub.Training.Application.Commands;
 using SportHub.Training.Application.DTOs;
+using SportHub.Training.Application.Interfaces;
 
 namespace SportHub.Training.Application.Services;
-
-public interface IWorkoutService
-{
-    Task<IReadOnlyList<WorkoutPlanDto>> GetPlansAsync(
-        Guid? memberId, Guid? coachId, CancellationToken ct = default);
-
-    Task<WorkoutPlanDto> CreatePlanAsync(
-        CreateWorkoutPlanRequest request, Guid coachId, CancellationToken ct = default);
-
-    Task<IReadOnlyList<WorkoutResultDto>> GetResultsAsync(
-        Guid? memberId, Guid? coachId, DateTime? sinceUtc, CancellationToken ct = default);
-
-    Task<WorkoutResultDto> SaveResultAsync(
-        SaveWorkoutResultRequest request, Guid coachId, CancellationToken ct = default);
-}
 
 /// <summary>
 /// Kế hoạch và kết quả tập luyện — BR-23 (chỉ HLV có quan hệ Active mới lập kế hoạch),
@@ -34,7 +21,7 @@ public sealed class WorkoutService(
     IAuditWriter audit,
     IClock clock) : IWorkoutService
 {
-    public async Task<IReadOnlyList<WorkoutPlanDto>> GetPlansAsync(
+    public async Task<IReadOnlyList<WorkoutPlanResponse>> GetPlansAsync(
         Guid? memberId,
         Guid? coachId,
         CancellationToken ct = default)
@@ -54,7 +41,7 @@ public sealed class WorkoutService(
         return await query.OrderByDescending(p => p.CreatedAt).Select(PlanProjection()).ToListAsync(ct);
     }
 
-    public async Task<WorkoutPlanDto> CreatePlanAsync(
+    public async Task<WorkoutPlanResponse> CreatePlanAsync(
         CreateWorkoutPlanRequest request,
         Guid coachId,
         CancellationToken ct = default)
@@ -109,7 +96,7 @@ public sealed class WorkoutService(
         return await GetPlanAsync(plan.PlanId, ct);
     }
 
-    public async Task<IReadOnlyList<WorkoutResultDto>> GetResultsAsync(
+    public async Task<IReadOnlyList<WorkoutResultResponse>> GetResultsAsync(
         Guid? memberId,
         Guid? coachId,
         DateTime? sinceUtc,
@@ -135,7 +122,7 @@ public sealed class WorkoutService(
         return await query.OrderByDescending(r => r.RecordedAt).Select(ResultProjection()).ToListAsync(ct);
     }
 
-    public async Task<WorkoutResultDto> SaveResultAsync(
+    public async Task<WorkoutResultResponse> SaveResultAsync(
         SaveWorkoutResultRequest request,
         Guid coachId,
         CancellationToken ct = default)
@@ -200,18 +187,18 @@ public sealed class WorkoutService(
         return await GetResultAsync(result.ResultId, ct);
     }
 
-    private async Task<WorkoutPlanDto> GetPlanAsync(Guid planId, CancellationToken ct)
+    private async Task<WorkoutPlanResponse> GetPlanAsync(Guid planId, CancellationToken ct)
         => await db.Set<WorkoutPlan>().AsNoTracking().Where(p => p.PlanId == planId).Select(PlanProjection())
                .SingleOrDefaultAsync(ct)
            ?? throw new NotFoundException("workout_plan_not_found", "Không tìm thấy kế hoạch tập.");
 
-    private async Task<WorkoutResultDto> GetResultAsync(Guid resultId, CancellationToken ct)
+    private async Task<WorkoutResultResponse> GetResultAsync(Guid resultId, CancellationToken ct)
         => await db.Set<WorkoutResult>().AsNoTracking().Where(r => r.ResultId == resultId).Select(ResultProjection())
                .SingleOrDefaultAsync(ct)
            ?? throw new NotFoundException("workout_result_not_found", "Không tìm thấy kết quả tập.");
 
-    private static System.Linq.Expressions.Expression<Func<WorkoutPlan, WorkoutPlanDto>> PlanProjection()
-        => p => new WorkoutPlanDto(
+    private static System.Linq.Expressions.Expression<Func<WorkoutPlan, WorkoutPlanResponse>> PlanProjection()
+        => p => new WorkoutPlanResponse(
             p.PlanId,
             p.MemberId,
             p.Member!.Profile != null ? p.Member.Profile.FullName : p.Member.Email,
@@ -221,10 +208,10 @@ public sealed class WorkoutService(
             p.Goal,
             p.Level,
             p.CreatedAt,
-            p.Items.Select(i => new WorkoutPlanItemDto(i.ItemId, i.Exercise, i.Sets, i.Reps, i.Notes)).ToList());
+            p.Items.Select(i => new WorkoutPlanItemResponse(i.ItemId, i.Exercise, i.Sets, i.Reps, i.Notes)).ToList());
 
-    private static System.Linq.Expressions.Expression<Func<WorkoutResult, WorkoutResultDto>> ResultProjection()
-        => r => new WorkoutResultDto(
+    private static System.Linq.Expressions.Expression<Func<WorkoutResult, WorkoutResultResponse>> ResultProjection()
+        => r => new WorkoutResultResponse(
             r.ResultId,
             r.EnrollmentId,
             r.Enrollment!.SessionId,

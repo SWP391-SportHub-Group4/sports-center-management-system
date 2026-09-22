@@ -2,20 +2,11 @@ using Microsoft.EntityFrameworkCore;
 using SportHub.BuildingBlocks.Abstractions.Audit;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
+using SportHub.Scheduling.Application.Commands;
 using SportHub.Scheduling.Application.DTOs;
+using SportHub.Scheduling.Application.Interfaces;
 
 namespace SportHub.Scheduling.Application.Services;
-
-public interface IRoomService
-{
-    Task<IReadOnlyList<RoomResponse>> GetAllAsync(CancellationToken ct = default);
-
-    Task<RoomResponse> CreateAsync(SaveRoomRequest request, Guid actorUserId, CancellationToken ct = default);
-
-    Task<RoomResponse> UpdateAsync(int roomId, SaveRoomRequest request, Guid actorUserId, CancellationToken ct = default);
-
-    Task DeleteAsync(int roomId, Guid actorUserId, CancellationToken ct = default);
-}
 
 /// <summary>
 /// Danh mục phòng tập — BR-39 (chỉ Center Manager cấu hình), BR-57 (Name unique toàn trung tâm).

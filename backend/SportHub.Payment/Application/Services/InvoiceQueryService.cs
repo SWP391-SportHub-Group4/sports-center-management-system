@@ -1,24 +1,14 @@
 using Microsoft.EntityFrameworkCore;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
+using SportHub.BuildingBlocks.SharedKernel.Pagination;
 using SportHub.BuildingBlocks.SharedKernel.Time;
 using SportHub.Membership.Domain.Entities;
 using SportHub.Payment.Application.DTOs;
+using SportHub.Payment.Application.Interfaces;
 using SportHub.Payment.Domain.Rules;
 
 namespace SportHub.Payment.Application.Services;
-
-public interface IInvoiceQueryService
-{
-    Task<PagedResult<InvoiceSummaryDto>> SearchAsync(
-        Guid? memberId, string? status, bool overdueOnly, string? keyword,
-        int page, int pageSize, CancellationToken ct = default);
-
-    Task<InvoiceDetailDto> GetDetailAsync(Guid invoiceId, CancellationToken ct = default);
-
-    /// <summary>Tính lại số dư từ DB — dùng cho mọi đường ghi cần kiểm tra BR-41.</summary>
-    Task<InvoiceBalance> GetBalanceAsync(Guid invoiceId, CancellationToken ct = default);
-}
 
 public sealed class InvoiceQueryService(ISportHubDbContext db, IClock clock) : IInvoiceQueryService
 {
@@ -45,7 +35,7 @@ public sealed class InvoiceQueryService(ISportHubDbContext db, IClock clock) : I
         DateTime? FirstDepositAtUtc,
         Guid? MemberPackageId);
 
-    public async Task<PagedResult<InvoiceSummaryDto>> SearchAsync(
+    public async Task<PagedResult<InvoiceSummaryResponse>> SearchAsync(
         Guid? memberId,
         string? status,
         bool overdueOnly,
@@ -97,10 +87,16 @@ public sealed class InvoiceQueryService(ISportHubDbContext db, IClock clock) : I
             .Select(RowProjection())
             .ToListAsync(ct);
 
-        return new PagedResult<InvoiceSummaryDto>([.. rows.Select(r => ToSummary(r, now))], page, pageSize, total);
+        return new PagedResult<InvoiceSummaryResponse>
+        {
+            Items = [.. rows.Select(r => ToSummary(r, now))],
+            Page = page,
+            PageSize = pageSize,
+            TotalCount = total
+        };
     }
 
-    public async Task<InvoiceDetailDto> GetDetailAsync(Guid invoiceId, CancellationToken ct = default)
+    public async Task<InvoiceDetailResponse> GetDetailAsync(Guid invoiceId, CancellationToken ct = default)
     {
         var now = clock.UtcNow;
 
@@ -114,14 +110,14 @@ public sealed class InvoiceQueryService(ISportHubDbContext db, IClock clock) : I
         var items = await db.Set<InvoiceItem>()
             .AsNoTracking()
             .Where(it => it.InvoiceId == invoiceId)
-            .Select(it => new InvoiceItemDto(it.ItemId, it.Description, it.Amount, it.RelatedEntityType.ToString()))
+            .Select(it => new InvoiceItemResponse(it.ItemId, it.Description, it.Amount, it.RelatedEntityType.ToString()))
             .ToListAsync(ct);
 
         var payments = await db.Set<Domain.Entities.Payment>()
             .AsNoTracking()
             .Where(p => p.InvoiceId == invoiceId)
             .OrderBy(p => p.PaidAt)
-            .Select(p => new PaymentDto(
+            .Select(p => new PaymentResponse(
                 p.PaymentId, p.Amount, p.Method.ToString(), p.Status.ToString(), p.ReferenceCode,
                 p.ReceivedByUserId,
                 p.ReceivedByUser!.Profile != null ? p.ReceivedByUser.Profile.FullName : p.ReceivedByUser.Email,
@@ -154,7 +150,7 @@ public sealed class InvoiceQueryService(ISportHubDbContext db, IClock clock) : I
             }
         }
 
-        return new InvoiceDetailDto(
+        return new InvoiceDetailResponse(
             ToSummary(row, now), row.MemberPackageId, items, payments, adjustments, suggestedRefund);
     }
 
@@ -170,11 +166,11 @@ public sealed class InvoiceQueryService(ISportHubDbContext db, IClock clock) : I
         return new InvoiceBalance(row.TotalAmount, row.Adjusted, row.Collected);
     }
 
-    private static InvoiceSummaryDto ToSummary(InvoiceRow row, DateTime now)
+    private static InvoiceSummaryResponse ToSummary(InvoiceRow row, DateTime now)
     {
         var balance = new InvoiceBalance(row.TotalAmount, row.Adjusted, row.Collected);
 
-        return new InvoiceSummaryDto(
+        return new InvoiceSummaryResponse(
             row.InvoiceId,
             row.InvoiceNumber,
             row.MemberId,
@@ -213,9 +209,9 @@ public sealed class InvoiceQueryService(ISportHubDbContext db, IClock clock) : I
             i.FirstDepositAtUtc,
             i.MemberPackageId);
 
-    internal static System.Linq.Expressions.Expression<Func<PaymentAdjustment, PaymentAdjustmentDto>>
+    internal static System.Linq.Expressions.Expression<Func<PaymentAdjustment, PaymentAdjustmentResponse>>
         AdjustmentProjection()
-        => a => new PaymentAdjustmentDto(
+        => a => new PaymentAdjustmentResponse(
             a.AdjustmentId,
             a.InvoiceId,
             a.Invoice!.InvoiceNumber,

@@ -64,7 +64,7 @@ public sealed class AuthService(
         return new AuthResponse
         {
             AccessToken = token,
-            User = new UserSummaryDto
+            User = new UserSummaryResponse
             {
                 UserId = user.UserId,
                 Email = email,
@@ -105,7 +105,7 @@ public sealed class AuthService(
         return new AuthResponse
         {
             AccessToken = token,
-            User = new UserSummaryDto
+            User = new UserSummaryResponse
             {
                 UserId = user.UserId,
                 Email = user.Email,
