@@ -19,7 +19,6 @@ public class AuthController(IAuthService authService) : ControllerBase
         CancellationToken cancellationToken)
     {
         var result = await authService.RegisterAsync(request, cancellationToken);
-
         return StatusCode(StatusCodes.Status201Created, result);
     }
 
@@ -31,7 +30,6 @@ public class AuthController(IAuthService authService) : ControllerBase
         CancellationToken cancellationToken)
     {
         var result = await authService.LoginAsync(request, cancellationToken);
-
         return Ok(result);
     }
 }
