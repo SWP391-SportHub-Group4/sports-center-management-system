@@ -8,11 +8,11 @@ namespace SportHub.Scheduling.Application.Services;
 
 public interface IRoomService
 {
-    Task<IReadOnlyList<RoomDto>> GetAllAsync(CancellationToken ct = default);
+    Task<IReadOnlyList<RoomResponse>> GetAllAsync(CancellationToken ct = default);
 
-    Task<RoomDto> CreateAsync(SaveRoomRequest request, Guid actorUserId, CancellationToken ct = default);
+    Task<RoomResponse> CreateAsync(SaveRoomRequest request, Guid actorUserId, CancellationToken ct = default);
 
-    Task<RoomDto> UpdateAsync(int roomId, SaveRoomRequest request, Guid actorUserId, CancellationToken ct = default);
+    Task<RoomResponse> UpdateAsync(int roomId, SaveRoomRequest request, Guid actorUserId, CancellationToken ct = default);
 
     Task DeleteAsync(int roomId, Guid actorUserId, CancellationToken ct = default);
 }
@@ -22,18 +22,18 @@ public interface IRoomService
 /// </summary>
 public sealed class RoomService(ISportHubDbContext db, IAuditWriter audit) : IRoomService
 {
-    public async Task<IReadOnlyList<RoomDto>> GetAllAsync(CancellationToken ct = default)
+    public async Task<IReadOnlyList<RoomResponse>> GetAllAsync(CancellationToken ct = default)
         => await db.Set<Room>()
             .AsNoTracking()
             .OrderBy(r => r.Name)
-            .Select(r => new RoomDto(
+            .Select(r => new RoomResponse(
                 r.RoomId,
                 r.Name,
                 r.Capacity,
                 r.Classes.Count(c => c.Status == ClassStatus.Active)))
             .ToListAsync(ct);
 
-    public async Task<RoomDto> CreateAsync(SaveRoomRequest request, Guid actorUserId, CancellationToken ct = default)
+    public async Task<RoomResponse> CreateAsync(SaveRoomRequest request, Guid actorUserId, CancellationToken ct = default)
     {
         var name = request.Name.Trim();
 
@@ -61,7 +61,7 @@ public sealed class RoomService(ISportHubDbContext db, IAuditWriter audit) : IRo
         return await GetOneAsync(room.RoomId, ct);
     }
 
-    public async Task<RoomDto> UpdateAsync(
+    public async Task<RoomResponse> UpdateAsync(
         int roomId,
         SaveRoomRequest request,
         Guid actorUserId,
@@ -121,11 +121,11 @@ public sealed class RoomService(ISportHubDbContext db, IAuditWriter audit) : IRo
         await db.SaveChangesAsync(ct);
     }
 
-    private async Task<RoomDto> GetOneAsync(int roomId, CancellationToken ct)
+    private async Task<RoomResponse> GetOneAsync(int roomId, CancellationToken ct)
         => await db.Set<Room>()
                .AsNoTracking()
                .Where(r => r.RoomId == roomId)
-               .Select(r => new RoomDto(
+               .Select(r => new RoomResponse(
                    r.RoomId, r.Name, r.Capacity, r.Classes.Count(c => c.Status == ClassStatus.Active)))
                .SingleOrDefaultAsync(ct)
            ?? throw new NotFoundException("room_not_found", "Không tìm thấy phòng tập.");

@@ -9,7 +9,7 @@ public sealed class GymCheckInService(IGymCheckInRepository repository) : IGymCh
 
     public const int MaxPageSize = 100;
 
-    public async Task<GymCheckInDto> CreateAsync(
+    public async Task<GymCheckInResponse> CreateAsync(
         Guid targetMemberId,
         Guid checkedInByUserId,
         CancellationToken cancellationToken = default)
@@ -32,7 +32,7 @@ public sealed class GymCheckInService(IGymCheckInRepository repository) : IGymCh
         return ToDto(checkIn);
     }
 
-    public async Task<PagedResult<GymCheckInDto>> GetHistoryAsync(
+    public async Task<PagedResult<GymCheckInResponse>> GetHistoryAsync(
         Guid memberId,
         int page,
         int pageSize,
@@ -52,7 +52,7 @@ public sealed class GymCheckInService(IGymCheckInRepository repository) : IGymCh
             pageSize,
             cancellationToken);
 
-        return new PagedResult<GymCheckInDto>
+        return new PagedResult<GymCheckInResponse>
         {
             Items = [.. items.Select(ToDto)],
             Page = page,
@@ -61,7 +61,7 @@ public sealed class GymCheckInService(IGymCheckInRepository repository) : IGymCh
         };
     }
 
-    private static GymCheckInDto ToDto(GymCheckIn checkIn) => new()
+    private static GymCheckInResponse ToDto(GymCheckIn checkIn) => new()
     {
         CheckInId = checkIn.CheckInId,
         MemberId = checkIn.MemberId,

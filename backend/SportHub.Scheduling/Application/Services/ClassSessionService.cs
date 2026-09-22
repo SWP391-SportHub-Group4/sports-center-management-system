@@ -15,27 +15,27 @@ namespace SportHub.Scheduling.Application.Services;
 
 public interface IClassSessionService
 {
-    Task<IReadOnlyList<ClassSessionDto>> SearchAsync(
+    Task<IReadOnlyList<ClassSessionResponse>> SearchAsync(
         DateOnly fromDate, DateOnly toDate, int? classId, Guid? coachId, string? discipline,
         bool includeCancelled, CancellationToken ct = default);
 
-    Task<ClassSessionDto> GetAsync(Guid sessionId, CancellationToken ct = default);
+    Task<ClassSessionResponse> GetAsync(Guid sessionId, CancellationToken ct = default);
 
-    Task<IReadOnlyList<ClassSessionDto>> GenerateAsync(
+    Task<IReadOnlyList<ClassSessionResponse>> GenerateAsync(
         int classId, GenerateSessionsRequest request, Guid actorUserId, CancellationToken ct = default);
 
-    Task<ClassSessionDto> CreateAdHocAsync(
+    Task<ClassSessionResponse> CreateAdHocAsync(
         CreateAdHocSessionRequest request, Guid actorUserId, CancellationToken ct = default);
 
-    Task<ClassSessionDto> UpdateAsync(
+    Task<ClassSessionResponse> UpdateAsync(
         Guid sessionId, UpdateSessionRequest request, Guid actorUserId, CancellationToken ct = default);
 
-    Task<ClassSessionDto> CancelAsync(Guid sessionId, string reason, Guid actorUserId, CancellationToken ct = default);
+    Task<ClassSessionResponse> CancelAsync(Guid sessionId, string reason, Guid actorUserId, CancellationToken ct = default);
 
-    Task<ClassSessionDto> RescheduleAsync(
+    Task<ClassSessionResponse> RescheduleAsync(
         Guid sessionId, RescheduleSessionRequest request, Guid actorUserId, CancellationToken ct = default);
 
-    Task<SessionRosterDto> GetRosterAsync(Guid sessionId, CancellationToken ct = default);
+    Task<SessionRosterResponse> GetRosterAsync(Guid sessionId, CancellationToken ct = default);
 }
 
 /// <summary>
@@ -48,7 +48,7 @@ public sealed class ClassSessionService(
     INotificationWriter notifications,
     IClock clock) : IClassSessionService
 {
-    public async Task<IReadOnlyList<ClassSessionDto>> SearchAsync(
+    public async Task<IReadOnlyList<ClassSessionResponse>> SearchAsync(
         DateOnly fromDate,
         DateOnly toDate,
         int? classId,
@@ -94,7 +94,7 @@ public sealed class ClassSessionService(
         return await query.OrderBy(s => s.StartAtUtc).Select(Projection()).ToListAsync(ct);
     }
 
-    public async Task<ClassSessionDto> GetAsync(Guid sessionId, CancellationToken ct = default)
+    public async Task<ClassSessionResponse> GetAsync(Guid sessionId, CancellationToken ct = default)
         => await db.Set<ClassSession>().AsNoTracking().Where(s => s.SessionId == sessionId).Select(Projection())
                .SingleOrDefaultAsync(ct)
            ?? throw new NotFoundException("session_not_found", "Không tìm thấy buổi học.");
@@ -106,7 +106,7 @@ public sealed class ClassSessionService(
     /// lại cùng khoảng ngày không nhân đôi lịch. Nếu không, mỗi lần Manager bấm "sinh lịch"
     /// lại lớp lên một tầng buổi trùng giờ.
     /// </summary>
-    public async Task<IReadOnlyList<ClassSessionDto>> GenerateAsync(
+    public async Task<IReadOnlyList<ClassSessionResponse>> GenerateAsync(
         int classId,
         GenerateSessionsRequest request,
         Guid actorUserId,
@@ -241,7 +241,7 @@ public sealed class ClassSessionService(
             .ToListAsync(ct);
     }
 
-    public async Task<ClassSessionDto> CreateAdHocAsync(
+    public async Task<ClassSessionResponse> CreateAdHocAsync(
         CreateAdHocSessionRequest request,
         Guid actorUserId,
         CancellationToken ct = default)
@@ -273,7 +273,7 @@ public sealed class ClassSessionService(
         return await GetAsync(session.SessionId, ct);
     }
 
-    public async Task<ClassSessionDto> UpdateAsync(
+    public async Task<ClassSessionResponse> UpdateAsync(
         Guid sessionId,
         UpdateSessionRequest request,
         Guid actorUserId,
@@ -377,7 +377,7 @@ public sealed class ClassSessionService(
     /// BR-54 — trung tâm hủy buổi chưa bắt đầu: hủy các đăng ký còn hiệu lực, HOÀN LƯỢT,
     /// KHÔNG áp dụng phạt hủy trễ/No-show, và báo cho từng hội viên là cần tự đăng ký lại.
     /// </summary>
-    public async Task<ClassSessionDto> CancelAsync(
+    public async Task<ClassSessionResponse> CancelAsync(
         Guid sessionId,
         string reason,
         Guid actorUserId,
@@ -416,7 +416,7 @@ public sealed class ClassSessionService(
     /// Hệ thống KHÔNG tự chuyển đăng ký sang buổi mới và không giữ chỗ — BR-54 nói rõ hội viên
     /// phải chủ động đăng ký lại theo điều kiện thông thường.
     /// </summary>
-    public async Task<ClassSessionDto> RescheduleAsync(
+    public async Task<ClassSessionResponse> RescheduleAsync(
         Guid sessionId,
         RescheduleSessionRequest request,
         Guid actorUserId,
@@ -464,7 +464,7 @@ public sealed class ClassSessionService(
         return await GetAsync(replacement.SessionId, ct);
     }
 
-    public async Task<SessionRosterDto> GetRosterAsync(Guid sessionId, CancellationToken ct = default)
+    public async Task<SessionRosterResponse> GetRosterAsync(Guid sessionId, CancellationToken ct = default)
     {
         var session = await GetAsync(sessionId, ct);
 
@@ -472,7 +472,7 @@ public sealed class ClassSessionService(
             .AsNoTracking()
             .Where(e => e.SessionId == sessionId)
             .OrderBy(e => e.Member!.Email)
-            .Select(e => new RosterEntryDto(
+            .Select(e => new RosterEntryResponse(
                 e.EnrollmentId,
                 e.MemberId,
                 e.Member!.Email,
@@ -482,7 +482,7 @@ public sealed class ClassSessionService(
                 e.Attendance == null ? null : e.Attendance.CheckInTime))
             .ToListAsync(ct);
 
-        return new SessionRosterDto(session, entries);
+        return new SessionRosterResponse(session, entries);
     }
 
     /// <summary>
@@ -653,8 +653,8 @@ public sealed class ClassSessionService(
            + $"\"startAtUtc\":\"{s.StartAtUtc:O}\",\"endAtUtc\":\"{s.EndAtUtc:O}\","
            + $"\"capacity\":{s.Capacity},\"baselineCapacity\":{s.BaselineCapacity},\"status\":\"{s.Status}\"}}";
 
-    internal static System.Linq.Expressions.Expression<Func<ClassSession, ClassSessionDto>> Projection()
-        => s => new ClassSessionDto(
+    internal static System.Linq.Expressions.Expression<Func<ClassSession, ClassSessionResponse>> Projection()
+        => s => new ClassSessionResponse(
             s.SessionId,
             s.ClassId,
             s.Class!.Name,
