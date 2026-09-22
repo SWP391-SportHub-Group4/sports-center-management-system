@@ -2,24 +2,13 @@ using Microsoft.EntityFrameworkCore;
 using SportHub.BuildingBlocks.Abstractions.Audit;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
+using SportHub.BuildingBlocks.SharedKernel.Pagination;
 using SportHub.BuildingBlocks.SharedKernel.Time;
 using SportHub.Membership.Application.DTOs;
+using SportHub.Membership.Application.Interfaces;
 using SportHub.Membership.Domain.Rules;
 
 namespace SportHub.Membership.Application.Services;
-
-public interface IMemberPackageService
-{
-    Task<IReadOnlyList<MemberPackageDto>> GetByMemberAsync(Guid memberId, CancellationToken ct = default);
-
-    Task<PagedResult<MemberPackageDto>> SearchAsync(
-        string? status, string? keyword, int page, int pageSize, CancellationToken ct = default);
-
-    Task<MemberPackageDto> CancelAsync(Guid memberPackageId, string reason, Guid actorUserId, CancellationToken ct = default);
-
-    /// <summary>Số gói đang dùng được — dùng cho dashboard, không phải điều kiện nghiệp vụ.</summary>
-    Task<int> CountUsableAsync(Guid memberId, CancellationToken ct = default);
-}
 
 /// <summary>
 /// Đọc và huỷ gói đã bán. Việc MUA gói (tạo hoá đơn, BR-30) nằm ở module Payment vì
@@ -31,7 +20,7 @@ public sealed class MemberPackageService(
     IAuditWriter audit,
     IClock clock) : IMemberPackageService
 {
-    public async Task<IReadOnlyList<MemberPackageDto>> GetByMemberAsync(Guid memberId, CancellationToken ct = default)
+    public async Task<IReadOnlyList<MemberPackageResponse>> GetByMemberAsync(Guid memberId, CancellationToken ct = default)
     {
         var today = MemberPackageRules.Today(clock);
 
@@ -43,7 +32,7 @@ public sealed class MemberPackageService(
             .ToListAsync(ct);
     }
 
-    public async Task<PagedResult<MemberPackageDto>> SearchAsync(
+    public async Task<PagedResult<MemberPackageResponse>> SearchAsync(
         string? status,
         string? keyword,
         int page,
@@ -82,10 +71,16 @@ public sealed class MemberPackageService(
             .Select(Projection(today))
             .ToListAsync(ct);
 
-        return new PagedResult<MemberPackageDto>(items, page, pageSize, total);
+        return new PagedResult<MemberPackageResponse>
+        {
+            Items = items,
+            Page = page,
+            PageSize = pageSize,
+            TotalCount = total
+        };
     }
 
-    public async Task<MemberPackageDto> CancelAsync(
+    public async Task<MemberPackageResponse> CancelAsync(
         Guid memberPackageId,
         string reason,
         Guid actorUserId,
@@ -134,7 +129,7 @@ public sealed class MemberPackageService(
                 ct);
     }
 
-    private async Task<MemberPackageDto> GetOneAsync(Guid memberPackageId, CancellationToken ct)
+    private async Task<MemberPackageResponse> GetOneAsync(Guid memberPackageId, CancellationToken ct)
     {
         var today = MemberPackageRules.Today(clock);
 
@@ -154,8 +149,8 @@ public sealed class MemberPackageService(
     // IsUsable lặp lại điều kiện BR-9 dưới dạng biểu thức LINQ thay vì gọi
     // MemberPackageRules.IsUsable — hàm C# không dịch được sang SQL. Hai nơi phải khớp nhau;
     // MemberPackageRulesTests khoá định nghĩa gốc.
-    private static System.Linq.Expressions.Expression<Func<MemberPackage, MemberPackageDto>> Projection(DateOnly today)
-        => mp => new MemberPackageDto(
+    private static System.Linq.Expressions.Expression<Func<MemberPackage, MemberPackageResponse>> Projection(DateOnly today)
+        => mp => new MemberPackageResponse(
             mp.MemberPackageId,
             mp.MemberId,
             mp.Member!.Email,

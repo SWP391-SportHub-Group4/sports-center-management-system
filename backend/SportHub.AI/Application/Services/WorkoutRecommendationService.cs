@@ -1,5 +1,3 @@
-using System.Diagnostics;
-using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using SportHub.AI.Application.Interfaces;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
@@ -9,6 +7,8 @@ using SportHub.Membership.Domain.Entities;
 using SportHub.Scheduling.Domain.Entities;
 using SportHub.Scheduling.Domain.Enums;
 using SportHub.Training.Domain.Entities;
+using System.Diagnostics;
+using System.Text.Json;
 
 namespace SportHub.AI.Application.Services;
 
@@ -25,7 +25,7 @@ public sealed record WorkoutSuggestionInput(
     IReadOnlyList<string> RecentDisciplines,
     IReadOnlyList<string> RecentCoachNotes);
 
-public sealed record WorkoutSuggestionDto(
+public sealed record WorkoutSuggestionResponse(
     Guid MemberId,
     string MemberName,
     string Goal,
@@ -35,11 +35,6 @@ public sealed record WorkoutSuggestionDto(
     string Rationale,
     int ResponseTimeMs,
     DateTime GeneratedAt);
-
-public interface IWorkoutRecommendationService
-{
-    Task<WorkoutSuggestionDto> SuggestAsync(Guid memberId, Guid coachId, CancellationToken ct = default);
-}
 
 /// <summary>
 /// Gợi ý bài tập cho HLV — BR-26 (bắt buộc đủ ba đầu vào: mục tiêu, trình độ, lịch sử tập
@@ -57,7 +52,7 @@ public sealed class WorkoutRecommendationService(
     /// <summary>BR-26 — "lịch sử tập luyện bao gồm ít nhất 30 ngày gần nhất".</summary>
     public const int HistoryWindowDays = 30;
 
-    public async Task<WorkoutSuggestionDto> SuggestAsync(
+    public async Task<WorkoutSuggestionResponse> SuggestAsync(
         Guid memberId,
         Guid coachId,
         CancellationToken ct = default)
@@ -159,7 +154,7 @@ public sealed class WorkoutRecommendationService(
                 502, "ai_provider_failed", $"Không tạo được gợi ý từ AI: {failure}");
         }
 
-        return new WorkoutSuggestionDto(
+        return new WorkoutSuggestionResponse(
             memberId,
             member.Name,
             profile.Goal,

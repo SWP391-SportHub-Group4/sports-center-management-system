@@ -2,16 +2,11 @@ using Microsoft.EntityFrameworkCore;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.BuildingBlocks.SharedKernel.Time;
+using SportHub.Membership.Application.Commands;
 using SportHub.Membership.Application.DTOs;
+using SportHub.Membership.Application.Interfaces;
 
 namespace SportHub.Membership.Application.Services;
-
-public interface IMemberTrainingProfileService
-{
-    Task<MemberTrainingProfileDto?> GetAsync(Guid memberId, CancellationToken ct = default);
-
-    Task<MemberTrainingProfileDto> SaveAsync(Guid memberId, SaveTrainingProfileRequest request, CancellationToken ct = default);
-}
 
 /// <summary>
 /// Hồ sơ tập luyện của hội viên — hai trong ba đầu vào bắt buộc của gợi ý AI (BR-26:
@@ -22,15 +17,15 @@ public interface IMemberTrainingProfileService
 public sealed class MemberTrainingProfileService(ISportHubDbContext db, IClock clock)
     : IMemberTrainingProfileService
 {
-    public Task<MemberTrainingProfileDto?> GetAsync(Guid memberId, CancellationToken ct = default)
+    public Task<MemberTrainingProfileResponse?> GetAsync(Guid memberId, CancellationToken ct = default)
         => db.Set<MemberTrainingProfile>()
             .AsNoTracking()
             .Where(p => p.MemberId == memberId)
-            .Select(p => new MemberTrainingProfileDto(
+            .Select(p => new MemberTrainingProfileResponse(
                 p.MemberId, p.Goal, p.ExperienceLevel.ToString(), p.Notes, p.UpdatedAt))
             .SingleOrDefaultAsync(ct);
 
-    public async Task<MemberTrainingProfileDto> SaveAsync(
+    public async Task<MemberTrainingProfileResponse> SaveAsync(
         Guid memberId,
         SaveTrainingProfileRequest request,
         CancellationToken ct = default)
@@ -59,7 +54,7 @@ public sealed class MemberTrainingProfileService(ISportHubDbContext db, IClock c
 
         await db.SaveChangesAsync(ct);
 
-        return new MemberTrainingProfileDto(
+        return new MemberTrainingProfileResponse(
             profile.MemberId, profile.Goal, profile.ExperienceLevel.ToString(), profile.Notes, profile.UpdatedAt);
     }
 }

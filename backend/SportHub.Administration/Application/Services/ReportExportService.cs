@@ -1,23 +1,25 @@
-using System.ComponentModel.DataAnnotations;
-using System.Globalization;
-using System.Text;
-using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using SportHub.Administration.Application.DTOs;
+using SportHub.Administration.Application.Interfaces;
 using SportHub.Administration.Infrastructure;
 using SportHub.BuildingBlocks.Abstractions.Audit;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
+using SportHub.BuildingBlocks.SharedKernel.Pagination;
 using SportHub.BuildingBlocks.SharedKernel.Time;
 using SportHub.Membership.Domain.Entities;
 using SportHub.Membership.Domain.Enums;
 using SportHub.Payment.Domain.Entities;
 using SportHub.Payment.Domain.Enums;
 using SportHub.Payment.Domain.Rules;
+using System.ComponentModel.DataAnnotations;
+using System.Globalization;
+using System.Text.Json;
+using System.Text;
 
 namespace SportHub.Administration.Application.Services;
 
-public sealed record ReportExportDto(
+public sealed record ReportExportResponse(
     Guid ReportExportId,
     string ReportType,
     Guid RequestedByUserId,
@@ -51,22 +53,6 @@ public sealed class CreateReportExportRequest
     public List<string> Columns { get; set; } = [];
 }
 
-public interface IReportExportService
-{
-    Task<PagedResult<ReportExportDto>> SearchAsync(
-        Guid actorUserId, bool actorIsCenterManager, int page, int pageSize, CancellationToken ct = default);
-
-    Task<ReportExportDto> CreateAsync(
-        CreateReportExportRequest request, Guid actorUserId, CancellationToken ct = default);
-
-    Task<(string FileName, byte[] Content)> DownloadAsync(
-        Guid reportExportId, Guid actorUserId, bool actorIsCenterManager, CancellationToken ct = default);
-
-    Task DeleteAsync(Guid reportExportId, Guid actorUserId, bool actorIsCenterManager, CancellationToken ct = default);
-
-    Task<ReportExportDto> RetryAsync(Guid reportExportId, Guid actorUserId, CancellationToken ct = default);
-}
-
 /// <summary>
 /// Báo cáo/tệp xuất đã tạo — BR-44 (chỉ cột được chọn), BR-45 (ownership), BR-46 (giữ ≥6 tháng),
 /// BR-47 (xoá thì link cũ hết truy cập), BR-48 (trạng thái FAILED + tạo lại).
@@ -83,7 +69,7 @@ public sealed class ReportExportService(
     /// <summary>BR-46 — lưu tối thiểu 6 tháng.</summary>
     public const int RetentionMonths = 6;
 
-    public async Task<PagedResult<ReportExportDto>> SearchAsync(
+    public async Task<PagedResult<ReportExportResponse>> SearchAsync(
         Guid actorUserId,
         bool actorIsCenterManager,
         int page,
@@ -111,10 +97,16 @@ public sealed class ReportExportService(
             .Select(Projection())
             .ToListAsync(ct);
 
-        return new PagedResult<ReportExportDto>(items, page, pageSize, total);
+        return new PagedResult<ReportExportResponse>
+        {
+            Items = items,
+            Page = page,
+            PageSize = pageSize,
+            TotalCount = total
+        };
     }
 
-    public async Task<ReportExportDto> CreateAsync(
+    public async Task<ReportExportResponse> CreateAsync(
         CreateReportExportRequest request,
         Guid actorUserId,
         CancellationToken ct = default)
@@ -230,7 +222,7 @@ public sealed class ReportExportService(
     }
 
     /// <summary>BR-48 — cho người dùng tạo lại báo cáo đã FAILED.</summary>
-    public async Task<ReportExportDto> RetryAsync(
+    public async Task<ReportExportResponse> RetryAsync(
         Guid reportExportId,
         Guid actorUserId,
         CancellationToken ct = default)
@@ -461,7 +453,7 @@ public sealed class ReportExportService(
         return export;
     }
 
-    private async Task<ReportExportDto> GetOneAsync(Guid reportExportId, CancellationToken ct)
+    private async Task<ReportExportResponse> GetOneAsync(Guid reportExportId, CancellationToken ct)
         => await db.Set<ReportExport>().AsNoTracking()
                .Where(r => r.ReportExportId == reportExportId).Select(Projection()).SingleOrDefaultAsync(ct)
            ?? throw new NotFoundException("report_not_found", "Không tìm thấy báo cáo.");
@@ -476,8 +468,8 @@ public sealed class ReportExportService(
             : value;
     }
 
-    private static System.Linq.Expressions.Expression<Func<ReportExport, ReportExportDto>> Projection()
-        => r => new ReportExportDto(
+    private static System.Linq.Expressions.Expression<Func<ReportExport, ReportExportResponse>> Projection()
+        => r => new ReportExportResponse(
             r.ReportExportId,
             r.ReportType,
             r.RequestedByUserId,

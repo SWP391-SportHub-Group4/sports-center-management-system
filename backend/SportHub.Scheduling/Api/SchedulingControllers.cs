@@ -3,7 +3,9 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using SportHub.BuildingBlocks.Api;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
+using SportHub.Scheduling.Application.Commands;
 using SportHub.Scheduling.Application.DTOs;
+using SportHub.Scheduling.Application.Interfaces;
 using SportHub.Scheduling.Application.Services;
 
 namespace SportHub.Scheduling.Api;

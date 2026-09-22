@@ -2,26 +2,14 @@ using Microsoft.EntityFrameworkCore;
 using SportHub.BuildingBlocks.Abstractions.Audit;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
+using SportHub.BuildingBlocks.SharedKernel.Pagination;
 using SportHub.BuildingBlocks.SharedKernel.Time;
+using SportHub.Payment.Application.Commands;
 using SportHub.Payment.Application.DTOs;
+using SportHub.Payment.Application.Interfaces;
 using SportHub.Payment.Domain.Rules;
 
 namespace SportHub.Payment.Application.Services;
-
-public interface IPaymentAdjustmentService
-{
-    Task<PagedResult<PaymentAdjustmentDto>> SearchAsync(
-        string? status, Guid? invoiceId, int page, int pageSize, CancellationToken ct = default);
-
-    Task<PaymentAdjustmentDto> RequestAsync(
-        Guid invoiceId, CreateAdjustmentRequest request, Guid actorUserId, CancellationToken ct = default);
-
-    Task<PaymentAdjustmentDto> ApproveAsync(
-        Guid adjustmentId, ApproveAdjustmentRequest request, Guid actorUserId, CancellationToken ct = default);
-
-    Task<PaymentAdjustmentDto> RejectAsync(
-        Guid adjustmentId, string reason, Guid actorUserId, CancellationToken ct = default);
-}
 
 /// <summary>
 /// Điều chỉnh/hoàn tiền — BR-40 (hoá đơn không bao giờ bị xoá, mọi sửa đổi đi qua đây),
@@ -37,7 +25,7 @@ public sealed class PaymentAdjustmentService(
     IAuditWriter audit,
     IClock clock) : IPaymentAdjustmentService
 {
-    public async Task<PagedResult<PaymentAdjustmentDto>> SearchAsync(
+    public async Task<PagedResult<PaymentAdjustmentResponse>> SearchAsync(
         string? status,
         Guid? invoiceId,
         int page,
@@ -69,10 +57,16 @@ public sealed class PaymentAdjustmentService(
             .Select(InvoiceQueryService.AdjustmentProjection())
             .ToListAsync(ct);
 
-        return new PagedResult<PaymentAdjustmentDto>(items, page, pageSize, total);
+        return new PagedResult<PaymentAdjustmentResponse>
+        {
+            Items = items,
+            Page = page,
+            PageSize = pageSize,
+            TotalCount = total
+        };
     }
 
-    public async Task<PaymentAdjustmentDto> RequestAsync(
+    public async Task<PaymentAdjustmentResponse> RequestAsync(
         Guid invoiceId,
         CreateAdjustmentRequest request,
         Guid actorUserId,
@@ -144,7 +138,7 @@ public sealed class PaymentAdjustmentService(
         return await GetOneAsync(adjustment.AdjustmentId, ct);
     }
 
-    public async Task<PaymentAdjustmentDto> ApproveAsync(
+    public async Task<PaymentAdjustmentResponse> ApproveAsync(
         Guid adjustmentId,
         ApproveAdjustmentRequest request,
         Guid actorUserId,
@@ -226,7 +220,7 @@ public sealed class PaymentAdjustmentService(
         return await GetOneAsync(adjustmentId, ct);
     }
 
-    public async Task<PaymentAdjustmentDto> RejectAsync(
+    public async Task<PaymentAdjustmentResponse> RejectAsync(
         Guid adjustmentId,
         string reason,
         Guid actorUserId,
@@ -266,7 +260,7 @@ public sealed class PaymentAdjustmentService(
         return await GetOneAsync(adjustmentId, ct);
     }
 
-    private async Task<PaymentAdjustmentDto> GetOneAsync(Guid adjustmentId, CancellationToken ct)
+    private async Task<PaymentAdjustmentResponse> GetOneAsync(Guid adjustmentId, CancellationToken ct)
         => await db.Set<PaymentAdjustment>()
                .AsNoTracking()
                .Where(a => a.AdjustmentId == adjustmentId)

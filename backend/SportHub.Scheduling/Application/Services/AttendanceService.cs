@@ -3,18 +3,11 @@ using SportHub.BuildingBlocks.Abstractions.Audit;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.BuildingBlocks.SharedKernel.Time;
+using SportHub.Scheduling.Application.Commands;
 using SportHub.Scheduling.Application.DTOs;
+using SportHub.Scheduling.Application.Interfaces;
 
 namespace SportHub.Scheduling.Application.Services;
-
-public interface IAttendanceService
-{
-    Task<AttendanceResponse> MarkAsync(
-        Guid enrollmentId, MarkAttendanceRequest request, Guid actorUserId, bool actorIsReceptionist,
-        CancellationToken ct = default);
-
-    Task<IReadOnlyList<AttendanceResponse>> GetBySessionAsync(Guid sessionId, CancellationToken ct = default);
-}
 
 /// <summary>
 /// Điểm danh lớp — BR-21 (tối đa một bản ghi cho mỗi đăng ký), BR-22 (chỉ Coach dạy buổi đó

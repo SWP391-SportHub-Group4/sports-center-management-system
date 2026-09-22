@@ -1,11 +1,13 @@
-using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using SportHub.BuildingBlocks.Api;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
+using SportHub.Training.Application.Commands;
 using SportHub.Training.Application.DTOs;
+using SportHub.Training.Application.Interfaces;
 using SportHub.Training.Application.Services;
+using System.ComponentModel.DataAnnotations;
 
 namespace SportHub.Training.Api;
 

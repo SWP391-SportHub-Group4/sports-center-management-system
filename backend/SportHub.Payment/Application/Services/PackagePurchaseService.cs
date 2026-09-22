@@ -7,17 +7,13 @@ using SportHub.Identity.Domain.Entities;
 using SportHub.Identity.Domain.Enums;
 using SportHub.Membership.Domain.Entities;
 using SportHub.Membership.Domain.Enums;
+using SportHub.Payment.Application.Commands;
 using SportHub.Payment.Application.DTOs;
+using SportHub.Payment.Application.Interfaces;
 using SportHub.Payment.Domain.Rules;
 using SportHub.Payment.Infrastructure;
 
 namespace SportHub.Payment.Application.Services;
-
-public interface IPackagePurchaseService
-{
-    Task<InvoiceDetailDto> PurchaseAsync(
-        PurchasePackageRequest request, Guid actorUserId, bool actorIsCenterManager, CancellationToken ct = default);
-}
 
 /// <summary>
 /// BR-30 — chọn gói thì PHÁT HÀNH HOÁ ĐƠN NGAY, trước khi thu bất kỳ khoản nào; gói ở trạng
@@ -35,7 +31,7 @@ public sealed class PackagePurchaseService(
     IAuditWriter audit,
     IClock clock) : IPackagePurchaseService
 {
-    public async Task<InvoiceDetailDto> PurchaseAsync(
+    public async Task<InvoiceDetailResponse> PurchaseAsync(
         PurchasePackageRequest request,
         Guid actorUserId,
         bool actorIsCenterManager,

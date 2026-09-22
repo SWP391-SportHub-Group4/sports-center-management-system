@@ -7,16 +7,12 @@ using SportHub.BuildingBlocks.SharedKernel.Time;
 using SportHub.Membership.Domain.Entities;
 using SportHub.Membership.Domain.Enums;
 using SportHub.Membership.Domain.Rules;
+using SportHub.Payment.Application.Commands;
 using SportHub.Payment.Application.DTOs;
+using SportHub.Payment.Application.Interfaces;
 using SportHub.Payment.Domain.Rules;
 
 namespace SportHub.Payment.Application.Services;
-
-public interface IPaymentRecordingService
-{
-    Task<InvoiceDetailDto> RecordAsync(
-        Guid invoiceId, RecordPaymentRequest request, Guid actorUserId, CancellationToken ct = default);
-}
 
 /// <summary>
 /// Ghi nhận một khoản thu (MVP: thủ công tại quầy, không qua cổng thanh toán thật — SSOT §1.3).
@@ -34,7 +30,7 @@ public sealed class PaymentRecordingService(
     INotificationWriter notifications,
     IClock clock) : IPaymentRecordingService
 {
-    public async Task<InvoiceDetailDto> RecordAsync(
+    public async Task<InvoiceDetailResponse> RecordAsync(
         Guid invoiceId,
         RecordPaymentRequest request,
         Guid actorUserId,

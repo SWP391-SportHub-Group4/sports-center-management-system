@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SportHub.BuildingBlocks.Api;
-using SportHub.Notification.Application;
+using SportHub.Notification.Application.Interfaces;
 
 namespace SportHub.Notification.Api;
 

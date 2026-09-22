@@ -1,9 +1,10 @@
-using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using SportHub.BuildingBlocks.Api;
+using SportHub.Identity.Application.Interfaces;
 using SportHub.Identity.Application.Services;
+using System.ComponentModel.DataAnnotations;
 
 namespace SportHub.Identity.Api;
 

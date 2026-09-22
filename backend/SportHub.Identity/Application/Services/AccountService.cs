@@ -1,14 +1,14 @@
-using System.ComponentModel.DataAnnotations;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.Identity.Application.Commands;
 using SportHub.Identity.Application.Interfaces;
+using System.ComponentModel.DataAnnotations;
 
 namespace SportHub.Identity.Application.Services;
 
-public sealed record MyAccountDto(
+public sealed record MyAccountResponse(
     Guid UserId,
     string Email,
     string FullName,
@@ -41,15 +41,6 @@ public sealed class SetPasswordRequest
     public string NewPassword { get; set; } = string.Empty;
 }
 
-public interface IAccountService
-{
-    Task<MyAccountDto> GetMeAsync(Guid userId, CancellationToken ct = default);
-
-    Task<MyAccountDto> UpdateProfileAsync(Guid userId, UpdateMyProfileRequest request, CancellationToken ct = default);
-
-    Task SetPasswordAsync(Guid userId, SetPasswordRequest request, CancellationToken ct = default);
-}
-
 /// <summary>
 /// Hồ sơ và mật khẩu của chính người dùng — BR-60 (đặt mật khẩu phải làm từ bên trong phiên
 /// đã xác thực), BR-62 (số điện thoại duy nhất).
@@ -58,11 +49,11 @@ public interface IAccountService
 /// </summary>
 public sealed class AccountService(ISportHubDbContext db, IPasswordHasher passwordHasher) : IAccountService
 {
-    public async Task<MyAccountDto> GetMeAsync(Guid userId, CancellationToken ct = default)
+    public async Task<MyAccountResponse> GetMeAsync(Guid userId, CancellationToken ct = default)
         => await db.Set<UserAccount>()
                .AsNoTracking()
                .Where(u => u.UserId == userId)
-               .Select(u => new MyAccountDto(
+               .Select(u => new MyAccountResponse(
                    u.UserId,
                    u.Email,
                    u.Profile != null ? u.Profile.FullName : string.Empty,
@@ -75,7 +66,7 @@ public sealed class AccountService(ISportHubDbContext db, IPasswordHasher passwo
                .SingleOrDefaultAsync(ct)
            ?? throw new NotFoundException("user_not_found", "Không tìm thấy tài khoản.");
 
-    public async Task<MyAccountDto> UpdateProfileAsync(
+    public async Task<MyAccountResponse> UpdateProfileAsync(
         Guid userId,
         UpdateMyProfileRequest request,
         CancellationToken ct = default)

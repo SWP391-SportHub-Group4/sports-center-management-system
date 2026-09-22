@@ -2,7 +2,9 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using SportHub.BuildingBlocks.Api;
+using SportHub.Membership.Application.Commands;
 using SportHub.Membership.Application.DTOs;
+using SportHub.Membership.Application.Interfaces;
 using SportHub.Membership.Application.Services;
 
 namespace SportHub.Membership.Api;

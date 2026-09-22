@@ -7,20 +7,12 @@ using SportHub.BuildingBlocks.Infrastructure.Authentication;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.BuildingBlocks.SharedKernel.Time;
 using SportHub.Identity.Application.DTOs;
+using SportHub.Identity.Application.Interfaces;
 using SportHub.Identity.Domain.Exceptions;
 
 namespace SportHub.Identity.Application.Services;
 
 public sealed record GoogleIdentity(string Subject, string Email, string? Name);
-
-/// <summary>
-/// Xác minh Google ID token. Tách khỏi service nghiệp vụ để test thay được bằng bản giả —
-/// gọi thật ra Google cần mạng và một tài khoản Google hợp lệ.
-/// </summary>
-public interface IGoogleTokenVerifier
-{
-    Task<GoogleIdentity> VerifyAsync(string idToken, CancellationToken ct = default);
-}
 
 public sealed class GoogleTokenVerifier(IConfiguration configuration) : IGoogleTokenVerifier
 {
@@ -61,15 +53,6 @@ public sealed class GoogleTokenVerifier(IConfiguration configuration) : IGoogleT
 
         return new GoogleIdentity(payload.Subject, payload.Email, payload.Name);
     }
-}
-
-public interface IGoogleAuthService
-{
-    Task<AuthResponse> LoginAsync(string idToken, CancellationToken ct = default);
-
-    Task LinkAsync(Guid userId, string idToken, CancellationToken ct = default);
-
-    Task UnlinkAsync(Guid userId, CancellationToken ct = default);
 }
 
 /// <summary>
@@ -225,7 +208,7 @@ public sealed class GoogleAuthService(
         {
             AccessToken = JwtService.GenerateAccessToken(
                 user.UserId, user.Role!.RoleName.ToString(), jwtOptions.Value),
-            User = new UserSummaryDto
+            User = new UserSummaryResponse
             {
                 UserId = user.UserId,
                 Email = user.Email,

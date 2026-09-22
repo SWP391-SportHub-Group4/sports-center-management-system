@@ -1,28 +1,17 @@
 using Microsoft.EntityFrameworkCore;
+using SportHub.Administration.Application.Commands;
 using SportHub.Administration.Application.DTOs;
+using SportHub.Administration.Application.Interfaces;
 using SportHub.BuildingBlocks.Abstractions.Audit;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
+using SportHub.BuildingBlocks.SharedKernel.Pagination;
 using SportHub.BuildingBlocks.SharedKernel.Time;
 using SportHub.Identity.Application.Interfaces;
 using SportHub.Identity.Domain.Entities;
 using SportHub.Identity.Domain.Enums;
 
 namespace SportHub.Administration.Application.Services;
-
-public interface IUserAdminService
-{
-    Task<PagedResult<UserAdminDto>> SearchAsync(
-        string? keyword, string? role, string? status, int page, int pageSize, CancellationToken ct = default);
-
-    Task<UserAdminDto> GetAsync(Guid userId, CancellationToken ct = default);
-
-    Task<UserAdminDto> CreateStaffAsync(CreateStaffAccountRequest request, Guid actorUserId, CancellationToken ct = default);
-
-    Task<UserAdminDto> ChangeRoleAsync(Guid userId, ChangeUserRoleRequest request, Guid actorUserId, CancellationToken ct = default);
-
-    Task<UserAdminDto> SetStatusAsync(Guid userId, UserStatus target, string reason, Guid actorUserId, CancellationToken ct = default);
-}
 
 /// <summary>
 /// Thao tác quản trị tài khoản — BR-2 (tạo tài khoản nhân sự, gán/đổi vai trò),
@@ -37,7 +26,7 @@ public sealed class UserAdminService(
     IAuditWriter audit,
     IClock clock) : IUserAdminService
 {
-    public async Task<PagedResult<UserAdminDto>> SearchAsync(
+    public async Task<PagedResult<UserAdminResponse>> SearchAsync(
         string? keyword,
         string? role,
         string? status,
@@ -82,10 +71,16 @@ public sealed class UserAdminService(
             .Select(Projection())
             .ToListAsync(ct);
 
-        return new PagedResult<UserAdminDto>(items, page, pageSize, total);
+        return new PagedResult<UserAdminResponse>
+        {
+            Items = items,
+            Page = page,
+            PageSize = pageSize,
+            TotalCount = total
+        };
     }
 
-    public async Task<UserAdminDto> GetAsync(Guid userId, CancellationToken ct = default)
+    public async Task<UserAdminResponse> GetAsync(Guid userId, CancellationToken ct = default)
         => await db.Set<UserAccount>()
                .AsNoTracking()
                .Where(u => u.UserId == userId)
@@ -93,7 +88,7 @@ public sealed class UserAdminService(
                .SingleOrDefaultAsync(ct)
            ?? throw new NotFoundException("user_not_found", "Không tìm thấy tài khoản.");
 
-    public async Task<UserAdminDto> CreateStaffAsync(
+    public async Task<UserAdminResponse> CreateStaffAsync(
         CreateStaffAccountRequest request,
         Guid actorUserId,
         CancellationToken ct = default)
@@ -152,7 +147,7 @@ public sealed class UserAdminService(
         return await GetAsync(user.UserId, ct);
     }
 
-    public async Task<UserAdminDto> ChangeRoleAsync(
+    public async Task<UserAdminResponse> ChangeRoleAsync(
         Guid userId,
         ChangeUserRoleRequest request,
         Guid actorUserId,
@@ -198,7 +193,7 @@ public sealed class UserAdminService(
         return await GetAsync(userId, ct);
     }
 
-    public async Task<UserAdminDto> SetStatusAsync(
+    public async Task<UserAdminResponse> SetStatusAsync(
         Guid userId,
         UserStatus target,
         string reason,
@@ -278,8 +273,8 @@ public sealed class UserAdminService(
             ? parsed
             : throw new BadRequestException("invalid_status", $"Trạng thái không hợp lệ: '{status}'.");
 
-    private static System.Linq.Expressions.Expression<Func<UserAccount, UserAdminDto>> Projection()
-        => u => new UserAdminDto(
+    private static System.Linq.Expressions.Expression<Func<UserAccount, UserAdminResponse>> Projection()
+        => u => new UserAdminResponse(
             u.UserId,
             u.Email,
             u.Profile != null ? u.Profile.FullName : string.Empty,
