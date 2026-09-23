@@ -1,6 +1,6 @@
 # SportHub Member frontend
 
-Next.js App Router + React + TypeScript. Run `pnpm install`, then `pnpm dev`; open `/member`. `pnpm build`, `pnpm typecheck`, `pnpm lint`, and `pnpm test:e2e` validate the implementation. Browser tests use installed Microsoft Edge (`channel: msedge`).
+Next.js App Router + React + TypeScript. Run `npm ci`, then `npm run dev`; open `/member`. `npm run build`, `npm run typecheck`, `npm run lint`, and `npm run test:e2e` validate the implementation. Browser tests use installed Microsoft Edge (`channel: msedge`).
 
 ## Architecture
 
@@ -22,4 +22,5 @@ Core reference: `docs/Requirements.md`, `docs/00-Source-of-Truth.md`, `docs/Cent
 
 390px Figma mobile and 768px tablet are implemented fluidly, with tests down to 320px. Desktop navigation begins at 1024px; the calendar becomes a seven-column view. Below that it is an agenda. Uses semantic landmarks, a skip link, native form labels, visible focus, 44px controls, selected-state text, live result messages, and native modal focus containment/Escape restoration. News advances manually; QR countdown does not announce each second. Roboto and the six design-system colors are local tokens.
 
-Next 14.2.5 is inherited from this repository and its package manager reports a security advisory. Upgrade and validate the framework before a production deployment. No deployment is performed by this change.
+Dependencies follow the main branch: Next 16, React 19 and ESLint 9. Use npm and commit package-lock.json; Docker installs with npm ci. No deployment is performed by this change.
+

@@ -22,6 +22,10 @@ public class InvoiceConfiguration : IEntityTypeConfiguration<Invoice>
             .HasForeignKey(e => e.IssuedByUserId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        // Danh sách hoá đơn của một member và bộ lọc quá hạn (BR-55) là hai truy vấn chính.
+        builder.HasIndex(e => new { e.MemberId, e.Status });
+        builder.HasIndex(e => e.DueDateUtc);
+
         builder.HasOne(e => e.MemberPackage)
             .WithMany()
             .HasForeignKey(e => e.MemberPackageId)
