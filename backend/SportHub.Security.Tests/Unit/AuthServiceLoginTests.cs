@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using Microsoft.Extensions.Options;
 using SportHub.BuildingBlocks.Infrastructure.Authentication;
+using SportHub.BuildingBlocks.SharedKernel.Time;
 using SportHub.Identity.Application.Commands;
 using SportHub.Identity.Application.Services;
 using SportHub.Identity.Domain.Entities;
@@ -35,7 +36,8 @@ public class AuthServiceLoginTests
         };
 
     private static AuthService Service(UserAccount? user, CountingPasswordHasher hasher)
-        => new(new StubUserAccountRepository(user), hasher, JwtOptions());
+        // LoginAsync khong cham db/email (chi dung cho OTP Register) nen de null o day.
+        => new(new StubUserAccountRepository(user), hasher, JwtOptions(), null!, null!, new SystemClock());
 
     private static LoginRequest Request(string password = "CorrectHorse1") => new()
     {
