@@ -5,7 +5,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="vi">
-      <body>{children}</body>
+      <body>
+        {/* AuthProvider bọc toàn bộ app: phiên đăng nhập và handler 401 dùng chung cho mọi trang. */}
+        <AuthProvider>{children}</AuthProvider>
+      </body>
     </html>
   );
 }

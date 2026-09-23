@@ -26,7 +26,13 @@ public class ClassSession
 
     public DateTime EndAtUtc { get; set; }
 
-    public int Capacity { get; set; } // sức chứa thực tế, <= MIN(Room, Class)
+    // BR-51: trần sức chứa = MIN(Room.Capacity, Class.Capacity) TẠI THỜI ĐIỂM TẠO buổi,
+    // không bao giờ tính lại. Giữ riêng khỏi Capacity vì sau khi Manager giảm Capacity xuống
+    // thì không còn gì cho biết trần gốc là bao nhiêu; và nếu tính lại MIN sau này, việc
+    // catalog tăng sức chứa sẽ NỚI trần của buổi cũ — đúng điều BR-51 cấm.
+    public int BaselineCapacity { get; set; }
+
+    public int Capacity { get; set; } // sức chứa đang áp dụng, luôn 0 < Capacity <= BaselineCapacity
 
     public int ConfirmedCount { get; set; } // denormalized, tăng/giảm nguyên tử theo Enrollment
 

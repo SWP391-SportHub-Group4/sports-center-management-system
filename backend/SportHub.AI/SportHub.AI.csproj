@@ -1,8 +1,16 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <!-- Module tự chứa Controller/DTO nên cần type của ASP.NET Core (ControllerBase, StatusCodes). -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\SportHub.Identity\SportHub.Identity.csproj" />
     <ProjectReference Include="..\SportHub.BuildingBlocks\SportHub.BuildingBlocks.csproj" />
+    <ProjectReference Include="..\SportHub.Membership\SportHub.Membership.csproj" />
+    <ProjectReference Include="..\SportHub.Scheduling\SportHub.Scheduling.csproj" />
+    <ProjectReference Include="..\SportHub.Training\SportHub.Training.csproj" />
   </ItemGroup>
 
   <ItemGroup>
