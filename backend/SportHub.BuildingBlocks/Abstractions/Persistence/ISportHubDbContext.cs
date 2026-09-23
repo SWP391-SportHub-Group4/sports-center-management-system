@@ -1,16 +1,18 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 
 namespace SportHub.BuildingBlocks.Abstractions.Persistence;
 
-// Interface trừu tượng cho SportHubDbContext (implement thật ở SportHub.API —
-// composition root, mục 6/mục 9). Tồn tại để tránh vòng lặp API <-> Identity:
-// module nghiệp vụ cần truy vấn DB nhưng không được phép reference ngược lại
-// SportHub.API. Chưa có Repository nào dùng tới ở đợt refactor thuần
-// structural này — interface được tạo cùng lúc với việc dời SportHubDbContext
-// sang SportHub.API (mục 1, mục 6).
 public interface ISportHubDbContext
 {
     DbSet<TEntity> Set<TEntity>() where TEntity : class;
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
+
+    // Cần cho các đường ghi phải tự mở transaction và tự khóa dòng (vd BR-64 ở
+    // GymCheckInRepository: check-then-insert không được hở khe race). Vẫn generic —
+    // DatabaseFacade là type của EF Core, không phải entity nghiệp vụ, nên
+    // BuildingBlocks không vì thế mà biết gì về module nghiệp vụ (mục 3).
+    // DbContext đã có sẵn property này nên SportHubDbContext thỏa interface, không cần sửa.
+    DatabaseFacade Database { get; }
 }

@@ -1,6 +1,11 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <!-- Module tự chứa Controller/DTO nên cần type của ASP.NET Core (ControllerBase, StatusCodes). -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\SportHub.Identity\SportHub.Identity.csproj" />
     <ProjectReference Include="..\SportHub.BuildingBlocks\SportHub.BuildingBlocks.csproj" />
   </ItemGroup>
@@ -8,6 +13,7 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.11" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.11" />
+    <PackageReference Include="Npgsql" Version="10.0.3" />
   </ItemGroup>
 
   <PropertyGroup>

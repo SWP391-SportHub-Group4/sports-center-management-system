@@ -31,6 +31,7 @@
     <ProjectReference Include="..\SportHub.Notification\SportHub.Notification.csproj" />
     <ProjectReference Include="..\SportHub.AI\SportHub.AI.csproj" />
     <ProjectReference Include="..\SportHub.Audit\SportHub.Audit.csproj" />
+    <ProjectReference Include="..\SportHub.Administration\SportHub.Administration.csproj" />
   </ItemGroup>
 
   <ItemGroup>
