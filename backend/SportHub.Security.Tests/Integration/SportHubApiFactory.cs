@@ -16,6 +16,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using SportHub.API.Persistence;
+using SportHub.BuildingBlocks.Abstractions.Email;
 using SportHub.BuildingBlocks.Infrastructure.Authentication;
 using SportHub.Identity.Application.Interfaces;
 using SportHub.Identity.Domain.Entities;
@@ -49,6 +50,8 @@ public sealed class SportHubApiFactory : WebApplicationFactory<Program>, IAsyncL
         .Build();
 
     public CallSpy Spy { get; } = new();
+
+    public CapturingEmailSender Emails { get; } = new();
 
     /// <summary>Toan bo log sinh ra trong host test — dung de chot khong log password/hash/JWT.</summary>
     public ConcurrentQueue<string> Logs { get; } = new();
@@ -135,6 +138,13 @@ public sealed class SportHubApiFactory : WebApplicationFactory<Program>, IAsyncL
                 sp.GetRequiredService<PasswordHasher>(),
                 sp.GetRequiredService<CallSpy>()));
 
+            // BR-78: giu email OTP lai trong bo nho thay vi gui/ghi log.
+            services.RemoveAll<IEmailSender>();
+            services.AddSingleton<IEmailSender>(Emails);
+
+            services.RemoveAll<IGoogleTokenVerifier>();
+            services.AddSingleton<IGoogleTokenVerifier, FakeGoogleTokenVerifier>();
+
             // IStartupFilter chay TRUOC pipeline cua Program.cs, tuc truoc UseRouting/
             // UseRateLimiter — dung de gia lap IP client that thay vi X-Forwarded-For.
             services.AddSingleton<IStartupFilter, ClientIpStartupFilter>();
@@ -207,6 +217,21 @@ public sealed class SportHubApiFactory : WebApplicationFactory<Program>, IAsyncL
         var user = await db.UserAccounts.SingleAsync(u => u.UserId == userId);
         user.Status = status;
         await db.SaveChangesAsync();
+    }
+
+    /// <summary>BR-78: goi POST register/otp roi tra ve ma 6 so vua "gui".</summary>
+    public async Task<string> RequestRegisterOtpAsync(HttpClient client, string email)
+    {
+        var response = await client.PostAsync("api/auth/register/otp",
+            System.Net.Http.Json.JsonContent.Create(new { email }));
+
+        if (response.StatusCode != HttpStatusCode.NoContent)
+        {
+            throw new InvalidOperationException(
+                $"register/otp returned {(int)response.StatusCode}: {await response.Content.ReadAsStringAsync()}");
+        }
+
+        return Emails.LatestOtpFor(email);
     }
 
     public string IssueToken(Guid userId, UserRole role)
