@@ -33,6 +33,7 @@ function LoginForm() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const expired = params.get("ly-do") === "het-phien";
   const next = params.get("tiep-tuc");
@@ -48,7 +49,9 @@ function LoginForm() {
       // Quay lại đúng trang người dùng định vào, nhưng chỉ khi đó là đường dẫn nội bộ —
       // nhận nguyên tham số sẽ thành open redirect.
       const target =
-        next && next.startsWith("/") && !next.startsWith("//") ? next : HOME_BY_ROLE[user.role];
+        next && next.startsWith("/") && !next.startsWith("//")
+          ? next
+          : HOME_BY_ROLE[user.role];
 
       router.replace(target);
     } catch (cause) {
@@ -66,7 +69,9 @@ function LoginForm() {
     <div className="auth">
       <div className="auth__card">
         <div className="auth__brand">SportHub</div>
-        <p className="auth__sub">Đăng nhập để vào không gian làm việc của bạn.</p>
+        <p className="auth__sub">
+          Đăng nhập để vào không gian làm việc của bạn.
+        </p>
 
         {expired && (
           <div className="alert alert--warn" style={{ marginBottom: 12 }}>
@@ -86,16 +91,30 @@ function LoginForm() {
           </Field>
 
           <Field label="Mật khẩu">
-            <input
-              type="password"
-              value={password}
-              autoComplete="current-password"
-              required
-              onChange={(event) => setPassword(event.target.value)}
-            />
+            <span className="password-field">
+              <input
+                id="login-password"
+                type={showPassword ? "text" : "password"}
+                value={password}
+                autoComplete="current-password"
+                required
+                onChange={(event) => setPassword(event.target.value)}
+              />
+              <button
+                className="password-field__toggle"
+                type="button"
+                aria-controls="login-password"
+                aria-pressed={showPassword}
+                onClick={() => setShowPassword((visible) => !visible)}
+              >
+                {showPassword ? "Ẩn" : "Hiện"}
+              </button>
+            </span>
           </Field>
 
-          <Feedback error={error} />
+          <div className="auth__feedback" aria-live="polite">
+            <Feedback error={error} />
+          </div>
 
           <button type="submit" className="btn" disabled={busy}>
             {busy ? "Đang đăng nhập…" : "Đăng nhập"}
@@ -103,14 +122,17 @@ function LoginForm() {
         </form>
 
         <p className="small muted" style={{ marginTop: 12 }}>
-          Chưa có tài khoản hội viên? <Link href="/dang-ky">Đăng ký tại đây</Link>.
+          Chưa có tài khoản hội viên?{" "}
+          <Link href="/dang-ky">Đăng ký tại đây</Link>.
         </p>
 
         <div className="demo-accounts">
-          <strong className="small">Tài khoản demo (môi trường phát triển)</strong>
+          <strong className="small">
+            Tài khoản demo (môi trường phát triển)
+          </strong>
           <p className="small muted" style={{ margin: "2px 0 0" }}>
-            Bấm để điền sẵn email và mật khẩu <code>{DEMO_PASSWORD}</code>. Đăng nhập vẫn chạy
-            qua API thật.
+            Bấm để điền sẵn email và mật khẩu <code>{DEMO_PASSWORD}</code>. Đăng
+            nhập vẫn chạy qua API thật.
           </p>
           <div className="demo-accounts__grid">
             {DEMO_ACCOUNTS.map((account) => (
@@ -136,7 +158,13 @@ function LoginForm() {
 export default function LoginPage() {
   // useSearchParams cần Suspense boundary khi build tĩnh (Next App Router).
   return (
-    <Suspense fallback={<div className="auth"><div className="auth__card">Đang tải…</div></div>}>
+    <Suspense
+      fallback={
+        <div className="auth">
+          <div className="auth__card">Đang tải…</div>
+        </div>
+      }
+    >
       <LoginForm />
     </Suspense>
   );
