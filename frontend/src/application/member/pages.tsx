@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useMember } from "./provider";
 import { Card } from "@/shared/ui";
 import { dateLabel, timeLabel } from "@/shared/lib/date";
+import { useCurrentTime } from "@/shared/lib/clock";
 import { MemberQr } from "@/features/check-in";
 import { NewsSlider } from "@/features/news";
 import { MemberCalendar } from "@/features/scheduling";
@@ -26,6 +27,7 @@ export type MemberPageName =
   | "notifications";
 function MemberHome() {
   const { data } = useMember();
+  const currentTime = useCurrentTime();
   const issuer = useMemo(
     () => ({
       async issue() {
@@ -45,7 +47,7 @@ function MemberHome() {
   const upcoming = data.sessions
     .filter(
       (s) =>
-        Date.parse(s.endAt) > Date.now() &&
+        Date.parse(s.endAt) > currentTime &&
         data.enrollments.some(
           (e) => e.sessionId === s.id && e.status === "Confirmed",
         ),

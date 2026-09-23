@@ -40,8 +40,9 @@ export function MemberProvider({
       .catch(() => setError("Không tải được dữ liệu. Vui lòng thử lại."));
   }, [repository]);
   useEffect(() => {
-    load();
-    return repository.subscribe(load);
+    const unsubscribe = repository.subscribe(load);
+    queueMicrotask(load);
+    return unsubscribe;
   }, [load, repository]);
   async function execute(command: MemberCommand, success: string) {
     if (locked.current) return false;

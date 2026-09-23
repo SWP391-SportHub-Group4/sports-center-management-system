@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import styles from "./home.module.css";
+import { PublicHeader } from "./public-header";
 
 const activities = [
   {
@@ -43,20 +44,7 @@ export default function HomePage() {
       <a className="skip-link" href="#main">
         Bỏ qua điều hướng
       </a>
-      <header className={styles.header}>
-        <Link className={styles.logo} href="/" aria-label="SportHub, trang chủ">
-          <Image src="/sporthub/brand.svg" alt="" width={36} height={36} />
-          <span>SportHub.</span>
-        </Link>
-        <nav className={styles.nav} aria-label="Điều hướng chính">
-          <a href="#cau-chuyen">Trung tâm</a>
-          <a href="#hoat-dong">Lớp tập</a>
-          <a href="#su-kien">Sự kiện</a>
-        </nav>
-        <Link className={styles.memberLink} href="/member">
-          Khu vực hội viên <span aria-hidden="true">↗</span>
-        </Link>
-      </header>
+      <PublicHeader />
 
       <main id="main">
         <section className={styles.hero} aria-labelledby="hero-title">

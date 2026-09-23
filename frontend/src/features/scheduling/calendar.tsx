@@ -9,6 +9,7 @@ import {
   monday,
   timeLabel,
 } from "@/shared/lib/date";
+import { useCurrentTime } from "@/shared/lib/clock";
 import {
   bookingProblem,
   type BookingFilter,
@@ -41,6 +42,7 @@ export function MemberCalendar({
   onBook,
   onCancel,
 }: CalendarProps) {
+  const currentTime = useCurrentTime();
   const [filter, setFilter] = useState<BookingFilter>("all");
   const [week, setWeek] = useState(() => monday(dayKey()));
   const [coach, setCoach] = useState(initialCoach);
@@ -183,7 +185,7 @@ export function MemberCalendar({
                   session,
                   sessions,
                   enrollments,
-                  Date.now(),
+                  currentTime,
                 );
                 return (
                   <article
@@ -211,7 +213,7 @@ export function MemberCalendar({
                       disabled={
                         busy ||
                         (booked
-                          ? Date.parse(session.startAt) <= Date.now()
+                          ? Date.parse(session.startAt) <= currentTime
                           : !!problem)
                       }
                       title={!booked && problem ? problem : undefined}
@@ -259,7 +261,7 @@ export function MemberCalendar({
                   </strong>
                 </p>
                 <p>
-                  {Date.now() <= Date.parse(selected.cancellationDeadline)
+                  {currentTime <= Date.parse(selected.cancellationDeadline)
                     ? "Hủy đúng hạn: lượt tập được hoàn vào gói đã sử dụng."
                     : "Đã qua hạn hủy: bạn sẽ không được hoàn lượt tập."}
                 </p>
