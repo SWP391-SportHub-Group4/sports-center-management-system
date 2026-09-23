@@ -5,6 +5,10 @@ namespace SportHub.Identity.Application.Interfaces;
 
 public interface IAuthService
 {
+    Task RequestRegisterOtpAsync(
+        RequestRegisterOtpRequest request,
+        CancellationToken cancellationToken = default);
+
     Task<AuthResponse> RegisterAsync(
         RegisterRequest request,
         CancellationToken cancellationToken = default);
