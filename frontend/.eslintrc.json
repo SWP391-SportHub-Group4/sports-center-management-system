@@ -1,0 +1,7 @@
+{
+  "extends": "next/core-web-vitals",
+  "overrides": [
+    { "files": ["src/features/**/*.{ts,tsx}"], "rules": { "no-restricted-imports": ["error", { "patterns": ["@/application/*", "@/infrastructure/*", "@/app/*", "@/features/*/*"] }] } },
+    { "files": ["src/shared/**/*.{ts,tsx}"], "rules": { "no-restricted-imports": ["error", { "patterns": ["@/features/*", "@/application/*", "@/infrastructure/*", "@/app/*"] }] } }
+  ]
+}

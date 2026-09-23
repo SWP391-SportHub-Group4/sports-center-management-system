@@ -43,8 +43,11 @@
 * {
   box-sizing: border-box;
 }
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 24px;
+}
 
-html,
 body {
   margin: 0;
   padding: 0;
@@ -712,5 +715,47 @@ textarea {
 
   .content {
     padding: 16px;
+  }
+}
+
+.password-field {
+  position: relative;
+  display: block;
+}
+
+.password-field input {
+  width: 100%;
+  padding-right: 72px;
+}
+
+.password-field__toggle {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  min-width: 56px;
+  min-height: 36px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--brand-700);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  transform: translateY(-50%);
+  cursor: pointer;
+}
+
+.password-field__toggle:hover {
+  background: var(--brand-100);
+}
+
+.auth__feedback {
+  min-height: 58px;
+  padding-top: 8px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
   }
 }
