@@ -88,6 +88,12 @@
   text-decoration: none;
   text-transform: uppercase;
 }
+.accountName {
+  max-width: 18ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .memberLink:hover {
   border-color: var(--brand-ice);
   background: var(--brand-ice);
@@ -482,7 +488,7 @@
   }
 }
 @media (max-width: 380px) {
-  .memberLink span {
+  .memberLink > span:last-child {
     display: none;
   }
 }

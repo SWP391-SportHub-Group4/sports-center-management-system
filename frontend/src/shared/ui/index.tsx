@@ -89,7 +89,9 @@ export function Modal({
   const ref = useRef<HTMLDialogElement>(null);
   const heading = useId();
   const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
     const dialog = ref.current;
