@@ -8,7 +8,8 @@ public class Class
 
     public string Name { get; set; } = string.Empty;
 
-    public string Discipline { get; set; } = string.Empty; // Yoga/Gym/Boxing... dùng để filter
+    public string Discipline { get; set; } = string.Empty; // PersonalTraining/Yoga/GroupX (xem Domain/Constants/Disciplines.cs) — dùng để filter.
+                                                           // KHÔNG có Gym: Gym ra vào tự do, đi qua GymCheckIn (BR-64).
 
     public int DefaultRoomId { get; set; } // FK -> Room
 

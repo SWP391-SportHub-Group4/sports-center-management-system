@@ -27,5 +27,21 @@ public class MemberPackageConfiguration : IEntityTypeConfiguration<MemberPackage
             .WithMany(p => p.MemberPackages)
             .HasForeignKey(e => e.PackageId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        // BR-10 — ngoại lệ cộng dồn do Center Manager cho phép; lý do bắt buộc đi kèm người duyệt.
+        builder.HasOne(e => e.StackingApprovedByUser)
+            .WithMany()
+            .HasForeignKey(e => e.StackingApprovedByUserId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.ToTable(t => t.HasCheckConstraint(
+            "CK_member_packages_stacking_approval_complete",
+            "(stacking_approved_by_user_id IS NULL AND stacking_approval_reason IS NULL) "
+            + "OR (stacking_approved_by_user_id IS NOT NULL AND stacking_approval_reason IS NOT NULL)"));
+
+        // Tra "gói đang Active của member này" chạy ở mọi lần đăng ký lớp (BR-16) và mọi
+        // lần Gym check-in (BR-64).
+        builder.HasIndex(e => new { e.MemberId, e.Status });
     }
 }

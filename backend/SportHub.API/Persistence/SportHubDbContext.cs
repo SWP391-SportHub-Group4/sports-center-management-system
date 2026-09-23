@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using SportHub.Administration;
+using SportHub.Administration.Domain.Entities;
 using SportHub.AI;
 using SportHub.AI.Domain.Entities;
 using SportHub.Audit;
@@ -16,25 +18,6 @@ using SportHub.Training.Domain.Entities;
 
 namespace SportHub.API.Persistence;
 
-// DbSet cho từng entity theo thứ tự code ở docs/Center-Management-System-Design-v2.md, mục 7:
-// 1) Identity/RBAC  2) Membership  3) Training (hồ sơ/quan hệ)  4) Scheduling  5) Training (Workout)
-// 6) Payment  7) AI  8) Notification  9) Audit
-//
-// Naming: field/property = PascalCase theo chuẩn C# (cập nhật — trước đây snake_case
-// theo §5.4). Cột DB vẫn giữ snake_case (chuẩn Postgres) qua
-// UseSnakeCaseNamingConvention() (Program.cs) — EFCore.NamingConventions tự động
-// convert PascalCase property -> snake_case column, nên các raw SQL trong từng
-// IEntityTypeConfiguration<T> (HasCheckConstraint/HasFilter) không cần đổi. Enum vẫn
-// lưu dạng mặc định của EF Core (int) — cơ chế serialize/lưu string UPPER_SNAKE_CASE
-// CHƯA CHỐT (SSOT §7 Open Questions), không tự quyết ở bước này.
-//
-// Composition root (mục 6, mục 9): class này sống ở SportHub.API — nơi duy nhất được
-// phép biết mặt cả 8 module — và implement ISportHubDbContext (SportHub.BuildingBlocks)
-// để module nghiệp vụ nào cần truy vấn DB có thể phụ thuộc ngược interface đó thay vì
-// phụ thuộc thẳng SportHub.API. Cấu hình Fluent API của từng entity đã chuyển hết sang
-// IEntityTypeConfiguration<T> trong Infrastructure/Persistence/Configurations/ của
-// đúng module sở hữu — nạp qua ApplyConfigurationsFromAssembly bên dưới thay vì gọi
-// trực tiếp Configure*() như bản gốc (SportHub.Repository/SportHubDbContext.cs, 559 dòng).
 public class SportHubDbContext : DbContext, ISportHubDbContext
 {
     public SportHubDbContext(DbContextOptions<SportHubDbContext> options) : base(options)
@@ -63,6 +46,7 @@ public class SportHubDbContext : DbContext, ISportHubDbContext
     public DbSet<ClassSession> ClassSessions => Set<ClassSession>();
     public DbSet<Enrollment> Enrollments => Set<Enrollment>();
     public DbSet<Attendance> Attendances => Set<Attendance>();
+    public DbSet<GymCheckIn> GymCheckIns => Set<GymCheckIn>();
 
     // 5) Training — Workout
     public DbSet<WorkoutPlan> WorkoutPlans => Set<WorkoutPlan>();
@@ -84,6 +68,11 @@ public class SportHubDbContext : DbContext, ISportHubDbContext
     // 9) Audit
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
+    // 10) Administration — cấu hình hệ thống (BR-39/BR-50) và tệp xuất báo cáo (BR-44..BR-48).
+    // Hai entity này CHƯA có trong SSOT §2 — xem docs/implementation-decisions.md A1, A4.
+    public DbSet<SystemSetting> SystemSettings => Set<SystemSetting>();
+    public DbSet<ReportExport> ReportExports => Set<ReportExport>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -97,10 +86,19 @@ public class SportHubDbContext : DbContext, ISportHubDbContext
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(MembershipModuleMarker).Assembly);
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(SchedulingModuleMarker).Assembly);
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(TrainingModuleMarker).Assembly);
-        modelBuilder.ApplyConfigurationsFromAssembly(typeof(SportHub.Payment.PaymentModuleMarker).Assembly);
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(Payment.PaymentModuleMarker).Assembly);
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AiModuleMarker).Assembly);
-        modelBuilder.ApplyConfigurationsFromAssembly(typeof(SportHub.Notification.NotificationModuleMarker).Assembly);
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(Notification.NotificationModuleMarker).Assembly);
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AuditModuleMarker).Assembly);
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(AdministrationModuleMarker).Assembly);
+
+        // BR-58 — InvoiceNumber sinh từ DB sequence, không bao giờ gán ngẫu nhiên ở tầng ứng
+        // dụng. Khai báo ở đây (thay vì trong IEntityTypeConfiguration) vì sequence là đối
+        // tượng cấp database, không gắn với một entity type nào.
+        // Đọc qua nextval() trong Payment/Infrastructure/InvoiceNumberGenerator.cs.
+        modelBuilder.HasSequence<long>(Payment.Infrastructure.InvoiceNumberGenerator.SequenceName)
+            .StartsAt(1)
+            .IncrementsBy(1);
 
         // TODO (chưa làm — SSOT §7 Open Questions, "không tự quyết"):
         // - Cơ chế serialize/lưu enum dạng string UPPER_SNAKE_CASE (JsonStringEnumConverter

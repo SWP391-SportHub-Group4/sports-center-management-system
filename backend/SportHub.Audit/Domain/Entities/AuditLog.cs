@@ -14,7 +14,11 @@ public class AuditLog
 
     public string TargetEntity { get; set; } = string.Empty;
 
-    public Guid TargetId { get; set; }
+    // Chuỗi chứ không phải Guid: BR-7 yêu cầu ghi log cả thao tác trên Room/Class/
+    // MembershipPackage — những entity có PK kiểu int (SSOT §2). Guid không biểu diễn được
+    // các khoá đó nên audit cho chúng sẽ không ghi được. Type của field này chưa từng được
+    // chốt trong SSOT/entity-field-purpose (xem implementation-decisions.md A6).
+    public string TargetId { get; set; } = string.Empty;
 
     public string? OldValue { get; set; } // jsonb
 

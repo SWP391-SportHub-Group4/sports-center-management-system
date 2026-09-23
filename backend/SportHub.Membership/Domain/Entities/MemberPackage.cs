@@ -22,5 +22,14 @@ public class MemberPackage
 
     public MemberPackageStatus Status { get; set; } // PendingPayment/Active/Expired/Cancelled
 
+    // BR-10: mặc định chỉ 1 gói CÙNG PackageId được Active/member. Hai field này ghi lại
+    // ngoại lệ "Center Manager cho phép cộng dồn rõ ràng" — null nghĩa là không có ngoại lệ
+    // và ràng buộc được áp dụng chặt. Không mặc định cho mọi gói cộng dồn.
+    public Guid? StackingApprovedByUserId { get; set; } // FK -> UserAccount (Center Manager)
+
+    public UserAccount? StackingApprovedByUser { get; set; }
+
+    public string? StackingApprovalReason { get; set; } // bắt buộc khi có StackingApprovedByUserId
+
     public int Version { get; set; } // optimistic concurrency token
 }
