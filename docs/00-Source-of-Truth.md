@@ -2,7 +2,7 @@
 
 > Mục đích: 1 nơi duy nhất để AI / FE / BE tra cứu khi có mâu thuẫn giữa các tài liệu.
 > Nếu file này và một doc khác nói khác nhau → **file này thắng**, trừ khi có ghi chú "xem chi tiết tại...".
-> Cập nhật lần cuối: 22/09/2026 — người dùng duyệt chính sách và schema v1.4; đây là đặc tả, chưa xác nhận code đã đạt. Chi tiết: [quyết định đã duyệt](implementation-decisions.md); kế hoạch tiếp tục: [23/09/2026](claude-continuation-plan-2026-09-23.md).
+> Cập nhật lần cuối: 23/09/2026 — Membership/Class/Booking/No-show/PT đã được duyệt và đồng bộ theo Business Rules v1.6. Payment/Invoice/Adjustment/Refund và báo cáo doanh thu đang **PENDING — chưa chốt nghiệp vụ**; mọi mô tả Payment cũ chỉ là dự thảo, không dùng để code.
 
 ---
 
@@ -11,7 +11,7 @@
 Khi có mâu thuẫn, đọc theo thứ tự sau (trên > dưới):
 
 1. `docs/00-Source-of-Truth.md` (file này) — quyết định đã chốt, không tranh cãi lại trong sprint hiện tại
-2. `docs/SportManagement_BusinessRules.docx` — business rules chi tiết; bản hiện có là **v1.4, 22/09/2026**, đã gộp đầy đủ nội dung được duyệt. Không còn duy trì bản Markdown mirror; không tạo lại `business-rules-v1.4.md` làm nguồn song song.
+2. `docs/SportManagement_BusinessRules.docx` — business rules chi tiết; bản hiện có là **v1.6, 23/09/2026**. Không còn duy trì bản Markdown mirror.
 3. `docs/Center-Management-System-Design-v2.md` — thiết kế kỹ thuật/kiến trúc
 4. `docs/Requirements.md` — yêu cầu gốc từ đề bài
 5. Mọi thứ khác (Slack/Zalo/note họp miệng) — **không tính là nguồn chính thức** trừ khi được chép lại vào 1 trong 4 file trên
@@ -28,14 +28,14 @@ Khi có mâu thuẫn, đọc theo thứ tự sau (trên > dưới):
 
 - [ ] Flow 1 — User & Membership management
 - [ ] Flow 2 — Class booking & schedule management
-- [ ] Flow 3 — Payment & report management
+- [ ] Flow 3 — Payment & report management — **PENDING: chưa chốt nghiệp vụ Payment**; phần báo cáo không phụ thuộc Payment có thể tiếp tục.
 
 > **Bổ sung 18/09/2026 — Bộ môn (Discipline) trong scope:** 1 trung tâm duy nhất (không đa chi nhánh, xem §1.3), nhưng **đa bộ môn** — 4 bộ môn chính thức, chốt cùng ngày (chi tiết + lý do đầy đủ: `claude/citigym-multidiscipline-scope-plan.md`, Project doc):
 >
 > | Bộ môn | Cơ chế | `Class.Discipline` |
 > |---|---|---|
 > | Gym / Fitness | Ra vào tự do, KHÔNG đặt lịch — điểm danh qua entity mới `GymCheckIn` (xem §2) | Không xuất hiện — không có `Class` nào cho Gym |
-> | Personal Training | Đặt lịch qua `Class`, `Capacity = 1`, gán 1 Coach | `"PersonalTraining"` |
+> | Personal Training | Add-on tùy chọn của Membership; đặt PT session 1 Coach : 1 Member, 90 phút, theo quota | Không dùng `Class.Discipline` |
 > | Yoga | Đặt lịch qua `Class` (lớp nhóm) | `"Yoga"` |
 > | Group X / Aerobic / HIIT | Đặt lịch qua `Class` (lớp nhóm) | `"GroupX"` |
 
@@ -48,7 +48,7 @@ Khi có mâu thuẫn, đọc theo thứ tự sau (trên > dưới):
 
 - [x] Đa chi nhánh / multi-tenant — 1 lần deploy SportHub = 1 trung tâm duy nhất, không có entity `Center`/`Branch`. Không nhầm với "đa bộ môn" (multi-discipline) — đa bộ môn trong CÙNG 1 trung tâm là IN-SCOPE, xem §1.1.
 - [x] Các bộ môn ngoài 4 bộ môn đã chốt ở §1.1 (vd Boxing, Cầu lông, Bơi lội, Bóng rổ...)
-- [x] Cổng thanh toán thật VNPay/Momo — MVP ghi nhận thu/hoàn thủ công có xác nhận và audit.
+- [x] Cổng thanh toán thật VNPay/Momo. Cơ chế Payment nội bộ cũng đang để treo cho đến khi nghiệp vụ được duyệt.
 - [x] Mobile app riêng.
 - [x] Gửi SMS/email thật — MVP thông báo trong app; kênh khác chỉ log.
 
@@ -61,7 +61,7 @@ Khi có mâu thuẫn, đọc theo thứ tự sau (trên > dưới):
 
 ## 2. Entity đã chốt (Domain Model)
 
-**22/09/2026:** module `Administration` được chấp nhận làm nơi điều phối quản trị và sở hữu SystemSetting/ReportExport, tránh dependency cycle Identity–Audit. BuildingBlocks không phụ thuộc domain. Bảng này và §5.7 gồm schema đích đã duyệt, không khẳng định migration đã đủ.
+**23/09/2026:** bảng này phản ánh Membership/Class/PT hiện hành. Các entity/field thuộc Payment chỉ là schema dự thảo để nhận diện phạm vi, không phải thiết kế đã duyệt và không được dùng làm yêu cầu code.
 
 > Đồng bộ với ERD v2 (`Center-Management-System-Design-v2.md` §1) — nguồn field đầy đủ nhất là `entity-field-purpose.md`, bảng dưới chỉ tóm tắt để tra nhanh module sở hữu + enum dùng. Entity nào **chưa** nằm trong bảng này thì **chưa được coi là đã chốt**.
 >
@@ -90,26 +90,26 @@ Khi có mâu thuẫn, đọc theo thứ tự sau (trên > dưới):
 | `UserExternalLogin` | Identity | `ExternalLoginId` (uuid) | UserId, Provider, ProviderUserId, RefreshToken (nullable) | N—1 `UserAccount` | `ExternalAuthProvider` | unique (provider, provider_user_id) và (user_id, provider); refresh_token MVP chưa mã hoá — xem Open Questions |
 | `MemberTrainingProfile` | Membership | `ProfileId` (uuid) | MemberId (unique), Goal, ExperienceLevel | 1—1 `UserAccount` (Member) | `ExperienceLevel` | input bắt buộc cho AI suggestion (BR-26) |
 | `CoachMemberRelationship` | Training | `RelationshipId` (uuid) | CoachId, MemberId, SourceType, ClassId (nullable) | N—1 `UserAccount` (2 phía) | `RelationshipSourceType`, `RelationshipStatus` | unique khi ACTIVE (ràng buộc #7, BR-23/24) |
-| `MembershipPackage` | Membership | `PackageId` (int) | Name (unique), Price, DurationDays, SessionLimit, IsActive, Description (nullable) | 1—N `MemberPackage` | — | unique BR-56 |
-| `MemberPackage` | Membership | `MemberPackageId` (uuid) | MemberId, PackageId, RemainingSessions, Version, StackingApprovedByUserId (nullable), StackingApprovedAtUtc (nullable), StackingApprovalReason (nullable) | N—1 `UserAccount`, N—1 `MembershipPackage`; 1—N `Enrollment` | `MemberPackageStatus` | state machine §4; optimistic concurrency qua `Version` |
+| `MembershipPackage` | Membership | `PackageId` (int) | Name (unique), Price, DurationInMonths, IsActive, Description (nullable) | 1—N `MemberPackage` | — | DurationInMonths chỉ nhận 1, 3, 6 hoặc 12; unique BR-56. Price liên quan Payment đang để treo. |
+| `MemberPackage` (Membership record hiện tại) | Membership | `MemberPackageId` (uuid) | MemberId, PackageId, StartDate, EndDate, PT add-on/frequency/quota theo BR-11/71 | N—1 `UserAccount`, N—1 `MembershipPackage` | `MemberPackageStatus` | StartDate/EndDate là calendar date, inclusive; early renewal/carry-over theo BR-65/66. Tên entity code chưa được đổi chỉ vì tài liệu dùng thuật ngữ Membership. |
 | `Room` | Scheduling | `RoomId` (int) | Name (unique), Capacity | 1—N `Class`, `ClassSession` | — | unique BR-57 |
-| `Class` | Scheduling | `ClassId` (int) | Name, Discipline, DefaultRoomId, DefaultCoachId | N—1 `Room`; 1—N `ClassRecurrence`, `ClassSession` | `ClassStatus` | |
-| `ClassRecurrence` | Scheduling | `RecurrenceId` (int) | ClassId, DaysOfWeek, StartTimeLocal, EndTimeLocal, Timezone | N—1 `Class`; 1—N `ClassSession` | — | định nghĩa pattern, không phải buổi cụ thể |
-| `ClassSession` | Scheduling | `SessionId` (uuid) | ClassId, RecurrenceId (nullable), RoomId, CoachId, StartAtUtc, EndAtUtc, Capacity, BaselineCapacity, ConfirmedCount | N—1 `Class`, `ClassRecurrence` (nullable), `Room`; 1—N `Enrollment`, `Attendance` | `ClassSessionStatus` | BR-54; xem §4 và Design v2 |
-| `Enrollment` | Scheduling | `EnrollmentId` (uuid) | SessionId, MemberId, MemberPackageId, CancellationDeadlineHours | N—1 `ClassSession`, `UserAccount`, `MemberPackage`; 1—1 `Attendance`, 1—N `WorkoutResult` | `EnrollmentStatus` | state machine §4; ràng buộc #1–#4 (Design v2 §3) |
+| `Class` | Scheduling | `ClassId` (int) | Discipline, Date, StartTime, EndTime, Coach, Capacity, Slot, Status | N—1 `Room`; 1—N booking/attendance | `ClassStatus` | Chỉ Yoga/GroupX; 60 phút; Morning/Afternoon do Manager chọn; `DRAFT → PUBLISHED → CLOSED`. |
+| `ClassRecurrence` | Scheduling | `RecurrenceId` (int) | Chưa có rule mới để chốt recurrence | — | — | Không dùng recurrence engine để suy diễn lịch PT. Nếu giữ cho Yoga/Group X thì phải tuân thủ trần slot/ngày của BR-15. |
+| `ClassSession` | Scheduling | `SessionId` (uuid) | Mô hình kỹ thuật hiện có cần được đối chiếu lại với Class v1.6 | — | — | Không dùng state/capacity cũ thay cho `DRAFT/PUBLISHED/CLOSED` và Capacity tối đa 20. |
+| `Enrollment` (class booking hiện tại) | Scheduling | `EnrollmentId` (uuid) | Class/SessionId, MemberId, Status, cancellation time | N—1 class/session, `UserAccount`; 1—1 `Attendance` | `EnrollmentStatus` | Không trừ Membership session credit. Deadline cố định 30 phút; hủy thành công giải phóng slot. |
 | `Attendance` | Scheduling | `AttendanceId` (uuid) | EnrollmentId (unique), CheckInTime | 1—1 `Enrollment` | `AttendanceStatus` | state machine §4 (đã sửa 09/09/2026, thêm nhánh Absent); bỏ `session_id`/`member_id` 10/09/2026 (3) — suy ra qua `Enrollment`, không denormalize |
 | `WorkoutPlan` | Training | `PlanId` (uuid) | MemberId, CoachId, RelationshipId, Goal, Level | N—1 `UserAccount` (2 phía), `CoachMemberRelationship`; 1—N `WorkoutPlanItem` | — | chỉ tạo được khi quan hệ ACTIVE (BR-23) |
 | `WorkoutPlanItem` | Training | `ItemId` (uuid) | PlanId, Exercise, Sets, Reps | N—1 `WorkoutPlan` | — | |
 | `WorkoutResult` | Training | `ResultId` (uuid) | EnrollmentId, CoachId, ProgressNote, CoachComment | N—1 `Enrollment`, `UserAccount` (coach) | — | chỉ Coach dạy buổi đó mới ghi được (BR-24); chỉ tạo được khi `Enrollment.Status = Confirmed` (BR-61); không thêm điều kiện Present; bỏ `session_id`/`member_id` 10/09/2026 (3) — suy ra qua `Enrollment`, đảm bảo Member thực sự có đăng ký session đó |
-| `Invoice` | Payment | `InvoiceId` (uuid) | InvoiceNumber (unique), MemberId, IssuedByUserId, MemberPackageId (nullable), TotalAmount, DueDateUtc, FirstDepositAtUtc (nullable) | N—1 `UserAccount` (2 phía), `MemberPackage`; 1—N `InvoiceItem`, `Payment`, `PaymentAdjustment` | `InvoiceStatus` | state machine §4; không bao giờ bị xóa (BR-40); invoice_number unique BR-58 |
-| `InvoiceItem` | Payment | `ItemId` (uuid) | InvoiceId, Description, Amount, RelatedEntityType | N—1 `Invoice` | `InvoiceItemRelatedEntityType` | |
-| `Payment` | Payment | `PaymentId` (uuid) | InvoiceId, Amount, Method, ReferenceCode, ReceivedByUserId | N—1 `Invoice`, `UserAccount`; 1—N `PaymentAdjustment` | `PaymentMethod`, `PaymentStatus` | thu mới không vượt Outstanding (BR-41 v1.4, §5.7) |
-| `PaymentAdjustment` | Payment | `AdjustmentId` (uuid) | InvoiceId, PaymentId (nullable), Type, Amount, Reason, RequestedByUserId, ApprovedByUserId, ApprovedAtUtc, CompletedAtUtc, CompletedByUserId, RefundMethod, RefundReferenceCode | N—1 `Invoice`, `Payment` (nullable), `UserAccount` (2 phía) | `PaymentAdjustmentType`, `PaymentAdjustmentStatus` | state machine §4; Manager duyệt, không tự duyệt (BR-42) |
+| `Invoice` | Payment | Chưa chốt | Chưa chốt | Chưa chốt | Chưa chốt | **PENDING — schema và rule cũ không có hiệu lực triển khai.** |
+| `InvoiceItem` | Payment | Chưa chốt | Chưa chốt | Chưa chốt | Chưa chốt | **PENDING — schema và rule cũ không có hiệu lực triển khai.** |
+| `Payment` | Payment | Chưa chốt | Chưa chốt | Chưa chốt | Chưa chốt | **PENDING — schema và rule cũ không có hiệu lực triển khai.** |
+| `PaymentAdjustment` | Payment | Chưa chốt | Chưa chốt | Chưa chốt | Chưa chốt | **PENDING — schema và rule cũ không có hiệu lực triển khai.** |
 | `Notification` | Notification | `NotificationId` (uuid) | UserId, Channel, SourceEventType, SourceEntityId (nullable), Message | N—1 `UserAccount` | `NotificationChannel`, `NotificationSourceEventType`, `NotificationStatus` | MVP: lưu trong DB, không gửi SMS/email thật (§1.3) |
 | `AiLog` | AI | `LogId` (uuid) | UserId, QueryType, InputPayload, ResponsePayload, ResponseTimeMs | N—1 `UserAccount` | — | `QueryType` là chuỗi tự do (vd `WORKOUT_SUGGESTION`), không phải enum kín |
 | `AuditLog` | Audit | `AuditId` (uuid) | UserId, Action, TargetEntity, TargetId (string), OldValue, NewValue | N—1 `UserAccount` | — | `Action` là chuỗi tự do (vd `UPDATE_PACKAGE_STATUS`), không phải enum kín |
-| `GymCheckIn` | Scheduling | `CheckInId` (uuid) | MemberId, CheckedInByUserId, CheckInTime | N—1 `UserAccount` (2 phía: member, receptionist) | — | Mới 18/09/2026. Không qua `Class`/`Enrollment`/`Attendance`; điều kiện ≥1 `MemberPackage` Active (BR-64); không trừ `RemainingSessions`; chỉ Receptionist tạo được |
-| `SystemSetting` | Administration | `Key` (string) | Value, ValueType, UpdatedAt, UpdatedByUserId (nullable) | FK actor tới UserAccount | — | Chỉ Manager chỉnh; key được whitelist, kiểm kiểu và giới hạn; seed 12h/7 ngày |
+| `GymCheckIn` | Scheduling | `CheckInId` (uuid) | MemberId, CheckedInByUserId, CheckInTime, CheckOutTime | N—1 `UserAccount` (2 phía: member, receptionist) | — | Membership Active cho phép Gym không giới hạn; không trừ quota/session. |
+| `SystemSetting` | Administration | `Key` (string) | Value, ValueType, UpdatedAt, UpdatedByUserId (nullable) | FK actor tới UserAccount | — | Không dùng setting hủy 12 giờ; class cancellation deadline cố định 30 phút theo BR-50. |
 | `ReportExport` | Administration | `ReportExportId` (uuid) | ReportType, RequestedByUserId, ParametersJson, Format, Status, RowCount, SizeBytes, FailureReason, CreatedAt, CompletedAt, ExpiresAt, IsDeleted, DeletedAt | FK RequestedByUserId tới UserAccount | ReportExportStatus | File riêng tư ngoài DB, locator suy ra từ ID + format trong storage root; không nhận path từ client |
 
 ---
@@ -133,19 +133,19 @@ Khi có mâu thuẫn, đọc theo thứ tự sau (trên > dưới):
 | `ExperienceLevel` | `Beginner, Intermediate, Advanced` | `MemberTrainingProfile.ExperienceLevel` | |
 | `RelationshipSourceType` | `ClassBased, Personal, AssignedByManager` | `CoachMemberRelationship.SourceType` | |
 | `RelationshipStatus` | `Active, Ended` | `CoachMemberRelationship.Status` | Chỉ 1 quan hệ `Active` giữa 1 cặp Coach–Member tại 1 thời điểm (ràng buộc #7) |
-| `MemberPackageStatus` | `PendingPayment, Active, Expired, Cancelled` | `MemberPackage.Status` | State machine: §4 / Design v2 §2.1 |
-| `ClassStatus` | `Active, Archived` | `Class.Status` | |
-| `ClassSessionStatus` | `Scheduled, Rescheduled, Cancelled, Completed` | `ClassSession.Status` | Xem §4 và Design v2 §8, state diagram đã bổ sung theo BR-54 |
-| `EnrollmentStatus` | `Confirmed, CancelledOnTime, CancelledLate` | `Enrollment.Status` | State machine: §4 / Design v2 §2.2 |
+| `MemberPackageStatus` | `Active, Expired` là các trạng thái được rule hiện hành sử dụng | `MemberPackage.Status` | Trạng thái gắn Payment như `PendingPayment` đang để treo; không tự chốt thêm state machine. |
+| `ClassStatus` | `Draft, Published, Closed` | `Class.Status` | Vòng đời BR-67. |
+| `ClassSessionStatus` | Chưa chốt lại | `ClassSession.Status` | Không dùng enum cũ thay cho Class lifecycle BR-67. |
+| `EnrollmentStatus` | `Confirmed, Cancelled` theo booking rule hiện hành | `Enrollment.Status` | Không còn phân nhánh hoàn/không hoàn Membership credit; hủy chỉ được phép tại hoặc trước deadline 30 phút. |
 | `AttendanceStatus` | `Present, Absent, NoShow` | `Attendance.Status` | `Present`/`Absent` ghi tay, `NoShow` do `AttendanceFinalizerJob` tự sinh (BR-53). State machine: §4 / Design v2 §2.2 |
-| `InvoiceStatus` | `Issued, PartiallyPaid, Paid, Void` | `Invoice.Status` | State machine: §4 / Design v2 §2.3 |
-| `InvoiceItemRelatedEntityType` | `Package, ClassFee, Penalty` | `InvoiceItem.RelatedEntityType` | |
-| `PaymentMethod` | `Cash, Card, Transfer, EWallet` | `Payment.Method` | MVP ghi nhận thủ công, không qua cổng thật (§1.3) |
-| `PaymentStatus` | `Pending, Success, Failed` | `Payment.Status` | Chỉ `Success` tính vào tổng đã thu (BR-41) |
-| `PaymentAdjustmentType` | `Refund, Correction, Discount` | `PaymentAdjustment.Type` | |
-| `PaymentAdjustmentStatus` | `Requested, Approved, Rejected, Completed` | `PaymentAdjustment.Status` | State machine: §4 / Design v2 §2.4 |
+| `InvoiceStatus` | Chưa chốt | `Invoice.Status` | **PENDING — Payment.** |
+| `InvoiceItemRelatedEntityType` | Chưa chốt | `InvoiceItem.RelatedEntityType` | **PENDING — Payment.** |
+| `PaymentMethod` | Chưa chốt | `Payment.Method` | **PENDING — Payment.** |
+| `PaymentStatus` | Chưa chốt | `Payment.Status` | **PENDING — Payment.** |
+| `PaymentAdjustmentType` | Chưa chốt | `PaymentAdjustment.Type` | **PENDING — Payment.** |
+| `PaymentAdjustmentStatus` | Chưa chốt | `PaymentAdjustment.Status` | **PENDING — Payment.** |
 | `NotificationChannel` | `InApp, Email, Sms` | `Notification.Channel` | MVP: chỉ `InApp` thật sự hoạt động, `Email`/`Sms` chỉ lưu log (§1.3) |
-| `NotificationSourceEventType` | `ClassCancelled, ScheduleChanged, PackageExpiring, PaymentReceived` | `Notification.SourceEventType` | |
+| `NotificationSourceEventType` | `ClassCancelled, ScheduleChanged, PackageExpiring`; giá trị liên quan Payment chưa chốt | `Notification.SourceEventType` | |
 | `NotificationStatus` | `Pending, Sent, Failed, Read` | `Notification.Status` | |
 | `ExternalAuthProvider` | `Google` | `UserExternalLogin.Provider` | Mới 10/09/2026 (2). Hiện chỉ `Google`; thêm provider khác sau (Facebook...) không cần đổi entity |
 | `ReportExportStatus` | `Pending, Completed, Failed` | `ReportExport.Status` | Pending → Completed khi file sẵn sàng, hoặc Failed; retry có kiểm soát |
@@ -160,13 +160,12 @@ Khi có mâu thuẫn, đọc theo thứ tự sau (trên > dưới):
 >
 > **Cập nhật 09/09/2026:** trước đó mục này chỉ có 3 dòng placeholder `? → ? → ?` dù Design v2 §2 đã có diagram Mermaid đầy đủ từ trước — đã đồng bộ lại. Đồng thời phát hiện và sửa 1 lỗi thật: diagram `Attendance` trong Design v2 §2.2 thiếu hẳn nhánh `Absent` dù ERD và `entity-field-purpose.md` đều liệt kê `Absent` là 1 trong 3 giá trị hợp lệ của `AttendanceStatus` (đã bổ sung, xem Design v2 §2.2).
 
-- **MemberPackage**: `PendingPayment → Active → (Expired | Cancelled)`; thêm `Expired → Active` có điều kiện BR-11 v1.4 khi hoàn lượt. Hết hạn invoice không tự hủy gói pending; điều kiện xử lý pending quá hạn cần chốt §7. Kích hoạt ngày trả đủ theo giờ VN, không reset khi retry.
-- **Enrollment**: `Confirmed → (CancelledOnTime | CancelledLate)`, hoặc `Confirmed → [chuyển sang Attendance khi session kết thúc]`. Diagram: Design v2 §2.2.
-- **Attendance**: `[Attendance] → (Present | Absent | NoShow)` — `Present`/`Absent`: Coach/Receptionist ghi tay; `NoShow`: `AttendanceFinalizerJob` tự sinh sau `end_at_utc` nếu không check-in và không có `Absent` ghi tay (BR-53). Diagram: Design v2 §2.2 (**đã sửa 09/09/2026** — thêm nhánh `Absent`).
-- **Invoice**: `Issued → (PartiallyPaid → Paid | Paid)`; `Paid` giữ nguyên khi có Adjustment `Completed` (chỉ ghi thêm dòng, BR-40); `Issued → Void` chỉ khi Adjustment loại `Correction` toàn phần được duyệt. Diagram: Design v2 §2.3.
-- **PaymentAdjustment**: `Requested → (Approved → Completed | Rejected)` — Manager duyệt, không được tự duyệt. Refund chỉ Completed khi Receptionist xác nhận thực trả, riêng ngày/actor; không gộp với approve (BR-42 v1.4). Diagram: Design v2 §2.4.
-- **ClassSession**: `Scheduled → (Rescheduled | Cancelled | Completed)`; hủy/dời trước khi bắt đầu, dời tạo buổi thay thế có liên kết và hủy/hoàn booking cũ theo BR-54; không chuyển Member tự động.
-- **Payment**: `Pending → (Success | Failed)` — không có diagram riêng, được tổng hợp qua vòng đời Invoice (Design v2 §2.3).
+- **Membership**: `Active → Expired` theo `EndDate` inclusive. Early renewal tạo record mới, không sửa record cũ; PT carry-over theo BR-65/66. Trạng thái trước khi Active và sự kiện xác lập `StartDate` cho lần mua mới thuộc Payment đang để treo.
+- **Class**: `Draft → Published → Closed`. Chỉ `Published` nhận booking; không có Waitlist.
+- **Class booking**: `Confirmed → Cancelled` khi hủy tại hoặc trước 30 phút trước giờ bắt đầu; hủy thành công giải phóng slot. Không có cơ chế hoàn/trừ Membership credit.
+- **Attendance**: `Present | Absent | NoShow`; No-show được lưu lịch sử. Đủ 3 No-show trong rolling 30 calendar days kích hoạt restriction 7 calendar days, ngày kết thúc exclusive.
+- **PT session**: booking/cancel/reschedule/No-show và đổi Coach theo BR-70 đến BR-77; PT không dùng Class lifecycle.
+- **Payment/Invoice/Adjustment/Refund**: **PENDING — chưa chốt state machine.** Các state diagram cũ không còn là nguồn triển khai.
 
 ---
 
@@ -175,7 +174,7 @@ Khi có mâu thuẫn, đọc theo thứ tự sau (trên > dưới):
 
 ### 5.1 ID
 - Kiểu ID theo §2: catalog Role/MembershipPackage/Room/Class/ClassRecurrence giữ int; nghiệp vụ giữ Guid; SystemSetting dùng key string. Không mass-migrate ID. ID không thay thế authorization.
-- Giữ cơ chế sinh ID hiện có; InvoiceNumber bắt buộc từ DB sequence theo BR-58.
+- Giữ cơ chế sinh ID hiện có. Quy tắc InvoiceNumber thuộc Payment đang để treo.
 
 ### 5.2 Tiền tệ (Money)
 - Đơn vị: VND, lưu dạng số nguyên (không có phần thập phân) — **không dùng `float`/`double`**, dùng `decimal`.
@@ -224,18 +223,15 @@ Trạng thái tại lần cập nhật này (18/09/2026, sau khi có bằng ch�
 
 Tham chiếu mã BR trong plan là bản đồ truy vết, không thêm hay đánh số lại BR chính thức.
 
-### 5.7 Quyết định v1.4 đã duyệt ngày 22/09/2026
+### 5.7 Quyết định hiện hành ngày 23/09/2026
 
-Nguồn phê duyệt: người dùng đồng ý khuyến nghị review và yêu cầu cập nhật tài liệu. [Biên bản quyết định](implementation-decisions.md) là diễn giải chi tiết được mục này dẫn chiếu, bao gồm công thức, ví dụ, giới hạn và §4 còn mở. Những ghi chú lịch sử ở §2/§8 không ghi đè quyết định mới.
-
-- A1–A7 được duyệt với điều kiện trong biên bản; mặc định hủy 12h, nhắc hạn 7 ngày, Manager cấu hình; không sửa snapshot booking cũ.
-- BR-41/42/43 v1.4 thay công thức cộng mọi Adjustment: Discount/Correction giảm nghĩa vụ; Refund Completed mới giảm thực thu. GrossCollected − RefundedAmount = NetCollected; TotalAmount − Discount/Correction Completed = NetPayable; Outstanding = max(0, NetPayable − NetCollected); RefundDue = max(0, NetCollected − NetPayable). Không giảm nghĩa vụ hai lần cho cùng một khoản hoàn.
-- Metadata PaymentAdjustment được duyệt: ApprovedAtUtc, CompletedAtUtc, CompletedByUserId (FK), RefundMethod (PaymentMethod nullable), RefundReferenceCode nullable. Refund Completed bắt buộc actor/thời điểm/phương thức thực trả; chuyển khoản có mã tham chiếu, tiền mặt có audit/xác nhận quầy. ResolvedAt cũ giữ cho tương thích, không dùng thay ngày thực trả. Không tự backfill bằng chứng hoàn từ dữ liệu thiếu chứng cứ.
-- ReportExport.Format là string whitelist Csv/Pdf (không thêm enum); ExpiresAt ít nhất CompletedAt + 6 tháng cho file thành công. File ID + format lưu trong storage root riêng tư; download kiểm quyền. PDF BR-48 bắt buộc; CSV không thay thế.
-- Cộng dồn chỉ ngoại lệ Manager cho cùng PackageId, lưu actor/time/reason, giữ gói riêng. StartDate là ngày trả đủ giờ VN, EndDate = StartDate + DurationDays − 1.
-- Đổi role phải chặn token role cũ từ request sau; không đồng nghĩa thu hồi token vĩnh viễn. Quan hệ cá nhân do Manager quản lý; Coach không tự cấp quyền. Chi tiết ClassBased xem §7.
-- BR-13/16 chặn trùng phòng/Coach/Member bằng khoảng [start, end), kể cả concurrency. BR-51 giữ baseline lúc tạo.
-- Google Login, AI thật, PDF, backup/HTTPS/uptime giữ trong scope tương ứng. Không có cấu hình ngoài hệ thống thì ghi chưa nghiệm thu, không dùng fixture chứng minh hoàn thành.
+- Membership có DurationInMonths bằng 1, 3, 6 hoặc 12; `StartDate`/`EndDate` là calendar date và inclusive; `EndDate = StartDate.AddMonths(DurationInMonths).AddDays(-1)`. Sự kiện xác lập `StartDate` cho lần mua mới chưa chốt vì phụ thuộc Payment.
+- Early renewal tạo Membership mới bắt đầu ngay sau `EndDate` hiện tại. PT carry-over áp dụng khi renew trong vòng 30 calendar days và có thể nối tiếp qua nhiều lần renewal nếu mỗi lần đều đạt điều kiện.
+- Yoga/Group X: 60 phút, mỗi discipline tối đa Morning + Afternoon mỗi ngày, tổng tối đa 4 class/ngày, Manager chọn slot; `Draft → Published → Closed`; chỉ Published nhận booking; không Waitlist; Capacity tối đa 20.
+- Class booking: tối đa 1 Yoga và 1 Group X mỗi ngày; Membership phải Active và class date nằm trong validity; hủy tại hoặc trước 30 phút thì booking Cancelled và slot được giải phóng.
+- No-show: đủ 3 lần trong rolling 30 calendar days thì restriction có hiệu lực ngay trong 7 calendar days; ngày kết thúc exclusive.
+- PT: add-on tùy chọn; 1 Coach : 1 Member; 90 phút/session; frequency 1/2/3 chỉ để tính tổng quota, không giới hạn theo tuần. Cancel/reschedule, Coach change và late/no-show theo BR-70 đến BR-77.
+- **Payment/Invoice/Adjustment/Refund, sự kiện kích hoạt Membership lần mua mới và báo cáo doanh thu: PENDING — chưa chốt nghiệp vụ.** Không sử dụng BR-30/31/32/40/41/42/43/55/58 cũ hoặc các công thức/flow cũ để code.
 
 
 ## 6. Quy tắc xử lý khi docs mâu thuẫn / thiếu
@@ -249,14 +245,14 @@ Nguồn phê duyệt: người dùng đồng ý khuyến nghị review và yêu 
 
 ## 7. Open Questions và các mục đã đóng
 
-- [x] A1–A7, ID catalog int, JSON camelCase, API enum UPPER_SNAKE_CASE và JWT PascalCase: đã duyệt 22/09, xem §2/3/5.7. DB enum giữ hiện trạng.
-- [x] Reschedule tạo buổi mới theo BR-54; WorkoutResult cần Enrollment Confirmed theo BR-61, không tự thêm Present.
+- [x] Membership/Class/Booking/No-show/PT đã duyệt ngày 23/09/2026; xem Business Rules v1.6 và §5.7.
+- [x] Reschedule class tạo class thay thế theo BR-54; booking cũ bị hủy và Member tự booking lại.
 - [x] Google explicit link và credential nullable theo BR-59/60; chưa đồng nghĩa integration đã test thật. Không lưu Google refresh token trong scope login chỉ xác minh ID token; nếu thêm lưu token phải thiết kế bảo vệ riêng.
 - [ ] Điểm kết thúc và quyền đọc lịch sử của quan hệ ClassBased; không cho phép tự suy ra quyền vô hạn từ một booking.
-- [ ] Quy trình Manager xử lý hóa đơn quá hạn; hiện chặn thu thông thường, không tự gia hạn/void/tịch thu cọc.
-- [ ] Refund theo ngày có tính ngày hiện tại là chưa dùng không; tác động hủy dịch vụ/hoàn tiền lên gói và booking tương lai. Không tự hủy gói từ một Refund.
+- [ ] Toàn bộ nghiệp vụ Payment/Invoice/Adjustment/Refund, gồm thời điểm tạo hóa đơn, cách thu tiền, cọc/hạn, hoàn tiền, quyền thao tác, số dư và báo cáo doanh thu.
+- [ ] Sự kiện xác lập `Membership.StartDate` cho lần mua mới sau khi nghiệp vụ Payment được chốt.
 - [ ] Quyền SystemAdministrator ngoài quản trị tài khoản/role vẫn không được tự mở rộng; hiện deny báo cáo/cấu hình/Audit khi chưa có quyền rõ.
-- [ ] Chi tiết soft-delete theo từng entity chưa có field: không tự thêm field/xóa lịch sử; Invoice tuyệt đối không xóa.
+- [ ] Chi tiết soft-delete theo từng entity chưa có field: không tự thêm field/xóa lịch sử. Quy tắc riêng cho Invoice chờ chốt cùng Payment.
 
 ---
 
@@ -264,6 +260,7 @@ Nguồn phê duyệt: người dùng đồng ý khuyến nghị review và yêu 
 
 | Ngày | Thay đổi | Người sửa |
 |---|---|---|
+| 23/09/2026 | Đồng bộ Membership theo calendar date, Yoga/Group X, booking, No-show và PT theo Business Rules v1.6. Đánh dấu toàn bộ Payment/Invoice/Adjustment/Refund và báo cáo doanh thu là PENDING; nội dung Payment cũ không còn là nguồn triển khai. | Người dùng duyệt; Codex cập nhật |
 | 22/09/2026 | Duyệt A1–A7 và chính sách v1.4; sửa đối soát thu/hoàn, state hồi phục gói có điều kiện, naming contract; giữ PDF/AI/Google trong scope. Người dùng đã gộp v1.4 vào Word; bỏ tham chiếu mirror đã xóa, đồng bộ Requirements/Design/field docs và bổ sung plan 23/09. Chưa xác nhận code đạt. | Người dùng duyệt; Codex cập nhật |
 | 18/09/2026 | **Triển khai scope đa bộ môn ở tầng code** (theo `docs/multidiscipline-refactor-plan.md`). Chốt 4 điểm còn treo ở bước 1 của kế hoạch: (1) `Class.Discipline` GIỮ kiểu string, ba giá trị chính thức gom vào `SportHub.Scheduling/Domain/Constants/Disciplines.cs` + validator `ClassRules` + 2 DB CHECK (`CK_classes_discipline_allowed`, `CK_classes_personal_training_capacity`) — không thêm enum nghiệp vụ mới ngoài SSOT; (2) `Class.DefaultCoachId` GIỮ nullable kể cả với Personal Training — HLV bắt buộc nằm ở `ClassSession.CoachId` (đã not-null), "PT gán 1 Coach" được bảo đảm bằng `Capacity = 1` chứ không bằng việc siết nullability ở Class; (3) cột thời gian của `GymCheckIn` chốt là `check_in_time` (property `CheckInTime`, UTC) theo SSOT §2 và tiền lệ `Attendance.CheckInTime` — ERD Design v2 §1 đã sửa từ `check_in_time_utc` cho khớp; (4) BR-64 chỉ xét `MemberPackage.Status = Active`, KHÔNG thêm điều kiện `EndDate`/`RemainingSessions > 0` — việc chuyển `Active → Expired` khi quá hạn hoặc hết buổi thuộc BR-11 (Design v2 §2.1), không nhân bản vào rule check-in. Thêm entity/migration `gym_checkins`, service + 3 endpoint + policy RBAC riêng (không tái dụng `AttendanceCheckInPolicy` vì policy đó còn cho Coach), và project test `SportHub.Scheduling.Tests`. | Hồ Lê Thiên An (qua Claude) |
 | 18/09/2026 | **Chốt 4 bộ môn chính thức** (Gym/Fitness, Personal Training, Yoga, Group X — §1.1) cho hướng "trung tâm thể thao đa bộ môn"; xác nhận đa chi nhánh vẫn ngoài scope (§1.3). Thêm entity mới `GymCheckIn` (§2, module Scheduling, BR-64 trong `SportManagement_BusinessRules.docx`) vì Gym không đặt lịch qua Class — Lễ tân điểm danh trực tiếp, điều kiện ≥1 MemberPackage Active, không trừ buổi. Chi tiết: `claude/citigym-multidiscipline-scope-plan.md` (Project doc). | Hồ Lê Thiên An (qua Claude) |
