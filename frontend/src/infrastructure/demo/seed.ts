@@ -31,9 +31,9 @@ export function createSeed(): MemberSnapshot {
       20,
     ],
     [
-      "pilates",
-      "Pilates Core Flow",
-      "Pilates",
+      "groupx",
+      "GroupX",
+      "GroupX",
       "linh",
       "Linh Đặng",
       "Studio B",
@@ -156,8 +156,8 @@ export function createSeed(): MemberSnapshot {
       {
         id: "linh",
         name: "Linh Đặng",
-        specialty: "Yoga & Pilates",
-        bio: "Đồng hành cùng bạn cải thiện độ linh hoạt, nhịp thở và cân bằng cơ thể.",
+        specialty: "Yoga & GroupX",
+        bio: "Đồng hành cùng bạn cải thiện độ linh hoạt, nhịp thở và duy trì động lực trong các lớp tập nhóm.",
         initials: "LĐ",
       },
       {

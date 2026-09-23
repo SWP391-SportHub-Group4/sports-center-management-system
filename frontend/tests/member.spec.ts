@@ -211,7 +211,7 @@ test("demo booking rules reject duplicates/full classes and late cancellation do
   expect(() =>
     applyCommand(
       s,
-      { type: "book", sessionId: "pilates", memberPackageId: "member-gold" },
+      { type: "book", sessionId: "groupx", memberPackageId: "member-gold" },
       now,
     ),
   ).toThrow("hết chỗ");

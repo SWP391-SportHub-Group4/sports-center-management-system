@@ -20,5 +20,9 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "SportHub | Chuyển động theo cách của bạn",
-  description: "Khám phá trung tâm thể thao SportHub, các hoạt động tập luyện và thông tin sự kiện dành cho mọi người.",
+  description:
+    "Khám phá trung tâm thể thao SportHub, các hoạt động tập luyện và thông tin sự kiện dành cho mọi người.",
+  icons: {
+    icon: "/sporthub/brand.svg",
+  },
 };
