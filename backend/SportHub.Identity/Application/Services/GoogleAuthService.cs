@@ -64,7 +64,8 @@ public sealed class GoogleAuthService(
     ISportHubDbContext db,
     IGoogleTokenVerifier verifier,
     IOptions<JwtOptions> jwtOptions,
-    IClock clock) : IGoogleAuthService
+    IClock clock,
+    IPasswordGenerator passwordGenerator) : IGoogleAuthService
 {
     public async Task<AuthResponse> LoginAsync(string idToken, CancellationToken ct = default)
     {
@@ -85,7 +86,7 @@ public sealed class GoogleAuthService(
                 throw new AccountBlockedException(linkedUser.Status);
             }
 
-            return BuildResponse(linkedUser);
+            return BuildResponse(linkedUser, isNewAccount: false, suggestedPassword: null);
         }
 
         var emailOwner = await db.Set<UserAccount>().AnyAsync(u => u.Email == identity.Email, ct);
@@ -136,7 +137,11 @@ public sealed class GoogleAuthService(
 
         user.Role = role;
 
-        return BuildResponse(user);
+        // Chỉ GỢI Ý — không gán vào Credential ở trên, PasswordHash vẫn null (BR-60) cho tới
+        // khi người dùng tự gọi POST /api/users/me/password.
+        var suggestedPassword = passwordGenerator.GenerateStrong();
+
+        return BuildResponse(user, isNewAccount: true, suggestedPassword);
     }
 
     /// <summary>
@@ -203,7 +208,7 @@ public sealed class GoogleAuthService(
         await db.SaveChangesAsync(ct);
     }
 
-    private AuthResponse BuildResponse(UserAccount user)
+    private AuthResponse BuildResponse(UserAccount user, bool isNewAccount, string? suggestedPassword)
         => new()
         {
             AccessToken = JwtService.GenerateAccessToken(
@@ -214,6 +219,8 @@ public sealed class GoogleAuthService(
                 Email = user.Email,
                 FullName = user.Profile?.FullName ?? string.Empty,
                 Role = user.Role.RoleName.ToString()
-            }
+            },
+            IsNewAccount = isNewAccount,
+            SuggestedPassword = suggestedPassword
         };
 }
