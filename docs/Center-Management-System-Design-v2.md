@@ -449,6 +449,7 @@ Các literal enum như `'CONFIRMED'`/`'ACTIVE'` trong SQL minh họa bên dướ
 | Khi nào Attendance = Absent vs No-show | `Absent`: Coach/Receptionist **chủ động ghi tay** (vd. có lý do chính đáng); `No-show`: **job tự động** sinh ra sau `end_at_utc` khi Enrollment CONFIRMED không có check-in và không hủy đúng hạn | BR-53 |
 | Google login — không tự tạo/tự link account trùng email | Nếu `/api/auth/google` nhận email đã tồn tại ở `UserAccounts` nhưng chưa có `UserExternalLogin` khớp (`Provider=Google`) → từ chối, **không** tự tạo account mới, **không** tự link — trả lỗi yêu cầu đăng nhập password trước rồi vào Cài đặt để link. Chỉ link khi request đến từ user đã có JWT hợp lệ (`POST /api/auth/google/link`). Chặn kiểu tấn công account pre-hijacking (OWASP) — xem `00-Source-of-Truth.md` §7 Open Questions | BR-59 |
 | Đăng nhập password chỉ khi có credential nội bộ | `POST /api/auth/login` chỉ cho phép khi `UserCredential.PasswordHash IS NOT NULL` cho `UserId` đó (account tạo thuần qua Google chưa từng có password) | BR-60 |
+| Register bằng email/mật khẩu bắt buộc xác thực OTP | `POST /api/auth/register` yêu cầu thêm field `otpCode`, chỉ tạo `UserAccount` sau khi mã 6 số gửi qua `POST /api/auth/register/otp` được xác thực đúng/còn hạn (10 phút)/còn lượt thử (tối đa 5). Không áp dụng cho `/api/auth/google` (email đã được Google xác thực). Chỉ mới là thiết kế — xem `00-Source-of-Truth.md` §5.8, chưa có code | BR-78 |
 | WorkoutResult chỉ tạo được khi Enrollment còn hợp lệ | FK `EnrollmentId` (10/09/2026 (3)) chỉ đảm bảo Enrollment *tồn tại*, chưa đảm bảo còn hợp lệ — service phải chặn tạo `WorkoutResult` nếu `Enrollment.Status != Confirmed`. Không thêm điều kiện Present ngoài BR-61 | BR-61 |
 
 ---
@@ -461,7 +462,8 @@ Các literal enum như `'CONFIRMED'`/`'ACTIVE'` trong SQL minh họa bên dướ
 
 | Method | Endpoint | Actor | Nguồn định danh |
 |---|---|---|---|
-| POST | `/api/auth/register` | Public | body: email, password — tạo `UserAccount` + `UserCredential` (local) |
+| POST | `/api/auth/register/otp` | Public | body: email — gửi mã OTP 6 số xác thực quyền sở hữu email trước khi Register (BR-78, thiết kế 23/09/2026, CHƯA code) |
+| POST | `/api/auth/register` | Public | body: email, password, fullName, phone, **otpCode** (BR-78, thiết kế 23/09/2026, CHƯA code) — tạo `UserAccount` + `UserCredential` (local) |
 | POST | `/api/auth/login` | Public | chỉ hợp lệ nếu `UserCredential.password_hash != null` (xem §3.1) |
 | POST | `/api/auth/google` | Public | login hoặc tạo mới `UserAccount` (RoleID=Member) + `UserExternalLogin` qua Google; không tự tạo/tự link nếu email đã tồn tại (§3.1) |
 | POST | `/api/auth/google/link` | Member/Coach/Receptionist/Manager | JWT bắt buộc — link `UserExternalLogin` vào `user_id` hiện tại, chỉ khi đã đăng nhập (§3.1) |
@@ -589,6 +591,8 @@ Kết quả: MVP chỉ còn **1 backend (ASP.NET Core modular monolith) + 1 Post
 - [ ] Xác nhận cơ chế `confirmed_count` denormalized thay vì COUNT() mỗi lần
 - [ ] Xác nhận endpoint `on-behalf` cho Receptionist có Audit Log bắt buộc, không opt-out
 - [ ] Xác nhận PDF report dùng thư viện nào (ảnh hưởng BR-48: 20 trang / 15 giây)
+- [ ] BR-78/OTP — xác nhận nguồn SMTP thật sẽ dùng khi deploy/demo, cùng thời hạn OTP/số lần thử/cooldown (xem `00-Source-of-Truth.md` §5.8, §7)
+- [ ] Google Login gợi ý mật khẩu (§3.1, §4.1) — xác nhận thiết kế "chủ động qua `SetPassword`" đủ đáp ứng BR-60 (xem `00-Source-of-Truth.md` §5.8, §7)
 
 ## 8. Đối soát và nghiệm thu v1.6
 

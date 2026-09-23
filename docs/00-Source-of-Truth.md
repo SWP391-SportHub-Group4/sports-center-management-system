@@ -233,6 +233,22 @@ Tham chiếu mã BR trong plan là bản đồ truy vết, không thêm hay đá
 - PT: add-on tùy chọn; 1 Coach : 1 Member; 90 phút/session; frequency 1/2/3 chỉ để tính tổng quota, không giới hạn theo tuần. Cancel/reschedule, Coach change và late/no-show theo BR-70 đến BR-77.
 - **Payment/Invoice/Adjustment/Refund, sự kiện kích hoạt Membership lần mua mới và báo cáo doanh thu: PENDING — chưa chốt nghiệp vụ.** Không sử dụng BR-30/31/32/40/41/42/43/55/58 cũ hoặc các công thức/flow cũ để code.
 
+### 5.8 Google Login — mật khẩu gợi ý; Register — xác thực OTP (bổ sung 23/09/2026)
+
+**Chỉ mới là thiết kế/doc — CHƯA có dòng code nào được sửa cho 2 mục dưới đây.** Người dùng yêu cầu chốt doc + nghiệp vụ trước, code làm sau (xem Open Questions §7).
+
+**Google Login — gợi ý mật khẩu mạnh cho tài khoản mới tạo:**
+- Khi `POST /api/auth/google` tạo `UserAccount` MỚI (nhánh chưa từng tồn tại email đó — không đổi luồng chặn BR-59 ở các nhánh khác), backend sinh thêm 1 chuỗi mật khẩu mạnh ngẫu nhiên và trả về trong response (`AuthResponse.SuggestedPassword`, field mới, chỉ khác `null` ở đúng nhánh này) — **không** gán/hash chuỗi này vào `UserCredential.PasswordHash` ngay lúc tạo account.
+- `UserCredential.PasswordHash` của account mới **vẫn giữ `null`**, đúng BR-60. Mật khẩu thật chỉ được đặt khi FE gọi `POST /api/users/me/password` (endpoint đã có sẵn, dùng cho case Google-only đặt mật khẩu lần đầu) sau khi user xác nhận muốn dùng/đổi mật khẩu gợi ý — đây là hành động "người dùng chủ động... từ bên trong một phiên đã xác thực" đúng nguyên văn BR-60, nên **không cần sửa BR-60**.
+- Field mới `AuthResponse.IsNewAccount` (Register luôn `true`; Login luôn `false`; Google Login `true` chỉ ở nhánh tạo mới) giúp FE biết khi nào hiện modal gợi ý mật khẩu.
+- Chi tiết thiết kế, code mẫu, tiêu chí nghiệm thu: `claude/auth-google-suggested-password-plan.md` (Project doc, Claude).
+
+**Register — xác thực OTP qua email (BR-78, Mục A trong business rules docx, v1.7):**
+- `POST /api/auth/register` (email/mật khẩu) nay yêu cầu thêm bước xác thực email trước khi tạo account. Flow 2 bước: `POST /api/auth/register/otp {email}` gửi mã 6 số tới email (chưa tạo gì trong DB ở bước này); `POST /api/auth/register` nhận thêm field `otpCode`, xác thực đúng/còn hạn (10 phút)/còn lượt thử (tối đa 5) rồi mới tạo `UserAccount` như luồng cũ.
+- Không áp dụng cho Google Login — email đã được Google xác thực qua `payload.EmailVerified` (`GoogleTokenVerifier`).
+- **Hạ tầng mới bắt buộc phải xây trước khi code được**: repo hiện chưa có bất kỳ cơ chế gửi email nào (`NotificationChannel.Email` mới chỉ là enum, comment trong code xác nhận "MVP chỉ InApp hoạt động thật") — cần thêm `IEmailSender` (bản SMTP thật qua MailKit + bản fallback ghi log cho máy dev chưa có SMTP), entity mới `EmailOtp`, 1 migration mới, section config `Smtp` trong `appsettings.json`.
+- Chi tiết thiết kế, code mẫu, bảng mã lỗi, tiêu chí nghiệm thu: `claude/auth-register-email-otp-plan.md` (Project doc, Claude).
+
 
 ## 6. Quy tắc xử lý khi docs mâu thuẫn / thiếu
 
@@ -253,6 +269,8 @@ Tham chiếu mã BR trong plan là bản đồ truy vết, không thêm hay đá
 - [ ] Sự kiện xác lập `Membership.StartDate` cho lần mua mới sau khi nghiệp vụ Payment được chốt.
 - [ ] Quyền SystemAdministrator ngoài quản trị tài khoản/role vẫn không được tự mở rộng; hiện deny báo cáo/cấu hình/Audit khi chưa có quyền rõ.
 - [ ] Chi tiết soft-delete theo từng entity chưa có field: không tự thêm field/xóa lịch sử. Quy tắc riêng cho Invoice chờ chốt cùng Payment.
+- [ ] Google Login (§5.8) — xác nhận thiết kế "gợi ý mật khẩu qua `SetPassword`" là cách diễn giải được chấp nhận cho chữ "chủ động" ở BR-60; KHÔNG tự chuyển sang biến thể FE tự động gọi `SetPassword` mà không cần user xác nhận khi chưa hỏi lại.
+- [ ] Register OTP / BR-78 (§5.8) — xác nhận thời hạn OTP (10 phút), số lần thử tối đa (5), cooldown gửi lại (60 giây), ngưỡng rate limit, và nguồn SMTP thật sẽ dùng khi deploy/demo (Gmail App Password / SendGrid / Mailtrap...).
 
 ---
 
@@ -260,6 +278,7 @@ Tham chiếu mã BR trong plan là bản đồ truy vết, không thêm hay đá
 
 | Ngày | Thay đổi | Người sửa |
 |---|---|---|
+| 23/09/2026 | **Chỉ sửa doc — chưa sửa code.** Thêm BR-78 (Mục A, business rules docx bump 1.6→1.7): Register bằng email/mật khẩu bắt buộc xác thực OTP gửi tới email trước khi tạo tài khoản, không áp dụng cho Google Login. Thêm §5.8: thiết kế Google Login gợi ý mật khẩu mạnh cho tài khoản mới tạo (không vi phạm BR-60 — đặt mật khẩu vẫn qua `POST /api/users/me/password` đã có, không tự động). Thêm 2 Open Question mới ở §7 chờ team/mentor xác nhận trước khi code. Chi tiết đầy đủ: `claude/auth-google-suggested-password-plan.md`, `claude/auth-register-email-otp-plan.md` (Project doc). | Hồ Lê Thiên An (qua Claude) |
 | 23/09/2026 | Đồng bộ Membership theo calendar date, Yoga/Group X, booking, No-show và PT theo Business Rules v1.6. Đánh dấu toàn bộ Payment/Invoice/Adjustment/Refund và báo cáo doanh thu là PENDING; nội dung Payment cũ không còn là nguồn triển khai. | Người dùng duyệt; Codex cập nhật |
 | 22/09/2026 | Duyệt A1–A7 và chính sách v1.4; sửa đối soát thu/hoàn, state hồi phục gói có điều kiện, naming contract; giữ PDF/AI/Google trong scope. Người dùng đã gộp v1.4 vào Word; bỏ tham chiếu mirror đã xóa, đồng bộ Requirements/Design/field docs và bổ sung plan 23/09. Chưa xác nhận code đạt. | Người dùng duyệt; Codex cập nhật |
 | 18/09/2026 | **Triển khai scope đa bộ môn ở tầng code** (theo `docs/multidiscipline-refactor-plan.md`). Chốt 4 điểm còn treo ở bước 1 của kế hoạch: (1) `Class.Discipline` GIỮ kiểu string, ba giá trị chính thức gom vào `SportHub.Scheduling/Domain/Constants/Disciplines.cs` + validator `ClassRules` + 2 DB CHECK (`CK_classes_discipline_allowed`, `CK_classes_personal_training_capacity`) — không thêm enum nghiệp vụ mới ngoài SSOT; (2) `Class.DefaultCoachId` GIỮ nullable kể cả với Personal Training — HLV bắt buộc nằm ở `ClassSession.CoachId` (đã not-null), "PT gán 1 Coach" được bảo đảm bằng `Capacity = 1` chứ không bằng việc siết nullability ở Class; (3) cột thời gian của `GymCheckIn` chốt là `check_in_time` (property `CheckInTime`, UTC) theo SSOT §2 và tiền lệ `Attendance.CheckInTime` — ERD Design v2 §1 đã sửa từ `check_in_time_utc` cho khớp; (4) BR-64 chỉ xét `MemberPackage.Status = Active`, KHÔNG thêm điều kiện `EndDate`/`RemainingSessions > 0` — việc chuyển `Active → Expired` khi quá hạn hoặc hết buổi thuộc BR-11 (Design v2 §2.1), không nhân bản vào rule check-in. Thêm entity/migration `gym_checkins`, service + 3 endpoint + policy RBAC riêng (không tái dụng `AttendanceCheckInPolicy` vì policy đó còn cho Coach), và project test `SportHub.Scheduling.Tests`. | Hồ Lê Thiên An (qua Claude) |
