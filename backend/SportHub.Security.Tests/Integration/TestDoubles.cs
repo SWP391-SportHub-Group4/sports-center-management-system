@@ -1,3 +1,7 @@
+using System.Collections.Concurrent;
+using System.Text.RegularExpressions;
+using SportHub.BuildingBlocks.Abstractions.Email;
+using SportHub.Identity.Application.Services;
 using SportHub.Identity.Application.Interfaces;
 using SportHub.Identity.Domain.Entities;
 using SportHub.Identity.Domain.Enums;
@@ -95,5 +99,46 @@ public sealed class SpyPasswordHasher(IPasswordHasher inner, CallSpy spy) : IPas
     {
         spy.RecordVerifyDummy();
         inner.VerifyDummy(password);
+    }
+}
+
+/// <summary>
+/// Thay IEmailSender trong host test: giu lai email thay vi gui that, de test lay duoc ma OTP
+/// va kiem tra "khong gui email" o cac nhanh bi chan.
+/// </summary>
+public sealed class CapturingEmailSender : IEmailSender
+{
+    private static readonly Regex OtpPattern = new(@">(\d{6})<", RegexOptions.Compiled);
+
+    public ConcurrentQueue<(string To, string Subject, string Body)> Sent { get; } = new();
+
+    public Task SendAsync(string toAddress, string subject, string htmlBody, CancellationToken cancellationToken = default)
+    {
+        Sent.Enqueue((toAddress, subject, htmlBody));
+        return Task.CompletedTask;
+    }
+
+    public int CountFor(string email)
+        => Sent.Count(m => string.Equals(m.To, email, StringComparison.OrdinalIgnoreCase));
+
+    public string LatestOtpFor(string email)
+    {
+        var body = Sent.Last(m => string.Equals(m.To, email, StringComparison.OrdinalIgnoreCase)).Body;
+        return OtpPattern.Match(body).Groups[1].Value;
+    }
+}
+
+/// <summary>
+/// Thay xac minh id_token that cua Google (can mang + client id). Token test co dang
+/// "subject|email|name" — chi dung trong host test.
+/// </summary>
+public sealed class FakeGoogleTokenVerifier : IGoogleTokenVerifier
+{
+    public static string Token(string subject, string email, string name) => $"{subject}|{email}|{name}";
+
+    public Task<GoogleIdentity> VerifyAsync(string idToken, CancellationToken ct = default)
+    {
+        var parts = idToken.Split('|');
+        return Task.FromResult(new GoogleIdentity(parts[0], parts[1], parts[2]));
     }
 }

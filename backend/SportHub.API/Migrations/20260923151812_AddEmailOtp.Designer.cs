@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using SportHub.API.Persistence;
@@ -11,9 +12,11 @@ using SportHub.API.Persistence;
 namespace SportHub.API.Migrations
 {
     [DbContext(typeof(SportHubDbContext))]
-    partial class SportHubDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260923151812_AddEmailOtp")]
+    partial class AddEmailOtp
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
