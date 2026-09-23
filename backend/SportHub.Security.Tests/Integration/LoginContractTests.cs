@@ -171,14 +171,15 @@ public class LoginContractTests(SportHubApiFactory factory)
     {
         var client = ClientFor("10.20.0.7");
         var email = $"reg-{Guid.NewGuid():N}@example.com";
+        var otpCode = await factory.RequestRegisterOtpAsync(client, email);
 
         var created = await client.PostAsync("api/auth/register",
-            JsonContent.Create(new { email, password = ValidPassword, fullName = "Le Van C" }));
+            JsonContent.Create(new { email, password = ValidPassword, fullName = "Le Van C", otpCode }));
 
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
 
-        var duplicate = await client.PostAsync("api/auth/register",
-            JsonContent.Create(new { email, password = ValidPassword, fullName = "Le Van C" }));
+        // BR-78: email da co tai khoan thi bi chan ngay tu buoc xin OTP, cung ma loi 409 cu.
+        var duplicate = await client.PostAsync("api/auth/register/otp", JsonContent.Create(new { email }));
 
         Assert.Equal(HttpStatusCode.Conflict, duplicate.StatusCode);
         Assert.Contains("email_already_exists", await duplicate.Content.ReadAsStringAsync());
@@ -189,9 +190,10 @@ public class LoginContractTests(SportHubApiFactory factory)
     {
         var client = ClientFor("10.20.0.8");
         var email = $"round-{Guid.NewGuid():N}@example.com";
+        var otpCode = await factory.RequestRegisterOtpAsync(client, email);
 
         await client.PostAsync("api/auth/register",
-            JsonContent.Create(new { email, password = ValidPassword, fullName = "Pham Thi D" }));
+            JsonContent.Create(new { email, password = ValidPassword, fullName = "Pham Thi D", otpCode }));
 
         var login = await client.PostAsync("api/auth/login", Body(email, ValidPassword));
 

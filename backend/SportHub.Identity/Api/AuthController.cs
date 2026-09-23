@@ -11,6 +11,18 @@ namespace SportHub.Identity.Api;
 [Route("api/auth")]
 public class AuthController(IAuthService authService) : ControllerBase
 {
+    /// <summary>BR-78 — gửi mã OTP 6 số tới email trước khi Register.</summary>
+    [AllowAnonymous]
+    [EnableRateLimiting("auth-register-otp")]
+    [HttpPost("register/otp")]
+    public async Task<IActionResult> RequestRegisterOtp(
+        [FromBody] RequestRegisterOtpRequest request,
+        CancellationToken cancellationToken)
+    {
+        await authService.RequestRegisterOtpAsync(request, cancellationToken);
+        return NoContent();
+    }
+
     [AllowAnonymous]
     [EnableRateLimiting("auth-register")]
     [HttpPost("register")]
