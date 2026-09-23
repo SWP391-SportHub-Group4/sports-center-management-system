@@ -1,7 +1,9 @@
 # Mục đích các Entity & vai trò từng Field (SportHub)
 
 > Rút ra từ ERD v2 (`docs/Center-Management-System-Design-v2.md` §1), state transition (§2) và bảng ràng buộc DB (§3).
-> Thứ tự ưu tiên: `00-Source-of-Truth.md` → `SportManagement_BusinessRules.docx` v1.4 đã gộp → `Center-Management-System-Design-v2.md` → tài liệu field này. Không duy trì bản Markdown mirror của Business Rules.
+> Thứ tự ưu tiên: `00-Source-of-Truth.md` → `SportManagement_BusinessRules.docx` v1.6 → `Center-Management-System-Design-v2.md` → tài liệu field này. Không duy trì bản Markdown mirror của Business Rules.
+>
+> **Cập nhật 23/09/2026:** Membership/Class/Booking/No-show/PT đã đồng bộ theo Business Rules v1.6. Module Payment là **PENDING — chưa chốt nghiệp vụ**; tên entity/field Payment hiện có chỉ được xem là dấu vết kỹ thuật cũ, không phải schema được duyệt để code.
 >
 > **Cập nhật 10/09/2026:** tên field trong cột "Field" (và mọi tham chiếu `Entity.Field` trong phần Mục đích) đã đổi từ `PascalCase` sang `snake_case` (vd `RoleID` → `role_id`) theo quyết định naming mới ở `00-Source-of-Truth.md` §5.4. Tên bảng (`USERS`, `MEMBER_TRAINING_PROFILE`...) và tên class/job (`AttendanceFinalizerJob`...) giữ nguyên, không đổi. **Chỉ sửa doc, chưa đụng code.**
 >
@@ -103,28 +105,28 @@
 ## Module: Membership
 
 ### `MEMBERSHIP_PACKAGES`
-**Mục đích:** **danh mục** gói tập trung tâm bán ra (template) — KHÔNG phải gói của 1 Member cụ thể (đó là `MEMBER_PACKAGES` bên dưới). Ví dụ: "Gói 3 tháng không giới hạn", "Gói 10 buổi".
+**Mục đích:** **danh mục** Membership trung tâm bán ra (template) — KHÔNG phải Membership record của 1 Member cụ thể (đó là `MEMBER_PACKAGES` bên dưới).
 
 | Field | Vai trò |
 |---|---|
 | `PackageId` (PK) | Định danh gói |
 | `Name` | Hiển thị cho Member chọn mua — **unique trong catalog** (BR-56) |
-| `Price` | Giá bán — nguồn để tạo `InvoiceItem.Amount` khi Member mua |
-| `DurationDays` | Thời hạn sử dụng gói (tính từ `MemberPackage.StartDate`) |
-| `SessionLimit` | Giới hạn số buổi (`nullable` = không giới hạn) — nguồn gốc `MemberPackage.RemainingSessions` |
+| `Price` | Giá bán; cách sử dụng trong Payment/Invoice đang để treo |
+| `DurationInMonths` | Chỉ nhận 1, 3, 6 hoặc 12 tháng; dùng công thức calendar date của BR-9 |
+| `IsActive` / `Description` | Ngừng bán không làm mất quyền lợi Membership đã tạo; Description tùy chọn |
 
 ### `MEMBER_PACKAGES`
-**Mục đích:** **instance thật** của 1 gói mà 1 Member đã mua/đang dùng — đây là entity trung tâm để kiểm tra "Member còn quyền đăng ký lớp không" (BR-16).
+**Mục đích:** Membership record của một Member. Tên entity code hiện tại vẫn là `MEMBER_PACKAGES`; tài liệu không tự đổi tên entity khi chưa có quyết định schema.
 
 | Field | Vai trò |
 |---|---|
 | `MemberPackageId` (PK) | Định danh |
 | `MemberId` (FK) | Ai sở hữu gói này |
 | `PackageId` (FK) | Mua theo template gói nào |
-| `StartDate` / `EndDate` | Xác định gói còn hiệu lực theo thời gian hay không (điều kiện `EXPIRED`, BR-11) |
-| `RemainingSessions` | Số buổi còn lại — **trừ nguyên tử (atomic)** mỗi lần Enrollment thành công (constraint #3), là điều kiện chặn overbooking theo buổi |
-| `Status` | Vòng đời theo SSOT §4/BR-11 v1.4; có Expired → Active có điều kiện khi hoàn lượt, không hồi phục Cancelled; chỉ Active được enroll |
-| `Version` | Optimistic concurrency — tránh lost-update khi 2 request cùng sửa 1 gói cùng lúc (constraint #8) |
+| `StartDate` / `EndDate` | Calendar date, đều inclusive; `EndDate = StartDate.AddMonths(DurationInMonths).AddDays(-1)`. Sự kiện xác lập StartDate cho lần mua mới thuộc Payment đang để treo |
+| `Status` | Business Rules hiện dùng `Active` và `Expired`; không tự chốt thêm trạng thái liên quan Payment |
+| PT add-on / frequency / quota | PT tùy chọn; frequency 1/2/3 chỉ tính tổng quota theo BR-71, không phải giới hạn theo tuần. Tên field cụ thể cần chốt trong thiết kế trước khi code |
+| Liên kết renewal/carry-over | Early renewal tạo record mới; PT sessions chưa dùng carry over theo BR-65/66. Tên field kỹ thuật cần chốt trong thiết kế trước khi code |
 
 ---
 
@@ -140,20 +142,20 @@
 | `Capacity` | Trần sức chứa vật lý — dùng để tính `ClassSession.Capacity` = MIN(Room, Class) (BR-51) |
 
 ### `CLASSES`
-**Mục đích:** định nghĩa **loại lớp** (ví dụ "Yoga cơ bản") — là template, không phải 1 buổi học cụ thể (đó là `CLASS_SESSIONS`).
+**Mục đích:** class Yoga hoặc Group X cụ thể theo lịch. Không chia Beginner/Advanced; PT không dùng `Class.Discipline`.
 
 | Field | Vai trò |
 |---|---|
 | `ClassId` (PK) | Định danh lớp |
-| `Name` | Hiển thị cho Member chọn |
-| `Discipline` | Bộ môn — giá trị hợp lệ (chốt 18/09/2026): `PersonalTraining`, `Yoga`, `GroupX`. KHÔNG có `Gym` — Gym/Fitness ra vào tự do, không qua `Class`, xem `GYM_CHECKINS` bên dưới |
-| `DefaultRoomId` (FK) | Phòng mặc định khi sinh session, có thể bị override ở từng session |
-| `DefaultCoachId` (FK, nullable) | HLV mặc định phụ trách lớp, cũng có thể override ở từng session |
-| `Capacity` | Sức chứa mặc định của lớp — 1 trong 2 yếu tố tính MIN(Room, Class) cho session (BR-51) |
-| `Status` | `ACTIVE/ARCHIVED` — lớp ngừng mở không xóa cứng (giữ lịch sử session/enrollment cũ) |
+| `Discipline` | Chỉ `Yoga` hoặc `GroupX` |
+| `Date` / `StartTime` / `EndTime` | Class kéo dài đúng 60 phút; `EndTime = StartTime + 60 minutes` |
+| `Coach` | Coach do Center Manager phân công hoặc phân công lại |
+| `Capacity` | Số nguyên dương, tối đa 20; Manager có thể đặt thấp hơn 20 |
+| `Slot` | `Morning` hoặc `Afternoon` do Manager chọn, không suy ra từ giờ hard-code |
+| `Status` | `DRAFT → PUBLISHED → CLOSED`; chỉ `PUBLISHED` nhận booking |
 
 ### `CLASS_RECURRENCE`
-**Mục đích:** định nghĩa **quy luật lặp lại** của 1 lớp (ví dụ "Thứ 2-4-6, 18h-19h30") — tách riêng khỏi session cụ thể để 1 job nền có thể sinh trước hàng loạt `CLASS_SESSIONS` mà không phải nhập tay từng buổi.
+**Trạng thái:** cấu trúc kỹ thuật cũ, chưa được Business Rules v1.6 chốt lại. Không dùng recurrence engine cho PT và không được sinh lịch Yoga/Group X vi phạm giới hạn Morning/Afternoon, tối đa 2 class mỗi discipline và 4 class tổng mỗi calendar date.
 
 | Field | Vai trò |
 |---|---|
@@ -165,7 +167,7 @@
 | `EffectiveFrom` / `EffectiveTo` | Khoảng thời gian pattern này còn áp dụng — cho phép đổi lịch theo kỳ mà không xóa lịch sử session cũ |
 
 ### `CLASS_SESSIONS`
-**Mục đích:** **1 buổi học cụ thể**, có ngày giờ thật — là entity Member thực sự đăng ký vào (không đăng ký vào `CLASSES`). Được sinh tự động từ `CLASS_RECURRENCE`, hoặc tạo ad-hoc.
+**Trạng thái:** mô hình kỹ thuật hiện có cần được map lại với Class v1.6 trước khi code. Không dùng `SCHEDULED/RESCHEDULED/CANCELLED/COMPLETED` để thay cho lifecycle `DRAFT/PUBLISHED/CLOSED` đã duyệt.
 
 | Field | Vai trò |
 |---|---|
@@ -175,23 +177,23 @@
 | `RoomId` (FK) | Phòng thực tế của buổi này (có thể khác `Class.DefaultRoomId` nếu đổi phòng) |
 | `CoachId` (FK) | HLV thực tế dạy buổi này (có thể khác default nếu đổi HLV) |
 | `StartAtUtc` / `EndAtUtc` | Mốc thời gian tuyệt đối (UTC) — dùng để check trùng lịch, tính deadline hủy, tính No-show |
-| `Capacity` | Sức chứa thực tế buổi này (≤ MIN(Room, Class) tại thời điểm tạo — Manager chỉ được hạ, BR-51) |
+| `Capacity` | Không vượt quá Capacity của class và không vượt trần 20 members theo BR-51 |
 | `ConfirmedCount` | **Denormalized**, tăng/giảm nguyên tử mỗi khi có Enrollment CONFIRMED/hủy — dùng để chặn overbooking bằng 1 UPDATE có điều kiện thay vì COUNT() (constraint #2) |
-| `Status` | `SCHEDULED/RESCHEDULED/CANCELLED/COMPLETED` — vòng đời của chính buổi học |
+| `Status` | Cần thiết kế lại để không mâu thuẫn `DRAFT/PUBLISHED/CLOSED`; chưa tự chốt mapping |
 | `RescheduledFromSessionId` (FK, nullable) | Nếu buổi này là kết quả dời lịch từ buổi khác, trỏ về buổi gốc — giữ vết lịch sử đổi lịch |
 
 ### `ENROLLMENTS`
-**Mục đích:** ghi nhận **1 Member đăng ký vào 1 session cụ thể**, gắn với gói nào bị trừ buổi — là entity trung tâm của flow "Đặt lớp".
+**Mục đích:** ghi nhận một Member booking Yoga hoặc Group X. Booking không trừ Membership session credit.
 
 | Field | Vai trò |
 |---|---|
 | `EnrollmentId` (PK) | Định danh lượt đăng ký |
 | `SessionId` (FK) | Đăng ký vào buổi nào |
 | `MemberId` (FK) | Ai đăng ký |
-| `MemberPackageId` (FK) | Gói nào bị trừ `RemainingSessions` cho lượt đăng ký này — cần thiết vì 1 Member có thể có nhiều gói cùng lúc |
-| `Status` | `CONFIRMED/CANCELLED_ON_TIME/CANCELLED_LATE` — quyết định có hoàn credit hay không (BR-17/18), xem state machine §2.2 |
+| `MemberPackageId` (FK) | Field kỹ thuật cũ; business rule chỉ yêu cầu có Membership Active và class date nằm trong validity. Có giữ field này hay không cần quyết định thiết kế, không tự suy diễn |
+| `Status` | `CONFIRMED/CANCELLED` theo rule hiện hành; không phân nhánh hoàn/không hoàn Membership credit |
 | `RegisteredAt` | Mốc đăng ký, dùng tính thứ tự/độ ưu tiên nếu cần |
-| `CancelledAt` | Mốc hủy — so với deadline (đọc từ cấu hình, BR-50) để phân loại ON_TIME/LATE |
+| `CancelledAt` | Mốc hủy — chỉ cho phép khi `CancellationTime <= ClassStartTime - 30 minutes` |
 | `CancelledByUserId` (FK, nullable) | Ai bấm hủy — có thể khác Member (vd Receptionist hủy giúp) — phục vụ audit |
 
 ### `ATTENDANCE`
@@ -206,7 +208,7 @@
 | `CheckedInByUserId` (FK, nullable) | Ai thực hiện check-in (Coach/Receptionist) — null nếu do job tự động tạo (NO_SHOW) |
 
 ### `GYM_CHECKINS` (mới, 18/09/2026)
-**Mục đích:** ghi nhận Member ra vào tập Gym/Fitness **tự do, không qua đặt lịch** — tách hẳn khỏi `CLASS_SESSIONS`/`ENROLLMENTS`/`ATTENDANCE` (những entity đó chỉ dùng cho Personal Training/Yoga/Group X, xem field `Discipline` ở `CLASSES` phía trên). Chỉ Lễ tân (Receptionist) tạo được — xem BR-64.
+**Mục đích:** ghi nhận Member ra vào tập Gym/Fitness **tự do, không qua đặt lịch** — tách khỏi Class booking. Chỉ Receptionist ghi nhận — xem BR-64.
 
 | Field | Vai trò |
 |---|---|
@@ -214,8 +216,9 @@
 | `MemberId` (FK) | Ai check-in |
 | `CheckedInByUserId` (FK, not null) | Lễ tân nào thực hiện — luôn có giá trị, không phải self-service |
 | `CheckInTime` | Mốc check-in (UTC) |
+| `CheckOutTime` | Mốc check-out theo BR-64 |
 
-Điều kiện tạo (BR-64): Member phải có ≥1 `MemberPackage` đang `Active` tại thời điểm check-in; không giới hạn số lần/ngày; **không** trừ `RemainingSessions` của bất kỳ gói nào (khác `Enrollment`). Không lưu `MemberPackageId` — chỉ cần kiểm tra tồn tại, không cần biết dùng gói nào.
+Điều kiện tạo (BR-64): Member phải có Membership `Active`; Gym không giới hạn trong Membership validity và không trừ quota/session.
 
 ---
 
@@ -260,8 +263,10 @@
 
 ## Module: Payment
 
-### `INVOICES`
-**Mục đích:** hóa đơn — **bất biến** (BR-40), tạo **ngay khi Member chọn gói/dịch vụ**, TRƯỚC khi thanh toán (BR-30 v1.2). Không bao giờ bị xóa, chỉ chuyển trạng thái `VOID` khi cần hủy toàn phần.
+> **PENDING — chưa chốt nghiệp vụ.** Toàn bộ entity, field, enum, lifecycle và công thức trong module này là thiết kế cũ để tham khảo lịch sử, không phải schema đã duyệt và không được dùng làm yêu cầu code. Không suy diễn cách tạo Invoice, ghi Payment, Adjustment/Refund, hạn/cọc hoặc báo cáo doanh thu từ nội dung bên dưới.
+
+### `INVOICES` — dự thảo cũ
+**Trạng thái dự thảo cũ:** chưa chốt mục đích và lifecycle Invoice.
 
 | Field | Vai trò |
 |---|---|
@@ -274,8 +279,8 @@
 | `Status` | `ISSUED → PARTIALLY_PAID → PAID` hoặc `→ VOID` — xem state machine §2.3 |
 | `IssuedAt` | Mốc xuất hóa đơn |
 
-### `INVOICE_ITEMS`
-**Mục đích:** dòng chi tiết trong hóa đơn — 1 Invoice có thể có nhiều dòng (vd: tiền gói + phí phạt trong cùng 1 hóa đơn).
+### `INVOICE_ITEMS` — dự thảo cũ
+**Trạng thái dự thảo cũ:** chưa chốt cấu trúc InvoiceItem.
 
 | Field | Vai trò |
 |---|---|
@@ -286,8 +291,8 @@
 | `RelatedEntityType` | `PACKAGE/CLASS_FEE/PENALTY` — dòng này phát sinh từ nguồn nào |
 | `RelatedEntityId` (nullable) | Trỏ tới entity nguồn cụ thể (vd `MemberPackageId`) để truy vết |
 
-### `PAYMENTS`
-**Mục đích:** từng **giao dịch thu tiền** thật cho 1 Invoice — tách khỏi Invoice vì có thể trả nhiều lần/nhiều phương thức (Invoice bất biến, Payment là các lần thu nối tiếp).
+### `PAYMENTS` — dự thảo cũ
+**Trạng thái dự thảo cũ:** chưa chốt cấu trúc và quy trình Payment.
 
 | Field | Vai trò |
 |---|---|
@@ -300,8 +305,8 @@
 | `ReceivedByUserId` (FK) | Nhân viên nào nhận tiền — audit, thường Receptionist |
 | `PaidAt` | Mốc thanh toán — dùng cho báo cáo doanh thu theo thời gian |
 
-### `PAYMENT_ADJUSTMENTS`
-**Mục đích:** điều chỉnh sau khi đã có Invoice/Payment — hoàn tiền, sửa sai, chiết khấu — có **workflow duyệt riêng** (không ai tự ý sửa hóa đơn/thanh toán gốc, giữ đúng nguyên tắc Invoice bất biến).
+### `PAYMENT_ADJUSTMENTS` — dự thảo cũ
+**Trạng thái dự thảo cũ:** chưa chốt Adjustment/Refund, quyền thao tác hoặc workflow duyệt.
 
 | Field | Vai trò |
 |---|---|
@@ -367,21 +372,19 @@
 
 ## Bổ sung field đã duyệt ngày 22/09/2026
 
-Phần này mô tả schema đích v1.4, áp dụng thay mô tả cũ của các field liên quan. Chưa khẳng định code đã có đủ. Xem SSOT §2/5.7 và implementation-decisions.
+Phần này là ghi chú lịch sử của schema v1.4. Các dòng liên quan Membership/Class đã được thay bằng Business Rules v1.6; các dòng liên quan Payment là PENDING và không còn hiệu lực triển khai.
 
 | Entity.Field | Mục đích và ràng buộc |
 |---|---|
-| Enrollment.CancellationDeadlineHours | int không âm, snapshot lúc Confirmed, mặc định cấu hình 12h; không cập nhật theo setting mới |
-| SystemSetting.Key/Value/ValueType | Key string whitelist, value có kiểm kiểu; Manager chỉnh 12h hủy/7 ngày nhắc hạn |
+| Enrollment.CancellationDeadlineHours | **Không dùng:** deadline class cố định 30 phút, không snapshot theo booking |
+| SystemSetting.Key/Value/ValueType | Không dùng để cấu hình deadline class 12 giờ; các setting khác giữ theo rule tương ứng |
 | SystemSetting.UpdatedAt/UpdatedByUserId | UTC và FK actor, actor có thể null cho seed; chỉnh qua UI có audit |
-| ClassSession.BaselineCapacity | int, MIN(Room, Class) lúc tạo, bất biến; Capacity <= baseline và phòng thực tế |
-| Invoice.DueDateUtc/FirstDepositAtUtc | hạn tháng lịch và cọc đầu hợp lệ; nullable cọc; trả đủ lần đầu không phải cọc |
-| MemberPackage.StackingApprovedByUserId/StackingApprovedAtUtc/StackingApprovalReason | FK Manager, thời điểm UTC, lý do; tất cả có khi ngoại lệ được duyệt, không tự kích hoạt chưa trả đủ |
+| ClassSession.BaselineCapacity | Thiết kế cũ; rule hiện hành chỉ chốt Capacity class là số dương và tối đa 20 |
+| Invoice.DueDateUtc/FirstDepositAtUtc | **PENDING — Payment, chưa chốt** |
+| MemberPackage.StackingApprovedByUserId/StackingApprovedAtUtc/StackingApprovalReason | Thiết kế cũ, không có trong Membership rules v1.6; không dùng làm yêu cầu code |
 | MembershipPackage.IsActive/Description | bool bán mới, mô tả nullable; ngừng bán không tước quyền gói đã bán |
 | AuditLog.TargetId | string cùng TargetEntity để ghi entity có khóa Guid/int/string; không phải một FK chung tới mọi bảng |
-| PaymentAdjustment.ApprovedAtUtc | thời điểm duyệt, nullable trước duyệt; không chứng minh đã trả tiền |
-| PaymentAdjustment.CompletedAtUtc/CompletedByUserId | UTC và FK người xác nhận, bắt buộc khi Refund thực trả; không backfill từ ngày duyệt nếu thiếu chứng cứ |
-| PaymentAdjustment.RefundMethod/RefundReferenceCode | PaymentMethod nullable và mã tham chiếu nullable; bắt buộc method cho Refund Completed, chuyển khoản có reference; tiền mặt có xác nhận quầy/audit |
+| PaymentAdjustment.* | **PENDING — Payment/Refund chưa chốt field hoặc workflow** |
 | ReportExport.ReportExportId/RequestedByUserId | Guid ID, FK chủ sở hữu; download qua API kiểm quyền |
 | ReportExport.ReportType/ParametersJson/Format | loại report whitelist, filter và cột đã chọn, string format Csv/Pdf; không nhận storage path từ client |
 | ReportExport.Status/FailureReason | ReportExportStatus theo SSOT; Failed lưu lỗi an toàn, retry; Completed chỉ khi file sẵn sàng |
@@ -389,4 +392,4 @@ Phần này mô tả schema đích v1.4, áp dụng thay mô tả cũ của các
 | ReportExport.CreatedAt/CompletedAt/ExpiresAt | thời điểm UTC; giữ file thành công ít nhất 6 tháng kể từ CompletedAt |
 | ReportExport.IsDeleted/DeletedAt | chỉ xóa sau retention; list/download phải chặn link cũ; file riêng tư suy ra từ ID/format dưới storage root |
 
-Các đại lượng NetPayable, GrossCollected, RefundedAmount, NetCollected, Outstanding và RefundDue là giá trị suy ra theo biên bản §2, không yêu cầu thêm cột dư thừa. Enum API không quyết định kiểu lưu enum DB. Ngày gói DateOnly dùng lịch Việt Nam, ngày cuối inclusive.
+Các đại lượng Payment cũ như NetPayable, GrossCollected, RefundedAmount, NetCollected, Outstanding và RefundDue không còn là công thức đã duyệt. Membership dùng calendar date; `StartDate`/`EndDate` đều inclusive theo BR-9.

@@ -2,7 +2,7 @@
 
 Hướng dẫn chạy toàn bộ hệ thống (PostgreSQL → API → giao diện) và thử từng vai trò.
 
-> **22/09/2026:** các đường đi dưới đây mô tả bản demo trước v1.4, chưa được kiểm chứng lại. Đặc biệt Refund phải tách approve/complete; PDF và AI thật còn cần hoàn thiện theo [plan 23/09](claude-continuation-plan-2026-09-23.md).
+> **23/09/2026:** Runbook này chỉ dùng cho thao tác đã khớp Business Rules v1.6. Toàn bộ Payment/Invoice/Adjustment/Refund và báo cáo doanh thu đang **PENDING — chưa chốt nghiệp vụ**; không chạy hoặc dùng các bước Payment cũ làm tiêu chí nghiệm thu.
 
 ## 1. Yêu cầu
 
@@ -53,12 +53,12 @@ Mật khẩu chung: **`Sporthub@123`**
 | Vai trò | Email | Vào được gì |
 |---|---|---|
 | Quản trị hệ thống | `admin@sporthub.vn` | Tài khoản & vai trò; không có quyền xem Audit Log nghiệp vụ khi chưa được chốt trong SSOT |
-| Quản lý trung tâm | `manager@sporthub.vn` | Phòng, lớp, lịch, gói, duyệt điều chỉnh, báo cáo, cấu hình |
-| Lễ tân | `letan@sporthub.vn` | Gym check-in, bán gói, thu tiền, đăng ký hộ, điểm danh |
+| Quản lý trung tâm | `manager@sporthub.vn` | Phòng, lớp, lịch, Membership, báo cáo vận hành không phụ thuộc Payment, cấu hình |
+| Lễ tân | `letan@sporthub.vn` | Gym check-in, hỗ trợ Membership, đăng ký hộ, điểm danh; Payment đang để treo |
 | HLV Yoga | `coach.yoga@sporthub.vn` | Lịch dạy, điểm danh, kế hoạch tập, gợi ý AI |
 | HLV Group X | `coach.groupx@sporthub.vn` | như trên |
 | HLV Personal Training | `coach.pt@sporthub.vn` | như trên |
-| Hội viên | `an.member@sporthub.vn` | Đặt lịch, gói, hóa đơn, kế hoạch tập, hồ sơ |
+| Hội viên | `an.member@sporthub.vn` | Đặt lịch, Membership, kế hoạch tập, hồ sơ; Payment đang để treo |
 | Hội viên | `binh.member@sporthub.vn`, `chi.member@sporthub.vn`, `dung.member@sporthub.vn`, `giang.member@sporthub.vn` | như trên |
 | Hội viên (ngừng hoạt động) | `hoa.member@sporthub.vn` | minh hoạ tài khoản bị khóa (BR-6) |
 
@@ -73,41 +73,17 @@ xác thực.
 1. `admin@sporthub.vn` → **Tài khoản & vai trò**: tạo tài khoản nhân sự, đổi vai trò, khóa/mở
    khóa (đều bắt buộc nhập lý do — BR-7). Thử tự khóa chính mình để thấy BR-6 chặn.
 2. `manager@sporthub.vn` → **Gói thành viên**: tạo gói, sửa giá, ngừng bán.
-3. `letan@sporthub.vn` → **Bán gói & hóa đơn**: chọn hội viên và gói → hóa đơn phát hành ngay
-   (BR-30) → thu tiền → gói chuyển sang Hoạt động khi thu đủ.
+3. `letan@sporthub.vn` → thao tác Membership theo chức năng hiện có. Membership dùng calendar date; `StartDate` và `EndDate` đều inclusive. Sự kiện xác lập `StartDate` cho lần mua mới phụ thuộc nghiệp vụ Payment đang để treo, nên không dùng luồng bán gói/hóa đơn cũ để nghiệm thu.
 
 ### Flow 2 — Lớp học & đặt lịch
 
-1. `manager@sporthub.vn` → **Phòng tập** → **Lớp học** (thêm mẫu lịch lặp → **Sinh lịch**).
-2. `an.member@sporthub.vn` → **Lịch lớp & đặt chỗ**: đăng ký, hủy. Cột "Chỗ trống" giảm ngay.
-3. `manager@sporthub.vn` → **Lịch học**: hủy hoặc dời một buổi. Dời lịch tạo **buổi thay thế**
-   liên kết với buổi cũ; hội viên nhận thông báo nêu rõ đã hoàn lượt và cần đăng ký lại (BR-54).
+1. `manager@sporthub.vn` → **Lớp học**: tạo Yoga/Group X 60 phút, chọn Morning/Afternoon slot, Capacity tối đa 20, rồi chuyển `DRAFT → PUBLISHED` để mở booking.
+2. `an.member@sporthub.vn` → **Lịch lớp & đặt chỗ**: chỉ class `PUBLISHED` mới đặt được; tối đa 1 Yoga và 1 Group X trong cùng ngày. Hủy tại hoặc trước 30 phút trước giờ bắt đầu thì booking bị hủy và slot được giải phóng.
+3. `manager@sporthub.vn` → **Lịch học**: hủy hoặc dời class chưa bắt đầu. Booking cũ bị hủy, slot được giải phóng; Member tự booking lại, không tự chuyển chỗ.
 
 ### Flow 3 — Thanh toán & báo cáo
 
-Hoàn tiền đi qua **ba bước, hai người** (BR-42 v1.4). Duyệt **không phải** là trả tiền:
-
-1. `letan@sporthub.vn` → **Tra cứu hóa đơn**: thu tiền, tạo yêu cầu điều chỉnh.
-   Bảng hóa đơn có cột **Cần hoàn** tách khỏi **Thực thu**.
-2. `manager@sporthub.vn` → **Duyệt điều chỉnh**: duyệt hoặc từ chối. Yêu cầu do chính mình tạo
-   không có nút duyệt và backend chặn bằng 403 (BR-42).
-   - `Discount`/`Correction`: duyệt xong là `Completed` ngay — chỉ giảm nghĩa vụ, không có
-     tiền chuyển đi.
-   - `Refund`: duyệt xong dừng ở **`Approved`**. Số thực thu, số đã hoàn và báo cáo doanh thu
-     **không đổi** ở bước này. Dòng đó hiện nhãn "Chờ lễ tân trả tiền".
-3. `letan@sporthub.vn` → mở lại hóa đơn → bảng **Điều chỉnh** → nút **Xác nhận đã trả**.
-   Chỉ bấm SAU KHI tiền đã thực sự ra khỏi quầy. Nhập phương thức trả và mã tham chiếu
-   (bắt buộc với Card/Transfer/EWallet, không bắt buộc với tiền mặt). Đây là thời điểm duy
-   nhất `RefundedAmount` tăng và là ngày mà báo cáo dùng để quy kỳ (BR-43).
-   API: `POST /api/payment-adjustments/{adjustmentId}/complete`.
-4. `manager@sporthub.vn` → **Báo cáo doanh thu**: **Thu ròng = Đã thu − Đã hoàn**.
-   **Giảm nghĩa vụ** (Discount/Correction) là cột riêng và **không** trừ vào thu ròng — trừ
-   cả hai sẽ tính hai lần cho cùng một khoản (BR-43).
-   Chọn cột rồi xuất CSV. V1.4 chỉ cho xóa sau retention; **CSV chưa đáp ứng phần PDF bắt
-   buộc của BR-48** — xem blocker B3 trong [implementation-status.md](implementation-status.md).
-
-> Bản ghi hoàn tiền tạo TRƯỚC 22/09/2026 không có bằng chứng thực trả và được cách ly riêng.
-> Cách đối soát: [legacy-refund-reconciliation.md](legacy-refund-reconciliation.md).
+**PENDING — chưa chốt nghiệp vụ.** Tạm dừng hướng dẫn thao tác Payment/Invoice/Adjustment/Refund và báo cáo doanh thu. Các bước approve/complete, công thức số dư, thời hạn thanh toán, cọc, hoàn tiền và quyền thao tác trong phiên bản cũ không còn là hướng dẫn vận hành hợp lệ cho đến khi Business Rules được phê duyệt lại.
 
 ### Flow 4 — Điểm danh & tập luyện
 
@@ -146,8 +122,7 @@ cd backend && dotnet test SportHub.sln
 
 **Các suite integration cần một PostgreSQL thật.** Mặc định chúng dựng container qua
 Testcontainers, nên **Docker Desktop phải đang chạy** — nếu không, mọi test integration fail
-với `DockerUnavailableException` (đây chính là blocker B1 hiện tại, xem
-[implementation-status.md](implementation-status.md)).
+với `DockerUnavailableException`.
 
 Khi không dùng được Docker, suite `SportHub.Payment.Tests` chấp nhận một PostgreSQL có sẵn
 qua biến môi trường. **Phải trỏ vào một DB trống, tách riêng** — suite chạy migration và ghi
@@ -185,12 +160,9 @@ bash scripts/e2e-business-rules.sh
 Cấu hình nghiệp vụ (hạn hủy đăng ký, ngưỡng nhắc hạn gói) **không** nằm ở file cấu hình mà ở
 màn hình **Cấu hình hệ thống** của Quản lý Trung tâm (BR-39).
 
-## 8. Đối chiếu sau khi Claude cập nhật v1.4
+## 8. Payment — PENDING
 
-Chạy theo [plan 23/09/2026](claude-continuation-plan-2026-09-23.md). Các kết quả dưới đây là tiêu chí cần đạt, chưa phải kết quả đã chạy:
-
-- Thu đủ ngay lần đầu không tạo mốc cọc; cọc đầu hợp lệ mới gia hạn hóa đơn; sau hạn chặn thu thông thường.
-- Hóa đơn thu đủ 3 triệu, Discount 500 nghìn: cần hoàn 500 nghìn nhưng đã hoàn vẫn 0. Manager approve Refund chưa đổi số thực thu. Receptionist complete mới ghi đã hoàn 500 nghìn; báo cáo trừ tiền ở ngày thực trả.
-- Hủy đúng hạn sau khi dùng lượt cuối: lượt được hoàn, gói còn ngày và không vướng BR-10 được hồi phục; gói quá ngày/Cancelled không tự hồi phục.
-- Manager xuất PDF với cột đã chọn; file chỉ tải qua kiểm quyền và không xóa trước CompletedAt +6 tháng.
-- Không reset database/volume để làm sạch các lần thử. Dùng DB demo riêng; kiểm cấu hình DB trước mọi script có ghi dữ liệu.
+Nghiệp vụ Payment/Invoice/Adjustment/Refund và báo cáo doanh thu chưa được chốt. Không dùng
+các luồng cọc, hạn thanh toán, hoàn tiền, phê duyệt, ghi nhận doanh thu hoặc công thức của phiên
+bản cũ làm căn cứ triển khai hay kiểm thử. Khi nghiệp vụ Payment được phê duyệt, cập nhật Business
+Rules và SSOT trước, sau đó mới bổ sung hướng dẫn chạy/kiểm thử tương ứng vào RUNBOOK.
