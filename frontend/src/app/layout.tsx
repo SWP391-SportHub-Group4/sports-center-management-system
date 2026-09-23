@@ -19,6 +19,6 @@ import "@fontsource/roboto/vietnamese-700.css";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "SportHub | Quản lý trung tâm thể thao",
-  description: "Không gian quản lý và luyện tập SportHub.",
+  title: "SportHub | Chuyển động theo cách của bạn",
+  description: "Khám phá trung tâm thể thao SportHub, các hoạt động tập luyện và thông tin sự kiện dành cho mọi người.",
 };
