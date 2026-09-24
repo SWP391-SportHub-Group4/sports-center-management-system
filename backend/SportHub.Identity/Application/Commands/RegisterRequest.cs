@@ -18,6 +18,10 @@ public class RegisterRequest
 
     [PhoneNumber]
     public string? Phone { get; set; }
+
+    /// <summary>BR-78 — mã 6 số nhận qua POST /api/auth/register/otp.</summary>
+    [Required, RegularExpression(@"^\d{6}$", ErrorMessage = "OTP code must be exactly 6 digits.")]
+    public string OtpCode { get; set; } = string.Empty;
 }
 
 public sealed class MaxPasswordBytesAttribute(int maxBytes) : ValidationAttribute
