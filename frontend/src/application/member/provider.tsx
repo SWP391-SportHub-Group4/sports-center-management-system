@@ -37,7 +37,7 @@ export function MemberProvider({
     void repository
       .load()
       .then(setData)
-      .catch(() => setError("Không tải được dữ liệu. Vui lòng thử lại."));
+      .catch(() => setError("Could not download the data. Please try again."));
   }, [repository]);
   useEffect(() => {
     const unsubscribe = repository.subscribe(load);
@@ -58,7 +58,7 @@ export function MemberProvider({
       setError(
         e instanceof Error
           ? e.message
-          : "Thao tác chưa hoàn tất. Vui lòng thử lại.",
+          : "The operation is not completed. Please try again.",
       );
       return false;
     } finally {
@@ -71,11 +71,11 @@ export function MemberProvider({
       <main className="loading" aria-busy={!error}>
         <h1>SportHub</h1>
         <p role={error ? "alert" : "status"}>
-          {error || "Đang tải không gian hội viên…"}
+          {error || "Downloading membership space..."}
         </p>
         {error && (
           <button className="button" onClick={load}>
-            Thử lại
+            Retry
           </button>
         )}
       </main>
@@ -97,9 +97,9 @@ export function MemberProvider({
               setMessage("");
               setError("");
             }}
-            aria-label="Ẩn thông báo trạng thái"
+            aria-label="Hide status notification"
           >
-            Đóng
+            Close
           </button>
         )}
       </div>

@@ -7,19 +7,19 @@ import styles from "./home.module.css";
 
 export function PublicHeader() {
   const { user, loading } = useAuth();
-  const accountHref = user ? HOME_BY_ROLE[user.role] : "/dang-nhap";
-  const accountLabel = loading ? "Tài khoản" : user?.fullName || "Đăng nhập";
+  const accountHref = user ? HOME_BY_ROLE[user.role] : "/login";
+  const accountLabel = loading ? "Account" : user?.fullName || "Sign in";
 
   return (
     <header className={styles.header}>
-      <Link className={styles.logo} href="/" aria-label="SportHub, trang chủ">
+      <Link className={styles.logo} href="/" aria-label="SportHub, homepage">
         <Image src="/sporthub/brand.svg" alt="" width={36} height={36} />
         <span>SportHub.</span>
       </Link>
-      <nav className={styles.nav} aria-label="Điều hướng chính">
-        <a href="#cau-chuyen">Trung tâm</a>
-        <a href="#hoat-dong">Lớp tập</a>
-        <a href="#su-kien">Sự kiện</a>
+      <nav className={styles.nav} aria-label="Main navigation">
+        <a href="#cau-chuyen">About</a>
+        <a href="#hoat-dong">Activities</a>
+        <a href="#su-kien">Events</a>
       </nav>
       <Link className={styles.memberLink} href={accountHref}>
         <span className={styles.accountName}>{accountLabel}</span>

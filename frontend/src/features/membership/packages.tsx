@@ -20,10 +20,10 @@ export function PackageList({
   const option = catalog.find((p) => p.id === selected);
   return (
     <div className="stack">
-      <h1>Chọn gói hội viên</h1>
-      <p className="muted">Chọn gói phù hợp để bắt đầu tập luyện.</p>
+      <h1>Select a member package</h1>
+      <p className="muted">Select the appropriate package to start training.</p>
       <fieldset className="package-options">
-        <legend className="sr-only">Gói hội viên</legend>
+        <legend className="sr-only">Membership plans</legend>
         {catalog.map((p) => (
           <label
             className={`card package-option ${selected === p.id ? "selected" : ""}`}
@@ -31,8 +31,8 @@ export function PackageList({
           >
             <span className="row between">
               <span>
-                {p.durationDays >= 365 ? "12 tháng" : "6 tháng"}{" "}
-                {selected === p.id && "· Đang chọn"}
+                {p.durationDays >= 365 ? "12 months" : "6 months"}{" "}
+                {selected === p.id && "‹ Selected"}
               </span>
               <input
                 type="radio"
@@ -45,10 +45,10 @@ export function PackageList({
             <h2>{p.name}</h2>
             <strong className="price">{money(p.price)}</strong>
             <span>
-              Tổng giá gói ·{" "}
+              Total price of packages ·{" "}
               {p.sessionLimit === null
-                ? "Không giới hạn buổi"
-                : `${p.sessionLimit} buổi`}
+                ? "Unlimited session"
+                : `${p.sessionLimit} sessions`}
             </span>
             <ul>
               {p.benefits.map((b) => (
@@ -61,17 +61,17 @@ export function PackageList({
       {option && (
         <>
           <p>
-            Tổng thanh toán: <strong>{money(option.price)}</strong>
+            Total payment: <strong>{money(option.price)}</strong>
           </p>
-          <Button onClick={() => setConfirm(true)}>Đăng ký gói</Button>
+          <Button onClick={() => setConfirm(true)}>Registers</Button>
         </>
       )}
       <Link className="text-link" href="/member/profile">
-        Quay lại trang cá nhân
+        Go back to the page.
       </Link>
       {invoices.length > 0 && (
         <Card>
-          <h2>Yêu cầu chờ thanh toán</h2>
+          <h2>Payment Requirement</h2>
           {invoices.map((i) => (
             <div className="list-row" key={i.id}>
               <div>
@@ -82,27 +82,26 @@ export function PackageList({
               </div>
               <div>
                 <strong>{money(i.total)}</strong>
-                <p>Chờ thanh toán tại quầy</p>
+                <p>Waiting for payment at the counter</p>
               </div>
             </div>
           ))}
         </Card>
       )}
       {confirm && option && (
-        <Modal title="Xác nhận đăng ký gói" onClose={() => setConfirm(false)}>
+        <Modal title="Confirm package registration" onClose={() => setConfirm(false)}>
           <div className="stack">
             <h3>{option.name}</h3>
             <p>{money(option.price)}</p>
             <p>
-              Gói sẽ ở trạng thái chờ thanh toán. Chỉ được sử dụng sau khi trung
-              tâm xác nhận thanh toán.
+              Packages will be in check pending status. Only used after the centre confirms the payment.
             </p>
             <p className="muted">
-              Bản xem trước không phát sinh khoản thu hoặc giao dịch thật.
+              The preview did not generate any actual deposits or transactions.
             </p>
             <div className="row">
               <Button variant="secondary" onClick={() => setConfirm(false)}>
-                Quay lại
+                Turn around.
               </Button>
               <Button
                 disabled={busy}
@@ -110,7 +109,7 @@ export function PackageList({
                   if (await onPurchase(option.id)) setConfirm(false);
                 }}
               >
-                {busy ? "Đang xử lý…" : "Xác nhận đăng ký gói"}
+                {busy ? "Processing..." : "Confirm package registration"}
               </Button>
             </div>
           </div>

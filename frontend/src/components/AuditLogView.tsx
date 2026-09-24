@@ -35,9 +35,9 @@ export function AuditLogView() {
 
   return (
     <>
-      <Card title="Bộ lọc">
+      <Card title="Filter">
         <div className="form form--inline">
-          <Field label="Hành động" hint="Ví dụ: LOCK_USER_ACCOUNT, RECORD_PAYMENT">
+          <Field label="Actions" hint="Examples: LEG_OUR_ACCUCT, RECORD_PAYMENT">
             <input
               value={action}
               onChange={(event) => {
@@ -46,7 +46,7 @@ export function AuditLogView() {
               }}
             />
           </Field>
-          <Field label="Đối tượng" hint="Ví dụ: UserAccount, Invoice, ClassSession">
+          <Field label="Objects" hint="Examples: ‹ UserAcunit, Invoice, ClassStatus">
             <input
               value={targetEntity}
               onChange={(event) => {
@@ -58,16 +58,16 @@ export function AuditLogView() {
         </div>
       </Card>
 
-      <Card title="Nhật ký thao tác" bodyless>
+      <Card title="Operations Register" bodyless>
         <AsyncSection
           state={logs}
-          emptyMessage="Chưa có thao tác nào được ghi nhận."
+          emptyMessage="No operation has been recorded."
           isEmpty={(data) => data.items.length === 0}
         >
           {(data) => (
             <>
               <Table
-                headers={["Thời điểm", "Người thực hiện", "Hành động", "Đối tượng", "Thay đổi", "IP"]}
+                headers={["Schedule", "Performor", "Actions", "Objects", "Change Text", "IP"]}
               >
                 {data.items.map((log) => (
                   <tr key={log.auditId}>
@@ -85,7 +85,7 @@ export function AuditLogView() {
                     <td className="small" style={{ maxWidth: 380, wordBreak: "break-word" }}>
                       {log.oldValue && (
                         <div className="muted">
-                          Trước: <code>{log.oldValue}</code>
+                          Before: <code>{log.oldValue}</code>
                         </div>
                       )}
                       {log.newValue && (

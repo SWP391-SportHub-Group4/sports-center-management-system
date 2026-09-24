@@ -81,13 +81,13 @@ export function MemberQr({
   }, [issuer]);
   return (
     <Card className="qr-card">
-      <h2>QR của tôi</h2>
+      <h2>My QR</h2>
       {image && seconds > 0 ? (
         <Image
           unoptimized
           className="qr-image"
           src={image}
-          alt={`Mã QR cá nhân của ${name}. Mã thử nghiệm, không dùng check-in thực tế.`}
+          alt={`Personal QR code for ${name}. Demo code; not valid for real check-ins.`}
           width={232}
           height={232}
           data-testid="member-qr"
@@ -95,18 +95,18 @@ export function MemberQr({
         />
       ) : (
         <div className="qr-placeholder" role="status">
-          {error ? "Chưa tạo được mã QR." : "Đang làm mới mã…"}
+          {error ? "The QR code was not created." : "Making new codes..."}
         </div>
       )}
-      <strong>{name} · Hội viên</strong>
+      <strong>{name} · Fellow</strong>
       <p className="muted" aria-live="off">
-        Tự động làm mới sau{" "}
+        Autostart Later{" "}
         <span data-testid="qr-countdown">
           00:{String(seconds).padStart(2, "0")}
         </span>
       </p>
-      <p className="muted">Mã thử nghiệm · không có hiệu lực tại quầy.</p>
-      {error && <Button onClick={() => refreshRef.current()}>Thử lại</Button>}
+      <p className="muted">Test code · is not in effect at the counter.</p>
+      {error && <Button onClick={() => refreshRef.current()}>Retry</Button>}
     </Card>
   );
 }

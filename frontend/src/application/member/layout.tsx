@@ -5,16 +5,16 @@ import { RoleShell, type NavigationItem } from "@/shared/ui/role-shell";
 import { MemberProvider, useMember } from "./provider";
 
 const navigation: NavigationItem[] = [
-  { href: "/member", label: "Trang chủ", icon: "home" },
+  { href: "/member", label: "Homepage", icon: "home" },
   {
     href: "/member/calendar",
-    label: "Xem lịch",
-    shortLabel: "Lịch tập",
+    label: "Schedule",
+    shortLabel: "Schedule",
     icon: "calendar",
   },
   {
     href: "/member/coaches",
-    label: "Huấn luyện viên",
+    label: "Coach",
     shortLabel: "HLV",
     icon: "coach",
   },
@@ -28,8 +28,8 @@ function Shell({ children }: { children: ReactNode }) {
       profileHref="/member/profile"
       notificationsHref="/member/notifications"
       unread={data.notifications.filter((n) => !n.read).length}
-      roleLabel="Hội viên"
-      statusLabel="Bản xem trước · dữ liệu minh họa"
+      roleLabel="Members"
+      statusLabel="Preview · Illustrated Data"
       avatarSrc="/sporthub/avatar.png"
     >
       {children}
