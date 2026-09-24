@@ -48,7 +48,10 @@ export default function SystemSettingsPage() {
     >
       <Card>
         <div className="alert alert--info">
-          Change Configuration <strong>no prosecution</strong>: The cancel policy is recorded in individual registers as soon as the member is booked, so the existing subscriptions still apply the former value (BR-50).
+          Change Configuration <strong>no prosecution</strong>: The cancel
+          policy is recorded in individual registers as soon as the member is
+          booked, so the existing subscriptions still apply the former value
+          (BR-50).
         </div>
       </Card>
 
@@ -77,12 +80,17 @@ export default function SystemSettingsPage() {
                       <input
                         value={draft ?? setting.value}
                         onChange={(event) =>
-                          setDrafts({ ...drafts, [setting.key]: event.target.value })
+                          setDrafts({
+                            ...drafts,
+                            [setting.key]: event.target.value,
+                          })
                         }
                       />
                     </td>
                     <td className="small muted">{setting.description}</td>
-                    <td className="nowrap small muted">{formatDateTime(setting.updatedAt)}</td>
+                    <td className="nowrap small muted">
+                      {formatDateTime(setting.updatedAt)}
+                    </td>
                     <td className="right">
                       <button
                         type="button"

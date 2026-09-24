@@ -4,7 +4,13 @@ import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
 import { AsyncSection, Card, Stat, StatusChip, Table } from "@/components/ui";
 import { api } from "@/lib/apiClient";
-import { addDaysIso, formatDate, formatDateTime, formatMoney, todayIso } from "@/lib/format";
+import {
+  addDaysIso,
+  formatDate,
+  formatDateTime,
+  formatMoney,
+  todayIso,
+} from "@/lib/format";
 import { useApi } from "@/lib/useApi";
 import type {
   ClassSessionDto,
@@ -76,7 +82,10 @@ export default function ManagerDashboardPage() {
           value={overdue.data?.totalCount ?? 0}
           hint="As of the BR-55 payment deadline"
         />
-        <Stat label="The next seven days of study." value={sessions.data?.length ?? 0} />
+        <Stat
+          label="The next seven days of study."
+          value={sessions.data?.length ?? 0}
+        />
       </div>
 
       <div className="row">
@@ -152,7 +161,9 @@ export default function ManagerDashboardPage() {
                     <strong>{session.className}</strong>
                     <div className="small muted">{session.discipline}</div>
                   </td>
-                  <td className="nowrap">{formatDateTime(session.startAtUtc)}</td>
+                  <td className="nowrap">
+                    {formatDateTime(session.startAtUtc)}
+                  </td>
                   <td>{session.roomName}</td>
                   <td>{session.coachName}</td>
                   <td className="num">

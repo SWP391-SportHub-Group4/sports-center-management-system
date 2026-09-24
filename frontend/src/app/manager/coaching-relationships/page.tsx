@@ -3,11 +3,22 @@
 import { useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { MemberPicker } from "@/components/MemberPicker";
-import { AsyncSection, Card, Feedback, Field, StatusChip, Table } from "@/components/ui";
+import {
+  AsyncSection,
+  Card,
+  Feedback,
+  Field,
+  StatusChip,
+  Table,
+} from "@/components/ui";
 import { api } from "@/lib/apiClient";
 import { formatDateTime } from "@/lib/format";
 import { useAction, useApi } from "@/lib/useApi";
-import type { CoachMemberRelationshipDto, Paged, UserAdminDto } from "@/lib/types";
+import type {
+  CoachMemberRelationshipDto,
+  Paged,
+  UserAdminDto,
+} from "@/lib/types";
 
 /**
  * Phân công huấn luyện viên cho hội viên.
@@ -116,20 +127,29 @@ export default function CoachAssignmentPage() {
                 value={sourceType}
                 onChange={(event) => setSourceType(event.target.value)}
               >
-                <option value="AssignedByManager">Coordination Management</option>
+                <option value="AssignedByManager">
+                  Coordination Management
+                </option>
                 <option value="Personal">Personal Training</option>
               </select>
             </Field>
           </div>
 
           <Field label="Notes (non-requisition)">
-            <input value={note} onChange={(event) => setNote(event.target.value)} />
+            <input
+              value={note}
+              onChange={(event) => setNote(event.target.value)}
+            />
           </Field>
 
           <Feedback error={action.error} success={action.success} />
 
           <div>
-            <button type="submit" className="btn" disabled={!member || !coachId || action.busy}>
+            <button
+              type="submit"
+              className="btn"
+              disabled={!member || !coachId || action.busy}
+            >
               {action.busy ? "Saving..." : "Create Relationships"}
             </button>
           </div>
@@ -162,7 +182,15 @@ export default function CoachAssignmentPage() {
         >
           {(data) => (
             <Table
-              headers={["Coach", "Members", "Source", "Class", "Start", "Status", ""]}
+              headers={[
+                "Coach",
+                "Members",
+                "Source",
+                "Class",
+                "Start",
+                "Status",
+                "",
+              ]}
             >
               {data.map((item) => (
                 <tr key={item.relationshipId}>
@@ -173,7 +201,9 @@ export default function CoachAssignmentPage() {
                   </td>
                   <td className="small">{item.sourceType}</td>
                   <td className="small">{item.className ?? "—"}</td>
-                  <td className="nowrap small">{formatDateTime(item.startedAt)}</td>
+                  <td className="nowrap small">
+                    {formatDateTime(item.startedAt)}
+                  </td>
                   <td>
                     <StatusChip value={item.status} />
                   </td>

@@ -54,7 +54,8 @@ export default function HomePage() {
               Find your rhythm.<span> Train your way.</span>
             </h1>
             <p className={styles.heroIntro}>
-              Four ways to get moving, one welcoming place to build lasting habits and enjoy every session.
+              Four ways to get moving, one welcoming place to build lasting
+              habits and enjoy every session.
             </p>
             <a className={styles.primaryAction} href="#hoat-dong">
               Explore activities <span aria-hidden="true">↓</span>
@@ -105,15 +106,15 @@ export default function HomePage() {
           id="cau-chuyen"
           aria-labelledby="story-title"
         >
-          <h2 id="story-title">
-            Start with movement. Build with confidence.
-          </h2>
+          <h2 id="story-title">Start with movement. Build with confidence.</h2>
           <div className={styles.storyCopy}>
             <p>
-              SportHub brings people together through purposeful training, welcoming spaces, and a supportive community.
+              SportHub brings people together through purposeful training,
+              welcoming spaces, and a supportive community.
             </p>
             <p>
-              Whether you are taking your first step or building a long term routine, there is a class that fits your pace.
+              Whether you are taking your first step or building a long term
+              routine, there is a class that fits your pace.
             </p>
           </div>
           <a className={styles.outlineAction} href="#hoat-dong">
@@ -129,7 +130,8 @@ export default function HomePage() {
           <div className={styles.activitiesHeading}>
             <h2 id="activities-title">Find your training rhythm.</h2>
             <p>
-              Choose an activity that matches your fitness, energy, and personal goals.
+              Choose an activity that matches your fitness, energy, and personal
+              goals.
             </p>
           </div>
           <div className={styles.activityList}>
@@ -154,7 +156,8 @@ export default function HomePage() {
             ))}
           </div>
           <p className={styles.demoNote}>
-            Class names and images are illustrative. Live schedules and availability appear in the member area.
+            Class names and images are illustrative. Live schedules and
+            availability appear in the member area.
           </p>
         </section>
 
@@ -180,7 +183,8 @@ export default function HomePage() {
           <div className={styles.eventCopy}>
             <h2 id="event-title">See you at the next event.</h2>
             <p>
-              No events have been announced yet. Community workouts and center activities will appear here when new dates are available.
+              No events have been announced yet. Community workouts and center
+              activities will appear here when new dates are available.
             </p>
             <a className={styles.outlineAction} href="#hoat-dong">
               Explore regular activities

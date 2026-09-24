@@ -42,9 +42,7 @@ export function CoachList({ coaches }: { coaches: Coach[] }) {
         ))}
       </div>
       {!filtered.length && (
-        <EmptyState title="No coach found">
-          Try another name or set.
-        </EmptyState>
+        <EmptyState title="No coach found">Try another name or set.</EmptyState>
       )}
     </div>
   );

@@ -2,9 +2,22 @@
 
 import { useState } from "react";
 import { AppShell } from "@/components/AppShell";
-import { AsyncSection, Card, Feedback, Field, Stat, StatusChip, Table } from "@/components/ui";
+import {
+  AsyncSection,
+  Card,
+  Feedback,
+  Field,
+  Stat,
+  StatusChip,
+  Table,
+} from "@/components/ui";
 import { api, downloadFile } from "@/lib/apiClient";
-import { formatDate, formatDateTime, formatMoney, todayIso } from "@/lib/format";
+import {
+  formatDate,
+  formatDateTime,
+  formatMoney,
+  todayIso,
+} from "@/lib/format";
 import { useAction, useApi } from "@/lib/useApi";
 import type { Paged, ReportExportDto, RevenueReportDto } from "@/lib/types";
 
@@ -136,21 +149,28 @@ export default function ReportsPage() {
             <input
               type="date"
               value={range.from}
-              onChange={(event) => setRange({ ...range, from: event.target.value })}
+              onChange={(event) =>
+                setRange({ ...range, from: event.target.value })
+              }
             />
           </Field>
           <Field label="days">
             <input
               type="date"
               value={range.to}
-              onChange={(event) => setRange({ ...range, to: event.target.value })}
+              onChange={(event) =>
+                setRange({ ...range, to: event.target.value })
+              }
             />
           </Field>
         </div>
       </Card>
 
       <div className="grid grid--stats">
-        <Stat label="Retrieved during the period." value={formatMoney(revenue.data?.totalCollected ?? 0)} />
+        <Stat
+          label="Retrieved during the period."
+          value={formatMoney(revenue.data?.totalCollected ?? 0)}
+        />
         <Stat
           label="Completed during the period"
           value={formatMoney(revenue.data?.totalRefunded ?? 0)}
@@ -176,7 +196,10 @@ export default function ReportsPage() {
       </div>
 
       <Card title="Details by Date" bodyless>
-        <AsyncSection state={revenue} emptyMessage="There was no data in the period.">
+        <AsyncSection
+          state={revenue}
+          emptyMessage="There was no data in the period."
+        >
           {(data) => (
             <Table
               headers={[
@@ -190,14 +213,18 @@ export default function ReportsPage() {
               {data.daily
                 .filter(
                   (row) =>
-                    row.collected !== 0 || row.refunded !== 0 || row.obligationReduction !== 0,
+                    row.collected !== 0 ||
+                    row.refunded !== 0 ||
+                    row.obligationReduction !== 0,
                 )
                 .map((row) => (
                   <tr key={row.date}>
                     <td className="nowrap">{formatDate(row.date)}</td>
                     <td className="num">{formatMoney(row.collected)}</td>
                     <td className="num">{formatMoney(row.refunded)}</td>
-                    <td className="num muted">{formatMoney(row.obligationReduction)}</td>
+                    <td className="num muted">
+                      {formatMoney(row.obligationReduction)}
+                    </td>
                     <td className="num">
                       <strong>{formatMoney(row.net)}</strong>
                     </td>
@@ -219,7 +246,9 @@ export default function ReportsPage() {
                 value={reportType}
                 onChange={(event) => {
                   setReportType(event.target.value);
-                  setColumns(COLUMN_SETS[event.target.value].map((column) => column.key));
+                  setColumns(
+                    COLUMN_SETS[event.target.value].map((column) => column.key),
+                  );
                 }}
               >
                 <option value="REVENUE">The sales are in the invoice.</option>
@@ -231,7 +260,10 @@ export default function ReportsPage() {
               label="Format"
               hint="PDF to print/send; DSV to open with Excel or load into another tool."
             >
-              <select value={format} onChange={(event) => setFormat(event.target.value)}>
+              <select
+                value={format}
+                onChange={(event) => setFormat(event.target.value)}
+              >
                 <option value="Csv">CSV</option>
                 <option value="Pdf">PDF</option>
               </select>
@@ -262,7 +294,11 @@ export default function ReportsPage() {
           <Feedback error={action.error} success={action.success} />
 
           <div>
-            <button type="submit" className="btn" disabled={action.busy || columns.length === 0}>
+            <button
+              type="submit"
+              className="btn"
+              disabled={action.busy || columns.length === 0}
+            >
               {action.busy ? "Creating..." : "Create Output File"}
             </button>
           </div>
@@ -295,19 +331,27 @@ export default function ReportsPage() {
                 <tr key={item.reportExportId}>
                   <td>{item.reportType}</td>
                   <td className="small">{item.requestedByName}</td>
-                  <td className="nowrap small">{formatDateTime(item.createdAt)}</td>
+                  <td className="nowrap small">
+                    {formatDateTime(item.createdAt)}
+                  </td>
                   <td className="num">{item.rowCount}</td>
                   <td>
                     <StatusChip value={item.status} />
                     {item.failureReason && (
-                      <div className="small" style={{ color: "var(--danger-700)" }}>
+                      <div
+                        className="small"
+                        style={{ color: "var(--danger-700)" }}
+                      >
                         {item.failureReason}
                       </div>
                     )}
                   </td>
                   <td className="nowrap small">{formatDate(item.expiresAt)}</td>
                   <td className="right">
-                    <div className="btn-row" style={{ justifyContent: "flex-end" }}>
+                    <div
+                      className="btn-row"
+                      style={{ justifyContent: "flex-end" }}
+                    >
                       {item.status === "Completed" && (
                         <button
                           type="button"

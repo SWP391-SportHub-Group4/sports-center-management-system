@@ -71,10 +71,14 @@ export default function RegisterPage() {
       email_already_exists: "This email address is already registered.",
       phone_already_exists: "This phone number is already registered.",
       otp_not_found: "No verification code was requested for this email.",
-      otp_already_used: "This verification code has already been used. Please request a new code.",
-      otp_expired: "The verification code is missing or has expired. Please request a new code.",
-      otp_attempts_exceeded: "Too many incorrect attempts. Please request a new code.",
-      otp_invalid: "The verification code is incorrect. Please check and try again.",
+      otp_already_used:
+        "This verification code has already been used. Please request a new code.",
+      otp_expired:
+        "The verification code is missing or has expired. Please request a new code.",
+      otp_attempts_exceeded:
+        "Too many incorrect attempts. Please request a new code.",
+      otp_invalid:
+        "The verification code is incorrect. Please check and try again.",
       invalid_otp: "The verification code is incorrect.",
       otp_resend_too_soon: "Please wait before requesting another code.",
       google_account_not_linked:
@@ -198,27 +202,20 @@ export default function RegisterPage() {
     <div className="auth auth--register">
       <main className="auth__layout">
         {/* Left Branded Visual Panel */}
-        <aside
-          className="auth__visual"
-          aria-label="SportHub Member Community"
-        >
+        <aside className="auth__visual" aria-label="SportHub Member Community">
           <div className="auth__visual-copy">
             <p className="auth__eyebrow">Sport · Community · Progress</p>
-            <p className="auth__statement">
-              Start your athletic journey.
-            </p>
+            <p className="auth__statement">Start your athletic journey.</p>
             <p className="auth__visual-detail">
-              Join SportHub today to book premium courts, connect with top coaches,
-              and elevate your fitness routine with our vibrant community.
+              Join SportHub today to book premium courts, connect with top
+              coaches, and elevate your fitness routine with our vibrant
+              community.
             </p>
           </div>
         </aside>
 
         {/* Right Form Card */}
-        <section
-          className="auth__card"
-          aria-labelledby="register-title"
-        >
+        <section className="auth__card" aria-labelledby="register-title">
           <Link className="auth__home-link" href="/">
             <span aria-hidden="true">←</span> Back to SportHub
           </Link>
@@ -390,9 +387,7 @@ export default function RegisterPage() {
               <div className="verified-chip">
                 <span>
                   Verified:{" "}
-                  <strong className="verified-chip__email">
-                    {form.email}
-                  </strong>
+                  <strong className="verified-chip__email">{form.email}</strong>
                 </span>
                 <button
                   type="button"
@@ -441,7 +436,9 @@ export default function RegisterPage() {
                     className="password-field__toggle"
                     onClick={() => setShowPassword(!showPassword)}
                     title={showPassword ? "Hide password" : "Show password"}
-                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    aria-label={
+                      showPassword ? "Hide password" : "Show password"
+                    }
                   >
                     {showPassword ? "Hide" : "Show"}
                   </button>
@@ -468,9 +465,7 @@ export default function RegisterPage() {
                   <button
                     type="button"
                     className="password-field__toggle"
-                    onClick={() =>
-                      setShowConfirmPassword(!showConfirmPassword)
-                    }
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                     title={
                       showConfirmPassword ? "Hide password" : "Show password"
                     }
@@ -482,12 +477,18 @@ export default function RegisterPage() {
                   </button>
                 </span>
                 {passwordMatch === true && (
-                  <span className="match-hint match-hint--ok" aria-live="polite">
+                  <span
+                    className="match-hint match-hint--ok"
+                    aria-live="polite"
+                  >
                     ✓ Passwords match
                   </span>
                 )}
                 {passwordMatch === false && (
-                  <span className="match-hint match-hint--warn" aria-live="polite">
+                  <span
+                    className="match-hint match-hint--warn"
+                    aria-live="polite"
+                  >
                     Passwords do not match yet
                   </span>
                 )}

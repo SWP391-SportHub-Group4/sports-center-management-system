@@ -71,14 +71,18 @@ export default function CoachSchedulePage() {
                   </td>
                   <td className="nowrap">
                     {formatDateTime(session.startAtUtc)}
-                    <div className="small muted">To {formatTime(session.endAtUtc)}</div>
+                    <div className="small muted">
+                      To {formatTime(session.endAtUtc)}
+                    </div>
                   </td>
                   <td>{session.roomName}</td>
                   <td className="num">{session.confirmedCount}</td>
                   <td className="num">
                     {session.capacity}
                     {session.capacity !== session.baselineCapacity && (
-                      <div className="small muted">Original ceiling {session.baselineCapacity}</div>
+                      <div className="small muted">
+                        Original ceiling {session.baselineCapacity}
+                      </div>
                     )}
                   </td>
                   <td>

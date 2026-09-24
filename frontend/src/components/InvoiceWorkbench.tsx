@@ -38,7 +38,11 @@ export function InvoiceWorkbench() {
   const adjustment = useAction();
   const payout = useAction();
 
-  const [paymentForm, setPaymentForm] = useState({ amount: "", method: "Cash", reference: "" });
+  const [paymentForm, setPaymentForm] = useState({
+    amount: "",
+    method: "Cash",
+    reference: "",
+  });
   const [adjustmentForm, setAdjustmentForm] = useState({
     type: "Refund",
     amount: "",
@@ -46,14 +50,26 @@ export function InvoiceWorkbench() {
   });
 
   /** Refund đang chờ xác nhận thực trả; null = dialog đóng. */
-  const [payoutTarget, setPayoutTarget] = useState<PaymentAdjustmentDto | null>(null);
-  const [payoutForm, setPayoutForm] = useState({ method: "Cash", reference: "", note: "" });
+  const [payoutTarget, setPayoutTarget] = useState<PaymentAdjustmentDto | null>(
+    null,
+  );
+  const [payoutForm, setPayoutForm] = useState({
+    method: "Cash",
+    reference: "",
+    note: "",
+  });
 
   const invoices = useApi(
     (signal) =>
       api.get<Paged<InvoiceSummaryDto>>("/api/invoices", {
         signal,
-        query: { page, pageSize: 10, keyword: keyword || undefined, status: status || undefined, overdueOnly },
+        query: {
+          page,
+          pageSize: 10,
+          keyword: keyword || undefined,
+          status: status || undefined,
+          overdueOnly,
+        },
       }),
     [page, keyword, status, overdueOnly],
   );
@@ -131,11 +147,14 @@ export function InvoiceWorkbench() {
 
     const done = await payout.run(
       () =>
-        api.post(`/api/payment-adjustments/${payoutTarget.adjustmentId}/complete`, {
-          refundMethod: payoutForm.method,
-          refundReferenceCode: payoutForm.reference.trim() || null,
-          note: payoutForm.note.trim(),
-        }),
+        api.post(
+          `/api/payment-adjustments/${payoutTarget.adjustmentId}/complete`,
+          {
+            refundMethod: payoutForm.method,
+            refundReferenceCode: payoutForm.reference.trim() || null,
+            note: payoutForm.note.trim(),
+          },
+        ),
       "Reported real timeout. balance and report updated.",
     );
 
@@ -234,7 +253,9 @@ export function InvoiceWorkbench() {
                     <td className="nowrap small">
                       {formatDate(invoice.dueDateUtc)}
                       {invoice.isOverdue && (
-                        <div style={{ color: "var(--danger-700)" }}>Expiration</div>
+                        <div style={{ color: "var(--danger-700)" }}>
+                          Expiration
+                        </div>
                       )}
                     </td>
                     <td>
@@ -273,7 +294,8 @@ export function InvoiceWorkbench() {
               data ? (
                 <div className="stack">
                   <div className="alert alert--info">
-                    <strong>{data.summary.invoiceNumber}</strong> — {data.summary.memberName}
+                    <strong>{data.summary.invoiceNumber}</strong> —{" "}
+                    {data.summary.memberName}
                     {/*
                       BR-41 v1.4 — "cần hoàn" và "đã hoàn" là hai con số khác nhau và phải
                       hiện riêng: một khoản được duyệt hoàn nhưng chưa chi thì vẫn là tiền
@@ -289,12 +311,14 @@ export function InvoiceWorkbench() {
                       {formatMoney(data.summary.netCollected)}
                     </div>
                     <div className="small">
-                      Balance due: <strong>{formatMoney(data.summary.outstanding)}</strong>
+                      Balance due:{" "}
+                      <strong>{formatMoney(data.summary.outstanding)}</strong>
                       {data.summary.refundDue > 0 && (
                         <>
                           {" · "}
                           <strong style={{ color: "var(--danger-700)" }}>
-                            Need to Complete {formatMoney(data.summary.refundDue)}
+                            Need to Complete{" "}
+                            {formatMoney(data.summary.refundDue)}
                           </strong>
                         </>
                       )}
@@ -310,7 +334,9 @@ export function InvoiceWorkbench() {
                     </div>
                   </div>
 
-                  <Table headers={["Contents", { text: "The Money", numeric: true }]}>
+                  <Table
+                    headers={["Contents", { text: "The Money", numeric: true }]}
+                  >
                     {data.items.map((item) => (
                       <tr key={item.itemId}>
                         <td>{item.description}</td>
@@ -323,11 +349,18 @@ export function InvoiceWorkbench() {
                     <div>
                       <h3>Retrieved</h3>
                       <Table
-                        headers={["Schedule", "Format", { text: "The Money", numeric: true }, "Recorder"]}
+                        headers={[
+                          "Schedule",
+                          "Format",
+                          { text: "The Money", numeric: true },
+                          "Recorder",
+                        ]}
                       >
                         {data.payments.map((item) => (
                           <tr key={item.paymentId}>
-                            <td className="nowrap small">{formatDateTime(item.paidAt)}</td>
+                            <td className="nowrap small">
+                              {formatDateTime(item.paidAt)}
+                            </td>
                             <td>{label(item.method)}</td>
                             <td className="num">{formatMoney(item.amount)}</td>
                             <td className="small">{item.receivedByName}</td>
@@ -356,7 +389,8 @@ export function InvoiceWorkbench() {
                               {formatMoney(item.amount)}
                               {item.requestedAmount !== item.amount && (
                                 <div className="small muted">
-                                  recommended {formatMoney(item.requestedAmount)}
+                                  recommended{" "}
+                                  {formatMoney(item.requestedAmount)}
                                 </div>
                               )}
                             </td>
@@ -364,18 +398,25 @@ export function InvoiceWorkbench() {
                             <td>
                               <StatusChip value={item.status} />
                               {item.awaitingPayout && (
-                                <div className="small" style={{ color: "var(--danger-700)" }}>
+                                <div
+                                  className="small"
+                                  style={{ color: "var(--danger-700)" }}
+                                >
                                   Wait for the reception.
                                 </div>
                               )}
-                              {item.completedAtUtc && item.type === "Refund" && (
-                                <div className="small muted">
-                                  Payed {formatDateTime(item.completedAtUtc)}
-                                  {item.completedByName && ` · ${item.completedByName}`}
-                                  {item.refundMethod && ` · ${label(item.refundMethod)}`}
-                                  {item.refundReferenceCode && ` · ${item.refundReferenceCode}`}
-                                </div>
-                              )}
+                              {item.completedAtUtc &&
+                                item.type === "Refund" && (
+                                  <div className="small muted">
+                                    Payed {formatDateTime(item.completedAtUtc)}
+                                    {item.completedByName &&
+                                      ` · ${item.completedByName}`}
+                                    {item.refundMethod &&
+                                      ` · ${label(item.refundMethod)}`}
+                                    {item.refundReferenceCode &&
+                                      ` · ${item.refundReferenceCode}`}
+                                  </div>
+                                )}
                             </td>
                             <td className="right">
                               {item.awaitingPayout && (
@@ -394,59 +435,79 @@ export function InvoiceWorkbench() {
                     </div>
                   )}
 
-                  {data.summary.status !== "Void" && data.summary.outstanding > 0 && (
-                    <form className="form" onSubmit={submitPayment}>
-                      <h3>Payment Records</h3>
-                      <div className="form form--inline">
-                        <Field label="Money (VND)">
-                          <input
-                            type="number"
-                            min={1}
-                            max={data.summary.outstanding}
-                            value={paymentForm.amount}
-                            required
-                            onChange={(event) =>
-                              setPaymentForm({ ...paymentForm, amount: event.target.value })
-                            }
-                          />
-                        </Field>
-                        <Field label="Format">
-                          <select
-                            value={paymentForm.method}
-                            onChange={(event) =>
-                              setPaymentForm({ ...paymentForm, method: event.target.value })
-                            }
+                  {data.summary.status !== "Void" &&
+                    data.summary.outstanding > 0 && (
+                      <form className="form" onSubmit={submitPayment}>
+                        <h3>Payment Records</h3>
+                        <div className="form form--inline">
+                          <Field label="Money (VND)">
+                            <input
+                              type="number"
+                              min={1}
+                              max={data.summary.outstanding}
+                              value={paymentForm.amount}
+                              required
+                              onChange={(event) =>
+                                setPaymentForm({
+                                  ...paymentForm,
+                                  amount: event.target.value,
+                                })
+                              }
+                            />
+                          </Field>
+                          <Field label="Format">
+                            <select
+                              value={paymentForm.method}
+                              onChange={(event) =>
+                                setPaymentForm({
+                                  ...paymentForm,
+                                  method: event.target.value,
+                                })
+                              }
+                            >
+                              {["Cash", "Card", "Transfer", "EWallet"].map(
+                                (method) => (
+                                  <option key={method} value={method}>
+                                    {label(method)}
+                                  </option>
+                                ),
+                              )}
+                            </select>
+                          </Field>
+                          <Field label="Reference Code">
+                            <input
+                              value={paymentForm.reference}
+                              onChange={(event) =>
+                                setPaymentForm({
+                                  ...paymentForm,
+                                  reference: event.target.value,
+                                })
+                              }
+                            />
+                          </Field>
+                        </div>
+                        <Feedback
+                          error={payment.error}
+                          success={payment.success}
+                        />
+                        <div>
+                          <button
+                            type="submit"
+                            className="btn btn--sm"
+                            disabled={payment.busy}
                           >
-                            {["Cash", "Card", "Transfer", "EWallet"].map((method) => (
-                              <option key={method} value={method}>
-                                {label(method)}
-                              </option>
-                            ))}
-                          </select>
-                        </Field>
-                        <Field label="Reference Code">
-                          <input
-                            value={paymentForm.reference}
-                            onChange={(event) =>
-                              setPaymentForm({ ...paymentForm, reference: event.target.value })
-                            }
-                          />
-                        </Field>
-                      </div>
-                      <Feedback error={payment.error} success={payment.success} />
-                      <div>
-                        <button type="submit" className="btn btn--sm" disabled={payment.busy}>
-                          Record
-                        </button>
-                      </div>
-                    </form>
-                  )}
+                            Record
+                          </button>
+                        </div>
+                      </form>
+                    )}
 
                   {data.summary.status !== "Void" && (
                     <form className="form" onSubmit={submitAdjustment}>
                       <h3>Create an adjustment request</h3>
                       <p className="small muted" style={{ margin: 0 }}>
-                        The request must be managed by the approved Center and the non-conscionable creator (BR-42).
+                        The request must be managed by the approved Center and
+                        the non-conscionable creator (BR-42).
                         {data.suggestedRefundAmount > 0 &&
                           ` Suggested refund for the unused portion: ${formatMoney(data.suggestedRefundAmount)} (BR-52).`}
                       </p>
@@ -455,14 +516,19 @@ export function InvoiceWorkbench() {
                           <select
                             value={adjustmentForm.type}
                             onChange={(event) =>
-                              setAdjustmentForm({ ...adjustmentForm, type: event.target.value })
+                              setAdjustmentForm({
+                                ...adjustmentForm,
+                                type: event.target.value,
+                              })
                             }
                           >
-                            {["Refund", "Correction", "Discount"].map((type) => (
-                              <option key={type} value={type}>
-                                {label(type)}
-                              </option>
-                            ))}
+                            {["Refund", "Correction", "Discount"].map(
+                              (type) => (
+                                <option key={type} value={type}>
+                                  {label(type)}
+                                </option>
+                              ),
+                            )}
                           </select>
                         </Field>
                         <Field label="Money (VND)">
@@ -472,7 +538,10 @@ export function InvoiceWorkbench() {
                             value={adjustmentForm.amount}
                             required
                             onChange={(event) =>
-                              setAdjustmentForm({ ...adjustmentForm, amount: event.target.value })
+                              setAdjustmentForm({
+                                ...adjustmentForm,
+                                amount: event.target.value,
+                              })
                             }
                           />
                         </Field>
@@ -483,13 +552,23 @@ export function InvoiceWorkbench() {
                           required
                           minLength={3}
                           onChange={(event) =>
-                            setAdjustmentForm({ ...adjustmentForm, reason: event.target.value })
+                            setAdjustmentForm({
+                              ...adjustmentForm,
+                              reason: event.target.value,
+                            })
                           }
                         />
                       </Field>
-                      <Feedback error={adjustment.error} success={adjustment.success} />
+                      <Feedback
+                        error={adjustment.error}
+                        success={adjustment.success}
+                      />
                       <div>
-                        <button type="submit" className="btn btn--sm btn--ghost" disabled={adjustment.busy}>
+                        <button
+                          type="submit"
+                          className="btn btn--sm btn--ghost"
+                          disabled={adjustment.busy}
+                        >
                           Send Adjusted Request
                         </button>
                       </div>
@@ -503,15 +582,23 @@ export function InvoiceWorkbench() {
       )}
 
       {payoutTarget && (
-        <Dialog title="Confirmed payment." onClose={() => setPayoutTarget(null)}>
+        <Dialog
+          title="Confirmed payment."
+          onClose={() => setPayoutTarget(null)}
+        >
           <form className="form" onSubmit={submitPayout}>
             <div className="alert alert--info">
-              Done <strong>{formatMoney(payoutTarget.amount)}</strong> For the invoice.{" "}
-              {payoutTarget.invoiceNumber}.
+              Done <strong>{formatMoney(payoutTarget.amount)}</strong> For the
+              invoice. {payoutTarget.invoiceNumber}.
               <div className="small">
                 The money has been approved by the Center for Review
-                {payoutTarget.approvedAtUtc && ` on ${formatDate(payoutTarget.approvedAtUtc)}`}
-                {payoutTarget.approvedByName && ` by ${payoutTarget.approvedByName}`} and not able to fix at this step (BR-42). only press confirmation after the actual money has been paid to the membership.
+                {payoutTarget.approvedAtUtc &&
+                  ` on ${formatDate(payoutTarget.approvedAtUtc)}`}
+                {payoutTarget.approvedByName &&
+                  ` by ${payoutTarget.approvedByName}`}{" "}
+                and not able to fix at this step (BR-42). only press
+                confirmation after the actual money has been paid to the
+                membership.
               </div>
             </div>
 
@@ -541,7 +628,10 @@ export function InvoiceWorkbench() {
                   value={payoutForm.reference}
                   required={payoutForm.method !== "Cash"}
                   onChange={(event) =>
-                    setPayoutForm({ ...payoutForm, reference: event.target.value })
+                    setPayoutForm({
+                      ...payoutForm,
+                      reference: event.target.value,
+                    })
                   }
                 />
               </Field>
@@ -552,14 +642,20 @@ export function InvoiceWorkbench() {
                 value={payoutForm.note}
                 required
                 minLength={3}
-                onChange={(event) => setPayoutForm({ ...payoutForm, note: event.target.value })}
+                onChange={(event) =>
+                  setPayoutForm({ ...payoutForm, note: event.target.value })
+                }
               />
             </Field>
 
             <Feedback error={payout.error} success={payout.success} />
 
             <div>
-              <button type="submit" className="btn btn--sm" disabled={payout.busy}>
+              <button
+                type="submit"
+                className="btn btn--sm"
+                disabled={payout.busy}
+              >
                 Confirmed payment
               </button>
             </div>

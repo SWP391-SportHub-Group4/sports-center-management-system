@@ -17,7 +17,11 @@ import type { Paged, UserAdminDto } from "@/lib/types";
  */
 export default function AdminDashboardPage() {
   const all = useApi(
-    (signal) => api.get<Paged<UserAdminDto>>("/api/users/admin", { signal, query: { pageSize: 1 } }),
+    (signal) =>
+      api.get<Paged<UserAdminDto>>("/api/users/admin", {
+        signal,
+        query: { pageSize: 1 },
+      }),
     [],
   );
 
@@ -47,8 +51,14 @@ export default function AdminDashboardPage() {
     >
       <div className="grid grid--stats">
         <Stat label="Account Total" value={all.data?.totalCount ?? 0} />
-        <Stat label="The account is locked" value={locked.data?.totalCount ?? 0} />
-        <Stat label="Disabled Accounts" value={deactivated.data?.totalCount ?? 0} />
+        <Stat
+          label="The account is locked"
+          value={locked.data?.totalCount ?? 0}
+        />
+        <Stat
+          label="Disabled Accounts"
+          value={deactivated.data?.totalCount ?? 0}
+        />
       </div>
 
       <div className="row">
@@ -62,11 +72,18 @@ export default function AdminDashboardPage() {
 
       <Card title="The Range of the Role">
         <div className="alert alert--info">
-          According to BR-2 and BR-6, system administrator is the only role created by personnel account, attach or change roles, and lock or unlock accounts. All operations are included in the reason logs (BR-7).
+          According to BR-2 and BR-6, system administrator is the only role
+          created by personnel account, attach or change roles, and lock or
+          unlock accounts. All operations are included in the reason logs
+          (BR-7).
         </div>
         <p className="small muted">
-          Other rights of occupation — see sales reports, system configurations, class management —
-          <strong> Not yet Business Rules key for this role</strong> (SSOTCREAD7, Open Questions) This is not available at the moment. This is the option to maintain the status of the decision, not the development defect.
+          Other rights of occupation — see sales reports, system configurations,
+          class management —
+          <strong> Not yet Business Rules key for this role</strong>{" "}
+          (SSOTCREAD7, Open Questions) This is not available at the moment. This
+          is the option to maintain the status of the decision, not the
+          development defect.
         </p>
       </Card>
     </AppShell>

@@ -41,7 +41,9 @@ export function TrainingView({
           <div className="row between wrap">
             <h3>{r.className}</h3>
             <span className="badge">
-              {r.attendance === "Present" ? "INTERNATIONAL INCREASE" : "Face-to-face"}
+              {r.attendance === "Present"
+                ? "INTERNATIONAL INCREASE"
+                : "Face-to-face"}
             </span>
           </div>
           <p className="muted">{dateLabel(r.date)}</p>

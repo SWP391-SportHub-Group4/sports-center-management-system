@@ -48,7 +48,10 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { href: "/manager/classes", label: "Classes" },
     { href: "/manager/class-schedule", label: "Class schedule" },
     { href: "/manager/membership-plans", label: "Membership plans" },
-    { href: "/manager/coaching-relationships", label: "Coaching relationships" },
+    {
+      href: "/manager/coaching-relationships",
+      label: "Coaching relationships",
+    },
     { href: "/manager/payment-adjustments", label: "Payment adjustments" },
     { href: "/manager/reports", label: "Revenue reports" },
     { href: "/manager/settings", label: "System settings" },
@@ -147,7 +150,9 @@ export function AppShell({
         <header className="header">
           <div className="header__title">
             <h1>{title}</h1>
-            {description && <span className="header__crumb">{description}</span>}
+            {description && (
+              <span className="header__crumb">{description}</span>
+            )}
           </div>
           <div className="header__actions">
             <NotificationBell />
@@ -155,7 +160,11 @@ export function AppShell({
               <strong>{user.fullName || user.email}</strong>
               <span>{ROLE_LABEL[user.role]}</span>
             </div>
-            <button type="button" className="btn btn--ghost btn--sm" onClick={logout}>
+            <button
+              type="button"
+              className="btn btn--ghost btn--sm"
+              onClick={logout}
+            >
               Log Out
             </button>
           </div>

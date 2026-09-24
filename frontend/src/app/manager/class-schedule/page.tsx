@@ -2,7 +2,15 @@
 
 import { useState } from "react";
 import { AppShell } from "@/components/AppShell";
-import { AsyncSection, Card, Dialog, Feedback, Field, StatusChip, Table } from "@/components/ui";
+import {
+  AsyncSection,
+  Card,
+  Dialog,
+  Feedback,
+  Field,
+  StatusChip,
+  Table,
+} from "@/components/ui";
 import { api } from "@/lib/apiClient";
 import {
   addDaysIso,
@@ -22,13 +30,22 @@ import type { ClassSessionDto, RoomDto, SessionRosterDto } from "@/lib/types";
 export default function SchedulePage() {
   const [fromDate, setFromDate] = useState(todayIso());
   const [toDate, setToDate] = useState(addDaysIso(todayIso(), 13));
-  const [cancelTarget, setCancelTarget] = useState<ClassSessionDto | null>(null);
-  const [rescheduleTarget, setRescheduleTarget] = useState<ClassSessionDto | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<ClassSessionDto | null>(
+    null,
+  );
+  const [rescheduleTarget, setRescheduleTarget] =
+    useState<ClassSessionDto | null>(null);
   const [editTarget, setEditTarget] = useState<ClassSessionDto | null>(null);
-  const [rosterTarget, setRosterTarget] = useState<ClassSessionDto | null>(null);
+  const [rosterTarget, setRosterTarget] = useState<ClassSessionDto | null>(
+    null,
+  );
 
   const [reason, setReason] = useState("");
-  const [reschedule, setReschedule] = useState({ date: todayIso(), start: "18:00", end: "19:00" });
+  const [reschedule, setReschedule] = useState({
+    date: todayIso(),
+    start: "18:00",
+    end: "19:00",
+  });
   const [editForm, setEditForm] = useState({ roomId: "", capacity: "" });
 
   const action = useAction();
@@ -42,14 +59,20 @@ export default function SchedulePage() {
     [fromDate, toDate],
   );
 
-  const rooms = useApi((signal) => api.get<RoomDto[]>("/api/rooms", { signal }), []);
+  const rooms = useApi(
+    (signal) => api.get<RoomDto[]>("/api/rooms", { signal }),
+    [],
+  );
 
   const roster = useApi(
     (signal) =>
       rosterTarget
-        ? api.get<SessionRosterDto>(`/api/class-sessions/${rosterTarget.sessionId}/roster`, {
-            signal,
-          })
+        ? api.get<SessionRosterDto>(
+            `/api/class-sessions/${rosterTarget.sessionId}/roster`,
+            {
+              signal,
+            },
+          )
         : Promise.resolve(null),
     [rosterTarget?.sessionId],
   );
@@ -79,11 +102,17 @@ export default function SchedulePage() {
 
     const done = await action.run(
       () =>
-        api.post(`/api/class-sessions/${rescheduleTarget.sessionId}/reschedule`, {
-          newStartAtUtc: vietnamLocalToUtcIso(reschedule.date, reschedule.start),
-          newEndAtUtc: vietnamLocalToUtcIso(reschedule.date, reschedule.end),
-          reason: reason.trim(),
-        }),
+        api.post(
+          `/api/class-sessions/${rescheduleTarget.sessionId}/reschedule`,
+          {
+            newStartAtUtc: vietnamLocalToUtcIso(
+              reschedule.date,
+              reschedule.start,
+            ),
+            newEndAtUtc: vietnamLocalToUtcIso(reschedule.date, reschedule.end),
+            reason: reason.trim(),
+          },
+        ),
       "The club has created a replacement session. The Society needs to take the initiative to re-list (BR-54).",
     );
 
@@ -169,14 +198,18 @@ export default function SchedulePage() {
                   </td>
                   <td className="nowrap">
                     {formatDateTime(session.startAtUtc)}
-                    <div className="small muted">To {formatTime(session.endAtUtc)}</div>
+                    <div className="small muted">
+                      To {formatTime(session.endAtUtc)}
+                    </div>
                   </td>
                   <td>{session.roomName}</td>
                   <td>{session.coachName}</td>
                   <td className="num">{session.confirmedCount}</td>
                   <td className="num">
                     {session.capacity}
-                    <div className="small muted">ceiling {session.baselineCapacity}</div>
+                    <div className="small muted">
+                      ceiling {session.baselineCapacity}
+                    </div>
                   </td>
                   <td>
                     <StatusChip value={session.status} />
@@ -185,7 +218,10 @@ export default function SchedulePage() {
                     )}
                   </td>
                   <td className="right">
-                    <div className="btn-row" style={{ justifyContent: "flex-end" }}>
+                    <div
+                      className="btn-row"
+                      style={{ justifyContent: "flex-end" }}
+                    >
                       <button
                         type="button"
                         className="btn btn--ghost btn--sm"
@@ -253,10 +289,19 @@ export default function SchedulePage() {
           onClose={() => setCancelTarget(null)}
           footer={
             <>
-              <button type="button" className="btn btn--ghost" onClick={() => setCancelTarget(null)}>
+              <button
+                type="button"
+                className="btn btn--ghost"
+                onClick={() => setCancelTarget(null)}
+              >
                 Do not cancel
               </button>
-              <button type="submit" form="cancel-form" className="btn btn--danger" disabled={action.busy}>
+              <button
+                type="submit"
+                form="cancel-form"
+                className="btn btn--danger"
+                disabled={action.busy}
+              >
                 Confirmed cancel.
               </button>
             </>
@@ -264,7 +309,10 @@ export default function SchedulePage() {
         >
           <form id="cancel-form" className="form" onSubmit={doCancel}>
             <div className="alert alert--warn">
-              {cancelTarget.confirmedCount} Registers will be cancelled. The episode is fully returned and does not apply the delay fine (BR-54). The member receives a clear announcement stating the need to register for another session.
+              {cancelTarget.confirmedCount} Registers will be cancelled. The
+              episode is fully returned and does not apply the delay fine
+              (BR-54). The member receives a clear announcement stating the need
+              to register for another session.
             </div>
 
             <Field label="Reasons of Abortion (requiring, written in journals and notifications)">
@@ -294,7 +342,12 @@ export default function SchedulePage() {
               >
                 Abort
               </button>
-              <button type="submit" form="reschedule-form" className="btn" disabled={action.busy}>
+              <button
+                type="submit"
+                form="reschedule-form"
+                className="btn"
+                disabled={action.busy}
+              >
                 Create a substitute session
               </button>
             </>
@@ -302,7 +355,10 @@ export default function SchedulePage() {
         >
           <form id="reschedule-form" className="form" onSubmit={doReschedule}>
             <div className="alert alert--warn">
-              The system creates a session associated with the old date; the old period turns to a calendar moved state. The old registration is cancelled and full-timed — the system does not automatically transfer its membership to the new (BR-54).
+              The system creates a session associated with the old date; the old
+              period turns to a calendar moved state. The old registration is
+              cancelled and full-timed — the system does not automatically
+              transfer its membership to the new (BR-54).
             </div>
 
             <div className="form form--inline">
@@ -331,7 +387,9 @@ export default function SchedulePage() {
                   type="time"
                   value={reschedule.end}
                   required
-                  onChange={(event) => setReschedule({ ...reschedule, end: event.target.value })}
+                  onChange={(event) =>
+                    setReschedule({ ...reschedule, end: event.target.value })
+                  }
                 />
               </Field>
             </div>
@@ -356,10 +414,19 @@ export default function SchedulePage() {
           onClose={() => setEditTarget(null)}
           footer={
             <>
-              <button type="button" className="btn btn--ghost" onClick={() => setEditTarget(null)}>
+              <button
+                type="button"
+                className="btn btn--ghost"
+                onClick={() => setEditTarget(null)}
+              >
                 Abort
               </button>
-              <button type="submit" form="edit-session-form" className="btn" disabled={action.busy}>
+              <button
+                type="submit"
+                form="edit-session-form"
+                className="btn"
+                disabled={action.busy}
+              >
                 Sto
               </button>
             </>
@@ -369,7 +436,9 @@ export default function SchedulePage() {
             <Field label="Episode room">
               <select
                 value={editForm.roomId}
-                onChange={(event) => setEditForm({ ...editForm, roomId: event.target.value })}
+                onChange={(event) =>
+                  setEditForm({ ...editForm, roomId: event.target.value })
+                }
               >
                 {(rooms.data ?? []).map((room) => (
                   <option key={room.roomId} value={room.roomId}>
@@ -388,7 +457,9 @@ export default function SchedulePage() {
                 min={Math.max(1, editTarget.confirmedCount)}
                 max={editTarget.baselineCapacity}
                 value={editForm.capacity}
-                onChange={(event) => setEditForm({ ...editForm, capacity: event.target.value })}
+                onChange={(event) =>
+                  setEditForm({ ...editForm, capacity: event.target.value })
+                }
               />
             </Field>
 

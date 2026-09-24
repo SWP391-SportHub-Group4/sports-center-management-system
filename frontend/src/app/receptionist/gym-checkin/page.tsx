@@ -3,11 +3,21 @@
 import { useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { MemberPicker } from "@/components/MemberPicker";
-import { AsyncSection, Card, Feedback, StatusChip, Table } from "@/components/ui";
+import {
+  AsyncSection,
+  Card,
+  Feedback,
+  StatusChip,
+  Table,
+} from "@/components/ui";
 import { api } from "@/lib/apiClient";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { useAction, useApi } from "@/lib/useApi";
-import type { GymCheckInDto, MemberPackageDto, UserAdminDto } from "@/lib/types";
+import type {
+  GymCheckInDto,
+  MemberPackageDto,
+  UserAdminDto,
+} from "@/lib/types";
 
 interface PagedCheckIns {
   items: GymCheckInDto[];
@@ -30,7 +40,10 @@ export default function GymCheckInPage() {
   const packages = useApi(
     (signal) =>
       member
-        ? api.get<MemberPackageDto[]>(`/api/members/${member.userId}/packages`, { signal })
+        ? api.get<MemberPackageDto[]>(
+            `/api/members/${member.userId}/packages`,
+            { signal },
+          )
         : Promise.resolve(null),
     [member?.userId],
   );
@@ -46,7 +59,8 @@ export default function GymCheckInPage() {
     [member?.userId],
   );
 
-  const activePackages = packages.data?.filter((item) => item.status === "Active") ?? [];
+  const activePackages =
+    packages.data?.filter((item) => item.status === "Active") ?? [];
 
   const checkIn = async () => {
     if (!member) return;
@@ -73,7 +87,10 @@ export default function GymCheckInPage() {
           <MemberPicker value={member} onChange={setMember} />
 
           {member && (
-            <AsyncSection state={packages} emptyMessage="Couldn't read the membership package.">
+            <AsyncSection
+              state={packages}
+              emptyMessage="Couldn't read the membership package."
+            >
               {(data) =>
                 data && data.length > 0 ? (
                   activePackages.length > 0 ? (
@@ -89,7 +106,9 @@ export default function GymCheckInPage() {
                     </div>
                   ) : (
                     <div className="alert alert--warn">
-                      The member has no packages in active state — the system will refuse check-in (BR-64). Sell or renew the previous package.
+                      The member has no packages in active state — the system
+                      will refuse check-in (BR-64). Sell or renew the previous
+                      package.
                     </div>
                   )
                 ) : (
@@ -117,7 +136,10 @@ export default function GymCheckInPage() {
       </Card>
 
       {member && (
-        <Card title={`Check-in history — ${member.fullName || member.email}`} bodyless>
+        <Card
+          title={`Check-in history — ${member.fullName || member.email}`}
+          bodyless
+        >
           <AsyncSection
             state={history}
             emptyMessage="The members never check-in Gym."

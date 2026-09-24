@@ -2,11 +2,21 @@
 
 import { useState } from "react";
 import { AppShell } from "@/components/AppShell";
-import { AsyncSection, Card, Feedback, Field, Stat, Table } from "@/components/ui";
+import {
+  AsyncSection,
+  Card,
+  Feedback,
+  Field,
+  Stat,
+  Table,
+} from "@/components/ui";
 import { api } from "@/lib/apiClient";
 import { formatDateTime, label } from "@/lib/format";
 import { useAction, useApi } from "@/lib/useApi";
-import type { CoachMemberRelationshipDto, WorkoutSuggestionDto } from "@/lib/types";
+import type {
+  CoachMemberRelationshipDto,
+  WorkoutSuggestionDto,
+} from "@/lib/types";
 
 /**
  * Gợi ý tập luyện từ AI — BR-26 (bắt buộc đủ ba đầu vào: mục tiêu, trình độ, lịch sử tập 30
@@ -17,7 +27,9 @@ import type { CoachMemberRelationshipDto, WorkoutSuggestionDto } from "@/lib/typ
  */
 export default function AiSuggestionPage() {
   const [memberId, setMemberId] = useState("");
-  const [suggestion, setSuggestion] = useState<WorkoutSuggestionDto | null>(null);
+  const [suggestion, setSuggestion] = useState<WorkoutSuggestionDto | null>(
+    null,
+  );
   const action = useAction();
 
   const relationships = useApi(
@@ -44,7 +56,10 @@ export default function AiSuggestionPage() {
 
   const request = async () => {
     const result = await action.run(
-      () => api.post<WorkoutSuggestionDto>(`/api/ai/workout-suggestions/${memberId}`),
+      () =>
+        api.post<WorkoutSuggestionDto>(
+          `/api/ai/workout-suggestions/${memberId}`,
+        ),
       "Made the suggestion.",
     );
 
@@ -63,7 +78,10 @@ export default function AiSuggestionPage() {
       >
         <div className="form form--inline" style={{ maxWidth: 680 }}>
           <Field label="Members">
-            <select value={memberId} onChange={(event) => setMemberId(event.target.value)}>
+            <select
+              value={memberId}
+              onChange={(event) => setMemberId(event.target.value)}
+            >
               <option value="">— Select Members —</option>
               {(relationships.data ?? []).map((item) => (
                 <option key={item.relationshipId} value={item.memberId}>
@@ -96,8 +114,14 @@ export default function AiSuggestionPage() {
               label="The show-up (30 days)"
               value={suggestion.input.sessionsAttended}
             />
-            <Stat label="The Descent/ Not Comes" value={suggestion.input.sessionsMissed} />
-            <Stat label="Check-in Gym time" value={suggestion.input.gymCheckIns} />
+            <Stat
+              label="The Descent/ Not Comes"
+              value={suggestion.input.sessionsMissed}
+            />
+            <Stat
+              label="Check-in Gym time"
+              value={suggestion.input.gymCheckIns}
+            />
             <Stat
               label="Schedule"
               value={`${suggestion.responseTimeMs} ms`}
@@ -120,7 +144,8 @@ export default function AiSuggestionPage() {
 
               <div className="small muted">
                 Enter: target &:{suggestion.goal}& ‹; › Level{" "}
-                {label(suggestion.level)} · History {suggestion.input.historyWindowDays} days
+                {label(suggestion.level)} · History{" "}
+                {suggestion.input.historyWindowDays} days
                 {suggestion.input.recentDisciplines.length > 0 &&
                   ` · recent activity: ${suggestion.input.recentDisciplines.join(", ")}`}
               </div>
@@ -141,7 +166,11 @@ export default function AiSuggestionPage() {
         >
           {(data) => (
             <Table
-              headers={["Schedule", "Query Type", { text: "Schedule", numeric: true }]}
+              headers={[
+                "Schedule",
+                "Query Type",
+                { text: "Schedule", numeric: true },
+              ]}
             >
               {data.map((item) => (
                 <tr key={item.logId}>

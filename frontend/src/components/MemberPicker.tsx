@@ -56,7 +56,11 @@ export function MemberPicker({
         <span>{fieldLabel}</span>
         <div
           className="row spread"
-          style={{ border: "1px solid var(--line)", borderRadius: 6, padding: "7px 10px" }}
+          style={{
+            border: "1px solid var(--line)",
+            borderRadius: 6,
+            padding: "7px 10px",
+          }}
         >
           <div>
             <strong>{value.fullName || value.email}</strong>
@@ -89,14 +93,22 @@ export function MemberPicker({
         onChange={(event) => setKeyword(event.target.value)}
       />
 
-      {ready && search.loading && <span className="field__hint">Looking...</span>}
+      {ready && search.loading && (
+        <span className="field__hint">Looking...</span>
+      )}
 
       {ready && !search.loading && results.length === 0 && (
         <span className="field__hint">No matching membership was found.</span>
       )}
 
       {results.length > 0 && (
-        <div style={{ border: "1px solid var(--line)", borderRadius: 6, overflow: "hidden" }}>
+        <div
+          style={{
+            border: "1px solid var(--line)",
+            borderRadius: 6,
+            overflow: "hidden",
+          }}
+        >
           {results.map((member) => (
             <button
               key={member.userId}

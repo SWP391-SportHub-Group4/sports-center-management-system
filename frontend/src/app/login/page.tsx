@@ -33,10 +33,13 @@ function loginErrorMessage(cause: unknown) {
 
   const messages: Record<string, string> = {
     invalid_credentials: "The email or password is incorrect.",
-    account_banned: "This account is locked. Contact an administrator for help.",
-    account_deactivated: "This account is inactive. Contact an administrator for help.",
+    account_banned:
+      "This account is locked. Contact an administrator for help.",
+    account_deactivated:
+      "This account is inactive. Contact an administrator for help.",
     too_many_requests: "Too many sign-in attempts. Please wait and try again.",
-    network_error: "We could not reach SportHub. Check your connection and try again.",
+    network_error:
+      "We could not reach SportHub. Check your connection and try again.",
     invalid_google_token: "Google could not verify this sign-in attempt.",
     google_account_not_linked:
       "This Google account is not linked to SportHub. Sign in with your password first.",
@@ -57,7 +60,9 @@ function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [errorSource, setErrorSource] = useState<"credentials" | "form" | null>(null);
+  const [errorSource, setErrorSource] = useState<"credentials" | "form" | null>(
+    null,
+  );
   const [busy, setBusy] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -116,146 +121,157 @@ function LoginForm() {
             Sign in to access your SportHub workspace.
           </p>
 
-        {expired && (
-          <div className="alert alert--warn auth__session-alert" role="status">
-            Your session expired. Please sign in again.
-          </div>
-        )}
+          {expired && (
+            <div
+              className="alert alert--warn auth__session-alert"
+              role="status"
+            >
+              Your session expired. Please sign in again.
+            </div>
+          )}
 
-        <GoogleSignInButton
-          text="continue_with"
-          disabled={busy}
-          onError={(cause) => {
-            setError(loginErrorMessage(cause));
-            setErrorSource("form");
-          }}
-          onCredential={(idToken) => {
-            void (async () => {
-              if (busy) return;
-              setBusy(true);
-              setError(null);
-              setErrorSource(null);
-              try {
-                const user = await loginWithGoogle(idToken);
-                const target =
-                  next && next.startsWith("/") && !next.startsWith("//")
-                    ? next
-                    : HOME_BY_ROLE[user.role];
-                router.replace(target);
-              } catch (cause) {
-                setError(loginErrorMessage(cause));
-                setErrorSource("form");
-              } finally {
-                setBusy(false);
-              }
-            })();
-          }}
-        />
-
-        <div className="auth__separator">
-          <span>or sign in with email</span>
-        </div>
-
-        <form className="form" onSubmit={submit} aria-busy={busy}>
-          <Field label="Email">
-            <input
-              type="email"
-              value={email}
-              autoComplete="username"
-              required
-              disabled={busy}
-              suppressHydrationWarning
-              aria-invalid={errorSource === "credentials"}
-              aria-describedby={errorSource === "credentials" ? "login-error" : undefined}
-              onChange={(event) => {
-                setEmail(event.target.value);
-                if (errorSource === "credentials") {
-                  setError(null);
-                  setErrorSource(null);
+          <GoogleSignInButton
+            text="continue_with"
+            disabled={busy}
+            onError={(cause) => {
+              setError(loginErrorMessage(cause));
+              setErrorSource("form");
+            }}
+            onCredential={(idToken) => {
+              void (async () => {
+                if (busy) return;
+                setBusy(true);
+                setError(null);
+                setErrorSource(null);
+                try {
+                  const user = await loginWithGoogle(idToken);
+                  const target =
+                    next && next.startsWith("/") && !next.startsWith("//")
+                      ? next
+                      : HOME_BY_ROLE[user.role];
+                  router.replace(target);
+                } catch (cause) {
+                  setError(loginErrorMessage(cause));
+                  setErrorSource("form");
+                } finally {
+                  setBusy(false);
                 }
-              }}
-            />
-          </Field>
+              })();
+            }}
+          />
 
-          <Field label="Password">
-            <span className="password-field">
+          <div className="auth__separator">
+            <span>or sign in with email</span>
+          </div>
+
+          <form className="form" onSubmit={submit} aria-busy={busy}>
+            <Field label="Email">
               <input
-                id="login-password"
-                type={showPassword ? "text" : "password"}
-                value={password}
-                autoComplete="current-password"
-                maxLength={256}
+                type="email"
+                value={email}
+                autoComplete="username"
                 required
                 disabled={busy}
                 suppressHydrationWarning
                 aria-invalid={errorSource === "credentials"}
-                aria-describedby={errorSource === "credentials" ? "login-error" : undefined}
+                aria-describedby={
+                  errorSource === "credentials" ? "login-error" : undefined
+                }
                 onChange={(event) => {
-                  setPassword(event.target.value);
+                  setEmail(event.target.value);
                   if (errorSource === "credentials") {
                     setError(null);
                     setErrorSource(null);
                   }
                 }}
               />
-              <button
-                className="password-field__toggle"
-                type="button"
-                aria-controls="login-password"
-                aria-pressed={showPassword}
-                disabled={busy}
-                onClick={() => setShowPassword((visible) => !visible)}
-              >
-                {showPassword ? "Hide" : "Show"}
-              </button>
-            </span>
-          </Field>
+            </Field>
 
-          <div className="auth__feedback">
-            <Feedback id="login-error" error={error} />
-          </div>
+            <Field label="Password">
+              <span className="password-field">
+                <input
+                  id="login-password"
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  autoComplete="current-password"
+                  maxLength={256}
+                  required
+                  disabled={busy}
+                  suppressHydrationWarning
+                  aria-invalid={errorSource === "credentials"}
+                  aria-describedby={
+                    errorSource === "credentials" ? "login-error" : undefined
+                  }
+                  onChange={(event) => {
+                    setPassword(event.target.value);
+                    if (errorSource === "credentials") {
+                      setError(null);
+                      setErrorSource(null);
+                    }
+                  }}
+                />
+                <button
+                  className="password-field__toggle"
+                  type="button"
+                  aria-controls="login-password"
+                  aria-pressed={showPassword}
+                  disabled={busy}
+                  onClick={() => setShowPassword((visible) => !visible)}
+                >
+                  {showPassword ? "Hide" : "Show"}
+                </button>
+              </span>
+            </Field>
 
-          <button type="submit" className="btn" disabled={busy}>
-            {busy ? "Signing in…" : "Sign in"}
-          </button>
-        </form>
+            <div className="auth__feedback">
+              <Feedback id="login-error" error={error} />
+            </div>
 
-        <nav className="auth__links" aria-label="Account help">
-          <p className="small muted">
-            Don&apos;t have a member account?{" "}
-            <Link href="/register">Create an account</Link>.
-          </p>
-          <Link className="small" href="/forgot-password">
-            Forgot password?
-          </Link>
-        </nav>
+            <button type="submit" className="btn" disabled={busy}>
+              {busy ? "Signing in…" : "Sign in"}
+            </button>
+          </form>
 
-        {SHOW_DEMO_ACCOUNTS && <div className="demo-accounts">
-          <strong className="small">
-            Account demo (development environment)
-          </strong>
-          <p className="small muted" style={{ margin: "2px 0 0" }}>
-            Select an account to fill in its email and the demo password <code>{DEMO_PASSWORD}</code>. Authentication still uses the real API.
-          </p>
-          <div className="demo-accounts__grid">
-            {DEMO_ACCOUNTS.map((account) => (
-              <button
-                key={account.email}
-                type="button"
-                className="btn btn--ghost btn--sm"
-                disabled={busy}
-                onClick={() => {
-                  setEmail(account.email);
-                  setPassword(DEMO_PASSWORD);
-                  setError(null);
-                  setErrorSource(null);
-                }}
-              >
-                {account.label}
-              </button>
-            ))}
-          </div>
-        </div>}
+          <nav className="auth__links" aria-label="Account help">
+            <p className="small muted">
+              Don&apos;t have a member account?{" "}
+              <Link href="/register">Create an account</Link>.
+            </p>
+            <Link className="small" href="/forgot-password">
+              Forgot password?
+            </Link>
+          </nav>
+
+          {SHOW_DEMO_ACCOUNTS && (
+            <div className="demo-accounts">
+              <strong className="small">
+                Account demo (development environment)
+              </strong>
+              <p className="small muted" style={{ margin: "2px 0 0" }}>
+                Select an account to fill in its email and the demo password{" "}
+                <code>{DEMO_PASSWORD}</code>. Authentication still uses the real
+                API.
+              </p>
+              <div className="demo-accounts__grid">
+                {DEMO_ACCOUNTS.map((account) => (
+                  <button
+                    key={account.email}
+                    type="button"
+                    className="btn btn--ghost btn--sm"
+                    disabled={busy}
+                    onClick={() => {
+                      setEmail(account.email);
+                      setPassword(DEMO_PASSWORD);
+                      setError(null);
+                      setErrorSource(null);
+                    }}
+                  >
+                    {account.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </section>
       </main>
     </div>

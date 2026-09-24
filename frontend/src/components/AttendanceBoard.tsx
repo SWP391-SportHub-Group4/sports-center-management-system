@@ -1,7 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { AsyncSection, Card, Feedback, Field, StatusChip, Table } from "@/components/ui";
+import {
+  AsyncSection,
+  Card,
+  Feedback,
+  Field,
+  StatusChip,
+  Table,
+} from "@/components/ui";
 import { api } from "@/lib/apiClient";
 import { formatDateTime, formatTime, todayIso } from "@/lib/format";
 import { useAction, useApi } from "@/lib/useApi";
@@ -20,7 +27,10 @@ export function AttendanceBoard({
   /** true = chỉ liệt kê buổi của HLV đang đăng nhập. */
   coachOnly: boolean;
   /** Cho phép màn hình HLV mở form ghi kết quả tập ngay từ danh sách điểm danh. */
-  onResultRequested?: (entry: { enrollmentId: string; memberName: string }) => void;
+  onResultRequested?: (entry: {
+    enrollmentId: string;
+    memberName: string;
+  }) => void;
 }) {
   const [date, setDate] = useState(todayIso());
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -28,17 +38,22 @@ export function AttendanceBoard({
 
   const sessions = useApi(
     (signal) =>
-      api.get<ClassSessionDto[]>(coachOnly ? "/api/class-sessions/mine" : "/api/class-sessions", {
-        signal,
-        query: { fromDate: date, toDate: date },
-      }),
+      api.get<ClassSessionDto[]>(
+        coachOnly ? "/api/class-sessions/mine" : "/api/class-sessions",
+        {
+          signal,
+          query: { fromDate: date, toDate: date },
+        },
+      ),
     [date, coachOnly],
   );
 
   const roster = useApi(
     (signal) =>
       sessionId
-        ? api.get<SessionRosterDto>(`/api/class-sessions/${sessionId}/roster`, { signal })
+        ? api.get<SessionRosterDto>(`/api/class-sessions/${sessionId}/roster`, {
+            signal,
+          })
         : Promise.resolve(null),
     [sessionId],
   );
@@ -111,18 +126,30 @@ export function AttendanceBoard({
             {(data) =>
               data ? (
                 <>
-                  <div style={{ padding: "0 18px 10px" }} className="small muted">
-                    {data.session.className} · {formatDateTime(data.session.startAtUtc)} ·{" "}
+                  <div
+                    style={{ padding: "0 18px 10px" }}
+                    className="small muted"
+                  >
+                    {data.session.className} ·{" "}
+                    {formatDateTime(data.session.startAtUtc)} ·{" "}
                     {data.session.roomName} · HLV {data.session.coachName}
                   </div>
 
                   <Table
-                    headers={["Members", "Subscript", "Score", "Check-in Time", ""]}
+                    headers={[
+                      "Members",
+                      "Subscript",
+                      "Score",
+                      "Check-in Time",
+                      "",
+                    ]}
                   >
                     {data.entries.map((entry) => (
                       <tr key={entry.enrollmentId}>
                         <td>
-                          <strong>{entry.memberName || entry.memberEmail}</strong>
+                          <strong>
+                            {entry.memberName || entry.memberEmail}
+                          </strong>
                           <div className="small muted">{entry.memberEmail}</div>
                         </td>
                         <td>
@@ -132,16 +159,23 @@ export function AttendanceBoard({
                           <StatusChip value={entry.attendanceStatus} />
                         </td>
                         <td className="small nowrap">
-                          {entry.checkInTime ? formatDateTime(entry.checkInTime) : "—"}
+                          {entry.checkInTime
+                            ? formatDateTime(entry.checkInTime)
+                            : "—"}
                         </td>
                         <td className="right">
                           {entry.enrollmentStatus === "Confirmed" ? (
-                            <div className="btn-row" style={{ justifyContent: "flex-end" }}>
+                            <div
+                              className="btn-row"
+                              style={{ justifyContent: "flex-end" }}
+                            >
                               <button
                                 type="button"
                                 className="btn btn--sm"
                                 disabled={action.busy}
-                                onClick={() => void mark(entry.enrollmentId, "Present")}
+                                onClick={() =>
+                                  void mark(entry.enrollmentId, "Present")
+                                }
                               >
                                 Present
                               </button>
@@ -149,7 +183,9 @@ export function AttendanceBoard({
                                 type="button"
                                 className="btn btn--sm btn--ghost"
                                 disabled={action.busy}
-                                onClick={() => void mark(entry.enrollmentId, "Absent")}
+                                onClick={() =>
+                                  void mark(entry.enrollmentId, "Absent")
+                                }
                               >
                                 Empaine
                               </button>
@@ -160,7 +196,8 @@ export function AttendanceBoard({
                                   onClick={() =>
                                     onResultRequested({
                                       enrollmentId: entry.enrollmentId,
-                                      memberName: entry.memberName || entry.memberEmail,
+                                      memberName:
+                                        entry.memberName || entry.memberEmail,
                                     })
                                   }
                                 >

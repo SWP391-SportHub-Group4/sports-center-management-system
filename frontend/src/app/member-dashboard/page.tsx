@@ -18,7 +18,8 @@ export default function MemberDashboardPage() {
   const { user } = useAuth();
 
   const packages = useApi(
-    (signal) => api.get<MemberPackageDto[]>("/api/members/me/packages", { signal }),
+    (signal) =>
+      api.get<MemberPackageDto[]>("/api/members/me/packages", { signal }),
     [],
   );
 
@@ -52,7 +53,8 @@ export default function MemberDashboardPage() {
   const hasUnlimited = usable.some((item) => item.remainingSessions === null);
 
   const outstanding =
-    invoices.data?.items.reduce((total, item) => total + item.outstanding, 0) ?? 0;
+    invoices.data?.items.reduce((total, item) => total + item.outstanding, 0) ??
+    0;
 
   return (
     <AppShell
@@ -64,12 +66,19 @@ export default function MemberDashboardPage() {
         <Stat
           label="Available Package"
           value={usable.length}
-          hint={usable.map((item) => item.packageName).join(", ") || "No packages available"}
+          hint={
+            usable.map((item) => item.packageName).join(", ") ||
+            "No packages available"
+          }
         />
         <Stat
           label="The other day."
           value={hasUnlimited ? `${remaining}+` : remaining}
-          hint={hasUnlimited ? "Unlimited package session number" : "Total packages still valid"}
+          hint={
+            hasUnlimited
+              ? "Unlimited package session number"
+              : "Total packages still valid"
+          }
         />
         <Stat
           label="The next session."
@@ -86,7 +95,10 @@ export default function MemberDashboardPage() {
       <Card
         title="The Study Is Coming"
         actions={
-          <Link className="btn btn--ghost btn--sm" href="/member-dashboard/class-schedule">
+          <Link
+            className="btn btn--ghost btn--sm"
+            href="/member-dashboard/class-schedule"
+          >
             Set more session
           </Link>
         }
@@ -98,14 +110,24 @@ export default function MemberDashboardPage() {
           isEmpty={(data) => data.length === 0}
         >
           {(data) => (
-            <Table headers={["Class", "Time", "Room", "HLV", "Cancel to complete session"]}>
+            <Table
+              headers={[
+                "Class",
+                "Time",
+                "Room",
+                "HLV",
+                "Cancel to complete session",
+              ]}
+            >
               {data.slice(0, 6).map((item) => (
                 <tr key={item.enrollmentId}>
                   <td>
                     <strong>{item.session.className}</strong>
                     <div className="small muted">{item.session.discipline}</div>
                   </td>
-                  <td className="nowrap">{formatDateTime(item.session.startAtUtc)}</td>
+                  <td className="nowrap">
+                    {formatDateTime(item.session.startAtUtc)}
+                  </td>
                   <td>{item.session.roomName}</td>
                   <td>{item.session.coachName}</td>
                   <td className="nowrap">
@@ -129,7 +151,9 @@ export default function MemberDashboardPage() {
             isEmpty={(data) => data.length === 0}
           >
             {(data) => (
-              <Table headers={["Packages", "Effects", "The other day.", "Status"]}>
+              <Table
+                headers={["Packages", "Effects", "The other day.", "Status"]}
+              >
                 {data.map((item) => (
                   <tr key={item.memberPackageId}>
                     <td>{item.packageName}</td>
@@ -137,7 +161,9 @@ export default function MemberDashboardPage() {
                       {formatDate(item.startDate)} – {formatDate(item.endDate)}
                     </td>
                     <td className="num">
-                      {item.remainingSessions === null ? "No Limit" : item.remainingSessions}
+                      {item.remainingSessions === null
+                        ? "No Limit"
+                        : item.remainingSessions}
                     </td>
                     <td>
                       <StatusChip value={item.status} />
@@ -157,16 +183,30 @@ export default function MemberDashboardPage() {
           >
             {(data) => (
               <Table
-                headers={["Number of invoices", "Date", { text: "I have to pay.", numeric: true }, "Status"]}
+                headers={[
+                  "Number of invoices",
+                  "Date",
+                  { text: "I have to pay.", numeric: true },
+                  "Status",
+                ]}
               >
                 {data.items.map((item) => (
                   <tr key={item.invoiceId}>
                     <td>{item.invoiceNumber}</td>
-                    <td className="nowrap small">{formatDate(item.issuedAt)}</td>
+                    <td className="nowrap small">
+                      {formatDate(item.issuedAt)}
+                    </td>
                     <td className="num">{formatMoney(item.outstanding)}</td>
                     <td>
                       <StatusChip value={item.status} />
-                      {item.isOverdue && <div className="small" style={{ color: "var(--danger-700)" }}>Expiration</div>}
+                      {item.isOverdue && (
+                        <div
+                          className="small"
+                          style={{ color: "var(--danger-700)" }}
+                        >
+                          Expiration
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}

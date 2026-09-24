@@ -155,9 +155,7 @@ export default function ForgotPasswordPage() {
         )}
         {step === "done" && (
           <div className="stack">
-            <div className="alert alert--success">
-              Password update.
-            </div>
+            <div className="alert alert--success">Password update.</div>
             <Link className="btn" href="/login">
               Sign in
             </Link>
