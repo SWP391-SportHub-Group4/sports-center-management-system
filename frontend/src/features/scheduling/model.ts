@@ -24,15 +24,15 @@ export function bookingProblem(
   enrollments: Enrollment[],
   now: number,
 ): string | null {
-  if (session.status !== "Scheduled") return "Lớp này đã bị hủy.";
-  if (Date.parse(session.startAt) <= now) return "Buổi tập đã bắt đầu.";
+  if (session.status !== "Scheduled") return "This class has been cancelled.";
+  if (Date.parse(session.startAt) <= now) return "The training session's started.";
   if (
     enrollments.some(
       (e) => e.sessionId === session.id && e.status === "Confirmed",
     )
   )
-    return "Bạn đã giữ chỗ trong lớp này.";
-  if (session.confirmedCount >= session.capacity) return "Lớp đã hết chỗ.";
+    return "You've kept your place in this class.";
+  if (session.confirmedCount >= session.capacity) return "Class's full.";
   if (
     sessions.some(
       (other) =>
@@ -43,6 +43,6 @@ export function bookingProblem(
         Date.parse(other.endAt) > Date.parse(session.startAt),
     )
   )
-    return "Buổi tập trùng giờ với lịch bạn đã đặt.";
+    return "The time training session with the schedule you have set.";
   return null;
 }

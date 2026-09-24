@@ -78,12 +78,12 @@ export function ErrorState({ error, onRetry }: { error: ApiError; onRetry?: () =
     <div className="stack">
       <div className="alert alert--error" role="alert">
         {error.message}
-        {error.code && <span className="small muted"> (mã: {error.code})</span>}
+        {error.code && <span className="small muted"> (Code: {error.code})</span>}
       </div>
       {onRetry && (
         <div>
           <button type="button" className="btn btn--ghost btn--sm" onClick={onRetry}>
-            Thử lại
+            Retry
           </button>
         </div>
       )}
@@ -97,7 +97,7 @@ export function ErrorState({ error, onRetry }: { error: ApiError; onRetry?: () =
  */
 export function AsyncSection<T>({
   state,
-  emptyMessage = "Chưa có dữ liệu.",
+  emptyMessage = "No data yet.",
   isEmpty,
   children,
 }: {
@@ -117,14 +117,20 @@ export function AsyncSection<T>({
 export function Feedback({
   error,
   success,
+  id,
 }: {
   error?: string | null;
   success?: string | null;
+  id?: string;
 }) {
   if (!error && !success) return null;
 
   return (
-    <div className={`alert ${error ? "alert--error" : "alert--success"}`} role="status">
+    <div
+      id={id}
+      className={`alert ${error ? "alert--error" : "alert--success"}`}
+      role={error ? "alert" : "status"}
+    >
       {error ?? success}
     </div>
   );
@@ -182,7 +188,7 @@ export function Dialog({
         <header className="dialog__head">
           <h2>{title}</h2>
           <button type="button" className="btn btn--ghost btn--sm" onClick={onClose}>
-            Đóng
+            Close
           </button>
         </header>
         <div className="dialog__body">{children}</div>
@@ -240,7 +246,7 @@ export function Pager({
   return (
     <div className="row spread" style={{ marginTop: 12 }}>
       <span className="small muted">
-        Trang {page}/{lastPage} · {totalCount} bản ghi
+        Trang {page}/{lastPage} · {totalCount} log
       </span>
       <div className="btn-row">
         <button
@@ -249,7 +255,7 @@ export function Pager({
           disabled={page <= 1}
           onClick={() => onChange(page - 1)}
         >
-          Trang trước
+          Previous Page
         </button>
         <button
           type="button"

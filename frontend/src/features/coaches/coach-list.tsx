@@ -12,12 +12,12 @@ export function CoachList({ coaches }: { coaches: Coach[] }) {
   );
   return (
     <div className="stack">
-      <h1>Huấn luyện viên</h1>
+      <h1>Coach</h1>
       <label className="field search-field">
-        Tìm huấn luyện viên
+        Find coach
         <input
           type="search"
-          placeholder="Tên hoặc bộ môn"
+          placeholder="Name or Department"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
@@ -36,14 +36,14 @@ export function CoachList({ coaches }: { coaches: Coach[] }) {
             </div>
             <p>{c.bio}</p>
             <Link className="text-link" href={`/member/calendar?coach=${c.id}`}>
-              Xem các lớp của {c.name} →
+              View Classs of {c.name} →
             </Link>
           </Card>
         ))}
       </div>
       {!filtered.length && (
-        <EmptyState title="Không tìm thấy huấn luyện viên">
-          Thử tên hoặc bộ môn khác.
+        <EmptyState title="No coach found">
+          Try another name or set.
         </EmptyState>
       )}
     </div>

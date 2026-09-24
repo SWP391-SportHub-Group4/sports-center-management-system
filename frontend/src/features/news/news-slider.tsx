@@ -4,18 +4,18 @@ import { useState } from "react";
 import { Button } from "@/shared/ui";
 const slides = [
   {
-    title: "Cùng khởi động tuần mới với Yoga",
-    text: "Khám phá lớp học và sự kiện mới tại trung tâm.",
+    title: "Start new week with Yoga",
+    text: "Discovering classes and new events at the center.",
     href: "/member/calendar",
   },
   {
-    title: "Tìm người đồng hành tập luyện",
-    text: "Làm quen với đội ngũ huấn luyện viên SportHub.",
+    title: "Find a fellow trainee",
+    text: "Meet SportHub coach team.",
     href: "/member/coaches",
   },
   {
-    title: "Duy trì thói quen, từng buổi tập",
-    text: "Xem kế hoạch và nhận xét từ huấn luyện viên.",
+    title: "Maintaining Habits, Practices",
+    text: "Look at the plans and remarks from the coach.",
     href: "/member/training",
   },
 ];
@@ -25,11 +25,11 @@ export function NewsSlider() {
   return (
     <section
       className="news-slider"
-      aria-roledescription="trình chiếu"
-      aria-label="Tin tức SportHub"
+      aria-roledescription="slideshow"
+      aria-label="SportHub News"
     >
       <div className="news-copy" aria-live="polite">
-        <small>MỚI TẠI SPORTHUB</small>
+        <small>ENJOY IN SYPHHB</small>
         <h2>
           <Link href={slide.href}>{slide.title}</Link>
         </h2>
@@ -38,7 +38,7 @@ export function NewsSlider() {
       <div className="row slider-controls">
         <Button
           variant="quiet"
-          aria-label="Tin trước"
+          aria-label="Previous News"
           onClick={() => setIndex((index + slides.length - 1) % slides.length)}
         >
           ‹
@@ -48,7 +48,7 @@ export function NewsSlider() {
         </span>
         <Button
           variant="quiet"
-          aria-label="Tin tiếp theo"
+          aria-label="Next news."
           onClick={() => setIndex((index + 1) % slides.length)}
         >
           ›

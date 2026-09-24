@@ -12,10 +12,10 @@ export function TrainingView({
 }) {
   return (
     <div className="stack">
-      <h1>{historyOnly ? "Điểm danh & kết quả" : "Kế hoạch & nhận xét HLV"}</h1>
+      <h1>{historyOnly ? "Results & roll check" : "& Coach review"}</h1>
       {!historyOnly && (
         <Card>
-          <h2>Kế hoạch tập luyện</h2>
+          <h2>Practice Plans</h2>
           <p className="muted">
             {plan.goal} · HLV {plan.coach}
           </p>
@@ -24,42 +24,42 @@ export function TrainingView({
               <li key={e.name}>
                 <strong>{e.name}</strong>
                 <span>
-                  {e.sets} hiệp × {e.reps}
+                  {e.sets} Octopus {e.reps}
                 </span>
               </li>
             ))}
           </ul>
           <div className="subtle inset">
-            <h3>Nhận xét từ huấn luyện viên</h3>
+            <h3>Comments From Coach</h3>
             <p>{plan.comment}</p>
           </div>
         </Card>
       )}
-      <h2>Lịch sử tập luyện</h2>
+      <h2>Practice History</h2>
       {records.map((r) => (
         <Card key={r.id}>
           <div className="row between wrap">
             <h3>{r.className}</h3>
             <span className="badge">
-              {r.attendance === "Present" ? "✓ Đã tham gia" : "Vắng mặt"}
+              {r.attendance === "Present" ? "INTERNATIONAL INCREASE" : "Face-to-face"}
             </span>
           </div>
           <p className="muted">{dateLabel(r.date)}</p>
           {r.result && (
             <p>
-              <strong>Kết quả:</strong> {r.result}
+              <strong>Results:</strong> {r.result}
             </p>
           )}
           {r.coachComment && (
             <p>
-              <strong>Nhận xét:</strong> {r.coachComment}
+              <strong>Commenting:</strong> {r.coachComment}
             </p>
           )}
         </Card>
       ))}
       {!records.length && (
-        <EmptyState title="Chưa có lịch sử tập luyện">
-          Kết quả sẽ xuất hiện sau buổi tập được ghi nhận.
+        <EmptyState title="No Practice History">
+          The results will appear after the recorded practice.
         </EmptyState>
       )}
     </div>

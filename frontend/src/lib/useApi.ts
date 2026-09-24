@@ -62,7 +62,7 @@ export function useApi<T>(
         setError(
           cause instanceof ApiError
             ? cause
-            : new ApiError(0, "unknown_error", "Đã xảy ra lỗi không xác định."),
+            : new ApiError(0, "unknown_error", "An unknown error occurred."),
         );
       })
       .finally(() => {
@@ -106,7 +106,7 @@ export function useAction() {
         setError(
           cause instanceof ApiError
             ? cause.message
-            : "Đã xảy ra lỗi không xác định, vui lòng thử lại.",
+            : "An unknown error occurred, please try again.",
         );
 
         return null;

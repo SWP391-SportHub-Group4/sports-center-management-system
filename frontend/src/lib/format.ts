@@ -9,7 +9,7 @@
  */
 
 const TIME_ZONE = "Asia/Ho_Chi_Minh";
-const LOCALE = "vi-VN";
+const LOCALE = "en-GB";
 
 function toDate(value: string | Date | null | undefined): Date | null {
   if (!value) return null;
@@ -104,61 +104,61 @@ export function vietnamLocalToUtcIso(dateIso: string, timeHhmm: string): string 
 /** Nhãn tiếng Việt cho các giá trị enum trả về từ API (PascalCase). */
 export const LABELS: Record<string, string> = {
   // MemberPackageStatus
-  PendingPayment: "Chờ thanh toán",
-  Active: "Đang hoạt động",
-  Expired: "Hết hạn",
-  Cancelled: "Đã hủy",
+  PendingPayment: "Waiting for payment",
+  Active: "Active",
+  Expired: "Expired",
+  Cancelled: "Cancelled",
 
   // InvoiceStatus
-  Issued: "Đã phát hành",
-  PartiallyPaid: "Thanh toán một phần",
-  Paid: "Đã thanh toán đủ",
-  Void: "Đã hủy bỏ",
+  Issued: "Issued",
+  PartiallyPaid: "Partially paid",
+  Paid: "Paid",
+  Void: "Void",
 
   // EnrollmentStatus
-  Confirmed: "Đã xác nhận",
-  CancelledOnTime: "Hủy đúng hạn",
-  CancelledLate: "Hủy trễ hạn",
+  Confirmed: "Confirmed",
+  CancelledOnTime: "Cancelled on time",
+  CancelledLate: "Cancelled late",
 
   // AttendanceStatus
-  Present: "Có mặt",
-  Absent: "Vắng có phép",
-  NoShow: "Không đến",
+  Present: "Present",
+  Absent: "Absent",
+  NoShow: "No-show",
 
   // ClassSessionStatus
-  Scheduled: "Đã lên lịch",
-  Rescheduled: "Đã dời lịch",
-  Completed: "Đã diễn ra",
+  Scheduled: "Scheduled",
+  Rescheduled: "Rescheduled",
+  Completed: "Completed",
 
   // PaymentAdjustmentStatus / Type
-  Requested: "Chờ duyệt",
-  Approved: "Đã duyệt",
-  Rejected: "Đã từ chối",
-  Refund: "Hoàn tiền",
-  Correction: "Điều chỉnh",
-  Discount: "Giảm giá",
+  Requested: "Requested",
+  Approved: "Approved",
+  Rejected: "Rejected",
+  Refund: "Refund",
+  Correction: "Correction",
+  Discount: "Discount",
 
   // PaymentMethod
-  Cash: "Tiền mặt",
-  Card: "Thẻ",
-  Transfer: "Chuyển khoản",
-  EWallet: "Ví điện tử",
+  Cash: "Cash",
+  Card: "Card",
+  Transfer: "Bank transfer",
+  EWallet: "E-wallet",
 
   // UserStatus
-  Banned: "Bị khóa",
-  Deactivated: "Ngừng hoạt động",
+  Banned: "Locked",
+  Deactivated: "Deactivated",
 
   // ClassStatus
-  Archived: "Đã lưu trữ",
+  Archived: "Archived",
 
   // ExperienceLevel
-  Beginner: "Mới bắt đầu",
-  Intermediate: "Trung cấp",
-  Advanced: "Nâng cao",
+  Beginner: "Beginner",
+  Intermediate: "Intermediate",
+  Advanced: "Advanced",
 
   // ReportExportStatus
-  Pending: "Đang xử lý",
-  Failed: "Thất bại",
+  Pending: "Processing",
+  Failed: "Failed",
 
   // Discipline
   PersonalTraining: "Personal Training",

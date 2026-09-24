@@ -56,20 +56,20 @@ function MemberHome() {
     .slice(0, 2);
   return (
     <div className="stack">
-      <h1>Chào {data.profile.fullName}!</h1>
+      <h1>Hey. {data.profile.fullName}!</h1>
       <NewsSlider />
       <div className="home-grid">
         <MemberQr name={data.profile.fullName} issuer={issuer} />
         <section className="stack">
           <div className="row between">
-            <h2>Lịch tập sắp tới</h2>
+            <h2>Schedule</h2>
             <Link className="text-link" href="/member/calendar">
-              Xem lịch →
+              Reschedule
             </Link>
           </div>
           {upcoming.map((s) => (
             <Card key={s.id}>
-              <span className="badge">✓ Đã giữ chỗ thành công</span>
+              <span className="badge">The place has been kept successful.</span>
               <h2>{s.name}</h2>
               <p>
                 {dateLabel(s.startAt)} · {timeLabel(s.startAt)}–
@@ -79,16 +79,16 @@ function MemberHome() {
                 {s.coachName} · {s.room}
               </p>
               <Link className="text-link" href="/member/calendar">
-                Xem đăng ký →
+                View Registers (10)
               </Link>
             </Card>
           ))}
           {!upcoming.length && (
             <Card>
-              <h3>Chưa có buổi tập sắp tới</h3>
-              <p className="muted">Chọn một lớp phù hợp để bắt đầu.</p>
+              <h3>No upcoming training sessions</h3>
+              <p className="muted">Select a suitable class to begin with.</p>
               <Link className="button" href="/member/calendar">
-                Khám phá lớp học
+                Discovering Classes
               </Link>
             </Card>
           )}
@@ -101,7 +101,7 @@ function ProfilePage() {
   const { data } = useMember();
   return (
     <div className="stack">
-      <h1>Trang cá nhân</h1>
+      <h1>Personal Page</h1>
       <Card>
         <div className="row">
           <span className="avatar large" aria-hidden="true">
@@ -117,7 +117,7 @@ function ProfilePage() {
           </div>
         </div>
         <Link className="button" href="/member/profile/edit">
-          Cập nhật hồ sơ
+          Update Profile
         </Link>
       </Card>
       {data.packages
@@ -125,24 +125,24 @@ function ProfilePage() {
         .map((p) => (
           <Card key={p.id} className="membership-card">
             <h2>{p.name}</h2>
-            <p>Hạn dùng {dateLabel(p.expiresAt)}</p>
+            <p>Expire {dateLabel(p.expiresAt)}</p>
             <p>
               {p.remainingSessions === null
-                ? "Không giới hạn lượt tập"
-                : `Còn ${p.remainingSessions} lượt tập`}
+                ? "No Training Turn Limited"
+                : `Remaining: ${p.remainingSessions} sessions`}
             </p>
             <Link className="button secondary" href="/member/packages">
-              Gia hạn / Đổi gói
+              Plugins / Change packages
             </Link>
           </Card>
         ))}
       <Card className="profile-menu">
         {[
-          ["/member/packages", "Gói thành viên & hóa đơn"],
-          ["/member/training", "Kế hoạch & nhận xét HLV"],
-          ["/member/history", "Điểm danh & kết quả tập luyện"],
-          ["/member/profile/edit", "Cài đặt hồ sơ"],
-          ["/member/notifications", "Thông báo"],
+          ["/member/packages", "& Invoiceing Members Package"],
+          ["/member/training", "& Coach review"],
+          ["/member/history", "& Practice Results"],
+          ["/member/profile/edit", "Install Profile"],
+          ["/member/notifications", "Notifications"],
         ].map(([href, label]) => (
           <Link key={href} href={href}>
             {label}
@@ -170,13 +170,13 @@ export function MemberPage({ page }: { page: MemberPageName }) {
         onBook={(sessionId, memberPackageId) =>
           execute(
             { type: "book", sessionId, memberPackageId },
-            "Đã giữ chỗ thành công.",
+            "Keeping the place successful.",
           )
         }
         onCancel={(sessionId) =>
           execute(
             { type: "cancel", sessionId },
-            "Đã hủy đăng ký. Lượt tập được cập nhật theo hạn hủy.",
+            "Cancelled. Session updated on cancel.",
           )
         }
       />
@@ -187,7 +187,7 @@ export function MemberPage({ page }: { page: MemberPageName }) {
       <ProfileForm
         profile={data.profile}
         busy={busy}
-        onSave={(input) => execute({ type: "profile", input }, "Đã lưu hồ sơ.")}
+        onSave={(input) => execute({ type: "profile", input }, "Profiled.")}
       />
     );
   if (page === "packages")
@@ -199,7 +199,7 @@ export function MemberPage({ page }: { page: MemberPageName }) {
         onPurchase={(packageId) =>
           execute(
             { type: "purchase", packageId },
-            "Đã tạo yêu cầu. Gói đang chờ thanh toán tại quầy.",
+            "The package is pending payment at the counter.",
           )
         }
       />
@@ -212,7 +212,7 @@ export function MemberPage({ page }: { page: MemberPageName }) {
         onRead={(notificationId) => {
           void execute(
             { type: "read", notificationId },
-            "Đã đánh dấu thông báo đã đọc.",
+            "It was read by the notice.",
           );
         }}
       />
