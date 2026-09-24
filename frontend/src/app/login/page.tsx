@@ -162,11 +162,9 @@ function LoginForm() {
               type="email"
               value={email}
               autoComplete="username"
-              autoCapitalize="none"
-              spellCheck={false}
-              maxLength={254}
               required
               disabled={busy}
+              suppressHydrationWarning
               aria-invalid={errorSource === "credentials"}
               aria-describedby={errorSource === "credentials" ? "login-error" : undefined}
               onChange={(event) => {
@@ -189,6 +187,7 @@ function LoginForm() {
                 maxLength={256}
                 required
                 disabled={busy}
+                suppressHydrationWarning
                 aria-invalid={errorSource === "credentials"}
                 aria-describedby={errorSource === "credentials" ? "login-error" : undefined}
                 onChange={(event) => {
