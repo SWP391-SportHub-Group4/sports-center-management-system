@@ -16,7 +16,7 @@ const MIN_KEYWORD_LENGTH = 2;
 export function MemberPicker({
   value,
   onChange,
-  label: fieldLabel = "Hội viên",
+  label: fieldLabel = "Members",
 }: {
   value: UserAdminDto | null;
   onChange: (member: UserAdminDto | null) => void;
@@ -56,7 +56,11 @@ export function MemberPicker({
         <span>{fieldLabel}</span>
         <div
           className="row spread"
-          style={{ border: "1px solid var(--line)", borderRadius: 6, padding: "7px 10px" }}
+          style={{
+            border: "1px solid var(--line)",
+            borderRadius: 6,
+            padding: "7px 10px",
+          }}
         >
           <div>
             <strong>{value.fullName || value.email}</strong>
@@ -73,7 +77,7 @@ export function MemberPicker({
               setKeyword("");
             }}
           >
-            Đổi
+            Exch
           </button>
         </div>
       </div>
@@ -85,18 +89,26 @@ export function MemberPicker({
       <span>{fieldLabel}</span>
       <input
         value={keyword}
-        placeholder="Nhập tên, email hoặc số điện thoại (ít nhất 2 ký tự)"
+        placeholder="Enter a name, email or phone number (at least 2 characters)"
         onChange={(event) => setKeyword(event.target.value)}
       />
 
-      {ready && search.loading && <span className="field__hint">Đang tìm…</span>}
+      {ready && search.loading && (
+        <span className="field__hint">Looking...</span>
+      )}
 
       {ready && !search.loading && results.length === 0 && (
-        <span className="field__hint">Không tìm thấy hội viên phù hợp.</span>
+        <span className="field__hint">No matching membership was found.</span>
       )}
 
       {results.length > 0 && (
-        <div style={{ border: "1px solid var(--line)", borderRadius: 6, overflow: "hidden" }}>
+        <div
+          style={{
+            border: "1px solid var(--line)",
+            borderRadius: 6,
+            overflow: "hidden",
+          }}
+        >
           {results.map((member) => (
             <button
               key={member.userId}
@@ -118,7 +130,7 @@ export function MemberPicker({
               <div className="small muted">
                 {member.email}
                 {member.phone ? ` · ${member.phone}` : ""}
-                {member.status !== "Active" ? " · tài khoản đang bị khóa" : ""}
+                {member.status !== "Active" ? "· The account is locked" : ""}
               </div>
             </button>
           ))}

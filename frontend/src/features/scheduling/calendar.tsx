@@ -86,13 +86,13 @@ export function MemberCalendar({
   }
   return (
     <div className="stack">
-      <h1>Lịch tập luyện</h1>
-      <div className="filters" role="group" aria-label="Lọc trạng thái đăng ký">
+      <h1>Practice Calendar</h1>
+      <div className="filters" role="group" aria-label="Reschedule">
         {(
           [
-            ["all", "Tất cả"],
-            ["available", "Chưa đăng ký"],
-            ["booked", "Đã giữ chỗ"],
+            ["all", "All"],
+            ["available", "Not registered"],
+            ["booked", "Hold the seat."],
           ] as const
         ).map(([value, label]) => (
           <Button
@@ -107,18 +107,18 @@ export function MemberCalendar({
       </div>
       <div className="calendar-tools">
         <label className="field">
-          Tìm lớp
+          Find Class
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Tên lớp hoặc bộ môn"
+            placeholder="Class Names or Department"
             type="search"
           />
         </label>
         <label className="field">
-          Huấn luyện viên
+          Coach
           <select value={coach} onChange={(e) => setCoach(e.target.value)}>
-            <option value="">Tất cả HLV</option>
+            <option value="">All Coaches.</option>
             {Array.from(
               new Map(sessions.map((s) => [s.coachId, s.coachName])),
             ).map(([id, name]) => (
@@ -139,17 +139,17 @@ export function MemberCalendar({
         <div className="row">
           <Button
             variant="quiet"
-            aria-label="7 ngày trước"
+            aria-label="Seven days ago."
             onClick={() => setWeek(addDays(week, -7))}
           >
             ←
           </Button>
           <Button variant="quiet" onClick={() => setWeek(monday(dayKey()))}>
-            Hôm nay
+            Today
           </Button>
           <Button
             variant="quiet"
-            aria-label="7 ngày tiếp theo"
+            aria-label="The next seven days."
             onClick={() => setWeek(addDays(week, 7))}
           >
             →
@@ -158,7 +158,7 @@ export function MemberCalendar({
       </div>
       <p className="sr-only" role="status">
         {shown.filter((s) => days.includes(dayKey(new Date(s.startAt)))).length}{" "}
-        lớp phù hợp từ {dateLabel(week)} đến {dateLabel(days[6])}.
+        word match level {dateLabel(week)} To {dateLabel(days[6])}.
       </p>
       <div className="calendar-grid">
         {days.map((day) => {
@@ -169,7 +169,7 @@ export function MemberCalendar({
             <section
               key={day}
               className={`calendar-day ${items.length ? "" : "day-empty"}`}
-              aria-label={`Lớp ngày ${dateLabel(day)}`}
+              aria-label={`Class on ${dateLabel(day)}`}
             >
               <header className="day-heading">
                 <span>
@@ -203,10 +203,10 @@ export function MemberCalendar({
                     </p>
                     <span className="event-state">
                       {booked
-                        ? "✓ Đã giữ chỗ"
+                        ? "The place is in place."
                         : session.confirmedCount >= session.capacity
-                          ? "Hết chỗ"
-                          : `Còn ${session.capacity - session.confirmedCount} chỗ`}
+                          ? "Full room."
+                          : `Remaining: ${session.capacity - session.confirmedCount} spots`}
                     </span>
                     <Button
                       variant={booked ? "quiet" : "primary"}
@@ -217,30 +217,30 @@ export function MemberCalendar({
                           : !!problem)
                       }
                       title={!booked && problem ? problem : undefined}
-                      aria-label={`${booked ? "Xem đăng ký" : "Đặt lịch"} ${session.name}`}
+                      aria-label={`${booked ? "View Register" : "Schedule"} ${session.name}`}
                       onClick={() => open(session)}
                     >
-                      {booked ? "Xem đăng ký" : "Đặt lịch"}
+                      {booked ? "View Register" : "Schedule"}
                     </Button>
                     {!booked && problem && <small>{problem}</small>}
                   </article>
                 );
               })}
               {!items.length && (
-                <span className="muted no-class">Không có lớp</span>
+                <span className="muted no-class">No Class</span>
               )}
             </section>
           );
         })}
       </div>
       {!shown.some((s) => days.includes(dayKey(new Date(s.startAt)))) && (
-        <EmptyState title="Chưa có lớp phù hợp">
-          Thử đổi bộ lọc hoặc xem những ngày tiếp theo.
+        <EmptyState title="No fit">
+          Try changing the filter or viewing the following days.
         </EmptyState>
       )}
       {selected && (
         <Modal
-          title={isCancel ? "Thông tin đăng ký" : "Đặt lịch tập luyện"}
+          title={isCancel ? "Register Information" : "Set training schedule"}
           onClose={() => setSelected(null)}
         >
           <div className="stack">
@@ -254,7 +254,7 @@ export function MemberCalendar({
             {isCancel ? (
               <Card className="subtle">
                 <p>
-                  Hạn hủy:{" "}
+                  Cancel:{" "}
                   <strong>
                     {dateLabel(selected.cancellationDeadline)} ·{" "}
                     {timeLabel(selected.cancellationDeadline)}
@@ -262,13 +262,13 @@ export function MemberCalendar({
                 </p>
                 <p>
                   {currentTime <= Date.parse(selected.cancellationDeadline)
-                    ? "Hủy đúng hạn: lượt tập được hoàn vào gói đã sử dụng."
-                    : "Đã qua hạn hủy: bạn sẽ không được hoàn lượt tập."}
+                    ? "Cancel on time: The episode is completed to the used package."
+                    : "Canceled timeout: you will not be completed."}
                 </p>
               </Card>
             ) : availablePackages.length ? (
               <label className="field">
-                Gói sử dụng
+                Use Package
                 <select
                   value={packageId}
                   onChange={(e) => setPackageId(e.target.value)}
@@ -277,22 +277,22 @@ export function MemberCalendar({
                     <option key={p.id} value={p.id}>
                       {p.name} ·{" "}
                       {p.remainingSessions === null
-                        ? "Không giới hạn"
-                        : `${p.remainingSessions} lượt còn lại`}
+                        ? "No Limit"
+                        : `${p.remainingSessions} sessions remaining`}
                     </option>
                   ))}
                 </select>
               </label>
             ) : (
               <p>
-                Bạn cần gói còn hiệu lực và còn lượt tập.{" "}
-                <Link href="/member/packages">Xem gói hội viên</Link>
+                You need the package to be in effect and you need the exercise.{" "}
+                <Link href="/member/packages">View membership packages</Link>
               </p>
             )}
             {modalError && <p role="alert">{modalError}</p>}
             <div className="row wrap">
               <Button variant="secondary" onClick={() => setSelected(null)}>
-                {isCancel ? "Giữ chỗ" : "Để sau"}
+                {isCancel ? "Hold your seat." : "Later."}
               </Button>
               <Button
                 disabled={busy || (!isCancel && !packageId)}
@@ -303,15 +303,15 @@ export function MemberCalendar({
                   if (ok) setSelected(null);
                   else
                     setModalError(
-                      "Thao tác chưa hoàn tất. Kiểm tra trạng thái gói và lớp, rồi thử lại.",
+                      "Operation not completed. Check the package status and class status, and try again.",
                     );
                 }}
               >
                 {busy
-                  ? "Đang xử lý…"
+                  ? "Processing..."
                   : isCancel
-                    ? "Xác nhận hủy"
-                    : "Xác nhận đặt lịch"}
+                    ? "Confirm Abortion"
+                    : "Schedule"}
               </Button>
             </div>
           </div>

@@ -13,17 +13,17 @@ export function NotificationList({
 }) {
   return (
     <div className="stack">
-      <h1>Thông báo</h1>
+      <h1>Notifications</h1>
       {items.map((n) => (
         <Card key={n.id}>
           <div className="row between wrap">
             <h2>{n.title}</h2>
-            <span className="badge">{n.read ? "Đã đọc" : "● Chưa đọc"}</span>
+            <span className="badge">{n.read ? "Read" : "● Unread"}</span>
           </div>
           <p>{n.body}</p>
           <div className="row wrap">
             <Link href={n.href} className="text-link">
-              Xem chi tiết →
+              View details →
             </Link>
             {!n.read && (
               <Button
@@ -31,15 +31,15 @@ export function NotificationList({
                 disabled={busy}
                 onClick={() => onRead(n.id)}
               >
-                Đánh dấu đã đọc
+                Mark as read
               </Button>
             )}
           </div>
         </Card>
       ))}
       {!items.length && (
-        <EmptyState title="Chưa có thông báo">
-          Bạn sẽ nhận cập nhật lịch học và gói tập tại đây.
+        <EmptyState title="No notifications yet">
+          Schedule and membership plan updates will appear here.
         </EmptyState>
       )}
     </div>

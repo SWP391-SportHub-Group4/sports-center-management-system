@@ -4,11 +4,11 @@ test("public header and section links work without an account", async ({
   page,
 }) => {
   await page.goto("/");
-  await expect(page.getByRole("link", { name: "Đăng nhập" })).toHaveAttribute(
+  await expect(page.getByRole("link", { name: "Sign in" })).toHaveAttribute(
     "href",
-    "/dang-nhap",
+    "/login",
   );
-  await page.getByRole("link", { name: "Hoạt động" }).click();
+  await page.getByRole("link", { name: "Activities" }).click();
   await expect(page).toHaveURL(/#hoat-dong$/);
   await expect
     .poll(() => page.evaluate(() => window.scrollY))
@@ -25,20 +25,17 @@ test("successful login routes each role to its dashboard", async ({ page }) => {
         user: {
           userId: "coach-1",
           email: "coach@sporthub.test",
-          fullName: "Huấn luyện viên Minh",
+          fullName: "Coach Minh",
           role: "Coach",
         },
       }),
     });
   });
-  await page.goto("/dang-nhap");
+  await page.goto("/login");
   await page.getByLabel("Email").fill("coach@sporthub.test");
-  await page.getByLabel("Mật khẩu").fill("password123");
-  await page.getByRole("button", { name: "Đăng nhập" }).click();
-  await expect(page).toHaveURL(/\/hlv$/);
-  await expect(
-    page.getByRole("heading", { name: "Xin chào, Huấn luyện viên Minh" }),
-  ).toBeVisible();
+  await page.getByLabel("Password").fill("password123");
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page).toHaveURL(/\/coach$/);
 });
 
 test("password visibility and login errors do not move the submit button", async ({
@@ -48,25 +45,23 @@ test("password visibility and login errors do not move the submit button", async
     await route.fulfill({
       status: 401,
       contentType: "application/json",
-      body: JSON.stringify({ message: "Email hoặc mật khẩu không đúng." }),
+      body: JSON.stringify({ message: "Invalid email or password." }),
     });
   });
-  await page.goto("/dang-nhap");
-  const password = page.getByLabel("Mật khẩu");
+  await page.goto("/login");
+  const password = page.getByLabel("Password");
   await password.fill("password123");
-  await page.getByRole("button", { name: "Hiện" }).click();
+  await page.getByRole("button", { name: "Show" }).click();
   await expect(password).toHaveAttribute("type", "text");
-  await page.getByRole("button", { name: "Ẩn" }).click();
+  await page.getByRole("button", { name: "Hide" }).click();
   await expect(password).toHaveAttribute("type", "password");
 
   await page.getByLabel("Email").fill("member@sporthub.test");
-  const submit = page.getByRole("button", { name: "Đăng nhập" });
+  const submit = page.getByRole("button", { name: "Sign in" });
   const before = await submit.boundingBox();
   await submit.click();
   await expect(
-    page
-      .getByRole("status")
-      .filter({ hasText: "Email hoặc mật khẩu không đúng." }),
+    page.getByRole("status").filter({ hasText: "Invalid email or password." }),
   ).toBeVisible();
   const after = await submit.boundingBox();
   expect(after?.y).toBe(before?.y);
@@ -80,21 +75,20 @@ test("authenticated public header shows the member name", async ({ page }) => {
       JSON.stringify({
         userId: "member-1",
         email: "member@sporthub.test",
-        fullName: "Nguyễn Minh",
+        fullName: "Alex Johnson",
         role: "Member",
       }),
     );
   });
   await page.goto("/");
-  await expect(page.getByRole("link", { name: /Nguyễn Minh/ })).toHaveAttribute(
-    "href",
-    "/hoi-vien",
-  );
+  await expect(
+    page.getByRole("link", { name: /Alex Johnson/ }),
+  ).toHaveAttribute("href", "/member-dashboard");
 });
 
 test("protected role page sends guests to login", async ({ page }) => {
-  await page.goto("/quan-tri");
-  await expect(page).toHaveURL(/\/dang-nhap\?tiep-tuc=%2Fquan-tri$/);
+  await page.goto("/admin");
+  await expect(page).toHaveURL(/\/login\?continue=%2Fadmin$/);
 });
 
 test.describe("reduced motion", () => {

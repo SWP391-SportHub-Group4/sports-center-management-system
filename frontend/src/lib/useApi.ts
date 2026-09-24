@@ -57,12 +57,13 @@ export function useApi<T>(
       })
       .catch((cause: unknown) => {
         if (!active) return;
-        if (cause instanceof DOMException && cause.name === "AbortError") return;
+        if (cause instanceof DOMException && cause.name === "AbortError")
+          return;
 
         setError(
           cause instanceof ApiError
             ? cause
-            : new ApiError(0, "unknown_error", "Đã xảy ra lỗi không xác định."),
+            : new ApiError(0, "unknown_error", "An unknown error occurred."),
         );
       })
       .finally(() => {
@@ -92,7 +93,10 @@ export function useAction() {
   const [success, setSuccess] = useState<string | null>(null);
 
   const run = useCallback(
-    async <T,>(operation: () => Promise<T>, successMessage?: string): Promise<T | null> => {
+    async <T>(
+      operation: () => Promise<T>,
+      successMessage?: string,
+    ): Promise<T | null> => {
       setBusy(true);
       setError(null);
       setSuccess(null);
@@ -106,7 +110,7 @@ export function useAction() {
         setError(
           cause instanceof ApiError
             ? cause.message
-            : "Đã xảy ra lỗi không xác định, vui lòng thử lại.",
+            : "An unknown error occurred, please try again.",
         );
 
         return null;

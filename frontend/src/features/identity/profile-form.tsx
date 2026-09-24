@@ -25,7 +25,7 @@ export function ProfileForm({
   const form = useRef<HTMLFormElement>(null);
   return (
     <div className="stack">
-      <h1>Cập nhật hồ sơ</h1>
+      <h1>Update Profile</h1>
       <Card>
         <form
           ref={form}
@@ -47,9 +47,9 @@ export function ProfileForm({
         >
           {(
             [
-              ["fullName", "Họ và tên", "name"],
-              ["phone", "Số điện thoại", "tel"],
-              ["goal", "Mục tiêu tập luyện", "off"],
+              ["fullName", "First name", "name"],
+              ["phone", "Schedule", "tel"],
+              ["goal", "Training Goals", "off"],
             ] as const
           ).map(([key, label, autoComplete]) => (
             <div className="field" key={key}>
@@ -67,13 +67,13 @@ export function ProfileForm({
               />
               {errors[key] && (
                 <span className="field-error" id={`${key}-error`}>
-                  Lỗi: {errors[key]}
+                  Error: {errors[key]}
                 </span>
               )}
             </div>
           ))}
           <label className="field">
-            Trình độ
+            Level
             <select
               value={input.level}
               onChange={(e) =>
@@ -83,13 +83,13 @@ export function ProfileForm({
                 })
               }
             >
-              <option value="Beginner">Mới bắt đầu</option>
-              <option value="Intermediate">Trung cấp</option>
-              <option value="Advanced">Nâng cao</option>
+              <option value="Beginner">Name</option>
+              <option value="Intermediate">Middle level</option>
+              <option value="Advanced">Advanced</option>
             </select>
           </label>
           <Button type="submit" disabled={busy}>
-            {busy ? "Đang lưu…" : "Lưu thay đổi"}
+            {busy ? "Saving..." : "Can not open message"}
           </Button>
         </form>
       </Card>

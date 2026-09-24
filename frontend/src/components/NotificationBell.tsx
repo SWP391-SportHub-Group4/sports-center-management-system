@@ -26,7 +26,8 @@ export function NotificationBell() {
   const containerRef = useRef<HTMLDivElement>(null);
 
   const unread = useApi(
-    (signal) => api.get<{ count: number }>("/api/notifications/unread-count", { signal }),
+    (signal) =>
+      api.get<{ count: number }>("/api/notifications/unread-count", { signal }),
     [],
   );
 
@@ -74,30 +75,32 @@ export function NotificationBell() {
         type="button"
         className="btn btn--ghost btn--sm"
         onClick={() => setOpen((current) => !current)}
-        aria-label={`Thông báo${count > 0 ? ` (${count} chưa đọc)` : ""}`}
+        aria-label={`Notifications${count > 0 ? ` (${count} unread)` : ""}`}
       >
-        Thông báo
-        {count > 0 && <span className="bell__count">{count > 99 ? "99+" : count}</span>}
+        Notifications
+        {count > 0 && (
+          <span className="bell__count">{count > 99 ? "99+" : count}</span>
+        )}
       </button>
 
       {open && (
         <div className="bell__panel">
           <div className="row spread" style={{ padding: "10px 13px" }}>
-            <strong className="small">Thông báo</strong>
+            <strong className="small">Notifications</strong>
             <button
               type="button"
               className="btn btn--ghost btn--sm"
               onClick={() => void markAllRead()}
               disabled={count === 0}
             >
-              Đánh dấu đã đọc
+              Mark as read
             </button>
           </div>
 
           {items.loading && list.length === 0 ? (
-            <p className="state">Đang tải…</p>
+            <p className="state">Downloading...</p>
           ) : list.length === 0 ? (
-            <p className="state">Chưa có thông báo nào.</p>
+            <p className="state">No word yet.</p>
           ) : (
             list.map((item) => (
               <div

@@ -116,8 +116,8 @@ export function Modal({
     >
       <div className="row between">
         <h2 id={heading}>{title}</h2>
-        <Button variant="quiet" onClick={onClose} aria-label="Đóng hộp thoại">
-          Đóng
+        <Button variant="quiet" onClick={onClose} aria-label="Close the dialog">
+          Close
         </Button>
       </div>
       {children}
