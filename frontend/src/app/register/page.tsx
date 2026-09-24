@@ -286,14 +286,12 @@ export default function RegisterPage() {
                     <input
                       type="email"
                       autoComplete="email"
-                      autoCapitalize="none"
-                      spellCheck={false}
-                      maxLength={254}
                       pattern=".+@gmail\.com$"
                       required
                       disabled={otpSent || sendingOtp}
                       value={form.email}
                       placeholder="your.email@gmail.com"
+                      suppressHydrationWarning
                       onChange={(event) => {
                         setForm({ ...form, email: event.target.value });
                         setError(null);
@@ -346,6 +344,7 @@ export default function RegisterPage() {
                       placeholder="••••••"
                       disabled={otpSecondsLeft === 0}
                       value={form.otp}
+                      suppressHydrationWarning
                       onChange={(event) => {
                         const code = event.target.value.replace(/\D/g, "");
                         setForm({ ...form, otp: code });
@@ -412,6 +411,7 @@ export default function RegisterPage() {
                   placeholder="e.g. Alex Johnson"
                   disabled={busy}
                   value={form.fullName}
+                  suppressHydrationWarning
                   onChange={(event) => {
                     setForm({ ...form, fullName: event.target.value });
                     setError(null);
@@ -430,6 +430,7 @@ export default function RegisterPage() {
                     disabled={busy}
                     placeholder="Create a strong password"
                     value={form.password}
+                    suppressHydrationWarning
                     onChange={(event) => {
                       setForm({ ...form, password: event.target.value });
                       setError(null);
@@ -458,6 +459,7 @@ export default function RegisterPage() {
                     disabled={busy}
                     placeholder="Repeat your password"
                     value={form.confirmPassword}
+                    suppressHydrationWarning
                     onChange={(event) => {
                       setForm({ ...form, confirmPassword: event.target.value });
                       setError(null);
