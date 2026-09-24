@@ -117,8 +117,13 @@ async function request<T>(
     });
   } catch (error) {
     // AbortError là chủ ý của caller, không phải sự cố mạng — ném nguyên để useApi bỏ qua.
-    if (error instanceof DOMException && error.name === "AbortError") throw error;
-    throw new ApiError(0, "network_error", "Không kết nối được tới máy chủ.");
+    if (error instanceof DOMException && error.name === "AbortError")
+      throw error;
+    throw new ApiError(
+      0,
+      "network_error",
+      "Could not close temporary folder: %s",
+    );
   }
 
   if (response.status === 204) {
@@ -132,7 +137,9 @@ async function request<T>(
     const payload = (parsed ?? {}) as Json;
 
     const code =
-      typeof payload.error === "string" ? payload.error : `http_${response.status}`;
+      typeof payload.error === "string"
+        ? payload.error
+        : `http_${response.status}`;
 
     const message =
       typeof payload.message === "string"
@@ -145,7 +152,11 @@ async function request<T>(
       onUnauthorized?.();
     }
 
-    throw new ApiError(response.status, code, withValidationDetail(message, payload));
+    throw new ApiError(
+      response.status,
+      code,
+      withValidationDetail(message, payload),
+    );
   }
 
   return parsed as T;
@@ -177,19 +188,19 @@ function withValidationDetail(message: string, payload: Json): string {
 function defaultMessageFor(status: number): string {
   switch (status) {
     case 400:
-      return "Dữ liệu gửi lên không hợp lệ.";
+      return "Invalid sendup data.";
     case 401:
-      return "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.";
+      return "The login session is expired. Please log in again.";
     case 403:
-      return "Bạn không có quyền thực hiện thao tác này.";
+      return "You do not have permission to perform this operation.";
     case 404:
-      return "Không tìm thấy dữ liệu.";
+      return "Could not find data.";
     case 409:
-      return "Thao tác xung đột với dữ liệu hiện tại.";
+      return "Conflict with current data.";
     case 429:
-      return "Bạn thao tác quá nhanh. Vui lòng thử lại sau một phút.";
+      return "You operation too fast. Please try again after a minute.";
     default:
-      return "Đã xảy ra lỗi, vui lòng thử lại.";
+      return "Error occurred, please try again.";
   }
 }
 

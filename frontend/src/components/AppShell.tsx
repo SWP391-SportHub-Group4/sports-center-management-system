@@ -18,46 +18,49 @@ export interface NavItem {
  */
 export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
   Member: [
-    { href: "/hoi-vien", label: "Tổng quan" },
-    { href: "/hoi-vien/lich-lop", label: "Lịch lớp & đặt chỗ" },
-    { href: "/hoi-vien/dang-ky-cua-toi", label: "Đăng ký của tôi" },
-    { href: "/hoi-vien/goi-cua-toi", label: "Gói thành viên" },
-    { href: "/hoi-vien/hoa-don", label: "Hóa đơn" },
-    { href: "/hoi-vien/tap-luyen", label: "Kế hoạch & kết quả" },
-    { href: "/hoi-vien/ho-so", label: "Hồ sơ tập luyện" },
+    { href: "/member-dashboard", label: "Overview" },
+    { href: "/member-dashboard/class-schedule", label: "Class schedule" },
+    { href: "/member-dashboard/my-registrations", label: "My registrations" },
+    { href: "/member-dashboard/my-plans", label: "My membership plans" },
+    { href: "/member-dashboard/invoices", label: "Invoices" },
+    { href: "/member-dashboard/training", label: "Plans & results" },
+    { href: "/member-dashboard/profile", label: "Training profile" },
   ],
   Receptionist: [
-    { href: "/le-tan", label: "Tổng quan" },
-    { href: "/le-tan/gym-checkin", label: "Gym check-in" },
-    { href: "/le-tan/ban-goi", label: "Bán gói & hóa đơn" },
-    { href: "/le-tan/hoa-don", label: "Tra cứu hóa đơn" },
-    { href: "/le-tan/dang-ky", label: "Đăng ký lớp hộ" },
-    { href: "/le-tan/diem-danh", label: "Điểm danh" },
+    { href: "/receptionist", label: "Overview" },
+    { href: "/receptionist/gym-checkin", label: "Gym check-in" },
+    { href: "/receptionist/sell-plans", label: "Sell plans & invoices" },
+    { href: "/receptionist/invoices", label: "Invoice lookup" },
+    { href: "/receptionist/registrations", label: "Class registration" },
+    { href: "/receptionist/attendance", label: "Attendance" },
   ],
   Coach: [
-    { href: "/hlv", label: "Tổng quan" },
-    { href: "/hlv/lich-day", label: "Lịch dạy" },
-    { href: "/hlv/diem-danh", label: "Điểm danh & kết quả" },
-    { href: "/hlv/hoi-vien", label: "Hội viên phụ trách" },
-    { href: "/hlv/ke-hoach", label: "Kế hoạch tập" },
-    { href: "/hlv/goi-y-ai", label: "Gợi ý AI" },
+    { href: "/coach", label: "Overview" },
+    { href: "/coach/schedule", label: "Teaching schedule" },
+    { href: "/coach/attendance", label: "Attendance & results" },
+    { href: "/coach/members", label: "Assigned members" },
+    { href: "/coach/training-plans", label: "Training plans" },
+    { href: "/coach/ai-suggestions", label: "AI suggestions" },
   ],
   CenterManager: [
-    { href: "/quan-ly", label: "Tổng quan" },
-    { href: "/quan-ly/phong-tap", label: "Phòng tập" },
-    { href: "/quan-ly/lop-hoc", label: "Lớp học" },
-    { href: "/quan-ly/lich-hoc", label: "Lịch học" },
-    { href: "/quan-ly/goi-tap", label: "Gói thành viên" },
-    { href: "/quan-ly/quan-he-hlv", label: "Phân công HLV" },
-    { href: "/quan-ly/dieu-chinh", label: "Duyệt điều chỉnh" },
-    { href: "/quan-ly/bao-cao", label: "Báo cáo doanh thu" },
-    { href: "/quan-ly/cau-hinh", label: "Cấu hình hệ thống" },
-    { href: "/quan-ly/nhat-ky", label: "Nhật ký thao tác" },
+    { href: "/manager", label: "Overview" },
+    { href: "/manager/training-rooms", label: "Training rooms" },
+    { href: "/manager/classes", label: "Classes" },
+    { href: "/manager/class-schedule", label: "Class schedule" },
+    { href: "/manager/membership-plans", label: "Membership plans" },
+    {
+      href: "/manager/coaching-relationships",
+      label: "Coaching relationships",
+    },
+    { href: "/manager/payment-adjustments", label: "Payment adjustments" },
+    { href: "/manager/reports", label: "Revenue reports" },
+    { href: "/manager/settings", label: "System settings" },
+    { href: "/manager/audit-log", label: "Audit log" },
   ],
   SystemAdministrator: [
-    { href: "/quan-tri", label: "Tổng quan" },
-    { href: "/quan-tri/nguoi-dung", label: "Tài khoản & vai trò" },
-    { href: "/quan-tri/nhat-ky", label: "Nhật ký thao tác" },
+    { href: "/admin", label: "Overview" },
+    { href: "/admin/users", label: "Users & roles" },
+    { href: "/admin/audit-log", label: "Audit log" },
   ],
 };
 
@@ -81,7 +84,7 @@ export function AppShell({
     if (loading) return;
 
     if (!user) {
-      router.replace(`/dang-nhap?tiep-tuc=${encodeURIComponent(pathname)}`);
+      router.replace(`/login?next=${encodeURIComponent(pathname)}`);
 
       return;
     }
@@ -97,7 +100,7 @@ export function AppShell({
     return (
       <div className="auth">
         <div className="auth__card">
-          <p className="muted">Đang tải phiên làm việc…</p>
+          <p className="muted">Loading session...</p>
         </div>
       </div>
     );
@@ -130,14 +133,14 @@ export function AppShell({
             );
           })}
           <Link
-            href="/tai-khoan"
-            className={`sidebar__link ${pathname.startsWith("/tai-khoan") ? "sidebar__link--active" : ""}`}
+            href="/account"
+            className={`sidebar__link ${pathname.startsWith("/account") ? "sidebar__link--active" : ""}`}
           >
-            Tài khoản của tôi
+            My account
           </Link>
         </nav>
         <div className="sidebar__footer">
-          Trung tâm thể thao đa bộ môn
+          Multidisciplinary Sports Centre
           <br />
           Gym · Personal Training · Yoga · Group X
         </div>
@@ -147,7 +150,9 @@ export function AppShell({
         <header className="header">
           <div className="header__title">
             <h1>{title}</h1>
-            {description && <span className="header__crumb">{description}</span>}
+            {description && (
+              <span className="header__crumb">{description}</span>
+            )}
           </div>
           <div className="header__actions">
             <NotificationBell />
@@ -155,8 +160,12 @@ export function AppShell({
               <strong>{user.fullName || user.email}</strong>
               <span>{ROLE_LABEL[user.role]}</span>
             </div>
-            <button type="button" className="btn btn--ghost btn--sm" onClick={logout}>
-              Đăng xuất
+            <button
+              type="button"
+              className="btn btn--ghost btn--sm"
+              onClick={logout}
+            >
+              Log Out
             </button>
           </div>
         </header>

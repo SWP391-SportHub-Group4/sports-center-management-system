@@ -37,14 +37,14 @@ export function RoleShell({
   return (
     <div className="role-shell">
       <a href="#main-content" className="skip-link">
-        Bỏ qua điều hướng
+        Ignore Directions
       </a>
       <aside className="sidebar">
         <Link className="brand" href={navigation[0].href}>
           <Icon name="brand" />
           SportHub
         </Link>
-        <nav aria-label={`Điều hướng ${roleLabel}`} className="desktop-nav">
+        <nav aria-label={`Navigation ${roleLabel}`} className="desktop-nav">
           {navigation.map((n) => (
             <Link
               key={n.href}
@@ -67,7 +67,7 @@ export function RoleShell({
           <Link
             className="notification-link"
             href={notificationsHref}
-            aria-label={`Thông báo${unread ? `, ${unread} chưa đọc` : ""}`}
+            aria-label={`Notifications${unread ? `, ${unread} unread` : ""}`}
           >
             <Icon name="bell" />
             {unread > 0 && (
@@ -77,7 +77,7 @@ export function RoleShell({
           <Link
             className="profile-link"
             href={profileHref}
-            aria-label={`Trang cá nhân của ${name}`}
+            aria-label={`Profile of ${name}`}
           >
             <span className="avatar" aria-hidden="true">
               {avatarSrc ? (
@@ -104,8 +104,8 @@ export function RoleShell({
           </Link>
         </div>
       </header>
-      <nav className="mobile-nav" aria-label="Điều hướng trên thiết bị nhỏ">
-        {[...navigation, { href: profileHref, label: "Cá nhân" }].map((n) => (
+      <nav className="mobile-nav" aria-label="Direct direction on small device">
+        {[...navigation, { href: profileHref, label: "Personal" }].map((n) => (
           <Link
             key={n.href}
             href={n.href}

@@ -24,3 +24,9 @@ ai/**/.venv/
 .idea/
 .vscode/
 .DS_Store
+
+## Agents / Tooling
+.agents/
+.codex/
+.fk-skills/
+.gemini/

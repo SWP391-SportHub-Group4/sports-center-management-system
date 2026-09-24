@@ -63,7 +63,11 @@ export function Loading({ rows = 3 }: { rows?: number }) {
   return (
     <div className="stack" aria-busy="true" aria-live="polite">
       {Array.from({ length: rows }).map((_, index) => (
-        <div key={index} className="skeleton" style={{ width: `${100 - index * 12}%` }} />
+        <div
+          key={index}
+          className="skeleton"
+          style={{ width: `${100 - index * 12}%` }}
+        />
       ))}
     </div>
   );
@@ -73,17 +77,29 @@ export function EmptyState({ message }: { message: string }) {
   return <p className="state">{message}</p>;
 }
 
-export function ErrorState({ error, onRetry }: { error: ApiError; onRetry?: () => void }) {
+export function ErrorState({
+  error,
+  onRetry,
+}: {
+  error: ApiError;
+  onRetry?: () => void;
+}) {
   return (
     <div className="stack">
       <div className="alert alert--error" role="alert">
         {error.message}
-        {error.code && <span className="small muted"> (mã: {error.code})</span>}
+        {error.code && (
+          <span className="small muted"> (Code: {error.code})</span>
+        )}
       </div>
       {onRetry && (
         <div>
-          <button type="button" className="btn btn--ghost btn--sm" onClick={onRetry}>
-            Thử lại
+          <button
+            type="button"
+            className="btn btn--ghost btn--sm"
+            onClick={onRetry}
+          >
+            Retry
           </button>
         </div>
       )}
@@ -97,17 +113,23 @@ export function ErrorState({ error, onRetry }: { error: ApiError; onRetry?: () =
  */
 export function AsyncSection<T>({
   state,
-  emptyMessage = "Chưa có dữ liệu.",
+  emptyMessage = "No data yet.",
   isEmpty,
   children,
 }: {
-  state: { data: T | null; loading: boolean; error: ApiError | null; reload: () => void };
+  state: {
+    data: T | null;
+    loading: boolean;
+    error: ApiError | null;
+    reload: () => void;
+  };
   emptyMessage?: string;
   isEmpty?: (data: T) => boolean;
   children: (data: T) => ReactNode;
 }) {
   if (state.loading && state.data === null) return <Loading />;
-  if (state.error) return <ErrorState error={state.error} onRetry={state.reload} />;
+  if (state.error)
+    return <ErrorState error={state.error} onRetry={state.reload} />;
   if (state.data === null) return <EmptyState message={emptyMessage} />;
   if (isEmpty?.(state.data)) return <EmptyState message={emptyMessage} />;
 
@@ -117,14 +139,20 @@ export function AsyncSection<T>({
 export function Feedback({
   error,
   success,
+  id,
 }: {
   error?: string | null;
   success?: string | null;
+  id?: string;
 }) {
   if (!error && !success) return null;
 
   return (
-    <div className={`alert ${error ? "alert--error" : "alert--success"}`} role="status">
+    <div
+      id={id}
+      className={`alert ${error ? "alert--error" : "alert--success"}`}
+      role={error ? "alert" : "status"}
+    >
       {error ?? success}
     </div>
   );
@@ -178,11 +206,20 @@ export function Dialog({
         if (event.target === event.currentTarget) onClose();
       }}
     >
-      <div className="dialog" role="dialog" aria-modal="true" aria-label={title}>
+      <div
+        className="dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+      >
         <header className="dialog__head">
           <h2>{title}</h2>
-          <button type="button" className="btn btn--ghost btn--sm" onClick={onClose}>
-            Đóng
+          <button
+            type="button"
+            className="btn btn--ghost btn--sm"
+            onClick={onClose}
+          >
+            Close
           </button>
         </header>
         <div className="dialog__body">{children}</div>
@@ -206,7 +243,8 @@ export function Table({
           <tr>
             {headers.map((header, index) => {
               const text = typeof header === "string" ? header : header.text;
-              const numeric = typeof header === "string" ? false : header.numeric;
+              const numeric =
+                typeof header === "string" ? false : header.numeric;
 
               return (
                 <th key={index} className={numeric ? "num" : undefined}>
@@ -240,7 +278,7 @@ export function Pager({
   return (
     <div className="row spread" style={{ marginTop: 12 }}>
       <span className="small muted">
-        Trang {page}/{lastPage} · {totalCount} bản ghi
+        Trang {page}/{lastPage} · {totalCount} log
       </span>
       <div className="btn-row">
         <button
@@ -249,7 +287,7 @@ export function Pager({
           disabled={page <= 1}
           onClick={() => onChange(page - 1)}
         >
-          Trang trước
+          Previous Page
         </button>
         <button
           type="button"

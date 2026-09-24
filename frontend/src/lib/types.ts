@@ -274,7 +274,13 @@ export interface WorkoutPlanDto {
   goal: string;
   level: string;
   createdAt: string;
-  items: { itemId: string; exercise: string; sets: number; reps: number; notes: string | null }[];
+  items: {
+    itemId: string;
+    exercise: string;
+    sets: number;
+    reps: number;
+    notes: string | null;
+  }[];
 }
 
 export interface WorkoutResultDto {

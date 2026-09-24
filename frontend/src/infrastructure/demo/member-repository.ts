@@ -83,7 +83,7 @@ export function applyCommand(
 ): void {
   if (command.type === "book") {
     const session = state.sessions.find((s) => s.id === command.sessionId);
-    if (!session) throw new Error("Không tìm thấy buổi tập.");
+    if (!session) throw new Error("Can't find the training session.");
     const problem = bookingProblem(
       session,
       state.sessions,
@@ -98,7 +98,9 @@ export function applyCommand(
       Date.parse(pack.expiresAt) < Date.parse(session.startAt) ||
       pack.remainingSessions === 0
     )
-      throw new Error("Chọn gói còn hiệu lực và còn lượt tập cho buổi này.");
+      throw new Error(
+        "Select the package which is in effect and the exercise is available for this session.",
+      );
     if (pack.remainingSessions !== null) pack.remainingSessions -= 1;
     session.confirmedCount += 1;
     state.enrollments = state.enrollments.filter(
@@ -116,9 +118,9 @@ export function applyCommand(
     );
     const session = state.sessions.find((s) => s.id === command.sessionId);
     if (!enrollment || !session)
-      throw new Error("Lượt đăng ký không còn hiệu lực.");
+      throw new Error("The enrollment is no longer in effect.");
     if (now >= Date.parse(session.startAt))
-      throw new Error("Buổi tập đã bắt đầu. Vui lòng liên hệ lễ tân.");
+      throw new Error("The training session has begun.");
     const onTime = now <= Date.parse(session.cancellationDeadline);
     enrollment.status = onTime ? "CancelledOnTime" : "CancelledLate";
     session.confirmedCount = Math.max(0, session.confirmedCount - 1);
@@ -145,13 +147,13 @@ export function applyCommand(
   }
   if (command.type === "purchase") {
     const option = state.catalog.find((p) => p.id === command.packageId);
-    if (!option) throw new Error("Gói tập không còn tồn tại.");
+    if (!option) throw new Error("Training packages no longer exist.");
     if (
       state.packages.some(
         (p) => p.packageId === option.id && p.status === "PendingPayment",
       )
     )
-      throw new Error("Gói này đang chờ thanh toán tại quầy.");
+      throw new Error("The package is waiting for payment at the counter.");
     state.packages.push({
       id: crypto.randomUUID(),
       packageId: option.id,
