@@ -98,7 +98,9 @@ export function applyCommand(
       Date.parse(pack.expiresAt) < Date.parse(session.startAt) ||
       pack.remainingSessions === 0
     )
-      throw new Error("Select the package which is in effect and the exercise is available for this session.");
+      throw new Error(
+        "Select the package which is in effect and the exercise is available for this session.",
+      );
     if (pack.remainingSessions !== null) pack.remainingSessions -= 1;
     session.confirmedCount += 1;
     state.enrollments = state.enrollments.filter(

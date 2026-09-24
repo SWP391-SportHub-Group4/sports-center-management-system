@@ -57,7 +57,8 @@ export function useApi<T>(
       })
       .catch((cause: unknown) => {
         if (!active) return;
-        if (cause instanceof DOMException && cause.name === "AbortError") return;
+        if (cause instanceof DOMException && cause.name === "AbortError")
+          return;
 
         setError(
           cause instanceof ApiError
@@ -92,7 +93,10 @@ export function useAction() {
   const [success, setSuccess] = useState<string | null>(null);
 
   const run = useCallback(
-    async <T,>(operation: () => Promise<T>, successMessage?: string): Promise<T | null> => {
+    async <T>(
+      operation: () => Promise<T>,
+      successMessage?: string,
+    ): Promise<T | null> => {
       setBusy(true);
       setError(null);
       setSuccess(null);

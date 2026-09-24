@@ -117,8 +117,13 @@ async function request<T>(
     });
   } catch (error) {
     // AbortError là chủ ý của caller, không phải sự cố mạng — ném nguyên để useApi bỏ qua.
-    if (error instanceof DOMException && error.name === "AbortError") throw error;
-    throw new ApiError(0, "network_error", "Could not close temporary folder: %s");
+    if (error instanceof DOMException && error.name === "AbortError")
+      throw error;
+    throw new ApiError(
+      0,
+      "network_error",
+      "Could not close temporary folder: %s",
+    );
   }
 
   if (response.status === 204) {
@@ -132,7 +137,9 @@ async function request<T>(
     const payload = (parsed ?? {}) as Json;
 
     const code =
-      typeof payload.error === "string" ? payload.error : `http_${response.status}`;
+      typeof payload.error === "string"
+        ? payload.error
+        : `http_${response.status}`;
 
     const message =
       typeof payload.message === "string"
@@ -145,7 +152,11 @@ async function request<T>(
       onUnauthorized?.();
     }
 
-    throw new ApiError(response.status, code, withValidationDetail(message, payload));
+    throw new ApiError(
+      response.status,
+      code,
+      withValidationDetail(message, payload),
+    );
   }
 
   return parsed as T;

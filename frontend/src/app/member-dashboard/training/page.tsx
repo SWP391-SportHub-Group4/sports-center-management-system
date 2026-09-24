@@ -14,12 +14,16 @@ import type { WorkoutPlanDto, WorkoutResultDto } from "@/lib/types";
  */
 export default function MyTrainingPage() {
   const plans = useApi(
-    (signal) => api.get<WorkoutPlanDto[]>("/api/members/me/workout-plans", { signal }),
+    (signal) =>
+      api.get<WorkoutPlanDto[]>("/api/members/me/workout-plans", { signal }),
     [],
   );
 
   const results = useApi(
-    (signal) => api.get<WorkoutResultDto[]>("/api/members/me/workout-results", { signal }),
+    (signal) =>
+      api.get<WorkoutResultDto[]>("/api/members/me/workout-results", {
+        signal,
+      }),
     [],
   );
 
@@ -46,8 +50,8 @@ export default function MyTrainingPage() {
                     <div>
                       <h3>{plan.goal}</h3>
                       <p className="card__hint">
-                        Level {label(plan.level)} · HLV {plan.coachName} . › Date{" "}
-                        {formatDateTime(plan.createdAt)}
+                        Level {label(plan.level)} · HLV {plan.coachName} . ›
+                        Date {formatDateTime(plan.createdAt)}
                       </p>
                     </div>
                   </div>
@@ -82,17 +86,29 @@ export default function MyTrainingPage() {
           isEmpty={(data) => data.length === 0}
         >
           {(data) => (
-            <Table headers={["Study", "Notes coach", "Progress", "Schedule", "Schedule"]}>
+            <Table
+              headers={[
+                "Study",
+                "Notes coach",
+                "Progress",
+                "Schedule",
+                "Schedule",
+              ]}
+            >
               {data.map((item) => (
                 <tr key={item.resultId}>
                   <td>
                     <strong>{item.className}</strong>
-                    <div className="small muted">{formatDateTime(item.sessionStartAtUtc)}</div>
+                    <div className="small muted">
+                      {formatDateTime(item.sessionStartAtUtc)}
+                    </div>
                   </td>
                   <td>{item.coachName}</td>
                   <td className="small">{item.progressNote ?? "—"}</td>
                   <td className="small">{item.coachComment ?? "—"}</td>
-                  <td className="nowrap small muted">{formatDateTime(item.recordedAt)}</td>
+                  <td className="nowrap small muted">
+                    {formatDateTime(item.recordedAt)}
+                  </td>
                 </tr>
               ))}
             </Table>

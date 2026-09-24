@@ -25,15 +25,22 @@ export default function TrainingProfilePage() {
   const action = useAction();
   const [profile, setProfile] = useState<MemberTrainingProfileDto | null>(null);
   const [loading, setLoading] = useState(true);
-  const [form, setForm] = useState({ goal: "", experienceLevel: "Beginner", notes: "" });
+  const [form, setForm] = useState({
+    goal: "",
+    experienceLevel: "Beginner",
+    notes: "",
+  });
 
   useEffect(() => {
     const controller = new AbortController();
 
     api
-      .get<MemberTrainingProfileDto | null>("/api/members/me/training-profile", {
-        signal: controller.signal,
-      })
+      .get<MemberTrainingProfileDto | null>(
+        "/api/members/me/training-profile",
+        {
+          signal: controller.signal,
+        },
+      )
       .then((data) => {
         if (!data) return;
 
@@ -89,7 +96,9 @@ export default function TrainingProfilePage() {
                 required
                 minLength={3}
                 placeholder="Examples: loss of 5 kg in 3 months, increased strength"
-                onChange={(event) => setForm({ ...form, goal: event.target.value })}
+                onChange={(event) =>
+                  setForm({ ...form, goal: event.target.value })
+                }
               />
             </Field>
 
@@ -114,7 +123,9 @@ export default function TrainingProfilePage() {
             >
               <textarea
                 value={form.notes}
-                onChange={(event) => setForm({ ...form, notes: event.target.value })}
+                onChange={(event) =>
+                  setForm({ ...form, notes: event.target.value })
+                }
               />
             </Field>
 

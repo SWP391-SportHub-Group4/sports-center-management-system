@@ -32,7 +32,8 @@ export default function CoachDashboardPage() {
   );
 
   const todaySessions =
-    week.data?.filter((session) => session.startAtUtc.slice(0, 10) === today) ?? [];
+    week.data?.filter((session) => session.startAtUtc.slice(0, 10) === today) ??
+    [];
 
   return (
     <AppShell
@@ -42,7 +43,10 @@ export default function CoachDashboardPage() {
     >
       <div className="grid grid--stats">
         <Stat label="Today's lesson" value={todaySessions.length} />
-        <Stat label="The next seven days of teaching." value={week.data?.length ?? 0} />
+        <Stat
+          label="The next seven days of teaching."
+          value={week.data?.length ?? 0}
+        />
         <Stat
           label="Members are in charge"
           value={members.data?.length ?? 0}
@@ -84,7 +88,9 @@ export default function CoachDashboardPage() {
                     <strong>{session.className}</strong>
                     <div className="small muted">{session.discipline}</div>
                   </td>
-                  <td className="nowrap">{formatDateTime(session.startAtUtc)}</td>
+                  <td className="nowrap">
+                    {formatDateTime(session.startAtUtc)}
+                  </td>
                   <td>{session.roomName}</td>
                   <td className="num">
                     {session.confirmedCount}/{session.capacity}
@@ -110,7 +116,14 @@ export default function CoachDashboardPage() {
           isEmpty={(data) => data.length === 0}
         >
           {(data) => (
-            <Table headers={["Members", "The Source of Relationships", "Class", "Start"]}>
+            <Table
+              headers={[
+                "Members",
+                "The Source of Relationships",
+                "Class",
+                "Start",
+              ]}
+            >
               {data.map((item) => (
                 <tr key={item.relationshipId}>
                   <td>
@@ -119,7 +132,9 @@ export default function CoachDashboardPage() {
                   </td>
                   <td>{item.sourceType}</td>
                   <td>{item.className ?? "—"}</td>
-                  <td className="nowrap small">{formatDateTime(item.startedAt)}</td>
+                  <td className="nowrap small">
+                    {formatDateTime(item.startedAt)}
+                  </td>
                 </tr>
               ))}
             </Table>

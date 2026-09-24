@@ -3,7 +3,14 @@
 import { useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { MemberPicker } from "@/components/MemberPicker";
-import { AsyncSection, Card, Feedback, Field, StatusChip, Table } from "@/components/ui";
+import {
+  AsyncSection,
+  Card,
+  Feedback,
+  Field,
+  StatusChip,
+  Table,
+} from "@/components/ui";
 import { api } from "@/lib/apiClient";
 import { addDaysIso, formatDateTime, formatTime, todayIso } from "@/lib/format";
 import { useAction, useApi } from "@/lib/useApi";
@@ -37,10 +44,13 @@ export default function AssistEnrollmentPage() {
   const enrollments = useApi(
     (signal) =>
       member
-        ? api.get<EnrollmentDto[]>(`/api/members/${member.userId}/enrollments`, {
-            signal,
-            query: { upcomingOnly: true },
-          })
+        ? api.get<EnrollmentDto[]>(
+            `/api/members/${member.userId}/enrollments`,
+            {
+              signal,
+              query: { upcomingOnly: true },
+            },
+          )
         : Promise.resolve(null),
     [member?.userId],
   );
@@ -48,7 +58,10 @@ export default function AssistEnrollmentPage() {
   const packages = useApi(
     (signal) =>
       member
-        ? api.get<MemberPackageDto[]>(`/api/members/${member.userId}/packages`, { signal })
+        ? api.get<MemberPackageDto[]>(
+            `/api/members/${member.userId}/packages`,
+            { signal },
+          )
         : Promise.resolve(null),
     [member?.userId],
   );
@@ -59,7 +72,8 @@ export default function AssistEnrollmentPage() {
     if (!member) return;
 
     const done = await action.run(
-      () => api.post("/api/enrollments", { sessionId, memberId: member.userId }),
+      () =>
+        api.post("/api/enrollments", { sessionId, memberId: member.userId }),
       "The membership is registered.",
     );
 
@@ -101,7 +115,8 @@ export default function AssistEnrollmentPage() {
 
           {member && usable.length === 0 && !packages.loading && (
             <div className="alert alert--warn">
-              The members have no packages that are still in effect — the system will refuse to register (BR-16).
+              The members have no packages that are still in effect — the system
+              will refuse to register (BR-16).
             </div>
           )}
 
@@ -138,7 +153,9 @@ export default function AssistEnrollmentPage() {
                   {data.map((item) => (
                     <tr key={item.enrollmentId}>
                       <td>{item.session.className}</td>
-                      <td className="nowrap">{formatDateTime(item.session.startAtUtc)}</td>
+                      <td className="nowrap">
+                        {formatDateTime(item.session.startAtUtc)}
+                      </td>
                       <td className="nowrap small">
                         {formatDateTime(item.cancellationDeadlineUtc)}
                       </td>
@@ -210,7 +227,9 @@ export default function AssistEnrollmentPage() {
                     </td>
                     <td className="nowrap">
                       {formatDateTime(session.startAtUtc)}
-                      <div className="small muted">To {formatTime(session.endAtUtc)}</div>
+                      <div className="small muted">
+                        To {formatTime(session.endAtUtc)}
+                      </div>
                     </td>
                     <td>{session.roomName}</td>
                     <td>{session.coachName}</td>

@@ -3,7 +3,14 @@
 import { useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { MemberPicker } from "@/components/MemberPicker";
-import { AsyncSection, Card, Feedback, Field, StatusChip, Table } from "@/components/ui";
+import {
+  AsyncSection,
+  Card,
+  Feedback,
+  Field,
+  StatusChip,
+  Table,
+} from "@/components/ui";
 import { api } from "@/lib/apiClient";
 import { formatDate, formatMoney, label } from "@/lib/format";
 import { useAction, useApi } from "@/lib/useApi";
@@ -39,14 +46,18 @@ export default function SellPackagePage() {
   const payment = useAction();
 
   const catalog = useApi(
-    (signal) => api.get<MembershipPackageDto[]>("/api/membership-packages", { signal }),
+    (signal) =>
+      api.get<MembershipPackageDto[]>("/api/membership-packages", { signal }),
     [],
   );
 
   const memberPackages = useApi(
     (signal) =>
       member
-        ? api.get<MemberPackageDto[]>(`/api/members/${member.userId}/packages`, { signal })
+        ? api.get<MemberPackageDto[]>(
+            `/api/members/${member.userId}/packages`,
+            { signal },
+          )
         : Promise.resolve(null),
     [member?.userId],
   );
@@ -83,10 +94,13 @@ export default function SellPackagePage() {
 
     const updated = await payment.run(
       () =>
-        api.post<InvoiceDetailDto>(`/api/invoices/${invoice.summary.invoiceId}/payments`, {
-          amount: Number(paymentAmount),
-          method: paymentMethod,
-        }),
+        api.post<InvoiceDetailDto>(
+          `/api/invoices/${invoice.summary.invoiceId}/payments`,
+          {
+            amount: Number(paymentAmount),
+            method: paymentMethod,
+          },
+        ),
       "Recorded.",
     );
 
@@ -117,8 +131,11 @@ export default function SellPackagePage() {
                 <option value="">— Select packages —</option>
                 {(catalog.data ?? []).map((item) => (
                   <option key={item.packageId} value={item.packageId}>
-                    {item.name} · {formatMoney(item.price)} · {item.durationDays} days
-                    {item.sessionLimit ? ` · ${item.sessionLimit} sessions` : "· Unlimited session"}
+                    {item.name} · {formatMoney(item.price)} ·{" "}
+                    {item.durationDays} days
+                    {item.sessionLimit
+                      ? ` · ${item.sessionLimit} sessions`
+                      : "· Unlimited session"}
                   </option>
                 ))}
               </select>
@@ -133,7 +150,8 @@ export default function SellPackagePage() {
                     style={{ width: "auto" }}
                     onChange={(event) => setAllowStacking(event.target.checked)}
                   />
-                  Allows the addition to the package of the same type in operation (BR-10)
+                  Allows the addition to the package of the same type in
+                  operation (BR-10)
                 </label>
 
                 {allowStacking && (
@@ -141,7 +159,9 @@ export default function SellPackagePage() {
                     <input
                       value={stackingReason}
                       required
-                      onChange={(event) => setStackingReason(event.target.value)}
+                      onChange={(event) =>
+                        setStackingReason(event.target.value)
+                      }
                     />
                   </Field>
                 )}
@@ -166,7 +186,8 @@ export default function SellPackagePage() {
         >
           {!invoice ? (
             <p className="muted">
-              Select membership and package at step 1 to release the invoice before collecting the money.
+              Select membership and package at step 1 to release the invoice
+              before collecting the money.
             </p>
           ) : (
             <div className="stack">
@@ -216,7 +237,8 @@ export default function SellPackagePage() {
               ) : (
                 <>
                   <div className="alert alert--success">
-                    The invoice is paid in full, the membership package is activated.
+                    The invoice is paid in full, the membership package is
+                    activated.
                   </div>
                   <Feedback error={payment.error} success={payment.success} />
                 </>
@@ -227,7 +249,10 @@ export default function SellPackagePage() {
       </div>
 
       {member && (
-        <Card title={`Current plans for ${member.fullName || member.email}`} bodyless>
+        <Card
+          title={`Current plans for ${member.fullName || member.email}`}
+          bodyless
+        >
           <AsyncSection
             state={memberPackages}
             emptyMessage="The members haven't got any packages yet."
@@ -247,10 +272,13 @@ export default function SellPackagePage() {
                     <tr key={item.memberPackageId}>
                       <td>{item.packageName}</td>
                       <td className="nowrap small">
-                        {formatDate(item.startDate)} – {formatDate(item.endDate)}
+                        {formatDate(item.startDate)} –{" "}
+                        {formatDate(item.endDate)}
                       </td>
                       <td className="num">
-                        {item.remainingSessions === null ? "No Limit" : item.remainingSessions}
+                        {item.remainingSessions === null
+                          ? "No Limit"
+                          : item.remainingSessions}
                       </td>
                       <td>
                         <StatusChip value={item.status} />

@@ -2,7 +2,14 @@
 
 import { useState } from "react";
 import { AppShell } from "@/components/AppShell";
-import { AsyncSection, Card, Feedback, Field, StatusChip, Table } from "@/components/ui";
+import {
+  AsyncSection,
+  Card,
+  Feedback,
+  Field,
+  StatusChip,
+  Table,
+} from "@/components/ui";
 import { api } from "@/lib/apiClient";
 import { formatMoney } from "@/lib/format";
 import { useAction, useApi } from "@/lib/useApi";
@@ -68,7 +75,9 @@ export default function PackageCatalogPage() {
         api.post(
           `/api/membership-packages/${item.packageId}/${item.isActive ? "discontinue" : "reactivate"}`,
         ),
-      item.isActive ? "The package has been stopped." : "The package was re-opened.",
+      item.isActive
+        ? "The package has been stopped."
+        : "The package was re-opened.",
     );
 
     if (done !== null) packages.reload();
@@ -80,14 +89,18 @@ export default function PackageCatalogPage() {
       description="Package lists are selling and packages are discontinued"
       allow={["CenterManager"]}
     >
-      <Card title={editing ? `Edit plan: ${editing.name}` : "Create New Package"}>
+      <Card
+        title={editing ? `Edit plan: ${editing.name}` : "Create New Package"}
+      >
         <form className="form" onSubmit={submit}>
           <div className="form form--inline">
             <Field label="Package Name">
               <input
                 value={form.name}
                 required
-                onChange={(event) => setForm({ ...form, name: event.target.value })}
+                onChange={(event) =>
+                  setForm({ ...form, name: event.target.value })
+                }
               />
             </Field>
             <Field label="Price (VND)">
@@ -97,7 +110,9 @@ export default function PackageCatalogPage() {
                 step={1}
                 value={form.price}
                 required
-                onChange={(event) => setForm({ ...form, price: event.target.value })}
+                onChange={(event) =>
+                  setForm({ ...form, price: event.target.value })
+                }
               />
             </Field>
             <Field label="Timeout (day)">
@@ -107,7 +122,9 @@ export default function PackageCatalogPage() {
                 max={3650}
                 value={form.durationDays}
                 required
-                onChange={(event) => setForm({ ...form, durationDays: event.target.value })}
+                onChange={(event) =>
+                  setForm({ ...form, durationDays: event.target.value })
+                }
               />
             </Field>
             <Field
@@ -119,7 +136,9 @@ export default function PackageCatalogPage() {
                 min={1}
                 max={10000}
                 value={form.sessionLimit}
-                onChange={(event) => setForm({ ...form, sessionLimit: event.target.value })}
+                onChange={(event) =>
+                  setForm({ ...form, sessionLimit: event.target.value })
+                }
               />
             </Field>
           </div>
@@ -127,7 +146,9 @@ export default function PackageCatalogPage() {
           <Field label="Description">
             <textarea
               value={form.description}
-              onChange={(event) => setForm({ ...form, description: event.target.value })}
+              onChange={(event) =>
+                setForm({ ...form, description: event.target.value })
+              }
             />
           </Field>
 
@@ -153,7 +174,9 @@ export default function PackageCatalogPage() {
 
           {editing && (
             <p className="small muted" style={{ margin: 0 }}>
-              Change the price or deadline only apply to the next sale — the package of members that have purchased maintaining the value that was key to the trigger.
+              Change the price or deadline only apply to the next sale — the
+              package of members that have purchased maintaining the value that
+              was key to the trigger.
             </p>
           )}
         </form>
@@ -185,14 +208,19 @@ export default function PackageCatalogPage() {
                   <td className="num">{formatMoney(item.price)}</td>
                   <td className="num">{item.durationDays} days</td>
                   <td className="num">
-                    {item.sessionLimit === null ? "No Limit" : item.sessionLimit}
+                    {item.sessionLimit === null
+                      ? "No Limit"
+                      : item.sessionLimit}
                   </td>
                   <td className="small muted">{item.description ?? "—"}</td>
                   <td>
                     <StatusChip value={item.isActive ? "Active" : "Archived"} />
                   </td>
                   <td className="right">
-                    <div className="btn-row" style={{ justifyContent: "flex-end" }}>
+                    <div
+                      className="btn-row"
+                      style={{ justifyContent: "flex-end" }}
+                    >
                       <button
                         type="button"
                         className="btn btn--ghost btn--sm"
@@ -202,7 +230,9 @@ export default function PackageCatalogPage() {
                             name: item.name,
                             price: String(item.price),
                             durationDays: String(item.durationDays),
-                            sessionLimit: item.sessionLimit ? String(item.sessionLimit) : "",
+                            sessionLimit: item.sessionLimit
+                              ? String(item.sessionLimit)
+                              : "",
                             description: item.description ?? "",
                           });
                         }}

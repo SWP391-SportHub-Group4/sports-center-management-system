@@ -98,7 +98,9 @@ export default function ReceptionDashboardPage() {
                   <td>
                     <strong>{session.className}</strong>
                   </td>
-                  <td className="nowrap">{formatDateTime(session.startAtUtc)}</td>
+                  <td className="nowrap">
+                    {formatDateTime(session.startAtUtc)}
+                  </td>
                   <td>{session.roomName}</td>
                   <td>{session.coachName}</td>
                   <td className="num">
@@ -142,7 +144,9 @@ export default function ReceptionDashboardPage() {
                     <div className="small muted">{invoice.memberEmail}</div>
                   </td>
                   <td className="num">{formatMoney(invoice.outstanding)}</td>
-                  <td className="nowrap small">{formatDate(invoice.dueDateUtc)}</td>
+                  <td className="nowrap small">
+                    {formatDate(invoice.dueDateUtc)}
+                  </td>
                   <td>
                     <StatusChip value={invoice.status} />
                   </td>

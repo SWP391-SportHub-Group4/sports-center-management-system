@@ -25,7 +25,8 @@ export function bookingProblem(
   now: number,
 ): string | null {
   if (session.status !== "Scheduled") return "This class has been cancelled.";
-  if (Date.parse(session.startAt) <= now) return "The training session's started.";
+  if (Date.parse(session.startAt) <= now)
+    return "The training session's started.";
   if (
     enrollments.some(
       (e) => e.sessionId === session.id && e.status === "Confirmed",

@@ -175,11 +175,15 @@ export default function AccountPage() {
                 </div>
               </Card>
 
-              <Card title={data.hasPassword ? "Change password" : "Set password"}>
+              <Card
+                title={data.hasPassword ? "Change password" : "Set password"}
+              >
                 <form className="form" onSubmit={savePassword}>
                   {!data.hasPassword && (
                     <div className="alert alert--info">
-                      This account uses Google sign-in and does not have a password yet. Set one here to enable email sign-in (BR-60).
+                      This account uses Google sign-in and does not have a
+                      password yet. Set one here to enable email sign-in
+                      (BR-60).
                     </div>
                   )}
 
@@ -248,7 +252,9 @@ export default function AccountPage() {
                   </div>
 
                   <p className="small muted" style={{ margin: 0 }}>
-                    Changing your password does <strong>not</strong> sign out other devices because global token revocation is not implemented yet (SSOT §5.6).
+                    Changing your password does <strong>not</strong> sign out
+                    other devices because global token revocation is not
+                    implemented yet (SSOT §5.6).
                   </p>
                 </form>
               </Card>
@@ -271,13 +277,15 @@ export default function AccountPage() {
                 </div>
 
                 <div className="alert alert--info">
-                  Google must be linked from inside an authenticated session. SportHub never links accounts automatically just because the Google email matches an existing account (BR-59).
+                  Google must be linked from inside an authenticated session.
+                  SportHub never links accounts automatically just because the
+                  Google email matches an existing account (BR-59).
                   <br />
-                  To enable account linking, configure <code>
-                    Google:ClientId
-                  </code>{" "}
-                  on the server and Google login button of the browser. When not set, API returned an error <code>google_login_not_configured</code>{" "}
-                  instead of silently skipping the action.
+                  To enable account linking, configure{" "}
+                  <code>Google:ClientId</code> on the server and Google login
+                  button of the browser. When not set, API returned an error{" "}
+                  <code>google_login_not_configured</code> instead of silently
+                  skipping the action.
                 </div>
                 <Feedback
                   error={googleAction.error}
@@ -313,7 +321,8 @@ export default function AccountPage() {
                   <div className="alert alert--warn stack">
                     <strong>Confirm unlink Google?</strong>
                     <span>
-                      You must have a password to sign in after unlinking Google.
+                      You must have a password to sign in after unlinking
+                      Google.
                     </span>
                     <div className="row">
                       <button

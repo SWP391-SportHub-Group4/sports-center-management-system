@@ -89,12 +89,16 @@ export function PackageList({
         </Card>
       )}
       {confirm && option && (
-        <Modal title="Confirm package registration" onClose={() => setConfirm(false)}>
+        <Modal
+          title="Confirm package registration"
+          onClose={() => setConfirm(false)}
+        >
           <div className="stack">
             <h3>{option.name}</h3>
             <p>{money(option.price)}</p>
             <p>
-              Packages will be in check pending status. Only used after the centre confirms the payment.
+              Packages will be in check pending status. Only used after the
+              centre confirms the payment.
             </p>
             <p className="muted">
               The preview did not generate any actual deposits or transactions.

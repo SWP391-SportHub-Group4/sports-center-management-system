@@ -2,7 +2,14 @@
 
 import { useState } from "react";
 import { AppShell } from "@/components/AppShell";
-import { AsyncSection, Card, Dialog, Pager, StatusChip, Table } from "@/components/ui";
+import {
+  AsyncSection,
+  Card,
+  Dialog,
+  Pager,
+  StatusChip,
+  Table,
+} from "@/components/ui";
 import { api } from "@/lib/apiClient";
 import { formatDate, formatDateTime, formatMoney, label } from "@/lib/format";
 import { useApi } from "@/lib/useApi";
@@ -31,7 +38,11 @@ export default function MyInvoicesPage() {
   );
 
   return (
-    <AppShell title="My invoice." description="Tracking Accounts and Payment History" allow={["Member"]}>
+    <AppShell
+      title="My invoice."
+      description="Tracking Accounts and Payment History"
+      allow={["Member"]}
+    >
       <Card title="Invoiceing List" bodyless>
         <AsyncSection
           state={invoices}
@@ -55,14 +66,18 @@ export default function MyInvoicesPage() {
                 {data.items.map((item) => (
                   <tr key={item.invoiceId}>
                     <td>{item.invoiceNumber}</td>
-                    <td className="nowrap small">{formatDate(item.issuedAt)}</td>
+                    <td className="nowrap small">
+                      {formatDate(item.issuedAt)}
+                    </td>
                     <td className="num">{formatMoney(item.totalAmount)}</td>
                     <td className="num">{formatMoney(item.netCollected)}</td>
                     <td className="num">{formatMoney(item.outstanding)}</td>
                     <td className="nowrap small">
                       {formatDate(item.dueDateUtc)}
                       {item.isOverdue && (
-                        <div style={{ color: "var(--danger-700)" }}>Expiration</div>
+                        <div style={{ color: "var(--danger-700)" }}>
+                          Expiration
+                        </div>
                       )}
                     </td>
                     <td>
@@ -96,7 +111,10 @@ export default function MyInvoicesPage() {
 
       {selected && (
         <Dialog title="Invoiceing Details" onClose={() => setSelected(null)}>
-          <AsyncSection state={detail} emptyMessage="The details could not be loaded.">
+          <AsyncSection
+            state={detail}
+            emptyMessage="The details could not be loaded."
+          >
             {(data) =>
               data ? (
                 <div className="stack">
@@ -108,7 +126,9 @@ export default function MyInvoicesPage() {
                     </div>
                   </div>
 
-                  <Table headers={["Contents", { text: "The Money", numeric: true }]}>
+                  <Table
+                    headers={["Contents", { text: "The Money", numeric: true }]}
+                  >
                     {data.items.map((item) => (
                       <tr key={item.itemId}>
                         <td>{item.description}</td>
@@ -123,13 +143,22 @@ export default function MyInvoicesPage() {
                       <p className="small muted">No payments yet.</p>
                     ) : (
                       <Table
-                        headers={["Schedule", "Format", { text: "The Money", numeric: true }, "Status"]}
+                        headers={[
+                          "Schedule",
+                          "Format",
+                          { text: "The Money", numeric: true },
+                          "Status",
+                        ]}
                       >
                         {data.payments.map((payment) => (
                           <tr key={payment.paymentId}>
-                            <td className="nowrap small">{formatDateTime(payment.paidAt)}</td>
+                            <td className="nowrap small">
+                              {formatDateTime(payment.paidAt)}
+                            </td>
                             <td>{label(payment.method)}</td>
-                            <td className="num">{formatMoney(payment.amount)}</td>
+                            <td className="num">
+                              {formatMoney(payment.amount)}
+                            </td>
                             <td>
                               <StatusChip value={payment.status} />
                             </td>
@@ -143,12 +172,19 @@ export default function MyInvoicesPage() {
                     <div>
                       <h3>Adjust</h3>
                       <Table
-                        headers={["Category", { text: "The Money", numeric: true }, "Reasons", "Status"]}
+                        headers={[
+                          "Category",
+                          { text: "The Money", numeric: true },
+                          "Reasons",
+                          "Status",
+                        ]}
                       >
                         {data.adjustments.map((adjustment) => (
                           <tr key={adjustment.adjustmentId}>
                             <td>{label(adjustment.type)}</td>
-                            <td className="num">{formatMoney(adjustment.amount)}</td>
+                            <td className="num">
+                              {formatMoney(adjustment.amount)}
+                            </td>
                             <td className="small">{adjustment.reason}</td>
                             <td>
                               <StatusChip value={adjustment.status} />
@@ -165,8 +201,8 @@ export default function MyInvoicesPage() {
                     chiếu được với thực tế.
                   */}
                   <div className="alert alert--info">
-                    Total Money {formatMoney(data.summary.totalAmount)} · Retrieved{" "}
-                    {formatMoney(data.summary.grossCollected)}
+                    Total Money {formatMoney(data.summary.totalAmount)} ·
+                    Retrieved {formatMoney(data.summary.grossCollected)}
                     {data.summary.obligationReduction > 0 &&
                       ` · Discounted ${formatMoney(data.summary.obligationReduction)}`}{" "}
                     · Still to Pay {formatMoney(data.summary.outstanding)}
@@ -175,14 +211,18 @@ export default function MyInvoicesPage() {
                   {data.summary.refundDue > 0 && (
                     <div className="alert alert--warn">
                       Centre Needs to Return You{" "}
-                      <strong>{formatMoney(data.summary.refundDue)}</strong>This was not paid — please contact the front desk.
+                      <strong>{formatMoney(data.summary.refundDue)}</strong>This
+                      was not paid — please contact the front desk.
                     </div>
                   )}
 
                   {data.summary.refundedAmount > 0 && (
                     <div className="alert alert--success">
                       Completed for You{" "}
-                      <strong>{formatMoney(data.summary.refundedAmount)}</strong>.
+                      <strong>
+                        {formatMoney(data.summary.refundedAmount)}
+                      </strong>
+                      .
                     </div>
                   )}
                 </div>

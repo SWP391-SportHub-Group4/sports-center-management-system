@@ -2,14 +2,28 @@
 
 import { useState } from "react";
 import { AppShell } from "@/components/AppShell";
-import { AsyncSection, Card, Dialog, Feedback, Field, Pager, StatusChip, Table } from "@/components/ui";
+import {
+  AsyncSection,
+  Card,
+  Dialog,
+  Feedback,
+  Field,
+  Pager,
+  StatusChip,
+  Table,
+} from "@/components/ui";
 import { api } from "@/lib/apiClient";
 import { formatDate, label } from "@/lib/format";
 import { useAction, useApi } from "@/lib/useApi";
 import { ROLE_LABEL, useAuth, type Role } from "@/lib/auth";
 import type { Paged, UserAdminDto } from "@/lib/types";
 
-const STAFF_ROLES: Role[] = ["CenterManager", "Coach", "Receptionist", "SystemAdministrator"];
+const STAFF_ROLES: Role[] = [
+  "CenterManager",
+  "Coach",
+  "Receptionist",
+  "SystemAdministrator",
+];
 const ALL_ROLES: Role[] = [...STAFF_ROLES, "Member"];
 
 /**
@@ -77,7 +91,13 @@ export default function UserAdminPage() {
 
     if (done !== null) {
       setCreateOpen(false);
-      setCreateForm({ email: "", password: "", fullName: "", phone: "", role: "Receptionist" });
+      setCreateForm({
+        email: "",
+        password: "",
+        fullName: "",
+        phone: "",
+        role: "Receptionist",
+      });
       users.reload();
     }
   };
@@ -88,10 +108,13 @@ export default function UserAdminPage() {
 
     const done = await action.run(
       () =>
-        api.post(`/api/users/${statusTarget.account.userId}/${statusTarget.action}`, {
-          reason: reason.trim(),
-        }),
-      "Synchronising \"%s\"",
+        api.post(
+          `/api/users/${statusTarget.account.userId}/${statusTarget.action}`,
+          {
+            reason: reason.trim(),
+          },
+        ),
+      'Synchronising "%s"',
     );
 
     if (done !== null) {
@@ -201,7 +224,14 @@ export default function UserAdminPage() {
           {(data) => (
             <>
               <Table
-                headers={["Accounts", "Role", "Status", "Logon", "Create Time", ""]}
+                headers={[
+                  "Accounts",
+                  "Role",
+                  "Status",
+                  "Logon",
+                  "Create Time",
+                  "",
+                ]}
               >
                 {data.items.map((account) => {
                   const isSelf = account.userId === user?.userId;
@@ -215,18 +245,27 @@ export default function UserAdminPage() {
                           {account.phone ? ` · ${account.phone}` : ""}
                         </div>
                       </td>
-                      <td>{ROLE_LABEL[account.role as Role] ?? account.role}</td>
+                      <td>
+                        {ROLE_LABEL[account.role as Role] ?? account.role}
+                      </td>
                       <td>
                         <StatusChip value={account.status} />
-                        {isSelf && <div className="small muted">Your Account</div>}
+                        {isSelf && (
+                          <div className="small muted">Your Account</div>
+                        )}
                       </td>
                       <td className="small">
                         {account.hasPassword ? "Password" : "—"}
                         {account.hasGoogleLink ? " · Google" : ""}
                       </td>
-                      <td className="nowrap small">{formatDate(account.createdAt)}</td>
+                      <td className="nowrap small">
+                        {formatDate(account.createdAt)}
+                      </td>
                       <td className="right">
-                        <div className="btn-row" style={{ justifyContent: "flex-end" }}>
+                        <div
+                          className="btn-row"
+                          style={{ justifyContent: "flex-end" }}
+                        >
                           <button
                             type="button"
                             className="btn btn--ghost btn--sm"
@@ -247,7 +286,11 @@ export default function UserAdminPage() {
                               // BR-6: không tự khóa tài khoản của chính mình. Backend cũng
                               // từ chối bằng 403 nếu cố gọi thẳng API.
                               disabled={isSelf}
-                              title={isSelf ? "Don't lock your own account (BR-6)" : undefined}
+                              title={
+                                isSelf
+                                  ? "Don't lock your own account (BR-6)"
+                                  : undefined
+                              }
                               onClick={() => {
                                 action.reset();
                                 setReason("");
@@ -295,10 +338,19 @@ export default function UserAdminPage() {
           onClose={() => setCreateOpen(false)}
           footer={
             <>
-              <button type="button" className="btn btn--ghost" onClick={() => setCreateOpen(false)}>
+              <button
+                type="button"
+                className="btn btn--ghost"
+                onClick={() => setCreateOpen(false)}
+              >
                 Abort
               </button>
-              <button type="submit" form="create-staff-form" className="btn" disabled={action.busy}>
+              <button
+                type="submit"
+                form="create-staff-form"
+                className="btn"
+                disabled={action.busy}
+              >
                 Create Account
               </button>
             </>
@@ -306,7 +358,9 @@ export default function UserAdminPage() {
         >
           <form id="create-staff-form" className="form" onSubmit={createStaff}>
             <div className="alert alert--info">
-              Only manages management accounts, coaches, receptions and system administrators. The Fellow Accounts Must be Registered by themselves (BR-1).
+              Only manages management accounts, coaches, receptions and system
+              administrators. The Fellow Accounts Must be Registered by
+              themselves (BR-1).
             </div>
 
             <Field label="First name">
@@ -324,7 +378,9 @@ export default function UserAdminPage() {
                 type="email"
                 value={createForm.email}
                 required
-                onChange={(event) => setCreateForm({ ...createForm, email: event.target.value })}
+                onChange={(event) =>
+                  setCreateForm({ ...createForm, email: event.target.value })
+                }
               />
             </Field>
 
@@ -343,7 +399,9 @@ export default function UserAdminPage() {
             <Field label="Phone number (non-commissioned)">
               <input
                 value={createForm.phone}
-                onChange={(event) => setCreateForm({ ...createForm, phone: event.target.value })}
+                onChange={(event) =>
+                  setCreateForm({ ...createForm, phone: event.target.value })
+                }
               />
             </Field>
 
@@ -351,7 +409,10 @@ export default function UserAdminPage() {
               <select
                 value={createForm.role}
                 onChange={(event) =>
-                  setCreateForm({ ...createForm, role: event.target.value as Role })
+                  setCreateForm({
+                    ...createForm,
+                    role: event.target.value as Role,
+                  })
                 }
               >
                 {STAFF_ROLES.map((role) => (
@@ -377,7 +438,11 @@ export default function UserAdminPage() {
           onClose={() => setStatusTarget(null)}
           footer={
             <>
-              <button type="button" className="btn btn--ghost" onClick={() => setStatusTarget(null)}>
+              <button
+                type="button"
+                className="btn btn--ghost"
+                onClick={() => setStatusTarget(null)}
+              >
                 Abort
               </button>
               <button
@@ -418,10 +483,19 @@ export default function UserAdminPage() {
           onClose={() => setRoleTarget(null)}
           footer={
             <>
-              <button type="button" className="btn btn--ghost" onClick={() => setRoleTarget(null)}>
+              <button
+                type="button"
+                className="btn btn--ghost"
+                onClick={() => setRoleTarget(null)}
+              >
                 Abort
               </button>
-              <button type="submit" form="role-form" className="btn" disabled={action.busy}>
+              <button
+                type="submit"
+                form="role-form"
+                className="btn"
+                disabled={action.busy}
+              >
                 Change of Role
               </button>
             </>
@@ -429,7 +503,9 @@ export default function UserAdminPage() {
         >
           <form id="role-form" className="form" onSubmit={changeRole}>
             <div className="alert alert--warn">
-              Each account has the right role (BR-3). Token The current user will be rejected in the next refust and they must log in for new rights.
+              Each account has the right role (BR-3). Token The current user
+              will be rejected in the next refust and they must log in for new
+              rights.
             </div>
 
             <Field label="New Role">

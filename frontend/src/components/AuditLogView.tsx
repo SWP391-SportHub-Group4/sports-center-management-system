@@ -37,7 +37,10 @@ export function AuditLogView() {
     <>
       <Card title="Filter">
         <div className="form form--inline">
-          <Field label="Actions" hint="Examples: LEG_OUR_ACCUCT, RECORD_PAYMENT">
+          <Field
+            label="Actions"
+            hint="Examples: LEG_OUR_ACCUCT, RECORD_PAYMENT"
+          >
             <input
               value={action}
               onChange={(event) => {
@@ -46,7 +49,10 @@ export function AuditLogView() {
               }}
             />
           </Field>
-          <Field label="Objects" hint="Examples: ‹ UserAcunit, Invoice, ClassStatus">
+          <Field
+            label="Objects"
+            hint="Examples: ‹ UserAcunit, Invoice, ClassStatus"
+          >
             <input
               value={targetEntity}
               onChange={(event) => {
@@ -67,11 +73,20 @@ export function AuditLogView() {
           {(data) => (
             <>
               <Table
-                headers={["Schedule", "Performor", "Actions", "Objects", "Change Text", "IP"]}
+                headers={[
+                  "Schedule",
+                  "Performor",
+                  "Actions",
+                  "Objects",
+                  "Change Text",
+                  "IP",
+                ]}
               >
                 {data.items.map((log) => (
                   <tr key={log.auditId}>
-                    <td className="nowrap small">{formatDateTime(log.timestamp)}</td>
+                    <td className="nowrap small">
+                      {formatDateTime(log.timestamp)}
+                    </td>
                     <td className="small">{log.actorEmail}</td>
                     <td>
                       <code className="small">{log.action}</code>
@@ -82,7 +97,10 @@ export function AuditLogView() {
                         {log.targetId}
                       </div>
                     </td>
-                    <td className="small" style={{ maxWidth: 380, wordBreak: "break-word" }}>
+                    <td
+                      className="small"
+                      style={{ maxWidth: 380, wordBreak: "break-word" }}
+                    >
                       {log.oldValue && (
                         <div className="muted">
                           Before: <code>{log.oldValue}</code>

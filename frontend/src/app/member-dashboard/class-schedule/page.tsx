@@ -2,9 +2,22 @@
 
 import { useState } from "react";
 import { AppShell } from "@/components/AppShell";
-import { AsyncSection, Card, Feedback, Field, StatusChip, Table } from "@/components/ui";
+import {
+  AsyncSection,
+  Card,
+  Feedback,
+  Field,
+  StatusChip,
+  Table,
+} from "@/components/ui";
 import { api } from "@/lib/apiClient";
-import { addDaysIso, formatDateTime, formatTime, label, todayIso } from "@/lib/format";
+import {
+  addDaysIso,
+  formatDateTime,
+  formatTime,
+  label,
+  todayIso,
+} from "@/lib/format";
 import { useAction, useApi } from "@/lib/useApi";
 import type { MemberPackageDto, MemberSessionDto } from "@/lib/types";
 
@@ -40,7 +53,8 @@ export default function MemberSchedulePage() {
   );
 
   const packages = useApi(
-    (signal) => api.get<MemberPackageDto[]>("/api/members/me/packages", { signal }),
+    (signal) =>
+      api.get<MemberPackageDto[]>("/api/members/me/packages", { signal }),
     [],
   );
 
@@ -97,7 +111,10 @@ export default function MemberSchedulePage() {
             />
           </Field>
           <Field label="Department">
-            <select value={discipline} onChange={(event) => setDiscipline(event.target.value)}>
+            <select
+              value={discipline}
+              onChange={(event) => setDiscipline(event.target.value)}
+            >
               {DISCIPLINES.map((item) => (
                 <option key={item.value} value={item.value}>
                   {item.label}
@@ -109,7 +126,10 @@ export default function MemberSchedulePage() {
             label="Deleted to packages"
             hint="Leave the system empty so that the package selection system is almost expired."
           >
-            <select value={packageId} onChange={(event) => setPackageId(event.target.value)}>
+            <select
+              value={packageId}
+              onChange={(event) => setPackageId(event.target.value)}
+            >
               <option value="">Autoselect</option>
               {usablePackages.map((item) => (
                 <option key={item.memberPackageId} value={item.memberPackageId}>
@@ -125,7 +145,9 @@ export default function MemberSchedulePage() {
 
         {usablePackages.length === 0 && !packages.loading && (
           <div className="alert alert--warn" style={{ marginTop: 12 }}>
-            You do not have a member package which is still in effect, so you do not have a class registration (BR-16). The reception connection to purchase or extension packages.
+            You do not have a member package which is still in effect, so you do
+            not have a class registration (BR-16). The reception connection to
+            purchase or extension packages.
           </div>
         )}
 
@@ -159,7 +181,9 @@ export default function MemberSchedulePage() {
                   <tr key={session.sessionId}>
                     <td>
                       <strong>{session.className}</strong>
-                      <div className="small muted">{label(session.discipline)}</div>
+                      <div className="small muted">
+                        {label(session.discipline)}
+                      </div>
                     </td>
                     <td className="nowrap">
                       {formatDateTime(session.startAtUtc)}
@@ -195,7 +219,11 @@ export default function MemberSchedulePage() {
                         <button
                           type="button"
                           className="btn btn--sm"
-                          disabled={action.busy || session.isFull || usablePackages.length === 0}
+                          disabled={
+                            action.busy ||
+                            session.isFull ||
+                            usablePackages.length === 0
+                          }
                           onClick={() => void enroll(session.sessionId)}
                         >
                           Subscript

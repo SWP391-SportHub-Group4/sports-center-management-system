@@ -14,9 +14,10 @@ import { useAction } from "@/lib/useApi";
  * trạng thái Đã xác nhận. Hai điều kiện này được backend kiểm lại, nút bấm ở đây chỉ là lối vào.
  */
 export default function CoachAttendancePage() {
-  const [target, setTarget] = useState<{ enrollmentId: string; memberName: string } | null>(
-    null,
-  );
+  const [target, setTarget] = useState<{
+    enrollmentId: string;
+    memberName: string;
+  } | null>(null);
   const [form, setForm] = useState({ progressNote: "", coachComment: "" });
   const action = useAction();
 

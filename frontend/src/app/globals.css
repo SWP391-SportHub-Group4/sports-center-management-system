@@ -661,8 +661,10 @@ textarea {
   min-height: 100dvh;
   display: grid;
   place-items: center;
-  padding-block: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-bottom));
-  padding-inline: max(16px, env(safe-area-inset-left)) max(16px, env(safe-area-inset-right));
+  padding-block: max(16px, env(safe-area-inset-top))
+    max(16px, env(safe-area-inset-bottom));
+  padding-inline: max(16px, env(safe-area-inset-left))
+    max(16px, env(safe-area-inset-right));
   background: linear-gradient(140deg, var(--brand-900), var(--brand-500));
 }
 
@@ -990,7 +992,10 @@ textarea {
   text-decoration: none;
   cursor: pointer;
   box-shadow: 0 1px 2px rgba(26, 43, 76, 0.05);
-  transition: background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease;
 }
 
 .btn--google:hover:not(:disabled) {
@@ -1111,7 +1116,9 @@ textarea {
   font-weight: 700;
   background: var(--gray);
   color: var(--slate);
-  transition: background-color 180ms ease, color 180ms ease;
+  transition:
+    background-color 180ms ease,
+    color 180ms ease;
 }
 
 .auth__step--active .auth__step-badge {

@@ -18,7 +18,10 @@ export default function RoomsPage() {
   const [editing, setEditing] = useState<RoomDto | null>(null);
   const action = useAction();
 
-  const rooms = useApi((signal) => api.get<RoomDto[]>("/api/rooms", { signal }), []);
+  const rooms = useApi(
+    (signal) => api.get<RoomDto[]>("/api/rooms", { signal }),
+    [],
+  );
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -61,7 +64,9 @@ export default function RoomsPage() {
             <input
               value={form.name}
               required
-              onChange={(event) => setForm({ ...form, name: event.target.value })}
+              onChange={(event) =>
+                setForm({ ...form, name: event.target.value })
+              }
             />
           </Field>
           <Field label="Schedule">
@@ -71,7 +76,9 @@ export default function RoomsPage() {
               max={500}
               value={form.capacity}
               required
-              onChange={(event) => setForm({ ...form, capacity: event.target.value })}
+              onChange={(event) =>
+                setForm({ ...form, capacity: event.target.value })
+              }
             />
           </Field>
           <div className="btn-row">
@@ -121,13 +128,19 @@ export default function RoomsPage() {
                   <td className="num">{room.capacity}</td>
                   <td className="num">{room.activeClassCount}</td>
                   <td className="right">
-                    <div className="btn-row" style={{ justifyContent: "flex-end" }}>
+                    <div
+                      className="btn-row"
+                      style={{ justifyContent: "flex-end" }}
+                    >
                       <button
                         type="button"
                         className="btn btn--ghost btn--sm"
                         onClick={() => {
                           setEditing(room);
-                          setForm({ name: room.name, capacity: String(room.capacity) });
+                          setForm({
+                            name: room.name,
+                            capacity: String(room.capacity),
+                          });
                         }}
                       >
                         Edit

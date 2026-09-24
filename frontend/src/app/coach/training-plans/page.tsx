@@ -15,7 +15,12 @@ interface ItemDraft {
   notes: string;
 }
 
-const EMPTY_ITEM: ItemDraft = { exercise: "", sets: "3", reps: "12", notes: "" };
+const EMPTY_ITEM: ItemDraft = {
+  exercise: "",
+  sets: "3",
+  reps: "12",
+  notes: "",
+};
 
 /**
  * Soạn kế hoạch tập — BR-23: chỉ HLV đang có quan hệ huấn luyện HOẠT ĐỘNG với hội viên mới
@@ -49,7 +54,9 @@ export default function CoachPlansPage() {
 
   const updateItem = (index: number, patch: Partial<ItemDraft>) =>
     setItems((current) =>
-      current.map((item, position) => (position === index ? { ...item, ...patch } : item)),
+      current.map((item, position) =>
+        position === index ? { ...item, ...patch } : item,
+      ),
     );
 
   const submit = async (event: React.FormEvent) => {
@@ -105,7 +112,10 @@ export default function CoachPlansPage() {
             </Field>
 
             <Field label="Level">
-              <select value={level} onChange={(event) => setLevel(event.target.value)}>
+              <select
+                value={level}
+                onChange={(event) => setLevel(event.target.value)}
+              >
                 {["Beginner", "Intermediate", "Advanced"].map((value) => (
                   <option key={value} value={value}>
                     {label(value)}
@@ -153,7 +163,9 @@ export default function CoachPlansPage() {
                       min={1}
                       max={50}
                       value={item.sets}
-                      onChange={(event) => updateItem(index, { sets: event.target.value })}
+                      onChange={(event) =>
+                        updateItem(index, { sets: event.target.value })
+                      }
                     />
                   </td>
                   <td className="num" style={{ width: 100 }}>
@@ -162,13 +174,17 @@ export default function CoachPlansPage() {
                       min={1}
                       max={500}
                       value={item.reps}
-                      onChange={(event) => updateItem(index, { reps: event.target.value })}
+                      onChange={(event) =>
+                        updateItem(index, { reps: event.target.value })
+                      }
                     />
                   </td>
                   <td>
                     <input
                       value={item.notes}
-                      onChange={(event) => updateItem(index, { notes: event.target.value })}
+                      onChange={(event) =>
+                        updateItem(index, { notes: event.target.value })
+                      }
                     />
                   </td>
                   <td className="right">
@@ -177,7 +193,9 @@ export default function CoachPlansPage() {
                       className="btn btn--ghost btn--sm"
                       disabled={items.length === 1}
                       onClick={() =>
-                        setItems((current) => current.filter((_, i) => i !== index))
+                        setItems((current) =>
+                          current.filter((_, i) => i !== index),
+                        )
                       }
                     >
                       Delete
@@ -191,7 +209,9 @@ export default function CoachPlansPage() {
               <button
                 type="button"
                 className="btn btn--ghost btn--sm"
-                onClick={() => setItems((current) => [...current, { ...EMPTY_ITEM }])}
+                onClick={() =>
+                  setItems((current) => [...current, { ...EMPTY_ITEM }])
+                }
               >
                 Add Training
               </button>
@@ -204,7 +224,11 @@ export default function CoachPlansPage() {
             <button
               type="submit"
               className="btn"
-              disabled={action.busy || !memberId || items.every((i) => !i.exercise.trim())}
+              disabled={
+                action.busy ||
+                !memberId ||
+                items.every((i) => !i.exercise.trim())
+              }
             >
               {action.busy ? "Saving..." : "Create a plan"}
             </button>
@@ -228,7 +252,8 @@ export default function CoachPlansPage() {
                         {plan.memberName} — {plan.goal}
                       </h3>
                       <p className="card__hint">
-                        Level {label(plan.level)} · Stand {formatDateTime(plan.createdAt)}
+                        Level {label(plan.level)} · Stand{" "}
+                        {formatDateTime(plan.createdAt)}
                       </p>
                     </div>
                   </div>

@@ -18,7 +18,9 @@ function toDate(value: string | Date | null | undefined): Date | null {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-export function formatDateTime(value: string | Date | null | undefined): string {
+export function formatDateTime(
+  value: string | Date | null | undefined,
+): string {
   const date = toDate(value);
   if (!date) return "—";
 
@@ -78,7 +80,9 @@ export function formatNumber(value: number | null | undefined): string {
 
 /** Ngày hôm nay theo giờ VN, dạng yyyy-MM-dd để đưa thẳng vào <input type="date">. */
 export function todayIso(): string {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: TIME_ZONE }).format(new Date());
+  return new Intl.DateTimeFormat("en-CA", { timeZone: TIME_ZONE }).format(
+    new Date(),
+  );
 }
 
 export function addDaysIso(isoDate: string, days: number): string {
@@ -94,11 +98,16 @@ export function addDaysIso(isoDate: string, days: number): string {
  * lên API. Trừ thẳng 7 giờ thay vì để trình duyệt tự suy: máy người dùng có thể đang ở múi
  * giờ khác, và khi đó new Date("...") sẽ hiểu chuỗi theo múi giờ máy.
  */
-export function vietnamLocalToUtcIso(dateIso: string, timeHhmm: string): string {
+export function vietnamLocalToUtcIso(
+  dateIso: string,
+  timeHhmm: string,
+): string {
   const [year, month, day] = dateIso.split("-").map(Number);
   const [hour, minute] = timeHhmm.split(":").map(Number);
 
-  return new Date(Date.UTC(year, month - 1, day, hour - 7, minute)).toISOString();
+  return new Date(
+    Date.UTC(year, month - 1, day, hour - 7, minute),
+  ).toISOString();
 }
 
 /** Nhãn tiếng Việt cho các giá trị enum trả về từ API (PascalCase). */

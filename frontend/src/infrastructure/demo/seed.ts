@@ -193,7 +193,8 @@ export function createSeed(): MemberSnapshot {
         { name: "Squat", sets: 3, reps: "Twelve times" },
         { name: "Plank", sets: 3, reps: "30 sec" },
       ],
-      comment: "Keep breathing and technical preference before increased intensity.",
+      comment:
+        "Keep breathing and technical preference before increased intensity.",
     },
     history: [
       {

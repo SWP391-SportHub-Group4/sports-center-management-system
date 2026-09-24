@@ -18,7 +18,9 @@ import type {
  * không đọc được danh sách của đồng nghiệp kể cả khi sửa tham số.
  */
 export default function CoachMembersPage() {
-  const [selected, setSelected] = useState<CoachMemberRelationshipDto | null>(null);
+  const [selected, setSelected] = useState<CoachMemberRelationshipDto | null>(
+    null,
+  );
 
   const relationships = useApi(
     (signal) =>
@@ -43,9 +45,12 @@ export default function CoachMembersPage() {
   const results = useApi(
     (signal) =>
       selected
-        ? api.get<WorkoutResultDto[]>(`/api/members/${selected.memberId}/workout-results`, {
-            signal,
-          })
+        ? api.get<WorkoutResultDto[]>(
+            `/api/members/${selected.memberId}/workout-results`,
+            {
+              signal,
+            },
+          )
         : Promise.resolve(null),
     [selected?.memberId],
   );
@@ -63,7 +68,15 @@ export default function CoachMembersPage() {
           isEmpty={(data) => data.length === 0}
         >
           {(data) => (
-            <Table headers={["Members", "The Source of Relationships", "Class", "Start", ""]}>
+            <Table
+              headers={[
+                "Members",
+                "The Source of Relationships",
+                "Class",
+                "Start",
+                "",
+              ]}
+            >
               {data.map((item) => (
                 <tr key={item.relationshipId}>
                   <td>
@@ -72,7 +85,9 @@ export default function CoachMembersPage() {
                   </td>
                   <td>{item.sourceType}</td>
                   <td>{item.className ?? "—"}</td>
-                  <td className="nowrap small">{formatDateTime(item.startedAt)}</td>
+                  <td className="nowrap small">
+                    {formatDateTime(item.startedAt)}
+                  </td>
                   <td className="right">
                     <button
                       type="button"
@@ -91,8 +106,13 @@ export default function CoachMembersPage() {
 
       {selected && (
         <>
-          <Card title={`Training profile — ${selected.memberName || selected.memberEmail}`}>
-            <AsyncSection state={profile} emptyMessage="The members haven't filed their training records yet.">
+          <Card
+            title={`Training profile — ${selected.memberName || selected.memberEmail}`}
+          >
+            <AsyncSection
+              state={profile}
+              emptyMessage="The members haven't filed their training records yet."
+            >
               {(data) =>
                 data ? (
                   <div className="stack">
@@ -126,7 +146,15 @@ export default function CoachMembersPage() {
             >
               {(data) =>
                 data ? (
-                  <Table headers={["Study", "HLV", "Progress", "Schedule", "Write at"]}>
+                  <Table
+                    headers={[
+                      "Study",
+                      "HLV",
+                      "Progress",
+                      "Schedule",
+                      "Write at",
+                    ]}
+                  >
                     {data.map((item) => (
                       <tr key={item.resultId}>
                         <td>

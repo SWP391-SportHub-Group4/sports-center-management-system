@@ -26,7 +26,8 @@ export function NotificationBell() {
   const containerRef = useRef<HTMLDivElement>(null);
 
   const unread = useApi(
-    (signal) => api.get<{ count: number }>("/api/notifications/unread-count", { signal }),
+    (signal) =>
+      api.get<{ count: number }>("/api/notifications/unread-count", { signal }),
     [],
   );
 
@@ -77,7 +78,9 @@ export function NotificationBell() {
         aria-label={`Notifications${count > 0 ? ` (${count} unread)` : ""}`}
       >
         Notifications
-        {count > 0 && <span className="bell__count">{count > 99 ? "99+" : count}</span>}
+        {count > 0 && (
+          <span className="bell__count">{count > 99 ? "99+" : count}</span>
+        )}
       </button>
 
       {open && (

@@ -2,7 +2,16 @@
 
 import { useState } from "react";
 import { AppShell } from "@/components/AppShell";
-import { AsyncSection, Card, Dialog, Feedback, Field, Pager, StatusChip, Table } from "@/components/ui";
+import {
+  AsyncSection,
+  Card,
+  Dialog,
+  Feedback,
+  Field,
+  Pager,
+  StatusChip,
+  Table,
+} from "@/components/ui";
 import { api } from "@/lib/apiClient";
 import { formatDateTime, formatMoney, label } from "@/lib/format";
 import { useAction, useApi } from "@/lib/useApi";
@@ -46,13 +55,16 @@ export default function AdjustmentsPage() {
     const done = await action.run(
       () =>
         mode === "approve"
-          ? api.post(`/api/payment-adjustments/${target.adjustmentId}/approve`, {
-              overrideAmount:
-                Number(form.overrideAmount) === target.amount
-                  ? null
-                  : Number(form.overrideAmount),
-              reason: form.reason.trim(),
-            })
+          ? api.post(
+              `/api/payment-adjustments/${target.adjustmentId}/approve`,
+              {
+                overrideAmount:
+                  Number(form.overrideAmount) === target.amount
+                    ? null
+                    : Number(form.overrideAmount),
+                reason: form.reason.trim(),
+              },
+            )
           : api.post(`/api/payment-adjustments/${target.adjustmentId}/reject`, {
               reason: form.reason.trim(),
             }),
@@ -87,11 +99,13 @@ export default function AdjustmentsPage() {
                 nhưng quầy chưa chi tiền. Thiếu nó khỏi bộ lọc thì Manager không có cách nào
                 thấy danh sách khoản đang treo.
               */}
-              {["Requested", "Approved", "Completed", "Rejected"].map((value) => (
-                <option key={value} value={value}>
-                  {label(value)}
-                </option>
-              ))}
+              {["Requested", "Approved", "Completed", "Rejected"].map(
+                (value) => (
+                  <option key={value} value={value}>
+                    {label(value)}
+                  </option>
+                ),
+              )}
             </select>
           </Field>
         </div>
@@ -142,7 +156,9 @@ export default function AdjustmentsPage() {
                       <td className="small">
                         {item.requestedByName}
                         {isOwnRequest && (
-                          <div style={{ color: "var(--warn-700)" }}>You created this request</div>
+                          <div style={{ color: "var(--warn-700)" }}>
+                            You created this request
+                          </div>
                         )}
                       </td>
                       <td>
@@ -152,7 +168,10 @@ export default function AdjustmentsPage() {
                           không tưởng việc mình bấm duyệt là đã kết thúc quy trình.
                         */}
                         {item.awaitingPayout && (
-                          <div className="small" style={{ color: "var(--warn-700)" }}>
+                          <div
+                            className="small"
+                            style={{ color: "var(--warn-700)" }}
+                          >
                             Wait for the reception.
                           </div>
                         )}
@@ -160,20 +179,28 @@ export default function AdjustmentsPage() {
                       <td className="small">
                         {item.approvedByName ?? "—"}
                         {item.approvedAtUtc && (
-                          <div className="muted">Browse {formatDateTime(item.approvedAtUtc)}</div>
+                          <div className="muted">
+                            Browse {formatDateTime(item.approvedAtUtc)}
+                          </div>
                         )}
                         {item.type === "Refund" && item.completedAtUtc && (
                           <div className="muted">
                             Payed {formatDateTime(item.completedAtUtc)}
-                            {item.completedByName && ` · ${item.completedByName}`}
-                            {item.refundMethod && ` · ${label(item.refundMethod)}`}
-                            {item.refundReferenceCode && ` · ${item.refundReferenceCode}`}
+                            {item.completedByName &&
+                              ` · ${item.completedByName}`}
+                            {item.refundMethod &&
+                              ` · ${label(item.refundMethod)}`}
+                            {item.refundReferenceCode &&
+                              ` · ${item.refundReferenceCode}`}
                           </div>
                         )}
                       </td>
                       <td className="right">
                         {item.status === "Requested" && !isOwnRequest && (
-                          <div className="btn-row" style={{ justifyContent: "flex-end" }}>
+                          <div
+                            className="btn-row"
+                            style={{ justifyContent: "flex-end" }}
+                          >
                             <button
                               type="button"
                               className="btn btn--sm"
@@ -215,7 +242,11 @@ export default function AdjustmentsPage() {
           onClose={() => setTarget(null)}
           footer={
             <>
-              <button type="button" className="btn btn--ghost" onClick={() => setTarget(null)}>
+              <button
+                type="button"
+                className="btn btn--ghost"
+                onClick={() => setTarget(null)}
+              >
                 Close
               </button>
               <button
@@ -231,14 +262,18 @@ export default function AdjustmentsPage() {
         >
           <form id="adjustment-form" className="form" onSubmit={submit}>
             <div className="alert alert--info">
-              Invoices <strong>{target.invoiceNumber}</strong> · {label(target.type)} ·{" "}
-              {formatMoney(target.requestedAmount)} (numbering)
+              Invoices <strong>{target.invoiceNumber}</strong> ·{" "}
+              {label(target.type)} · {formatMoney(target.requestedAmount)}{" "}
+              (numbering)
               <div className="small">Reason requires: {target.reason}</div>
             </div>
 
             {mode === "approve" && target.type === "Refund" && (
               <div className="alert alert--warn">
-                Approval authorizes the refund. <strong>No money has been paid out yet.</strong> After approval, Reception must confirm the actual payout before balances and reports change (BR-42).
+                Approval authorizes the refund.{" "}
+                <strong>No money has been paid out yet.</strong> After approval,
+                Reception must confirm the actual payout before balances and
+                reports change (BR-42).
               </div>
             )}
 
@@ -264,7 +299,9 @@ export default function AdjustmentsPage() {
                 value={form.reason}
                 required
                 minLength={3}
-                onChange={(event) => setForm({ ...form, reason: event.target.value })}
+                onChange={(event) =>
+                  setForm({ ...form, reason: event.target.value })
+                }
               />
             </Field>
 

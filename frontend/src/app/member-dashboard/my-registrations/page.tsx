@@ -2,7 +2,13 @@
 
 import { useState } from "react";
 import { AppShell } from "@/components/AppShell";
-import { AsyncSection, Card, Feedback, StatusChip, Table } from "@/components/ui";
+import {
+  AsyncSection,
+  Card,
+  Feedback,
+  StatusChip,
+  Table,
+} from "@/components/ui";
 import { api } from "@/lib/apiClient";
 import { formatDateTime } from "@/lib/format";
 import { useAction, useApi, useNow } from "@/lib/useApi";
@@ -70,10 +76,18 @@ export default function MyEnrollmentsPage() {
         >
           {(data) => (
             <Table
-              headers={["Class", "Time of study", "Status", "Reschedule", "Score", ""]}
+              headers={[
+                "Class",
+                "Time of study",
+                "Status",
+                "Reschedule",
+                "Score",
+                "",
+              ]}
             >
               {data.map((item) => {
-                const started = new Date(item.session.startAtUtc).getTime() <= now;
+                const started =
+                  new Date(item.session.startAtUtc).getTime() <= now;
                 const deadlinePassed =
                   new Date(item.cancellationDeadlineUtc).getTime() <= now;
 
@@ -85,17 +99,21 @@ export default function MyEnrollmentsPage() {
                         {item.session.roomName} · {item.session.coachName}
                       </div>
                     </td>
-                    <td className="nowrap">{formatDateTime(item.session.startAtUtc)}</td>
+                    <td className="nowrap">
+                      {formatDateTime(item.session.startAtUtc)}
+                    </td>
                     <td>
                       <StatusChip value={item.status} />
                     </td>
                     <td className="nowrap small">
                       {formatDateTime(item.cancellationDeadlineUtc)}
-                      {item.status === "Confirmed" && !started && deadlinePassed && (
-                        <div style={{ color: "var(--warn-700)" }}>
-                          Expiration — canceling now will not be completed
-                        </div>
-                      )}
+                      {item.status === "Confirmed" &&
+                        !started &&
+                        deadlinePassed && (
+                          <div style={{ color: "var(--warn-700)" }}>
+                            Expiration — canceling now will not be completed
+                          </div>
+                        )}
                     </td>
                     <td>
                       <StatusChip value={item.attendanceStatus} />

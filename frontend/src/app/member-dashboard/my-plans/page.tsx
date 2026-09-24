@@ -14,12 +14,14 @@ import type { MemberPackageDto, MembershipPackageDto } from "@/lib/types";
  */
 export default function MyPackagesPage() {
   const myPackages = useApi(
-    (signal) => api.get<MemberPackageDto[]>("/api/members/me/packages", { signal }),
+    (signal) =>
+      api.get<MemberPackageDto[]>("/api/members/me/packages", { signal }),
     [],
   );
 
   const catalog = useApi(
-    (signal) => api.get<MembershipPackageDto[]>("/api/membership-packages", { signal }),
+    (signal) =>
+      api.get<MembershipPackageDto[]>("/api/membership-packages", { signal }),
     [],
   );
 
@@ -104,7 +106,9 @@ export default function MyPackagesPage() {
                   <td className="num">{formatMoney(item.price)}</td>
                   <td className="num">{item.durationDays} days</td>
                   <td className="num">
-                    {item.sessionLimit === null ? "No Limit" : item.sessionLimit}
+                    {item.sessionLimit === null
+                      ? "No Limit"
+                      : item.sessionLimit}
                   </td>
                   <td className="small muted">{item.description ?? "—"}</td>
                 </tr>

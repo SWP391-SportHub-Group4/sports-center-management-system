@@ -2,7 +2,15 @@
 
 import { useState } from "react";
 import { AppShell } from "@/components/AppShell";
-import { AsyncSection, Card, Dialog, Feedback, Field, StatusChip, Table } from "@/components/ui";
+import {
+  AsyncSection,
+  Card,
+  Dialog,
+  Feedback,
+  Field,
+  StatusChip,
+  Table,
+} from "@/components/ui";
 import { api } from "@/lib/apiClient";
 import { addDaysIso, label, todayIso } from "@/lib/format";
 import { useAction, useApi } from "@/lib/useApi";
@@ -11,7 +19,10 @@ import type { ClassDto, Paged, RoomDto, UserAdminDto } from "@/lib/types";
 const DISCIPLINES = [
   { value: "Yoga", label: "Yoga" },
   { value: "GroupX", label: "Group X / Aerobic / HIIT" },
-  { value: "PersonalTraining", label: "Personal Training (Pression always = 1)" },
+  {
+    value: "PersonalTraining",
+    label: "Personal Training (Pression always = 1)",
+  },
 ];
 
 const DAY_CODES = [
@@ -41,7 +52,9 @@ export default function ClassesPage() {
 
   const [form, setForm] = useState(emptyForm);
   const [editing, setEditing] = useState<ClassDto | null>(null);
-  const [recurrenceTarget, setRecurrenceTarget] = useState<ClassDto | null>(null);
+  const [recurrenceTarget, setRecurrenceTarget] = useState<ClassDto | null>(
+    null,
+  );
   const [recurrence, setRecurrence] = useState({
     days: ["MON", "WED", "FRI"],
     start: "18:00",
@@ -59,11 +72,17 @@ export default function ClassesPage() {
 
   const classes = useApi(
     (signal) =>
-      api.get<ClassDto[]>("/api/classes", { signal, query: { includeArchived: true } }),
+      api.get<ClassDto[]>("/api/classes", {
+        signal,
+        query: { includeArchived: true },
+      }),
     [],
   );
 
-  const rooms = useApi((signal) => api.get<RoomDto[]>("/api/rooms", { signal }), []);
+  const rooms = useApi(
+    (signal) => api.get<RoomDto[]>("/api/rooms", { signal }),
+    [],
+  );
 
   const coaches = useApi(
     (signal) =>
@@ -179,7 +198,9 @@ export default function ClassesPage() {
               <input
                 value={form.name}
                 required
-                onChange={(event) => setForm({ ...form, name: event.target.value })}
+                onChange={(event) =>
+                  setForm({ ...form, name: event.target.value })
+                }
               />
             </Field>
 
@@ -190,7 +211,10 @@ export default function ClassesPage() {
                   setForm({
                     ...form,
                     discipline: event.target.value,
-                    capacity: event.target.value === "PersonalTraining" ? "1" : form.capacity,
+                    capacity:
+                      event.target.value === "PersonalTraining"
+                        ? "1"
+                        : form.capacity,
                   })
                 }
               >
@@ -206,7 +230,9 @@ export default function ClassesPage() {
               <select
                 value={form.defaultRoomId}
                 required
-                onChange={(event) => setForm({ ...form, defaultRoomId: event.target.value })}
+                onChange={(event) =>
+                  setForm({ ...form, defaultRoomId: event.target.value })
+                }
               >
                 <option value="">— Select a Room —</option>
                 {(rooms.data ?? []).map((room) => (
@@ -223,7 +249,9 @@ export default function ClassesPage() {
             >
               <select
                 value={form.defaultCoachId}
-                onChange={(event) => setForm({ ...form, defaultCoachId: event.target.value })}
+                onChange={(event) =>
+                  setForm({ ...form, defaultCoachId: event.target.value })
+                }
               >
                 <option value="">— Undecided —</option>
                 {(coaches.data?.items ?? []).map((coach) => (
@@ -241,7 +269,9 @@ export default function ClassesPage() {
                 max={500}
                 value={isPersonalTraining ? 1 : form.capacity}
                 disabled={isPersonalTraining}
-                onChange={(event) => setForm({ ...form, capacity: event.target.value })}
+                onChange={(event) =>
+                  setForm({ ...form, capacity: event.target.value })
+                }
               />
             </Field>
           </div>
@@ -297,7 +327,11 @@ export default function ClassesPage() {
                     {item.defaultRoomName}
                     <div className="small muted">Name {item.roomCapacity}</div>
                   </td>
-                  <td>{item.defaultCoachName ?? <span className="muted">Unsalted</span>}</td>
+                  <td>
+                    {item.defaultCoachName ?? (
+                      <span className="muted">Unsalted</span>
+                    )}
+                  </td>
                   <td className="num">{item.capacity}</td>
                   <td className="small">
                     {item.recurrences.length === 0 ? (
@@ -310,7 +344,12 @@ export default function ClassesPage() {
                           <button
                             type="button"
                             className="btn btn--ghost btn--sm"
-                            onClick={() => void deleteRecurrence(item.classId, r.recurrenceId)}
+                            onClick={() =>
+                              void deleteRecurrence(
+                                item.classId,
+                                r.recurrenceId,
+                              )
+                            }
                           >
                             delete
                           </button>
@@ -322,7 +361,10 @@ export default function ClassesPage() {
                     <StatusChip value={item.status} />
                   </td>
                   <td className="right">
-                    <div className="btn-row" style={{ justifyContent: "flex-end" }}>
+                    <div
+                      className="btn-row"
+                      style={{ justifyContent: "flex-end" }}
+                    >
                       <button
                         type="button"
                         className="btn btn--ghost btn--sm"
@@ -349,7 +391,9 @@ export default function ClassesPage() {
                       <button
                         type="button"
                         className="btn btn--sm"
-                        disabled={item.recurrences.length === 0 || !item.defaultCoachId}
+                        disabled={
+                          item.recurrences.length === 0 || !item.defaultCoachId
+                        }
                         title={
                           !item.defaultCoachId
                             ? "Needs to appoint coaches before embassing"
@@ -390,7 +434,12 @@ export default function ClassesPage() {
               >
                 Abort
               </button>
-              <button type="submit" form="recurrence-form" className="btn" disabled={action.busy}>
+              <button
+                type="submit"
+                form="recurrence-form"
+                className="btn"
+                disabled={action.busy}
+              >
                 Add Template
               </button>
             </>
@@ -435,7 +484,9 @@ export default function ClassesPage() {
                   type="time"
                   value={recurrence.end}
                   required
-                  onChange={(event) => setRecurrence({ ...recurrence, end: event.target.value })}
+                  onChange={(event) =>
+                    setRecurrence({ ...recurrence, end: event.target.value })
+                  }
                 />
               </Field>
             </div>
@@ -446,14 +497,18 @@ export default function ClassesPage() {
                   type="date"
                   value={recurrence.from}
                   required
-                  onChange={(event) => setRecurrence({ ...recurrence, from: event.target.value })}
+                  onChange={(event) =>
+                    setRecurrence({ ...recurrence, from: event.target.value })
+                  }
                 />
               </Field>
               <Field label="Enables coming (for empty = non-limits)">
                 <input
                   type="date"
                   value={recurrence.to}
-                  onChange={(event) => setRecurrence({ ...recurrence, to: event.target.value })}
+                  onChange={(event) =>
+                    setRecurrence({ ...recurrence, to: event.target.value })
+                  }
                 />
               </Field>
             </div>
@@ -476,7 +531,12 @@ export default function ClassesPage() {
               >
                 Abort
               </button>
-              <button type="submit" form="generate-form" className="btn" disabled={action.busy}>
+              <button
+                type="submit"
+                form="generate-form"
+                className="btn"
+                disabled={action.busy}
+              >
                 Reschedule
               </button>
             </>
@@ -484,7 +544,9 @@ export default function ClassesPage() {
         >
           <form id="generate-form" className="form" onSubmit={generate}>
             <p className="small muted" style={{ margin: 0 }}>
-              Class sessions are generated from recurring schedules (BR-15). Running this again for the same date range will not create duplicates; room and coach conflicts are skipped.
+              Class sessions are generated from recurring schedules (BR-15).
+              Running this again for the same date range will not create
+              duplicates; room and coach conflicts are skipped.
             </p>
 
             <div className="form form--inline">
@@ -494,7 +556,10 @@ export default function ClassesPage() {
                   value={generateRange.from}
                   required
                   onChange={(event) =>
-                    setGenerateRange({ ...generateRange, from: event.target.value })
+                    setGenerateRange({
+                      ...generateRange,
+                      from: event.target.value,
+                    })
                   }
                 />
               </Field>
@@ -504,7 +569,10 @@ export default function ClassesPage() {
                   value={generateRange.to}
                   required
                   onChange={(event) =>
-                    setGenerateRange({ ...generateRange, to: event.target.value })
+                    setGenerateRange({
+                      ...generateRange,
+                      to: event.target.value,
+                    })
                   }
                 />
               </Field>
