@@ -393,3 +393,18 @@ Phần này là ghi chú lịch sử của schema v1.4. Các dòng liên quan Me
 | ReportExport.IsDeleted/DeletedAt | chỉ xóa sau retention; list/download phải chặn link cũ; file riêng tư suy ra từ ID/format dưới storage root |
 
 Các đại lượng Payment cũ như NetPayable, GrossCollected, RefundedAmount, NetCollected, Outstanding và RefundDue không còn là công thức đã duyệt. Membership dùng calendar date; `StartDate`/`EndDate` đều inclusive theo BR-9.
+
+## Bổ sung field đề xuất (CHƯA duyệt — chỉ là thiết kế) — 23/09/2026
+
+Toàn bộ phần này thuộc `claude/auth-register-email-otp-plan.md` và `claude/auth-google-suggested-password-plan.md` (Project doc) — **chưa được duyệt, chưa có migration/code**. Ghi lại ở đây để khớp entity nếu/khi team chốt triển khai; xem `00-Source-of-Truth.md` §5.8 và §7 (Open Questions) cho điều kiện cần xác nhận trước.
+
+| Entity.Field | Mục đích và ràng buộc |
+|---|---|
+| EmailOtp (entity mới, module Identity) | 1 dòng/email (unique). Phục vụ BR-78 — xác thực OTP khi Register bằng email/mật khẩu |
+| EmailOtp.Email | citext, unique — dòng mới cho cùng email GHI ĐÈ dòng cũ (không giữ lịch sử các lần yêu cầu OTP) |
+| EmailOtp.CodeHash | SHA-256 của mã OTP 6 số — không lưu plaintext; không dùng BCrypt (lý do: rate-limit theo Attempts/hạn dùng là lớp chặn chính, không phải độ chậm hash) |
+| EmailOtp.ExpiresAt | Mã hết hạn sau 10 phút kể từ lần yêu cầu gần nhất |
+| EmailOtp.Attempts | Số lần verify sai liên tiếp cho mã hiện tại; vượt 5 lần → phải yêu cầu mã mới |
+| EmailOtp.ConsumedAt | null = còn dùng được; set khi verify đúng, mã không dùng lại được lần 2 |
+| AuthResponse.IsNewAccount (field mới, dùng chung Register/Login/Google) | Register luôn true; Login luôn false; Google Login true chỉ ở nhánh vừa tạo `UserAccount` mới |
+| AuthResponse.SuggestedPassword (field mới) | Chỉ khác null ở đúng 1 trường hợp: Google Login vừa tạo account mới (`UserCredential.PasswordHash` vẫn null — BR-60). Không lưu ở đâu trong DB, không log |

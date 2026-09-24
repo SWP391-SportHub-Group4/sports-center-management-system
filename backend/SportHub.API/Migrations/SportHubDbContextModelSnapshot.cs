@@ -249,6 +249,49 @@ namespace SportHub.API.Migrations
                     b.ToTable("audit_logs", (string)null);
                 });
 
+            modelBuilder.Entity("SportHub.Identity.Domain.Entities.EmailOtp", b =>
+                {
+                    b.Property<Guid>("EmailOtpId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("email_otp_id");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("integer")
+                        .HasColumnName("attempts");
+
+                    b.Property<string>("CodeHash")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("code_hash");
+
+                    b.Property<DateTime?>("ConsumedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("consumed_at");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasColumnType("citext")
+                        .HasColumnName("email");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.HasKey("EmailOtpId")
+                        .HasName("pk_email_otps");
+
+                    b.HasIndex("Email")
+                        .IsUnique()
+                        .HasDatabaseName("ix_email_otps_email");
+
+                    b.ToTable("email_otps", (string)null);
+                });
+
             modelBuilder.Entity("SportHub.Identity.Domain.Entities.Role", b =>
                 {
                     b.Property<int>("RoleId")

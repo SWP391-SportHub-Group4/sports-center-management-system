@@ -2,6 +2,7 @@ using AdministrationSystemSettingProvider = SportHub.Administration.Infrastructu
 using DotNetEnv;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using SportHub.AI.Application.Interfaces;
 using SportHub.AI.Application.Services;
 using SportHub.AI.Infrastructure;
@@ -18,6 +19,7 @@ using SportHub.Administration;
 using SportHub.Audit.Infrastructure;
 using SportHub.BuildingBlocks.Abstractions.Audit;
 using SportHub.BuildingBlocks.Abstractions.Configuration;
+using SportHub.BuildingBlocks.Abstractions.Email;
 using SportHub.BuildingBlocks.Abstractions.Notifications;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.Abstractions.Training;
@@ -25,6 +27,7 @@ using SportHub.BuildingBlocks.Infrastructure.Authentication;
 using SportHub.BuildingBlocks.SharedKernel.Time;
 using SportHub.Identity.Application.Interfaces;
 using SportHub.Identity.Application.Services;
+using SportHub.Identity.Infrastructure.Email;
 using SportHub.Identity.Infrastructure.Repositories;
 using SportHub.Identity.Infrastructure.Security;
 using SportHub.Identity;
@@ -83,6 +86,18 @@ builder.Services.AddRateLimiter(options =>
                 QueueProcessingOrder = QueueProcessingOrder.OldestFirst
             }));
 
+    // BR-78 — chặt hơn auth-register (3/phút theo IP) vì mỗi request gửi 1 email thật ra ngoài.
+    options.AddPolicy("auth-register-otp", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 3,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst
+            }));
+
     // Login dùng policy riêng (10/phút theo IP) — quota và response 429 độc lập với register.
     options.AddPolicy<string, LoginRateLimitPolicy>(LoginRateLimitPolicy.PolicyName);
 });
@@ -104,6 +119,14 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IAccountService, AccountService>();
 builder.Services.AddScoped<IGoogleTokenVerifier, GoogleTokenVerifier>();
 builder.Services.AddScoped<IGoogleAuthService, GoogleAuthService>();
+builder.Services.AddScoped<IPasswordGenerator, PasswordGenerator>();
+
+// BR-78 — gửi OTP Register. Chưa cấu hình Smtp:Host (máy dev) thì chỉ ghi email ra log.
+builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection("Smtp"));
+builder.Services.AddScoped<IEmailSender>(sp =>
+    string.IsNullOrWhiteSpace(sp.GetRequiredService<IOptions<EmailOptions>>().Value.Host)
+        ? new LoggingEmailSender(sp.GetRequiredService<ILogger<LoggingEmailSender>>())
+        : new SmtpEmailSender(sp.GetRequiredService<IOptions<EmailOptions>>()));
 
 // Administration (BR-2, BR-6, BR-7, BR-39, BR-44..BR-48)
 builder.Services.AddScoped<IUserAdminService, UserAdminService>();
