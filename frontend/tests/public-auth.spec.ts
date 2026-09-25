@@ -8,7 +8,10 @@ test("public header and section links work without an account", async ({
     "href",
     "/login",
   );
-  await page.getByRole("link", { name: "Activities" }).click();
+  await page
+    .getByRole("navigation", { name: "Main navigation" })
+    .getByRole("link", { name: "Activities" })
+    .click();
   await expect(page).toHaveURL(/#hoat-dong$/);
   await expect
     .poll(() => page.evaluate(() => window.scrollY))
@@ -45,7 +48,10 @@ test("password visibility and login errors do not move the submit button", async
     await route.fulfill({
       status: 401,
       contentType: "application/json",
-      body: JSON.stringify({ message: "Invalid email or password." }),
+      body: JSON.stringify({
+        code: "invalid_credentials",
+        message: "The email or password is incorrect.",
+      }),
     });
   });
   await page.goto("/login");
@@ -61,7 +67,9 @@ test("password visibility and login errors do not move the submit button", async
   const before = await submit.boundingBox();
   await submit.click();
   await expect(
-    page.getByRole("status").filter({ hasText: "Invalid email or password." }),
+    page
+      .getByRole("alert")
+      .filter({ hasText: "The email or password is incorrect." }),
   ).toBeVisible();
   const after = await submit.boundingBox();
   expect(after?.y).toBe(before?.y);
@@ -88,7 +96,7 @@ test("authenticated public header shows the member name", async ({ page }) => {
 
 test("protected role page sends guests to login", async ({ page }) => {
   await page.goto("/admin");
-  await expect(page).toHaveURL(/\/login\?continue=%2Fadmin$/);
+  await expect(page).toHaveURL(/\/login\?next=%2Fadmin$/);
 });
 
 test.describe("reduced motion", () => {

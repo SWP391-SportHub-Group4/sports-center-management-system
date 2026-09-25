@@ -122,7 +122,16 @@ builder.Services.AddScoped<IGoogleAuthService, GoogleAuthService>();
 builder.Services.AddScoped<IPasswordGenerator, PasswordGenerator>();
 
 // BR-78 — gửi OTP Register. Chưa cấu hình Smtp:Host (máy dev) thì chỉ ghi email ra log.
-builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection("Smtp"));
+var smtpSection = builder.Configuration.GetSection("Smtp");
+if (string.IsNullOrWhiteSpace(smtpSection["Host"]))
+{
+    var emailSmtpSection = builder.Configuration.GetSection("Email:Smtp");
+    if (!string.IsNullOrWhiteSpace(emailSmtpSection["Host"]))
+    {
+        smtpSection = emailSmtpSection;
+    }
+}
+builder.Services.Configure<EmailOptions>(smtpSection);
 builder.Services.AddScoped<IEmailSender>(sp =>
     string.IsNullOrWhiteSpace(sp.GetRequiredService<IOptions<EmailOptions>>().Value.Host)
         ? new LoggingEmailSender(sp.GetRequiredService<ILogger<LoggingEmailSender>>())
