@@ -66,7 +66,7 @@ export default function AdminDashboardPage() {
           Manage accounts & roles
         </Link>
         <Link className="btn btn--ghost" href="/admin/audit-log">
-          Operations Register
+          View operations register
         </Link>
       </div>
 

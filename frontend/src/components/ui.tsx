@@ -265,11 +265,13 @@ export function Pager({
   pageSize,
   totalCount,
   onChange,
+  noun = "log",
 }: {
   page: number;
   pageSize: number;
   totalCount: number;
   onChange: (page: number) => void;
+  noun?: string;
 }) {
   const lastPage = Math.max(1, Math.ceil(totalCount / pageSize));
 
@@ -278,7 +280,7 @@ export function Pager({
   return (
     <div className="row spread" style={{ marginTop: 12 }}>
       <span className="small muted">
-        Trang {page}/{lastPage} · {totalCount} log
+        Trang {page}/{lastPage} · {totalCount} {noun}
       </span>
       <div className="btn-row">
         <button
