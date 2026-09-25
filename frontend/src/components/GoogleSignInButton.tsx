@@ -49,11 +49,13 @@ export function GoogleSignInButton({
   onCredential,
   onError,
   text = "continue_with",
+  locale = "en",
   disabled = false,
 }: {
   onCredential: (idToken: string) => void;
   onError?: (cause: unknown) => void;
   text?: "continue_with" | "signin_with" | "signup_with";
+  locale?: string;
   disabled?: boolean;
 }) {
   const host = useRef<HTMLDivElement>(null);
@@ -97,6 +99,7 @@ export function GoogleSignInButton({
         size: "large",
         width: host.current.clientWidth,
         text,
+        locale,
       });
       setGsiReady(true);
     };
@@ -106,7 +109,7 @@ export function GoogleSignInButton({
     };
 
     const existing = document.querySelector<HTMLScriptElement>(
-      'script[src="https://accounts.google.com/gsi/client"]',
+      'script[src^="https://accounts.google.com/gsi/client"]',
     );
     if (existing) {
       existing.addEventListener("load", render);
@@ -120,7 +123,7 @@ export function GoogleSignInButton({
 
     const loadScript = () => {
       script = document.createElement("script");
-      script.src = "https://accounts.google.com/gsi/client";
+      script.src = `https://accounts.google.com/gsi/client?hl=${locale}`;
       script.async = true;
       script.defer = true;
       script.onload = render;
@@ -142,7 +145,7 @@ export function GoogleSignInButton({
         script.onerror = null;
       }
     };
-  }, [clientId, text]);
+  }, [clientId, text, locale]);
 
   const buttonLabel = {
     continue_with: "Continue with Google",
