@@ -47,9 +47,9 @@ export function ProfileForm({
         >
           {(
             [
-              ["fullName", "First name", "name"],
-              ["phone", "Schedule", "tel"],
-              ["goal", "Training Goals", "off"],
+              ["fullName", "Full name", "name"],
+              ["phone", "Phone number", "tel"],
+              ["goal", "Training goal", "off"],
             ] as const
           ).map(([key, label, autoComplete]) => (
             <div className="field" key={key}>
@@ -83,13 +83,13 @@ export function ProfileForm({
                 })
               }
             >
-              <option value="Beginner">Name</option>
-              <option value="Intermediate">Middle level</option>
+              <option value="Beginner">Beginner</option>
+              <option value="Intermediate">Intermediate</option>
               <option value="Advanced">Advanced</option>
             </select>
           </label>
           <Button type="submit" disabled={busy}>
-            {busy ? "Saving..." : "Can not open message"}
+            {busy ? "Saving..." : "Save changes"}
           </Button>
         </form>
       </Card>
