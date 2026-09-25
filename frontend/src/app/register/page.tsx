@@ -207,9 +207,9 @@ export default function RegisterPage() {
             <p className="auth__eyebrow">Sport · Community · Progress</p>
             <p className="auth__statement">Start your athletic journey.</p>
             <p className="auth__visual-detail">
-              Join SportHub today to book premium courts, connect with top
-              coaches, and elevate your fitness routine with our vibrant
-              community.
+              Join SportHub today to access high-performance gym floors, connect
+              with top coaches, and elevate your fitness routine with our
+              vibrant community.
             </p>
           </div>
         </aside>
