@@ -9,10 +9,10 @@ import { Feedback, Field } from "@/components/ui";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 
 /**
- * Account demo of môi trường Development (view SportHub.API/Persistence/DemoDataSeeder.cs).
+ * Demo accounts for development environment (see SportHub.API/Persistence/DemoDataSeeder.cs).
  *
- * Nút bấm only ĐIỀN FORM; việc đăng nhập still đi qua POST /api/auth/login như user real,
- * with mật khẩu băm BCrypt in DB (BR-5). Unable to đường tắt nào bỏ qua xác thực.
+ * Clicking autofills the form; authentication still proceeds through POST /api/auth/login
+ * with BCrypt hashed passwords in DB (BR-5). No shortcuts bypass authentication.
  */
 const DEMO_ACCOUNTS = [
   { label: "System Administrator", email: "admin@sporthub.vn" },
@@ -245,10 +245,10 @@ function LoginForm() {
           {SHOW_DEMO_ACCOUNTS && (
             <div className="demo-accounts">
               <strong className="small">
-                Account demo (development environment)
+                Demo Accounts (Development Environment)
               </strong>
               <p className="small muted" style={{ margin: "2px 0 0" }}>
-                Select an account to fill in its email and the demo password{" "}
+                Select an account to autofill its email and password{" "}
                 <code>{DEMO_PASSWORD}</code>. Authentication still uses the real
                 API.
               </p>
