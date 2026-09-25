@@ -19,7 +19,7 @@ interface LanguageContextType {
   t: Translations;
 }
 
-const LANGUAGE_STORAGE_KEY = "sporthub_language";
+const LANGUAGE_STORAGE_KEY = "sporthub_lang";
 
 const dictionaries: Record<Language, Translations> = {
   en,
