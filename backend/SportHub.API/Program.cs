@@ -228,6 +228,7 @@ app.UseRouting();
 app.UseCors(CorsExtensions.PolicyName);
 app.UseRateLimiter();
 app.UseAuthentication();
+app.UseMiddleware<CurrentAccountGuardMiddleware>();
 app.UseAuthorization();
 app.MapControllers();
 
