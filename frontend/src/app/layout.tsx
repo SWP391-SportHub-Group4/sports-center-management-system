@@ -6,7 +6,9 @@ import "@fontsource/roboto/vietnamese-500.css";
 import "@fontsource/roboto/latin-700.css";
 import "@fontsource/roboto/vietnamese-700.css";
 import "./globals.css";
+import "./member.css";
 import { AuthProvider } from "@/lib/auth";
+import { LanguageProvider } from "@/lib/language";
 
 export const metadata: Metadata = {
   title: "SportHub | Sports Center Management",
@@ -27,8 +29,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        {/* AuthProvider bọc toàn bộ app: phiên đăng nhập và handler 401 dùng chung cho mọi trang. */}
-        <AuthProvider>{children}</AuthProvider>
+        {/* AuthProvider and LanguageProvider wrap the entire application */}
+        <LanguageProvider>
+          <AuthProvider>{children}</AuthProvider>
+        </LanguageProvider>
       </body>
     </html>
   );

@@ -1,0 +1,211 @@
+.section {
+  padding: clamp(90px, 11vw, 160px) clamp(22px, 6vw, 100px);
+  background: var(--surface-ink);
+  border-top: 1px solid var(--line-subtle);
+  border-bottom: 1px solid var(--line-subtle);
+}
+
+.headingWrap {
+  max-width: 1260px;
+  margin-inline: auto;
+  text-align: center;
+}
+
+.heading {
+  color: var(--brand-sky);
+  font-size: clamp(3.2rem, 6.5vw, 5.8rem);
+  font-weight: var(--weight-bold);
+  line-height: 0.95;
+  letter-spacing: -0.04em;
+  text-transform: uppercase;
+  text-wrap: balance;
+}
+
+.intro {
+  max-width: 64ch;
+  margin: 24px auto 0;
+  color: var(--text-secondary);
+  font-size: var(--type-lead);
+  line-height: 1.7;
+  text-wrap: pretty;
+}
+
+.pricingGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: clamp(24px, 3.5vw, 36px);
+  max-width: 1260px;
+  margin: clamp(60px, 8vw, 100px) auto 0;
+  align-items: stretch;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  background: oklch(18% 0.038 252deg);
+  border: 1px solid var(--line-soft);
+  border-radius: 4px;
+  padding: clamp(28px, 3.5vw, 40px);
+  position: relative;
+  transition: transform 220ms ease, border-color 220ms ease, box-shadow 220ms ease;
+}
+
+.card:hover {
+  border-color: var(--line-strong);
+  transform: translateY(-4px);
+}
+
+.cardPopular {
+  border: 2px solid var(--brand-sky);
+  background: oklch(20% 0.045 252deg);
+  box-shadow: 0 16px 40px oklch(0% 0 0 / 35%);
+}
+
+.popularBadge {
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--brand-sky);
+  color: var(--brand-navy);
+  padding: 4px 14px;
+  font-size: 0.75rem;
+  font-weight: var(--weight-bold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-radius: 2px;
+  white-space: nowrap;
+}
+
+.badgePill {
+  color: var(--brand-sky);
+  font-size: var(--type-caption);
+  font-weight: var(--weight-bold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.planName {
+  margin-top: 10px;
+  font-size: clamp(1.8rem, 2.5vw, 2.4rem);
+  font-weight: var(--weight-bold);
+  letter-spacing: -0.035em;
+  text-transform: uppercase;
+  color: var(--brand-ice);
+  text-wrap: balance;
+}
+
+.planPriceWrap {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-top: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--line-subtle);
+  flex-wrap: wrap;
+}
+
+.planPrice {
+  font-size: clamp(2.4rem, 3.5vw, 3.4rem);
+  font-weight: var(--weight-bold);
+  letter-spacing: -0.04em;
+  color: var(--text-primary);
+  line-height: 1;
+}
+
+.planCurrency {
+  font-size: 1.15rem;
+  font-weight: var(--weight-bold);
+  color: var(--brand-sky);
+}
+
+.planPeriod {
+  font-size: var(--type-caption);
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+}
+
+.planDesc {
+  margin-top: 18px;
+  color: var(--text-secondary);
+  font-size: var(--type-body);
+  line-height: 1.65;
+  min-height: 48px;
+}
+
+.featureList {
+  list-style: none;
+  padding: 0;
+  margin: 28px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.featureItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  font-size: var(--type-body);
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+
+.checkIcon {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  color: var(--brand-sky);
+  margin-top: 3px;
+}
+
+.planAction {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 52px;
+  width: 100%;
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--text-primary);
+  font-size: var(--type-label);
+  font-weight: var(--weight-bold);
+  letter-spacing: 0.04em;
+  text-decoration: none;
+  text-transform: uppercase;
+  transition: all 200ms ease;
+  border-radius: 2px;
+  margin-top: auto;
+}
+
+.planActionPopular {
+  background: var(--brand-sky);
+  border-color: var(--brand-sky);
+  color: var(--brand-navy);
+}
+
+.planAction:hover,
+.planActionPopular:hover {
+  background: var(--brand-ice);
+  border-color: var(--brand-ice);
+  color: var(--brand-navy);
+}
+
+.guarantee {
+  max-width: 800px;
+  margin: 40px auto 0;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: var(--type-caption);
+  line-height: 1.6;
+}
+
+@media (max-width: 960px) {
+  .pricingGrid {
+    grid-template-columns: 1fr;
+    max-width: 480px;
+    gap: 36px;
+  }
+}

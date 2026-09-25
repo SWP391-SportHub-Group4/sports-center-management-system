@@ -30,3 +30,8 @@ ai/**/.venv/
 .codex/
 .fk-skills/
 .gemini/
+.impeccable/
+.github/agents/
+.github/hooks/
+.github/skills/
+
