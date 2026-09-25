@@ -7,6 +7,79 @@ import { formatDateTime } from "@/lib/format";
 import { useApi } from "@/lib/useApi";
 import type { AuditLogDto, Paged } from "@/lib/types";
 
+function formatIp(ip?: string | null) {
+  if (!ip) return "—";
+  return ip.replace(/^::ffff:/i, "");
+}
+
+function renderChangeText(oldStr?: string | null, newStr?: string | null) {
+  if (!oldStr && !newStr) return null;
+
+  try {
+    const oldObj = oldStr ? JSON.parse(oldStr) : {};
+    const newRaw = newStr ? JSON.parse(newStr) : {};
+    
+    const isWrapped = newRaw && typeof newRaw === "object" && "value" in newRaw;
+    const newObj = isWrapped && typeof newRaw.value === "object" && newRaw.value !== null
+      ? newRaw.value 
+      : newRaw;
+    const reason = isWrapped ? newRaw.reason : undefined;
+
+    if (typeof oldObj !== "object" || oldObj === null || typeof newObj !== "object" || newObj === null) {
+      throw new Error("Values are not objects");
+    }
+
+    const allKeys = Array.from(new Set([...Object.keys(oldObj), ...Object.keys(newObj)]));
+    const changes = [];
+
+    for (const key of allKeys) {
+      const oldVal = oldObj[key];
+      const newVal = newObj[key];
+      
+      if (JSON.stringify(oldVal) !== JSON.stringify(newVal)) {
+        changes.push(
+          <div key={key}>
+            <span style={{ textTransform: "capitalize" }}>{key}</span>:{" "}
+            {oldVal !== undefined ? (
+              <span className="muted" style={{ textDecoration: "line-through" }}>
+                {typeof oldVal === "object" ? JSON.stringify(oldVal) : String(oldVal)}
+              </span>
+            ) : null}
+            {oldVal !== undefined && newVal !== undefined ? " ➔ " : ""}
+            {newVal !== undefined ? (
+              <strong>
+                {typeof newVal === "object" ? JSON.stringify(newVal) : String(newVal)}
+              </strong>
+            ) : null}
+          </div>
+        );
+      }
+    }
+
+    if (changes.length === 0 && !reason) {
+      return <span className="muted">No changes</span>;
+    }
+
+    return (
+      <div>
+        {changes}
+        {reason && (
+          <div className="muted" style={{ marginTop: 4 }}>
+            <em>Lý do: {reason}</em>
+          </div>
+        )}
+      </div>
+    );
+  } catch (e) {
+    return (
+      <>
+        {oldStr && <div className="muted">Old: <code>{oldStr}</code></div>}
+        {newStr && <div>New: <code>{newStr}</code></div>}
+      </>
+    );
+  }
+}
+
 /**
  * Nhật ký thao tác (BR-7). Chỉ đọc — không có endpoint nào sửa hoặc xóa audit log, nếu không
  * nhật ký mất giá trị làm bằng chứng.
@@ -101,18 +174,9 @@ export function AuditLogView() {
                       className="small"
                       style={{ maxWidth: 380, wordBreak: "break-word" }}
                     >
-                      {log.oldValue && (
-                        <div className="muted">
-                          Before: <code>{log.oldValue}</code>
-                        </div>
-                      )}
-                      {log.newValue && (
-                        <div>
-                          Sau: <code>{log.newValue}</code>
-                        </div>
-                      )}
+                      {renderChangeText(log.oldValue, log.newValue)}
                     </td>
-                    <td className="small muted">{log.ipAddress || "—"}</td>
+                    <td className="small muted">{formatIp(log.ipAddress)}</td>
                   </tr>
                 ))}
               </Table>
