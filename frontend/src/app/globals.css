@@ -96,7 +96,7 @@ h3 {
   min-height: 100vh;
 }
 
-.sidebar {
+.shell .sidebar {
   background: var(--brand-900);
   color: #dbe7f2;
   display: flex;
@@ -875,7 +875,7 @@ textarea {
     grid-template-columns: 1fr;
   }
 
-  .sidebar {
+  .shell .sidebar {
     position: static;
     height: auto;
   }

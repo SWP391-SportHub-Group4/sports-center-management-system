@@ -24,7 +24,7 @@ export default function ForgotPasswordPage() {
       await work();
     } catch (e) {
       setError(
-        e instanceof ApiError ? e.message : "Unable to refund all request.",
+        e instanceof ApiError ? e.message : "Unable to process your request. Please try again.",
       );
     } finally {
       setBusy(false);
@@ -34,7 +34,7 @@ export default function ForgotPasswordPage() {
     <div className="auth">
       <div className="auth__card">
         <div className="auth__brand">Forgot password</div>
-        <p className="auth__sub">Gmail authentication to set new password.</p>
+        <p className="auth__sub">Enter your Gmail address to reset your password.</p>
         {step === "email" && (
           <form
             className="form"
@@ -54,6 +54,7 @@ export default function ForgotPasswordPage() {
               <input
                 type="email"
                 pattern=".+@gmail\.com$"
+                placeholder="your.email@gmail.com"
                 required
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
@@ -61,7 +62,7 @@ export default function ForgotPasswordPage() {
             </Field>
             <Feedback error={error} />
             <button className="btn" disabled={busy}>
-              Send OTP code
+              {busy ? "Sending code…" : "Send verification code"}
             </button>
           </form>
         )}
@@ -85,12 +86,13 @@ export default function ForgotPasswordPage() {
               });
             }}
           >
-            <Field label="Code OTP">
+            <Field label="Verification code" hint="Enter the 6-digit code sent to your email.">
               <input
                 inputMode="numeric"
                 autoComplete="one-time-code"
                 pattern="\d{6}"
                 maxLength={6}
+                placeholder="••••••"
                 required
                 value={form.otp}
                 onChange={(e) =>
@@ -100,7 +102,7 @@ export default function ForgotPasswordPage() {
             </Field>
             <Feedback error={error} />
             <button className="btn" disabled={busy}>
-              OTP authentication
+              {busy ? "Verifying…" : "Verify code"}
             </button>
           </form>
         )}
@@ -110,7 +112,7 @@ export default function ForgotPasswordPage() {
             onSubmit={(e) => {
               e.preventDefault();
               if (form.password !== form.confirm) {
-                setError("Password confirmed no match.");
+                setError("Passwords do not match.");
                 return;
               }
               void run(async () => {
@@ -127,11 +129,12 @@ export default function ForgotPasswordPage() {
               });
             }}
           >
-            <Field label="New password">
+            <Field label="New password" hint="Use at least 8 characters.">
               <input
                 type="password"
                 autoComplete="new-password"
                 minLength={8}
+                placeholder="Enter new password"
                 required
                 value={form.password}
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
@@ -142,6 +145,7 @@ export default function ForgotPasswordPage() {
                 type="password"
                 autoComplete="new-password"
                 minLength={8}
+                placeholder="Confirm new password"
                 required
                 value={form.confirm}
                 onChange={(e) => setForm({ ...form, confirm: e.target.value })}
@@ -149,21 +153,21 @@ export default function ForgotPasswordPage() {
             </Field>
             <Feedback error={error} />
             <button className="btn" disabled={busy}>
-              Set a new password
+              {busy ? "Saving…" : "Save new password"}
             </button>
           </form>
         )}
         {step === "done" && (
           <div className="stack">
-            <div className="alert alert--success">Password update.</div>
+            <div className="alert alert--success">Your password has been successfully updated.</div>
             <Link className="btn" href="/login">
-              Sign in
+              Sign in now
             </Link>
           </div>
         )}
         {step !== "done" && (
           <p className="small muted" style={{ marginTop: 12 }}>
-            <Link href="/login">‹ Return to Logon</Link>
+            <Link href="/login">← Back to sign in</Link>
           </p>
         )}
       </div>
