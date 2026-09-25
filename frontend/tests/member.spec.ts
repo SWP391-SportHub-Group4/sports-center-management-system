@@ -12,62 +12,62 @@ test("booking persists, cancellation refunds the original package and focus retu
 }) => {
   await page.goto("/member/calendar");
   await page
-    .getByRole("button", { name: "Đặt lịch Thể lực cơ bản", exact: true })
+    .getByRole("button", { name: "Schedule Basic Fitness", exact: true })
     .click();
-  await page
-    .getByRole("button", { name: "Xác nhận đặt lịch", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Schedule", exact: true }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(
     page.getByRole("button", {
-      name: "Xem đăng ký Thể lực cơ bản",
+      name: "View Register Basic Fitness",
       exact: true,
     }),
   ).toBeVisible();
   await page.reload();
-  await page.getByRole("button", { name: "Đã giữ chỗ", exact: true }).click();
   await page
-    .getByRole("button", { name: "Xem đăng ký Thể lực cơ bản", exact: true })
+    .getByRole("button", { name: "Hold the seat.", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "View Register Basic Fitness", exact: true })
     .click();
   await page.keyboard.press("Escape");
   await expect(
     page.getByRole("button", {
-      name: "Xem đăng ký Thể lực cơ bản",
+      name: "View Register Basic Fitness",
       exact: true,
     }),
   ).toBeFocused();
   await page
-    .getByRole("button", { name: "Xem đăng ký Thể lực cơ bản", exact: true })
+    .getByRole("button", { name: "View Register Basic Fitness", exact: true })
     .click();
-  await page.getByRole("button", { name: "Xác nhận hủy", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Confirm Abortion", exact: true })
+    .click();
   await expect(
     page.getByRole("button", {
-      name: "Xem đăng ký Thể lực cơ bản",
+      name: "View Register Basic Fitness",
       exact: true,
     }),
   ).toHaveCount(0);
   await page.goto("/member/profile");
-  await expect(
-    page.getByText("Còn 11 lượt tập", { exact: true }),
-  ).toBeVisible();
+  await expect(page.getByText(/11 sessions remaining|11/)).toBeVisible();
 });
 
 test("profile validation focuses the invalid field and edits persist", async ({
   page,
 }) => {
   await page.goto("/member/profile/edit");
-  await page.getByLabel("Số điện thoại", { exact: true }).fill("123");
-  await page.getByRole("button", { name: "Lưu thay đổi" }).click();
-  await expect(page.getByLabel("Số điện thoại", { exact: true })).toBeFocused();
+  await page.getByLabel("Phone number", { exact: true }).fill("123");
+  await page.getByRole("button", { name: "Save changes" }).click();
+  await expect(page.getByLabel("Phone number", { exact: true })).toBeFocused();
   await expect(
-    page.getByLabel("Số điện thoại", { exact: true }),
+    page.getByLabel("Phone number", { exact: true }),
   ).toHaveAttribute("aria-invalid", "true");
-  await page.getByLabel("Số điện thoại", { exact: true }).fill("0912345678");
-  await page.getByLabel("Họ và tên", { exact: true }).fill("Nguyễn Minh Triết");
-  await page.getByRole("button", { name: "Lưu thay đổi" }).click();
-  await expect(page.getByRole("status")).toContainText("Đã lưu hồ sơ");
+  await page.getByLabel("Phone number", { exact: true }).fill("0912345678");
+  await page.getByLabel("Full name", { exact: true }).fill("Nguyễn Minh Triết");
+  await page.getByRole("button", { name: "Save changes" }).click();
+  await expect(page.getByRole("status")).toContainText("Profile saved.");
   await page.reload();
-  await expect(page.getByLabel("Họ và tên", { exact: true })).toHaveValue(
+  await expect(page.getByLabel("Full name", { exact: true })).toHaveValue(
     "Nguyễn Minh Triết",
   );
 });
@@ -82,9 +82,9 @@ test("QR renews after sixty seconds and slider is manually operable", async ({
   await page.clock.fastForward(61000);
   await expect(qr).toBeVisible();
   await expect(qr).not.toHaveAttribute("src", first!);
-  await page.getByRole("button", { name: "Tin tiếp theo" }).click();
+  await page.getByRole("button", { name: "Next news." }).click();
   await expect(
-    page.getByRole("heading", { name: "Tìm người đồng hành tập luyện" }),
+    page.getByRole("heading", { name: "Find a fellow trainee" }),
   ).toBeVisible();
 });
 
@@ -93,12 +93,12 @@ test("package request stays pending and does not unlock training", async ({
 }) => {
   await page.goto("/member/packages");
   await page.getByRole("radio", { name: /Diamond/ }).check();
-  await page.getByRole("button", { name: "Đăng ký gói", exact: true }).click();
+  await page.getByRole("button", { name: "Registers", exact: true }).click();
   await page
-    .getByRole("button", { name: "Xác nhận đăng ký gói", exact: true })
+    .getByRole("button", { name: "Confirm package registration", exact: true })
     .click();
   await expect(
-    page.getByText("Chờ thanh toán tại quầy", { exact: true }),
+    page.getByText("Waiting for payment at the counter", { exact: true }),
   ).toBeVisible();
   await page.goto("/member/profile");
   await expect(
@@ -108,9 +108,9 @@ test("package request stays pending and does not unlock training", async ({
 
 test("notifications read state survives reload", async ({ page }) => {
   await page.goto("/member/notifications");
-  await page.getByRole("button", { name: "Đánh dấu đã đọc" }).first().click();
+  await page.getByRole("button", { name: "Mark as read" }).first().click();
   await page.reload();
-  await expect(page.getByText("Đã đọc", { exact: true })).toHaveCount(1);
+  await expect(page.getByText("Read", { exact: true })).toHaveCount(1);
 });
 
 for (const width of [320, 768, 1280])

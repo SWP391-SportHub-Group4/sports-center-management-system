@@ -170,13 +170,13 @@ export function MemberPage({ page }: { page: MemberPageName }) {
         onBook={(sessionId, memberPackageId) =>
           execute(
             { type: "book", sessionId, memberPackageId },
-            "Keeping the place successful.",
+            "Booking successful.",
           )
         }
         onCancel={(sessionId) =>
           execute(
             { type: "cancel", sessionId },
-            "Cancelled. Session updated on cancel.",
+            "Cancelled. Session refunded to your package.",
           )
         }
       />
@@ -187,7 +187,9 @@ export function MemberPage({ page }: { page: MemberPageName }) {
       <ProfileForm
         profile={data.profile}
         busy={busy}
-        onSave={(input) => execute({ type: "profile", input }, "Profiled.")}
+        onSave={(input) =>
+          execute({ type: "profile", input }, "Profile saved.")
+        }
       />
     );
   if (page === "packages")
@@ -199,7 +201,7 @@ export function MemberPage({ page }: { page: MemberPageName }) {
         onPurchase={(packageId) =>
           execute(
             { type: "purchase", packageId },
-            "The package is pending payment at the counter.",
+            "Package request submitted. Pending counter payment.",
           )
         }
       />
@@ -210,10 +212,7 @@ export function MemberPage({ page }: { page: MemberPageName }) {
         items={data.notifications}
         busy={busy}
         onRead={(notificationId) => {
-          void execute(
-            { type: "read", notificationId },
-            "It was read by the notice.",
-          );
+          void execute({ type: "read", notificationId }, "Marked as read.");
         }}
       />
     );

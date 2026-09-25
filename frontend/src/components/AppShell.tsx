@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
 import { HOME_BY_ROLE, ROLE_LABEL, useAuth, type Role } from "@/lib/auth";
+import { useLanguage } from "@/lib/language";
 import { NotificationBell } from "./NotificationBell";
 
 export interface NavItem {
@@ -77,6 +78,7 @@ export function AppShell({
   children: ReactNode;
 }) {
   const { user, loading, logout } = useAuth();
+  const { language, toggleLanguage } = useLanguage();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -155,6 +157,15 @@ export function AppShell({
             )}
           </div>
           <div className="header__actions">
+            <button
+              type="button"
+              className="btn btn--secondary btn--sm"
+              onClick={toggleLanguage}
+              title={language === "en" ? "Chuyển sang Tiếng Việt" : "Switch to English"}
+              style={{ fontWeight: 700 }}
+            >
+              {language === "en" ? "🇺🇸 EN" : "🇻🇳 VI"}
+            </button>
             <NotificationBell />
             <div className="header__user">
               <strong>{user.fullName || user.email}</strong>
