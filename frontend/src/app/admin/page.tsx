@@ -12,7 +12,7 @@ import type { Paged, UserAdminDto } from "@/lib/types";
  *
  * Phạm vi quyền của vai trò này ngoài BR-2 (tạo tài khoản nhân sự, gán vai trò) và BR-6
  * (khóa/mở khóa) CHƯA được Business Rules chốt — SSOT §7 để ngỏ, và ma trận RBAC hiện hành
- * để ❌ cho báo cáo doanh thu và cấu hình hệ thống. Vì vậy trang này cố tình không có số liệu
+ * để không có quyền cho báo cáo doanh thu và cấu hình hệ thống. Vì vậy trang này cố tình không có số liệu
  * doanh thu hay nghiệp vụ nào khác.
  */
 export default function AdminDashboardPage() {

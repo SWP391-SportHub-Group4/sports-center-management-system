@@ -29,16 +29,17 @@
 .filterTab {
   background: #f7f9fb;
   border: 1px solid #e6e6e6;
-  border-radius: 20px;
-  padding: 7px 16px;
-  font-size: 13px;
+  border-radius: 22px;
+  padding: 10px 18px;
+  font-size: 13.5px;
   font-weight: 600;
   color: #4c607c;
   cursor: pointer;
   transition: all 0.15s ease;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+  min-height: 44px;
 }
 
 .filterTab:hover {
@@ -54,9 +55,10 @@
 
 .filterBadge {
   font-size: 11px;
-  padding: 2px 6px;
+  padding: 2px 7px;
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.25);
+  font-variant-numeric: tabular-nums;
 }
 
 .filterTab:not(.filterTabActive) .filterBadge {
@@ -71,11 +73,12 @@
   background: #c0e4f3;
   color: var(--navy, #1a2b4c);
   font-weight: 700;
-  font-size: 13px;
-  padding: 8px 16px;
+  font-size: 13.5px;
+  padding: 10px 20px;
   border-radius: 8px;
   text-decoration: none;
   transition: all 0.15s ease;
+  min-height: 44px;
 }
 
 .bookMoreBtn:hover {
@@ -85,12 +88,12 @@
 
 /* Policy Hint Bar */
 .policyHint {
-  background: #f0f7fb;
-  border-left: 3px solid #6ec1e4;
-  border-radius: 0 8px 8px 0;
-  padding: 10px 16px;
+  background: var(--surface-alt, #f5f7fa);
+  border: 1px solid var(--line, #dfe5ec);
+  border-radius: var(--radius-sm, 8px);
+  padding: 12px 16px;
   font-size: 13px;
-  color: #4c607c;
+  color: var(--ink-700, #33414f);
   line-height: 1.5;
 }
 
@@ -103,6 +106,8 @@
 
 /* Individual Workout Card */
 .workoutCard {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 140px;
   background: #ffffff;
   border: 1px solid #e6e6e6;
   border-radius: 12px;
@@ -164,6 +169,7 @@
   font-size: 22px;
   font-weight: 800;
   line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
 
 .dateBoxMonth {
@@ -416,12 +422,15 @@
 .modalClose {
   background: #f0f4f8;
   border: none;
-  width: 32px;
-  height: 32px;
+  min-width: 44px;
+  min-height: 44px;
   border-radius: 50%;
   font-size: 16px;
   color: #4c607c;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .modalSessionSummary {
@@ -448,22 +457,22 @@
 
 .modalRefundNotice {
   font-size: 12.5px;
-  color: #2b8a3e;
+  color: var(--ok-700, #14653a);
   line-height: 1.5;
-  background: #ebfbee;
-  border-left: 3px solid #51cf66;
-  padding: 10px 12px;
-  border-radius: 0 8px 8px 0;
+  background: var(--ok-100, #dcfce7);
+  border: 1px solid var(--ok-300, #86efac);
+  padding: 12px 14px;
+  border-radius: var(--radius-sm, 8px);
 }
 
 .modalNoRefundNotice {
   font-size: 12.5px;
-  color: #a04000;
+  color: var(--warning-700, #92400e);
   line-height: 1.5;
-  background: #fdf2e9;
-  border-left: 3px solid #f59f00;
-  padding: 10px 12px;
-  border-radius: 0 8px 8px 0;
+  background: var(--warning-100, #fef3c7);
+  border: 1px solid var(--warning-300, #fcd34d);
+  padding: 12px 14px;
+  border-radius: var(--radius-sm, 8px);
 }
 
 .modalActions {
@@ -498,4 +507,45 @@
 
 .modalDangerBtn:hover:not(:disabled) {
   background: #a61e1e;
+}
+
+@media (max-width: 480px) {
+  .cardRight {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .calendarBtn,
+  .cancelActionBtn {
+    width: 100%;
+    min-height: 44px;
+    justify-content: center;
+  }
+
+  .modalActions {
+    flex-direction: column;
+  }
+
+  .modalCancelBtn,
+  .modalDangerBtn {
+    width: 100%;
+    min-height: 44px;
+    justify-content: center;
+  }
+
+  .modalCard {
+    padding: 20px 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .registrationCard,
+  .filterTab,
+  .modalCard,
+  .bookMoreBtn {
+    transition: none !important;
+    transform: none !important;
+    animation: none !important;
+  }
 }

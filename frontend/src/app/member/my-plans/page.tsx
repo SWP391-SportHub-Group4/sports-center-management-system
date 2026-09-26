@@ -7,6 +7,13 @@ import { formatDate, formatMoney } from "@/lib/format";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import type { MemberPackageDto, MembershipPackageDto } from "@/lib/types";
+import {
+  IconCheck,
+  IconLightning,
+  IconTip,
+  IconClock,
+  StickerPlansEmpty,
+} from "@/components/icons";
 import styles from "./my-plans.module.css";
 
 /**
@@ -33,7 +40,8 @@ export default function MyPackagesPage() {
     if (item.status === "Active" && item.isUsable) {
       return (
         <span className={`${styles.statusBadge} ${styles.statusActive}`}>
-          {language === "en" ? "✓ In Use" : "✓ Đang sử dụng"}
+          <IconCheck size={12} style={{ marginRight: 3 }} />
+          {language === "en" ? "In Use" : "Đang sử dụng"}
         </span>
       );
     }
@@ -69,14 +77,16 @@ export default function MyPackagesPage() {
             </h2>
             <p className={styles.sectionDesc}>
               {language === "en"
-                ? "Valid and previously used membership passes at SportHub (BR-9, BR-11)."
-                : "Các gói hội viên còn hiệu lực hoặc đã từng sử dụng tại hệ thống SportHub (BR-9, BR-11)."}
+                ? "Valid and previously used membership passes at SportHub."
+                : "Các gói hội viên còn hiệu lực hoặc đã từng sử dụng tại hệ thống SportHub."}
             </p>
           </div>
 
           {myPackages.loading ? (
             <div className={styles.emptyCard}>
-              <div className={styles.emptyIcon}>⏳</div>
+              <div className={styles.emptyIcon} aria-hidden="true">
+                <IconClock size={36} />
+              </div>
               <h3 className={styles.emptyTitle}>
                 {language === "en" ? "Loading membership passes..." : "Đang tải danh sách gói tập..."}
               </h3>
@@ -86,7 +96,7 @@ export default function MyPackagesPage() {
             </div>
           ) : !myPackages.data || myPackages.data.length === 0 ? (
             <div className={styles.emptyCard}>
-              <div className={styles.emptyIcon}>💳</div>
+              <StickerPlansEmpty size={80} style={{ marginBottom: 12 }} />
               <h3 className={styles.emptyTitle}>
                 {language === "en" ? "You do not own any membership passes yet" : "Bạn chưa sở hữu gói hội viên nào"}
               </h3>
@@ -113,7 +123,9 @@ export default function MyPackagesPage() {
                       <div className={styles.passCardHeader}>
                         <div>
                           <div className={styles.passBrandRow}>
-                            <span className={styles.passIcon}>⚡</span>
+                            <span className={styles.passIcon}>
+                              <IconLightning size={14} />
+                            </span>
                             <span className={styles.passBrand}>SportHub Membership Pass</span>
                           </div>
                           <h3 className={styles.packageName}>{item.packageName}</h3>
@@ -150,7 +162,7 @@ export default function MyPackagesPage() {
                           <div className={styles.progressBarBg}>
                             <div
                               className={styles.progressBarFill}
-                              style={{ width: `${percent}%` }}
+                              style={{ transform: `scaleX(${percent / 100})` }}
                             />
                           </div>
                         )}
@@ -177,7 +189,7 @@ export default function MyPackagesPage() {
                     </div>
 
                     <div className={styles.passFooter}>
-                      <Link href="/member-dashboard/class-schedule" className={styles.bookBtn}>
+                      <Link href="/member/class-schedule" className={styles.bookBtn}>
                         {language === "en" ? "Use pass to book class →" : "Dùng gói đặt lịch lớp ngay →"}
                       </Link>
                     </div>
@@ -196,33 +208,35 @@ export default function MyPackagesPage() {
             </h2>
             <p className={styles.sectionDesc}>
               {language === "en"
-                ? "Explore Gym, Yoga, GroupX, and Personal Training packages (BR-8)."
-                : "Khám phá các gói tập Gym, Yoga, GroupX và Huấn luyện viên cá nhân (BR-8)."}
+                ? "Explore Gym, Yoga, GroupX, and Personal Training packages."
+                : "Khám phá các gói tập Gym, Yoga, GroupX và Huấn luyện viên cá nhân."}
             </p>
           </div>
 
           <div className={styles.catalogNotice}>
-            {language === "en" ? (
-              <>
-                💡 <strong>Enrollment & Renewal Guide (BR-30):</strong> By facility safety policy, package invoices are issued directly at the reception desk before payment. Please visit reception or call our hotline for assistance.
-              </>
-            ) : (
-              <>
-                💡 <strong>Hướng dẫn đăng ký & gia hạn (BR-30):</strong> Theo quy trình an toàn của trung tâm, hóa đơn gói tập được phát hành trực tiếp tại quầy Lễ tân trước khi thanh toán. Hội viên vui lòng ghé quầy Lễ tân hoặc liên hệ hotline để được phục vụ nhanh chóng.
-              </>
-            )}
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+              <IconTip size={18} style={{ color: "var(--navy, #1a2b4c)", marginTop: 2, flexShrink: 0 }} />
+              <div>
+                <strong>{language === "en" ? "Enrollment & Renewal Guide: " : "Hướng dẫn đăng ký & gia hạn: "}</strong>
+                {language === "en"
+                  ? "By facility safety policy, package invoices are issued directly at the reception desk before payment. Please visit reception or call our hotline for assistance."
+                  : "Theo quy trình an toàn của trung tâm, hóa đơn gói tập được phát hành trực tiếp tại quầy Lễ tân trước khi thanh toán. Hội viên vui lòng ghé quầy Lễ tân hoặc liên hệ hotline để được phục vụ nhanh chóng."}
+              </div>
+            </div>
           </div>
 
           {catalog.loading ? (
             <div className={styles.emptyCard}>
-              <div className={styles.emptyIcon}>⏳</div>
+              <div className={styles.emptyIcon} aria-hidden="true">
+                <IconClock size={36} />
+              </div>
               <h3 className={styles.emptyTitle}>
                 {language === "en" ? "Loading package catalog..." : "Đang tải bảng danh mục gói..."}
               </h3>
             </div>
           ) : !catalog.data || catalog.data.length === 0 ? (
             <div className={styles.emptyCard}>
-              <div className={styles.emptyIcon}>📦</div>
+              <StickerPlansEmpty size={80} style={{ marginBottom: 12 }} />
               <h3 className={styles.emptyTitle}>
                 {language === "en" ? "No packages currently available for sale" : "Chưa có gói tập nào đang mở bán"}
               </h3>
@@ -243,7 +257,7 @@ export default function MyPackagesPage() {
 
                     <div className={styles.catalogFeatures}>
                       <div className={styles.featureItem}>
-                        <span className={styles.featureIcon}>✓</span>
+                        <IconCheck size={14} className={styles.featureIcon} />
                         <span>
                           {language === "en" ? "Validity period: " : "Thời hạn sử dụng: "}
                           <strong>
@@ -252,7 +266,7 @@ export default function MyPackagesPage() {
                         </span>
                       </div>
                       <div className={styles.featureItem}>
-                        <span className={styles.featureIcon}>✓</span>
+                        <IconCheck size={14} className={styles.featureIcon} />
                         <span>
                           {language === "en" ? "Session allowance: " : "Số buổi tập: "}
                           <strong>
@@ -263,7 +277,7 @@ export default function MyPackagesPage() {
                         </span>
                       </div>
                       <div className={styles.featureItem}>
-                        <span className={styles.featureIcon}>✓</span>
+                        <IconCheck size={14} className={styles.featureIcon} />
                         <span>
                           {language === "en"
                             ? "Complimentary smart lockers & premium shower amenities"

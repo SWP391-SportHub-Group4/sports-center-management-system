@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { MemberShell } from "@/components/MemberShell";
 import { Feedback } from "@/components/ui";
@@ -9,6 +9,17 @@ import { formatDateTime, formatTime } from "@/lib/format";
 import { useAction, useApi, useNow } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import type { EnrollmentDto } from "@/lib/types";
+import {
+  IconCheck,
+  IconTip,
+  IconUser,
+  IconLocation,
+  IconAlert,
+  IconCalendar,
+  IconClock,
+  IconClose,
+  StickerRegistrationsEmpty,
+} from "@/components/icons";
 import styles from "./my-registrations.module.css";
 
 type FilterTab = "all" | "upcoming" | "attended" | "cancelled";
@@ -17,6 +28,17 @@ export default function MyEnrollmentsPage() {
   const { language } = useLanguage();
   const [activeTab, setActiveTab] = useState<FilterTab>("all");
   const [cancellingItem, setCancellingItem] = useState<EnrollmentDto | null>(null);
+
+  // Keyboard Escape listener for cancel modal
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && cancellingItem) {
+        setCancellingItem(null);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [cancellingItem]);
 
   const action = useAction();
   const now = useNow();
@@ -75,10 +97,10 @@ export default function MyEnrollmentsPage() {
     const successMsg =
       language === "en"
         ? isEligible
-          ? "Cancellation successful! Your session has been refunded back to your package (BR-18)."
+          ? "Cancellation successful! Your session credit has been returned to your active package."
           : "Class cancelled (Past cancellation deadline, no session refund according to policy)."
         : isEligible
-          ? "Hủy chỗ thành công! Buổi tập đã được hoàn lại vào gói của bạn (BR-18)."
+          ? "Hủy chỗ thành công! Lượt tập đã được hoàn trả về gói của bạn."
           : "Đã hủy lớp (Quá hạn hủy nên không được hoàn lượt tập theo quy định).";
 
     const done = await action.run(
@@ -132,7 +154,8 @@ export default function MyEnrollmentsPage() {
     if (item.attendanceStatus === "Attended") {
       return (
         <span className={`${styles.statusPill} ${styles.statusAttended}`}>
-          {language === "en" ? "✓ Attended" : "✓ Đã tham gia"}
+          <IconCheck size={12} style={{ marginRight: 3 }} />
+          {language === "en" ? "Attended" : "Đã tham gia"}
         </span>
       );
     }
@@ -145,7 +168,8 @@ export default function MyEnrollmentsPage() {
     }
     return (
       <span className={`${styles.statusPill} ${styles.statusConfirmed}`}>
-        {language === "en" ? "✓ Confirmed" : "✓ Đã xác nhận"}
+        <IconCheck size={12} style={{ marginRight: 3 }} />
+        {language === "en" ? "Confirmed" : "Đã xác nhận"}
       </span>
     );
   };
@@ -162,9 +186,11 @@ export default function MyEnrollmentsPage() {
       <div className={styles.container}>
         {/* Action & Filter Banner */}
         <div className={styles.actionBanner}>
-          <div className={styles.filterTabs}>
+          <div className={styles.filterTabs} role="tablist" aria-label={language === "en" ? "Registration status filters" : "Bộ lọc trạng thái đăng ký"}>
             <button
               type="button"
+              role="tab"
+              aria-selected={activeTab === "all"}
               className={`${styles.filterTab} ${activeTab === "all" ? styles.filterTabActive : ""}`}
               onClick={() => setActiveTab("all")}
             >
@@ -173,6 +199,8 @@ export default function MyEnrollmentsPage() {
             </button>
             <button
               type="button"
+              role="tab"
+              aria-selected={activeTab === "upcoming"}
               className={`${styles.filterTab} ${activeTab === "upcoming" ? styles.filterTabActive : ""}`}
               onClick={() => setActiveTab("upcoming")}
             >
@@ -181,6 +209,8 @@ export default function MyEnrollmentsPage() {
             </button>
             <button
               type="button"
+              role="tab"
+              aria-selected={activeTab === "attended"}
               className={`${styles.filterTab} ${activeTab === "attended" ? styles.filterTabActive : ""}`}
               onClick={() => setActiveTab("attended")}
             >
@@ -189,6 +219,8 @@ export default function MyEnrollmentsPage() {
             </button>
             <button
               type="button"
+              role="tab"
+              aria-selected={activeTab === "cancelled"}
               className={`${styles.filterTab} ${activeTab === "cancelled" ? styles.filterTabActive : ""}`}
               onClick={() => setActiveTab("cancelled")}
             >
@@ -197,24 +229,22 @@ export default function MyEnrollmentsPage() {
             </button>
           </div>
 
-          <Link href="/member-dashboard/class-schedule" className={styles.bookMoreBtn}>
+          <Link href="/member/class-schedule" className={styles.bookMoreBtn}>
             <span>{language === "en" ? "+ Book More Classes" : "+ Đặt thêm lớp mới"}</span>
           </Link>
         </div>
 
         {/* Policy Hint Banner */}
         <div className={styles.policyHint}>
-          {language === "en" ? (
-            <>
-              💡 <strong>Cancellation & Refund Policy (BR-18, BR-50):</strong> Each session has an assigned cutoff deadline upon booking.
-              Cancelling prior to this deadline automatically credits the session back to your membership package.
-            </>
-          ) : (
-            <>
-              💡 <strong>Quy định hủy hoàn buổi tập (BR-18, BR-50):</strong> Hạn hủy của từng buổi tập được ấn định ngay lúc bạn đăng ký. 
-              Nếu bạn hủy trước thời hạn này, buổi tập sẽ được tự động hoàn lại vào gói tập của bạn.
-            </>
-          )}
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+            <IconTip size={18} style={{ color: "var(--navy, #1a2b4c)", marginTop: 2, flexShrink: 0 }} />
+            <div>
+              <strong>{language === "en" ? "Cancellation & Refund Policy: " : "Quy định hủy hoàn buổi tập: "}</strong>
+              {language === "en"
+                ? "Each session has an assigned cutoff deadline upon booking. Cancelling prior to this deadline automatically credits the session back to your membership package."
+                : "Hạn hủy của từng buổi tập được ấn định ngay lúc bạn đăng ký. Nếu bạn hủy trước thời hạn này, buổi tập sẽ được tự động hoàn lại vào gói tập của bạn."}
+            </div>
+          </div>
         </div>
 
         {/* Action feedback */}
@@ -225,7 +255,9 @@ export default function MyEnrollmentsPage() {
         {/* Registrations List Content */}
         {enrollments.loading ? (
           <div className={styles.emptyState}>
-            <div className={styles.emptyIcon}>⏳</div>
+            <div className={styles.emptyIcon} aria-hidden="true">
+              <IconClock size={36} />
+            </div>
             <h3 className={styles.emptyTitle}>
               {language === "en" ? "Loading registered sessions..." : "Đang tải danh sách lịch tập..."}
             </h3>
@@ -235,7 +267,7 @@ export default function MyEnrollmentsPage() {
           </div>
         ) : filteredList.length === 0 ? (
           <div className={styles.emptyState}>
-            <div className={styles.emptyIcon}>🏃‍♂️</div>
+            <StickerRegistrationsEmpty size={80} style={{ marginBottom: 12 }} />
             <h3 className={styles.emptyTitle}>
               {activeTab === "upcoming"
                 ? (language === "en" ? "You have no upcoming workout sessions scheduled" : "Bạn chưa có lớp tập nào sắp diễn ra")
@@ -250,12 +282,16 @@ export default function MyEnrollmentsPage() {
                 ? "Explore this week's timetable with energetic Yoga, GroupX, and PT sessions at SportHub!"
                 : "Khám phá ngay lịch tập tuần này với các lớp Yoga, GroupX và PT sôi động tại SportHub!"}
             </p>
-            <Link href="/member-dashboard/class-schedule" className={styles.emptyCtaBtn}>
+            <Link href="/member/class-schedule" className={styles.emptyCtaBtn}>
               {language === "en" ? "Explore Class Schedule Now" : "Khám phá lịch lớp ngay"}
             </Link>
           </div>
         ) : (
-          <div className={styles.registrationList}>
+          <div
+            className={styles.registrationList}
+            role="tabpanel"
+            aria-label={language === "en" ? "Registrations list" : "Danh sách đăng ký"}
+          >
             {filteredList.map((item) => {
               const startDate = new Date(item.session.startAtUtc);
               const isPast = startDate.getTime() <= now;
@@ -284,16 +320,23 @@ export default function MyEnrollmentsPage() {
 
                     <div className={styles.classInfo}>
                       <div className={styles.timeRow}>
-                        <span>⏰ {formatTime(item.session.startAtUtc)} – {formatTime(item.session.endAtUtc)}</span>
+                        <span style={{ display: "inline-flex", alignItems: "center" }}>
+                          <IconClock size={13} style={{ marginRight: 4 }} />
+                          {formatTime(item.session.startAtUtc)} – {formatTime(item.session.endAtUtc)}
+                        </span>
                         <span>·</span>
                         <span>{item.session.discipline}</span>
                       </div>
                       <h3 className={styles.className}>{item.session.className}</h3>
                       <div className={styles.metaRow}>
                         <span className={styles.metaItem}>
-                          👤 {language === "en" ? `Coach ${item.session.coachName}` : item.session.coachName}
+                          <IconUser size={14} style={{ marginRight: 4 }} />
+                          {language === "en" ? `Coach ${item.session.coachName}` : item.session.coachName}
                         </span>
-                        <span className={styles.metaItem}>📍 {item.session.roomName}</span>
+                        <span className={styles.metaItem}>
+                          <IconLocation size={14} style={{ marginRight: 4 }} />
+                          {item.session.roomName}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -303,15 +346,17 @@ export default function MyEnrollmentsPage() {
                     {canCancel && (
                       deadlinePassed ? (
                         <span className={styles.deadlinePassed}>
+                          <IconAlert size={14} style={{ marginRight: 4, flexShrink: 0 }} />
                           {language === "en"
-                            ? "⚠️ Past cancellation deadline (No session refund)"
-                            : "⚠️ Đã quá hạn hủy (Hủy sẽ không hoàn lượt)"}
+                            ? "Past cancellation deadline (No session refund)"
+                            : "Đã quá hạn hủy (Hủy sẽ không hoàn lượt)"}
                         </span>
                       ) : (
                         <span className={styles.deadlineActive}>
+                          <IconClock size={14} style={{ marginRight: 4, flexShrink: 0 }} />
                           {language === "en"
-                            ? `⏱️ Free cancellation until: ${formatDateTime(item.cancellationDeadlineUtc)}`
-                            : `⏱️ Hạn hủy hoàn buổi: ${formatDateTime(item.cancellationDeadlineUtc)}`}
+                            ? `Free cancellation until: ${formatDateTime(item.cancellationDeadlineUtc)}`
+                            : `Hạn hủy hoàn buổi: ${formatDateTime(item.cancellationDeadlineUtc)}`}
                         </span>
                       )
                     )}
@@ -328,7 +373,8 @@ export default function MyEnrollmentsPage() {
                       onClick={() => downloadIcs(item)}
                       title={language === "en" ? "Download .ics calendar event" : "Tải file .ics để thêm vào Google hoặc Apple Calendar"}
                     >
-                      {language === "en" ? "📅 Add to Calendar" : "📅 Thêm vào lịch"}
+                      <IconCalendar size={14} style={{ marginRight: 5 }} />
+                      {language === "en" ? "Add to Calendar" : "Thêm vào lịch"}
                     </button>
 
                     {/* Cancel action */}
@@ -354,21 +400,25 @@ export default function MyEnrollmentsPage() {
           <div
             className={styles.modalBackdrop}
             onClick={() => setCancellingItem(null)}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="cancel-reg-title"
           >
             <div
               className={styles.modalCard}
               onClick={(e) => e.stopPropagation()}
             >
               <div className={styles.modalHeader}>
-                <h3 className={styles.modalTitle}>
+                <h3 id="cancel-reg-title" className={styles.modalTitle}>
                   {language === "en" ? "Confirm Class Cancellation" : "Xác nhận hủy lớp tập"}
                 </h3>
                 <button
                   type="button"
                   className={styles.modalClose}
                   onClick={() => setCancellingItem(null)}
+                  aria-label={language === "en" ? "Close dialog" : "Đóng cửa sổ"}
                 >
-                  ✕
+                  <IconClose size={18} />
                 </button>
               </div>
 
@@ -377,14 +427,23 @@ export default function MyEnrollmentsPage() {
                   {cancellingItem.session.className}
                 </div>
                 <div className={styles.modalSessionMeta}>
-                  {language === "en" ? "⏰ Time: " : "⏰ Giờ tập: "}
-                  {formatDateTime(cancellingItem.session.startAtUtc)}
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    <IconClock size={14} />
+                    {language === "en" ? "Time: " : "Giờ tập: "}
+                    {formatDateTime(cancellingItem.session.startAtUtc)}
+                  </span>
                   <br />
-                  {language === "en" ? "📍 Room: " : "📍 Phòng: "}
-                  {cancellingItem.session.roomName}
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    <IconLocation size={14} />
+                    {language === "en" ? "Room: " : "Phòng: "}
+                    {cancellingItem.session.roomName}
+                  </span>
                   <br />
-                  {language === "en" ? "👤 Coach: " : "👤 HLV: "}
-                  {cancellingItem.session.coachName}
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    <IconUser size={14} />
+                    {language === "en" ? "Coach: " : "HLV: "}
+                    {cancellingItem.session.coachName}
+                  </span>
                 </div>
               </div>
 
@@ -392,12 +451,14 @@ export default function MyEnrollmentsPage() {
                 <div className={styles.modalRefundNotice}>
                   {language === "en" ? (
                     <>
-                      ✓ <strong>Eligible for Refund (BR-18):</strong> You are cancelling ahead of the deadline ({formatDateTime(cancellingItem.cancellationDeadlineUtc)}). 
+                      <IconCheck size={16} style={{ display: 'inline-block', verticalAlign: 'sub', marginRight: 6 }} />
+                      <strong>Eligible for Session Credit:</strong> You are cancelling ahead of the deadline ({formatDateTime(cancellingItem.cancellationDeadlineUtc)}). 
                       This session will be <strong>credited back to your package</strong> immediately upon confirmation.
                     </>
                   ) : (
                     <>
-                      ✓ <strong>Đúng hạn hủy (BR-18):</strong> Bạn đang thực hiện hủy trước hạn chót ({formatDateTime(cancellingItem.cancellationDeadlineUtc)}). 
+                      <IconCheck size={16} style={{ display: 'inline-block', verticalAlign: 'sub', marginRight: 6 }} />
+                      <strong>Đủ điều kiện hoàn lượt:</strong> Bạn đang thực hiện hủy trước hạn chót ({formatDateTime(cancellingItem.cancellationDeadlineUtc)}). 
                       Buổi tập này sẽ được <strong>hoàn trả 1 lượt</strong> vào gói tập của bạn ngay sau khi xác nhận.
                     </>
                   )}
@@ -406,12 +467,14 @@ export default function MyEnrollmentsPage() {
                 <div className={styles.modalNoRefundNotice}>
                   {language === "en" ? (
                     <>
-                      ⚠️ <strong>Past Cancellation Deadline (BR-50):</strong> The cancellation cutoff has expired ({formatDateTime(cancellingItem.cancellationDeadlineUtc)}). 
+                      <IconAlert size={16} style={{ display: 'inline-block', verticalAlign: 'sub', marginRight: 6 }} />
+                      <strong>Past Cancellation Deadline:</strong> The cancellation cutoff has expired ({formatDateTime(cancellingItem.cancellationDeadlineUtc)}). 
                       If you cancel now, <strong>this session will not be refunded</strong> to your package.
                     </>
                   ) : (
                     <>
-                      ⚠️ <strong>Đã quá hạn hủy (BR-50):</strong> Thời hạn chốt hủy đã trôi qua ({formatDateTime(cancellingItem.cancellationDeadlineUtc)}). 
+                      <IconAlert size={16} style={{ display: 'inline-block', verticalAlign: 'sub', marginRight: 6 }} />
+                      <strong>Đã quá hạn hủy:</strong> Thời hạn chốt hủy đã trôi qua ({formatDateTime(cancellingItem.cancellationDeadlineUtc)}). 
                       Nếu bạn hủy vào lúc này, <strong>buổi tập sẽ không được hoàn trả</strong> vào gói.
                     </>
                   )}

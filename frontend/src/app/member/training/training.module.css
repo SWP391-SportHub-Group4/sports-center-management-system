@@ -4,6 +4,10 @@
   display: flex;
   flex-direction: column;
   gap: 28px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 /* Top Goal & Profile Bridge Banner */
@@ -18,6 +22,9 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .goalInfo {
@@ -88,6 +95,11 @@
   gap: 8px;
   border-bottom: 2px solid #eef2f6;
   padding-bottom: 2px;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  overflow-x: auto;
+  scrollbar-width: none;
 }
 
 .tabBtn {
@@ -125,6 +137,18 @@
   height: 3px;
   background: var(--navy, #1a2b4c);
   border-radius: 3px 3px 0 0;
+  animation: tabSlide 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes tabSlide {
+  from {
+    transform: scaleX(0.4);
+    opacity: 0;
+  }
+  to {
+    transform: scaleX(1);
+    opacity: 1;
+  }
 }
 
 .tabBadge {
@@ -353,10 +377,10 @@
 }
 
 .commentBlock {
-  background: #f7f9fb;
+  background: var(--surface-alt, #f5f7fa);
   border-radius: 10px;
+  border: 1px solid var(--line, #dfe5ec);
   padding: 12px 14px;
-  border-left: 3px solid #6ec1e4;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -367,7 +391,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: #236e95;
+  color: var(--brand-700, #12527f);
 }
 
 .commentText {
@@ -377,10 +401,10 @@
 }
 
 .progressBlock {
-  background: #f7f9fb;
+  background: var(--surface-alt, #f5f7fa);
   border-radius: 10px;
+  border: 1px solid var(--line, #dfe5ec);
   padding: 12px 14px;
-  border-left: 3px solid #51cf66;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -391,7 +415,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: #2b8a3e;
+  color: var(--ok-700, #14653a);
 }
 
 .progressText {
@@ -456,4 +480,46 @@
 
 .emptyActionBtn:hover {
   background: #132039;
+}
+
+@media (max-width: 480px) {
+  .goalBanner {
+    padding: 16px 12px;
+  }
+
+  .goalTitle {
+    font-size: 15px;
+  }
+
+  .profileLinkBtn {
+    width: 100%;
+    justify-content: center;
+    font-size: 12px;
+    padding: 8px 10px;
+    text-align: center;
+  }
+
+  .tabsBar {
+    width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .tabBtn {
+    padding: 8px 10px;
+    font-size: 12.5px;
+    flex-shrink: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .planCard,
+  .historyCard,
+  .metricPill,
+  .emptyActionBtn {
+    transition: none !important;
+    transform: none !important;
+    animation: none !important;
+  }
 }
