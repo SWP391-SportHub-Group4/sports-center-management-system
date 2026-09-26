@@ -14,7 +14,6 @@ import {
 import { useApi } from "@/lib/useApi";
 import type {
   ClassSessionDto,
-  InvoiceSummaryDto,
   Paged,
   PaymentAdjustmentDto,
   RevenueReportDto,
@@ -38,15 +37,6 @@ export default function ManagerDashboardPage() {
       api.get<Paged<PaymentAdjustmentDto>>("/api/payment-adjustments", {
         signal,
         query: { status: "Requested", pageSize: 10 },
-      }),
-    [],
-  );
-
-  const overdue = useApi(
-    (signal) =>
-      api.get<Paged<InvoiceSummaryDto>>("/api/invoices", {
-        signal,
-        query: { overdueOnly: true, pageSize: 5 },
       }),
     [],
   );
@@ -76,11 +66,6 @@ export default function ManagerDashboardPage() {
           label="Browseing Waits Adjustment"
           value={pendingAdjustments.data?.totalCount ?? 0}
           hint="You are not censored for requests created by yourself (BR-42)"
-        />
-        <Stat
-          label="The invoice is expired."
-          value={overdue.data?.totalCount ?? 0}
-          hint="As of the BR-55 payment deadline"
         />
         <Stat
           label="The next seven days of study."

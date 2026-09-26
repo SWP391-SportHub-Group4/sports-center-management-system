@@ -15,15 +15,6 @@ using SportHub.Payment.Infrastructure;
 
 namespace SportHub.Payment.Application.Services;
 
-/// <summary>
-/// BR-30 — chọn gói thì PHÁT HÀNH HOÁ ĐƠN NGAY, trước khi thu bất kỳ khoản nào; gói ở trạng
-/// thái PendingPayment và chỉ chuyển Active sau khi hoá đơn được thanh toán đầy đủ
-/// (việc đó do PaymentService làm).
-///
-/// Nằm ở module Payment chứ không phải Membership: MemberPackage và Invoice phải sinh trong
-/// cùng một transaction, mà Payment là module sở hữu Invoice — để Membership tham chiếu
-/// ngược Payment sẽ tạo vòng phụ thuộc.
-/// </summary>
 public sealed class PackagePurchaseService(
     ISportHubDbContext db,
     IInvoiceNumberGenerator invoiceNumbers,
@@ -63,7 +54,6 @@ public sealed class PackagePurchaseService(
                 "membership_package_discontinued", "Gói này đã ngừng áp dụng, không bán mới được (BR-8).");
         }
 
-        // BR-10 — ngoại lệ cộng dồn phải do Center Manager cho phép RÕ RÀNG và có lý do.
         if (request.AllowStacking)
         {
             if (!actorIsCenterManager)
@@ -86,9 +76,6 @@ public sealed class PackagePurchaseService(
 
         var now = clock.UtcNow;
 
-        // Transaction tường minh: hoá đơn và gói phải cùng có hoặc cùng không (BR-30).
-        // Một gói PendingPayment không hoá đơn sẽ không bao giờ kích hoạt được; một hoá đơn
-        // không gói thì thu tiền xong chẳng mở ra quyền lợi nào.
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
 
         var memberPackage = new MemberPackage
@@ -97,8 +84,6 @@ public sealed class PackagePurchaseService(
             MemberId = request.MemberId,
             PackageId = catalog.PackageId,
 
-            // Ngày hiệu lực THẬT được đặt lại khi hoá đơn thanh toán đủ (BR-30, quyết định C4).
-            // Ở đây chỉ là chỗ giữ: gói chưa Active nên các giá trị này chưa có tác dụng.
             StartDate = VietnamTime.TodayLocal(clock),
             EndDate = VietnamTime.TodayLocal(clock),
             RemainingSessions = catalog.SessionLimit,
@@ -118,11 +103,7 @@ public sealed class PackagePurchaseService(
             MemberPackageId = memberPackage.MemberPackageId,
             TotalAmount = catalog.Price,
             Status = InvoiceStatus.Issued,
-            IssuedAt = now,
-
-            // BR-55 — hạn ban đầu 2 tháng; mốc 12 tháng chỉ tính khi nhận cọc đầu tiên.
-            DueDateUtc = InvoiceMath.InitialDueDate(now),
-            FirstDepositAtUtc = null
+            IssuedAt = now
         };
 
         db.Set<Invoice>().Add(invoice);
@@ -131,10 +112,12 @@ public sealed class PackagePurchaseService(
         {
             ItemId = Guid.NewGuid(),
             InvoiceId = invoice.InvoiceId,
+            ItemType = InvoiceItemType.Membership,
             Description = $"Gói {catalog.Name} ({catalog.DurationDays} ngày"
                           + (catalog.SessionLimit is null ? ", không giới hạn buổi)" : $", {catalog.SessionLimit} buổi)"),
-            Amount = catalog.Price,
-            RelatedEntityType = InvoiceItemRelatedEntityType.Package,
+            UnitPrice = catalog.Price,
+            Quantity = 1,
+            LineAmount = catalog.Price,
             RelatedEntityId = memberPackage.MemberPackageId
         });
 
@@ -154,13 +137,6 @@ public sealed class PackagePurchaseService(
         return await invoiceQuery.GetDetailAsync(invoice.InvoiceId, ct);
     }
 
-    /// <summary>
-    /// BR-10 — "cùng loại" được hiểu là cùng PackageId (cùng bản ghi catalog); catalog không có
-    /// trường phân loại nào khác để hiểu rộng hơn. Xem implementation-decisions.md A5.
-    ///
-    /// Tính cả gói PendingPayment: nếu bỏ qua, hội viên có thể tạo nhiều hoá đơn cho cùng một
-    /// gói rồi thanh toán lần lượt và lách hẳn được ràng buộc.
-    /// </summary>
     private async Task EnsureNoActiveSamePackageAsync(Guid memberId, int packageId, CancellationToken ct)
     {
         var exists = await db.Set<MemberPackage>()

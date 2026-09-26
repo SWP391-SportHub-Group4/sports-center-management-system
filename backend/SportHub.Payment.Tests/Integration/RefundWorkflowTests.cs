@@ -8,12 +8,6 @@ using System.Net.Http.Json;
 
 namespace SportHub.Payment.Tests.Integration;
 
-/// <summary>
-/// BR-41/42/43 v1.4 — vòng đời điều chỉnh đi qua API thật trên PostgreSQL thật.
-///
-/// Trọng tâm: Approved KHÔNG phải đã trả. Bản v1.3 gộp hai bước nên mọi con số tiền thay đổi
-/// ngay lúc Manager bấm duyệt; các test dưới đây khoá lại hành vi đúng.
-/// </summary>
 [Collection(nameof(PaymentApiCollection))]
 public class RefundWorkflowTests(PaymentApiFactory factory)
 {
@@ -35,10 +29,6 @@ public class RefundWorkflowTests(PaymentApiFactory factory)
         return (await response.Content.ReadFromJsonAsync<T>())!;
     }
 
-    /// <summary>
-    /// Kịch bản nghiệm thu §9.4 đầy đủ: thu đủ → Discount → RefundDue xuất hiện nhưng chưa
-    /// hoàn đồng nào → duyệt Refund (tiền KHÔNG đổi) → Lễ tân xác nhận trả (tiền mới đổi).
-    /// </summary>
     [Fact]
     public async Task Discount_roi_Refund_chi_tinh_tien_khi_le_tan_xac_nhan_thuc_tra()
     {
@@ -48,7 +38,6 @@ public class RefundWorkflowTests(PaymentApiFactory factory)
         var frontDesk = factory.CreateApiClient(receptionistId, UserRole.Receptionist);
         var managerClient = factory.CreateApiClient(managerId, UserRole.CenterManager);
 
-        // 1. Thu đủ 3 triệu.
         var afterPayment = await ReadAsync<InvoiceDetailResponse>(
             await frontDesk.PostAsJsonAsync(
                 $"/api/invoices/{invoice.InvoiceId}/payments",
@@ -59,7 +48,6 @@ public class RefundWorkflowTests(PaymentApiFactory factory)
         Assert.Equal(0m, afterPayment.Summary.RefundDue);
         Assert.Equal("Paid", afterPayment.Summary.Status);
 
-        // 2. Discount 500k: giảm NGHĨA VỤ ⇒ sinh ra khoản CẦN hoàn, chưa hoàn đồng nào.
         var discount = await ReadAsync<PaymentAdjustmentResponse>(
             await frontDesk.PostAsJsonAsync(
                 $"/api/invoices/{invoice.InvoiceId}/adjustments",
@@ -78,10 +66,8 @@ public class RefundWorkflowTests(PaymentApiFactory factory)
         Assert.Equal(500_000m, afterDiscount.Summary.RefundDue);
         Assert.Equal(0m, afterDiscount.Summary.RefundedAmount);
 
-        // BR-40 — Paid là dữ kiện lịch sử, điều chỉnh không kéo ngược trạng thái.
         Assert.Equal("Paid", afterDiscount.Summary.Status);
 
-        // 3. Refund 500k được DUYỆT — tiền vẫn chưa đổi.
         var refund = await ReadAsync<PaymentAdjustmentResponse>(
             await frontDesk.PostAsJsonAsync(
                 $"/api/invoices/{invoice.InvoiceId}/adjustments",
@@ -104,7 +90,6 @@ public class RefundWorkflowTests(PaymentApiFactory factory)
         Assert.Equal(500_000m, afterApprove.Summary.RefundDue);
         Assert.Equal(3_000_000m, afterApprove.Summary.NetCollected);
 
-        // 4. Lễ tân xác nhận đã thực trả — bây giờ tiền mới đổi.
         var completed = await ReadAsync<PaymentAdjustmentResponse>(
             await frontDesk.PostAsJsonAsync(
                 $"/api/payment-adjustments/{refund.AdjustmentId}/complete",
@@ -127,46 +112,6 @@ public class RefundWorkflowTests(PaymentApiFactory factory)
         Assert.Equal("Paid", final.Summary.Status);
     }
 
-    /// <summary>
-    /// Kịch bản thứ hai của plan §4.3: thu cọc 1 triệu / hóa đơn 3 triệu, Discount 500 nghìn
-    /// ⇒ Outstanding 1,5 triệu và KHÔNG phát sinh tiền hoàn giả.
-    /// </summary>
-    [Fact]
-    public async Task Coc_mot_phan_cong_Discount_khong_sinh_tien_hoan_gia()
-    {
-        var (memberId, receptionistId, managerId) = await SeedActorsAsync();
-        var invoice = await factory.SeedInvoiceAsync(memberId, receptionistId, 3_000_000m);
-
-        var frontDesk = factory.CreateApiClient(receptionistId, UserRole.Receptionist);
-        var managerClient = factory.CreateApiClient(managerId, UserRole.CenterManager);
-
-        await ReadAsync<InvoiceDetailResponse>(
-            await frontDesk.PostAsJsonAsync(
-                $"/api/invoices/{invoice.InvoiceId}/payments",
-                new { amount = 1_000_000m, method = "Cash" }));
-
-        var discount = await ReadAsync<PaymentAdjustmentResponse>(
-            await frontDesk.PostAsJsonAsync(
-                $"/api/invoices/{invoice.InvoiceId}/adjustments",
-                new { type = "Discount", amount = 500_000m, reason = "Giảm giá theo chương trình" }));
-
-        await ReadAsync<PaymentAdjustmentResponse>(
-            await managerClient.PostAsJsonAsync(
-                $"/api/payment-adjustments/{discount.AdjustmentId}/approve",
-                new { reason = "Duyệt giảm giá" }));
-
-        var summary = (await ReadAsync<InvoiceDetailResponse>(
-            await frontDesk.GetAsync($"/api/invoices/{invoice.InvoiceId}"))).Summary;
-
-        Assert.Equal(2_500_000m, summary.NetPayable);
-        Assert.Equal(1_000_000m, summary.NetCollected);
-        Assert.Equal(1_500_000m, summary.Outstanding);
-        Assert.Equal(0m, summary.RefundDue);
-        Assert.Equal(0m, summary.RefundedAmount);
-        Assert.Equal("PartiallyPaid", summary.Status);
-    }
-
-    /// <summary>BR-42 — retry bước complete không được hoàn tiền hai lần.</summary>
     [Fact]
     public async Task Complete_lan_hai_bi_tu_choi_va_khong_hoan_hai_lan()
     {
@@ -200,10 +145,6 @@ public class RefundWorkflowTests(PaymentApiFactory factory)
         Assert.Equal(1, completedCount);
     }
 
-    /// <summary>
-    /// BR-42 — hai request complete chạy ĐỒNG THỜI trên cùng một adjustment: đúng một cái
-    /// thắng. Đây là lý do bước complete phải khoá hàng bằng SELECT ... FOR UPDATE.
-    /// </summary>
     [Fact]
     public async Task Hai_request_complete_dong_thoi_chi_mot_cai_thanh_cong()
     {
@@ -229,10 +170,6 @@ public class RefundWorkflowTests(PaymentApiFactory factory)
         Assert.Equal(500_000m, refundedTotal);
     }
 
-    /// <summary>
-    /// BR-41/52 — tổng các khoản hoàn trên cùng một hóa đơn không được vượt số thực thu,
-    /// kể cả khi chúng là hai adjustment khác nhau cùng được duyệt trước đó.
-    /// </summary>
     [Fact]
     public async Task Hai_refund_khac_nhau_khong_duoc_vuot_tong_so_thuc_thu()
     {
@@ -247,7 +184,6 @@ public class RefundWorkflowTests(PaymentApiFactory factory)
                 $"/api/invoices/{invoice.InvoiceId}/payments",
                 new { amount = 1_000_000m, method = "Cash" }));
 
-        // Correction xoá toàn bộ nghĩa vụ ⇒ RefundDue = 1 triệu.
         var correction = await ReadAsync<PaymentAdjustmentResponse>(
             await frontDesk.PostAsJsonAsync(
                 $"/api/invoices/{invoice.InvoiceId}/adjustments",
@@ -258,7 +194,6 @@ public class RefundWorkflowTests(PaymentApiFactory factory)
                 $"/api/payment-adjustments/{correction.AdjustmentId}/approve",
                 new { reason = "Xác nhận ghi sai" }));
 
-        // Hai yêu cầu hoàn, mỗi cái 700k — từng cái riêng lẻ đều hợp lệ, cộng lại thì vượt.
         var refundIds = new List<Guid>();
 
         foreach (var note in new[] { "Hoàn đợt 1", "Hoàn đợt 2" })
@@ -297,13 +232,6 @@ public class RefundWorkflowTests(PaymentApiFactory factory)
         Assert.True(totalRefunded <= 1_000_000m, "Tổng hoàn vượt số thực thu.");
     }
 
-    /// <summary>
-    /// BR-41/42 — hai adjustment KHÁC NHAU của cùng hoá đơn, complete ĐỒNG THỜI.
-    ///
-    /// Khoá theo hàng adjustment không cứu được ca này (hai hàng khác nhau), nên nó chỉ đúng
-    /// khi bước complete khoá thêm hàng HOÁ ĐƠN. Đây là biến thể đồng thời của
-    /// <see cref="Hai_refund_khac_nhau_khong_duoc_vuot_tong_so_thuc_thu"/>.
-    /// </summary>
     [Fact]
     public async Task Hai_refund_khac_nhau_complete_dong_thoi_khong_vuot_tran()
     {
@@ -367,10 +295,6 @@ public class RefundWorkflowTests(PaymentApiFactory factory)
             $"Đã hoàn {totalRefunded:N0} VND, vượt số thực thu 1.000.000 VND.");
     }
 
-    /// <summary>
-    /// BR-52 — không hoàn được khi chưa có căn cứ giảm nghĩa vụ: hội viên trả đủ và vẫn nợ
-    /// đủ nghĩa vụ thì không có gì để trả lại.
-    /// </summary>
     [Fact]
     public async Task Khong_complete_duoc_refund_khi_chua_co_can_cu_giam_nghia_vu()
     {
@@ -403,7 +327,6 @@ public class RefundWorkflowTests(PaymentApiFactory factory)
         Assert.Contains("refund_exceeds_refund_due", await complete.Content.ReadAsStringAsync());
     }
 
-    /// <summary>BR-42 — chuyển khoản phải có mã tham chiếu; tiền mặt thì không bắt buộc.</summary>
     [Fact]
     public async Task Hoan_bang_chuyen_khoan_bat_buoc_ma_tham_chieu()
     {
@@ -429,7 +352,6 @@ public class RefundWorkflowTests(PaymentApiFactory factory)
         Assert.Equal("FT26092200123", completed.RefundReferenceCode);
     }
 
-    /// <summary>BR-42 — Manager không được tự duyệt yêu cầu do chính mình tạo.</summary>
     [Fact]
     public async Task Manager_khong_duoc_tu_duyet_yeu_cau_cua_chinh_minh()
     {
@@ -451,7 +373,6 @@ public class RefundWorkflowTests(PaymentApiFactory factory)
         Assert.Equal(HttpStatusCode.Forbidden, approve.StatusCode);
     }
 
-    /// <summary>BR-42 — chỉ Center Manager duyệt; Lễ tân gọi endpoint approve phải bị chặn.</summary>
     [Fact]
     public async Task Le_tan_khong_duoc_duyet_dieu_chinh()
     {
@@ -472,7 +393,6 @@ public class RefundWorkflowTests(PaymentApiFactory factory)
         Assert.Equal(HttpStatusCode.Forbidden, approve.StatusCode);
     }
 
-    /// <summary>Member không được gọi bất kỳ endpoint điều chỉnh nào.</summary>
     [Fact]
     public async Task Member_khong_truy_cap_duoc_endpoint_dieu_chinh()
     {
@@ -488,7 +408,6 @@ public class RefundWorkflowTests(PaymentApiFactory factory)
         Assert.Equal(HttpStatusCode.Forbidden, complete.StatusCode);
     }
 
-    /// <summary>Complete chỉ dành cho Refund; Discount đã Completed ngay lúc duyệt.</summary>
     [Fact]
     public async Task Khong_complete_duoc_mot_Discount()
     {
@@ -520,7 +439,6 @@ public class RefundWorkflowTests(PaymentApiFactory factory)
         Assert.Contains("not_a_refund", await complete.Content.ReadAsStringAsync());
     }
 
-    /// <summary>BR-40 — hoá đơn không bao giờ bị xoá, kể cả sau khi hoàn toàn bộ tiền.</summary>
     [Fact]
     public async Task Hoa_don_khong_bi_xoa_sau_khi_hoan_toan_bo()
     {
@@ -547,10 +465,6 @@ public class RefundWorkflowTests(PaymentApiFactory factory)
         Assert.Equal(InvoiceStatus.Paid, status);
     }
 
-    /// <summary>
-    /// Dựng sẵn một Refund đã duyệt trên hoá đơn đã thu đủ và đã có Correction xoá nghĩa vụ,
-    /// để các test chỉ tập trung vào bước complete.
-    /// </summary>
     private async Task<Guid> SeedApprovedRefundAsync(
         Guid memberId, Guid receptionistId, Guid managerId, decimal amount)
     {

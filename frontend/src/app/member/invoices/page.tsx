@@ -21,10 +21,6 @@ import {
 } from "@/components/icons";
 import type { InvoiceDetailDto, InvoiceSummaryDto, Paged } from "@/lib/types";
 
-/**
- * Member Invoices & Receipts. Read-only member portal view.
- * All billing adjustments and payments are managed through the reception desk.
- */
 export default function MyInvoicesPage() {
   const { language } = useLanguage();
   const [page, setPage] = useState(1);
@@ -85,7 +81,6 @@ export default function MyInvoicesPage() {
                   { text: language === "en" ? "Total Amount" : "Tổng tiền", numeric: true },
                   { text: language === "en" ? "Paid" : "Đã thanh toán", numeric: true },
                   { text: language === "en" ? "Balance Due" : "Còn lại", numeric: true },
-                  language === "en" ? "Due Date" : "Hạn nộp",
                   language === "en" ? "Status" : "Trạng thái",
                   "",
                 ]}
@@ -101,14 +96,6 @@ export default function MyInvoicesPage() {
                     <td className="num">{formatMoney(item.totalAmount)}</td>
                     <td className="num">{formatMoney(item.netCollected)}</td>
                     <td className="num">{formatMoney(item.outstanding)}</td>
-                    <td className="nowrap small">
-                      {formatDate(item.dueDateUtc)}
-                      {item.isOverdue && (
-                        <div style={{ color: "var(--danger-700)", fontWeight: 600 }}>
-                          {language === "en" ? "Overdue" : "Quá hạn"}
-                        </div>
-                      )}
-                    </td>
                     <td>
                       <StatusChip value={item.status} />
                     </td>
@@ -179,9 +166,7 @@ export default function MyInvoicesPage() {
                       </div>
                       <div className="small muted" style={{ marginTop: 4 }}>
                         {language === "en" ? "Issued: " : "Ngày phát hành: "}
-                        {formatDateTime(data.summary.issuedAt)} ·{" "}
-                        {language === "en" ? "Payment Deadline: " : "Hạn thanh toán: "}
-                        {formatDate(data.summary.dueDateUtc)}
+                        {formatDateTime(data.summary.issuedAt)}
                       </div>
                     </div>
 
@@ -196,7 +181,6 @@ export default function MyInvoicesPage() {
                     </button>
                   </div>
 
-                  {/* Line Items */}
                   <div>
                     <h3 style={{ fontSize: "0.95rem", fontWeight: 700, margin: "0 0 8px" }}>
                       {language === "en" ? "Service Items" : "Dịch vụ đã đăng ký"}
@@ -211,14 +195,13 @@ export default function MyInvoicesPage() {
                         <tr key={item.itemId}>
                           <td>{item.description}</td>
                           <td className="num" style={{ fontVariantNumeric: "tabular-nums" }}>
-                            {formatMoney(item.amount)}
+                            {formatMoney(item.lineAmount)}
                           </td>
                         </tr>
                       ))}
                     </Table>
                   </div>
 
-                  {/* Payments Recorded */}
                   <div>
                     <h3 style={{ fontSize: "0.95rem", fontWeight: 700, margin: "8px 0 8px" }}>
                       {language === "en" ? "Payment History" : "Lịch sử thanh toán"}
@@ -256,7 +239,6 @@ export default function MyInvoicesPage() {
                     )}
                   </div>
 
-                  {/* Adjustments */}
                   {data.adjustments.length > 0 && (
                     <div>
                       <h3 style={{ fontSize: "0.95rem", fontWeight: 700, margin: "8px 0 8px" }}>
@@ -286,7 +268,6 @@ export default function MyInvoicesPage() {
                     </div>
                   )}
 
-                  {/* Structured Summary Breakdown Card */}
                   <div
                     style={{
                       background: "var(--surface-alt, #f8fafc)",
@@ -373,7 +354,6 @@ export default function MyInvoicesPage() {
         </Dialog>
       )}
 
-      {/* Printable Receipt Modal for Member */}
       {showPrintReceipt && detail.data && (
         <div
           role="dialog"
@@ -433,7 +413,6 @@ export default function MyInvoicesPage() {
               <strong>{detail.data.summary.memberName}</strong>
             </div>
 
-            {/* Line items on thermal print */}
             <div style={{ borderTop: "1px solid #f1f5f9", borderBottom: "1px solid #f1f5f9", padding: "8px 0" }}>
               {detail.data.items.map((item) => (
                 <div
@@ -441,7 +420,7 @@ export default function MyInvoicesPage() {
                   style={{ display: "flex", justifyContent: "space-between", fontSize: "0.88rem", padding: "3px 0" }}
                 >
                   <span>{item.description}</span>
-                  <strong style={{ fontVariantNumeric: "tabular-nums" }}>{formatMoney(item.amount)}</strong>
+                  <strong style={{ fontVariantNumeric: "tabular-nums" }}>{formatMoney(item.lineAmount)}</strong>
                 </div>
               ))}
             </div>
