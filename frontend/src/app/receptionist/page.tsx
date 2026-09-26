@@ -1,8 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import { AsyncSection, Card, Stat, StatusChip, Table } from "@/components/ui";
 import { api } from "@/lib/apiClient";
@@ -11,6 +9,7 @@ import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { addDaysIso, todayIso } from "@/lib/format";
 import {
+  IconCalendar,
   IconClipboard,
   IconCreditCard,
   IconInvoice,
@@ -23,7 +22,6 @@ import styles from "./receptionist.module.css";
 
 export default function ReceptionDashboardPage() {
   const { language } = useLanguage();
-  const router = useRouter();
   const today = todayIso();
 
   const todaySessions = useApi(
@@ -52,31 +50,6 @@ export default function ReceptionDashboardPage() {
       }),
     [],
   );
-
-  // Ergonomic keyboard shortcuts for high-speed front desk operation
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Alt + 1/2/3/4 shortcuts
-      if (e.altKey && !e.ctrlKey && !e.metaKey) {
-        if (e.key === "1") {
-          e.preventDefault();
-          router.push("/receptionist/gym-checkin");
-        } else if (e.key === "2") {
-          e.preventDefault();
-          router.push("/receptionist/sell-plans");
-        } else if (e.key === "3") {
-          e.preventDefault();
-          router.push("/receptionist/attendance");
-        } else if (e.key === "4") {
-          e.preventDefault();
-          router.push("/receptionist/invoices");
-        }
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [router]);
 
   return (
     <AppShell
@@ -165,6 +138,25 @@ export default function ReceptionDashboardPage() {
               {language === "en"
                 ? "Collect outstanding balances and manage payout adjustments"
                 : "Thu nợ hóa đơn quá hạn và xử lý hoàn tiền đã duyệt (BR-42)"}
+            </div>
+          </div>
+        </Link>
+
+        <Link href="/receptionist/registrations" className={styles.actionCard}>
+          <div className={styles.actionCardHeader}>
+            <span className={styles.actionIcon}>
+              <IconCalendar size={26} color="var(--primary-600, #2563eb)" />
+            </span>
+            <kbd className={styles.kbdBadge}>Alt + 5</kbd>
+          </div>
+          <div>
+            <div className={styles.actionTitle}>
+              {language === "en" ? "Class Registration" : "Đăng Ký Lớp Hộ"}
+            </div>
+            <div className={styles.actionDesc}>
+              {language === "en"
+                ? "Enroll members into class sessions and manage bookings"
+                : "Đăng ký ca học hộ hội viên và quản lý danh sách đặt chỗ"}
             </div>
           </div>
         </Link>
