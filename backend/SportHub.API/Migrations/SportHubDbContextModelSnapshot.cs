@@ -670,14 +670,6 @@ namespace SportHub.API.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("invoice_id");
 
-                    b.Property<DateTime>("DueDateUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("due_date_utc");
-
-                    b.Property<DateTime?>("FirstDepositAtUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("first_deposit_at_utc");
-
                     b.Property<string>("InvoiceNumber")
                         .IsRequired()
                         .HasColumnType("text")
@@ -711,9 +703,6 @@ namespace SportHub.API.Migrations
                     b.HasKey("InvoiceId")
                         .HasName("pk_invoices");
 
-                    b.HasIndex("DueDateUtc")
-                        .HasDatabaseName("ix_invoices_due_date_utc");
-
                     b.HasIndex("InvoiceNumber")
                         .IsUnique()
                         .HasDatabaseName("ix_invoices_invoice_number");
@@ -737,27 +726,37 @@ namespace SportHub.API.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("item_id");
 
-                    b.Property<decimal>("Amount")
-                        .HasPrecision(18)
-                        .HasColumnType("numeric(18,0)")
-                        .HasColumnName("amount");
-
                     b.Property<string>("Description")
                         .IsRequired()
-                        .HasColumnType("text")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
                         .HasColumnName("description");
 
                     b.Property<Guid>("InvoiceId")
                         .HasColumnType("uuid")
                         .HasColumnName("invoice_id");
 
+                    b.Property<int>("ItemType")
+                        .HasColumnType("integer")
+                        .HasColumnName("item_type");
+
+                    b.Property<decimal>("LineAmount")
+                        .HasPrecision(18)
+                        .HasColumnType("numeric(18,0)")
+                        .HasColumnName("line_amount");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("integer")
+                        .HasColumnName("quantity");
+
                     b.Property<Guid?>("RelatedEntityId")
                         .HasColumnType("uuid")
                         .HasColumnName("related_entity_id");
 
-                    b.Property<int>("RelatedEntityType")
-                        .HasColumnType("integer")
-                        .HasColumnName("related_entity_type");
+                    b.Property<decimal>("UnitPrice")
+                        .HasPrecision(18)
+                        .HasColumnType("numeric(18,0)")
+                        .HasColumnName("unit_price");
 
                     b.HasKey("ItemId")
                         .HasName("pk_invoice_items");
@@ -765,7 +764,14 @@ namespace SportHub.API.Migrations
                     b.HasIndex("InvoiceId")
                         .HasDatabaseName("ix_invoice_items_invoice_id");
 
-                    b.ToTable("invoice_items", (string)null);
+                    b.ToTable("invoice_items", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_invoice_items_line_amount_matches", "line_amount = unit_price * quantity");
+
+                            t.HasCheckConstraint("CK_invoice_items_quantity_positive", "quantity > 0");
+
+                            t.HasCheckConstraint("CK_invoice_items_unit_price_non_negative", "unit_price >= 0");
+                        });
                 });
 
             modelBuilder.Entity("SportHub.Payment.Domain.Entities.Payment", b =>
@@ -919,6 +925,53 @@ namespace SportHub.API.Migrations
 
                             t.HasCheckConstraint("CK_payment_adjustments_refund_completed_evidence", "(type <> 0 OR status <> 3)\nOR legacy_payout_unverified\nOR (completed_at_utc IS NOT NULL\n    AND completed_by_user_id IS NOT NULL\n    AND refund_method IS NOT NULL)");
                         });
+                });
+
+            modelBuilder.Entity("SportHub.Payment.Domain.Entities.PaymentAttempt", b =>
+                {
+                    b.Property<Guid>("PaymentAttemptId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("payment_attempt_id");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18)
+                        .HasColumnType("numeric(18,0)")
+                        .HasColumnName("amount");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("InvoiceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("invoice_id");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer")
+                        .HasColumnName("status");
+
+                    b.Property<DateTime>("VnpExpireDate")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("vnp_expire_date");
+
+                    b.Property<string>("VnpTxnRef")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("vnp_txn_ref");
+
+                    b.HasKey("PaymentAttemptId")
+                        .HasName("pk_payment_attempts");
+
+                    b.HasIndex("VnpTxnRef")
+                        .IsUnique()
+                        .HasDatabaseName("ix_payment_attempts_vnp_txn_ref");
+
+                    b.HasIndex("InvoiceId", "Status")
+                        .HasDatabaseName("ix_payment_attempts_invoice_id_status");
+
+                    b.ToTable("payment_attempts", (string)null);
                 });
 
             modelBuilder.Entity("SportHub.Scheduling.Domain.Entities.Attendance", b =>
@@ -1687,6 +1740,18 @@ namespace SportHub.API.Migrations
                     b.Navigation("RequestedByUser");
                 });
 
+            modelBuilder.Entity("SportHub.Payment.Domain.Entities.PaymentAttempt", b =>
+                {
+                    b.HasOne("SportHub.Payment.Domain.Entities.Invoice", "Invoice")
+                        .WithMany("PaymentAttempts")
+                        .HasForeignKey("InvoiceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_payment_attempts_invoices_invoice_id");
+
+                    b.Navigation("Invoice");
+                });
+
             modelBuilder.Entity("SportHub.Scheduling.Domain.Entities.Attendance", b =>
                 {
                     b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", "CheckedInByUser")
@@ -1960,6 +2025,8 @@ namespace SportHub.API.Migrations
                     b.Navigation("Adjustments");
 
                     b.Navigation("Items");
+
+                    b.Navigation("PaymentAttempts");
 
                     b.Navigation("Payments");
                 });

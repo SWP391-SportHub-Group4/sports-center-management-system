@@ -1,5 +1,3 @@
-/** Hình dạng DTO trả về từ API (camelCase — Program.cs đặt JsonNamingPolicy.CamelCase). */
-
 export interface Paged<T> {
   items: T[];
   page: number;
@@ -128,30 +126,25 @@ export interface InvoiceSummaryDto {
   memberEmail: string;
   memberName: string;
   totalAmount: number;
-  /** Tổng Payment Success, chưa trừ hoàn. */
   grossCollected: number;
-  /** Discount/Correction đã Completed — giảm nghĩa vụ, KHÔNG phải tiền trả lại. */
   obligationReduction: number;
-  /** Refund đã Completed và đã xác nhận thực trả. */
   refundedAmount: number;
-  /** grossCollected − refundedAmount: tiền trung tâm đang thực giữ. */
   netCollected: number;
   netPayable: number;
   outstanding: number;
-  /** Cần hoàn nhưng CHƯA hoàn. Khác hẳn refundedAmount (đã hoàn). */
   refundDue: number;
   status: string;
   issuedAt: string;
-  dueDateUtc: string;
-  firstDepositAtUtc: string | null;
-  isOverdue: boolean;
 }
 
 export interface InvoiceItemDto {
   itemId: string;
+  itemType: string;
   description: string;
-  amount: number;
-  relatedEntityType: string;
+  unitPrice: number;
+  quantity: number;
+  lineAmount: number;
+  relatedEntityId: string | null;
 }
 
 export interface PaymentDto {
@@ -171,9 +164,7 @@ export interface PaymentAdjustmentDto {
   invoiceNumber: string;
   paymentId: string | null;
   type: string;
-  /** Số tiền hiện hành (sau override của Manager nếu có). */
   amount: number;
-  /** Số tiền Lễ tân đề nghị ban đầu; khác amount khi Manager đã ghi đè. */
   requestedAmount: number;
   reason: string;
   status: string;
@@ -186,11 +177,8 @@ export interface PaymentAdjustmentDto {
   refundMethod: string | null;
   refundReferenceCode: string | null;
   createdAt: string;
-  /** Thời điểm Manager duyệt — với Refund KHÔNG phải ngày tiền ra khỏi quầy. */
   approvedAtUtc: string | null;
-  /** Thời điểm khoản điều chỉnh có hiệu lực tiền tệ. */
   completedAtUtc: string | null;
-  /** Refund đã duyệt nhưng Lễ tân chưa xác nhận thực trả. */
   awaitingPayout: boolean;
   resolvedAt: string | null;
 }
@@ -208,11 +196,8 @@ export interface RevenueReportDto {
   fromDate: string;
   toDate: string;
   totalCollected: number;
-  /** Refund Completed theo ngày THỰC TRẢ trong kỳ. */
   totalRefunded: number;
-  /** Discount/Correction Completed — hiển thị riêng, KHÔNG trừ vào netRevenue (BR-43). */
   totalObligationReduction: number;
-  /** totalCollected − totalRefunded. */
   netRevenue: number;
   invoiceCount: number;
   paymentCount: number;
@@ -238,7 +223,6 @@ export interface UserAdminDto {
   hasGoogleLink: boolean;
 }
 
-/** Hồ sơ của chính người đang đăng nhập — cùng hình dạng với bản ghi quản trị. */
 export type MyAccountDto = UserAdminDto;
 
 export interface MemberTrainingProfileDto {
@@ -349,9 +333,7 @@ export interface ReportExportDto {
   failureReason: string | null;
   createdAt: string;
   completedAt: string | null;
-  /** BR-46 v1.4 — CompletedAt + 6 tháng. */
   expiresAt: string;
-  /** Csv hoặc Pdf (BR-48). */
   format: string;
 }
 

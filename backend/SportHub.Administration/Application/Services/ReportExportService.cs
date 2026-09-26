@@ -36,7 +36,6 @@ public sealed record ReportExportResponse(
 
 public sealed class CreateReportExportRequest
 {
-    /// <summary>REVENUE hoặc MEMBER_SUMMARY — xem ReportTypes.</summary>
     [Required]
     public string ReportType { get; set; } = string.Empty;
 
@@ -46,28 +45,12 @@ public sealed class CreateReportExportRequest
     [Required]
     public DateOnly ToDate { get; set; }
 
-    /// <summary>
-    /// BR-44 — tệp xuất CHỈ chứa các trường được chọn rõ ràng trước khi xuất. Bắt buộc,
-    /// không có mặc định "xuất hết": mặc định như vậy là bỏ qua chính điều BR-44 yêu cầu.
-    /// </summary>
     [Required, MinLength(1)]
     public List<string> Columns { get; set; } = [];
 
-    /// <summary>
-    /// Csv hoặc Pdf (SSOT §5.7 whitelist). BR-48: PDF bắt buộc và CSV không thay thế, nên giá
-    /// trị lạ bị TỪ CHỐI chứ không âm thầm rơi về Csv. Bỏ trống thì giữ Csv để không phá
-    /// client cũ.
-    /// </summary>
     public string? Format { get; set; }
 }
 
-/// <summary>
-/// Báo cáo/tệp xuất đã tạo — BR-44 (chỉ cột được chọn), BR-45 (ownership), BR-46 (giữ ≥6 tháng),
-/// BR-47 (xoá thì link cũ hết truy cập), BR-48 (trạng thái FAILED + tạo lại).
-///
-/// BR-48 v1.4: hỗ trợ CSV và PDF. PDF là định dạng BẮT BUỘC, CSV không thay thế được.
-/// Ngưỡng "20 trang trong 15 giây" cần đo trên dữ liệu thật — xem implementation-status.md.
-/// </summary>
 public sealed class ReportExportService(
     ISportHubDbContext db,
     IReportStorage storage,
@@ -75,7 +58,6 @@ public sealed class ReportExportService(
     IAuditWriter audit,
     IClock clock) : IReportExportService
 {
-    /// <summary>BR-46 — lưu tối thiểu 6 tháng.</summary>
     public const int RetentionMonths = 6;
 
     public async Task<PagedResult<ReportExportResponse>> SearchAsync(
@@ -88,10 +70,8 @@ public sealed class ReportExportService(
         page = page < 1 ? 1 : page;
         pageSize = Math.Clamp(pageSize <= 0 ? 20 : pageSize, 1, 100);
 
-        // BR-47 — bản ghi đã xoá biến khỏi danh sách.
         var query = db.Set<ReportExport>().AsNoTracking().Where(r => !r.IsDeleted);
 
-        // BR-45 — người dùng chỉ thấy báo cáo do chính mình tạo; Center Manager thấy tất cả.
         if (!actorIsCenterManager)
         {
             query = query.Where(r => r.RequestedByUserId == actorUserId);
@@ -132,14 +112,10 @@ public sealed class ReportExportService(
 
         var allowed = ReportTypes.AllowedColumns[reportType];
 
-        // Giữ đúng THỨ TỰ trong whitelist, không theo thứ tự client gửi: cột trong file luôn
-        // ổn định giữa các lần xuất, dễ so sánh hai báo cáo cùng loại.
         var columns = allowed.Where(request.Columns.Contains).ToList();
 
         var unknown = request.Columns.Where(c => !allowed.Contains(c)).ToList();
 
-        // Cột lạ bị TỪ CHỐI chứ không bỏ qua im lặng: bỏ qua sẽ sinh ra file thiếu cột mà
-        // người dùng tưởng là đã có (BR-44).
         if (unknown.Count > 0)
         {
             throw new BadRequestException(
@@ -181,8 +157,6 @@ public sealed class ReportExportService(
             Format = format,
             Status = ReportExportStatus.Pending,
             CreatedAt = now,
-
-            // Mốc tạm. BR-46 v1.4 tính từ CompletedAt nên RunAsync đặt lại khi file xong.
             ExpiresAt = now.AddMonths(RetentionMonths)
         };
 
@@ -230,8 +204,6 @@ public sealed class ReportExportService(
     {
         var export = await LoadForActorAsync(reportExportId, actorUserId, actorIsCenterManager, ct);
 
-        // BR-47 — soft delete bản ghi VÀ xoá file: chỉ ẩn bản ghi mà giữ file thì "liên kết
-        // trước đó" vẫn còn dữ liệu ở sau nó.
         export.IsDeleted = true;
         export.DeletedAt = clock.UtcNow;
 
@@ -244,7 +216,6 @@ public sealed class ReportExportService(
         await db.SaveChangesAsync(ct);
     }
 
-    /// <summary>BR-48 — cho người dùng tạo lại báo cáo đã FAILED.</summary>
     public async Task<ReportExportResponse> RetryAsync(
         Guid reportExportId,
         Guid actorUserId,
@@ -281,12 +252,6 @@ public sealed class ReportExportService(
         return await GetOneAsync(reportExportId, ct);
     }
 
-    /// <summary>
-    /// Sinh file. Chạy ĐỒNG BỘ trong request ở MVP: khối lượng dữ liệu của một trung tâm đủ
-    /// nhỏ để xong trong vài trăm ms, và làm bất đồng bộ sẽ cần thêm hàng đợi + cơ chế theo
-    /// dõi tiến độ mà BR không yêu cầu. Trạng thái Pending/Failed vẫn được lưu đúng để BR-48
-    /// có chỗ bám khi sau này chuyển sang chạy nền.
-    /// </summary>
     private async Task RunAsync(
         ReportExport export,
         DateOnly fromDate,
@@ -296,8 +261,6 @@ public sealed class ReportExportService(
     {
         try
         {
-            // Dữ liệu được dựng MỘT lần rồi mới chọn cách serialize: CSV và PDF của cùng một
-            // tham số phải cho cùng nội dung, và hai truy vấn riêng là cách để chúng lệch nhau.
             var rows = export.ReportType switch
             {
                 ReportTypes.Revenue => await BuildRevenueRowsAsync(fromDate, toDate, columns, ct),
@@ -318,16 +281,11 @@ public sealed class ReportExportService(
             export.SizeBytes = bytes.LongLength;
             export.CompletedAt = completedAt;
 
-            // BR-46 v1.4 — giữ ít nhất 6 tháng KỂ TỪ KHI HOÀN TẤT. Mốc đặt lúc tạo (bản cũ)
-            // ngắn hơn đúng bằng thời gian sinh file, và với bản retry thì lệch hẳn một lần
-            // chờ.
             export.ExpiresAt = completedAt.AddMonths(RetentionMonths);
             export.FailureReason = null;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            // BR-48 — gián đoạn thì ghi FAILED và cho thử lại, KHÔNG xoá bản ghi đi:
-            // xoá đi thì người dùng không còn gì để bấm "thử lại".
             export.Status = ReportExportStatus.Failed;
             export.FailureReason = ex.Message.Length > 900 ? ex.Message[..900] : ex.Message;
             export.CompletedAt = clock.UtcNow;
@@ -358,8 +316,6 @@ public sealed class ReportExportService(
                 i.TotalAmount,
                 GrossCollected = i.Payments.Where(p => p.Status == PaymentStatus.Success)
                     .Sum(p => (decimal?)p.Amount) ?? 0m,
-
-                // BR-41 v1.4 — hai loại điều chỉnh tách riêng: giảm nghĩa vụ vs tiền thực hoàn.
                 ObligationReduction = i.Adjustments
                     .Where(a => a.Status == PaymentAdjustmentStatus.Completed
                                 && a.Type != PaymentAdjustmentType.Refund)
@@ -368,8 +324,7 @@ public sealed class ReportExportService(
                     .Where(a => a.Status == PaymentAdjustmentStatus.Completed
                                 && a.Type == PaymentAdjustmentType.Refund)
                     .Sum(a => (decimal?)a.Amount) ?? 0m,
-                i.Status,
-                i.DueDateUtc
+                i.Status
             })
             .ToListAsync(ct);
 
@@ -395,7 +350,6 @@ public sealed class ReportExportService(
                 "outstanding" => balance.Outstanding.ToString("0", CultureInfo.InvariantCulture),
                 "refundDue" => balance.RefundDue.ToString("0", CultureInfo.InvariantCulture),
                 "status" => row.Status.ToString(),
-                "dueDate" => VietnamTime.ToLocal(row.DueDateUtc).ToString("yyyy-MM-dd"),
                 _ => string.Empty
             });
 
@@ -480,14 +434,11 @@ public sealed class ReportExportService(
             .SingleOrDefaultAsync(r => r.ReportExportId == reportExportId, ct)
             ?? throw new NotFoundException("report_not_found", "Không tìm thấy báo cáo.");
 
-        // BR-47 — sau khi xoá, "liên kết trước đó" phải không truy cập lại được. Trả 404 chứ
-        // không phải 403: người gọi không cần biết bản ghi từng tồn tại.
         if (export.IsDeleted)
         {
             throw new NotFoundException("report_not_found", "Không tìm thấy báo cáo.");
         }
 
-        // BR-45 — kiểm ownership Ở API, không dựa vào việc UI giấu link.
         if (!actorIsCenterManager && export.RequestedByUserId != actorUserId)
         {
             throw new ForbiddenException("report_not_owned", "Báo cáo này không thuộc về bạn (BR-45).");
@@ -511,11 +462,9 @@ public sealed class ReportExportService(
             builder.AppendLine(string.Join(',', row.Select(CsvEscape)));
         }
 
-        // BOM UTF-8 để Excel trên Windows không hiển thị sai dấu tiếng Việt.
         return [.. Encoding.UTF8.GetPreamble(), .. Encoding.UTF8.GetBytes(builder.ToString())];
     }
 
-    /// <summary>BR-48 — PDF thuộc scope bắt buộc, CSV không thay thế.</summary>
     private byte[] RenderPdf(
         ReportExport export,
         DateOnly fromDate,
@@ -542,7 +491,6 @@ public sealed class ReportExportService(
             numeric));
     }
 
-    // Quy tắc CSV (RFC 4180): bọc nháy kép khi có dấu phẩy/nháy/xuống dòng, và nhân đôi nháy bên trong.
     private static string CsvEscape(string? value)
     {
         value ??= string.Empty;

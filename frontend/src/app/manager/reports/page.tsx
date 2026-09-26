@@ -21,7 +21,6 @@ import {
 import { useAction, useApi } from "@/lib/useApi";
 import type { Paged, ReportExportDto, RevenueReportDto } from "@/lib/types";
 
-/** BR-44 — chỉ xuất những cột được chọn RÕ RÀNG trước khi xuất, không có mặc định "lấy hết". */
 const COLUMN_SETS: Record<string, { key: string; label: string }[]> = {
   REVENUE: [
     { key: "invoiceNumber", label: "Number of invoices" },
@@ -29,8 +28,6 @@ const COLUMN_SETS: Record<string, { key: string; label: string }[]> = {
     { key: "memberEmail", label: "Members email" },
     { key: "memberName", label: "Name of the Fellow" },
     { key: "totalAmount", label: "Total Money" },
-    // BR-41 v1.4 — sáu đại lượng tách bạch. Cột "Điều chỉnh"/"Doanh thu ròng" cũ gộp giảm
-    // nghĩa vụ với tiền hoàn nên đã bị bỏ khỏi whitelist ở backend.
     { key: "collectedAmount", label: "Retrieved" },
     { key: "obligationReduction", label: "Reduced Roles" },
     { key: "refundedAmount", label: "Completed" },
@@ -39,7 +36,6 @@ const COLUMN_SETS: Record<string, { key: string; label: string }[]> = {
     { key: "outstanding", label: "We're gonna take it." },
     { key: "refundDue", label: "Need to Complete" },
     { key: "status", label: "Status" },
-    { key: "dueDate", label: "Pay limit" },
   ],
   MEMBER_SUMMARY: [
     { key: "email", label: "Email" },
@@ -53,12 +49,6 @@ const COLUMN_SETS: Record<string, { key: string; label: string }[]> = {
   ],
 };
 
-/**
- * Báo cáo doanh thu (BR-32, BR-43 — chỉ Quản lý; thu ròng = đã thu trừ đã THỰC HOÀN)
- * và tệp xuất (BR-44 → BR-48).
- *
- * BR-48 v1.4: xuất được cả CSV và PDF; PDF là định dạng bắt buộc và CSV không thay thế.
- */
 export default function ReportsPage() {
   const today = todayIso();
   const monthStart = `${today.slice(0, 7)}-01`;
