@@ -1,9 +1,9 @@
 # Mục đích các Entity & vai trò từng Field (SportHub)
 
 > Rút ra từ ERD v2 (`docs/Center-Management-System-Design-v2.md` §1), state transition (§2) và bảng ràng buộc DB (§3).
-> Thứ tự ưu tiên: `00-Source-of-Truth.md` → `SportManagement_BusinessRules.docx` v1.6 → `Center-Management-System-Design-v2.md` → tài liệu field này. Không duy trì bản Markdown mirror của Business Rules.
+> Thứ tự ưu tiên: `00-Source-of-Truth.md` → `SportManagement_BusinessRules.docx` v1.8 → `Center-Management-System-Design-v2.md` → tài liệu field này. Không duy trì bản Markdown mirror của Business Rules.
 >
-> **Cập nhật 23/09/2026:** Membership/Class/Booking/No-show/PT đã đồng bộ theo Business Rules v1.6. Module Payment là **PENDING — chưa chốt nghiệp vụ**; tên entity/field Payment hiện có chỉ được xem là dấu vết kỹ thuật cũ, không phải schema được duyệt để code.
+> **Cập nhật 26/09/2026:** Đồng bộ Business Rules v1.8 cho Identity, Membership/PT và Payment. Các field bên dưới là thiết kế logic tối thiểu để đáp ứng nghiệp vụ đã chốt; tên vật lý cuối cùng có thể được map khi sửa code/migration.
 >
 > **Cập nhật 10/09/2026:** tên field trong cột "Field" (và mọi tham chiếu `Entity.Field` trong phần Mục đích) đã đổi từ `PascalCase` sang `snake_case` (vd `RoleID` → `role_id`) theo quyết định naming mới ở `00-Source-of-Truth.md` §5.4. Tên bảng (`USERS`, `MEMBER_TRAINING_PROFILE`...) và tên class/job (`AttendanceFinalizerJob`...) giữ nguyên, không đổi. **Chỉ sửa doc, chưa đụng code.**
 >
@@ -61,7 +61,7 @@
 | `RefreshToken` | Nullable; scope Google login hiện không lưu refresh token. Nếu bổ sung lưu trữ phải thiết kế bảo vệ riêng, không lưu thô |
 | `CreatedAt` | Mốc link provider — cũng là mốc dùng để kiểm tra `(UserId, Provider)` unique (1 user không link trùng 1 provider 2 lần) |
 
-**Business rule đăng nhập Google (BR-59/60 chính thức):** nếu `POST /api/auth/google` nhận email đã tồn tại ở `USER_ACCOUNTS` nhưng chưa có `USER_EXTERNAL_LOGINS` khớp → **không** tự tạo account mới, **không** tự link — trả lỗi yêu cầu đăng nhập password trước rồi link từ Cài đặt (`POST /api/auth/google/link`, cần JWT). Chặn kiểu tấn công account pre-hijacking.
+**Business rule đăng nhập Google (BR-59/60 chính thức):** nếu `POST /api/auth/google` nhận email đã tồn tại nhưng chưa link thì không tự tạo/tự link. Với email mới, hệ thống tạo account ở trạng thái chờ thiết lập mật khẩu; chính người dùng phải nhập và xác nhận mật khẩu mạnh trước khi hoàn tất onboarding. Không sinh hoặc gửi mật khẩu gợi ý.
 
 ### `ROLES`
 **Mục đích:** danh mục cố định 4 vai trò trong hệ thống, tách riêng để RBAC dễ mở rộng (thêm role mới không cần đổi schema `USER_ACCOUNTS`).
@@ -111,7 +111,7 @@
 |---|---|
 | `PackageId` (PK) | Định danh gói |
 | `Name` | Hiển thị cho Member chọn mua — **unique trong catalog** (BR-56) |
-| `Price` | Giá bán; cách sử dụng trong Payment/Invoice đang để treo |
+| `Price` | Giá niêm yết hiện tại; khi checkout phải snapshot vào `INVOICE_ITEMS`, thay đổi giá sau đó không sửa Invoice cũ |
 | `DurationInMonths` | Chỉ nhận 1, 3, 6 hoặc 12 tháng; dùng công thức calendar date của BR-9 |
 | `IsActive` / `Description` | Ngừng bán không làm mất quyền lợi Membership đã tạo; Description tùy chọn |
 
@@ -123,9 +123,9 @@
 | `MemberPackageId` (PK) | Định danh |
 | `MemberId` (FK) | Ai sở hữu gói này |
 | `PackageId` (FK) | Mua theo template gói nào |
-| `StartDate` / `EndDate` | Calendar date, đều inclusive; `EndDate = StartDate.AddMonths(DurationInMonths).AddDays(-1)`. Sự kiện xác lập StartDate cho lần mua mới thuộc Payment đang để treo |
-| `Status` | Business Rules hiện dùng `Active` và `Expired`; không tự chốt thêm trạng thái liên quan Payment |
-| PT add-on / frequency / quota | PT tùy chọn; frequency 1/2/3 chỉ tính tổng quota theo BR-71, không phải giới hạn theo tuần. Tên field cụ thể cần chốt trong thiết kế trước khi code |
+| `StartDate` / `EndDate` | Calendar date, đều inclusive; lần mua mới lấy StartDate theo ngày Việt Nam của `vnp_PayDate` đã xác minh; early renewal bắt đầu sau EndDate hiện tại |
+| `Status` | `ACTIVE`, `EXPIRED`, `CANCELLED`; chỉ tạo/kích hoạt sau Payment thành công trong cùng transaction; Refund Completed hủy quyền lợi tương ứng |
+| PT plan / frequency / quota | PT là dịch vụ trả phí riêng; chỉ checkout khi Membership `ACTIVE`. Frequency 1/2/3 chỉ tính tổng quota theo BR-71; PT không được vượt EndDate Membership liên kết |
 | Liên kết renewal/carry-over | Early renewal tạo record mới; PT sessions chưa dùng carry over theo BR-65/66. Tên field kỹ thuật cần chốt trong thiết kế trước khi code |
 
 ---
@@ -263,63 +263,70 @@
 
 ## Module: Payment
 
-> **PENDING — chưa chốt nghiệp vụ.** Toàn bộ entity, field, enum, lifecycle và công thức trong module này là thiết kế cũ để tham khảo lịch sử, không phải schema đã duyệt và không được dùng làm yêu cầu code. Không suy diễn cách tạo Invoice, ghi Payment, Adjustment/Refund, hạn/cọc hoặc báo cáo doanh thu từ nội dung bên dưới.
+> **Đã chốt theo BR-79–BR-95.** Invoice được tạo tại checkout, chỉ thanh toán đủ một lần bằng VNPay-QR và tối đa một Payment thành công. PaymentAttempt có thể tạo lại; Refund tách theo InvoiceItem và chỉ backend gọi VNPay.
 
-### `INVOICES` — dự thảo cũ
-**Trạng thái dự thảo cũ:** chưa chốt mục đích và lifecycle Invoice.
+### `INVOICES`
+**Mục đích:** chứng từ checkout bất biến sau khi Paid, giữ người thụ hưởng, người khởi tạo và tổng tiền snapshot.
 
 | Field | Vai trò |
 |---|---|
 | `InvoiceId` (PK) | Định danh nội bộ |
 | `InvoiceNumber` | Mã hóa đơn dễ đọc, **unique**, sinh từ DB sequence (không random ở app) để tránh trùng khi 2 request song song (constraint #5, BR-58) |
-| `MemberId` (FK) | Hóa đơn xuất cho ai |
-| `IssuedByUserId` (FK) | Nhân viên nào xuất (thường Receptionist) — audit |
-| `MemberPackageId` (FK, nullable) | Nếu hóa đơn gắn với 1 gói cụ thể thì trỏ tới đó (nullable vì có thể là phí khác, vd penalty) |
-| `TotalAmount` | Giá trị gốc hóa đơn bất biến; NetPayable/Outstanding suy ra theo BR-41 v1.4, không cộng Refund vào giảm nghĩa vụ |
-| `Status` | `ISSUED → PARTIALLY_PAID → PAID` hoặc `→ VOID` — xem state machine §2.3 |
-| `IssuedAt` | Mốc xuất hóa đơn |
+| `BeneficiaryMemberId` (FK) | Member nhận Membership/PT; tách khỏi người checkout |
+| `CreatedByUserId` (FK) | Member tự checkout hoặc Receptionist thao tác hộ |
+| `TotalAmount` | Tổng snapshot các InvoiceItem; VND, phải trả đủ một lần, không cọc/trả góp/thiếu/thừa |
+| `Status` | `PENDING_PAYMENT`, `PAID`, `PAID_AFTER_RECONCILIATION`, `EXPIRED`, `CANCELLED`; Paid không sửa/xóa/void |
+| `IssuedAt` | Mốc tạo Invoice tại checkout; gửi email qua outbox |
 
-### `INVOICE_ITEMS` — dự thảo cũ
-**Trạng thái dự thảo cũ:** chưa chốt cấu trúc InvoiceItem.
+### `INVOICE_ITEMS`
+**Mục đích:** snapshot từng Membership/PT item và là đơn vị tính eligibility/số tiền Refund.
 
 | Field | Vai trò |
 |---|---|
 | `ItemId` (PK) | Định danh dòng |
 | `InvoiceId` (FK) | Thuộc hóa đơn nào |
-| `Description` | Diễn giải hiển thị trên hóa đơn |
-| `Amount` | Số tiền của dòng này — tổng các dòng phải khớp `Invoice.TotalAmount` |
-| `RelatedEntityType` | `PACKAGE/CLASS_FEE/PENALTY` — dòng này phát sinh từ nguồn nào |
-| `RelatedEntityId` (nullable) | Trỏ tới entity nguồn cụ thể (vd `MemberPackageId`) để truy vết |
+| `ItemType` / `RelatedEntityId` | `MEMBERSHIP` hoặc `PT`; tham chiếu catalog/plan tại checkout |
+| `Description` / `UnitPrice` / `Quantity` / `LineAmount` | Snapshot tên gói, đơn giá, số lượng và thành tiền; tổng LineAmount phải bằng Invoice.TotalAmount |
 
-### `PAYMENTS` — dự thảo cũ
-**Trạng thái dự thảo cũ:** chưa chốt cấu trúc và quy trình Payment.
+### `PAYMENT_ATTEMPTS`
+**Mục đích:** mỗi lần mở thanh toán VNPay cho một Invoice, cho phép retry mà không tạo Payment thành công trùng.
+
+| Field | Vai trò |
+|---|---|
+| `PaymentAttemptId` (PK) / `InvoiceId` (FK) | Định danh attempt và Invoice được thanh toán |
+| `VnpTxnRef` | Unique toàn hệ thống; ký request và đối chiếu IPN/QueryDR |
+| `Amount` | Phải khớp chính xác Invoice.TotalAmount |
+| `ExpiresAt` | Lấy theo `vnp_ExpireDate` Sandbox/merchant hỗ trợ, không hard-code 24 giờ |
+| `Status` | `PENDING`, `EXPIRED`, `SUCCEEDED`, `FAILED`, `RECONCILIATION_REQUIRED` |
+| Gateway payload/timestamps | Lưu dữ liệu cần đối soát, không lưu secret |
+
+### `PAYMENTS`
+**Mục đích:** bản ghi thu tiền đã được backend xác minh qua IPN hoặc QueryDR; mỗi Invoice tối đa một Payment `SUCCESS`.
 
 | Field | Vai trò |
 |---|---|
 | `PaymentId` (PK) | Định danh giao dịch |
 | `InvoiceId` (FK) | Thanh toán cho hóa đơn nào |
-| `Amount` | Số tiền của lần thu này — khoản thu mới không vượt Outstanding theo BR-41 v1.4 và không quá hạn thanh toán |
-| `Method` | `CASH/CARD/TRANSFER/EWALLET` — MVP chủ yếu ghi nhận thủ công |
-| `ReferenceCode` (nullable) | Mã tham chiếu từ cổng thanh toán ngoài (nếu có) |
-| `Status` | `PENDING/SUCCESS/FAILED` — chỉ `SUCCESS` mới tính vào tổng đã thu |
-| `ReceivedByUserId` (FK) | Nhân viên nào nhận tiền — audit, thường Receptionist |
-| `PaidAt` | Mốc thanh toán — dùng cho báo cáo doanh thu theo thời gian |
+| `PaymentAttemptId` (FK) | Attempt đã được xác minh thành công |
+| `Amount` | Bằng Invoice.TotalAmount |
+| `Method` | `VNPAY_QR` |
+| `VnpTransactionNo` | Unique khi có giá trị; mã giao dịch VNPay dùng đối soát |
+| `Status` | `SUCCESS`; không cho Receptionist cập nhật thủ công |
+| `PaidAt` / `VnpPayDate` | Mốc thu tiền; dùng ngày Việt Nam để ghi nhận doanh thu và StartDate lần mua mới |
 
-### `PAYMENT_ADJUSTMENTS` — dự thảo cũ
-**Trạng thái dự thảo cũ:** chưa chốt Adjustment/Refund, quyền thao tác hoặc workflow duyệt.
+### `REFUNDS`
+**Mục đích:** yêu cầu và kết quả hoàn tiền theo một InvoiceItem; không gộp với correction/discount.
 
 | Field | Vai trò |
 |---|---|
-| `AdjustmentId` (PK) | Định danh |
-| `InvoiceId` (FK) | Điều chỉnh cho hóa đơn nào |
-| `PaymentId` (FK, nullable) | Nếu liên quan 1 giao dịch thu tiền cụ thể thì trỏ tới đó |
-| `Type` | `REFUND/CORRECTION/DISCOUNT` — loại điều chỉnh, quyết định công thức tính (BR-52 cho REFUND) |
-| `Amount` | Số tiền điều chỉnh |
-| `Reason` | Lý do — bắt buộc để Manager duyệt có căn cứ |
-| `Status` | Requested → Approved → Completed hoặc Requested → Rejected. Refund cần xác nhận thực trả riêng sau duyệt; không gộp approve/complete (BR-42 v1.4) |
-| `RequestedByUserId` (FK) | Ai yêu cầu |
-| `ApprovedByUserId` (FK, nullable) | Ai duyệt — null nếu chưa duyệt/bị từ chối |
-| `CreatedAt` / `ResolvedAt` (nullable) | Mốc tạo / xử lý legacy; báo cáo hoàn tiền dùng CompletedAtUtc riêng, không dùng ngày duyệt |
+| `RefundId` (PK) / `InvoiceItemId` / `PaymentId` | Định danh Refund, item được hoàn và nguồn tiền đã thu |
+| `RequestedByUserId` / `OnBehalfOfMemberId` | Member tự yêu cầu hoặc Receptionist tạo hộ; trường hợp tạo hộ bắt buộc lý do |
+| `Reason` / `CenterFault` | Lý do audit; lỗi trung tâm mở ngoại lệ theo phần quyền lợi chưa dùng |
+| `SystemCalculatedAmount` / `ApprovedAmount` | Chuẩn là 50% InvoiceItem đủ điều kiện; Manager không được vượt mức hệ thống tính |
+| `Status` | `REQUESTED → APPROVED/REJECTED`; sau duyệt: `PROCESSING → COMPLETED/FAILED/RECONCILIATION_REQUIRED` |
+| `ApprovedByUserId` / `ApprovedAt` | Chỉ Center Manager approve/reject |
+| `VnpRequestId` / gateway reference | Unique/idempotent; chỉ backend gọi VNPay Refund API |
+| `CompletedAt` | Mốc thực hoàn, dùng ghi `Refunded` và `NetCollected`; không ghi giảm doanh thu khi mới approve |
 
 ---
 
@@ -372,7 +379,7 @@
 
 ## Bổ sung field đã duyệt ngày 22/09/2026
 
-Phần này là ghi chú lịch sử của schema v1.4. Các dòng liên quan Membership/Class đã được thay bằng Business Rules v1.6; các dòng liên quan Payment là PENDING và không còn hiệu lực triển khai.
+Phần này là ghi chú lịch sử của schema v1.4. Các dòng Payment cũ đã được thay bằng module Payment theo Business Rules v1.8 ở trên.
 
 | Entity.Field | Mục đích và ràng buộc |
 |---|---|
@@ -380,11 +387,11 @@ Phần này là ghi chú lịch sử của schema v1.4. Các dòng liên quan Me
 | SystemSetting.Key/Value/ValueType | Không dùng để cấu hình deadline class 12 giờ; các setting khác giữ theo rule tương ứng |
 | SystemSetting.UpdatedAt/UpdatedByUserId | UTC và FK actor, actor có thể null cho seed; chỉnh qua UI có audit |
 | ClassSession.BaselineCapacity | Thiết kế cũ; rule hiện hành chỉ chốt Capacity class là số dương và tối đa 20 |
-| Invoice.DueDateUtc/FirstDepositAtUtc | **PENDING — Payment, chưa chốt** |
+| Invoice.DueDateUtc/FirstDepositAtUtc | **Không dùng:** không cọc; expiry đặt trên từng PaymentAttempt theo `vnp_ExpireDate` được hỗ trợ |
 | MemberPackage.StackingApprovedByUserId/StackingApprovedAtUtc/StackingApprovalReason | Thiết kế cũ, không có trong Membership rules v1.6; không dùng làm yêu cầu code |
 | MembershipPackage.IsActive/Description | bool bán mới, mô tả nullable; ngừng bán không tước quyền gói đã bán |
 | AuditLog.TargetId | string cùng TargetEntity để ghi entity có khóa Guid/int/string; không phải một FK chung tới mọi bảng |
-| PaymentAdjustment.* | **PENDING — Payment/Refund chưa chốt field hoặc workflow** |
+| PaymentAdjustment.* | **Không dùng cho Refund:** thay bằng entity `REFUNDS` theo InvoiceItem và workflow BR-90–BR-95 |
 | ReportExport.ReportExportId/RequestedByUserId | Guid ID, FK chủ sở hữu; download qua API kiểm quyền |
 | ReportExport.ReportType/ParametersJson/Format | loại report whitelist, filter và cột đã chọn, string format Csv/Pdf; không nhận storage path từ client |
 | ReportExport.Status/FailureReason | ReportExportStatus theo SSOT; Failed lưu lỗi an toàn, retry; Completed chỉ khi file sẵn sàng |
@@ -392,19 +399,19 @@ Phần này là ghi chú lịch sử của schema v1.4. Các dòng liên quan Me
 | ReportExport.CreatedAt/CompletedAt/ExpiresAt | thời điểm UTC; giữ file thành công ít nhất 6 tháng kể từ CompletedAt |
 | ReportExport.IsDeleted/DeletedAt | chỉ xóa sau retention; list/download phải chặn link cũ; file riêng tư suy ra từ ID/format dưới storage root |
 
-Các đại lượng Payment cũ như NetPayable, GrossCollected, RefundedAmount, NetCollected, Outstanding và RefundDue không còn là công thức đã duyệt. Membership dùng calendar date; `StartDate`/`EndDate` đều inclusive theo BR-9.
+Các đại lượng báo cáo đã duyệt: `GrossCollected` là tổng Payment thành công theo ngày thu tiền; `Refunded` là tổng Refund `COMPLETED` theo ngày hoàn tất; `NetCollected = GrossCollected - Refunded`. Không giảm revenue khi Refund mới Requested/Approved/Processing.
 
-## Bổ sung field đề xuất (CHƯA duyệt — chỉ là thiết kế) — 23/09/2026
+## Field Identity đã duyệt — 26/09/2026
 
-Toàn bộ phần này thuộc `claude/auth-register-email-otp-plan.md` và `claude/auth-google-suggested-password-plan.md` (Project doc) — **chưa được duyệt, chưa có migration/code**. Ghi lại ở đây để khớp entity nếu/khi team chốt triển khai; xem `00-Source-of-Truth.md` §5.8 và §7 (Open Questions) cho điều kiện cần xác nhận trước.
+Các field này mô tả yêu cầu BR-60/BR-78; trạng thái code/migration được đánh giá riêng khi triển khai.
 
 | Entity.Field | Mục đích và ràng buộc |
 |---|---|
 | EmailOtp (entity mới, module Identity) | 1 dòng/email (unique). Phục vụ BR-78 — xác thực OTP khi Register bằng email/mật khẩu |
-| EmailOtp.Email | citext, unique — dòng mới cho cùng email GHI ĐÈ dòng cũ (không giữ lịch sử các lần yêu cầu OTP) |
-| EmailOtp.CodeHash | SHA-256 của mã OTP 6 số — không lưu plaintext; không dùng BCrypt (lý do: rate-limit theo Attempts/hạn dùng là lớp chặn chính, không phải độ chậm hash) |
+| EmailOtp.Email | Email chuẩn hóa; chỉ OTP mới nhất còn hiệu lực; rate limit theo email và IP |
+| EmailOtp.CodeHash | Hash của mã OTP 6 số; không lưu hoặc log plaintext |
 | EmailOtp.ExpiresAt | Mã hết hạn sau 10 phút kể từ lần yêu cầu gần nhất |
 | EmailOtp.Attempts | Số lần verify sai liên tiếp cho mã hiện tại; vượt 5 lần → phải yêu cầu mã mới |
 | EmailOtp.ConsumedAt | null = còn dùng được; set khi verify đúng, mã không dùng lại được lần 2 |
-| AuthResponse.IsNewAccount (field mới, dùng chung Register/Login/Google) | Register luôn true; Login luôn false; Google Login true chỉ ở nhánh vừa tạo `UserAccount` mới |
-| AuthResponse.SuggestedPassword (field mới) | Chỉ khác null ở đúng 1 trường hợp: Google Login vừa tạo account mới (`UserCredential.PasswordHash` vẫn null — BR-60). Không lưu ở đâu trong DB, không log |
+| Google onboarding state | Email mới qua Google tạo account chờ thiết lập password; user phải nhập/confirm password mạnh trước khi dùng chức năng protected |
+| AuthResponse.SuggestedPassword | **Không sử dụng.** Hệ thống không sinh hoặc gửi mật khẩu gợi ý theo BR-60 v1.8 |
