@@ -2,7 +2,7 @@
 
 > Mục đích: 1 nơi duy nhất để AI / FE / BE tra cứu khi có mâu thuẫn giữa các tài liệu.
 > Nếu file này và một doc khác nói khác nhau → **file này thắng**, trừ khi có ghi chú "xem chi tiết tại...".
-> Cập nhật lần cuối: 23/09/2026 — Membership/Class/Booking/No-show/PT đã được duyệt và đồng bộ theo Business Rules v1.6. Payment/Invoice/Adjustment/Refund và báo cáo doanh thu đang **PENDING — chưa chốt nghiệp vụ**; mọi mô tả Payment cũ chỉ là dự thảo, không dùng để code.
+> Cập nhật lần cuối: 26/09/2026 — đã đồng bộ Business Rules v1.8 cho Google onboarding, Register OTP, Membership/PT, VNPay Payment, Invoice, Refund, reconciliation và revenue.
 
 ---
 
@@ -11,7 +11,7 @@
 Khi có mâu thuẫn, đọc theo thứ tự sau (trên > dưới):
 
 1. `docs/00-Source-of-Truth.md` (file này) — quyết định đã chốt, không tranh cãi lại trong sprint hiện tại
-2. `docs/SportManagement_BusinessRules.docx` — business rules chi tiết; bản hiện có là **v1.6, 23/09/2026**. Không còn duy trì bản Markdown mirror.
+2. `docs/SportManagement_BusinessRules.docx` — business rules chi tiết; bản hiện có là **v1.8, 26/09/2026**. Không còn duy trì bản Markdown mirror.
 3. `docs/Center-Management-System-Design-v2.md` — thiết kế kỹ thuật/kiến trúc
 4. `docs/Requirements.md` — yêu cầu gốc từ đề bài
 5. Mọi thứ khác (Slack/Zalo/note họp miệng) — **không tính là nguồn chính thức** trừ khi được chép lại vào 1 trong 4 file trên
@@ -28,7 +28,7 @@ Khi có mâu thuẫn, đọc theo thứ tự sau (trên > dưới):
 
 - [ ] Flow 1 — User & Membership management
 - [ ] Flow 2 — Class booking & schedule management
-- [ ] Flow 3 — Payment & report management — **PENDING: chưa chốt nghiệp vụ Payment**; phần báo cáo không phụ thuộc Payment có thể tiếp tục.
+- [ ] Flow 3 — Payment & report management — VNPay-QR, Invoice/InvoiceItem, PaymentAttempt, reconciliation, Refund và revenue theo BR-79–BR-95.
 
 > **Bổ sung 18/09/2026 — Bộ môn (Discipline) trong scope:** 1 trung tâm duy nhất (không đa chi nhánh, xem §1.3), nhưng **đa bộ môn** — 4 bộ môn chính thức, chốt cùng ngày (chi tiết + lý do đầy đủ: `claude/citigym-multidiscipline-scope-plan.md`, Project doc):
 >
@@ -48,7 +48,7 @@ Khi có mâu thuẫn, đọc theo thứ tự sau (trên > dưới):
 
 - [x] Đa chi nhánh / multi-tenant — 1 lần deploy SportHub = 1 trung tâm duy nhất, không có entity `Center`/`Branch`. Không nhầm với "đa bộ môn" (multi-discipline) — đa bộ môn trong CÙNG 1 trung tâm là IN-SCOPE, xem §1.1.
 - [x] Các bộ môn ngoài 4 bộ môn đã chốt ở §1.1 (vd Boxing, Cầu lông, Bơi lội, Bóng rổ...)
-- [x] Cổng thanh toán thật VNPay/Momo. Cơ chế Payment nội bộ cũng đang để treo cho đến khi nghiệp vụ được duyệt.
+- [x] Cổng thanh toán production và Momo ngoài phạm vi MVP; tích hợp mục tiêu hiện tại là **VNPay Sandbox/VNPay-QR**.
 - [x] Mobile app riêng.
 - [x] Gửi SMS/email thật — MVP thông báo trong app; kênh khác chỉ log.
 
@@ -61,7 +61,7 @@ Khi có mâu thuẫn, đọc theo thứ tự sau (trên > dưới):
 
 ## 2. Entity đã chốt (Domain Model)
 
-**23/09/2026:** bảng này phản ánh Membership/Class/PT hiện hành. Các entity/field thuộc Payment chỉ là schema dự thảo để nhận diện phạm vi, không phải thiết kế đã duyệt và không được dùng làm yêu cầu code.
+**26/09/2026:** bảng này phản ánh Business Rules v1.8. Payment đã được chốt ở mức nghiệp vụ; tên field chi tiết có thể được điều chỉnh khi thiết kế migration nhưng không được làm sai lifecycle/ràng buộc bên dưới.
 
 > Đồng bộ với ERD v2 (`Center-Management-System-Design-v2.md` §1) — nguồn field đầy đủ nhất là `entity-field-purpose.md`, bảng dưới chỉ tóm tắt để tra nhanh module sở hữu + enum dùng. Entity nào **chưa** nằm trong bảng này thì **chưa được coi là đã chốt**.
 >
@@ -90,8 +90,8 @@ Khi có mâu thuẫn, đọc theo thứ tự sau (trên > dưới):
 | `UserExternalLogin` | Identity | `ExternalLoginId` (uuid) | UserId, Provider, ProviderUserId, RefreshToken (nullable) | N—1 `UserAccount` | `ExternalAuthProvider` | unique (provider, provider_user_id) và (user_id, provider); refresh_token MVP chưa mã hoá — xem Open Questions |
 | `MemberTrainingProfile` | Membership | `ProfileId` (uuid) | MemberId (unique), Goal, ExperienceLevel | 1—1 `UserAccount` (Member) | `ExperienceLevel` | input bắt buộc cho AI suggestion (BR-26) |
 | `CoachMemberRelationship` | Training | `RelationshipId` (uuid) | CoachId, MemberId, SourceType, ClassId (nullable) | N—1 `UserAccount` (2 phía) | `RelationshipSourceType`, `RelationshipStatus` | unique khi ACTIVE (ràng buộc #7, BR-23/24) |
-| `MembershipPackage` | Membership | `PackageId` (int) | Name (unique), Price, DurationInMonths, IsActive, Description (nullable) | 1—N `MemberPackage` | — | DurationInMonths chỉ nhận 1, 3, 6 hoặc 12; unique BR-56. Price liên quan Payment đang để treo. |
-| `MemberPackage` (Membership record hiện tại) | Membership | `MemberPackageId` (uuid) | MemberId, PackageId, StartDate, EndDate, PT add-on/frequency/quota theo BR-11/71 | N—1 `UserAccount`, N—1 `MembershipPackage` | `MemberPackageStatus` | StartDate/EndDate là calendar date, inclusive; early renewal/carry-over theo BR-65/66. Tên entity code chưa được đổi chỉ vì tài liệu dùng thuật ngữ Membership. |
+| `MembershipPackage` | Membership | `PackageId` (int) | Name (unique), Price, DurationInMonths, IsActive, Description (nullable) | 1—N `MemberPackage`, `InvoiceItem` snapshot | — | Duration 1/3/6/12; Price được snapshot tại checkout, đổi giá không sửa Invoice cũ. |
+| `MemberPackage` (Membership record hiện tại) | Membership | `MemberPackageId` (uuid) | MemberId, PackageId, StartDate, EndDate, Status | N—1 `UserAccount`, N—1 `MembershipPackage` | `MemberPackageStatus` | Chỉ tạo/kích hoạt cùng transaction Payment thành công; lần mua mới lấy ngày Việt Nam của vnp_PayDate; early renewal bắt đầu sau EndDate hiện tại. |
 | `Room` | Scheduling | `RoomId` (int) | Name (unique), Capacity | 1—N `Class`, `ClassSession` | — | unique BR-57 |
 | `Class` | Scheduling | `ClassId` (int) | Discipline, Date, StartTime, EndTime, Coach, Capacity, Slot, Status | N—1 `Room`; 1—N booking/attendance | `ClassStatus` | Chỉ Yoga/GroupX; 60 phút; Morning/Afternoon do Manager chọn; `DRAFT → PUBLISHED → CLOSED`. |
 | `ClassRecurrence` | Scheduling | `RecurrenceId` (int) | Chưa có rule mới để chốt recurrence | — | — | Không dùng recurrence engine để suy diễn lịch PT. Nếu giữ cho Yoga/Group X thì phải tuân thủ trần slot/ngày của BR-15. |
@@ -101,10 +101,11 @@ Khi có mâu thuẫn, đọc theo thứ tự sau (trên > dưới):
 | `WorkoutPlan` | Training | `PlanId` (uuid) | MemberId, CoachId, RelationshipId, Goal, Level | N—1 `UserAccount` (2 phía), `CoachMemberRelationship`; 1—N `WorkoutPlanItem` | — | chỉ tạo được khi quan hệ ACTIVE (BR-23) |
 | `WorkoutPlanItem` | Training | `ItemId` (uuid) | PlanId, Exercise, Sets, Reps | N—1 `WorkoutPlan` | — | |
 | `WorkoutResult` | Training | `ResultId` (uuid) | EnrollmentId, CoachId, ProgressNote, CoachComment | N—1 `Enrollment`, `UserAccount` (coach) | — | chỉ Coach dạy buổi đó mới ghi được (BR-24); chỉ tạo được khi `Enrollment.Status = Confirmed` (BR-61); không thêm điều kiện Present; bỏ `session_id`/`member_id` 10/09/2026 (3) — suy ra qua `Enrollment`, đảm bảo Member thực sự có đăng ký session đó |
-| `Invoice` | Payment | Chưa chốt | Chưa chốt | Chưa chốt | Chưa chốt | **PENDING — schema và rule cũ không có hiệu lực triển khai.** |
-| `InvoiceItem` | Payment | Chưa chốt | Chưa chốt | Chưa chốt | Chưa chốt | **PENDING — schema và rule cũ không có hiệu lực triển khai.** |
-| `Payment` | Payment | Chưa chốt | Chưa chốt | Chưa chốt | Chưa chốt | **PENDING — schema và rule cũ không có hiệu lực triển khai.** |
-| `PaymentAdjustment` | Payment | Chưa chốt | Chưa chốt | Chưa chốt | Chưa chốt | **PENDING — schema và rule cũ không có hiệu lực triển khai.** |
+| `Invoice` | Payment | `InvoiceId` (uuid) | InvoiceNumber, BeneficiaryMemberId, CreatedByUserId, TotalAmount, Status, IssuedAt | 1—N `InvoiceItem`, `PaymentAttempt`; 0—1 successful `Payment` | `InvoiceStatus` | Tạo tại checkout; Paid không sửa/xóa/void. |
+| `InvoiceItem` | Payment | `InvoiceItemId` (uuid) | InvoiceId, ItemType, Description, UnitPrice, Quantity, LineAmount, RelatedEntityId | N—1 `Invoice`; 1—N `Refund` | `InvoiceItemType` | Snapshot Membership/PT; là đơn vị tính refund. |
+| `PaymentAttempt` | Payment | `PaymentAttemptId` (uuid) | InvoiceId, VnpTxnRef, Amount, ExpiresAt, Status, gateway data | N—1 `Invoice`; 0—1 `Payment` | `PaymentAttemptStatus` | Có thể retry; VnpTxnRef unique; expiry theo cấu hình Sandbox được hỗ trợ. |
+| `Payment` | Payment | `PaymentId` (uuid) | InvoiceId, PaymentAttemptId, Amount, VnpTransactionNo, VnpPayDate, Status | 1—1 attempt thành công; N—1 `Invoice` | `PaymentStatus`, `PaymentMethod` | Chỉ IPN/QueryDR xác minh; tối đa 1 SUCCESS/Invoice. |
+| `Refund` | Payment | `RefundId` (uuid) | InvoiceItemId, PaymentId, RequestedBy, Reason, SystemCalculatedAmount, Status, VnpRequestId | N—1 item/payment; approver là Center Manager | `RefundStatus` | Member tự tạo hoặc Receptionist tạo hộ có lý do; backend gọi VNPay Refund API. |
 | `Notification` | Notification | `NotificationId` (uuid) | UserId, Channel, SourceEventType, SourceEntityId (nullable), Message | N—1 `UserAccount` | `NotificationChannel`, `NotificationSourceEventType`, `NotificationStatus` | MVP: lưu trong DB, không gửi SMS/email thật (§1.3) |
 | `AiLog` | AI | `LogId` (uuid) | UserId, QueryType, InputPayload, ResponsePayload, ResponseTimeMs | N—1 `UserAccount` | — | `QueryType` là chuỗi tự do (vd `WORKOUT_SUGGESTION`), không phải enum kín |
 | `AuditLog` | Audit | `AuditId` (uuid) | UserId, Action, TargetEntity, TargetId (string), OldValue, NewValue | N—1 `UserAccount` | — | `Action` là chuỗi tự do (vd `UPDATE_PACKAGE_STATUS`), không phải enum kín |
@@ -133,19 +134,19 @@ Khi có mâu thuẫn, đọc theo thứ tự sau (trên > dưới):
 | `ExperienceLevel` | `Beginner, Intermediate, Advanced` | `MemberTrainingProfile.ExperienceLevel` | |
 | `RelationshipSourceType` | `ClassBased, Personal, AssignedByManager` | `CoachMemberRelationship.SourceType` | |
 | `RelationshipStatus` | `Active, Ended` | `CoachMemberRelationship.Status` | Chỉ 1 quan hệ `Active` giữa 1 cặp Coach–Member tại 1 thời điểm (ràng buộc #7) |
-| `MemberPackageStatus` | `Active, Expired` là các trạng thái được rule hiện hành sử dụng | `MemberPackage.Status` | Trạng thái gắn Payment như `PendingPayment` đang để treo; không tự chốt thêm state machine. |
+| `MemberPackageStatus` | `Active, Expired, Cancelled` | `MemberPackage.Status` | Chỉ tạo Active sau Payment thành công; Refund Completed chuyển Cancelled khi quyền lợi bị thu hồi. |
 | `ClassStatus` | `Draft, Published, Closed` | `Class.Status` | Vòng đời BR-67. |
 | `ClassSessionStatus` | Chưa chốt lại | `ClassSession.Status` | Không dùng enum cũ thay cho Class lifecycle BR-67. |
 | `EnrollmentStatus` | `Confirmed, Cancelled` theo booking rule hiện hành | `Enrollment.Status` | Không còn phân nhánh hoàn/không hoàn Membership credit; hủy chỉ được phép tại hoặc trước deadline 30 phút. |
 | `AttendanceStatus` | `Present, Absent, NoShow` | `Attendance.Status` | `Present`/`Absent` ghi tay, `NoShow` do `AttendanceFinalizerJob` tự sinh (BR-53). State machine: §4 / Design v2 §2.2 |
-| `InvoiceStatus` | Chưa chốt | `Invoice.Status` | **PENDING — Payment.** |
-| `InvoiceItemRelatedEntityType` | Chưa chốt | `InvoiceItem.RelatedEntityType` | **PENDING — Payment.** |
-| `PaymentMethod` | Chưa chốt | `Payment.Method` | **PENDING — Payment.** |
-| `PaymentStatus` | Chưa chốt | `Payment.Status` | **PENDING — Payment.** |
-| `PaymentAdjustmentType` | Chưa chốt | `PaymentAdjustment.Type` | **PENDING — Payment.** |
-| `PaymentAdjustmentStatus` | Chưa chốt | `PaymentAdjustment.Status` | **PENDING — Payment.** |
+| `InvoiceStatus` | `PendingPayment, Paid, PaidAfterReconciliation, Expired, Cancelled` | `Invoice.Status` | Paid/PaidAfterReconciliation bất biến. |
+| `InvoiceItemType` | `Membership, PT` | `InvoiceItem.ItemType` | Refund tách theo item. |
+| `PaymentAttemptStatus` | `Pending, Expired, Succeeded, Failed, ReconciliationRequired` | `PaymentAttempt.Status` | Một Invoice có thể retry bằng attempt mới. |
+| `PaymentMethod` | `VnpayQr` | `Payment.Method` | Chỉ chuyển khoản VNPay-QR trong scope. |
+| `PaymentStatus` | `Success` | `Payment.Status` | Chỉ tạo sau gateway verification; tối đa một Success/Invoice. |
+| `RefundStatus` | `Requested, Approved, Rejected, Processing, Completed, Failed, ReconciliationRequired` | `Refund.Status` | Receptionist không được đánh dấu Completed. |
 | `NotificationChannel` | `InApp, Email, Sms` | `Notification.Channel` | MVP: chỉ `InApp` thật sự hoạt động, `Email`/`Sms` chỉ lưu log (§1.3) |
-| `NotificationSourceEventType` | `ClassCancelled, ScheduleChanged, PackageExpiring`; giá trị liên quan Payment chưa chốt | `Notification.SourceEventType` | |
+| `NotificationSourceEventType` | `ClassCancelled, ScheduleChanged, PackageExpiring, InvoiceCreated, PaymentReceived, RefundUpdated` | `Notification.SourceEventType` | Payment email qua outbox/background job. |
 | `NotificationStatus` | `Pending, Sent, Failed, Read` | `Notification.Status` | |
 | `ExternalAuthProvider` | `Google` | `UserExternalLogin.Provider` | Mới 10/09/2026 (2). Hiện chỉ `Google`; thêm provider khác sau (Facebook...) không cần đổi entity |
 | `ReportExportStatus` | `Pending, Completed, Failed` | `ReportExport.Status` | Pending → Completed khi file sẵn sàng, hoặc Failed; retry có kiểm soát |
@@ -160,12 +161,14 @@ Khi có mâu thuẫn, đọc theo thứ tự sau (trên > dưới):
 >
 > **Cập nhật 09/09/2026:** trước đó mục này chỉ có 3 dòng placeholder `? → ? → ?` dù Design v2 §2 đã có diagram Mermaid đầy đủ từ trước — đã đồng bộ lại. Đồng thời phát hiện và sửa 1 lỗi thật: diagram `Attendance` trong Design v2 §2.2 thiếu hẳn nhánh `Absent` dù ERD và `entity-field-purpose.md` đều liệt kê `Absent` là 1 trong 3 giá trị hợp lệ của `AttendanceStatus` (đã bổ sung, xem Design v2 §2.2).
 
-- **Membership**: `Active → Expired` theo `EndDate` inclusive. Early renewal tạo record mới, không sửa record cũ; PT carry-over theo BR-65/66. Trạng thái trước khi Active và sự kiện xác lập `StartDate` cho lần mua mới thuộc Payment đang để treo.
+- **Membership**: tạo `Active` trong cùng transaction với Payment thành công; `Active → Expired` sau `EndDate`; Refund Completed có thể chuyển `Cancelled`. Early renewal tạo record mới bắt đầu sau EndDate hiện tại.
 - **Class**: `Draft → Published → Closed`. Chỉ `Published` nhận booking; không có Waitlist.
 - **Class booking**: `Confirmed → Cancelled` khi hủy tại hoặc trước 30 phút trước giờ bắt đầu; hủy thành công giải phóng slot. Không có cơ chế hoàn/trừ Membership credit.
 - **Attendance**: `Present | Absent | NoShow`; No-show được lưu lịch sử. Đủ 3 No-show trong rolling 30 calendar days kích hoạt restriction 7 calendar days, ngày kết thúc exclusive.
 - **PT session**: booking/cancel/reschedule/No-show và đổi Coach theo BR-70 đến BR-77; PT không dùng Class lifecycle.
-- **Payment/Invoice/Adjustment/Refund**: **PENDING — chưa chốt state machine.** Các state diagram cũ không còn là nguồn triển khai.
+- **Invoice**: `PendingPayment → Paid | PaidAfterReconciliation | Expired | Cancelled`; trạng thái Expired vẫn có thể sang PaidAfterReconciliation khi gateway xác nhận hợp lệ.
+- **PaymentAttempt**: `Pending → Succeeded | Failed | Expired | ReconciliationRequired`; retry tạo attempt mới.
+- **Refund**: `Requested → Approved | Rejected`; `Approved → Processing → Completed | Failed | ReconciliationRequired`.
 
 ---
 
@@ -174,7 +177,7 @@ Khi có mâu thuẫn, đọc theo thứ tự sau (trên > dưới):
 
 ### 5.1 ID
 - Kiểu ID theo §2: catalog Role/MembershipPackage/Room/Class/ClassRecurrence giữ int; nghiệp vụ giữ Guid; SystemSetting dùng key string. Không mass-migrate ID. ID không thay thế authorization.
-- Giữ cơ chế sinh ID hiện có. Quy tắc InvoiceNumber thuộc Payment đang để treo.
+- InvoiceNumber phải unique; VnpTxnRef và VnpRequestId unique/idempotent; VnpTransactionNo unique khi có giá trị; mỗi Invoice tối đa một Payment Success.
 
 ### 5.2 Tiền tệ (Money)
 - Đơn vị: VND, lưu dạng số nguyên (không có phần thập phân) — **không dùng `float`/`double`**, dùng `decimal`.
@@ -223,31 +226,32 @@ Trạng thái tại lần cập nhật này (18/09/2026, sau khi có bằng ch�
 
 Tham chiếu mã BR trong plan là bản đồ truy vết, không thêm hay đánh số lại BR chính thức.
 
-### 5.7 Quyết định hiện hành ngày 23/09/2026
+### 5.7 Quyết định hiện hành đến ngày 26/09/2026
 
-- Membership có DurationInMonths bằng 1, 3, 6 hoặc 12; `StartDate`/`EndDate` là calendar date và inclusive; `EndDate = StartDate.AddMonths(DurationInMonths).AddDays(-1)`. Sự kiện xác lập `StartDate` cho lần mua mới chưa chốt vì phụ thuộc Payment.
+- Membership có DurationInMonths bằng 1, 3, 6 hoặc 12; `StartDate`/`EndDate` là calendar date và inclusive. Lần mua mới lấy StartDate theo ngày Việt Nam của `vnp_PayDate` đã xác minh; early renewal bắt đầu sau EndDate hiện tại.
 - Early renewal tạo Membership mới bắt đầu ngay sau `EndDate` hiện tại. PT carry-over áp dụng khi renew trong vòng 30 calendar days và có thể nối tiếp qua nhiều lần renewal nếu mỗi lần đều đạt điều kiện.
 - Yoga/Group X: 60 phút, mỗi discipline tối đa Morning + Afternoon mỗi ngày, tổng tối đa 4 class/ngày, Manager chọn slot; `Draft → Published → Closed`; chỉ Published nhận booking; không Waitlist; Capacity tối đa 20.
 - Class booking: tối đa 1 Yoga và 1 Group X mỗi ngày; Membership phải Active và class date nằm trong validity; hủy tại hoặc trước 30 phút thì booking Cancelled và slot được giải phóng.
 - No-show: đủ 3 lần trong rolling 30 calendar days thì restriction có hiệu lực ngay trong 7 calendar days; ngày kết thúc exclusive.
-- PT: add-on tùy chọn; 1 Coach : 1 Member; 90 phút/session; frequency 1/2/3 chỉ để tính tổng quota, không giới hạn theo tuần. Cancel/reschedule, Coach change và late/no-show theo BR-70 đến BR-77.
-- **Payment/Invoice/Adjustment/Refund, sự kiện kích hoạt Membership lần mua mới và báo cáo doanh thu: PENDING — chưa chốt nghiệp vụ.** Không sử dụng BR-30/31/32/40/41/42/43/55/58 cũ hoặc các công thức/flow cũ để code.
+- PT là dịch vụ trả phí riêng; chỉ Membership Active mới checkout PT và không mua chung checkout tạo Membership mới. PT 1 Coach : 1 Member, 90 phút/session; frequency 1/2/3 chỉ để tính tổng quota.
+- Invoice tạo tại checkout và snapshot InvoiceItem. Chỉ thanh toán đủ một lần bằng VND qua VNPay-QR; ReturnUrl chỉ hiển thị, IPN/QueryDR mới xác nhận. Payment/Invoice Paid/fulfillment Membership hoặc PT commit cùng database transaction.
+- PaymentAttempt expiry theo `vnp_ExpireDate` mà Sandbox/merchant thực tế hỗ trợ, không hard-code 24 giờ. IPN muộn hoặc QueryDR hợp lệ có thể đưa Invoice Expired sang PaidAfterReconciliation.
+- Refund theo InvoiceItem: Membership còn ít nhất 2/3 thời hạn hoàn 50% kể cả chưa tới StartDate; dưới ngưỡng/Expired không hoàn trừ lỗi trung tâm. PT chưa consume session nào hoàn 50%; đã consume không hoàn chuẩn trừ lỗi trung tâm.
+- Member tự request; Receptionist tạo hộ bắt buộc lý do; Center Manager approve/reject không vượt mức hệ thống; chỉ backend gọi VNPay Refund API. Doanh thu ghi ngày thu tiền; refund ghi ngày hoàn tất.
 
-### 5.8 Google Login — mật khẩu gợi ý; Register — xác thực OTP (bổ sung 23/09/2026)
+### 5.8 Google Login và Register OTP
 
 **Chỉ mới là thiết kế/doc — CHƯA có dòng code nào được sửa cho 2 mục dưới đây.** Người dùng yêu cầu chốt doc + nghiệp vụ trước, code làm sau (xem Open Questions §7).
 
-**Google Login — gợi ý mật khẩu mạnh cho tài khoản mới tạo:**
-- Khi `POST /api/auth/google` tạo `UserAccount` MỚI (nhánh chưa từng tồn tại email đó — không đổi luồng chặn BR-59 ở các nhánh khác), backend sinh thêm 1 chuỗi mật khẩu mạnh ngẫu nhiên và trả về trong response (`AuthResponse.SuggestedPassword`, field mới, chỉ khác `null` ở đúng nhánh này) — **không** gán/hash chuỗi này vào `UserCredential.PasswordHash` ngay lúc tạo account.
-- `UserCredential.PasswordHash` của account mới **vẫn giữ `null`**, đúng BR-60. Mật khẩu thật chỉ được đặt khi FE gọi `POST /api/users/me/password` (endpoint đã có sẵn, dùng cho case Google-only đặt mật khẩu lần đầu) sau khi user xác nhận muốn dùng/đổi mật khẩu gợi ý — đây là hành động "người dùng chủ động... từ bên trong một phiên đã xác thực" đúng nguyên văn BR-60, nên **không cần sửa BR-60**.
-- Field mới `AuthResponse.IsNewAccount` (Register luôn `true`; Login luôn `false`; Google Login `true` chỉ ở nhánh tạo mới) giúp FE biết khi nào hiện modal gợi ý mật khẩu.
-- Chi tiết thiết kế, code mẫu, tiêu chí nghiệm thu: `claude/auth-google-suggested-password-plan.md` (Project doc, Claude).
+**Google Login — người dùng tự đặt mật khẩu:**
+- Với email Google mới, tạo account ở trạng thái chờ thiết lập mật khẩu và buộc user nhập/confirm mật khẩu mạnh trước khi hoàn tất onboarding hoặc dùng chức năng protected.
+- Không sinh, trả về hoặc gửi email mật khẩu gợi ý. Email đã tồn tại nhưng chưa link vẫn bị chặn theo BR-59; chỉ link trong phiên local đã xác thực.
 
-**Register — xác thực OTP qua email (BR-78, Mục A trong business rules docx, v1.7):**
+**Register — xác thực OTP qua email (BR-78):**
 - `POST /api/auth/register` (email/mật khẩu) nay yêu cầu thêm bước xác thực email trước khi tạo account. Flow 2 bước: `POST /api/auth/register/otp {email}` gửi mã 6 số tới email (chưa tạo gì trong DB ở bước này); `POST /api/auth/register` nhận thêm field `otpCode`, xác thực đúng/còn hạn (10 phút)/còn lượt thử (tối đa 5) rồi mới tạo `UserAccount` như luồng cũ.
 - Không áp dụng cho Google Login — email đã được Google xác thực qua `payload.EmailVerified` (`GoogleTokenVerifier`).
-- **Hạ tầng mới bắt buộc phải xây trước khi code được**: repo hiện chưa có bất kỳ cơ chế gửi email nào (`NotificationChannel.Email` mới chỉ là enum, comment trong code xác nhận "MVP chỉ InApp hoạt động thật") — cần thêm `IEmailSender` (bản SMTP thật qua MailKit + bản fallback ghi log cho máy dev chưa có SMTP), entity mới `EmailOtp`, 1 migration mới, section config `Smtp` trong `appsettings.json`.
-- Chi tiết thiết kế, code mẫu, bảng mã lỗi, tiêu chí nghiệm thu: `claude/auth-register-email-otp-plan.md` (Project doc, Claude).
+- OTP chỉ dùng một lần, chỉ mã mới nhất hợp lệ, resend cooldown 60 giây, tối đa 5 lần nhập sai, rate limit theo email và IP; lưu hash, không log plaintext; response gửi OTP không tiết lộ email tồn tại.
+- Hạ tầng triển khai cần `IEmailSender`, lưu OTP an toàn, migration và secret SMTP/provider ngoài source control.
 
 
 ## 6. Quy tắc xử lý khi docs mâu thuẫn / thiếu
@@ -261,16 +265,15 @@ Tham chiếu mã BR trong plan là bản đồ truy vết, không thêm hay đá
 
 ## 7. Open Questions và các mục đã đóng
 
-- [x] Membership/Class/Booking/No-show/PT đã duyệt ngày 23/09/2026; xem Business Rules v1.6 và §5.7.
+- [x] Membership/Class/Booking/No-show/PT đã duyệt; xem Business Rules v1.8 và §5.7.
 - [x] Reschedule class tạo class thay thế theo BR-54; booking cũ bị hủy và Member tự booking lại.
 - [x] Google explicit link và credential nullable theo BR-59/60; chưa đồng nghĩa integration đã test thật. Không lưu Google refresh token trong scope login chỉ xác minh ID token; nếu thêm lưu token phải thiết kế bảo vệ riêng.
 - [ ] Điểm kết thúc và quyền đọc lịch sử của quan hệ ClassBased; không cho phép tự suy ra quyền vô hạn từ một booking.
-- [ ] Toàn bộ nghiệp vụ Payment/Invoice/Adjustment/Refund, gồm thời điểm tạo hóa đơn, cách thu tiền, cọc/hạn, hoàn tiền, quyền thao tác, số dư và báo cáo doanh thu.
-- [ ] Sự kiện xác lập `Membership.StartDate` cho lần mua mới sau khi nghiệp vụ Payment được chốt.
+- [x] Payment/Invoice/Refund/revenue và sự kiện xác lập Membership StartDate đã chốt trong BR-79–BR-95.
 - [ ] Quyền SystemAdministrator ngoài quản trị tài khoản/role vẫn không được tự mở rộng; hiện deny báo cáo/cấu hình/Audit khi chưa có quyền rõ.
-- [ ] Chi tiết soft-delete theo từng entity chưa có field: không tự thêm field/xóa lịch sử. Quy tắc riêng cho Invoice chờ chốt cùng Payment.
-- [ ] Google Login (§5.8) — xác nhận thiết kế "gợi ý mật khẩu qua `SetPassword`" là cách diễn giải được chấp nhận cho chữ "chủ động" ở BR-60; KHÔNG tự chuyển sang biến thể FE tự động gọi `SetPassword` mà không cần user xác nhận khi chưa hỏi lại.
-- [ ] Register OTP / BR-78 (§5.8) — xác nhận thời hạn OTP (10 phút), số lần thử tối đa (5), cooldown gửi lại (60 giây), ngưỡng rate limit, và nguồn SMTP thật sẽ dùng khi deploy/demo (Gmail App Password / SendGrid / Mailtrap...).
+- [ ] Chi tiết soft-delete theo từng entity chưa có field: Invoice Paid, Payment, PaymentAttempt và Refund phải giữ lịch sử, không hard delete.
+- [x] Google Login mới bắt buộc user tự nhập/confirm password; bỏ hoàn toàn SuggestedPassword.
+- [x] Register OTP chốt 6 số, 10 phút, 5 lần sai, cooldown 60 giây, one-time/latest-only, hash và rate limit email/IP. Provider email deploy cụ thể vẫn là quyết định hạ tầng.
 
 ---
 
@@ -278,6 +281,7 @@ Tham chiếu mã BR trong plan là bản đồ truy vết, không thêm hay đá
 
 | Ngày | Thay đổi | Người sửa |
 |---|---|---|
+| 26/09/2026 | Đồng bộ Business Rules v1.8: Google user mới tự đặt mật khẩu; Register OTP chuẩn; VNPay-QR full payment; Invoice/InvoiceItem snapshot; PaymentAttempt/IPN/QueryDR/reconciliation; activation transaction; Refund 50% theo InvoiceItem; revenue cash basis và RBAC Payment. Chỉ sửa tài liệu, chưa xác nhận code đạt. | Người dùng duyệt; Codex cập nhật |
 | 23/09/2026 | **Chỉ sửa doc — chưa sửa code.** Thêm BR-78 (Mục A, business rules docx bump 1.6→1.7): Register bằng email/mật khẩu bắt buộc xác thực OTP gửi tới email trước khi tạo tài khoản, không áp dụng cho Google Login. Thêm §5.8: thiết kế Google Login gợi ý mật khẩu mạnh cho tài khoản mới tạo (không vi phạm BR-60 — đặt mật khẩu vẫn qua `POST /api/users/me/password` đã có, không tự động). Thêm 2 Open Question mới ở §7 chờ team/mentor xác nhận trước khi code. Chi tiết đầy đủ: `claude/auth-google-suggested-password-plan.md`, `claude/auth-register-email-otp-plan.md` (Project doc). | Hồ Lê Thiên An (qua Claude) |
 | 23/09/2026 | Đồng bộ Membership theo calendar date, Yoga/Group X, booking, No-show và PT theo Business Rules v1.6. Đánh dấu toàn bộ Payment/Invoice/Adjustment/Refund và báo cáo doanh thu là PENDING; nội dung Payment cũ không còn là nguồn triển khai. | Người dùng duyệt; Codex cập nhật |
 | 22/09/2026 | Duyệt A1–A7 và chính sách v1.4; sửa đối soát thu/hoàn, state hồi phục gói có điều kiện, naming contract; giữ PDF/AI/Google trong scope. Người dùng đã gộp v1.4 vào Word; bỏ tham chiếu mirror đã xóa, đồng bộ Requirements/Design/field docs và bổ sung plan 23/09. Chưa xác nhận code đạt. | Người dùng duyệt; Codex cập nhật |
