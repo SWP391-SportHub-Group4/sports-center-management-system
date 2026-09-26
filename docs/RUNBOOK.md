@@ -2,7 +2,7 @@
 
 Hướng dẫn chạy toàn bộ hệ thống (PostgreSQL → API → giao diện) và thử từng vai trò.
 
-> **23/09/2026:** Runbook này chỉ dùng cho thao tác đã khớp Business Rules v1.6. Toàn bộ Payment/Invoice/Adjustment/Refund và báo cáo doanh thu đang **PENDING — chưa chốt nghiệp vụ**; không chạy hoặc dùng các bước Payment cũ làm tiêu chí nghiệm thu.
+> **26/09/2026:** Runbook này đã đồng bộ Business Rules v1.8. Payment dùng VNPay Sandbox/VNPay-QR, thanh toán đủ một lần, xác nhận qua IPN/QueryDR và hoàn tiền theo BR-90–BR-95. Code hiện tại có thể chưa khớp; khi nghiệm thu phải lấy Business Rules v1.8 làm chuẩn.
 
 ## 1. Yêu cầu
 
@@ -53,12 +53,12 @@ Mật khẩu chung: **`Sporthub@123`**
 | Vai trò | Email | Vào được gì |
 |---|---|---|
 | Quản trị hệ thống | `admin@sporthub.vn` | Tài khoản & vai trò; không có quyền xem Audit Log nghiệp vụ khi chưa được chốt trong SSOT |
-| Quản lý trung tâm | `manager@sporthub.vn` | Phòng, lớp, lịch, Membership, báo cáo vận hành không phụ thuộc Payment, cấu hình |
-| Lễ tân | `letan@sporthub.vn` | Gym check-in, hỗ trợ Membership, đăng ký hộ, điểm danh; Payment đang để treo |
+| Quản lý trung tâm | `manager@sporthub.vn` | Phòng, lớp, lịch, Membership, xem revenue, approve/reject Refund và xử lý ngoại lệ |
+| Lễ tân | `letan@sporthub.vn` | Gym check-in, checkout hộ Member, yêu cầu đối soát/fulfillment lại, tạo Refund hộ có lý do; không tự đánh dấu Paid/Refund Completed |
 | HLV Yoga | `coach.yoga@sporthub.vn` | Lịch dạy, điểm danh, kế hoạch tập, gợi ý AI |
 | HLV Group X | `coach.groupx@sporthub.vn` | như trên |
 | HLV Personal Training | `coach.pt@sporthub.vn` | như trên |
-| Hội viên | `an.member@sporthub.vn` | Đặt lịch, Membership, kế hoạch tập, hồ sơ; Payment đang để treo |
+| Hội viên | `an.member@sporthub.vn` | Tự checkout Membership/PT, thanh toán VNPay-QR, xem Invoice và tạo Refund Request cho giao dịch của mình |
 | Hội viên | `binh.member@sporthub.vn`, `chi.member@sporthub.vn`, `dung.member@sporthub.vn`, `giang.member@sporthub.vn` | như trên |
 | Hội viên (ngừng hoạt động) | `hoa.member@sporthub.vn` | minh hoạ tài khoản bị khóa (BR-6) |
 
@@ -73,7 +73,7 @@ xác thực.
 1. `admin@sporthub.vn` → **Tài khoản & vai trò**: tạo tài khoản nhân sự, đổi vai trò, khóa/mở
    khóa (đều bắt buộc nhập lý do — BR-7). Thử tự khóa chính mình để thấy BR-6 chặn.
 2. `manager@sporthub.vn` → **Gói thành viên**: tạo gói, sửa giá, ngừng bán.
-3. `letan@sporthub.vn` → thao tác Membership theo chức năng hiện có. Membership dùng calendar date; `StartDate` và `EndDate` đều inclusive. Sự kiện xác lập `StartDate` cho lần mua mới phụ thuộc nghiệp vụ Payment đang để treo, nên không dùng luồng bán gói/hóa đơn cũ để nghiệm thu.
+3. `letan@sporthub.vn` → chọn Member và checkout Membership. Invoice được tạo ngay tại checkout; Membership chỉ được tạo/kích hoạt sau khi backend xác minh Payment thành công. Lần mua mới lấy `StartDate` theo ngày Việt Nam của `vnp_PayDate`; early renewal bắt đầu sau `EndDate` hiện tại.
 
 ### Flow 2 — Lớp học & đặt lịch
 
@@ -83,7 +83,14 @@ xác thực.
 
 ### Flow 3 — Thanh toán & báo cáo
 
-**PENDING — chưa chốt nghiệp vụ.** Tạm dừng hướng dẫn thao tác Payment/Invoice/Adjustment/Refund và báo cáo doanh thu. Các bước approve/complete, công thức số dư, thời hạn thanh toán, cọc, hoàn tiền và quyền thao tác trong phiên bản cũ không còn là hướng dẫn vận hành hợp lệ cho đến khi Business Rules được phê duyệt lại.
+1. Member tự checkout hoặc Receptionist checkout hộ Member; hệ thống tạo Invoice và snapshot InvoiceItem.
+2. Backend tạo PaymentAttempt với `vnp_TxnRef` duy nhất và QR đúng `TotalAmount`. Không cho cọc, trả góp, thiếu hoặc thừa tiền.
+3. ReturnUrl chỉ hiển thị trạng thái chờ. Chỉ IPN hợp lệ hoặc QueryDR do backend gọi mới xác nhận giao dịch.
+4. Trong cùng database transaction: tạo Payment thành công, chuyển Invoice sang `Paid`/`PaidAfterReconciliation` và tạo/kích hoạt Membership hoặc PT. Nếu fulfillment lỗi sau khi gateway đã nhận tiền, ghi `ReconciliationRequired`; Receptionist yêu cầu backend thử lại, không thao tác Paid thủ công.
+5. PaymentAttempt dùng `vnp_ExpireDate` mà Sandbox hiện hỗ trợ; không kiểm thử bằng giả định cố định 24 giờ. Attempt hết hạn có thể tạo lại nếu Invoice chưa Paid hoặc Cancelled nghiệp vụ.
+6. Center Manager xem `GrossCollected`, `Refunded` và `NetCollected`; doanh thu ghi ngày thu tiền, khoản hoàn ghi ngày Refund hoàn tất. System Administrator không mặc nhiên được xem revenue.
+7. Refund: Member tạo cho giao dịch của mình; Receptionist tạo hộ và nhập lý do; Center Manager approve/reject trong mức hệ thống tính; backend gọi VNPay Refund API. Receptionist không được đánh dấu `Completed`.
+8. Membership được hoàn 50% InvoiceItem khi `RemainingDays * 3 >= TotalDays * 2`, kể cả chưa đến StartDate; dưới ngưỡng hoặc Expired không hoàn trừ lỗi trung tâm. PT chỉ hoàn chuẩn 50% khi chưa consume session nào.
 
 ### Flow 4 — Điểm danh & tập luyện
 
@@ -160,9 +167,11 @@ bash scripts/e2e-business-rules.sh
 Cấu hình nghiệp vụ (hạn hủy đăng ký, ngưỡng nhắc hạn gói) **không** nằm ở file cấu hình mà ở
 màn hình **Cấu hình hệ thống** của Quản lý Trung tâm (BR-39).
 
-## 8. Payment — PENDING
+## 8. Payment và VNPay Sandbox
 
-Nghiệp vụ Payment/Invoice/Adjustment/Refund và báo cáo doanh thu chưa được chốt. Không dùng
-các luồng cọc, hạn thanh toán, hoàn tiền, phê duyệt, ghi nhận doanh thu hoặc công thức của phiên
-bản cũ làm căn cứ triển khai hay kiểm thử. Khi nghiệp vụ Payment được phê duyệt, cập nhật Business
-Rules và SSOT trước, sau đó mới bổ sung hướng dẫn chạy/kiểm thử tương ứng vào RUNBOOK.
+- Cấu hình Sandbox phải cung cấp `TmnCode`, hash secret, Pay URL, Return URL và IPN URL ở secret/config ngoài source control.
+- Mỗi PaymentAttempt dùng `vnp_TxnRef` duy nhất; amount gửi VNPay phải đối chiếu chính xác với Invoice.
+- IPN phải kiểm tra checksum, TmnCode, TxnRef, Amount, `ResponseCode = 00`, `TransactionStatus = 00` và tính idempotent trước khi fulfillment.
+- Khi không nhận IPN hoặc nhận muộn, backend dùng QueryDR. Invoice/attempt đã Expired được phép chuyển `PaidAfterReconciliation` nếu gateway xác nhận và chưa có Payment thành công khác.
+- Refund chỉ được gọi từ backend sau khi Center Manager duyệt. `vnp_RequestId` phải unique/idempotent; trạng thái đi qua `Requested → Approved/Rejected`, sau đó `Processing → Completed/Failed/ReconciliationRequired`.
+- Email Invoice/Paid/Refund gửi qua outbox/background job; lỗi email không rollback Payment hoặc quyền lợi đã commit.

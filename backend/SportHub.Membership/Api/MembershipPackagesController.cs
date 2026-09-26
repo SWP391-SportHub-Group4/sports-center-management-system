@@ -18,10 +18,6 @@ namespace SportHub.Membership.Api;
 [Route("api/membership-packages")]
 public class MembershipPackagesController(IMembershipPackageService packages) : ControllerBase
 {
-    /// <summary>
-    /// includeInactive chỉ dành cho Manager: hội viên không cần thấy gói đã ngừng bán, và
-    /// cho phép ai cũng bật cờ này thì màn hình mua gói sẽ hiện gói không mua được.
-    /// </summary>
     [HttpGet]
     public async Task<IActionResult> GetAll([FromQuery] bool includeInactive = false, CancellationToken ct = default)
     {
@@ -40,10 +36,6 @@ public class MembershipPackagesController(IMembershipPackageService packages) : 
     public async Task<IActionResult> Update(int packageId, [FromBody] SaveMembershipPackageRequest request, CancellationToken ct)
         => Ok(await packages.UpdateAsync(packageId, request, User.RequireUserId(), ct));
 
-    /// <summary>
-    /// BR-8 "ngừng áp dụng". Không dùng DELETE: MemberPackage đã bán vẫn trỏ về gói này và
-    /// hoá đơn liên quan không bao giờ được xoá (BR-40).
-    /// </summary>
     [Authorize(Policy = SportHubPolicies.CenterManager)]
     [HttpPost("{packageId:int}/discontinue")]
     public async Task<IActionResult> Discontinue(int packageId, CancellationToken ct)
