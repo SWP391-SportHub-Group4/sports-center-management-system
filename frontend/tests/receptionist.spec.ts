@@ -153,16 +153,62 @@ test.describe("Receptionist Desk Suite", () => {
     await page.goto("/receptionist");
     await expect(page.getByText("Front Desk Terminal").or(page.getByText("Bàn Lễ Tân Trung Tâm"))).toBeVisible();
 
-    // Check quick action cards
-    await expect(page.getByText("Gym Turnstile Check-in").or(page.getByText("Điểm danh Cửa Gym"))).toBeVisible();
-    await expect(page.getByText("Alt + 1")).toBeVisible();
-    await expect(page.getByText("Alt + 2")).toBeVisible();
-    await expect(page.getByText("Alt + 3")).toBeVisible();
-    await expect(page.getByText("Alt + 4")).toBeVisible();
+    // Check quick action cards in main area
+    const mainArea = page.locator("main");
+    await expect(mainArea.getByText("Gym Turnstile Check-in").or(mainArea.getByText("Điểm danh Cửa Gym"))).toBeVisible();
+    await expect(mainArea.getByText("Alt + 1")).toBeVisible();
+    await expect(mainArea.getByText("Alt + 2")).toBeVisible();
+    await expect(mainArea.getByText("Alt + 3")).toBeVisible();
+    await expect(mainArea.getByText("Alt + 4")).toBeVisible();
+    await expect(mainArea.getByText("Alt + 5")).toBeVisible();
+
+    // Verify shortcuts are hidden in sidebar
+    await expect(page.locator(".sidebar").getByText(/Alt \+ \d/)).not.toBeVisible();
 
     // Check schedule row
-    await expect(page.getByText("Morning HIIT Boxing")).toBeVisible();
-    await expect(page.getByText("15/20")).toBeVisible();
+    await expect(mainArea.getByText("Morning HIIT Boxing")).toBeVisible();
+    await expect(mainArea.getByText("15/20")).toBeVisible();
+  });
+
+  test("Global keyboard shortcuts navigate across all receptionist sub-pages and open cheat sheet modal", async ({ page }) => {
+    // Start on attendance sub-page
+    await page.goto("/receptionist/attendance");
+    await expect(page.getByRole("heading", { name: /Front Desk Attendance|Điểm danh tại quầy/i })).toBeVisible();
+
+    // Press Alt + 1 to navigate to Gym check-in
+    await page.keyboard.press("Alt+1");
+    await expect(page).toHaveURL(/\/receptionist\/gym-checkin/);
+    await expect(page.getByRole("heading", { name: /Gym Turnstile Terminal|Điểm danh Cổng Turnstile Gym/i })).toBeVisible();
+
+    // Press Alt + 2 to navigate to Sell plans POS
+    await page.keyboard.press("Alt+2");
+    await expect(page).toHaveURL(/\/receptionist\/sell-plans/);
+    await expect(page.getByRole("heading", { name: /POS Package Sales|Bán gói tập/i })).toBeVisible();
+
+    // Press Alt + 4 to navigate to Invoices
+    await page.keyboard.press("Alt+4");
+    await expect(page).toHaveURL(/\/receptionist\/invoices/);
+    await expect(page.getByRole("heading", { name: /Invoice Lookup|Tra cứu hóa đơn/i })).toBeVisible();
+
+    // Press Alt + 5 to navigate to Class Registration
+    await page.keyboard.press("Alt+5");
+    await expect(page).toHaveURL(/\/receptionist\/registrations/);
+    await expect(page.getByRole("heading", { name: /Class Booking Assistance|Đăng ký lớp hộ/i })).toBeVisible();
+
+    // Press Alt + 0 to return to Dashboard
+    await page.keyboard.press("Alt+0");
+    await expect(page).toHaveURL(/\/receptionist$/);
+    await expect(page.getByRole("heading", { name: /Front Desk Terminal|Bàn Lễ Tân Trung Tâm/i })).toBeVisible();
+
+    // Click shortcuts button to open modal
+    const shortcutBtn = page.getByRole("button", { name: /Shortcuts|Phím tắt/i });
+    await shortcutBtn.click();
+    await expect(page.getByRole("dialog", { name: "Keyboard Shortcuts" })).toBeVisible();
+    await expect(page.getByText("Receptionist Desk Shortcuts").or(page.getByText("Phím Tắt Bàn Lễ Tân"))).toBeVisible();
+
+    // Press Escape to close modal
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog", { name: "Keyboard Shortcuts" })).not.toBeVisible();
   });
 
   test("Gym Check-in Terminal displays hardware scanner HUD and clearance grant", async ({ page }) => {

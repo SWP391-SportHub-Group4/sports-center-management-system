@@ -1220,3 +1220,36 @@ export function IconUpload({
     </svg>
   );
 }
+
+/**
+ * Keyboard / Shortcuts Icon
+ * Crisp outline keyboard with spacebar and key grid
+ */
+export function IconKeyboard({
+  size = 20,
+  color = "currentColor",
+  strokeWidth = 2,
+  className,
+  style,
+  ...props
+}: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={color}
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      style={{ ...baseIconStyle, ...style }}
+      className={className}
+      aria-hidden="true"
+      {...props}
+    >
+      <rect width="20" height="14" x="2" y="5" rx="2" />
+      <path d="M6 9h.01M10 9h.01M14 9h.01M18 9h.01M6 13h.01M18 13h.01M9 13h6" />
+    </svg>
+  );
+}
