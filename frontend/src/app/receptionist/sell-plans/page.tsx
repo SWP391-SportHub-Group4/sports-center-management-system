@@ -17,9 +17,7 @@ import { useAuth } from "@/lib/auth";
 import { useLanguage } from "@/lib/language";
 import {
   IconCheck,
-  IconClose,
   IconPrinter,
-  IconReceipt,
   IconSparkles,
   StickerPlansEmpty,
   StickerSuccessTrophy,

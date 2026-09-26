@@ -250,14 +250,32 @@ export function CameraQrScanner({
 
   // Manage camera lifecycle based on active flag
   useEffect(() => {
+    let isCancelled = false;
+
     if (active) {
-      void startCamera();
-    } else {
-      stopStream();
-      setCameraStatus("idle");
+      const timer = setTimeout(() => {
+        if (!isCancelled) {
+          void startCamera();
+        }
+      }, 0);
+
+      return () => {
+        isCancelled = true;
+        clearTimeout(timer);
+        stopStream();
+      };
     }
 
+    stopStream();
+    const timer = setTimeout(() => {
+      if (!isCancelled) {
+        setCameraStatus("idle");
+      }
+    }, 0);
+
     return () => {
+      isCancelled = true;
+      clearTimeout(timer);
       stopStream();
     };
   }, [active, startCamera, stopStream]);
@@ -266,11 +284,6 @@ export function CameraQrScanner({
   const toggleFacingMode = () => {
     setFacingMode((prev) => (prev === "environment" ? "user" : "environment"));
     setSelectedDeviceId(undefined);
-  };
-
-  // Switch to specific camera device
-  const handleDeviceChange = (deviceId: string) => {
-    setSelectedDeviceId(deviceId);
   };
 
   // Decode QR code from an uploaded or dropped image file
