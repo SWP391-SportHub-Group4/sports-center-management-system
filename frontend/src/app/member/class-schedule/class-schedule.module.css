@@ -31,22 +31,27 @@
   display: inline-flex;
   background: #f0f4f8;
   border: 1px solid #e6e6e6;
-  border-radius: 20px;
-  padding: 3px;
-  gap: 2px;
+  border-radius: 24px;
+  padding: 4px;
+  gap: 4px;
+  min-height: 44px;
+  align-items: center;
 }
 
 .viewModeBtn {
   background: transparent;
   border: none;
-  border-radius: 16px;
-  padding: 6px 14px;
-  font-size: 12.5px;
+  border-radius: 20px;
+  padding: 8px 16px;
+  font-size: 13px;
   font-weight: 600;
   color: #4c607c;
   cursor: pointer;
   transition: all 0.15s ease;
   white-space: nowrap;
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
 }
 
 .viewModeBtnActive {
@@ -64,22 +69,23 @@
 }
 
 .disciplineTab {
-  background: #f7f9fb;
-  border: 1px solid #e6e6e6;
-  border-radius: 20px;
-  padding: 8px 16px;
-  font-size: 13px;
+  background: var(--surface-alt, #f5f7fa);
+  border: 1px solid var(--line, #dfe5ec);
+  border-radius: 22px;
+  padding: 10px 18px;
+  font-size: 13.5px;
   font-weight: 600;
-  color: #4c607c;
+  color: var(--ink-700, #33414f);
   cursor: pointer;
   transition: all 0.15s ease;
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  min-height: 44px;
 }
 
 .disciplineTab:hover {
-  background: #eef3f7;
+  background: var(--brand-100, #e3f0fa);
   color: var(--navy, #1a2b4c);
 }
 
@@ -101,28 +107,30 @@
 
 .datePill {
   flex-shrink: 0;
-  background: #ffffff;
-  border: 1px solid #e6e6e6;
+  background: var(--surface, #ffffff);
+  border: 1px solid var(--line, #dfe5ec);
   border-radius: 10px;
   padding: 8px 14px;
   min-width: 90px;
+  min-height: 48px;
   text-align: center;
   cursor: pointer;
   transition: all 0.15s ease;
   display: flex;
   flex-direction: column;
+  justify-content: center;
   gap: 2px;
 }
 
 .datePill:hover {
-  border-color: #6ec1e4;
-  background: #f7fafd;
+  border-color: var(--brand-500, #1a76b8);
+  background: var(--surface-alt, #f5f7fa);
 }
 
 .datePillActive {
-  background: #c0e4f3;
-  border-color: #6ec1e4;
-  box-shadow: 0 2px 6px rgba(110, 193, 228, 0.25);
+  background: var(--brand-100, #e3f0fa);
+  border-color: var(--brand-500, #1a76b8);
+  box-shadow: 0 2px 6px rgba(26, 118, 184, 0.18);
 }
 
 .datePillWeekday {
@@ -137,6 +145,7 @@
   font-size: 15px;
   font-weight: 800;
   color: var(--navy, #1a2b4c);
+  font-variant-numeric: tabular-nums;
 }
 
 /* Secondary Filter Bar (Custom date range & package selector) */
@@ -262,6 +271,8 @@
 
 /* Sport Class Card */
 .classCard {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 180px;
   background: #ffffff;
   border: 1px solid #e6e6e6;
   border-radius: 12px;
@@ -329,7 +340,7 @@
 
 .badgeGroupX {
   background: #fbe9e7;
-  color: #d84315;
+  color: #bf360c;
 }
 
 .badgePT {
@@ -391,9 +402,8 @@
 
 .capacityBarFill {
   height: 100%;
-  background: #6ec1e4;
+  background: var(--brand-500, #1a76b8);
   border-radius: 3px;
-  transition: width 0.3s ease;
 }
 
 .capacityBarFull {
@@ -634,12 +644,12 @@
 
 .modalNotice {
   font-size: 12.5px;
-  color: #4c607c;
+  color: var(--ink-700, #33414f);
   line-height: 1.5;
-  background: #eef7fc;
-  border-left: 3px solid #6ec1e4;
-  padding: 10px 12px;
-  border-radius: 0 8px 8px 0;
+  background: var(--surface-alt, #f5f7fa);
+  border: 1px solid var(--line, #dfe5ec);
+  padding: 10px 14px;
+  border-radius: var(--radius-sm, 8px);
 }
 
 .modalActions {
@@ -717,6 +727,11 @@
   font-weight: 600;
   color: var(--navy, #1a2b4c);
   cursor: pointer;
+  min-height: 44px;
+  min-width: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   transition: all 0.15s ease;
 }
 
@@ -734,6 +749,7 @@
 
 .weeklyGridWrapper {
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   background: #ffffff;
   border: 1px solid #e6e6e6;
   border-radius: 12px;
@@ -788,6 +804,7 @@
   font-size: 16px;
   font-weight: 800;
   color: var(--navy, #1a2b4c);
+  font-variant-numeric: tabular-nums;
 }
 
 .gridColBadge {
@@ -811,7 +828,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #adb5bd;
+  color: var(--ink-500, #4c607c);
   font-size: 12px;
   font-style: italic;
   padding: 24px 0;
@@ -853,6 +870,7 @@
   font-size: 13px;
   font-weight: 800;
   color: var(--navy, #1a2b4c);
+  font-variant-numeric: tabular-nums;
 }
 
 .gridTileDuration {
@@ -932,6 +950,143 @@
 .capacityAvailable {
   font-weight: 700;
   color: var(--ok-700, #14653a);
+}
+
+@media (max-width: 640px) {
+  .filterPanel {
+    padding: 16px 14px;
+    gap: 14px;
+  }
+
+  .packageSelectorGroup {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+  }
+
+  .packageSelect {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .dateRangeInputs {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+  }
+
+  .viewModeToggle {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .viewModeBtn {
+    flex: 1;
+    min-height: 44px;
+    justify-content: center;
+    font-size: 13.5px;
+  }
+
+  .weekNavToolbar {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 12px 14px;
+    gap: 12px;
+  }
+
+  .weekNavLeft {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .weekNavBtn {
+    flex: 1 1 calc(33.333% - 8px);
+    min-height: 44px;
+    justify-content: center;
+    text-align: center;
+    padding: 6px 4px;
+    font-size: 12px;
+  }
+
+  .disciplineTabs {
+    gap: 8px;
+    width: 100%;
+  }
+
+  .disciplineTab {
+    flex: 1 1 calc(50% - 8px);
+    justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .filterPanel {
+    padding: 12px 10px;
+  }
+
+  .filterHeaderRow {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .disciplineTab {
+    flex: 1 1 100%;
+    min-height: 44px;
+    justify-content: center;
+  }
+
+  .weekNavLeft {
+    flex-direction: column;
+    width: 100%;
+    gap: 6px;
+  }
+
+  .weekNavBtn {
+    width: 100%;
+    flex: none;
+  }
+
+  .cardActions {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .bookBtn,
+  .calendarBtn,
+  .cancelBtn {
+    width: 100%;
+    min-height: 44px;
+    justify-content: center;
+  }
+
+  .modalCard {
+    padding: 20px 16px;
+  }
+}
+
+@media (pointer: coarse) {
+  .viewModeBtn {
+    min-height: 44px;
+    padding: 10px 18px;
+  }
+
+  .datePill {
+    min-height: 52px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card,
+  .disciplineTab,
+  .datePill,
+  .modalCard,
+  .gridTile {
+    transition: none !important;
+    transform: none !important;
+    animation: none !important;
+  }
 }
 
 

@@ -7,6 +7,16 @@ import QRCode from "qrcode";
 import { HOME_BY_ROLE, useAuth, type Role } from "@/lib/auth";
 import { useLanguage } from "@/lib/language";
 import { NotificationBell } from "./NotificationBell";
+import {
+  IconQrCode,
+  IconSettings,
+  IconHeartbeat,
+  IconLogout,
+  IconMenu,
+  IconClose,
+  IconClock,
+  IconRefresh,
+} from "./icons";
 import styles from "./MemberShell.module.css";
 
 export interface NavItem {
@@ -43,12 +53,12 @@ export function MemberShell({
   const menuRef = useRef<HTMLDivElement>(null);
 
   const memberNavItems: NavItem[] = [
-    { href: "/member-dashboard", label: t.nav.home },
-    { href: "/member-dashboard/class-schedule", label: t.nav.classSchedule },
-    { href: "/member-dashboard/my-registrations", label: t.nav.myRegistrations },
-    { href: "/member-dashboard/my-plans", label: t.nav.myPlans },
-    { href: "/member-dashboard/training", label: t.nav.training },
-    { href: "/member-dashboard/invoices", label: language === "en" ? "Invoices" : "Hóa đơn" },
+    { href: "/member", label: t.nav.home },
+    { href: "/member/class-schedule", label: t.nav.classSchedule },
+    { href: "/member/my-registrations", label: t.nav.myRegistrations },
+    { href: "/member/my-plans", label: t.nav.myPlans },
+    { href: "/member/training", label: t.nav.training },
+    { href: "/member/invoices", label: language === "en" ? "Invoices" : "Hóa đơn" },
   ];
 
   // Authentication & Role check
@@ -152,11 +162,14 @@ export function MemberShell({
 
   return (
     <div className={styles.shell}>
+      <a href="#main-content" className="skip-link">
+        {language === "en" ? "Skip to main content" : "Chuyển tới nội dung chính"}
+      </a>
       {/* Top Header */}
       <header className={styles.header}>
         <div className={styles.headerInner}>
           {/* Logo & Portal Badge */}
-          <Link href="/member-dashboard" className={styles.brandGroup}>
+          <Link href="/member" className={styles.brandGroup}>
             <span className={styles.brandLogo}>
               Sport<span className={styles.brandLogoAccent}>Hub</span>
             </span>
@@ -167,7 +180,7 @@ export function MemberShell({
           <nav className={styles.desktopNav} aria-label="Member Navigation">
             {memberNavItems.map((item) => {
               const active =
-                item.href === "/member-dashboard"
+                item.href === "/member"
                   ? pathname === item.href
                   : pathname.startsWith(item.href);
 
@@ -193,27 +206,11 @@ export function MemberShell({
               title={language === "en" ? "Open Center QR Gate Pass" : "Mở mã QR vào cửa trung tâm"}
             >
               <div className={styles.qrIconWrapper}>
-                <svg
-                  className={styles.qrIcon}
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
-                  <rect x="3" y="3" width="7" height="7" rx="1.5" />
-                  <rect x="14" y="3" width="7" height="7" rx="1.5" />
-                  <rect x="14" y="14" width="7" height="7" rx="1.5" />
-                  <rect x="3" y="14" width="7" height="7" rx="1.5" />
-                  <path d="M7 7h.01M17 7h.01M7 17h.01M17 17h.01" />
-                </svg>
+                <IconQrCode size={15} className={styles.qrIcon} />
                 <span className={styles.qrPulseDot} />
               </div>
 
               <span className={styles.qrTextTitle}>{t.nav.gatePassTitle}</span>
-              <span className={styles.qrBadgePill}>{t.nav.gatePassScan}</span>
             </button>
 
             {/* Language Switcher */}
@@ -243,7 +240,11 @@ export function MemberShell({
                 <span className={styles.userName}>
                   {user.fullName || user.email}
                 </span>
-                <span className={styles.dropdownArrow}>▼</span>
+                <span className={styles.dropdownArrow} aria-hidden="true">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
+                </span>
               </button>
 
               {userMenuOpen && (
@@ -262,14 +263,16 @@ export function MemberShell({
                     className={styles.dropdownItem}
                     onClick={() => setUserMenuOpen(false)}
                   >
-                    ⚙️ {t.common.myAccount}
+                    <IconSettings size={15} />
+                    <span>{t.common.myAccount}</span>
                   </Link>
                   <Link
-                    href="/member-dashboard/profile"
+                    href="/member/profile"
                     className={styles.dropdownItem}
                     onClick={() => setUserMenuOpen(false)}
                   >
-                    📋 {t.common.fitnessProfile}
+                    <IconHeartbeat size={15} />
+                    <span>{t.common.fitnessProfile}</span>
                   </Link>
 
                   <div className={styles.dropdownDivider} />
@@ -282,7 +285,8 @@ export function MemberShell({
                       logout();
                     }}
                   >
-                    🚪 {t.common.logout}
+                    <IconLogout size={15} />
+                    <span>{t.common.logout}</span>
                   </button>
                 </div>
               )}
@@ -295,7 +299,7 @@ export function MemberShell({
               onClick={() => setMobileMenuOpen(true)}
               aria-label="Mở menu điều hướng"
             >
-              ☰
+              <IconMenu size={20} />
             </button>
           </div>
         </div>
@@ -319,15 +323,33 @@ export function MemberShell({
                 type="button"
                 className={styles.mobileDrawerClose}
                 onClick={() => setMobileMenuOpen(false)}
+                aria-label="Đóng menu"
               >
-                ✕
+                <IconClose size={20} />
               </button>
             </div>
+
+            <button
+              type="button"
+              className={styles.mobileQrButton}
+              onClick={() => {
+                setMobileMenuOpen(false);
+                handleOpenQr();
+              }}
+            >
+              <div className={styles.qrIconWrapper}>
+                <IconQrCode size={18} className={styles.qrIcon} />
+              </div>
+              <div className={styles.mobileQrTextGroup}>
+                <span className={styles.mobileQrTitle}>{t.nav.gatePassTitle}</span>
+                <span className={styles.mobileQrSub}>{t.nav.gatePassSub}</span>
+              </div>
+            </button>
 
             <div className={styles.mobileNavLinks}>
               {memberNavItems.map((item) => {
                 const active =
-                  item.href === "/member-dashboard"
+                  item.href === "/member"
                     ? pathname === item.href
                     : pathname.startsWith(item.href);
 
@@ -343,12 +365,32 @@ export function MemberShell({
                 );
               })}
               <Link
+                href="/member/profile"
+                className={styles.mobileNavLink}
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                <IconHeartbeat size={16} style={{ marginRight: 8 }} />
+                <span>{t.common.fitnessProfile}</span>
+              </Link>
+              <Link
                 href="/account"
                 className={styles.mobileNavLink}
                 onClick={() => setMobileMenuOpen(false)}
               >
-                ⚙️ {t.common.myAccount}
+                <IconSettings size={16} style={{ marginRight: 8 }} />
+                <span>{t.common.myAccount}</span>
               </Link>
+              <button
+                type="button"
+                className={`${styles.mobileNavLink} ${styles.logoutItem}`}
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  logout();
+                }}
+              >
+                <IconLogout size={16} style={{ marginRight: 8 }} />
+                <span>{t.common.logout}</span>
+              </button>
               <button
                 type="button"
                 className={styles.langToggleBtn}
@@ -380,7 +422,7 @@ export function MemberShell({
               className={styles.qrCloseButton}
               onClick={() => setQrModalOpen(false)}
             >
-              ✕
+              <IconClose size={20} />
             </button>
 
             <h3 className={styles.qrModalTitle}>{t.gatePassModal.title}</h3>
@@ -404,7 +446,8 @@ export function MemberShell({
             </div>
 
             <div className={styles.qrTimerBadge}>
-              <span>⏱️ {t.gatePassModal.refreshesIn}:</span>
+              <IconClock size={15} style={{ marginRight: 4 }} />
+              <span>{t.gatePassModal.refreshesIn}:</span>
               <strong>0:{qrCountdown < 10 ? `0${qrCountdown}` : qrCountdown}</strong>
             </div>
 
@@ -413,14 +456,15 @@ export function MemberShell({
               className={styles.qrRefreshBtn}
               onClick={() => void generateQrPass()}
             >
-              ↻ {language === "en" ? "Refresh Pass Now" : "Làm mới mã ngay"}
+              <IconRefresh size={14} style={{ marginRight: 6 }} />
+              {language === "en" ? "Refresh Pass Now" : "Làm mới mã ngay"}
             </button>
           </div>
         </div>
       )}
 
       {/* Main Page Content */}
-      <main className={styles.main}>
+      <main id="main-content" className={styles.main} tabIndex={-1}>
         <div className={styles.pageHeader}>
           <div className={styles.pageTitleGroup}>
             <h1 className={styles.pageTitle}>{title}</h1>
