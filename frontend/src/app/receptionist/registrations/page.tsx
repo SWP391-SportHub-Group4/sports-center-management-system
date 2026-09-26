@@ -24,7 +24,6 @@ import type {
 } from "@/lib/types";
 import {
   IconCalendar,
-  IconUser,
   StickerCalendarEmpty,
   StickerRegistrationsEmpty,
 } from "@/components/icons";

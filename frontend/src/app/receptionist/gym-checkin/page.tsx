@@ -18,7 +18,6 @@ import { useLanguage } from "@/lib/language";
 import {
   IconQrCode,
   IconCheck,
-  IconClock,
   IconFlame,
   StickerGatePass,
 } from "@/components/icons";
@@ -294,7 +293,7 @@ export default function GymCheckInPage() {
                     : "Không thể tải thông tin gói tập của hội viên."
                 }
               >
-                {(data) => {
+                {() => {
                   const hasActive = activePackages.length > 0;
                   return (
                     <div
