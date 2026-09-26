@@ -207,7 +207,7 @@ export function useAuth() {
 
 /** Home default of each role after đăng nhập. */
 export const HOME_BY_ROLE: Record<Role, string> = {
-  Member: "/member-dashboard",
+  Member: "/member",
   Receptionist: "/receptionist",
   Coach: "/coach",
   CenterManager: "/manager",
