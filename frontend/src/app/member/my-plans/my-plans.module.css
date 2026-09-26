@@ -112,17 +112,17 @@
 
 .statusActive {
   background: #ebfbee;
-  color: #2b8a3e;
+  color: #1e6e2f;
 }
 
 .statusExpired {
   background: #f1f3f5;
-  color: #868e96;
+  color: #5c646c;
 }
 
 .statusDepleted {
   background: #fff9db;
-  color: #f59f00;
+  color: #b45309;
 }
 
 /* Sessions Counter Box */
@@ -155,6 +155,7 @@
   font-weight: 800;
   color: var(--navy, #1a2b4c);
   line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
 
 .sessionLimit {
@@ -165,17 +166,19 @@
 
 .progressBarBg {
   width: 100%;
-  height: 6px;
-  background: #e9ecef;
-  border-radius: 3px;
+  height: 7px;
+  background: #eef2f6;
+  border-radius: 999px;
   overflow: hidden;
 }
 
 .progressBarFill {
+  width: 100%;
   height: 100%;
-  background: #6ec1e4;
-  border-radius: 3px;
-  transition: width 0.3s ease;
+  background: linear-gradient(90deg, #1a76b8 0%, #10b981 100%);
+  border-radius: 999px;
+  transform-origin: left;
+  transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .passDates {
@@ -215,7 +218,10 @@
   font-size: 13px;
   font-weight: 600;
   text-decoration: none;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
   text-align: center;
   width: 100%;
   transition: background 0.15s ease;
@@ -227,14 +233,13 @@
 
 /* Catalog Notice Banner */
 .catalogNotice {
-  background: #ffffff;
+  background: var(--surface-alt, #f5f7fa);
   border-radius: 12px;
-  border: 1px solid #e6e6e6;
-  border-left: 4px solid #236e95;
+  border: 1px solid var(--line, #dfe5ec);
   padding: 16px 20px;
   margin-bottom: 20px;
   font-size: 13.5px;
-  color: #4c607c;
+  color: var(--ink-700, #33414f);
   line-height: 1.5;
 }
 
@@ -292,6 +297,8 @@
   font-size: 24px;
   font-weight: 800;
   color: #236e95;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
 }
 
 .pricePeriod {
@@ -369,3 +376,30 @@
   max-width: 440px;
   margin: 0;
 }
+
+@media (max-width: 480px) {
+  .passCard {
+    padding: 16px 14px;
+    gap: 16px;
+  }
+
+  .catalogCard {
+    padding: 16px 14px;
+    gap: 14px;
+  }
+
+  .catalogNotice {
+    padding: 14px 14px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .passCard,
+  .catalogCard,
+  .bookBtn {
+    transition: none !important;
+    transform: none !important;
+    animation: none !important;
+  }
+}
+

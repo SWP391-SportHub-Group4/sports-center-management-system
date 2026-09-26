@@ -19,13 +19,13 @@ export interface NavItem {
  */
 export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
   Member: [
-    { href: "/member-dashboard", label: "Overview" },
-    { href: "/member-dashboard/class-schedule", label: "Class schedule" },
-    { href: "/member-dashboard/my-registrations", label: "My registrations" },
-    { href: "/member-dashboard/my-plans", label: "My membership plans" },
-    { href: "/member-dashboard/invoices", label: "Invoices" },
-    { href: "/member-dashboard/training", label: "Plans & results" },
-    { href: "/member-dashboard/profile", label: "Training profile" },
+    { href: "/member", label: "Overview" },
+    { href: "/member/class-schedule", label: "Class schedule" },
+    { href: "/member/my-registrations", label: "My registrations" },
+    { href: "/member/my-plans", label: "My membership plans" },
+    { href: "/member/invoices", label: "Invoices" },
+    { href: "/member/training", label: "Plans & results" },
+    { href: "/member/profile", label: "Training profile" },
   ],
   Receptionist: [
     { href: "/receptionist", label: "Overview" },
@@ -110,11 +110,51 @@ export function AppShell({
 
   const nav = NAV_BY_ROLE[user.role];
 
+  const getNavLabel = (labelStr: string) => {
+    if (language !== "vi") return labelStr;
+    const viLabels: Record<string, string> = {
+      Overview: "Tổng quan",
+      "Gym check-in": "Điểm danh Gym",
+      "Sell plans & invoices": "Bán gói & Hóa đơn",
+      "Invoice lookup": "Tra cứu hóa đơn",
+      "Class registration": "Đăng ký lớp hộ",
+      Attendance: "Điểm danh ca học",
+      "My account": "Tài khoản của tôi",
+      "Teaching schedule": "Lịch giảng dạy",
+      "Attendance & results": "Điểm danh & Kết quả",
+      "Assigned members": "Hội viên phụ trách",
+      "Training plans": "Giáo án bài tập",
+      "AI suggestions": "Gợi ý thông minh AI",
+      "Training rooms": "Phòng tập luyện",
+      Classes: "Danh mục lớp học",
+      "Class schedule": "Lịch toàn bộ lớp",
+      "Membership plans": "Gói hội viên",
+      "Coaching relationships": "Phân công HLV",
+      "Payment adjustments": "Điều chỉnh hóa đơn",
+      "Revenue reports": "Báo cáo doanh thu",
+      "System settings": "Cài đặt hệ thống",
+      "Audit log": "Nhật ký hệ thống",
+      "Users & roles": "Người dùng & Vai trò",
+    };
+    return viLabels[labelStr] ?? labelStr;
+  };
+
+  const roleDisplay =
+    language === "vi"
+      ? {
+          Receptionist: "Nhân viên Lễ tân",
+          Coach: "Huấn luyện viên",
+          CenterManager: "Quản lý Trung tâm",
+          SystemAdministrator: "Quản trị viên",
+          Member: "Hội viên",
+        }[user.role] || ROLE_LABEL[user.role]
+      : ROLE_LABEL[user.role];
+
   return (
     <div className="shell">
       <aside className="sidebar">
         <div className="sidebar__brand">SportHub</div>
-        <div className="sidebar__role">{ROLE_LABEL[user.role]}</div>
+        <div className="sidebar__role">{roleDisplay}</div>
         <nav className="sidebar__nav">
           {nav.map((item) => {
             // So khớp chính xác cho trang gốc của nhánh, còn lại theo tiền tố — nếu không,
@@ -130,7 +170,7 @@ export function AppShell({
                 href={item.href}
                 className={`sidebar__link ${active ? "sidebar__link--active" : ""}`}
               >
-                {item.label}
+                {getNavLabel(item.label)}
               </Link>
             );
           })}
@@ -138,7 +178,7 @@ export function AppShell({
             href="/account"
             className={`sidebar__link ${pathname.startsWith("/account") ? "sidebar__link--active" : ""}`}
           >
-            My account
+            {language === "en" ? "My account" : "Tài khoản của tôi"}
           </Link>
         </nav>
         <div className="sidebar__footer">

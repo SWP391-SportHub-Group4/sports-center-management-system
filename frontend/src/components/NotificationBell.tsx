@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { api } from "@/lib/apiClient";
 import { formatDateTime } from "@/lib/format";
 import { useApi } from "@/lib/useApi";
+import { IconBell } from "@/components/icons";
 
 interface NotificationDto {
   notificationId: string;
@@ -73,11 +74,12 @@ export function NotificationBell() {
     <div className="bell" ref={containerRef}>
       <button
         type="button"
-        className="btn btn--ghost btn--sm"
+        className="btn btn--ghost btn--sm bell__btn"
         onClick={() => setOpen((current) => !current)}
         aria-label={`Notifications${count > 0 ? ` (${count} unread)` : ""}`}
       >
-        Notifications
+        <IconBell size={18} />
+        <span className="bell__label">Notifications</span>
         {count > 0 && (
           <span className="bell__count">{count > 99 ? "99+" : count}</span>
         )}

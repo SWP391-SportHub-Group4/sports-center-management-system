@@ -100,10 +100,9 @@ function LoginForm() {
       <main className="auth__layout">
         <aside className="auth__visual" aria-label="SportHub community">
           <div className="auth__visual-copy">
-            <p className="auth__eyebrow">Sport · Community · Progress</p>
-            <p className="auth__statement">
+            <h2 className="auth__statement">
               Pick up where your training left off.
-            </p>
+            </h2>
             <p className="auth__visual-detail">
               Your schedules, membership, and coaching journey—all in one place.
             </p>
@@ -118,7 +117,7 @@ function LoginForm() {
             Sign in to SportHub
           </h1>
           <p className="auth__sub">
-            Sign in to access your SportHub workspace.
+            Sign in to access your SportHub account, schedules, and training.
           </p>
 
           {expired && (
@@ -228,7 +227,14 @@ function LoginForm() {
             </div>
 
             <button type="submit" className="btn" disabled={busy}>
-              {busy ? "Signing in…" : "Sign in"}
+              {busy ? (
+                <span className="btn__busy">
+                  <span className="spinner" aria-hidden="true" />
+                  <span>Signing in…</span>
+                </span>
+              ) : (
+                "Sign in"
+              )}
             </button>
           </form>
 
@@ -243,14 +249,15 @@ function LoginForm() {
           </nav>
 
           {SHOW_DEMO_ACCOUNTS && (
-            <div className="demo-accounts">
-              <strong className="small">
-                Demo Accounts (Development Environment)
-              </strong>
-              <p className="small muted" style={{ margin: "2px 0 0" }}>
-                Select an account to autofill its email and password{" "}
-                <code>{DEMO_PASSWORD}</code>. Authentication still uses the real
-                API.
+            <details className="demo-accounts">
+              <summary className="demo-accounts__summary">
+                <span className="demo-accounts__badge">DEV</span>
+                <span>Quick Fill Demo Accounts</span>
+                <span className="demo-accounts__hint">Click to toggle</span>
+              </summary>
+              <p className="small muted" style={{ margin: "8px 0 6px" }}>
+                Select a role to autofill credentials (password:{" "}
+                <code>{DEMO_PASSWORD}</code>). Authentication uses the real API.
               </p>
               <div className="demo-accounts__grid">
                 {DEMO_ACCOUNTS.map((account) => (
@@ -270,7 +277,7 @@ function LoginForm() {
                   </button>
                 ))}
               </div>
-            </div>
+            </details>
           )}
         </section>
       </main>

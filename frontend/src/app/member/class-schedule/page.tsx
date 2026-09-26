@@ -14,6 +14,16 @@ import {
 import { useAction, useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import type { MemberPackageDto, MemberSessionDto } from "@/lib/types";
+import {
+  IconCalendar,
+  IconClock,
+  IconLocation,
+  IconUser,
+  IconCheck,
+  IconClose,
+  StickerCalendarEmpty,
+  StickerSuccessTrophy,
+} from "@/components/icons";
 import styles from "./class-schedule.module.css";
 
 export default function MemberSchedulePage() {
@@ -29,9 +39,9 @@ export default function MemberSchedulePage() {
 
   const disciplines = useMemo(() => [
     { value: "", label: language === "en" ? "All Disciplines" : "Tất cả bộ môn" },
-    { value: "Yoga", label: "🧘‍♀️ Yoga" },
-    { value: "GroupX", label: "🔥 Group X" },
-    { value: "PersonalTraining", label: "🏋️ Personal Training" },
+    { value: "Yoga", label: "Yoga" },
+    { value: "GroupX", label: "Group X" },
+    { value: "PersonalTraining", label: "Personal Training" },
   ], [language]);
 
   // Modal confirm state
@@ -290,7 +300,13 @@ export default function MemberSchedulePage() {
                 onClick={() => setViewMode("grid")}
                 title={language === "en" ? "View weekly grid timetable" : "Xem dạng bảng lưới ô vuông theo tuần"}
               >
-                <span>{language === "en" ? "⊞ Weekly Grid" : "⊞ Lưới tuần"}</span>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ marginRight: 6 }}>
+                  <rect x="3" y="3" width="7" height="7" rx="1" />
+                  <rect x="14" y="3" width="7" height="7" rx="1" />
+                  <rect x="14" y="14" width="7" height="7" rx="1" />
+                  <rect x="3" y="14" width="7" height="7" rx="1" />
+                </svg>
+                <span>{language === "en" ? "Weekly Grid" : "Lưới tuần"}</span>
               </button>
               <button
                 type="button"
@@ -298,7 +314,15 @@ export default function MemberSchedulePage() {
                 onClick={() => setViewMode("cards")}
                 title={language === "en" ? "View detailed list cards" : "Xem dạng thẻ danh sách chi tiết"}
               >
-                <span>{language === "en" ? "☰ Cards View" : "☰ Thẻ danh sách"}</span>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ marginRight: 6 }}>
+                  <line x1="8" y1="6" x2="21" y2="6" />
+                  <line x1="8" y1="12" x2="21" y2="12" />
+                  <line x1="8" y1="18" x2="21" y2="18" />
+                  <line x1="3" y1="6" x2="3.01" y2="6" />
+                  <line x1="3" y1="12" x2="3.01" y2="12" />
+                  <line x1="3" y1="18" x2="3.01" y2="18" />
+                </svg>
+                <span>{language === "en" ? "Cards View" : "Thẻ danh sách"}</span>
               </button>
             </div>
           </div>
@@ -338,9 +362,13 @@ export default function MemberSchedulePage() {
           {/* Secondary Filters: Package & Custom Date Inputs */}
           <div className={styles.secondaryFilters}>
             <div className={styles.packageSelectorGroup}>
-              <span>{language === "en" ? "Applied Pass:" : "Gói áp dụng:"}</span>
+              <label htmlFor="package-select-control" style={{ fontWeight: 600 }}>
+                {language === "en" ? "Applied Pass:" : "Gói áp dụng:"}
+              </label>
               <select
+                id="package-select-control"
                 className={styles.packageSelect}
+                aria-label={language === "en" ? "Select package for booking" : "Chọn gói tập để đặt lịch"}
                 value={packageId}
                 onChange={(e) => setPackageId(e.target.value)}
               >
@@ -384,15 +412,21 @@ export default function MemberSchedulePage() {
           {/* Warning banner if member has no usable package */}
           {usablePackages.length === 0 && !packages.loading && (
             <div className={styles.packageWarning}>
-              <span className={styles.packageWarningIcon}>⚠️</span>
+              <span className={styles.packageWarningIcon} aria-hidden="true">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+                  <line x1="12" y1="9" x2="12" y2="13" />
+                  <line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+              </span>
               <div>
                 <strong>
                   {language === "en" ? "No eligible packages available:" : "Chưa có gói tập khả dụng:"}
                 </strong>{" "}
                 {language === "en"
-                  ? "You need at least one valid package with remaining sessions to book classes (BR-16). Please visit reception or review passes in "
-                  : "Bạn cần sở hữu ít nhất một gói tập còn hiệu lực và còn lượt để đăng ký lớp (BR-16). Vui lòng liên hệ quầy Lễ tân hoặc xem danh mục tại mục "}
-                <Link href="/member-dashboard/my-plans" style={{ fontWeight: 700, textDecoration: "underline" }}>
+                  ? "You need at least one valid package with remaining sessions to book classes. Please visit reception or review passes in "
+                  : "Bạn cần sở hữu ít nhất một gói tập còn hiệu lực và còn lượt để đăng ký lớp. Vui lòng liên hệ quầy Lễ tân hoặc xem danh mục tại mục "}
+                <Link href="/member/my-plans" style={{ fontWeight: 700, textDecoration: "underline" }}>
                   {language === "en" ? "Membership Passes" : "Gói hội viên"}
                 </Link>.
               </div>
@@ -407,16 +441,20 @@ export default function MemberSchedulePage() {
           {/* Success Booking Banner with Calendar Download */}
           {lastBookedSession && (
             <div className={styles.successBanner}>
-              <div>
-                🎉 <strong>{language === "en" ? "Booking Successful:" : "Đặt chỗ thành công:"}</strong>{" "}
-                {language === "en" ? "Class" : "Lớp"} {lastBookedSession.className} ({formatDate(lastBookedSession.startAtUtc)} {language === "en" ? "at" : "lúc"} {formatTime(lastBookedSession.startAtUtc)})
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <StickerSuccessTrophy size={36} />
+                <div>
+                  <strong>{language === "en" ? "Booking Successful:" : "Đặt chỗ thành công:"}</strong>{" "}
+                  {language === "en" ? "Class" : "Lớp"} {lastBookedSession.className} ({formatDate(lastBookedSession.startAtUtc)} {language === "en" ? "at" : "lúc"} {formatTime(lastBookedSession.startAtUtc)})
+                </div>
               </div>
               <button
                 type="button"
                 className={styles.calendarBtn}
                 onClick={() => downloadIcs(lastBookedSession)}
               >
-                {language === "en" ? "📅 Download Calendar Event (.ics)" : "📅 Thêm vào lịch (.ics)"}
+                <IconCalendar size={15} style={{ marginRight: 6 }} />
+                {language === "en" ? "Download Calendar Event (.ics)" : "Thêm vào lịch (.ics)"}
               </button>
             </div>
           )}
@@ -431,7 +469,10 @@ export default function MemberSchedulePage() {
                 className={styles.weekNavBtn}
                 onClick={() => setWeekOffset((prev) => prev - 1)}
               >
-                {language === "en" ? "◀ Prev Week" : "◀ Tuần trước"}
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ marginRight: 6 }}>
+                  <polyline points="15 18 9 12 15 6" />
+                </svg>
+                <span>{language === "en" ? "Prev Week" : "Tuần trước"}</span>
               </button>
               <button
                 type="button"
@@ -446,7 +487,10 @@ export default function MemberSchedulePage() {
                 className={styles.weekNavBtn}
                 onClick={() => setWeekOffset((prev) => prev + 1)}
               >
-                {language === "en" ? "Next Week ▶" : "Tuần sau ▶"}
+                <span>{language === "en" ? "Next Week" : "Tuần sau"}</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ marginLeft: 6 }}>
+                  <polyline points="9 18 15 12 9 6" />
+                </svg>
               </button>
             </div>
 
@@ -471,7 +515,12 @@ export default function MemberSchedulePage() {
           </div>
         ) : viewMode === "grid" ? (
           /* Weekly Grid Mode (7 columns of square tiles) */
-          <div className={styles.weeklyGridWrapper}>
+          <div
+            className={styles.weeklyGridWrapper}
+            tabIndex={0}
+            role="region"
+            aria-label={language === "en" ? "Weekly class timetable" : "Thời khóa biểu lớp học theo tuần"}
+          >
             <div className={styles.weeklyGrid}>
               {weekDays.map((day) => {
                 const daySessions = (sessions.data ?? []).filter((item) =>
@@ -533,8 +582,8 @@ export default function MemberSchedulePage() {
                                   {session.className}
                                 </h4>
                                 <div className={styles.gridTileMeta}>
-                                  <span>👤 {session.coachName}</span>
-                                  <span>📍 {session.roomName}</span>
+                                  <span><IconUser size={13} style={{ marginRight: 3 }} />{session.coachName}</span>
+                                  <span><IconLocation size={13} style={{ marginRight: 3 }} />{session.roomName}</span>
                                 </div>
                               </div>
 
@@ -565,7 +614,8 @@ export default function MemberSchedulePage() {
                                     }}
                                   >
                                     <div className={styles.gridTileEnrolledBadge}>
-                                      {language === "en" ? "✓ Enrolled" : "✓ Đã đăng ký"}
+                                      <IconCheck size={12} style={{ marginRight: 3 }} />
+                                      {language === "en" ? "Enrolled" : "Đã đăng ký"}
                                     </div>
                                     <div style={{ display: "flex", gap: 4 }}>
                                       <button
@@ -580,7 +630,7 @@ export default function MemberSchedulePage() {
                                         onClick={() => downloadIcs(session)}
                                         title={language === "en" ? "Add to calendar" : "Thêm vào lịch"}
                                       >
-                                        📅
+                                        <IconCalendar size={13} />
                                       </button>
                                       <button
                                         type="button"
@@ -640,7 +690,7 @@ export default function MemberSchedulePage() {
         ) : sortedDayKeys.length === 0 ? (
           /* Empty state for cards view */
           <div className={styles.emptyState}>
-            <div className={styles.emptyIcon}>📅</div>
+            <StickerCalendarEmpty size={80} style={{ marginBottom: 12 }} />
             <h3 className={styles.emptyTitle}>
               {language === "en" ? "No sessions found" : "Không tìm thấy buổi tập nào"}
             </h3>
@@ -722,10 +772,12 @@ export default function MemberSchedulePage() {
 
                             <div className={styles.metaRow}>
                               <span className={styles.metaItem}>
-                                👤 <strong>{language === "en" ? `Coach ${session.coachName}` : session.coachName}</strong>
+                                <IconUser size={15} style={{ marginRight: 5 }} />
+                                <strong>{language === "en" ? `Coach ${session.coachName}` : session.coachName}</strong>
                               </span>
                               <span className={styles.metaItem}>
-                                📍 {session.roomName}
+                                <IconLocation size={15} style={{ marginRight: 5 }} />
+                                {session.roomName}
                               </span>
                             </div>
 
@@ -754,7 +806,8 @@ export default function MemberSchedulePage() {
                             {isEnrolled ? (
                               <>
                                 <span className={styles.enrolledBadge}>
-                                  {language === "en" ? "✓ Enrolled" : "✓ Đã đăng ký"}
+                                  <IconCheck size={13} style={{ marginRight: 4 }} />
+                                  {language === "en" ? "Enrolled" : "Đã đăng ký"}
                                 </span>
                                 <div className={styles.enrolledActions}>
                                   <button
@@ -763,7 +816,8 @@ export default function MemberSchedulePage() {
                                     onClick={() => downloadIcs(session)}
                                     title={language === "en" ? "Add to calendar" : "Thêm buổi tập này vào lịch"}
                                   >
-                                    📅 {language === "en" ? "Calendar" : "Lịch"}
+                                    <IconCalendar size={15} style={{ marginRight: 5 }} />
+                                    {language === "en" ? "Calendar" : "Lịch"}
                                   </button>
                                   <button
                                     type="button"
@@ -819,21 +873,25 @@ export default function MemberSchedulePage() {
           <div
             className={styles.modalBackdrop}
             onClick={() => setBookingSession(null)}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="booking-modal-title"
           >
             <div
               className={styles.modalCard}
               onClick={(e) => e.stopPropagation()}
             >
               <div className={styles.modalHeader}>
-                <h3 className={styles.modalTitle}>
+                <h3 id="booking-modal-title" className={styles.modalTitle}>
                   {language === "en" ? "Confirm Class Enrollment" : "Xác nhận đặt chỗ"}
                 </h3>
                 <button
                   type="button"
                   className={styles.modalClose}
                   onClick={() => setBookingSession(null)}
+                  aria-label={language === "en" ? "Close dialog" : "Đóng cửa sổ"}
                 >
-                  ✕
+                  <IconClose size={18} />
                 </button>
               </div>
 
@@ -842,27 +900,33 @@ export default function MemberSchedulePage() {
                   {bookingSession.className}
                 </div>
                 <div className={styles.modalSessionMeta}>
-                  {language === "en" ? "⏰ Time: " : "⏰ Thời gian: "}
-                  {formatDate(bookingSession.startAtUtc)} {language === "en" ? "at" : "lúc"}{" "}
-                  {formatTime(bookingSession.startAtUtc)} – {formatTime(bookingSession.endAtUtc)}
-                  <br />
-                  {language === "en" ? "📍 Room: " : "📍 Địa điểm: "}
-                  {bookingSession.roomName}
-                  <br />
-                  {language === "en" ? "👤 Coach: " : "👤 Huấn luyện viên: "}
-                  {bookingSession.coachName}
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                    <IconClock size={15} />
+                    <span>
+                      {formatDate(bookingSession.startAtUtc)} {language === "en" ? "at" : "lúc"}{" "}
+                      {formatTime(bookingSession.startAtUtc)} – {formatTime(bookingSession.endAtUtc)}
+                    </span>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                    <IconLocation size={15} />
+                    <span>{bookingSession.roomName}</span>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <IconUser size={15} />
+                    <span>{bookingSession.coachName}</span>
+                  </div>
                 </div>
               </div>
 
               <div className={styles.modalNotice}>
                 {language === "en" ? (
                   <>
-                    <strong>Cancellation Policy (BR-18, BR-50):</strong> 1 session will be deducted from your active package upon booking. 
+                    <strong>Cancellation Policy:</strong> 1 session will be deducted from your active package upon booking. 
                     If cancelled at least 2 hours before class starts, your session will be refunded back immediately.
                   </>
                 ) : (
                   <>
-                    <strong>Quy định hủy lớp (BR-18, BR-50):</strong> Buổi tập sẽ bị trừ vào gói của bạn khi đặt.
+                    <strong>Quy định hủy lớp:</strong> Buổi tập sẽ bị trừ vào gói của bạn khi đặt.
                     Nếu hủy đúng hạn trước giờ tập, lượt tập sẽ được hoàn trả lại gói ngay lập tức.
                   </>
                 )}
@@ -897,21 +961,25 @@ export default function MemberSchedulePage() {
           <div
             className={styles.modalBackdrop}
             onClick={() => setCancellingSession(null)}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="cancel-modal-title"
           >
             <div
               className={styles.modalCard}
               onClick={(e) => e.stopPropagation()}
             >
               <div className={styles.modalHeader}>
-                <h3 className={styles.modalTitle}>
+                <h3 id="cancel-modal-title" className={styles.modalTitle}>
                   {language === "en" ? "Cancel Class Booking" : "Xác nhận hủy chỗ"}
                 </h3>
                 <button
                   type="button"
                   className={styles.modalClose}
                   onClick={() => setCancellingSession(null)}
+                  aria-label={language === "en" ? "Close dialog" : "Đóng cửa sổ"}
                 >
-                  ✕
+                  <IconClose size={18} />
                 </button>
               </div>
 
@@ -920,9 +988,13 @@ export default function MemberSchedulePage() {
                   {cancellingSession.className}
                 </div>
                 <div className={styles.modalSessionMeta}>
-                  {language === "en" ? "⏰ Session Time: " : "⏰ Lớp diễn ra: "}
-                  {formatDate(cancellingSession.startAtUtc)} {language === "en" ? "at" : "lúc"}{" "}
-                  {formatTime(cancellingSession.startAtUtc)}
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <IconClock size={15} />
+                    <span>
+                      {formatDate(cancellingSession.startAtUtc)} {language === "en" ? "at" : "lúc"}{" "}
+                      {formatTime(cancellingSession.startAtUtc)}
+                    </span>
+                  </div>
                 </div>
               </div>
 

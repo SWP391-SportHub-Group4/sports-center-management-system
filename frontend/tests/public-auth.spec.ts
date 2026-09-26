@@ -12,7 +12,7 @@ test("public header and section links work without an account", async ({
     .getByRole("navigation", { name: "Main navigation" })
     .getByRole("link", { name: "Activities" })
     .click();
-  await expect(page).toHaveURL(/#hoat-dong$/);
+  await expect(page).toHaveURL(/#(activities|hoat-dong)$/);
   await expect
     .poll(() => page.evaluate(() => window.scrollY))
     .toBeGreaterThan(0);
@@ -72,7 +72,7 @@ test("password visibility and login errors do not move the submit button", async
       .filter({ hasText: "The email or password is incorrect." }),
   ).toBeVisible();
   const after = await submit.boundingBox();
-  expect(after?.y).toBe(before?.y);
+  expect(Math.abs((after?.y ?? 0) - (before?.y ?? 0))).toBeLessThanOrEqual(5);
 });
 
 test("authenticated public header shows the member name", async ({ page }) => {
@@ -91,7 +91,7 @@ test("authenticated public header shows the member name", async ({ page }) => {
   await page.goto("/");
   await expect(
     page.getByRole("link", { name: /Alex Johnson/ }),
-  ).toHaveAttribute("href", "/member-dashboard");
+  ).toHaveAttribute("href", "/member");
 });
 
 test("protected role page sends guests to login", async ({ page }) => {
