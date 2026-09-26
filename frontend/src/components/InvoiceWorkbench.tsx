@@ -32,24 +32,16 @@ import {
   StickerSuccessTrophy,
 } from "@/components/icons";
 
-/**
- * Tra cứu hóa đơn + thu tiền + tạo yêu cầu điều chỉnh.
- *
- * Dùng chung cho Lễ tân và Quản lý vì thao tác giống hệt nhau (BR-42 cho cả hai tạo yêu cầu;
- * chỉ việc DUYỆT mới là quyền riêng của Quản lý và nằm ở màn hình khác).
- */
 export function InvoiceWorkbench() {
   const { language } = useLanguage();
   const [page, setPage] = useState(1);
   const [keyword, setKeyword] = useState("");
   const [debouncedKeyword, setDebouncedKeyword] = useState("");
   const [status, setStatus] = useState("");
-  const [overdueOnly, setOverdueOnly] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   const [dialogTab, setDialogTab] = useState<"overview" | "payments" | "adjustments">("overview");
   const [showThermalReceipt, setShowThermalReceipt] = useState(false);
 
-  // Debounce search keyword by 250ms to prevent rapid redundant API queries
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedKeyword(keyword.trim());
@@ -57,14 +49,13 @@ export function InvoiceWorkbench() {
     return () => clearTimeout(timer);
   }, [keyword]);
 
-  const hasActiveFilters = Boolean(keyword || status || overdueOnly);
+  const hasActiveFilters = Boolean(keyword || status);
 
   const resetFilters = () => {
     setPage(1);
     setKeyword("");
     setDebouncedKeyword("");
     setStatus("");
-    setOverdueOnly(false);
   };
 
   const payment = useAction();
@@ -72,7 +63,6 @@ export function InvoiceWorkbench() {
   const payout = useAction();
 
   const [paymentForm, setPaymentForm] = useState({
-    amount: "",
     method: "Cash",
     reference: "",
   });
@@ -82,7 +72,6 @@ export function InvoiceWorkbench() {
     reason: "",
   });
 
-  /** Refund đang chờ xác nhận thực trả; null = dialog đóng. */
   const [payoutTarget, setPayoutTarget] = useState<PaymentAdjustmentDto | null>(
     null,
   );
@@ -101,10 +90,9 @@ export function InvoiceWorkbench() {
           pageSize: 10,
           keyword: debouncedKeyword || undefined,
           status: status || undefined,
-          overdueOnly: overdueOnly || undefined,
         },
       }),
-    [page, debouncedKeyword, status, overdueOnly],
+    [page, debouncedKeyword, status],
   );
 
   const detail = useApi(
@@ -120,18 +108,18 @@ export function InvoiceWorkbench() {
     setDialogTab("overview");
     payment.reset();
     adjustment.reset();
-    setPaymentForm({ amount: "", method: "Cash", reference: "" });
+    setPaymentForm({ method: "Cash", reference: "" });
     setAdjustmentForm({ type: "Refund", amount: "", reason: "" });
   };
 
   const submitPayment = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!selected) return;
+    if (!selected || !detail.data) return;
 
     const done = await payment.run(
       () =>
         api.post(`/api/invoices/${selected}/payments`, {
-          amount: Number(paymentForm.amount),
+          amount: detail.data!.summary.outstanding,
           method: paymentForm.method,
           referenceCode: paymentForm.reference.trim() || null,
         }),
@@ -142,7 +130,7 @@ export function InvoiceWorkbench() {
       detail.reload();
       invoices.reload();
       setShowThermalReceipt(true);
-      setPaymentForm({ amount: "", method: "Cash", reference: "" });
+      setPaymentForm({ method: "Cash", reference: "" });
     }
   };
 
@@ -174,10 +162,6 @@ export function InvoiceWorkbench() {
     setPayoutForm({ method: "Cash", reference: "", note: "" });
   };
 
-  /**
-   * BR-42 v1.4 — bước xác nhận THỰC TRẢ. Cố ý không có ô nhập số tiền: số đã được Manager
-   * chốt lúc duyệt và quầy không được trả khác số đó.
-   */
   const submitPayout = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!payoutTarget) return;
@@ -224,51 +208,20 @@ export function InvoiceWorkbench() {
         }
       >
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          {/* Quick preset chips bar */}
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <span className="small muted" style={{ fontWeight: 600 }}>
               {language === "en" ? "Quick Presets:" : "Bộ lọc nhanh:"}
             </span>
             <button
               type="button"
-              className={`btn btn--sm ${!status && !overdueOnly ? "btn--primary" : "btn--ghost"}`}
+              className={`btn btn--sm ${!status ? "btn--primary" : "btn--ghost"}`}
               style={{ padding: "4px 10px", fontSize: "0.78rem", borderRadius: 6 }}
               onClick={() => {
                 setPage(1);
                 setStatus("");
-                setOverdueOnly(false);
               }}
             >
               {language === "en" ? "All" : "Tất cả"}
-            </button>
-            <button
-              type="button"
-              className={`btn btn--sm ${overdueOnly ? "btn--primary" : "btn--ghost"}`}
-              style={{
-                padding: "4px 10px",
-                fontSize: "0.78rem",
-                borderRadius: 6,
-                color: overdueOnly ? "#ffffff" : "var(--danger-700, #b91c1c)",
-                borderColor: overdueOnly ? "var(--danger-600, #dc2626)" : "var(--danger-300, #fca5a5)",
-                background: overdueOnly ? "var(--danger-600, #dc2626)" : undefined,
-              }}
-              onClick={() => {
-                setPage(1);
-                setOverdueOnly(!overdueOnly);
-              }}
-            >
-              {language === "en" ? "Overdue Invoices Only (BR-55)" : "Chỉ hóa đơn quá hạn (BR-55)"}
-            </button>
-            <button
-              type="button"
-              className={`btn btn--sm ${status === "PartiallyPaid" ? "btn--primary" : "btn--ghost"}`}
-              style={{ padding: "4px 10px", fontSize: "0.78rem", borderRadius: 6 }}
-              onClick={() => {
-                setPage(1);
-                setStatus(status === "PartiallyPaid" ? "" : "PartiallyPaid");
-              }}
-            >
-              {language === "en" ? "Partially Paid" : "Thanh toán 1 phần"}
             </button>
             <button
               type="button"
@@ -294,7 +247,6 @@ export function InvoiceWorkbench() {
             </button>
           </div>
 
-          {/* Form input row */}
           <div
             style={{
               display: "grid",
@@ -353,7 +305,7 @@ export function InvoiceWorkbench() {
                 }}
               >
                 <option value="">{language === "en" ? "All Statuses" : "Tất cả trạng thái"}</option>
-                {["Issued", "PartiallyPaid", "Paid", "Void"].map((value) => (
+                {["Issued", "Paid", "Void"].map((value) => (
                   <option key={value} value={value}>
                     {label(value)}
                   </option>
@@ -389,7 +341,6 @@ export function InvoiceWorkbench() {
                   { text: language === "en" ? "Collected" : "Đã thu", numeric: true },
                   { text: language === "en" ? "Outstanding" : "Cần thu", numeric: true },
                   { text: language === "en" ? "Refund Due" : "Cần hoàn", numeric: true },
-                  language === "en" ? "Due Date" : "Hạn TT",
                   language === "en" ? "Status" : "Trạng thái",
                   "",
                 ]}
@@ -421,14 +372,6 @@ export function InvoiceWorkbench() {
                         </strong>
                       ) : (
                         "—"
-                      )}
-                    </td>
-                    <td className="nowrap small">
-                      {formatDate(invoice.dueDateUtc)}
-                      {invoice.isOverdue && (
-                        <div style={{ color: "var(--danger-700)", fontWeight: 600 }}>
-                          {language === "en" ? "Overdue" : "Quá hạn"}
-                        </div>
                       )}
                     </td>
                     <td>
@@ -478,7 +421,6 @@ export function InvoiceWorkbench() {
             {(data) =>
               data ? (
                 <div className="stack" style={{ gap: 20 }}>
-                  {/* Summary Header */}
                   <div className="alert alert--info">
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
                       <div>
@@ -514,19 +456,10 @@ export function InvoiceWorkbench() {
                     </div>
 
                     <div className="small muted" style={{ marginTop: 10 }}>
-                      {language === "en" ? "Issued on" : "Ngày phát hành"}: {formatDate(data.summary.issuedAt)} ·{" "}
-                      {language === "en" ? "Due by" : "Hạn thanh toán"}: {formatDate(data.summary.dueDateUtc)}
-                      {data.summary.firstDepositAtUtc
-                        ? language === "en"
-                          ? ` (First deposit: ${formatDate(data.summary.firstDepositAtUtc)} → due in 12 months under BR-55)`
-                          : ` (Đã cọc lần đầu: ${formatDate(data.summary.firstDepositAtUtc)} → hạn 12 tháng theo BR-55)`
-                        : language === "en"
-                          ? " (Final balance due 2 months from issue date under BR-55)"
-                          : " (Hạn tất toán 2 tháng kể từ ngày phát hành theo BR-55)"}
+                      {language === "en" ? "Issued on" : "Ngày phát hành"}: {formatDate(data.summary.issuedAt)}
                     </div>
                   </div>
 
-                  {/* Segmented Tab Navigation Bar */}
                   <div
                     className="btn-row"
                     style={{
@@ -586,7 +519,6 @@ export function InvoiceWorkbench() {
                     </button>
                   </div>
 
-                  {/* TAB 1: OVERVIEW & LINE ITEMS */}
                   {dialogTab === "overview" && (
                     <div className="stack" style={{ gap: 16 }}>
                       <div>
@@ -601,7 +533,7 @@ export function InvoiceWorkbench() {
                             <tr key={item.itemId}>
                               <td>{item.description}</td>
                               <td className="num" style={{ fontVariantNumeric: "tabular-nums" }}>
-                                {formatMoney(item.amount)}
+                                {formatMoney(item.lineAmount)}
                               </td>
                             </tr>
                           ))}
@@ -630,21 +562,15 @@ export function InvoiceWorkbench() {
                               </div>
                               <div className="small muted">
                                 {language === "en"
-                                  ? "Collect full or partial cash/card/transfer payment at desk."
-                                  : "Thu nốt phần còn thiếu bằng tiền mặt, quẹt thẻ hoặc chuyển khoản."}
+                                  ? "Collect the full balance in one payment (cash/card/transfer)."
+                                  : "Thu đủ toàn bộ số còn lại trong một lần (tiền mặt, quẹt thẻ hoặc chuyển khoản)."}
                               </div>
                             </div>
                             <button
                               type="button"
                               className="btn btn--primary btn--sm"
                               style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
-                              onClick={() => {
-                                setDialogTab("payments");
-                                setPaymentForm({
-                                  ...paymentForm,
-                                  amount: String(data.summary.outstanding),
-                                });
-                              }}
+                              onClick={() => setDialogTab("payments")}
                             >
                               <IconCreditCard size={15} />
                               <span>
@@ -657,7 +583,6 @@ export function InvoiceWorkbench() {
                     </div>
                   )}
 
-                  {/* TAB 2: PAYMENTS */}
                   {dialogTab === "payments" && (
                     <div className="stack" style={{ gap: 16 }}>
                       {data.payments.length > 0 ? (
@@ -707,38 +632,18 @@ export function InvoiceWorkbench() {
                           <form className="form" onSubmit={submitPayment} style={{ borderTop: "1px solid var(--border-color)", paddingTop: 16 }}>
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                               <h4 style={{ margin: 0 }}>{language === "en" ? "Collect Payment" : "Ghi nhận thanh toán tại quầy"}</h4>
-                              <button
-                                type="button"
-                                className="btn btn--ghost btn--sm"
-                                style={{ display: "inline-flex", alignItems: "center", gap: 5 }}
-                                onClick={() =>
-                                  setPaymentForm({
-                                    ...paymentForm,
-                                    amount: String(data.summary.outstanding),
-                                  })
-                                }
-                              >
+                              <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontWeight: 700 }}>
                                 <IconLightning size={14} />
-                                <span>{language === "en" ? "Fill Full Balance" : "Điền đủ nợ"} ({formatMoney(data.summary.outstanding)})</span>
-                              </button>
+                                <span>{language === "en" ? "Full balance" : "Toàn bộ số còn lại"}: {formatMoney(data.summary.outstanding)}</span>
+                              </span>
                             </div>
+                            <p className="small muted" style={{ margin: 0 }}>
+                              {language === "en"
+                                ? "Only full, one-time payment is accepted — no partial or installment payments (BR-41)."
+                                : "Chỉ chấp nhận thanh toán đủ một lần — không nhận trả thiếu hay trả góp (BR-41)."}
+                            </p>
 
                             <div className="form form--inline">
-                              <Field label={language === "en" ? "Amount (VND)" : "Số tiền (VND)"}>
-                                <input
-                                  type="number"
-                                  min={1}
-                                  max={data.summary.outstanding}
-                                  value={paymentForm.amount}
-                                  required
-                                  onChange={(event) =>
-                                    setPaymentForm({
-                                      ...paymentForm,
-                                      amount: event.target.value,
-                                    })
-                                  }
-                                />
-                              </Field>
                               <Field label={language === "en" ? "Method" : "Hình thức"}>
                                 <select
                                   value={paymentForm.method}
@@ -779,7 +684,7 @@ export function InvoiceWorkbench() {
                               <button
                                 type="submit"
                                 className="btn btn--sm"
-                                disabled={payment.busy || !paymentForm.amount}
+                                disabled={payment.busy}
                               >
                                 {payment.busy
                                   ? (language === "en" ? "Recording..." : "Đang ghi nhận...")
@@ -791,7 +696,6 @@ export function InvoiceWorkbench() {
                     </div>
                   )}
 
-                  {/* TAB 3: ADJUSTMENTS & REFUNDS */}
                   {dialogTab === "adjustments" && (
                     <div className="stack" style={{ gap: 16 }}>
                       {data.adjustments.length > 0 ? (
@@ -953,7 +857,6 @@ export function InvoiceWorkbench() {
         </Dialog>
       )}
 
-      {/* Actual Payout Confirmation Dialog */}
       {payoutTarget && (
         <Dialog
           title={language === "en" ? "Execute Refund Payout" : "Xác nhận chi trả hoàn tiền"}
@@ -1040,7 +943,6 @@ export function InvoiceWorkbench() {
         </Dialog>
       )}
 
-      {/* Dedicated Printable Official Receipt Modal */}
       {showThermalReceipt && detail.data && (
         <div
           role="dialog"
@@ -1100,7 +1002,6 @@ export function InvoiceWorkbench() {
               <strong>{detail.data.summary.memberName}</strong>
             </div>
 
-            {/* Line Items */}
             <div style={{ borderTop: "1px solid #f1f5f9", borderBottom: "1px solid #f1f5f9", padding: "8px 0" }}>
               {detail.data.items.map((item) => (
                 <div
@@ -1108,12 +1009,11 @@ export function InvoiceWorkbench() {
                   style={{ display: "flex", justifyContent: "space-between", fontSize: "0.88rem", padding: "3px 0" }}
                 >
                   <span>{item.description}</span>
-                  <strong style={{ fontVariantNumeric: "tabular-nums" }}>{formatMoney(item.amount)}</strong>
+                  <strong style={{ fontVariantNumeric: "tabular-nums" }}>{formatMoney(item.lineAmount)}</strong>
                 </div>
               ))}
             </div>
 
-            {/* Summary Amounts */}
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.9rem" }}>
               <span>{language === "en" ? "Total Obligation:" : "Tổng tiền hóa đơn:"}</span>
               <strong style={{ fontVariantNumeric: "tabular-nums" }}>{formatMoney(detail.data.summary.totalAmount)}</strong>

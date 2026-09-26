@@ -23,7 +23,7 @@ Postgres chạy ở `localhost:5435`. Thông số lấy từ `.env` (mẫu ở `
 ### 2.2 Backend
 
 ```bash
-cd backend/SportHub.API && ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS=http://localhost:5000 dotnet run
+cd backend/SportHub.API dotnet run
 ```
 
 Ở môi trường `Development`, API tự làm hai việc khi khởi động:
@@ -40,7 +40,7 @@ Swagger: <http://localhost:5000/swagger>.
 ### 2.3 Frontend
 
 ```bash
-cd frontend && npm install && npm run dev
+cd frontend && npm run dev
 ```
 
 Giao diện: <http://localhost:3000>. Địa chỉ API đọc từ `NEXT_PUBLIC_API_BASE_URL`
