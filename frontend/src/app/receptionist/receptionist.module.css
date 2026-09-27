@@ -1,0 +1,110 @@
+.quickActionsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.actionCard {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid var(--border-color, #e2e8f0);
+  background: var(--surface, #ffffff);
+  text-decoration: none;
+  color: inherit;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.actionCard:hover {
+  transform: translateY(-2px);
+  border-color: var(--primary-500, #3b82f6);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+}
+
+.actionCardPrimary {
+  border-color: rgba(59, 130, 246, 0.3);
+  background: linear-gradient(135deg, rgba(239, 246, 255, 0.8) 0%, rgba(255, 255, 255, 1) 100%);
+}
+
+.actionCardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.actionIcon {
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.kbdBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 6px;
+  background: var(--surface-muted, #f1f5f9);
+  color: var(--text-muted, #64748b);
+  border: 1px solid var(--border-color, #cbd5e1);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.1);
+}
+
+.actionTitle {
+  font-weight: 700;
+  font-size: 1rem;
+  margin-bottom: 4px;
+  color: var(--text, #0f172a);
+}
+
+.actionDesc {
+  font-size: 0.825rem;
+  color: var(--text-muted, #64748b);
+  line-height: 1.4;
+}
+
+/* Capacity bar inside schedule table */
+.capacityTrack {
+  width: 100%;
+  max-width: 90px;
+  height: 6px;
+  background: var(--surface-muted, #e2e8f0);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.capacityFill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--primary-600, #2563eb);
+  transform-origin: left;
+  /* Anti-pattern guard: no transition on width or layout */
+}
+
+.capacityFillFull {
+  background: var(--danger-600, #dc2626);
+}
+
+.capacityFillNear {
+  background: var(--warning-600, #d97706);
+}
+
+.tableHeaderDense {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border-color, #e2e8f0);
+}
+
+.metricValue {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}

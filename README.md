@@ -139,7 +139,7 @@ cd frontend && npm install && npm run dev
 
 | Thành phần | Link |
 |---|---|
-| Backend — Swagger UI (http) | http://localhost:5100/swagger |
+| Backend — Swagger UI (http) | http://localhost:5000/swagger |
 | Backend — Swagger UI (https) | https://localhost:7100/swagger |
 | Frontend | http://localhost:3000 |
 

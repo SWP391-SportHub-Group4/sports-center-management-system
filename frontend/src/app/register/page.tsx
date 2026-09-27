@@ -7,6 +7,7 @@ import { ApiError, api } from "@/lib/apiClient";
 import { HOME_BY_ROLE, useAuth } from "@/lib/auth";
 import { Feedback, Field } from "@/components/ui";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
+import { IconCheck } from "@/components/icons";
 
 const OTP_EXPIRY_SECONDS = 300; // 5 minutes
 const RESEND_COOLDOWN_SECONDS = 60; // 1 minute
@@ -480,8 +481,9 @@ export default function RegisterPage() {
                   <span
                     className="match-hint match-hint--ok"
                     aria-live="polite"
+                    style={{ display: "inline-flex", alignItems: "center", gap: 4 }}
                   >
-                    ✓ Passwords match
+                    <IconCheck size={14} strokeWidth={2.4} /> Passwords match
                   </span>
                 )}
                 {passwordMatch === false && (

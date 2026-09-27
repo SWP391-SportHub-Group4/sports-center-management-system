@@ -1,0 +1,301 @@
+/* ==========================================================================
+   SportHub Receptionist - Gym Turnstile Check-in Terminal
+   Design System: SportHub (Navy, Sky, Ice, Slate, White, Ok Green)
+   ========================================================================== */
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  width: 100%;
+}
+
+/* ---------- Top Hardware Scanner HUD ---------- */
+.scannerBar {
+  background: var(--surface, #ffffff);
+  border: 1.5px solid var(--brand-500, #1a76b8);
+  border-radius: var(--radius, 12px);
+  padding: 20px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  box-shadow: 0 4px 20px rgba(26, 118, 184, 0.08);
+}
+
+.scannerInfo {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.scannerIconBox {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: var(--brand-100, #e3f0fa);
+  color: var(--brand-700, #12527f);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.scannerTitle {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--brand-900, #0b2d4d);
+  margin: 0;
+}
+
+.scannerSubtitle {
+  font-size: 0.85rem;
+  color: var(--ink-500, #64748b);
+  margin: 2px 0 0;
+}
+
+.scannerStatusPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--ok-100, #dcfce7);
+  color: var(--ok-700, #14653a);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.pulseGreen {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ok-700, #14653a);
+  box-shadow: 0 0 0 0 rgba(20, 101, 58, 0.4);
+  animation: scanPulse 2s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+
+@keyframes scanPulse {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(20, 101, 58, 0.5);
+  }
+  70% {
+    transform: scale(1.05);
+    box-shadow: 0 0 0 6px rgba(20, 101, 58, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(20, 101, 58, 0);
+  }
+}
+
+/* ---------- 2-Column Terminal Layout ---------- */
+.terminalGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.deskCard {
+  background: var(--surface, #ffffff);
+  border: 1px solid var(--line, #dfe5ec);
+  border-radius: var(--radius, 12px);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  box-shadow: 0 2px 10px rgba(11, 45, 77, 0.03);
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.cardTitle {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--brand-900, #0b2d4d);
+  margin: 0;
+}
+
+.cardHint {
+  font-size: 0.82rem;
+  color: var(--ink-500, #64748b);
+}
+
+/* Clearance HUD Banner */
+.clearanceCard {
+  border-radius: 10px;
+  padding: 16px 20px;
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.clearanceGranted {
+  background: #f0fdf4;
+  border: 1.5px solid #86efac;
+  color: #14532d;
+}
+
+.clearanceRefused {
+  background: #fef2f2;
+  border: 1.5px solid #fca5a5;
+  color: #7f1d1d;
+}
+
+.clearanceIcon {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  font-size: 1.2rem;
+}
+
+.clearanceGranted .clearanceIcon {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.clearanceRefused .clearanceIcon {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.clearanceDetails {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.clearanceTitle {
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.clearanceMeta {
+  font-size: 0.85rem;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.actionBtnRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.confirmCheckInBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--brand-900, #0b2d4d);
+  color: #ffffff;
+  font-size: 1rem;
+  font-weight: 700;
+  height: 48px;
+  padding: 0 24px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, transform 0.15s ease;
+}
+
+.confirmCheckInBtn:hover:not(:disabled) {
+  background: var(--brand-700, #12527f);
+  transform: translateY(-1px);
+}
+
+.confirmCheckInBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.keyHintBadge {
+  background: rgba(255, 255, 255, 0.2);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+
+/* History Card */
+.historyTableWrapper {
+  overflow-x: auto;
+  margin-top: 4px;
+}
+
+.historyTimestamp {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+  font-weight: 600;
+  color: var(--brand-900, #0b2d4d);
+}
+
+.autoUnlockRow {
+  background: var(--brand-100, #f0f7fc);
+  border: 1px solid var(--brand-300, #b9ddf5);
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-top: 10px;
+  margin-bottom: 12px;
+}
+
+.autoUnlockLabel {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.85rem;
+  color: var(--brand-900, #0b2d4d);
+  cursor: pointer;
+}
+
+.checkboxInput {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--brand-600, #0284c7);
+  cursor: pointer;
+}
+
+.scanNoticePill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--ok-100, #dcfce7);
+  color: var(--ok-700, #14653a);
+  border: 1px solid var(--ok-300, #86efac);
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+@media (max-width: 900px) {
+  .terminalGrid {
+    grid-template-columns: 1fr;
+  }
+  .scannerBar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulseGreen,
+  .confirmCheckInBtn {
+    animation: none !important;
+    transition: none !important;
+  }
+}

@@ -4,6 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useLanguage } from "@/lib/language";
+import { IconLocation, IconLightning } from "@/components/icons";
 import styles from "./community-events.module.css";
 
 interface EventItem {
@@ -34,7 +35,7 @@ export function CommunityEvents() {
       capacity: ev.combineCapacity,
       description: ev.combineDesc,
       ctaText: ev.combineCta,
-      ctaHref: "/member-dashboard/class-schedule",
+      ctaHref: "/member/class-schedule",
     },
     {
       id: "sunrise",
@@ -46,7 +47,7 @@ export function CommunityEvents() {
       capacity: ev.sunriseCapacity,
       description: ev.sunriseDesc,
       ctaText: ev.sunriseCta,
-      ctaHref: "/member-dashboard/class-schedule",
+      ctaHref: "/member/class-schedule",
     },
     {
       id: "pass",
@@ -125,8 +126,14 @@ export function CommunityEvents() {
           </div>
           <h3 className={styles.eventTitle}>{currentEvent.title}</h3>
           <div className={styles.eventDetails}>
-            <span>📍 {currentEvent.location}</span>
-            <span>⚡ {currentEvent.capacity}</span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+              <IconLocation size={14} />
+              {currentEvent.location}
+            </span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+              <IconLightning size={14} />
+              {currentEvent.capacity}
+            </span>
           </div>
           <p className={styles.eventDesc}>{currentEvent.description}</p>
           {currentEvent.id !== "pass" ? (
@@ -178,8 +185,8 @@ export function CommunityEvents() {
                   onChange={(e) => setGuestName(e.target.value)}
                   required
                 />
-                <button className={styles.passAction} type="submit">
-                  {ev.generateBtn} <span aria-hidden="true">⚡</span>
+                <button className={styles.passAction} type="submit" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                  {ev.generateBtn} <IconLightning size={14} />
                 </button>
                 <small style={{ color: "var(--text-muted)", marginTop: "6px", fontSize: "0.78rem" }}>
                   {ev.formNote}
