@@ -73,8 +73,12 @@ export function Loading({ rows = 3 }: { rows?: number }) {
   );
 }
 
-export function EmptyState({ message }: { message: string }) {
-  return <p className="state">{message}</p>;
+export function EmptyState({ message }: { message?: ReactNode }) {
+  if (!message) return null;
+  if (typeof message === "string") {
+    return <p className="state">{message}</p>;
+  }
+  return <div className="state-custom">{message}</div>;
 }
 
 export function ErrorState({
@@ -123,7 +127,7 @@ export function AsyncSection<T>({
     error: ApiError | null;
     reload: () => void;
   };
-  emptyMessage?: string;
+  emptyMessage?: ReactNode;
   isEmpty?: (data: T) => boolean;
   children: (data: T) => ReactNode;
 }) {
