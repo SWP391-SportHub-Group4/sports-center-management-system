@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   AsyncSection,
   Card,
@@ -30,6 +30,8 @@ import {
 export function AttendanceBoard({
   coachOnly,
   onResultRequested,
+  initialSessionId,
+  initialDate,
 }: {
   /** true = chỉ liệt kê buổi của HLV đang đăng nhập. */
   coachOnly: boolean;
@@ -38,10 +40,12 @@ export function AttendanceBoard({
     enrollmentId: string;
     memberName: string;
   }) => void;
+  initialSessionId?: string | null;
+  initialDate?: string | null;
 }) {
   const { language } = useLanguage();
-  const [date, setDate] = useState(todayIso());
-  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [date, setDate] = useState(initialDate || todayIso());
+  const [sessionId, setSessionId] = useState<string | null>(initialSessionId || null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"All" | "Pending" | "Present" | "Absent">("All");
   const [timeFilter, setTimeFilter] = useState<"All" | "Morning" | "Afternoon" | "Evening">("All");
@@ -49,6 +53,11 @@ export function AttendanceBoard({
   const [bulkBusy, setBulkBusy] = useState(false);
   const [localStatusMap, setLocalStatusMap] = useState<Record<string, "Present" | "Absent">>({});
   const action = useAction();
+
+  useEffect(() => {
+    if (initialSessionId) setSessionId(initialSessionId);
+    if (initialDate) setDate(initialDate);
+  }, [initialSessionId, initialDate]);
 
   const sessions = useApi(
     (signal) =>

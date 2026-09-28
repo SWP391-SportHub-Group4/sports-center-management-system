@@ -177,12 +177,26 @@ Các màn hình hiện có là bản xem trước với dữ liệu minh họa. 
 
 - **Do** dùng navy cho văn bản chính và hành động chính, ice cho nền phụ và trạng thái chọn.
 - **Do** giữ tên gọi nghiệp vụ nhất quán giữa điều hướng, lịch lớp, gói tập và thông báo.
+- **Do** luôn dùng bộ icon và sticker thương hiệu được tạo sẵn tại `@/components/icons`.
 - **Do** đánh dấu rõ “dữ liệu minh họa” khi một phần giao diện chưa kết nối backend.
 - **Do** duy trì focus nhìn thấy, điều hướng bàn phím và hỗ trợ giảm chuyển động.
 
 ### Don't:
 
 - **Don't** dùng nội dung, số liệu, lịch sự kiện hay trạng thái giả như dữ liệu thật.
+- **Don't** dùng bất kỳ thư viện icon ngoài nào (lucide, fontawesome, heroicons...) hay emoji thay thế icon.
 - **Don't** dùng ảnh minh họa để ngụ ý đó là ảnh chụp thật của trung tâm.
 - **Don't** thêm màu, font hay thành phần trang trí mới chỉ để một màn hình trông nổi bật hơn.
 - **Don't** dùng bóng đổ mạnh, thẻ lồng thẻ hoặc các chuyển động gây chậm tác vụ.
+
+## 7. Iconography & Stickers (Mandatory Brand Invariant)
+
+- **Source of Truth**: `frontend/src/components/icons` (`@/components/icons`).
+  - **SportIcons**: `SportIcons.tsx` (Biểu tượng thể thao, điều hướng, thao tác quầy, trạng thái).
+  - **SportStickers**: `SportStickers.tsx` (Sticker minh họa rỗng, thành tựu, thông báo).
+- **Quy tắc bắt buộc tuyệt đối**: Luôn sử dụng icon và sticker SVG thương hiệu độc quyền đã tạo trong `@/components/icons`. **Không sử dụng bất kỳ nguồn nào khác.**
+  - ❌ Cấm: Cài đặt hoặc import các thư viện icon bên ngoài (`lucide-react`, `react-icons`, `@heroicons`, font-awesome...).
+  - ❌ Cấm: Nhúng các SVG tùy tiện, không đồng bộ nét vẽ trực tiếp vào trang.
+  - ❌ Cấm: Dùng emoji Unicode để giả lập biểu tượng thao tác hay trạng thái.
+  - ✅ Bắt buộc: Import trực tiếp từ `@/components/icons`. Khi cần biểu tượng mới chưa có, phải tự thiết kế và thêm vào `SportIcons.tsx` hoặc `SportStickers.tsx` theo chuẩn đồng nhất (viewBox `0 0 24 24`, `strokeWidth: 2`, `strokeLinecap: round`, `strokeLinejoin: round`, `color: "currentColor"`).
+
