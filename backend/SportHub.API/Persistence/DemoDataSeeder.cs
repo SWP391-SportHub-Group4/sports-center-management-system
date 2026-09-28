@@ -431,8 +431,7 @@ public sealed class DemoDataSeeder(
                     MemberId = package.MemberId,
                     MemberPackageId = package.MemberPackageId,
                     Status = EnrollmentStatus.Confirmed,
-                    RegisteredAt = session.StartAtUtc.AddDays(-2),
-                    CancellationDeadlineHours = 12
+                    RegisteredAt = session.StartAtUtc.AddDays(-2)
                 });
 
                 session.ConfirmedCount += 1;

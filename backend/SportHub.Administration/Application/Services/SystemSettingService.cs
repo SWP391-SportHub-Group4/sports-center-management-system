@@ -18,20 +18,17 @@ public sealed class UpdateSystemSettingRequest
 }
 
 /// <summary>
-/// Cấu hình toàn hệ thống (BR-39 — chỉ Center Manager). Thay đổi ở đây KHÔNG hồi tố:
-/// hạn huỷ đã được chụp vào từng Enrollment lúc đăng ký (BR-50).
+/// Chính sách vận hành được phép cấu hình (BR-39 — chỉ Center Manager).
 /// </summary>
 public sealed class SystemSettingService(
     ISportHubDbContext db,
     IAuditWriter audit,
     IClock clock) : ISystemSettingService
 {
-    // Khoảng giá trị hợp lệ — chặn cấu hình vô nghĩa (0 giờ = huỷ lúc nào cũng "đúng hạn";
-    // 1 năm = không bao giờ đúng hạn). Cận trên/dưới là phòng vệ kỹ thuật, không phải số từ BR.
+    // Cận trên/dưới là phòng vệ kỹ thuật, không phải số từ BR.
     private static readonly IReadOnlyDictionary<string, (int Min, int Max)> IntRanges =
         new Dictionary<string, (int, int)>
         {
-            [SystemSettingKeys.CancellationDeadlineHours] = (1, 720),
             [SystemSettingKeys.PackageExpiringReminderDays] = (1, 90)
         };
 

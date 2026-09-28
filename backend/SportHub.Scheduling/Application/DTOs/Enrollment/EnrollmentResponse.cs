@@ -10,7 +10,7 @@ public sealed record EnrollmentResponse(
     string Status,
     DateTime RegisteredAt,
     DateTime? CancelledAt,
-    int CancellationDeadlineHours,
+    int CancellationDeadlineMinutes,
     DateTime CancellationDeadlineUtc,
     string? AttendanceStatus,
     ClassSessionResponse Session);

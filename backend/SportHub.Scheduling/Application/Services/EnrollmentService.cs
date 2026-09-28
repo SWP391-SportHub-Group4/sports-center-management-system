@@ -1,7 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using SportHub.BuildingBlocks.Abstractions.Audit;
-using SportHub.BuildingBlocks.Abstractions.Configuration;
 using SportHub.BuildingBlocks.Abstractions.Notifications;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.Abstractions.Training;
@@ -19,11 +18,10 @@ namespace SportHub.Scheduling.Application.Services;
 
 /// <summary>
 /// Đăng ký lớp — BR-16 (gói phải Active và còn số dư), BR-19 (không đăng ký trùng buổi),
-/// BR-13 (không vượt sức chứa), BR-50 (chụp hạn hủy), BR-17/BR-18 (hủy và hoàn lượt).
+/// BR-13 (không vượt sức chứa), BR-50 (hạn hủy cố định 30 phút), BR-17/BR-18 (hủy và hoàn lượt).
 /// </summary>
 public sealed class EnrollmentService(
     ISportHubDbContext db,
-    ISystemSettingProvider settings,
     ICoachRelationshipRegistrar coachRelationships,
     IAuditWriter audit,
     INotificationWriter notifications,
@@ -37,10 +35,6 @@ public sealed class EnrollmentService(
     {
         var now = clock.UtcNow;
         var today = VietnamTime.TodayLocal(clock);
-
-        // BR-50 — đọc cấu hình NGAY TẠI ĐÂY để chụp vào đăng ký. Đọc lúc hủy (như Design v2
-        // §3.1 mô tả) sẽ khiến Manager đổi cấu hình là đổi luôn điều kiện của đăng ký cũ.
-        var deadlineHours = await settings.GetIntAsync(SystemSettingKeys.CancellationDeadlineHours, ct);
 
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
 
@@ -119,10 +113,7 @@ public sealed class EnrollmentService(
             MemberId = memberId,
             MemberPackageId = package.MemberPackageId,
             Status = EnrollmentStatus.Confirmed,
-            RegisteredAt = now,
-
-            // BR-50 — snapshot bất biến của chính sách hủy.
-            CancellationDeadlineHours = deadlineHours
+            RegisteredAt = now
         };
 
         db.Set<Enrollment>().Add(enrollment);
@@ -136,7 +127,7 @@ public sealed class EnrollmentService(
             actorUserId, "CREATE_ENROLLMENT", nameof(Enrollment), enrollment.EnrollmentId.ToString(),
             NewValue: $"{{\"sessionId\":\"{request.SessionId}\",\"memberId\":\"{memberId}\","
                       + $"\"memberPackageId\":\"{package.MemberPackageId}\","
-                      + $"\"cancellationDeadlineHours\":{deadlineHours}}}"));
+                      + $"\"cancellationDeadlineMinutes\":{SessionRules.CancellationDeadlineMinutes}}}"));
 
         try
         {
@@ -155,8 +146,8 @@ public sealed class EnrollmentService(
     }
 
     /// <summary>
-    /// BR-17/BR-18 — hủy đăng ký. Đúng hạn (tại hoặc trước mốc BR-50) thì hoàn lượt; trễ hạn
-    /// thì không. Mốc tính theo số giờ đã CHỤP vào đăng ký, không phải cấu hình hiện hành.
+    /// BR-17/BR-18 — hủy đăng ký. Đúng hạn (tại hoặc trước 30 phút trước giờ bắt đầu) thì
+    /// hoàn lượt; trễ hạn thì không.
     /// </summary>
     public async Task<EnrollmentResponse> CancelAsync(
         Guid enrollmentId,
@@ -187,8 +178,7 @@ public sealed class EnrollmentService(
                 "Buổi học đã bắt đầu — không hủy được. Kết quả sẽ được ghi nhận qua điểm danh (BR-20).");
         }
 
-        var status = SessionRules.ClassifyCancellation(
-            now, enrollment.Session.StartAtUtc, enrollment.CancellationDeadlineHours);
+        var status = SessionRules.ClassifyCancellation(now, enrollment.Session.StartAtUtc);
 
         enrollment.Status = status;
         enrollment.CancelledAt = now;
@@ -240,7 +230,7 @@ public sealed class EnrollmentService(
             NewValue: $"{{\"status\":\"{status}\",\"sessionRefunded\":{refunded.ToString().ToLowerInvariant()},"
                       + $"\"packageReactivated\":{reactivated.ToString().ToLowerInvariant()},"
                       + $"\"needsManagerReview\":{needsManagerReview.ToString().ToLowerInvariant()},"
-                      + $"\"deadlineHours\":{enrollment.CancellationDeadlineHours}}}"));
+                      + $"\"deadlineMinutes\":{SessionRules.CancellationDeadlineMinutes}}}"));
 
         // BR-11 — hội viên phải biết lượt đã về nhưng gói vẫn chưa dùng lại được, nếu không họ
         // sẽ tưởng việc hoàn lượt thất bại.
@@ -377,8 +367,8 @@ public sealed class EnrollmentService(
             e.Status.ToString(),
             e.RegisteredAt,
             e.CancelledAt,
-            e.CancellationDeadlineHours,
-            e.Session!.StartAtUtc.AddHours(-e.CancellationDeadlineHours),
+            SessionRules.CancellationDeadlineMinutes,
+            e.Session!.StartAtUtc.AddMinutes(-SessionRules.CancellationDeadlineMinutes),
             e.Attendance == null ? null : e.Attendance.Status.ToString(),
             new ClassSessionResponse(
                 e.Session.SessionId, e.Session.ClassId, e.Session.Class!.Name, e.Session.Class.Discipline,
