@@ -114,7 +114,11 @@ export default function UserAdminPage() {
             reason: reason.trim(),
           },
         ),
-      'Synchronising "%s"',
+      {
+        lock: "The account has been locked.",
+        unlock: "The account has been unlocked.",
+        deactivate: "The account has been deactivated.",
+      }[statusTarget.action],
     );
 
     if (done !== null) {
@@ -165,8 +169,8 @@ export default function UserAdminPage() {
           </button>
         }
       >
-        <div className="form form--inline">
-          <Field label="Schedule">
+        <div className="filter-bar filter-bar--users">
+          <Field label="Search">
             <input
               value={keyword}
               placeholder="Email, surname or phone number"
@@ -299,7 +303,7 @@ export default function UserAdminPage() {
                             >
                               Lock
                             </button>
-                          ) : (
+                          ) : account.status === "Banned" ? (
                             <button
                               type="button"
                               className="btn btn--sm"
@@ -310,6 +314,24 @@ export default function UserAdminPage() {
                               }}
                             >
                               Open
+                            </button>
+                          ) : null}
+
+                          {account.status !== "Deactivated" && (
+                            <button
+                              type="button"
+                              className="btn btn--ghost btn--sm"
+                              disabled={isSelf}
+                              onClick={() => {
+                                action.reset();
+                                setReason("");
+                                setStatusTarget({
+                                  account,
+                                  action: "deactivate",
+                                });
+                              }}
+                            >
+                              Deactivate
                             </button>
                           )}
                         </div>
@@ -325,6 +347,7 @@ export default function UserAdminPage() {
                   pageSize={data.pageSize}
                   totalCount={data.totalCount}
                   onChange={setPage}
+                  noun="Accounts"
                 />
               </div>
             </>
@@ -433,7 +456,9 @@ export default function UserAdminPage() {
           title={
             statusTarget.action === "lock"
               ? `Lock account — ${statusTarget.account.email}`
-              : `Unlock account — ${statusTarget.account.email}`
+              : statusTarget.action === "deactivate"
+                ? `Deactivate account — ${statusTarget.account.email}`
+                : `Unlock account — ${statusTarget.account.email}`
           }
           onClose={() => setStatusTarget(null)}
           footer={
@@ -460,7 +485,9 @@ export default function UserAdminPage() {
             <div className="alert alert--warn">
               {statusTarget.action === "lock"
                 ? "The locked account will not be able to log in and the used token will be blocked in the next refust (BR-6)."
-                : "Opening allows re-listing accounts; old-term Token will be reuseable."}
+                : statusTarget.action === "deactivate"
+                  ? "The deactivated account will be suspended and unable to perform authenticated actions."
+                  : "Opening allows re-listing accounts; old-term Token will be reuseable."}
             </div>
 
             <Field label="Reasons (requiring — BR-7 requires writing reasons when locking/opening locks)">
