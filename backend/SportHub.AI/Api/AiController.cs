@@ -6,6 +6,8 @@ using SportHub.AI.Application.Services;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.Api;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
+using SportHub.Identity.Application.Interfaces;
+using SportHub.Identity.Domain.Enums;
 using SportHub.Training.Domain.Entities;
 using SportHub.Training.Domain.Enums;
 
@@ -25,17 +27,25 @@ public sealed record AiLogResponse(
 [ApiController]
 [Authorize]
 [Route("api/ai")]
-public class AiController(IWorkoutRecommendationService recommendations, ISportHubDbContext db) : ControllerBase
+public class AiController(
+    IWorkoutRecommendationService recommendations,
+    ISportHubDbContext db,
+    ICoachProfileReader coachProfiles) : ControllerBase
 {
     /// <summary>
     /// BR-26 — HLV xin gợi ý cho một hội viên. Chỉ hội viên mình ĐANG phụ trách: gợi ý đọc
     /// mục tiêu, trình độ và lịch sử tập của họ, tức là dữ liệu cá nhân.
+    ///
+    /// BR-100, mới 28/09/2026 — chỉ Coach loại PersonalTrainer; kiểm TRƯỚC khi đọc quan hệ/hồ sơ
+    /// Member hay gọi provider, để ClassInstructor không lộ cả việc có quan hệ hay không.
     /// </summary>
     [Authorize(Policy = SportHubPolicies.Coach)]
     [HttpPost("workout-suggestions/{memberId:guid}")]
     public async Task<IActionResult> Suggest(Guid memberId, CancellationToken ct)
     {
         var coachId = User.RequireUserId();
+
+        await coachProfiles.RequireCategoryAsync(coachId, CoachCategory.PersonalTrainer, ct);
 
         var hasRelationship = await db.Set<CoachMemberRelationship>().AnyAsync(
             r => r.CoachId == coachId && r.MemberId == memberId && r.Status == RelationshipStatus.Active, ct);

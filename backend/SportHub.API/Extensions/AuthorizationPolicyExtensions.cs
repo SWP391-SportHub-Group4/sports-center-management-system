@@ -33,8 +33,9 @@ public static class AuthorizationPolicyExtensions
             .AddPolicy(CoachPolicy, p => p.RequireRole(nameof(UserRole.Coach)))
             .AddPolicy(MemberPolicy, p => p.RequireRole(nameof(UserRole.Member)))
             .AddPolicy(ReceptionistPolicy, p => p.RequireRole(nameof(UserRole.Receptionist)))
-            .AddPolicy(AttendanceCheckInPolicy, p => p.RequireRole(
-                nameof(UserRole.Coach), nameof(UserRole.Receptionist)))
+            // BR-98, mới 28/09/2026: điểm danh Yoga/Group X chuyển hẳn cho Receptionist — Coach
+            // (kể cả ClassInstructor dạy buổi đó) không còn điểm danh được qua policy này.
+            .AddPolicy(AttendanceCheckInPolicy, p => p.RequireRole(nameof(UserRole.Receptionist)))
 
             // Tên dùng chung cho controller của mọi module.
             .AddPolicy(SportHubPolicies.SystemAdministrator, p => p.RequireRole(nameof(UserRole.SystemAdministrator)))
@@ -47,9 +48,8 @@ public static class AuthorizationPolicyExtensions
             .AddPolicy(SportHubPolicies.FrontDesk, p => p.RequireRole(
                 nameof(UserRole.Receptionist), nameof(UserRole.CenterManager)))
 
-            // BR-22 — điểm danh lớp.
-            .AddPolicy(SportHubPolicies.AttendanceCheckIn, p => p.RequireRole(
-                nameof(UserRole.Coach), nameof(UserRole.Receptionist)))
+            // BR-98, mới 28/09/2026 — điểm danh lớp Yoga/Group X chỉ Receptionist.
+            .AddPolicy(SportHubPolicies.AttendanceCheckIn, p => p.RequireRole(nameof(UserRole.Receptionist)))
 
             // Đọc dữ liệu vận hành. KHÔNG có SystemAdministrator: phạm vi quyền của vai trò này
             // ngoài BR-2/BR-6 chưa được Business Rules chốt (SSOT §7), nên giữ ❌ như ma trận

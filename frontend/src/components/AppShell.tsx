@@ -3,7 +3,13 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
-import { HOME_BY_ROLE, ROLE_LABEL, useAuth, type Role } from "@/lib/auth";
+import {
+  HOME_BY_ROLE,
+  ROLE_LABEL,
+  useAuth,
+  type CoachCategory,
+  type Role,
+} from "@/lib/auth";
 import { useLanguage } from "@/lib/language";
 import { NotificationBell } from "./NotificationBell";
 import { IconKeyboard } from "@/components/icons";
@@ -90,10 +96,12 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { href: "/receptionist/invoices", label: "Invoice lookup" },
     { href: "/receptionist/registrations", label: "Class registration" },
   ],
+  // BR-96/BR-97, mới 28/09/2026: đây là menu đầy đủ, chỉ dành cho Coach loại PersonalTrainer.
+  // ClassInstructor dùng CLASS_INSTRUCTOR_NAV bên dưới — xem getNavForUser().
   Coach: [
     { href: "/coach", label: "Overview" },
     { href: "/coach/schedule", label: "Teaching schedule" },
-    { href: "/coach/attendance", label: "Attendance & results" },
+    { href: "/coach/attendance", label: "Training results" },
     { href: "/coach/members", label: "Assigned members" },
     { href: "/coach/training-plans", label: "Training plans" },
     { href: "/coach/ai-suggestions", label: "AI suggestions" },
@@ -120,16 +128,46 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
   ],
 };
 
+/**
+ * BR-96/BR-97/BR-98/BR-100, mới 28/09/2026 — ClassInstructor (Yoga/Group X) chỉ xem lịch được
+ * Manager phân công và tự quản lý hồ sơ/mật khẩu (link "My account" chung được thêm bên dưới).
+ * Không điểm danh, không hội viên, không kế hoạch tập, không AI — backend đã từ chối các action
+ * này ở tầng API (SportHub.Training/AI/Scheduling), đây chỉ là UX không hiện món không dùng được.
+ */
+const CLASS_INSTRUCTOR_NAV: NavItem[] = [
+  { href: "/coach", label: "Overview" },
+  { href: "/coach/schedule", label: "Teaching schedule" },
+];
+
+/** Menu Coach phụ thuộc CoachCategory — NAV_BY_ROLE.Coach chỉ đúng cho PersonalTrainer. */
+export function getNavForUser(user: {
+  role: Role;
+  coachCategory?: CoachCategory | null;
+}): NavItem[] {
+  if (user.role === "Coach" && user.coachCategory === "ClassInstructor") {
+    return CLASS_INSTRUCTOR_NAV;
+  }
+
+  return NAV_BY_ROLE[user.role];
+}
+
 export function AppShell({
   title,
   description,
   allow,
+  requireCoachCategory,
   children,
 }: {
   title: string;
   description?: string;
   /** Vai trò được phép xem nhánh này. Bảo vệ route ở client, không thay cho RBAC ở API. */
   allow: Role[];
+  /**
+   * BR-96, mới 28/09/2026 — chỉ áp dụng khi allow gồm "Coach": thêm điều kiện CoachCategory,
+   * vd trang kế hoạch tập/AI chỉ dành PersonalTrainer. ClassInstructor vào nhầm URL bị đưa về
+   * /coach — đây là UX, backend vẫn là lớp chặn thật (403) nếu client cũ chưa cập nhật.
+   */
+  requireCoachCategory?: CoachCategory;
   children: ReactNode;
 }) {
   const { user, loading, logout } = useAuth();
@@ -151,8 +189,19 @@ export function AppShell({
     // trống trơn — người dùng thường tới đây do bookmark cũ chứ không phải cố tình.
     if (!allow.includes(user.role)) {
       router.replace(HOME_BY_ROLE[user.role]);
+
+      return;
     }
-  }, [user, loading, allow, router, pathname]);
+
+    // BR-96, mới 28/09/2026 — cùng lý do trên nhưng theo category trong role Coach.
+    if (
+      requireCoachCategory &&
+      user.role === "Coach" &&
+      user.coachCategory !== requireCoachCategory
+    ) {
+      router.replace(HOME_BY_ROLE[user.role]);
+    }
+  }, [user, loading, allow, requireCoachCategory, router, pathname]);
 
   // Global Receptionist Keyboard Navigation Shortcuts (Alt + 0..5, Alt + /)
   useEffect(() => {
@@ -214,7 +263,12 @@ export function AppShell({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [user?.role, router, showShortcuts]);
 
-  if (loading || !user || !allow.includes(user.role)) {
+  const coachCategoryMismatch =
+    requireCoachCategory &&
+    user?.role === "Coach" &&
+    user.coachCategory !== requireCoachCategory;
+
+  if (loading || !user || !allow.includes(user.role) || coachCategoryMismatch) {
     return (
       <div className="auth">
         <div className="auth__card">
@@ -224,7 +278,7 @@ export function AppShell({
     );
   }
 
-  const nav = NAV_BY_ROLE[user.role];
+  const nav = getNavForUser(user);
 
   const getNavLabel = (labelStr: string) => {
     if (language !== "vi") return labelStr;
@@ -237,7 +291,7 @@ export function AppShell({
       Attendance: "Điểm danh ca học",
       "My account": "Tài khoản của tôi",
       "Teaching schedule": "Lịch giảng dạy",
-      "Attendance & results": "Điểm danh & Kết quả",
+      "Training results": "Kết quả buổi tập",
       "Assigned members": "Hội viên phụ trách",
       "Training plans": "Giáo án bài tập",
       "AI suggestions": "Gợi ý thông minh AI",

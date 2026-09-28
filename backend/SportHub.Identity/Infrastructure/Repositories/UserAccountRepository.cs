@@ -26,6 +26,7 @@ public sealed class UserAccountRepository(ISportHubDbContext db) : IUserAccountR
             .Include(u => u.Credential)
             .Include(u => u.Role)
             .Include(u => u.Profile)
+            .Include(u => u.CoachProfile) // BR-96 — login response trả CoachCategory (mới 28/09/2026)
             .SingleOrDefaultAsync(u => u.Email == email, cancellationToken);
 
     // Chỉ hỏi DB đúng một câu bool, KHÔNG Include và không tải credential/profile:

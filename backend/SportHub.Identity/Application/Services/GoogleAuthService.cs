@@ -74,6 +74,7 @@ public sealed class GoogleAuthService(
         var existingLink = await db.Set<UserExternalLogin>()
             .Include(l => l.UserAccount).ThenInclude(u => u!.Role)
             .Include(l => l.UserAccount).ThenInclude(u => u!.Profile)
+            .Include(l => l.UserAccount).ThenInclude(u => u!.CoachProfile) // BR-96, mới 28/09/2026
             .SingleOrDefaultAsync(
                 l => l.Provider == ExternalAuthProvider.Google && l.ProviderUserId == identity.Subject, ct);
 
@@ -218,7 +219,8 @@ public sealed class GoogleAuthService(
                 UserId = user.UserId,
                 Email = user.Email,
                 FullName = user.Profile?.FullName ?? string.Empty,
-                Role = user.Role.RoleName.ToString()
+                Role = user.Role.RoleName.ToString(),
+                CoachCategory = user.CoachProfile?.CoachCategory.ToString()
             },
             IsNewAccount = isNewAccount,
             SuggestedPassword = suggestedPassword
