@@ -3,6 +3,7 @@
 import { useEffect, type ReactNode } from "react";
 import { chipTone, label } from "@/lib/format";
 import type { ApiError } from "@/lib/apiClient";
+import { useLanguage } from "@/lib/language";
 
 export function Card({
   title,
@@ -88,6 +89,8 @@ export function ErrorState({
   error: ApiError;
   onRetry?: () => void;
 }) {
+  const { t } = useLanguage();
+
   return (
     <div className="stack">
       <div className="alert alert--error" role="alert">
@@ -103,7 +106,7 @@ export function ErrorState({
             className="btn btn--ghost btn--sm"
             onClick={onRetry}
           >
-            Retry
+            {t.common.retry}
           </button>
         </div>
       )}
@@ -117,7 +120,7 @@ export function ErrorState({
  */
 export function AsyncSection<T>({
   state,
-  emptyMessage = "No data yet.",
+  emptyMessage,
   isEmpty,
   children,
 }: {
@@ -131,11 +134,16 @@ export function AsyncSection<T>({
   isEmpty?: (data: T) => boolean;
   children: (data: T) => ReactNode;
 }) {
+  const { t } = useLanguage();
+  const resolvedEmptyMessage = emptyMessage ?? t.common.noData;
+
   if (state.loading && state.data === null) return <Loading />;
   if (state.error)
     return <ErrorState error={state.error} onRetry={state.reload} />;
-  if (state.data === null) return <EmptyState message={emptyMessage} />;
-  if (isEmpty?.(state.data)) return <EmptyState message={emptyMessage} />;
+  if (state.data === null)
+    return <EmptyState message={resolvedEmptyMessage} />;
+  if (isEmpty?.(state.data))
+    return <EmptyState message={resolvedEmptyMessage} />;
 
   return <>{children(state.data)}</>;
 }
@@ -165,17 +173,36 @@ export function Feedback({
 export function Field({
   label: fieldLabel,
   hint,
+  required,
+  error,
   children,
 }: {
   label: string;
   hint?: ReactNode;
+  /** Hiện dấu `*` sau nhãn — quy ước bắt buộc theo design system (mục 5.1). */
+  required?: boolean;
+  /** Thông báo lỗi hiện ngay dưới control, gắn `role="alert"` để trình đọc màn hình báo ngay. */
+  error?: ReactNode;
   children: ReactNode;
 }) {
   return (
     <label className="field">
-      <span>{fieldLabel}</span>
+      <span>
+        {fieldLabel}
+        {required && (
+          <>
+            <span aria-hidden="true"> *</span>
+            <span className="sr-only"> (required)</span>
+          </>
+        )}
+      </span>
       {children}
-      {hint && <span className="field__hint">{hint}</span>}
+      {hint && !error && <span className="field__hint">{hint}</span>}
+      {error && (
+        <span className="field__error" role="alert">
+          {error}
+        </span>
+      )}
     </label>
   );
 }
@@ -191,6 +218,8 @@ export function Dialog({
   footer?: ReactNode;
   children: ReactNode;
 }) {
+  const { t } = useLanguage();
+
   // Escape để đóng: hộp thoại phủ kín thao tác phía sau, phải luôn có đường thoát bằng bàn phím.
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -223,7 +252,7 @@ export function Dialog({
             className="btn btn--ghost btn--sm"
             onClick={onClose}
           >
-            Close
+            {t.common.close}
           </button>
         </header>
         <div className="dialog__body">{children}</div>
@@ -277,6 +306,7 @@ export function Pager({
   onChange: (page: number) => void;
   noun?: string;
 }) {
+  const { t } = useLanguage();
   const lastPage = Math.max(1, Math.ceil(totalCount / pageSize));
 
   if (totalCount === 0) return null;
@@ -284,7 +314,7 @@ export function Pager({
   return (
     <div className="row spread" style={{ marginTop: 12 }}>
       <span className="small muted">
-        Trang {page}/{lastPage} · {totalCount} {noun}
+        {t.common.pageLabel} {page}/{lastPage} · {totalCount} {noun}
       </span>
       <div className="btn-row">
         <button
@@ -293,7 +323,7 @@ export function Pager({
           disabled={page <= 1}
           onClick={() => onChange(page - 1)}
         >
-          Previous Page
+          {t.common.previousPage}
         </button>
         <button
           type="button"
@@ -301,7 +331,7 @@ export function Pager({
           disabled={page >= lastPage}
           onClick={() => onChange(page + 1)}
         >
-          Trang sau
+          {t.common.nextPage}
         </button>
       </div>
     </div>
