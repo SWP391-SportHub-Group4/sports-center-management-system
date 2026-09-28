@@ -120,7 +120,6 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IAccountService, AccountService>();
 builder.Services.AddScoped<IGoogleTokenVerifier, GoogleTokenVerifier>();
 builder.Services.AddScoped<IGoogleAuthService, GoogleAuthService>();
-builder.Services.AddScoped<IPasswordGenerator, PasswordGenerator>();
 builder.Services.AddScoped<ICoachProfileReader, CoachProfileReader>();
 
 // BR-78 — gửi OTP Register. Chưa cấu hình Smtp:Host (máy dev) thì chỉ ghi email ra log.

@@ -1,14 +1,18 @@
+using System.Text;
 using Google.Apis.Auth;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
+using Npgsql;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.Infrastructure.Authentication;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.BuildingBlocks.SharedKernel.Time;
+using SportHub.Identity.Application.Commands;
 using SportHub.Identity.Application.DTOs;
 using SportHub.Identity.Application.Interfaces;
 using SportHub.Identity.Domain.Exceptions;
+using SportHub.Identity.Infrastructure.Security;
 
 namespace SportHub.Identity.Application.Services;
 
@@ -20,8 +24,6 @@ public sealed class GoogleTokenVerifier(IConfiguration configuration) : IGoogleT
     {
         var clientId = configuration["Google:ClientId"];
 
-        // Chưa cấu hình thì báo rõ là lỗi CẤU HÌNH, không phải token sai — nếu không, người
-        // chạy demo sẽ đi tìm lỗi ở phía Google trong khi vấn đề nằm ở file .env.
         if (string.IsNullOrWhiteSpace(clientId))
         {
             throw new AppException(
@@ -43,8 +45,6 @@ public sealed class GoogleTokenVerifier(IConfiguration configuration) : IGoogleT
             throw new AppException(401, "invalid_google_token", $"Google ID token không hợp lệ: {ex.Message}");
         }
 
-        // Email chưa xác minh phía Google thì không dùng để định danh được: bất kỳ ai cũng
-        // khai được một email chưa xác minh và sẽ dựng nên tài khoản mang email của người khác.
         if (!payload.EmailVerified)
         {
             throw new AppException(
@@ -57,24 +57,24 @@ public sealed class GoogleTokenVerifier(IConfiguration configuration) : IGoogleT
 
 /// <summary>
 /// Đăng nhập Google — BR-59 (chỉ liên kết bằng thao tác TƯỜNG MINH khi đã đăng nhập; không
-/// bao giờ tự liên kết hay tự tạo tài khoản chỉ vì trùng email) và BR-60 (tài khoản
-/// Google-only chưa có mật khẩu thì phải đăng nhập qua Google).
+/// bao giờ tự liên kết hay tự tạo tài khoản chỉ vì trùng email) và BR-60 (mật khẩu do
+/// người dùng tự nhập khi hoàn tất onboarding Google).
 /// </summary>
 public sealed class GoogleAuthService(
     ISportHubDbContext db,
     IGoogleTokenVerifier verifier,
     IOptions<JwtOptions> jwtOptions,
     IClock clock,
-    IPasswordGenerator passwordGenerator) : IGoogleAuthService
+    IPasswordHasher passwordHasher) : IGoogleAuthService
 {
-    public async Task<AuthResponse> LoginAsync(string idToken, CancellationToken ct = default)
+    public async Task<GoogleLoginResult> LoginAsync(string idToken, CancellationToken ct = default)
     {
         var identity = await verifier.VerifyAsync(idToken, ct);
 
         var existingLink = await db.Set<UserExternalLogin>()
             .Include(l => l.UserAccount).ThenInclude(u => u!.Role)
             .Include(l => l.UserAccount).ThenInclude(u => u!.Profile)
-            .Include(l => l.UserAccount).ThenInclude(u => u!.CoachProfile) // BR-96, mới 28/09/2026
+            .Include(l => l.UserAccount).ThenInclude(u => u!.CoachProfile)
             .SingleOrDefaultAsync(
                 l => l.Provider == ExternalAuthProvider.Google && l.ProviderUserId == identity.Subject, ct);
 
@@ -87,13 +87,15 @@ public sealed class GoogleAuthService(
                 throw new AccountBlockedException(linkedUser.Status);
             }
 
-            return BuildResponse(linkedUser, isNewAccount: false, suggestedPassword: null);
+            return new GoogleLoginResult
+            {
+                RequiresOnboarding = false,
+                Auth = BuildAuthResponse(linkedUser, isNewAccount: false)
+            };
         }
 
         var emailOwner = await db.Set<UserAccount>().AnyAsync(u => u.Email == identity.Email, ct);
 
-        // BR-59 — đây chính là chỗ chặn pre-hijacking: đã có tài khoản mang email đó nhưng
-        // CHƯA liên kết Google thì từ chối, không tự nối hai bên lại với nhau.
         if (emailOwner)
         {
             throw new ConflictException(
@@ -102,53 +104,184 @@ public sealed class GoogleAuthService(
                 + "Hãy đăng nhập bằng mật khẩu rồi thực hiện liên kết tài khoản Google (BR-59).");
         }
 
-        // Chưa có tài khoản nào mang email đó — đăng ký mới qua Google. Không mâu thuẫn BR-59:
-        // BR-59 cấm tự liên kết/tự tạo khi TRÙNG email của tài khoản đã tồn tại.
+        var now = clock.UtcNow;
+
+        await db.Set<GoogleOnboardingTicket>()
+            .Where(t => t.ProviderUserId == identity.Subject && t.ConsumedAt == null)
+            .ExecuteUpdateAsync(s => s.SetProperty(t => t.ConsumedAt, now), ct);
+
+        var rawToken = GoogleOnboardingTokenService.GenerateRawToken();
+        var ticket = new GoogleOnboardingTicket
+        {
+            TicketId = Guid.NewGuid(),
+            TokenHash = GoogleOnboardingTokenService.HashToken(rawToken),
+            ProviderUserId = identity.Subject,
+            Email = identity.Email,
+            SuggestedFullName = identity.Name,
+            CreatedAt = now,
+            ExpiresAt = now + GoogleOnboardingTokenService.TicketLifetime
+        };
+
+        db.Set<GoogleOnboardingTicket>().Add(ticket);
+        await db.SaveChangesAsync(ct);
+
+        return new GoogleLoginResult
+        {
+            RequiresOnboarding = true,
+            Onboarding = new GoogleOnboardingPendingResponse
+            {
+                OnboardingToken = rawToken,
+                Email = identity.Email,
+                FullName = identity.Name ?? identity.Email,
+                ExpiresAt = ticket.ExpiresAt
+            }
+        };
+    }
+
+    public async Task<AuthResponse> CompleteOnboardingAsync(
+        CompleteGoogleOnboardingRequest request,
+        CancellationToken ct = default)
+    {
+        ValidatePasswordPair(request.Password, request.ConfirmPassword);
+
+        var fullName = request.FullName.Trim();
+        var phone = string.IsNullOrWhiteSpace(request.Phone) ? null : request.Phone.Trim();
+        var tokenHash = GoogleOnboardingTokenService.HashToken(request.OnboardingToken.Trim());
+
+        var ticket = await db.Set<GoogleOnboardingTicket>()
+            .SingleOrDefaultAsync(t => t.TokenHash == tokenHash, ct);
+
+        if (ticket is null)
+        {
+            throw new AppException(
+                401,
+                "google_onboarding_token_invalid",
+                "Phiếu onboarding Google không hợp lệ hoặc đã hết hiệu lực.");
+        }
+
+        if (ticket.ConsumedAt is not null)
+        {
+            throw new ConflictException(
+                "google_onboarding_token_used",
+                "Phiếu onboarding Google đã được sử dụng.");
+        }
+
+        if (clock.UtcNow >= ticket.ExpiresAt)
+        {
+            throw new AppException(
+                410,
+                "google_onboarding_token_expired",
+                "Phiếu onboarding Google đã hết hạn. Hãy đăng nhập Google lại để nhận phiếu mới.");
+        }
+
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+
+        var lockedTicket = await db.Set<GoogleOnboardingTicket>()
+            .FromSqlInterpolated(
+                $"SELECT * FROM google_onboarding_tickets WHERE ticket_id = {ticket.TicketId} FOR UPDATE")
+            .SingleAsync(ct);
+
+        if (lockedTicket.ConsumedAt is not null)
+        {
+            throw new ConflictException(
+                "google_onboarding_token_used",
+                "Phiếu onboarding Google đã được sử dụng.");
+        }
+
+        if (clock.UtcNow >= lockedTicket.ExpiresAt)
+        {
+            throw new AppException(
+                410,
+                "google_onboarding_token_expired",
+                "Phiếu onboarding Google đã hết hạn. Hãy đăng nhập Google lại để nhận phiếu mới.");
+        }
+
+        if (await db.Set<UserAccount>().AnyAsync(u => u.Email == lockedTicket.Email, ct))
+        {
+            throw new ConflictException(
+                "email_already_exists",
+                "Email đã được sử dụng bởi tài khoản khác.");
+        }
+
+        if (phone is not null && await db.Set<UserProfile>().AnyAsync(p => p.Phone == phone, ct))
+        {
+            throw new PhoneAlreadyExistsException();
+        }
+
+        if (await db.Set<UserExternalLogin>().AnyAsync(
+                l => l.Provider == ExternalAuthProvider.Google
+                     && l.ProviderUserId == lockedTicket.ProviderUserId,
+                ct))
+        {
+            throw new ConflictException(
+                "google_identity_already_linked",
+                "Tài khoản Google này đã được liên kết.");
+        }
+
         var role = await db.Set<Role>().SingleAsync(r => r.RoleName == UserRole.Member, ct);
         var now = clock.UtcNow;
 
         var user = new UserAccount
         {
             UserId = Guid.NewGuid(),
-            Email = identity.Email,
+            Email = lockedTicket.Email,
             RoleId = role.RoleId,
             Status = UserStatus.Active,
             CreatedAt = now,
-
-            // BR-60 — tài khoản tạo thuần qua Google KHÔNG có password_hash; đăng nhập
-            // email/mật khẩu bị chặn cho tới khi người dùng chủ động đặt mật khẩu.
-            Credential = new UserCredential { PasswordHash = null },
-            Profile = new UserProfile { FullName = identity.Name ?? identity.Email, Phone = null }
+            Credential = new UserCredential { PasswordHash = passwordHasher.Hash(request.Password) },
+            Profile = new UserProfile { FullName = fullName, Phone = phone }
         };
 
         user.ExternalLogins.Add(new UserExternalLogin
         {
             ExternalLoginId = Guid.NewGuid(),
             Provider = ExternalAuthProvider.Google,
-            ProviderUserId = identity.Subject,
-
-            // KHÔNG lưu refresh token: SSOT §7 còn để mở việc mã hoá field này at rest, nên
-            // không lưu vẫn hơn là lưu thô. Ứng dụng chỉ cần xác minh id_token rồi tự cấp JWT.
+            ProviderUserId = lockedTicket.ProviderUserId,
             RefreshToken = null,
             CreatedAt = now
         });
 
+        lockedTicket.ConsumedAt = now;
+
         db.Set<UserAccount>().Add(user);
-        await db.SaveChangesAsync(ct);
+
+        try
+        {
+            await db.SaveChangesAsync(ct);
+            await transaction.CommitAsync(ct);
+        }
+        catch (DbUpdateException ex)
+            when (ex.InnerException is PostgresException
+                  {
+                      SqlState: PostgresErrorCodes.UniqueViolation,
+                      ConstraintName: "ix_user_profiles_phone"
+                  })
+        {
+            await transaction.RollbackAsync(ct);
+            throw new PhoneAlreadyExistsException();
+        }
+        catch (DbUpdateException ex)
+            when (ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
+        {
+            await transaction.RollbackAsync(ct);
+
+            if (await db.Set<UserAccount>().AnyAsync(u => u.Email == lockedTicket.Email, ct))
+            {
+                throw new ConflictException(
+                    "email_already_exists",
+                    "Email đã được sử dụng bởi tài khoản khác.");
+            }
+
+            throw new ConflictException(
+                "google_onboarding_token_used",
+                "Phiếu onboarding Google đã được sử dụng.");
+        }
 
         user.Role = role;
 
-        // Chỉ GỢI Ý — không gán vào Credential ở trên, PasswordHash vẫn null (BR-60) cho tới
-        // khi người dùng tự gọi POST /api/users/me/password.
-        var suggestedPassword = passwordGenerator.GenerateStrong();
-
-        return BuildResponse(user, isNewAccount: true, suggestedPassword);
+        return BuildAuthResponse(user, isNewAccount: true);
     }
 
-    /// <summary>
-    /// BR-59 — liên kết TƯỜNG MINH, chỉ thực hiện được từ bên trong phiên đã đăng nhập đúng
-    /// tài khoản đó (userId lấy từ JWT, không nhận từ body).
-    /// </summary>
     public async Task LinkAsync(Guid userId, string idToken, CancellationToken ct = default)
     {
         var identity = await verifier.VerifyAsync(idToken, ct);
@@ -196,8 +329,6 @@ public sealed class GoogleAuthService(
         var hasPassword = await db.Set<UserCredential>()
             .AnyAsync(c => c.UserId == userId && c.PasswordHash != null, ct);
 
-        // Gỡ liên kết khi chưa có mật khẩu sẽ khoá người dùng ra khỏi chính tài khoản của họ:
-        // không còn đường đăng nhập nào (BR-60).
         if (!hasPassword)
         {
             throw new ConflictException(
@@ -209,7 +340,24 @@ public sealed class GoogleAuthService(
         await db.SaveChangesAsync(ct);
     }
 
-    private AuthResponse BuildResponse(UserAccount user, bool isNewAccount, string? suggestedPassword)
+    private static void ValidatePasswordPair(string password, string confirmPassword)
+    {
+        if (password != confirmPassword)
+        {
+            throw new BadRequestException(
+                "password_confirmation_mismatch",
+                "Mật khẩu và xác nhận mật khẩu không khớp.");
+        }
+
+        if (password.Length < 8 || Encoding.UTF8.GetByteCount(password) > 72)
+        {
+            throw new BadRequestException(
+                "password_policy_failed",
+                "Mật khẩu không đáp ứng chính sách bảo mật (tối thiểu 8 ký tự, tối đa 72 byte UTF-8).");
+        }
+    }
+
+    private AuthResponse BuildAuthResponse(UserAccount user, bool isNewAccount)
         => new()
         {
             AccessToken = JwtService.GenerateAccessToken(
@@ -222,7 +370,6 @@ public sealed class GoogleAuthService(
                 Role = user.Role.RoleName.ToString(),
                 CoachCategory = user.CoachProfile?.CoachCategory.ToString()
             },
-            IsNewAccount = isNewAccount,
-            SuggestedPassword = suggestedPassword
+            IsNewAccount = isNewAccount
         };
 }

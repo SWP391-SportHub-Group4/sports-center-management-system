@@ -56,6 +56,12 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Localization guard
+        run: npm run check:i18n
+
       - name: Build
         run: npm run build
         env:

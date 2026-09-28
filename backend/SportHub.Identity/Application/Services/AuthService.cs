@@ -171,8 +171,7 @@ public sealed class AuthService(
                 FullName = fullName,
                 Role = role.RoleName.ToString()
             },
-            IsNewAccount = true,
-            SuggestedPassword = null
+            IsNewAccount = true
         };
     }
 
@@ -215,8 +214,7 @@ public sealed class AuthService(
                 Role = user.Role!.RoleName.ToString(),
                 CoachCategory = user.CoachProfile?.CoachCategory.ToString()
             },
-            IsNewAccount = false,
-            SuggestedPassword = null
+            IsNewAccount = false
         };
     }
 
