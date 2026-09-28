@@ -32,9 +32,6 @@ public class AiController(
     ISportHubDbContext db,
     ICoachProfileReader coachProfiles) : ControllerBase
 {
-    ISportHubDbContext db,
-    ICoachProfileReader coachProfiles) : ControllerBase
-{
     [Authorize(Policy = SportHubPolicies.Coach)]
     [HttpPost("workout-suggestions/{memberId:guid}")]
     public async Task<IActionResult> Suggest(
