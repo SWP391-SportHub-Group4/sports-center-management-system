@@ -1,3 +1,4 @@
+using SportHub.AI.Domain.Constants;
 using Microsoft.EntityFrameworkCore;
 using SportHub.AI.Application.Interfaces;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
@@ -134,7 +135,7 @@ public sealed class WorkoutRecommendationService(
         {
             LogId = Guid.NewGuid(),
             UserId = coachId, // người YÊU CẦU gợi ý là HLV (BR-26), không phải hội viên
-            QueryType = "WORKOUT_SUGGESTION",
+            QueryType = AiQueryTypes.WorkoutSuggestion,
             InputPayload = JsonSerializer.Serialize(input),
             ResponsePayload = JsonSerializer.Serialize(new
             {
