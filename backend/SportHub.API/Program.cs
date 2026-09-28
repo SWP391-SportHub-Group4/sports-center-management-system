@@ -7,6 +7,7 @@ using SportHub.AI.Application.Interfaces;
 using SportHub.AI.Application.Services;
 using SportHub.AI.Infrastructure;
 using SportHub.AI;
+using SportHub.AI.Infrastructure.Gemini;
 using SportHub.API.Extensions;
 using SportHub.API.Jobs;
 using SportHub.API.Middleware;
@@ -183,7 +184,46 @@ builder.Services.AddScoped<IWorkoutService, WorkoutService>();
 // AI — bản cài đặt theo luật, chạy cục bộ (xem RuleBasedAiRecommendationService).
 builder.Services.AddScoped<IAiRecommendationService, RuleBasedAiRecommendationService>();
 builder.Services.AddScoped<IWorkoutRecommendationService, WorkoutRecommendationService>();
+// AI Flow 6 — Gemini assistant
+builder.Services.Configure<GeminiOptions>(
+    builder.Configuration.GetSection(
+        GeminiOptions.SectionName));
 
+builder.Services.AddScoped<
+    IAiContextBuilder,
+    SportHubAiContextBuilder>();
+
+builder.Services.AddScoped<
+    IAiChatService,
+    AiChatService>();
+
+builder.Services.AddHttpClient<
+    IAiChatProvider,
+    GeminiAiChatProvider>(
+    (serviceProvider, client) =>
+    {
+        var options =
+            serviceProvider
+                .GetRequiredService<
+                    IOptions<GeminiOptions>>()
+                .Value;
+
+        var baseUrl =
+            string.IsNullOrWhiteSpace(
+                options.BaseUrl)
+                ? "https://generativelanguage.googleapis.com"
+                : options.BaseUrl.TrimEnd('/');
+
+        client.BaseAddress =
+            new Uri(baseUrl);
+
+        client.Timeout =
+            TimeSpan.FromSeconds(
+                Math.Clamp(
+                    options.TimeoutSeconds,
+                    5,
+                    120));
+    });
 // Tác vụ nền: BR-11/BR-33 (hạn gói), BR-20/BR-53 (No-show), BR-34 (phát thông báo).
 builder.Services.AddHostedService<MemberPackageExpiryJob>();
 builder.Services.AddHostedService<AttendanceFinalizerJob>();
