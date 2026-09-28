@@ -69,7 +69,7 @@ public class RegisterOtpTests(SportHubApiFactory factory)
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var json = await JsonOf(response);
         Assert.True(json.GetProperty("isNewAccount").GetBoolean());
-        Assert.Equal(JsonValueKind.Null, json.GetProperty("suggestedPassword").ValueKind);
+        Assert.False(json.TryGetProperty("suggestedPassword", out _));
 
         var login = await client.PostAsync("api/auth/login", JsonContent.Create(new { email, password = ValidPassword }));
         Assert.Equal(HttpStatusCode.OK, login.StatusCode);

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using SportHub.BuildingBlocks.Api;
@@ -12,17 +13,32 @@ namespace SportHub.Identity.Api;
 [Route("api/auth")]
 public class GoogleAuthController(IGoogleAuthService google) : ControllerBase
 {
-    /// <summary>
-    /// Dùng chung quota rate limit với login thường: cả hai đều là đường cấp JWT cho người
-    /// chưa xác thực (SSOT §5.6).
-    /// </summary>
     [AllowAnonymous]
     [EnableRateLimiting("auth-login")]
     [HttpPost("google")]
     public async Task<IActionResult> Login([FromBody] GoogleTokenRequest request, CancellationToken ct)
-        => Ok(await google.LoginAsync(request.IdToken, ct));
+    {
+        var result = await google.LoginAsync(request.IdToken, ct);
 
-    /// <summary>BR-59 — liên kết tường minh, bắt buộc đang ở trong phiên của chính tài khoản đó.</summary>
+        if (result.RequiresOnboarding)
+        {
+            return StatusCode(StatusCodes.Status202Accepted, result.Onboarding);
+        }
+
+        return Ok(result.Auth);
+    }
+
+    [AllowAnonymous]
+    [EnableRateLimiting("auth-register")]
+    [HttpPost("google/onboarding")]
+    public async Task<IActionResult> CompleteOnboarding(
+        [FromBody] CompleteGoogleOnboardingRequest request,
+        CancellationToken ct)
+    {
+        var auth = await google.CompleteOnboardingAsync(request, ct);
+        return StatusCode(StatusCodes.Status201Created, auth);
+    }
+
     [Authorize]
     [HttpPost("google/link")]
     public async Task<IActionResult> Link([FromBody] GoogleTokenRequest request, CancellationToken ct)
