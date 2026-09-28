@@ -9,6 +9,12 @@ namespace SportHub.Scheduling.Domain.Rules;
 public static class SessionRules
 {
     /// <summary>
+    /// Hạn hủy lớp Yoga/Group X là 30 phút cố định, không phải cấu hình vận hành và không
+    /// snapshot vào từng Enrollment. Quy tắc PT 24 giờ thuộc model PT session riêng.
+    /// </summary>
+    public const int CancellationDeadlineMinutes = 30;
+
+    /// <summary>
     /// BR-51 — trần sức chứa của buổi: MIN(sức chứa phòng, sức chứa lớp) TẠI THỜI ĐIỂM TẠO.
     /// Gọi đúng một lần khi sinh buổi; không bao giờ tính lại cho buổi đã tồn tại.
     /// </summary>
@@ -35,12 +41,10 @@ public static class SessionRules
     }
 
     /// <summary>
-    /// BR-50 — mốc hạn hủy của MỘT đăng ký, tính từ giờ bắt đầu buổi và số giờ đã CHỤP vào
-    /// đăng ký đó lúc xác nhận. Không đọc cấu hình hiện hành: cấu hình đổi sau không được
-    /// làm đổi điều kiện của đăng ký cũ.
+    /// BR-50 — mốc hạn hủy lớp cố định 30 phút trước giờ bắt đầu.
     /// </summary>
-    public static DateTime CancellationDeadline(DateTime sessionStartAtUtc, int cancellationDeadlineHours)
-        => sessionStartAtUtc.AddHours(-cancellationDeadlineHours);
+    public static DateTime CancellationDeadline(DateTime sessionStartAtUtc)
+        => sessionStartAtUtc.AddMinutes(-CancellationDeadlineMinutes);
 
     /// <summary>
     /// BR-50 — hủy TẠI hoặc TRƯỚC hạn được coi là đúng hạn (so sánh &lt;=, không phải &lt;).
@@ -48,9 +52,8 @@ public static class SessionRules
     /// </summary>
     public static EnrollmentStatus ClassifyCancellation(
         DateTime cancelledAtUtc,
-        DateTime sessionStartAtUtc,
-        int cancellationDeadlineHours)
-        => cancelledAtUtc <= CancellationDeadline(sessionStartAtUtc, cancellationDeadlineHours)
+        DateTime sessionStartAtUtc)
+        => cancelledAtUtc <= CancellationDeadline(sessionStartAtUtc)
             ? EnrollmentStatus.CancelledOnTime
             : EnrollmentStatus.CancelledLate;
 

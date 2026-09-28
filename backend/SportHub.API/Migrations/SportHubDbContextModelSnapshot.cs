@@ -183,13 +183,6 @@ namespace SportHub.API.Migrations
                     b.HasData(
                         new
                         {
-                            Key = "cancellation_deadline_hours",
-                            Description = "BR-50 — Số giờ tối thiểu trước giờ bắt đầu buổi học mà hội viên phải hủy để được hoàn lượt tập. Giá trị được chụp lại tại thời điểm đăng ký; thay đổi ở đây không ảnh hưởng các đăng ký đã xác nhận.",
-                            UpdatedAt = new DateTime(2026, 9, 21, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Value = "12"
-                        },
-                        new
-                        {
                             Key = "package_expiring_reminder_days",
                             Description = "BR-33 — Nhắc hội viên trước bao nhiêu ngày khi gói thành viên sắp hết hạn.",
                             UpdatedAt = new DateTime(2026, 9, 21, 0, 0, 0, 0, DateTimeKind.Utc),
@@ -1263,10 +1256,6 @@ namespace SportHub.API.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid")
                         .HasColumnName("enrollment_id");
-
-                    b.Property<int>("CancellationDeadlineHours")
-                        .HasColumnType("integer")
-                        .HasColumnName("cancellation_deadline_hours");
 
                     b.Property<DateTime?>("CancelledAt")
                         .HasColumnType("timestamp with time zone")

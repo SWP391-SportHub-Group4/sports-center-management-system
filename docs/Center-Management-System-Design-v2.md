@@ -214,7 +214,6 @@ erDiagram
         uuid member_id FK
         uuid member_package_id FK
         EnrollmentStatus status "enum, xem SSOT §3"
-        int cancellation_deadline_hours "snapshot"
         datetime registered_at
         datetime cancelled_at
         uuid cancelled_by_user_id FK "nullable, may differ from member_id (Receptionist)"
