@@ -249,6 +249,22 @@ namespace SportHub.API.Migrations
                     b.ToTable("audit_logs", (string)null);
                 });
 
+            modelBuilder.Entity("SportHub.Identity.Domain.Entities.CoachProfile", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<int>("CoachCategory")
+                        .HasColumnType("integer")
+                        .HasColumnName("coach_category");
+
+                    b.HasKey("UserId")
+                        .HasName("pk_coach_profiles");
+
+                    b.ToTable("coach_profiles", (string)null);
+                });
+
             modelBuilder.Entity("SportHub.Identity.Domain.Entities.EmailOtp", b =>
                 {
                     b.Property<Guid>("EmailOtpId")
@@ -290,6 +306,57 @@ namespace SportHub.API.Migrations
                         .HasDatabaseName("ix_email_otps_email");
 
                     b.ToTable("email_otps", (string)null);
+                });
+
+            modelBuilder.Entity("SportHub.Identity.Domain.Entities.GoogleOnboardingTicket", b =>
+                {
+                    b.Property<Guid>("TicketId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("ticket_id");
+
+                    b.Property<DateTime?>("ConsumedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("consumed_at");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasColumnType("citext")
+                        .HasColumnName("email");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<string>("ProviderUserId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("provider_user_id");
+
+                    b.Property<string>("SuggestedFullName")
+                        .HasColumnType("text")
+                        .HasColumnName("suggested_full_name");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("token_hash");
+
+                    b.HasKey("TicketId")
+                        .HasName("pk_google_onboarding_tickets");
+
+                    b.HasIndex("ProviderUserId")
+                        .HasDatabaseName("ix_google_onboarding_tickets_provider_user_id");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique()
+                        .HasDatabaseName("ix_google_onboarding_tickets_token_hash");
+
+                    b.ToTable("google_onboarding_tickets", (string)null);
                 });
 
             modelBuilder.Entity("SportHub.Identity.Domain.Entities.Role", b =>
@@ -1532,6 +1599,18 @@ namespace SportHub.API.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("SportHub.Identity.Domain.Entities.CoachProfile", b =>
+                {
+                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", "UserAccount")
+                        .WithOne("CoachProfile")
+                        .HasForeignKey("SportHub.Identity.Domain.Entities.CoachProfile", "UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_coach_profiles_user_accounts_user_id");
+
+                    b.Navigation("UserAccount");
+                });
+
             modelBuilder.Entity("SportHub.Identity.Domain.Entities.UserAccount", b =>
                 {
                     b.HasOne("SportHub.Identity.Domain.Entities.Role", "Role")
@@ -2008,6 +2087,8 @@ namespace SportHub.API.Migrations
 
             modelBuilder.Entity("SportHub.Identity.Domain.Entities.UserAccount", b =>
                 {
+                    b.Navigation("CoachProfile");
+
                     b.Navigation("Credential");
 
                     b.Navigation("ExternalLogins");
