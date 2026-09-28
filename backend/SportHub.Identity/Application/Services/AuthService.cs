@@ -212,7 +212,8 @@ public sealed class AuthService(
                 UserId = user.UserId,
                 Email = user.Email,
                 FullName = user.Profile?.FullName ?? string.Empty,
-                Role = user.Role!.RoleName.ToString()
+                Role = user.Role!.RoleName.ToString(),
+                CoachCategory = user.CoachProfile?.CoachCategory.ToString()
             },
             IsNewAccount = false,
             SuggestedPassword = null

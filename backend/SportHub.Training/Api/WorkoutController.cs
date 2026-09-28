@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using SportHub.BuildingBlocks.Api;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
+using SportHub.Identity.Application.Interfaces;
+using SportHub.Identity.Domain.Enums;
 using SportHub.Training.Application.Commands;
 using SportHub.Training.Application.DTOs;
 using SportHub.Training.Application.Interfaces;
@@ -10,11 +12,15 @@ using SportHub.Training.Application.Services;
 
 namespace SportHub.Training.Api;
 
-/// <summary>Kế hoạch và kết quả tập — BR-23, BR-24, BR-25, BR-61.</summary>
+/// <summary>
+/// Kế hoạch và kết quả tập — BR-23, BR-24, BR-25, BR-61, BR-99 (mới 28/09/2026: mọi action Coach
+/// ở đây chỉ dành cho CoachCategory.PersonalTrainer — ClassInstructor không có nghiệp vụ này,
+/// kiểm tra ở backend chứ không chỉ ẩn menu FE).
+/// </summary>
 [ApiController]
 [Authorize]
 [Route("api")]
-public class WorkoutController(IWorkoutService workouts) : ControllerBase
+public class WorkoutController(IWorkoutService workouts, ICoachProfileReader coachProfiles) : ControllerBase
 {
     /// <summary>BR-25 — hội viên XEM kế hoạch của mình. Không có endpoint ghi cho hội viên.</summary>
     [Authorize(Policy = SportHubPolicies.Member)]
@@ -31,23 +37,42 @@ public class WorkoutController(IWorkoutService workouts) : ControllerBase
     [Authorize(Policy = SportHubPolicies.Coach)]
     [HttpGet("coaches/me/workout-plans")]
     public async Task<IActionResult> GetCoachPlans([FromQuery] Guid? memberId, CancellationToken ct = default)
-        => Ok(await workouts.GetPlansAsync(memberId, User.RequireUserId(), ct));
+    {
+        var coachId = User.RequireUserId();
+        await coachProfiles.RequireCategoryAsync(coachId, CoachCategory.PersonalTrainer, ct);
+
+        return Ok(await workouts.GetPlansAsync(memberId, coachId, ct));
+    }
 
     [Authorize(Policy = SportHubPolicies.Coach)]
     [HttpPost("workout-plans")]
     public async Task<IActionResult> CreatePlan([FromBody] CreateWorkoutPlanRequest request, CancellationToken ct)
-        => StatusCode(
-            StatusCodes.Status201Created, await workouts.CreatePlanAsync(request, User.RequireUserId(), ct));
+    {
+        var coachId = User.RequireUserId();
+        await coachProfiles.RequireCategoryAsync(coachId, CoachCategory.PersonalTrainer, ct);
+
+        return StatusCode(StatusCodes.Status201Created, await workouts.CreatePlanAsync(request, coachId, ct));
+    }
 
     [Authorize(Policy = SportHubPolicies.Coach)]
     [HttpGet("coaches/me/workout-results")]
     public async Task<IActionResult> GetCoachResults([FromQuery] Guid? memberId, CancellationToken ct = default)
-        => Ok(await workouts.GetResultsAsync(memberId, User.RequireUserId(), null, ct));
+    {
+        var coachId = User.RequireUserId();
+        await coachProfiles.RequireCategoryAsync(coachId, CoachCategory.PersonalTrainer, ct);
+
+        return Ok(await workouts.GetResultsAsync(memberId, coachId, null, ct));
+    }
 
     [Authorize(Policy = SportHubPolicies.Coach)]
     [HttpPost("workout-results")]
     public async Task<IActionResult> SaveResult([FromBody] SaveWorkoutResultRequest request, CancellationToken ct)
-        => Ok(await workouts.SaveResultAsync(request, User.RequireUserId(), ct));
+    {
+        var coachId = User.RequireUserId();
+        await coachProfiles.RequireCategoryAsync(coachId, CoachCategory.PersonalTrainer, ct);
+
+        return Ok(await workouts.SaveResultAsync(request, coachId, ct));
+    }
 
     /// <summary>
     /// HLV xem lịch sử tập của một hội viên — cần cho việc lập kế hoạch và là đầu vào của
@@ -61,6 +86,8 @@ public class WorkoutController(IWorkoutService workouts) : ControllerBase
         CancellationToken ct = default)
     {
         var coachId = User.RequireUserId();
+        await coachProfiles.RequireCategoryAsync(coachId, CoachCategory.PersonalTrainer, ct);
+
         var active = await relationships.SearchAsync(coachId, memberId, activeOnly: true, ct);
 
         if (active.Count == 0)

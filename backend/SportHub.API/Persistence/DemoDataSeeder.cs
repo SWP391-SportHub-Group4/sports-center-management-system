@@ -49,6 +49,11 @@ public sealed class DemoDataSeeder(
         var coachGroupX = NewUser("coach.groupx@sporthub.vn", "Vũ Hải Group X", "0902000002", UserRole.Coach);
         var coachPt = NewUser("coach.pt@sporthub.vn", "Đỗ Quang PT", "0902000003", UserRole.Coach);
 
+        // BR-96, mới 28/09/2026 — mỗi tài khoản Coach demo phải có CoachProfile ngay khi tạo.
+        coachYoga.CoachProfile = new CoachProfile { CoachCategory = CoachCategory.ClassInstructor };
+        coachGroupX.CoachProfile = new CoachProfile { CoachCategory = CoachCategory.ClassInstructor };
+        coachPt.CoachProfile = new CoachProfile { CoachCategory = CoachCategory.PersonalTrainer };
+
         var members = new[]
         {
             NewUser("an.member@sporthub.vn", "Hồ Lê Thiên An", "0903000001", UserRole.Member),
