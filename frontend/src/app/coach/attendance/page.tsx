@@ -1,115 +1,34 @@
 "use client";
 
-import { useState } from "react";
 import { AppShell } from "@/components/AppShell";
-import { AttendanceBoard } from "@/components/AttendanceBoard";
-import { Dialog, Feedback, Field } from "@/components/ui";
-import { api } from "@/lib/apiClient";
-import { useAction } from "@/lib/useApi";
+import { Card } from "@/components/ui";
 
 /**
- * Điểm danh buổi mình dạy, kèm ghi kết quả tập ngay tại chỗ.
+ * BR-98, mới 28/09/2026 — điểm danh Yoga/Group X chuyển hẳn cho Receptionist; Coach (kể cả
+ * PersonalTrainer) không còn điểm danh được qua API, nên bảng điểm danh theo buổi cũ đã bỏ khỏi
+ * trang này (gọi /api/attendance hoặc /api/class-sessions/{id}/roster giờ trả 403 cho Coach).
  *
- * BR-24 — chỉ HLV thực sự dạy buổi đó mới ghi được kết quả; BR-61 — đăng ký phải còn ở
- * trạng thái Đã xác nhận. Hai điều kiện này được backend kiểm lại, nút bấm ở đây chỉ là lối vào.
+ * Ghi kết quả buổi PT (WorkoutResult) vẫn CHƯA có UI ở đây: entity đại diện 1 PT session chưa
+ * được chốt (SSOT §7, plan §4.1) — WorkoutResult hiện tại gắn với Enrollment của lớp Yoga/Group X
+ * mà PersonalTrainer không dạy, nên không có luồng chọn buổi PT nào để tái sử dụng ở đây. Không
+ * dựng luồng giả — chỉ hiện thông báo chờ quyết định, tránh tuyên bố tính năng đã hoàn chỉnh.
  */
 export default function CoachAttendancePage() {
-  const [target, setTarget] = useState<{
-    enrollmentId: string;
-    memberName: string;
-  } | null>(null);
-  const [form, setForm] = useState({ progressNote: "", coachComment: "" });
-  const action = useAction();
-
-  const submit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!target) return;
-
-    const done = await action.run(
-      () =>
-        api.post("/api/workout-results", {
-          enrollmentId: target.enrollmentId,
-          progressNote: form.progressNote.trim() || null,
-          coachComment: form.coachComment.trim() || null,
-        }),
-      "Training Results Archived.",
-    );
-
-    if (done !== null) {
-      setForm({ progressNote: "", coachComment: "" });
-      setTarget(null);
-    }
-  };
-
   return (
     <AppShell
-      title="Training & Results Score"
-      description="Only sessions you are assigned to teach (BR-22, BR-24)"
+      title="Training results"
+      description="Recording PT session results — pending PT session model"
       allow={["Coach"]}
+      requireCoachCategory="PersonalTrainer"
     >
-      <AttendanceBoard
-        coachOnly
-        onResultRequested={(entry) => {
-          action.reset();
-          setForm({ progressNote: "", coachComment: "" });
-          setTarget(entry);
-        }}
-      />
-
-      {target && (
-        <Dialog
-          title={`Record training results — ${target.memberName}`}
-          onClose={() => setTarget(null)}
-          footer={
-            <>
-              <button
-                type="button"
-                className="btn btn--ghost"
-                onClick={() => setTarget(null)}
-              >
-                Abort
-              </button>
-              <button
-                type="submit"
-                form="workout-result-form"
-                className="btn"
-                disabled={action.busy}
-              >
-                {action.busy ? "Saving..." : "Save Results"}
-              </button>
-            </>
-          }
-        >
-          <form id="workout-result-form" className="form" onSubmit={submit}>
-            <Field
-              label="Progress Notes"
-              hint="Objective statistics: weight levels, number of times, time holding position..."
-            >
-              <textarea
-                value={form.progressNote}
-                onChange={(event) =>
-                  setForm({ ...form, progressNote: event.target.value })
-                }
-              />
-            </Field>
-
-            <Field label="Coach's Comments">
-              <textarea
-                value={form.coachComment}
-                onChange={(event) =>
-                  setForm({ ...form, coachComment: event.target.value })
-                }
-              />
-            </Field>
-
-            <Feedback error={action.error} success={action.success} />
-
-            <p className="small muted" style={{ margin: 0 }}>
-              The member can view this content but cannot fix it (BR-25).
-            </p>
-          </form>
-        </Dialog>
-      )}
+      <Card title="Not available yet">
+        <p className="muted">
+          Điểm danh Yoga/Group X đã chuyển cho Lễ tân (BR-98). Ghi kết quả buổi
+          PT (progress note, nhận xét) đang chờ chốt mô hình buổi PT (SSOT §7)
+          — chưa có màn hình chọn buổi PT để ghi kết quả ở đây, tránh dựng một
+          luồng giả trong khi entity đại diện buổi PT chưa được quyết định.
+        </p>
+      </Card>
     </AppShell>
   );
 }

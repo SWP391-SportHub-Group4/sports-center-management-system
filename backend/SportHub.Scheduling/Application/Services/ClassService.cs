@@ -281,6 +281,20 @@ public sealed class ClassService(ISportHubDbContext db, IAuditWriter audit) : IC
             throw new BadRequestException(
                 "coach_not_found", "Tài khoản được gán làm HLV không tồn tại hoặc không có vai trò Coach.");
         }
+
+        // BR-97 — Class ở đây chỉ là Yoga/Group X (PT không dùng Class, SSOT §1.1), nên HLV mặc
+        // định của lớp phải là Coach loại ClassInstructor, không phải PersonalTrainer.
+        var category = await db.Set<CoachProfile>()
+            .Where(p => p.UserId == coachId)
+            .Select(p => (CoachCategory?)p.CoachCategory)
+            .SingleOrDefaultAsync(ct);
+
+        if (category != CoachCategory.ClassInstructor)
+        {
+            throw new BadRequestException(
+                "coach_category_mismatch",
+                "Tài khoản được gán làm HLV lớp Yoga/Group X phải là Coach loại ClassInstructor (BR-97).");
+        }
     }
 
     private static string Describe(Class c)

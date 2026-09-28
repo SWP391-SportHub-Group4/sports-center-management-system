@@ -15,11 +15,16 @@ import { api, setUnauthorizedHandler, TOKEN_STORAGE_KEY } from "./apiClient";
 export type Role =
   "SystemAdministrator" | "CenterManager" | "Coach" | "Member" | "Receptionist";
 
+/** Khớp enum CoachCategory của backend (SSOT §3, mới 28/09/2026). */
+export type CoachCategory = "PersonalTrainer" | "ClassInstructor";
+
 export interface SessionUser {
   userId: string;
   email: string;
   fullName: string;
   role: Role;
+  /** BR-96, mới 28/09/2026 — null khi role khác Coach. */
+  coachCategory?: CoachCategory | null;
 }
 
 interface AuthResponse {
@@ -159,6 +164,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       email: string;
       fullName: string;
       role: Role;
+      coachCategory?: CoachCategory | null;
     }>("/api/users/me");
 
     setUser((current) => {
@@ -167,6 +173,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         email: me.email,
         fullName: me.fullName,
         role: me.role,
+        coachCategory: me.coachCategory ?? null,
       };
 
       try {

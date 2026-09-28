@@ -19,4 +19,7 @@ public class UserAccount
     public UserProfile? Profile { get; set; } // 1-1, thông tin hiển thị
 
     public ICollection<UserExternalLogin> ExternalLogins { get; set; } = new List<UserExternalLogin>(); // 1-N provider đăng nhập ngoài
+
+    // 1-1, chỉ có ý nghĩa khi RoleId = Coach; giữ lại làm lịch sử nếu đổi role (SSOT §7, 28/09/2026 (2)).
+    public CoachProfile? CoachProfile { get; set; }
 }

@@ -7,6 +7,8 @@ using SportHub.AI.Application.Services;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.Api;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
+using SportHub.Identity.Application.Interfaces;
+using SportHub.Identity.Domain.Enums;
 using SportHub.Training.Domain.Entities;
 using SportHub.Training.Domain.Enums;
 
@@ -27,7 +29,11 @@ public sealed record AiLogResponse(
 public class AiController(
     IWorkoutRecommendationService recommendations,
     IAiChatService chatService,
-    ISportHubDbContext db) : ControllerBase
+    ISportHubDbContext db,
+    ICoachProfileReader coachProfiles) : ControllerBase
+{
+    ISportHubDbContext db,
+    ICoachProfileReader coachProfiles) : ControllerBase
 {
     [Authorize(Policy = SportHubPolicies.Coach)]
     [HttpPost("workout-suggestions/{memberId:guid}")]
@@ -35,8 +41,14 @@ public class AiController(
         Guid memberId,
         CancellationToken ct)
     {
-        var coachId =
-            User.RequireUserId();
+        var coachId = User.RequireUserId();
+
+        // ClassInstructor phải bị chặn trước khi hệ thống kiểm tra
+        // quan hệ hoặc đọc dữ liệu của Member.
+        await coachProfiles.RequireCategoryAsync(
+            coachId,
+            CoachCategory.PersonalTrainer,
+            ct);
 
         var hasRelationship =
             await db.Set<CoachMemberRelationship>()
@@ -44,8 +56,7 @@ public class AiController(
                     r =>
                         r.CoachId == coachId &&
                         r.MemberId == memberId &&
-                        r.Status ==
-                            RelationshipStatus.Active,
+                        r.Status == RelationshipStatus.Active,
                     ct);
 
         if (!hasRelationship)
@@ -86,47 +97,39 @@ public class AiController(
         [FromQuery] int limit = 50,
         CancellationToken ct = default)
     {
-        var query =
-            db.Set<AiLog>()
-                .AsNoTracking();
+        var query = db.Set<AiLog>().AsNoTracking();
 
-        if (!User.IsInRole(
-                SportHubRoleNames.CenterManager))
+        if (!User.IsInRole(SportHubRoleNames.CenterManager))
         {
-            if (!User.IsInRole(
-                    SportHubRoleNames.Coach))
+            if (!User.IsInRole(SportHubRoleNames.Coach))
             {
                 throw new ForbiddenException(
                     "ai_logs_forbidden",
                     "Bạn không có quyền xem nhật ký AI.");
             }
 
-            query =
-                query.Where(
-                    l =>
-                        l.UserId ==
-                        User.RequireUserId());
+            var coachId = User.RequireUserId();
+
+            await coachProfiles.RequireCategoryAsync(
+                coachId,
+                CoachCategory.PersonalTrainer,
+                ct);
+
+            query = query.Where(log => log.UserId == coachId);
         }
 
-        var logs =
-            await query
-                .OrderByDescending(
-                    l => l.CreatedAt)
-                .Take(
-                    Math.Clamp(
-                        limit,
-                        1,
-                        200))
-                .Select(
-                    l => new AiLogResponse(
-                        l.LogId,
-                        l.UserId,
-                        l.QueryType,
-                        l.InputPayload,
-                        l.ResponsePayload,
-                        l.ResponseTimeMs,
-                        l.CreatedAt))
-                .ToListAsync(ct);
+        var logs = await query
+            .OrderByDescending(log => log.CreatedAt)
+            .Take(Math.Clamp(limit, 1, 200))
+            .Select(log => new AiLogResponse(
+                log.LogId,
+                log.UserId,
+                log.QueryType,
+                log.InputPayload,
+                log.ResponsePayload,
+                log.ResponseTimeMs,
+                log.CreatedAt))
+            .ToListAsync(ct);
 
         return Ok(logs);
     }

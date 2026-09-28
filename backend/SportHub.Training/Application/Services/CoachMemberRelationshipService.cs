@@ -72,6 +72,7 @@ public sealed class CoachMemberRelationshipService(
         }
 
         await EnsureRoleAsync(request.CoachId, UserRole.Coach, "coach_not_found", ct);
+        await EnsurePersonalTrainerAsync(request.CoachId, ct);
         await EnsureRoleAsync(request.MemberId, UserRole.Member, "member_not_found", ct);
 
         // Ràng buộc #7 / BR-23: tối đa một quan hệ Active cho mỗi cặp. Partial unique index
@@ -156,6 +157,19 @@ public sealed class CoachMemberRelationshipService(
         int classId,
         CancellationToken ct = default)
     {
+        // BR-99/BR-100, mới 28/09/2026: Class chỉ có Coach loại ClassInstructor (BR-97) —
+        // booking lớp Yoga/Group X không được dùng làm nguồn cấp quyền Training. Bỏ qua nếu
+        // coachId không phải PersonalTrainer (trường hợp bình thường cho mọi Class hiện nay).
+        var category = await db.Set<CoachProfile>()
+            .Where(p => p.UserId == coachId)
+            .Select(p => (CoachCategory?)p.CoachCategory)
+            .SingleOrDefaultAsync(ct);
+
+        if (category != CoachCategory.PersonalTrainer)
+        {
+            return;
+        }
+
         var exists = await db.Set<CoachMemberRelationship>().AnyAsync(
             r => r.CoachId == coachId && r.MemberId == memberId && r.Status == RelationshipStatus.Active, ct);
 
@@ -174,6 +188,25 @@ public sealed class CoachMemberRelationshipService(
             Status = RelationshipStatus.Active,
             StartedAt = clock.UtcNow
         });
+    }
+
+    /// <summary>
+    /// BR-99/BR-100, mới 28/09/2026 — chỉ Coach loại PersonalTrainer được gán quan hệ huấn luyện
+    /// cá nhân; ClassInstructor không có nghiệp vụ plan/result/AI (SSOT §2).
+    /// </summary>
+    private async Task EnsurePersonalTrainerAsync(Guid coachId, CancellationToken ct)
+    {
+        var category = await db.Set<CoachProfile>()
+            .Where(p => p.UserId == coachId)
+            .Select(p => (CoachCategory?)p.CoachCategory)
+            .SingleOrDefaultAsync(ct);
+
+        if (category != CoachCategory.PersonalTrainer)
+        {
+            throw new BadRequestException(
+                "coach_must_be_personal_trainer",
+                "Chỉ Coach loại PersonalTrainer mới được gán quan hệ huấn luyện cá nhân (BR-99).");
+        }
     }
 
     private async Task EnsureRoleAsync(Guid userId, UserRole role, string errorCode, CancellationToken ct)

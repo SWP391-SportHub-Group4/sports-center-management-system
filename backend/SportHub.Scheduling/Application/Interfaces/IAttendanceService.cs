@@ -11,7 +11,7 @@ namespace SportHub.Scheduling.Application.Interfaces;
 public interface IAttendanceService
 {
     Task<AttendanceResponse> MarkAsync(
-        Guid enrollmentId, MarkAttendanceRequest request, Guid actorUserId, bool actorIsReceptionist,
+        Guid enrollmentId, MarkAttendanceRequest request, Guid actorUserId,
         CancellationToken ct = default);
 
     Task<IReadOnlyList<AttendanceResponse>> GetBySessionAsync(Guid sessionId, CancellationToken ct = default);

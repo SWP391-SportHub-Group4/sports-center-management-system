@@ -60,6 +60,7 @@ export default function CoachMembersPage() {
       title="Fellow in charge."
       description="Practice record and membership history you're training"
       allow={["Coach"]}
+      requireCoachCategory="PersonalTrainer"
     >
       <Card title="member list" bodyless>
         <AsyncSection

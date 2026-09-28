@@ -71,6 +71,7 @@ export default function AiSuggestionPage() {
       title="Hint of Training From AI"
       description="Offering to Coach References — Not Medical Advisory"
       allow={["Coach"]}
+      requireCoachCategory="PersonalTrainer"
     >
       <Card
         title="Please advise"

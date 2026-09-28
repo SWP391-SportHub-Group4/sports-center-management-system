@@ -117,6 +117,28 @@ public sealed class UserAdminService(
             throw new ConflictException("phone_already_exists", "Số điện thoại đã được sử dụng.");
         }
 
+        // BR-96 — mỗi tài khoản role Coach phải có đúng một CoachProfile, chọn ngay lúc tạo,
+        // không suy ra từ email/giao diện. Role khác không được nhận category để tránh dữ liệu
+        // mơ hồ (CoachProfile "treo" trên tài khoản không phải Coach).
+        CoachCategory? coachCategory = null;
+
+        if (targetRole == UserRole.Coach)
+        {
+            if (string.IsNullOrWhiteSpace(request.CoachCategory))
+            {
+                throw new BadRequestException(
+                    "coach_category_required",
+                    "Phải chọn loại Coach (PersonalTrainer/ClassInstructor) khi tạo tài khoản Coach (BR-96).");
+            }
+
+            coachCategory = ParseCoachCategory(request.CoachCategory);
+        }
+        else if (!string.IsNullOrWhiteSpace(request.CoachCategory))
+        {
+            throw new BadRequestException(
+                "coach_category_not_applicable", "Chỉ tài khoản role Coach mới nhận CoachCategory.");
+        }
+
         var role = await db.Set<Role>().SingleAsync(r => r.RoleName == targetRole, ct);
 
         var user = new UserAccount
@@ -127,7 +149,8 @@ public sealed class UserAdminService(
             Status = UserStatus.Active,
             CreatedAt = clock.UtcNow,
             Credential = new UserCredential { PasswordHash = passwordHasher.Hash(request.Password) },
-            Profile = new UserProfile { FullName = request.FullName.Trim(), Phone = phone }
+            Profile = new UserProfile { FullName = request.FullName.Trim(), Phone = phone },
+            CoachProfile = coachCategory.HasValue ? new CoachProfile { CoachCategory = coachCategory.Value } : null
         };
 
         db.Set<UserAccount>().Add(user);
@@ -138,7 +161,9 @@ public sealed class UserAdminService(
             nameof(UserAccount),
             user.UserId.ToString(),
             OldValue: null,
-            NewValue: $"{{\"email\":\"{email}\",\"role\":\"{targetRole}\"}}"));
+            NewValue: coachCategory.HasValue
+                ? $"{{\"email\":\"{email}\",\"role\":\"{targetRole}\",\"coachCategory\":\"{coachCategory}\"}}"
+                : $"{{\"email\":\"{email}\",\"role\":\"{targetRole}\"}}"));
 
         // Một SaveChanges cho cả tài khoản lẫn audit — EF gói trong một transaction, nên
         // không có trạng thái "đã tạo tài khoản nhưng thiếu log" (BR-7).
@@ -157,6 +182,7 @@ public sealed class UserAdminService(
 
         var user = await db.Set<UserAccount>()
             .Include(u => u.Role)
+            .Include(u => u.CoachProfile)
             .SingleOrDefaultAsync(u => u.UserId == userId, ct)
             ?? throw new NotFoundException("user_not_found", "Không tìm thấy tài khoản.");
 
@@ -175,6 +201,38 @@ public sealed class UserAdminService(
             await EnsureNotLastActiveSystemAdministratorAsync(userId, ct);
         }
 
+        // BR-96, chốt 28/09/2026 (2) (SSOT §7): đổi role VÀO Coach luôn bắt buộc chọn category
+        // mới tường minh, kể cả khi tài khoản từng có CoachProfile lịch sử — không tự khôi phục
+        // giá trị cũ. Đổi role RA KHỎI Coach thì giữ nguyên CoachProfile làm lịch sử, không sửa,
+        // không cascade delete; RoleId hiện tại (khác Coach) là đủ để coi profile hết hiệu lực.
+        CoachCategory? newCoachCategory = null;
+
+        if (targetRole == UserRole.Coach)
+        {
+            if (string.IsNullOrWhiteSpace(request.CoachCategory))
+            {
+                throw new BadRequestException(
+                    "coach_category_required",
+                    "Phải chọn loại Coach (PersonalTrainer/ClassInstructor) khi đổi vai trò sang Coach (BR-96).");
+            }
+
+            newCoachCategory = ParseCoachCategory(request.CoachCategory);
+
+            if (user.CoachProfile is null)
+            {
+                user.CoachProfile = new CoachProfile { UserId = userId, CoachCategory = newCoachCategory.Value };
+            }
+            else
+            {
+                user.CoachProfile.CoachCategory = newCoachCategory.Value;
+            }
+        }
+        else if (!string.IsNullOrWhiteSpace(request.CoachCategory))
+        {
+            throw new BadRequestException(
+                "coach_category_not_applicable", "Chỉ áp dụng CoachCategory khi đổi vai trò sang Coach.");
+        }
+
         var role = await db.Set<Role>().SingleAsync(r => r.RoleName == targetRole, ct);
 
         user.RoleId = role.RoleId;
@@ -185,7 +243,9 @@ public sealed class UserAdminService(
             nameof(UserAccount),
             userId.ToString(),
             OldValue: $"{{\"role\":\"{currentRole}\"}}",
-            NewValue: $"{{\"role\":\"{targetRole}\"}}",
+            NewValue: newCoachCategory.HasValue
+                ? $"{{\"role\":\"{targetRole}\",\"coachCategory\":\"{newCoachCategory}\"}}"
+                : $"{{\"role\":\"{targetRole}\"}}",
             Reason: request.Reason.Trim()));
 
         await db.SaveChangesAsync(ct);
@@ -273,6 +333,11 @@ public sealed class UserAdminService(
             ? parsed
             : throw new BadRequestException("invalid_status", $"Trạng thái không hợp lệ: '{status}'.");
 
+    private static CoachCategory ParseCoachCategory(string category)
+        => Enum.TryParse<CoachCategory>(category, ignoreCase: true, out var parsed)
+            ? parsed
+            : throw new BadRequestException("invalid_coach_category", $"Loại Coach không hợp lệ: '{category}'.");
+
     private static System.Linq.Expressions.Expression<Func<UserAccount, UserAdminResponse>> Projection()
         => u => new UserAdminResponse(
             u.UserId,
@@ -285,5 +350,8 @@ public sealed class UserAdminService(
 
             // BR-60: FE dùng cờ này để biết tài khoản Google-only chưa đặt mật khẩu.
             u.Credential != null && u.Credential.PasswordHash != null,
-            u.ExternalLogins.Any());
+            u.ExternalLogins.Any(),
+
+            // BR-96, mới 28/09/2026.
+            u.CoachProfile != null ? u.CoachProfile.CoachCategory.ToString() : null);
 }
