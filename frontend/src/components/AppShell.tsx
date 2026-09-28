@@ -5,72 +5,36 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import {
   HOME_BY_ROLE,
-  ROLE_LABEL,
   useAuth,
   type CoachCategory,
   type Role,
 } from "@/lib/auth";
 import { useLanguage } from "@/lib/language";
+import type { Translations } from "@/locales/en";
 import { NotificationBell } from "./NotificationBell";
 import { IconKeyboard } from "@/components/icons";
 
+type NavLabelKey = keyof Translations["navigation"]["items"];
+
 export interface NavItem {
   href: string;
-  label: string;
+  labelKey: NavLabelKey;
 }
 
+/**
+ * Phím tắt và route cố định theo mã; nội dung hiển thị (tiêu đề/mô tả song ngữ) lấy từ
+ * t.navigation.receptionistShortcuts để không lặp chuỗi cứng ở đây.
+ */
 export const RECEPTIONIST_SHORTCUTS: Record<
   string,
-  { key: string; label: string; en: string; vi: string; descEn: string; descVi: string }
+  { key: string; label: string; contentKey: keyof Translations["navigation"]["receptionistShortcuts"] }
 > = {
-  "/receptionist": {
-    key: "0",
-    label: "Alt + 0",
-    en: "Overview Dashboard",
-    vi: "Tổng quan Lễ tân",
-    descEn: "Front desk activity overview and occupancy stats",
-    descVi: "Tổng quan bàn lễ tân và số liệu mở lớp",
-  },
-  "/receptionist/gym-checkin": {
-    key: "1",
-    label: "Alt + 1",
-    en: "Gym Turnstile Check-in",
-    vi: "Điểm danh Cổng Gym",
-    descEn: "Barcode/QR terminal with instant active pass clearance (BR-64)",
-    descVi: "Quét thẻ/QR kiểm tra gói tập hợp lệ cửa quay (BR-64)",
-  },
-  "/receptionist/sell-plans": {
-    key: "2",
-    label: "Alt + 2",
-    en: "Sell Membership Packages",
-    vi: "Bán Gói Tập POS",
-    descEn: "Point of sale packages, immediate activation and cash/card receipt",
-    descVi: "Bán gói tập, thanh toán nhanh và in hóa đơn tại quầy",
-  },
-  "/receptionist/attendance": {
-    key: "3",
-    label: "Alt + 3",
-    en: "Class Attendance Desk",
-    vi: "Điểm Danh Lớp Học",
-    descEn: "Mark Present or Absent for daily class sessions (BR-22)",
-    descVi: "Điểm danh có mặt hoặc vắng mặt cho các ca học",
-  },
-  "/receptionist/invoices": {
-    key: "4",
-    label: "Alt + 4",
-    en: "Invoices & Cashier",
-    vi: "Tra Cứu & Thu Tiền",
-    descEn: "Collect outstanding balances and manage payout adjustments",
-    descVi: "Thu nợ hóa đơn quá hạn và xử lý hoàn tiền",
-  },
-  "/receptionist/registrations": {
-    key: "5",
-    label: "Alt + 5",
-    en: "Class Registration",
-    vi: "Đăng Ký Lớp Hộ",
-    descEn: "Enroll members into class sessions and manage bookings",
-    descVi: "Đăng ký ca học hộ hội viên và quản lý danh sách đặt chỗ",
-  },
+  "/receptionist": { key: "0", label: "Alt + 0", contentKey: "overview" },
+  "/receptionist/gym-checkin": { key: "1", label: "Alt + 1", contentKey: "gymCheckin" },
+  "/receptionist/sell-plans": { key: "2", label: "Alt + 2", contentKey: "sellPlans" },
+  "/receptionist/attendance": { key: "3", label: "Alt + 3", contentKey: "attendance" },
+  "/receptionist/invoices": { key: "4", label: "Alt + 4", contentKey: "invoices" },
+  "/receptionist/registrations": { key: "5", label: "Alt + 5", contentKey: "registrations" },
 };
 
 /**
@@ -79,52 +43,53 @@ export const RECEPTIONIST_SHORTCUTS: Record<
  * không dùng được.
  */
 export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
+  // Member dùng MemberShell, không dùng AppShell — nhánh này giữ lại chỉ để Record đủ key.
   Member: [
-    { href: "/member", label: "Overview" },
-    { href: "/member/class-schedule", label: "Class schedule" },
-    { href: "/member/my-registrations", label: "My registrations" },
-    { href: "/member/my-plans", label: "My membership plans" },
-    { href: "/member/invoices", label: "Invoices" },
-    { href: "/member/training", label: "Plans & results" },
-    { href: "/member/profile", label: "Training profile" },
+    { href: "/member", labelKey: "overview" },
+    { href: "/member/class-schedule", labelKey: "classSchedule" },
+    { href: "/member/my-registrations", labelKey: "myRegistrations" },
+    { href: "/member/my-plans", labelKey: "myMembershipPlans" },
+    { href: "/member/invoices", labelKey: "invoices" },
+    { href: "/member/training", labelKey: "plansAndResults" },
+    { href: "/member/profile", labelKey: "trainingProfile" },
   ],
   Receptionist: [
-    { href: "/receptionist", label: "Overview" },
-    { href: "/receptionist/gym-checkin", label: "Gym check-in" },
-    { href: "/receptionist/sell-plans", label: "Sell plans & invoices" },
-    { href: "/receptionist/attendance", label: "Attendance" },
-    { href: "/receptionist/invoices", label: "Invoice lookup" },
-    { href: "/receptionist/registrations", label: "Class registration" },
+    { href: "/receptionist", labelKey: "overview" },
+    { href: "/receptionist/gym-checkin", labelKey: "gymCheckin" },
+    { href: "/receptionist/sell-plans", labelKey: "sellPlansInvoices" },
+    { href: "/receptionist/attendance", labelKey: "attendance" },
+    { href: "/receptionist/invoices", labelKey: "invoiceLookup" },
+    { href: "/receptionist/registrations", labelKey: "classRegistration" },
   ],
   // BR-96/BR-97, mới 28/09/2026: đây là menu đầy đủ, chỉ dành cho Coach loại PersonalTrainer.
   // ClassInstructor dùng CLASS_INSTRUCTOR_NAV bên dưới — xem getNavForUser().
   Coach: [
-    { href: "/coach", label: "Overview" },
-    { href: "/coach/schedule", label: "Teaching schedule" },
-    { href: "/coach/attendance", label: "Training results" },
-    { href: "/coach/members", label: "Assigned members" },
-    { href: "/coach/training-plans", label: "Training plans" },
-    { href: "/coach/ai-suggestions", label: "AI suggestions" },
+    { href: "/coach", labelKey: "overview" },
+    { href: "/coach/schedule", labelKey: "teachingSchedule" },
+    { href: "/coach/attendance", labelKey: "trainingResults" },
+    { href: "/coach/members", labelKey: "assignedMembers" },
+    { href: "/coach/training-plans", labelKey: "trainingPlans" },
+    { href: "/coach/ai-suggestions", labelKey: "aiSuggestions" },
   ],
   CenterManager: [
-    { href: "/manager", label: "Overview" },
-    { href: "/manager/training-rooms", label: "Training rooms" },
-    { href: "/manager/classes", label: "Classes" },
-    { href: "/manager/class-schedule", label: "Class schedule" },
-    { href: "/manager/membership-plans", label: "Membership plans" },
+    { href: "/manager", labelKey: "overview" },
+    { href: "/manager/training-rooms", labelKey: "trainingRooms" },
+    { href: "/manager/classes", labelKey: "classes" },
+    { href: "/manager/class-schedule", labelKey: "classSchedule" },
+    { href: "/manager/membership-plans", labelKey: "membershipPlans" },
     {
       href: "/manager/coaching-relationships",
-      label: "Coaching relationships",
+      labelKey: "coachingRelationships",
     },
-    { href: "/manager/payment-adjustments", label: "Payment adjustments" },
-    { href: "/manager/reports", label: "Revenue reports" },
-    { href: "/manager/settings", label: "System settings" },
-    { href: "/manager/audit-log", label: "Audit log" },
+    { href: "/manager/payment-adjustments", labelKey: "paymentAdjustments" },
+    { href: "/manager/reports", labelKey: "revenueReports" },
+    { href: "/manager/settings", labelKey: "systemSettings" },
+    { href: "/manager/audit-log", labelKey: "auditLog" },
   ],
   SystemAdministrator: [
-    { href: "/admin", label: "Overview" },
-    { href: "/admin/users", label: "Users & roles" },
-    { href: "/admin/audit-log", label: "Audit log" },
+    { href: "/admin", labelKey: "overview" },
+    { href: "/admin/users", labelKey: "usersRoles" },
+    { href: "/admin/audit-log", labelKey: "auditLog" },
   ],
 };
 
@@ -135,8 +100,8 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
  * này ở tầng API (SportHub.Training/AI/Scheduling), đây chỉ là UX không hiện món không dùng được.
  */
 const CLASS_INSTRUCTOR_NAV: NavItem[] = [
-  { href: "/coach", label: "Overview" },
-  { href: "/coach/schedule", label: "Teaching schedule" },
+  { href: "/coach", labelKey: "overview" },
+  { href: "/coach/schedule", labelKey: "teachingSchedule" },
 ];
 
 /** Menu Coach phụ thuộc CoachCategory — NAV_BY_ROLE.Coach chỉ đúng cho PersonalTrainer. */
@@ -171,7 +136,7 @@ export function AppShell({
   children: ReactNode;
 }) {
   const { user, loading, logout } = useAuth();
-  const { language, toggleLanguage } = useLanguage();
+  const { language, toggleLanguage, t } = useLanguage();
   const router = useRouter();
   const pathname = usePathname();
   const [showShortcuts, setShowShortcuts] = useState(false);
@@ -272,53 +237,14 @@ export function AppShell({
     return (
       <div className="auth">
         <div className="auth__card">
-          <p className="muted">Loading session...</p>
+          <p className="muted">{t.navigation.loadingSession}</p>
         </div>
       </div>
     );
   }
 
   const nav = getNavForUser(user);
-
-  const getNavLabel = (labelStr: string) => {
-    if (language !== "vi") return labelStr;
-    const viLabels: Record<string, string> = {
-      Overview: "Tổng quan",
-      "Gym check-in": "Điểm danh Gym",
-      "Sell plans & invoices": "Bán gói & Hóa đơn",
-      "Invoice lookup": "Tra cứu hóa đơn",
-      "Class registration": "Đăng ký lớp hộ",
-      Attendance: "Điểm danh ca học",
-      "My account": "Tài khoản của tôi",
-      "Teaching schedule": "Lịch giảng dạy",
-      "Training results": "Kết quả buổi tập",
-      "Assigned members": "Hội viên phụ trách",
-      "Training plans": "Giáo án bài tập",
-      "AI suggestions": "Gợi ý thông minh AI",
-      "Training rooms": "Phòng tập luyện",
-      Classes: "Danh mục lớp học",
-      "Class schedule": "Lịch toàn bộ lớp",
-      "Membership plans": "Gói hội viên",
-      "Coaching relationships": "Phân công HLV",
-      "Payment adjustments": "Điều chỉnh hóa đơn",
-      "Revenue reports": "Báo cáo doanh thu",
-      "System settings": "Cài đặt hệ thống",
-      "Audit log": "Nhật ký hệ thống",
-      "Users & roles": "Người dùng & Vai trò",
-    };
-    return viLabels[labelStr] ?? labelStr;
-  };
-
-  const roleDisplay =
-    language === "vi"
-      ? {
-          Receptionist: "Nhân viên Lễ tân",
-          Coach: "Huấn luyện viên",
-          CenterManager: "Quản lý Trung tâm",
-          SystemAdministrator: "Quản trị viên",
-          Member: "Hội viên",
-        }[user.role] || ROLE_LABEL[user.role]
-      : ROLE_LABEL[user.role];
+  const roleDisplay = t.navigation.roleLabel[user.role];
 
   return (
     <div className="shell">
@@ -340,7 +266,7 @@ export function AppShell({
                 href={item.href}
                 className={`sidebar__link ${active ? "sidebar__link--active" : ""}`}
               >
-                {getNavLabel(item.label)}
+                {t.navigation.items[item.labelKey]}
               </Link>
             );
           })}
@@ -348,13 +274,13 @@ export function AppShell({
             href="/account"
             className={`sidebar__link ${pathname.startsWith("/account") ? "sidebar__link--active" : ""}`}
           >
-            {language === "en" ? "My account" : "Tài khoản của tôi"}
+            {t.navigation.myAccount}
           </Link>
         </nav>
         <div className="sidebar__footer">
-          Multidisciplinary Sports Centre
+          {t.navigation.footerTagline}
           <br />
-          Gym · Personal Training · Yoga · Group X
+          {t.navigation.footerSub}
         </div>
       </aside>
 
@@ -372,22 +298,22 @@ export function AppShell({
                 type="button"
                 className="btn btn--secondary btn--sm"
                 onClick={() => setShowShortcuts((prev) => !prev)}
-                title={
-                  language === "en"
-                    ? "Front Desk Shortcuts (Alt + /)"
-                    : "Phím tắt bàn lễ tân (Alt + /)"
-                }
+                title={t.navigation.shortcutsButtonTitle}
                 style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
               >
                 <IconKeyboard size={16} aria-hidden="true" />
-                <span>{language === "en" ? "Shortcuts" : "Phím tắt"}</span>
+                <span>{t.navigation.shortcutsButton}</span>
               </button>
             )}
             <button
               type="button"
               className="btn btn--secondary btn--sm"
               onClick={toggleLanguage}
-              title={language === "en" ? "Chuyển sang Tiếng Việt" : "Switch to English"}
+              title={
+                language === "en"
+                  ? t.navigation.languageToggleToVi
+                  : t.navigation.languageToggleToEn
+              }
               style={{ fontWeight: 700 }}
             >
               {language === "en" ? "🇺🇸 EN" : "🇻🇳 VI"}
@@ -395,14 +321,14 @@ export function AppShell({
             <NotificationBell />
             <div className="header__user">
               <strong>{user.fullName || user.email}</strong>
-              <span>{ROLE_LABEL[user.role]}</span>
+              <span>{roleDisplay}</span>
             </div>
             <button
               type="button"
               className="btn btn--ghost btn--sm"
               onClick={logout}
             >
-              Log Out
+              {t.navigation.logOut}
             </button>
           </div>
         </header>
@@ -416,7 +342,7 @@ export function AppShell({
           onClick={() => setShowShortcuts(false)}
           role="dialog"
           aria-modal="true"
-          aria-label="Keyboard Shortcuts"
+          aria-label={t.navigation.shortcutsModalTitle}
         >
           <div
             className="shortcut-modal"
@@ -425,47 +351,39 @@ export function AppShell({
             <div className="shortcut-modal__header">
               <h3 className="shortcut-modal__title">
                 <IconKeyboard size={18} aria-hidden="true" />
-                <span>
-                  {language === "en"
-                    ? "Receptionist Desk Shortcuts"
-                    : "Phím Tắt Bàn Lễ Tân"}
-                </span>
+                <span>{t.navigation.shortcutsModalTitle}</span>
               </h3>
               <button
                 type="button"
                 className="shortcut-modal__close"
                 onClick={() => setShowShortcuts(false)}
-                aria-label="Close"
+                aria-label={t.navigation.shortcutsCloseLabel}
               >
                 ✕
               </button>
             </div>
             <div className="shortcut-modal__body">
-              {Object.entries(RECEPTIONIST_SHORTCUTS).map(([route, sc]) => (
-                <Link
-                  key={route}
-                  href={route}
-                  className="shortcut-row"
-                  onClick={() => setShowShortcuts(false)}
-                >
-                  <div>
-                    <div className="shortcut-row__action">
-                      {language === "en" ? sc.en : sc.vi}
+              {Object.entries(RECEPTIONIST_SHORTCUTS).map(([route, sc]) => {
+                const content = t.navigation.receptionistShortcuts[sc.contentKey];
+
+                return (
+                  <Link
+                    key={route}
+                    href={route}
+                    className="shortcut-row"
+                    onClick={() => setShowShortcuts(false)}
+                  >
+                    <div>
+                      <div className="shortcut-row__action">{content.title}</div>
+                      <div className="shortcut-row__desc">{content.desc}</div>
                     </div>
-                    <div className="shortcut-row__desc">
-                      {language === "en" ? sc.descEn : sc.descVi}
-                    </div>
-                  </div>
-                  <kbd className="shortcut-row__kbd">{sc.label}</kbd>
-                </Link>
-              ))}
+                    <kbd className="shortcut-row__kbd">{sc.label}</kbd>
+                  </Link>
+                );
+              })}
             </div>
             <div className="shortcut-modal__footer">
-              <span>
-                {language === "en"
-                  ? "Press Escape to close"
-                  : "Bấm Escape để đóng"}
-              </span>
+              <span>{t.navigation.shortcutsEscapeHint}</span>
               <kbd className="sidebar__kbd">Alt + /</kbd>
             </div>
           </div>
