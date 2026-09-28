@@ -109,7 +109,7 @@ export function AuditLogView() {
   return (
     <>
       <Card title="Filter">
-        <div className="form form--inline">
+        <div className="filter-bar">
           <Field
             label="Actions"
             hint="Examples: LEG_OUR_ACCUCT, RECORD_PAYMENT"
