@@ -150,6 +150,7 @@ builder.Services.AddScoped<IReportExportService, ReportExportService>();
 builder.Services.AddScoped<IMembershipPackageService, MembershipPackageService>();
 builder.Services.AddScoped<IMemberPackageService, MemberPackageService>();
 builder.Services.AddScoped<IMemberTrainingProfileService, MemberTrainingProfileService>();
+builder.Services.AddScoped<IMembershipReportService, MembershipReportService>();
 
 // Notification
 builder.Services.AddScoped<INotificationService, NotificationService>();
@@ -160,6 +161,7 @@ builder.Services.AddScoped<IGymCheckInService, GymCheckInService>();
 builder.Services.AddScoped<IRoomService, RoomService>();
 builder.Services.AddScoped<IClassService, ClassService>();
 builder.Services.AddScoped<IClassSessionService, ClassSessionService>();
+builder.Services.AddScoped<IClassUtilizationReportService, ClassUtilizationReportService>();
 builder.Services.AddScoped<IEnrollmentService, EnrollmentService>();
 builder.Services.AddScoped<IAttendanceService, AttendanceService>();
 
