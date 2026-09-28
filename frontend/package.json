@@ -12,6 +12,7 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
+    "check:i18n": "node scripts/check-i18n.mjs",
     "test:e2e": "playwright test",
     "format": "prettier --write src tests playwright.config.ts",
     "format:check": "prettier --check src tests playwright.config.ts"
