@@ -10,8 +10,10 @@ using SportHub.Scheduling.Application.Interfaces;
 namespace SportHub.Scheduling.Application.Services;
 
 /// <summary>
-/// Điểm danh lớp — BR-21 (tối đa một bản ghi cho mỗi đăng ký), BR-22 (chỉ Coach dạy buổi đó
-/// hoặc Lễ tân), BR-53 (chỉ ghi tay Present/Absent; No-show là việc của job).
+/// Điểm danh lớp — BR-21 (tối đa một bản ghi cho mỗi đăng ký), BR-98 mới 28/09/2026 (chỉ
+/// Receptionist ghi Present/Absent cho Yoga/Group X — thay cho BR-22 cũ; Coach kể cả
+/// ClassInstructor dạy buổi đó không còn điểm danh được, policy AttendanceCheckIn đã chặn ở
+/// tầng route), BR-53 (chỉ ghi tay Present/Absent; No-show là việc của job).
 /// </summary>
 public sealed class AttendanceService(
     ISportHubDbContext db,
@@ -22,7 +24,6 @@ public sealed class AttendanceService(
         Guid enrollmentId,
         MarkAttendanceRequest request,
         Guid actorUserId,
-        bool actorIsReceptionist,
         CancellationToken ct = default)
     {
         // BR-53 — NoShow không bao giờ nhận từ client; chỉ AttendanceFinalizerJob sinh ra nó.
@@ -35,7 +36,6 @@ public sealed class AttendanceService(
         }
 
         var enrollment = await db.Set<Enrollment>()
-            .Include(e => e.Session)
             .Include(e => e.Attendance)
             .SingleOrDefaultAsync(e => e.EnrollmentId == enrollmentId, ct)
             ?? throw new NotFoundException("enrollment_not_found", "Không tìm thấy đăng ký.");
@@ -47,15 +47,6 @@ public sealed class AttendanceService(
             throw new ConflictException(
                 "enrollment_not_confirmed",
                 $"Đăng ký đang ở trạng thái {enrollment.Status} — không điểm danh được.");
-        }
-
-        // BR-22 — chỉ Coach ĐƯỢC GÁN cho buổi đó, hoặc Lễ tân tại quầy.
-        // Coach khác không điểm danh hộ được, kể cả khi cũng có vai trò Coach.
-        if (!actorIsReceptionist && enrollment.Session!.CoachId != actorUserId)
-        {
-            throw new ForbiddenException(
-                "not_session_coach",
-                "Chỉ HLV được phân công cho buổi học này hoặc Lễ tân mới điểm danh được (BR-22).");
         }
 
         var attendance = enrollment.Attendance;

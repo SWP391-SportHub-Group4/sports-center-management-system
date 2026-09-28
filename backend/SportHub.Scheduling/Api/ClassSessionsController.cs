@@ -41,21 +41,21 @@ public class ClassSessionsController(IClassSessionService sessions) : Controller
         => Ok(await sessions.GetAsync(sessionId, ct));
 
     /// <summary>
-    /// Danh sách điểm danh của buổi. HLV chỉ xem được buổi MÌNH dạy — xem lớp người khác là
-    /// đọc dữ liệu hội viên ngoài phạm vi phụ trách.
+    /// Danh sách điểm danh của buổi — chỉ Manager/Receptionist (BR-97, mới 28/09/2026: Coach
+    /// không còn xem roster của buổi Yoga/Group X, bất kể category. ClassInstructor chỉ xem lịch
+    /// tối thiểu qua GET /mine; PT không dạy buổi Yoga/Group X nên cũng không cần endpoint này).
     /// </summary>
     [Authorize(Policy = SportHubPolicies.StaffRead)]
     [HttpGet("{sessionId:guid}/roster")]
     public async Task<IActionResult> GetRoster(Guid sessionId, CancellationToken ct)
     {
-        var roster = await sessions.GetRosterAsync(sessionId, ct);
-
-        if (User.IsInRole(SportHubRoleNames.Coach) && roster.Session.CoachId != User.RequireUserId())
+        if (User.IsInRole(SportHubRoleNames.Coach))
         {
-            throw new ForbiddenException("not_session_coach", "Bạn không phụ trách buổi học này.");
+            throw new ForbiddenException(
+                "coach_cannot_view_roster", "Coach không được xem roster của buổi Yoga/Group X (BR-97).");
         }
 
-        return Ok(roster);
+        return Ok(await sessions.GetRosterAsync(sessionId, ct));
     }
 
     [Authorize(Policy = SportHubPolicies.CenterManager)]

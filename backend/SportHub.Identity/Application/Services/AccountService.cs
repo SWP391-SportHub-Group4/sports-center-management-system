@@ -17,7 +17,11 @@ public sealed record MyAccountResponse(
     string Status,
     DateTime CreatedAt,
     bool HasPassword,
-    bool HasGoogleLink);
+    bool HasGoogleLink,
+
+    // BR-96, mới 28/09/2026 — null khi role khác Coach; category luôn đọc lại từ DB tại đây,
+    // không cache/tin theo JWT hay client (SSOT §7, Design v2 §3.1).
+    string? CoachCategory);
 
 public sealed class UpdateMyProfileRequest
 {
@@ -62,7 +66,8 @@ public sealed class AccountService(ISportHubDbContext db, IPasswordHasher passwo
                    u.Status.ToString(),
                    u.CreatedAt,
                    u.Credential != null && u.Credential.PasswordHash != null,
-                   u.ExternalLogins.Any()))
+                   u.ExternalLogins.Any(),
+                   u.CoachProfile != null ? u.CoachProfile.CoachCategory.ToString() : null))
                .SingleOrDefaultAsync(ct)
            ?? throw new NotFoundException("user_not_found", "Không tìm thấy tài khoản.");
 

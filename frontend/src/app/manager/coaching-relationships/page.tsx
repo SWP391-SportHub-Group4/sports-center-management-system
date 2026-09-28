@@ -47,6 +47,12 @@ export default function CoachAssignmentPage() {
     [],
   );
 
+  // BR-99, mới 28/09/2026 — quan hệ huấn luyện cá nhân chỉ gán được cho PersonalTrainer;
+  // ClassInstructor không có nghiệp vụ này (backend cũng từ chối nếu vẫn cố gửi).
+  const personalTrainers = (coaches.data?.items ?? []).filter(
+    (coach) => coach.coachCategory === "PersonalTrainer",
+  );
+
   const relationships = useApi(
     (signal) =>
       api.get<CoachMemberRelationshipDto[]>("/api/coach-member-relationships", {
@@ -111,7 +117,7 @@ export default function CoachAssignmentPage() {
                 onChange={(event) => setCoachId(event.target.value)}
               >
                 <option value="">— Select Coach —</option>
-                {(coaches.data?.items ?? []).map((coach) => (
+                {personalTrainers.map((coach) => (
                   <option key={coach.userId} value={coach.userId}>
                     {coach.fullName || coach.email}
                   </option>
@@ -164,7 +170,7 @@ export default function CoachAssignmentPage() {
               onChange={(event) => setFilterCoachId(event.target.value)}
             >
               <option value="">All Coaches.</option>
-              {(coaches.data?.items ?? []).map((coach) => (
+              {personalTrainers.map((coach) => (
                 <option key={coach.userId} value={coach.userId}>
                   {coach.fullName || coach.email}
                 </option>

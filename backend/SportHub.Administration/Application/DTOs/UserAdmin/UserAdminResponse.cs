@@ -9,4 +9,7 @@ public sealed record UserAdminResponse(
     string Status,
     DateTime CreatedAt,
     bool HasPassword,
-    bool HasGoogleLink);
+    bool HasGoogleLink,
+
+    // BR-96, mới 28/09/2026 — null khi role khác Coach hoặc CoachProfile chưa/không còn tồn tại.
+    string? CoachCategory);

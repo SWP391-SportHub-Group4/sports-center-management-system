@@ -12,6 +12,7 @@ import type { ClassSessionDto, CoachMemberRelationshipDto } from "@/lib/types";
 export default function CoachDashboardPage() {
   const { user } = useAuth();
   const today = todayIso();
+  const isPersonalTrainer = user?.coachCategory !== "ClassInstructor";
 
   const week = useApi(
     (signal) =>
@@ -22,13 +23,17 @@ export default function CoachDashboardPage() {
     [today],
   );
 
+  // BR-97 — ClassInstructor không có CoachMemberRelationship (không dùng nghiệp vụ Training),
+  // nên chỉ gọi endpoint này khi là PersonalTrainer.
   const members = useApi(
     (signal) =>
-      api.get<CoachMemberRelationshipDto[]>("/api/coach-member-relationships", {
-        signal,
-        query: { activeOnly: true },
-      }),
-    [],
+      isPersonalTrainer
+        ? api.get<CoachMemberRelationshipDto[]>(
+            "/api/coach-member-relationships",
+            { signal, query: { activeOnly: true } },
+          )
+        : Promise.resolve([]),
+    [isPersonalTrainer],
   );
 
   const todaySessions =
@@ -47,24 +52,28 @@ export default function CoachDashboardPage() {
           label="The next seven days of teaching."
           value={week.data?.length ?? 0}
         />
-        <Stat
-          label="Members are in charge"
-          value={members.data?.length ?? 0}
-          hint="Active Training Relationship (BR-23)"
-        />
+        {isPersonalTrainer && (
+          <Stat
+            label="Members are in charge"
+            value={members.data?.length ?? 0}
+            hint="Active Training Relationship (BR-23)"
+          />
+        )}
       </div>
 
-      <div className="row">
-        <Link className="btn" href="/coach/attendance">
-          & Write Results
-        </Link>
-        <Link className="btn btn--ghost" href="/coach/training-plans">
-          Edit Training Planning
-        </Link>
-        <Link className="btn btn--ghost" href="/coach/ai-suggestions">
-          Please suggest AI
-        </Link>
-      </div>
+      {isPersonalTrainer && (
+        <div className="row">
+          <Link className="btn" href="/coach/attendance">
+            & Write Results
+          </Link>
+          <Link className="btn btn--ghost" href="/coach/training-plans">
+            Edit Training Planning
+          </Link>
+          <Link className="btn btn--ghost" href="/coach/ai-suggestions">
+            Please suggest AI
+          </Link>
+        </div>
+      )}
 
       <Card title="Reschedule" bodyless>
         <AsyncSection
@@ -105,42 +114,44 @@ export default function CoachDashboardPage() {
         </AsyncSection>
       </Card>
 
-      <Card
-        title="Members are in charge"
-        hint="Only with these members have you created the exercise plan and offered AI (BR-23)."
-        bodyless
-      >
-        <AsyncSection
-          state={members}
-          emptyMessage="You have not yet been in charge of any member; the relationship will arise when the members sign up for your class, either due to the CBS."
-          isEmpty={(data) => data.length === 0}
+      {isPersonalTrainer && (
+        <Card
+          title="Members are in charge"
+          hint="Only with these members have you created the exercise plan and offered AI (BR-23)."
+          bodyless
         >
-          {(data) => (
-            <Table
-              headers={[
-                "Members",
-                "The Source of Relationships",
-                "Class",
-                "Start",
-              ]}
-            >
-              {data.map((item) => (
-                <tr key={item.relationshipId}>
-                  <td>
-                    <strong>{item.memberName || item.memberEmail}</strong>
-                    <div className="small muted">{item.memberEmail}</div>
-                  </td>
-                  <td>{item.sourceType}</td>
-                  <td>{item.className ?? "—"}</td>
-                  <td className="nowrap small">
-                    {formatDateTime(item.startedAt)}
-                  </td>
-                </tr>
-              ))}
-            </Table>
-          )}
-        </AsyncSection>
-      </Card>
+          <AsyncSection
+            state={members}
+            emptyMessage="You have not yet been in charge of any member; the relationship will arise when the members sign up for your class, either due to the CBS."
+            isEmpty={(data) => data.length === 0}
+          >
+            {(data) => (
+              <Table
+                headers={[
+                  "Members",
+                  "The Source of Relationships",
+                  "Class",
+                  "Start",
+                ]}
+              >
+                {data.map((item) => (
+                  <tr key={item.relationshipId}>
+                    <td>
+                      <strong>{item.memberName || item.memberEmail}</strong>
+                      <div className="small muted">{item.memberEmail}</div>
+                    </td>
+                    <td>{item.sourceType}</td>
+                    <td>{item.className ?? "—"}</td>
+                    <td className="nowrap small">
+                      {formatDateTime(item.startedAt)}
+                    </td>
+                  </tr>
+                ))}
+              </Table>
+            )}
+          </AsyncSection>
+        </Card>
+      )}
     </AppShell>
   );
 }

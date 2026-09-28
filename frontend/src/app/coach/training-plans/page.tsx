@@ -92,6 +92,7 @@ export default function CoachPlansPage() {
       title="Practice Plans"
       description="Strategy for the Fellow You're in charge (BR-23)"
       allow={["Coach"]}
+      requireCoachCategory="PersonalTrainer"
     >
       <Card title="Create New Planning">
         <form className="form" onSubmit={submit}>

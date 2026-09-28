@@ -23,4 +23,10 @@ public sealed class CreateStaffAccountRequest
 
     [Required]
     public string Role { get; set; } = string.Empty;
+
+    /// <summary>
+    /// BR-96 — bắt buộc khi Role = Coach (PersonalTrainer/ClassInstructor), không được gửi kèm
+    /// cho role khác. Service kiểm tra chéo với Role vì DataAnnotations không validate liên field.
+    /// </summary>
+    public string? CoachCategory { get; set; }
 }

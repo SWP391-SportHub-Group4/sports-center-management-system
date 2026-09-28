@@ -31,7 +31,10 @@ public static class SportHubPolicies
     /// </summary>
     public const string FrontDesk = nameof(FrontDesk);
 
-    /// <summary>BR-22 — điểm danh lớp: Coach được gán buổi đó, hoặc Lễ tân tại quầy.</summary>
+    /// <summary>
+    /// BR-98, mới 28/09/2026 — điểm danh lớp Yoga/Group X: chỉ Lễ tân. Coach (kể cả
+    /// ClassInstructor dạy buổi đó) không còn điểm danh được (trước đây theo BR-22).
+    /// </summary>
     public const string AttendanceCheckIn = nameof(AttendanceCheckIn);
 
     /// <summary>

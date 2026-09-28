@@ -81,7 +81,7 @@
 | `UserId` (PK, FK → USER_ACCOUNTS) | Cùng giá trị PK với `UserAccount.UserId` — quan hệ 1–1, chỉ tồn tại khi `UserAccount.RoleId` là `Coach` |
 | `CoachCategory` | `PERSONAL_TRAINER` hoặc `CLASS_INSTRUCTOR` (enum `CoachCategory`, xem SSOT §3) — bắt buộc nhập khi System Administrator tạo tài khoản Coach; quyết định Coach đó dùng bộ chức năng huấn luyện cá nhân/AI (`PersonalTrainer`) hay chỉ xem lịch Yoga/Group X được phân công (`ClassInstructor`) |
 
-Khi tài khoản đổi khỏi role `Coach`, không cascade delete record này để giữ lịch sử — cách vô hiệu hóa cụ thể (soft-disable hay giữ nguyên) chưa chốt, xem `00-Source-of-Truth.md` §7 Open Questions.
+**Chốt 28/09/2026 (2):** khi tài khoản đổi khỏi role `Coach`, giữ nguyên record `COACH_PROFILES` làm lịch sử — không cascade delete, không thêm field trạng thái (`IsActive`/`DeletedAt`). `UserAccount.RoleId` hiện tại (khác `Coach`) là đủ để coi profile không còn hiệu lực; nếu đổi role trở lại `Coach` phải chọn `CoachCategory` mới tường minh, không tự khôi phục giá trị cũ.
 
 ---
 
@@ -446,4 +446,4 @@ Chỉ sửa tài liệu, chưa sửa code/migration. Chi tiết: `docs/coach-spe
 | CoachProfile.UserId | PK đồng thời FK → `UserAccount`; bắt buộc nhập `CoachCategory` khi System Administrator tạo tài khoản Coach |
 | CoachProfile.CoachCategory | Enum `PersonalTrainer \| ClassInstructor`; quyết định bộ chức năng Training/AI (PT) hay chỉ xem lịch phân công (ClassInstructor) |
 | CoachProfile.Salary/HourlyRate/CommissionRate/EmploymentContract | **Không dùng.** Payroll/hợp đồng nhân sự ngoài phạm vi — xem `00-Source-of-Truth.md` §1.3 |
-| Cách vô hiệu hóa CoachProfile khi đổi role | **Chưa chốt** — không cascade delete; xem `00-Source-of-Truth.md` §7 Open Questions |
+| Vòng đời CoachProfile khi đổi role | **Chốt 28/09/2026 (2):** giữ làm lịch sử, không cascade delete, không soft-disable; role hiện tại trên `UserAccount` quyết định hiệu lực |

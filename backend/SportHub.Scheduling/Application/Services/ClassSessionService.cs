@@ -294,13 +294,7 @@ public sealed class ClassSessionService(
 
         if (request.CoachId is not null && request.CoachId != session.CoachId)
         {
-            var isCoach = await db.Set<UserAccount>()
-                .AnyAsync(u => u.UserId == request.CoachId && u.Role!.RoleName == UserRole.Coach, ct);
-
-            if (!isCoach)
-            {
-                throw new BadRequestException("coach_not_found", "Tài khoản được gán không có vai trò Coach.");
-            }
+            await EnsureClassInstructorAsync(request.CoachId.Value, ct);
 
             if (await HasCoachConflictAsync(request.CoachId.Value, session.StartAtUtc, session.EndAtUtc, sessionId, ct))
             {
@@ -588,13 +582,7 @@ public sealed class ClassSessionService(
         var room = await db.Set<Room>().SingleOrDefaultAsync(r => r.RoomId == roomId, ct)
             ?? throw new NotFoundException("room_not_found", "Không tìm thấy phòng tập.");
 
-        var isCoach = await db.Set<UserAccount>()
-            .AnyAsync(u => u.UserId == coachId && u.Role!.RoleName == UserRole.Coach, ct);
-
-        if (!isCoach)
-        {
-            throw new BadRequestException("coach_not_found", "Tài khoản được gán không có vai trò Coach.");
-        }
+        await EnsureClassInstructorAsync(coachId, ct);
 
         if (await HasRoomConflictAsync(roomId, startAtUtc, endAtUtc, excludeSessionId, ct))
         {
@@ -646,6 +634,33 @@ public sealed class ClassSessionService(
                  && startUtc < s.EndAtUtc
                  && (excludeSessionId == null || s.SessionId != excludeSessionId),
             ct);
+
+    /// <summary>
+    /// BR-97 — buổi Yoga/Group X chỉ được gán Coach loại ClassInstructor, không phải
+    /// PersonalTrainer (PT không dùng Class/ClassSession, SSOT §1.1).
+    /// </summary>
+    private async Task EnsureClassInstructorAsync(Guid coachId, CancellationToken ct)
+    {
+        var isCoach = await db.Set<UserAccount>()
+            .AnyAsync(u => u.UserId == coachId && u.Role!.RoleName == UserRole.Coach, ct);
+
+        if (!isCoach)
+        {
+            throw new BadRequestException("coach_not_found", "Tài khoản được gán không có vai trò Coach.");
+        }
+
+        var category = await db.Set<CoachProfile>()
+            .Where(p => p.UserId == coachId)
+            .Select(p => (CoachCategory?)p.CoachCategory)
+            .SingleOrDefaultAsync(ct);
+
+        if (category != CoachCategory.ClassInstructor)
+        {
+            throw new BadRequestException(
+                "coach_category_mismatch",
+                "Tài khoản được gán dạy buổi Yoga/Group X phải là Coach loại ClassInstructor (BR-97).");
+        }
+    }
 
     private static string Describe(ClassSession s)
         => $"{{\"classId\":{s.ClassId},\"roomId\":{s.RoomId},\"coachId\":\"{s.CoachId}\","
