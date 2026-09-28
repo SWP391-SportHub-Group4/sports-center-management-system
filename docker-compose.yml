@@ -24,6 +24,12 @@ services:
       ConnectionStrings__Default: "Host=postgres;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}"
       JwtOptions__SecretKey: ${JwtOptions__SecretKey}
       Google__ClientId: ${Google__ClientId}
+
+      Gemini__ApiKey: ${Gemini__ApiKey:-}
+      Gemini__Model: ${Gemini__Model:-gemini-3.5-flash-lite}
+      Gemini__BaseUrl: ${Gemini__BaseUrl:-https://generativelanguage.googleapis.com}
+      Gemini__TimeoutSeconds: ${Gemini__TimeoutSeconds:-30}
+
       ASPNETCORE_ENVIRONMENT: Development
     ports:
       - "5000:8080"
