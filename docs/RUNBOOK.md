@@ -54,10 +54,10 @@ Mật khẩu chung: **`Sporthub@123`**
 |---|---|---|
 | Quản trị hệ thống | `admin@sporthub.vn` | Tài khoản & vai trò; không có quyền xem Audit Log nghiệp vụ khi chưa được chốt trong SSOT |
 | Quản lý trung tâm | `manager@sporthub.vn` | Phòng, lớp, lịch, Membership, xem revenue, approve/reject Refund và xử lý ngoại lệ |
-| Lễ tân | `letan@sporthub.vn` | Gym check-in, checkout hộ Member, yêu cầu đối soát/fulfillment lại, tạo Refund hộ có lý do; không tự đánh dấu Paid/Refund Completed |
-| HLV Yoga | `coach.yoga@sporthub.vn` | Lịch dạy, điểm danh, kế hoạch tập, gợi ý AI |
-| HLV Group X | `coach.groupx@sporthub.vn` | như trên |
-| HLV Personal Training | `coach.pt@sporthub.vn` | như trên |
+| Lễ tân | `letan@sporthub.vn` | Gym check-in, checkout hộ Member, yêu cầu đối soát/fulfillment lại, tạo Refund hộ có lý do, điểm danh Yoga/Group X (28/09/2026); không tự đánh dấu Paid/Refund Completed |
+| HLV Yoga (Coach, `CoachCategory=ClassInstructor`) | `coach.yoga@sporthub.vn` | Chỉ xem lịch dạy do Manager phân công và tự sửa hồ sơ/mật khẩu; **không** điểm danh, không kế hoạch tập, không AI (28/09/2026) |
+| HLV Group X (Coach, `CoachCategory=ClassInstructor`) | `coach.groupx@sporthub.vn` | như trên |
+| HLV Personal Training (Coach, `CoachCategory=PersonalTrainer`) | `coach.pt@sporthub.vn` | Lịch PT, điểm danh/ghi trạng thái buổi PT, kế hoạch tập, kết quả, gợi ý AI — chỉ trong phạm vi học viên được phân công |
 | Hội viên | `an.member@sporthub.vn` | Tự checkout Membership/PT, thanh toán VNPay-QR, xem Invoice và tạo Refund Request cho giao dịch của mình |
 | Hội viên | `binh.member@sporthub.vn`, `chi.member@sporthub.vn`, `dung.member@sporthub.vn`, `giang.member@sporthub.vn` | như trên |
 | Hội viên (ngừng hoạt động) | `hoa.member@sporthub.vn` | minh hoạ tài khoản bị khóa (BR-6) |
@@ -94,17 +94,25 @@ xác thực.
 
 ### Flow 4 — Điểm danh & tập luyện
 
-1. `coach.yoga@sporthub.vn` → **Điểm danh & kết quả**: chọn buổi, đánh Có mặt/Vắng, ghi kết quả.
-2. `coach.pt@sporthub.vn` → **Kế hoạch tập**: soạn giáo án cho hội viên mình phụ trách.
-3. `an.member@sporthub.vn` → **Kế hoạch & kết quả**: xem lại, không sửa được (BR-25).
+> **Cập nhật 28/09/2026:** Coach chia 2 nhóm nghiệp vụ (`CoachCategory`). `ClassInstructor` (`coach.yoga@`, `coach.groupx@`) không có tác vụ điểm danh/kế hoạch tập/AI — chỉ Receptionist điểm danh Yoga/Group X và chỉ `PersonalTrainer` (`coach.pt@`) dùng training records.
+
+1. `letan@sporthub.vn` → **Điểm danh**: chọn buổi Yoga/Group X, đánh Có mặt/Vắng cho hội viên (thay cho `ClassInstructor`).
+2. `coach.pt@sporthub.vn` → **Kế hoạch tập** / **Điểm danh & kết quả**: soạn giáo án, ghi nhận trạng thái buổi PT và kết quả cho hội viên mình phụ trách.
+3. `coach.yoga@sporthub.vn` hoặc `coach.groupx@sporthub.vn` → đăng nhập, xác nhận chỉ thấy **Lịch dạy** (được Manager phân công) và **Hồ sơ cá nhân**; không có menu Kế hoạch tập/Điểm danh/AI.
+4. `an.member@sporthub.vn` → **Kế hoạch & kết quả**: xem lại, không sửa được (BR-25).
 
 ### Flow 5 — Gợi ý AI
 
 `coach.pt@sporthub.vn` → **Gợi ý AI** → chọn hội viên → **Tạo gợi ý**. Màn hình hiện đủ ba đầu
-vào bắt buộc của BR-26 và thời gian phản hồi đã ghi vào `AI_Logs` (BR-27).
+vào bắt buộc của BR-26 và thời gian phản hồi đã ghi vào `AI_Logs` (BR-27). Chỉ demo bằng tài khoản PT
+(`coach.pt@sporthub.vn`) — `coach.yoga@`/`coach.groupx@` (`ClassInstructor`) không có quyền gọi AI (28/09/2026).
 
 Bản cài đặt hiện tại chạy theo bộ luật cục bộ (`RuleBasedAiRecommendationService`) — không cần
 API key, kết quả tất định; đây là demo/test, chưa nghiệm thu Flow 5. Provider thật cần cấu hình, xử lý lỗi và kiểm thử integration theo plan.
+
+### Kiểm tra ClassInstructor không vượt quyền (mới, 28/09/2026)
+
+Đăng nhập `coach.yoga@sporthub.vn` (hoặc `coach.groupx@sporthub.vn`), sau đó thử nhập trực tiếp URL/gọi API của PT (vd trang **Kế hoạch tập**, **Gợi ý AI**, hoặc `POST /api/ai/workout-suggestions`, tạo `WorkoutPlan`/`WorkoutResult`). Backend phải từ chối (403), không chỉ ẩn menu ở FE — xem `Center-Management-System-Design-v2.md` §3.1.
 
 ### Gym / Fitness
 

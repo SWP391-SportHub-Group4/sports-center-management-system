@@ -2,7 +2,7 @@
 
 > Mục đích: 1 nơi duy nhất để AI / FE / BE tra cứu khi có mâu thuẫn giữa các tài liệu.
 > Nếu file này và một doc khác nói khác nhau → **file này thắng**, trừ khi có ghi chú "xem chi tiết tại...".
-> Cập nhật lần cuối: 26/09/2026 — đã đồng bộ Business Rules v1.8 cho Google onboarding, Register OTP, Membership/PT, VNPay Payment, Invoice, Refund, reconciliation và revenue.
+> Cập nhật lần cuối: 28/09/2026 — thêm phân loại nghiệp vụ Coach (`PersonalTrainer`/`ClassInstructor`); trước đó 26/09/2026 đã đồng bộ Business Rules v1.8 cho Google onboarding, Register OTP, Membership/PT, VNPay Payment, Invoice, Refund, reconciliation và revenue.
 
 ---
 
@@ -30,6 +30,8 @@ Khi có mâu thuẫn, đọc theo thứ tự sau (trên > dưới):
 - [ ] Flow 2 — Class booking & schedule management
 - [ ] Flow 3 — Payment & report management — VNPay-QR, Invoice/InvoiceItem, PaymentAttempt, reconciliation, Refund và revenue theo BR-79–BR-95.
 
+> **Bổ sung 28/09/2026 — Phân loại Coach (`PersonalTrainer`/`ClassInstructor`):** giữ nguyên 1 role RBAC `Coach` duy nhất, nhưng chia tài khoản Coach thành 2 nhóm nghiệp vụ qua entity mới `CoachProfile.CoachCategory` (xem §2/§3). `PersonalTrainer` dùng đầy đủ chức năng huấn luyện cá nhân/AI trong phạm vi dự án. `ClassInstructor` (Yoga/Group X do trung tâm thuê dạy lớp, tự có giáo án ngoài hệ thống) chỉ xem lịch dạy do Center Manager phân công và tự quản lý hồ sơ/mật khẩu; không có plan/result/homework/AI/điểm danh. Receptionist chịu trách nhiệm điểm danh Yoga/Group X thay cho ClassInstructor. Không tạo thêm role Yoga Coach/Group X Coach/PT trong bảng `Role`. Chi tiết: `docs/coach-specialization-doc-update-plan.md`.
+
 > **Bổ sung 18/09/2026 — Bộ môn (Discipline) trong scope:** 1 trung tâm duy nhất (không đa chi nhánh, xem §1.3), nhưng **đa bộ môn** — 4 bộ môn chính thức, chốt cùng ngày (chi tiết + lý do đầy đủ: `claude/citigym-multidiscipline-scope-plan.md`, Project doc):
 >
 > | Bộ môn | Cơ chế | `Class.Discipline` |
@@ -51,6 +53,7 @@ Khi có mâu thuẫn, đọc theo thứ tự sau (trên > dưới):
 - [x] Cổng thanh toán production và Momo ngoài phạm vi MVP; tích hợp mục tiêu hiện tại là **VNPay Sandbox/VNPay-QR**.
 - [x] Mobile app riêng.
 - [x] Gửi SMS/email thật — MVP thông báo trong app; kênh khác chỉ log.
+- [x] **Bổ sung 28/09/2026 — Payroll/nhân sự:** bảng lương, kỳ lương/phiếu lương, lương cơ bản, lương theo buổi, hoa hồng PT, thưởng/phạt/phụ cấp/khấu trừ/thuế/bảo hiểm, hợp đồng lao động/cộng tác viên, chấm công tính lương, báo cáo chi phí nhân sự/lợi nhuận, thanh toán lương cho Coach/Receptionist/Manager/nhân viên khác. Không thêm field `Salary`, `HourlyRate`, `CommissionRate` hoặc `EmploymentContract` vào `CoachProfile`/`UserProfile`. Revenue (`GrossCollected`/`Refunded`/`NetCollected`) không trừ lương/chi phí nhân sự và không đổi tên thành lợi nhuận. Chi tiết: `docs/coach-specialization-doc-update-plan.md`.
 
 
 ### 1.4 Stretch (chỉ làm nếu còn thời gian sau khi xong Flow 1–5 — không tính vào scope cam kết)
@@ -88,8 +91,9 @@ Khi có mâu thuẫn, đọc theo thứ tự sau (trên > dưới):
 | `UserCredential` | Identity | `UserId` (uuid, PK/FK) | PasswordHash (nullable) | 1—1 `UserAccount` | — | nullable vì account Google-only không có password; auth service chỉ cần query bảng này |
 | `UserProfile` | Identity | `UserId` (uuid, PK/FK) | FullName, Phone (unique, nullable) | 1—1 `UserAccount` | — | phone unique BR-62 (v1.3); thông tin hiển thị, không liên quan cơ chế đăng nhập/phân quyền |
 | `UserExternalLogin` | Identity | `ExternalLoginId` (uuid) | UserId, Provider, ProviderUserId, RefreshToken (nullable) | N—1 `UserAccount` | `ExternalAuthProvider` | unique (provider, provider_user_id) và (user_id, provider); refresh_token MVP chưa mã hoá — xem Open Questions |
+| `CoachProfile` | Identity | `UserId` (uuid, PK/FK) | CoachCategory | 1—1 `UserAccount` (chỉ tồn tại khi role = `Coach`) | `CoachCategory` | Mới 28/09/2026. Bắt buộc khi System Administrator tạo tài khoản `Coach`; không nhân bản email/họ tên/số điện thoại/mật khẩu (vẫn ở `UserProfile`/`UserCredential`); khi đổi role khỏi `Coach` không cascade delete — cách vô hiệu hóa chưa chốt, xem Open Questions §7 |
 | `MemberTrainingProfile` | Membership | `ProfileId` (uuid) | MemberId (unique), Goal, ExperienceLevel | 1—1 `UserAccount` (Member) | `ExperienceLevel` | input bắt buộc cho AI suggestion (BR-26) |
-| `CoachMemberRelationship` | Training | `RelationshipId` (uuid) | CoachId, MemberId, SourceType, ClassId (nullable) | N—1 `UserAccount` (2 phía) | `RelationshipSourceType`, `RelationshipStatus` | unique khi ACTIVE (ràng buộc #7, BR-23/24) |
+| `CoachMemberRelationship` | Training | `RelationshipId` (uuid) | CoachId, MemberId, SourceType, ClassId (nullable) | N—1 `UserAccount` (2 phía) | `RelationshipSourceType`, `RelationshipStatus` | unique khi ACTIVE (ràng buộc #7, BR-23/24); chỉ áp dụng cho Coach loại `PersonalTrainer` — không tự tạo quan hệ này từ Enrollment Yoga/Group X của `ClassInstructor` (28/09/2026) |
 | `MembershipPackage` | Membership | `PackageId` (int) | Name (unique), Price, DurationInMonths, IsActive, Description (nullable) | 1—N `MemberPackage`, `InvoiceItem` snapshot | — | Duration 1/3/6/12; Price được snapshot tại checkout, đổi giá không sửa Invoice cũ. |
 | `MemberPackage` (Membership record hiện tại) | Membership | `MemberPackageId` (uuid) | MemberId, PackageId, StartDate, EndDate, Status | N—1 `UserAccount`, N—1 `MembershipPackage` | `MemberPackageStatus` | Chỉ tạo/kích hoạt cùng transaction Payment thành công; lần mua mới lấy ngày Việt Nam của vnp_PayDate; early renewal bắt đầu sau EndDate hiện tại. |
 | `Room` | Scheduling | `RoomId` (int) | Name (unique), Capacity | 1—N `Class`, `ClassSession` | — | unique BR-57 |
@@ -98,16 +102,16 @@ Khi có mâu thuẫn, đọc theo thứ tự sau (trên > dưới):
 | `ClassSession` | Scheduling | `SessionId` (uuid) | Mô hình kỹ thuật hiện có cần được đối chiếu lại với Class v1.6 | — | — | Không dùng state/capacity cũ thay cho `DRAFT/PUBLISHED/CLOSED` và Capacity tối đa 20. |
 | `Enrollment` (class booking hiện tại) | Scheduling | `EnrollmentId` (uuid) | Class/SessionId, MemberId, Status, cancellation time | N—1 class/session, `UserAccount`; 1—1 `Attendance` | `EnrollmentStatus` | Không trừ Membership session credit. Deadline cố định 30 phút; hủy thành công giải phóng slot. |
 | `Attendance` | Scheduling | `AttendanceId` (uuid) | EnrollmentId (unique), CheckInTime | 1—1 `Enrollment` | `AttendanceStatus` | state machine §4 (đã sửa 09/09/2026, thêm nhánh Absent); bỏ `session_id`/`member_id` 10/09/2026 (3) — suy ra qua `Enrollment`, không denormalize |
-| `WorkoutPlan` | Training | `PlanId` (uuid) | MemberId, CoachId, RelationshipId, Goal, Level | N—1 `UserAccount` (2 phía), `CoachMemberRelationship`; 1—N `WorkoutPlanItem` | — | chỉ tạo được khi quan hệ ACTIVE (BR-23) |
+| `WorkoutPlan` | Training | `PlanId` (uuid) | MemberId, CoachId, RelationshipId, Goal, Level | N—1 `UserAccount` (2 phía), `CoachMemberRelationship`; 1—N `WorkoutPlanItem` | — | chỉ tạo được khi quan hệ ACTIVE (BR-23); chỉ Coach loại `PersonalTrainer` được tạo, `ClassInstructor` không có quyền này (28/09/2026) |
 | `WorkoutPlanItem` | Training | `ItemId` (uuid) | PlanId, Exercise, Sets, Reps | N—1 `WorkoutPlan` | — | |
-| `WorkoutResult` | Training | `ResultId` (uuid) | EnrollmentId, CoachId, ProgressNote, CoachComment | N—1 `Enrollment`, `UserAccount` (coach) | — | chỉ Coach dạy buổi đó mới ghi được (BR-24); chỉ tạo được khi `Enrollment.Status = Confirmed` (BR-61); không thêm điều kiện Present; bỏ `session_id`/`member_id` 10/09/2026 (3) — suy ra qua `Enrollment`, đảm bảo Member thực sự có đăng ký session đó |
+| `WorkoutResult` | Training | `ResultId` (uuid) | EnrollmentId, CoachId, ProgressNote, CoachComment | N—1 `Enrollment`, `UserAccount` (coach) | — | chỉ Coach dạy buổi đó mới ghi được (BR-24); chỉ tạo được khi `Enrollment.Status = Confirmed` (BR-61); không thêm điều kiện Present; bỏ `session_id`/`member_id` 10/09/2026 (3) — suy ra qua `Enrollment`, đảm bảo Member thực sự có đăng ký session đó; chỉ Coach loại `PersonalTrainer` được ghi, `ClassInstructor` không điểm danh/ghi kết quả (28/09/2026) |
 | `Invoice` | Payment | `InvoiceId` (uuid) | InvoiceNumber, BeneficiaryMemberId, CreatedByUserId, TotalAmount, Status, IssuedAt | 1—N `InvoiceItem`, `PaymentAttempt`; 0—1 successful `Payment` | `InvoiceStatus` | Tạo tại checkout; Paid không sửa/xóa/void. |
 | `InvoiceItem` | Payment | `InvoiceItemId` (uuid) | InvoiceId, ItemType, Description, UnitPrice, Quantity, LineAmount, RelatedEntityId | N—1 `Invoice`; 1—N `Refund` | `InvoiceItemType` | Snapshot Membership/PT; là đơn vị tính refund. |
 | `PaymentAttempt` | Payment | `PaymentAttemptId` (uuid) | InvoiceId, VnpTxnRef, Amount, ExpiresAt, Status, gateway data | N—1 `Invoice`; 0—1 `Payment` | `PaymentAttemptStatus` | Có thể retry; VnpTxnRef unique; expiry theo cấu hình Sandbox được hỗ trợ. |
 | `Payment` | Payment | `PaymentId` (uuid) | InvoiceId, PaymentAttemptId, Amount, VnpTransactionNo, VnpPayDate, Status | 1—1 attempt thành công; N—1 `Invoice` | `PaymentStatus`, `PaymentMethod` | Chỉ IPN/QueryDR xác minh; tối đa 1 SUCCESS/Invoice. |
 | `Refund` | Payment | `RefundId` (uuid) | InvoiceItemId, PaymentId, RequestedBy, Reason, SystemCalculatedAmount, Status, VnpRequestId | N—1 item/payment; approver là Center Manager | `RefundStatus` | Member tự tạo hoặc Receptionist tạo hộ có lý do; backend gọi VNPay Refund API. |
 | `Notification` | Notification | `NotificationId` (uuid) | UserId, Channel, SourceEventType, SourceEntityId (nullable), Message | N—1 `UserAccount` | `NotificationChannel`, `NotificationSourceEventType`, `NotificationStatus` | MVP: lưu trong DB, không gửi SMS/email thật (§1.3) |
-| `AiLog` | AI | `LogId` (uuid) | UserId, QueryType, InputPayload, ResponsePayload, ResponseTimeMs | N—1 `UserAccount` | — | `QueryType` là chuỗi tự do (vd `WORKOUT_SUGGESTION`), không phải enum kín |
+| `AiLog` | AI | `LogId` (uuid) | UserId, QueryType, InputPayload, ResponsePayload, ResponseTimeMs | N—1 `UserAccount` | — | `QueryType` là chuỗi tự do (vd `WORKOUT_SUGGESTION`), không phải enum kín; chỉ Coach loại `PersonalTrainer` được gọi AI workout suggestion, `ClassInstructor` không có quyền này (28/09/2026) |
 | `AuditLog` | Audit | `AuditId` (uuid) | UserId, Action, TargetEntity, TargetId (string), OldValue, NewValue | N—1 `UserAccount` | — | `Action` là chuỗi tự do (vd `UPDATE_PACKAGE_STATUS`), không phải enum kín |
 | `GymCheckIn` | Scheduling | `CheckInId` (uuid) | MemberId, CheckedInByUserId, CheckInTime, CheckOutTime | N—1 `UserAccount` (2 phía: member, receptionist) | — | Membership Active cho phép Gym không giới hạn; không trừ quota/session. |
 | `SystemSetting` | Administration | `Key` (string) | Value, ValueType, UpdatedAt, UpdatedByUserId (nullable) | FK actor tới UserAccount | — | Không dùng setting hủy 12 giờ; class cancellation deadline cố định 30 phút theo BR-50. |
@@ -132,6 +136,7 @@ Khi có mâu thuẫn, đọc theo thứ tự sau (trên > dưới):
 | `UserRole` | `SystemAdministrator, CenterManager, Coach, Member, Receptionist` | `Role.RoleName`, `UserAccount.RoleId` (FK), JWT role claim | 5 role theo BR-2/3. API nghiệp vụ dùng SYSTEM_ADMINISTRATOR/CENTER_MANAGER; JWT giữ PascalCase. DB giữ mapping hiện có, không suy ra chuỗi lưu DB từ API enum. |
 | `UserStatus` | `Active, Banned, Deactivated` | `UserAccount.Status` | Không xoá cứng user (giữ lịch sử Payment/Attendance) |
 | `ExperienceLevel` | `Beginner, Intermediate, Advanced` | `MemberTrainingProfile.ExperienceLevel` | |
+| `CoachCategory` | `PersonalTrainer, ClassInstructor` | `CoachProfile.CoachCategory` | Mới 28/09/2026 — phân loại nghiệp vụ dưới role `Coach` duy nhất, không tạo role mới trong `UserRole` |
 | `RelationshipSourceType` | `ClassBased, Personal, AssignedByManager` | `CoachMemberRelationship.SourceType` | |
 | `RelationshipStatus` | `Active, Ended` | `CoachMemberRelationship.Status` | Chỉ 1 quan hệ `Active` giữa 1 cặp Coach–Member tại 1 thời điểm (ràng buộc #7) |
 | `MemberPackageStatus` | `Active, Expired, Cancelled` | `MemberPackage.Status` | Chỉ tạo Active sau Payment thành công; Refund Completed chuyển Cancelled khi quyền lợi bị thu hồi. |
@@ -166,6 +171,7 @@ Khi có mâu thuẫn, đọc theo thứ tự sau (trên > dưới):
 - **Class booking**: `Confirmed → Cancelled` khi hủy tại hoặc trước 30 phút trước giờ bắt đầu; hủy thành công giải phóng slot. Không có cơ chế hoàn/trừ Membership credit.
 - **Attendance**: `Present | Absent | NoShow`; No-show được lưu lịch sử. Đủ 3 No-show trong rolling 30 calendar days kích hoạt restriction 7 calendar days, ngày kết thúc exclusive.
 - **PT session**: booking/cancel/reschedule/No-show và đổi Coach theo BR-70 đến BR-77; PT không dùng Class lifecycle.
+- **Phân công/điểm danh theo loại Coach (mới 28/09/2026)**: Center Manager phân công lịch Yoga/Group X cho `ClassInstructor` (không tự phân công cho mình); `ClassInstructor` chỉ xem lịch được giao, không tự tạo/sửa/hủy/publish lớp; Receptionist ghi `Present`/`Absent` cho lớp Yoga/Group X (`AttendanceFinalizerJob` vẫn tự sinh `NoShow` theo rule hiện hành); `PersonalTrainer` dùng plan/result/AI trong phạm vi `CoachMemberRelationship` ACTIVE.
 - **Invoice**: `PendingPayment → Paid | PaidAfterReconciliation | Expired | Cancelled`; trạng thái Expired vẫn có thể sang PaidAfterReconciliation khi gateway xác nhận hợp lệ.
 - **PaymentAttempt**: `Pending → Succeeded | Failed | Expired | ReconciliationRequired`; retry tạo attempt mới.
 - **Refund**: `Requested → Approved | Rejected`; `Approved → Processing → Completed | Failed | ReconciliationRequired`.
@@ -274,6 +280,8 @@ Tham chiếu mã BR trong plan là bản đồ truy vết, không thêm hay đá
 - [ ] Chi tiết soft-delete theo từng entity chưa có field: Invoice Paid, Payment, PaymentAttempt và Refund phải giữ lịch sử, không hard delete.
 - [x] Google Login mới bắt buộc user tự nhập/confirm password; bỏ hoàn toàn SuggestedPassword.
 - [x] Register OTP chốt 6 số, 10 phút, 5 lần sai, cooldown 60 giây, one-time/latest-only, hash và rate limit email/IP. Provider email deploy cụ thể vẫn là quyết định hạ tầng.
+- [ ] **Mới 28/09/2026** — Mô hình PT session/result chưa nhất quán: trước khi chốt schema code cho `WorkoutResult`, phải xác định entity đại diện 1 PT session. Không được tự ép `WorkoutResult.EnrollmentId` của Enrollment Yoga/Group X thành kết quả PT.
+- [ ] **Mới 28/09/2026** — Cách vô hiệu hóa `CoachProfile` khi tài khoản đổi khỏi role `Coach` (soft-disable hay giữ nguyên record lịch sử) chưa chốt; không tự cascade delete.
 
 ---
 
@@ -281,6 +289,7 @@ Tham chiếu mã BR trong plan là bản đồ truy vết, không thêm hay đá
 
 | Ngày | Thay đổi | Người sửa |
 |---|---|---|
+| 28/09/2026 | **Chỉ sửa doc — chưa sửa code.** Thêm phân loại nghiệp vụ Coach (`PersonalTrainer`/`ClassInstructor`) dưới role `Coach` duy nhất (§1.1, §2, §3, §4): entity mới `CoachProfile` (1—1 `UserAccount`, module Identity, bắt buộc khi tạo tài khoản Coach) + enum `CoachCategory`; giới hạn Training/AI (`CoachMemberRelationship`, `WorkoutPlan`, `WorkoutResult`, `AiLog`) cho `PersonalTrainer`; `ClassInstructor` chỉ xem lịch Manager phân công và tự quản lý profile/mật khẩu, không có plan/result/homework/AI/điểm danh; chuyển trách nhiệm điểm danh Yoga/Group X cho Receptionist. Thêm payroll/lương/hợp đồng nhân sự vào out-of-scope (§1.3) — không thêm field `Salary`/`HourlyRate`/`CommissionRate`/`EmploymentContract`. Thêm 2 Open Question mới ở §7 (mô hình PT session/result; cách vô hiệu hóa `CoachProfile` khi đổi role). Chi tiết: `docs/coach-specialization-doc-update-plan.md`. | Hồ Lê Thiên An (qua Claude) |
 | 26/09/2026 | Đồng bộ Business Rules v1.8: Google user mới tự đặt mật khẩu; Register OTP chuẩn; VNPay-QR full payment; Invoice/InvoiceItem snapshot; PaymentAttempt/IPN/QueryDR/reconciliation; activation transaction; Refund 50% theo InvoiceItem; revenue cash basis và RBAC Payment. Chỉ sửa tài liệu, chưa xác nhận code đạt. | Người dùng duyệt; Codex cập nhật |
 | 23/09/2026 | **Chỉ sửa doc — chưa sửa code.** Thêm BR-78 (Mục A, business rules docx bump 1.6→1.7): Register bằng email/mật khẩu bắt buộc xác thực OTP gửi tới email trước khi tạo tài khoản, không áp dụng cho Google Login. Thêm §5.8: thiết kế Google Login gợi ý mật khẩu mạnh cho tài khoản mới tạo (không vi phạm BR-60 — đặt mật khẩu vẫn qua `POST /api/users/me/password` đã có, không tự động). Thêm 2 Open Question mới ở §7 chờ team/mentor xác nhận trước khi code. Chi tiết đầy đủ: `claude/auth-google-suggested-password-plan.md`, `claude/auth-register-email-otp-plan.md` (Project doc). | Hồ Lê Thiên An (qua Claude) |
 | 23/09/2026 | Đồng bộ Membership theo calendar date, Yoga/Group X, booking, No-show và PT theo Business Rules v1.6. Đánh dấu toàn bộ Payment/Invoice/Adjustment/Refund và báo cáo doanh thu là PENDING; nội dung Payment cũ không còn là nguồn triển khai. | Người dùng duyệt; Codex cập nhật |
