@@ -22,21 +22,36 @@
 ### Center Manager (Quản lý Trung tâm)
 * Quản lý danh sách thành viên, huấn luyện viên và nhân viên của trung tâm.
 * Quản lý các lớp học, bộ môn, phòng tập và lịch hoạt động.
-* Phân công huấn luyện viên phụ trách từng lớp học.
+* Phân công huấn luyện viên phụ trách từng lớp học; phân công lịch Yoga/Group X cho `ClassInstructor` (Coach loại HLV thuê dạy lớp). Không tự tạo/đổi tài khoản hoặc role — quyền đó thuộc System Administrator (28/09/2026).
 * Xem báo cáo số lượng thành viên, tình trạng đăng ký lớp và doanh thu theo ngày thu tiền. Chỉ Center Manager được xem báo cáo doanh thu.
 * Quản lý MembershipPackage và thời hạn sử dụng 1, 3, 6 hoặc 12 tháng theo calendar date.
 * Cấu hình chính sách nghiệp vụ của trung tâm; quyền gán/đổi vai trò thuộc System Administrator.
 * Xem lịch sử thao tác quan trọng trên hệ thống.
 
 ### Coach (Huấn luyện viên)
-* Xem lịch dạy và danh sách học viên trong các lớp phụ trách.
-* Xem thông tin cơ bản và mục tiêu tập luyện của từng học viên.
-* Tạo kế hoạch tập luyện cho cá nhân hoặc cho cả lớp.
+
+> **Bổ sung 28/09/2026:** vẫn 1 actor/role `Coach` duy nhất, nhưng chia 2 nhóm nghiệp vụ qua `CoachProfile.CoachCategory` (`PersonalTrainer` / `ClassInstructor`) — không tạo thêm actor hay role riêng. Chi tiết chốt: `docs/00-Source-of-Truth.md` §1.1/§2/§3, `docs/coach-specialization-doc-update-plan.md`.
+
+#### Personal Trainer
+
+* Xem lịch PT và danh sách học viên được phân công.
+* Xem thông tin cơ bản, mục tiêu và trình độ tập luyện của học viên thuộc quan hệ được phép.
+* Tạo/cập nhật kế hoạch tập luyện và bài tập cho cá nhân học viên.
 * Ghi nhận kết quả tập luyện của học viên sau mỗi buổi.
 * Đánh giá tiến độ của học viên và ghi nhận nhận xét.
-* Điểm danh học viên trong từng buổi tập.
-* Gửi thông báo hoặc bài tập về nhà cho học viên.
+* Điểm danh hoặc ghi nhận trạng thái buổi PT theo mô hình PT được đặc tả.
+* Gửi thông báo hoặc bài tập về nhà cho học viên được phân công.
 * Sử dụng AI để gợi ý bài tập phù hợp dựa trên mục tiêu, trình độ và lịch sử tập luyện của học viên.
+* Cập nhật hồ sơ cá nhân và mật khẩu của chính mình.
+
+#### Yoga/Group X Class Instructor
+
+HLV Yoga/Group X do trung tâm thuê về dạy lớp, tự có giáo án chuyên môn riêng ngoài hệ thống — SportHub không ghi nhận, upload hoặc quản lý giáo án này.
+
+* Xem lịch Yoga/Group X mà Center Manager đã phân công cho chính mình (bộ môn, ngày/giờ, phòng, trạng thái).
+* Cập nhật tên/số điện thoại trong hồ sơ của chính mình theo quyền profile chung.
+* Đổi hoặc đặt mật khẩu của chính mình theo luồng Identity hiện hành.
+* **Không** xem danh sách/hồ sơ chi tiết học viên của lớp; **không** tạo kế hoạch tập luyện, ghi kết quả/tiến độ/bài tập về nhà, gọi AI workout suggestion, điểm danh học viên, hoặc tự tạo/sửa/hủy/publish lớp và tự đổi lịch được giao.
 
 ### Member (Học viên / Thành viên)
 * Đăng ký tài khoản và cập nhật thông tin cá nhân.
@@ -54,7 +69,7 @@
 * Đăng ký thành viên mới tại quầy.
 * Quản lý đăng ký/gia hạn các gói thành viên.
 * Kiểm tra trạng thái gói tập và thời hạn sử dụng của thành viên.
-* Điểm danh thành viên khi đến trung tâm.
+* Điểm danh thành viên khi đến trung tâm. Ghi `Present`/`Absent` cho lớp Yoga/Group X thay cho `ClassInstructor` (Coach loại này không có tác vụ điểm danh, 28/09/2026); `AttendanceFinalizerJob` vẫn tự sinh `NoShow` theo rule hiện hành.
 * Đăng ký lớp học hoặc hỗ trợ hủy lớp cho thành viên.
 * Checkout Membership hoặc PT cho Member, tạo Invoice và PaymentAttempt VNPay-QR; hỗ trợ yêu cầu hoàn tiền thay Member khi nhập lý do.
 * Tiếp nhận và ghi nhận các yêu cầu hỗ trợ từ thành viên.
@@ -91,5 +106,6 @@ Business Rules v1.8 và SSOT là nguồn hiện hành. Membership, Class, Bookin
 - Refund tách theo InvoiceItem. Membership đủ điều kiện khi còn ít nhất 2/3 tổng thời hạn tại ngày yêu cầu, kể cả chưa tới StartDate, và hoàn 50% số tiền item đã trả. Dưới ngưỡng hoặc Expired không hoàn, trừ lỗi trung tâm. PT chưa sử dụng session nào hoàn 50%; đã consume session thì không hoàn chuẩn, trừ lỗi trung tâm.
 - Member tạo yêu cầu hoàn cho giao dịch của mình; Receptionist tạo hộ và bắt buộc nhập lý do; Center Manager approve/reject nhưng không được tăng số tiền vượt mức hệ thống tính; chỉ backend gọi VNPay Refund API.
 - Quan hệ cá nhân do Manager quản lý, Coach không tự cấp quyền. Token role cũ bị từ chối sau đổi role.
+- **Bổ sung 28/09/2026:** Coach chia 2 nhóm nghiệp vụ `PersonalTrainer`/`ClassInstructor` dưới 1 role duy nhất (xem mục Coach ở trên). Payroll, bảng lương, hoa hồng PT, thưởng/phạt/phụ cấp, hợp đồng lao động/cộng tác viên, chấm công tính lương và báo cáo chi phí nhân sự/lợi nhuận nằm ngoài phạm vi — xem `00-Source-of-Truth.md` §1.3.
 
 Chi tiết còn mở được ghi tại [SSOT §7](00-Source-of-Truth.md). Đây là thay đổi đặc tả, chưa phải báo cáo hoàn thành.

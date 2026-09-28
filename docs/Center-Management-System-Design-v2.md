@@ -60,6 +60,7 @@ erDiagram
     USER_ACCOUNTS ||--o{ USER_EXTERNAL_LOGINS : "links (Google..., 1-N)"
     USER_ACCOUNTS ||--o{ MEMBER_PACKAGES : "purchases"
     USER_ACCOUNTS ||--o| MEMBER_TRAINING_PROFILE : "has (Member only)"
+    USER_ACCOUNTS ||--o| COACH_PROFILES : "has (Coach only, 28/09/2026)"
     USER_ACCOUNTS ||--o{ COACH_MEMBER_RELATIONSHIP : "coach side"
     USER_ACCOUNTS ||--o{ COACH_MEMBER_RELATIONSHIP : "member side"
     USER_ACCOUNTS ||--o{ CLASSES : "coaches (default, nullable)"
@@ -132,6 +133,10 @@ erDiagram
         ExperienceLevel experience_level "enum, xem SSOT §3"
         string notes
         datetime updated_at
+    }
+    COACH_PROFILES {
+        uuid user_id PK, FK "1-1 với USER_ACCOUNTS; chỉ tồn tại khi role = Coach (mới 28/09/2026)"
+        CoachCategory coach_category "enum, xem SSOT §3 — PersonalTrainer/ClassInstructor"
     }
     COACH_MEMBER_RELATIONSHIP {
         uuid relationship_id PK
@@ -385,6 +390,7 @@ erDiagram
 - **Class recurrence/session:** cấu trúc code cũ cần map lại với Class v1.6; không dùng recurrence engine cho PT và không được sinh lịch vượt giới hạn slot/ngày.
 - **`confirmed_count` denormalized** trên `CLASS_SESSIONS` để chống overbooking bằng transaction, thay vì COUNT() mỗi lần (xem mục 3).
 - **`MEMBER_TRAINING_PROFILE`** và **`COACH_MEMBER_RELATIONSHIP`** mới — cần thiết để AI suggestion (BR-26) và Workout Plan (BR-23) có dữ liệu goal/level/quan hệ thật, không phải tham số client tự gửi.
+- **`COACH_PROFILES` mới (28/09/2026):** 1-1 với `USER_ACCOUNTS`, chỉ tồn tại khi role = `Coach`, sở hữu duy nhất field phân loại `CoachCategory` (`PersonalTrainer`/`ClassInstructor`). Không nhân bản email/họ tên/số điện thoại (vẫn ở `USER_PROFILES`) hay mật khẩu (`USER_CREDENTIALS`). `PersonalTrainer` dùng đầy đủ `COACH_MEMBER_RELATIONSHIP`/`WORKOUT_PLANS`/`WORKOUT_RESULTS`/`AI_LOGS`; `ClassInstructor` chỉ đọc `CLASS_SESSIONS` được Manager phân công (`coach_id` = chính mình) và không tạo các quan hệ/bản ghi huấn luyện trên. Chi tiết: `00-Source-of-Truth.md` §2, `docs/coach-specialization-doc-update-plan.md`.
 - **Notification & Audit Log** mở rộng theo đúng góp ý: trạng thái gửi, kênh, nguồn sự kiện, retry; audit có `old_value`/`new_value` dạng JSONB để truy vết thay đổi thực tế.
 
 ---
@@ -468,6 +474,11 @@ Các literal enum như `'CONFIRMED'`/`'ACTIVE'` trong SQL minh họa bên dướ
 | Đăng nhập password chỉ khi có credential nội bộ | `POST /api/auth/login` chỉ cho phép khi `UserCredential.PasswordHash IS NOT NULL` cho `UserId` đó (account tạo thuần qua Google chưa từng có password) | BR-60 |
 | Register bằng email/mật khẩu bắt buộc xác thực OTP | OTP 6 số, 10 phút, one-time/latest-only, tối đa 5 lần sai, resend cooldown 60 giây, rate limit email/IP, lưu hash và response chống email enumeration | BR-78 |
 | WorkoutResult chỉ tạo được khi Enrollment còn hợp lệ | FK `EnrollmentId` (10/09/2026 (3)) chỉ đảm bảo Enrollment *tồn tại*, chưa đảm bảo còn hợp lệ — service phải chặn tạo `WorkoutResult` nếu `Enrollment.Status != Confirmed`. Không thêm điều kiện Present ngoài BR-61 | BR-61 |
+| Tài khoản role Coach phải có CoachProfile/category trước khi được phân công (mới 28/09/2026) | System Administrator tạo tài khoản `Coach` bắt buộc chọn `CoachCategory` cùng lúc; service từ chối phân công lịch/quan hệ cho `UserAccount` role `Coach` chưa có `CoachProfile` | — |
+| Chỉ `PersonalTrainer` được dùng Training/AI endpoints (mới 28/09/2026) | Service kiểm tra `CoachProfile.CoachCategory = PersonalTrainer` trước khi cho tạo `CoachMemberRelationship`/`WorkoutPlan`/`WorkoutResult` hoặc gọi `/api/ai/workout-suggestions`; `ClassInstructor` bị từ chối ở backend, không chỉ ẩn ở FE | — |
+| `ClassInstructor` chỉ đọc lịch của chính mình (mới 28/09/2026) | Endpoint "lịch của tôi" lấy `coach_id` từ `ClaimTypes.NameIdentifier` trong JWT theo SSOT §5.6, không nhận `coachId`/`targetCoachId` từ client; chỉ trả `CLASS_SESSIONS` có `coach_id` khớp | — |
+
+
 
 ---
 
@@ -484,9 +495,9 @@ Các literal enum như `'CONFIRMED'`/`'ACTIVE'` trong SQL minh họa bên dướ
 | POST | `/api/auth/login` | Public | chỉ hợp lệ nếu `UserCredential.password_hash != null` (xem §3.1) |
 | POST | `/api/auth/google` | Public | email mới tạo account chờ user nhập/confirm password; email đã tồn tại chưa link bị chặn theo BR-59 |
 | POST | `/api/auth/google/link` | Member/Coach/Receptionist/Manager | JWT bắt buộc — link `UserExternalLogin` vào `user_id` hiện tại, chỉ khi đã đăng nhập (§3.1) |
-| GET | `/api/users/me` | Member/Coach/Receptionist/Manager | JWT |
-| PUT | `/api/users/me` | Member/Coach/Receptionist | JWT — chỉ sửa hồ sơ của chính mình |
-| POST | `/api/users/staff` | **System Administrator only** | body: role=SYSTEM_ADMINISTRATOR/CENTER_MANAGER/COACH/RECEPTIONIST — chuyển từ Manager sang System Administrator (BR-2, cập nhật 11/09/2026) |
+| GET | `/api/users/me` | Member/Coach/Receptionist/Manager | JWT — response Coach kèm `coachCategory` từ `CoachProfile` (mới 28/09/2026) |
+| PUT | `/api/users/me` | Member/Coach/Receptionist | JWT — endpoint self-service chung (tên/số điện thoại/mật khẩu), không phải CRUD nghiệp vụ Coach; áp dụng như nhau cho cả `PersonalTrainer` và `ClassInstructor` |
+| POST | `/api/users/staff` | **System Administrator only** | body: role=SYSTEM_ADMINISTRATOR/CENTER_MANAGER/COACH/RECEPTIONIST — chuyển từ Manager sang System Administrator (BR-2, cập nhật 11/09/2026). Khi role=COACH, body bắt buộc thêm `coachCategory` (PERSONAL_TRAINER/CLASS_INSTRUCTOR) để tạo `CoachProfile` cùng transaction (mới 28/09/2026) |
 | PUT | `/api/users/{userId}/status` | **System Administrator only** | ban/unban — chuyển từ Manager sang System Administrator (BR-6, cập nhật 11/09/2026) |
 | GET | `/api/members` | Receptionist/Manager | tìm kiếm hội viên |
 | POST | `/api/members` | Receptionist | đăng ký hội viên tại quầy |
@@ -516,13 +527,13 @@ Các literal enum như `'CONFIRMED'`/`'ACTIVE'` trong SQL minh họa bên dướ
 | GET | `/api/classes/{classId}/sessions` | Tất cả | |
 | PUT | `/api/sessions/{sessionId}` | **Manager only** | reschedule/cancel 1 buổi cụ thể, không ảnh hưởng recurrence |
 | GET | `/api/members/me/schedule` | Member | JWT |
-| GET | `/api/coaches/me/schedule` | Coach | JWT (BR — Actor Coach "xem lịch dạy") |
+| GET | `/api/coaches/me/schedule` | Coach (cả `PersonalTrainer` và `ClassInstructor`) | JWT (BR — Actor Coach "xem lịch dạy"); `coach_id` lấy từ `ClaimTypes.NameIdentifier`, không nhận `coachId` từ client; `ClassInstructor` chỉ thấy `CLASS_SESSIONS` Manager đã phân công cho mình (mới 28/09/2026) |
 | POST | `/api/enrollments` | Member (self, `memberId` từ JWT) | Chỉ Yoga/Group X `PUBLISHED`; kiểm Membership Active/validity, daily booking rule, Capacity và No-show restriction; không trừ Membership credit |
 | POST | `/api/enrollments/on-behalf` | Receptionist | body: `targetMemberId` tường minh + Audit Log bắt buộc |
 | DELETE | `/api/enrollments/{enrollmentId}` | Member (chủ sở hữu) hoặc Receptionist | chỉ cho phép tại hoặc trước 30 phút trước giờ bắt đầu; giải phóng slot |
 | GET | `/api/sessions/{sessionId}/roster` | Coach (lớp mình dạy)/Manager | |
-| POST | `/api/sessions/{sessionId}/check-in` | Coach/Receptionist | body: `enrollmentId` (không phải tự nhận `memberId` tùy ý) |
-| GET | `/api/sessions/{sessionId}/attendance` | Coach/Manager | |
+| POST | `/api/sessions/{sessionId}/check-in` | Receptionist | body: `enrollmentId` (không phải tự nhận `memberId` tùy ý). `CLASS_SESSIONS` là Yoga/Group X — Coach `ClassInstructor` không điểm danh (mới 28/09/2026) |
+| GET | `/api/sessions/{sessionId}/attendance` | Coach (chỉ `ClassInstructor` xem, không ghi)/Manager | |
 
 ### 4.3 Flow — Thanh toán / Hóa đơn / Báo cáo (Payment & Report)
 
@@ -548,7 +559,7 @@ Các literal enum như `'CONFIRMED'`/`'ACTIVE'` trong SQL minh họa bên dướ
 
 | Method | Endpoint | Actor | Ghi chú |
 |---|---|---|---|
-| POST | `/api/ai/workout-suggestions` | Coach — chỉ khi có `COACH_MEMBER_RELATIONSHIP` ACTIVE với member | Flow 5 — optional, cam kết |
+| POST | `/api/ai/workout-suggestions` | Coach loại `PersonalTrainer` — chỉ khi có `COACH_MEMBER_RELATIONSHIP` ACTIVE với member (28/09/2026: `ClassInstructor` không gọi được endpoint này) | Flow 5 — optional, cam kết |
 | POST | `/api/ai/chat` | Member (self) | **Flow 6 — stretch, chỉ làm nếu còn thời gian** |
 | GET | `/api/notifications/me` | Tất cả | |
 | PUT | `/api/notifications/{id}/read` | Chủ sở hữu | |
@@ -558,29 +569,35 @@ Các literal enum như `'CONFIRMED'`/`'ACTIVE'` trong SQL minh họa bên dướ
 ## 5. Bảng quyền theo endpoint (RBAC Matrix rút gọn)
 
 > **Cập nhật 11/09/2026 — bổ sung role System Administrator (5 role):** theo Business Rules v1.2 (BR-2, BR-3) và SRS v1.1, `SystemAdministrator` là role riêng, tách khỏi `CenterManager` — xem `00-Source-of-Truth.md` §2/§3/§8. Quyền "Tạo tài khoản Staff/Coach" (BR-2) và "Ban/Unban user" (BR-6) **chuyển từ Manager sang System Administrator** so với bản trước. Phạm vi quyền System Administrator ở các dòng còn lại (report, Audit Log, duyệt Adjustment...) **chưa được Business Rules chốt rõ** — tạm để ❌, xem Open Question tương ứng ở `00-Source-of-Truth.md` §7.
+>
+> **Cập nhật 28/09/2026 — tách capability theo `CoachCategory`:** cột `Coach` bên dưới tách thành `Coach (PT)` = `CoachCategory.PersonalTrainer` và `Coach (ClassInstructor)` = `CoachCategory.ClassInstructor`. Vẫn 1 role RBAC `Coach` — việc tách cột chỉ để thể hiện capability khác nhau theo category, backend phải kiểm tra `CoachProfile.CoachCategory` chứ không chỉ ẩn UI.
 
-| Nhóm chức năng | System Administrator | Manager | Coach | Member | Receptionist |
-|---|:---:|:---:|:---:|:---:|:---:|
-| Tạo tài khoản Staff/Coach/Admin | ✅ | ❌ | ❌ | ❌ | ❌ |
-| Ban/Unban user | ✅ | ❌ | ❌ | ❌ | ❌ |
-| CRUD Membership Package (catalog) | ❌ | ✅ | ❌ | 👁 Read | 👁 Read |
-| Mua/gán MemberPackage | ❌ | 👁 | ❌ | ✅ (self) | ✅ (on-behalf) |
-| CRUD Class / Recurrence | ❌ | ✅ | 👁 (lớp mình dạy) | 👁 | 👁 |
-| Reschedule/Cancel session | ❌ | ✅ | ❌ | ❌ | ❌ |
-| Đăng ký/Hủy lớp | ❌ | 👁 | ❌ | ✅ (self) | ✅ (on-behalf) |
-| Check-in điểm danh | ❌ | 👁 | ✅ (lớp mình dạy) | ❌ | ✅ |
-| Tạo Workout Plan / Result | ❌ | 👁 | ✅ (relationship ACTIVE) | 👁 (read-only) | ❌ |
-| Checkout / xem Invoice | ❌ | 👁 | ❌ | ✅ (self) | ✅ (on-behalf) |
-| Đối soát/fulfillment lại | ❌ | ✅ | ❌ | ❌ | ✅ (yêu cầu backend) |
-| Tạo Refund Request | ❌ | 👁 | ❌ | ✅ (self) | ✅ (on-behalf, reason bắt buộc) |
-| Approve/Reject Refund | ❌ | ✅ | ❌ | ❌ | ❌ |
-| Đánh dấu Refund Completed | ❌ | ❌ (backend/gateway only) | ❌ | ❌ | ❌ |
-| Xem báo cáo doanh thu | ❌ | ✅ | ❌ | ❌ | ❌ |
-| Xem Audit Log | ❓ | ✅ | ❌ | ❌ | ❌ |
-| Ghi nhận Gym Check-in (mới, 18/09/2026) | ❌ | 👁 | ❌ | ❌ | ✅ |
-| Xem lịch sử Gym Check-in (mới, 18/09/2026) | ❌ | 👁 (tất cả) | ❌ | 👁 (chính mình) | ✅ (tra cứu) |
+| Nhóm chức năng | System Administrator | Manager | Coach (PT) | Coach (ClassInstructor) | Member | Receptionist |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|
+| Tạo tài khoản Staff/Coach/Admin | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| Ban/Unban user | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| CRUD Membership Package (catalog) | ❌ | ✅ | ❌ | ❌ | 👁 Read | 👁 Read |
+| Mua/gán MemberPackage | ❌ | 👁 | ❌ | ❌ | ✅ (self) | ✅ (on-behalf) |
+| CRUD Class / Recurrence | ❌ | ✅ | 👁 (lớp mình dạy) | 👁 (lớp mình dạy) | 👁 | 👁 |
+| Reschedule/Cancel session | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Đăng ký/Hủy lớp | ❌ | 👁 | ❌ | ❌ | ✅ (self) | ✅ (on-behalf) |
+| Check-in điểm danh | ❌ | 👁 | ❌ | ❌ (28/09/2026: chuyển cho Receptionist) | ❌ | ✅ |
+| Tạo Workout Plan / Result | ❌ | 👁 | ✅ (relationship ACTIVE) | ❌ | 👁 (read-only) | ❌ |
+| Gọi AI workout suggestion | ❌ | ❌ | ✅ (relationship ACTIVE) | ❌ | ❌ | ❌ |
+| Checkout / xem Invoice | ❌ | 👁 | ❌ | ❌ | ✅ (self) | ✅ (on-behalf) |
+| Đối soát/fulfillment lại | ❌ | ✅ | ❌ | ❌ | ❌ | ✅ (yêu cầu backend) |
+| Tạo Refund Request | ❌ | 👁 | ❌ | ❌ | ✅ (self) | ✅ (on-behalf, reason bắt buộc) |
+| Approve/Reject Refund | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Đánh dấu Refund Completed | ❌ | ❌ (backend/gateway only) | ❌ | ❌ | ❌ | ❌ |
+| Xem báo cáo doanh thu | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Xem Audit Log | ❓ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Ghi nhận Gym Check-in (mới, 18/09/2026) | ❌ | 👁 | ❌ | ❌ | ❌ | ✅ |
+| Xem lịch sử Gym Check-in (mới, 18/09/2026) | ❌ | 👁 (tất cả) | ❌ | ❌ | 👁 (chính mình) | ✅ (tra cứu) |
+| Xem lịch dạy được phân công (mới, 28/09/2026) | ❌ | 👁 (tất cả) | ✅ (của mình) | ✅ (của mình, chỉ xem — Manager phân công) | ❌ | ❌ |
 
 *(👁 = chỉ xem, không có quyền ghi; ✅ = có quyền hành động; ❓ = chưa chốt trong Business Rules, xem Open Question)*
+
+Báo cáo doanh thu (`GrossCollected`/`Refunded`/`NetCollected`) không liên quan payroll hay chi phí nhân sự Coach/Receptionist/Manager — xem `00-Source-of-Truth.md` §1.3 (bổ sung 28/09/2026).
 
 ---
 
