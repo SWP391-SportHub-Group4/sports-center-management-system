@@ -536,6 +536,33 @@ th.num {
   gap: 5px;
 }
 
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 16px;
+  width: 100%;
+}
+
+.filter-bar > .field {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+
+.filter-bar--users > .field {
+  flex-basis: 180px;
+}
+
+.filter-bar--users > .field:first-child {
+  flex: 2 1 360px;
+}
+
+@media (max-width: 640px) {
+  .filter-bar > .field {
+    flex: 1 1 100%;
+  }
+}
+
 .field > label {
   font-size: 0.8rem;
   font-weight: 600;

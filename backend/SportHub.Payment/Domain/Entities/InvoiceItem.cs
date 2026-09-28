@@ -1,18 +1,24 @@
+using SportHub.Payment.Domain.Enums;
+
 namespace SportHub.Payment.Domain.Entities;
 
 public class InvoiceItem
 {
-    public Guid ItemId { get; set; } // PK
+    public Guid ItemId { get; set; }
 
-    public Guid InvoiceId { get; set; } // FK -> Invoice
+    public Guid InvoiceId { get; set; }
 
     public Invoice? Invoice { get; set; }
 
-    public string Description { get; set; } = string.Empty; // diễn giải hiển thị trên hóa đơn
+    public InvoiceItemType ItemType { get; set; }
 
-    public decimal Amount { get; set; }
+    public string Description { get; set; } = string.Empty;
 
-    public InvoiceItemRelatedEntityType RelatedEntityType { get; set; } // Package/ClassFee/Penalty
+    public decimal UnitPrice { get; set; }
 
-    public Guid? RelatedEntityId { get; set; } // trỏ tới entity nguồn (vd MemberPackageId), không FK cứng
+    public int Quantity { get; set; }
+
+    public decimal LineAmount { get; set; }
+
+    public Guid? RelatedEntityId { get; set; }
 }

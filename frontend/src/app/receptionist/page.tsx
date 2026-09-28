@@ -4,7 +4,7 @@ import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
 import { AsyncSection, Card, Stat, StatusChip, Table } from "@/components/ui";
 import { api } from "@/lib/apiClient";
-import { formatDate, formatDateTime, formatMoney } from "@/lib/format";
+import { formatDate, formatDateTime } from "@/lib/format";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { addDaysIso, todayIso } from "@/lib/format";
@@ -15,7 +15,6 @@ import {
   IconInvoice,
   IconLightning,
   StickerCalendarEmpty,
-  StickerSuccessTrophy,
 } from "@/components/icons";
 import type { ClassSessionDto, InvoiceSummaryDto, Paged } from "@/lib/types";
 import styles from "./receptionist.module.css";
@@ -31,15 +30,6 @@ export default function ReceptionDashboardPage() {
         query: { fromDate: today, toDate: today },
       }),
     [today],
-  );
-
-  const overdue = useApi(
-    (signal) =>
-      api.get<Paged<InvoiceSummaryDto>>("/api/invoices", {
-        signal,
-        query: { overdueOnly: true, pageSize: 10 },
-      }),
-    [],
   );
 
   const unpaid = useApi(
@@ -61,7 +51,6 @@ export default function ReceptionDashboardPage() {
       }
       allow={["Receptionist"]}
     >
-      {/* Rapid Operational Workflows with Brand SVG Icons */}
       <div className={styles.quickActionsGrid}>
         <Link
           href="/receptionist/gym-checkin"
@@ -174,11 +163,6 @@ export default function ReceptionDashboardPage() {
           hint={language === "en" ? "Issued & awaiting payment" : "Trạng thái Đã phát hành"}
         />
         <Stat
-          label={language === "en" ? "Overdue Invoices" : "Hóa đơn quá hạn"}
-          value={overdue.data?.totalCount ?? 0}
-          hint={language === "en" ? "Past deadline (BR-55)" : "Quá hạn thanh toán theo BR-55"}
-        />
-        <Stat
           label={language === "en" ? "Today" : "Hôm nay"}
           value={formatDate(today)}
           hint={
@@ -279,82 +263,6 @@ export default function ReceptionDashboardPage() {
                   </tr>
                 );
               })}
-            </Table>
-          )}
-        </AsyncSection>
-      </Card>
-
-      <Card
-        title={
-          language === "en"
-            ? "Overdue Invoices Requiring Follow-up"
-            : "Hóa đơn quá hạn cần xử lý"
-        }
-        hint={
-          language === "en"
-            ? "Overdue invoices do not auto-cancel — member settlement or manager adjustment required (BR-40, BR-42)."
-            : "Hóa đơn quá hạn không tự hủy — cần hội viên thanh toán hoặc quản lý điều chỉnh (BR-40, BR-42)."
-        }
-        bodyless
-      >
-        <AsyncSection
-          state={overdue}
-          emptyMessage={
-            <div style={{ textAlign: "center", padding: "32px 16px" }}>
-              <StickerSuccessTrophy size={68} style={{ marginBottom: 12 }} />
-              <p style={{ margin: 0, fontWeight: 500, color: "var(--ink-700, #334155)" }}>
-                {language === "en"
-                  ? "No overdue invoices found. All member accounts are settled."
-                  : "Không có hóa đơn nào quá hạn. Sổ nợ hội viên sạch sẽ."}
-              </p>
-            </div>
-          }
-          isEmpty={(data) => data.items.length === 0}
-        >
-          {(data) => (
-            <Table
-              headers={[
-                language === "en" ? "Invoice #" : "Mã hóa đơn",
-                language === "en" ? "Member" : "Hội viên",
-                {
-                  text: language === "en" ? "Outstanding Amount" : "Cần thu",
-                  numeric: true,
-                },
-                language === "en" ? "Due Date" : "Hạn thanh toán",
-                language === "en" ? "Status" : "Trạng thái",
-                "",
-              ]}
-            >
-              {data.items.map((invoice) => (
-                <tr key={invoice.invoiceId}>
-                  <td>
-                    <strong>{invoice.invoiceNumber}</strong>
-                  </td>
-                  <td>
-                    {invoice.memberName}
-                    <div className="small muted">{invoice.memberEmail}</div>
-                  </td>
-                  <td className="num">
-                    <span className={styles.metricValue}>
-                      {formatMoney(invoice.outstanding)}
-                    </span>
-                  </td>
-                  <td className="nowrap small">
-                    {formatDate(invoice.dueDateUtc)}
-                  </td>
-                  <td>
-                    <StatusChip value={invoice.status} />
-                  </td>
-                  <td className="right">
-                    <Link
-                      href="/receptionist/invoices"
-                      className="btn btn--ghost btn--sm"
-                    >
-                      {language === "en" ? "Collect Payment" : "Thu nợ"}
-                    </Link>
-                  </td>
-                </tr>
-              ))}
             </Table>
           )}
         </AsyncSection>

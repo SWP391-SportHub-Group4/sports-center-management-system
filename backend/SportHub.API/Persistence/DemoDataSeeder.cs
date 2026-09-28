@@ -16,17 +16,6 @@ using SportHub.Training.Domain.Enums;
 
 namespace SportHub.API.Persistence;
 
-/// <summary>
-/// Dữ liệu demo cho môi trường phát triển.
-///
-/// Tài khoản demo dùng ĐĂNG NHẬP THẬT: mật khẩu được băm bằng đúng IPasswordHasher của ứng
-/// dụng (BCrypt cost 11, BR-5), không có cửa sau nào bỏ qua xác thực. Màn hình đăng nhập của
-/// frontend có nút điền nhanh, nhưng nút đó chỉ điền form rồi gọi POST /api/auth/login như
-/// người dùng thật.
-///
-/// Chỉ chạy khi môi trường là Development VÀ database chưa có tài khoản nào — không bao giờ
-/// đụng vào dữ liệu đã có.
-/// </summary>
 public sealed class DemoDataSeeder(
     SportHubDbContext db,
     IPasswordHasher passwordHasher,
@@ -34,7 +23,6 @@ public sealed class DemoDataSeeder(
     IClock clock,
     ILogger<DemoDataSeeder> logger)
 {
-    /// <summary>Mật khẩu dùng chung cho mọi tài khoản demo. Chỉ có ý nghĩa ở môi trường dev.</summary>
     public const string DemoPassword = "Sporthub@123";
 
     public async Task SeedAsync(CancellationToken ct = default)
@@ -82,7 +70,6 @@ public sealed class DemoDataSeeder(
         db.UserAccounts.AddRange(allUsers);
         await db.SaveChangesAsync(ct);
 
-        // Một tài khoản bị khóa để màn hình quản trị có dữ liệu thật minh hoạ BR-6.
         members[^1].Status = UserStatus.Deactivated;
 
         var rooms = new[]
@@ -173,8 +160,6 @@ public sealed class DemoDataSeeder(
                 Discipline = Disciplines.PersonalTraining,
                 DefaultRoomId = rooms[2].RoomId,
                 DefaultCoachId = coachPt.UserId,
-
-                // Personal Training luôn có sức chứa 1 (SSOT §1.1, DB CHECK ở ClassConfiguration).
                 Capacity = Disciplines.PersonalTrainingCapacity,
                 Status = ClassStatus.Active
             }
@@ -217,8 +202,6 @@ public sealed class DemoDataSeeder(
 
         await db.SaveChangesAsync(ct);
 
-        // Buổi học trải cả quá khứ lẫn tương lai: quá khứ để màn hình điểm danh và lịch sử
-        // tập có dữ liệu, tương lai để màn hình đặt lịch có chỗ đăng ký.
         var sessions = BuildSessions(classes, rooms, today, now);
         db.ClassSessions.AddRange(sessions);
         await db.SaveChangesAsync(ct);
@@ -271,7 +254,6 @@ public sealed class DemoDataSeeder(
                 var startUtc = VietnamTime.ToUtc(day.ToDateTime(plan.Start));
                 var endUtc = VietnamTime.ToUtc(day.ToDateTime(plan.End));
 
-                // BR-51: trần chốt tại thời điểm tạo = MIN(sức chứa phòng, sức chứa lớp).
                 var baseline = Math.Min(plan.Room.Capacity, plan.Class.Capacity);
 
                 sessions.Add(new ClassSession
@@ -302,31 +284,27 @@ public sealed class DemoDataSeeder(
         DateTime now,
         CancellationToken ct)
     {
-        // Mỗi hội viên một tình huống khác nhau để mọi màn hình đều có ca thật để xem:
-        // gói đang chạy đã thu đủ, gói mới thu một phần, và gói chưa thu đồng nào.
-        var plans = new (UserAccount Member, MembershipPackage Package, decimal Paid)[]
+        var plans = new (UserAccount Member, MembershipPackage Package, bool Paid)[]
         {
-            (members[0], packages[1], packages[1].Price),      // Yoga, đã thanh toán đủ
-            (members[0], packages[0], packages[0].Price),      // Gym tháng, đã thanh toán đủ
-            (members[1], packages[2], packages[2].Price),      // Group X, đã thanh toán đủ
-            (members[2], packages[3], packages[3].Price),      // PT, đã thanh toán đủ
-            (members[3], packages[1], 600_000m),               // Yoga, mới đặt cọc (BR-55)
-            (members[4], packages[0], 0m)                      // Gym tháng, chưa thu đồng nào
+            (members[0], packages[1], true),
+            (members[0], packages[0], true),
+            (members[1], packages[2], true),
+            (members[2], packages[3], true),
+            (members[3], packages[1], false),
+            (members[4], packages[0], false)
         };
 
         foreach (var plan in plans)
         {
-            var isPaid = plan.Paid >= plan.Package.Price;
-
             var memberPackage = new MemberPackage
             {
                 MemberPackageId = Guid.NewGuid(),
                 MemberId = plan.Member.UserId,
                 PackageId = plan.Package.PackageId,
-                StartDate = isPaid ? today.AddDays(-10) : today,
-                EndDate = isPaid ? today.AddDays(-10).AddDays(plan.Package.DurationDays - 1) : today,
+                StartDate = plan.Paid ? today.AddDays(-10) : today,
+                EndDate = plan.Paid ? today.AddDays(-10).AddDays(plan.Package.DurationDays - 1) : today,
                 RemainingSessions = plan.Package.SessionLimit,
-                Status = isPaid ? MemberPackageStatus.Active : MemberPackageStatus.PendingPayment
+                Status = plan.Paid ? MemberPackageStatus.Active : MemberPackageStatus.PendingPayment
             };
 
             db.MemberPackages.Add(memberPackage);
@@ -341,14 +319,8 @@ public sealed class DemoDataSeeder(
                 IssuedByUserId = reception.UserId,
                 MemberPackageId = memberPackage.MemberPackageId,
                 TotalAmount = plan.Package.Price,
-                Status = isPaid
-                    ? InvoiceStatus.Paid
-                    : plan.Paid > 0 ? InvoiceStatus.PartiallyPaid : InvoiceStatus.Issued,
-                IssuedAt = issuedAt,
-
-                // BR-55: hạn ban đầu 2 tháng; nhận cọc đầu thì dời thành 12 tháng từ ngày cọc.
-                DueDateUtc = plan.Paid > 0 ? issuedAt.AddMonths(12) : issuedAt.AddMonths(2),
-                FirstDepositAtUtc = plan.Paid > 0 ? issuedAt : null
+                Status = plan.Paid ? InvoiceStatus.Paid : InvoiceStatus.Issued,
+                IssuedAt = issuedAt
             };
 
             db.Invoices.Add(invoice);
@@ -357,31 +329,42 @@ public sealed class DemoDataSeeder(
             {
                 ItemId = Guid.NewGuid(),
                 InvoiceId = invoice.InvoiceId,
+                ItemType = InvoiceItemType.Membership,
                 Description = $"Gói {plan.Package.Name} ({plan.Package.DurationDays} ngày)",
-                Amount = plan.Package.Price,
-                RelatedEntityType = InvoiceItemRelatedEntityType.Package,
+                UnitPrice = plan.Package.Price,
+                Quantity = 1,
+                LineAmount = plan.Package.Price,
                 RelatedEntityId = memberPackage.MemberPackageId
             });
 
-            if (plan.Paid > 0)
+            if (plan.Paid)
             {
                 db.Payments.Add(new Payment.Domain.Entities.Payment
                 {
                     PaymentId = Guid.NewGuid(),
                     InvoiceId = invoice.InvoiceId,
-                    Amount = plan.Paid,
+                    Amount = plan.Package.Price,
                     Method = PaymentMethod.Cash,
                     Status = PaymentStatus.Success,
                     ReceivedByUserId = reception.UserId,
                     PaidAt = issuedAt
+                });
+
+                db.PaymentAttempts.Add(new PaymentAttempt
+                {
+                    PaymentAttemptId = Guid.NewGuid(),
+                    InvoiceId = invoice.InvoiceId,
+                    VnpTxnRef = $"SEED-{invoice.InvoiceId:N}",
+                    Amount = plan.Package.Price,
+                    VnpExpireDate = issuedAt.AddMinutes(15),
+                    Status = PaymentAttemptStatus.Succeeded,
+                    CreatedAt = issuedAt
                 });
             }
         }
 
         await db.SaveChangesAsync(ct);
 
-        // Một yêu cầu điều chỉnh đang chờ duyệt, để màn hình duyệt của Manager có việc thật:
-        // do Lễ tân tạo nên Manager duyệt được (BR-42 chỉ cấm tự duyệt yêu cầu của chính mình).
         var firstInvoice = await db.Invoices.OrderBy(i => i.IssuedAt).FirstAsync(ct);
 
         db.PaymentAdjustments.Add(new PaymentAdjustment
@@ -414,7 +397,7 @@ public sealed class DemoDataSeeder(
             return;
         }
 
-        var random = new Random(20260921); // hạt cố định: mỗi lần seed lại cho cùng một dữ liệu
+        var random = new Random(20260921);
 
         foreach (var package in activePackages)
         {
@@ -444,8 +427,6 @@ public sealed class DemoDataSeeder(
                     MemberPackageId = package.MemberPackageId,
                     Status = EnrollmentStatus.Confirmed,
                     RegisteredAt = session.StartAtUtc.AddDays(-2),
-
-                    // BR-50: snapshot khớp giá trị seed của system setting.
                     CancellationDeadlineHours = 12
                 });
 
@@ -458,8 +439,6 @@ public sealed class DemoDataSeeder(
 
         await db.SaveChangesAsync(ct);
 
-        // Điểm danh cho các buổi đã kết thúc: phần lớn có mặt, một ít vắng — đủ để màn hình
-        // lịch sử tập và gợi ý AI (BR-26, cần lịch sử 30 ngày) có dữ liệu có nghĩa.
         var pastEnrollments = await db.Enrollments
             .Include(e => e.Session)
             .Where(e => e.Session!.EndAtUtc <= now)
@@ -477,8 +456,6 @@ public sealed class DemoDataSeeder(
                 EnrollmentId = enrollment.EnrollmentId,
                 Status = status,
                 CheckInTime = status == AttendanceStatus.Present ? enrollment.Session!.StartAtUtc : null,
-
-                // NoShow do tiến trình tự động sinh nên không có người thực hiện (BR-53).
                 CheckedInByUserId = null
             });
 
@@ -630,8 +607,6 @@ public sealed class DemoDataSeeder(
                 Exercise = "Supine Spinal Twist (Vặn mình thư giãn)", Sets = 2, Reps = 10, Notes = "Thả lỏng hai vai sát thảm"
             });
 
-        // Kết quả tập cho một buổi Yoga đã hoàn thành mà hội viên có mặt — đúng điều kiện
-        // BR-24 (HLV thật sự dạy buổi đó) và BR-61 (Enrollment còn Confirmed).
         var yogaEnrollment = await db.Enrollments
             .Include(e => e.Session)
             .Where(e => e.MemberId == members[0].UserId
@@ -661,7 +636,6 @@ public sealed class DemoDataSeeder(
         DateTime now,
         CancellationToken ct)
     {
-        // Chỉ check-in cho hội viên có gói Active (BR-64).
         var eligible = await db.MemberPackages
             .Where(mp => mp.Status == MemberPackageStatus.Active)
             .Select(mp => mp.MemberId)
@@ -693,8 +667,6 @@ public sealed class DemoDataSeeder(
             Email = email,
             Status = UserStatus.Active,
             CreatedAt = clock.UtcNow.AddDays(-60),
-
-            // Băm bằng đúng hasher của ứng dụng (BR-5) — tài khoản demo đăng nhập như thật.
             Credential = new UserCredential { PasswordHash = passwordHasher.Hash(DemoPassword) },
             Profile = new UserProfile { FullName = fullName, Phone = phone }
         };

@@ -15,7 +15,7 @@ public static class ClaimsPrincipalExtensions
     /// </summary>
     public static Guid RequireUserId(this ClaimsPrincipal principal)
     {
-        var raw = principal.FindFirstValue(ClaimTypes.NameIdentifier);
+        var raw = principal.FindFirstValue("sub") ?? principal.FindFirstValue(ClaimTypes.NameIdentifier);
 
         return Guid.TryParse(raw, out var userId)
             ? userId
@@ -24,5 +24,5 @@ public static class ClaimsPrincipalExtensions
 
     /// <summary>Tên role trong token (PascalCase, khớp enum UserRole — SSOT §5.6).</summary>
     public static string RoleName(this ClaimsPrincipal principal)
-        => principal.FindFirstValue(ClaimTypes.Role) ?? string.Empty;
+        => principal.FindFirstValue("role") ?? principal.FindFirstValue(ClaimTypes.Role) ?? string.Empty;
 }

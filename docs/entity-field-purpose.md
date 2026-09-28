@@ -24,6 +24,8 @@
 ### `USER_ACCOUNTS`
 **Mục đích:** bảng định danh + vòng đời gốc — mọi vai trò (Manager, Coach, Member, Receptionist) đều là 1 row ở đây, phân biệt qua `role_id`. Không tách bảng riêng cho từng vai trò để tránh trùng lặp logic auth/login. Đây là bảng cha duy nhất mà gần như mọi entity khác (member, coach, staff...) trỏ FK vào — cố tình giữ tối giản (chỉ định danh + vòng đời) để hầu như không bao giờ cần đổi schema, tách khỏi phần auth (`USER_CREDENTIALS`/`USER_EXTERNAL_LOGINS`) và phần hiển thị (`USER_PROFILES`) vốn thay đổi thường xuyên hơn.
 
+**Bổ sung 28/09/2026:** quan hệ 1–1 **tùy chọn** với `COACH_PROFILES` — chỉ tồn tại khi `role_id` trỏ tới role `Coach`; các role khác không có record `COACH_PROFILES`.
+
 | Field | Vai trò |
 |---|---|
 | `UserId` (PK) | Định danh duy nhất, dùng làm khóa ngoại ở gần như mọi entity khác (member, coach, staff đều trỏ về đây) |
@@ -71,6 +73,16 @@
 | `RoleId` (PK) | Khóa để `UserAccount.RoleId` trỏ vào |
 | `RoleName` | 5 giá trị cố định theo SSOT UserRole; API UPPER_SNAKE_CASE, JWT PascalCase. Seed unique (BR-63), không phải 4 role |
 
+### `COACH_PROFILES` (mới, 28/09/2026)
+**Mục đích:** chỉ lưu **phân loại nghiệp vụ** của tài khoản role `Coach` — không lưu profile chung (tên/SĐT ở `USER_PROFILES`, mật khẩu ở `USER_CREDENTIALS`) và **không lưu dữ liệu lương/hoa hồng/hợp đồng**. Tách bảng riêng thay vì thêm cột vào `USER_ACCOUNTS`/`USER_PROFILES` vì field này chỉ có ý nghĩa với đúng 1 role, và tránh null tràn lan ở bảng dùng chung cho mọi role.
+
+| Field | Vai trò |
+|---|---|
+| `UserId` (PK, FK → USER_ACCOUNTS) | Cùng giá trị PK với `UserAccount.UserId` — quan hệ 1–1, chỉ tồn tại khi `UserAccount.RoleId` là `Coach` |
+| `CoachCategory` | `PERSONAL_TRAINER` hoặc `CLASS_INSTRUCTOR` (enum `CoachCategory`, xem SSOT §3) — bắt buộc nhập khi System Administrator tạo tài khoản Coach; quyết định Coach đó dùng bộ chức năng huấn luyện cá nhân/AI (`PersonalTrainer`) hay chỉ xem lịch Yoga/Group X được phân công (`ClassInstructor`) |
+
+Khi tài khoản đổi khỏi role `Coach`, không cascade delete record này để giữ lịch sử — cách vô hiệu hóa cụ thể (soft-disable hay giữ nguyên) chưa chốt, xem `00-Source-of-Truth.md` §7 Open Questions.
+
 ---
 
 ## Module: Training (hồ sơ & quan hệ — nền tảng cho AI/Workout)
@@ -89,6 +101,8 @@
 
 ### `COACH_MEMBER_RELATIONSHIP`
 **Mục đích:** ghi nhận **ai là HLV phụ trách ai**, và **vì sao** (qua lớp học, cá nhân, hay Manager gán tay) — cần thiết vì 1 Coach chỉ được tạo Workout Plan / xem thông tin của Member mà mình thực sự phụ trách (BR-23/BR-24), không phải mọi Member.
+
+**Bổ sung 28/09/2026:** chỉ áp dụng cho Coach loại `PersonalTrainer` (`COACH_PROFILES.CoachCategory`). Không tự tạo relationship kiểu này cho `ClassInstructor` từ việc Member đăng ký (Enrollment) lớp Yoga/Group X — booking lớp và quan hệ huấn luyện cá nhân là 2 khái niệm khác nhau.
 
 | Field | Vai trò |
 |---|---|
@@ -227,6 +241,8 @@
 ### `WORKOUT_PLANS`
 **Mục đích:** kế hoạch tập do Coach lập cho 1 Member — chỉ được tạo nếu Coach có `COACH_MEMBER_RELATIONSHIP` ACTIVE với Member đó (đảm bảo đúng quyền phụ trách).
 
+**Bổ sung 28/09/2026:** chỉ Coach loại `PersonalTrainer` được tạo; `ClassInstructor` không có `COACH_MEMBER_RELATIONSHIP` nên không thể tạo được `WORKOUT_PLANS`.
+
 | Field | Vai trò |
 |---|---|
 | `PlanId` (PK) | Định danh kế hoạch |
@@ -249,6 +265,8 @@
 
 ### `WORKOUT_RESULTS`
 **Mục đích:** ghi nhận **kết quả tập thực tế** sau 1 session — khác `WORKOUT_PLANS` (kế hoạch, việc *sẽ* làm) ở chỗ đây là log việc *đã* xảy ra, gắn với đúng buổi học **mà Member thực sự có đăng ký** (qua `ENROLLMENTS`).
+
+**Bổ sung 28/09/2026:** chỉ Coach loại `PersonalTrainer` được ghi. `ClassInstructor` không điểm danh và không ghi kết quả tập; điểm danh Yoga/Group X thuộc trách nhiệm Receptionist. Mô hình entity đại diện 1 PT session chưa chốt — xem `00-Source-of-Truth.md` §7 Open Questions, không tự ép `EnrollmentId` của lớp Yoga/Group X thành kết quả PT.
 
 | Field | Vai trò |
 |---|---|
@@ -350,6 +368,8 @@
 ### `AI_LOGS`
 **Mục đích:** log mọi lượt gọi tính năng AI (gợi ý bài tập — Flow 5) — phục vụ debug, đo hiệu năng, và audit việc AI trả lời gì cho ai. *(AI assistant/chat — Flow 6 — đã hạ xuống stretch, chỉ log nếu flow đó thực sự được triển khai; xem `00-Source-of-Truth.md` §1.4.)*
 
+**Bổ sung 28/09/2026:** `WORKOUT_SUGGESTION` chỉ gọi được bởi Coach loại `PersonalTrainer`; `ClassInstructor` không có quyền gọi AI workout suggestion.
+
 | Field | Vai trò |
 |---|---|
 | `LogId` (PK) | Định danh |
@@ -415,3 +435,15 @@ Các field này mô tả yêu cầu BR-60/BR-78; trạng thái code/migration đ
 | EmailOtp.ConsumedAt | null = còn dùng được; set khi verify đúng, mã không dùng lại được lần 2 |
 | Google onboarding state | Email mới qua Google tạo account chờ thiết lập password; user phải nhập/confirm password mạnh trước khi dùng chức năng protected |
 | AuthResponse.SuggestedPassword | **Không sử dụng.** Hệ thống không sinh hoặc gửi mật khẩu gợi ý theo BR-60 v1.8 |
+
+## Field phân loại Coach đã duyệt — 28/09/2026
+
+Chỉ sửa tài liệu, chưa sửa code/migration. Chi tiết: `docs/coach-specialization-doc-update-plan.md`.
+
+| Entity.Field | Mục đích và ràng buộc |
+|---|---|
+| CoachProfile (entity mới, module Identity) | 1–1 `UserAccount`, chỉ tồn tại khi role = `Coach`. Không nhân bản email/họ tên/số điện thoại/mật khẩu |
+| CoachProfile.UserId | PK đồng thời FK → `UserAccount`; bắt buộc nhập `CoachCategory` khi System Administrator tạo tài khoản Coach |
+| CoachProfile.CoachCategory | Enum `PersonalTrainer \| ClassInstructor`; quyết định bộ chức năng Training/AI (PT) hay chỉ xem lịch phân công (ClassInstructor) |
+| CoachProfile.Salary/HourlyRate/CommissionRate/EmploymentContract | **Không dùng.** Payroll/hợp đồng nhân sự ngoài phạm vi — xem `00-Source-of-Truth.md` §1.3 |
+| Cách vô hiệu hóa CoachProfile khi đổi role | **Chưa chốt** — không cascade delete; xem `00-Source-of-Truth.md` §7 Open Questions |
