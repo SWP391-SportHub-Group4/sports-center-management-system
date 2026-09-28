@@ -549,6 +549,25 @@ public sealed class DemoDataSeeder(
                 ClassId = classes[1].ClassId,
                 Status = RelationshipStatus.Active,
                 StartedAt = now.AddDays(-15)
+            },
+            new CoachMemberRelationship
+            {
+                RelationshipId = Guid.NewGuid(),
+                CoachId = coachYoga.UserId,
+                MemberId = members[3].UserId,
+                SourceType = RelationshipSourceType.Personal,
+                Status = RelationshipStatus.Active,
+                StartedAt = now.AddDays(-10)
+            },
+            new CoachMemberRelationship
+            {
+                RelationshipId = Guid.NewGuid(),
+                CoachId = coachPt.UserId,
+                MemberId = members[0].UserId,
+                SourceType = RelationshipSourceType.ClassBased,
+                ClassId = classes[0].ClassId,
+                Status = RelationshipStatus.Active,
+                StartedAt = now.AddDays(-12)
             }
         };
 
@@ -566,7 +585,18 @@ public sealed class DemoDataSeeder(
             CreatedAt = now.AddDays(-14)
         };
 
-        db.WorkoutPlans.Add(plan);
+        var yogaPlan = new WorkoutPlan
+        {
+            PlanId = Guid.NewGuid(),
+            MemberId = members[3].UserId,
+            CoachId = coachYoga.UserId,
+            RelationshipId = relationships[3].RelationshipId,
+            Goal = "Yoga trị liệu cột sống & Giảm đau thắt lưng",
+            Level = nameof(ExperienceLevel.Beginner),
+            CreatedAt = now.AddDays(-8)
+        };
+
+        db.WorkoutPlans.AddRange(plan, yogaPlan);
 
         db.WorkoutPlanItems.AddRange(
             new WorkoutPlanItem
@@ -583,6 +613,21 @@ public sealed class DemoDataSeeder(
             {
                 ItemId = Guid.NewGuid(), PlanId = plan.PlanId,
                 Exercise = "Glute bridge", Sets = 3, Reps = 15, Notes = null
+            },
+            new WorkoutPlanItem
+            {
+                ItemId = Guid.NewGuid(), PlanId = yogaPlan.PlanId,
+                Exercise = "Child's Pose (Tư thế em bé)", Sets = 3, Reps = 5, Notes = "Giữ mỗi lần 30-45 giây, thở sâu bằng bụng"
+            },
+            new WorkoutPlanItem
+            {
+                ItemId = Guid.NewGuid(), PlanId = yogaPlan.PlanId,
+                Exercise = "Cobra Stretch (Rắn hổ mang)", Sets = 3, Reps = 8, Notes = "Nâng ngực chậm, không nén cột sống thắt lưng"
+            },
+            new WorkoutPlanItem
+            {
+                ItemId = Guid.NewGuid(), PlanId = yogaPlan.PlanId,
+                Exercise = "Supine Spinal Twist (Vặn mình thư giãn)", Sets = 2, Reps = 10, Notes = "Thả lỏng hai vai sát thảm"
             });
 
         // Kết quả tập cho một buổi Yoga đã hoàn thành mà hội viên có mặt — đúng điều kiện
