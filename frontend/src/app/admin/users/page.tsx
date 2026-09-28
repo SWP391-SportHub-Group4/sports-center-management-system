@@ -114,7 +114,11 @@ export default function UserAdminPage() {
             reason: reason.trim(),
           },
         ),
-      'Synchronising "%s"',
+      {
+        lock: "The account has been locked.",
+        unlock: "The account has been unlocked.",
+        deactivate: "The account has been deactivated.",
+      }[statusTarget.action],
     );
 
     if (done !== null) {
@@ -165,8 +169,8 @@ export default function UserAdminPage() {
           </button>
         }
       >
-        <div className="form form--inline">
-          <Field label="Schedule">
+        <div className="filter-bar filter-bar--users">
+          <Field label="Search">
             <input
               value={keyword}
               placeholder="Email, surname or phone number"
