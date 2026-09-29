@@ -22,9 +22,15 @@ public sealed class WorkoutService(
     IAuditWriter audit,
     IClock clock) : IWorkoutService
 {
+    public const int DefaultPageSize = 50;
+    public const int MaximumPageSize = 100;
+    public const int MaximumProgressRangeDays = 366;
+
     public async Task<IReadOnlyList<WorkoutPlanResponse>> GetPlansAsync(
         Guid? memberId,
         Guid? coachId,
+        int page,
+        int pageSize,
         CancellationToken ct = default)
     {
         var query = db.Set<WorkoutPlan>().AsNoTracking();
@@ -39,7 +45,10 @@ public sealed class WorkoutService(
             query = query.Where(p => p.CoachId == coachId);
         }
 
-        return await query.OrderByDescending(p => p.CreatedAt).Select(PlanProjection()).ToListAsync(ct);
+        (page, pageSize) = NormalizePage(page, pageSize);
+        return await query.OrderByDescending(p => p.CreatedAt)
+            .Skip((page - 1) * pageSize).Take(pageSize)
+            .Select(PlanProjection()).ToListAsync(ct);
     }
 
     public async Task<WorkoutPlanResponse> CreatePlanAsync(
@@ -72,8 +81,9 @@ public sealed class WorkoutService(
             Goal = request.Goal.Trim(),
             Level = request.Level.Trim(),
             CreatedAt = now,
-            Status = WorkoutPlanStatus.Active,
-            UpdatedAt = now
+            Status = WorkoutPlanStatus.Draft,
+            UpdatedAt = now,
+            Version = 0
         };
 
         db.Set<WorkoutPlan>().Add(plan);
@@ -100,10 +110,81 @@ public sealed class WorkoutService(
         return await GetPlanAsync(plan.PlanId, ct);
     }
 
+    public async Task<WorkoutPlanResponse> UpdatePlanAsync(
+        Guid planId,
+        UpdateWorkoutPlanRequest request,
+        Guid coachId,
+        CancellationToken ct = default)
+    {
+        var plan = await db.Set<WorkoutPlan>()
+            .Include(p => p.Items)
+            .SingleOrDefaultAsync(p => p.PlanId == planId, ct)
+            ?? throw new NotFoundException("workout_plan_not_found", "Không tìm thấy kế hoạch tập.");
+
+        EnsureOwner(plan, coachId);
+        await EnsureActiveRelationshipAsync(plan.RelationshipId, ct);
+
+        if (plan.Status == WorkoutPlanStatus.Archived)
+        {
+            throw new ConflictException("workout_plan_archived", "Kế hoạch đã lưu trữ nên không thể chỉnh sửa.");
+        }
+
+        if (plan.Version != request.Version)
+        {
+            throw new ConflictException("workout_plan_version_conflict", "Kế hoạch đã được cập nhật ở nơi khác.");
+        }
+
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+
+        plan.Goal = request.Goal.Trim();
+        plan.Level = request.Level.Trim();
+        plan.UpdatedAt = clock.UtcNow;
+        plan.Version++;
+
+        db.Set<WorkoutPlanItem>().RemoveRange(plan.Items);
+        foreach (var item in request.Items)
+        {
+            db.Set<WorkoutPlanItem>().Add(new WorkoutPlanItem
+            {
+                ItemId = Guid.NewGuid(),
+                PlanId = plan.PlanId,
+                Exercise = item.Exercise.Trim(),
+                Sets = item.Sets,
+                Reps = item.Reps,
+                Notes = string.IsNullOrWhiteSpace(item.Notes) ? null : item.Notes.Trim()
+            });
+        }
+
+        audit.Write(new AuditEntry(coachId, "UPDATE_WORKOUT_PLAN", nameof(WorkoutPlan), plan.PlanId.ToString(),
+            NewValue: $"{{\"version\":{plan.Version},\"itemCount\":{request.Items.Count}}}"));
+
+        try
+        {
+            await db.SaveChangesAsync(ct);
+            await transaction.CommitAsync(ct);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            throw new ConflictException("workout_plan_version_conflict", "Kế hoạch đã được cập nhật ở nơi khác.");
+        }
+
+        return await GetPlanAsync(plan.PlanId, ct);
+    }
+
+    public Task<WorkoutPlanResponse> ActivatePlanAsync(
+        Guid planId, Guid coachId, CancellationToken ct = default)
+        => ChangePlanStatusAsync(planId, coachId, WorkoutPlanStatus.Active, ct);
+
+    public Task<WorkoutPlanResponse> ArchivePlanAsync(
+        Guid planId, Guid coachId, CancellationToken ct = default)
+        => ChangePlanStatusAsync(planId, coachId, WorkoutPlanStatus.Archived, ct);
+
     public async Task<IReadOnlyList<WorkoutResultResponse>> GetResultsAsync(
         Guid? memberId,
         Guid? coachId,
         DateTime? sinceUtc,
+        int page,
+        int pageSize,
         CancellationToken ct = default)
     {
         var query = db.Set<WorkoutResult>().AsNoTracking();
@@ -123,7 +204,10 @@ public sealed class WorkoutService(
             query = query.Where(r => r.RecordedAt >= sinceUtc);
         }
 
-        return await query.OrderByDescending(r => r.RecordedAt).Select(ResultProjection()).ToListAsync(ct);
+        (page, pageSize) = NormalizePage(page, pageSize);
+        return await query.OrderByDescending(r => r.RecordedAt)
+            .Skip((page - 1) * pageSize).Take(pageSize)
+            .Select(ResultProjection()).ToListAsync(ct);
     }
 
     public async Task<WorkoutResultResponse> SaveResultAsync(
@@ -184,6 +268,128 @@ public sealed class WorkoutService(
         return await GetResultAsync(result.ResultId, ct);
     }
 
+    public async Task<ProgressTimelineResponse> GetProgressAsync(
+        Guid memberId,
+        Guid? coachId,
+        DateTime? fromUtc,
+        DateTime? toUtc,
+        int page,
+        int pageSize,
+        CancellationToken ct = default)
+    {
+        (page, pageSize) = NormalizePage(page, pageSize);
+
+        if (fromUtc is not null && toUtc is not null && fromUtc > toUtc)
+        {
+            throw new BadRequestException("invalid_progress_range", "Thời điểm bắt đầu phải trước thời điểm kết thúc.");
+        }
+        if (fromUtc is not null && toUtc is not null
+            && toUtc.Value - fromUtc.Value > TimeSpan.FromDays(MaximumProgressRangeDays))
+        {
+            throw new BadRequestException(
+                "range_too_large", $"Khoảng tiến độ tối đa {MaximumProgressRangeDays} ngày.");
+        }
+
+        if (coachId is not null)
+        {
+            var active = await db.Set<CoachMemberRelationship>().AnyAsync(
+                r => r.CoachId == coachId && r.MemberId == memberId && r.Status == RelationshipStatus.Active, ct);
+            if (!active)
+            {
+                throw new ForbiddenException("no_active_relationship", "Bạn không phụ trách hội viên này.");
+            }
+        }
+
+        var query = db.Set<PtSession>().AsNoTracking().Where(s => s.MemberId == memberId);
+        if (coachId is not null)
+        {
+            query = query.Where(s => s.CoachId == coachId);
+        }
+        if (fromUtc is not null)
+        {
+            query = query.Where(s => s.StartAtUtc >= fromUtc);
+        }
+        if (toUtc is not null)
+        {
+            query = query.Where(s => s.StartAtUtc <= toUtc);
+        }
+
+        var total = await query.CountAsync(ct);
+        var items = await query
+            .OrderByDescending(s => s.StartAtUtc)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(s => new ProgressTimelineItemResponse(
+                s.SessionId, s.StartAtUtc, s.EndAtUtc, s.Status,
+                s.MemberId, s.Member!.Profile != null ? s.Member.Profile.FullName : s.Member.Email,
+                s.CoachId, s.Coach!.Profile != null ? s.Coach.Profile.FullName : s.Coach.Email,
+                s.Result == null ? null : s.Result.ResultId,
+                s.Result == null ? null : s.Result.ProgressNote,
+                s.Result == null ? null : s.Result.CoachComment,
+                s.Result == null ? null : s.Result.RecordedAt))
+            .ToListAsync(ct);
+
+        return new ProgressTimelineResponse(page, pageSize, total, items);
+    }
+
+    private async Task<WorkoutPlanResponse> ChangePlanStatusAsync(
+        Guid planId, Guid coachId, WorkoutPlanStatus target, CancellationToken ct)
+    {
+        var plan = await db.Set<WorkoutPlan>().SingleOrDefaultAsync(p => p.PlanId == planId, ct)
+            ?? throw new NotFoundException("workout_plan_not_found", "Không tìm thấy kế hoạch tập.");
+        EnsureOwner(plan, coachId);
+        await EnsureActiveRelationshipAsync(plan.RelationshipId, ct);
+
+        if (plan.Status == target)
+        {
+            return await GetPlanAsync(planId, ct);
+        }
+        if (target == WorkoutPlanStatus.Active && plan.Status != WorkoutPlanStatus.Draft)
+        {
+            throw new ConflictException("invalid_workout_plan_transition", "Chỉ kế hoạch nháp mới có thể kích hoạt.");
+        }
+        if (target == WorkoutPlanStatus.Archived && plan.Status == WorkoutPlanStatus.Archived)
+        {
+            return await GetPlanAsync(planId, ct);
+        }
+
+        plan.Status = target;
+        plan.UpdatedAt = clock.UtcNow;
+        plan.Version++;
+        audit.Write(new AuditEntry(coachId, $"{target.ToString().ToUpperInvariant()}_WORKOUT_PLAN",
+            nameof(WorkoutPlan), plan.PlanId.ToString()));
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            throw new ConflictException("workout_plan_version_conflict", "Kế hoạch đã được cập nhật ở nơi khác.");
+        }
+        return await GetPlanAsync(planId, ct);
+    }
+
+    private static void EnsureOwner(WorkoutPlan plan, Guid coachId)
+    {
+        if (plan.CoachId != coachId)
+        {
+            throw new ForbiddenException("workout_plan_not_owned", "Bạn không sở hữu kế hoạch tập này.");
+        }
+    }
+
+    private async Task EnsureActiveRelationshipAsync(Guid relationshipId, CancellationToken ct)
+    {
+        if (!await db.Set<CoachMemberRelationship>().AnyAsync(
+                r => r.RelationshipId == relationshipId && r.Status == RelationshipStatus.Active, ct))
+        {
+            throw new ForbiddenException("no_active_relationship", "Quan hệ huấn luyện của kế hoạch không còn hoạt động.");
+        }
+    }
+
+    private static (int Page, int PageSize) NormalizePage(int page, int pageSize)
+        => (Math.Clamp(page, 1, 100_000),
+            Math.Clamp(pageSize <= 0 ? DefaultPageSize : pageSize, 1, MaximumPageSize));
+
     private async Task<WorkoutPlanResponse> GetPlanAsync(Guid planId, CancellationToken ct)
         => await db.Set<WorkoutPlan>().AsNoTracking().Where(p => p.PlanId == planId).Select(PlanProjection())
                .SingleOrDefaultAsync(ct)
@@ -205,6 +411,9 @@ public sealed class WorkoutService(
             p.Goal,
             p.Level,
             p.CreatedAt,
+            p.Status,
+            p.UpdatedAt,
+            p.Version,
             p.Items.Select(i => new WorkoutPlanItemResponse(i.ItemId, i.Exercise, i.Sets, i.Reps, i.Notes)).ToList());
 
     private static System.Linq.Expressions.Expression<Func<WorkoutResult, WorkoutResultResponse>> ResultProjection()
