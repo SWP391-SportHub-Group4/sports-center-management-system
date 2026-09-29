@@ -15,6 +15,8 @@ using SportHub.Identity.Domain.Enums;
 using SportHub.Identity.Infrastructure.Security;
 using SportHub.Membership.Domain.Entities;
 using SportHub.Membership.Domain.Enums;
+using SportHub.Training.Domain.Entities;
+using SportHub.Training.Domain.Enums;
 using Testcontainers.PostgreSql;
 
 namespace SportHub.Training.Tests.Integration;
@@ -175,6 +177,52 @@ public sealed class TrainingApiFactory : WebApplicationFactory<Program>, IAsyncL
         await db.SaveChangesAsync();
 
         return memberPackage;
+    }
+
+    /// <summary>PtEntitlement Active sẵn sàng để test booking/quota — validity mặc định rộng
+    /// (hôm nay ± 60 ngày) để test tự chọn StartAtUtc mà không lo rơi ngoài hiệu lực.</summary>
+    public async Task<PtEntitlement> SeedPtEntitlementAsync(
+        Guid memberId,
+        Guid coachId,
+        int totalQuota = 8,
+        int reservedSessions = 0,
+        int consumedSessions = 0,
+        DateOnly? validityStartDate = null,
+        DateOnly? validityEndDate = null,
+        PtEntitlementStatus status = PtEntitlementStatus.Active)
+    {
+        var memberPackage = await SeedMemberPackageAsync(
+            memberId,
+            startDate: validityStartDate ?? DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-60),
+            endDate: validityEndDate ?? DateOnly.FromDateTime(DateTime.UtcNow).AddDays(60));
+
+        using var scope = Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
+
+        var entitlement = new PtEntitlement
+        {
+            EntitlementId = Guid.NewGuid(),
+            ActivationReference = Guid.NewGuid(),
+            MemberId = memberId,
+            CoachId = coachId,
+            OriginMemberPackageId = memberPackage.MemberPackageId,
+            CurrentMemberPackageId = memberPackage.MemberPackageId,
+            FrequencyPerWeek = 2,
+            TotalQuota = totalQuota,
+            ReservedSessions = reservedSessions,
+            ConsumedSessions = consumedSessions,
+            ValidityStartDate = memberPackage.StartDate,
+            ValidityEndDate = memberPackage.EndDate,
+            CarryOverUntilDate = memberPackage.EndDate.AddDays(30),
+            Status = status,
+            ActivatedAt = status == PtEntitlementStatus.Active ? DateTime.UtcNow : null,
+            Version = 0
+        };
+
+        db.PtEntitlements.Add(entitlement);
+        await db.SaveChangesAsync();
+
+        return entitlement;
     }
 
     public async Task<T> QueryAsync<T>(Func<SportHubDbContext, Task<T>> query)

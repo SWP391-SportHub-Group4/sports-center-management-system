@@ -577,7 +577,9 @@ public sealed class DemoDataSeeder(
                 ValidityEndDate = ptMemberPackage.EndDate,
                 CarryOverUntilDate = ptMemberPackage.EndDate.AddDays(30),
                 Status = PtEntitlementStatus.Active,
-                ActivatedAt = ptMemberPackage.StartDate.ToDateTime(TimeOnly.MinValue),
+                // DateOnly.ToDateTime() luôn trả Kind=Unspecified — cột là timestamptz nên phải
+                // ép rõ Utc, nếu không Npgsql ném ArgumentException lúc ghi (phát hiện qua test).
+                ActivatedAt = DateTime.SpecifyKind(ptMemberPackage.StartDate.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc),
                 Version = 0
             };
 
