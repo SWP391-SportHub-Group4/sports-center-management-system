@@ -30,6 +30,27 @@ public class SystemSettingConfiguration : IEntityTypeConfiguration<SystemSetting
                 Value = "7",
                 Description = "BR-33 — Nhắc hội viên trước bao nhiêu ngày khi gói thành viên sắp hết hạn.",
                 UpdatedAt = new DateTime(2026, 9, 21, 0, 0, 0, DateTimeKind.Utc)
+            },
+            new SystemSetting
+            {
+                Key = SystemSettingKeys.ClassThresholdDaysBeforeStart,
+                Value = "3",
+                Description = "BR-119 — Đánh giá ngưỡng hoàn vốn của khóa trước buổi đầu bao nhiêu ngày.",
+                UpdatedAt = new DateTime(2026, 9, 30, 0, 0, 0, DateTimeKind.Utc)
+            },
+            new SystemSetting
+            {
+                Key = SystemSettingKeys.ClassThresholdResponseHours,
+                Value = "48",
+                Description = "BR-120 — Số giờ Member được trả lời khi khóa học có nguy cơ không đủ ngưỡng.",
+                UpdatedAt = new DateTime(2026, 9, 30, 0, 0, 0, DateTimeKind.Utc)
+            },
+            new SystemSetting
+            {
+                Key = SystemSettingKeys.HoldMinutes,
+                Value = "15",
+                Description = "BR-115 — Số phút giữ chỗ và thanh toán tối đa khi checkout.",
+                UpdatedAt = new DateTime(2026, 9, 30, 0, 0, 0, DateTimeKind.Utc)
             });
     }
 }

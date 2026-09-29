@@ -12,7 +12,7 @@ namespace SportHub.Security.Tests.Integration;
 [Collection(nameof(SportHubApiCollection))]
 public class RegisterOtpTests(SportHubApiFactory factory)
 {
-    private const string ValidPassword = "CorrectHorse1";
+    private const string ValidPassword = "CorrectHorse1!";
 
     private HttpClient ClientFor(string ip)
     {

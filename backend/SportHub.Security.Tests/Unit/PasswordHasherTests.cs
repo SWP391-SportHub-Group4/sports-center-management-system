@@ -14,6 +14,7 @@ public class PasswordHasherTests
     private static int WorkFactorOf(string hash)
     {
         // Dinh dang bcrypt: $2a$<cost>$<salt+hash>
+        if (hash.StartsWith("v2$")) hash = hash[3..];
         var parts = hash.Split('$', StringSplitOptions.RemoveEmptyEntries);
         return int.Parse(parts[1]);
     }

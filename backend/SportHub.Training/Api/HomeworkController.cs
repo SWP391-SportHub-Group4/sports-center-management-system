@@ -23,7 +23,7 @@ namespace SportHub.Training.Api;
 [ProducesResponseType(StatusCodes.Status409Conflict)]
 public sealed class HomeworkController(
     IHomeworkService homework,
-    ICoachProfileReader coachProfiles) : ControllerBase
+    PersonalTrainerGuard personalTrainers) : ControllerBase
 {
     [Authorize(Policy = SportHubPolicies.Coach)]
     [HttpGet("coaches/me/homework")]
@@ -100,5 +100,5 @@ public sealed class HomeworkController(
         => Ok(await homework.UpdateByMemberAsync(assignmentId, request, User.RequireUserId(), ct));
 
     private Task RequirePtAsync(Guid coachId, CancellationToken ct)
-        => coachProfiles.RequireCategoryAsync(coachId, CoachCategory.PersonalTrainer, ct);
+        => personalTrainers.RequireAsync(coachId, ct);
 }

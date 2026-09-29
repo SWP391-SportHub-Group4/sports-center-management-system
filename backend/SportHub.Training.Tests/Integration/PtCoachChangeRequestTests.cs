@@ -16,15 +16,15 @@ public sealed class PtCoachChangeRequestTests(TrainingApiFactory factory)
     public async Task Member_creates_request_for_active_personal_trainer()
     {
         var member = await factory.SeedUserAsync(UserRole.Member);
-        var oldCoach = await factory.SeedCoachAsync(CoachCategory.PersonalTrainer);
-        var newCoach = await factory.SeedCoachAsync(CoachCategory.PersonalTrainer);
+        var oldCoach = await factory.SeedCoachAsync(CoachKind.PersonalTrainer);
+        var newCoach = await factory.SeedCoachAsync(CoachKind.PersonalTrainer);
         var entitlement = await factory.SeedPtEntitlementAsync(member.UserId, oldCoach.UserId);
         var client = factory.CreateApiClient(member.UserId, UserRole.Member);
 
         var response = await RequestAsync(client, entitlement.EntitlementId, newCoach.UserId);
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-        var body = await response.Content.ReadFromJsonAsync<PtCoachChangeRequestResponse>();
+        var body = await response.Content.ReadApiJsonAsync<PtCoachChangeRequestResponse>();
         Assert.NotNull(body);
         Assert.Equal(member.UserId, body.MemberId);
         Assert.Equal(oldCoach.UserId, body.CurrentCoachId);
@@ -37,8 +37,8 @@ public sealed class PtCoachChangeRequestTests(TrainingApiFactory factory)
     {
         var owner = await factory.SeedUserAsync(UserRole.Member);
         var otherMember = await factory.SeedUserAsync(UserRole.Member);
-        var oldCoach = await factory.SeedCoachAsync(CoachCategory.PersonalTrainer);
-        var newCoach = await factory.SeedCoachAsync(CoachCategory.PersonalTrainer);
+        var oldCoach = await factory.SeedCoachAsync(CoachKind.PersonalTrainer);
+        var newCoach = await factory.SeedCoachAsync(CoachKind.PersonalTrainer);
         var entitlement = await factory.SeedPtEntitlementAsync(owner.UserId, oldCoach.UserId);
         var client = factory.CreateApiClient(otherMember.UserId, UserRole.Member);
 
@@ -52,9 +52,9 @@ public sealed class PtCoachChangeRequestTests(TrainingApiFactory factory)
     public async Task Requested_coach_must_be_an_active_personal_trainer()
     {
         var member = await factory.SeedUserAsync(UserRole.Member);
-        var oldCoach = await factory.SeedCoachAsync(CoachCategory.PersonalTrainer);
-        var instructor = await factory.SeedCoachAsync(CoachCategory.ClassInstructor);
-        var inactivePt = await factory.SeedCoachAsync(CoachCategory.PersonalTrainer, UserStatus.Deactivated);
+        var oldCoach = await factory.SeedCoachAsync(CoachKind.PersonalTrainer);
+        var instructor = await factory.SeedCoachAsync(CoachKind.ClassInstructor);
+        var inactivePt = await factory.SeedCoachAsync(CoachKind.PersonalTrainer, UserStatus.Deactivated);
         var entitlement = await factory.SeedPtEntitlementAsync(member.UserId, oldCoach.UserId);
         var client = factory.CreateApiClient(member.UserId, UserRole.Member);
 
@@ -71,9 +71,9 @@ public sealed class PtCoachChangeRequestTests(TrainingApiFactory factory)
     public async Task Entitlement_allows_only_one_pending_coach_change_request()
     {
         var member = await factory.SeedUserAsync(UserRole.Member);
-        var oldCoach = await factory.SeedCoachAsync(CoachCategory.PersonalTrainer);
-        var firstCoach = await factory.SeedCoachAsync(CoachCategory.PersonalTrainer);
-        var secondCoach = await factory.SeedCoachAsync(CoachCategory.PersonalTrainer);
+        var oldCoach = await factory.SeedCoachAsync(CoachKind.PersonalTrainer);
+        var firstCoach = await factory.SeedCoachAsync(CoachKind.PersonalTrainer);
+        var secondCoach = await factory.SeedCoachAsync(CoachKind.PersonalTrainer);
         var entitlement = await factory.SeedPtEntitlementAsync(member.UserId, oldCoach.UserId);
         var client = factory.CreateApiClient(member.UserId, UserRole.Member);
 
@@ -93,8 +93,8 @@ public sealed class PtCoachChangeRequestTests(TrainingApiFactory factory)
         var manager = await factory.SeedUserAsync(UserRole.CenterManager);
         var member = await factory.SeedUserAsync(UserRole.Member);
         var conflictMember = await factory.SeedUserAsync(UserRole.Member);
-        var oldCoach = await factory.SeedCoachAsync(CoachCategory.PersonalTrainer);
-        var newCoach = await factory.SeedCoachAsync(CoachCategory.PersonalTrainer);
+        var oldCoach = await factory.SeedCoachAsync(CoachKind.PersonalTrainer);
+        var newCoach = await factory.SeedCoachAsync(CoachKind.PersonalTrainer);
         var entitlement = await factory.SeedPtEntitlementAsync(
             member.UserId, oldCoach.UserId, totalQuota: 8, reservedSessions: 2, consumedSessions: 1);
         var conflictEntitlement = await factory.SeedPtEntitlementAsync(
@@ -135,7 +135,7 @@ public sealed class PtCoachChangeRequestTests(TrainingApiFactory factory)
 
         var memberClient = factory.CreateApiClient(member.UserId, UserRole.Member);
         var requestResponse = await RequestAsync(memberClient, entitlement.EntitlementId, newCoach.UserId);
-        var request = await requestResponse.Content.ReadFromJsonAsync<PtCoachChangeRequestResponse>();
+        var request = await requestResponse.Content.ReadApiJsonAsync<PtCoachChangeRequestResponse>();
 
         var managerClient = factory.CreateApiClient(manager.UserId, UserRole.CenterManager);
         var approveResponse = await managerClient.PostAsJsonAsync(
@@ -143,7 +143,7 @@ public sealed class PtCoachChangeRequestTests(TrainingApiFactory factory)
             new ReviewPtCoachChangeRequest { ReviewNote = "Coach mới đã xác nhận lịch." });
 
         Assert.Equal(HttpStatusCode.OK, approveResponse.StatusCode);
-        var approved = await approveResponse.Content.ReadFromJsonAsync<PtCoachChangeApprovalResponse>();
+        var approved = await approveResponse.Content.ReadApiJsonAsync<PtCoachChangeApprovalResponse>();
         Assert.NotNull(approved);
         Assert.Equal("Approved", approved.Request.Status);
         Assert.Equal(new[] { movedSessionId }, approved.MovedSessionIds);
@@ -176,12 +176,12 @@ public sealed class PtCoachChangeRequestTests(TrainingApiFactory factory)
     {
         var manager = await factory.SeedUserAsync(UserRole.CenterManager);
         var member = await factory.SeedUserAsync(UserRole.Member);
-        var oldCoach = await factory.SeedCoachAsync(CoachCategory.PersonalTrainer);
-        var newCoach = await factory.SeedCoachAsync(CoachCategory.PersonalTrainer);
+        var oldCoach = await factory.SeedCoachAsync(CoachKind.PersonalTrainer);
+        var newCoach = await factory.SeedCoachAsync(CoachKind.PersonalTrainer);
         var entitlement = await factory.SeedPtEntitlementAsync(member.UserId, oldCoach.UserId);
         var memberClient = factory.CreateApiClient(member.UserId, UserRole.Member);
         var requestResponse = await RequestAsync(memberClient, entitlement.EntitlementId, newCoach.UserId);
-        var request = await requestResponse.Content.ReadFromJsonAsync<PtCoachChangeRequestResponse>();
+        var request = await requestResponse.Content.ReadApiJsonAsync<PtCoachChangeRequestResponse>();
         var managerClient = factory.CreateApiClient(manager.UserId, UserRole.CenterManager);
 
         var rejectResponse = await managerClient.PostAsJsonAsync(
@@ -189,7 +189,7 @@ public sealed class PtCoachChangeRequestTests(TrainingApiFactory factory)
             new ReviewPtCoachChangeRequest { ReviewNote = "Coach mới chưa thể nhận thêm học viên." });
 
         Assert.Equal(HttpStatusCode.OK, rejectResponse.StatusCode);
-        var rejected = await rejectResponse.Content.ReadFromJsonAsync<PtCoachChangeRequestResponse>();
+        var rejected = await rejectResponse.Content.ReadApiJsonAsync<PtCoachChangeRequestResponse>();
         Assert.Equal("Rejected", rejected!.Status);
 
         var reloaded = await factory.QueryAsync(
@@ -205,7 +205,7 @@ public sealed class PtCoachChangeRequestTests(TrainingApiFactory factory)
     public async Task Non_manager_roles_cannot_review_coach_change_requests(UserRole role)
     {
         var actor = role == UserRole.Coach
-            ? await factory.SeedCoachAsync(CoachCategory.PersonalTrainer)
+            ? await factory.SeedCoachAsync(CoachKind.PersonalTrainer)
             : await factory.SeedUserAsync(role);
         var client = factory.CreateApiClient(actor.UserId, role);
 

@@ -24,6 +24,27 @@ public static class SportHubPolicies
 
     public const string Receptionist = nameof(Receptionist);
 
+    /// <summary>ExternalCoach (đã đăng nhập). Việc Approved hay chưa do service kiểm qua IExternalCoachAccessReader.</summary>
+    public const string ExternalCoach = nameof(ExternalCoach);
+
+    /// <summary>Ghi catalog môn, loại phòng, giờ mở cửa, block, bảng giá sân: chỉ Manager.</summary>
+    public const string CatalogManage = nameof(CatalogManage);
+
+    /// <summary>Manager tạo Coach nội bộ và duyệt/từ chối/đình chỉ ExternalCoach.</summary>
+    public const string CoachManagement = nameof(CoachManagement);
+
+    /// <summary>Đặt/hủy thuê sân: chỉ ExternalCoach (điều kiện Approved kiểm ở service).</summary>
+    public const string CourtRental = nameof(CourtRental);
+
+    /// <summary>Xem ví và thanh toán bằng điểm của chính mình: Member và ExternalCoach.</summary>
+    public const string WalletOwner = nameof(WalletOwner);
+
+    /// <summary>Duyệt/từ chối yêu cầu hoàn điểm (BR-93): chỉ Manager.</summary>
+    public const string RefundApprove = nameof(RefundApprove);
+
+    /// <summary>Đối soát thanh toán, điều chỉnh điểm thủ công: chỉ Manager.</summary>
+    public const string PaymentReconciliation = nameof(PaymentReconciliation);
+
     /// <summary>
     /// Quầy lễ tân + quản lý: bán gói, ghi nhận thanh toán, hủy đăng ký hộ hội viên
     /// (BR-17, BR-30). Hai vai trò này cùng làm được nên gộp một policy thay vì rải

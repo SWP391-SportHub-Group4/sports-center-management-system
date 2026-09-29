@@ -7,33 +7,28 @@ public class EnrollmentConfiguration : IEntityTypeConfiguration<Enrollment>
 {
     public void Configure(EntityTypeBuilder<Enrollment> builder)
     {
+        builder.ToTable("enrollments");
         builder.HasKey(e => e.EnrollmentId);
 
-        // Ràng buộc #1: không đăng ký trùng vào cùng 1 session (partial unique
-        // index, EnrollmentStatus.Confirmed = 0) — cho phép đăng ký lại sau khi hủy.
-        builder.HasIndex(e => new { e.SessionId, e.MemberId })
+        builder.HasOne(e => e.Class).WithMany().HasForeignKey(e => e.ClassId).OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne<Enrollment>()
+            .WithMany()
+            .HasForeignKey(e => e.SourceEnrollmentId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Một Member chỉ có một ghi danh Confirmed trong mỗi lớp (Confirmed = 0).
+        builder.HasIndex(e => new { e.ClassId, e.MemberId })
             .IsUnique()
-            .HasFilter($"status = {(int)EnrollmentStatus.Confirmed}");
+            .HasFilter("status = 0")
+            .HasDatabaseName("ux_enrollments_class_member_confirmed");
 
-        builder.HasOne(e => e.Session)
-            .WithMany(s => s.Enrollments)
-            .HasForeignKey(e => e.SessionId)
-            .OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(e => new { e.MemberId, e.Status });
 
-        builder.HasOne(e => e.Member)
-            .WithMany()
-            .HasForeignKey(e => e.MemberId)
-            .OnDelete(DeleteBehavior.Restrict);
-
-        builder.HasOne(e => e.MemberPackage)
-            .WithMany()
-            .HasForeignKey(e => e.MemberPackageId)
-            .OnDelete(DeleteBehavior.Restrict);
-
-        builder.HasOne(e => e.CancelledByUser)
-            .WithMany()
-            .HasForeignKey(e => e.CancelledByUserId)
-            .IsRequired(false)
-            .OnDelete(DeleteBehavior.Restrict);
+        // Mỗi InvoiceItem chỉ sinh tối đa một ghi danh (idempotency của fulfillment).
+        builder.HasIndex(e => e.InvoiceItemId)
+            .IsUnique()
+            .HasFilter("invoice_item_id IS NOT NULL")
+            .HasDatabaseName("ux_enrollments_invoice_item");
     }
 }

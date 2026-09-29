@@ -86,6 +86,19 @@ public sealed class TrainingApiFactory : WebApplicationFactory<Program>, IAsyncL
             }));
     }
 
+    /// <summary>Security stamp hiện tại của user trong DB test — token phải mang đúng stamp (claim sst).</summary>
+    public Guid StampOf(Guid userId)
+    {
+        using var scope = Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<SportHub.BuildingBlocks.Abstractions.Persistence.ISportHubDbContext>();
+
+        return db.Set<SportHub.Identity.Domain.Entities.UserAccount>()
+            .AsNoTracking()
+            .Where(u => u.UserId == userId)
+            .Select(u => u.SecurityStamp)
+            .SingleOrDefault();
+    }
+
     public HttpClient CreateApiClient(Guid? actingUserId = null, UserRole? actingRole = null)
     {
         var client = CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
@@ -94,7 +107,7 @@ public sealed class TrainingApiFactory : WebApplicationFactory<Program>, IAsyncL
         {
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
                 "Bearer",
-                JwtService.GenerateAccessToken(actingUserId.Value, actingRole.Value.ToString(), EffectiveJwtOptions));
+                JwtService.GenerateAccessToken(actingUserId.Value, actingRole.Value.ToString(), EffectiveJwtOptions, StampOf(actingUserId.Value)));
         }
 
         return client;
@@ -124,9 +137,12 @@ public sealed class TrainingApiFactory : WebApplicationFactory<Program>, IAsyncL
         return user;
     }
 
-    /// <summary>Coach voi CoachProfile.CoachCategory tuong ung — can cho moi test RBAC/authorization cua PT.</summary>
+    /// <summary>
+    /// Coach voi chuyen mon tuong ung (thay CoachCategory cu): PersonalTrainer = mon OneOnOne (sport 2), ClassInstructor = mon nhom
+    /// (sport 3). Can cho moi test RBAC/authorization cua PT.
+    /// </summary>
     public async Task<UserAccount> SeedCoachAsync(
-        CoachCategory category,
+        CoachKind kind,
         UserStatus status = UserStatus.Active)
     {
         var coach = await SeedUserAsync(UserRole.Coach, status);
@@ -134,7 +150,12 @@ public sealed class TrainingApiFactory : WebApplicationFactory<Program>, IAsyncL
         using var scope = Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
 
-        db.CoachProfiles.Add(new CoachProfile { UserId = coach.UserId, CoachCategory = category });
+        db.CoachProfiles.Add(new CoachProfile { UserId = coach.UserId });
+        db.UserSportSpecialties.Add(new UserSportSpecialty
+        {
+            UserId = coach.UserId,
+            SportId = kind == CoachKind.PersonalTrainer ? 2 : 3
+        });
         await db.SaveChangesAsync();
 
         return coach;
@@ -244,3 +265,10 @@ public sealed class TrainingApiFactory : WebApplicationFactory<Program>, IAsyncL
 
 [CollectionDefinition(nameof(TrainingApiCollection))]
 public sealed class TrainingApiCollection : ICollectionFixture<TrainingApiFactory>;
+
+/// <summary>Loai Coach dung trong test (thay enum CoachCategory da go): quyet dinh mon chuyen mon duoc seed.</summary>
+public enum CoachKind
+{
+    PersonalTrainer,
+    ClassInstructor
+}

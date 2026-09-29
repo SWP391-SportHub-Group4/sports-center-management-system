@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SportHub.BuildingBlocks.Abstractions.Audit;
+using SportHub.BuildingBlocks.Abstractions.Identity;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.Abstractions.Training;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
@@ -22,6 +23,7 @@ namespace SportHub.Training.Application.Services;
 public sealed class CoachMemberRelationshipService(
     ISportHubDbContext db,
     IAuditWriter audit,
+    ICoachSpecialtyReader specialties,
     IClock clock) : ICoachMemberRelationshipService
 {
     public const int DefaultPageSize = 50;
@@ -166,12 +168,7 @@ public sealed class CoachMemberRelationshipService(
         // BR-99/BR-100, mới 28/09/2026: Class chỉ có Coach loại ClassInstructor (BR-97) —
         // booking lớp Yoga/Group X không được dùng làm nguồn cấp quyền Training. Bỏ qua nếu
         // coachId không phải PersonalTrainer (trường hợp bình thường cho mọi Class hiện nay).
-        var category = await db.Set<CoachProfile>()
-            .Where(p => p.UserId == coachId)
-            .Select(p => (CoachCategory?)p.CoachCategory)
-            .SingleOrDefaultAsync(ct);
-
-        if (category != CoachCategory.PersonalTrainer)
+        if (!await specialties.IsPersonalTrainerAsync(coachId, ct))
         {
             return;
         }
@@ -202,16 +199,11 @@ public sealed class CoachMemberRelationshipService(
     /// </summary>
     private async Task EnsurePersonalTrainerAsync(Guid coachId, CancellationToken ct)
     {
-        var category = await db.Set<CoachProfile>()
-            .Where(p => p.UserId == coachId)
-            .Select(p => (CoachCategory?)p.CoachCategory)
-            .SingleOrDefaultAsync(ct);
-
-        if (category != CoachCategory.PersonalTrainer)
+        if (!await specialties.IsPersonalTrainerAsync(coachId, ct))
         {
             throw new BadRequestException(
                 "coach_must_be_personal_trainer",
-                "Chỉ Coach loại PersonalTrainer mới được gán quan hệ huấn luyện cá nhân (BR-99).");
+                "Chỉ Coach có chuyên môn huấn luyện cá nhân (PT 1-1) mới được gán quan hệ huấn luyện cá nhân (BR-99).");
         }
     }
 

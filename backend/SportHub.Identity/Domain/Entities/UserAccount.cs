@@ -12,6 +12,9 @@ public class UserAccount
 
     public UserStatus Status { get; set; } // Active/Banned/Deactivated — không xoá cứng user
 
+    // Đổi khi reset/đổi mật khẩu hoặc đổi vai trò; JWT mang claim sst để vô hiệu phiên cũ (BR-103/104).
+    public Guid SecurityStamp { get; set; } = Guid.NewGuid();
+
     public DateTime CreatedAt { get; set; }
 
     public UserCredential? Credential { get; set; } // 1-1, null nếu account thuần Google

@@ -1,0 +1,118 @@
+using Microsoft.EntityFrameworkCore;
+using SportHub.BuildingBlocks.Abstractions.Persistence;
+using SportHub.BuildingBlocks.SharedKernel.Errors;
+using SportHub.BuildingBlocks.SharedKernel.Time;
+using SportHub.Identity.Domain.Enums;
+
+namespace SportHub.Identity.Application.Services;
+
+/// <summary>
+/// Vòng đời OTP email dùng chung cho quên mật khẩu và đăng ký ExternalCoach (BR-78 áp dụng như nhau):
+/// mã 6 số, hết hạn 10 phút, tối đa 5 lần sai, gửi lại sau 60 giây, chỉ mã mới nhất còn hiệu lực,
+/// băm SHA-256, dùng một lần.
+///
+/// - Lần nhập sai được đếm bằng UPDATE nguyên tử và commit ngay, không nằm trong transaction nào có thể rollback.
+/// - <see cref="ConsumeAsync"/> là UPDATE có điều kiện: hai request cùng mã đúng song song thì đúng một request thắng.
+///   Gọi nó BÊN TRONG transaction của thao tác nghiệp vụ để mã chỉ bị tiêu khi thao tác thành công.
+/// </summary>
+public sealed class EmailOtpFlow(ISportHubDbContext db, IClock clock)
+{
+    /// <summary>
+    /// Ghi/ghi đè mã cho (email, purpose) và trả mã rõ để caller gửi. Trả null nếu còn trong thời gian chờ gửi lại
+    /// hoặc có request song song vừa tạo mã.
+    /// </summary>
+    public async Task<string?> IssueAsync(string email, EmailOtpPurpose purpose, CancellationToken ct)
+    {
+        var now = clock.UtcNow;
+        var otp = await db.Set<EmailOtp>().SingleOrDefaultAsync(o => o.Email == email && o.Purpose == purpose, ct);
+
+        if (otp is not null && now - otp.CreatedAt < AuthService.OtpResendCooldown)
+        {
+            return null;
+        }
+
+        var code = OtpCodes.Generate();
+
+        if (otp is null)
+        {
+            otp = new EmailOtp { EmailOtpId = Guid.NewGuid(), Email = email, Purpose = purpose };
+            db.Set<EmailOtp>().Add(otp);
+        }
+
+        otp.CodeHash = OtpCodes.Hash(code);
+        otp.ExpiresAt = now + AuthService.OtpLifetime;
+        otp.Attempts = 0;
+        otp.ConsumedAt = null;
+        otp.CreatedAt = now;
+
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException)
+        {
+            // Request song song cùng email: unique (email, purpose) chặn request sau.
+            return null;
+        }
+
+        return code;
+    }
+
+    /// <summary>Bỏ mã vừa lưu (gửi email hỏng) để cooldown không chặn người dùng thử lại.</summary>
+    public async Task DiscardAsync(string email, EmailOtpPurpose purpose)
+        => await db.Set<EmailOtp>()
+            .Where(o => o.Email == email && o.Purpose == purpose)
+            .ExecuteDeleteAsync(CancellationToken.None);
+
+    /// <summary>
+    /// Kiểm tra mã theo thứ tự: không có / đã dùng / hết hạn / hết lượt / sai. Không tiêu mã.
+    /// Trả EmailOtpId để <see cref="ConsumeAsync"/>.
+    /// </summary>
+    public async Task<Guid> VerifyAsync(string email, EmailOtpPurpose purpose, string code, CancellationToken ct)
+    {
+        var otp = await db.Set<EmailOtp>()
+                      .AsNoTracking()
+                      .SingleOrDefaultAsync(o => o.Email == email && o.Purpose == purpose, ct)
+                  ?? throw new BadRequestException("otp_invalid", "Mã xác thực không đúng.");
+
+        if (otp.ConsumedAt is not null)
+        {
+            throw new BadRequestException("otp_already_used", "Mã xác thực đã được sử dụng. Hãy yêu cầu mã mới.");
+        }
+
+        if (clock.UtcNow >= otp.ExpiresAt)
+        {
+            throw new BadRequestException("otp_expired", "Mã xác thực đã hết hạn. Hãy yêu cầu mã mới.");
+        }
+
+        if (otp.Attempts >= AuthService.OtpMaxAttempts)
+        {
+            throw new BadRequestException(
+                "otp_attempts_exceeded", "Đã nhập sai quá số lần cho phép. Hãy yêu cầu mã mới.");
+        }
+
+        if (!OtpCodes.Matches(code, otp.CodeHash))
+        {
+            await db.Set<EmailOtp>()
+                .Where(o => o.EmailOtpId == otp.EmailOtpId)
+                .ExecuteUpdateAsync(s => s.SetProperty(o => o.Attempts, o => o.Attempts + 1), ct);
+
+            throw new BadRequestException("otp_invalid", "Mã xác thực không đúng.");
+        }
+
+        return otp.EmailOtpId;
+    }
+
+    public async Task ConsumeAsync(Guid emailOtpId, CancellationToken ct)
+    {
+        var now = clock.UtcNow;
+        var consumed = await db.Set<EmailOtp>()
+            .Where(o => o.EmailOtpId == emailOtpId && o.ConsumedAt == null)
+            .ExecuteUpdateAsync(s => s.SetProperty(o => o.ConsumedAt, now), ct);
+
+        if (consumed == 0)
+        {
+            throw new BadRequestException("otp_already_used", "Mã xác thực đã được sử dụng. Hãy yêu cầu mã mới.");
+        }
+    }
+}

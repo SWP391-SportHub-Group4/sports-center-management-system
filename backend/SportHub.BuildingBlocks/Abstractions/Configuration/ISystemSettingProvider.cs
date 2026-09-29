@@ -17,4 +17,13 @@ public static class SystemSettingKeys
     /// nên đây là cấu hình, không phải ngưỡng đã chốt.
     /// </summary>
     public const string PackageExpiringReminderDays = "package_expiring_reminder_days";
+
+    /// <summary>BR-119 — đánh giá ngưỡng hoàn vốn trước buổi đầu bao nhiêu ngày.</summary>
+    public const string ClassThresholdDaysBeforeStart = "class.threshold_days_before_start";
+
+    /// <summary>BR-120 — Member có bao nhiêu giờ để trả lời khi lớp AtRisk.</summary>
+    public const string ClassThresholdResponseHours = "class.threshold_response_hours";
+
+    /// <summary>BR-115 — giữ chỗ/checkout tối đa bao nhiêu phút.</summary>
+    public const string HoldMinutes = "hold.minutes";
 }

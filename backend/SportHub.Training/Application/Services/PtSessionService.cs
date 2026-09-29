@@ -1,13 +1,16 @@
 using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 using SportHub.BuildingBlocks.Abstractions.Audit;
+using SportHub.BuildingBlocks.Abstractions.Identity;
 using SportHub.BuildingBlocks.Abstractions.Notifications;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
+using SportHub.BuildingBlocks.Abstractions.Scheduling;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.BuildingBlocks.SharedKernel.Time;
 using SportHub.Training.Application.Commands;
 using SportHub.Training.Application.DTOs;
 using SportHub.Training.Application.Interfaces;
+using SportHub.Scheduling.Domain.Entities;
 using SportHub.Training.Domain.Rules;
 
 namespace SportHub.Training.Application.Services;
@@ -27,6 +30,9 @@ public sealed class PtSessionService(
     ISportHubDbContext db,
     IAuditWriter audit,
     INotificationWriter notifications,
+    IOccupancyService occupancy,
+    ISportCatalogReader catalog,
+    ICoachSpecialtyReader specialties,
     IClock clock) : IPtSessionService
 {
     public const int DefaultPageSize = 50;
@@ -131,6 +137,11 @@ public sealed class PtSessionService(
         await EnsureNoConflictAsync(
             entitlement.CoachId, entitlement.MemberId, startAtUtc, endAtUtc, excludeSessionId: null, ct);
 
+        if (request.RoomId is int requestedRoom)
+        {
+            await ValidateRoomAsync(requestedRoom, entitlement.CoachId, startAtUtc, endAtUtc, ct);
+        }
+
         entitlement.ReservedSessions += 1;
         entitlement.Version += 1;
 
@@ -140,6 +151,7 @@ public sealed class PtSessionService(
             EntitlementId = entitlement.EntitlementId,
             MemberId = entitlement.MemberId,
             CoachId = entitlement.CoachId,
+            RoomId = request.RoomId,
             StartAtUtc = startAtUtc,
             EndAtUtc = endAtUtc,
             Status = PtSessionStatus.Scheduled,
@@ -149,6 +161,9 @@ public sealed class PtSessionService(
         };
 
         db.Set<PtSession>().Add(session);
+
+        // Coach luôn bị chiếm lịch (bất kể lớp/thuê sân/PT khác); phòng chỉ khi buổi có phòng. DB chặn trùng thật.
+        await ReserveOccupancyAsync(session, ct);
 
         audit.Write(new AuditEntry(
             managerId, "CREATE_PT_SESSION", nameof(PtSession), session.SessionId.ToString(),
@@ -176,7 +191,8 @@ public sealed class PtSessionService(
         var timing = PtSessionRules.ClassifyTiming(clock.UtcNow, preview.StartAtUtc);
 
         return await ApplyRescheduleAsync(
-            sessionId, timing, request.NewStartAtUtc, request.Reason, managerId, "RESCHEDULE_PT_SESSION", ct);
+            sessionId, timing, request.NewStartAtUtc, request.Reason, managerId, "RESCHEDULE_PT_SESSION", ct,
+            newRoomId: request.RoomId);
     }
 
     /// <summary>Dùng chung cho Manager cancel trực tiếp và duyệt PtSessionChangeRequest loại Cancel.</summary>
@@ -230,6 +246,8 @@ public sealed class PtSessionService(
         session.CancellationReason = reason.Trim();
         session.Version += 1;
 
+        await occupancy.ReleaseAsync(OccupancySources.PtSession, session.SessionId, ct);
+
         audit.Write(new AuditEntry(
             actorUserId, auditAction, nameof(PtSession), sessionId.ToString(),
             OldValue: "{\"status\":\"Scheduled\"}",
@@ -260,7 +278,8 @@ public sealed class PtSessionService(
         Guid actorUserId,
         string auditAction,
         CancellationToken ct,
-        bool manageTransaction = true)
+        bool manageTransaction = true,
+        int? newRoomId = null)
     {
         if (!manageTransaction && db.Database.CurrentTransaction is null)
         {
@@ -307,12 +326,20 @@ public sealed class PtSessionService(
             }
         }
 
+        // Phòng của buổi thay thế: mặc định giữ phòng cũ; Manager có thể đổi phòng khi dời.
+        var replacementRoomId = newRoomId ?? session.RoomId;
+        if (replacementRoomId is int roomToValidate)
+        {
+            await ValidateRoomAsync(roomToValidate, entitlement.CoachId, newStartAtUtc, newEndAtUtc, ct);
+        }
+
         var replacement = new PtSession
         {
             SessionId = Guid.NewGuid(),
             EntitlementId = entitlement.EntitlementId,
             MemberId = entitlement.MemberId,
             CoachId = entitlement.CoachId,
+            RoomId = replacementRoomId,
             StartAtUtc = newStartAtUtc,
             EndAtUtc = newEndAtUtc,
             Status = PtSessionStatus.Scheduled,
@@ -347,6 +374,10 @@ public sealed class PtSessionService(
 
         var oldStartAtUtc = session.StartAtUtc;
         session.Version += 1;
+
+        // Nhả lịch cũ rồi chiếm lịch mới (buổi dời có thể chồng chính khung cũ). Xung đột thì exception làm rollback cả thao tác.
+        await occupancy.ReleaseAsync(OccupancySources.PtSession, session.SessionId, ct);
+        await ReserveOccupancyAsync(replacement, ct);
 
         audit.Write(new AuditEntry(
             actorUserId, auditAction, nameof(PtSession), sessionId.ToString(),
@@ -410,6 +441,8 @@ public sealed class PtSessionService(
         session.CompletedAt = clock.UtcNow;
         session.Version += 1;
 
+        await occupancy.ReleaseAsync(OccupancySources.PtSession, session.SessionId, ct);
+
         audit.Write(new AuditEntry(
             coachId, "COMPLETE_PT_SESSION", nameof(PtSession), sessionId.ToString(),
             OldValue: "{\"status\":\"Scheduled\"}",
@@ -462,6 +495,8 @@ public sealed class PtSessionService(
         session.CancellationReason = string.IsNullOrWhiteSpace(request.Reason) ? null : request.Reason.Trim();
         session.Version += 1;
 
+        await occupancy.ReleaseAsync(OccupancySources.PtSession, session.SessionId, ct);
+
         audit.Write(new AuditEntry(
             coachId, "NO_SHOW_PT_SESSION", nameof(PtSession), sessionId.ToString(),
             OldValue: "{\"status\":\"Scheduled\"}",
@@ -471,6 +506,58 @@ public sealed class PtSessionService(
         await transaction.CommitAsync(ct);
 
         return await GetAsync(sessionId, ct);
+    }
+
+    // ---- Chiếm chỗ phòng/coach ----
+
+    /// <summary>
+    /// Buổi PT chiếm coach luôn và phòng khi có phòng (nguồn PtSession). Chồng lịch với lớp, thuê sân, khóa phòng hay PT khác
+    /// → 409 occupancy_conflict kèm danh sách; DB exclusion constraint là chốt chặn thật khi hai request đua nhau.
+    /// </summary>
+    private async Task ReserveOccupancyAsync(PtSession session, CancellationToken ct)
+    {
+        var result = await occupancy.ReserveAsync(new OccupancyRequest(
+            OccupancySources.PtSession, session.SessionId, session.RoomId, session.CoachId,
+            session.StartAtUtc, session.EndAtUtc), ct);
+
+        if (!result.Succeeded)
+        {
+            throw new OccupancyConflictException(result.Conflicts);
+        }
+    }
+
+    /// <summary>Phòng phải active, chơi được ít nhất một môn 1-1 (OneOnOne) mà Coach dạy, và đang mở cửa trong cả buổi.</summary>
+    private async Task ValidateRoomAsync(int roomId, Guid coachId, DateTime startAtUtc, DateTime endAtUtc, CancellationToken ct)
+    {
+        var room = await catalog.GetRoomAsync(roomId, ct)
+                   ?? throw new BadRequestException("room_not_found", "Phòng không tồn tại.");
+
+        if (!room.IsActive)
+        {
+            throw new BadRequestException("room_inactive", "Phòng đã ngừng hoạt động.");
+        }
+
+        var compatible = false;
+        foreach (var sportId in await specialties.GetSportIdsAsync(coachId, ct))
+        {
+            var sport = await catalog.GetSportAsync(sportId, ct);
+
+            if (sport is { IsActive: true, OperationType: "OneOnOne" } && await catalog.IsRoomCompatibleAsync(roomId, sportId, ct))
+            {
+                compatible = true;
+                break;
+            }
+        }
+
+        if (!compatible)
+        {
+            throw new BadRequestException("room_not_compatible", "Loại phòng không dùng được cho buổi PT 1-1 của Coach này (BR-108).");
+        }
+
+        if (!await catalog.IsRoomOpenAsync(roomId, startAtUtc, endAtUtc, ct))
+        {
+            throw new BadRequestException("session_outside_opening_hours", "Buổi PT nằm ngoài giờ mở cửa của phòng (BR-109).");
+        }
     }
 
     // ---- Nội bộ, dùng chung với PtSessionChangeRequestService ----
@@ -628,7 +715,7 @@ public sealed class PtSessionService(
         }
     }
 
-    private static Expression<Func<PtSession, PtSessionResponse>> Projection()
+    private Expression<Func<PtSession, PtSessionResponse>> Projection()
         => s => new PtSessionResponse(
             s.SessionId,
             s.EntitlementId,
@@ -643,5 +730,7 @@ public sealed class PtSessionService(
             s.RescheduledFromSessionId,
             s.CompletedAt,
             s.CancelledAt,
-            s.CancellationReason);
+            s.CancellationReason,
+            s.RoomId,
+            s.RoomId == null ? null : db.Set<Room>().Where(r => r.RoomId == s.RoomId).Select(r => r.Name).FirstOrDefault());
 }

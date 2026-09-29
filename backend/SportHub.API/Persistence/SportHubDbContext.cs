@@ -12,6 +12,8 @@ using SportHub.Membership;
 using SportHub.Membership.Domain.Entities;
 using SportHub.Payment.Domain.Entities;
 using SportHub.Scheduling;
+using SportHub.Scheduling.Catalog.Domain;
+using SportHub.Scheduling.Occupancy.Domain;
 using SportHub.Scheduling.Domain.Entities;
 using SportHub.Training;
 using SportHub.Training.Domain.Entities;
@@ -32,6 +34,8 @@ public class SportHubDbContext : DbContext, ISportHubDbContext
     public DbSet<EmailOtp> EmailOtps => Set<EmailOtp>();
     public DbSet<GoogleOnboardingTicket> GoogleOnboardingTickets => Set<GoogleOnboardingTicket>();
     public DbSet<CoachProfile> CoachProfiles => Set<CoachProfile>();
+    public DbSet<ExternalCoachProfile> ExternalCoachProfiles => Set<ExternalCoachProfile>();
+    public DbSet<UserSportSpecialty> UserSportSpecialties => Set<UserSportSpecialty>();
 
     public DbSet<MembershipPackage> MembershipPackages => Set<MembershipPackage>();
     public DbSet<MemberPackage> MemberPackages => Set<MemberPackage>();
@@ -40,8 +44,17 @@ public class SportHubDbContext : DbContext, ISportHubDbContext
     public DbSet<CoachMemberRelationship> CoachMemberRelationships => Set<CoachMemberRelationship>();
 
     public DbSet<Room> Rooms => Set<Room>();
+    public DbSet<RoomOccupancy> RoomOccupancies => Set<RoomOccupancy>();
+    public DbSet<CoachOccupancy> CoachOccupancies => Set<CoachOccupancy>();
+    public DbSet<Sport> Sports => Set<Sport>();
+    public DbSet<RoomType> RoomTypes => Set<RoomType>();
+    public DbSet<SportRoomType> SportRoomTypes => Set<SportRoomType>();
+    public DbSet<RoomOpeningHour> RoomOpeningHours => Set<RoomOpeningHour>();
+    public DbSet<RoomBlock> RoomBlocks => Set<RoomBlock>();
+    public DbSet<CourtRate> CourtRates => Set<CourtRate>();
     public DbSet<Class> Classes => Set<Class>();
-    public DbSet<ClassRecurrence> ClassRecurrences => Set<ClassRecurrence>();
+    public DbSet<ClassScheduleRule> ClassScheduleRules => Set<ClassScheduleRule>();
+    public DbSet<SeatHold> SeatHolds => Set<SeatHold>();
     public DbSet<ClassSession> ClassSessions => Set<ClassSession>();
     public DbSet<Enrollment> Enrollments => Set<Enrollment>();
     public DbSet<Attendance> Attendances => Set<Attendance>();
@@ -79,6 +92,7 @@ public class SportHubDbContext : DbContext, ISportHubDbContext
         base.OnModelCreating(modelBuilder);
 
         modelBuilder.HasPostgresExtension("citext");
+        modelBuilder.HasPostgresExtension("btree_gist"); // exclusion constraint chống trùng lịch phòng/coach
 
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(IdentityModuleMarker).Assembly);
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(MembershipModuleMarker).Assembly);
@@ -89,6 +103,8 @@ public class SportHubDbContext : DbContext, ISportHubDbContext
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(Notification.NotificationModuleMarker).Assembly);
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AuditModuleMarker).Assembly);
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AdministrationModuleMarker).Assembly);
+
+        CrossModuleRelationships.Configure(modelBuilder);
 
         modelBuilder.HasSequence<long>(Payment.Infrastructure.InvoiceNumberGenerator.SequenceName)
             .StartsAt(1)

@@ -26,7 +26,7 @@ namespace SportHub.Training.Api;
 [ProducesResponseType(StatusCodes.Status403Forbidden)]
 [ProducesResponseType(StatusCodes.Status404NotFound)]
 [ProducesResponseType(StatusCodes.Status409Conflict)]
-public class WorkoutController(IWorkoutService workouts, ICoachProfileReader coachProfiles) : ControllerBase
+public class WorkoutController(IWorkoutService workouts, PersonalTrainerGuard personalTrainers) : ControllerBase
 {
     /// <summary>BR-25 — hội viên XEM kế hoạch của mình. Không có endpoint ghi cho hội viên.</summary>
     [Authorize(Policy = SportHubPolicies.Member)]
@@ -58,7 +58,7 @@ public class WorkoutController(IWorkoutService workouts, ICoachProfileReader coa
         CancellationToken ct = default)
     {
         var coachId = User.RequireUserId();
-        await coachProfiles.RequireCategoryAsync(coachId, CoachCategory.PersonalTrainer, ct);
+        await personalTrainers.RequireAsync(coachId, ct);
 
         return Ok(await workouts.GetPlansAsync(memberId, coachId, page, pageSize, ct));
     }
@@ -69,7 +69,7 @@ public class WorkoutController(IWorkoutService workouts, ICoachProfileReader coa
     public async Task<IActionResult> CreatePlan([FromBody] CreateWorkoutPlanRequest request, CancellationToken ct)
     {
         var coachId = User.RequireUserId();
-        await coachProfiles.RequireCategoryAsync(coachId, CoachCategory.PersonalTrainer, ct);
+        await personalTrainers.RequireAsync(coachId, ct);
 
         return StatusCode(StatusCodes.Status201Created, await workouts.CreatePlanAsync(request, coachId, ct));
     }
@@ -81,7 +81,7 @@ public class WorkoutController(IWorkoutService workouts, ICoachProfileReader coa
         Guid planId, [FromBody] UpdateWorkoutPlanRequest request, CancellationToken ct)
     {
         var coachId = User.RequireUserId();
-        await coachProfiles.RequireCategoryAsync(coachId, CoachCategory.PersonalTrainer, ct);
+        await personalTrainers.RequireAsync(coachId, ct);
         return Ok(await workouts.UpdatePlanAsync(planId, request, coachId, ct));
     }
 
@@ -91,7 +91,7 @@ public class WorkoutController(IWorkoutService workouts, ICoachProfileReader coa
     public async Task<IActionResult> ActivatePlan(Guid planId, CancellationToken ct)
     {
         var coachId = User.RequireUserId();
-        await coachProfiles.RequireCategoryAsync(coachId, CoachCategory.PersonalTrainer, ct);
+        await personalTrainers.RequireAsync(coachId, ct);
         return Ok(await workouts.ActivatePlanAsync(planId, coachId, ct));
     }
 
@@ -101,7 +101,7 @@ public class WorkoutController(IWorkoutService workouts, ICoachProfileReader coa
     public async Task<IActionResult> ArchivePlan(Guid planId, CancellationToken ct)
     {
         var coachId = User.RequireUserId();
-        await coachProfiles.RequireCategoryAsync(coachId, CoachCategory.PersonalTrainer, ct);
+        await personalTrainers.RequireAsync(coachId, ct);
         return Ok(await workouts.ArchivePlanAsync(planId, coachId, ct));
     }
 
@@ -115,7 +115,7 @@ public class WorkoutController(IWorkoutService workouts, ICoachProfileReader coa
         CancellationToken ct = default)
     {
         var coachId = User.RequireUserId();
-        await coachProfiles.RequireCategoryAsync(coachId, CoachCategory.PersonalTrainer, ct);
+        await personalTrainers.RequireAsync(coachId, ct);
 
         return Ok(await workouts.GetResultsAsync(memberId, coachId, null, page, pageSize, ct));
     }
@@ -126,7 +126,7 @@ public class WorkoutController(IWorkoutService workouts, ICoachProfileReader coa
     public async Task<IActionResult> SaveResult([FromBody] SaveWorkoutResultRequest request, CancellationToken ct)
     {
         var coachId = User.RequireUserId();
-        await coachProfiles.RequireCategoryAsync(coachId, CoachCategory.PersonalTrainer, ct);
+        await personalTrainers.RequireAsync(coachId, ct);
 
         return Ok(await workouts.SaveResultAsync(request, coachId, ct));
     }
@@ -138,7 +138,7 @@ public class WorkoutController(IWorkoutService workouts, ICoachProfileReader coa
         Guid ptSessionId, [FromBody] SaveWorkoutResultRequest request, CancellationToken ct)
     {
         var coachId = User.RequireUserId();
-        await coachProfiles.RequireCategoryAsync(coachId, CoachCategory.PersonalTrainer, ct);
+        await personalTrainers.RequireAsync(coachId, ct);
         request.PtSessionId = ptSessionId;
         return Ok(await workouts.SaveResultAsync(request, coachId, ct));
     }
@@ -155,7 +155,7 @@ public class WorkoutController(IWorkoutService workouts, ICoachProfileReader coa
         CancellationToken ct = default)
     {
         var coachId = User.RequireUserId();
-        await coachProfiles.RequireCategoryAsync(coachId, CoachCategory.PersonalTrainer, ct);
+        await personalTrainers.RequireAsync(coachId, ct);
         return Ok(await workouts.GetProgressAsync(memberId, coachId, fromUtc, toUtc, page, pageSize, ct));
     }
 
@@ -186,7 +186,7 @@ public class WorkoutController(IWorkoutService workouts, ICoachProfileReader coa
         CancellationToken ct = default)
     {
         var coachId = User.RequireUserId();
-        await coachProfiles.RequireCategoryAsync(coachId, CoachCategory.PersonalTrainer, ct);
+        await personalTrainers.RequireAsync(coachId, ct);
 
         var active = await relationships.SearchAsync(
             coachId, memberId, activeOnly: true, page: 1, pageSize: 1, ct: ct);

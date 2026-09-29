@@ -9,6 +9,7 @@ using SportHub.BuildingBlocks.Api;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.Identity.Application.Interfaces;
 using SportHub.Identity.Domain.Enums;
+using SportHub.Training.Application.Services;
 using SportHub.Training.Domain.Entities;
 using SportHub.Training.Domain.Enums;
 
@@ -30,7 +31,7 @@ public class AiController(
     IWorkoutRecommendationService recommendations,
     IAiChatService chatService,
     ISportHubDbContext db,
-    ICoachProfileReader coachProfiles) : ControllerBase
+    PersonalTrainerGuard personalTrainers) : ControllerBase
 {
     [Authorize(Policy = SportHubPolicies.Coach)]
     [HttpPost("workout-suggestions/{memberId:guid}")]
@@ -42,11 +43,7 @@ public class AiController(
 
         // ClassInstructor phải bị chặn trước khi hệ thống kiểm tra
         // quan hệ hoặc đọc dữ liệu của Member.
-        await coachProfiles.RequireCategoryAsync(
-            coachId,
-            CoachCategory.PersonalTrainer,
-            ct);
-
+        await personalTrainers.RequireAsync(coachId, ct);
         var hasRelationship =
             await db.Set<CoachMemberRelationship>()
                 .AnyAsync(
@@ -107,11 +104,7 @@ public class AiController(
 
             var coachId = User.RequireUserId();
 
-            await coachProfiles.RequireCategoryAsync(
-                coachId,
-                CoachCategory.PersonalTrainer,
-                ct);
-
+            await personalTrainers.RequireAsync(coachId, ct);
             query = query.Where(log => log.UserId == coachId);
         }
 

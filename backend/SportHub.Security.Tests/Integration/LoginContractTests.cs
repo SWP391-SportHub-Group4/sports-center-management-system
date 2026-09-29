@@ -13,7 +13,7 @@ namespace SportHub.Security.Tests.Integration;
 [Collection(nameof(SportHubApiCollection))]
 public class LoginContractTests(SportHubApiFactory factory)
 {
-    private const string ValidPassword = "CorrectHorse1";
+    private const string ValidPassword = "CorrectHorse1!";
 
     private HttpClient ClientFor(string ip)
     {
@@ -153,15 +153,24 @@ public class LoginContractTests(SportHubApiFactory factory)
     }
 
     [Fact]
-    public async Task Password_longer_than_72_bytes_returns_400_not_500()
+    public async Task Password_over_200_characters_returns_400_not_500()
     {
-        var tooLong = new string('a', 73);
-        Assert.Equal(73, Encoding.UTF8.GetByteCount(tooLong));
+        // BR-60: hash không còn giới hạn 72 byte; chỉ chặn input khổng lồ ở DTO (200 ký tự).
+        var tooLong = new string('a', 201);
 
         var response = await ClientFor("10.20.0.6")
             .PostAsync("api/auth/login", Body("valid@example.com", tooLong));
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Password_longer_than_72_bytes_is_a_normal_401_for_wrong_password()
+    {
+        var response = await ClientFor("10.20.0.6")
+            .PostAsync("api/auth/login", Body("valid@example.com", new string('é', 60)));
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
     // --- Regression: Register khong duoc doi hanh vi ---

@@ -13,7 +13,7 @@ public sealed class CompleteGoogleOnboardingRequest
     [PhoneNumber]
     public string? Phone { get; set; }
 
-    [Required, MinLength(8), MaxPasswordBytes(72)]
+    [Required, MaxLength(200)] // chính sách 8–64 ký tự kiểm ở PasswordPolicy (service)
     public string Password { get; set; } = string.Empty;
 
     [Required]

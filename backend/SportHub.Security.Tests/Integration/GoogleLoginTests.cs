@@ -52,7 +52,7 @@ public class GoogleLoginTests(SportHubApiFactory factory)
         var token = (await JsonOf(pending)).GetProperty("onboardingToken").GetString()!;
         var complete = await client.PostAsync(
             "api/auth/google/onboarding",
-            JsonContent.Create(OnboardingBody(token, "MySecurePass1")));
+            JsonContent.Create(OnboardingBody(token, "MySecurePass1!")));
         Assert.Equal(HttpStatusCode.Created, complete.StatusCode);
 
         var again = await client.PostAsync("api/auth/google", GoogleBody(subject, email));
@@ -94,7 +94,7 @@ public class GoogleLoginTests(SportHubApiFactory factory)
         var client = ClientFor("10.40.0.3");
         var subject = Guid.NewGuid().ToString("N");
         var email = $"g-{subject}@example.com";
-        const string password = "UserChosenPass1";
+        const string password = "UserChosenPass1!";
 
         var pending = await client.PostAsync("api/auth/google", GoogleBody(subject, email));
         var onboardingToken = (await JsonOf(pending)).GetProperty("onboardingToken").GetString()!;
@@ -143,7 +143,7 @@ public class GoogleLoginTests(SportHubApiFactory factory)
 
         var response = await client.PostAsync(
             "api/auth/google/onboarding",
-            JsonContent.Create(OnboardingBody(onboardingToken, "MySecurePass1", confirmPassword: "OtherPass1")));
+            JsonContent.Create(OnboardingBody(onboardingToken, "MySecurePass1!", confirmPassword: "OtherPass1")));
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         var body = await response.Content.ReadAsStringAsync();
@@ -168,7 +168,7 @@ public class GoogleLoginTests(SportHubApiFactory factory)
 
         var invalid = await client.PostAsync(
             "api/auth/google/onboarding",
-            JsonContent.Create(OnboardingBody("not-a-real-token", "MySecurePass1")));
+            JsonContent.Create(OnboardingBody("not-a-real-token", "MySecurePass1!")));
         Assert.Equal(HttpStatusCode.Unauthorized, invalid.StatusCode);
         Assert.Contains("google_onboarding_token_invalid", await invalid.Content.ReadAsStringAsync());
 
@@ -182,7 +182,7 @@ public class GoogleLoginTests(SportHubApiFactory factory)
 
         var expired = await client.PostAsync(
             "api/auth/google/onboarding",
-            JsonContent.Create(OnboardingBody(onboardingToken, "MySecurePass1")));
+            JsonContent.Create(OnboardingBody(onboardingToken, "MySecurePass1!")));
         Assert.Equal((HttpStatusCode)410, expired.StatusCode);
         Assert.Contains("google_onboarding_token_expired", await expired.Content.ReadAsStringAsync());
 
@@ -197,7 +197,7 @@ public class GoogleLoginTests(SportHubApiFactory factory)
 
         var used = await client.PostAsync(
             "api/auth/google/onboarding",
-            JsonContent.Create(OnboardingBody(onboardingToken, "MySecurePass1")));
+            JsonContent.Create(OnboardingBody(onboardingToken, "MySecurePass1!")));
         Assert.Equal(HttpStatusCode.Conflict, used.StatusCode);
         Assert.Contains("google_onboarding_token_used", await used.Content.ReadAsStringAsync());
 
@@ -216,9 +216,9 @@ public class GoogleLoginTests(SportHubApiFactory factory)
         var pending = await client.PostAsync("api/auth/google", GoogleBody(subject, email));
         var onboardingToken = (await JsonOf(pending)).GetProperty("onboardingToken").GetString()!;
 
-        var body = JsonContent.Create(OnboardingBody(onboardingToken, "MySecurePass1"));
+        var body = JsonContent.Create(OnboardingBody(onboardingToken, "MySecurePass1!"));
         var first = client.PostAsync("api/auth/google/onboarding", body);
-        var second = client.PostAsync("api/auth/google/onboarding", JsonContent.Create(OnboardingBody(onboardingToken, "MySecurePass1")));
+        var second = client.PostAsync("api/auth/google/onboarding", JsonContent.Create(OnboardingBody(onboardingToken, "MySecurePass1!")));
         await Task.WhenAll(first, second);
 
         var statuses = new[] { first.Result.StatusCode, second.Result.StatusCode };
@@ -272,7 +272,7 @@ public class GoogleLoginTests(SportHubApiFactory factory)
 
         var response = await client.PostAsync(
             "api/auth/google/onboarding",
-            JsonContent.Create(OnboardingBody(onboardingToken, "MySecurePass1", phone: "0901111222")));
+            JsonContent.Create(OnboardingBody(onboardingToken, "MySecurePass1!", phone: "0901111222")));
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
         Assert.Contains("phone_already_exists", await response.Content.ReadAsStringAsync());
@@ -300,13 +300,13 @@ public class GoogleLoginTests(SportHubApiFactory factory)
 
         var oldAttempt = await client.PostAsync(
             "api/auth/google/onboarding",
-            JsonContent.Create(OnboardingBody(oldToken, "MySecurePass1")));
+            JsonContent.Create(OnboardingBody(oldToken, "MySecurePass1!")));
         Assert.Equal(HttpStatusCode.Conflict, oldAttempt.StatusCode);
         Assert.Contains("google_onboarding_token_used", await oldAttempt.Content.ReadAsStringAsync());
 
         var newAttempt = await client.PostAsync(
             "api/auth/google/onboarding",
-            JsonContent.Create(OnboardingBody(newToken, "MySecurePass1")));
+            JsonContent.Create(OnboardingBody(newToken, "MySecurePass1!")));
         Assert.Equal(HttpStatusCode.Created, newAttempt.StatusCode);
     }
 
@@ -325,15 +325,15 @@ public class GoogleLoginTests(SportHubApiFactory factory)
         var onboardingToken = JsonDocument.Parse(pendingBody).RootElement.GetProperty("onboardingToken").GetString()!;
         var complete = await client.PostAsync(
             "api/auth/google/onboarding",
-            JsonContent.Create(OnboardingBody(onboardingToken, "MySecurePass1")));
+            JsonContent.Create(OnboardingBody(onboardingToken, "MySecurePass1!")));
         var completeBody = await complete.Content.ReadAsStringAsync();
-        Assert.DoesNotContain("MySecurePass1", completeBody);
+        Assert.DoesNotContain("MySecurePass1!", completeBody);
         Assert.DoesNotContain("suggestedPassword", completeBody);
 
         while (factory.Logs.TryDequeue(out var logLine))
         {
             Assert.DoesNotContain(onboardingToken, logLine);
-            Assert.DoesNotContain("MySecurePass1", logLine);
+            Assert.DoesNotContain("MySecurePass1!", logLine);
         }
     }
 }

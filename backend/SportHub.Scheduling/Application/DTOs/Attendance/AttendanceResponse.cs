@@ -3,8 +3,8 @@ namespace SportHub.Scheduling.Application.DTOs;
 public sealed record AttendanceResponse(
     Guid AttendanceId,
     Guid EnrollmentId,
-    Guid MemberId,
-    string MemberName,
+    Guid SessionId,
     string Status,
-    DateTime? CheckInTime,
-    Guid? CheckedInByUserId);
+    Guid RecordedByUserId,
+    DateTime RecordedAt,
+    DateTime? LastModifiedAt);

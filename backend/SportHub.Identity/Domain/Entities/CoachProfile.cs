@@ -1,14 +1,8 @@
-using SportHub.Identity.Domain.Enums;
-
 namespace SportHub.Identity.Domain.Entities;
 
 /// <summary>
-/// Phân loại nghiệp vụ của tài khoản role Coach (BR-96) — không nhân bản họ tên/số điện
-/// thoại (UserProfile) hay mật khẩu (UserCredential), và không lưu payroll/hoa hồng/hợp đồng.
-///
-/// Vòng đời khi đổi role (chốt 28/09/2026 (2), SSOT §7): giữ record làm lịch sử, không cascade
-/// delete, không field trạng thái riêng — UserAccount.RoleId hiện tại quyết định hiệu lực.
-/// Đổi role trở lại Coach phải chọn CoachCategory mới tường minh (không tự khôi phục giá trị cũ).
+/// Hồ sơ mở rộng của tài khoản role Coach nội bộ. Chuyên môn theo môn nằm ở <see cref="UserSportSpecialty"/>
+/// (thay CoachCategory cũ); ở đây chỉ còn mô tả. Vòng đời khi đổi role: giữ record làm lịch sử, RoleId hiện tại quyết định hiệu lực.
 /// </summary>
 public class CoachProfile
 {
@@ -16,5 +10,5 @@ public class CoachProfile
 
     public UserAccount? UserAccount { get; set; }
 
-    public CoachCategory CoachCategory { get; set; }
+    public string? Bio { get; set; }
 }

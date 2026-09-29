@@ -9,4 +9,7 @@ public sealed class CreatePtSessionRequest
 
     [Required]
     public DateTime StartAtUtc { get; set; }
+
+    /// <summary>Phòng tập (tùy chọn). Nếu có: phòng phải active, chơi được môn 1-1 của Coach, đang mở cửa và không bị chiếm.</summary>
+    public int? RoomId { get; set; }
 }

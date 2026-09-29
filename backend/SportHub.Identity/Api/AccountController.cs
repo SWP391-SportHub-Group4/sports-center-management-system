@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SportHub.BuildingBlocks.Api;
+using SportHub.Identity.Application.Commands;
 using SportHub.Identity.Application.Interfaces;
 using SportHub.Identity.Application.Services;
 
@@ -20,12 +21,8 @@ public class AccountController(IAccountService accounts) : ControllerBase
     public async Task<IActionResult> UpdateProfile([FromBody] UpdateMyProfileRequest request, CancellationToken ct)
         => Ok(await accounts.UpdateProfileAsync(User.RequireUserId(), request, ct));
 
-    /// <summary>BR-60 — đặt mật khẩu lần đầu (tài khoản Google-only) hoặc đổi mật khẩu.</summary>
+    /// <summary>BR-60/104 — đặt mật khẩu lần đầu (Google-only) hoặc đổi mật khẩu; trả JWT mới cho phiên hiện tại.</summary>
     [HttpPost("password")]
-    public async Task<IActionResult> SetPassword([FromBody] SetPasswordRequest request, CancellationToken ct)
-    {
-        await accounts.SetPasswordAsync(User.RequireUserId(), request, ct);
-
-        return NoContent();
-    }
+    public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request, CancellationToken ct)
+        => Ok(await accounts.ChangePasswordAsync(User.RequireUserId(), request, ct));
 }

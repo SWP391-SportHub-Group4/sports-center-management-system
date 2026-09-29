@@ -14,7 +14,7 @@ public sealed class WorkoutAndHomeworkWorkflowTests(TrainingApiFactory factory)
     public async Task Completed_pt_session_accepts_result_and_appears_in_both_progress_timelines()
     {
         var manager = await factory.SeedUserAsync(UserRole.CenterManager);
-        var coach = await factory.SeedCoachAsync(CoachCategory.PersonalTrainer);
+        var coach = await factory.SeedCoachAsync(CoachKind.PersonalTrainer);
         var member = await factory.SeedUserAsync(UserRole.Member);
         await CreateRelationshipAsync(manager.UserId, coach.UserId, member.UserId);
         var entitlement = await factory.SeedPtEntitlementAsync(member.UserId, coach.UserId);
@@ -23,7 +23,7 @@ public sealed class WorkoutAndHomeworkWorkflowTests(TrainingApiFactory factory)
         var createSession = await managerClient.PostAsJsonAsync("api/manager/pt-sessions",
             new CreatePtSessionRequest { EntitlementId = entitlement.EntitlementId, StartAtUtc = start });
         Assert.Equal(HttpStatusCode.Created, createSession.StatusCode);
-        var session = (await createSession.Content.ReadFromJsonAsync<PtSessionResponse>())!;
+        var session = (await createSession.Content.ReadApiJsonAsync<PtSessionResponse>())!;
 
         var coachClient = factory.CreateApiClient(coach.UserId, UserRole.Coach);
         var complete = await coachClient.PostAsync(
@@ -38,12 +38,12 @@ public sealed class WorkoutAndHomeworkWorkflowTests(TrainingApiFactory factory)
         Assert.Equal(HttpStatusCode.OK, saveResult.StatusCode);
 
         var coachProgress = await coachClient.GetFromJsonAsync<ProgressTimelineResponse>(
-            $"api/coaches/me/progress?memberId={member.UserId}&page=1&pageSize=10");
+            $"api/coaches/me/progress?memberId={member.UserId}&page=1&pageSize=10", ApiJson.Options);
         Assert.NotNull(coachProgress);
         Assert.Equal("Tiến bộ ổn định", Assert.Single(coachProgress!.Items).CoachComment);
 
         var memberProgress = await factory.CreateApiClient(member.UserId, UserRole.Member)
-            .GetFromJsonAsync<ProgressTimelineResponse>("api/members/me/progress?page=1&pageSize=10");
+            .GetFromJsonAsync<ProgressTimelineResponse>("api/members/me/progress?page=1&pageSize=10", ApiJson.Options);
         Assert.NotNull(memberProgress);
         Assert.Equal(session.SessionId, Assert.Single(memberProgress!.Items).PtSessionId);
     }
@@ -52,14 +52,14 @@ public sealed class WorkoutAndHomeworkWorkflowTests(TrainingApiFactory factory)
     public async Task Pt_can_update_activate_and_archive_own_plan()
     {
         var manager = await factory.SeedUserAsync(UserRole.CenterManager);
-        var coach = await factory.SeedCoachAsync(CoachCategory.PersonalTrainer);
+        var coach = await factory.SeedCoachAsync(CoachKind.PersonalTrainer);
         var member = await factory.SeedUserAsync(UserRole.Member);
         await CreateRelationshipAsync(manager.UserId, coach.UserId, member.UserId);
         var client = factory.CreateApiClient(coach.UserId, UserRole.Coach);
 
         var create = await client.PostAsJsonAsync("api/workout-plans", Plan(member.UserId));
         Assert.Equal(HttpStatusCode.Created, create.StatusCode);
-        var plan = (await create.Content.ReadFromJsonAsync<WorkoutPlanResponse>())!;
+        var plan = (await create.Content.ReadApiJsonAsync<WorkoutPlanResponse>())!;
         Assert.Equal(WorkoutPlanStatus.Draft, plan.Status);
 
         var update = await client.PutAsJsonAsync($"api/workout-plans/{plan.PlanId}", new UpdateWorkoutPlanRequest
@@ -68,17 +68,17 @@ public sealed class WorkoutAndHomeworkWorkflowTests(TrainingApiFactory factory)
             Items = [new SaveWorkoutPlanItemRequest { Exercise = "Deadlift", Sets = 4, Reps = 6 }]
         });
         Assert.Equal(HttpStatusCode.OK, update.StatusCode);
-        plan = (await update.Content.ReadFromJsonAsync<WorkoutPlanResponse>())!;
+        plan = (await update.Content.ReadApiJsonAsync<WorkoutPlanResponse>())!;
         Assert.Equal("Deadlift", Assert.Single(plan.Items).Exercise);
 
         var activate = await client.PostAsync($"api/workout-plans/{plan.PlanId}/activate", null);
         Assert.Equal(HttpStatusCode.OK, activate.StatusCode);
-        plan = (await activate.Content.ReadFromJsonAsync<WorkoutPlanResponse>())!;
+        plan = (await activate.Content.ReadApiJsonAsync<WorkoutPlanResponse>())!;
         Assert.Equal(WorkoutPlanStatus.Active, plan.Status);
 
         var archive = await client.PostAsync($"api/workout-plans/{plan.PlanId}/archive", null);
         Assert.Equal(HttpStatusCode.OK, archive.StatusCode);
-        plan = (await archive.Content.ReadFromJsonAsync<WorkoutPlanResponse>())!;
+        plan = (await archive.Content.ReadApiJsonAsync<WorkoutPlanResponse>())!;
         Assert.Equal(WorkoutPlanStatus.Archived, plan.Status);
     }
 
@@ -86,7 +86,7 @@ public sealed class WorkoutAndHomeworkWorkflowTests(TrainingApiFactory factory)
     public async Task Homework_has_separated_pt_and_member_write_boundaries()
     {
         var manager = await factory.SeedUserAsync(UserRole.CenterManager);
-        var coach = await factory.SeedCoachAsync(CoachCategory.PersonalTrainer);
+        var coach = await factory.SeedCoachAsync(CoachKind.PersonalTrainer);
         var member = await factory.SeedUserAsync(UserRole.Member);
         await CreateRelationshipAsync(manager.UserId, coach.UserId, member.UserId);
         var coachClient = factory.CreateApiClient(coach.UserId, UserRole.Coach);
@@ -100,7 +100,7 @@ public sealed class WorkoutAndHomeworkWorkflowTests(TrainingApiFactory factory)
             Items = [new SaveHomeworkItemRequest { Exercise = "Plank", Sets = 3, Reps = 30 }]
         });
         Assert.Equal(HttpStatusCode.Created, create.StatusCode);
-        var homework = (await create.Content.ReadFromJsonAsync<HomeworkResponse>())!;
+        var homework = (await create.Content.ReadApiJsonAsync<HomeworkResponse>())!;
         Assert.Equal(HomeworkAssignmentStatus.Assigned, homework.Status);
 
         var memberClient = factory.CreateApiClient(member.UserId, UserRole.Member);
@@ -113,7 +113,7 @@ public sealed class WorkoutAndHomeworkWorkflowTests(TrainingApiFactory factory)
                 Version = homework.Version
             });
         Assert.Equal(HttpStatusCode.OK, complete.StatusCode);
-        homework = (await complete.Content.ReadFromJsonAsync<HomeworkResponse>())!;
+        homework = (await complete.Content.ReadApiJsonAsync<HomeworkResponse>())!;
         Assert.Equal("Giữ đúng kỹ thuật", homework.CoachNote);
         Assert.Equal("Đã hoàn thành", homework.MemberFeedback);
 
@@ -121,7 +121,7 @@ public sealed class WorkoutAndHomeworkWorkflowTests(TrainingApiFactory factory)
             $"api/coaches/me/homework/{homework.AssignmentId}/review",
             new ReviewHomeworkRequest { Version = homework.Version });
         Assert.Equal(HttpStatusCode.OK, review.StatusCode);
-        homework = (await review.Content.ReadFromJsonAsync<HomeworkResponse>())!;
+        homework = (await review.Content.ReadApiJsonAsync<HomeworkResponse>())!;
         Assert.Equal(HomeworkAssignmentStatus.Reviewed, homework.Status);
         Assert.NotNull(homework.ReviewedAt);
     }
@@ -129,7 +129,7 @@ public sealed class WorkoutAndHomeworkWorkflowTests(TrainingApiFactory factory)
     [Fact]
     public async Task Class_instructor_cannot_use_homework_api()
     {
-        var coach = await factory.SeedCoachAsync(CoachCategory.ClassInstructor);
+        var coach = await factory.SeedCoachAsync(CoachKind.ClassInstructor);
         var member = await factory.SeedUserAsync(UserRole.Member);
         var client = factory.CreateApiClient(coach.UserId, UserRole.Coach);
 
@@ -148,7 +148,7 @@ public sealed class WorkoutAndHomeworkWorkflowTests(TrainingApiFactory factory)
     public async Task Member_cannot_update_another_members_homework()
     {
         var manager = await factory.SeedUserAsync(UserRole.CenterManager);
-        var coach = await factory.SeedCoachAsync(CoachCategory.PersonalTrainer);
+        var coach = await factory.SeedCoachAsync(CoachKind.PersonalTrainer);
         var owner = await factory.SeedUserAsync(UserRole.Member);
         var stranger = await factory.SeedUserAsync(UserRole.Member);
         await CreateRelationshipAsync(manager.UserId, coach.UserId, owner.UserId);
@@ -158,7 +158,7 @@ public sealed class WorkoutAndHomeworkWorkflowTests(TrainingApiFactory factory)
             MemberId = owner.UserId, Title = "Bài riêng", DueAt = DateTime.UtcNow.AddDays(1),
             Items = [new SaveHomeworkItemRequest { Exercise = "Squat", Sets = 3, Reps = 10 }]
         });
-        var homework = (await created.Content.ReadFromJsonAsync<HomeworkResponse>())!;
+        var homework = (await created.Content.ReadApiJsonAsync<HomeworkResponse>())!;
 
         var response = await factory.CreateApiClient(stranger.UserId, UserRole.Member).PatchAsJsonAsync(
             $"api/members/me/homework/{homework.AssignmentId}",

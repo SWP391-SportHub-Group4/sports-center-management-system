@@ -26,7 +26,6 @@ public sealed class UserAccountRepository(ISportHubDbContext db) : IUserAccountR
             .Include(u => u.Credential)
             .Include(u => u.Role)
             .Include(u => u.Profile)
-            .Include(u => u.CoachProfile) // BR-96 — login response trả CoachCategory (mới 28/09/2026)
             .SingleOrDefaultAsync(u => u.Email == email, cancellationToken);
 
     // Chỉ hỏi DB đúng một câu bool, KHÔNG Include và không tải credential/profile:
@@ -35,6 +34,14 @@ public sealed class UserAccountRepository(ISportHubDbContext db) : IUserAccountR
     public Task<bool> IsActiveAsync(Guid userId, CancellationToken cancellationToken = default)
         => db.Set<UserAccount>()
             .AnyAsync(u => u.UserId == userId && u.Status == UserStatus.Active, cancellationToken);
+
+    // Một câu SELECT projection cho middleware JWT: trạng thái + role + security stamp hiện tại.
+    public Task<UserAuthState?> GetAuthStateAsync(Guid userId, CancellationToken cancellationToken = default)
+        => db.Set<UserAccount>()
+            .AsNoTracking()
+            .Where(u => u.UserId == userId)
+            .Select(u => new UserAuthState(u.Status, u.Role!.RoleName.ToString(), u.SecurityStamp))
+            .SingleOrDefaultAsync(cancellationToken)!;
 
     public async Task AddAndSaveAsync(UserAccount account, CancellationToken cancellationToken = default)
     {

@@ -21,6 +21,9 @@ public class PtSession
 
     public Guid CoachId { get; set; } // Coach thực tế của session — giữ nguyên lịch sử khi đổi Coach
 
+    /// <summary>Phòng tập (tùy chọn). Có phòng thì chiếm cả room occupancy (kiểm giờ mở cửa/tương thích); coach occupancy luôn có. Cross-module: chỉ scalar.</summary>
+    public int? RoomId { get; set; }
+
     public UserAccount? Coach { get; set; }
 
     public DateTime StartAtUtc { get; set; }

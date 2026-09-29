@@ -99,6 +99,18 @@ builder.Services.AddRateLimiter(options =>
                 QueueProcessingOrder = QueueProcessingOrder.OldestFirst
             }));
 
+    // BR-103 — quên/đặt lại mật khẩu: 3/phút theo IP (mỗi forgot gửi 1 email thật).
+    options.AddPolicy("auth-password-reset", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 3,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst
+            }));
+
     // Login dùng policy riêng (10/phút theo IP) — quota và response 429 độc lập với register.
     options.AddPolicy<string, LoginRateLimitPolicy>(LoginRateLimitPolicy.PolicyName);
 });
@@ -118,9 +130,19 @@ builder.Services.AddScoped<IUserAccountRepository, UserAccountRepository>();
 builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IAccountService, AccountService>();
+builder.Services.AddScoped<IPasswordResetService, PasswordResetService>();
+builder.Services.AddScoped<EmailOtpFlow>();
+builder.Services.AddScoped<CoachSpecialtyService>();
+builder.Services.AddScoped<CoachAdminService>();
+builder.Services.AddScoped<IUserSummaryFactory, UserSummaryFactory>();
+builder.Services.AddScoped<IExternalCoachService, ExternalCoachService>();
+builder.Services.AddScoped<SportHub.Training.Application.Services.PersonalTrainerGuard>();
+builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Identity.IUserAccessReader, UserAccessReader>();
+builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Identity.ICoachSpecialtyReader, CoachSpecialtyReader>();
+builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Identity.IExternalCoachAccessReader, ExternalCoachAccessReader>();
+builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Scheduling.ISportCatalogReader, SportHub.Scheduling.Catalog.Application.SportCatalogReader>();
 builder.Services.AddScoped<IGoogleTokenVerifier, GoogleTokenVerifier>();
 builder.Services.AddScoped<IGoogleAuthService, GoogleAuthService>();
-builder.Services.AddScoped<ICoachProfileReader, CoachProfileReader>();
 
 // BR-78 — gửi OTP Register. Chưa cấu hình Smtp:Host (máy dev) thì chỉ ghi email ra log.
 var smtpSection = builder.Configuration.GetSection("Smtp");
@@ -159,9 +181,19 @@ builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IGymCheckInRepository, GymCheckInRepository>();
 builder.Services.AddScoped<IGymCheckInService, GymCheckInService>();
 builder.Services.AddScoped<IRoomService, RoomService>();
+builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Scheduling.IOccupancyService, SportHub.Scheduling.Occupancy.Application.OccupancyService>();
+builder.Services.AddScoped<SportHub.Scheduling.Occupancy.Application.AvailabilityService>();
+builder.Services.AddScoped<SportHub.Scheduling.Catalog.Application.SportCatalogService>();
+builder.Services.AddScoped<SportHub.Scheduling.Catalog.Application.RoomTypeService>();
+builder.Services.AddScoped<SportHub.Scheduling.Catalog.Application.RoomOpeningHourService>();
+builder.Services.AddScoped<SportHub.Scheduling.Catalog.Application.RoomBlockService>();
+builder.Services.AddScoped<SportHub.Scheduling.Catalog.Application.CourtRateService>();
 builder.Services.AddScoped<IClassService, ClassService>();
 builder.Services.AddScoped<IClassSessionService, ClassSessionService>();
-builder.Services.AddScoped<IClassUtilizationReportService, ClassUtilizationReportService>();
+builder.Services.AddScoped<IClassEnrollmentReportService, ClassEnrollmentReportService>();
+builder.Services.AddScoped<CourseValidator>();
+builder.Services.AddScoped<SeatHoldService>();
+builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Scheduling.IClassEnrollmentFulfillment, ClassEnrollmentFulfillment>();
 builder.Services.AddScoped<IEnrollmentService, EnrollmentService>();
 builder.Services.AddScoped<IAttendanceService, AttendanceService>();
 
@@ -240,7 +272,8 @@ builder.Services.AddHttpClient<
     });
 // Tác vụ nền: BR-11/BR-33 (hạn gói), BR-20/BR-53 (No-show), BR-34 (phát thông báo).
 builder.Services.AddHostedService<MemberPackageExpiryJob>();
-builder.Services.AddHostedService<AttendanceFinalizerJob>();
+builder.Services.AddHostedService<ClassStatusJob>();
+builder.Services.AddHostedService<SeatHoldExpiryJob>();
 builder.Services.AddHostedService<NotificationDispatchJob>();
 
 builder.Services.AddControllers()

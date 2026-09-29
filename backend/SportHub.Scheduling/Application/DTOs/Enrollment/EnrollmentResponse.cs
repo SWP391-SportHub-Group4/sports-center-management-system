@@ -1,16 +1,16 @@
 namespace SportHub.Scheduling.Application.DTOs;
 
+/// <summary>Ghi danh khóa học của một Member.</summary>
 public sealed record EnrollmentResponse(
     Guid EnrollmentId,
-    Guid SessionId,
+    int ClassId,
+    string ClassCode,
+    string ClassName,
+    string SportName,
     Guid MemberId,
-    string MemberEmail,
-    string MemberName,
-    Guid MemberPackageId,
     string Status,
-    DateTime RegisteredAt,
-    DateTime? CancelledAt,
-    int CancellationDeadlineMinutes,
-    DateTime CancellationDeadlineUtc,
-    string? AttendanceStatus,
-    ClassSessionResponse Session);
+    DateTime EnrolledAt,
+    DateTime? EndedAt,
+    int NumSessions,
+    DateTime? FirstSessionStartUtc,
+    string ClassStatus);

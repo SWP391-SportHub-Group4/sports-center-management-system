@@ -14,4 +14,6 @@ public sealed record PtSessionResponse(
     Guid? RescheduledFromSessionId,
     DateTime? CompletedAt,
     DateTime? CancelledAt,
-    string? CancellationReason);
+    string? CancellationReason,
+    int? RoomId,
+    string? RoomName);
