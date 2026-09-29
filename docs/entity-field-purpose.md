@@ -5,16 +5,6 @@
 >
 > **Cập nhật 26/09/2026:** Đồng bộ Business Rules v1.8 cho Identity, Membership/PT và Payment. Các field bên dưới là thiết kế logic tối thiểu để đáp ứng nghiệp vụ đã chốt; tên vật lý cuối cùng có thể được map khi sửa code/migration.
 >
-> **Cập nhật 10/09/2026:** tên field trong cột "Field" (và mọi tham chiếu `Entity.Field` trong phần Mục đích) đã đổi từ `PascalCase` sang `snake_case` (vd `RoleID` → `role_id`) theo quyết định naming mới ở `00-Source-of-Truth.md` §5.4. Tên bảng (`USERS`, `MEMBER_TRAINING_PROFILE`...) và tên class/job (`AttendanceFinalizerJob`...) giữ nguyên, không đổi. **Chỉ sửa doc, chưa đụng code.**
->
-> **Cập nhật 10/09/2026 (2):** đánh dấu **unique** tường minh cho các field trước đây chưa ghi rõ — `email` (BR-1/BR-49), `phone` (BR-54, nullable), `role_name` (BR-55), `name` của `MEMBERSHIP_PACKAGES` (BR-56), `name` của `ROOMS` (BR-57). Danh sách đầy đủ mọi field/composite unique: `SportManagement_BusinessRules_v1.2.docx` §L (Unique Constraints Summary) và `Center-Management-System-Design-v2.md` §1 (marker `UK` trong ERD) + §3 (constraint #9, #11–#14).
->
-> **Cập nhật 10/09/2026 (3) — Google Login:** entity `USERS` tách thành `USER_ACCOUNTS`/`USER_CREDENTIALS`/`USER_PROFILES`/`USER_EXTERNAL_LOGINS` (module Identity bên dưới); mọi `member_id`/`coach_id`/`user_id`... ở các entity khác trong file này vẫn giữ nguyên tên, chỉ hiểu là trỏ về `USER_ACCOUNTS.user_id` thay vì `USERS.user_id`. Thêm constraint #15/#16 (composite unique cho `USER_EXTERNAL_LOGINS`) — xem `Center-Management-System-Design-v2.md` §3.
->
-> **Cập nhật 10/09/2026 (4) — Chuẩn hoá Attendance/WorkoutResult:** `ATTENDANCE` bỏ `session_id`/`member_id`, chỉ giữ `enrollment_id` (nay unique). `WORKOUT_RESULTS` đổi `session_id` + `member_id` thành 1 FK `enrollment_id`. Chi tiết lý do ở mục Module tương ứng bên dưới; xem thêm `00-Source-of-Truth.md` §2 (cập nhật 10/09/2026 (3)) và `Center-Management-System-Design-v2.md` §3 (constraint #17).
->
-> **Cập nhật 11/09/2026 — Đảo ngược naming property (đọc lại quyết định 10/09/2026):** tên field trong cột "Field" (và mọi tham chiếu `Entity.Field` trong phần Mục đích) đổi từ `snake_case` trở lại `PascalCase` (vd `role_id` → `RoleId`), khớp `00-Source-of-Truth.md` §5.4 (đã đảo ngược). Đây là tên **property C#** trong code (`SportHub.Repository/Entities/*.cs`) — **cột DB Postgres không đổi**, vẫn `snake_case` như trước, vì đã thêm package `EFCore.NamingConventions` (`.UseSnakeCaseNamingConvention()` ở `Program.cs`) để EF Core tự map property PascalCase ↔ cột snake_case. Tên bảng (`USER_ACCOUNTS`, `MEMBER_TRAINING_PROFILE`...) vẫn giữ nguyên style ALL_CAPS (mô tả bảng vật lý), không đổi. **Code đã sửa trước, doc đồng bộ ở bước này.**
-
 ---
 
 ## Module: Identity

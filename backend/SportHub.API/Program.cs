@@ -182,6 +182,16 @@ builder.Services.AddScoped<ICoachRelationshipRegistrar>(
     sp => sp.GetRequiredService<CoachMemberRelationshipService>());
 builder.Services.AddScoped<IWorkoutService, WorkoutService>();
 
+// PT (BE-4) — entitlement/session lifecycle. PtSessionService đăng ký cụ thể vì
+// PtSessionChangeRequestService inject thẳng lớp này để dùng lại ApplyCancelAsync/
+// ApplyRescheduleAsync (duyệt request phải tái dùng đúng logic quota với Manager cancel/reschedule
+// trực tiếp, không viết lại lần hai).
+builder.Services.AddScoped<IPtEntitlementLifecycle, PtEntitlementLifecycleService>();
+builder.Services.AddScoped<IPtEntitlementQueryService, PtEntitlementQueryService>();
+builder.Services.AddScoped<PtSessionService>();
+builder.Services.AddScoped<IPtSessionService>(sp => sp.GetRequiredService<PtSessionService>());
+builder.Services.AddScoped<IPtSessionChangeRequestService, PtSessionChangeRequestService>();
+
 // AI — bản cài đặt theo luật, chạy cục bộ (xem RuleBasedAiRecommendationService).
 builder.Services.AddScoped<IAiRecommendationService, RuleBasedAiRecommendationService>();
 builder.Services.AddScoped<IWorkoutRecommendationService, WorkoutRecommendationService>();
