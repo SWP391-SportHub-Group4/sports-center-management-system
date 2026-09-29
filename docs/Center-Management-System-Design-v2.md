@@ -86,10 +86,19 @@ erDiagram
     CLASSES ||--o{ CLASS_SESSIONS : "ad-hoc session (nullable recurrence)"
     CLASS_SESSIONS ||--o{ ENROLLMENTS : "booked in"
     ENROLLMENTS ||--o| ATTENDANCE : "results in (1-1, UNIQUE enrollment_id)"
-    ENROLLMENTS ||--o{ WORKOUT_RESULTS : "recorded in (đảm bảo member có đăng ký session)"
 
     COACH_MEMBER_RELATIONSHIP ||--o{ WORKOUT_PLANS : "authorizes"
     WORKOUT_PLANS ||--o{ WORKOUT_PLAN_ITEMS : "contains"
+    WORKOUT_PLANS ||--o{ HOMEWORK_ASSIGNMENTS : "snapshot source (nullable, mới BE-4)"
+
+    USER_ACCOUNTS ||--o{ PT_ENTITLEMENTS : "member buys / coach assigned"
+    MEMBER_PACKAGES ||--o{ PT_ENTITLEMENTS : "origin / current validity"
+    PT_ENTITLEMENTS ||--o{ PT_SESSIONS : "schedules"
+    PT_SESSIONS ||--o| WORKOUT_RESULTS : "recorded in (1-1, UNIQUE pt_session_id, mới BE-4)"
+    PT_SESSIONS ||--o{ PT_SESSION_CHANGE_REQUESTS : "member requests cancel/reschedule"
+    PT_ENTITLEMENTS ||--o{ PT_COACH_CHANGE_REQUESTS : "member requests coach change"
+    COACH_MEMBER_RELATIONSHIP ||--o{ HOMEWORK_ASSIGNMENTS : "authorizes"
+    HOMEWORK_ASSIGNMENTS ||--o{ HOMEWORK_ASSIGNMENT_ITEMS : "contains"
 
     INVOICES ||--o{ INVOICE_ITEMS : "line items"
     INVOICES ||--o{ PAYMENT_ATTEMPTS : "retried by"
@@ -233,6 +242,9 @@ erDiagram
         string goal
         string level
         datetime created_at
+        WorkoutPlanStatus status "enum, xem SSOT §3, mới BE-4"
+        datetime updated_at "mới BE-4"
+        int version "optimistic concurrency, mới BE-4"
     }
     WORKOUT_PLAN_ITEMS {
         uuid item_id PK
@@ -244,11 +256,98 @@ erDiagram
     }
     WORKOUT_RESULTS {
         uuid result_id PK
-        uuid enrollment_id FK "session_id/member_id suy ra qua Enrollment — đảm bảo Member thực sự có đăng ký session đó (10/09/2026 (3))"
+        uuid pt_session_id FK, UK "1-1 với PT_SESSIONS — đổi từ enrollment_id 29/09/2026 (BE-4)"
         uuid coach_id FK
         string progress_note
         string coach_comment
         datetime recorded_at
+    }
+    PT_ENTITLEMENTS {
+        uuid entitlement_id PK
+        uuid activation_reference UK "nullable khi PendingPayment, mới BE-4"
+        uuid member_id FK
+        uuid origin_member_package_id FK
+        uuid current_member_package_id FK
+        uuid coach_id FK "PersonalTrainer đã chọn"
+        int frequency_per_week "1, 2 hoặc 3"
+        int total_quota
+        int reserved_sessions
+        int consumed_sessions
+        date validity_start_date
+        date validity_end_date
+        date carry_over_until_date "validity_end_date + 30 ngày, BR-66"
+        PtEntitlementStatus status "enum, xem SSOT §3, mới BE-4"
+        datetime activated_at "nullable"
+        datetime cancelled_at "nullable"
+        int version "optimistic concurrency"
+    }
+    PT_SESSIONS {
+        uuid session_id PK
+        uuid entitlement_id FK
+        uuid member_id FK "phải khớp entitlement"
+        uuid coach_id FK "coach thực tế của buổi"
+        datetime start_at_utc
+        datetime end_at_utc "= start_at_utc + 90 phút"
+        PtSessionStatus status "enum, xem SSOT §3, mới BE-4"
+        PtSessionQuotaState quota_state "enum, xem SSOT §3, mới BE-4"
+        uuid rescheduled_from_session_id FK "nullable, self-FK"
+        uuid created_by_user_id FK "Manager"
+        datetime completed_at "nullable"
+        datetime cancelled_at "nullable"
+        string cancellation_reason "nullable"
+        int version "optimistic concurrency"
+    }
+    PT_SESSION_CHANGE_REQUESTS {
+        uuid request_id PK
+        uuid session_id FK
+        uuid requested_by_user_id FK
+        PtSessionChangeRequestType request_type "enum, xem SSOT §3, mới BE-4"
+        datetime requested_start_at_utc "nullable, chỉ khi Reschedule"
+        datetime requested_at
+        string reason "nullable"
+        PtSessionTimingClassification timing_classification "enum, xem SSOT §3, mới BE-4"
+        bool requests_exception
+        PtSessionChangeRequestStatus status "enum, xem SSOT §3, mới BE-4"
+        uuid reviewed_by_user_id FK "nullable"
+        datetime reviewed_at "nullable"
+        string review_note "nullable"
+    }
+    PT_COACH_CHANGE_REQUESTS {
+        uuid request_id PK
+        uuid entitlement_id FK
+        uuid member_id FK
+        uuid current_coach_id FK
+        uuid requested_coach_id FK
+        string reason "nullable"
+        datetime requested_at
+        PtCoachChangeRequestStatus status "enum, xem SSOT §3, mới BE-4"
+        uuid reviewed_by_user_id FK "nullable"
+        datetime reviewed_at "nullable"
+        string review_note "nullable"
+    }
+    HOMEWORK_ASSIGNMENTS {
+        uuid assignment_id PK
+        uuid member_id FK
+        uuid coach_id FK
+        uuid relationship_id FK
+        uuid source_workout_plan_id FK "nullable"
+        string title
+        string coach_note "nullable"
+        datetime assigned_at
+        datetime due_at
+        datetime completed_at "nullable"
+        datetime reviewed_at "nullable"
+        HomeworkAssignmentStatus status "enum, xem SSOT §3, mới BE-4"
+        string member_feedback "nullable"
+        int version "optimistic concurrency"
+    }
+    HOMEWORK_ASSIGNMENT_ITEMS {
+        uuid item_id PK
+        uuid assignment_id FK
+        string exercise
+        int sets
+        int reps
+        string notes "nullable"
     }
     INVOICES {
         uuid invoice_id PK
@@ -420,6 +519,32 @@ Attendance có `Present`, `Absent` hoặc `NoShow`. Khi ghi nhận No-show, hệ
 
 PT session tuân theo BR-70 đến BR-77. Cancel/reschedule đúng hạn là ít nhất 24 giờ trước giờ bắt đầu; late cancel/No-show consume một session; late reschedule consume session cũ và booking mới dùng thêm một session. Coach change đã duyệt chỉ chuyển session tương lai khi Coach mới available; session conflict giữ Coach cũ chờ Manager xử lý.
 
+**Cập nhật 29/09/2026 (BE-4) — entity hóa mô hình trên:** không dùng `CLASSES`/`CLASS_SESSIONS`/`ENROLLMENTS` cho PT. Thêm `PT_ENTITLEMENTS` (quota) và `PT_SESSIONS` (từng buổi 90 phút) — xem ERD §1 và field chi tiết ở `entity-field-purpose.md`. State machine:
+
+```mermaid
+stateDiagram-v2
+    [*] --> PendingPayment
+    PendingPayment --> Active: Payment kích hoạt (IPtEntitlementLifecycle)
+    Active --> AwaitingCarryOver: hết validity còn quota
+    AwaitingCarryOver --> Active: renew trong 30 ngày, còn quota
+    AwaitingCarryOver --> Expired: quá CarryOverUntilDate
+    Active --> Exhausted: hết quota
+    Active --> Cancelled: Payment gọi CancelAsync (vd Refund)
+```
+
+```mermaid
+stateDiagram-v2
+    [*] --> Scheduled
+    Scheduled --> Completed: PT hoàn thành, consume quota
+    Scheduled --> NoShow: PT ghi no-show, consume quota
+    Scheduled --> CancelledOnTime: hủy trước 24 giờ, giải phóng quota
+    Scheduled --> CancelledLate: hủy trễ, consume quota
+    Scheduled --> RescheduledOnTime: đổi lịch trước 24 giờ, tạo session thay thế
+    Scheduled --> RescheduledLate: đổi lịch trễ, tạo session thay thế + consume thêm quota
+```
+
+Manager là actor tạo/cancel/reschedule session và phân công Coach; PT chỉ xem lịch của mình và ghi `Completed`/`NoShow`; Member chỉ gửi `PT_SESSION_CHANGE_REQUESTS`/`PT_COACH_CHANGE_REQUESTS`, không tự đổi lịch. Payment tích hợp PT (giá, checkout, kích hoạt entitlement thật) chưa triển khai — chỉ có contract `IPtEntitlementLifecycle`. Chi tiết đầy đủ: `docs/backend-be4-pt-training-implementation-plan.md`.
+
 ### 2.5 Payment
 
 ```mermaid
@@ -534,6 +659,31 @@ Các literal enum như `'CONFIRMED'`/`'ACTIVE'` trong SQL minh họa bên dướ
 | POST | `/api/sessions/{sessionId}/check-in` | Receptionist | body: `enrollmentId` (không phải tự nhận `memberId` tùy ý). `CLASS_SESSIONS` là Yoga/Group X — Coach `ClassInstructor` không điểm danh (mới 28/09/2026) |
 | GET | `/api/sessions/{sessionId}/attendance` | Coach (chỉ `ClassInstructor` xem, không ghi)/Manager | |
 
+### 4.2-bis Flow — Personal Training session/result/homework (mới, 29/09/2026 — BE-4)
+
+> Không dùng `/api/classes`/`/api/sessions`/`/api/enrollments` ở trên cho PT — PT dùng `PT_ENTITLEMENTS`/`PT_SESSIONS` riêng. Mọi route Coach phải gọi `RequireCategoryAsync(..., PersonalTrainer)` trước khi query dữ liệu member/session, để không lộ tồn tại dữ liệu cho `ClassInstructor`. Không endpoint `/me` nào nhận `memberId`/`coachId` từ body/query. Danh sách đầy đủ (kèm error code, DTO): `docs/backend-be4-pt-training-implementation-plan.md` §8/§12.
+
+| Method | Endpoint | Actor | Ghi chú |
+|---|---|---|---|
+| GET/POST | `/api/manager/pt-sessions` | **Manager only** | Calendar/list và tạo session 90 phút |
+| POST | `/api/manager/pt-sessions/{id}/cancel` \| `/reschedule` | **Manager only** | Áp dụng timing rule (deadline 24 giờ) |
+| GET | `/api/manager/pt-session-change-requests` | **Manager only** | Queue yêu cầu cancel/reschedule của Member |
+| POST | `/api/manager/pt-session-change-requests/{id}/approve` \| `/reject` | **Manager only** | Approve áp dụng session + quota cùng transaction |
+| GET | `/api/manager/pt-coach-change-requests` | **Manager only** | Queue đổi Coach |
+| POST | `/api/manager/pt-coach-change-requests/{id}/approve` \| `/reject` | **Manager only** | Approve chuyển future session không conflict; trả `unmovedSessionIds` |
+| GET | `/api/coaches/me/pt-sessions` | Coach (PT) | JWT — chỉ lịch của chính Coach |
+| POST | `/api/coaches/me/pt-sessions/{id}/complete` \| `/no-show` | Coach (PT) | Consume quota; chỉ session thuộc chính mình |
+| PUT | `/api/workout-results/{ptSessionId}` | Coach (PT) | Create/update idempotent, chỉ session của chính mình đã/đang `Completed` |
+| GET | `/api/coaches/me/progress?memberId=` | Coach (PT) | Timeline `PT_SESSIONS + WORKOUT_RESULTS` cho member đang phụ trách |
+| GET/POST | `/api/coaches/me/homework` | Coach (PT) | Chỉ member có quan hệ `Active` với chính mình |
+| PUT | `/api/coaches/me/homework/{id}` | Coach (PT) | Trước khi `Completed`/`Reviewed` |
+| POST | `/api/coaches/me/homework/{id}/review` \| `/cancel` | Coach (PT) | |
+| GET | `/api/members/me/pt-entitlements` \| `/pt-sessions` | Member | JWT — quota/lịch sử/lịch sắp tới của chính mình |
+| POST | `/api/members/me/pt-sessions/{id}/change-requests` | Member | Xin cancel/reschedule |
+| POST | `/api/members/me/pt-coach-change-requests` | Member | Xin đổi Coach |
+| GET | `/api/members/me/progress` \| `/homework` | Member | Timeline/homework của chính mình |
+| PATCH | `/api/members/me/homework/{id}` | Member | Chỉ `InProgress`/`Completed` + feedback |
+
 ### 4.3 Flow — Thanh toán / Hóa đơn / Báo cáo (Payment & Report)
 
 > Route cụ thể có thể điều chỉnh khi code, nhưng actor, state và transaction phải giữ đúng BR-79–BR-95.
@@ -583,6 +733,10 @@ Các literal enum như `'CONFIRMED'`/`'ACTIVE'` trong SQL minh họa bên dướ
 | Check-in điểm danh | ❌ | 👁 | ❌ | ❌ (28/09/2026: chuyển cho Receptionist) | ❌ | ✅ |
 | Tạo Workout Plan / Result | ❌ | 👁 | ✅ (relationship ACTIVE) | ❌ | 👁 (read-only) | ❌ |
 | Gọi AI workout suggestion | ❌ | ❌ | ✅ (relationship ACTIVE) | ❌ | ❌ | ❌ |
+| Tạo/Cancel/Reschedule PT session (mới, 29/09/2026) | ❌ | ✅ | ❌ (chỉ xem + complete/no-show của mình) | ❌ | ❌ | ❌ |
+| Duyệt yêu cầu cancel/reschedule/đổi Coach PT (mới, 29/09/2026) | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Gửi yêu cầu cancel/reschedule/đổi Coach PT (mới, 29/09/2026) | ❌ | ❌ | ❌ | ❌ | ✅ (self) | ❌ |
+| Giao/review Homework (mới, 29/09/2026) | ❌ | 👁 | ✅ (relationship ACTIVE) | ❌ | 👁 (cập nhật status/feedback của mình) | ❌ |
 | Checkout / xem Invoice | ❌ | 👁 | ❌ | ❌ | ✅ (self) | ✅ (on-behalf) |
 | Đối soát/fulfillment lại | ❌ | ✅ | ❌ | ❌ | ❌ | ✅ (yêu cầu backend) |
 | Tạo Refund Request | ❌ | 👁 | ❌ | ❌ | ✅ (self) | ✅ (on-behalf, reason bắt buộc) |
