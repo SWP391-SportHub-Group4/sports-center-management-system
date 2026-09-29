@@ -5,16 +5,6 @@
 >
 > **Cập nhật 26/09/2026:** Đồng bộ Business Rules v1.8 cho Identity, Membership/PT và Payment. Các field bên dưới là thiết kế logic tối thiểu để đáp ứng nghiệp vụ đã chốt; tên vật lý cuối cùng có thể được map khi sửa code/migration.
 >
-> **Cập nhật 10/09/2026:** tên field trong cột "Field" (và mọi tham chiếu `Entity.Field` trong phần Mục đích) đã đổi từ `PascalCase` sang `snake_case` (vd `RoleID` → `role_id`) theo quyết định naming mới ở `00-Source-of-Truth.md` §5.4. Tên bảng (`USERS`, `MEMBER_TRAINING_PROFILE`...) và tên class/job (`AttendanceFinalizerJob`...) giữ nguyên, không đổi. **Chỉ sửa doc, chưa đụng code.**
->
-> **Cập nhật 10/09/2026 (2):** đánh dấu **unique** tường minh cho các field trước đây chưa ghi rõ — `email` (BR-1/BR-49), `phone` (BR-54, nullable), `role_name` (BR-55), `name` của `MEMBERSHIP_PACKAGES` (BR-56), `name` của `ROOMS` (BR-57). Danh sách đầy đủ mọi field/composite unique: `SportManagement_BusinessRules_v1.2.docx` §L (Unique Constraints Summary) và `Center-Management-System-Design-v2.md` §1 (marker `UK` trong ERD) + §3 (constraint #9, #11–#14).
->
-> **Cập nhật 10/09/2026 (3) — Google Login:** entity `USERS` tách thành `USER_ACCOUNTS`/`USER_CREDENTIALS`/`USER_PROFILES`/`USER_EXTERNAL_LOGINS` (module Identity bên dưới); mọi `member_id`/`coach_id`/`user_id`... ở các entity khác trong file này vẫn giữ nguyên tên, chỉ hiểu là trỏ về `USER_ACCOUNTS.user_id` thay vì `USERS.user_id`. Thêm constraint #15/#16 (composite unique cho `USER_EXTERNAL_LOGINS`) — xem `Center-Management-System-Design-v2.md` §3.
->
-> **Cập nhật 10/09/2026 (4) — Chuẩn hoá Attendance/WorkoutResult:** `ATTENDANCE` bỏ `session_id`/`member_id`, chỉ giữ `enrollment_id` (nay unique). `WORKOUT_RESULTS` đổi `session_id` + `member_id` thành 1 FK `enrollment_id`. Chi tiết lý do ở mục Module tương ứng bên dưới; xem thêm `00-Source-of-Truth.md` §2 (cập nhật 10/09/2026 (3)) và `Center-Management-System-Design-v2.md` §3 (constraint #17).
->
-> **Cập nhật 11/09/2026 — Đảo ngược naming property (đọc lại quyết định 10/09/2026):** tên field trong cột "Field" (và mọi tham chiếu `Entity.Field` trong phần Mục đích) đổi từ `snake_case` trở lại `PascalCase` (vd `role_id` → `RoleId`), khớp `00-Source-of-Truth.md` §5.4 (đã đảo ngược). Đây là tên **property C#** trong code (`SportHub.Repository/Entities/*.cs`) — **cột DB Postgres không đổi**, vẫn `snake_case` như trước, vì đã thêm package `EFCore.NamingConventions` (`.UseSnakeCaseNamingConvention()` ở `Program.cs`) để EF Core tự map property PascalCase ↔ cột snake_case. Tên bảng (`USER_ACCOUNTS`, `MEMBER_TRAINING_PROFILE`...) vẫn giữ nguyên style ALL_CAPS (mô tả bảng vật lý), không đổi. **Code đã sửa trước, doc đồng bộ ở bước này.**
-
 ---
 
 ## Module: Identity
@@ -243,6 +233,8 @@
 
 **Bổ sung 28/09/2026:** chỉ Coach loại `PersonalTrainer` được tạo; `ClassInstructor` không có `COACH_MEMBER_RELATIONSHIP` nên không thể tạo được `WORKOUT_PLANS`.
 
+**Bổ sung 29/09/2026 (BE-4):** thêm `Status`/`UpdatedAt`/`Version` để có lifecycle archive thay vì hard delete — plan đã giao cho Member hoặc đã dùng làm nguồn `HOMEWORK_ASSIGNMENTS` không được xóa cứng.
+
 | Field | Vai trò |
 |---|---|
 | `PlanId` (PK) | Định danh kế hoạch |
@@ -251,6 +243,9 @@
 | `RelationshipId` (FK) | Trỏ về đúng quan hệ Coach–Member cho phép hành động này — dùng để authorize + audit |
 | `Goal` / `Level` | Copy/snapshot mục tiêu & trình độ tại thời điểm lập plan (có thể khác `MEMBER_TRAINING_PROFILE` hiện tại nếu profile đã update sau đó) |
 | `CreatedAt` | Mốc tạo plan |
+| `Status` (mới BE-4) | `Draft/Active/Archived` — archive thay hard delete |
+| `UpdatedAt` (mới BE-4) | Mốc sửa gần nhất |
+| `Version` (mới BE-4) | Optimistic concurrency token cho update items theo transaction |
 
 ### `WORKOUT_PLAN_ITEMS`
 **Mục đích:** từng bài tập cụ thể trong 1 kế hoạch — tách bảng con vì 1 plan có nhiều bài tập (1–N).
@@ -264,18 +259,120 @@
 | `Notes` | Ghi chú thêm (tempo, nghỉ giữa hiệp...) |
 
 ### `WORKOUT_RESULTS`
-**Mục đích:** ghi nhận **kết quả tập thực tế** sau 1 session — khác `WORKOUT_PLANS` (kế hoạch, việc *sẽ* làm) ở chỗ đây là log việc *đã* xảy ra, gắn với đúng buổi học **mà Member thực sự có đăng ký** (qua `ENROLLMENTS`).
+**Mục đích:** ghi nhận **kết quả tập thực tế** sau 1 buổi PT — khác `WORKOUT_PLANS` (kế hoạch, việc *sẽ* làm) ở chỗ đây là log việc *đã* xảy ra.
 
-**Bổ sung 28/09/2026:** chỉ Coach loại `PersonalTrainer` được ghi. `ClassInstructor` không điểm danh và không ghi kết quả tập; điểm danh Yoga/Group X thuộc trách nhiệm Receptionist. Mô hình entity đại diện 1 PT session chưa chốt — xem `00-Source-of-Truth.md` §7 Open Questions, không tự ép `EnrollmentId` của lớp Yoga/Group X thành kết quả PT.
+**Bổ sung 28/09/2026:** chỉ Coach loại `PersonalTrainer` được ghi. `ClassInstructor` không điểm danh và không ghi kết quả tập; điểm danh Yoga/Group X thuộc trách nhiệm Receptionist.
+
+**Đổi FK 29/09/2026 (BE-4):** `EnrollmentId` → `PtSessionId` (unique, 1–1). Yoga/Group X không dùng `WORKOUT_RESULTS` — mô hình PT session cũ ép qua `Enrollment` đã bị loại bỏ hoàn toàn (đóng Open Question ở `00-Source-of-Truth.md` §7).
 
 | Field | Vai trò |
 |---|---|
 | `ResultId` (PK) | Định danh |
-| `EnrollmentId` (FK) | Kết quả của lượt đăng ký nào — thay cho `session_id` + `member_id` cũ (2 FK độc lập, không ràng buộc lẫn nhau — trước đây DB không chặn được việc ghi kết quả cho 1 Member chưa từng đăng ký session đó). Đổi 10/09/2026 (4): dùng `EnrollmentId` khiến DB tự đảm bảo tính toàn vẹn này; `SessionId`/`MemberId` suy ra qua JOIN `ENROLLMENTS` khi cần. **Lưu ý:** FK chỉ đảm bảo Enrollment tồn tại, chưa đảm bảo còn hợp lệ (`Status = CONFIRMED`) — service phải kiểm tra BR-61; không thêm điều kiện Present |
-| `CoachId` (FK) | Ai ghi nhận — không suy ra được qua Enrollment nên vẫn giữ FK riêng |
+| `PtSessionId` (FK, unique) | Kết quả của buổi PT nào — 1–1 với `PT_SESSIONS`. DB tự chặn ghi 2 result cho cùng 1 session |
+| `CoachId` (FK) | Ai ghi nhận — phải bằng `PT_SESSIONS.CoachId` thực tế của session đó tại thời điểm ghi |
 | `ProgressNote` | Ghi chú tiến độ (khách quan — vd "nâng được thêm 5kg") |
 | `CoachComment` | Nhận xét của Coach (định tính) |
 | `RecordedAt` | Mốc ghi nhận |
+
+**Progress timeline** không cần entity riêng: là projection từ `PT_SESSIONS + WORKOUT_RESULTS`, sắp theo `StartAtUtc`, lọc theo ngày/member và pagination.
+
+### `PT_ENTITLEMENTS` (mới, 29/09/2026 — BE-4)
+**Mục đích:** quyền lợi/quota PT mà Member đã mua — do Payment tạo ở `PendingPayment` và kích hoạt sau thanh toán qua contract nội bộ `IPtEntitlementLifecycle` (không phải HTTP endpoint).
+
+| Field | Vai trò |
+|---|---|
+| `EntitlementId` (PK) | Định danh; `INVOICE_ITEMS.RelatedEntityId` của Payment sẽ trỏ tới ID này |
+| `ActivationReference` | UUID opaque, nullable khi `PendingPayment`, unique khi có giá trị — Payment dùng để activate idempotent (vd theo `InvoiceItemId`) |
+| `MemberId` (FK) | Member hưởng quyền lợi |
+| `OriginMemberPackageId` / `CurrentMemberPackageId` (FK `MEMBER_PACKAGES`) | Membership Active lúc checkout PT / Membership đang cấp validity hiện hành (đổi khi carry-over) |
+| `CoachId` (FK) | `PersonalTrainer` Member đã chọn |
+| `FrequencyPerWeek` | Chỉ 1, 2 hoặc 3 — chỉ dùng tính `TotalQuota`, không giới hạn số buổi/tuần thực tế |
+| `TotalQuota` | Tổng số buổi PT theo BR-71 (4/8/12 × số tháng Membership) |
+| `ReservedSessions` / `ConsumedSessions` | Đang giữ quota chưa dùng / đã dùng (Completed, late cancel, no-show, old leg của late reschedule) |
+| `ValidityStartDate` / `ValidityEndDate` | Snapshot period của Membership hiện hành, inclusive |
+| `CarryOverUntilDate` | `ValidityEndDate + 30 ngày` theo BR-66 |
+| `Status` | `PendingPayment/Active/AwaitingCarryOver/Exhausted/Expired/Cancelled` |
+| `ActivatedAt` / `CancelledAt` | Audit thời gian |
+| `Version` | Optimistic concurrency token — bắt buộc dùng thật (khác `MEMBER_PACKAGES.Version` hiện tại chưa từng được tăng) |
+
+Ràng buộc: `RemainingQuota = TotalQuota - ReservedSessions - ConsumedSessions`; `0 <= ReservedSessions`, `0 <= ConsumedSessions`, `ReservedSessions + ConsumedSessions <= TotalQuota`. Không dùng `MEMBER_PACKAGES.RemainingSessions` cho PT.
+
+### `PT_SESSIONS` (mới, 29/09/2026 — BE-4)
+**Mục đích:** từng buổi PT 90 phút, 1 Coach : 1 Member — thay thế hoàn toàn việc dùng `CLASSES`/`CLASS_SESSIONS`/`ENROLLMENTS` cho PT.
+
+| Field | Vai trò |
+|---|---|
+| `SessionId` (PK) | Định danh |
+| `EntitlementId` (FK) | Buổi thuộc quyền lợi PT nào |
+| `MemberId` (FK) | Snapshot/FK để query và ràng buộc overlap — phải khớp `EntitlementId.MemberId` |
+| `CoachId` (FK) | Coach thực tế của buổi — giữ nguyên khi đã diễn ra, chỉ đổi cho session tương lai khi coach-change được duyệt |
+| `StartAtUtc` / `EndAtUtc` | UTC; `EndAtUtc = StartAtUtc + 90 phút`, server tự tính, API chỉ nhận `StartAtUtc` |
+| `Status` | `Scheduled/Completed/CancelledOnTime/CancelledLate/NoShow/RescheduledOnTime/RescheduledLate` |
+| `QuotaState` | `Reserved/Consumed/Released` — theo dõi quota gắn với session để transition không double-consume/release |
+| `RescheduledFromSessionId` (self-FK, nullable) | Trỏ về session cũ khi đây là session thay thế |
+| `CreatedByUserId` | Manager tạo lịch |
+| `CompletedAt` / `CancelledAt` / `CancellationReason` | Audit thời gian và lý do |
+| `Version` | Optimistic concurrency token |
+
+Chỉ `Scheduled` chặn slot thời gian; không cho cùng Coach hoặc cùng Member có 2 session `Scheduled` giao nhau (`[StartAtUtc, EndAtUtc)`).
+
+### `PT_SESSION_CHANGE_REQUESTS` (mới, 29/09/2026 — BE-4)
+**Mục đích:** Member xin `Cancel`/`Reschedule` một `PT_SESSIONS`; Manager duyệt/từ chối.
+
+| Field | Vai trò |
+|---|---|
+| `RequestId` (PK) | Định danh |
+| `SessionId` (FK) | Session bị/được yêu cầu đổi |
+| `RequestedByUserId` | Member gửi yêu cầu |
+| `RequestType` | `Cancel/Reschedule` |
+| `RequestedStartAtUtc` (nullable) | Giờ mong muốn khi `Reschedule` |
+| `RequestedAt` / `Reason` | Thời điểm gửi và lý do |
+| `TimingClassification` | `OnTime/Late` — tính tại `RequestedAt` (đối chiếu deadline 24 giờ), không tính tại lúc Manager duyệt |
+| `RequestsException` | Member xin ngoại lệ rule trễ hạn |
+| `Status` | `Pending/Approved/Rejected/Withdrawn` |
+| `ReviewedByUserId` / `ReviewedAt` / `ReviewNote` | Manager xử lý |
+
+Mỗi session tối đa 1 request `Pending`; request `Approved` phải áp dụng thay đổi session + quota trong cùng transaction.
+
+### `PT_COACH_CHANGE_REQUESTS` (mới, 29/09/2026 — BE-4)
+**Mục đích:** Member xin đổi `PersonalTrainer` đang phụ trách entitlement của mình.
+
+| Field | Vai trò |
+|---|---|
+| `RequestId` (PK) | Định danh |
+| `EntitlementId` (FK) | Entitlement muốn đổi Coach |
+| `MemberId` | Người yêu cầu |
+| `CurrentCoachId` / `RequestedCoachId` | Coach hiện tại / Coach mong muốn (phải là `PersonalTrainer` active) |
+| `Reason` / `RequestedAt` | Lý do và thời điểm |
+| `Status` | `Pending/Approved/Rejected` |
+| `ReviewedByUserId` / `ReviewedAt` / `ReviewNote` | Manager xử lý |
+
+Khi `Approved`: đổi `PT_ENTITLEMENTS.CoachId`, kết thúc `COACH_MEMBER_RELATIONSHIP` cũ và tạo/đảm bảo quan hệ mới, chuyển từng `PT_SESSIONS` tương lai `Scheduled` sang Coach mới nếu không conflict (session conflict giữ Coach cũ, trả `unmovedSessionIds` cho Manager xử lý thủ công) — không tự hủy session conflict.
+
+### `HOMEWORK_ASSIGNMENTS` (mới, 29/09/2026 — BE-4)
+**Mục đích:** bài tập về nhà PT giao cho Member — nguồn dữ liệu thật thay vì dùng chuỗi `NOTIFICATIONS` làm nguồn.
+
+| Field | Vai trò |
+|---|---|
+| `AssignmentId` (PK) | Định danh |
+| `MemberId` / `CoachId` / `RelationshipId` (FK) | Ai giao cho ai, theo đúng quan hệ đang `Active` |
+| `SourceWorkoutPlanId` (FK, nullable) | Snapshot từ `WORKOUT_PLANS` nếu có, không phụ thuộc ngược khi plan nguồn đổi sau |
+| `Title` / `CoachNote` | Tiêu đề và ghi chú của Coach |
+| `AssignedAt` / `DueAt` / `CompletedAt` / `ReviewedAt` | Mốc thời gian theo từng bước |
+| `Status` | `Assigned/InProgress/Completed/Reviewed/Cancelled` |
+| `MemberFeedback` | Phản hồi của Member — chỉ Member sửa, PT không sửa |
+| `Version` | Optimistic concurrency token |
+
+Chỉ PT có quan hệ `Active` với Member mới tạo/sửa/hủy/review; Member chỉ đọc và cập nhật `InProgress`/`Completed` + feedback của chính mình; `ClassInstructor` luôn bị 403; relationship kết thúc không xóa homework cũ, chỉ chặn assignment mới. `NOTIFICATIONS` chỉ báo "có bài mới", không thay thế bản ghi này.
+
+### `HOMEWORK_ASSIGNMENT_ITEMS` (mới, 29/09/2026 — BE-4)
+**Mục đích:** snapshot từng bài tập trong 1 `HOMEWORK_ASSIGNMENTS` — tách bảng con như `WORKOUT_PLAN_ITEMS`.
+
+| Field | Vai trò |
+|---|---|
+| `ItemId` (PK) | Định danh |
+| `AssignmentId` (FK) | Thuộc assignment nào |
+| `Exercise` / `Sets` / `Reps` / `Notes` | Thông số bài tập, snapshot tại thời điểm giao |
 
 ---
 

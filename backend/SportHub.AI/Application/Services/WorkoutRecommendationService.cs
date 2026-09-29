@@ -91,9 +91,10 @@ public sealed class WorkoutRecommendationService(
         var gymCheckIns = await db.Set<GymCheckIn>()
             .CountAsync(g => g.MemberId == memberId && g.CheckInTime >= sinceUtc, ct);
 
+        // Đổi 29/09/2026 (BE-4): WorkoutResult gắn PtSession, không còn Enrollment.
         var coachNotes = await db.Set<WorkoutResult>()
             .AsNoTracking()
-            .Where(r => r.Enrollment!.MemberId == memberId && r.RecordedAt >= sinceUtc)
+            .Where(r => r.PtSession!.MemberId == memberId && r.RecordedAt >= sinceUtc)
             .OrderByDescending(r => r.RecordedAt)
             .Take(5)
             .Select(r => r.CoachComment ?? r.ProgressNote ?? string.Empty)
