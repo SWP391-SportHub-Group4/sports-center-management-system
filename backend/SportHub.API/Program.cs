@@ -191,6 +191,7 @@ builder.Services.AddScoped<IPtEntitlementQueryService, PtEntitlementQueryService
 builder.Services.AddScoped<PtSessionService>();
 builder.Services.AddScoped<IPtSessionService>(sp => sp.GetRequiredService<PtSessionService>());
 builder.Services.AddScoped<IPtSessionChangeRequestService, PtSessionChangeRequestService>();
+builder.Services.AddScoped<IPtCoachChangeRequestService, PtCoachChangeRequestService>();
 
 // AI — bản cài đặt theo luật, chạy cục bộ (xem RuleBasedAiRecommendationService).
 builder.Services.AddScoped<IAiRecommendationService, RuleBasedAiRecommendationService>();

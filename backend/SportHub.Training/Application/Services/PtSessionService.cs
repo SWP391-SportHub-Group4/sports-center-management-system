@@ -92,6 +92,14 @@ public sealed class PtSessionService(
 
         var entitlement = await LockEntitlementAsync(request.EntitlementId, ct);
 
+        if (entitlement.CoachId != entitlementPreview.CoachId
+            || entitlement.MemberId != entitlementPreview.MemberId)
+        {
+            throw new ConflictException(
+                "pt_session_assignment_changed",
+                "Phân công PT vừa thay đổi; vui lòng tải lại và thử xếp lịch lại.");
+        }
+
         EnsureActiveWithQuota(entitlement);
 
         var startAtUtc = request.StartAtUtc;
@@ -157,12 +165,23 @@ public sealed class PtSessionService(
         string reason,
         Guid actorUserId,
         string auditAction,
-        CancellationToken ct)
+        CancellationToken ct,
+        bool manageTransaction = true)
     {
-        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+        if (!manageTransaction && db.Database.CurrentTransaction is null)
+        {
+            throw new InvalidOperationException("Caller must provide a database transaction.");
+        }
 
+        await using var ownedTransaction = manageTransaction
+            ? await db.Database.BeginTransactionAsync(ct)
+            : null;
+
+        var preview = await PreviewSessionAsync(sessionId, ct);
+        await LockCoachAndMemberAsync(preview.CoachId, preview.MemberId, ct);
         var session = await LockSessionAsync(sessionId, ct);
-        await LockCoachAndMemberAsync(session.CoachId, session.MemberId, ct);
+
+        EnsureAssignmentUnchanged(session, preview);
         var entitlement = await LockEntitlementAsync(session.EntitlementId, ct);
 
         EnsureCancellable(session);
@@ -203,7 +222,11 @@ public sealed class PtSessionService(
             sessionId));
 
         await db.SaveChangesAsync(ct);
-        await transaction.CommitAsync(ct);
+
+        if (ownedTransaction is not null)
+        {
+            await ownedTransaction.CommitAsync(ct);
+        }
 
         return await GetAsync(sessionId, ct);
     }
@@ -216,13 +239,32 @@ public sealed class PtSessionService(
         string reason,
         Guid actorUserId,
         string auditAction,
-        CancellationToken ct)
+        CancellationToken ct,
+        bool manageTransaction = true)
     {
-        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+        if (!manageTransaction && db.Database.CurrentTransaction is null)
+        {
+            throw new InvalidOperationException("Caller must provide a database transaction.");
+        }
 
+        await using var ownedTransaction = manageTransaction
+            ? await db.Database.BeginTransactionAsync(ct)
+            : null;
+
+        var preview = await PreviewSessionAsync(sessionId, ct);
+        await LockCoachesAndMemberAsync(
+            new[] { preview.CoachId, preview.EntitlementCoachId }, preview.MemberId, ct);
         var session = await LockSessionAsync(sessionId, ct);
-        await LockCoachAndMemberAsync(session.CoachId, session.MemberId, ct);
+
+        EnsureAssignmentUnchanged(session, preview);
         var entitlement = await LockEntitlementAsync(session.EntitlementId, ct);
+
+        if (entitlement.CoachId != preview.EntitlementCoachId)
+        {
+            throw new ConflictException(
+                "pt_session_assignment_changed",
+                "Phân công PT vừa thay đổi; vui lòng tải lại và thử đổi lịch lại.");
+        }
 
         EnsureCancellable(session);
 
@@ -300,16 +342,24 @@ public sealed class PtSessionService(
             replacement.SessionId));
 
         await db.SaveChangesAsync(ct);
-        await transaction.CommitAsync(ct);
+
+        if (ownedTransaction is not null)
+        {
+            await ownedTransaction.CommitAsync(ct);
+        }
 
         return await GetAsync(replacement.SessionId, ct);
     }
 
     public async Task<PtSessionResponse> CompleteAsync(Guid sessionId, Guid coachId, CancellationToken ct = default)
     {
+        var preview = await PreviewSessionAsync(sessionId, ct);
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
 
+        await LockCoachAndMemberAsync(preview.CoachId, preview.MemberId, ct);
         var session = await LockSessionAsync(sessionId, ct);
+
+        EnsureAssignmentUnchanged(session, preview);
 
         if (session.CoachId != coachId)
         {
@@ -355,9 +405,13 @@ public sealed class PtSessionService(
     public async Task<PtSessionResponse> NoShowAsync(
         Guid sessionId, NoShowPtSessionRequest request, Guid coachId, CancellationToken ct = default)
     {
+        var preview = await PreviewSessionAsync(sessionId, ct);
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
 
+        await LockCoachAndMemberAsync(preview.CoachId, preview.MemberId, ct);
         var session = await LockSessionAsync(sessionId, ct);
+
+        EnsureAssignmentUnchanged(session, preview);
 
         if (session.CoachId != coachId)
         {
@@ -403,12 +457,20 @@ public sealed class PtSessionService(
 
     // ---- Nội bộ, dùng chung với PtSessionChangeRequestService ----
 
-    private sealed record SessionPreview(DateTime StartAtUtc, Guid MemberId, Guid CoachId);
+    private sealed record SessionPreview(
+        DateTime StartAtUtc,
+        Guid MemberId,
+        Guid CoachId,
+        Guid EntitlementCoachId);
 
     private async Task<SessionPreview> PreviewSessionAsync(Guid sessionId, CancellationToken ct)
         => await db.Set<PtSession>().AsNoTracking()
                .Where(s => s.SessionId == sessionId)
-               .Select(s => new SessionPreview(s.StartAtUtc, s.MemberId, s.CoachId))
+               .Select(s => new SessionPreview(
+                   s.StartAtUtc,
+                   s.MemberId,
+                   s.CoachId,
+                   s.Entitlement!.CoachId))
                .SingleOrDefaultAsync(ct)
            ?? throw new NotFoundException("pt_session_not_found", "Không tìm thấy buổi PT.");
 
@@ -491,12 +553,33 @@ public sealed class PtSessionService(
     /// transaction commit/rollback (pg_advisory_XACT_lock).
     /// </summary>
     internal async Task LockCoachAndMemberAsync(Guid coachId, Guid memberId, CancellationToken ct)
+        => await LockCoachesAndMemberAsync(new[] { coachId }, memberId, ct);
+
+    internal async Task LockCoachesAndMemberAsync(
+        IEnumerable<Guid> coachIds,
+        Guid memberId,
+        CancellationToken ct)
     {
-        await db.Database.ExecuteSqlInterpolatedAsync(
-            $"SELECT pg_advisory_xact_lock(hashtext('pt_session_coach'), hashtext({coachId.ToString()}))", ct);
+        foreach (var coachKey in coachIds.Select(id => id.ToString())
+                     .Distinct(StringComparer.Ordinal)
+                     .OrderBy(value => value, StringComparer.Ordinal))
+        {
+            await db.Database.ExecuteSqlInterpolatedAsync(
+                $"SELECT pg_advisory_xact_lock(hashtext('pt_session_coach'), hashtext({coachKey}))", ct);
+        }
 
         await db.Database.ExecuteSqlInterpolatedAsync(
             $"SELECT pg_advisory_xact_lock(hashtext('pt_session_member'), hashtext({memberId.ToString()}))", ct);
+    }
+
+    private static void EnsureAssignmentUnchanged(PtSession session, SessionPreview preview)
+    {
+        if (session.CoachId != preview.CoachId || session.MemberId != preview.MemberId)
+        {
+            throw new ConflictException(
+                "pt_session_assignment_changed",
+                "Phân công PT vừa thay đổi; vui lòng tải lại và thử lại.");
+        }
     }
 
     internal async Task EnsureNoConflictAsync(
