@@ -24,10 +24,15 @@ public sealed class CoachMemberRelationshipService(
     IAuditWriter audit,
     IClock clock) : ICoachMemberRelationshipService
 {
+    public const int DefaultPageSize = 50;
+    public const int MaximumPageSize = 100;
+
     public async Task<IReadOnlyList<CoachMemberRelationshipResponse>> SearchAsync(
         Guid? coachId,
         Guid? memberId,
         bool activeOnly,
+        int page,
+        int pageSize,
         CancellationToken ct = default)
     {
         var query = db.Set<CoachMemberRelationship>().AsNoTracking();
@@ -47,7 +52,10 @@ public sealed class CoachMemberRelationshipService(
             query = query.Where(r => r.Status == RelationshipStatus.Active);
         }
 
-        return await query.OrderByDescending(r => r.StartedAt).Select(Projection()).ToListAsync(ct);
+        page = Math.Clamp(page, 1, 100_000);
+        pageSize = Math.Clamp(pageSize <= 0 ? DefaultPageSize : pageSize, 1, MaximumPageSize);
+        return await query.OrderByDescending(r => r.StartedAt).ThenBy(r => r.RelationshipId)
+            .Skip((page - 1) * pageSize).Take(pageSize).Select(Projection()).ToListAsync(ct);
     }
 
     public async Task<CoachMemberRelationshipResponse> CreateAsync(
@@ -106,8 +114,7 @@ public sealed class CoachMemberRelationshipService(
             actorUserId, "CREATE_COACH_MEMBER_RELATIONSHIP", nameof(CoachMemberRelationship),
             relationship.RelationshipId.ToString(),
             NewValue: $"{{\"coachId\":\"{request.CoachId}\",\"memberId\":\"{request.MemberId}\","
-                      + $"\"sourceType\":\"{sourceType}\"}}",
-            Reason: request.Note?.Trim()));
+                      + $"\"sourceType\":\"{sourceType}\"}}"));
 
         await db.SaveChangesAsync(ct);
 
@@ -137,8 +144,7 @@ public sealed class CoachMemberRelationshipService(
         audit.Write(new AuditEntry(
             actorUserId, "END_COACH_MEMBER_RELATIONSHIP", nameof(CoachMemberRelationship), relationshipId.ToString(),
             OldValue: $"{{\"status\":\"{RelationshipStatus.Active}\"}}",
-            NewValue: $"{{\"status\":\"{RelationshipStatus.Ended}\"}}",
-            Reason: reason.Trim()));
+            NewValue: $"{{\"status\":\"{RelationshipStatus.Ended}\"}}"));
 
         await db.SaveChangesAsync(ct);
 

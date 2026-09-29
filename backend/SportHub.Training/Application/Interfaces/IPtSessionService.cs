@@ -11,6 +11,8 @@ public interface IPtSessionService
         string? status,
         DateTime? fromUtc,
         DateTime? toUtc,
+        int page,
+        int pageSize,
         CancellationToken ct = default);
 
     Task<PtSessionResponse> GetAsync(Guid sessionId, CancellationToken ct = default);

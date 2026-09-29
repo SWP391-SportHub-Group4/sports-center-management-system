@@ -26,8 +26,13 @@ public sealed class PtCoachChangeRequestService(
     INotificationWriter notifications,
     IClock clock) : IPtCoachChangeRequestService
 {
+    public const int DefaultPageSize = 50;
+    public const int MaximumPageSize = 100;
+
     public async Task<IReadOnlyList<PtCoachChangeRequestResponse>> SearchAsync(
         string? status,
+        int page,
+        int pageSize,
         CancellationToken ct = default)
     {
         var query = db.Set<PtCoachChangeRequest>().AsNoTracking();
@@ -43,7 +48,10 @@ public sealed class PtCoachChangeRequestService(
             query = query.Where(r => r.Status == parsed);
         }
 
-        return await query.OrderBy(r => r.RequestedAt).Select(Projection()).ToListAsync(ct);
+        page = Math.Clamp(page, 1, 100_000);
+        pageSize = Math.Clamp(pageSize <= 0 ? DefaultPageSize : pageSize, 1, MaximumPageSize);
+        return await query.OrderBy(r => r.RequestedAt).ThenBy(r => r.RequestId)
+            .Skip((page - 1) * pageSize).Take(pageSize).Select(Projection()).ToListAsync(ct);
     }
 
     public async Task<PtCoachChangeRequestResponse> RequestAsync(
@@ -117,8 +125,7 @@ public sealed class PtCoachChangeRequestService(
                 entitlementId,
                 currentCoachId = entitlement.CoachId,
                 requestedCoachId = request.RequestedCoachId
-            }),
-            Reason: changeRequest.Reason));
+            })));
 
         try
         {
@@ -218,8 +225,7 @@ public sealed class PtCoachChangeRequestService(
                 coachId = changeRequest.RequestedCoachId,
                 movedSessionIds,
                 unmovedSessionIds
-            }),
-            Reason: changeRequest.ReviewNote));
+            })));
 
         QueueApprovalNotifications(changeRequest, movedSessionIds.Count, unmovedSessionIds.Count);
 
@@ -259,8 +265,7 @@ public sealed class PtCoachChangeRequestService(
             "REJECT_PT_COACH_CHANGE_REQUEST",
             nameof(PtCoachChangeRequest),
             requestId.ToString(),
-            NewValue: "{\"status\":\"Rejected\"}",
-            Reason: changeRequest.ReviewNote));
+            NewValue: "{\"status\":\"Rejected\"}"));
 
         notifications.Queue(new NotificationRequest(
             changeRequest.MemberId,

@@ -29,14 +29,33 @@ public sealed class PtSessionService(
     INotificationWriter notifications,
     IClock clock) : IPtSessionService
 {
+    public const int DefaultPageSize = 50;
+    public const int MaximumPageSize = 100;
+    public const int MaximumSearchRangeDays = 366;
+
     public async Task<IReadOnlyList<PtSessionResponse>> SearchAsync(
         Guid? memberId,
         Guid? coachId,
         string? status,
         DateTime? fromUtc,
         DateTime? toUtc,
+        int page,
+        int pageSize,
         CancellationToken ct = default)
     {
+        if (fromUtc is not null && toUtc is not null && fromUtc > toUtc)
+        {
+            throw new BadRequestException("invalid_pt_session_range", "Thời điểm bắt đầu phải trước thời điểm kết thúc.");
+        }
+        if (fromUtc is not null && toUtc is not null
+            && toUtc.Value - fromUtc.Value > TimeSpan.FromDays(MaximumSearchRangeDays))
+        {
+            throw new BadRequestException(
+                "range_too_large", $"Khoảng lịch PT tối đa {MaximumSearchRangeDays} ngày.");
+        }
+
+        page = Math.Clamp(page, 1, 100_000);
+        pageSize = Math.Clamp(pageSize <= 0 ? DefaultPageSize : pageSize, 1, MaximumPageSize);
         var query = db.Set<PtSession>().AsNoTracking();
 
         if (memberId is not null)
@@ -69,7 +88,9 @@ public sealed class PtSessionService(
             query = query.Where(s => s.StartAtUtc < toUtc);
         }
 
-        return await query.OrderBy(s => s.StartAtUtc).Select(Projection()).ToListAsync(ct);
+        return await query.OrderBy(s => s.StartAtUtc).ThenBy(s => s.SessionId)
+            .Skip((page - 1) * pageSize).Take(pageSize)
+            .Select(Projection()).ToListAsync(ct);
     }
 
     public async Task<PtSessionResponse> GetAsync(Guid sessionId, CancellationToken ct = default)
@@ -212,8 +233,7 @@ public sealed class PtSessionService(
         audit.Write(new AuditEntry(
             actorUserId, auditAction, nameof(PtSession), sessionId.ToString(),
             OldValue: "{\"status\":\"Scheduled\"}",
-            NewValue: $"{{\"status\":\"{session.Status}\",\"timing\":\"{timing}\"}}",
-            Reason: reason.Trim()));
+            NewValue: $"{{\"status\":\"{session.Status}\",\"timing\":\"{timing}\"}}"));
 
         notifications.Queue(new NotificationRequest(
             session.MemberId,
@@ -332,8 +352,7 @@ public sealed class PtSessionService(
             actorUserId, auditAction, nameof(PtSession), sessionId.ToString(),
             OldValue: $"{{\"status\":\"Scheduled\",\"startAtUtc\":\"{oldStartAtUtc:O}\"}}",
             NewValue: $"{{\"status\":\"{session.Status}\",\"replacementSessionId\":\"{replacement.SessionId}\","
-                      + $"\"newStartAtUtc\":\"{newStartAtUtc:O}\",\"timing\":\"{timing}\"}}",
-            Reason: reason.Trim()));
+                      + $"\"newStartAtUtc\":\"{newStartAtUtc:O}\",\"timing\":\"{timing}\"}}"));
 
         notifications.Queue(new NotificationRequest(
             session.MemberId,
@@ -446,8 +465,7 @@ public sealed class PtSessionService(
         audit.Write(new AuditEntry(
             coachId, "NO_SHOW_PT_SESSION", nameof(PtSession), sessionId.ToString(),
             OldValue: "{\"status\":\"Scheduled\"}",
-            NewValue: "{\"status\":\"NoShow\"}",
-            Reason: session.CancellationReason));
+            NewValue: "{\"status\":\"NoShow\"}"));
 
         await db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);

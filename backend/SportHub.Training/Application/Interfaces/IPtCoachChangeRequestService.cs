@@ -7,6 +7,8 @@ public interface IPtCoachChangeRequestService
 {
     Task<IReadOnlyList<PtCoachChangeRequestResponse>> SearchAsync(
         string? status,
+        int page,
+        int pageSize,
         CancellationToken ct = default);
 
     Task<PtCoachChangeRequestResponse> RequestAsync(

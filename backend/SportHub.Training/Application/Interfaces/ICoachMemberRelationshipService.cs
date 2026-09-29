@@ -14,7 +14,8 @@ namespace SportHub.Training.Application.Interfaces;
 public interface ICoachMemberRelationshipService : ICoachRelationshipRegistrar
 {
     Task<IReadOnlyList<CoachMemberRelationshipResponse>> SearchAsync(
-        Guid? coachId, Guid? memberId, bool activeOnly, CancellationToken ct = default);
+        Guid? coachId, Guid? memberId, bool activeOnly,
+        int page, int pageSize, CancellationToken ct = default);
 
     Task<CoachMemberRelationshipResponse> CreateAsync(
         CreateRelationshipRequest request, Guid actorUserId, CancellationToken ct = default);
