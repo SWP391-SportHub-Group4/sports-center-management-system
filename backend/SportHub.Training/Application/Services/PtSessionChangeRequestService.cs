@@ -127,26 +127,13 @@ public sealed class PtSessionChangeRequestService(
     public async Task<PtSessionChangeRequestResponse> ApproveAsync(
         Guid requestId, ReviewPtSessionChangeRequest request, Guid managerId, CancellationToken ct = default)
     {
-        var changeRequest = await db.Set<PtSessionChangeRequest>()
-            .SingleOrDefaultAsync(r => r.RequestId == requestId, ct)
-            ?? throw new NotFoundException("pt_session_not_found", "Không tìm thấy yêu cầu đổi lịch.");
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+
+        var changeRequest = await LockRequestAsync(requestId, ct);
 
         EnsurePending(changeRequest);
 
         var reason = changeRequest.Reason ?? "Member yêu cầu";
-
-        if (changeRequest.RequestType == PtSessionChangeRequestType.Cancel)
-        {
-            await sessions.ApplyCancelAsync(
-                changeRequest.SessionId, changeRequest.TimingClassification, reason, managerId,
-                "APPROVE_PT_SESSION_CHANGE_REQUEST", ct);
-        }
-        else
-        {
-            await sessions.ApplyRescheduleAsync(
-                changeRequest.SessionId, changeRequest.TimingClassification, changeRequest.RequestedStartAtUtc!.Value,
-                reason, managerId, "APPROVE_PT_SESSION_CHANGE_REQUEST", ct);
-        }
 
         changeRequest.Status = PtSessionChangeRequestStatus.Approved;
         changeRequest.ReviewedByUserId = managerId;
@@ -158,7 +145,20 @@ public sealed class PtSessionChangeRequestService(
             NewValue: "{\"status\":\"Approved\"}",
             Reason: changeRequest.ReviewNote));
 
-        await db.SaveChangesAsync(ct);
+        if (changeRequest.RequestType == PtSessionChangeRequestType.Cancel)
+        {
+            await sessions.ApplyCancelAsync(
+                changeRequest.SessionId, changeRequest.TimingClassification, reason, managerId,
+                "APPROVE_PT_SESSION_CHANGE_REQUEST", ct, manageTransaction: false);
+        }
+        else
+        {
+            await sessions.ApplyRescheduleAsync(
+                changeRequest.SessionId, changeRequest.TimingClassification, changeRequest.RequestedStartAtUtc!.Value,
+                reason, managerId, "APPROVE_PT_SESSION_CHANGE_REQUEST", ct, manageTransaction: false);
+        }
+
+        await transaction.CommitAsync(ct);
 
         return await GetOneAsync(requestId, ct);
     }
@@ -166,9 +166,9 @@ public sealed class PtSessionChangeRequestService(
     public async Task<PtSessionChangeRequestResponse> RejectAsync(
         Guid requestId, ReviewPtSessionChangeRequest request, Guid managerId, CancellationToken ct = default)
     {
-        var changeRequest = await db.Set<PtSessionChangeRequest>()
-            .SingleOrDefaultAsync(r => r.RequestId == requestId, ct)
-            ?? throw new NotFoundException("pt_session_not_found", "Không tìm thấy yêu cầu đổi lịch.");
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+
+        var changeRequest = await LockRequestAsync(requestId, ct);
 
         EnsurePending(changeRequest);
 
@@ -183,8 +183,20 @@ public sealed class PtSessionChangeRequestService(
             Reason: changeRequest.ReviewNote));
 
         await db.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
 
         return await GetOneAsync(requestId, ct);
+    }
+
+    private async Task<PtSessionChangeRequest> LockRequestAsync(Guid requestId, CancellationToken ct)
+    {
+        var rows = await db.Set<PtSessionChangeRequest>()
+            .FromSqlInterpolated(
+                $"SELECT * FROM pt_session_change_requests WHERE request_id = {requestId} FOR UPDATE")
+            .ToListAsync(ct);
+
+        return rows.SingleOrDefault()
+            ?? throw new NotFoundException("pt_session_not_found", "Không tìm thấy yêu cầu đổi lịch.");
     }
 
     private static void EnsurePending(PtSessionChangeRequest changeRequest)
