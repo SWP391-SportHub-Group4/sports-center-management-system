@@ -7,10 +7,12 @@ import { api } from "@/lib/apiClient";
 import { addDaysIso, formatDateTime, todayIso } from "@/lib/format";
 import { useApi } from "@/lib/useApi";
 import { useAuth } from "@/lib/auth";
+import { useLanguage } from "@/lib/language";
 import type { ClassSessionDto, CoachMemberRelationshipDto } from "@/lib/types";
 
 export default function CoachDashboardPage() {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const today = todayIso();
   const isPersonalTrainer = user?.coachCategory !== "ClassInstructor";
 
@@ -23,8 +25,6 @@ export default function CoachDashboardPage() {
     [today],
   );
 
-  // BR-97 — ClassInstructor không có CoachMemberRelationship (không dùng nghiệp vụ Training),
-  // nên chỉ gọi endpoint này khi là PersonalTrainer.
   const members = useApi(
     (signal) =>
       isPersonalTrainer
@@ -42,53 +42,53 @@ export default function CoachDashboardPage() {
 
   return (
     <AppShell
-      title={`Hello, ${user?.fullName ?? "Coach."}`}
-      description="Calendar, Organizer, and Training Tool"
+      title={t.coach.dashboard.title.replace("{name}", user?.fullName ?? "")}
+      description={t.coach.dashboard.subtitle}
       allow={["Coach"]}
     >
       <div className="grid grid--stats">
-        <Stat label="Today's lesson" value={todaySessions.length} />
         <Stat
-          label="The next seven days of teaching."
+          label={t.coach.dashboard.statTodayLessons}
+          value={todaySessions.length}
+        />
+        <Stat
+          label={t.coach.dashboard.statUpcomingLessons}
           value={week.data?.length ?? 0}
         />
         {isPersonalTrainer && (
           <Stat
-            label="Members are in charge"
+            label={t.coach.dashboard.statAssignedMembers}
             value={members.data?.length ?? 0}
-            hint="Active Training Relationship (BR-23)"
+            hint={t.coach.dashboard.statAssignedMembersHint}
           />
         )}
       </div>
 
       {isPersonalTrainer && (
         <div className="row">
-          <Link className="btn" href="/coach/attendance">
-            & Write Results
-          </Link>
-          <Link className="btn btn--ghost" href="/coach/training-plans">
-            Edit Training Planning
+          <Link className="btn" href="/coach/training-plans">
+            {t.coach.dashboard.quickEditPlans}
           </Link>
           <Link className="btn btn--ghost" href="/coach/ai-suggestions">
-            Please suggest AI
+            {t.coach.dashboard.quickAiSuggestions}
           </Link>
         </div>
       )}
 
-      <Card title="Reschedule" bodyless>
+      <Card title={t.coach.dashboard.scheduleTableTitle} bodyless>
         <AsyncSection
           state={week}
-          emptyMessage="You haven't been assigned a lecture in seven days."
+          emptyMessage={t.coach.dashboard.scheduleTableEmpty}
           isEmpty={(data) => data.length === 0}
         >
           {(data) => (
             <Table
               headers={[
-                "Class",
-                "Time",
-                "Room",
-                { text: "Registered", numeric: true },
-                "Status",
+                t.coach.dashboard.columnClass,
+                t.coach.dashboard.columnTime,
+                t.coach.dashboard.columnRoom,
+                { text: t.coach.dashboard.columnRegistered, numeric: true },
+                t.coach.dashboard.columnStatus,
               ]}
             >
               {data.map((session) => (
@@ -116,22 +116,22 @@ export default function CoachDashboardPage() {
 
       {isPersonalTrainer && (
         <Card
-          title="Members are in charge"
-          hint="Only with these members have you created the exercise plan and offered AI (BR-23)."
+          title={t.coach.dashboard.membersTableTitle}
+          hint={t.coach.dashboard.membersTableHint}
           bodyless
         >
           <AsyncSection
             state={members}
-            emptyMessage="You have not yet been in charge of any member; the relationship will arise when the members sign up for your class, either due to the CBS."
+            emptyMessage={t.coach.dashboard.membersTableEmpty}
             isEmpty={(data) => data.length === 0}
           >
             {(data) => (
               <Table
                 headers={[
-                  "Members",
-                  "The Source of Relationships",
-                  "Class",
-                  "Start",
+                  t.coach.dashboard.columnMember,
+                  t.coach.dashboard.columnSource,
+                  t.coach.dashboard.columnClass,
+                  t.coach.dashboard.columnStart,
                 ]}
               >
                 {data.map((item) => (
