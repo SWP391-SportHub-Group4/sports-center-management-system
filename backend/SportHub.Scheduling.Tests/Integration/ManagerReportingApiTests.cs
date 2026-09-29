@@ -74,7 +74,7 @@ public sealed class ManagerReportingApiTests(SchedulingApiFactory factory)
     }
 
     [Fact]
-    public async Task Class_utilization_excludes_pt_cancelled_and_rescheduled_from_utilization()
+    public async Task Class_utilization_excludes_cancelled_and_rescheduled_from_utilization_rate()
     {
         var manager = await factory.SeedUserAsync(UserRole.CenterManager);
         var coach = await factory.SeedUserAsync(UserRole.Coach);
@@ -288,10 +288,12 @@ public sealed class ManagerReportingApiTests(SchedulingApiFactory factory)
         db.Rooms.Add(room);
         await db.SaveChangesAsync();
 
+        // Đổi 29/09/2026 (BE-4): không còn seed Class "PersonalTraining" — CK_classes_discipline_allowed
+        // giờ chỉ nhận Yoga/GroupX, PT dùng PtEntitlement/PtSession riêng nên không thể (và không
+        // cần) xuất hiện ở report class-utilization nữa.
         var yoga = NewClass("Yoga report", Disciplines.Yoga, room.RoomId, coachId, 30);
         var groupX = NewClass("Group X report", Disciplines.GroupX, room.RoomId, coachId, 20);
-        var pt = NewClass("PT excluded", Disciplines.PersonalTraining, room.RoomId, coachId, 1);
-        db.Classes.AddRange(yoga, groupX, pt);
+        db.Classes.AddRange(yoga, groupX);
         await db.SaveChangesAsync();
 
         db.ClassSessions.AddRange(
@@ -299,8 +301,7 @@ public sealed class ManagerReportingApiTests(SchedulingApiFactory factory)
             NewSession(yoga, room.RoomId, coachId, firstDay, 10, 10, 8, ClassSessionStatus.Completed),
             NewSession(yoga, room.RoomId, coachId, firstDay, 12, 30, 15, ClassSessionStatus.Cancelled),
             NewSession(yoga, room.RoomId, coachId, firstDay, 14, 20, 5, ClassSessionStatus.Rescheduled),
-            NewSession(groupX, room.RoomId, coachId, firstDay.AddDays(1), 9, 20, 20, ClassSessionStatus.Completed),
-            NewSession(pt, room.RoomId, coachId, firstDay, 16, 1, 1, ClassSessionStatus.Completed));
+            NewSession(groupX, room.RoomId, coachId, firstDay.AddDays(1), 9, 20, 20, ClassSessionStatus.Completed));
 
         await db.SaveChangesAsync();
     }

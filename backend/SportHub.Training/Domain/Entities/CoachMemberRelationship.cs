@@ -28,4 +28,6 @@ public class CoachMemberRelationship
     public DateTime? EndedAt { get; set; }
 
     public ICollection<WorkoutPlan> WorkoutPlans { get; set; } = new List<WorkoutPlan>();
+
+    public ICollection<HomeworkAssignment> HomeworkAssignments { get; set; } = new List<HomeworkAssignment>();
 }

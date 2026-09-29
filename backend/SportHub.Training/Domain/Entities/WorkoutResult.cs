@@ -1,17 +1,20 @@
 using SportHub.Identity.Domain.Entities;
-using SportHub.Scheduling.Domain.Entities;
 
 namespace SportHub.Training.Domain.Entities;
 
+/// <summary>
+/// Đổi FK 29/09/2026 (BE-4): EnrollmentId → PtSessionId (unique, 1–1). Yoga/Group X không có
+/// WorkoutResult — PT session cũ ép qua Enrollment đã bị loại bỏ hoàn toàn.
+/// </summary>
 public class WorkoutResult
 {
     public Guid ResultId { get; set; } // PK
 
-    public Guid EnrollmentId { get; set; } // FK -> Enrollment, đảm bảo Member thực sự có đăng ký session
+    public Guid PtSessionId { get; set; } // FK -> PtSession, unique (1-1)
 
-    public Enrollment? Enrollment { get; set; }
+    public PtSession? PtSession { get; set; }
 
-    public Guid CoachId { get; set; } // FK -> UserAccount, ai ghi nhận kết quả
+    public Guid CoachId { get; set; } // FK -> UserAccount, phải khớp PtSession.CoachId thực tế lúc ghi
 
     public UserAccount? Coach { get; set; }
 

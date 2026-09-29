@@ -51,6 +51,14 @@ public class SportHubDbContext : DbContext, ISportHubDbContext
     public DbSet<WorkoutPlanItem> WorkoutPlanItems => Set<WorkoutPlanItem>();
     public DbSet<WorkoutResult> WorkoutResults => Set<WorkoutResult>();
 
+    // Mới 29/09/2026 (BE-4).
+    public DbSet<PtEntitlement> PtEntitlements => Set<PtEntitlement>();
+    public DbSet<PtSession> PtSessions => Set<PtSession>();
+    public DbSet<PtSessionChangeRequest> PtSessionChangeRequests => Set<PtSessionChangeRequest>();
+    public DbSet<PtCoachChangeRequest> PtCoachChangeRequests => Set<PtCoachChangeRequest>();
+    public DbSet<HomeworkAssignment> HomeworkAssignments => Set<HomeworkAssignment>();
+    public DbSet<HomeworkAssignmentItem> HomeworkAssignmentItems => Set<HomeworkAssignmentItem>();
+
     public DbSet<Invoice> Invoices => Set<Invoice>();
     public DbSet<InvoiceItem> InvoiceItems => Set<InvoiceItem>();
     public DbSet<SportHub.Payment.Domain.Entities.Payment> Payments => Set<SportHub.Payment.Domain.Entities.Payment>();
