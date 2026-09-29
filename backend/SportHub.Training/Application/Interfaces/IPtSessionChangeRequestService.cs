@@ -6,7 +6,7 @@ namespace SportHub.Training.Application.Interfaces;
 public interface IPtSessionChangeRequestService
 {
     Task<IReadOnlyList<PtSessionChangeRequestResponse>> SearchAsync(
-        string? status, CancellationToken ct = default);
+        string? status, int page, int pageSize, CancellationToken ct = default);
 
     Task<PtSessionChangeRequestResponse> RequestAsync(
         Guid sessionId, RequestPtSessionChangeRequest request, Guid memberId, CancellationToken ct = default);
