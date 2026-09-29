@@ -8,6 +8,8 @@
   <ItemGroup>
     <ProjectReference Include="..\SportHub.Identity\SportHub.Identity.csproj" />
     <ProjectReference Include="..\SportHub.Scheduling\SportHub.Scheduling.csproj" />
+    <!-- BE-4: kiểm MemberPackage/validity khi tạo/carry-over PtEntitlement — tuyệt đối không reference Payment. -->
+    <ProjectReference Include="..\SportHub.Membership\SportHub.Membership.csproj" />
     <ProjectReference Include="..\SportHub.BuildingBlocks\SportHub.BuildingBlocks.csproj" />
   </ItemGroup>
 

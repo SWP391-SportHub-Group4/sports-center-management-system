@@ -158,16 +158,10 @@ public sealed class DemoDataSeeder(
                 DefaultCoachId = coachGroupX.UserId,
                 Capacity = 25,
                 Status = ClassStatus.Active
-            },
-            new Class
-            {
-                Name = "PT 1 kèm 1",
-                Discipline = Disciplines.PersonalTraining,
-                DefaultRoomId = rooms[2].RoomId,
-                DefaultCoachId = coachPt.UserId,
-                Capacity = Disciplines.PersonalTrainingCapacity,
-                Status = ClassStatus.Active
             }
+            // Đổi 29/09/2026 (BE-4): không còn seed Class "PT 1 kèm 1" — PT dùng
+            // PtEntitlement/PtSession riêng, xem SeedTrainingAsync. rooms[2] ("Phòng PT 1")
+            // giữ lại, không gắn Class nào (Manager có thể dùng cho việc khác sau này).
         };
 
         db.Classes.AddRange(classes);
@@ -193,16 +187,6 @@ public sealed class DemoDataSeeder(
                 Timezone = "Asia/Ho_Chi_Minh",
                 EffectiveFrom = today.AddDays(-30),
                 EffectiveTo = null
-            },
-            new ClassRecurrence
-            {
-                ClassId = classes[2].ClassId,
-                DaysOfWeek = "MON,THU",
-                StartTimeLocal = new TimeOnly(17, 0),
-                EndTimeLocal = new TimeOnly(18, 0),
-                Timezone = "Asia/Ho_Chi_Minh",
-                EffectiveFrom = today.AddDays(-30),
-                EffectiveTo = null
             });
 
         await db.SaveChangesAsync(ct);
@@ -213,7 +197,7 @@ public sealed class DemoDataSeeder(
 
         await SeedPackagesAndInvoicesAsync(members, manager, reception, packages, today, now, ct);
         await SeedEnrollmentsAsync(members, sessions, now, ct);
-        await SeedTrainingAsync(members, coachYoga, coachGroupX, coachPt, classes, now, ct);
+        await SeedTrainingAsync(members, manager, coachYoga, coachGroupX, coachPt, classes, now, ct);
         await SeedGymCheckInsAsync(members, reception, now, ct);
 
         await db.SaveChangesAsync(ct);
@@ -230,8 +214,7 @@ public sealed class DemoDataSeeder(
         var plans = new (Class Class, Room Room, string[] Days, TimeOnly Start, TimeOnly End)[]
         {
             (classes[0], rooms[0], ["MON", "WED", "FRI"], new TimeOnly(6, 0), new TimeOnly(7, 0)),
-            (classes[1], rooms[1], ["TUE", "THU", "SAT"], new TimeOnly(18, 0), new TimeOnly(19, 0)),
-            (classes[2], rooms[2], ["MON", "THU"], new TimeOnly(17, 0), new TimeOnly(18, 0))
+            (classes[1], rooms[1], ["TUE", "THU", "SAT"], new TimeOnly(18, 0), new TimeOnly(19, 0))
         };
 
         var dayCodes = new Dictionary<DayOfWeek, string>
@@ -471,6 +454,7 @@ public sealed class DemoDataSeeder(
 
     private async Task SeedTrainingAsync(
         UserAccount[] members,
+        UserAccount manager,
         UserAccount coachYoga,
         UserAccount coachGroupX,
         UserAccount coachPt,
@@ -566,25 +550,68 @@ public sealed class DemoDataSeeder(
                 Exercise = "Glute bridge", Sets = 3, Reps = 15, Notes = null
             });
 
-        var yogaEnrollment = await db.Enrollments
-            .Include(e => e.Session)
-            .Where(e => e.MemberId == members[0].UserId
-                        && e.Status == EnrollmentStatus.Confirmed
-                        && e.Session!.EndAtUtc <= now
-                        && e.Session.CoachId == coachYoga.UserId)
-            .OrderByDescending(e => e.Session!.StartAtUtc)
+        // Đổi 29/09/2026 (BE-4): PT dùng PtEntitlement/PtSession riêng, không còn ép
+        // WorkoutResult vào Enrollment Yoga/Group X. Entitlement mượn validity của MemberPackage
+        // "Personal Training 10 buổi" đã seed cho members[2] ở SeedPackagesAndInvoicesAsync —
+        // đây là dữ liệu demo, Payment thật sẽ tạo PtEntitlement qua IPtEntitlementLifecycle.
+        var ptMemberPackage = await db.MemberPackages
+            .Where(mp => mp.MemberId == members[2].UserId && mp.Status == MemberPackageStatus.Active)
+            .OrderByDescending(mp => mp.StartDate)
             .FirstOrDefaultAsync(ct);
 
-        if (yogaEnrollment is not null)
+        if (ptMemberPackage is not null)
         {
+            var entitlement = new PtEntitlement
+            {
+                EntitlementId = Guid.NewGuid(),
+                ActivationReference = Guid.NewGuid(),
+                MemberId = members[2].UserId,
+                OriginMemberPackageId = ptMemberPackage.MemberPackageId,
+                CurrentMemberPackageId = ptMemberPackage.MemberPackageId,
+                CoachId = coachPt.UserId,
+                FrequencyPerWeek = 2,
+                TotalQuota = 24,
+                ReservedSessions = 0,
+                ConsumedSessions = 1,
+                ValidityStartDate = ptMemberPackage.StartDate,
+                ValidityEndDate = ptMemberPackage.EndDate,
+                CarryOverUntilDate = ptMemberPackage.EndDate.AddDays(30),
+                Status = PtEntitlementStatus.Active,
+                // DateOnly.ToDateTime() luôn trả Kind=Unspecified — cột là timestamptz nên phải
+                // ép rõ Utc, nếu không Npgsql ném ArgumentException lúc ghi (phát hiện qua test).
+                ActivatedAt = DateTime.SpecifyKind(ptMemberPackage.StartDate.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc),
+                Version = 0
+            };
+
+            db.PtEntitlements.Add(entitlement);
+
+            var sessionStartUtc = now.AddDays(-7);
+
+            var session = new PtSession
+            {
+                SessionId = Guid.NewGuid(),
+                EntitlementId = entitlement.EntitlementId,
+                MemberId = members[2].UserId,
+                CoachId = coachPt.UserId,
+                StartAtUtc = sessionStartUtc,
+                EndAtUtc = sessionStartUtc.AddMinutes(90),
+                Status = PtSessionStatus.Completed,
+                QuotaState = PtSessionQuotaState.Consumed,
+                CreatedByUserId = manager.UserId,
+                CompletedAt = sessionStartUtc.AddMinutes(90),
+                Version = 0
+            };
+
+            db.PtSessions.Add(session);
+
             db.WorkoutResults.Add(new WorkoutResult
             {
                 ResultId = Guid.NewGuid(),
-                EnrollmentId = yogaEnrollment.EnrollmentId,
-                CoachId = coachYoga.UserId,
-                ProgressNote = "Giữ được tư thế chiến binh II trong 45 giây, tiến bộ so với tuần trước.",
-                CoachComment = "Cần thả lỏng vai hơn khi vào tư thế. Buổi sau tăng thời gian giữ lên 60 giây.",
-                RecordedAt = yogaEnrollment.Session!.EndAtUtc.AddMinutes(10)
+                PtSessionId = session.SessionId,
+                CoachId = coachPt.UserId,
+                ProgressNote = "Giữ được tư thế plank thêm 15 giây so với buổi trước.",
+                CoachComment = "Cần siết cơ bụng nhiều hơn khi vào plank. Buổi sau tăng thời gian giữ.",
+                RecordedAt = session.EndAtUtc.AddMinutes(10)
             });
         }
     }

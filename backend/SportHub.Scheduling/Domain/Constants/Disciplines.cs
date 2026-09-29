@@ -11,6 +11,9 @@ namespace SportHub.Scheduling.Domain.Constants;
 // đi qua entity GymCheckIn (BR-64). Boxing và các bộ môn khác nằm ngoài scope (SSOT §1.3).
 public static class Disciplines
 {
+    // Giữ hằng số này (không xóa) vì CK_classes_personal_training_capacity và một số test cũ
+    // vẫn tham chiếu — nhưng KHÔNG còn nằm trong `All` nên không tạo được Class mới với giá
+    // trị này (đổi 29/09/2026, BE-4): PT dùng PtEntitlement/PtSession riêng, không dùng Class.
     public const string PersonalTraining = nameof(PersonalTraining);
 
     public const string Yoga = nameof(Yoga);
@@ -20,7 +23,10 @@ public static class Disciplines
     // Personal Training = 1 Member ↔ 1 Coach, nên sức chứa luôn đúng bằng 1 (SSOT §1.1).
     public const int PersonalTrainingCapacity = 1;
 
-    public static readonly IReadOnlyList<string> All = [PersonalTraining, Yoga, GroupX];
+    // Đổi 29/09/2026 (BE-4): loại PersonalTraining khỏi danh sách hợp lệ cho Class — xem
+    // docs/backend-be4-pt-training-implementation-plan.md §2. Yoga/Group X tiếp tục dùng
+    // Class/ClassSession/Enrollment như cũ.
+    public static readonly IReadOnlyList<string> All = [Yoga, GroupX];
 
     public static bool IsValid(string? discipline)
         => discipline is not null && All.Contains(discipline);

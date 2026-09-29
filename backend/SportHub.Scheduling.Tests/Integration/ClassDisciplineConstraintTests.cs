@@ -16,38 +16,32 @@ namespace SportHub.Scheduling.Tests.Integration;
 public sealed class ClassDisciplineConstraintTests(SchedulingApiFactory factory)
 {
     [Theory]
-    [InlineData(Disciplines.PersonalTraining, 1)]
     [InlineData(Disciplines.Yoga, 20)]
     [InlineData(Disciplines.GroupX, 30)]
-    public async Task The_three_official_disciplines_are_accepted(string discipline, int capacity)
+    public async Task The_two_official_disciplines_are_accepted(string discipline, int capacity)
     {
         var classId = await InsertClassAsync(discipline, capacity);
 
         Assert.True(classId > 0);
     }
 
+    // PersonalTraining doi 29/09/2026 (BE-4): khong con la Class discipline hop le — PT dung
+    // PtEntitlement/PtSession rieng, khong con qua duoc CK_classes_discipline_allowed du capacity
+    // dung 1. "Personal_training_with_capacity_other_than_one_is_rejected_by_the_database" (test
+    // cu kiem CK_classes_personal_training_capacity rieng) bi xoa vi tien de khong con dung: PT
+    // gio bi CK_classes_discipline_allowed chan truoc, khong the co truong hop "PT hop le discipline
+    // nhung sai capacity" nua.
     [Theory]
+    [InlineData(Disciplines.PersonalTraining)]
     [InlineData("Gym")]
     [InlineData("Boxing")]
     [InlineData("")]
     [InlineData("yoga")]
-    public async Task Disciplines_outside_the_three_are_rejected_by_the_database(string discipline)
+    public async Task Disciplines_outside_the_two_are_rejected_by_the_database(string discipline)
     {
         var ex = await Assert.ThrowsAsync<DbUpdateException>(() => InsertClassAsync(discipline, 10));
 
         Assert.Equal("CK_classes_discipline_allowed", ConstraintNameOf(ex));
-    }
-
-    [Theory]
-    [InlineData(0)]
-    [InlineData(2)]
-    [InlineData(20)]
-    public async Task Personal_training_with_capacity_other_than_one_is_rejected_by_the_database(int capacity)
-    {
-        var ex = await Assert.ThrowsAsync<DbUpdateException>(
-            () => InsertClassAsync(Disciplines.PersonalTraining, capacity));
-
-        Assert.Equal("CK_classes_personal_training_capacity", ConstraintNameOf(ex));
     }
 
     private static string? ConstraintNameOf(DbUpdateException ex)
