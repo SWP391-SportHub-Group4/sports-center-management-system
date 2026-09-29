@@ -3,8 +3,6 @@ using SportHub.BuildingBlocks.Abstractions.Audit;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.BuildingBlocks.SharedKernel.Time;
-using SportHub.Scheduling.Domain.Entities;
-using SportHub.Scheduling.Domain.Enums;
 using SportHub.Training.Application.Commands;
 using SportHub.Training.Application.DTOs;
 using SportHub.Training.Application.Interfaces;
@@ -13,8 +11,11 @@ namespace SportHub.Training.Application.Services;
 
 /// <summary>
 /// Kế hoạch và kết quả tập luyện — BR-23 (chỉ HLV có quan hệ Active mới lập kế hoạch),
-/// BR-24 (chỉ HLV thực sự dạy buổi đó mới ghi kết quả), BR-25 (hội viên chỉ xem),
-/// BR-61 (Enrollment phải Confirmed tại thời điểm ghi).
+/// BR-24 (chỉ HLV thực sự dạy buổi đó mới ghi kết quả).
+///
+/// Đổi 29/09/2026 (BE-4): kết quả gắn với PtSession, không còn Enrollment (Yoga/Group X không
+/// có WorkoutResult). Việc tạo/hoàn thành PtSession thuộc PtSessionLifecycle (Phase 3) — service
+/// này chỉ ghi kết quả cho session ĐÃ tồn tại và đã/đang Completed.
 /// </summary>
 public sealed class WorkoutService(
     ISportHubDbContext db,
@@ -58,6 +59,7 @@ public sealed class WorkoutService(
                 "no_active_relationship",
                 "Bạn chưa có quan hệ huấn luyện đang hoạt động với hội viên này (BR-23).");
 
+        var now = clock.UtcNow;
         var plan = new WorkoutPlan
         {
             PlanId = Guid.NewGuid(),
@@ -69,7 +71,9 @@ public sealed class WorkoutService(
             // được làm sai lệch căn cứ của một kế hoạch đã giao.
             Goal = request.Goal.Trim(),
             Level = request.Level.Trim(),
-            CreatedAt = clock.UtcNow
+            CreatedAt = now,
+            Status = WorkoutPlanStatus.Active,
+            UpdatedAt = now
         };
 
         db.Set<WorkoutPlan>().Add(plan);
@@ -106,7 +110,7 @@ public sealed class WorkoutService(
 
         if (memberId is not null)
         {
-            query = query.Where(r => r.Enrollment!.MemberId == memberId);
+            query = query.Where(r => r.PtSession!.MemberId == memberId);
         }
 
         if (coachId is not null)
@@ -127,36 +131,29 @@ public sealed class WorkoutService(
         Guid coachId,
         CancellationToken ct = default)
     {
-        var enrollment = await db.Set<Enrollment>()
-            .Include(e => e.Session)
-            .SingleOrDefaultAsync(e => e.EnrollmentId == request.EnrollmentId, ct)
-            ?? throw new NotFoundException("enrollment_not_found", "Không tìm thấy đăng ký.");
+        var session = await db.Set<PtSession>()
+            .SingleOrDefaultAsync(s => s.SessionId == request.PtSessionId, ct)
+            ?? throw new NotFoundException("pt_session_not_found", "Không tìm thấy buổi PT.");
 
-        // BR-24 — chỉ HLV THỰC SỰ DẠY buổi đó mới ghi được kết quả. So với CoachId của chính
-        // buổi học chứ không phải của lớp: buổi có thể đã đổi HLV (BR-14).
-        if (enrollment.Session!.CoachId != coachId)
+        // BR-24 — chỉ HLV THỰC SỰ DẠY buổi đó mới ghi được kết quả.
+        if (session.CoachId != coachId)
         {
             throw new ForbiddenException(
-                "not_session_coach", "Chỉ HLV giảng dạy buổi học này mới ghi được kết quả tập (BR-24).");
+                "not_session_coach", "Chỉ HLV giảng dạy buổi PT này mới ghi được kết quả tập (BR-24).");
         }
 
-        // BR-61 — Enrollment phải Confirmed TẠI THỜI ĐIỂM GHI. FK sang Enrollment chỉ đảm bảo
-        // đăng ký tồn tại, không đảm bảo còn hiệu lực.
-        //
-        // KHÔNG thêm điều kiện Attendance.Status = Present: SSOT §7 ghi rõ đó là câu hỏi CHƯA
-        // được quyết định, nên không tự siết thêm.
-        if (enrollment.Status != EnrollmentStatus.Confirmed)
+        // Chỉ ghi result khi session đã/đang chuyển Completed (BE-4 §5.5) — Scheduled/cancelled/
+        // no-show không có kết quả tập.
+        if (session.Status != PtSessionStatus.Completed)
         {
             throw new ConflictException(
-                "enrollment_not_confirmed",
-                $"Đăng ký đang ở trạng thái {enrollment.Status} — không ghi được kết quả tập (BR-61).");
+                "pt_session_not_completable",
+                $"Buổi PT đang ở trạng thái {session.Status} — chỉ ghi được kết quả khi đã hoàn thành.");
         }
 
-        // Một kết quả cho mỗi (đăng ký, HLV): ghi lại là cập nhật nhận xét, không tạo bản ghi
-        // thứ hai chồng lên nhau. Entity cho phép 1—N nhưng nhiều bản ghi cùng buổi của cùng
-        // một HLV không có ý nghĩa nghiệp vụ nào.
+        // 1 result/session (unique PtSessionId) — ghi lại là cập nhật, không tạo bản ghi thứ hai.
         var result = await db.Set<WorkoutResult>()
-            .SingleOrDefaultAsync(r => r.EnrollmentId == request.EnrollmentId && r.CoachId == coachId, ct);
+            .SingleOrDefaultAsync(r => r.PtSessionId == request.PtSessionId, ct);
 
         var isNew = result is null;
 
@@ -165,7 +162,7 @@ public sealed class WorkoutService(
             result = new WorkoutResult
             {
                 ResultId = Guid.NewGuid(),
-                EnrollmentId = request.EnrollmentId,
+                PtSessionId = request.PtSessionId,
                 CoachId = coachId
             };
 
@@ -180,7 +177,7 @@ public sealed class WorkoutService(
             coachId,
             isNew ? "CREATE_WORKOUT_RESULT" : "UPDATE_WORKOUT_RESULT",
             nameof(WorkoutResult), result.ResultId.ToString(),
-            NewValue: $"{{\"enrollmentId\":\"{request.EnrollmentId}\",\"sessionId\":\"{enrollment.SessionId}\"}}"));
+            NewValue: $"{{\"ptSessionId\":\"{request.PtSessionId}\"}}"));
 
         await db.SaveChangesAsync(ct);
 
@@ -213,12 +210,10 @@ public sealed class WorkoutService(
     private static System.Linq.Expressions.Expression<Func<WorkoutResult, WorkoutResultResponse>> ResultProjection()
         => r => new WorkoutResultResponse(
             r.ResultId,
-            r.EnrollmentId,
-            r.Enrollment!.SessionId,
-            r.Enrollment.Session!.Class!.Name,
-            r.Enrollment.Session.StartAtUtc,
-            r.Enrollment.MemberId,
-            r.Enrollment.Member!.Profile != null ? r.Enrollment.Member.Profile.FullName : r.Enrollment.Member.Email,
+            r.PtSessionId,
+            r.PtSession!.StartAtUtc,
+            r.PtSession.MemberId,
+            r.PtSession.Member!.Profile != null ? r.PtSession.Member.Profile.FullName : r.PtSession.Member.Email,
             r.CoachId,
             r.Coach!.Profile != null ? r.Coach.Profile.FullName : r.Coach.Email,
             r.ProgressNote,
