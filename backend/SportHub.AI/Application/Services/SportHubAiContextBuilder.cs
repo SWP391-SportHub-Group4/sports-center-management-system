@@ -76,10 +76,7 @@ public sealed class SportHubAiContextBuilder(
             .Where(s =>
                 s.StartAtUtc >= now &&
                 s.StartAtUtc <= until &&
-                (
-                    s.Status == ClassSessionStatus.Scheduled ||
-                    s.Status == ClassSessionStatus.Rescheduled
-                ))
+                s.Status == ClassSessionStatus.Scheduled)
             .OrderBy(s => s.StartAtUtc)
             .Take(MaxUpcomingSessions)
             .Select(s => new
@@ -90,34 +87,26 @@ public sealed class SportHubAiContextBuilder(
                     ? s.Class.Name
                     : "Unknown",
 
-                discipline = s.Class != null
-                    ? s.Class.Discipline
+                sport = s.Class != null && s.Class.Sport != null
+                    ? s.Class.Sport.Name
                     : "Unknown",
 
                 room = s.Room != null
                     ? s.Room.Name
                     : "Unknown",
 
-                coach =
-                    s.Coach != null &&
-                    s.Coach.Profile != null
-                        ? s.Coach.Profile.FullName
-                        : s.Coach != null
-                            ? s.Coach.Email
-                            : "Unknown",
+                s.CoachId,
 
                 s.StartAtUtc,
                 s.EndAtUtc,
-                s.Capacity,
-                s.ConfirmedCount,
+                capacity = s.Class != null ? s.Class.Capacity : 0,
+                confirmedCount = s.Class != null ? s.Class.ConfirmedCount : 0,
 
-                availableSeats =
-                    s.Capacity - s.ConfirmedCount > 0
-                        ? s.Capacity - s.ConfirmedCount
-                        : 0,
+                availableSeats = s.Class != null && s.Class.Capacity - s.Class.ReservedCount > 0
+                    ? s.Class.Capacity - s.Class.ReservedCount
+                    : 0,
 
-                isRescheduled =
-                    s.Status == ClassSessionStatus.Rescheduled
+                isMakeup = s.IsMakeup
             })
             .ToListAsync(cancellationToken);
 

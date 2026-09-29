@@ -78,13 +78,13 @@ public sealed class WorkoutRecommendationService(
 
         // BR-26 đầu vào (3) — lịch sử tập 30 ngày gần nhất, gộp cả lớp có điểm danh lẫn
         // Gym check-in (BR-64): hội viên tập Gym tự do vẫn có lịch sử tập, chỉ là không qua lớp.
-        var attendance = await db.Set<Enrollment>()
+        var attendance = await db.Set<Attendance>()
             .AsNoTracking()
-            .Where(e => e.MemberId == memberId && e.Session!.StartAtUtc >= sinceUtc)
-            .Select(e => new
+            .Where(a => a.Enrollment!.MemberId == memberId && a.Session!.StartAtUtc >= sinceUtc)
+            .Select(a => new
             {
-                Discipline = e.Session!.Class!.Discipline,
-                AttendanceStatus = e.Attendance == null ? (AttendanceStatus?)null : e.Attendance.Status
+                Discipline = a.Session!.Class!.Sport!.Name,
+                AttendanceStatus = (AttendanceStatus?)a.Status
             })
             .ToListAsync(ct);
 
@@ -107,7 +107,7 @@ public sealed class WorkoutRecommendationService(
             profile.ExperienceLevel.ToString(),
             HistoryWindowDays,
             attendance.Count(a => a.AttendanceStatus == AttendanceStatus.Present),
-            attendance.Count(a => a.AttendanceStatus is AttendanceStatus.Absent or AttendanceStatus.NoShow),
+            attendance.Count(a => a.AttendanceStatus == AttendanceStatus.Absent),
             gymCheckIns,
             [.. attendance.Select(a => a.Discipline).Distinct()],
             [.. coachNotes.Where(n => !string.IsNullOrWhiteSpace(n))]);

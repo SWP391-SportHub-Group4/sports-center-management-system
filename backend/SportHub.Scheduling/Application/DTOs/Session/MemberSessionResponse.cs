@@ -1,4 +1,15 @@
 namespace SportHub.Scheduling.Application.DTOs;
 
-/// <summary>Buổi học kèm tình trạng đăng ký của chính người đang xem — dùng cho màn hình hội viên.</summary>
-public sealed record MemberSessionResponse(ClassSessionResponse Session, Guid? MyEnrollmentId, string? MyEnrollmentStatus);
+/// <summary>Buổi học sắp tới của một Member (qua các ghi danh Confirmed), kèm điểm danh nếu đã có.</summary>
+public sealed record MemberSessionResponse(
+    Guid SessionId,
+    int ClassId,
+    string ClassName,
+    string SportName,
+    int SessionNo,
+    string RoomName,
+    DateTime StartAtUtc,
+    DateTime EndAtUtc,
+    string Status,
+    bool IsMakeup,
+    string? AttendanceStatus);

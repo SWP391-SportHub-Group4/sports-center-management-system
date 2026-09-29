@@ -1,5 +1,8 @@
 namespace SportHub.Identity.Application.Interfaces;
 
+/// <summary>Trạng thái xác thực hiện tại của một user, đọc từ DB ở mỗi request đã xác thực.</summary>
+public sealed record UserAuthState(UserStatus Status, string Role, Guid SecurityStamp);
+
 public interface IUserAccountRepository
 {
     Task<bool> EmailExistsAsync(
@@ -22,6 +25,10 @@ public interface IUserAccountRepository
         string email,
         CancellationToken cancellationToken = default);
     
+    Task<UserAuthState?> GetAuthStateAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default);
+
     Task<bool> IsActiveAsync(
         Guid userId,
         CancellationToken cancellationToken = default);

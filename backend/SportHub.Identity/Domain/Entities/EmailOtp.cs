@@ -10,6 +10,8 @@ public class EmailOtp
 
     public string Email { get; set; } = string.Empty;
 
+    public EmailOtpPurpose Purpose { get; set; } // 1 dòng cho mỗi (Email, Purpose)
+
     /// <summary>SHA-256 hex của mã 6 số — không lưu plaintext.</summary>
     public string CodeHash { get; set; } = string.Empty;
 

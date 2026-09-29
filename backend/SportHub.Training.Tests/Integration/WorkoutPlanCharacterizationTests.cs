@@ -18,7 +18,7 @@ public sealed class WorkoutPlanCharacterizationTests(TrainingApiFactory factory)
     public async Task Personal_trainer_with_active_relationship_creates_a_plan()
     {
         var manager = await factory.SeedUserAsync(UserRole.CenterManager);
-        var coach = await factory.SeedCoachAsync(CoachCategory.PersonalTrainer);
+        var coach = await factory.SeedCoachAsync(CoachKind.PersonalTrainer);
         var member = await factory.SeedUserAsync(UserRole.Member);
         await CreateActiveRelationshipAsync(manager, coach.UserId, member.UserId);
 
@@ -36,7 +36,7 @@ public sealed class WorkoutPlanCharacterizationTests(TrainingApiFactory factory)
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
 
-        var plan = await response.Content.ReadFromJsonAsync<WorkoutPlanResponse>();
+        var plan = await response.Content.ReadApiJsonAsync<WorkoutPlanResponse>();
         Assert.NotNull(plan);
         Assert.Equal(member.UserId, plan!.MemberId);
         Assert.Equal(coach.UserId, plan.CoachId);
@@ -48,7 +48,7 @@ public sealed class WorkoutPlanCharacterizationTests(TrainingApiFactory factory)
     [Fact]
     public async Task Personal_trainer_without_active_relationship_cannot_create_a_plan()
     {
-        var coach = await factory.SeedCoachAsync(CoachCategory.PersonalTrainer);
+        var coach = await factory.SeedCoachAsync(CoachKind.PersonalTrainer);
         var member = await factory.SeedUserAsync(UserRole.Member);
         var coachClient = factory.CreateApiClient(coach.UserId, UserRole.Coach);
 
@@ -66,7 +66,7 @@ public sealed class WorkoutPlanCharacterizationTests(TrainingApiFactory factory)
     [Fact]
     public async Task Class_instructor_cannot_create_a_workout_plan_even_with_a_relationship_row()
     {
-        var coach = await factory.SeedCoachAsync(CoachCategory.ClassInstructor);
+        var coach = await factory.SeedCoachAsync(CoachKind.ClassInstructor);
         var member = await factory.SeedUserAsync(UserRole.Member);
         var coachClient = factory.CreateApiClient(coach.UserId, UserRole.Coach);
 

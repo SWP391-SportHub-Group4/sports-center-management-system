@@ -25,7 +25,7 @@ namespace SportHub.Training.Api;
 [ProducesResponseType(StatusCodes.Status403Forbidden)]
 [ProducesResponseType(StatusCodes.Status404NotFound)]
 [ProducesResponseType(StatusCodes.Status409Conflict)]
-public class PtSessionsController(IPtSessionService sessions, ICoachProfileReader coachProfiles) : ControllerBase
+public class PtSessionsController(IPtSessionService sessions, PersonalTrainerGuard personalTrainers) : ControllerBase
 {
     [Authorize(Policy = SportHubPolicies.CenterManager)]
     [HttpGet("manager/pt-sessions")]
@@ -74,7 +74,7 @@ public class PtSessionsController(IPtSessionService sessions, ICoachProfileReade
         CancellationToken ct = default)
     {
         var coachId = User.RequireUserId();
-        await coachProfiles.RequireCategoryAsync(coachId, CoachCategory.PersonalTrainer, ct);
+        await personalTrainers.RequireAsync(coachId, ct);
 
         return Ok(await sessions.SearchAsync(memberId: null, coachId, status, fromUtc, toUtc, page, pageSize, ct));
     }
@@ -85,7 +85,7 @@ public class PtSessionsController(IPtSessionService sessions, ICoachProfileReade
     public async Task<IActionResult> CoachGet(Guid sessionId, CancellationToken ct)
     {
         var coachId = User.RequireUserId();
-        await coachProfiles.RequireCategoryAsync(coachId, CoachCategory.PersonalTrainer, ct);
+        await personalTrainers.RequireAsync(coachId, ct);
 
         var session = await sessions.GetAsync(sessionId, ct);
 
@@ -103,7 +103,7 @@ public class PtSessionsController(IPtSessionService sessions, ICoachProfileReade
     public async Task<IActionResult> Complete(Guid sessionId, CancellationToken ct)
     {
         var coachId = User.RequireUserId();
-        await coachProfiles.RequireCategoryAsync(coachId, CoachCategory.PersonalTrainer, ct);
+        await personalTrainers.RequireAsync(coachId, ct);
 
         return Ok(await sessions.CompleteAsync(sessionId, coachId, ct));
     }
@@ -115,7 +115,7 @@ public class PtSessionsController(IPtSessionService sessions, ICoachProfileReade
         Guid sessionId, [FromBody] NoShowPtSessionRequest request, CancellationToken ct)
     {
         var coachId = User.RequireUserId();
-        await coachProfiles.RequireCategoryAsync(coachId, CoachCategory.PersonalTrainer, ct);
+        await personalTrainers.RequireAsync(coachId, ct);
 
         return Ok(await sessions.NoShowAsync(sessionId, request, coachId, ct));
     }

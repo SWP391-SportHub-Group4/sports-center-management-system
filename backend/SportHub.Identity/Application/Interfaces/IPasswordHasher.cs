@@ -6,6 +6,9 @@ public interface IPasswordHasher
 
     bool Verify(string password, string hash);
 
+    /// <summary>True khi hash dùng định dạng cũ; caller băm lại bằng <see cref="Hash"/> sau khi login thành công.</summary>
+    bool NeedsRehash(string hash) => false;
+
     /// <summary>
     /// Chạy một phép BCrypt verify trên hash giả rồi bỏ kết quả, dùng cho các nhánh login
     /// thất bại mà không có hash thật để verify (email không tồn tại, chưa đặt password).

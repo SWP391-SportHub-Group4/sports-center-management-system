@@ -44,6 +44,16 @@ public static class AuthorizationPolicyExtensions
             .AddPolicy(SportHubPolicies.Member, p => p.RequireRole(nameof(UserRole.Member)))
             .AddPolicy(SportHubPolicies.Receptionist, p => p.RequireRole(nameof(UserRole.Receptionist)))
 
+            // Đa môn (v3): quyền cụ thể theo role, không mặc định Admin có mọi quyền.
+            .AddPolicy(SportHubPolicies.ExternalCoach, p => p.RequireRole(nameof(UserRole.ExternalCoach)))
+            .AddPolicy(SportHubPolicies.CatalogManage, p => p.RequireRole(nameof(UserRole.CenterManager)))
+            .AddPolicy(SportHubPolicies.CoachManagement, p => p.RequireRole(nameof(UserRole.CenterManager)))
+            .AddPolicy(SportHubPolicies.CourtRental, p => p.RequireRole(nameof(UserRole.ExternalCoach)))
+            .AddPolicy(SportHubPolicies.WalletOwner, p => p.RequireRole(
+                nameof(UserRole.Member), nameof(UserRole.ExternalCoach)))
+            .AddPolicy(SportHubPolicies.RefundApprove, p => p.RequireRole(nameof(UserRole.CenterManager)))
+            .AddPolicy(SportHubPolicies.PaymentReconciliation, p => p.RequireRole(nameof(UserRole.CenterManager)))
+
             // Quầy lễ tân: bán gói, thu tiền, đăng ký/hủy hộ hội viên (BR-17, BR-30, BR-42).
             .AddPolicy(SportHubPolicies.FrontDesk, p => p.RequireRole(
                 nameof(UserRole.Receptionist), nameof(UserRole.CenterManager)))

@@ -7,6 +7,10 @@ public class UserSummaryResponse
     public string FullName { get; set; } = string.Empty;
     public string Role { get; set; } = string.Empty;
 
-    // BR-96, mới 28/09/2026 — null khi role khác Coach.
-    public string? CoachCategory { get; set; }
+
+    /// <summary>Chỉ có ý nghĩa với role ExternalCoach (PendingApproval/Approved/Rejected/Suspended); null với role khác.</summary>
+    public string? ApprovalStatus { get; set; }
+
+    /// <summary>Môn chuyên môn (Coach) / môn giảng dạy khai báo (ExternalCoach). Rỗng với role khác.</summary>
+    public IReadOnlyList<int> SportIds { get; set; } = [];
 }

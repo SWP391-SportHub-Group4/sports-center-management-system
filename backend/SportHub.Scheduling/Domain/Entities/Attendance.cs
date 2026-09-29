@@ -1,20 +1,25 @@
-using SportHub.Identity.Domain.Entities;
-
 namespace SportHub.Scheduling.Domain.Entities;
 
+/// <summary>Điểm danh một ghi danh ở một buổi. Chỉ Lễ tân ghi (Present/Absent); unique (EnrollmentId, SessionId).</summary>
 public class Attendance
 {
-    public Guid AttendanceId { get; set; } // PK
+    public Guid AttendanceId { get; set; }
 
-    public Guid EnrollmentId { get; set; } // FK -> Enrollment, unique (1-1)
+    public Guid EnrollmentId { get; set; }
 
     public Enrollment? Enrollment { get; set; }
 
-    public AttendanceStatus Status { get; set; } // Present/Absent ghi tay, NoShow do job tự sinh
+    public Guid SessionId { get; set; }
 
-    public DateTime? CheckInTime { get; set; } // thời điểm check-in thật nếu có
+    public ClassSession? Session { get; set; }
 
-    public Guid? CheckedInByUserId { get; set; } // FK -> UserAccount, null nếu job tự động tạo (NoShow)
+    public AttendanceStatus Status { get; set; }
 
-    public UserAccount? CheckedInByUser { get; set; }
+    /// <summary>Lễ tân ghi lần đầu (cross-module, chỉ scalar).</summary>
+    public Guid RecordedByUserId { get; set; }
+
+    public DateTime RecordedAt { get; set; }
+
+    /// <summary>Lần sửa gần nhất trong cửa sổ 24 giờ sau buổi.</summary>
+    public DateTime? LastModifiedAt { get; set; }
 }

@@ -235,7 +235,15 @@ public sealed class SportHubApiFactory : WebApplicationFactory<Program>, IAsyncL
     }
 
     public string IssueToken(Guid userId, UserRole role)
-        => JwtService.GenerateAccessToken(userId, role.ToString(), EffectiveJwtOptions);
+        => JwtService.GenerateAccessToken(userId, role.ToString(), EffectiveJwtOptions, StampOf(userId));
+
+    public Guid StampOf(Guid userId)
+    {
+        using var scope = Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<SportHub.BuildingBlocks.Abstractions.Persistence.ISportHubDbContext>();
+
+        return db.Set<UserAccount>().AsNoTracking().Where(u => u.UserId == userId).Select(u => u.SecurityStamp).SingleOrDefault();
+    }
 }
 
 /// <summary>Gom moi dong log cua host test vao mot hang doi de assert.</summary>

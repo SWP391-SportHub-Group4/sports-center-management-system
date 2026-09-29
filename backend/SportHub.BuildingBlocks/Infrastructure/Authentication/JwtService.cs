@@ -7,17 +7,25 @@ namespace SportHub.BuildingBlocks.Infrastructure.Authentication;
 
 public static class JwtService
 {
+    public const string SecurityStampClaimType = "sst";
+
     // Nhận role dạng string thay vì enum UserRole — BuildingBlocks không được phép
     // phụ thuộc module nghiệp vụ Identity (mục 3). Không có caller nào trước khi
     // đổi (rg "GenerateAccessToken" chỉ khớp định nghĩa), nên đổi signature an toàn,
     // không ảnh hưởng behavior gì đang chạy.
-    public static string GenerateAccessToken(Guid userId, string role, JwtOptions options)
+    public static string GenerateAccessToken(Guid userId, string role, JwtOptions options, Guid? securityStamp = null)
     {
-        var claims = new[]
+        var claims = new List<Claim>
         {
             new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
             new Claim(ClaimTypes.Role, role),
         };
+
+        // sst = security stamp (BR-103/104): middleware so với DB nên đổi mật khẩu/vai trò vô hiệu token cũ ngay.
+        if (securityStamp is { } stamp)
+        {
+            claims.Add(new Claim(SecurityStampClaimType, stamp.ToString()));
+        }
 
         return GenerateToken(claims, options);
     }

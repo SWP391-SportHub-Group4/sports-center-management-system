@@ -3,6 +3,8 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using SportHub.BuildingBlocks.Abstractions.Audit;
+using SportHub.BuildingBlocks.Abstractions.Identity;
+using SportHub.BuildingBlocks.Abstractions.Scheduling;
 using SportHub.BuildingBlocks.Abstractions.Notifications;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
@@ -24,6 +26,8 @@ public sealed class PtCoachChangeRequestService(
     ISportHubDbContext db,
     IAuditWriter audit,
     INotificationWriter notifications,
+    ICoachSpecialtyReader specialties,
+    IOccupancyService occupancy,
     IClock clock) : IPtCoachChangeRequestService
 {
     public const int DefaultPageSize = 50;
@@ -193,6 +197,18 @@ public sealed class PtCoachChangeRequestService(
                 continue;
             }
 
+            // Coach mới còn bị chiếm bởi lớp/thuê sân/khóa phòng...: Replace không đổi gì khi xung đột (lịch cũ giữ nguyên) →
+            // buổi đó vào danh sách "chưa chuyển" để Manager xử lý, thay vì làm hỏng cả yêu cầu.
+            var moved = await occupancy.ReplaceAsync(new OccupancyRequest(
+                OccupancySources.PtSession, session.SessionId, session.RoomId, changeRequest.RequestedCoachId,
+                session.StartAtUtc, session.EndAtUtc), ct);
+
+            if (!moved.Succeeded)
+            {
+                unmovedSessionIds.Add(session.SessionId);
+                continue;
+            }
+
             session.CoachId = changeRequest.RequestedCoachId;
             session.Version += 1;
             movedSessionIds.Add(session.SessionId);
@@ -333,19 +349,12 @@ public sealed class PtCoachChangeRequestService(
 
     private async Task EnsurePersonalTrainerAsync(Guid coachId, CancellationToken ct)
     {
-        var valid = await db.Set<UserAccount>().AsNoTracking().AnyAsync(
-            u => u.UserId == coachId
-                 && u.Status == UserStatus.Active
-                 && u.Role!.RoleName == UserRole.Coach
-                 && u.CoachProfile != null
-                 && u.CoachProfile.CoachCategory == CoachCategory.PersonalTrainer,
-            ct);
-
-        if (!valid)
+        // IsPersonalTrainerAsync đã gồm: role Coach, tài khoản Active và chuyên môn 1-1.
+        if (!await specialties.IsPersonalTrainerAsync(coachId, ct))
         {
             throw new BadRequestException(
                 "coach_must_be_personal_trainer",
-                "Coach mới phải là PersonalTrainer có tài khoản đang hoạt động.");
+                "Coach mới phải có chuyên môn huấn luyện cá nhân (PT 1-1) và tài khoản đang hoạt động.");
         }
     }
 

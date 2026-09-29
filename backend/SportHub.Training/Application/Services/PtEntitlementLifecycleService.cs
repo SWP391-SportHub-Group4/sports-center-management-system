@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using SportHub.BuildingBlocks.Abstractions.Audit;
+using SportHub.BuildingBlocks.Abstractions.Identity;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.BuildingBlocks.SharedKernel.Time;
@@ -21,6 +22,7 @@ namespace SportHub.Training.Application.Services;
 public sealed class PtEntitlementLifecycleService(
     ISportHubDbContext db,
     IAuditWriter audit,
+    ICoachSpecialtyReader specialties,
     IClock clock) : IPtEntitlementLifecycle
 {
     public async Task<Guid> CreatePendingAsync(
@@ -36,16 +38,11 @@ public sealed class PtEntitlementLifecycleService(
             throw new BadRequestException("member_not_found", "Tài khoản không có vai trò Member.");
         }
 
-        var coachCategory = await db.Set<CoachProfile>()
-            .Where(p => p.UserId == command.CoachId)
-            .Select(p => (CoachCategory?)p.CoachCategory)
-            .SingleOrDefaultAsync(ct);
-
-        if (coachCategory != CoachCategory.PersonalTrainer)
+        if (!await specialties.IsPersonalTrainerAsync(command.CoachId, ct))
         {
             throw new BadRequestException(
                 "coach_must_be_personal_trainer",
-                "Chỉ Coach loại PersonalTrainer mới nhận được PtEntitlement (BR-99).");
+                "Chỉ Coach có chuyên môn huấn luyện cá nhân (PT 1-1) mới nhận được PtEntitlement (BR-99).");
         }
 
         var originPackage = await db.Set<MemberPackage>()

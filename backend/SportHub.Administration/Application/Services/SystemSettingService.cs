@@ -29,7 +29,10 @@ public sealed class SystemSettingService(
     private static readonly IReadOnlyDictionary<string, (int Min, int Max)> IntRanges =
         new Dictionary<string, (int, int)>
         {
-            [SystemSettingKeys.PackageExpiringReminderDays] = (1, 90)
+            [SystemSettingKeys.PackageExpiringReminderDays] = (1, 90),
+            [SystemSettingKeys.ClassThresholdDaysBeforeStart] = (1, 30),
+            [SystemSettingKeys.ClassThresholdResponseHours] = (1, 168),
+            [SystemSettingKeys.HoldMinutes] = (5, 60)
         };
 
     public async Task<IReadOnlyList<SystemSettingResponse>> GetAllAsync(CancellationToken ct = default)

@@ -9,7 +9,7 @@ namespace SportHub.Identity.Api;
 
 [ApiController]
 [Route("api/auth")]
-public class AuthController(IAuthService authService) : ControllerBase
+public class AuthController(IAuthService authService, IPasswordResetService passwordReset) : ControllerBase
 {
     /// <summary>BR-78 — gửi mã OTP 6 số tới email trước khi Register.</summary>
     [AllowAnonymous]
@@ -43,5 +43,29 @@ public class AuthController(IAuthService authService) : ControllerBase
     {
         var result = await authService.LoginAsync(request, cancellationToken);
         return Ok(result);
+    }
+
+    /// <summary>BR-103 — gửi OTP đặt lại mật khẩu. Luôn 204 (không lộ email có tồn tại hay không).</summary>
+    [AllowAnonymous]
+    [EnableRateLimiting("auth-password-reset")]
+    [HttpPost("password/forgot")]
+    public async Task<IActionResult> ForgotPassword(
+        [FromBody] ForgotPasswordRequest request,
+        CancellationToken cancellationToken)
+    {
+        await passwordReset.RequestAsync(request, cancellationToken);
+        return NoContent();
+    }
+
+    /// <summary>BR-103/104 — đặt lại mật khẩu bằng OTP; không cần mật khẩu cũ; vô hiệu mọi token cũ.</summary>
+    [AllowAnonymous]
+    [EnableRateLimiting("auth-password-reset")]
+    [HttpPost("password/reset")]
+    public async Task<IActionResult> ResetPassword(
+        [FromBody] ResetPasswordRequest request,
+        CancellationToken cancellationToken)
+    {
+        await passwordReset.ResetAsync(request, cancellationToken);
+        return NoContent();
     }
 }

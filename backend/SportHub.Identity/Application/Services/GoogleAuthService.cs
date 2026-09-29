@@ -65,7 +65,8 @@ public sealed class GoogleAuthService(
     IGoogleTokenVerifier verifier,
     IOptions<JwtOptions> jwtOptions,
     IClock clock,
-    IPasswordHasher passwordHasher) : IGoogleAuthService
+    IPasswordHasher passwordHasher,
+    IUserSummaryFactory summaries) : IGoogleAuthService
 {
     public async Task<GoogleLoginResult> LoginAsync(string idToken, CancellationToken ct = default)
     {
@@ -90,7 +91,7 @@ public sealed class GoogleAuthService(
             return new GoogleLoginResult
             {
                 RequiresOnboarding = false,
-                Auth = BuildAuthResponse(linkedUser, isNewAccount: false)
+                Auth = await BuildAuthResponseAsync(linkedUser, isNewAccount: false, ct)
             };
         }
 
@@ -158,6 +159,9 @@ public sealed class GoogleAuthService(
                 "google_onboarding_token_invalid",
                 "Phiếu onboarding Google không hợp lệ hoặc đã hết hiệu lực.");
         }
+
+        // Onboarding không được bỏ qua chính sách mật khẩu (BR-60/103); email lấy từ phiếu.
+        PasswordPolicyGuard.Enforce(request.Password, ticket.Email);
 
         if (ticket.ConsumedAt is not null)
         {
@@ -279,7 +283,7 @@ public sealed class GoogleAuthService(
 
         user.Role = role;
 
-        return BuildAuthResponse(user, isNewAccount: true);
+        return await BuildAuthResponseAsync(user, isNewAccount: true, ct);
     }
 
     public async Task LinkAsync(Guid userId, string idToken, CancellationToken ct = default)
@@ -348,28 +352,14 @@ public sealed class GoogleAuthService(
                 "password_confirmation_mismatch",
                 "Mật khẩu và xác nhận mật khẩu không khớp.");
         }
-
-        if (password.Length < 8 || Encoding.UTF8.GetByteCount(password) > 72)
-        {
-            throw new BadRequestException(
-                "password_policy_failed",
-                "Mật khẩu không đáp ứng chính sách bảo mật (tối thiểu 8 ký tự, tối đa 72 byte UTF-8).");
-        }
     }
 
-    private AuthResponse BuildAuthResponse(UserAccount user, bool isNewAccount)
+    private async Task<AuthResponse> BuildAuthResponseAsync(UserAccount user, bool isNewAccount, CancellationToken ct)
         => new()
         {
             AccessToken = JwtService.GenerateAccessToken(
-                user.UserId, user.Role!.RoleName.ToString(), jwtOptions.Value),
-            User = new UserSummaryResponse
-            {
-                UserId = user.UserId,
-                Email = user.Email,
-                FullName = user.Profile?.FullName ?? string.Empty,
-                Role = user.Role.RoleName.ToString(),
-                CoachCategory = user.CoachProfile?.CoachCategory.ToString()
-            },
+                user.UserId, user.Role!.RoleName.ToString(), jwtOptions.Value, user.SecurityStamp),
+            User = await summaries.BuildAsync(user, ct),
             IsNewAccount = isNewAccount
         };
 }

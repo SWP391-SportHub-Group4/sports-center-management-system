@@ -11,5 +11,5 @@ public sealed record UserAdminResponse(
     bool HasPassword,
     bool HasGoogleLink,
 
-    // BR-96, mới 28/09/2026 — null khi role khác Coach hoặc CoachProfile chưa/không còn tồn tại.
-    string? CoachCategory);
+    /// <summary>Môn chuyên môn của Coach (BR-96, thay CoachCategory); rỗng với role khác.</summary>
+    IReadOnlyList<int> SportIds);

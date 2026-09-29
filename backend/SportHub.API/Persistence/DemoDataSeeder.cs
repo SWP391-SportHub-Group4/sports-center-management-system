@@ -8,9 +8,12 @@ using SportHub.Membership.Domain.Enums;
 using SportHub.Payment.Domain.Entities;
 using SportHub.Payment.Domain.Enums;
 using SportHub.Payment.Infrastructure;
-using SportHub.Scheduling.Domain.Constants;
 using SportHub.Scheduling.Domain.Entities;
 using SportHub.Scheduling.Domain.Enums;
+using SportHub.Scheduling.Catalog.Domain;
+using SportHub.Scheduling.Domain.Rules;
+using SportHub.Scheduling.Occupancy.Domain;
+using SportHub.Scheduling.Threshold.Domain;
 using SportHub.Training.Domain.Entities;
 using SportHub.Training.Domain.Enums;
 
@@ -49,10 +52,10 @@ public sealed class DemoDataSeeder(
         var coachGroupX = NewUser("coach.groupx@sporthub.vn", "Vũ Hải Group X", "0902000002", UserRole.Coach);
         var coachPt = NewUser("coach.pt@sporthub.vn", "Đỗ Quang PT", "0902000003", UserRole.Coach);
 
-        // BR-96, mới 28/09/2026 — mỗi tài khoản Coach demo phải có CoachProfile ngay khi tạo.
-        coachYoga.CoachProfile = new CoachProfile { CoachCategory = CoachCategory.ClassInstructor };
-        coachGroupX.CoachProfile = new CoachProfile { CoachCategory = CoachCategory.ClassInstructor };
-        coachPt.CoachProfile = new CoachProfile { CoachCategory = CoachCategory.PersonalTrainer };
+        // BR-96 — mỗi tài khoản Coach demo có CoachProfile ngay khi tạo; chuyên môn theo môn gán ngay sau khi lưu user.
+        coachYoga.CoachProfile = new CoachProfile();
+        coachGroupX.CoachProfile = new CoachProfile();
+        coachPt.CoachProfile = new CoachProfile();
 
         var members = new[]
         {
@@ -75,16 +78,32 @@ public sealed class DemoDataSeeder(
         db.UserAccounts.AddRange(allUsers);
         await db.SaveChangesAsync(ct);
 
-        members[^1].Status = UserStatus.Deactivated;
+        // Chuyên môn demo (sport 2 = Personal Training, 3 = Cầu lông, 4 = Bóng rổ; seed trong migration catalog).
+        // Mapping cụ thể theo user vì CoachCategory cũ không đủ xác định môn.
+        db.UserSportSpecialties.AddRange(
+            new UserSportSpecialty { UserId = coachYoga.UserId, SportId = 3 },
+            new UserSportSpecialty { UserId = coachGroupX.UserId, SportId = 4 },
+            new UserSportSpecialty { UserId = coachPt.UserId, SportId = 2 });
+        await db.SaveChangesAsync(ct);
 
+        members[^1].Status = UserStatus.Deactivated;
+        // Loại phòng seed trong migration catalog: 1 Phòng Gym, 2 Phòng PT, 3 Sân cầu lông, 4 Sân bóng rổ.
         var rooms = new[]
         {
-            new Room { Name = "Phòng Yoga A", Capacity = 20 },
-            new Room { Name = "Sảnh Group X", Capacity = 30 },
-            new Room { Name = "Phòng PT 1", Capacity = 2 },
-            new Room { Name = "Khu Gym tự do", Capacity = 80 }
+            new Room { Name = "Sân cầu lông 1", Capacity = 12, RoomTypeId = 3 },
+            new Room { Name = "Sân bóng rổ 1", Capacity = 30, RoomTypeId = 4 },
+            new Room { Name = "Phòng PT 1", Capacity = 2, RoomTypeId = 2 },
+            new Room { Name = "Khu Gym tự do", Capacity = 80, RoomTypeId = 1 }
         };
 
+        db.Rooms.AddRange(rooms);
+        await db.SaveChangesAsync(ct);
+
+        // Giờ mở cửa 06:00–22:00 mọi ngày (giờ VN).
+        db.RoomOpeningHours.AddRange(rooms.SelectMany(r => Enumerable.Range(0, 7).Select(d => new RoomOpeningHour
+        {
+            RoomId = r.RoomId, DayOfWeek = d, OpenTimeLocal = new TimeOnly(6, 0), CloseTimeLocal = new TimeOnly(22, 0)
+        })));
         db.Rooms.AddRange(rooms);
 
         var packages = new[]
@@ -139,128 +158,136 @@ public sealed class DemoDataSeeder(
         db.MembershipPackages.AddRange(packages);
         await db.SaveChangesAsync(ct);
 
-        var classes = new[]
-        {
-            new Class
-            {
-                Name = "Yoga buổi sáng",
-                Discipline = Disciplines.Yoga,
-                DefaultRoomId = rooms[0].RoomId,
-                DefaultCoachId = coachYoga.UserId,
-                Capacity = 15,
-                Status = ClassStatus.Active
-            },
-            new Class
-            {
-                Name = "Group X đốt mỡ",
-                Discipline = Disciplines.GroupX,
-                DefaultRoomId = rooms[1].RoomId,
-                DefaultCoachId = coachGroupX.UserId,
-                Capacity = 25,
-                Status = ClassStatus.Active
-            }
-            // Đổi 29/09/2026 (BE-4): không còn seed Class "PT 1 kèm 1" — PT dùng
-            // PtEntitlement/PtSession riêng, xem SeedTrainingAsync. rooms[2] ("Phòng PT 1")
-            // giữ lại, không gắn Class nào (Manager có thể dùng cho việc khác sau này).
-        };
-
-        db.Classes.AddRange(classes);
-        await db.SaveChangesAsync(ct);
-
-        db.ClassRecurrences.AddRange(
-            new ClassRecurrence
-            {
-                ClassId = classes[0].ClassId,
-                DaysOfWeek = "MON,WED,FRI",
-                StartTimeLocal = new TimeOnly(6, 0),
-                EndTimeLocal = new TimeOnly(7, 0),
-                Timezone = "Asia/Ho_Chi_Minh",
-                EffectiveFrom = today.AddDays(-30),
-                EffectiveTo = null
-            },
-            new ClassRecurrence
-            {
-                ClassId = classes[1].ClassId,
-                DaysOfWeek = "TUE,THU,SAT",
-                StartTimeLocal = new TimeOnly(18, 0),
-                EndTimeLocal = new TimeOnly(19, 0),
-                Timezone = "Asia/Ho_Chi_Minh",
-                EffectiveFrom = today.AddDays(-30),
-                EffectiveTo = null
-            });
-
-        await db.SaveChangesAsync(ct);
-
-        var sessions = BuildSessions(classes, rooms, today, now);
-        db.ClassSessions.AddRange(sessions);
-        await db.SaveChangesAsync(ct);
+        // Khóa học demo theo mô hình v3: một khóa Cầu lông đã publish (đủ buổi + chiếm phòng/coach) và một khóa Bóng rổ ở Draft.
+        // Ghi danh demo KHÔNG đi qua thanh toán (InvoiceItemId để trống) — chỉ để có dữ liệu xem; ghi danh thật chỉ sinh từ checkout.
+        var sessionCount = await SeedCoursesAsync(rooms, coachYoga, coachGroupX, members, today, now, ct);
 
         await SeedPackagesAndInvoicesAsync(members, manager, reception, packages, today, now, ct);
-        await SeedEnrollmentsAsync(members, sessions, now, ct);
-        await SeedTrainingAsync(members, manager, coachYoga, coachGroupX, coachPt, classes, now, ct);
+        await SeedTrainingAsync(members, manager, coachYoga, coachGroupX, coachPt, now, ct);
         await SeedGymCheckInsAsync(members, reception, now, ct);
 
         await db.SaveChangesAsync(ct);
 
         logger.LogInformation(
             "Đã seed dữ liệu demo: {Users} tài khoản, {Sessions} buổi học. Mật khẩu chung: {Password}",
-            allUsers.Count, sessions.Count, DemoPassword);
+            allUsers.Count, sessionCount, DemoPassword);
     }
 
-    private List<ClassSession> BuildSessions(Class[] classes, Room[] rooms, DateOnly today, DateTime now)
+    private async Task<int> SeedCoursesAsync(
+        Room[] rooms,
+        UserAccount coachBadminton,
+        UserAccount coachBasketball,
+        UserAccount[] members,
+        DateOnly today,
+        DateTime now,
+        CancellationToken ct)
     {
-        var sessions = new List<ClassSession>();
-
-        var plans = new (Class Class, Room Room, string[] Days, TimeOnly Start, TimeOnly End)[]
+        // Ngày bắt đầu: thứ Hai gần nhất trong tương lai (>= 7 ngày nữa) để khóa còn nhận ghi danh.
+        var start = today.AddDays(7);
+        while (start.DayOfWeek != DayOfWeek.Monday)
         {
-            (classes[0], rooms[0], ["MON", "WED", "FRI"], new TimeOnly(6, 0), new TimeOnly(7, 0)),
-            (classes[1], rooms[1], ["TUE", "THU", "SAT"], new TimeOnly(18, 0), new TimeOnly(19, 0))
-        };
-
-        var dayCodes = new Dictionary<DayOfWeek, string>
-        {
-            [DayOfWeek.Monday] = "MON",
-            [DayOfWeek.Tuesday] = "TUE",
-            [DayOfWeek.Wednesday] = "WED",
-            [DayOfWeek.Thursday] = "THU",
-            [DayOfWeek.Friday] = "FRI",
-            [DayOfWeek.Saturday] = "SAT",
-            [DayOfWeek.Sunday] = "SUN"
-        };
-
-        foreach (var plan in plans)
-        {
-            for (var offset = -21; offset <= 21; offset++)
-            {
-                var day = today.AddDays(offset);
-
-                if (!plan.Days.Contains(dayCodes[day.ToDateTime(TimeOnly.MinValue).DayOfWeek]))
-                {
-                    continue;
-                }
-
-                var startUtc = VietnamTime.ToUtc(day.ToDateTime(plan.Start));
-                var endUtc = VietnamTime.ToUtc(day.ToDateTime(plan.End));
-
-                var baseline = Math.Min(plan.Room.Capacity, plan.Class.Capacity);
-
-                sessions.Add(new ClassSession
-                {
-                    SessionId = Guid.NewGuid(),
-                    ClassId = plan.Class.ClassId,
-                    RoomId = plan.Room.RoomId,
-                    CoachId = plan.Class.DefaultCoachId!.Value,
-                    StartAtUtc = startUtc,
-                    EndAtUtc = endUtc,
-                    BaselineCapacity = baseline,
-                    Capacity = baseline,
-                    ConfirmedCount = 0,
-                    Status = endUtc <= now ? ClassSessionStatus.Completed : ClassSessionStatus.Scheduled
-                });
-            }
+            start = start.AddDays(1);
         }
 
-        return sessions;
+        var badminton = new Class
+        {
+            Code = "CAULONG-01",
+            Name = "Cầu lông 01",
+            SportId = 3,
+            CoachId = coachBadminton.UserId,
+            DefaultRoomId = rooms[0].RoomId,
+            StartDate = start,
+            NumSessions = 6,
+            Capacity = 12,
+            Price = 900_000m,
+            CostAmount = 4_500_000m,
+            BreakEvenThreshold = 5,
+            ThresholdStatus = ThresholdStatus.NotEvaluated,
+            Status = ClassStatus.Published,
+            CreatedAt = now,
+            PublishedAt = now,
+            Version = 2
+        };
+
+        var basketball = new Class
+        {
+            Code = "BONGRO-01",
+            Name = "Bóng rổ 01",
+            SportId = 4,
+            CoachId = coachBasketball.UserId,
+            DefaultRoomId = rooms[1].RoomId,
+            StartDate = start.AddDays(1),
+            NumSessions = 8,
+            Capacity = 20,
+            Price = 1_200_000m,
+            CostAmount = 9_600_000m,
+            ThresholdStatus = ThresholdStatus.NotEvaluated,
+            Status = ClassStatus.Draft,
+            CreatedAt = now,
+            Version = 1
+        };
+
+        db.Classes.AddRange(badminton, basketball);
+        await db.SaveChangesAsync(ct);
+
+        var mon = new TimeOnly(18, 0);
+        db.ClassScheduleRules.AddRange(
+            new ClassScheduleRule { ClassId = badminton.ClassId, DayOfWeek = (int)DayOfWeek.Monday, StartTimeLocal = mon },
+            new ClassScheduleRule { ClassId = badminton.ClassId, DayOfWeek = (int)DayOfWeek.Wednesday, StartTimeLocal = mon },
+            new ClassScheduleRule { ClassId = badminton.ClassId, DayOfWeek = (int)DayOfWeek.Friday, StartTimeLocal = mon },
+            new ClassScheduleRule { ClassId = basketball.ClassId, DayOfWeek = (int)DayOfWeek.Tuesday, StartTimeLocal = new TimeOnly(19, 0) },
+            new ClassScheduleRule { ClassId = basketball.ClassId, DayOfWeek = (int)DayOfWeek.Thursday, StartTimeLocal = new TimeOnly(19, 0) });
+
+        var generated = CourseRules.GenerateSessions(
+            badminton.StartDate,
+            badminton.NumSessions,
+            [((int)DayOfWeek.Monday, mon), ((int)DayOfWeek.Wednesday, mon), ((int)DayOfWeek.Friday, mon)],
+            sessionMinutes: 90);
+
+        var sessions = generated.Select(g => new ClassSession
+        {
+            SessionId = Guid.NewGuid(),
+            ClassId = badminton.ClassId,
+            SessionNo = g.SessionNo,
+            RoomId = badminton.DefaultRoomId,
+            CoachId = coachBadminton.UserId,
+            StartAtUtc = g.StartAtUtc,
+            EndAtUtc = g.EndAtUtc,
+            Status = ClassSessionStatus.Scheduled
+        }).ToList();
+
+        db.ClassSessions.AddRange(sessions);
+
+        // Chiếm phòng + coach cho từng buổi (nguồn ClassSession) như publish thật.
+        db.RoomOccupancies.AddRange(sessions.Select(s => new RoomOccupancy
+        {
+            OccupancyId = Guid.NewGuid(), RoomId = s.RoomId, SourceType = OccupancySourceType.ClassSession, SourceId = s.SessionId,
+            StartAtUtc = s.StartAtUtc, EndAtUtc = s.EndAtUtc, IsActive = true
+        }));
+        db.CoachOccupancies.AddRange(sessions.Select(s => new CoachOccupancy
+        {
+            OccupancyId = Guid.NewGuid(), CoachId = s.CoachId, SourceType = OccupancySourceType.ClassSession, SourceId = s.SessionId,
+            StartAtUtc = s.StartAtUtc, EndAtUtc = s.EndAtUtc, IsActive = true
+        }));
+
+        // Ba ghi danh demo đầu tiên; bộ đếm khớp (confirmed = reserved).
+        var enrolled = members.Take(3).ToList();
+        db.Enrollments.AddRange(enrolled.Select(m => new Enrollment
+        {
+            EnrollmentId = Guid.NewGuid(),
+            ClassId = badminton.ClassId,
+            MemberId = m.UserId,
+            Status = EnrollmentStatus.Confirmed,
+            EnrolledAt = now.AddDays(-1)
+        }));
+
+        badminton.ConfirmedCount = enrolled.Count;
+        badminton.ReservedCount = enrolled.Count;
+        badminton.ThresholdDeadlineUtc = sessions[0].StartAtUtc.AddDays(-3);
+
+        await db.SaveChangesAsync(ct);
+
+        return sessions.Count;
     }
 
     private async Task SeedPackagesAndInvoicesAsync(
@@ -370,95 +397,13 @@ public sealed class DemoDataSeeder(
         _ = manager;
     }
 
-    private async Task SeedEnrollmentsAsync(
-        UserAccount[] members,
-        List<ClassSession> sessions,
-        DateTime now,
-        CancellationToken ct)
-    {
-        var activePackages = await db.MemberPackages
-            .Where(mp => mp.Status == MemberPackageStatus.Active && mp.RemainingSessions != null)
-            .ToListAsync(ct);
-
-        if (activePackages.Count == 0)
-        {
-            return;
-        }
-
-        var random = new Random(20260921);
-
-        foreach (var package in activePackages)
-        {
-            var candidates = sessions
-                .Where(s => s.Status != ClassSessionStatus.Cancelled)
-                .OrderBy(s => s.StartAtUtc)
-                .Where(s => s.ConfirmedCount < s.Capacity)
-                .Take(30)
-                .OrderBy(_ => random.Next())
-                .Take(4)
-                .ToList();
-
-            foreach (var session in candidates)
-            {
-                if (package.RemainingSessions is <= 0)
-                {
-                    break;
-                }
-
-                var isPast = session.EndAtUtc <= now;
-
-                db.Enrollments.Add(new Enrollment
-                {
-                    EnrollmentId = Guid.NewGuid(),
-                    SessionId = session.SessionId,
-                    MemberId = package.MemberId,
-                    MemberPackageId = package.MemberPackageId,
-                    Status = EnrollmentStatus.Confirmed,
-                    RegisteredAt = session.StartAtUtc.AddDays(-2)
-                });
-
-                session.ConfirmedCount += 1;
-                package.RemainingSessions -= 1;
-
-                _ = isPast;
-            }
-        }
-
-        await db.SaveChangesAsync(ct);
-
-        var pastEnrollments = await db.Enrollments
-            .Include(e => e.Session)
-            .Where(e => e.Session!.EndAtUtc <= now)
-            .ToListAsync(ct);
-
-        var index = 0;
-
-        foreach (var enrollment in pastEnrollments)
-        {
-            var status = index % 5 == 4 ? AttendanceStatus.NoShow : AttendanceStatus.Present;
-
-            db.Attendances.Add(new Attendance
-            {
-                AttendanceId = Guid.NewGuid(),
-                EnrollmentId = enrollment.EnrollmentId,
-                Status = status,
-                CheckInTime = status == AttendanceStatus.Present ? enrollment.Session!.StartAtUtc : null,
-                CheckedInByUserId = null
-            });
-
-            index++;
-        }
-
-        _ = members;
-    }
-
     private async Task SeedTrainingAsync(
         UserAccount[] members,
         UserAccount manager,
         UserAccount coachYoga,
         UserAccount coachGroupX,
         UserAccount coachPt,
-        Class[] classes,
+
         DateTime now,
         CancellationToken ct)
     {
@@ -494,26 +439,6 @@ public sealed class DemoDataSeeder(
                 SourceType = RelationshipSourceType.Personal,
                 Status = RelationshipStatus.Active,
                 StartedAt = now.AddDays(-20)
-            },
-            new CoachMemberRelationship
-            {
-                RelationshipId = Guid.NewGuid(),
-                CoachId = coachYoga.UserId,
-                MemberId = members[0].UserId,
-                SourceType = RelationshipSourceType.ClassBased,
-                ClassId = classes[0].ClassId,
-                Status = RelationshipStatus.Active,
-                StartedAt = now.AddDays(-18)
-            },
-            new CoachMemberRelationship
-            {
-                RelationshipId = Guid.NewGuid(),
-                CoachId = coachGroupX.UserId,
-                MemberId = members[1].UserId,
-                SourceType = RelationshipSourceType.ClassBased,
-                ClassId = classes[1].ClassId,
-                Status = RelationshipStatus.Active,
-                StartedAt = now.AddDays(-15)
             }
         };
 

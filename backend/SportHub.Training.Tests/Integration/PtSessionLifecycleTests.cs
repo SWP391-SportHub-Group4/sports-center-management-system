@@ -26,7 +26,7 @@ public sealed class PtSessionLifecycleTests(TrainingApiFactory factory)
     public async Task Manager_books_a_pt_session_and_reserves_quota()
     {
         var manager = await factory.SeedUserAsync(UserRole.CenterManager);
-        var coach = await factory.SeedCoachAsync(CoachCategory.PersonalTrainer);
+        var coach = await factory.SeedCoachAsync(CoachKind.PersonalTrainer);
         var member = await factory.SeedUserAsync(UserRole.Member);
         var entitlement = await factory.SeedPtEntitlementAsync(member.UserId, coach.UserId, totalQuota: 8);
         var client = factory.CreateApiClient(manager.UserId, UserRole.CenterManager);
@@ -38,7 +38,7 @@ public sealed class PtSessionLifecycleTests(TrainingApiFactory factory)
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
 
-        var session = await response.Content.ReadFromJsonAsync<PtSessionResponse>();
+        var session = await response.Content.ReadApiJsonAsync<PtSessionResponse>();
         Assert.NotNull(session);
         Assert.Equal("Scheduled", session!.Status);
         Assert.Equal("Reserved", session.QuotaState);
@@ -53,7 +53,7 @@ public sealed class PtSessionLifecycleTests(TrainingApiFactory factory)
     public async Task Booking_against_exhausted_entitlement_is_rejected()
     {
         var manager = await factory.SeedUserAsync(UserRole.CenterManager);
-        var coach = await factory.SeedCoachAsync(CoachCategory.PersonalTrainer);
+        var coach = await factory.SeedCoachAsync(CoachKind.PersonalTrainer);
         var member = await factory.SeedUserAsync(UserRole.Member);
         var entitlement = await factory.SeedPtEntitlementAsync(
             member.UserId, coach.UserId, totalQuota: 4, consumedSessions: 4);
@@ -71,7 +71,7 @@ public sealed class PtSessionLifecycleTests(TrainingApiFactory factory)
     public async Task Booking_outside_membership_validity_is_rejected()
     {
         var manager = await factory.SeedUserAsync(UserRole.CenterManager);
-        var coach = await factory.SeedCoachAsync(CoachCategory.PersonalTrainer);
+        var coach = await factory.SeedCoachAsync(CoachKind.PersonalTrainer);
         var member = await factory.SeedUserAsync(UserRole.Member);
         var entitlement = await factory.SeedPtEntitlementAsync(
             member.UserId,
@@ -92,7 +92,7 @@ public sealed class PtSessionLifecycleTests(TrainingApiFactory factory)
     public async Task Coach_cannot_be_double_booked_across_two_entitlements()
     {
         var manager = await factory.SeedUserAsync(UserRole.CenterManager);
-        var coach = await factory.SeedCoachAsync(CoachCategory.PersonalTrainer);
+        var coach = await factory.SeedCoachAsync(CoachKind.PersonalTrainer);
         var memberA = await factory.SeedUserAsync(UserRole.Member);
         var memberB = await factory.SeedUserAsync(UserRole.Member);
         var entitlementA = await factory.SeedPtEntitlementAsync(memberA.UserId, coach.UserId);
@@ -117,8 +117,8 @@ public sealed class PtSessionLifecycleTests(TrainingApiFactory factory)
     public async Task Member_cannot_be_double_booked_across_two_coaches()
     {
         var manager = await factory.SeedUserAsync(UserRole.CenterManager);
-        var coachA = await factory.SeedCoachAsync(CoachCategory.PersonalTrainer);
-        var coachB = await factory.SeedCoachAsync(CoachCategory.PersonalTrainer);
+        var coachA = await factory.SeedCoachAsync(CoachKind.PersonalTrainer);
+        var coachB = await factory.SeedCoachAsync(CoachKind.PersonalTrainer);
         var member = await factory.SeedUserAsync(UserRole.Member);
         var entitlementA = await factory.SeedPtEntitlementAsync(member.UserId, coachA.UserId);
         var entitlementB = await factory.SeedPtEntitlementAsync(member.UserId, coachB.UserId);
@@ -142,7 +142,7 @@ public sealed class PtSessionLifecycleTests(TrainingApiFactory factory)
     public async Task Sessions_touching_at_the_boundary_are_allowed()
     {
         var manager = await factory.SeedUserAsync(UserRole.CenterManager);
-        var coach = await factory.SeedCoachAsync(CoachCategory.PersonalTrainer);
+        var coach = await factory.SeedCoachAsync(CoachKind.PersonalTrainer);
         var member = await factory.SeedUserAsync(UserRole.Member);
         var entitlement = await factory.SeedPtEntitlementAsync(member.UserId, coach.UserId, totalQuota: 8);
         var client = factory.CreateApiClient(manager.UserId, UserRole.CenterManager);
@@ -165,7 +165,7 @@ public sealed class PtSessionLifecycleTests(TrainingApiFactory factory)
     public async Task Coach_completes_own_session_and_consumes_quota_idempotently()
     {
         var manager = await factory.SeedUserAsync(UserRole.CenterManager);
-        var coach = await factory.SeedCoachAsync(CoachCategory.PersonalTrainer);
+        var coach = await factory.SeedCoachAsync(CoachKind.PersonalTrainer);
         var member = await factory.SeedUserAsync(UserRole.Member);
         var entitlement = await factory.SeedPtEntitlementAsync(member.UserId, coach.UserId, totalQuota: 8);
         var session = await CreateSessionAsync(manager, entitlement, NextMondayNoonUtc());
@@ -173,7 +173,7 @@ public sealed class PtSessionLifecycleTests(TrainingApiFactory factory)
 
         var response = await coachClient.PostAsync($"api/coaches/me/pt-sessions/{session.SessionId}/complete", null);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var completed = await response.Content.ReadFromJsonAsync<PtSessionResponse>();
+        var completed = await response.Content.ReadApiJsonAsync<PtSessionResponse>();
         Assert.Equal("Completed", completed!.Status);
 
         var reloaded = await factory.QueryAsync(db => db.PtEntitlements.FindAsync(entitlement.EntitlementId).AsTask());
@@ -192,7 +192,7 @@ public sealed class PtSessionLifecycleTests(TrainingApiFactory factory)
     public async Task Entitlement_becomes_exhausted_when_last_quota_is_consumed()
     {
         var manager = await factory.SeedUserAsync(UserRole.CenterManager);
-        var coach = await factory.SeedCoachAsync(CoachCategory.PersonalTrainer);
+        var coach = await factory.SeedCoachAsync(CoachKind.PersonalTrainer);
         var member = await factory.SeedUserAsync(UserRole.Member);
         var entitlement = await factory.SeedPtEntitlementAsync(member.UserId, coach.UserId, totalQuota: 1);
         var session = await CreateSessionAsync(manager, entitlement, NextMondayNoonUtc());
@@ -208,8 +208,8 @@ public sealed class PtSessionLifecycleTests(TrainingApiFactory factory)
     public async Task Coach_cannot_complete_another_coachs_session()
     {
         var manager = await factory.SeedUserAsync(UserRole.CenterManager);
-        var coach = await factory.SeedCoachAsync(CoachCategory.PersonalTrainer);
-        var otherCoach = await factory.SeedCoachAsync(CoachCategory.PersonalTrainer);
+        var coach = await factory.SeedCoachAsync(CoachKind.PersonalTrainer);
+        var otherCoach = await factory.SeedCoachAsync(CoachKind.PersonalTrainer);
         var member = await factory.SeedUserAsync(UserRole.Member);
         var entitlement = await factory.SeedPtEntitlementAsync(member.UserId, coach.UserId);
         var session = await CreateSessionAsync(manager, entitlement, NextMondayNoonUtc());
@@ -225,8 +225,8 @@ public sealed class PtSessionLifecycleTests(TrainingApiFactory factory)
     public async Task Class_instructor_cannot_use_pt_session_endpoints()
     {
         var manager = await factory.SeedUserAsync(UserRole.CenterManager);
-        var coach = await factory.SeedCoachAsync(CoachCategory.PersonalTrainer);
-        var classInstructor = await factory.SeedCoachAsync(CoachCategory.ClassInstructor);
+        var coach = await factory.SeedCoachAsync(CoachKind.PersonalTrainer);
+        var classInstructor = await factory.SeedCoachAsync(CoachKind.ClassInstructor);
         var member = await factory.SeedUserAsync(UserRole.Member);
         var entitlement = await factory.SeedPtEntitlementAsync(member.UserId, coach.UserId);
         var session = await CreateSessionAsync(manager, entitlement, NextMondayNoonUtc());
@@ -241,7 +241,7 @@ public sealed class PtSessionLifecycleTests(TrainingApiFactory factory)
     public async Task Coach_records_no_show_and_consumes_quota()
     {
         var manager = await factory.SeedUserAsync(UserRole.CenterManager);
-        var coach = await factory.SeedCoachAsync(CoachCategory.PersonalTrainer);
+        var coach = await factory.SeedCoachAsync(CoachKind.PersonalTrainer);
         var member = await factory.SeedUserAsync(UserRole.Member);
         var entitlement = await factory.SeedPtEntitlementAsync(member.UserId, coach.UserId, totalQuota: 8);
         var session = await CreateSessionAsync(manager, entitlement, NextMondayNoonUtc());
@@ -252,7 +252,7 @@ public sealed class PtSessionLifecycleTests(TrainingApiFactory factory)
             new NoShowPtSessionRequest { Reason = "Không tới, không báo trước." });
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var noShow = await response.Content.ReadFromJsonAsync<PtSessionResponse>();
+        var noShow = await response.Content.ReadApiJsonAsync<PtSessionResponse>();
         Assert.Equal("NoShow", noShow!.Status);
 
         var reloaded = await factory.QueryAsync(db => db.PtEntitlements.FindAsync(entitlement.EntitlementId).AsTask());
@@ -263,7 +263,7 @@ public sealed class PtSessionLifecycleTests(TrainingApiFactory factory)
     public async Task Manager_cancel_on_time_releases_quota()
     {
         var manager = await factory.SeedUserAsync(UserRole.CenterManager);
-        var coach = await factory.SeedCoachAsync(CoachCategory.PersonalTrainer);
+        var coach = await factory.SeedCoachAsync(CoachKind.PersonalTrainer);
         var member = await factory.SeedUserAsync(UserRole.Member);
         var entitlement = await factory.SeedPtEntitlementAsync(member.UserId, coach.UserId, totalQuota: 8);
         // > 24h trong tương lai nên chắc chắn là on-time dù test chạy lúc nào.
@@ -275,7 +275,7 @@ public sealed class PtSessionLifecycleTests(TrainingApiFactory factory)
             new ManagerCancelPtSessionRequest { Reason = "Coach nghỉ đột xuất." });
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var cancelled = await response.Content.ReadFromJsonAsync<PtSessionResponse>();
+        var cancelled = await response.Content.ReadApiJsonAsync<PtSessionResponse>();
         Assert.Equal("CancelledOnTime", cancelled!.Status);
 
         var reloaded = await factory.QueryAsync(db => db.PtEntitlements.FindAsync(entitlement.EntitlementId).AsTask());
@@ -287,7 +287,7 @@ public sealed class PtSessionLifecycleTests(TrainingApiFactory factory)
     public async Task Manager_cancel_late_consumes_quota()
     {
         var manager = await factory.SeedUserAsync(UserRole.CenterManager);
-        var coach = await factory.SeedCoachAsync(CoachCategory.PersonalTrainer);
+        var coach = await factory.SeedCoachAsync(CoachKind.PersonalTrainer);
         var member = await factory.SeedUserAsync(UserRole.Member);
         var entitlement = await factory.SeedPtEntitlementAsync(member.UserId, coach.UserId, totalQuota: 8);
         // Trong vòng chưa tới 24h kể từ bây giờ -> chắc chắn Late.
@@ -299,7 +299,7 @@ public sealed class PtSessionLifecycleTests(TrainingApiFactory factory)
             new ManagerCancelPtSessionRequest { Reason = "Hủy sát giờ." });
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var cancelled = await response.Content.ReadFromJsonAsync<PtSessionResponse>();
+        var cancelled = await response.Content.ReadApiJsonAsync<PtSessionResponse>();
         Assert.Equal("CancelledLate", cancelled!.Status);
 
         var reloaded = await factory.QueryAsync(db => db.PtEntitlements.FindAsync(entitlement.EntitlementId).AsTask());
@@ -311,7 +311,7 @@ public sealed class PtSessionLifecycleTests(TrainingApiFactory factory)
     public async Task Manager_reschedule_on_time_keeps_net_quota_unchanged()
     {
         var manager = await factory.SeedUserAsync(UserRole.CenterManager);
-        var coach = await factory.SeedCoachAsync(CoachCategory.PersonalTrainer);
+        var coach = await factory.SeedCoachAsync(CoachKind.PersonalTrainer);
         var member = await factory.SeedUserAsync(UserRole.Member);
         var entitlement = await factory.SeedPtEntitlementAsync(member.UserId, coach.UserId, totalQuota: 8);
         var session = await CreateSessionAsync(manager, entitlement, NextMondayNoonUtc(weekOffset: 2));
@@ -323,7 +323,7 @@ public sealed class PtSessionLifecycleTests(TrainingApiFactory factory)
             new ManagerReschedulePtSessionRequest { NewStartAtUtc = newStart, Reason = "Đổi lịch theo yêu cầu." });
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var replacement = await response.Content.ReadFromJsonAsync<PtSessionResponse>();
+        var replacement = await response.Content.ReadApiJsonAsync<PtSessionResponse>();
         Assert.Equal("Scheduled", replacement!.Status);
         Assert.Equal(session.SessionId, replacement.RescheduledFromSessionId);
 
@@ -339,7 +339,7 @@ public sealed class PtSessionLifecycleTests(TrainingApiFactory factory)
     public async Task Manager_reschedule_late_without_remaining_quota_is_rejected_and_leaves_old_session_untouched()
     {
         var manager = await factory.SeedUserAsync(UserRole.CenterManager);
-        var coach = await factory.SeedCoachAsync(CoachCategory.PersonalTrainer);
+        var coach = await factory.SeedCoachAsync(CoachKind.PersonalTrainer);
         var member = await factory.SeedUserAsync(UserRole.Member);
         // TotalQuota=1: sau khi buổi này giữ 1 reserved thì hết quota, late reschedule cần thêm 1
         // suất không còn -> phải bị từ chối, session cũ giữ nguyên Scheduled.
@@ -365,7 +365,7 @@ public sealed class PtSessionLifecycleTests(TrainingApiFactory factory)
     public async Task Member_requests_cancel_and_manager_approval_applies_stored_timing()
     {
         var manager = await factory.SeedUserAsync(UserRole.CenterManager);
-        var coach = await factory.SeedCoachAsync(CoachCategory.PersonalTrainer);
+        var coach = await factory.SeedCoachAsync(CoachKind.PersonalTrainer);
         var member = await factory.SeedUserAsync(UserRole.Member);
         var entitlement = await factory.SeedPtEntitlementAsync(member.UserId, coach.UserId, totalQuota: 8);
         // On-time tại lúc GỬI yêu cầu (đủ xa deadline 24h).
@@ -377,7 +377,7 @@ public sealed class PtSessionLifecycleTests(TrainingApiFactory factory)
             new RequestPtSessionChangeRequest { RequestType = "Cancel", Reason = "Bận đột xuất." });
 
         Assert.Equal(HttpStatusCode.Created, requestResponse.StatusCode);
-        var changeRequest = await requestResponse.Content.ReadFromJsonAsync<PtSessionChangeRequestResponse>();
+        var changeRequest = await requestResponse.Content.ReadApiJsonAsync<PtSessionChangeRequestResponse>();
         Assert.Equal("OnTime", changeRequest!.TimingClassification);
         Assert.Equal("Pending", changeRequest.Status);
 
@@ -387,7 +387,7 @@ public sealed class PtSessionLifecycleTests(TrainingApiFactory factory)
             new ReviewPtSessionChangeRequest { ReviewNote = "Đồng ý." });
 
         Assert.Equal(HttpStatusCode.OK, approveResponse.StatusCode);
-        var approved = await approveResponse.Content.ReadFromJsonAsync<PtSessionChangeRequestResponse>();
+        var approved = await approveResponse.Content.ReadApiJsonAsync<PtSessionChangeRequestResponse>();
         Assert.Equal("Approved", approved!.Status);
 
         var cancelledSession = await factory.QueryAsync(db => db.PtSessions.FindAsync(session.SessionId).AsTask());
@@ -402,7 +402,7 @@ public sealed class PtSessionLifecycleTests(TrainingApiFactory factory)
     public async Task Manager_rejects_change_request_and_session_stays_scheduled()
     {
         var manager = await factory.SeedUserAsync(UserRole.CenterManager);
-        var coach = await factory.SeedCoachAsync(CoachCategory.PersonalTrainer);
+        var coach = await factory.SeedCoachAsync(CoachKind.PersonalTrainer);
         var member = await factory.SeedUserAsync(UserRole.Member);
         var entitlement = await factory.SeedPtEntitlementAsync(member.UserId, coach.UserId, totalQuota: 8);
         var session = await CreateSessionAsync(manager, entitlement, NextMondayNoonUtc(weekOffset: 2));
@@ -411,7 +411,7 @@ public sealed class PtSessionLifecycleTests(TrainingApiFactory factory)
         var requestResponse = await memberClient.PostAsJsonAsync(
             $"api/members/me/pt-sessions/{session.SessionId}/change-requests",
             new RequestPtSessionChangeRequest { RequestType = "Cancel", Reason = "Muốn hủy." });
-        var changeRequest = await requestResponse.Content.ReadFromJsonAsync<PtSessionChangeRequestResponse>();
+        var changeRequest = await requestResponse.Content.ReadApiJsonAsync<PtSessionChangeRequestResponse>();
 
         var managerClient = factory.CreateApiClient(manager.UserId, UserRole.CenterManager);
         var rejectResponse = await managerClient.PostAsJsonAsync(
@@ -419,7 +419,7 @@ public sealed class PtSessionLifecycleTests(TrainingApiFactory factory)
             new ReviewPtSessionChangeRequest { ReviewNote = "Buổi đã sát giờ, không thể hủy." });
 
         Assert.Equal(HttpStatusCode.OK, rejectResponse.StatusCode);
-        var rejected = await rejectResponse.Content.ReadFromJsonAsync<PtSessionChangeRequestResponse>();
+        var rejected = await rejectResponse.Content.ReadApiJsonAsync<PtSessionChangeRequestResponse>();
         Assert.Equal("Rejected", rejected!.Status);
 
         var stillScheduled = await factory.QueryAsync(db => db.PtSessions.FindAsync(session.SessionId).AsTask());
@@ -430,7 +430,7 @@ public sealed class PtSessionLifecycleTests(TrainingApiFactory factory)
     public async Task Second_pending_change_request_for_the_same_session_is_rejected()
     {
         var manager = await factory.SeedUserAsync(UserRole.CenterManager);
-        var coach = await factory.SeedCoachAsync(CoachCategory.PersonalTrainer);
+        var coach = await factory.SeedCoachAsync(CoachKind.PersonalTrainer);
         var member = await factory.SeedUserAsync(UserRole.Member);
         var entitlement = await factory.SeedPtEntitlementAsync(member.UserId, coach.UserId, totalQuota: 8);
         var session = await CreateSessionAsync(manager, entitlement, NextMondayNoonUtc(weekOffset: 2));
@@ -452,7 +452,7 @@ public sealed class PtSessionLifecycleTests(TrainingApiFactory factory)
     public async Task Member_cannot_request_change_for_another_members_session()
     {
         var manager = await factory.SeedUserAsync(UserRole.CenterManager);
-        var coach = await factory.SeedCoachAsync(CoachCategory.PersonalTrainer);
+        var coach = await factory.SeedCoachAsync(CoachKind.PersonalTrainer);
         var member = await factory.SeedUserAsync(UserRole.Member);
         var otherMember = await factory.SeedUserAsync(UserRole.Member);
         var entitlement = await factory.SeedPtEntitlementAsync(member.UserId, coach.UserId);
@@ -472,7 +472,7 @@ public sealed class PtSessionLifecycleTests(TrainingApiFactory factory)
     [InlineData(UserRole.Receptionist)]
     public async Task Non_manager_roles_cannot_create_pt_sessions(UserRole role)
     {
-        var coach = await factory.SeedCoachAsync(CoachCategory.PersonalTrainer);
+        var coach = await factory.SeedCoachAsync(CoachKind.PersonalTrainer);
         var member = await factory.SeedUserAsync(UserRole.Member);
         var entitlement = await factory.SeedPtEntitlementAsync(member.UserId, coach.UserId);
         var actor = await factory.SeedUserAsync(role);
@@ -506,6 +506,6 @@ public sealed class PtSessionLifecycleTests(TrainingApiFactory factory)
 
         response.EnsureSuccessStatusCode();
 
-        return (await response.Content.ReadFromJsonAsync<PtSessionResponse>())!;
+        return (await response.Content.ReadApiJsonAsync<PtSessionResponse>())!;
     }
 }

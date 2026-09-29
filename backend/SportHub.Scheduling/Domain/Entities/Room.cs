@@ -8,6 +8,8 @@ public class Room
 
     public int Capacity { get; set; } // trần sức chứa vật lý
 
-    public ICollection<Class> Classes { get; set; } = new List<Class>();
-    public ICollection<ClassSession> Sessions { get; set; } = new List<ClassSession>();
+    public int? RoomTypeId { get; set; } // FK -> RoomType; null cho phòng cũ chưa phân loại
+
+    public bool IsActive { get; set; } = true; // ngừng dùng thay cho xóa cứng
+
 }
