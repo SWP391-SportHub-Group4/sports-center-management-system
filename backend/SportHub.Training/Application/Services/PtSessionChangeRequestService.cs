@@ -23,8 +23,11 @@ public sealed class PtSessionChangeRequestService(
     IAuditWriter audit,
     IClock clock) : IPtSessionChangeRequestService
 {
+    public const int DefaultPageSize = 50;
+    public const int MaximumPageSize = 100;
+
     public async Task<IReadOnlyList<PtSessionChangeRequestResponse>> SearchAsync(
-        string? status, CancellationToken ct = default)
+        string? status, int page, int pageSize, CancellationToken ct = default)
     {
         var query = db.Set<PtSessionChangeRequest>().AsNoTracking();
 
@@ -39,7 +42,10 @@ public sealed class PtSessionChangeRequestService(
             query = query.Where(r => r.Status == parsed);
         }
 
-        return await query.OrderBy(r => r.RequestedAt).Select(Projection()).ToListAsync(ct);
+        page = Math.Clamp(page, 1, 100_000);
+        pageSize = Math.Clamp(pageSize <= 0 ? DefaultPageSize : pageSize, 1, MaximumPageSize);
+        return await query.OrderBy(r => r.RequestedAt).ThenBy(r => r.RequestId)
+            .Skip((page - 1) * pageSize).Take(pageSize).Select(Projection()).ToListAsync(ct);
     }
 
     public async Task<PtSessionChangeRequestResponse> RequestAsync(
@@ -142,8 +148,7 @@ public sealed class PtSessionChangeRequestService(
 
         audit.Write(new AuditEntry(
             managerId, "REVIEW_PT_SESSION_CHANGE_REQUEST", nameof(PtSessionChangeRequest), requestId.ToString(),
-            NewValue: "{\"status\":\"Approved\"}",
-            Reason: changeRequest.ReviewNote));
+            NewValue: "{\"status\":\"Approved\"}"));
 
         if (changeRequest.RequestType == PtSessionChangeRequestType.Cancel)
         {
@@ -179,8 +184,7 @@ public sealed class PtSessionChangeRequestService(
 
         audit.Write(new AuditEntry(
             managerId, "REVIEW_PT_SESSION_CHANGE_REQUEST", nameof(PtSessionChangeRequest), requestId.ToString(),
-            NewValue: "{\"status\":\"Rejected\"}",
-            Reason: changeRequest.ReviewNote));
+            NewValue: "{\"status\":\"Rejected\"}"));
 
         await db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);

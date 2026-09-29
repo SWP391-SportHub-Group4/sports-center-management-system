@@ -5,6 +5,7 @@ using SportHub.BuildingBlocks.Api;
 using SportHub.Training.Application.Commands;
 using SportHub.Training.Application.DTOs;
 using SportHub.Training.Application.Interfaces;
+using SportHub.Training.Application.Services;
 
 namespace SportHub.Training.Api;
 
@@ -12,13 +13,23 @@ namespace SportHub.Training.Api;
 [ApiController]
 [Authorize]
 [Route("api")]
+[Produces("application/json")]
+[ProducesResponseType(StatusCodes.Status400BadRequest)]
+[ProducesResponseType(StatusCodes.Status401Unauthorized)]
+[ProducesResponseType(StatusCodes.Status403Forbidden)]
+[ProducesResponseType(StatusCodes.Status404NotFound)]
+[ProducesResponseType(StatusCodes.Status409Conflict)]
 public sealed class PtCoachChangeRequestsController(IPtCoachChangeRequestService changeRequests) : ControllerBase
 {
     [Authorize(Policy = SportHubPolicies.CenterManager)]
     [HttpGet("manager/pt-coach-change-requests")]
     [ProducesResponseType<IReadOnlyList<PtCoachChangeRequestResponse>>(StatusCodes.Status200OK)]
-    public async Task<IActionResult> Search([FromQuery] string? status, CancellationToken ct)
-        => Ok(await changeRequests.SearchAsync(status, ct));
+    public async Task<IActionResult> Search(
+        [FromQuery] string? status,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = PtCoachChangeRequestService.DefaultPageSize,
+        CancellationToken ct = default)
+        => Ok(await changeRequests.SearchAsync(status, page, pageSize, ct));
 
     [Authorize(Policy = SportHubPolicies.CenterManager)]
     [HttpPost("manager/pt-coach-change-requests/{requestId:guid}/approve")]

@@ -9,8 +9,12 @@ namespace SportHub.Training.Application.Services;
 
 public sealed class PtEntitlementQueryService(ISportHubDbContext db) : IPtEntitlementQueryService
 {
+    public const int DefaultPageSize = 50;
+    public const int MaximumPageSize = 100;
+
     public async Task<IReadOnlyList<PtEntitlementResponse>> SearchAsync(
-        Guid? memberId, Guid? coachId, string? status, CancellationToken ct = default)
+        Guid? memberId, Guid? coachId, string? status,
+        int page, int pageSize, CancellationToken ct = default)
     {
         var query = db.Set<PtEntitlement>().AsNoTracking();
 
@@ -34,7 +38,10 @@ public sealed class PtEntitlementQueryService(ISportHubDbContext db) : IPtEntitl
             query = query.Where(e => e.Status == parsed);
         }
 
-        return await query.OrderByDescending(e => e.ActivatedAt).Select(Projection()).ToListAsync(ct);
+        page = Math.Clamp(page, 1, 100_000);
+        pageSize = Math.Clamp(pageSize <= 0 ? DefaultPageSize : pageSize, 1, MaximumPageSize);
+        return await query.OrderByDescending(e => e.ActivatedAt).ThenBy(e => e.EntitlementId)
+            .Skip((page - 1) * pageSize).Take(pageSize).Select(Projection()).ToListAsync(ct);
     }
 
     private static Expression<Func<PtEntitlement, PtEntitlementResponse>> Projection()

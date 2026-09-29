@@ -174,7 +174,7 @@ public sealed class PtEntitlementLifecycleService(
 
         audit.Write(new AuditEntry(
             entitlement.MemberId, "CANCEL_PT_ENTITLEMENT", nameof(PtEntitlement), entitlementId.ToString(),
-            Reason: reason.Trim()));
+            NewValue: "{\"status\":\"Cancelled\"}"));
 
         await db.SaveChangesAsync(ct);
 

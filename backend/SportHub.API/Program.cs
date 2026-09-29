@@ -181,6 +181,7 @@ builder.Services.AddScoped<ICoachMemberRelationshipService>(
 builder.Services.AddScoped<ICoachRelationshipRegistrar>(
     sp => sp.GetRequiredService<CoachMemberRelationshipService>());
 builder.Services.AddScoped<IWorkoutService, WorkoutService>();
+builder.Services.AddScoped<IHomeworkService, HomeworkService>();
 
 // PT (BE-4) — entitlement/session lifecycle. PtSessionService đăng ký cụ thể vì
 // PtSessionChangeRequestService inject thẳng lớp này để dùng lại ApplyCancelAsync/
