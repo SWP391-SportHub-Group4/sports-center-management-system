@@ -65,10 +65,11 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
   // ClassInstructor dùng CLASS_INSTRUCTOR_NAV bên dưới — xem getNavForUser().
   Coach: [
     { href: "/coach", labelKey: "overview" },
-    { href: "/coach/schedule", labelKey: "teachingSchedule" },
-    { href: "/coach/attendance", labelKey: "trainingResults" },
+    { href: "/coach/schedule", labelKey: "ptSchedule" },
     { href: "/coach/members", labelKey: "assignedMembers" },
     { href: "/coach/training-plans", labelKey: "trainingPlans" },
+    { href: "/coach/progress", labelKey: "progress" },
+    { href: "/coach/homework", labelKey: "homework" },
     { href: "/coach/ai-suggestions", labelKey: "aiSuggestions" },
   ],
   CenterManager: [
