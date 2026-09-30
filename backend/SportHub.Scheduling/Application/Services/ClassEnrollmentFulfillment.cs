@@ -5,6 +5,7 @@ using SportHub.BuildingBlocks.Abstractions.Scheduling;
 using SportHub.BuildingBlocks.Abstractions.Training;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.BuildingBlocks.SharedKernel.Time;
+using SportHub.Scheduling.Threshold.Domain;
 
 namespace SportHub.Scheduling.Application.Services;
 
@@ -26,7 +27,8 @@ public sealed class ClassEnrollmentFulfillment(
         => (await EnsureBookableAsync(classId, memberId, cancellationToken)).Quote;
 
     public async Task<ClassSeatReservation> ReserveAsync(
-        int classId, Guid memberId, Guid? invoiceId, DateTimeOffset holdExpiresAtUtc, CancellationToken cancellationToken = default)
+        int classId, Guid memberId, Guid? invoiceId, DateTimeOffset holdExpiresAtUtc,
+        CancellationToken cancellationToken = default, Guid? transferSourceEnrollmentId = null)
     {
         RequireTransaction();
         await CourseScheduleLock.AcquireAsync(db, changingSchedule: false, cancellationToken);
@@ -41,7 +43,15 @@ public sealed class ClassEnrollmentFulfillment(
         await db.Database.ExecuteSqlInterpolatedAsync(
             $"SELECT user_id FROM user_accounts WHERE user_id = {memberId} FOR UPDATE", cancellationToken);
 
-        var (quote, _) = await EnsureBookableAsync(classId, memberId, cancellationToken);
+        int? sourceClassToIgnore = null;
+        if (transferSourceEnrollmentId is Guid sourceEnrollmentId)
+        {
+            sourceClassToIgnore = await db.Set<Enrollment>().Where(x => x.EnrollmentId == sourceEnrollmentId
+                    && x.MemberId == memberId && x.Status == EnrollmentStatus.Confirmed)
+                .Select(x => (int?)x.ClassId).SingleOrDefaultAsync(cancellationToken)
+                ?? throw new ConflictException("transfer_source_inactive", "Ghi danh nguồn không còn hiệu lực.");
+        }
+        var (quote, _) = await EnsureBookableAsync(classId, memberId, cancellationToken, sourceClassToIgnore);
 
         // 2) Chốt chặn overbooking: chỉ tăng khi còn chỗ và khóa đang mở bán. Nếu 0 dòng thì đã hết chỗ hoặc hết mở bán.
         var published = (int)ClassStatus.Published;
@@ -71,13 +81,14 @@ public sealed class ClassEnrollmentFulfillment(
         return new ClassSeatReservation(hold.HoldId, quote);
     }
 
-    public async Task<Guid> ConfirmAsync(Guid seatHoldId, Guid invoiceItemId, CancellationToken cancellationToken = default)
+    public async Task<Guid> ConfirmAsync(Guid seatHoldId, Guid invoiceItemId, CancellationToken cancellationToken = default,
+        Guid? sourceEnrollmentId = null, Guid? transferDifferenceInvoiceItemId = null)
     {
         RequireTransaction();
         await CourseScheduleLock.AcquireAsync(db, changingSchedule: false, cancellationToken);
         // Idempotent: cùng InvoiceItem đã có ghi danh thì trả lại.
         var existing = await db.Set<Enrollment>().AsNoTracking()
-            .Where(e => e.InvoiceItemId == invoiceItemId)
+            .Where(e => e.InvoiceItemId == invoiceItemId && e.Status == EnrollmentStatus.Confirmed)
             .Select(e => (Guid?)e.EnrollmentId)
             .SingleOrDefaultAsync(cancellationToken);
 
@@ -91,7 +102,7 @@ public sealed class ClassEnrollmentFulfillment(
 
         // A concurrent fulfillment may have committed while this request waited for the hold lock.
         existing = await db.Set<Enrollment>().AsNoTracking()
-            .Where(e => e.InvoiceItemId == invoiceItemId)
+            .Where(e => e.InvoiceItemId == invoiceItemId && e.Status == EnrollmentStatus.Confirmed)
             .Select(e => (Guid?)e.EnrollmentId).SingleOrDefaultAsync(cancellationToken);
         if (existing is Guid confirmedId)
         {
@@ -128,6 +139,8 @@ public sealed class ClassEnrollmentFulfillment(
             ClassId = hold.ClassId,
             MemberId = hold.MemberId,
             InvoiceItemId = invoiceItemId,
+            SourceEnrollmentId = sourceEnrollmentId,
+            TransferDifferenceInvoiceItemId = transferDifferenceInvoiceItemId,
             Status = EnrollmentStatus.Confirmed,
             EnrolledAt = clock.UtcNow
         };
@@ -157,6 +170,61 @@ public sealed class ClassEnrollmentFulfillment(
         return enrollment.EnrollmentId;
     }
 
+    public async Task AttachHoldToInvoiceAsync(Guid seatHoldId, Guid invoiceId, CancellationToken cancellationToken = default)
+    {
+        RequireTransaction();
+        var hold = await LockHoldAsync(seatHoldId, cancellationToken)
+            ?? throw new NotFoundException("seat_hold_not_found", "Không tìm thấy giữ chỗ.");
+        if (hold.Status != SeatHoldStatus.Active || hold.InvoiceId is not null)
+            throw new ConflictException("seat_hold_already_linked", "Giữ chỗ không còn Active hoặc đã gắn hóa đơn.");
+        hold.InvoiceId = invoiceId;
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task CompleteTransferAsync(Guid thresholdResponseId, Guid seatHoldId,
+        Guid differenceInvoiceItemId, CancellationToken cancellationToken = default)
+    {
+        RequireTransaction();
+        var responseRows = await db.Set<ThresholdResponse>().FromSqlInterpolated($"""
+            SELECT * FROM class_threshold_responses
+            WHERE threshold_response_id = {thresholdResponseId} FOR UPDATE
+            """).ToListAsync(cancellationToken);
+        var response = responseRows.SingleOrDefault()
+            ?? throw new ConflictException("threshold_response_not_found", "Không tìm thấy phản hồi chuyển lớp.");
+        if (response.ResolutionStatus == ThresholdResolutionStatus.Completed)
+        {
+            if (await db.Set<Enrollment>().AnyAsync(x => x.SourceEnrollmentId == response.EnrollmentId
+                && x.TransferDifferenceInvoiceItemId == differenceInvoiceItemId
+                && x.Status == EnrollmentStatus.Confirmed, cancellationToken)) return;
+            throw new ConflictException("threshold_transfer_already_resolved", "Phản hồi chuyển lớp đã được xử lý.");
+        }
+        if (response.Choice != ThresholdResponseChoice.Transfer
+            || response.ResolutionStatus != ThresholdResolutionStatus.AwaitingPayment
+            || response.DeadlineUtc <= clock.UtcNow)
+            throw new ConflictException("threshold_transfer_expired", "Chuyển lớp đã hết hạn hoặc không chờ thanh toán.");
+        var source = await db.Set<Enrollment>().SingleOrDefaultAsync(x => x.EnrollmentId == response.EnrollmentId
+            && x.Status == EnrollmentStatus.Confirmed, cancellationToken)
+            ?? throw new ConflictException("transfer_source_inactive", "Ghi danh nguồn không còn hiệu lực.");
+        if (source.ClassId != response.ClassId || source.InvoiceItemId is not Guid rootItemId)
+            throw new ConflictException("transfer_source_mismatch", "Ghi danh nguồn không khớp phản hồi.");
+        var hold = await LockHoldAsync(seatHoldId, cancellationToken)
+            ?? throw new ConflictException("transfer_hold_missing", "Không tìm thấy giữ chỗ lớp đích.");
+        if (hold.ClassId != response.TargetClassId || hold.MemberId != response.MemberId
+            || hold.InvoiceId != response.AdditionalInvoiceId)
+            throw new ConflictException("transfer_hold_mismatch", "Giữ chỗ không khớp hóa đơn chuyển lớp.");
+        await db.Database.ExecuteSqlInterpolatedAsync(
+            $"SELECT user_id FROM user_accounts WHERE user_id = {response.MemberId} FOR UPDATE", cancellationToken);
+        await CourseScheduleLock.AcquireAsync(db, changingSchedule: false, cancellationToken);
+        foreach (var classId in new[] { source.ClassId, hold.ClassId }.Order())
+            await db.Database.ExecuteSqlInterpolatedAsync($"SELECT class_id FROM classes WHERE class_id = {classId} FOR UPDATE", cancellationToken);
+        await CancelAsync(rootItemId, EnrollmentEndReason.TransferredOut, cancellationToken);
+        await ConfirmAsync(seatHoldId, rootItemId, cancellationToken,
+            source.EnrollmentId, differenceInvoiceItemId);
+        response.ResolutionStatus = ThresholdResolutionStatus.Completed;
+        response.ResolvedAtUtc = clock.UtcNow;
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task ReleaseAsync(Guid seatHoldId, CancellationToken cancellationToken = default)
     {
         RequireTransaction();
@@ -181,8 +249,9 @@ public sealed class ClassEnrollmentFulfillment(
     {
         RequireTransaction();
         await db.Database.ExecuteSqlInterpolatedAsync(
-            $"SELECT enrollment_id FROM enrollments WHERE invoice_item_id = {invoiceItemId} FOR UPDATE", cancellationToken);
-        var enrollment = await db.Set<Enrollment>().SingleOrDefaultAsync(e => e.InvoiceItemId == invoiceItemId, cancellationToken);
+            $"SELECT enrollment_id FROM enrollments WHERE invoice_item_id = {invoiceItemId} AND status = {(int)EnrollmentStatus.Confirmed} FOR UPDATE", cancellationToken);
+        var enrollment = await db.Set<Enrollment>().SingleOrDefaultAsync(e => e.InvoiceItemId == invoiceItemId
+            && e.Status == EnrollmentStatus.Confirmed, cancellationToken);
 
         if (enrollment is null || enrollment.Status != EnrollmentStatus.Confirmed)
         {
@@ -213,6 +282,29 @@ public sealed class ClassEnrollmentFulfillment(
         await db.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task<ClassRefundFacts?> GetRefundFactsAsync(Guid invoiceItemId, CancellationToken cancellationToken = default)
+    {
+        var enrollment = await db.Set<Enrollment>().AsNoTracking()
+            .Where(e => e.InvoiceItemId == invoiceItemId && e.Status == EnrollmentStatus.Confirmed)
+            .OrderByDescending(e => e.EnrolledAt).FirstOrDefaultAsync(cancellationToken);
+        if (enrollment is null) return null;
+        var sessions = await db.Set<ClassSession>().AsNoTracking()
+            .Where(s => s.ClassId == enrollment.ClassId)
+            .Select(s => new { s.StartAtUtc, s.Status, s.IsMakeup, s.RescheduledFromSessionId })
+            .ToListAsync(cancellationToken);
+        var originals = sessions.Where(s => !s.IsMakeup).ToList();
+        var first = originals.Count == 0 ? null : originals.Min(s => (DateTime?)s.StartAtUtc);
+        if (first is null) return null;
+        var total = originals.Count;
+        var notProvided = originals.Count(s => s.Status != ClassSessionStatus.Completed);
+        var compensated = sessions.Count(s => s.IsMakeup && s.Status == ClassSessionStatus.Completed
+            && s.RescheduledFromSessionId is not null);
+        notProvided = Math.Max(0, notProvided - compensated);
+        return new ClassRefundFacts(enrollment.MemberId,
+            new DateTimeOffset(DateTime.SpecifyKind(first.Value, DateTimeKind.Utc)), total,
+            notProvided, enrollment.Status == EnrollmentStatus.Confirmed);
+    }
+
     // ---------------------------------------------------------------- Nội bộ
 
     private void RequireTransaction()
@@ -223,7 +315,8 @@ public sealed class ClassEnrollmentFulfillment(
         }
     }
 
-    private async Task<(ClassQuote Quote, Class Class)> EnsureBookableAsync(int classId, Guid memberId, CancellationToken ct)
+    private async Task<(ClassQuote Quote, Class Class)> EnsureBookableAsync(int classId, Guid memberId, CancellationToken ct,
+        int? excludedSourceClassId = null)
     {
         var row = await db.Set<Class>().AsNoTracking()
                       .Where(c => c.ClassId == classId)
@@ -237,6 +330,14 @@ public sealed class ClassEnrollmentFulfillment(
         if (cls.Status != ClassStatus.Published)
         {
             throw new ConflictException("class_not_open", "Khóa học chưa mở hoặc đã đóng ghi danh.");
+        }
+
+        if (cls.ThresholdStatus == ThresholdStatus.AtRisk
+            && cls.ThresholdResponseDeadlineUtc is DateTime responseDeadline
+            && responseDeadline <= clock.UtcNow)
+        {
+            throw new ConflictException("class_threshold_response_closed",
+                "Khóa đang kết thúc quy trình ngưỡng hoàn vốn và không nhận thêm ghi danh.");
         }
 
         var sessions = await db.Set<ClassSession>().AsNoTracking()
@@ -273,10 +374,12 @@ public sealed class ClassEnrollmentFulfillment(
 
         // Trùng lịch với khóa khác mà Member đã ghi danh hoặc đang giữ chỗ.
         var otherClassIds = await db.Set<Enrollment>().AsNoTracking()
-            .Where(e => e.MemberId == memberId && e.Status == EnrollmentStatus.Confirmed && e.ClassId != classId)
+            .Where(e => e.MemberId == memberId && e.Status == EnrollmentStatus.Confirmed && e.ClassId != classId
+                && (excludedSourceClassId == null || e.ClassId != excludedSourceClassId))
             .Select(e => e.ClassId)
             .Union(db.Set<SeatHold>().AsNoTracking()
-                .Where(h => h.MemberId == memberId && h.Status == SeatHoldStatus.Active && h.ClassId != classId)
+                .Where(h => h.MemberId == memberId && h.Status == SeatHoldStatus.Active && h.ClassId != classId
+                    && (excludedSourceClassId == null || h.ClassId != excludedSourceClassId))
                 .Select(h => h.ClassId))
             .ToListAsync(ct);
 

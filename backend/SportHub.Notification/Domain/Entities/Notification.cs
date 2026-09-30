@@ -6,7 +6,7 @@ public class Notification
 {
     public Guid NotificationId { get; set; } // PK
 
-    public Guid UserId { get; set; } // FK -> UserAccount
+    public Guid? UserId { get; set; } // null for pre-registration OTP email
 
     public UserAccount? User { get; set; }
 
@@ -25,4 +25,13 @@ public class Notification
     public DateTime? LastAttemptAt { get; set; }
 
     public DateTime? SentAt { get; set; }
+
+    public string? RecipientAddress { get; set; }
+
+    /// <summary>Authenticated-encrypted EmailPayload JSON; only EmailDispatchService can decrypt it.</summary>
+    public string? ProtectedEmailPayload { get; set; }
+
+    public DateTime? DispatchLeaseUntilUtc { get; set; }
+
+    public string? LastError { get; set; }
 }

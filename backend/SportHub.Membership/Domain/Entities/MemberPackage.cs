@@ -12,6 +12,9 @@ public class MemberPackage
 
     public int PackageId { get; set; } // FK -> MembershipPackage
 
+    /// <summary>Source payment item used for item-scoped refund fulfillment.</summary>
+    public Guid? InvoiceItemId { get; set; }
+
     public MembershipPackage? Package { get; set; }
 
     public DateOnly StartDate { get; set; }

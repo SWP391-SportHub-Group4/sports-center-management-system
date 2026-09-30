@@ -1,5 +1,93 @@
 # Tiến độ refactor backend (plan 1)
 
+## Checkpoint — P1.11 Incident + email outbox; P1.12/P1.13 đang tiếp tục (01/10/2026)
+
+**Đã triển khai:** Manager có preview/resolve incident ở `/api/manager/incidents`; lớp/PT giao thời gian được trả conflict để xử lý lịch trước, rental đang thanh toán được release, rental đã trả được hủy/hoàn điểm 100%, rồi mới thêm room block và audit. Manager có `/api/manager/notices` gửi in-app/email theo danh sách người nhận. OTP đăng ký, đặt lại mật khẩu, ExternalCoach và xác nhận điểm quầy được ghi encrypted email outbox cùng transaction; SMTP dispatcher claim bằng `SKIP LOCKED`, lease, retry/backoff; truy vấn/read-all thông báo chỉ tác động InApp. Chưa hứa exactly-once gửi email.
+
+**Migration:** `CourtRentalWorkflow` đã nối thêm `IncidentOutboxSettingsAndRentalLinks` (incident, outbox, liên kết Rental↔Invoice/Incident và settings). Migration đổi khóa `package_expiring_reminder_days` tại chỗ để giữ giá trị Manager đã chỉnh. Chưa apply migration. `has-pending-model-changes` hiện pass sau scaffold.
+
+**P1.12 đã cập nhật:** Revenue report hiện trả legacy cash riêng, cash bồi hoàn/reconciliation theo verified provider pay time, spend/issued/adjustment/outstanding point metrics và breakdown cash/points theo InvoiceItem source. `Payment.PaidAt` của VNPay dùng `ProviderPaidAtUtc`; Spend ledger mới gắn InvoiceItemId. Docker Compose/.env mẫu map SMTP/VNPay + Data Protection key ring bền vững; Production fail-fast nếu thiếu VNPay credentials/HTTPS URLs, SMTP sender/FromAddress hoặc đường dẫn key ring. CI backend chạy test sau build. `DemoDataSeeder` thêm ExternalCoach Approved/Pending/Rejected/Suspended và `docs/RUNBOOK.md` ghi đúng account/email/password hiện seed. Còn thiếu dimension Sport cho mọi nguồn, doanh thu rental/report export cùng số liệu, membership period, và rental/wallet/ledger demo data.
+
+**Kiểm tra:** solution Release build pass 4 warning cũ ở Security.Tests/0 error. Unit filter pass: Administration 15, Security 43, Payment 28, Scheduling 9, Training 23 (118 tổng). Full integration run chưa xác minh được: Testcontainers không kết nối Docker named pipe `npipe://./pipe/docker_engine` (Access denied). Chưa chạy migration lên database. `git diff --check` được chạy lại sau cập nhật docs.
+
+**Còn lại để khép plan 1:** P1.12 hoàn thiện báo cáo/export + seeder/composition; P1.13 bổ sung/hoàn tất PostgreSQL integration coverage theo bảng gate, bao gồm incident, outbox, rental, payment/late payment và migration upgrade. Không gọi migration `database update` trong lượt này.
+
+**Ghi chú lệnh migration:** khi gỡ migration rỗng vừa scaffold, EF CLI đọc `__EFMigrationsHistory` của connection string localhost:5435 để xác nhận trạng thái; lệnh chỉ đọc, không apply/đổi schema. Migration code đã được scaffold lại. Không có lệnh cập nhật database nào chạy.
+
+## Checkpoint — P1.10 Court Rental, đang triển khai 01/10/2026
+
+**Đã triển khai trong working tree:** CourtRental entity/migration, quote giá theo từng giờ và giờ VN, yêu cầu ExternalCoach Approved/active/cùng môn, sân active/đúng sức chứa/giờ mở cửa, giữ occupancy phòng + ExternalCoach khi checkout PendingPayment. Checkout nối vào Invoice/PaymentFulfillment; expiry/cancel nhả occupancy; payment xác nhận rental; retry tạo checkout mới; IPN muộn reacquire nếu slot còn hợp lệ và không có điểm đã nhả. Tự hủy ≥24h hoàn điểm 100%, <24h không hoàn; Manager center-fault hoàn 100%; P1.08 refund request/approval nay hỗ trợ Rental.
+
+**API mới:** `POST /api/checkouts/court-rental` (ExternalCoach + Idempotency-Key), `GET /api/court-rentals/availability`, `GET /api/court-rentals/mine`, `POST /api/court-rentals/{id}/cancel`, lịch thuê cho StaffRead tại `/api/manager/court-schedule/rentals`, Manager hủy center-fault tại `/api/manager/court-rentals/{id}/cancel`. Availability trả phòng trống và giá, không trả Member/lịch nguồn chi tiết.
+
+**Migration/DB:** `CourtRentalWorkflow` thêm bảng `court_rentals`, FK tới coach/sport/room/InvoiceItem; chưa apply migration lên database. Đã sinh migration sau code model; chạy lại `has-pending-model-changes` để kiểm drift.
+
+**Kiểm tra:** Release build pass (0 errors, 4 warnings sẵn có Security.Tests); `CourtRateCalculationTests` 4/4; `PointRefundCalculatorTests` 8/8. PostgreSQL API/concurrency suite chưa thêm/chưa chạy; Docker named pipe `npipe://./pipe/docker_engine` trước đó Access denied. Chưa đánh dấu P1.10 gate hoàn tất.
+
+**Còn thiếu P1.10:** PostgreSQL rental-vs-publish/PT/block concurrency, retry/late-payment, ownership/RBAC và privacy calendar tests; gom lịch phòng chuẩn gồm class/PT/rental/block theo contract; xác minh opening/rate settings cập nhật đồng thời trên DB thật.
+
+## Checkpoint — P1.09 Threshold/transfer, đang triển khai 01/10/2026
+
+**Chặng hiện tại / đã hoàn tất:** P1.09 đang triển khai. Có model `ThresholdResponse`, evaluator theo deadline, token ngẫu nhiên chỉ lưu hash, notification outbox, Member response với lựa chọn Refund/Transfer; Manager có API đổi giá/chi phí trước deadline và waive ngưỡng. Transfer bằng giá/rẻ hơn xử lý nguyên tử; đắt hơn tạo checkout difference, giữ enrollment nguồn đến khi fulfillment. P1.08 chưa qua gate vì Rental fulfillment nằm ở P1.10 và Docker integration chưa chạy được.
+
+**Commit hoặc trạng thái working tree:** branch `develop`, chưa commit. `.claude/settings.local.json` vẫn được giữ nguyên.
+
+**File thêm / sửa / xóa:** P1.09 thêm `ThresholdResponse`, enums/configuration, evaluator/expiry services, owner response controller, waive/pricing routes/jobs, `IInvoiceDraftWriter` implementation và `ClassTransferDifference` checkout fulfillment/retry/expiry. P1.08 có refund API/service, Membership/PT/Class fulfillment hooks, typed ledger item reference và tests. `InvoiceItem.SourceInvoiceItemId` links paid difference items to the root class item; Enrollment keeps source/current transfer lineage.
+
+**Migration và DB test đã dùng:** Thêm `ClassThresholdResponsesAndTransferRebooking`, tạo bảng decision token và đổi unique `Enrollment.InvoiceItemId` thành unique chỉ cho enrollment Confirmed; `ClassTransferInvoiceChain` adds invoice lineage. Thêm migration refund ở checkpoint P1.08. Chưa áp migration lên DB.
+
+**Lệnh kiểm tra + kết quả thực tế:** Release build pass (gần nhất 0 warning/0 error); `PointRefundCalculatorTests` 8/8; `CourseScheduleRulesTests` 5/5; EF `has-pending-model-changes` không phát hiện drift. Refund integration 0/3 do Testcontainers không kết nối được Docker named pipe `npipe://./pipe/docker_engine` (Access denied).
+
+**Contract đã đổi:** thêm `POST /api/manager/classes/{classId}/threshold/waive`, `PUT /api/manager/classes/{classId}/threshold/pricing`, và `POST /api/class-threshold-responses` (Member; body token/choice/targetClassId). `/api/refunds` đã có từ P1.08.
+
+**Vấn đề chưa xong / test đang lỗi:** P1.09 checkout chênh, refund value-chain đã code nhưng chưa xác minh integration, timeout/retry và late payment bằng PostgreSQL; race tests còn thiếu. Expiry/evaluator chưa verify bằng PostgreSQL. P1.08 vẫn thiếu Rental.
+
+**Bước tiếp theo cụ thể:** rà soát P1.09 checkout difference/late-payment semantics, viết PostgreSQL integration tests; sau đó P1.10 Rental rồi quay lại đóng P1.08.
+
+## Lịch sử — Checkpoint P1.08 Refund bằng điểm, đang triển khai 01/10/2026
+
+**Chặng hiện tại / đã hoàn tất:** Đang triển khai P1.08. Đã thêm point refund theo InvoiceItem cho Membership/PT/Class và system-event credit; **chưa qua gate** vì cần rental fulfillment của P1.10 và PostgreSQL integration tests chưa chạy được. P1.08 survey checkpoint ngay dưới đây đã được supersede.
+
+**Commit hoặc trạng thái working tree:** branch `develop`, chưa commit. Giữ nguyên `.claude/settings.local.json` chưa track. Các code thay đổi P1.08 hiện ở working tree.
+
+**File thêm / sửa / xóa:** Thêm calculator, refund API/DTO/service, Membership refund port/service, PT/Class fact/cancel hooks, point-ledger InvoiceItem reference, test calculator + integration suite. Sửa PointWallet, PaymentAdjustment/response/query, PackagePurchase, DI, refund tests, API contract và migrations. Đã xóa `CompleteAdjustmentRequest` và route `/api/payment-adjustments/{id}/complete`.
+
+**Migration và DB test đã dùng:** Thêm `PointRefundWorkflowFields`, `MemberPackageInvoiceItem` (backfill typed package→item từ legacy `RelatedEntityId`), `PointLedgerInvoiceItemReference` và `PointRefundLedgerReference`; migration history/model drift được kiểm tra qua EF. **Chưa áp migration lên DB.** Trong lúc gọi `dotnet ef migrations remove`, EF chỉ đọc `__EFMigrationsHistory` của DB cấu hình localhost:5435, không chạy migration/schema mutation; đã khôi phục migration đúng trong repo.
+
+**Lệnh kiểm tra + kết quả thực tế:** `dotnet build backend/SportHub.sln --configuration Release --no-restore` pass (4 warning cũ Security.Tests); `PointRefundCalculatorTests` 8/8 pass; `dotnet ef migrations has-pending-model-changes --configuration Release --no-build` báo không đổi model; `git diff --check` không lỗi whitespace. `RefundWorkflowTests` 0/3 chạy được: Testcontainers thất bại trước khi test vì Docker named pipe bị Access denied. Chưa đánh dấu integration pass.
+
+**Contract đã đổi:** Thêm `/api/refunds` GET/POST/approve/reject. POST body `{invoiceItemId, reason}`, approval `{centerFault, reason}`; server tính điểm, Manager không nhập điểm trực tiếp. Refund mới ghi điểm và entitlement; route complete payout bị loại. Refund legacy/Discount/Correction vẫn có thể đọc ở `/api/payment-adjustments`; legacy Refund không thể tạo/duyệt payout qua route mới.
+
+**Vấn đề chưa xong / test đang lỗi:** Rental item hiện trả `refund_rental_unavailable` tới khi hoàn thành P1.10. Chưa có PostgreSQL integration evidence cho atomic rollback, duplicate approval/cap concurrency, split refund, migration upgrade. Đường cancellation PT/Class cần kiểm trên DB thật; test integration viết nhưng môi trường Docker hiện bị chặn.
+
+**Cập nhật tiếp tục 01/10/2026:** Thêm migration `PointLedgerItemScopedIdempotency` cho unique ledger key phân biệt item và event; lock invoice → item trong system credit để serialize cumulative cap với manager refund. Ngăn refund thông thường trên PT/Class entitlement đã inactive; centerFault vẫn qua rule riêng. Sửa integration assertion POST `/api/refunds` theo response `200 OK`.
+
+**Kiểm tra cập nhật:** `dotnet build backend/SportHub.sln -c Release --no-restore` pass, 0 error (4 warning cũ tại Security.Tests); `PointRefundCalculatorTests` 8/8 pass; `dotnet ef migrations has-pending-model-changes ... --no-build` pass sau migration idempotency; `git diff --check` không phát hiện whitespace. Chưa áp migration và chưa chạy được PostgreSQL integration vì Docker named pipe access denied.
+
+**Bước tiếp theo cụ thể:** hoàn tất P1.08 sau khi P1.10 thêm Rental fulfillment và có PostgreSQL test runtime. Tiếp tục P1.09 threshold/transfer, rồi P1.10; sau đó quay lại nối Rental refund. Kế tiếp P1.11–P1.13 và plan 2 theo đúng thứ tự.
+
+---
+
+## Checkpoint — P1.08 Refund bằng điểm, khảo sát tiếp tục 01/10/2026
+
+**Chặng hiện tại / đã hoàn tất:** Đã đọc P1.08 và khảo sát implementation sau P1.07; P1.08 **chưa triển khai/chưa qua gate**. Tiến độ gần nhất trong file này vẫn là P1.07; các mục P1.08 trở đi trong plan chưa được đánh dấu hoàn tất.
+
+**Commit hoặc trạng thái working tree:** branch `develop`; thay đổi P1.07 và trước đó vẫn ở working tree. Không sửa/xóa `.claude/settings.local.json` chưa track. Lượt này chỉ cập nhật tài liệu.
+
+**File thêm / sửa / xóa:** sửa `docs/refactor-progress.md`, `docs/refactor-api-contract.md`; không đổi code/schema.
+
+**Migration và DB test đã dùng:** Không tạo/chạy migration, không kết nối DB.
+
+**Lệnh kiểm tra + kết quả thực tế:** Đọc kế hoạch P1.08, contract, evidence, `PaymentAdjustmentService`, wallet/fulfillment ports và model. Không chạy build/test trong lượt khảo sát.
+
+**Contract đã đổi:** Ghi rõ contract refund đích ở Phần H. Contract runtime hiện vẫn là route legacy `api/payment-adjustments` (bao gồm `/complete` chi tiền), chưa phải contract P1.08.
+
+**Vấn đề chưa xong / test đang lỗi:** `PaymentAdjustment.Refund` hiện là workflow refund tiền `Requested → Approved → Completed` với lễ tân complete payout; `RefundCalculator` dùng giá MembershipPackage và tính theo toàn Invoice, không theo InvoiceItem. Không có `InvoiceItemId`, `CenterFault`, `SystemCalculatedPoints`, `ApprovedPoints` hay ledger reference trên adjustment. `IRefundCreditService` chỉ là interface, chưa có implementation/DI; Membership fulfillment chỉ cancel, PT fulfillment chỉ cancel entitlement ID, Class fulfillment cancel theo item, Rental fulfillment chưa có. Vì vậy chưa thể an toàn áp dụng cap theo item, tiêu thụ PT, ownership và hủy đúng quyền lợi xuyên module. Các file legacy và migration lưu chứng cứ payout cần được bảo toàn đến khi có migration chuyển dữ liệu; không xóa `CompleteAdjustmentRequest`/route trước bước chuyển contract có kiểm chứng.
+
+**Bước tiếp theo cụ thể:** P1.08 implementation phải bắt đầu bằng schema chuyển đổi `PaymentAdjustment` thành refund theo `InvoiceItemId` (giữ AdjustmentId/legacy payout fields đọc được), typed fulfillment query/cancel cần thiết cho Membership/PT/Class/Rental, sau đó `RefundCalculator` theo BR-90–94 ngày Việt Nam và điểm floor VND/1000; implement/register `RefundCreditService` với `IPointWalletService` trong transaction caller; thay approve thành credit + fulfillment atomic; bổ sung direct system-event credit và test cap/item-split/PT consumed/class/session/rental/rollback/double-approval. Chỉ khi đó gỡ route complete payout mới.
+
+---
+
 ## Checkpoint — P1.07 Checkout và VNPay, 30/09/2026
 
 Đã triển khai checkout Membership, lớp theo khóa và PT: `CheckoutSession`/`VerifiedGatewayEvent`, idempotency key, giữ chỗ/điểm, PaymentAttempt, URL VNPay, IPN và QueryDR, 100% điểm, Paid + Spend + cấp quyền lợi trong một transaction, hủy/hết hạn, retry tạo invoice/cycle mới, callback trùng và khoản thu thứ hai được bồi hoàn đúng một lần. Return URL chỉ đọc; mock thanh toán chỉ chạy ở Development. PT dùng giá setting có phiên bản; giá Membership/lớp mới phải là bội số 1.000 VND. Khoản QueryDR thực thu không đổi chính xác sang điểm sẽ nhả hold, lưu `ManualCompensationRequired`, giữ nguyên số tiền để đối soát thủ công.

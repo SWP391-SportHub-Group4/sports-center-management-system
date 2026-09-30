@@ -30,4 +30,9 @@ public sealed record PaymentAdjustmentResponse(
     DateTime? CompletedAtUtc,
     /// <summary>Refund đã duyệt nhưng Lễ tân chưa xác nhận thực trả.</summary>
     bool AwaitingPayout,
-    DateTime? ResolvedAt);
+    DateTime? ResolvedAt,
+    Guid? InvoiceItemId,
+    int SystemCalculatedPoints,
+    int ApprovedPoints,
+    Guid? PointLedgerEntryId,
+    bool CenterFault);

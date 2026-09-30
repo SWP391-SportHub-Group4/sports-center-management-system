@@ -54,6 +54,38 @@ public sealed class DemoDataSeeder(
         var coachGroupX = NewUser("coach.groupx@sporthub.vn", "Vũ Hải Group X", "0902000002", UserRole.Coach);
         var coachPt = NewUser("coach.pt@sporthub.vn", "Đỗ Quang PT", "0902000003", UserRole.Coach);
 
+        var externalApproved = NewUser("coach.external.approved@sporthub.vn", "Huấn Luyện Viên Sân Đã Duyệt", "0902000011", UserRole.ExternalCoach);
+        var externalPending = NewUser("coach.external.pending@sporthub.vn", "Huấn Luyện Viên Sân Chờ Duyệt", "0902000012", UserRole.ExternalCoach);
+        var externalRejected = NewUser("coach.external.rejected@sporthub.vn", "Huấn Luyện Viên Sân Bị Từ Chối", "0902000013", UserRole.ExternalCoach);
+        var externalSuspended = NewUser("coach.external.suspended@sporthub.vn", "Huấn Luyện Viên Sân Tạm Ngưng", "0902000014", UserRole.ExternalCoach);
+
+        var externalProfiles = new[]
+        {
+            new ExternalCoachProfile
+            {
+                UserId = externalApproved.UserId, Bio = "ExternalCoach demo đã được duyệt để kiểm thử đặt sân.",
+                ApprovalStatus = ExternalCoachApprovalStatus.Approved, ReviewedByUserId = manager.UserId,
+                ReviewedAt = now, CreatedAt = now.AddDays(-3)
+            },
+            new ExternalCoachProfile
+            {
+                UserId = externalPending.UserId, Bio = "ExternalCoach demo đang chờ duyệt.",
+                ApprovalStatus = ExternalCoachApprovalStatus.PendingApproval, CreatedAt = now
+            },
+            new ExternalCoachProfile
+            {
+                UserId = externalRejected.UserId, Bio = "ExternalCoach demo bị từ chối.",
+                ApprovalStatus = ExternalCoachApprovalStatus.Rejected, ReviewedByUserId = manager.UserId,
+                ReviewedAt = now, ReviewNote = "Thiếu thông tin chuyên môn.", CreatedAt = now.AddDays(-5)
+            },
+            new ExternalCoachProfile
+            {
+                UserId = externalSuspended.UserId, Bio = "ExternalCoach demo tạm ngưng.",
+                ApprovalStatus = ExternalCoachApprovalStatus.Suspended, ReviewedByUserId = manager.UserId,
+                ReviewedAt = now, ReviewNote = "Tạm ngưng để rà soát hồ sơ.", CreatedAt = now.AddDays(-10)
+            }
+        };
+
         // BR-96 — mỗi tài khoản Coach demo có CoachProfile ngay khi tạo; chuyên môn theo môn gán ngay sau khi lưu user.
         coachYoga.CoachProfile = new CoachProfile();
         coachGroupX.CoachProfile = new CoachProfile();
@@ -69,7 +101,8 @@ public sealed class DemoDataSeeder(
             NewUser("hoa.member@sporthub.vn", "Bùi Thanh Hoa", "0903000006", UserRole.Member)
         };
 
-        var allUsers = new List<UserAccount> { admin, manager, reception, coachYoga, coachGroupX, coachPt };
+        var allUsers = new List<UserAccount> { admin, manager, reception, coachYoga, coachGroupX, coachPt,
+            externalApproved, externalPending, externalRejected, externalSuspended };
         allUsers.AddRange(members);
 
         foreach (var user in allUsers)
@@ -79,13 +112,17 @@ public sealed class DemoDataSeeder(
 
         db.UserAccounts.AddRange(allUsers);
         await db.SaveChangesAsync(ct);
+        db.ExternalCoachProfiles.AddRange(externalProfiles);
+        await db.SaveChangesAsync(ct);
 
         // Chuyên môn demo (sport 2 = Personal Training, 3 = Cầu lông, 4 = Bóng rổ; seed trong migration catalog).
         // Mapping cụ thể theo user vì CoachCategory cũ không đủ xác định môn.
         db.UserSportSpecialties.AddRange(
             new UserSportSpecialty { UserId = coachYoga.UserId, SportId = 3 },
             new UserSportSpecialty { UserId = coachGroupX.UserId, SportId = 4 },
-            new UserSportSpecialty { UserId = coachPt.UserId, SportId = 2 });
+            new UserSportSpecialty { UserId = coachPt.UserId, SportId = 2 },
+            new UserSportSpecialty { UserId = externalApproved.UserId, SportId = 3 },
+            new UserSportSpecialty { UserId = externalPending.UserId, SportId = 3 });
         await db.SaveChangesAsync(ct);
 
         members[^1].Status = UserStatus.Deactivated;

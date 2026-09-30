@@ -33,9 +33,9 @@ public sealed class CourtRateService(ISportHubDbContext db, IAuditWriter audit)
     public async Task<CourtRateResponse> CreateAsync(SaveCourtRateRequest request, Guid actorUserId, CancellationToken ct = default)
     {
         var rate = new CourtRate();
-        await ApplyAsync(rate, request, existingId: null, ct);
-
         await using var tx = await db.Database.BeginTransactionAsync(ct);
+        await LockRoomTypesAsync([request.RoomTypeId], ct);
+        await ApplyAsync(rate, request, existingId: null, ct);
         db.Set<CourtRate>().Add(rate);
         await db.SaveChangesAsync(ct);
 
@@ -48,6 +48,10 @@ public sealed class CourtRateService(ISportHubDbContext db, IAuditWriter audit)
 
     public async Task<CourtRateResponse> UpdateAsync(int rateId, SaveCourtRateRequest request, Guid actorUserId, CancellationToken ct = default)
     {
+        var reference = await db.Set<CourtRate>().AsNoTracking().SingleOrDefaultAsync(r => r.RateId == rateId, ct)
+                   ?? throw new NotFoundException("court_rate_not_found", "Không tìm thấy khung giá.");
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        await LockRoomTypesAsync([reference.RoomTypeId, request.RoomTypeId], ct);
         var rate = await db.Set<CourtRate>().SingleOrDefaultAsync(r => r.RateId == rateId, ct)
                    ?? throw new NotFoundException("court_rate_not_found", "Không tìm thấy khung giá.");
 
@@ -58,11 +62,16 @@ public sealed class CourtRateService(ISportHubDbContext db, IAuditWriter audit)
             OldValue: before, NewValue: Describe(rate)));
 
         await db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
         return ToResponse(rate);
     }
 
     public async Task DeleteAsync(int rateId, Guid actorUserId, CancellationToken ct = default)
     {
+        var reference = await db.Set<CourtRate>().AsNoTracking().SingleOrDefaultAsync(r => r.RateId == rateId, ct)
+                   ?? throw new NotFoundException("court_rate_not_found", "Không tìm thấy khung giá.");
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        await LockRoomTypesAsync([reference.RoomTypeId], ct);
         var rate = await db.Set<CourtRate>().SingleOrDefaultAsync(r => r.RateId == rateId, ct)
                    ?? throw new NotFoundException("court_rate_not_found", "Không tìm thấy khung giá.");
 
@@ -70,6 +79,17 @@ public sealed class CourtRateService(ISportHubDbContext db, IAuditWriter audit)
         db.Set<CourtRate>().Remove(rate);
         audit.Write(new AuditEntry(actorUserId, "DELETE_COURT_RATE", nameof(CourtRate), rateId.ToString(), OldValue: Describe(rate)));
         await db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
+    }
+
+    private async Task LockRoomTypesAsync(IEnumerable<int> roomTypeIds, CancellationToken ct)
+    {
+        // The pricing table is small. One transaction-scoped mutex closes create/update overlap races,
+        // including a concurrent update that moves a rate between room types.
+        await db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(877459021)", ct);
+        foreach (var id in roomTypeIds.Distinct().Order())
+            await db.Database.ExecuteSqlInterpolatedAsync(
+                $"SELECT room_type_id FROM room_types WHERE room_type_id = {id} FOR UPDATE", ct);
     }
 
     private async Task ApplyAsync(CourtRate rate, SaveCourtRateRequest request, int? existingId, CancellationToken ct)

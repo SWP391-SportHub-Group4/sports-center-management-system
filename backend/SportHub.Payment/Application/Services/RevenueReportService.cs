@@ -3,6 +3,8 @@ using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.SharedKernel.Time;
 using SportHub.Payment.Application.DTOs;
 using SportHub.Payment.Application.Interfaces;
+using SportHub.Payment.Domain.Entities;
+using SportHub.Payment.Wallet.Domain;
 
 namespace SportHub.Payment.Application.Services;
 
@@ -40,8 +42,45 @@ public sealed class RevenueReportService(ISportHubDbContext db) : IRevenueReport
         var payments = await db.Set<Domain.Entities.Payment>()
             .AsNoTracking()
             .Where(p => p.Status == PaymentStatus.Success && p.PaidAt >= fromUtc && p.PaidAt < toUtcExclusive)
-            .Select(p => new { p.PaidAt, p.Amount, p.InvoiceId })
+            .Select(p => new { p.PaidAt, p.Amount, p.InvoiceId, p.Method })
             .ToListAsync(ct);
+
+        // If a successful gateway capture cannot activate its benefit, it is credited as
+        // points (or flagged for manual settlement) and has no Payment row. Keep that real
+        // cash visible in a separate reconciliation line, dated by verified provider pay time.
+        var reconciliationCash = await db.Set<VerifiedGatewayEvent>()
+            .AsNoTracking()
+            .Where(e => (e.ProcessingStatus == "Compensated" || e.ProcessingStatus == "ManualCompensationRequired")
+                        && e.ProviderPaidAtUtc >= fromUtc && e.ProviderPaidAtUtc < toUtcExclusive)
+            .Select(e => new { e.ProviderPaidAtUtc, e.Amount })
+            .ToListAsync(ct);
+
+        var pointEntries = await db.Set<PointLedgerEntry>()
+            .AsNoTracking()
+            .Where(e => e.CreatedAtUtc >= fromUtc && e.CreatedAtUtc < toUtcExclusive
+                        && (e.EntryType == PointEntryType.Spend || e.EntryType == PointEntryType.Earn
+                            || e.EntryType == PointEntryType.Adjustment))
+            .Select(e => new { e.EntryType, e.Points, e.AvailableDelta, e.InvoiceItemId })
+            .ToListAsync(ct);
+
+        var outstandingPoints = await db.Set<PointWallet>()
+            .AsNoTracking().SumAsync(w => (long)w.AvailablePoints + w.HeldPoints, ct);
+
+        var sourceCashRows = await (from item in db.Set<InvoiceItem>().AsNoTracking()
+                                    join invoice in db.Set<Invoice>().AsNoTracking() on item.InvoiceId equals invoice.InvoiceId
+                                    join payment in db.Set<Domain.Entities.Payment>().AsNoTracking() on invoice.InvoiceId equals payment.InvoiceId
+                                    where payment.Status == PaymentStatus.Success
+                                          && payment.PaidAt >= fromUtc && payment.PaidAt < toUtcExclusive
+                                    select new { Source = item.ItemType.ToString(), item.LineAmount,
+                                        invoice.TotalAmount, payment.Amount })
+            .ToListAsync(ct);
+
+        var pointItemIds = pointEntries.Where(e => e.InvoiceItemId.HasValue)
+            .Select(e => e.InvoiceItemId!.Value).Distinct().ToArray();
+        var pointItemSources = await db.Set<InvoiceItem>().AsNoTracking()
+            .Where(i => pointItemIds.Contains(i.ItemId))
+            .Select(i => new { i.ItemId, Source = i.ItemType.ToString() })
+            .ToDictionaryAsync(i => i.ItemId, i => i.Source, ct);
 
         // Chỉ Refund có CompletedAtUtc (đã xác nhận thực trả) mới vào đây. Bản ghi legacy
         // Completed mà thiếu CompletedAtUtc bị loại khỏi chỉ tiêu tiền thay vì bị gán bừa ngày
@@ -66,6 +105,27 @@ public sealed class RevenueReportService(ISportHubDbContext db) : IRevenueReport
             .Select(a => new { CompletedAt = a.CompletedAtUtc!.Value, a.Amount })
             .ToListAsync(ct);
 
+        var legacyCashCollected = payments.Where(p => p.Method != PaymentMethod.VnPay).Sum(p => p.Amount);
+        var reconciliationByDay = reconciliationCash
+            .GroupBy(e => DateOnly.FromDateTime(VietnamTime.ToLocal(e.ProviderPaidAtUtc)))
+            .ToDictionary(g => g.Key, g => g.Sum(e => e.Amount));
+        var pointsRedeemed = pointEntries.Where(e => e.EntryType == PointEntryType.Spend).Sum(e => (long)e.Points);
+        var pointsIssued = pointEntries.Where(e => e.EntryType == PointEntryType.Earn).Sum(e => (long)e.Points);
+        var managerPointAdjustment = pointEntries.Where(e => e.EntryType == PointEntryType.Adjustment)
+            .Sum(e => (long)e.AvailableDelta);
+
+        var sourceCash = sourceCashRows
+            .GroupBy(x => x.Source)
+            .ToDictionary(g => g.Key, g => g.Sum(x => x.TotalAmount == 0 ? 0 : x.Amount * x.LineAmount / x.TotalAmount));
+        var sourcePoints = pointEntries.Where(e => e.EntryType == PointEntryType.Spend)
+            .GroupBy(e => e.InvoiceItemId is Guid id && pointItemSources.TryGetValue(id, out var source)
+                ? source : "Unclassified")
+            .ToDictionary(g => g.Key, g => g.Sum(e => (long)e.Points));
+        var sourceRows = sourceCash.Keys.Union(sourcePoints.Keys).OrderBy(x => x)
+            .Select(source => new RevenueReportSourceRowResponse(source,
+                sourceCash.GetValueOrDefault(source), sourcePoints.GetValueOrDefault(source)))
+            .ToList();
+
         var collectedByDay = payments
             .GroupBy(p => DateOnly.FromDateTime(VietnamTime.ToLocal(p.PaidAt)))
             .ToDictionary(g => g.Key, g => g.Sum(p => p.Amount));
@@ -85,11 +145,19 @@ public sealed class RevenueReportService(ISportHubDbContext db) : IRevenueReport
             var collected = collectedByDay.GetValueOrDefault(day);
             var refunded = refundedByDay.GetValueOrDefault(day);
             var obligation = obligationByDay.GetValueOrDefault(day);
+            var reconciliation = reconciliationByDay.GetValueOrDefault(day);
+            var legacy = payments.Where(p => p.Method != PaymentMethod.VnPay
+                && DateOnly.FromDateTime(VietnamTime.ToLocal(p.PaidAt)) == day).Sum(p => p.Amount);
 
-            daily.Add(new RevenueReportRowResponse(day, collected, refunded, obligation, collected - refunded));
+            daily.Add(new RevenueReportRowResponse(day, collected + reconciliation, refunded, obligation,
+                collected + reconciliation - refunded)
+            {
+                ReconciliationCashCollected = reconciliation,
+                LegacyCashCollected = legacy
+            });
         }
 
-        var totalCollected = collectedByDay.Values.Sum();
+        var totalCollected = collectedByDay.Values.Sum() + reconciliationCash.Sum(e => e.Amount);
         var totalRefunded = refundedByDay.Values.Sum();
         var totalObligationReduction = obligationByDay.Values.Sum();
 
@@ -103,6 +171,16 @@ public sealed class RevenueReportService(ISportHubDbContext db) : IRevenueReport
             payments.Select(p => p.InvoiceId).Distinct().Count(),
             payments.Count,
             refunds.Count,
-            daily);
+            daily)
+        {
+            LegacyCashCollected = legacyCashCollected,
+            ReconciliationCashCollected = reconciliationCash.Sum(e => e.Amount),
+            ReconciliationCashCount = reconciliationCash.Count,
+            PointsRedeemed = pointsRedeemed,
+            PointsIssued = pointsIssued,
+            ManagerPointAdjustment = managerPointAdjustment,
+            OutstandingPoints = outstandingPoints,
+            BySource = sourceRows
+        };
     }
 }

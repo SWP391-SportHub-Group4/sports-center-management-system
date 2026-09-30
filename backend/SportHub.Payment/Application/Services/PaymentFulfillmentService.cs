@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using SportHub.BuildingBlocks.Abstractions.Audit;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
+using SportHub.BuildingBlocks.Abstractions.Payment;
 using SportHub.BuildingBlocks.Abstractions.Scheduling;
 using SportHub.BuildingBlocks.Abstractions.Training;
 using SportHub.BuildingBlocks.Abstractions.Wallet;
@@ -15,8 +16,8 @@ namespace SportHub.Payment.Application.Services;
 
 /// <summary>Mutations here belong to the caller's transaction; a failed benefit rolls back cash and points.</summary>
 public sealed class PaymentFulfillmentService(ISportHubDbContext db, IPointWalletService wallets,
-    IClassEnrollmentFulfillment classes, IPtPurchaseFulfillment pt, IPackageActivationService packages,
-    IAuditWriter audit, IClock clock)
+    IClassEnrollmentFulfillment classes, IPtPurchaseFulfillment pt, ICourtRentalFulfillment rentals, IPackageActivationService packages,
+    IRefundCreditService refunds, IAuditWriter audit, IClock clock)
 {
     public async Task CompletePointsAsync(Invoice invoice, CheckoutSession session, CancellationToken ct)
     {
@@ -44,7 +45,9 @@ public sealed class PaymentFulfillmentService(ISportHubDbContext db, IPointWalle
             PaymentId = Guid.NewGuid(), InvoiceId = invoice.InvoiceId, Amount = proof.Amount,
             Method = PaymentMethod.VnPay, ReferenceCode = proof.ProviderTransactionId,
             Status = PaymentStatus.Success, ReceivedByUserId = invoice.IssuedByUserId,
-            PaidAt = clock.UtcNow
+            // VNPay vnp_PayDate is the source-of-truth for cash collection reporting;
+            // callback processing time can cross a report-day boundary.
+            PaidAt = proof.ProviderPaidAtUtc
         });
         attempt.Status = PaymentAttemptStatus.Succeeded;
         attempt.ProviderTransactionId = proof.ProviderTransactionId;
@@ -61,10 +64,11 @@ public sealed class PaymentFulfillmentService(ISportHubDbContext db, IPointWalle
     private async Task SpendAndFulfillAsync(Invoice invoice, CheckoutSession session,
         string paidVia, CancellationToken ct)
     {
+        var item = await db.Set<InvoiceItem>().SingleAsync(x => x.InvoiceId == invoice.InvoiceId, ct);
         if (invoice.PointsApplied > 0)
             await wallets.SpendAsync(new WalletOperation(invoice.MemberId, invoice.PointsApplied,
-                "CheckoutSession", session.CheckoutSessionId, invoice.IssuedByUserId), ct);
-        var item = await db.Set<InvoiceItem>().SingleAsync(x => x.InvoiceId == invoice.InvoiceId, ct);
+                "CheckoutSession", session.CheckoutSessionId, invoice.IssuedByUserId,
+                InvoiceItemId: item.ItemId), ct);
         switch (item.ItemType)
         {
             case InvoiceItemType.Membership:
@@ -77,10 +81,23 @@ public sealed class PaymentFulfillmentService(ISportHubDbContext db, IPointWalle
                     throw new ConflictException("checkout_hold_missing", "Checkout không có giữ chỗ.");
                 await classes.ConfirmAsync(holdId, item.ItemId, ct);
                 break;
+            case InvoiceItemType.ClassTransferDifference:
+                if (session.Kind != "ClassTransfer" || session.ResourceHoldId is not Guid transferHoldId
+                    || item.RelatedEntityId is not Guid thresholdResponseId || item.SourceInvoiceItemId is not Guid sourceItemId)
+                    throw new ConflictException("class_transfer_checkout_invalid", "Checkout chênh lớp thiếu tham chiếu nguồn/giữ chỗ.");
+                await refunds.LockPaidItemAsync(sourceItemId, ct);
+                await classes.CompleteTransferAsync(thresholdResponseId, transferHoldId, item.ItemId, ct);
+                break;
             case InvoiceItemType.PT:
                 if (item.RelatedEntityId is not Guid ptId)
                     throw new ConflictException("pt_entitlement_missing", "Checkout thiếu quyền lợi PT chờ thanh toán.");
                 await pt.ActivateAsync(ptId, ct);
+                break;
+            case InvoiceItemType.Rental:
+                if (session.Kind != "CourtRental" || session.ResourceHoldId is not Guid rentalId
+                    || item.RelatedEntityId != rentalId)
+                    throw new ConflictException("rental_checkout_invalid", "Checkout thuê sân thiếu tham chiếu lượt thuê.");
+                await rentals.ConfirmAsync(rentalId, item.ItemId, ct);
                 break;
             default:
                 throw new ConflictException("checkout_kind_unsupported", "Loại quyền lợi này chưa được hỗ trợ.");
@@ -102,7 +119,10 @@ public sealed class PaymentFulfillmentService(ISportHubDbContext db, IPointWalle
         if (invoice.Status == InvoiceStatus.Paid)
             throw new ConflictException("checkout_already_paid", "Checkout đã thanh toán.");
         if (session.ResourceHoldId is Guid holdId)
-            await classes.ReleaseAsync(holdId, ct);
+        {
+            if (session.Kind == "CourtRental") await rentals.ReleaseAsync(holdId, ct);
+            else await classes.ReleaseAsync(holdId, ct);
+        }
         if (invoice.PointsApplied > 0)
             await wallets.ReleaseAsync(new WalletOperation(invoice.MemberId, invoice.PointsApplied,
                 "CheckoutSession", session.CheckoutSessionId, actorId), ct);

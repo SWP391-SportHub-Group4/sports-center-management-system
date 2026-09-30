@@ -1,50 +1,70 @@
-using SportHub.Membership.Domain.Entities;
-
 namespace SportHub.Payment.Domain.Rules;
 
 /// <summary>
-/// Số tiền hoàn MẶC ĐỊNH khi tạo yêu cầu điều chỉnh loại Refund (BR-52).
-///
-/// Chỉ là GỢI Ý: BR-52 cho Center Manager ghi đè khi phê duyệt, nên giá trị ở đây không bao
-/// giờ là quyết định cuối cùng.
+/// BR-90–94, 121–122 and 129: calculate point refunds against the value actually paid
+/// for one InvoiceItem. Callers subtract prior refunds before invoking these rules.
 /// </summary>
 public static class RefundCalculator
 {
-    /// <summary>
-    /// Tỷ lệ phân bổ của TotalAmount theo phần chưa dùng:
-    /// - gói giới hạn buổi → theo RemainingSessions / SessionLimit
-    /// - gói theo thời hạn → theo số ngày còn lại / DurationDays
-    ///
-    /// Làm tròn XUỐNG về đồng (VND là số nguyên, SSOT §5.2): trung tâm không hoàn nhiều hơn
-    /// phần tính được. Cách làm tròn và mốc "hôm nay" là đề xuất, BR-52 không nêu (quyết định C1).
-    ///
-    /// Hoá đơn không gắn gói nào (MemberPackage = null, vd phí phạt) không có cơ sở phân bổ —
-    /// trả 0 và để Manager tự nhập, thay vì đoán một con số.
-    /// </summary>
-    public static decimal SuggestDefault(
-        decimal invoiceTotal,
-        MemberPackage? memberPackage,
-        MembershipPackage? catalogPackage,
-        DateOnly todayLocal)
+    public const int VndPerPoint = 1_000;
+
+    public static int MembershipPoints(
+        decimal itemPaidVnd,
+        DateOnly startDate,
+        DateOnly endDate,
+        DateOnly requestDateVietnam,
+        bool centerFault = false)
     {
-        if (memberPackage is null || catalogPackage is null || invoiceTotal <= 0m)
-        {
-            return 0m;
-        }
+        if (centerFault) return PointsForRatio(itemPaidVnd, 100);
+        var totalDays = endDate.DayNumber - startDate.DayNumber;
+        if (totalDays <= 0) return 0;
+        var remainingDays = Math.Clamp(endDate.DayNumber - requestDateVietnam.DayNumber, 0, totalDays);
+        return remainingDays * 3 >= totalDays * 2
+            ? PointsForRatio(itemPaidVnd, 50)
+            : 0;
+    }
 
-        if (catalogPackage.SessionLimit is > 0)
-        {
-            var remaining = Math.Clamp(memberPackage.RemainingSessions ?? 0, 0, catalogPackage.SessionLimit.Value);
+    public static int PtPoints(decimal itemPaidVnd, bool hasConsumedSession, bool centerFault = false)
+    {
+        if (centerFault) return PointsForRatio(itemPaidVnd, 100);
+        return hasConsumedSession ? 0 : PointsForRatio(itemPaidVnd, 50);
+    }
 
-            return decimal.Floor(invoiceTotal * remaining / catalogPackage.SessionLimit.Value);
-        }
+    public static int ClassPoints(
+        decimal itemPaidVnd,
+        int totalProvidedSessions,
+        int sessionsNotProvided,
+        bool beforeFirstSession,
+        bool centerFault = false)
+    {
+        if (centerFault && totalProvidedSessions <= 0)
+            return PointsForRatio(itemPaidVnd, 100);
+        if (totalProvidedSessions <= 0 || sessionsNotProvided < 0 || sessionsNotProvided > totalProvidedSessions)
+            throw new ArgumentOutOfRangeException(nameof(sessionsNotProvided), "Class session counts are inconsistent.");
+        if (beforeFirstSession) return PointsForRatio(itemPaidVnd, 100);
+        if (!centerFault) return 0;
+        return PointsForRatio(itemPaidVnd, 100m * sessionsNotProvided / totalProvidedSessions);
+    }
 
-        var totalDays = Math.Max(catalogPackage.DurationDays, 1);
+    public static int RentalPoints(
+        decimal itemPaidVnd,
+        DateTimeOffset requestedAtVietnam,
+        DateTimeOffset rentalStartVietnam,
+        bool cancelledByCenter = false,
+        int cancelFreeHours = 24)
+    {
+        if (cancelFreeHours < 0) throw new ArgumentOutOfRangeException(nameof(cancelFreeHours));
+        if (cancelledByCenter) return PointsForRatio(itemPaidVnd, 100);
+        return rentalStartVietnam - requestedAtVietnam >= TimeSpan.FromHours(cancelFreeHours)
+            ? PointsForRatio(itemPaidVnd, 100)
+            : 0;
+    }
 
-        // DayNumber hiệu nhau cho số ngày nguyên; kẹp ở [0, totalDays] để gói đã quá hạn
-        // không sinh số âm và gói chưa bắt đầu không hoàn nhiều hơn 100%.
-        var remainingDays = Math.Clamp(memberPackage.EndDate.DayNumber - todayLocal.DayNumber, 0, totalDays);
-
-        return decimal.Floor(invoiceTotal * remainingDays / totalDays);
+    public static int PointsForRatio(decimal itemPaidVnd, decimal ratioPercent)
+    {
+        if (itemPaidVnd < 0) throw new ArgumentOutOfRangeException(nameof(itemPaidVnd));
+        if (ratioPercent is < 0 or > 100) throw new ArgumentOutOfRangeException(nameof(ratioPercent));
+        var refundableVnd = decimal.Floor(itemPaidVnd * ratioPercent / 100m);
+        return checked((int)decimal.Floor(refundableVnd / VndPerPoint));
     }
 }

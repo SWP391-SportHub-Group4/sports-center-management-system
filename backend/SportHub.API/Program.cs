@@ -1,5 +1,6 @@
 using AdministrationSystemSettingProvider = SportHub.Administration.Infrastructure.SystemSettingProvider;
 using DotNetEnv;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -156,6 +157,8 @@ builder.Services.AddSingleton<IClock, SystemClock>();
 // interface về lý do phải cắt vòng phụ thuộc theo cách này.
 builder.Services.AddScoped<IAuditWriter, AuditWriter>();
 builder.Services.AddScoped<INotificationWriter, NotificationWriter>();
+builder.Services.AddScoped<SportHub.Notification.Application.Services.EmailDispatchService>();
+builder.Services.AddScoped<SportHub.Notification.Application.Services.ManualNoticeService>();
 builder.Services.AddScoped<ISystemSettingProvider, SystemSettingProvider>();
 
 // Identity
@@ -188,6 +191,20 @@ if (string.IsNullOrWhiteSpace(smtpSection["Host"]))
     }
 }
 builder.Services.Configure<EmailOptions>(smtpSection);
+var dataProtection = builder.Services.AddDataProtection();
+var dataProtectionKeysPath = builder.Configuration["DataProtection:KeysPath"];
+if (!builder.Environment.IsDevelopment() && string.IsNullOrWhiteSpace(dataProtectionKeysPath))
+    throw new InvalidOperationException("DataProtection:KeysPath must point to durable storage outside Development.");
+if (!string.IsNullOrWhiteSpace(dataProtectionKeysPath))
+{
+    Directory.CreateDirectory(dataProtectionKeysPath);
+    dataProtection.PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeysPath));
+}
+var configuredSmtpHost = smtpSection["Host"];
+var configuredSmtpFrom = smtpSection["FromAddress"];
+if ((!builder.Environment.IsDevelopment() && string.IsNullOrWhiteSpace(configuredSmtpHost))
+    || (!string.IsNullOrWhiteSpace(configuredSmtpHost) && string.IsNullOrWhiteSpace(configuredSmtpFrom)))
+    throw new InvalidOperationException("SMTP Host and FromAddress must be configured outside explicit Development logging mode.");
 builder.Services.AddScoped<IEmailSender>(sp =>
     string.IsNullOrWhiteSpace(sp.GetRequiredService<IOptions<EmailOptions>>().Value.Host)
         ? builder.Environment.IsDevelopment() && builder.Configuration.GetValue<bool>("Email:DemoLoggingEnabled")
@@ -206,6 +223,7 @@ builder.Services.AddScoped<IReportExportService, ReportExportService>();
 // Membership
 builder.Services.AddScoped<IMembershipPackageService, MembershipPackageService>();
 builder.Services.AddScoped<IMemberPackageService, MemberPackageService>();
+builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Membership.IMembershipRefundFulfillment, MembershipRefundFulfillment>();
 builder.Services.AddScoped<IMemberTrainingProfileService, MemberTrainingProfileService>();
 builder.Services.AddScoped<IMembershipReportService, MembershipReportService>();
 
@@ -223,7 +241,16 @@ builder.Services.AddScoped<SportHub.Scheduling.Catalog.Application.RoomTypeServi
 builder.Services.AddScoped<SportHub.Scheduling.Catalog.Application.RoomOpeningHourService>();
 builder.Services.AddScoped<SportHub.Scheduling.Catalog.Application.RoomBlockService>();
 builder.Services.AddScoped<SportHub.Scheduling.Catalog.Application.CourtRateService>();
+builder.Services.AddScoped<SportHub.Scheduling.Rental.Application.CourtRentalService>();
+builder.Services.AddScoped<SportHub.Scheduling.Rental.Application.CourtRentalOperationsService>();
+builder.Services.AddScoped<SportHub.Scheduling.Rental.Application.IncidentService>();
+builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Scheduling.ICourtRentalFulfillment>(
+    sp => sp.GetRequiredService<SportHub.Scheduling.Rental.Application.CourtRentalService>());
 builder.Services.AddScoped<IClassService, ClassService>();
+builder.Services.AddScoped<SportHub.Scheduling.Threshold.Application.IClassThresholdService,
+    SportHub.Scheduling.Threshold.Application.ClassThresholdService>();
+builder.Services.AddScoped<SportHub.Scheduling.Threshold.Application.ThresholdResponseService>();
+builder.Services.AddScoped<SportHub.Scheduling.Threshold.Application.ThresholdResponseExpiryService>();
 builder.Services.AddScoped<IClassSessionService, ClassSessionService>();
 builder.Services.AddScoped<IClassEnrollmentReportService, ClassEnrollmentReportService>();
 builder.Services.AddScoped<CourseValidator>();
@@ -239,18 +266,39 @@ builder.Services.AddScoped<IPackagePurchaseService, PackagePurchaseService>();
 builder.Services.AddScoped<IPaymentRecordingService, PaymentRecordingService>();
 builder.Services.AddScoped<IPackageActivationService, PackageActivationService>();
 builder.Services.AddScoped<IPaymentAdjustmentService, PaymentAdjustmentService>();
+builder.Services.AddScoped<IPointRefundService, PointRefundService>();
+builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Payment.IRefundCreditService, RefundCreditService>();
 builder.Services.AddScoped<IRevenueReportService, RevenueReportService>();
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Wallet.IPointWalletService, SportHub.Payment.Wallet.Application.PointWalletService>();
 builder.Services.AddScoped<SportHub.Payment.Wallet.Application.WalletQueryService>();
 builder.Services.AddScoped<SportHub.Payment.Wallet.Application.PointAdjustmentService>();
 builder.Services.AddScoped<SportHub.Payment.Wallet.Application.PointConfirmationService>();
-builder.Services.Configure<VnPayOptions>(builder.Configuration.GetSection(VnPayOptions.SectionName));
+var vnPaySection = builder.Configuration.GetSection(VnPayOptions.SectionName);
+var vnPayUseMock = vnPaySection.GetValue<bool>(nameof(VnPayOptions.UseMock));
+if (vnPayUseMock && !builder.Environment.IsDevelopment())
+    throw new InvalidOperationException("VnPay:UseMock is supported only in explicit Development.");
+if (!builder.Environment.IsDevelopment())
+{
+    var paymentUrl = vnPaySection[nameof(VnPayOptions.PaymentUrl)] ?? "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html";
+    var queryUrl = vnPaySection[nameof(VnPayOptions.QueryUrl)] ?? "https://sandbox.vnpayment.vn/merchant_webapi/api/transaction";
+    if (string.IsNullOrWhiteSpace(vnPaySection[nameof(VnPayOptions.TmnCode)])
+        || string.IsNullOrWhiteSpace(vnPaySection[nameof(VnPayOptions.HashSecret)])
+        || !Uri.TryCreate(vnPaySection[nameof(VnPayOptions.ReturnUrl)], UriKind.Absolute, out var returnUri)
+        || returnUri.Scheme != Uri.UriSchemeHttps
+        || !Uri.TryCreate(paymentUrl, UriKind.Absolute, out var paymentUri) || paymentUri.Scheme != Uri.UriSchemeHttps
+        || !Uri.TryCreate(queryUrl, UriKind.Absolute, out var queryUri) || queryUri.Scheme != Uri.UriSchemeHttps)
+        throw new InvalidOperationException("VnPay credentials and HTTPS PaymentUrl/ReturnUrl/QueryUrl must be configured outside Development.");
+}
+builder.Services.Configure<VnPayOptions>(vnPaySection);
 builder.Services.AddHttpClient<VnPayGateway>();
 builder.Services.AddSingleton<IPaymentGateway>(sp =>
-    builder.Environment.IsDevelopment() && builder.Configuration.GetValue<bool>("VnPay:UseMock")
+    builder.Environment.IsDevelopment() && vnPayUseMock
         ? new MockPaymentGateway()
         : sp.GetRequiredService<VnPayGateway>());
 builder.Services.AddScoped<CheckoutService>();
+builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Payment.ICheckoutLifecycleService>(
+    sp => sp.GetRequiredService<CheckoutService>());
+builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Payment.IInvoiceDraftWriter, InvoiceDraftWriter>();
 builder.Services.AddScoped<PaymentFulfillmentService>();
 builder.Services.AddScoped<PaymentReconciliationService>();
 builder.Services.AddScoped<CheckoutExpiryService>();
@@ -324,6 +372,9 @@ builder.Services.AddHttpClient<
 // Tác vụ nền: BR-11/BR-33 (hạn gói), BR-20/BR-53 (No-show), BR-34 (phát thông báo).
 builder.Services.AddHostedService<MemberPackageExpiryJob>();
 builder.Services.AddHostedService<ClassStatusJob>();
+builder.Services.AddHostedService<ClassThresholdEvaluationJob>();
+builder.Services.AddHostedService<ClassThresholdResponseExpiryJob>();
+builder.Services.AddHostedService<RentalStatusJob>();
 builder.Services.AddHostedService<AttendanceFinalizerJob>();
 builder.Services.AddHostedService<SeatHoldExpiryJob>();
 builder.Services.AddHostedService<CheckoutExpiryJob>();

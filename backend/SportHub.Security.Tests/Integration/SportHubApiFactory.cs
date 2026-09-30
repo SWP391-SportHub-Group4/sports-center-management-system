@@ -23,6 +23,9 @@ using SportHub.Identity.Domain.Entities;
 using SportHub.Identity.Domain.Enums;
 using SportHub.Identity.Infrastructure.Repositories;
 using SportHub.Identity.Infrastructure.Security;
+using SportHub.Identity.Infrastructure.Email;
+using SportHub.BuildingBlocks.Abstractions.Notifications;
+using SportHub.Notification.Application.Services;
 using Testcontainers.PostgreSql;
 
 namespace SportHub.Security.Tests.Integration;
@@ -140,9 +143,16 @@ public sealed class SportHubApiFactory : WebApplicationFactory<Program>, IAsyncL
                 sp.GetRequiredService<PasswordHasher>(),
                 sp.GetRequiredService<CallSpy>()));
 
-            // BR-78: giu email OTP lai trong bo nho thay vi gui/ghi log.
+            // Keep real encrypted outbox rows, exposing the queued code only to the test harness.
+            services.RemoveAll<INotificationWriter>();
+            services.AddScoped<INotificationWriter>(sp => new CapturingOutboxNotificationWriter(
+                sp.GetRequiredService<SportHub.BuildingBlocks.Abstractions.Persistence.ISportHubDbContext>(),
+                sp.GetRequiredService<Microsoft.AspNetCore.DataProtection.IDataProtectionProvider>(),
+                Emails));
+
+            // Tests assert queued messages; the real sender is intentionally unavailable.
             services.RemoveAll<IEmailSender>();
-            services.AddSingleton<IEmailSender>(Emails);
+            services.AddSingleton<IEmailSender, UnavailableEmailSender>();
 
             services.RemoveAll<IGoogleTokenVerifier>();
             services.AddSingleton<IGoogleTokenVerifier, FakeGoogleTokenVerifier>();

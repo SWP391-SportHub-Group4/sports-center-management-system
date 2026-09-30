@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SportHub.BuildingBlocks.Abstractions.Notifications;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.BuildingBlocks.SharedKernel.Time;
@@ -15,7 +16,7 @@ namespace SportHub.Identity.Application.Services;
 /// - <see cref="ConsumeAsync"/> là UPDATE có điều kiện: hai request cùng mã đúng song song thì đúng một request thắng.
 ///   Gọi nó BÊN TRONG transaction của thao tác nghiệp vụ để mã chỉ bị tiêu khi thao tác thành công.
 /// </summary>
-public sealed class EmailOtpFlow(ISportHubDbContext db, IClock clock)
+public sealed class EmailOtpFlow(ISportHubDbContext db, IClock clock, INotificationWriter notifications)
 {
     /// <summary>
     /// Ghi/ghi đè mã cho (email, purpose) và trả mã rõ để caller gửi. Trả null nếu còn trong thời gian chờ gửi lại
@@ -44,6 +45,20 @@ public sealed class EmailOtpFlow(ISportHubDbContext db, IClock clock)
         otp.Attempts = 0;
         otp.ConsumedAt = null;
         otp.CreatedAt = now;
+
+        var (eventType, subject, purposeText) = purpose switch
+        {
+            EmailOtpPurpose.ResetPassword => (NotificationEvents.PasswordResetOtpRequested,
+                "SportHub - Mã đặt lại mật khẩu", "đặt lại mật khẩu"),
+            EmailOtpPurpose.ExternalCoachRegister => (NotificationEvents.ExternalCoachOtpRequested,
+                "SportHub - Mã xác thực đăng ký Coach ngoài", "đăng ký tài khoản Coach ngoài"),
+            _ => throw new ArgumentOutOfRangeException(nameof(purpose), purpose, "OTP purpose chưa có template email.")
+        };
+        notifications.QueueEmail(new EmailNotificationRequest(null, email, eventType, Guid.NewGuid(), subject,
+            "<p>Mã xác thực " + purposeText + " SportHub của bạn là:</p>"
+            + "<p style=\"font-size:24px;font-weight:bold;letter-spacing:4px\">" + code + "</p>"
+            + "<p>Mã có hiệu lực trong " + AuthService.OtpLifetime.TotalMinutes.ToString("0")
+            + " phút. Nếu bạn không yêu cầu, hãy bỏ qua email này.</p>"));
 
         try
         {

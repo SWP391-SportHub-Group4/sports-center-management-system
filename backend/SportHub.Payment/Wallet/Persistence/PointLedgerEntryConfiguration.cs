@@ -22,8 +22,14 @@ public sealed class PointLedgerEntryConfiguration : IEntityTypeConfiguration<Poi
         builder.HasKey(x => x.LedgerEntryId);
         builder.Property(x => x.ReferenceType).HasMaxLength(80).IsRequired();
         builder.Property(x => x.Note).HasMaxLength(1000);
-        builder.HasIndex(x => new { x.WalletId, x.ReferenceType, x.ReferenceId, x.EntryType }).IsUnique();
+        builder.HasIndex(x => new { x.WalletId, x.ReferenceType, x.ReferenceId, x.EntryType })
+            .IsUnique().HasFilter("invoice_item_id IS NULL");
+        builder.HasIndex(x => new { x.WalletId, x.ReferenceType, x.ReferenceId, x.EntryType, x.InvoiceItemId })
+            .IsUnique().HasFilter("invoice_item_id IS NOT NULL");
         builder.HasIndex(x => new { x.WalletId, x.CreatedAtUtc, x.LedgerEntryId });
         builder.HasOne<PointWallet>().WithMany().HasForeignKey(x => x.WalletId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<SportHub.Payment.Domain.Entities.InvoiceItem>().WithMany()
+            .HasForeignKey(x => x.InvoiceItemId).IsRequired(false).OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(x => x.InvoiceItemId);
     }
 }

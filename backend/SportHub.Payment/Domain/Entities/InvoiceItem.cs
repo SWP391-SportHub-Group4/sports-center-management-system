@@ -21,4 +21,5 @@ public class InvoiceItem
     public decimal LineAmount { get; set; }
 
     public Guid? RelatedEntityId { get; set; }
+    public Guid? SourceInvoiceItemId { get; set; }
 }

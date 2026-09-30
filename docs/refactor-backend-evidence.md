@@ -2,6 +2,31 @@
 
 Cập nhật sau mỗi chặng.
 
+## P1.10 — Court Rental, đang triển khai, 01/10/2026
+
+- Thêm `CourtRental` với FK/unique invoice item, snapshot block giá JSONB, trạng thái PendingPayment/Confirmed/Cancelled/Completed; `CourtRentalWorkflow` migration được sinh, chưa apply.
+- ExternalCoach checkout dùng bảng giá giờ địa phương, Approved+active+specialty, sân active/compatible/capacity/opening-hours; giữ room và coach trong occupancy, fulfillment sau verified payment, system expiry/cancel release idempotent.
+- Tự cancel ≥24h hoàn điểm 100%; trong 24h không hoàn. Manager center-fault refund 100%; refund request P1.08 đọc được facts Rental. RentalStatusJob release occupancy sau kết thúc.
+- IPN muộn reacquire Rental chỉ với zero-point attempt và khi khoảng giờ còn tương lai, room/sport còn hoạt động, exclusion occupancy cho slot qua; nếu không, dùng cash compensation hiện có. Không tự Spend point đã nhả.
+- `CourtRateCalculatorTests` 4/4; `PointRefundCalculatorTests` 8/8; Release solution build pass (4 warning cũ Security.Tests). Integration concurrency, retry, late callback, access/privacy chưa có; Testcontainers chưa thể kết nối Docker named pipe.
+
+## P1.09 — đang triển khai, 01/10/2026
+
+- Thêm model `ClassThresholdResponse` (unique theo lớp/enrollment, SHA-256 token hash, expiry, choice/resolution), evaluator/job, expiry/auto-refund job, Member response API, Manager pricing/waive APIs.
+- Enrollment fulfillment hỗ trợ `SourceEnrollmentId` và tái ghi danh paid InvoiceItem sau khi enrollment nguồn chuyển sang TransferredOut. Bằng giá/rẻ hơn: hoàn chính xác phần chênh trong cùng transaction. Đắt hơn: tạo invoice `ClassTransferDifference`, giữ chỗ đích và enrollment nguồn tới khi Payment fulfillment complete; checkout retry/expiry nối vào response.
+- `InvoiceItem.SourceInvoiceItemId` + `Enrollment.TransferDifferenceInvoiceItemId` lưu refund value-chain; invoice difference đã trả được cộng vào cap item gốc.
+- Migrations `ClassThresholdResponsesAndTransferRebooking`, `ClassTransferInvoiceChain`; chưa áp DB.
+- Kiểm tra: Release build pass, `CourseScheduleRulesTests` 5/5 và P1.08 calculator 8/8. `has-pending-model-changes` pass. Refund integration suite bị chặn trước khi test do Docker named pipe Access denied; P1.09 chưa có PostgreSQL integration evidence.
+
+## P1.08 — đang triển khai, 01/10/2026
+
+- Đã thay `RefundCalculator` sang tính điểm theo InvoiceItem và thêm 8 unit tests: Membership 2/3 boundary/50%, PT 50% khi chưa consume, class pre-start/center-cancel ratios, rental 24h, center-fault và floor-to-points. Calculator 8/8 pass.
+- Đã thêm `/api/refunds` request/approve/reject/search; approval khóa invoice/item, Earn ledger + cancel Membership/PT/Class + Completed trong cùng transaction. `IRefundCreditService` có implementation `RefundCreditService` cho `SystemEvent`; ledger ghi typed InvoiceItemId để cumulative cap tính cả system refunds.
+- Migrations được tạo: `PointRefundWorkflowFields`, `MemberPackageInvoiceItem`, `PointLedgerInvoiceItemReference`, `PointRefundLedgerReference`, `PointLedgerItemScopedIdempotency`. Migration cuối thay unique ledger key để hỗ trợ nhiều invoice item trong cùng một SystemEvent; system credit khóa invoice rồi item trước khi đọc cap. EF không còn báo pending model changes sau build.
+- Release solution build pass, 0 errors, 4 warnings cũ ở Security.Tests; `git diff --check` pass. PostgreSQL integration suite mới (3 cases) không bắt đầu được vì Docker engine named pipe `npipe://./pipe/docker_engine` bị Access denied. Không migration DB nào được áp dụng.
+- Kiểm tra mới nhất: Release build pass (0 lỗi, 4 warning cũ trong Security.Tests); calculator 8/8; `has-pending-model-changes` pass; `git diff --check` sạch.
+- Chưa hoàn P1.08: rental refund chờ P1.10; atomic rollback/concurrency/cumulative cap/split/migration upgrade chưa có evidence thực chạy. Không xem calculator unit test là gate nghiệp vụ.
+
 ## P1.07 — 30/09/2026
 
 - PostgreSQL Testcontainers kiểm luồng Membership 0/40/100% điểm; lớp reserve→confirm và IPN muộn; PT báo giá có version→activate; callback song song/lặp và khoản thu thứ hai; inbox lỗi fulfillment→retry; expiry/retry không tái dùng point hold; khoản QueryDR lẻ cần bồi hoàn thủ công. Kết quả tổng Payment xem checkpoint/handover mới nhất.
@@ -31,3 +56,16 @@ Cập nhật sau mỗi chặng.
 - Sandbox VNPay: chưa có bằng chứng thực nghiệm; chưa có code VnPay gateway.
 - Account demo / cách chạy SMTP/mock: chưa cập nhật (làm ở P1.12).
 - File legacy FE cần xóa, error codes: chưa có.
+# P1.11/P1.12 cập nhật — 01/10/2026
+
+- `dotnet build backend/SportHub.sln --configuration Release --no-restore` → pass, 4 existing warnings in Security.Tests, 0 errors.
+- `dotnet test backend/SportHub.sln --configuration Release --no-build --filter FullyQualifiedName~Unit` → Administration 15/15, Security 43/43, Payment 28/28, Scheduling 9/9, Training 23/23 (118 pass).
+- Full `dotnet test backend/SportHub.sln --configuration Release --no-build` khởi động integration fixtures nhưng Testcontainers bị `DockerUnavailableException` do quyền truy cập `npipe://./pipe/docker_engine`; full integration gate chưa đạt/không thể xác nhận trong host này.
+- `dotnet ef migrations add IncidentOutboxSettingsAndRentalLinks` chỉ scaffold migration files. `dotnet ef migrations has-pending-model-changes --project backend/SportHub.API --startup-project backend/SportHub.API --configuration Release --no-build` → “No changes have been made to the model since the last migration.” Không chạy `database update`.
+- `IncidentService` khóa các nguồn thuê đã trả trước khi refund/cancel, release rental PendingPayment trước khi thêm block; nếu lớp/PT vẫn nằm trong vùng sự cố trả conflict và không tạo block giả. Preview không trả thông tin roster/member.
+- Email writer mã hóa payload bằng Data Protection; dispatcher khóa batch bằng `FOR UPDATE SKIP LOCKED`, đặt lease trước network I/O, ghi `Sent` sau sender thành công, retry lỗi; nội dung/OTP không ghi audit/log dispatcher.
+- Security/Payment API test factories giữ real encrypted outbox write và chỉ expose OTP vào test harness; đã thêm test integration đảm bảo read-all InApp không đánh dấu email OTP Pending thành Read. Test cần PostgreSQL fixture và chưa chạy do Docker unavailable.
+- Settings expiry reminder được đổi khóa tại chỗ bằng SQL để migration không ghi đè giá trị hiện hành do Manager chỉnh.
+- Docker Compose truyền VnPay/Smtp cấu hình qua biến môi trường; development mock/log cần opt-in theo config. CI nay chạy toàn bộ backend tests sau build; job test vẫn cần Docker khả dụng cho Testcontainers.
+- Revenue report tách LegacyCash và cash reconciliation từ event VNPay đã bồi hoàn/yêu cầu settlement; points redeemed/issued/manager adjustment/outstanding và cash/points breakdown theo loại InvoiceItem được thêm. Payment VNPay ghi ngày `PaidAt` theo provider-verified pay time; checkout Spend ledger mới gắn InvoiceItemId. Unit suite sau thay đổi vẫn pass 118/118.
+- Chưa có dimension Sport xuyên Membership/PT/Class/Rental, chưa có court-rental revenue/export dùng chung aggregation; không tuyên bố phần báo cáo P1.12 hoàn tất.

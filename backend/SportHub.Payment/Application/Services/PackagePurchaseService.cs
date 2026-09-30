@@ -142,7 +142,7 @@ public sealed class PackagePurchaseService(
             CreatedAtUtc = now, ExpiresAtUtc = invoice.HoldExpiresAtUtc!.Value
         });
 
-        db.Set<InvoiceItem>().Add(new InvoiceItem
+        var invoiceItem = new InvoiceItem
         {
             ItemId = Guid.NewGuid(),
             InvoiceId = invoice.InvoiceId,
@@ -153,7 +153,8 @@ public sealed class PackagePurchaseService(
             Quantity = 1,
             LineAmount = catalog.Price,
             RelatedEntityId = memberPackage.MemberPackageId
-        });
+        };
+        db.Set<InvoiceItem>().Add(invoiceItem);
 
         audit.Write(new AuditEntry(
             actorUserId,
@@ -165,6 +166,8 @@ public sealed class PackagePurchaseService(
                       + $"\"allowStacking\":{request.AllowStacking.ToString().ToLowerInvariant()}}}",
             Reason: request.AllowStacking ? request.StackingApprovalReason!.Trim() : null));
 
+        await db.SaveChangesAsync(ct);
+        memberPackage.InvoiceItemId = invoiceItem.ItemId;
         await db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
 

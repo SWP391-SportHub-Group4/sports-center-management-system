@@ -381,6 +381,8 @@ UK `(reference_id, entry_type)` để idempotent (BR-94). Không UPDATE/DELETE (
 
 **`REFUNDS`** (đổi sang hoàn điểm — BR-90→94, 122): `refund_id`, `invoice_item_id`, `requested_by_user_id`, `approved_by_user_id` null, `reason`, `center_fault` bool, `system_calculated_points`, `approved_points`, `status` (`Requested`, `Approved`, `Rejected`, `Completed`), `point_ledger_entry_id` null, `requested_at`, `completed_at`. Bỏ `vnp_request_id`, `payment_id`. Hoàn do hệ thống (hủy lớp, dưới ngưỡng, hủy sân) không tạo `REFUNDS` mà ghi thẳng `POINT_LEDGER` với `reference_type = SystemEvent`.
 
+**Triển khai P1.08 (quyết định kỹ thuật):** Không tạo bảng `REFUNDS` thứ hai; `PaymentAdjustment` lưu refund mới theo `InvoiceItemId` với `CenterFault`, `SystemCalculatedPoints`, `ApprovedPoints`, `PointLedgerEntryId`. Các cột payout tiền cũ chỉ còn để đọc lịch sử. `PointLedgerEntry.InvoiceItemId` là FK nullable để đối soát/cộng dồn khoản refund system và request theo đúng item.
+
 ### 4.8 Cấu hình `SYSTEM_SETTINGS` mới
 
 | Khóa | Mặc định | BR |
@@ -552,6 +554,8 @@ Thất bại nội bộ ⇒ lưu `ReconciliationRequired`, không để lại Pa
 **T6 — Chuyển lớp** (BR-120): (a) `reserved_count + 1` ở lớp đích (điều kiện #2) — hết chỗ thì trả lỗi và học viên giữ nguyên lựa chọn khác; (b) `ENROLLMENTS` cũ `TransferredOut`, mới `Confirmed` với `source_enrollment_id`; (c) chênh giá: lớp đích rẻ hơn ⇒ `Earn` phần chênh; đắt hơn ⇒ tạo Invoice chênh lệch qua T1; (d) `confirmed_count` lớp cũ − 1, lớp mới + 1.
 
 **T7 — Chốt ngưỡng** (`ClassThresholdEvaluationJob`): với lớp `Published`, `threshold_status = NotEvaluated`, `now >= threshold_deadline_utc` (khóa hàng): đủ ⇒ `Met`; thiếu ⇒ `AtRisk`, đặt `threshold_response_deadline_utc`, tạo `CLASS_THRESHOLD_RESPONSES` cho từng ghi danh và các dòng outbox email.
+
+**Implementation note (P1.09):** `class_threshold_responses` dùng unique `(class_id, enrollment_id)`, token link random gửi trong outbox và chỉ lưu `SHA-256` trong DB. Member đăng nhập theo đúng `member_id` khi submit; POST cùng lựa chọn idempotent, lựa chọn khác conflict. `Enrollment.InvoiceItemId` unique chỉ với status `Confirmed` để chuyển lớp có thể kết thúc enrollment nguồn rồi tạo enrollment mới cùng item, có `SourceEnrollmentId`. Chênh lệch rẻ hơn là ledger Earn exact points với `reference_type = ClassTransferDifference`; chênh lệch đắt hơn tạo invoice/checkout `ClassTransferDifference` và giữ enrollment nguồn đến khi trả đủ. `InvoiceItem.SourceInvoiceItemId` trỏ invoice item gốc, nên hoàn lớp đích tính cả các chênh lệch đã trả và trừ hoàn trước đó. Migrations đang ở working tree, chưa áp DB.
 
 **T8 — Hết hạn phản hồi** (`ClassThresholdResponseExpiryJob`): với phản hồi `Pending` quá hạn ⇒ `AutoRefund` và hoàn 100% điểm theo T5. Sau đó nếu lớp còn `AtRisk` và `confirmed_count < threshold` ⇒ `Class Cancelled`, hoàn 100% các ghi danh còn lại, hủy `room_occupancies`/`coach_occupancies` của các buổi, email thông báo.
 

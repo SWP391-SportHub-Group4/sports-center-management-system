@@ -25,14 +25,35 @@ services:
       JwtOptions__SecretKey: ${JwtOptions__SecretKey}
       Google__ClientId: ${Google__ClientId}
 
+      VnPay__TmnCode: ${VnPay__TmnCode:-}
+      VnPay__HashSecret: ${VnPay__HashSecret:-}
+      VnPay__PaymentUrl: ${VnPay__PaymentUrl:-}
+      VnPay__ReturnUrl: ${VnPay__ReturnUrl:-http://localhost:5000/api/payments/vnpay/return}
+      VnPay__UseMock: ${VnPay__UseMock:-true}
+
+      Smtp__Host: ${Email__Smtp__Host:-}
+      Smtp__Port: ${Email__Smtp__Port:-587}
+      Smtp__Username: ${Email__Smtp__Username:-}
+      Smtp__Password: ${Email__Smtp__Password:-}
+      Smtp__FromAddress: ${Email__Smtp__FromAddress:-}
+      Smtp__FromName: ${Email__Smtp__FromName:-SportHub}
+      Smtp__UseSsl: ${Email__Smtp__UseSsl:-false}
+      Email__DemoLoggingEnabled: ${Email__DemoLoggingEnabled:-true}
+      DataProtection__KeysPath: ${DataProtection__KeysPath:-/var/lib/sporthub/dataprotection-keys}
+
+      PublicUrls__Frontend: ${PublicUrls__Frontend:-http://localhost:3000}
+      PublicUrls__Backend: ${PublicUrls__Backend:-http://localhost:5000}
+
       Gemini__ApiKey: ${Gemini__ApiKey:-}
       Gemini__Model: ${Gemini__Model:-gemini-3.5-flash-lite}
       Gemini__BaseUrl: ${Gemini__BaseUrl:-https://generativelanguage.googleapis.com}
       Gemini__TimeoutSeconds: ${Gemini__TimeoutSeconds:-30}
 
-      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
     ports:
       - "5000:8080"
+    volumes:
+      - sporthub_dataprotection:/var/lib/sporthub/dataprotection-keys
 
   frontend:
     build:
@@ -48,3 +69,4 @@ services:
 
 volumes:
   sporthub_pgdata:
+  sporthub_dataprotection:

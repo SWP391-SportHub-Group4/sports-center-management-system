@@ -69,7 +69,7 @@ sports-center-management-system/
 
 Xem [`docs/RUNBOOK.md`](docs/RUNBOOK.md) — có tài khoản demo cho cả 6 vai trò và kịch bản demo cho Flow 1–6.
 
-> Đây là đặc tả đích; code hiện tại chưa khớp Design v3 hoàn toàn (ví dụ VNPay chưa có trong mã — Design v3 §2.1). Lộ trình chuyển đổi: Design v3 §16 (G0–G12). Không dùng kết quả test cũ để kết luận rule mới đã đạt.
+> Đây là đặc tả đích; code và kiểm thử đang được chuyển theo [`docs/refactor-code-plan-1-backend.md`](docs/refactor-code-plan-1-backend.md) và [`docs/refactor-code-plan-2-frontend.md`](docs/refactor-code-plan-2-frontend.md). VNPay/mock và checkout mới đã có; sandbox merchant thật cùng một số PostgreSQL integration gates còn cần xác minh. Không dùng kết quả test cũ để kết luận các rule mới đã đạt.
 
 ## Backend — Feature-based Modular Monolith (11 project)
 

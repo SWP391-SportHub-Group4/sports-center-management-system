@@ -10,6 +10,9 @@ namespace SportHub.BuildingBlocks.Abstractions.Notifications;
 public interface INotificationWriter
 {
     void Queue(NotificationRequest request);
+
+    /// <summary>Queue an encrypted email payload in the caller's transaction; never sends inline.</summary>
+    void QueueEmail(EmailNotificationRequest request);
 }
 
 /// <param name="SourceEventType">Phải là một trong <see cref="NotificationEvents"/>.</param>
@@ -18,6 +21,9 @@ public sealed record NotificationRequest(
     string SourceEventType,
     string Message,
     Guid? SourceEntityId = null);
+
+public sealed record EmailNotificationRequest(Guid? UserId, string RecipientAddress, string SourceEventType,
+    Guid SourceEntityId, string Subject, string HtmlBody);
 
 /// <summary>
 /// Tên các loại sự kiện, mirror enum NotificationSourceEventType (SSOT §3).
@@ -35,4 +41,12 @@ public static class NotificationEvents
     public const string HomeworkAssigned = nameof(HomeworkAssigned);
     public const string HomeworkStatusChanged = nameof(HomeworkStatusChanged);
     public const string ClassPublished = nameof(ClassPublished);
+    public const string ClassThresholdAtRisk = nameof(ClassThresholdAtRisk);
+    public const string RegisterOtpRequested = nameof(RegisterOtpRequested);
+    public const string PasswordResetOtpRequested = nameof(PasswordResetOtpRequested);
+    public const string ExternalCoachOtpRequested = nameof(ExternalCoachOtpRequested);
+    public const string ExternalCoachReviewed = nameof(ExternalCoachReviewed);
+    public const string ManualNotice = nameof(ManualNotice);
+    public const string IncidentResolution = nameof(IncidentResolution);
+    public const string PointConfirmationOtpRequested = nameof(PointConfirmationOtpRequested);
 }

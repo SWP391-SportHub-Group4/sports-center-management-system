@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using SportHub.API.Persistence;
 using SportHub.BuildingBlocks.SharedKernel.Time;
 using SportHub.Notification.Domain.Enums;
+using SportHub.Notification.Application.Services;
 
 namespace SportHub.API.Jobs;
 
@@ -10,9 +11,8 @@ namespace SportHub.API.Jobs;
 /// transaction của nó, job này mới chuyển sang Sent. Nhờ vậy không có đường nào để lỗi gửi
 /// làm hỏng việc hủy lớp hay thu tiền.
 ///
-/// MVP chỉ có kênh InApp thật sự hoạt động (SSOT §1.3): "gửi" ở đây nghĩa là đánh dấu thông
-/// báo đã sẵn sàng hiển thị, không gọi ra SMS/email gateway nào. Khi nối gateway thật, chỗ
-/// cần sửa là đúng vòng lặp này, còn RetryCount/Failed đã có sẵn chỗ để dùng.
+/// InApp được đánh dấu sẵn sàng hiển thị bằng cập nhật database; email đi qua dispatcher
+/// riêng có lease/retry và chỉ ghi Sent sau khi sender xác nhận thành công.
 /// </summary>
 public sealed class NotificationDispatchJob(
     IServiceProvider services,
@@ -39,5 +39,8 @@ public sealed class NotificationDispatchJob(
         {
             logger.LogInformation("BR-34: đã phát {Count} thông báo InApp.", dispatched);
         }
+
+        var emailCount = await scopedServices.GetRequiredService<EmailDispatchService>().DispatchBatchAsync(ct);
+        if (emailCount > 0) logger.LogInformation("NotificationDispatchJob claimed {Count} email outbox rows.", emailCount);
     }
 }

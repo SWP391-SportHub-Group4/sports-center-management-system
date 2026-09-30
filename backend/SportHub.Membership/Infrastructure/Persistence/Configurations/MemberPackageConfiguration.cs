@@ -43,5 +43,6 @@ public class MemberPackageConfiguration : IEntityTypeConfiguration<MemberPackage
         // Tra "gói đang Active của member này" chạy ở mọi lần đăng ký lớp (BR-16) và mọi
         // lần Gym check-in (BR-64).
         builder.HasIndex(e => new { e.MemberId, e.Status });
+        builder.HasIndex(e => e.InvoiceItemId).IsUnique().HasFilter("invoice_item_id IS NOT NULL");
     }
 }

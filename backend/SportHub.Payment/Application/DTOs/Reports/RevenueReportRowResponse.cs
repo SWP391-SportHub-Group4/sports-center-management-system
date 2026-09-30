@@ -5,4 +5,8 @@ public sealed record RevenueReportRowResponse(
     decimal Collected,
     decimal Refunded,
     decimal ObligationReduction,
-    decimal Net);
+    decimal Net)
+{
+    public decimal ReconciliationCashCollected { get; init; }
+    public decimal LegacyCashCollected { get; init; }
+}

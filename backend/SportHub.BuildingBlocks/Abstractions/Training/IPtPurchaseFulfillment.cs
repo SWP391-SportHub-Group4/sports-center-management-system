@@ -15,7 +15,15 @@ public interface IPtPurchaseFulfillment
     Task ActivateAsync(Guid ptEntitlementId, CancellationToken cancellationToken = default);
 
     Task CancelAsync(Guid ptEntitlementId, string reason, CancellationToken cancellationToken = default);
+
+    Task<PtRefundFacts?> GetRefundFactsAsync(Guid invoiceItemId, Guid? relatedEntitlementId,
+        CancellationToken cancellationToken = default);
+
+    Task CancelByInvoiceItemAsync(Guid invoiceItemId, Guid? relatedEntitlementId, string reason, Guid actorUserId,
+        CancellationToken cancellationToken = default);
 }
+
+public sealed record PtRefundFacts(Guid MemberId, int ReservedSessions, int ConsumedSessions, string Status);
 
 public sealed record PtPurchaseRequest(Guid MemberId, Guid MemberPackageId, Guid CoachId, int FrequencyPerWeek);
 

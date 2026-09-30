@@ -10,6 +10,7 @@ using SportHub.BuildingBlocks.SharedKernel.Time;
 using SportHub.Identity.Domain.Enums;
 using SportHub.Payment.Domain.Entities;
 using SportHub.Payment.Wallet.Application;
+using SportHub.Notification.Domain.Enums;
 
 namespace SportHub.Payment.Tests.Integration;
 
@@ -59,6 +60,28 @@ public sealed class CounterPointOtpTests(PaymentApiFactory factory)
 
     private Task<HttpResponseMessage> VerifyAsync(HttpClient client, Guid id, string code)
         => client.PostAsJsonAsync($"/api/point-confirmations/{id}/verify", new { code });
+
+    [Fact]
+    public async Task Read_all_in_app_does_not_mark_encrypted_email_otp_as_read()
+    {
+        var context = await SetupAsync();
+        using var counter = factory.CreateApiClient(context.ReceptionistId, UserRole.Receptionist);
+        await RequestAsync(counter, context.InvoiceId, context.MemberId, 20);
+        var code = factory.CapturedEmail.CodeFor(context.Email);
+
+        var outbox = await factory.QueryAsync(db => db.Notifications
+            .SingleAsync(n => n.Channel == NotificationChannel.Email && n.RecipientAddress == context.Email));
+        Assert.Equal(NotificationStatus.Pending, outbox.Status);
+        Assert.NotNull(outbox.ProtectedEmailPayload);
+        Assert.DoesNotContain(code, outbox.ProtectedEmailPayload, StringComparison.Ordinal);
+
+        using var member = factory.CreateApiClient(context.MemberId, UserRole.Member);
+        Assert.Equal(HttpStatusCode.OK, (await member.GetAsync("/api/notifications")).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await member.PostAsync("/api/notifications/read-all", null)).StatusCode);
+
+        Assert.Equal(NotificationStatus.Pending, await factory.QueryAsync(db => db.Notifications
+            .Where(n => n.NotificationId == outbox.NotificationId).Select(n => n.Status).SingleAsync()));
+    }
 
     [Fact]
     public async Task Wrong_code_is_committed_five_times_and_cannot_hold_points()

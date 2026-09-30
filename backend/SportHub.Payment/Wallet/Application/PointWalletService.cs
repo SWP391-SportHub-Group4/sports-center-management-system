@@ -52,7 +52,7 @@ public sealed class PointWalletService(ISportHubDbContext db, IUserAccessReader 
     {
         RequireTransaction();
         if (op.Points <= 0 || op.ReferenceId == Guid.Empty || string.IsNullOrWhiteSpace(op.ReferenceType)
-            || op.ReferenceType.Length > 80 || op.Note?.Length > 1000)
+            || op.ReferenceType.Length > 80 || op.Note?.Length > 1000 || op.InvoiceItemId == Guid.Empty)
             throw new BadRequestException("invalid_wallet_operation", "Số điểm, tham chiếu hoặc ghi chú không hợp lệ.");
 
         await EnsureWalletAsync(op.OwnerUserId, ct);
@@ -62,11 +62,12 @@ public sealed class PointWalletService(ISportHubDbContext db, IUserAccessReader 
             """).AsNoTracking().SingleAsync(ct);
 
         var prior = await db.Set<PointLedgerEntry>().AsNoTracking().SingleOrDefaultAsync(x =>
-            x.WalletId == wallet.WalletId && x.ReferenceType == op.ReferenceType && x.ReferenceId == op.ReferenceId && x.EntryType == type, ct);
+            x.WalletId == wallet.WalletId && x.ReferenceType == op.ReferenceType && x.ReferenceId == op.ReferenceId
+            && x.EntryType == type && x.InvoiceItemId == op.InvoiceItemId, ct);
         if (prior is not null)
         {
             if (prior.Points != op.Points || prior.AvailableDelta != availableDelta || prior.HeldDelta != heldDelta
-                || prior.ActorUserId != op.ActorUserId || prior.Note != op.Note)
+                || prior.ActorUserId != op.ActorUserId || prior.Note != op.Note || prior.InvoiceItemId != op.InvoiceItemId)
                 throw new WalletReferenceConflictException(op.ReferenceType, op.ReferenceId);
             return new WalletResult(true, prior.AvailableAfter, prior.HeldAfter, prior.LedgerEntryId);
         }
@@ -98,7 +99,7 @@ public sealed class PointWalletService(ISportHubDbContext db, IUserAccessReader 
             LedgerEntryId = Guid.NewGuid(), WalletId = wallet.WalletId, EntryType = type, Points = op.Points,
             AvailableDelta = availableDelta, HeldDelta = heldDelta, AvailableAfter = wallet.AvailablePoints,
             HeldAfter = wallet.HeldPoints, ReferenceType = op.ReferenceType, ReferenceId = op.ReferenceId,
-            ActorUserId = op.ActorUserId, Note = op.Note, CreatedAtUtc = clock.UtcNow
+            ActorUserId = op.ActorUserId, Note = op.Note, InvoiceItemId = op.InvoiceItemId, CreatedAtUtc = clock.UtcNow
         };
         db.Set<PointLedgerEntry>().Add(entry);
         await db.SaveChangesAsync(ct);

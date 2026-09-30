@@ -1,4 +1,6 @@
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS base
+RUN mkdir -p /var/lib/sporthub/dataprotection-keys \
+    && chown -R $APP_UID:$APP_UID /var/lib/sporthub
 USER $APP_UID
 WORKDIR /app
 EXPOSE 8080

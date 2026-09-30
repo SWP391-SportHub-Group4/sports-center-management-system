@@ -9,7 +9,8 @@ using SportHub.Payment.VnPay;
 namespace SportHub.Payment.Application.Services;
 
 public sealed class PaymentReconciliationService(ISportHubDbContext db, IPaymentGateway gateway,
-    PaymentFulfillmentService fulfillment, IClassEnrollmentFulfillment classes, IClock clock,
+    PaymentFulfillmentService fulfillment, IClassEnrollmentFulfillment classes,
+    ICourtRentalFulfillment rentals, IClock clock,
     Microsoft.Extensions.Logging.ILogger<PaymentReconciliationService> logger)
 {
     public async Task<string> ReceiveCallbackAsync(IReadOnlyDictionary<string, string> fields, CancellationToken ct)
@@ -132,7 +133,8 @@ public sealed class PaymentReconciliationService(ISportHubDbContext db, IPayment
                     || session.State != "Active" || session.ExpiresAtUtc <= clock.UtcNow
                     || invoice.CheckoutCycleId != session.CheckoutSessionId)
                 {
-                    var reacquired = await TryReacquireClassAsync(invoice, attempt, session, proof, ct);
+                    var reacquired = await TryReacquireClassAsync(invoice, attempt, session, proof, ct)
+                        ?? await TryReacquireRentalAsync(invoice, attempt, session, proof, ct);
                     if (reacquired is not null)
                         await fulfillment.CompleteVerifiedAsync(invoice, reacquired, attempt, proof, ct,
                             lateReacquired: true);
@@ -233,5 +235,43 @@ public sealed class PaymentReconciliationService(ISportHubDbContext db, IPayment
         {
             return null;
         }
+    }
+
+    private async Task<CheckoutSession?> TryReacquireRentalAsync(Invoice invoice, PaymentAttempt attempt,
+        CheckoutSession? oldSession, VerifiedGatewayEvent proof, CancellationToken ct)
+    {
+        if (oldSession?.Kind != "CourtRental" || oldSession.ResourceHoldId is not Guid rentalId
+            || attempt.PointsSnapshot != 0 || invoice.PointsApplied != 0
+            || invoice.Status is InvoiceStatus.Paid or InvoiceStatus.PaidAfterReconciliation)
+            return null;
+        try
+        {
+            if (oldSession.State is "Active")
+                await fulfillment.ReleaseAsync(invoice, oldSession, "Expired", null, ct);
+            var expiry = clock.UtcNow.AddMinutes(1);
+            var reacquired = await rentals.ReacquireForLatePaymentAsync(rentalId,
+                new DateTimeOffset(expiry, TimeSpan.Zero), ct);
+            if (!reacquired) return null;
+            oldSession.State = "Expired";
+            var renewed = new CheckoutSession
+            {
+                CheckoutSessionId = Guid.NewGuid(), InvoiceId = invoice.InvoiceId,
+                Revision = invoice.CheckoutRevision + 1,
+                IdempotencyKey = "late-" + proof.VerifiedGatewayEventId.ToString("N"),
+                Kind = "CourtRental", State = "Active", ResourceHoldId = rentalId,
+                CreatedAtUtc = clock.UtcNow, ExpiresAtUtc = expiry
+            };
+            db.Set<CheckoutSession>().Add(renewed);
+            invoice.CheckoutCycleId = renewed.CheckoutSessionId;
+            invoice.CheckoutRevision = renewed.Revision;
+            invoice.HoldExpiresAtUtc = expiry;
+            invoice.Status = InvoiceStatus.Issued;
+            await db.SaveChangesAsync(ct);
+            return renewed;
+        }
+        catch (ConflictException) { return null; }
+        catch (BadRequestException) { return null; }
+        catch (NotFoundException) { return null; }
+        catch (OccupancyConflictException) { return null; }
     }
 }

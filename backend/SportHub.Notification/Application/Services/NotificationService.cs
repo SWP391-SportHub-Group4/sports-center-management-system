@@ -3,6 +3,7 @@ using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.BuildingBlocks.SharedKernel.Time;
 using SportHub.Notification.Application.Interfaces;
+using SportHub.Notification.Domain.Enums;
 
 namespace SportHub.Notification.Application.Services;
 
@@ -23,7 +24,7 @@ public sealed class NotificationService(ISportHubDbContext db, IClock clock) : I
     {
         var query = db.Set<Domain.Entities.Notification>()
             .AsNoTracking()
-            .Where(n => n.UserId == userId);
+            .Where(n => n.UserId == userId && n.Channel == NotificationChannel.InApp);
 
         if (unreadOnly)
         {
@@ -48,12 +49,13 @@ public sealed class NotificationService(ISportHubDbContext db, IClock clock) : I
     // job dispatch chỉ đổi nhãn trạng thái (BR-34) chứ không phải điều kiện để hiển thị.
     public Task<int> CountUnreadAsync(Guid userId, CancellationToken ct = default)
         => db.Set<Domain.Entities.Notification>()
-            .CountAsync(n => n.UserId == userId && n.Status != NotificationStatus.Read, ct);
+            .CountAsync(n => n.UserId == userId && n.Channel == NotificationChannel.InApp
+                && n.Status != NotificationStatus.Read, ct);
 
     public async Task MarkReadAsync(Guid userId, Guid notificationId, CancellationToken ct = default)
     {
         var notification = await db.Set<Domain.Entities.Notification>()
-            .SingleOrDefaultAsync(n => n.NotificationId == notificationId, ct)
+            .SingleOrDefaultAsync(n => n.NotificationId == notificationId && n.Channel == NotificationChannel.InApp, ct)
             ?? throw new NotFoundException("notification_not_found", "Không tìm thấy thông báo.");
 
         // Ownership kiểm ở đây, không chỉ ở UI: id là Guid đoán được nếu lộ ra chỗ khác.
@@ -78,7 +80,8 @@ public sealed class NotificationService(ISportHubDbContext db, IClock clock) : I
         var now = clock.UtcNow;
 
         await db.Set<Domain.Entities.Notification>()
-            .Where(n => n.UserId == userId && n.Status != NotificationStatus.Read)
+            .Where(n => n.UserId == userId && n.Channel == NotificationChannel.InApp
+                && n.Status != NotificationStatus.Read)
             .ExecuteUpdateAsync(
                 s => s.SetProperty(n => n.Status, NotificationStatus.Read)
                       .SetProperty(n => n.SentAt, n => n.SentAt ?? now),

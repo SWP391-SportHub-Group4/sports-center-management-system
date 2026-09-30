@@ -17,6 +17,9 @@ public class InvoiceItemConfiguration : IEntityTypeConfiguration<InvoiceItem>
             .WithMany(i => i.Items)
             .HasForeignKey(e => e.InvoiceId)
             .OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne<InvoiceItem>().WithMany().HasForeignKey(e => e.SourceInvoiceItemId)
+            .IsRequired(false).OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(e => e.SourceInvoiceItemId);
 
         builder.ToTable(t => t.HasCheckConstraint(
             "CK_invoice_items_quantity_positive", "quantity > 0"));

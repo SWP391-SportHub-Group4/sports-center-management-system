@@ -10,6 +10,20 @@ public class PaymentAdjustment
 
     public Invoice? Invoice { get; set; }
 
+    /// <summary>Invoice item whose paid value and entitlement are the basis for a point refund. Null on legacy rows.</summary>
+    public Guid? InvoiceItemId { get; set; }
+
+    public InvoiceItem? InvoiceItem { get; set; }
+
+    /// <summary>Refund workflow fields; populated only for new point refunds.</summary>
+    public bool CenterFault { get; set; }
+
+    public int SystemCalculatedPoints { get; set; }
+
+    public int ApprovedPoints { get; set; }
+
+    public Guid? PointLedgerEntryId { get; set; }
+
     public Guid? PaymentId { get; set; } // FK -> Payment, null nếu không gắn 1 giao dịch cụ thể
 
     public Payment? Payment { get; set; }

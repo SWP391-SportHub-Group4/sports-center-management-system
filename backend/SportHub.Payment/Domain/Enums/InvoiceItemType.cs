@@ -5,5 +5,6 @@ public enum InvoiceItemType
     Membership,
     PT,
     ClassPackage,
-    Rental
+    Rental,
+    ClassTransferDifference
 }

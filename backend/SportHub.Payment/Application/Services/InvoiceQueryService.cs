@@ -2,15 +2,13 @@ using Microsoft.EntityFrameworkCore;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.BuildingBlocks.SharedKernel.Pagination;
-using SportHub.BuildingBlocks.SharedKernel.Time;
-using SportHub.Membership.Domain.Entities;
 using SportHub.Payment.Application.DTOs;
 using SportHub.Payment.Application.Interfaces;
 using SportHub.Payment.Domain.Rules;
 
 namespace SportHub.Payment.Application.Services;
 
-public sealed class InvoiceQueryService(ISportHubDbContext db, IClock clock) : IInvoiceQueryService
+public sealed class InvoiceQueryService(ISportHubDbContext db) : IInvoiceQueryService
 {
     private sealed record InvoiceRow(
         Guid InvoiceId,
@@ -118,23 +116,9 @@ public sealed class InvoiceQueryService(ISportHubDbContext db, IClock clock) : I
             .Select(AdjustmentProjection())
             .ToListAsync(ct);
 
-        var suggestedRefund = 0m;
-
-        if (row.MemberPackageId is not null)
-        {
-            var packageInfo = await db.Set<MemberPackage>()
-                .AsNoTracking()
-                .Where(mp => mp.MemberPackageId == row.MemberPackageId)
-                .Select(mp => new { MemberPackage = mp, Catalog = mp.Package })
-                .SingleOrDefaultAsync(ct);
-
-            if (packageInfo is not null)
-            {
-                suggestedRefund = RefundCalculator.SuggestDefault(
-                    row.TotalAmount, packageInfo.MemberPackage, packageInfo.Catalog, VietnamTime.TodayLocal(clock));
-            }
-        }
-
+        // Retained for legacy response compatibility. Refund suggestions now come from the
+        // item-scoped /api/refunds workflow and are expressed in points.
+        const decimal suggestedRefund = 0m;
         return new InvoiceDetailResponse(
             ToSummary(row), row.MemberPackageId, items, payments, adjustments, suggestedRefund);
     }
@@ -236,7 +220,12 @@ public sealed class InvoiceQueryService(ISportHubDbContext db, IClock clock) : I
             a.CompletedAtUtc,
 
             a.Type == PaymentAdjustmentType.Refund && a.Status == PaymentAdjustmentStatus.Approved,
-            a.ResolvedAt);
+            a.ResolvedAt,
+            a.InvoiceItemId,
+            a.SystemCalculatedPoints,
+            a.ApprovedPoints,
+            a.PointLedgerEntryId,
+            a.CenterFault);
 
     private static InvoiceStatus ParseStatus(string status)
         => Enum.TryParse<InvoiceStatus>(status, ignoreCase: true, out var parsed)
