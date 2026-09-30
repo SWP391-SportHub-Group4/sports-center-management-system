@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
@@ -40,11 +40,24 @@ import styles from "../coach.module.css";
  * Gợi ý tập luyện từ AI — BR-26 (bắt buộc đủ ba đầu vào: mục tiêu, trình độ, lịch sử tập 30
  * ngày gần nhất) và BR-27 (mọi lượt gọi đều được ghi vào AI_Logs kèm thời gian phản hồi).
  */
+function AiSuggestionPageContent() {
+  const initialMemberId = useSearchParams().get("memberId") || "";
+  return (
+    <AiSuggestionContent key={initialMemberId} initialMemberId={initialMemberId} />
+  );
+}
+
 export default function AiSuggestionPage() {
+  return (
+    <Suspense fallback={<div role="status">Đang tải…</div>}>
+      <AiSuggestionPageContent />
+    </Suspense>
+  );
+}
+
+function AiSuggestionContent({ initialMemberId }: { initialMemberId: string }) {
   const { language } = useLanguage();
   const isEn = language === "en";
-  const searchParams = useSearchParams();
-  const initialMemberId = searchParams.get("memberId") || "";
 
   const [memberId, setMemberId] = useState(initialMemberId);
   const [suggestion, setSuggestion] = useState<WorkoutSuggestionDto | null>(null);
@@ -58,12 +71,6 @@ export default function AiSuggestionPage() {
       }),
     [],
   );
-
-  useEffect(() => {
-    if (initialMemberId) {
-      setMemberId(initialMemberId);
-    }
-  }, [initialMemberId]);
 
   const logs = useApi(
     (signal) =>
