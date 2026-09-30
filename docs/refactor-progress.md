@@ -1,5 +1,15 @@
 # Tiến độ refactor backend (plan 1)
 
+## Checkpoint — P1.07 Checkout và VNPay, 30/09/2026
+
+Đã triển khai checkout Membership, lớp theo khóa và PT: `CheckoutSession`/`VerifiedGatewayEvent`, idempotency key, giữ chỗ/điểm, PaymentAttempt, URL VNPay, IPN và QueryDR, 100% điểm, Paid + Spend + cấp quyền lợi trong một transaction, hủy/hết hạn, retry tạo invoice/cycle mới, callback trùng và khoản thu thứ hai được bồi hoàn đúng một lần. Return URL chỉ đọc; mock thanh toán chỉ chạy ở Development. PT dùng giá setting có phiên bản; giá Membership/lớp mới phải là bội số 1.000 VND. Khoản QueryDR thực thu không đổi chính xác sang điểm sẽ nhả hold, lưu `ManualCompensationRequired`, giữ nguyên số tiền để đối soát thủ công.
+
+**Kiểm chứng lượt này:** Payment 92/92; trong lượt chạy toàn solution, Administration 15/15, Scheduling 86/86, Security 130/130 cũng pass. Training không khởi chạy được vì Windows Application Control chặn DLL test (`0x800711C7`) cả sau build lại; lượt kiểm trước thay đổi middleware đạt 80/80. `git diff --check` không có lỗi whitespace.
+
+**Chưa đạt toàn bộ gate P1.07:** checkout thuê sân phụ thuộc domain CourtRental của P1.10, hiện chưa có; chưa thử merchant sandbox VNPay với thông tin merchant thực, chưa chạy migration trên DB dev. Mã hiện hành vẫn giữ API thu tiền thủ công cho hóa đơn legacy, nhưng checkout mới chặn đường đó. Bằng chứng kiểm thử xem `refactor-backend-evidence.md`; contract mới ở Phần G của `refactor-api-contract.md`.
+
+---
+
 ## Checkpoint — P1.05 Lớp theo khóa, điểm danh, Gym và PT, 30/09/2026
 
 **Đã hoàn thành gate P1.05:** publish sinh đủ buổi và giữ phòng/Coach nguyên tử; Draft không hiện public; ghi danh theo khóa chỉ do fulfillment sau thanh toán, chỗ giữ có điều kiện chống vượt sĩ số; dời/hủy buổi giữ ghi danh, buổi hủy phải có buổi bù; điểm danh Present/Absent do Receptionist trong 24 giờ, có audit; Gym checkout dùng giờ server và idempotent; PT giữ quota, occupancy, no-show, workout/homework.

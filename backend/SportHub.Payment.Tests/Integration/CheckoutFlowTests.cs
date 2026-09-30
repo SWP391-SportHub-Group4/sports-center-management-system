@@ -10,6 +10,7 @@ using SportHub.Membership.Domain.Enums;
 using SportHub.Identity.Domain.Entities;
 using SportHub.Payment.Application.DTOs.Checkouts;
 using SportHub.Payment.Domain.Enums;
+using SportHub.Payment.Domain.Entities;
 using SportHub.Payment.Application.Services;
 using SportHub.Payment.VnPay;
 using SportHub.Training.Application.DTOs.PtEntitlements;
@@ -184,6 +185,54 @@ public sealed class CheckoutFlowTests(PaymentApiFactory factory)
                 .Select(x => x.AvailablePoints).SingleAsync());
             Assert.Equal(0, await db.PointWallets.Where(x => x.OwnerUserId == context.MemberId)
                 .Select(x => x.HeldPoints).SingleAsync());
+            Assert.Equal(0, await db.Payments.CountAsync(x => x.InvoiceId == checkout.InvoiceId));
+            return 0;
+        });
+    }
+
+    [Fact]
+    public async Task Odd_verified_capture_releases_hold_and_requires_manual_compensation()
+    {
+        var context = await SeedAsync();
+        using var member = factory.CreateApiClient(context.MemberId, UserRole.Member);
+        var checkout = await CreateAsync(member, context.PackageId);
+        Assert.Equal(HttpStatusCode.OK, (await member.PostAsJsonAsync(
+            $"/api/wallet/me/checkouts/{checkout.InvoiceId}/points", new { points = 40 })).StatusCode);
+        var started = await member.PostAsync($"/api/checkouts/{checkout.InvoiceId}/attempts", null);
+        var attempt = (await started.Content.ReadFromJsonAsync<PaymentAttemptResponse>())!;
+        // An independently verified QueryDR response can disagree with the original
+        // attempt amount; IPN rejects that mismatch before writing the inbox.
+        await factory.QueryAsync(async db =>
+        {
+            db.VerifiedGatewayEvents.Add(new VerifiedGatewayEvent
+            {
+                VerifiedGatewayEventId = Guid.NewGuid(), PaymentAttemptId = attempt.PaymentAttemptId,
+                Provider = "VNPay", ProviderTransactionId = Guid.NewGuid().ToString("N"),
+                TransactionReference = attempt.TransactionReference, Amount = 60_001m,
+                ResponseCode = "00", TransactionStatus = "00",
+                ProviderPaidAtUtc = DateTime.UtcNow, VerifiedAtUtc = DateTime.UtcNow,
+                ProcessingStatus = "Pending"
+            });
+            await db.SaveChangesAsync();
+            return 0;
+        });
+        var proofId = await factory.QueryAsync(db => db.VerifiedGatewayEvents
+            .Where(x => x.TransactionReference == attempt.TransactionReference)
+            .Select(x => x.VerifiedGatewayEventId).SingleAsync());
+        using (var scope = factory.Services.CreateScope())
+            await scope.ServiceProvider.GetRequiredService<PaymentReconciliationService>()
+                .ProcessAsync(proofId, default);
+        await factory.QueryAsync(async db =>
+        {
+            var invoice = await db.Invoices.SingleAsync(x => x.InvoiceId == checkout.InvoiceId);
+            var proof = await db.VerifiedGatewayEvents.SingleAsync(x => x.TransactionReference == attempt.TransactionReference);
+            var wallet = await db.PointWallets.SingleAsync(x => x.OwnerUserId == context.MemberId);
+            Assert.Equal(InvoiceStatus.PaidAfterReconciliation, invoice.Status);
+            Assert.True(invoice.ReconciliationRequired);
+            Assert.Equal("VnPayManualCompensation", invoice.PaidVia);
+            Assert.Equal("ManualCompensationRequired", proof.ProcessingStatus);
+            Assert.Equal(100, wallet.AvailablePoints);
+            Assert.Equal(0, wallet.HeldPoints);
             Assert.Equal(0, await db.Payments.CountAsync(x => x.InvoiceId == checkout.InvoiceId));
             return 0;
         });

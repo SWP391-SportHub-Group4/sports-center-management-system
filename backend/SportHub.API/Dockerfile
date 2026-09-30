@@ -17,6 +17,7 @@ COPY ["SportHub.Payment/SportHub.Payment.csproj", "SportHub.Payment/"]
 COPY ["SportHub.Notification/SportHub.Notification.csproj", "SportHub.Notification/"]
 COPY ["SportHub.AI/SportHub.AI.csproj", "SportHub.AI/"]
 COPY ["SportHub.Audit/SportHub.Audit.csproj", "SportHub.Audit/"]
+COPY ["SportHub.Administration/SportHub.Administration.csproj", "SportHub.Administration/"]
 RUN dotnet restore "SportHub.API/SportHub.API.csproj"
 COPY . .
 WORKDIR "/src/SportHub.API"

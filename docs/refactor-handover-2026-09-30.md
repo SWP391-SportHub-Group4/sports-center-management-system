@@ -1,5 +1,11 @@
 # Handover refactor backend — 30/09/2026
 
+> **Cập nhật P1.07 (mới nhất):** kiểm `git status` trước khi thao tác; các thay đổi frontend thuộc luồng công việc riêng. Các số liệu/đầu việc P1.07 trong bản handover cũ bên dưới là lịch sử, không phản ánh code hiện tại.
+>
+> Đã có checkout Membership/lớp/PT, thanh toán điểm/VNPay mock, IPN/QueryDR, event inbox và retry, expiry/compensation. Sửa thêm middleware auth trước checkout rate limit, kiểm provider time, từ chối giá mới không chia hết 1.000 VND, và xử lý QueryDR tiền lẻ bằng trạng thái `ManualCompensationRequired` sau khi nhả hold, không làm tròn. Lượt cuối: Payment 92/92, Administration 15/15, Scheduling 86/86, Security 130/130 pass. Training build pass nhưng runner bị Windows Application Control chặn DLL `0x800711C7`; trước thay đổi middleware đã qua 80/80.
+>
+> **Cần tiếp tục:** checkout CourtRental sau khi P1.10 có domain/port; thử VNPay sandbox merchant thực (đặc biệt QueryDR); áp migration lên DB dev theo quy trình nhóm; đánh giá loại API thu thủ công cho invoice legacy sau khi chuyển dữ liệu. Không tuyên bố toàn bộ gate P1.07 hoàn tất trước các việc này.
+
 ## Trạng thái để tiếp tục
 
 - Workspace: `D:\Roy\sports-center-management-system`; branch `feature/refactor-v2.1`, HEAD `c53666f` (develop tại lần đồng bộ trước). **Working tree có thay đổi chưa commit/push** của P1.06 và P1.05. Không reset/pull đè trước khi kiểm `git status` và lưu các thay đổi này.

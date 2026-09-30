@@ -57,6 +57,9 @@ public sealed class PackagePurchaseService(
                 "membership_package_discontinued", "Gói này đã ngừng áp dụng, không bán mới được (BR-8).");
         }
 
+        if (idempotencyKey is not null && (catalog.Price <= 0 || catalog.Price % 1000 != 0))
+            throw new ConflictException("membership_price_invalid", "Giá gói phải là bội số 1.000 VND.");
+
         if (request.AllowStacking)
         {
             if (!actorIsCenterManager)

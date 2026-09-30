@@ -36,6 +36,9 @@ public sealed class PaymentReconciliationService(ISportHubDbContext db, IPayment
         var attempt = await db.Set<PaymentAttempt>().AsNoTracking()
             .SingleOrDefaultAsync(x => x.VnpTxnRef == result.TransactionReference, ct)
             ?? throw new NotFoundException("payment_attempt_not_found", "Không tìm thấy mã giao dịch.");
+        if (result.ProviderPaidAtUtc < attempt.CreatedAt.AddMinutes(-5)
+            || result.ProviderPaidAtUtc > clock.UtcNow.AddMinutes(5))
+            throw new ConflictException("vnp_payment_time_invalid", "Thời gian giao dịch VNPay không hợp lệ.");
         if (!verifiedByQuery && attempt.Amount != result.AmountVnd)
             throw new ConflictException("vnp_amount_mismatch", "Số tiền VNPay không khớp attempt.");
         var eventId = Guid.NewGuid();
@@ -99,7 +102,7 @@ public sealed class PaymentReconciliationService(ISportHubDbContext db, IPayment
             var proof = await db.Set<VerifiedGatewayEvent>().FromSqlInterpolated(
                 $"SELECT * FROM verified_gateway_events WHERE verified_gateway_event_id = {eventId} FOR UPDATE")
                 .SingleAsync(ct);
-            if (proof.ProcessingStatus is "Fulfilled" or "Compensated" or "Failed")
+            if (proof.ProcessingStatus is "Fulfilled" or "Compensated" or "Failed" or "ManualCompensationRequired")
             {
                 await tx.CommitAsync(ct);
                 return;
@@ -120,7 +123,7 @@ public sealed class PaymentReconciliationService(ISportHubDbContext db, IPayment
                     x => x.CheckoutSessionId == attempt.CheckoutSessionId, ct);
                 if (proof.Amount != attempt.Amount)
                 {
-                    await fulfillment.CompensateCashAsync(invoice, proof, ct);
+                    await CompensateUnavailableAsync(invoice, session, proof, ct);
                     attempt.VerifiedResult = "CompensatedAmountMismatch";
                     attempt.VerifiedAtUtc = proof.VerifiedAtUtc;
                     attempt.Status = PaymentAttemptStatus.ReconciliationRequired;
@@ -135,7 +138,7 @@ public sealed class PaymentReconciliationService(ISportHubDbContext db, IPayment
                             lateReacquired: true);
                     else
                     {
-                        await fulfillment.CompensateCashAsync(invoice, proof, ct);
+                        await CompensateUnavailableAsync(invoice, session, proof, ct);
                         attempt.VerifiedResult = "Compensated";
                         attempt.VerifiedAtUtc = proof.VerifiedAtUtc;
                     }
@@ -150,7 +153,8 @@ public sealed class PaymentReconciliationService(ISportHubDbContext db, IPayment
         {
             // A separate transaction records the durable failure after the business transaction rolls back.
             await db.Set<VerifiedGatewayEvent>().Where(x => x.VerifiedGatewayEventId == eventId
-                    && x.ProcessingStatus != "Fulfilled" && x.ProcessingStatus != "Compensated")
+                    && x.ProcessingStatus != "Fulfilled" && x.ProcessingStatus != "Compensated"
+                    && x.ProcessingStatus != "ManualCompensationRequired")
                 .ExecuteUpdateAsync(x => x.SetProperty(e => e.ProcessingStatus, "ReconciliationRequired")
                     .SetProperty(e => e.RetryCount, e => e.RetryCount + 1)
                     .SetProperty(e => e.LastError, ex.GetType().Name), CancellationToken.None);
@@ -160,6 +164,18 @@ public sealed class PaymentReconciliationService(ISportHubDbContext db, IPayment
                 .ExecuteUpdateAsync(x => x.SetProperty(a => a.Status, PaymentAttemptStatus.ReconciliationRequired),
                     CancellationToken.None);
         }
+    }
+
+    private async Task CompensateUnavailableAsync(Invoice invoice, CheckoutSession? session,
+        VerifiedGatewayEvent proof, CancellationToken ct)
+    {
+        if (invoice.Status == InvoiceStatus.Issued)
+        {
+            if (session is null)
+                throw new ConflictException("checkout_reconciliation_required", "Thiếu chu kỳ để nhả chỗ/điểm.");
+            await fulfillment.ReleaseAsync(invoice, session, "Expired", null, ct);
+        }
+        await fulfillment.CompensateCashAsync(invoice, proof, ct);
     }
 
     private async Task<CheckoutSession?> TryReacquireClassAsync(Invoice invoice,

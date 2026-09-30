@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using SportHub.BuildingBlocks.Api;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.Payment.Application.Commands;
@@ -13,6 +14,7 @@ namespace SportHub.Payment.Api;
 public sealed class CheckoutsController(CheckoutService checkouts, IPackagePurchaseService packages) : ControllerBase
 {
     [HttpPost("membership")]
+    [EnableRateLimiting("checkout-write")]
     public async Task<IActionResult> Membership([FromBody] MembershipCheckoutRequest request,
         [FromHeader(Name = "Idempotency-Key")] string key, CancellationToken ct)
     {
@@ -36,6 +38,7 @@ public sealed class CheckoutsController(CheckoutService checkouts, IPackagePurch
     }
 
     [HttpPost("class")]
+    [EnableRateLimiting("checkout-write")]
     public async Task<IActionResult> Class([FromBody] ClassCheckoutRequest request,
         [FromHeader(Name = "Idempotency-Key")] string key, CancellationToken ct)
     {
@@ -47,6 +50,7 @@ public sealed class CheckoutsController(CheckoutService checkouts, IPackagePurch
     }
 
     [HttpPost("pt")]
+    [EnableRateLimiting("checkout-write")]
     public async Task<IActionResult> Pt([FromBody] PtCheckoutRequest request,
         [FromHeader(Name = "Idempotency-Key")] string key, CancellationToken ct)
     {
@@ -66,6 +70,7 @@ public sealed class CheckoutsController(CheckoutService checkouts, IPackagePurch
         => Ok(await checkouts.GetAsync(invoiceId, User.RequireUserId(), IsStaff(), ct));
 
     [HttpPost("{invoiceId:guid}/attempts")]
+    [EnableRateLimiting("checkout-write")]
     public async Task<IActionResult> Attempt(Guid invoiceId, CancellationToken ct)
     {
         RequireBuyer();
@@ -74,6 +79,7 @@ public sealed class CheckoutsController(CheckoutService checkouts, IPackagePurch
     }
 
     [HttpPost("{invoiceId:guid}/cancel")]
+    [EnableRateLimiting("checkout-write")]
     public async Task<IActionResult> Cancel(Guid invoiceId, CancellationToken ct)
     {
         RequireBuyer();
@@ -82,6 +88,7 @@ public sealed class CheckoutsController(CheckoutService checkouts, IPackagePurch
     }
 
     [HttpPost("{invoiceId:guid}/retry")]
+    [EnableRateLimiting("checkout-write")]
     public async Task<IActionResult> Retry(Guid invoiceId,
         [FromHeader(Name = "Idempotency-Key")] string key,
         [FromBody] RetryCheckoutRequest request, CancellationToken ct)
