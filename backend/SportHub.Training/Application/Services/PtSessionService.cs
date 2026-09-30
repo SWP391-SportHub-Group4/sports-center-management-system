@@ -139,7 +139,7 @@ public sealed class PtSessionService(
 
         if (request.RoomId is int requestedRoom)
         {
-            await ValidateRoomAsync(requestedRoom, entitlement.CoachId, startAtUtc, endAtUtc, ct);
+            await PtRoomValidator.RequireAsync(catalog, specialties, requestedRoom, entitlement.CoachId, startAtUtc, endAtUtc, ct);
         }
 
         entitlement.ReservedSessions += 1;
@@ -330,7 +330,7 @@ public sealed class PtSessionService(
         var replacementRoomId = newRoomId ?? session.RoomId;
         if (replacementRoomId is int roomToValidate)
         {
-            await ValidateRoomAsync(roomToValidate, entitlement.CoachId, newStartAtUtc, newEndAtUtc, ct);
+            await PtRoomValidator.RequireAsync(catalog, specialties, roomToValidate, entitlement.CoachId, newStartAtUtc, newEndAtUtc, ct);
         }
 
         var replacement = new PtSession
@@ -456,6 +456,14 @@ public sealed class PtSessionService(
 
     public async Task<PtSessionResponse> NoShowAsync(
         Guid sessionId, NoShowPtSessionRequest request, Guid coachId, CancellationToken ct = default)
+        => await RecordNoShowAsync(sessionId, request, coachId, ct);
+
+    /// <summary>BR-20: uses the same locked transition as a coach, with a system audit actor.</summary>
+    public async Task FinalizeNoShowAsync(Guid sessionId, CancellationToken ct = default)
+        => await RecordNoShowAsync(sessionId, new NoShowPtSessionRequest { Reason = "Tự động chốt buổi PT đã kết thúc." }, null, ct);
+
+    private async Task<PtSessionResponse> RecordNoShowAsync(
+        Guid sessionId, NoShowPtSessionRequest request, Guid? coachId, CancellationToken ct)
     {
         var preview = await PreviewSessionAsync(sessionId, ct);
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
@@ -465,12 +473,13 @@ public sealed class PtSessionService(
 
         EnsureAssignmentUnchanged(session, preview);
 
-        if (session.CoachId != coachId)
+        if (coachId.HasValue && session.CoachId != coachId)
         {
             throw new ForbiddenException("pt_session_not_owned", "Bạn không phải Coach của buổi PT này.");
         }
 
-        if (session.Status == PtSessionStatus.NoShow)
+        if (session.Status == PtSessionStatus.NoShow
+            || (coachId is null && (session.Status != PtSessionStatus.Scheduled || session.EndAtUtc > clock.UtcNow)))
         {
             await transaction.CommitAsync(ct);
             return await GetAsync(sessionId, ct);
@@ -498,7 +507,7 @@ public sealed class PtSessionService(
         await occupancy.ReleaseAsync(OccupancySources.PtSession, session.SessionId, ct);
 
         audit.Write(new AuditEntry(
-            coachId, "NO_SHOW_PT_SESSION", nameof(PtSession), sessionId.ToString(),
+            coachId ?? session.CoachId, coachId is null ? "AUTO_NO_SHOW_PT_SESSION" : "NO_SHOW_PT_SESSION", nameof(PtSession), sessionId.ToString(),
             OldValue: "{\"status\":\"Scheduled\"}",
             NewValue: "{\"status\":\"NoShow\"}"));
 
@@ -523,40 +532,6 @@ public sealed class PtSessionService(
         if (!result.Succeeded)
         {
             throw new OccupancyConflictException(result.Conflicts);
-        }
-    }
-
-    /// <summary>Phòng phải active, chơi được ít nhất một môn 1-1 (OneOnOne) mà Coach dạy, và đang mở cửa trong cả buổi.</summary>
-    private async Task ValidateRoomAsync(int roomId, Guid coachId, DateTime startAtUtc, DateTime endAtUtc, CancellationToken ct)
-    {
-        var room = await catalog.GetRoomAsync(roomId, ct)
-                   ?? throw new BadRequestException("room_not_found", "Phòng không tồn tại.");
-
-        if (!room.IsActive)
-        {
-            throw new BadRequestException("room_inactive", "Phòng đã ngừng hoạt động.");
-        }
-
-        var compatible = false;
-        foreach (var sportId in await specialties.GetSportIdsAsync(coachId, ct))
-        {
-            var sport = await catalog.GetSportAsync(sportId, ct);
-
-            if (sport is { IsActive: true, OperationType: "OneOnOne" } && await catalog.IsRoomCompatibleAsync(roomId, sportId, ct))
-            {
-                compatible = true;
-                break;
-            }
-        }
-
-        if (!compatible)
-        {
-            throw new BadRequestException("room_not_compatible", "Loại phòng không dùng được cho buổi PT 1-1 của Coach này (BR-108).");
-        }
-
-        if (!await catalog.IsRoomOpenAsync(roomId, startAtUtc, endAtUtc, ct))
-        {
-            throw new BadRequestException("session_outside_opening_hours", "Buổi PT nằm ngoài giờ mở cửa của phòng (BR-109).");
         }
     }
 

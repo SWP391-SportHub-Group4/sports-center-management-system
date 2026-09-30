@@ -15,4 +15,10 @@ public sealed record InvoiceSummaryResponse(
     decimal Outstanding,
     decimal RefundDue,
     string Status,
-    DateTime IssuedAt);
+    DateTime IssuedAt,
+    int PointsSpent = 0,
+    decimal CashAmount = 0,
+    string? PaidVia = null,
+    DateTime? PaidAtUtc = null,
+    DateTime? CheckoutExpiresAtUtc = null,
+    bool ReconciliationRequired = false);

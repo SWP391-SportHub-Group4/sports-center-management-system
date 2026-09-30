@@ -51,6 +51,13 @@ public class SystemSettingConfiguration : IEntityTypeConfiguration<SystemSetting
                 Value = "15",
                 Description = "BR-115 — Số phút giữ chỗ và thanh toán tối đa khi checkout.",
                 UpdatedAt = new DateTime(2026, 9, 30, 0, 0, 0, DateTimeKind.Utc)
+            },
+            new SystemSetting
+            {
+                Key = SystemSettingKeys.PtPricePerSessionVnd,
+                Value = "200000",
+                Description = "Đơn giá demo PT mỗi buổi; Center Manager cần xác nhận giá kinh doanh.",
+                UpdatedAt = new DateTime(2026, 9, 30, 0, 0, 0, DateTimeKind.Utc)
             });
     }
 }

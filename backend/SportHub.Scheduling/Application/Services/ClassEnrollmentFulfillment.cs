@@ -29,6 +29,7 @@ public sealed class ClassEnrollmentFulfillment(
         int classId, Guid memberId, Guid? invoiceId, DateTimeOffset holdExpiresAtUtc, CancellationToken cancellationToken = default)
     {
         RequireTransaction();
+        await CourseScheduleLock.AcquireAsync(db, changingSchedule: false, cancellationToken);
         var now = clock.UtcNow;
 
         if (holdExpiresAtUtc.UtcDateTime <= now)
@@ -73,6 +74,7 @@ public sealed class ClassEnrollmentFulfillment(
     public async Task<Guid> ConfirmAsync(Guid seatHoldId, Guid invoiceItemId, CancellationToken cancellationToken = default)
     {
         RequireTransaction();
+        await CourseScheduleLock.AcquireAsync(db, changingSchedule: false, cancellationToken);
         // Idempotent: cùng InvoiceItem đã có ghi danh thì trả lại.
         var existing = await db.Set<Enrollment>().AsNoTracking()
             .Where(e => e.InvoiceItemId == invoiceItemId)
@@ -247,8 +249,8 @@ public sealed class ClassEnrollmentFulfillment(
             throw new ConflictException("class_not_open", "Khóa học chưa có lịch.");
         }
 
-        var firstStart = sessions.Min(s => s.StartAtUtc);
-        if (firstStart <= clock.UtcNow)
+        var firstStart = await FirstSessionStartAsync(classId, ct);
+        if (firstStart is null || firstStart <= clock.UtcNow)
         {
             throw new ConflictException("class_started", "Khóa đã bắt đầu — không còn nhận ghi danh.");
         }
@@ -296,14 +298,14 @@ public sealed class ClassEnrollmentFulfillment(
         }
 
         var quote = new ClassQuote(
-            cls.ClassId, cls.SportId, row.SportName, cls.Price, new DateTimeOffset(DateTime.SpecifyKind(firstStart, DateTimeKind.Utc)));
+            cls.ClassId, cls.SportId, row.SportName, cls.Price, new DateTimeOffset(DateTime.SpecifyKind(firstStart.Value, DateTimeKind.Utc)));
 
         return (quote, cls);
     }
 
     private async Task<DateTime?> FirstSessionStartAsync(int classId, CancellationToken ct)
         => await db.Set<ClassSession>().AsNoTracking()
-            .Where(s => s.ClassId == classId && s.Status == ClassSessionStatus.Scheduled)
+            .Where(s => s.ClassId == classId && s.Status != ClassSessionStatus.Cancelled)
             .MinAsync(s => (DateTime?)s.StartAtUtc, ct);
 
     private async Task<SeatHold?> LockHoldAsync(Guid holdId, CancellationToken ct)

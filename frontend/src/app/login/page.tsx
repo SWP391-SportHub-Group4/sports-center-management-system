@@ -18,8 +18,8 @@ const DEMO_ACCOUNTS = [
   { label: "System Administrator", email: "admin@sporthub.vn" },
   { label: "Center Manager", email: "manager@sporthub.vn" },
   { label: "Receptionist", email: "letan@sporthub.vn" },
-  { label: "Yoga Coach", email: "coach.yoga@sporthub.vn" },
-  { label: "Personal Trainer", email: "coach.pt@sporthub.vn" },
+  { label: "Coach · Yoga & PT Multi-discipline", email: "coach.pt@sporthub.vn" },
+  { label: "Coach · Yoga & GroupX Specialist", email: "coach.yoga@sporthub.vn" },
   { label: "Member", email: "an.member@sporthub.vn" },
 ];
 

@@ -34,4 +34,5 @@ public static class NotificationEvents
     public const string PaymentReceived = nameof(PaymentReceived);
     public const string HomeworkAssigned = nameof(HomeworkAssigned);
     public const string HomeworkStatusChanged = nameof(HomeworkStatusChanged);
+    public const string ClassPublished = nameof(ClassPublished);
 }

@@ -24,7 +24,13 @@ public sealed class InvoiceQueryService(ISportHubDbContext db, IClock clock) : I
         decimal RefundedAmount,
         InvoiceStatus Status,
         DateTime IssuedAt,
-        Guid? MemberPackageId);
+        Guid? MemberPackageId,
+        int PointsSpent,
+        decimal CashAmount,
+        string? PaidVia,
+        DateTime? PaidAtUtc,
+        DateTime? CheckoutExpiresAtUtc,
+        bool ReconciliationRequired);
 
     public async Task<PagedResult<InvoiceSummaryResponse>> SearchAsync(
         Guid? memberId,
@@ -142,12 +148,14 @@ public sealed class InvoiceQueryService(ISportHubDbContext db, IClock clock) : I
                       .SingleOrDefaultAsync(ct)
                   ?? throw new NotFoundException("invoice_not_found", "Không tìm thấy hóa đơn.");
 
-        return new InvoiceBalance(row.TotalAmount, row.GrossCollected, row.ObligationReduction, row.RefundedAmount);
+        return new InvoiceBalance(row.TotalAmount, row.GrossCollected + row.PointsSpent * 1000m,
+            row.ObligationReduction, row.RefundedAmount);
     }
 
     private static InvoiceSummaryResponse ToSummary(InvoiceRow row)
     {
-        var balance = new InvoiceBalance(row.TotalAmount, row.GrossCollected, row.ObligationReduction, row.RefundedAmount);
+        var balance = new InvoiceBalance(row.TotalAmount, row.GrossCollected + row.PointsSpent * 1000m,
+            row.ObligationReduction, row.RefundedAmount);
 
         return new InvoiceSummaryResponse(
             row.InvoiceId,
@@ -156,7 +164,7 @@ public sealed class InvoiceQueryService(ISportHubDbContext db, IClock clock) : I
             row.MemberEmail,
             row.MemberName,
             row.TotalAmount,
-            balance.GrossCollected,
+            row.GrossCollected,
             balance.ObligationReduction,
             balance.RefundedAmount,
             balance.NetCollected,
@@ -164,7 +172,9 @@ public sealed class InvoiceQueryService(ISportHubDbContext db, IClock clock) : I
             balance.Outstanding,
             balance.RefundDue,
             row.Status.ToString(),
-            row.IssuedAt);
+            row.IssuedAt,
+            row.PointsSpent, row.CashAmount, row.PaidVia, row.PaidAtUtc,
+            row.CheckoutExpiresAtUtc, row.ReconciliationRequired);
     }
 
     private static System.Linq.Expressions.Expression<Func<Invoice, InvoiceRow>> RowProjection()
@@ -189,7 +199,13 @@ public sealed class InvoiceQueryService(ISportHubDbContext db, IClock clock) : I
                 .Sum(a => (decimal?)a.Amount) ?? 0m,
             i.Status,
             i.IssuedAt,
-            i.MemberPackageId);
+            i.MemberPackageId,
+            i.Status == InvoiceStatus.Paid && i.CheckoutCycleId != null ? i.PointsApplied : 0,
+            i.CashAmount,
+            i.PaidVia,
+            i.PaidAtUtc,
+            i.HoldExpiresAtUtc,
+            i.ReconciliationRequired);
 
     internal static System.Linq.Expressions.Expression<Func<PaymentAdjustment, PaymentAdjustmentResponse>>
         AdjustmentProjection()

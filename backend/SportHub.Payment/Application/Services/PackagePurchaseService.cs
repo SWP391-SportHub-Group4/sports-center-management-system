@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SportHub.BuildingBlocks.Abstractions.Audit;
+using SportHub.BuildingBlocks.Abstractions.Configuration;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.BuildingBlocks.SharedKernel.Time;
@@ -20,13 +21,15 @@ public sealed class PackagePurchaseService(
     IInvoiceNumberGenerator invoiceNumbers,
     IInvoiceQueryService invoiceQuery,
     IAuditWriter audit,
+    ISystemSettingProvider settings,
     IClock clock) : IPackagePurchaseService
 {
     public async Task<InvoiceDetailResponse> PurchaseAsync(
         PurchasePackageRequest request,
         Guid actorUserId,
         bool actorIsCenterManager,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        string? idempotencyKey = null)
     {
         var member = await db.Set<UserAccount>()
             .Include(u => u.Role)
@@ -54,6 +57,9 @@ public sealed class PackagePurchaseService(
                 "membership_package_discontinued", "Gói này đã ngừng áp dụng, không bán mới được (BR-8).");
         }
 
+        if (idempotencyKey is not null && (catalog.Price <= 0 || catalog.Price % 1000 != 0))
+            throw new ConflictException("membership_price_invalid", "Giá gói phải là bội số 1.000 VND.");
+
         if (request.AllowStacking)
         {
             if (!actorIsCenterManager)
@@ -69,14 +75,31 @@ public sealed class PackagePurchaseService(
                     "stacking_reason_required", "Phải nhập lý do khi cho phép cộng dồn gói (BR-10).");
             }
         }
-        else
-        {
-            await EnsureNoActiveSamePackageAsync(request.MemberId, request.PackageId, ct);
-        }
-
         var now = clock.UtcNow;
+        var holdMinutes = await settings.GetIntAsync(SystemSettingKeys.HoldMinutes, ct);
 
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
+        await db.Database.ExecuteSqlInterpolatedAsync(
+            $"SELECT user_id FROM user_accounts WHERE user_id = {request.MemberId} FOR UPDATE", ct);
+        if (!string.IsNullOrWhiteSpace(idempotencyKey))
+        {
+            var existing = await db.Set<CheckoutSession>().AsNoTracking()
+                .Where(x => x.IdempotencyKey == idempotencyKey && x.Kind == "Membership"
+                    && x.ExpiresAtUtc > now)
+                .Join(db.Set<Invoice>(), s => s.InvoiceId, i => i.InvoiceId,
+                    (s, i) => new { s.InvoiceId, i.MemberId, i.MemberPackageId })
+                .SingleOrDefaultAsync(ct);
+            if (existing is not null)
+            {
+                if (existing.MemberId != request.MemberId || !await db.Set<MemberPackage>()
+                        .AnyAsync(x => x.MemberPackageId == existing.MemberPackageId && x.PackageId == request.PackageId, ct))
+                    throw new ConflictException("idempotency_key_reused", "Khóa idempotency đã dùng cho giao dịch khác.");
+                await transaction.CommitAsync(ct);
+                return await invoiceQuery.GetDetailAsync(existing.InvoiceId, ct);
+            }
+        }
+        if (!request.AllowStacking)
+            await EnsureNoActiveSamePackageAsync(request.MemberId, request.PackageId, ct);
 
         var memberPackage = new MemberPackage
         {
@@ -102,11 +125,22 @@ public sealed class PackagePurchaseService(
             IssuedByUserId = actorUserId,
             MemberPackageId = memberPackage.MemberPackageId,
             TotalAmount = catalog.Price,
+            CheckoutCycleId = Guid.NewGuid(),
+            CheckoutRevision = 1,
+            HoldExpiresAtUtc = now.AddMinutes(holdMinutes),
+            CashAmount = catalog.Price,
             Status = InvoiceStatus.Issued,
             IssuedAt = now
         };
 
         db.Set<Invoice>().Add(invoice);
+        if (idempotencyKey is not null) db.Set<CheckoutSession>().Add(new CheckoutSession
+        {
+            CheckoutSessionId = invoice.CheckoutCycleId!.Value, InvoiceId = invoice.InvoiceId,
+            Revision = 1, Kind = "Membership", State = "Active",
+            IdempotencyKey = idempotencyKey,
+            CreatedAtUtc = now, ExpiresAtUtc = invoice.HoldExpiresAtUtc!.Value
+        });
 
         db.Set<InvoiceItem>().Add(new InvoiceItem
         {

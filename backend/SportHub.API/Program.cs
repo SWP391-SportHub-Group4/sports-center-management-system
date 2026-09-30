@@ -42,6 +42,7 @@ using SportHub.Notification;
 using SportHub.Payment.Application.Interfaces;
 using SportHub.Payment.Application.Services;
 using SportHub.Payment.Infrastructure;
+using SportHub.Payment.VnPay;
 using SportHub.Payment;
 using SportHub.Scheduling.Application.Interfaces;
 using SportHub.Scheduling.Application.Services;
@@ -111,6 +112,38 @@ builder.Services.AddRateLimiter(options =>
                 QueueProcessingOrder = QueueProcessingOrder.OldestFirst
             }));
 
+    options.AddPolicy("point-confirmation", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: (httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown") + ":"
+                + Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+                    System.Text.Encoding.UTF8.GetBytes(httpContext.Request.Headers.Authorization.ToString()))),
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 3,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst
+            }));
+
+    options.AddPolicy("checkout-write", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.User.Identity?.Name
+                ?? httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 20, Window = TimeSpan.FromMinutes(1), QueueLimit = 0,
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst
+            }));
+
+    options.AddPolicy("vnp-ipn", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 120, Window = TimeSpan.FromMinutes(1), QueueLimit = 0,
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst
+            }));
+
     // Login dùng policy riêng (10/phút theo IP) — quota và response 429 độc lập với register.
     options.AddPolicy<string, LoginRateLimitPolicy>(LoginRateLimitPolicy.PolicyName);
 });
@@ -144,7 +177,7 @@ builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Scheduling.ISpor
 builder.Services.AddScoped<IGoogleTokenVerifier, GoogleTokenVerifier>();
 builder.Services.AddScoped<IGoogleAuthService, GoogleAuthService>();
 
-// BR-78 — gửi OTP Register. Chưa cấu hình Smtp:Host (máy dev) thì chỉ ghi email ra log.
+// OTP: log email chỉ khi Development và Email:DemoLoggingEnabled được bật rõ ràng.
 var smtpSection = builder.Configuration.GetSection("Smtp");
 if (string.IsNullOrWhiteSpace(smtpSection["Host"]))
 {
@@ -157,7 +190,9 @@ if (string.IsNullOrWhiteSpace(smtpSection["Host"]))
 builder.Services.Configure<EmailOptions>(smtpSection);
 builder.Services.AddScoped<IEmailSender>(sp =>
     string.IsNullOrWhiteSpace(sp.GetRequiredService<IOptions<EmailOptions>>().Value.Host)
-        ? new LoggingEmailSender(sp.GetRequiredService<ILogger<LoggingEmailSender>>())
+        ? builder.Environment.IsDevelopment() && builder.Configuration.GetValue<bool>("Email:DemoLoggingEnabled")
+            ? new LoggingEmailSender(sp.GetRequiredService<ILogger<LoggingEmailSender>>())
+            : new UnavailableEmailSender()
         : new SmtpEmailSender(sp.GetRequiredService<IOptions<EmailOptions>>()));
 
 // Administration (BR-2, BR-6, BR-7, BR-39, BR-44..BR-48)
@@ -208,6 +243,17 @@ builder.Services.AddScoped<IRevenueReportService, RevenueReportService>();
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Wallet.IPointWalletService, SportHub.Payment.Wallet.Application.PointWalletService>();
 builder.Services.AddScoped<SportHub.Payment.Wallet.Application.WalletQueryService>();
 builder.Services.AddScoped<SportHub.Payment.Wallet.Application.PointAdjustmentService>();
+builder.Services.AddScoped<SportHub.Payment.Wallet.Application.PointConfirmationService>();
+builder.Services.Configure<VnPayOptions>(builder.Configuration.GetSection(VnPayOptions.SectionName));
+builder.Services.AddHttpClient<VnPayGateway>();
+builder.Services.AddSingleton<IPaymentGateway>(sp =>
+    builder.Environment.IsDevelopment() && builder.Configuration.GetValue<bool>("VnPay:UseMock")
+        ? new MockPaymentGateway()
+        : sp.GetRequiredService<VnPayGateway>());
+builder.Services.AddScoped<CheckoutService>();
+builder.Services.AddScoped<PaymentFulfillmentService>();
+builder.Services.AddScoped<PaymentReconciliationService>();
+builder.Services.AddScoped<CheckoutExpiryService>();
 
 // Training — một instance phục vụ cả interface nghiệp vụ lẫn seam ICoachRelationshipRegistrar
 // mà Scheduling dùng, để quan hệ ClassBased nằm cùng change tracker với đăng ký sinh ra nó.
@@ -224,6 +270,8 @@ builder.Services.AddScoped<IHomeworkService, HomeworkService>();
 // ApplyRescheduleAsync (duyệt request phải tái dùng đúng logic quota với Manager cancel/reschedule
 // trực tiếp, không viết lại lần hai).
 builder.Services.AddScoped<IPtEntitlementLifecycle, PtEntitlementLifecycleService>();
+builder.Services.AddScoped<PtPricingService>();
+builder.Services.AddScoped<IPtPurchaseFulfillment, PtPurchaseFulfillment>();
 builder.Services.AddScoped<IPtEntitlementQueryService, PtEntitlementQueryService>();
 builder.Services.AddScoped<PtSessionService>();
 builder.Services.AddScoped<IPtSessionService>(sp => sp.GetRequiredService<PtSessionService>());
@@ -276,7 +324,11 @@ builder.Services.AddHttpClient<
 // Tác vụ nền: BR-11/BR-33 (hạn gói), BR-20/BR-53 (No-show), BR-34 (phát thông báo).
 builder.Services.AddHostedService<MemberPackageExpiryJob>();
 builder.Services.AddHostedService<ClassStatusJob>();
+builder.Services.AddHostedService<AttendanceFinalizerJob>();
 builder.Services.AddHostedService<SeatHoldExpiryJob>();
+builder.Services.AddHostedService<CheckoutExpiryJob>();
+builder.Services.AddHostedService<PaymentReconciliationJob>();
+builder.Services.AddHostedService<PointHoldExpiryJob>();
 builder.Services.AddHostedService<NotificationDispatchJob>();
 
 builder.Services.AddControllers()
@@ -325,8 +377,8 @@ app.UseHttpsRedirection();
 // áp đúng [EnableRateLimiting] của action.
 app.UseRouting();
 app.UseCors(CorsExtensions.PolicyName);
-app.UseRateLimiter();
 app.UseAuthentication();
+app.UseRateLimiter();
 app.UseAuthorization();
 app.MapControllers();
 
