@@ -42,12 +42,14 @@ public sealed class SportHubApiFactory : WebApplicationFactory<Program>, IAsyncL
 
     public const string TestAudience = "SportHub.Client";
 
-    private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder()
+    private readonly PostgreSqlContainer? _postgres = ExternalConnectionString is null ? new PostgreSqlBuilder()
         .WithImage("postgres:16-alpine")
         .WithDatabase("sporthub_tests")
         .WithUsername("sporthub")
         .WithPassword("sporthub-test-password")
-        .Build();
+        .Build() : null;
+
+    private static string? ExternalConnectionString => Environment.GetEnvironmentVariable("SPORTHUB_TEST_POSTGRES");
 
     public CallSpy Spy { get; } = new();
 
@@ -87,7 +89,7 @@ public sealed class SportHubApiFactory : WebApplicationFactory<Program>, IAsyncL
     // WebApplicationFactory da co ValueTask DisposeAsync() — hai chu ky trung ten.
     async Task IAsyncLifetime.InitializeAsync()
     {
-        await _postgres.StartAsync();
+        if (_postgres is not null) await _postgres.StartAsync();
 
         // Tao schema bang chinh migration cua project (co citext + seed 5 role).
         using var scope = Services.CreateScope();
@@ -98,7 +100,7 @@ public sealed class SportHubApiFactory : WebApplicationFactory<Program>, IAsyncL
     async Task IAsyncLifetime.DisposeAsync()
     {
         await base.DisposeAsync();
-        await _postgres.DisposeAsync();
+        if (_postgres is not null) await _postgres.DisposeAsync();
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -110,7 +112,7 @@ public sealed class SportHubApiFactory : WebApplicationFactory<Program>, IAsyncL
         builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(
             new Dictionary<string, string?>
             {
-                ["ConnectionStrings:Default"] = _postgres.GetConnectionString(),
+                ["ConnectionStrings:Default"] = ExternalConnectionString ?? _postgres!.GetConnectionString(),
                 ["JwtOptions:Issuer"] = TestIssuer,
                 ["JwtOptions:Audience"] = TestAudience,
                 ["JwtOptions:SecretKey"] = TestSecretKey,
