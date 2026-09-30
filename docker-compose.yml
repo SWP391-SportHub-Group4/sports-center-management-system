@@ -28,6 +28,7 @@ services:
       VnPay__TmnCode: ${VnPay__TmnCode:-}
       VnPay__HashSecret: ${VnPay__HashSecret:-}
       VnPay__PaymentUrl: ${VnPay__PaymentUrl:-}
+      VnPay__QueryUrl: ${VnPay__QueryUrl:-https://sandbox.vnpayment.vn/merchant_webapi/api/transaction}
       VnPay__ReturnUrl: ${VnPay__ReturnUrl:-http://localhost:5000/api/payments/vnpay/return}
       VnPay__UseMock: ${VnPay__UseMock:-true}
 
@@ -41,8 +42,6 @@ services:
       Email__DemoLoggingEnabled: ${Email__DemoLoggingEnabled:-true}
       DataProtection__KeysPath: ${DataProtection__KeysPath:-/var/lib/sporthub/dataprotection-keys}
 
-      PublicUrls__Frontend: ${PublicUrls__Frontend:-http://localhost:3000}
-      PublicUrls__Backend: ${PublicUrls__Backend:-http://localhost:5000}
 
       Gemini__ApiKey: ${Gemini__ApiKey:-}
       Gemini__Model: ${Gemini__Model:-gemini-3.5-flash-lite}

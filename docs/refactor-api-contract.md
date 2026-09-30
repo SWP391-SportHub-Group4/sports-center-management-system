@@ -1,6 +1,6 @@
 # Hợp đồng API refactor đa môn (backend)
 
-Trạng thái: **P1.00 — baseline**. Phần A liệt kê route thực tế lúc khảo sát (30/09/2026, branch `develop`, commit `a5c480b`). Phần B là khung để mỗi chặng P1.xx bổ sung verb/path, actor, request/response/error, enum, transaction, idempotency, ownership. Plan 2 (frontend) chỉ được dựa vào các mục đã chuyển sang trạng thái *Đã triển khai*.
+Trạng thái hiện tại: **đã triển khai đến P1.12 và bổ sung regression P1.13**. Xem “Cập nhật P1.12/P1.13 — 01/10/2026” cuối tài liệu và evidence mới nhất. Phần A là route lịch sử trước refactor (30/09/2026, commit `a5c480b`); các ghi chú “chưa có” ở checkpoint cũ không thay thế contract mới. Chưa chứng minh VNPay sandbox thật; không coi toàn bộ plan 1 đã đóng khi còn phần lịch/incident lớp/PT được ghi ở progress.
 
 ## Quy ước chung
 
@@ -9,7 +9,7 @@ Trạng thái: **P1.00 — baseline**. Phần A liệt kê route thực tế lú
 - `InvoiceStatus` hiện: Issued=0, Paid=2, Void=3.
 - Auth: JWT Bearer; policy trong `backend/SportHub.BuildingBlocks/Api/SportHubPolicies.cs`.
 
-## Phần I — P1.10 Court Rental (đã code, chờ PostgreSQL gate)
+## Phần I — P1.10 Court Rental (đã có PostgreSQL regression ở P1.13)
 
 | Verb | Path | Actor / contract |
 |---|---|---|
@@ -498,3 +498,25 @@ Email không xuất hiện trong danh sách/read-all InApp. OTP email được m
 `GET /api/reports/revenue` giữ các field legacy, đồng thời thêm `legacyCashCollected`, `reconciliationCashCollected`, `reconciliationCashCount`, `pointsRedeemed`, `pointsRedeemedVnd` (điểm×1.000 VND), `pointsIssued`, `managerPointAdjustment`, `outstandingPoints` (available+held tại lúc chạy), và `bySource[{source,cashCollected,pointsRedeemed}]`. Daily rows thêm `legacyCashCollected` và `reconciliationCashCollected`; `totalCollected` cộng cả cash reconciliation đã xác minh để đối soát. Đây chưa phải group-by-Sport và export hiện chưa dùng chung tổng hợp mới.
 
 **Giới hạn API hiện tại:** chưa có endpoint lịch phòng tổng hợp class/PT/rental/block; chỉ có lịch rental StaffRead. Incidents không hỗ trợ tự dời/hủy class/PT: preview/resolve báo conflict nếu có giao cắt để tránh khóa giả. PostgreSQL concurrency/privacy chưa được kiểm chứng do Testcontainers không kết nối Docker ở host này.
+# Cập nhật P1.12/P1.13 — 01/10/2026
+
+Phần này thay thế các ghi chú “chưa có” về báo cáo/export và seed trong checkpoint lịch sử bên dưới.
+
+| Verb | Route | Actor | Hợp đồng |
+|---|---|---|---|
+| GET | `/api/reports/revenue?fromDate=YYYY-MM-DD&toDate=YYYY-MM-DD` | CenterManager | Thêm `bySportAndSource[]`: `source`, nullable `sportId/sportName/externalCoachId`, `cashCollected`, `legacyCashCollected`, `pointsRedeemed`. Tổng các dòng cash khớp `totalCollected`, gồm `Reconciliation` và `LegacyUnclassified`. |
+| GET | `/api/reports/court-rental-revenue?fromDate=...&toDate=...` | CenterManager | `{fromDate,toDate,rows}`; lấy các dòng Rental của cùng bộ tổng hợp doanh thu, theo ngày thực thu VN. |
+| GET | `/api/reports/membership-period?fromDate=...&toDate=...` | CenterManager | `{fromDate,toDate,newMembers,activeMembersAtPeriodEnd}`; đăng ký theo `[00:00 VN,00:00 VN ngày sau)`, active theo validity và trạng thái Active/Expired, loại Cancelled/PendingPayment. |
+| GET | `/api/reports/class-enrollment?fromDate=...&toDate=...&sportId=3` | CenterManager | `activeHoldCount` chỉ đếm Active có expiry lớn hơn server clock; `availableSeats=capacity-confirmed-activeHold`. |
+| POST | `/api/reports/exports` | Theo policy export hiện hữu | `{reportType,fromDate,toDate,columns,format:"Csv" hoặc "Pdf",sportId?:3}`. `sportId` áp dụng cho `CLASS_ENROLLMENT`. |
+
+Các loại export mới:
+
+- `REVENUE_DAILY`: `date,collectedAmount,refundedAmount,obligationReduction,netCollected,legacyCashCollected,reconciliationCashCollected`.
+- `REVENUE_DIMENSIONS` / `COURT_RENTAL_REVENUE`: `source,sportId,sportName,externalCoachId,collectedAmount,legacyCashCollected,pointsRedeemed,pointsRedeemedVnd`.
+- `MEMBERSHIP_PERIOD`: `fromDate,toDate,newMembers,activeMembersAtPeriodEnd`.
+- `CLASS_ENROLLMENT`: `classId,code,name,sportId,sportName,status,capacity,confirmedCount,activeHoldCount,availableSeats,fillRatio,breakEvenThreshold,thresholdStatus,firstSessionStartUtc`.
+
+`REVENUE` cũ vẫn là danh sách hóa đơn theo ngày phát hành; không dùng loại này để so với tổng thu theo ngày thanh toán. `MEMBER_SUMMARY` cũ giữ tương thích. Export mới gọi cùng service API, không nhân bản truy vấn tài chính. Phạm vi doanh thu tối đa 366 ngày, trả `range_too_large`; report export thất bại giữ trạng thái Failed và failure reason theo contract hiện hữu. Điểm không cộng thành cash; outstanding là available+held hiện tại. Membership sport null; PT legacy chưa có sport reference chỉ được phân loại khi có đúng một môn OneOnOne.
+
+- `REVENUE_SUMMARY`: `fromDate,toDate,collectedAmount,refundedAmount,netCollected,legacyCashCollected,reconciliationCashCollected,pointsRedeemed,pointsRedeemedVnd,pointsIssued,managerPointAdjustment,outstandingPoints`.

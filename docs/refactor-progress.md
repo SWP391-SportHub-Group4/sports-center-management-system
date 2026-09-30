@@ -1,6 +1,18 @@
 # Tiến độ refactor backend (plan 1)
 
-## Checkpoint — P1.11 Incident + email outbox; P1.12/P1.13 đang tiếp tục (01/10/2026)
+## Checkpoint — P1.12/P1.13 (01/10/2026)
+
+Đã bổ sung báo cáo doanh thu theo môn/nguồn/ExternalCoach, dòng đối soát và legacy chưa phân loại; export CSV/PDF dùng chung dịch vụ tổng hợp với API. Có export sĩ số với bộ lọc môn, hold còn hạn theo IClock, và báo cáo hội viên mới theo ngày Việt Nam. Các loại export cũ giữ nguyên ý nghĩa ngày phát hành hóa đơn.
+
+Seed mới có 6 vai trò, 4 trạng thái ExternalCoach, Membership không còn quota lớp nhóm, khóa Draft/Published/AtRisk/InProgress/Completed, legacy cash có item liên kết, ví 500 điểm và lượt thuê trả qua checkout bằng điểm. Chạy lại không cộng trùng ví/rental. Seed đầy đủ dành cho DB demo mới; DB đã có tài khoản chỉ bổ sung ví/rental khi nhận diện đủ các tài khoản demo, không tự sửa tài khoản/nghiệp vụ đang dùng.
+
+P1.13 đã chạy PostgreSQL thật qua Testcontainers sau khi cấp quyền truy cập Docker cho lệnh test. Không áp migration lên database phát triển. Bộ mới bổ sung chuyển lớp rẻ/bằng/đắt, thuê sân đồng thời, pending approval, incident release, outbox retry/rollback, export parity, biên ngày VN, hold hết hạn, module boundary và migration giữ cấu hình Manager. Chi tiết lệnh/kết quả ở `refactor-backend-evidence.md`.
+
+CI lưu TRX; `scripts/e2e-business-rules.sh` chạy các integration suites thay cho các curl scenario cũ dùng endpoint enrollment/payment đã bỏ. Race và RBAC được kiểm bằng các suite hiện tại, không bị bỏ khỏi gate. Không thay đổi frontend.
+
+Giới hạn cần giữ khi bàn giao: chưa có bằng chứng VNPay sandbox thật/SMTP thật; báo cáo Membership dùng trạng thái và thời hạn được lưu, không tái dựng lịch sử cancellation chưa có timestamp. Membership không gắn một môn duy nhất nên sport là null; PT legacy chỉ được phân môn khi catalog có đúng một môn OneOnOne. Incident lớp/PT vẫn cần xử lý lịch trước, lịch sân tổng hợp là phần còn lại của P1.10/P1.11, không được đánh dấu hoàn tất cả plan 1 chỉ vì test hiện có xanh.
+
+## Lịch sử — P1.11 Incident + email outbox; P1.12/P1.13 đang tiếp tục (01/10/2026)
 
 **Đã triển khai:** Manager có preview/resolve incident ở `/api/manager/incidents`; lớp/PT giao thời gian được trả conflict để xử lý lịch trước, rental đang thanh toán được release, rental đã trả được hủy/hoàn điểm 100%, rồi mới thêm room block và audit. Manager có `/api/manager/notices` gửi in-app/email theo danh sách người nhận. OTP đăng ký, đặt lại mật khẩu, ExternalCoach và xác nhận điểm quầy được ghi encrypted email outbox cùng transaction; SMTP dispatcher claim bằng `SKIP LOCKED`, lease, retry/backoff; truy vấn/read-all thông báo chỉ tác động InApp. Chưa hứa exactly-once gửi email.
 

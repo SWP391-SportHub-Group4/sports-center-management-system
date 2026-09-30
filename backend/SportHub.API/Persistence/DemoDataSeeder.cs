@@ -24,6 +24,9 @@ public sealed class DemoDataSeeder(
     IPasswordHasher passwordHasher,
     IInvoiceNumberGenerator invoiceNumbers,
     IClock clock,
+    SportHub.BuildingBlocks.Abstractions.Wallet.IPointWalletService wallets,
+    SportHub.Payment.Application.Services.CheckoutService checkouts,
+    SportHub.Payment.Wallet.Application.PointConfirmationService pointConfirmations,
     ILogger<DemoDataSeeder> logger)
 {
     public const string DemoPassword = "Sporthub@123";
@@ -33,7 +36,7 @@ public sealed class DemoDataSeeder(
         if (await db.UserAccounts.AnyAsync(ct))
         {
             logger.LogInformation("Bỏ qua seed dữ liệu demo: database đã có tài khoản.");
-
+            await SeedWalletAndRentalAsync(ct);
             return;
         }
 
@@ -50,8 +53,8 @@ public sealed class DemoDataSeeder(
         var manager = NewUser("manager@sporthub.vn", "Trần Thu Quản Lý", "0901000002", UserRole.CenterManager);
         var reception = NewUser("letan@sporthub.vn", "Lê Thị Lễ Tân", "0901000003", UserRole.Receptionist);
 
-        var coachYoga = NewUser("coach.yoga@sporthub.vn", "Phạm Minh Yoga", "0902000001", UserRole.Coach);
-        var coachGroupX = NewUser("coach.groupx@sporthub.vn", "Vũ Hải Group X", "0902000002", UserRole.Coach);
+        var coachBadminton = NewUser("coach.caulong@sporthub.vn", "Phạm Minh Cầu Lông", "0902000001", UserRole.Coach);
+        var coachBasketball = NewUser("coach.bongro@sporthub.vn", "Vũ Hải Bóng Rổ", "0902000002", UserRole.Coach);
         var coachPt = NewUser("coach.pt@sporthub.vn", "Đỗ Quang PT", "0902000003", UserRole.Coach);
 
         var externalApproved = NewUser("coach.external.approved@sporthub.vn", "Huấn Luyện Viên Sân Đã Duyệt", "0902000011", UserRole.ExternalCoach);
@@ -87,8 +90,8 @@ public sealed class DemoDataSeeder(
         };
 
         // BR-96 — mỗi tài khoản Coach demo có CoachProfile ngay khi tạo; chuyên môn theo môn gán ngay sau khi lưu user.
-        coachYoga.CoachProfile = new CoachProfile();
-        coachGroupX.CoachProfile = new CoachProfile();
+        coachBadminton.CoachProfile = new CoachProfile();
+        coachBasketball.CoachProfile = new CoachProfile();
         coachPt.CoachProfile = new CoachProfile();
 
         var members = new[]
@@ -101,7 +104,7 @@ public sealed class DemoDataSeeder(
             NewUser("hoa.member@sporthub.vn", "Bùi Thanh Hoa", "0903000006", UserRole.Member)
         };
 
-        var allUsers = new List<UserAccount> { admin, manager, reception, coachYoga, coachGroupX, coachPt,
+        var allUsers = new List<UserAccount> { admin, manager, reception, coachBadminton, coachBasketball, coachPt,
             externalApproved, externalPending, externalRejected, externalSuspended };
         allUsers.AddRange(members);
 
@@ -118,8 +121,8 @@ public sealed class DemoDataSeeder(
         // Chuyên môn demo (sport 2 = Personal Training, 3 = Cầu lông, 4 = Bóng rổ; seed trong migration catalog).
         // Mapping cụ thể theo user vì CoachCategory cũ không đủ xác định môn.
         db.UserSportSpecialties.AddRange(
-            new UserSportSpecialty { UserId = coachYoga.UserId, SportId = 3 },
-            new UserSportSpecialty { UserId = coachGroupX.UserId, SportId = 4 },
+            new UserSportSpecialty { UserId = coachBadminton.UserId, SportId = 3 },
+            new UserSportSpecialty { UserId = coachBasketball.UserId, SportId = 4 },
             new UserSportSpecialty { UserId = coachPt.UserId, SportId = 2 },
             new UserSportSpecialty { UserId = externalApproved.UserId, SportId = 3 },
             new UserSportSpecialty { UserId = externalPending.UserId, SportId = 3 });
@@ -157,37 +160,37 @@ public sealed class DemoDataSeeder(
             },
             new MembershipPackage
             {
-                Name = "Yoga 12 buổi",
+                Name = "Membership 90 ngày",
                 Price = 1_800_000m,
                 DurationDays = 90,
-                SessionLimit = 12,
-                Description = "12 buổi Yoga nhóm, dùng trong 90 ngày.",
+                SessionLimit = null,
+                Description = "Quyền sử dụng trung tâm trong 90 ngày.",
                 IsActive = true
             },
             new MembershipPackage
             {
-                Name = "Group X 20 buổi",
+                Name = "Membership 120 ngày",
                 Price = 2_400_000m,
                 DurationDays = 120,
-                SessionLimit = 20,
-                Description = "20 buổi Group X / Aerobic / HIIT, dùng trong 120 ngày.",
+                SessionLimit = null,
+                Description = "Quyền sử dụng trung tâm trong 120 ngày.",
                 IsActive = true
             },
             new MembershipPackage
             {
-                Name = "Personal Training 10 buổi",
+                Name = "Membership 90 ngày nâng cao",
                 Price = 6_000_000m,
                 DurationDays = 90,
-                SessionLimit = 10,
-                Description = "10 buổi tập 1 kèm 1 với huấn luyện viên cá nhân.",
+                SessionLimit = null,
+                Description = "Membership nền để mua PT riêng.",
                 IsActive = true
             },
             new MembershipPackage
             {
-                Name = "Combo thử 3 buổi (ngừng bán)",
+                Name = "Membership thử 14 ngày (ngừng bán)",
                 Price = 300_000m,
                 DurationDays = 14,
-                SessionLimit = 3,
+                SessionLimit = null,
                 Description = "Gói dùng thử cũ — giữ lại để minh hoạ gói đã ngừng áp dụng (BR-8).",
                 IsActive = false
             }
@@ -197,19 +200,99 @@ public sealed class DemoDataSeeder(
         await db.SaveChangesAsync(ct);
 
         // Khóa học demo theo mô hình v3: một khóa Cầu lông đã publish (đủ buổi + chiếm phòng/coach) và một khóa Bóng rổ ở Draft.
-        // Ghi danh demo KHÔNG đi qua thanh toán (InvoiceItemId để trống) — chỉ để có dữ liệu xem; ghi danh thật chỉ sinh từ checkout.
-        var sessionCount = await SeedCoursesAsync(rooms, coachYoga, coachGroupX, members, today, now, ct);
+        // Ghi danh lịch sử demo có InvoiceItem đã thu bằng legacy cash; rental mới dùng checkout thật.
+        var sessionCount = await SeedCoursesAsync(rooms, coachBadminton, coachBasketball, members, today, now, ct);
+        await SeedCourseStatesAsync(rooms[0], coachBadminton, today, now, ct);
 
         await SeedPackagesAndInvoicesAsync(members, manager, reception, packages, today, now, ct);
-        await SeedTrainingAsync(members, manager, coachYoga, coachGroupX, coachPt, now, ct);
+        await SeedTrainingAsync(members, manager, coachBadminton, coachBasketball, coachPt, now, ct);
         await SeedGymCheckInsAsync(members, reception, now, ct);
 
         await db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
+        await transaction.DisposeAsync();
+        await SeedWalletAndRentalAsync(ct);
 
         logger.LogInformation(
             "Đã seed dữ liệu demo: {Users} tài khoản, {Sessions} buổi học. Mật khẩu chung: {Password}",
             allUsers.Count, sessionCount, DemoPassword);
+    }
+
+    private async Task SeedCourseStatesAsync(Room room, UserAccount coach, DateOnly today, DateTime now, CancellationToken ct)
+    {
+        foreach (var scenario in new[] { "ATRISK", "INPROGRESS", "COMPLETED" })
+        {
+            var dates = scenario switch
+            {
+                "ATRISK" => new[] { today.AddDays(2), today.AddDays(4) },
+                "INPROGRESS" => new[] { today.AddDays(-1), today.AddDays(1) },
+                _ => new[] { today.AddDays(-6), today.AddDays(-4) }
+            };
+            var course = new Class { Code = "DEMO-" + scenario, Name = "Cầu lông " + scenario,
+                SportId = 3, CoachId = coach.UserId, DefaultRoomId = room.RoomId, StartDate = dates[0],
+                NumSessions = 2, Capacity = 12, Price = 200_000, CostAmount = 400_000, BreakEvenThreshold = 2,
+                Status = scenario == "ATRISK" ? ClassStatus.Published : scenario == "INPROGRESS" ? ClassStatus.InProgress : ClassStatus.Completed,
+                ThresholdStatus = scenario == "ATRISK" ? ThresholdStatus.AtRisk : ThresholdStatus.WaivedByManager,
+                ThresholdResponseDeadlineUtc = scenario == "ATRISK" ? now.AddHours(48) : null,
+                ThresholdDeadlineUtc = VietnamTime.StartOfDayUtc(dates[0]).AddDays(-3),
+                PublishedAt = now.AddDays(-10), CreatedAt = now.AddDays(-11), Version = 1 };
+            db.Classes.Add(course);
+            await db.SaveChangesAsync(ct);
+            for (var i = 0; i < dates.Length; i++)
+            {
+                var start = VietnamTime.StartOfDayUtc(dates[i]).AddHours(14);
+                var session = new ClassSession { SessionId = Guid.NewGuid(), ClassId = course.ClassId,
+                    SessionNo = i + 1, RoomId = room.RoomId, CoachId = coach.UserId, StartAtUtc = start,
+                    EndAtUtc = start.AddMinutes(90), Status = start < now ? ClassSessionStatus.Completed : ClassSessionStatus.Scheduled };
+                db.ClassSessions.Add(session);
+                db.RoomOccupancies.Add(new RoomOccupancy { OccupancyId = Guid.NewGuid(), RoomId = room.RoomId,
+                    SourceType = OccupancySourceType.ClassSession, SourceId = session.SessionId,
+                    StartAtUtc = start, EndAtUtc = session.EndAtUtc, IsActive = start >= now });
+                db.CoachOccupancies.Add(new CoachOccupancy { OccupancyId = Guid.NewGuid(), CoachId = coach.UserId,
+                    SourceType = OccupancySourceType.ClassSession, SourceId = session.SessionId,
+                    StartAtUtc = start, EndAtUtc = session.EndAtUtc, IsActive = start >= now });
+            }
+        }
+        await db.SaveChangesAsync(ct);
+    }
+
+    private async Task SeedWalletAndRentalAsync(CancellationToken ct)
+    {
+        // Only extend the named demo dataset; never infer real accounts as demo owners.
+        var manager = await db.UserAccounts.SingleOrDefaultAsync(x => x.Email == "manager@sporthub.vn", ct);
+        var coach = await db.UserAccounts.SingleOrDefaultAsync(x => x.Email == "coach.external.approved@sporthub.vn", ct);
+        var member = await db.UserAccounts.SingleOrDefaultAsync(x => x.Email == "an.member@sporthub.vn", ct);
+        var room = await db.Rooms.FirstOrDefaultAsync(x => x.Name == "Sân cầu lông 1", ct);
+        if (manager is null || coach is null || member is null || room is null) return;
+        var reference = Guid.Parse("311aa2a3-764e-4a9f-a8c2-988790e52723");
+        await using (var tx = await db.Database.BeginTransactionAsync(ct))
+        {
+            foreach (var owner in new[] { member, coach })
+                await wallets.AdjustAsync(new(owner.UserId, 500,
+                    SportHub.BuildingBlocks.Abstractions.Wallet.WalletAdjustmentDirection.Credit,
+                    "DemoOpeningBalance", reference, manager.UserId, "Số dư demo P1.12"), ct);
+            if (!await db.Set<CourtRate>().AnyAsync(x => x.RoomTypeId == 3 && x.IsActive, ct))
+                db.Set<CourtRate>().Add(new CourtRate { RoomTypeId = 3, SportId = 3,
+                    DaysOfWeek = "MON,TUE,WED,THU,FRI,SAT,SUN", StartTimeLocal = new(6, 0),
+                    EndTimeLocal = new(22, 0), PricePerHour = 100_000 });
+            await db.SaveChangesAsync(ct);
+            await tx.CommitAsync(ct);
+        }
+        const string key = "demo-p112-court-rental-v1";
+        var existing = await db.Set<CheckoutSession>().AsNoTracking().SingleOrDefaultAsync(x => x.IdempotencyKey == key, ct);
+        Guid invoiceId;
+        if (existing is null)
+        {
+            var start = VietnamTime.StartOfDayUtc(VietnamTime.TodayLocal(clock).AddDays(7)).AddHours(10);
+            var checkout = await checkouts.CreateCourtRentalAsync(new(coach.UserId, 3, room.RoomId,
+                start, start.AddHours(1), 4), key, coach.UserId, ct);
+            invoiceId = checkout.InvoiceId;
+        }
+        else invoiceId = existing.InvoiceId;
+        var invoice = await db.Invoices.AsNoTracking().SingleAsync(x => x.InvoiceId == invoiceId, ct);
+        if (invoice.Status != InvoiceStatus.Issued || invoice.HoldExpiresAtUtc <= clock.UtcNow) return;
+        await pointConfirmations.SelectSelfAsync(invoiceId, checked((int)(invoice.TotalAmount / 1000m)), coach.UserId, ct);
+        await checkouts.StartPaymentAsync(invoiceId, coach.UserId, false, "127.0.0.1", ct);
     }
 
     private async Task<int> SeedCoursesAsync(
@@ -311,14 +394,30 @@ public sealed class DemoDataSeeder(
 
         // Ba ghi danh demo đầu tiên; bộ đếm khớp (confirmed = reserved).
         var enrolled = members.Take(3).ToList();
-        db.Enrollments.AddRange(enrolled.Select(m => new Enrollment
+        foreach (var member in enrolled)
         {
-            EnrollmentId = Guid.NewGuid(),
-            ClassId = badminton.ClassId,
-            MemberId = m.UserId,
-            Status = EnrollmentStatus.Confirmed,
-            EnrolledAt = now.AddDays(-1)
-        }));
+            // Historical cash fixture: explicitly legacy, with a paid item for refund lineage.
+            var invoice = new Invoice { InvoiceId = Guid.NewGuid(),
+                InvoiceNumber = await invoiceNumbers.NextAsync(now, ct), MemberId = member.UserId,
+                IssuedByUserId = member.UserId, TotalAmount = badminton.Price, CashAmount = badminton.Price,
+                Status = InvoiceStatus.Paid, IssuedAt = now.AddDays(-1) };
+            var holdId = Guid.NewGuid();
+            var item = new InvoiceItem { ItemId = Guid.NewGuid(), InvoiceId = invoice.InvoiceId,
+                ItemType = InvoiceItemType.ClassPackage, RelatedEntityId = holdId,
+                Description = "Legacy demo: " + badminton.Name, UnitPrice = badminton.Price,
+                Quantity = 1, LineAmount = badminton.Price };
+            db.Invoices.Add(invoice);
+            db.InvoiceItems.Add(item);
+            db.Set<SeatHold>().Add(new SeatHold { HoldId = holdId, ClassId = badminton.ClassId,
+                MemberId = member.UserId, InvoiceId = invoice.InvoiceId, Status = SeatHoldStatus.Converted,
+                CreatedAt = now.AddDays(-1), ExpiresAtUtc = now });
+            db.Payments.Add(new Payment.Domain.Entities.Payment { PaymentId = Guid.NewGuid(),
+                InvoiceId = invoice.InvoiceId, Amount = badminton.Price, Method = PaymentMethod.Cash,
+                Status = PaymentStatus.Success, ReceivedByUserId = member.UserId, PaidAt = now.AddDays(-1) });
+            db.Enrollments.Add(new Enrollment { EnrollmentId = Guid.NewGuid(), ClassId = badminton.ClassId,
+                MemberId = member.UserId, InvoiceItemId = item.ItemId,
+                Status = EnrollmentStatus.Confirmed, EnrolledAt = now.AddDays(-1) });
+        }
 
         badminton.ConfirmedCount = enrolled.Count;
         badminton.ReservedCount = enrolled.Count;
@@ -379,7 +478,7 @@ public sealed class DemoDataSeeder(
 
             db.Invoices.Add(invoice);
 
-            db.InvoiceItems.Add(new InvoiceItem
+            var invoiceItem = new InvoiceItem
             {
                 ItemId = Guid.NewGuid(),
                 InvoiceId = invoice.InvoiceId,
@@ -389,7 +488,10 @@ public sealed class DemoDataSeeder(
                 Quantity = 1,
                 LineAmount = plan.Package.Price,
                 RelatedEntityId = memberPackage.MemberPackageId
-            });
+            };
+            db.InvoiceItems.Add(invoiceItem);
+            await db.SaveChangesAsync(ct);
+            memberPackage.InvoiceItemId = invoiceItem.ItemId;
 
             if (plan.Paid)
             {
@@ -404,16 +506,6 @@ public sealed class DemoDataSeeder(
                     PaidAt = issuedAt
                 });
 
-                db.PaymentAttempts.Add(new PaymentAttempt
-                {
-                    PaymentAttemptId = Guid.NewGuid(),
-                    InvoiceId = invoice.InvoiceId,
-                    VnpTxnRef = $"SEED-{invoice.InvoiceId:N}",
-                    Amount = plan.Package.Price,
-                    VnpExpireDate = issuedAt.AddMinutes(15),
-                    Status = PaymentAttemptStatus.Succeeded,
-                    CreatedAt = issuedAt
-                });
             }
         }
 
@@ -439,8 +531,8 @@ public sealed class DemoDataSeeder(
     private async Task SeedTrainingAsync(
         UserAccount[] members,
         UserAccount manager,
-        UserAccount coachYoga,
-        UserAccount coachGroupX,
+        UserAccount coachBadminton,
+        UserAccount coachBasketball,
         UserAccount coachPt,
 
         DateTime now,
@@ -515,8 +607,8 @@ public sealed class DemoDataSeeder(
             });
 
         // Đổi 29/09/2026 (BE-4): PT dùng PtEntitlement/PtSession riêng, không còn ép
-        // WorkoutResult vào Enrollment Yoga/Group X. Entitlement mượn validity của MemberPackage
-        // "Personal Training 10 buổi" đã seed cho members[2] ở SeedPackagesAndInvoicesAsync —
+        // WorkoutResult vào Enrollment khóa nhóm. Entitlement mượn validity của MemberPackage
+        // "Membership 90 ngày nâng cao" đã seed cho members[2] ở SeedPackagesAndInvoicesAsync —
         // đây là dữ liệu demo, Payment thật sẽ tạo PtEntitlement qua IPtEntitlementLifecycle.
         var ptMemberPackage = await db.MemberPackages
             .Where(mp => mp.MemberId == members[2].UserId && mp.Status == MemberPackageStatus.Active)
@@ -548,6 +640,19 @@ public sealed class DemoDataSeeder(
             };
 
             db.PtEntitlements.Add(entitlement);
+            var ptInvoice = new Invoice { InvoiceId = Guid.NewGuid(),
+                InvoiceNumber = await invoiceNumbers.NextAsync(now.AddDays(-10), ct),
+                MemberId = members[2].UserId, IssuedByUserId = manager.UserId,
+                TotalAmount = 6_000_000m, CashAmount = 6_000_000m,
+                Status = InvoiceStatus.Paid, IssuedAt = now.AddDays(-10) };
+            db.Invoices.Add(ptInvoice);
+            db.InvoiceItems.Add(new InvoiceItem { ItemId = entitlement.ActivationReference!.Value,
+                InvoiceId = ptInvoice.InvoiceId, ItemType = InvoiceItemType.PT,
+                Description = "Legacy demo PT: 24 buổi", UnitPrice = 250_000m, Quantity = 24,
+                LineAmount = 6_000_000m, RelatedEntityId = entitlement.EntitlementId });
+            db.Payments.Add(new Payment.Domain.Entities.Payment { PaymentId = Guid.NewGuid(),
+                InvoiceId = ptInvoice.InvoiceId, Amount = 6_000_000m, Method = PaymentMethod.Cash,
+                Status = PaymentStatus.Success, ReceivedByUserId = manager.UserId, PaidAt = now.AddDays(-10) });
 
             var sessionStartUtc = now.AddDays(-7);
 
@@ -601,7 +706,9 @@ public sealed class DemoDataSeeder(
                     CheckInId = Guid.NewGuid(),
                     MemberId = memberId,
                     CheckedInByUserId = reception.UserId,
-                    CheckInTime = now.AddDays(-day).AddHours(-2)
+                    CheckInTime = now.AddDays(-day).AddHours(-2),
+                    CheckOutTime = now.AddDays(-day),
+                    CheckedOutByUserId = reception.UserId
                 });
             }
         }

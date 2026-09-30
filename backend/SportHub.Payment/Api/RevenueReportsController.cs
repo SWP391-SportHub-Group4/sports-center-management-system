@@ -15,6 +15,15 @@ namespace SportHub.Payment.Api;
 [Route("api/reports")]
 public class RevenueReportsController(IRevenueReportService revenue) : ControllerBase
 {
+    [HttpGet("court-rental-revenue")]
+    public async Task<IActionResult> GetCourtRentalRevenue(
+        [FromQuery] DateOnly fromDate, [FromQuery] DateOnly toDate, CancellationToken ct = default)
+    {
+        var report = await revenue.GetAsync(fromDate, toDate, ct);
+        return Ok(new { report.FromDate, report.ToDate,
+            Rows = report.BySportAndSource.Where(x => x.Source == "Rental").ToList() });
+    }
+
     /// <summary>BR-32/BR-43 — chỉ Center Manager; số liệu đã trừ điều chỉnh hoàn thành trong kỳ.</summary>
     [HttpGet("revenue")]
     public async Task<IActionResult> GetRevenue(
