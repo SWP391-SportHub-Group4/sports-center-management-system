@@ -23,7 +23,7 @@ public static class InvoiceMath
 {
     public static InvoiceStatus DeriveStatus(InvoiceStatus current, InvoiceBalance balance)
     {
-        if (current is InvoiceStatus.Void or InvoiceStatus.Paid)
+        if (current is InvoiceStatus.Void or InvoiceStatus.Paid or InvoiceStatus.PaidAfterReconciliation)
         {
             return current;
         }

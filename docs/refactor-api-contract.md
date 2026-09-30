@@ -308,11 +308,11 @@ Trạng thái: **P1.00 — baseline**. Phần A liệt kê route thực tế lú
 | Chặng | Trạng thái | Ghi chú |
 |---|---|---|
 | P1.01 Ports | Một phần | Ports khai báo trong BuildingBlocks (chưa có implementation); role ExternalCoach=5 và policy mới đã đăng ký. Route chưa đổi. |
-| P1.02 Model & migration | Đợt 1 xong | Migration MultiSportIdentityCatalog (20260929210732) gồm Identity + Catalog + Occupancy. Còn các đợt: course (drop dữ liệu lớp), wallet/payments, threshold/rentals. |
-| P1.03 Identity/ExternalCoach | Phần lớn xong | Mật khẩu, OTP, security stamp, ExternalCoach xong (Phần C). Còn CoachAdminService và gỡ CoachCategory (cùng P1.05), ví ExternalCoach (P1.06), outbox email (P1.11). |
-| P1.04 Catalog & occupancy | Xong | Phần D. Chưa có consumer của IOccupancyService (nối ở P1.05/P1.10). |
-| P1.05 Lớp/điểm danh/Gym/PT | Chưa làm | |
-| P1.06 Wallet & OTP quầy | Chưa làm | |
+| P1.02 Model & migration | Identity/Catalog/Course/Wallet đã có | Còn schema checkout/retry, threshold/rentals theo các phase sau. |
+| P1.03 Identity/ExternalCoach | Phần lớn xong | Mật khẩu, OTP, security stamp, ExternalCoach, CoachAdminService và specialty đã có. Outbox email nâng cao thuộc P1.11. |
+| P1.04 Catalog & occupancy | Xong | Phần D; lớp và PT đã dùng occupancy, thuê sân nối ở P1.10. |
+| P1.05 Lớp/điểm danh/Gym/PT | Gate xong | Phần F; thanh toán/fulfillment khóa thật do P1.07 nối tiếp. |
+| P1.06 Wallet & OTP quầy | Đã triển khai ví và xác nhận/giữ điểm | Phần E; QR, Spend + fulfillment và checkout retry do P1.07 nối tiếp. |
 | P1.07 Checkout/VNPay | Chưa làm | |
 | P1.08 Refund điểm | Chưa làm | |
 | P1.09 Ngưỡng & chuyển lớp | Chưa làm | |
@@ -376,3 +376,64 @@ Actor viết tắt: **M** = CenterManager (policy `CatalogManage`), **FD** = Man
 
 Mã lỗi DB chưa được service bắt (mọi endpoint): 409 `occupancy_conflict`, 409 `duplicate_value`, 409 `reference_violation`, 409 `concurrency_conflict`, 400 `constraint_violation`.
 Mọi thời điểm trong request/response là UTC; giờ mở cửa và khung giá là giờ địa phương Asia/Ho_Chi_Minh (UTC+7 cố định).
+
+## Phần E — P1.06 Wallet và xác nhận dùng điểm
+
+Các endpoint sau đã có source và integration test PostgreSQL. 1 điểm = 1.000 VND; điểm là integer, tiền là decimal. `Confirmed` ở xác nhận điểm chưa phải Invoice Paid.
+
+| Verb | Path | Actor | Request / Response |
+|---|---|---|---|
+| GET | `api/wallet/me` | Member/ExternalCoach | `{ownerUserId, availablePoints, heldPoints, vndPerPoint}`; subject lấy từ JWT |
+| GET | `api/wallet/me/ledger?page&pageSize` | Member/ExternalCoach | Mảng ledger, mới nhất trước; page >=1, pageSize 1..100 |
+| GET | `api/members/{memberId}/points`, `.../points/ledger` | Receptionist/Manager | Chỉ Member; ghi audit lần xem |
+| POST | `api/wallets/{ownerId}/adjustments` | Manager | `{idempotencyKey:guid, points:int>0, direction:"Credit"|"Debit", reason}`; trả WalletResult. Cùng key khác payload → 409; Debit chỉ tiêu available |
+| GET | `api/invoices/{invoiceId}/point-selection` | Chủ invoice hoặc Receptionist | `{invoiceId, memberId, pointsApplied, cashAmount, holdExpiresAtUtc, status, revision}`; Receptionist chỉ xem Member, có audit |
+| POST | `api/invoices/{invoiceId}/point-confirmations` | Receptionist | `{memberId, points:int>0, revision:int}`; trả `{confirmationId, invoiceId, memberId, points, expiresAtUtc, holdExpiresAtUtc, status:"Pending", revision}` |
+| POST | `api/point-confirmations/{confirmationId}/verify` | Lễ tân đã yêu cầu mã | `{code:"6 digits"}`; trả PointSelectionResponse, status `Confirmed`; giữ điểm đúng một lần |
+| POST | `api/invoices/{invoiceId}/point-confirmations/clear` | Receptionist | `{memberId, revision}`; release điểm của cycle cũ, vô hiệu OTP, tăng revision; dùng khi bỏ chọn/đổi Member tại UI |
+| POST | `api/wallet/me/checkouts/{invoiceId}/points` | Member/ExternalCoach | `{points:int>=0}`; 0 = bỏ điểm; invoice phải thuộc JWT subject, không nhận owner từ client, không cần OTP |
+
+Ledger trả `id, entryType, points, availableDelta, heldDelta, availableAfter, heldAfter, referenceType, referenceId, note, createdAtUtc`. Entry types: `HOLD/RELEASE/SPEND/EARN/ADJUSTMENT`. Actor được lưu ở ledger; không có endpoint nạp/rút/chuyển điểm.
+
+**Luồng và lỗi:**
+- Đọc point-selection lấy revision trước khi yêu cầu OTP. Stale revision → 409 `checkout_revision_changed`. Hóa đơn legacy không có cycle, đã Paid/Void hoặc quá hạn → 409 `checkout_unavailable`; khác Member → 403 `invoice_not_owned`.
+- OTP 6 số, PBKDF2 có salt, hết hạn `min(now+5 phút, holdExpiresAtUtc)`. Gửi lại bằng POST request với revision mới; cùng lựa chọn trong 60s → 409 `point_confirmation_cooldown`. Rate limit request 3/phút theo IP + token → 429. Đổi điểm/gửi lại/bỏ chọn không kéo dài hạn invoice.
+- Chỉ lễ tân yêu cầu mã được verify. Sai mã → 400 `point_confirmation_invalid`; 5 lần sai đã commit → 409 `point_confirmation_locked`; hết hạn/vô hiệu → 409 `point_confirmation_expired`. Gọi đúng mã lặp/song song không Hold hai lần.
+- Verify kiểm lại role/active Member, revision/cycle, invoice chưa trả, hạn và số dư. Thiếu điểm → 409 `insufficient_points`; OTP chưa consumed. Invoice/hold/OTP rollback cùng nhau khi lỗi sau Hold.
+- Đã có payment/attempt/adjustment → 409 `payment_already_started`, không sửa số tiền của QR cũ. Thu tiền thủ công khi đang chọn/giữ điểm → 409 `point_checkout_requires_gateway`.
+- Self selection chỉ đổi điểm trên invoice của chính mình; points > total/1000 bị 400 `invalid_points`. Đổi/bỏ điểm release cycle cũ và tạo reference mới, không âm available/held.
+- Job mỗi phút release điểm trên hóa đơn Issued đã quá hạn hoặc Void. Expired state được suy từ thời gian server ngay cả khi job chưa xử lý.
+
+**Bàn giao P1.07:** chu kỳ hiện snapshot trên Invoice (`CheckoutCycleId/CheckoutRevision/HoldExpiresAtUtc`). `PointsApplied` là điểm đang Hold; `CashAmount=TotalAmount-PointsApplied*1000`. Cash=0 vẫn chờ P1.07 thực hiện Spend + fulfillment atomic; không phát QR, không tự mark Paid. P1.07 cần entity CheckoutSession/lịch sử retry, nối quote/reserve course/rental, tạo attempt, callback/reconcile và Spend/Release với reference `CheckoutSession` + cycle ID. Đây chưa phải checkout v3 hoàn chỉnh.
+
+**Email:** dùng SMTP; chỉ Development có `Email:DemoLoggingEnabled=true` mới được log nội dung demo. Gửi thất bại thì revoke mã vừa tạo; không tự giữ điểm hoặc báo xác nhận thành công. Outbox email/retry bền vững thuộc P1.11.
+
+## Phần F — P1.05 Lớp theo khóa, điểm danh, Gym và PT
+
+| Verb | Path | Actor | Hành vi chính |
+|---|---|---|---|
+| GET | `api/classes`, `api/classes/{classId}` | Public | Chỉ `Published`, không trả chi phí/ngưỡng nội bộ; giá và chỗ còn theo cả khóa. |
+| GET/POST/PUT | `api/manager/classes`, `api/manager/classes/{classId}`, `api/manager/classes/{classId}/publish`, `.../cancel` | Manager | Soạn Draft; publish khóa + đủ buổi + occupancy + audit + thông báo Coach cùng transaction; hủy chặn nếu đã có ghi danh/giữ chỗ. |
+| GET | `api/classes/{classId}/sessions`, `api/class-sessions/{sessionId}`, `.../roster` | Nhân viên; Coach đúng lớp | Buổi của cả khóa và roster Confirmed; Coach chỉ đọc lớp được giao. |
+| POST | `api/class-sessions/{sessionId}/reschedule`, `.../cancel` | Manager | Kiểm lại room/coach/opening/capacity/lịch Member; hủy buộc có buổi bù hợp lệ. |
+| PUT | `api/class-sessions/{sessionId}/attendance/{enrollmentId}` | Receptionist | `{status:"Present"|"Absent"}`; từ đầu buổi đến hết 24 giờ sau cuối buổi; ghi audit khi thay đổi. |
+| GET | `api/members/me/enrollments`, `.../schedule` | Member | Ghi danh và lịch cá nhân; không có endpoint tự ghi danh từng buổi. |
+| POST | `api/gym-checkins/{checkInId}/checkout` | Receptionist | Giờ server, idempotent; checkin chưa tồn tại/giờ vào tương lai bị từ chối. |
+
+`IClassEnrollmentFulfillment` cung cấp quote, giữ chỗ, confirm, release và cancel trong transaction của caller; chưa có checkout course gọi port này để thu tiền thật. PT giữ endpoint ở Phần A, thêm `roomId` tùy chọn và chống trùng occupancy. Job NoShow chỉ xử lý buổi PT đã kết thúc; lớp nhóm không tự tạo Present/Absent.
+
+## Phần G — P1.07 Checkout hiện hành
+
+| Verb | Path | Actor | Hành vi |
+|---|---|---|---|
+| POST | `api/checkouts/membership`, `api/checkouts/class`, `api/checkouts/pt` | Member, Receptionist, Manager | Bắt buộc `Idempotency-Key`; staff chỉ định `targetMemberId`, Member chỉ mua cho mình. Trả CheckoutResponse với invoice/cycle/hạn/số tiền. |
+| GET | `api/checkouts/{invoiceId}` | Chủ invoice hoặc staff | Trạng thái chu kỳ checkout hiện tại. |
+| POST | `api/checkouts/{invoiceId}/attempts` | Chủ invoice hoặc staff | Tạo/đọc PaymentAttempt snapshot tiền/điểm và URL VNPay; 100% điểm hoàn tất ngay, không tạo attempt VNPay 0đ. |
+| POST | `api/checkouts/{invoiceId}/cancel`, `.../retry` | Chủ invoice hoặc staff | Hủy nhả hold; retry sau hết hạn cấp invoice/cycle mới và `Idempotency-Key` mới. PT retry cần `priceVersion` mới. |
+| GET/POST | `api/pt-pricing`, `api/checkouts/pt/quote` | Người dùng đã xác thực / Member hoặc staff | Giá PT và quote có version; checkout PT từ chối version cũ. |
+| PUT | `api/manager/pt-pricing` | Manager | Đổi đơn giá PT hợp lệ. |
+| GET | `api/payments/vnpay/return`, `api/payments/vnpay/ipn` | Public (VNPay) | Return chỉ đọc; IPN xác minh chữ ký/tham chiếu/số tiền rồi lưu event và thực hiện fulfillment. |
+| POST | `api/invoices/{invoiceId}/reconcile` | FrontDesk | QueryDR xác minh giao dịch theo attempt mới nhất. |
+| POST | `api/dev/payments/{reference}/simulate` | FrontDesk, Development | Mock callback qua cùng pipeline IPN; không có ở môi trường khác. |
+
+Invoice checkout mới chặn route ghi payment thủ công. `PaidAfterReconciliation` biểu thị khoản thu đến muộn/không thể cấp quyền lợi; `VnPayCompensated` là đã bồi hoàn điểm đúng số tiền, còn `VnPayManualCompensation` + `ReconciliationRequired=true`/event `ManualCompensationRequired` cần xử lý tiền thực thu ngoài hệ thống khi không đổi chính xác sang điểm. `CheckoutSession` và `VerifiedGatewayEvent` giữ lịch sử/idempotency; các checkpoint E/F ở trên mô tả trạng thái khi mới triển khai từng phase. Thuê sân chưa có route checkout vì chờ CourtRental của P1.10.

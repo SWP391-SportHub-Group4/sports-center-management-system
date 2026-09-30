@@ -11,6 +11,7 @@ using SportHub.Scheduling.Application.Commands;
 using SportHub.Scheduling.Application.DTOs;
 using SportHub.Scheduling.Application.Interfaces;
 using SportHub.Scheduling.Catalog.Application;
+using SportHub.Scheduling.Domain.Rules;
 
 namespace SportHub.Scheduling.Application.Services;
 
@@ -38,13 +39,13 @@ public sealed class ClassSessionService(
     {
         await EnsureClassAccessAsync(classId, restrictToCoachId, ct);
 
-        var rows = await Rows().Where(r => r.Session.ClassId == classId).OrderBy(r => r.Session.SessionNo).ToListAsync(ct);
+        var rows = await Rows(db.Set<ClassSession>().AsNoTracking().Where(s => s.ClassId == classId).OrderBy(s => s.SessionNo)).ToListAsync(ct);
         return await ToResponsesAsync(rows, ct);
     }
 
     public async Task<ClassSessionResponse> GetAsync(Guid sessionId, Guid? restrictToCoachId, CancellationToken ct = default)
     {
-        var row = await Rows().SingleOrDefaultAsync(r => r.Session.SessionId == sessionId, ct)
+        var row = await Rows(db.Set<ClassSession>().AsNoTracking().Where(s => s.SessionId == sessionId)).SingleOrDefaultAsync(ct)
                   ?? throw new NotFoundException("session_not_found", "Không tìm thấy buổi học.");
 
         await EnsureClassAccessAsync(row.Session.ClassId, restrictToCoachId, ct);
@@ -53,7 +54,7 @@ public sealed class ClassSessionService(
 
     public async Task<SessionRosterResponse> GetRosterAsync(Guid sessionId, Guid? restrictToCoachId, CancellationToken ct = default)
     {
-        var row = await Rows().SingleOrDefaultAsync(r => r.Session.SessionId == sessionId, ct)
+        var row = await Rows(db.Set<ClassSession>().AsNoTracking().Where(s => s.SessionId == sessionId)).SingleOrDefaultAsync(ct)
                   ?? throw new NotFoundException("session_not_found", "Không tìm thấy buổi học.");
 
         await EnsureClassAccessAsync(row.Session.ClassId, restrictToCoachId, ct);
@@ -136,7 +137,7 @@ public sealed class ClassSessionService(
         var roomId = request.RoomId ?? session.RoomId;
         var coachId = request.CoachId ?? session.CoachId;
 
-        await ValidateTargetAsync(cls, roomId, coachId, session.RoomId, session.CoachId, start, end, ct);
+        await ValidateTargetAsync(cls, roomId, coachId, start, end, ct);
         await EnsureNoMemberConflictAsync(cls.ClassId, start, end, ct);
 
         var before = Describe(session);
@@ -202,7 +203,7 @@ public sealed class ClassSessionService(
         var roomId = makeup.RoomId ?? session.RoomId;
         var coachId = makeup.CoachId ?? session.CoachId;
 
-        await ValidateTargetAsync(cls, roomId, coachId, session.RoomId, session.CoachId, start, end, ct);
+        await ValidateTargetAsync(cls, roomId, coachId, start, end, ct);
         await EnsureNoMemberConflictAsync(cls.ClassId, start, end, ct);
 
         var nextNo = await db.Set<ClassSession>().Where(s => s.ClassId == cls.ClassId).MaxAsync(s => s.SessionNo, ct) + 1;
@@ -255,6 +256,10 @@ public sealed class ClassSessionService(
 
     private async Task<ClassSession> LockAndLoadAsync(Guid sessionId, CancellationToken ct)
     {
+        await CourseScheduleLock.AcquireAsync(db, changingSchedule: true, ct);
+        // Serialize makeup numbering and class cancellation with changes to individual sessions.
+        await db.Database.ExecuteSqlInterpolatedAsync(
+            $"SELECT class_id FROM classes WHERE class_id = (SELECT class_id FROM class_sessions WHERE session_id = {sessionId}) FOR UPDATE", ct);
         await db.Database.ExecuteSqlInterpolatedAsync(
             $"SELECT session_id FROM class_sessions WHERE session_id = {sessionId} FOR UPDATE", ct);
 
@@ -281,18 +286,13 @@ public sealed class ClassSessionService(
     }
 
     private async Task ValidateTargetAsync(
-        Class cls, int roomId, Guid coachId, int currentRoomId, Guid currentCoachId,
+        Class cls, int roomId, Guid coachId,
         DateTime start, DateTime end, CancellationToken ct)
     {
-        if (roomId != currentRoomId)
-        {
-            await validator.RequireRoomForSportAsync(roomId, cls.SportId, ct);
-        }
-
-        if (coachId != currentCoachId)
-        {
-            await validator.RequireCoachForSportAsync(coachId, cls.SportId, ct);
-        }
+        var sport = await validator.RequireGroupCourseSportAsync(cls.SportId, ct);
+        var room = await validator.RequireRoomForSportAsync(roomId, cls.SportId, ct);
+        CourseRules.ValidateCapacity(cls.Capacity, sport.DefaultMaxCapacity, room.Capacity);
+        await validator.RequireCoachForSportAsync(coachId, cls.SportId, ct);
 
         if (!await openingHours.IsOpenAsync(roomId, start, end, ct))
         {
@@ -303,10 +303,15 @@ public sealed class ClassSessionService(
     /// <summary>Dời/bù có thể làm học viên đã ghi danh bị trùng buổi của khóa khác — báo Manager, không tự xử lý.</summary>
     private async Task EnsureNoMemberConflictAsync(int classId, DateTime start, DateTime end, CancellationToken ct)
     {
-        var members = db.Set<Enrollment>().Where(e => e.ClassId == classId && e.Status == EnrollmentStatus.Confirmed).Select(e => e.MemberId);
+        var now = clock.UtcNow;
+        var bookings = db.Set<Enrollment>().Where(e => e.Status == EnrollmentStatus.Confirmed)
+            .Select(e => new { e.ClassId, e.MemberId })
+            .Union(db.Set<SeatHold>().Where(h => h.Status == SeatHoldStatus.Active && h.ExpiresAtUtc > now)
+                .Select(h => new { h.ClassId, h.MemberId }));
+        var members = bookings.Where(e => e.ClassId == classId).Select(e => e.MemberId);
 
-        var affected = await (from e in db.Set<Enrollment>().AsNoTracking()
-                              where e.Status == EnrollmentStatus.Confirmed && e.ClassId != classId && members.Contains(e.MemberId)
+        var affected = await (from e in bookings
+                              where e.ClassId != classId && members.Contains(e.MemberId)
                               join s in db.Set<ClassSession>().AsNoTracking() on e.ClassId equals s.ClassId
                               where s.Status == ClassSessionStatus.Scheduled && s.StartAtUtc < end && s.EndAtUtc > start
                               select e.MemberId).Distinct().CountAsync(ct);
@@ -348,8 +353,8 @@ public sealed class ClassSessionService(
 
     private sealed record Row(ClassSession Session, string ClassName, string RoomName);
 
-    private IQueryable<Row> Rows()
-        => db.Set<ClassSession>().AsNoTracking().Select(s => new Row(s, s.Class!.Name, s.Room!.Name));
+    private static IQueryable<Row> Rows(IQueryable<ClassSession> sessions)
+        => sessions.Select(s => new Row(s, s.Class!.Name, s.Room!.Name));
 
     private async Task<IReadOnlyList<ClassSessionResponse>> ToResponsesAsync(IReadOnlyList<Row> rows, CancellationToken ct)
     {

@@ -41,10 +41,19 @@ public sealed class PaymentRecordingService(
 
         var invoice = await LockInvoiceAsync(invoiceId, ct);
 
+        if (await db.Set<CheckoutSession>().AnyAsync(x => x.InvoiceId == invoiceId, ct))
+            throw new ConflictException("checkout_requires_verified_payment",
+                "Checkout mới chỉ chấp nhận thanh toán đã xác minh qua cổng.");
+
         if (invoice.Status == InvoiceStatus.Void)
         {
             throw new ConflictException("invoice_void", "Hóa đơn đã bị hủy bằng điều chỉnh, không thu thêm được.");
         }
+        if (invoice.PointsApplied > 0 || await db.Set<Wallet.Domain.PointConfirmation>().AnyAsync(x =>
+                x.InvoiceId == invoiceId && x.ConsumedAtUtc == null && x.RevokedAtUtc == null
+                && x.ExpiresAtUtc > clock.UtcNow, ct))
+            throw new ConflictException("point_checkout_requires_gateway",
+                "Hóa đơn đang chọn hoặc giữ điểm; không thể thu tiền qua luồng thủ công cũ.");
 
         var balance = await invoiceQuery.GetBalanceAsync(invoiceId, ct);
         var now = clock.UtcNow;
