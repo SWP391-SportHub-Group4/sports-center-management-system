@@ -61,7 +61,8 @@ public sealed class EmailDispatchService(ISportHubDbContext db, IEmailSender sen
                     ?? throw new InvalidOperationException("Email outbox payload cannot be read.");
                 await sender.SendAsync(row.RecipientAddress, payload.Subject, EmailTemplateRenderer.Render(payload), ct);
                 await db.Set<Domain.Entities.Notification>().Where(x => x.NotificationId == row.NotificationId
-                        && x.Channel == NotificationChannel.Email && x.Status == NotificationStatus.Sending)
+                        && x.Channel == NotificationChannel.Email && x.Status == NotificationStatus.Sending
+                        && x.RetryCount == row.RetryCount && x.LastAttemptAt == row.LastAttemptAt)
                     .ExecuteUpdateAsync(s => s.SetProperty(x => x.Status, NotificationStatus.Sent)
                         .SetProperty(x => x.SentAt, clock.UtcNow)
                         .SetProperty(x => x.DispatchLeaseUntilUtc, (DateTime?)null)
@@ -72,7 +73,8 @@ public sealed class EmailDispatchService(ISportHubDbContext db, IEmailSender sen
             {
                 var error = ex.GetType().Name;
                 await db.Set<Domain.Entities.Notification>().Where(x => x.NotificationId == row.NotificationId
-                        && x.Channel == NotificationChannel.Email && x.Status == NotificationStatus.Sending)
+                        && x.Channel == NotificationChannel.Email && x.Status == NotificationStatus.Sending
+                        && x.RetryCount == row.RetryCount && x.LastAttemptAt == row.LastAttemptAt)
                     .ExecuteUpdateAsync(s => s.SetProperty(x => x.Status, NotificationStatus.Failed)
                         .SetProperty(x => x.DispatchLeaseUntilUtc, (DateTime?)null)
                         .SetProperty(x => x.LastError, error), CancellationToken.None);

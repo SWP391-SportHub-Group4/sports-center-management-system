@@ -127,6 +127,10 @@ public sealed class CheckoutFlowTests(PaymentApiFactory factory)
         var attempt = (await started.Content.ReadFromJsonAsync<PaymentAttemptResponse>())!;
         var mock = Assert.IsType<MockPaymentGateway>(factory.Services.GetRequiredService<IPaymentGateway>());
         var first = mock.BuildCallback(attempt.TransactionReference, attempt.CashAmount, true);
+        var reportDay = DateOnly.FromDateTime(SportHub.BuildingBlocks.SharedKernel.Time.VietnamTime.ToLocal(DateTime.UtcNow));
+        using var reportScope = factory.Services.CreateScope();
+        var reports = reportScope.ServiceProvider.GetRequiredService<SportHub.Payment.Application.Interfaces.IRevenueReportService>();
+        var before = await reports.GetAsync(reportDay, reportDay);
         async Task Receive(IReadOnlyDictionary<string, string> callback)
         {
             using var scope = factory.Services.CreateScope();
@@ -136,6 +140,12 @@ public sealed class CheckoutFlowTests(PaymentApiFactory factory)
         await Task.WhenAll(Receive(first), Receive(first));
         await Receive(first);
         await Receive(mock.BuildCallback(attempt.TransactionReference, attempt.CashAmount, true));
+        var after = await reports.GetAsync(reportDay, reportDay);
+        Assert.Equal(200_000m, after.TotalCollected - before.TotalCollected);
+        Assert.Equal(100_000m, after.ReconciliationCashCollected - before.ReconciliationCashCollected);
+        Assert.Equal(100, after.PointsIssued - before.PointsIssued);
+        Assert.Equal(after.TotalCollected, after.BySource.Sum(x => x.CashCollected));
+        Assert.Equal(after.TotalCollected, after.BySportAndSource.Sum(x => x.CashCollected));
         await factory.QueryAsync(async db =>
         {
             Assert.Equal(1, await db.Payments.CountAsync(x => x.InvoiceId == checkout.InvoiceId

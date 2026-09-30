@@ -33,7 +33,15 @@ jobs:
         run: dotnet build backend/SportHub.sln --configuration Release --no-restore
 
       - name: Test
-        run: dotnet test backend/SportHub.sln --configuration Release --no-build
+        run: dotnet test backend/SportHub.sln --configuration Release --no-build --logger "trx;LogFilePrefix=ci"
+
+      - name: Upload backend test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-results
+          path: backend/**/TestResults/*.trx
+          if-no-files-found: warn
 
   frontend:
     name: Frontend Check

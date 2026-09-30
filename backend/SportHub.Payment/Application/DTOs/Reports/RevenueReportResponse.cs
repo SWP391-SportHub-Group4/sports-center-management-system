@@ -42,7 +42,12 @@ public sealed record RevenueReportResponse(
     public long OutstandingPoints { get; init; }
 
     public IReadOnlyList<RevenueReportSourceRowResponse> BySource { get; init; } = [];
+    public IReadOnlyList<RevenueReportDimensionRowResponse> BySportAndSource { get; init; } = [];
 }
+
+public sealed record RevenueReportDimensionRowResponse(
+    string Source, int? SportId, string? SportName, Guid? ExternalCoachId,
+    decimal CashCollected, decimal LegacyCashCollected, long PointsRedeemed);
 
 public sealed record RevenueReportSourceRowResponse(
     string Source,

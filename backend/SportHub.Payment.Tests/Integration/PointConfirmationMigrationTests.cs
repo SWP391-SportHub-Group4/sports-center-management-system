@@ -28,6 +28,7 @@ public sealed class PointConfirmationMigrationTests(PaymentApiFactory factory)
             .UseSnakeCaseNamingConvention().Options;
         await using var db = new SportHubDbContext(options);
         await db.GetService<IMigrator>().MigrateAsync("20260930050350_MultiSportWallet");
+        await db.Database.ExecuteSqlRawAsync("UPDATE system_settings SET value = '9' WHERE key = 'package_expiring_reminder_days'");
         var member = new UserAccount
         {
             UserId = Guid.NewGuid(), Email = "member@migration.test", Status = UserStatus.Active,
@@ -64,5 +65,7 @@ public sealed class PointConfirmationMigrationTests(PaymentApiFactory factory)
         Assert.Equal(InvoiceStatus.Paid, invoice.Status);
         Assert.Equal(123_000m, await db.Payments.Where(x => x.PaymentId == payment.PaymentId).Select(x => x.Amount).SingleAsync());
         Assert.False(db.Database.HasPendingModelChanges());
+        Assert.Equal("9", await db.Set<SportHub.Administration.Domain.Entities.SystemSetting>()
+            .Where(x => x.Key == "membership.expiry_notice_days").Select(x => x.Value).SingleAsync());
     }
 }

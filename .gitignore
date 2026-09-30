@@ -36,3 +36,5 @@ ai/**/.venv/
 .github/skills/
 .claude/worktrees/
 
+# Generated .NET test run evidence (CI uploads TRX artifacts).
+**/TestResults/

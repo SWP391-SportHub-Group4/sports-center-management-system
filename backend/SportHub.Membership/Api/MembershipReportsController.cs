@@ -15,6 +15,11 @@ public sealed class MembershipReportsController(
     IMembershipReportService reports,
     IClock clock) : ControllerBase
 {
+    [HttpGet("membership-period")]
+    public async Task<ActionResult<MembershipPeriodResponse>> GetPeriod(
+        [FromQuery] DateOnly fromDate, [FromQuery] DateOnly toDate, CancellationToken ct = default)
+        => Ok(await reports.GetPeriodAsync(fromDate, toDate, ct));
+
     [HttpGet("membership-summary")]
     [ProducesResponseType<MembershipSummaryResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]

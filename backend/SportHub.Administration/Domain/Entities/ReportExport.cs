@@ -38,12 +38,28 @@ public class ReportExport
 public static class ReportTypes
 {
     public const string Revenue = "REVENUE";
+    public const string RevenueDaily = "REVENUE_DAILY";
+    public const string RevenueSummary = "REVENUE_SUMMARY";
+    public const string RevenueDimensions = "REVENUE_DIMENSIONS";
+    public const string CourtRentalRevenue = "COURT_RENTAL_REVENUE";
+    public const string MembershipPeriod = "MEMBERSHIP_PERIOD";
+    public const string ClassEnrollment = "CLASS_ENROLLMENT";
 
     public const string MemberSummary = "MEMBER_SUMMARY";
 
     public static readonly IReadOnlyDictionary<string, IReadOnlyList<string>> AllowedColumns =
         new Dictionary<string, IReadOnlyList<string>>
         {
+            [RevenueDaily] =
+            [
+                "date", "collectedAmount", "refundedAmount", "obligationReduction", "netCollected",
+                "legacyCashCollected", "reconciliationCashCollected"
+            ],
+            [RevenueSummary] = ["fromDate", "toDate", "collectedAmount", "refundedAmount", "netCollected", "legacyCashCollected", "reconciliationCashCollected", "pointsRedeemed", "pointsRedeemedVnd", "pointsIssued", "managerPointAdjustment", "outstandingPoints"],
+            [RevenueDimensions] = ["source", "sportId", "sportName", "externalCoachId", "collectedAmount", "legacyCashCollected", "pointsRedeemed", "pointsRedeemedVnd"],
+            [CourtRentalRevenue] = ["source", "sportId", "sportName", "externalCoachId", "collectedAmount", "legacyCashCollected", "pointsRedeemed", "pointsRedeemedVnd"],
+            [MembershipPeriod] = ["fromDate", "toDate", "newMembers", "activeMembersAtPeriodEnd"],
+            [ClassEnrollment] = ["classId", "code", "name", "sportId", "sportName", "status", "capacity", "confirmedCount", "activeHoldCount", "availableSeats", "fillRatio", "breakEvenThreshold", "thresholdStatus", "firstSessionStartUtc"],
             [Revenue] =
             [
                 "invoiceNumber", "issuedAt", "memberEmail", "memberName", "totalAmount",

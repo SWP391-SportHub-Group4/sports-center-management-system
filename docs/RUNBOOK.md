@@ -6,6 +6,12 @@ Hướng dẫn chạy toàn bộ hệ thống (PostgreSQL → API → giao diệ
 
 ## 1. Yêu cầu
 
+**Backend checkpoint P1.12/P1.13 (01/10/2026):** xem `refactor-progress.md` và `refactor-backend-evidence.md` để phân biệt backend đã kiểm với UI còn chờ plan 2. Database demo mới có khóa Draft/Published/AtRisk/InProgress/Completed, ví và lượt thuê thanh toán bằng điểm. Seed lặp lại không cộng điểm/tạo rental trùng. Không dùng các tài khoản hoặc mật khẩu demo trong production.
+
+Chạy gate nghiệp vụ bằng `bash scripts/e2e-business-rules.sh` (Docker đang chạy). Script dùng DB PostgreSQL riêng do Testcontainers tạo và hủy, chạy toàn bộ test RBAC/race/checkout/refund/report thay cho các endpoint legacy trong script cũ. Windows PowerShell dùng `dotnet test backend/SportHub.sln -c Release`.
+
+Production cần SMTP, khóa VNPay, URL return/query HTTPS và thư mục DataProtection bền vững. IPN phải đăng ký với VNPay trỏ tới route backend `/api/payments/vnpay/ipn`; return không cấp quyền lợi. Mock bị chặn ngoài Development. `VnPay__QueryUrl` đã được map trong compose; giờ lưu UTC, biên báo cáo chuyển từ ngày Việt Nam.
+
 - Docker Desktop (cho PostgreSQL)
 - .NET SDK 10
 - Node.js 24, npm 11
@@ -50,15 +56,15 @@ Giao diện: <http://localhost:3000>. Địa chỉ API đọc từ `NEXT_PUBLIC_
 
 Mật khẩu chung Development: **`Sporthub@123`** (chỉ dùng dữ liệu demo local, không dùng production).
 
-Các account dưới đây được tạo bởi `DemoDataSeeder` khi database chưa có tài khoản. Seeder hiện seed ExternalCoach ở đủ bốn trạng thái; điểm/ví và CourtRental demo chưa seed.
+Các account dưới đây được tạo bởi `DemoDataSeeder` khi database chưa có tài khoản. Seeder hiện seed ExternalCoach ở đủ bốn trạng thái; an.member có 500 điểm; ExternalCoach Approved được cấp 500 điểm và đã dùng 100 điểm cho một lượt thuê Confirmed. Ledger có Adjustment/Hold/Spend; chạy seed lại không cộng trùng.
 
 | Vai trò | Email | Vào được gì |
 |---|---|---|
 | Quản trị hệ thống | `admin@sporthub.vn` | Tài khoản nhân sự (Admin/Manager/Receptionist), đổi vai trò, khóa/mở khóa; không xem Audit Log nghiệp vụ |
 | Quản lý trung tâm | `manager@sporthub.vn` | CRUD môn/phòng/sân/giá thuê, Membership, tạo lớp + xếp lịch (có chatbot), phân công Coach, duyệt ExternalCoach, duyệt hoàn điểm, sự cố, báo cáo, Audit Log |
 | Lễ tân | `letan@sporthub.vn` | Gym check-in/out, điểm danh lớp nhóm, checkout thay Member (dùng điểm cần OTP email Member), tạo yêu cầu hoàn điểm hộ có lý do, Court Schedule; không cộng/trừ điểm thủ công, không duyệt hoàn điểm |
-| Coach — chuyên môn Cầu lông | `coach.yoga@sporthub.vn` | Lịch dạy/roster các lớp được phân công; chuyên môn seed ở Cầu lông |
-| Coach — chuyên môn Bóng rổ | `coach.groupx@sporthub.vn` | Lịch dạy/roster các lớp được phân công; chuyên môn seed ở Bóng rổ |
+| Coach — chuyên môn Cầu lông | `coach.caulong@sporthub.vn` | Lịch dạy/roster các lớp được phân công; chuyên môn seed ở Cầu lông |
+| Coach — chuyên môn Bóng rổ | `coach.bongro@sporthub.vn` | Lịch dạy/roster các lớp được phân công; chuyên môn seed ở Bóng rổ |
 | Coach — chuyên môn PT | `coach.pt@sporthub.vn` | PT session, kế hoạch tập, kết quả, homework, gợi ý AI trong phạm vi Member được phân công |
 | ExternalCoach (Approved) | `coach.external.approved@sporthub.vn` | Xem sân trống + giá; có quyền tạo rental, không có lịch/roster Member |
 | ExternalCoach (PendingApproval) | `coach.external.pending@sporthub.vn` | Hồ sơ chờ duyệt; đặt sân bị từ chối |
@@ -73,7 +79,7 @@ xác thực.
 
 ## 4. Đường đi để xem từng luồng
 
-> **Chế độ demo:** nếu chưa cấu hình `VnPay__*` thì thanh toán chạy `MockPaymentGateway` (QR giả; bấm nút/gọi `POST /api/dev/payments/{attemptId}/succeed` để mô phỏng IPN). Nếu chưa cấu hình `Email__*` thì email (kể cả OTP) chỉ nằm trong **log backend** — xem mục 9. Nếu chưa có `Gemini__ApiKey` thì chatbot trả lời mô phỏng đúng 2 kịch bản bên dưới.
+> **Chế độ demo:** chỉ khi `ASPNETCORE_ENVIRONMENT=Development` và `VnPay__UseMock=true` thì thanh toán chạy `MockPaymentGateway` (QR giả; bấm nút/gọi `POST /api/dev/payments/{transactionReference}/simulate` để mô phỏng IPN). Nếu chưa cấu hình SMTP, chỉ khi Development và `Email__DemoLoggingEnabled=true` thì email (kể cả OTP) được dispatcher ghi vào **log backend** — xem mục 9. Nếu chưa có `Gemini__ApiKey` thì chatbot trả lời mô phỏng đúng 2 kịch bản bên dưới.
 
 ### Flow 1 — Tài khoản, Membership, ExternalCoach
 
@@ -87,7 +93,7 @@ xác thực.
 
 1. `manager@sporthub.vn` → **Lớp học**: tạo lớp Cầu lông 01 (giá 600.000đ, chi phí 3.600.000đ ⇒ ngưỡng hoàn vốn 6/12), chọn phòng/sân, lịch buổi, Coach có chuyên môn Cầu lông; `Draft → Published`. Thử xếp Coach vào hai lớp trùng giờ hoặc Coach không có chuyên môn ⇒ bị từ chối.
 2. **Đăng ký lớp có giữ chỗ:** `an.member@sporthub.vn` → duyệt lớp → **Ghi danh**: hệ thống giữ chỗ 15 phút và tạo Invoice. Không thanh toán kịp thì job trả chỗ, thả điểm giữ, Invoice `Expired`. Thanh toán thành công thì ghi danh `Confirmed`. Lớp còn 1 chỗ mà hai Member cùng bấm ⇒ một người nhận `409 class_full`.
-3. **Thuê sân:** `ext.coach@sporthub.vn` → **Thuê sân**: xem khung trống + giá (Cầu lông 100.000đ/giờ thường, 150.000đ/giờ 17:00–21:00), chọn khung ⇒ giữ sân ⇒ thanh toán ⇒ `Confirmed`. Hai ExternalCoach đặt cùng sân/giờ ⇒ một người `409`. Hủy trước 24 giờ hoàn 100% điểm; muộn hơn không hoàn. `ext.pending@` thử đặt ⇒ bị từ chối.
+3. **Thuê sân:** `coach.external.approved@sporthub.vn` → **Thuê sân**: xem khung trống + giá (Cầu lông 100.000đ/giờ trong khung 06:00–22:00), chọn khung ⇒ giữ sân ⇒ thanh toán ⇒ `Confirmed`. Hai ExternalCoach đặt cùng sân/giờ ⇒ một người `409`. Hủy trước 24 giờ hoàn 100% điểm; muộn hơn không hoàn. `coach.external.pending@sporthub.vn` thử đặt ⇒ bị từ chối.
 4. `manager@sporthub.vn` → **Sự cố**: chọn khung giờ, hệ thống hủy lượt thuê, hoàn 100% điểm, khóa sân và gửi email tới Coach, ExternalCoach, học viên.
 
 ### Flow 3 — Thanh toán, điểm & báo cáo
@@ -127,7 +133,7 @@ xác thực.
 ### Kiểm tra phân quyền (Coach / ExternalCoach không vượt quyền)
 
 - `coach.caulong@sporthub.vn` gọi `POST /api/ai/workout-suggestions`, tạo `WorkoutPlan`/`WorkoutResult` ⇒ backend phải trả 403 (không chỉ ẩn menu).
-- `ext.pending@sporthub.vn` đặt sân ⇒ từ chối; `ext.coach@sporthub.vn` gọi API quản lý lớp/điểm danh ⇒ 403.
+- `coach.external.pending@sporthub.vn` đặt sân ⇒ từ chối; `coach.external.approved@sporthub.vn` gọi API quản lý lớp/điểm danh ⇒ 403.
 - Xem `docs/Center-Management-System-Design-v3.md` §10 (RBAC).
 
 ### Gym / Fitness
@@ -216,7 +222,7 @@ Cấu hình nghiệp vụ **không** nằm ở file cấu hình mà ở màn hì
 |---|---|---|
 | Không nhận email OTP (đăng ký, quên mật khẩu, OTP thanh toán thay, ExternalCoach) | Thiếu `Email__Smtp__*` ⇒ đang dùng `LoggingEmailSender` | Đọc OTP trong **log backend**: `docker compose logs -f backend` (Docker) hoặc cửa sổ `dotnet run`; tìm dòng email có mã 6 số gần nhất. OTP thanh toán chỉ sống 5 phút — yêu cầu gửi lại nếu quá hạn |
 | Gửi SMTP lỗi khi đã cấu hình | Gmail cần **App Password**, không dùng mật khẩu đăng nhập; hoặc compose chưa truyền `Email__*` | Tạo App Password, điền `Email__Smtp__Username/Password`; thêm biến vào `environment` của service `backend`; khởi động lại backend |
-| Quét QR VNPay không ra thanh toán / Invoice mãi `Pending` | Thiếu `VnPay__TmnCode/HashSecret` ⇒ `MockPaymentGateway` (QR giả); hoặc IPN không tới được máy local | Dùng endpoint dev `POST /api/dev/payments/{attemptId}/succeed` (chỉ ở Development) để mô phỏng IPN; với sandbox thật cần URL IPN công khai (ngrok) hoặc để backend gọi QueryDR |
+| Quét QR VNPay không ra thanh toán / Invoice mãi `Pending` | Development + `VnPay__UseMock=true` ⇒ `MockPaymentGateway`; hoặc IPN không tới được máy local | Dùng endpoint dev `POST /api/dev/payments/{transactionReference}/simulate` (chỉ ở Development) để mô phỏng IPN; với sandbox thật cần URL IPN công khai (ngrok) hoặc để backend gọi QueryDR |
 | Checkout dùng đủ điểm nhưng không thấy QR | Đúng thiết kế: `cash_amount = 0` ⇒ không tạo PaymentAttempt, Invoice `Paid` ngay | Không cần xử lý |
 | Chatbot trả lời cố định, không hiểu câu hỏi tự do | Thiếu `Gemini__ApiKey` ⇒ provider mô phỏng chỉ trả 2 kịch bản (Member "hôm nay tôi tập gì", Manager "mở thêm lớp…") | Dùng đúng câu hỏi của kịch bản Flow 6 hoặc điền `Gemini__ApiKey` (model mặc định `gemini-3.5-flash-lite`) |
 | Gemini lỗi/timeout | Sai khóa hoặc mạng; `Gemini__TimeoutSeconds` = 30 | Kiểm tra khóa; hệ thống tự rơi về bộ luật cục bộ cho gợi ý bài tập |

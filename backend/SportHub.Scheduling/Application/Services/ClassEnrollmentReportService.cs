@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
+using SportHub.BuildingBlocks.SharedKernel.Time;
 using SportHub.Scheduling.Application.DTOs;
 using SportHub.Scheduling.Application.Interfaces;
 
@@ -10,7 +11,7 @@ namespace SportHub.Scheduling.Application.Services;
 /// Báo cáo sĩ số theo khóa (canonical: GET /api/reports/class-enrollment). Confirmed và giữ chỗ Active tách riêng: giữ chỗ chưa trả tiền
 /// KHÔNG tính vào lấp đầy/ngưỡng hoàn vốn. Chỉ tính khóa đã publish trở đi (Draft chưa có sĩ số).
 /// </summary>
-public sealed class ClassEnrollmentReportService(ISportHubDbContext db) : IClassEnrollmentReportService
+public sealed class ClassEnrollmentReportService(ISportHubDbContext db, IClock clock) : IClassEnrollmentReportService
 {
     public const int MaximumRangeDays = 366;
 
@@ -45,12 +46,20 @@ public sealed class ClassEnrollmentReportService(ISportHubDbContext db) : IClass
             })
             .ToListAsync(ct);
 
+        var classIds = rows.Select(r => r.ClassId).ToArray();
+        var now = clock.UtcNow;
+        var activeHolds = await db.Set<SeatHold>().AsNoTracking()
+            .Where(h => classIds.Contains(h.ClassId) && h.Status == SeatHoldStatus.Active && h.ExpiresAtUtc > now)
+            .GroupBy(h => h.ClassId)
+            .Select(g => new { ClassId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.ClassId, x => x.Count, ct);
+
         var classes = rows.Select(r =>
         {
-            var holds = r.ReservedCount - r.ConfirmedCount;
+            var holds = activeHolds.GetValueOrDefault(r.ClassId);
             return new ClassEnrollmentRowResponse(
                 r.ClassId, r.Code, r.Name, r.SportId, r.SportName, r.Status.ToString(), r.Capacity, r.ConfirmedCount, holds,
-                Math.Max(0, r.Capacity - r.ReservedCount),
+                Math.Max(0, r.Capacity - r.ConfirmedCount - holds),
                 r.Capacity == 0 ? 0m : Math.Round((decimal)r.ConfirmedCount / r.Capacity, 4),
                 r.BreakEvenThreshold, r.ThresholdStatus.ToString(), r.FirstStart);
         }).ToList();

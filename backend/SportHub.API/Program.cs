@@ -253,6 +253,7 @@ builder.Services.AddScoped<SportHub.Scheduling.Threshold.Application.ThresholdRe
 builder.Services.AddScoped<SportHub.Scheduling.Threshold.Application.ThresholdResponseExpiryService>();
 builder.Services.AddScoped<IClassSessionService, ClassSessionService>();
 builder.Services.AddScoped<IClassEnrollmentReportService, ClassEnrollmentReportService>();
+builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Reporting.IClassEnrollmentExportReader, ClassEnrollmentExportReader>();
 builder.Services.AddScoped<CourseValidator>();
 builder.Services.AddScoped<SeatHoldService>();
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Scheduling.IClassEnrollmentFulfillment, ClassEnrollmentFulfillment>();
@@ -269,6 +270,7 @@ builder.Services.AddScoped<IPaymentAdjustmentService, PaymentAdjustmentService>(
 builder.Services.AddScoped<IPointRefundService, PointRefundService>();
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Payment.IRefundCreditService, RefundCreditService>();
 builder.Services.AddScoped<IRevenueReportService, RevenueReportService>();
+builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Reporting.IRevenueDimensionReader, RevenueDimensionReader>();
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Wallet.IPointWalletService, SportHub.Payment.Wallet.Application.PointWalletService>();
 builder.Services.AddScoped<SportHub.Payment.Wallet.Application.WalletQueryService>();
 builder.Services.AddScoped<SportHub.Payment.Wallet.Application.PointAdjustmentService>();

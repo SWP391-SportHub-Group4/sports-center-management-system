@@ -24,7 +24,8 @@ namespace SportHub.Payment.Application.Services;
 /// mỗi ngày là [00:00 VN, 00:00 VN hôm sau) quy đổi sang UTC. Nếu cắt thẳng theo ngày UTC,
 /// mọi giao dịch từ 00:00–07:00 giờ VN sẽ rơi nhầm sang ngày hôm trước.
 /// </summary>
-public sealed class RevenueReportService(ISportHubDbContext db) : IRevenueReportService
+public sealed class RevenueReportService(ISportHubDbContext db,
+    SportHub.BuildingBlocks.Abstractions.Reporting.IRevenueDimensionReader dimensions) : IRevenueReportService
 {
     public async Task<RevenueReportResponse> GetAsync(
         DateOnly fromDate,
@@ -37,6 +38,9 @@ public sealed class RevenueReportService(ISportHubDbContext db) : IRevenueReport
         }
 
         var fromUtc = VietnamTime.StartOfDayUtc(fromDate);
+        if (toDate.DayNumber - fromDate.DayNumber > 366)
+            throw new SportHub.BuildingBlocks.SharedKernel.Errors.BadRequestException(
+                "range_too_large", "Khoảng báo cáo tối đa 366 ngày.");
         var toUtcExclusive = VietnamTime.EndOfDayExclusiveUtc(toDate);
 
         var payments = await db.Set<Domain.Entities.Payment>()
@@ -71,8 +75,8 @@ public sealed class RevenueReportService(ISportHubDbContext db) : IRevenueReport
                                     join payment in db.Set<Domain.Entities.Payment>().AsNoTracking() on invoice.InvoiceId equals payment.InvoiceId
                                     where payment.Status == PaymentStatus.Success
                                           && payment.PaidAt >= fromUtc && payment.PaidAt < toUtcExclusive
-                                    select new { Source = item.ItemType.ToString(), item.LineAmount,
-                                        invoice.TotalAmount, payment.Amount })
+                                    select new { item.ItemId, Source = item.ItemType.ToString(), item.LineAmount,
+                                        invoice.TotalAmount, payment.Amount, payment.Method })
             .ToListAsync(ct);
 
         var pointItemIds = pointEntries.Where(e => e.InvoiceItemId.HasValue)
@@ -125,6 +129,41 @@ public sealed class RevenueReportService(ISportHubDbContext db) : IRevenueReport
             .Select(source => new RevenueReportSourceRowResponse(source,
                 sourceCash.GetValueOrDefault(source), sourcePoints.GetValueOrDefault(source)))
             .ToList();
+
+        var dimensionMap = await dimensions.ReadAsync(sourceCashRows.Select(x => x.ItemId)
+            .Union(pointItemIds).ToArray(), ct);
+        var dimensionCash = sourceCashRows.Select(x => new
+        {
+            x.Source, Dimension = dimensionMap.GetValueOrDefault(x.ItemId),
+            Cash = x.TotalAmount == 0 ? 0 : x.Amount * x.LineAmount / x.TotalAmount,
+            Legacy = x.Method != PaymentMethod.VnPay, Points = 0L
+        });
+        var dimensionPoints = pointEntries.Where(x => x.EntryType == PointEntryType.Spend).Select(x => new
+        {
+            Source = x.InvoiceItemId is Guid id ? pointItemSources.GetValueOrDefault(id, "Unclassified") : "Unclassified",
+            Dimension = x.InvoiceItemId is Guid itemId ? dimensionMap.GetValueOrDefault(itemId) : null,
+            Cash = 0m, Legacy = false, Points = (long)x.Points
+        });
+        var dimensionRows = dimensionCash.Concat(dimensionPoints)
+            .GroupBy(x => new { x.Source, x.Dimension })
+            .Select(g => new RevenueReportDimensionRowResponse(g.Key.Source,
+                g.Key.Dimension?.SportId, g.Key.Dimension?.SportName, g.Key.Dimension?.ExternalCoachId,
+                g.Sum(x => x.Cash), g.Where(x => x.Legacy).Sum(x => x.Cash), g.Sum(x => x.Points)))
+            .OrderBy(x => x.Source).ThenBy(x => x.SportId).ThenBy(x => x.ExternalCoachId).ToList();
+        if (reconciliationCash.Count > 0)
+        {
+            var cash = reconciliationCash.Sum(x => x.Amount);
+            sourceRows.Add(new("Reconciliation", cash, 0));
+            dimensionRows.Add(new("Reconciliation", null, null, null, cash, 0, 0));
+        }
+        // Older invoices may have no item breakdown. Keep their cash visible without inventing a sport/source.
+        var unclassifiedCash = payments.Sum(x => x.Amount) - sourceCash.Values.Sum();
+        var unclassifiedLegacy = legacyCashCollected - dimensionRows.Sum(x => x.LegacyCashCollected);
+        if (unclassifiedCash != 0 || unclassifiedLegacy != 0)
+        {
+            sourceRows.Add(new("LegacyUnclassified", unclassifiedCash, 0));
+            dimensionRows.Add(new("LegacyUnclassified", null, null, null, unclassifiedCash, unclassifiedLegacy, 0));
+        }
 
         var collectedByDay = payments
             .GroupBy(p => DateOnly.FromDateTime(VietnamTime.ToLocal(p.PaidAt)))
@@ -180,7 +219,8 @@ public sealed class RevenueReportService(ISportHubDbContext db) : IRevenueReport
             PointsIssued = pointsIssued,
             ManagerPointAdjustment = managerPointAdjustment,
             OutstandingPoints = outstandingPoints,
-            BySource = sourceRows
+            BySource = sourceRows,
+            BySportAndSource = dimensionRows
         };
     }
 }
