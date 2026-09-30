@@ -14,6 +14,7 @@ using SportHub.Payment.Domain.Entities;
 using SportHub.Scheduling;
 using SportHub.Scheduling.Catalog.Domain;
 using SportHub.Scheduling.Occupancy.Domain;
+using SportHub.Scheduling.Rental.Domain;
 using SportHub.Scheduling.Domain.Entities;
 using SportHub.Training;
 using SportHub.Training.Domain.Entities;
@@ -57,8 +58,11 @@ public class SportHubDbContext : DbContext, ISportHubDbContext
     public DbSet<SeatHold> SeatHolds => Set<SeatHold>();
     public DbSet<ClassSession> ClassSessions => Set<ClassSession>();
     public DbSet<Enrollment> Enrollments => Set<Enrollment>();
+    public DbSet<SportHub.Scheduling.Threshold.Domain.ThresholdResponse> ThresholdResponses => Set<SportHub.Scheduling.Threshold.Domain.ThresholdResponse>();
     public DbSet<Attendance> Attendances => Set<Attendance>();
     public DbSet<GymCheckIn> GymCheckIns => Set<GymCheckIn>();
+    public DbSet<CourtRental> CourtRentals => Set<CourtRental>();
+    public DbSet<SportHub.Scheduling.Rental.Domain.IncidentNotice> IncidentNotices => Set<SportHub.Scheduling.Rental.Domain.IncidentNotice>();
 
     public DbSet<WorkoutPlan> WorkoutPlans => Set<WorkoutPlan>();
     public DbSet<WorkoutPlanItem> WorkoutPlanItems => Set<WorkoutPlanItem>();

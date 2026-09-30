@@ -184,6 +184,22 @@ public sealed class PtSessionService(
         return await ApplyCancelAsync(sessionId, timing, request.Reason, managerId, "CANCEL_PT_SESSION", ct);
     }
 
+    internal async Task CancelScheduledForRefundAsync(
+        Guid entitlementId, string reason, Guid managerId, CancellationToken ct)
+    {
+        if (db.Database.CurrentTransaction is null)
+            throw new InvalidOperationException("PT refund cancellation requires the caller's transaction.");
+        var sessionIds = await db.Set<PtSession>().AsNoTracking()
+            .Where(s => s.EntitlementId == entitlementId && s.Status == PtSessionStatus.Scheduled
+                && s.StartAtUtc > clock.UtcNow)
+            .OrderBy(s => s.StartAtUtc)
+            .Select(s => s.SessionId)
+            .ToListAsync(ct);
+        foreach (var sessionId in sessionIds)
+            await ApplyCancelAsync(sessionId, PtSessionTimingClassification.OnTime, reason, managerId,
+                "CANCEL_PT_SESSION_FOR_REFUND", ct, manageTransaction: false);
+    }
+
     public async Task<PtSessionResponse> ManagerRescheduleAsync(
         Guid sessionId, ManagerReschedulePtSessionRequest request, Guid managerId, CancellationToken ct = default)
     {

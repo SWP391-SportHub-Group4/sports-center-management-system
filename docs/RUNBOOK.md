@@ -48,22 +48,24 @@ Giao diện: <http://localhost:3000>. Địa chỉ API đọc từ `NEXT_PUBLIC_
 
 ## 3. Tài khoản demo
 
-Mật khẩu chung: **`Sporthub@123`** (thỏa password policy BR-102: hoa, thường, số, ký tự đặc biệt)
+Mật khẩu chung Development: **`Sporthub@123`** (chỉ dùng dữ liệu demo local, không dùng production).
 
-Bộ tài khoản theo Design v3 §15. Email đánh dấu *(dự kiến)* là tên đề xuất cho seeder mới — sửa bảng này cho khớp `DemoDataSeeder.cs` sau khi seed.
+Các account dưới đây được tạo bởi `DemoDataSeeder` khi database chưa có tài khoản. Seeder hiện seed ExternalCoach ở đủ bốn trạng thái; điểm/ví và CourtRental demo chưa seed.
 
 | Vai trò | Email | Vào được gì |
 |---|---|---|
 | Quản trị hệ thống | `admin@sporthub.vn` | Tài khoản nhân sự (Admin/Manager/Receptionist), đổi vai trò, khóa/mở khóa; không xem Audit Log nghiệp vụ |
 | Quản lý trung tâm | `manager@sporthub.vn` | CRUD môn/phòng/sân/giá thuê, Membership, tạo lớp + xếp lịch (có chatbot), phân công Coach, duyệt ExternalCoach, duyệt hoàn điểm, sự cố, báo cáo, Audit Log |
 | Lễ tân | `letan@sporthub.vn` | Gym check-in/out, điểm danh lớp nhóm, checkout thay Member (dùng điểm cần OTP email Member), tạo yêu cầu hoàn điểm hộ có lý do, Court Schedule; không cộng/trừ điểm thủ công, không duyệt hoàn điểm |
-| Coach — chuyên môn Cầu lông | `coach.caulong@sporthub.vn` *(dự kiến; trước đây `coach.yoga@`)* | Lịch dạy, roster lớp Cầu lông mình phụ trách; **không** có PT/AI vì không có chuyên môn PT |
-| Coach — chuyên môn Bóng rổ + PT | `coach.pt@sporthub.vn` *(giữ email cũ)* | Lịch dạy Bóng rổ; PT session, kế hoạch tập, kết quả, homework, gợi ý AI trong phạm vi Member được phân công |
-| ExternalCoach (Approved) | `ext.coach@sporthub.vn` *(dự kiến)* | Xem sân trống + giá, thuê/hủy sân, thanh toán, ví điểm, lịch sử thuê |
-| ExternalCoach (PendingApproval) | `ext.pending@sporthub.vn` *(dự kiến)* | Chỉ thấy màn "chờ duyệt"; mọi thao tác đặt sân bị từ chối |
-| Hội viên (có 500 điểm) | `an.member@sporthub.vn` | Tự checkout Membership/PT/lớp, dùng điểm, VNPay-QR, ví điểm, chatbot Member |
-| Hội viên | `binh.member@sporthub.vn`, `chi.member@sporthub.vn` *(3 Member theo Design v3 §15; các tài khoản `dung/giang.member@` cũ có thể bỏ)* | như trên |
-| Hội viên (ngừng hoạt động) | `hoa.member@sporthub.vn` | minh hoạ tài khoản bị khóa (BR-6) — giữ nếu seeder còn |
+| Coach — chuyên môn Cầu lông | `coach.yoga@sporthub.vn` | Lịch dạy/roster các lớp được phân công; chuyên môn seed ở Cầu lông |
+| Coach — chuyên môn Bóng rổ | `coach.groupx@sporthub.vn` | Lịch dạy/roster các lớp được phân công; chuyên môn seed ở Bóng rổ |
+| Coach — chuyên môn PT | `coach.pt@sporthub.vn` | PT session, kế hoạch tập, kết quả, homework, gợi ý AI trong phạm vi Member được phân công |
+| ExternalCoach (Approved) | `coach.external.approved@sporthub.vn` | Xem sân trống + giá; có quyền tạo rental, không có lịch/roster Member |
+| ExternalCoach (PendingApproval) | `coach.external.pending@sporthub.vn` | Hồ sơ chờ duyệt; đặt sân bị từ chối |
+| ExternalCoach (Rejected) | `coach.external.rejected@sporthub.vn` | Minh họa hồ sơ bị từ chối |
+| ExternalCoach (Suspended) | `coach.external.suspended@sporthub.vn` | Minh họa hồ sơ tạm ngưng; không tạo rental mới |
+| Hội viên | `an.member@sporthub.vn`, `binh.member@sporthub.vn`, `chi.member@sporthub.vn`, `dung.member@sporthub.vn`, `giang.member@sporthub.vn` | Checkout Membership/PT/lớp, ví điểm sau khi có giao dịch hợp lệ |
+| Hội viên (ngừng hoạt động) | `hoa.member@sporthub.vn` | Minh họa account deactivated (BR-6) |
 
 Nút "tài khoản demo" ở màn hình đăng nhập chỉ **điền sẵn form**; việc đăng nhập vẫn đi qua
 `POST /api/auth/login` với mật khẩu băm BCrypt trong DB (BR-5). Không có cửa sau nào bỏ qua

@@ -19,7 +19,8 @@ public static class SystemSettingKeys
     /// BR-33 — nhắc trước bao nhiêu ngày khi gói sắp hết hạn. BR chỉ nêu "ví dụ: 7 ngày",
     /// nên đây là cấu hình, không phải ngưỡng đã chốt.
     /// </summary>
-    public const string PackageExpiringReminderDays = "package_expiring_reminder_days";
+    public const string MembershipExpiryNoticeDays = "membership.expiry_notice_days";
+    public const string PackageExpiringReminderDays = MembershipExpiryNoticeDays;
 
     /// <summary>BR-119 — đánh giá ngưỡng hoàn vốn trước buổi đầu bao nhiêu ngày.</summary>
     public const string ClassThresholdDaysBeforeStart = "class.threshold_days_before_start";
@@ -31,4 +32,9 @@ public static class SystemSettingKeys
     public const string HoldMinutes = "hold.minutes";
 
     public const string PtPricePerSessionVnd = "pt.price_per_session_vnd";
+    public const string PointsConfirmOtpMinutes = "points.confirm_otp_minutes";
+    public const string RentalSlotMinutes = "rental.slot_minutes";
+    public const string RentalMaxHours = "rental.max_hours";
+    public const string RentalAdvanceDays = "rental.advance_days";
+    public const string RentalCancelFreeHours = "rental.cancel_free_hours";
 }

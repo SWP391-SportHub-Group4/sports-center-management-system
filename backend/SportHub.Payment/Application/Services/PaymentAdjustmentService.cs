@@ -85,6 +85,9 @@ public sealed class PaymentAdjustmentService(
                 $"Loại điều chỉnh không hợp lệ: '{request.Type}'. Hợp lệ: Refund, Correction, Discount.");
         }
 
+        if (type == PaymentAdjustmentType.Refund)
+            throw new ConflictException("refund_use_point_workflow", "Refund mới phải được tạo theo InvoiceItem qua /api/refunds.");
+
         var invoice = await db.Set<Invoice>().AsNoTracking()
             .SingleOrDefaultAsync(i => i.InvoiceId == invoiceId, ct)
             ?? throw new NotFoundException("invoice_not_found", "Không tìm thấy hóa đơn.");
@@ -157,6 +160,9 @@ public sealed class PaymentAdjustmentService(
                 "adjustment_already_resolved",
                 $"Yêu cầu đang ở trạng thái {adjustment.Status}, không duyệt lại được.");
         }
+
+        if (adjustment.Type == PaymentAdjustmentType.Refund)
+            throw new ConflictException("legacy_refund_not_approvable", "Refund mới phải đi qua workflow hoàn điểm theo InvoiceItem.");
 
         // BR-42 — người tạo yêu cầu không được tự duyệt, kể cả khi họ là Center Manager.
         if (adjustment.RequestedByUserId == actorUserId)
@@ -242,117 +248,6 @@ public sealed class PaymentAdjustmentService(
         return await GetOneAsync(adjustmentId, ct);
     }
 
-    /// <summary>
-    /// BR-42 v1.4 — Lễ tân xác nhận đã thực trả một Refund Approved. Đây là thời điểm DUY NHẤT
-    /// <c>RefundedAmount</c> tăng, và là ngày mà báo cáo thu ròng dùng để quy kỳ (BR-43).
-    /// </summary>
-    public async Task<PaymentAdjustmentResponse> CompleteRefundAsync(
-        Guid adjustmentId,
-        CompleteAdjustmentRequest request,
-        Guid actorUserId,
-        CancellationToken ct = default)
-    {
-        if (!Enum.TryParse<PaymentMethod>(request.RefundMethod, ignoreCase: true, out var method))
-        {
-            throw new BadRequestException(
-                "invalid_payment_method",
-                $"Hình thức hoàn tiền không hợp lệ: '{request.RefundMethod}'. Hợp lệ: Cash, Card, Transfer, EWallet.");
-        }
-
-        var reference = string.IsNullOrWhiteSpace(request.RefundReferenceCode)
-            ? null
-            : request.RefundReferenceCode.Trim();
-
-        // Tiền mặt tại quầy có actor + thời điểm + Audit làm bằng chứng; mọi kênh còn lại đi
-        // qua hệ thống khác nên phải có mã đối soát, nếu không thì không ai chứng minh được
-        // khoản này đã thực sự ra khỏi tài khoản trung tâm.
-        if (method != PaymentMethod.Cash && reference is null)
-        {
-            throw new BadRequestException(
-                "refund_reference_required",
-                $"Hoàn tiền bằng {method} phải có mã tham chiếu giao dịch (BR-42).");
-        }
-
-        await using var transaction = await db.Database.BeginTransactionAsync(ct);
-
-        var adjustment = await LockAdjustmentAsync(adjustmentId, ct);
-
-        if (adjustment.Type != PaymentAdjustmentType.Refund)
-        {
-            throw new ConflictException(
-                "not_a_refund",
-                $"Chỉ Refund mới cần xác nhận thực trả; điều chỉnh này là {adjustment.Type}.");
-        }
-
-        // Retry của cùng một thao tác không được tạo thêm một lần hoàn nữa (BR-42).
-        if (adjustment.Status != PaymentAdjustmentStatus.Approved)
-        {
-            throw new ConflictException(
-                "adjustment_not_approved",
-                adjustment.Status == PaymentAdjustmentStatus.Completed
-                    ? "Khoản hoàn này đã được xác nhận thực trả trước đó."
-                    : $"Chỉ Refund đã duyệt mới xác nhận thực trả được; trạng thái hiện tại: {adjustment.Status}.");
-        }
-
-        var invoice = await db.Set<Invoice>().SingleAsync(i => i.InvoiceId == adjustment.InvoiceId, ct);
-        if (invoice.PointsApplied > 0)
-            throw new ConflictException("point_checkout_active", "Không hoàn tiền qua luồng cũ khi hóa đơn đang giữ điểm.");
-
-        // Đọc lại số dư SAU khi đã khoá bản ghi: giữa lúc duyệt và lúc trả tiền, hoá đơn có
-        // thể đã có thêm khoản hoàn khác hoặc thêm khoản thu, nên trần lúc duyệt không còn
-        // đúng nữa.
-        var balanceBefore = await invoiceQuery.GetBalanceAsync(adjustment.InvoiceId, ct);
-
-        if (adjustment.Amount > balanceBefore.MaxRefundable)
-        {
-            throw new ConflictException(
-                "refund_exceeds_collected",
-                $"Số tiền hoàn ({adjustment.Amount:N0} VND) vượt quá số thực thu còn có thể hoàn "
-                + $"({balanceBefore.MaxRefundable:N0} VND).");
-        }
-
-        if (adjustment.Amount > balanceBefore.RefundDue)
-        {
-            throw new ConflictException(
-                "refund_exceeds_refund_due",
-                $"Số tiền hoàn ({adjustment.Amount:N0} VND) vượt quá khoản cần hoàn hiện tại "
-                + $"({balanceBefore.RefundDue:N0} VND). Cần có căn cứ giảm nghĩa vụ trước (BR-52).");
-        }
-
-        var now = clock.UtcNow;
-
-        adjustment.Status = PaymentAdjustmentStatus.Completed;
-        adjustment.CompletedAtUtc = now;
-        adjustment.CompletedByUserId = actorUserId;
-        adjustment.RefundMethod = method;
-        adjustment.RefundReferenceCode = reference;
-        adjustment.ResolvedAt = now;
-
-        var balanceAfter = balanceBefore with
-        {
-            RefundedAmount = balanceBefore.RefundedAmount + adjustment.Amount
-        };
-
-        // BR-40: Paid ở lại Paid — DeriveStatus tự giữ. Gọi ở đây để hoá đơn chưa Paid cũng
-        // được cập nhật đúng.
-        invoice.Status = InvoiceMath.DeriveStatus(invoice.Status, balanceAfter);
-
-        var referenceJson = reference is null ? "null" : $"\"{reference}\"";
-
-        audit.Write(new AuditEntry(
-            actorUserId, "COMPLETE_PAYMENT_REFUND", nameof(PaymentAdjustment), adjustmentId.ToString(),
-            OldValue: $"{{\"status\":\"{PaymentAdjustmentStatus.Approved}\","
-                      + $"\"refundedAmount\":{balanceBefore.RefundedAmount}}}",
-            NewValue: $"{{\"status\":\"{PaymentAdjustmentStatus.Completed}\",\"amount\":{adjustment.Amount},"
-                      + $"\"method\":\"{method}\",\"reference\":{referenceJson},"
-                      + $"\"refundedAmount\":{balanceAfter.RefundedAmount},\"completedAtUtc\":\"{now:O}\"}}",
-            Reason: request.Note.Trim()));
-
-        await db.SaveChangesAsync(ct);
-        await transaction.CommitAsync(ct);
-
-        return await GetOneAsync(adjustmentId, ct);
-    }
 
     public async Task<PaymentAdjustmentResponse> RejectAsync(
         Guid adjustmentId,

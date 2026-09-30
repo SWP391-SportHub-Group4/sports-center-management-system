@@ -37,7 +37,8 @@ public sealed record WalletOperation(
     string ReferenceType,
     Guid ReferenceId,
     Guid? ActorUserId = null,
-    string? Note = null);
+    string? Note = null,
+    Guid? InvoiceItemId = null);
 
 public enum WalletAdjustmentDirection
 {

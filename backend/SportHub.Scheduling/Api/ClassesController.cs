@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using SportHub.BuildingBlocks.Api;
 using SportHub.Scheduling.Application.Commands;
 using SportHub.Scheduling.Application.Interfaces;
+using SportHub.Scheduling.Threshold.Application;
 
 namespace SportHub.Scheduling.Api;
 
@@ -12,7 +13,8 @@ namespace SportHub.Scheduling.Api;
 /// Không có endpoint ghi danh: ghi danh chỉ sinh từ checkout thanh toán thành công.
 /// </summary>
 [ApiController]
-public class ClassesController(IClassService classes, IClassSessionService sessions) : ControllerBase
+public class ClassesController(IClassService classes, IClassSessionService sessions,
+    IClassThresholdService thresholds) : ControllerBase
 {
     [AllowAnonymous]
     [HttpGet("api/classes")]
@@ -67,6 +69,25 @@ public class ClassesController(IClassService classes, IClassSessionService sessi
     [HttpPost("api/manager/classes/{classId:int}/cancel")]
     public async Task<IActionResult> Cancel(int classId, [FromBody] CancelClassRequest request, CancellationToken ct)
         => Ok(await classes.CancelAsync(classId, request, User.RequireUserId(), ct));
+
+    [Authorize(Policy = SportHubPolicies.CenterManager)]
+    [HttpPost("api/manager/classes/{classId:int}/threshold/waive")]
+    public async Task<IActionResult> WaiveThreshold(int classId, [FromBody] WaiveClassThresholdRequest request,
+        CancellationToken ct)
+    {
+        await thresholds.WaiveAsync(classId, User.RequireUserId(), request.Reason, ct);
+        return NoContent();
+    }
+
+    [Authorize(Policy = SportHubPolicies.CenterManager)]
+    [HttpPut("api/manager/classes/{classId:int}/threshold/pricing")]
+    public async Task<IActionResult> UpdateThresholdPricing(int classId,
+        [FromBody] UpdateClassThresholdPricingRequest request, CancellationToken ct)
+    {
+        await thresholds.UpdatePricingAsync(classId, request.Price, request.CostAmount,
+            User.RequireUserId(), request.Reason, ct);
+        return NoContent();
+    }
 
     private Guid? CoachScope()
         => User.IsInRole(SportHubRoleNames.Coach) ? User.RequireUserId() : null;

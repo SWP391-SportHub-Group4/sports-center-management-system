@@ -1,6 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
-using SportHub.BuildingBlocks.Abstractions.Email;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.Identity.Application.Commands;
@@ -17,9 +15,7 @@ namespace SportHub.Identity.Application.Services;
 public sealed class PasswordResetService(
     ISportHubDbContext db,
     IPasswordHasher passwordHasher,
-    IEmailSender emailSender,
-    EmailOtpFlow otpFlow,
-    ILogger<PasswordResetService> logger) : IPasswordResetService
+    EmailOtpFlow otpFlow) : IPasswordResetService
 {
     public async Task RequestAsync(ForgotPasswordRequest request, CancellationToken ct = default)
     {
@@ -40,23 +36,7 @@ public sealed class PasswordResetService(
             return; // đang chờ gửi lại: vẫn trung tính, không tiết lộ cooldown
         }
 
-        try
-        {
-            await emailSender.SendAsync(
-                email,
-                "SportHub - Mã đặt lại mật khẩu",
-                "<p>Mã đặt lại mật khẩu SportHub của bạn là:</p>"
-                + "<p style=\"font-size:24px;font-weight:bold;letter-spacing:4px\">" + code + "</p>"
-                + "<p>Mã có hiệu lực trong " + AuthService.OtpLifetime.TotalMinutes.ToString("0") + " phút. "
-                + "Nếu bạn không yêu cầu, hãy bỏ qua email này.</p>",
-                ct);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            // Không báo lỗi ra ngoài (sẽ làm lộ email có tồn tại). Bỏ mã để người dùng thử lại ngay.
-            logger.LogError(ex, "Không gửi được email đặt lại mật khẩu.");
-            await otpFlow.DiscardAsync(email, EmailOtpPurpose.ResetPassword);
-        }
+        // EmailOtpFlow writes the OTP and its encrypted email outbox row in one SaveChanges.
     }
 
     public async Task ResetAsync(ResetPasswordRequest request, CancellationToken ct = default)

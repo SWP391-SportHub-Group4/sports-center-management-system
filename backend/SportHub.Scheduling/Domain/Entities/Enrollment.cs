@@ -26,4 +26,7 @@ public class Enrollment
 
     /// <summary>Ghi danh này là kết quả chuyển lớp từ ghi danh nguồn (BR-120).</summary>
     public Guid? SourceEnrollmentId { get; set; }
+
+    /// <summary>Paid difference invoice item added by a higher priced threshold transfer.</summary>
+    public Guid? TransferDifferenceInvoiceItemId { get; set; }
 }

@@ -29,10 +29,15 @@ public sealed class SystemSettingService(
     private static readonly IReadOnlyDictionary<string, (int Min, int Max)> IntRanges =
         new Dictionary<string, (int, int)>
         {
-            [SystemSettingKeys.PackageExpiringReminderDays] = (1, 90),
+            [SystemSettingKeys.MembershipExpiryNoticeDays] = (1, 90),
             [SystemSettingKeys.ClassThresholdDaysBeforeStart] = (1, 30),
-            [SystemSettingKeys.ClassThresholdResponseHours] = (1, 168),
-            [SystemSettingKeys.HoldMinutes] = (5, 60),
+            [SystemSettingKeys.ClassThresholdResponseHours] = (1, 336),
+            [SystemSettingKeys.HoldMinutes] = (1, 1440),
+            [SystemSettingKeys.PointsConfirmOtpMinutes] = (1, 15),
+            [SystemSettingKeys.RentalSlotMinutes] = (30, 60),
+            [SystemSettingKeys.RentalMaxHours] = (1, 4),
+            [SystemSettingKeys.RentalAdvanceDays] = (1, 30),
+            [SystemSettingKeys.RentalCancelFreeHours] = (0, 168),
             [SystemSettingKeys.PtPricePerSessionVnd] = (1_000, 100_000_000)
         };
 
@@ -62,6 +67,8 @@ public sealed class SystemSettingService(
             }
             if (key == SystemSettingKeys.PtPricePerSessionVnd && parsed % 1000 != 0)
                 throw new BadRequestException("invalid_setting_value", "Đơn giá PT phải là bội số của 1.000 VND.");
+            if (key == SystemSettingKeys.RentalSlotMinutes && parsed is not (30 or 60))
+                throw new BadRequestException("invalid_setting_value", "Khối thuê sân phải là 30 hoặc 60 phút.");
         }
 
         var previous = setting.Value;

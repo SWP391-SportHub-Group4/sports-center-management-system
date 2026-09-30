@@ -10,7 +10,8 @@ public interface ICourtRentalFulfillment
     Task<CourtRentalQuote> QuoteAsync(CourtRentalRequest request, CancellationToken cancellationToken = default);
 
     /// <summary>Tạo CourtRental PendingPayment và chiếm room + coach đến <paramref name="holdExpiresAtUtc"/>.</summary>
-    Task<Guid> ReserveAsync(CourtRentalRequest request, DateTimeOffset holdExpiresAtUtc, CancellationToken cancellationToken = default);
+    Task<Guid> ReserveAsync(Guid invoiceId, CourtRentalRequest request, DateTimeOffset holdExpiresAtUtc,
+        CourtRentalQuote quotedPrice, CancellationToken cancellationToken = default);
 
     /// <summary>PendingPayment sang Confirmed, gắn InvoiceItem. Idempotent.</summary>
     Task ConfirmAsync(Guid courtRentalId, Guid invoiceItemId, CancellationToken cancellationToken = default);
@@ -18,8 +19,17 @@ public interface ICourtRentalFulfillment
     /// <summary>Hết hạn/hủy thanh toán: nhả occupancy đúng một lần.</summary>
     Task ReleaseAsync(Guid courtRentalId, CancellationToken cancellationToken = default);
 
-    Task CancelAsync(Guid courtRentalId, string reason, CancellationToken cancellationToken = default);
+    Task CancelAsync(Guid courtRentalId, string reason, bool centerFault = false,
+        Guid? incidentId = null, CancellationToken cancellationToken = default);
+
+    Task<CourtRentalRequest> GetForRetryAsync(Guid courtRentalId, CancellationToken cancellationToken = default);
+    Task<CourtRentalRefundFacts?> GetRefundFactsAsync(Guid invoiceItemId, CancellationToken cancellationToken = default);
+    Task<bool> ReacquireForLatePaymentAsync(Guid courtRentalId, DateTimeOffset newHoldExpiresAtUtc,
+        CancellationToken cancellationToken = default);
 }
+
+public sealed record CourtRentalRefundFacts(Guid RentalId, Guid OwnerId, DateTimeOffset StartUtc,
+    string Status, bool IsCancelledByCenter);
 
 public sealed record CourtRentalRequest(
     Guid ExternalCoachId,

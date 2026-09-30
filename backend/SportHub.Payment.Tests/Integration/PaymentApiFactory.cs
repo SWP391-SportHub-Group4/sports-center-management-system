@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -12,13 +13,17 @@ using System.Net.Http.Headers;
 using System.Text;
 using SportHub.API.Persistence;
 using SportHub.BuildingBlocks.Abstractions.Email;
+using SportHub.BuildingBlocks.Abstractions.Notifications;
+using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.Infrastructure.Authentication;
 using SportHub.Identity.Domain.Entities;
 using SportHub.Identity.Domain.Enums;
 using SportHub.Identity.Infrastructure.Security;
+using SportHub.Identity.Infrastructure.Email;
 using SportHub.Membership.Domain.Entities;
 using SportHub.Payment.Domain.Entities;
 using SportHub.Payment.Domain.Enums;
+using SportHub.Notification.Infrastructure;
 using Testcontainers.PostgreSql;
 
 namespace SportHub.Payment.Tests.Integration;
@@ -103,8 +108,14 @@ public sealed class PaymentApiFactory : WebApplicationFactory<Program>, IAsyncLi
             }));
         builder.ConfigureTestServices(services =>
         {
+            services.RemoveAll<INotificationWriter>();
+            services.AddScoped<INotificationWriter>(sp => new CapturingPaymentOutboxWriter(
+                sp.GetRequiredService<ISportHubDbContext>(),
+                sp.GetRequiredService<IDataProtectionProvider>(),
+                CapturedEmail));
+
             services.RemoveAll<IEmailSender>();
-            services.AddSingleton<IEmailSender>(CapturedEmail);
+            services.AddSingleton<IEmailSender, UnavailableEmailSender>();
         });
     }
 
@@ -245,11 +256,29 @@ public sealed class CapturingPaymentEmailSender : IEmailSender
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, string> _codes = new();
     public Task SendAsync(string toAddress, string subject, string htmlBody, CancellationToken cancellationToken = default)
     {
-        var match = System.Text.RegularExpressions.Regex.Match(htmlBody, "<strong>([0-9]{6})</strong>");
-        if (match.Success) _codes[toAddress] = match.Groups[1].Value;
+        Capture(toAddress, htmlBody);
         return Task.CompletedTask;
     }
+    public void Capture(string toAddress, string htmlBody)
+    {
+        var match = System.Text.RegularExpressions.Regex.Match(htmlBody, "<strong>([0-9]{6})</strong>");
+        if (match.Success) _codes[toAddress] = match.Groups[1].Value;
+    }
     public string CodeFor(string address) => _codes[address];
+}
+
+public sealed class CapturingPaymentOutboxWriter(
+    ISportHubDbContext db,
+    IDataProtectionProvider protection,
+    CapturingPaymentEmailSender emails) : INotificationWriter
+{
+    private readonly NotificationWriter _inner = new(db, protection);
+    public void Queue(NotificationRequest request) => _inner.Queue(request);
+    public void QueueEmail(EmailNotificationRequest request)
+    {
+        emails.Capture(request.RecipientAddress, request.HtmlBody);
+        _inner.QueueEmail(request);
+    }
 }
 
 [CollectionDefinition(nameof(PaymentApiCollection))]

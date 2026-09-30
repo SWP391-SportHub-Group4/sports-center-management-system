@@ -11,6 +11,8 @@ public class PaymentAdjustmentConfiguration : IEntityTypeConfiguration<PaymentAd
         builder.Property(e => e.Amount).HasPrecision(18, 0);
         builder.Property(e => e.RequestedAmount).HasPrecision(18, 0);
         builder.Property(e => e.RefundReferenceCode).HasMaxLength(100);
+        builder.Property(e => e.SystemCalculatedPoints).IsRequired();
+        builder.Property(e => e.ApprovedPoints).IsRequired();
 
         builder.HasOne(e => e.Invoice)
             .WithMany(i => i.Adjustments)
@@ -20,6 +22,18 @@ public class PaymentAdjustmentConfiguration : IEntityTypeConfiguration<PaymentAd
         builder.HasOne(e => e.Payment)
             .WithMany(p => p.Adjustments)
             .HasForeignKey(e => e.PaymentId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(e => e.InvoiceItem)
+            .WithMany()
+            .HasForeignKey(e => e.InvoiceItemId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne<SportHub.Payment.Wallet.Domain.PointLedgerEntry>()
+            .WithMany()
+            .HasForeignKey(e => e.PointLedgerEntryId)
             .IsRequired(false)
             .OnDelete(DeleteBehavior.Restrict);
 
@@ -48,6 +62,8 @@ public class PaymentAdjustmentConfiguration : IEntityTypeConfiguration<PaymentAd
             """
             (type <> 0 OR status <> 3)
             OR legacy_payout_unverified
+            OR (invoice_item_id IS NOT NULL AND point_ledger_entry_id IS NOT NULL
+                AND approved_points > 0 AND completed_at_utc IS NOT NULL)
             OR (completed_at_utc IS NOT NULL
                 AND completed_by_user_id IS NOT NULL
                 AND refund_method IS NOT NULL)

@@ -58,6 +58,41 @@ public class SystemSettingConfiguration : IEntityTypeConfiguration<SystemSetting
                 Value = "200000",
                 Description = "Đơn giá demo PT mỗi buổi; Center Manager cần xác nhận giá kinh doanh.",
                 UpdatedAt = new DateTime(2026, 9, 30, 0, 0, 0, DateTimeKind.Utc)
+            },
+            new SystemSetting
+            {
+                Key = SystemSettingKeys.PointsConfirmOtpMinutes,
+                Value = "5",
+                Description = "BR-139 — Số phút OTP tại quầy xác nhận dùng điểm còn hiệu lực.",
+                UpdatedAt = new DateTime(2026, 9, 30, 0, 0, 0, DateTimeKind.Utc)
+            },
+            new SystemSetting
+            {
+                Key = SystemSettingKeys.RentalSlotMinutes,
+                Value = "60",
+                Description = "BR-126 — Độ dài mỗi khối thuê sân (30 hoặc 60 phút).",
+                UpdatedAt = new DateTime(2026, 10, 1, 0, 0, 0, DateTimeKind.Utc)
+            },
+            new SystemSetting
+            {
+                Key = SystemSettingKeys.RentalMaxHours,
+                Value = "4",
+                Description = "BR-128 — Thời lượng thuê sân tối đa theo giờ.",
+                UpdatedAt = new DateTime(2026, 10, 1, 0, 0, 0, DateTimeKind.Utc)
+            },
+            new SystemSetting
+            {
+                Key = SystemSettingKeys.RentalAdvanceDays,
+                Value = "30",
+                Description = "BR-128 — Số ngày tối đa được đặt sân trước.",
+                UpdatedAt = new DateTime(2026, 10, 1, 0, 0, 0, DateTimeKind.Utc)
+            },
+            new SystemSetting
+            {
+                Key = SystemSettingKeys.RentalCancelFreeHours,
+                Value = "24",
+                Description = "BR-129 — Hủy miễn phí nếu còn ít nhất số giờ này trước lượt thuê.",
+                UpdatedAt = new DateTime(2026, 10, 1, 0, 0, 0, DateTimeKind.Utc)
             });
     }
 }

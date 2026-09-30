@@ -287,6 +287,19 @@
 | `CreatedByAi` | Lớp `Draft` do chatbot đề xuất xếp lịch (BR-123) — Manager phải xác nhận |
 | `Version` | Optimistic concurrency token |
 
+### `CLASS_THRESHOLD_RESPONSES` (implementation P1.09)
+Một quyết định riêng cho từng ghi danh được thông báo AtRisk. Token ngẫu nhiên gửi qua outbox; DB chỉ lưu SHA-256 hash. Unique `(ClassId, EnrollmentId)` tránh gửi nhiều link cho cùng ghi danh; lựa chọn đã gửi là cuối cùng. `TargetClassId` chỉ có khi chọn Transfer; `AdditionalInvoiceId` dành cho checkout phần chênh. Migration P1.09 chưa được áp DB.
+
+| Field | Vai trò |
+|---|---|
+| `ThresholdResponseId` (PK) | ID ổn định dùng làm event/idempotency key |
+| `ClassId`, `EnrollmentId`, `MemberId` (FK) | Lớp/ghi danh/người sở hữu lựa chọn |
+| `TokenHash` (unique) | SHA-256 của secure token, không lưu token gốc |
+| `DeadlineUtc` | Hạn riêng của phản hồi, snapshot lúc tạo |
+| `Choice`, `TargetClassId` | Refund hoặc Transfer và lớp đích tùy chọn |
+| `ResolutionStatus`, `AdditionalInvoiceId` | Pending/Completed/AwaitingPayment/Expired/Failed và invoice phần chênh |
+| `CreatedAtUtc`, `RespondedAtUtc`, `ResolvedAtUtc` | Dấu thời gian vòng đời |
+
 ### ~~`CLASS_RECURRENCE`~~ → `CLASS_SCHEDULE_RULES` (XÓA v3 / THAY mới v3 — BR-13)
 ~~**`CLASS_RECURRENCE`** (`RecurrenceId`, `ClassId`, `DaysOfWeek`, `StartTimeLocal`/`EndTimeLocal`, `Timezone`, `EffectiveFrom`/`EffectiveTo`)~~ **(XÓA v3: recurrence engine kiểu cũ — có EffectiveFrom/To, ad-hoc session — không phù hợp khóa cố định; bảng `class_recurrences` bị xóa và thay bằng bảng đơn giản dưới đây)**.
 
@@ -327,6 +340,7 @@
 | `Status` | `EnrollmentStatus`: `Confirmed`, `TransferredOut` (chuyển lớp, BR-120), `Refunded` (hoàn điểm, BR-122), `CancelledByCenter` (lớp bị hủy, BR-121). Trạng thái cuối bất biến. ~~`CONFIRMED/CANCELLED`~~ **(SỬA v3)** |
 | `EnrolledAt` / `EndedAt` (nullable) | Mốc ghi danh / mốc kết thúc. ~~`RegisteredAt`~~ đổi tên |
 | `SourceEnrollmentId` (self-FK, nullable) | Ghi danh này là kết quả chuyển lớp từ ghi danh nào (BR-120) |
+| `TransferDifferenceInvoiceItemId` (nullable FK) | Dòng invoice chênh lệch đã thanh toán cho chuyển sang khóa đắt hơn |
 
 Ràng buộc: unique một phần `(ClassId, MemberId) WHERE Status = 'Confirmed'` — không ghi danh trùng cùng lớp.
 
@@ -609,7 +623,8 @@ Chỉ PT có quan hệ `Active` với Member mới tạo/sửa/hủy/review; Mem
 |---|---|
 | `ItemId` (PK) | Định danh dòng |
 | `InvoiceId` (FK) | Thuộc hóa đơn nào |
-| `ItemType` / `RelatedEntityId` | **SỬA v3:** `InvoiceItemType` = `Membership`, `PT`, `ClassPackage` (mới), `CourtRental` (mới). `RelatedEntityId` trỏ catalog/plan; với `ClassPackage` là `ClassId`, với `CourtRental` là `RentalId` |
+| `ItemType` / `RelatedEntityId` | **SỬA v3:** `InvoiceItemType` = `Membership`, `PT`, `ClassPackage`, `CourtRental`, `ClassTransferDifference` (mới). `RelatedEntityId` trỏ catalog/plan hoặc `ThresholdResponseId` với chênh chuyển lớp |
+| `SourceInvoiceItemId` (nullable self-FK) | Item gốc của lớp được chuyển; gom invoice chênh đã trả vào refund cap theo item gốc |
 | `Description` / `UnitPrice` / `Quantity` / `LineAmount` | Snapshot tên, đơn giá, số lượng, thành tiền; tổng LineAmount phải bằng `Invoice.TotalAmount`; giá lớp/giá sân là bội số 1.000 VND |
 
 ### `PAYMENT_ATTEMPTS` (SỬA nhẹ v3 — hiện mới là entity)
@@ -654,6 +669,8 @@ Chỉ PT có quan hệ `Active` với Member mới tạo/sửa/hủy/review; Mem
 > Hoàn do **hệ thống** (hủy lớp, lớp dưới ngưỡng và Member chọn/tự hoàn, hủy sân do trung tâm/sự cố) **không tạo `REFUNDS`**: ghi thẳng `POINT_LEDGER` với `ReferenceType = SystemEvent`.
 > Trong mã hiện tại cơ chế hoàn/điều chỉnh là `PaymentAdjustment` (Refund/Correction/Discount, workflow Request → Approve → Complete/Reject). Design v3 giữ workflow, đổi `Refund` thành hoàn điểm (Complete = `PointLedger.Earn`), bỏ chứng từ chi trả tiền mặt (`RefundPayoutEvidence`); nếu code chỉ dùng `PaymentAdjustment` thì gộp `REFUNDS` vào đó, không tạo bảng mới.
 
+**Triển khai P1.08:** `PaymentAdjustment` là persistence chung: Refund mới yêu cầu `InvoiceItemId`, ghi `CenterFault`, `SystemCalculatedPoints`, `ApprovedPoints`, `PointLedgerEntryId`; `Amount`/`RequestedAmount` để 0. `RefundMethod`, `RefundReferenceCode`, `LegacyPayoutUnverified`, `CompletedByUserId` được giữ để đọc dữ liệu legacy, nhưng endpoint payout đã gỡ. Legacy Refund không tự backfill item khi invoice có nhiều item; migration chỉ gắn item nếu chính xác một item. Manager hoàn điểm và module entitlement hủy quyền lợi trong cùng transaction.
+
 ### `POINT_WALLETS` (mới v3 — BR-134)
 **Mục đích:** ví điểm của Member/ExternalCoach; điểm là công cụ hoàn trả và thanh toán nội bộ, không rút được thành tiền, **không hết hạn**. Module Payment (`Wallet/`). Tạo tự động khi tạo tài khoản Member/ExternalCoach.
 
@@ -675,6 +692,7 @@ Chỉ PT có quan hệ `Active` với Member mới tạo/sửa/hủy/review; Mem
 | `Points` | Số dương; chiều tăng/giảm suy ra từ `EntryType` |
 | `AvailableAfter` / `HeldAfter` | Số dư sau giao dịch — đối soát và hiển thị lịch sử |
 | `ReferenceType` / `ReferenceId` | `RefundRequest`, `SystemEvent`, `Invoice`, `ManagerAdjustment` và id tương ứng |
+| `InvoiceItemId` (FK, nullable; quyết định kỹ thuật P1.08) | Item tạo ra điểm refund; dùng giới hạn hoàn lũy kế qua user-request/SystemEvent, không suy luận từ free-form note |
 | `InvoiceId` (FK, nullable) | Invoice liên quan (Hold/Spend/Release) |
 | `CreatedByUserId` / `Reason` | Ai/lý do — bắt buộc lý do với `Adjustment` |
 
@@ -888,7 +906,7 @@ Giữ nguyên cấu trúc (có thể chỉ đổi điều kiện phụ thuộc).
 | `PT_ENTITLEMENTS.CoachId`, `PT_COACH_CHANGE_REQUESTS.RequestedCoachId`, `WORKOUT_PLANS`, `AI_LOGS` `WORKOUT_SUGGESTION` (điều kiện Coach) | Coach `PersonalTrainer` | Coach có specialty PT | Thay `CoachCategory`. BR-96 |
 | `INVOICES.BeneficiaryUserId` | `BeneficiaryMemberId` | Đổi tên; Member hoặc ExternalCoach | ExternalCoach thuê sân. BR-126, 132 |
 | `INVOICES.PointsApplied` / `CashAmount` / `PaidVia` / `HoldExpiresAt` | Trả toàn bộ bằng VNPay-QR | Thêm 4 field; `CashAmount = TotalAmount − PointsApplied × 1000`; `CashAmount = 0` thì không tạo attempt, Paid ngay | Split payment điểm + VNPay, giữ chỗ. BR-85, 115, 136 |
-| `INVOICE_ITEMS.ItemType` | `Membership`, `PT` | Thêm `ClassPackage`, `CourtRental`; `RelatedEntityId` trỏ `ClassId`/`RentalId` | Bán gói lớp, thuê sân. BR-113, 127 |
+| `INVOICE_ITEMS.ItemType` | `Membership`, `PT` | Thêm `ClassPackage`, `CourtRental`, `ClassTransferDifference`; thêm `SourceInvoiceItemId` để nối value-chain chênh lệch về item gốc | Bán lớp/thuê sân và trace chênh chuyển lớp. BR-113, 127, 120 |
 | `PAYMENT_ATTEMPTS` | Entity đã có, chưa có service; `Amount = TotalAmount` | Hoàn thiện VNPay-QR (mới viết); `Amount = CashAmount`; chỉ tạo khi `CashAmount > 0`; hạn = hạn giữ chỗ | VNPay-QR chưa có trong mã. BR-80–89, 115 |
 | `PAYMENTS.Amount` / `Method` | `Amount = TotalAmount`; `Method = VNPAY_QR` | `Amount = CashAmount`; không ghi phần điểm (điểm ở `POINT_LEDGER`); `PaymentMethod` thêm `Vnpay`, `Points`, giữ `Cash` nếu thu tại quầy | Split payment. BR-136 (chi tiết `Method` chưa chốt) |
 | `REFUNDS` (hoặc `PaymentAdjustment.Refund`) | Hoàn tiền qua VNPay; `SystemCalculatedAmount`/`ApprovedAmount` VND | Hoàn **điểm**: `SystemCalculatedPoints`, `ApprovedPoints`, `PointLedgerEntryId`, `RequestedAt`; Complete = `POINT_LEDGER.Earn`; hoàn hệ thống ghi thẳng ledger (`SystemEvent`) | Refund chỉ bằng điểm; `RefundCalculator` trả điểm làm tròn xuống. BR-90–94, 122, 135 |

@@ -2,7 +2,8 @@ using System.Globalization;
 using System.Security.Cryptography;
 using Microsoft.EntityFrameworkCore;
 using SportHub.BuildingBlocks.Abstractions.Audit;
-using SportHub.BuildingBlocks.Abstractions.Email;
+using SportHub.BuildingBlocks.Abstractions.Notifications;
+using SportHub.BuildingBlocks.Abstractions.Configuration;
 using SportHub.BuildingBlocks.Abstractions.Identity;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.Abstractions.Wallet;
@@ -16,9 +17,8 @@ namespace SportHub.Payment.Wallet.Application;
 /// <summary>Counter OTP proves a member's consent before any points are held.</summary>
 public sealed class PointConfirmationService(
     ISportHubDbContext db, IUserAccessReader users, IPointWalletService wallets,
-    IEmailSender email, IAuditWriter audit, IClock clock)
+    INotificationWriter notifications, ISystemSettingProvider settings, IAuditWriter audit, IClock clock)
 {
-    private static readonly TimeSpan CodeLifetime = TimeSpan.FromMinutes(5);
     private static readonly TimeSpan ResendCooldown = TimeSpan.FromSeconds(60);
 
     public async Task<PointConfirmationResponse> RequestAsync(Guid invoiceId, Guid memberId, int points, int revision,
@@ -44,7 +44,10 @@ public sealed class PointConfirmationService(
 
         var code = RandomNumberGenerator.GetInt32(0, 1_000_000).ToString("D6", CultureInfo.InvariantCulture);
         var salt = RandomNumberGenerator.GetBytes(16);
-        var expires = Min(clock.UtcNow.Add(CodeLifetime), invoice.HoldExpiresAtUtc!.Value);
+        var otpMinutes = await settings.GetIntAsync(SystemSettingKeys.PointsConfirmOtpMinutes, ct);
+        if (otpMinutes is < 1 or > 15)
+            throw new ConflictException("point_confirmation_setting_invalid", "Thời hạn OTP điểm phải từ 1 đến 15 phút.");
+        var expires = Min(clock.UtcNow.AddMinutes(otpMinutes), invoice.HoldExpiresAtUtc!.Value);
         var confirmation = new PointConfirmation
         {
             PointConfirmationId = Guid.NewGuid(), InvoiceId = invoiceId, MemberId = memberId,
@@ -54,24 +57,15 @@ public sealed class PointConfirmationService(
             CreatedAtUtc = clock.UtcNow, ExpiresAtUtc = expires
         };
         db.Set<PointConfirmation>().Add(confirmation);
+        notifications.QueueEmail(new EmailNotificationRequest(memberId, member.Email,
+            NotificationEvents.PointConfirmationOtpRequested, confirmation.PointConfirmationId,
+            "Mã xác nhận sử dụng điểm SportHub",
+            $"<p>Mã xác nhận sử dụng {points} điểm cho hóa đơn {System.Net.WebUtility.HtmlEncode(invoice.InvoiceNumber)}: <strong>{code}</strong></p>"
+            + $"<p>Mã có hiệu lực tối đa {otpMinutes} phút. Không chia sẻ mã ngoài giao dịch tại quầy.</p>"));
         audit.Write(new AuditEntry(receptionistId, "REQUEST_POINT_CONFIRMATION", nameof(Invoice), invoiceId.ToString(),
             NewValue: System.Text.Json.JsonSerializer.Serialize(new { memberId, points, confirmation.PointConfirmationId })));
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
-
-        try
-        {
-            await email.SendAsync(member.Email, "Mã xác nhận sử dụng điểm SportHub",
-                $"<p>Mã xác nhận sử dụng {points} điểm cho hóa đơn {System.Net.WebUtility.HtmlEncode(invoice.InvoiceNumber)}: <strong>{code}</strong></p>"
-                + "<p>Mã có hiệu lực tối đa 5 phút. Không chia sẻ mã ngoài giao dịch tại quầy.</p>", ct);
-        }
-        catch
-        {
-            await db.Set<PointConfirmation>().Where(x => x.PointConfirmationId == confirmation.PointConfirmationId
-                    && x.ConsumedAtUtc == null)
-                .ExecuteUpdateAsync(s => s.SetProperty(x => x.RevokedAtUtc, clock.UtcNow), CancellationToken.None);
-            throw;
-        }
 
         return ToResponse(confirmation, invoice.HoldExpiresAtUtc.Value);
     }

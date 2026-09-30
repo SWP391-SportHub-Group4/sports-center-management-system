@@ -64,6 +64,7 @@ public sealed class PtEntitlementLifecycleService(
         var entitlement = new PtEntitlement
         {
             EntitlementId = Guid.NewGuid(),
+            ActivationReference = command.InvoiceItemId,
             MemberId = command.MemberId,
             CoachId = command.CoachId,
             OriginMemberPackageId = originPackage.MemberPackageId,

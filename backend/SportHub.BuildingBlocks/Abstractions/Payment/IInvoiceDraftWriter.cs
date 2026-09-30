@@ -14,7 +14,8 @@ public sealed record InvoiceDraft(
     Guid BeneficiaryUserId,
     Guid InitiatedByUserId,
     IReadOnlyList<InvoiceDraftItem> Items,
-    DateTimeOffset HoldExpiresAtUtc);
+    DateTimeOffset HoldExpiresAtUtc,
+    string IdempotencyKey);
 
 /// <param name="ItemType">Membership / PtPackage / ClassEnrollment / ClassTransferDifference / CourtRental.</param>
 public sealed record InvoiceDraftItem(
@@ -26,6 +27,9 @@ public sealed record InvoiceDraftItem(
     Guid? CourtRentalId = null,
     Guid? PtEntitlementId = null,
     Guid? MemberPackageId = null,
-    Guid? SourceEnrollmentId = null);
+    Guid? SourceEnrollmentId = null,
+    Guid? SourceInvoiceItemId = null,
+    Guid? RelatedEntityId = null,
+    Guid? ResourceHoldId = null);
 
 public sealed record InvoiceDraftResult(Guid InvoiceId, IReadOnlyList<Guid> InvoiceItemIds);

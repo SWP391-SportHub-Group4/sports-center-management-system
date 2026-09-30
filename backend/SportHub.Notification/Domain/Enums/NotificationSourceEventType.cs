@@ -9,5 +9,13 @@ public enum NotificationSourceEventType
     PaymentReceived,
     HomeworkAssigned,
     HomeworkStatusChanged,
-    ClassPublished
+    ClassPublished,
+    ClassThresholdAtRisk,
+    RegisterOtpRequested,
+    PasswordResetOtpRequested,
+    ExternalCoachOtpRequested,
+    ExternalCoachReviewed,
+    ManualNotice,
+    IncidentResolution,
+    PointConfirmationOtpRequested
 }

@@ -15,16 +15,25 @@ public interface IClassEnrollmentFulfillment
     /// <paramref name="holdExpiresAtUtc"/>. Hết chỗ: 409 <c>class_full</c>.
     /// </summary>
     Task<ClassSeatReservation> ReserveAsync(
-        int classId, Guid memberId, Guid? invoiceId, DateTimeOffset holdExpiresAtUtc, CancellationToken cancellationToken = default);
+        int classId, Guid memberId, Guid? invoiceId, DateTimeOffset holdExpiresAtUtc,
+        CancellationToken cancellationToken = default, Guid? transferSourceEnrollmentId = null);
 
     /// <summary>Hold thành Enrollment Confirmed gắn InvoiceItem. Idempotent theo <paramref name="invoiceItemId"/>.</summary>
-    Task<Guid> ConfirmAsync(Guid seatHoldId, Guid invoiceItemId, CancellationToken cancellationToken = default);
+    Task<Guid> ConfirmAsync(Guid seatHoldId, Guid invoiceItemId, CancellationToken cancellationToken = default,
+        Guid? sourceEnrollmentId = null, Guid? transferDifferenceInvoiceItemId = null);
+
+    Task AttachHoldToInvoiceAsync(Guid seatHoldId, Guid invoiceId, CancellationToken cancellationToken = default);
+
+    Task CompleteTransferAsync(Guid thresholdResponseId, Guid seatHoldId, Guid differenceInvoiceItemId,
+        CancellationToken cancellationToken = default);
 
     /// <summary>Nhả chỗ giữ đúng một lần; gọi lại (hoặc hold đã hết hạn) không giảm hai lần.</summary>
     Task ReleaseAsync(Guid seatHoldId, CancellationToken cancellationToken = default);
 
     /// <summary>Kết thúc quyền lợi của item đã trả (hoàn tiền/hủy lớp/chuyển lớp): đổi trạng thái ghi danh, giảm counts. Idempotent.</summary>
     Task CancelAsync(Guid invoiceItemId, EnrollmentEndReason endReason, CancellationToken cancellationToken = default);
+
+    Task<ClassRefundFacts?> GetRefundFactsAsync(Guid invoiceItemId, CancellationToken cancellationToken = default);
 }
 
 /// <summary>Lý do kết thúc một ghi danh Confirmed (map sang EnrollmentStatus).</summary>
@@ -38,3 +47,6 @@ public enum EnrollmentEndReason
 public sealed record ClassQuote(int ClassId, int SportId, string SportName, decimal Price, DateTimeOffset FirstSessionUtc);
 
 public sealed record ClassSeatReservation(Guid SeatHoldId, ClassQuote Quote);
+
+public sealed record ClassRefundFacts(Guid MemberId, DateTimeOffset FirstSessionUtc,
+    int TotalProvidedSessions, int SessionsNotProvided, bool EnrollmentActive);

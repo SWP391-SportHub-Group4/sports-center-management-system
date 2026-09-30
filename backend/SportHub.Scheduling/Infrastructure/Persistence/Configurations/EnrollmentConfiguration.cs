@@ -28,7 +28,7 @@ public class EnrollmentConfiguration : IEntityTypeConfiguration<Enrollment>
         // Mỗi InvoiceItem chỉ sinh tối đa một ghi danh (idempotency của fulfillment).
         builder.HasIndex(e => e.InvoiceItemId)
             .IsUnique()
-            .HasFilter("invoice_item_id IS NOT NULL")
+            .HasFilter("invoice_item_id IS NOT NULL AND status = 0")
             .HasDatabaseName("ux_enrollments_invoice_item");
     }
 }

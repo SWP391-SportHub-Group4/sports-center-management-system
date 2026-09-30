@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using SportHub.BuildingBlocks.Abstractions.Audit;
 using SportHub.BuildingBlocks.Abstractions.Configuration;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
+using SportHub.BuildingBlocks.Abstractions.Payment;
 using SportHub.BuildingBlocks.Abstractions.Scheduling;
 using SportHub.BuildingBlocks.Abstractions.Training;
 using SportHub.BuildingBlocks.Abstractions.Wallet;
@@ -19,8 +20,9 @@ namespace SportHub.Payment.Application.Services;
 
 public sealed class CheckoutService(ISportHubDbContext db,
     IClassEnrollmentFulfillment classes, IInvoiceNumberGenerator invoiceNumbers,
-    ISystemSettingProvider settings, IPtPurchaseFulfillment pt, IPaymentGateway gateway,
+    ISystemSettingProvider settings, IPtPurchaseFulfillment pt, ICourtRentalFulfillment rentals, IPaymentGateway gateway,
     IPackagePurchaseService packages, PaymentFulfillmentService fulfillment, IAuditWriter audit, IClock clock)
+    : ICheckoutLifecycleService
 {
     public async Task<CheckoutResponse> RetryAsync(Guid oldInvoiceId, string idempotencyKey,
         string? priceVersion, Guid actorId, bool isFrontDesk, bool isManager, CancellationToken ct)
@@ -63,6 +65,8 @@ public sealed class CheckoutService(ISportHubDbContext db,
                     throw new BadRequestException("pt_price_version_required", "Cần xác nhận báo giá PT mới.");
                 return await CreatePtAsync(new PtCheckoutRequest(membershipId, coachId, frequency,
                     priceVersion, target), idempotencyKey, actorId, isFrontDesk, ct);
+            case "CourtRental" when old.ResourceHoldId is Guid rentalId:
+                return await CreateCourtRentalAsync(await rentals.GetForRetryAsync(rentalId, ct), idempotencyKey, actorId, ct);
             default:
                 throw new ConflictException("checkout_kind_unsupported", "Chưa hỗ trợ tạo lại loại checkout này.");
         }
@@ -192,6 +196,69 @@ public sealed class CheckoutService(ISportHubDbContext db,
         return ToResponse(invoice, session);
     }
 
+    public async Task<CheckoutResponse> CreateCourtRentalAsync(CourtRentalRequest request, string idempotencyKey,
+        Guid actorId, CancellationToken ct)
+    {
+        if (request.ExternalCoachId != actorId)
+            throw new ForbiddenException("rental_owner_mismatch", "ExternalCoach chỉ được đặt sân cho chính mình.");
+        RequireKey(idempotencyKey);
+        var now = clock.UtcNow;
+        var minutes = await settings.GetIntAsync(SystemSettingKeys.HoldMinutes, ct);
+        if (minutes is < 1 or > 1440)
+            throw new ConflictException("hold_setting_invalid", "Thời hạn checkout không hợp lệ.");
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        await db.Database.ExecuteSqlInterpolatedAsync(
+            $"SELECT user_id FROM user_accounts WHERE user_id = {actorId} FOR UPDATE", ct);
+        var existing = await db.Set<CheckoutSession>().AsNoTracking()
+            .Where(x => x.IdempotencyKey == idempotencyKey && x.Kind == "CourtRental")
+            .Join(db.Set<Invoice>().AsNoTracking(), s => s.InvoiceId, i => i.InvoiceId,
+                (s, i) => new { Session = s, Invoice = i }).SingleOrDefaultAsync(ct);
+        if (existing is not null)
+        {
+            if (existing.Invoice.MemberId != actorId || existing.Session.ResourceHoldId is not Guid existingRentalId)
+                throw new ConflictException("idempotency_key_reused", "Khóa idempotency đã dùng cho giao dịch khác.");
+            var priorRequest = await rentals.GetForRetryAsync(existingRentalId, ct);
+            if (priorRequest.SportId != request.SportId || priorRequest.RoomId != request.RoomId
+                || priorRequest.StartUtc != request.StartUtc || priorRequest.EndUtc != request.EndUtc
+                || priorRequest.ExpectedAttendees != request.ExpectedAttendees)
+                throw new ConflictException("idempotency_key_reused", "Khóa idempotency đã dùng cho lượt thuê khác.");
+            await tx.CommitAsync(ct);
+            return await GetAsync(existing.Invoice.InvoiceId, actorId, false, ct);
+        }
+        var quote = await rentals.QuoteAsync(request, ct);
+        var expiry = new DateTimeOffset(now.AddMinutes(minutes), TimeSpan.Zero);
+        if (expiry >= request.StartUtc) expiry = request.StartUtc.AddSeconds(-1);
+        if (expiry <= now)
+            throw new ConflictException("rental_checkout_window_closed", "Không đủ thời gian thanh toán trước giờ thuê.");
+        var invoice = new Invoice
+        {
+            InvoiceId = Guid.NewGuid(), InvoiceNumber = await invoiceNumbers.NextAsync(now, ct),
+            MemberId = actorId, IssuedByUserId = actorId, TotalAmount = quote.TotalPrice,
+            CashAmount = quote.TotalPrice, CheckoutCycleId = Guid.NewGuid(), CheckoutRevision = 1,
+            HoldExpiresAtUtc = expiry.UtcDateTime, Status = InvoiceStatus.Issued, IssuedAt = now
+        };
+        db.Set<Invoice>().Add(invoice);
+        await db.SaveChangesAsync(ct);
+        var rentalId = await rentals.ReserveAsync(invoice.InvoiceId, request, expiry, quote, ct);
+        db.Set<InvoiceItem>().Add(new InvoiceItem
+        {
+            ItemId = Guid.NewGuid(), InvoiceId = invoice.InvoiceId, ItemType = InvoiceItemType.Rental,
+            Description = $"Thuê sân #{request.RoomId}, môn #{request.SportId}, {quote.Blocks.Count} giờ",
+            UnitPrice = quote.TotalPrice, Quantity = 1, LineAmount = quote.TotalPrice, RelatedEntityId = rentalId
+        });
+        var session = new CheckoutSession
+        {
+            CheckoutSessionId = invoice.CheckoutCycleId!.Value, InvoiceId = invoice.InvoiceId,
+            Revision = 1, IdempotencyKey = idempotencyKey, Kind = "CourtRental", State = "Active",
+            CreatedAtUtc = now, ExpiresAtUtc = expiry.UtcDateTime, ResourceHoldId = rentalId
+        };
+        db.Set<CheckoutSession>().Add(session);
+        audit.Write(new AuditEntry(actorId, "CREATE_COURT_RENTAL_CHECKOUT", nameof(Invoice), invoice.InvoiceId.ToString()));
+        await db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
+        return ToResponse(invoice, session);
+    }
+
     public async Task<CheckoutResponse> GetAsync(Guid invoiceId, Guid actorId, bool isStaff, CancellationToken ct)
     {
         var invoice = await db.Set<Invoice>().AsNoTracking().SingleOrDefaultAsync(x => x.InvoiceId == invoiceId, ct)
@@ -294,6 +361,36 @@ public sealed class CheckoutService(ISportHubDbContext db,
         await fulfillment.ReleaseAsync(invoice, session, "Cancelled", actorId, ct);
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
+    }
+
+    public async Task ReleaseForSystemAsync(Guid invoiceId, string reason, CancellationToken ct = default)
+    {
+        if (db.Database.CurrentTransaction is null)
+            throw new InvalidOperationException("System checkout release requires the caller's transaction.");
+        var invoice = await LockInvoiceAsync(invoiceId, ct);
+        if (invoice.Status == InvoiceStatus.Void) return;
+        if (invoice.Status != InvoiceStatus.Issued)
+            throw new ConflictException("checkout_system_release_reconciliation", "Checkout đã thanh toán hoặc cần đối soát.");
+        var session = await db.Set<CheckoutSession>().SingleOrDefaultAsync(
+            x => x.CheckoutSessionId == invoice.CheckoutCycleId, ct)
+            ?? throw new ConflictException("checkout_unavailable", "Không tìm thấy chu kỳ checkout.");
+        var attemptIds = await db.Set<PaymentAttempt>().Where(a => a.InvoiceId == invoiceId)
+            .Select(a => a.PaymentAttemptId).ToListAsync(ct);
+        if (await db.Set<VerifiedGatewayEvent>().AnyAsync(e => attemptIds.Contains(e.PaymentAttemptId)
+                && (e.ProcessingStatus == "Pending" || e.ProcessingStatus == "ReconciliationRequired"), ct))
+            throw new ConflictException("payment_reconciliation_pending", "Thanh toán đang được đối soát.");
+        await fulfillment.ReleaseAsync(invoice, session, reason, null, ct);
+        await db.SaveChangesAsync(ct);
+    }
+
+    public async Task<PendingCheckoutState> GetStateAsync(Guid invoiceId, CancellationToken cancellationToken = default)
+    {
+        var invoice = await db.Set<Invoice>().AsNoTracking().SingleOrDefaultAsync(x => x.InvoiceId == invoiceId, cancellationToken)
+            ?? throw new NotFoundException("invoice_not_found", "Không tìm thấy hóa đơn.");
+        var session = await db.Set<CheckoutSession>().AsNoTracking()
+            .SingleOrDefaultAsync(x => x.CheckoutSessionId == invoice.CheckoutCycleId, cancellationToken)
+            ?? throw new ConflictException("checkout_unavailable", "Không tìm thấy chu kỳ checkout.");
+        return new PendingCheckoutState(invoice.Status.ToString(), session.State, session.ExpiresAtUtc);
     }
 
     private static Guid ResolveMember(Guid? target, Guid actorId, bool isFrontDesk)

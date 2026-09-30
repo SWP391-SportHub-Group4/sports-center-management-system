@@ -1,10 +1,9 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Npgsql;
 using SportHub.BuildingBlocks.Abstractions.Audit;
-using SportHub.BuildingBlocks.Abstractions.Email;
+using SportHub.BuildingBlocks.Abstractions.Notifications;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.Abstractions.Scheduling;
 using SportHub.BuildingBlocks.Infrastructure.Authentication;
@@ -15,6 +14,7 @@ using SportHub.Identity.Application.Commands;
 using SportHub.Identity.Application.DTOs;
 using SportHub.Identity.Application.Interfaces;
 using SportHub.Identity.Domain.Exceptions;
+using SportHub.Identity.Domain.Entities;
 
 namespace SportHub.Identity.Application.Services;
 
@@ -23,22 +23,21 @@ namespace SportHub.Identity.Application.Services;
 /// (kiểm ở <c>IExternalCoachAccessReader</c>); Pending/Rejected/Suspended vẫn xem được hồ sơ và trạng thái của chính mình.
 ///
 /// Máy trạng thái: Pending → Approved | Rejected; Approved → Suspended; Suspended → Approved (mở lại).
-/// Mọi chuyển trạng thái là UPDATE có điều kiện trên trạng thái cũ, ghi audit cùng transaction và gửi email báo sau khi commit
-/// (lỗi gửi email không hoàn tác việc duyệt). Đình chỉ không tự hủy lượt thuê đã Confirmed (BR-129).
+/// Mọi chuyển trạng thái là UPDATE có điều kiện trên trạng thái cũ, ghi audit và email outbox cùng transaction.
+/// Đình chỉ không tự hủy lượt thuê đã Confirmed (BR-129).
 ///
 /// Ví điểm được tạo qua port trong cùng transaction đăng ký.
 /// </summary>
 public sealed class ExternalCoachService(
     ISportHubDbContext db,
     IPasswordHasher passwordHasher,
-    IEmailSender emailSender,
+    INotificationWriter notifications,
     IAuditWriter audit,
     ISportCatalogReader catalog,
     SportHub.BuildingBlocks.Abstractions.Wallet.IPointWalletService wallets,
     EmailOtpFlow otpFlow,
     IOptions<JwtOptions> jwtOptions,
-    IClock clock,
-    ILogger<ExternalCoachService> logger) : IExternalCoachService
+    IClock clock) : IExternalCoachService
 {
     private const int MaxPageSize = 100;
 
@@ -57,27 +56,7 @@ public sealed class ExternalCoachService(
                        "otp_resend_too_soon",
                        $"Vui lòng đợi {AuthService.OtpResendCooldown.TotalSeconds:0} giây trước khi yêu cầu mã mới.");
 
-        try
-        {
-            await emailSender.SendAsync(
-                email,
-                "SportHub - Mã xác thực đăng ký Coach ngoài",
-                "<p>Mã xác thực đăng ký tài khoản Coach ngoài SportHub của bạn là:</p>"
-                + "<p style=\"font-size:24px;font-weight:bold;letter-spacing:4px\">" + code + "</p>"
-                + "<p>Mã có hiệu lực trong " + AuthService.OtpLifetime.TotalMinutes.ToString("0") + " phút. "
-                + "Nếu bạn không yêu cầu đăng ký, hãy bỏ qua email này.</p>",
-                ct);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            logger.LogError(ex, "Không gửi được email OTP đăng ký ExternalCoach.");
-            await otpFlow.DiscardAsync(email, EmailOtpPurpose.ExternalCoachRegister);
-
-            throw new AppException(
-                StatusCodes.Status503ServiceUnavailable,
-                "otp_email_send_failed",
-                "Không gửi được email chứa mã xác thực. Vui lòng thử lại sau.");
-        }
+        // EmailOtpFlow atomically enqueues the encrypted outbox message with this OTP.
     }
 
     public async Task<AuthResponse> RegisterAsync(RegisterExternalCoachRequest request, CancellationToken ct = default)
@@ -328,16 +307,18 @@ public sealed class ExternalCoachService(
             NewValue: "{\"status\":\"" + to + "\"}",
             Reason: note));
 
+        var user = await db.Set<UserAccount>().AsNoTracking().SingleAsync(x => x.UserId == userId, ct);
+        var (subject, body) = ReviewEmail(to, note);
+        notifications.QueueEmail(new EmailNotificationRequest(userId, user.Email,
+            NotificationEvents.ExternalCoachReviewed, Guid.NewGuid(), subject, "<p>" + body + "</p>"));
+
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
 
-        var result = await GetAsync(userId, ct);
-        await NotifyAsync(result, to, note);
-        return result;
+        return await GetAsync(userId, ct);
     }
 
-    // Gửi sau commit: lỗi SMTP chỉ được ghi log, không hoàn tác quyết định duyệt (BR-34). Outbox có retry ở P1.11.
-    private async Task NotifyAsync(ExternalCoachResponse coach, ExternalCoachApprovalStatus status, string? note)
+    private static (string Subject, string Body) ReviewEmail(ExternalCoachApprovalStatus status, string? note)
     {
         var (subject, body) = status switch
         {
@@ -349,14 +330,7 @@ public sealed class ExternalCoachService(
                 "Hồ sơ của bạn đang bị đình chỉ. Lý do: " + System.Net.WebUtility.HtmlEncode(note))
         };
 
-        try
-        {
-            await emailSender.SendAsync(coach.Email, subject, "<p>" + body + "</p>", CancellationToken.None);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Không gửi được email thông báo trạng thái ExternalCoach {UserId}.", coach.UserId);
-        }
+        return (subject, body);
     }
 
     private async Task EnsureSportsActiveAsync(IReadOnlyList<int> sportIds, CancellationToken ct)

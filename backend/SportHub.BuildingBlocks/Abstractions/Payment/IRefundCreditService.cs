@@ -8,6 +8,10 @@ namespace SportHub.BuildingBlocks.Abstractions.Payment;
 public interface IRefundCreditService
 {
     Task<RefundCreditResult> CreditAsync(RefundCreditRequest request, CancellationToken cancellationToken = default);
+    Task<RefundCreditResult> CreditDifferenceAsync(RefundCreditDifferenceRequest request,
+        CancellationToken cancellationToken = default);
+    Task<decimal> GetRemainingItemValueVndAsync(Guid invoiceItemId, CancellationToken cancellationToken = default);
+    Task LockPaidItemAsync(Guid invoiceItemId, CancellationToken cancellationToken = default);
 }
 
 /// <param name="RefundRatioPercent">0–100, tỉ lệ trên giá trị đã trả của item.</param>
@@ -19,3 +23,5 @@ public sealed record RefundCreditRequest(
     Guid EventId);
 
 public sealed record RefundCreditResult(int PointsCredited, bool AlreadyApplied);
+
+public sealed record RefundCreditDifferenceRequest(Guid InvoiceItemId, int Points, string Reason, Guid EventId);

@@ -18,7 +18,7 @@ public sealed class CheckoutsController(CheckoutService checkouts, IPackagePurch
     public async Task<IActionResult> Membership([FromBody] MembershipCheckoutRequest request,
         [FromHeader(Name = "Idempotency-Key")] string key, CancellationToken ct)
     {
-        RequireBuyer();
+        RequireMemberBuyer();
         var actorId = User.RequireUserId();
         var staff = User.IsInRole(SportHubRoleNames.Receptionist)
             || User.IsInRole(SportHubRoleNames.CenterManager);
@@ -42,7 +42,7 @@ public sealed class CheckoutsController(CheckoutService checkouts, IPackagePurch
     public async Task<IActionResult> Class([FromBody] ClassCheckoutRequest request,
         [FromHeader(Name = "Idempotency-Key")] string key, CancellationToken ct)
     {
-        RequireBuyer();
+        RequireMemberBuyer();
         var staff = User.IsInRole(SportHubRoleNames.Receptionist)
             || User.IsInRole(SportHubRoleNames.CenterManager);
         var result = await checkouts.CreateClassAsync(request, key, User.RequireUserId(), staff, ct);
@@ -54,8 +54,23 @@ public sealed class CheckoutsController(CheckoutService checkouts, IPackagePurch
     public async Task<IActionResult> Pt([FromBody] PtCheckoutRequest request,
         [FromHeader(Name = "Idempotency-Key")] string key, CancellationToken ct)
     {
-        RequireBuyer();
+        RequireMemberBuyer();
         var result = await checkouts.CreatePtAsync(request, key, User.RequireUserId(), IsStaff(), ct);
+        return Created($"/api/checkouts/{result.InvoiceId}", result);
+    }
+
+    [Authorize(Roles = SportHubRoleNames.ExternalCoach)]
+    [HttpPost("court-rental")]
+    [EnableRateLimiting("checkout-write")]
+    public async Task<IActionResult> CourtRental([FromBody] CourtRentalCheckoutRequest request,
+        [FromHeader(Name = "Idempotency-Key")] string key, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(key) || key.Length > 120)
+            throw new BadRequestException("idempotency_key_required", "Cần Idempotency-Key hợp lệ.");
+        var coachId = User.RequireUserId();
+        var command = new SportHub.BuildingBlocks.Abstractions.Scheduling.CourtRentalRequest(
+            coachId, request.SportId, request.RoomId, request.StartUtc, request.EndUtc, request.ExpectedAttendees);
+        var result = await checkouts.CreateCourtRentalAsync(command, key, coachId, ct);
         return Created($"/api/checkouts/{result.InvoiceId}", result);
     }
 
@@ -104,9 +119,18 @@ public sealed class CheckoutsController(CheckoutService checkouts, IPackagePurch
 
     private void RequireBuyer()
     {
-        if (!User.IsInRole(SportHubRoleNames.Member) && !IsStaff())
+        if (!User.IsInRole(SportHubRoleNames.Member) && !User.IsInRole(SportHubRoleNames.ExternalCoach) && !IsStaff())
             throw new ForbiddenException("checkout_forbidden", "Tài khoản không được thực hiện checkout.");
+    }
+
+    private void RequireMemberBuyer()
+    {
+        if (!User.IsInRole(SportHubRoleNames.Member) && !IsStaff())
+            throw new ForbiddenException("checkout_forbidden", "Chỉ Member hoặc nhân viên quầy được mua Membership, lớp và PT.");
     }
 }
 
 public sealed record RetryCheckoutRequest(string? PriceVersion = null);
+
+public sealed record CourtRentalCheckoutRequest(int SportId, int RoomId,
+    DateTimeOffset StartUtc, DateTimeOffset EndUtc, int ExpectedAttendees);

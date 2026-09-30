@@ -5,6 +5,7 @@ public sealed class PointLedgerEntry
 {
     public Guid LedgerEntryId { get; set; }
     public Guid WalletId { get; set; }
+    public Guid? InvoiceItemId { get; set; }
     public PointEntryType EntryType { get; set; }
     public int Points { get; set; }
     public int AvailableDelta { get; set; }
