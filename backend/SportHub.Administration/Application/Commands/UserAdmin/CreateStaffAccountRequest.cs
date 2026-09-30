@@ -12,7 +12,7 @@ public sealed class CreateStaffAccountRequest
     [Required, EmailAddress]
     public string Email { get; set; } = string.Empty;
 
-    [Required, MinLength(8), MaxPasswordBytes(72)]
+    [Required, MaxLength(200)] // chính sách mật khẩu kiểm ở PasswordPolicy (service)
     public string Password { get; set; } = string.Empty;
 
     [FullName]
@@ -23,4 +23,10 @@ public sealed class CreateStaffAccountRequest
 
     [Required]
     public string Role { get; set; } = string.Empty;
+
+    /// <summary>
+    /// BR-96 — bắt buộc khi Role = Coach (PersonalTrainer/ClassInstructor), không được gửi kèm
+    /// cho role khác. Service kiểm tra chéo với Role vì DataAnnotations không validate liên field.
+    /// </summary>
+    public List<int>? SportIds { get; set; }
 }

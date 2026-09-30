@@ -7,20 +7,13 @@ public class AttendanceConfiguration : IEntityTypeConfiguration<Attendance>
 {
     public void Configure(EntityTypeBuilder<Attendance> builder)
     {
+        builder.ToTable("attendances");
         builder.HasKey(e => e.AttendanceId);
 
-        // Ràng buộc #17: 1 Enrollment chỉ có tối đa 1 Attendance (1-1).
-        builder.HasIndex(e => e.EnrollmentId).IsUnique();
+        builder.HasOne(e => e.Enrollment).WithMany().HasForeignKey(e => e.EnrollmentId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(e => e.Session).WithMany().HasForeignKey(e => e.SessionId).OnDelete(DeleteBehavior.Restrict);
 
-        builder.HasOne(e => e.Enrollment)
-            .WithOne(en => en.Attendance)
-            .HasForeignKey<Attendance>(e => e.EnrollmentId)
-            .OnDelete(DeleteBehavior.Restrict);
-
-        builder.HasOne(e => e.CheckedInByUser)
-            .WithMany()
-            .HasForeignKey(e => e.CheckedInByUserId)
-            .IsRequired(false)
-            .OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(e => new { e.EnrollmentId, e.SessionId }).IsUnique();
+        builder.HasIndex(e => e.SessionId);
     }
 }

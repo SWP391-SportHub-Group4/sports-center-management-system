@@ -1,28 +1,29 @@
-using Microsoft.EntityFrameworkCore;
-using SportHub.BuildingBlocks.Abstractions.Audit;
-using SportHub.BuildingBlocks.Abstractions.Persistence;
-using SportHub.BuildingBlocks.SharedKernel.Errors;
-using SportHub.Identity.Domain.Entities;
-using SportHub.Identity.Domain.Enums;
+using SportHub.BuildingBlocks.SharedKernel.Pagination;
 using SportHub.Scheduling.Application.Commands;
 using SportHub.Scheduling.Application.DTOs;
-using SportHub.Scheduling.Domain.Rules;
 
 namespace SportHub.Scheduling.Application.Interfaces;
 
 public interface IClassService
 {
-    Task<IReadOnlyList<ClassResponse>> GetAllAsync(string? discipline, bool includeArchived, CancellationToken ct = default);
+    /// <summary>Khóa đã publish, cho công chúng. Draft/đã hủy không bao giờ xuất hiện.</summary>
+    Task<PagedResult<ClassPublicResponse>> ListPublicAsync(int? sportId, int page, int pageSize, CancellationToken ct = default);
 
-    Task<ClassResponse> GetAsync(int classId, CancellationToken ct = default);
+    Task<ClassPublicResponse> GetPublicAsync(int classId, CancellationToken ct = default);
 
-    Task<ClassResponse> CreateAsync(SaveClassRequest request, Guid actorUserId, CancellationToken ct = default);
+    Task<PagedResult<ClassManagerResponse>> ListManagerAsync(
+        string? status, int? sportId, string? keyword, int page, int pageSize, CancellationToken ct = default);
 
-    Task<ClassResponse> UpdateAsync(int classId, SaveClassRequest request, Guid actorUserId, CancellationToken ct = default);
+    Task<ClassManagerResponse> GetManagerAsync(int classId, CancellationToken ct = default);
 
-    Task<ClassResponse> SetStatusAsync(int classId, ClassStatus status, Guid actorUserId, CancellationToken ct = default);
+    /// <summary>Khóa do chính Coach phụ trách (chỉ đọc).</summary>
+    Task<IReadOnlyList<ClassPublicResponse>> ListForCoachAsync(Guid coachId, CancellationToken ct = default);
 
-    Task<ClassResponse> AddRecurrenceAsync(int classId, SaveRecurrenceRequest request, Guid actorUserId, CancellationToken ct = default);
+    Task<ClassManagerResponse> CreateAsync(SaveClassRequest request, Guid actorUserId, CancellationToken ct = default);
 
-    Task<ClassResponse> DeleteRecurrenceAsync(int classId, int recurrenceId, Guid actorUserId, CancellationToken ct = default);
+    Task<ClassManagerResponse> UpdateAsync(int classId, SaveClassRequest request, Guid actorUserId, CancellationToken ct = default);
+
+    Task<ClassManagerResponse> PublishAsync(int classId, PublishClassRequest request, Guid actorUserId, CancellationToken ct = default);
+
+    Task<ClassManagerResponse> CancelAsync(int classId, CancelClassRequest request, Guid actorUserId, CancellationToken ct = default);
 }

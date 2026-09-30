@@ -35,6 +35,14 @@ public sealed class UserAccountRepository(ISportHubDbContext db) : IUserAccountR
         => db.Set<UserAccount>()
             .AnyAsync(u => u.UserId == userId && u.Status == UserStatus.Active, cancellationToken);
 
+    // Một câu SELECT projection cho middleware JWT: trạng thái + role + security stamp hiện tại.
+    public Task<UserAuthState?> GetAuthStateAsync(Guid userId, CancellationToken cancellationToken = default)
+        => db.Set<UserAccount>()
+            .AsNoTracking()
+            .Where(u => u.UserId == userId)
+            .Select(u => new UserAuthState(u.Status, u.Role!.RoleName.ToString(), u.SecurityStamp))
+            .SingleOrDefaultAsync(cancellationToken)!;
+
     public async Task AddAndSaveAsync(UserAccount account, CancellationToken cancellationToken = default)
     {
         db.Set<UserAccount>().Add(account);

@@ -24,4 +24,10 @@ public class GymCheckInsController(IGymCheckInService gymCheckInService) : Contr
 
         return StatusCode(StatusCodes.Status201Created, result);
     }
+
+    /// <summary>Lễ tân ghi giờ ra (giờ server). Idempotent: check-out lần hai trả bản ghi cũ, không ghi đè.</summary>
+    [Authorize(Policy = GymCheckInPolicies.Create)]
+    [HttpPost("{checkInId:guid}/checkout")]
+    public async Task<IActionResult> CheckOut(Guid checkInId, CancellationToken cancellationToken)
+        => Ok(await gymCheckInService.CheckOutAsync(checkInId, User.RequireUserId(), cancellationToken));
 }

@@ -32,4 +32,6 @@ public static class NotificationEvents
     public const string ScheduleChanged = nameof(ScheduleChanged);
     public const string PackageExpiring = nameof(PackageExpiring);
     public const string PaymentReceived = nameof(PaymentReceived);
+    public const string HomeworkAssigned = nameof(HomeworkAssigned);
+    public const string HomeworkStatusChanged = nameof(HomeworkStatusChanged);
 }

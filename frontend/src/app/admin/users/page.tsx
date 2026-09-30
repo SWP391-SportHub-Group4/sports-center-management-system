@@ -15,7 +15,7 @@ import {
 import { api } from "@/lib/apiClient";
 import { formatDate, label } from "@/lib/format";
 import { useAction, useApi } from "@/lib/useApi";
-import { ROLE_LABEL, useAuth, type Role } from "@/lib/auth";
+import { ROLE_LABEL, useAuth, type CoachCategory, type Role } from "@/lib/auth";
 import type { Paged, UserAdminDto } from "@/lib/types";
 
 const STAFF_ROLES: Role[] = [
@@ -25,6 +25,13 @@ const STAFF_ROLES: Role[] = [
   "SystemAdministrator",
 ];
 const ALL_ROLES: Role[] = [...STAFF_ROLES, "Member"];
+
+// BR-96, mới 28/09/2026 — bắt buộc khi Role = Coach.
+const COACH_CATEGORIES: CoachCategory[] = ["PersonalTrainer", "ClassInstructor"];
+const COACH_CATEGORY_LABEL: Record<CoachCategory, string> = {
+  PersonalTrainer: "Personal Trainer",
+  ClassInstructor: "Class Instructor (Yoga/Group X)",
+};
 
 /**
  * Quản trị tài khoản — BR-2 (chỉ Quản trị hệ thống tạo tài khoản nhân sự và gán/đổi vai trò),
@@ -47,6 +54,7 @@ export default function UserAdminPage() {
     fullName: "",
     phone: "",
     role: "Receptionist" as Role,
+    coachCategory: "PersonalTrainer" as CoachCategory,
   });
 
   const [statusTarget, setStatusTarget] = useState<{
@@ -56,6 +64,8 @@ export default function UserAdminPage() {
   const [roleTarget, setRoleTarget] = useState<UserAdminDto | null>(null);
   const [reason, setReason] = useState("");
   const [nextRole, setNextRole] = useState<Role>("Coach");
+  const [nextCoachCategory, setNextCoachCategory] =
+    useState<CoachCategory>("PersonalTrainer");
 
   const action = useAction();
 
@@ -85,6 +95,9 @@ export default function UserAdminPage() {
           fullName: createForm.fullName.trim(),
           phone: createForm.phone.trim() || null,
           role: createForm.role,
+          // BR-96 — chỉ gửi kèm khi tạo tài khoản Coach; role khác không nhận field này.
+          coachCategory:
+            createForm.role === "Coach" ? createForm.coachCategory : null,
         }),
       "The personnel account has been created.",
     );
@@ -97,6 +110,7 @@ export default function UserAdminPage() {
         fullName: "",
         phone: "",
         role: "Receptionist",
+        coachCategory: "PersonalTrainer",
       });
       users.reload();
     }
@@ -137,6 +151,9 @@ export default function UserAdminPage() {
         api.put(`/api/users/${roleTarget.userId}/role`, {
           role: nextRole,
           reason: reason.trim(),
+          // BR-96, chốt 28/09/2026 (2) — bắt buộc khi đổi SANG Coach, kể cả nếu tài khoản từng
+          // là Coach trước đó; không tự khôi phục category cũ.
+          coachCategory: nextRole === "Coach" ? nextCoachCategory : null,
         }),
       "The role has been changed.",
     );
@@ -251,6 +268,11 @@ export default function UserAdminPage() {
                       </td>
                       <td>
                         {ROLE_LABEL[account.role as Role] ?? account.role}
+                        {account.coachCategory && (
+                          <div className="small muted">
+                            {COACH_CATEGORY_LABEL[account.coachCategory]}
+                          </div>
+                        )}
                       </td>
                       <td>
                         <StatusChip value={account.status} />
@@ -277,6 +299,10 @@ export default function UserAdminPage() {
                               action.reset();
                               setReason("");
                               setNextRole(account.role as Role);
+                              setNextCoachCategory(
+                                (account.coachCategory as CoachCategory) ??
+                                  "PersonalTrainer",
+                              );
                               setRoleTarget(account);
                             }}
                           >
@@ -446,6 +472,29 @@ export default function UserAdminPage() {
               </select>
             </Field>
 
+            {createForm.role === "Coach" && (
+              <Field
+                label="Coach category"
+                hint="BR-96 — bắt buộc, quyết định bộ chức năng của tài khoản Coach này."
+              >
+                <select
+                  value={createForm.coachCategory}
+                  onChange={(event) =>
+                    setCreateForm({
+                      ...createForm,
+                      coachCategory: event.target.value as CoachCategory,
+                    })
+                  }
+                >
+                  {COACH_CATEGORIES.map((category) => (
+                    <option key={category} value={category}>
+                      {COACH_CATEGORY_LABEL[category]}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            )}
+
             <Feedback error={action.error} success={null} />
           </form>
         </Dialog>
@@ -547,6 +596,26 @@ export default function UserAdminPage() {
                 ))}
               </select>
             </Field>
+
+            {nextRole === "Coach" && (
+              <Field
+                label="Coach category"
+                hint="BR-96 — bắt buộc chọn lại, kể cả nếu tài khoản từng là Coach trước đó."
+              >
+                <select
+                  value={nextCoachCategory}
+                  onChange={(event) =>
+                    setNextCoachCategory(event.target.value as CoachCategory)
+                  }
+                >
+                  {COACH_CATEGORIES.map((category) => (
+                    <option key={category} value={category}>
+                      {COACH_CATEGORY_LABEL[category]}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            )}
 
             <Field label="Reasons (recommended, written in journals)">
               <input

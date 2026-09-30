@@ -71,21 +71,18 @@ public sealed class RuleBasedAiRecommendationService(ISportHubDbContext db, IClo
     {
         var sinceUtc = clock.UtcNow.AddDays(-HistoryWindowDays);
 
-        var present = await db.Set<Enrollment>()
+        var present = await db.Set<Attendance>()
             .CountAsync(
-                e => e.MemberId == memberId
-                     && e.Session!.StartAtUtc >= sinceUtc
-                     && e.Attendance != null
-                     && e.Attendance.Status == AttendanceStatus.Present,
+                a => a.Enrollment!.MemberId == memberId
+                     && a.Session!.StartAtUtc >= sinceUtc
+                     && a.Status == AttendanceStatus.Present,
                 cancellationToken);
 
-        var missed = await db.Set<Enrollment>()
+        var missed = await db.Set<Attendance>()
             .CountAsync(
-                e => e.MemberId == memberId
-                     && e.Session!.StartAtUtc >= sinceUtc
-                     && e.Attendance != null
-                     && (e.Attendance.Status == AttendanceStatus.Absent
-                         || e.Attendance.Status == AttendanceStatus.NoShow),
+                a => a.Enrollment!.MemberId == memberId
+                     && a.Session!.StartAtUtc >= sinceUtc
+                     && a.Status == AttendanceStatus.Absent,
                 cancellationToken);
 
         var gymCheckIns = await db.Set<GymCheckIn>()

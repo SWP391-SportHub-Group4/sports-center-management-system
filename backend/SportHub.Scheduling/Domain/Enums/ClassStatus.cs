@@ -1,8 +1,12 @@
 namespace SportHub.Scheduling.Domain.Enums;
 
-// Trạng thái lớp học.
+// Vòng đời khóa học: Draft (Manager soạn, công chúng không thấy) → Published (nhận ghi danh) → InProgress (đã qua buổi đầu)
+// → Completed. Cancelled: hủy khi chưa có ghi danh, hoặc do trung tâm hủy (ngưỡng hoàn vốn).
 public enum ClassStatus
 {
-    Active,
-    Archived
+    Draft,
+    Published,
+    InProgress,
+    Completed,
+    Cancelled
 }

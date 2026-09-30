@@ -125,6 +125,7 @@ export default function CoachMembersPage() {
           : "Quản lý đồng thời học viên cá nhân 1:1 (PT) và học viên tham gia các lớp Yoga / Group X (BR-23)"
       }
       allow={["Coach"]}
+      requireCoachCategory="PersonalTrainer"
     >
       <Card
         title={language === "en" ? "Trainee Roster" : "Danh sách học viên"}

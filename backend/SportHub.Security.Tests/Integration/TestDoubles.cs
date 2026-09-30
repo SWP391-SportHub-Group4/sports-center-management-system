@@ -54,6 +54,18 @@ public sealed class CallSpy
 /// </summary>
 public sealed class SpyUserAccountRepository(IUserAccountRepository inner, CallSpy spy) : IUserAccountRepository
 {
+    public Task<UserAuthState?> GetAuthStateAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        spy.RecordIsActive();
+
+        if (spy.ThrowOnIsActive)
+        {
+            throw new InvalidOperationException("Simulated database failure");
+        }
+
+        return inner.GetAuthStateAsync(userId, cancellationToken);
+    }
+
     public Task<bool> IsActiveAsync(Guid userId, CancellationToken cancellationToken = default)
     {
         spy.RecordIsActive();
@@ -88,6 +100,8 @@ public sealed class SpyUserAccountRepository(IUserAccountRepository inner, CallS
 public sealed class SpyPasswordHasher(IPasswordHasher inner, CallSpy spy) : IPasswordHasher
 {
     public string Hash(string password) => inner.Hash(password);
+
+    public bool NeedsRehash(string hash) => inner.NeedsRehash(hash);
 
     public bool Verify(string password, string hash)
     {

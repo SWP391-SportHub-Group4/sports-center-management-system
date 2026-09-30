@@ -2,12 +2,9 @@ using System.ComponentModel.DataAnnotations;
 
 namespace SportHub.Scheduling.Application.Commands;
 
+/// <summary>Lễ tân điểm danh: chỉ Present hoặc Absent. Ghi lần đầu hoặc sửa trong cửa sổ 24 giờ sau khi buổi kết thúc.</summary>
 public sealed class MarkAttendanceRequest
 {
-    /// <summary>
-    /// BR-53 — chỉ Present hoặc Absent. NoShow do AttendanceFinalizerJob tự sinh (BR-20),
-    /// không nhận từ client.
-    /// </summary>
     [Required]
     public string Status { get; set; } = string.Empty;
 }

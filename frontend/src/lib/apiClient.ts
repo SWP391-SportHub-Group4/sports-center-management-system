@@ -5,8 +5,28 @@
  * hình xử lý theo mã thay vì so chuỗi thông báo — thông báo có thể đổi, mã thì không.
  */
 
+import { en } from "@/locales/en";
+import { vi } from "@/locales/vi";
+import type { Language } from "./language";
+
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5000";
+
+const LANGUAGE_STORAGE_KEY = "sporthub_lang";
+
+/**
+ * Đọc ngôn ngữ trực tiếp từ localStorage thay vì import lib/language.tsx: module này
+ * không phải React component và không nên kéo theo LanguageProvider/context.
+ */
+function currentLanguage(): Language {
+  if (typeof window === "undefined") return "en";
+  try {
+    const stored = window.localStorage.getItem(LANGUAGE_STORAGE_KEY);
+    return stored === "vi" ? "vi" : "en";
+  } catch {
+    return "en";
+  }
+}
 
 /** Khoá localStorage giữ JWT. Chỉ đọc/ghi ở đây và ở lib/auth.tsx. */
 export const TOKEN_STORAGE_KEY = "sporthub.accessToken";
@@ -122,7 +142,7 @@ async function request<T>(
     throw new ApiError(
       0,
       "network_error",
-      "Could not close temporary folder: %s",
+      (currentLanguage() === "vi" ? vi : en).apiErrors.networkError,
     );
   }
 
@@ -186,21 +206,23 @@ function withValidationDetail(message: string, payload: Json): string {
 }
 
 function defaultMessageFor(status: number): string {
+  const t = (currentLanguage() === "vi" ? vi : en).apiErrors;
+
   switch (status) {
     case 400:
-      return "Invalid sendup data.";
+      return t.invalidRequest;
     case 401:
-      return "The login session is expired. Please log in again.";
+      return t.sessionExpired;
     case 403:
-      return "You do not have permission to perform this operation.";
+      return t.forbidden;
     case 404:
-      return "Could not find data.";
+      return t.notFound;
     case 409:
-      return "Conflict with current data.";
+      return t.conflict;
     case 429:
-      return "You operation too fast. Please try again after a minute.";
+      return t.rateLimited;
     default:
-      return "Error occurred, please try again.";
+      return t.generic;
   }
 }
 

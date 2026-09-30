@@ -93,6 +93,12 @@ export default function ClassesPage() {
     [],
   );
 
+  // BR-97, mới 28/09/2026 — Class (Yoga/Group X) chỉ gán được Coach loại ClassInstructor;
+  // backend cũng từ chối nếu vẫn cố gửi PersonalTrainer.
+  const classInstructors = (coaches.data?.items ?? []).filter(
+    (coach) => coach.coachCategory === "ClassInstructor",
+  );
+
   const isPersonalTraining = form.discipline === "PersonalTraining";
 
   const submit = async (event: React.FormEvent) => {
@@ -254,7 +260,7 @@ export default function ClassesPage() {
                 }
               >
                 <option value="">— Undecided —</option>
-                {(coaches.data?.items ?? []).map((coach) => (
+                {classInstructors.map((coach) => (
                   <option key={coach.userId} value={coach.userId}>
                     {coach.fullName || coach.email}
                   </option>

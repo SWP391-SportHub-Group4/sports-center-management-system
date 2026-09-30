@@ -17,13 +17,22 @@ namespace SportHub.Training.Api;
 [ApiController]
 [Authorize]
 [Route("api/coach-member-relationships")]
+[Produces("application/json")]
+[ProducesResponseType(StatusCodes.Status400BadRequest)]
+[ProducesResponseType(StatusCodes.Status401Unauthorized)]
+[ProducesResponseType(StatusCodes.Status403Forbidden)]
+[ProducesResponseType(StatusCodes.Status404NotFound)]
+[ProducesResponseType(StatusCodes.Status409Conflict)]
 public class CoachMemberRelationshipsController(ICoachMemberRelationshipService relationships) : ControllerBase
 {
     [HttpGet]
+    [ProducesResponseType<IReadOnlyList<CoachMemberRelationshipResponse>>(StatusCodes.Status200OK)]
     public async Task<IActionResult> Search(
         [FromQuery] Guid? coachId,
         [FromQuery] Guid? memberId,
         [FromQuery] bool activeOnly = true,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = CoachMemberRelationshipService.DefaultPageSize,
         CancellationToken ct = default)
     {
         var actorId = User.RequireUserId();
@@ -39,17 +48,19 @@ public class CoachMemberRelationshipsController(ICoachMemberRelationshipService 
             memberId = actorId;
         }
 
-        return Ok(await relationships.SearchAsync(coachId, memberId, activeOnly, ct));
+        return Ok(await relationships.SearchAsync(coachId, memberId, activeOnly, page, pageSize, ct));
     }
 
     [Authorize(Policy = SportHubPolicies.CenterManager)]
     [HttpPost]
+    [ProducesResponseType<CoachMemberRelationshipResponse>(StatusCodes.Status201Created)]
     public async Task<IActionResult> Create([FromBody] CreateRelationshipRequest request, CancellationToken ct)
         => StatusCode(
             StatusCodes.Status201Created, await relationships.CreateAsync(request, User.RequireUserId(), ct));
 
     [Authorize(Policy = SportHubPolicies.CenterManager)]
     [HttpPost("{relationshipId:guid}/end")]
+    [ProducesResponseType<CoachMemberRelationshipResponse>(StatusCodes.Status200OK)]
     public async Task<IActionResult> End(
         Guid relationshipId, [FromBody] EndRelationshipRequest request, CancellationToken ct)
         => Ok(await relationships.EndAsync(relationshipId, request.Reason, User.RequireUserId(), ct));

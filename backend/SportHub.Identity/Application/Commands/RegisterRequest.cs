@@ -9,8 +9,7 @@ public class RegisterRequest
     [Required, EmailAddress]
     public string Email { get; set; } = string.Empty;
 
-    [Required, MinLength(8)]
-    [MaxPasswordBytes(72)]
+    [Required, MaxLength(200)] // chính sách 8–64 ký tự kiểm ở PasswordPolicy (service)
     public string Password { get; set; } = string.Empty;
 
     [FullName]

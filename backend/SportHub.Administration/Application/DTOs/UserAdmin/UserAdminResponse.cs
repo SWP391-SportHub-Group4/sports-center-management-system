@@ -9,4 +9,7 @@ public sealed record UserAdminResponse(
     string Status,
     DateTime CreatedAt,
     bool HasPassword,
-    bool HasGoogleLink);
+    bool HasGoogleLink,
+
+    /// <summary>Môn chuyên môn của Coach (BR-96, thay CoachCategory); rỗng với role khác.</summary>
+    IReadOnlyList<int> SportIds);
