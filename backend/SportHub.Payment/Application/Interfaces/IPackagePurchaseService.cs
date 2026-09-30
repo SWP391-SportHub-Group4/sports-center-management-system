@@ -17,5 +17,6 @@ namespace SportHub.Payment.Application.Interfaces;
 public interface IPackagePurchaseService
 {
     Task<InvoiceDetailResponse> PurchaseAsync(
-        PurchasePackageRequest request, Guid actorUserId, bool actorIsCenterManager, CancellationToken ct = default);
+        PurchasePackageRequest request, Guid actorUserId, bool actorIsCenterManager,
+        CancellationToken ct = default, string? idempotencyKey = null);
 }

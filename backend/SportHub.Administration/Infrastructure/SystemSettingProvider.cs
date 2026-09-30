@@ -10,6 +10,21 @@ namespace SportHub.Administration.Infrastructure;
 /// </summary>
 public sealed class SystemSettingProvider(ISportHubDbContext db) : ISystemSettingProvider
 {
+    public async Task<VersionedIntSetting> GetVersionedIntAsync(string key, CancellationToken cancellationToken = default)
+    {
+        var source = db.Database.CurrentTransaction is null
+            ? db.Set<SystemSetting>().AsNoTracking()
+            : db.Set<SystemSetting>().FromSqlInterpolated(
+                $"SELECT * FROM system_settings WHERE key = {key} FOR SHARE").AsNoTracking();
+        var row = await source
+            .Where(s => s.Key == key).Select(s => new { s.Value, s.UpdatedAt })
+            .SingleOrDefaultAsync(cancellationToken)
+            ?? throw new InvalidOperationException($"Thiếu system setting '{key}'.");
+        if (!int.TryParse(row.Value, out var value))
+            throw new InvalidOperationException($"System setting '{key}' không phải số nguyên.");
+        return new VersionedIntSetting(value, row.UpdatedAt.Ticks.ToString(System.Globalization.CultureInfo.InvariantCulture));
+    }
+
     public async Task<int> GetIntAsync(string key, CancellationToken cancellationToken = default)
     {
         var raw = await db.Set<SystemSetting>()

@@ -93,6 +93,10 @@ public sealed class PaymentAdjustmentService(
         {
             throw new ConflictException("invoice_void", "Hóa đơn đã bị hủy, không điều chỉnh thêm được.");
         }
+        if (invoice.PointsApplied > 0 || await db.Set<Wallet.Domain.PointConfirmation>().AnyAsync(x =>
+                x.InvoiceId == invoiceId && x.ConsumedAtUtc == null && x.RevokedAtUtc == null
+                && x.ExpiresAtUtc > clock.UtcNow, ct))
+            throw new ConflictException("point_checkout_active", "Không điều chỉnh hóa đơn khi đang xác nhận hoặc giữ điểm.");
 
         var amount = decimal.Truncate(request.Amount);
         var balance = await invoiceQuery.GetBalanceAsync(invoiceId, ct);
@@ -163,6 +167,8 @@ public sealed class PaymentAdjustmentService(
         }
 
         var invoice = await db.Set<Invoice>().SingleAsync(i => i.InvoiceId == adjustment.InvoiceId, ct);
+        if (invoice.PointsApplied > 0)
+            throw new ConflictException("point_checkout_active", "Không duyệt điều chỉnh khi hóa đơn đang giữ điểm.");
         var balanceBefore = await invoiceQuery.GetBalanceAsync(adjustment.InvoiceId, ct);
         var previousAmount = adjustment.Amount;
         var now = clock.UtcNow;
@@ -289,6 +295,8 @@ public sealed class PaymentAdjustmentService(
         }
 
         var invoice = await db.Set<Invoice>().SingleAsync(i => i.InvoiceId == adjustment.InvoiceId, ct);
+        if (invoice.PointsApplied > 0)
+            throw new ConflictException("point_checkout_active", "Không hoàn tiền qua luồng cũ khi hóa đơn đang giữ điểm.");
 
         // Đọc lại số dư SAU khi đã khoá bản ghi: giữa lúc duyệt và lúc trả tiền, hoá đơn có
         // thể đã có thêm khoản hoàn khác hoặc thêm khoản thu, nên trần lúc duyệt không còn

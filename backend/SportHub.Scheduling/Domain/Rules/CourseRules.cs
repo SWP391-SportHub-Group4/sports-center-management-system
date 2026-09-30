@@ -80,6 +80,18 @@ public static class CourseRules
         IReadOnlyCollection<(int DayOfWeek, TimeOnly StartTimeLocal)> rules,
         int sessionMinutes)
     {
+        ValidateNumSessions(numSessions);
+
+        if (rules.Any(r => r.DayOfWeek is < 0 or > 6))
+        {
+            throw new BadRequestException("invalid_schedule_day", "Thứ trong tuần phải từ 0 đến 6.");
+        }
+
+        if (rules.Distinct().Count() != rules.Count)
+        {
+            throw new BadRequestException("duplicate_schedule_rule", "Quy tắc lịch lặp bị trùng.");
+        }
+
         if (rules.Count == 0)
         {
             throw new BadRequestException("schedule_rules_required", "Khóa phải có ít nhất một quy tắc lịch lặp theo tuần.");
