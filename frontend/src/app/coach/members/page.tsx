@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
@@ -36,12 +36,25 @@ import styles from "../coach.module.css";
  * Hội viên đang phụ trách và hồ sơ tập luyện của họ.
  * Endpoint /api/coach-member-relationships tự ép coachId về người đang đăng nhập.
  */
-export default function CoachMembersPage() {
-  const { language } = useLanguage();
-  const searchParams = useSearchParams();
-  const initialMemberId = searchParams.get("memberId");
+function CoachMembersPageContent() {
+  const initialMemberId = useSearchParams().get("memberId");
+  return (
+    <CoachMembersContent key={initialMemberId} initialMemberId={initialMemberId} />
+  );
+}
 
-  const [selected, setSelected] = useState<CoachMemberRelationshipDto | null>(null);
+export default function CoachMembersPage() {
+  return (
+    <Suspense fallback={<div role="status">Đang tải…</div>}>
+      <CoachMembersPageContent />
+    </Suspense>
+  );
+}
+
+function CoachMembersContent({ initialMemberId }: { initialMemberId: string | null }) {
+  const { language } = useLanguage();
+
+  const [selectedRelationshipId, setSelectedRelationshipId] = useState<string | null>(null);
   const [filterType, setFilterType] = useState<"ALL" | "PT" | "CLASS">("ALL");
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -54,12 +67,10 @@ export default function CoachMembersPage() {
     [],
   );
 
-  useEffect(() => {
-    if (initialMemberId && relationships.data) {
-      const match = relationships.data.find((r) => r.memberId === initialMemberId);
-      if (match) setSelected(match);
-    }
-  }, [initialMemberId, relationships.data]);
+  const selected =
+    relationships.data?.find((r) => r.relationshipId === selectedRelationshipId) ??
+    relationships.data?.find((r) => r.memberId === initialMemberId) ??
+    null;
 
   const profile = useApi(
     (signal) =>
@@ -255,7 +266,7 @@ export default function CoachMembersPage() {
                       <button
                         type="button"
                         className={`btn btn--sm ${isSelected ? "" : "btn--ghost"}`}
-                        onClick={() => setSelected(item)}
+                        onClick={() => setSelectedRelationshipId(item.relationshipId)}
                       >
                         {isSelected
                           ? language === "en"

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import { AttendanceBoard } from "@/components/AttendanceBoard";
@@ -15,7 +15,7 @@ import { useLanguage } from "@/lib/language";
  * BR-24 — chỉ HLV thực sự dạy buổi đó mới ghi được kết quả; BR-61 — đăng ký phải còn ở
  * trạng thái Đã xác nhận. Hai điều kiện này được backend kiểm lại, nút bấm ở đây chỉ là lối vào.
  */
-export default function CoachAttendancePage() {
+function CoachAttendancePageContent() {
   const { language } = useLanguage();
   const searchParams = useSearchParams();
   const initialSessionId = searchParams.get("sessionId");
@@ -156,5 +156,13 @@ export default function CoachAttendancePage() {
         </Dialog>
       )}
     </AppShell>
+  );
+}
+
+export default function CoachAttendancePage() {
+  return (
+    <Suspense fallback={<div role="status">Đang tải…</div>}>
+      <CoachAttendancePageContent />
+    </Suspense>
   );
 }

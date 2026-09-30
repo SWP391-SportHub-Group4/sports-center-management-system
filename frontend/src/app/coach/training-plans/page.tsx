@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
@@ -43,11 +43,24 @@ const EMPTY_ITEM: ItemDraft = {
  * lập được. Danh sách hội viên ở dropdown lấy đúng từ các quan hệ đó, nên không có đường
  * chọn nhầm người ngoài phạm vi phụ trách.
  */
+function CoachPlansPageContent() {
+  const initialMemberId = useSearchParams().get("memberId") || "";
+  return (
+    <CoachPlansContent key={initialMemberId} initialMemberId={initialMemberId} />
+  );
+}
+
 export default function CoachPlansPage() {
+  return (
+    <Suspense fallback={<div role="status">Đang tải…</div>}>
+      <CoachPlansPageContent />
+    </Suspense>
+  );
+}
+
+function CoachPlansContent({ initialMemberId }: { initialMemberId: string }) {
   const { language } = useLanguage();
   const isEn = language === "en";
-  const searchParams = useSearchParams();
-  const initialMemberId = searchParams.get("memberId") || "";
 
   const [memberId, setMemberId] = useState(initialMemberId);
   const [goal, setGoal] = useState("");
@@ -64,12 +77,6 @@ export default function CoachPlansPage() {
       }),
     [],
   );
-
-  useEffect(() => {
-    if (initialMemberId) {
-      setMemberId(initialMemberId);
-    }
-  }, [initialMemberId]);
 
   const plans = useApi(
     (signal) =>
