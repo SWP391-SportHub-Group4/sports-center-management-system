@@ -205,6 +205,9 @@ builder.Services.AddScoped<IPaymentRecordingService, PaymentRecordingService>();
 builder.Services.AddScoped<IPackageActivationService, PackageActivationService>();
 builder.Services.AddScoped<IPaymentAdjustmentService, PaymentAdjustmentService>();
 builder.Services.AddScoped<IRevenueReportService, RevenueReportService>();
+builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Wallet.IPointWalletService, SportHub.Payment.Wallet.Application.PointWalletService>();
+builder.Services.AddScoped<SportHub.Payment.Wallet.Application.WalletQueryService>();
+builder.Services.AddScoped<SportHub.Payment.Wallet.Application.PointAdjustmentService>();
 
 // Training — một instance phục vụ cả interface nghiệp vụ lẫn seam ICoachRelationshipRegistrar
 // mà Scheduling dùng, để quan hệ ClassBased nằm cùng change tracker với đăng ký sinh ra nó.

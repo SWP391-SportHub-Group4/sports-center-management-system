@@ -34,4 +34,5 @@ ai/**/.venv/
 .github/agents/
 .github/hooks/
 .github/skills/
+.claude/worktrees/
 
