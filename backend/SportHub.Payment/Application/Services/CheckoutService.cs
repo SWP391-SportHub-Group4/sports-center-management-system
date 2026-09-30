@@ -155,6 +155,8 @@ public sealed class CheckoutService(ISportHubDbContext db,
             return await GetAsync(existing.Invoice.InvoiceId, actorId, isFrontDesk, ct);
         }
         var quote = await classes.QuoteAsync(request.ClassId, memberId, ct);
+        if (quote.Price <= 0 || quote.Price % 1000 != 0)
+            throw new ConflictException("class_price_invalid", "Giá khóa học phải là bội số 1.000 VND.");
         var expiry = now.AddMinutes(minutes);
         if (expiry >= quote.FirstSessionUtc.UtcDateTime)
             expiry = quote.FirstSessionUtc.UtcDateTime.AddSeconds(-1);

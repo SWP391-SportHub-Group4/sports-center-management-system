@@ -128,8 +128,23 @@ public sealed class PaymentFulfillmentService(ISportHubDbContext db, IPointWalle
     public async Task CompensateCashAsync(Invoice invoice, VerifiedGatewayEvent proof, CancellationToken ct)
     {
         RequireTransaction();
-        if (proof.Amount % 1000 != 0 || proof.Amount / 1000 > int.MaxValue)
-            throw new ConflictException("cash_compensation_not_exact", "Số tiền thu không đổi chính xác sang điểm.");
+        if (proof.Amount <= 0 || proof.Amount % 1000 != 0 || proof.Amount / 1000 > int.MaxValue)
+        {
+            // Release the hold in the same transaction, then retain the exact captured
+            // amount for manual settlement instead of rounding customer funds.
+            proof.ProcessingStatus = "ManualCompensationRequired";
+            proof.ProcessedAtUtc = clock.UtcNow;
+            invoice.ReconciliationRequired = true;
+            if (invoice.Status != InvoiceStatus.Paid)
+            {
+                invoice.Status = InvoiceStatus.PaidAfterReconciliation;
+                invoice.PaidVia = "VnPayManualCompensation";
+                invoice.PaidAtUtc = clock.UtcNow;
+            }
+            audit.Write(new AuditEntry(invoice.IssuedByUserId, "MANUAL_GATEWAY_COMPENSATION_REQUIRED",
+                nameof(Invoice), invoice.InvoiceId.ToString(), Reason: proof.ProviderTransactionId));
+            return;
+        }
         await wallets.EarnAsync(new WalletOperation(invoice.MemberId, (int)(proof.Amount / 1000),
             "GatewayCompensation", proof.VerifiedGatewayEventId, invoice.IssuedByUserId,
             "Bồi hoàn khoản thu VNPay không thể cấp quyền lợi"), ct);

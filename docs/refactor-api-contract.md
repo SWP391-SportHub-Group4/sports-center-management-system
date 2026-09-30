@@ -421,3 +421,19 @@ Ledger trả `id, entryType, points, availableDelta, heldDelta, availableAfter, 
 | POST | `api/gym-checkins/{checkInId}/checkout` | Receptionist | Giờ server, idempotent; checkin chưa tồn tại/giờ vào tương lai bị từ chối. |
 
 `IClassEnrollmentFulfillment` cung cấp quote, giữ chỗ, confirm, release và cancel trong transaction của caller; chưa có checkout course gọi port này để thu tiền thật. PT giữ endpoint ở Phần A, thêm `roomId` tùy chọn và chống trùng occupancy. Job NoShow chỉ xử lý buổi PT đã kết thúc; lớp nhóm không tự tạo Present/Absent.
+
+## Phần G — P1.07 Checkout hiện hành
+
+| Verb | Path | Actor | Hành vi |
+|---|---|---|---|
+| POST | `api/checkouts/membership`, `api/checkouts/class`, `api/checkouts/pt` | Member, Receptionist, Manager | Bắt buộc `Idempotency-Key`; staff chỉ định `targetMemberId`, Member chỉ mua cho mình. Trả CheckoutResponse với invoice/cycle/hạn/số tiền. |
+| GET | `api/checkouts/{invoiceId}` | Chủ invoice hoặc staff | Trạng thái chu kỳ checkout hiện tại. |
+| POST | `api/checkouts/{invoiceId}/attempts` | Chủ invoice hoặc staff | Tạo/đọc PaymentAttempt snapshot tiền/điểm và URL VNPay; 100% điểm hoàn tất ngay, không tạo attempt VNPay 0đ. |
+| POST | `api/checkouts/{invoiceId}/cancel`, `.../retry` | Chủ invoice hoặc staff | Hủy nhả hold; retry sau hết hạn cấp invoice/cycle mới và `Idempotency-Key` mới. PT retry cần `priceVersion` mới. |
+| GET/POST | `api/pt-pricing`, `api/checkouts/pt/quote` | Người dùng đã xác thực / Member hoặc staff | Giá PT và quote có version; checkout PT từ chối version cũ. |
+| PUT | `api/manager/pt-pricing` | Manager | Đổi đơn giá PT hợp lệ. |
+| GET | `api/payments/vnpay/return`, `api/payments/vnpay/ipn` | Public (VNPay) | Return chỉ đọc; IPN xác minh chữ ký/tham chiếu/số tiền rồi lưu event và thực hiện fulfillment. |
+| POST | `api/invoices/{invoiceId}/reconcile` | FrontDesk | QueryDR xác minh giao dịch theo attempt mới nhất. |
+| POST | `api/dev/payments/{reference}/simulate` | FrontDesk, Development | Mock callback qua cùng pipeline IPN; không có ở môi trường khác. |
+
+Invoice checkout mới chặn route ghi payment thủ công. `PaidAfterReconciliation` biểu thị khoản thu đến muộn/không thể cấp quyền lợi; `VnPayCompensated` là đã bồi hoàn điểm đúng số tiền, còn `VnPayManualCompensation` + `ReconciliationRequired=true`/event `ManualCompensationRequired` cần xử lý tiền thực thu ngoài hệ thống khi không đổi chính xác sang điểm. `CheckoutSession` và `VerifiedGatewayEvent` giữ lịch sử/idempotency; các checkpoint E/F ở trên mô tả trạng thái khi mới triển khai từng phase. Thuê sân chưa có route checkout vì chờ CourtRental của P1.10.

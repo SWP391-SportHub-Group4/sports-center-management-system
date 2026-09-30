@@ -2,6 +2,13 @@
 
 Cập nhật sau mỗi chặng.
 
+## P1.07 — 30/09/2026
+
+- PostgreSQL Testcontainers kiểm luồng Membership 0/40/100% điểm; lớp reserve→confirm và IPN muộn; PT báo giá có version→activate; callback song song/lặp và khoản thu thứ hai; inbox lỗi fulfillment→retry; expiry/retry không tái dùng point hold; khoản QueryDR lẻ cần bồi hoàn thủ công. Kết quả tổng Payment xem checkpoint/handover mới nhất.
+- Payment **92/92 pass**; Administration **15/15**, Scheduling **86/86**, Security **130/130** pass trong lượt solution. Training build thành công nhưng runner không nạp được DLL do Windows Application Control `0x800711C7`, kể cả chạy riêng sau build; kết quả Training trước thay đổi middleware là **80/80**. Không tính Training vào kết quả lượt cuối.
+- Migration `20260930130000_MultiSportCheckout` được kiểm trên PostgreSQL tạm cùng model drift; chưa áp DB dev. Fixture ký PAY VNPay kiểm canonicalization, amount, thời gian và checksum; QueryDR dùng checksum phản hồi. Chưa có thử nghiệm E2E với merchant sandbox thật.
+- Giới hạn: CourtRental checkout chờ P1.10; không tính là gate P1.07 đã hoàn tất tuyệt đối.
+
 ## P1.05 — 30/09/2026
 
 - Toàn backend **389/389 pass** trên PostgreSQL 16 Testcontainers (Administration 15, Payment 78, Scheduling 86, Security 130, Training 80), không skip; sau thay đổi nhỏ cuối, **7/7 CoursePublishTests** và **8/8 CourseAttendanceTests** (Release) pass. Bốn warning cũ thuộc Security.Tests. Không migration DB dev.

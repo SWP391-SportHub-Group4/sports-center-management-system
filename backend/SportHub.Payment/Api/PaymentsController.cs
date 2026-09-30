@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.Api;
@@ -27,6 +28,7 @@ public sealed class PaymentsController(PaymentReconciliationService reconciliati
         => Ok(new { message = "Kết quả đang được xác nhận qua IPN. Hãy tải lại trạng thái checkout." });
 
     [HttpGet("ipn")]
+    [EnableRateLimiting("vnp-ipn")]
     public async Task<IActionResult> Ipn(CancellationToken ct)
     {
         var fields = Request.Query.ToDictionary(x => x.Key, x => x.Value.ToString(), StringComparer.Ordinal);

@@ -59,7 +59,8 @@ public class InvoicesController(
             request,
             User.RequireUserId(),
             User.IsInRole(SportHubRoleNames.CenterManager),
-            ct);
+            ct,
+            Guid.NewGuid().ToString("N"));
 
         return StatusCode(StatusCodes.Status201Created, result);
     }
