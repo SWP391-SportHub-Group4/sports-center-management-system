@@ -1,673 +1,379 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using SportHub.BuildingBlocks.Abstractions.Audit;
+using SportHub.BuildingBlocks.Abstractions.Identity;
 using SportHub.BuildingBlocks.Abstractions.Notifications;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
+using SportHub.BuildingBlocks.Abstractions.Scheduling;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.BuildingBlocks.SharedKernel.Time;
-using SportHub.Identity.Domain.Entities;
-using SportHub.Identity.Domain.Enums;
-using SportHub.Membership.Domain.Entities;
-using SportHub.Membership.Domain.Enums;
-using SportHub.Membership.Domain.Rules;
 using SportHub.Scheduling.Application.Commands;
 using SportHub.Scheduling.Application.DTOs;
 using SportHub.Scheduling.Application.Interfaces;
-using SportHub.Scheduling.Domain.Rules;
+using SportHub.Scheduling.Catalog.Application;
 
 namespace SportHub.Scheduling.Application.Services;
 
 /// <summary>
-/// Buổi học — BR-15 (thừa hưởng khung giờ từ recurrence), BR-51 (trần sức chứa chốt lúc tạo),
-/// BR-54 (hủy/dời: hoàn lượt, không phạt, dời thì tạo buổi thay thế có liên kết).
+/// Lịch buổi của khóa: xem, roster, dời một buổi, hủy một buổi kèm buổi bù. Mọi thao tác đổi lịch dùng occupancy nguyên tử
+/// (lịch cũ giữ nguyên nếu lịch mới xung đột), giữ nguyên ghi danh và báo cho học viên. Đổi lịch không tự hoàn tiền: số buổi
+/// thực cung cấp luôn là NumSessions nhờ buổi bù.
 /// </summary>
 public sealed class ClassSessionService(
     ISportHubDbContext db,
-    IAuditWriter audit,
+    CourseValidator validator,
+    IOccupancyService occupancy,
+    RoomOpeningHourService openingHours,
+    IUserAccessReader users,
     INotificationWriter notifications,
+    IAuditWriter audit,
     IClock clock) : IClassSessionService
 {
-    public async Task<IReadOnlyList<ClassSessionResponse>> SearchAsync(
-        DateOnly fromDate,
-        DateOnly toDate,
-        int? classId,
-        Guid? coachId,
-        string? discipline,
-        bool includeCancelled,
-        CancellationToken ct = default)
+    private static readonly TimeSpan AttendanceGrace = TimeSpan.FromHours(24);
+
+    // ---------------------------------------------------------------- Truy vấn
+
+    public async Task<IReadOnlyList<ClassSessionResponse>> ListByClassAsync(
+        int classId, Guid? restrictToCoachId, CancellationToken ct = default)
     {
-        if (toDate < fromDate)
-        {
-            (fromDate, toDate) = (toDate, fromDate);
-        }
+        await EnsureClassAccessAsync(classId, restrictToCoachId, ct);
 
-        // Biên theo ngày GIỜ VN quy đổi sang UTC — cắt theo ngày UTC sẽ đẩy nhầm buổi tập
-        // sáng sớm (trước 07:00 giờ VN) sang ngày hôm trước.
-        var fromUtc = VietnamTime.StartOfDayUtc(fromDate);
-        var toUtc = VietnamTime.EndOfDayExclusiveUtc(toDate);
-
-        var query = db.Set<ClassSession>()
-            .AsNoTracking()
-            .Where(s => s.StartAtUtc >= fromUtc && s.StartAtUtc < toUtc);
-
-        if (!includeCancelled)
-        {
-            query = query.Where(s => s.Status != ClassSessionStatus.Cancelled);
-        }
-
-        if (classId is not null)
-        {
-            query = query.Where(s => s.ClassId == classId);
-        }
-
-        if (coachId is not null)
-        {
-            query = query.Where(s => s.CoachId == coachId);
-        }
-
-        if (!string.IsNullOrWhiteSpace(discipline))
-        {
-            query = query.Where(s => s.Class!.Discipline == discipline);
-        }
-
-        return await query.OrderBy(s => s.StartAtUtc).Select(Projection()).ToListAsync(ct);
+        var rows = await Rows().Where(r => r.Session.ClassId == classId).OrderBy(r => r.Session.SessionNo).ToListAsync(ct);
+        return await ToResponsesAsync(rows, ct);
     }
 
-    public async Task<ClassSessionResponse> GetAsync(Guid sessionId, CancellationToken ct = default)
-        => await db.Set<ClassSession>().AsNoTracking().Where(s => s.SessionId == sessionId).Select(Projection())
-               .SingleOrDefaultAsync(ct)
-           ?? throw new NotFoundException("session_not_found", "Không tìm thấy buổi học.");
-
-    /// <summary>
-    /// BR-15 — sinh buổi học từ các mẫu lặp của lớp trong khoảng ngày yêu cầu.
-    ///
-    /// Idempotent: buổi đã tồn tại đúng (recurrence, thời điểm bắt đầu) thì bỏ qua, nên chạy
-    /// lại cùng khoảng ngày không nhân đôi lịch. Nếu không, mỗi lần Manager bấm "sinh lịch"
-    /// lại lớp lên một tầng buổi trùng giờ.
-    /// </summary>
-    public async Task<IReadOnlyList<ClassSessionResponse>> GenerateAsync(
-        int classId,
-        GenerateSessionsRequest request,
-        Guid actorUserId,
-        CancellationToken ct = default)
+    public async Task<ClassSessionResponse> GetAsync(Guid sessionId, Guid? restrictToCoachId, CancellationToken ct = default)
     {
-        var entity = await db.Set<Class>()
-            .Include(c => c.Recurrences)
-            .Include(c => c.DefaultRoom)
-            .SingleOrDefaultAsync(c => c.ClassId == classId, ct)
-            ?? throw new NotFoundException("class_not_found", "Không tìm thấy lớp học.");
+        var row = await Rows().SingleOrDefaultAsync(r => r.Session.SessionId == sessionId, ct)
+                  ?? throw new NotFoundException("session_not_found", "Không tìm thấy buổi học.");
 
-        if (entity.Status != ClassStatus.Active)
-        {
-            throw new ConflictException("class_archived", "Lớp đã ngừng hoạt động, không sinh thêm buổi học.");
-        }
+        await EnsureClassAccessAsync(row.Session.ClassId, restrictToCoachId, ct);
+        return (await ToResponsesAsync([row], ct))[0];
+    }
 
-        if (entity.DefaultCoachId is null)
-        {
-            // ClassSession.CoachId là not-null (SSOT §2) nên không có HLV thì không sinh được
-            // buổi. BR-12 cho phép gán HLV sau — sinh lịch chính là lúc "sau" đó phải xong.
-            throw new ConflictException(
-                "class_has_no_coach",
-                "Lớp chưa được phân công HLV mặc định — không sinh được buổi học (BR-12, BR-14).");
-        }
+    public async Task<SessionRosterResponse> GetRosterAsync(Guid sessionId, Guid? restrictToCoachId, CancellationToken ct = default)
+    {
+        var row = await Rows().SingleOrDefaultAsync(r => r.Session.SessionId == sessionId, ct)
+                  ?? throw new NotFoundException("session_not_found", "Không tìm thấy buổi học.");
 
-        if (entity.Recurrences.Count == 0)
-        {
-            throw new ConflictException("class_has_no_recurrence", "Lớp chưa có mẫu lịch lặp nào.");
-        }
+        await EnsureClassAccessAsync(row.Session.ClassId, restrictToCoachId, ct);
 
-        var (fromDate, toDate) = request.ToDate < request.FromDate
-            ? (request.ToDate, request.FromDate)
-            : (request.FromDate, request.ToDate);
+        var session = (await ToResponsesAsync([row], ct))[0];
 
-        if (toDate.DayNumber - fromDate.DayNumber > 366)
-        {
-            throw new BadRequestException("range_too_large", "Chỉ sinh lịch tối đa 366 ngày mỗi lần.");
-        }
-
-        var existingStarts = await db.Set<ClassSession>()
-            .Where(s => s.ClassId == classId
-                        && s.StartAtUtc >= VietnamTime.StartOfDayUtc(fromDate)
-                        && s.StartAtUtc < VietnamTime.EndOfDayExclusiveUtc(toDate))
-            .Select(s => s.StartAtUtc)
+        // Roster = ghi danh Confirmed + ghi danh đã kết thúc nhưng đã có điểm danh ở buổi này (giữ lịch sử đọc được).
+        var entries = await (from e in db.Set<Enrollment>().AsNoTracking()
+                             where e.ClassId == row.Session.ClassId
+                             join a in db.Set<Attendance>().AsNoTracking().Where(x => x.SessionId == sessionId)
+                                 on e.EnrollmentId equals a.EnrollmentId into att
+                             from a in att.DefaultIfEmpty()
+                             where e.Status == EnrollmentStatus.Confirmed || a != null
+                             orderby e.EnrolledAt
+                             select new { e.EnrollmentId, e.MemberId, e.Status, AttStatus = (AttendanceStatus?)a!.Status, AttAt = (DateTime?)a.RecordedAt })
             .ToListAsync(ct);
 
-        var existing = existingStarts.ToHashSet();
-        var created = new List<ClassSession>();
-
-        await using var transaction = await db.Database.BeginTransactionAsync(ct);
-
-        foreach (var recurrence in entity.Recurrences)
+        var result = new List<RosterEntryResponse>();
+        foreach (var e in entries)
         {
-            var days = recurrence.DaysOfWeek
-                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                .Where(ClassService.DayCodes.ContainsKey)
-                .Select(d => ClassService.DayCodes[d])
-                .ToHashSet();
-
-            for (var day = fromDate; day <= toDate; day = day.AddDays(1))
-            {
-                if (day < recurrence.EffectiveFrom || (recurrence.EffectiveTo is not null && day > recurrence.EffectiveTo))
-                {
-                    continue;
-                }
-
-                if (!days.Contains(day.ToDateTime(TimeOnly.MinValue).DayOfWeek))
-                {
-                    continue;
-                }
-
-                var startUtc = VietnamTime.ToUtc(day.ToDateTime(recurrence.StartTimeLocal));
-
-                if (!existing.Add(startUtc))
-                {
-                    continue;
-                }
-
-                var endUtc = VietnamTime.ToUtc(day.ToDateTime(recurrence.EndTimeLocal));
-
-                // Buổi trùng phòng/HLV được BỎ QUA chứ không làm hỏng cả lệnh sinh lịch:
-                // sinh lịch chạy trên cả trăm ngày, dừng vì một ngày lễ trùng lịch sẽ khiến
-                // Manager không sinh được phần còn lại (quyết định C5).
-                if (await HasRoomConflictAsync(entity.DefaultRoomId, startUtc, endUtc, null, ct)
-                    || await HasCoachConflictAsync(entity.DefaultCoachId.Value, startUtc, endUtc, null, ct))
-                {
-                    continue;
-                }
-
-                var baseline = SessionRules.ComputeBaselineCapacity(entity.DefaultRoom!.Capacity, entity.Capacity);
-
-                var session = new ClassSession
-                {
-                    SessionId = Guid.NewGuid(),
-                    ClassId = classId,
-                    RecurrenceId = recurrence.RecurrenceId,
-                    RoomId = entity.DefaultRoomId,
-                    CoachId = entity.DefaultCoachId.Value,
-                    StartAtUtc = startUtc,
-                    EndAtUtc = endUtc,
-
-                    // BR-51 — trần chốt tại đây, một lần, và không bao giờ tính lại.
-                    BaselineCapacity = baseline,
-                    Capacity = baseline,
-                    ConfirmedCount = 0,
-                    Status = ClassSessionStatus.Scheduled
-                };
-
-                // Ràng buộc "PT thì sức chứa = 1" đọc Discipline của lớp cha nên là ràng buộc
-                // xuyên bảng — DB CHECK không đặt được, service phải tự soi (ClassRules).
-                ClassRules.ValidateSessionCapacity(entity.Discipline, session.Capacity);
-
-                db.Set<ClassSession>().Add(session);
-                created.Add(session);
-            }
+            var info = await users.GetAsync(e.MemberId, ct);
+            result.Add(new RosterEntryResponse(
+                e.EnrollmentId, e.MemberId, info?.FullName ?? string.Empty,
+                e.Status.ToString(), e.AttStatus?.ToString(), e.AttAt));
         }
 
-        audit.Write(new AuditEntry(
-            actorUserId, "GENERATE_CLASS_SESSIONS", nameof(Class), classId.ToString(),
-            NewValue: $"{{\"from\":\"{fromDate:yyyy-MM-dd}\",\"to\":\"{toDate:yyyy-MM-dd}\","
-                      + $"\"created\":{created.Count}}}"));
+        return new SessionRosterResponse(
+            session,
+            row.Session.StartAtUtc,
+            row.Session.EndAtUtc + AttendanceGrace,
+            result);
+    }
 
-        await db.SaveChangesAsync(ct);
-        await transaction.CommitAsync(ct);
+    public async Task<IReadOnlyList<MemberSessionResponse>> GetMemberScheduleAsync(
+        Guid memberId, DateTime fromUtc, DateTime toUtc, CancellationToken ct = default)
+    {
+        if (toUtc <= fromUtc || toUtc - fromUtc > TimeSpan.FromDays(92))
+        {
+            throw new BadRequestException("invalid_range", "Khoảng thời gian phải dương và tối đa 92 ngày.");
+        }
 
-        var ids = created.Select(s => s.SessionId).ToList();
+        var rangeFrom = DateTime.SpecifyKind(fromUtc, DateTimeKind.Utc);
+        var rangeTo = DateTime.SpecifyKind(toUtc, DateTimeKind.Utc);
 
-        return await db.Set<ClassSession>().AsNoTracking()
-            .Where(s => ids.Contains(s.SessionId))
-            .OrderBy(s => s.StartAtUtc)
-            .Select(Projection())
+        return await (from e in db.Set<Enrollment>().AsNoTracking()
+                      where e.MemberId == memberId && e.Status == EnrollmentStatus.Confirmed
+                      join s in db.Set<ClassSession>().AsNoTracking() on e.ClassId equals s.ClassId
+                      where s.StartAtUtc >= rangeFrom && s.StartAtUtc < rangeTo
+                      join a in db.Set<Attendance>().AsNoTracking() on new { e.EnrollmentId, s.SessionId }
+                          equals new { a.EnrollmentId, a.SessionId } into att
+                      from a in att.DefaultIfEmpty()
+                      orderby s.StartAtUtc
+                      select new MemberSessionResponse(
+                          s.SessionId, s.ClassId, s.Class!.Name, s.Class.Sport!.Name, s.SessionNo, s.Room!.Name,
+                          s.StartAtUtc, s.EndAtUtc, s.Status.ToString(), s.IsMakeup,
+                          a == null ? null : a.Status.ToString()))
             .ToListAsync(ct);
     }
 
-    public async Task<ClassSessionResponse> CreateAdHocAsync(
-        CreateAdHocSessionRequest request,
-        Guid actorUserId,
-        CancellationToken ct = default)
+    // ---------------------------------------------------------------- Dời
+
+    public async Task<ClassSessionResponse> RescheduleAsync(
+        Guid sessionId, RescheduleSessionRequest request, Guid actorUserId, CancellationToken ct = default)
     {
-        var entity = await db.Set<Class>()
-            .Include(c => c.DefaultRoom)
-            .SingleOrDefaultAsync(c => c.ClassId == request.ClassId, ct)
-            ?? throw new NotFoundException("class_not_found", "Không tìm thấy lớp học.");
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
 
-        var roomId = request.RoomId ?? entity.DefaultRoomId;
-        var coachId = request.CoachId ?? entity.DefaultCoachId
-            ?? throw new ConflictException(
-                "class_has_no_coach", "Lớp chưa có HLV mặc định — phải chỉ định HLV cho buổi này (BR-14).");
+        var session = await LockAndLoadAsync(sessionId, ct);
+        var cls = await db.Set<Class>().SingleAsync(c => c.ClassId == session.ClassId, ct);
 
-        var session = await BuildSessionAsync(
-            entity, roomId, coachId, request.StartAtUtc, request.EndAtUtc, excludeSessionId: null, ct);
+        EnsureEditable(session, cls);
 
-        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+        var start = DateTime.SpecifyKind(request.StartAtUtc, DateTimeKind.Utc);
+        var end = start + (session.EndAtUtc - session.StartAtUtc);
 
-        db.Set<ClassSession>().Add(session);
-
-        audit.Write(new AuditEntry(
-            actorUserId, "CREATE_CLASS_SESSION", nameof(ClassSession), session.SessionId.ToString(),
-            NewValue: Describe(session)));
-
-        await db.SaveChangesAsync(ct);
-        await transaction.CommitAsync(ct);
-
-        return await GetAsync(session.SessionId, ct);
-    }
-
-    public async Task<ClassSessionResponse> UpdateAsync(
-        Guid sessionId,
-        UpdateSessionRequest request,
-        Guid actorUserId,
-        CancellationToken ct = default)
-    {
-        var session = await db.Set<ClassSession>()
-            .Include(s => s.Class)
-            .SingleOrDefaultAsync(s => s.SessionId == sessionId, ct)
-            ?? throw new NotFoundException("session_not_found", "Không tìm thấy buổi học.");
-
-        if (session.Status != ClassSessionStatus.Scheduled)
+        if (start <= clock.UtcNow)
         {
-            throw new ConflictException(
-                "session_not_scheduled", $"Buổi học đang ở trạng thái {session.Status}, không sửa được.");
+            throw new BadRequestException("session_time_in_past", "Giờ mới phải ở tương lai.");
         }
+
+        var roomId = request.RoomId ?? session.RoomId;
+        var coachId = request.CoachId ?? session.CoachId;
+
+        await ValidateTargetAsync(cls, roomId, coachId, session.RoomId, session.CoachId, start, end, ct);
+        await EnsureNoMemberConflictAsync(cls.ClassId, start, end, ct);
 
         var before = Describe(session);
-        var scheduleChanged = false;
 
-        if (request.RoomId is not null && request.RoomId != session.RoomId)
+        var result = await occupancy.ReplaceAsync(new OccupancyRequest(
+            OccupancySources.ClassSession, session.SessionId, roomId, coachId, start, end), ct);
+
+        if (!result.Succeeded)
         {
-            var room = await db.Set<Room>().SingleOrDefaultAsync(r => r.RoomId == request.RoomId, ct)
-                ?? throw new NotFoundException("room_not_found", "Không tìm thấy phòng tập.");
-
-            if (await HasRoomConflictAsync(room.RoomId, session.StartAtUtc, session.EndAtUtc, sessionId, ct))
-            {
-                throw new ConflictException("room_conflict", "Phòng tập đã có buổi học khác trùng giờ.");
-            }
-
-            session.RoomId = room.RoomId;
-
-            // Phòng nhỏ hơn siết trần hiệu lực xuống; phòng lớn hơn KHÔNG nới trần gốc (BR-51).
-            if (session.Capacity > room.Capacity)
-            {
-                session.Capacity = Math.Min(session.BaselineCapacity, room.Capacity);
-            }
-
-            scheduleChanged = true;
+            throw new OccupancyConflictException(result.Conflicts);
         }
 
-        if (request.CoachId is not null && request.CoachId != session.CoachId)
-        {
-            var isCoach = await db.Set<UserAccount>()
-                .AnyAsync(u => u.UserId == request.CoachId && u.Role!.RoleName == UserRole.Coach, ct);
+        var oldStart = session.StartAtUtc;
+        session.StartAtUtc = start;
+        session.EndAtUtc = end;
+        session.RoomId = roomId;
+        session.CoachId = coachId;
 
-            if (!isCoach)
-            {
-                throw new BadRequestException("coach_not_found", "Tài khoản được gán không có vai trò Coach.");
-            }
+        audit.Write(new AuditEntry(actorUserId, "RESCHEDULE_CLASS_SESSION", nameof(ClassSession), sessionId.ToString(),
+            OldValue: before, NewValue: Describe(session), Reason: request.Reason.Trim()));
 
-            if (await HasCoachConflictAsync(request.CoachId.Value, session.StartAtUtc, session.EndAtUtc, sessionId, ct))
-            {
-                throw new ConflictException("coach_conflict", "HLV đã có buổi dạy khác trùng giờ.");
-            }
-
-            session.CoachId = request.CoachId.Value;
-            scheduleChanged = true;
-        }
-
-        if (request.Capacity is not null && request.Capacity != session.Capacity)
-        {
-            var room = await db.Set<Room>().SingleAsync(r => r.RoomId == session.RoomId, ct);
-
-            SessionRules.ValidateCapacityChange(request.Capacity.Value, session.BaselineCapacity, room.Capacity);
-            ClassRules.ValidateSessionCapacity(session.Class!.Discipline, request.Capacity.Value);
-
-            // Không hạ sức chứa xuống dưới số người ĐÃ xác nhận: BR-54 chỉ cho huỷ đăng ký khi
-            // huỷ/dời cả buổi, không có đường nào "đẩy bớt" người ra khỏi buổi vẫn diễn ra.
-            if (request.Capacity.Value < session.ConfirmedCount)
-            {
-                throw new ConflictException(
-                    "capacity_below_confirmed",
-                    $"Đã có {session.ConfirmedCount} đăng ký xác nhận — không hạ sức chứa thấp hơn con số này.");
-            }
-
-            session.Capacity = request.Capacity.Value;
-        }
-
-        audit.Write(new AuditEntry(
-            actorUserId, "UPDATE_CLASS_SESSION", nameof(ClassSession), sessionId.ToString(),
-            OldValue: before, NewValue: Describe(session)));
-
-        // BR-33 — hội viên được báo khi lịch học của họ thay đổi (đổi phòng hoặc đổi HLV).
-        if (scheduleChanged)
-        {
-            await NotifyConfirmedMembersAsync(
-                sessionId,
-                NotificationEvents.ScheduleChanged,
-                $"Buổi học {session.Class!.Name} lúc "
-                + $"{VietnamTime.ToLocal(session.StartAtUtc):HH:mm dd/MM/yyyy} có thay đổi về phòng tập hoặc HLV. "
-                + "Đăng ký của bạn vẫn giữ nguyên.",
-                ct);
-        }
+        await NotifyEnrolledAsync(cls, session.SessionId,
+            $"Buổi {session.SessionNo} của khóa {cls.Name} đổi từ {Local(oldStart)} sang {Local(start)}. Lý do: {request.Reason.Trim()}", ct);
 
         await db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
 
-        return await GetAsync(sessionId, ct);
+        return await GetAsync(sessionId, null, ct);
     }
 
-    /// <summary>
-    /// BR-54 — trung tâm hủy buổi chưa bắt đầu: hủy các đăng ký còn hiệu lực, HOÀN LƯỢT,
-    /// KHÔNG áp dụng phạt hủy trễ/No-show, và báo cho từng hội viên là cần tự đăng ký lại.
-    /// </summary>
-    public async Task<ClassSessionResponse> CancelAsync(
-        Guid sessionId,
-        string reason,
-        Guid actorUserId,
-        CancellationToken ct = default)
+    // ---------------------------------------------------------------- Hủy + bù
+
+    public async Task<ClassSessionResponse> CancelWithMakeupAsync(
+        Guid sessionId, CancelSessionRequest request, Guid actorUserId, CancellationToken ct = default)
     {
-        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
 
-        var session = await db.Set<ClassSession>()
-            .Include(s => s.Class)
-            .SingleOrDefaultAsync(s => s.SessionId == sessionId, ct)
-            ?? throw new NotFoundException("session_not_found", "Không tìm thấy buổi học.");
+        var session = await LockAndLoadAsync(sessionId, ct);
+        var cls = await db.Set<Class>().SingleAsync(c => c.ClassId == session.ClassId, ct);
 
-        SessionRules.EnsureCancellableOrReschedulable(session, clock.UtcNow);
+        EnsureEditable(session, cls);
 
-        var releasedCount = await ReleaseEnrollmentsAsync(session, reason, actorUserId, replacement: null, ct);
+        var makeup = request.Makeup;
+        var start = DateTime.SpecifyKind(makeup.StartAtUtc, DateTimeKind.Utc);
+        var end = start + (session.EndAtUtc - session.StartAtUtc);
 
+        if (start <= clock.UtcNow)
+        {
+            throw new BadRequestException("session_time_in_past", "Giờ buổi bù phải ở tương lai.");
+        }
+
+        // Buổi bù thêm ở CUỐI lịch: sau buổi cuối còn hiệu lực của khóa (không tính buổi đang hủy).
+        var lastEnd = await db.Set<ClassSession>()
+            .Where(s => s.ClassId == cls.ClassId && s.SessionId != sessionId && s.Status != ClassSessionStatus.Cancelled)
+            .MaxAsync(s => (DateTime?)s.EndAtUtc, ct);
+
+        if (lastEnd is DateTime last && start < last)
+        {
+            throw new BadRequestException(
+                "makeup_must_be_after_schedule", "Buổi bù phải nằm sau buổi cuối của lịch hiện tại.");
+        }
+
+        var roomId = makeup.RoomId ?? session.RoomId;
+        var coachId = makeup.CoachId ?? session.CoachId;
+
+        await ValidateTargetAsync(cls, roomId, coachId, session.RoomId, session.CoachId, start, end, ct);
+        await EnsureNoMemberConflictAsync(cls.ClassId, start, end, ct);
+
+        var nextNo = await db.Set<ClassSession>().Where(s => s.ClassId == cls.ClassId).MaxAsync(s => s.SessionNo, ct) + 1;
+
+        var newSession = new ClassSession
+        {
+            SessionId = Guid.NewGuid(),
+            ClassId = cls.ClassId,
+            SessionNo = nextNo,
+            RoomId = roomId,
+            CoachId = coachId,
+            StartAtUtc = start,
+            EndAtUtc = end,
+            Status = ClassSessionStatus.Scheduled,
+            RescheduledFromSessionId = sessionId,
+            IsMakeup = true
+        };
+
+        // Nhả buổi cũ trước để buổi bù (nếu đè lên chính khung cũ) không tự xung đột; mọi thứ nằm trong một transaction
+        // nên buổi bù xung đột thì buổi cũ không bị hủy.
+        await occupancy.ReleaseAsync(OccupancySources.ClassSession, sessionId, ct);
         session.Status = ClassSessionStatus.Cancelled;
-        session.ConfirmedCount = 0;
 
-        audit.Write(new AuditEntry(
-            actorUserId, "CANCEL_CLASS_SESSION", nameof(ClassSession), sessionId.ToString(),
-            OldValue: $"{{\"status\":\"{ClassSessionStatus.Scheduled}\"}}",
-            NewValue: $"{{\"status\":\"{ClassSessionStatus.Cancelled}\",\"releasedEnrollments\":{releasedCount}}}",
-            Reason: reason.Trim()));
-
+        db.Set<ClassSession>().Add(newSession);
         await db.SaveChangesAsync(ct);
-        await transaction.CommitAsync(ct);
 
-        return await GetAsync(sessionId, ct);
-    }
+        var result = await occupancy.ReserveAsync(new OccupancyRequest(
+            OccupancySources.ClassSession, newSession.SessionId, roomId, coachId, start, end), ct);
 
-    /// <summary>
-    /// BR-54 — dời lịch: TẠO BUỔI THAY THẾ và lưu liên kết về buổi cũ
-    /// (ClassSession.RescheduledFromSessionId), buổi cũ chuyển sang Rescheduled.
-    ///
-    /// Hệ thống KHÔNG tự chuyển đăng ký sang buổi mới và không giữ chỗ — BR-54 nói rõ hội viên
-    /// phải chủ động đăng ký lại theo điều kiện thông thường.
-    /// </summary>
-    public async Task<ClassSessionResponse> RescheduleAsync(
-        Guid sessionId,
-        RescheduleSessionRequest request,
-        Guid actorUserId,
-        CancellationToken ct = default)
-    {
-        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+        if (!result.Succeeded)
+        {
+            throw new OccupancyConflictException(result.Conflicts);
+        }
 
-        var session = await db.Set<ClassSession>()
-            .Include(s => s.Class).ThenInclude(c => c!.DefaultRoom)
-            .SingleOrDefaultAsync(s => s.SessionId == sessionId, ct)
-            ?? throw new NotFoundException("session_not_found", "Không tìm thấy buổi học.");
-
-        SessionRules.EnsureCancellableOrReschedulable(session, clock.UtcNow);
-
-        var replacement = await BuildSessionAsync(
-            session.Class!,
-            request.NewRoomId ?? session.RoomId,
-            request.NewCoachId ?? session.CoachId,
-            request.NewStartAtUtc,
-            request.NewEndAtUtc,
-            excludeSessionId: sessionId,
-            ct);
-
-        replacement.RecurrenceId = session.RecurrenceId;
-        replacement.RescheduledFromSessionId = sessionId;
-
-        db.Set<ClassSession>().Add(replacement);
-
-        var releasedCount = await ReleaseEnrollmentsAsync(session, request.Reason, actorUserId, replacement, ct);
-
-        session.Status = ClassSessionStatus.Rescheduled;
-        session.ConfirmedCount = 0;
-
-        audit.Write(new AuditEntry(
-            actorUserId, "RESCHEDULE_CLASS_SESSION", nameof(ClassSession), sessionId.ToString(),
-            OldValue: $"{{\"status\":\"{ClassSessionStatus.Scheduled}\",\"startAtUtc\":\"{session.StartAtUtc:O}\"}}",
-            NewValue: $"{{\"status\":\"{ClassSessionStatus.Rescheduled}\","
-                      + $"\"replacementSessionId\":\"{replacement.SessionId}\","
-                      + $"\"newStartAtUtc\":\"{replacement.StartAtUtc:O}\",\"releasedEnrollments\":{releasedCount}}}",
+        audit.Write(new AuditEntry(actorUserId, "CANCEL_CLASS_SESSION", nameof(ClassSession), sessionId.ToString(),
+            OldValue: JsonSerializer.Serialize(new { status = ClassSessionStatus.Scheduled.ToString() }),
+            NewValue: JsonSerializer.Serialize(new { status = ClassSessionStatus.Cancelled.ToString(), makeupSessionId = newSession.SessionId }),
             Reason: request.Reason.Trim()));
 
+        await NotifyEnrolledAsync(cls, newSession.SessionId,
+            $"Buổi {session.SessionNo} ({Local(session.StartAtUtc)}) của khóa {cls.Name} bị hủy và được bù vào {Local(start)}. Lý do: {request.Reason.Trim()}", ct);
+
         await db.SaveChangesAsync(ct);
-        await transaction.CommitAsync(ct);
+        await tx.CommitAsync(ct);
 
-        return await GetAsync(replacement.SessionId, ct);
+        return await GetAsync(newSession.SessionId, null, ct);
     }
 
-    public async Task<SessionRosterResponse> GetRosterAsync(Guid sessionId, CancellationToken ct = default)
+    // ---------------------------------------------------------------- Nội bộ
+
+    private async Task<ClassSession> LockAndLoadAsync(Guid sessionId, CancellationToken ct)
     {
-        var session = await GetAsync(sessionId, ct);
+        await db.Database.ExecuteSqlInterpolatedAsync(
+            $"SELECT session_id FROM class_sessions WHERE session_id = {sessionId} FOR UPDATE", ct);
 
-        var entries = await db.Set<Enrollment>()
-            .AsNoTracking()
-            .Where(e => e.SessionId == sessionId)
-            .OrderBy(e => e.Member!.Email)
-            .Select(e => new RosterEntryResponse(
-                e.EnrollmentId,
-                e.MemberId,
-                e.Member!.Email,
-                e.Member.Profile != null ? e.Member.Profile.FullName : string.Empty,
-                e.Status.ToString(),
-                e.Attendance == null ? null : e.Attendance.Status.ToString(),
-                e.Attendance == null ? null : e.Attendance.CheckInTime))
-            .ToListAsync(ct);
-
-        return new SessionRosterResponse(session, entries);
+        return await db.Set<ClassSession>().SingleOrDefaultAsync(s => s.SessionId == sessionId, ct)
+               ?? throw new NotFoundException("session_not_found", "Không tìm thấy buổi học.");
     }
 
-    /// <summary>
-    /// BR-54/BR-18 — hủy đăng ký còn hiệu lực và hoàn lượt. Phân loại luôn là CancelledOnTime
-    /// bất kể hạn hủy của hội viên: BR-18 nói rõ "trường hợp trung tâm hủy hoặc dời buổi học
-    /// áp dụng quy tắc riêng, không phụ thuộc hạn hủy của hội viên".
-    /// </summary>
-    private async Task<int> ReleaseEnrollmentsAsync(
-        ClassSession session,
-        string reason,
-        Guid actorUserId,
-        ClassSession? replacement,
-        CancellationToken ct)
+    private void EnsureEditable(ClassSession session, Class cls)
     {
-        var enrollments = await db.Set<Enrollment>()
-            .Where(e => e.SessionId == session.SessionId && e.Status == EnrollmentStatus.Confirmed)
-            .ToListAsync(ct);
-
-        if (enrollments.Count == 0)
+        if (session.Status != ClassSessionStatus.Scheduled)
         {
-            return 0;
+            throw new ConflictException("session_not_editable", "Chỉ đổi/hủy được buổi đang ở trạng thái Scheduled.");
         }
 
-        var packageIds = enrollments.Select(e => e.MemberPackageId).Distinct().ToList();
-
-        var packages = await db.Set<MemberPackage>()
-            .Where(mp => packageIds.Contains(mp.MemberPackageId))
-            .ToListAsync(ct);
-
-        // BR-10 — một truy vấn cho cả lô thay vì một truy vấn mỗi enrollment: buổi học đông
-        // có thể có vài chục đăng ký và vòng lặp N+1 ở đây nằm trong transaction hủy buổi.
-        var memberIds = packages.Select(p => p.MemberId).Distinct().ToList();
-        var catalogIds = packages.Select(p => p.PackageId).Distinct().ToList();
-
-        var activeSamePackage = (await db.Set<MemberPackage>()
-                .AsNoTracking()
-                .Where(mp => memberIds.Contains(mp.MemberId)
-                             && catalogIds.Contains(mp.PackageId)
-                             && mp.Status == MemberPackageStatus.Active)
-                .Select(mp => new { mp.MemberId, mp.PackageId, mp.MemberPackageId })
-                .ToListAsync(ct))
-            .ToList();
-
-        var today = VietnamTime.TodayLocal(clock);
-        var now = clock.UtcNow;
-        var startLocal = VietnamTime.ToLocal(session.StartAtUtc);
-
-        var message = replacement is null
-            ? $"Buổi học {session.Class!.Name} lúc {startLocal:HH:mm dd/MM/yyyy} đã bị trung tâm hủy. "
-              + $"Đăng ký của bạn đã được hủy, lượt tập đã được hoàn lại. "
-              + $"Bạn cần chủ động đăng ký buổi khác. Lý do: {reason.Trim()}"
-            : $"Buổi học {session.Class!.Name} lúc {startLocal:HH:mm dd/MM/yyyy} đã được dời sang "
-              + $"{VietnamTime.ToLocal(replacement.StartAtUtc):HH:mm dd/MM/yyyy}. "
-              + $"Đăng ký cũ của bạn đã được hủy và lượt tập đã được hoàn lại — "
-              + $"vui lòng đăng ký lại buổi thay thế nếu bạn vẫn tham gia. Lý do: {reason.Trim()}";
-
-        foreach (var enrollment in enrollments)
+        if (cls.Status is not (ClassStatus.Published or ClassStatus.InProgress))
         {
-            enrollment.Status = EnrollmentStatus.CancelledOnTime;
-            enrollment.CancelledAt = now;
-            enrollment.CancelledByUserId = actorUserId;
-
-            var package = packages.SingleOrDefault(mp => mp.MemberPackageId == enrollment.MemberPackageId);
-
-            if (package is not null)
-            {
-                // BR-10/BR-11 v1.4 — như nhánh hủy tự nguyện: luôn hoàn lượt, chỉ mở lại gói khi
-                // không đụng gói cùng loại đang Active.
-                var blockedByStacking = activeSamePackage.Any(
-                    other => other.MemberId == package.MemberId
-                             && other.PackageId == package.PackageId
-                             && other.MemberPackageId != package.MemberPackageId);
-
-                MemberPackageRules.RestoreSession(package, today, blockedByStacking);
-            }
-
-            // BR-33 — nội dung phải nêu rõ: đăng ký cũ đã hủy, lượt đã hoàn, cần đăng ký lại,
-            // kèm thông tin buổi thay thế nếu có.
-            notifications.Queue(new NotificationRequest(
-                enrollment.MemberId,
-                replacement is null ? NotificationEvents.ClassCancelled : NotificationEvents.ScheduleChanged,
-                message,
-                replacement?.SessionId ?? session.SessionId));
+            throw new ConflictException("class_not_active", "Khóa không ở trạng thái đang diễn ra hoặc đã publish.");
         }
 
-        return enrollments.Count;
+        if (session.StartAtUtc <= clock.UtcNow)
+        {
+            throw new ConflictException("session_started", "Buổi đã bắt đầu — không đổi/hủy được.");
+        }
     }
 
-    private async Task NotifyConfirmedMembersAsync(
-        Guid sessionId,
-        string eventType,
-        string message,
-        CancellationToken ct)
+    private async Task ValidateTargetAsync(
+        Class cls, int roomId, Guid coachId, int currentRoomId, Guid currentCoachId,
+        DateTime start, DateTime end, CancellationToken ct)
     {
-        var memberIds = await db.Set<Enrollment>()
-            .Where(e => e.SessionId == sessionId && e.Status == EnrollmentStatus.Confirmed)
+        if (roomId != currentRoomId)
+        {
+            await validator.RequireRoomForSportAsync(roomId, cls.SportId, ct);
+        }
+
+        if (coachId != currentCoachId)
+        {
+            await validator.RequireCoachForSportAsync(coachId, cls.SportId, ct);
+        }
+
+        if (!await openingHours.IsOpenAsync(roomId, start, end, ct))
+        {
+            throw new BadRequestException("session_outside_opening_hours", "Giờ mới nằm ngoài giờ mở cửa của phòng (BR-109).");
+        }
+    }
+
+    /// <summary>Dời/bù có thể làm học viên đã ghi danh bị trùng buổi của khóa khác — báo Manager, không tự xử lý.</summary>
+    private async Task EnsureNoMemberConflictAsync(int classId, DateTime start, DateTime end, CancellationToken ct)
+    {
+        var members = db.Set<Enrollment>().Where(e => e.ClassId == classId && e.Status == EnrollmentStatus.Confirmed).Select(e => e.MemberId);
+
+        var affected = await (from e in db.Set<Enrollment>().AsNoTracking()
+                              where e.Status == EnrollmentStatus.Confirmed && e.ClassId != classId && members.Contains(e.MemberId)
+                              join s in db.Set<ClassSession>().AsNoTracking() on e.ClassId equals s.ClassId
+                              where s.Status == ClassSessionStatus.Scheduled && s.StartAtUtc < end && s.EndAtUtc > start
+                              select e.MemberId).Distinct().CountAsync(ct);
+
+        if (affected > 0)
+        {
+            throw new ConflictException(
+                "member_schedule_conflict",
+                $"{affected} học viên của khóa đã có buổi học khác trùng khung giờ mới — Manager cần xử lý trước.");
+        }
+    }
+
+    private async Task NotifyEnrolledAsync(Class cls, Guid sourceId, string message, CancellationToken ct)
+    {
+        var memberIds = await db.Set<Enrollment>().AsNoTracking()
+            .Where(e => e.ClassId == cls.ClassId && e.Status == EnrollmentStatus.Confirmed)
             .Select(e => e.MemberId)
             .ToListAsync(ct);
 
         foreach (var memberId in memberIds)
         {
-            notifications.Queue(new NotificationRequest(memberId, eventType, message, sessionId));
+            notifications.Queue(new NotificationRequest(memberId, NotificationEvents.ScheduleChanged, message, sourceId));
         }
     }
 
-    private async Task<ClassSession> BuildSessionAsync(
-        Class entity,
-        int roomId,
-        Guid coachId,
-        DateTime startAtUtc,
-        DateTime endAtUtc,
-        Guid? excludeSessionId,
-        CancellationToken ct)
+    private async Task EnsureClassAccessAsync(int classId, Guid? restrictToCoachId, CancellationToken ct)
     {
-        if (endAtUtc <= startAtUtc)
+        var coachId = await db.Set<Class>().AsNoTracking()
+            .Where(c => c.ClassId == classId)
+            .Select(c => new { Found = true, c.CoachId })
+            .SingleOrDefaultAsync(ct)
+            ?? throw new NotFoundException("class_not_found", "Không tìm thấy khóa học.");
+
+        if (restrictToCoachId is Guid id && coachId.CoachId != id)
         {
-            throw new BadRequestException("invalid_time_range", "Giờ kết thúc phải sau giờ bắt đầu.");
+            throw new ForbiddenException("class_not_owned", "Coach chỉ xem được khóa mình phụ trách.");
         }
-
-        if (startAtUtc <= clock.UtcNow)
-        {
-            throw new BadRequestException("session_in_the_past", "Không tạo buổi học trong quá khứ.");
-        }
-
-        var room = await db.Set<Room>().SingleOrDefaultAsync(r => r.RoomId == roomId, ct)
-            ?? throw new NotFoundException("room_not_found", "Không tìm thấy phòng tập.");
-
-        var isCoach = await db.Set<UserAccount>()
-            .AnyAsync(u => u.UserId == coachId && u.Role!.RoleName == UserRole.Coach, ct);
-
-        if (!isCoach)
-        {
-            throw new BadRequestException("coach_not_found", "Tài khoản được gán không có vai trò Coach.");
-        }
-
-        if (await HasRoomConflictAsync(roomId, startAtUtc, endAtUtc, excludeSessionId, ct))
-        {
-            throw new ConflictException("room_conflict", "Phòng tập đã có buổi học khác trùng giờ.");
-        }
-
-        if (await HasCoachConflictAsync(coachId, startAtUtc, endAtUtc, excludeSessionId, ct))
-        {
-            throw new ConflictException("coach_conflict", "HLV đã có buổi dạy khác trùng giờ.");
-        }
-
-        var baseline = SessionRules.ComputeBaselineCapacity(room.Capacity, entity.Capacity);
-
-        ClassRules.ValidateSessionCapacity(entity.Discipline, baseline);
-
-        return new ClassSession
-        {
-            SessionId = Guid.NewGuid(),
-            ClassId = entity.ClassId,
-            RoomId = roomId,
-            CoachId = coachId,
-            StartAtUtc = startAtUtc,
-            EndAtUtc = endAtUtc,
-            BaselineCapacity = baseline,
-            Capacity = baseline,
-            ConfirmedCount = 0,
-            Status = ClassSessionStatus.Scheduled
-        };
     }
 
-    // Giao nhau nửa mở [start, end): hai buổi liền kề (buổi A kết thúc đúng lúc buổi B bắt đầu)
-    // KHÔNG tính là trùng. Chỉ xét buổi Scheduled — buổi đã hủy/đã dời không còn chiếm chỗ.
-    private Task<bool> HasRoomConflictAsync(
-        int roomId, DateTime startUtc, DateTime endUtc, Guid? excludeSessionId, CancellationToken ct)
-        => db.Set<ClassSession>().AnyAsync(
-            s => s.RoomId == roomId
-                 && s.Status == ClassSessionStatus.Scheduled
-                 && s.StartAtUtc < endUtc
-                 && startUtc < s.EndAtUtc
-                 && (excludeSessionId == null || s.SessionId != excludeSessionId),
-            ct);
+    private sealed record Row(ClassSession Session, string ClassName, string RoomName);
 
-    private Task<bool> HasCoachConflictAsync(
-        Guid coachId, DateTime startUtc, DateTime endUtc, Guid? excludeSessionId, CancellationToken ct)
-        => db.Set<ClassSession>().AnyAsync(
-            s => s.CoachId == coachId
-                 && s.Status == ClassSessionStatus.Scheduled
-                 && s.StartAtUtc < endUtc
-                 && startUtc < s.EndAtUtc
-                 && (excludeSessionId == null || s.SessionId != excludeSessionId),
-            ct);
+    private IQueryable<Row> Rows()
+        => db.Set<ClassSession>().AsNoTracking().Select(s => new Row(s, s.Class!.Name, s.Room!.Name));
+
+    private async Task<IReadOnlyList<ClassSessionResponse>> ToResponsesAsync(IReadOnlyList<Row> rows, CancellationToken ct)
+    {
+        var names = await validator.CoachNamesAsync(rows.Select(r => (Guid?)r.Session.CoachId), ct);
+
+        return rows.Select(r => new ClassSessionResponse(
+            r.Session.SessionId, r.Session.ClassId, r.ClassName, r.Session.SessionNo, r.Session.RoomId, r.RoomName,
+            r.Session.CoachId, names.TryGetValue(r.Session.CoachId, out var n) ? n : null,
+            DateTime.SpecifyKind(r.Session.StartAtUtc, DateTimeKind.Utc), DateTime.SpecifyKind(r.Session.EndAtUtc, DateTimeKind.Utc),
+            r.Session.Status.ToString(), r.Session.IsMakeup, r.Session.RescheduledFromSessionId)).ToList();
+    }
+
+    private static string Local(DateTime utc)
+        => VietnamTime.ToLocal(utc).ToString("HH:mm dd/MM/yyyy");
 
     private static string Describe(ClassSession s)
-        => $"{{\"classId\":{s.ClassId},\"roomId\":{s.RoomId},\"coachId\":\"{s.CoachId}\","
-           + $"\"startAtUtc\":\"{s.StartAtUtc:O}\",\"endAtUtc\":\"{s.EndAtUtc:O}\","
-           + $"\"capacity\":{s.Capacity},\"baselineCapacity\":{s.BaselineCapacity},\"status\":\"{s.Status}\"}}";
-
-    internal static System.Linq.Expressions.Expression<Func<ClassSession, ClassSessionResponse>> Projection()
-        => s => new ClassSessionResponse(
-            s.SessionId,
-            s.ClassId,
-            s.Class!.Name,
-            s.Class.Discipline,
-            s.RoomId,
-            s.Room!.Name,
-            s.CoachId,
-            s.Coach!.Profile != null ? s.Coach.Profile.FullName : s.Coach.Email,
-            s.StartAtUtc,
-            s.EndAtUtc,
-            s.Capacity,
-            s.BaselineCapacity,
-            s.ConfirmedCount,
-            s.Status.ToString(),
-            s.RescheduledFromSessionId,
-            s.ConfirmedCount >= s.Capacity);
+        => JsonSerializer.Serialize(new
+        {
+            classId = s.ClassId,
+            sessionNo = s.SessionNo,
+            roomId = s.RoomId,
+            coachId = s.CoachId,
+            startAtUtc = s.StartAtUtc,
+            endAtUtc = s.EndAtUtc,
+            status = s.Status.ToString()
+        });
 }

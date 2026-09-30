@@ -15,5 +15,5 @@ public interface IAccountService
 
     Task<MyAccountResponse> UpdateProfileAsync(Guid userId, UpdateMyProfileRequest request, CancellationToken ct = default);
 
-    Task SetPasswordAsync(Guid userId, SetPasswordRequest request, CancellationToken ct = default);
+    Task<PasswordChangedResponse> ChangePasswordAsync(Guid userId, ChangePasswordRequest request, CancellationToken ct = default);
 }

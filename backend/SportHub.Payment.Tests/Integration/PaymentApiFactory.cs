@@ -96,6 +96,19 @@ public sealed class PaymentApiFactory : WebApplicationFactory<Program>, IAsyncLi
             }));
     }
 
+    /// <summary>Security stamp hiện tại của user trong DB test — token phải mang đúng stamp (claim sst).</summary>
+    public Guid StampOf(Guid userId)
+    {
+        using var scope = Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<SportHub.BuildingBlocks.Abstractions.Persistence.ISportHubDbContext>();
+
+        return db.Set<SportHub.Identity.Domain.Entities.UserAccount>()
+            .AsNoTracking()
+            .Where(u => u.UserId == userId)
+            .Select(u => u.SecurityStamp)
+            .SingleOrDefault();
+    }
+
     public HttpClient CreateApiClient(Guid? actingUserId = null, UserRole? actingRole = null)
     {
         var client = CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
@@ -104,7 +117,7 @@ public sealed class PaymentApiFactory : WebApplicationFactory<Program>, IAsyncLi
         {
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
                 "Bearer",
-                JwtService.GenerateAccessToken(actingUserId.Value, actingRole.Value.ToString(), EffectiveJwtOptions));
+                JwtService.GenerateAccessToken(actingUserId.Value, actingRole.Value.ToString(), EffectiveJwtOptions, StampOf(actingUserId.Value)));
         }
 
         return client;

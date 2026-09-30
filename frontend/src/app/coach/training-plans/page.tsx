@@ -130,6 +130,7 @@ export default function CoachPlansPage() {
           : "Xây dựng lộ trình tập luyện cá nhân hóa cho học viên bạn đang phụ trách (BR-23)"
       }
       allow={["Coach"]}
+      requireCoachCategory="PersonalTrainer"
     >
       <div className={styles.planWorkbench}>
         {/* Left Column: Plan Builder Studio */}

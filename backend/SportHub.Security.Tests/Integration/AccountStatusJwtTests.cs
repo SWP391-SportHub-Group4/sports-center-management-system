@@ -150,7 +150,7 @@ public class AccountStatusJwtTests(SportHubApiFactory factory)
         var expiredOptions = factory.EffectiveJwtOptions;
         expiredOptions.AccessTokenExpiryMinutes = -10; // qua ca ClockSkew 1 phut
 
-        var token = JwtService.GenerateAccessToken(user.UserId, nameof(UserRole.Member), expiredOptions);
+        var token = JwtService.GenerateAccessToken(user.UserId, nameof(UserRole.Member), expiredOptions, user.SecurityStamp);
 
         var response = await Client().SendAsync(Protected(token));
 
@@ -166,7 +166,7 @@ public class AccountStatusJwtTests(SportHubApiFactory factory)
         var forgedOptions = factory.EffectiveJwtOptions;
         forgedOptions.SecretKey = "a-completely-different-secret-key-also-long-enough-64!!";
 
-        var token = JwtService.GenerateAccessToken(user.UserId, nameof(UserRole.Member), forgedOptions);
+        var token = JwtService.GenerateAccessToken(user.UserId, nameof(UserRole.Member), forgedOptions, user.SecurityStamp);
 
         var response = await Client().SendAsync(Protected(token));
 

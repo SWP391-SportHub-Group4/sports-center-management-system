@@ -9,9 +9,12 @@ public class WorkoutResultConfiguration : IEntityTypeConfiguration<WorkoutResult
     {
         builder.HasKey(e => e.ResultId);
 
-        builder.HasOne(e => e.Enrollment)
-            .WithMany()
-            .HasForeignKey(e => e.EnrollmentId)
+        // Đổi 29/09/2026 (BE-4): 1-1 với PtSession — DB tự chặn ghi 2 result cho cùng 1 session.
+        builder.HasIndex(e => e.PtSessionId).IsUnique();
+
+        builder.HasOne(e => e.PtSession)
+            .WithOne(s => s.Result)
+            .HasForeignKey<WorkoutResult>(e => e.PtSessionId)
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasOne(e => e.Coach)

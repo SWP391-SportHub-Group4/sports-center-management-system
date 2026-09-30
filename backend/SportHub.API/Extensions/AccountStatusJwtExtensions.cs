@@ -1,5 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using SportHub.BuildingBlocks.Infrastructure.Authentication;
+using SportHub.Identity.Domain.Enums;
 using SportHub.Identity.Application.Interfaces;
 
 namespace SportHub.API.Extensions;
@@ -63,12 +65,26 @@ public static class AccountStatusJwtExtensions
                 // Không catch lỗi DB ở đây: fail closed. Exception được JwtBearerHandler
                 // ném tiếp lên ExceptionHandlingMiddleware -> 500, và protected action
                 // không chạy. Nuốt lỗi rồi coi user là Active sẽ phá đúng BR-6.
-                var isActive = await repository.IsActiveAsync(userId, context.HttpContext.RequestAborted);
+                var state = await repository.GetAuthStateAsync(userId, context.HttpContext.RequestAborted);
 
-                if (!isActive)
+                // Banned / Deactivated / user không còn tồn tại đều rơi vào đây. Không tiết lộ
+                // trạng thái cụ thể của tài khoản trong response.
+                if (state is null || state.Status != UserStatus.Active)
                 {
-                    // Banned / Deactivated / user không còn tồn tại đều rơi vào đây.
-                    // Không tiết lộ trạng thái cụ thể của tài khoản trong response.
+                    context.Fail("Account is unavailable.");
+                    return;
+                }
+
+                // BR-103/104: token phải mang đúng security stamp và đúng role hiện tại trong DB.
+                // Đổi/reset mật khẩu hoặc đổi vai trò đổi stamp nên token cũ mất hiệu lực ở request
+                // kế tiếp; token cấp trước khi có claim sst cũng bị từ chối (đăng nhập lại là xong).
+                var stampClaim = context.Principal?.FindFirstValue(JwtService.SecurityStampClaimType);
+                var roleClaim = context.Principal?.FindFirstValue(ClaimTypes.Role);
+
+                if (!Guid.TryParse(stampClaim, out var stamp)
+                    || stamp != state.SecurityStamp
+                    || !string.Equals(roleClaim, state.Role, StringComparison.Ordinal))
+                {
                     context.Fail("Account is unavailable.");
                 }
             };

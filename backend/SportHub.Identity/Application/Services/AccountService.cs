@@ -5,6 +5,8 @@ using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.Identity.Application.Commands;
 using SportHub.Identity.Application.Interfaces;
 using System.ComponentModel.DataAnnotations;
+using Microsoft.Extensions.Options;
+using SportHub.BuildingBlocks.Infrastructure.Authentication;
 
 namespace SportHub.Identity.Application.Services;
 
@@ -19,6 +21,9 @@ public sealed record MyAccountResponse(
     bool HasPassword,
     bool HasGoogleLink);
 
+/// <summary>JWT mới cho phiên vừa đổi mật khẩu; các token cũ đã bị vô hiệu bằng security stamp.</summary>
+public sealed record PasswordChangedResponse(string AccessToken);
+
 public sealed class UpdateMyProfileRequest
 {
     [FullName]
@@ -28,18 +33,6 @@ public sealed class UpdateMyProfileRequest
     public string? Phone { get; set; }
 }
 
-public sealed class SetPasswordRequest
-{
-    /// <summary>
-    /// Bắt buộc khi tài khoản ĐÃ có mật khẩu; bỏ trống với tài khoản Google-only đang đặt
-    /// mật khẩu lần đầu (BR-60).
-    /// </summary>
-    [MaxPasswordBytes(72)]
-    public string? CurrentPassword { get; set; }
-
-    [Required, MinLength(8), MaxPasswordBytes(72)]
-    public string NewPassword { get; set; } = string.Empty;
-}
 
 /// <summary>
 /// Hồ sơ và mật khẩu của chính người dùng — BR-60 (đặt mật khẩu phải làm từ bên trong phiên
@@ -47,7 +40,10 @@ public sealed class SetPasswordRequest
 ///
 /// Mọi hàm nhận userId từ JWT ở controller, không nhận từ body.
 /// </summary>
-public sealed class AccountService(ISportHubDbContext db, IPasswordHasher passwordHasher) : IAccountService
+public sealed class AccountService(
+    ISportHubDbContext db,
+    IPasswordHasher passwordHasher,
+    IOptions<JwtOptions> jwtOptions) : IAccountService
 {
     public async Task<MyAccountResponse> GetMeAsync(Guid userId, CancellationToken ct = default)
         => await db.Set<UserAccount>()
@@ -104,16 +100,27 @@ public sealed class AccountService(ISportHubDbContext db, IPasswordHasher passwo
     }
 
     /// <summary>
-    /// BR-60 — đặt/đổi mật khẩu chỉ làm được TỪ BÊN TRONG một phiên đã xác thực.
-    /// Tài khoản Google-only đặt lần đầu thì không cần mật khẩu cũ (vì chưa có);
-    /// tài khoản đã có mật khẩu thì bắt buộc nhập đúng mật khẩu hiện tại.
+    /// BR-60/104 — đặt/đổi mật khẩu chỉ làm được TỪ BÊN TRONG một phiên đã xác thực.
+    /// Tài khoản Google-only đặt lần đầu thì không cần mật khẩu cũ; tài khoản đã có mật khẩu thì
+    /// bắt buộc nhập đúng mật khẩu hiện tại và mật khẩu mới phải khác mật khẩu cũ.
+    /// Thành công: đổi security stamp (mọi token cũ mất hiệu lực) và trả JWT mới cho chính phiên này.
     /// </summary>
-    public async Task SetPasswordAsync(
+    public async Task<PasswordChangedResponse> ChangePasswordAsync(
         Guid userId,
-        SetPasswordRequest request,
+        ChangePasswordRequest request,
         CancellationToken ct = default)
     {
-        var credential = await db.Set<UserCredential>().SingleOrDefaultAsync(c => c.UserId == userId, ct);
+        PasswordPolicyGuard.EnforceConfirmation(request.NewPassword, request.ConfirmNewPassword);
+
+        var user = await db.Set<UserAccount>()
+                       .Include(u => u.Credential)
+                       .Include(u => u.Role)
+                       .SingleOrDefaultAsync(u => u.UserId == userId, ct)
+                   ?? throw new NotFoundException("user_not_found", "Không tìm thấy tài khoản.");
+
+        PasswordPolicyGuard.Enforce(request.NewPassword, user.Email);
+
+        var credential = user.Credential;
 
         if (credential is null)
         {
@@ -133,19 +140,27 @@ public sealed class AccountService(ISportHubDbContext db, IPasswordHasher passwo
             {
                 throw new AppException(401, "invalid_credentials", "Mật khẩu hiện tại không đúng.");
             }
+
+            if (passwordHasher.Verify(request.NewPassword, credential.PasswordHash))
+            {
+                throw new BadRequestException(
+                    "new_password_same_as_current", "Mật khẩu mới phải khác mật khẩu hiện tại.");
+            }
         }
         else
         {
-            // Tốn đúng một phép BCrypt kể cả ở nhánh này, cùng lý do với AuthService.LoginAsync
-            // (SSOT §5.6): không để thời gian phản hồi tiết lộ tài khoản đã có mật khẩu hay chưa.
+            // Tốn đúng một phép hash kể cả ở nhánh này: không để thời gian phản hồi tiết lộ
+            // tài khoản đã có mật khẩu hay chưa.
             passwordHasher.VerifyDummy(request.CurrentPassword ?? string.Empty);
         }
 
         credential.PasswordHash = passwordHasher.Hash(request.NewPassword);
+        user.SecurityStamp = Guid.NewGuid();
 
-        // KHÔNG thu hồi các JWT đang lưu hành sau khi đổi mật khẩu: cơ chế đó (security stamp /
-        // logout-all) là scope riêng theo SSOT §5.6 và chưa được triển khai. Ghi rõ ở đây để
-        // không ai đọc code này rồi tưởng đổi mật khẩu là đã đăng xuất mọi thiết bị.
         await db.SaveChangesAsync(ct);
+
+        return new PasswordChangedResponse(
+            JwtService.GenerateAccessToken(
+                user.UserId, user.Role!.RoleName.ToString(), jwtOptions.Value, user.SecurityStamp));
     }
 }

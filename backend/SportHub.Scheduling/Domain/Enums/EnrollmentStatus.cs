@@ -1,9 +1,10 @@
 namespace SportHub.Scheduling.Domain.Enums;
 
-// Vòng đời đăng ký lớp của Member.
+// Ghi danh chỉ sinh ra từ thanh toán thành công (không có ghi danh miễn phí). Mọi trạng thái khác Confirmed đều là kết thúc.
 public enum EnrollmentStatus
 {
     Confirmed,
-    CancelledOnTime,
-    CancelledLate
+    TransferredOut,
+    Refunded,
+    CancelledByCenter
 }

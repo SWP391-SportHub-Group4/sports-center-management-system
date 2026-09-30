@@ -7,6 +7,7 @@ using SportHub.AI.Application.Interfaces;
 using SportHub.AI.Application.Services;
 using SportHub.AI.Infrastructure;
 using SportHub.AI;
+using SportHub.AI.Infrastructure.Gemini;
 using SportHub.API.Extensions;
 using SportHub.API.Jobs;
 using SportHub.API.Middleware;
@@ -98,6 +99,18 @@ builder.Services.AddRateLimiter(options =>
                 QueueProcessingOrder = QueueProcessingOrder.OldestFirst
             }));
 
+    // BR-103 — quên/đặt lại mật khẩu: 3/phút theo IP (mỗi forgot gửi 1 email thật).
+    options.AddPolicy("auth-password-reset", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 3,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst
+            }));
+
     // Login dùng policy riêng (10/phút theo IP) — quota và response 429 độc lập với register.
     options.AddPolicy<string, LoginRateLimitPolicy>(LoginRateLimitPolicy.PolicyName);
 });
@@ -117,9 +130,19 @@ builder.Services.AddScoped<IUserAccountRepository, UserAccountRepository>();
 builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IAccountService, AccountService>();
+builder.Services.AddScoped<IPasswordResetService, PasswordResetService>();
+builder.Services.AddScoped<EmailOtpFlow>();
+builder.Services.AddScoped<CoachSpecialtyService>();
+builder.Services.AddScoped<CoachAdminService>();
+builder.Services.AddScoped<IUserSummaryFactory, UserSummaryFactory>();
+builder.Services.AddScoped<IExternalCoachService, ExternalCoachService>();
+builder.Services.AddScoped<SportHub.Training.Application.Services.PersonalTrainerGuard>();
+builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Identity.IUserAccessReader, UserAccessReader>();
+builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Identity.ICoachSpecialtyReader, CoachSpecialtyReader>();
+builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Identity.IExternalCoachAccessReader, ExternalCoachAccessReader>();
+builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Scheduling.ISportCatalogReader, SportHub.Scheduling.Catalog.Application.SportCatalogReader>();
 builder.Services.AddScoped<IGoogleTokenVerifier, GoogleTokenVerifier>();
 builder.Services.AddScoped<IGoogleAuthService, GoogleAuthService>();
-builder.Services.AddScoped<IPasswordGenerator, PasswordGenerator>();
 
 // BR-78 — gửi OTP Register. Chưa cấu hình Smtp:Host (máy dev) thì chỉ ghi email ra log.
 var smtpSection = builder.Configuration.GetSection("Smtp");
@@ -149,6 +172,7 @@ builder.Services.AddScoped<IReportExportService, ReportExportService>();
 builder.Services.AddScoped<IMembershipPackageService, MembershipPackageService>();
 builder.Services.AddScoped<IMemberPackageService, MemberPackageService>();
 builder.Services.AddScoped<IMemberTrainingProfileService, MemberTrainingProfileService>();
+builder.Services.AddScoped<IMembershipReportService, MembershipReportService>();
 
 // Notification
 builder.Services.AddScoped<INotificationService, NotificationService>();
@@ -157,8 +181,19 @@ builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IGymCheckInRepository, GymCheckInRepository>();
 builder.Services.AddScoped<IGymCheckInService, GymCheckInService>();
 builder.Services.AddScoped<IRoomService, RoomService>();
+builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Scheduling.IOccupancyService, SportHub.Scheduling.Occupancy.Application.OccupancyService>();
+builder.Services.AddScoped<SportHub.Scheduling.Occupancy.Application.AvailabilityService>();
+builder.Services.AddScoped<SportHub.Scheduling.Catalog.Application.SportCatalogService>();
+builder.Services.AddScoped<SportHub.Scheduling.Catalog.Application.RoomTypeService>();
+builder.Services.AddScoped<SportHub.Scheduling.Catalog.Application.RoomOpeningHourService>();
+builder.Services.AddScoped<SportHub.Scheduling.Catalog.Application.RoomBlockService>();
+builder.Services.AddScoped<SportHub.Scheduling.Catalog.Application.CourtRateService>();
 builder.Services.AddScoped<IClassService, ClassService>();
 builder.Services.AddScoped<IClassSessionService, ClassSessionService>();
+builder.Services.AddScoped<IClassEnrollmentReportService, ClassEnrollmentReportService>();
+builder.Services.AddScoped<CourseValidator>();
+builder.Services.AddScoped<SeatHoldService>();
+builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Scheduling.IClassEnrollmentFulfillment, ClassEnrollmentFulfillment>();
 builder.Services.AddScoped<IEnrollmentService, EnrollmentService>();
 builder.Services.AddScoped<IAttendanceService, AttendanceService>();
 
@@ -179,14 +214,66 @@ builder.Services.AddScoped<ICoachMemberRelationshipService>(
 builder.Services.AddScoped<ICoachRelationshipRegistrar>(
     sp => sp.GetRequiredService<CoachMemberRelationshipService>());
 builder.Services.AddScoped<IWorkoutService, WorkoutService>();
+builder.Services.AddScoped<IHomeworkService, HomeworkService>();
+
+// PT (BE-4) — entitlement/session lifecycle. PtSessionService đăng ký cụ thể vì
+// PtSessionChangeRequestService inject thẳng lớp này để dùng lại ApplyCancelAsync/
+// ApplyRescheduleAsync (duyệt request phải tái dùng đúng logic quota với Manager cancel/reschedule
+// trực tiếp, không viết lại lần hai).
+builder.Services.AddScoped<IPtEntitlementLifecycle, PtEntitlementLifecycleService>();
+builder.Services.AddScoped<IPtEntitlementQueryService, PtEntitlementQueryService>();
+builder.Services.AddScoped<PtSessionService>();
+builder.Services.AddScoped<IPtSessionService>(sp => sp.GetRequiredService<PtSessionService>());
+builder.Services.AddScoped<IPtSessionChangeRequestService, PtSessionChangeRequestService>();
+builder.Services.AddScoped<IPtCoachChangeRequestService, PtCoachChangeRequestService>();
 
 // AI — bản cài đặt theo luật, chạy cục bộ (xem RuleBasedAiRecommendationService).
 builder.Services.AddScoped<IAiRecommendationService, RuleBasedAiRecommendationService>();
 builder.Services.AddScoped<IWorkoutRecommendationService, WorkoutRecommendationService>();
+// AI Flow 6 — Gemini assistant
+builder.Services.Configure<GeminiOptions>(
+    builder.Configuration.GetSection(
+        GeminiOptions.SectionName));
 
+builder.Services.AddScoped<
+    IAiContextBuilder,
+    SportHubAiContextBuilder>();
+
+builder.Services.AddScoped<
+    IAiChatService,
+    AiChatService>();
+
+builder.Services.AddHttpClient<
+    IAiChatProvider,
+    GeminiAiChatProvider>(
+    (serviceProvider, client) =>
+    {
+        var options =
+            serviceProvider
+                .GetRequiredService<
+                    IOptions<GeminiOptions>>()
+                .Value;
+
+        var baseUrl =
+            string.IsNullOrWhiteSpace(
+                options.BaseUrl)
+                ? "https://generativelanguage.googleapis.com"
+                : options.BaseUrl.TrimEnd('/');
+
+        client.BaseAddress =
+            new Uri(baseUrl);
+
+        client.Timeout =
+            TimeSpan.FromSeconds(
+                Math.Clamp(
+                    options.TimeoutSeconds,
+                    5,
+                    120));
+    });
 // Tác vụ nền: BR-11/BR-33 (hạn gói), BR-20/BR-53 (No-show), BR-34 (phát thông báo).
 builder.Services.AddHostedService<MemberPackageExpiryJob>();
-builder.Services.AddHostedService<AttendanceFinalizerJob>();
+builder.Services.AddHostedService<ClassStatusJob>();
+builder.Services.AddHostedService<SeatHoldExpiryJob>();
 builder.Services.AddHostedService<NotificationDispatchJob>();
 
 builder.Services.AddControllers()

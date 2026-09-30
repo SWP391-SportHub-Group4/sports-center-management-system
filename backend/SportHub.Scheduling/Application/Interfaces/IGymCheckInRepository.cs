@@ -11,6 +11,9 @@ public interface IGymCheckInRepository
         GymCheckIn checkIn,
         CancellationToken cancellationToken = default);
 
+    /// <summary>Ghi giờ ra (giờ server) đúng một lần; gọi lại trả bản ghi hiện có, không ghi đè. 404 nếu không có lượt check-in.</summary>
+    Task<GymCheckIn> CheckOutAsync(Guid checkInId, Guid checkedOutByUserId, CancellationToken cancellationToken = default);
+
     Task<(IReadOnlyList<GymCheckIn> Items, int TotalCount)> GetHistoryAsync(
         Guid memberId,
         int skip,

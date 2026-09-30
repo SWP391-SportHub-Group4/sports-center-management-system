@@ -19,26 +19,38 @@ public class SystemSettingConfiguration : IEntityTypeConfiguration<SystemSetting
             .IsRequired(false)
             .OnDelete(DeleteBehavior.Restrict);
 
-        // Seed hai khoá đang dùng. Giá trị mặc định là CẤU HÌNH KỸ THUẬT ban đầu, không phải
-        // số lấy từ Business Rules: BR-50 không nêu số giờ cụ thể, BR-33 chỉ ghi "ví dụ: 7 ngày".
+        // Chỉ seed chính sách còn được phép cấu hình. Hạn hủy lớp là quy tắc cố định 30 phút,
+        // không phải SystemSetting.
         // UpdatedAt để mốc cố định (không DateTime.UtcNow) vì HasData yêu cầu giá trị hằng —
         // giá trị động sẽ làm mỗi lần chạy `dotnet ef migrations add` lại sinh ra một migration mới.
         builder.HasData(
-            new SystemSetting
-            {
-                Key = SystemSettingKeys.CancellationDeadlineHours,
-                Value = "12",
-                Description = "BR-50 — Số giờ tối thiểu trước giờ bắt đầu buổi học mà hội viên phải hủy "
-                              + "để được hoàn lượt tập. Giá trị được chụp lại tại thời điểm đăng ký; "
-                              + "thay đổi ở đây không ảnh hưởng các đăng ký đã xác nhận.",
-                UpdatedAt = new DateTime(2026, 9, 21, 0, 0, 0, DateTimeKind.Utc)
-            },
             new SystemSetting
             {
                 Key = SystemSettingKeys.PackageExpiringReminderDays,
                 Value = "7",
                 Description = "BR-33 — Nhắc hội viên trước bao nhiêu ngày khi gói thành viên sắp hết hạn.",
                 UpdatedAt = new DateTime(2026, 9, 21, 0, 0, 0, DateTimeKind.Utc)
+            },
+            new SystemSetting
+            {
+                Key = SystemSettingKeys.ClassThresholdDaysBeforeStart,
+                Value = "3",
+                Description = "BR-119 — Đánh giá ngưỡng hoàn vốn của khóa trước buổi đầu bao nhiêu ngày.",
+                UpdatedAt = new DateTime(2026, 9, 30, 0, 0, 0, DateTimeKind.Utc)
+            },
+            new SystemSetting
+            {
+                Key = SystemSettingKeys.ClassThresholdResponseHours,
+                Value = "48",
+                Description = "BR-120 — Số giờ Member được trả lời khi khóa học có nguy cơ không đủ ngưỡng.",
+                UpdatedAt = new DateTime(2026, 9, 30, 0, 0, 0, DateTimeKind.Utc)
+            },
+            new SystemSetting
+            {
+                Key = SystemSettingKeys.HoldMinutes,
+                Value = "15",
+                Description = "BR-115 — Số phút giữ chỗ và thanh toán tối đa khi checkout.",
+                UpdatedAt = new DateTime(2026, 9, 30, 0, 0, 0, DateTimeKind.Utc)
             });
     }
 }

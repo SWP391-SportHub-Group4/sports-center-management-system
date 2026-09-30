@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SportHub.BuildingBlocks.Abstractions.Audit;
+using SportHub.BuildingBlocks.Abstractions.Identity;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.Abstractions.Training;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
@@ -22,12 +23,18 @@ namespace SportHub.Training.Application.Services;
 public sealed class CoachMemberRelationshipService(
     ISportHubDbContext db,
     IAuditWriter audit,
+    ICoachSpecialtyReader specialties,
     IClock clock) : ICoachMemberRelationshipService
 {
+    public const int DefaultPageSize = 50;
+    public const int MaximumPageSize = 100;
+
     public async Task<IReadOnlyList<CoachMemberRelationshipResponse>> SearchAsync(
         Guid? coachId,
         Guid? memberId,
         bool activeOnly,
+        int page,
+        int pageSize,
         CancellationToken ct = default)
     {
         var query = db.Set<CoachMemberRelationship>().AsNoTracking();
@@ -47,7 +54,10 @@ public sealed class CoachMemberRelationshipService(
             query = query.Where(r => r.Status == RelationshipStatus.Active);
         }
 
-        return await query.OrderByDescending(r => r.StartedAt).Select(Projection()).ToListAsync(ct);
+        page = Math.Clamp(page, 1, 100_000);
+        pageSize = Math.Clamp(pageSize <= 0 ? DefaultPageSize : pageSize, 1, MaximumPageSize);
+        return await query.OrderByDescending(r => r.StartedAt).ThenBy(r => r.RelationshipId)
+            .Skip((page - 1) * pageSize).Take(pageSize).Select(Projection()).ToListAsync(ct);
     }
 
     public async Task<CoachMemberRelationshipResponse> CreateAsync(
@@ -72,6 +82,7 @@ public sealed class CoachMemberRelationshipService(
         }
 
         await EnsureRoleAsync(request.CoachId, UserRole.Coach, "coach_not_found", ct);
+        await EnsurePersonalTrainerAsync(request.CoachId, ct);
         await EnsureRoleAsync(request.MemberId, UserRole.Member, "member_not_found", ct);
 
         // Ràng buộc #7 / BR-23: tối đa một quan hệ Active cho mỗi cặp. Partial unique index
@@ -105,8 +116,7 @@ public sealed class CoachMemberRelationshipService(
             actorUserId, "CREATE_COACH_MEMBER_RELATIONSHIP", nameof(CoachMemberRelationship),
             relationship.RelationshipId.ToString(),
             NewValue: $"{{\"coachId\":\"{request.CoachId}\",\"memberId\":\"{request.MemberId}\","
-                      + $"\"sourceType\":\"{sourceType}\"}}",
-            Reason: request.Note?.Trim()));
+                      + $"\"sourceType\":\"{sourceType}\"}}"));
 
         await db.SaveChangesAsync(ct);
 
@@ -136,8 +146,7 @@ public sealed class CoachMemberRelationshipService(
         audit.Write(new AuditEntry(
             actorUserId, "END_COACH_MEMBER_RELATIONSHIP", nameof(CoachMemberRelationship), relationshipId.ToString(),
             OldValue: $"{{\"status\":\"{RelationshipStatus.Active}\"}}",
-            NewValue: $"{{\"status\":\"{RelationshipStatus.Ended}\"}}",
-            Reason: reason.Trim()));
+            NewValue: $"{{\"status\":\"{RelationshipStatus.Ended}\"}}"));
 
         await db.SaveChangesAsync(ct);
 
@@ -156,6 +165,14 @@ public sealed class CoachMemberRelationshipService(
         int classId,
         CancellationToken ct = default)
     {
+        // BR-99/BR-100, mới 28/09/2026: Class chỉ có Coach loại ClassInstructor (BR-97) —
+        // booking lớp Yoga/Group X không được dùng làm nguồn cấp quyền Training. Bỏ qua nếu
+        // coachId không phải PersonalTrainer (trường hợp bình thường cho mọi Class hiện nay).
+        if (!await specialties.IsPersonalTrainerAsync(coachId, ct))
+        {
+            return;
+        }
+
         var exists = await db.Set<CoachMemberRelationship>().AnyAsync(
             r => r.CoachId == coachId && r.MemberId == memberId && r.Status == RelationshipStatus.Active, ct);
 
@@ -174,6 +191,20 @@ public sealed class CoachMemberRelationshipService(
             Status = RelationshipStatus.Active,
             StartedAt = clock.UtcNow
         });
+    }
+
+    /// <summary>
+    /// BR-99/BR-100, mới 28/09/2026 — chỉ Coach loại PersonalTrainer được gán quan hệ huấn luyện
+    /// cá nhân; ClassInstructor không có nghiệp vụ plan/result/AI (SSOT §2).
+    /// </summary>
+    private async Task EnsurePersonalTrainerAsync(Guid coachId, CancellationToken ct)
+    {
+        if (!await specialties.IsPersonalTrainerAsync(coachId, ct))
+        {
+            throw new BadRequestException(
+                "coach_must_be_personal_trainer",
+                "Chỉ Coach có chuyên môn huấn luyện cá nhân (PT 1-1) mới được gán quan hệ huấn luyện cá nhân (BR-99).");
+        }
     }
 
     private async Task EnsureRoleAsync(Guid userId, UserRole role, string errorCode, CancellationToken ct)

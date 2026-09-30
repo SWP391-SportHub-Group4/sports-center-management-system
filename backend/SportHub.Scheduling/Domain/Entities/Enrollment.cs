@@ -1,39 +1,29 @@
-using SportHub.Identity.Domain.Entities;
-using SportHub.Membership.Domain.Entities;
-
 namespace SportHub.Scheduling.Domain.Entities;
 
+/// <summary>
+/// Ghi danh cả khóa (BR-16, 110, 114). Chỉ sinh từ fulfillment sau thanh toán: gắn InvoiceItem đã trả. Không có ghi danh miễn phí
+/// và không trừ quota Membership. Partial unique (ClassId, MemberId) khi Confirmed.
+/// </summary>
 public class Enrollment
 {
-    public Guid EnrollmentId { get; set; } // PK
+    public Guid EnrollmentId { get; set; }
 
-    public Guid SessionId { get; set; } // FK -> ClassSession
+    public int ClassId { get; set; }
 
-    public ClassSession? Session { get; set; }
+    public Class? Class { get; set; }
 
-    public Guid MemberId { get; set; } // FK -> UserAccount
+    /// <summary>Cross-module: chỉ scalar; FK sang invoice_items cấu hình ở host.</summary>
+    public Guid MemberId { get; set; }
 
-    public UserAccount? Member { get; set; }
+    /// <summary>InvoiceItem loại ClassPackage đã thanh toán. Nullable ở DB để chứa dữ liệu seed/legacy; service luôn gán khi fulfillment.</summary>
+    public Guid? InvoiceItemId { get; set; }
 
-    public Guid MemberPackageId { get; set; } // FK -> MemberPackage bị trừ buổi
+    public EnrollmentStatus Status { get; set; }
 
-    public MemberPackage? MemberPackage { get; set; }
+    public DateTime EnrolledAt { get; set; }
 
-    public EnrollmentStatus Status { get; set; } // Confirmed/CancelledOnTime/CancelledLate
+    public DateTime? EndedAt { get; set; }
 
-    public DateTime RegisteredAt { get; set; }
-
-    // BR-50: chính sách hạn huỷ được CHỤP tại thời điểm đăng ký được xác nhận và bất biến
-    // sau đó — Manager đổi cấu hình không làm đổi điều kiện của đăng ký đã tạo.
-    // Vì vậy giá trị nằm ở Enrollment chứ không đọc từ SystemSetting lúc huỷ
-    // (Design v2 §3.1 mô tả đọc lúc huỷ — trái BR-50, xem implementation-decisions.md A1).
-    public int CancellationDeadlineHours { get; set; }
-
-    public DateTime? CancelledAt { get; set; } // so với deadline để phân loại ON_TIME/LATE
-
-    public Guid? CancelledByUserId { get; set; } // FK -> UserAccount, có thể khác Member (vd Receptionist hủy giúp)
-
-    public UserAccount? CancelledByUser { get; set; }
-
-    public Attendance? Attendance { get; set; } // 1-1
+    /// <summary>Ghi danh này là kết quả chuyển lớp từ ghi danh nguồn (BR-120).</summary>
+    public Guid? SourceEnrollmentId { get; set; }
 }

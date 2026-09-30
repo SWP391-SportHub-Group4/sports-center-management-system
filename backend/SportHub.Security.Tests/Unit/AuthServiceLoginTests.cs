@@ -37,7 +37,7 @@ public class AuthServiceLoginTests
 
     private static AuthService Service(UserAccount? user, CountingPasswordHasher hasher)
         // LoginAsync khong cham db/email (chi dung cho OTP Register) nen de null o day.
-        => new(new StubUserAccountRepository(user), hasher, JwtOptions(), null!, null!, new SystemClock());
+        => new(new StubUserAccountRepository(user), hasher, JwtOptions(), null!, null!, new SystemClock(), new StubUserSummaryFactory());
 
     private static LoginRequest Request(string password = "CorrectHorse1") => new()
     {

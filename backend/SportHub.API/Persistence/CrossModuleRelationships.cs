@@ -1,0 +1,43 @@
+using Microsoft.EntityFrameworkCore;
+using SportHub.Identity.Domain.Entities;
+using SportHub.Payment.Domain.Entities;
+using SportHub.Scheduling.Catalog.Domain;
+using SportHub.Scheduling.Domain.Entities;
+using SportHub.Scheduling.Occupancy.Domain;
+
+namespace SportHub.API.Persistence;
+
+// FK giữa các module chỉ ở dạng scalar (không navigation C#) — host là nơi duy nhất biết cả hai phía.
+public static class CrossModuleRelationships
+{
+    public static void Configure(ModelBuilder modelBuilder)
+    {
+        // Chuyên môn của Coach/ExternalCoach trỏ tới môn trong catalog.
+        modelBuilder.Entity<UserSportSpecialty>()
+            .HasOne<Sport>()
+            .WithMany()
+            .HasForeignKey(e => e.SportId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Coach bị chiếm lịch là user_accounts (Coach nội bộ hoặc ExternalCoach).
+        modelBuilder.Entity<CoachOccupancy>()
+            .HasOne<UserAccount>()
+            .WithMany()
+            .HasForeignKey(e => e.CoachId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Khóa học: coach/member/người ghi là user_accounts; ghi danh gắn InvoiceItem, giữ chỗ gắn Invoice (Payment).
+        modelBuilder.Entity<Class>().HasOne<UserAccount>().WithMany().HasForeignKey(e => e.CoachId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<ClassSession>().HasOne<UserAccount>().WithMany().HasForeignKey(e => e.CoachId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<Enrollment>().HasOne<UserAccount>().WithMany().HasForeignKey(e => e.MemberId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<Enrollment>().HasOne<InvoiceItem>().WithMany().HasForeignKey(e => e.InvoiceItemId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<Attendance>().HasOne<UserAccount>().WithMany().HasForeignKey(e => e.RecordedByUserId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<SeatHold>().HasOne<UserAccount>().WithMany().HasForeignKey(e => e.MemberId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<SeatHold>().HasOne<Invoice>().WithMany().HasForeignKey(e => e.InvoiceId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<GymCheckIn>().HasOne<UserAccount>().WithMany().HasForeignKey(e => e.CheckedOutByUserId).OnDelete(DeleteBehavior.Restrict);
+
+        // Buổi PT có thể gắn phòng (tùy chọn) — chiếm room occupancy khi có phòng.
+        modelBuilder.Entity<SportHub.Training.Domain.Entities.PtSession>()
+            .HasOne<Room>().WithMany().HasForeignKey(e => e.RoomId).OnDelete(DeleteBehavior.Restrict);
+    }
+}

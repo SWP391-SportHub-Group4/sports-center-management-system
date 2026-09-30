@@ -20,6 +20,7 @@ namespace SportHub.API.Migrations
                 .HasAnnotation("ProductVersion", "10.0.11")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
+            NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "btree_gist");
             NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "citext");
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
@@ -183,17 +184,31 @@ namespace SportHub.API.Migrations
                     b.HasData(
                         new
                         {
-                            Key = "cancellation_deadline_hours",
-                            Description = "BR-50 — Số giờ tối thiểu trước giờ bắt đầu buổi học mà hội viên phải hủy để được hoàn lượt tập. Giá trị được chụp lại tại thời điểm đăng ký; thay đổi ở đây không ảnh hưởng các đăng ký đã xác nhận.",
-                            UpdatedAt = new DateTime(2026, 9, 21, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Value = "12"
-                        },
-                        new
-                        {
                             Key = "package_expiring_reminder_days",
                             Description = "BR-33 — Nhắc hội viên trước bao nhiêu ngày khi gói thành viên sắp hết hạn.",
                             UpdatedAt = new DateTime(2026, 9, 21, 0, 0, 0, 0, DateTimeKind.Utc),
                             Value = "7"
+                        },
+                        new
+                        {
+                            Key = "class.threshold_days_before_start",
+                            Description = "BR-119 — Đánh giá ngưỡng hoàn vốn của khóa trước buổi đầu bao nhiêu ngày.",
+                            UpdatedAt = new DateTime(2026, 9, 30, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Value = "3"
+                        },
+                        new
+                        {
+                            Key = "class.threshold_response_hours",
+                            Description = "BR-120 — Số giờ Member được trả lời khi khóa học có nguy cơ không đủ ngưỡng.",
+                            UpdatedAt = new DateTime(2026, 9, 30, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Value = "48"
+                        },
+                        new
+                        {
+                            Key = "hold.minutes",
+                            Description = "BR-115 — Số phút giữ chỗ và thanh toán tối đa khi checkout.",
+                            UpdatedAt = new DateTime(2026, 9, 30, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Value = "15"
                         });
                 });
 
@@ -249,6 +264,22 @@ namespace SportHub.API.Migrations
                     b.ToTable("audit_logs", (string)null);
                 });
 
+            modelBuilder.Entity("SportHub.Identity.Domain.Entities.CoachProfile", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<string>("Bio")
+                        .HasColumnType("text")
+                        .HasColumnName("bio");
+
+                    b.HasKey("UserId")
+                        .HasName("pk_coach_profiles");
+
+                    b.ToTable("coach_profiles", (string)null);
+                });
+
             modelBuilder.Entity("SportHub.Identity.Domain.Entities.EmailOtp", b =>
                 {
                     b.Property<Guid>("EmailOtpId")
@@ -282,14 +313,111 @@ namespace SportHub.API.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("expires_at");
 
+                    b.Property<int>("Purpose")
+                        .HasColumnType("integer")
+                        .HasColumnName("purpose");
+
                     b.HasKey("EmailOtpId")
                         .HasName("pk_email_otps");
 
-                    b.HasIndex("Email")
+                    b.HasIndex("Email", "Purpose")
                         .IsUnique()
-                        .HasDatabaseName("ix_email_otps_email");
+                        .HasDatabaseName("ix_email_otps_email_purpose");
 
                     b.ToTable("email_otps", (string)null);
+                });
+
+            modelBuilder.Entity("SportHub.Identity.Domain.Entities.ExternalCoachProfile", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<int>("ApprovalStatus")
+                        .HasColumnType("integer")
+                        .HasColumnName("approval_status");
+
+                    b.Property<string>("Bio")
+                        .HasColumnType("text")
+                        .HasColumnName("bio");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("ReviewNote")
+                        .HasColumnType("text")
+                        .HasColumnName("review_note");
+
+                    b.Property<DateTime?>("ReviewedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("reviewed_at");
+
+                    b.Property<Guid?>("ReviewedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("reviewed_by_user_id");
+
+                    b.HasKey("UserId")
+                        .HasName("pk_external_coach_profiles");
+
+                    b.HasIndex("ApprovalStatus")
+                        .HasDatabaseName("ix_external_coach_profiles_approval_status");
+
+                    b.HasIndex("ReviewedByUserId")
+                        .HasDatabaseName("ix_external_coach_profiles_reviewed_by_user_id");
+
+                    b.ToTable("external_coach_profiles", (string)null);
+                });
+
+            modelBuilder.Entity("SportHub.Identity.Domain.Entities.GoogleOnboardingTicket", b =>
+                {
+                    b.Property<Guid>("TicketId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("ticket_id");
+
+                    b.Property<DateTime?>("ConsumedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("consumed_at");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasColumnType("citext")
+                        .HasColumnName("email");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<string>("ProviderUserId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("provider_user_id");
+
+                    b.Property<string>("SuggestedFullName")
+                        .HasColumnType("text")
+                        .HasColumnName("suggested_full_name");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("token_hash");
+
+                    b.HasKey("TicketId")
+                        .HasName("pk_google_onboarding_tickets");
+
+                    b.HasIndex("ProviderUserId")
+                        .HasDatabaseName("ix_google_onboarding_tickets_provider_user_id");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique()
+                        .HasDatabaseName("ix_google_onboarding_tickets_token_hash");
+
+                    b.ToTable("google_onboarding_tickets", (string)null);
                 });
 
             modelBuilder.Entity("SportHub.Identity.Domain.Entities.Role", b =>
@@ -339,6 +467,11 @@ namespace SportHub.API.Migrations
                         {
                             RoleId = 5,
                             RoleName = 4
+                        },
+                        new
+                        {
+                            RoleId = 6,
+                            RoleName = 5
                         });
                 });
 
@@ -361,6 +494,10 @@ namespace SportHub.API.Migrations
                     b.Property<int>("RoleId")
                         .HasColumnType("integer")
                         .HasColumnName("role_id");
+
+                    b.Property<Guid>("SecurityStamp")
+                        .HasColumnType("uuid")
+                        .HasColumnName("security_stamp");
 
                     b.Property<int>("Status")
                         .HasColumnType("integer")
@@ -461,6 +598,25 @@ namespace SportHub.API.Migrations
                         .HasFilter("phone IS NOT NULL");
 
                     b.ToTable("user_profiles", (string)null);
+                });
+
+            modelBuilder.Entity("SportHub.Identity.Domain.Entities.UserSportSpecialty", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<int>("SportId")
+                        .HasColumnType("integer")
+                        .HasColumnName("sport_id");
+
+                    b.HasKey("UserId", "SportId")
+                        .HasName("pk_user_sport_specialties");
+
+                    b.HasIndex("SportId")
+                        .HasDatabaseName("ix_user_sport_specialties_sport_id");
+
+                    b.ToTable("user_sport_specialties", (string)null);
                 });
 
             modelBuilder.Entity("SportHub.Membership.Domain.Entities.MemberPackage", b =>
@@ -974,6 +1130,319 @@ namespace SportHub.API.Migrations
                     b.ToTable("payment_attempts", (string)null);
                 });
 
+            modelBuilder.Entity("SportHub.Scheduling.Catalog.Domain.CourtRate", b =>
+                {
+                    b.Property<int>("RateId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("rate_id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("RateId"));
+
+                    b.Property<string>("DaysOfWeek")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("days_of_week");
+
+                    b.Property<TimeOnly>("EndTimeLocal")
+                        .HasColumnType("time without time zone")
+                        .HasColumnName("end_time_local");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<decimal>("PricePerHour")
+                        .HasPrecision(18)
+                        .HasColumnType("numeric(18,0)")
+                        .HasColumnName("price_per_hour");
+
+                    b.Property<int>("RoomTypeId")
+                        .HasColumnType("integer")
+                        .HasColumnName("room_type_id");
+
+                    b.Property<int?>("SportId")
+                        .HasColumnType("integer")
+                        .HasColumnName("sport_id");
+
+                    b.Property<TimeOnly>("StartTimeLocal")
+                        .HasColumnType("time without time zone")
+                        .HasColumnName("start_time_local");
+
+                    b.HasKey("RateId")
+                        .HasName("pk_court_rates");
+
+                    b.HasIndex("SportId")
+                        .HasDatabaseName("ix_court_rates_sport_id");
+
+                    b.HasIndex("RoomTypeId", "IsActive")
+                        .HasDatabaseName("ix_court_rates_room_type_id_is_active");
+
+                    b.ToTable("court_rates", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_court_rates_price", "price_per_hour > 0 AND price_per_hour % 1000 = 0");
+
+                            t.HasCheckConstraint("ck_court_rates_range", "end_time_local > start_time_local");
+                        });
+                });
+
+            modelBuilder.Entity("SportHub.Scheduling.Catalog.Domain.RoomBlock", b =>
+                {
+                    b.Property<Guid>("BlockId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("block_id");
+
+                    b.Property<Guid>("CreatedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by_user_id");
+
+                    b.Property<DateTime>("EndAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("end_at_utc");
+
+                    b.Property<Guid?>("IncidentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("incident_id");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("reason");
+
+                    b.Property<int>("RoomId")
+                        .HasColumnType("integer")
+                        .HasColumnName("room_id");
+
+                    b.Property<DateTime>("StartAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("start_at_utc");
+
+                    b.HasKey("BlockId")
+                        .HasName("pk_room_blocks");
+
+                    b.HasIndex("RoomId", "StartAtUtc")
+                        .HasDatabaseName("ix_room_blocks_room_id_start_at_utc");
+
+                    b.ToTable("room_blocks", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_room_blocks_range", "end_at_utc > start_at_utc");
+                        });
+                });
+
+            modelBuilder.Entity("SportHub.Scheduling.Catalog.Domain.RoomOpeningHour", b =>
+                {
+                    b.Property<int>("RoomId")
+                        .HasColumnType("integer")
+                        .HasColumnName("room_id");
+
+                    b.Property<int>("DayOfWeek")
+                        .HasColumnType("integer")
+                        .HasColumnName("day_of_week");
+
+                    b.Property<TimeOnly>("CloseTimeLocal")
+                        .HasColumnType("time without time zone")
+                        .HasColumnName("close_time_local");
+
+                    b.Property<TimeOnly>("OpenTimeLocal")
+                        .HasColumnType("time without time zone")
+                        .HasColumnName("open_time_local");
+
+                    b.HasKey("RoomId", "DayOfWeek")
+                        .HasName("pk_room_opening_hours");
+
+                    b.ToTable("room_opening_hours", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_room_opening_hours_day", "day_of_week BETWEEN 0 AND 6");
+
+                            t.HasCheckConstraint("ck_room_opening_hours_range", "close_time_local > open_time_local");
+                        });
+                });
+
+            modelBuilder.Entity("SportHub.Scheduling.Catalog.Domain.RoomType", b =>
+                {
+                    b.Property<int>("RoomTypeId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("room_type_id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("RoomTypeId"));
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("citext")
+                        .HasColumnName("name");
+
+                    b.HasKey("RoomTypeId")
+                        .HasName("pk_room_types");
+
+                    b.HasIndex("Name")
+                        .IsUnique()
+                        .HasDatabaseName("ix_room_types_name");
+
+                    b.ToTable("room_types", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            RoomTypeId = 1,
+                            Name = "Phòng Gym"
+                        },
+                        new
+                        {
+                            RoomTypeId = 2,
+                            Name = "Phòng PT"
+                        },
+                        new
+                        {
+                            RoomTypeId = 3,
+                            Name = "Sân cầu lông"
+                        },
+                        new
+                        {
+                            RoomTypeId = 4,
+                            Name = "Sân bóng rổ"
+                        });
+                });
+
+            modelBuilder.Entity("SportHub.Scheduling.Catalog.Domain.Sport", b =>
+                {
+                    b.Property<int>("SportId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("sport_id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("SportId"));
+
+                    b.Property<int?>("DefaultMaxCapacity")
+                        .HasColumnType("integer")
+                        .HasColumnName("default_max_capacity");
+
+                    b.Property<int?>("DefaultSessionMinutes")
+                        .HasColumnType("integer")
+                        .HasColumnName("default_session_minutes");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text")
+                        .HasColumnName("description");
+
+                    b.Property<string>("ImageUrl")
+                        .HasColumnType("text")
+                        .HasColumnName("image_url");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("citext")
+                        .HasColumnName("name");
+
+                    b.Property<int>("OperationType")
+                        .HasColumnType("integer")
+                        .HasColumnName("operation_type");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.HasKey("SportId")
+                        .HasName("pk_sports");
+
+                    b.HasIndex("Name")
+                        .IsUnique()
+                        .HasDatabaseName("ix_sports_name");
+
+                    b.ToTable("sports", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_sports_default_capacity", "default_max_capacity IS NULL OR default_max_capacity > 0");
+
+                            t.HasCheckConstraint("ck_sports_default_minutes", "default_session_minutes IS NULL OR default_session_minutes > 0");
+
+                            t.HasCheckConstraint("ck_sports_group_course_defaults", "operation_type <> 2 OR (default_session_minutes IS NOT NULL AND default_max_capacity IS NOT NULL)");
+                        });
+
+                    b.HasData(
+                        new
+                        {
+                            SportId = 1,
+                            IsActive = true,
+                            Name = "Gym",
+                            OperationType = 0,
+                            SortOrder = 1
+                        },
+                        new
+                        {
+                            SportId = 2,
+                            IsActive = true,
+                            Name = "Personal Training",
+                            OperationType = 1,
+                            SortOrder = 2
+                        },
+                        new
+                        {
+                            SportId = 3,
+                            DefaultMaxCapacity = 12,
+                            DefaultSessionMinutes = 90,
+                            IsActive = true,
+                            Name = "Cầu lông",
+                            OperationType = 2,
+                            SortOrder = 3
+                        },
+                        new
+                        {
+                            SportId = 4,
+                            DefaultMaxCapacity = 20,
+                            DefaultSessionMinutes = 120,
+                            IsActive = true,
+                            Name = "Bóng rổ",
+                            OperationType = 2,
+                            SortOrder = 4
+                        });
+                });
+
+            modelBuilder.Entity("SportHub.Scheduling.Catalog.Domain.SportRoomType", b =>
+                {
+                    b.Property<int>("SportId")
+                        .HasColumnType("integer")
+                        .HasColumnName("sport_id");
+
+                    b.Property<int>("RoomTypeId")
+                        .HasColumnType("integer")
+                        .HasColumnName("room_type_id");
+
+                    b.HasKey("SportId", "RoomTypeId")
+                        .HasName("pk_sport_room_types");
+
+                    b.HasIndex("RoomTypeId")
+                        .HasDatabaseName("ix_sport_room_types_room_type_id");
+
+                    b.ToTable("sport_room_types", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            SportId = 1,
+                            RoomTypeId = 1
+                        },
+                        new
+                        {
+                            SportId = 2,
+                            RoomTypeId = 2
+                        },
+                        new
+                        {
+                            SportId = 3,
+                            RoomTypeId = 3
+                        },
+                        new
+                        {
+                            SportId = 4,
+                            RoomTypeId = 4
+                        });
+                });
+
             modelBuilder.Entity("SportHub.Scheduling.Domain.Entities.Attendance", b =>
                 {
                     b.Property<Guid>("AttendanceId")
@@ -981,17 +1450,25 @@ namespace SportHub.API.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("attendance_id");
 
-                    b.Property<DateTime?>("CheckInTime")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("check_in_time");
-
-                    b.Property<Guid?>("CheckedInByUserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("checked_in_by_user_id");
-
                     b.Property<Guid>("EnrollmentId")
                         .HasColumnType("uuid")
                         .HasColumnName("enrollment_id");
+
+                    b.Property<DateTime?>("LastModifiedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_modified_at");
+
+                    b.Property<DateTime>("RecordedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("recorded_at");
+
+                    b.Property<Guid>("RecordedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("recorded_by_user_id");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("session_id");
 
                     b.Property<int>("Status")
                         .HasColumnType("integer")
@@ -1000,12 +1477,15 @@ namespace SportHub.API.Migrations
                     b.HasKey("AttendanceId")
                         .HasName("pk_attendances");
 
-                    b.HasIndex("CheckedInByUserId")
-                        .HasDatabaseName("ix_attendances_checked_in_by_user_id");
+                    b.HasIndex("RecordedByUserId")
+                        .HasDatabaseName("ix_attendances_recorded_by_user_id");
 
-                    b.HasIndex("EnrollmentId")
+                    b.HasIndex("SessionId")
+                        .HasDatabaseName("ix_attendances_session_id");
+
+                    b.HasIndex("EnrollmentId", "SessionId")
                         .IsUnique()
-                        .HasDatabaseName("ix_attendances_enrollment_id");
+                        .HasDatabaseName("ix_attendances_enrollment_id_session_id");
 
                     b.ToTable("attendances", (string)null);
                 });
@@ -1019,95 +1499,160 @@ namespace SportHub.API.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("ClassId"));
 
+                    b.Property<int?>("BreakEvenThreshold")
+                        .HasColumnType("integer")
+                        .HasColumnName("break_even_threshold");
+
                     b.Property<int>("Capacity")
                         .HasColumnType("integer")
                         .HasColumnName("capacity");
 
-                    b.Property<Guid?>("DefaultCoachId")
+                    b.Property<Guid?>("CoachId")
                         .HasColumnType("uuid")
-                        .HasColumnName("default_coach_id");
+                        .HasColumnName("coach_id");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("code");
+
+                    b.Property<int>("ConfirmedCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("confirmed_count");
+
+                    b.Property<decimal>("CostAmount")
+                        .HasPrecision(18)
+                        .HasColumnType("numeric(18,0)")
+                        .HasColumnName("cost_amount");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<bool>("CreatedByAi")
+                        .HasColumnType("boolean")
+                        .HasColumnName("created_by_ai");
 
                     b.Property<int>("DefaultRoomId")
                         .HasColumnType("integer")
                         .HasColumnName("default_room_id");
-
-                    b.Property<string>("Discipline")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("discipline");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("name");
 
+                    b.Property<int>("NumSessions")
+                        .HasColumnType("integer")
+                        .HasColumnName("num_sessions");
+
+                    b.Property<decimal>("Price")
+                        .HasPrecision(18)
+                        .HasColumnType("numeric(18,0)")
+                        .HasColumnName("price");
+
+                    b.Property<DateTime?>("PublishedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("published_at");
+
+                    b.Property<int>("ReservedCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("reserved_count");
+
+                    b.Property<int>("SportId")
+                        .HasColumnType("integer")
+                        .HasColumnName("sport_id");
+
+                    b.Property<DateOnly>("StartDate")
+                        .HasColumnType("date")
+                        .HasColumnName("start_date");
+
                     b.Property<int>("Status")
                         .HasColumnType("integer")
                         .HasColumnName("status");
 
+                    b.Property<DateTime?>("ThresholdDeadlineUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("threshold_deadline_utc");
+
+                    b.Property<DateTime?>("ThresholdResponseDeadlineUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("threshold_response_deadline_utc");
+
+                    b.Property<int>("ThresholdStatus")
+                        .HasColumnType("integer")
+                        .HasColumnName("threshold_status");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
                     b.HasKey("ClassId")
                         .HasName("pk_classes");
 
-                    b.HasIndex("DefaultCoachId")
-                        .HasDatabaseName("ix_classes_default_coach_id");
+                    b.HasIndex("CoachId")
+                        .HasDatabaseName("ix_classes_coach_id");
+
+                    b.HasIndex("Code")
+                        .IsUnique()
+                        .HasDatabaseName("ix_classes_code");
 
                     b.HasIndex("DefaultRoomId")
                         .HasDatabaseName("ix_classes_default_room_id");
 
+                    b.HasIndex("Status")
+                        .HasDatabaseName("ix_classes_status");
+
+                    b.HasIndex("SportId", "Status")
+                        .HasDatabaseName("ix_classes_sport_id_status");
+
                     b.ToTable("classes", null, t =>
                         {
-                            t.HasCheckConstraint("CK_classes_discipline_allowed", "discipline IN ('PersonalTraining', 'Yoga', 'GroupX')");
+                            t.HasCheckConstraint("ck_classes_capacity", "capacity > 0");
 
-                            t.HasCheckConstraint("CK_classes_personal_training_capacity", "discipline <> 'PersonalTraining' OR capacity = 1");
+                            t.HasCheckConstraint("ck_classes_cost", "cost_amount >= 0");
+
+                            t.HasCheckConstraint("ck_classes_counts", "confirmed_count >= 0 AND confirmed_count <= reserved_count AND reserved_count <= capacity");
+
+                            t.HasCheckConstraint("ck_classes_num_sessions", "num_sessions > 0");
+
+                            t.HasCheckConstraint("ck_classes_price", "price > 0 AND price % 1000 = 0");
                         });
                 });
 
-            modelBuilder.Entity("SportHub.Scheduling.Domain.Entities.ClassRecurrence", b =>
+            modelBuilder.Entity("SportHub.Scheduling.Domain.Entities.ClassScheduleRule", b =>
                 {
-                    b.Property<int>("RecurrenceId")
+                    b.Property<int>("RuleId")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("integer")
-                        .HasColumnName("recurrence_id");
+                        .HasColumnName("rule_id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("RecurrenceId"));
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("RuleId"));
 
                     b.Property<int>("ClassId")
                         .HasColumnType("integer")
                         .HasColumnName("class_id");
 
-                    b.Property<string>("DaysOfWeek")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("days_of_week");
-
-                    b.Property<DateOnly>("EffectiveFrom")
-                        .HasColumnType("date")
-                        .HasColumnName("effective_from");
-
-                    b.Property<DateOnly?>("EffectiveTo")
-                        .HasColumnType("date")
-                        .HasColumnName("effective_to");
-
-                    b.Property<TimeOnly>("EndTimeLocal")
-                        .HasColumnType("time without time zone")
-                        .HasColumnName("end_time_local");
+                    b.Property<int>("DayOfWeek")
+                        .HasColumnType("integer")
+                        .HasColumnName("day_of_week");
 
                     b.Property<TimeOnly>("StartTimeLocal")
                         .HasColumnType("time without time zone")
                         .HasColumnName("start_time_local");
 
-                    b.Property<string>("Timezone")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("timezone");
+                    b.HasKey("RuleId")
+                        .HasName("pk_class_schedule_rules");
 
-                    b.HasKey("RecurrenceId")
-                        .HasName("pk_class_recurrences");
+                    b.HasIndex("ClassId", "DayOfWeek", "StartTimeLocal")
+                        .IsUnique()
+                        .HasDatabaseName("ix_class_schedule_rules_class_id_day_of_week_start_time_local");
 
-                    b.HasIndex("ClassId")
-                        .HasDatabaseName("ix_class_recurrences_class_id");
-
-                    b.ToTable("class_recurrences", (string)null);
+                    b.ToTable("class_schedule_rules", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_class_schedule_rules_day", "day_of_week BETWEEN 0 AND 6");
+                        });
                 });
 
             modelBuilder.Entity("SportHub.Scheduling.Domain.Entities.ClassSession", b =>
@@ -1117,14 +1662,6 @@ namespace SportHub.API.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("session_id");
 
-                    b.Property<int>("BaselineCapacity")
-                        .HasColumnType("integer")
-                        .HasColumnName("baseline_capacity");
-
-                    b.Property<int>("Capacity")
-                        .HasColumnType("integer")
-                        .HasColumnName("capacity");
-
                     b.Property<int>("ClassId")
                         .HasColumnType("integer")
                         .HasColumnName("class_id");
@@ -1133,17 +1670,13 @@ namespace SportHub.API.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("coach_id");
 
-                    b.Property<int>("ConfirmedCount")
-                        .HasColumnType("integer")
-                        .HasColumnName("confirmed_count");
-
                     b.Property<DateTime>("EndAtUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("end_at_utc");
 
-                    b.Property<int?>("RecurrenceId")
-                        .HasColumnType("integer")
-                        .HasColumnName("recurrence_id");
+                    b.Property<bool>("IsMakeup")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_makeup");
 
                     b.Property<Guid?>("RescheduledFromSessionId")
                         .HasColumnType("uuid")
@@ -1152,6 +1685,10 @@ namespace SportHub.API.Migrations
                     b.Property<int>("RoomId")
                         .HasColumnType("integer")
                         .HasColumnName("room_id");
+
+                    b.Property<int>("SessionNo")
+                        .HasColumnType("integer")
+                        .HasColumnName("session_no");
 
                     b.Property<DateTime>("StartAtUtc")
                         .HasColumnType("timestamp with time zone")
@@ -1164,29 +1701,27 @@ namespace SportHub.API.Migrations
                     b.HasKey("SessionId")
                         .HasName("pk_class_sessions");
 
-                    b.HasIndex("ClassId")
-                        .HasDatabaseName("ix_class_sessions_class_id");
-
-                    b.HasIndex("RecurrenceId")
-                        .HasDatabaseName("ix_class_sessions_recurrence_id");
-
                     b.HasIndex("RescheduledFromSessionId")
                         .HasDatabaseName("ix_class_sessions_rescheduled_from_session_id");
 
-                    b.HasIndex("StartAtUtc")
-                        .HasDatabaseName("ix_class_sessions_start_at_utc");
+                    b.HasIndex("RoomId")
+                        .HasDatabaseName("ix_class_sessions_room_id");
+
+                    b.HasIndex("ClassId", "SessionNo")
+                        .IsUnique()
+                        .HasDatabaseName("ix_class_sessions_class_id_session_no");
 
                     b.HasIndex("CoachId", "StartAtUtc")
                         .HasDatabaseName("ix_class_sessions_coach_id_start_at_utc");
 
-                    b.HasIndex("RoomId", "StartAtUtc")
-                        .HasDatabaseName("ix_class_sessions_room_id_start_at_utc");
+                    b.HasIndex("StartAtUtc", "Status")
+                        .HasDatabaseName("ix_class_sessions_start_at_utc_status");
 
                     b.ToTable("class_sessions", null, t =>
                         {
-                            t.HasCheckConstraint("CK_class_sessions_capacity_within_baseline", "capacity > 0 AND capacity <= baseline_capacity");
+                            t.HasCheckConstraint("ck_class_sessions_no", "session_no > 0");
 
-                            t.HasCheckConstraint("CK_class_sessions_confirmed_count_within_capacity", "confirmed_count >= 0 AND confirmed_count <= capacity");
+                            t.HasCheckConstraint("ck_class_sessions_range", "end_at_utc > start_at_utc");
                         });
                 });
 
@@ -1197,33 +1732,29 @@ namespace SportHub.API.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("enrollment_id");
 
-                    b.Property<int>("CancellationDeadlineHours")
+                    b.Property<int>("ClassId")
                         .HasColumnType("integer")
-                        .HasColumnName("cancellation_deadline_hours");
+                        .HasColumnName("class_id");
 
-                    b.Property<DateTime?>("CancelledAt")
+                    b.Property<DateTime?>("EndedAt")
                         .HasColumnType("timestamp with time zone")
-                        .HasColumnName("cancelled_at");
+                        .HasColumnName("ended_at");
 
-                    b.Property<Guid?>("CancelledByUserId")
+                    b.Property<DateTime>("EnrolledAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("enrolled_at");
+
+                    b.Property<Guid?>("InvoiceItemId")
                         .HasColumnType("uuid")
-                        .HasColumnName("cancelled_by_user_id");
+                        .HasColumnName("invoice_item_id");
 
                     b.Property<Guid>("MemberId")
                         .HasColumnType("uuid")
                         .HasColumnName("member_id");
 
-                    b.Property<Guid>("MemberPackageId")
+                    b.Property<Guid?>("SourceEnrollmentId")
                         .HasColumnType("uuid")
-                        .HasColumnName("member_package_id");
-
-                    b.Property<DateTime>("RegisteredAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("registered_at");
-
-                    b.Property<Guid>("SessionId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("session_id");
+                        .HasColumnName("source_enrollment_id");
 
                     b.Property<int>("Status")
                         .HasColumnType("integer")
@@ -1232,19 +1763,21 @@ namespace SportHub.API.Migrations
                     b.HasKey("EnrollmentId")
                         .HasName("pk_enrollments");
 
-                    b.HasIndex("CancelledByUserId")
-                        .HasDatabaseName("ix_enrollments_cancelled_by_user_id");
-
-                    b.HasIndex("MemberId")
-                        .HasDatabaseName("ix_enrollments_member_id");
-
-                    b.HasIndex("MemberPackageId")
-                        .HasDatabaseName("ix_enrollments_member_package_id");
-
-                    b.HasIndex("SessionId", "MemberId")
+                    b.HasIndex("InvoiceItemId")
                         .IsUnique()
-                        .HasDatabaseName("ix_enrollments_session_id_member_id")
+                        .HasDatabaseName("ux_enrollments_invoice_item")
+                        .HasFilter("invoice_item_id IS NOT NULL");
+
+                    b.HasIndex("SourceEnrollmentId")
+                        .HasDatabaseName("ix_enrollments_source_enrollment_id");
+
+                    b.HasIndex("ClassId", "MemberId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_enrollments_class_member_confirmed")
                         .HasFilter("status = 0");
+
+                    b.HasIndex("MemberId", "Status")
+                        .HasDatabaseName("ix_enrollments_member_id_status");
 
                     b.ToTable("enrollments", (string)null);
                 });
@@ -1260,9 +1793,17 @@ namespace SportHub.API.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("check_in_time");
 
+                    b.Property<DateTime?>("CheckOutTime")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("check_out_time");
+
                     b.Property<Guid>("CheckedInByUserId")
                         .HasColumnType("uuid")
                         .HasColumnName("checked_in_by_user_id");
+
+                    b.Property<Guid?>("CheckedOutByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("checked_out_by_user_id");
 
                     b.Property<Guid>("MemberId")
                         .HasColumnType("uuid")
@@ -1273,6 +1814,9 @@ namespace SportHub.API.Migrations
 
                     b.HasIndex("CheckedInByUserId")
                         .HasDatabaseName("ix_gym_checkins_checked_in_by_user_id");
+
+                    b.HasIndex("CheckedOutByUserId")
+                        .HasDatabaseName("ix_gym_checkins_checked_out_by_user_id");
 
                     b.HasIndex("MemberId", "CheckInTime")
                         .IsDescending(false, true)
@@ -1294,10 +1838,18 @@ namespace SportHub.API.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("capacity");
 
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("name");
+
+                    b.Property<int?>("RoomTypeId")
+                        .HasColumnType("integer")
+                        .HasColumnName("room_type_id");
 
                     b.HasKey("RoomId")
                         .HasName("pk_rooms");
@@ -1306,7 +1858,155 @@ namespace SportHub.API.Migrations
                         .IsUnique()
                         .HasDatabaseName("ix_rooms_name");
 
+                    b.HasIndex("RoomTypeId")
+                        .HasDatabaseName("ix_rooms_room_type_id");
+
                     b.ToTable("rooms", (string)null);
+                });
+
+            modelBuilder.Entity("SportHub.Scheduling.Domain.Entities.SeatHold", b =>
+                {
+                    b.Property<Guid>("HoldId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("hold_id");
+
+                    b.Property<int>("ClassId")
+                        .HasColumnType("integer")
+                        .HasColumnName("class_id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTime>("ExpiresAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at_utc");
+
+                    b.Property<Guid?>("InvoiceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("invoice_id");
+
+                    b.Property<Guid>("MemberId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("member_id");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer")
+                        .HasColumnName("status");
+
+                    b.HasKey("HoldId")
+                        .HasName("pk_seat_holds");
+
+                    b.HasIndex("InvoiceId")
+                        .HasDatabaseName("ix_seat_holds_invoice_id");
+
+                    b.HasIndex("MemberId")
+                        .HasDatabaseName("ix_seat_holds_member_id");
+
+                    b.HasIndex("ClassId", "MemberId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_seat_holds_class_member_active")
+                        .HasFilter("status = 0");
+
+                    b.HasIndex("Status", "ExpiresAtUtc")
+                        .HasDatabaseName("ix_seat_holds_status_expires_at_utc");
+
+                    b.ToTable("seat_holds", (string)null);
+                });
+
+            modelBuilder.Entity("SportHub.Scheduling.Occupancy.Domain.CoachOccupancy", b =>
+                {
+                    b.Property<Guid>("OccupancyId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("occupancy_id");
+
+                    b.Property<Guid>("CoachId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("coach_id");
+
+                    b.Property<DateTime>("EndAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("end_at_utc");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<Guid>("SourceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("source_id");
+
+                    b.Property<int>("SourceType")
+                        .HasColumnType("integer")
+                        .HasColumnName("source_type");
+
+                    b.Property<DateTime>("StartAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("start_at_utc");
+
+                    b.HasKey("OccupancyId")
+                        .HasName("pk_coach_occupancies");
+
+                    b.HasIndex("CoachId", "StartAtUtc")
+                        .HasDatabaseName("ix_coach_occupancies_coach_id_start_at_utc");
+
+                    b.HasIndex("SourceType", "SourceId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_coach_occupancies_source_type_source_id");
+
+                    b.ToTable("coach_occupancies", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_coach_occupancies_range", "end_at_utc > start_at_utc");
+                        });
+                });
+
+            modelBuilder.Entity("SportHub.Scheduling.Occupancy.Domain.RoomOccupancy", b =>
+                {
+                    b.Property<Guid>("OccupancyId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("occupancy_id");
+
+                    b.Property<DateTime>("EndAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("end_at_utc");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<int>("RoomId")
+                        .HasColumnType("integer")
+                        .HasColumnName("room_id");
+
+                    b.Property<Guid>("SourceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("source_id");
+
+                    b.Property<int>("SourceType")
+                        .HasColumnType("integer")
+                        .HasColumnName("source_type");
+
+                    b.Property<DateTime>("StartAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("start_at_utc");
+
+                    b.HasKey("OccupancyId")
+                        .HasName("pk_room_occupancies");
+
+                    b.HasIndex("RoomId", "StartAtUtc")
+                        .HasDatabaseName("ix_room_occupancies_room_id_start_at_utc");
+
+                    b.HasIndex("SourceType", "SourceId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_room_occupancies_source_type_source_id");
+
+                    b.ToTable("room_occupancies", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_room_occupancies_range", "end_at_utc > start_at_utc");
+                        });
                 });
 
             modelBuilder.Entity("SportHub.Training.Domain.Entities.CoachMemberRelationship", b =>
@@ -1361,6 +2061,456 @@ namespace SportHub.API.Migrations
                     b.ToTable("coach_member_relationships", (string)null);
                 });
 
+            modelBuilder.Entity("SportHub.Training.Domain.Entities.HomeworkAssignment", b =>
+                {
+                    b.Property<Guid>("AssignmentId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("assignment_id");
+
+                    b.Property<DateTime>("AssignedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("assigned_at");
+
+                    b.Property<Guid>("CoachId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("coach_id");
+
+                    b.Property<string>("CoachNote")
+                        .HasColumnType("text")
+                        .HasColumnName("coach_note");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("completed_at");
+
+                    b.Property<DateTime>("DueAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("due_at");
+
+                    b.Property<string>("MemberFeedback")
+                        .HasColumnType("text")
+                        .HasColumnName("member_feedback");
+
+                    b.Property<Guid>("MemberId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("member_id");
+
+                    b.Property<Guid>("RelationshipId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("relationship_id");
+
+                    b.Property<DateTime?>("ReviewedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("reviewed_at");
+
+                    b.Property<Guid?>("SourceWorkoutPlanId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("source_workout_plan_id");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer")
+                        .HasColumnName("status");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("title");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("AssignmentId")
+                        .HasName("pk_homework_assignments");
+
+                    b.HasIndex("RelationshipId")
+                        .HasDatabaseName("ix_homework_assignments_relationship_id");
+
+                    b.HasIndex("SourceWorkoutPlanId")
+                        .HasDatabaseName("ix_homework_assignments_source_workout_plan_id");
+
+                    b.HasIndex("CoachId", "Status", "DueAt")
+                        .HasDatabaseName("ix_homework_assignments_coach_id_status_due_at");
+
+                    b.HasIndex("MemberId", "Status", "DueAt")
+                        .HasDatabaseName("ix_homework_assignments_member_id_status_due_at");
+
+                    b.ToTable("homework_assignments", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_homework_assignments_due_after_assigned", "due_at > assigned_at");
+                        });
+                });
+
+            modelBuilder.Entity("SportHub.Training.Domain.Entities.HomeworkAssignmentItem", b =>
+                {
+                    b.Property<Guid>("ItemId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("item_id");
+
+                    b.Property<Guid>("AssignmentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("assignment_id");
+
+                    b.Property<string>("Exercise")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("exercise");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("text")
+                        .HasColumnName("notes");
+
+                    b.Property<int>("Reps")
+                        .HasColumnType("integer")
+                        .HasColumnName("reps");
+
+                    b.Property<int>("Sets")
+                        .HasColumnType("integer")
+                        .HasColumnName("sets");
+
+                    b.HasKey("ItemId")
+                        .HasName("pk_homework_assignment_items");
+
+                    b.HasIndex("AssignmentId")
+                        .HasDatabaseName("ix_homework_assignment_items_assignment_id");
+
+                    b.ToTable("homework_assignment_items", (string)null);
+                });
+
+            modelBuilder.Entity("SportHub.Training.Domain.Entities.PtCoachChangeRequest", b =>
+                {
+                    b.Property<Guid>("RequestId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("request_id");
+
+                    b.Property<Guid>("CurrentCoachId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("current_coach_id");
+
+                    b.Property<Guid>("EntitlementId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("entitlement_id");
+
+                    b.Property<Guid>("MemberId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("member_id");
+
+                    b.Property<string>("Reason")
+                        .HasColumnType("text")
+                        .HasColumnName("reason");
+
+                    b.Property<DateTime>("RequestedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("requested_at");
+
+                    b.Property<Guid>("RequestedCoachId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("requested_coach_id");
+
+                    b.Property<string>("ReviewNote")
+                        .HasColumnType("text")
+                        .HasColumnName("review_note");
+
+                    b.Property<DateTime?>("ReviewedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("reviewed_at");
+
+                    b.Property<Guid?>("ReviewedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("reviewed_by_user_id");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer")
+                        .HasColumnName("status");
+
+                    b.HasKey("RequestId")
+                        .HasName("pk_pt_coach_change_requests");
+
+                    b.HasIndex("CurrentCoachId")
+                        .HasDatabaseName("ix_pt_coach_change_requests_current_coach_id");
+
+                    b.HasIndex("EntitlementId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_pt_coach_change_requests_entitlement_id")
+                        .HasFilter("status = 0");
+
+                    b.HasIndex("MemberId")
+                        .HasDatabaseName("ix_pt_coach_change_requests_member_id");
+
+                    b.HasIndex("RequestedCoachId")
+                        .HasDatabaseName("ix_pt_coach_change_requests_requested_coach_id");
+
+                    b.HasIndex("ReviewedByUserId")
+                        .HasDatabaseName("ix_pt_coach_change_requests_reviewed_by_user_id");
+
+                    b.ToTable("pt_coach_change_requests", (string)null);
+                });
+
+            modelBuilder.Entity("SportHub.Training.Domain.Entities.PtEntitlement", b =>
+                {
+                    b.Property<Guid>("EntitlementId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("entitlement_id");
+
+                    b.Property<DateTime?>("ActivatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("activated_at");
+
+                    b.Property<Guid?>("ActivationReference")
+                        .HasColumnType("uuid")
+                        .HasColumnName("activation_reference");
+
+                    b.Property<DateTime?>("CancelledAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("cancelled_at");
+
+                    b.Property<DateOnly>("CarryOverUntilDate")
+                        .HasColumnType("date")
+                        .HasColumnName("carry_over_until_date");
+
+                    b.Property<Guid>("CoachId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("coach_id");
+
+                    b.Property<int>("ConsumedSessions")
+                        .HasColumnType("integer")
+                        .HasColumnName("consumed_sessions");
+
+                    b.Property<Guid>("CurrentMemberPackageId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("current_member_package_id");
+
+                    b.Property<int>("FrequencyPerWeek")
+                        .HasColumnType("integer")
+                        .HasColumnName("frequency_per_week");
+
+                    b.Property<Guid>("MemberId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("member_id");
+
+                    b.Property<Guid>("OriginMemberPackageId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("origin_member_package_id");
+
+                    b.Property<int>("ReservedSessions")
+                        .HasColumnType("integer")
+                        .HasColumnName("reserved_sessions");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer")
+                        .HasColumnName("status");
+
+                    b.Property<int>("TotalQuota")
+                        .HasColumnType("integer")
+                        .HasColumnName("total_quota");
+
+                    b.Property<DateOnly>("ValidityEndDate")
+                        .HasColumnType("date")
+                        .HasColumnName("validity_end_date");
+
+                    b.Property<DateOnly>("ValidityStartDate")
+                        .HasColumnType("date")
+                        .HasColumnName("validity_start_date");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("EntitlementId")
+                        .HasName("pk_pt_entitlements");
+
+                    b.HasIndex("ActivationReference")
+                        .IsUnique()
+                        .HasDatabaseName("ix_pt_entitlements_activation_reference");
+
+                    b.HasIndex("CoachId")
+                        .HasDatabaseName("ix_pt_entitlements_coach_id");
+
+                    b.HasIndex("CurrentMemberPackageId")
+                        .HasDatabaseName("ix_pt_entitlements_current_member_package_id");
+
+                    b.HasIndex("OriginMemberPackageId")
+                        .HasDatabaseName("ix_pt_entitlements_origin_member_package_id");
+
+                    b.HasIndex("MemberId", "Status")
+                        .HasDatabaseName("ix_pt_entitlements_member_id_status");
+
+                    b.ToTable("pt_entitlements", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_pt_entitlements_frequency_per_week", "frequency_per_week IN (1, 2, 3)");
+
+                            t.HasCheckConstraint("CK_pt_entitlements_quota_counters_non_negative", "reserved_sessions >= 0 AND consumed_sessions >= 0");
+
+                            t.HasCheckConstraint("CK_pt_entitlements_quota_within_total", "reserved_sessions + consumed_sessions <= total_quota");
+                        });
+                });
+
+            modelBuilder.Entity("SportHub.Training.Domain.Entities.PtSession", b =>
+                {
+                    b.Property<Guid>("SessionId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("session_id");
+
+                    b.Property<string>("CancellationReason")
+                        .HasColumnType("text")
+                        .HasColumnName("cancellation_reason");
+
+                    b.Property<DateTime?>("CancelledAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("cancelled_at");
+
+                    b.Property<Guid>("CoachId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("coach_id");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("completed_at");
+
+                    b.Property<Guid>("CreatedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by_user_id");
+
+                    b.Property<DateTime>("EndAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("end_at_utc");
+
+                    b.Property<Guid>("EntitlementId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("entitlement_id");
+
+                    b.Property<Guid>("MemberId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("member_id");
+
+                    b.Property<int>("QuotaState")
+                        .HasColumnType("integer")
+                        .HasColumnName("quota_state");
+
+                    b.Property<Guid?>("RescheduledFromSessionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("rescheduled_from_session_id");
+
+                    b.Property<int?>("RoomId")
+                        .HasColumnType("integer")
+                        .HasColumnName("room_id");
+
+                    b.Property<DateTime>("StartAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("start_at_utc");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer")
+                        .HasColumnName("status");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("SessionId")
+                        .HasName("pk_pt_sessions");
+
+                    b.HasIndex("EntitlementId")
+                        .HasDatabaseName("ix_pt_sessions_entitlement_id");
+
+                    b.HasIndex("RescheduledFromSessionId")
+                        .HasDatabaseName("ix_pt_sessions_rescheduled_from_session_id");
+
+                    b.HasIndex("RoomId")
+                        .HasDatabaseName("ix_pt_sessions_room_id");
+
+                    b.HasIndex("CoachId", "StartAtUtc")
+                        .HasDatabaseName("ix_pt_sessions_coach_id_start_at_utc");
+
+                    b.HasIndex("MemberId", "StartAtUtc")
+                        .HasDatabaseName("ix_pt_sessions_member_id_start_at_utc");
+
+                    b.ToTable("pt_sessions", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_pt_sessions_duration_is_ninety_minutes", "end_at_utc = start_at_utc + interval '90 minutes'");
+                        });
+                });
+
+            modelBuilder.Entity("SportHub.Training.Domain.Entities.PtSessionChangeRequest", b =>
+                {
+                    b.Property<Guid>("RequestId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("request_id");
+
+                    b.Property<string>("Reason")
+                        .HasColumnType("text")
+                        .HasColumnName("reason");
+
+                    b.Property<int>("RequestType")
+                        .HasColumnType("integer")
+                        .HasColumnName("request_type");
+
+                    b.Property<DateTime>("RequestedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("requested_at");
+
+                    b.Property<Guid>("RequestedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("requested_by_user_id");
+
+                    b.Property<DateTime?>("RequestedStartAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("requested_start_at_utc");
+
+                    b.Property<bool>("RequestsException")
+                        .HasColumnType("boolean")
+                        .HasColumnName("requests_exception");
+
+                    b.Property<string>("ReviewNote")
+                        .HasColumnType("text")
+                        .HasColumnName("review_note");
+
+                    b.Property<DateTime?>("ReviewedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("reviewed_at");
+
+                    b.Property<Guid?>("ReviewedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("reviewed_by_user_id");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("session_id");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer")
+                        .HasColumnName("status");
+
+                    b.Property<int>("TimingClassification")
+                        .HasColumnType("integer")
+                        .HasColumnName("timing_classification");
+
+                    b.HasKey("RequestId")
+                        .HasName("pk_pt_session_change_requests");
+
+                    b.HasIndex("RequestedByUserId")
+                        .HasDatabaseName("ix_pt_session_change_requests_requested_by_user_id");
+
+                    b.HasIndex("ReviewedByUserId")
+                        .HasDatabaseName("ix_pt_session_change_requests_reviewed_by_user_id");
+
+                    b.HasIndex("SessionId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_pt_session_change_requests_session_id")
+                        .HasFilter("status = 0");
+
+                    b.ToTable("pt_session_change_requests", (string)null);
+                });
+
             modelBuilder.Entity("SportHub.Training.Domain.Entities.WorkoutPlan", b =>
                 {
                     b.Property<Guid>("PlanId")
@@ -1393,6 +2543,19 @@ namespace SportHub.API.Migrations
                     b.Property<Guid>("RelationshipId")
                         .HasColumnType("uuid")
                         .HasColumnName("relationship_id");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer")
+                        .HasColumnName("status");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
 
                     b.HasKey("PlanId")
                         .HasName("pk_workout_plans");
@@ -1461,13 +2624,13 @@ namespace SportHub.API.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("coach_id");
 
-                    b.Property<Guid>("EnrollmentId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("enrollment_id");
-
                     b.Property<string>("ProgressNote")
                         .HasColumnType("text")
                         .HasColumnName("progress_note");
+
+                    b.Property<Guid>("PtSessionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("pt_session_id");
 
                     b.Property<DateTime>("RecordedAt")
                         .HasColumnType("timestamp with time zone")
@@ -1479,8 +2642,9 @@ namespace SportHub.API.Migrations
                     b.HasIndex("CoachId")
                         .HasDatabaseName("ix_workout_results_coach_id");
 
-                    b.HasIndex("EnrollmentId")
-                        .HasDatabaseName("ix_workout_results_enrollment_id");
+                    b.HasIndex("PtSessionId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_workout_results_pt_session_id");
 
                     b.ToTable("workout_results", (string)null);
                 });
@@ -1532,6 +2696,36 @@ namespace SportHub.API.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("SportHub.Identity.Domain.Entities.CoachProfile", b =>
+                {
+                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", "UserAccount")
+                        .WithOne("CoachProfile")
+                        .HasForeignKey("SportHub.Identity.Domain.Entities.CoachProfile", "UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_coach_profiles_user_accounts_user_id");
+
+                    b.Navigation("UserAccount");
+                });
+
+            modelBuilder.Entity("SportHub.Identity.Domain.Entities.ExternalCoachProfile", b =>
+                {
+                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", null)
+                        .WithMany()
+                        .HasForeignKey("ReviewedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_external_coach_profiles_user_accounts_reviewed_by_user_id");
+
+                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", "UserAccount")
+                        .WithOne()
+                        .HasForeignKey("SportHub.Identity.Domain.Entities.ExternalCoachProfile", "UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_external_coach_profiles_user_accounts_user_id");
+
+                    b.Navigation("UserAccount");
+                });
+
             modelBuilder.Entity("SportHub.Identity.Domain.Entities.UserAccount", b =>
                 {
                     b.HasOne("SportHub.Identity.Domain.Entities.Role", "Role")
@@ -1576,6 +2770,25 @@ namespace SportHub.API.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_user_profiles_user_accounts_user_id");
+
+                    b.Navigation("UserAccount");
+                });
+
+            modelBuilder.Entity("SportHub.Identity.Domain.Entities.UserSportSpecialty", b =>
+                {
+                    b.HasOne("SportHub.Scheduling.Catalog.Domain.Sport", null)
+                        .WithMany()
+                        .HasForeignKey("SportId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_user_sport_specialties_sports_sport_id");
+
+                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", "UserAccount")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_user_sport_specialties_user_accounts_user_id");
 
                     b.Navigation("UserAccount");
                 });
@@ -1752,54 +2965,122 @@ namespace SportHub.API.Migrations
                     b.Navigation("Invoice");
                 });
 
+            modelBuilder.Entity("SportHub.Scheduling.Catalog.Domain.CourtRate", b =>
+                {
+                    b.HasOne("SportHub.Scheduling.Catalog.Domain.RoomType", null)
+                        .WithMany()
+                        .HasForeignKey("RoomTypeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_court_rates_room_types_room_type_id");
+
+                    b.HasOne("SportHub.Scheduling.Catalog.Domain.Sport", null)
+                        .WithMany()
+                        .HasForeignKey("SportId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_court_rates_sports_sport_id");
+                });
+
+            modelBuilder.Entity("SportHub.Scheduling.Catalog.Domain.RoomBlock", b =>
+                {
+                    b.HasOne("SportHub.Scheduling.Domain.Entities.Room", null)
+                        .WithMany()
+                        .HasForeignKey("RoomId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_room_blocks_rooms_room_id");
+                });
+
+            modelBuilder.Entity("SportHub.Scheduling.Catalog.Domain.RoomOpeningHour", b =>
+                {
+                    b.HasOne("SportHub.Scheduling.Domain.Entities.Room", null)
+                        .WithMany()
+                        .HasForeignKey("RoomId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_room_opening_hours_rooms_room_id");
+                });
+
+            modelBuilder.Entity("SportHub.Scheduling.Catalog.Domain.SportRoomType", b =>
+                {
+                    b.HasOne("SportHub.Scheduling.Catalog.Domain.RoomType", null)
+                        .WithMany()
+                        .HasForeignKey("RoomTypeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_sport_room_types_room_types_room_type_id");
+
+                    b.HasOne("SportHub.Scheduling.Catalog.Domain.Sport", null)
+                        .WithMany()
+                        .HasForeignKey("SportId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_sport_room_types_sports_sport_id");
+                });
+
             modelBuilder.Entity("SportHub.Scheduling.Domain.Entities.Attendance", b =>
                 {
-                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", "CheckedInByUser")
-                        .WithMany()
-                        .HasForeignKey("CheckedInByUserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .HasConstraintName("fk_attendances_user_accounts_checked_in_by_user_id");
-
                     b.HasOne("SportHub.Scheduling.Domain.Entities.Enrollment", "Enrollment")
-                        .WithOne("Attendance")
-                        .HasForeignKey("SportHub.Scheduling.Domain.Entities.Attendance", "EnrollmentId")
+                        .WithMany()
+                        .HasForeignKey("EnrollmentId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_attendances_enrollments_enrollment_id");
 
-                    b.Navigation("CheckedInByUser");
+                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", null)
+                        .WithMany()
+                        .HasForeignKey("RecordedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_attendances_user_accounts_recorded_by_user_id");
+
+                    b.HasOne("SportHub.Scheduling.Domain.Entities.ClassSession", "Session")
+                        .WithMany()
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_attendances_class_sessions_session_id");
 
                     b.Navigation("Enrollment");
+
+                    b.Navigation("Session");
                 });
 
             modelBuilder.Entity("SportHub.Scheduling.Domain.Entities.Class", b =>
                 {
-                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", "DefaultCoach")
+                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", null)
                         .WithMany()
-                        .HasForeignKey("DefaultCoachId")
+                        .HasForeignKey("CoachId")
                         .OnDelete(DeleteBehavior.Restrict)
-                        .HasConstraintName("fk_classes_user_accounts_default_coach_id");
+                        .HasConstraintName("fk_classes_user_accounts_coach_id");
 
                     b.HasOne("SportHub.Scheduling.Domain.Entities.Room", "DefaultRoom")
-                        .WithMany("Classes")
+                        .WithMany()
                         .HasForeignKey("DefaultRoomId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_classes_rooms_default_room_id");
 
-                    b.Navigation("DefaultCoach");
-
-                    b.Navigation("DefaultRoom");
-                });
-
-            modelBuilder.Entity("SportHub.Scheduling.Domain.Entities.ClassRecurrence", b =>
-                {
-                    b.HasOne("SportHub.Scheduling.Domain.Entities.Class", "Class")
-                        .WithMany("Recurrences")
-                        .HasForeignKey("ClassId")
+                    b.HasOne("SportHub.Scheduling.Catalog.Domain.Sport", "Sport")
+                        .WithMany()
+                        .HasForeignKey("SportId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
-                        .HasConstraintName("fk_class_recurrences_classes_class_id");
+                        .HasConstraintName("fk_classes_sports_sport_id");
+
+                    b.Navigation("DefaultRoom");
+
+                    b.Navigation("Sport");
+                });
+
+            modelBuilder.Entity("SportHub.Scheduling.Domain.Entities.ClassScheduleRule", b =>
+                {
+                    b.HasOne("SportHub.Scheduling.Domain.Entities.Class", "Class")
+                        .WithMany("ScheduleRules")
+                        .HasForeignKey("ClassId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_class_schedule_rules_classes_class_id");
 
                     b.Navigation("Class");
                 });
@@ -1813,27 +3094,21 @@ namespace SportHub.API.Migrations
                         .IsRequired()
                         .HasConstraintName("fk_class_sessions_classes_class_id");
 
-                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", "Coach")
+                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", null)
                         .WithMany()
                         .HasForeignKey("CoachId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_class_sessions_user_accounts_coach_id");
 
-                    b.HasOne("SportHub.Scheduling.Domain.Entities.ClassRecurrence", "Recurrence")
-                        .WithMany("Sessions")
-                        .HasForeignKey("RecurrenceId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .HasConstraintName("fk_class_sessions_class_recurrences_recurrence_id");
-
-                    b.HasOne("SportHub.Scheduling.Domain.Entities.ClassSession", "RescheduledFromSession")
+                    b.HasOne("SportHub.Scheduling.Domain.Entities.ClassSession", null)
                         .WithMany()
                         .HasForeignKey("RescheduledFromSessionId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_class_sessions_class_sessions_rescheduled_from_session_id");
 
                     b.HasOne("SportHub.Scheduling.Domain.Entities.Room", "Room")
-                        .WithMany("Sessions")
+                        .WithMany()
                         .HasForeignKey("RoomId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
@@ -1841,51 +3116,38 @@ namespace SportHub.API.Migrations
 
                     b.Navigation("Class");
 
-                    b.Navigation("Coach");
-
-                    b.Navigation("Recurrence");
-
-                    b.Navigation("RescheduledFromSession");
-
                     b.Navigation("Room");
                 });
 
             modelBuilder.Entity("SportHub.Scheduling.Domain.Entities.Enrollment", b =>
                 {
-                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", "CancelledByUser")
+                    b.HasOne("SportHub.Scheduling.Domain.Entities.Class", "Class")
                         .WithMany()
-                        .HasForeignKey("CancelledByUserId")
+                        .HasForeignKey("ClassId")
                         .OnDelete(DeleteBehavior.Restrict)
-                        .HasConstraintName("fk_enrollments_user_accounts_cancelled_by_user_id");
+                        .IsRequired()
+                        .HasConstraintName("fk_enrollments_classes_class_id");
 
-                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", "Member")
+                    b.HasOne("SportHub.Payment.Domain.Entities.InvoiceItem", null)
+                        .WithMany()
+                        .HasForeignKey("InvoiceItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_enrollments_invoice_items_invoice_item_id");
+
+                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", null)
                         .WithMany()
                         .HasForeignKey("MemberId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_enrollments_user_accounts_member_id");
 
-                    b.HasOne("SportHub.Membership.Domain.Entities.MemberPackage", "MemberPackage")
+                    b.HasOne("SportHub.Scheduling.Domain.Entities.Enrollment", null)
                         .WithMany()
-                        .HasForeignKey("MemberPackageId")
+                        .HasForeignKey("SourceEnrollmentId")
                         .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
-                        .HasConstraintName("fk_enrollments_member_packages_member_package_id");
+                        .HasConstraintName("fk_enrollments_enrollments_source_enrollment_id");
 
-                    b.HasOne("SportHub.Scheduling.Domain.Entities.ClassSession", "Session")
-                        .WithMany("Enrollments")
-                        .HasForeignKey("SessionId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
-                        .HasConstraintName("fk_enrollments_class_sessions_session_id");
-
-                    b.Navigation("CancelledByUser");
-
-                    b.Navigation("Member");
-
-                    b.Navigation("MemberPackage");
-
-                    b.Navigation("Session");
+                    b.Navigation("Class");
                 });
 
             modelBuilder.Entity("SportHub.Scheduling.Domain.Entities.GymCheckIn", b =>
@@ -1897,6 +3159,12 @@ namespace SportHub.API.Migrations
                         .IsRequired()
                         .HasConstraintName("fk_gym_checkins_user_accounts_checked_in_by_user_id");
 
+                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", null)
+                        .WithMany()
+                        .HasForeignKey("CheckedOutByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_gym_checkins_user_accounts_checked_out_by_user_id");
+
                     b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", "Member")
                         .WithMany()
                         .HasForeignKey("MemberId")
@@ -1907,6 +3175,60 @@ namespace SportHub.API.Migrations
                     b.Navigation("CheckedInByUser");
 
                     b.Navigation("Member");
+                });
+
+            modelBuilder.Entity("SportHub.Scheduling.Domain.Entities.Room", b =>
+                {
+                    b.HasOne("SportHub.Scheduling.Catalog.Domain.RoomType", null)
+                        .WithMany()
+                        .HasForeignKey("RoomTypeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_rooms_room_types_room_type_id");
+                });
+
+            modelBuilder.Entity("SportHub.Scheduling.Domain.Entities.SeatHold", b =>
+                {
+                    b.HasOne("SportHub.Scheduling.Domain.Entities.Class", "Class")
+                        .WithMany()
+                        .HasForeignKey("ClassId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_seat_holds_classes_class_id");
+
+                    b.HasOne("SportHub.Payment.Domain.Entities.Invoice", null)
+                        .WithMany()
+                        .HasForeignKey("InvoiceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_seat_holds_invoices_invoice_id");
+
+                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", null)
+                        .WithMany()
+                        .HasForeignKey("MemberId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_seat_holds_user_accounts_member_id");
+
+                    b.Navigation("Class");
+                });
+
+            modelBuilder.Entity("SportHub.Scheduling.Occupancy.Domain.CoachOccupancy", b =>
+                {
+                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", null)
+                        .WithMany()
+                        .HasForeignKey("CoachId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_coach_occupancies_user_accounts_coach_id");
+                });
+
+            modelBuilder.Entity("SportHub.Scheduling.Occupancy.Domain.RoomOccupancy", b =>
+                {
+                    b.HasOne("SportHub.Scheduling.Domain.Entities.Room", null)
+                        .WithMany()
+                        .HasForeignKey("RoomId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_room_occupancies_rooms_room_id");
                 });
 
             modelBuilder.Entity("SportHub.Training.Domain.Entities.CoachMemberRelationship", b =>
@@ -1936,6 +3258,215 @@ namespace SportHub.API.Migrations
                     b.Navigation("Coach");
 
                     b.Navigation("Member");
+                });
+
+            modelBuilder.Entity("SportHub.Training.Domain.Entities.HomeworkAssignment", b =>
+                {
+                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", "Coach")
+                        .WithMany()
+                        .HasForeignKey("CoachId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_homework_assignments_user_accounts_coach_id");
+
+                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", "Member")
+                        .WithMany()
+                        .HasForeignKey("MemberId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_homework_assignments_user_accounts_member_id");
+
+                    b.HasOne("SportHub.Training.Domain.Entities.CoachMemberRelationship", "Relationship")
+                        .WithMany("HomeworkAssignments")
+                        .HasForeignKey("RelationshipId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_homework_assignments_coach_member_relationships_relationshi");
+
+                    b.HasOne("SportHub.Training.Domain.Entities.WorkoutPlan", "SourceWorkoutPlan")
+                        .WithMany("HomeworkAssignments")
+                        .HasForeignKey("SourceWorkoutPlanId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_homework_assignments_workout_plans_source_workout_plan_id");
+
+                    b.Navigation("Coach");
+
+                    b.Navigation("Member");
+
+                    b.Navigation("Relationship");
+
+                    b.Navigation("SourceWorkoutPlan");
+                });
+
+            modelBuilder.Entity("SportHub.Training.Domain.Entities.HomeworkAssignmentItem", b =>
+                {
+                    b.HasOne("SportHub.Training.Domain.Entities.HomeworkAssignment", "Assignment")
+                        .WithMany("Items")
+                        .HasForeignKey("AssignmentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_homework_assignment_items_homework_assignments_assignment_id");
+
+                    b.Navigation("Assignment");
+                });
+
+            modelBuilder.Entity("SportHub.Training.Domain.Entities.PtCoachChangeRequest", b =>
+                {
+                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", "CurrentCoach")
+                        .WithMany()
+                        .HasForeignKey("CurrentCoachId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_pt_coach_change_requests_user_accounts_current_coach_id");
+
+                    b.HasOne("SportHub.Training.Domain.Entities.PtEntitlement", "Entitlement")
+                        .WithMany("CoachChangeRequests")
+                        .HasForeignKey("EntitlementId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_pt_coach_change_requests_pt_entitlements_entitlement_id");
+
+                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", "Member")
+                        .WithMany()
+                        .HasForeignKey("MemberId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_pt_coach_change_requests_user_accounts_member_id");
+
+                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", "RequestedCoach")
+                        .WithMany()
+                        .HasForeignKey("RequestedCoachId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_pt_coach_change_requests_user_accounts_requested_coach_id");
+
+                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", "ReviewedByUser")
+                        .WithMany()
+                        .HasForeignKey("ReviewedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_pt_coach_change_requests_user_accounts_reviewed_by_user_id");
+
+                    b.Navigation("CurrentCoach");
+
+                    b.Navigation("Entitlement");
+
+                    b.Navigation("Member");
+
+                    b.Navigation("RequestedCoach");
+
+                    b.Navigation("ReviewedByUser");
+                });
+
+            modelBuilder.Entity("SportHub.Training.Domain.Entities.PtEntitlement", b =>
+                {
+                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", "Coach")
+                        .WithMany()
+                        .HasForeignKey("CoachId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_pt_entitlements_user_accounts_coach_id");
+
+                    b.HasOne("SportHub.Membership.Domain.Entities.MemberPackage", "CurrentMemberPackage")
+                        .WithMany()
+                        .HasForeignKey("CurrentMemberPackageId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_pt_entitlements_member_packages_current_member_package_id");
+
+                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", "Member")
+                        .WithMany()
+                        .HasForeignKey("MemberId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_pt_entitlements_user_accounts_member_id");
+
+                    b.HasOne("SportHub.Membership.Domain.Entities.MemberPackage", "OriginMemberPackage")
+                        .WithMany()
+                        .HasForeignKey("OriginMemberPackageId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_pt_entitlements_member_packages_origin_member_package_id");
+
+                    b.Navigation("Coach");
+
+                    b.Navigation("CurrentMemberPackage");
+
+                    b.Navigation("Member");
+
+                    b.Navigation("OriginMemberPackage");
+                });
+
+            modelBuilder.Entity("SportHub.Training.Domain.Entities.PtSession", b =>
+                {
+                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", "Coach")
+                        .WithMany()
+                        .HasForeignKey("CoachId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_pt_sessions_user_accounts_coach_id");
+
+                    b.HasOne("SportHub.Training.Domain.Entities.PtEntitlement", "Entitlement")
+                        .WithMany("Sessions")
+                        .HasForeignKey("EntitlementId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_pt_sessions_pt_entitlements_entitlement_id");
+
+                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", "Member")
+                        .WithMany()
+                        .HasForeignKey("MemberId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_pt_sessions_user_accounts_member_id");
+
+                    b.HasOne("SportHub.Training.Domain.Entities.PtSession", "RescheduledFromSession")
+                        .WithMany()
+                        .HasForeignKey("RescheduledFromSessionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_pt_sessions_pt_sessions_rescheduled_from_session_id");
+
+                    b.HasOne("SportHub.Scheduling.Domain.Entities.Room", null)
+                        .WithMany()
+                        .HasForeignKey("RoomId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_pt_sessions_rooms_room_id");
+
+                    b.Navigation("Coach");
+
+                    b.Navigation("Entitlement");
+
+                    b.Navigation("Member");
+
+                    b.Navigation("RescheduledFromSession");
+                });
+
+            modelBuilder.Entity("SportHub.Training.Domain.Entities.PtSessionChangeRequest", b =>
+                {
+                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", "RequestedByUser")
+                        .WithMany()
+                        .HasForeignKey("RequestedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_pt_session_change_requests_user_accounts_requested_by_user_");
+
+                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", "ReviewedByUser")
+                        .WithMany()
+                        .HasForeignKey("ReviewedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_pt_session_change_requests_user_accounts_reviewed_by_user_id");
+
+                    b.HasOne("SportHub.Training.Domain.Entities.PtSession", "Session")
+                        .WithMany("ChangeRequests")
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_pt_session_change_requests_pt_sessions_session_id");
+
+                    b.Navigation("RequestedByUser");
+
+                    b.Navigation("ReviewedByUser");
+
+                    b.Navigation("Session");
                 });
 
             modelBuilder.Entity("SportHub.Training.Domain.Entities.WorkoutPlan", b =>
@@ -1989,16 +3520,16 @@ namespace SportHub.API.Migrations
                         .IsRequired()
                         .HasConstraintName("fk_workout_results_user_accounts_coach_id");
 
-                    b.HasOne("SportHub.Scheduling.Domain.Entities.Enrollment", "Enrollment")
-                        .WithMany()
-                        .HasForeignKey("EnrollmentId")
+                    b.HasOne("SportHub.Training.Domain.Entities.PtSession", "PtSession")
+                        .WithOne("Result")
+                        .HasForeignKey("SportHub.Training.Domain.Entities.WorkoutResult", "PtSessionId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
-                        .HasConstraintName("fk_workout_results_enrollments_enrollment_id");
+                        .HasConstraintName("fk_workout_results_pt_sessions_pt_session_id");
 
                     b.Navigation("Coach");
 
-                    b.Navigation("Enrollment");
+                    b.Navigation("PtSession");
                 });
 
             modelBuilder.Entity("SportHub.Identity.Domain.Entities.Role", b =>
@@ -2008,6 +3539,8 @@ namespace SportHub.API.Migrations
 
             modelBuilder.Entity("SportHub.Identity.Domain.Entities.UserAccount", b =>
                 {
+                    b.Navigation("CoachProfile");
+
                     b.Navigation("Credential");
 
                     b.Navigation("ExternalLogins");
@@ -2038,40 +3571,41 @@ namespace SportHub.API.Migrations
 
             modelBuilder.Entity("SportHub.Scheduling.Domain.Entities.Class", b =>
                 {
-                    b.Navigation("Recurrences");
-
-                    b.Navigation("Sessions");
-                });
-
-            modelBuilder.Entity("SportHub.Scheduling.Domain.Entities.ClassRecurrence", b =>
-                {
-                    b.Navigation("Sessions");
-                });
-
-            modelBuilder.Entity("SportHub.Scheduling.Domain.Entities.ClassSession", b =>
-                {
-                    b.Navigation("Enrollments");
-                });
-
-            modelBuilder.Entity("SportHub.Scheduling.Domain.Entities.Enrollment", b =>
-                {
-                    b.Navigation("Attendance");
-                });
-
-            modelBuilder.Entity("SportHub.Scheduling.Domain.Entities.Room", b =>
-                {
-                    b.Navigation("Classes");
+                    b.Navigation("ScheduleRules");
 
                     b.Navigation("Sessions");
                 });
 
             modelBuilder.Entity("SportHub.Training.Domain.Entities.CoachMemberRelationship", b =>
                 {
+                    b.Navigation("HomeworkAssignments");
+
                     b.Navigation("WorkoutPlans");
+                });
+
+            modelBuilder.Entity("SportHub.Training.Domain.Entities.HomeworkAssignment", b =>
+                {
+                    b.Navigation("Items");
+                });
+
+            modelBuilder.Entity("SportHub.Training.Domain.Entities.PtEntitlement", b =>
+                {
+                    b.Navigation("CoachChangeRequests");
+
+                    b.Navigation("Sessions");
+                });
+
+            modelBuilder.Entity("SportHub.Training.Domain.Entities.PtSession", b =>
+                {
+                    b.Navigation("ChangeRequests");
+
+                    b.Navigation("Result");
                 });
 
             modelBuilder.Entity("SportHub.Training.Domain.Entities.WorkoutPlan", b =>
                 {
+                    b.Navigation("HomeworkAssignments");
+
                     b.Navigation("Items");
                 });
 #pragma warning restore 612, 618

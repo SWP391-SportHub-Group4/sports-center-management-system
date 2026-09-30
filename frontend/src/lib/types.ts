@@ -221,7 +221,12 @@ export interface UserAdminDto {
   createdAt: string;
   hasPassword: boolean;
   hasGoogleLink: boolean;
+  // BR-96, mới 28/09/2026 — null khi role khác Coach.
+  coachCategory: CoachCategory | null;
 }
+
+/** Khớp enum CoachCategory của backend (SSOT §3, mới 28/09/2026). */
+export type CoachCategory = "PersonalTrainer" | "ClassInstructor";
 
 export type MyAccountDto = UserAdminDto;
 

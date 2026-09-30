@@ -17,6 +17,7 @@ public class GymCheckInConfiguration : IEntityTypeConfiguration<GymCheckIn>
         // và entity-field-purpose.md ghi CheckInTime. Chốt theo SSOT và theo tiền lệ
         // Attendance.CheckInTime (cùng module, cũng là mốc UTC); ERD đã sửa cho khớp.
         builder.Property(e => e.CheckInTime).HasColumnName("check_in_time");
+        builder.Property(e => e.CheckOutTime).HasColumnName("check_out_time");
 
         // Đường đọc duy nhất hiện có là "lịch sử của 1 Member, mới nhất trước".
         // KHÔNG unique theo (member, ngày): BR-64 cho phép nhiều lần check-in mỗi ngày.

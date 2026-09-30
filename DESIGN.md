@@ -1,6 +1,6 @@
 ---
 name: SportHub
-description: Giao diện quản lý trung tâm thể thao rõ ràng, năng động và đáng tin.
+description: Giao diện quản lý nhà văn hóa thể thao đa môn rõ ràng, năng động và đáng tin.
 colors:
   navy: "#1a2b4c"
   sky: "#6ec1e4"
@@ -177,26 +177,71 @@ Các màn hình hiện có là bản xem trước với dữ liệu minh họa. 
 
 - **Do** dùng navy cho văn bản chính và hành động chính, ice cho nền phụ và trạng thái chọn.
 - **Do** giữ tên gọi nghiệp vụ nhất quán giữa điều hướng, lịch lớp, gói tập và thông báo.
-- **Do** luôn dùng bộ icon và sticker thương hiệu được tạo sẵn tại `@/components/icons`.
 - **Do** đánh dấu rõ “dữ liệu minh họa” khi một phần giao diện chưa kết nối backend.
 - **Do** duy trì focus nhìn thấy, điều hướng bàn phím và hỗ trợ giảm chuyển động.
 
 ### Don't:
 
 - **Don't** dùng nội dung, số liệu, lịch sự kiện hay trạng thái giả như dữ liệu thật.
-- **Don't** dùng bất kỳ thư viện icon ngoài nào (lucide, fontawesome, heroicons...) hay emoji thay thế icon.
 - **Don't** dùng ảnh minh họa để ngụ ý đó là ảnh chụp thật của trung tâm.
 - **Don't** thêm màu, font hay thành phần trang trí mới chỉ để một màn hình trông nổi bật hơn.
 - **Don't** dùng bóng đổ mạnh, thẻ lồng thẻ hoặc các chuyển động gây chậm tác vụ.
 
-## 7. Iconography & Stickers (Mandatory Brand Invariant)
+## 7. Vai trò và màn hình (Design v3 §12)
 
-- **Source of Truth**: `frontend/src/components/icons` (`@/components/icons`).
-  - **SportIcons**: `SportIcons.tsx` (Biểu tượng thể thao, điều hướng, thao tác quầy, trạng thái).
-  - **SportStickers**: `SportStickers.tsx` (Sticker minh họa rỗng, thành tựu, thông báo).
-- **Quy tắc bắt buộc tuyệt đối**: Luôn sử dụng icon và sticker SVG thương hiệu độc quyền đã tạo trong `@/components/icons`. **Không sử dụng bất kỳ nguồn nào khác.**
-  - ❌ Cấm: Cài đặt hoặc import các thư viện icon bên ngoài (`lucide-react`, `react-icons`, `@heroicons`, font-awesome...).
-  - ❌ Cấm: Nhúng các SVG tùy tiện, không đồng bộ nét vẽ trực tiếp vào trang.
-  - ❌ Cấm: Dùng emoji Unicode để giả lập biểu tượng thao tác hay trạng thái.
-  - ✅ Bắt buộc: Import trực tiếp từ `@/components/icons`. Khi cần biểu tượng mới chưa có, phải tự thiết kế và thêm vào `SportIcons.tsx` hoặc `SportStickers.tsx` theo chuẩn đồng nhất (viewBox `0 0 24 24`, `strokeWidth: 2`, `strokeLinecap: round`, `strokeLinejoin: round`, `color: "currentColor"`).
+Áp dụng cùng một bộ token (navy, sky, ice, slate, gray, white, `public-accent`), cùng component và quy tắc ở các mục trên. **Không có bảng màu riêng cho từng vai trò**: vai trò khác nhau ở điều hướng và nội dung, không ở màu. Không thêm màu/font mới để phân biệt ExternalCoach hay các màn hình mới.
 
+### 7.1 Điều hướng theo vai trò
+
+| Khu vực | Màn hình chính | Ghi chú giao diện |
+|---|---|---|
+| Landing (Guest) | Lưới môn (Gym, PT, Cầu lông, Bóng rổ...), danh sách lớp đang mở (giá, lịch, chỗ còn), lịch sân trống tổng quát, đăng ký Member, **đăng ký Coach ngoài**, đăng nhập | Hình và nội dung lấy từ dữ liệu môn (`SPORTS`), không hard-code; dùng `public-accent` và cỡ chữ display theo Do/Don't hiện có |
+| Member | Lớp của tôi, lịch hôm nay/tuần, duyệt lớp + checkout (chọn số điểm dùng), ví điểm + lịch sử, PT, Gym check-in history, thông báo, chatbot; trang phản hồi ngưỡng mở từ email | Checkout luôn hiển thị: giá, điểm sẽ trừ, số tiền còn lại, thời hạn giữ chỗ |
+| Receptionist | Tìm Member, đăng ký tại quầy, Gym check-in/out, checkout thay Member (tra cứu điểm + nhập OTP của Member), điểm danh lớp nhóm, Court Schedule | Bước OTP là hộp thoại rõ ràng: đếm ngược 5 phút, số lần sai còn lại |
+| Coach | Lịch dạy, roster lớp mình, PT (session, kết quả, homework, gợi ý AI) | Không có màn điểm danh lớp nhóm; mục PT/AI chỉ hiện khi có chuyên môn PT |
+| **ExternalCoach** | Hồ sơ, xem sân trống + giá, đặt/hủy thuê sân, thanh toán, ví điểm, lịch sử thuê | Trạng thái `PendingApproval`/`Suspended` hiện màn thông báo chờ duyệt thay cho menu; không có màn học viên/điểm danh |
+| Manager | Dashboard (doanh thu, lấp lớp, lớp `AtRisk`), CRUD môn, phòng/sân, giá thuê sân, Membership; tạo lớp + xếp lịch (kèm chatbot gợi ý), phân công Coach theo chuyên môn, hàng đợi duyệt Coach ngoài, PT, hoàn điểm, sự cố/thông báo, báo cáo, Audit Log | Chatbot đề xuất chỉ tạo bản nháp sau khi Manager bấm xác nhận |
+| System Admin | Quản lý tài khoản nhân sự, vai trò, khóa/mở khóa | |
+| Chung | Đăng nhập, quên mật khẩu, đổi mật khẩu (checklist yêu cầu mật khẩu) | Checklist tick khi thỏa từng điều kiện, không chỉ dựa vào màu |
+
+### 7.2 Màn hình mới cần thiết kế
+
+Lịch sân (Court Schedule), thuê sân (chọn khung giờ + giá), ví điểm + lịch sử, checkout split payment (điểm + VNPay-QR), giữ chỗ với đồng hồ đếm ngược, trang phản hồi ngưỡng hoàn vốn (chuyển lớp / hoàn điểm), hàng đợi duyệt ExternalCoach, CRUD môn/phòng/giá, chatbot, quên mật khẩu.
+
+### 7.3 Quy tắc bổ sung (dùng token có sẵn)
+
+- Trạng thái mới (`Held`, `AtRisk`, `PendingApproval`, `Confirmed`, `Expired`...) dùng chip chữ + biểu tượng trên nền ice/gray, không dùng màu làm tín hiệu duy nhất (Clarity Rule).
+- Số tiền và điểm hiển thị cạnh nhau (ví dụ "300.000đ = 200 điểm + 100.000đ"); ghi rõ **hoàn trả chỉ bằng điểm**, không có nút hoàn tiền mặt.
+- Chatbot: cửa sổ trong khung `card`, đánh dấu rõ khi đang ở chế độ mô phỏng (thiếu khóa Gemini) — theo Do "đánh dấu dữ liệu minh họa".
+
+---
+
+## Refactor delta (DESIGN.md — 30/09/2026)
+
+### XÓA
+
+| Nội dung | Lý do |
+|---|---|
+| Không có mục nào bị xóa | Tài liệu này là hệ thống thiết kế trực quan; kiểm tra thấy không có mô tả gym/Yoga/Group X/`PersonalTrainer` trong nội dung cũ |
+
+### GIỮ
+
+| Nội dung | Lý do |
+|---|---|
+| Toàn bộ frontmatter token (màu, typography, rounded, spacing, components) | Yêu cầu giữ nguyên visual tokens |
+| Mục 1–6 (Overview, Colors, Typography, Elevation, Components, Do's and Don'ts) | Vẫn đúng cho mọi vai trò |
+
+### SỬA
+
+| Nội dung | Trước → Sau |
+|---|---|
+| `description` trong frontmatter | "quản lý trung tâm thể thao" → "quản lý nhà văn hóa thể thao đa môn" |
+
+### THÊM
+
+| Nội dung | Lý do |
+|---|---|
+| Mục 7.1 điều hướng theo 7 khu vực gồm **ExternalCoach** | Design v3 §12 |
+| Mục 7.2 danh sách màn hình mới | Court Schedule, thuê sân, ví điểm, split payment, giữ chỗ, ngưỡng, chatbot... |
+| Mục 7.3 quy tắc trạng thái/điểm/chatbot bằng token có sẵn | Nhất quán với Clarity Rule; không thêm token |
+| Ghi chú không có bảng màu theo vai trò | Tài liệu gốc không định nghĩa role palette; không tạo mới để giữ token |

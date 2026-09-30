@@ -113,6 +113,14 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
+/**
+ * Đọc ngôn ngữ hiện tại đồng bộ, ngoài React — dùng cho module không phải component
+ * (vd apiClient.ts) cần chọn thông báo lỗi theo ngôn ngữ mà không gọi được hook.
+ */
+export function getCurrentLanguage(): Language {
+  return getSnapshot();
+}
+
 export function useLanguage() {
   const context = useContext(LanguageContext);
   if (!context) {

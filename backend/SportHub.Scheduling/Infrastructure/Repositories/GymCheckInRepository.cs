@@ -4,6 +4,7 @@ using SportHub.Identity.Domain.Entities;
 using SportHub.Identity.Domain.Enums;
 using SportHub.Membership.Domain.Enums;
 using SportHub.Scheduling.Application.Interfaces;
+using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.Scheduling.Domain.Exceptions;
 
 namespace SportHub.Scheduling.Infrastructure.Repositories;
@@ -62,6 +63,25 @@ public sealed class GymCheckInRepository(ISportHubDbContext db) : IGymCheckInRep
         await db.SaveChangesAsync(cancellationToken);
 
         await transaction.CommitAsync(cancellationToken);
+    }
+
+    public async Task<GymCheckIn> CheckOutAsync(
+        Guid checkInId,
+        Guid checkedOutByUserId,
+        CancellationToken cancellationToken = default)
+    {
+        var now = DateTime.UtcNow;
+
+        // UPDATE có điều kiện: chỉ ghi giờ ra khi CHƯA có giờ ra và không trước giờ vào. Hai request song song chỉ một bên ghi;
+        // bên còn lại (0 dòng) nhận lại bản ghi hiện có — check-out idempotent, giờ ra không bị ghi đè.
+        await db.Set<GymCheckIn>()
+            .Where(c => c.CheckInId == checkInId && c.CheckOutTime == null && c.CheckInTime <= now)
+            .ExecuteUpdateAsync(
+                s => s.SetProperty(c => c.CheckOutTime, now).SetProperty(c => c.CheckedOutByUserId, checkedOutByUserId),
+                cancellationToken);
+
+        return await db.Set<GymCheckIn>().AsNoTracking().SingleOrDefaultAsync(c => c.CheckInId == checkInId, cancellationToken)
+               ?? throw new NotFoundException("gym_checkin_not_found", "Không tìm thấy lượt check-in.");
     }
 
     public async Task<(IReadOnlyList<GymCheckIn> Items, int TotalCount)> GetHistoryAsync(

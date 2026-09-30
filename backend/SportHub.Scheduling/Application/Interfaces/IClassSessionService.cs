@@ -1,40 +1,22 @@
-using Microsoft.EntityFrameworkCore;
-using SportHub.BuildingBlocks.Abstractions.Audit;
-using SportHub.BuildingBlocks.Abstractions.Notifications;
-using SportHub.BuildingBlocks.Abstractions.Persistence;
-using SportHub.BuildingBlocks.SharedKernel.Errors;
-using SportHub.BuildingBlocks.SharedKernel.Time;
-using SportHub.Identity.Domain.Entities;
-using SportHub.Identity.Domain.Enums;
-using SportHub.Membership.Domain.Entities;
-using SportHub.Membership.Domain.Rules;
 using SportHub.Scheduling.Application.Commands;
 using SportHub.Scheduling.Application.DTOs;
-using SportHub.Scheduling.Domain.Rules;
 
 namespace SportHub.Scheduling.Application.Interfaces;
 
 public interface IClassSessionService
 {
-    Task<IReadOnlyList<ClassSessionResponse>> SearchAsync(
-        DateOnly fromDate, DateOnly toDate, int? classId, Guid? coachId, string? discipline,
-        bool includeCancelled, CancellationToken ct = default);
+    /// <summary>Toàn bộ buổi của khóa theo SessionNo. Coach chỉ xem khóa mình phụ trách (kiểm ở caller qua <paramref name="restrictToCoachId"/>).</summary>
+    Task<IReadOnlyList<ClassSessionResponse>> ListByClassAsync(int classId, Guid? restrictToCoachId, CancellationToken ct = default);
 
-    Task<ClassSessionResponse> GetAsync(Guid sessionId, CancellationToken ct = default);
+    Task<ClassSessionResponse> GetAsync(Guid sessionId, Guid? restrictToCoachId, CancellationToken ct = default);
 
-    Task<IReadOnlyList<ClassSessionResponse>> GenerateAsync(
-        int classId, GenerateSessionsRequest request, Guid actorUserId, CancellationToken ct = default);
+    Task<SessionRosterResponse> GetRosterAsync(Guid sessionId, Guid? restrictToCoachId, CancellationToken ct = default);
 
-    Task<ClassSessionResponse> CreateAdHocAsync(
-        CreateAdHocSessionRequest request, Guid actorUserId, CancellationToken ct = default);
+    /// <summary>Buổi sắp tới của một Member qua các ghi danh Confirmed.</summary>
+    Task<IReadOnlyList<MemberSessionResponse>> GetMemberScheduleAsync(Guid memberId, DateTime fromUtc, DateTime toUtc, CancellationToken ct = default);
 
-    Task<ClassSessionResponse> UpdateAsync(
-        Guid sessionId, UpdateSessionRequest request, Guid actorUserId, CancellationToken ct = default);
+    Task<ClassSessionResponse> RescheduleAsync(Guid sessionId, RescheduleSessionRequest request, Guid actorUserId, CancellationToken ct = default);
 
-    Task<ClassSessionResponse> CancelAsync(Guid sessionId, string reason, Guid actorUserId, CancellationToken ct = default);
-
-    Task<ClassSessionResponse> RescheduleAsync(
-        Guid sessionId, RescheduleSessionRequest request, Guid actorUserId, CancellationToken ct = default);
-
-    Task<SessionRosterResponse> GetRosterAsync(Guid sessionId, CancellationToken ct = default);
+    /// <summary>Hủy một buổi và tạo buổi bù ở cuối lịch trong cùng transaction. Trả buổi bù.</summary>
+    Task<ClassSessionResponse> CancelWithMakeupAsync(Guid sessionId, CancelSessionRequest request, Guid actorUserId, CancellationToken ct = default);
 }
