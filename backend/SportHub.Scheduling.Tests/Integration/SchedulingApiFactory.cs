@@ -31,11 +31,13 @@ public sealed class SchedulingApiFactory : WebApplicationFactory<Program>, IAsyn
 {
     public const string TestSecretKey = "sporthub-scheduling-tests-secret-key-64-bytes-long-enough!!!";
 
-    private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("postgres:16-alpine")
+    private readonly PostgreSqlContainer? _postgres = ExternalConnectionString is null ? new PostgreSqlBuilder("postgres:16-alpine")
         .WithDatabase("sporthub_scheduling_tests")
         .WithUsername("sporthub")
         .WithPassword("sporthub-test-password")
-        .Build();
+        .Build() : null;
+
+    private static string? ExternalConnectionString => Environment.GetEnvironmentVariable("SPORTHUB_TEST_POSTGRES");
 
     public JwtOptions EffectiveJwtOptions
     {
@@ -59,7 +61,7 @@ public sealed class SchedulingApiFactory : WebApplicationFactory<Program>, IAsyn
 
     async Task IAsyncLifetime.InitializeAsync()
     {
-        await _postgres.StartAsync();
+        if (_postgres is not null) await _postgres.StartAsync();
 
         using var scope = Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
@@ -69,7 +71,7 @@ public sealed class SchedulingApiFactory : WebApplicationFactory<Program>, IAsyn
     async Task IAsyncLifetime.DisposeAsync()
     {
         await base.DisposeAsync();
-        await _postgres.DisposeAsync();
+        if (_postgres is not null) await _postgres.DisposeAsync();
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -79,7 +81,7 @@ public sealed class SchedulingApiFactory : WebApplicationFactory<Program>, IAsyn
         builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(
             new Dictionary<string, string?>
             {
-                ["ConnectionStrings:Default"] = _postgres.GetConnectionString(),
+                ["ConnectionStrings:Default"] = ExternalConnectionString ?? _postgres!.GetConnectionString(),
                 ["JwtOptions:Issuer"] = "SportHub.Api",
                 ["JwtOptions:Audience"] = "SportHub.Client",
                 ["JwtOptions:SecretKey"] = TestSecretKey,

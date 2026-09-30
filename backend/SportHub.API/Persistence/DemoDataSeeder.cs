@@ -39,6 +39,8 @@ public sealed class DemoDataSeeder(
 
         logger.LogInformation("Seed dữ liệu demo cho môi trường Development…");
 
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+
         var now = clock.UtcNow;
         var today = VietnamTime.TodayLocal(clock);
 
@@ -104,7 +106,6 @@ public sealed class DemoDataSeeder(
         {
             RoomId = r.RoomId, DayOfWeek = d, OpenTimeLocal = new TimeOnly(6, 0), CloseTimeLocal = new TimeOnly(22, 0)
         })));
-        db.Rooms.AddRange(rooms);
 
         var packages = new[]
         {
@@ -167,6 +168,7 @@ public sealed class DemoDataSeeder(
         await SeedGymCheckInsAsync(members, reception, now, ct);
 
         await db.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
 
         logger.LogInformation(
             "Đã seed dữ liệu demo: {Users} tài khoản, {Sessions} buổi học. Mật khẩu chung: {Password}",

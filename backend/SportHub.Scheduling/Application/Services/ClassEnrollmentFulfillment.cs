@@ -28,6 +28,7 @@ public sealed class ClassEnrollmentFulfillment(
     public async Task<ClassSeatReservation> ReserveAsync(
         int classId, Guid memberId, Guid? invoiceId, DateTimeOffset holdExpiresAtUtc, CancellationToken cancellationToken = default)
     {
+        RequireTransaction();
         var now = clock.UtcNow;
 
         if (holdExpiresAtUtc.UtcDateTime <= now)
@@ -71,6 +72,7 @@ public sealed class ClassEnrollmentFulfillment(
 
     public async Task<Guid> ConfirmAsync(Guid seatHoldId, Guid invoiceItemId, CancellationToken cancellationToken = default)
     {
+        RequireTransaction();
         // Idempotent: cùng InvoiceItem đã có ghi danh thì trả lại.
         var existing = await db.Set<Enrollment>().AsNoTracking()
             .Where(e => e.InvoiceItemId == invoiceItemId)
@@ -85,12 +87,31 @@ public sealed class ClassEnrollmentFulfillment(
         var hold = await LockHoldAsync(seatHoldId, cancellationToken)
                    ?? throw new NotFoundException("seat_hold_not_found", "Không tìm thấy giữ chỗ.");
 
+        // A concurrent fulfillment may have committed while this request waited for the hold lock.
+        existing = await db.Set<Enrollment>().AsNoTracking()
+            .Where(e => e.InvoiceItemId == invoiceItemId)
+            .Select(e => (Guid?)e.EnrollmentId).SingleOrDefaultAsync(cancellationToken);
+        if (existing is Guid confirmedId)
+        {
+            return confirmedId;
+        }
+
         if (hold.Status != SeatHoldStatus.Active)
         {
             throw new ConflictException("seat_hold_not_active", "Giữ chỗ đã hết hạn, đã hủy hoặc đã được dùng.");
         }
 
+        if (hold.ExpiresAtUtc <= clock.UtcNow)
+        {
+            throw new ConflictException("seat_hold_expired", "Giữ chỗ đã hết hạn; cần đối soát thanh toán trước khi cấp quyền lợi.");
+        }
+
         var cls = await db.Set<Class>().AsNoTracking().SingleAsync(c => c.ClassId == hold.ClassId, cancellationToken);
+
+        if (cls.Status != ClassStatus.Published)
+        {
+            throw new ConflictException("class_not_open", "Khóa không còn nhận ghi danh.");
+        }
 
         // Không nhận ghi danh khi đã đến buổi đầu (dù job chuyển InProgress chưa chạy).
         var firstStart = await FirstSessionStartAsync(hold.ClassId, cancellationToken);
@@ -136,6 +157,7 @@ public sealed class ClassEnrollmentFulfillment(
 
     public async Task ReleaseAsync(Guid seatHoldId, CancellationToken cancellationToken = default)
     {
+        RequireTransaction();
         var hold = await LockHoldAsync(seatHoldId, cancellationToken);
 
         if (hold is null || hold.Status is SeatHoldStatus.Released or SeatHoldStatus.Expired)
@@ -155,6 +177,9 @@ public sealed class ClassEnrollmentFulfillment(
 
     public async Task CancelAsync(Guid invoiceItemId, EnrollmentEndReason endReason, CancellationToken cancellationToken = default)
     {
+        RequireTransaction();
+        await db.Database.ExecuteSqlInterpolatedAsync(
+            $"SELECT enrollment_id FROM enrollments WHERE invoice_item_id = {invoiceItemId} FOR UPDATE", cancellationToken);
         var enrollment = await db.Set<Enrollment>().SingleOrDefaultAsync(e => e.InvoiceItemId == invoiceItemId, cancellationToken);
 
         if (enrollment is null || enrollment.Status != EnrollmentStatus.Confirmed)
@@ -187,6 +212,14 @@ public sealed class ClassEnrollmentFulfillment(
     }
 
     // ---------------------------------------------------------------- Nội bộ
+
+    private void RequireTransaction()
+    {
+        if (db.Database.CurrentTransaction is null)
+        {
+            throw new InvalidOperationException("Class fulfillment requires the caller's transaction.");
+        }
+    }
 
     private async Task<(ClassQuote Quote, Class Class)> EnsureBookableAsync(int classId, Guid memberId, CancellationToken ct)
     {

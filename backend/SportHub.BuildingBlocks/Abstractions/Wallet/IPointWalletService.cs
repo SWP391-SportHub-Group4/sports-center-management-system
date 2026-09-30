@@ -4,7 +4,7 @@ namespace SportHub.BuildingBlocks.Abstractions.Wallet;
 /// Ví điểm (1 điểm = 1.000 VND). Bản cài đặt ở Payment/Wallet.
 ///
 /// Số điểm nguyên. Mọi thao tác khóa ví và kiểm số dư trong transaction của caller, không tự
-/// commit. Idempotent theo (OwnerUserId, ReferenceType, ReferenceId): gọi lại cùng khóa và cùng
+/// commit. Idempotent theo (OwnerUserId, ReferenceType, ReferenceId, EntryType): gọi lại cùng khóa và cùng
 /// payload trả kết quả cũ (<see cref="WalletResult.AlreadyApplied"/>); khác payload ném
 /// <see cref="WalletReferenceConflictException"/>.
 /// </summary>

@@ -12,6 +12,10 @@ public static class CrossModuleRelationships
 {
     public static void Configure(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<SportHub.Payment.Wallet.Domain.PointWallet>()
+            .HasOne<UserAccount>().WithMany().HasForeignKey(e => e.OwnerUserId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<SportHub.Payment.Wallet.Domain.PointLedgerEntry>()
+            .HasOne<UserAccount>().WithMany().HasForeignKey(e => e.ActorUserId).OnDelete(DeleteBehavior.Restrict);
         // Chuyên môn của Coach/ExternalCoach trỏ tới môn trong catalog.
         modelBuilder.Entity<UserSportSpecialty>()
             .HasOne<Sport>()
