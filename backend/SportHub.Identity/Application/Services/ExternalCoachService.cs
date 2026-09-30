@@ -26,7 +26,7 @@ namespace SportHub.Identity.Application.Services;
 /// Mọi chuyển trạng thái là UPDATE có điều kiện trên trạng thái cũ, ghi audit cùng transaction và gửi email báo sau khi commit
 /// (lỗi gửi email không hoàn tác việc duyệt). Đình chỉ không tự hủy lượt thuê đã Confirmed (BR-129).
 ///
-/// Ví điểm của ExternalCoach được tạo ở chặng Wallet (P1.06) — lazily khi cần và backfill trong migration; chưa tạo ở đây.
+/// Ví điểm được tạo qua port trong cùng transaction đăng ký.
 /// </summary>
 public sealed class ExternalCoachService(
     ISportHubDbContext db,
@@ -34,6 +34,7 @@ public sealed class ExternalCoachService(
     IEmailSender emailSender,
     IAuditWriter audit,
     ISportCatalogReader catalog,
+    SportHub.BuildingBlocks.Abstractions.Wallet.IPointWalletService wallets,
     EmailOtpFlow otpFlow,
     IOptions<JwtOptions> jwtOptions,
     IClock clock,
@@ -155,6 +156,7 @@ public sealed class ExternalCoachService(
                 : new EmailAlreadyExistsException();
         }
 
+        await wallets.EnsureWalletAsync(user.UserId, ct);
         await tx.CommitAsync(ct);
 
         user.Role = role;

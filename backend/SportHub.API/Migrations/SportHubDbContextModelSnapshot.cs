@@ -1130,6 +1130,121 @@ namespace SportHub.API.Migrations
                     b.ToTable("payment_attempts", (string)null);
                 });
 
+            modelBuilder.Entity("SportHub.Payment.Wallet.Domain.PointLedgerEntry", b =>
+                {
+                    b.Property<Guid>("LedgerEntryId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("ledger_entry_id");
+
+                    b.Property<Guid?>("ActorUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("actor_user_id");
+
+                    b.Property<int>("AvailableAfter")
+                        .HasColumnType("integer")
+                        .HasColumnName("available_after");
+
+                    b.Property<int>("AvailableDelta")
+                        .HasColumnType("integer")
+                        .HasColumnName("available_delta");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<int>("EntryType")
+                        .HasColumnType("integer")
+                        .HasColumnName("entry_type");
+
+                    b.Property<int>("HeldAfter")
+                        .HasColumnType("integer")
+                        .HasColumnName("held_after");
+
+                    b.Property<int>("HeldDelta")
+                        .HasColumnType("integer")
+                        .HasColumnName("held_delta");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("note");
+
+                    b.Property<int>("Points")
+                        .HasColumnType("integer")
+                        .HasColumnName("points");
+
+                    b.Property<Guid>("ReferenceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("reference_id");
+
+                    b.Property<string>("ReferenceType")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("reference_type");
+
+                    b.Property<Guid>("WalletId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("wallet_id");
+
+                    b.HasKey("LedgerEntryId")
+                        .HasName("pk_point_ledger_entries");
+
+                    b.HasIndex("ActorUserId")
+                        .HasDatabaseName("ix_point_ledger_entries_actor_user_id");
+
+                    b.HasIndex("WalletId", "CreatedAtUtc", "LedgerEntryId")
+                        .HasDatabaseName("ix_point_ledger_entries_wallet_id_created_at_utc_ledger_entry_");
+
+                    b.HasIndex("WalletId", "ReferenceType", "ReferenceId", "EntryType")
+                        .IsUnique()
+                        .HasDatabaseName("ix_point_ledger_entries_wallet_id_reference_type_reference_id_");
+
+                    b.ToTable("point_ledger_entries", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_point_ledger_balance", "available_after >= 0 AND held_after >= 0 AND points > 0");
+
+                            t.HasCheckConstraint("ck_point_ledger_deltas", "(entry_type = 0 AND available_delta = -points AND held_delta = points) OR\n(entry_type = 1 AND available_delta = points AND held_delta = -points) OR\n(entry_type = 2 AND available_delta = 0 AND held_delta = -points) OR\n(entry_type = 3 AND available_delta = points AND held_delta = 0) OR\n(entry_type = 4 AND held_delta = 0 AND (available_delta = points OR available_delta = -points))");
+                        });
+                });
+
+            modelBuilder.Entity("SportHub.Payment.Wallet.Domain.PointWallet", b =>
+                {
+                    b.Property<Guid>("WalletId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("wallet_id");
+
+                    b.Property<int>("AvailablePoints")
+                        .HasColumnType("integer")
+                        .HasColumnName("available_points");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<int>("HeldPoints")
+                        .HasColumnType("integer")
+                        .HasColumnName("held_points");
+
+                    b.Property<Guid>("OwnerUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("owner_user_id");
+
+                    b.HasKey("WalletId")
+                        .HasName("pk_point_wallets");
+
+                    b.HasIndex("OwnerUserId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_point_wallets_owner_user_id");
+
+                    b.ToTable("point_wallets", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_point_wallets_balance", "available_points >= 0 AND held_points >= 0");
+                        });
+                });
+
             modelBuilder.Entity("SportHub.Scheduling.Catalog.Domain.CourtRate", b =>
                 {
                     b.Property<int>("RateId")
@@ -2963,6 +3078,32 @@ namespace SportHub.API.Migrations
                         .HasConstraintName("fk_payment_attempts_invoices_invoice_id");
 
                     b.Navigation("Invoice");
+                });
+
+            modelBuilder.Entity("SportHub.Payment.Wallet.Domain.PointLedgerEntry", b =>
+                {
+                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", null)
+                        .WithMany()
+                        .HasForeignKey("ActorUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_point_ledger_entries_user_accounts_actor_user_id");
+
+                    b.HasOne("SportHub.Payment.Wallet.Domain.PointWallet", null)
+                        .WithMany()
+                        .HasForeignKey("WalletId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_point_ledger_entries_point_wallets_wallet_id");
+                });
+
+            modelBuilder.Entity("SportHub.Payment.Wallet.Domain.PointWallet", b =>
+                {
+                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", null)
+                        .WithMany()
+                        .HasForeignKey("OwnerUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_point_wallets_user_accounts_owner_user_id");
                 });
 
             modelBuilder.Entity("SportHub.Scheduling.Catalog.Domain.CourtRate", b =>

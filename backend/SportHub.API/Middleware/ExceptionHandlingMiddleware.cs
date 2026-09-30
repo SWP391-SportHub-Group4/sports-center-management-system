@@ -25,6 +25,12 @@ public sealed class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<Ex
 
             switch (ex)
             {
+                case SportHub.BuildingBlocks.Abstractions.Wallet.InsufficientPointsException:
+                    await WriteErrorAsync(context, StatusCodes.Status409Conflict, "insufficient_points", ex.Message);
+                    break;
+                case SportHub.BuildingBlocks.Abstractions.Wallet.WalletReferenceConflictException:
+                    await WriteErrorAsync(context, StatusCodes.Status409Conflict, "wallet_reference_conflict", ex.Message);
+                    break;
                 case EmailAlreadyExistsException:
                     await WriteErrorAsync(context, StatusCodes.Status409Conflict, "email_already_exists", ex.Message);
                     break;
