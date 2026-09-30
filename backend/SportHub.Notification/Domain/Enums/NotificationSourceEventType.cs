@@ -8,5 +8,6 @@ public enum NotificationSourceEventType
     PackageExpiring,
     PaymentReceived,
     HomeworkAssigned,
-    HomeworkStatusChanged
+    HomeworkStatusChanged,
+    ClassPublished
 }

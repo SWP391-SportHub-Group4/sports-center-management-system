@@ -32,7 +32,8 @@ public sealed class SystemSettingService(
             [SystemSettingKeys.PackageExpiringReminderDays] = (1, 90),
             [SystemSettingKeys.ClassThresholdDaysBeforeStart] = (1, 30),
             [SystemSettingKeys.ClassThresholdResponseHours] = (1, 168),
-            [SystemSettingKeys.HoldMinutes] = (5, 60)
+            [SystemSettingKeys.HoldMinutes] = (5, 60),
+            [SystemSettingKeys.PtPricePerSessionVnd] = (1_000, 100_000_000)
         };
 
     public async Task<IReadOnlyList<SystemSettingResponse>> GetAllAsync(CancellationToken ct = default)
@@ -59,6 +60,8 @@ public sealed class SystemSettingService(
                     "invalid_setting_value",
                     $"Giá trị của '{key}' phải là số nguyên trong khoảng {range.Min}–{range.Max}.");
             }
+            if (key == SystemSettingKeys.PtPricePerSessionVnd && parsed % 1000 != 0)
+                throw new BadRequestException("invalid_setting_value", "Đơn giá PT phải là bội số của 1.000 VND.");
         }
 
         var previous = setting.Value;

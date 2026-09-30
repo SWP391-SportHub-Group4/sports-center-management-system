@@ -1,5 +1,36 @@
 # Tiến độ refactor backend (plan 1)
 
+## Checkpoint — P1.05 Lớp theo khóa, điểm danh, Gym và PT, 30/09/2026
+
+**Đã hoàn thành gate P1.05:** publish sinh đủ buổi và giữ phòng/Coach nguyên tử; Draft không hiện public; ghi danh theo khóa chỉ do fulfillment sau thanh toán, chỗ giữ có điều kiện chống vượt sĩ số; dời/hủy buổi giữ ghi danh, buổi hủy phải có buổi bù; điểm danh Present/Absent do Receptionist trong 24 giờ, có audit; Gym checkout dùng giờ server và idempotent; PT giữ quota, occupancy, no-show, workout/homework.
+
+**Sửa bổ sung ở checkpoint này:** khóa Draft khi sửa để không đua với publish; sửa truy vấn EF cho danh sách/chi tiết lớp, buổi và roster; kiểm lại sức chứa, loại phòng và chuyên môn Coach khi dời/bù; chống dời lịch vào khung giờ của học viên đã ghi danh hoặc đang giữ chỗ (có khóa giao dịch dùng chung với reserve/confirm); chặn ghi danh sau buổi đầu kể cả khi job trạng thái chạy chậm; kiểm quy tắc lịch không trùng/không sai thứ. Publish ghi audit và xếp thông báo Coach vào outbox cùng transaction; rollback thì không có thông báo. Điểm danh kiểm actor hoạt động ngay trong service, ghi audit khi tạo/sửa, gọi lại cùng trạng thái không ghi lặp. PT có job tự chốt NoShow sau giờ kết thúc bằng cùng transition quota có khóa của service; khi đổi Coach, buổi có phòng chỉ chuyển nếu Coach mới vẫn dạy được trong phòng/giờ đó.
+
+**Kiểm chứng:** `dotnet test backend/SportHub.sln --no-restore -v quiet`: **389/389 pass**, không skip (Administration 15, Payment 78, Scheduling 86, Security 130, Training 80). Sau đó thêm thông báo publish và siết trạng thái điểm danh: chạy lại **7/7 CoursePublishTests**, **8/8 CourseAttendanceTests** (Release) đều pass. Có 4 warning cũ ở Security.Tests. Test mới dùng PostgreSQL 16 qua Testcontainers, gồm lịch/publish/rollback, điểm danh/RBAC/24 giờ, seat hold concurrency, Gym checkout và PT occupancy/no-show. Chưa áp migration lên DB dev. Toàn bộ thay đổi P1.05 và P1.06 vẫn ở working tree, chưa commit/push.
+
+**Giới hạn tiếp theo:** Payment chưa tạo checkout course/rental, chưa đánh dấu Paid/Spend/Confirm enrollment bằng luồng trả tiền thật; đó là P1.07. Publish hiện xếp thông báo in-app cho Coach; email/outbox nâng cao thuộc P1.11. Xem `refactor-handover-2026-09-30.md` để tiếp tục.
+
+---
+
+## Checkpoint — P1.06 Wallet và xác nhận điểm tại quầy, 30/09/2026
+
+**Đã triển khai và kiểm chứng gate ví/OTP:** ví integer points, Hold/Release/Spend/Earn/Adjustment, ledger append-only, idempotency, kiểm quyền và audit; bổ sung OTP tại quầy 6 số, tối đa 5 phút/5 lần sai, gửi lại sau 60s với cùng lựa chọn; code cũ vô hiệu khi gửi lại/đổi điểm/bỏ chọn. Xác nhận khóa invoice → confirmation → wallet và cập nhật hold, split điểm/tiền, consume OTP cùng transaction. Lần nhập sai được commit độc lập, không bị rollback khi trả lỗi.
+
+**Thay đổi trong lượt này:**
+- `PointConfirmationService`, controller/DTO, entity/configuration; request gắn Member + revision hóa đơn + lễ tân; số điểm giữ vẫn 0 trước OTP đúng. Mã lưu PBKDF2 + salt, không có mã rõ trong audit/response.
+- Self selection dùng subject JWT cho Member/ExternalCoach; GET trạng thái, clear lựa chọn tại quầy; job giải phóng điểm khi quá hạn hoặc hóa đơn Void. Ledger Release ghi đúng actor thực hiện (job dùng actor null).
+- Invoice thêm `CheckoutCycleId`, `CheckoutRevision`, `HoldExpiresAtUtc`, `PointsApplied`, `CashAmount`. Mua gói mới snapshot `hold.minutes`; legacy invoice giữ dữ liệu cũ và không tự mở chu kỳ mới. Chặn đường thu tiền/điều chỉnh cũ khi đang xác nhận hoặc giữ điểm.
+- Email log chỉ khi Development + `Email:DemoLoggingEnabled=true`; thiếu SMTP ngoài chế độ này thì gửi email thất bại rõ ràng, không ghi OTP vào log. Có rate limit yêu cầu mã.
+- Migration `20260930070000_MultiSportPointConfirmation` + designer + snapshot. EF CLI bị Windows Application Control chặn load assembly; migration được viết thủ công và kiểm bằng PostgreSQL thật, bao gồm nâng cấp có hóa đơn/payment cũ và kiểm model drift.
+
+**Kiểm tra:** Release build pass; toàn bộ backend **359/359**, không skip (Administration 15, Payment 78, Scheduling 59, Security 130, Training 77). Trong đó 12 test mới: 11 OTP/concurrency/rollback/RBAC/model và 1 migration upgrade. Có 4 warning sẵn có ở Security.Tests khi rebuild. Chưa áp migration lên DB dev của nhóm.
+
+**Ranh giới với P1.07:** `Confirmed` ở API điểm chỉ nghĩa là đã xác nhận và **Hold**, chưa Paid/Spend/Fulfilled, kể cả CashAmount=0. QR/VNPay, Spend + fulfillment, checkout retry/late payment vẫn thuộc P1.07. Cycle hiện được snapshot trên Invoice; P1.07 cần chuyển thành entity `CheckoutSession` theo plan và dùng đúng reference cycle đã giữ điểm. Chưa có luồng mua course/rental bằng điểm hoàn chỉnh; không gọi phase checkout là đã xong.
+
+Contract hiện hành: Phần E của `refactor-api-contract.md`. Các checkpoint bên dưới là lịch sử, không mô tả tiến độ mới nhất.
+
+---
+
 ## Checkpoint — P1.04 (Catalog + occupancy) hoàn tất 30/09/2026
 
 **Đã hoàn tất:** P1.00, P1.01, P1.02 đợt 1 (nay gộp cả occupancy), P1.03 (phần lớn), **P1.04**. Quyết định của bạn: **gỡ `CoachCategory` hẳn (không shim)** — sẽ làm ở P1.05 cùng lúc chuyển Training/AI/seeder sang `ICoachSpecialtyReader`, rồi mới tạo `CoachAdminService` và drop cột. Chưa làm trong lượt này.

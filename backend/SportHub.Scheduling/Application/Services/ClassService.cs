@@ -3,6 +3,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using SportHub.BuildingBlocks.Abstractions.Audit;
 using SportHub.BuildingBlocks.Abstractions.Configuration;
+using SportHub.BuildingBlocks.Abstractions.Notifications;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.Abstractions.Scheduling;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
@@ -30,6 +31,7 @@ public sealed class ClassService(
     IOccupancyService occupancy,
     RoomOpeningHourService openingHours,
     ISystemSettingProvider settings,
+    INotificationWriter notifications,
     IAuditWriter audit,
     IClock clock) : IClassService
 {
@@ -43,15 +45,16 @@ public sealed class ClassService(
     {
         (page, pageSize) = Normalize(page, pageSize);
 
-        var query = Rows().Where(r => r.Class.Status == ClassStatus.Published);
+        var query = db.Set<Class>().AsNoTracking().Where(c => c.Status == ClassStatus.Published);
         if (sportId is int sid)
         {
-            query = query.Where(r => r.Class.SportId == sid);
+            query = query.Where(c => c.SportId == sid);
         }
 
         var total = await query.CountAsync(ct);
-        var rows = await query.OrderBy(r => r.FirstStart).ThenBy(r => r.Class.Name)
-            .Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
+        var rows = await Rows(query.OrderBy(c => c.Sessions.Where(s => s.Status != ClassSessionStatus.Cancelled)
+                .Min(s => (DateTime?)s.StartAtUtc)).ThenBy(c => c.Name)
+            .Skip((page - 1) * pageSize).Take(pageSize)).ToListAsync(ct);
 
         return new PagedResult<ClassPublicResponse>
         {
@@ -64,7 +67,7 @@ public sealed class ClassService(
 
     public async Task<ClassPublicResponse> GetPublicAsync(int classId, CancellationToken ct = default)
     {
-        var row = await Rows().Where(r => r.Class.ClassId == classId && r.Class.Status == ClassStatus.Published)
+        var row = await Rows(db.Set<Class>().AsNoTracking().Where(c => c.ClassId == classId && c.Status == ClassStatus.Published))
                       .SingleOrDefaultAsync(ct)
                   ?? throw new NotFoundException("class_not_found", "Không tìm thấy khóa học.");
 
@@ -76,30 +79,30 @@ public sealed class ClassService(
     {
         (page, pageSize) = Normalize(page, pageSize);
 
-        var query = Rows();
+        var query = db.Set<Class>().AsNoTracking();
 
         if (!string.IsNullOrWhiteSpace(status))
         {
             var parsed = Enum.TryParse<ClassStatus>(status, ignoreCase: true, out var s) && Enum.IsDefined(s)
                 ? s
                 : throw new BadRequestException("invalid_status", "Trạng thái khóa không hợp lệ.");
-            query = query.Where(r => r.Class.Status == parsed);
+            query = query.Where(c => c.Status == parsed);
         }
 
         if (sportId is int sid)
         {
-            query = query.Where(r => r.Class.SportId == sid);
+            query = query.Where(c => c.SportId == sid);
         }
 
         if (!string.IsNullOrWhiteSpace(keyword))
         {
             var term = keyword.Trim().ToLowerInvariant();
-            query = query.Where(r => r.Class.Name.ToLower().Contains(term) || r.Class.Code.ToLower().Contains(term));
+            query = query.Where(c => c.Name.ToLower().Contains(term) || c.Code.ToLower().Contains(term));
         }
 
         var total = await query.CountAsync(ct);
-        var rows = await query.OrderByDescending(r => r.Class.CreatedAt).ThenBy(r => r.Class.ClassId)
-            .Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
+        var rows = await Rows(query.OrderByDescending(c => c.CreatedAt).ThenBy(c => c.ClassId)
+            .Skip((page - 1) * pageSize).Take(pageSize)).ToListAsync(ct);
 
         return new PagedResult<ClassManagerResponse>
         {
@@ -112,7 +115,7 @@ public sealed class ClassService(
 
     public async Task<ClassManagerResponse> GetManagerAsync(int classId, CancellationToken ct = default)
     {
-        var row = await Rows().Where(r => r.Class.ClassId == classId).SingleOrDefaultAsync(ct)
+        var row = await Rows(db.Set<Class>().AsNoTracking().Where(c => c.ClassId == classId)).SingleOrDefaultAsync(ct)
                   ?? throw new NotFoundException("class_not_found", "Không tìm thấy khóa học.");
 
         return (await ToManagerAsync([row], ct))[0];
@@ -120,11 +123,9 @@ public sealed class ClassService(
 
     public async Task<IReadOnlyList<ClassPublicResponse>> ListForCoachAsync(Guid coachId, CancellationToken ct = default)
     {
-        var rows = await Rows()
-            .Where(r => r.Class.CoachId == coachId && r.Class.Status != ClassStatus.Draft && r.Class.Status != ClassStatus.Cancelled)
-            .OrderBy(r => r.Class.StartDate)
-            .Take(200)
-            .ToListAsync(ct);
+        var rows = await Rows(db.Set<Class>().AsNoTracking()
+            .Where(c => c.CoachId == coachId && c.Status != ClassStatus.Draft && c.Status != ClassStatus.Cancelled)
+            .OrderBy(c => c.StartDate).Take(200)).ToListAsync(ct);
 
         return await ToPublicAsync(rows, ct);
     }
@@ -170,6 +171,9 @@ public sealed class ClassService(
     public async Task<ClassManagerResponse> UpdateAsync(
         int classId, SaveClassRequest request, Guid actorUserId, CancellationToken ct = default)
     {
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        await db.Database.ExecuteSqlInterpolatedAsync($"SELECT class_id FROM classes WHERE class_id = {classId} FOR UPDATE", ct);
+
         var entity = await db.Set<Class>().Include(c => c.ScheduleRules).SingleOrDefaultAsync(c => c.ClassId == classId, ct)
                      ?? throw new NotFoundException("class_not_found", "Không tìm thấy khóa học.");
 
@@ -189,8 +193,6 @@ public sealed class ClassService(
 
         var before = Describe(entity);
         var rules = await ApplyAsync(entity, request, code, ct);
-
-        await using var tx = await db.Database.BeginTransactionAsync(ct);
 
         db.Set<ClassScheduleRule>().RemoveRange(entity.ScheduleRules);
         await db.SaveChangesAsync(ct);
@@ -340,6 +342,9 @@ public sealed class ClassService(
                 thresholdDeadlineUtc = entity.ThresholdDeadlineUtc
             })));
 
+        notifications.Queue(new NotificationRequest(coachId, NotificationEvents.ClassPublished,
+            $"Khóa {entity.Name} đã được mở với {sessions.Count} buổi. Buổi đầu: {VietnamTime.ToLocal(first.StartAtUtc):HH:mm dd/MM/yyyy}."));
+
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
 
@@ -458,10 +463,8 @@ public sealed class ClassService(
 
     private sealed record Row(Class Class, string SportName, string RoomName, DateTime? FirstStart, int ActiveHolds);
 
-    private IQueryable<Row> Rows()
-        => db.Set<Class>()
-            .AsNoTracking()
-            .Select(c => new Row(
+    private IQueryable<Row> Rows(IQueryable<Class> classes)
+        => classes.Select(c => new Row(
                 c,
                 c.Sport!.Name,
                 c.DefaultRoom!.Name,

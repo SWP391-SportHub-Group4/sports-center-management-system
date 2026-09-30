@@ -8,7 +8,10 @@ namespace SportHub.BuildingBlocks.Abstractions.Configuration;
 public interface ISystemSettingProvider
 {
     Task<int> GetIntAsync(string key, CancellationToken cancellationToken = default);
+    Task<VersionedIntSetting> GetVersionedIntAsync(string key, CancellationToken cancellationToken = default);
 }
+
+public sealed record VersionedIntSetting(int Value, string Version);
 
 public static class SystemSettingKeys
 {
@@ -26,4 +29,6 @@ public static class SystemSettingKeys
 
     /// <summary>BR-115 — giữ chỗ/checkout tối đa bao nhiêu phút.</summary>
     public const string HoldMinutes = "hold.minutes";
+
+    public const string PtPricePerSessionVnd = "pt.price_per_session_vnd";
 }

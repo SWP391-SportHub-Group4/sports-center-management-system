@@ -80,8 +80,13 @@ public sealed class GymCheckInRepository(ISportHubDbContext db) : IGymCheckInRep
                 s => s.SetProperty(c => c.CheckOutTime, now).SetProperty(c => c.CheckedOutByUserId, checkedOutByUserId),
                 cancellationToken);
 
-        return await db.Set<GymCheckIn>().AsNoTracking().SingleOrDefaultAsync(c => c.CheckInId == checkInId, cancellationToken)
+        var checkIn = await db.Set<GymCheckIn>().AsNoTracking().SingleOrDefaultAsync(c => c.CheckInId == checkInId, cancellationToken)
                ?? throw new NotFoundException("gym_checkin_not_found", "Không tìm thấy lượt check-in.");
+        if (checkIn.CheckOutTime is null)
+        {
+            throw new ConflictException("checkout_before_checkin", "Giờ ra không được trước giờ vào.");
+        }
+        return checkIn;
     }
 
     public async Task<(IReadOnlyList<GymCheckIn> Items, int TotalCount)> GetHistoryAsync(

@@ -22,6 +22,15 @@ public class Invoice
     public MemberPackage? MemberPackage { get; set; }
 
     public decimal TotalAmount { get; set; }
+    // Populated for a bounded checkout cycle. Legacy invoices remain null.
+    public Guid? CheckoutCycleId { get; set; }
+    public int CheckoutRevision { get; set; }
+    public DateTime? HoldExpiresAtUtc { get; set; }
+    public int PointsApplied { get; set; }
+    public decimal CashAmount { get; set; }
+    public string? PaidVia { get; set; }
+    public DateTime? PaidAtUtc { get; set; }
+    public bool ReconciliationRequired { get; set; }
 
     public InvoiceStatus Status { get; set; }
 

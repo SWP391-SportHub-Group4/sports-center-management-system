@@ -13,6 +13,9 @@ public class PaymentAttemptConfiguration : IEntityTypeConfiguration<PaymentAttem
         builder.HasIndex(e => e.VnpTxnRef).IsUnique();
 
         builder.Property(e => e.Amount).HasPrecision(18, 0);
+        builder.Property(e => e.CashSnapshot).HasPrecision(18, 0);
+        builder.Property(e => e.ProviderTransactionId).HasMaxLength(100);
+        builder.Property(e => e.VerifiedResult).HasMaxLength(40);
         builder.Property(e => e.VnpExpireDate).IsRequired();
         builder.Property(e => e.CreatedAt).IsRequired();
         builder.Property(e => e.Status).IsRequired();
@@ -23,5 +26,7 @@ public class PaymentAttemptConfiguration : IEntityTypeConfiguration<PaymentAttem
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasIndex(e => new { e.InvoiceId, e.Status });
+        builder.HasOne<CheckoutSession>().WithMany().HasForeignKey(e => e.CheckoutSessionId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

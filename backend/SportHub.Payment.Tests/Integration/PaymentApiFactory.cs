@@ -1,14 +1,17 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using System.Net.Http.Headers;
 using System.Text;
 using SportHub.API.Persistence;
+using SportHub.BuildingBlocks.Abstractions.Email;
 using SportHub.BuildingBlocks.Infrastructure.Authentication;
 using SportHub.Identity.Domain.Entities;
 using SportHub.Identity.Domain.Enums;
@@ -22,6 +25,7 @@ namespace SportHub.Payment.Tests.Integration;
 
 public sealed class PaymentApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
+    public CapturingPaymentEmailSender CapturedEmail { get; } = new();
     public const string TestSecretKey = "sporthub-payment-tests-secret-key-64-bytes-long-enough!!!!!!";
 
     private const string ExternalDbEnvVar = "SPORTHUB_TEST_POSTGRES";
@@ -92,8 +96,16 @@ public sealed class PaymentApiFactory : WebApplicationFactory<Program>, IAsyncLi
                 ["JwtOptions:Audience"] = "SportHub.Client",
                 ["JwtOptions:SecretKey"] = TestSecretKey,
                 ["JwtOptions:AccessTokenExpiryMinutes"] = "60",
-                ["Cors:AllowedOrigins:0"] = "http://localhost:3000"
+                ["Cors:AllowedOrigins:0"] = "http://localhost:3000",
+                ["Logging:LogLevel:Default"] = "Warning",
+                ["Logging:LogLevel:Microsoft.EntityFrameworkCore"] = "Error"
+                , ["VnPay:UseMock"] = "true"
             }));
+        builder.ConfigureTestServices(services =>
+        {
+            services.RemoveAll<IEmailSender>();
+            services.AddSingleton<IEmailSender>(CapturedEmail);
+        });
     }
 
     /// <summary>Security stamp hiện tại của user trong DB test — token phải mang đúng stamp (claim sst).</summary>
@@ -226,6 +238,18 @@ public sealed class PaymentApiFactory : WebApplicationFactory<Program>, IAsyncLi
 
         return await query(db);
     }
+}
+
+public sealed class CapturingPaymentEmailSender : IEmailSender
+{
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, string> _codes = new();
+    public Task SendAsync(string toAddress, string subject, string htmlBody, CancellationToken cancellationToken = default)
+    {
+        var match = System.Text.RegularExpressions.Regex.Match(htmlBody, "<strong>([0-9]{6})</strong>");
+        if (match.Success) _codes[toAddress] = match.Groups[1].Value;
+        return Task.CompletedTask;
+    }
+    public string CodeFor(string address) => _codes[address];
 }
 
 [CollectionDefinition(nameof(PaymentApiCollection))]

@@ -77,8 +77,11 @@ public class SportHubDbContext : DbContext, ISportHubDbContext
     public DbSet<SportHub.Payment.Domain.Entities.Payment> Payments => Set<SportHub.Payment.Domain.Entities.Payment>();
     public DbSet<PaymentAdjustment> PaymentAdjustments => Set<PaymentAdjustment>();
     public DbSet<PaymentAttempt> PaymentAttempts => Set<PaymentAttempt>();
+    public DbSet<CheckoutSession> CheckoutSessions => Set<CheckoutSession>();
+    public DbSet<VerifiedGatewayEvent> VerifiedGatewayEvents => Set<VerifiedGatewayEvent>();
     public DbSet<SportHub.Payment.Wallet.Domain.PointWallet> PointWallets => Set<SportHub.Payment.Wallet.Domain.PointWallet>();
     public DbSet<SportHub.Payment.Wallet.Domain.PointLedgerEntry> PointLedgerEntries => Set<SportHub.Payment.Wallet.Domain.PointLedgerEntry>();
+    public DbSet<SportHub.Payment.Wallet.Domain.PointConfirmation> PointConfirmations => Set<SportHub.Payment.Wallet.Domain.PointConfirmation>();
 
     public DbSet<AiLog> AiLogs => Set<AiLog>();
 

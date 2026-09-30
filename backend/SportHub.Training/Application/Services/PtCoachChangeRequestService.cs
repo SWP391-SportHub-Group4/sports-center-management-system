@@ -27,6 +27,7 @@ public sealed class PtCoachChangeRequestService(
     IAuditWriter audit,
     INotificationWriter notifications,
     ICoachSpecialtyReader specialties,
+    ISportCatalogReader catalog,
     IOccupancyService occupancy,
     IClock clock) : IPtCoachChangeRequestService
 {
@@ -195,6 +196,21 @@ public sealed class PtCoachChangeRequestService(
             {
                 unmovedSessionIds.Add(session.SessionId);
                 continue;
+            }
+
+            if (session.RoomId is int roomId)
+            {
+                try
+                {
+                    await PtRoomValidator.RequireAsync(catalog, specialties, roomId,
+                        changeRequest.RequestedCoachId, session.StartAtUtc, session.EndAtUtc, ct);
+                }
+                catch (BadRequestException)
+                {
+                    // Keep the old assignment when the new coach cannot teach in this room/time.
+                    unmovedSessionIds.Add(session.SessionId);
+                    continue;
+                }
             }
 
             // Coach mới còn bị chiếm bởi lớp/thuê sân/khóa phòng...: Replace không đổi gì khi xung đột (lịch cũ giữ nguyên) →
