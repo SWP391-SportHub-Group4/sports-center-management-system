@@ -189,7 +189,7 @@ public sealed class OccupancyService(ISportHubDbContext db) : IOccupancyService
     }
 
     private static OccupancySourceType ParseSource(string sourceType)
-        => Enum.TryParse<OccupancySourceType>(sourceType, ignoreCase: false, out var parsed)
+        => SportHub.BuildingBlocks.Api.WireEnum.TryParse<OccupancySourceType>(sourceType, ignoreCase: false, out var parsed)
             ? parsed
             : throw new ArgumentOutOfRangeException(nameof(sourceType), sourceType, "Không khớp OccupancySourceType — xem OccupancySources ở BuildingBlocks.");
 }

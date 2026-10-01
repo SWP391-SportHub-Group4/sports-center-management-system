@@ -43,6 +43,11 @@ public sealed class RevenueDimensionReader(SportHubDbContext db) : IRevenueDimen
                 && x.ItemType == SportHub.Payment.Domain.Enums.InvoiceItemType.PT).Select(x => x.ItemId).ToListAsync(ct);
             foreach (var itemId in ptItems) result.TryAdd(itemId, new(ptSports[0].SportId, ptSports[0].Name));
         }
+        // New invoices carry their purchased sport/name snapshot, independent of later catalog edits.
+        var snapshots = await db.Set<InvoiceItem>().AsNoTracking().Where(x => invoiceItemIds.Contains(x.ItemId)
+            && x.SportId != null).Select(x => new { x.ItemId, x.SportId, x.SportNameSnapshot }).ToListAsync(ct);
+        foreach (var item in snapshots)
+            result[item.ItemId] = new(item.SportId, item.SportNameSnapshot, result.GetValueOrDefault(item.ItemId)?.ExternalCoachId);
         return result;
     }
 }

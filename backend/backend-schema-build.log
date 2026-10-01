@@ -1,0 +1,31 @@
+  SportHub.BuildingBlocks -> D:\Semester5\SWP391\sports-center-management-system\backend\SportHub.BuildingBlocks\bin\Release\net10.0\SportHub.BuildingBlocks.dll
+  SportHub.Identity -> D:\Semester5\SWP391\sports-center-management-system\backend\SportHub.Identity\bin\Release\net10.0\SportHub.Identity.dll
+  SportHub.Audit -> D:\Semester5\SWP391\sports-center-management-system\backend\SportHub.Audit\bin\Release\net10.0\SportHub.Audit.dll
+  SportHub.Notification -> D:\Semester5\SWP391\sports-center-management-system\backend\SportHub.Notification\bin\Release\net10.0\SportHub.Notification.dll
+  SportHub.Membership -> D:\Semester5\SWP391\sports-center-management-system\backend\SportHub.Membership\bin\Release\net10.0\SportHub.Membership.dll
+  SportHub.Payment -> D:\Semester5\SWP391\sports-center-management-system\backend\SportHub.Payment\bin\Release\net10.0\SportHub.Payment.dll
+  SportHub.Scheduling -> D:\Semester5\SWP391\sports-center-management-system\backend\SportHub.Scheduling\bin\Release\net10.0\SportHub.Scheduling.dll
+  SportHub.Administration -> D:\Semester5\SWP391\sports-center-management-system\backend\SportHub.Administration\bin\Release\net10.0\SportHub.Administration.dll
+  SportHub.Training -> D:\Semester5\SWP391\sports-center-management-system\backend\SportHub.Training\bin\Release\net10.0\SportHub.Training.dll
+  SportHub.AI -> D:\Semester5\SWP391\sports-center-management-system\backend\SportHub.AI\bin\Release\net10.0\SportHub.AI.dll
+  SportHub.Administration.Tests -> D:\Semester5\SWP391\sports-center-management-system\backend\SportHub.Administration.Tests\bin\Release\net10.0\SportHub.Administration.Tests.dll
+  SportHub.API -> D:\Semester5\SWP391\sports-center-management-system\backend\SportHub.API\bin\Release\net10.0\SportHub.API.dll
+D:\Semester5\SWP391\sports-center-management-system\backend\SportHub.Security.Tests\Integration\SportHubApiFactory.cs(48,90): warning CS0618: 'PostgreSqlBuilder.PostgreSqlBuilder()' is obsolete: 'This parameterless constructor is obsolete and will be removed. Use the constructor with the image parameter instead: https://github.com/testcontainers/testcontainers-dotnet/discussions/1470#discussioncomment-15185721.' [D:\Semester5\SWP391\sports-center-management-system\backend\SportHub.Security.Tests\SportHub.Security.Tests.csproj]
+D:\Semester5\SWP391\sports-center-management-system\backend\SportHub.Security.Tests\Integration\GoogleLoginTests.cs(23,93): warning CS8604: Possible null reference argument for parameter 'name' in 'string FakeGoogleTokenVerifier.Token(string subject, string email, string name)'. [D:\Semester5\SWP391\sports-center-management-system\backend\SportHub.Security.Tests\SportHub.Security.Tests.csproj]
+D:\Semester5\SWP391\sports-center-management-system\backend\SportHub.Security.Tests\Integration\GoogleLoginTests.cs(224,38): warning xUnit1031: Test methods should not use blocking task operations, as they can cause deadlocks. Use an async test method and await instead. (https://xunit.net/xunit.analyzers/rules/xUnit1031) [D:\Semester5\SWP391\sports-center-management-system\backend\SportHub.Security.Tests\SportHub.Security.Tests.csproj]
+D:\Semester5\SWP391\sports-center-management-system\backend\SportHub.Security.Tests\Integration\GoogleLoginTests.cs(224,64): warning xUnit1031: Test methods should not use blocking task operations, as they can cause deadlocks. Use an async test method and await instead. (https://xunit.net/xunit.analyzers/rules/xUnit1031) [D:\Semester5\SWP391\sports-center-management-system\backend\SportHub.Security.Tests\SportHub.Security.Tests.csproj]
+  SportHub.Training.Tests -> D:\Semester5\SWP391\sports-center-management-system\backend\SportHub.Training.Tests\bin\Release\net10.0\SportHub.Training.Tests.dll
+  SportHub.Security.Tests -> D:\Semester5\SWP391\sports-center-management-system\backend\SportHub.Security.Tests\bin\Release\net10.0\SportHub.Security.Tests.dll
+  SportHub.Scheduling.Tests -> D:\Semester5\SWP391\sports-center-management-system\backend\SportHub.Scheduling.Tests\bin\Release\net10.0\SportHub.Scheduling.Tests.dll
+  SportHub.Payment.Tests -> D:\Semester5\SWP391\sports-center-management-system\backend\SportHub.Payment.Tests\bin\Release\net10.0\SportHub.Payment.Tests.dll
+
+Build succeeded.
+
+D:\Semester5\SWP391\sports-center-management-system\backend\SportHub.Security.Tests\Integration\SportHubApiFactory.cs(48,90): warning CS0618: 'PostgreSqlBuilder.PostgreSqlBuilder()' is obsolete: 'This parameterless constructor is obsolete and will be removed. Use the constructor with the image parameter instead: https://github.com/testcontainers/testcontainers-dotnet/discussions/1470#discussioncomment-15185721.' [D:\Semester5\SWP391\sports-center-management-system\backend\SportHub.Security.Tests\SportHub.Security.Tests.csproj]
+D:\Semester5\SWP391\sports-center-management-system\backend\SportHub.Security.Tests\Integration\GoogleLoginTests.cs(23,93): warning CS8604: Possible null reference argument for parameter 'name' in 'string FakeGoogleTokenVerifier.Token(string subject, string email, string name)'. [D:\Semester5\SWP391\sports-center-management-system\backend\SportHub.Security.Tests\SportHub.Security.Tests.csproj]
+D:\Semester5\SWP391\sports-center-management-system\backend\SportHub.Security.Tests\Integration\GoogleLoginTests.cs(224,38): warning xUnit1031: Test methods should not use blocking task operations, as they can cause deadlocks. Use an async test method and await instead. (https://xunit.net/xunit.analyzers/rules/xUnit1031) [D:\Semester5\SWP391\sports-center-management-system\backend\SportHub.Security.Tests\SportHub.Security.Tests.csproj]
+D:\Semester5\SWP391\sports-center-management-system\backend\SportHub.Security.Tests\Integration\GoogleLoginTests.cs(224,64): warning xUnit1031: Test methods should not use blocking task operations, as they can cause deadlocks. Use an async test method and await instead. (https://xunit.net/xunit.analyzers/rules/xUnit1031) [D:\Semester5\SWP391\sports-center-management-system\backend\SportHub.Security.Tests\SportHub.Security.Tests.csproj]
+    4 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:09.59

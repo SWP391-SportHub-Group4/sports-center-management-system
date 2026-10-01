@@ -35,7 +35,10 @@ public sealed record OccupancyRequest(
     DateTimeOffset StartUtc,
     DateTimeOffset EndUtc);
 
-public sealed record OccupancyConflict(string Resource, string ConflictSourceType, Guid ConflictSourceId, DateTimeOffset StartUtc, DateTimeOffset EndUtc);
+public sealed record OccupancyConflict(
+    [property: SportHub.BuildingBlocks.Api.WireEnum] string Resource,
+    [property: SportHub.BuildingBlocks.Api.WireEnum] string ConflictSourceType,
+    Guid ConflictSourceId, DateTimeOffset StartUtc, DateTimeOffset EndUtc);
 
 public sealed record OccupancyResult(bool Succeeded, IReadOnlyList<OccupancyConflict> Conflicts)
 {

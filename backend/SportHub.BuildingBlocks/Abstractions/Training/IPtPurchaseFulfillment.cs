@@ -33,4 +33,6 @@ public sealed record PtPurchaseQuote(
     int TotalQuota,
     decimal TotalPrice,
     int FrequencyPerWeek,
-    string PriceVersion);
+    string PriceVersion,
+    int? SportId = null,
+    string? SportName = null);

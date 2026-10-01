@@ -159,7 +159,7 @@ public sealed class ClassSessionService(
         audit.Write(new AuditEntry(actorUserId, "RESCHEDULE_CLASS_SESSION", nameof(ClassSession), sessionId.ToString(),
             OldValue: before, NewValue: Describe(session), Reason: request.Reason.Trim()));
 
-        await NotifyEnrolledAsync(cls, session.SessionId,
+        await NotifyEnrolledAsync(cls, Guid.NewGuid(),
             $"Buổi {session.SessionNo} của khóa {cls.Name} đổi từ {Local(oldStart)} sang {Local(start)}. Lý do: {request.Reason.Trim()}", ct);
 
         await db.SaveChangesAsync(ct);
@@ -334,6 +334,11 @@ public sealed class ClassSessionService(
         foreach (var memberId in memberIds)
         {
             notifications.Queue(new NotificationRequest(memberId, NotificationEvents.ScheduleChanged, message, sourceId));
+            var recipient = await users.GetAsync(memberId, ct);
+            if (recipient is not null)
+                notifications.QueueEmail(new EmailNotificationRequest(memberId, recipient.Email,
+                    NotificationEvents.ScheduleChanged, sourceId, "SportHub - Thay đổi lịch lớp",
+                    "<p>" + System.Net.WebUtility.HtmlEncode(message) + "</p>"));
         }
     }
 

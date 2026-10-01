@@ -77,7 +77,7 @@ public class CoachSpecialtyAuthorizationTests(SportHubApiFactory factory)
         var login = await Client().PostAsJsonAsync("api/auth/login", new { email, password = Password });
         Assert.Equal(HttpStatusCode.OK, login.StatusCode);
         var user = (await Json(login)).GetProperty("user");
-        Assert.Equal("Coach", user.GetProperty("role").GetString());
+        Assert.Equal("COACH", user.GetProperty("role").GetString());
         Assert.Equal(2, user.GetProperty("sportIds").GetArrayLength());
         Assert.False(user.TryGetProperty("coachCategory", out _)); // CoachCategory đã gỡ khỏi hợp đồng
     }

@@ -137,7 +137,7 @@ public class ExternalCoachApprovalTests(SportHubApiFactory factory)
 
         var me = await Client(token).GetAsync("api/external-coaches/me");
         Assert.Equal(HttpStatusCode.OK, me.StatusCode);
-        Assert.Equal("PendingApproval", (await Json(me)).GetProperty("approvalStatus").GetString());
+        Assert.Equal("PENDING_APPROVAL", (await Json(me)).GetProperty("approvalStatus").GetString());
 
         // Không xem được danh sách người dùng/hội viên, không vào khu Manager.
         Assert.Equal(HttpStatusCode.Forbidden, (await Client(token).GetAsync("api/users")).StatusCode);
@@ -177,7 +177,7 @@ public class ExternalCoachApprovalTests(SportHubApiFactory factory)
         // Suspended vẫn xem được hồ sơ và lý do của mình.
         var me = await Client(factory.IssueToken(coachId, UserRole.ExternalCoach)).GetAsync("api/external-coaches/me");
         var json = await Json(me);
-        Assert.Equal("Suspended", json.GetProperty("approvalStatus").GetString());
+        Assert.Equal("SUSPENDED", json.GetProperty("approvalStatus").GetString());
         Assert.Equal("vi phạm quy định", json.GetProperty("reviewNote").GetString());
 
         Assert.Equal(HttpStatusCode.OK, (await Review(managerId, coachId, "reactivate")).StatusCode);
@@ -204,7 +204,7 @@ public class ExternalCoachApprovalTests(SportHubApiFactory factory)
 
         var detail = await Json(await Client(factory.IssueToken(managerId, UserRole.CenterManager))
             .GetAsync($"api/manager/external-coaches/{coachId}"));
-        Assert.Equal("Rejected", detail.GetProperty("approvalStatus").GetString());
+        Assert.Equal("REJECTED", detail.GetProperty("approvalStatus").GetString());
     }
 
     [Fact]

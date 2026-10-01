@@ -96,8 +96,12 @@ public class OccupancyConcurrencyTests(SchedulingApiFactory factory)
         Assert.True((await ReserveInOwnTransactionAsync(Req(OccupancySources.PtSession, roomB, otherCoach, At(10, 30), At(11, 30)))).Succeeded);
     }
 
-    [Fact]
-    public async Task Two_concurrent_transactions_racing_for_the_same_slot_one_gets_a_clean_conflict()
+    [Theory]
+    [InlineData(OccupancySources.ClassSession, OccupancySources.PtSession)]
+    [InlineData(OccupancySources.CourtRental, OccupancySources.ClassSession)]
+    [InlineData(OccupancySources.CourtRental, OccupancySources.PtSession)]
+    [InlineData(OccupancySources.CourtRental, OccupancySources.RoomBlock)]
+    public async Task Two_concurrent_transactions_racing_for_the_same_slot_one_gets_a_clean_conflict(string firstSource, string secondSource)
     {
         var roomId = await SeedRoomAsync();
 
@@ -107,7 +111,7 @@ public class OccupancyConcurrencyTests(SchedulingApiFactory factory)
         var db1 = scope1.ServiceProvider.GetRequiredService<ISportHubDbContext>();
         await using var tx1 = await db1.Database.BeginTransactionAsync();
         var r1 = await scope1.ServiceProvider.GetRequiredService<IOccupancyService>()
-            .ReserveAsync(Req(OccupancySources.ClassSession, roomId, null, At(14), At(15)));
+            .ReserveAsync(Req(firstSource, roomId, null, At(14), At(15)));
         Assert.True(r1.Succeeded);
 
         var t2 = Task.Run(async () =>
@@ -117,7 +121,7 @@ public class OccupancyConcurrencyTests(SchedulingApiFactory factory)
             await using var tx2 = await db2.Database.BeginTransactionAsync();
 
             var r2 = await scope2.ServiceProvider.GetRequiredService<IOccupancyService>()
-                .ReserveAsync(Req(OccupancySources.PtSession, roomId, null, At(14, 15), At(14, 45)));
+                .ReserveAsync(Req(secondSource, roomId, null, At(14, 15), At(14, 45)));
 
             // Sau khi thua, transaction của caller vẫn dùng được (đã rollback về savepoint).
             var stillUsable = await db2.Set<Room>().AnyAsync(r => r.RoomId == roomId);

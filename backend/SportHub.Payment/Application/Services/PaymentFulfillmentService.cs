@@ -7,8 +7,7 @@ using SportHub.BuildingBlocks.Abstractions.Training;
 using SportHub.BuildingBlocks.Abstractions.Wallet;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.BuildingBlocks.SharedKernel.Time;
-using SportHub.Membership.Domain.Entities;
-using SportHub.Membership.Domain.Enums;
+using SportHub.BuildingBlocks.Abstractions.Membership;
 using SportHub.Payment.Application.Interfaces;
 using SportHub.Payment.Domain.Rules;
 
@@ -17,7 +16,7 @@ namespace SportHub.Payment.Application.Services;
 /// <summary>Mutations here belong to the caller's transaction; a failed benefit rolls back cash and points.</summary>
 public sealed class PaymentFulfillmentService(ISportHubDbContext db, IPointWalletService wallets,
     IClassEnrollmentFulfillment classes, IPtPurchaseFulfillment pt, ICourtRentalFulfillment rentals, IPackageActivationService packages,
-    IRefundCreditService refunds, IAuditWriter audit, IClock clock)
+    IRefundCreditService refunds, IMembershipFulfillment memberships, IAuditWriter audit, IClock clock)
 {
     public async Task CompletePointsAsync(Invoice invoice, CheckoutSession session, CancellationToken ct)
     {
@@ -43,6 +42,7 @@ public sealed class PaymentFulfillmentService(ISportHubDbContext db, IPointWalle
         db.Set<Domain.Entities.Payment>().Add(new Domain.Entities.Payment
         {
             PaymentId = Guid.NewGuid(), InvoiceId = invoice.InvoiceId, Amount = proof.Amount,
+            PaymentAttemptId = attempt.PaymentAttemptId,
             Method = PaymentMethod.VnPay, ReferenceCode = proof.ProviderTransactionId,
             Status = PaymentStatus.Success, ReceivedByUserId = invoice.IssuedByUserId,
             // VNPay vnp_PayDate is the source-of-truth for cash collection reporting;
@@ -56,6 +56,7 @@ public sealed class PaymentFulfillmentService(ISportHubDbContext db, IPointWalle
         await SpendAndFulfillAsync(invoice, session,
             lateReacquired ? "VnPayAfterReconciliation"
                 : invoice.PointsApplied > 0 ? "VnPayAndPoints" : "VnPay", ct);
+        if (lateReacquired) invoice.Status = InvoiceStatus.PaidAfterReconciliation;
         proof.ProcessingStatus = "Fulfilled";
         proof.ProcessedAtUtc = clock.UtcNow;
         await db.SaveChangesAsync(ct);
@@ -89,13 +90,13 @@ public sealed class PaymentFulfillmentService(ISportHubDbContext db, IPointWalle
                 await classes.CompleteTransferAsync(thresholdResponseId, transferHoldId, item.ItemId, ct);
                 break;
             case InvoiceItemType.PT:
-                if (item.RelatedEntityId is not Guid ptId)
+                if ((item.PtEntitlementId ?? item.RelatedEntityId) is not Guid ptId)
                     throw new ConflictException("pt_entitlement_missing", "Checkout thiếu quyền lợi PT chờ thanh toán.");
                 await pt.ActivateAsync(ptId, ct);
                 break;
             case InvoiceItemType.Rental:
                 if (session.Kind != "CourtRental" || session.ResourceHoldId is not Guid rentalId
-                    || item.RelatedEntityId != rentalId)
+                    || (item.CourtRentalId ?? item.RelatedEntityId) != rentalId)
                     throw new ConflictException("rental_checkout_invalid", "Checkout thuê sân thiếu tham chiếu lượt thuê.");
                 await rentals.ConfirmAsync(rentalId, item.ItemId, ct);
                 break;
@@ -116,7 +117,7 @@ public sealed class PaymentFulfillmentService(ISportHubDbContext db, IPointWalle
     {
         RequireTransaction();
         if (session.State is "Cancelled" or "Expired" || invoice.Status == InvoiceStatus.Void) return;
-        if (invoice.Status == InvoiceStatus.Paid)
+        if (invoice.Status is InvoiceStatus.Paid or InvoiceStatus.PaidAfterReconciliation)
             throw new ConflictException("checkout_already_paid", "Checkout đã thanh toán.");
         if (session.ResourceHoldId is Guid holdId)
         {
@@ -127,11 +128,7 @@ public sealed class PaymentFulfillmentService(ISportHubDbContext db, IPointWalle
             await wallets.ReleaseAsync(new WalletOperation(invoice.MemberId, invoice.PointsApplied,
                 "CheckoutSession", session.CheckoutSessionId, actorId), ct);
         if (invoice.MemberPackageId is Guid packageId)
-        {
-            var package = await db.Set<MemberPackage>().SingleOrDefaultAsync(x => x.MemberPackageId == packageId, ct);
-            if (package is { Status: MemberPackageStatus.PendingPayment })
-                package.Status = MemberPackageStatus.Cancelled;
-        }
+            await memberships.ReleaseAsync(packageId, ct);
         var ptItem = await db.Set<InvoiceItem>().SingleOrDefaultAsync(x => x.InvoiceId == invoice.InvoiceId
             && x.ItemType == InvoiceItemType.PT, ct);
         if (ptItem?.RelatedEntityId is Guid entitlementId)
@@ -155,7 +152,7 @@ public sealed class PaymentFulfillmentService(ISportHubDbContext db, IPointWalle
             proof.ProcessingStatus = "ManualCompensationRequired";
             proof.ProcessedAtUtc = clock.UtcNow;
             invoice.ReconciliationRequired = true;
-            if (invoice.Status != InvoiceStatus.Paid)
+            if (!InvoiceFulfillment.HasBenefits(invoice.Status, invoice.PaidVia))
             {
                 invoice.Status = InvoiceStatus.PaidAfterReconciliation;
                 invoice.PaidVia = "VnPayManualCompensation";
@@ -171,7 +168,7 @@ public sealed class PaymentFulfillmentService(ISportHubDbContext db, IPointWalle
         proof.ProcessingStatus = "Compensated";
         proof.ProcessedAtUtc = clock.UtcNow;
         invoice.ReconciliationRequired = false;
-        if (invoice.Status != InvoiceStatus.Paid)
+        if (!InvoiceFulfillment.HasBenefits(invoice.Status, invoice.PaidVia))
         {
             invoice.Status = InvoiceStatus.PaidAfterReconciliation;
             invoice.PaidVia = "VnPayCompensated";

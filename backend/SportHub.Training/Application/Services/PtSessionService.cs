@@ -33,6 +33,7 @@ public sealed class PtSessionService(
     IOccupancyService occupancy,
     ISportCatalogReader catalog,
     ICoachSpecialtyReader specialties,
+    IUserAccessReader users,
     IClock clock) : IPtSessionService
 {
     public const int DefaultPageSize = 50;
@@ -76,7 +77,7 @@ public sealed class PtSessionService(
 
         if (!string.IsNullOrWhiteSpace(status))
         {
-            if (!Enum.TryParse<PtSessionStatus>(status, ignoreCase: true, out var parsed))
+            if (!SportHub.BuildingBlocks.Api.WireEnum.TryParse<PtSessionStatus>(status, ignoreCase: true, out var parsed))
             {
                 throw new BadRequestException("pt_session_not_found", $"Trạng thái '{status}' không hợp lệ.");
             }
@@ -272,8 +273,10 @@ public sealed class PtSessionService(
         notifications.Queue(new NotificationRequest(
             session.MemberId,
             NotificationEvents.ClassCancelled,
-            $"Buổi PT lúc {session.StartAtUtc:HH:mm dd/MM/yyyy} đã bị hủy: {reason.Trim()}",
+            $"Buổi PT lúc {VietnamTime.ToLocal(session.StartAtUtc):HH:mm dd/MM/yyyy} đã bị hủy: {reason.Trim()}",
             sessionId));
+        await QueueScheduleEmailAsync(session.MemberId, sessionId, NotificationEvents.ClassCancelled,
+            $"Buổi PT lúc {VietnamTime.ToLocal(session.StartAtUtc):HH:mm dd/MM/yyyy} đã bị hủy: {reason.Trim()}", ct);
 
         await db.SaveChangesAsync(ct);
 
@@ -404,8 +407,10 @@ public sealed class PtSessionService(
         notifications.Queue(new NotificationRequest(
             session.MemberId,
             NotificationEvents.ScheduleChanged,
-            $"Buổi PT lúc {oldStartAtUtc:HH:mm dd/MM/yyyy} đã được dời sang {newStartAtUtc:HH:mm dd/MM/yyyy}.",
+            $"Buổi PT lúc {VietnamTime.ToLocal(oldStartAtUtc):HH:mm dd/MM/yyyy} đã được dời sang {VietnamTime.ToLocal(newStartAtUtc):HH:mm dd/MM/yyyy}.",
             replacement.SessionId));
+        await QueueScheduleEmailAsync(session.MemberId, replacement.SessionId, NotificationEvents.ScheduleChanged,
+            $"Buổi PT lúc {VietnamTime.ToLocal(oldStartAtUtc):HH:mm dd/MM/yyyy} đã được dời sang {VietnamTime.ToLocal(newStartAtUtc):HH:mm dd/MM/yyyy}.", ct);
 
         await db.SaveChangesAsync(ct);
 
@@ -415,6 +420,14 @@ public sealed class PtSessionService(
         }
 
         return await GetAsync(replacement.SessionId, ct);
+    }
+
+    private async Task QueueScheduleEmailAsync(Guid memberId, Guid eventId, string eventType, string message, CancellationToken ct)
+    {
+        var recipient = await users.GetAsync(memberId, ct);
+        if (recipient is not null)
+            notifications.QueueEmail(new EmailNotificationRequest(memberId, recipient.Email, eventType, eventId,
+                "SportHub - Thay đổi lịch PT", "<p>" + System.Net.WebUtility.HtmlEncode(message) + "</p>"));
     }
 
     public async Task<PtSessionResponse> CompleteAsync(Guid sessionId, Guid coachId, CancellationToken ct = default)

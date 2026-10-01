@@ -15,7 +15,7 @@ namespace SportHub.Payment.Api;
 [Route("api/payment-adjustments")]
 public class PaymentAdjustmentsController(IPaymentAdjustmentService adjustments) : ControllerBase
 {
-    [Authorize(Policy = SportHubPolicies.StaffRead)]
+    [Authorize(Policy = SportHubPolicies.FrontDesk)]
     [HttpGet]
     public async Task<IActionResult> Search(
         [FromQuery] string? status,

@@ -133,7 +133,7 @@ public sealed class SportCatalogService(ISportHubDbContext db, IAuditWriter audi
     }
 
     private static SportOperationType ParseOperationType(string value)
-        => Enum.TryParse<SportOperationType>(value, ignoreCase: true, out var parsed) && Enum.IsDefined(parsed)
+        => SportHub.BuildingBlocks.Api.WireEnum.TryParse<SportOperationType>(value, ignoreCase: true, out var parsed) && Enum.IsDefined(parsed)
             ? parsed
             : throw new BadRequestException("invalid_operation_type", "Loại vận hành không hợp lệ (WalkIn, OneOnOne, GroupCourse).");
 

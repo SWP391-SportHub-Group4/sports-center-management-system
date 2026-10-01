@@ -8,7 +8,7 @@ using SportHub.BuildingBlocks.Abstractions.Training;
 using SportHub.BuildingBlocks.Abstractions.Wallet;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.BuildingBlocks.SharedKernel.Time;
-using SportHub.Membership.Domain.Entities;
+using SportHub.BuildingBlocks.Abstractions.Membership;
 using SportHub.Payment.Application.Commands;
 using SportHub.Payment.Application.Commands.Checkouts;
 using SportHub.Payment.Application.DTOs.Checkouts;
@@ -19,9 +19,9 @@ using SportHub.Payment.VnPay;
 namespace SportHub.Payment.Application.Services;
 
 public sealed class CheckoutService(ISportHubDbContext db,
-    IClassEnrollmentFulfillment classes, IInvoiceNumberGenerator invoiceNumbers,
+    IClassEnrollmentFulfillment classes, IInvoiceNumberGenerator invoiceNumbers, ISportCatalogReader catalog,
     ISystemSettingProvider settings, IPtPurchaseFulfillment pt, ICourtRentalFulfillment rentals, IPaymentGateway gateway,
-    IPackagePurchaseService packages, PaymentFulfillmentService fulfillment, IAuditWriter audit, IClock clock)
+    IPackagePurchaseService packages, IMembershipFulfillment memberships, PaymentFulfillmentService fulfillment, IAuditWriter audit, IClock clock)
     : ICheckoutLifecycleService
 {
     public async Task<CheckoutResponse> RetryAsync(Guid oldInvoiceId, string idempotencyKey,
@@ -35,7 +35,7 @@ public sealed class CheckoutService(ISportHubDbContext db,
         var old = await db.Set<CheckoutSession>().AsNoTracking()
             .SingleOrDefaultAsync(x => x.CheckoutSessionId == invoice.CheckoutCycleId, ct)
             ?? throw new ConflictException("checkout_unavailable", "Không tìm thấy checkout cũ.");
-        if (invoice.Status == InvoiceStatus.Paid || old.ExpiresAtUtc > clock.UtcNow)
+        if (invoice.Status is InvoiceStatus.Paid or InvoiceStatus.PaidAfterReconciliation || old.ExpiresAtUtc > clock.UtcNow)
             throw new ConflictException("checkout_retry_too_early", "Chỉ tạo lại checkout đã hết hạn và chưa trả.");
         if (invoice.Status == InvoiceStatus.Issued)
             await CancelAsync(oldInvoiceId, actorId, isFrontDesk, ct);
@@ -46,8 +46,7 @@ public sealed class CheckoutService(ISportHubDbContext db,
             {
                 if (invoice.MemberPackageId is not Guid memberPackageId)
                     throw new ConflictException("checkout_kind_unsupported", "Checkout thiếu gói Membership.");
-                var package = await db.Set<MemberPackage>().AsNoTracking()
-                    .SingleAsync(x => x.MemberPackageId == memberPackageId, ct);
+                var package = await memberships.GetAsync(memberPackageId, ct);
                 var detail = await packages.PurchaseAsync(new PurchasePackageRequest
                 {
                     MemberId = invoice.MemberId, PackageId = package.PackageId,
@@ -115,11 +114,13 @@ public sealed class CheckoutService(ISportHubDbContext db,
             Description = $"PT coach {request.CoachId}; Membership {request.MemberPackageId}; "
                 + $"{quote.FrequencyPerWeek}/tuần; priceVersion {quote.PriceVersion}",
             UnitPrice = quote.PricePerSession, Quantity = quote.TotalQuota,
-            LineAmount = quote.TotalPrice
+            LineAmount = quote.TotalPrice, SportId = quote.SportId, SportNameSnapshot = quote.SportName,
+            PtFrequencyPerWeek = quote.FrequencyPerWeek
         };
         db.Set<InvoiceItem>().Add(item);
         await db.SaveChangesAsync(ct);
         item.RelatedEntityId = await pt.CreatePendingAsync(ptRequest, item.ItemId, ct);
+        item.PtEntitlementId = item.RelatedEntityId;
         var session = new CheckoutSession
         {
             CheckoutSessionId = invoice.CheckoutCycleId.Value, InvoiceId = invoice.InvoiceId,
@@ -180,7 +181,8 @@ public sealed class CheckoutService(ISportHubDbContext db,
         {
             ItemId = Guid.NewGuid(), InvoiceId = invoice.InvoiceId, ItemType = InvoiceItemType.ClassPackage,
             Description = $"Khóa học {quote.SportName} #{request.ClassId}", UnitPrice = quote.Price,
-            Quantity = 1, LineAmount = quote.Price, RelatedEntityId = hold.SeatHoldId
+            Quantity = 1, LineAmount = quote.Price, RelatedEntityId = hold.SeatHoldId,
+            ClassId = quote.ClassId, SportId = quote.SportId, SportNameSnapshot = quote.SportName
         });
         var session = new CheckoutSession
         {
@@ -244,7 +246,9 @@ public sealed class CheckoutService(ISportHubDbContext db,
         {
             ItemId = Guid.NewGuid(), InvoiceId = invoice.InvoiceId, ItemType = InvoiceItemType.Rental,
             Description = $"Thuê sân #{request.RoomId}, môn #{request.SportId}, {quote.Blocks.Count} giờ",
-            UnitPrice = quote.TotalPrice, Quantity = 1, LineAmount = quote.TotalPrice, RelatedEntityId = rentalId
+            UnitPrice = quote.TotalPrice, Quantity = 1, LineAmount = quote.TotalPrice, RelatedEntityId = rentalId,
+            CourtRentalId = rentalId, SportId = request.SportId,
+            SportNameSnapshot = (await catalog.GetSportAsync(request.SportId, ct))?.Name
         });
         var session = new CheckoutSession
         {
@@ -415,7 +419,9 @@ public sealed class CheckoutService(ISportHubDbContext db,
 
     private static CheckoutResponse ToResponse(Invoice i, CheckoutSession s)
         => new(i.InvoiceId, s.CheckoutSessionId, s.Revision, s.Kind, s.State,
-            i.TotalAmount, i.PointsApplied, i.CashAmount, s.ExpiresAtUtc, s.ResourceHoldId);
+            i.TotalAmount, i.PointsApplied, i.CashAmount, s.ExpiresAtUtc, s.ResourceHoldId,
+            i.Status.ToString(), Domain.Rules.InvoiceFulfillment.Outcome(i.Status, i.PaidVia, i.ReconciliationRequired),
+            i.ReconciliationRequired);
 
     private async Task<Invoice> LockInvoiceAsync(Guid id, CancellationToken ct)
         => await db.Set<Invoice>().FromSqlInterpolated($"SELECT * FROM invoices WHERE invoice_id = {id} FOR UPDATE")

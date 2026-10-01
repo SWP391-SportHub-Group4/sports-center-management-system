@@ -346,7 +346,7 @@ public sealed class ExternalCoachService(
     }
 
     private static ExternalCoachApprovalStatus ParseStatus(string status)
-        => Enum.TryParse<ExternalCoachApprovalStatus>(status, ignoreCase: true, out var parsed)
+        => SportHub.BuildingBlocks.Api.WireEnum.TryParse<ExternalCoachApprovalStatus>(status, ignoreCase: true, out var parsed)
             ? parsed
             : throw new BadRequestException("invalid_status", $"Trạng thái không hợp lệ: '{status}'.");
 

@@ -5,7 +5,7 @@ namespace SportHub.Administration.Application.Commands;
 public sealed class ChangeUserRoleRequest
 {
     [Required]
-    public string Role { get; set; } = string.Empty;
+    [SportHub.BuildingBlocks.Api.WireEnum] public string Role { get; set; } = string.Empty;
 
     /// <summary>BR-7 — thao tác quản trị phải ghi audit; lý do làm nhật ký đọc được.</summary>
     [Required, MinLength(3), MaxLength(500)]

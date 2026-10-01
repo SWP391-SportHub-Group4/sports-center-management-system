@@ -25,7 +25,7 @@ public sealed class InvoiceQueryService(ISportHubDbContext db) : IInvoiceQuerySe
         Guid? MemberPackageId,
         int PointsSpent,
         decimal CashAmount,
-        string? PaidVia,
+        [property: SportHub.BuildingBlocks.Api.WireEnum] string? PaidVia,
         DateTime? PaidAtUtc,
         DateTime? CheckoutExpiresAtUtc,
         bool ReconciliationRequired);
@@ -95,7 +95,8 @@ public sealed class InvoiceQueryService(ISportHubDbContext db) : IInvoiceQuerySe
             .Where(it => it.InvoiceId == invoiceId)
             .Select(it => new InvoiceItemResponse(
                 it.ItemId, it.ItemType.ToString(), it.Description, it.UnitPrice, it.Quantity, it.LineAmount,
-                it.RelatedEntityId))
+                it.RelatedEntityId, it.ClassId, it.CourtRentalId, it.PtEntitlementId, it.MemberPackageId,
+                it.SportId, it.SportNameSnapshot, it.PtFrequencyPerWeek, it.SourceInvoiceItemId))
             .ToListAsync(ct);
 
         var payments = await db.Set<Domain.Entities.Payment>()
@@ -228,7 +229,7 @@ public sealed class InvoiceQueryService(ISportHubDbContext db) : IInvoiceQuerySe
             a.CenterFault);
 
     private static InvoiceStatus ParseStatus(string status)
-        => Enum.TryParse<InvoiceStatus>(status, ignoreCase: true, out var parsed)
+        => SportHub.BuildingBlocks.Api.WireEnum.TryParse<InvoiceStatus>(status, ignoreCase: true, out var parsed)
             ? parsed
             : throw new BadRequestException("invalid_status", $"Trạng thái hóa đơn không hợp lệ: '{status}'.");
 }

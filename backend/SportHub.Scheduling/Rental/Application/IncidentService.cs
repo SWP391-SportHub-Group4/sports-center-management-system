@@ -46,6 +46,8 @@ public sealed class IncidentService(ISportHubDbContext db, IOccupancyService occ
             .OrderBy(x => x.InvoiceId).ThenBy(x => x.CourtRentalId).ToListAsync(ct);
         if (rentalRows.Count != rentalIds.Count)
             throw new ConflictException("incident_rental_reference_missing", "Không tìm thấy một trong các lượt thuê bị ảnh hưởng.");
+        var pendingIds = rentalRows.Where(x => x.Status == CourtRentalStatus.PendingPayment)
+            .Select(x => x.CourtRentalId).ToHashSet();
 
         foreach (var rental in rentalRows.Where(x => x.Status == CourtRentalStatus.PendingPayment))
         {
@@ -67,16 +69,21 @@ public sealed class IncidentService(ISportHubDbContext db, IOccupancyService occ
                 "CenterFault:" + request.Reason.Trim(), incidentId), ct);
             await rentals.CancelAsync(rental.CourtRentalId, request.Reason.Trim(), centerFault: true,
                 incidentId: incidentId, cancellationToken: ct);
+        }
+        foreach (var rental in rentalRows)
+        {
             var access = await users.GetAsync(rental.ExternalCoachId, ct);
             if (access is not null)
             {
-                var source = Guid.NewGuid();
-                var text = "Lượt thuê sân đã hủy do sự cố trung tâm; 100% điểm đã được hoàn vào ví.";
+                var source = rental.CourtRentalId;
+                var text = pendingIds.Contains(rental.CourtRentalId)
+                    ? "Lượt thuê sân đang chờ thanh toán đã hủy do sự cố trung tâm; điểm giữ đã được nhả. Liên hệ Manager để được hỗ trợ ưu tiên đặt lại."
+                    : "Lượt thuê sân đã hủy do sự cố trung tâm; 100% giá trị đã trả được hoàn bằng điểm vào ví. Liên hệ Manager để được hỗ trợ ưu tiên đặt lại.";
                 notifications.Queue(new NotificationRequest(rental.ExternalCoachId,
                     NotificationEvents.IncidentResolution, text, source));
                 notifications.QueueEmail(new EmailNotificationRequest(rental.ExternalCoachId, access.Email,
                     NotificationEvents.IncidentResolution, source, "SportHub - Lịch thuê sân bị hủy",
-                    "<p>Lượt thuê sân đã hủy do sự cố trung tâm; 100% điểm đã được hoàn vào ví.</p>"));
+                    "<p>" + text + "</p>"));
             }
         }
 
@@ -114,6 +121,7 @@ public sealed class IncidentService(ISportHubDbContext db, IOccupancyService occ
             NewValue: System.Text.Json.JsonSerializer.Serialize(new
             {
                 scope = shape.Scope.ToString(), shape.RoomId, shape.StartUtc, shape.EndUtc,
+                affectedSources = firstImpacts.Select(x => new { x.SourceType, x.SourceId }),
                 cancelledRentals = rentalRows.Count, blockedRooms = shape.RoomIds.Count
             }), Reason: request.Reason.Trim()));
         await db.SaveChangesAsync(ct);
@@ -123,7 +131,7 @@ public sealed class IncidentService(ISportHubDbContext db, IOccupancyService occ
 
     private async Task<IncidentShape> ValidateAsync(IncidentRequest request, CancellationToken ct)
     {
-        if (!Enum.TryParse<IncidentScope>(request.Scope, true, out var scope))
+        if (!SportHub.BuildingBlocks.Api.WireEnum.TryParse<IncidentScope>(request.Scope, true, out var scope) || !Enum.IsDefined(scope))
             throw new BadRequestException("invalid_incident_scope", "Incident scope phải là Room hoặc Center.");
         if (string.IsNullOrWhiteSpace(request.Reason) || request.Reason.Trim().Length is < 3 or > 500)
             throw new BadRequestException("incident_reason_required", "Cần nhập lý do incident (3–500 ký tự).");
@@ -178,7 +186,20 @@ public sealed class IncidentService(ISportHubDbContext db, IOccupancyService occ
     private sealed record IncidentShape(IncidentScope Scope, int? RoomId, DateTime StartUtc, DateTime EndUtc, List<int> RoomIds);
 }
 
-public sealed record IncidentRequest(string Scope, int? RoomId, DateTime StartAtUtc, DateTime EndAtUtc, string Reason);
-public sealed record IncidentImpact(string SourceType, Guid SourceId, DateTime StartAtUtc, DateTime EndAtUtc);
-public sealed record IncidentPreviewResponse(string Scope, int? RoomId, DateTime StartAtUtc, DateTime EndAtUtc,
+public sealed record IncidentRequest([property: SportHub.BuildingBlocks.Api.WireEnum] string Scope, int? RoomId, DateTime StartAtUtc, DateTime EndAtUtc, string Reason);
+public sealed record IncidentImpact([property: SportHub.BuildingBlocks.Api.WireEnum] string SourceType, Guid SourceId, DateTime StartAtUtc, DateTime EndAtUtc)
+{
+    public IReadOnlyList<IncidentResolutionOption> ResolutionOptions => SourceType switch
+    {
+        "ClassSession" => [new("Reschedule", "POST", $"/api/class-sessions/{SourceId}/reschedule"),
+            new("CancelWithMakeup", "POST", $"/api/class-sessions/{SourceId}/cancel")],
+        "PtSession" => [new("Reschedule", "POST", $"/api/manager/pt-sessions/{SourceId}/reschedule"),
+            new("CancelByCenter", "POST", $"/api/manager/pt-sessions/{SourceId}/cancel")],
+        "RoomBlock" => [new("RemoveExistingBlock", "DELETE", $"/api/manager/room-blocks/{SourceId}")],
+        "CourtRental" => [new("AutoCancelAndRefundOnResolve", "POST", "/api/manager/incidents/resolve")],
+        _ => []
+    };
+}
+public sealed record IncidentResolutionOption(string Action, string Method, string Path);
+public sealed record IncidentPreviewResponse([property: SportHub.BuildingBlocks.Api.WireEnum] string Scope, int? RoomId, DateTime StartAtUtc, DateTime EndAtUtc,
     IReadOnlyList<IncidentImpact> Impacts, bool CanResolve, string? BlockReason);

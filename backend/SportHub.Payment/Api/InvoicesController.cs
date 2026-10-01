@@ -19,7 +19,7 @@ public class InvoicesController(
     IPaymentRecordingService payments,
     IPaymentAdjustmentService adjustments) : ControllerBase
 {
-    [Authorize(Policy = SportHubPolicies.StaffRead)]
+    [Authorize(Policy = SportHubPolicies.FrontDesk)]
     [HttpGet("invoices")]
     public async Task<IActionResult> Search(
         [FromQuery] Guid? memberId,
@@ -41,9 +41,12 @@ public class InvoicesController(
     [HttpGet("invoices/{invoiceId:guid}")]
     public async Task<IActionResult> GetDetail(Guid invoiceId, CancellationToken ct)
     {
+        var staff = User.IsInRole(SportHubRoleNames.CenterManager) || User.IsInRole(SportHubRoleNames.Receptionist);
+        if (!staff && !User.IsInRole(SportHubRoleNames.Member) && !User.IsInRole(SportHubRoleNames.ExternalCoach))
+            throw new ForbiddenException("invoice_access_denied", "Vai trò này không được xem hóa đơn.");
         var detail = await invoices.GetDetailAsync(invoiceId, ct);
 
-        if (User.IsInRole(SportHubRoleNames.Member) && detail.Summary.MemberId != User.RequireUserId())
+        if (!staff && detail.Summary.MemberId != User.RequireUserId())
         {
             throw new ForbiddenException("invoice_not_owned", "Hóa đơn này không thuộc về bạn.");
         }

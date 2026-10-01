@@ -6,5 +6,5 @@ namespace SportHub.Scheduling.Application.Commands;
 public sealed class MarkAttendanceRequest
 {
     [Required]
-    public string Status { get; set; } = string.Empty;
+    [SportHub.BuildingBlocks.Api.WireEnum] public string Status { get; set; } = string.Empty;
 }

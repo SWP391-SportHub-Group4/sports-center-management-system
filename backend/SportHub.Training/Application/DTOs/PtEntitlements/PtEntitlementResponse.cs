@@ -14,4 +14,4 @@ public sealed record PtEntitlementResponse(
     DateOnly ValidityStartDate,
     DateOnly ValidityEndDate,
     DateOnly CarryOverUntilDate,
-    string Status);
+    [property: SportHub.BuildingBlocks.Api.WireEnum] string Status);

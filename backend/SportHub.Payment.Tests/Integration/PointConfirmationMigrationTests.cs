@@ -13,6 +13,44 @@ namespace SportHub.Payment.Tests.Integration;
 public sealed class PointConfirmationMigrationTests(PaymentApiFactory factory)
 {
     [Fact]
+    public async Task Upgrade_from_pre_multisport_preserves_accounts_roles_and_legacy_courses()
+    {
+        var name = "p1_upgrade_" + Guid.NewGuid().ToString("N");
+        await using (var connection = new NpgsqlConnection(factory.ConnectionString))
+        {
+            await connection.OpenAsync();
+            await using var create = new NpgsqlCommand($"CREATE DATABASE \"{name}\"", connection);
+            await create.ExecuteNonQueryAsync();
+        }
+        var connectionString = new NpgsqlConnectionStringBuilder(factory.ConnectionString) { Database = name }.ConnectionString;
+        await using var db = new SportHubDbContext(new DbContextOptionsBuilder<SportHubDbContext>()
+            .UseNpgsql(connectionString).UseSnakeCaseNamingConvention().Options);
+        await db.GetService<IMigrator>().MigrateAsync("20260929010712_AddPtTrainingDomain");
+        var user = Guid.NewGuid();
+        await db.Database.ExecuteSqlInterpolatedAsync($"""
+            INSERT INTO user_accounts (user_id, email, role_id, status, created_at)
+            VALUES ({user}, 'before@multisport.test', 3, 0, {DateTime.UtcNow})
+            """);
+        await db.Database.ExecuteSqlRawAsync("""
+            INSERT INTO rooms (room_id, name, capacity) VALUES (991, 'Legacy room', 20);
+            INSERT INTO classes (class_id, name, discipline, default_room_id, capacity, status)
+            VALUES (991, 'Historical course', 'Yoga', 991, 20, 0);
+            """);
+        await db.Database.MigrateAsync();
+        Assert.Equal(1, await db.Database.SqlQueryRaw<int>(
+            "SELECT count(*)::int AS \"Value\" FROM legacy_classes WHERE class_id = 991 AND name = 'Historical course'").SingleAsync());
+        Assert.False(await db.Classes.AnyAsync(x => x.ClassId == 991));
+        var account = await db.UserAccounts.AsNoTracking().SingleAsync(x => x.UserId == user);
+        Assert.Equal(3, account.RoleId);
+        Assert.NotEqual(Guid.Empty, account.SecurityStamp);
+        Assert.Equal(UserRole.Member, await db.Roles.Where(x => x.RoleId == 3).Select(x => x.RoleName).SingleAsync());
+        Assert.Equal(UserRole.ExternalCoach, await db.Roles.Where(x => x.RoleId == 6).Select(x => x.RoleName).SingleAsync());
+        Assert.Equal(4, await db.Sports.CountAsync());
+        Assert.True(await db.Rooms.Where(x => x.RoomId == 991).Select(x => x.IsActive).SingleAsync());
+        Assert.False(db.Database.HasPendingModelChanges());
+    }
+
+    [Fact]
     public async Task Upgrade_preserves_legacy_invoice_and_payment_and_backfills_cash_amount()
     {
         // A separate database in the test fixture's PostgreSQL server; disposed with its container.
@@ -54,8 +92,11 @@ public sealed class PointConfirmationMigrationTests(PaymentApiFactory factory)
             PaymentId = Guid.NewGuid(), InvoiceId = invoiceId, Amount = 123_000m,
             Method = PaymentMethod.Cash, Status = PaymentStatus.Success, ReceivedByUserId = receptionist.UserId, PaidAt = now
         };
-        db.Payments.Add(payment);
-        await db.SaveChangesAsync();
+        // Seed the historical schema using its actual columns, not the current EF model.
+        await db.Database.ExecuteSqlInterpolatedAsync($"""
+            INSERT INTO payments (payment_id, invoice_id, amount, method, status, received_by_user_id, paid_at)
+            VALUES ({payment.PaymentId}, {invoiceId}, {payment.Amount}, 0, 1, {receptionist.UserId}, {now})
+            """);
         await db.Database.MigrateAsync();
         var invoice = await db.Invoices.AsNoTracking().SingleAsync(x => x.InvoiceId == invoiceId);
         Assert.Equal(123_000m, invoice.TotalAmount);

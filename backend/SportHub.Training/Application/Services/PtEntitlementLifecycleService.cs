@@ -5,10 +5,10 @@ using SportHub.BuildingBlocks.Abstractions.Identity;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.BuildingBlocks.SharedKernel.Time;
-using SportHub.Identity.Domain.Entities;
-using SportHub.Identity.Domain.Enums;
-using SportHub.Membership.Domain.Entities;
-using SportHub.Membership.Domain.Enums;
+using SportHub.BuildingBlocks.Abstractions.Membership;
+
+
+
 using SportHub.Training.Application.Commands;
 using SportHub.Training.Application.Interfaces;
 using SportHub.Training.Domain.Rules;
@@ -21,23 +21,16 @@ namespace SportHub.Training.Application.Services;
 /// </summary>
 public sealed class PtEntitlementLifecycleService(
     ISportHubDbContext db,
-    IAuditWriter audit,
+    IAuditWriter audit, IUserAccessReader users, IMembershipAccessReader memberships,
     ICoachSpecialtyReader specialties,
     IClock clock) : IPtEntitlementLifecycle
 {
     public async Task<Guid> CreatePendingAsync(
         CreatePendingPtEntitlementCommand command, CancellationToken ct = default)
     {
-        var member = await db.Set<UserAccount>()
-            .Include(u => u.Role)
-            .SingleOrDefaultAsync(u => u.UserId == command.MemberId, ct)
-            ?? throw new NotFoundException("member_not_found", "Không tìm thấy hội viên.");
-
-        if (member.Role?.RoleName != UserRole.Member)
-        {
-            throw new BadRequestException("member_not_found", "Tài khoản không có vai trò Member.");
-        }
-
+        var member = await users.GetAsync(command.MemberId, ct);
+        if (member is null || member.Role != "Member" || !member.IsActive)
+            throw new BadRequestException("member_not_found", "Tài khoản Member không hoạt động.");
         if (!await specialties.IsPersonalTrainerAsync(command.CoachId, ct))
         {
             throw new BadRequestException(
@@ -45,19 +38,12 @@ public sealed class PtEntitlementLifecycleService(
                 "Chỉ Coach có chuyên môn huấn luyện cá nhân (PT 1-1) mới nhận được PtEntitlement (BR-99).");
         }
 
-        var originPackage = await db.Set<MemberPackage>()
-            .SingleOrDefaultAsync(
-                p => p.MemberPackageId == command.OriginMemberPackageId && p.MemberId == command.MemberId, ct)
-            ?? throw new NotFoundException(
-                "pt_entitlement_not_found", "Không tìm thấy Membership gốc của hội viên này.");
-
-        if (originPackage.Status != MemberPackageStatus.Active)
-        {
-            throw new ConflictException(
-                "pt_entitlement_not_active",
-                "Membership gốc phải đang Active mới checkout PT (BR-70).");
-        }
-
+        var originPackage = await memberships.GetByIdAsync(command.OriginMemberPackageId, ct)
+            ?? throw new NotFoundException("pt_entitlement_not_found", "Không tìm thấy Membership gốc.");
+        if (originPackage.MemberId != command.MemberId)
+            throw new NotFoundException("pt_entitlement_not_found", "Không tìm thấy Membership của hội viên này.");
+        if (originPackage.Status != "Active")
+            throw new ConflictException("pt_entitlement_not_active", "Membership gốc phải đang Active mới checkout PT.");
         var totalQuota = PtEntitlementRules.ComputeTotalQuota(
             command.FrequencyPerWeek, originPackage.StartDate, originPackage.EndDate);
 
@@ -114,16 +100,9 @@ public sealed class PtEntitlementLifecycleService(
                 $"Entitlement đang ở trạng thái {entitlement.Status}, không thể activate.");
         }
 
-        var currentPackage = await db.Set<MemberPackage>()
-            .SingleAsync(p => p.MemberPackageId == entitlement.CurrentMemberPackageId, ct);
-
-        if (currentPackage.Status != MemberPackageStatus.Active)
-        {
-            throw new ConflictException(
-                "pt_entitlement_not_active",
-                "Membership liên kết không còn Active — không kích hoạt được PtEntitlement.");
-        }
-
+        var currentPackage = await memberships.GetByIdAsync(entitlement.CurrentMemberPackageId, ct);
+        if (currentPackage?.Status != "Active" || currentPackage.MemberId != entitlement.MemberId)
+            throw new ConflictException("pt_entitlement_not_active", "Membership liên kết không còn Active.");
         entitlement.ActivationReference = activationReference;
         entitlement.Status = PtEntitlementStatus.Active;
         entitlement.ActivatedAt = clock.UtcNow;
@@ -198,10 +177,10 @@ public sealed class PtEntitlementLifecycleService(
                 $"Entitlement đang ở trạng thái {entitlement.Status}, không carry-over được.");
         }
 
-        var renewedPackage = await db.Set<MemberPackage>()
-            .SingleOrDefaultAsync(p => p.MemberPackageId == renewedMemberPackageId, ct)
+        var renewedPackage = await memberships.GetByIdAsync(renewedMemberPackageId, ct)
             ?? throw new NotFoundException("pt_entitlement_not_found", "Không tìm thấy Membership gia hạn.");
-
+        if (renewedPackage.MemberId != entitlement.MemberId || renewedPackage.Status != "Active")
+            throw new ConflictException("pt_entitlement_not_active", "Membership gia hạn phải thuộc hội viên và đang Active.");
         entitlement.CurrentMemberPackageId = renewedPackage.MemberPackageId;
         entitlement.ValidityEndDate = renewedPackage.EndDate;
         entitlement.CarryOverUntilDate = renewedPackage.EndDate.AddDays(30);
@@ -233,3 +212,4 @@ public sealed class PtEntitlementLifecycleService(
             ?? throw new NotFoundException("pt_entitlement_not_found", "Không tìm thấy quyền lợi PT.");
     }
 }
+

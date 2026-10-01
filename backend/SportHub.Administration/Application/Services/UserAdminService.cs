@@ -334,12 +334,12 @@ public sealed class UserAdminService(
     }
 
     private static UserRole ParseRole(string role)
-        => Enum.TryParse<UserRole>(role, ignoreCase: true, out var parsed)
+        => SportHub.BuildingBlocks.Api.WireEnum.TryParse<UserRole>(role, ignoreCase: true, out var parsed)
             ? parsed
             : throw new BadRequestException("invalid_role", $"Vai trò không hợp lệ: '{role}'.");
 
     private static UserStatus ParseStatus(string status)
-        => Enum.TryParse<UserStatus>(status, ignoreCase: true, out var parsed)
+        => SportHub.BuildingBlocks.Api.WireEnum.TryParse<UserStatus>(status, ignoreCase: true, out var parsed)
             ? parsed
             : throw new BadRequestException("invalid_status", $"Trạng thái không hợp lệ: '{status}'.");
 

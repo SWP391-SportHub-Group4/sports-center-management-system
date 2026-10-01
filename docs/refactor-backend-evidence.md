@@ -1,6 +1,45 @@
 # Bằng chứng backend (bàn giao sang plan 2)
 
-Cập nhật sau mỗi chặng.
+## P1.12/P1.13 — kết quả hiện tại, 01/10/2026
+
+Các checkpoint phía dưới là lịch sử. Lỗi quyền Docker đã được khắc phục cho tiến trình test bằng sandbox escalation; toàn bộ integration chạy trên PostgreSQL 16 Testcontainers, không dùng DB phát triển.
+
+Lệnh cuối: `dotnet test backend/SportHub.sln -c Release --no-restore --logger 'trx;LogFilePrefix=p1213-complete'`.
+
+| Project | Passed | Failed | Skipped |
+|---|---:|---:|---:|
+| Security.Tests | 130 | 0 | 0 |
+| Scheduling.Tests | 95 | 0 | 0 |
+| Payment.Tests | 102 | 0 | 0 |
+| Training.Tests | 80 | 0 | 0 |
+| Administration.Tests | 15 | 0 | 0 |
+| **Tổng** | **422** | **0** | **0** |
+
+TRX lưu cục bộ ở `backend/<project>/TestResults/p1213-complete_*.trx` (generated, gitignored); CI upload artifact `backend-test-results`. Release build có 4 warning có sẵn trong Security.Tests (nullable Google token name, PostgreSqlBuilder cũ, 2 xUnit blocking-task warnings), không có lỗi build sau sửa Guid nullable trong fixture PT.
+
+Sau khi sửa actor fixture legacy cash của khóa học từ Member thành Receptionist, chạy lại `dotnet test backend/SportHub.Payment.Tests -c Release --no-restore --filter 'FullyQualifiedName~ReportExportParityTests' --logger 'trx;LogFilePrefix=p1213-seed-last'`: **3/3 pass**, gồm khởi động/migrate/seed DB trắng, seed lần hai và hai phép so sánh export/API.
+
+### Kiểm thử mới / mở rộng và vị trí cuối
+
+- Payment `CourtRentalTests`: pending approval không tạo invoice; hai reservation thật đồng thời chỉ một thành công; cancellation nhả occupancy; incident hủy pending checkout rồi chặn slot; paid rental privacy và center refund chỉ credit một lần.
+- Payment `OutboxDispatchTests`: SMTP exception giữ payload encrypted, retry bằng clock kiểm soát được, Sent xóa payload, không gửi lại; rollback action không để email trong DB. Dispatcher cập nhật kết quả chỉ khi còn sở hữu đúng lease attempt.
+- Scheduling `ThresholdTransferTests`: mua khóa nguồn bằng checkout/điểm, evaluator tạo token, chặn người khác dùng token, transfer 80k/100k/120k, trả delta qua checkout, lựa chọn lặp idempotent, ledger/hold/enrollment đúng.
+- Scheduling `ReportPeriodAndHoldsTests`: biên nửa mở ngày VN, expiry đúng thời điểm clock; chỉ active hold còn hạn vào báo cáo.
+- Payment `ReportExportParityTests`: CSV daily và class enrollment khớp service API, giữ sport filter; seed lặp không nhân đôi ledger/rental.
+- Payment `CheckoutFlowTests`: thêm đối chiếu cash compensation, PointsIssued và tổng theo source/sport vào ca duplicate callback/bank capture đang có.
+- Payment `PointConfirmationMigrationTests`: nâng từ schema MultiSportWallet lên mới nhất, giữ legacy invoice/payment và cash backfill; key `membership.expiry_notice_days` giữ giá trị Manager đã sửa. Các factory cũng migrate DB trắng lên toàn bộ schema.
+- Payment `ModuleBoundaryTests`: Payment/Scheduling không tham chiếu vòng; BuildingBlocks không tham chiếu module nghiệp vụ.
+
+### Gate và giới hạn
+
+- `dotnet ef migrations has-pending-model-changes --project backend/SportHub.API --startup-project backend/SportHub.API --configuration Release --no-build`: không có model drift. P12/P13 không thêm migration; schema cuối vẫn `20260930213319_IncidentOutboxSettingsAndRentalLinks`.
+- `docker compose config --quiet`: pass. `git diff --check`: pass; chỉ cảnh báo chuyển LF/CRLF.
+- Scan source ngoài migrations/obj/bin: không có `NotImplementedException` hoặc xUnit Skip; Yoga/GroupX còn trong comment giải thích lịch sử, không còn rule runtime/seed mới.
+- VNPay **mock** đã qua các lifecycle integration; chưa có bằng chứng giao dịch **sandbox thật**. Outbox dùng sender test gây lỗi/chạy thành công, chưa xác nhận delivery qua SMTP bên ngoài.
+- Script E2E nay gọi toàn bộ suites và model-drift check. Không chạy script Bash trực tiếp ở phiên PowerShell này; các lệnh .NET/EF tương đương đã chạy. Không kiểm frontend trong scope này.
+- Đây là evidence P12/P13, không chứng nhận các phần lịch sân tổng hợp hay incident lớp/PT còn được ghi trong progress đã hoàn tất.
+
+---
 
 ## P1.10 — Court Rental, đang triển khai, 01/10/2026
 

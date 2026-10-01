@@ -25,7 +25,7 @@ public sealed record ReportExportResponse(
     Guid RequestedByUserId,
     string RequestedByName,
     string ParametersJson,
-    string Status,
+    [property: SportHub.BuildingBlocks.Api.WireEnum] string Status,
     int RowCount,
     long SizeBytes,
     string? FailureReason,

@@ -8,6 +8,8 @@ Seed mới có 6 vai trò, 4 trạng thái ExternalCoach, Membership không còn
 
 P1.13 đã chạy PostgreSQL thật qua Testcontainers sau khi cấp quyền truy cập Docker cho lệnh test. Không áp migration lên database phát triển. Bộ mới bổ sung chuyển lớp rẻ/bằng/đắt, thuê sân đồng thời, pending approval, incident release, outbox retry/rollback, export parity, biên ngày VN, hold hết hạn, module boundary và migration giữ cấu hình Manager. Chi tiết lệnh/kết quả ở `refactor-backend-evidence.md`.
 
+**Kết quả:** 422/422 test pass, 0 fail, 0 skip; model drift không có, compose config và diff check pass. Sau sửa actor legacy fixture thành Lễ tân, ba test seed/export chạy lại đều pass.
+
 CI lưu TRX; `scripts/e2e-business-rules.sh` chạy các integration suites thay cho các curl scenario cũ dùng endpoint enrollment/payment đã bỏ. Race và RBAC được kiểm bằng các suite hiện tại, không bị bỏ khỏi gate. Không thay đổi frontend.
 
 Giới hạn cần giữ khi bàn giao: chưa có bằng chứng VNPay sandbox thật/SMTP thật; báo cáo Membership dùng trạng thái và thời hạn được lưu, không tái dựng lịch sử cancellation chưa có timestamp. Membership không gắn một môn duy nhất nên sport là null; PT legacy chỉ được phân môn khi catalog có đúng một môn OneOnOne. Incident lớp/PT vẫn cần xử lý lịch trước, lịch sân tổng hợp là phần còn lại của P1.10/P1.11, không được đánh dấu hoàn tất cả plan 1 chỉ vì test hiện có xanh.

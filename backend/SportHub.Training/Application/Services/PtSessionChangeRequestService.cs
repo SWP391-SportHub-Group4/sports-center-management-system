@@ -33,7 +33,7 @@ public sealed class PtSessionChangeRequestService(
 
         if (!string.IsNullOrWhiteSpace(status))
         {
-            if (!Enum.TryParse<PtSessionChangeRequestStatus>(status, ignoreCase: true, out var parsed))
+            if (!SportHub.BuildingBlocks.Api.WireEnum.TryParse<PtSessionChangeRequestStatus>(status, ignoreCase: true, out var parsed))
             {
                 throw new BadRequestException(
                     "pt_change_request_invalid_state", $"Trạng thái '{status}' không hợp lệ.");
@@ -51,7 +51,7 @@ public sealed class PtSessionChangeRequestService(
     public async Task<PtSessionChangeRequestResponse> RequestAsync(
         Guid sessionId, RequestPtSessionChangeRequest request, Guid memberId, CancellationToken ct = default)
     {
-        if (!Enum.TryParse<PtSessionChangeRequestType>(request.RequestType, ignoreCase: true, out var requestType))
+        if (!SportHub.BuildingBlocks.Api.WireEnum.TryParse<PtSessionChangeRequestType>(request.RequestType, ignoreCase: true, out var requestType))
         {
             throw new BadRequestException(
                 "pt_change_request_invalid_state", "RequestType chỉ nhận Cancel hoặc Reschedule.");

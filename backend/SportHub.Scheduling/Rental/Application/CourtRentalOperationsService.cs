@@ -83,4 +83,4 @@ public sealed class CourtRentalOperationsService(ISportHubDbContext db,
 
 public sealed record CourtRentalSummary(Guid CourtRentalId, int SportId, int RoomId,
     DateTime StartAtUtc, DateTime EndAtUtc, int ExpectedAttendees, decimal TotalPrice,
-    string Status, Guid? InvoiceItemId);
+    [property: SportHub.BuildingBlocks.Api.WireEnum] string Status, Guid? InvoiceItemId);

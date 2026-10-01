@@ -9,7 +9,7 @@ public sealed class SaveTrainingProfileRequest
 
     /// <summary>Tên member của enum ExperienceLevel (SSOT §3): Beginner/Intermediate/Advanced.</summary>
     [Required]
-    public string ExperienceLevel { get; set; } = string.Empty;
+    [SportHub.BuildingBlocks.Api.WireEnum] public string ExperienceLevel { get; set; } = string.Empty;
 
     [MaxLength(2000)]
     public string? Notes { get; set; }

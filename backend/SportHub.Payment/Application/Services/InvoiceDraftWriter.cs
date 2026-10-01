@@ -61,7 +61,10 @@ public sealed class InvoiceDraftWriter(ISportHubDbContext db, IInvoiceNumberGene
             Quantity = 1,
             LineAmount = itemDraft.Amount,
             RelatedEntityId = itemDraft.RelatedEntityId,
-            SourceInvoiceItemId = itemDraft.SourceInvoiceItemId
+            SourceInvoiceItemId = itemDraft.SourceInvoiceItemId,
+            ClassId = itemDraft.ClassId, CourtRentalId = itemDraft.CourtRentalId,
+            PtEntitlementId = itemDraft.PtEntitlementId, MemberPackageId = itemDraft.MemberPackageId,
+            SportId = itemDraft.SportId, SportNameSnapshot = itemDraft.SportName
         });
         db.Set<CheckoutSession>().Add(new CheckoutSession
         {

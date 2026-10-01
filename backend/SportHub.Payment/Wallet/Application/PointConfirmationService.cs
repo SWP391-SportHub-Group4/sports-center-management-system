@@ -302,6 +302,8 @@ public sealed class PointConfirmationService(
     private PointSelectionResponse ToSelection(Invoice invoice)
         => new(invoice.InvoiceId, invoice.MemberId, invoice.PointsApplied, invoice.CashAmount,
             invoice.HoldExpiresAtUtc, invoice.CheckoutCycleId is null ? "Unavailable"
+                : SportHub.Payment.Domain.Rules.InvoiceFulfillment.HasBenefits(invoice.Status, invoice.PaidVia) ? "Paid"
+                : invoice.ReconciliationRequired ? "ReconciliationRequired"
                 : invoice.Status == InvoiceStatus.Void ? "Cancelled"
                 : invoice.Status == InvoiceStatus.PaidAfterReconciliation ? "Compensated"
                 : invoice.HoldExpiresAtUtc <= clock.UtcNow ? "Expired"

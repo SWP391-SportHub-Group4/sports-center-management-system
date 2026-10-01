@@ -16,6 +16,39 @@ namespace SportHub.Training.Tests.Integration;
 [Collection(nameof(TrainingApiCollection))]
 public sealed class PtOccupancyTests(TrainingApiFactory factory)
 {
+    [Fact]
+    public async Task Incident_preview_requires_pt_resolution_and_center_cancel_releases_quota_before_block()
+    {
+        var manager = await factory.SeedUserAsync(UserRole.CenterManager);
+        var coach = await factory.SeedCoachAsync(CoachKind.PersonalTrainer);
+        var member = await factory.SeedUserAsync(UserRole.Member);
+        var entitlement = await factory.SeedPtEntitlementAsync(member.UserId, coach.UserId);
+        var room = await RoomAsync();
+        using var client = factory.CreateApiClient(manager.UserId, UserRole.CenterManager);
+        var created = await client.PostAsJsonAsync("api/manager/pt-sessions", new CreatePtSessionRequest
+        { EntitlementId = entitlement.EntitlementId, StartAtUtc = FutureStart(), RoomId = room });
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var session = (await created.Content.ReadApiJsonAsync<PtSessionResponse>())!;
+        var incident = new SportHub.Scheduling.Rental.Application.IncidentRequest("Room", room,
+            session.StartAtUtc, session.EndAtUtc, "PT court repair");
+        var previewResponse = await client.PostAsJsonAsync("api/manager/incidents/preview", incident);
+        Assert.Equal(HttpStatusCode.OK, previewResponse.StatusCode);
+        var preview = (await previewResponse.Content.ReadFromJsonAsync<SportHub.Scheduling.Rental.Application.IncidentPreviewResponse>())!;
+        Assert.False(preview.CanResolve);
+        Assert.Contains(preview.Impacts.SelectMany(x => x.ResolutionOptions), x => x.Action == "CancelByCenter");
+        Assert.Equal(HttpStatusCode.Conflict, (await client.PostAsJsonAsync("api/manager/incidents/resolve", incident)).StatusCode);
+        Assert.True(await factory.QueryAsync(db => db.RoomOccupancies.AnyAsync(x => x.SourceId == session.SessionId && x.IsActive)));
+        Assert.Equal(HttpStatusCode.OK, (await client.PostAsJsonAsync($"api/manager/pt-sessions/{session.SessionId}/cancel",
+            new ManagerCancelPtSessionRequest { Reason = "PT court repair" })).StatusCode);
+        Assert.True((await client.PostAsJsonAsync("api/manager/incidents/resolve", incident)).IsSuccessStatusCode);
+        var quota = await factory.QueryAsync(db => db.PtEntitlements.Where(x => x.EntitlementId == entitlement.EntitlementId)
+            .Select(x => new { x.ReservedSessions, x.ConsumedSessions }).SingleAsync());
+        Assert.Equal(0, quota.ReservedSessions);
+        Assert.Equal(0, quota.ConsumedSessions);
+        Assert.True(await factory.QueryAsync(db => db.Notifications.AnyAsync(x => x.UserId == member.UserId
+            && x.SourceEntityId == session.SessionId && x.Channel == SportHub.Notification.Domain.Enums.NotificationChannel.Email)));
+    }
+
     private static DateTime FutureStart() => DateTime.SpecifyKind(DateTime.UtcNow.Date.AddDays(7).AddHours(9), DateTimeKind.Utc);
 
     private async Task<int> RoomAsync(bool open = true, int roomTypeId = 2)

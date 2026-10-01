@@ -201,7 +201,7 @@ public sealed class DemoDataSeeder(
 
         // Khóa học demo theo mô hình v3: một khóa Cầu lông đã publish (đủ buổi + chiếm phòng/coach) và một khóa Bóng rổ ở Draft.
         // Ghi danh lịch sử demo có InvoiceItem đã thu bằng legacy cash; rental mới dùng checkout thật.
-        var sessionCount = await SeedCoursesAsync(rooms, coachBadminton, coachBasketball, members, today, now, ct);
+        var sessionCount = await SeedCoursesAsync(rooms, coachBadminton, coachBasketball, members, reception.UserId, today, now, ct);
         await SeedCourseStatesAsync(rooms[0], coachBadminton, today, now, ct);
 
         await SeedPackagesAndInvoicesAsync(members, manager, reception, packages, today, now, ct);
@@ -300,6 +300,7 @@ public sealed class DemoDataSeeder(
         UserAccount coachBadminton,
         UserAccount coachBasketball,
         UserAccount[] members,
+        Guid recordedByUserId,
         DateOnly today,
         DateTime now,
         CancellationToken ct)
@@ -399,7 +400,7 @@ public sealed class DemoDataSeeder(
             // Historical cash fixture: explicitly legacy, with a paid item for refund lineage.
             var invoice = new Invoice { InvoiceId = Guid.NewGuid(),
                 InvoiceNumber = await invoiceNumbers.NextAsync(now, ct), MemberId = member.UserId,
-                IssuedByUserId = member.UserId, TotalAmount = badminton.Price, CashAmount = badminton.Price,
+                IssuedByUserId = recordedByUserId, TotalAmount = badminton.Price, CashAmount = badminton.Price,
                 Status = InvoiceStatus.Paid, IssuedAt = now.AddDays(-1) };
             var holdId = Guid.NewGuid();
             var item = new InvoiceItem { ItemId = Guid.NewGuid(), InvoiceId = invoice.InvoiceId,
@@ -413,7 +414,7 @@ public sealed class DemoDataSeeder(
                 CreatedAt = now.AddDays(-1), ExpiresAtUtc = now });
             db.Payments.Add(new Payment.Domain.Entities.Payment { PaymentId = Guid.NewGuid(),
                 InvoiceId = invoice.InvoiceId, Amount = badminton.Price, Method = PaymentMethod.Cash,
-                Status = PaymentStatus.Success, ReceivedByUserId = member.UserId, PaidAt = now.AddDays(-1) });
+                Status = PaymentStatus.Success, ReceivedByUserId = recordedByUserId, PaidAt = now.AddDays(-1) });
             db.Enrollments.Add(new Enrollment { EnrollmentId = Guid.NewGuid(), ClassId = badminton.ClassId,
                 MemberId = member.UserId, InvoiceItemId = item.ItemId,
                 Status = EnrollmentStatus.Confirmed, EnrolledAt = now.AddDays(-1) });

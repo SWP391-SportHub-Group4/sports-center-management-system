@@ -4,7 +4,7 @@ public sealed record AttendanceResponse(
     Guid AttendanceId,
     Guid EnrollmentId,
     Guid SessionId,
-    string Status,
+    [property: SportHub.BuildingBlocks.Api.WireEnum] string Status,
     Guid RecordedByUserId,
     DateTime RecordedAt,
     DateTime? LastModifiedAt);

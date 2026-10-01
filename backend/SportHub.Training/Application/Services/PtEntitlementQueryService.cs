@@ -30,7 +30,7 @@ public sealed class PtEntitlementQueryService(ISportHubDbContext db) : IPtEntitl
 
         if (!string.IsNullOrWhiteSpace(status))
         {
-            if (!Enum.TryParse<PtEntitlementStatus>(status, ignoreCase: true, out var parsed))
+            if (!SportHub.BuildingBlocks.Api.WireEnum.TryParse<PtEntitlementStatus>(status, ignoreCase: true, out var parsed))
             {
                 throw new BadRequestException("pt_entitlement_not_found", $"Trạng thái '{status}' không hợp lệ.");
             }

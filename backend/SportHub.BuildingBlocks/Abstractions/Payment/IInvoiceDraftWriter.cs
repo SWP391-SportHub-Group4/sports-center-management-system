@@ -30,6 +30,7 @@ public sealed record InvoiceDraftItem(
     Guid? SourceEnrollmentId = null,
     Guid? SourceInvoiceItemId = null,
     Guid? RelatedEntityId = null,
-    Guid? ResourceHoldId = null);
+    Guid? ResourceHoldId = null,
+    string? SportName = null);
 
 public sealed record InvoiceDraftResult(Guid InvoiceId, IReadOnlyList<Guid> InvoiceItemIds);
