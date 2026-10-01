@@ -11,7 +11,7 @@ public sealed record MemberPackageResponse(
     DateOnly EndDate,
     int? RemainingSessions,
     int? SessionLimit,
-    string Status,
+    [property: SportHub.BuildingBlocks.Api.WireEnum] string Status,
     bool IsUsable,
     bool StackingApproved,
     string? StackingApprovalReason);

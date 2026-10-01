@@ -41,7 +41,7 @@ public class LoginContractTests(SportHubApiFactory factory)
         var json = await JsonOf(response);
         Assert.False(string.IsNullOrWhiteSpace(json.GetProperty("accessToken").GetString()));
         Assert.Equal("Tran Thi B", json.GetProperty("user").GetProperty("fullName").GetString());
-        Assert.Equal(nameof(UserRole.Member), json.GetProperty("user").GetProperty("role").GetString());
+        Assert.Equal("MEMBER", json.GetProperty("user").GetProperty("role").GetString());
     }
 
     [Fact]

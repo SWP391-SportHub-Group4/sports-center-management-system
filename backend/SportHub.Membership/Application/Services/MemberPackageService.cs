@@ -142,7 +142,7 @@ public sealed class MemberPackageService(
     }
 
     private static MemberPackageStatus ParseStatus(string status)
-        => Enum.TryParse<MemberPackageStatus>(status, ignoreCase: true, out var parsed)
+        => SportHub.BuildingBlocks.Api.WireEnum.TryParse<MemberPackageStatus>(status, ignoreCase: true, out var parsed)
             ? parsed
             : throw new BadRequestException("invalid_status", $"Trạng thái gói không hợp lệ: '{status}'.");
 

@@ -668,6 +668,10 @@ namespace SportHub.API.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("member_package_id");
 
+                    b.Property<int?>("DurationDaysSnapshot")
+                        .HasColumnType("integer")
+                        .HasColumnName("duration_days_snapshot");
+
                     b.Property<DateOnly>("EndDate")
                         .HasColumnType("date")
                         .HasColumnName("end_date");
@@ -1075,6 +1079,14 @@ namespace SportHub.API.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("item_id");
 
+                    b.Property<int?>("ClassId")
+                        .HasColumnType("integer")
+                        .HasColumnName("class_id");
+
+                    b.Property<Guid?>("CourtRentalId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("court_rental_id");
+
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasMaxLength(500)
@@ -1094,6 +1106,18 @@ namespace SportHub.API.Migrations
                         .HasColumnType("numeric(18,0)")
                         .HasColumnName("line_amount");
 
+                    b.Property<Guid?>("MemberPackageId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("member_package_id");
+
+                    b.Property<Guid?>("PtEntitlementId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("pt_entitlement_id");
+
+                    b.Property<int?>("PtFrequencyPerWeek")
+                        .HasColumnType("integer")
+                        .HasColumnName("pt_frequency_per_week");
+
                     b.Property<int>("Quantity")
                         .HasColumnType("integer")
                         .HasColumnName("quantity");
@@ -1106,6 +1130,15 @@ namespace SportHub.API.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("source_invoice_item_id");
 
+                    b.Property<int?>("SportId")
+                        .HasColumnType("integer")
+                        .HasColumnName("sport_id");
+
+                    b.Property<string>("SportNameSnapshot")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("sport_name_snapshot");
+
                     b.Property<decimal>("UnitPrice")
                         .HasPrecision(18)
                         .HasColumnType("numeric(18,0)")
@@ -1114,11 +1147,26 @@ namespace SportHub.API.Migrations
                     b.HasKey("ItemId")
                         .HasName("pk_invoice_items");
 
+                    b.HasIndex("ClassId")
+                        .HasDatabaseName("ix_invoice_items_class_id");
+
+                    b.HasIndex("CourtRentalId")
+                        .HasDatabaseName("ix_invoice_items_court_rental_id");
+
                     b.HasIndex("InvoiceId")
                         .HasDatabaseName("ix_invoice_items_invoice_id");
 
+                    b.HasIndex("MemberPackageId")
+                        .HasDatabaseName("ix_invoice_items_member_package_id");
+
+                    b.HasIndex("PtEntitlementId")
+                        .HasDatabaseName("ix_invoice_items_pt_entitlement_id");
+
                     b.HasIndex("SourceInvoiceItemId")
                         .HasDatabaseName("ix_invoice_items_source_invoice_item_id");
+
+                    b.HasIndex("SportId")
+                        .HasDatabaseName("ix_invoice_items_sport_id");
 
                     b.ToTable("invoice_items", null, t =>
                         {
@@ -1154,6 +1202,10 @@ namespace SportHub.API.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("paid_at");
 
+                    b.Property<Guid?>("PaymentAttemptId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("payment_attempt_id");
+
                     b.Property<Guid>("ReceivedByUserId")
                         .HasColumnType("uuid")
                         .HasColumnName("received_by_user_id");
@@ -1171,6 +1223,9 @@ namespace SportHub.API.Migrations
 
                     b.HasIndex("InvoiceId")
                         .HasDatabaseName("ix_payments_invoice_id");
+
+                    b.HasIndex("PaymentAttemptId")
+                        .HasDatabaseName("ix_payments_payment_attempt_id");
 
                     b.HasIndex("ReceivedByUserId")
                         .HasDatabaseName("ix_payments_received_by_user_id");
@@ -3705,18 +3760,48 @@ namespace SportHub.API.Migrations
 
             modelBuilder.Entity("SportHub.Payment.Domain.Entities.InvoiceItem", b =>
                 {
+                    b.HasOne("SportHub.Scheduling.Domain.Entities.Class", null)
+                        .WithMany()
+                        .HasForeignKey("ClassId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_invoice_items_classes_class_id");
+
+                    b.HasOne("SportHub.Scheduling.Rental.Domain.CourtRental", null)
+                        .WithMany()
+                        .HasForeignKey("CourtRentalId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_invoice_items_court_rentals_court_rental_id");
+
                     b.HasOne("SportHub.Payment.Domain.Entities.Invoice", "Invoice")
                         .WithMany("Items")
                         .HasForeignKey("InvoiceId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_invoice_items_invoices_invoice_id");
+
+                    b.HasOne("SportHub.Membership.Domain.Entities.MemberPackage", null)
+                        .WithMany()
+                        .HasForeignKey("MemberPackageId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_invoice_items_member_packages_member_package_id");
+
+                    b.HasOne("SportHub.Training.Domain.Entities.PtEntitlement", null)
+                        .WithMany()
+                        .HasForeignKey("PtEntitlementId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_invoice_items_pt_entitlements_pt_entitlement_id");
 
                     b.HasOne("SportHub.Payment.Domain.Entities.InvoiceItem", null)
                         .WithMany()
                         .HasForeignKey("SourceInvoiceItemId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_invoice_items_invoice_items_source_invoice_item_id");
+
+                    b.HasOne("SportHub.Scheduling.Catalog.Domain.Sport", null)
+                        .WithMany()
+                        .HasForeignKey("SportId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_invoice_items_sports_sport_id");
 
                     b.Navigation("Invoice");
                 });
@@ -3729,6 +3814,12 @@ namespace SportHub.API.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_payments_invoices_invoice_id");
+
+                    b.HasOne("SportHub.Payment.Domain.Entities.PaymentAttempt", null)
+                        .WithMany()
+                        .HasForeignKey("PaymentAttemptId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_payments_payment_attempts_payment_attempt_id");
 
                     b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", "ReceivedByUser")
                         .WithMany()

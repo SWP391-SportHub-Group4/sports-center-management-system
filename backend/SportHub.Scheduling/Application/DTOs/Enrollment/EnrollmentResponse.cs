@@ -8,9 +8,9 @@ public sealed record EnrollmentResponse(
     string ClassName,
     string SportName,
     Guid MemberId,
-    string Status,
+    [property: SportHub.BuildingBlocks.Api.WireEnum] string Status,
     DateTime EnrolledAt,
     DateTime? EndedAt,
     int NumSessions,
     DateTime? FirstSessionStartUtc,
-    string ClassStatus);
+    [property: SportHub.BuildingBlocks.Api.WireEnum] string ClassStatus);

@@ -13,7 +13,7 @@ public sealed record FreeRoomResponse(int RoomId, string Name, int? RoomTypeId, 
 
 public sealed record FreeCoachResponse(Guid CoachId, string FullName);
 
-public sealed record BusyIntervalResponse(string Resource, string SourceType, Guid SourceId, DateTime StartAtUtc, DateTime EndAtUtc);
+public sealed record BusyIntervalResponse(string Resource, [property: SportHub.BuildingBlocks.Api.WireEnum] string SourceType, Guid SourceId, DateTime StartAtUtc, DateTime EndAtUtc);
 
 /// <summary>
 /// Gợi ý phòng/coach còn trống. Đọc cùng bảng occupancy mà <see cref="OccupancyService"/> ghi nên hai bên không lệch nhau.

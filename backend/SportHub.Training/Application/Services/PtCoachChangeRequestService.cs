@@ -44,7 +44,7 @@ public sealed class PtCoachChangeRequestService(
 
         if (!string.IsNullOrWhiteSpace(status))
         {
-            if (!Enum.TryParse<PtCoachChangeRequestStatus>(status, ignoreCase: true, out var parsed))
+            if (!SportHub.BuildingBlocks.Api.WireEnum.TryParse<PtCoachChangeRequestStatus>(status, ignoreCase: true, out var parsed))
             {
                 throw new BadRequestException(
                     "pt_change_request_invalid_state", $"Trạng thái '{status}' không hợp lệ.");

@@ -11,7 +11,7 @@ public sealed record PtCoachChangeRequestResponse(
     string RequestedCoachName,
     string? Reason,
     DateTime RequestedAt,
-    string Status,
+    [property: SportHub.BuildingBlocks.Api.WireEnum] string Status,
     Guid? ReviewedByUserId,
     DateTime? ReviewedAt,
     string? ReviewNote);

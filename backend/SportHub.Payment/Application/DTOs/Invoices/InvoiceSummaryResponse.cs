@@ -14,11 +14,16 @@ public sealed record InvoiceSummaryResponse(
     decimal NetPayable,
     decimal Outstanding,
     decimal RefundDue,
-    string Status,
+    [property: SportHub.BuildingBlocks.Api.WireEnum] string Status,
     DateTime IssuedAt,
     int PointsSpent = 0,
     decimal CashAmount = 0,
-    string? PaidVia = null,
+    [property: SportHub.BuildingBlocks.Api.WireEnum] string? PaidVia = null,
     DateTime? PaidAtUtc = null,
     DateTime? CheckoutExpiresAtUtc = null,
-    bool ReconciliationRequired = false);
+    bool ReconciliationRequired = false)
+{
+    [SportHub.BuildingBlocks.Api.WireEnum]
+    public string FulfillmentOutcome => SportHub.BuildingBlocks.Api.WireEnum.TryParse<Domain.Enums.InvoiceStatus>(Status, true, out var status)
+        ? Domain.Rules.InvoiceFulfillment.Outcome(status, PaidVia, ReconciliationRequired) : "Pending";
+}

@@ -14,7 +14,7 @@ public sealed record CoachResponse(
     string Email,
     string FullName,
     string? Phone,
-    string Status,
+    [property: SportHub.BuildingBlocks.Api.WireEnum] string Status,
     string? Bio,
     IReadOnlyList<int> SportIds,
     DateTime CreatedAt);

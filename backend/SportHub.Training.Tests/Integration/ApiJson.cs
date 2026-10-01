@@ -12,7 +12,7 @@ internal static class ApiJson
 {
     public static readonly JsonSerializerOptions Options = new(JsonSerializerDefaults.Web)
     {
-        Converters = { new JsonStringEnumConverter() }
+        Converters = { new JsonStringEnumConverter(JsonNamingPolicy.SnakeCaseUpper, allowIntegerValues: false) }
     };
 
     public static Task<T?> ReadApiJsonAsync<T>(this HttpContent content, CancellationToken ct = default)

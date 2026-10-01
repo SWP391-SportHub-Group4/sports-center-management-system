@@ -10,7 +10,7 @@ public sealed record ExternalCoachResponse(
     string FullName,
     string? Phone,
     string? Bio,
-    string ApprovalStatus,
+    [property: SportHub.BuildingBlocks.Api.WireEnum] string ApprovalStatus,
     IReadOnlyList<int> SportIds,
     Guid? ReviewedByUserId,
     DateTime? ReviewedAt,

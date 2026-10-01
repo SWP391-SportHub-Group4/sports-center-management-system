@@ -30,7 +30,7 @@ public sealed class MemberTrainingProfileService(ISportHubDbContext db, IClock c
         SaveTrainingProfileRequest request,
         CancellationToken ct = default)
     {
-        if (!Enum.TryParse<ExperienceLevel>(request.ExperienceLevel, ignoreCase: true, out var level))
+        if (!SportHub.BuildingBlocks.Api.WireEnum.TryParse<ExperienceLevel>(request.ExperienceLevel, ignoreCase: true, out var level))
         {
             throw new BadRequestException(
                 "invalid_experience_level",

@@ -46,10 +46,10 @@ public sealed record RevenueReportResponse(
 }
 
 public sealed record RevenueReportDimensionRowResponse(
-    string Source, int? SportId, string? SportName, Guid? ExternalCoachId,
+    [property: SportHub.BuildingBlocks.Api.WireEnum] string Source, int? SportId, string? SportName, Guid? ExternalCoachId,
     decimal CashCollected, decimal LegacyCashCollected, long PointsRedeemed);
 
 public sealed record RevenueReportSourceRowResponse(
-    string Source,
+    [property: SportHub.BuildingBlocks.Api.WireEnum] string Source,
     decimal CashCollected,
     long PointsRedeemed);

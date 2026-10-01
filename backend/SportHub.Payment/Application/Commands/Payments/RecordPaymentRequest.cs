@@ -9,7 +9,7 @@ public sealed class RecordPaymentRequest
 
     /// <summary>Tên member của enum PaymentMethod (SSOT §3): Cash/Card/Transfer/EWallet.</summary>
     [Required]
-    public string Method { get; set; } = string.Empty;
+    [SportHub.BuildingBlocks.Api.WireEnum] public string Method { get; set; } = string.Empty;
 
     [MaxLength(100)]
     public string? ReferenceCode { get; set; }

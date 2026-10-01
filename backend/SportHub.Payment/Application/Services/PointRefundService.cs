@@ -39,7 +39,7 @@ public sealed class PointRefundService(
         var query = db.Set<PaymentAdjustment>().AsNoTracking().Where(x => x.Type == PaymentAdjustmentType.Refund);
         if (!string.IsNullOrWhiteSpace(status))
         {
-            if (!Enum.TryParse<PaymentAdjustmentStatus>(status, true, out var parsed))
+            if (!SportHub.BuildingBlocks.Api.WireEnum.TryParse<PaymentAdjustmentStatus>(status, true, out var parsed))
                 throw new BadRequestException("invalid_status", $"Trạng thái refund không hợp lệ: '{status}'.");
             query = query.Where(x => x.Status == parsed);
         }
@@ -66,7 +66,7 @@ public sealed class PointRefundService(
             .SingleAsync(x => x.InvoiceId == item.InvoiceId, cancellationToken);
         if (!canRequestForAnotherUser && invoice.MemberId != actorUserId)
             throw new ForbiddenException("refund_item_not_owned", "Hóa đơn không thuộc tài khoản của bạn.");
-        if (invoice.Status != InvoiceStatus.Paid)
+        if (!SportHub.Payment.Domain.Rules.InvoiceFulfillment.HasBenefits(invoice.Status, invoice.PaidVia))
             throw new ConflictException("refund_invoice_not_paid", "Chỉ hóa đơn Paid đã cấp quyền lợi mới được yêu cầu hoàn.");
         await EnsureNoUnmappedLegacyRefundAsync(invoice.InvoiceId, cancellationToken);
         var itemPaidVnd = await GetRemainingItemPaidVndAsync(invoice, item, cancellationToken);
@@ -106,7 +106,7 @@ public sealed class PointRefundService(
             throw new ForbiddenException("cannot_approve_own_request", "Không được tự duyệt yêu cầu refund của mình.");
 
         var invoice = await db.Set<Invoice>().SingleAsync(x => x.InvoiceId == adjustment.InvoiceId, cancellationToken);
-        if (invoice.Status != InvoiceStatus.Paid)
+        if (!SportHub.Payment.Domain.Rules.InvoiceFulfillment.HasBenefits(invoice.Status, invoice.PaidVia))
             throw new ConflictException("refund_invoice_not_paid", "Hóa đơn không còn trạng thái Paid.");
         var item = await db.Set<InvoiceItem>().FromSqlInterpolated($"""
             SELECT * FROM invoice_items WHERE item_id = {adjustment.InvoiceItemId.Value} FOR UPDATE
@@ -225,16 +225,16 @@ public sealed class PointRefundService(
         switch (item.ItemType)
         {
             case InvoiceItemType.Membership:
-                await memberships.CancelAsync(item.ItemId, item.RelatedEntityId, reason, actorId, ct);
+                await memberships.CancelAsync(item.ItemId, item.MemberPackageId ?? item.RelatedEntityId, reason, actorId, ct);
                 break;
             case InvoiceItemType.PT:
-                await pt.CancelByInvoiceItemAsync(item.ItemId, item.RelatedEntityId, reason, actorId, ct);
+                await pt.CancelByInvoiceItemAsync(item.ItemId, item.PtEntitlementId ?? item.RelatedEntityId, reason, actorId, ct);
                 break;
             case InvoiceItemType.ClassPackage:
                 await classes.CancelAsync(item.ItemId, EnrollmentEndReason.Refunded, ct);
                 break;
             case InvoiceItemType.Rental:
-                if (item.RelatedEntityId is not Guid rentalId)
+                if ((item.CourtRentalId ?? item.RelatedEntityId) is not Guid rentalId)
                     throw new ConflictException("refund_entitlement_not_found", "Refund thuê sân thiếu lượt thuê.");
                 await rentals.CancelAsync(rentalId, reason, centerFault, cancellationToken: ct);
                 break;
@@ -249,12 +249,12 @@ public sealed class PointRefundService(
             throw new ConflictException("refund_item_value_invalid", "InvoiceItem không có giá trị dương.");
         var cash = await db.Set<Domain.Entities.Payment>().Where(x => x.InvoiceId == invoice.InvoiceId
                 && x.Status == PaymentStatus.Success).SumAsync(x => (decimal?)x.Amount, ct) ?? 0m;
-        var points = invoice.CheckoutCycleId is not null && invoice.Status == InvoiceStatus.Paid
+        var points = invoice.CheckoutCycleId is not null && SportHub.Payment.Domain.Rules.InvoiceFulfillment.HasBenefits(invoice.Status, invoice.PaidVia)
             ? invoice.PointsApplied * (decimal)RefundCalculator.VndPerPoint : 0m;
         var paidShare = Math.Min(item.LineAmount,
             decimal.Floor((cash + points) * item.LineAmount / totalItemValue));
         var paidTransferDifferences = await db.Set<InvoiceItem>().Where(x => x.SourceInvoiceItemId == item.ItemId
-                && x.Invoice!.Status == InvoiceStatus.Paid)
+                && (x.Invoice!.Status == InvoiceStatus.Paid || (x.Invoice.Status == InvoiceStatus.PaidAfterReconciliation && x.Invoice.PaidVia == "VnPayAfterReconciliation")))
             .SumAsync(x => (decimal?)x.LineAmount, ct) ?? 0m;
         var priorPoints = await CompletedPointsForItemAsync(item.ItemId, ct);
         var priorLegacyPayout = await db.Set<PaymentAdjustment>().Where(x => x.InvoiceItemId == item.ItemId

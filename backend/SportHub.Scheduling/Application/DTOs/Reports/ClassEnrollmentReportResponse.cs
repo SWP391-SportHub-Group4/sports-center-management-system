@@ -7,14 +7,14 @@ public sealed record ClassEnrollmentRowResponse(
     string Name,
     int SportId,
     string SportName,
-    string Status,
+    [property: SportHub.BuildingBlocks.Api.WireEnum] string Status,
     int Capacity,
     int ConfirmedCount,
     int ActiveHoldCount,
     int AvailableSeats,
     decimal FillRatio,
     int? BreakEvenThreshold,
-    string ThresholdStatus,
+    [property: SportHub.BuildingBlocks.Api.WireEnum] string ThresholdStatus,
     DateTime? FirstSessionStartUtc);
 
 public sealed record ClassEnrollmentReportResponse(

@@ -79,7 +79,7 @@ public sealed class RefundWorkflowTests(PaymentApiFactory factory)
             new { invoiceItemId = fixture.InvoiceItemId, reason = "Yêu cầu hoàn theo chính sách Membership" });
         Assert.Equal(HttpStatusCode.OK, createdResponse.StatusCode);
         var requested = (await createdResponse.Content.ReadFromJsonAsync<RefundResponse>())!;
-        Assert.Equal("Requested", requested.Status);
+        Assert.Equal("REQUESTED", requested.Status);
         Assert.Equal(500, requested.SystemCalculatedPoints);
         Assert.Equal(fixture.InvoiceItemId, requested.InvoiceItemId);
 
@@ -87,7 +87,7 @@ public sealed class RefundWorkflowTests(PaymentApiFactory factory)
             new { reason = "Đủ điều kiện hoàn 50%" });
         Assert.Equal(HttpStatusCode.OK, approvedResponse.StatusCode);
         var approved = (await approvedResponse.Content.ReadFromJsonAsync<RefundResponse>())!;
-        Assert.Equal("Completed", approved.Status);
+        Assert.Equal("COMPLETED", approved.Status);
         Assert.Equal(500, approved.ApprovedPoints);
         Assert.NotNull(approved.PointLedgerEntryId);
         Assert.Null(approved.RefundMethod);

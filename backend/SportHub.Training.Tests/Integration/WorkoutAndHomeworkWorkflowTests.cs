@@ -106,9 +106,9 @@ public sealed class WorkoutAndHomeworkWorkflowTests(TrainingApiFactory factory)
         var memberClient = factory.CreateApiClient(member.UserId, UserRole.Member);
         var complete = await memberClient.PatchAsJsonAsync(
             $"api/members/me/homework/{homework.AssignmentId}",
-            new UpdateMemberHomeworkRequest
+            new
             {
-                Status = HomeworkAssignmentStatus.Completed,
+                Status = "COMPLETED",
                 MemberFeedback = "Đã hoàn thành",
                 Version = homework.Version
             });
@@ -162,9 +162,9 @@ public sealed class WorkoutAndHomeworkWorkflowTests(TrainingApiFactory factory)
 
         var response = await factory.CreateApiClient(stranger.UserId, UserRole.Member).PatchAsJsonAsync(
             $"api/members/me/homework/{homework.AssignmentId}",
-            new UpdateMemberHomeworkRequest
+            new
             {
-                Status = HomeworkAssignmentStatus.Completed, Version = homework.Version
+                Status = "COMPLETED", Version = homework.Version
             });
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);

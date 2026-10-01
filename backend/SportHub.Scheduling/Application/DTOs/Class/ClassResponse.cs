@@ -22,7 +22,7 @@ public sealed record ClassPublicResponse(
     int Capacity,
     int AvailableSeats,
     decimal Price,
-    string Status,
+    [property: SportHub.BuildingBlocks.Api.WireEnum] string Status,
     DateTime? FirstSessionStartUtc,
     IReadOnlyList<ClassScheduleRuleResponse> ScheduleRules);
 
@@ -43,9 +43,9 @@ public sealed record ClassManagerResponse(
     decimal Price,
     decimal CostAmount,
     int? BreakEvenThreshold,
-    string ThresholdStatus,
+    [property: SportHub.BuildingBlocks.Api.WireEnum] string ThresholdStatus,
     DateTime? ThresholdDeadlineUtc,
-    string Status,
+    [property: SportHub.BuildingBlocks.Api.WireEnum] string Status,
     int ConfirmedCount,
     int ReservedCount,
     int ActiveHoldCount,

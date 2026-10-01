@@ -222,6 +222,8 @@ builder.Services.AddScoped<IReportExportService, ReportExportService>();
 
 // Membership
 builder.Services.AddScoped<IMembershipPackageService, MembershipPackageService>();
+builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Membership.IMembershipFulfillment, MembershipFulfillment>();
+builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Membership.IMembershipAccessReader, MembershipAccessReader>();
 builder.Services.AddScoped<IMemberPackageService, MemberPackageService>();
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Membership.IMembershipRefundFulfillment, MembershipRefundFulfillment>();
 builder.Services.AddScoped<IMemberTrainingProfileService, MemberTrainingProfileService>();
@@ -253,6 +255,8 @@ builder.Services.AddScoped<SportHub.Scheduling.Threshold.Application.ThresholdRe
 builder.Services.AddScoped<SportHub.Scheduling.Threshold.Application.ThresholdResponseExpiryService>();
 builder.Services.AddScoped<IClassSessionService, ClassSessionService>();
 builder.Services.AddScoped<IClassEnrollmentReportService, ClassEnrollmentReportService>();
+builder.Services.AddScoped<SportHub.Scheduling.Rental.Application.CourtScheduleService>();
+builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Scheduling.IPtCourtScheduleReader, SportHub.Training.Application.Services.PtCourtScheduleReader>();
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Reporting.IClassEnrollmentExportReader, ClassEnrollmentExportReader>();
 builder.Services.AddScoped<CourseValidator>();
 builder.Services.AddScoped<SeatHoldService>();
@@ -397,11 +401,8 @@ builder.Services.AddControllers()
     {
         options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
 
-        // Enum trả ra dạng CHUỖI PascalCase, khớp tên member enum ở SSOT §3 và khớp role
-        // trong JWT. SSOT §3 mong muốn UPPER_SNAKE_CASE nhưng ghi rõ cơ chế "chưa chốt";
-        // đổi bây giờ sẽ phá hợp đồng login đang được test kiểm chứng.
-        // Xem docs/implementation-decisions.md B6.
-        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+        options.JsonSerializerOptions.Converters.Add(
+            new JsonStringEnumConverter(JsonNamingPolicy.SnakeCaseUpper, allowIntegerValues: false));
     });
 builder.Services.AddSportHubSwagger();
 

@@ -7,9 +7,9 @@ public sealed record CoachMemberRelationshipResponse(
     Guid MemberId,
     string MemberEmail,
     string MemberName,
-    string SourceType,
+    [property: SportHub.BuildingBlocks.Api.WireEnum] string SourceType,
     int? ClassId,
     string? ClassName,
-    string Status,
+    [property: SportHub.BuildingBlocks.Api.WireEnum] string Status,
     DateTime StartedAt,
     DateTime? EndedAt);

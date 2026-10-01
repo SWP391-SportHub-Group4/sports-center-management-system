@@ -7,7 +7,7 @@ namespace SportHub.Scheduling.Catalog.Application;
 public sealed record SportResponse(
     int SportId,
     string Name,
-    string OperationType,
+    [property: SportHub.BuildingBlocks.Api.WireEnum] string OperationType,
     int? DefaultSessionMinutes,
     int? DefaultMaxCapacity,
     string? Description,
@@ -22,7 +22,7 @@ public sealed class SaveSportRequest
 
     /// <summary>WalkIn / OneOnOne / GroupCourse. Không đổi được sau khi tạo.</summary>
     [Required]
-    public string OperationType { get; set; } = string.Empty;
+    [SportHub.BuildingBlocks.Api.WireEnum] public string OperationType { get; set; } = string.Empty;
 
     [Range(15, 480)]
     public int? DefaultSessionMinutes { get; set; }

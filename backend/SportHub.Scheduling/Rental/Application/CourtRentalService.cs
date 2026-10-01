@@ -7,8 +7,6 @@ using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.Abstractions.Scheduling;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.BuildingBlocks.SharedKernel.Time;
-using SportHub.Identity.Domain.Entities;
-using SportHub.Identity.Domain.Enums;
 using SportHub.Scheduling.Catalog.Application;
 using SportHub.Scheduling.Catalog.Domain;
 using SportHub.Scheduling.Domain.Entities;
@@ -19,7 +17,7 @@ namespace SportHub.Scheduling.Rental.Application;
 
 /// <summary>Validates, prices and reserves ExternalCoach court bookings against the shared occupancy ledger.</summary>
 public sealed class CourtRentalService(ISportHubDbContext db, IUserAccessReader users,
-    ICoachSpecialtyReader specialties, IOccupancyService occupancy, ISystemSettingProvider settings,
+    ICoachSpecialtyReader specialties, IExternalCoachAccessReader externalCoaches, IOccupancyService occupancy, ISystemSettingProvider settings,
     IClock clock) : ICourtRentalFulfillment
 {
     public async Task<CourtRentalQuote> QuoteAsync(CourtRentalRequest request, CancellationToken cancellationToken = default)
@@ -31,9 +29,8 @@ public sealed class CourtRentalService(ISportHubDbContext db, IUserAccessReader 
         var access = await users.GetAsync(request.ExternalCoachId, cancellationToken);
         if (access is null || !access.IsActive || access.Role != "ExternalCoach")
             throw new ForbiddenException("external_coach_inactive", "Tài khoản ExternalCoach không hoạt động.");
-        var profile = await db.Set<ExternalCoachProfile>().AsNoTracking()
-            .SingleOrDefaultAsync(x => x.UserId == request.ExternalCoachId, cancellationToken);
-        if (profile?.ApprovalStatus != ExternalCoachApprovalStatus.Approved)
+        var profile = await externalCoaches.GetAsync(request.ExternalCoachId, cancellationToken);
+        if (profile?.ApprovalStatus != "Approved")
             throw new ForbiddenException("external_coach_not_approved", "Chỉ ExternalCoach đã được duyệt mới được đặt sân.");
         if (!await specialties.HasSportAsync(request.ExternalCoachId, request.SportId, cancellationToken))
             throw new ForbiddenException("external_coach_sport_forbidden", "Môn này chưa nằm trong hồ sơ ExternalCoach.");

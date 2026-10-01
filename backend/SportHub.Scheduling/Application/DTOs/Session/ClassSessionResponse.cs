@@ -11,6 +11,6 @@ public sealed record ClassSessionResponse(
     string? CoachName,
     DateTime StartAtUtc,
     DateTime EndAtUtc,
-    string Status,
+    [property: SportHub.BuildingBlocks.Api.WireEnum] string Status,
     bool IsMakeup,
     Guid? RescheduledFromSessionId);

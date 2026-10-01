@@ -4,12 +4,12 @@ using SportHub.BuildingBlocks.Abstractions.Wallet;
 namespace SportHub.Payment.Wallet.Application;
 
 public sealed record WalletBalanceResponse(Guid OwnerUserId, int AvailablePoints, int HeldPoints, int VndPerPoint);
-public sealed record WalletLedgerResponse(Guid Id, string EntryType, int Points, int AvailableDelta, int HeldDelta,
+public sealed record WalletLedgerResponse(Guid Id, [property: SportHub.BuildingBlocks.Api.WireEnum] string EntryType, int Points, int AvailableDelta, int HeldDelta,
     int AvailableAfter, int HeldAfter, string ReferenceType, Guid ReferenceId, string? Note, DateTime CreatedAtUtc);
 public sealed record PointConfirmationResponse(Guid ConfirmationId, Guid InvoiceId, Guid MemberId, int Points,
-    DateTime ExpiresAtUtc, DateTime HoldExpiresAtUtc, string Status, int Revision);
+    DateTime ExpiresAtUtc, DateTime HoldExpiresAtUtc, [property: SportHub.BuildingBlocks.Api.WireEnum] string Status, int Revision);
 public sealed record PointSelectionResponse(Guid InvoiceId, Guid MemberId, int PointsApplied, decimal CashAmount,
-    DateTime? HoldExpiresAtUtc, string Status, int Revision);
+    DateTime? HoldExpiresAtUtc, [property: SportHub.BuildingBlocks.Api.WireEnum] string Status, int Revision);
 public sealed class RequestPointConfirmationRequest
 {
     public Guid MemberId { get; set; }

@@ -4,6 +4,7 @@ namespace SportHub.Membership.Domain.Entities;
 
 public class MemberPackage
 {
+    public int? DurationDaysSnapshot { get; set; }
     public Guid MemberPackageId { get; set; } // PK
 
     public Guid MemberId { get; set; } // FK -> UserAccount

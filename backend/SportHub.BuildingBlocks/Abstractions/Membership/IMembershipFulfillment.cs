@@ -1,10 +1,16 @@
 namespace SportHub.BuildingBlocks.Abstractions.Membership;
 
-/// <summary>Kích hoạt/hủy Membership sau thanh toán. Bản cài đặt ở Membership; cùng transaction caller, không SaveChanges.</summary>
+/// <summary>Membership owns entitlement mutations; all writes join the caller transaction.</summary>
 public interface IMembershipFulfillment
 {
-    /// <summary>Idempotent theo <paramref name="invoiceItemId"/>: gọi lại trả MemberPackage đã tạo.</summary>
-    Task<Guid> ActivateAsync(Guid invoiceItemId, Guid memberId, int packageId, CancellationToken cancellationToken = default);
-
-    Task CancelAsync(Guid invoiceItemId, string reason, CancellationToken cancellationToken = default);
+    Task<MembershipPurchaseQuote> QuoteAsync(int packageId, CancellationToken ct = default);
+    Task<MembershipPurchaseState> GetAsync(Guid memberPackageId, CancellationToken ct = default);
+    Task<Guid> PrepareAsync(Guid memberId, int packageId, Guid actorId, bool allowStacking,
+        string? stackingReason, CancellationToken ct = default);
+    Task AttachItemAsync(Guid memberPackageId, Guid itemId, CancellationToken ct = default);
+    Task ActivateAsync(Guid memberPackageId, Guid invoiceId, Guid actorId, CancellationToken ct = default);
+    Task ReleaseAsync(Guid memberPackageId, CancellationToken ct = default);
 }
+
+public sealed record MembershipPurchaseQuote(int PackageId, string Name, decimal Price, int DurationDays, int? SessionLimit);
+public sealed record MembershipPurchaseState(int PackageId, Guid? StackingApprovedByUserId, string? StackingApprovalReason);

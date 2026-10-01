@@ -46,7 +46,7 @@ public sealed class RefundCreditService(ISportHubDbContext db, IPointWalletServi
             return new RefundCreditResult(prior.Points, true);
         }
 
-        if (invoice.Status != InvoiceStatus.Paid)
+        if (!SportHub.Payment.Domain.Rules.InvoiceFulfillment.HasBenefits(invoice.Status, invoice.PaidVia))
             throw new ConflictException("refund_invoice_not_paid", "Chỉ item đã Paid được hoàn điểm.");
 
         var value = await RemainingPaidValueVndAsync(invoice, item, cancellationToken);
@@ -79,7 +79,7 @@ public sealed class RefundCreditService(ISportHubDbContext db, IPointWalletServi
         }
         var item = await db.Set<InvoiceItem>().AsNoTracking().SingleAsync(x => x.ItemId == request.InvoiceItemId, cancellationToken);
         var invoice = await db.Set<Invoice>().AsNoTracking().SingleAsync(x => x.InvoiceId == item.InvoiceId, cancellationToken);
-        if (invoice.Status != InvoiceStatus.Paid)
+        if (!SportHub.Payment.Domain.Rules.InvoiceFulfillment.HasBenefits(invoice.Status, invoice.PaidVia))
             throw new ConflictException("refund_invoice_not_paid", "Chỉ item đã Paid được hoàn điểm.");
         var remaining = await RemainingPaidValueVndAsync(invoice, item, cancellationToken);
         if (request.Points * (decimal)RefundCalculator.VndPerPoint > remaining)
@@ -97,7 +97,7 @@ public sealed class RefundCreditService(ISportHubDbContext db, IPointWalletServi
             ?? throw new NotFoundException("invoice_item_not_found", "Không tìm thấy sản phẩm hóa đơn.");
         var invoice = await db.Set<Invoice>().AsNoTracking()
             .SingleAsync(x => x.InvoiceId == item.InvoiceId, cancellationToken);
-        if (invoice.Status != InvoiceStatus.Paid)
+        if (!SportHub.Payment.Domain.Rules.InvoiceFulfillment.HasBenefits(invoice.Status, invoice.PaidVia))
             throw new ConflictException("refund_invoice_not_paid", "Chỉ item đã Paid được hoàn điểm.");
         return await RemainingPaidValueVndAsync(invoice, item, cancellationToken);
     }
@@ -124,7 +124,7 @@ public sealed class RefundCreditService(ISportHubDbContext db, IPointWalletServi
         var paidShare = Math.Min(item.LineAmount,
             decimal.Floor((cash + pointsSpent) * item.LineAmount / totalItemValue));
         var paidTransferDifferences = await db.Set<InvoiceItem>().Where(x => x.SourceInvoiceItemId == item.ItemId
-                && x.Invoice!.Status == InvoiceStatus.Paid)
+                && (x.Invoice!.Status == InvoiceStatus.Paid || (x.Invoice.Status == InvoiceStatus.PaidAfterReconciliation && x.Invoice.PaidVia == "VnPayAfterReconciliation")))
             .SumAsync(x => (decimal?)x.LineAmount, ct) ?? 0m;
         var requestedPoints = await db.Set<PaymentAdjustment>().Where(x => x.InvoiceItemId == item.ItemId
                 && x.Type == PaymentAdjustmentType.Refund && x.Status == PaymentAdjustmentStatus.Completed)

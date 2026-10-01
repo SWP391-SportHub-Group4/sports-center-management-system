@@ -15,8 +15,8 @@ public sealed record MyAccountResponse(
     string Email,
     string FullName,
     string? Phone,
-    string Role,
-    string Status,
+    [property: SportHub.BuildingBlocks.Api.WireEnum] string Role,
+    [property: SportHub.BuildingBlocks.Api.WireEnum] string Status,
     DateTime CreatedAt,
     bool HasPassword,
     bool HasGoogleLink);

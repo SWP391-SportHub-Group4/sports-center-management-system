@@ -13,6 +13,15 @@ public static class CrossModuleRelationships
 {
     public static void Configure(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<InvoiceItem>().HasOne<Class>().WithMany().HasForeignKey(x => x.ClassId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<InvoiceItem>().HasOne<CourtRental>().WithMany().HasForeignKey(x => x.CourtRentalId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<InvoiceItem>().HasOne<SportHub.Training.Domain.Entities.PtEntitlement>().WithMany()
+            .HasForeignKey(x => x.PtEntitlementId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<InvoiceItem>().HasOne<SportHub.Membership.Domain.Entities.MemberPackage>().WithMany()
+            .HasForeignKey(x => x.MemberPackageId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<InvoiceItem>().HasOne<Sport>().WithMany().HasForeignKey(x => x.SportId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<Payment.Domain.Entities.Payment>().HasOne<PaymentAttempt>().WithMany()
+            .HasForeignKey(x => x.PaymentAttemptId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<SportHub.Payment.Wallet.Domain.PointWallet>()
             .HasOne<UserAccount>().WithMany().HasForeignKey(e => e.OwnerUserId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<SportHub.Payment.Wallet.Domain.PointLedgerEntry>()

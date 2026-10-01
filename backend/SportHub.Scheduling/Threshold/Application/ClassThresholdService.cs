@@ -16,6 +16,7 @@ namespace SportHub.Scheduling.Threshold.Application;
 
 /// <summary>Evaluates published classes and queues one expiring, member-bound decision link per paid enrollment.</summary>
 public sealed class ClassThresholdService(ISportHubDbContext db, ISystemSettingProvider settings,
+    SportHub.BuildingBlocks.Abstractions.Identity.IUserAccessReader users,
     INotificationWriter notifications, IAuditWriter audit, IClock clock) : IClassThresholdService
 {
     public async Task WaiveAsync(int classId, Guid managerUserId, string reason, CancellationToken cancellationToken = default)
@@ -33,7 +34,9 @@ public sealed class ClassThresholdService(ISportHubDbContext db, ISystemSettingP
         entity.ThresholdStatus = ThresholdStatus.WaivedByManager;
         entity.Version++;
         audit.Write(new AuditEntry(managerUserId, "WAIVE_CLASS_THRESHOLD", nameof(Class), classId.ToString(),
-            OldValue: old.ToString(), NewValue: ThresholdStatus.WaivedByManager.ToString(), Reason: reason.Trim()));
+            OldValue: System.Text.Json.JsonSerializer.Serialize(new { thresholdStatus = old.ToString() }),
+            NewValue: System.Text.Json.JsonSerializer.Serialize(new { thresholdStatus = ThresholdStatus.WaivedByManager.ToString() }),
+            Reason: reason.Trim()));
         await db.SaveChangesAsync(cancellationToken);
         await tx.CommitAsync(cancellationToken);
     }
@@ -150,6 +153,13 @@ public sealed class ClassThresholdService(ISportHubDbContext db, ISystemSettingP
                 $"Khóa {entity.Name} chưa đạt ngưỡng đăng ký. Hãy chọn hoàn điểm hoặc chuyển lớp trước "
                 + $"{VietnamTime.ToLocal(deadline):dd/MM/yyyy HH:mm}. Liên kết phản hồi: /class-threshold-response?token={token}",
                 responseId));
+            var recipient = await users.GetAsync(enrollment.MemberId, ct);
+            if (recipient is not null)
+                notifications.QueueEmail(new EmailNotificationRequest(enrollment.MemberId, recipient.Email,
+                    NotificationEvents.ClassThresholdAtRisk, responseId, "SportHub - Khóa học chưa đạt ngưỡng",
+                    "<p>Khóa " + System.Net.WebUtility.HtmlEncode(entity.Name)
+                    + $" chưa đạt ngưỡng. Chọn hoàn điểm hoặc chuyển lớp trước {VietnamTime.ToLocal(deadline):dd/MM/yyyy HH:mm}."
+                    + " Mở liên kết sau trên ứng dụng SportHub: /class-threshold-response?token=" + token + "</p>"));
         }
     }
 }

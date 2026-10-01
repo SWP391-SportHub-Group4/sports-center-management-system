@@ -50,7 +50,7 @@ public sealed class CourtRentalsController(CourtRentalOperationsService operatio
         return NoContent();
     }
 
-    [Authorize(Policy = SportHubPolicies.StaffRead)]
+    [Authorize(Policy = SportHubPolicies.FrontDesk)]
     [HttpGet("api/manager/court-schedule/rentals")]
     public async Task<IActionResult> StaffSchedule([FromQuery] int? roomId, [FromQuery] DateTime fromUtc,
         [FromQuery] DateTime toUtc, CancellationToken ct)

@@ -8,13 +8,22 @@ using SportHub.Training.Domain.Entities;
 namespace SportHub.Training.Application.Services;
 
 public sealed class PtPurchaseFulfillment(PtPricingService pricing, IPtEntitlementLifecycle lifecycle,
-    ISportHubDbContext db, PtSessionService sessions) : IPtPurchaseFulfillment
+    ISportHubDbContext db, PtSessionService sessions,
+    SportHub.BuildingBlocks.Abstractions.Identity.ICoachSpecialtyReader specialties,
+    SportHub.BuildingBlocks.Abstractions.Scheduling.ISportCatalogReader catalog) : IPtPurchaseFulfillment
 {
     public async Task<PtPurchaseQuote> QuoteAsync(PtPurchaseRequest request, CancellationToken cancellationToken = default)
     {
         var quote = await pricing.QuoteAsync(request, cancellationToken);
+        var sports = new List<SportHub.BuildingBlocks.Abstractions.Scheduling.SportInfo>();
+        foreach (var id in await specialties.GetSportIdsAsync(request.CoachId, cancellationToken))
+        {
+            var sport = await catalog.GetSportAsync(id, cancellationToken);
+            if (sport is { IsActive: true, OperationType: "OneOnOne" }) sports.Add(sport);
+        }
+        var selected = sports.Count == 1 ? sports[0] : null;
         return new PtPurchaseQuote(quote.PricePerSession, quote.TotalQuota, quote.TotalPrice,
-            quote.FrequencyPerWeek, quote.PriceVersion);
+            quote.FrequencyPerWeek, quote.PriceVersion, selected?.SportId, selected?.Name);
     }
 
     public Task<Guid> CreatePendingAsync(PtPurchaseRequest request, Guid invoiceItemId,

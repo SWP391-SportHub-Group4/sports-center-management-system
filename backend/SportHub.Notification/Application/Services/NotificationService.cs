@@ -9,10 +9,10 @@ namespace SportHub.Notification.Application.Services;
 
 public sealed record NotificationResponse(
     Guid NotificationId,
-    string SourceEventType,
+    [property: SportHub.BuildingBlocks.Api.WireEnum] string SourceEventType,
     Guid? SourceEntityId,
     string Message,
-    string Status,
+    [property: SportHub.BuildingBlocks.Api.WireEnum] string Status,
     DateTime? SentAt);
 
 public sealed class NotificationService(ISportHubDbContext db, IClock clock) : INotificationService

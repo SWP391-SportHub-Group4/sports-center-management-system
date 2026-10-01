@@ -1,0 +1,81 @@
+dbug: Microsoft.EntityFrameworkCore.Infrastructure[10401]
+      An 'IServiceProvider' was created for internal use by Entity Framework.
+dbug: Microsoft.EntityFrameworkCore.Model[10601]
+      The index {'RequestedByUserId'} was not created on entity type 'ReportExport' as the properties are already covered by the index {'RequestedByUserId', 'CreatedAt'}.
+dbug: Microsoft.EntityFrameworkCore.Model[10601]
+      The index {'UserId'} was not created on entity type 'UserExternalLogin' as the properties are already covered by the index {'UserId', 'Provider'}.
+dbug: Microsoft.EntityFrameworkCore.Model[10601]
+      The index {'UserId'} was not created on entity type 'UserSportSpecialty' as the properties are already covered by the index {'UserId', 'SportId'}.
+dbug: Microsoft.EntityFrameworkCore.Model[10601]
+      The index {'MemberId'} was not created on entity type 'MemberPackage' as the properties are already covered by the index {'MemberId', 'Status'}.
+dbug: Microsoft.EntityFrameworkCore.Model[10601]
+      The index {'InvoiceId'} was not created on entity type 'CheckoutSession' as the properties are already covered by the index {'InvoiceId', 'IdempotencyKey'}.
+dbug: Microsoft.EntityFrameworkCore.Model[10601]
+      The index {'InvoiceId'} was not created on entity type 'CheckoutSession' as the properties are already covered by the index {'InvoiceId', 'Revision'}.
+dbug: Microsoft.EntityFrameworkCore.Model[10601]
+      The index {'InvoiceId'} was not created on entity type 'CheckoutSession' as the properties are already covered by the index {'InvoiceId', 'State'}.
+dbug: Microsoft.EntityFrameworkCore.Model[10601]
+      The index {'MemberId'} was not created on entity type 'Invoice' as the properties are already covered by the index {'MemberId', 'Status'}.
+dbug: Microsoft.EntityFrameworkCore.Model[10601]
+      The index {'InvoiceId'} was not created on entity type 'PaymentAttempt' as the properties are already covered by the index {'InvoiceId', 'Status'}.
+dbug: Microsoft.EntityFrameworkCore.Model[10601]
+      The index {'InvoiceId'} was not created on entity type 'PointConfirmation' as the properties are already covered by the index {'InvoiceId', 'CreatedAtUtc'}.
+dbug: Microsoft.EntityFrameworkCore.Model[10601]
+      The index {'MemberId'} was not created on entity type 'PointConfirmation' as the properties are already covered by the index {'MemberId', 'CreatedAtUtc'}.
+dbug: Microsoft.EntityFrameworkCore.Model[10601]
+      The index {'WalletId'} was not created on entity type 'PointLedgerEntry' as the properties are already covered by the index {'WalletId', 'CreatedAtUtc', 'LedgerEntryId'}.
+dbug: Microsoft.EntityFrameworkCore.Model[10601]
+      The index {'WalletId'} was not created on entity type 'PointLedgerEntry' as the properties are already covered by the index {'WalletId', 'ReferenceType', 'ReferenceId', 'EntryType'}.
+dbug: Microsoft.EntityFrameworkCore.Model[10601]
+      The index {'WalletId'} was not created on entity type 'PointLedgerEntry' as the properties are already covered by the index {'WalletId', 'ReferenceType', 'ReferenceId', 'EntryType', 'InvoiceItemId'}.
+dbug: Microsoft.EntityFrameworkCore.Model[10601]
+      The index {'RoomTypeId'} was not created on entity type 'CourtRate' as the properties are already covered by the index {'RoomTypeId', 'IsActive'}.
+dbug: Microsoft.EntityFrameworkCore.Model[10601]
+      The index {'RoomId'} was not created on entity type 'RoomBlock' as the properties are already covered by the index {'RoomId', 'StartAtUtc'}.
+dbug: Microsoft.EntityFrameworkCore.Model[10601]
+      The index {'RoomId'} was not created on entity type 'RoomOpeningHour' as the properties are already covered by the index {'RoomId', 'DayOfWeek'}.
+dbug: Microsoft.EntityFrameworkCore.Model[10601]
+      The index {'SportId'} was not created on entity type 'SportRoomType' as the properties are already covered by the index {'SportId', 'RoomTypeId'}.
+dbug: Microsoft.EntityFrameworkCore.Model[10601]
+      The index {'EnrollmentId'} was not created on entity type 'Attendance' as the properties are already covered by the index {'EnrollmentId', 'SessionId'}.
+dbug: Microsoft.EntityFrameworkCore.Model[10601]
+      The index {'SportId'} was not created on entity type 'Class' as the properties are already covered by the index {'SportId', 'Status'}.
+dbug: Microsoft.EntityFrameworkCore.Model[10601]
+      The index {'ClassId'} was not created on entity type 'ClassScheduleRule' as the properties are already covered by the index {'ClassId', 'DayOfWeek', 'StartTimeLocal'}.
+dbug: Microsoft.EntityFrameworkCore.Model[10601]
+      The index {'ClassId'} was not created on entity type 'ClassSession' as the properties are already covered by the index {'ClassId', 'SessionNo'}.
+dbug: Microsoft.EntityFrameworkCore.Model[10601]
+      The index {'CoachId'} was not created on entity type 'ClassSession' as the properties are already covered by the index {'CoachId', 'StartAtUtc'}.
+dbug: Microsoft.EntityFrameworkCore.Model[10601]
+      The index {'ClassId'} was not created on entity type 'Enrollment' as the properties are already covered by the index {'ClassId', 'MemberId'}.
+dbug: Microsoft.EntityFrameworkCore.Model[10601]
+      The index {'MemberId'} was not created on entity type 'Enrollment' as the properties are already covered by the index {'MemberId', 'Status'}.
+dbug: Microsoft.EntityFrameworkCore.Model[10601]
+      The index {'MemberId'} was not created on entity type 'GymCheckIn' as the properties are already covered by the index {'MemberId', 'CheckInTime'}.
+dbug: Microsoft.EntityFrameworkCore.Model[10601]
+      The index {'ClassId'} was not created on entity type 'SeatHold' as the properties are already covered by the index {'ClassId', 'MemberId'}.
+dbug: Microsoft.EntityFrameworkCore.Model[10601]
+      The index {'CoachId'} was not created on entity type 'CoachOccupancy' as the properties are already covered by the index {'CoachId', 'StartAtUtc'}.
+dbug: Microsoft.EntityFrameworkCore.Model[10601]
+      The index {'RoomId'} was not created on entity type 'RoomOccupancy' as the properties are already covered by the index {'RoomId', 'StartAtUtc'}.
+dbug: Microsoft.EntityFrameworkCore.Model[10601]
+      The index {'ExternalCoachId'} was not created on entity type 'CourtRental' as the properties are already covered by the index {'ExternalCoachId', 'Status', 'StartAtUtc'}.
+dbug: Microsoft.EntityFrameworkCore.Model[10601]
+      The index {'ClassId'} was not created on entity type 'ThresholdResponse' as the properties are already covered by the index {'ClassId', 'EnrollmentId'}.
+dbug: Microsoft.EntityFrameworkCore.Model[10601]
+      The index {'CoachId'} was not created on entity type 'CoachMemberRelationship' as the properties are already covered by the index {'CoachId', 'MemberId'}.
+dbug: Microsoft.EntityFrameworkCore.Model[10601]
+      The index {'CoachId'} was not created on entity type 'HomeworkAssignment' as the properties are already covered by the index {'CoachId', 'Status', 'DueAt'}.
+dbug: Microsoft.EntityFrameworkCore.Model[10601]
+      The index {'MemberId'} was not created on entity type 'HomeworkAssignment' as the properties are already covered by the index {'MemberId', 'Status', 'DueAt'}.
+dbug: Microsoft.EntityFrameworkCore.Model[10601]
+      The index {'MemberId'} was not created on entity type 'PtEntitlement' as the properties are already covered by the index {'MemberId', 'Status'}.
+dbug: Microsoft.EntityFrameworkCore.Model[10601]
+      The index {'CoachId'} was not created on entity type 'PtSession' as the properties are already covered by the index {'CoachId', 'StartAtUtc'}.
+dbug: Microsoft.EntityFrameworkCore.Model[10601]
+      The index {'MemberId'} was not created on entity type 'PtSession' as the properties are already covered by the index {'MemberId', 'StartAtUtc'}.
+dbug: Microsoft.EntityFrameworkCore.Infrastructure[10403]
+      Entity Framework Core 10.0.11 initialized 'SportHubDbContext' using provider 'Npgsql.EntityFrameworkCore.PostgreSQL:10.0.3+5e912bf071068a44e5abbdab497b313ba99d3ee1' with options: using snake-case naming (culture=)
+dbug: Microsoft.EntityFrameworkCore.Infrastructure[10407]
+      'SportHubDbContext' disposed.
+Done. To undo this action, use 'ef migrations remove'

@@ -7,6 +7,7 @@ public class Payment
     public Guid PaymentId { get; set; } // PK
 
     public Guid InvoiceId { get; set; } // FK -> Invoice
+    public Guid? PaymentAttemptId { get; set; }
 
     public Invoice? Invoice { get; set; }
 

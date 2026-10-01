@@ -6,7 +6,7 @@ public sealed class RequestPtSessionChangeRequest
 {
     /// <summary>"Cancel" hoặc "Reschedule" — parse bằng Enum.TryParse, không nhận enum thô từ client.</summary>
     [Required]
-    public string RequestType { get; set; } = string.Empty;
+    [SportHub.BuildingBlocks.Api.WireEnum] public string RequestType { get; set; } = string.Empty;
 
     /// <summary>Bắt buộc khi RequestType = Reschedule.</summary>
     public DateTime? RequestedStartAtUtc { get; set; }

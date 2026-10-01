@@ -22,7 +22,7 @@ public sealed class CreateStaffAccountRequest
     public string? Phone { get; set; }
 
     [Required]
-    public string Role { get; set; } = string.Empty;
+    [SportHub.BuildingBlocks.Api.WireEnum] public string Role { get; set; } = string.Empty;
 
     /// <summary>
     /// BR-96 — bắt buộc khi Role = Coach (PersonalTrainer/ClassInstructor), không được gửi kèm

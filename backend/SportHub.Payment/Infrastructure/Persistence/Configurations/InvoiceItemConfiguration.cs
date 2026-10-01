@@ -12,11 +12,12 @@ public class InvoiceItemConfiguration : IEntityTypeConfiguration<InvoiceItem>
         builder.Property(e => e.LineAmount).HasPrecision(18, 0);
         builder.Property(e => e.Quantity).IsRequired();
         builder.Property(e => e.Description).IsRequired().HasMaxLength(500);
+        builder.Property(e => e.SportNameSnapshot).HasMaxLength(200);
 
         builder.HasOne(e => e.Invoice)
             .WithMany(i => i.Items)
             .HasForeignKey(e => e.InvoiceId)
-            .OnDelete(DeleteBehavior.Cascade);
+            .OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<InvoiceItem>().WithMany().HasForeignKey(e => e.SourceInvoiceItemId)
             .IsRequired(false).OnDelete(DeleteBehavior.Restrict);
         builder.HasIndex(e => e.SourceInvoiceItemId);

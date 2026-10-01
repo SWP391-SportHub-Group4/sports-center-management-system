@@ -440,6 +440,9 @@ public sealed class CheckoutFlowTests(PaymentApiFactory factory)
         using var receptionist = factory.CreateApiClient(context.ReceptionistId, UserRole.Receptionist);
         Assert.Equal(HttpStatusCode.OK, (await receptionist.PostAsync(
             $"/api/dev/payments/{attempt.TransactionReference}/simulate", null)).StatusCode);
+        var result = (await member.GetFromJsonAsync<CheckoutResponse>($"/api/checkouts/{checkout.InvoiceId}"))!;
+        Assert.Equal(late ? "PaidAfterReconciliation" : "Paid", result.InvoiceStatus);
+        Assert.Equal("Fulfilled", result.FulfillmentOutcome);
         await factory.QueryAsync(async db =>
         {
             Assert.Equal(1, await db.Enrollments.CountAsync(x => x.MemberId == context.MemberId

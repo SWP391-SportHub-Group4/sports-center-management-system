@@ -10,6 +10,6 @@ public sealed record MemberSessionResponse(
     string RoomName,
     DateTime StartAtUtc,
     DateTime EndAtUtc,
-    string Status,
+    [property: SportHub.BuildingBlocks.Api.WireEnum] string Status,
     bool IsMakeup,
-    string? AttendanceStatus);
+    [property: SportHub.BuildingBlocks.Api.WireEnum] string? AttendanceStatus);

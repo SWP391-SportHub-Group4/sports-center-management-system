@@ -1,0 +1,25 @@
+Test run for D:\Semester5\SWP391\sports-center-management-system\backend\SportHub.Scheduling.Tests\bin\Release\net10.0\SportHub.Scheduling.Tests.dll (.NETCoreApp,Version=v10.0)
+Test run for D:\Semester5\SWP391\sports-center-management-system\backend\SportHub.Training.Tests\bin\Release\net10.0\SportHub.Training.Tests.dll (.NETCoreApp,Version=v10.0)
+Test run for D:\Semester5\SWP391\sports-center-management-system\backend\SportHub.Administration.Tests\bin\Release\net10.0\SportHub.Administration.Tests.dll (.NETCoreApp,Version=v10.0)
+Test run for D:\Semester5\SWP391\sports-center-management-system\backend\SportHub.Payment.Tests\bin\Release\net10.0\SportHub.Payment.Tests.dll (.NETCoreApp,Version=v10.0)
+Test run for D:\Semester5\SWP391\sports-center-management-system\backend\SportHub.Security.Tests\bin\Release\net10.0\SportHub.Security.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.A total of 1 test files matched the specified pattern.
+A total of 1 test files matched the specified pattern.A total of 1 test files matched the specified pattern.
+
+
+A total of 1 test files matched the specified pattern.
+Results File: D:\Semester5\SWP391\sports-center-management-system\backend\SportHub.Administration.Tests\TestResults\backend-verified_net10.0_20261001160642.trx
+
+Passed!  - Failed:     0, Passed:    15, Skipped:     0, Total:    15, Duration: 2 s - SportHub.Administration.Tests.dll (net10.0)
+Results File: D:\Semester5\SWP391\sports-center-management-system\backend\SportHub.Security.Tests\TestResults\backend-verified_net10.0_20261001160725.trx
+
+Passed!  - Failed:     0, Passed:   130, Skipped:     0, Total:   130, Duration: 43 s - SportHub.Security.Tests.dll (net10.0)
+Results File: D:\Semester5\SWP391\sports-center-management-system\backend\SportHub.Training.Tests\TestResults\backend-verified_net10.0_20261001160732.trx
+
+Passed!  - Failed:     0, Passed:    80, Skipped:     0, Total:    80, Duration: 51 s - SportHub.Training.Tests.dll (net10.0)
+Results File: D:\Semester5\SWP391\sports-center-management-system\backend\SportHub.Payment.Tests\TestResults\backend-verified_net10.0_20261001160736.trx
+
+Passed!  - Failed:     0, Passed:   117, Skipped:     0, Total:   117, Duration: 55 s - SportHub.Payment.Tests.dll (net10.0)
+Results File: D:\Semester5\SWP391\sports-center-management-system\backend\SportHub.Scheduling.Tests\TestResults\backend-verified_net10.0_20261001160749.trx
+
+Passed!  - Failed:     0, Passed:   103, Skipped:     0, Total:   103, Duration: 1 m 8 s - SportHub.Scheduling.Tests.dll (net10.0)

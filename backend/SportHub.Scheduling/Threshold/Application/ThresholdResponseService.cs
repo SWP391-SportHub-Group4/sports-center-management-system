@@ -187,7 +187,8 @@ public sealed class ThresholdResponseService(ISportHubDbContext db, IClassEnroll
         var draft = await invoiceDrafts.CreateAsync(new InvoiceDraft(memberId, memberId,
             [new InvoiceDraftItem("ClassTransferDifference", $"Chênh lệch chuyển sang khóa {targetQuote.ClassId}",
                 difference, targetQuote.SportId, targetQuote.ClassId, SourceEnrollmentId: source.EnrollmentId,
-                SourceInvoiceItemId: rootItemId, RelatedEntityId: response.ThresholdResponseId, ResourceHoldId: hold.SeatHoldId)],
+                SourceInvoiceItemId: rootItemId, RelatedEntityId: response.ThresholdResponseId, ResourceHoldId: hold.SeatHoldId,
+                SportName: targetQuote.SportName)],
             expiresOffset, $"threshold-transfer-{response.ThresholdResponseId:N}"), ct);
         await classes.AttachHoldToInvoiceAsync(hold.SeatHoldId, draft.InvoiceId, ct);
         return draft.InvoiceId;
@@ -213,5 +214,5 @@ public sealed class ThresholdResponseService(ISportHubDbContext db, IClassEnroll
             response.ResolutionStatus.ToString(), response.DeadlineUtc, response.AdditionalInvoiceId);
 }
 
-public sealed record ThresholdResponseResult(Guid ResponseId, string? Choice, int? TargetClassId,
-    string ResolutionStatus, DateTime DeadlineUtc, Guid? AdditionalInvoiceId);
+public sealed record ThresholdResponseResult(Guid ResponseId, [property: SportHub.BuildingBlocks.Api.WireEnum] string? Choice, int? TargetClassId,
+    [property: SportHub.BuildingBlocks.Api.WireEnum] string ResolutionStatus, DateTime DeadlineUtc, Guid? AdditionalInvoiceId);

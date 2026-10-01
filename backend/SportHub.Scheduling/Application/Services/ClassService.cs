@@ -83,7 +83,7 @@ public sealed class ClassService(
 
         if (!string.IsNullOrWhiteSpace(status))
         {
-            var parsed = Enum.TryParse<ClassStatus>(status, ignoreCase: true, out var s) && Enum.IsDefined(s)
+            var parsed = SportHub.BuildingBlocks.Api.WireEnum.TryParse<ClassStatus>(status, ignoreCase: true, out var s) && Enum.IsDefined(s)
                 ? s
                 : throw new BadRequestException("invalid_status", "Trạng thái khóa không hợp lệ.");
             query = query.Where(c => c.Status == parsed);

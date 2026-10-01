@@ -89,7 +89,8 @@ public sealed class VnPayGateway(IOptions<VnPayOptions> options, HttpClient http
             || !CryptographicOperations.FixedTimeEquals(Convert.FromHexString(checksum),
                 Convert.FromHexString(expected))
             || Get(values, "vnp_TmnCode") != _options.TmnCode
-            || Get(values, "vnp_TxnRef") != attempt.VnpTxnRef)
+            || Get(values, "vnp_TxnRef") != attempt.VnpTxnRef
+            || Get(values, "vnp_Command") != "querydr")
             throw new BadRequestException("vnp_query_invalid", "Phản hồi QueryDR không được xác minh.");
         if (Get(values, "vnp_ResponseCode") != "00" || Get(values, "vnp_TransactionType") != "01") return null;
         if (!long.TryParse(Get(values, "vnp_Amount"), NumberStyles.None,

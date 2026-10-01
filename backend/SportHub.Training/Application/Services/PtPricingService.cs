@@ -5,14 +5,13 @@ using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.Abstractions.Training;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.BuildingBlocks.SharedKernel.Time;
-using SportHub.Membership.Domain.Entities;
-using SportHub.Membership.Domain.Enums;
+using SportHub.BuildingBlocks.Abstractions.Membership;
 using SportHub.Training.Application.DTOs.PtEntitlements;
 using SportHub.Training.Domain.Rules;
 
 namespace SportHub.Training.Application.Services;
 
-public sealed class PtPricingService(ISportHubDbContext db, ISystemSettingProvider settings,
+public sealed class PtPricingService(IMembershipAccessReader memberships, ISystemSettingProvider settings,
     ICoachSpecialtyReader specialties, IClock clock)
 {
     public Task<VersionedIntSetting> GetPriceAsync(CancellationToken ct)
@@ -20,11 +19,12 @@ public sealed class PtPricingService(ISportHubDbContext db, ISystemSettingProvid
 
     public async Task<PtPurchaseQuoteResponse> QuoteAsync(PtPurchaseRequest request, CancellationToken ct)
     {
-        var package = await db.Set<MemberPackage>().AsNoTracking()
-            .SingleOrDefaultAsync(x => x.MemberPackageId == request.MemberPackageId
-                && x.MemberId == request.MemberId, ct)
+        var package = await memberships.GetByIdAsync(request.MemberPackageId, ct)
             ?? throw new NotFoundException("membership_not_found", "Không tìm thấy Membership của hội viên.");
-        if (package.Status != MemberPackageStatus.Active || package.EndDate < VietnamTime.TodayLocal(clock))
+        if (package.MemberId != request.MemberId)
+            throw new NotFoundException("membership_not_found", "Không tìm thấy Membership của hội viên.");
+        if (package.Status != "Active" || package.StartDate > VietnamTime.TodayLocal(clock)
+            || package.EndDate < VietnamTime.TodayLocal(clock))
             throw new ConflictException("membership_not_active", "Membership liên kết phải đang có hiệu lực.");
         if (!await specialties.IsPersonalTrainerAsync(request.CoachId, ct))
             throw new BadRequestException("coach_must_be_personal_trainer", "Coach chưa có chuyên môn PT.");

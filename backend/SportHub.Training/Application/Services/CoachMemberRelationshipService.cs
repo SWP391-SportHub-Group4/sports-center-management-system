@@ -65,7 +65,7 @@ public sealed class CoachMemberRelationshipService(
         Guid actorUserId,
         CancellationToken ct = default)
     {
-        if (!Enum.TryParse<RelationshipSourceType>(request.SourceType, ignoreCase: true, out var sourceType))
+        if (!SportHub.BuildingBlocks.Api.WireEnum.TryParse<RelationshipSourceType>(request.SourceType, ignoreCase: true, out var sourceType))
         {
             throw new BadRequestException(
                 "invalid_source_type",
