@@ -1,5 +1,29 @@
 # Mục đích các Entity & vai trò từng Field (SportHub)
 
+## Ánh xạ backend đã triển khai — 01/10/2026
+
+Phần này chốt tên field thực tế sau plan 1; các bảng logic cũ bên dưới cần đọc theo BR v2.0/Design v3 và ánh xạ này. [Manifest](refactor-backend-final-handover.md) có quyết định tương thích và [evidence](refactor-backend-evidence.md) ghi gate 465 test.
+
+| Entity.field thực tế | Mục đích |
+|---|---|
+| Invoice.MemberId | Beneficiary UserAccount của hóa đơn, có thể là Member hoặc ExternalCoach. DB giữ `member_id`; API dùng `beneficiaryUserId` và alias tương thích `memberId`. |
+| InvoiceItem.ClassId/CourtRentalId/PtEntitlementId/MemberPackageId | Typed FK nullable theo loại item, thay việc suy kiểu từ một Guid polymorphic. Nullable cho legacy chưa xác định được; các FK tài chính dùng Restrict. |
+| InvoiceItem.RelatedEntityId | Legacy reference giữ để đọc/backfill/fallback; không xóa lịch sử hoặc đoán entity đích. |
+| InvoiceItem.SportId/SportNameSnapshot/PtFrequencyPerWeek | Chiều môn/tên môn/tần suất PT tại lúc mua. Báo cáo ưu tiên snapshot; Membership sport null; PT chưa xác định duy nhất môn cũng null. |
+| InvoiceItem.SourceInvoiceItemId | Item nguồn của phần chênh chuyển lớp; tính cap refund theo chuỗi giá trị đã trả. |
+| MemberPackage.DurationDaysSnapshot | Thời hạn đã mua tại checkout; activation không bị thay đổi bởi catalog sửa sau đó. Dữ liệu legacy không có snapshot dùng fallback thời hạn catalog. |
+| MembershipPackage.SessionLimit/MemberPackage.RemainingSessions | Cột lịch sử được giữ; không dùng làm quota/expiry cho Membership. Request catalog mới không nhận SessionLimit khác null. |
+| CheckoutSession | Lịch sử cycle/retry, owner, loại mua, reservation và thời hạn; không ghi đè mất cycle cũ. |
+| PaymentAttempt/Payment.PaymentAttemptId | Attempt snapshot VNPay amount/points; payment đã xác minh trỏ lại attempt để đối soát. Payment legacy có thể null. |
+| VerifiedGatewayEvent | Inbox bền vững cho callback/query đã xác minh, dedup capture và replay. |
+| PaymentAdjustment.InvoiceItemId/SystemCalculatedPoints/ApprovedPoints | Refund theo item, hệ thống tính điểm, approval thực hiện credit và cancel nguyên tử. Không dùng payout tiền mặt. |
+| ThresholdResponse | Token hash/deadline/choice/resolution cho lớp dưới ngưỡng; tên bảng `class_threshold_responses`. |
+| Enrollment.TransferDifferenceInvoiceItemId | Liên kết phần chênh đã trả khi chuyển lớp; giữ lịch sử hoàn điểm đúng cap. |
+| CourtRental.SportId/InvoiceId/InvoiceItemId | Môn thuê và hóa đơn/item nguồn; cho price snapshot, fulfillment, report và refund. |
+| Notification email fields | Payload được mã hóa, attempt/lease/retry và Sent state; không đưa email vào feed InApp. |
+
+`fulfillmentOutcome` trong DTO là giá trị tính từ trạng thái/PaidVia/reconciliation, không phải cột DB độc lập. JSON enum dùng UPPER_SNAKE_CASE; enum DB giữ số cũ. Migration typed schema và backfill tách riêng, đã kiểm DB trắng và upgrade nhưng chưa áp DB phát triển/chia sẻ.
+
 > **Trạng thái: Cập nhật scope đa môn 30/09/2026.** SportHub chuyển từ một phòng gym sang **nhà văn hóa thể thao đa môn** (Gym, Personal Training, Cầu lông, Bóng rổ; môn là dữ liệu cấu hình). Tài liệu này đã được đồng bộ với **Business Rules v2.0** (`SportManagement_BusinessRules_v2.0_updated.docx`, BR-1 → BR-139) và **Design v3** (`docs/Center-Management-System-Design-v3.md`, §2.2, §4, §5, §19.2, Phụ lục A.9).
 > Nếu mâu thuẫn: Business Rules v2.0 thắng, sau đó Design v3, sau đó tài liệu field này. Quy ước đánh dấu: **(mới v3)** = entity/field mới; **(SỬA v3)** = đổi field/ý nghĩa; **~~...~~ (XÓA v3: lý do)** = đã bỏ khỏi mô hình. Bảng tổng hợp cuối tài liệu: **Refactor delta v2 → v3** (XÓA / GIỮ / SỬA / THÊM).
 > Các section ghi "26/09", "28/09", "29/09" nhưng không có nhãn v3 được giữ nguyên nội dung trừ chỗ có ghi chú v3. Tên field là thiết kế logic (PascalCase); tên cột vật lý snake_case xem Design v3 §4.
@@ -941,4 +965,3 @@ Entity, field, enum mới (18 bảng mới theo Design v3 §A.9, gồm `CLASS_SC
 | `POINT_CONFIRMATIONS` | — | `ConfirmationId`, `InvoiceId`, `MemberId`, `RequestedByUserId`, `Points`, `OtpHash`, `ExpiresAt` (5 phút), `FailedAttempts` (≤ 5), `Status`, `ConfirmedAt`, `ConfirmedVia` | OTP bắt buộc khi Receptionist dùng điểm thay Member. BR-139 |
 | Enum mới | — | `SportOperationType`, `ExternalCoachApprovalStatus`, `EmailOtpPurpose`, `ThresholdStatus`, `SeatHoldStatus`, `ThresholdChoice`, `CourtRentalStatus`, `OccupancySourceType`, `InvoicePaidVia`, `PointEntryType`, `PointConfirmationStatus`, `RefundStatus`; đổi giá trị `ClassStatus`, `ClassSessionStatus`, `EnrollmentStatus`, `AttendanceStatus`, `InvoiceItemType` | Design v3 §5 |
 | Job nền và extension | — | Extension PostgreSQL `btree_gist`; các job hết hạn giữ chỗ/chốt ngưỡng/đối soát VNPay (Design v3 §8); `AttendanceFinalizerJob` chỉ còn PT | Design v3 §8, §2.3 |
-

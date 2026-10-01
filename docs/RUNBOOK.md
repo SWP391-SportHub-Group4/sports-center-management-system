@@ -2,11 +2,32 @@
 
 Hướng dẫn chạy toàn bộ hệ thống (PostgreSQL → API → giao diện) và thử từng vai trò.
 
-> **30/09/2026:** Runbook đồng bộ **Business Rules v2.0** và **Design v3** (nhà văn hóa thể thao đa môn: Gym, PT, Cầu lông, Bóng rổ; 6 vai trò; ví điểm; hoàn trả chỉ bằng điểm). Code hiện tại có thể chưa khớp — các tài khoản/kịch bản đánh dấu *(dự kiến)* sẽ có sau khi seed lại ở giai đoạn G1 và triển khai G2–G11 (Design v3 §16). Khi nghiệm thu lấy BR v2.0 làm chuẩn.
+## Backend plan 1 đã chốt — 01/10/2026
+
+Backend đã qua **465/465 test**; xem [evidence](refactor-backend-evidence.md), [contract](refactor-api-contract.md) và [bàn giao](refactor-backend-final-handover.md). Frontend vẫn cần plan 2; các bước UI dưới đây là hướng dẫn mục tiêu, chưa phải chứng nhận UI hiện tại. Tích hợp/nghiệm thu VNPay sandbox thật do người dùng phụ trách.
+
+Gate trong PowerShell, từ root, với Docker Desktop đang chạy:
+
+```powershell
+dotnet restore backend/SportHub.sln
+dotnet test backend/SportHub.sln -c Release --no-restore --logger 'trx;LogFilePrefix=p1-local'
+dotnet ef migrations has-pending-model-changes --project backend/SportHub.API --startup-project backend/SportHub.API --configuration Release --no-build
+docker compose config --quiet
+```
+
+Integration tạo PostgreSQL Testcontainers riêng, không cần trỏ vào DB ứng dụng. Migration cuối: `20261001092136_TypedInvoiceReferencesAndSnapshots` rồi `20261001131334_BackfillTypedInvoiceReferences`. Lượt refactor chỉ áp migration trong DB test. API Development tự migrate khi khởi động, vì vậy xác minh connection string trước khi chạy API; backup trước khi upgrade database đang dùng. Không cần xóa volume để nâng cấp.
+
+Demo payment: đặt `ASPNETCORE_ENVIRONMENT=Development`, `VnPay__UseMock=true`; đăng nhập Member tạo checkout và attempt, dùng token Manager/Lễ tân gọi `POST /api/dev/payments/{transactionReference}/simulate`, rồi GET checkout/invoice để đọc outcome. Return URL không cấp quyền lợi. Mock không được phép ngoài Development.
+
+Email: Development chưa có SMTP có thể đặt `Email__DemoLoggingEnabled=true` để dispatcher ghi log (không chứng minh delivery). SMTP thật dùng nhóm `Smtp__Host`, `Port`, `Username`, `Password`, `FromAddress`, `FromName`, `UseSsl`; host cũng hỗ trợ fallback `Email__Smtp__*`, compose hiện map nhóm này từ `.env`. Dùng secret/environment riêng cho password. Ngoài Development phải có SMTP Host/FromAddress và `DataProtection__KeysPath` trên storage bền vững để đọc outbox sau restart. Không bật demo logging trên môi trường thật.
+
+Email nghiệp vụ được queue cùng transaction: tạo hóa đơn, nhận thanh toán, hoàn điểm, threshold response, dời/hủy/bù lớp/PT, incident và notice. Dispatcher gửi sau commit, retry có backoff/lease; sender thành công mới đánh dấu Sent và xóa encrypted payload. Cơ chế gửi at-least-once có thể gửi lại nếu tiến trình chết sau SMTP success nhưng trước khi lưu Sent. Kiểm thử đã xác nhận retry/rollback/idempotent queue; delivery SMTP bên ngoài cần kiểm bằng cấu hình môi trường của bạn.
+
+> Runbook theo **Business Rules v2.0** và **Design v3** (nhà văn hóa thể thao đa môn: Gym, PT, Cầu lông, Bóng rổ; 6 vai trò; ví điểm; hoàn trả chỉ bằng điểm). Backend hiện hành theo bản chốt 01/10/2026 ở trên; các thao tác màn hình vẫn cần frontend plan 2. Khi nghiệm thu lấy BR v2.0 làm chuẩn.
 
 ## 1. Yêu cầu
 
-**Backend checkpoint P1.12/P1.13 (01/10/2026):** xem `refactor-progress.md` và `refactor-backend-evidence.md` để phân biệt backend đã kiểm với UI còn chờ plan 2. Database demo mới có khóa Draft/Published/AtRisk/InProgress/Completed, ví và lượt thuê thanh toán bằng điểm. Seed lặp lại không cộng điểm/tạo rental trùng. Không dùng các tài khoản hoặc mật khẩu demo trong production.
+**Backend plan 1 (01/10/2026):** xem `refactor-progress.md` và `refactor-backend-evidence.md` để phân biệt backend đã kiểm với UI còn chờ plan 2. Database demo mới có khóa Draft/Published/AtRisk/InProgress/Completed, ví và lượt thuê thanh toán bằng điểm. Seed lặp lại không cộng điểm/tạo rental trùng. Không dùng các tài khoản hoặc mật khẩu demo trong production.
 
 Chạy gate nghiệp vụ bằng `bash scripts/e2e-business-rules.sh` (Docker đang chạy). Script dùng DB PostgreSQL riêng do Testcontainers tạo và hủy, chạy toàn bộ test RBAC/race/checkout/refund/report thay cho các endpoint legacy trong script cũ. Windows PowerShell dùng `dotnet test backend/SportHub.sln -c Release`.
 
@@ -35,8 +56,8 @@ cd backend/SportHub.API && dotnet run
 Ở môi trường `Development`, API tự làm hai việc khi khởi động:
 
 1. **Áp migration** (`Database.MigrateAsync`).
-2. **Seed dữ liệu demo** — chỉ khi database **chưa có tài khoản nào**. Nếu đã có dữ liệu, seeder
-   bỏ qua và không đụng vào gì.
+2. **Seed dữ liệu demo đầy đủ** khi database **chưa có tài khoản nào**. Với DB đã có tài khoản,
+   chỉ bổ sung ví/rental idempotent khi nhận diện đủ tài khoản demo; không tự sửa tài khoản/nghiệp vụ đang dùng.
 
 Ở môi trường khác, migration chạy qua `dotnet ef database update` trong quy trình triển khai —
 tự migrate lúc khởi động sẽ khiến nhiều instance cùng đổi schema một lúc.

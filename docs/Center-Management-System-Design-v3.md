@@ -1,5 +1,24 @@
 # SportHub — Design v3: Nhà văn hóa thể thao đa môn
 
+> **Bản triển khai backend 01/10/2026:** plan 1 đã qua 465/465 test; VNPay sandbox thật nằm ngoài phạm vi theo yêu cầu. Các ánh xạ vật lý/quyết định tương thích đã code được chốt tại [manifest backend](refactor-backend-final-handover.md#quyết-định-tương-thích-đã-triển-khai) và bảng dưới. Frontend chưa được chứng nhận hoàn tất.
+
+## Quyết định triển khai backend chốt 01/10/2026
+
+| Thiết kế logic | Ánh xạ thực tế và invariant |
+|---|---|
+| Invoice beneficiary | API `beneficiaryUserId`, alias `memberId`; entity `Invoice.MemberId`/cột `member_id` giữ tương thích. Cùng FK UserAccount cho Member và ExternalCoach, ownership theo user ID. |
+| Typed InvoiceItem | `ClassId`, `CourtRentalId`, `PtEntitlementId`, `MemberPackageId`, `SportId` có FK Restrict; `SportNameSnapshot`, `PtFrequencyPerWeek` lưu chiều báo cáo đã mua. `RelatedEntityId` giữ để đọc lịch sử; không dùng nó thay typed reference khi đã có typed. |
+| Snapshot Membership | `MemberPackage.DurationDaysSnapshot` giữ thời hạn checkout, invoice item giữ giá; activation không lấy lại thời hạn catalog mới. SessionLimit/RemainingSessions legacy không giới hạn Membership mới hoặc expiry; quota vẫn thuộc PT. |
+| Payment/checkout cycle | `CheckoutSession` là cycle bất biến về liên kết, retry giữ lịch sử; `PaymentAttempt` snapshot amount/points/expiry; `Payment.PaymentAttemptId` truy vết khoản đã xác minh. |
+| Gateway inbox | `VerifiedGatewayEvent` giữ capture/replay; chỉ IPN/query đã xác minh mới gọi fulfillment. Return chỉ hiển thị. `fulfillmentOutcome` tính từ status/PaidVia/reconciliation, không thêm trạng thái DB trùng nguồn sự thật. |
+| Refund | Dùng `PaymentAdjustment` hiện hữu, item/ledger reference và điểm hệ thống tính; không thêm bảng Refund song song. Invoice/item financial history dùng Restrict; không cascade xóa lịch sử khi xóa invoice. |
+| Transfer resolution | Entity `ThresholdResponse`/bảng `class_threshold_responses`, token hash/deadline/choice. `SourceInvoiceItemId` và `TransferDifferenceInvoiceItemId` giữ value chain; chênh lệch dương qua checkout, chỉ chuyển sau fulfillment. |
+| CourtRental | Có `SportId`, invoice/item typed links, snapshot giá theo block giờ; giữ occupancy phòng và ExternalCoach trong checkout, release theo cancel/expiry. |
+| Incident | Preview trả phương án class reschedule/cancel-with-makeup, PT reschedule/cancel, block removal. Manager thực hiện phương án hợp lệ rồi preview/resolve lại; resolve recheck, hoàn rental + incident/block nguyên tử. |
+| Outbox | Notification email payload mã hóa và dedup theo event/entity/recipient/channel; transaction nghiệp vụ queue, dispatcher lease/retry và gửi at-least-once. Mỗi lần đổi lịch dùng event ID riêng. |
+
+Migration cuối `20261001131334_BackfillTypedInvoiceReferences` bổ sung typed links chứng minh được; dòng lịch sử không xác định được giữ null và legacy reference. Không ghi đè snapshot hiện có. PT thiếu định danh môn chỉ được suy ra khi đúng một môn OneOnOne phù hợp; không bịa chiều báo cáo. Chi tiết API/kiểm thử tại [contract](refactor-api-contract.md) và [evidence](refactor-backend-evidence.md).
+
 > **Trạng thái:** bản thiết kế mục tiêu, soạn và **chốt 30/09/2026** (các quyết định ở Mục 19.2 đã được người dùng xác nhận hoặc chọn theo best practice), thay thế `Center-Management-System-Design-v2.md`. Mục 20–23 (Phụ lục A–D) liệt kê **từng file Xóa / Giữ / Sửa / Thêm** để viết plan refactor.
 > **Nguồn nghiệp vụ:** `SportManagement_BusinessRules_v2.0` (BR-1 → BR-139). Nếu tài liệu này và Business Rules v2.0 mâu thuẫn, Business Rules thắng; cập nhật lại tài liệu này rồi mới code.
 > **Đổi phạm vi (feedback giảng viên):** hệ thống không còn là một phòng gym. Đây là một **nhà văn hóa thể thao**: nhiều môn, nhiều sân/phòng, khóa học theo lớp, huấn luyện viên của trung tâm và huấn luyện viên tự do thuê sân.

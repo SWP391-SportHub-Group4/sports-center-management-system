@@ -16,7 +16,7 @@ namespace SportHub.Payment.Application.Services;
 /// <summary>Mutations here belong to the caller's transaction; a failed benefit rolls back cash and points.</summary>
 public sealed class PaymentFulfillmentService(ISportHubDbContext db, IPointWalletService wallets,
     IClassEnrollmentFulfillment classes, IPtPurchaseFulfillment pt, ICourtRentalFulfillment rentals, IPackageActivationService packages,
-    IRefundCreditService refunds, IMembershipFulfillment memberships, IAuditWriter audit, IClock clock)
+    IRefundCreditService refunds, IMembershipFulfillment memberships, IAuditWriter audit, IClock clock, PaymentNoticeService notices)
 {
     public async Task CompletePointsAsync(Invoice invoice, CheckoutSession session, CancellationToken ct)
     {
@@ -108,6 +108,8 @@ public sealed class PaymentFulfillmentService(ISportHubDbContext db, IPointWalle
         invoice.PaidAtUtc = clock.UtcNow;
         invoice.ReconciliationRequired = false;
         session.State = "Paid";
+        await notices.QueueAsync(invoice.MemberId, SportHub.BuildingBlocks.Abstractions.Notifications.NotificationEvents.PaymentReceived,
+            invoice.InvoiceId, $"Hóa đơn {invoice.InvoiceNumber} đã thanh toán; quyền lợi đã được cấp.", ct);
         audit.Write(new AuditEntry(invoice.IssuedByUserId, "FULFILL_CHECKOUT", nameof(Invoice),
             invoice.InvoiceId.ToString(), NewValue: $"{{\"paidVia\":\"{paidVia}\"}}"));
     }
@@ -165,6 +167,8 @@ public sealed class PaymentFulfillmentService(ISportHubDbContext db, IPointWalle
         await wallets.EarnAsync(new WalletOperation(invoice.MemberId, (int)(proof.Amount / 1000),
             "GatewayCompensation", proof.VerifiedGatewayEventId, invoice.IssuedByUserId,
             "Bồi hoàn khoản thu VNPay không thể cấp quyền lợi"), ct);
+        await notices.QueueAsync(invoice.MemberId, SportHub.BuildingBlocks.Abstractions.Notifications.NotificationEvents.RefundCompleted,
+            proof.VerifiedGatewayEventId, $"Đã bồi hoàn {proof.Amount / 1000:N0} điểm từ khoản tiền đã thu cho hóa đơn {invoice.InvoiceNumber}.", ct);
         proof.ProcessingStatus = "Compensated";
         proof.ProcessedAtUtc = clock.UtcNow;
         invoice.ReconciliationRequired = false;

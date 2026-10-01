@@ -4,6 +4,7 @@ using System.Text.Json;
 using SportHub.Identity.Domain.Enums;
 using SportHub.Membership.Domain.Entities;
 using Xunit.Abstractions;
+using Microsoft.EntityFrameworkCore;
 
 namespace SportHub.Payment.Tests.Integration;
 
@@ -46,5 +47,30 @@ public sealed class ApiWireContractTests(PaymentApiFactory factory, ITestOutputH
         var denied = await other.GetAsync($"/api/checkouts/{id}");
         Assert.Equal(HttpStatusCode.Forbidden, denied.StatusCode);
         output.WriteLine("ERROR_JSON=" + await denied.Content.ReadAsStringAsync());
+
+        // Changing catalog terms after checkout must not change the purchased price/duration.
+        await factory.QueryAsync(db => db.MembershipPackages.Where(x => x.PackageId == packageId)
+            .ExecuteUpdateAsync(s => s.SetProperty(x => x.Price, 200_000m).SetProperty(x => x.DurationDays, 60)));
+        var attemptResponse = await client.PostAsync($"/api/checkouts/{id}/attempts", null);
+        Assert.Equal(HttpStatusCode.OK, attemptResponse.StatusCode);
+        using var attempt = JsonDocument.Parse(await attemptResponse.Content.ReadAsStringAsync());
+        var reference = attempt.RootElement.GetProperty("transactionReference").GetString();
+        var staff = await factory.SeedUserAsync(UserRole.Receptionist);
+        using var counter = factory.CreateApiClient(staff.UserId, UserRole.Receptionist);
+        Assert.Equal(HttpStatusCode.OK, (await counter.PostAsync($"/api/dev/payments/{reference}/simulate", null)).StatusCode);
+        await factory.QueryAsync(async db =>
+        {
+            var item = await db.InvoiceItems.SingleAsync(x => x.InvoiceId == id);
+            Assert.NotNull(item.MemberPackageId);
+            Assert.Equal(100_000m, item.LineAmount);
+            var entitlement = await db.MemberPackages.SingleAsync(x => x.MemberPackageId == item.MemberPackageId);
+            Assert.Equal(30, entitlement.DurationDaysSnapshot);
+            Assert.Equal(30, entitlement.EndDate.DayNumber - entitlement.StartDate.DayNumber + 1);
+            Assert.Null(entitlement.RemainingSessions);
+            Assert.NotNull((await db.Payments.SingleAsync(x => x.InvoiceId == id)).PaymentAttemptId);
+            Assert.Equal(2, await db.Notifications.CountAsync(x => x.SourceEntityId == id
+                && x.Channel == SportHub.Notification.Domain.Enums.NotificationChannel.Email));
+            return 0;
+        });
     }
 }

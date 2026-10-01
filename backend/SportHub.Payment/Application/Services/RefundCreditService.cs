@@ -11,7 +11,7 @@ using SportHub.Payment.Wallet.Domain;
 namespace SportHub.Payment.Application.Services;
 
 /// <summary>Idempotent system-event refund credit. The entitlement-owning caller cancels its benefit in this transaction.</summary>
-public sealed class RefundCreditService(ISportHubDbContext db, IPointWalletService wallets) : IRefundCreditService
+public sealed class RefundCreditService(ISportHubDbContext db, IPointWalletService wallets, PaymentNoticeService notices) : IRefundCreditService
 {
     public async Task<RefundCreditResult> CreditAsync(RefundCreditRequest request,
         CancellationToken cancellationToken = default)
@@ -54,6 +54,9 @@ public sealed class RefundCreditService(ISportHubDbContext db, IPointWalletServi
         if (points == 0) return new RefundCreditResult(0, false);
         var result = await wallets.EarnAsync(new WalletOperation(invoice.MemberId, points,
             "SystemEvent", request.EventId, null, request.Reason.Trim(), item.ItemId), cancellationToken);
+        if (!result.AlreadyApplied)
+            await notices.QueueAsync(invoice.MemberId, SportHub.BuildingBlocks.Abstractions.Notifications.NotificationEvents.RefundCompleted,
+                result.LedgerEntryId, $"Đã hoàn {points} điểm cho hóa đơn {invoice.InvoiceNumber}: {request.Reason.Trim()}", cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
         return new RefundCreditResult(points, result.AlreadyApplied);
     }

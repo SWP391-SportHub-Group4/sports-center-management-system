@@ -1,12 +1,12 @@
 # Plan refactor code 1 — Backend đa môn và hợp đồng API
 
-Ngày lập: 30/09/2026. Trạng thái: **kế hoạch, chưa triển khai code**. Đã đọc cấu trúc repository, các service trọng yếu, Design v3 và nội dung BR trong `docs/SportManagement_BusinessRules_v2.0_updated.docx`. Chưa build, chạy test hay migration trong bước lập plan.
+Ngày lập: 30/09/2026. Cập nhật 01/10/2026: **hoàn tất phạm vi backend, trừ tích hợp/nghiệm thu VNPay sandbox thật theo yêu cầu người dùng**. Gate cuối 465/465 test pass trên PostgreSQL Testcontainers; model không lệch migration. Xem [manifest bàn giao](refactor-backend-final-handover.md), [evidence](refactor-backend-evidence.md) và [API contract](refactor-api-contract.md). Migration đã kiểm trên DB test, chưa áp lên DB phát triển/chia sẻ. Nội dung các chặng dưới đây giữ làm đặc tả và tiêu chí nghiệm thu; tên file/field tương thích thực tế được ghi trong manifest.
 
 Đây là phần 1/2. Hoàn thành toàn bộ backend, PostgreSQL, API và kiểm thử nghiệp vụ trước; sau đó thực hiện [plan 2](refactor-code-plan-2-frontend.md) cho giao diện và nghiệm thu web. Backend xong không có nghĩa web xong: frontend cũ có thể không tương thích trong thời gian chuyển đổi. Không triển khai riêng trạng thái trung gian này cho người dùng.
 
 ## 1. Cách giao việc cho AI thực hiện
 
-Đọc file này từ đầu, rồi chỉ làm **một chặng P1.xx** mỗi lượt. Không chạy theo thứ tự bảng tên file nếu trái với phụ thuộc giữa các chặng. Không viết lại toàn bộ repository. Không kết thúc ở entity/controller rỗng, dữ liệu giả hoặc TODO cho nghiệp vụ bắt buộc.
+Kế hoạch ban đầu chia **một chặng P1.xx** mỗi lượt; lượt hoàn tất 01/10/2026 thực hiện các phần còn lại cùng nhau theo yêu cầu người dùng. Không chạy theo thứ tự bảng tên file nếu trái với phụ thuộc giữa các chặng. Không viết lại toàn bộ repository. Không kết thúc ở entity/controller rỗng, dữ liệu giả hoặc TODO cho nghiệp vụ bắt buộc.
 
 Nguồn ưu tiên: BR DOCX v2.0 updated > Design v3, nhất là §19.2 > các quyết định kỹ thuật được ghi rõ trong plan này > SSOT/entity-field-purpose. Requirements và SRS vẫn là scope cũ; **không sửa hai tài liệu đó trong hai plan**. Không dùng plan gym cũ để khôi phục rule đã bỏ. Không sửa nội dung BR DOCX trong tác vụ refactor code.
 
@@ -470,16 +470,16 @@ Chỉ chạy `database update` sau khi xác minh DB đích demo/test. Test rollb
 
 Gate cuối P1:
 
-- [ ] Mọi bảng/constraint mới có migration, DB trắng và upgrade đều qua.
-- [ ] Auth/password/role/ownership đã kiểm; tài khoản ExternalCoach không lộ Member.
-- [ ] Catalog, course, PT, Gym, attendance, rental đều dùng rule đúng; DB chặn trùng và overbook.
-- [ ] Wallet/OTP/checkout/VNPay mock/refund/late payment/transfer/expiry đủ lifecycle; return không mark paid.
-- [ ] Sandbox VNPay có hoặc chưa có bằng chứng thực nghiệm được ghi rõ; mock pass không đồng nghĩa sandbox pass.
-- [ ] Outbox Email thật có dispatcher, job idempotent và audit đầy đủ.
-- [ ] Revenue không tính điểm như tiền mới, legacy và compensation trace được.
-- [ ] API contract đủ verb/request/response/error/actor cho plan 2, kèm JSON ví dụ lấy từ test thật.
-- [ ] Không có placeholder `NotImplementedException`, endpoint success giả hay test skip để “xanh”.
-- [ ] Source/seed runtime không còn rule Yoga/GroupX/category/booking restriction/daily limit/refund payout mới; migration lịch sử được phép giữ literal cũ.
+- [x] Mọi bảng/constraint mới có migration, DB trắng và upgrade đều qua.
+- [x] Auth/password/role/ownership đã kiểm; tài khoản ExternalCoach không lộ Member.
+- [x] Catalog, course, PT, Gym, attendance, rental đều dùng rule đúng; DB chặn trùng và overbook.
+- [x] Wallet/OTP/checkout/VNPay mock/refund/late payment/transfer/expiry đủ lifecycle; return không mark paid.
+- [x] Sandbox VNPay chưa có bằng chứng thực nghiệm, được loại khỏi phạm vi theo yêu cầu; mock pass không đồng nghĩa sandbox pass.
+- [x] Outbox Email có dispatcher, retry/idempotency/audit; chưa xác nhận delivery SMTP bên ngoài.
+- [x] Revenue không tính điểm như tiền mới, legacy và compensation trace được.
+- [x] API contract cho plan 2 và JSON ví dụ lấy từ test thật đã được cập nhật.
+- [x] Không có placeholder `NotImplementedException`, endpoint success giả hay test skip để “xanh”.
+- [x] Source/seed runtime không còn rule Yoga/GroupX/category/booking restriction/daily limit/refund payout mới; migration lịch sử được phép giữ literal cũ.
 
 ## 17. Hồ sơ bàn giao sang plan 2
 

@@ -1,5 +1,19 @@
 # Tiến độ refactor backend (plan 1)
 
+## Chốt plan 1 — 01/10/2026
+
+**Hoàn tất phạm vi backend P1.00–P1.13, ngoại trừ tích hợp/nghiệm thu VNPay sandbox thật theo yêu cầu người dùng.** Frontend vẫn thuộc plan 2. Manifest, quyết định tương thích và giới hạn ở [bàn giao cuối](refactor-backend-final-handover.md); payload thực tế ở [JSON API](refactor-api-examples.json).
+
+Đã đóng các phần còn thiếu sau checkpoint trước: lịch sân Class/PT/Rental/Block và phân quyền; incident lớp/PT với phương án dời/hủy/bù; email transaction cho invoice/payment/refund, threshold và thay đổi lịch; enum JSON UPPER_SNAKE_CASE; kết quả fulfillment phân biệt cấp quyền lợi/bồi hoàn/đợi đối soát; typed invoice references và snapshot giá/thời hạn/môn. Membership legacy còn cột số lượt để đọc lịch sử nhưng không còn dùng chúng để giới hạn quyền lợi/expiry. Legacy discount/correction chỉ đọc.
+
+**Kiểm chứng cuối: 465/465 test pass, 0 fail, 0 skip.** PostgreSQL 16 Testcontainers kiểm cả DB trắng, nâng cấp có dữ liệu và concurrency; model drift không có. Chi tiết lệnh/suite tại [evidence](refactor-backend-evidence.md). Migration cuối `20261001131334_BackfillTypedInvoiceReferences`; chỉ áp trong database test, chưa áp lên DB phát triển/chia sẻ.
+
+Trạng thái bàn giao: code tiếp tục trên checkout hiện có (HEAD lúc chốt `cf8b6bd`, phần bổ sung ở working tree), không tự commit/push. Giữ nguyên `.claude/settings.local.json` của người dùng. Sandbox VNPay và delivery SMTP bên ngoài chưa có bằng chứng thực nghiệm; mock/dispatcher đã qua test. Bước tiếp theo là plan 2 và tích hợp sandbox do người dùng phụ trách.
+
+Các checkpoint bên dưới là **lịch sử**, gồm số test cũ và phần việc lúc đó chưa làm; không phải trạng thái hiện hành.
+
+---
+
 ## Checkpoint — P1.12/P1.13 (01/10/2026)
 
 Đã bổ sung báo cáo doanh thu theo môn/nguồn/ExternalCoach, dòng đối soát và legacy chưa phân loại; export CSV/PDF dùng chung dịch vụ tổng hợp với API. Có export sĩ số với bộ lọc môn, hold còn hạn theo IClock, và báo cáo hội viên mới theo ngày Việt Nam. Các loại export cũ giữ nguyên ý nghĩa ngày phát hành hóa đơn.

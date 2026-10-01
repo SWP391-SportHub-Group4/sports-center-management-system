@@ -3,7 +3,7 @@ namespace SportHub.Payment.Application.DTOs;
 public sealed record InvoiceSummaryResponse(
     Guid InvoiceId,
     string InvoiceNumber,
-    Guid MemberId,
+    Guid BeneficiaryUserId,
     string MemberEmail,
     string MemberName,
     decimal TotalAmount,
@@ -23,6 +23,8 @@ public sealed record InvoiceSummaryResponse(
     DateTime? CheckoutExpiresAtUtc = null,
     bool ReconciliationRequired = false)
 {
+    /// <summary>Compatibility alias; beneficiary can be a Member or an ExternalCoach.</summary>
+    public Guid MemberId => BeneficiaryUserId;
     [SportHub.BuildingBlocks.Api.WireEnum]
     public string FulfillmentOutcome => SportHub.BuildingBlocks.Api.WireEnum.TryParse<Domain.Enums.InvoiceStatus>(Status, true, out var status)
         ? Domain.Rules.InvoiceFulfillment.Outcome(status, PaidVia, ReconciliationRequired) : "Pending";

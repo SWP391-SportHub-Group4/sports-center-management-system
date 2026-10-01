@@ -92,6 +92,16 @@ public sealed class PointConfirmationMigrationTests(PaymentApiFactory factory)
             PaymentId = Guid.NewGuid(), InvoiceId = invoiceId, Amount = 123_000m,
             Method = PaymentMethod.Cash, Status = PaymentStatus.Success, ReceivedByUserId = receptionist.UserId, PaidAt = now
         };
+        var memberPackageId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+        await db.Database.ExecuteSqlInterpolatedAsync($"""
+            INSERT INTO membership_packages (package_id, name, price, duration_days, is_active)
+            VALUES (9901, 'Historical membership snapshot', 123000, 30, true);
+            INSERT INTO member_packages (member_package_id, member_id, package_id, start_date, end_date, status, version)
+            VALUES ({memberPackageId}, {member.UserId}, 9901, DATE '2026-10-01', DATE '2026-10-30', 1, 0);
+            INSERT INTO invoice_items (item_id, invoice_id, item_type, description, unit_price, quantity, line_amount, related_entity_id)
+            VALUES ({itemId}, {invoiceId}, 0, 'Historical membership snapshot', 123000, 1, 123000, {memberPackageId});
+            """);
         // Seed the historical schema using its actual columns, not the current EF model.
         await db.Database.ExecuteSqlInterpolatedAsync($"""
             INSERT INTO payments (payment_id, invoice_id, amount, method, status, received_by_user_id, paid_at)
@@ -103,6 +113,10 @@ public sealed class PointConfirmationMigrationTests(PaymentApiFactory factory)
         Assert.Equal(123_000m, invoice.CashAmount);
         Assert.Equal(0, invoice.PointsApplied);
         Assert.Null(invoice.CheckoutCycleId);
+        Assert.Equal(memberPackageId, await db.InvoiceItems.Where(x => x.ItemId == itemId)
+            .Select(x => x.MemberPackageId).SingleAsync());
+        Assert.Equal(memberPackageId, await db.InvoiceItems.Where(x => x.ItemId == itemId)
+            .Select(x => x.RelatedEntityId).SingleAsync());
         Assert.Equal(InvoiceStatus.Paid, invoice.Status);
         Assert.Equal(123_000m, await db.Payments.Where(x => x.PaymentId == payment.PaymentId).Select(x => x.Amount).SingleAsync());
         Assert.False(db.Database.HasPendingModelChanges());

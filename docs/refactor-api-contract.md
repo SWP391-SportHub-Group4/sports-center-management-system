@@ -1,13 +1,61 @@
 # Hợp đồng API refactor đa môn (backend)
 
-Trạng thái hiện tại: **đã triển khai đến P1.12 và bổ sung regression P1.13**. Xem “Cập nhật P1.12/P1.13 — 01/10/2026” cuối tài liệu và evidence mới nhất. Phần A là route lịch sử trước refactor (30/09/2026, commit `a5c480b`); các ghi chú “chưa có” ở checkpoint cũ không thay thế contract mới. Chưa chứng minh VNPay sandbox thật; không coi toàn bộ plan 1 đã đóng khi còn phần lịch/incident lớp/PT được ghi ở progress.
+Trạng thái 01/10/2026: **backend plan 1 đã qua gate 465/465 test**, ngoại trừ tích hợp/nghiệm thu VNPay sandbox thật theo yêu cầu người dùng. Xem [bàn giao](refactor-backend-final-handover.md) và [evidence](refactor-backend-evidence.md). Phần A là route lịch sử trước refactor (30/09/2026, commit `a5c480b`), không dùng để khôi phục flow ghi dữ liệu đã bỏ. Quy ước và bản chốt dưới đây được ưu tiên khi checkpoint cũ dùng tên nội bộ PascalCase.
 
 ## Quy ước chung
 
-- Enum wire hiện tại: `JsonStringEnumConverter` (tên PascalCase, ví dụ `Issued`). Plan yêu cầu chuẩn đích UPPER_SNAKE_CASE — **chưa đổi**, sẽ ghi vào đây khi thực hiện.
+- Enum JSON hiện tại: **UPPER_SNAKE_CASE** (`ISSUED`, `PAID_AFTER_RECONCILIATION`, `GROUP_COURSE`, `EXTERNAL_COACH`, `VN_PAY`). Enum số không được chấp nhận. DTO string biểu diễn enum có `WireEnum` converter; query enum chấp nhận canonical và tên nội bộ để tương thích. JWT role claim vẫn dùng tên nội bộ, không tự chuyển JWT.
 - Enum DB hiện tại: lưu int mặc định EF (không có `HasConversion`). Khi thêm giá trị phải append, không đổi số cũ. `UserRole` hiện: CenterManager=0, Coach=1, Member=2, Receptionist=3, SystemAdministrator=4 → ExternalCoach phải là 5.
-- `InvoiceStatus` hiện: Issued=0, Paid=2, Void=3.
+- `InvoiceStatus` DB: Issued=0, Paid=2, Void=3, PaidAfterReconciliation=4. Wire: `ISSUED`, `PAID`, `VOID`, `PAID_AFTER_RECONCILIATION`.
 - Auth: JWT Bearer; policy trong `backend/SportHub.BuildingBlocks/Api/SportHubPolicies.cs`.
+- Error body thông thường `{error,message}`, mã lỗi chữ thường snake_case; lỗi occupancy có thêm `conflicts[]`. ID vẫn đúng kiểu int/Guid, thời gian UTC ISO-8601; tham số ngày báo cáo/lịch dùng ngày Việt Nam.
+
+## Bản chốt API — lịch sân, incident, payment và snapshot
+
+[refactor-api-examples.json](refactor-api-examples.json) chứa response thật từ HTTP integration test: POST membership checkout (201), GET invoice (200), GET checkout của người khác (403 `checkout_not_owned`). Fixture đã kiểm thanh toán mock và snapshot; ID/email trong ví dụ chỉ thuộc database test.
+
+### Lịch sân và xử lý sự cố
+
+| Verb | Route / request | Actor | Response / lỗi |
+|---|---|---|---|
+| GET | `/api/manager/court-schedule?fromDate=YYYY-MM-DD&toDate=YYYY-MM-DD&roomId=` | Manager, Receptionist | 200 `CourtScheduleEntry[]`; hai ngày inclusive, tối đa 31 ngày; 400 `invalid_range`, 403 `court_schedule_forbidden`. |
+| GET | `/api/coaches/me/court-schedule?fromDate=&toDate=&roomId=` | Coach | 200 cùng DTO nhưng chỉ lớp được giao; PT dùng lịch PT owner-scoped hiện hữu. |
+| POST | `/api/manager/incidents/preview` body `{scope:"ROOM"|"CENTER",roomId?,startAtUtc,endAtUtc,reason}` | Manager | 200 `{scope,roomId,startAtUtc,endAtUtc,impacts[],canResolve,blockReason}`. Mỗi impact có `{sourceType,sourceId,startAtUtc,endAtUtc,resolutionOptions[]}`. |
+| POST | `/api/manager/incidents/resolve` body như preview | Manager | 200 `{incidentId}`; 409 `incident_requires_schedule_resolution` nếu còn lớp/PT/block, `incident_schedule_changed` hoặc `occupancy_conflict` nếu lịch đổi; lỗi 400 `invalid_incident_scope`, `incident_reason_required`, `invalid_incident_range`; 404 `incident_room_not_found`. |
+
+`CourtScheduleEntry`: `{sourceType,sourceId,roomId,startAtUtc,endAtUtc,coachId,coachName,title,status,classId,expectedAttendees,participants[]}`. Source type: `CLASS_SESSION`, `PT_SESSION`, `COURT_RENTAL`, `ROOM_BLOCK`. Participant: `{memberId,memberName,enrollmentId,attendanceStatus,recordedAtUtc}`. Rental/block không có roster; ExternalCoach không được gọi hai endpoint lịch nội bộ, chỉ availability và lịch thuê của mình.
+
+`resolutionOptions` trả `{action,method,path}`. Action identifiers: `Reschedule`, `CancelWithMakeup`, `CancelByCenter`, `RemoveExistingBlock`, `AutoCancelAndRefundOnResolve`; đây là identifier thao tác, giữ đúng chuỗi API trả, không phải enum. Frontend mở form tương ứng và gọi route được trả: class reschedule/cancel kèm makeup, Manager PT reschedule/cancel hoặc xóa block không gắn incident. Sau khi xử lý, gọi preview lại rồi resolve. Resolve không tự chọn lịch thay người dùng; chỉ hủy/hoàn rental và tạo incident/block khi kiểm lại không còn conflict. Email và audit cùng transaction với bước nghiệp vụ tương ứng.
+
+### Checkout và invoice
+
+POST checkout trả 201 `CheckoutResponse`, yêu cầu header `Idempotency-Key` (không rỗng, tối đa 120 ký tự):
+
+| Route | Body | Actor |
+|---|---|---|
+| `/api/checkouts/membership` | `{packageId,targetMemberId?,allowStacking:false,stackingApprovalReason?}` | Member hoặc FrontDesk; stacking cần quyền Manager và lý do. |
+| `/api/checkouts/class` | `{classId,targetMemberId?}` | Member hoặc FrontDesk. |
+| `/api/checkouts/pt` | `{memberPackageId,coachId,frequencyPerWeek:1..3,priceVersion,targetMemberId?}` | Member hoặc FrontDesk; lấy version từ PT quote. |
+| `/api/checkouts/court-rental` | `{sportId,roomId,startUtc,endUtc,expectedAttendees}` | ExternalCoach Approved tự mua. |
+
+FrontDesk là Manager/Lễ tân; staff mua cho Member phải có targetMemberId, Member chỉ mua cho mình. Lỗi chung: 400 `idempotency_key_required`/`target_member_required`, 403 `target_member_forbidden`/`checkout_not_owned`; conflict nghiệp vụ trả 409. GET checkout trả 200; attempts trả 200 `PaymentAttemptResponse` (`paymentAttemptId,invoiceId,transactionReference,cashAmount,pointsApplied,expiresAtUtc,paymentUrl,state`); không gửi giá do client tính.
+
+`CheckoutResponse`: `{invoiceId,checkoutSessionId,revision,kind,state,totalAmount,pointsApplied,cashAmount,expiresAtUtc,resourceHoldId,invoiceStatus,fulfillmentOutcome,reconciliationRequired}`. Số tiền server quyết định; FE không tự đánh dấu paid từ redirect return hoặc chỉ từ `state`.
+
+| fulfillmentOutcome | Ý nghĩa |
+|---|---|
+| `PENDING` | Chưa cấp quyền lợi; xem thêm invoiceStatus/state để biết đã hủy/hết hạn hay còn chờ. |
+| `FULFILLED` | Đã cấp quyền lợi, kể cả thanh toán muộn reacquire thành công. |
+| `COMPENSATED` | Tiền được xác minh nhưng không cấp được quyền lợi; đã bồi hoàn bằng điểm. |
+| `RECONCILIATION_REQUIRED` | Cần đối soát thủ công; không hiển thị như đã mua thành công. |
+
+`InvoiceSummaryResponse` có `beneficiaryUserId` (Member hoặc ExternalCoach), alias cũ `memberId`, `fulfillmentOutcome` cùng các field tiền/trạng thái hiện có. `paidVia` canonical: `POINTS`, `VN_PAY`, `VN_PAY_AND_POINTS`, `VN_PAY_AFTER_RECONCILIATION`, `VN_PAY_COMPENSATED`, `VN_PAY_MANUAL_COMPENSATION`. Không suy quyền lợi chỉ từ `PAID_AFTER_RECONCILIATION`.
+
+`InvoiceItemResponse` bổ sung nullable `classId`, `courtRentalId`, `ptEntitlementId`, `memberPackageId`, `sportId`, `sportName`, `ptFrequencyPerWeek`, `sourceInvoiceItemId`. `relatedEntityId` vẫn đọc được cho lịch sử. Giá/item, sport name và thời hạn Membership được snapshot khi tạo checkout; sửa catalog không đổi hợp đồng đã mua. Không có sport riêng cho Membership; PT chưa xác định được môn giữ null.
+
+Membership catalog mới từ chối `sessionLimit != null` bằng 400 `membership_session_limit_removed`; giá phải dương, bội số 1.000 VND (400 `membership_price_invalid`). Những field quota legacy còn đọc được nhưng không ảnh hưởng access/expiry.
+
+Invoice lịch sử vẫn đọc theo ownership/FrontDesk. Discount/correction không còn tạo/approve/reject (409 `legacy_adjustment_read_only`); refund dùng `/api/refunds`, không payout tiền mặt. Gửi payment thủ công trả 409 `checkout_requires_verified_payment`. Email invoice created/payment received/refund completed được queue cùng transaction; API không chờ gửi SMTP.
 
 ## Phần I — P1.10 Court Rental (đã có PostgreSQL regression ở P1.13)
 
@@ -17,10 +65,10 @@ Trạng thái hiện tại: **đã triển khai đến P1.12 và bổ sung regre
 | GET | `/api/court-rentals/availability?sportId&startUtc&endUtc` | ExternalCoach; chỉ trả sân trống + báo giá giờ, không trả lớp/Member/nguồn lịch bận. |
 | GET | `/api/court-rentals/mine?fromUtc&toUtc` | ExternalCoach; lượt thuê của chính họ. |
 | POST | `/api/court-rentals/{rentalId}/cancel` | Chủ thuê; ≥24h trước giờ bắt đầu hoàn 100%, dưới 24h 0%; cùng transaction hủy occupancy. |
-| GET | `/api/manager/court-schedule/rentals?roomId&fromUtc&toUtc` | Manager/Receptionist/Coach qua `StaffRead`; chỉ metadata thuê cần cho lịch, không roster Member. |
+| GET | `/api/manager/court-schedule/rentals?roomId&fromUtc&toUtc` | Manager/Receptionist qua `FrontDesk`; chỉ metadata thuê cần cho lịch, không roster Member. |
 | POST | `/api/manager/court-rentals/{rentalId}/cancel` | CenterManager; body `{reason}`; center fault hoàn 100% bằng điểm và release occupancy nguyên tử. |
 
-Invoice checkout giữ phòng + ExternalCoach bằng cùng occupancy constraints với class/PT/block. Hết hạn/hủy nhả đúng một lần; IPN muộn không Spend lại điểm đã release, chỉ reacquire khi slot còn hợp lệ; nếu không thì theo cơ chế bồi hoàn khoản cash đã xác minh. Migration `CourtRentalWorkflow` đã sinh nhưng chưa áp DB. Chưa chạy PostgreSQL concurrency/IDOR tests; xem checkpoint P1.10 ở `refactor-progress.md`.
+Invoice checkout giữ phòng + ExternalCoach bằng cùng occupancy constraints với class/PT/block. Hết hạn/hủy nhả đúng một lần; IPN muộn không Spend lại điểm đã release, chỉ reacquire khi slot còn hợp lệ; nếu không thì theo cơ chế bồi hoàn khoản cash đã xác minh. Migration và PostgreSQL concurrency/ownership đã qua gate; chưa áp migration trên DB phát triển/chia sẻ.
 
 ## Phần A — Route baseline (trước refactor)
 
@@ -321,20 +369,13 @@ Refund mới không còn tạo/duyệt qua route adjustment chung; refund legacy
 
 | Chặng | Trạng thái | Ghi chú |
 |---|---|---|
-| P1.01 Ports | Một phần | Ports khai báo trong BuildingBlocks (chưa có implementation); role ExternalCoach=5 và policy mới đã đăng ký. Route chưa đổi. |
-| P1.02 Model & migration | Identity/Catalog/Course/Wallet đã có | Còn schema checkout/retry, threshold/rentals theo các phase sau. |
-| P1.03 Identity/ExternalCoach | Phần lớn xong | Mật khẩu, OTP, security stamp, ExternalCoach, CoachAdminService và specialty đã có. Outbox email nâng cao thuộc P1.11. |
-| P1.04 Catalog & occupancy | Xong | Phần D; lớp và PT đã dùng occupancy, thuê sân nối ở P1.10. |
-| P1.05 Lớp/điểm danh/Gym/PT | Gate xong | Phần F; thanh toán/fulfillment khóa thật do P1.07 nối tiếp. |
-| P1.06 Wallet & OTP quầy | Đã triển khai ví và xác nhận/giữ điểm | Phần E; QR, Spend + fulfillment và checkout retry do P1.07 nối tiếp. |
-| P1.07 Checkout/VNPay | Đã triển khai phần chính; còn CourtRental (P1.10), sandbox merchant thật và migrate DB dev | Phần G; xem checkpoint/evidence P1.07. |
-| P1.08 Refund điểm | Đang triển khai; workflow Membership/PT/Class đã nối, rental chờ P1.10; integration gate chưa chạy được do Docker engine không truy cập | Runtime `/api/refunds`, migration mới chưa áp DB; chi tiết Phần H. |
-| P1.09 Threshold/transfer | Đang triển khai; automatic threshold, owner response, waive/pricing routes; transfer bằng/rẻ hơn thực hiện ngay, đắt hơn dùng checkout phần chênh | Migrations `ClassThresholdResponsesAndTransferRebooking`, `ClassTransferInvoiceChain` chưa áp DB; PostgreSQL gate chưa chạy. |
-| P1.09 Ngưỡng & chuyển lớp | Chưa làm | |
-| P1.10 Thuê sân | Chưa làm | |
-| P1.11 Incident/outbox/settings | Chưa làm | |
-| P1.12 Báo cáo/seed/config | Chưa làm | |
-| P1.13 Kiểm thử | Chưa làm | |
+| P1.01–P1.02 Ports/model/migration | Hoàn tất backend | Typed FK và snapshots; giữ lịch sử, nâng cấp và DB trắng qua gate. |
+| P1.03–P1.05 Identity/catalog/course/Gym/PT | Hoàn tất backend | Phần C/D/F; JSON enum theo quy ước chốt ở đầu tài liệu. |
+| P1.06–P1.08 Wallet/checkout/refund | Hoàn tất backend | Phần E/G/H; sandbox VNPay thật do người dùng phụ trách. |
+| P1.09 Threshold/transfer | Hoàn tất backend | Phần I, expiry/transfer/late payment integration đã chạy. |
+| P1.10–P1.11 Rental/calendar/incident/outbox | Hoàn tất backend | Bản chốt ở đầu tài liệu và Phần J. |
+| P1.12 Báo cáo/seed/config | Hoàn tất backend | Cập nhật P1.12/P1.13 ở cuối tài liệu. |
+| P1.13 Kiểm thử | 465/465 pass | Xem evidence cuối; frontend và dịch vụ bên ngoài chưa thuộc chứng nhận này. |
 
 AI (`api/ai/*`) nằm ngoài gate của hai plan; chỉ sửa tối thiểu để build.
 
@@ -419,7 +460,7 @@ Ledger trả `id, entryType, points, availableDelta, heldDelta, availableAfter, 
 - Self selection chỉ đổi điểm trên invoice của chính mình; points > total/1000 bị 400 `invalid_points`. Đổi/bỏ điểm release cycle cũ và tạo reference mới, không âm available/held.
 - Job mỗi phút release điểm trên hóa đơn Issued đã quá hạn hoặc Void. Expired state được suy từ thời gian server ngay cả khi job chưa xử lý.
 
-**Bàn giao P1.07:** chu kỳ hiện snapshot trên Invoice (`CheckoutCycleId/CheckoutRevision/HoldExpiresAtUtc`). `PointsApplied` là điểm đang Hold; `CashAmount=TotalAmount-PointsApplied*1000`. Cash=0 vẫn chờ P1.07 thực hiện Spend + fulfillment atomic; không phát QR, không tự mark Paid. P1.07 cần entity CheckoutSession/lịch sử retry, nối quote/reserve course/rental, tạo attempt, callback/reconcile và Spend/Release với reference `CheckoutSession` + cycle ID. Đây chưa phải checkout v3 hoàn chỉnh.
+Chu kỳ có snapshot trên Invoice (`CheckoutCycleId/CheckoutRevision/HoldExpiresAtUtc`) và lịch sử trong CheckoutSession. `PointsApplied` là điểm chọn/giữ; `CashAmount=TotalAmount-PointsApplied*1000`. Endpoint attempts thực hiện Spend + fulfillment nguyên tử khi cash=0, không phát QR 0đ. Course/rental dùng quote/reserve ports; callback/reconcile và Spend/Release gắn reference CheckoutSession + cycle ID. Xem Phần G và bản chốt outcome ở đầu tài liệu.
 
 **Email:** dùng SMTP; chỉ Development có `Email:DemoLoggingEnabled=true` mới được log nội dung demo. Gửi thất bại thì revoke mã vừa tạo; không tự giữ điểm hoặc báo xác nhận thành công. Outbox email/retry bền vững thuộc P1.11.
 
@@ -435,7 +476,7 @@ Ledger trả `id, entryType, points, availableDelta, heldDelta, availableAfter, 
 | GET | `api/members/me/enrollments`, `.../schedule` | Member | Ghi danh và lịch cá nhân; không có endpoint tự ghi danh từng buổi. |
 | POST | `api/gym-checkins/{checkInId}/checkout` | Receptionist | Giờ server, idempotent; checkin chưa tồn tại/giờ vào tương lai bị từ chối. |
 
-`IClassEnrollmentFulfillment` cung cấp quote, giữ chỗ, confirm, release và cancel trong transaction của caller; chưa có checkout course gọi port này để thu tiền thật. PT giữ endpoint ở Phần A, thêm `roomId` tùy chọn và chống trùng occupancy. Job NoShow chỉ xử lý buổi PT đã kết thúc; lớp nhóm không tự tạo Present/Absent.
+`IClassEnrollmentFulfillment` cung cấp quote, giữ chỗ, confirm, release và cancel trong transaction của checkout/fulfillment caller. PT giữ các endpoint lịch/workout/homework, thêm `roomId` tùy chọn và chống trùng occupancy. Job NoShow chỉ xử lý buổi PT đã kết thúc; lớp nhóm không tự tạo Present/Absent.
 
 ## Phần G — P1.07 Checkout hiện hành
 
@@ -451,9 +492,9 @@ Ledger trả `id, entryType, points, availableDelta, heldDelta, availableAfter, 
 | POST | `api/invoices/{invoiceId}/reconcile` | FrontDesk | QueryDR xác minh giao dịch theo attempt mới nhất. |
 | POST | `api/dev/payments/{reference}/simulate` | FrontDesk, Development | Mock callback qua cùng pipeline IPN; không có ở môi trường khác. |
 
-Invoice checkout mới chặn route ghi payment thủ công. `PaidAfterReconciliation` biểu thị khoản thu đến muộn/không thể cấp quyền lợi; `VnPayCompensated` là đã bồi hoàn điểm đúng số tiền, còn `VnPayManualCompensation` + `ReconciliationRequired=true`/event `ManualCompensationRequired` cần xử lý tiền thực thu ngoài hệ thống khi không đổi chính xác sang điểm. `CheckoutSession` và `VerifiedGatewayEvent` giữ lịch sử/idempotency; các checkpoint E/F ở trên mô tả trạng thái khi mới triển khai từng phase. Thuê sân chưa có route checkout vì chờ CourtRental của P1.10.
+Route ghi payment thủ công không còn tạo khoản thu mới. `PAID_AFTER_RECONCILIATION` biểu thị khoản thu muộn, cần đọc `fulfillmentOutcome`: `FULFILLED` khi reacquire/cấp quyền lợi được; `COMPENSATED` khi bồi hoàn điểm; `RECONCILIATION_REQUIRED` khi không thể đổi chính xác tiền thực thu sang điểm. `CheckoutSession` và `VerifiedGatewayEvent` giữ lịch sử/idempotency. CourtRental dùng `/api/checkouts/court-rental`.
 
-## Phần H — P1.08 Refund bằng điểm (runtime hiện tại và gate còn lại)
+## Phần H — P1.08 Refund bằng điểm
 
 Refund dùng `PaymentAdjustment` hiện có, không thêm bảng Refund; refund mới có `InvoiceItemId`, `SystemCalculatedPoints`, `ApprovedPoints`, `CenterFault` và ledger reference. `Amount`/`RequestedAmount` là 0 cho refund mới, để không bị tính nhầm thành tiền hoàn trong báo cáo legacy. Approval ghi `Completed`, cộng điểm vào ví và hủy entitlement trong cùng transaction. Không có xác nhận chi tiền hay VNPay refund.
 
@@ -464,9 +505,9 @@ Refund dùng `PaymentAdjustment` hiện có, không thêm bảng Refund; refund 
 | POST | `api/refunds/{adjustmentId}/approve` | Manager khác người yêu cầu | Body `{centerFault, reason}`. Khóa invoice/item/refund; tính lại tỷ lệ/cap; Earn + hủy quyền lợi + Completed nguyên tử. |
 | POST | `api/refunds/{adjustmentId}/reject` | Manager khác người yêu cầu | Body `{reason}`; từ chối yêu cầu chưa xử lý. |
 
-Đã có calculator cho Membership (50% khi RemainingDays×3 >= TotalDays×2), PT (50% khi chưa consume; các buổi Scheduled tương lai được hủy/nhả quota cùng approval), Class (trước buổi đầu 100%, center cancellation theo buổi chưa cung cấp, loại buổi hủy đã có buổi bù khỏi tỷ lệ), Rental (>=24h 100%, dưới 24h/no-show 0, center cancel 100%). Quy đổi trên giá trị item đã trả gồm cash + points trừ refund trước, floor VND/1.000. `RefundCreditService` hỗ trợ SystemEvent credit và ghi InvoiceItemId trên ledger; chưa có threshold/incident/rental caller để tích hợp.
+Đã có calculator cho Membership (50% khi RemainingDays×3 >= TotalDays×2), PT (50% khi chưa consume; các buổi Scheduled tương lai được hủy/nhả quota cùng approval), Class (trước buổi đầu 100%, center cancellation theo buổi chưa cung cấp, loại buổi hủy đã có buổi bù khỏi tỷ lệ), Rental (>=24h 100%, dưới 24h/no-show 0, center cancel 100%). Quy đổi trên giá trị item đã trả gồm cash + points trừ refund trước, floor VND/1.000. `RefundCreditService` hỗ trợ SystemEvent credit, threshold/incident/rental caller và ghi InvoiceItemId trên ledger.
 
-**Gate còn lại:** `GET api/refunds`/Request/Approve/Reject, calculation and system credit đã có code; Manager không nhập số điểm tùy ý, chỉ chọn center-fault có lý do rồi server tính lại. Rental fulfillment chờ P1.10; phải chạy PostgreSQL integration tests (rollback, concurrency, cumulative cap, split, migration upgrade) trước khi đánh dấu P1.08 hoàn tất. Docker Testcontainers hiện thất bại do quyền truy cập Docker engine. Các migration P1.08 chưa áp vào DB nào.
+Manager không nhập số điểm tùy ý, chỉ chọn center-fault có lý do rồi server tính lại. PostgreSQL gate cho refund/cap/concurrency/rollback và migration upgrade đã qua; xem evidence.
 
 ## Phần I — P1.09 Ngưỡng hoàn vốn và phản hồi
 
@@ -478,7 +519,7 @@ Refund dùng `PaymentAdjustment` hiện có, không thêm bảng Refund; refund 
 
 Job evaluator đặt AtRisk sau deadline nếu ConfirmedCount thấp ngưỡng, snapshot response deadline theo setting và queue secure link cho mỗi member (kể cả ghi danh mới khi AtRisk). Job expiry hoàn điểm response Pending quá hạn, sau đó reevaluate và hủy khóa/hoàn các ghi danh còn lại nếu chưa đạt ngưỡng và không được waive. Hết hạn AtRisk thì không nhận thêm ghi danh.
 
-**Chưa hoàn P1.09:** code đã tạo invoice `ClassTransferDifference`, giữ chỗ lớp đích, release/retry khi hết hạn và chỉ đổi enrollment sau payment fulfillment. Add-on invoice item trỏ item gốc; hoàn lớp đích tính item chênh đã trả trừ refund chênh trước. Cần PostgreSQL tests cho response replay/ownership, checkout retry/expiry, cạnh tranh jobs, deadline, transfer thấp/bằng/cao, late payment và rollback trước khi coi gate đạt. Migration chưa áp DB.
+Invoice `CLASS_TRANSFER_DIFFERENCE` giữ chỗ lớp đích, release/retry khi hết hạn và chỉ đổi enrollment sau payment fulfillment. Add-on invoice item trỏ item gốc; hoàn lớp đích tính item chênh đã trả trừ refund chênh trước. PostgreSQL gate đã qua, gồm transfer thấp/bằng/cao, ownership/replay và expiry.
 
 ## Phần J — P1.10/P1.11 Thuê sân, sự cố và outbox
 
@@ -488,16 +529,16 @@ Job evaluator đặt AtRisk sau deadline nếu ConfirmedCount thấp ngưỡng, 
 | GET | `api/court-rentals/availability` | ExternalCoach đã Approved | `sportId,startUtc,endUtc`; chỉ phòng trống + giá, không trả lịch Member/lớp/PT. |
 | GET | `api/court-rentals/mine` | ExternalCoach | Rental của chính người gọi, lọc `fromUtc/toUtc`. |
 | POST | `api/court-rentals/{rentalId}/cancel` | Chủ rental | Self-cancel theo ngưỡng setting 24 giờ; trả 204. |
-| GET | `api/manager/court-schedule/rentals` | StaffRead | Rental theo khoảng thời gian/phòng; không phải lịch nguồn tổng hợp class/PT. |
+| GET | `api/manager/court-schedule/rentals` | FrontDesk | Rental theo khoảng thời gian/phòng; lịch tổng hợp dùng `/api/manager/court-schedule`. |
 | POST | `api/manager/court-rentals/{rentalId}/cancel` | Manager | `{reason}`; center-fault cancel/refund 100% điểm. |
 | POST | `api/manager/incidents/preview`, `api/manager/incidents/resolve` | Manager | `IncidentRequest` gồm scope, room/time, lý do; resolve kiểm tra tác động lại, rental cancel/refund + block nguyên tử; class/PT chồng thời gian trả conflict để xử lý lịch trước. |
 | POST | `api/manager/notices` | Manager | `{subject,message,recipientUserIds,sendInApp,sendEmail}`; in-app/email vào outbox theo người nhận, giới hạn 1–200 người. |
 
 Email không xuất hiện trong danh sách/read-all InApp. OTP email được mã hóa ở outbox và gửi bởi dispatcher; status email Sent chỉ sau sender thành công, retry có backoff/lease và gửi at-least-once.
 
-`GET /api/reports/revenue` giữ các field legacy, đồng thời thêm `legacyCashCollected`, `reconciliationCashCollected`, `reconciliationCashCount`, `pointsRedeemed`, `pointsRedeemedVnd` (điểm×1.000 VND), `pointsIssued`, `managerPointAdjustment`, `outstandingPoints` (available+held tại lúc chạy), và `bySource[{source,cashCollected,pointsRedeemed}]`. Daily rows thêm `legacyCashCollected` và `reconciliationCashCollected`; `totalCollected` cộng cả cash reconciliation đã xác minh để đối soát. Đây chưa phải group-by-Sport và export hiện chưa dùng chung tổng hợp mới.
+`GET /api/reports/revenue` giữ các field legacy, đồng thời thêm `legacyCashCollected`, `reconciliationCashCollected`, `reconciliationCashCount`, `pointsRedeemed`, `pointsRedeemedVnd` (điểm×1.000 VND), `pointsIssued`, `managerPointAdjustment`, `outstandingPoints` (available+held tại lúc chạy), và `bySource[{source,cashCollected,pointsRedeemed}]`. Daily rows thêm `legacyCashCollected` và `reconciliationCashCollected`; `totalCollected` cộng cả cash reconciliation đã xác minh để đối soát. Group-by-Sport và export dùng cùng tổng hợp theo phần P1.12/P1.13 bên dưới.
 
-**Giới hạn API hiện tại:** chưa có endpoint lịch phòng tổng hợp class/PT/rental/block; chỉ có lịch rental StaffRead. Incidents không hỗ trợ tự dời/hủy class/PT: preview/resolve báo conflict nếu có giao cắt để tránh khóa giả. PostgreSQL concurrency/privacy chưa được kiểm chứng do Testcontainers không kết nối Docker ở host này.
+Lịch phòng tổng hợp và incident workflow hiện hành được mô tả ở bản chốt đầu tài liệu; PostgreSQL concurrency/privacy đã qua gate. Manager cần chọn phương án dời/hủy/bù hợp lệ trước khi resolve incident có lớp/PT.
 # Cập nhật P1.12/P1.13 — 01/10/2026
 
 Phần này thay thế các ghi chú “chưa có” về báo cáo/export và seed trong checkpoint lịch sử bên dưới.

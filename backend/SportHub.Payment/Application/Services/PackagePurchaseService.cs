@@ -19,7 +19,7 @@ namespace SportHub.Payment.Application.Services;
 public sealed class PackagePurchaseService(
     ISportHubDbContext db,
     IInvoiceNumberGenerator invoiceNumbers,
-    IUserAccessReader users, IMembershipFulfillment memberships,
+    IUserAccessReader users, IMembershipFulfillment memberships, PaymentNoticeService notices,
     IInvoiceQueryService invoiceQuery,
     IAuditWriter audit,
     ISystemSettingProvider settings,
@@ -114,6 +114,7 @@ public sealed class PackagePurchaseService(
             RelatedEntityId = memberPackageId, MemberPackageId = memberPackageId
         };
         db.Set<InvoiceItem>().Add(invoiceItem);
+        await notices.CreatedAsync(invoice, ct);
 
         audit.Write(new AuditEntry(
             actorUserId,
