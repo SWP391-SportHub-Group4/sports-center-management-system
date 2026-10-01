@@ -29,7 +29,7 @@ public sealed class PointRefundService(
     ICourtRentalFulfillment rentals,
     ISystemSettingProvider settings,
     IAuditWriter audit,
-    IClock clock) : IPointRefundService
+    IClock clock, PaymentNoticeService notices) : IPointRefundService
 {
     public async Task<PagedResult<PaymentAdjustmentResponse>> SearchAsync(string? status, Guid? invoiceId,
         Guid? invoiceItemId, int page, int pageSize, CancellationToken cancellationToken = default)
@@ -140,6 +140,8 @@ public sealed class PointRefundService(
         adjustment.CompletedAtUtc = now;
         adjustment.ResolvedAt = now;
         adjustment.Status = PaymentAdjustmentStatus.Completed;
+        await notices.QueueAsync(invoice.MemberId, SportHub.BuildingBlocks.Abstractions.Notifications.NotificationEvents.RefundCompleted,
+            adjustment.AdjustmentId, $"Đã hoàn {points} điểm cho hóa đơn {invoice.InvoiceNumber}.", cancellationToken);
         audit.Write(new AuditEntry(managerUserId, "APPROVE_POINT_REFUND", nameof(PaymentAdjustment),
             adjustment.AdjustmentId.ToString(), OldValue: "{\"status\":\"Requested\"}",
             NewValue: System.Text.Json.JsonSerializer.Serialize(new
@@ -184,7 +186,7 @@ public sealed class PointRefundService(
         {
             case InvoiceItemType.Membership:
             {
-                var facts = await memberships.GetFactsAsync(item.ItemId, item.RelatedEntityId, ct)
+                var facts = await memberships.GetFactsAsync(item.ItemId, item.MemberPackageId ?? item.RelatedEntityId, ct)
                     ?? throw new ConflictException("refund_entitlement_not_found", "Không tìm thấy Membership gắn với item.");
                 if (!facts.IsActive && !centerFault) return 0;
                 return RefundCalculator.MembershipPoints(paidVnd, facts.StartDate, facts.EndDate,
@@ -192,7 +194,7 @@ public sealed class PointRefundService(
             }
             case InvoiceItemType.PT:
             {
-                var facts = await pt.GetRefundFactsAsync(item.ItemId, item.RelatedEntityId, ct)
+                var facts = await pt.GetRefundFactsAsync(item.ItemId, item.PtEntitlementId ?? item.RelatedEntityId, ct)
                     ?? throw new ConflictException("refund_entitlement_not_found", "Không tìm thấy PT entitlement gắn với item.");
                 if (facts.Status != "Active" && !centerFault) return 0;
                 return RefundCalculator.PtPoints(paidVnd, facts.ConsumedSessions > 0, centerFault);

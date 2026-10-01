@@ -17,5 +17,7 @@ public enum NotificationSourceEventType
     ExternalCoachReviewed,
     ManualNotice,
     IncidentResolution,
-    PointConfirmationOtpRequested
+    PointConfirmationOtpRequested,
+    InvoiceCreated = 15,
+    RefundCompleted = 16
 }

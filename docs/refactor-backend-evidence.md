@@ -1,5 +1,48 @@
 # Bằng chứng backend (bàn giao sang plan 2)
 
+## Gate cuối plan 1 — 01/10/2026
+
+**465 passed, 0 failed, 0 skipped.** Lệnh chạy từ repository root:
+
+```powershell
+dotnet test backend/SportHub.sln -c Release --no-restore --logger 'trx;LogFilePrefix=p1-final'
+dotnet ef migrations has-pending-model-changes --project backend/SportHub.API --startup-project backend/SportHub.API --configuration Release --no-build
+docker compose config --quiet
+git diff --check
+```
+
+| Project | Passed | Failed | Skipped |
+|---|---:|---:|---:|
+| SportHub.Security.Tests | 130 | 0 | 0 |
+| SportHub.Scheduling.Tests | 107 | 0 | 0 |
+| SportHub.Payment.Tests | 132 | 0 | 0 |
+| SportHub.Training.Tests | 81 | 0 | 0 |
+| SportHub.Administration.Tests | 15 | 0 | 0 |
+| **Tổng** | **465** | **0** | **0** |
+
+TRX nằm ở `backend/<project>/TestResults/p1-final_*.trx`, hoàn tất khoảng 20:15 giờ Việt Nam. [JSON API](refactor-api-examples.json) được trích từ stdout của `ApiWireContractTests` trong `p1-final_net10.0_20261001201543.trx`; không dùng payload dựng tay. Gate test build toàn solution Release, còn 4 warning cũ Security.Tests (obsolete PostgreSqlBuilder, nullable Google name, 2 xUnit blocking-task warnings). EF báo `No changes have been made to the model since the last migration.` Compose config và diff check pass; sandbox có cảnh báo không đọc được Docker user config, không ảnh hưởng bước validate compose.
+
+### Bằng chứng bổ sung so với checkpoint 422 test
+
+- `Scheduling.Tests/Integration/CourtScheduleAndIncidentTests`: lịch staff đủ Class/PT/Rental/Block, Coach chỉ lớp của mình, ExternalCoach không đọc lịch nội bộ; incident lớp bị chặn trước khi dời, resolve thành công sau khi dời; mỗi lần đổi lịch tạo email riêng, lỗi validation không để email thừa.
+- `Training.Tests/Integration/PtOccupancyTests`: incident PT preview/cancel/resolve, giải phóng quota và occupancy, email được queue.
+- `Scheduling.Tests/Integration/OccupancyConcurrencyTests`: giao dịch thật cạnh tranh Class/PT, Rental/Class, Rental/PT, Rental/Block; DB exclusion bảo vệ lịch.
+- `Payment.Tests/Integration/LegacyPaymentAccessTests`: ownership invoice, cấm vai trò ngoài tài chính đọc invoice người khác; legacy discount/correction vẫn đọc được nhưng không tạo/duyệt/từ chối mới.
+- `Payment.Tests/Integration/ApiWireContractTests`: HTTP JSON canonical, ownership 403, beneficiary và typed references; đổi giá/thời hạn catalog sau checkout không đổi snapshot; verified mock payment lưu PaymentAttemptId, tạo đúng email invoice/payment.
+- `Payment.Tests/Unit/WireEnumTests` và `MembershipValidityTests`: enum wire/parser/outcome, Membership active không bị quota legacy 0 chặn hoặc expire sớm.
+- `Payment.Tests/Integration/CheckoutFlowTests`: trạng thái late fulfillment phân biệt với compensation/reconciliation; lifecycle payment, duplicate callbacks, expiry và retry vẫn xanh.
+- `Payment.Tests/Integration/PointConfirmationMigrationTests`: nâng từ `MultiSportWallet` lên migration cuối, giữ invoice/payment/member-package lịch sử và giá trị setting Manager đã chỉnh; typed backfill không mất RelatedEntityId. Các host factories migrate từ DB trắng.
+
+Tên project test đầy đủ có tiền tố `SportHub.`. Danh sách chặng và nơi kiểm tại [manifest](refactor-backend-final-handover.md).
+
+### Phạm vi chứng nhận
+
+PostgreSQL 16 Testcontainers chạy bằng quyền Docker đã được cấp cho test; không dùng DB phát triển/chia sẻ. Migration cuối là `20261001131334_BackfillTypedInvoiceReferences`, tiếp sau `20261001092136_TypedInvoiceReferencesAndSnapshots`. Không có model drift; source runtime không có `NotImplementedException` hoặc xUnit Skip. Không chạy lại migration trên hệ thống đang dùng.
+
+VNPay **mock/gateway tests** đã qua; tích hợp và thực nghiệm **sandbox thật nằm ngoài phạm vi theo yêu cầu người dùng**. SMTP outbox được kiểm với sender điều khiển success/failure/retry/rollback; chưa xác nhận delivery qua nhà cung cấp ngoài. Không kiểm frontend/browser E2E. Các checkpoint dưới đây là lịch sử và không thay thế gate cuối này.
+
+---
+
 ## P1.12/P1.13 — kết quả hiện tại, 01/10/2026
 
 Các checkpoint phía dưới là lịch sử. Lỗi quyền Docker đã được khắc phục cho tiến trình test bằng sandbox escalation; toàn bộ integration chạy trên PostgreSQL 16 Testcontainers, không dùng DB phát triển.

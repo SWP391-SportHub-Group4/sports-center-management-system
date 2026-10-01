@@ -7,14 +7,7 @@ using SportHub.Membership.Domain.Enums;
 
 namespace SportHub.API.Jobs;
 
-/// <summary>
-/// BR-11 — gói tự chuyển Expired khi quá EndDate hoặc hết số buổi.
-/// BR-33 — nhắc hội viên khi gói sắp hết hạn.
-///
-/// Việc "hết buổi thì Expired ngay" đã được xử lý đồng bộ lúc trừ lượt
-/// (MemberPackageRules.TryConsumeSession); job này dọn nốt các gói quá hạn theo NGÀY, thứ
-/// không có sự kiện nào trong ứng dụng kích hoạt.
-/// </summary>
+/// <summary>Expires Memberships by Vietnam date and queues one reminder; legacy session counters have no effect.</summary>
 public sealed class MemberPackageExpiryJob(
     IServiceProvider services,
     ILogger<MemberPackageExpiryJob> logger)
@@ -35,7 +28,7 @@ public sealed class MemberPackageExpiryJob(
         // trong một ngày có thể lớn và không cần vật chất hoá cái nào.
         var expired = await db.MemberPackages
             .Where(mp => mp.Status == MemberPackageStatus.Active
-                         && (mp.EndDate < today || mp.RemainingSessions == 0))
+                         && mp.EndDate < today)
             .ExecuteUpdateAsync(
                 s => s.SetProperty(mp => mp.Status, MemberPackageStatus.Expired), ct);
 

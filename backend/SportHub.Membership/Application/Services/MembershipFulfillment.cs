@@ -21,7 +21,7 @@ public sealed class MembershipFulfillment(ISportHubDbContext db, IAuditWriter au
         if (!catalog.IsActive) throw new ConflictException("membership_package_discontinued", "Gói này đã ngừng áp dụng.");
         if (catalog.Price <= 0 || catalog.Price % 1000 != 0)
             throw new ConflictException("membership_price_invalid", "Giá gói phải là bội số 1.000 VND.");
-        return new(catalog.PackageId, catalog.Name, catalog.Price, catalog.DurationDays, catalog.SessionLimit);
+        return new(catalog.PackageId, catalog.Name, catalog.Price, catalog.DurationDays, null);
     }
 
     public async Task<MembershipPurchaseState> GetAsync(Guid memberPackageId, CancellationToken ct = default)

@@ -407,6 +407,7 @@ builder.Services.AddControllers()
 builder.Services.AddSportHubSwagger();
 
 builder.Services.AddScoped<DemoDataSeeder>();
+builder.Services.AddScoped<PaymentNoticeService>();
 
 var app = builder.Build();
 

@@ -1,0 +1,74 @@
+{
+  "sourceTest": "SportHub.Payment.Tests.Integration.ApiWireContractTests.Checkout_and_invoice_json_expose_canonical_state_and_fulfillment_with_ownership",
+  "sourceArtifact": "p1-final_net10.0_20261001201543.trx",
+  "capturedAt": "2026-10-01T20:15:42.8600213+07:00",
+  "checkout": {
+    "invoiceId": "b9f00c92-fac4-4831-b592-a44e08489205",
+    "checkoutSessionId": "143eae9d-d5da-4700-a0ef-48488e1c2855",
+    "revision": 1,
+    "kind": "MEMBERSHIP",
+    "state": "ACTIVE",
+    "totalAmount": 100000,
+    "pointsApplied": 0,
+    "cashAmount": 100000,
+    "expiresAtUtc": "2026-10-01T13:30:42.644368Z",
+    "resourceHoldId": null,
+    "invoiceStatus": "ISSUED",
+    "fulfillmentOutcome": "PENDING",
+    "reconciliationRequired": false
+  },
+  "invoice": {
+    "summary": {
+      "invoiceId": "b9f00c92-fac4-4831-b592-a44e08489205",
+      "invoiceNumber": "INV-2026-000031",
+      "beneficiaryUserId": "7455150a-6fb9-4ad8-be8f-f95a3aaceb59",
+      "memberEmail": "Member-0fa40797f91346ff8c42026e1079ca77@sporthub.test",
+      "memberName": "Test Member",
+      "totalAmount": 100000,
+      "grossCollected": 0.0,
+      "obligationReduction": 0.0,
+      "refundedAmount": 0.0,
+      "netCollected": 0,
+      "netPayable": 100000.0,
+      "outstanding": 100000.0,
+      "refundDue": 0,
+      "status": "ISSUED",
+      "issuedAt": "2026-10-01T13:15:42.644368Z",
+      "pointsSpent": 0,
+      "cashAmount": 100000,
+      "paidVia": null,
+      "paidAtUtc": null,
+      "checkoutExpiresAtUtc": "2026-10-01T13:30:42.644368Z",
+      "reconciliationRequired": false,
+      "memberId": "7455150a-6fb9-4ad8-be8f-f95a3aaceb59",
+      "fulfillmentOutcome": "PENDING"
+    },
+    "memberPackageId": "c9814f19-0374-4850-9727-4960ae4ced75",
+    "items": [
+      {
+        "itemId": "dbd6547a-0b04-409e-a7d5-01213254006c",
+        "itemType": "MEMBERSHIP",
+        "description": "Gói Wire contract fixture (30 ngày, không giới hạn buổi)",
+        "unitPrice": 100000,
+        "quantity": 1,
+        "lineAmount": 100000,
+        "relatedEntityId": "c9814f19-0374-4850-9727-4960ae4ced75",
+        "classId": null,
+        "courtRentalId": null,
+        "ptEntitlementId": null,
+        "memberPackageId": "c9814f19-0374-4850-9727-4960ae4ced75",
+        "sportId": null,
+        "sportName": null,
+        "ptFrequencyPerWeek": null,
+        "sourceInvoiceItemId": null
+      }
+    ],
+    "payments": [],
+    "adjustments": [],
+    "suggestedRefundAmount": 0
+  },
+  "error": {
+    "error": "checkout_not_owned",
+    "message": "Checkout không thuộc tài khoản của bạn."
+  }
+}

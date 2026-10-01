@@ -1,5 +1,9 @@
 # 00 — Source of Truth (SSOT)
 
+> **Cập nhật backend 01/10/2026:** plan 1 đã hoàn tất phạm vi backend và qua 465/465 test; ngoại trừ tích hợp/nghiệm thu VNPay sandbox thật do người dùng phụ trách. Frontend thuộc plan 2. Xem [bàn giao backend](refactor-backend-final-handover.md), [API contract](refactor-api-contract.md) và [ánh xạ field thực tế](entity-field-purpose.md#ánh-xạ-backend-đã-triển-khai--01102026). Các ghi chú “code chưa refactor” phía dưới là lịch sử 30/09, không mô tả code hiện tại. BR v2.0 vẫn là nguồn nghiệp vụ ưu tiên.
+>
+> Các quyết định vật lý đã triển khai: Invoice API `beneficiaryUserId` có alias `memberId`, DB giữ `member_id`; typed InvoiceItem references/snapshot + PaymentAttempt link; CheckoutSession/VerifiedGatewayEvent lưu cycle/inbox; hoàn điểm dùng PaymentAdjustment; transfer dùng ThresholdResponse và chuỗi InvoiceItem; CourtRental có SportId. Membership giữ cột quota legacy để đọc lịch sử nhưng runtime chỉ xét status/ngày. Chi tiết và giới hạn backfill tại manifest, không suy schema từ tên field logic cũ.
+
 > Mục đích: 1 nơi duy nhất để AI / FE / BE tra cứu khi có mâu thuẫn giữa các tài liệu.
 > Nếu file này và một doc khác nói khác nhau → **file này thắng**, trừ khi có ghi chú "xem chi tiết tại..." — **ngoại lệ (30/09/2026): Business Rules v2.0 và Design v3 thắng file này** (xem banner bên dưới và §0).
 > Cập nhật lần cuối: **30/09/2026** — chuyển scope từ 1 phòng gym sang nhà văn hóa thể thao đa môn (BR v2.0 / Design v3). Trước đó: 28/09/2026 thêm phân loại Coach (`PersonalTrainer`/`ClassInstructor` — **ĐÃ THAY THẾ v3**); 26/09/2026 đồng bộ Business Rules v1.8 (VNPay Payment, Refund tiền — **Refund đã đổi sang hoàn điểm ở v3**).

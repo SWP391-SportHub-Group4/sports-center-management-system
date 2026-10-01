@@ -15,6 +15,7 @@ public sealed class WireEnumTests
     [InlineData("CancelledOnTime", "CANCELLED_ON_TIME")]
     [InlineData("NoShow", "NO_SHOW")]
     [InlineData("PT", "PT")]
+    [InlineData("VnPay", "VN_PAY")]
     public void Enum_strings_have_canonical_wire_names_without_rewriting_free_text(string value, string wire)
     {
         var json = JsonSerializer.Serialize(new Contract(value, "Do not change NO_SHOW"));

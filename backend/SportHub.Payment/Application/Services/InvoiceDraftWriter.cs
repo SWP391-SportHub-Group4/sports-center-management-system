@@ -10,7 +10,7 @@ using SportHub.Payment.Domain.Enums;
 namespace SportHub.Payment.Application.Services;
 
 /// <summary>Creates an issued invoice from a validated cross-module snapshot in the caller's transaction.</summary>
-public sealed class InvoiceDraftWriter(ISportHubDbContext db, IInvoiceNumberGenerator numbers, IClock clock)
+public sealed class InvoiceDraftWriter(ISportHubDbContext db, IInvoiceNumberGenerator numbers, IClock clock, PaymentNoticeService notices)
     : IInvoiceDraftWriter
 {
     public async Task<InvoiceDraftResult> CreateAsync(InvoiceDraft draft, CancellationToken cancellationToken = default)
@@ -79,6 +79,7 @@ public sealed class InvoiceDraftWriter(ISportHubDbContext db, IInvoiceNumberGene
             ResourceHoldId = itemDraft.ResourceHoldId,
             ClassId = itemDraft.ClassId
         });
+        await notices.CreatedAsync(invoice, cancellationToken);
         return new InvoiceDraftResult(invoiceId, [itemId]);
     }
 }

@@ -20,6 +20,7 @@ namespace SportHub.Payment.Application.Services;
 
 public sealed class CheckoutService(ISportHubDbContext db,
     IClassEnrollmentFulfillment classes, IInvoiceNumberGenerator invoiceNumbers, ISportCatalogReader catalog,
+    PaymentNoticeService notices,
     ISystemSettingProvider settings, IPtPurchaseFulfillment pt, ICourtRentalFulfillment rentals, IPaymentGateway gateway,
     IPackagePurchaseService packages, IMembershipFulfillment memberships, PaymentFulfillmentService fulfillment, IAuditWriter audit, IClock clock)
     : ICheckoutLifecycleService
@@ -131,6 +132,7 @@ public sealed class CheckoutService(ISportHubDbContext db,
         };
         db.Set<CheckoutSession>().Add(session);
         audit.Write(new AuditEntry(actorId, "CREATE_PT_CHECKOUT", nameof(Invoice), invoice.InvoiceId.ToString()));
+        await notices.CreatedAsync(invoice, ct);
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
         return ToResponse(invoice, session);
@@ -193,6 +195,7 @@ public sealed class CheckoutService(ISportHubDbContext db,
         };
         db.Set<CheckoutSession>().Add(session);
         audit.Write(new AuditEntry(actorId, "CREATE_CLASS_CHECKOUT", nameof(Invoice), invoice.InvoiceId.ToString()));
+        await notices.CreatedAsync(invoice, ct);
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
         return ToResponse(invoice, session);
@@ -258,6 +261,7 @@ public sealed class CheckoutService(ISportHubDbContext db,
         };
         db.Set<CheckoutSession>().Add(session);
         audit.Write(new AuditEntry(actorId, "CREATE_COURT_RENTAL_CHECKOUT", nameof(Invoice), invoice.InvoiceId.ToString()));
+        await notices.CreatedAsync(invoice, ct);
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
         return ToResponse(invoice, session);

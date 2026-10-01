@@ -49,4 +49,6 @@ public static class NotificationEvents
     public const string ManualNotice = nameof(ManualNotice);
     public const string IncidentResolution = nameof(IncidentResolution);
     public const string PointConfirmationOtpRequested = nameof(PointConfirmationOtpRequested);
+    public const string InvoiceCreated = nameof(InvoiceCreated);
+    public const string RefundCompleted = nameof(RefundCompleted);
 }

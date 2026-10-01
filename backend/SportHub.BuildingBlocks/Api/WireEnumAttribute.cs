@@ -26,7 +26,7 @@ public static class WireEnum
     {
         if (string.IsNullOrEmpty(value) || value.Any(char.IsLower)) return value;
         if (value == "PT") return "PT";
-        if (value == "VN_PAY" || value == "VNPAY") return "VNPay";
+        if (value == "VN_PAY" || value == "VNPAY") return "VnPay";
         return string.Concat(value.Split('_').Select(part => part.Length == 0 ? ""
             : char.ToUpperInvariant(part[0]) + part[1..].ToLowerInvariant()));
     }
