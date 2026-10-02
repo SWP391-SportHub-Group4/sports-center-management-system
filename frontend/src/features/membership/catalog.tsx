@@ -88,7 +88,13 @@ interface PtQuote {
   priceVersion: string;
   validityEndDate: string;
 }
-export function PtPurchase({ packages }: { packages: MemberPackageDto[] }) {
+export function PtPurchase({
+  packages,
+  memberId,
+}: {
+  packages: MemberPackageDto[];
+  memberId?: string;
+}) {
   const { t } = useLanguage();
   const [packageId, setPackage] = useState("");
   const [coachId, setCoach] = useState("");
@@ -179,6 +185,7 @@ export function PtPurchase({ packages }: { packages: MemberPackageDto[] }) {
                 memberPackageId: packageId,
                 coachId,
                 frequencyPerWeek: frequency,
+                targetMemberId: memberId,
               }),
             );
           } catch (e) {
@@ -201,6 +208,7 @@ export function PtPurchase({ packages }: { packages: MemberPackageDto[] }) {
           </p>
           <CheckoutPanel
             key={`${packageId}-${coachId}-${frequency}-${quote.priceVersion}`}
+            memberId={memberId}
             intent={{
               kind: "pt",
               body: {
@@ -208,6 +216,7 @@ export function PtPurchase({ packages }: { packages: MemberPackageDto[] }) {
                 coachId,
                 frequencyPerWeek: frequency,
                 priceVersion: quote.priceVersion,
+                targetMemberId: memberId,
               },
             }}
           />

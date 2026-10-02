@@ -1,6 +1,15 @@
 "use client";
 
-import { useEffect, type ReactNode } from "react";
+import {
+  Children,
+  useEffect,
+  useRef,
+  useId,
+  cloneElement,
+  isValidElement,
+  type ReactNode,
+  type ReactElement,
+} from "react";
 import { chipTone, label } from "@/lib/format";
 import type { ApiError } from "@/lib/apiClient";
 import { useLanguage } from "@/lib/language";
@@ -58,7 +67,11 @@ export function StatusChip({ value }: { value: string | null | undefined }) {
   const { t } = useLanguage();
   if (!value) return <span className="muted">—</span>;
 
-  return <span className={`chip ${chipTone(value)}`}>{t.wireStatus[value as keyof typeof t.wireStatus] ?? label(value)}</span>;
+  return (
+    <span className={`chip ${chipTone(value)}`}>
+      {t.wireStatus[value as keyof typeof t.wireStatus] ?? label(value)}
+    </span>
+  );
 }
 
 export function Loading({ rows = 3 }: { rows?: number }) {
@@ -141,8 +154,7 @@ export function AsyncSection<T>({
   if (state.loading && state.data === null) return <Loading />;
   if (state.error)
     return <ErrorState error={state.error} onRetry={state.reload} />;
-  if (state.data === null)
-    return <EmptyState message={resolvedEmptyMessage} />;
+  if (state.data === null) return <EmptyState message={resolvedEmptyMessage} />;
   if (isEmpty?.(state.data))
     return <EmptyState message={resolvedEmptyMessage} />;
 
@@ -186,10 +198,19 @@ export function Field({
   error?: ReactNode;
   children: ReactNode;
 }) {
+  const labelId = useId();
+  const control =
+    isValidElement(children) &&
+    typeof children.type === "string" &&
+    ["input", "select", "textarea"].includes(children.type)
+      ? cloneElement(children as ReactElement<Record<string, unknown>>, {
+          "aria-labelledby": labelId,
+        })
+      : children;
   return (
     <label className="field">
       <span>
-        {fieldLabel}
+        <span id={labelId}>{fieldLabel}</span>
         {required && (
           <>
             <span aria-hidden="true"> *</span>
@@ -197,7 +218,7 @@ export function Field({
           </>
         )}
       </span>
-      {children}
+      {control}
       {hint && !error && <span className="field__hint">{hint}</span>}
       {error && (
         <span className="field__error" role="alert">
@@ -221,6 +242,40 @@ export function Dialog({
 }) {
   const { t } = useLanguage();
 
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const previous = document.activeElement as HTMLElement | null;
+    const dialog = dialogRef.current;
+    const selector =
+      'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href], [tabindex="0"]';
+    dialog?.querySelector<HTMLElement>(selector)?.focus();
+    function trap(event: KeyboardEvent) {
+      if (event.key !== "Tab" || !dialog) return;
+      const targets = Array.from(
+        dialog.querySelectorAll<HTMLElement>(selector),
+      ).filter((el) => el.getClientRects().length);
+      const first = targets[0],
+        last = targets[targets.length - 1];
+      if (!first) {
+        event.preventDefault();
+        dialog.focus();
+        return;
+      }
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+    document.addEventListener("keydown", trap);
+    return () => {
+      document.removeEventListener("keydown", trap);
+      previous?.focus();
+    };
+  }, []);
+
   // Escape để đóng: hộp thoại phủ kín thao tác phía sau, phải luôn có đường thoát bằng bàn phím.
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -242,6 +297,8 @@ export function Dialog({
     >
       <div
         className="dialog"
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={title}
@@ -270,8 +327,18 @@ export function Table({
   headers: (string | { text: string; numeric?: boolean })[];
   children: ReactNode;
 }) {
+  const { t } = useLanguage();
+  const rows = Children.toArray(children);
   return (
-    <div className="table-wrap">
+    <div
+      className="table-wrap"
+      tabIndex={0}
+      role="region"
+      aria-label={headers
+        .map((header) => (typeof header === "string" ? header : header.text))
+        .filter(Boolean)
+        .join(", ")}
+    >
       <table>
         <thead>
           <tr>
@@ -281,14 +348,26 @@ export function Table({
                 typeof header === "string" ? false : header.numeric;
 
               return (
-                <th key={index} className={numeric ? "num" : undefined}>
+                <th
+                  key={index}
+                  scope="col"
+                  className={numeric ? "num" : undefined}
+                >
                   {text}
                 </th>
               );
             })}
           </tr>
         </thead>
-        <tbody>{children}</tbody>
+        <tbody>
+          {rows.length ? (
+            rows
+          ) : (
+            <tr>
+              <td colSpan={headers.length}>{t.operations.empty}</td>
+            </tr>
+          )}
+        </tbody>
       </table>
     </div>
   );

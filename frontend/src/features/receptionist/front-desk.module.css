@@ -1,0 +1,15 @@
+.plans {
+  min-width: 0;
+}
+
+.plans :global(table) {
+  min-width: 560px;
+}
+
+.plans :global(td:first-child) {
+  min-width: 180px;
+}
+
+.plans :global(td:nth-child(2)) {
+  white-space: nowrap;
+}

@@ -17,8 +17,18 @@ namespace SportHub.Scheduling.Rental.Application;
 /// <summary>Preview first; resolution only commits when every affected resource has an implemented safe disposition.</summary>
 public sealed class IncidentService(ISportHubDbContext db, IOccupancyService occupancy,
     ICourtRentalFulfillment rentals, ICheckoutLifecycleService checkouts, IRefundCreditService refunds,
-    INotificationWriter notifications, IUserAccessReader users, IAuditWriter audit, IClock clock)
+    INotificationWriter notifications, IUserAccessReader users, IAuditWriter audit, IClock clock,
+    INotificationDeliveryReader delivery)
 {
+    public async Task<NotificationDelivery> DeliveryAsync(Guid incidentId, CancellationToken ct = default)
+    {
+        if (!await db.Set<IncidentNotice>().AnyAsync(x => x.IncidentId == incidentId, ct))
+            throw new NotFoundException("incident_not_found", "Không tìm thấy sự cố.");
+        var ids = await db.Set<CourtRental>().Where(x => x.CancellationIncidentId == incidentId)
+            .Select(x => x.CourtRentalId).ToListAsync(ct);
+        return await delivery.GetManyAsync(NotificationEvents.IncidentResolution, ids, ct);
+    }
+
     public async Task<IncidentPreviewResponse> PreviewAsync(IncidentRequest request, CancellationToken ct = default)
     {
         var shape = await ValidateAsync(request, ct);
@@ -72,6 +82,7 @@ public sealed class IncidentService(ISportHubDbContext db, IOccupancyService occ
         }
         foreach (var rental in rentalRows)
         {
+            rental.CancellationIncidentId = incidentId;
             var access = await users.GetAsync(rental.ExternalCoachId, ct);
             if (access is not null)
             {

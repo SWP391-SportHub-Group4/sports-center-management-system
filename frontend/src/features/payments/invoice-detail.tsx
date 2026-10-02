@@ -10,9 +10,11 @@ import { CheckoutPanel } from "./checkout-panel";
 export function InvoiceDetail({
   invoiceId,
   staff = false,
+  rental = false,
 }: {
   invoiceId: string;
   staff?: boolean;
+  rental?: boolean;
 }) {
   const { t } = useLanguage();
   const l = t.refactor;
@@ -65,15 +67,22 @@ export function InvoiceDetail({
                 </li>
               ))}
             </ul>
-            {d.summary.status === "ISSUED" && (
-              <CheckoutPanel
-                key={invoiceId}
-                invoiceId={invoiceId}
-                memberId={staff ? d.summary.memberId : undefined}
-                onChange={state.reload}
-              />
+            {d.summary.status === "ISSUED" &&
+              d.summary.checkoutExpiresAtUtc === null && (
+                <p>{l.legacyInvoice}</p>
+              )}
+            {d.summary.status === "ISSUED" &&
+              d.summary.checkoutExpiresAtUtc !== null && (
+                <CheckoutPanel
+                  key={invoiceId}
+                  invoiceId={invoiceId}
+                  memberId={staff ? d.summary.memberId : undefined}
+                  onChange={state.reload}
+                />
+              )}
+            {!rental && (
+              <RefundRequestForm items={d.items} onChange={state.reload} />
             )}
-            <RefundRequestForm items={d.items} onChange={state.reload} />
           </>
         )
       )}

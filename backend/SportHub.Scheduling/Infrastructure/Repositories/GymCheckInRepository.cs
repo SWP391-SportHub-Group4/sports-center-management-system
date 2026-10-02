@@ -38,10 +38,20 @@ public sealed class GymCheckInRepository(ISportHubDbContext db) : IGymCheckInRep
             throw new MemberNotFoundException(checkIn.MemberId);
         }
 
+        // Serialize the open-visit check and insert for this Member, including concurrent requests.
+        await db.Database.ExecuteSqlInterpolatedAsync(
+            $"SELECT pg_advisory_xact_lock(hashtextextended({$"gym-checkin:{checkIn.MemberId:D}"}, 0))", cancellationToken);
+        if (await db.Set<GymCheckIn>().AnyAsync(
+                x => x.MemberId == checkIn.MemberId && x.CheckOutTime == null, cancellationToken))
+        {
+            throw new ConflictException("gym_already_checked_in",
+                "Member đã được ghi nhận vào Gym, vui lòng ghi nhận ra trước.");
+        }
+
         // BR-64: phải có >= 1 MemberPackage Active TẠI THỜI ĐIỂM check-in.
         //
         // FOR SHARE khóa chia sẻ đúng dòng gói vừa tìm được cho tới khi transaction này
-        // commit: hai check-in song song vẫn chạy được cùng lúc (cùng khóa share), nhưng
+        // commit: check-in của các Member khác vẫn dùng khóa share, nhưng
         // một transaction khác muốn UPDATE dòng đó (vd đổi sang Cancelled/Expired) phải
         // đợi — nếu không có khóa thì ở mức READ COMMITTED, bản chụp lúc đọc vẫn thấy gói
         // Active trong khi nó đã bị hủy xong ngay sau đó, và check-in vẫn lọt.
