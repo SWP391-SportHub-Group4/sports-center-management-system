@@ -1,3 +1,5 @@
+using Microsoft.EntityFrameworkCore;
+using SportHub.BuildingBlocks.Abstractions.Persistence;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -14,18 +16,34 @@ namespace SportHub.Scheduling.Api;
 /// </summary>
 [ApiController]
 public class ClassesController(IClassService classes, IClassSessionService sessions,
-    IClassThresholdService thresholds) : ControllerBase
+    IClassThresholdService thresholds, ISportHubDbContext db) : ControllerBase
 {
     [AllowAnonymous]
     [HttpGet("api/classes")]
     public async Task<IActionResult> ListPublic(
-        [FromQuery] int? sportId, [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default)
-        => Ok(await classes.ListPublicAsync(sportId, page, pageSize, ct));
+        [FromQuery] int? sportId, [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default, DateOnly? fromDate = null, DateOnly? toDate = null)
+        => Ok(await classes.ListPublicAsync(sportId, page, pageSize, ct, fromDate, toDate));
 
     [AllowAnonymous]
     [HttpGet("api/classes/{classId:int}")]
     public async Task<IActionResult> GetPublic(int classId, CancellationToken ct)
         => Ok(await classes.GetPublicAsync(classId, ct));
+
+    [AllowAnonymous]
+    [HttpGet("api/classes/{classId:int}/public-sessions")]
+    public async Task<IActionResult> PublicSessions(int classId, CancellationToken ct)
+    {
+        await classes.GetPublicAsync(classId, ct);
+        return Ok(await sessions.ListByClassAsync(classId, null, ct));
+    }
+
+    [Authorize(Policy = SportHubPolicies.Member)]
+    [HttpGet("api/members/me/classes/{classId:int}/sessions")]
+    public async Task<IActionResult> MemberSessions(int classId, CancellationToken ct)
+    {
+        if (!await db.Set<SportHub.Scheduling.Domain.Entities.Enrollment>().AnyAsync(e => e.ClassId == classId && e.MemberId == User.RequireUserId(), ct)) return NotFound();
+        return Ok(await sessions.ListByClassAsync(classId, null, ct));
+    }
 
     /// <summary>Lịch buổi của khóa: Manager/Lễ tân xem mọi khóa; Coach chỉ khóa mình phụ trách.</summary>
     [Authorize(Policy = SportHubPolicies.StaffRead)]

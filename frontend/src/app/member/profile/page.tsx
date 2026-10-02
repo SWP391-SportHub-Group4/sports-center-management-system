@@ -28,15 +28,24 @@ export default function TrainingProfilePage() {
     () => [
       {
         value: "Beginner",
-        label: language === "en" ? "Beginner (0–6 months training)" : "Mới bắt đầu (0–6 tháng tập)",
+        label:
+          language === "en"
+            ? "Beginner (0–6 months training)"
+            : "Mới bắt đầu (0–6 tháng tập)",
       },
       {
         value: "Intermediate",
-        label: language === "en" ? "Intermediate (6 months–2 years)" : "Trung cấp (6 tháng–2 năm)",
+        label:
+          language === "en"
+            ? "Intermediate (6 months–2 years)"
+            : "Trung cấp (6 tháng–2 năm)",
       },
       {
         value: "Advanced",
-        label: language === "en" ? "Advanced (2+ years consistent)" : "Nâng cao (Trên 2 năm liên tục)",
+        label:
+          language === "en"
+            ? "Advanced (2+ years consistent)"
+            : "Nâng cao (Trên 2 năm liên tục)",
       },
     ],
     [language],
@@ -53,7 +62,7 @@ export default function TrainingProfilePage() {
         },
       )
       .then((data) => {
-        if (!data) return;
+        if (controller.signal.aborted || !data) return;
 
         setProfile(data);
         setForm({
@@ -63,9 +72,12 @@ export default function TrainingProfilePage() {
         });
       })
       .catch((cause: unknown) => {
-        if (cause instanceof ApiError) action.setError(cause.message);
+        if (!controller.signal.aborted && cause instanceof ApiError)
+          action.setError(cause.message);
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
 
     return () => controller.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -104,7 +116,11 @@ export default function TrainingProfilePage() {
     >
       <div style={{ maxWidth: 760, margin: "0 auto" }}>
         <Card
-          title={language === "en" ? "Fitness & Health Information" : "Thông tin thể chất & Mục tiêu"}
+          title={
+            language === "en"
+              ? "Fitness & Health Information"
+              : "Thông tin thể chất & Mục tiêu"
+          }
           hint={
             language === "en"
               ? "Your coach and nutrition advisors will use this information to tailor your personal training program."
@@ -112,13 +128,26 @@ export default function TrainingProfilePage() {
           }
         >
           {loading ? (
-            <div style={{ padding: "32px 16px", textAlign: "center", color: "var(--ink-500, #64748b)" }}>
-              ⏳ {language === "en" ? "Loading your profile..." : "Đang tải hồ sơ của bạn..."}
+            <div
+              style={{
+                padding: "32px 16px",
+                textAlign: "center",
+                color: "var(--ink-500, #64748b)",
+              }}
+            >
+              ⏳{" "}
+              {language === "en"
+                ? "Loading your profile..."
+                : "Đang tải hồ sơ của bạn..."}
             </div>
           ) : (
             <form className="form" onSubmit={submit}>
               <Field
-                label={language === "en" ? "Primary Training Goal" : "Mục tiêu tập luyện chính"}
+                label={
+                  language === "en"
+                    ? "Primary Training Goal"
+                    : "Mục tiêu tập luyện chính"
+                }
                 hint={
                   language === "en"
                     ? "Specific targets help us recommend suitable classes and intensities."
@@ -142,7 +171,11 @@ export default function TrainingProfilePage() {
               </Field>
 
               <Field
-                label={language === "en" ? "Current Experience Level" : "Trình độ tập luyện hiện tại"}
+                label={
+                  language === "en"
+                    ? "Current Experience Level"
+                    : "Trình độ tập luyện hiện tại"
+                }
               >
                 <select
                   value={form.experienceLevel}
@@ -159,7 +192,11 @@ export default function TrainingProfilePage() {
               </Field>
 
               <Field
-                label={language === "en" ? "Health Notes & Physical Limitations (Optional)" : "Lưu ý sức khỏe & Tiền sử chấn thương (Không bắt buộc)"}
+                label={
+                  language === "en"
+                    ? "Health Notes & Physical Limitations (Optional)"
+                    : "Lưu ý sức khỏe & Tiền sử chấn thương (Không bắt buộc)"
+                }
                 hint={
                   language === "en"
                     ? "Past injuries, joint mobility limitations, or cardiovascular notes our coaches should know."
@@ -183,7 +220,10 @@ export default function TrainingProfilePage() {
 
               <Feedback error={action.error} success={action.success} />
 
-              <div className="row spread" style={{ alignItems: "center", marginTop: 16 }}>
+              <div
+                className="row spread"
+                style={{ alignItems: "center", marginTop: 16 }}
+              >
                 <button
                   type="submit"
                   className="btn btn--primary"
@@ -191,12 +231,18 @@ export default function TrainingProfilePage() {
                   style={{ minWidth: 140 }}
                 >
                   {action.busy
-                    ? (language === "en" ? "Saving..." : "Đang lưu...")
-                    : (language === "en" ? "Save Profile" : "Lưu hồ sơ")}
+                    ? language === "en"
+                      ? "Saving..."
+                      : "Đang lưu..."
+                    : language === "en"
+                      ? "Save Profile"
+                      : "Lưu hồ sơ"}
                 </button>
                 {profile && (
                   <span className="small muted">
-                    {language === "en" ? "Last updated: " : "Cập nhật gần nhất: "}
+                    {language === "en"
+                      ? "Last updated: "
+                      : "Cập nhật gần nhất: "}
                     {formatDateTime(profile.updatedAt)}
                   </span>
                 )}

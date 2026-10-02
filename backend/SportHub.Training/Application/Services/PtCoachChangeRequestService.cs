@@ -34,6 +34,10 @@ public sealed class PtCoachChangeRequestService(
     public const int DefaultPageSize = 50;
     public const int MaximumPageSize = 100;
 
+    public async Task<IReadOnlyList<PtCoachChangeRequestResponse>> MineAsync(Guid memberId, CancellationToken ct = default)
+        => await db.Set<PtCoachChangeRequest>().AsNoTracking().Where(r => r.MemberId == memberId)
+            .OrderByDescending(r => r.RequestedAt).Take(100).Select(Projection()).ToListAsync(ct);
+
     public async Task<IReadOnlyList<PtCoachChangeRequestResponse>> SearchAsync(
         string? status,
         int page,

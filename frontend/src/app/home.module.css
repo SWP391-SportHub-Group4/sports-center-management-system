@@ -852,3 +852,27 @@
     }
   }
 }
+
+/* API-backed public catalog keeps the established Navy/Ice identity. */
+.header {
+  --brand-navy: #0b2d4d;
+  --brand-sky: #b9dff3;
+  --brand-ice: #e3f0fa;
+  --text-primary: #ffffff;
+  --text-muted: #d6e8f5;
+  --line-soft: #698399;
+  --type-label: 0.875rem;
+  --weight-bold: 700;
+  position: relative;
+}
+.catalogHero {display: grid; grid-template-columns: 1.2fr 1fr; align-items: center; background: var(--brand-900); color: white;}
+.catalogHero img {display: block; height: 380px !important; object-fit: cover;}
+.catalogHero h1 {font-size: clamp(2rem, 4vw, 3.5rem); line-height: 1.1; max-width: 16ch; margin-bottom: 24px;}
+.catalogHero a {background: var(--brand-100); color: var(--brand-900); text-decoration: none;}
+@media (max-width: 800px) {
+  .header {display: flex; flex-wrap: wrap; gap: 12px; padding: 12px 20px; min-height: 80px;}
+  .headerActions {margin-left: auto;}
+  .nav {display: none;}
+  .catalogHero {grid-template-columns: 1fr;}
+  .catalogHero img {height: 260px !important;}
+}

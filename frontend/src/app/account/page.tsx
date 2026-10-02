@@ -14,10 +14,14 @@ import { formatDate } from "@/lib/format";
 import { useAction, useApi } from "@/lib/useApi";
 import { useAuth, type Role } from "@/lib/auth";
 import { useLanguage } from "@/lib/language";
+import {
+  PasswordRequirements,
+  passwordChecks,
+} from "@/features/identity/password-requirements";
 import type { MyAccountDto } from "@/lib/types";
 
 export default function AccountPage() {
-  const { refreshUser } = useAuth();
+  const { refreshUser, updateToken } = useAuth();
   const { t } = useLanguage();
 
   const account = useApi(
@@ -65,6 +69,14 @@ export default function AccountPage() {
   const savePassword = async (event: React.FormEvent) => {
     event.preventDefault();
 
+    if (
+      !passwordChecks(passwordForm.next, account.data?.email ?? "").every(
+        Boolean,
+      )
+    ) {
+      passwordAction.setError(t.identity.passwordInvalid);
+      return;
+    }
     if (passwordForm.next !== passwordForm.confirm) {
       passwordAction.setError(t.account.passwordMismatch);
       return;
@@ -72,16 +84,19 @@ export default function AccountPage() {
 
     const done = await passwordAction.run(
       () =>
-        api.post("/api/users/me/password", {
+        api.post<{ accessToken: string }>("/api/users/me/password", {
           currentPassword: account.data?.hasPassword
             ? passwordForm.current
             : null,
           newPassword: passwordForm.next,
+          confirmNewPassword: passwordForm.confirm,
         }),
       t.account.passwordSuccess,
     );
 
     if (done !== null) {
+      updateToken(done.accessToken);
+      await refreshUser();
       setPasswordForm({ current: "", next: "", confirm: "" });
       account.reload();
     }
@@ -92,6 +107,7 @@ export default function AccountPage() {
       title={t.account.title}
       description={t.account.description}
       allow={[
+        "ExternalCoach",
         "Member",
         "Receptionist",
         "Coach",
@@ -129,10 +145,7 @@ export default function AccountPage() {
                     />
                   </Field>
 
-                  <Field
-                    label={t.account.phone}
-                    hint={t.account.phoneHint}
-                  >
+                  <Field label={t.account.phone} hint={t.account.phoneHint}>
                     <input
                       value={profileForm.phone}
                       onChange={(event) =>
@@ -229,6 +242,10 @@ export default function AccountPage() {
                   />
                 </Field>
 
+                <PasswordRequirements
+                  password={passwordForm.next}
+                  email={data.email}
+                />
                 <Feedback
                   error={passwordAction.error}
                   success={passwordAction.success}

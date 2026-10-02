@@ -1,257 +1,178 @@
 import { expect, test } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
-import { applyCommand } from "../src/infrastructure/demo/member-repository";
-import { createSeed } from "../src/infrastructure/demo/seed";
-
+const course = {
+  classId: 1,
+  code: "BAD-01",
+  name: "Badminton course",
+  sportId: 3,
+  sportName: "Badminton",
+  coachId: "coach-1",
+  coachName: "Coach",
+  defaultRoomId: 1,
+  roomName: "Court 1",
+  startDate: "2026-10-12",
+  numSessions: 6,
+  capacity: 12,
+  availableSeats: 8,
+  price: 200000,
+  status: "PUBLISHED",
+  firstSessionStartUtc: "2026-10-12T11:00:00Z",
+  scheduleRules: [],
+};
 test.beforeEach(async ({ page }) => {
-  await page.clock.install({ time: new Date("2026-09-14T03:00:00Z") });
   await page.addInitScript(() => {
-    window.localStorage.setItem("sporthub.accessToken", "test-token");
-    window.localStorage.setItem(
-      "sporthub.user",
-      JSON.stringify({
+    localStorage.setItem("sporthub.accessToken", "test-token");
+    localStorage.setItem("sporthub_lang", "en");
+  });
+  await page.route("**/api/**", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    let json: unknown = [];
+    if (path === "/api/users/me")
+      json = {
         userId: "member-1",
-        email: "member@sporthub.test",
-        fullName: "Nguyễn Minh Triết",
-        role: "Member",
-      }),
-    );
-  });
-
-  // Fallback for any member endpoints
-  await page.route("**/api/members/me/**", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify([]),
-    });
-  });
-
-  await page.route("**/api/members/me/invoices*", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({ items: [], totalCount: 0, page: 1, pageSize: 10 }),
-    });
-  });
-
-  await page.route("**/api/members/me/packages*", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify([
+        email: "member@example.com",
+        fullName: "Current Member",
+        role: "MEMBER",
+        sportIds: [],
+      };
+    else if (path.endsWith("/wallet/me"))
+      json = {
+        ownerUserId: "member-1",
+        availablePoints: 500,
+        heldPoints: 10,
+        vndPerPoint: 1000,
+      };
+    else if (path === "/api/sports")
+      json = [
         {
-          memberPackageId: "pkg-1",
-          packageName: "Gold Access",
-          discipline: "All",
-          sessionLimit: 12,
-          remainingSessions: 11,
-          isUsable: true,
-          startDate: "2026-09-01T00:00:00Z",
-          endDate: "2026-12-31T00:00:00Z",
-          status: "Active",
-        },
-      ]),
-    });
-  });
-
-  await page.route("**/api/membership-packages*", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify([
-        {
-          packageId: 1,
-          name: "Diamond All-Access",
-          price: 23400000,
-          durationDays: 365,
-          sessionLimit: null,
-          description: "12 months unlimited training",
+          sportId: 3,
+          name: "Badminton",
+          operationType: "GROUP_COURSE",
           isActive: true,
         },
-      ]),
-    });
-  });
-
-  await page.route("**/api/members/me/enrollments*", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify([]),
-    });
-  });
-
-  await page.route("**/api/members/me/schedule*", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify([
-        {
-          session: {
-            sessionId: "sess-1",
-            className: "Basic Fitness",
-            coachName: "Coach Alex",
-            roomName: "Studio 1",
-            discipline: "GroupX",
-            startAtUtc: "2026-09-15T09:00:00Z",
-            endAtUtc: "2026-09-15T10:00:00Z",
-            capacity: 20,
-            confirmedCount: 5,
+        { sportId: 2, name: "PT", operationType: "ONE_ON_ONE", isActive: true },
+      ];
+    else if (path === "/api/classes")
+      json = { items: [course], page: 1, pageSize: 12, totalCount: 1 };
+    else if (path === "/api/classes/1") json = course;
+    else if (path.endsWith("/enrollments"))
+      json = {
+        items: [
+          {
+            enrollmentId: "enrollment-1",
+            classId: 1,
+            className: "Badminton course",
+            sportName: "Badminton",
+            status: "CONFIRMED",
+            classStatus: "PUBLISHED",
+            invoiceItemId: null,
           },
-          isEnrolled: false,
-          enrollmentId: null,
-          cancellationDeadlineUtc: "2026-09-15T07:00:00Z",
-        },
-      ]),
-    });
-  });
-
-  await page.route("**/api/enrollments*", async (route) => {
-    if (route.request().method() === "POST") {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ enrollmentId: "enr-1" }),
-      });
-    }
-  });
-
-  await page.route("**/api/members/me/workout-plans*", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify([]),
-    });
-  });
-
-  await page.route("**/api/members/me/workout-results*", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify([]),
-    });
-  });
-
-  await page.route("**/api/members/me/training-profile*", async (route) => {
-    if (route.request().method() === "PUT") {
-      const data = route.request().postDataJSON();
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({
-          goal: data.goal,
-          experienceLevel: data.experienceLevel,
-          notes: data.notes,
-          updatedAt: new Date().toISOString(),
-        }),
-      });
-    } else {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({
-          goal: "Initial Fitness Goal",
-          experienceLevel: "Beginner",
-          notes: "",
-          updatedAt: "2026-09-14T03:00:00Z",
-        }),
-      });
-    }
-  });
-
-  await page.route("**/api/notifications/unread-count*", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({ count: 1 }),
-    });
-  });
-
-  await page.route("**/api/notifications*", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify([
+        ],
+        page: 1,
+        pageSize: 10,
+        totalCount: 1,
+      };
+    else if (path.endsWith("/invoices"))
+      json = { items: [], page: 1, pageSize: 10, totalCount: 0 };
+    else if (path.endsWith("/membership-packages"))
+      json = [
         {
-          notificationId: "notif-1",
-          sourceEventType: "ClassReminder",
-          sourceEntityId: null,
-          message: "Your Yoga class starts in 2 hours.",
-          status: "Unread",
-          sentAt: "2026-09-14T03:00:00Z",
+          packageId: 1,
+          name: "Gym monthly",
+          price: 600000,
+          durationDays: 30,
+          isActive: true,
+          description: "Gym access",
         },
-      ]),
-    });
+      ];
+    else if (path.endsWith("/packages"))
+      json = [
+        {
+          memberPackageId: "package-1",
+          packageId: 1,
+          packageName: "Gym monthly",
+          startDate: "2026-10-01",
+          endDate: "2026-10-30",
+          status: "ACTIVE",
+          isUsable: true,
+        },
+      ];
+    else if (path.endsWith("/training-profile"))
+      json = {
+        memberId: "member-1",
+        goal: "Run 10km",
+        experienceLevel: "Beginner",
+        notes: null,
+        updatedAt: "2026-10-01T00:00:00Z",
+      };
+    else if (path === "/api/notifications")
+      json = [
+        {
+          notificationId: "notification-1",
+          sourceEventType: "HOMEWORK_ASSIGNED",
+          sourceEntityId: null,
+          message: "Your coach assigned homework.",
+          status: "PENDING",
+          sentAt: "2026-10-01T00:00:00Z",
+        },
+      ];
+    else if (path.endsWith("/unread-count")) json = { count: 1 };
+    await route.fulfill({ json });
   });
 });
-
-test("booking opens confirmation modal and can be dismissed via Escape", async ({
-  page,
-}) => {
+test("course catalog replaces per-session enrollment", async ({ page }) => {
   await page.goto("/member/class-schedule");
-  const bookBtn = page.getByRole("button", { name: /Book Spot|Đặt chỗ/ }).first();
-  await expect(bookBtn).toBeVisible();
-  await bookBtn.click();
-  const dialog = page.getByRole("dialog");
-  await expect(dialog).toBeVisible();
-  await expect(dialog).toContainText(/Basic Fitness/);
-  await page.keyboard.press("Escape");
-  await expect(dialog).toHaveCount(0);
+  await expect(
+    page.getByRole("heading", { name: "Badminton course" }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: /Book Spot/ })).toHaveCount(0);
+  await page.getByRole("link", { name: "Details", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Checkout", exact: true }),
+  ).toBeVisible();
 });
-
-test("profile validation and training goal edits persist", async ({
-  page,
-}) => {
+test("profile validation and training goal edits persist", async ({ page }) => {
   await page.goto("/member/profile");
-  const goalInput = page.locator("input[required]").first();
-  await expect(goalInput).toBeVisible();
-  await goalInput.fill("Run a 10km marathon in 3 months");
-  await page.getByRole("button", { name: /Save Profile|Lưu hồ sơ/ }).click();
+  const input = page.locator("input[required]").first();
+  await expect(input).toBeVisible();
+  await input.fill("Run a 10km marathon");
+  await page.getByRole("button", { name: /Save Profile/ }).click();
   await expect(page.getByRole("status")).toBeVisible();
 });
-
-test("QR renews after sixty seconds when opened via button", async ({
-  page,
-}) => {
+test("dashboard does not issue an entrance pass", async ({ page }) => {
   await page.goto("/member");
-  await page.getByTestId("show-qr-btn").click();
-  const qr = page.getByTestId("member-qr");
-  await expect(qr).toBeVisible();
-  const first = await qr.getAttribute("src");
-  await page.getByTestId("refresh-qr-btn").click();
-  await expect(qr).not.toHaveAttribute("src", first!);
+  await expect(page.locator("#main-content h1")).toBeVisible();
+  await expect(page.getByTestId("show-qr-btn")).toHaveCount(0);
 });
-
-test("membership packages catalog displays active passes and available tiers", async ({
-  page,
-}) => {
+test("Gym and PT purchases are separate", async ({ page }) => {
   await page.goto("/member/my-plans");
   await expect(
-    page.getByRole("heading", { name: "Diamond All-Access" }),
+    page.getByRole("heading", { name: "Gym membership", exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByText(/Visit reception desk to enroll|Liên hệ quầy Lễ tân/),
+    page.getByRole("heading", { name: "Personal training", exact: true }),
   ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Checkout", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Get quote", exact: true }),
+  ).toBeDisabled();
 });
-
-test("notifications panel in navigation shell displays recent alerts", async ({
-  page,
-}) => {
+test("notification links resolve to real Member views", async ({ page }) => {
   await page.goto("/member");
-  const bell = page.getByRole("button", { name: /notification/i }).first();
-  await expect(bell).toBeVisible();
-  await bell.click();
+  await page.getByRole("button", { name: /Notifications/ }).click();
   await expect(
-    page.getByText("Your Yoga class starts in 2 hours."),
+    page.locator(".bell__panel").getByText("Your coach assigned homework."),
   ).toBeVisible();
+  await expect(
+    page.locator(".bell__panel").getByRole("link", { name: "Details" }),
+  ).toHaveAttribute("href", "/member/training");
 });
-
 for (const width of [320, 768, 1280])
-  test(`all Member routes fit ${width}px with loaded assets`, async ({
-    page,
-  }) => {
+  test(`Member routes fit ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 1000 });
-    for (const route of [
+    for (const path of [
       "",
       "/class-schedule",
       "/my-registrations",
@@ -259,45 +180,20 @@ for (const width of [320, 768, 1280])
       "/profile",
       "/invoices",
       "/training",
+      "/wallet",
     ]) {
-      await page.goto(`/member${route}`);
-      const { scrollWidth, innerWidth: winWidth } = await page.evaluate(() => ({
-        scrollWidth: document.documentElement.scrollWidth,
-        innerWidth: window.innerWidth,
-      }));
+      await page.goto(`/member${path}`);
+      await expect(page.locator("#main-content h1")).toBeVisible();
       expect(
-        scrollWidth,
-        `Route ${route || "/"} at ${width}px overflowed: scrollWidth=${scrollWidth}, innerWidth=${winWidth}`,
-      ).toBeLessThanOrEqual(winWidth + 1);
-      await expect
-        .poll(
-          async () =>
-            page
-              .locator("img:visible")
-              .evaluateAll((images) =>
-                images.every(
-                  (image) =>
-                    image instanceof HTMLImageElement &&
-                    image.complete &&
-                    image.naturalWidth > 0,
-                ),
-              ),
-          { message: `Images load on ${route || "/member"}` },
-        )
-        .toBeTruthy();
-      if (route === "/class-schedule" || route === "")
-        await page.screenshot({
-          path: `test-results/member-${route === "" ? "home" : "schedule"}-${width}.png`,
-          fullPage: true,
-        });
+        await page.evaluate(() => document.documentElement.scrollWidth),
+      ).toBeLessThanOrEqual(width + 1);
     }
   });
-
-test("Member pages pass automated WCAG A/AA checks", async ({ page }) => {
+test("Member pages pass WCAG A/AA", async ({ page }) => {
   test.setTimeout(90000);
   for (const width of [320, 1280]) {
     await page.setViewportSize({ width, height: 1000 });
-    for (const route of [
+    for (const path of [
       "",
       "/class-schedule",
       "/my-registrations",
@@ -305,48 +201,14 @@ test("Member pages pass automated WCAG A/AA checks", async ({ page }) => {
       "/profile",
       "/invoices",
       "/training",
+      "/wallet",
     ]) {
-      await page.goto(`/member${route}`);
+      await page.goto(`/member${path}`);
       await expect(page.locator("#main-content h1")).toBeVisible();
       const result = await new AxeBuilder({ page })
         .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
         .analyze();
-      expect(result.violations, route).toEqual([]);
+      expect(result.violations, path).toEqual([]);
     }
   }
-});
-
-test("demo booking rules reject duplicates/full classes and late cancellation does not refund", () => {
-  const s = createSeed();
-  const session = s.sessions.find((x) => x.id === "strength")!;
-  const now = Date.parse(session.startAt) - 12 * 3600000;
-  applyCommand(
-    s,
-    { type: "book", sessionId: session.id, memberPackageId: "member-gold" },
-    now,
-  );
-  expect(s.packages[0].remainingSessions).toBe(10);
-  expect(() =>
-    applyCommand(
-      s,
-      { type: "book", sessionId: session.id, memberPackageId: "member-gold" },
-      now,
-    ),
-  ).toThrow(/kept your place|đã giữ chỗ/);
-  applyCommand(
-    s,
-    { type: "cancel", sessionId: session.id },
-    Date.parse(session.cancellationDeadline) + 1000,
-  );
-  expect(s.packages[0].remainingSessions).toBe(10);
-  expect(s.enrollments.find((e) => e.sessionId === session.id)?.status).toBe(
-    "CancelledLate",
-  );
-  expect(() =>
-    applyCommand(
-      s,
-      { type: "book", sessionId: "groupx", memberPackageId: "member-gold" },
-      now,
-    ),
-  ).toThrow(/full|hết chỗ/);
 });

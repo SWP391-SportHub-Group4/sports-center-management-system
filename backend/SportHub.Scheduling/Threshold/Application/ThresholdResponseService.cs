@@ -20,6 +20,53 @@ public sealed class ThresholdResponseService(ISportHubDbContext db, IClassEnroll
     IRefundCreditService refunds, IInvoiceDraftWriter invoiceDrafts, ISystemSettingProvider settings,
     ICheckoutLifecycleService checkoutLifecycle, IAuditWriter audit, IClock clock)
 {
+    public async Task<ThresholdResponseView> GetAsync(Guid? id, string? token, Guid memberId, CancellationToken ct)
+    {
+        var query = db.Set<ThresholdResponse>().AsNoTracking().Where(x => x.MemberId == memberId);
+        if (id.HasValue) query = query.Where(x => x.ThresholdResponseId == id);
+        else
+        {
+            if (string.IsNullOrWhiteSpace(token) || token.Length > 128) throw new BadRequestException("invalid_threshold_response", "Liên kết không hợp lệ.");
+            var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
+            query = query.Where(x => x.TokenHash == hash);
+        }
+        var response = await query.SingleOrDefaultAsync(ct) ?? throw new NotFoundException("threshold_response_not_found", "Không tìm thấy phản hồi.");
+        var course = await db.Set<Class>().AsNoTracking().SingleAsync(x => x.ClassId == response.ClassId, ct);
+        var itemId = await db.Set<Enrollment>().Where(e => e.EnrollmentId == response.EnrollmentId).Select(e => e.InvoiceItemId).SingleAsync(ct);
+        var remaining = itemId.HasValue ? await refunds.GetRemainingItemValueVndAsync(itemId.Value, ct) : 0;
+        return new(response.ThresholdResponseId, course.ClassId, course.Name, course.SportId, remaining,
+            response.DeadlineUtc, response.Choice?.ToString(), response.TargetClassId, response.ResolutionStatus.ToString(), response.AdditionalInvoiceId, clock.UtcNow);
+    }
+
+    public async Task<object> QuoteTransferAsync(Guid id, int targetClassId, Guid memberId, CancellationToken ct)
+    {
+        var source = await GetAsync(id, null, memberId, ct);
+        if (source.Choice is not null || source.DeadlineUtc <= clock.UtcNow)
+            throw new ConflictException("threshold_response_closed", "Phản hồi đã đóng.");
+        if (targetClassId == source.ClassId) throw new BadRequestException("transfer_same_class", "Khóa đích phải khác.");
+        var target = await GetTargetQuoteAsync(targetClassId, ct);
+        if (target.SportId != source.SportId) throw new ConflictException("transfer_sport_mismatch", "Khóa đích phải cùng môn.");
+        var difference = target.Price - source.PaidValueVnd;
+        if (difference % 1000 != 0) throw new ConflictException("transfer_value_not_point_divisible", "Chênh lệch không đổi chính xác sang điểm.");
+        return new { targetClassId, targetPrice = target.Price, sourceValue = source.PaidValueVnd,
+            cashDifference = Math.Max(0, difference), walletCreditPoints = difference < 0 ? (int)(-difference / 1000) : 0 };
+    }
+
+    public async Task<IReadOnlyList<ThresholdResponseView>> MineAsync(Guid memberId, CancellationToken ct)
+    {
+        var ids = await db.Set<ThresholdResponse>().Where(x => x.MemberId == memberId).OrderByDescending(x => x.CreatedAtUtc).Take(100).Select(x => x.ThresholdResponseId).ToListAsync(ct);
+        var result = new List<ThresholdResponseView>();
+        foreach (var id in ids) result.Add(await GetAsync(id, null, memberId, ct));
+        return result;
+    }
+
+    public async Task<ThresholdResponseResult> RespondByIdAsync(Guid id, ThresholdResponseChoice choice, int? targetClassId, Guid memberId, CancellationToken ct)
+    {
+        var hash = await db.Set<ThresholdResponse>().Where(x => x.ThresholdResponseId == id && x.MemberId == memberId).Select(x => x.TokenHash).SingleOrDefaultAsync(ct)
+            ?? throw new NotFoundException("threshold_response_not_found", "Không tìm thấy phản hồi.");
+        return await RespondHashedAsync(hash, choice, targetClassId, memberId, ct);
+    }
+
     public async Task<ThresholdResponseResult> RespondAsync(string token, ThresholdResponseChoice choice,
         int? targetClassId, Guid memberId, CancellationToken ct = default)
     {
@@ -31,6 +78,14 @@ public sealed class ThresholdResponseService(ISportHubDbContext db, IClassEnroll
             throw new BadRequestException("target_class_unexpected", "Không gửi khóa đích khi chọn hoàn điểm.");
 
         var tokenHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
+        return await RespondHashedAsync(tokenHash, choice, targetClassId, memberId, ct);
+    }
+
+    private async Task<ThresholdResponseResult> RespondHashedAsync(string tokenHash, ThresholdResponseChoice choice, int? targetClassId, Guid memberId, CancellationToken ct)
+    {
+        if (!Enum.IsDefined(choice)) throw new BadRequestException("invalid_threshold_response", "Lựa chọn không hợp lệ.");
+        if (choice == ThresholdResponseChoice.Transfer && targetClassId is null) throw new BadRequestException("target_class_required", "Cần khóa đích.");
+        if (choice == ThresholdResponseChoice.Refund && targetClassId is not null) throw new BadRequestException("target_class_unexpected", "Không gửi khóa đích.");
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         var rows = await db.Set<ThresholdResponse>().FromSqlInterpolated($"""
             SELECT * FROM class_threshold_responses WHERE token_hash = {tokenHash} FOR UPDATE
@@ -216,3 +271,7 @@ public sealed class ThresholdResponseService(ISportHubDbContext db, IClassEnroll
 
 public sealed record ThresholdResponseResult(Guid ResponseId, [property: SportHub.BuildingBlocks.Api.WireEnum] string? Choice, int? TargetClassId,
     [property: SportHub.BuildingBlocks.Api.WireEnum] string ResolutionStatus, DateTime DeadlineUtc, Guid? AdditionalInvoiceId);
+
+public sealed record ThresholdResponseView(Guid ResponseId, int ClassId, string ClassName, int SportId, decimal PaidValueVnd,
+    DateTime DeadlineUtc, [property: SportHub.BuildingBlocks.Api.WireEnum] string? Choice, int? TargetClassId,
+    [property: SportHub.BuildingBlocks.Api.WireEnum] string ResolutionStatus, Guid? AdditionalInvoiceId, DateTime ServerNowUtc);

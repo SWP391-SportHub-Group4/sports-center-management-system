@@ -112,7 +112,7 @@ function AiSuggestionContent({ initialMemberId }: { initialMemberId: string }) {
           : "Hỗ trợ tham khảo chuyên môn cho Huấn luyện viên — tổng hợp hồ sơ & lịch sử tập luyện 30 ngày (BR-26, BR-27)"
       }
       allow={["Coach"]}
-      requireCoachCategory="PersonalTrainer"
+      requirePtSpecialty
     >
       <Card
         title={isEn ? "Generate Smart Routine Suggestion" : "Khởi tạo gợi ý giáo án thông minh"}

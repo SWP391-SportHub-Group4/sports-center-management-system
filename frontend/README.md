@@ -1,26 +1,11 @@
-# SportHub Member frontend
+# SportHub frontend
 
-Next.js App Router + React + TypeScript. Run `npm ci`, then `npm run dev`; open `/member`. `npm run build`, `npm run typecheck`, `npm run lint`, and `npm run test:e2e` validate the implementation. Browser tests use installed Microsoft Edge (`channel: msedge`).
+Next.js App Router, React, TypeScript and CSS Modules. Routes in `src/app` use `src/lib/apiClient.ts`; canonical DTOs are in `src/lib/types.ts`. Reusable API-backed courses, membership, wallet, payment and training features are in `src/features`. The duplicate demo repository/member shell and fake entrance pass were removed.
 
-## Architecture
+P2.00–P2.05 implement six-role auth/profile refresh, OTP identity flows, public multi-sport catalog, shared points/gateway checkout and Member workflows. Gym membership, whole-course purchases and PT entitlements are separate. Financial states and ownership come from backend.
 
-- `src/app`: thin routes and framework boundaries only.
-- `src/application/member`: composes the Member role, navigation, providers and repository port. Add another role here with its own routes/provider; do not branch every feature on role names.
-- `src/features/{identity,scheduling,membership,coaches,training,notifications,check-in,news}`: independent feature models and views. Public entry points are `index.ts`. Views take typed props/callbacks and do not depend on application or infrastructure. ESLint enforces those dependency boundaries.
-- `src/shared`: role-neutral UI, accessible dialog, design tokens and date/format helpers.
-- `src/infrastructure/demo`: replaceable demo repository. Production data belongs in a separate adapter implementing `MemberRepository`; server authorization and transactions must remain on the backend.
+Run `npm run typecheck`, `npm run lint`, `npm run check:i18n`, `npm run build`, then `npx playwright test tests/member.spec.ts tests/refactor-foundation.spec.ts tests/refactor-payments.spec.ts`. Browser tests use installed Microsoft Edge and a production server on3100. These suites mock HTTP to test UI behaviors, responsive layouts and WCAG.
 
-## Current integration boundary
+Real integration: set `P2_LIVE_API=http://localhost:5000`, then run `npx playwright test tests/refactor-live.spec.ts`. Use a fresh isolated demo database, VNPay mock and disabled SMTP. It creates/pays real courses and verifies server fulfillment; do not point it at a shared database or rerun against already-used course schedules.
 
-Backend currently exposes only `HealthController`. This delivery is an interactive Member frontend using clearly identified demo data, not a completed authentication/payment integration. Demo actions persist locally when storage is available and otherwise last for the current session. No passwords, access tokens, or real payment details are stored. Membership requests create pending packages/invoices only, never activate paid access.
-
-QR codes encode explicitly marked demo data and rotate every 60 seconds. They are not valid entrance credentials. Replace the injected `QrPassIssuer` with a server-authorized, signed, expiring pass API before using real check-in. The backend must bind self actions to JWT identity, enforce capacity/credit transactions, and provide current cancellation deadlines (the demo seed contains illustrative deadlines).
-
-Core reference: `docs/Requirements.md`, `docs/00-Source-of-Truth.md`, `docs/Center-Management-System-Design-v2.md`. Figma: `fb7fsYbC89R5XfpbawXWLf`, calendar `72:510`, mobile home `100:334`. Exact SVG assets downloaded from Figma are in `public/sporthub`.
-
-## Accessibility and responsive behavior
-
-390px Figma mobile and 768px tablet are implemented fluidly, with tests down to 320px. Desktop navigation begins at 1024px; the calendar becomes a seven-column view. Below that it is an agenda. Uses semantic landmarks, a skip link, native form labels, visible focus, 44px controls, selected-state text, live result messages, and native modal focus containment/Escape restoration. News advances manually; QR countdown does not announce each second. Roboto and the six design-system colors are local tokens.
-
-Dependencies follow the main branch: Next 16, React 19 and ESLint 9. Use npm and commit package-lock.json; Docker installs with npm ci. No deployment is performed by this change.
-
+Progress, evidence and next P2.06 work: [progress](../docs/refactor-progress.md), [API contract](../docs/refactor-api-contract.md), [handover](../docs/refactor-frontend-handover-temp.md). External Google/SMTP/VNPay sandbox integration is separate from internal mock-provider tests. Remaining staff refactor belongs to P2.06 onwards.

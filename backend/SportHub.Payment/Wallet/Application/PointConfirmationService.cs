@@ -195,6 +195,19 @@ public sealed class PointConfirmationService(
         return ToSelection(invoice);
     }
 
+    public async Task<object?> GetCounterStatusAsync(Guid invoiceId, Guid actorId, CancellationToken ct)
+    {
+        await RequireReceptionistAsync(actorId, ct);
+        await GetSelectionAsync(invoiceId, actorId, ct);
+        var confirmation = await db.Set<PointConfirmation>().AsNoTracking()
+            .Where(x => x.InvoiceId == invoiceId && x.ConsumedAtUtc == null && x.RevokedAtUtc == null)
+            .OrderByDescending(x => x.CreatedAtUtc).FirstOrDefaultAsync(ct);
+        return confirmation is null ? null : new { confirmationId = confirmation.PointConfirmationId,
+            confirmation.ExpiresAtUtc, revision = confirmation.CheckoutRevision, confirmation.Points,
+            confirmation.FailedAttempts, resendAtUtc = confirmation.CreatedAtUtc.Add(ResendCooldown),
+            status = confirmation.FailedAttempts >= 5 ? "LOCKED" : confirmation.ExpiresAtUtc <= clock.UtcNow ? "EXPIRED" : "PENDING" };
+    }
+
     public async Task<PointSelectionResponse> ClearCounterAsync(Guid invoiceId, Guid memberId, int revision,
         Guid actorId, CancellationToken ct)
     {

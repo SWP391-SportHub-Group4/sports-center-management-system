@@ -453,7 +453,7 @@ h3 {
 }
 
 .grid--2 {
-  grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 330px), 1fr));
 }
 
 .stat {
@@ -1919,3 +1919,9 @@ textarea {
     transition: none;
   }
 }
+
+.refactor-public{max-width:1200px;margin:auto;padding:32px 20px}.refactor-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:20px}.refactor-public input,.refactor-public select{max-width:100%}.refactor-public section{margin-bottom:24px}
+
+.public-menu-toggle{display:none}@media(max-width:800px){.public-menu-toggle{display:block;min-height:44px;padding:8px 12px;color:white;background:transparent;border:1px solid #698399;border-radius:6px;font:inherit}.public-nav-open{display:flex!important;position:absolute;top:80px;left:0;right:0;flex-direction:column;background:var(--brand-900);padding:20px;z-index:30}}
+
+.wallet-ledger th{color:#475569}.card{min-width:0}.card__body{overflow-wrap:anywhere}.card__body label{display:block;margin-block:12px}.card__body .btn{margin:6px 8px 6px 0}

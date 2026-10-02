@@ -35,8 +35,13 @@ public class InvoicesController(
     public async Task<IActionResult> GetMine(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
+        [FromQuery] string? status = null,
         CancellationToken ct = default)
-        => Ok(await invoices.SearchAsync(User.RequireUserId(), null, null, page, pageSize, ct));
+        => Ok(await invoices.SearchAsync(User.RequireUserId(), status, null, page, pageSize, ct));
+
+    [HttpGet("invoices/by-item/{itemId:guid}")]
+    public async Task<IActionResult> ByItem(Guid itemId, CancellationToken ct)
+        => await GetDetail(await invoices.FindInvoiceByItemAsync(itemId, ct), ct);
 
     [HttpGet("invoices/{invoiceId:guid}")]
     public async Task<IActionResult> GetDetail(Guid invoiceId, CancellationToken ct)

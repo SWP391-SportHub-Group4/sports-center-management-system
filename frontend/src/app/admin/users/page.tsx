@@ -15,8 +15,8 @@ import {
 import { api } from "@/lib/apiClient";
 import { formatDate, label } from "@/lib/format";
 import { useAction, useApi } from "@/lib/useApi";
-import { ROLE_LABEL, useAuth, type CoachCategory, type Role } from "@/lib/auth";
-import type { Paged, UserAdminDto } from "@/lib/types";
+import { ROLE_LABEL, adaptSessionUser, useAuth, type Role } from "@/lib/auth";
+import type { Paged, UserAdminDto, SportDto } from "@/lib/types";
 
 const STAFF_ROLES: Role[] = [
   "CenterManager",
@@ -24,14 +24,7 @@ const STAFF_ROLES: Role[] = [
   "Receptionist",
   "SystemAdministrator",
 ];
-const ALL_ROLES: Role[] = [...STAFF_ROLES, "Member"];
-
-// BR-96, mới 28/09/2026 — bắt buộc khi Role = Coach.
-const COACH_CATEGORIES: CoachCategory[] = ["PersonalTrainer", "ClassInstructor"];
-const COACH_CATEGORY_LABEL: Record<CoachCategory, string> = {
-  PersonalTrainer: "Personal Trainer",
-  ClassInstructor: "Class Instructor (Yoga/Group X)",
-};
+const ALL_ROLES: Role[] = [...STAFF_ROLES, "Member", "ExternalCoach"];
 
 /**
  * Quản trị tài khoản — BR-2 (chỉ Quản trị hệ thống tạo tài khoản nhân sự và gán/đổi vai trò),
@@ -54,7 +47,7 @@ export default function UserAdminPage() {
     fullName: "",
     phone: "",
     role: "Receptionist" as Role,
-    coachCategory: "PersonalTrainer" as CoachCategory,
+    sportIds: [] as number[],
   });
 
   const [statusTarget, setStatusTarget] = useState<{
@@ -64,8 +57,8 @@ export default function UserAdminPage() {
   const [roleTarget, setRoleTarget] = useState<UserAdminDto | null>(null);
   const [reason, setReason] = useState("");
   const [nextRole, setNextRole] = useState<Role>("Coach");
-  const [nextCoachCategory, setNextCoachCategory] =
-    useState<CoachCategory>("PersonalTrainer");
+  const [nextSportIds, setNextSportIds] = useState<number[]>([]);
+  const sports = useApi(signal => api.get<SportDto[]>("/api/sports", { anonymous: true, signal }), []);
 
   const action = useAction();
 
@@ -96,8 +89,7 @@ export default function UserAdminPage() {
           phone: createForm.phone.trim() || null,
           role: createForm.role,
           // BR-96 — chỉ gửi kèm khi tạo tài khoản Coach; role khác không nhận field này.
-          coachCategory:
-            createForm.role === "Coach" ? createForm.coachCategory : null,
+          sportIds: createForm.role === "Coach" ? createForm.sportIds : [],
         }),
       "The personnel account has been created.",
     );
@@ -110,7 +102,7 @@ export default function UserAdminPage() {
         fullName: "",
         phone: "",
         role: "Receptionist",
-        coachCategory: "PersonalTrainer",
+        sportIds: [],
       });
       users.reload();
     }
@@ -153,7 +145,7 @@ export default function UserAdminPage() {
           reason: reason.trim(),
           // BR-96, chốt 28/09/2026 (2) — bắt buộc khi đổi SANG Coach, kể cả nếu tài khoản từng
           // là Coach trước đó; không tự khôi phục category cũ.
-          coachCategory: nextRole === "Coach" ? nextCoachCategory : null,
+          sportIds: nextRole === "Coach" ? nextSportIds : [],
         }),
       "The role has been changed.",
     );
@@ -267,12 +259,8 @@ export default function UserAdminPage() {
                         </div>
                       </td>
                       <td>
-                        {ROLE_LABEL[account.role as Role] ?? account.role}
-                        {account.coachCategory && (
-                          <div className="small muted">
-                            {COACH_CATEGORY_LABEL[account.coachCategory]}
-                          </div>
-                        )}
+                        {ROLE_LABEL[adaptSessionUser(account).role] ?? account.role}
+                        {account.sportIds?.length > 0 && <div className="small muted">{account.sportIds.map(id => sports.data?.find(s => s.sportId === id)?.name ?? id).join(", ")}</div>}
                       </td>
                       <td>
                         <StatusChip value={account.status} />
@@ -298,11 +286,8 @@ export default function UserAdminPage() {
                             onClick={() => {
                               action.reset();
                               setReason("");
-                              setNextRole(account.role as Role);
-                              setNextCoachCategory(
-                                (account.coachCategory as CoachCategory) ??
-                                  "PersonalTrainer",
-                              );
+                              setNextRole(adaptSessionUser(account).role);
+                              setNextSportIds(account.sportIds ?? []);
                               setRoleTarget(account);
                             }}
                           >
@@ -472,28 +457,7 @@ export default function UserAdminPage() {
               </select>
             </Field>
 
-            {createForm.role === "Coach" && (
-              <Field
-                label="Coach category"
-                hint="BR-96 — bắt buộc, quyết định bộ chức năng của tài khoản Coach này."
-              >
-                <select
-                  value={createForm.coachCategory}
-                  onChange={(event) =>
-                    setCreateForm({
-                      ...createForm,
-                      coachCategory: event.target.value as CoachCategory,
-                    })
-                  }
-                >
-                  {COACH_CATEGORIES.map((category) => (
-                    <option key={category} value={category}>
-                      {COACH_CATEGORY_LABEL[category]}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-            )}
+            {createForm.role === "Coach" && <Field label="Sports"><select multiple value={createForm.sportIds.map(String)} onChange={event => setCreateForm({...createForm, sportIds: Array.from(event.target.selectedOptions, option => Number(option.value))})}>{sports.data?.map(sport => <option key={sport.sportId} value={sport.sportId}>{sport.name}</option>)}</select></Field>}
 
             <Feedback error={action.error} success={null} />
           </form>
@@ -597,25 +561,7 @@ export default function UserAdminPage() {
               </select>
             </Field>
 
-            {nextRole === "Coach" && (
-              <Field
-                label="Coach category"
-                hint="BR-96 — bắt buộc chọn lại, kể cả nếu tài khoản từng là Coach trước đó."
-              >
-                <select
-                  value={nextCoachCategory}
-                  onChange={(event) =>
-                    setNextCoachCategory(event.target.value as CoachCategory)
-                  }
-                >
-                  {COACH_CATEGORIES.map((category) => (
-                    <option key={category} value={category}>
-                      {COACH_CATEGORY_LABEL[category]}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-            )}
+            {nextRole === "Coach" && <Field label="Sports"><select multiple value={nextSportIds.map(String)} onChange={event => setNextSportIds(Array.from(event.target.selectedOptions, option => Number(option.value)))}>{sports.data?.map(sport => <option key={sport.sportId} value={sport.sportId}>{sport.name}</option>)}</select></Field>}
 
             <Field label="Reasons (recommended, written in journals)">
               <input
