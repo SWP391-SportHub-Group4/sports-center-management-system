@@ -92,6 +92,14 @@ export function vietnamLocalToUtcIso(
 }
 
 export const LABELS: Record<string, string> = {
+  PendingApproval: "Pending approval",
+  Suspended: "Suspended",
+  PaidAfterReconciliation: "Paid after reconciliation",
+  Fulfilled: "Fulfilled",
+  Compensated: "Compensated with points",
+  ReconciliationRequired: "Reconciliation required",
+  Published: "Published",
+  Transferred: "Transferred",
   PendingPayment: "Waiting for payment",
   Active: "Active",
   Expired: "Expired",
@@ -145,11 +153,19 @@ export const LABELS: Record<string, string> = {
 export function label(value: string | null | undefined): string {
   if (!value) return "—";
 
-  return LABELS[value] ?? value;
+  const key = Object.keys(LABELS).find(
+    (k) =>
+      k.replace(/_/g, "").toLowerCase() ===
+      value.replace(/_/g, "").toLowerCase(),
+  );
+  return LABELS[value] ?? (key ? LABELS[key] : value);
 }
 
 export function chipTone(value: string | null | undefined): string {
-  switch (value) {
+  const normalized = value?.replace(/_/g, "").toLowerCase();
+  const key =
+    Object.keys(LABELS).find((k) => k.toLowerCase() === normalized) ?? value;
+  switch (key) {
     case "Active":
     case "Paid":
     case "Confirmed":
@@ -177,4 +193,10 @@ export function chipTone(value: string | null | undefined): string {
     default:
       return "chip--info";
   }
+}
+
+export function formatPoints(value: number): string {
+  return new Intl.NumberFormat("en-GB", { maximumFractionDigits: 0 }).format(
+    value,
+  );
 }

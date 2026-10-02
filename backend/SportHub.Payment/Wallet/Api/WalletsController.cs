@@ -17,8 +17,8 @@ public sealed class WalletsController(WalletQueryService query) : ControllerBase
 
     [HttpGet("wallet/me/ledger")]
     [Authorize(Policy = SportHubPolicies.WalletOwner)]
-    public async Task<IActionResult> MyLedger(CancellationToken ct, int page = 1, int pageSize = 20)
-        => Ok(await query.LedgerAsync(Actor(), null, page, pageSize, ct));
+    public async Task<IActionResult> MyLedger(CancellationToken ct, int page = 1, int pageSize = 20, string? entryType = null)
+        => Ok(await query.LedgerAsync(Actor(), null, page, pageSize, ct, entryType));
 
     [HttpGet("members/{memberId:guid}/points")]
     [Authorize(Roles = SportHubRoleNames.Receptionist + "," + SportHubRoleNames.CenterManager)]
@@ -27,8 +27,8 @@ public sealed class WalletsController(WalletQueryService query) : ControllerBase
 
     [HttpGet("members/{memberId:guid}/points/ledger")]
     [Authorize(Roles = SportHubRoleNames.Receptionist + "," + SportHubRoleNames.CenterManager)]
-    public async Task<IActionResult> MemberLedger(Guid memberId, CancellationToken ct, int page = 1, int pageSize = 20)
-        => Ok(await query.LedgerAsync(memberId, Actor(), page, pageSize, ct));
+    public async Task<IActionResult> MemberLedger(Guid memberId, CancellationToken ct, int page = 1, int pageSize = 20, string? entryType = null)
+        => Ok(await query.LedgerAsync(memberId, Actor(), page, pageSize, ct, entryType));
 
     private Guid Actor() => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 }

@@ -11,6 +11,7 @@ namespace SportHub.Payment.Application.Interfaces;
 
 public interface IInvoiceQueryService
 {
+    Task<Guid> FindInvoiceByItemAsync(Guid itemId, CancellationToken ct);
     Task<PagedResult<InvoiceSummaryResponse>> SearchAsync(
         Guid? memberId, string? status, string? keyword,
         int page, int pageSize, CancellationToken ct = default);

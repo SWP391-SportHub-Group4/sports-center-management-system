@@ -13,4 +13,4 @@ public sealed record EnrollmentResponse(
     DateTime? EndedAt,
     int NumSessions,
     DateTime? FirstSessionStartUtc,
-    [property: SportHub.BuildingBlocks.Api.WireEnum] string ClassStatus);
+    [property: SportHub.BuildingBlocks.Api.WireEnum] string ClassStatus, Guid? InvoiceItemId = null);

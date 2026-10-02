@@ -19,6 +19,14 @@ public sealed class PointRefundsController(IPointRefundService refunds) : Contro
         CancellationToken cancellationToken = default)
         => Ok(await refunds.SearchAsync(status, invoiceId, invoiceItemId, page, pageSize, cancellationToken));
 
+    [HttpGet("quote/{invoiceItemId:guid}")]
+    public async Task<IActionResult> Quote(Guid invoiceItemId, CancellationToken ct)
+    {
+        var staff = User.IsInRole("Receptionist") || User.IsInRole("CenterManager");
+        if (!staff && !User.IsInRole("Member") && !User.IsInRole("ExternalCoach")) return Forbid();
+        return Ok(new { systemCalculatedPoints = await refunds.QuoteAsync(invoiceItemId, User.RequireUserId(), staff, ct) });
+    }
+
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreatePointRefundRequest request,
         CancellationToken cancellationToken)

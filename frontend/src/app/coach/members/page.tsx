@@ -136,7 +136,6 @@ function CoachMembersContent({ initialMemberId }: { initialMemberId: string | nu
           : "Quản lý đồng thời học viên cá nhân 1:1 (PT) và học viên tham gia các lớp Yoga / Group X (BR-23)"
       }
       allow={["Coach"]}
-      requireCoachCategory="PersonalTrainer"
     >
       <Card
         title={language === "en" ? "Trainee Roster" : "Danh sách học viên"}
@@ -530,7 +529,7 @@ function CoachMembersContent({ initialMemberId }: { initialMemberId: string | nu
                     {data.map((item) => (
                       <tr key={item.resultId}>
                         <td>
-                          <strong>{item.className}</strong>
+                          <strong>{item.ptSessionId}</strong>
                           <div className="small muted">
                             {formatDateTime(item.sessionStartAtUtc)}
                           </div>

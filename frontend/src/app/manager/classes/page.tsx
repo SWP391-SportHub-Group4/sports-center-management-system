@@ -96,7 +96,7 @@ export default function ClassesPage() {
   // BR-97, mới 28/09/2026 — Class (Yoga/Group X) chỉ gán được Coach loại ClassInstructor;
   // backend cũng từ chối nếu vẫn cố gửi PersonalTrainer.
   const classInstructors = (coaches.data?.items ?? []).filter(
-    (coach) => coach.coachCategory === "ClassInstructor",
+    (coach) => coach.sportIds?.length > 0,
   );
 
   const isPersonalTraining = form.discipline === "PersonalTraining";

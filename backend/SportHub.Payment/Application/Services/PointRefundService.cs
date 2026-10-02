@@ -54,13 +54,32 @@ public sealed class PointRefundService(
         };
     }
 
+    public async Task<int> QuoteAsync(Guid invoiceItemId, Guid actorUserId, bool canRequestForAnotherUser, CancellationToken ct)
+    {
+        var item = await db.Set<InvoiceItem>().AsNoTracking()
+            .SingleOrDefaultAsync(x => x.ItemId == invoiceItemId, ct)
+            ?? throw new NotFoundException("invoice_item_not_found", "Không tìm thấy sản phẩm hóa đơn.");
+        var invoice = await db.Set<Invoice>().AsNoTracking()
+            .SingleAsync(x => x.InvoiceId == item.InvoiceId, ct);
+        if (!canRequestForAnotherUser && invoice.MemberId != actorUserId)
+            throw new ForbiddenException("refund_item_not_owned", "Hóa đơn không thuộc tài khoản của bạn.");
+        if (!SportHub.Payment.Domain.Rules.InvoiceFulfillment.HasBenefits(invoice.Status, invoice.PaidVia))
+            throw new ConflictException("refund_invoice_not_paid", "Chỉ hóa đơn Paid đã cấp quyền lợi mới được yêu cầu hoàn.");
+        await EnsureNoUnmappedLegacyRefundAsync(invoice.InvoiceId, ct);
+        var itemPaidVnd = await GetRemainingItemPaidVndAsync(invoice, item, ct);
+        var calculated = await CalculatePointsAsync(item, itemPaidVnd, VietnamTime.TodayLocal(clock), false, ct, clock.UtcNow);
+
+        return Math.Max(0, calculated);
+    }
+
     public async Task<PaymentAdjustmentResponse> RequestAsync(Guid invoiceItemId, string reason,
         Guid actorUserId, bool canRequestForAnotherUser, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(reason) || reason.Trim().Length is < 3 or > 500)
             throw new BadRequestException("refund_reason_required", "Cần nhập lý do hoàn dài 3–500 ký tự.");
-        var item = await db.Set<InvoiceItem>().AsNoTracking()
-            .SingleOrDefaultAsync(x => x.ItemId == invoiceItemId, cancellationToken)
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        var item = await db.Set<InvoiceItem>().FromSqlInterpolated($"SELECT * FROM invoice_items WHERE item_id = {invoiceItemId} FOR UPDATE")
+            .SingleOrDefaultAsync(cancellationToken)
             ?? throw new NotFoundException("invoice_item_not_found", "Không tìm thấy sản phẩm hóa đơn.");
         var invoice = await db.Set<Invoice>().AsNoTracking()
             .SingleAsync(x => x.InvoiceId == item.InvoiceId, cancellationToken);
@@ -71,6 +90,9 @@ public sealed class PointRefundService(
         await EnsureNoUnmappedLegacyRefundAsync(invoice.InvoiceId, cancellationToken);
         var itemPaidVnd = await GetRemainingItemPaidVndAsync(invoice, item, cancellationToken);
         var calculated = await CalculatePointsAsync(item, itemPaidVnd, VietnamTime.TodayLocal(clock), false, cancellationToken, clock.UtcNow);
+
+        var existing = await db.Set<PaymentAdjustment>().AsNoTracking().Where(x => x.InvoiceItemId == invoiceItemId && x.Type == PaymentAdjustmentType.Refund && x.Status == PaymentAdjustmentStatus.Requested).Select(x => (Guid?)x.AdjustmentId).FirstOrDefaultAsync(cancellationToken);
+        if (existing.HasValue) { await transaction.CommitAsync(cancellationToken); return await GetOneAsync(existing.Value, cancellationToken); }
 
         var adjustment = new PaymentAdjustment
         {
@@ -88,6 +110,7 @@ public sealed class PointRefundService(
                 invoiceItemId, systemCalculatedPoints = adjustment.SystemCalculatedPoints
             }), Reason: adjustment.Reason));
         await db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
         return await GetOneAsync(adjustment.AdjustmentId, cancellationToken);
     }
 

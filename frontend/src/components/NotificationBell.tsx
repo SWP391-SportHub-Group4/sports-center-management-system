@@ -1,5 +1,8 @@
 "use client";
 
+import Link from "next/link";
+import { useLanguage } from "@/lib/language";
+import { useAuth } from "@/lib/auth";
 import { useEffect, useRef, useState } from "react";
 import { api } from "@/lib/apiClient";
 import { formatDateTime } from "@/lib/format";
@@ -23,6 +26,9 @@ interface NotificationDto {
  * phút không ảnh hưởng gì, và một kết nối realtime chỉ để làm việc đó là chi phí thừa.
  */
 export function NotificationBell() {
+  const { t } = useLanguage();
+  const { user } = useAuth();
+  const [actionError, setActionError] = useState("");
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -62,9 +68,13 @@ export function NotificationBell() {
   }, [open]);
 
   const markAllRead = async () => {
-    await api.post("/api/notifications/read-all");
-    unread.reload();
-    items.reload();
+    try {
+      await api.post("/api/notifications/read-all");
+      unread.reload();
+      items.reload();
+    } catch (e) {
+      setActionError((e as Error).message);
+    }
   };
 
   const count = unread.data?.count ?? 0;
@@ -76,10 +86,10 @@ export function NotificationBell() {
         type="button"
         className="btn btn--ghost btn--sm bell__btn"
         onClick={() => setOpen((current) => !current)}
-        aria-label={`Notifications${count > 0 ? ` (${count} unread)` : ""}`}
+        aria-label={`${t.refactor.notifications} (${count})`}
       >
         <IconBell size={18} />
-        <span className="bell__label">Notifications</span>
+        <span className="bell__label">{t.refactor.notifications}</span>
         {count > 0 && (
           <span className="bell__count">{count > 99 ? "99+" : count}</span>
         )}
@@ -88,28 +98,48 @@ export function NotificationBell() {
       {open && (
         <div className="bell__panel">
           <div className="row spread" style={{ padding: "10px 13px" }}>
-            <strong className="small">Notifications</strong>
+            <strong className="small">{t.refactor.notifications}</strong>
             <button
               type="button"
               className="btn btn--ghost btn--sm"
               onClick={() => void markAllRead()}
               disabled={count === 0}
             >
-              Mark as read
+              {t.refactor.readAll}
             </button>
           </div>
 
+          {(items.error || actionError) && (
+            <p role="alert">{items.error?.message || actionError}</p>
+          )}
           {items.loading && list.length === 0 ? (
-            <p className="state">Downloading...</p>
+            <p className="state">{t.refactor.loading}</p>
           ) : list.length === 0 ? (
-            <p className="state">No word yet.</p>
+            <p className="state">{t.refactor.empty}</p>
           ) : (
             list.map((item) => (
               <div
                 key={item.notificationId}
-                className={`bell__item ${item.status !== "Read" ? "bell__item--unread" : ""}`}
+                className={`bell__item ${item.status !== "READ" ? "bell__item--unread" : ""}`}
               >
                 {item.message}
+                {user?.role === "Member" && (
+                  <Link
+                    href={
+                      item.sourceEventType === "CLASS_THRESHOLD_AT_RISK"
+                        ? `/member/threshold?responseId=${encodeURIComponent(item.sourceEntityId ?? "")}`
+                        : ["PAYMENT_RECEIVED", "INVOICE_CREATED"].includes(
+                              item.sourceEventType,
+                            )
+                          ? `/member/invoices?invoiceId=${encodeURIComponent(item.sourceEntityId ?? "")}`
+                          : item.sourceEventType.startsWith("HOMEWORK")
+                            ? "/member/training"
+                            : "/member/class-schedule"
+                    }
+                  >
+                    {t.refactor.details}
+                  </Link>
+                )}
                 <time>{formatDateTime(item.sentAt)}</time>
               </div>
             ))

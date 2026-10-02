@@ -49,8 +49,10 @@ export default function CoachAssignmentPage() {
 
   // BR-99, mới 28/09/2026 — quan hệ huấn luyện cá nhân chỉ gán được cho PersonalTrainer;
   // ClassInstructor không có nghiệp vụ này (backend cũng từ chối nếu vẫn cố gửi).
+  const sports = useApi(signal => api.get<import("@/lib/types").SportDto[]>("/api/sports", { signal, anonymous: true }), []);
+  const ptSportId = sports.data?.find(s => s.operationType === "ONE_ON_ONE")?.sportId;
   const personalTrainers = (coaches.data?.items ?? []).filter(
-    (coach) => coach.coachCategory === "PersonalTrainer",
+    (coach) => coach.sportIds?.includes(ptSportId ?? -1),
   );
 
   const relationships = useApi(

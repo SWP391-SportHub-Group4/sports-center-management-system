@@ -59,6 +59,31 @@ public sealed class CheckoutFlowTests(PaymentApiFactory factory)
         return (await response.Content.ReadFromJsonAsync<CheckoutResponse>())!;
     }
 
+    [Fact]
+    public async Task Explicit_points_confirmation_is_idempotent_without_gateway_attempt_and_recovery_is_owned()
+    {
+        var context = await SeedAsync();
+        using var member = factory.CreateApiClient(context.MemberId, UserRole.Member);
+        var key = Guid.NewGuid().ToString("N");
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/checkouts/membership") { Content = JsonContent.Create(new { packageId = context.PackageId }) };
+        request.Headers.Add("Idempotency-Key", key);
+        var created = await member.SendAsync(request);
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var checkout = (await created.Content.ReadFromJsonAsync<CheckoutResponse>())!;
+        Assert.Equal(HttpStatusCode.OK, (await member.GetAsync($"/api/checkouts/by-key?key={key}")).StatusCode);
+        var otherUser = await factory.SeedUserAsync(UserRole.Member);
+        using var other = factory.CreateApiClient(otherUser.UserId, UserRole.Member);
+        Assert.Equal(HttpStatusCode.NotFound, (await other.GetAsync($"/api/checkouts/by-key?key={key}")).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await member.PostAsync($"/api/checkouts/{checkout.InvoiceId}/confirm-points", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await member.PostAsJsonAsync($"/api/wallet/me/checkouts/{checkout.InvoiceId}/points", new { points = 100 })).StatusCode);
+        for (var n = 0; n < 2; n++) Assert.Equal(HttpStatusCode.OK, (await member.PostAsync($"/api/checkouts/{checkout.InvoiceId}/confirm-points", null)).StatusCode);
+        await factory.QueryAsync(async db => {
+            Assert.False(await db.Set<PaymentAttempt>().AnyAsync(a => a.InvoiceId == checkout.InvoiceId));
+            Assert.Equal(InvoiceStatus.Paid, (await db.Invoices.SingleAsync(a => a.InvoiceId == checkout.InvoiceId)).Status);
+            return 0;
+        });
+    }
+
     [Theory]
     [InlineData(0)]
     [InlineData(40)]

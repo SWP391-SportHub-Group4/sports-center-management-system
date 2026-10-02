@@ -48,6 +48,7 @@ export function useApi<T>(
     /* eslint-disable react-hooks/set-state-in-effect */
     setLoading(true);
     setError(null);
+    setData(null);
     /* eslint-enable react-hooks/set-state-in-effect */
 
     loaderRef

@@ -3,12 +3,11 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
-import {
-  HOME_BY_ROLE,
-  useAuth,
-  type CoachCategory,
-  type Role,
-} from "@/lib/auth";
+import { HOME_BY_ROLE, useAuth, type Role } from "@/lib/auth";
+import { canUsePtFeatures } from "@/lib/permissions";
+import { api } from "@/lib/apiClient";
+import { useApi } from "@/lib/useApi";
+import type { SportDto } from "@/lib/types";
 import { useLanguage } from "@/lib/language";
 import type { Translations } from "@/locales/en";
 import { NotificationBell } from "./NotificationBell";
@@ -27,14 +26,38 @@ export interface NavItem {
  */
 export const RECEPTIONIST_SHORTCUTS: Record<
   string,
-  { key: string; label: string; contentKey: keyof Translations["navigation"]["receptionistShortcuts"] }
+  {
+    key: string;
+    label: string;
+    contentKey: keyof Translations["navigation"]["receptionistShortcuts"];
+  }
 > = {
   "/receptionist": { key: "0", label: "Alt + 0", contentKey: "overview" },
-  "/receptionist/gym-checkin": { key: "1", label: "Alt + 1", contentKey: "gymCheckin" },
-  "/receptionist/sell-plans": { key: "2", label: "Alt + 2", contentKey: "sellPlans" },
-  "/receptionist/attendance": { key: "3", label: "Alt + 3", contentKey: "attendance" },
-  "/receptionist/invoices": { key: "4", label: "Alt + 4", contentKey: "invoices" },
-  "/receptionist/registrations": { key: "5", label: "Alt + 5", contentKey: "registrations" },
+  "/receptionist/gym-checkin": {
+    key: "1",
+    label: "Alt + 1",
+    contentKey: "gymCheckin",
+  },
+  "/receptionist/sell-plans": {
+    key: "2",
+    label: "Alt + 2",
+    contentKey: "sellPlans",
+  },
+  "/receptionist/attendance": {
+    key: "3",
+    label: "Alt + 3",
+    contentKey: "attendance",
+  },
+  "/receptionist/invoices": {
+    key: "4",
+    label: "Alt + 4",
+    contentKey: "invoices",
+  },
+  "/receptionist/registrations": {
+    key: "5",
+    label: "Alt + 5",
+    contentKey: "registrations",
+  },
 };
 
 /**
@@ -44,6 +67,7 @@ export const RECEPTIONIST_SHORTCUTS: Record<
  */
 export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
   // Member dùng MemberShell, không dùng AppShell — nhánh này giữ lại chỉ để Record đủ key.
+  ExternalCoach: [{ href: "/external-coach", labelKey: "overview" }],
   Member: [
     { href: "/member", labelKey: "overview" },
     { href: "/member/class-schedule", labelKey: "classSchedule" },
@@ -61,15 +85,12 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { href: "/receptionist/invoices", labelKey: "invoiceLookup" },
     { href: "/receptionist/registrations", labelKey: "classRegistration" },
   ],
-  // BR-96/BR-97, mới 28/09/2026: đây là menu đầy đủ, chỉ dành cho Coach loại PersonalTrainer.
-  // ClassInstructor dùng CLASS_INSTRUCTOR_NAV bên dưới — xem getNavForUser().
+  // PT actions are filtered by current specialties in getNavForUser().
   Coach: [
     { href: "/coach", labelKey: "overview" },
     { href: "/coach/schedule", labelKey: "ptSchedule" },
     { href: "/coach/members", labelKey: "assignedMembers" },
     { href: "/coach/training-plans", labelKey: "trainingPlans" },
-    { href: "/coach/progress", labelKey: "progress" },
-    { href: "/coach/homework", labelKey: "homework" },
     { href: "/coach/ai-suggestions", labelKey: "aiSuggestions" },
   ],
   CenterManager: [
@@ -94,46 +115,41 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
   ],
 };
 
-/**
- * BR-96/BR-97/BR-98/BR-100, mới 28/09/2026 — ClassInstructor (Yoga/Group X) chỉ xem lịch được
- * Manager phân công và tự quản lý hồ sơ/mật khẩu (link "My account" chung được thêm bên dưới).
- * Không điểm danh, không hội viên, không kế hoạch tập, không AI — backend đã từ chối các action
- * này ở tầng API (SportHub.Training/AI/Scheduling), đây chỉ là UX không hiện món không dùng được.
- */
-const CLASS_INSTRUCTOR_NAV: NavItem[] = [
-  { href: "/coach", labelKey: "overview" },
-  { href: "/coach/schedule", labelKey: "teachingSchedule" },
-];
-
-/** Menu Coach phụ thuộc CoachCategory — NAV_BY_ROLE.Coach chỉ đúng cho PersonalTrainer. */
-export function getNavForUser(user: {
-  role: Role;
-  coachCategory?: CoachCategory | null;
-}): NavItem[] {
-  if (user.role === "Coach" && user.coachCategory === "ClassInstructor") {
-    return CLASS_INSTRUCTOR_NAV;
-  }
-
-  return NAV_BY_ROLE[user.role];
+export function getNavForUser(
+  user: { role: Role; sportIds: number[] },
+  ptSportId?: number,
+): NavItem[] {
+  if (user.role !== "Coach") return NAV_BY_ROLE[user.role];
+  const base = [
+    { href: "/coach", labelKey: "overview" as const },
+    { href: "/coach/schedule", labelKey: "teachingSchedule" as const },
+    { href: "/coach/members", labelKey: "assignedMembers" as const },
+  ];
+  return ptSportId !== undefined && user.sportIds.includes(ptSportId)
+    ? [
+        ...base,
+        ...NAV_BY_ROLE.Coach.filter((item) =>
+          ["/coach/training-plans", "/coach/ai-suggestions"].includes(
+            item.href,
+          ),
+        ),
+      ]
+    : base;
 }
 
 export function AppShell({
   title,
   description,
   allow,
-  requireCoachCategory,
+  requirePtSpecialty,
   children,
 }: {
   title: string;
   description?: string;
   /** Vai trò được phép xem nhánh này. Bảo vệ route ở client, không thay cho RBAC ở API. */
   allow: Role[];
-  /**
-   * BR-96, mới 28/09/2026 — chỉ áp dụng khi allow gồm "Coach": thêm điều kiện CoachCategory,
-   * vd trang kế hoạch tập/AI chỉ dành PersonalTrainer. ClassInstructor vào nhầm URL bị đưa về
-   * /coach — đây là UX, backend vẫn là lớp chặn thật (403) nếu client cũ chưa cập nhật.
-   */
-  requireCoachCategory?: CoachCategory;
+  /** Show PT tools only for a coach with a current PT specialty. */
+  requirePtSpecialty?: boolean;
   children: ReactNode;
 }) {
   const { user, loading, logout } = useAuth();
@@ -141,9 +157,16 @@ export function AppShell({
   const router = useRouter();
   const pathname = usePathname();
   const [showShortcuts, setShowShortcuts] = useState(false);
+  const sports = useApi(
+    (signal) => api.get<SportDto[]>("/api/sports", { signal, anonymous: true }),
+    [],
+  );
+  const ptSportId = sports.data?.find(
+    (sport) => sport.operationType === "ONE_ON_ONE",
+  )?.sportId;
 
   useEffect(() => {
-    if (loading) return;
+    if (loading || (requirePtSpecialty && sports.loading)) return;
 
     if (!user) {
       router.replace(`/login?next=${encodeURIComponent(pathname)}`);
@@ -159,15 +182,24 @@ export function AppShell({
       return;
     }
 
-    // BR-96, mới 28/09/2026 — cùng lý do trên nhưng theo category trong role Coach.
+    // Specialty checks are for display; the API enforces authorization.
     if (
-      requireCoachCategory &&
+      requirePtSpecialty &&
       user.role === "Coach" &&
-      user.coachCategory !== requireCoachCategory
+      !canUsePtFeatures(user, ptSportId ?? -1)
     ) {
       router.replace(HOME_BY_ROLE[user.role]);
     }
-  }, [user, loading, allow, requireCoachCategory, router, pathname]);
+  }, [
+    user,
+    loading,
+    allow,
+    requirePtSpecialty,
+    ptSportId,
+    sports.loading,
+    router,
+    pathname,
+  ]);
 
   // Global Receptionist Keyboard Navigation Shortcuts (Alt + 0..5, Alt + /)
   useEffect(() => {
@@ -229,12 +261,12 @@ export function AppShell({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [user?.role, router, showShortcuts]);
 
-  const coachCategoryMismatch =
-    requireCoachCategory &&
+  const ptSpecialtyMismatch =
+    requirePtSpecialty &&
     user?.role === "Coach" &&
-    user.coachCategory !== requireCoachCategory;
+    !canUsePtFeatures(user, ptSportId ?? -1);
 
-  if (loading || !user || !allow.includes(user.role) || coachCategoryMismatch) {
+  if (loading || !user || !allow.includes(user.role) || ptSpecialtyMismatch) {
     return (
       <div className="auth">
         <div className="auth__card">
@@ -244,7 +276,7 @@ export function AppShell({
     );
   }
 
-  const nav = getNavForUser(user);
+  const nav = getNavForUser(user, ptSportId);
   const roleDisplay = t.navigation.roleLabel[user.role];
 
   return (
@@ -300,7 +332,11 @@ export function AppShell({
                 className="btn btn--secondary btn--sm"
                 onClick={() => setShowShortcuts((prev) => !prev)}
                 title={t.navigation.shortcutsButtonTitle}
-                style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                }}
               >
                 <IconKeyboard size={16} aria-hidden="true" />
                 <span>{t.navigation.shortcutsButton}</span>
@@ -345,10 +381,7 @@ export function AppShell({
           aria-modal="true"
           aria-label={t.navigation.shortcutsModalTitle}
         >
-          <div
-            className="shortcut-modal"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div className="shortcut-modal" onClick={(e) => e.stopPropagation()}>
             <div className="shortcut-modal__header">
               <h3 className="shortcut-modal__title">
                 <IconKeyboard size={18} aria-hidden="true" />
@@ -365,7 +398,8 @@ export function AppShell({
             </div>
             <div className="shortcut-modal__body">
               {Object.entries(RECEPTIONIST_SHORTCUTS).map(([route, sc]) => {
-                const content = t.navigation.receptionistShortcuts[sc.contentKey];
+                const content =
+                  t.navigation.receptionistShortcuts[sc.contentKey];
 
                 return (
                   <Link
@@ -375,7 +409,9 @@ export function AppShell({
                     onClick={() => setShowShortcuts(false)}
                   >
                     <div>
-                      <div className="shortcut-row__action">{content.title}</div>
+                      <div className="shortcut-row__action">
+                        {content.title}
+                      </div>
                       <div className="shortcut-row__desc">{content.desc}</div>
                     </div>
                     <kbd className="shortcut-row__kbd">{sc.label}</kbd>
