@@ -156,7 +156,9 @@ builder.Services.AddSingleton<IClock, SystemClock>();
 // Các "seam" khai báo ở BuildingBlocks, cài đặt ở module tương ứng — xem ghi chú tại từng
 // interface về lý do phải cắt vòng phụ thuộc theo cách này.
 builder.Services.AddScoped<IAuditWriter, AuditWriter>();
+builder.Services.AddScoped<IAuditReader, AuditReader>();
 builder.Services.AddScoped<INotificationWriter, NotificationWriter>();
+builder.Services.AddScoped<INotificationDeliveryReader, NotificationDeliveryReader>();
 builder.Services.AddScoped<SportHub.Notification.Application.Services.EmailDispatchService>();
 builder.Services.AddScoped<SportHub.Notification.Application.Services.ManualNoticeService>();
 builder.Services.AddScoped<ISystemSettingProvider, SystemSettingProvider>();
@@ -249,6 +251,7 @@ builder.Services.AddScoped<SportHub.Scheduling.Rental.Application.IncidentServic
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Scheduling.ICourtRentalFulfillment>(
     sp => sp.GetRequiredService<SportHub.Scheduling.Rental.Application.CourtRentalService>());
 builder.Services.AddScoped<IClassService, ClassService>();
+builder.Services.AddScoped<CourseCancellationService>();
 builder.Services.AddScoped<SportHub.Scheduling.Threshold.Application.IClassThresholdService,
     SportHub.Scheduling.Threshold.Application.ClassThresholdService>();
 builder.Services.AddScoped<SportHub.Scheduling.Threshold.Application.ThresholdResponseService>();

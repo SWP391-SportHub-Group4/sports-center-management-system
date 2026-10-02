@@ -121,11 +121,9 @@ public sealed class GymCheckInContractTests(SchedulingApiFactory factory)
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
     }
 
-    // BR-64 noi ro "khong gioi han so lan check-in trong ngay" — day la diem khac
-    // Enrollment/Attendance, nen chot bang test rieng chu khong chi dua vao viec
-    // thieu unique index.
+    // Unlimited Gym access allows re-entry after checkout, not duplicate open visits.
     [Fact]
-    public async Task Multiple_check_ins_in_the_same_day_are_allowed()
+    public async Task Multiple_visits_in_the_same_day_are_allowed_after_checkout()
     {
         var member = await factory.SeedUserAsync(UserRole.Member);
         var receptionist = await factory.SeedUserAsync(UserRole.Receptionist);
@@ -140,11 +138,46 @@ public sealed class GymCheckInContractTests(SchedulingApiFactory factory)
                 new { targetMemberId = member.UserId });
 
             Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+            if (i < 2)
+            {
+                var visit = await response.Content.ReadFromJsonAsync<JsonElement>();
+                var id = visit.GetProperty("checkInId").GetGuid();
+                Assert.Equal(HttpStatusCode.OK,
+                    (await client.PostAsync($"/api/gym-checkins/{id}/checkout", null)).StatusCode);
+            }
         }
 
         var stored = await factory.QueryAsync(db =>
             db.GymCheckIns.CountAsync(c => c.MemberId == member.UserId));
         Assert.Equal(3, stored);
+        Assert.Equal(1, await factory.QueryAsync(db => db.GymCheckIns
+            .CountAsync(c => c.MemberId == member.UserId && c.CheckOutTime == null)));
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    public async Task Open_visit_rejects_another_check_in_even_on_the_next_day(int daysAgo)
+    {
+        var member = await factory.SeedUserAsync(UserRole.Member);
+        var receptionist = await factory.SeedUserAsync(UserRole.Receptionist);
+        await factory.SeedMemberPackageAsync(member.UserId);
+        using var client = factory.CreateApiClient(receptionist.UserId, UserRole.Receptionist);
+        var first = await client.PostAsJsonAsync("/api/gym-checkins", new { targetMemberId = member.UserId });
+        Assert.Equal(HttpStatusCode.Created, first.StatusCode);
+        var original = await first.Content.ReadFromJsonAsync<JsonElement>();
+        var id = original.GetProperty("checkInId").GetGuid();
+        if (daysAgo > 0)
+            await factory.QueryAsync(db => db.GymCheckIns.Where(x => x.CheckInId == id)
+                .ExecuteUpdateAsync(s => s.SetProperty(x => x.CheckInTime, DateTime.UtcNow.AddDays(-daysAgo))));
+        var again = await client.PostAsJsonAsync("/api/gym-checkins", new { targetMemberId = member.UserId });
+        Assert.Equal(HttpStatusCode.Conflict, again.StatusCode);
+        var error = await again.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("gym_already_checked_in", error.GetProperty("error").GetString());
+        Assert.Contains("đã được ghi nhận vào Gym", error.GetProperty("message").GetString());
+        Assert.Equal(1, await factory.QueryAsync(db => db.GymCheckIns.CountAsync(x => x.MemberId == member.UserId)));
+        Assert.Equal(id, await factory.QueryAsync(db => db.GymCheckIns.Where(x => x.MemberId == member.UserId)
+            .Select(x => x.CheckInId).SingleAsync()));
     }
 
     // Gym khac lop: khong tru buoi, khong sinh Enrollment/Attendance.

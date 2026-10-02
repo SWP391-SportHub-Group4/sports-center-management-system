@@ -17,8 +17,9 @@
 
 import { readFile, readdir, stat } from "node:fs/promises";
 import { join, extname } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const ROOT = new URL("..", import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1");
+const ROOT = fileURLToPath(new URL("..", import.meta.url));
 
 const MIGRATED_SCOPE = [
   "src/components/AppShell.tsx",

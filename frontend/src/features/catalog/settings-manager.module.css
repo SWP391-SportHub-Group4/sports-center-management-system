@@ -1,0 +1,9 @@
+.settings table {
+  min-width: 840px;
+}
+.settings td:first-child {
+  min-width: 180px;
+}
+.settings input {
+  min-width: 90px;
+}

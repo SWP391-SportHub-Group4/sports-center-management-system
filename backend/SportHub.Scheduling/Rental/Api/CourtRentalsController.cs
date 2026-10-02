@@ -13,6 +13,13 @@ namespace SportHub.Scheduling.Rental.Api;
 public sealed class CourtRentalsController(CourtRentalOperationsService operations,
     CourtRentalService rentals, AvailabilityService availability) : ControllerBase
 {
+    [Authorize(Policy = SportHubPolicies.CourtRental), HttpGet("api/court-rentals/policy")]
+    public async Task<IActionResult> Policy(CancellationToken ct) => Ok(await operations.PolicyAsync(ct));
+
+    [Authorize(Policy = SportHubPolicies.CourtRental), HttpGet("api/court-rentals/{rentalId:guid}")]
+    public async Task<IActionResult> Detail(Guid rentalId, CancellationToken ct)
+        => Ok(await operations.GetMineAsync(rentalId, User.RequireUserId(), ct));
+
     [Authorize(Policy = SportHubPolicies.CourtRental)]
     [HttpGet("api/court-rentals/mine")]
     public async Task<IActionResult> Mine([FromQuery] DateTime fromUtc, [FromQuery] DateTime toUtc, CancellationToken ct)

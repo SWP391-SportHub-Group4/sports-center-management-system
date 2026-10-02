@@ -7,7 +7,15 @@ import { formatMoney } from "@/lib/format";
 import type { InvoiceSummaryDto, InvoiceDetailDto, Paged } from "@/lib/types";
 import { Card, StatusChip } from "@/components/ui";
 import { InvoiceDetail } from "./invoice-detail";
-export function InvoiceList({ staff = false }: { staff?: boolean }) {
+export function InvoiceList({
+  staff = false,
+  memberId,
+  rental = false,
+}: {
+  staff?: boolean;
+  memberId?: string;
+  rental?: boolean;
+}) {
   const { t } = useLanguage();
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<string | null>(null);
@@ -18,32 +26,66 @@ export function InvoiceList({ staff = false }: { staff?: boolean }) {
       "invoiceItemId",
     );
     const controller = new AbortController();
+    const accept = (d: InvoiceDetailDto) => {
+      if (controller.signal.aborted) return;
+      if (staff && memberId && d.summary.memberId !== memberId) {
+        setLinkError(t.operations.invoiceMemberMismatch);
+        return;
+      }
+      setSelected(d.summary.invoiceId);
+    };
     if (item && /^[0-9a-f-]{36}$/i.test(item))
       api
         .get<InvoiceDetailDto>(`/api/invoices/by-item/${item}`, {
           signal: controller.signal,
         })
-        .then((d) => {
-          if (!controller.signal.aborted) setSelected(d.summary.invoiceId);
-        })
+        .then(accept)
         .catch((error) => {
           if (!controller.signal.aborted) setLinkError(error.message);
         });
     const id = new URLSearchParams(window.location.search).get("invoiceId");
-    if (id && /^[0-9a-f-]{36}$/i.test(id)) setTimeout(() => setSelected(id), 0);
+    if (id && /^[0-9a-f-]{36}$/i.test(id)) {
+      if (staff && memberId) {
+        api
+          .get<InvoiceDetailDto>(`/api/invoices/${id}`, {
+            signal: controller.signal,
+          })
+          .then(accept)
+          .catch((error) => {
+            if (!controller.signal.aborted) setLinkError(error.message);
+          });
+      } else {
+        const timer = setTimeout(() => setSelected(id), 0);
+        controller.signal.addEventListener("abort", () => clearTimeout(timer), {
+          once: true,
+        });
+      }
+    }
     return () => controller.abort();
-  }, []);
+  }, [staff, memberId, t.operations.invoiceMemberMismatch]);
   const state = useApi(
     (signal) =>
       api.get<Paged<InvoiceSummaryDto>>(
-        staff ? "/api/invoices" : "/api/members/me/invoices",
-        { signal, query: { page, pageSize: 10, status } },
+        staff
+          ? "/api/invoices"
+          : rental
+            ? "/api/external-coaches/me/invoices"
+            : "/api/members/me/invoices",
+        { signal, query: { page, pageSize: 10, status, memberId } },
       ),
-    [staff, page, status],
+    [staff, rental, page, status, memberId],
   );
   return (
     <>
       {linkError && <p role="alert">{linkError}</p>}
+      {selected && (
+        <InvoiceDetail
+          key={selected}
+          invoiceId={selected}
+          staff={staff}
+          rental={rental}
+        />
+      )}
       <label>
         {t.refactor.status}
         <select
@@ -71,32 +113,38 @@ export function InvoiceList({ staff = false }: { staff?: boolean }) {
         state.data.items.map((i) => (
           <Card key={i.invoiceId} title={i.invoiceNumber}>
             <p>
-              <StatusChip value={i.status} /> · {formatMoney(i.totalAmount)} ·{" "}
-              {formatMoney(i.outstanding)}
+              <StatusChip value={i.status} />
             </p>
-            <button onClick={() => setSelected(i.invoiceId)}>
+            <p>
+              {t.refactor.total}: {formatMoney(i.totalAmount)} ·{" "}
+              {t.refactor.remaining}: {formatMoney(i.outstanding)}
+            </p>
+            <button
+              type="button"
+              className="btn btn--secondary"
+              onClick={() => setSelected(i.invoiceId)}
+            >
               {t.refactor.details}
             </button>
           </Card>
         ))
       )}
-      <button
-        className="btn btn--secondary"
-        disabled={page === 1}
-        onClick={() => setPage(page - 1)}
-      >
-        {t.refactor.previous}
-      </button>
-      <button
-        className="btn btn--secondary"
-        disabled={!state.data || page * 10 >= state.data.totalCount}
-        onClick={() => setPage(page + 1)}
-      >
-        {t.refactor.more}
-      </button>
-      {selected && (
-        <InvoiceDetail key={selected} invoiceId={selected} staff={staff} />
-      )}
+      <div className="btn-row">
+        <button
+          className="btn btn--secondary"
+          disabled={page === 1}
+          onClick={() => setPage(page - 1)}
+        >
+          {t.refactor.previous}
+        </button>
+        <button
+          className="btn btn--secondary"
+          disabled={!state.data || page * 10 >= state.data.totalCount}
+          onClick={() => setPage(page + 1)}
+        >
+          {t.refactor.more}
+        </button>
+      </div>
     </>
   );
 }

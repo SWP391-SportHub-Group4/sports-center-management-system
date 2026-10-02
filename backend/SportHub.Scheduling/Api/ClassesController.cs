@@ -60,8 +60,8 @@ public class ClassesController(IClassService classes, IClassSessionService sessi
     [HttpGet("api/manager/classes")]
     public async Task<IActionResult> ListManager(
         [FromQuery] string? status, [FromQuery] int? sportId, [FromQuery] string? keyword,
-        [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default)
-        => Ok(await classes.ListManagerAsync(status, sportId, keyword, page, pageSize, ct));
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default, [FromQuery] string? thresholdStatus = null)
+        => Ok(await classes.ListManagerAsync(status, sportId, keyword, page, pageSize, ct, thresholdStatus));
 
     [Authorize(Policy = SportHubPolicies.CenterManager)]
     [HttpGet("api/manager/classes/{classId:int}")]
@@ -87,6 +87,12 @@ public class ClassesController(IClassService classes, IClassSessionService sessi
     [HttpPost("api/manager/classes/{classId:int}/cancel")]
     public async Task<IActionResult> Cancel(int classId, [FromBody] CancelClassRequest request, CancellationToken ct)
         => Ok(await classes.CancelAsync(classId, request, User.RequireUserId(), ct));
+
+    [Authorize(Policy = SportHubPolicies.CenterManager)]
+    [HttpGet("api/manager/classes/{classId:int}/cancellation-preview")]
+    public async Task<IActionResult> CancellationPreview(int classId,
+        [FromServices] SportHub.Scheduling.Application.Services.CourseCancellationService cancellations, CancellationToken ct)
+        => Ok(await cancellations.PreviewAsync(classId, ct));
 
     [Authorize(Policy = SportHubPolicies.CenterManager)]
     [HttpPost("api/manager/classes/{classId:int}/threshold/waive")]

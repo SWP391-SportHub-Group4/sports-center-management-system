@@ -6,12 +6,35 @@ using SportHub.BuildingBlocks.Abstractions.Scheduling;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.BuildingBlocks.SharedKernel.Time;
 using SportHub.Scheduling.Rental.Domain;
+using SportHub.Scheduling.Catalog.Domain;
+using System.Text.Json;
 
 namespace SportHub.Scheduling.Rental.Application;
 
 public sealed class CourtRentalOperationsService(ISportHubDbContext db,
     ICourtRentalFulfillment rentals, IRefundCreditService refunds, ISystemSettingProvider settings, IClock clock)
 {
+    public async Task<CourtRentalPolicy> PolicyAsync(CancellationToken ct = default)
+        => new(await settings.GetIntAsync(SystemSettingKeys.RentalSlotMinutes, ct),
+            await settings.GetIntAsync(SystemSettingKeys.RentalMaxHours, ct),
+            await settings.GetIntAsync(SystemSettingKeys.RentalAdvanceDays, ct),
+            await settings.GetIntAsync(SystemSettingKeys.RentalCancelFreeHours, ct), clock.UtcNow);
+
+    public async Task<CourtRentalDetail> GetMineAsync(Guid rentalId, Guid ownerId, CancellationToken ct = default)
+    {
+        var row = await db.Set<CourtRental>().AsNoTracking()
+            .SingleOrDefaultAsync(x => x.CourtRentalId == rentalId && x.ExternalCoachId == ownerId, ct)
+            ?? throw new NotFoundException("rental_not_found", "Không tìm thấy lượt thuê sân.");
+        var summary = await db.Set<CourtRental>().AsNoTracking().Where(x => x.CourtRentalId == rentalId)
+            .Select(Project()).SingleAsync(ct);
+        var roomName = await db.Set<Room>().Where(x => x.RoomId == row.RoomId).Select(x => x.Name).SingleAsync(ct);
+        var sportName = await db.Set<Sport>().Where(x => x.SportId == row.SportId).Select(x => x.Name).SingleAsync(ct);
+        var points = row.InvoiceItemId is Guid itemId ? await refunds.GetSystemRefundPointsAsync(itemId, ct) : 0;
+        return new CourtRentalDetail(summary, roomName, sportName,
+            JsonSerializer.Deserialize<List<CourtRentalBlockPrice>>(row.PriceSnapshotJson) ?? [],
+            row.CancelReason?.StartsWith("CenterFault:", StringComparison.Ordinal) == true
+                ? row.CancelReason["CenterFault:".Length..] : row.CancelReason, row.CancelledAtUtc, points);
+    }
     public async Task<IReadOnlyList<CourtRentalSummary>> MineAsync(Guid ownerId, DateTime fromUtc, DateTime toUtc,
         CancellationToken ct = default)
     {
@@ -72,7 +95,7 @@ public sealed class CourtRentalOperationsService(ISportHubDbContext db,
 
     private static System.Linq.Expressions.Expression<Func<CourtRental, CourtRentalSummary>> Project()
         => x => new CourtRentalSummary(x.CourtRentalId, x.SportId, x.RoomId, x.StartAtUtc,
-            x.EndAtUtc, x.ExpectedAttendees, x.TotalPrice, x.Status.ToString(), x.InvoiceItemId);
+            x.EndAtUtc, x.ExpectedAttendees, x.TotalPrice, x.Status.ToString(), x.InvoiceItemId) { InvoiceId = x.InvoiceId };
 
     private static void ValidateRange(DateTime fromUtc, DateTime toUtc)
     {
@@ -83,4 +106,10 @@ public sealed class CourtRentalOperationsService(ISportHubDbContext db,
 
 public sealed record CourtRentalSummary(Guid CourtRentalId, int SportId, int RoomId,
     DateTime StartAtUtc, DateTime EndAtUtc, int ExpectedAttendees, decimal TotalPrice,
-    [property: SportHub.BuildingBlocks.Api.WireEnum] string Status, Guid? InvoiceItemId);
+    [property: SportHub.BuildingBlocks.Api.WireEnum] string Status, Guid? InvoiceItemId)
+{
+    public Guid? InvoiceId { get; init; }
+}
+public sealed record CourtRentalPolicy(int SlotMinutes, int MaxHours, int AdvanceDays, int CancelFreeHours, DateTime ServerNowUtc);
+public sealed record CourtRentalDetail(CourtRentalSummary Rental, string RoomName, string SportName,
+    IReadOnlyList<CourtRentalBlockPrice> Blocks, string? CancelReason, DateTime? CancelledAtUtc, int RefundPoints);

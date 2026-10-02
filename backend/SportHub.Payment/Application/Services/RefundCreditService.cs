@@ -13,6 +13,11 @@ namespace SportHub.Payment.Application.Services;
 /// <summary>Idempotent system-event refund credit. The entitlement-owning caller cancels its benefit in this transaction.</summary>
 public sealed class RefundCreditService(ISportHubDbContext db, IPointWalletService wallets, PaymentNoticeService notices) : IRefundCreditService
 {
+    public async Task<int> GetSystemRefundPointsAsync(Guid invoiceItemId, CancellationToken cancellationToken = default)
+        => await db.Set<PointLedgerEntry>().AsNoTracking().Where(x => x.InvoiceItemId == invoiceItemId
+            && x.ReferenceType == "SystemEvent" && x.EntryType == PointEntryType.Earn)
+            .SumAsync(x => (int?)x.Points, cancellationToken) ?? 0;
+
     public async Task<RefundCreditResult> CreditAsync(RefundCreditRequest request,
         CancellationToken cancellationToken = default)
     {
@@ -21,6 +26,10 @@ public sealed class RefundCreditService(ISportHubDbContext db, IPointWalletServi
         if (request.EventId == Guid.Empty || string.IsNullOrWhiteSpace(request.Reason)
             || request.RefundRatioPercent is < 0 or > 100)
             throw new BadRequestException("invalid_refund_credit", "Refund sự kiện thiếu event, lý do hoặc tỷ lệ hợp lệ.");
+        if ((request.ProratedNumerator is null) != (request.ProratedDenominator is null)
+            || (request.ProratedDenominator is int denominator && (denominator <= 0
+                || request.ProratedNumerator < 0 || request.ProratedNumerator > denominator)))
+            throw new BadRequestException("invalid_refund_proration", "Tỷ lệ buổi hoàn không hợp lệ.");
 
         var itemReference = await db.Set<InvoiceItem>().AsNoTracking()
             .SingleOrDefaultAsync(x => x.ItemId == request.InvoiceItemId, cancellationToken)
@@ -50,7 +59,9 @@ public sealed class RefundCreditService(ISportHubDbContext db, IPointWalletServi
             throw new ConflictException("refund_invoice_not_paid", "Chỉ item đã Paid được hoàn điểm.");
 
         var value = await RemainingPaidValueVndAsync(invoice, item, cancellationToken);
-        var points = RefundCalculator.PointsForRatio(value, request.RefundRatioPercent);
+        var points = request.ProratedNumerator is int numerator && request.ProratedDenominator is int total
+            ? checked((int)decimal.Floor(value * numerator / total / RefundCalculator.VndPerPoint))
+            : RefundCalculator.PointsForRatio(value, request.RefundRatioPercent);
         if (points == 0) return new RefundCreditResult(0, false);
         var result = await wallets.EarnAsync(new WalletOperation(invoice.MemberId, points,
             "SystemEvent", request.EventId, null, request.Reason.Trim(), item.ItemId), cancellationToken);
@@ -112,6 +123,25 @@ public sealed class RefundCreditService(ISportHubDbContext db, IPointWalletServi
             .SingleOrDefaultAsync(x => x.ItemId == invoiceItemId, cancellationToken)
             ?? throw new NotFoundException("invoice_item_not_found", "Không tìm thấy sản phẩm hóa đơn.");
         await LockItemAsync(itemReference, invoiceItemId, cancellationToken);
+    }
+
+    public async Task LockBatchAsync(IReadOnlyList<Guid> itemIds, IReadOnlyList<Guid> invoiceIds, CancellationToken cancellationToken = default)
+    {
+        RequireTransaction();
+        var linked = await db.Set<InvoiceItem>().AsNoTracking().Where(x => itemIds.Contains(x.ItemId))
+            .Select(x => x.InvoiceId).ToListAsync(cancellationToken);
+        var allIds = linked.Concat(invoiceIds).Distinct().Order().ToList();
+        foreach (var id in allIds)
+            await db.Database.ExecuteSqlInterpolatedAsync($"SELECT 1 FROM invoices WHERE invoice_id = {id} FOR UPDATE", cancellationToken);
+        foreach (var id in itemIds.Distinct().Order())
+            await db.Database.ExecuteSqlInterpolatedAsync($"SELECT 1 FROM invoice_items WHERE item_id = {id} FOR UPDATE", cancellationToken);
+        var owners = await db.Set<Invoice>().AsNoTracking().Where(x => allIds.Contains(x.InvoiceId))
+            .Select(x => x.MemberId).Distinct().OrderBy(x => x).ToListAsync(cancellationToken);
+        foreach (var owner in owners)
+        {
+            await wallets.EnsureWalletAsync(owner, cancellationToken);
+            await db.Database.ExecuteSqlInterpolatedAsync($"SELECT 1 FROM point_wallets WHERE owner_user_id = {owner} FOR UPDATE", cancellationToken);
+        }
     }
 
     private async Task<decimal> RemainingPaidValueVndAsync(Invoice invoice, InvoiceItem item, CancellationToken ct)

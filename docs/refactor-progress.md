@@ -1,4 +1,26 @@
-# Checkpoint frontend — hoàn tất triển khai P2.00–P2.05 (02/10/2026)
+# Checkpoint P2.06–P2.10 — 02/10/2026
+
+**Đồng bộ ngày trong Court schedule:** tiêu đề từng ngày dùng `formatDate` có sẵn và `<time dateTime={day}>`, hiển thị `dd/MM/yyyy` (ví dụ `02/10/2026`) ở cả Anh/Việt. Giá trị date-only, lọc/gửi API và giờ Việt Nam giữ nguyên. ESLint/format/diff check và Docker production build/typecheck pass. Browser với API thật kiểm 8 tổ hợp Anh/Việt × Los Angeles/Tokyo × tuần thường/cuối năm, không lệch ngày; desktop/mobile không tràn. Frontend Docker đã cập nhật; không sửa backend, env/Dockerfile/Compose hoặc dữ liệu. [Evidence](refactor-p2-06-10-evidence.md).
+
+**Căn giữa nhãn Court schedule:** thêm class CSS Module riêng cho bốn nhãn loại lịch trong `court-calendar.tsx`, dùng inline-flex để căn giữa chữ ngang/dọc khi hàng có nút Refresh. Không sửa CSS chip dùng chung hoặc logic nghiệp vụ. ESLint file sửa, Prettier, Docker production build/typecheck và diff check pass. Browser gọi API thật kiểm tra Anh/Việt ở 1440px/390px: bốn nhãn căn giữa, không tràn trang, Refresh vẫn trả 200, không có request ghi nghiệp vụ. Frontend Docker đã cập nhật; không sửa backend, env/Dockerfile/Compose hay dữ liệu. [Evidence](refactor-p2-06-10-evidence.md).
+
+**Sửa ngôn ngữ lỗi trùng gói ở Sell plans:** CheckoutPanel giữ mã lỗi `duplicate_active_package` và tra bản dịch Anh/Việt khi render, thay vì hiển thị nguyên văn thông báo tiếng Việt từ backend. Đổi ngôn ngữ sau khi lỗi xuất hiện cập nhật ngay thông báo, giữ Member/gói và không gửi lại checkout. Các lỗi chưa có bản dịch giữ thông tin server; thông báo giao dịch chưa rõ kết quả cũng cập nhật theo ngôn ngữ hiện tại. Typecheck/build/i18n pass, lint 0 error/7 warning cũ; **42/42 HTTP fixture tests** (32 operations + 10 payment) pass. Đã rebuild riêng frontend Docker, trang Sell plans trả HTTP 200. Không sửa backend/API contract, env/Dockerfile/Compose, migration hoặc dữ liệu seed. Chi tiết tại [evidence](refactor-p2-06-10-evidence.md).
+
+**Sửa mở chi tiết hóa đơn từ dashboard:** `/receptionist/invoices?invoiceId=...` và `invoiceItemId=...` nay lấy hóa đơn và Member qua API hiện có, tự chọn Member, hiển thị chi tiết trước danh sách; F5 và đổi Anh/Việt vẫn giữ hóa đơn. Kiểm tra Member khi đổi lựa chọn vẫn chặn hóa đơn khác; UUID sai và 403/404 có lỗi/retry rõ. Frontend đọc thêm trường `checkoutExpiresAtUtc` vốn đã có trong response: hóa đơn Issued cũ với giá trị null hiện thông báo song ngữ, không gọi checkout không tồn tại. Typecheck/build/i18n/format pass, lint 0 error/7 warning cũ; **40/40 HTTP fixture tests** (30 operations + 10 payment) pass. Đã kiểm tra qua browser với API thật trên Docker: link từ dashboard tới `INV-2026-000008`, đúng Member, F5, chuyển ngôn ngữ và F5 giữ ngôn ngữ đều pass, không ghi payment. Không sửa backend, env/Docker/migration hoặc dữ liệu seed. [Evidence](refactor-p2-06-10-evidence.md) lưu chi tiết.
+
+**Bổ sung UX bán Membership tại quầy:** nút trong bảng là `Chọn gói / Select plan`, mở phần xác nhận Member/email/gói/giá/thời hạn; `Tạo hóa đơn / Create invoice` mới gọi API checkout. Toàn bộ nhãn mới có Anh/Việt, chuyển ngôn ngữ giữ lựa chọn và request đang gửi; đổi Member xóa review cũ. Bảng gói cuộn ngang trên mobile, review xuống một cột. Typecheck/build/i18n/format pass; lint 0 error, 7 warning cũ; browser HTTP fixtures operations + payments **33/33 pass** (23 + 10), gồm hai case mới chuyển ngôn ngữ, đổi gói/Member, pending submit và đúng payload/idempotency. Không đổi backend/API contract, env/Docker/migration/dependencies trong lượt sửa UX này. Chi tiết tại [evidence](refactor-p2-06-10-evidence.md).
+
+Đã triển khai frontend và các API còn thiếu trực tiếp phục vụ P2.06–P2.10: Lễ tân chọn Member rồi checkout/attendance/Gym, Manager catalog/Coach/approval/Draft/publish/threshold/session/cancel course, lịch sân/incident/manual notices và ExternalCoach booking/own rentals/invoices/wallet/profile. Backend giữ quyền, ownership và transaction authority. Hủy khóa có preview/hoàn phần chưa cung cấp và nhả pending holds; notice có idempotency, recovery sau F5 và delivery lookup; rental detail/pending invoices tải theo owner. Không sửa P2.11–P2.12.
+
+Release solution build và frontend typecheck/lint/i18n/build đều pass; 62 routes, lint 0 error/7 warning cũ. PostgreSQL riêng: **Payment 143/143 + Scheduling 108/108 pass**, 0 fail/skip. Browser HTTP fixtures **31/31 pass**; browser gọi API thật **2/2 pass** cho hủy khóa đã trả điểm và notice receipt/F5. Không coi mock VNPay/outbox là nghiệm thu VNPay sandbox hoặc SMTP bên ngoài. Contract và lệnh/bằng chứng chi tiết tại [bàn giao P2.06–P2.10](refactor-p2-06-10-evidence.md) và [API contract](refactor-api-contract.md).
+
+Không sửa env/env mẫu, Docker/Compose/deployment, migrations, dependency/lockfile hoặc Requirements/SRS; không apply migration vào DB phát triển. Giữ thay đổi có sẵn ở Business Rules DOCX và Coach forms CSS. Program.cs chỉ thêm DI cho ba service/reader liên quan. Chưa commit/push. Toàn bộ plan 2 và các gate chưa chạy lại vẫn không được đánh dấu hoàn tất.
+
+Các checkpoint bên dưới là lịch sử, không thay cho kết quả bản code mới.
+
+---
+
+# Lịch sử checkpoint frontend — triển khai P2.00–P2.05 (02/10/2026)
 
 Nhánh `feature/refactor-v2.1`, base `0d3e1ef` đã fetch/fast-forward từ develop. Thay đổi chưa commit/push. Phạm vi yêu cầu P2.00–P2.05 đã triển khai; P2.06 trở đi là chặng tiếp theo, không phải nghiệm thu toàn web.
 
