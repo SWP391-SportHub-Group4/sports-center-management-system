@@ -74,6 +74,20 @@ public sealed class CheckoutsController(CheckoutService checkouts, IPackagePurch
         return Created($"/api/checkouts/{result.InvoiceId}", result);
     }
 
+    [HttpGet("by-reference")]
+    public async Task<IActionResult> ByReference([FromQuery] string reference, CancellationToken ct)
+    {
+        RequireBuyer();
+        return Ok(await checkouts.FindByReferenceAsync(reference, User.RequireUserId(), ct));
+    }
+
+    [HttpGet("by-key")]
+    public async Task<IActionResult> ByKey([FromQuery] string key, CancellationToken ct)
+    {
+        RequireBuyer();
+        return Ok(await checkouts.FindByKeyAsync(key, User.RequireUserId(), ct));
+    }
+
     [HttpGet("{invoiceId:guid}")]
     public Task<IActionResult> Get(Guid invoiceId, CancellationToken ct)
     {
@@ -83,6 +97,14 @@ public sealed class CheckoutsController(CheckoutService checkouts, IPackagePurch
 
     private async Task<IActionResult> GetCore(Guid invoiceId, CancellationToken ct)
         => Ok(await checkouts.GetAsync(invoiceId, User.RequireUserId(), IsStaff(), ct));
+
+    [HttpPost("{invoiceId:guid}/confirm-points")]
+    [EnableRateLimiting("checkout-write")]
+    public async Task<IActionResult> ConfirmPoints(Guid invoiceId, CancellationToken ct)
+    {
+        RequireBuyer();
+        return Ok(await checkouts.ConfirmPointsAsync(invoiceId, User.RequireUserId(), IsStaff(), ct));
+    }
 
     [HttpPost("{invoiceId:guid}/attempts")]
     [EnableRateLimiting("checkout-write")]

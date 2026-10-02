@@ -18,6 +18,11 @@ namespace SportHub.Membership.Api;
 [Route("api/membership-packages")]
 public class MembershipPackagesController(IMembershipPackageService packages) : ControllerBase
 {
+    [AllowAnonymous]
+    [HttpGet("public")]
+    public async Task<IActionResult> Public(CancellationToken ct)
+        => Ok(await packages.GetAllAsync(false, ct));
+
     [HttpGet]
     public async Task<IActionResult> GetAll([FromQuery] bool includeInactive = false, CancellationToken ct = default)
     {

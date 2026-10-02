@@ -62,6 +62,24 @@ public sealed class CounterPointOtpTests(PaymentApiFactory factory)
         => client.PostAsJsonAsync($"/api/point-confirmations/{id}/verify", new { code });
 
     [Fact]
+    public async Task Pending_counter_confirmation_is_resumable_and_blocks_gateway_payment_without_leaking_code()
+    {
+        var context = await SetupAsync();
+        using var counter = factory.CreateApiClient(context.ReceptionistId, UserRole.Receptionist);
+        var confirmationId = await RequestAsync(counter, context.InvoiceId, context.MemberId, 20);
+        var read = await counter.GetAsync($"/api/invoices/{context.InvoiceId}/point-confirmations/current");
+        Assert.Equal(HttpStatusCode.OK, read.StatusCode);
+        var body = await read.Content.ReadAsStringAsync();
+        Assert.Contains(confirmationId.ToString(), body);
+        Assert.DoesNotContain("codeHash", body);
+        Assert.DoesNotContain("codeSalt", body);
+        Assert.DoesNotContain(factory.CapturedEmail.CodeFor(context.Email), body);
+        Assert.Equal(HttpStatusCode.Conflict, (await counter.PostAsync($"/api/checkouts/{context.InvoiceId}/attempts", null)).StatusCode);
+        using var member = factory.CreateApiClient(context.MemberId, UserRole.Member);
+        Assert.Equal(HttpStatusCode.Forbidden, (await member.GetAsync($"/api/invoices/{context.InvoiceId}/point-confirmations/current")).StatusCode);
+    }
+
+    [Fact]
     public async Task Read_all_in_app_does_not_mark_encrypted_email_otp_as_read()
     {
         var context = await SetupAsync();

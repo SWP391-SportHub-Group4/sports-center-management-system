@@ -2,6 +2,35 @@
 
 Trạng thái 01/10/2026: **backend plan 1 đã qua gate 465/465 test**, ngoại trừ tích hợp/nghiệm thu VNPay sandbox thật theo yêu cầu người dùng. Xem [bàn giao](refactor-backend-final-handover.md) và [evidence](refactor-backend-evidence.md). Phần A là route lịch sử trước refactor (30/09/2026, commit `a5c480b`), không dùng để khôi phục flow ghi dữ liệu đã bỏ. Quy ước và bản chốt dưới đây được ưu tiên khi checkpoint cũ dùng tên nội bộ PascalCase.
 
+## Bổ sung tích hợp frontend P2.00–P2.05 — 02/10/2026
+
+Các endpoint dưới đây phục vụ frontend API-backed. Không thay schema/migration. ID lớp/package/room/sport là int; ID invoice/enrollment/PT/request là UUID. Backend tiếp tục kiểm role, ownership, trạng thái và đồng thời.
+
+| Verb | Route | Hợp đồng / authority |
+|---|---|---|
+| GET / PUT | `/api/users/me`, `/api/users/me/profile` | Thêm `sportIds: number[]`, nullable `approvalStatus`. Role UPPER_SNAKE_CASE. F5 refresh profile trước cấp quyền trên UI; regression Security đã pass. |
+| GET | `/api/membership-packages/public` | Anonymous, chỉ catalog active; endpoint quản trị/auth cũ giữ chính sách riêng. |
+| GET | `/api/classes?fromDate=&toDate=&sportId=&page=&pageSize=` | DateOnly YYYY-MM-DD theo startDate khóa; validate khoảng ngày; danh sách public chỉ Published. |
+| GET | `/api/classes/{classId}/public-sessions` | Anonymous, chỉ khóa Published, lịch buổi/room/coach không có roster/attendance. |
+| GET | `/api/members/me/classes/{classId}/sessions` | Member đã có enrollment của chính mình, kể cả lịch sử; không trả roster. Own enrollment thêm `invoiceItemId`. |
+| GET | `/api/coaches?sportId=` | Member/Receptionist/Manager: Coach active cùng specialty, chỉ userId/fullName/sportIds. Không trả email hoặc credential. |
+| GET | `/api/checkouts/by-key?key=`, `/api/checkouts/by-reference?reference=` | Recovery timeout/return theo invoice của beneficiary hoặc initiator; kiểm scope lại. Query VNPay không là chứng cứ Paid. |
+| POST | `/api/checkouts/{invoiceId}/confirm-points` | Xác nhận cash=0, invoice lock, ownership, hold còn hạn, không reconciliation/verified pending; idempotent Paid, không tạo gateway attempt. |
+| GET | `/api/checkouts/{invoiceId}` | Thêm beneficiaryUserId/initiatorUserId/serverNowUtc và ptMemberPackageId/ptCoachId/ptFrequency để resume/re-quote khi retry. |
+| POST | `/api/checkouts/{invoiceId}/attempts` | Response thêm gatewayMode MOCK/VNPAY theo provider thực. Cash>0 mới có QR/link. Cả attempts và confirm-points chặn `point_confirmation_pending`. |
+| GET | `/api/invoices/{invoiceId}/point-confirmations/current` | Receptionist; audited beneficiary, revision, points, failedAttempts, expiry/resendAtUtc và status PENDING/LOCKED/EXPIRED; không trả code/hash/salt. |
+| GET | `/api/invoices/by-item/{itemId}` | Lookup invoice từ own enrollment invoiceItemId; dùng lại quyền đọc invoice. Own invoice list hỗ trợ filter status. |
+| GET | `/api/refunds/quote/{itemId}` | Ownership + paid/benefit eligibility; `{systemCalculatedPoints}` do backend tính. |
+| POST | `/api/refunds` | Item lock và tối đa một request REQUESTED chưa xử lý trên item; submit lặp trả request hiện có. Không cho FE tự gửi số điểm duyệt. |
+| GET | `/api/class-threshold-responses/mine`, `/{id}`, `/by-token?token=` | Member owner; course/sport/remaining paid value/deadline/choice/status/additionalInvoiceId/serverNowUtc. Token chỉ hash ở backend, không ghi analytics. |
+| GET | `/api/class-threshold-responses/{id}/transfer-quote?targetClassId=` | Owner, response còn mở; cùng môn, target Published/chưa bắt đầu. Backend tính cashDifference/walletCreditPoints; giá trị chia hết cho 1.000. |
+| POST | `/api/class-threshold-responses/{id}` | `{choice:REFUND|TRANSFER,targetClassId}`; dùng cùng transaction/lock/idempotent-final-choice như token route. Retry AwaitingPayment giữ nguyên đích. |
+| GET | `/api/members/me/pt-session-change-requests`, `/api/members/me/pt-coach-change-requests` | Chỉ owner, 100 request gần nhất với trạng thái/reviewNote. |
+| GET | `/api/coach-member-relationships` | Member/Coach/Manager; Member/Coach bị clamp theo owner. Không có endpoint members/me/relationships giả. |
+| GET | `/api/wallet/me/ledger?page=&pageSize=&entryType=` | Array WalletLedgerResponse, không Paged; timestamp createdAtUtc. Filter HOLD/RELEASE/SPEND/EARN/ADJUSTMENT áp trước pagination; filter sai 400. Staff audited ledger cũng hỗ trợ filter. |
+
+Kiểm chứng build cuối: backend 470/470 test pass (Payment 135, Scheduling 108, Training 81, Security 131, Administration 15). HTTP riêng xác minh public catalog anonymous, owner reads, ledger filter/400. Browser API thật 4/4 dùng PostgreSQL cô lập và VNPay mock. SMTP/VNPay sandbox thật không được chứng nhận bởi các test này. Xem [progress](refactor-progress.md).
+
 ## Quy ước chung
 
 - Enum JSON hiện tại: **UPPER_SNAKE_CASE** (`ISSUED`, `PAID_AFTER_RECONCILIATION`, `GROUP_COURSE`, `EXTERNAL_COACH`, `VN_PAY`). Enum số không được chấp nhận. DTO string biểu diễn enum có `WireEnum` converter; query enum chấp nhận canonical và tên nội bộ để tương thích. JWT role claim vẫn dùng tên nội bộ, không tự chuyển JWT.

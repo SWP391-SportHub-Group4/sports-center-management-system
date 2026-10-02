@@ -1,3 +1,35 @@
+# Checkpoint frontend — hoàn tất triển khai P2.00–P2.05 (02/10/2026)
+
+Nhánh `feature/refactor-v2.1`, base `0d3e1ef` đã fetch/fast-forward từ develop. Thay đổi chưa commit/push. Phạm vi yêu cầu P2.00–P2.05 đã triển khai; P2.06 trở đi là chặng tiếp theo, không phải nghiệm thu toàn web.
+
+| Chặng | Kết quả |
+|---|---|
+| P2.00 | Đã kiểm inbound imports, bỏ demo repository/provider/UI song song, gate QR tự sinh và Test QR Scan trong CameraQrScanner. Baseline JSON thật/API riêng đã kiểm; canonical DTO dùng ở các feature mới. |
+| P2.01 | Auth 6 roles, adapter wire một nơi, F5 refresh profile, specialty/approval authority, safe local returnTo, API AbortSignal/204/idempotency/errors/Retry-After, stale-data protection; bỏ CoachCategory consumer; navigation hợp lệ và i18n mới. |
+| P2.02 | Direct OTP reset, Member/ExternalCoach signup, cooldown/expiry/password checklist/confirm, Google 202 onboarding, account change-password/JWT mới, own training profile. |
+| P2.03 | Landing đa môn từ sports API, Gym pricing thật/PT riêng, public course filters/detail/lịch không roster; Member mua nguyên khóa không cần Membership, Guest login return. |
+| P2.04 | Shared invoice/list/detail/status, checkout idempotency/recovery/hold/server clock, cash/points split, cash=0 explicit confirm không QR/attempt, gateway/mock label, bounded polling, cancel/retry/re-quote/return, OTP quầy revision/cooldown/5-attempt lock, item refund quote/request. InvoiceWorkbench bỏ manual cash/card/transfer và cash refund. |
+| P2.05 | Dashboard/lịch khóa/registrations timeline/own invoice/refund/wallet filtered ledger/Gym và PT entitlement/quote/coach specialty/PT quota+sessions+change requests+plans+results+homework, threshold own/email token/final-choice/transfer difference. PT được gộp đủ trong training; deep link dùng `/member/training`. |
+
+## Bằng chứng bản code cuối
+
+- `dotnet build backend/SportHub.sln -c Release --no-restore`: pass, 0 error, 4 warning cũ.
+- Integration/unit: **470/470 pass, 0 fail, 0 skip**: Administration 15, Security 131, Payment 135, Scheduling 108, Training 81. TRX `p2-*-verified.trx`, Scheduling `p2-scheduling-final-build.trx` trong TestResults của từng project.
+- Frontend `npm run typecheck`, `npm run lint` (0 error, 7 warning cũ), `npm run check:i18n`, `npm run build`: pass. Production build gồm các route public/Member/payment/threshold/signup mới.
+- Browser HTTP UI regressions: **21 case đã pass** (20 case ở lượt đầy đủ; OTP quầy chạy lại riêng sau sửa selector bị trùng aria-label, pass); Member + foundation + payments; kiểm F5 authority, reset payload/cooldown, responsive 320/768/1280, Member WCAG A/AA, public 320/390/1440 WCAG, cash=0 không attempt, stale QR, cancel/F5, return query, compensated/reconciliation, POST timeout recovery, owner denial và OTP quầy khóa 5 mã sai/F5. Đây là UI tests có mock HTTP, không gọi chúng là integration backend.
+- Browser **API thật 4/4 pass** `P2_LIVE_API=http://localhost:5000 npx playwright test tests/refactor-live.spec.ts`: khóa 200.000 VND, lần lượt 0/50/200 điểm, gateway mock verified server, F5, Paid/Fulfilled và enrollment thật; tất cả 7 trang Member và public responsive.
+- HTTP API thật: anonymous membership catalog 200, filtered SPEND ledger chỉ SPEND, invalid filter 400, coach specialty/own threshold/PT requests 200.
+- Screenshot đã xem sau sửa: public header/hero giữ Navy/Ice/Roboto; dashboard 320px và wallet contrast/keyboard scroll đã được sửa và qua axe.
+- `git diff --check`: pass. Không sửa Requirements/SRS, .env/.env.local, schema hoặc migration.
+
+## Môi trường và giới hạn
+
+Tests chạy PostgreSQL18 cluster tạm riêng tại `%TEMP%/sporthub-p2-postgres-20261001`, port55439. Mỗi suite có database mới; browser dùng `sporthub_p2_browser_final`. Không migrate/reset DB phát triển/chia sẻ. API test tắt SMTP và dùng VNPay mock. Các tiến trình API/cluster riêng được dừng sau nghiệm thu, dữ liệu test giữ trong thư mục tạm. Lần Payment dùng nhầm lại DB fixture đã có 7 fail; chạy DB mới xác nhận135/135. Windows Application Control từng chặn DLL 0x800711C7; sau build cuối đã thực thi thành công và toàn suite được chạy lại, không còn blocker nghiệm thu hiện tại, không đổi chính sách bảo mật.
+
+Google provider/SMTP delivery/VNPay sandbox thật cần môi trường tích hợp của người dùng; test Google/OTP nội bộ không chứng nhận các dịch vụ ngoài. Trang staff legacy ngoài P2.05 được giữ cho P2.06–P2.12, chỉ sửa phụ thuộc auth/types tối thiểu; không coi chúng là đã refactor hoàn chỉnh. [Contract bổ sung](refactor-api-contract.md) và [handover](refactor-frontend-handover-temp.md) lưu quyết định/bước tiếp.
+
+---
+
 # Tiến độ refactor backend (plan 1)
 
 ## Chốt plan 1 — 01/10/2026

@@ -21,6 +21,11 @@ namespace SportHub.Training.Api;
 [ProducesResponseType(StatusCodes.Status409Conflict)]
 public class PtSessionChangeRequestsController(IPtSessionChangeRequestService changeRequests) : ControllerBase
 {
+    [Authorize(Policy = SportHubPolicies.Member)]
+    [HttpGet("members/me/pt-session-change-requests")]
+    public async Task<IActionResult> Mine(CancellationToken ct)
+        => Ok(await changeRequests.MineAsync(User.RequireUserId(), ct));
+
     [Authorize(Policy = SportHubPolicies.CenterManager)]
     [HttpGet("manager/pt-session-change-requests")]
     [ProducesResponseType<IReadOnlyList<PtSessionChangeRequestResponse>>(StatusCodes.Status200OK)]
