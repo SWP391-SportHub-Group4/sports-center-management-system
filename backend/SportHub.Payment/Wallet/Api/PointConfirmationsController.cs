@@ -21,6 +21,11 @@ public sealed class PointConfirmationsController(PointConfirmationService confir
     public async Task<IActionResult> GetSelection(Guid invoiceId, CancellationToken ct)
         => Ok(await confirmations.GetSelectionAsync(invoiceId, User.RequireUserId(), ct));
 
+    [HttpGet("invoices/{invoiceId:guid}/point-confirmations/current")]
+    [Authorize(Policy = SportHubPolicies.Receptionist)]
+    public async Task<IActionResult> Current(Guid invoiceId, CancellationToken ct)
+        => Ok(await confirmations.GetCounterStatusAsync(invoiceId, User.RequireUserId(), ct));
+
     [HttpPost("invoices/{invoiceId:guid}/point-confirmations/clear")]
     [Authorize(Policy = SportHubPolicies.Receptionist)]
     public async Task<IActionResult> Clear(Guid invoiceId, ClearCounterPointsRequest request, CancellationToken ct)

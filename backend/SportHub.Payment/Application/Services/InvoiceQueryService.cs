@@ -10,6 +10,10 @@ namespace SportHub.Payment.Application.Services;
 
 public sealed class InvoiceQueryService(ISportHubDbContext db) : IInvoiceQueryService
 {
+    public async Task<Guid> FindInvoiceByItemAsync(Guid itemId, CancellationToken ct)
+        => await db.Set<InvoiceItem>().AsNoTracking().Where(i => i.ItemId == itemId).Select(i => (Guid?)i.InvoiceId).SingleOrDefaultAsync(ct)
+            ?? throw new NotFoundException("invoice_item_not_found", "Không tìm thấy sản phẩm hóa đơn.");
+
     private sealed record InvoiceRow(
         Guid InvoiceId,
         string InvoiceNumber,

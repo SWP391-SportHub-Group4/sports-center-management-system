@@ -34,12 +34,19 @@ export const TOKEN_STORAGE_KEY = "sporthub.accessToken";
 export class ApiError extends Error {
   readonly status: number;
   readonly code: string;
+  readonly details: Record<string, unknown>;
 
-  constructor(status: number, code: string, message: string) {
+  constructor(
+    status: number,
+    code: string,
+    message: string,
+    details: Record<string, unknown> = {},
+  ) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.code = code;
+    this.details = details;
   }
 
   /** 401 = token thiếu/hết hạn/tài khoản bị khoá — người dùng phải đăng nhập lại. */
@@ -71,6 +78,7 @@ export interface RequestOptions {
   /** Huỷ request khi component unmount hoặc khi người dùng đổi bộ lọc. */
   signal?: AbortSignal;
   query?: Record<string, string | number | boolean | undefined | null>;
+  idempotencyKey?: string;
 }
 
 function readToken(): string | null {
@@ -115,6 +123,8 @@ async function request<T>(
   options: RequestOptions = {},
 ): Promise<T> {
   const headers: Record<string, string> = { Accept: "application/json" };
+  if (options.idempotencyKey)
+    headers["Idempotency-Key"] = options.idempotencyKey;
 
   if (body !== undefined) {
     headers["Content-Type"] = "application/json";
@@ -176,6 +186,7 @@ async function request<T>(
       response.status,
       code,
       withValidationDetail(message, payload),
+      { ...payload, retryAfter: response.headers.get("Retry-After") },
     );
   }
 
@@ -233,6 +244,8 @@ export const api = {
     request<T>("POST", path, body, options),
   put: <T>(path: string, body?: unknown, options?: RequestOptions) =>
     request<T>("PUT", path, body, options),
+  patch: <T>(path: string, body?: unknown, options?: RequestOptions) =>
+    request<T>("PATCH", path, body, options),
   del: <T>(path: string, options?: RequestOptions) =>
     request<T>("DELETE", path, undefined, options),
 };

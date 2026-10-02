@@ -35,7 +35,7 @@ public sealed class EnrollmentService(ISportHubDbContext db) : IEnrollmentServic
                 e.EndedAt,
                 e.Class.NumSessions,
                 e.Class.Sessions.Where(s => s.Status != ClassSessionStatus.Cancelled).Min(s => (DateTime?)s.StartAtUtc),
-                e.Class.Status.ToString()))
+                e.Class.Status.ToString(), e.InvoiceItemId))
             .ToListAsync(ct);
 
         return new PagedResult<EnrollmentResponse> { Items = items, Page = page, PageSize = pageSize, TotalCount = total };

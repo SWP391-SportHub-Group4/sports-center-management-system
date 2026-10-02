@@ -1,11 +1,19 @@
 "use client";
 
+import {useLanguage} from "@/lib/language";
 import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ApiError } from "@/lib/apiClient";
-import { HOME_BY_ROLE, useAuth } from "@/lib/auth";
+import {
+  GoogleOnboardingRequired,
+  type GoogleOnboardingPending,
+  safeReturnTo,
+  HOME_BY_ROLE,
+  useAuth,
+} from "@/lib/auth";
 import { Feedback, Field } from "@/components/ui";
+import { GoogleOnboarding } from "@/features/identity/google-onboarding";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 
 /**
@@ -18,15 +26,23 @@ const DEMO_ACCOUNTS = [
   { label: "System Administrator", email: "admin@sporthub.vn" },
   { label: "Center Manager", email: "manager@sporthub.vn" },
   { label: "Receptionist", email: "letan@sporthub.vn" },
-  { label: "Coach · Yoga & PT Multi-discipline", email: "coach.pt@sporthub.vn" },
-  { label: "Coach · Yoga & GroupX Specialist", email: "coach.yoga@sporthub.vn" },
+  {
+    label: "Coach · PT",
+    email: "coach.pt@sporthub.vn",
+  },
+  {
+    label: "Coach · Cầu lông",
+    email: "coach.caulong@sporthub.vn",
+  },
+  { label: "External Coach", email: "coach.external.approved@sporthub.vn" },
   { label: "Member", email: "an.member@sporthub.vn" },
 ];
 
 const DEMO_PASSWORD = "Sporthub@123";
 const SHOW_DEMO_ACCOUNTS = process.env.NODE_ENV === "development";
 
-function loginErrorMessage(cause: unknown) {
+function loginErrorMessage(cause: unknown, language: "en" | "vi") {
+  if (language === "vi") return cause instanceof ApiError ? cause.message : "Không thể đăng nhập. Vui lòng thử lại.";
   if (!(cause instanceof ApiError)) {
     return "We could not sign you in. Please try again.";
   }
@@ -53,8 +69,12 @@ function loginErrorMessage(cause: unknown) {
 }
 
 function LoginForm() {
+  const {t,language} = useLanguage();
   const { login, loginWithGoogle } = useAuth();
   const router = useRouter();
+  const [onboarding, setOnboarding] = useState<GoogleOnboardingPending | null>(
+    null,
+  );
   const params = useSearchParams();
 
   const [email, setEmail] = useState("");
@@ -81,19 +101,28 @@ function LoginForm() {
 
       // Back to đúng trang user định into, but only when that là đường dẫn nội bộ —
       // nhận nguyên parameters will thành open redirect.
-      const target =
-        next && next.startsWith("/") && !next.startsWith("//")
-          ? next
-          : HOME_BY_ROLE[user.role];
+      const target = safeReturnTo(next, HOME_BY_ROLE[user.role]);
 
       router.replace(target);
     } catch (cause) {
-      setError(loginErrorMessage(cause));
+      setError(loginErrorMessage(cause,language));
       setErrorSource("credentials");
     } finally {
       setBusy(false);
     }
   };
+
+  if (onboarding)
+    return (
+      <main className="auth">
+        <div className="auth__card">
+          <GoogleOnboarding
+            pending={onboarding}
+            onCancel={() => setOnboarding(null)}
+          />
+        </div>
+      </main>
+    );
 
   return (
     <div className="auth auth--login">
@@ -111,13 +140,13 @@ function LoginForm() {
 
         <section className="auth__card" aria-labelledby="login-title">
           <Link className="auth__home-link" href="/">
-            <span aria-hidden="true">←</span> Back to SportHub
+            <span aria-hidden="true">←</span> {t.refactor.backHome}
           </Link>
           <h1 id="login-title" className="auth__brand">
-            Sign in to SportHub
+            {t.auth.signInTitle}
           </h1>
           <p className="auth__sub">
-            Sign in to access your SportHub account, schedules, and training.
+            {t.auth.signInSubtitle}
           </p>
 
           {expired && (
@@ -125,7 +154,7 @@ function LoginForm() {
               className="alert alert--warn auth__session-alert"
               role="status"
             >
-              Your session expired. Please sign in again.
+              {t.refactor.sessionExpired}
             </div>
           )}
 
@@ -133,7 +162,7 @@ function LoginForm() {
             text="continue_with"
             disabled={busy}
             onError={(cause) => {
-              setError(loginErrorMessage(cause));
+              setError(loginErrorMessage(cause,language));
               setErrorSource("form");
             }}
             onCredential={(idToken) => {
@@ -144,13 +173,12 @@ function LoginForm() {
                 setErrorSource(null);
                 try {
                   const user = await loginWithGoogle(idToken);
-                  const target =
-                    next && next.startsWith("/") && !next.startsWith("//")
-                      ? next
-                      : HOME_BY_ROLE[user.role];
+                  const target = safeReturnTo(next, HOME_BY_ROLE[user.role]);
                   router.replace(target);
                 } catch (cause) {
-                  setError(loginErrorMessage(cause));
+                  if (cause instanceof GoogleOnboardingRequired) {
+                    setOnboarding(cause.pending);
+                  } else setError(loginErrorMessage(cause,language));
                   setErrorSource("form");
                 } finally {
                   setBusy(false);
@@ -160,11 +188,11 @@ function LoginForm() {
           />
 
           <div className="auth__separator">
-            <span>or sign in with email</span>
+            <span>{t.refactor.emailSignIn}</span>
           </div>
 
           <form className="form" onSubmit={submit} aria-busy={busy}>
-            <Field label="Email">
+            <Field label={t.refactor.email}>
               <input
                 type="email"
                 value={email}
@@ -186,7 +214,7 @@ function LoginForm() {
               />
             </Field>
 
-            <Field label="Password">
+            <Field label={t.refactor.password}>
               <span className="password-field">
                 <input
                   id="login-password"
@@ -217,7 +245,7 @@ function LoginForm() {
                   disabled={busy}
                   onClick={() => setShowPassword((visible) => !visible)}
                 >
-                  {showPassword ? "Hide" : "Show"}
+                  {showPassword ? t.refactor.hide : t.refactor.show}
                 </button>
               </span>
             </Field>

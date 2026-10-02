@@ -70,6 +70,20 @@ public sealed class RefundWorkflowTests(PaymentApiFactory factory)
     }
 
     [Fact]
+    public async Task Refund_quote_is_owner_scoped_and_parallel_requests_create_one_pending_refund()
+    {
+        var fixture = await SeedPaidMembershipAsync();
+        using var member = factory.CreateApiClient(fixture.MemberId, UserRole.Member);
+        Assert.Equal(HttpStatusCode.OK, (await member.GetAsync($"/api/refunds/quote/{fixture.InvoiceItemId}")).StatusCode);
+        var stranger = await factory.SeedUserAsync(UserRole.Member);
+        using var other = factory.CreateApiClient(stranger.UserId, UserRole.Member);
+        Assert.Equal(HttpStatusCode.Forbidden, (await other.GetAsync($"/api/refunds/quote/{fixture.InvoiceItemId}")).StatusCode);
+        var responses = await Task.WhenAll(Enumerable.Range(0, 2).Select(_ => member.PostAsJsonAsync("/api/refunds", new { invoiceItemId = fixture.InvoiceItemId, reason = "Member refund request" })));
+        Assert.All(responses, response => Assert.Equal(HttpStatusCode.OK, response.StatusCode));
+        Assert.Equal(1, await factory.QueryAsync(db => db.PaymentAdjustments.CountAsync(a => a.InvoiceItemId == fixture.InvoiceItemId && a.Status == PaymentAdjustmentStatus.Requested)));
+    }
+
+    [Fact]
     public async Task Member_request_then_manager_approval_credits_points_and_cancels_membership_atomically()
     {
         var fixture = await SeedPaidMembershipAsync();

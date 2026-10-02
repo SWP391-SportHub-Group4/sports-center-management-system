@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { HOME_BY_ROLE, useAuth } from "@/lib/auth";
@@ -7,6 +8,7 @@ import { useLanguage } from "@/lib/language";
 import styles from "./home.module.css";
 
 export function PublicHeader() {
+  const [menuOpen, setMenuOpen] = useState(false);
   const { user, loading } = useAuth();
   const { language, toggleLanguage, t } = useLanguage();
   const accountHref = user ? HOME_BY_ROLE[user.role] : "/login";
@@ -20,11 +22,22 @@ export function PublicHeader() {
         <Image src="/sporthub/brand.svg" alt="" width={36} height={36} />
         <span>SportHub.</span>
       </Link>
-      <nav className={styles.nav} aria-label="Main navigation">
-        <a href="#facilities">{t.publicNav.facilities}</a>
-        <a href="#pricing">{t.publicNav.pricing}</a>
-        <a href="#activities">{t.publicNav.activities}</a>
-        <a href="#events">{t.publicNav.events}</a>
+      <button
+        className="public-menu-toggle"
+        aria-expanded={menuOpen}
+        aria-controls="public-nav"
+        onClick={() => setMenuOpen((v) => !v)}
+      >
+        {t.refactor.menu}
+      </button>
+      <nav
+        id="public-nav"
+        className={`${styles.nav} ${menuOpen ? "public-nav-open" : ""}`}
+        aria-label="Main navigation"
+      >
+        <Link href="/#activities">{t.refactor.sports}</Link>
+        <Link href="/#pricing">{t.refactor.gym}</Link>
+        <Link href="/courses">{t.refactor.courses}</Link>
       </nav>
       <div className={styles.headerActions}>
         <button

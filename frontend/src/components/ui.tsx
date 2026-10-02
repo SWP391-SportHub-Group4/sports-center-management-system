@@ -55,9 +55,10 @@ export function Stat({
 
 /** Chip trạng thái — nhãn tiếng Việt và màu lấy chung từ lib/format. */
 export function StatusChip({ value }: { value: string | null | undefined }) {
+  const { t } = useLanguage();
   if (!value) return <span className="muted">—</span>;
 
-  return <span className={`chip ${chipTone(value)}`}>{label(value)}</span>;
+  return <span className={`chip ${chipTone(value)}`}>{t.wireStatus[value as keyof typeof t.wireStatus] ?? label(value)}</span>;
 }
 
 export function Loading({ rows = 3 }: { rows?: number }) {

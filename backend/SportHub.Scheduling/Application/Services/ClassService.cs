@@ -41,7 +41,7 @@ public sealed class ClassService(
     // ---------------------------------------------------------------- Truy vấn
 
     public async Task<PagedResult<ClassPublicResponse>> ListPublicAsync(
-        int? sportId, int page, int pageSize, CancellationToken ct = default)
+        int? sportId, int page, int pageSize, CancellationToken ct = default, DateOnly? fromDate = null, DateOnly? toDate = null)
     {
         (page, pageSize) = Normalize(page, pageSize);
 
@@ -51,6 +51,10 @@ public sealed class ClassService(
             query = query.Where(c => c.SportId == sid);
         }
 
+        if (fromDate.HasValue && toDate.HasValue && fromDate > toDate)
+            throw new BadRequestException("invalid_range", "Ngày bắt đầu phải trước ngày kết thúc.");
+        if (fromDate.HasValue) query = query.Where(c => c.StartDate >= fromDate.Value);
+        if (toDate.HasValue) query = query.Where(c => c.StartDate <= toDate.Value);
         var total = await query.CountAsync(ct);
         var rows = await Rows(query.OrderBy(c => c.Sessions.Where(s => s.Status != ClassSessionStatus.Cancelled)
                 .Min(s => (DateTime?)s.StartAtUtc)).ThenBy(c => c.Name)

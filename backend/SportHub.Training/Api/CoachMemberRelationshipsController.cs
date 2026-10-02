@@ -25,6 +25,7 @@ namespace SportHub.Training.Api;
 [ProducesResponseType(StatusCodes.Status409Conflict)]
 public class CoachMemberRelationshipsController(ICoachMemberRelationshipService relationships) : ControllerBase
 {
+    [Authorize(Roles = SportHubRoleNames.Member + "," + SportHubRoleNames.Coach + "," + SportHubRoleNames.CenterManager)]
     [HttpGet]
     [ProducesResponseType<IReadOnlyList<CoachMemberRelationshipResponse>>(StatusCodes.Status200OK)]
     public async Task<IActionResult> Search(

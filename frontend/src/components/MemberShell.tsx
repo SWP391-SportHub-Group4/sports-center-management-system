@@ -2,20 +2,16 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState, useCallback, useRef, type ReactNode } from "react";
-import QRCode from "qrcode";
+import { useEffect, useState, useRef, type ReactNode } from "react";
 import { HOME_BY_ROLE, useAuth, type Role } from "@/lib/auth";
 import { useLanguage } from "@/lib/language";
 import { NotificationBell } from "./NotificationBell";
 import {
-  IconQrCode,
   IconSettings,
   IconHeartbeat,
   IconLogout,
   IconMenu,
   IconClose,
-  IconClock,
-  IconRefresh,
 } from "./icons";
 import styles from "./MemberShell.module.css";
 
@@ -46,19 +42,19 @@ export function MemberShell({
 
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [qrModalOpen, setQrModalOpen] = useState(false);
-  const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>("");
-  const [qrCountdown, setQrCountdown] = useState<number>(60);
-
   const menuRef = useRef<HTMLDivElement>(null);
 
   const memberNavItems: NavItem[] = [
     { href: "/member", label: t.nav.home },
+    { href: "/member/wallet", label: t.wallet.title },
     { href: "/member/class-schedule", label: t.nav.classSchedule },
     { href: "/member/my-registrations", label: t.nav.myRegistrations },
     { href: "/member/my-plans", label: t.nav.myPlans },
     { href: "/member/training", label: t.nav.training },
-    { href: "/member/invoices", label: language === "en" ? "Invoices" : "Hóa đơn" },
+    {
+      href: "/member/invoices",
+      label: language === "en" ? "Invoices" : "Hóa đơn",
+    },
   ];
 
   // Authentication & Role check
@@ -66,7 +62,7 @@ export function MemberShell({
     if (loading) return;
 
     if (!user) {
-      router.replace(`/login?next=${encodeURIComponent(pathname)}`);
+      router.replace(`/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`);
       return;
     }
 
@@ -86,66 +82,6 @@ export function MemberShell({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Keyboard Escape listener for QR modal
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && qrModalOpen) {
-        setQrModalOpen(false);
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [qrModalOpen]);
-
-  // Generate dynamic QR pass with security nonce
-  const generateQrPass = useCallback(async () => {
-    if (!user) return;
-    try {
-      const payload = JSON.stringify({
-        kind: "SPORTHUB_GATE_ACCESS",
-        memberId: user.email,
-        name: user.fullName,
-        timestamp: Date.now(),
-        nonce: Math.random().toString(36).substring(2, 10),
-      });
-
-      const url = await QRCode.toDataURL(payload, {
-        width: 200,
-        margin: 1,
-        color: {
-          dark: "#1a2b4c",
-          light: "#ffffff",
-        },
-      });
-      setQrCodeDataUrl(url);
-      setQrCountdown(60);
-    } catch {
-      // Ignore generation error
-    }
-  }, [user]);
-
-  const handleOpenQr = () => {
-    setQrModalOpen(true);
-    void generateQrPass();
-  };
-
-  // Countdown timer for active QR pass
-  useEffect(() => {
-    if (!qrModalOpen) return;
-
-    const timer = setInterval(() => {
-      setQrCountdown((prev) => {
-        if (prev <= 1) {
-          void generateQrPass();
-          return 60;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [qrModalOpen, generateQrPass]);
-
   if (loading || !user || !allow.includes(user.role)) {
     return (
       <div className={styles.authLoading}>
@@ -163,7 +99,9 @@ export function MemberShell({
   return (
     <div className={styles.shell}>
       <a href="#main-content" className="skip-link">
-        {language === "en" ? "Skip to main content" : "Chuyển tới nội dung chính"}
+        {language === "en"
+          ? "Skip to main content"
+          : "Chuyển tới nội dung chính"}
       </a>
       {/* Top Header */}
       <header className={styles.header}>
@@ -198,31 +136,24 @@ export function MemberShell({
 
           {/* Header Actions */}
           <div className={styles.headerActions}>
-            {/* Quick QR Pass Button */}
-            <button
-              type="button"
-              className={styles.qrButton}
-              onClick={handleOpenQr}
-              title={language === "en" ? "Open Center QR Gate Pass" : "Mở mã QR vào cửa trung tâm"}
-            >
-              <div className={styles.qrIconWrapper}>
-                <IconQrCode size={15} className={styles.qrIcon} />
-                <span className={styles.qrPulseDot} />
-              </div>
-
-              <span className={styles.qrTextTitle}>{t.nav.gatePassTitle}</span>
-            </button>
-
             {/* Language Switcher */}
             <button
               type="button"
               className={styles.langToggleBtn}
               onClick={toggleLanguage}
-              title={language === "en" ? "Chuyển sang Tiếng Việt" : "Switch to English"}
+              title={
+                language === "en"
+                  ? "Chuyển sang Tiếng Việt"
+                  : "Switch to English"
+              }
               aria-label="Toggle language"
             >
-              <span className={styles.langFlag}>{language === "en" ? "🇺🇸" : "🇻🇳"}</span>
-              <span className={styles.langText}>{language === "en" ? "EN" : "VI"}</span>
+              <span className={styles.langFlag}>
+                {language === "en" ? "🇺🇸" : "🇻🇳"}
+              </span>
+              <span className={styles.langText}>
+                {language === "en" ? "EN" : "VI"}
+              </span>
             </button>
 
             {/* Notification Bell */}
@@ -241,7 +172,16 @@ export function MemberShell({
                   {user.fullName || user.email}
                 </span>
                 <span className={styles.dropdownArrow} aria-hidden="true">
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <svg
+                    width="10"
+                    height="10"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
                     <polyline points="6 9 12 15 18 9" />
                   </svg>
                 </span>
@@ -254,7 +194,9 @@ export function MemberShell({
                       {user.fullName || user.email}
                     </div>
                     <div className={styles.dropdownRole}>
-                      {language === "en" ? "SportHub Member" : "Hội viên SportHub"}
+                      {language === "en"
+                        ? "SportHub Member"
+                        : "Hội viên SportHub"}
                     </div>
                   </div>
 
@@ -329,23 +271,6 @@ export function MemberShell({
               </button>
             </div>
 
-            <button
-              type="button"
-              className={styles.mobileQrButton}
-              onClick={() => {
-                setMobileMenuOpen(false);
-                handleOpenQr();
-              }}
-            >
-              <div className={styles.qrIconWrapper}>
-                <IconQrCode size={18} className={styles.qrIcon} />
-              </div>
-              <div className={styles.mobileQrTextGroup}>
-                <span className={styles.mobileQrTitle}>{t.nav.gatePassTitle}</span>
-                <span className={styles.mobileQrSub}>{t.nav.gatePassSub}</span>
-              </div>
-            </button>
-
             <div className={styles.mobileNavLinks}>
               {memberNavItems.map((item) => {
                 const active =
@@ -394,71 +319,23 @@ export function MemberShell({
               <button
                 type="button"
                 className={styles.langToggleBtn}
-                style={{ marginTop: 12, width: "100%", justifyContent: "center" }}
+                style={{
+                  marginTop: 12,
+                  width: "100%",
+                  justifyContent: "center",
+                }}
                 onClick={toggleLanguage}
               >
-                <span className={styles.langFlag}>{language === "en" ? "🇺🇸" : "🇻🇳"}</span>
+                <span className={styles.langFlag}>
+                  {language === "en" ? "🇺🇸" : "🇻🇳"}
+                </span>
                 <span className={styles.langText}>
-                  {language === "en" ? "Language: English (Switch to VI)" : "Ngôn ngữ: Tiếng Việt (Chuyển EN)"}
+                  {language === "en"
+                    ? "Language: English (Switch to VI)"
+                    : "Ngôn ngữ: Tiếng Việt (Chuyển EN)"}
                 </span>
               </button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Global QR Check-in Modal */}
-      {qrModalOpen && (
-        <div
-          className={styles.qrModalOverlay}
-          onClick={() => setQrModalOpen(false)}
-        >
-          <div
-            className={styles.qrModalCard}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              type="button"
-              className={styles.qrCloseButton}
-              onClick={() => setQrModalOpen(false)}
-            >
-              <IconClose size={20} />
-            </button>
-
-            <h3 className={styles.qrModalTitle}>{t.gatePassModal.title}</h3>
-            <p className={styles.qrModalSub}>
-              {t.gatePassModal.subtitle}
-            </p>
-
-            <div className={styles.qrCodeContainer}>
-              {qrCodeDataUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={qrCodeDataUrl}
-                  alt={t.gatePassModal.title}
-                  className={styles.qrCodeImg}
-                />
-              ) : (
-                <div style={{ width: 200, height: 200, display: "grid", placeItems: "center" }}>
-                  <span>{t.common.loading}</span>
-                </div>
-              )}
-            </div>
-
-            <div className={styles.qrTimerBadge}>
-              <IconClock size={15} style={{ marginRight: 4 }} />
-              <span>{t.gatePassModal.refreshesIn}:</span>
-              <strong>0:{qrCountdown < 10 ? `0${qrCountdown}` : qrCountdown}</strong>
-            </div>
-
-            <button
-              type="button"
-              className={styles.qrRefreshBtn}
-              onClick={() => void generateQrPass()}
-            >
-              <IconRefresh size={14} style={{ marginRight: 6 }} />
-              {language === "en" ? "Refresh Pass Now" : "Làm mới mã ngay"}
-            </button>
           </div>
         </div>
       )}
@@ -481,8 +358,8 @@ export function MemberShell({
       {/* Footer */}
       <footer className={styles.footer}>
         {language === "en"
-          ? "SportHub · Multi-Sport Center · Gym · Yoga · GroupX · Personal Training"
-          : "SportHub · Trung tâm Thể thao Đa năng · Gym · Yoga · GroupX · Huấn luyện cá nhân"}
+          ? "SportHub · Multi-Sport Center"
+          : "SportHub · Trung tâm Thể thao Đa môn"}
       </footer>
     </div>
   );

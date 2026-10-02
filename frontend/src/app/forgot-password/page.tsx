@@ -1,176 +1,139 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import { ApiError, api } from "@/lib/apiClient";
+import { api } from "@/lib/apiClient";
 import { Feedback, Field } from "@/components/ui";
-
+import { useAction, useNow } from "@/lib/useApi";
+import { useLanguage } from "@/lib/language";
+import { OtpInput } from "@/features/identity/otp-input";
+import {
+  PasswordRequirements,
+  passwordChecks,
+} from "@/features/identity/password-requirements";
 export default function ForgotPasswordPage() {
-  const [step, setStep] = useState<"email" | "otp" | "password" | "done">(
-    "email",
-  );
-  const [form, setForm] = useState({
-    email: "",
-    otp: "",
-    password: "",
-    confirm: "",
-  });
-  const [token, setToken] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const run = async (work: () => Promise<void>) => {
-    setBusy(true);
-    setError(null);
-    try {
-      await work();
-    } catch (e) {
-      setError(
-        e instanceof ApiError ? e.message : "Unable to process your request. Please try again.",
+  const { t } = useLanguage();
+  const action = useAction();
+  const now = useNow(1000);
+  const [email, setEmail] = useState("");
+  const [sentTo, setSentTo] = useState("");
+  const [otp, setOtp] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [retryAt, setRetryAt] = useState(0);
+  const [done, setDone] = useState(false);
+  const send = async () => {
+    if (action.busy || now < retryAt) return;
+    const result = await action.run(async () => {
+      await api.post(
+        "/api/auth/password/forgot",
+        { email: email.trim() },
+        { anonymous: true },
       );
-    } finally {
-      setBusy(false);
+      return true;
+    });
+    if (result) {
+      setSentTo(email.trim());
+      setOtp("");
+      setRetryAt(Date.now() + 60000);
     }
   };
   return (
-    <div className="auth">
+    <main className="auth">
       <div className="auth__card">
-        <div className="auth__brand">Forgot password</div>
-        <p className="auth__sub">Enter your Gmail address to reset your password.</p>
-        {step === "email" && (
-          <form
-            className="form"
-            onSubmit={(e) => {
-              e.preventDefault();
-              void run(async () => {
-                await api.post(
-                  "/api/auth/email-otp/request",
-                  { email: form.email, purpose: "PasswordReset" },
-                  { anonymous: true },
-                );
-                setStep("otp");
-              });
-            }}
-          >
-            <Field label="Gmail">
-              <input
-                type="email"
-                pattern=".+@gmail\.com$"
-                placeholder="your.email@gmail.com"
-                required
-                value={form.email}
-                onChange={(e) => setForm({ ...form, email: e.target.value })}
-              />
-            </Field>
-            <Feedback error={error} />
-            <button className="btn" disabled={busy}>
-              {busy ? "Sending code…" : "Send verification code"}
-            </button>
-          </form>
+        <h1>{t.identity.forgotTitle}</h1>
+        {done ? (
+          <p role="status">{t.identity.resetDone}</p>
+        ) : (
+          <>
+            <form
+              className="form"
+              onSubmit={(e) => {
+                e.preventDefault();
+                void send();
+              }}
+            >
+              <Field label={t.identity.email}>
+                <input
+                  type="email"
+                  autoComplete="email"
+                  required
+                  value={email}
+                  disabled={action.busy}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    setSentTo("");
+                    setOtp("");
+                  }}
+                />
+              </Field>
+              <button className="btn" disabled={action.busy || now < retryAt}>
+                {now < retryAt
+                  ? `${t.identity.resend} (${Math.ceil((retryAt - now) / 1000)}s)`
+                  : t.identity.sendCode}
+              </button>
+            </form>
+            {sentTo && (
+              <form
+                className="form"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (
+                    password !== confirm ||
+                    !passwordChecks(password, sentTo).every(Boolean)
+                  ) {
+                    action.setError(t.identity.passwordInvalid);
+                    return;
+                  }
+                  void action.run(async () => {
+                    await api.post(
+                      "/api/auth/password/reset",
+                      {
+                        email: sentTo,
+                        otpCode: otp,
+                        newPassword: password,
+                        confirmNewPassword: confirm,
+                      },
+                      { anonymous: true },
+                    );
+                    setDone(true);
+                  });
+                }}
+              >
+                <p role="status">{t.identity.neutralOtp}</p>
+                <OtpInput
+                  value={otp}
+                  onChange={setOtp}
+                  disabled={action.busy}
+                />
+                <Field label={t.identity.newPassword}>
+                  <input
+                    type="password"
+                    autoComplete="new-password"
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                  />
+                </Field>
+                <PasswordRequirements password={password} email={sentTo} />
+                <Field label={t.identity.confirmPassword}>
+                  <input
+                    type="password"
+                    autoComplete="new-password"
+                    required
+                    value={confirm}
+                    onChange={(e) => setConfirm(e.target.value)}
+                  />
+                </Field>
+                <button className="btn" disabled={action.busy}>
+                  {t.identity.reset}
+                </button>
+              </form>
+            )}
+          </>
         )}
-        {step === "otp" && (
-          <form
-            className="form"
-            onSubmit={(e) => {
-              e.preventDefault();
-              void run(async () => {
-                const r = await api.post<{ verificationToken: string }>(
-                  "/api/auth/email-otp/verify",
-                  {
-                    email: form.email,
-                    code: form.otp,
-                    purpose: "PasswordReset",
-                  },
-                  { anonymous: true },
-                );
-                setToken(r.verificationToken);
-                setStep("password");
-              });
-            }}
-          >
-            <Field label="Verification code" hint="Enter the 6-digit code sent to your email.">
-              <input
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                pattern="\d{6}"
-                maxLength={6}
-                placeholder="••••••"
-                required
-                value={form.otp}
-                onChange={(e) =>
-                  setForm({ ...form, otp: e.target.value.replace(/\D/g, "") })
-                }
-              />
-            </Field>
-            <Feedback error={error} />
-            <button className="btn" disabled={busy}>
-              {busy ? "Verifying…" : "Verify code"}
-            </button>
-          </form>
-        )}
-        {step === "password" && (
-          <form
-            className="form"
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (form.password !== form.confirm) {
-                setError("Passwords do not match.");
-                return;
-              }
-              void run(async () => {
-                await api.post(
-                  "/api/auth/password/reset",
-                  {
-                    email: form.email,
-                    verificationToken: token,
-                    newPassword: form.password,
-                  },
-                  { anonymous: true },
-                );
-                setStep("done");
-              });
-            }}
-          >
-            <Field label="New password" hint="Use at least 8 characters.">
-              <input
-                type="password"
-                autoComplete="new-password"
-                minLength={8}
-                placeholder="Enter new password"
-                required
-                value={form.password}
-                onChange={(e) => setForm({ ...form, password: e.target.value })}
-              />
-            </Field>
-            <Field label="Confirm password">
-              <input
-                type="password"
-                autoComplete="new-password"
-                minLength={8}
-                placeholder="Confirm new password"
-                required
-                value={form.confirm}
-                onChange={(e) => setForm({ ...form, confirm: e.target.value })}
-              />
-            </Field>
-            <Feedback error={error} />
-            <button className="btn" disabled={busy}>
-              {busy ? "Saving…" : "Save new password"}
-            </button>
-          </form>
-        )}
-        {step === "done" && (
-          <div className="stack">
-            <div className="alert alert--success">Your password has been successfully updated.</div>
-            <Link className="btn" href="/login">
-              Sign in now
-            </Link>
-          </div>
-        )}
-        {step !== "done" && (
-          <p className="small muted" style={{ marginTop: 12 }}>
-            <Link href="/login">← Back to sign in</Link>
-          </p>
-        )}
+        <Feedback error={action.error} />
+        <Link href="/login">{t.identity.login}</Link>
       </div>
-    </div>
+    </main>
   );
 }

@@ -19,7 +19,9 @@ public sealed record MyAccountResponse(
     [property: SportHub.BuildingBlocks.Api.WireEnum] string Status,
     DateTime CreatedAt,
     bool HasPassword,
-    bool HasGoogleLink);
+    bool HasGoogleLink,
+    IReadOnlyList<int> SportIds,
+    [property: SportHub.BuildingBlocks.Api.WireEnum] string? ApprovalStatus);
 
 /// <summary>JWT mới cho phiên vừa đổi mật khẩu; các token cũ đã bị vô hiệu bằng security stamp.</summary>
 public sealed record PasswordChangedResponse(string AccessToken);
@@ -58,7 +60,10 @@ public sealed class AccountService(
                    u.Status.ToString(),
                    u.CreatedAt,
                    u.Credential != null && u.Credential.PasswordHash != null,
-                   u.ExternalLogins.Any()))
+                   u.ExternalLogins.Any(),
+                   db.Set<UserSportSpecialty>().Where(s => s.UserId == u.UserId).Select(s => s.SportId).ToList(),
+                   db.Set<ExternalCoachProfile>().Where(e => e.UserId == u.UserId)
+                       .Select(e => e.ApprovalStatus.ToString()).FirstOrDefault()))
                .SingleOrDefaultAsync(ct)
            ?? throw new NotFoundException("user_not_found", "Không tìm thấy tài khoản.");
 

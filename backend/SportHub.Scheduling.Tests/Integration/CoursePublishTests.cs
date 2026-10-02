@@ -16,6 +16,27 @@ namespace SportHub.Scheduling.Tests.Integration;
 public sealed class CoursePublishTests(SchedulingApiFactory factory)
 {
     [Fact]
+    public async Task Public_course_schedule_hides_draft_and_roster_and_validates_date_filters()
+    {
+        var c = await CourseTestData.CreateAsync(factory, publish: false);
+        using var guest = factory.CreateApiClient();
+        Assert.Equal(HttpStatusCode.NotFound, (await guest.GetAsync($"/api/classes/{c.Id}/public-sessions")).StatusCode);
+        using var manager = factory.CreateApiClient(c.ManagerId, UserRole.CenterManager);
+        Assert.Equal(HttpStatusCode.OK, (await manager.PostAsJsonAsync($"/api/manager/classes/{c.Id}/publish", new { })).StatusCode);
+        var schedule = await guest.GetAsync($"/api/classes/{c.Id}/public-sessions");
+        Assert.Equal(HttpStatusCode.OK, schedule.StatusCode);
+        using var json = System.Text.Json.JsonDocument.Parse(await schedule.Content.ReadAsStringAsync());
+        Assert.Equal(3, json.RootElement.GetArrayLength());
+        foreach (var session in json.RootElement.EnumerateArray())
+        {
+            Assert.True(session.TryGetProperty("sessionNo", out _));
+            Assert.False(session.TryGetProperty("entries", out _));
+            Assert.False(session.TryGetProperty("memberId", out _));
+        }
+        Assert.Equal(HttpStatusCode.BadRequest, (await guest.GetAsync("/api/classes?fromDate=2030-01-02&toDate=2030-01-01")).StatusCode);
+    }
+
+    [Fact]
     public async Task Draft_is_private_publish_generates_all_sessions_and_occupancy_once()
     {
         var c = await CourseTestData.CreateAsync(factory, publish: false);

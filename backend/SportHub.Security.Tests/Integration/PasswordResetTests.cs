@@ -71,6 +71,48 @@ public class PasswordResetTests(SportHubApiFactory factory)
         => JsonDocument.Parse(await r.Content.ReadAsStringAsync()).RootElement.GetProperty("error").GetString()!;
 
     [Fact]
+    public async Task Account_profile_refresh_returns_authoritative_role_specialties_and_approval()
+    {
+        var coach = await factory.SeedUserAsync(NewEmail(), OldPassword, role: UserRole.ExternalCoach);
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
+            var sport = new SportHub.Scheduling.Catalog.Domain.Sport
+            {
+                Name = $"Profile test {Guid.NewGuid():N}",
+                OperationType = SportHub.Scheduling.Catalog.Domain.SportOperationType.WalkIn
+            };
+            db.Sports.Add(sport);
+            await db.SaveChangesAsync();
+            var sportId = sport.SportId;
+            db.Set<SportHub.Identity.Domain.Entities.UserSportSpecialty>().Add(new() { UserId = coach.UserId, SportId = sportId });
+            db.Set<SportHub.Identity.Domain.Entities.ExternalCoachProfile>().Add(new()
+            {
+                UserId = coach.UserId, ApprovalStatus = ExternalCoachApprovalStatus.PendingApproval, CreatedAt = DateTime.UtcNow
+            });
+            await db.SaveChangesAsync();
+        }
+        var client = Client();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", factory.IssueToken(coach.UserId, UserRole.ExternalCoach));
+        var first = await client.GetAsync("api/users/me");
+        Assert.Equal(HttpStatusCode.OK, first.StatusCode);
+        var body = JsonDocument.Parse(await first.Content.ReadAsStringAsync()).RootElement;
+        Assert.Equal("EXTERNAL_COACH", body.GetProperty("role").GetString());
+        Assert.Equal("PENDING_APPROVAL", body.GetProperty("approvalStatus").GetString());
+        Assert.Single(body.GetProperty("sportIds").EnumerateArray());
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
+            var profile = await db.Set<SportHub.Identity.Domain.Entities.ExternalCoachProfile>().SingleAsync(p => p.UserId == coach.UserId);
+            profile.ApprovalStatus = ExternalCoachApprovalStatus.Suspended;
+            await db.SaveChangesAsync();
+        }
+        var refreshed = await client.GetAsync("api/users/me");
+        Assert.Equal(HttpStatusCode.OK, refreshed.StatusCode);
+        Assert.Equal("SUSPENDED", JsonDocument.Parse(await refreshed.Content.ReadAsStringAsync()).RootElement.GetProperty("approvalStatus").GetString());
+    }
+
+    [Fact]
     public async Task Forgot_is_neutral_for_unknown_locked_and_existing_emails()
     {
         var existing = NewEmail();

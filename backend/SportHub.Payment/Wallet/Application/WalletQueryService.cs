@@ -16,7 +16,7 @@ public sealed class WalletQueryService(ISportHubDbContext db, IUserAccessReader 
         return new(ownerId, wallet?.AvailablePoints ?? 0, wallet?.HeldPoints ?? 0, PointWalletService.VndPerPoint);
     }
 
-    public async Task<IReadOnlyList<WalletLedgerResponse>> LedgerAsync(Guid ownerId, Guid? staffActorId, int page, int pageSize, CancellationToken ct)
+    public async Task<IReadOnlyList<WalletLedgerResponse>> LedgerAsync(Guid ownerId, Guid? staffActorId, int page, int pageSize, CancellationToken ct, string? entryType = null)
     {
         await ValidateOwnerAsync(ownerId, staffActorId, ct);
         page = Math.Clamp(page, 1, 100000);
@@ -25,6 +25,12 @@ public sealed class WalletQueryService(ISportHubDbContext db, IUserAccessReader 
                     join wallet in db.Set<PointWallet>() on entry.WalletId equals wallet.WalletId
                     where wallet.OwnerUserId == ownerId
                     select entry;
+        if (!string.IsNullOrWhiteSpace(entryType))
+        {
+            if (!Enum.TryParse<PointEntryType>(entryType, true, out var filter) || !Enum.IsDefined(filter))
+                throw new BadRequestException("invalid_ledger_filter", "Loại giao dịch điểm không hợp lệ.");
+            query = query.Where(x => x.EntryType == filter);
+        }
         var rows = await query.OrderByDescending(x => x.CreatedAtUtc).ThenByDescending(x => x.LedgerEntryId)
             .Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
         return rows.Select(x => new WalletLedgerResponse(x.LedgerEntryId, x.EntryType.ToString().ToUpperInvariant(), x.Points,

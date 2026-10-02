@@ -4,23 +4,39 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ApiError, api } from "@/lib/apiClient";
-import { HOME_BY_ROLE, useAuth } from "@/lib/auth";
+import {
+  GoogleOnboardingRequired,
+  type GoogleOnboardingPending,
+  HOME_BY_ROLE,
+  useAuth,
+} from "@/lib/auth";
 import { Feedback, Field } from "@/components/ui";
+import { GoogleOnboarding } from "@/features/identity/google-onboarding";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
+import {
+  PasswordRequirements,
+  passwordChecks,
+} from "@/features/identity/password-requirements";
+import { useLanguage } from "@/lib/language";
 import { IconCheck } from "@/components/icons";
 
-const OTP_EXPIRY_SECONDS = 300; // 5 minutes
+const OTP_EXPIRY_SECONDS = 600; // Member registration OTP: 10 minutes
 const RESEND_COOLDOWN_SECONDS = 60; // 1 minute
 
 export default function RegisterPage() {
   const { register, loginWithGoogle } = useAuth();
   const router = useRouter();
+  const [onboarding, setOnboarding] = useState<GoogleOnboardingPending | null>(
+    null,
+  );
+  const { t, language } = useLanguage();
 
   const [step, setStep] = useState<1 | 2>(1);
   const [form, setForm] = useState({
     email: "",
     otp: "",
     fullName: "",
+    phone: "",
     password: "",
     confirmPassword: "",
   });
@@ -64,11 +80,12 @@ export default function RegisterPage() {
   };
 
   const message = (cause: unknown) => {
+    if(language === "vi") return cause instanceof ApiError ? cause.message : t.refactor.loginFailed;
     if (!(cause instanceof ApiError)) {
       return "We couldn't complete your request.";
     }
     const messages: Record<string, string> = {
-      gmail_required: "Enter a valid Gmail address.",
+      gmail_required: "Enter a valid email address.",
       email_already_exists: "This email address is already registered.",
       phone_already_exists: "This phone number is already registered.",
       otp_not_found: "No verification code was requested for this email.",
@@ -83,7 +100,7 @@ export default function RegisterPage() {
       invalid_otp: "The verification code is incorrect.",
       otp_resend_too_soon: "Please wait before requesting another code.",
       google_account_not_linked:
-        "This Gmail address already has a SportHub account. Sign in with your password, then link Google from Account settings.",
+        "This email address already has a SportHub account. Sign in with your password, then link Google from Account settings.",
       invalid_google_token: "Google couldn't verify this sign-up attempt.",
       google_login_not_configured: "Google sign-up is not configured yet.",
       network_error: "We couldn't connect to the server. Try again shortly.",
@@ -97,8 +114,8 @@ export default function RegisterPage() {
   const sendOtp = async () => {
     if (sendingOtp) return;
     const trimmedEmail = form.email.trim();
-    if (!trimmedEmail.toLowerCase().endsWith("@gmail.com")) {
-      setError("Enter a valid Gmail address (ending with @gmail.com).");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      setError(t.refactor.emailInvalid);
       return;
     }
     setSendingOtp(true);
@@ -114,7 +131,7 @@ export default function RegisterPage() {
       setOtpSecondsLeft(OTP_EXPIRY_SECONDS);
       setResendCooldown(RESEND_COOLDOWN_SECONDS);
       setNotice(
-        "A 6-digit verification code has been sent to your Gmail inbox.",
+        "If registration is available, a 6-digit verification code has been sent to your email.",
       );
       setTimeout(() => {
         otpInputRef.current?.focus();
@@ -150,12 +167,12 @@ export default function RegisterPage() {
       setStep(1);
       return;
     }
-    if (form.password.length < 8) {
-      setError("Password must be at least 8 characters long.");
+    if (!passwordChecks(form.password, form.email).every(Boolean)) {
+      setError(t.identity.passwordInvalid);
       return;
     }
     if (form.password !== form.confirmPassword) {
-      setError("The passwords do not match.");
+      setError(t.refactor.mismatch);
       return;
     }
 
@@ -168,6 +185,7 @@ export default function RegisterPage() {
         email: form.email.trim(),
         otpCode: form.otp.trim(),
         fullName: form.fullName.trim(),
+        phone: form.phone.trim() || undefined,
         password: form.password,
       });
       router.replace(HOME_BY_ROLE[user.role]);
@@ -198,6 +216,18 @@ export default function RegisterPage() {
     form.confirmPassword.length > 0
       ? form.password === form.confirmPassword
       : null;
+
+  if (onboarding)
+    return (
+      <main className="auth">
+        <div className="auth__card">
+          <GoogleOnboarding
+            pending={onboarding}
+            onCancel={() => setOnboarding(null)}
+          />
+        </div>
+      </main>
+    );
 
   return (
     <div className="auth auth--register">
@@ -234,7 +264,7 @@ export default function RegisterPage() {
               className={`auth__step ${step === 1 ? "auth__step--active" : "auth__step--done"}`}
             >
               <span className="auth__step-badge">1</span>
-              <span>Verify Gmail</span>
+              <span>Verify email</span>
             </div>
             <div
               className={`auth__step-line ${step === 2 ? "auth__step-line--done" : ""}`}
@@ -263,7 +293,9 @@ export default function RegisterPage() {
                       const user = await loginWithGoogle(idToken);
                       router.replace(HOME_BY_ROLE[user.role]);
                     } catch (cause) {
-                      setError(message(cause));
+                      if (cause instanceof GoogleOnboardingRequired) {
+                        setOnboarding(cause.pending);
+                      } else setError(message(cause));
                     } finally {
                       setBusy(false);
                     }
@@ -272,23 +304,22 @@ export default function RegisterPage() {
               />
 
               <div className="auth__separator">
-                <span>or sign up with Gmail</span>
+                <span>or sign up with email</span>
               </div>
 
               <div className="form">
                 <Field
-                  label="Gmail"
-                  hint="Only @gmail.com addresses are accepted."
+                  label={t.refactor.email}
+                  hint={t.refactor.emailHint}
                 >
                   <div className="otp-request-row">
                     <input
                       type="email"
                       autoComplete="email"
-                      pattern=".+@gmail\.com$"
                       required
                       disabled={otpSent || sendingOtp}
                       value={form.email}
-                      placeholder="your.email@gmail.com"
+                      placeholder="your.email@example.com"
                       suppressHydrationWarning
                       onChange={(event) => {
                         setForm({ ...form, email: event.target.value });
@@ -302,7 +333,7 @@ export default function RegisterPage() {
                         disabled={sendingOtp || !form.email.trim()}
                         onClick={() => void sendOtp()}
                       >
-                        {sendingOtp ? "Sending…" : "Send code"}
+                        {sendingOtp ? t.refactor.sending : t.refactor.sendCode}
                       </button>
                     ) : (
                       <button
@@ -327,7 +358,7 @@ export default function RegisterPage() {
                       <span className="otp-box__timer" aria-live="polite">
                         {otpSecondsLeft > 0
                           ? `Expires in ${formatTimer(otpSecondsLeft)}`
-                          : "Code expired"}
+                          : t.refactor.codeExpired}
                       </span>
                     </div>
 
@@ -361,7 +392,7 @@ export default function RegisterPage() {
                           ? `Resend in ${resendCooldown}s`
                           : sendingOtp
                             ? "Sending…"
-                            : "Resend code"}
+                            : t.refactor.resendCode}
                       </button>
 
                       <button
@@ -399,7 +430,7 @@ export default function RegisterPage() {
                 </button>
               </div>
 
-              <Field label="Full name">
+              <Field label={t.refactor.fullName}>
                 <input
                   autoComplete="name"
                   maxLength={100}
@@ -415,7 +446,8 @@ export default function RegisterPage() {
                 />
               </Field>
 
-              <Field label="Password" hint="Use at least 8 characters.">
+              <Field label={t.auth.phoneLabel}><input type="tel" autoComplete="tel" value={form.phone} onChange={event => setForm({...form,phone:event.target.value})}/></Field>
+              <Field label={t.refactor.password} hint="Use at least 8 characters.">
                 <span className="password-field">
                   <input
                     type={showPassword ? "text" : "password"}
@@ -441,12 +473,12 @@ export default function RegisterPage() {
                       showPassword ? "Hide password" : "Show password"
                     }
                   >
-                    {showPassword ? "Hide" : "Show"}
+                    {showPassword ? t.refactor.hide : t.refactor.show}
                   </button>
                 </span>
               </Field>
 
-              <Field label="Confirm password">
+              <Field label={t.refactor.confirmPassword}>
                 <span className="password-field">
                   <input
                     type={showConfirmPassword ? "text" : "password"}
@@ -474,14 +506,18 @@ export default function RegisterPage() {
                       showConfirmPassword ? "Hide password" : "Show password"
                     }
                   >
-                    {showConfirmPassword ? "Hide" : "Show"}
+                    {showConfirmPassword ? t.refactor.hide : t.refactor.show}
                   </button>
                 </span>
                 {passwordMatch === true && (
                   <span
                     className="match-hint match-hint--ok"
                     aria-live="polite"
-                    style={{ display: "inline-flex", alignItems: "center", gap: 4 }}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 4,
+                    }}
                   >
                     <IconCheck size={14} strokeWidth={2.4} /> Passwords match
                   </span>
@@ -497,6 +533,10 @@ export default function RegisterPage() {
               </Field>
 
               <div className="auth__feedback">
+                <PasswordRequirements
+                  password={form.password}
+                  email={form.email}
+                />
                 <Feedback error={error} success={notice} />
               </div>
 
@@ -510,7 +550,7 @@ export default function RegisterPage() {
                   form.password !== form.confirmPassword
                 }
               >
-                {busy ? "Creating account…" : "Create account"}
+                {busy ? t.refactor.creating : t.refactor.createAccount}
               </button>
 
               <button

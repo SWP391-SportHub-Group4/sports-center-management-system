@@ -26,6 +26,10 @@ public sealed class PtSessionChangeRequestService(
     public const int DefaultPageSize = 50;
     public const int MaximumPageSize = 100;
 
+    public async Task<IReadOnlyList<PtSessionChangeRequestResponse>> MineAsync(Guid memberId, CancellationToken ct = default)
+        => await db.Set<PtSessionChangeRequest>().AsNoTracking().Where(r => r.RequestedByUserId == memberId)
+            .OrderByDescending(r => r.RequestedAt).Take(100).Select(Projection()).ToListAsync(ct);
+
     public async Task<IReadOnlyList<PtSessionChangeRequestResponse>> SearchAsync(
         string? status, int page, int pageSize, CancellationToken ct = default)
     {

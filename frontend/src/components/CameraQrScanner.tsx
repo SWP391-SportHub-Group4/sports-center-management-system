@@ -1,13 +1,18 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback, type ChangeEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  useCallback,
+  type ChangeEvent,
+} from "react";
 import jsQR from "jsqr";
 import {
   IconCamera,
   IconCameraOff,
   IconSwitchCamera,
   IconUpload,
-  IconQrCode,
   IconCheck,
 } from "@/components/icons/SportIcons";
 import { useLanguage } from "@/lib/language";
@@ -24,8 +29,6 @@ export interface CameraQrScannerProps {
   cooldownMs?: number;
   /** Play synthesized high POS beep chime on successful scan (default: true) */
   enableBeep?: boolean;
-  /** Optional simulated test payload generator for demo / testing environments */
-  samplePayload?: string;
 }
 
 /**
@@ -65,7 +68,6 @@ export function CameraQrScanner({
   title,
   cooldownMs = 2500,
   enableBeep = true,
-  samplePayload,
 }: CameraQrScannerProps) {
   const { language } = useLanguage();
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -73,9 +75,13 @@ export function CameraQrScanner({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [active, setActive] = useState(defaultActive);
-  const [facingMode, setFacingMode] = useState<"environment" | "user">("environment");
+  const [facingMode, setFacingMode] = useState<"environment" | "user">(
+    "environment",
+  );
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
-  const [selectedDeviceId, setSelectedDeviceId] = useState<string | undefined>();
+  const [selectedDeviceId, setSelectedDeviceId] = useState<
+    string | undefined
+  >();
   const [cameraStatus, setCameraStatus] = useState<
     "idle" | "starting" | "running" | "denied" | "error" | "unsupported"
   >("idle");
@@ -130,7 +136,7 @@ export function CameraQrScanner({
       // Propagate scan to parent
       onScan(codeText);
     },
-    [cooldownMs, enableBeep, onScan]
+    [cooldownMs, enableBeep, onScan],
   );
 
   // Main video scanning loop using jsQR
@@ -139,7 +145,11 @@ export function CameraQrScanner({
       const video = videoRef.current;
       const canvas = canvasRef.current;
 
-      if (video && canvas && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+      if (
+        video &&
+        canvas &&
+        video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA
+      ) {
         const width = video.videoWidth;
         const height = video.videoHeight;
 
@@ -174,7 +184,10 @@ export function CameraQrScanner({
 
   // Request camera and initialize video stream
   const startCamera = useCallback(async () => {
-    if (typeof window === "undefined" || !navigator.mediaDevices?.getUserMedia) {
+    if (
+      typeof window === "undefined" ||
+      !navigator.mediaDevices?.getUserMedia
+    ) {
       setCameraStatus("unsupported");
       return;
     }
@@ -211,7 +224,10 @@ export function CameraQrScanner({
       } catch (err) {
         // If ideal constraints failed (e.g. overconstrained on desktop webcams), retry generic
         if (selectedDeviceId || facingMode) {
-          stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: false,
+          });
         } else {
           throw err;
         }
@@ -229,12 +245,15 @@ export function CameraQrScanner({
       startScanLoop();
     } catch (err: unknown) {
       const errorObj = err as { name?: string; message?: string };
-      if (errorObj.name === "NotAllowedError" || errorObj.name === "PermissionDeniedError") {
+      if (
+        errorObj.name === "NotAllowedError" ||
+        errorObj.name === "PermissionDeniedError"
+      ) {
         setCameraStatus("denied");
         setErrorMessage(
           language === "en"
             ? "Camera access denied. Please grant permission in browser settings."
-            : "Quyền truy cập Camera bị từ chối. Vui lòng cấp quyền trong cài đặt trình duyệt."
+            : "Quyền truy cập Camera bị từ chối. Vui lòng cấp quyền trong cài đặt trình duyệt.",
         );
       } else {
         setCameraStatus("error");
@@ -242,7 +261,7 @@ export function CameraQrScanner({
           errorObj.message ||
             (language === "en"
               ? "Unable to initialize camera hardware."
-              : "Không thể khởi động thiết bị camera.")
+              : "Không thể khởi động thiết bị camera."),
         );
       }
     }
@@ -309,7 +328,7 @@ export function CameraQrScanner({
             alert(
               language === "en"
                 ? "No valid QR code found in the selected image."
-                : "Không tìm thấy mã QR hợp lệ trong ảnh vừa chọn."
+                : "Không tìm thấy mã QR hợp lệ trong ảnh vừa chọn.",
             );
           }
         }
@@ -322,27 +341,15 @@ export function CameraQrScanner({
     e.target.value = "";
   };
 
-  // Trigger simulated test scan for automated test runs & QA
-  const handleTriggerTestScan = (testValue?: string) => {
-    const payload =
-      testValue ||
-      samplePayload ||
-      JSON.stringify({
-        kind: "SPORTHUB_GATE_ACCESS",
-        memberId: "member@sporthub.com",
-        name: "Nguyễn Văn Hội Viên",
-        timestamp: Date.now(),
-        nonce: Math.random().toString(36).substring(2, 8),
-      });
-
-    handleDecodedCode(payload);
-  };
-
   return (
     <div
       className={styles.scannerContainer}
       role="region"
-      aria-label={language === "en" ? "Optical QR Camera Scanner" : "Máy quét Camera mã QR"}
+      aria-label={
+        language === "en"
+          ? "Optical QR Camera Scanner"
+          : "Máy quét Camera mã QR"
+      }
     >
       {/* Header bar */}
       <div className={styles.scannerHeader}>
@@ -481,7 +488,9 @@ export function CameraQrScanner({
               <IconCameraOff size={26} />
             </div>
             <p className={styles.standbyTitle}>
-              {language === "en" ? "Camera Access Denied" : "Chưa cấp quyền Camera"}
+              {language === "en"
+                ? "Camera Access Denied"
+                : "Chưa cấp quyền Camera"}
             </p>
             <p className={styles.standbyHint}>
               {errorMessage ||
@@ -505,7 +514,9 @@ export function CameraQrScanner({
               <IconCameraOff size={26} />
             </div>
             <p className={styles.standbyTitle}>
-              {language === "en" ? "Camera Unavailable" : "Camera không khả dụng"}
+              {language === "en"
+                ? "Camera Unavailable"
+                : "Camera không khả dụng"}
             </p>
             <p className={styles.standbyHint}>
               {errorMessage ||
@@ -522,7 +533,9 @@ export function CameraQrScanner({
               <IconCameraOff size={26} />
             </div>
             <p className={styles.standbyTitle}>
-              {language === "en" ? "Webcam API Unsupported" : "Trình duyệt không hỗ trợ Camera"}
+              {language === "en"
+                ? "Webcam API Unsupported"
+                : "Trình duyệt không hỗ trợ Camera"}
             </p>
             <p className={styles.standbyHint}>
               {language === "en"
@@ -577,21 +590,6 @@ export function CameraQrScanner({
           >
             <IconUpload size={12} style={{ marginRight: 4 }} />
             {language === "en" ? "Scan File" : "Tải ảnh QR"}
-          </button>
-
-          {/* Simulated scan for quick testing or Playwright */}
-          <button
-            type="button"
-            className={styles.testScanBtn}
-            onClick={() => handleTriggerTestScan()}
-            title={
-              language === "en"
-                ? "Simulate member QR pass scan"
-                : "Mô phỏng quét mã QR hội viên"
-            }
-          >
-            <IconQrCode size={12} style={{ marginRight: 4 }} />
-            {language === "en" ? "Test QR Scan" : "Mô phỏng quét"}
           </button>
         </div>
       </div>
