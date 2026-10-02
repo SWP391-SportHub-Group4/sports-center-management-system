@@ -23,6 +23,10 @@ public sealed class GymCheckInHistoryTests(SchedulingApiFactory factory)
                 new { targetMemberId = member.UserId });
 
             Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+            var visit = await created.Content.ReadFromJsonAsync<JsonElement>();
+            var id = visit.GetProperty("checkInId").GetGuid();
+            Assert.Equal(HttpStatusCode.OK,
+                (await receptionistClient.PostAsync($"/api/gym-checkins/{id}/checkout", null)).StatusCode);
         }
 
         var memberClient = factory.CreateApiClient(member.UserId, UserRole.Member);

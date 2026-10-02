@@ -43,6 +43,12 @@ public class InvoicesController(
     public async Task<IActionResult> ByItem(Guid itemId, CancellationToken ct)
         => await GetDetail(await invoices.FindInvoiceByItemAsync(itemId, ct), ct);
 
+    [Authorize(Policy = SportHubPolicies.CourtRental)]
+    [HttpGet("external-coaches/me/invoices")]
+    public async Task<IActionResult> ExternalInvoices([FromQuery] int page = 1, [FromQuery] int pageSize = 20,
+        [FromQuery] string? status = null, CancellationToken ct = default)
+        => Ok(await invoices.SearchAsync(User.RequireUserId(), status, null, page, pageSize, ct, rentalOnly: true));
+
     [HttpGet("invoices/{invoiceId:guid}")]
     public async Task<IActionResult> GetDetail(Guid invoiceId, CancellationToken ct)
     {

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using System.Net.Http.Json;
 using Microsoft.Extensions.DependencyInjection;
 using SportHub.API.Persistence;
 using SportHub.BuildingBlocks.Abstractions.Scheduling;
@@ -39,6 +40,11 @@ public sealed class CourtRentalTests(PaymentApiFactory factory)
         await Assert.ThrowsAsync<ForbiddenException>(() => operations.CancelByOwnerAsync(checkout.ResourceHoldId!.Value, manager.UserId));
         Assert.Empty(await operations.MineAsync(manager.UserId, request.StartUtc.UtcDateTime, request.EndUtc.UtcDateTime));
         await operations.CancelByCenterAsync(checkout.ResourceHoldId!.Value, manager.UserId, "Center court repair");
+        var detail = await operations.GetMineAsync(checkout.ResourceHoldId.Value, request.ExternalCoachId);
+        Assert.Equal(100, detail.RefundPoints);
+        Assert.Equal("Center court repair", detail.CancelReason);
+        Assert.Equal(checkout.InvoiceId, detail.Rental.InvoiceId);
+        Assert.Single(detail.Blocks);
         await Assert.ThrowsAsync<ConflictException>(() => operations.CancelByCenterAsync(checkout.ResourceHoldId.Value, manager.UserId, "Center court repair"));
         await factory.QueryAsync(async state =>
         {
@@ -73,6 +79,31 @@ public sealed class CourtRentalTests(PaymentApiFactory factory)
             var start = VietnamTime.StartOfDayUtc(DateOnly.FromDateTime(VietnamTime.ToLocal(DateTime.UtcNow)).AddDays(5)).AddHours(10);
             return new CourtRentalRequest(coach.UserId, 3, room.RoomId, start, start.AddHours(1), 4);
         });
+    }
+
+    [Fact]
+    public async Task Own_detail_and_invoice_listing_include_pending_checkout_and_enforce_ownership()
+    {
+        var request = await SetupAsync();
+        var other = await factory.SeedUserAsync(UserRole.ExternalCoach);
+        using var scope = factory.Services.CreateScope();
+        var checkout = await scope.ServiceProvider.GetRequiredService<CheckoutService>()
+            .CreateCourtRentalAsync(request, Guid.NewGuid().ToString(), request.ExternalCoachId, default);
+        using var owner = factory.CreateApiClient(request.ExternalCoachId, UserRole.ExternalCoach);
+        var detail = await owner.GetAsync($"/api/court-rentals/{checkout.ResourceHoldId}");
+        Assert.True(detail.IsSuccessStatusCode, await detail.Content.ReadAsStringAsync());
+        var parsed = await detail.Content.ReadFromJsonAsync<CourtRentalDetail>();
+        Assert.Equal(checkout.InvoiceId, parsed!.Rental.InvoiceId);
+        Assert.NotEmpty(parsed.RoomName); Assert.NotEmpty(parsed.SportName); Assert.Single(parsed.Blocks);
+        var invoices = await owner.GetAsync("/api/external-coaches/me/invoices?status=ISSUED");
+        Assert.True(invoices.IsSuccessStatusCode, await invoices.Content.ReadAsStringAsync());
+        Assert.Contains(checkout.InvoiceId.ToString(), await invoices.Content.ReadAsStringAsync());
+        Assert.True((await owner.GetAsync("/api/court-rentals/policy")).IsSuccessStatusCode);
+        using var stranger = factory.CreateApiClient(other.UserId, UserRole.ExternalCoach);
+        Assert.Equal(System.Net.HttpStatusCode.NotFound, (await stranger.GetAsync($"/api/court-rentals/{checkout.ResourceHoldId}")).StatusCode);
+        Assert.DoesNotContain(checkout.InvoiceId.ToString(), await (await stranger.GetAsync("/api/external-coaches/me/invoices")).Content.ReadAsStringAsync());
+        await scope.ServiceProvider.GetRequiredService<CheckoutService>()
+            .CancelAsync(checkout.InvoiceId, request.ExternalCoachId, false, default);
     }
 
     [Fact]
@@ -120,7 +151,10 @@ public sealed class CourtRentalTests(PaymentApiFactory factory)
         var incident = new IncidentRequest("Room", request.RoomId, request.StartUtc.UtcDateTime,
             request.EndUtc.UtcDateTime, "Court floor repair");
         Assert.True((await incidents.PreviewAsync(incident)).CanResolve);
-        await incidents.ResolveAsync(incident, manager.UserId);
+        var incidentId = await incidents.ResolveAsync(incident, manager.UserId);
+        var delivery = await incidents.DeliveryAsync(incidentId);
+        Assert.Equal(2, delivery.Total);
+        Assert.Equal(2, delivery.Pending);
         var rental = await factory.QueryAsync(db => db.Set<CourtRental>().AsNoTracking()
             .SingleAsync(x => x.InvoiceId == checkout.InvoiceId));
         Assert.Equal(CourtRentalStatus.Cancelled, rental.Status);

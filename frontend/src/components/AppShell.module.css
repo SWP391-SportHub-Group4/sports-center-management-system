@@ -1,0 +1,33 @@
+.operations :global(.header) {
+  height: auto;
+  min-height: var(--header-height);
+  flex-wrap: wrap;
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+.operations :global(.header__title) {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.operations :global(.header__actions) {
+  min-width: 0;
+  flex-wrap: wrap;
+}
+@media (max-width: 600px) {
+  .operations :global(.header) {
+    align-items: flex-start;
+  }
+  .operations :global(.header__title),
+  .operations :global(.header__actions) {
+    width: 100%;
+  }
+  .operations :global(.header__actions) {
+    gap: 8px;
+  }
+  .operations :global(.header__user) {
+    flex: 1 0 140px;
+    min-width: 0;
+    text-align: left;
+    overflow-wrap: anywhere;
+  }
+}

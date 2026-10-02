@@ -2,6 +2,33 @@
 
 Trạng thái 01/10/2026: **backend plan 1 đã qua gate 465/465 test**, ngoại trừ tích hợp/nghiệm thu VNPay sandbox thật theo yêu cầu người dùng. Xem [bàn giao](refactor-backend-final-handover.md) và [evidence](refactor-backend-evidence.md). Phần A là route lịch sử trước refactor (30/09/2026, commit `a5c480b`), không dùng để khôi phục flow ghi dữ liệu đã bỏ. Quy ước và bản chốt dưới đây được ưu tiên khi checkpoint cũ dùng tên nội bộ PascalCase.
 
+## Bổ sung P2.06–P2.10 — 02/10/2026
+
+Các API dưới đây bổ sung đúng dependency của frontend P2.06–P2.10, không đổi schema/migration. Quy định mới về hủy khóa thay phần mô tả P1.05 bên dưới.
+
+| Verb | Route | Actor / contract |
+|---|---|---|
+| GET | `/api/gym-checkins/inside?page&pageSize` | FrontDesk; PagedResult gồm `checkInId,memberId,memberName,checkInTime`; chỉ lượt chưa checkout, pageSize tối đa 100. |
+| POST | `/api/gym-checkins` | Receptionist; `{targetMemberId}`. Nếu Member còn lượt `CheckOutTime=null` (kể cả ngày trước), trả 409 `gym_already_checked_in`: “Member đã được ghi nhận vào Gym, vui lòng ghi nhận ra trước.” Không tạo thêm lượt; yêu cầu đồng thời chỉ một lượt thành công. Sau check-out được vào lại, không giới hạn số lượt trong ngày. Quy tắc bổ sung theo yêu cầu người dùng 02/10/2026; không thay schema/migration hoặc BR DOCX. |
+| PUT | `/api/manager/coaches/{userId}` | Manager; bổ sung `fullName?` (2–100 ký tự, validator hiện có), `phone?` (đúng định dạng, unique); null giữ giá trị cũ, chuỗi phone rỗng xóa số. Không đổi email/role/UserStatus. |
+| GET | `/api/manager/classes?thresholdStatus=AT_RISK` | Manager; thêm filter threshold, giữ sport/lifecycle/search/pagination hiện có. Enum wire UPPER_SNAKE_CASE. |
+| GET | `/api/manager/classes/{classId}/holds` | Manager; paged `holdId,memberId,memberName,invoiceId,status,expiresAtUtc,createdAt`. |
+| GET | `/api/manager/classes/{classId}/enrollments` | Manager; paged `enrollmentId,memberId,memberName,invoiceItemId,status,enrolledAt`; lấy invoice bằng endpoint by-item hiện có. |
+| GET | `/api/manager/classes/{classId}/threshold-responses` | Manager; paged `responseId,memberId,memberName,choice,targetClassId,resolutionStatus,additionalInvoiceId,deadlineUtc`. Không trả token/hash. |
+| GET | `/api/manager/classes/{classId}/cancellation-preview` | Manager; `canCancel,version,totalSessions,sessionsNotProvided,confirmedCount,activeHoldCount,refundPoints,previewToken,members[]`. Member quote gồm enrollment/member/item ID, remaining paid value VND, refund points. |
+| POST | `/api/manager/classes/{classId}/cancel` | Manager; `{reason,previewToken?}`; có paid enrollment/active hold phải gửi token preview mới. Server khóa và tính lại; stale/concurrent trả 409 `class_cancellation_changed`. Nhả pending checkout/holds/điểm giữ, hoàn phần chưa cung cấp vào wallet + kết thúc enrollment + hủy buổi Scheduled + occupancy + audit/outbox cùng transaction. Hủy lặp khóa Cancelled không hoàn thêm. |
+| POST | `/api/manager/notices` | Manager; body hiện có, thêm header `Idempotency-Key` UUID. Cùng Manager/key/payload nhận cùng noticeId và không tạo thêm outbox; đổi payload trả 409 `notice_idempotency_conflict`. Client cũ không có key vẫn được hỗ trợ. |
+| GET | `/api/manager/notices/{noticeId}` | Manager đã gửi; `{noticeId,delivery}`. Manager khác nhận 404. |
+| GET | `/api/manager/notices/by-key/{key}` | Manager đã gửi; phục hồi receipt sau timeout/F5, chờ transaction gửi cùng key hoàn tất. |
+| GET | `/api/manager/incidents/{incidentId}/notifications` | Manager; delivery tổng các notice IncidentResolution của rental thuộc incident. |
+| GET | `/api/court-rentals/policy` | ExternalCoach; `slotMinutes,maxHours,advanceDays,cancelFreeHours,serverNow`; không mở quyền đọc mọi system setting. |
+| GET | `/api/court-rentals/{rentalId}` | ExternalCoach chủ thuê; `rental,roomName,sportName,blocks,cancelReason,cancelledAtUtc,refundedPoints`. Rental summary thêm nullable invoiceId kể cả PendingPayment. Người khác 404; blocks là snapshot giá, refundedPoints từ ledger SystemEvent. |
+| GET | `/api/external-coaches/me/invoices?status&page&pageSize` | ExternalCoach; PagedResult InvoiceDto của chính họ và chỉ invoice có item Rental, gồm pending. |
+
+Hủy khóa tính `floor(remainingPaidValueVnd × sessionsNotProvided / totalSessions / 1000)`; giá trị còn lại trừ các lần refund/transfer trước. Buổi gốc hoặc buổi bù đã Completed được coi đã cung cấp theo authority scheduling; không lấy giờ browser để tính hoàn. Ghi danh legacy thiếu paid item chặn hủy để tránh hoàn sai. Pending/AwaitingPayment threshold responses được hết hạn cùng transaction, tiền gateway đến muộn đi qua cơ chế compensation hiện có.
+
+Delivery có `total,pending,sending,sent,failed,read`; đây là trạng thái outbox/in-app. SMTP vẫn at-least-once; receipt/idempotency không có nghĩa người nhận đã đọc email hoặc exactly-once SMTP.
+
 ## Bổ sung tích hợp frontend P2.00–P2.05 — 02/10/2026
 
 Các endpoint dưới đây phục vụ frontend API-backed. Không thay schema/migration. ID lớp/package/room/sport là int; ID invoice/enrollment/PT/request là UUID. Backend tiếp tục kiểm role, ownership, trạng thái và đồng thời.
@@ -498,7 +525,7 @@ Chu kỳ có snapshot trên Invoice (`CheckoutCycleId/CheckoutRevision/HoldExpir
 | Verb | Path | Actor | Hành vi chính |
 |---|---|---|---|
 | GET | `api/classes`, `api/classes/{classId}` | Public | Chỉ `Published`, không trả chi phí/ngưỡng nội bộ; giá và chỗ còn theo cả khóa. |
-| GET/POST/PUT | `api/manager/classes`, `api/manager/classes/{classId}`, `api/manager/classes/{classId}/publish`, `.../cancel` | Manager | Soạn Draft; publish khóa + đủ buổi + occupancy + audit + thông báo Coach cùng transaction; hủy chặn nếu đã có ghi danh/giữ chỗ. |
+| GET/POST/PUT | `api/manager/classes`, `api/manager/classes/{classId}`, `api/manager/classes/{classId}/publish`, `.../cancel` | Manager | Soạn Draft; publish khóa + đủ buổi + occupancy + audit + thông báo Coach cùng transaction; hủy với preview/refund/hold release theo bổ sung P2.06–P2.10 đầu tài liệu. |
 | GET | `api/classes/{classId}/sessions`, `api/class-sessions/{sessionId}`, `.../roster` | Nhân viên; Coach đúng lớp | Buổi của cả khóa và roster Confirmed; Coach chỉ đọc lớp được giao. |
 | POST | `api/class-sessions/{sessionId}/reschedule`, `.../cancel` | Manager | Kiểm lại room/coach/opening/capacity/lịch Member; hủy buộc có buổi bù hợp lệ. |
 | PUT | `api/class-sessions/{sessionId}/attendance/{enrollmentId}` | Receptionist | `{status:"Present"|"Absent"}`; từ đầu buổi đến hết 24 giờ sau cuối buổi; ghi audit khi thay đổi. |

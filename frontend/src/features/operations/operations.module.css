@@ -1,0 +1,100 @@
+.workspace {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+.workspace form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.workspace :global(.card) {
+  padding: 0;
+  gap: 0;
+}
+.workspace :global(.form-grid) {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
+  gap: 16px;
+}
+.workspace :global(.table-wrap) {
+  max-width: 100%;
+  overflow-x: auto;
+}
+.workspace :global(table) {
+  min-width: 640px;
+}
+.workspace :global(table:has(th:nth-child(6))) {
+  min-width: 960px;
+}
+.workspace :global(td) {
+  min-width: 100px;
+}
+.workspace :global(th) {
+  color: var(--ink-700);
+}
+.workspace :global(td > .btn + .btn) {
+  margin-left: 8px;
+}
+.workspace :global(.btn) {
+  text-decoration: none;
+}
+.workspace :global(.btn-row) {
+  align-items: center;
+}
+.workspace :global(.chip) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.workspace input,
+.workspace select,
+.workspace textarea {
+  max-width: 100%;
+  min-height: 44px;
+  font-size: 1rem;
+}
+.workspace fieldset {
+  min-width: 0;
+  border: 1px solid var(--gray, #ced4da);
+  border-radius: 8px;
+  padding: 16px;
+}
+.workspace fieldset label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 16px 4px 0;
+}
+.workspace input[type="checkbox"],
+.workspace input[type="radio"] {
+  width: 20px;
+  height: 20px;
+  min-height: 20px;
+  flex: 0 0 20px;
+  margin: 0;
+}
+.workspace label:has(> input[type="checkbox"]),
+.workspace label:has(> input[type="radio"]) {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  max-width: 100%;
+}
+.conflicts {
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 240px;
+}
+@media (max-width: 600px) {
+  .workspace :global(.card__body),
+  .workspace :global(.card__head) {
+    padding: 16px;
+  }
+  .workspace :global(.btn-row) {
+    flex-wrap: wrap;
+  }
+}

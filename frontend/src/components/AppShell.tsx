@@ -12,6 +12,7 @@ import { useLanguage } from "@/lib/language";
 import type { Translations } from "@/locales/en";
 import { NotificationBell } from "./NotificationBell";
 import { IconKeyboard } from "@/components/icons";
+import styles from "./AppShell.module.css";
 
 type NavLabelKey = keyof Translations["navigation"]["items"];
 
@@ -67,7 +68,14 @@ export const RECEPTIONIST_SHORTCUTS: Record<
  */
 export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
   // Member dùng MemberShell, không dùng AppShell — nhánh này giữ lại chỉ để Record đủ key.
-  ExternalCoach: [{ href: "/external-coach", labelKey: "overview" }],
+  ExternalCoach: [
+    { href: "/external-coach", labelKey: "overview" },
+    { href: "/external-coach/book", labelKey: "book" },
+    { href: "/external-coach/rentals", labelKey: "rentals" },
+    { href: "/external-coach/wallet", labelKey: "wallet" },
+    { href: "/external-coach/invoices", labelKey: "invoices" },
+    { href: "/external-coach/profile", labelKey: "profile" },
+  ],
   Member: [
     { href: "/member", labelKey: "overview" },
     { href: "/member/class-schedule", labelKey: "classSchedule" },
@@ -84,6 +92,8 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { href: "/receptionist/attendance", labelKey: "attendance" },
     { href: "/receptionist/invoices", labelKey: "invoiceLookup" },
     { href: "/receptionist/registrations", labelKey: "classRegistration" },
+    { href: "/receptionist/court-schedule", labelKey: "courtSchedule" },
+    { href: "/receptionist/member-points", labelKey: "wallet" },
   ],
   // PT actions are filtered by current specialties in getNavForUser().
   Coach: [
@@ -95,6 +105,14 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
   ],
   CenterManager: [
     { href: "/manager", labelKey: "overview" },
+    { href: "/manager/sports", labelKey: "sports" },
+    { href: "/manager/room-types", labelKey: "roomTypes" },
+    { href: "/manager/court-rates", labelKey: "rates" },
+    { href: "/manager/coaches", labelKey: "coaches" },
+    { href: "/manager/external-coaches", labelKey: "externalCoaches" },
+    { href: "/manager/court-schedule", labelKey: "courtSchedule" },
+    { href: "/manager/incidents", labelKey: "incidents" },
+    { href: "/manager/notices", labelKey: "notices" },
     { href: "/manager/training-rooms", labelKey: "trainingRooms" },
     { href: "/manager/classes", labelKey: "classes" },
     { href: "/manager/class-schedule", labelKey: "classSchedule" },
@@ -116,9 +134,15 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
 };
 
 export function getNavForUser(
-  user: { role: Role; sportIds: number[] },
+  user: { role: Role; sportIds: number[]; approvalStatus?: string | null },
   ptSportId?: number,
 ): NavItem[] {
+  if (user.role === "ExternalCoach")
+    return NAV_BY_ROLE.ExternalCoach.filter(
+      (item) =>
+        item.href !== "/external-coach/book" ||
+        user.approvalStatus === "APPROVED",
+    );
   if (user.role !== "Coach") return NAV_BY_ROLE[user.role];
   const base = [
     { href: "/coach", labelKey: "overview" as const },
@@ -142,6 +166,7 @@ export function AppShell({
   description,
   allow,
   requirePtSpecialty,
+  operationalLayout = false,
   children,
 }: {
   title: string;
@@ -150,6 +175,7 @@ export function AppShell({
   allow: Role[];
   /** Show PT tools only for a coach with a current PT specialty. */
   requirePtSpecialty?: boolean;
+  operationalLayout?: boolean;
   children: ReactNode;
 }) {
   const { user, loading, logout } = useAuth();
@@ -280,7 +306,7 @@ export function AppShell({
   const roleDisplay = t.navigation.roleLabel[user.role];
 
   return (
-    <div className="shell">
+    <div className={`shell ${operationalLayout ? styles.operations : ""}`}>
       <aside className="sidebar">
         <div className="sidebar__brand">SportHub</div>
         <div className="sidebar__role">{roleDisplay}</div>

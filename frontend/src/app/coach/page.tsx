@@ -9,7 +9,6 @@ import {
   IconCheck,
   IconClipboard,
   IconDumbbell,
-  IconFlame,
   IconLocation,
   IconSparkles,
   IconUser,
@@ -22,7 +21,10 @@ import { addDaysIso, formatDateTime, formatTime, todayIso } from "@/lib/format";
 import { useApi } from "@/lib/useApi";
 import { useAuth } from "@/lib/auth";
 import { useLanguage } from "@/lib/language";
-import type { ClassSessionDto, CoachMemberRelationshipDto } from "@/lib/types";
+import { vietnamLocal } from "@/lib/vietnam-time";
+import { courtScheduleApi } from "@/features/court-schedule/api";
+import { catalogApi } from "@/features/catalog";
+import type { CoachMemberRelationshipDto } from "@/lib/types";
 import styles from "./coach.module.css";
 
 export default function CoachDashboardPage() {
@@ -30,16 +32,34 @@ export default function CoachDashboardPage() {
   const { language } = useLanguage();
   const today = todayIso();
 
-  const [sessionFilter, setSessionFilter] = useState<"ALL" | "YOGA" | "PT" | "GROUPX">("ALL");
-  const [memberFilter, setMemberFilter] = useState<"ALL" | "PT" | "CLASS">("ALL");
+  const [sessionFilter, setSessionFilter] = useState<
+    "ALL" | "CLASS_SESSION" | "PT_SESSION"
+  >("ALL");
+  const [memberFilter, setMemberFilter] = useState<"ALL" | "PT" | "CLASS">(
+    "ALL",
+  );
 
   const week = useApi(
-    (signal) =>
-      api.get<ClassSessionDto[]>("/api/class-sessions/mine", {
+    async (signal) => {
+      if (!user) return null;
+      const [sports, rooms] = await Promise.all([
+        catalogApi.sports(signal),
+        catalogApi.rooms(signal),
+      ]);
+      const specialties = sports.filter((sport) =>
+        user.sportIds.includes(sport.sportId),
+      );
+      const entries = await courtScheduleApi.list(
+        today,
+        addDaysIso(today, 6),
+        "",
+        true,
         signal,
-        query: { fromDate: today, toDate: addDaysIso(today, 6) },
-      }),
-    [today],
+        specialties.some((sport) => sport.operationType === "ONE_ON_ONE"),
+      );
+      return { entries, rooms, specialties };
+    },
+    [today, user?.userId],
   );
 
   const members = useApi(
@@ -52,7 +72,10 @@ export default function CoachDashboardPage() {
   );
 
   const todaySessions = useMemo(
-    () => week.data?.filter((s) => s.startAtUtc.slice(0, 10) === today) ?? [],
+    () =>
+      week.data?.entries.filter(
+        (s) => vietnamLocal(s.startAtUtc).slice(0, 10) === today,
+      ) ?? [],
     [week.data, today],
   );
 
@@ -68,20 +91,9 @@ export default function CoachDashboardPage() {
 
   const filteredSessions = useMemo(() => {
     if (!week.data) return [];
-    if (sessionFilter === "YOGA") {
-      return week.data.filter((s) => s.discipline?.toLowerCase().includes("yoga"));
-    }
-    if (sessionFilter === "PT") {
-      return week.data.filter(
-        (s) =>
-          s.discipline?.toLowerCase().includes("personal") ||
-          s.discipline?.toLowerCase().includes("pt"),
-      );
-    }
-    if (sessionFilter === "GROUPX") {
-      return week.data.filter((s) => s.discipline?.toLowerCase().includes("group"));
-    }
-    return week.data;
+    return week.data.entries.filter(
+      (s) => sessionFilter === "ALL" || s.sourceType === sessionFilter,
+    );
   }, [week.data, sessionFilter]);
 
   const filteredMembers = useMemo(() => {
@@ -95,31 +107,9 @@ export default function CoachDashboardPage() {
     return members.data;
   }, [members.data, memberFilter]);
 
-  const renderDisciplineBadge = (discipline?: string) => {
-    const d = discipline?.toLowerCase() ?? "";
-    if (d.includes("yoga")) {
-      return (
-        <span className={`${styles.disciplineBadge} ${styles["disciplineBadge--yoga"]}`}>
-          <IconYoga size={14} /> Yoga
-        </span>
-      );
-    }
-    if (d.includes("personal") || d.includes("pt")) {
-      return (
-        <span className={`${styles.disciplineBadge} ${styles["disciplineBadge--pt"]}`}>
-          <IconDumbbell size={14} /> PT 1:1
-        </span>
-      );
-    }
-    if (d.includes("group")) {
-      return (
-        <span className={`${styles.disciplineBadge} ${styles["disciplineBadge--groupx"]}`}>
-          <IconFlame size={14} /> Group X
-        </span>
-      );
-    }
-    return <span className="small muted">{discipline || "—"}</span>;
-  };
+  const hasPt = week.data?.specialties.some(
+    (sport) => sport.operationType === "ONE_ON_ONE",
+  );
 
   return (
     <AppShell
@@ -130,23 +120,24 @@ export default function CoachDashboardPage() {
       }
       description={
         language === "en"
-          ? "Unified multidisciplinary workspace for Personal Training, Yoga, and Group Fitness"
+          ? "Your assigned group classes and personal training sessions"
           : "Không gian làm việc hợp nhất dành cho Huấn luyện viên thể thao"
       }
       allow={["Coach"]}
+      operationalLayout
     >
       {/* Multi-discipline Hero Banner */}
       <section
         className={styles.coachHero}
-        aria-label={language === "en" ? "Coach Profile Summary" : "Hồ sơ huấn luyện viên"}
+        aria-label={
+          language === "en" ? "Coach Profile Summary" : "Hồ sơ huấn luyện viên"
+        }
       >
         <div className={styles.coachHeroContent}>
           <div className={styles.coachRoleTag}>
             <IconUser size={13} />
             <span>
-              {language === "en"
-                ? "Multidisciplinary Coach · Yoga & PT Specialist"
-                : "Huấn luyện viên đa bộ môn · Yoga & PT Specialist"}
+              {language === "en" ? "Center Coach" : "Huấn luyện viên trung tâm"}
             </span>
           </div>
           <h2 className={styles.coachHeroTitle}>
@@ -156,23 +147,21 @@ export default function CoachDashboardPage() {
           </h2>
           <p className={styles.coachHeroDesc}>
             {language === "en"
-              ? "Simultaneously orchestrate group studio sessions (Yoga, Group X) and one-on-one personal training regimens."
-              : "Quản lý đồng thời các lớp Studio (Yoga, Group X) và các học viên kèm riêng 1:1 (Personal Training)."}
+              ? "Review your assigned teaching schedule and the members under your supervision."
+              : "Xem lịch giảng dạy được phân công và các hội viên bạn đang phụ trách."}
           </p>
         </div>
         <div className={styles.coachSpecialties}>
-          <div className={`${styles.specialtyPill} ${styles["specialtyPill--yoga"]}`}>
-            <IconYoga size={16} />
-            <span>{language === "en" ? "Yoga & Recovery" : "Yoga & Thư giãn"}</span>
-          </div>
-          <div className={`${styles.specialtyPill} ${styles["specialtyPill--pt"]}`}>
-            <IconDumbbell size={16} />
-            <span>{language === "en" ? "Personal Training 1:1" : "Personal Training 1:1"}</span>
-          </div>
-          <div className={`${styles.specialtyPill} ${styles["specialtyPill--groupx"]}`}>
-            <IconFlame size={16} />
-            <span>{language === "en" ? "Group X Conditioning" : "Group X Thể lực"}</span>
-          </div>
+          {week.data?.specialties.map((sport) => (
+            <div className={styles.specialtyPill} key={sport.sportId}>
+              {sport.operationType === "ONE_ON_ONE" ? (
+                <IconDumbbell size={16} />
+              ) : (
+                <IconCalendar size={16} />
+              )}
+              <span>{sport.name}</span>
+            </div>
+          ))}
         </div>
       </section>
 
@@ -180,7 +169,7 @@ export default function CoachDashboardPage() {
       <div className="grid grid--stats">
         <Stat
           label={language === "en" ? "Sessions Today" : "Ca dạy hôm nay"}
-          value={todaySessions.length}
+          value={week.loading || week.error ? "—" : todaySessions.length}
           hint={
             todaySessions.length > 0
               ? language === "en"
@@ -193,7 +182,9 @@ export default function CoachDashboardPage() {
         />
         <Stat
           label={language === "en" ? "Next 7 Days" : "Lịch dạy 7 ngày tới"}
-          value={week.data?.length ?? 0}
+          value={
+            week.loading || week.error ? "—" : (week.data?.entries.length ?? 0)
+          }
           hint={
             language === "en"
               ? "Total scheduled teaching sessions"
@@ -201,7 +192,11 @@ export default function CoachDashboardPage() {
           }
         />
         <Stat
-          label={language === "en" ? "Dedicated 1:1 PT Clients" : "Học viên PT 1:1 phụ trách"}
+          label={
+            language === "en"
+              ? "Dedicated 1:1 PT Clients"
+              : "Học viên PT 1:1 phụ trách"
+          }
           value={ptClients.length}
           hint={
             language === "en"
@@ -210,47 +205,82 @@ export default function CoachDashboardPage() {
           }
         />
         <Stat
-          label={language === "en" ? "Group Class Trainees" : "Hội viên lớp nhóm"}
+          label={
+            language === "en" ? "Group Class Trainees" : "Hội viên lớp nhóm"
+          }
           value={classTrainees.length}
           hint={
             language === "en"
-              ? "Enrolled in Yoga / Group X classes"
-              : "Đăng ký qua lớp Yoga / Group X"
+              ? "Enrolled in your assigned group classes"
+              : "Đăng ký các lớp nhóm bạn được phân công"
           }
         />
       </div>
 
       {/* Quick Action Bar */}
       <div className={styles.actionBar}>
-        <Link className={`${styles.actionBtn} ${styles.actionBtnPrimary}`} href="/coach/attendance">
+        <Link
+          className={`${styles.actionBtn} ${styles.actionBtnPrimary}`}
+          href="/coach/attendance"
+        >
           <IconCheck size={18} />
-          <span>{language === "en" ? "Attendance & Results" : "Điểm danh & Ghi kết quả"}</span>
+          <span>
+            {language === "en"
+              ? "Attendance & Results"
+              : "Điểm danh & Ghi kết quả"}
+          </span>
         </Link>
-        <Link className={`${styles.actionBtn} ${styles.actionBtnSecondary}`} href="/coach/training-plans">
+        <Link
+          className={`${styles.actionBtn} ${styles.actionBtnSecondary}`}
+          href="/coach/training-plans"
+        >
           <IconClipboard size={18} />
-          <span>{language === "en" ? "Personal Training Plans" : "Kế hoạch tập luyện PT"}</span>
+          <span>
+            {language === "en"
+              ? "Personal Training Plans"
+              : "Kế hoạch tập luyện PT"}
+          </span>
         </Link>
-        <Link className={`${styles.actionBtn} ${styles.actionBtnSecondary}`} href="/coach/ai-suggestions">
+        <Link
+          className={`${styles.actionBtn} ${styles.actionBtnSecondary}`}
+          href="/coach/ai-suggestions"
+        >
           <IconSparkles size={18} />
-          <span>{language === "en" ? "AI Routine Assistant" : "Trợ lý AI giáo án"}</span>
+          <span>
+            {language === "en" ? "AI Routine Assistant" : "Trợ lý AI giáo án"}
+          </span>
         </Link>
-        <Link className={`${styles.actionBtn} ${styles.actionBtnSecondary}`} href="/coach/schedule">
+        <Link
+          className={`${styles.actionBtn} ${styles.actionBtnSecondary}`}
+          href="/coach/schedule"
+        >
           <IconCalendar size={18} />
-          <span>{language === "en" ? "Weekly Timetable" : "Thời khóa biểu chi tiết"}</span>
+          <span>
+            {language === "en" ? "Weekly Timetable" : "Thời khóa biểu chi tiết"}
+          </span>
         </Link>
-        <Link className={`${styles.actionBtn} ${styles.actionBtnSecondary}`} href="/coach/members">
+        <Link
+          className={`${styles.actionBtn} ${styles.actionBtnSecondary}`}
+          href="/coach/members"
+        >
           <IconUser size={18} />
-          <span>{language === "en" ? "Trainee Profiles" : "Hồ sơ học viên"}</span>
+          <span>
+            {language === "en" ? "Trainee Profiles" : "Hồ sơ học viên"}
+          </span>
         </Link>
       </div>
 
       {/* Teaching Schedule Card with Filter */}
       <Card
-        title={language === "en" ? "Upcoming Classes & Training Sessions" : "Lịch giảng dạy & Ca tập sắp tới"}
+        title={
+          language === "en"
+            ? "Upcoming Classes & Training Sessions"
+            : "Lịch giảng dạy & Ca tập sắp tới"
+        }
         hint={
           language === "en"
-            ? "Assigned studio classes (Yoga/Group X) and 1:1 personal training sessions for the next 7 days (BR-22)"
-            : "Hiển thị tất cả ca đứng lớp Yoga/GroupX và ca kèm 1:1 của bạn trong 7 ngày tới (BR-22)"
+            ? "Your assigned group classes and personal training sessions in the next 7 days. Times are shown in Vietnam time (UTC+7)."
+            : "Các buổi lớp nhóm và PT của bạn trong 7 ngày tới. Thời gian hiển thị theo giờ Việt Nam (UTC+7)."
         }
         bodyless
       >
@@ -261,29 +291,29 @@ export default function CoachDashboardPage() {
               className={`${styles.filterBtn} ${sessionFilter === "ALL" ? styles.filterBtnActive : ""}`}
               onClick={() => setSessionFilter("ALL")}
             >
-              {language === "en" ? "All" : "Tất cả"} ({week.data?.length ?? 0})
+              {language === "en" ? "All" : "Tất cả"} (
+              {week.data?.entries.length ?? 0})
             </button>
             <button
               type="button"
-              className={`${styles.filterBtn} ${sessionFilter === "YOGA" ? styles.filterBtnActive : ""}`}
-              onClick={() => setSessionFilter("YOGA")}
+              className={`${styles.filterBtn} ${sessionFilter === "CLASS_SESSION" ? styles.filterBtnActive : ""}`}
+              onClick={() => setSessionFilter("CLASS_SESSION")}
             >
-              <IconYoga size={14} /> {language === "en" ? "Yoga Classes" : "Lớp Yoga"}
+              <IconCalendar size={14} />{" "}
+              {language === "en" ? "Group classes" : "Lớp nhóm"}
             </button>
-            <button
-              type="button"
-              className={`${styles.filterBtn} ${sessionFilter === "PT" ? styles.filterBtnActive : ""}`}
-              onClick={() => setSessionFilter("PT")}
-            >
-              <IconDumbbell size={14} /> {language === "en" ? "Personal Training" : "Personal Training 1:1"}
-            </button>
-            <button
-              type="button"
-              className={`${styles.filterBtn} ${sessionFilter === "GROUPX" ? styles.filterBtnActive : ""}`}
-              onClick={() => setSessionFilter("GROUPX")}
-            >
-              <IconFlame size={14} /> Group X
-            </button>
+            {hasPt && (
+              <button
+                type="button"
+                className={`${styles.filterBtn} ${sessionFilter === "PT_SESSION" ? styles.filterBtnActive : ""}`}
+                onClick={() => setSessionFilter("PT_SESSION")}
+              >
+                <IconDumbbell size={14} />{" "}
+                {language === "en"
+                  ? "Personal Training"
+                  : "Personal Training 1:1"}
+              </button>
+            )}
           </div>
         </div>
 
@@ -316,35 +346,55 @@ export default function CoachDashboardPage() {
                 language === "en" ? "Discipline & Class" : "Bộ môn & Lớp học",
                 language === "en" ? "Time" : "Thời gian",
                 language === "en" ? "Studio Room" : "Phòng tập",
-                { text: language === "en" ? "Confirmed / Max" : "Sĩ số / Giới hạn", numeric: true },
+                {
+                  text: language === "en" ? "Participants" : "Hội viên",
+                  numeric: true,
+                },
                 language === "en" ? "Status" : "Trạng thái",
                 language === "en" ? "Actions" : "Thao tác",
               ]}
             >
               {filteredSessions.map((session) => (
-                <tr key={session.sessionId}>
+                <tr key={`${session.sourceType}-${session.sourceId}`}>
                   <td>
-                    <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                      <strong>{session.className}</strong>
-                      {renderDisciplineBadge(session.discipline)}
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "4px",
+                      }}
+                    >
+                      <strong>{session.title}</strong>
+                      <span className="small muted">
+                        {session.sourceType === "PT_SESSION"
+                          ? "PT 1:1"
+                          : language === "en"
+                            ? "Group class"
+                            : "Lớp nhóm"}
+                      </span>
                     </div>
                   </td>
                   <td className="nowrap">
                     <div className={styles.timeCell}>
-                      <span className={styles.timeMain}>{formatDateTime(session.startAtUtc)}</span>
+                      <span className={styles.timeMain}>
+                        {formatDateTime(session.startAtUtc)}
+                      </span>
                       <span className={styles.timeSub}>
-                        {language === "en" ? "Until" : "Đến"} {formatTime(session.endAtUtc)}
+                        {language === "en" ? "Until" : "Đến"}{" "}
+                        {formatTime(session.endAtUtc)}
                       </span>
                     </div>
                   </td>
                   <td>
                     <span className={styles.roomCell}>
                       <IconLocation size={14} />
-                      {session.roomName}
+                      {week.data?.rooms.find(
+                        (room) => room.roomId === session.roomId,
+                      )?.name ?? "—"}
                     </span>
                   </td>
                   <td className="num">
-                    <strong>{session.confirmedCount}</strong>/{session.capacity}
+                    <strong>{session.participants.length}</strong>
                   </td>
                   <td>
                     <StatusChip value={session.status} />
@@ -352,10 +402,17 @@ export default function CoachDashboardPage() {
                   <td className="nowrap">
                     <Link
                       className="btn btn--sm btn--primary"
-                      href={`/coach/attendance?sessionId=${session.sessionId}&date=${session.startAtUtc.slice(0, 10)}`}
-                      style={{ display: "inline-flex", alignItems: "center", gap: "5px", padding: "4px 10px", fontSize: "0.78rem" }}
+                      href="/coach/schedule"
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "5px",
+                        padding: "4px 10px",
+                        fontSize: "0.78rem",
+                      }}
                     >
-                      <IconCheck size={13} /> {language === "en" ? "Attendance" : "Điểm danh"}
+                      <IconCalendar size={13} />{" "}
+                      {language === "en" ? "View schedule" : "Xem lịch"}
                     </Link>
                   </td>
                 </tr>
@@ -367,11 +424,15 @@ export default function CoachDashboardPage() {
 
       {/* Members & Clients Card with Filter */}
       <Card
-        title={language === "en" ? "Assigned Trainees & Active Clients" : "Danh sách học viên đang phụ trách"}
+        title={
+          language === "en"
+            ? "Assigned Trainees & Active Clients"
+            : "Danh sách học viên đang phụ trách"
+        }
         hint={
           language === "en"
             ? "1:1 Personal Training clients and group session attendees under your supervision (BR-23)"
-            : "Học viên kèm riêng 1:1 (PT) và học viên lớp nhóm Yoga/Group X do bạn quản lý (BR-23)"
+            : "Học viên kèm riêng 1:1 (PT) và học viên lớp nhóm do bạn phụ trách"
         }
         bodyless
       >
@@ -382,21 +443,26 @@ export default function CoachDashboardPage() {
               className={`${styles.filterBtn} ${memberFilter === "ALL" ? styles.filterBtnActive : ""}`}
               onClick={() => setMemberFilter("ALL")}
             >
-              {language === "en" ? "All" : "Tất cả"} ({members.data?.length ?? 0})
+              {language === "en" ? "All" : "Tất cả"} (
+              {members.data?.length ?? 0})
             </button>
             <button
               type="button"
               className={`${styles.filterBtn} ${memberFilter === "PT" ? styles.filterBtnActive : ""}`}
               onClick={() => setMemberFilter("PT")}
             >
-              <IconDumbbell size={14} /> {language === "en" ? "1:1 PT Clients" : "Học viên PT 1:1"} ({ptClients.length})
+              <IconDumbbell size={14} />{" "}
+              {language === "en" ? "1:1 PT Clients" : "Học viên PT 1:1"} (
+              {ptClients.length})
             </button>
             <button
               type="button"
               className={`${styles.filterBtn} ${memberFilter === "CLASS" ? styles.filterBtnActive : ""}`}
               onClick={() => setMemberFilter("CLASS")}
             >
-              <IconYoga size={14} /> {language === "en" ? "Group Class Trainees" : "Học viên Lớp nhóm"} ({classTrainees.length})
+              <IconYoga size={14} />{" "}
+              {language === "en" ? "Group Class Trainees" : "Học viên Lớp nhóm"}{" "}
+              ({classTrainees.length})
             </button>
           </div>
         </div>
@@ -405,7 +471,10 @@ export default function CoachDashboardPage() {
           state={members}
           emptyMessage={
             <div style={{ textAlign: "center", padding: "32px 16px" }}>
-              <StickerRegistrationsEmpty size={64} style={{ marginBottom: 10 }} />
+              <StickerRegistrationsEmpty
+                size={64}
+                style={{ marginBottom: 10 }}
+              />
               <p style={{ margin: 0, fontWeight: 600, color: "var(--navy)" }}>
                 {memberFilter === "ALL"
                   ? language === "en"
@@ -444,17 +513,32 @@ export default function CoachDashboardPage() {
                     </td>
                     <td>
                       {isPt ? (
-                        <span className={`${styles.disciplineBadge} ${styles["disciplineBadge--pt"]}`}>
-                          <IconDumbbell size={13} /> {language === "en" ? "1:1 PT" : "PT kèm 1:1"}
+                        <span
+                          className={`${styles.disciplineBadge} ${styles["disciplineBadge--pt"]}`}
+                        >
+                          <IconDumbbell size={13} />{" "}
+                          {language === "en" ? "1:1 PT" : "PT kèm 1:1"}
                         </span>
                       ) : (
-                        <span className={`${styles.disciplineBadge} ${styles["disciplineBadge--yoga"]}`}>
-                          <IconYoga size={13} /> {language === "en" ? "Group Class" : "Lớp nhóm"}
+                        <span
+                          className={`${styles.disciplineBadge} ${styles["disciplineBadge--yoga"]}`}
+                        >
+                          <IconYoga size={13} />{" "}
+                          {language === "en" ? "Group Class" : "Lớp nhóm"}
                         </span>
                       )}
                     </td>
-                    <td>{item.className ?? (isPt ? (language === "en" ? "Personal Training 1:1" : "Huấn luyện cá nhân 1:1") : "—")}</td>
-                    <td className="nowrap small">{formatDateTime(item.startedAt)}</td>
+                    <td>
+                      {item.className ??
+                        (isPt
+                          ? language === "en"
+                            ? "Personal Training 1:1"
+                            : "Huấn luyện cá nhân 1:1"
+                          : "—")}
+                    </td>
+                    <td className="nowrap small">
+                      {formatDateTime(item.startedAt)}
+                    </td>
                     <td className="nowrap">
                       <div style={{ display: "flex", gap: "6px" }}>
                         <Link
@@ -468,7 +552,9 @@ export default function CoachDashboardPage() {
                             className="btn btn--secondary btn--sm"
                             href={`/coach/training-plans?memberId=${item.memberId}`}
                           >
-                            {language === "en" ? "Build Routine" : "Soạn giáo án"}
+                            {language === "en"
+                              ? "Build Routine"
+                              : "Soạn giáo án"}
                           </Link>
                         )}
                       </div>

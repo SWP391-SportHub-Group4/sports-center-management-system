@@ -33,6 +33,7 @@ public sealed class ClassService(
     ISystemSettingProvider settings,
     INotificationWriter notifications,
     IAuditWriter audit,
+    CourseCancellationService cancellations,
     IClock clock) : IClassService
 {
     public const int MaxPageSize = 100;
@@ -79,11 +80,18 @@ public sealed class ClassService(
     }
 
     public async Task<PagedResult<ClassManagerResponse>> ListManagerAsync(
-        string? status, int? sportId, string? keyword, int page, int pageSize, CancellationToken ct = default)
+        string? status, int? sportId, string? keyword, int page, int pageSize, CancellationToken ct = default, string? thresholdStatus = null)
     {
         (page, pageSize) = Normalize(page, pageSize);
 
         var query = db.Set<Class>().AsNoTracking();
+
+        if (!string.IsNullOrWhiteSpace(thresholdStatus))
+        {
+            if (!SportHub.BuildingBlocks.Api.WireEnum.TryParse<ThresholdStatus>(thresholdStatus, true, out var threshold) || !Enum.IsDefined(threshold))
+                throw new BadRequestException("invalid_threshold_status", "Trạng thái ngưỡng không hợp lệ.");
+            query = query.Where(c => c.ThresholdStatus == threshold);
+        }
 
         if (!string.IsNullOrWhiteSpace(status))
         {
@@ -360,50 +368,9 @@ public sealed class ClassService(
     public async Task<ClassManagerResponse> CancelAsync(
         int classId, CancelClassRequest request, Guid actorUserId, CancellationToken ct = default)
     {
-        await using var tx = await db.Database.BeginTransactionAsync(ct);
-        await db.Database.ExecuteSqlInterpolatedAsync($"SELECT class_id FROM classes WHERE class_id = {classId} FOR UPDATE", ct);
-
-        var entity = await db.Set<Class>().SingleOrDefaultAsync(c => c.ClassId == classId, ct)
-                     ?? throw new NotFoundException("class_not_found", "Không tìm thấy khóa học.");
-
-        if (entity.Status is ClassStatus.Cancelled or ClassStatus.Completed)
-        {
-            throw new ConflictException("class_not_cancellable", "Khóa đã kết thúc hoặc đã bị hủy.");
-        }
-
-        // Có ghi danh/giữ chỗ nghĩa là đã có người trả tiền: hủy phải hoàn điểm theo từng ghi danh (chặng ngưỡng hoàn vốn/refund).
-        if (entity.ReservedCount > 0 || entity.ConfirmedCount > 0)
-        {
-            throw new ConflictException(
-                "class_has_enrollments",
-                "Khóa đã có ghi danh hoặc giữ chỗ — cần hủy qua quy trình hoàn điểm cho học viên.");
-        }
-
-        var sessions = await db.Set<ClassSession>()
-            .Where(s => s.ClassId == classId && s.Status == ClassSessionStatus.Scheduled)
-            .ToListAsync(ct);
-
-        foreach (var s in sessions)
-        {
-            s.Status = ClassSessionStatus.Cancelled;
-            await occupancy.ReleaseAsync(OccupancySources.ClassSession, s.SessionId, ct);
-        }
-
-        var previous = entity.Status;
-        entity.Status = ClassStatus.Cancelled;
-        entity.Version++;
-
-        audit.Write(new AuditEntry(actorUserId, "CANCEL_CLASS", nameof(Class), classId.ToString(),
-            OldValue: JsonSerializer.Serialize(new { status = previous.ToString() }),
-            NewValue: JsonSerializer.Serialize(new { status = ClassStatus.Cancelled.ToString() }),
-            Reason: request.Reason.Trim()));
-
-        await db.SaveChangesAsync(ct);
-        await tx.CommitAsync(ct);
-
+        await cancellations.CancelAsync(classId, request, actorUserId, ct);
         return await GetManagerAsync(classId, ct);
     }
-
     // ---------------------------------------------------------------- Nội bộ
 
     private async Task<List<(int DayOfWeek, TimeOnly StartTimeLocal)>> ApplyAsync(

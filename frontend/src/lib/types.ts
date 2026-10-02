@@ -227,6 +227,7 @@ export interface MemberPackageDto {
 
 export interface InvoiceSummaryDto {
   invoiceId: string;
+  checkoutExpiresAtUtc?: string | null;
   invoiceNumber: string;
   memberId: string;
   memberEmail: string;
@@ -480,6 +481,8 @@ export interface ReportExportDto {
 }
 
 export interface GymCheckInDto {
+  checkOutTime: string | null;
+  checkedOutByUserId: string | null;
   checkInId: string;
   memberId: string;
   checkedInByUserId: string;
@@ -667,10 +670,89 @@ export interface CourtRentalDto {
   totalPrice: number;
   status: "PENDING_PAYMENT" | "CONFIRMED" | "COMPLETED" | "CANCELLED";
   invoiceItemId: string | null;
+  invoiceId?: string | null;
 }
 export interface CourtRentalQuoteDto {
   totalPrice: number;
   blocks: { startUtc: string; endUtc: string; price: number }[];
+}
+export interface CourtRentalPolicyDto {
+  slotMinutes: number;
+  maxHours: number;
+  advanceDays: number;
+  cancelFreeHours: number;
+  serverNowUtc: string;
+}
+export interface CourtRentalDetailDto {
+  rental: CourtRentalDto;
+  roomName: string;
+  sportName: string;
+  blocks: CourtRentalQuoteDto["blocks"];
+  cancelReason: string | null;
+  cancelledAtUtc: string | null;
+  refundPoints: number;
+}
+
+export interface ManagerCourseDto extends Omit<CourseDto, "status"> {
+  status: "DRAFT" | CourseDto["status"];
+  costAmount: number;
+  breakEvenThreshold: number | null;
+  thresholdStatus: string;
+  thresholdDeadlineUtc: string | null;
+  confirmedCount: number;
+  reservedCount: number;
+  activeHoldCount: number;
+  version: number;
+  createdAt: string;
+  publishedAt: string | null;
+}
+export interface CourseRosterDto {
+  session: CourseSessionDto;
+  attendanceOpensAtUtc: string;
+  attendanceClosesAtUtc: string;
+  entries: {
+    enrollmentId: string;
+    memberId: string;
+    memberName: string;
+    enrollmentStatus: string;
+    attendanceStatus: string | null;
+    attendanceRecordedAt: string | null;
+  }[];
+}
+export interface CoachAdminDto {
+  userId: string;
+  email: string;
+  fullName: string;
+  phone: string | null;
+  status: string;
+  bio: string | null;
+  sportIds: number[];
+  createdAt: string;
+}
+export interface CourtScheduleEntryDto {
+  sourceType: "CLASS_SESSION" | "PT_SESSION" | "COURT_RENTAL" | "ROOM_BLOCK";
+  sourceId: string;
+  roomId: number | null;
+  startAtUtc: string;
+  endAtUtc: string;
+  coachId: string | null;
+  coachName: string | null;
+  title: string;
+  status: string;
+  classId: number | null;
+  expectedAttendees: number | null;
+  participants: {
+    memberId: string;
+    memberName: string;
+    enrollmentId: string | null;
+    attendanceStatus: string | null;
+    recordedAtUtc: string | null;
+  }[];
+}
+export interface RentalAvailabilityDto extends CourtRentalQuoteDto {
+  roomId: number;
+  name: string;
+  capacity: number;
 }
 export interface IncidentPreviewDto {
   scope: string;
