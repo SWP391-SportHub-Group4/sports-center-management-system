@@ -24,18 +24,24 @@ public class LoginRateLimitPolicyTests
         {
             PermitLimit = 2,
             Window = TimeSpan.FromMilliseconds(300),
-            QueueLimit = 0,
+            QueueLimit = 1,
             QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
             AutoReplenishment = true
         });
 
-        Assert.True(limiter.AttemptAcquire().IsAcquired);
-        Assert.True(limiter.AttemptAcquire().IsAcquired);
-        Assert.False(limiter.AttemptAcquire().IsAcquired);
+        using var first = limiter.AttemptAcquire();
+        using var second = limiter.AttemptAcquire();
+        using var rejected = limiter.AttemptAcquire();
+        Assert.True(first.IsAcquired);
+        Assert.True(second.IsAcquired);
+        Assert.False(rejected.IsAcquired);
 
-        await Task.Delay(TimeSpan.FromMilliseconds(600));
-
-        Assert.True(limiter.AttemptAcquire().IsAcquired);
+        // Await the actual auto-replenishment callback instead of assuming it ran
+        // after a fixed delay. A busy CI runner may schedule that callback late.
+        // The queue can only grant this lease after the exhausted window renews.
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        using var replenished = await limiter.AcquireAsync(1, timeout.Token);
+        Assert.True(replenished.IsAcquired);
     }
 
     [Fact]
