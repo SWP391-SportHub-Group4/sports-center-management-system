@@ -28,6 +28,12 @@ public sealed class CreateCoachRequest
 /// <summary>Thay toàn bộ chuyên môn của Coach; Bio null giữ nguyên.</summary>
 public sealed class UpdateCoachRequest
 {
+    [MinLength(2), MaxLength(100)]
+    public string? FullName { get; set; }
+
+    [PhoneNumber]
+    public string? Phone { get; set; }
+
     [Required, MinLength(1), MaxLength(10)]
     public List<int> SportIds { get; set; } = [];
 

@@ -1,37 +1,14 @@
 "use client";
-import { AppShell } from "@/components/AppShell";
-import { useAuth } from "@/lib/auth";
-import { useLanguage } from "@/lib/language";
-import { api } from "@/lib/apiClient";
-import { AsyncSection, StatusChip } from "@/components/ui";
-import { useApi } from "@/lib/useApi";
-export default function ExternalCoachPage() {
-  const { user } = useAuth();
-  const { t } = useLanguage();
-  const profile = useApi(
-    (signal) =>
-      user?.role === "ExternalCoach"
-        ? api.get<{ approvalStatus: string; reviewNote: string | null }>(
-            "/api/external-coaches/me",
-            { signal },
-          )
-        : Promise.resolve(null),
-    [user?.userId, user?.role],
-  );
+import { Suspense } from "react";
+import { OperationsPage } from "@/features/operations/ui";
+import { Loading } from "@/components/ui";
+import { ExternalDashboard } from "@/features/rentals/external-portal";
+export default function Page() {
   return (
-    <AppShell
-      title={t.navigation.roleLabel.ExternalCoach}
-      description={t.identity.externalDescription}
-      allow={["ExternalCoach"]}
-    >
-      <AsyncSection state={profile}>
-        {(data) => (
-          <>
-            <StatusChip value={data.approvalStatus} />
-            <p>{data.reviewNote}</p>
-          </>
-        )}
-      </AsyncSection>
-    </AppShell>
+    <OperationsPage title="dashboard" roles={["ExternalCoach"]}>
+      <Suspense fallback={<Loading />}>
+        <ExternalDashboard />
+      </Suspense>
+    </OperationsPage>
   );
 }

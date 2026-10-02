@@ -22,16 +22,28 @@ import type {
 } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
 import { Card } from "@/components/ui";
+import styles from "./checkout-panel.module.css";
+
+type CheckoutReview = {
+  title: string;
+  submitLabel: string;
+  items: { label: string; value: string }[];
+};
+
 function CheckoutFlow({
   intent,
   invoiceId,
   memberId: targetMemberId,
   onChange,
+  onAccessChanged,
+  review,
 }: {
   intent?: PurchaseIntent;
   invoiceId?: string;
   memberId?: string;
   onChange?: () => void;
+  onAccessChanged?: () => void;
+  review?: CheckoutReview;
 }) {
   const { t } = useLanguage();
   const l = t.refactor;
@@ -49,7 +61,20 @@ function CheckoutFlow({
     user?.role === "Receptionist";
   const [points, setPoints] = useState("0");
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<{
+    cause: unknown;
+    uncertain?: boolean;
+  } | null>(null);
+  const errorMessage = error?.uncertain
+    ? l.uncertain
+    : error?.cause instanceof ApiError &&
+        error.cause.code === "duplicate_active_package"
+      ? t.apiErrors.duplicateActivePackage
+      : error?.cause instanceof Error
+        ? error.cause.message
+        : error
+          ? t.apiErrors.generic
+          : "";
   const retryKey = useRef<string | null>(null);
   const key = useRef<string | null>(null);
   const alive = useRef(true);
@@ -90,7 +115,7 @@ function CheckoutFlow({
       })
       .then(setCheckout)
       .catch((e) => {
-        if (!controller.signal.aborted) setError(e.message);
+        if (!controller.signal.aborted) setError({ cause: e });
       });
     return () => controller.abort();
   }, [invoiceId]);
@@ -129,7 +154,7 @@ function CheckoutFlow({
         }
       })
       .catch((e) => {
-        if (!controller.signal.aborted) setError(e.message);
+        if (!controller.signal.aborted) setError({ cause: e });
       });
     return () => controller.abort();
   }, [id, memberId, checkout?.revision]);
@@ -157,7 +182,7 @@ function CheckoutFlow({
           timer = setTimeout(poll, 3000);
       } catch (e) {
         if (!controller.signal.aborted) {
-          setError((e as Error).message);
+          setError({ cause: e });
           if (e instanceof ApiError && e.status === 403) {
             setCheckout(null);
             setAttempt(null);
@@ -183,16 +208,18 @@ function CheckoutFlow({
   async function run(action: () => Promise<void>) {
     if (busy) return;
     setBusy(true);
-    setError("");
+    setError(null);
     try {
       await action();
     } catch (e) {
+      if (e instanceof ApiError && (e.status === 403 || e.status === 409))
+        onAccessChanged?.();
       if (alive.current) {
-        setError(
-          e instanceof ApiError && (e.status === 0 || e.status >= 500)
-            ? l.uncertain
-            : (e as Error).message,
-        );
+        setError({
+          cause: e,
+          uncertain:
+            e instanceof ApiError && (e.status === 0 || e.status >= 500),
+        });
         if (e instanceof ApiError && e.status === 403) {
           setCheckout(null);
           setAttempt(null);
@@ -259,17 +286,30 @@ function CheckoutFlow({
         Math.floor((checkout?.totalAmount ?? 0) / 1000),
       );
   return (
-    <Card title={l.buy}>
+    <Card title={!checkout && review ? review.title : l.buy}>
       <div aria-live="polite">
-        {error && <p role="alert">{error}</p>}
+        {errorMessage && <p role="alert">{errorMessage}</p>}
         {!checkout ? (
-          <button
-            className="btn btn--secondary"
-            disabled={busy || !intent}
-            onClick={() => run(create)}
-          >
-            {l.buy}
-          </button>
+          <>
+            {review && (
+              <dl className={styles.review}>
+                {review.items.map((item) => (
+                  <div key={item.label}>
+                    <dt>{item.label}</dt>
+                    <dd>{item.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            )}
+            <button
+              type="button"
+              className="btn btn--secondary"
+              disabled={busy || !intent}
+              onClick={() => run(create)}
+            >
+              {review?.submitLabel ?? l.buy}
+            </button>
+          </>
         ) : (
           <>
             <p>
@@ -568,6 +608,8 @@ export function CheckoutPanel(props: {
   invoiceId?: string;
   memberId?: string;
   onChange?: () => void;
+  onAccessChanged?: () => void;
+  review?: CheckoutReview;
 }) {
   const { user } = useAuth();
   return (

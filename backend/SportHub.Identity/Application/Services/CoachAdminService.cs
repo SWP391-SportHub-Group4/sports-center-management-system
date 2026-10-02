@@ -146,11 +146,21 @@ public sealed class CoachAdminService(
     {
         var user = await db.Set<UserAccount>()
                        .Include(u => u.CoachProfile)
+                       .Include(u => u.Profile)
                        .SingleOrDefaultAsync(u => u.UserId == userId && u.Role!.RoleName == UserRole.Coach, ct)
                    ?? throw new NotFoundException("coach_not_found", "Không tìm thấy Coach.");
 
         var sportIds = await specialties.ValidateAsync(request.SportIds, ct);
+        var phone = request.Phone is null ? user.Profile?.Phone : Clean(request.Phone);
+        if (phone is not null && await db.Set<UserProfile>().AnyAsync(x => x.Phone == phone && x.UserId != userId, ct))
+            throw new ConflictException("phone_already_exists", "Số điện thoại đã được sử dụng.");
+        if (request.FullName is not null && !new FullNameAttribute().IsValid(request.FullName))
+            throw new BadRequestException("invalid_full_name", "Họ tên cần 2–100 ký tự và đúng định dạng.");
+        var oldProfile = new { fullName = user.Profile?.FullName, phone = user.Profile?.Phone };
         var before = await specialties.ReplaceAsync(userId, sportIds, ct);
+        user.Profile ??= new UserProfile { UserId = userId };
+        if (request.FullName is not null) user.Profile.FullName = request.FullName.Trim();
+        user.Profile.Phone = phone;
 
         user.CoachProfile ??= new CoachProfile { UserId = userId };
 
@@ -161,8 +171,8 @@ public sealed class CoachAdminService(
 
         audit.Write(new AuditEntry(
             actorUserId, "UPDATE_COACH_SPECIALTIES", nameof(UserAccount), userId.ToString(),
-            OldValue: System.Text.Json.JsonSerializer.Serialize(new { sportIds = before }),
-            NewValue: System.Text.Json.JsonSerializer.Serialize(new { sportIds })));
+            OldValue: System.Text.Json.JsonSerializer.Serialize(new { sportIds = before, profile = oldProfile }),
+            NewValue: System.Text.Json.JsonSerializer.Serialize(new { sportIds, fullName = user.Profile.FullName, phone })));
 
         // Bỏ môn khỏi chuyên môn không tự hủy lịch/lớp đã phân công: Manager xử lý riêng (chặn phân công mới ở P1.05b).
         await db.SaveChangesAsync(ct);

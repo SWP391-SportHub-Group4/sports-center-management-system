@@ -167,7 +167,10 @@ public sealed class CounterPointOtpTests(PaymentApiFactory factory)
             return 0;
         });
         using var scope = factory.Services.CreateScope();
-        Assert.Equal(1, await scope.ServiceProvider.GetRequiredService<PointConfirmationService>().ReleaseExpiredAsync(default));
+        // The worker processes all expired invoices in the shared fixture DB.
+        Assert.True(await scope.ServiceProvider.GetRequiredService<PointConfirmationService>().ReleaseExpiredAsync(default) >= 1);
+        Assert.Equal(0, await factory.QueryAsync(db => db.Invoices
+            .Where(x => x.InvoiceId == context.InvoiceId).Select(x => x.PointsApplied).SingleAsync()));
         Assert.Equal(0, await factory.QueryAsync(db => db.PointWallets
             .Where(x => x.OwnerUserId == context.MemberId).Select(x => x.HeldPoints).SingleAsync()));
     }

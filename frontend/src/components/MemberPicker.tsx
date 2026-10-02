@@ -109,6 +109,7 @@ export function MemberPicker({
     <div className="field">
       <span>{labelText}</span>
       <input
+        aria-label={labelText}
         autoFocus={autoFocus}
         value={keyword}
         placeholder={placeholderText}
@@ -119,13 +120,20 @@ export function MemberPicker({
 
       {ready && search.loading && (
         <span className="field__hint">
-          {language === "en" ? "Searching members..." : "Đang tìm kiếm hội viên..."}
+          {language === "en"
+            ? "Searching members..."
+            : "Đang tìm kiếm hội viên..."}
         </span>
       )}
 
       {ready && !search.loading && results.length === 0 && (
-        <span className="field__hint" style={{ color: "var(--danger-700, #c026d3)" }}>
-          {language === "en" ? "No matching members found." : "Không tìm thấy hội viên phù hợp."}
+        <span
+          className="field__hint"
+          style={{ color: "var(--danger-700, #c026d3)" }}
+        >
+          {language === "en"
+            ? "No matching members found."
+            : "Không tìm thấy hội viên phù hợp."}
         </span>
       )}
 
@@ -153,14 +161,21 @@ export function MemberPicker({
                 width: "100%",
                 textAlign: "left",
                 padding: "10px 14px",
-                background: idx === 0 ? "var(--surface-alt, #f8fafc)" : "transparent",
+                background:
+                  idx === 0 ? "var(--surface-alt, #f8fafc)" : "transparent",
                 border: "none",
                 borderBottom: "1px solid var(--line, #dfe5ec)",
                 cursor: "pointer",
                 font: "inherit",
               }}
             >
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
                 <strong style={{ color: "var(--brand-900, #0b2d4d)" }}>
                   {member.fullName || member.email}
                 </strong>
@@ -173,7 +188,7 @@ export function MemberPicker({
               <div className="small muted">
                 {member.email}
                 {member.phone ? ` · ${member.phone}` : ""}
-                {member.status !== "Active"
+                {member.status !== "ACTIVE"
                   ? ` · ${language === "en" ? "Account Locked" : "Tài khoản bị khóa"}`
                   : ""}
               </div>
