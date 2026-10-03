@@ -498,7 +498,7 @@ Các endpoint sau đã có source và integration test PostgreSQL. 1 điểm = 1
 | GET | `api/wallet/me` | Member/ExternalCoach | `{ownerUserId, availablePoints, heldPoints, vndPerPoint}`; subject lấy từ JWT |
 | GET | `api/wallet/me/ledger?page&pageSize` | Member/ExternalCoach | Mảng ledger, mới nhất trước; page >=1, pageSize 1..100 |
 | GET | `api/members/{memberId}/points`, `.../points/ledger` | Receptionist/Manager | Chỉ Member; ghi audit lần xem |
-| POST | `api/wallets/{ownerId}/adjustments` | Manager | `{idempotencyKey:guid, points:int>0, direction:"Credit"|"Debit", reason}`; trả WalletResult. Cùng key khác payload → 409; Debit chỉ tiêu available |
+| POST | `api/wallets/{ownerId}/adjustments` | Manager | `{idempotencyKey:guid, points:int>0, direction:"CREDIT"|"DEBIT", reason}`; trả WalletResult. Cùng key khác payload → 409; Debit chỉ tiêu available |
 | GET | `api/invoices/{invoiceId}/point-selection` | Chủ invoice hoặc Receptionist | `{invoiceId, memberId, pointsApplied, cashAmount, holdExpiresAtUtc, status, revision}`; Receptionist chỉ xem Member, có audit |
 | POST | `api/invoices/{invoiceId}/point-confirmations` | Receptionist | `{memberId, points:int>0, revision:int}`; trả `{confirmationId, invoiceId, memberId, points, expiresAtUtc, holdExpiresAtUtc, status:"Pending", revision}` |
 | POST | `api/point-confirmations/{confirmationId}/verify` | Lễ tân đã yêu cầu mã | `{code:"6 digits"}`; trả PointSelectionResponse, status `Confirmed`; giữ điểm đúng một lần |

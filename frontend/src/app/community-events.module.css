@@ -1,7 +1,6 @@
 .section {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(340px, 0.9fr);
-  column-gap: clamp(40px, 6vw, 90px);
+  grid-template-columns: minmax(0, 1fr);
   min-height: 640px;
   padding: clamp(90px, 11vw, 160px) clamp(22px, 6vw, 100px);
   background: var(--surface-blue);
@@ -12,6 +11,8 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
+  width: min(100%, 980px);
+  margin-inline: auto;
 }
 
 .heading {
@@ -135,6 +136,12 @@
   font-size: var(--type-caption);
 }
 
+.eventDetail {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
 .eventDesc {
   margin-top: 16px;
   color: var(--text-secondary);
@@ -143,87 +150,8 @@
   max-width: 52ch;
 }
 
-.interactiveCol {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
 
-.passContainer {
-  width: 100%;
-  max-width: 440px;
-  background: oklch(14% 0.03 252deg);
-  border: 1px solid var(--line-strong);
-  border-radius: 6px;
-  padding: clamp(22px, 3.5vw, 32px);
-  position: relative;
-  overflow: hidden;
-  box-shadow: 0 16px 40px oklch(0% 0 0 / 40%);
-}
-
-.passHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border-bottom: 1px dashed var(--line-soft);
-  padding-bottom: 16px;
-}
-
-.passBrand {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--text-primary);
-  font-size: 1.15rem;
-  font-weight: var(--weight-bold);
-  letter-spacing: -0.03em;
-}
-
-.passType {
-  color: var(--brand-sky);
-  font-size: var(--type-caption);
-  font-weight: var(--weight-bold);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.passBody {
-  margin-top: 20px;
-}
-
-.passInputGroup {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.passLabel {
-  color: var(--text-secondary);
-  font-size: var(--type-caption);
-  font-weight: var(--weight-bold);
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-
-.passInput {
-  min-height: 46px;
-  padding: 10px 14px;
-  background: oklch(20% 0.04 252deg);
-  border: 1px solid var(--line-strong);
-  color: var(--text-primary);
-  font-family: inherit;
-  font-size: var(--type-body);
-  border-radius: 2px;
-  transition: border-color 200ms ease;
-}
-
-.passInput:focus {
-  outline: 2px solid var(--brand-sky);
-  outline-offset: 2px;
-  border-color: var(--brand-sky);
-}
-
-.passAction {
+.eventAction {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -244,88 +172,10 @@
   border-radius: 2px;
   transition: all 200ms ease;
 }
-
-.passAction:hover {
+.eventAction:hover {
   background: var(--brand-ice);
   border-color: var(--brand-ice);
   color: var(--brand-navy);
-}
-
-.claimedBadge {
-  margin-top: 18px;
-  padding: 18px;
-  background: oklch(22% 0.05 242deg);
-  border: 1px solid var(--brand-sky);
-  border-radius: 4px;
-  text-align: center;
-  animation: passReveal 400ms cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-.qrContainer {
-  margin: 14px auto;
-  width: 110px;
-  height: 110px;
-  background: white;
-  padding: 8px;
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.qrContainer svg {
-  width: 100%;
-  height: 100%;
-}
-
-.claimedHolder {
-  font-size: 1.15rem;
-  font-weight: var(--weight-bold);
-  color: var(--text-primary);
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-}
-
-.claimedValidity {
-  margin-top: 6px;
-  color: var(--brand-sky);
-  font-size: 0.78rem;
-  font-weight: var(--weight-bold);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.claimedInstruction {
-  margin-top: 10px;
-  color: var(--text-secondary);
-  font-size: var(--type-caption);
-  line-height: 1.5;
-}
-
-.resetLink {
-  display: inline-block;
-  margin-top: 12px;
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  font-size: 0.8rem;
-  text-decoration: underline;
-  cursor: pointer;
-}
-
-.resetLink:hover {
-  color: var(--text-primary);
-}
-
-@keyframes passReveal {
-  from {
-    opacity: 0;
-    transform: scale(0.96) translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
 }
 
 @media (max-width: 900px) {
@@ -333,8 +183,5 @@
     grid-template-columns: 1fr;
     row-gap: 48px;
     padding: 70px 22px;
-  }
-  .passContainer {
-    max-width: 100%;
   }
 }

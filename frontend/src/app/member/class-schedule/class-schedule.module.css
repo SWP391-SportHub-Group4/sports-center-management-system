@@ -333,21 +333,6 @@
   color: var(--navy, #1a2b4c);
 }
 
-.badgeYoga {
-  background: #e8eaf6;
-  color: #283593;
-}
-
-.badgeGroupX {
-  background: #fbe9e7;
-  color: #bf360c;
-}
-
-.badgePT {
-  background: #e0f2f1;
-  color: #00695c;
-}
-
 .cardBody {
   display: flex;
   flex-direction: column;

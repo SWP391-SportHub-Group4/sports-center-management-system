@@ -145,9 +145,6 @@ export const LABELS: Record<string, string> = {
   Pending: "Processing",
   Failed: "Failed",
 
-  PersonalTraining: "Personal Training",
-  Yoga: "Yoga",
-  GroupX: "Group X",
 };
 
 export function label(value: string | null | undefined): string {

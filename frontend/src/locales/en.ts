@@ -163,6 +163,9 @@ export const en = {
     refundSelf: "A different Manager must review this request.",
     newRequest: "New request",
     reloadBeforeRetry: "Refresh current data before retrying a rejected change.",
+    monthOverview: "Current month summary",
+    courseCount: "Courses in report period",
+    quickLinks: "Management shortcuts",
   },
   settingFields: {
     thresholdDays: {
@@ -680,6 +683,8 @@ export const en = {
     previousPage: "Previous page",
     nextPage: "Next page",
     pageLabel: "Page",
+    items: "items",
+    requiredSuffix: "(required)",
   },
   navigation: {
     myAccount: "My account",
@@ -799,9 +804,6 @@ export const en = {
     myRegistrations: "My Registrations",
     myPlans: "Membership Passes",
     training: "Training & Routine",
-    gatePassTitle: "Gate Pass",
-    gatePassSub: "Turnstile · QR Pass",
-    gatePassScan: "Scan",
     openNav: "Open navigation menu",
     closeNav: "Close menu",
   },
@@ -809,10 +811,6 @@ export const en = {
     heroTag: "SPORTHUB MEMBER PORTAL · ELEVATE EVERY DAY",
     welcome: "Welcome back,",
     todayOverview: "Here is your training overview and upcoming sessions.",
-    quickQrTitle: "Turnstile Gate Pass",
-    quickQrDesc:
-      "Instant dynamic QR code for entry barriers and check-in desks.",
-    openQrBtn: "Open QR Pass",
     statTotalWorkouts: "Total Workouts",
     statWorkoutsUnit: "sessions completed",
     statActivePasses: "Active Passes",
@@ -975,19 +973,6 @@ export const en = {
     alreadyHaveAccount: "Already have an account?",
     backToSignIn: "Back to Sign In",
   },
-  gatePassModal: {
-    title: "Center Gate Pass",
-    subtitle:
-      "Hold QR code in front of turnstile scanner or present at reception desk.",
-    refreshesIn: "Auto-refreshes in",
-    seconds: "seconds",
-    memberName: "Member",
-    memberId: "Email / ID",
-    statusActive: "Active Pass",
-    securityNotice:
-      "High-security anti-tamper pass with rotating cryptographic nonce.",
-    closeBtn: "Close Pass",
-  },
   publicNav: {
     facilities: "Facilities",
     pricing: "Pricing",
@@ -996,131 +981,6 @@ export const en = {
     signIn: "Sign in",
     account: "Account",
     toggleLang: "Switch to Vietnamese",
-  },
-  homepage: {
-    skipLink: "Skip to main content",
-    heroTag: "PREMIER ATHLETIC CLUB · TECHNOLOGY · COMMUNITY",
-    heroTitle: "BUILD THE STRENGTH.",
-    heroTitleSpan: " OWN YOUR MOMENTUM.",
-    heroIntro:
-      "State-of-the-art training floors, coach-led studio disciplines, and smart turnstile access engineered for your highest physical potential.",
-    heroJoinBtn: "Join SportHub",
-    heroExploreBtn: "Explore facilities",
-    heroBadge1: "Instant Gate Pass Access",
-    heroBadge2: "3 Dedicated Athletic Zones",
-    heroBadge3: "Certified Head Coaches",
-    heroImageNote:
-      "Real athletic facilities and coach-led training environments at SportHub.",
-    facilitiesTitle: "World-class facilities. Under one roof.",
-    facilitiesIntro:
-      "Every square meter is engineered for athletic performance, member comfort, and safe, sustainable training.",
-    facilitiesGymTag: "Strength & Conditioning",
-    facilitiesGymName: "High-Performance Gym Floor",
-    facilitiesGymSpecs:
-      "Olympic Power Cages · Dumbbells to 50kg · Sprint Turf Track",
-    facilitiesGymDesc:
-      "Equipped with calibrated Olympic barbells, plate-loaded stations, free weights, and smart cardio machines for maximum training stimulus.",
-    facilitiesGymAction: "Explore membership plans",
-    facilitiesStudioTag: "Group Fitness & Yoga",
-    facilitiesStudioName: "Acoustic Mind & Body Studios",
-    facilitiesStudioSpecs:
-      "Sprung Oak Wood Floors · Wall-to-Wall Mirrors · Surround Acoustics",
-    facilitiesStudioDesc:
-      "Vibration-damped wooden floors and high-fidelity sound designed for energetic GroupX sessions, HIIT classes, and peaceful yoga flows.",
-    facilitiesStudioAction: "View class timetable",
-    facilitiesSaunaTag: "Recovery & Wellness",
-    facilitiesSaunaName: "Finnish Sauna & Recovery Suite",
-    facilitiesSaunaSpecs:
-      "Cedar Wood Dry Sauna · Relaxation Lounge · InBody Diagnostics",
-    facilitiesSaunaDesc:
-      "Accelerate muscular repair and active recovery with heat therapy, cold showers, and full body composition analysis with personal trainers.",
-    facilitiesSaunaAction: "Coaching & training",
-    activitiesTitle: "Disciplines Calibrated For Peak Performance.",
-    activitiesIntro:
-      "Structured group and individual training programs led by certified coaches. Select a discipline to explore weekly timetables.",
-    activitiesNote:
-      "Timetables, coach profiles, and spot reservations are updated live in the member portal.",
-    actYogaShort: "Mobility & Mindful Flow",
-    actYogaName: "Mind & Body Yoga",
-    actYogaFocus: "Flexibility · Postural Alignment · Stress Relief",
-    actYogaIntensity: "Gentle · Restorative",
-    actYogaDesc:
-      "Build functional body awareness, joint mobility, and steady breath control through guided foundational to advanced asana flows.",
-    actYogaAction: "View Yoga Schedule",
-    actFitnessShort: "Hypertrophy & Conditioning",
-    actFitnessName: "Functional Strength Training",
-    actFitnessFocus: "Progressive Overload · Barbell Mastery · Athletic Power",
-    actFitnessIntensity: "High · Progressive",
-    actFitnessDesc:
-      "Develop raw strength, muscle density, and movement confidence with coach-guided free weight and barbell progressions.",
-    actFitnessAction: "View Strength Schedule",
-    actGroupXShort: "High-Cadence Cardio & Rhythm",
-    actGroupXName: "High-Energy GroupX",
-    actGroupXFocus: "Aerobic Capacity · Coordination · High Calorie Burn",
-    actGroupXIntensity: "Dynamic · High Energy",
-    actGroupXDesc:
-      "Sweat to energizing beats in a high-tempo group class that challenges cardiovascular endurance, agility, and mental grit.",
-    actGroupXAction: "View GroupX Schedule",
-    actRecoveryShort: "Joint Health & Regeneration",
-    actRecoveryName: "Active Mobility & Regeneration",
-    actRecoveryFocus:
-      "Myofascial Release · Joint Decompression · Injury Prevention",
-    actRecoveryIntensity: "Restorative · Guided",
-    actRecoveryDesc:
-      "Improve range of motion and accelerate muscle repair with coach-led foam rolling, dynamic stretching, and targeted recovery drills.",
-    actRecoveryAction: "View Recovery Sessions",
-    footerTagline: "One step forward, every day.",
-    footerMemberArea: "Member area",
-  },
-  pricingSection: {
-    heading: "Transparent Membership Plans",
-    intro:
-      "No hidden registration fees or lock-in contracts. Choose the tier that matches your commitment.",
-    dayPassBadge: "Flexible Single Day",
-    dayPassName: "Day Pass",
-    dayPassPrice: "150,000",
-    dayPassPeriod: "per day",
-    dayPassDesc:
-      "Ideal for guests, travelers, or testing the facility before committing.",
-    dayPassFeatures: [
-      "Full Gym Floor & Cardio zone access",
-      "Complimentary locker & towel service",
-      "Full Finnish Sauna Suite privileges",
-      "Instant turnstile QR digital entry pass",
-    ],
-    dayPassAction: "Claim Day Pass",
-
-    standardBadge: "Most Popular",
-    standardName: "Monthly Standard",
-    standardPrice: "950,000",
-    standardPeriod: "per month",
-    standardDesc:
-      "Our most chosen all-around membership for consistent weekly fitness routines.",
-    standardFeatures: [
-      "Unlimited Gym Floor & Free Weights access",
-      "12 Studio classes included (Yoga & GroupX)",
-      "1 Monthly InBody body composition scan",
-      "Daily locker rental & Finnish Sauna access",
-      "Flexible monthly renewal, cancel anytime",
-    ],
-    standardAction: "Select Standard Plan",
-
-    vipBadge: "Ultimate Access",
-    vipName: "VIP All-Access",
-    vipPrice: "1,650,000",
-    vipPeriod: "per month",
-    vipDesc:
-      "The complete transformation suite for athletes seeking maximum coaching and recovery.",
-    vipFeatures: [
-      "Unlimited Gym Floor & Unlimited Studio classes",
-      "2 Private 1-on-1 Personal Training (PT) sessions",
-      "Full Sauna, Cold Plunge & Recovery Lounge",
-      "Priority 7-day advance class booking",
-      "Complimentary protein shaker & welcome pack",
-    ],
-    vipAction: "Select VIP All-Access",
-    guaranteeNote:
-      "All plans include 100% digital check-in via your personal Gate Pass. Cancel or pause anytime in member settings.",
   },
   eventsSection: {
     heading: "Community Events & Open Sessions",
@@ -1146,28 +1006,6 @@ export const en = {
       "Kick off your Sunday morning with a self-paced 5K group run followed by a coach-led full-body foam rolling and mobility session on the indoor turf.",
     sunriseCta: "View weekly schedule",
 
-    passTab: "1-Day Guest Pass",
-    passBadge: "First-Time Visitors",
-    passDate: "Valid Any Day This Week",
-    passTitle: "All-Access Fitness Experience Pass",
-    passLocation: "Gym Floor · Group Studios · Sauna Suite",
-    passCapacity: "Limited to 1 Pass per Guest",
-    passDesc:
-      "Experience our high-performance gym floor, energized group yoga/fitness studios, and relaxing cedar sauna suite with complimentary locker service.",
-    passCta: "Claim pass below",
-    passCtaPrompt: "Generate your pass on the right",
-
-    turnstileTitle: "SportHub Turnstile",
-    digitalPassType: "Digital Pass",
-    formLabel: "Claim your free 1-day pass",
-    inputPlaceholder: "Enter your full name",
-    generateBtn: "Generate Instant Pass",
-    formNote: "Instant digital activation. No credit card required.",
-    defaultGuestName: "Guest Athlete",
-    passValidity: "All-Access Guest · Valid 24 Hours",
-    passInstruction:
-      "Show this digital pass at the entrance turnstile or reception desk for immediate entry.",
-    resetBtn: "Issue another pass",
   },
   account: {
     title: "My Account",

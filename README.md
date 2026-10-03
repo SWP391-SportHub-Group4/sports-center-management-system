@@ -156,7 +156,7 @@ Target framework: **net10.0** (cả 11 project). Entity/enum/state cho từng mo
 
 ## Cấu hình tùy chọn (thiếu thì chạy chế độ mock/log)
 
-Backend đọc cấu hình qua biến môi trường (`__` = cấp lồng nhau, ví dụ `VnPay__TmnCode` → `VnPay:TmnCode`). Mẫu ở `.env.example`. **Thiếu khóa không làm backend hỏng — hệ thống tự chuyển sang chế độ demo:**
+Backend đọc cấu hình qua biến môi trường (`__` = cấp lồng nhau, ví dụ `VnPay__TmnCode` → `VnPay:TmnCode`). Mẫu ở `.env.example`. Các tích hợp ngoài có hành vi fallback khác nhau; bảng dưới mô tả đúng runtime hiện tại:
 
 | Biến | Bắt buộc | Thiếu thì |
 |---|---|---|
@@ -165,17 +165,17 @@ Backend đọc cấu hình qua biến môi trường (`__` = cấp lồng nhau, 
 | `Google__ClientId` | Không | `/api/auth/google` trả `503 google_login_not_configured` |
 | `VnPay__TmnCode`, `VnPay__HashSecret` (+ Pay URL, Return URL, IPN URL) | Không | Dùng `MockPaymentGateway`: QR giả, demo IPN bằng `POST /api/dev/payments/{attemptId}/succeed` (Design v3 §3) |
 | `Email__Smtp__Host/Username/Password` (Gmail App Password) | Không | Dùng `LoggingEmailSender`: nội dung email (kể cả **OTP**) ghi vào log backend |
-| `Gemini__ApiKey` (+ `Gemini__Model`, `Gemini__BaseUrl`, `Gemini__TimeoutSeconds`) | Không | Dùng provider mô phỏng/rule-based trả lời sẵn 2 kịch bản chatbot; gợi ý bài tập dùng bộ luật cục bộ |
+| `Gemini__ApiKey` (+ `Gemini__Model`, `Gemini__BaseUrl`, `Gemini__TimeoutSeconds`) | Không | Endpoint Gemini trả `503 gemini_not_configured`; gợi ý workout rule-based vẫn độc lập |
 | `Reports__StorageRoot` | Không | `<thư mục chạy>/App_Data/reports` |
 
-> `docker-compose.yml` hiện chỉ chuyển `ConnectionStrings__Default`, `JwtOptions__SecretKey`, `Google__ClientId` và `Gemini__*` vào container backend. Khi viết cổng VNPay (G5a) và SMTP, phải thêm `VnPay__*` và `Email__*` vào `environment` của service `backend` (theo mẫu `${VAR:-}`); cho tới lúc đó container luôn chạy chế độ mock/log cho VNPay và email.
+> `docker-compose.yml` hiện map `ConnectionStrings__Default`, JWT, Google, `VnPay__*`, SMTP/DataProtection và `Gemini__*` vào backend. Development có thể dùng `VnPay__UseMock=true` và `Email__DemoLoggingEnabled=true`; không dùng các chế độ demo đó để chứng nhận sandbox VNPay hoặc SMTP thật.
 
 ## Ghi chú kỹ thuật
 
 - **Stack:** ASP.NET Core (net10.0, modular monolith) + PostgreSQL 16 (bật `btree_gist`) + Next.js; không Redis/RabbitMQ.
 - **Chống trùng lịch/bán vượt:** `room_occupancies`, `coach_occupancies` với exclusion constraint; `classes.reserved_count` cập nhật có điều kiện trong transaction.
 - **Job nền** chạy trong tiến trình API: giữ chỗ, thuê sân, ngưỡng hoàn vốn, trạng thái lớp, điểm danh PT, hạn Membership, gửi outbox.
-- **Chatbot:** function calling với danh sách hàm cố định lọc theo vai trò; `userId` luôn lấy từ JWT, mô hình không chạm DB.
+- **AI assistant:** endpoint backend lấy `userId` từ JWT, build context chỉ-đọc từ dữ liệu SportHub rồi gọi provider Gemini; API key chỉ ở backend. Các action nghiệp vụ vẫn đi qua API/authorization riêng, không để model tự ghi DB.
 - **Múi giờ:** `Asia/Ho_Chi_Minh` cho mọi hiển thị lịch.
 
 ## Chạy local
@@ -197,6 +197,21 @@ Chạy xong sẽ có 3 container: `sporthub-postgres`, `sporthub-backend`, `spor
 |---|---|
 | Backend — Swagger UI | http://localhost:5000/swagger |
 | Frontend | http://localhost:3000 |
+
+### Gate frontend / P2.12–P2.16
+
+Frontend yêu cầu **Node 24 + npm 11**. Từ `frontend/` chạy:
+
+```bash
+npm ci
+npm run typecheck
+npm run lint
+npm run check:i18n
+npm run build
+npm run test:e2e
+```
+
+CI trên PR vào `develop` chạy thêm Playwright với PostgreSQL + backend Development thật và upload report/trace khi fail. Phạm vi/bằng chứng P2.12–P2.16: `docs/refactor-web-evidence.md` và `docs/refactor-p2-12-16-api-coverage.md`.
 
 ### Cách 2: Chạy riêng từng phần (debug trong Rider/VS Code)
 

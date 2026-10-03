@@ -107,3 +107,10 @@ test.describe("reduced motion", () => {
     await expect(page.locator("html")).toHaveCSS("scroll-behavior", "auto");
   });
 });
+
+
+test("public events do not mint a client-side access pass", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByLabel(/turnstile qr/i)).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /generate instant pass|kích hoạt vé tức thì/i })).toHaveCount(0);
+});

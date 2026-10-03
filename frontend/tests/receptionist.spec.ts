@@ -1,280 +1,81 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
-test.beforeEach(async ({ page }) => {
-  await page.clock.install({ time: new Date("2026-09-26T08:00:00Z") });
+const receptionistId = "11111111-1111-4111-8111-111111111111";
+const memberId = "22222222-2222-4222-8222-222222222222";
+const sessionId = "33333333-3333-4333-8333-333333333333";
+const enrollmentId = "44444444-4444-4444-8444-444444444444";
+const paged = (items: unknown[]) => ({ items, page: 1, pageSize: 20, totalCount: items.length });
+
+async function receptionistFixture(page: Page) {
+  await page.clock.install({ time: new Date("2030-10-03T03:00:00Z") });
   await page.addInitScript(() => {
-    window.localStorage.setItem("sporthub.accessToken", "receptionist-test-token");
-    window.localStorage.setItem(
-      "sporthub.user",
-      JSON.stringify({
-        userId: "rec-1",
-        email: "receptionist@sporthub.test",
-        fullName: "Lễ Tân Ca Sáng",
-        role: "Receptionist",
-      }),
-    );
+    localStorage.setItem("sporthub.accessToken", "receptionist-fixture-token");
+    localStorage.setItem("sporthub_lang", "en");
   });
 
-  // Mock class sessions
-  await page.route("**/api/class-sessions*", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify([
-        {
-          sessionId: "sess-1",
-          className: "Morning HIIT Boxing",
-          discipline: "Strength",
-          coachName: "Trần HLV",
-          roomName: "Studio A",
-          startAtUtc: "2026-09-26T08:30:00Z",
-          endAtUtc: "2026-09-26T09:30:00Z",
-          capacity: 20,
-          confirmedCount: 15,
-          status: "Scheduled",
-          isFull: false,
-        },
-      ]),
-    });
+  await page.route("**/api/**", async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const path = url.pathname;
+    if (path === "/api/users/me")
+      return route.fulfill({ json: { userId: receptionistId, fullName: "Receptionist", email: "desk@example.com", role: "RECEPTIONIST", sportIds: [] } });
+    if (path.includes("notifications"))
+      return route.fulfill({ json: path.endsWith("unread-count") ? { count: 0 } : [] });
+    if (path === "/api/sports")
+      return route.fulfill({ json: [{ sportId: 3, name: "Badminton", operationType: "GROUP_COURSE", isActive: true }] });
+    if (path === "/api/users")
+      return route.fulfill({ json: paged([{ userId: memberId, fullName: "Member A", email: "member@example.com", phone: "0900000000", role: "MEMBER", status: "ACTIVE", createdAt: "2030-01-01T00:00:00Z", hasPassword: true, hasGoogleLink: false, sportIds: [] }]) });
+    if (path === `/api/members/${memberId}/packages`)
+      return route.fulfill({ json: [{ memberPackageId: "55555555-5555-4555-8555-555555555555", packageId: 1, packageName: "Gym monthly", startDate: "2030-10-01", endDate: "2030-10-31", status: "ACTIVE", isUsable: true }] });
+    if (path === `/api/members/${memberId}/gym-checkins`)
+      return route.fulfill({ json: paged([]) });
+    if (path === "/api/gym-checkins/inside") return route.fulfill({ json: paged([]) });
+    if (path === "/api/gym-checkins" && request.method() === "POST")
+      return route.fulfill({ json: { checkInId: "66666666-6666-4666-8666-666666666666", memberId, checkInTime: "2030-10-03T03:00:00Z", checkOutTime: null } });
+    if (path === "/api/invoices") return route.fulfill({ json: paged([]) });
+    if (path === "/api/manager/court-schedule")
+      return route.fulfill({ json: [{ sourceType: "CLASS_SESSION", sourceId: sessionId, classId: 7, title: "Badminton group", roomId: 3, coachId: "77777777-7777-4777-8777-777777777777", coachName: "Coach A", startAtUtc: "2030-10-03T02:30:00Z", endAtUtc: "2030-10-03T04:00:00Z" }] });
+    if (path === `/api/class-sessions/${sessionId}/roster`)
+      return route.fulfill({ json: { session: { sessionId, classId: 7, className: "Badminton group", sessionNo: 1, roomId: 3, roomName: "Court 3", coachId: "77777777-7777-4777-8777-777777777777", coachName: "Coach A", startAtUtc: "2030-10-03T02:30:00Z", endAtUtc: "2030-10-03T04:00:00Z", status: "SCHEDULED", isMakeup: false, rescheduledFromSessionId: null }, attendanceOpensAtUtc: "2030-10-03T02:30:00Z", attendanceClosesAtUtc: "2030-10-04T04:00:00Z", entries: [{ enrollmentId, memberId, memberName: "Member A", enrollmentStatus: "CONFIRMED", attendanceStatus: null, attendanceRecordedAt: null }] } });
+    if (path === `/api/class-sessions/${sessionId}/attendance/${enrollmentId}` && request.method() === "PUT")
+      return route.fulfill({ json: { ok: true } });
+    return route.fulfill({ status: 404, json: { code: "fixture_missing", message: `${request.method()} ${path}` } });
   });
+}
 
-  // Mock invoices
-  await page.route("**/api/invoices*", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        items: [
-          {
-            invoiceId: "inv-1",
-            invoiceNumber: "INV-2026-001",
-            memberName: "Lê Văn Hùng",
-            memberEmail: "hung@gmail.com",
-            totalAmount: 3000000,
-            grossCollected: 1500000,
-            netCollected: 1500000,
-            outstanding: 1500000,
-            obligationReduction: 0,
-            netPayable: 3000000,
-            refundDue: 0,
-            refundedAmount: 0,
-            issuedAt: "2026-09-01T00:00:00Z",
-            dueDateUtc: "2026-10-01T00:00:00Z",
-            status: "PartiallyPaid",
-            isOverdue: false,
-          },
-        ],
-        totalCount: 1,
-        page: 1,
-        pageSize: 10,
-      }),
-    });
-  });
+test.beforeEach(async ({ page }) => receptionistFixture(page));
 
-  // Mock members search
-  await page.route("**/api/admin/users*", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        items: [
-          {
-            userId: "mem-1",
-            fullName: "Lê Văn Hùng",
-            email: "hung@gmail.com",
-            phoneNumber: "0901234567",
-            role: "Member",
-            status: "Active",
-          },
-        ],
-        totalCount: 1,
-        page: 1,
-        pageSize: 10,
-      }),
-    });
-  });
-
-  // Mock membership packages catalog
-  await page.route("**/api/membership-packages*", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify([
-        {
-          packageId: "pkg-1",
-          name: "All-Access Gold 3 Months",
-          durationDays: 90,
-          price: 3600000,
-          discipline: "All",
-          sessionLimit: null,
-          isActive: true,
-        },
-      ]),
-    });
-  });
-
-  // Mock member packages
-  await page.route("**/api/members/*/packages*", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify([
-        {
-          memberPackageId: "pkg-1",
-          packageName: "All-Access Gold 3 Months",
-          status: "Active",
-          startDate: "2026-09-01",
-          endDate: "2026-12-01",
-          remainingSessions: null,
-          isUsable: true,
-        },
-      ]),
-    });
-  });
-
-  // Mock member check-ins
-  await page.route("**/api/members/*/checkins*", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify([
-        {
-          checkInId: "chk-1",
-          checkedInAt: "2026-09-26T07:45:00Z",
-          packageName: "All-Access Gold 3 Months",
-        },
-      ]),
-    });
-  });
+test("receptionist dashboard uses real operational links and no manual-paid workflow", async ({ page }) => {
+  await page.goto("/receptionist");
+  await expect(page.getByRole("heading", { name: "Operations overview", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Gym check-in / check-out", exact: true })).toBeVisible();
+  await expect(page.getByText(/manual paid/i)).toHaveCount(0);
+  await expect(page.getByText(/cash payout/i)).toHaveCount(0);
 });
 
-test.describe("Receptionist Desk Suite", () => {
-  test("Dashboard displays quick action cards with hotkeys and schedule occupancy", async ({ page }) => {
-    await page.goto("/receptionist");
-    await expect(page.getByText("Front Desk Terminal").or(page.getByText("Bàn Lễ Tân Trung Tâm"))).toBeVisible();
-
-    // Check quick action cards in main area
-    const mainArea = page.locator("main");
-    await expect(mainArea.getByText("Gym Turnstile Check-in").or(mainArea.getByText("Điểm danh Cửa Gym"))).toBeVisible();
-    await expect(mainArea.getByText("Alt + 1")).toBeVisible();
-    await expect(mainArea.getByText("Alt + 2")).toBeVisible();
-    await expect(mainArea.getByText("Alt + 3")).toBeVisible();
-    await expect(mainArea.getByText("Alt + 4")).toBeVisible();
-    await expect(mainArea.getByText("Alt + 5")).toBeVisible();
-
-    // Verify shortcuts are hidden in sidebar
-    await expect(page.locator(".sidebar").getByText(/Alt \+ \d/)).not.toBeVisible();
-
-    // Check schedule row
-    await expect(mainArea.getByText("Morning HIIT Boxing")).toBeVisible();
-    await expect(mainArea.getByText("15/20")).toBeVisible();
+test("receptionist selects a Member and performs server-authorized Gym check-in", async ({ page }) => {
+  let checkIns = 0;
+  page.on("request", (request) => {
+    if (request.method() === "POST" && new URL(request.url()).pathname === "/api/gym-checkins") checkIns++;
   });
+  await page.goto("/receptionist/gym-checkin");
+  await page.getByLabel("Select Member").fill("Member A");
+  await page.waitForTimeout(250);
+  await page.getByRole("button", { name: /Member A/ }).click();
+  await page.getByRole("button", { name: "Check in", exact: true }).click();
+  await expect.poll(() => checkIns).toBe(1);
+});
 
-  test("Global keyboard shortcuts navigate across all receptionist sub-pages and open cheat sheet modal", async ({ page }) => {
-    // Start on attendance sub-page
-    await page.goto("/receptionist/attendance");
-    await expect(page.getByRole("heading", { name: /Front Desk Attendance|Điểm danh tại quầy/i })).toBeVisible();
-
-    // Press Alt + 1 to navigate to Gym check-in
-    await page.keyboard.press("Alt+1");
-    await expect(page).toHaveURL(/\/receptionist\/gym-checkin/);
-    await expect(page.getByRole("heading", { name: /Gym Turnstile Terminal|Điểm danh Cổng Turnstile Gym/i })).toBeVisible();
-
-    // Press Alt + 2 to navigate to Sell plans POS
-    await page.keyboard.press("Alt+2");
-    await expect(page).toHaveURL(/\/receptionist\/sell-plans/);
-    await expect(page.getByRole("heading", { name: /POS Package Sales|Bán gói tập/i })).toBeVisible();
-
-    // Press Alt + 4 to navigate to Invoices
-    await page.keyboard.press("Alt+4");
-    await expect(page).toHaveURL(/\/receptionist\/invoices/);
-    await expect(page.getByRole("heading", { name: /Invoice Lookup|Tra cứu hóa đơn/i })).toBeVisible();
-
-    // Press Alt + 5 to navigate to Class Registration
-    await page.keyboard.press("Alt+5");
-    await expect(page).toHaveURL(/\/receptionist\/registrations/);
-    await expect(page.getByRole("heading", { name: /Class Booking Assistance|Đăng ký lớp hộ/i })).toBeVisible();
-
-    // Press Alt + 0 to return to Dashboard
-    await page.keyboard.press("Alt+0");
-    await expect(page).toHaveURL(/\/receptionist$/);
-    await expect(page.getByRole("heading", { name: /Front Desk Terminal|Bàn Lễ Tân Trung Tâm/i })).toBeVisible();
-
-    // Click shortcuts button to open modal
-    const shortcutBtn = page.getByRole("button", { name: /Shortcuts|Phím tắt/i });
-    await shortcutBtn.click();
-    await expect(page.getByRole("dialog", { name: "Keyboard Shortcuts" })).toBeVisible();
-    await expect(page.getByText("Receptionist Desk Shortcuts").or(page.getByText("Phím Tắt Bàn Lễ Tân"))).toBeVisible();
-
-    // Press Escape to close modal
-    await page.keyboard.press("Escape");
-    await expect(page.getByRole("dialog", { name: "Keyboard Shortcuts" })).not.toBeVisible();
+test("only receptionist UI writes group attendance and uses enrollment+session identity", async ({ page }) => {
+  let payload: unknown = null;
+  await page.route(`**/api/class-sessions/${sessionId}/attendance/${enrollmentId}`, async (route) => {
+    payload = route.request().postDataJSON();
+    await route.fulfill({ json: { ok: true } });
   });
-
-  test("Gym Check-in Terminal displays hardware scanner HUD and clearance grant", async ({ page }) => {
-    await page.goto("/receptionist/gym-checkin");
-    await expect(page.getByText("Gym Turnstile Terminal").or(page.getByText("Điểm danh Cổng Turnstile Gym"))).toBeVisible();
-
-    // Verify hardware scanner HUD
-    await expect(page.getByText("Optical Gate Turnstile Reader Active").or(page.getByText("Đầu đọc cổng quang Turnstile đang sẵn sàng"))).toBeVisible();
-    await expect(page.getByText("Hardware Online").or(page.getByText("Cổng kết nối tốt"))).toBeVisible();
-
-    // Verify Live Camera Scanner HUD is mounted
-    await expect(page.getByText("Live Camera Turnstile Scanner").or(page.getByText("Camera Quét Mã Cổng Turnstile"))).toBeVisible();
-    await expect(page.getByRole("checkbox", { name: /Auto-unlock gate|Tự động mở cổng/i })).toBeVisible();
-
-    // Verify member input is present
-    const searchInput = page.getByPlaceholder(/Scan barcode\/QR/i).or(page.getByPlaceholder(/Quét mã Barcode\/QR/i));
-    await expect(searchInput).toBeVisible();
-
-    // Search for member
-    await searchInput.fill("hung");
-    await page.waitForTimeout(400);
-
-    // Select member
-    const memberOption = page.getByRole("button", { name: /Lê Văn Hùng/i }).first();
-    if (await memberOption.isVisible()) {
-      await memberOption.click();
-
-      // Clearance Card should be visible
-      await expect(page.getByText("Clearance Granted").or(page.getByText("Đủ Điều Kiện Qua Cổng")).or(page.getByText("All-Access Gold 3 Months"))).toBeVisible();
-    }
-  });
-
-  test("Sell Packages POS displays 3-step workflow and quick payment presets", async ({ page }) => {
-    await page.goto("/receptionist/sell-plans");
-    await expect(page.getByText("POS Package Sales & Cashier").or(page.getByText("Bán gói tập & Thu ngân"))).toBeVisible();
-
-    // Workflow steps visible
-    await expect(page.getByText("Select Package").or(page.getByText("Chọn gói tập"))).toBeVisible();
-    await expect(page.getByText("Collect Payment").or(page.getByText("Thu tiền"))).toBeVisible();
-    await expect(page.getByText("Receipt & Activation").or(page.getByText("In biên lai"))).toBeVisible();
-
-    // Available package card visible
-    await expect(page.getByText("All-Access Gold 3 Months")).toBeVisible();
-  });
-
-  test("Invoices Workbench displays filters and tabular numbers", async ({ page }) => {
-    await page.goto("/receptionist/invoices");
-    await expect(page.getByText("Invoice Lookup & Payments").or(page.getByText("Tra cứu hóa đơn & Thu tiền"))).toBeVisible();
-
-    // Verify invoice list table
-    await expect(page.getByText("INV-2026-001")).toBeVisible();
-    await expect(page.getByText("Lê Văn Hùng")).toBeVisible();
-  });
-
-  test("Class Booking Assistance displays unified member selection & schedule filters", async ({ page }) => {
-    await page.goto("/receptionist/registrations");
-    await expect(page.getByText("Class Booking Assistance").or(page.getByText("Đăng ký lớp hộ hội viên"))).toBeVisible();
-    await expect(page.getByText("Member Selection & Schedule Filters").or(page.getByText("Chọn hội viên & Bộ lọc lịch ca học"))).toBeVisible();
-    await expect(page.getByText("Schedule Date Presets:").or(page.getByText("Bộ lọc thời gian nhanh:"))).toBeVisible();
-    await expect(page.getByRole("button", { name: /Next 7 Days|7 ngày tới/i })).toBeVisible();
-  });
-
-  test("Attendance Board displays quick date presets and session selection", async ({ page }) => {
-    await page.goto("/receptionist/attendance");
-    await expect(page.getByText("Front Desk Attendance").or(page.getByText("Điểm danh tại quầy"))).toBeVisible();
-    await expect(page.getByText("Quick Date:").or(page.getByText("Chọn nhanh:"))).toBeVisible();
-    await expect(page.getByRole("button", { name: /Today|Hôm nay/i })).toBeVisible();
-  });
+  await page.goto("/receptionist/attendance");
+  await page.getByLabel("Class registration").selectOption("7");
+  await page.getByLabel("Sessions").selectOption(sessionId);
+  await expect(page.getByText("Member A", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Present", exact: true }).click();
+  await expect.poll(() => payload).toEqual({ status: "PRESENT" });
 });
