@@ -74,8 +74,6 @@ public class PtSessionsController(IPtSessionService sessions, PersonalTrainerGua
         CancellationToken ct = default)
     {
         var coachId = User.RequireUserId();
-        await personalTrainers.RequireAsync(coachId, ct);
-
         return Ok(await sessions.SearchAsync(memberId: null, coachId, status, fromUtc, toUtc, page, pageSize, ct));
     }
 
@@ -85,8 +83,6 @@ public class PtSessionsController(IPtSessionService sessions, PersonalTrainerGua
     public async Task<IActionResult> CoachGet(Guid sessionId, CancellationToken ct)
     {
         var coachId = User.RequireUserId();
-        await personalTrainers.RequireAsync(coachId, ct);
-
         var session = await sessions.GetAsync(sessionId, ct);
 
         if (session.CoachId != coachId)

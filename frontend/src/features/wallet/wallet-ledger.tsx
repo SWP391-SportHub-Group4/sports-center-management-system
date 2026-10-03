@@ -7,7 +7,7 @@ import { formatDateTime, formatPoints } from "@/lib/format";
 import { AsyncSection } from "@/components/ui";
 import { api } from "@/lib/apiClient";
 import type { WalletLedgerDto } from "@/lib/types";
-export function WalletLedger({ memberId }: { memberId?: string }) {
+export function WalletLedger({ memberId, ownerId }: { memberId?: string; ownerId?: string }) {
   const { t } = useLanguage();
   const [page, setPage] = useState(1);
   const [entryType, setEntryType] = useState("");
@@ -20,13 +20,15 @@ export function WalletLedger({ memberId }: { memberId?: string }) {
   };
   const state = useApi(
     (signal) =>
-      memberId
+      ownerId
+        ? api.get<WalletLedgerDto[]>(`/api/manager/wallets/${ownerId}/ledger`, { signal, query: { page, pageSize: 20, entryType } })
+        : memberId
         ? api.get<WalletLedgerDto[]>(`/api/members/${memberId}/points/ledger`, {
             signal,
             query: { page, pageSize: 20, entryType },
           })
         : walletApi.ledger(page, signal, entryType),
-    [page, entryType, memberId],
+    [page, entryType, memberId, ownerId],
   );
   return (
     <section>

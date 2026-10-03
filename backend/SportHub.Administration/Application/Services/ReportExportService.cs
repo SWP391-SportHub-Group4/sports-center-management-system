@@ -50,6 +50,8 @@ public sealed class CreateReportExportRequest
 
     public string? Format { get; set; }
     public int? SportId { get; set; }
+    public string? Source { get; set; }
+    public Guid? ExternalCoachId { get; set; }
 }
 
 public sealed class ReportExportService(
@@ -157,6 +159,8 @@ public sealed class ReportExportService(
                 toDate = toDate.ToString("yyyy-MM-dd"),
                 columns,
                 sportId = request.SportId,
+                source = request.Source,
+                externalCoachId = request.ExternalCoachId,
                 format
             }),
             Format = format,
@@ -173,7 +177,7 @@ public sealed class ReportExportService(
 
         await db.SaveChangesAsync(ct);
 
-        await RunAsync(export, fromDate, toDate, columns, request.SportId, ct);
+        await RunAsync(export, fromDate, toDate, columns, request.SportId, ct, request.Source, request.ExternalCoachId);
 
         return await GetOneAsync(export.ReportExportId, ct);
     }
@@ -254,7 +258,7 @@ public sealed class ReportExportService(
             DateOnly.ParseExact(parameters.ToDate, "yyyy-MM-dd", CultureInfo.InvariantCulture),
             parameters.Columns,
             parameters.SportId,
-            ct);
+            ct, parameters.Source, parameters.ExternalCoachId);
 
         return await GetOneAsync(reportExportId, ct);
     }
@@ -265,7 +269,7 @@ public sealed class ReportExportService(
         DateOnly toDate,
         IReadOnlyList<string> columns,
         int? sportId,
-        CancellationToken ct)
+        CancellationToken ct, string? source = null, Guid? externalCoachId = null)
     {
         try
         {
@@ -273,7 +277,7 @@ public sealed class ReportExportService(
             {
                 ReportTypes.RevenueDaily => await BuildRevenueDailyRowsAsync(fromDate, toDate, columns, ct),
                 ReportTypes.RevenueSummary => await BuildRevenueSummaryRowsAsync(fromDate, toDate, columns, ct),
-                ReportTypes.RevenueDimensions or ReportTypes.CourtRentalRevenue => await BuildDimensionRowsAsync(fromDate, toDate, columns, export.ReportType == ReportTypes.CourtRentalRevenue, ct),
+                ReportTypes.RevenueDimensions or ReportTypes.CourtRentalRevenue => await BuildDimensionRowsAsync(fromDate, toDate, columns, export.ReportType == ReportTypes.CourtRentalRevenue, ct, sportId, source, externalCoachId),
                 ReportTypes.MembershipPeriod => await BuildMembershipPeriodRowsAsync(fromDate, toDate, columns, ct),
                 ReportTypes.ClassEnrollment => (await classes.ReadAsync(fromDate, toDate, sportId, ct))
                     .Select(row => (IReadOnlyList<string>)columns.Select(c => row[c]).ToList()).ToList(),
@@ -348,10 +352,10 @@ public sealed class ReportExportService(
     }
 
     private async Task<IReadOnlyList<IReadOnlyList<string>>> BuildDimensionRowsAsync(
-        DateOnly from, DateOnly to, IReadOnlyList<string> columns, bool rentalsOnly, CancellationToken ct)
+        DateOnly from, DateOnly to, IReadOnlyList<string> columns, bool rentalsOnly, CancellationToken ct, int? sportId, string? source, Guid? externalCoachId)
     {
         var report = await revenue.GetAsync(from, to, ct);
-        return report.BySportAndSource.Where(r => !rentalsOnly || r.Source == "Rental")
+        return SportHub.Payment.Application.Services.RevenueDimensionFilter.Apply(report.BySportAndSource, sportId, source, externalCoachId, rentalsOnly)
             .Select(row => (IReadOnlyList<string>)columns.Select(column => column switch
             {
                 "source" => row.Source,
@@ -602,5 +606,5 @@ public sealed class ReportExportService(
             r.ExpiresAt,
             r.Format);
 
-    private sealed record ExportParameters(string FromDate, string ToDate, List<string> Columns, int? SportId = null);
+    private sealed record ExportParameters(string FromDate, string ToDate, List<string> Columns, int? SportId = null, string? Source = null, Guid? ExternalCoachId = null);
 }

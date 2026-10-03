@@ -1,16 +1,5 @@
 "use client";
-
 import { AppShell } from "@/components/AppShell";
 import { AuditLogView } from "@/components/AuditLogView";
-
-export default function AdminAuditPage() {
-  return (
-    <AppShell
-      title="Operations Register"
-      description="Collate administrator operations, including key and account unlock (BR-6, BR-7)"
-      allow={["SystemAdministrator"]}
-    >
-      <AuditLogView />
-    </AppShell>
-  );
-}
+import { useLanguage } from "@/lib/language";
+export default function Page() { const { t } = useLanguage(); return <AppShell title={t.staffWork.adminAudit} allow={["SystemAdministrator"]} operationalLayout><AuditLogView accountsOnly/></AppShell>; }

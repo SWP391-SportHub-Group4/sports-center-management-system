@@ -4,3 +4,4 @@ export {
   Pagination,
   useMutation,
 } from "./ui";
+export { default as operationsStyles } from "./operations.module.css";

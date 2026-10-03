@@ -11,6 +11,16 @@ namespace SportHub.Payment.Wallet.Api;
 [Route("api")]
 public sealed class WalletsController(WalletQueryService query) : ControllerBase
 {
+    [HttpGet("manager/wallets/{ownerId:guid}")]
+    [Authorize(Policy = SportHubPolicies.CenterManager)]
+    public async Task<IActionResult> Owner(Guid ownerId, CancellationToken ct)
+        => Ok(await query.BalanceAsync(ownerId, Actor(), ct, manager: true));
+
+    [HttpGet("manager/wallets/{ownerId:guid}/ledger")]
+    [Authorize(Policy = SportHubPolicies.CenterManager)]
+    public async Task<IActionResult> OwnerLedger(Guid ownerId, CancellationToken ct, int page = 1, int pageSize = 20, string? entryType = null)
+        => Ok(await query.LedgerAsync(ownerId, Actor(), page, pageSize, ct, entryType, manager: true));
+
     [HttpGet("wallet/me")]
     [Authorize(Policy = SportHubPolicies.WalletOwner)]
     public async Task<IActionResult> Mine(CancellationToken ct) => Ok(await query.BalanceAsync(Actor(), null, ct));

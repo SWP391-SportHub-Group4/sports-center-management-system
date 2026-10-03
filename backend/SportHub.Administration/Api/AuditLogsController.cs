@@ -28,6 +28,7 @@ public class AuditLogsController(IAuditQueryService auditLogs) : ControllerBase
         [FromQuery] DateTime? toUtc,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 25,
-        CancellationToken ct = default)
-        => Ok(await auditLogs.SearchAsync(action, targetEntity, fromUtc, toUtc, page, pageSize, ct));
+        CancellationToken ct = default, [FromQuery] Guid? actorId = null)
+        => Ok(await auditLogs.SearchAsync(action, targetEntity, fromUtc, toUtc, page, pageSize, ct,
+            actorId, accountsOnly: User.IsInRole(nameof(UserRole.SystemAdministrator))));
 }

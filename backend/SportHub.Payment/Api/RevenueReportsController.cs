@@ -15,6 +15,18 @@ namespace SportHub.Payment.Api;
 [Route("api/reports")]
 public class RevenueReportsController(IRevenueReportService revenue) : ControllerBase
 {
+    [HttpGet("revenue-dimensions")]
+    public async Task<IActionResult> Dimensions(
+        [FromQuery] DateOnly fromDate, [FromQuery] DateOnly toDate,
+        [FromQuery] int? sportId, [FromQuery] string? source, [FromQuery] Guid? externalCoachId,
+        CancellationToken ct = default)
+    {
+        var report = await revenue.GetAsync(fromDate, toDate, ct);
+        var rows = RevenueDimensionFilter.Apply(report.BySportAndSource, sportId, source, externalCoachId);
+        return Ok(new { report.FromDate, report.ToDate, Rows = rows,
+            CashCollected = rows.Sum(r => r.CashCollected), PointsRedeemedVnd = rows.Sum(r => r.PointsRedeemed) * 1000m });
+    }
+
     [HttpGet("court-rental-revenue")]
     public async Task<IActionResult> GetCourtRentalRevenue(
         [FromQuery] DateOnly fromDate, [FromQuery] DateOnly toDate, CancellationToken ct = default)

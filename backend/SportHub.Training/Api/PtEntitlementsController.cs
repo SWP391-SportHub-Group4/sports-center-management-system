@@ -19,6 +19,14 @@ namespace SportHub.Training.Api;
 [ProducesResponseType(StatusCodes.Status403Forbidden)]
 public class PtEntitlementsController(IPtEntitlementQueryService entitlements) : ControllerBase
 {
+    // Removing a specialty does not remove existing assignments (BR-96). Read only and owner-scoped.
+    [Authorize(Policy = SportHubPolicies.Coach)]
+    [HttpGet("coaches/me/pt-entitlements")]
+    public async Task<IActionResult> CoachMine(
+        [FromQuery] int page = 1, [FromQuery] int pageSize = PtEntitlementQueryService.DefaultPageSize,
+        CancellationToken ct = default)
+        => Ok(await entitlements.SearchAsync(null, User.RequireUserId(), null, page, pageSize, ct));
+
     [Authorize(Policy = SportHubPolicies.CenterManager)]
     [HttpGet("manager/pt-entitlements")]
     [ProducesResponseType<IReadOnlyList<PtEntitlementResponse>>(StatusCodes.Status200OK)]

@@ -100,7 +100,11 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { href: "/coach", labelKey: "overview" },
     { href: "/coach/schedule", labelKey: "ptSchedule" },
     { href: "/coach/members", labelKey: "assignedMembers" },
+    { href: "/coach/attendance", labelKey: "attendance" },
+    { href: "/coach/pt-sessions", labelKey: "ptSchedule" },
     { href: "/coach/training-plans", labelKey: "trainingPlans" },
+    { href: "/coach/progress", labelKey: "progress" },
+    { href: "/coach/homework", labelKey: "homework" },
     { href: "/coach/ai-suggestions", labelKey: "aiSuggestions" },
   ],
   CenterManager: [
@@ -122,6 +126,9 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
       labelKey: "coachingRelationships",
     },
     { href: "/manager/payment-adjustments", labelKey: "paymentAdjustments" },
+    { href: "/manager/pt-sessions", labelKey: "ptSchedule" },
+    { href: "/manager/pt-change-requests", labelKey: "ptChangeRequests" },
+    { href: "/manager/points", labelKey: "wallet" },
     { href: "/manager/reports", labelKey: "revenueReports" },
     { href: "/manager/settings", labelKey: "systemSettings" },
     { href: "/manager/audit-log", labelKey: "auditLog" },
@@ -135,7 +142,7 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
 
 export function getNavForUser(
   user: { role: Role; sportIds: number[]; approvalStatus?: string | null },
-  ptSportId?: number,
+  ptSportId?: number | number[],
 ): NavItem[] {
   if (user.role === "ExternalCoach")
     return NAV_BY_ROLE.ExternalCoach.filter(
@@ -148,12 +155,15 @@ export function getNavForUser(
     { href: "/coach", labelKey: "overview" as const },
     { href: "/coach/schedule", labelKey: "teachingSchedule" as const },
     { href: "/coach/members", labelKey: "assignedMembers" as const },
+    { href: "/coach/attendance", labelKey: "attendance" as const },
+    { href: "/coach/pt-sessions", labelKey: "ptSchedule" as const },
   ];
-  return ptSportId !== undefined && user.sportIds.includes(ptSportId)
+  const ptIds = Array.isArray(ptSportId) ? ptSportId : ptSportId === undefined ? [] : [ptSportId];
+  return ptIds.some(id => user.sportIds.includes(id))
     ? [
         ...base,
         ...NAV_BY_ROLE.Coach.filter((item) =>
-          ["/coach/training-plans", "/coach/ai-suggestions"].includes(
+          ["/coach/training-plans", "/coach/ai-suggestions", "/coach/progress", "/coach/homework"].includes(
             item.href,
           ),
         ),
