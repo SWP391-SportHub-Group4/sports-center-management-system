@@ -278,6 +278,8 @@ export interface PaymentDto {
 }
 
 export interface PaymentAdjustmentDto {
+  pointLedgerEntryId: string | null;
+  centerFault: boolean;
   invoiceItemId: string | null;
   systemCalculatedPoints: number;
   approvedPoints: number | null;
@@ -645,6 +647,44 @@ export interface PtChangeRequestDto {
   timingClassification?: string;
   requestedStartAtUtc?: string | null;
   requestedCoachName?: string;
+}
+export interface RevenueDimensionsDto {
+  fromDate: string;
+  toDate: string;
+  cashCollected: number;
+  pointsRedeemedVnd: number;
+  rows: RevenueReportDto["bySportAndSource"];
+}
+export interface ClassEnrollmentReportDto {
+  fromDate: string;
+  toDate: string;
+  totalClasses: number;
+  totalCapacity: number;
+  totalConfirmed: number;
+  totalActiveHolds: number;
+  fillRatio: number;
+  classes: { classId: number; code: string; name: string; sportId: number; sportName: string; status: string; capacity: number; confirmedCount: number; activeHoldCount: number; availableSeats: number; fillRatio: number; breakEvenThreshold: number | null; thresholdStatus: string; firstSessionStartUtc: string | null }[];
+}
+export interface PtReviewRequestDto extends PtChangeRequestDto {
+  memberId: string;
+  memberName?: string;
+  entitlementId?: string;
+  sessionStartAtUtc?: string;
+  currentCoachName?: string;
+  requestsException?: boolean;
+}
+export interface ProgressItemDto {
+  ptSessionId: string;
+  startAtUtc: string;
+  endAtUtc: string;
+  sessionStatus: string;
+  memberId: string;
+  memberName: string;
+  coachName: string;
+  resultId: string | null;
+  progressNote: string | null;
+  coachComment: string | null;
+  recordedAt: string | null;
 }
 export interface ThresholdResponseDto {
   responseId: string;

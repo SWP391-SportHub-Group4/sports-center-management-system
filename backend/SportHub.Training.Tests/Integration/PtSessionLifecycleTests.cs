@@ -222,7 +222,7 @@ public sealed class PtSessionLifecycleTests(TrainingApiFactory factory)
     }
 
     [Fact]
-    public async Task Class_instructor_cannot_use_pt_session_endpoints()
+    public async Task Coach_without_pt_specialty_can_read_only_owned_assignments_and_cannot_complete()
     {
         var manager = await factory.SeedUserAsync(UserRole.CenterManager);
         var coach = await factory.SeedCoachAsync(CoachKind.PersonalTrainer);
@@ -234,7 +234,10 @@ public sealed class PtSessionLifecycleTests(TrainingApiFactory factory)
 
         var response = await classInstructorClient.GetAsync("api/coaches/me/pt-sessions");
 
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Empty((await response.Content.ReadApiJsonAsync<List<PtSessionResponse>>())!);
+        Assert.Equal(HttpStatusCode.Forbidden, (await classInstructorClient.PostAsync(
+            $"api/coaches/me/pt-sessions/{session.SessionId}/complete", null)).StatusCode);
     }
 
     [Fact]

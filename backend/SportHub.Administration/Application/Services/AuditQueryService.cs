@@ -32,12 +32,14 @@ public sealed class AuditQueryService(ISportHubDbContext db) : IAuditQueryServic
         DateTime? toUtc,
         int page,
         int pageSize,
-        CancellationToken ct = default)
+        CancellationToken ct = default, Guid? actorId = null, bool accountsOnly = false)
     {
         page = page < 1 ? 1 : page;
         pageSize = Math.Clamp(pageSize <= 0 ? 25 : pageSize, 1, 200);
 
         var query = db.Set<AuditLog>().AsNoTracking();
+        if (actorId.HasValue) query = query.Where(a => a.UserId == actorId);
+        if (accountsOnly) query = query.Where(a => a.TargetEntity == "UserAccount");
 
         if (!string.IsNullOrWhiteSpace(action))
         {
