@@ -2,8 +2,6 @@
 
 Monorepo cho hệ thống quản lý **nhà văn hóa thể thao đa môn**: nhiều bộ môn (seed: Gym, Personal Training, Cầu lông, Bóng rổ — Manager tự thêm/sửa môn), nhiều sân/phòng, **khóa học cố định theo lớp** (ví dụ Cầu lông 01, 02), huấn luyện viên của trung tâm và huấn luyện viên tự do (ExternalCoach) thuê sân theo giờ. Thanh toán bằng tiền (VNPay-QR) kết hợp **ví điểm** (1 điểm = 1.000 VND). Thiết kế đầy đủ: [`docs/Center-Management-System-Design-v3.md`](docs/Center-Management-System-Design-v3.md).
 
-> **Đổi phạm vi 30/09/2026:** hệ thống không còn là một phòng gym (bộ môn cũ Yoga/Group X đã bỏ). Nguồn nghiệp vụ hiện hành là **Business Rules v2.0** ([`docs/SportManagement_BusinessRules_v2.0_updated.docx`](docs/SportManagement_BusinessRules_v2.0_updated.docx), BR-1 → BR-139); thiết kế hiện hành là **Design v3**. Nếu hai tài liệu mâu thuẫn, Business Rules thắng.
-
 > **Trước khi code:** đọc [`docs/00-Source-of-Truth.md`](docs/00-Source-of-Truth.md) (scope MVP, entity/enum/state, quy ước ID/money/timezone) và Design v3 §0, §2, §16. Nếu SSOT chưa kịp đồng bộ với Design v3 thì Design v3 + BR v2.0 thắng (SSOT sẽ được cập nhật theo Design v3 §19.1).
 
 ## Sản phẩm
@@ -60,16 +58,16 @@ sports-center-management-system/
 | [`docs/00-Source-of-Truth.md`](docs/00-Source-of-Truth.md) | Scope MVP, entity/enum/state, quy ước (đang được đồng bộ theo Design v3) |
 | [`docs/Requirements.md`](docs/Requirements.md), [`docs/SWP391_Report_SRS.docx`](docs/SWP391_Report_SRS.docx) | Yêu cầu và báo cáo SRS |
 | [`docs/entity-field-purpose.md`](docs/entity-field-purpose.md) | Ý nghĩa từng trường của entity |
-| [`docs/RUNBOOK.md`](docs/RUNBOOK.md) | Chạy local, tài khoản demo, kịch bản demo theo Flow |
+| [`docs/RUNBOOK.md`](docs/RUNBOOK.md) | Khởi động PostgreSQL, backend và frontend trên máy local |
 | [`docs/GIT_WORKFLOW.md`](docs/GIT_WORKFLOW.md) | Quy trình Git, phân module theo giai đoạn G0–G12 |
 | [`docs/Center-Management-System-Design-v2.md`](docs/Center-Management-System-Design-v2.md) | **Đã bị thay thế bởi Design v3** — chỉ để đối chiếu lịch sử (có bảng ánh xạ v2 → v3 ở đầu file) |
 | [`PRODUCT.md`](PRODUCT.md), [`DESIGN.md`](DESIGN.md) | Định vị sản phẩm và hệ thống thiết kế giao diện |
 
 ## Chạy thử nhanh
 
-Xem [`docs/RUNBOOK.md`](docs/RUNBOOK.md) — có tài khoản demo cho cả 6 vai trò và kịch bản demo cho Flow 1–6.
+Xem [`docs/RUNBOOK.md`](docs/RUNBOOK.md) để khởi động backend và frontend.
 
-> Đây là đặc tả đích; code và kiểm thử đang được chuyển theo [`docs/refactor-code-plan-1-backend.md`](docs/refactor-code-plan-1-backend.md) và [`docs/refactor-code-plan-2-frontend.md`](docs/refactor-code-plan-2-frontend.md). VNPay/mock và checkout mới đã có; sandbox merchant thật cùng một số PostgreSQL integration gates còn cần xác minh. Không dùng kết quả test cũ để kết luận các rule mới đã đạt.
+> Đây là đặc tả đích; code và kiểm thử đã được chuyển theo đặc tả này. VNPay/mock và checkout mới đã có; sandbox merchant thật, SMTP và Google thật vẫn cần xác minh trong môi trường tích hợp riêng.
 
 ## Backend — Feature-based Modular Monolith (11 project)
 
@@ -182,7 +180,7 @@ Backend đọc cấu hình qua biến môi trường (`__` = cấp lồng nhau, 
 
 Ở môi trường `Development`, backend tự áp migration và seed dữ liệu demo khi khởi động —
 nhưng **chỉ khi database chưa có tài khoản nào**, nên không bao giờ ghi đè dữ liệu đang có.
-Tài khoản demo và kịch bản thao tác: [`docs/RUNBOOK.md`](docs/RUNBOOK.md).
+Cách khởi động: [`docs/RUNBOOK.md`](docs/RUNBOOK.md). Tài khoản demo do `DemoDataSeeder.cs` tạo.
 
 ### Cách 1: Docker Compose (cả 3 service)
 
@@ -211,7 +209,7 @@ npm run build
 npm run test:e2e
 ```
 
-CI trên PR vào `develop` chạy thêm Playwright với PostgreSQL + backend Development thật và upload report/trace khi fail. Phạm vi/bằng chứng P2.12–P2.16: `docs/refactor-web-evidence.md` và `docs/refactor-p2-12-16-api-coverage.md`.
+CI trên PR vào `develop` chạy thêm Playwright với PostgreSQL + backend Development thật và upload report/trace khi fail. Hợp đồng API: `docs/api-contract.md`.
 
 ### Cách 2: Chạy riêng từng phần (debug trong Rider/VS Code)
 

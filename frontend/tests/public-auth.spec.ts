@@ -4,7 +4,7 @@ test("public header and section links work without an account", async ({
   page,
 }) => {
   await page.goto("/");
-  await expect(page.getByRole("link", { name: "Sign in" })).toHaveAttribute(
+  await expect(page.getByRole("link", { name: "Sign in", exact: true })).toHaveAttribute(
     "href",
     "/login",
   );

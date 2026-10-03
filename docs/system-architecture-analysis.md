@@ -892,7 +892,7 @@ Audit module **không có controller riêng** — query audit được xử lý 
 ```
 frontend/src/
 ├── app/           # Pages (file-based routing): /, /login, /register, /member/*, /coach/*, /manager/*, /receptionist/*, /admin/*
-├── components/    # Shared: AppShell, MemberShell, InvoiceWorkbench, AttendanceBoard, CameraQrScanner, NotificationBell, GoogleSignInButton, AuditLogView, ui.tsx, form.tsx
+├── components/    # Shared: AppShell, MemberShell, AttendanceBoard, NotificationBell, GoogleSignInButton, AuditLogView, ui.tsx
 ├── features/      # Feature modules (8): identity, scheduling, membership, training, coaches, notifications, check-in, news
 ├── lib/           # Core: apiClient.ts, auth.tsx, useApi.ts, types.ts, format.ts, language.tsx
 ├── shared/        # Design system: ui primitives, role-shell, clock/date utils

@@ -96,6 +96,7 @@ jobs:
       NEXT_PUBLIC_API_BASE_URL: http://127.0.0.1:5000
       P2_LIVE_API: http://127.0.0.1:5000
       PLAYWRIGHT_BASE_URL: http://127.0.0.1:3100
+      Cors__AllowedOrigins__1: http://127.0.0.1:3100
 
     steps:
       - uses: actions/checkout@v4
