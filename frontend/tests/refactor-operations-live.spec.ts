@@ -4,19 +4,15 @@ import {
   type APIRequestContext,
   type Page,
 } from "@playwright/test";
+import { loginApi } from "./helpers/auth";
 
 // Opt in only against a freshly seeded, isolated test database.
 const base = process.env.P2_LIVE_API;
 test.skip(!base, "Set P2_LIVE_API for an isolated test API.");
 test.describe.configure({ mode: "serial" });
 
-async function login(request: APIRequestContext, email: string) {
-  const response = await request.post(`${base}/api/auth/login`, {
-    data: { email, password: "Sporthub@123" },
-  });
-  expect(response.ok(), await response.text()).toBeTruthy();
-  return response.json() as Promise<{ accessToken: string }>;
-}
+const login = (request: APIRequestContext, email: string) =>
+  loginApi(request, email);
 async function browserAuth(page: Page, token: string) {
   await page.addInitScript((accessToken) => {
     localStorage.setItem("sporthub.accessToken", accessToken);

@@ -1,6 +1,6 @@
 # 00 — Source of Truth (SSOT)
 
-> **Cập nhật backend 01/10/2026:** plan 1 đã hoàn tất phạm vi backend và qua 465/465 test; ngoại trừ tích hợp/nghiệm thu VNPay sandbox thật do người dùng phụ trách. Frontend thuộc plan 2. Xem [bàn giao backend](refactor-backend-final-handover.md), [API contract](refactor-api-contract.md) và [ánh xạ field thực tế](entity-field-purpose.md#ánh-xạ-backend-đã-triển-khai--01102026). Các ghi chú “code chưa refactor” phía dưới là lịch sử 30/09, không mô tả code hiện tại. BR v2.0 vẫn là nguồn nghiệp vụ ưu tiên.
+> **Trạng thái triển khai:** backend và frontend đã refactor theo BR v2.0/Design v3 (backend 484 test, Playwright 105 test với backend thật); ngoại trừ VNPay sandbox, SMTP và Google thật chưa được xác minh. Xem [API contract](api-contract.md) và [ánh xạ field thực tế](entity-field-purpose.md#ánh-xạ-backend-đã-triển-khai--01102026). Các ghi chú “code chưa refactor” phía dưới là lịch sử 30/09, không mô tả code hiện tại. BR v2.0 vẫn là nguồn nghiệp vụ ưu tiên.
 >
 > Các quyết định vật lý đã triển khai: Invoice API `beneficiaryUserId` có alias `memberId`, DB giữ `member_id`; typed InvoiceItem references/snapshot + PaymentAttempt link; CheckoutSession/VerifiedGatewayEvent lưu cycle/inbox; hoàn điểm dùng PaymentAdjustment; transfer dùng ThresholdResponse và chuỗi InvoiceItem; CourtRental có SportId. Membership giữ cột quota legacy để đọc lịch sử nhưng runtime chỉ xét status/ngày. Chi tiết và giới hạn backfill tại manifest, không suy schema từ tên field logic cũ.
 

@@ -312,64 +312,6 @@ export function StickerSuccessTrophy({
 }
 
 /**
- * 6. Quick Gate Pass QR Sticker
- * Contactless turnstile entrance badge.
- */
-export function StickerGatePass({
-  size = 72,
-  className,
-  style,
-  ...props
-}: StickerProps) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 100 100"
-      fill="none"
-      style={{ ...baseStickerStyle, ...style }}
-      className={className}
-      aria-hidden="true"
-      {...props}
-    >
-      <defs>
-        <linearGradient id="qrBgGrad" x1="10" y1="10" x2="90" y2="90" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#1a2b4c" />
-          <stop offset="1" stopColor="#0d1b33" />
-        </linearGradient>
-      </defs>
-
-      <rect x="8" y="8" width="84" height="84" rx="24" fill="url(#qrBgGrad)" />
-
-      {/* Phone Screen Frame */}
-      <rect x="26" y="16" width="48" height="68" rx="8" fill="#ffffff" />
-      <rect x="42" y="20" width="16" height="3" rx="1.5" fill="#cbd5e1" />
-
-      {/* QR Code Graphic */}
-      <rect x="34" y="28" width="12" height="12" rx="2" fill="#1a2b4c" />
-      <rect x="36" y="30" width="8" height="8" rx="1" fill="#ffffff" />
-      <rect x="38" y="32" width="4" height="4" fill="#1a2b4c" />
-
-      <rect x="54" y="28" width="12" height="12" rx="2" fill="#1a2b4c" />
-      <rect x="56" y="30" width="8" height="8" rx="1" fill="#ffffff" />
-      <rect x="58" y="32" width="4" height="4" fill="#1a2b4c" />
-
-      <rect x="34" y="48" width="12" height="12" rx="2" fill="#1a2b4c" />
-      <rect x="36" y="50" width="8" height="8" rx="1" fill="#ffffff" />
-      <rect x="38" y="52" width="4" height="4" fill="#1a2b4c" />
-
-      {/* Turnstile Access Success Pill */}
-      <rect x="32" y="66" width="36" height="12" rx="6" fill="#00c48c" />
-      <path d="M46 72l3 3 5-5" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-
-      {/* Radiating Waves */}
-      <path d="M78 40a18 18 0 0 1 0 20" stroke="#6ec1e4" strokeWidth="2.5" strokeLinecap="round" />
-      <path d="M84 34a26 26 0 0 1 0 32" stroke="#6ec1e4" strokeWidth="2" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-/**
  * 7. Fitness Goal Target & Metric Sticker
  */
 export function StickerGoalTarget({
