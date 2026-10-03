@@ -1,4 +1,5 @@
 import { test, expect, type APIRequestContext } from "@playwright/test";
+import { loginApi } from "./helpers/auth";
 import type {
   CourseDto,
   CheckoutDto,
@@ -10,16 +11,8 @@ test.skip(
   "Set P2_LIVE_API only for an isolated, freshly seeded test database.",
 );
 test.describe.configure({ mode: "serial" });
-async function login(request: APIRequestContext, email: string) {
-  const response = await request.post(`${base}/api/auth/login`, {
-    data: { email, password: "Sporthub@123" },
-  });
-  expect(response.ok()).toBeTruthy();
-  return response.json() as Promise<{
-    accessToken: string;
-    user: { userId: string };
-  }>;
-}
+const login = (request: APIRequestContext, email: string) =>
+  loginApi(request, email);
 for (const points of [0, 50, 200])
   test(`real course checkout ${points} points, F5 and server fulfillment`, async ({
     page,

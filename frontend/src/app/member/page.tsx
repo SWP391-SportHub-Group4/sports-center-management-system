@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { MemberShell } from "@/components/MemberShell";
+import { MemberCodeCard } from "@/components/MemberCodeCard";
 import { AsyncSection, Card, StatusChip } from "@/components/ui";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
@@ -152,6 +153,7 @@ export default function MemberDashboardPage() {
           </AsyncSection>
           <Link href="/member/training">{t.refactor.training}</Link>
         </Card>
+        <MemberCodeCard />
         <Card title={t.refactor.notifications}>
           <AsyncSection state={notifications}>
             {(data) =>

@@ -1,6 +1,6 @@
 # SportHub — Design v3: Nhà văn hóa thể thao đa môn
 
-> **Bản triển khai backend 01/10/2026:** plan 1 đã qua 465/465 test; VNPay sandbox thật nằm ngoài phạm vi theo yêu cầu. Các ánh xạ vật lý/quyết định tương thích đã code được chốt tại [manifest backend](refactor-backend-final-handover.md#quyết-định-tương-thích-đã-triển-khai) và bảng dưới. Frontend chưa được chứng nhận hoàn tất.
+> **Bản triển khai:** các ánh xạ vật lý và quyết định tương thích đã code được chốt tại bảng dưới và [API contract](api-contract.md). VNPay sandbox thật nằm ngoài phạm vi kiểm chứng.
 
 ## Quyết định triển khai backend chốt 01/10/2026
 
@@ -17,7 +17,7 @@
 | Incident | Preview trả phương án class reschedule/cancel-with-makeup, PT reschedule/cancel, block removal. Manager thực hiện phương án hợp lệ rồi preview/resolve lại; resolve recheck, hoàn rental + incident/block nguyên tử. |
 | Outbox | Notification email payload mã hóa và dedup theo event/entity/recipient/channel; transaction nghiệp vụ queue, dispatcher lease/retry và gửi at-least-once. Mỗi lần đổi lịch dùng event ID riêng. |
 
-Migration cuối `20261001131334_BackfillTypedInvoiceReferences` bổ sung typed links chứng minh được; dòng lịch sử không xác định được giữ null và legacy reference. Không ghi đè snapshot hiện có. PT thiếu định danh môn chỉ được suy ra khi đúng một môn OneOnOne phù hợp; không bịa chiều báo cáo. Chi tiết API/kiểm thử tại [contract](refactor-api-contract.md) và [evidence](refactor-backend-evidence.md).
+Migration cuối `20261001131334_BackfillTypedInvoiceReferences` bổ sung typed links chứng minh được; dòng lịch sử không xác định được giữ null và legacy reference. Không ghi đè snapshot hiện có. PT thiếu định danh môn chỉ được suy ra khi đúng một môn OneOnOne phù hợp; không bịa chiều báo cáo. Chi tiết API tại [contract](api-contract.md).
 
 > **Trạng thái:** bản thiết kế mục tiêu, soạn và **chốt 30/09/2026** (các quyết định ở Mục 19.2 đã được người dùng xác nhận hoặc chọn theo best practice), thay thế `Center-Management-System-Design-v2.md`. Mục 20–23 (Phụ lục A–D) liệt kê **từng file Xóa / Giữ / Sửa / Thêm** để viết plan refactor.
 > **Nguồn nghiệp vụ:** `SportManagement_BusinessRules_v2.0` (BR-1 → BR-139). Nếu tài liệu này và Business Rules v2.0 mâu thuẫn, Business Rules thắng; cập nhật lại tài liệu này rồi mới code.
@@ -1164,7 +1164,7 @@ Chú thích: **G** giữ nguyên · **S** sửa · **X** xóa · **T** thêm · 
 | `app/page.tsx`, `public-header.tsx`, `membership-pricing.tsx`, `community-events.tsx`, `features/news/*` | S | Landing đa môn: danh sách môn từ API, khóa học sắp khai giảng, lịch thuê sân; bỏ nội dung Yoga/Group X |
 | `app/login`, `register`, `account`, `forgot-password` | S | Password policy (BR-102), quên mật khẩu bằng OTP không hỏi mật khẩu cũ, đổi mật khẩu; `forgot-password` hiện có giao diện nhưng kiểm tra lại luồng |
 | `app/register-external-coach/page.tsx` | T | Form đăng ký ExternalCoach + chờ duyệt |
-| `components/GoogleSignInButton.tsx`, `CameraQrScanner.tsx`, `NotificationBell.tsx`, `AppShell.tsx`, `MemberShell.tsx`, `form.tsx`, `ui.tsx` | G / S | `AppShell` thêm menu ExternalCoach |
+| `components/GoogleSignInButton.tsx`, `NotificationBell.tsx`, `AppShell.tsx`, `MemberShell.tsx`, `ui.tsx` | G / S | `AppShell` thêm menu ExternalCoach |
 | `app/member/class-schedule`, `my-registrations`, `invoices`, `my-plans`, `training`, `profile`, `page.tsx` | S | Lớp là khóa học; checkout có giữ chỗ và chọn điểm (split); `my-plans` chỉ Gym/PT |
 | `app/member/wallet/page.tsx`, `member/chat/page.tsx` | T | Ví điểm + lịch sử; chatbot |
 | `app/receptionist/registrations`, `attendance`, `invoices`, `sell-plans`, `gym-checkin`, `page.tsx` | S | `registrations` ghi danh lớp thay Member + OTP điểm; `attendance` điểm danh lớp; `gym-checkin` thêm check-out |
@@ -1174,7 +1174,7 @@ Chú thích: **G** giữ nguyên · **S** sửa · **X** xóa · **T** thêm · 
 | `app/coach/schedule`, `members`, `attendance`, `training-plans`, `ai-suggestions`, `page.tsx` | S | Lịch gồm lớp + PT; `attendance` chỉ xem/PT; `members` danh sách học viên lớp mình |
 | `app/external-coach/*` (dashboard, rentals, book, wallet, invoices) | T | Thuê sân, ví, hóa đơn |
 | `app/admin/*` | G | Thêm menu duyệt nếu đặt duyệt ExternalCoach ở admin |
-| `components/InvoiceWorkbench.tsx`, `MemberPicker.tsx`, `AttendanceBoard.tsx` | S | Split payment, OTP điểm, điểm danh theo lớp |
+| `features/payments/*`, `MemberPicker.tsx`, `AttendanceBoard.tsx` | S | Split payment, OTP điểm, điểm danh theo lớp |
 | `features/scheduling/*`, `features/coaches/*`, `features/membership/*`, `features/identity/*`, `features/training/*`, `features/check-in/*`, `features/notifications/*` | S | Model/type theo API mới; thêm `features/wallet`, `features/catalog`, `features/rental`, `features/chat` |
 | `application/member/*`, `infrastructure/demo/*` | S | Demo/seed: xóa Yoga/Group X, thêm Cầu lông/Bóng rổ |
 | `lib/types.ts`, `apiClient.ts`, `auth.tsx`, `useApi.ts`, `format.ts` | S | Kiểu mới, vai trò ExternalCoach, format điểm |

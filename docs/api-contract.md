@@ -1,6 +1,6 @@
 # Hợp đồng API refactor đa môn (backend)
 
-Trạng thái 01/10/2026: **backend plan 1 đã qua gate 465/465 test**, ngoại trừ tích hợp/nghiệm thu VNPay sandbox thật theo yêu cầu người dùng. Xem [bàn giao](refactor-backend-final-handover.md) và [evidence](refactor-backend-evidence.md). Phần A là route lịch sử trước refactor (30/09/2026, commit `a5c480b`), không dùng để khôi phục flow ghi dữ liệu đã bỏ. Quy ước và bản chốt dưới đây được ưu tiên khi checkpoint cũ dùng tên nội bộ PascalCase.
+Trạng thái 01/10/2026: **backend plan 1 đã qua gate 465/465 test**, ngoại trừ tích hợp/nghiệm thu VNPay sandbox thật theo yêu cầu người dùng. Phần A là route lịch sử trước refactor (30/09/2026, commit `a5c480b`), không dùng để khôi phục flow ghi dữ liệu đã bỏ. Quy ước và bản chốt dưới đây được ưu tiên khi checkpoint cũ dùng tên nội bộ PascalCase.
 
 ## Bổ sung P2.06–P2.10 — 02/10/2026
 
@@ -56,7 +56,7 @@ Các endpoint dưới đây phục vụ frontend API-backed. Không thay schema/
 | GET | `/api/coach-member-relationships` | Member/Coach/Manager; Member/Coach bị clamp theo owner. Không có endpoint members/me/relationships giả. |
 | GET | `/api/wallet/me/ledger?page=&pageSize=&entryType=` | Array WalletLedgerResponse, không Paged; timestamp createdAtUtc. Filter HOLD/RELEASE/SPEND/EARN/ADJUSTMENT áp trước pagination; filter sai 400. Staff audited ledger cũng hỗ trợ filter. |
 
-Kiểm chứng build cuối: backend 470/470 test pass (Payment 135, Scheduling 108, Training 81, Security 131, Administration 15). HTTP riêng xác minh public catalog anonymous, owner reads, ledger filter/400. Browser API thật 4/4 dùng PostgreSQL cô lập và VNPay mock. SMTP/VNPay sandbox thật không được chứng nhận bởi các test này. Xem [progress](refactor-progress.md).
+Kiểm chứng build cuối: backend 470/470 test pass (Payment 135, Scheduling 108, Training 81, Security 131, Administration 15). HTTP riêng xác minh public catalog anonymous, owner reads, ledger filter/400. Browser API thật 4/4 dùng PostgreSQL cô lập và VNPay mock. SMTP/VNPay sandbox thật không được chứng nhận bởi các test này.
 
 ## Quy ước chung
 
@@ -68,7 +68,7 @@ Kiểm chứng build cuối: backend 470/470 test pass (Payment 135, Scheduling 
 
 ## Bản chốt API — lịch sân, incident, payment và snapshot
 
-[refactor-api-examples.json](refactor-api-examples.json) chứa response thật từ HTTP integration test: POST membership checkout (201), GET invoice (200), GET checkout của người khác (403 `checkout_not_owned`). Fixture đã kiểm thanh toán mock và snapshot; ID/email trong ví dụ chỉ thuộc database test.
+[api-examples.json](api-examples.json) chứa response thật từ HTTP integration test: POST membership checkout (201), GET invoice (200), GET checkout của người khác (403 `checkout_not_owned`). Fixture đã kiểm thanh toán mock và snapshot; ID/email trong ví dụ chỉ thuộc database test.
 
 ### Lịch sân và xử lý sự cố
 

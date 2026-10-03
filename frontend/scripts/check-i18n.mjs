@@ -24,7 +24,6 @@ const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const MIGRATED_SCOPE = [
   "src/components/AppShell.tsx",
   "src/components/ui.tsx",
-  "src/components/form.tsx",
   "src/lib/apiClient.ts",
   "src/lib/language.tsx",
   "src/locales/en.ts",

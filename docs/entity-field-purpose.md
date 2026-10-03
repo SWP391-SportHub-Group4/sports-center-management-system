@@ -2,7 +2,7 @@
 
 ## Ánh xạ backend đã triển khai — 01/10/2026
 
-Phần này chốt tên field thực tế sau plan 1; các bảng logic cũ bên dưới cần đọc theo BR v2.0/Design v3 và ánh xạ này. [Manifest](refactor-backend-final-handover.md) có quyết định tương thích và [evidence](refactor-backend-evidence.md) ghi gate 465 test.
+Phần này chốt tên field thực tế sau refactor; các bảng logic cũ bên dưới cần đọc theo BR v2.0/Design v3 và ánh xạ này. Quyết định tương thích và API ở [api-contract.md](api-contract.md).
 
 | Entity.field thực tế | Mục đích |
 |---|---|
