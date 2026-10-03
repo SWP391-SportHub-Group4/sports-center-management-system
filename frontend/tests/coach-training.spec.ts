@@ -22,7 +22,7 @@ test("coach with PT and group specialties can navigate both workspaces", async (
   await coachFixture(page, [2, 3]);
   await page.goto("/coach");
   await expect(page.getByRole("link", { name: "PT schedule", exact: true })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Class attendance (read only)", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Attendance", exact: true })).toBeVisible();
 });
 
 test("group-only coach does not receive PT action navigation", async ({ page }) => {

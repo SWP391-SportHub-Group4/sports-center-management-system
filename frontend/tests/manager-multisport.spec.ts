@@ -55,7 +55,7 @@ for (const width of [390, 1440]) {
     await page.setViewportSize({ width, height: 1000 });
     for (const path of ["/manager", "/manager/reports", "/manager/payment-adjustments", "/manager/audit-log"]) {
       await page.goto(path);
-      await expect(page.locator("#main-content h1")).toBeVisible();
+      await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width + 1);
     }
   });
