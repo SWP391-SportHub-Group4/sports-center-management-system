@@ -1,3 +1,23 @@
+# Checkpoint P2.12–P2.16 — triển khai 03/10/2026
+
+**Phạm vi đã triển khai:** P2.12 refund/ví/báo cáo/Admin được nối vào contract backend hiện hành; P2.13 có ma trận API và smoke route canonical; P2.14 bổ sung i18n/accessibility/responsive cho phần mới; P2.15 bổ sung Playwright helpers/spec và CI E2E chạy PostgreSQL + backend thật; P2.16 dọn các runtime label/fixture cũ trong phạm vi đã sửa và thêm tài liệu bàn giao. Requirements/SRS và migration history không sửa.
+
+**P2.12:** Manager refund dùng `/api/refunds` theo InvoiceItem, legacy adjustment chỉ đọc và không còn action complete payout. Wallet Manager gửi `CREDIT`/`DEBIT`, reason + idempotency, debit bị chặn vượt available points ở UI nhưng backend vẫn là authority. Báo cáo tách Cash VND / PointsRedeemed VND / PointsIssued-Outstanding theo điểm; filter sport/source/date/ExternalCoach và export dùng cùng filter. Dashboard Manager lấy summary thật theo tháng hiện tại và không hiển thị profit. Audit metadata dùng allowlist; Admin chỉ có account administration + account audit theo scope backend.
+
+**P2.13:** thêm `docs/refactor-p2-12-16-api-coverage.md` và `frontend/tests/api-coverage.spec.ts`; không dựng endpoint giả để chiều UI. Contract wallet adjustment được sửa wire enum thành `CREDIT`/`DEBIT` đúng serializer UPPER_SNAKE_CASE.
+
+**P2.14:** `Field` có required suffix theo locale; `Pager` không hard-code noun tiếng Anh; các chuỗi Manager mới có EN/VI. Reports giới hạn range 366 ngày và date-only theo ngày Việt Nam. Playwright dùng bundled Chromium thay `msedge`; test responsive 390/1440 cho cụm Manager P2.12. Không thêm secret vào `NEXT_PUBLIC_*`.
+
+**P2.15:** thêm `manager-multisport.spec.ts`, `external-coach.spec.ts`, `coach-training.spec.ts`, `payment-lifecycle.spec.ts`, `rbac.spec.ts`, `api-coverage.spec.ts` và `tests/helpers/{api,auth,seed,mailbox}.ts`; viết lại `receptionist.spec.ts` theo FrontDesk hiện hành. CI có job `Frontend E2E + API`: dựng PostgreSQL 16 + backend Development, chờ health, build frontend, chạy Chromium `--workers=1`, upload Playwright report/test-results và service logs khi fail. Live tests chỉ chạy với DB seed cô lập; payment dùng mock Development.
+
+**P2.16:** bỏ label enum runtime `PersonalTraining/Yoga/GroupX` khỏi formatter và CSS badge discipline cũ không còn consumer. Không thêm manual Paid, payout tiền mặt/chuyển khoản hoặc QR gate-pass tự sinh. Navigation Manager/Admin dùng route thật. Evidence: `docs/refactor-web-evidence.md`.
+
+**Verification tại môi trường tạo patch:** `node frontend/scripts/check-i18n.mjs` pass. YAML CI parse thành công và có đủ jobs `backend`, `frontend`, `e2e`. Môi trường hiện tại không có .NET SDK/Docker và chỉ có Node 22/npm 10, trong khi repo yêu cầu Node 24/npm 11; `npm ci` không hoàn tất ổn định nên **chưa tuyên bố** typecheck/lint/build/E2E pass local. Gate thật phải được quan sát trên CI/runner đúng toolchain; nếu đỏ thì không được skip test để coi chặng hoàn tất.
+
+**Giới hạn còn lại:** VNPay sandbox, SMTP/Google/Gemini thật phụ thuộc credential/mạng ngoài và không được CI Development mock chứng nhận. Các chuỗi marketing homepage legacy ngoài runtime business-enum của P2.12 không được dùng làm bằng chứng discipline hiện hành. AI là phần có sẵn ngoài phạm vi chặng P2.12–P2.16 này; thay đổi chặng này không mở rộng contract AI.
+
+---
+
 # Checkpoint P2.06–P2.10 — 02/10/2026
 
 **Đồng bộ ngày trong Court schedule:** tiêu đề từng ngày dùng `formatDate` có sẵn và `<time dateTime={day}>`, hiển thị `dd/MM/yyyy` (ví dụ `02/10/2026`) ở cả Anh/Việt. Giá trị date-only, lọc/gửi API và giờ Việt Nam giữ nguyên. ESLint/format/diff check và Docker production build/typecheck pass. Browser với API thật kiểm 8 tổ hợp Anh/Việt × Los Angeles/Tokyo × tuần thường/cuối năm, không lệch ngày; desktop/mobile không tràn. Frontend Docker đã cập nhật; không sửa backend, env/Dockerfile/Compose hoặc dữ liệu. [Evidence](refactor-p2-06-10-evidence.md).

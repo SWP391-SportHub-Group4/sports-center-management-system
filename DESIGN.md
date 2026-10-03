@@ -200,13 +200,13 @@ Các màn hình hiện có là bản xem trước với dữ liệu minh họa. 
 | Receptionist | Tìm Member, đăng ký tại quầy, Gym check-in/out, checkout thay Member (tra cứu điểm + nhập OTP của Member), điểm danh lớp nhóm, Court Schedule | Bước OTP là hộp thoại rõ ràng: đếm ngược 5 phút, số lần sai còn lại |
 | Coach | Lịch dạy, roster lớp mình, PT (session, kết quả, homework, gợi ý AI) | Không có màn điểm danh lớp nhóm; mục PT/AI chỉ hiện khi có chuyên môn PT |
 | **ExternalCoach** | Hồ sơ, xem sân trống + giá, đặt/hủy thuê sân, thanh toán, ví điểm, lịch sử thuê | Trạng thái `PendingApproval`/`Suspended` hiện màn thông báo chờ duyệt thay cho menu; không có màn học viên/điểm danh |
-| Manager | Dashboard (doanh thu, lấp lớp, lớp `AtRisk`), CRUD môn, phòng/sân, giá thuê sân, Membership; tạo lớp + xếp lịch (kèm chatbot gợi ý), phân công Coach theo chuyên môn, hàng đợi duyệt Coach ngoài, PT, hoàn điểm, sự cố/thông báo, báo cáo, Audit Log | Chatbot đề xuất chỉ tạo bản nháp sau khi Manager bấm xác nhận |
+| Manager | Dashboard (doanh thu, lấp lớp, lớp `AtRisk`), CRUD môn, phòng/sân, giá thuê sân, Membership; tạo lớp + xếp lịch, phân công Coach theo chuyên môn, hàng đợi duyệt Coach ngoài, PT, hoàn điểm, sự cố/thông báo, báo cáo, Audit Log | Manager không có action chatbot ghi nghiệp vụ; các thay đổi lớp/lịch vẫn qua form/API được phân quyền |
 | System Admin | Quản lý tài khoản nhân sự, vai trò, khóa/mở khóa | |
 | Chung | Đăng nhập, quên mật khẩu, đổi mật khẩu (checklist yêu cầu mật khẩu) | Checklist tick khi thỏa từng điều kiện, không chỉ dựa vào màu |
 
 ### 7.2 Màn hình mới cần thiết kế
 
-Lịch sân (Court Schedule), thuê sân (chọn khung giờ + giá), ví điểm + lịch sử, checkout split payment (điểm + VNPay-QR), giữ chỗ với đồng hồ đếm ngược, trang phản hồi ngưỡng hoàn vốn (chuyển lớp / hoàn điểm), hàng đợi duyệt ExternalCoach, CRUD môn/phòng/giá, chatbot, quên mật khẩu.
+Lịch sân (Court Schedule), thuê sân (chọn khung giờ + giá), ví điểm + lịch sử, checkout split payment (điểm + VNPay-QR), giữ chỗ với đồng hồ đếm ngược, trang phản hồi ngưỡng hoàn vốn (chuyển lớp / hoàn điểm), hàng đợi duyệt ExternalCoach, CRUD môn/phòng/giá, Member AI assistant chỉ đọc, quên mật khẩu.
 
 ### 7.3 Quy tắc bổ sung (dùng token có sẵn)
 
@@ -242,6 +242,6 @@ Lịch sân (Court Schedule), thuê sân (chọn khung giờ + giá), ví điể
 | Nội dung | Lý do |
 |---|---|
 | Mục 7.1 điều hướng theo 7 khu vực gồm **ExternalCoach** | Design v3 §12 |
-| Mục 7.2 danh sách màn hình mới | Court Schedule, thuê sân, ví điểm, split payment, giữ chỗ, ngưỡng, chatbot... |
-| Mục 7.3 quy tắc trạng thái/điểm/chatbot bằng token có sẵn | Nhất quán với Clarity Rule; không thêm token |
+| Mục 7.2 danh sách màn hình mới | Court Schedule, thuê sân, ví điểm, split payment, giữ chỗ, ngưỡng, Member AI assistant chỉ đọc... |
+| Mục 7.3 quy tắc trạng thái/điểm/AI assistant bằng token có sẵn | Nhất quán với Clarity Rule; không thêm token |
 | Ghi chú không có bảng màu theo vai trò | Tài liệu gốc không định nghĩa role palette; không tạo mới để giữ token |

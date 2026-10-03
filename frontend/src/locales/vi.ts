@@ -165,6 +165,9 @@ export const vi: Translations = {
     refundSelf: "Cần Quản lý khác xét duyệt yêu cầu này.",
     newRequest: "Yêu cầu mới",
     reloadBeforeRetry: "Tải lại dữ liệu hiện tại trước khi thử lại thay đổi bị từ chối.",
+    monthOverview: "Tổng quan tháng hiện tại",
+    courseCount: "Khóa học trong kỳ báo cáo",
+    quickLinks: "Lối tắt quản lý",
   },
   settingFields: {
     thresholdDays: {
@@ -677,6 +680,8 @@ export const vi: Translations = {
     previousPage: "Trang trước",
     nextPage: "Trang sau",
     pageLabel: "Trang",
+    items: "mục",
+    requiredSuffix: "(bắt buộc)",
   },
   navigation: {
     myAccount: "Tài khoản của tôi",
@@ -796,9 +801,6 @@ export const vi: Translations = {
     myRegistrations: "Lớp đã đăng ký",
     myPlans: "Gói tập & Thẻ",
     training: "Lộ trình tập",
-    gatePassTitle: "Mã vào cửa",
-    gatePassSub: "Cửa từ · QR Pass",
-    gatePassScan: "Quét",
     openNav: "Mở menu điều hướng",
     closeNav: "Đóng menu",
   },
@@ -807,10 +809,6 @@ export const vi: Translations = {
     welcome: "Chào mừng trở lại,",
     todayOverview:
       "Dưới đây là lịch tập luyện và các thông tin thể thao hôm nay của bạn.",
-    quickQrTitle: "Mã vào cửa điện tử",
-    quickQrDesc:
-      "Quét tại cổng từ kiểm soát ra vào hoặc xuất trình tại quầy lễ tân.",
-    openQrBtn: "Mở mã QR vào cửa",
     statTotalWorkouts: "Tổng buổi đã tập",
     statWorkoutsUnit: "buổi hoàn thành",
     statActivePasses: "Gói tập hiện có",
@@ -972,19 +970,6 @@ export const vi: Translations = {
     alreadyHaveAccount: "Đã có tài khoản?",
     backToSignIn: "Quay lại đăng nhập",
   },
-  gatePassModal: {
-    title: "Mã vào cửa trung tâm",
-    subtitle:
-      "Đặt mã QR trước đầu đọc cổng từ hoặc xuất trình tại quầy lễ tân.",
-    refreshesIn: "Mã tự động làm mới sau",
-    seconds: "giây",
-    memberName: "Hội viên",
-    memberId: "Email / ID",
-    statusActive: "Thẻ hiệu lực",
-    securityNotice:
-      "Mã bảo mật chống giả mạo tự động làm mới theo thời gian thực.",
-    closeBtn: "Đóng thẻ",
-  },
   publicNav: {
     facilities: "Cơ sở vật chất",
     pricing: "Gói tập",
@@ -993,132 +978,6 @@ export const vi: Translations = {
     signIn: "Đăng nhập",
     account: "Tài khoản",
     toggleLang: "Chuyển sang Tiếng Anh",
-  },
-  homepage: {
-    skipLink: "Chuyển đến nội dung chính",
-    heroTag: "CÂU LẠC BỘ THỂ THAO ĐỈNH CAO · CÔNG NGHỆ · CỘNG ĐỒNG",
-    heroTitle: "RÈN LUYỆN BẢN LĨNH.",
-    heroTitleSpan: " BỨT PHÁ MỖI NGÀY.",
-    heroIntro:
-      "Hệ thống phòng tập thể hình chuẩn quốc tế, các lớp học nhóm tràn đầy năng lượng và công nghệ cổng từ tự động đồng hành cùng hành trình thể lực của bạn.",
-    heroJoinBtn: "Tham gia SportHub",
-    heroExploreBtn: "Khám phá cơ sở vật chất",
-    heroBadge1: "Cửa từ QR Gate Pass tức thì",
-    heroBadge2: "3 Phân khu tập luyện chuyên sâu",
-    heroBadge3: "Huấn luyện viên đạt chuẩn quốc tế",
-    heroImageNote:
-      "Không gian rèn luyện thực tế và các buổi tập thể thao chuẩn mực tại SportHub.",
-    facilitiesTitle: "Cơ sở vật chất đỉnh cao. Hội tụ tại một nơi.",
-    facilitiesIntro:
-      "Mỗi mét vuông đều được thiết kế tối ưu cho hiệu suất thi đấu, sự thoải mái và an toàn của hội viên.",
-    facilitiesGymTag: "Thể hình & Thể lực",
-    facilitiesGymName: "Sàn tập Gym & Thể lực chuẩn quốc tế",
-    facilitiesGymSpecs:
-      "Dàn Power Rack Olympic · Tạ đơn đến 50kg · Đường chạy thảm cỏ",
-    facilitiesGymDesc:
-      "Trang bị đầy đủ tạ tự do chuẩn Olympic, máy khối kháng lực chuyên sâu và đường chạy thảm cỏ trong nhà cho mọi cấp độ tập luyện.",
-    facilitiesGymAction: "Khám phá gói tập",
-    facilitiesStudioTag: "Studio nhóm & Yoga",
-    facilitiesStudioName: "Studio Yoga & GroupX cách âm",
-    facilitiesStudioSpecs:
-      "Sàn gỗ sồi giảm chấn · Gương tràn tường · Âm thanh vòm chất lượng cao",
-    facilitiesStudioDesc:
-      "Không gian studio tràn ngập ánh sáng tự nhiên với sàn gỗ giảm chấn bảo vệ khớp xương tối đa cho các lớp Yoga, Zumba và GroupX.",
-    facilitiesStudioAction: "Xem thời khóa biểu",
-    facilitiesSaunaTag: "Phục hồi & Thư giãn",
-    facilitiesSaunaName: "Khu xông hơi Sauna & Phục hồi cơ thể",
-    facilitiesSaunaSpecs:
-      "Phòng xông khô gỗ tuyết tùng · Khu thư giãn tĩnh tâm · Đo chỉ số InBody",
-    facilitiesSaunaDesc:
-      "Thúc đẩy hồi phục cơ bắp sau buổi tập cường độ cao với liệu pháp nhiệt, xông hơi Phần Lan và máy phân tích thể hình InBody cùng huấn luyện viên.",
-    facilitiesSaunaAction: "Xem giáo án & HLV",
-    activitiesTitle: "Các bộ môn rèn luyện chuẩn mực.",
-    activitiesIntro:
-      "Chương trình tập luyện bài bản được dẫn dắt bởi đội ngũ huấn luyện viên giàu kinh nghiệm. Lựa chọn bộ môn để xem thời khóa biểu chi tiết.",
-    activitiesNote:
-      "Thời khóa biểu, thông tin huấn luyện viên và đăng ký lịch tập cập nhật trực tuyến tại cổng hội viên.",
-    actYogaShort: "Dẻo dai & Thư thái tâm trí",
-    actYogaName: "Yoga phục hồi & Tĩnh tâm",
-    actYogaFocus: "Độ dẻo dai · Căn chỉnh tư thế · Giải tỏa căng thẳng",
-    actYogaIntensity: "Nhẹ nhàng · Phục hồi",
-    actYogaDesc:
-      "Xây dựng khả năng làm chủ cơ thể, tăng cường biên độ vận động của khớp và nhịp thở tĩnh tại qua các chuỗi asana nền tảng tới chuyên sâu.",
-    actYogaAction: "Xem lịch lớp Yoga",
-    actFitnessShort: "Phát triển cơ bắp & Thể lực",
-    actFitnessName: "Tập luyện sức mạnh & Thể hình",
-    actFitnessFocus: "Tăng tải tiến bộ · Kỹ thuật tạ đòn · Sức bền thể lực",
-    actFitnessIntensity: "Cường độ cao · Tăng tiến",
-    actFitnessDesc:
-      "Phát triển sức mạnh thuần khiết, mật độ cơ bắp và sự vững chãi với các bài tập tạ đòn, tạ đơn dưới sự dẫn dắt của huấn luyện viên.",
-    actFitnessAction: "Xem lịch lớp Gym",
-    actGroupXShort: "Cardio nhịp điệu & Đốt mỡ",
-    actGroupXName: "Lớp tập nhóm GroupX sôi động",
-    actGroupXFocus:
-      "Sức bền hiếu khí · Phản xạ linh hoạt · Đốt cháy calo đỉnh cao",
-    actGroupXIntensity: "Sôi động · Năng lượng cao",
-    actGroupXDesc:
-      "Đốt cháy năng lượng cùng giai điệu âm nhạc cuốn hút trong lớp tập nhóm tốc độ cao, thách thức giới hạn thể lực và ý chí bền bỉ.",
-    actGroupXAction: "Xem lịch lớp GroupX",
-    actRecoveryShort: "Bảo vệ khớp xương & Phục hồi",
-    actRecoveryName: "Giãn cơ & Phục hồi chức năng",
-    actRecoveryFocus:
-      "Giải phóng cơ mạc · Giảm áp lực khớp · Phòng ngừa chấn thương",
-    actRecoveryIntensity: "Phục hồi · Có HLV hướng dẫn",
-    actRecoveryDesc:
-      "Tối ưu hóa khả năng hồi phục cơ bắp và bảo vệ hệ vận động với con lăn foam roller, chuỗi giãn cơ động và bài tập trị liệu chuyên sâu.",
-    actRecoveryAction: "Xem lịch lớp phục hồi",
-    footerTagline: "Tiến lên một bước, mỗi ngày.",
-    footerMemberArea: "Khu vực hội viên",
-  },
-  pricingSection: {
-    heading: "Bảng giá & Gói tập minh bạch",
-    intro:
-      "Không phí đăng ký ẩn, không ràng buộc dài hạn. Lựa chọn mức độ cam kết phù hợp với bạn.",
-    dayPassBadge: "Linh hoạt trong ngày",
-    dayPassName: "Thẻ ngày (Day Pass)",
-    dayPassPrice: "150.000",
-    dayPassPeriod: "mỗi ngày",
-    dayPassDesc:
-      "Phù hợp cho khách trải nghiệm, người đi công tác hoặc muốn tập thử trước khi gắn bó.",
-    dayPassFeatures: [
-      "Toàn quyền sử dụng sàn Gym & máy Cardio",
-      "Miễn phí tủ locker và khăn tập cá nhân",
-      "Trọn quyền sử dụng khu xông hơi Sauna",
-      "Mã QR Gate Pass vào cửa tức thì",
-    ],
-    dayPassAction: "Đăng ký Thẻ ngày",
-
-    standardBadge: "Được chọn nhiều nhất",
-    standardName: "Hội viên Tháng (Standard)",
-    standardPrice: "950.000",
-    standardPeriod: "mỗi tháng",
-    standardDesc:
-      "Gói tập toàn diện phổ biến nhất cho người rèn luyện đều đặn mỗi tuần.",
-    standardFeatures: [
-      "Không giới hạn thời gian tập Gym & tạ tự do",
-      "Bao gồm 12 buổi học Yoga & GroupX",
-      "1 Lần đo phân tích thể hình InBody/tháng",
-      "Tủ locker riêng trong ca tập & xông hơi khô",
-      "Gia hạn linh hoạt hàng tháng, hủy bất kỳ lúc nào",
-    ],
-    standardAction: "Đăng ký gói Standard",
-
-    vipBadge: "Đặc quyền tối thượng",
-    vipName: "VIP Không giới hạn (All-Access)",
-    vipPrice: "1.650.000",
-    vipPeriod: "mỗi tháng",
-    vipDesc:
-      "Gói rèn luyện chuyên sâu cao cấp nhất có huấn luyện viên riêng và phục hồi trọn gói.",
-    vipFeatures: [
-      "Không giới hạn Gym & Không giới hạn lớp Studio",
-      "2 Buổi tập riêng 1-on-1 với Huấn luyện viên (PT)",
-      "Trọn quyền khu xông hơi Sauna & Lounge phục hồi",
-      "Ưu tiên giữ chỗ lớp học trước 7 ngày",
-      "Tặng bình lắc thể thao SportHub & gói quà chào mừng",
-    ],
-    vipAction: "Đăng ký gói VIP",
-    guaranteeNote:
-      "Tất cả các gói đều tích hợp mã QR Gate Pass qua cửa từ tự động. Có thể tạm dừng hoặc quản lý trong cổng hội viên.",
   },
   eventsSection: {
     heading: "Sự kiện Cộng đồng & Buổi tập Mở",
@@ -1144,28 +1003,6 @@ export const vi: Translations = {
       "Khởi động sáng Chủ Nhật với cự ly chạy 5K nhóm nhẹ nhàng, tiếp nối bởi bài tập giãn cơ toàn thân và con lăn foam roller trên sân cỏ trong nhà.",
     sunriseCta: "Xem lịch tập trong tuần",
 
-    passTab: "Vé Trải nghiệm 1 Ngày",
-    passBadge: "Dành cho Khách mới",
-    passDate: "Áp dụng mọi ngày trong tuần",
-    passTitle: "Vé Trải nghiệm Toàn diện SportHub",
-    passLocation: "Sàn Gym · Phòng Studio nhóm · Phòng Sauna",
-    passCapacity: "Mỗi khách được cấp 1 vé trải nghiệm",
-    passDesc:
-      "Trải nghiệm trọn vẹn sàn tập thể lực chuẩn quốc tế, các lớp Yoga/GroupX giàu năng lượng và phòng xông hơi Sauna tuyết tùng kèm tủ locker riêng.",
-    passCta: "Nhận vé bên dưới",
-    passCtaPrompt: "Tạo thẻ số ở khung bên phải",
-
-    turnstileTitle: "Cổng kiểm soát SportHub",
-    digitalPassType: "Thẻ số điện tử",
-    formLabel: "Nhận vé trải nghiệm miễn phí 1 ngày",
-    inputPlaceholder: "Nhập họ và tên của bạn",
-    generateBtn: "Kích hoạt vé tức thì",
-    formNote: "Kích hoạt thẻ số ngay lập tức. Không yêu cầu thẻ tín dụng.",
-    defaultGuestName: "Hội viên Khách",
-    passValidity: "Quyền truy cập toàn khu · Hiệu lực 24 giờ",
-    passInstruction:
-      "Xuất trình mã thẻ số này tại cổng xoay ra vào hoặc quầy lễ tân để vào tập ngay.",
-    resetBtn: "Cấp lại vé khác",
   },
   account: {
     title: "Tài khoản của tôi",

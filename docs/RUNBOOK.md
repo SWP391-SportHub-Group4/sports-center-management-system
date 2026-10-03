@@ -4,7 +4,7 @@ Hướng dẫn chạy toàn bộ hệ thống (PostgreSQL → API → giao diệ
 
 ## Backend plan 1 đã chốt — 01/10/2026
 
-Backend đã qua **465/465 test**; xem [evidence](refactor-backend-evidence.md), [contract](refactor-api-contract.md) và [bàn giao](refactor-backend-final-handover.md). Frontend vẫn cần plan 2; các bước UI dưới đây là hướng dẫn mục tiêu, chưa phải chứng nhận UI hiện tại. Tích hợp/nghiệm thu VNPay sandbox thật do người dùng phụ trách.
+Backend plan 1 có evidence riêng tại [refactor-backend-evidence.md](refactor-backend-evidence.md). Frontend đã triển khai tiếp P2.12–P2.16 trong working tree hiện tại; trạng thái xác minh và giới hạn nằm ở [refactor-web-evidence.md](refactor-web-evidence.md). Không dùng số test cũ để suy ra gate mới đã pass nếu CI/runner hiện tại chưa chạy lại.
 
 Gate trong PowerShell, từ root, với Docker Desktop đang chạy:
 
@@ -23,7 +23,7 @@ Email: Development chưa có SMTP có thể đặt `Email__DemoLoggingEnabled=tr
 
 Email nghiệp vụ được queue cùng transaction: tạo hóa đơn, nhận thanh toán, hoàn điểm, threshold response, dời/hủy/bù lớp/PT, incident và notice. Dispatcher gửi sau commit, retry có backoff/lease; sender thành công mới đánh dấu Sent và xóa encrypted payload. Cơ chế gửi at-least-once có thể gửi lại nếu tiến trình chết sau SMTP success nhưng trước khi lưu Sent. Kiểm thử đã xác nhận retry/rollback/idempotent queue; delivery SMTP bên ngoài cần kiểm bằng cấu hình môi trường của bạn.
 
-> Runbook theo **Business Rules v2.0** và **Design v3** (nhà văn hóa thể thao đa môn: Gym, PT, Cầu lông, Bóng rổ; 6 vai trò; ví điểm; hoàn trả chỉ bằng điểm). Backend hiện hành theo bản chốt 01/10/2026 ở trên; các thao tác màn hình vẫn cần frontend plan 2. Khi nghiệm thu lấy BR v2.0 làm chuẩn.
+> Runbook theo **Business Rules v2.0** và **Design v3** (nhà văn hóa thể thao đa môn: Gym, PT, Cầu lông, Bóng rổ; 6 vai trò; ví điểm; hoàn trả chỉ bằng điểm). Frontend P2.12–P2.16 dùng contract backend hiện hành; khi nghiệm thu lấy BR v2.0 + API contract làm chuẩn và chỉ đánh dấu pass theo evidence mới.
 
 ## 1. Yêu cầu
 
@@ -73,6 +73,21 @@ cd frontend && npm run dev
 Giao diện: <http://localhost:3000>. Địa chỉ API đọc từ `NEXT_PUBLIC_API_BASE_URL`
 (mặc định `http://localhost:5000`).
 
+### 2.4 Gate frontend P2.12–P2.16
+
+Yêu cầu Node.js 24/npm 11. Từ `frontend/`:
+
+```bash
+npm ci
+npm run typecheck
+npm run lint
+npm run check:i18n
+npm run build
+npm run test:e2e
+```
+
+Trên GitHub Actions, job `Frontend E2E + API` dựng PostgreSQL 16 + backend Development riêng, chờ `/api/health`, chạy Chromium portable và upload `playwright-report`/`test-results` khi fail. Live E2E dùng seed demo trên DB cô lập và `VnPay__UseMock=true`; nó không chứng nhận VNPay sandbox/SMTP/Google/Gemini bên ngoài. Xem `refactor-web-evidence.md`.
+
 ## 3. Tài khoản demo
 
 Mật khẩu chung Development: **`Sporthub@123`** (chỉ dùng dữ liệu demo local, không dùng production).
@@ -100,7 +115,7 @@ xác thực.
 
 ## 4. Đường đi để xem từng luồng
 
-> **Chế độ demo:** chỉ khi `ASPNETCORE_ENVIRONMENT=Development` và `VnPay__UseMock=true` thì thanh toán chạy `MockPaymentGateway` (QR giả; bấm nút/gọi `POST /api/dev/payments/{transactionReference}/simulate` để mô phỏng IPN). Nếu chưa cấu hình SMTP, chỉ khi Development và `Email__DemoLoggingEnabled=true` thì email (kể cả OTP) được dispatcher ghi vào **log backend** — xem mục 9. Nếu chưa có `Gemini__ApiKey` thì chatbot trả lời mô phỏng đúng 2 kịch bản bên dưới.
+> **Chế độ demo:** chỉ khi `ASPNETCORE_ENVIRONMENT=Development` và `VnPay__UseMock=true` thì thanh toán chạy `MockPaymentGateway` (QR giả; gọi `POST /api/dev/payments/{transactionReference}/simulate` để mô phỏng IPN). Nếu chưa cấu hình SMTP, chỉ khi Development và `Email__DemoLoggingEnabled=true` thì email (kể cả OTP) được dispatcher ghi vào **log backend** — xem mục 9. Gemini không có API key sẽ trả lỗi cấu hình ở endpoint chat; workout suggestion rule-based là luồng riêng.
 
 ### Flow 1 — Tài khoản, Membership, ExternalCoach
 
@@ -225,7 +240,7 @@ bash scripts/e2e-business-rules.sh
 
 Cấu hình nghiệp vụ **không** nằm ở file cấu hình mà ở màn hình **Cấu hình hệ thống** của Quản lý Trung tâm (BR-39): `class.threshold_days_before_start` (3), `class.threshold_response_hours` (48), `hold.minutes` (15), `points.vnd_per_point` (1000), `points.confirm_otp_minutes` (5), `rental.slot_minutes` (60), `rental.max_hours` (4), `rental.advance_days` (30), `rental.cancel_free_hours` (24), `membership.expiry_notice_days` (7).
 
-> `docker-compose.yml` hiện chưa truyền `VnPay__*` và `Email__*` vào container backend; cho tới khi bổ sung thì container luôn chạy chế độ mock/log cho hai dịch vụ này.
+> `docker-compose.yml` hiện truyền `VnPay__*`, SMTP/DataProtection và `Gemini__*` vào backend. Dùng secret ngoài source control; `.env` thật không được commit.
 
 ## 8. Payment, VNPay-QR và ví điểm
 
@@ -245,7 +260,7 @@ Cấu hình nghiệp vụ **không** nằm ở file cấu hình mà ở màn hì
 | Gửi SMTP lỗi khi đã cấu hình | Gmail cần **App Password**, không dùng mật khẩu đăng nhập; hoặc compose chưa truyền `Email__*` | Tạo App Password, điền `Email__Smtp__Username/Password`; thêm biến vào `environment` của service `backend`; khởi động lại backend |
 | Quét QR VNPay không ra thanh toán / Invoice mãi `Pending` | Development + `VnPay__UseMock=true` ⇒ `MockPaymentGateway`; hoặc IPN không tới được máy local | Dùng endpoint dev `POST /api/dev/payments/{transactionReference}/simulate` (chỉ ở Development) để mô phỏng IPN; với sandbox thật cần URL IPN công khai (ngrok) hoặc để backend gọi QueryDR |
 | Checkout dùng đủ điểm nhưng không thấy QR | Đúng thiết kế: `cash_amount = 0` ⇒ không tạo PaymentAttempt, Invoice `Paid` ngay | Không cần xử lý |
-| Chatbot trả lời cố định, không hiểu câu hỏi tự do | Thiếu `Gemini__ApiKey` ⇒ provider mô phỏng chỉ trả 2 kịch bản (Member "hôm nay tôi tập gì", Manager "mở thêm lớp…") | Dùng đúng câu hỏi của kịch bản Flow 6 hoặc điền `Gemini__ApiKey` (model mặc định `gemini-3.5-flash-lite`) |
+| Chatbot trả `gemini_not_configured` | Thiếu `Gemini__ApiKey` | Điền `Gemini__ApiKey` ở backend secret/env (model mặc định theo `Gemini__Model`); không đặt key trong `NEXT_PUBLIC_*` |
 | Gemini lỗi/timeout | Sai khóa hoặc mạng; `Gemini__TimeoutSeconds` = 30 | Kiểm tra khóa; hệ thống tự rơi về bộ luật cục bộ cho gợi ý bài tập |
 | Đăng nhập Google trả 503 | Thiếu `Google__ClientId` | Điền `Google__ClientId` hoặc dùng đăng nhập email |
 | Backend không khởi động | Thiếu/ngắn `JwtOptions__SecretKey` (< 32 ký tự) hoặc DB chưa chạy | Sửa `.env`, chạy `docker compose up -d postgres` |
