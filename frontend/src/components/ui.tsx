@@ -198,6 +198,7 @@ export function Field({
   error?: ReactNode;
   children: ReactNode;
 }) {
+  const { t } = useLanguage();
   const labelId = useId();
   const control =
     isValidElement(children) &&
@@ -214,7 +215,7 @@ export function Field({
         {required && (
           <>
             <span aria-hidden="true"> *</span>
-            <span className="sr-only"> (required)</span>
+            <span className="sr-only"> {t.common.requiredSuffix}</span>
           </>
         )}
       </span>
@@ -378,7 +379,7 @@ export function Pager({
   pageSize,
   totalCount,
   onChange,
-  noun = "log",
+  noun,
 }: {
   page: number;
   pageSize: number;
@@ -387,6 +388,7 @@ export function Pager({
   noun?: string;
 }) {
   const { t } = useLanguage();
+  const resolvedNoun = noun ?? t.common.items;
   const lastPage = Math.max(1, Math.ceil(totalCount / pageSize));
 
   if (totalCount === 0) return null;
@@ -394,7 +396,7 @@ export function Pager({
   return (
     <div className="row spread" style={{ marginTop: 12 }}>
       <span className="small muted">
-        {t.common.pageLabel} {page}/{lastPage} · {totalCount} {noun}
+        {t.common.pageLabel} {page}/{lastPage} · {totalCount} {resolvedNoun}
       </span>
       <div className="btn-row">
         <button

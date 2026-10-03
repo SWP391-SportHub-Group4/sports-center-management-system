@@ -12,7 +12,7 @@ web
 - **Huấn luyện viên của trung tâm (Coach)**: Có chuyên môn theo môn; xem lịch dạy và roster lớp mình phụ trách. Coach có chuyên môn Personal Training còn lập kế hoạch tập, ghi kết quả, giao homework, dùng gợi ý AI cho học viên được phân công.
 - **Huấn luyện viên ngoài (ExternalCoach)**: Coach tự do tự đăng ký, chờ Manager duyệt; xem sân trống và giá, thuê sân theo giờ để tự dạy, thanh toán bằng VNPay-QR và/hoặc điểm, xem lịch sử thuê. Không được quản lý hay điểm danh học viên riêng trên hệ thống.
 - **Nhân viên lễ tân (Receptionist)**: Tìm và đăng ký Member tại quầy; Gym check-in/out; điểm danh lớp nhóm; checkout thay Member (dùng điểm phải có mã OTP gửi email Member); xem Court Schedule; hỗ trợ đối soát thanh toán.
-- **Quản lý trung tâm (Center Manager)**: Cấu hình môn, phòng/sân, giá thuê sân, Membership; tạo lớp và xếp lịch (có chatbot gợi ý), phân công Coach theo chuyên môn, duyệt ExternalCoach, duyệt hoàn điểm, xử lý lớp dưới ngưỡng hoàn vốn, sự cố, báo cáo doanh thu, audit log.
+- **Quản lý trung tâm (Center Manager)**: Cấu hình môn, phòng/sân, giá thuê sân, Membership; tạo lớp và xếp lịch, phân công Coach theo chuyên môn, duyệt ExternalCoach, duyệt hoàn điểm, xử lý lớp dưới ngưỡng hoàn vốn, sự cố, báo cáo doanh thu, audit log.
 - **Quản trị hệ thống (System Administrator)**: Quản trị tài khoản nhân sự, phân quyền vai trò (RBAC), khóa/mở khóa tài khoản.
 - **Khách vãng lai (Public Guest)**: Xem trang chủ đa môn, danh sách lớp đang mở (giá, lịch, chỗ còn), lịch sân trống tổng quát; đăng ký Member hoặc đăng ký Coach ngoài.
 
@@ -22,13 +22,13 @@ SportHub là hệ thống quản lý **nhà văn hóa thể thao đa môn**, v�
 
 ## Positioning
 
-Nền tảng đa môn khép kín cho nhà văn hóa thể thao: khác với phần mềm gym đơn môn hoặc ứng dụng ghi chép tập luyện, SportHub xem **môn thể thao là dữ liệu cấu hình**, bán khóa học cố định theo lớp, chống trùng sân/huấn luyện viên bằng ràng buộc cơ sở dữ liệu, giữ chỗ khi checkout để không bán vượt sĩ số, có ngưỡng hoàn vốn cho từng lớp, ví điểm 1 điểm = 1.000 VND (không hết hạn) với hoàn trả chỉ bằng điểm, cho ExternalCoach thuê sân theo giờ, và chatbot function calling chỉ hành động qua danh sách hàm cố định. Hỗ trợ song ngữ EN / VI.
+Nền tảng đa môn khép kín cho nhà văn hóa thể thao: khác với phần mềm gym đơn môn hoặc ứng dụng ghi chép tập luyện, SportHub xem **môn thể thao là dữ liệu cấu hình**, bán khóa học cố định theo lớp, chống trùng sân/huấn luyện viên bằng ràng buộc cơ sở dữ liệu, giữ chỗ khi checkout để không bán vượt sĩ số, có ngưỡng hoàn vốn cho từng lớp, ví điểm 1 điểm = 1.000 VND (không hết hạn) với hoàn trả chỉ bằng điểm, cho ExternalCoach thuê sân theo giờ, và AI assistant cho Member chỉ đọc context SportHub; các thao tác nghiệp vụ vẫn đi qua API/authorization riêng. Hỗ trợ song ngữ EN / VI.
 
 ## Operating Context
 
 - Môi trường sử dụng: Quầy lễ tân với màn hình máy tính; sân/phòng tập với thiết bị di động của học viên và tablet của huấn luyện viên; máy tính quản lý để theo dõi điều hành.
 - Nhịp điệu vận hành: Sân/phòng mở theo giờ hoạt động (mặc định 06:00–22:00); lớp là khóa học cố định gồm nhiều buổi; Receptionist điểm danh lớp nhóm; hóa đơn được thu qua VNPay-QR hoặc điểm, đối soát tại quầy.
-- Tích hợp số: VNPay-QR sandbox (thiếu khóa thì cổng mô phỏng), email SMTP (thiếu thì ghi log), Gemini cho chatbot/gợi ý (thiếu khóa thì trả lời mô phỏng), xuất lịch sự kiện sang Google / Apple Calendar (`.ics`).
+- Tích hợp số: VNPay-QR sandbox (thiếu khóa thì cổng mô phỏng), email SMTP (thiếu thì ghi log), Gemini cho Member AI assistant (thiếu khóa thì endpoint chat báo chưa cấu hình); gợi ý workout của Coach dùng rule-based, xuất lịch sự kiện sang Google / Apple Calendar (`.ics`).
 
 ## Capabilities and Constraints
 
@@ -97,7 +97,7 @@ Nền tảng đa môn khép kín cho nhà văn hóa thể thao: khác với ph�
 | Nội dung | Trước → Sau |
 |---|---|
 | Product Purpose | gym + cổng từ QR → nhà văn hóa thể thao đa môn, 6 vai trò, ghi danh khóa học, ví điểm |
-| Positioning | QR xoay vòng + hủy hoàn buổi → môn là dữ liệu, giữ chỗ, ngưỡng hoàn vốn, ví điểm, chống trùng lịch, chatbot |
+| Positioning | QR xoay vòng + hủy hoàn buổi → môn là dữ liệu, giữ chỗ, ngưỡng hoàn vốn, ví điểm, chống trùng lịch, AI assistant chỉ đọc |
 | Operating Context | ca sáng/chiều/tối, cổng từ → giờ hoạt động sân 06:00–22:00, khóa học nhiều buổi; tích hợp VNPay/SMTP/Gemini có fallback |
 | Coach persona | ClassInstructor/PersonalTrainer → chuyên môn theo môn; PT là chuyên môn |
 | Receptionist persona | quét cổng từ → Gym check-in/out, điểm danh lớp nhóm, checkout thay + OTP |

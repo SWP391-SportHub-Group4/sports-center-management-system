@@ -1,6 +1,0 @@
-Test run for D:\Semester5\SWP391\sports-center-management-system\backend\SportHub.Payment.Tests\bin\Release\net10.0\SportHub.Payment.Tests.dll (.NETCoreApp,Version=v10.0)
-A total of 1 test files matched the specified pattern.
-WARNING: Overwriting results file: D:\Semester5\SWP391\sports-center-management-system\backend\SportHub.Payment.Tests\TestResults\wallet.trx
-Results File: D:\Semester5\SWP391\sports-center-management-system\backend\SportHub.Payment.Tests\TestResults\wallet.trx
-
-Passed!  - Failed:     0, Passed:    15, Skipped:     0, Total:    15, Duration: 2 s - SportHub.Payment.Tests.dll (net10.0)

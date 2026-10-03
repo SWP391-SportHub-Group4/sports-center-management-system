@@ -156,14 +156,13 @@ export function getNavForUser(
     { href: "/coach/schedule", labelKey: "teachingSchedule" as const },
     { href: "/coach/members", labelKey: "assignedMembers" as const },
     { href: "/coach/attendance", labelKey: "attendance" as const },
-    { href: "/coach/pt-sessions", labelKey: "ptSchedule" as const },
   ];
   const ptIds = Array.isArray(ptSportId) ? ptSportId : ptSportId === undefined ? [] : [ptSportId];
   return ptIds.some(id => user.sportIds.includes(id))
     ? [
         ...base,
         ...NAV_BY_ROLE.Coach.filter((item) =>
-          ["/coach/training-plans", "/coach/ai-suggestions", "/coach/progress", "/coach/homework"].includes(
+          ["/coach/pt-sessions", "/coach/training-plans", "/coach/ai-suggestions", "/coach/progress", "/coach/homework"].includes(
             item.href,
           ),
         ),
@@ -317,6 +316,11 @@ export function AppShell({
 
   return (
     <div className={`shell ${operationalLayout ? styles.operations : ""}`}>
+      <a href="#main-content" className="skip-link">
+        {language === "en"
+          ? "Skip to main content"
+          : "Chuyển tới nội dung chính"}
+      </a>
       <aside className="sidebar">
         <div className="sidebar__brand">SportHub</div>
         <div className="sidebar__role">{roleDisplay}</div>
@@ -406,7 +410,7 @@ export function AppShell({
           </div>
         </header>
 
-        <main className="content">{children}</main>
+        <main id="main-content" className="content" tabIndex={-1}>{children}</main>
       </div>
 
       {showShortcuts && user.role === "Receptionist" && (

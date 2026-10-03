@@ -4,13 +4,13 @@ test("public header and section links work without an account", async ({
   page,
 }) => {
   await page.goto("/");
-  await expect(page.getByRole("link", { name: "Sign in" })).toHaveAttribute(
+  await expect(page.getByRole("link", { name: "Sign in", exact: true })).toHaveAttribute(
     "href",
     "/login",
   );
   await page
     .getByRole("navigation", { name: "Main navigation" })
-    .getByRole("link", { name: "Activities" })
+    .getByRole("link", { name: "Sports at SportHub" })
     .click();
   await expect(page).toHaveURL(/#(activities|hoat-dong)$/);
   await expect
@@ -78,15 +78,23 @@ test("password visibility and login errors do not move the submit button", async
 test("authenticated public header shows the member name", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("sporthub.accessToken", "test-token");
-    localStorage.setItem(
-      "sporthub.user",
-      JSON.stringify({
-        userId: "member-1",
-        email: "member@sporthub.test",
-        fullName: "Alex Johnson",
-        role: "Member",
-      }),
-    );
+    localStorage.setItem("sporthub_lang", "en");
+  });
+  await page.route("**/api/**", (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (path === "/api/users/me")
+      return route.fulfill({
+        json: {
+          userId: "00000000-0000-4000-8000-000000000001",
+          email: "member@sporthub.test",
+          fullName: "Alex Johnson",
+          role: "MEMBER",
+          sportIds: [],
+        },
+      });
+    if (path.includes("notifications"))
+      return route.fulfill({ json: path.endsWith("unread-count") ? { count: 0 } : [] });
+    return route.fulfill({ json: [] });
   });
   await page.goto("/");
   await expect(
@@ -106,4 +114,11 @@ test.describe("reduced motion", () => {
     await page.goto("/");
     await expect(page.locator("html")).toHaveCSS("scroll-behavior", "auto");
   });
+});
+
+
+test("public events do not mint a client-side access pass", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByLabel(/turnstile qr/i)).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /generate instant pass|kích hoạt vé tức thì/i })).toHaveCount(0);
 });

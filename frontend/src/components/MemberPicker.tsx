@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useState, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useState, type KeyboardEvent } from "react";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
+import { parseMemberCode } from "@/lib/member-code";
 import type { Paged, UserAdminDto } from "@/lib/types";
+import { CameraQrScanner } from "@/components/CameraQrScanner";
 
 const MIN_KEYWORD_LENGTH = 2;
 
@@ -28,6 +30,44 @@ export function MemberPicker({
   const { language } = useLanguage();
   const [keyword, setKeyword] = useState("");
   const [debounced, setDebounced] = useState("");
+  const [scanning, setScanning] = useState(false);
+  const [scanError, setScanError] = useState<string | null>(null);
+
+  const handleScan = useCallback(
+    async (text: string) => {
+      const id = parseMemberCode(text);
+      const en = language === "en";
+      if (!id) {
+        setScanError(
+          en
+            ? "This QR is not a member code."
+            : "Mã QR này không phải mã hội viên.",
+        );
+        return;
+      }
+      try {
+        const found = await api.get<UserAdminDto>(`/api/users/${id}`);
+        if (found.role !== "MEMBER") {
+          setScanError(
+            en
+              ? "This code does not belong to a member."
+              : "Mã này không thuộc hội viên.",
+          );
+          return;
+        }
+        setScanError(null);
+        setScanning(false);
+        onChange(found);
+      } catch {
+        setScanError(
+          en
+            ? "Member not found or lookup failed."
+            : "Không tìm thấy hội viên hoặc tra cứu thất bại.",
+        );
+      }
+    },
+    [language, onChange],
+  );
 
   const defaultLabel = language === "en" ? "Select Member" : "Chọn hội viên";
   const labelText = fieldLabel || defaultLabel;
@@ -117,6 +157,32 @@ export function MemberPicker({
         onKeyDown={handleKeyDown}
         style={{ height: 44, borderRadius: 8 }}
       />
+
+      <div className="row">
+        <button
+          type="button"
+          className="btn btn--secondary btn--sm"
+          aria-expanded={scanning}
+          onClick={() => {
+            setScanError(null);
+            setScanning((v) => !v);
+          }}
+        >
+          {scanning
+            ? language === "en"
+              ? "Close scanner"
+              : "Đóng máy quét"
+            : language === "en"
+              ? "Scan member QR"
+              : "Quét QR hội viên"}
+        </button>
+      </div>
+      {scanning && <CameraQrScanner onScan={handleScan} />}
+      {scanError && (
+        <span className="field__hint" role="alert">
+          {scanError}
+        </span>
+      )}
 
       {ready && search.loading && (
         <span className="field__hint">
