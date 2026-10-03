@@ -54,73 +54,6 @@ export function IconDumbbell({
 }
 
 /**
- * Serene Yoga Lotus & Flow (Yoga, Mindfulness, Recovery)
- */
-export function IconYoga({
-  size = 20,
-  color = "currentColor",
-  strokeWidth = 2,
-  className,
-  style,
-  ...props
-}: IconProps) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke={color}
-      strokeWidth={strokeWidth}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      style={{ ...baseIconStyle, ...style }}
-      className={className}
-      aria-hidden="true"
-      {...props}
-    >
-      <circle cx="12" cy="5" r="2" />
-      <path d="M4 19c2.5-3 5-4.5 8-4.5s5.5 1.5 8 4.5" />
-      <path d="M12 9v5.5" />
-      <path d="M6.5 11.5l3.5 2 2-2 2 2 3.5-2" />
-      <path d="M8 20.5h8" />
-    </svg>
-  );
-}
-
-/**
- * Dynamic Energy Flame (GroupX, Cardio, HIIT, Zumba)
- */
-export function IconFlame({
-  size = 20,
-  color = "currentColor",
-  strokeWidth = 2,
-  className,
-  style,
-  ...props
-}: IconProps) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke={color}
-      strokeWidth={strokeWidth}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      style={{ ...baseIconStyle, ...style }}
-      className={className}
-      aria-hidden="true"
-      {...props}
-    >
-      <path d="M12 2c.5 3 2 4.5 4 6.5 2 2 3 4.5 3 7.5a7 7 0 1 1-14 0c0-4 3.5-7 5-11 1.5 2 2.5 3.5 3 5 .8-2 0-5.5-1-8z" />
-      <path d="M12 14c-1 1-1.5 2-1.5 3a2.5 2.5 0 0 0 5 0c0-1.5-1.5-2.5-3.5-3z" />
-    </svg>
-  );
-}
-
-/**
  * Sprinting Athlete (Running, Track, Cardio, Registrations)
  */
 export function IconRunner({
@@ -398,7 +331,7 @@ export function IconUser({
 }
 
 /**
- * QR Turnstile Gate Pass (Contactless check-in)
+ * QR code (member identifier lookup)
  */
 export function IconQrCode({
   size = 20,

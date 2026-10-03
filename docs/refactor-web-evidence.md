@@ -67,3 +67,15 @@ Playwright E2E + API       PASS
 ```
 
 Nếu một gate đỏ, giữ nguyên evidence/traces; không skip test để đánh dấu hoàn thành.
+
+## Xác minh local 04/10/2026 (Node 24.21 / npm 11.19, Windows)
+
+| Lệnh (từ `frontend`) | Kết quả |
+|---|---|
+| `npm run typecheck` | PASS |
+| `npm run lint` | PASS: 0 error, 5 warning cũ ở `coach/ai-suggestions` (ngoài phạm vi) |
+| `npm run check:i18n` | PASS |
+| `npm run build` | PASS |
+| `npx playwright test` (HTTP fixtures, Chromium) | 94 pass, 0 fail, 11 skipped (cần `P2_LIVE_API`) |
+
+Chưa chạy: E2E live với backend + PostgreSQL, backend tests, CI trên runner, VNPay sandbox/SMTP/Google thật. Sửa phát hiện khi chạy: menu PT hiện cho Coach chỉ dạy nhóm, AppShell thiếu skip-link/`#main-content`, icon gate-pass/Yoga/GroupX còn export; các spec lỗi thời đã cập nhật theo UI hiện hành (xem `refactor-progress.md`).

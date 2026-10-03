@@ -73,7 +73,7 @@ test("only receptionist UI writes group attendance and uses enrollment+session i
     await route.fulfill({ json: { ok: true } });
   });
   await page.goto("/receptionist/attendance");
-  await page.getByLabel("Class registration").selectOption("7");
+  await page.getByLabel("Course registration").selectOption("7");
   await page.getByLabel("Sessions").selectOption(sessionId);
   await expect(page.getByText("Member A", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Present", exact: true }).click();

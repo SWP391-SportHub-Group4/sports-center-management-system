@@ -9,7 +9,7 @@ import { vi } from "../src/locales/vi";
 
 for (const hasPt of [false, true]) {
   test(
-    "Coach teaching calendar uses owner-scoped APIs and PT specialty: " + hasPt,
+    "Coach teaching calendar uses owner-scoped APIs, PT specialty: " + hasPt,
     async ({ page }) => {
       await session(page, "COACH");
       await page.clock.setFixedTime(new Date("2030-10-03T02:00:00Z"));
@@ -110,21 +110,17 @@ for (const hasPt of [false, true]) {
       await expect(
         page.getByRole("button", { name: "Present", exact: true }),
       ).toHaveCount(0);
-      if (hasPt) {
-        await page
-          .getByRole("button", { name: /PT session.*My PT member/ })
-          .click();
-        await expect(
-          page.getByRole("cell", { name: "My PT member", exact: true }),
-        ).toBeVisible();
-        await expect(
-          page.getByRole("columnheader", { name: "Attendance", exact: true }),
-        ).toHaveCount(0);
-      } else
-        await expect(
-          page.getByRole("button", { name: /PT session/ }),
-        ).toHaveCount(0);
-      expect(ptReads).toBe(hasPt ? 1 : 0);
+      // Assigned PT sessions stay visible read-only even after the PT specialty is removed.
+      await page
+        .getByRole("button", { name: /PT session.*My PT member/ })
+        .click();
+      await expect(
+        page.getByRole("cell", { name: "My PT member", exact: true }),
+      ).toBeVisible();
+      await expect(
+        page.getByRole("columnheader", { name: "Attendance", exact: true }),
+      ).toHaveCount(0);
+      expect(ptReads).toBe(1);
       expect(staffReads).toBe(0);
       expect(writes).toBe(0);
     },

@@ -1,3 +1,15 @@
+# Checkpoint P2.14–P2.16 — xác minh toolchain 04/10/2026
+
+Môi trường Node 24.21 / npm 11.19 đã chạy được các gate mà checkpoint 03/10 chưa chạy: `typecheck` pass, `lint` 0 error / 5 warning cũ (ai-suggestions, ngoài phạm vi), `check:i18n` pass, `next build` pass. `prettier --check` còn 88 file chưa format từ trước; không format hàng loạt để tránh diff nhiễu.
+
+**Lỗi thật tìm thấy và sửa:** (1) `getNavForUser` luôn hiện menu `/coach/pt-sessions` cho Coach chỉ dạy nhóm; nay chỉ hiện khi có specialty PT (trang vẫn truy cập được bằng URL để xem buổi đã phân công). (2) `AppShell` thiếu skip-link và `id="main-content"` (P2.14 accessibility); đã thêm, song ngữ. (3) Xóa icon `IconYoga`, `IconFlame`, `StickerGatePass` không còn consumer (P2.16) và đổi mô tả `IconQrCode` bỏ nhãn gate pass.
+
+**Test lỗi thời được cập nhật theo UI hiện hành (không skip):** `coach-dashboard.spec.ts` viết lại cho overview Coach (lớp của mình + shortcut PT theo specialty, empty, retry); `refactor-operations.spec.ts` coach calendar vẫn hiện PT đã phân công khi gỡ specialty (đúng plan); `public-auth.spec.ts` (nav "Sports at SportHub", session khôi phục qua `/api/users/me`); `manager-multisport.spec.ts` (h1 nằm ở banner); `receptionist.spec.ts` (nhãn "Course registration"); `coach-training.spec.ts`.
+
+**Kết quả:** `npx playwright test` (Chromium, HTTP fixtures): **94 pass, 0 fail, 11 skipped** (live cần `P2_LIVE_API`). Chưa chạy E2E live với backend/PostgreSQL và chưa có kết quả CI; VNPay sandbox/SMTP/Google thật vẫn chưa xác minh. Chưa tuyên bố toàn bộ plan 2 hoàn tất.
+
+---
+
 # Checkpoint P2.12–P2.16 — triển khai 03/10/2026
 
 **Phạm vi đã triển khai:** P2.12 refund/ví/báo cáo/Admin được nối vào contract backend hiện hành; P2.13 có ma trận API và smoke route canonical; P2.14 bổ sung i18n/accessibility/responsive cho phần mới; P2.15 bổ sung Playwright helpers/spec và CI E2E chạy PostgreSQL + backend thật; P2.16 dọn các runtime label/fixture cũ trong phạm vi đã sửa và thêm tài liệu bàn giao. Requirements/SRS và migration history không sửa.
