@@ -12,6 +12,7 @@ import {
 } from "@/lib/format";
 import { AsyncSection, Card, Field, Table, StatusChip } from "@/components/ui";
 import { MemberPicker } from "@/components/MemberPicker";
+import { ScanMemberButton } from "./scan-member";
 import { CheckoutPanel } from "@/features/payments";
 import { PtPurchase } from "@/features/membership";
 import { WalletBalance } from "@/features/wallet";
@@ -438,6 +439,7 @@ export function ReceptionDashboard() {
   return (
     <>
       <div className="btn-row">
+        <ScanMemberButton />
         {[
           ["gym-checkin", l.gymCheckin],
           ["sell-plans", l.sellPlans],

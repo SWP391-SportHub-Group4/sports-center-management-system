@@ -6,6 +6,7 @@ import { useEffect, useState, useRef, type ReactNode } from "react";
 import { HOME_BY_ROLE, useAuth, type Role } from "@/lib/auth";
 import { useLanguage } from "@/lib/language";
 import { NotificationBell } from "./NotificationBell";
+import { MemberCodeButton } from "./MemberCodeCard";
 import {
   IconSettings,
   IconHeartbeat,
@@ -136,6 +137,8 @@ export function MemberShell({
 
           {/* Header Actions */}
           <div className={styles.headerActions}>
+            <MemberCodeButton />
+
             {/* Language Switcher */}
             <button
               type="button"
