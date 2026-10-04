@@ -1,5 +1,7 @@
 # Phân Tích Kiến Trúc Hệ Thống SportHub
 
+SportHub là **hệ thống quản lý trung tâm thể thao với ba môn Gym (bao gồm PT), cầu lông và bóng rổ; có thể mở rộng thêm môn trong tương lai**. PT là dịch vụ thuộc Gym, không phải môn thứ tư.
+
 ## Tổng Quan
 
 SportHub là hệ thống quản lý trung tâm thể thao gồm 3 thành phần chính:

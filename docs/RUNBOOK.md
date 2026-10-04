@@ -1,5 +1,7 @@
 # Chạy SportHub trên máy local
 
+SportHub là **hệ thống quản lý trung tâm thể thao với ba môn Gym (bao gồm PT), cầu lông và bóng rổ; có thể mở rộng thêm môn trong tương lai**. PT là dịch vụ thuộc Gym, không phải môn thứ tư.
+
 Hướng dẫn khởi động hệ thống khi chưa deploy: PostgreSQL → backend → frontend.
 
 ## 1. Yêu cầu

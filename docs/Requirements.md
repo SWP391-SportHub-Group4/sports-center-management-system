@@ -1,111 +1,62 @@
-# Yêu Cầu Hệ Thống Quản Lý Trung Tâm (Center Management System)
+# SportHub — Yêu cầu hệ thống quản lý trung tâm thể thao
 
-> SportHub là hệ thống quản lý **trung tâm thể thao đa bộ môn**: Gym/Fitness (ra vào tự do), Personal Training, Yoga, Group X — 1 trung tâm duy nhất, không đa chi nhánh. Chi tiết chốt bộ môn: `docs/00-Source-of-Truth.md` §1.1.
+SportHub quản lý trung tâm thể thao với **ba môn Gym (bao gồm PT), cầu lông và bóng rổ**, đồng thời hỗ trợ mở rộng thêm môn trong tương lai. PT là dịch vụ huấn luyện cá nhân thuộc Gym. Danh mục môn, chuyên môn HLV và loại sân/phòng phải cấu hình được.
 
-## 1. Danh sách Tác nhân & Vai trò (Actors & Roles)
+## 1. Mục tiêu và phạm vi
 
-* **System Administrator** – Quản trị tài khoản và vai trò hệ thống
-* **Center Manager** – Quản lý trung tâm
-* **Coach** – Huấn luyện viên
-* **Member** – Học viên / Thành viên
-* **Receptionist** – Nhân viên lễ tân
+Số hóa hoạt động từ tiếp đón, mua dịch vụ, xếp lịch, điểm danh và tập luyện đến thuê sân, thanh toán, hoàn điểm, thông báo và báo cáo. Dữ liệu phải nhất quán giữa sáu vai trò và không bán vượt sĩ số hoặc xếp trùng sân/Coach.
 
----
+Gym dùng Membership có thời hạn; PT mua riêng sau khi Membership Active. Cầu lông/bóng rổ bán khóa học nhiều buổi, độc lập Membership. ExternalCoach đã được duyệt được thuê sân theo giờ.
 
-## 2. Chi Tiết Yêu Cầu Chức Năng Theo Vai Trò
+Ngoài phạm vi: đa chi nhánh, payroll/hợp đồng nhân sự, chia doanh thu HLV ngoài, quản lý học viên riêng của ExternalCoach, mobile native, payment production, hoàn tiền mặt/chuyển khoản và VNPay Refund API.
 
-### System Administrator (Quản trị Hệ thống)
-* Tạo tài khoản System Administrator, Center Manager, Coach và Receptionist; gán hoặc đổi vai trò theo BR-2.
-* Khóa/mở khóa tài khoản có lý do và Audit Log; không tự khóa hoặc khóa System Administrator hoạt động cuối cùng theo BR-6/7.
-* Quyền đổi vai trò có hiệu lực từ request xác thực tiếp theo; không mặc nhiên có quyền nghiệp vụ của Manager hoặc quyền xem báo cáo/Audit.
+## 2. Yêu cầu theo vai trò
 
-### Center Manager (Quản lý Trung tâm)
-* Quản lý danh sách thành viên, huấn luyện viên và nhân viên của trung tâm.
-* Quản lý các lớp học, bộ môn, phòng tập và lịch hoạt động.
-* Phân công huấn luyện viên phụ trách từng lớp học; phân công lịch Yoga/Group X cho `ClassInstructor` (Coach loại HLV thuê dạy lớp). Không tự tạo/đổi tài khoản hoặc role — quyền đó thuộc System Administrator (28/09/2026).
-* Xem báo cáo số lượng thành viên, tình trạng đăng ký lớp và doanh thu theo ngày thu tiền. Chỉ Center Manager được xem báo cáo doanh thu.
-* Quản lý MembershipPackage và thời hạn sử dụng 1, 3, 6 hoặc 12 tháng theo calendar date.
-* Cấu hình chính sách nghiệp vụ của trung tâm; quyền gán/đổi vai trò thuộc System Administrator.
-* Xem lịch sử thao tác quan trọng trên hệ thống.
+| Vai trò | Chức năng yêu cầu |
+|---|---|
+| Guest | Xem trung tâm, ba môn, khóa/gói công khai; đăng ký Member hoặc ExternalCoach; không đọc dữ liệu cá nhân |
+| Member | Account/profile, Membership/PT/khóa học, lịch cá nhân, quyền lợi, invoice/wallet/refund, thông báo, kết quả tập và AI assistant |
+| Receptionist | Tìm Member, hỗ trợ đăng ký/mua dịch vụ, Gym check-in/out, điểm danh lớp, checkout hộ; dùng điểm cần OTP Member |
+| Coach | Xem lịch/lớp được giao; Coach PT lập kế hoạch, ghi kết quả, giao homework và dùng AI workout cho học viên được phân công |
+| ExternalCoach | Đăng ký/chờ duyệt, xem sân phù hợp, thuê/thanh toán/quản lý lượt thuê; không có roster học viên riêng |
+| CenterManager | Môn/phòng/giá, Coach/chuyên môn, lớp/lịch, threshold, ExternalCoach approval, incident, hoàn điểm và báo cáo |
+| SystemAdministrator | Tài khoản nhân sự, role và trạng thái tài khoản; không tự có quyền tài chính hoặc hồ sơ tập luyện |
 
-### Coach (Huấn luyện viên)
+Guest không phải role account. Coach có nhiều chuyên môn, không chia role cứng thành PersonalTrainer/ClassInstructor. Backend kiểm cả role và ownership/relationship.
 
-> **Bổ sung 28/09/2026:** vẫn 1 actor/role `Coach` duy nhất, nhưng chia 2 nhóm nghiệp vụ qua `CoachProfile.CoachCategory` (`PersonalTrainer` / `ClassInstructor`) — không tạo thêm actor hay role riêng. Chi tiết chốt: `docs/00-Source-of-Truth.md` §1.1/§2/§3, `docs/coach-specialization-doc-update-plan.md`.
+## 3. Luồng nghiệp vụ
 
-#### Personal Trainer
+| Flow | Yêu cầu |
+|---|---|
+| 1 — User/Membership | Identity, email OTP/Google onboarding, quên/đổi mật khẩu, account status, Membership renewal và Gym access |
+| 2 — Class/Schedule | Catalog, nhiều buổi/khóa, seat hold/ghi danh, ngưỡng lớp, chuyển lớp, điểm danh, occupancy, thuê sân và sự cố |
+| 3 — Payment/Report | Invoice/item snapshot, checkout, split điểm + VNPay, gateway verification/reconciliation, hoàn điểm và báo cáo |
+| 4 — Training/Attendance | PT quota/lịch/change request, plan/result/homework; điểm danh lớp nhóm bởi Receptionist |
+| 5 — AI workout | Gợi ý tập luyện cho Coach theo dữ liệu học viên được phân công |
+| 6 — AI assistant | Member chat theo context; Manager gợi ý xếp lịch/tạo nháp sau xác nhận là yêu cầu chưa triển khai |
 
-* Xem lịch PT và danh sách học viên được phân công.
-* Xem thông tin cơ bản, mục tiêu và trình độ tập luyện của học viên thuộc quan hệ được phép.
-* Tạo/cập nhật kế hoạch tập luyện và bài tập cho cá nhân học viên.
-* Ghi nhận kết quả tập luyện của học viên sau mỗi buổi.
-* Đánh giá tiến độ của học viên và ghi nhận nhận xét.
-* Điểm danh hoặc ghi nhận trạng thái buổi PT theo mô hình PT được đặc tả.
-* Gửi thông báo hoặc bài tập về nhà cho học viên được phân công.
-* Sử dụng AI để gợi ý bài tập phù hợp dựa trên mục tiêu, trình độ và lịch sử tập luyện của học viên.
-* Cập nhật hồ sơ cá nhân và mật khẩu của chính mình.
+## 4. Quy tắc chức năng
 
-#### Yoga/Group X Class Instructor
+- Giá và thời hạn được snapshot khi checkout; sửa catalog không thay giao dịch đã mua.
+- Enrollment gắn cả lớp. Sĩ số và giữ chỗ thuộc Class, không đặt từng buổi theo hạn mức ngày.
+- PT tách khỏi lớp nhóm; thời lượng 90 phút/buổi, kiểm Membership/quota/Coach/availability.
+- Xếp lịch lớp/PT/rental/block dùng cùng cơ chế occupancy; frontend availability không thay thế kiểm tra DB.
+- Giữ chỗ và điểm có hạn, expiry nhả đúng một lần; payment muộn phải đối soát.
+- `TotalAmount = PointsApplied × 1.000 + CashAmount`; người dùng chọn điểm trước, không tự trừ khi mở trang.
+- Backend xác minh IPN/QueryDR trước khi ghi payment/cấp quyền lợi; return chỉ hiển thị. Thanh toán bằng toàn điểm không tạo attempt VNPay.
+- Hoàn trả chỉ bằng điểm theo item, quyền lợi đã dùng và cap hệ thống; không double credit khi retry.
+- Ngưỡng lớp hỗ trợ chuyển/hoàn điểm; yêu cầu “chờ đợt sau” là hoàn 100% điểm + lưu nguyện vọng nhận thông báo, chưa có implementation.
+- Incident preview và resolve recheck lịch; lớp/PT xử lý phương án riêng trước bước cuối, không giả toàn luồng là một transaction.
+- AI chỉ hỗ trợ; thao tác ghi qua command có xác nhận, authorization và kiểm nghiệp vụ.
 
-HLV Yoga/Group X do trung tâm thuê về dạy lớp, tự có giáo án chuyên môn riêng ngoài hệ thống — SportHub không ghi nhận, upload hoặc quản lý giáo án này.
+## 5. Yêu cầu chất lượng và nghiệm thu
 
-* Xem lịch Yoga/Group X mà Center Manager đã phân công cho chính mình (bộ môn, ngày/giờ, phòng, trạng thái).
-* Cập nhật tên/số điện thoại trong hồ sơ của chính mình theo quyền profile chung.
-* Đổi hoặc đặt mật khẩu của chính mình theo luồng Identity hiện hành.
-* **Không** xem danh sách/hồ sơ chi tiết học viên của lớp; **không** tạo kế hoạch tập luyện, ghi kết quả/tiến độ/bài tập về nhà, gọi AI workout suggestion, điểm danh học viên, hoặc tự tạo/sửa/hủy/publish lớp và tự đổi lịch được giao.
+Backend kiểm quyền từng tài nguyên; OTP/rate limit/security stamp bảo vệ account. Transaction, unique/check/exclusion constraints và idempotency bảo vệ tài chính/lịch. Lưu UTC, hiển thị giờ Việt Nam, hỗ trợ UI EN/VI và thao tác bàn phím/mobile. Outbox có retry/dedup, audit có khả năng truy vết, log không chứa secret/OTP.
 
-### Member (Học viên / Thành viên)
-* Đăng ký tài khoản và cập nhật thông tin cá nhân.
-* Xem các gói thành viên và đăng ký/gia hạn gói tập.
-* Xem danh sách các lớp học và lịch học.
-* Đăng ký hoặc hủy đăng ký lớp học.
-* Xem lịch tập cá nhân và thông tin huấn luyện viên.
-* Xem lịch sử điểm danh và kết quả tập luyện.
-* Xem kế hoạch tập luyện và nhận xét từ huấn luyện viên.
-* *(Stretch — Flow 6, chỉ làm nếu còn thời gian)* Gửi câu hỏi cho hệ thống AI về lịch tập, bài tập hoặc các dịch vụ của trung tâm.
-* Nhận thông báo về lịch học, thay đổi lịch hoặc thời hạn gói thành viên.
+Nghiệm thu cần test concurrency PostgreSQL, role/ownership negative cases, checkout/expiry/late payment/refund, migration giữ lịch sử và E2E theo vai trò. VNPay sandbox/SMTP/Gemini thật có evidence riêng; không suy từ mock hoặc sự tồn tại của mã.
 
-### Receptionist (Nhân viên Lễ tân)
-* Tìm kiếm và xem thông tin thành viên.
-* Đăng ký thành viên mới tại quầy.
-* Quản lý đăng ký/gia hạn các gói thành viên.
-* Kiểm tra trạng thái gói tập và thời hạn sử dụng của thành viên.
-* Điểm danh thành viên khi đến trung tâm. Ghi `Present`/`Absent` cho lớp Yoga/Group X thay cho `ClassInstructor` (Coach loại này không có tác vụ điểm danh, 28/09/2026); `AttendanceFinalizerJob` vẫn tự sinh `NoShow` theo rule hiện hành.
-* Đăng ký lớp học hoặc hỗ trợ hủy lớp cho thành viên.
-* Checkout Membership hoặc PT cho Member, tạo Invoice và PaymentAttempt VNPay-QR; hỗ trợ yêu cầu hoàn tiền thay Member khi nhập lý do.
-* Tiếp nhận và ghi nhận các yêu cầu hỗ trợ từ thành viên.
+## 6. Phân biệt yêu cầu và implementation
 
----
+Tài liệu này nêu yêu cầu, không tuyên bố tất cả chức năng đã hoàn thành. Payment/checkout/wallet/VNPay adapter đã có mã; sandbox thật chưa được nghiệm thu trong đợt rà soát. Seed PT riêng chưa khớp phạm vi ba môn. Danh sách gap chi tiết, evidence và tiêu chí đóng nằm tại **mục 13 của [thiết kế](Center-Management-System-Design-v3.md)** và [phân công API theo page/owner](../DESIGN-SKILLS-GUIDE.md#api-liên-vai-trò-và-điều-kiện-đóng-việc).
 
-## 3. Các Luồng Nghiệp Vụ (System Flows)
-
-### Required Flows (Bắt buộc)
-* **Flow 1:** User and membership management (Quản lý người dùng và gói thành viên)
-* **Flow 2:** Class booking and schedule management (Quản lý đăng ký lớp và lịch trình)
-* **Flow 3:** Payment and report management — thanh toán đủ một lần bằng VNPay-QR, Invoice/InvoiceItem snapshot giá, đối soát IPN/QueryDR, Refund theo từng InvoiceItem và báo cáo doanh thu cho Center Manager.
-
-### Optional Flows (Tùy chọn — nhóm cam kết làm)
-* **Flow 4:** Training and attendance management (Quản lý tập luyện và điểm danh)
-* **Flow 5:** AI workout recommendation (Gợi ý bài tập bằng AI)
-
-### Stretch Goal (chỉ làm nếu còn thời gian sau khi xong Flow 1–5 — xem `00-Source-of-Truth.md` §1.4)
-* **Flow 6:** AI assistant (Trợ lý AI hỗ trợ giải đáp) — **không tính vào scope cam kết**, chỉ triển khai nếu còn dư thời gian.
-
-## Quyết định hiện hành đã duyệt 23/09/2026
-
-Business Rules v1.8 và SSOT là nguồn hiện hành. Membership, Class, Booking, No-show, PT, xác thực tài khoản và Payment áp dụng các quyết định đến ngày 26/09/2026. Nội dung Payment cũ trái BR-79–BR-95 không còn hiệu lực.
-
-- Membership có thời hạn 1, 3, 6 hoặc 12 tháng. `StartDate` và `EndDate` đều inclusive; `EndDate = StartDate.AddMonths(DurationInMonths).AddDays(-1)`. Lần mua mới lấy `StartDate` theo ngày Việt Nam của `vnp_PayDate` đã xác minh; early renewal bắt đầu sau `EndDate` hiện tại.
-- Early renewal tạo Membership mới bắt đầu ngay sau `EndDate` hiện tại. PT sessions chưa dùng được carry over nếu renew trong vòng 30 calendar days; được nối tiếp qua nhiều lần renewal nếu mỗi lần đều thỏa điều kiện này.
-- Yoga và Group X là class 60 phút; mỗi bộ môn tối đa một Morning slot và một Afternoon slot mỗi ngày, tổng tối đa 4 class/ngày. Class đi theo `DRAFT → PUBLISHED → CLOSED`; chỉ `PUBLISHED` nhận booking; không có Waitlist.
-- Member tối đa 1 Yoga và 1 Group X mỗi ngày. Hủy được phép tại hoặc trước 30 phút trước giờ bắt đầu; hủy thành công giải phóng slot.
-- Ba No-show trong rolling 30 calendar days kích hoạt ngay booking restriction 7 calendar days, ngày kết thúc là exclusive.
-- PT là dịch vụ trả phí riêng, 1 Coach : 1 Member, 90 phút/session. Chỉ Membership `Active` mới được checkout PT; không mua PT trong cùng checkout tạo Membership mới. Frequency 1/2/3 sessions per week chỉ dùng tính tổng quota, không phải giới hạn theo tuần.
-- Register bằng email/mật khẩu phải xác thực OTP 6 số; OTP dùng một lần, hiệu lực 10 phút, tối đa 5 lần nhập sai, resend cooldown 60 giây và chịu rate limit theo email/IP. Google Login lần đầu với email mới phải để chính người dùng nhập và xác nhận mật khẩu trước khi hoàn tất onboarding.
-- Invoice được tạo tại checkout, snapshot từng InvoiceItem và chỉ hỗ trợ trả đủ một lần bằng VND qua VNPay-QR. Một Invoice có thể có nhiều PaymentAttempt nhưng tối đa một Payment thành công; IPN/QueryDR từ backend là nguồn xác nhận, ReturnUrl chỉ để hiển thị.
-- Payment thành công, Invoice Paid và tạo/kích hoạt Membership hoặc PT phải commit trong cùng database transaction. Gateway đã nhận tiền nhưng fulfillment lỗi phải được lưu `ReconciliationRequired` và cho backend thử lại; Receptionist không được tự đánh dấu thành công.
-- Refund tách theo InvoiceItem. Membership đủ điều kiện khi còn ít nhất 2/3 tổng thời hạn tại ngày yêu cầu, kể cả chưa tới StartDate, và hoàn 50% số tiền item đã trả. Dưới ngưỡng hoặc Expired không hoàn, trừ lỗi trung tâm. PT chưa sử dụng session nào hoàn 50%; đã consume session thì không hoàn chuẩn, trừ lỗi trung tâm.
-- Member tạo yêu cầu hoàn cho giao dịch của mình; Receptionist tạo hộ và bắt buộc nhập lý do; Center Manager approve/reject nhưng không được tăng số tiền vượt mức hệ thống tính; chỉ backend gọi VNPay Refund API.
-- Quan hệ cá nhân do Manager quản lý, Coach không tự cấp quyền. Token role cũ bị từ chối sau đổi role.
-- **Bổ sung 28/09/2026:** Coach chia 2 nhóm nghiệp vụ `PersonalTrainer`/`ClassInstructor` dưới 1 role duy nhất (xem mục Coach ở trên). Payroll, bảng lương, hoa hồng PT, thưởng/phạt/phụ cấp, hợp đồng lao động/cộng tác viên, chấm công tính lương và báo cáo chi phí nhân sự/lợi nhuận nằm ngoài phạm vi — xem `00-Source-of-Truth.md` §1.3.
-
-Chi tiết còn mở được ghi tại [SSOT §7](00-Source-of-Truth.md). Đây là thay đổi đặc tả, chưa phải báo cáo hoàn thành.
+Quy tắc chi tiết theo [Business Rules](SportManagement_BusinessRules_v2.0_updated.docx); quy ước và cách xử lý mâu thuẫn theo [SSOT](00-Source-of-Truth.md).

@@ -1,9 +1,10 @@
-# SportHub — Hệ thống quản lý nhà văn hóa thể thao đa môn (SWP391)
+# SportHub — Hệ thống quản lý trung tâm thể thao đa môn (SWP391)
 
-Monorepo cho hệ thống quản lý **nhà văn hóa thể thao đa môn**: nhiều bộ môn (seed: Gym, Personal Training, Cầu lông, Bóng rổ — Manager tự thêm/sửa môn), nhiều sân/phòng, **khóa học cố định theo lớp** (ví dụ Cầu lông 01, 02), huấn luyện viên của trung tâm và huấn luyện viên tự do (ExternalCoach) thuê sân theo giờ. Thanh toán bằng tiền (VNPay-QR) kết hợp **ví điểm** (1 điểm = 1.000 VND). Thiết kế đầy đủ: [`docs/Center-Management-System-Design-v3.md`](docs/Center-Management-System-Design-v3.md).
+SportHub là **hệ thống quản lý trung tâm thể thao với ba môn Gym (bao gồm PT), cầu lông và bóng rổ; có thể mở rộng thêm môn trong tương lai**. PT là dịch vụ thuộc Gym, không phải môn thứ tư.
 
-> **Trước khi code:** đọc [`docs/00-Source-of-Truth.md`](docs/00-Source-of-Truth.md) (scope MVP, entity/enum/state, quy ước ID/money/timezone) và Design v3 §0, §2, §16. Nếu SSOT chưa kịp đồng bộ với Design v3 thì Design v3 + BR v2.0 thắng (SSOT sẽ được cập nhật theo Design v3 §19.1).
+Monorepo cho hệ thống quản lý **trung tâm thể thao đa môn**: nhiều bộ môn (phạm vi: Gym (bao gồm PT), Cầu lông, Bóng rổ — Manager quản lý danh mục; seed kỹ thuật còn PT riêng, xem CAT-01 trong thiết kế), nhiều sân/phòng, **khóa học cố định theo lớp** (ví dụ Cầu lông 01, 02), huấn luyện viên của trung tâm và huấn luyện viên tự do (ExternalCoach) thuê sân theo giờ. Thanh toán bằng tiền (VNPay-QR) kết hợp **ví điểm** (1 điểm = 1.000 VND). Thiết kế đầy đủ: [`docs/Center-Management-System-Design-v3.md`](docs/Center-Management-System-Design-v3.md).
 
+> **Trước khi code:** đọc [SSOT](docs/00-Source-of-Truth.md) và [thiết kế hệ thống](docs/Center-Management-System-Design-v3.md). 
 ## Sản phẩm
 
 ### 6 vai trò
@@ -11,7 +12,7 @@ Monorepo cho hệ thống quản lý **nhà văn hóa thể thao đa môn**: nhi
 | Vai trò | Làm gì |
 |---|---|
 | System Administrator | Tạo tài khoản nhân sự (Admin/Manager/Receptionist), đổi vai trò, khóa/mở khóa |
-| Center Manager | CRUD môn, phòng/sân, giá thuê sân, Membership; tạo lớp + xếp lịch (có chatbot gợi ý), phân công Coach theo chuyên môn, duyệt ExternalCoach, duyệt hoàn điểm, sự cố/thông báo, báo cáo, Audit Log |
+| Center Manager | CRUD môn, phòng/sân, giá thuê sân, Membership; tạo lớp + xếp lịch (AI gợi ý xếp lịch còn là phần chưa triển khai), phân công Coach theo chuyên môn, duyệt ExternalCoach, duyệt hoàn điểm, sự cố/thông báo, báo cáo, Audit Log |
 | Coach (của trung tâm) | Chuyên môn theo môn (`CoachSpecialty`); xem lịch dạy và roster lớp mình; Coach có chuyên môn PT: PT session, kế hoạch tập, kết quả, homework, gợi ý AI |
 | ExternalCoach | Coach tự do: tự đăng ký, chờ Manager duyệt, xem sân trống + giá, thuê sân theo giờ, thanh toán, ví điểm. Không quản lý/điểm danh học viên riêng |
 | Member | Đăng ký Membership Gym, PT; xem lớp/khóa học, ghi danh có giữ chỗ, ví điểm, lịch hôm nay/tuần, thông báo, chatbot |
@@ -26,7 +27,7 @@ Monorepo cho hệ thống quản lý **nhà văn hóa thể thao đa môn**: nhi
 | 3 — Payment & report | Bắt buộc | Invoice nhiều loại item, VNPay-QR, ví điểm + split payment, hoàn trả **chỉ bằng điểm**, báo cáo theo môn/nguồn |
 | 4 — Training & attendance | Optional (nhóm vẫn làm) | PT: kế hoạch, kết quả, homework, điểm danh |
 | 5 — AI workout recommendation | Optional (nhóm vẫn làm) | Gợi ý bài tập cho Coach có chuyên môn PT |
-| 6 — AI assistant | Nhóm làm | Chatbot function calling: Member xem lịch hôm nay; Manager gợi ý xếp lịch |
+| 6 — AI assistant | Nhóm làm | Member assistant theo context đã có mã; Manager AI xếp lịch/function calling chưa triển khai |
 
 ### Quy tắc chính cần nhớ
 
@@ -47,21 +48,20 @@ sports-center-management-system/
 └── docker-compose.yml
 ```
 
-**Không thêm project backend mới** (quyết định 30/09/2026): ví điểm nằm trong `SportHub.Payment/Wallet`, catalog môn/phòng/giá sân nằm trong `SportHub.Scheduling/Catalog`, `ExternalCoachProfile` nằm trong `SportHub.Identity`; các module chỉ gọi nhau qua interface ở `BuildingBlocks`.
+**Không thêm project backend mới**: ví điểm nằm trong `SportHub.Payment/Wallet`, catalog môn/phòng/giá sân nằm trong `SportHub.Scheduling/Catalog`, `ExternalCoachProfile` nằm trong `SportHub.Identity`; các module chỉ gọi nhau qua interface ở `BuildingBlocks`.
 
 ## Tài liệu
 
 | Tài liệu | Vai trò |
 |---|---|
 | [`docs/SportManagement_BusinessRules_v2.0_updated.docx`](docs/SportManagement_BusinessRules_v2.0_updated.docx) | Business Rules v2.0 — nguồn nghiệp vụ hiện hành (thắng khi mâu thuẫn) |
-| [`docs/Center-Management-System-Design-v3.md`](docs/Center-Management-System-Design-v3.md) | Thiết kế hiện hành: ERD v3, state machine, API, RBAC, chatbot, UI map, thứ tự triển khai G0–G12, phụ lục Xóa/Giữ/Sửa/Thêm |
-| [`docs/00-Source-of-Truth.md`](docs/00-Source-of-Truth.md) | Scope MVP, entity/enum/state, quy ước (đang được đồng bộ theo Design v3) |
+| [`docs/Center-Management-System-Design-v3.md`](docs/Center-Management-System-Design-v3.md) | Thiết kế độc lập: phạm vi, module, dữ liệu, luồng, payment, bảo mật, kiểm thử và danh sách phần chưa hoàn thành |
+| [`docs/00-Source-of-Truth.md`](docs/00-Source-of-Truth.md) | Phạm vi, thuật ngữ, quy ước và thứ tự nguồn |
 | [`docs/Requirements.md`](docs/Requirements.md), [`docs/SWP391_Report_SRS.docx`](docs/SWP391_Report_SRS.docx) | Yêu cầu và báo cáo SRS |
 | [`docs/entity-field-purpose.md`](docs/entity-field-purpose.md) | Ý nghĩa từng trường của entity |
 | [`docs/RUNBOOK.md`](docs/RUNBOOK.md) | Khởi động PostgreSQL, backend và frontend trên máy local |
 | [`docs/GIT_WORKFLOW.md`](docs/GIT_WORKFLOW.md) | Quy trình Git, phân module theo giai đoạn G0–G12 |
-| [`docs/Center-Management-System-Design-v2.md`](docs/Center-Management-System-Design-v2.md) | **Đã bị thay thế bởi Design v3** — chỉ để đối chiếu lịch sử (có bảng ánh xạ v2 → v3 ở đầu file) |
-| [`PRODUCT.md`](PRODUCT.md), [`DESIGN.md`](DESIGN.md) | Định vị sản phẩm và hệ thống thiết kế giao diện |
+| [`PRODUCT.md`](PRODUCT.md), [`DESIGN-SKILLS-GUIDE.md`](DESIGN-SKILLS-GUIDE.md), [`DESIGN-TOKENS.md`](DESIGN-TOKENS.md) | Sản phẩm, quy trình UX/UI hai skill, phân công page/API và bộ token duy nhất |
 
 ## Chạy thử nhanh
 
@@ -143,16 +143,16 @@ Khi hai module cần gọi nhau theo chiều sẽ tạo vòng, seam được kha
 | `INotificationWriter` (BR-33/34) | `Notification` | Scheduling, Payment |
 | `ISystemSettingProvider` (BR-39/50) | `Administration` | Scheduling |
 | `ICoachRelationshipRegistrar` | `Training` | Scheduling |
-| `IPointWalletService` (mới) | `Payment` | Scheduling |
-| `IOccupancyService`, `ISportCatalogReader` (mới) | `Scheduling` | Payment, AI, Training |
-| `IClassEnrollmentFulfillment` (mới) | `Scheduling` | Payment (khi Invoice Paid) |
+| `IPointWalletService` | `Payment` | Scheduling |
+| `IOccupancyService`, `ISportCatalogReader` | `Scheduling` | Payment, AI, Training |
+| `IClassEnrollmentFulfillment` | `Scheduling` | Payment (khi Invoice Paid) |
 
-Các seam mới (dòng đánh dấu "mới") là dự kiến theo Design v3 §2.1, chưa có trong mã.
+Các seam mới (dòng đánh dấu "mới") là dự kiến theo thiết kế hệ thống, chưa có trong mã.
 
 Target framework: **net10.0** (cả 11 project). Entity/enum/state cho từng module: xem
-`docs/00-Source-of-Truth.md` §2–4 trước khi code.
+[SSOT](docs/00-Source-of-Truth.md)–4 trước khi code.
 
-## Cấu hình tùy chọn (thiếu thì chạy chế độ mock/log)
+## Cấu hình tích hợp
 
 Backend đọc cấu hình qua biến môi trường (`__` = cấp lồng nhau, ví dụ `VnPay__TmnCode` → `VnPay:TmnCode`). Mẫu ở `.env.example`. Các tích hợp ngoài có hành vi fallback khác nhau; bảng dưới mô tả đúng runtime hiện tại:
 
@@ -161,7 +161,7 @@ Backend đọc cấu hình qua biến môi trường (`__` = cấp lồng nhau, 
 | `POSTGRES_*`, `ConnectionStrings__Default` | Có | Không chạy được |
 | `JwtOptions__SecretKey` (≥ 32 ký tự) | Có | API không khởi động |
 | `Google__ClientId` | Không | `/api/auth/google` trả `503 google_login_not_configured` |
-| `VnPay__TmnCode`, `VnPay__HashSecret` (+ Pay URL, Return URL, IPN URL) | Không | Dùng `MockPaymentGateway`: QR giả, demo IPN bằng `POST /api/dev/payments/{attemptId}/succeed` (Design v3 §3) |
+| `VnPay__TmnCode`, `VnPay__HashSecret`, `VnPay__PaymentUrl`, `VnPay__ReturnUrl`, `VnPay__QueryUrl` | Có khi dùng gateway thật | Mock chỉ khi Development và `VnPay__UseMock=true`; thiếu credential không tự fallback. Ngoài Development, startup yêu cầu credential và URL HTTPS. |
 | `Email__Smtp__Host/Username/Password` (Gmail App Password) | Không | Dùng `LoggingEmailSender`: nội dung email (kể cả **OTP**) ghi vào log backend |
 | `Gemini__ApiKey` (+ `Gemini__Model`, `Gemini__BaseUrl`, `Gemini__TimeoutSeconds`) | Không | Endpoint Gemini trả `503 gemini_not_configured`; gợi ý workout rule-based vẫn độc lập |
 | `Reports__StorageRoot` | Không | `<thư mục chạy>/App_Data/reports` |
@@ -229,44 +229,3 @@ cd frontend && npm install && npm run dev
 Xem chi tiết thiết kế: [`docs/Center-Management-System-Design-v3.md`](docs/Center-Management-System-Design-v3.md)
 
 ---
-
-## Refactor delta (README.md — 30/09/2026)
-
-### XÓA
-
-| Nội dung | Lý do |
-|---|---|
-| "Gym, Personal Training, Yoga, Group X" trong mô tả | Yoga/Group X bỏ; phạm vi đổi sang đa môn (Design v3 §0 #1) |
-| Dẫn `docs/implementation-decisions.md`, `docs/claude-continuation-plan-2026-09-23.md`, `docs/SportManagement_BusinessRules.docx` (v1.4), `docs/business-rules-v1.4.md` | File không còn trong `docs/`; BR hiện hành là v2.0 |
-| Đoạn "Plan ưu tiên sửa đối soát thu/hoàn và tách approve/complete… hoàn tiền" | Gắn với mô hình hoàn tiền/VNPay Refund cũ (đã bỏ, BR-135) |
-| Đường dẫn "5 vai trò" trong mục chạy thử | Nay là 6 vai trò |
-
-### GIỮ
-
-| Nội dung | Lý do |
-|---|---|
-| Cấu trúc thư mục repo, cây `backend/` 11 project, cấu trúc nội bộ module | Design v3 §2.1: không thêm project mới |
-| Sơ đồ phụ thuộc module và bảng seam ở `BuildingBlocks` | Vẫn đúng; chỉ bổ sung seam mới (bảng bên dưới) |
-| Hướng dẫn Docker Compose / chạy riêng, các URL, Swagger | Khớp `docker-compose.yml` (3 service, cổng 5000/3000) |
-| Cảnh báo tự migrate/seed ở Development | Không đổi |
-
-### SỬA
-
-| Nội dung | Trước → Sau |
-|---|---|
-| Tiêu đề và mô tả dòng đầu | trung tâm thể thao/gym → nhà văn hóa thể thao đa môn, khóa học cố định, ví điểm |
-| Nguồn chuẩn | Design v2 / BR v1.4 → Design v3 / BR v2.0 (BR thắng khi mâu thuẫn) |
-| Mô tả module `Scheduling`, `Payment`, `Identity`, `AI` trong cây backend | Thêm Catalog, Wallet/VnPay, ExternalCoachProfile, chatbot function calling |
-| Ghi chú `docs/` trong cây | "Business Rules, Design v2" → "Business Rules v2.0, Design v3, SSOT, RUNBOOK, Git workflow" |
-| Link "Xem chi tiết" cuối file | Design v2 → Design v3 |
-
-### THÊM
-
-| Nội dung | Lý do |
-|---|---|
-| Mục "Sản phẩm": 6 vai trò, Flow 1–6, quy tắc chính (điểm, split payment, OTP, giữ chỗ, ngưỡng, chống trùng lịch) | Mô tả sản phẩm mới |
-| Mục "Tài liệu" (chỉ mục) gồm BR v2.0 updated docx, Design v3, v2 đã thay thế | Yêu cầu doc index |
-| Mục "Cấu hình tùy chọn" `VnPay__*`, `Email__*`, `Gemini__*` + hành vi thiếu khóa (mock/log) | Design v3 §3, §19.2 #7–8 |
-| Cảnh báo compose chưa truyền `VnPay__*`/`Email__*` | Khớp `docker-compose.yml` hiện tại |
-| Mục "Ghi chú kỹ thuật" | Tóm tắt kiến trúc mới |
-| Seam mới `IPointWalletService`, `IOccupancyService`, `ISportCatalogReader`, `IClassEnrollmentFulfillment` | Design v3 §2.1 (BuildingBlocks) |

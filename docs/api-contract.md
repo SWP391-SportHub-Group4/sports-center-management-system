@@ -1,15 +1,17 @@
 # Hợp đồng API refactor đa môn (backend)
 
-Trạng thái 01/10/2026: **backend plan 1 đã qua gate 465/465 test**, ngoại trừ tích hợp/nghiệm thu VNPay sandbox thật theo yêu cầu người dùng. Phần A là route lịch sử trước refactor (30/09/2026, commit `a5c480b`), không dùng để khôi phục flow ghi dữ liệu đã bỏ. Quy ước và bản chốt dưới đây được ưu tiên khi checkpoint cũ dùng tên nội bộ PascalCase.
+SportHub là **hệ thống quản lý trung tâm thể thao với ba môn Gym (bao gồm PT), cầu lông và bóng rổ; có thể mở rộng thêm môn trong tương lai**. PT là dịch vụ thuộc Gym, không phải môn thứ tư.
 
-## Bổ sung P2.06–P2.10 — 02/10/2026
+Các bảng mô tả contract; phần route baseline chỉ để tra cứu đường đọc tương thích. Không dùng baseline để khôi phục luồng ghi legacy. Trạng thái triển khai và nghiệm thu xem mục 13 của thiết kế hệ thống.
+
+## Contract giao diện nghiệp vụ
 
 Các API dưới đây bổ sung đúng dependency của frontend P2.06–P2.10, không đổi schema/migration. Quy định mới về hủy khóa thay phần mô tả P1.05 bên dưới.
 
 | Verb | Route | Actor / contract |
 |---|---|---|
 | GET | `/api/gym-checkins/inside?page&pageSize` | FrontDesk; PagedResult gồm `checkInId,memberId,memberName,checkInTime`; chỉ lượt chưa checkout, pageSize tối đa 100. |
-| POST | `/api/gym-checkins` | Receptionist; `{targetMemberId}`. Nếu Member còn lượt `CheckOutTime=null` (kể cả ngày trước), trả 409 `gym_already_checked_in`: “Member đã được ghi nhận vào Gym, vui lòng ghi nhận ra trước.” Không tạo thêm lượt; yêu cầu đồng thời chỉ một lượt thành công. Sau check-out được vào lại, không giới hạn số lượt trong ngày. Quy tắc bổ sung theo yêu cầu người dùng 02/10/2026; không thay schema/migration hoặc BR DOCX. |
+| POST | `/api/gym-checkins` | Receptionist; `{targetMemberId}`. Nếu Member còn lượt `CheckOutTime=null` (kể cả ngày trước), trả 409 `gym_already_checked_in`: “Member đã được ghi nhận vào Gym, vui lòng ghi nhận ra trước.” Không tạo thêm lượt; yêu cầu đồng thời chỉ một lượt thành công. Sau check-out được vào lại, không giới hạn số lượt trong ngày. |
 | PUT | `/api/manager/coaches/{userId}` | Manager; bổ sung `fullName?` (2–100 ký tự, validator hiện có), `phone?` (đúng định dạng, unique); null giữ giá trị cũ, chuỗi phone rỗng xóa số. Không đổi email/role/UserStatus. |
 | GET | `/api/manager/classes?thresholdStatus=AT_RISK` | Manager; thêm filter threshold, giữ sport/lifecycle/search/pagination hiện có. Enum wire UPPER_SNAKE_CASE. |
 | GET | `/api/manager/classes/{classId}/holds` | Manager; paged `holdId,memberId,memberName,invoiceId,status,expiresAtUtc,createdAt`. |
@@ -29,7 +31,7 @@ Hủy khóa tính `floor(remainingPaidValueVnd × sessionsNotProvided / totalSes
 
 Delivery có `total,pending,sending,sent,failed,read`; đây là trạng thái outbox/in-app. SMTP vẫn at-least-once; receipt/idempotency không có nghĩa người nhận đã đọc email hoặc exactly-once SMTP.
 
-## Bổ sung tích hợp frontend P2.00–P2.05 — 02/10/2026
+## Contract tích hợp frontend
 
 Các endpoint dưới đây phục vụ frontend API-backed. Không thay schema/migration. ID lớp/package/room/sport là int; ID invoice/enrollment/PT/request là UUID. Backend tiếp tục kiểm role, ownership, trạng thái và đồng thời.
 
@@ -55,8 +57,6 @@ Các endpoint dưới đây phục vụ frontend API-backed. Không thay schema/
 | GET | `/api/members/me/pt-session-change-requests`, `/api/members/me/pt-coach-change-requests` | Chỉ owner, 100 request gần nhất với trạng thái/reviewNote. |
 | GET | `/api/coach-member-relationships` | Member/Coach/Manager; Member/Coach bị clamp theo owner. Không có endpoint members/me/relationships giả. |
 | GET | `/api/wallet/me/ledger?page=&pageSize=&entryType=` | Array WalletLedgerResponse, không Paged; timestamp createdAtUtc. Filter HOLD/RELEASE/SPEND/EARN/ADJUSTMENT áp trước pagination; filter sai 400. Staff audited ledger cũng hỗ trợ filter. |
-
-Kiểm chứng build cuối: backend 470/470 test pass (Payment 135, Scheduling 108, Training 81, Security 131, Administration 15). HTTP riêng xác minh public catalog anonymous, owner reads, ledger filter/400. Browser API thật 4/4 dùng PostgreSQL cô lập và VNPay mock. SMTP/VNPay sandbox thật không được chứng nhận bởi các test này.
 
 ## Quy ước chung
 
@@ -430,7 +430,7 @@ Refund mới không còn tạo/duyệt qua route adjustment chung; refund legacy
 | P1.06–P1.08 Wallet/checkout/refund | Hoàn tất backend | Phần E/G/H; sandbox VNPay thật do người dùng phụ trách. |
 | P1.09 Threshold/transfer | Hoàn tất backend | Phần I, expiry/transfer/late payment integration đã chạy. |
 | P1.10–P1.11 Rental/calendar/incident/outbox | Hoàn tất backend | Bản chốt ở đầu tài liệu và Phần J. |
-| P1.12 Báo cáo/seed/config | Hoàn tất backend | Cập nhật P1.12/P1.13 ở cuối tài liệu. |
+| P1.12 Báo cáo/seed/config | Hoàn tất backend | Xem phần Contract báo cáo và tích hợp. |
 | P1.13 Kiểm thử | 465/465 pass | Xem evidence cuối; frontend và dịch vụ bên ngoài chưa thuộc chứng nhận này. |
 
 AI (`api/ai/*`) nằm ngoài gate của hai plan; chỉ sửa tối thiểu để build.
@@ -595,7 +595,7 @@ Email không xuất hiện trong danh sách/read-all InApp. OTP email được m
 `GET /api/reports/revenue` giữ các field legacy, đồng thời thêm `legacyCashCollected`, `reconciliationCashCollected`, `reconciliationCashCount`, `pointsRedeemed`, `pointsRedeemedVnd` (điểm×1.000 VND), `pointsIssued`, `managerPointAdjustment`, `outstandingPoints` (available+held tại lúc chạy), và `bySource[{source,cashCollected,pointsRedeemed}]`. Daily rows thêm `legacyCashCollected` và `reconciliationCashCollected`; `totalCollected` cộng cả cash reconciliation đã xác minh để đối soát. Group-by-Sport và export dùng cùng tổng hợp theo phần P1.12/P1.13 bên dưới.
 
 Lịch phòng tổng hợp và incident workflow hiện hành được mô tả ở bản chốt đầu tài liệu; PostgreSQL concurrency/privacy đã qua gate. Manager cần chọn phương án dời/hủy/bù hợp lệ trước khi resolve incident có lớp/PT.
-# Cập nhật P1.12/P1.13 — 01/10/2026
+# Contract báo cáo và tích hợp
 
 Phần này thay thế các ghi chú “chưa có” về báo cáo/export và seed trong checkpoint lịch sử bên dưới.
 
