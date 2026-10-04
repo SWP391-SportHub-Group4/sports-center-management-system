@@ -6,6 +6,14 @@ SportHub là **hệ thống quản lý trung tâm thể thao với ba môn Gym (
 
 Đọc bắt buộc: [DESIGN-SKILLS-GUIDE](../../DESIGN-SKILLS-GUIDE.md), [DESIGN-TOKENS](../../DESIGN-TOKENS.md), [PRODUCT](../../PRODUCT.md) và [nguồn nghiệp vụ](../00-Source-of-Truth.md). Kế hoạch API nằm ngay cuối file này. **Dùng cả Impeccable (UX) và Taste (UI) theo guide; DESIGN-TOKENS là chuẩn duy nhất.**
 
+## Bắt đầu tuần 05–11/10
+
+- **Làm trước:** Chốt hero/CourseCard/Header/Footer/AccountMenu và mẫu list/detail/form; review mẫu của nhóm theo token.
+- **Thứ tự trang:** Landing/catalog → Auth/nội dung public → Lớp Manager → HLV/sân/incident/notices/AI → ExternalCoach.
+- Bảng tên trang, hạn mục tiêu và tiêu chí xong: [kế hoạch FE một tuần](KE-HOACH-FE-1-TUAN.md). Phần bên dưới giữ đặc tả đầy đủ để tra khi làm từng trang.
+- Chỉ ghi “Hoàn thành” khi UI + API thật + kiểm chứng đạt; fixture có nhãn là “Xong UI – chờ API”. Không chờ toàn bộ backend/shared xong mới bắt đầu.
+
+
 ## 1. Phạm vi
 
 - PublicShell/Header/Footer, landing và toàn bộ public pages, course card/catalog/detail dùng lại ở Member.

@@ -2,9 +2,17 @@
 
 SportHub là **hệ thống quản lý trung tâm thể thao với ba môn Gym (bao gồm PT), cầu lông và bóng rổ; có thể mở rộng**. PT là dịch vụ thuộc Gym, không phải môn thứ tư.
 
-**Khoa có khối lượng ít nhất: 9 mục page/tab/flow, phạm vi rõ, chủ yếu dùng pattern có sẵn.** Không phụ trách điều phối API toàn nhóm, nền tảng, checkout, report/export, tạo lớp, PT, incident hoặc AI. An giữ nền tảng kỹ thuật; Khôi là UI/UX Lead.
+**Khoa có khối lượng ít nhất: 9 mục page/tab/flow, phạm vi rõ, chủ yếu dùng pattern có sẵn.** Không phụ trách điều phối API toàn nhóm hoặc toàn bộ nền tảng; chỉ triển khai Table/State nhỏ theo contract An. Không phụ trách checkout, report/export, tạo lớp, PT, incident hoặc AI. An giữ nền tảng kỹ thuật; Khôi là UI/UX Lead.
 
 Đọc [DESIGN-SKILLS-GUIDE](../../DESIGN-SKILLS-GUIDE.md), [DESIGN-TOKENS](../../DESIGN-TOKENS.md), [PRODUCT](../../PRODUCT.md) và [nguồn nghiệp vụ](../00-Source-of-Truth.md). Dùng Impeccable UX → Taste UI phù hợp → critique/audit/polish theo guide; ChatGPT Plus để shape/review, Antigravity cùng bundle để code/test.
+
+## Bắt đầu tuần 05–11/10
+
+- **Làm trước:** Làm Table/FilterBar/StatusChip và các state theo contract An, dùng ngay trên mẫu Admin list; An vẫn giữ owner shared.
+- **Thứ tự trang:** Admin tài khoản → Danh mục/giá → Settings/nhật ký → tự kiểm và sửa phần đã giao.
+- Bảng tên trang, hạn mục tiêu và tiêu chí xong: [kế hoạch FE một tuần](KE-HOACH-FE-1-TUAN.md). Phần bên dưới giữ đặc tả đầy đủ để tra khi làm từng trang.
+- Chỉ ghi “Hoàn thành” khi UI + API thật + kiểm chứng đạt; fixture có nhãn là “Xong UI – chờ API”. Không chờ toàn bộ backend/shared xong mới bắt đầu.
+
 
 ## 1. Phạm vi và phần đã chuyển
 
@@ -37,7 +45,7 @@ Menu Admin riêng: **Tổng quan · Tài khoản & vai trò · Nhật ký**; kh�
 
 ## 3. Pattern dùng chung bắt buộc
 
-- Table/FilterBar/Form/Status/Empty/Error/Loading/Dialog/AppShell/Header/Notification dùng của An, AccountMenu dùng của Khôi. Không tự viết palette/component thứ hai.
+- Khoa triển khai Table/FilterBar/StatusChip và Loading/Empty/Error/Forbidden/Conflict theo contract An trong task N-KO; An giữ owner kỹ thuật, Khôi review visual. Form/Dialog/AppShell/Header/Notification dùng của An, AccountMenu dùng của Khôi. Không tự viết palette/component thứ hai.
 - Khôi review một màn mẫu `Danh mục` và một màn `Admin user detail`; sau đó Khoa reuse pattern cho các màn còn lại.
 - Q24–Q25 chỉ là form danh mục theo schema/API đã chốt. **An sở hữu CAT-01**, Khoa không phải tự thiết kế migration Gym/PT.
 - Q26 hiển thị giá trị và tác động đúng contract; không tự thêm setting chưa có hoặc quyết định lại hold/OTP policy.

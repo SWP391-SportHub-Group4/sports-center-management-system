@@ -5,40 +5,7 @@
  * nào đang dùng — thêm một framework chỉ để dựng giao diện quản trị sẽ đổi cả stack build.
  */
 
-:root {
-  color-scheme: light;
-
-  --brand-900: #0b2d4d;
-  --brand-700: #12527f;
-  --brand-500: #1a76b8;
-  --brand-100: #e3f0fa;
-
-  --accent-600: #b4530a;
-  --accent-100: #fdf0e2;
-
-  --ok-700: #14653a;
-  --ok-100: #dcfce7;
-  --warn-700: #92610a;
-  --warn-100: #fef3c7;
-  --danger-700: #a4161a;
-  --danger-100: #fde7e7;
-
-  --ink-900: #10161d;
-  --ink-700: #33414f;
-  --ink-500: #64748b;
-  --ink-300: #a8b4c2;
-
-  --surface: #ffffff;
-  --surface-alt: #f5f7fa;
-  --line: #dfe5ec;
-
-  --radius: 10px;
-  --radius-sm: 6px;
-  --shadow: 0 1px 2px rgba(16, 22, 29, 0.06), 0 8px 24px rgba(16, 22, 29, 0.06);
-
-  --sidebar-width: 244px;
-  --header-height: 60px;
-}
+/* Biến màu/spacing/radius nay nằm ở src/styles/tokens.css (nguồn duy nhất). Tên cũ được alias ở lớp 3. */
 
 * {
   box-sizing: border-box;
@@ -54,12 +21,12 @@ body {
 }
 
 body {
-  font-family: "Roboto", system-ui, sans-serif;
+  font-family: var(--font-body);
   font-kerning: normal;
   background: var(--surface-alt);
   color: var(--ink-900);
-  font-size: 15px;
-  line-height: 1.55;
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
 }
 
 ::selection {

@@ -6,6 +6,14 @@ Mục tiêu: giữ nền tảng frontend dùng chung; hoàn thiện Member và p
 
 Đọc bắt buộc: [DESIGN-SKILLS-GUIDE](../../DESIGN-SKILLS-GUIDE.md), [DESIGN-TOKENS](../../DESIGN-TOKENS.md), [PRODUCT](../../PRODUCT.md) và [nguồn nghiệp vụ](../00-Source-of-Truth.md). Kế hoạch API nằm ngay cuối file này. **Dùng cả Impeccable (UX) và Taste (UI) theo guide; DESIGN-TOKENS là chuẩn duy nhất.**
 
+## Bắt đầu tuần 05–11/10
+
+- **Làm trước:** Bật token và shell; bàn giao Button/Form/Dialog/Drawer, props Table/State và checkout để cả nhóm dùng.
+- **Thứ tự trang:** Checkout/ví/hóa đơn → Member chính → Tập luyện/PT Manager → Finance/reports → các màn gap/AI.
+- Bảng tên trang, hạn mục tiêu và tiêu chí xong: [kế hoạch FE một tuần](KE-HOACH-FE-1-TUAN.md). Phần bên dưới giữ đặc tả đầy đủ để tra khi làm từng trang.
+- Chỉ ghi “Hoàn thành” khi UI + API thật + kiểm chứng đạt; fixture có nhãn là “Xong UI – chờ API”. Không chờ toàn bộ backend/shared xong mới bắt đầu.
+
+
 ## 1. Phạm vi và phối hợp
 
 - Owner: tokens, primitives, AppShell/MemberShell, navigation config, notification experience; Member portal; checkout/OTP/ví/hóa đơn/refund primitives dùng chung.

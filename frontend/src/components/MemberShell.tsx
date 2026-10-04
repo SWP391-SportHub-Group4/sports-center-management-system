@@ -148,9 +148,6 @@ export function MemberShell({
               }
               aria-label="Toggle language"
             >
-              <span className={styles.langFlag}>
-                {language === "en" ? "🇺🇸" : "🇻🇳"}
-              </span>
               <span className={styles.langText}>
                 {language === "en" ? "EN" : "VI"}
               </span>
@@ -326,9 +323,6 @@ export function MemberShell({
                 }}
                 onClick={toggleLanguage}
               >
-                <span className={styles.langFlag}>
-                  {language === "en" ? "🇺🇸" : "🇻🇳"}
-                </span>
                 <span className={styles.langText}>
                   {language === "en"
                     ? "Language: English (Switch to VI)"

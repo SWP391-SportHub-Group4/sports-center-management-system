@@ -2,8 +2,8 @@
  * SportHub — Design Tokens v2 ("Court & Volt")
  * Tài liệu: /DESIGN-TOKENS.md
  *
- * Trạng thái: CHƯA import vào layout.tsx. Khi migrate, import file này TRƯỚC globals.css:
- *   import "@/styles/tokens.css"; import "./globals.css"; import "./member.css";
+ * Trạng thái: ĐÃ import trong app/layout.tsx, TRƯỚC globals.css/member.css; foundation.css import sau cùng:
+ *   tokens.css → globals.css → member.css → foundation.css
  *
  * Quy ước: component chỉ dùng token SEMANTIC (lớp 2). Token PRIMITIVE (lớp 1) chỉ dùng
  * để định nghĩa semantic. Không viết hex/px lẻ trong component.
