@@ -2,7 +2,6 @@
 
 import {
   Children,
-  useEffect,
   useRef,
   useId,
   cloneElement,
@@ -13,6 +12,8 @@ import {
 import { chipTone, label } from "@/lib/format";
 import type { ApiError } from "@/lib/apiClient";
 import { useLanguage } from "@/lib/language";
+import { FieldContext } from "@/components/primitives/FieldContext";
+import { useModalBehavior } from "@/components/primitives/useModalBehavior";
 
 export function Card({
   title,
@@ -200,12 +201,18 @@ export function Field({
 }) {
   const { t } = useLanguage();
   const labelId = useId();
+  const messageId = useId();
+  const describedBy = error || hint ? messageId : undefined;
+  // Control gốc (input/select/textarea) được nối ARIA trực tiếp; control của design system
+  // (Input/Select/Textarea trong components/primitives) đọc cùng thông tin qua FieldContext.
   const control =
     isValidElement(children) &&
     typeof children.type === "string" &&
     ["input", "select", "textarea"].includes(children.type)
       ? cloneElement(children as ReactElement<Record<string, unknown>>, {
           "aria-labelledby": labelId,
+          "aria-describedby": describedBy,
+          "aria-invalid": error ? true : undefined,
         })
       : children;
   return (
@@ -219,10 +226,23 @@ export function Field({
           </>
         )}
       </span>
-      {control}
-      {hint && !error && <span className="field__hint">{hint}</span>}
+      <FieldContext.Provider
+        value={{
+          labelId,
+          describedBy,
+          invalid: Boolean(error),
+          required: Boolean(required),
+        }}
+      >
+        {control}
+      </FieldContext.Provider>
+      {hint && !error && (
+        <span id={messageId} className="field__hint">
+          {hint}
+        </span>
+      )}
       {error && (
-        <span className="field__error" role="alert">
+        <span id={messageId} className="field__error" role="alert">
           {error}
         </span>
       )}
@@ -232,61 +252,24 @@ export function Field({
 
 export function Dialog({
   title,
+  description,
   onClose,
   footer,
+  size = "md",
   children,
 }: {
   title: string;
+  /** Một câu giải thích hệ quả của hành động (đặc biệt với thao tác không hoàn tác). */
+  description?: ReactNode;
   onClose: () => void;
   footer?: ReactNode;
+  size?: "sm" | "md" | "lg";
   children: ReactNode;
 }) {
   const { t } = useLanguage();
-
   const dialogRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const previous = document.activeElement as HTMLElement | null;
-    const dialog = dialogRef.current;
-    const selector =
-      'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href], [tabindex="0"]';
-    dialog?.querySelector<HTMLElement>(selector)?.focus();
-    function trap(event: KeyboardEvent) {
-      if (event.key !== "Tab" || !dialog) return;
-      const targets = Array.from(
-        dialog.querySelectorAll<HTMLElement>(selector),
-      ).filter((el) => el.getClientRects().length);
-      const first = targets[0],
-        last = targets[targets.length - 1];
-      if (!first) {
-        event.preventDefault();
-        dialog.focus();
-        return;
-      }
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    }
-    document.addEventListener("keydown", trap);
-    return () => {
-      document.removeEventListener("keydown", trap);
-      previous?.focus();
-    };
-  }, []);
-
-  // Escape để đóng: hộp thoại phủ kín thao tác phía sau, phải luôn có đường thoát bằng bàn phím.
-  useEffect(() => {
-    const handler = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-
-    window.addEventListener("keydown", handler);
-
-    return () => window.removeEventListener("keydown", handler);
-  }, [onClose]);
+  // Focus trap + Escape + trả focus + khóa cuộn: dùng chung với Drawer.
+  useModalBehavior(dialogRef, onClose);
 
   return (
     <div
@@ -297,7 +280,7 @@ export function Dialog({
       }}
     >
       <div
-        className="dialog"
+        className={`dialog ${size === "md" ? "" : `dialog--${size}`}`}
         ref={dialogRef}
         tabIndex={-1}
         role="dialog"
@@ -314,7 +297,10 @@ export function Dialog({
             {t.common.close}
           </button>
         </header>
-        <div className="dialog__body">{children}</div>
+        <div className="dialog__body">
+          {description && <p className="dialog__desc">{description}</p>}
+          {children}
+        </div>
         {footer && <footer className="dialog__foot">{footer}</footer>}
       </div>
     </div>

@@ -1,35 +1,5 @@
 /* Member portal styles */
-:root {
-  --navy: #1a2b4c;
-  --sky: #6ec1e4;
-  --white: #fff;
-  --gray: #e6e6e6;
-  --ice: #c0e4f3;
-  --slate: #4c607c;
-  --background: var(--white);
-  --surface: var(--white);
-  --surface-subtle: var(--ice);
-  --text: var(--navy);
-  --text-muted: var(--slate);
-  --border: var(--gray);
-  --radius: 12px;
-  --radius-sm: 8px;
-  --shadow: 0 2px 8px rgb(26 43 76 / 6%);
-  --space-1: 4px;
-  --space-2: 8px;
-  --space-3: 12px;
-  --space-4: 16px;
-  --space-5: 24px;
-  --space-6: 32px;
-  --font-caption: 14px;
-  --font-body: 14px;
-  --font-title: 28px;
-  --font-section: 20px;
-  --sidebar-width: 256px;
-  --content-max: 1440px;
-  --control-height: 44px;
-  color-scheme: light;
-}
+/* Token nằm ở src/styles/tokens.css. Tên cũ (--navy, --sky, --text…) được alias ở lớp 3. */
 
 .skip-link {
   position: fixed;

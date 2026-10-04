@@ -4,8 +4,8 @@
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  background-color: #f7f9fb;
-  color: var(--navy, #1a2b4c);
+  background-color: var(--bg-app);
+  color: var(--text-strong);
   font-family: var(--font-roboto, "Roboto", sans-serif);
 }
 
@@ -14,18 +14,18 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #f7f9fb;
+  background-color: var(--bg-app);
 }
 
 .authCard {
-  background: #ffffff;
+  background: var(--bg-surface);
   padding: 32px 48px;
   border-radius: 12px;
-  border: 1px solid #e6e6e6;
-  box-shadow: 0 4px 16px rgba(26, 43, 76, 0.06);
+  border: 1px solid var(--border-subtle);
+  box-shadow: 0 4px 16px rgb(9 14 15 / 0.06);
   text-align: center;
   font-size: 15px;
-  color: #4c607c;
+  color: var(--text-muted);
 }
 
 /* Header */
@@ -33,9 +33,9 @@
   position: sticky;
   top: 0;
   z-index: 40;
-  background: #ffffff;
-  border-bottom: 1px solid #e6e6e6;
-  box-shadow: 0 2px 10px rgba(26, 43, 76, 0.04);
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-subtle);
+  box-shadow: 0 2px 10px rgb(9 14 15 / 0.04);
 }
 
 .headerInner {
@@ -62,10 +62,13 @@
 }
 
 .brandLogo {
-  font-size: 20px;
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  color: var(--navy, #1a2b4c);
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  line-height: 1;
+  color: var(--text-strong);
   display: flex;
   align-items: center;
   gap: 4px;
@@ -73,7 +76,7 @@
 }
 
 .brandLogoAccent {
-  color: #236e95;
+  color: var(--court-600);
 }
 
 .portalBadge {
@@ -83,8 +86,8 @@
   letter-spacing: 0.05em;
   padding: 2px 7px;
   border-radius: var(--radius-sm, 6px);
-  background: #c0e4f3;
-  color: var(--navy, #1a2b4c);
+  background: var(--color-primary-soft);
+  color: var(--text-strong);
   white-space: nowrap;
   display: inline-flex;
   align-items: center;
@@ -110,7 +113,7 @@
   border-radius: 6px;
   font-size: 13px;
   font-weight: 500;
-  color: #4c607c;
+  color: var(--text-muted);
   text-decoration: none;
   transition: all 0.15s ease;
   white-space: nowrap;
@@ -118,13 +121,13 @@
 }
 
 .navLink:hover {
-  color: var(--navy, #1a2b4c);
-  background-color: #f0f4f8;
+  color: var(--text-strong);
+  background-color: var(--bg-surface-sunken);
 }
 
 .navLinkActive {
-  color: var(--navy, #1a2b4c);
-  background-color: #c0e4f3;
+  color: var(--text-strong);
+  background-color: var(--color-primary-soft);
   font-weight: 700;
 }
 
@@ -145,15 +148,15 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: var(--navy, #1a2b4c);
-  color: #ffffff;
-  border: 1.5px solid #6ec1e4;
+  background: var(--text-strong);
+  color: var(--text-on-inverse);
+  border: 1.5px solid var(--color-accent);
   padding: 5px 12px 5px 7px;
   border-radius: 20px;
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(26, 43, 76, 0.12);
+  box-shadow: 0 2px 8px rgb(9 14 15 / 0.12);
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   position: relative;
   text-decoration: none;
@@ -162,10 +165,10 @@
 }
 
 .qrButton:hover {
-  background: #132039;
-  border-color: #6ec1e4;
+  background: var(--chalk-900);
+  border-color: var(--color-accent);
   transform: translateY(-1px);
-  box-shadow: 0 4px 14px rgba(110, 193, 228, 0.32);
+  box-shadow: 0 4px 14px rgb(200 240 58 / 0.32);
 }
 
 .qrButton:active {
@@ -176,12 +179,12 @@
   width: 26px;
   height: 26px;
   border-radius: 50%;
-  background: rgba(110, 193, 228, 0.15);
-  border: 1px solid rgba(110, 193, 228, 0.4);
+  background: rgb(200 240 58 / 0.15);
+  border: 1px solid rgb(200 240 58 / 0.4);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #6ec1e4;
+  color: var(--color-accent);
   flex-shrink: 0;
   position: relative;
 }
@@ -198,8 +201,8 @@
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #6ec1e4;
-  box-shadow: 0 0 6px #6ec1e4;
+  background: var(--color-accent);
+  box-shadow: 0 0 6px var(--color-accent);
 }
 
 .qrPulseDot::after {
@@ -207,7 +210,7 @@
   position: absolute;
   inset: -2px;
   border-radius: 50%;
-  border: 1.5px solid #6ec1e4;
+  border: 1.5px solid var(--color-accent);
   animation: qrRadar 1.8s infinite cubic-bezier(0.25, 1, 0.5, 1);
 }
 
@@ -225,7 +228,7 @@
 .qrTextTitle {
   font-size: 13px;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--text-on-inverse);
   letter-spacing: -0.01em;
   white-space: nowrap;
   line-height: 1;
@@ -249,13 +252,13 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  background: #ffffff;
-  border: 1px solid #dfe5ec;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm, 6px);
   padding: 5px 8px;
   font-size: 12px;
   font-weight: 700;
-  color: var(--navy, #1a2b4c);
+  color: var(--text-strong);
   cursor: pointer;
   transition: all 0.15s ease;
   line-height: 1;
@@ -264,13 +267,8 @@
 }
 
 .langToggleBtn:hover {
-  background: #f0f4f8;
-  border-color: #c0e4f3;
-}
-
-.langFlag {
-  font-size: 13px;
-  line-height: 1;
+  background: var(--bg-surface-sunken);
+  border-color: var(--color-primary-soft);
 }
 
 .langText {
@@ -297,7 +295,7 @@
   align-items: center;
   gap: 8px;
   background: transparent;
-  border: 1px solid #e6e6e6;
+  border: 1px solid var(--border-subtle);
   border-radius: 8px;
   padding: 4px 8px;
   cursor: pointer;
@@ -307,16 +305,16 @@
 }
 
 .userButton:hover {
-  background: #f0f4f8;
-  border-color: #c0e4f3;
+  background: var(--bg-surface-sunken);
+  border-color: var(--color-primary-soft);
 }
 
 .userAvatar {
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: var(--navy, #1a2b4c);
-  color: #ffffff;
+  background: var(--text-strong);
+  color: var(--text-on-inverse);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -328,7 +326,7 @@
 .userName {
   font-size: 13px;
   font-weight: 600;
-  color: var(--navy, #1a2b4c);
+  color: var(--text-strong);
   max-width: 90px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -344,7 +342,7 @@
 
 .dropdownArrow {
   font-size: 10px;
-  color: #4c607c;
+  color: var(--text-muted);
   display: flex;
   align-items: center;
 }
@@ -354,10 +352,10 @@
   right: 0;
   top: calc(100% + 8px);
   width: 220px;
-  background: #ffffff;
-  border: 1px solid #e6e6e6;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
   border-radius: 10px;
-  box-shadow: 0 8px 24px rgba(26, 43, 76, 0.12);
+  box-shadow: 0 8px 24px rgb(9 14 15 / 0.12);
   padding: 8px 0;
   z-index: 50;
   display: flex;
@@ -366,18 +364,18 @@
 
 .dropdownHeader {
   padding: 8px 16px 12px;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .dropdownName {
   font-size: 14px;
   font-weight: 700;
-  color: var(--navy, #1a2b4c);
+  color: var(--text-strong);
 }
 
 .dropdownRole {
   font-size: 12px;
-  color: #4c607c;
+  color: var(--text-muted);
   margin-top: 2px;
 }
 
@@ -388,7 +386,7 @@
   padding: 10px 16px;
   font-size: 13px;
   font-weight: 500;
-  color: #4c607c;
+  color: var(--text-muted);
   text-decoration: none;
   background: transparent;
   border: none;
@@ -399,23 +397,23 @@
 }
 
 .dropdownItem:hover {
-  background: #f7f9fb;
-  color: var(--navy, #1a2b4c);
+  background: var(--bg-app);
+  color: var(--text-strong);
 }
 
 .dropdownDivider {
   height: 1px;
-  background: #f0f0f0;
+  background: var(--border-subtle);
   margin: 6px 0;
 }
 
 .logoutItem {
-  color: #c92a2a;
+  color: var(--danger-text);
 }
 
 .logoutItem:hover {
-  background: #fff5f5;
-  color: #e03131;
+  background: var(--danger-bg);
+  color: var(--danger-solid);
 }
 
 /* Mobile Toggle */
@@ -426,9 +424,9 @@
   width: 38px;
   height: 38px;
   border-radius: 8px;
-  border: 1px solid #e6e6e6;
-  background: #ffffff;
-  color: var(--navy, #1a2b4c);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  color: var(--text-strong);
   cursor: pointer;
   font-size: 20px;
   flex-shrink: 0;
@@ -444,7 +442,7 @@
 .mobileDrawerOverlay {
   position: fixed;
   inset: 0;
-  background: rgba(26, 43, 76, 0.4);
+  background: rgb(9 14 15 / 0.4);
   backdrop-filter: blur(2px);
   z-index: 100;
   display: flex;
@@ -454,12 +452,12 @@
 .mobileDrawer {
   width: min(300px, 86vw);
   height: 100%;
-  background: #ffffff;
+  background: var(--bg-surface);
   padding: 20px;
   display: flex;
   flex-direction: column;
   gap: 14px;
-  box-shadow: -4px 0 20px rgba(0, 0, 0, 0.15);
+  box-shadow: -4px 0 20px rgb(9 14 15 / 0.15);
   overflow-y: auto;
 }
 
@@ -467,9 +465,9 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  background: var(--navy, #1a2b4c);
-  color: #ffffff;
-  border: 1.5px solid #6ec1e4;
+  background: var(--text-strong);
+  color: var(--text-on-inverse);
+  border: 1.5px solid var(--color-accent);
   border-radius: 10px;
   padding: 10px 14px;
   cursor: pointer;
@@ -480,7 +478,7 @@
 }
 
 .mobileQrButton:hover {
-  background: #132039;
+  background: var(--chalk-900);
 }
 
 .mobileQrTextGroup {
@@ -492,13 +490,13 @@
 .mobileQrTitle {
   font-size: 13px;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--text-on-inverse);
   line-height: 1.2;
 }
 
 .mobileQrSub {
   font-size: 11px;
-  color: #c0e4f3;
+  color: var(--color-primary-soft);
   line-height: 1.2;
 }
 
@@ -507,14 +505,14 @@
   align-items: center;
   justify-content: space-between;
   padding-bottom: 12px;
-  border-bottom: 1px solid #e6e6e6;
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .mobileDrawerClose {
   background: none;
   border: none;
   font-size: 24px;
-  color: #4c607c;
+  color: var(--text-muted);
   cursor: pointer;
   min-width: 44px;
   min-height: 44px;
@@ -538,13 +536,13 @@
   border-radius: 8px;
   font-size: 14px;
   font-weight: 500;
-  color: #4c607c;
+  color: var(--text-muted);
   text-decoration: none;
 }
 
 .mobileNavLinkActive {
-  background: #c0e4f3;
-  color: var(--navy, #1a2b4c);
+  background: var(--color-primary-soft);
+  color: var(--text-strong);
   font-weight: 700;
 }
 
@@ -583,33 +581,33 @@
   font-size: 26px;
   font-weight: 800;
   letter-spacing: -0.02em;
-  color: var(--navy, #1a2b4c);
+  color: var(--text-strong);
   margin: 0;
   line-height: 1.25;
 }
 
 .pageDescription {
   font-size: 14px;
-  color: #4c607c;
+  color: var(--text-muted);
   margin: 0;
   line-height: 1.5;
 }
 
 /* Footer */
 .footer {
-  border-top: 1px solid #e6e6e6;
-  background: #ffffff;
+  border-top: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
   padding: 20px 24px;
   text-align: center;
   font-size: 13px;
-  color: #4c607c;
+  color: var(--text-muted);
 }
 
 /* Quick QR Modal in Shell */
 .qrModalOverlay {
   position: fixed;
   inset: 0;
-  background: rgba(19, 32, 57, 0.7);
+  background: rgb(9 14 15 / 0.7);
   backdrop-filter: blur(4px);
   z-index: 200;
   display: flex;
@@ -619,12 +617,12 @@
 }
 
 .qrModalCard {
-  background: #ffffff;
+  background: var(--bg-surface);
   width: 100%;
   max-width: 360px;
   border-radius: 16px;
   padding: 28px 24px;
-  box-shadow: 0 16px 40px rgba(26, 43, 76, 0.25);
+  box-shadow: 0 16px 40px rgb(9 14 15 / 0.25);
   text-align: center;
   position: relative;
   display: flex;
@@ -636,13 +634,13 @@
   position: absolute;
   top: 12px;
   right: 12px;
-  background: #f0f4f8;
+  background: var(--bg-surface-sunken);
   border: none;
   width: 44px;
   height: 44px;
   border-radius: 50%;
   font-size: 18px;
-  color: #4c607c;
+  color: var(--text-muted);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -652,22 +650,22 @@
 .qrModalTitle {
   font-size: 18px;
   font-weight: 700;
-  color: var(--navy, #1a2b4c);
+  color: var(--text-strong);
   margin: 0 0 4px;
 }
 
 .qrModalSub {
   font-size: 13px;
-  color: #4c607c;
+  color: var(--text-muted);
   margin: 0 0 18px;
 }
 
 .qrCodeContainer {
-  background: #ffffff;
+  background: var(--bg-surface);
   padding: 12px;
   border-radius: 12px;
-  border: 1px solid #e6e6e6;
-  box-shadow: 0 4px 12px rgba(26, 43, 76, 0.06);
+  border: 1px solid var(--border-subtle);
+  box-shadow: 0 4px 12px rgb(9 14 15 / 0.06);
 }
 
 .qrCodeImg {
@@ -681,19 +679,19 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: #e9f7fc;
+  background: var(--color-primary-soft);
   padding: 6px 14px;
   border-radius: 20px;
   font-size: 13px;
   font-weight: 600;
-  color: var(--navy, #1a2b4c);
+  color: var(--text-strong);
 }
 
 .qrRefreshBtn {
   margin-top: 14px;
   background: none;
   border: none;
-  color: #236e95;
+  color: var(--court-600);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
@@ -743,7 +741,7 @@
   }
 
   .brandLogo {
-    font-size: 17px;
+    font-size: var(--text-xl);
   }
 
   .langToggleBtn {

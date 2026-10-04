@@ -4,6 +4,8 @@
 
 Đọc theo thứ tự: [nguồn nghiệp vụ](docs/00-Source-of-Truth.md) → [PRODUCT](PRODUCT.md) → **[DESIGN-TOKENS.md](DESIGN-TOKENS.md)** → hướng dẫn này → file giao việc của mình. Yêu cầu trực tiếp đã chốt với chủ đề tài được ưu tiên; skill không được tự sửa nghiệp vụ, phân quyền hay token.
 
+**Để giao việc tuần 05–11/10:** dùng [bảng FE theo tên trang](docs/frontend-redesign/KE-HOACH-FE-1-TUAN.md). Bốn assignment có mục “Bắt đầu tuần 05–11/10” để mỗi bạn biết việc đầu tiên; GUIDE và phần đặc tả dài dùng để tra quy chuẩn. Kế hoạch tuần ghi hạn mục tiêu, không thêm ước lượng giờ/người.
+
 | Người | File giao việc, gồm page/subpage và kế hoạch API tại chỗ | Công cụ chính |
 |---|---|---|
 | An | [Nền tảng, Member, PT & tài chính Manager](docs/frontend-redesign/01-AN-MEMBER-SHARED.md) | Claude Code; **owner nền tảng kỹ thuật** |
@@ -313,6 +315,7 @@ Manager vẫn có **một sidebar**, An tích hợp route config từ ba owner: 
 | Thành phần **dùng chung** | Owner | Cách sử dụng / ranh giới |
 |---|---|---|
 | Design tokens và primitives: Button, Field, Select, Table, StatusChip, Dialog/Drawer, PageHeader | **An** | Cả nhóm import; thêm variant qua owner. An giữ root layout/global CSS, không nhận bốn bản `:root` |
+| Triển khai Table/FilterBar/StatusChip và các state trong đợt tuần | **Khoa thực hiện; An giữ owner kỹ thuật** | Task N-KO theo contract An; Khôi review mẫu. Merge một bản dùng chung, Khoa không nhận toàn bộ design system |
 | Header nền tảng, BrandLogo, slots actions, language | **An**; Khôi làm variant Guest | Guest có public nav/login; app có role nav/notification/account. Một logo, một quy tắc focus/height; không 6 header độc lập |
 | Footer | **Khôi** | Guest đầy đủ contact/policies; app dùng variant gọn hoặc ẩn theo shell, không tự tạo footer khác |
 | AccountMenu + account/security forms | **Khôi** | An gắn vào AppShell; cùng Profile/Security/Language/Logout và trạng thái session; không trùng training profile |
@@ -359,7 +362,7 @@ Consumer yêu cầu owner bằng mẫu `component — page ID — state/props c�
 
 | Mốc | An | Khôi | Hào | Khoa |
 |---|---|---|---|---|
-| M0: bản chuẩn | Chia bundle; tokens/primitives/shell/checkout contract | Hero/CourseCard và class/incident mẫu; dẫn review UX/UI bốn mẫu | Quầy/Calendar/AI Drawer mẫu | Danh mục/Admin detail theo template; đọc G10 |
+| M0: bản chuẩn | Chia bundle; tokens/primitives/shell/checkout contract | Hero/CourseCard và class/incident mẫu; dẫn review UX/UI bốn mẫu | Quầy/Calendar/AI Drawer mẫu | Table/State theo contract An, dùng vào Admin mẫu; đọc G10 |
 | M1: hành trình chính | Member/payment; Manager PT/Member/finance/reports | Guest/auth/rental; Manager lớp/HLV/sân/incident/notices | Quầy/check-in/sales/attendance; Coach/PT result | Catalog/settings/audit/Admin |
 | M2: gap/ngoại lệ | G02/G05/G08/G11/CAT-01 và D01–D05/D07/D08 | G01/G03/G06/G07/G09/G13; human review AI | G04/G12/D06; shared AI review | G10; consumer CAT-01 theo contract An |
 | M3: tích hợp | Shared/contract/financial/export/PT regression | UX/UI consistency và class/incident/public regression | Scope/keyboard/calendar/context regression | Kiểm 9 mục của mình, auth/audit/config |

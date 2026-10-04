@@ -321,8 +321,10 @@ export function AppShell({
           ? "Skip to main content"
           : "Chuyển tới nội dung chính"}
       </a>
-      <aside className="sidebar">
-        <div className="sidebar__brand">SportHub</div>
+      <aside className="sidebar" data-surface="inverse">
+        <div className="sidebar__brand">
+          Sport<span className="sidebar__brand-accent">Hub</span>
+        </div>
         <div className="sidebar__role">{roleDisplay}</div>
         <nav className="sidebar__nav">
           {nav.map((item) => {
@@ -384,16 +386,15 @@ export function AppShell({
             )}
             <button
               type="button"
-              className="btn btn--secondary btn--sm"
+              className="btn btn--secondary btn--sm lang-toggle"
               onClick={toggleLanguage}
               title={
                 language === "en"
                   ? t.navigation.languageToggleToVi
                   : t.navigation.languageToggleToEn
               }
-              style={{ fontWeight: 700 }}
             >
-              {language === "en" ? "🇺🇸 EN" : "🇻🇳 VI"}
+              {language === "en" ? "EN" : "VI"}
             </button>
             <NotificationBell />
             <div className="header__user">
