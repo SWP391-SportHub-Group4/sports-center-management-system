@@ -113,13 +113,18 @@ jobs:
       - name: Wait for API health
         shell: bash
         run: |
-          for i in {1..90}; do
+          for i in {1..150}; do
             if curl --fail --silent http://127.0.0.1:5000/api/health >/dev/null; then
               exit 0
             fi
             sleep 2
           done
-          docker compose logs backend postgres
+          echo "API did not become healthy in time. Container state:"
+          docker compose ps -a
+          echo "---- backend logs (last 200 lines) ----"
+          docker compose logs --tail=200 backend
+          echo "---- postgres logs (last 50 lines) ----"
+          docker compose logs --tail=50 postgres
           exit 1
 
       - name: Install frontend dependencies
