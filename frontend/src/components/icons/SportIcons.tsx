@@ -1251,3 +1251,132 @@ export function IconPlus({
   );
 }
 
+
+/**
+ * Envelope (email field, inbox)
+ */
+export function IconMail({
+  size = 20,
+  color = "currentColor",
+  strokeWidth = 1.8,
+  className,
+  style,
+  ...props
+}: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={color}
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      style={{ ...baseIconStyle, ...style }}
+      className={className}
+      aria-hidden="true"
+      {...props}
+    >
+      <rect x="3" y="5" width="18" height="14" rx="2.5" />
+      <path d="m3.5 7.5 8.5 6 8.5-6" />
+    </svg>
+  );
+}
+
+/**
+ * Padlock (password field, security)
+ */
+export function IconLock({
+  size = 20,
+  color = "currentColor",
+  strokeWidth = 1.8,
+  className,
+  style,
+  ...props
+}: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={color}
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      style={{ ...baseIconStyle, ...style }}
+      className={className}
+      aria-hidden="true"
+      {...props}
+    >
+      <rect x="4.5" y="10.5" width="15" height="10" rx="2.5" />
+      <path d="M8 10.5V8a4 4 0 0 1 8 0v2.5" />
+    </svg>
+  );
+}
+
+/**
+ * Eye (reveal password)
+ */
+export function IconEye({
+  size = 20,
+  color = "currentColor",
+  strokeWidth = 1.8,
+  className,
+  style,
+  ...props
+}: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={color}
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      style={{ ...baseIconStyle, ...style }}
+      className={className}
+      aria-hidden="true"
+      {...props}
+    >
+      <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
+/**
+ * Eye with slash (hide password)
+ */
+export function IconEyeOff({
+  size = 20,
+  color = "currentColor",
+  strokeWidth = 1.8,
+  className,
+  style,
+  ...props
+}: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={color}
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      style={{ ...baseIconStyle, ...style }}
+      className={className}
+      aria-hidden="true"
+      {...props}
+    >
+      <path d="M2.5 12S6 5.5 12 5.5c1.6 0 3 .4 4.2 1.1M21.5 12S18 18.5 12 18.5c-1.6 0-3-.4-4.2-1.1" />
+      <path d="M9.9 9.9A3 3 0 0 0 14.1 14.1" />
+      <path d="m3.5 3.5 17 17" />
+    </svg>
+  );
+}

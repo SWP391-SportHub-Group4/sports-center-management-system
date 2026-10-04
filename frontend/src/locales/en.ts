@@ -961,6 +961,7 @@ export const en = {
     orContinueWith: "Or continue with",
     noAccount: "Don't have an account?",
     registerNow: "Sign up now",
+    createOne: "Create one",
     registerTitle: "Create SportHub Account",
     registerSubtitle: "Join our sports center community today",
     fullNameLabel: "Full Name",
