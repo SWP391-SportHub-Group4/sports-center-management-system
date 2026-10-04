@@ -1,4 +1,5 @@
 "use client";
+import { pagedItems } from "@/lib/paged";
 import { useState } from "react";
 import Link from "next/link";
 import { api, ApiError } from "@/lib/apiClient";
@@ -122,7 +123,7 @@ function CoursePurchase({ memberId }: { memberId: string }) {
                 "",
               ]}
             >
-              {data.items.map((c) => (
+              {pagedItems(data).map((c) => (
                 <tr key={c.classId}>
                   <td>{c.name}</td>
                   <td>{c.coachName}</td>
@@ -376,7 +377,7 @@ function GymVisits({ memberId }: { memberId: string }) {
         {(data) => (
           <>
             <Table headers={[l.start, l.end, ""]}>
-              {data.items.map((v) => (
+              {pagedItems(data).map((v) => (
                 <tr key={v.checkInId}>
                   <td>{formatDateTime(v.checkInTime)}</td>
                   <td>
@@ -461,7 +462,7 @@ export function ReceptionDashboard() {
         <AsyncSection state={invoices}>
           {(data) => (
             <Table headers={[l.invoices, l.member, l.price, ""]}>
-              {data.items.map((i) => (
+              {pagedItems(data).map((i) => (
                 <tr key={i.invoiceId}>
                   <td>{i.invoiceNumber}</td>
                   <td>{i.memberName}</td>
@@ -516,7 +517,7 @@ function GymInside() {
               {l.inside}: {data.totalCount}
             </p>
             <Table headers={[l.member, l.start, ""]}>
-              {data.items.map((row) => (
+              {pagedItems(data).map((row) => (
                 <tr key={row.checkInId}>
                   <td>{row.memberName}</td>
                   <td>{formatDateTime(row.checkInTime)}</td>

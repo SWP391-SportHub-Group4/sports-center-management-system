@@ -1,4 +1,5 @@
 "use client";
+import { pagedItems } from "@/lib/paged";
 import { useRef, useState } from "react";
 import Link from "next/link";
 import { api, ApiError } from "@/lib/apiClient";
@@ -239,7 +240,7 @@ export function ManualNoticeForm() {
                             ),
                         )
                       : null;
-                const rows = data.items.filter(
+                const rows = pagedItems(data).filter(
                   (u) => !allowed || allowed.has(u.userId),
                 );
                 return (

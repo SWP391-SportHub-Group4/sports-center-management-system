@@ -1,4 +1,5 @@
 "use client";
+import { pagedItems } from "@/lib/paged";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
@@ -107,10 +108,10 @@ export function InvoiceList({
         <p>{t.refactor.loading}</p>
       ) : state.error ? (
         <p role="alert">{state.error.message}</p>
-      ) : !state.data?.items.length ? (
+      ) : !pagedItems(state.data).length ? (
         <p>{t.refactor.empty}</p>
       ) : (
-        state.data.items.map((i) => (
+        pagedItems(state.data).map((i) => (
           <Card key={i.invoiceId} title={i.invoiceNumber}>
             <p>
               <StatusChip value={i.status} />
