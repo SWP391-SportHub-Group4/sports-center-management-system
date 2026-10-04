@@ -1380,3 +1380,33 @@ export function IconEyeOff({
     </svg>
   );
 }
+
+/** Phone (số điện thoại) */
+export function IconPhone({
+  size = 20,
+  color = "currentColor",
+  strokeWidth = 1.8,
+  className,
+  style,
+  ...props
+}: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={color}
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      style={{ ...baseIconStyle, ...style }}
+      className={className}
+      aria-hidden="true"
+      {...props}
+    >
+      <rect x="7" y="2.5" width="10" height="19" rx="2.5" />
+      <path d="M11 18.5h2" />
+    </svg>
+  );
+}
