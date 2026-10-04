@@ -1,4 +1,5 @@
 "use client";
+import { pagedItems } from "@/lib/paged";
 import { useState } from "react";
 import { MemberShell } from "@/components/MemberShell";
 import { useApi } from "@/lib/useApi";
@@ -26,10 +27,10 @@ export default function Page() {
         <p>{t.refactor.loading}</p>
       ) : state.error ? (
         <p role="alert">{state.error.message}</p>
-      ) : !state.data?.items.length ? (
+      ) : !pagedItems(state.data).length ? (
         <p>{t.refactor.empty}</p>
       ) : (
-        state.data.items.map((e) => (
+        pagedItems(state.data).map((e) => (
           <Card key={e.enrollmentId} title={e.className}>
             <p>
               {e.sportName} · <StatusChip value={e.status} /> ·{" "}
@@ -55,7 +56,11 @@ export default function Page() {
         {t.refactor.previous}
       </button>
       <button
-        disabled={!state.data || page * 10 >= state.data.totalCount}
+        disabled={
+          !state.data ||
+          page * 10 >=
+            (state.data.totalCount ?? pagedItems(state.data).length)
+        }
         onClick={() => setPage(page + 1)}
       >
         {t.refactor.more}

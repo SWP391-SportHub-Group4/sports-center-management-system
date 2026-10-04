@@ -6,15 +6,16 @@ import { api } from "@/lib/apiClient";
 import { useLanguage } from "@/lib/language";
 import { parseMemberCode } from "@/lib/member-code";
 import type { UserAdminDto } from "@/lib/types";
-import { Dialog } from "@/components/ui";
+import { Card } from "@/components/ui";
 import { CameraQrScanner } from "@/components/CameraQrScanner";
-import { IconQrCode } from "@/components/icons";
 
-/** Lễ tân quét QR của hội viên rồi chuyển sang màn check-in với hội viên đã chọn sẵn. */
-export function ScanMemberButton() {
+/**
+ * Khung quét mã hội viên hiện ngay trên màn hình lễ tân. Quét xong chuyển sang màn Gym
+ * check-in với hội viên đã chọn sẵn.
+ */
+export function ScanMemberPanel() {
   const { language } = useLanguage();
   const router = useRouter();
-  const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const en = language === "en";
 
@@ -35,7 +36,7 @@ export function ScanMemberButton() {
           );
           return;
         }
-        setOpen(false);
+        setError(null);
         router.push(`/receptionist/gym-checkin?member=${found.userId}`);
       } catch {
         setError(
@@ -49,37 +50,18 @@ export function ScanMemberButton() {
   );
 
   return (
-    <>
-      <button
-        type="button"
-        className="btn"
-        onClick={() => {
-          setError(null);
-          setOpen(true);
-        }}
-        aria-haspopup="dialog"
-      >
-        <IconQrCode size={18} />{" "}
-        {en ? "Scan member code" : "Quét mã hội viên"}
-      </button>
-      {open && (
-        <Dialog
-          title={en ? "Scan member code" : "Quét mã hội viên"}
-          description={
-            en
-              ? "Point the camera at the QR on the member's dashboard."
-              : "Đưa camera vào mã QR trên dashboard của hội viên."
-          }
-          onClose={() => setOpen(false)}
-        >
-          <CameraQrScanner onScan={(text) => void onScan(text)} />
-          {error && (
-            <p className="alert alert--error" role="alert">
-              {error}
-            </p>
-          )}
-        </Dialog>
+    <Card title={en ? "Scan member code" : "Quét mã hội viên"}>
+      <p className="small muted">
+        {en
+          ? "Point the camera at the QR on the member's dashboard."
+          : "Đưa camera vào mã QR trên dashboard của hội viên."}
+      </p>
+      <CameraQrScanner onScan={(text) => void onScan(text)} />
+      {error && (
+        <p className="alert alert--error" role="alert">
+          {error}
+        </p>
       )}
-    </>
+    </Card>
   );
 }
