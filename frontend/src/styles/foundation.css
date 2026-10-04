@@ -917,3 +917,45 @@ select {
   font-weight: var(--weight-medium);
   letter-spacing: var(--tracking-wide);
 }
+
+/* Danh sách yêu cầu mật khẩu: không dấu chấm đầu dòng, dùng icon SVG theo trạng thái. */
+.pw-rules {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pw-rules__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  transition: color var(--duration-fast) var(--ease-out);
+}
+
+.pw-rules__mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border: 1.5px solid var(--border-strong, var(--border-subtle));
+  border-radius: var(--radius-full, 999px);
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
+}
+
+.pw-rules__item--ok {
+  color: var(--text-strong);
+}
+
+.pw-rules__item--ok .pw-rules__mark {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: var(--text-on-inverse, #fff);
+}
