@@ -1,4 +1,5 @@
 "use client";
+import { pagedItems } from "@/lib/paged";
 import { useRef, useState } from "react";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
@@ -78,7 +79,7 @@ function OperationsRows({
             <Table
               headers={[l.member, l.status, l.deadline, l.choice, l.invoices]}
             >
-              {data.items.map((row) => (
+              {pagedItems(data).map((row) => (
                 <tr key={row.holdId ?? row.enrollmentId ?? row.responseId}>
                   <td>{row.memberName}</td>
                   <td>

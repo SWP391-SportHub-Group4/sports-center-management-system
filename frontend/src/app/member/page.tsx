@@ -1,4 +1,5 @@
 "use client";
+import { pagedItems } from "@/lib/paged";
 import Link from "next/link";
 import { MemberShell } from "@/components/MemberShell";
 import { AsyncSection, Card, StatusChip } from "@/components/ui";
@@ -95,9 +96,9 @@ export default function MemberDashboardPage() {
           <AsyncSection state={courses}>
             {(data) => (
               <>
-                {!(data.items ?? []).length && <p>{t.memberOverview.empty}</p>}
+                {!(pagedItems(data) ?? []).length && <p>{t.memberOverview.empty}</p>}
                 <ul>
-                  {(data.items ?? []).map((c) => (
+                  {(pagedItems(data) ?? []).map((c) => (
                     <li key={c.enrollmentId}>
                       <strong>{c.className}</strong> ·{" "}
                       <StatusChip value={c.status} />
