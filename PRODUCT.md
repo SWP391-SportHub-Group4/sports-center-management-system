@@ -1,5 +1,7 @@
 # Product
 
+SportHub là **hệ thống quản lý trung tâm thể thao với ba môn Gym (bao gồm PT), cầu lông và bóng rổ; có thể mở rộng thêm môn trong tương lai**. PT là dịch vụ thuộc Gym, không phải môn thứ tư.
+
 <!-- impeccable:product-schema 1 -->
 
 ## Platform
@@ -18,21 +20,21 @@ web
 
 ## Product Purpose
 
-SportHub là hệ thống quản lý **nhà văn hóa thể thao đa môn**, vận hành liền mạch giữa 6 vai trò. Sản phẩm số hóa chu trình từ tiếp đón tại quầy, ghi danh khóa học có giữ chỗ, thanh toán bằng tiền kết hợp ví điểm, xếp lịch sân/huấn luyện viên không trùng, cho thuê sân cho huấn luyện viên ngoài, đến theo dõi tập luyện và báo cáo. Thành công nghĩa là học viên ghi danh trơn tru và không bị bán vượt chỗ, lớp đạt ngưỡng hoàn vốn hoặc được xử lý minh bạch, nhân viên thao tác chính xác và quản lý nắm tức thời tình hình vận hành.
+SportHub là hệ thống quản lý **trung tâm thể thao đa môn**, vận hành liền mạch giữa 6 vai trò. Sản phẩm số hóa chu trình từ tiếp đón tại quầy, ghi danh khóa học có giữ chỗ, thanh toán bằng tiền kết hợp ví điểm, xếp lịch sân/huấn luyện viên không trùng, cho thuê sân cho huấn luyện viên ngoài, đến theo dõi tập luyện và báo cáo. Thành công nghĩa là học viên ghi danh trơn tru và không bị bán vượt chỗ, lớp đạt ngưỡng hoàn vốn hoặc được xử lý minh bạch, nhân viên thao tác chính xác và quản lý nắm tức thời tình hình vận hành.
 
 ## Positioning
 
-Nền tảng đa môn khép kín cho nhà văn hóa thể thao: khác với phần mềm gym đơn môn hoặc ứng dụng ghi chép tập luyện, SportHub xem **môn thể thao là dữ liệu cấu hình**, bán khóa học cố định theo lớp, chống trùng sân/huấn luyện viên bằng ràng buộc cơ sở dữ liệu, giữ chỗ khi checkout để không bán vượt sĩ số, có ngưỡng hoàn vốn cho từng lớp, ví điểm 1 điểm = 1.000 VND (không hết hạn) với hoàn trả chỉ bằng điểm, cho ExternalCoach thuê sân theo giờ, và AI assistant cho Member chỉ đọc context SportHub; các thao tác nghiệp vụ vẫn đi qua API/authorization riêng. Hỗ trợ song ngữ EN / VI.
+Nền tảng đa môn khép kín cho trung tâm thể thao: khác với phần mềm gym đơn môn hoặc ứng dụng ghi chép tập luyện, SportHub xem **môn thể thao là dữ liệu cấu hình**, bán khóa học cố định theo lớp, chống trùng sân/huấn luyện viên bằng ràng buộc cơ sở dữ liệu, giữ chỗ khi checkout để không bán vượt sĩ số, có ngưỡng hoàn vốn cho từng lớp, ví điểm 1 điểm = 1.000 VND (không hết hạn) với hoàn trả chỉ bằng điểm, cho ExternalCoach thuê sân theo giờ, và AI assistant cho Member chỉ đọc context SportHub; các thao tác nghiệp vụ vẫn đi qua API/authorization riêng. Hỗ trợ song ngữ EN / VI.
 
 ## Operating Context
 
 - Môi trường sử dụng: Quầy lễ tân với màn hình máy tính; sân/phòng tập với thiết bị di động của học viên và tablet của huấn luyện viên; máy tính quản lý để theo dõi điều hành.
 - Nhịp điệu vận hành: Sân/phòng mở theo giờ hoạt động (mặc định 06:00–22:00); lớp là khóa học cố định gồm nhiều buổi; Receptionist điểm danh lớp nhóm; hóa đơn được thu qua VNPay-QR hoặc điểm, đối soát tại quầy.
-- Tích hợp số: VNPay-QR sandbox (thiếu khóa thì cổng mô phỏng), email SMTP (thiếu thì ghi log), Gemini cho Member AI assistant (thiếu khóa thì endpoint chat báo chưa cấu hình); gợi ý workout của Coach dùng rule-based, xuất lịch sự kiện sang Google / Apple Calendar (`.ics`).
+- Tích hợp số: VNPay sandbox (mock chỉ khi Development và UseMock được bật rõ ràng), email SMTP (thiếu thì ghi log), Gemini cho Member AI assistant (thiếu khóa thì endpoint chat báo chưa cấu hình); gợi ý workout của Coach dùng rule-based, xuất lịch sự kiện sang Google / Apple Calendar (`.ics`).
 
 ## Capabilities and Constraints
 
-- **Danh mục môn và cơ sở vật chất**: Manager tự thêm/sửa môn (seed: Gym, Personal Training, Cầu lông, Bóng rổ), phòng/sân, giờ hoạt động, khóa sân và giá thuê theo khung giờ.
+- **Danh mục môn và cơ sở vật chất**: Manager tự thêm/sửa môn (phạm vi sản phẩm: Gym (bao gồm PT), Cầu lông, Bóng rổ; seed kỹ thuật còn PT riêng, cần migration theo CAT-01), phòng/sân, giờ hoạt động, khóa sân và giá thuê theo khung giờ.
 - **Ghi danh khóa học có giữ chỗ**: Checkout lớp giữ chỗ 15 phút; sĩ số không bao giờ vượt trần dù nhiều người đặt đồng thời.
 - **Ngưỡng hoàn vốn**: Lớp chốt trước khai giảng N ngày; nếu dưới ngưỡng, học viên nhận email chọn chuyển lớp hoặc hoàn điểm trong thời hạn; Manager có thể miễn ngưỡng có lý do.
 - **Ví điểm và split payment**: Một hóa đơn có thể trả bằng điểm + VNPay-QR (ví dụ 300.000đ = 200 điểm + 100.000đ). Receptionist thanh toán thay Member bắt buộc có OTP email của Member (5 phút, tối đa 5 lần sai).
@@ -46,14 +48,12 @@ Nền tảng đa môn khép kín cho nhà văn hóa thể thao: khác với ph�
 
 - Tên thương hiệu: **SportHub** (với điểm nhấn thương hiệu `Sport` + `Hub`).
 - Bản sắc & Giọng điệu: Vững chãi, năng động, chuẩn xác và truyền cảm hứng thể thao. Không dùng thuật ngữ cường điệu, hứa hẹn sai thực tế.
-- Bảng màu nhận diện: Navy vững chãi (`--navy`, `#1a2b4c`), Xanh nhịp thở (`--sky`, `#236e95`), Xanh băng (`--ice`, `#c0e4f3`), Trắng (`#ffffff`).
-- Typography: Roboto sans-serif đồng nhất, sắc nét, tối ưu đọc số liệu và lịch trình.
+- Nhận diện đã chốt: **Court & Volt**, dùng duy nhất [DESIGN-TOKENS.md](DESIGN-TOKENS.md) cho màu, typography, spacing, radius và motion; không tạo palette riêng theo role.
+- Typography: Barlow Condensed cho tiêu đề/display, Be Vietnam Pro cho body/UI, JetBrains Mono cho mã theo token. Runtime còn cần migration từ Roboto; quy trình và owner ở [DESIGN-SKILLS-GUIDE.md](DESIGN-SKILLS-GUIDE.md).
 
-## Evidence on Hand
+## Implementation và phần còn thiếu
 
-- Ứng dụng đã có nhiều routes hoạt động với Next.js 16 (Turbopack) và ASP.NET Core Web API (con số 48 routes là của bản gym trước 30/09/2026; cần đếm lại sau refactor).
-- Dữ liệu demo đã cấu hình trong `DemoDataSeeder.cs` cho mô hình cũ; bộ tài khoản demo mới theo Design v3 §15 (Admin, Manager, Receptionist, 2 Coach, ExternalCoach Approved + PendingApproval, 3 Member) sẽ được seed lại ở giai đoạn G1 — xem `docs/RUNBOOK.md`.
-- Thư viện hình ảnh hoạt động thể thao đang có (`/sporthub/activity-*.webp`) gồm ảnh Yoga/Group X của bản cũ; cần thay bằng ảnh các môn mới, và nội dung trang chủ lấy từ dữ liệu môn (`SPORTS`), không hard-code.
+Payment/checkout/wallet và VNPay adapter đã có mã; sandbox thật cần nghiệm thu riêng. Member assistant/workout AI đã có nền tảng, Manager AI chưa triển khai. Seed kỹ thuật còn bản ghi PT riêng, chưa khớp mô hình ba môn sản phẩm. Danh sách evidence, khoảng trống và tiêu chí nghiệm thu nằm ở mục 13 của [thiết kế hệ thống](docs/Center-Management-System-Design-v3.md).
 
 ## Product Principles
 
@@ -69,45 +69,3 @@ Nền tảng đa môn khép kín cho nhà văn hóa thể thao: khác với ph�
 - Vùng chạm (tap target) tối thiểu 44px trên thiết bị cảm ứng.
 - Hỗ trợ đầy đủ điều hướng bằng bàn phím (Tab, Enter, Escape đóng modal).
 - Tôn trọng tùy chọn giảm chuyển động (`prefers-reduced-motion: reduce`).
-
-## Refactor delta (PRODUCT.md — 30/09/2026)
-
-### XÓA
-
-| Nội dung | Lý do |
-|---|---|
-| Lớp Yoga, GroupX, Mobility; "5 vai trò" | Yoga/Group X bỏ; nay 6 vai trò (Design v3 §0) |
-| Kiểm soát cổng từ QR Pass (QR 60 giây, nonce) và "quét QR check-in" trong định vị | Design v3 chỉ có Gym check-in/out do Receptionist ghi (BR-64); QR cổng từ không nằm trong thiết kế mới. **Chưa chắc:** nếu nhóm vẫn giữ tính năng này trong code thì thêm lại như tính năng phụ |
-| Quy chế hủy BR-18/BR-50 (hoàn lượt trước 2 giờ), trừ buổi vào gói | Mô hình ghi danh theo buổi/trừ buổi bị bỏ; nay ghi danh theo khóa (Design v3 §0 #2, #3) |
-| "Sức chứa phòng tập BR-13, khóa đăng ký khi Full" dạng theo buổi | Thay bằng giữ chỗ + `reserved_count` ở cấp lớp |
-| Hóa đơn "phát hành trước khi thu tiền tại quầy (BR-30)" như tính năng riêng | Gộp vào luồng Invoice + VNPay/điểm |
-| Số liệu "48 routes", "ASP.NET Core 9", 6 tài khoản `coach.yoga@`... | Số liệu cũ; xem mục Evidence |
-
-### GIỮ
-
-| Nội dung | Lý do |
-|---|---|
-| Platform, Brand Commitments (tên, giọng điệu, bảng màu, Roboto) | Token thương hiệu không đổi |
-| Accessibility & Inclusion | Không đổi |
-| Vai trò Member, Coach, Receptionist, Manager, System Admin, Guest (viết lại nội dung) | Vẫn là persona hợp lệ |
-| Nguyên tắc minh bạch trạng thái, đa ngôn ngữ; i18n EN/VI; xuất `.ics` | Không liên quan đổi phạm vi |
-
-### SỬA
-
-| Nội dung | Trước → Sau |
-|---|---|
-| Product Purpose | gym + cổng từ QR → nhà văn hóa thể thao đa môn, 6 vai trò, ghi danh khóa học, ví điểm |
-| Positioning | QR xoay vòng + hủy hoàn buổi → môn là dữ liệu, giữ chỗ, ngưỡng hoàn vốn, ví điểm, chống trùng lịch, AI assistant chỉ đọc |
-| Operating Context | ca sáng/chiều/tối, cổng từ → giờ hoạt động sân 06:00–22:00, khóa học nhiều buổi; tích hợp VNPay/SMTP/Gemini có fallback |
-| Coach persona | ClassInstructor/PersonalTrainer → chuyên môn theo môn; PT là chuyên môn |
-| Receptionist persona | quét cổng từ → Gym check-in/out, điểm danh lớp nhóm, checkout thay + OTP |
-| Principle 2, 3 | hạn hủy 2h, mở QR 2 chạm → sĩ số/giữ chỗ/hoàn điểm/OTP, xem lịch + checkout vài chạm |
-
-### THÊM
-
-| Nội dung | Lý do |
-|---|---|
-| Persona ExternalCoach | Vai trò thứ 6 (BR-105, 125–133) |
-| Capabilities: danh mục môn, giữ chỗ, ngưỡng hoàn vốn, ví điểm/split payment, hoàn chỉ bằng điểm, chống trùng lịch, thuê sân, mật khẩu/quên mật khẩu | Design v3 §0 |
-| Tích hợp VNPay-QR/SMTP/Gemini và chế độ mock/log | Design v3 §3, §19.2 |
-| Ghi chú cần thay hình ảnh Yoga/Group X và số liệu Evidence | Tránh nội dung stale |

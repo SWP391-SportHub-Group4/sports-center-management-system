@@ -1,0 +1,358 @@
+/*
+ * SportHub — Design Tokens v2 ("Court & Volt")
+ * Tài liệu: /DESIGN-TOKENS.md
+ *
+ * Trạng thái: CHƯA import vào layout.tsx. Khi migrate, import file này TRƯỚC globals.css:
+ *   import "@/styles/tokens.css"; import "./globals.css"; import "./member.css";
+ *
+ * Quy ước: component chỉ dùng token SEMANTIC (lớp 2). Token PRIMITIVE (lớp 1) chỉ dùng
+ * để định nghĩa semantic. Không viết hex/px lẻ trong component.
+ * Mọi cặp chữ/nền đã kiểm WCAG 2.2 AA (ghi chú tỉ lệ bên cạnh).
+ */
+
+/* =========================================================
+   LỚP 1 — PRIMITIVES (giá trị thô, đừng dùng trực tiếp trong component)
+   ========================================================= */
+:root {
+  /* Court (teal) — màu thương hiệu. Hue 205, chroma thấp ở hai đầu để không "neon" */
+  --court-50: #ebfcff;
+  --court-100: #d6f6f9;
+  --court-200: #b2eaf0;
+  --court-300: #7fd4de;
+  --court-400: #40b7c4;
+  --court-500: #0894a0;
+  --court-600: #02717a; /* trắng/nền này = 5.76:1 */
+  --court-700: #03555c; /* 8.54:1 */
+  --court-800: #003b40;
+  --court-900: #002528;
+  --court-950: #001113;
+
+  /* Chalk (neutral) — xám pha teal rất nhẹ (hue 205, C≈0.016), KHÔNG xám thuần/xám bẩn */
+  --chalk-50: #f6f9f9;
+  --chalk-100: #ebeff0;
+  --chalk-200: #d8e0e1;
+  --chalk-300: #bbc7c8;
+  --chalk-400: #9aa8a9;
+  --chalk-500: #798688; /* 3.76:1 trên trắng — chỉ cho viền control / icon, KHÔNG cho chữ */
+  --chalk-600: #596668; /* 5.96:1 trên trắng — chữ phụ */
+  --chalk-700: #414d4e;
+  --chalk-800: #2b3536;
+  --chalk-900: #192122;
+  --chalk-950: #090e0f; /* "Ink" — nền tối + chữ chính */
+
+  /* Volt (lime) — accent năng lượng. Chỉ dùng làm NỀN/điểm nhấn, chữ trên volt luôn là Ink */
+  --volt-300: #d4f54a;
+  --volt-400: #c8f03a; /* Ink/volt = 14.78:1 */
+  --volt-500: #93b403;
+  --volt-600: #586d03; /* chữ volt trên nền sáng: dùng 700 */
+  --volt-700: #425200;
+
+  /* Hardwood (cam sàn gỗ / bóng rổ) — secondary, dùng tiết kiệm */
+  --wood-50: #fff7f2;
+  --wood-100: #feeade;
+  --wood-300: #ffaf7e;
+  --wood-400: #f18336; /* trên Ink = 7.44:1 */
+  --wood-500: #c96203; /* 4.01:1 trên trắng — KHÔNG làm chữ nhỏ */
+  --wood-600: #9a4901; /* 6.31:1 */
+  --wood-700: #753600;
+
+  /* Semantic hues */
+  --green-50: #eefdf1;
+  --green-100: #dbf7e1;
+  --green-600: #05773b; /* trắng/nền này = 5.66:1 */
+  --green-700: #005a2b; /* /green-50 = 7.99:1 */
+  --amber-50: #fff8ea;
+  --amber-100: #feeccd;
+  --amber-400: #d09a21;
+  --amber-600: #805c03;
+  --amber-700: #614501; /* /amber-50 = 8.42:1 */
+  --red-50: #fef6f6;
+  --red-100: #fee9e7;
+  --red-600: #b32228; /* trắng/nền này = 6.61:1 */
+  --red-700: #8f0014; /* /red-50 = 9.06:1 */
+  --blue-50: #f4f9ff;
+  --blue-100: #e3f0fe;
+  --blue-600: #1666aa;
+  --blue-700: #004c86; /* /blue-50 = 8.34:1 */
+
+  --white: #ffffff;
+}
+
+/* =========================================================
+   LỚP 2 — SEMANTIC TOKENS (dùng cái này trong component)
+   ========================================================= */
+:root {
+  color-scheme: light;
+
+  /* --- Brand / action --- */
+  --color-primary: var(--court-600);
+  --color-primary-hover: var(--court-700);
+  --color-primary-active: var(--court-800);
+  --color-primary-soft: var(--court-100); /* nền chip, hàng đang chọn */
+  --color-primary-soft-text: var(--court-700); /* 8.1:1 trên primary-50 */
+  --color-on-primary: var(--white);
+
+  --color-accent: var(--volt-400); /* điểm nhấn: badge "Mới", trạng thái active trên nền tối, progress */
+  --color-accent-hover: var(--volt-300);
+  --color-on-accent: var(--chalk-950);
+
+  --color-secondary: var(--wood-600); /* chữ/icon secondary trên nền sáng */
+  --color-secondary-soft: var(--wood-100);
+  --color-secondary-bright: var(--wood-400); /* chỉ trên nền tối */
+
+  /* --- Background / surface --- */
+  --bg-app: var(--chalk-50); /* nền toàn trang */
+  --bg-surface: var(--white); /* card, panel, header */
+  --bg-surface-sunken: var(--chalk-100); /* input nền, hàng thead, khu vực lõm */
+  --bg-inverse: var(--chalk-950); /* sidebar, hero tối */
+  --bg-inverse-raised: var(--chalk-900);
+  --bg-brand-deep: var(--court-900); /* nền thương hiệu đậm (hero trang public) */
+  --bg-overlay: rgb(9 14 15 / 56%); /* backdrop modal */
+
+  /* --- Text --- */
+  --text-strong: var(--chalk-950); /* 18.3:1 trên bg-app — tiêu đề, số liệu */
+  --text-body: var(--chalk-800);
+  --text-muted: var(--chalk-600); /* 5.96:1 trên trắng, 5.63:1 trên bg-app */
+  --text-disabled: var(--chalk-400); /* chỉ cho disabled (WCAG miễn trừ) */
+  --text-link: var(--court-600);
+  --text-on-inverse: var(--chalk-50);
+  --text-on-inverse-muted: var(--chalk-300); /* 11.2:1 trên Ink */
+
+  /* --- Border --- */
+  --border-subtle: var(--chalk-200); /* chia khu vực, card, bảng (trang trí) */
+  --border-strong: var(--chalk-300);
+  --border-control: var(--chalk-500); /* input/checkbox/select — đạt 3:1 (WCAG 1.4.11) */
+  --border-inverse: rgb(255 255 255 / 12%);
+  --focus-ring: var(--court-500);
+
+  /* --- Semantic status (bg / text / solid) --- */
+  --success-bg: var(--green-50);
+  --success-text: var(--green-700);
+  --success-solid: var(--green-600);
+  --warning-bg: var(--amber-50);
+  --warning-text: var(--amber-700);
+  --warning-solid: var(--amber-400); /* chỉ làm viền/icon/thanh; chữ dùng warning-text */
+  --danger-bg: var(--red-50);
+  --danger-text: var(--red-700);
+  --danger-solid: var(--red-600);
+  --info-bg: var(--blue-50);
+  --info-text: var(--blue-700);
+  --info-solid: var(--blue-600);
+}
+
+/* =========================================================
+   SPACING — lưới 4px, chỉ số chẵn. Nhịp chính: 8 → 16 → 24 → 32 → 48 → 64
+   Tên trùng với --space-1..6 cũ (4,8,12,16,24,32) => không vỡ code cũ.
+   ========================================================= */
+:root {
+  --space-0: 2px; /* hairline gap (icon + chữ siêu sát) */
+  --space-1: 4px;
+  --space-2: 8px; /* gap nhỏ nhất giữa phần tử liên quan */
+  --space-3: 12px; /* padding control, gap trong nhóm */
+  --space-4: 16px; /* padding card compact, gap mặc định */
+  --space-5: 24px; /* padding card chuẩn, gap giữa card */
+  --space-6: 32px; /* gap giữa section trong trang */
+  --space-7: 40px;
+  --space-8: 48px; /* padding section app */
+  --space-9: 64px; /* khoảng cách section public */
+  --space-10: 80px;
+  --space-11: 96px; /* section lớn trang public */
+
+  /* Layout */
+  --sidebar-width: 256px;
+  --header-height: 64px;
+  --content-max: 1440px;
+  --control-height-sm: 32px;
+  --control-height: 40px;
+  --control-height-lg: 48px; /* nút chính, input trên mobile/quầy lễ tân */
+}
+
+/* =========================================================
+   TYPOGRAPHY
+   Display: Barlow Condensed — chữ "bảng điểm", thể thao, hỗ trợ tiếng Việt đầy đủ
+   Body/UI: Be Vietnam Pro — thiết kế riêng cho dấu tiếng Việt, dấu không bị chen dòng
+   Mono:    JetBrains Mono — OTP, mã check-in, phím tắt, số tiền cần thẳng cột
+   (@fontsource: barlow-condensed 600/700 · be-vietnam-pro 400/500/600/700 · jetbrains-mono 500
+    đều có subset latin + vietnamese)
+   ========================================================= */
+:root {
+  --font-display: "Barlow Condensed", "Arial Narrow", sans-serif;
+  --font-body: "Be Vietnam Pro", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+
+  /* Thang cỡ chữ — số chẵn, tỉ lệ ~1.2. App dùng 14 làm body (dày thông tin), public dùng 16 */
+  --text-xs: 12px; /* caption, nhãn bảng — KHÔNG nhỏ hơn */
+  --text-sm: 14px; /* body app, input, nút */
+  --text-md: 16px; /* body trang public, đoạn văn */
+  --text-lg: 18px; /* lead, tiêu đề card */
+  --text-xl: 20px; /* tiêu đề section */
+  --text-2xl: 24px;
+  --text-3xl: 32px; /* tiêu đề trang app */
+  --text-4xl: 40px;
+  --text-5xl: 56px;
+  --text-display: clamp(48px, 6vw, 88px); /* hero public, font-display */
+
+  --leading-tight: 1.1; /* display */
+  --leading-snug: 1.25; /* heading */
+  --leading-normal: 1.5; /* body */
+  --leading-relaxed: 1.65; /* đoạn văn dài */
+
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  --tracking-tight: -0.02em; /* heading lớn */
+  --tracking-normal: 0;
+  --tracking-wide: 0.06em; /* nhãn uppercase (≤ --text-xs) */
+}
+
+/* =========================================================
+   RADIUS — 5 mốc thay cho 10 giá trị lẻ cũ (2,4,6,8,10,12,14,16,20,999)
+   ========================================================= */
+:root {
+  --radius-xs: 4px; /* kbd, tag nhỏ, checkbox */
+  --radius-sm: 6px; /* input, nút, chip */
+  --radius-md: 8px; /* nút lớn, dropdown, toast */
+  --radius-lg: 12px; /* card, panel, modal */
+  --radius-xl: 16px; /* hero card public, ảnh lớn */
+  --radius-pill: 999px; /* badge trạng thái, avatar */
+}
+
+/* =========================================================
+   SHADOW — tint theo Ink (không đen thuần), ưu tiên viền thay bóng
+   ========================================================= */
+:root {
+  --shadow-xs: 0 1px 1px rgb(9 14 15 / 5%);
+  --shadow-sm: 0 1px 2px rgb(9 14 15 / 6%), 0 2px 6px rgb(9 14 15 / 4%); /* card nổi nhẹ */
+  --shadow-md: 0 4px 8px rgb(9 14 15 / 6%), 0 8px 24px rgb(9 14 15 / 6%); /* dropdown, popover */
+  --shadow-lg: 0 8px 16px rgb(9 14 15 / 8%), 0 24px 48px rgb(9 14 15 / 10%); /* modal */
+  --shadow-focus: 0 0 0 3px rgb(8 148 160 / 35%); /* thay outline cho control */
+}
+
+/* =========================================================
+   MOTION
+   ========================================================= */
+:root {
+  --duration-instant: 80ms; /* hover màu, toggle */
+  --duration-fast: 140ms; /* nút, link, chip */
+  --duration-base: 200ms; /* dropdown, tab, tooltip */
+  --duration-slow: 320ms; /* modal, drawer, hero reveal */
+
+  --ease-out: cubic-bezier(0.25, 1, 0.5, 1); /* mặc định: vào nhanh, dừng mượt */
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1); /* chỉ cho micro-feedback nhỏ */
+
+  --transition-colors: color var(--duration-fast) var(--ease-out),
+    background-color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
+  --transition-lift: transform var(--duration-base) var(--ease-out),
+    box-shadow var(--duration-base) var(--ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-instant: 0.01ms;
+    --duration-fast: 0.01ms;
+    --duration-base: 0.01ms;
+    --duration-slow: 0.01ms;
+  }
+}
+
+/* =========================================================
+   Z-INDEX
+   ========================================================= */
+:root {
+  --z-sticky: 20;
+  --z-dropdown: 100;
+  --z-modal: 1200;
+  --z-toast: 1300;
+}
+
+/* =========================================================
+   VÙNG NỀN TỐI — sidebar, hero. Đặt data-surface="inverse" lên container,
+   token semantic tự đảo; component bên trong không cần viết lại.
+   ========================================================= */
+[data-surface="inverse"] {
+  --text-strong: var(--chalk-50);
+  --text-body: var(--chalk-200);
+  --text-muted: var(--chalk-300);
+  --text-link: var(--volt-400);
+  --border-subtle: var(--border-inverse);
+  --border-control: var(--chalk-400);
+  --color-primary: var(--volt-400);
+  --color-primary-hover: var(--volt-300);
+  --color-on-primary: var(--chalk-950);
+  --focus-ring: var(--volt-400);
+}
+
+/* =========================================================
+   BASE (tối thiểu — chỉ áp token, không thêm style mới)
+   ========================================================= */
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* =========================================================
+   LỚP 3 — COMPAT ALIASES (tên cũ → token mới)
+   Mục đích: import tokens.css là toàn bộ giao diện cũ đổi màu ngay, không sửa component.
+   Xóa từng alias khi không còn chỗ nào dùng (grep `var(--tên-cũ`). Dự kiến xóa hết ở Phase 3.
+   ========================================================= */
+:root {
+  /* globals.css cũ */
+  --brand-900: var(--court-900);
+  --brand-700: var(--court-700);
+  --brand-500: var(--court-600); /* cũ #1a76b8 → teal đạt AA với chữ trắng */
+  --brand-300: var(--court-300);
+  --brand-100: var(--court-100);
+  --accent-600: var(--wood-600);
+  --accent-100: var(--wood-100);
+  --ok-700: var(--success-text);
+  --ok-100: var(--green-100);
+  --warn-700: var(--warning-text);
+  --warn-100: var(--amber-100);
+  --danger-700: var(--danger-text);
+  --danger-100: var(--red-100);
+  --ink-900: var(--chalk-950);
+  --ink-700: var(--chalk-700);
+  --ink-500: var(--chalk-600); /* cũ #64748b chỉ 4.43:1 → nâng lên 5.96:1 */
+  --ink-400: var(--chalk-500);
+  --ink-300: var(--chalk-400);
+  --surface: var(--bg-surface);
+  --surface-alt: var(--bg-app);
+  --surface-muted: var(--bg-surface-sunken); /* cũ dùng nhưng KHÔNG hề được định nghĩa */
+  --surface-subtle: var(--court-50);
+  --line: var(--border-subtle);
+  --line-soft: var(--border-subtle);
+  --line-strong: var(--border-strong);
+  --border: var(--border-subtle);
+  --border-color: var(--border-subtle); /* cũ dùng nhưng KHÔNG hề được định nghĩa */
+  --radius: var(--radius-lg);
+  --shadow: var(--shadow-sm);
+
+  /* member.css cũ */
+  --navy: var(--chalk-950);
+  --sky: var(--court-400);
+  --ice: var(--court-100);
+  --slate: var(--chalk-600);
+  --gray: var(--chalk-200);
+  --text: var(--text-strong);
+  --background: var(--bg-app);
+  --font-caption: var(--text-sm);
+  --font-title: var(--text-3xl);
+  --font-section: var(--text-xl);
+
+  /* home.module.css cũ (đang định nghĩa cục bộ bằng oklch/hex riêng) */
+  --brand-navy: var(--court-900);
+  --brand-sky: var(--volt-400); /* "sky" trên nền tối → volt: điểm nhấn thay cho xanh da trời */
+  --brand-ice: var(--court-100);
+  --surface-ink: var(--chalk-950);
+  --surface-blue: var(--court-800);
+  --text-primary: var(--text-on-inverse);
+  --text-secondary: var(--chalk-200);
+  --type-caption: var(--text-sm);
+  --type-label: var(--text-sm);
+  --type-body: var(--text-md);
+  --type-lead: var(--text-lg);
+}

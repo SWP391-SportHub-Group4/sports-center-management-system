@@ -1,5 +1,7 @@
 # Git Workflow - SportHub
 
+SportHub là **hệ thống quản lý trung tâm thể thao với ba môn Gym (bao gồm PT), cầu lông và bóng rổ; có thể mở rộng thêm môn trong tương lai**. PT là dịch vụ thuộc Gym, không phải môn thứ tư.
+
 ## 1. Cấu trúc Branch
 
 Project sử dụng cấu trúc branch:
@@ -659,9 +661,9 @@ Team chỉ cần nhớ:
 
 ---
 
-# 18. Phân việc theo module và giai đoạn G0–G12 (Design v3 §16)
+# 18. Phân việc theo module và giai đoạn G0–G12 (thiết kế hệ thống)
 
-Phạm vi đã đổi sang nhà văn hóa thể thao đa môn (Design v3, chốt 30/09/2026). Để giảm xung đột merge, **mỗi module do một người/nhóm nhỏ phụ trách**; các module chỉ gọi nhau qua interface ở `SportHub.BuildingBlocks`.
+Phạm vi đã đổi sang trung tâm thể thao đa môn. Để giảm xung đột merge, **mỗi module do một người/nhóm nhỏ phụ trách**; các module chỉ gọi nhau qua interface ở `SportHub.BuildingBlocks`.
 
 **Quyết định "không thêm project mới":** không tạo project backend mới. Ví điểm nằm trong `SportHub.Payment/Wallet`; catalog môn/phòng/giá sân nằm trong `SportHub.Scheduling/Catalog`; `ExternalCoachProfile` nằm trong `SportHub.Identity`. Nếu PR có thêm `.csproj` mới thì phải được cả nhóm đồng ý trước.
 
@@ -676,7 +678,7 @@ Phạm vi đã đổi sang nhà văn hóa thể thao đa môn (Design v3, chốt
 | Ngưỡng + Rental + Notification | G7, G9 | Ngưỡng hoàn vốn (T5–T8), email, trang phản hồi; ExternalCoach đăng ký/duyệt, thuê sân, sự cố, thông báo thủ công | Phụ thuộc G4, G5b, G6 |
 | `SportHub.AI` | G11 | Chatbot function calling (`ChatToolRegistry`) + fallback khi thiếu `Gemini__ApiKey` | Sau G4 |
 | `SportHub.Training` | G8 (nhỏ) | Đổi kiểm tra `CoachCategory=PersonalTrainer` sang `CoachSpecialty` chứa môn PT | Chạm cùng G8 |
-| `frontend` | G12 (song song từ G3) | Landing đa môn, lớp/khóa học, Court Schedule, thuê sân, ví điểm, dashboard theo vai trò (Design v3 §12) | Chia theo vai trò/khu vực trang, không chia theo file dùng chung |
+| `frontend` | G12 (song song từ G3) | Landing đa môn, lớp/khóa học, Court Schedule, thuê sân, ví điểm, dashboard theo vai trò (thiết kế hệ thống) | Chia theo vai trò/khu vực trang, không chia theo file dùng chung |
 | `SportHub.BuildingBlocks` | mọi giai đoạn | Chỉ thêm interface dùng chung (`IPointWalletService`, `IOccupancyService`, `ISportCatalogReader`, `IClassEnrollmentFulfillment`) | Sửa file này phải báo cả nhóm; PR riêng, nhỏ, merge nhanh |
 
 Thứ tự phụ thuộc: G0 → G1 → {G2, G3, G5a} → G4 → G5b → G6 → G7; G4 → G8; {G4, G5b} → G9; {G6, G9} → G10; G4 → G11; G12 song song.
@@ -685,37 +687,8 @@ Thứ tự phụ thuộc: G0 → G1 → {G2, G3, G5a} → G4 → G5b → G6 → 
 
 - Đặt tên theo giai đoạn + module: `feature/g2-identity-external-coach`, `feature/g3-catalog-sport-room`, `feature/g5a-vnpay-gateway`, `feature/g6-enrollment-seat-hold`, `feature/g11-chatbot-tools`.
 - Vẫn tạo từ `develop`, PR vào `develop`, cần review — **không đổi quy tắc ở các mục 1–17**.
-- Migration: mỗi PR chỉ thêm migration của giai đoạn mình; **không sửa migration cũ** (Design v3 §2.3); trước khi merge phải `git merge develop` để tránh hai migration cùng snapshot.
+- Migration: mỗi PR chỉ thêm migration của giai đoạn mình; **không sửa migration cũ** (thiết kế hệ thống); trước khi merge phải `git merge develop` để tránh hai migration cùng snapshot.
 - Không commit khóa `VnPay__*`, `Email__*`, `Gemini__*` (chỉ đặt trong `.env`, không commit).
 - Nếu thiếu thời gian, cắt theo thứ tự: chatbot (G11) → báo cáo mới ngoài doanh thu (G10) → sự cố/thông báo thủ công (một phần G9) → chuyển lớp có chênh giá. **Không cắt:** giữ chỗ + chống bán vượt sĩ số, ngưỡng hoàn vốn cơ bản, ví điểm, chống trùng lịch.
 
 ---
-
-## Refactor delta (GIT_WORKFLOW.md — 30/09/2026)
-
-### XÓA
-
-| Nội dung | Lý do |
-|---|---|
-| Ví dụ tên branch `feature/booking`, `fix/booking-error`, `feature/payment`, `feature/coach-management` (thay bằng ví dụ theo giai đoạn) | Mô hình "booking theo buổi" bị bỏ; tên cũ gây hiểu lầm |
-
-### GIỮ
-
-| Nội dung | Lý do |
-|---|---|
-| Mục 1–3, 5–17: cấu trúc `main`/`develop`/`feature/*`, clone, commit, PR, merge, fetch/pull, quy tắc NÊN/KHÔNG NÊN, sơ đồ | Quy tắc workflow không đổi theo yêu cầu |
-| Quy ước đặt tên `feature/`, `fix/`, `docs/` | Vẫn áp dụng; mục 18.2 chỉ bổ sung tiền tố giai đoạn |
-
-### SỬA
-
-| Nội dung | Trước → Sau |
-|---|---|
-| Ví dụ tên branch ở mục 4 | `feature/booking`… → `feature/class-enrollment`, `feature/wallet-points`, `feature/external-coach-rental`… |
-
-### THÊM
-
-| Nội dung | Lý do |
-|---|---|
-| Mục 18.1 bảng module sở hữu ↔ giai đoạn G0–G12 | Design v3 §16 (gợi ý chia việc theo module) |
-| Ghi chú "không thêm project mới" và vị trí Wallet/Catalog/ExternalCoachProfile | Design v3 §2.1, §19.2 #5 |
-| Mục 18.2 quy ước branch theo giai đoạn, quy tắc migration, không commit khóa, thứ tự cắt giảm | Giảm xung đột migration/merge trong refactor |
