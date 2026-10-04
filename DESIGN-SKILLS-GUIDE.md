@@ -370,7 +370,7 @@ PR ghi: owner/page IDs; flow; shared reuse/variant; token thay đổi nếu có;
 
 ### Có thể bắt đầu song song
 
-Cả bốn bắt đầu ngay. Trong 1–2 ngày đầu, An ưu tiên tokens/primitives/shell và contract checkout; Khôi ưu tiên mẫu và review UX/UI; Hào dựng Calendar/AI contract; Khoa làm flow/catalog/Admin mẫu. Đây là mốc bàn giao đầu tiên, không phải cam kết hoàn thiện mọi shared component trong hai ngày. Chưa có component thì dùng contract/fixture có nhãn để làm flow; không tạo bản shared thứ hai. Tích hợp mỗi 1–2 ngày, không đợi cuối kỳ.
+Cả bốn có thể bắt đầu song song. An ưu tiên tokens/primitives/shell và contract checkout; Khôi ưu tiên mẫu và review UX/UI; Hào dựng Calendar/AI contract; Khoa làm flow/catalog/Admin mẫu. Chưa có component thì dùng contract/fixture có nhãn để làm flow; không tạo bản shared thứ hai. Tích hợp theo từng phần hoàn thành, không đợi cuối kỳ.
 
 
 ### API liên vai trò và điều kiện đóng việc
