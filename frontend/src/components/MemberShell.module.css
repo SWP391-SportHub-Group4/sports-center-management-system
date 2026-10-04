@@ -39,11 +39,11 @@
 }
 
 .headerInner {
-  max-width: 1280px;
+  max-width: 1440px;
   width: 100%;
   box-sizing: border-box;
   margin: 0 auto;
-  padding: 0 20px;
+  padding: 0 24px;
   height: 68px;
   display: flex;
   align-items: center;
@@ -102,7 +102,7 @@
   flex-shrink: 0;
 }
 
-@media (min-width: 1200px) {
+@media (min-width: 1360px) {
   .desktopNav {
     display: flex;
   }
@@ -334,7 +334,7 @@
   display: none;
 }
 
-@media (min-width: 1360px) {
+@media (min-width: 1440px) {
   .userName {
     display: block;
   }
@@ -432,7 +432,7 @@
   flex-shrink: 0;
 }
 
-@media (min-width: 1200px) {
+@media (min-width: 1360px) {
   .mobileMenuBtn {
     display: none;
   }

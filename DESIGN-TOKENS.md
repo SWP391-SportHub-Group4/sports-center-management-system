@@ -186,7 +186,7 @@ Line-height: `tight 1.1` (display) · `snug 1.25` (heading) · `normal 1.5` (bod
 
 **Shadow** (tint Ink, không đen thuần): `xs` · `sm` (card nổi nhẹ) · `md` (dropdown) · `lg` (modal) · `focus` (vòng 3px Court 35%). Ưu tiên **viền `--border-subtle` thay vì bóng**; card trong trang thường không cần bóng.
 
-**Motion:** `instant 80` · `fast 140` · `base 200` · `slow 320` ms; easing `--ease-out` (mặc định), `--ease-in-out`, `--ease-spring` (chỉ micro-feedback). Có sẵn `--transition-colors`, `--transition-lift`. Chỉ animate `transform/opacity/color`. `prefers-reduced-motion` tự zero hóa toàn bộ duration.
+**Motion:** `instant 80` · `fast 140` · `base 200` · `slow 320` ms; easing `--ease-out` (mặc định), `--ease-in-out` (không dùng easing bounce/elastic). Có sẵn `--transition-colors`, `--transition-lift`. Chỉ animate `transform/opacity/color`. `prefers-reduced-motion` tự zero hóa toàn bộ duration.
 
 ---
 
