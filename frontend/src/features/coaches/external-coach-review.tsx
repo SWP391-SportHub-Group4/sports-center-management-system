@@ -1,4 +1,5 @@
 "use client";
+import { pagedItems } from "@/lib/paged";
 import { useState } from "react";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
@@ -74,7 +75,7 @@ export function ExternalCoachReview() {
         {(data) => (
           <>
             <Table headers={[l.fullName, l.email, l.status, ""]}>
-              {data.items.map((c) => (
+              {pagedItems(data).map((c) => (
                 <tr key={c.userId}>
                   <td>{c.fullName}</td>
                   <td>{c.email}</td>

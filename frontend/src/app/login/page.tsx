@@ -12,9 +12,12 @@ import {
   HOME_BY_ROLE,
   useAuth,
 } from "@/lib/auth";
-import { Feedback, Field } from "@/components/ui";
+import { Feedback } from "@/components/ui";
+import { AuthField, AuthPasswordField } from "@/components/auth/AuthField";
+import { IconLock, IconMail } from "@/components/icons";
 import { GoogleOnboarding } from "@/features/identity/google-onboarding";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
+import styles from "./login.module.css";
 
 /**
  * Demo accounts for development environment (see SportHub.API/Persistence/DemoDataSeeder.cs).
@@ -84,7 +87,6 @@ function LoginForm() {
     null,
   );
   const [busy, setBusy] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
 
   const expired = params.get("reason") === "session-expired";
   const next = params.get("next");
@@ -138,16 +140,17 @@ function LoginForm() {
           </div>
         </aside>
 
-        <section className="auth__card" aria-labelledby="login-title">
+        <section
+          className={`auth__card ${styles.card}`}
+          aria-labelledby="login-title"
+        >
           <Link className="auth__home-link" href="/">
             <span aria-hidden="true">←</span> {t.refactor.backHome}
           </Link>
-          <h1 id="login-title" className="auth__brand">
+          <h1 id="login-title" className={styles.title}>
             {t.auth.signInTitle}
           </h1>
-          <p className="auth__sub">
-            {t.auth.signInSubtitle}
-          </p>
+          <p className={styles.subtitle}>{t.auth.signInSubtitle}</p>
 
           {expired && (
             <div
@@ -187,16 +190,42 @@ function LoginForm() {
             }}
           />
 
-          <div className="auth__separator">
+          <div className={`auth__separator ${styles.separator}`}>
             <span>{t.refactor.emailSignIn}</span>
           </div>
 
-          <form className="form" onSubmit={submit} aria-busy={busy}>
-            <Field label={t.refactor.email}>
-              <input
-                type="email"
-                value={email}
-                autoComplete="username"
+          <form className={styles.form} onSubmit={submit} aria-busy={busy}>
+            <AuthField
+              label={t.refactor.email}
+              icon={<IconMail size={20} />}
+              type="email"
+              value={email}
+              autoComplete="username"
+              required
+              disabled={busy}
+              suppressHydrationWarning
+              aria-invalid={errorSource === "credentials"}
+              aria-describedby={
+                errorSource === "credentials" ? "login-error" : undefined
+              }
+              onChange={(event) => {
+                setEmail(event.target.value);
+                if (errorSource === "credentials") {
+                  setError(null);
+                  setErrorSource(null);
+                }
+              }}
+            />
+
+            <div className={styles.passwordGroup}>
+              <AuthPasswordField
+                label={t.refactor.password}
+                icon={<IconLock size={20} />}
+                showLabel={t.refactor.show}
+                hideLabel={t.refactor.hide}
+                value={password}
+                autoComplete="current-password"
+                maxLength={256}
                 required
                 disabled={busy}
                 suppressHydrationWarning
@@ -205,76 +234,44 @@ function LoginForm() {
                   errorSource === "credentials" ? "login-error" : undefined
                 }
                 onChange={(event) => {
-                  setEmail(event.target.value);
+                  setPassword(event.target.value);
                   if (errorSource === "credentials") {
                     setError(null);
                     setErrorSource(null);
                   }
                 }}
               />
-            </Field>
-
-            <Field label={t.refactor.password}>
-              <span className="password-field">
-                <input
-                  id="login-password"
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  autoComplete="current-password"
-                  maxLength={256}
-                  required
-                  disabled={busy}
-                  suppressHydrationWarning
-                  aria-invalid={errorSource === "credentials"}
-                  aria-describedby={
-                    errorSource === "credentials" ? "login-error" : undefined
-                  }
-                  onChange={(event) => {
-                    setPassword(event.target.value);
-                    if (errorSource === "credentials") {
-                      setError(null);
-                      setErrorSource(null);
-                    }
-                  }}
-                />
-                <button
-                  className="password-field__toggle"
-                  type="button"
-                  aria-controls="login-password"
-                  aria-pressed={showPassword}
-                  disabled={busy}
-                  onClick={() => setShowPassword((visible) => !visible)}
-                >
-                  {showPassword ? t.refactor.hide : t.refactor.show}
-                </button>
-              </span>
-            </Field>
-
-            <div className="auth__feedback">
-              <Feedback id="login-error" error={error} />
+              <Link className={styles.forgot} href="/forgot-password">
+                {t.auth.forgotPassword}
+              </Link>
             </div>
 
-            <button type="submit" className="btn" disabled={busy}>
+            {error && (
+              <div className={styles.feedback}>
+                <Feedback id="login-error" error={error} />
+              </div>
+            )}
+
+            <button
+              type="submit"
+              className={`btn ${styles.submit}`}
+              disabled={busy}
+            >
               {busy ? (
                 <span className="btn__busy">
                   <span className="spinner" aria-hidden="true" />
                   <span>Signing in…</span>
                 </span>
               ) : (
-                "Sign in"
+                t.auth.signInBtn
               )}
             </button>
           </form>
 
-          <nav className="auth__links" aria-label="Account help">
-            <p className="small muted">
-              Don&apos;t have a member account?{" "}
-              <Link href="/register">Create an account</Link>.
-            </p>
-            <Link className="small" href="/forgot-password">
-              Forgot password?
-            </Link>
-          </nav>
+          <p className={styles.signup}>
+            {t.auth.noAccount}{" "}
+            <Link href="/register">{t.auth.createOne}</Link>
+          </p>
 
           {SHOW_DEMO_ACCOUNTS && (
             <details className="demo-accounts">

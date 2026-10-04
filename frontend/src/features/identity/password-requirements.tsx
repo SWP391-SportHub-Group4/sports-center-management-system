@@ -1,5 +1,6 @@
 "use client";
 import { useLanguage } from "@/lib/language";
+import { IconCheck } from "@/components/icons";
 export function passwordChecks(password: string, email: string) {
   const local = email.trim().split("@")[0];
   return [
@@ -21,10 +22,17 @@ export function PasswordRequirements({
   const { t } = useLanguage();
   const checks = passwordChecks(password, email);
   return (
-    <ul aria-label={t.identity.passwordPolicy}>
+    <ul className="pw-rules" aria-label={t.identity.passwordPolicy}>
       {t.identity.passwordRules.map((rule, i) => (
-        <li key={rule}>
-          {checks[i] ? "✓" : "○"} {rule}
+        <li
+          key={rule}
+          className={checks[i] ? "pw-rules__item pw-rules__item--ok" : "pw-rules__item"}
+        >
+          <span className="pw-rules__mark" aria-hidden="true">
+            {checks[i] ? <IconCheck size={14} strokeWidth={2.6} /> : null}
+          </span>
+          <span>{rule}</span>
+          <span className="sr-only">{checks[i] ? " (ok)" : ""}</span>
         </li>
       ))}
     </ul>

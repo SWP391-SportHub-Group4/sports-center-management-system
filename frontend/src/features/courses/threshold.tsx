@@ -1,4 +1,5 @@
 "use client";
+import { pagedItems } from "@/lib/paged";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/apiClient";
 import { useApi, useAction, useNow } from "@/lib/useApi";
@@ -110,7 +111,7 @@ export function ThresholdPanel({
                     onChange={(e) => setTarget(e.target.value)}
                   >
                     <option value="">—</option>
-                    {targets.data?.items
+                    {pagedItems(targets.data)
                       .filter(
                         (c) => c.classId !== d.classId && c.availableSeats > 0,
                       )

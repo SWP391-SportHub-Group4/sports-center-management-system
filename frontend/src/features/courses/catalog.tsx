@@ -1,4 +1,5 @@
 "use client";
+import { pagedItems } from "@/lib/paged";
 import { courseApi } from "./api";
 import { useState } from "react";
 import Link from "next/link";
@@ -78,11 +79,11 @@ export function CourseCatalog() {
           {courses.error.message}
           <button onClick={courses.reload}>{l.refresh}</button>
         </p>
-      ) : !courses.data?.items.length ? (
+      ) : !pagedItems(courses.data).length ? (
         <p>{l.empty}</p>
       ) : (
         <div className="refactor-grid">
-          {courses.data.items.map((c) => (
+          {pagedItems(courses.data).map((c) => (
             <Card key={c.classId} title={c.name}>
               <p>
                 {c.sportName} · {c.coachName} · {c.roomName}

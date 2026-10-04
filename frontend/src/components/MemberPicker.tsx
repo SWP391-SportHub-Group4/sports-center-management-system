@@ -1,5 +1,6 @@
 "use client";
 
+import { pagedItems } from "@/lib/paged";
 import { useCallback, useEffect, useState, type KeyboardEvent } from "react";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
@@ -97,7 +98,7 @@ export function MemberPicker({
     [debounced, ready],
   );
 
-  const results = ready ? (search.data?.items ?? []) : [];
+  const results = ready ? (pagedItems(search.data) ?? []) : [];
 
   // Khi quét mã hoặc ấn Enter, nếu có đúng 1 kết quả hoặc kết quả đầu tiên khớp, tự chọn ngay
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {

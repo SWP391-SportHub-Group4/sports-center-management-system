@@ -48,8 +48,10 @@ export interface SelectOption {
   disabled?: boolean;
 }
 
-export interface SelectProps
-  extends Omit<SelectHTMLAttributes<HTMLSelectElement>, "children"> {
+export interface SelectProps extends Omit<
+  SelectHTMLAttributes<HTMLSelectElement>,
+  "children"
+> {
   options: SelectOption[];
   /** Dòng đầu không chọn được (vd. "Chọn môn"). Có giá trị rỗng, tự bỏ qua khi `required` đã chọn. */
   placeholder?: string;
