@@ -1,4 +1,5 @@
 "use client";
+import { pagedItems } from "@/lib/paged";
 import { useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/apiClient";
@@ -143,7 +144,7 @@ export function ManagerCourses() {
                 "",
               ]}
             >
-              {data.items.map((c) => (
+              {pagedItems(data).map((c) => (
                 <tr key={c.classId}>
                   <td>{c.code}</td>
                   <td>{c.name}</td>

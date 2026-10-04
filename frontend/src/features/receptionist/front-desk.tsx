@@ -1,4 +1,5 @@
 "use client";
+import { pagedItems } from "@/lib/paged";
 import { useState } from "react";
 import Link from "next/link";
 import { api, ApiError } from "@/lib/apiClient";
@@ -12,6 +13,7 @@ import {
 } from "@/lib/format";
 import { AsyncSection, Card, Field, Table, StatusChip } from "@/components/ui";
 import { MemberPicker } from "@/components/MemberPicker";
+import { ScanMemberPanel } from "./scan-member";
 import { CheckoutPanel } from "@/features/payments";
 import { PtPurchase } from "@/features/membership";
 import { WalletBalance } from "@/features/wallet";
@@ -121,7 +123,7 @@ function CoursePurchase({ memberId }: { memberId: string }) {
                 "",
               ]}
             >
-              {data.items.map((c) => (
+              {pagedItems(data).map((c) => (
                 <tr key={c.classId}>
                   <td>{c.name}</td>
                   <td>{c.coachName}</td>
@@ -375,7 +377,7 @@ function GymVisits({ memberId }: { memberId: string }) {
         {(data) => (
           <>
             <Table headers={[l.start, l.end, ""]}>
-              {data.items.map((v) => (
+              {pagedItems(data).map((v) => (
                 <tr key={v.checkInId}>
                   <td>{formatDateTime(v.checkInTime)}</td>
                   <td>
@@ -437,25 +439,7 @@ export function ReceptionDashboard() {
   );
   return (
     <>
-      <div className="btn-row">
-        {[
-          ["gym-checkin", l.gymCheckin],
-          ["sell-plans", l.sellPlans],
-          ["registrations", l.registration],
-          ["attendance", l.attendance],
-          ["court-schedule", l.courtSchedule],
-          ["member-points", l.wallet],
-          ["invoices", l.invoices],
-        ].map(([path, label]) => (
-          <Link
-            className="btn btn--secondary"
-            key={path}
-            href={`/receptionist/${path}`}
-          >
-            {label}
-          </Link>
-        ))}
-      </div>
+      <ScanMemberPanel />
       <Card title={l.classSession}>
         <AsyncSection state={schedule}>
           {(rows) => (
@@ -478,7 +462,7 @@ export function ReceptionDashboard() {
         <AsyncSection state={invoices}>
           {(data) => (
             <Table headers={[l.invoices, l.member, l.price, ""]}>
-              {data.items.map((i) => (
+              {pagedItems(data).map((i) => (
                 <tr key={i.invoiceId}>
                   <td>{i.invoiceNumber}</td>
                   <td>{i.memberName}</td>
@@ -533,7 +517,7 @@ function GymInside() {
               {l.inside}: {data.totalCount}
             </p>
             <Table headers={[l.member, l.start, ""]}>
-              {data.items.map((row) => (
+              {pagedItems(data).map((row) => (
                 <tr key={row.checkInId}>
                   <td>{row.memberName}</td>
                   <td>{formatDateTime(row.checkInTime)}</td>

@@ -40,11 +40,21 @@ a {
   text-underline-offset: 0.18em;
 }
 
+/* Màu tiêu đề KHÔNG đặt toàn cục: tiêu đề trên nền tối (hero, auth) phải kế thừa màu chữ của vùng. */
 h1,
 h2,
 h3 {
-  color: var(--text-strong);
   line-height: var(--leading-snug);
+}
+
+.card h2,
+.card h3,
+.dialog h2,
+.drawer h2,
+.page-header h1,
+.page-header h2,
+.header__title h1 {
+  color: var(--text-strong);
 }
 
 h1 {
@@ -107,6 +117,7 @@ th.num,
 }
 
 .sidebar__brand {
+  gap: 0;
   padding: var(--space-5) var(--space-5) var(--space-2);
   font-family: var(--font-display);
   font-size: var(--text-2xl);
@@ -425,15 +436,59 @@ textarea:focus {
   box-shadow: var(--shadow-focus);
 }
 
-input[aria-invalid="true"],
-select[aria-invalid="true"],
-textarea[aria-invalid="true"] {
-  border-color: var(--danger-solid);
+/* member.css cũ tô nền --ice và viền navy cho .field input: đặt lại theo token (đủ độ đặc hiệu). */
+.field input,
+.field select,
+.field textarea {
+  min-height: auto;
+  padding: var(--space-2) var(--space-3);
+  background-color: var(--bg-surface);
+  color: var(--text-strong);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
 }
 
-input[aria-invalid="true"]:focus,
-select[aria-invalid="true"]:focus,
-textarea[aria-invalid="true"]:focus {
+.field input:not([type="checkbox"]):not([type="radio"]),
+.field select {
+  min-height: var(--control-height);
+}
+
+@media (pointer: coarse) {
+  .field input:not([type="checkbox"]):not([type="radio"]),
+  .field select,
+  .field textarea {
+    min-height: var(--control-height-lg);
+    font-size: var(--text-md); /* 16px: iOS không tự phóng to khi focus */
+  }
+}
+
+.field input:focus,
+.field select:focus,
+.field textarea:focus {
+  border-color: var(--focus-ring);
+  box-shadow: var(--shadow-focus);
+}
+
+.field input:disabled,
+.field select:disabled,
+.field textarea:disabled {
+  background-color: var(--bg-surface-sunken);
+  color: var(--text-disabled);
+}
+
+.field-error {
+  color: var(--danger-text);
+  font-weight: var(--weight-semibold);
+}
+
+[aria-invalid="true"] {
+  border: 1px solid var(--danger-solid) !important;
+}
+
+.field input[aria-invalid="true"]:focus,
+.field select[aria-invalid="true"]:focus,
+.field textarea[aria-invalid="true"]:focus {
   box-shadow: 0 0 0 3px rgb(179 34 40 / 28%);
 }
 
@@ -861,4 +916,46 @@ select {
   font-family: var(--font-mono);
   font-weight: var(--weight-medium);
   letter-spacing: var(--tracking-wide);
+}
+
+/* Danh sách yêu cầu mật khẩu: không dấu chấm đầu dòng, dùng icon SVG theo trạng thái. */
+.pw-rules {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pw-rules__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  transition: color var(--duration-fast) var(--ease-out);
+}
+
+.pw-rules__mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border: 1.5px solid var(--border-strong, var(--border-subtle));
+  border-radius: var(--radius-full, 999px);
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
+}
+
+.pw-rules__item--ok {
+  color: var(--text-strong);
+}
+
+.pw-rules__item--ok .pw-rules__mark {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: var(--text-on-inverse, #fff);
 }

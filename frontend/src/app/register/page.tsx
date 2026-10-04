@@ -10,7 +10,8 @@ import {
   HOME_BY_ROLE,
   useAuth,
 } from "@/lib/auth";
-import { Feedback, Field } from "@/components/ui";
+import { Feedback } from "@/components/ui";
+import { AuthField, AuthPasswordField } from "@/components/auth/AuthField";
 import { GoogleOnboarding } from "@/features/identity/google-onboarding";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 import {
@@ -18,7 +19,7 @@ import {
   passwordChecks,
 } from "@/features/identity/password-requirements";
 import { useLanguage } from "@/lib/language";
-import { IconCheck } from "@/components/icons";
+import { IconCheck, IconLock, IconMail, IconPhone, IconUser } from "@/components/icons";
 
 const OTP_EXPIRY_SECONDS = 600; // Member registration OTP: 10 minutes
 const RESEND_COOLDOWN_SECONDS = 60; // 1 minute
@@ -44,9 +45,6 @@ export default function RegisterPage() {
   const [otpSent, setOtpSent] = useState(false);
   const [sendingOtp, setSendingOtp] = useState(false);
   const [busy, setBusy] = useState(false);
-
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const [otpSecondsLeft, setOtpSecondsLeft] = useState(0);
   const [resendCooldown, setResendCooldown] = useState(0);
@@ -308,44 +306,40 @@ export default function RegisterPage() {
               </div>
 
               <div className="form">
-                <Field
-                  label={t.refactor.email}
-                  hint={t.refactor.emailHint}
-                >
-                  <div className="otp-request-row">
-                    <input
-                      type="email"
-                      autoComplete="email"
-                      required
-                      disabled={otpSent || sendingOtp}
-                      value={form.email}
-                      placeholder="your.email@example.com"
-                      suppressHydrationWarning
-                      onChange={(event) => {
-                        setForm({ ...form, email: event.target.value });
-                        setError(null);
-                      }}
-                    />
-                    {!otpSent ? (
-                      <button
-                        type="button"
-                        className="btn btn--secondary"
-                        disabled={sendingOtp || !form.email.trim()}
-                        onClick={() => void sendOtp()}
-                      >
-                        {sendingOtp ? t.refactor.sending : t.refactor.sendCode}
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        className="btn btn--quiet"
-                        onClick={handleResetEmail}
-                      >
-                        Change
-                      </button>
-                    )}
-                  </div>
-                </Field>
+                <div className="otp-request-row">
+                  <AuthField
+                    type="email"
+                    label={t.refactor.email}
+                    icon={<IconMail size={20} />}
+                    autoComplete="email"
+                    required
+                    disabled={otpSent || sendingOtp}
+                    value={form.email}
+                    suppressHydrationWarning
+                    onChange={(event) => {
+                      setForm({ ...form, email: event.target.value });
+                      setError(null);
+                    }}
+                  />
+                  {!otpSent ? (
+                    <button
+                      type="button"
+                      className="btn btn--secondary"
+                      disabled={sendingOtp || !form.email.trim()}
+                      onClick={() => void sendOtp()}
+                    >
+                      {sendingOtp ? t.refactor.sending : t.refactor.sendCode}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="btn btn--quiet"
+                      onClick={handleResetEmail}
+                    >
+                      Change
+                    </button>
+                  )}
+                </div>
 
                 {/* OTP Verification Card: Revealed once code is sent */}
                 {otpSent && (
@@ -430,107 +424,84 @@ export default function RegisterPage() {
                 </button>
               </div>
 
-              <Field label={t.refactor.fullName}>
-                <input
-                  autoComplete="name"
-                  maxLength={100}
+              <AuthField
+                label={t.refactor.fullName}
+                icon={<IconUser size={20} />}
+                autoComplete="name"
+                maxLength={100}
+                required
+                disabled={busy}
+                value={form.fullName}
+                suppressHydrationWarning
+                onChange={(event) => {
+                  setForm({ ...form, fullName: event.target.value });
+                  setError(null);
+                }}
+              />
+
+              <AuthField
+                type="tel"
+                label={t.auth.phoneLabel}
+                icon={<IconPhone size={20} />}
+                autoComplete="tel"
+                disabled={busy}
+                value={form.phone}
+                onChange={(event) =>
+                  setForm({ ...form, phone: event.target.value })
+                }
+              />
+
+              <AuthPasswordField
+                label={t.refactor.password}
+                icon={<IconLock size={20} />}
+                showLabel={t.refactor.show}
+                hideLabel={t.refactor.hide}
+                autoComplete="new-password"
+                minLength={8}
+                maxLength={128}
+                required
+                disabled={busy}
+                value={form.password}
+                suppressHydrationWarning
+                onChange={(event) => {
+                  setForm({ ...form, password: event.target.value });
+                  setError(null);
+                }}
+              />
+
+              <div>
+                <AuthPasswordField
+                  label={t.refactor.confirmPassword}
+                  icon={<IconLock size={20} />}
+                  showLabel={t.refactor.show}
+                  hideLabel={t.refactor.hide}
+                  autoComplete="new-password"
+                  minLength={8}
+                  maxLength={128}
                   required
-                  placeholder="e.g. Alex Johnson"
                   disabled={busy}
-                  value={form.fullName}
+                  value={form.confirmPassword}
                   suppressHydrationWarning
                   onChange={(event) => {
-                    setForm({ ...form, fullName: event.target.value });
+                    setForm({ ...form, confirmPassword: event.target.value });
                     setError(null);
                   }}
                 />
-              </Field>
-
-              <Field label={t.auth.phoneLabel}><input type="tel" autoComplete="tel" value={form.phone} onChange={event => setForm({...form,phone:event.target.value})}/></Field>
-              <Field label={t.refactor.password} hint="Use at least 8 characters.">
-                <span className="password-field">
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    autoComplete="new-password"
-                    minLength={8}
-                    maxLength={128}
-                    required
-                    disabled={busy}
-                    placeholder="Create a strong password"
-                    value={form.password}
-                    suppressHydrationWarning
-                    onChange={(event) => {
-                      setForm({ ...form, password: event.target.value });
-                      setError(null);
-                    }}
-                  />
-                  <button
-                    type="button"
-                    className="password-field__toggle"
-                    onClick={() => setShowPassword(!showPassword)}
-                    title={showPassword ? "Hide password" : "Show password"}
-                    aria-label={
-                      showPassword ? "Hide password" : "Show password"
-                    }
-                  >
-                    {showPassword ? t.refactor.hide : t.refactor.show}
-                  </button>
-                </span>
-              </Field>
-
-              <Field label={t.refactor.confirmPassword}>
-                <span className="password-field">
-                  <input
-                    type={showConfirmPassword ? "text" : "password"}
-                    autoComplete="new-password"
-                    minLength={8}
-                    maxLength={128}
-                    required
-                    disabled={busy}
-                    placeholder="Repeat your password"
-                    value={form.confirmPassword}
-                    suppressHydrationWarning
-                    onChange={(event) => {
-                      setForm({ ...form, confirmPassword: event.target.value });
-                      setError(null);
-                    }}
-                  />
-                  <button
-                    type="button"
-                    className="password-field__toggle"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    title={
-                      showConfirmPassword ? "Hide password" : "Show password"
-                    }
-                    aria-label={
-                      showConfirmPassword ? "Hide password" : "Show password"
-                    }
-                  >
-                    {showConfirmPassword ? t.refactor.hide : t.refactor.show}
-                  </button>
-                </span>
                 {passwordMatch === true && (
                   <span
                     className="match-hint match-hint--ok"
                     aria-live="polite"
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 4,
-                    }}
+                    style={{ display: "inline-flex", alignItems: "center", gap: 4 }}
                   >
                     <IconCheck size={14} strokeWidth={2.4} /> Passwords match
                   </span>
                 )}
                 {passwordMatch === false && (
-                  <span
-                    className="match-hint match-hint--warn"
-                    aria-live="polite"
-                  >
+                  <span className="match-hint match-hint--warn" aria-live="polite">
                     Passwords do not match yet
                   </span>
                 )}
-              </Field>
+              </div>
 
               <div className="auth__feedback">
                 <PasswordRequirements

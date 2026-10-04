@@ -48,7 +48,7 @@ test.beforeEach(async ({ page }) => receptionistFixture(page));
 test("receptionist dashboard uses real operational links and no manual-paid workflow", async ({ page }) => {
   await page.goto("/receptionist");
   await expect(page.getByRole("heading", { name: "Operations overview", exact: true })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Gym check-in / check-out", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Gym check-in", exact: true }).first()).toHaveAttribute("href", "/receptionist/gym-checkin");
   await expect(page.getByText(/manual paid/i)).toHaveCount(0);
   await expect(page.getByText(/cash payout/i)).toHaveCount(0);
 });

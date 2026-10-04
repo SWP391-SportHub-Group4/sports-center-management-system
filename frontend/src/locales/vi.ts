@@ -958,6 +958,7 @@ export const vi: Translations = {
     orContinueWith: "Hoặc tiếp tục với",
     noAccount: "Chưa có tài khoản?",
     registerNow: "Đăng ký ngay",
+    createOne: "Tạo tài khoản",
     registerTitle: "Tạo tài khoản SportHub",
     registerSubtitle: "Trở thành hội viên của trung tâm thể thao ngay hôm nay",
     fullNameLabel: "Họ và tên",
