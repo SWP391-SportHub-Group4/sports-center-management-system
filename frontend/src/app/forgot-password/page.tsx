@@ -21,11 +21,17 @@ export default function ForgotPasswordPage() {
   const now = useNow(1000);
   const [email, setEmail] = useState("");
   const [sentTo, setSentTo] = useState("");
-  const [retryAt, setRetryAt] = useState(0);
+  // Thời gian chờ gắn với ĐỊA CHỈ đã gửi: sửa sang email khác thì không còn bị chặn.
+  const [cooldown, setCooldown] = useState<{ email: string; until: number }>({
+    email: "",
+    until: 0,
+  });
+  const current = email.trim().toLowerCase();
 
   const send = async () => {
-    if (action.busy || now < retryAt) return;
+    if (action.busy) return;
     const target = email.trim();
+    if (cooldown.email === target.toLowerCase() && now < cooldown.until) return;
     const ok = await action.run(async () => {
       await api.post(
         "/api/auth/password/forgot",
@@ -36,12 +42,13 @@ export default function ForgotPasswordPage() {
     });
     if (ok) {
       setSentTo(target);
-      setRetryAt(Date.now() + 60000);
+      setCooldown({ email: target.toLowerCase(), until: Date.now() + 60000 });
     }
   };
 
-  const waiting = now < retryAt;
-  const seconds = Math.ceil((retryAt - now) / 1000);
+  // Chỉ chờ khi gửi lại cho cùng một email; email khác gửi được ngay.
+  const waiting = cooldown.email === current && now < cooldown.until;
+  const seconds = Math.ceil((cooldown.until - now) / 1000);
 
   return (
     <AuthCard
@@ -66,7 +73,15 @@ export default function ForgotPasswordPage() {
               ? `${t.identity.resendLink} (${seconds}s)`
               : t.identity.resendLink}
           </Button>
-          <Button variant="ghost" block onClick={() => setSentTo("")}>
+          <Button
+            variant="ghost"
+            block
+            onClick={() => {
+              setSentTo("");
+              setCooldown({ email: "", until: 0 });
+              action.reset();
+            }}
+          >
             {t.identity.useAnotherEmail}
           </Button>
         </div>
@@ -85,9 +100,12 @@ export default function ForgotPasswordPage() {
             type="email"
             autoComplete="email"
             required
+            autoFocus
             value={email}
-            disabled={action.busy}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              action.reset();
+            }}
           />
           <Feedback error={action.error} />
           <Button

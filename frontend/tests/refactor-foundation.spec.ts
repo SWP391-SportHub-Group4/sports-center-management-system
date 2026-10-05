@@ -87,7 +87,14 @@ test("forgot password gives a neutral answer, and the reset page sets the new pa
     page.getByRole("button", { name: /Resend link/ }),
   ).toBeDisabled();
   await page.getByRole("button", { name: "Use a different email" }).click();
-  await expect(page.getByLabel("Email", { exact: true })).toBeVisible();
+  const email = page.getByLabel("Email", { exact: true });
+  await expect(email).toBeFocused();
+  // Đổi email thì gửi được ngay, không bị thời gian chờ của email trước chặn.
+  const send = page.getByRole("button", { name: "Send reset link" });
+  await expect(send).toBeEnabled();
+  await email.fill("other@example.com");
+  await send.click();
+  await expect(page.getByRole("status")).toContainText("If an account");
 
   await page.goto("/reset-password?email=person%40example.com&token=abc123");
   const password = page.getByLabel("New password", { exact: true });
