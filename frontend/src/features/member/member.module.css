@@ -17,6 +17,16 @@
 .item:last-child {
   border-bottom: 0;
 }
+.notificationLink {
+  display: block;
+  color: var(--text-strong);
+  text-decoration: none;
+  padding-block: var(--space-2);
+  min-height: 44px;
+}
+.notificationLink:hover {
+  color: var(--color-primary);
+}
 .item p {
   margin: 0 0 var(--space-2);
 }

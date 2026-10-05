@@ -1,4 +1,42 @@
 export const en = {
+  memberDashboardV2: {
+    hello: "Hello",
+    title: "Your overview",
+    dateNote: "Vietnam time",
+    discoverHint:
+      "Find your next course. Compare schedules, available places and fees before enrolling.",
+    backDiscover: "Back to discovery",
+    scheduleHint: "Your next 30 days of classes and personal training.",
+    openSchedule: "Open schedule",
+    upNext: "Coming up",
+    noScheduleTitle: "Make room for your next session.",
+    noScheduleBody:
+      "You have no upcoming sessions in the next 30 days. Explore a course or view your Gym and PT services.",
+    benefits: "Your membership",
+    emptyGym: "No Gym membership yet.",
+    emptyGymHint: "You can still join group courses without a Gym membership.",
+    emptyPt: "No personal training package yet.",
+    walletLink: "Open wallet",
+    points: "points",
+    until: "Until",
+    notifications: "Latest updates",
+    noUpdates: "You're all caught up.",
+    noUpdatesHint:
+      "Schedule changes and updates from the center will appear here.",
+    payments: "Payments to review",
+    noPayments: "No pending invoices.",
+    noPaymentsHint:
+      "Your invoices and payment history are available in Finance.",
+    viewInvoice: "Review invoice",
+    notAssigned: "Location to be confirmed",
+    viewServices: "Manage services",
+    morePackages: "View all packages",
+    sessionType: "Activity",
+    ptQuota: "Sessions remaining",
+    walletHint: "Available for your next booking",
+    manageTraining: "Open training",
+    moreSchedule: "View full schedule",
+  },
   memberPages: {
     schedule: "My schedule",
     scheduleHint:
@@ -1201,6 +1239,8 @@ export const en = {
 
   },
   account: {
+    showPassword: "Show password",
+    hidePassword: "Hide password",
     title: "My Account",
     description: "Manage your profile, contact information, and security",
     profileTitle: "Personal Information",

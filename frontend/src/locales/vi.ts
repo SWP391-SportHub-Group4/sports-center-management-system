@@ -1,6 +1,43 @@
 import type { Translations } from "./en";
 
 export const vi: Translations = {
+  memberDashboardV2: {
+    hello: "Chào",
+    title: "Tổng quan của bạn",
+    dateNote: "Giờ Việt Nam",
+    discoverHint:
+      "Tìm khóa học phù hợp với bạn. Xem lịch, chỗ còn và học phí trước khi đăng ký.",
+    backDiscover: "Về trang khám phá",
+    scheduleHint: "Lịch lớp học và PT trong 30 ngày tới của bạn.",
+    openSchedule: "Mở lịch tập",
+    upNext: "Sắp diễn ra",
+    noScheduleTitle: "Sẵn sàng cho buổi tập tiếp theo.",
+    noScheduleBody:
+      "Bạn chưa có lịch trong 30 ngày tới. Khám phá khóa học hoặc xem dịch vụ Gym và PT của mình.",
+    benefits: "Quyền lợi của bạn",
+    emptyGym: "Bạn chưa có Membership Gym.",
+    emptyGymHint:
+      "Bạn vẫn có thể tham gia khóa học nhóm mà không cần Membership Gym.",
+    emptyPt: "Bạn chưa có gói huấn luyện cá nhân.",
+    walletLink: "Mở ví điểm",
+    points: "điểm",
+    until: "Đến",
+    notifications: "Cập nhật mới",
+    noUpdates: "Bạn đã xem hết thông báo.",
+    noUpdatesHint: "Thay đổi lịch và cập nhật từ trung tâm sẽ xuất hiện ở đây.",
+    payments: "Thanh toán cần kiểm tra",
+    noPayments: "Không có hóa đơn chờ thanh toán.",
+    noPaymentsHint: "Xem hóa đơn và lịch sử thanh toán tại Tài chính.",
+    viewInvoice: "Xem hóa đơn",
+    notAssigned: "Địa điểm sẽ được cập nhật",
+    viewServices: "Quản lý dịch vụ",
+    morePackages: "Xem tất cả gói",
+    sessionType: "Hoạt động",
+    ptQuota: "Buổi tập còn lại",
+    walletHint: "Sẵn dùng cho lần đăng ký tiếp theo",
+    manageTraining: "Mở phần tập luyện",
+    moreSchedule: "Xem toàn bộ lịch",
+  },
   memberPages: {
     schedule: "Lịch của tôi",
     scheduleHint:
@@ -1199,6 +1236,8 @@ export const vi: Translations = {
 
   },
   account: {
+    showPassword: "Hiện mật khẩu",
+    hidePassword: "Ẩn mật khẩu",
     title: "Tài khoản của tôi",
     description: "Quản lý thông tin cá nhân, liên hệ và mật khẩu bảo mật",
     profileTitle: "Thông tin cá nhân",

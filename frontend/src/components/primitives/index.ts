@@ -1,4 +1,5 @@
 export { Button, buttonClass } from "./Button";
+export { PasswordInput } from "./PasswordInput";
 export type { ButtonProps, ButtonSize, ButtonVariant } from "./Button";
 export { Input, Select, Textarea } from "./Controls";
 export type { SelectOption, SelectProps } from "./Controls";
