@@ -19,6 +19,8 @@ import styles from "./MemberShell.module.css";
 export interface NavItem {
   href: string;
   label: string;
+  /** Tiền tố route khác cùng thuộc mục này (vd. chi tiết hóa đơn thuộc Tài chính). */
+  also?: string[];
 }
 
 export interface MemberShellProps {
@@ -27,6 +29,13 @@ export interface MemberShellProps {
   actions?: ReactNode;
   allow?: Role[];
   children: ReactNode;
+}
+
+function isActive(pathname: string, item: NavItem) {
+  if (item.href === "/member") return pathname === item.href;
+  return [item.href, ...(item.also ?? [])].some((prefix) =>
+    pathname.startsWith(prefix),
+  );
 }
 
 export function MemberShell({
@@ -47,15 +56,11 @@ export function MemberShell({
 
   const memberNavItems: NavItem[] = [
     { href: "/member", label: t.nav.home },
-    { href: "/member/wallet", label: t.wallet.title },
     { href: "/member/class-schedule", label: t.nav.classSchedule },
     { href: "/member/my-registrations", label: t.nav.myRegistrations },
     { href: "/member/my-plans", label: t.nav.myPlans },
     { href: "/member/training", label: t.nav.training },
-    {
-      href: "/member/invoices",
-      label: language === "en" ? "Invoices" : "Hóa đơn",
-    },
+    { href: "/member/finance", label: t.finance.title, also: ["/member/invoices", "/member/wallet"] },
   ];
 
   // Authentication & Role check
@@ -119,9 +124,7 @@ export function MemberShell({
           <nav className={styles.desktopNav} aria-label="Member Navigation">
             {memberNavItems.map((item) => {
               const active =
-                item.href === "/member"
-                  ? pathname === item.href
-                  : pathname.startsWith(item.href);
+                isActive(pathname, item);
 
               return (
                 <Link
@@ -274,9 +277,7 @@ export function MemberShell({
             <div className={styles.mobileNavLinks}>
               {memberNavItems.map((item) => {
                 const active =
-                  item.href === "/member"
-                    ? pathname === item.href
-                    : pathname.startsWith(item.href);
+                  isActive(pathname, item);
 
                 return (
                   <Link

@@ -234,7 +234,7 @@ test("timeout after create recovers by the same idempotency key before any secon
   ).toBeVisible();
   expect(key).toMatch(/^[0-9a-f-]{36}$/i);
   expect(creates).toBe(1);
-  await expect(page).toHaveURL(`/payments/return?invoiceId=${id}`);
+  await expect(page).toHaveURL(`/checkout/${id}`);
 });
 
 test("owned checkout denial renders an error without payment controls", async ({
