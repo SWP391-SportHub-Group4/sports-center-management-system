@@ -42,8 +42,10 @@ public class UsersController(IUserAdminService users) : ControllerBase
         [FromQuery] string? status,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
-        CancellationToken ct = default)
-        => Ok(await users.SearchAsync(keyword, role, status, page, pageSize, ct));
+        CancellationToken ct = default,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] string? sortDirection = null)
+        => Ok(await users.SearchAsync(keyword, role, status, page, pageSize, ct, sortBy, sortDirection));
 
     [Authorize(Policy = SportHubPolicies.StaffRead)]
     [HttpGet("{userId:guid}")]

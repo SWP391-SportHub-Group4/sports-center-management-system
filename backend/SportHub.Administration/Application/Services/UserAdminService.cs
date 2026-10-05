@@ -34,7 +34,9 @@ public sealed class UserAdminService(
         string? status,
         int page,
         int pageSize,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        string? sortBy = null,
+        string? sortDirection = null)
     {
         page = page < 1 ? 1 : page;
         pageSize = Math.Clamp(pageSize <= 0 ? 20 : pageSize, 1, 100);
@@ -64,10 +66,24 @@ public sealed class UserAdminService(
             query = query.Where(u => u.Status == parsedStatus);
         }
 
+        var column = string.IsNullOrWhiteSpace(sortBy) ? "email" : sortBy;
+        var direction = string.IsNullOrWhiteSpace(sortDirection) ? "asc" : sortDirection;
+        if (direction is not ("asc" or "desc"))
+            throw new BadRequestException("invalid_sort_direction", "Sort direction must be asc or desc.");
+        var descending = direction == "desc";
+        IOrderedQueryable<UserAccount> ordered = column switch
+        {
+            "email" => descending ? query.OrderByDescending(u => u.Email) : query.OrderBy(u => u.Email),
+            "fullName" => descending ? query.OrderByDescending(u => u.Profile != null ? u.Profile.FullName : u.Email)
+                : query.OrderBy(u => u.Profile != null ? u.Profile.FullName : u.Email),
+            "role" => descending ? query.OrderByDescending(u => u.Role!.RoleName) : query.OrderBy(u => u.Role!.RoleName),
+            "status" => descending ? query.OrderByDescending(u => u.Status) : query.OrderBy(u => u.Status),
+            _ => throw new BadRequestException("invalid_sort_column", "Unsupported account sort column.")
+        };
         var total = await query.CountAsync(ct);
 
-        var items = await query
-            .OrderBy(u => u.Email)
+        var items = await ordered
+            .ThenBy(u => u.UserId)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .Select(Projection())

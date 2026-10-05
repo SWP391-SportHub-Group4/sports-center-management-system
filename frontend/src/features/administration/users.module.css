@@ -1,0 +1,97 @@
+.createForm {
+  width: 100%;
+  max-width: 56rem;
+  min-width: 0;
+  gap: var(--space-4);
+}
+
+.halfField {
+  --span: 6;
+}
+
+.createForm :global(.field) {
+  display: flex;
+  min-width: 0;
+  margin: 0;
+}
+
+.createForm :global(.pw-rules) {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.createActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.createActions :global(.btn) {
+  margin: 0;
+}
+
+@media (max-width: 720px) {
+  .createForm :global(.pw-rules) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.sportSelector {
+  min-width: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: var(--space-3);
+}
+
+.sportSelector legend {
+  padding-inline: var(--space-1);
+}
+
+/* StateView's loading rows follow the checkbox + sport-name layout here. */
+.sportSelector :global(.skeleton) {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--control-height);
+  background: none;
+  animation: none;
+}
+
+.sportSelector :global(.skeleton)::before,
+.sportSelector :global(.skeleton)::after {
+  content: "";
+  background: var(--bg-surface-sunken);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+}
+
+.sportSelector :global(.skeleton)::before {
+  flex: 0 0 18px;
+  height: 18px;
+}
+
+.sportSelector :global(.skeleton)::after {
+  width: 65%;
+  max-width: 16rem;
+  height: 16px;
+}
+
+.sportSelector .sportOption {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-block: var(--space-2);
+  min-height: var(--control-height);
+}
+
+.sportOption input[type="checkbox"] {
+  flex: 0 0 auto;
+  width: auto;
+  margin: 0;
+  padding: 0;
+}
+
+@media (pointer: coarse) {
+  .sportSelector .sportOption {
+    min-height: var(--control-height-lg);
+  }
+}

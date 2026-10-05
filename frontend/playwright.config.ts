@@ -11,9 +11,10 @@ export default defineConfig({
   use: {
     ...devices["Desktop Chrome"],
     baseURL,
+    ...(process.env.PLAYWRIGHT_CHANNEL ? { channel: process.env.PLAYWRIGHT_CHANNEL } : {}),
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
-    video: "retain-on-failure",
+    video: process.env.PLAYWRIGHT_VIDEO === "off" ? "off" : "retain-on-failure",
   },
   webServer: {
     command: "node node_modules/next/dist/bin/next start -p 3100",
