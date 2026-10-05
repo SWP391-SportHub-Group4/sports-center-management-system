@@ -1,7 +1,10 @@
 "use client";
+import { PasswordInput } from "@/components/primitives";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { AppShell } from "@/components/AppShell";
+import { MemberShell } from "@/components/MemberShell";
+import styles from "./account.module.css";
 import {
   AsyncSection,
   Card,
@@ -9,7 +12,7 @@ import {
   Field,
   StatusChip,
 } from "@/components/ui";
-import { api } from "@/lib/apiClient";
+import { api, ApiError } from "@/lib/apiClient";
 import { formatDate } from "@/lib/format";
 import { useAction, useApi } from "@/lib/useApi";
 import { useAuth, type Role } from "@/lib/auth";
@@ -21,7 +24,7 @@ import {
 import type { MyAccountDto } from "@/lib/types";
 
 export default function AccountPage() {
-  const { refreshUser, updateToken } = useAuth();
+  const { user, refreshUser, updateToken } = useAuth();
   const { t } = useLanguage();
 
   const account = useApi(
@@ -39,6 +42,9 @@ export default function AccountPage() {
 
   const profileAction = useAction();
   const passwordAction = useAction();
+  const currentPasswordRef = useRef<HTMLInputElement>(null);
+  const [currentPasswordError, setCurrentPasswordError] = useState(false);
+  const Shell = user?.role === "Member" ? MemberShell : AppShell;
 
   if (account.data && hydratedFor !== account.data.userId) {
     setHydratedFor(account.data.userId);
@@ -68,6 +74,9 @@ export default function AccountPage() {
 
   const savePassword = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (passwordAction.busy) return;
+    setCurrentPasswordError(false);
+    passwordAction.reset();
 
     if (
       !passwordChecks(passwordForm.next, account.data?.email ?? "").every(
@@ -82,17 +91,36 @@ export default function AccountPage() {
       return;
     }
 
-    const done = await passwordAction.run(
-      () =>
-        api.post<{ accessToken: string }>("/api/users/me/password", {
-          currentPassword: account.data?.hasPassword
-            ? passwordForm.current
-            : null,
-          newPassword: passwordForm.next,
-          confirmNewPassword: passwordForm.confirm,
-        }),
-      t.account.passwordSuccess,
-    );
+    const done = await passwordAction.run(async () => {
+      try {
+        return await api.post<{ accessToken: string }>(
+          "/api/users/me/password",
+          {
+            currentPassword: account.data?.hasPassword
+              ? passwordForm.current
+              : null,
+            newPassword: passwordForm.next,
+            confirmNewPassword: passwordForm.confirm,
+          },
+        );
+      } catch (error) {
+        if (
+          error instanceof ApiError &&
+          ((error.status === 400 &&
+            error.code === "current_password_incorrect") ||
+            (error.status === 401 && error.code === "invalid_credentials"))
+        ) {
+          setCurrentPasswordError(true);
+          currentPasswordRef.current?.focus();
+          throw new ApiError(
+            error.status,
+            error.code,
+            t.account.currentPasswordIncorrect,
+          );
+        }
+        throw error;
+      }
+    }, t.account.passwordSuccess);
 
     if (done !== null) {
       updateToken(done.accessToken);
@@ -103,7 +131,7 @@ export default function AccountPage() {
   };
 
   return (
-    <AppShell
+    <Shell
       title={t.account.title}
       description={t.account.description}
       allow={[
@@ -117,7 +145,11 @@ export default function AccountPage() {
     >
       <AsyncSection state={account} emptyMessage={t.apiErrors.notFound}>
         {(data) => (
-          <div className="grid grid--2">
+          <div
+            className={
+              user?.role === "Member" ? styles.content : "grid grid--2"
+            }
+          >
             <Card title={t.account.profileTitle}>
               <div className="stack">
                 <div className="row spread">
@@ -190,29 +222,34 @@ export default function AccountPage() {
                 )}
 
                 {data.hasPassword && (
-                  <Field label={t.account.currentPassword} required>
-                    <input
-                      type="password"
+                  <Field
+                    label={t.account.currentPassword}
+                    required
+                    error={
+                      currentPasswordError
+                        ? t.account.currentPasswordIncorrect
+                        : undefined
+                    }
+                  >
+                    <PasswordInput
+                      ref={currentPasswordRef}
                       autoComplete="current-password"
                       value={passwordForm.current}
                       required
-                      onChange={(event) =>
+                      onChange={(event) => {
+                        setCurrentPasswordError(false);
+                        passwordAction.reset();
                         setPasswordForm({
                           ...passwordForm,
                           current: event.target.value,
-                        })
-                      }
+                        });
+                      }}
                     />
                   </Field>
                 )}
 
-                <Field
-                  label={t.account.newPassword}
-                  hint={t.account.passwordMinHint}
-                  required
-                >
-                  <input
-                    type="password"
+                <Field label={t.account.newPassword} required>
+                  <PasswordInput
                     autoComplete="new-password"
                     minLength={8}
                     value={passwordForm.next}
@@ -226,9 +263,13 @@ export default function AccountPage() {
                   />
                 </Field>
 
+                <PasswordRequirements
+                  password={passwordForm.next}
+                  email={data.email}
+                />
+
                 <Field label={t.account.confirmPassword} required>
-                  <input
-                    type="password"
+                  <PasswordInput
                     autoComplete="new-password"
                     minLength={8}
                     value={passwordForm.confirm}
@@ -241,13 +282,8 @@ export default function AccountPage() {
                     }
                   />
                 </Field>
-
-                <PasswordRequirements
-                  password={passwordForm.next}
-                  email={data.email}
-                />
                 <Feedback
-                  error={passwordAction.error}
+                  error={currentPasswordError ? null : passwordAction.error}
                   success={passwordAction.success}
                 />
 
@@ -267,6 +303,6 @@ export default function AccountPage() {
           </div>
         )}
       </AsyncSection>
-    </AppShell>
+    </Shell>
   );
 }

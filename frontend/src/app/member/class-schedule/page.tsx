@@ -1,41 +1,13 @@
-"use client";
-import { MemberShell } from "@/components/MemberShell";
-import { CourseCatalog } from "@/features/courses/catalog";
-import { useLanguage } from "@/lib/language";
-import { useApi } from "@/lib/useApi";
-import { api } from "@/lib/apiClient";
-import { formatDateTime } from "@/lib/format";
-import type { CourseMemberSessionDto } from "@/lib/types";
-import { Card, StatusChip } from "@/components/ui";
-export default function Page() {
-  const { t } = useLanguage();
-  const state = useApi(
-    (signal) =>
-      api.get<CourseMemberSessionDto[]>("/api/members/me/schedule", { signal }),
-    [],
-  );
-  return (
-    <MemberShell title={t.refactor.courses}>
-      <Card title={t.refactor.schedule}>
-        {state.loading ? (
-          <p>{t.refactor.loading}</p>
-        ) : state.error ? (
-          <p role="alert">{state.error.message}</p>
-        ) : !state.data?.length ? (
-          <p>{t.refactor.empty}</p>
-        ) : (
-          <ul>
-            {state.data.map((s) => (
-              <li key={s.sessionId}>
-                {s.className} · {s.sportName} · {formatDateTime(s.startAtUtc)} ·{" "}
-                {s.roomName} · <StatusChip value={s.status} /> ·{" "}
-                <StatusChip value={s.attendanceStatus} />
-              </li>
-            ))}
-          </ul>
-        )}
-      </Card>
-      <CourseCatalog />
-    </MemberShell>
-  );
+import { redirect } from "next/navigation";
+export default async function Page({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(await searchParams)) {
+    if (Array.isArray(value)) value.forEach((item) => query.append(key, item));
+    else if (value !== undefined) query.set(key, value);
+  }
+  redirect(`/member/schedule${query.size ? `?${query}` : ""}`);
 }

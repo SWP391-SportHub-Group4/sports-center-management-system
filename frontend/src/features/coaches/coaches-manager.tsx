@@ -1,4 +1,5 @@
 ﻿"use client";
+import { PasswordInput } from "@/components/primitives";
 import { pagedItems } from "@/lib/paged";
 import { useState } from "react";
 import { api } from "@/lib/apiClient";
@@ -111,9 +112,9 @@ export function CoachesManager() {
                   />
                 </Field>
                 <Field label={l.password}>
-                  <input
+                  <PasswordInput
                     required
-                    type="password"
+
                     autoComplete="new-password"
                     maxLength={64}
                     value={form.password}
@@ -123,9 +124,9 @@ export function CoachesManager() {
                   />
                 </Field>
                 <Field label={l.confirmPassword}>
-                  <input
+                  <PasswordInput
                     required
-                    type="password"
+
                     autoComplete="new-password"
                     value={form.confirmPassword}
                     onChange={(e) =>

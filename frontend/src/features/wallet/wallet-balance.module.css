@@ -23,3 +23,24 @@
   font-size: 0.875rem;
   max-width: 50ch;
 }
+
+.compact {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-4);
+  margin: var(--space-4) 0 0;
+}
+.compact .value {
+  font-family: var(--font-display);
+  font-size: var(--text-3xl);
+  line-height: var(--leading-tight);
+}
+.compact dt {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-regular);
+  color: var(--text-muted);
+}
+.compact .hint {
+  font-size: var(--text-xs);
+  margin-top: var(--space-2);
+}

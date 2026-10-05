@@ -11,7 +11,12 @@ import { Card, StatusChip } from "@/components/ui";
 import type { SportDto } from "@/lib/types";
 import { CheckoutPanel } from "@/features/payments";
 import { useAuth } from "@/lib/auth";
-export function CourseCatalog() {
+import styles from "./catalog.module.css";
+export function CourseCatalog({
+  detailBasePath = "/courses",
+}: {
+  detailBasePath?: "/courses" | "/member/discover";
+}) {
   const { t } = useLanguage();
   const l = t.refactor;
   const [sportId, setSport] = useState("");
@@ -29,7 +34,7 @@ export function CourseCatalog() {
   );
   return (
     <>
-      <div className="form-grid">
+      <div className={styles.filters}>
         <label>
           {l.all}
           <select
@@ -93,7 +98,7 @@ export function CourseCatalog() {
                 {c.availableSeats} {l.seats}
               </p>
               <p>{formatMoney(c.price)}</p>
-              <Link href={`/courses/${c.classId}`}>{l.details}</Link>
+              <Link href={`${detailBasePath}/${c.classId}`}>{l.details}</Link>
             </Card>
           ))}
         </div>
