@@ -36,6 +36,6 @@ export function memberNotificationHref(item: NotificationDto): string | null {
     )
   )
     return "/member/schedule";
-  if (item.sourceEventType === "CLASS_PUBLISHED") return "/courses";
+  if (item.sourceEventType === "CLASS_PUBLISHED") return "/member/discover";
   return null;
 }

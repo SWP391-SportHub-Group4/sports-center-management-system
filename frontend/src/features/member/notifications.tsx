@@ -62,7 +62,13 @@ export function MemberNotifications() {
                   user?.role === "Member" ? memberNotificationHref(n) : null;
                 return (
                   <li key={n.notificationId} className={styles.item}>
-                    <p>{n.message}</p>
+                    {href ? (
+                      <Link className={styles.notificationLink} href={href}>
+                        {n.message}
+                      </Link>
+                    ) : (
+                      <p>{n.message}</p>
+                    )}
                     <p className="muted">
                       <time>{formatDateTime(n.sentAt)}</time> ·{" "}
                       {n.status === "READ"
@@ -70,7 +76,6 @@ export function MemberNotifications() {
                         : t.memberPages.unread}
                     </p>
                     <div className="row">
-                      {href && <Link href={href}>{t.refactor.details}</Link>}
                       {n.status !== "READ" && (
                         <Button
                           variant="ghost"

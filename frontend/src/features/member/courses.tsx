@@ -70,7 +70,7 @@ export function MemberCourses() {
           }}
         </AsyncSection>
       </Tabs>
-      <Link href="/courses">{t.memberPages.discover}</Link>
+      <Link href="/member/discover">{t.memberPages.discover}</Link>
     </>
   );
 }

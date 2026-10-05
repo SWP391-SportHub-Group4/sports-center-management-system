@@ -56,7 +56,7 @@ export function MemberShell({
 
   const memberNavItems: NavItem[] = [
     { href: "/member", label: t.nav.home },
-    { href: "/courses", label: t.memberPages.discover },
+    { href: "/member/discover", label: t.memberPages.discover },
     { href: "/member/schedule", label: t.memberPages.schedule },
     { href: "/member/courses", label: t.memberPages.courses },
     { href: "/member/services", label: t.memberPages.services },
@@ -136,6 +136,7 @@ export function MemberShell({
                 <Link
                   key={item.href}
                   href={item.href}
+                  aria-current={active ? "page" : undefined}
                   className={`${styles.navLink} ${active ? styles.navLinkActive : ""}`}
                 >
                   {item.label}
@@ -288,6 +289,7 @@ export function MemberShell({
                   <Link
                     key={item.href}
                     href={item.href}
+                    aria-current={active ? "page" : undefined}
                     className={`${styles.mobileNavLink} ${active ? styles.mobileNavLinkActive : ""}`}
                     onClick={() => setMobileMenuOpen(false)}
                   >

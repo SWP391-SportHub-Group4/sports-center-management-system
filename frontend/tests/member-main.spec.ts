@@ -18,6 +18,9 @@ async function setup(page: Page) {
           fullName: "Current Member",
           role: "MEMBER",
           sportIds: [],
+          hasPassword: true,
+          status: "ACTIVE",
+          createdAt: "2026-08-06T00:00:00Z",
         },
       });
     if (path === "/api/notifications/unread-count")
@@ -149,6 +152,50 @@ async function setup(page: Page) {
   });
 }
 
+test("member account keeps shared navigation and toggles each password independently", async ({
+  page,
+}) => {
+  await setup(page);
+  let writes = 0;
+  await page.route("**/api/users/me/password", async (route) => {
+    writes++;
+    await route.fulfill({ json: { accessToken: "updated-token" } });
+  });
+  await page.setViewportSize({ width: 1536, height: 960 });
+  await page.goto("/account");
+  await expect(
+    page.getByRole("link", { name: "Discover", exact: true }),
+  ).toHaveAttribute("href", "/member/discover");
+  await expect(page.locator(".sidebar")).toHaveCount(0);
+  await expect(
+    page.getByRole("heading", { name: "Personal Information" }),
+  ).toBeVisible();
+  const current = page.getByLabel("Current password", { exact: true });
+  const next = page.getByLabel("New password", { exact: true });
+  const confirm = page.getByLabel("Confirm new password", { exact: true });
+  for (const input of [current, next, confirm])
+    await expect(input).toHaveAttribute("type", "password");
+  await current.fill("Demo@123");
+  await page
+    .getByRole("button", { name: "Show password", exact: true })
+    .first()
+    .click();
+  await expect(current).toHaveAttribute("type", "text");
+  await expect(current).toHaveValue("Demo@123");
+  await expect(next).toHaveAttribute("type", "password");
+  await page
+    .getByRole("button", { name: "Hide password", exact: true })
+    .click();
+  await expect(current).toHaveAttribute("type", "password");
+  expect(writes).toBe(0);
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
+});
+
 test("schedule reuses Calendar and includes the last PT page and own attendance", async ({
   page,
 }) => {
@@ -225,13 +272,20 @@ test("member dashboard desktop and mobile fit the viewport", async ({
   await expect(
     page.getByRole("heading", { name: "Next session" }),
   ).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
   await page.screenshot({
     path: "test-results/an02-desktop.png",
     fullPage: true,
   });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole("button", { name: "Open navigation menu" }).click();
-  await page.getByRole("button", { name: "Language: English (Switch to VI)" }).click();
+  await page
+    .getByRole("button", { name: "Language: English (Switch to VI)" })
+    .click();
   await page.getByRole("button", { name: "Đóng menu" }).click();
   await expect(
     page.getByRole("heading", { name: "Buổi tiếp theo" }),
@@ -291,4 +345,117 @@ test("failed notification mutation keeps message unread", async ({ page }) => {
   await page.getByRole("button", { name: "Mark as read", exact: true }).click();
   await expect(page.getByRole("main").getByRole("alert")).toBeVisible();
   await expect(page.getByText("Gym hours update")).toBeVisible();
+});
+
+test("Discover stays in Member shell through list and course details", async ({
+  page,
+}) => {
+  await setup(page);
+  const course = {
+    classId: 7,
+    name: "Badminton foundations",
+    sportName: "Badminton",
+    coachName: "Coach A",
+    roomName: "Court A",
+    startDate: "2099-01-01",
+    numSessions: 12,
+    availableSeats: 5,
+    price: 300000,
+    status: "PUBLISHED",
+  };
+  await page.route("**/api/classes?**", (route) =>
+    route.fulfill({ json: { items: [course], totalCount: 1 } }),
+  );
+  await page.route("**/api/classes/7", (route) =>
+    route.fulfill({ json: course }),
+  );
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/member");
+  await page
+    .getByRole("navigation")
+    .getByRole("link", { name: "Discover", exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/member\/discover$/);
+  await page.screenshot({
+    path: "test-results/an02-discover.png",
+    fullPage: true,
+  });
+  await expect(
+    page.getByRole("link", { name: "My schedule", exact: true }),
+  ).toBeVisible();
+  await expect(page.locator('nav a[aria-current="page"]')).toHaveText(
+    "Discover",
+  );
+  await page
+    .getByRole("main")
+    .getByRole("link", { name: "Details", exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/member\/discover\/7$/);
+  await expect(
+    page.getByRole("link", { name: "My schedule", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Badminton foundations" }),
+  ).toBeVisible();
+  await page.reload();
+  await expect(page.locator('nav a[aria-current="page"]')).toHaveText(
+    "Discover",
+  );
+  await page.getByRole("link", { name: "Back to discovery" }).click();
+  await expect(page).toHaveURL(/\/member\/discover$/);
+  await page.goto("/courses");
+  await expect(
+    page.getByRole("main").getByRole("link", { name: "Details", exact: true }),
+  ).toHaveAttribute("href", "/courses/7");
+});
+
+test("dashboard empty state offers Member discovery and handles API failure", async ({
+  page,
+}) => {
+  await setup(page);
+  await page.route("**/api/members/me/schedule?**", (route) =>
+    route.fulfill({ json: [] }),
+  );
+  await page.route("**/api/members/me/pt-sessions?**", (route) =>
+    route.fulfill({ json: [] }),
+  );
+  await page.goto("/member");
+  await expect(
+    page.getByText("Make room for your next session."),
+  ).toBeVisible();
+  await expect(page.getByText("No pending invoices.")).toBeVisible();
+  await expect(
+    page
+      .getByRole("main")
+      .getByRole("link", { name: "Discover", exact: true })
+      .last(),
+  ).toHaveAttribute("href", "/member/discover");
+  await page.screenshot({
+    path: "test-results/an02-dashboard-empty.png",
+    fullPage: true,
+  });
+  await page.route("**/api/members/me/schedule?**", (route) =>
+    route.fulfill({ status: 500, json: { title: "Schedule unavailable" } }),
+  );
+  await page.reload();
+  await expect(page.getByRole("main").getByRole("alert")).toBeVisible();
+  await expect(page.getByText("Make room for your next session.")).toHaveCount(
+    0,
+  );
+  await expect(
+    page.getByRole("heading", { name: "Your membership" }),
+  ).toBeVisible();
+});
+
+test("schedule reads the date from dashboard deep links", async ({ page }) => {
+  await setup(page);
+  const request = page.waitForRequest(
+    (req) =>
+      req.url().includes("/api/members/me/schedule") &&
+      new URL(req.url()).searchParams.get("fromUtc") ===
+        "2099-01-09T17:00:00.000Z",
+  );
+  await page.goto("/member/schedule?date=2099-01-10");
+  await request;
+  await expect(page).toHaveURL(/date=2099-01-10/);
 });

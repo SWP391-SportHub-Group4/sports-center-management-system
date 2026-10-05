@@ -3,12 +3,14 @@
 import Link from "next/link";
 import { useLanguage } from "@/lib/language";
 import { useAuth } from "@/lib/auth";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { api } from "@/lib/apiClient";
 import { formatDateTime } from "@/lib/format";
 import { useApi } from "@/lib/useApi";
 import { IconBell } from "@/components/icons";
 import { memberNotificationHref } from "@/features/member/notifications-api";
+
+import styles from "./NotificationBell.module.css";
 
 interface NotificationDto {
   notificationId: string;
@@ -30,6 +32,9 @@ export function NotificationBell() {
   const { t } = useLanguage();
   const { user } = useAuth();
   const [actionError, setActionError] = useState("");
+  const panelId = useId();
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -70,18 +75,32 @@ export function NotificationBell() {
       if (!containerRef.current?.contains(event.target as Node)) setOpen(false);
     };
 
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpen(false);
+        triggerRef.current?.focus();
+      }
+    };
+    document.addEventListener("keydown", escape);
     document.addEventListener("mousedown", handler);
 
-    return () => document.removeEventListener("mousedown", handler);
+    return () => {
+      document.removeEventListener("mousedown", handler);
+      document.removeEventListener("keydown", escape);
+    };
   }, [open]);
 
   const markAllRead = async () => {
+    setBusy(true);
+    setActionError("");
     try {
       await api.post("/api/notifications/read-all");
       unread.reload();
       items.reload();
     } catch (e) {
       setActionError((e as Error).message);
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -93,6 +112,9 @@ export function NotificationBell() {
       <button
         type="button"
         className="btn btn--ghost btn--sm bell__btn"
+        ref={triggerRef}
+        aria-expanded={open}
+        aria-controls={panelId}
         onClick={() => setOpen((current) => !current)}
         aria-label={`${t.refactor.notifications} (${count})`}
       >
@@ -104,14 +126,18 @@ export function NotificationBell() {
       </button>
 
       {open && (
-        <div className="bell__panel">
-          <div className="row spread" style={{ padding: "10px 13px" }}>
+        <section
+          className={styles.panel}
+          id={panelId}
+          aria-label={t.refactor.notifications}
+        >
+          <div className={styles.header}>
             <strong className="small">{t.refactor.notifications}</strong>
             <button
               type="button"
-              className="btn btn--ghost btn--sm"
+              className={styles.readAll}
               onClick={() => void markAllRead()}
-              disabled={count === 0}
+              disabled={count === 0 || busy}
             >
               {t.refactor.readAll}
             </button>
@@ -120,30 +146,41 @@ export function NotificationBell() {
           {(items.error || actionError) && (
             <p role="alert">{items.error?.message || actionError}</p>
           )}
-          {items.loading && list.length === 0 ? (
-            <p className="state">{t.refactor.loading}</p>
-          ) : list.length === 0 ? (
-            <p className="state">{t.refactor.empty}</p>
-          ) : (
-            list.map((item) => (
-              <div
-                key={item.notificationId}
-                className={`bell__item ${item.status !== "READ" ? "bell__item--unread" : ""}`}
-              >
-                {item.message}
-                {user?.role === "Member" && memberNotificationHref(item) && (
-                  <Link href={memberNotificationHref(item)!}>
-                    {t.refactor.details}
-                  </Link>
-                )}
-                <time>{formatDateTime(item.sentAt)}</time>
-              </div>
-            ))
-          )}
-          <Link href="/notifications" onClick={() => setOpen(false)}>
+          <div className={styles.list}>
+            {items.loading && list.length === 0 ? (
+              <p className="state">{t.refactor.loading}</p>
+            ) : list.length === 0 ? (
+              <p className="state">{t.refactor.empty}</p>
+            ) : (
+              list.map((item) => (
+                <Link
+                  key={item.notificationId}
+                  className={styles.item}
+                  data-unread={item.status !== "READ"}
+                  href={
+                    (user?.role === "Member"
+                      ? memberNotificationHref(item)
+                      : null) ?? "/notifications"
+                  }
+                  onClick={() => setOpen(false)}
+                >
+                  <span className={styles.dot} aria-hidden="true" />
+                  <span>
+                    <span className={styles.message}>{item.message}</span>
+                    <time>{formatDateTime(item.sentAt)}</time>
+                  </span>
+                </Link>
+              ))
+            )}
+          </div>
+          <Link
+            className={styles.footer}
+            href="/notifications"
+            onClick={() => setOpen(false)}
+          >
             {t.memberPages.viewAll}
           </Link>
-        </div>
+        </section>
       )}
     </div>
   );

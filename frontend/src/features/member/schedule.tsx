@@ -9,10 +9,24 @@ import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { formatDateTime, todayIso } from "@/lib/format";
 import { memberSchedule, type MemberEvent } from "./api";
+import { useUrlQuery } from "@/lib/useUrlQuery";
+
+function scheduleDate(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return todayIso();
+  const parsed = new Date(`${value}T12:00:00Z`);
+  return !Number.isNaN(parsed.getTime()) &&
+    parsed.toISOString().slice(0, 10) === value
+    ? value
+    : todayIso();
+}
 
 export function MemberSchedule() {
   const { t } = useLanguage();
-  const [date, setDate] = useState(todayIso);
+  const { values, setValues } = useUrlQuery(
+    { date: todayIso() },
+    { date: scheduleDate },
+  );
+  const date = values.date;
   const [view, setView] = useState<CalendarView>("week");
   const [selected, setSelected] = useState<MemberEvent | null>(null);
   const days = view === "day" ? 1 : 7;
@@ -31,7 +45,7 @@ export function MemberSchedule() {
             view={view}
             labels={t.calendar}
             onDateChange={(value) => {
-              setDate(value);
+              setValues({ date: value });
               setSelected(null);
             }}
             onViewChange={(value) => {
