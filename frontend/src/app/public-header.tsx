@@ -100,7 +100,7 @@ export function PublicHeader() {
                     {
                       href:
                         user.role === "Member"
-                          ? "/member/wallet"
+                          ? "/member/finance?tab=wallet"
                           : "/external-coach/wallet",
                       label: language === "vi" ? "Ví điểm" : "Point wallet",
                       icon: "wallet" as const,
