@@ -184,9 +184,10 @@ export function chipTone(value: string | null | undefined): string {
     case "Void":
     case "Rejected":
     case "Banned":
-    case "Deactivated":
     case "Failed":
       return "chip--danger";
+    case "Deactivated":
+      return "chip--neutral";
     default:
       return "chip--info";
   }
