@@ -1,0 +1,11 @@
+.catalog {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.catalog :global(.card),
+.catalog :global(.card__head),
+.catalog :global(.card__body),
+.catalog :global(.card__body > *) {
+  min-width: 0;
+}

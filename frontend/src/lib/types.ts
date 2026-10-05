@@ -205,6 +205,9 @@ export interface MembershipPackageDto {
   durationDays: number;
   sessionLimit: number | null;
   description: string | null;
+  /** Optional publisher metadata; legacy API responses omit these fields. */
+  nameLanguage?: string | null;
+  descriptionLanguage?: string | null;
   isActive: boolean;
 }
 
