@@ -1,0 +1,115 @@
+.panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 12px);
+  width: min(400px, calc(100vw - 24px));
+  max-height: min(560px, calc(100dvh - 96px));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  z-index: 40;
+}
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.readAll {
+  border: 0;
+  background: transparent;
+  color: var(--color-primary);
+  font: inherit;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  min-height: 44px;
+  padding: 8px;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+}
+.readAll:hover {
+  background: var(--brand-100);
+}
+.readAll:disabled {
+  color: var(--text-muted);
+  cursor: default;
+  background: transparent;
+}
+.list {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  min-height: 0;
+}
+.item {
+  display: grid;
+  grid-template-columns: 6px minmax(0, 1fr);
+  gap: 12px;
+  padding: 16px;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-strong);
+  text-decoration: none;
+}
+.item[data-unread="true"] {
+  background: color-mix(in srgb, var(--brand-100) 28%, var(--bg-surface));
+}
+.item:hover {
+  background: var(--brand-100);
+  color: var(--text-strong);
+  text-decoration: none;
+}
+.item:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -3px;
+}
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  margin-top: 8px;
+  background: transparent;
+}
+.item[data-unread="true"] .dot {
+  background: var(--color-primary);
+}
+.message {
+  display: block;
+  font-size: var(--text-sm);
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.item time {
+  display: block;
+  margin-top: 6px;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+.footer {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border-subtle);
+  color: var(--color-primary);
+  text-decoration: none;
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+.footer:hover {
+  background: var(--brand-100);
+  text-decoration: none;
+}
+@media (max-width: 600px) {
+  .panel {
+    position: fixed;
+    top: 72px;
+    right: 12px;
+  }
+}

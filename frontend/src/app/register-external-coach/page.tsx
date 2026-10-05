@@ -1,4 +1,5 @@
 "use client";
+import { PasswordInput } from "@/components/primitives";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -158,9 +159,9 @@ export default function ExternalRegistrationPage() {
             </AsyncSection>
           </fieldset>
           <Field label={t.identity.newPassword}>
-            <input
+            <PasswordInput
               required
-              type="password"
+
               autoComplete="new-password"
               value={form.password}
               onChange={(e) => setForm({ ...form, password: e.target.value })}
@@ -168,9 +169,9 @@ export default function ExternalRegistrationPage() {
           </Field>
           <PasswordRequirements password={form.password} email={form.email} />
           <Field label={t.identity.confirmPassword}>
-            <input
+            <PasswordInput
               required
-              type="password"
+
               autoComplete="new-password"
               value={form.confirmPassword}
               onChange={(e) =>
