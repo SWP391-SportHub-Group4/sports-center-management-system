@@ -40,7 +40,7 @@ export function MembershipCatalog({
     state.data?.filter((packageItem) => packageItem.isActive) ?? [];
   return (
     <section id="pricing" className={styles.catalog} aria-busy={state.loading}>
-      <h2>{text("Danh mục gói đang mở bán", "Available packages")}</h2>
+      <h2>{text("Gói Gym đang mở bán", "Gym membership packages")}</h2>
       {state.loading ? (
         <p role="status">
           {text("Đang tải danh mục gói…", "Loading available packages…")}

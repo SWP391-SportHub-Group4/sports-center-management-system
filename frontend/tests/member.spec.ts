@@ -147,7 +147,7 @@ test("dashboard does not issue an entrance pass", async ({ page }) => {
 test("Gym and PT purchases are separate", async ({ page }) => {
   await page.goto("/member/my-plans");
   await expect(
-    page.getByRole("heading", { name: "Available packages", exact: true }),
+    page.getByRole("heading", { name: "Gym membership packages", exact: true }),
   ).toBeVisible();
   await expect(
     page.getByRole("heading", { name: "Personal training", exact: true }),
