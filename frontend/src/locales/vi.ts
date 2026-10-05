@@ -1,6 +1,25 @@
 import type { Translations } from "./en";
 
 export const vi: Translations = {
+  calendar: {
+    day: "Ngày",
+    week: "Tuần",
+    list: "Danh sách",
+    previous: "Trước",
+    today: "Hôm nay",
+    next: "Sau",
+    empty: "Không có hoạt động.",
+    eventDetails: "Chi tiết sự kiện lịch",
+    type: "Loại hoạt động",
+    participants: "Người tham gia",
+    noParticipants: "Không có người tham gia.",
+    types: {
+      CLASS_SESSION: "Lớp học",
+      PT_SESSION: "Buổi PT",
+      COURT_RENTAL: "Thuê sân",
+      ROOM_BLOCK: "Khóa sân",
+    },
+  },
   staffWork: {
     overview: "Tổng quan",
     sessions: "Buổi PT",

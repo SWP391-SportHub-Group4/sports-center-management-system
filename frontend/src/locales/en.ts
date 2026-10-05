@@ -1,4 +1,23 @@
 export const en = {
+  calendar: {
+    day: "Day",
+    week: "Week",
+    list: "List",
+    previous: "Previous",
+    today: "Today",
+    next: "Next",
+    empty: "No activities scheduled.",
+    eventDetails: "Calendar event details",
+    type: "Activity type",
+    participants: "Participants",
+    noParticipants: "No participants.",
+    types: {
+      CLASS_SESSION: "Class",
+      PT_SESSION: "PT session",
+      COURT_RENTAL: "Court rental",
+      ROOM_BLOCK: "Room block",
+    },
+  },
   staffWork: {
     overview: "Overview",
     sessions: "PT sessions",
