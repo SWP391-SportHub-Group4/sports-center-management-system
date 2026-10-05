@@ -131,7 +131,7 @@ export function NotificationBell() {
                         : ["PAYMENT_RECEIVED", "INVOICE_CREATED"].includes(
                               item.sourceEventType,
                             )
-                          ? `/member/invoices?invoiceId=${encodeURIComponent(item.sourceEntityId ?? "")}`
+                          ? `/member/invoices/${encodeURIComponent(item.sourceEntityId ?? "")}`
                           : item.sourceEventType.startsWith("HOMEWORK")
                             ? "/member/training"
                             : "/member/class-schedule"

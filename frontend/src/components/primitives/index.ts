@@ -4,6 +4,8 @@ export { Input, Select, Textarea } from "./Controls";
 export type { SelectOption, SelectProps } from "./Controls";
 export { Drawer } from "./Drawer";
 export type { DrawerProps } from "./Drawer";
+export { Tabs } from "./Tabs";
+export type { TabItem, TabsProps } from "./Tabs";
 export { PageHeader } from "./PageHeader";
 export type { PageHeaderProps } from "./PageHeader";
 export { FieldContext, useFieldContext } from "./FieldContext";

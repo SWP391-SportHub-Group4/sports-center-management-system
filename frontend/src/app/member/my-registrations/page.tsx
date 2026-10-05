@@ -42,8 +42,8 @@ export default function Page() {
             <Link
               href={
                 e.invoiceItemId
-                  ? `/member/invoices?invoiceItemId=${e.invoiceItemId}`
-                  : "/member/invoices"
+                  ? `/member/finance?tab=invoices&invoiceItemId=${e.invoiceItemId}`
+                  : "/member/finance?tab=invoices"
               }
             >
               {t.refactor.invoices}

@@ -1,6 +1,9 @@
 "use client";
+import { Field } from "@/components/ui";
+import { Button, Input } from "@/components/primitives";
 import { useLanguage } from "@/lib/language";
 import { formatDateTime } from "@/lib/format";
+import styles from "./checkout-panel.module.css";
 export interface CounterConfirmation {
   confirmationId: string;
   expiresAtUtc: string;
@@ -35,10 +38,13 @@ export function CounterPointConfirmation({
   const expired = serverNow >= Date.parse(confirmation.expiresAtUtc);
   const locked = (confirmation.failedAttempts ?? 0) >= 5;
   return (
-    <section aria-label={t.refactor.otp}>
-      <label>
-        {t.refactor.otp}
-        <input
+    <section className={styles.otp} aria-label={t.refactor.otp}>
+      <Field
+        label={t.refactor.otp}
+        hint={`${t.refactor.expires}: ${formatDateTime(confirmation.expiresAtUtc)} · ${Math.max(0, 5 - (confirmation.failedAttempts ?? 0))}/5`}
+      >
+        <Input
+          className={styles.otpInput}
           autoComplete="one-time-code"
           inputMode="numeric"
           pattern="[0-9]{6}"
@@ -47,30 +53,27 @@ export function CounterPointConfirmation({
           onChange={(e) => onCodeChange(e.target.value.replace(/\D/g, ""))}
           disabled={busy || expired || locked}
         />
-      </label>
-      <p>
-        {t.refactor.expires}: {formatDateTime(confirmation.expiresAtUtc)} ·{" "}
-        {Math.max(0, 5 - (confirmation.failedAttempts ?? 0))}/5
-      </p>
+      </Field>
       {expired && <p role="status">{t.refactor.codeExpired}</p>}
       {locked && <p role="status">{t.refactor.otpLocked}</p>}
-      <button
-        className="btn btn--secondary"
-        disabled={busy || expired || locked || code.length !== 6}
-        onClick={onVerify}
-      >
-        {t.refactor.verify}
-      </button>
-      <button
-        className="btn btn--secondary"
-        disabled={busy || serverNow < resendAt}
-        onClick={onResend}
-      >
-        {t.refactor.resendCode}
-      </button>
-      <button className="btn btn--secondary" disabled={busy} onClick={onClear}>
-        {t.refactor.clearPoints}
-      </button>
+      <div className={styles.actions}>
+        <Button
+          disabled={busy || expired || locked || code.length !== 6}
+          onClick={onVerify}
+        >
+          {t.refactor.verify}
+        </Button>
+        <Button
+          variant="secondary"
+          disabled={busy || serverNow < resendAt}
+          onClick={onResend}
+        >
+          {t.refactor.resendCode}
+        </Button>
+        <Button variant="ghost" disabled={busy} onClick={onClear}>
+          {t.refactor.clearPoints}
+        </Button>
+      </div>
     </section>
   );
 }
