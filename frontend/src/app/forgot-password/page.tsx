@@ -4,12 +4,12 @@ import Link from "next/link";
 import { api } from "@/lib/apiClient";
 import { Feedback } from "@/components/ui";
 import { Button } from "@/components/primitives";
-import { AuthSplit } from "@/components/auth/AuthSplit";
+import { AuthCard } from "@/components/auth/AuthCard";
 import { AuthField } from "@/components/auth/AuthField";
 import { IconMail } from "@/components/icons";
 import { useAction, useNow } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
-import styles from "@/components/auth/AuthSplit.module.css";
+import styles from "@/components/auth/AuthCard.module.css";
 
 /**
  * Quên mật khẩu bằng LINK gửi qua email. Câu trả lời luôn trung tính ("nếu tài khoản tồn tại…") để không
@@ -44,12 +44,9 @@ export default function ForgotPasswordPage() {
   const seconds = Math.ceil((retryAt - now) / 1000);
 
   return (
-    <AuthSplit
+    <AuthCard
       title={t.identity.forgotTitle}
       subtitle={sentTo ? undefined : t.identity.forgotDescription}
-      statement={t.identity.forgotStatement}
-      statementDetail={t.identity.forgotStatementDetail}
-      back={{ href: "/login", label: t.identity.backToSignIn }}
     >
       {sentTo ? (
         <div className={styles.outcome} role="status">
@@ -107,6 +104,6 @@ export default function ForgotPasswordPage() {
         <span>{t.identity.rememberedPassword}</span>
         <Link href="/login">{t.identity.login}</Link>
       </p>
-    </AuthSplit>
+    </AuthCard>
   );
 }

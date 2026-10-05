@@ -5,13 +5,13 @@ import { useSearchParams } from "next/navigation";
 import { api, ApiError } from "@/lib/apiClient";
 import { Feedback } from "@/components/ui";
 import { Button, buttonClass } from "@/components/primitives";
-import { AuthSplit } from "@/components/auth/AuthSplit";
+import { AuthCard } from "@/components/auth/AuthCard";
 import { AuthPasswordField } from "@/components/auth/AuthField";
 import { IconAlert, IconCheck, IconLock } from "@/components/icons";
 import { PasswordRequirements, passwordChecks } from "@/features/identity";
 import { useAction } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
-import styles from "@/components/auth/AuthSplit.module.css";
+import styles from "@/components/auth/AuthCard.module.css";
 
 const BAD_LINK_CODES = [
   "otp_invalid",
@@ -65,12 +65,7 @@ function ResetPasswordForm() {
 
   if (done)
     return (
-      <AuthSplit
-        title={t.identity.resetDoneTitle}
-        statement={t.identity.resetStatement}
-        statementDetail={t.identity.resetStatementDetail}
-        back={{ href: "/login", label: t.identity.backToSignIn }}
-      >
+      <AuthCard title={t.identity.resetDoneTitle}>
         <div className={styles.outcome}>
           <span className={styles.outcomeIcon} aria-hidden="true">
             <IconCheck size={28} />
@@ -85,17 +80,12 @@ function ResetPasswordForm() {
             {t.identity.login}
           </Link>
         </div>
-      </AuthSplit>
+      </AuthCard>
     );
 
   if (badLink)
     return (
-      <AuthSplit
-        title={t.identity.linkInvalidTitle}
-        statement={t.identity.resetStatement}
-        statementDetail={t.identity.resetStatementDetail}
-        back={{ href: "/login", label: t.identity.backToSignIn }}
-      >
+      <AuthCard title={t.identity.linkInvalidTitle}>
         <div className={styles.outcome}>
           <span
             className={`${styles.outcomeIcon} ${styles.outcomeIconWarn}`}
@@ -113,20 +103,17 @@ function ResetPasswordForm() {
             {t.identity.requestNewLink}
           </Link>
         </div>
-      </AuthSplit>
+      </AuthCard>
     );
 
   return (
-    <AuthSplit
+    <AuthCard
       title={t.identity.resetTitle}
       subtitle={
         <>
           {t.identity.resetDescription} <strong>{email}</strong>
         </>
       }
-      statement={t.identity.resetStatement}
-      statementDetail={t.identity.resetStatementDetail}
-      back={{ href: "/login", label: t.identity.backToSignIn }}
     >
       <form className={styles.form} aria-busy={action.busy} onSubmit={submit}>
         <AuthPasswordField
@@ -164,7 +151,7 @@ function ResetPasswordForm() {
         <span>{t.identity.rememberedPassword}</span>
         <Link href="/login">{t.identity.login}</Link>
       </p>
-    </AuthSplit>
+    </AuthCard>
   );
 }
 
