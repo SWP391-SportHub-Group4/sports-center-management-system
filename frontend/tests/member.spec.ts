@@ -147,13 +147,13 @@ test("dashboard does not issue an entrance pass", async ({ page }) => {
 test("Gym and PT purchases are separate", async ({ page }) => {
   await page.goto("/member/my-plans");
   await expect(
-    page.getByRole("heading", { name: "Gym membership", exact: true }),
+    page.getByRole("heading", { name: "Gym membership packages", exact: true }),
   ).toBeVisible();
   await expect(
     page.getByRole("heading", { name: "Personal training", exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Checkout", exact: true }),
+    page.getByRole("button", { name: "Review & checkout" }).first(),
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Get quote", exact: true }),

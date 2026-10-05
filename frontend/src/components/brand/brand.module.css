@@ -1,0 +1,137 @@
+.account {
+  position: relative;
+  font: var(--text-sm)/var(--leading-normal) var(--font-body);
+  color: var(--text-body);
+}
+.accountTrigger {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--control-height-lg);
+  padding: var(--space-1) var(--space-3) var(--space-1) var(--space-1);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  color: var(--text-strong);
+  cursor: pointer;
+  font: inherit;
+}
+.avatar {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-pill);
+  background: var(--color-primary-soft);
+  color: var(--color-primary-soft-text);
+  font-size: var(--text-xs);
+  font-weight: 700;
+}
+.accountName {
+  max-width: 144px;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.accountPanel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + var(--space-2));
+  width: min(288px, calc(100vw - 32px));
+  background: var(--bg-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: var(--space-2);
+  z-index: var(--z-dropdown);
+  animation: unfold var(--duration-base) var(--ease-out);
+}
+.identity {
+  padding: var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+  margin-bottom: var(--space-2);
+}
+.identity strong {
+  overflow-wrap: anywhere;
+}
+.identity small {
+  display: block;
+  margin-top: var(--space-1);
+  color: var(--text-muted);
+}
+.accountPanel a,
+.accountPanel button {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--control-height-lg);
+  padding: var(--space-3) var(--space-4);
+  width: 100%;
+  color: var(--text-body);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+  font: inherit;
+  cursor: pointer;
+  text-decoration: none;
+  text-align: left;
+}
+.accountPanel a:hover,
+.accountPanel button:hover {
+  background: var(--color-primary-soft);
+  color: var(--color-primary-soft-text);
+}
+.account :focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: var(--space-1);
+}
+@keyframes unfold {
+  from {
+    clip-path: inset(0 0 12% 0);
+  }
+  to {
+    clip-path: inset(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .accountPanel {
+    animation: none;
+  }
+}
+@media (max-width: 479px) {
+  .accountName {
+    max-width: 80px;
+  }
+}
+.accountInverse .accountTrigger {
+  border-color: var(--border-inverse);
+  background: var(--bg-brand-deep);
+  color: var(--text-on-inverse);
+}
+.accountInverse .avatar {
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+.accountInverse .accountPanel {
+  border: 1px solid var(--border-inverse);
+  background: var(--bg-brand-deep);
+  color: var(--text-on-inverse);
+  box-shadow: var(--shadow-lg);
+}
+.accountInverse .identity {
+  border-color: var(--border-inverse);
+}
+.accountInverse .identity small {
+  color: var(--text-on-inverse-muted);
+}
+.accountInverse .accountPanel a,
+.accountInverse .accountPanel button {
+  color: var(--text-on-inverse);
+}
+.accountInverse .accountPanel a:hover,
+.accountInverse .accountPanel button:hover {
+  background: var(--color-primary);
+  color: var(--text-on-inverse);
+}
+.accountInverse :focus-visible {
+  outline-color: var(--color-accent);
+}

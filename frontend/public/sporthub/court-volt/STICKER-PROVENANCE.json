@@ -1,0 +1,21 @@
+{
+  "generator": "Built-in image_gen.imagegen",
+  "styleSystem": "A coordinated SportHub Court & Volt die-cut sticker set. Court lines, teal, deep teal, chalk, restrained volt and sport-specific orange.",
+  "assets": [
+    {
+      "file": "sticker-gym.png",
+      "prompt": "Use case: stylized-concept. Asset type: transparent PNG die-cut SportHub Court & Volt brand sticker used as a small overlay on a Gym photo. Primary request: one premium, ownable sticker illustration of a compact pair of iron dumbbells crossed once, with one small geometric court-line corner integrated around the weight as a framing accent. Style: crisp editorial screen-printed vector artwork rendered as a tactile vinyl decal, broad simple silhouette, controlled 2-color teal #02717a and deep teal #002528 with a tiny volt-lime #c8f03a court-line notch and chalk highlight. Thick clean white die-cut border, faint physical paper edge, readable at 80px, graphic but not childish, no mascot, no faces, no background. Composition centered compact sticker mark, slight diagonal, transparent background. No words, no lettering, no logos, no watermark, no collage, no shadow detached from sticker.",
+      "transparent_background": true
+    },
+    {
+      "file": "sticker-badminton.png",
+      "prompt": "Use case: stylized-concept. Asset type: transparent PNG die-cut SportHub Court & Volt brand sticker used as a small overlay on a badminton course image. Primary request: one premium ownable sticker illustration of one badminton racket intersected by a white shuttlecock, racket lines crisp and simplified with correct recognizable shape, integrated single court-line angular corner framing cue. Cohesive visual family: screen-printed editorial vector vinyl decal, broad simplified shapes and 1.8-weight internal contour, teal #02717a and deep teal #002528 with a tiny volt lime #c8f03a shuttle feather/court mark and chalk highlights. Thick precise clean white die-cut border, tactile sticker edge, readable at 80px, expressive but not cute, no mascot, no faces, transparent background, compact diagonal arrangement. No text, no lettering, no words, no logo, no watermark, no collage, no detached shadow.",
+      "transparent_background": true
+    },
+    {
+      "file": "sticker-basketball.png",
+      "prompt": "Use case: stylized-concept. Asset type: transparent PNG die-cut SportHub Court & Volt brand sticker used as a small overlay on a basketball course image. Primary request: one premium ownable sticker illustration of a single textured basketball with seams constructed from a clean sports court arc, paired with an angular court-corner detail. Cohesive family: screen-printed editorial vector vinyl decal, broad simplified shapes, precise dark contours, teal #02717a and deep teal #002528 with a tiny volt lime #c8f03a court-line segment, restrained hardwood orange only on the ball, chalk highlight. Thick precise clean white die-cut border, tactile sticker edge, readable at 80px, athletic and mature, no mascot, no faces, transparent background. No text, no words, no logo, no watermark, no collage, no detached shadow.",
+      "transparent_background": true
+    }
+  ]
+}

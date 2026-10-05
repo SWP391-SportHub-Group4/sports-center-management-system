@@ -1,0 +1,778 @@
+.page {
+  background: var(--bg-app);
+  color: var(--text-body);
+  font: var(--text-md) / var(--leading-relaxed) var(--font-body);
+}
+
+.page h1,
+.page h2,
+.page h3 {
+  color: var(--text-strong);
+  font-family: var(--font-display);
+  font-weight: 600;
+  text-wrap: balance;
+}
+
+.page a {
+  text-underline-offset: var(--space-1);
+}
+
+.page :focus-visible {
+  outline: 3px solid var(--color-primary);
+  outline-offset: 3px;
+}
+
+.main,
+.footer {
+  width: min(100%, 1440px);
+  padding-inline: var(--space-9);
+  margin-inline: auto;
+}
+
+.skip {
+  position: absolute;
+  z-index: var(--z-dropdown);
+  top: -100px;
+  left: var(--space-4);
+  padding: var(--space-4);
+  background: var(--bg-surface);
+  color: var(--text-strong);
+}
+
+.skip:focus {
+  top: var(--space-4);
+}
+
+/* The full-bleed image and the original review page's sport rail lead the page. */
+.hero {
+  position: relative;
+  isolation: isolate;
+  min-height: clamp(580px, 72svh, 704px);
+  margin-block: var(--space-5) var(--space-9);
+  overflow: hidden;
+  border-radius: var(--radius-xl);
+  background: var(--bg-brand-deep);
+}
+
+.heroCopy {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  width: min(58%, 720px);
+  min-height: inherit;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  padding: clamp(32px, 5vw, 72px);
+  color: var(--text-on-inverse);
+}
+
+.page .hero h1 {
+  max-width: 14ch;
+  margin-block: 0 var(--space-5);
+  color: var(--text-on-inverse);
+  font-size: clamp(56px, 6vw, 88px);
+  line-height: 0.97;
+  letter-spacing: var(--tracking-tight);
+}
+
+.page .hero h1 span {
+  color: var(--color-accent);
+}
+
+.lead {
+  max-width: 36ch;
+  margin: 0 0 var(--space-6);
+  color: var(--text-on-inverse-muted);
+  font-size: clamp(var(--text-md), 1.45vw, var(--text-lg));
+}
+
+.heroCopy :global(.btn) {
+  min-height: var(--control-height-lg);
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  font-weight: 700;
+  transition:
+    transform var(--duration-fast) var(--ease-out),
+    background-color var(--duration-fast) var(--ease-out);
+}
+
+.heroCopy :global(.btn):hover {
+  transform: translateY(-2px);
+  border-color: var(--color-accent-hover);
+  background: var(--color-accent-hover);
+}
+
+.heroVisual {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  display: grid;
+  min-width: 0;
+  height: 100%;
+  grid-template-rows: minmax(0, 1fr) auto;
+}
+
+.heroVisual::after {
+  position: absolute;
+  z-index: 1;
+  inset: 0 0 76px;
+  background: linear-gradient(
+    90deg,
+    var(--bg-brand-deep) 1%,
+    color-mix(in srgb, var(--bg-brand-deep) 96%, transparent) 31%,
+    color-mix(in srgb, var(--bg-brand-deep) 69%, transparent) 49%,
+    color-mix(in srgb, var(--bg-brand-deep) 16%, transparent) 76%,
+    transparent 100%
+  );
+  content: "";
+  pointer-events: none;
+}
+
+.photo {
+  position: relative;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+.photo img {
+  object-fit: cover;
+  object-position: center 42%;
+}
+
+.heroPhoto {
+  opacity: 0;
+  transition:
+    opacity var(--duration-slow) var(--ease-out),
+    transform var(--duration-slow) var(--ease-out);
+}
+
+.heroPhoto[data-active="true"] {
+  opacity: 1;
+}
+
+.heroSwitcher {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  width: min(54%, 720px);
+  justify-self: end;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-top: 1px solid var(--border-inverse);
+  background: var(--bg-brand-deep);
+}
+
+.heroSportButton {
+  display: flex;
+  min-width: 0;
+  min-height: 76px;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 0;
+  border-right: 1px solid var(--border-inverse);
+  background: transparent;
+  color: var(--text-on-inverse-muted);
+  cursor: pointer;
+  font: 600 var(--text-sm) / var(--leading-tight) var(--font-body);
+  transition:
+    color var(--duration-fast) var(--ease-out),
+    background-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
+}
+
+.heroSportButton:last-child {
+  border-right: 0;
+}
+
+.heroSportButton svg {
+  flex: none;
+}
+
+.heroSportButton:hover,
+.heroSportButton[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--color-accent) 9%, transparent);
+  color: var(--color-accent);
+}
+
+.heroSportButton[aria-pressed="true"] {
+  box-shadow: inset 0 3px 0 var(--color-accent);
+}
+
+.heroSportButton:focus-visible {
+  position: relative;
+  z-index: 3;
+  outline-color: var(--color-accent);
+}
+
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .heroVisual:hover .heroPhoto[data-active="true"] {
+    transform: scale(1.025);
+  }
+}
+
+.section {
+  padding-block: clamp(56px, 6vw, 88px);
+  border-top: 1px solid var(--border-subtle);
+  scroll-margin-top: var(--space-5);
+}
+
+.sectionHeading {
+  max-width: 760px;
+  margin-bottom: var(--space-8);
+}
+
+.page .sectionHeading h2,
+.page .faq > h2 {
+  margin-block: 0 var(--space-3);
+  font-size: clamp(44px, 5.4vw, 72px);
+  line-height: 0.98;
+  letter-spacing: var(--tracking-tight);
+}
+
+.sectionHeading p {
+  max-width: 58ch;
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.sportsLayout {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(28px, 5vw, 72px);
+}
+
+.gymFeature,
+.courtSports article {
+  min-width: 0;
+}
+
+.gymFeature > img {
+  display: block;
+  width: 100%;
+  height: clamp(340px, 37vw, 480px);
+  border-radius: var(--radius-xl);
+  object-fit: cover;
+  object-position: center 42%;
+}
+
+.gymFeature > div {
+  padding-top: var(--space-5);
+}
+
+.meta {
+  display: block;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.sportHeading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.page .sportHeading {
+  margin-block: var(--space-2) var(--space-3);
+  font-size: clamp(32px, 3vw, 42px);
+  line-height: 1.05;
+}
+
+.sportHeading svg {
+  flex: none;
+  color: var(--color-primary);
+}
+
+.gymFeature p,
+.courtSports p {
+  max-width: 48ch;
+  color: var(--text-muted);
+}
+
+.sportsLayout a:not(:global(.btn)) {
+  display: inline-flex;
+  min-height: var(--control-height-lg);
+  align-items: center;
+  gap: var(--space-3);
+  color: var(--color-primary);
+  font-weight: 700;
+}
+
+.sportsLayout a:not(:global(.btn)):hover {
+  color: var(--color-primary-hover);
+}
+
+.courtSports {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.courtSports article {
+  padding-block: var(--space-4) var(--space-5);
+}
+
+.courtSports article:first-child {
+  padding-top: 0;
+}
+
+.courtSports article + article {
+  border-top: 1px solid var(--border-subtle);
+}
+
+.courtPhoto {
+  display: block;
+  width: 100%;
+  height: clamp(190px, 20vw, 245px);
+  margin-bottom: var(--space-4);
+  border-radius: var(--radius-xl);
+  object-fit: cover;
+  object-position: center 40%;
+  transition: transform var(--duration-base) var(--ease-out);
+}
+
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .courtSports article:hover .courtPhoto {
+    transform: scale(1.015);
+  }
+}
+
+.training {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  align-items: center;
+  gap: clamp(28px, 6vw, 88px);
+  margin-block: var(--space-6);
+  padding: clamp(32px, 6vw, 80px);
+  border-radius: var(--radius-xl);
+  background: var(--bg-surface-sunken);
+}
+
+.training > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.training > div > svg {
+  margin-bottom: var(--space-4);
+  color: var(--color-primary);
+}
+
+.page .training h2 {
+  max-width: 10ch;
+  margin: 0;
+  font-size: clamp(48px, 5.5vw, 76px);
+  line-height: 0.98;
+  letter-spacing: var(--tracking-tight);
+  white-space: pre-line;
+}
+
+.training > div:last-child {
+  justify-self: end;
+  max-width: 48ch;
+}
+
+.training > div:last-child p {
+  color: var(--text-body);
+  font-size: var(--text-lg);
+}
+
+.training :global(.btn) {
+  max-width: 100%;
+  min-height: var(--control-height-lg);
+  height: auto;
+  white-space: normal;
+}
+
+.pricing {
+  scroll-margin-top: var(--space-5);
+}
+
+.pricing :global(#pricing) > h2 {
+  margin-bottom: var(--space-4);
+  font-size: clamp(30px, 3vw, 42px);
+}
+
+.pricing :global(.refactor-grid) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+}
+
+.pricing :global(.refactor-grid > .card) {
+  display: grid;
+  grid-template-columns: minmax(0, 0.88fr) minmax(0, 2.12fr);
+  align-items: center;
+  padding: var(--space-5) 0;
+  border: 0;
+  border-top: 1px solid var(--border-subtle);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.pricing :global(.refactor-grid > .card:last-child) {
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.pricing :global(.card__head) {
+  min-width: 0;
+  padding: 0 var(--space-5) 0 0;
+  border: 0;
+}
+
+.pricing :global(.card__head h3) {
+  margin: 0;
+  font-size: clamp(30px, 3.1vw, 44px);
+  line-height: 1;
+  overflow-wrap: anywhere;
+}
+
+.pricing :global(.card__body) {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.4fr) auto;
+  align-items: center;
+  gap: var(--space-5);
+  padding: 0;
+}
+
+.pricing :global(.card__body > *) {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.pricing :global(.card__body p) {
+  max-width: 34ch;
+  margin: 0;
+}
+
+.pricing :global(.card__body p:first-child) {
+  color: var(--text-strong);
+  font-family: var(--font-display);
+  font-size: clamp(24px, 2.5vw, 36px);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.05;
+}
+
+.pricing :global(.card__body a) {
+  display: inline-flex;
+  max-width: 22ch;
+  min-height: var(--control-height-lg);
+  align-items: center;
+  justify-self: end;
+  color: var(--color-primary);
+  font-weight: 700;
+  text-decoration-thickness: 1px;
+  white-space: normal;
+}
+
+.faq {
+  display: grid;
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+  gap: clamp(28px, 6vw, 88px);
+}
+
+.faq details {
+  padding-block: var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.faq details:first-child {
+  padding-top: 0;
+}
+
+.faq summary {
+  min-height: var(--control-height-lg);
+  padding-block: var(--space-3);
+  color: var(--text-strong);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.faq details p {
+  color: var(--text-muted);
+}
+
+.footer {
+  display: grid;
+  width: min(1312px, calc(100% - 2 * var(--space-9)));
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+  align-items: start;
+  gap: var(--space-8);
+  margin-block: var(--space-8) var(--space-5);
+  padding: clamp(32px, 5vw, 64px);
+  border-radius: var(--radius-xl);
+  background: var(--bg-brand-deep);
+  color: var(--text-on-inverse);
+}
+
+.wordmark {
+  display: inline-flex;
+  min-height: var(--control-height-lg);
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-on-inverse);
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.footerStatement {
+  max-width: 14ch;
+  margin-block: var(--space-5) 0;
+  font-family: var(--font-display);
+  font-size: clamp(48px, 5.3vw, 72px);
+  font-weight: 600;
+  line-height: 0.98;
+  letter-spacing: var(--tracking-tight);
+}
+
+.footerStatement span {
+  display: block;
+  color: var(--color-accent);
+  font-style: italic;
+}
+
+.footer nav {
+  display: grid;
+  align-content: start;
+}
+
+.footer nav a {
+  display: flex;
+  min-height: 64px;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  border-bottom: 1px solid var(--border-inverse);
+  color: var(--text-on-inverse);
+  font-family: var(--font-display);
+  font-size: clamp(26px, 2.7vw, 38px);
+  line-height: 1.05;
+  text-decoration: none;
+  transition: color var(--duration-fast) var(--ease-out);
+}
+
+.footer nav a:hover {
+  color: var(--color-accent);
+}
+
+.footer nav a svg {
+  flex: none;
+  color: var(--color-accent);
+}
+
+.footerIcons {
+  display: flex;
+  align-self: end;
+  gap: var(--space-5);
+  color: var(--color-accent);
+}
+
+.footer small {
+  grid-column: 2;
+  align-self: end;
+  color: var(--text-on-inverse-muted);
+  text-align: right;
+}
+
+.page :focus-visible {
+  outline-color: var(--color-primary);
+}
+
+.hero :focus-visible,
+.footer :focus-visible {
+  outline-color: var(--color-accent);
+}
+
+@media (max-width: 1023px) {
+  .main {
+    padding-inline: var(--space-6);
+  }
+
+  .hero {
+    min-height: clamp(600px, 78svh, 720px);
+  }
+
+  .heroCopy {
+    width: min(62%, 640px);
+    padding: var(--space-8);
+  }
+
+  .heroSwitcher {
+    width: 62%;
+  }
+
+  .sportsLayout {
+    gap: var(--space-6);
+  }
+
+  .pricing :global(.card__body) {
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+    gap: var(--space-4);
+  }
+
+  .pricing :global(.card__body a) {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+}
+
+@media (max-width: 767px) {
+  .main {
+    padding-inline: var(--space-4);
+  }
+
+  .hero {
+    min-height: 680px;
+    margin-top: var(--space-4);
+    border-radius: var(--radius-lg);
+  }
+
+  .heroVisual {
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+
+  .heroVisual::after {
+    inset: 0 0 78px;
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--bg-brand-deep) 97%, transparent) 0%,
+      color-mix(in srgb, var(--bg-brand-deep) 88%, transparent) 36%,
+      color-mix(in srgb, var(--bg-brand-deep) 32%, transparent) 67%,
+      transparent 100%
+    );
+  }
+
+  .heroCopy {
+    width: 100%;
+    min-height: 0;
+    align-self: start;
+    padding: var(--space-7) var(--space-5);
+  }
+
+  .page .hero h1 {
+    max-width: 14ch;
+    font-size: clamp(52px, 12vw, 62px);
+  }
+
+  .lead {
+    max-width: 34ch;
+    font-size: var(--text-md);
+  }
+
+  .heroSwitcher {
+    width: 100%;
+  }
+
+  .heroSportButton {
+    min-height: 76px;
+    flex-direction: column;
+    gap: var(--space-1);
+    padding: var(--space-2);
+    font-size: var(--text-xs);
+  }
+
+  .sportsLayout,
+  .training,
+  .faq {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sportsLayout {
+    gap: var(--space-7);
+  }
+
+  .gymFeature > img {
+    height: clamp(300px, 94vw, 430px);
+  }
+
+  .courtPhoto {
+    height: clamp(210px, 66vw, 290px);
+  }
+
+  .training {
+    gap: var(--space-5);
+    padding: var(--space-7) var(--space-5);
+  }
+
+  .page .training h2 {
+    max-width: 12ch;
+    font-size: clamp(48px, 12vw, 62px);
+  }
+
+  .training > div:last-child {
+    justify-self: start;
+  }
+
+  .pricing :global(.refactor-grid > .card) {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-4);
+    padding-block: var(--space-5);
+  }
+
+  .pricing :global(.card__body) {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-3);
+  }
+
+  .pricing :global(.card__body a) {
+    grid-column: auto;
+  }
+
+  .faq {
+    gap: var(--space-4);
+  }
+
+  .footer {
+    width: calc(100% - 2 * var(--space-4));
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-6);
+    margin-block: var(--space-7) var(--space-4);
+    padding: var(--space-6) var(--space-5);
+    border-radius: var(--radius-lg);
+  }
+
+  .footerStatement {
+    margin-top: var(--space-4);
+    font-size: clamp(48px, 12vw, 62px);
+  }
+
+  .footer nav a {
+    min-height: 56px;
+    font-size: 30px;
+  }
+
+  .footerIcons {
+    gap: var(--space-4);
+  }
+
+  .footer small {
+    grid-column: 1;
+    text-align: left;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page *,
+  .page *::before,
+  .page *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .heroVisual:hover .heroPhoto[data-active="true"],
+  .courtSports article:hover .courtPhoto {
+    transform: none;
+  }
+}
