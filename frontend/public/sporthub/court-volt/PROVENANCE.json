@@ -1,0 +1,44 @@
+{
+  "generator": "Built-in image_gen.imagegen",
+  "purpose": "AI-generated illustrative SportHub campaign assets, not photographs of the real facility or named coaches.",
+  "assets": [
+    {
+      "file": "brand-board.png",
+      "conceptOnly": true
+    },
+    {
+      "file": "hero-community.png"
+    },
+    {
+      "file": "hero-rally.png"
+    },
+    {
+      "file": "course-badminton.png"
+    },
+    {
+      "file": "course-basketball.png"
+    }
+  ],
+  "prompts": [
+    {
+      "asset": "brandkit",
+      "prompt": "Create a premium SportHub brand art-direction overview board, 3 by 3 panels, landscape 16:10. Existing Vietnamese multisport center brand, Gym including personal training, badminton, basketball. Preserve name SportHub, do not propose a replacement logo. Strategy: court markings become a precise, confident visual language for everyday athletic progress. Palette strictly teal #02717a, deep teal #002528, chalk #f6f9f9, ink #090e0f, small volt lime #c8f03a accents. Typography condensed athletic sans for display, clean sans UI. Panels: large SportHub wordmark, consistent 24px geometric line-icon family for badminton basketball dumbbell calendar wallet shield member arrow, realistic candid Southeast Asian athletes on indoor teal courts, sparse membership card mockup, palette, typography, restrained desktop course card, reception payment interface detail, close-up racket and ball textures. Equal optical 1.8px monoline icon weights, squared softened ends, a single small lime court-segment detail; readable at tiny size. Strong gutters, mostly light chalk canvas, premium real sport atmosphere, natural sidelight, precise alignment, no gradients, no glow, no fake metrics, no extra logo designs. Text only SportHub, COURT & VOLT, PLAY YOUR WAY, and short panel labels. This is an identity application concept board, not a screenshot of a real facility. Save a local output file and return its path if supported."
+    },
+    {
+      "asset": "hero",
+      "prompt": "Use case photorealistic-natural. Generate one standalone 3:2 landscape editorial campaign photograph for SportHub, a Vietnamese multisport center. Three adult Vietnamese recreational athletes, a woman holding badminton racket, a man holding basketball, another woman carrying a small gym bag, having an authentic relaxed conversation beside an indoor teal badminton court after training. Waist-up to full length environmental composition, people concentrated toward center-right, enough court visible, natural confident expressions, realistic anatomy and sports equipment, soft late-afternoon window sidelight, tactile teal court surface and white line markings, deep teal wall, tiny lime accents on sportswear, refined natural color grade, energetic but welcoming. Real sports photography, not luxury nightclub, not posed corporate stock, no visible text, no watermarks, no logos, no layout, no collage. This is illustrative campaign photography, not an actual facility claim."
+    },
+    {
+      "asset": "hero-rally",
+      "prompt": "Use case: photorealistic-natural. Asset type: wide SportHub homepage hero photograph, viewed inside the right half of a responsive split hero. Primary request: a kinetic, aspirational but believable editorial sports photograph of a Vietnamese badminton player in her mid twenties lunging into a fast rally on an indoor teal court, with a second player softly visible deeper in the frame. Scene: modern community sports center in Vietnam, court-line geometry and net genuinely plausible, no stadium or professional tournament branding. Composition: horizontal 3:2 photograph; foreground player and racket in the right half, open teal court and movement trail toward center-left, full face and racket visible after a square-ish crop, clear visual energy without artificial motion blur. Lighting: warm late-afternoon natural light entering high windows, realistic shadows and subtle sweat, premium sports campaign photography. Color palette: deep court teal, chalk white, small restrained volt-lime details on shoes or shuttle only; natural skin tones. Constraints: photorealistic anatomy, realistic badminton grip and racket, no pasted collage, no text, no logo, no watermark, no border or UI."
+    },
+    {
+      "asset": "badminton",
+      "prompt": "Use case photorealistic-natural. One standalone landscape 3:2 editorial sports photograph for a badminton course card. Adult Vietnamese woman in dark teal athletic shirt during a controlled badminton forehand practice, racket in right hand visibly contacting a single white shuttlecock, elegant realistic stance, full upper body and racket within frame, coach softly out of focus on far side of net, premium indoor teal court, white court markings, natural sunlight from high windows. Palette teal #02717a deep teal #002528 neutral chalk and restrained lime. Authentic anatomy, accurate racket strings, crisp player with subtle background blur, inviting everyday training. No text, no watermarks, no logos, no UI, no collage. Subject centered for responsive crop."
+    },
+    {
+      "asset": "basketball",
+      "prompt": "Use case photorealistic-natural. One standalone landscape 3:2 editorial photograph for a basketball course card. Two adult Vietnamese recreational basketball players, woman practicing a controlled dribble with ONE orange basketball, man coaching nearby, realistic anatomy and stance, spacious indoor sports court, deep teal padded wall, warm hardwood floor, natural high-window daylight, clean white court lines. Confident accessible everyday athletes, understated dark teal clothing, tiny lime wristband accent. Crisp professional sports photography with natural texture and restrained color grade, both subjects in central region safe for responsive crop. No text, no logos, no watermark, no UI, no collage, no extra basketballs."
+    }
+  ]
+}

@@ -7,63 +7,153 @@ import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { formatMoney, formatDate } from "@/lib/format";
 import { Card } from "@/components/ui";
-import type {
-  MembershipPackageDto,
-  MemberPackageDto,
-  SportDto,
-} from "@/lib/types";
+import { Button } from "@/components/primitives/Button";
+import type { MemberPackageDto, SportDto } from "@/lib/types";
 import { CheckoutPanel } from "@/features/payments";
+import {
+  catalogContentLanguage,
+  parseMembershipCatalog,
+} from "./catalog-content";
+import styles from "./catalog.module.css";
 export function MembershipCatalog({
   purchase = false,
 }: {
   purchase?: boolean;
 }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const text = (vi: string, en: string) => (language === "vi" ? vi : en);
   const { user } = useAuth();
   const [selected, setSelected] = useState<number | null>(null);
   const state = useApi(
-    (signal) =>
-      api.get<MembershipPackageDto[]>(
-        purchase
-          ? "/api/membership-packages"
-          : "/api/membership-packages/public",
-        { anonymous: !purchase, signal },
+    async (signal) =>
+      parseMembershipCatalog(
+        await api.get<unknown>(
+          purchase
+            ? "/api/membership-packages"
+            : "/api/membership-packages/public",
+          { anonymous: !purchase, signal },
+        ),
       ),
     [purchase],
   );
+  const activePackages =
+    state.data?.filter((packageItem) => packageItem.isActive) ?? [];
   return (
-    <section id="pricing">
-      <h2>{t.refactor.gym}</h2>
+    <section id="pricing" className={styles.catalog} aria-busy={state.loading}>
+      <h2>{text("Gói Gym đang mở bán", "Gym membership packages")}</h2>
       {state.loading ? (
-        <p>{t.refactor.loading}</p>
+        <p role="status">
+          {text("Đang tải danh mục gói…", "Loading available packages…")}
+        </p>
       ) : state.error ? (
-        <p role="alert">{state.error.message}</p>
-      ) : !state.data?.length ? (
-        <p>{t.refactor.empty}</p>
+        <div role="alert">
+          <p>
+            {state.error.status === 429
+              ? text(
+                  "Bạn tải danh mục quá nhiều lần. Vui lòng đợi một chút rồi thử lại.",
+                  "Too many requests. Please wait a moment before reloading the packages.",
+                )
+              : state.error.status === 401 || state.error.status === 403
+                ? text(
+                    "Hiện bạn chưa thể truy cập danh mục này. Bạn có thể xem khóa học hoặc thử lại sau.",
+                    "You cannot access this catalog right now. You can browse courses or try again later.",
+                  )
+                : text(
+                    "Chưa tải được danh mục gói. Thử lại để xem giá và điều kiện mua.",
+                    "We could not load the packages. Try again to see prices and purchase conditions.",
+                  )}
+          </p>
+          <Button variant="secondary" onClick={state.reload}>
+            {text("Tải lại danh mục", "Reload packages")}
+          </Button>
+          {purchase && state.error.status === 401 && (
+            <p>
+              <Link href="/login?next=%2Fmember%2Fmy-plans">
+                {text(
+                  "Đăng nhập lại để chọn gói",
+                  "Sign in again to choose a package",
+                )}
+              </Link>
+            </p>
+          )}
+          <p>
+            <Link href="/courses">
+              {text("Xem khóa học", "Browse courses")}
+            </Link>
+          </p>
+        </div>
+      ) : !activePackages.length ? (
+        <p role="status">
+          {text(
+            "Hiện chưa có gói đang mở bán. Bạn có thể xem các khóa cầu lông và bóng rổ.",
+            "No packages are available right now. You can browse badminton and basketball courses.",
+          )}{" "}
+          <Link href="/courses">{text("Xem khóa học", "Browse courses")}</Link>
+        </p>
       ) : (
-        <div className="refactor-grid">
-          {state.data
-            .filter((p) => p.isActive)
-            .map((p) => (
-              <Card key={p.packageId} title={p.name}>
+        <>
+          {!purchase && (
+            <p>
+              {text(
+                "Tên gói và mô tả do trung tâm cung cấp. Đọc quyền lợi và điều kiện của từng gói trước khi chọn mua.",
+                "Package names and descriptions are published by the center and may be in Vietnamese. Read each package’s benefits and conditions before choosing.",
+              )}
+            </p>
+          )}
+          <div className="refactor-grid">
+            {activePackages.map((p) => (
+              <Card
+                key={p.packageId}
+                title={
+                  <h3
+                    lang={catalogContentLanguage(p.name, p.nameLanguage)}
+                    dir="auto"
+                  >
+                    {p.name}
+                  </h3>
+                }
+              >
                 <p>
                   {formatMoney(p.price)} · {p.durationDays} {t.refactor.days}
                 </p>
-                <p>{p.description}</p>
+                {p.description?.trim() ? (
+                  <p
+                    lang={catalogContentLanguage(
+                      p.description,
+                      p.descriptionLanguage,
+                    )}
+                    dir="auto"
+                  >
+                    {p.description}
+                  </p>
+                ) : (
+                  <p>
+                    {text(
+                      "Trung tâm chưa cung cấp mô tả. Kiểm tra quyền lợi trước khi mua.",
+                      "The center has not provided a description. Check the benefits before buying.",
+                    )}
+                  </p>
+                )}
                 {purchase ? (
                   <button onClick={() => setSelected(p.packageId)}>
-                    {t.refactor.buy}
+                    {text("Kiểm tra & thanh toán", "Review & checkout")}
                   </button>
                 ) : user?.role === "Member" ? (
-                  <Link href="/member/my-plans">{t.refactor.buy}</Link>
+                  <Link href="/member/my-plans">
+                    {text("Đến trang chọn gói", "Go to package selection")}
+                  </Link>
                 ) : !user ? (
                   <Link href="/login?next=%2Fmember%2Fmy-plans">
-                    {t.refactor.login}
+                    {text(
+                      "Đăng nhập để chọn gói",
+                      "Sign in to choose a package",
+                    )}
                   </Link>
                 ) : null}
               </Card>
             ))}
-        </div>
+          </div>
+        </>
       )}
       {selected && (
         <CheckoutPanel
