@@ -113,7 +113,7 @@ public class PasswordResetTests(SportHubApiFactory factory)
     }
 
     [Fact]
-    public async Task Forgot_reports_unknown_and_locked_accounts_and_sends_a_link_only_to_active_ones()
+    public async Task Forgot_is_neutral_for_unknown_locked_and_existing_emails_and_sends_a_link_only_to_active_ones()
     {
         var existing = NewEmail();
         var banned = NewEmail();
@@ -121,33 +121,28 @@ public class PasswordResetTests(SportHubApiFactory factory)
         await factory.SeedUserAsync(existing, OldPassword);
         await factory.SeedUserAsync(banned, OldPassword, status: UserStatus.Banned);
 
-        Assert.Equal(HttpStatusCode.NoContent, (await Forgot(existing)).StatusCode);
-
-        var missing = await Forgot(unknown);
-        Assert.Equal(HttpStatusCode.NotFound, missing.StatusCode);
-        Assert.Equal("account_not_found", await ErrorOf(missing));
-
-        var locked = await Forgot(banned);
-        Assert.Equal(HttpStatusCode.Forbidden, locked.StatusCode);
-        Assert.Equal("account_not_active", await ErrorOf(locked));
+        foreach (var email in new[] { existing, banned, unknown })
+        {
+            Assert.Equal(HttpStatusCode.NoContent, (await Forgot(email)).StatusCode);
+        }
 
         Assert.Equal(1, factory.Emails.CountFor(existing));
         Assert.Equal(0, factory.Emails.CountFor(banned));
         Assert.Equal(0, factory.Emails.CountFor(unknown));
-        Assert.Contains("/reset-password?email=", factory.Emails.Sent.Last(m => m.To == existing).Body);
+        var body = factory.Emails.Sent.Last(m => m.To == existing).Body;
+        Assert.Contains("/reset-password?email=", body);
+        Assert.Contains("ĐẶT LẠI MẬT KHẨU", body);
     }
 
     [Fact]
-    public async Task Forgot_twice_within_the_cooldown_reports_the_link_was_recently_sent()
+    public async Task Forgot_twice_within_the_cooldown_stays_neutral_and_sends_only_one_email()
     {
         var email = NewEmail();
         await factory.SeedUserAsync(email, OldPassword);
 
         Assert.Equal(HttpStatusCode.NoContent, (await Forgot(email)).StatusCode);
-        var again = await Forgot(email);
+        Assert.Equal(HttpStatusCode.NoContent, (await Forgot(email)).StatusCode);
 
-        Assert.Equal(HttpStatusCode.Conflict, again.StatusCode);
-        Assert.Equal("reset_link_recently_sent", await ErrorOf(again));
         Assert.Equal(1, factory.Emails.CountFor(email));
     }
 

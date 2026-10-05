@@ -1,0 +1,150 @@
+/* Khung xác thực hai nửa (quên/đặt lại mật khẩu). Token semantic only; bố cục khớp login.module.css. */
+
+/* section.card (0,1,1) thắng `.auth__card` toàn cục (0,1,0) mà không phụ thuộc thứ tự nạp CSS. */
+section.card {
+  width: min(460px, 100%);
+  padding: clamp(24px, 6vw, 48px) clamp(20px, 6vw, 44px);
+  border-radius: var(--radius-xl);
+}
+
+.title {
+  max-width: none;
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 6vw, 2.5rem);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-tight);
+  line-height: var(--leading-tight);
+  color: var(--text-strong);
+  text-align: center;
+  text-wrap: balance;
+}
+
+.subtitle {
+  max-width: 36ch;
+  margin: var(--space-3) auto var(--space-7);
+  color: var(--text-muted);
+  font-size: var(--text-md);
+  line-height: var(--leading-normal);
+  text-align: center;
+  text-wrap: pretty;
+}
+
+.subtitle strong {
+  color: var(--text-strong);
+  font-weight: var(--weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.form {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.submit {
+  width: 100%;
+  min-height: 52px;
+  margin-top: var(--space-2);
+  border-radius: var(--radius-md);
+  font-size: var(--text-md);
+}
+
+.problem {
+  margin: calc(var(--space-2) * -1) 0 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--danger-bg);
+  color: var(--danger-text);
+  font-size: var(--text-sm);
+}
+
+/* Trạng thái kết quả (đã gửi link / đã đổi mật khẩu / link hỏng): một biểu tượng, một câu, một hành động. */
+.outcome {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-4);
+  text-align: center;
+}
+
+.outcomeIcon {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: var(--radius-pill);
+  background: var(--success-bg);
+  color: var(--success-text);
+}
+
+.outcomeIconWarn {
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+
+.outcomeText {
+  max-width: 38ch;
+  margin: 0;
+  color: var(--text-body);
+  line-height: var(--leading-normal);
+  text-wrap: pretty;
+}
+
+.outcomeText strong {
+  color: var(--text-strong);
+  overflow-wrap: anywhere;
+}
+
+.hint {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 52px;
+  border-radius: var(--radius-md);
+  font-size: var(--text-md);
+}
+
+/* Đường kẻ mảnh + liên kết phụ cuối thẻ, giống dòng đăng ký của login. */
+.footer {
+  margin: var(--space-8) 0 0;
+  padding-top: var(--space-6);
+  border-top: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  text-align: center;
+}
+
+.footer a {
+  margin-left: var(--space-1);
+  color: var(--color-primary);
+  font-weight: var(--weight-semibold);
+  text-decoration: none;
+}
+
+.footer a:hover {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .outcome {
+    animation: outcomeIn var(--duration-slow) var(--ease-out);
+  }
+
+  @keyframes outcomeIn {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}

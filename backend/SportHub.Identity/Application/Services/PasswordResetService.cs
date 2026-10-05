@@ -9,8 +9,8 @@ namespace SportHub.Identity.Application.Services;
 
 /// <summary>
 /// Quên/đặt lại mật khẩu bằng LINK gửi qua email (BR-103/104).
-/// - Forgot báo rõ khi email không có tài khoản (404) hoặc tài khoản bị khóa (403) — đây là chủ ý sản phẩm,
-///   đánh đổi: ai cũng dò được email nào đã đăng ký. Giảm thiểu bằng rate limit auth-password-reset.
+/// - Forgot luôn trả kết quả trung tính: email không tồn tại, bị khóa hay đang trong thời gian chờ đều như nhau
+///   (UI: "Nếu có tài khoản gắn với email này, chúng tôi đã gửi link…") để không lộ email nào đã đăng ký.
 /// - Link mang token ngẫu nhiên 256-bit, chỉ lưu bản băm; hết hạn 10 phút, dùng một lần, chỉ link mới nhất hợp lệ.
 /// - Reset không hỏi mật khẩu cũ; token tiêu trong cùng transaction đổi mật khẩu.
 /// - Thành công đổi security stamp: mọi JWT cũ bị từ chối ở request kế tiếp.
@@ -27,12 +27,11 @@ public sealed class PasswordResetService(
 
         var user = await db.Set<UserAccount>()
             .AsNoTracking()
-            .SingleOrDefaultAsync(u => u.Email == email, ct)
-            ?? throw new NotFoundException("account_not_found", "Không có tài khoản nào dùng email này.");
+            .SingleOrDefaultAsync(u => u.Email == email, ct);
 
-        if (user.Status != UserStatus.Active)
+        if (user is null || user.Status != UserStatus.Active)
         {
-            throw new ForbiddenException("account_not_active", "Tài khoản này đang bị khóa hoặc ngừng hoạt động.");
+            return;
         }
 
         var baseUrl = FrontendBaseUrl();
@@ -41,8 +40,7 @@ public sealed class PasswordResetService(
 
         if (token is null)
         {
-            throw new ConflictException(
-                "reset_link_recently_sent", "Link đặt lại mật khẩu vừa được gửi. Vui lòng đợi một phút rồi thử lại.");
+            return; // đang chờ gửi lại: vẫn trung tính, không tiết lộ cooldown
         }
 
         // EmailOtpFlow writes the token hash and its encrypted email outbox row in one SaveChanges.

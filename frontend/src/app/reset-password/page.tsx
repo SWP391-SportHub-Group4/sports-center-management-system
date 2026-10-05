@@ -4,12 +4,14 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { api, ApiError } from "@/lib/apiClient";
 import { Feedback } from "@/components/ui";
-import { Button } from "@/components/primitives";
+import { Button, buttonClass } from "@/components/primitives";
+import { AuthSplit } from "@/components/auth/AuthSplit";
 import { AuthPasswordField } from "@/components/auth/AuthField";
+import { IconAlert, IconCheck, IconLock } from "@/components/icons";
 import { PasswordRequirements, passwordChecks } from "@/features/identity";
 import { useAction } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
-import styles from "../forgot-password/forgot-password.module.css";
+import styles from "@/components/auth/AuthSplit.module.css";
 
 const BAD_LINK_CODES = [
   "otp_invalid",
@@ -46,12 +48,7 @@ function ResetPasswordForm() {
       try {
         await api.post(
           "/api/auth/password/reset",
-          {
-            email,
-            token,
-            newPassword: password,
-            confirmNewPassword: confirm,
-          },
+          { email, token, newPassword: password, confirmNewPassword: confirm },
           { anonymous: true },
         );
         setDone(true);
@@ -66,69 +63,108 @@ function ResetPasswordForm() {
     });
   };
 
-  return (
-    <main className="auth">
-      <div className="auth__card">
-        <div className={styles.head}>
-          <h1>{t.identity.resetTitle}</h1>
+  if (done)
+    return (
+      <AuthSplit
+        title={t.identity.resetDoneTitle}
+        statement={t.identity.resetStatement}
+        statementDetail={t.identity.resetStatementDetail}
+        back={{ href: "/login", label: t.identity.backToSignIn }}
+      >
+        <div className={styles.outcome}>
+          <span className={styles.outcomeIcon} aria-hidden="true">
+            <IconCheck size={28} />
+          </span>
+          <p className={styles.outcomeText} role="status">
+            {t.identity.resetDone}
+          </p>
+          <Link
+            className={`${buttonClass({ variant: "primary", size: "lg", block: true })} ${styles.link}`}
+            href="/login"
+          >
+            {t.identity.login}
+          </Link>
         </div>
-        {done ? (
-          <>
-            <p role="status" className={styles.lead}>
-              {t.identity.resetDone}
-            </p>
-            <Link className="btn btn--block" href="/login">
-              {t.identity.login}
-            </Link>
-          </>
-        ) : badLink ? (
-          <>
-            <p role="alert" className={styles.lead}>
-              {t.identity.linkInvalid}
-            </p>
-            <Link className="btn btn--block" href="/forgot-password">
-              {t.identity.requestNewLink}
-            </Link>
-          </>
-        ) : (
-          <>
-            <p className={styles.lead}>
-              {t.identity.resetDescription} <strong>{email}</strong>
-            </p>
-            <form className="form" onSubmit={submit}>
-              <AuthPasswordField
-                label={t.identity.newPassword}
-                autoComplete="new-password"
-                required
-                value={password}
-                showLabel={t.refactor.show}
-                hideLabel={t.refactor.hide}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-              <PasswordRequirements password={password} email={email} />
-              <AuthPasswordField
-                label={t.identity.confirmPassword}
-                autoComplete="new-password"
-                required
-                value={confirm}
-                showLabel={t.refactor.show}
-                hideLabel={t.refactor.hide}
-                onChange={(e) => setConfirm(e.target.value)}
-              />
-              {problem && <p role="alert">{problem}</p>}
-              <Button type="submit" block loading={action.busy}>
-                {t.identity.reset}
-              </Button>
-            </form>
-            <Feedback error={action.error} />
-          </>
+      </AuthSplit>
+    );
+
+  if (badLink)
+    return (
+      <AuthSplit
+        title={t.identity.linkInvalidTitle}
+        statement={t.identity.resetStatement}
+        statementDetail={t.identity.resetStatementDetail}
+        back={{ href: "/login", label: t.identity.backToSignIn }}
+      >
+        <div className={styles.outcome}>
+          <span
+            className={`${styles.outcomeIcon} ${styles.outcomeIconWarn}`}
+            aria-hidden="true"
+          >
+            <IconAlert size={28} />
+          </span>
+          <p className={styles.outcomeText} role="alert">
+            {t.identity.linkInvalid}
+          </p>
+          <Link
+            className={`${buttonClass({ variant: "primary", size: "lg", block: true })} ${styles.link}`}
+            href="/forgot-password"
+          >
+            {t.identity.requestNewLink}
+          </Link>
+        </div>
+      </AuthSplit>
+    );
+
+  return (
+    <AuthSplit
+      title={t.identity.resetTitle}
+      subtitle={
+        <>
+          {t.identity.resetDescription} <strong>{email}</strong>
+        </>
+      }
+      statement={t.identity.resetStatement}
+      statementDetail={t.identity.resetStatementDetail}
+      back={{ href: "/login", label: t.identity.backToSignIn }}
+    >
+      <form className={styles.form} aria-busy={action.busy} onSubmit={submit}>
+        <AuthPasswordField
+          label={t.identity.newPassword}
+          icon={<IconLock size={20} />}
+          autoComplete="new-password"
+          required
+          value={password}
+          showLabel={t.refactor.show}
+          hideLabel={t.refactor.hide}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+        <PasswordRequirements password={password} email={email} />
+        <AuthPasswordField
+          label={t.identity.confirmPassword}
+          icon={<IconLock size={20} />}
+          autoComplete="new-password"
+          required
+          value={confirm}
+          showLabel={t.refactor.show}
+          hideLabel={t.refactor.hide}
+          onChange={(e) => setConfirm(e.target.value)}
+        />
+        {problem && (
+          <p role="alert" className={styles.problem}>
+            {problem}
+          </p>
         )}
-        <p className={styles.footer}>
-          <span>{t.identity.rememberedPassword}</span>
-          <Link href="/login">{t.identity.login}</Link>
-        </p>
-      </div>
-    </main>
+        <Feedback error={action.error} />
+        <Button type="submit" className={styles.submit} loading={action.busy}>
+          {t.identity.reset}
+        </Button>
+      </form>
+      <p className={styles.footer}>
+        <span>{t.identity.rememberedPassword}</span>
+        <Link href="/login">{t.identity.login}</Link>
+      </p>
+    </AuthSplit>
   );
 }
 
