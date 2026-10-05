@@ -179,7 +179,17 @@ async function request<T>(
           ? payload.title
           : defaultMessageFor(response.status);
 
-    if (response.status === 401 && !options.anonymous) {
+    // Compatibility with older APIs: this authenticated form can reject the
+    // current password without invalidating the session. Never suppress other 401s.
+    const legacyPasswordRejection =
+      method === "POST" &&
+      path === "/api/users/me/password" &&
+      code === "invalid_credentials";
+    if (
+      response.status === 401 &&
+      !options.anonymous &&
+      !legacyPasswordRejection
+    ) {
       onUnauthorized?.();
     }
 

@@ -1,7 +1,7 @@
 "use client";
 import { PasswordInput } from "@/components/primitives";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { MemberShell } from "@/components/MemberShell";
 import styles from "./account.module.css";
@@ -12,7 +12,7 @@ import {
   Field,
   StatusChip,
 } from "@/components/ui";
-import { api } from "@/lib/apiClient";
+import { api, ApiError } from "@/lib/apiClient";
 import { formatDate } from "@/lib/format";
 import { useAction, useApi } from "@/lib/useApi";
 import { useAuth, type Role } from "@/lib/auth";
@@ -42,6 +42,8 @@ export default function AccountPage() {
 
   const profileAction = useAction();
   const passwordAction = useAction();
+  const currentPasswordRef = useRef<HTMLInputElement>(null);
+  const [currentPasswordError, setCurrentPasswordError] = useState(false);
   const Shell = user?.role === "Member" ? MemberShell : AppShell;
 
   if (account.data && hydratedFor !== account.data.userId) {
@@ -72,6 +74,9 @@ export default function AccountPage() {
 
   const savePassword = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (passwordAction.busy) return;
+    setCurrentPasswordError(false);
+    passwordAction.reset();
 
     if (
       !passwordChecks(passwordForm.next, account.data?.email ?? "").every(
@@ -86,17 +91,36 @@ export default function AccountPage() {
       return;
     }
 
-    const done = await passwordAction.run(
-      () =>
-        api.post<{ accessToken: string }>("/api/users/me/password", {
-          currentPassword: account.data?.hasPassword
-            ? passwordForm.current
-            : null,
-          newPassword: passwordForm.next,
-          confirmNewPassword: passwordForm.confirm,
-        }),
-      t.account.passwordSuccess,
-    );
+    const done = await passwordAction.run(async () => {
+      try {
+        return await api.post<{ accessToken: string }>(
+          "/api/users/me/password",
+          {
+            currentPassword: account.data?.hasPassword
+              ? passwordForm.current
+              : null,
+            newPassword: passwordForm.next,
+            confirmNewPassword: passwordForm.confirm,
+          },
+        );
+      } catch (error) {
+        if (
+          error instanceof ApiError &&
+          ((error.status === 400 &&
+            error.code === "current_password_incorrect") ||
+            (error.status === 401 && error.code === "invalid_credentials"))
+        ) {
+          setCurrentPasswordError(true);
+          currentPasswordRef.current?.focus();
+          throw new ApiError(
+            error.status,
+            error.code,
+            t.account.currentPasswordIncorrect,
+          );
+        }
+        throw error;
+      }
+    }, t.account.passwordSuccess);
 
     if (done !== null) {
       updateToken(done.accessToken);
@@ -198,17 +222,28 @@ export default function AccountPage() {
                 )}
 
                 {data.hasPassword && (
-                  <Field label={t.account.currentPassword} required>
+                  <Field
+                    label={t.account.currentPassword}
+                    required
+                    error={
+                      currentPasswordError
+                        ? t.account.currentPasswordIncorrect
+                        : undefined
+                    }
+                  >
                     <PasswordInput
+                      ref={currentPasswordRef}
                       autoComplete="current-password"
                       value={passwordForm.current}
                       required
-                      onChange={(event) =>
+                      onChange={(event) => {
+                        setCurrentPasswordError(false);
+                        passwordAction.reset();
                         setPasswordForm({
                           ...passwordForm,
                           current: event.target.value,
-                        })
-                      }
+                        });
+                      }}
                     />
                   </Field>
                 )}
@@ -248,7 +283,7 @@ export default function AccountPage() {
                   />
                 </Field>
                 <Feedback
-                  error={passwordAction.error}
+                  error={currentPasswordError ? null : passwordAction.error}
                   success={passwordAction.success}
                 />
 
