@@ -93,19 +93,10 @@ export function CourtCalendar({
         {(roomRows) => (
           <CourtFilters
             date={date}
-            days={days}
             roomId={roomId}
             rooms={roomRows}
             onDate={(value) => {
               setDate(value);
-              clear();
-            }}
-            onDays={(value) => {
-              setView(
-                value === 1
-                  ? "day"
-                  : "week",
-              );
               clear();
             }}
             onRoom={(value) => {
