@@ -4,10 +4,9 @@ test("public header and section links work without an account", async ({
   page,
 }) => {
   await page.goto("/");
-  await expect(page.getByRole("link", { name: "Sign in", exact: true })).toHaveAttribute(
-    "href",
-    "/login",
-  );
+  await expect(
+    page.getByRole("link", { name: "Sign in", exact: true }),
+  ).toHaveAttribute("href", "/login");
   await page
     .getByRole("navigation", { name: "Main navigation" })
     .getByRole("link", { name: "Sports at SportHub" })
@@ -93,12 +92,16 @@ test("authenticated public header shows the member name", async ({ page }) => {
         },
       });
     if (path.includes("notifications"))
-      return route.fulfill({ json: path.endsWith("unread-count") ? { count: 0 } : [] });
+      return route.fulfill({
+        json: path.endsWith("unread-count") ? { count: 0 } : [],
+      });
     return route.fulfill({ json: [] });
   });
   await page.goto("/");
+  // Tên người dùng nằm trên nút mở menu tài khoản; mục "My dashboard" trong menu dẫn tới /member.
+  await page.getByRole("button", { name: /Alex Johnson/ }).click();
   await expect(
-    page.getByRole("link", { name: /Alex Johnson/ }),
+    page.getByRole("link", { name: "My dashboard" }),
   ).toHaveAttribute("href", "/member");
 });
 
@@ -116,9 +119,14 @@ test.describe("reduced motion", () => {
   });
 });
 
-
-test("public events do not mint a client-side access pass", async ({ page }) => {
+test("public events do not mint a client-side access pass", async ({
+  page,
+}) => {
   await page.goto("/");
   await expect(page.getByLabel(/turnstile qr/i)).toHaveCount(0);
-  await expect(page.getByRole("button", { name: /generate instant pass|kích hoạt vé tức thì/i })).toHaveCount(0);
+  await expect(
+    page.getByRole("button", {
+      name: /generate instant pass|kích hoạt vé tức thì/i,
+    }),
+  ).toHaveCount(0);
 });
