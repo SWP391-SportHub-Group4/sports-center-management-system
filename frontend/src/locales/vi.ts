@@ -639,6 +639,9 @@ export const vi: Translations = {
     otp: "Mã xác nhận email",
     email: "Email",
     forgotTitle: "Đặt lại mật khẩu",
+    forgotDescription:
+      "Nhập email bạn dùng để đăng nhập. Chúng tôi sẽ gửi mã để bạn đặt mật khẩu mới.",
+    rememberedPassword: "Bạn đã nhớ mật khẩu?",
     resetDone: "Đã đặt lại mật khẩu. Đăng nhập bằng mật khẩu mới.",
     resend: "Gửi lại",
     sendCode: "Gửi mã",
