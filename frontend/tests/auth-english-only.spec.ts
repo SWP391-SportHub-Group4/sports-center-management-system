@@ -5,6 +5,7 @@ for (const path of [
   "/login",
   "/register",
   "/forgot-password",
+  "/reset-password?email=a%40b.com&token=x",
   "/register-external-coach",
 ]) {
   test(`${path} stays English when Vietnamese is stored`, async ({ page }) => {

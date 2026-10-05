@@ -49,6 +49,8 @@ services:
       Smtp__FromName: ${Email__Smtp__FromName:-SportHub}
       Smtp__UseSsl: ${Email__Smtp__UseSsl:-false}
       Email__DemoLoggingEnabled: ${Email__DemoLoggingEnabled:-true}
+      # Gốc URL frontend để dựng link đặt lại mật khẩu trong email.
+      Frontend__BaseUrl: ${Frontend__BaseUrl:-http://localhost:3000}
       DataProtection__KeysPath: ${DataProtection__KeysPath:-/var/lib/sporthub/dataprotection-keys}
 
 

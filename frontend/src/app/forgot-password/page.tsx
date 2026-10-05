@@ -1,44 +1,66 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import { api } from "@/lib/apiClient";
+import { api, ApiError } from "@/lib/apiClient";
 import { Feedback, Field } from "@/components/ui";
+import { Button } from "@/components/primitives";
+import { IconClose } from "@/components/icons";
 import { useAction, useNow } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
-import { IconClose } from "@/components/icons";
 import styles from "./forgot-password.module.css";
-import { OtpInput } from "@/features/identity/otp-input";
-import {
-  PasswordRequirements,
-  passwordChecks,
-} from "@/features/identity/password-requirements";
+
+/**
+ * Quên mật khẩu bằng LINK gửi qua email (không còn OTP). Backend báo rõ khi email không có tài khoản,
+ * tài khoản bị khóa hoặc link vừa được gửi; trang này đổi các mã lỗi đó thành thông báo tiếng Anh.
+ */
 export default function ForgotPasswordPage() {
   const { t } = useLanguage();
   const action = useAction();
   const now = useNow(1000);
   const [email, setEmail] = useState("");
   const [sentTo, setSentTo] = useState("");
-  const [otp, setOtp] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirm, setConfirm] = useState("");
   const [retryAt, setRetryAt] = useState(0);
-  const [done, setDone] = useState(false);
+  const [problem, setProblem] = useState("");
+
+  const explain = (cause: unknown) => {
+    if (cause instanceof ApiError) {
+      if (cause.code === "account_not_found") return t.identity.accountNotFound;
+      if (cause.code === "account_not_active") return t.identity.accountLocked;
+      if (cause.code === "reset_link_recently_sent")
+        return t.identity.linkRecentlySent;
+    }
+    return cause instanceof Error ? cause.message : t.apiErrors.generic;
+  };
+
   const send = async () => {
     if (action.busy || now < retryAt) return;
+    setProblem("");
+    const target = email.trim();
     const result = await action.run(async () => {
-      await api.post(
-        "/api/auth/password/forgot",
-        { email: email.trim() },
-        { anonymous: true },
-      );
-      return true;
+      try {
+        await api.post(
+          "/api/auth/password/forgot",
+          { email: target },
+          { anonymous: true },
+        );
+        return true;
+      } catch (cause) {
+        setProblem(explain(cause));
+        if (
+          cause instanceof ApiError &&
+          cause.code === "reset_link_recently_sent"
+        )
+          setRetryAt(Date.now() + 60000);
+        return null;
+      }
     });
     if (result) {
-      setSentTo(email.trim());
-      setOtp("");
+      setSentTo(target);
       setRetryAt(Date.now() + 60000);
     }
   };
+
+  const waiting = now < retryAt;
   return (
     <main className="auth">
       <div className="auth__card">
@@ -52,96 +74,43 @@ export default function ForgotPasswordPage() {
             <IconClose size={18} />
           </Link>
         </div>
-        {!done && <p className={styles.lead}>{t.identity.forgotDescription}</p>}
-        {done ? (
-          <p role="status">{t.identity.resetDone}</p>
-        ) : (
-          <>
-            <form
-              className="form"
-              onSubmit={(e) => {
-                e.preventDefault();
-                void send();
+        <p className={styles.lead}>{t.identity.forgotDescription}</p>
+        <form
+          className="form"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void send();
+          }}
+        >
+          <Field label={t.identity.email} error={problem || undefined}>
+            <input
+              type="email"
+              autoComplete="email"
+              required
+              value={email}
+              disabled={action.busy}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                setProblem("");
+                setSentTo("");
               }}
-            >
-              <Field label={t.identity.email}>
-                <input
-                  type="email"
-                  autoComplete="email"
-                  required
-                  value={email}
-                  disabled={action.busy}
-                  onChange={(e) => {
-                    setEmail(e.target.value);
-                    setSentTo("");
-                    setOtp("");
-                  }}
-                />
-              </Field>
-              <button className="btn" disabled={action.busy || now < retryAt}>
-                {now < retryAt
-                  ? `${t.identity.resend} (${Math.ceil((retryAt - now) / 1000)}s)`
-                  : t.identity.sendCode}
-              </button>
-            </form>
-            {sentTo && (
-              <form
-                className="form"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  if (
-                    password !== confirm ||
-                    !passwordChecks(password, sentTo).every(Boolean)
-                  ) {
-                    action.setError(t.identity.passwordInvalid);
-                    return;
-                  }
-                  void action.run(async () => {
-                    await api.post(
-                      "/api/auth/password/reset",
-                      {
-                        email: sentTo,
-                        otpCode: otp,
-                        newPassword: password,
-                        confirmNewPassword: confirm,
-                      },
-                      { anonymous: true },
-                    );
-                    setDone(true);
-                  });
-                }}
-              >
-                <p role="status">{t.identity.neutralOtp}</p>
-                <OtpInput
-                  value={otp}
-                  onChange={setOtp}
-                  disabled={action.busy}
-                />
-                <Field label={t.identity.newPassword}>
-                  <input
-                    type="password"
-                    autoComplete="new-password"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                  />
-                </Field>
-                <PasswordRequirements password={password} email={sentTo} />
-                <Field label={t.identity.confirmPassword}>
-                  <input
-                    type="password"
-                    autoComplete="new-password"
-                    required
-                    value={confirm}
-                    onChange={(e) => setConfirm(e.target.value)}
-                  />
-                </Field>
-                <button className="btn" disabled={action.busy}>
-                  {t.identity.reset}
-                </button>
-              </form>
-            )}
-          </>
+            />
+          </Field>
+          <Button type="submit" block loading={action.busy} disabled={waiting}>
+            {waiting
+              ? `${sentTo ? t.identity.resendLink : t.identity.sendLink} (${Math.ceil((retryAt - now) / 1000)}s)`
+              : sentTo
+                ? t.identity.resendLink
+                : t.identity.sendLink}
+          </Button>
+        </form>
+        {sentTo && (
+          <div role="status" className={styles.sent}>
+            <p>
+              {t.identity.linkSent} <strong>{sentTo}</strong>.
+            </p>
+            <p>{t.identity.linkSentHint}</p>
+          </div>
         )}
         <Feedback error={action.error} />
         <p className={styles.footer}>

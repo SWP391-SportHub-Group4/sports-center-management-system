@@ -22,7 +22,8 @@ public sealed class EmailOtpFlow(ISportHubDbContext db, IClock clock, INotificat
     /// Ghi/ghi đè mã cho (email, purpose) và trả mã rõ để caller gửi. Trả null nếu còn trong thời gian chờ gửi lại
     /// hoặc có request song song vừa tạo mã.
     /// </summary>
-    public async Task<string?> IssueAsync(string email, EmailOtpPurpose purpose, CancellationToken ct)
+    public async Task<string?> IssueAsync(
+        string email, EmailOtpPurpose purpose, CancellationToken ct, Func<string, string>? resetLink = null)
     {
         var now = clock.UtcNow;
         var otp = await db.Set<EmailOtp>().SingleOrDefaultAsync(o => o.Email == email && o.Purpose == purpose, ct);
@@ -32,7 +33,9 @@ public sealed class EmailOtpFlow(ISportHubDbContext db, IClock clock, INotificat
             return null;
         }
 
-        var code = OtpCodes.Generate();
+        // resetLink != null: gửi LINK đặt lại mật khẩu mang token dài (không phải mã 6 số). Cùng bảng/vòng đời
+        // (hết hạn, một lần, chỉ bản mới nhất còn hiệu lực), chỉ khác định dạng bí mật trong email.
+        var code = resetLink is null ? OtpCodes.Generate() : OtpCodes.GenerateLinkToken();
 
         if (otp is null)
         {
@@ -54,6 +57,22 @@ public sealed class EmailOtpFlow(ISportHubDbContext db, IClock clock, INotificat
                 "SportHub - Mã xác thực đăng ký Coach ngoài", "đăng ký tài khoản Coach ngoài"),
             _ => throw new ArgumentOutOfRangeException(nameof(purpose), purpose, "OTP purpose chưa có template email.")
         };
+        if (resetLink is not null)
+        {
+            var url = resetLink(code);
+            notifications.QueueEmail(new EmailNotificationRequest(null, email, eventType, Guid.NewGuid(),
+                "SportHub - Đặt lại mật khẩu",
+                "<h2>Quên mật khẩu?</h2>"
+                + "<p>Chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản của bạn. "
+                + "Nếu bạn không thực hiện yêu cầu này, vui lòng bỏ qua email này.</p>"
+                + "<p>Để đặt lại mật khẩu, vui lòng nhấp vào liên kết bên dưới:</p>"
+                + "<p><a href=\"" + System.Net.WebUtility.HtmlEncode(url) + "\" style=\"display:inline-block;padding:12px 24px;"
+                + "background:#02717a;color:#ffffff;border-radius:6px;text-decoration:none;font-weight:bold\">"
+                + "ĐẶT LẠI MẬT KHẨU</a></p>"
+                + "<p>Lưu ý: liên kết chỉ có hiệu lực trong " + AuthService.OtpLifetime.TotalMinutes.ToString("0")
+                + " phút. Sau thời gian này, bạn cần yêu cầu một liên kết mới.</p>"));
+        }
+        else
         notifications.QueueEmail(new EmailNotificationRequest(null, email, eventType, Guid.NewGuid(), subject,
             "<p>Mã xác thực " + purposeText + " SportHub của bạn là:</p>"
             + "<p style=\"font-size:24px;font-weight:bold;letter-spacing:4px\">" + code + "</p>"

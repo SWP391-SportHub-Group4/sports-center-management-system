@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.Identity.Application.Commands;
@@ -7,15 +8,18 @@ using SportHub.Identity.Application.Interfaces;
 namespace SportHub.Identity.Application.Services;
 
 /// <summary>
-/// Quên/đặt lại mật khẩu bằng OTP email (BR-103/104).
-/// - Forgot luôn trả kết quả trung tính: email không tồn tại, bị khóa hay đang trong thời gian chờ đều như nhau.
-/// - Reset không hỏi mật khẩu cũ; OTP dùng một lần và tiêu trong cùng transaction đổi mật khẩu.
+/// Quên/đặt lại mật khẩu bằng LINK gửi qua email (BR-103/104).
+/// - Forgot báo rõ khi email không có tài khoản (404) hoặc tài khoản bị khóa (403) — đây là chủ ý sản phẩm,
+///   đánh đổi: ai cũng dò được email nào đã đăng ký. Giảm thiểu bằng rate limit auth-password-reset.
+/// - Link mang token ngẫu nhiên 256-bit, chỉ lưu bản băm; hết hạn 10 phút, dùng một lần, chỉ link mới nhất hợp lệ.
+/// - Reset không hỏi mật khẩu cũ; token tiêu trong cùng transaction đổi mật khẩu.
 /// - Thành công đổi security stamp: mọi JWT cũ bị từ chối ở request kế tiếp.
 /// </summary>
 public sealed class PasswordResetService(
     ISportHubDbContext db,
     IPasswordHasher passwordHasher,
-    EmailOtpFlow otpFlow) : IPasswordResetService
+    EmailOtpFlow otpFlow,
+    IConfiguration configuration) : IPasswordResetService
 {
     public async Task RequestAsync(ForgotPasswordRequest request, CancellationToken ct = default)
     {
@@ -23,20 +27,25 @@ public sealed class PasswordResetService(
 
         var user = await db.Set<UserAccount>()
             .AsNoTracking()
-            .SingleOrDefaultAsync(u => u.Email == email, ct);
+            .SingleOrDefaultAsync(u => u.Email == email, ct)
+            ?? throw new NotFoundException("account_not_found", "Không có tài khoản nào dùng email này.");
 
-        if (user is null || user.Status != UserStatus.Active)
+        if (user.Status != UserStatus.Active)
         {
-            return;
+            throw new ForbiddenException("account_not_active", "Tài khoản này đang bị khóa hoặc ngừng hoạt động.");
         }
 
-        var code = await otpFlow.IssueAsync(email, EmailOtpPurpose.ResetPassword, ct);
-        if (code is null)
+        var baseUrl = FrontendBaseUrl();
+        var token = await otpFlow.IssueAsync(email, EmailOtpPurpose.ResetPassword, ct,
+            resetLink: t => $"{baseUrl}/reset-password?email={Uri.EscapeDataString(email)}&token={Uri.EscapeDataString(t)}");
+
+        if (token is null)
         {
-            return; // đang chờ gửi lại: vẫn trung tính, không tiết lộ cooldown
+            throw new ConflictException(
+                "reset_link_recently_sent", "Link đặt lại mật khẩu vừa được gửi. Vui lòng đợi một phút rồi thử lại.");
         }
 
-        // EmailOtpFlow writes the OTP and its encrypted email outbox row in one SaveChanges.
+        // EmailOtpFlow writes the token hash and its encrypted email outbox row in one SaveChanges.
     }
 
     public async Task ResetAsync(ResetPasswordRequest request, CancellationToken ct = default)
@@ -46,7 +55,7 @@ public sealed class PasswordResetService(
         var email = request.Email.Trim();
         PasswordPolicyGuard.Enforce(request.NewPassword, email);
 
-        var otpId = await otpFlow.VerifyAsync(email, EmailOtpPurpose.ResetPassword, request.OtpCode, ct);
+        var otpId = await otpFlow.VerifyAsync(email, EmailOtpPurpose.ResetPassword, request.Token, ct);
 
         await using var tx = await db.Database.BeginTransactionAsync(ct);
 
@@ -58,7 +67,7 @@ public sealed class PasswordResetService(
 
         if (user is null || user.Status != UserStatus.Active)
         {
-            throw new BadRequestException("otp_invalid", "Mã xác thực không đúng.");
+            throw new BadRequestException("otp_invalid", "Link đặt lại mật khẩu không hợp lệ.");
         }
 
         var hash = passwordHasher.Hash(request.NewPassword);
@@ -76,5 +85,18 @@ public sealed class PasswordResetService(
 
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
+    }
+
+    /// <summary>Gốc URL của frontend để dựng link: Frontend:BaseUrl, rồi origin CORS đầu tiên, rồi localhost.</summary>
+    private string FrontendBaseUrl()
+    {
+        var configured = configuration["Frontend:BaseUrl"];
+        if (string.IsNullOrWhiteSpace(configured))
+        {
+            configured = configuration.GetSection("Cors:AllowedOrigins").GetChildren()
+                .Select(c => c.Value).FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
+        }
+
+        return (string.IsNullOrWhiteSpace(configured) ? "http://localhost:3000" : configured).TrimEnd('/');
     }
 }
