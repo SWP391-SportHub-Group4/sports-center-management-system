@@ -36,7 +36,8 @@ public sealed class PasswordResetService(
 
         var baseUrl = FrontendBaseUrl();
         var token = await otpFlow.IssueAsync(email, EmailOtpPurpose.ResetPassword, ct,
-            resetLink: t => $"{baseUrl}/reset-password?email={Uri.EscapeDataString(email)}&token={Uri.EscapeDataString(t)}");
+            resetLink: t => $"{baseUrl}/reset-password?email={Uri.EscapeDataString(email)}&token={Uri.EscapeDataString(t)}",
+            supportUrl: configuration["Frontend:SupportUrl"]);
 
         if (token is null)
         {

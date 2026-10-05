@@ -12,9 +12,13 @@ public static class PasswordResetEmail
 {
     public const string Subject = "SportHub - Đặt lại mật khẩu";
 
-    public static string Render(string resetUrl, int validMinutes)
+    public static string Render(string resetUrl, int validMinutes, string? supportUrl = null)
     {
         var url = WebUtility.HtmlEncode(resetUrl);
+        var support = string.IsNullOrWhiteSpace(supportUrl)
+            ? "Mọi thắc mắc xin vui lòng liên hệ trung tâm."
+            : "Mọi thắc mắc xin vui lòng liên hệ website: <a href=\"" + WebUtility.HtmlEncode(supportUrl) + "\" target=\"_blank\" style=\"color:#02717a;\">"
+              + WebUtility.HtmlEncode(supportUrl) + "</a>";
         return $$"""
 <!doctype html>
 <html lang="vi">
@@ -56,8 +60,7 @@ public static class PasswordResetEmail
         <tr>
           <td style="padding:24px 32px 0 32px;font-family:'Be Vietnam Pro',Arial,sans-serif;font-size:14px;line-height:1.6;color:#596668;">
             <p style="margin:0 0 12px 0;">Liên kết chỉ có hiệu lực trong <strong style="color:#192122;">{{validMinutes}} phút</strong> và dùng được một lần. Sau thời gian này, bạn cần chọn &ldquo;Quên mật khẩu&rdquo; trên trang đăng nhập để nhận liên kết mới.</p>
-            <p style="margin:0 0 12px 0;">Nút không bấm được? Sao chép liên kết sau vào trình duyệt:</p>
-            <p style="margin:0;word-break:break-all;"><a href="{{url}}" target="_blank" style="color:#02717a;">{{url}}</a></p>
+            <p style="margin:0;">{{support}}</p>
           </td>
         </tr>
         <tr>

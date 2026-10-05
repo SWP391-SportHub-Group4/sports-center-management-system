@@ -23,7 +23,8 @@ public sealed class EmailOtpFlow(ISportHubDbContext db, IClock clock, INotificat
     /// hoặc có request song song vừa tạo mã.
     /// </summary>
     public async Task<string?> IssueAsync(
-        string email, EmailOtpPurpose purpose, CancellationToken ct, Func<string, string>? resetLink = null)
+        string email, EmailOtpPurpose purpose, CancellationToken ct, Func<string, string>? resetLink = null,
+        string? supportUrl = null)
     {
         var now = clock.UtcNow;
         var otp = await db.Set<EmailOtp>().SingleOrDefaultAsync(o => o.Email == email && o.Purpose == purpose, ct);
@@ -61,7 +62,7 @@ public sealed class EmailOtpFlow(ISportHubDbContext db, IClock clock, INotificat
         {
             notifications.QueueEmail(new EmailNotificationRequest(null, email, eventType, Guid.NewGuid(),
                 PasswordResetEmail.Subject,
-                PasswordResetEmail.Render(resetLink(code), (int)AuthService.OtpLifetime.TotalMinutes)));
+                PasswordResetEmail.Render(resetLink(code), (int)AuthService.OtpLifetime.TotalMinutes, supportUrl)));
         }
         else
         notifications.QueueEmail(new EmailNotificationRequest(null, email, eventType, Guid.NewGuid(), subject,

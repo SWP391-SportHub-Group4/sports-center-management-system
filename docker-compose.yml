@@ -51,6 +51,8 @@ services:
       Email__DemoLoggingEnabled: ${Email__DemoLoggingEnabled:-true}
       # Gốc URL frontend để dựng link đặt lại mật khẩu trong email.
       Frontend__BaseUrl: ${Frontend__BaseUrl:-http://localhost:3000}
+      # Website hỗ trợ ghi ở cuối email (để trống = chỉ ghi "liên hệ trung tâm"; điền khi đã deploy).
+      Frontend__SupportUrl: ${Frontend__SupportUrl:-}
       DataProtection__KeysPath: ${DataProtection__KeysPath:-/var/lib/sporthub/dataprotection-keys}
 
 

@@ -1,32 +1,58 @@
-/* Khung xác thực hai nửa (quên/đặt lại mật khẩu). Token semantic only; bố cục khớp login.module.css. */
+/* Thẻ xác thực (quên/đặt lại mật khẩu). Token semantic only. */
 
-/* section.card (0,1,1) thắng `.auth__card` toàn cục (0,1,0) mà không phụ thuộc thứ tự nạp CSS. */
+/* section.card (0,1,1) thắng .auth__card toàn cục (0,1,0) mà không phụ thuộc thứ tự nạp CSS. */
 section.card {
-  width: min(460px, 100%);
-  padding: clamp(24px, 6vw, 48px) clamp(20px, 6vw, 44px);
+  width: min(440px, 100%);
+  padding: clamp(24px, 6vw, 36px);
   border-radius: var(--radius-xl);
+}
+
+.head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
 }
 
 .title {
   max-width: none;
   margin: 0;
   font-family: var(--font-display);
-  font-size: clamp(2rem, 6vw, 2.5rem);
+  font-size: clamp(1.75rem, 6vw, 2.25rem);
   font-weight: var(--weight-bold);
   letter-spacing: var(--tracking-tight);
   line-height: var(--leading-tight);
   color: var(--text-strong);
-  text-align: center;
   text-wrap: balance;
 }
 
+.close {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-surface-sunken);
+  color: var(--text-body);
+}
+
+.close:hover {
+  background: var(--border-subtle);
+  color: var(--text-strong);
+}
+
+.close:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
 .subtitle {
-  max-width: 36ch;
-  margin: var(--space-3) auto var(--space-7);
+  max-width: 40ch;
+  margin: var(--space-2) 0 var(--space-6);
   color: var(--text-muted);
   font-size: var(--text-md);
   line-height: var(--leading-normal);
-  text-align: center;
   text-wrap: pretty;
 }
 
@@ -112,8 +138,8 @@ section.card {
 
 /* Đường kẻ mảnh + liên kết phụ cuối thẻ, giống dòng đăng ký của login. */
 .footer {
-  margin: var(--space-8) 0 0;
-  padding-top: var(--space-6);
+  margin: var(--space-6) 0 0;
+  padding-top: var(--space-5);
   border-top: 1px solid var(--border-subtle);
   color: var(--text-muted);
   font-size: var(--text-sm);
