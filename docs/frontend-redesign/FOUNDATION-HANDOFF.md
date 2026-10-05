@@ -30,7 +30,8 @@ Dialog và Drawer chia chung `useModalBehavior`: Esc chỉ đóng lớp trên c�
 - `AppShell` (Receptionist/Coach/Manager/Admin/ExternalCoach): sidebar nền Ink (`data-surface="inverse"`), mục đang chọn nền volt; wordmark `SPORT`+`HUB`. Cấu hình điều hướng theo role vẫn ở `NAV_BY_ROLE` — thêm mục mới ở đó.
 - `MemberShell`: toàn bộ màu cứng đã đổi sang token; wordmark đổi sang Barlow Condensed.
 - Bỏ emoji cờ ở nút ngôn ngữ, thay bằng chữ `EN`/`VI`.
-- **Chưa làm (đúng phạm vi tuần 5):** menu Member 7 mục mới (Tổng quan · Khám phá · Lịch của tôi · Khóa học của tôi · Gym & PT · Tập luyện · Tài chính) và bảng alias route cũ→mới — chờ các trang đích có thật (A03–A06, A12–A14) rồi đổi menu cùng lúc để không có link chết.
+- **Đã làm (AN-01):** mục "Tài chính" (`/member/finance`) thay hai mục Ví + Hóa đơn; `/member/wallet`, `/member/invoices` chuyển hướng giữ query; component `Tabs` dùng chung trong `components/primitives`; `AuthCard` (thẻ xác thực đứng giữa) trong `components/auth`.
+- **Chưa làm (đúng phạm vi tuần 5):** các mục menu Member còn lại trong 7 mục mới (Tổng quan · Khám phá · Lịch của tôi · Khóa học của tôi · Gym & PT · Tập luyện · Tài chính) và bảng alias route cũ→mới — chờ các trang đích có thật (A03–A06, A12–A14) rồi đổi menu cùng lúc để không có link chết.
 
 ## 4. Contract cho người triển khai
 

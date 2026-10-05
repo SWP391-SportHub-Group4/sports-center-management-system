@@ -82,7 +82,7 @@ Public schedule chỉ nhận DTO public; không dùng token nhân viên trong se
 | K11 | `/login` | Email/password, Google, forgot, register; loading/error; chuyển đúng role |
 | K12 | `/register` → OTP → Hoàn tất | Member registration, checklist mật khẩu, xác thực email, resend countdown, max-attempt error; không hỏi vai trò nội bộ |
 | K13 | `/register-external-coach` → OTP → Pending | Họ tên, email, SĐT, môn, mô tả; sau thành công phải nói đang chờ duyệt, không cho đặt sân ngay |
-| K14 | `/forgot-password` → OTP/reset → Success | Không cần password cũ; phản hồi trung tính; gửi lại/hết hạn/sai mã |
+| K14 | `/forgot-password` → email link → `/reset-password` → Success | **Đã triển khai (link email, không OTP).** Không cần password cũ; phản hồi trung tính; cooldown 60 giây theo từng email, đổi email gửi được ngay; link hết hạn/đã dùng/thiếu token → trạng thái "Link no longer works"; ô mật khẩu có con mắt; luôn tiếng Anh |
 | K15 | Google onboarding | Lần đầu thiết lập mật khẩu; trùng email chưa linked phải đăng nhập/liên kết rõ ràng; không tự merge tài khoản |
 | K16 | `/account` → Hồ sơ / Bảo mật / Ngôn ngữ | Profile, change password, Google link/unlink theo API; giữ shell role; không trùng training profile |
 | K17 | Trang lỗi/phiên hết hạn | 401, 403, 404, unavailable; next hợp lệ, không open redirect; tích hợp primitive An |
