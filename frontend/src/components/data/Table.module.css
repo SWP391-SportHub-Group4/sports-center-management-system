@@ -1,0 +1,182 @@
+.root {
+  min-width: 0;
+}
+.viewport {
+  overflow-x: auto;
+}
+.viewport table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.viewport th,
+.viewport td {
+  text-align: left;
+  vertical-align: top;
+}
+.viewport tbody th {
+  background: transparent;
+  color: var(--text-strong);
+  font-size: var(--text-sm);
+  letter-spacing: normal;
+  text-transform: none;
+  white-space: normal;
+  font-weight: var(--weight-medium);
+}
+.cell {
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.viewport .numeric {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.compact th,
+.compact td {
+  padding: var(--space-2) var(--space-3);
+}
+.sortButton {
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  padding: 0;
+  cursor: pointer;
+}
+.sortButton:focus-visible,
+.viewport:focus-visible,
+.more summary:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.root .actions :global(.btn) {
+  margin: 0;
+}
+.pager {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+.more summary {
+  cursor: pointer;
+  padding: var(--space-2);
+}
+.moreItems {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+}
+.mobileSort {
+  display: none;
+}
+.state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-3);
+  padding: var(--space-6) var(--space-4);
+}
+.state h3 {
+  margin: 0;
+}
+.description {
+  color: var(--text-muted);
+  max-width: 65ch;
+}
+.inlineState {
+  align-items: flex-start;
+  text-align: left;
+  padding: var(--space-3);
+}
+.skeletonRows {
+  display: grid;
+  gap: var(--space-3);
+  width: 100%;
+}
+@media (max-width: 1023px) {
+  .viewport .hidelg {
+    display: none;
+  }
+}
+@media (max-width: 767px) {
+  .viewport .hidemd {
+    display: none;
+  }
+  .cardTable {
+    overflow: visible;
+  }
+  .cardTable table,
+  .cardTable tbody {
+    display: block;
+  }
+  .cardTable thead {
+    display: none;
+  }
+  .cardTable tbody tr {
+    display: block;
+    padding: var(--space-3) 0;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .cardTable tbody td,
+  .cardTable tbody th {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+    gap: var(--space-3);
+    border: 0;
+    padding: var(--space-2) 0;
+  }
+  .cardTable tbody td::before,
+  .cardTable tbody th::before {
+    content: attr(data-label);
+    color: var(--text-muted);
+    font-weight: var(--weight-medium);
+    text-align: left;
+  }
+  .cardTable .hidemd,
+  .cardTable .hidelg {
+    display: none;
+  }
+  .mobileSort {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+    margin-bottom: var(--space-3);
+  }
+  .root .mobileSort label {
+    margin: 0;
+  }
+}
+@media (max-width: 639px) {
+  .viewport .hidesm {
+    display: none;
+  }
+}
+@media (max-width: 359px) {
+  .cardTable tbody td,
+  .cardTable tbody th {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-1);
+  }
+}
+@media (pointer: coarse) {
+  .sortButton,
+  .more summary {
+    min-height: var(--control-height-lg);
+  }
+}

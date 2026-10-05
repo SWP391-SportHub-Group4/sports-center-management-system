@@ -1,0 +1,35 @@
+.root:global(.chip) {
+  --status-chip-color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 24px;
+  max-width: 100%;
+  padding: 2px var(--space-3);
+  border: 1px solid var(--status-chip-color);
+  border-radius: var(--radius-pill);
+  background: #ede5e4;
+  color: var(--status-chip-color);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-normal);
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+
+.root:global(.chip--ok) {
+  --status-chip-color: var(--success-solid);
+}
+
+.root:global(.chip--danger) {
+  --status-chip-color: var(--danger-solid);
+}
+
+.root:global(.chip--warn) {
+  --status-chip-color: var(--warning-text);
+}
+
+.root:global(.chip--info) {
+  --status-chip-color: var(--info-solid);
+}

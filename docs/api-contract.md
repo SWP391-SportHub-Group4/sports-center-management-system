@@ -6,6 +6,12 @@ Các bảng mô tả contract; phần route baseline chỉ để tra cứu đư�
 
 ## Contract giao diện nghiệp vụ
 
+### Sắp xếp danh sách Admin
+
+- `GET /api/users/admin`: thêm query tùy chọn `sortBy=fullName|email|role|status`, `sortDirection=asc|desc`; mặc định `email/asc`.
+- `GET /api/audit-logs`: thêm query tùy chọn `sortBy=timestamp|actorEmail|action|targetEntity`, `sortDirection=asc|desc`; mặc định `timestamp/desc`.
+- Server sắp xếp trước `Skip/Take`, thêm ID làm khóa thứ hai để phân trang ổn định. Role/status dùng thứ tự enum nghiệp vụ. Cột hoặc chiều không hợp lệ trả 400 `invalid_sort_column`/`invalid_sort_direction`. Quyền và phạm vi Audit log giữ nguyên.
+
 Các API dưới đây bổ sung đúng dependency của frontend P2.06–P2.10, không đổi schema/migration. Quy định mới về hủy khóa thay phần mô tả P1.05 bên dưới.
 
 | Verb | Route | Actor / contract |
