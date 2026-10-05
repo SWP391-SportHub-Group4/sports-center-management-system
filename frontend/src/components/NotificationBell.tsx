@@ -8,6 +8,7 @@ import { api } from "@/lib/apiClient";
 import { formatDateTime } from "@/lib/format";
 import { useApi } from "@/lib/useApi";
 import { IconBell } from "@/components/icons";
+import { memberNotificationHref } from "@/features/member/notifications-api";
 
 interface NotificationDto {
   notificationId: string;
@@ -49,8 +50,15 @@ export function NotificationBell() {
 
   useEffect(() => {
     const timer = window.setInterval(() => unread.reload(), 60_000);
-
-    return () => window.clearInterval(timer);
+    const refresh = () => {
+      unread.reload();
+      items.reload();
+    };
+    window.addEventListener("sporthub:notifications-read", refresh);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("sporthub:notifications-read", refresh);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -123,20 +131,8 @@ export function NotificationBell() {
                 className={`bell__item ${item.status !== "READ" ? "bell__item--unread" : ""}`}
               >
                 {item.message}
-                {user?.role === "Member" && (
-                  <Link
-                    href={
-                      item.sourceEventType === "CLASS_THRESHOLD_AT_RISK"
-                        ? `/member/threshold?responseId=${encodeURIComponent(item.sourceEntityId ?? "")}`
-                        : ["PAYMENT_RECEIVED", "INVOICE_CREATED"].includes(
-                              item.sourceEventType,
-                            )
-                          ? `/member/invoices/${encodeURIComponent(item.sourceEntityId ?? "")}`
-                          : item.sourceEventType.startsWith("HOMEWORK")
-                            ? "/member/training"
-                            : "/member/class-schedule"
-                    }
-                  >
+                {user?.role === "Member" && memberNotificationHref(item) && (
+                  <Link href={memberNotificationHref(item)!}>
                     {t.refactor.details}
                   </Link>
                 )}
@@ -144,6 +140,9 @@ export function NotificationBell() {
               </div>
             ))
           )}
+          <Link href="/notifications" onClick={() => setOpen(false)}>
+            {t.memberPages.viewAll}
+          </Link>
         </div>
       )}
     </div>
