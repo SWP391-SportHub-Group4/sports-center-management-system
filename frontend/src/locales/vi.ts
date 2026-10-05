@@ -1,6 +1,53 @@
 import type { Translations } from "./en";
 
 export const vi: Translations = {
+  memberPages: {
+    schedule: "Lịch của tôi",
+    scheduleHint:
+      "Lớp học và buổi PT theo giờ Việt Nam. Chọn một buổi để xem chi tiết.",
+    courses: "Khóa học của tôi",
+    services: "Gym & PT",
+    discover: "Khám phá",
+    upcoming: "Sắp học",
+    ongoing: "Đang học",
+    history: "Lịch sử",
+    all: "Tất cả",
+    gym: "Membership Gym",
+    pt: "Huấn luyện cá nhân",
+    visits: "Lịch sử vào ra Gym",
+    checkIn: "Giờ vào",
+    checkOut: "Giờ ra",
+    inside: "Đang ở Gym",
+    quota: "Quota buổi tập",
+    makeup: "Buổi học bù",
+    unread: "Chưa đọc",
+    read: "Đánh dấu đã đọc",
+    readStatus: "Đã đọc",
+    notificationsHint:
+      "100 thông báo gần nhất. Chọn Chưa đọc để xem các tin cần chú ý.",
+    emptyCourses:
+      "Chưa có khóa học trong mục này. Khám phá khóa học để bắt đầu.",
+    emptyVisits: "Lịch sử vào ra sẽ xuất hiện sau lần đầu bạn đến Gym.",
+    nextSession: "Buổi tiếp theo",
+    noUpcoming: "Chưa có lịch tập trong 30 ngày tới.",
+    backCourses: "Về khóa học của tôi",
+    missingCourse: "Không có ghi danh này trong tài khoản của bạn.",
+    membershipNote:
+      "Membership Gym và khóa học nhóm là hai dịch vụ riêng. PT cần Membership Gym đủ điều kiện.",
+    remaining: "Còn lại",
+    held: "Đã đặt",
+    used: "Đã dùng",
+    validity: "Thời hạn",
+    carryOver: "Bảo lưu đến",
+    sessionCount: "Số buổi",
+    notifications: "Thông báo",
+    viewAll: "Xem tất cả",
+    pending: "Tiếp tục thanh toán",
+    emptyNotifications: "Bạn đã xem hết thông báo.",
+    enrollment: "Ghi danh",
+    frequencyHint:
+      "Tần suất mỗi tuần dùng để tính quota gói, không giới hạn cứng số buổi đặt mỗi tuần.",
+  },
   calendar: {
     day: "Ngày",
     week: "Tuần",

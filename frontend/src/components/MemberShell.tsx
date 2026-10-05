@@ -56,11 +56,16 @@ export function MemberShell({
 
   const memberNavItems: NavItem[] = [
     { href: "/member", label: t.nav.home },
-    { href: "/member/class-schedule", label: t.nav.classSchedule },
-    { href: "/member/my-registrations", label: t.nav.myRegistrations },
-    { href: "/member/my-plans", label: t.nav.myPlans },
+    { href: "/courses", label: t.memberPages.discover },
+    { href: "/member/schedule", label: t.memberPages.schedule },
+    { href: "/member/courses", label: t.memberPages.courses },
+    { href: "/member/services", label: t.memberPages.services },
     { href: "/member/training", label: t.nav.training },
-    { href: "/member/finance", label: t.finance.title, also: ["/member/invoices", "/member/wallet"] },
+    {
+      href: "/member/finance",
+      label: t.finance.title,
+      also: ["/member/invoices", "/member/wallet"],
+    },
   ];
 
   // Authentication & Role check
@@ -68,7 +73,9 @@ export function MemberShell({
     if (loading) return;
 
     if (!user) {
-      router.replace(`/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`);
+      router.replace(
+        `/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`,
+      );
       return;
     }
 
@@ -123,8 +130,7 @@ export function MemberShell({
           {/* Desktop Navigation */}
           <nav className={styles.desktopNav} aria-label="Member Navigation">
             {memberNavItems.map((item) => {
-              const active =
-                isActive(pathname, item);
+              const active = isActive(pathname, item);
 
               return (
                 <Link
@@ -242,7 +248,7 @@ export function MemberShell({
               type="button"
               className={styles.mobileMenuBtn}
               onClick={() => setMobileMenuOpen(true)}
-              aria-label="Mở menu điều hướng"
+              aria-label={t.nav.openNav}
             >
               <IconMenu size={20} />
             </button>
@@ -268,7 +274,7 @@ export function MemberShell({
                 type="button"
                 className={styles.mobileDrawerClose}
                 onClick={() => setMobileMenuOpen(false)}
-                aria-label="Đóng menu"
+                aria-label={t.nav.closeNav}
               >
                 <IconClose size={20} />
               </button>
@@ -276,8 +282,7 @@ export function MemberShell({
 
             <div className={styles.mobileNavLinks}>
               {memberNavItems.map((item) => {
-                const active =
-                  isActive(pathname, item);
+                const active = isActive(pathname, item);
 
                 return (
                   <Link
