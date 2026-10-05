@@ -48,7 +48,9 @@ function subscribe(callback: () => void) {
 function getSnapshot(): Language {
   if (typeof window === "undefined") return "en";
   try {
-    const stored = localStorage.getItem(LANGUAGE_STORAGE_KEY) as Language | null;
+    const stored = localStorage.getItem(
+      LANGUAGE_STORAGE_KEY,
+    ) as Language | null;
     if (stored === "vi" || stored === "en") {
       return stored;
     }
@@ -63,11 +65,19 @@ function getServerSnapshot(): Language {
 }
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
-  const language = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  const language = useSyncExternalStore(
+    subscribe,
+    getSnapshot,
+    getServerSnapshot,
+  );
 
   // Update html lang attribute for accessibility
   useEffect(() => {
-    if (typeof document !== "undefined") {
+    // Trang xác thực (EnglishOnly) tự giữ lang="en"; không ghi đè ở đây.
+    if (
+      typeof document !== "undefined" &&
+      !document.documentElement.dataset.forceLang
+    ) {
       document.documentElement.lang = language;
     }
   }, [language]);
@@ -103,7 +113,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
       toggleLanguage,
       t,
     }),
-    [language, setLanguage, toggleLanguage, t]
+    [language, setLanguage, toggleLanguage, t],
   );
 
   return (
@@ -119,6 +129,38 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
  */
 export function getCurrentLanguage(): Language {
   return getSnapshot();
+}
+
+/**
+ * Trang dùng chung cho khách (login, register, forgot-password…) luôn hiển thị TIẾNG ANH, bất kể
+ * ngôn ngữ đã lưu của portal. Ghi cờ lên <html> để apiClient (ngoài React) cũng chọn thông báo lỗi
+ * tiếng Anh. Không có nút đổi ngôn ngữ trên các trang này.
+ */
+export function EnglishOnly({ children }: { children: React.ReactNode }) {
+  useEffect(() => {
+    const root = document.documentElement;
+    const previous = root.lang;
+    root.dataset.forceLang = "en";
+    root.lang = "en";
+    return () => {
+      delete root.dataset.forceLang;
+      root.lang = previous;
+    };
+  }, []);
+  const value = useMemo(
+    () => ({
+      language: "en" as const,
+      setLanguage: () => {},
+      toggleLanguage: () => {},
+      t: en,
+    }),
+    [],
+  );
+  return (
+    <LanguageContext.Provider value={value}>
+      {children}
+    </LanguageContext.Provider>
+  );
 }
 
 export function useLanguage() {

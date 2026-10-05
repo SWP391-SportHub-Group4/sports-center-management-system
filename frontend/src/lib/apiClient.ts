@@ -20,6 +20,7 @@ const LANGUAGE_STORAGE_KEY = "sporthub_lang";
  */
 function currentLanguage(): Language {
   if (typeof window === "undefined") return "en";
+  if (document.documentElement.dataset.forceLang === "en") return "en";
   try {
     const stored = window.localStorage.getItem(LANGUAGE_STORAGE_KEY);
     return stored === "vi" ? "vi" : "en";
