@@ -445,8 +445,8 @@ AI (`api/ai/*`) nằm ngoài gate của hai plan; chỉ sửa tối thiểu đ�
 
 | Verb | Path | Actor | Request | Response / lỗi chính |
 |---|---|---|---|---|
-| POST | `api/auth/password/forgot` | ẩn danh, 3/phút/IP | `{email}` | 204 luôn |
-| POST | `api/auth/password/reset` | ẩn danh, 3/phút/IP | `{email, otpCode, newPassword, confirmNewPassword}` | 204; 400 `otp_invalid` `otp_expired` `otp_already_used` `otp_attempts_exceeded` `password_*` |
+| POST | `api/auth/password/forgot` | ẩn danh, 3/phút/IP | `{email}` | 204 luôn (trung tính; có tài khoản Active thì gửi email chứa link `/reset-password?email=&token=`) |
+| POST | `api/auth/password/reset` | ẩn danh, 3/phút/IP | `{email, token, newPassword, confirmNewPassword}` | 204; 400 `otp_invalid` `otp_expired` `otp_already_used` `otp_attempts_exceeded` `password_*` |
 | POST | `api/users/me/password` | đã đăng nhập | `{currentPassword?, newPassword, confirmNewPassword}` | 200 `{accessToken}`; 400 `current_password_required` `new_password_same_as_current` `password_*`; 401 `invalid_credentials` |
 | POST | `api/auth/external-coach/otp` | ẩn danh | `{email}` | 204; 409 `email_already_exists`; 429 `otp_resend_too_soon`; 503 `otp_email_send_failed` |
 | POST | `api/auth/external-coach/register` | ẩn danh | `{email, password, confirmPassword, fullName, phone?, otpCode, bio?, sportIds[1..10]}` | 201 `AuthResponse` (`user.approvalStatus`, `user.sportIds`); 400 `invalid_sport` `otp_*` `password_*`; 409 |

@@ -22,7 +22,7 @@ Monorepo cho hệ thống quản lý **trung tâm thể thao đa môn**: nhiều
 
 | Flow | Loại | Nội dung |
 |---|---|---|
-| 1 — User & Membership | Bắt buộc | 6 vai trò, Coach + chuyên môn, ExternalCoach đăng ký/duyệt, Membership Gym, Gym check-in, mật khẩu mạnh, quên mật khẩu (không hỏi mật khẩu cũ) |
+| 1 — User & Membership | Bắt buộc | 6 vai trò, Coach + chuyên môn, ExternalCoach đăng ký/duyệt, Membership Gym, Gym check-in, mật khẩu mạnh, quên mật khẩu bằng link email (không hỏi mật khẩu cũ, phản hồi trung tính) |
 | 2 — Class booking & schedule | Bắt buộc | Môn/Phòng/Sân, lớp theo khóa, ghi danh + giữ chỗ chống bán vượt sĩ số, ngưỡng hoàn vốn, Court Schedule, thuê sân, điểm danh lớp nhóm |
 | 3 — Payment & report | Bắt buộc | Invoice nhiều loại item, VNPay-QR, ví điểm + split payment, hoàn trả **chỉ bằng điểm**, báo cáo theo môn/nguồn |
 | 4 — Training & attendance | Optional (nhóm vẫn làm) | PT: kế hoạch, kết quả, homework, điểm danh |

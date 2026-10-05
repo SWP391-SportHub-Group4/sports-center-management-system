@@ -9,7 +9,7 @@
 | Người | File giao việc, gồm page/subpage và kế hoạch API tại chỗ | Công cụ chính |
 |---|---|---|
 | An | [Nền tảng, Member, PT & tài chính Manager](docs/frontend-redesign/01-AN-MEMBER-SHARED.md) | Claude Code; **owner nền tảng kỹ thuật** |
-| Khôi | [Landing, Guest, ExternalCoach & vận hành Manager](docs/frontend-redesign/02-KHOI-LANDING-PUBLIC.md) | ChatGPT Plus + Antigravity; **UI/UX Lead, chủ trì landing page** |
+| Khôi | [Landing, Guest, Auth & ExternalCoach](docs/frontend-redesign/02-KHOI-LANDING-PUBLIC.md) | ChatGPT Plus + Antigravity; **UI/UX Lead, chủ trì landing page** |
 | Hào | [Receptionist & Coach](docs/frontend-redesign/03-HAO-RECEPTION-COACH.md) | ChatGPT Plus + Antigravity |
 | Khoa | [Cấu hình, nhật ký & Admin](docs/frontend-redesign/04-KHOA-MANAGER-ADMIN.md) | ChatGPT Plus + Antigravity; **khối lượng ít nhất**, không điều phối toàn nhóm |
 
@@ -294,17 +294,17 @@ Không kết luận production-ready khi còn gap nghiệp vụ P0 liên quan.
 | Hào H05–H11 | Bán dịch vụ → Member/sản phẩm/checkout/OTP; điểm danh/roster; lịch sân/detail; hóa đơn; tạo hộ refund; ví Member | UX thao tác/quyền → UI dense |
 | Hào H12–H15 | Coach tổng quan; lịch dạy/detail; lớp/roster; học viên PT/hồ sơ | UX scope/relationship → UI lịch |
 | Hào H16–H20 | Plan tạo/sửa/detail; kết quả/tiến độ; homework; buổi PT/detail; AI gợi ý → review/edit/draft/apply | UX human review → UI editor |
-| Khôi Q01–Q07 | Manager tổng quan/lịch; lớp list/create/edit/detail; publish/dời/bù/hủy; xử lý ngưỡng | UX tác động/flow → UI bảng/form |
+| Khoa Q01–Q07 | Manager tổng quan/lịch; lớp list/create/edit/detail; publish/dời/bù/hủy; xử lý ngưỡng | UX tác động/flow → UI bảng/form |
 | An Q08–Q12 | Nguyện vọng khóa sau; PT relationship/sessions/requests; Member profile vận hành | UX quyền/quota → UI dùng chung |
-| Khôi Q13–Q18 | HLV trung tâm; duyệt HLV ngoài; sân/phòng/loại sân; incident preview/resolve/detail/history; notices compose/preview/delivery | UX ngoại lệ trước UI |
+| Khoa Q13–Q18 | HLV trung tâm; duyệt HLV ngoài; sân/phòng/loại sân; incident preview/resolve/detail/history; notices compose/preview/delivery | UX ngoại lệ trước UI |
 | An Q19–Q23 | Hóa đơn; refund queue/review; ví/ledger/adjustment; báo cáo; export/history/download/retry | UX tiền/async → UI bảng/biểu đồ |
 | Khoa Q24–Q27 | Danh mục môn/Gym/PT/rental rates; settings; audit/detail | UX validation → UI theo mẫu đã duyệt |
-| Khôi Q28 | Manager AI xếp lịch → review/edit/draft trong ClassEditor | UX human review → UI shared Drawer |
+| Khoa Q28 | Manager AI xếp lịch → review/edit/draft trong ClassEditor | UX human review → UI shared Drawer |
 | Khoa Q29–Q33 | Admin tổng quan; users list/detail; tạo nhân sự; đổi role/khóa/mở; audit log/detail | UX authorization → UI shared |
 
 Landing K01 gồm **14 section**: Header → Hero → tìm khóa → Bộ môn → khóa đang mở → Gym & PT → sân/lịch trống → cơ sở vật chất → HLV → cách bắt đầu → HLV ngoài → FAQ → địa điểm/liên hệ → Footer. Khôi chịu trách nhiệm nội dung, nguồn dữ liệu, CTA, ảnh hợp lệ, SEO và responsive từng section; chi tiết ở assignment Khôi. Không thêm testimonial, số hội viên, thành tích hay form gửi thành công giả để lấp section.
 
-**ID Q được giữ để truy vết, không còn đồng nghĩa owner Khoa.** Tổng 98 mục được chia: An 30 (A01–A20 + 10 Q), Khôi 39 (K01–K25 + 14 Q), Hào 20, Khoa 9. Đây là số mục page/tab/flow, không phải 98 page độc lập hoặc thước đo công sức bằng nhau. Khoa chỉ giữ cấu hình/nhật ký/Admin; phần nặng về flow, tài chính, incident và tích hợp đã chuyển cả trách nhiệm triển khai lẫn nghiệm thu.
+**ID Q được giữ để truy vết, không còn đồng nghĩa owner Khoa.** Tổng 98 mục được chia: An 30 (A01–A20 + 10 Q), Khôi 25 (K01–K25), Hào 20, Khoa 23 (9 Q gốc + 14 Q nhận từ Khôi ngày 05/10/2026). Đây là số mục page/tab/flow, không phải 98 page độc lập hoặc thước đo công sức bằng nhau. Khoa giữ cấu hình/nhật ký/Admin và vận hành Manager (lớp, HLV, sân, sự cố, notices, AI); tài chính/PT/báo cáo thuộc An.
 
 Manager vẫn có **một sidebar**, An tích hợp route config từ ba owner: Điều hành (tổng quan/lịch/lớp/PT/sự cố/thông báo); Khách hàng & HLV; Tài chính (giao dịch/ví/báo cáo); Cấu hình (sân/danh mục/tham số/nhật ký). Không chia menu theo tên người code hoặc tạo sidebar phẳng hơn 20 mục. Saved filters/tabs không tự thành mục menu. Admin giữ shell role riêng, không có menu tài chính Manager.
 
@@ -319,15 +319,16 @@ Manager vẫn có **một sidebar**, An tích hợp route config từ ba owner: 
 | Header nền tảng, BrandLogo, slots actions, language | **An**; Khôi làm variant Guest | Guest có public nav/login; app có role nav/notification/account. Một logo, một quy tắc focus/height; không 6 header độc lập |
 | Footer | **Khôi** | Guest đầy đủ contact/policies; app dùng variant gọn hoặc ẩn theo shell, không tự tạo footer khác |
 | AccountMenu + account/security forms | **Khôi** | An gắn vào AppShell; cùng Profile/Security/Language/Logout và trạng thái session; không trùng training profile |
-| Notification bell/dropdown/panel/inbox | **An** | Mọi role theo quyền backend; unread/read/read-all/deep link/failure thống nhất. Khôi sở hữu composer gửi tin Q18 |
+| Notification bell/dropdown/panel/inbox | **An** | Mọi role theo quyền backend; unread/read/read-all/deep link/failure thống nhất. Khoa sở hữu composer gửi tin Q18 |
 | Loading / Empty / Error / Forbidden / Conflict | **An** | Cùng API component, content/CTA theo task; không tạo error page/card tùy role |
 | AppShell/MemberShell, breadcrumbs/navigation | **An** | Hào/Khoa/Khôi portal cung cấp cấu hình role; Guest shell Khôi dùng nền tảng header/footer chung |
 | **Payment flow**: Checkout, PointsSelector, HoldCountdown, OTP, result, invoice, ledger, refund quote | **An** | Member, quầy, ExternalCoach dùng adapter; Manager dùng read/review variant. Không fork tính điểm, timer, callback |
 | Calendar, event drawer, MemberSearch, QuickActions, AttendanceBoard | **Hào** | Consumer gắn DTO theo quyền; public chỉ projection an toàn. An cung cấp Drawer primitive |
 | AI Drawer experience + Review/Edit wrapper | **Hào** | Member/Coach/Manager giữ cùng loading/error/cancel UX; mỗi role có adapter/quyền riêng; không tự save |
-| CourseCard/catalog/detail và ClassEditor/ThresholdManager | **Khôi** | An reuse discovery; ClassEditor là nghiệp vụ Manager riêng, dùng primitives An, không fork public card |
-| IncidentWorkbench, Manager AI adapter, NoticeComposer | **Khôi** | Tái dùng primitives/finance/calendar/AI wrapper; kết quả nghiệp vụ từ server |
+| CourseCard/catalog/detail | **Khôi** | An reuse discovery; ClassEditor là nghiệp vụ Manager riêng, dùng primitives An, không fork public card |
+| IncidentWorkbench, Manager AI adapter, NoticeComposer | **Khoa** | Tái dùng primitives/finance/calendar/AI wrapper; kết quả nghiệp vụ từ server |
 | Manager PT/Member, finance, Reports/Export | **An** | Chung financial primitives và Calendar Hào; Khôi review hierarchy/visual |
+| ClassEditor/ThresholdManager (Manager) | **Khoa** | Dùng primitives An, không fork public CourseCard của Khôi; Khôi review màn mẫu |
 | Catalog/settings, AdminUsers, AuditLog views | **Khoa** | Dùng template An/Khôi đã chốt; CAT-01 do An giữ contract/migration |
 
 Consumer yêu cầu owner bằng mẫu `component — page ID — state/props cần — ví dụ — hạn tích hợp`. Owner thêm variant và ví dụ usage trong PR; consumer không sửa âm thầm file shared. Hào sở hữu hành vi AI/calendar, An sở hữu primitive: không hai người dựng hai Drawer API. Cả nhóm dùng chung icon convention hiện có; thư viện mới phải qua owner và package review.
@@ -362,10 +363,10 @@ Consumer yêu cầu owner bằng mẫu `component — page ID — state/props c�
 
 | Mốc | An | Khôi | Hào | Khoa |
 |---|---|---|---|---|
-| M0: bản chuẩn | Chia bundle; tokens/primitives/shell/checkout contract | Hero/CourseCard và class/incident mẫu; dẫn review UX/UI bốn mẫu | Quầy/Calendar/AI Drawer mẫu | Table/State theo contract An, dùng vào Admin mẫu; đọc G10 |
-| M1: hành trình chính | Member/payment; Manager PT/Member/finance/reports | Guest/auth/rental; Manager lớp/HLV/sân/incident/notices | Quầy/check-in/sales/attendance; Coach/PT result | Catalog/settings/audit/Admin |
-| M2: gap/ngoại lệ | G02/G05/G08/G11/CAT-01 và D01–D05/D07/D08 | G01/G03/G06/G07/G09/G13; human review AI | G04/G12/D06; shared AI review | G10; consumer CAT-01 theo contract An |
-| M3: tích hợp | Shared/contract/financial/export/PT regression | UX/UI consistency và class/incident/public regression | Scope/keyboard/calendar/context regression | Kiểm 9 mục của mình, auth/audit/config |
+| M0: bản chuẩn | Chia bundle; tokens/primitives/shell/checkout contract | Hero/CourseCard và mẫu public; dẫn review UX/UI bốn mẫu (gồm class/incident của Khoa) | Quầy/Calendar/AI Drawer mẫu | Table/State theo contract An, dùng vào Admin mẫu; đọc G10 |
+| M1: hành trình chính | Member/payment; Manager PT/Member/finance/reports | Guest/auth (tiếng Anh)/rental | Quầy/check-in/sales/attendance; Coach/PT result | Catalog/settings/audit/Admin; Manager lớp/HLV/sân/incident/notices |
+| M2: gap/ngoại lệ | G02/G05/G08/G11/CAT-01 và D01–D05/D07/D08 | G01/G09; consumer G11 | G04/G12/D06; shared AI review | G10; G03/G06/G07/G13; consumer CAT-01 theo contract An |
+| M3: tích hợp | Shared/contract/financial/export/PT regression | UX/UI consistency và public/auth regression | Scope/keyboard/calendar/context regression | Kiểm 23 mục của mình: Manager vận hành, auth/audit/config |
 
 An dùng Claude để chuẩn bị nền tảng và review shared, **không trở thành người code thay toàn bộ nhóm**. Khôi là người mạnh UI/UX nhất nhóm, giữ review flow/màn mẫu và thay đổi lớn; không cần duyệt từng padding của page đã dùng pattern chuẩn. Ba bạn dùng ChatGPT để shape/critique, Antigravity để code/browser/test, rồi gửi cùng bộ evidence. Mỗi PR một vertical slice gồm page + states + API integration; không gom toàn bộ màu/global CSS vào cuối kỳ.
 
@@ -373,17 +374,17 @@ PR ghi: owner/page IDs; flow; shared reuse/variant; token thay đổi nếu có;
 
 ### Có thể bắt đầu song song
 
-Cả bốn có thể bắt đầu song song. An ưu tiên tokens/primitives/shell và contract checkout; Khôi ưu tiên mẫu và review UX/UI; Hào dựng Calendar/AI contract; Khoa làm flow/catalog/Admin mẫu. Chưa có component thì dùng contract/fixture có nhãn để làm flow; không tạo bản shared thứ hai. Tích hợp theo từng phần hoàn thành, không đợi cuối kỳ.
+Cả bốn có thể bắt đầu song song. An ưu tiên tokens/primitives/shell và contract checkout; Khôi ưu tiên mẫu và review UX/UI; Hào dựng Calendar/AI contract; Khoa làm flow/catalog/Admin mẫu rồi Manager vận hành. Chưa có component thì dùng contract/fixture có nhãn để làm flow; không tạo bản shared thứ hai. Tích hợp theo từng phần hoàn thành, không đợi cuối kỳ.
 
 
 ### API liên vai trò và điều kiện đóng việc
 
 | Primary owner | Gap/legacy chính | Consumer cần phối hợp |
 |---|---|---|
-| An | G02, G05, G08, G11, CAT-01; D01–D05, D07, D08 | Khôi ngưỡng/incident/payment rental; Hào quầy; Khoa catalog theo schema |
-| Khôi | G01, G03, G06, G07, G09, G13 | An financial/interest; Hào Calendar/AI; Khoa catalog/settings |
+| An | G02, G05, G08, G11, CAT-01; D01–D05, D07, D08 | Khoa ngưỡng/incident; Khôi payment rental; Hào quầy; Khoa catalog theo schema |
+| Khôi | G01, G09 | An financial; Hào Calendar/AI |
 | Hào | G04, G12; D06 | An QR và Manager Member/PT scope; Khoa Admin detail regression |
-| Khoa | G10 | An hỗ trợ kỹ thuật shared; Hào kiểm tránh mở rộng StaffRead; không nhận backend gap khác |
+| Khoa | G03, G06, G07, G10, G13 | An hỗ trợ kỹ thuật shared; Hào Calendar/AI; kiểm tránh mở rộng StaffRead cho G10 |
 
 Primary owner chịu trách nhiệm đặc tả, phối hợp sửa backend, nối FE và evidence nghiệm thu phần của mình; không có nghĩa một người sở hữu tất cả file backend liên quan. Contract dùng chung phải review với consumer. **P0** (G02/G11/G12) chặn nghiệm thu luồng liên quan; sửa quyền G10 trước bàn giao Admin detail. Sau đó public/QR, PT/AI, incident/notices/catalog; G08 và retire legacy làm sau khi có bằng chứng cần thiết.
 

@@ -142,6 +142,15 @@ public sealed class CapturingEmailSender : IEmailSender
     public int CountFor(string email)
         => Sent.Count(m => string.Equals(m.To, email, StringComparison.OrdinalIgnoreCase));
 
+    private static readonly Regex ResetTokenPattern = new(@"[?&]token=([^""&]+)", RegexOptions.Compiled);
+
+    /// <summary>Token trong link đặt lại mật khẩu của email gần nhất gửi tới địa chỉ này.</summary>
+    public string LatestResetTokenFor(string email)
+    {
+        var body = Sent.Last(m => string.Equals(m.To, email, StringComparison.OrdinalIgnoreCase)).Body;
+        return Uri.UnescapeDataString(ResetTokenPattern.Match(System.Net.WebUtility.HtmlDecode(body)).Groups[1].Value);
+    }
+
     public string LatestOtpFor(string email)
     {
         var body = Sent.Last(m => string.Equals(m.To, email, StringComparison.OrdinalIgnoreCase)).Body;

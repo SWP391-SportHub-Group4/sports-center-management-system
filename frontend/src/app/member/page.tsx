@@ -90,7 +90,7 @@ export default function MemberDashboardPage() {
           <AsyncSection state={wallet}>
             {(data) => <WalletBalance balance={data} />}
           </AsyncSection>
-          <Link href="/member/wallet">{t.wallet.history}</Link>
+          <Link href="/member/finance?tab=wallet">{t.wallet.history}</Link>
         </Card>
         <Card title={t.memberOverview.courses}>
           <AsyncSection state={courses}>

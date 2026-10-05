@@ -9,7 +9,7 @@ using SportHub.Identity.Domain.Enums;
 
 namespace SportHub.Security.Tests.Integration;
 
-/// <summary>BR-103/104 — quên/đặt lại/đổi mật khẩu và vô hiệu token cũ bằng security stamp.</summary>
+/// <summary>BR-103/104 — quên (link email)/đặt lại/đổi mật khẩu và vô hiệu token cũ bằng security stamp.</summary>
 [Collection(nameof(SportHubApiCollection))]
 public class PasswordResetTests(SportHubApiFactory factory)
 {
@@ -49,7 +49,7 @@ public class PasswordResetTests(SportHubApiFactory factory)
     private Task<HttpResponseMessage> Reset(string email, string otp, string password = NewPassword, string? confirm = null)
         => Client().PostAsync("api/auth/password/reset", JsonContent.Create(new
         {
-            email, otpCode = otp, newPassword = password, confirmNewPassword = confirm ?? password
+            email, token = otp, newPassword = password, confirmNewPassword = confirm ?? password
         }));
 
     private async Task<HttpResponseMessage> Protected(string token)
@@ -113,21 +113,37 @@ public class PasswordResetTests(SportHubApiFactory factory)
     }
 
     [Fact]
-    public async Task Forgot_is_neutral_for_unknown_locked_and_existing_emails()
+    public async Task Forgot_is_neutral_for_unknown_locked_and_existing_emails_and_sends_a_link_only_to_active_ones()
     {
         var existing = NewEmail();
         var banned = NewEmail();
+        var unknown = NewEmail();
         await factory.SeedUserAsync(existing, OldPassword);
         await factory.SeedUserAsync(banned, OldPassword, status: UserStatus.Banned);
 
-        foreach (var email in new[] { existing, banned, NewEmail() })
+        foreach (var email in new[] { existing, banned, unknown })
         {
-            var response = await Forgot(email);
-            Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+            Assert.Equal(HttpStatusCode.NoContent, (await Forgot(email)).StatusCode);
         }
 
         Assert.Equal(1, factory.Emails.CountFor(existing));
         Assert.Equal(0, factory.Emails.CountFor(banned));
+        Assert.Equal(0, factory.Emails.CountFor(unknown));
+        var body = factory.Emails.Sent.Last(m => m.To == existing).Body;
+        Assert.Contains("/reset-password?email=", body);
+        Assert.Contains("ĐẶT LẠI MẬT KHẨU", body);
+    }
+
+    [Fact]
+    public async Task Forgot_twice_within_the_cooldown_stays_neutral_and_sends_only_one_email()
+    {
+        var email = NewEmail();
+        await factory.SeedUserAsync(email, OldPassword);
+
+        Assert.Equal(HttpStatusCode.NoContent, (await Forgot(email)).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await Forgot(email)).StatusCode);
+
+        Assert.Equal(1, factory.Emails.CountFor(email));
     }
 
     [Fact]
@@ -139,7 +155,7 @@ public class PasswordResetTests(SportHubApiFactory factory)
         Assert.Equal(HttpStatusCode.OK, (await Protected(oldToken)).StatusCode);
 
         await Forgot(email);
-        var otp = factory.Emails.LatestOtpFor(email);
+        var otp = factory.Emails.LatestResetTokenFor(email);
 
         var reset = await Reset(email, otp);
         Assert.Equal(HttpStatusCode.NoContent, reset.StatusCode);
@@ -155,12 +171,12 @@ public class PasswordResetTests(SportHubApiFactory factory)
     }
 
     [Fact]
-    public async Task Reset_otp_is_single_use_and_two_concurrent_requests_yield_exactly_one_success()
+    public async Task Reset_link_is_single_use_and_two_concurrent_requests_yield_exactly_one_success()
     {
         var email = NewEmail();
         await factory.SeedUserAsync(email, OldPassword);
         await Forgot(email);
-        var otp = factory.Emails.LatestOtpFor(email);
+        var otp = factory.Emails.LatestResetTokenFor(email);
 
         var results = await Task.WhenAll(
             Reset(email, otp, "Racer-Pass-One-1!"),
@@ -175,13 +191,13 @@ public class PasswordResetTests(SportHubApiFactory factory)
     }
 
     [Fact]
-    public async Task Five_wrong_codes_lock_the_otp_even_for_the_correct_code()
+    public async Task Five_wrong_tokens_lock_the_link_even_for_the_correct_token()
     {
         var email = NewEmail();
         await factory.SeedUserAsync(email, OldPassword);
         await Forgot(email);
-        var otp = factory.Emails.LatestOtpFor(email);
-        var wrong = otp == "000000" ? "111111" : "000000";
+        var otp = factory.Emails.LatestResetTokenFor(email);
+        var wrong = "wrong-token-value";
 
         for (var i = 0; i < 5; i++)
         {
@@ -198,7 +214,7 @@ public class PasswordResetTests(SportHubApiFactory factory)
         var email = NewEmail();
         await factory.SeedUserAsync(email, OldPassword);
         await Forgot(email);
-        var otp = factory.Emails.LatestOtpFor(email);
+        var otp = factory.Emails.LatestResetTokenFor(email);
 
         Assert.Equal("password_too_short", await ErrorOf(await Reset(email, otp, "Ab1!")));
         Assert.Equal("password_contains_email", await ErrorOf(await Reset(email, otp, email.Split('@')[0] + "A1!")));
@@ -208,9 +224,9 @@ public class PasswordResetTests(SportHubApiFactory factory)
     }
 
     [Fact]
-    public async Task Reset_without_a_requested_code_is_a_generic_invalid_code()
+    public async Task Reset_without_a_requested_link_is_a_generic_invalid_token()
     {
-        var response = await Reset(NewEmail(), "123456");
+        var response = await Reset(NewEmail(), "never-issued-token");
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         Assert.Equal("otp_invalid", await ErrorOf(response));
@@ -223,7 +239,7 @@ public class PasswordResetTests(SportHubApiFactory factory)
         await factory.SeedUserAsync(email, password: null);
         await Forgot(email);
 
-        Assert.Equal(HttpStatusCode.NoContent, (await Reset(email, factory.Emails.LatestOtpFor(email))).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await Reset(email, factory.Emails.LatestResetTokenFor(email))).StatusCode);
         await LoginToken(email, NewPassword);
     }
 

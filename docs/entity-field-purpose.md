@@ -120,7 +120,7 @@ Quan hệ 1–1 tùy chọn với `EXTERNAL_COACH_PROFILES` (chỉ khi role = `E
 
 | Field | Vai trò |
 |---|---|
-| `Purpose` () | Enum `EmailOtpPurpose`: `Register`, `ResetPassword` (quên mật khẩu, không hỏi mật khẩu cũ — BR-103), `ExternalCoachRegister` (BR-105). Cho phép mỗi mục đích có OTP còn hiệu lực riêng cho cùng 1 email; reset dùng OTP 6 số (khuyến nghị) hoặc token tương đương, luôn lưu băm |
+| `Purpose` () | Enum `EmailOtpPurpose`: `Register`, `ResetPassword` (quên mật khẩu, không hỏi mật khẩu cũ — BR-103), `ExternalCoachRegister` (BR-105). Cho phép mỗi mục đích có OTP còn hiệu lực riêng cho cùng 1 email; đăng ký/ExternalCoach dùng OTP 6 số; **reset dùng token link ngẫu nhiên 256-bit (base64url)** — `CodeHash` luôn là SHA-256 của mã/token, không lưu bản rõ |
 
 > OTP xác nhận dùng điểm tại quầy **không** dùng bảng này mà dùng `POINT_CONFIRMATIONS` (hiệu lực 5 phút, tối đa 5 lần sai, BR-139).
 
@@ -773,7 +773,7 @@ Các field này mô tả yêu cầu BR-60/BR-78; trạng thái code/migration đ
 | Entity.Field | Mục đích và ràng buộc |
 |---|---|
 | EmailOtp (entity mới, module Identity) | Theo email và purpose; chỉ mã hiện hành có hiệu lực. Phục vụ BR-78 — xác thực OTP khi Register bằng email/mật khẩu. thêm `Purpose` (`Register`/`ResetPassword`/`ExternalCoachRegister`) — mỗi mục đích một OTP còn hiệu lực cho cùng email (xem `EMAIL_OTPS`) |
-| EmailOtp.Purpose () | Enum `EmailOtpPurpose`; dùng cho đăng ký, quên mật khẩu (BR-103) và đăng ký ExternalCoach (BR-105) |
+| EmailOtp.Purpose () | Enum `EmailOtpPurpose`; dùng cho đăng ký, quên mật khẩu (BR-103, bằng link email) và đăng ký ExternalCoach (BR-105) |
 | EmailOtp.Email | Email chuẩn hóa; chỉ OTP mới nhất còn hiệu lực; rate limit theo email và IP |
 | EmailOtp.CodeHash | Hash của mã OTP 6 số; không lưu hoặc log plaintext |
 | EmailOtp.ExpiresAt | Mã hết hạn sau 10 phút kể từ lần yêu cầu gần nhất |

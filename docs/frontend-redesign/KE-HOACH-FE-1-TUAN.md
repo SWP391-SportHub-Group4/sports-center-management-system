@@ -1,20 +1,21 @@
 # Kế hoạch FE tuần 05–11/10/2026 — giao theo trang
 
-**Đây là bảng để điền công việc tuần, không thay bốn file đặc tả chi tiết.** Mốc ngày lấy theo tuần trong ảnh người dùng; là hạn mục tiêu để cả nhóm theo dõi, không phải ước lượng số giờ/người. An giữ nền tảng, Khôi dẫn UX/UI và landing, Hào quầy/Coach, Khoa ít việc nhất.
+**Đây là bảng để điền công việc tuần, không thay bốn file đặc tả chi tiết.** Mốc ngày lấy theo tuần trong ảnh người dùng; là hạn mục tiêu để cả nhóm theo dõi, không phải ước lượng số giờ/người. An giữ nền tảng, Khôi dẫn UX/UI, landing và auth, Hào quầy/Coach, Khoa giữ cấu hình/Admin và (từ 05/10) toàn bộ Manager vận hành.
 
 ## 1. Đọc bảng này như thế nào?
 
 - Cột **Tên task** luôn là tên trang/nhóm trang. Mã A/K/H/Q chỉ dùng tra file chi tiết, không cần hiểu mã mới biết phải làm gì.
 - **Nền chung** chỉ có bốn task ở mục 3. **Trang FE** ở mục 4. **Backend/deploy chặn nghiệm thu** ở mục 5, đặt sang sheet/nhóm khác.
-- Mỗi dòng một người phụ trách chính. An là owner kỹ thuật shared nhưng Khoa có thể code một phần theo contract; không ghi “An, Khôi, Hào, Khoa” vào cột owner một task.
+- Mỗi dòng một người phụ trách chính. **KH-03/KH-04 cũ đã chuyển cho Khoa và đổi mã thành KO-04/KO-05** (giữ nguyên page IDs và hạn); Khôi chỉ còn review UX/UI các màn mẫu này. An là owner kỹ thuật shared nhưng Khoa có thể code một phần theo contract; không ghi “An, Khôi, Hào, Khoa” vào cột owner một task.
 - **P0** làm trước để nối hành trình chính; **P1** làm sau nhưng vẫn nằm trong mục tiêu phủ FE của tuần. P1 không tự động có nghĩa chuyển sang tuần sau.
 - Trạng thái trong bảng để **Chưa cập nhật** vì chưa có xác nhận tiến độ thực tế. Khi điền sheet, thay bằng trạng thái thật và link PR/ảnh/test.
 - Các dòng nhiều tab không phải viết lại nhiều ứng dụng: dùng page/layout/component hiện có, đổi UI và nối lại hành vi. Chi tiết từng tab vẫn theo assignment.
+- **Trang xác thực (login, register, register-external-coach, forgot-password) luôn tiếng Anh hoàn toàn**, không trộn Anh–Việt và không có nút đổi ngôn ngữ; áp bằng `EnglishOnly` ở layout từng route (xem 02-KHOI).
 - Route đích trong assignment là đề xuất; giữ route hiện tại hoặc thêm redirect/query tương thích, không đồng thời refactor toàn bộ routing trong tuần.
 
 ## 2. Mục tiêu một tuần và cách xác nhận hoàn thành
 
-**Mục tiêu ngày 11/10:** phủ giao diện mục tiêu, các hành trình có API hiện hữu chạy qua được và đã kiểm trên môi trường tích hợp. Đây là mục tiêu gấp; đặc biệt An và Khôi có nhiều nhóm màn. Chưa có kiểm chứng năng suất/tiến độ hiện tại nên không thể bảo đảm toàn bộ 98 mục hoàn chỉnh trong một tuần.
+**Mục tiêu ngày 11/10:** phủ giao diện mục tiêu, các hành trình có API hiện hữu chạy qua được và đã kiểm trên môi trường tích hợp. Đây là mục tiêu gấp; đặc biệt An và Khoa có nhiều nhóm màn. Chưa có kiểm chứng năng suất/tiến độ hiện tại nên không thể bảo đảm toàn bộ 98 mục hoàn chỉnh trong một tuần.
 
 Phân biệt rõ:
 
@@ -39,7 +40,7 @@ Không biến UI fixture thành production success. Nếu yêu cầu là **mọi
 | N-AN | An | 05/10/2026 | Bật giao diện chung và khung trang | Tokens, Button/Field/Select, Dialog/Drawer, PageHeader, AppShell/MemberShell; props Table/State và checkout. | Merge nền có ví dụ dùng được; cả nhóm import được. Tận dụng component đang có, không xây UI library mới. Checkout contract có invoice/buyer/points/expiry/status, không tự tính tiền. |
 | N-KH | Khôi | 05/10/2026 | Mẫu giao diện để cả nhóm làm theo | PublicHeader/Footer/AccountMenu, hero/CourseCard; một mẫu list/detail/form và layout checkout/quầy để review. | Khôi chốt hierarchy/layout theo token; CourseCard import được. Chỉ review mẫu và thay đổi lớn, không chờ duyệt từng page. |
 | N-HA | Hào | 05/10/2026 | Lịch và thao tác quầy dùng chung | Calendar/CalendarEventDrawer, MemberSearch/QuickActions/AttendanceBoard; contract AI Drawer. | Có ví dụ ngày/tuần/list và event detail. Nếu chưa có Drawer An dùng placeholder đúng contract; không làm bản Drawer riêng. |
-| N-KO | Khoa | 05/10/2026 | Làm bảng và trạng thái theo mẫu để dùng cho Admin | Table/FilterBar/StatusChip và Loading/Empty/Error/Forbidden/Conflict trên contract An; mẫu Admin list. | Khoa triển khai phần nhỏ này, An giữ owner kỹ thuật và review; Khôi review visual. Merge trước khi nhân rộng Admin, không giao Khoa cả design system. |
+| N-KO | Khoa | 05/10/2026 | Làm bảng và trạng thái theo mẫu để dùng cho Admin và Manager | Table/FilterBar/StatusChip và Loading/Empty/Error/Forbidden/Conflict trên contract An; mẫu Admin list; dùng tiếp cho Manager (KO-04/KO-05). | Khoa triển khai phần nhỏ này, An giữ owner kỹ thuật và review; Khôi review visual. Merge trước khi nhân rộng Admin, không giao Khoa cả design system. Từ 05/10 Khoa còn nhận Manager vận hành (KO-04, KO-05) nên cần mẫu này sớm. |
 
 An bàn giao contract/component theo từng phần, không đợi toàn bộ Member xong. Khôi/Hào/Khoa bắt đầu flow và UI riêng ngay; component chưa có dùng placeholder đúng contract. Mốc N-* phải merge được vào nhánh tích hợp; nếu trễ phải báo task consumer bị ảnh hưởng, không tự fork shared.
 
@@ -53,7 +54,7 @@ Giữ các cột sheet hiện tại: **Tuần/Tên task · Flow/Giai đoạn · 
 
 | Tuần / Tên task | Flow / Giai đoạn | Đầu việc: page/subpage | Owner | Trạng thái | Hạn mục tiêu | Ghi chú: xong khi | Ưu tiên | Phụ thuộc |
 |---|---|---|---|---|---|---|---|---|
-| Tuần 5 · AN-01 · Checkout và tài chính Member | FE · A15, A12, A13 | Trang thanh toán → chọn điểm/OTP theo buyer → VNPay → kết quả; Ví điểm → ledger; Hóa đơn → danh sách/chi tiết. | An | Chưa cập nhật | 06/10/2026 | Dùng một checkout cho Member/quầy/HLV ngoài; hiện tổng, điểm, tiền còn lại và countdown server. Reload không tạo đơn trùng; kết quả chờ xác minh không báo Paid. | P0 | Nền An; G11 chặn kiểm gateway thật |
+| Tuần 5 · AN-01 · Checkout và tài chính Member | FE · A15, A12, A13 | Trang thanh toán → chọn điểm/OTP theo buyer → VNPay → kết quả; Ví điểm → ledger; Hóa đơn → danh sách/chi tiết. | An | Đang tích hợp — UI + API hiện có xong, test Playwright (mock) đạt; chờ kiểm VNPay/IPN thật (G11) và backend mới deploy; PR: nhánh `feat/paymentMember` | 06/10/2026 | Dùng một checkout cho Member/quầy/HLV ngoài; hiện tổng, điểm, tiền còn lại và countdown server. Reload không tạo đơn trùng; kết quả chờ xác minh không báo Paid. | P0 | Nền An; G11 chặn kiểm gateway thật |
 | Tuần 5 · AN-02 · Trang chính của Member | FE · A01, A02, A03, A04, A05, A06, A17 | Tổng quan; Khám phá; Lịch → chi tiết; Khóa của tôi → chi tiết; Gym/Membership/lịch sử vào ra; Gói PT/quota; Thông báo. | An | Chưa cập nhật | 07/10/2026 | Member đi được từ dashboard đến lịch/khóa/dịch vụ và thông báo. Khám phá dùng catalog Khôi, lịch dùng Calendar Hào; không viết lại hai phần đó. | P0 | Shell An; CourseCard Khôi; Calendar Hào |
 | Tuần 5 · AN-03 · Tập luyện và vận hành PT | FE · A08, A09, A10, A11, Q09, Q10, Q11, Q12 | Member: chi tiết buổi/yêu cầu đổi-hủy, đổi HLV, hồ sơ tập, kế hoạch/kết quả/tiến độ/homework. Manager: quan hệ PT, buổi PT, hàng đợi yêu cầu, hồ sơ Member. | An | Chưa cập nhật | 08/10/2026 | Member gửi yêu cầu và Manager xem/duyệt đúng trạng thái; đã gửi không đồng nghĩa đã đổi lịch. Chỉ hiện dữ liệu đúng relationship/quyền. Các tab tập luyện dùng UI Coach tương ứng làm đối chiếu. | P0 | Calendar Hào; G12 scope; API PT hiện có |
 | Tuần 5 · AN-04 · Tài chính và báo cáo Manager | FE · A14, Q19, Q20, Q21, Q22, Q23 | Member tạo/theo dõi yêu cầu hoàn; Manager hóa đơn, hàng đợi hoàn, ví/điều chỉnh; báo cáo và export/lịch sử tải tệp. | An | Chưa cập nhật | 09/10/2026 | Gửi yêu cầu → Manager duyệt/từ chối → trạng thái cập nhật. Dùng quote server, tách cash/points, không manual Paid. Export có tiến trình/lỗi/download thật. | P0 | Financial components An; G08 chỉ khi cần danh sách self-refund mới |
@@ -61,14 +62,12 @@ Giữ các cột sheet hiện tại: **Tuần/Tên task · Flow/Giai đoạn · 
 
 ### Khôi
 
-Đặc tả đầy đủ: [02-KHOI-LANDING-PUBLIC.md](02-KHOI-LANDING-PUBLIC.md).
+Đặc tả đầy đủ: [02-KHOI-LANDING-PUBLIC.md](02-KHOI-LANDING-PUBLIC.md). KH-03/KH-04 đã chuyển cho Khoa (xem KO-04/KO-05); Khôi review UX/UI màn mẫu class/incident.
 
 | Tuần / Tên task | Flow / Giai đoạn | Đầu việc: page/subpage | Owner | Trạng thái | Hạn mục tiêu | Ghi chú: xong khi | Ưu tiên | Phụ thuộc |
 |---|---|---|---|---|---|---|---|---|
 | Tuần 5 · KH-01 · Landing và các trang khám phá dịch vụ | FE · K01, K02, K03, K04, K05, K06 | Landing 14 section; Bộ môn → chi tiết; Khóa học → danh sách/chi tiết; Gym/gói; PT/HLV; Sân → chi tiết/lịch trống. | Khôi | Chưa cập nhật | 06/10/2026 | Dùng template/card chung, nội dung thật và CTA đúng. Tìm lớp theo filter API đã hỗ trợ. Public sân/HLV/giá chưa có G01 thì giữ UI fixture có nhãn, không lấy staff DTO public. | P0 | Tokens An; G01/G09; classification Gym/PT đã thống nhất |
 | Tuần 5 · KH-02 · Đăng nhập, tài khoản và nội dung công khai | FE · K07, K08, K09, K10, K11, K12, K13, K14, K15, K16, K17 | Dành cho HLV ngoài; Giới thiệu; Liên hệ; FAQ/chính sách; login; register/OTP hai loại; quên/reset mật khẩu; Google onboarding; hồ sơ/bảo mật/ngôn ngữ; trang lỗi. | Khôi | Chưa cập nhật | 07/10/2026 | Auth giữ hành vi đang chạy, đăng nhập quay lại đúng trang chọn dịch vụ. Nội dung tĩnh dùng layout chung. AccountMenu dùng chung mọi role; OTP/lỗi/phiên hết hạn rõ ràng. | P0 | Form/state An; auth API hiện có |
-| Tuần 5 · KH-03 · Manager: tổng quan, lịch và quản lý lớp | FE · Q01, Q02, Q03, Q04, Q05, Q06, Q07 | Tổng quan; lịch vận hành; danh sách lớp; tạo/sửa; chi tiết các tab; publish/dời/bù/hủy; điều kiện mở lớp. | Khôi | Chưa cập nhật | 08/10/2026 | Ưu tiên một ClassEditor và một ClassDetail dùng lại. Tạo nháp → review lịch → publish chạy thật; holds khác confirmed. Đóng tuyển sinh G13 và chờ khóa sau G02 ghi đúng dependency. | P0 | Calendar Hào; primitives An; G13; An G02/Q08 |
-| Tuần 5 · KH-04 · Manager: HLV, sân, sự cố và thông báo | FE · Q13, Q14, Q15, Q16, Q17, Q18, Q28 | HLV nội bộ; duyệt HLV ngoài; sân/phòng/loại sân; sự cố preview/xử lý; soạn/theo dõi thông báo; AI xếp lịch. | Khôi | Chưa cập nhật | 09/10/2026 | Tái dùng list/form/detail. Incident hiện từng hoạt động bị ảnh hưởng và kết quả từng bước. AI phải review/edit trước lưu nháp. G03/G06/G07 chưa xong chỉ tính UI, không giả xử lý thành công. | P0 | An finance/contract; Hào AI/Calendar; G03/G06/G07 |
 | Tuần 5 · KH-05 · Portal HLV ngoài | FE · K18, K19, K20, K21, K22, K23, K24, K25 | Tổng quan trạng thái duyệt; tìm/thuê sân; checkout; danh sách/chi tiết lượt thuê; hủy; đặt lại; ví/hóa đơn; hồ sơ. | Khôi | Chưa cập nhật | 10/10/2026 | Approved đặt sân qua shared checkout; Pending/Suspended đúng quyền. Hủy và đặt lại theo policy, không hoàn hai lần. Dùng finance An, Calendar Hào; không dựng portal engine mới. | P0 | Checkout/finance An; Calendar Hào; rental API hiện có |
 
 ### Hào
@@ -85,24 +84,26 @@ Giữ các cột sheet hiện tại: **Tuần/Tên task · Flow/Giai đoạn · 
 
 ### Khoa
 
-Đặc tả đầy đủ: [04-KHOA-MANAGER-ADMIN.md](04-KHOA-MANAGER-ADMIN.md).
+Đặc tả đầy đủ: [04-KHOA-MANAGER-ADMIN.md](04-KHOA-MANAGER-ADMIN.md). KO-04/KO-05 nhận từ Khôi ngày 05/10; **KO-03 và KO-04 cùng hạn 08/10 — báo sớm nếu không kịp để chốt phạm vi.**
 
 | Tuần / Tên task | Flow / Giai đoạn | Đầu việc: page/subpage | Owner | Trạng thái | Hạn mục tiêu | Ghi chú: xong khi | Ưu tiên | Phụ thuộc |
 |---|---|---|---|---|---|---|---|---|
 | Tuần 5 · KO-01 · Admin: tài khoản và vai trò | FE · Q29, Q30, Q31, Q32 | Tổng quan Admin; danh sách/chi tiết tài khoản; tạo nhân sự; đổi role/khóa/mở. | Khoa | Chưa cập nhật | 06/10/2026 | Dùng Table/Form/Dialog mẫu. Reload detail đúng Admin; tạo/đổi/khóa theo quyền, lỗi rõ; không vào finance. G10 chưa sửa ghi BLOCKED API cho detail. | P0 | Primitives An; G10 |
 | Tuần 5 · KO-02 · Manager: danh mục môn và bảng giá | FE · Q24, Q25 | Bộ môn; gói Gym; giá PT; giá thuê sân — list/tạo/sửa/active theo API. | Khoa | Chưa cập nhật | 07/10/2026 | Dùng cùng form/table, server validate giá và tham chiếu. Gym là môn/PT là dịch vụ ở trình bày; mapping ID theo contract An, không tự migration. | P1 | Table/Form; CAT-01 mapping An |
 | Tuần 5 · KO-03 · Cài đặt và nhật ký hai vai trò | FE · Q26, Q27, Q33 | Tham số vận hành; nhật ký Manager; nhật ký Admin → lọc/chi tiết. | Khoa | Chưa cập nhật | 08/10/2026 | Settings có helper tác động và lưu thật. Audit dùng chung component nhưng query/quyền tách theo role; không tạo log từ FE. | P1 | Shell/table; settings/audit API |
+| Tuần 5 · KO-04 · Manager: tổng quan, lịch và quản lý lớp | FE · Q01, Q02, Q03, Q04, Q05, Q06, Q07 | Tổng quan; lịch vận hành; danh sách lớp; tạo/sửa; chi tiết các tab; publish/dời/bù/hủy; điều kiện mở lớp. | Khoa | Chưa cập nhật | 08/10/2026 | Ưu tiên một ClassEditor và một ClassDetail dùng lại. Tạo nháp → review lịch → publish chạy thật; holds khác confirmed. Đóng tuyển sinh G13 và chờ khóa sau G02 ghi đúng dependency. | P0 | Calendar Hào; primitives An; G13; An G02/Q08 |
+| Tuần 5 · KO-05 · Manager: HLV, sân, sự cố và thông báo | FE · Q13, Q14, Q15, Q16, Q17, Q18, Q28 | HLV nội bộ; duyệt HLV ngoài; sân/phòng/loại sân; sự cố preview/xử lý; soạn/theo dõi thông báo; AI xếp lịch. | Khoa | Chưa cập nhật | 09/10/2026 | Tái dùng list/form/detail. Incident hiện từng hoạt động bị ảnh hưởng và kết quả từng bước. AI phải review/edit trước lưu nháp. G03/G06/G07 chưa xong chỉ tính UI, không giả xử lý thành công. | P0 | An finance/contract; Hào AI/Calendar; G03/G06/G07 |
 
 ### 11/10 — chỉ sửa lỗi và nghiệm thu phần đã giao
 
 | Owner | Việc cần làm | Bằng chứng |
 |---|---|---|
 | An | Kiểm shared + Guest/Member/quầy checkout; ví/refund/PT/reports; lỗi tích hợp thuộc mình | PR, kết quả kiểm tra, số liệu điểm/tiền, callback/expiry nếu đã có môi trường |
-| Khôi | Review visual cuối theo pattern; kiểm public/auth/rental và lớp/sự cố Manager | Ảnh mobile/desktop và kết quả các flow; không tự ký nghiệm thu kỹ thuật thay mọi người |
+| Khôi | Review visual cuối theo pattern; kiểm public/auth (tiếng Anh)/rental; review visual màn class/incident của Khoa | Ảnh mobile/desktop và kết quả các flow; không tự ký nghiệm thu kỹ thuật thay mọi người |
 | Hào | Kiểm search/check-in/attendance/Coach/AI và Calendar ở các consumer | Role tests, lỗi/quyền/context; phối hợp An/Khôi sửa adapter |
-| Khoa | Kiểm 9 màn catalog/settings/audit/Admin và Table/State mình làm | Negative auth, list/detail/form states và PR; không ôm QA toàn nhóm |
+| Khoa | Kiểm 9 màn catalog/settings/audit/Admin, 14 màn Manager vận hành (lớp, HLV, sân, sự cố, notices, AI) và Table/State mình làm | Negative auth, list/detail/form states và PR; không ôm QA toàn nhóm |
 
-Không dành 11/10 để bắt đầu thêm nhóm page mới. Khoa làm xong sớm tiếp tục kiểm/sửa phần mình; không tự chuyển workload nặng của An/Khôi sang Khoa.
+Không dành 11/10 để bắt đầu thêm nhóm page mới. Khoa làm xong sớm tiếp tục kiểm/sửa phần mình; không tự chuyển thêm workload nặng sang Khoa ngoài phần đã ghi ở KO-04/KO-05.
 
 ## 5. Backend và deploy — ghi ở bảng phụ, không trộn với tên trang
 
@@ -116,7 +117,7 @@ Các ghi chú trong ảnh là kế hoạch cũ, chưa chứng minh việc đã l
 | G02 wait-next; G05 self-book PT | An | A16/A19/Q08 và A07; Khôi Q07 consumer | Chốt contract, hoàn thành UI states, ghi BLOCKED API nếu chưa có; không refund/booking giả |
 | G04 Member code/QR | Hào | H01/H02/H04 và An A20 | Search SĐT/tên dùng API hiện có; QR cần resolve server trước bật thật |
 | G01/G09 public catalog | Khôi | K01–K06 | Chỉ dùng public DTO; filter chưa có giữ trạng thái chưa hỗ trợ hoặc fixture riêng có nhãn |
-| G03/G06/G07/G13 | Khôi | Manager AI/incident/notices/close enrollment | Không đồng nhất hiện API preview/resolve với workflow mới đã đủ; ghi từng blocker cụ thể |
+| G03/G06/G07/G13 | Khoa | Manager AI/incident/notices/close enrollment | Không đồng nhất hiện API preview/resolve với workflow mới đã đủ; ghi từng blocker cụ thể |
 | CAT-01 | An | Gym/PT catalog; Khôi public/Coach; Khoa danh mục | Chốt mapping ID/service theo dữ liệu thật; không xóa PT seed/FK. Khoa không làm migration |
 | G08 và D01–D08 | Theo assignment | Refund/history/canonical API | Ưu tiên nối API hợp lệ; cleanup không được chặn redesign nếu compatibility hiện còn dùng được |
 | Staging tối thiểu và CI | An | Môi trường kiểm luồng chung | Tách task vận hành; Khôi hỗ trợ FE build/env, không gánh thêm toàn bộ Compose. Mục tiêu có URL tích hợp trước vòng kiểm 08/10; nếu chưa có, kiểm local tích hợp và ghi blocker, không coi là đã deploy |

@@ -63,7 +63,7 @@ test("F5 ignores stale cached role and refreshes the authoritative profile", asy
   }
 });
 
-test("password reset sends direct OTP and confirm fields, with neutral notice and cooldown", async ({
+test("forgot password gives a neutral answer, and the reset page sets the new password", async ({
   page,
 }) => {
   let payload: Record<string, unknown> | null = null;
@@ -76,15 +76,31 @@ test("password reset sends direct OTP and confirm fields, with neutral notice an
   });
   await page.goto("/forgot-password");
   await page.getByLabel("Email", { exact: true }).fill("person@example.com");
-  await page.getByRole("button", { name: "Send code", exact: true }).click();
+  await page.getByRole("button", { name: "Send reset link" }).click();
   await expect(page.getByRole("status")).toContainText(
-    "If the account can be reset",
+    "If an account associated with this email exists, we have sent a password reset link. Please check your inbox (including spam).",
   );
-  await expect(page.getByRole("button", { name: /Resend/ })).toBeDisabled();
-  await page.getByLabel("Email verification code").fill("123456");
-  await page
-    .getByLabel("New password", { exact: true })
-    .fill("New-Strong-Pass1!");
+  await expect(page.getByRole("status")).not.toContainText(
+    "person@example.com",
+  );
+  await expect(
+    page.getByRole("button", { name: /Resend link/ }),
+  ).toBeDisabled();
+  await page.getByRole("button", { name: "Use a different email" }).click();
+  const email = page.getByLabel("Email", { exact: true });
+  await expect(email).toBeFocused();
+  // Đổi email thì gửi được ngay, không bị thời gian chờ của email trước chặn.
+  const send = page.getByRole("button", { name: "Send reset link" });
+  await expect(send).toBeEnabled();
+  await email.fill("other@example.com");
+  await send.click();
+  await expect(page.getByRole("status")).toContainText("If an account");
+
+  await page.goto("/reset-password?email=person%40example.com&token=abc123");
+  const password = page.getByLabel("New password", { exact: true });
+  await password.fill("New-Strong-Pass1!");
+  await page.getByRole("button", { name: "Show" }).first().click();
+  await expect(password).toHaveAttribute("type", "text");
   await page
     .getByLabel("Confirm password", { exact: true })
     .fill("New-Strong-Pass1!");
@@ -94,8 +110,37 @@ test("password reset sends direct OTP and confirm fields, with neutral notice an
   await expect(page.getByRole("status")).toContainText("Password reset.");
   expect(payload).toEqual({
     email: "person@example.com",
-    otpCode: "123456",
+    token: "abc123",
     newPassword: "New-Strong-Pass1!",
     confirmNewPassword: "New-Strong-Pass1!",
   });
+});
+
+test("expired reset link offers a new one", async ({ page }) => {
+  await page.route("**/api/auth/password/reset", (route) =>
+    route.fulfill({
+      status: 400,
+      json: { error: "otp_expired", message: "het han" },
+    }),
+  );
+  await page.goto("/reset-password?email=person%40example.com&token=old");
+  await page
+    .getByLabel("New password", { exact: true })
+    .fill("New-Strong-Pass1!");
+  await page
+    .getByLabel("Confirm password", { exact: true })
+    .fill("New-Strong-Pass1!");
+  await page
+    .getByRole("button", { name: "Reset password", exact: true })
+    .click();
+  await expect(page.locator(".auth [role=alert]")).toContainText(
+    "invalid or has expired",
+  );
+  await expect(
+    page.getByRole("link", { name: "Request a new link" }),
+  ).toBeVisible();
+  await page.goto("/reset-password");
+  await expect(page.locator(".auth [role=alert]")).toContainText(
+    "invalid or has expired",
+  );
 });

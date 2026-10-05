@@ -28,7 +28,7 @@ Guest không phải role account. Coach có nhiều chuyên môn, không chia ro
 
 | Flow | Yêu cầu |
 |---|---|
-| 1 — User/Membership | Identity, email OTP/Google onboarding, quên/đổi mật khẩu, account status, Membership renewal và Gym access |
+| 1 — User/Membership | Identity, email OTP/Google onboarding, quên mật khẩu bằng link email (không OTP, phản hồi trung tính)/đổi mật khẩu, trang xác thực luôn tiếng Anh, account status, Membership renewal và Gym access |
 | 2 — Class/Schedule | Catalog, nhiều buổi/khóa, seat hold/ghi danh, ngưỡng lớp, chuyển lớp, điểm danh, occupancy, thuê sân và sự cố |
 | 3 — Payment/Report | Invoice/item snapshot, checkout, split điểm + VNPay, gateway verification/reconciliation, hoàn điểm và báo cáo |
 | 4 — Training/Attendance | PT quota/lịch/change request, plan/result/homework; điểm danh lớp nhóm bởi Receptionist |
