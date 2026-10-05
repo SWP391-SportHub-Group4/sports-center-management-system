@@ -5,6 +5,8 @@ import { api } from "@/lib/apiClient";
 import { Feedback, Field } from "@/components/ui";
 import { useAction, useNow } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
+import { IconClose } from "@/components/icons";
+import styles from "./forgot-password.module.css";
 import { OtpInput } from "@/features/identity/otp-input";
 import {
   PasswordRequirements,
@@ -40,7 +42,17 @@ export default function ForgotPasswordPage() {
   return (
     <main className="auth">
       <div className="auth__card">
-        <h1>{t.identity.forgotTitle}</h1>
+        <div className={styles.head}>
+          <h1>{t.identity.forgotTitle}</h1>
+          <Link
+            href="/login"
+            className={styles.close}
+            aria-label={t.common.close}
+          >
+            <IconClose size={18} />
+          </Link>
+        </div>
+        {!done && <p className={styles.lead}>{t.identity.forgotDescription}</p>}
         {done ? (
           <p role="status">{t.identity.resetDone}</p>
         ) : (
@@ -132,7 +144,10 @@ export default function ForgotPasswordPage() {
           </>
         )}
         <Feedback error={action.error} />
-        <Link href="/login">{t.identity.login}</Link>
+        <p className={styles.footer}>
+          <span>{t.identity.rememberedPassword}</span>
+          <Link href="/login">{t.identity.login}</Link>
+        </p>
       </div>
     </main>
   );

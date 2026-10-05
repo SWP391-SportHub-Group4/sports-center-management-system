@@ -642,6 +642,9 @@ export const en = {
     otp: "Email verification code",
     email: "Email",
     forgotTitle: "Reset password",
+    forgotDescription:
+      "Enter the email you use to sign in. We will send a code so you can set a new password.",
+    rememberedPassword: "Remembered your password?",
     resetDone: "Password reset. Sign in with your new password.",
     resend: "Resend",
     sendCode: "Send code",
