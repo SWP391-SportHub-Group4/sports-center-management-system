@@ -82,7 +82,9 @@ for (const points of [0, 50, 200])
     await expect(
       page.getByRole("button", { name: "Confirm payment", exact: true }),
     ).toBeVisible();
-    const invoiceId = new URL(page.url()).searchParams.get("invoiceId")!;
+    // Sau khi tạo đơn, URL chuyển sang /checkout/[invoiceId].
+    await expect(page).toHaveURL(/\/checkout\/[0-9a-f-]{36}$/i);
+    const invoiceId = new URL(page.url()).pathname.split("/").pop()!;
     expect(invoiceId).toBeTruthy();
     if (points > 0) {
       await page.getByLabel("Points", { exact: true }).fill(String(points));
