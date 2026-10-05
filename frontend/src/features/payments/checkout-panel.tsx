@@ -22,6 +22,9 @@ import type {
 } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
 import { Card } from "@/components/ui";
+import { Button, buttonClass } from "@/components/primitives";
+import Link from "next/link";
+import { toCheckoutViewModel } from "./checkout.contract";
 import styles from "./checkout-panel.module.css";
 
 type CheckoutReview = {
@@ -59,7 +62,18 @@ function CheckoutFlow({
     user?.role === "Member" ||
     user?.role === "ExternalCoach" ||
     user?.role === "Receptionist";
-  const [points, setPoints] = useState("0");
+  // Điểm đang soạn gắn với revision: server đổi đơn (ví dụ ở tab khác) thì bản nháp cũ bị bỏ và ô
+  // nhập quay về số điểm server đang áp dụng, thay vì ghi đè mù.
+  const [draft, setDraft] = useState<{
+    value: string;
+    revision: number;
+  } | null>(null);
+  const points =
+    draft && draft.revision === checkout?.revision
+      ? draft.value
+      : String(checkout?.pointsApplied ?? 0);
+  const setPoints = (value: string) =>
+    setDraft({ value, revision: checkout?.revision ?? -1 });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<{
     cause: unknown;
@@ -149,7 +163,11 @@ function CheckoutFlow({
         if (!controller.signal.aborted) {
           setConfirmation(c);
           setCounterReady(true);
-          if (c) setPoints(String(c.points));
+          if (c)
+            setDraft({
+              value: String(c.points),
+              revision: checkout?.revision ?? -1,
+            });
           if (c) setResendAt(Date.parse(c.resendAtUtc));
         }
       })
@@ -236,11 +254,7 @@ function CheckoutFlow({
       const next = await paymentApi.create(intent, key.current);
       if (alive.current) {
         setCheckout(next);
-        window.history.replaceState(
-          null,
-          "",
-          `/payments/return?invoiceId=${next.invoiceId}`,
-        );
+        window.history.replaceState(null, "", `/checkout/${next.invoiceId}`);
       }
     } catch (e) {
       if (e instanceof ApiError && (e.status === 0 || e.status >= 500)) {
@@ -252,7 +266,7 @@ function CheckoutFlow({
           window.history.replaceState(
             null,
             "",
-            `/payments/return?invoiceId=${recovered.invoiceId}`,
+            `/checkout/${recovered.invoiceId}`,
           );
           return;
         }
@@ -283,323 +297,475 @@ function CheckoutFlow({
     Number(points) <=
       Math.min(
         wallet.data.availablePoints + (checkout?.pointsApplied ?? 0),
-        Math.floor((checkout?.totalAmount ?? 0) / 1000),
+        Math.floor(
+          (checkout?.totalAmount ?? 0) / (wallet.data.vndPerPoint || 1000),
+        ),
       );
-  return (
-    <Card title={!checkout && review ? review.title : l.buy}>
-      <div aria-live="polite">
-        {errorMessage && <p role="alert">{errorMessage}</p>}
-        {!checkout ? (
-          <>
-            {review && (
-              <dl className={styles.review}>
-                {review.items.map((item) => (
-                  <div key={item.label}>
-                    <dt>{item.label}</dt>
-                    <dd>{item.value}</dd>
-                  </div>
-                ))}
-              </dl>
-            )}
-            <button
-              type="button"
-              className="btn btn--secondary"
-              disabled={busy || !intent}
-              onClick={() => run(create)}
-            >
-              {review?.submitLabel ?? l.buy}
-            </button>
-          </>
-        ) : (
-          <>
-            <p>
-              {l.invoice}: {checkout.invoiceId}
-            </p>
-            {detail.data && (
-              <>
-                <p>
-                  {detail.data.summary.memberName} ·{" "}
-                  {detail.data.summary.memberEmail}
-                </p>
-                <ul>
-                  {detail.data.items.map((item) => (
-                    <li key={item.itemId}>
-                      {item.description} · {formatMoney(item.lineAmount)}
-                    </li>
-                  ))}
-                </ul>
-              </>
-            )}
-            <InvoiceStatus checkout={checkout} />
-            <dl>
-              <dt>{l.total}</dt>
-              <dd>{formatMoney(checkout.totalAmount)}</dd>
-              <dt>{l.points}</dt>
-              <dd>{formatPoints(checkout.pointsApplied)}</dd>
-              <dt>{l.cash}</dt>
-              <dd>{formatMoney(checkout.cashAmount)}</dd>
+
+  // Hết giờ: dừng thao tác cũ và hỏi lại server. FE không có quyền "release slot" — job backend xử lý.
+  const expiryFetched = useRef<string | null>(null);
+  useEffect(() => {
+    if (!expired || !id || status !== "ISSUED" || expiryFetched.current === id)
+      return;
+    expiryFetched.current = id;
+    api
+      .get<CheckoutDto>(`/api/checkouts/${id}`)
+      .then((next) => {
+        if (alive.current) setCheckout(next);
+      })
+      .catch(() => {});
+  }, [expired, id, status]);
+  // Quay lại tab: số dư điểm hoặc đơn có thể đã đổi ở nơi khác.
+  const reloadWallet = wallet.reload;
+  useEffect(() => {
+    if (!id || status !== "ISSUED") return;
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      reloadWallet();
+      api
+        .get<CheckoutDto>(`/api/checkouts/${id}`)
+        .then((next) => {
+          if (alive.current) setCheckout(next);
+        })
+        .catch(() => {});
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [id, status, reloadWallet]);
+  const vm = checkout
+    ? toCheckoutViewModel(checkout, {
+        mode: memberId
+          ? "COUNTER"
+          : user?.role === "ExternalCoach"
+            ? "EXTERNAL_COACH"
+            : "SELF",
+        beneficiaryName: detail.data?.summary.memberName,
+        initiatorName: user?.fullName,
+      })
+    : null;
+  const serverNow = now + clockOffset;
+  const pointsValue = checkout ? checkout.totalAmount - checkout.cashAmount : 0;
+  const showExpiredRetry =
+    expired &&
+    ["MEMBERSHIP", "CLASS", "PT", "COURT_RENTAL"].includes(
+      checkout?.kind ?? "",
+    ) &&
+    checkout?.invoiceStatus === "ISSUED" &&
+    !checkout.reconciliationRequired;
+  if (!checkout || !vm)
+    return (
+      <Card title={review ? review.title : l.buy}>
+        <div aria-live="polite">
+          {errorMessage && <p role="alert">{errorMessage}</p>}
+          {review && (
+            <dl className={styles.review}>
+              {review.items.map((item) => (
+                <div key={item.label}>
+                  <dt>{item.label}</dt>
+                  <dd>{item.value}</dd>
+                </div>
+              ))}
             </dl>
-            <HoldCountdown
-              expiresAtUtc={checkout.expiresAtUtc}
-              serverNow={now + clockOffset}
-            />
-            {active && (
-              <>
-                {canSelectPoints && (
-                  <>
-                    <PointsSelector
-                      value={points}
-                      onChange={setPoints}
-                      wallet={wallet.data}
-                      totalAmount={checkout.totalAmount}
-                      pointsApplied={checkout.pointsApplied}
-                      disabled={busy || !!confirmation}
-                    />
-                    {wallet.error && <p role="alert">{wallet.error.message}</p>}
-                    <button
-                      className="btn btn--secondary"
-                      disabled={
-                        busy ||
-                        !validPoints ||
-                        !!confirmation ||
-                        (!!memberId && !counterReady)
-                      }
-                      onClick={() =>
-                        run(async () => {
-                          setAttempt(null);
-                          if (memberId && Number(points) === 0) {
-                            await api.post(
-                              `/api/invoices/${id}/point-confirmations/clear`,
-                              { memberId, revision: checkout.revision },
-                            );
-                            setConfirmation(null);
-                          } else if (memberId) {
-                            const result = await api.post<{
-                              confirmationId: string;
-                              expiresAtUtc: string;
-                              revision: number;
-                            }>(`/api/invoices/${id}/point-confirmations`, {
-                              memberId,
-                              revision: checkout.revision,
-                              points: Number(points),
-                            });
-                            setConfirmation(result);
-                            setResendAt(Date.now() + 60000);
-                          } else
-                            await api.post(
-                              `/api/wallet/me/checkouts/${id}/points`,
-                              { points: Number(points) },
-                            );
-                          await refresh();
-                        })
-                      }
-                    >
-                      {memberId ? l.requestOtp : l.apply}
-                    </button>
-                    {confirmation && (
-                      <CounterPointConfirmation
-                        confirmation={confirmation}
-                        code={code}
-                        onCodeChange={setCode}
-                        busy={busy}
-                        serverNow={now + clockOffset}
-                        resendAt={resendAt}
-                        onVerify={() =>
-                          run(async () => {
-                            try {
-                              await api.post(
-                                `/api/point-confirmations/${confirmation.confirmationId}/verify`,
-                                { code },
-                              );
-                            } catch (e) {
-                              setConfirmation(
-                                await api.get<CounterConfirmation | null>(
-                                  `/api/invoices/${id}/point-confirmations/current`,
-                                ),
-                              );
-                              throw e;
-                            }
-                            setConfirmation(null);
-                            setCode("");
-                            await refresh();
-                          })
-                        }
-                        onClear={() =>
-                          run(async () => {
-                            await api.post(
-                              `/api/invoices/${id}/point-confirmations/clear`,
-                              { memberId, revision: checkout.revision },
-                            );
-                            setConfirmation(null);
-                            setCode("");
-                            await refresh();
-                          })
-                        }
-                        onResend={() =>
-                          run(async () => {
-                            const next = await api.post<CounterConfirmation>(
-                              `/api/invoices/${id}/point-confirmations`,
-                              {
-                                memberId,
-                                revision: checkout.revision,
-                                points: confirmation.points ?? Number(points),
-                              },
-                            );
-                            setConfirmation(next);
-                            setCode("");
-                            setResendAt(Date.now() + 60000);
-                            await refresh();
-                          })
-                        }
-                      />
-                    )}
-                  </>
-                )}
-                <button
-                  className="btn btn--secondary"
-                  disabled={
-                    busy ||
-                    !!confirmation ||
-                    (user?.role === "Receptionist" && !counterReady)
-                  }
-                  onClick={() =>
-                    run(async () => {
-                      if (checkout.cashAmount === 0) {
-                        setCheckout(await paymentApi.confirmPoints(id!));
-                        onChange?.();
-                      } else setAttempt(await paymentApi.attempt(id!));
-                    })
-                  }
-                >
-                  {l.pay}
-                </button>
-                <button
-                  className="btn btn--secondary"
-                  disabled={busy}
-                  onClick={() =>
-                    run(async () => {
-                      await api.post(`/api/checkouts/${id}/cancel`);
-                      setAttempt(null);
-                      setConfirmation(null);
-                      await refresh();
-                    })
-                  }
-                >
-                  {l.cancel}
-                </button>
-              </>
+          )}
+          <Button
+            variant="primary"
+            loading={busy}
+            disabled={!intent}
+            onClick={() => run(create)}
+          >
+            {review?.submitLabel ?? l.buy}
+          </Button>
+        </div>
+      </Card>
+    );
+  return (
+    <div className={styles.layout}>
+      <div className={styles.steps} aria-live="polite">
+        {errorMessage && (
+          <p role="alert" className={styles.alert}>
+            {errorMessage}
+          </p>
+        )}
+        <InvoiceStatus checkout={checkout} />
+        {vm.phase === "FULFILLED" && user?.role === "Member" && (
+          <div className={styles.actions}>
+            <Link
+              className={buttonClass({ variant: "secondary" })}
+              href={`/member/invoices/${checkout.invoiceId}`}
+            >
+              {t.checkout.viewInvoice}
+            </Link>
+          </div>
+        )}
+        <section className={styles.step} aria-labelledby="checkout-step-order">
+          <h2 className={styles.stepTitle} id="checkout-step-order">
+            <span className={styles.stepNo} aria-hidden="true">
+              1
+            </span>
+            {t.checkout.stepService}
+          </h2>
+          {detail.data ? (
+            <ul className={styles.items}>
+              {detail.data.items.map((item) => (
+                <li key={item.itemId}>
+                  <span>{item.description}</span>
+                  <span className={styles.money}>
+                    {formatMoney(item.lineAmount)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className={styles.note}>{t.checkout.loadingOrder}</p>
+          )}
+        </section>
+        {active && canSelectPoints && (
+          <section
+            className={styles.step}
+            aria-labelledby="checkout-step-points"
+          >
+            <h2 className={styles.stepTitle} id="checkout-step-points">
+              <span className={styles.stepNo} aria-hidden="true">
+                2
+              </span>
+              {t.checkout.stepPoints}
+            </h2>
+            {vm.pointsAuth === "OTP_EMAIL" && (
+              <p className={styles.note}>{t.checkout.pointsOtpNote}</p>
             )}
-            {expired &&
-              checkout.kind === "PT" &&
-              checkout.ptMemberPackageId && (
-                <>
-                  <button
-                    className="btn btn--secondary"
-                    disabled={busy}
-                    onClick={() =>
-                      run(async () => {
-                        setRetryQuote(
-                          await api.post("/api/checkouts/pt/quote", {
-                            memberPackageId: checkout.ptMemberPackageId,
-                            coachId: checkout.ptCoachId,
-                            frequencyPerWeek: checkout.ptFrequency,
-                            targetMemberId: memberId,
-                          }),
-                        );
-                        retryKey.current = null;
-                      })
+            <PointsSelector
+              value={points}
+              onChange={setPoints}
+              wallet={wallet.data}
+              totalAmount={checkout.totalAmount}
+              pointsApplied={checkout.pointsApplied}
+              disabled={busy || !!confirmation}
+            />
+            {wallet.error && (
+              <p role="alert" className={styles.alert}>
+                {wallet.error.message}
+              </p>
+            )}
+            <div className={styles.actions}>
+              <Button
+                variant="secondary"
+                disabled={
+                  busy ||
+                  !validPoints ||
+                  !!confirmation ||
+                  (!!memberId && !counterReady)
+                }
+                onClick={() =>
+                  run(async () => {
+                    setAttempt(null);
+                    if (memberId && Number(points) === 0) {
+                      await api.post(
+                        `/api/invoices/${id}/point-confirmations/clear`,
+                        { memberId, revision: checkout.revision },
+                      );
+                      setConfirmation(null);
+                    } else if (memberId) {
+                      const result = await api.post<{
+                        confirmationId: string;
+                        expiresAtUtc: string;
+                        revision: number;
+                      }>(`/api/invoices/${id}/point-confirmations`, {
+                        memberId,
+                        revision: checkout.revision,
+                        points: Number(points),
+                      });
+                      setConfirmation(result);
+                      setResendAt(Date.now() + 60000);
+                    } else
+                      await api.post(`/api/wallet/me/checkouts/${id}/points`, {
+                        points: Number(points),
+                      });
+                    await refresh();
+                  })
+                }
+              >
+                {memberId ? l.requestOtp : l.apply}
+              </Button>
+            </div>
+            {confirmation && (
+              <CounterPointConfirmation
+                confirmation={confirmation}
+                code={code}
+                onCodeChange={setCode}
+                busy={busy}
+                serverNow={serverNow}
+                resendAt={resendAt}
+                onVerify={() =>
+                  run(async () => {
+                    try {
+                      await api.post(
+                        `/api/point-confirmations/${confirmation.confirmationId}/verify`,
+                        { code },
+                      );
+                    } catch (e) {
+                      setConfirmation(
+                        await api.get<CounterConfirmation | null>(
+                          `/api/invoices/${id}/point-confirmations/current`,
+                        ),
+                      );
+                      throw e;
                     }
-                  >
-                    {l.quote}
-                  </button>
-                  {retryQuote && (
-                    <p>
-                      {retryQuote.totalQuota} ×{" "}
-                      {formatMoney(retryQuote.pricePerSession)} ={" "}
-                      {formatMoney(retryQuote.totalPrice)}
-                    </p>
-                  )}
+                    setConfirmation(null);
+                    setCode("");
+                    await refresh();
+                  })
+                }
+                onClear={() =>
+                  run(async () => {
+                    await api.post(
+                      `/api/invoices/${id}/point-confirmations/clear`,
+                      { memberId, revision: checkout.revision },
+                    );
+                    setConfirmation(null);
+                    setCode("");
+                    await refresh();
+                  })
+                }
+                onResend={() =>
+                  run(async () => {
+                    const next = await api.post<CounterConfirmation>(
+                      `/api/invoices/${id}/point-confirmations`,
+                      {
+                        memberId,
+                        revision: checkout.revision,
+                        points: confirmation.points ?? Number(points),
+                      },
+                    );
+                    setConfirmation(next);
+                    setCode("");
+                    setResendAt(Date.now() + 60000);
+                    await refresh();
+                  })
+                }
+              />
+            )}
+          </section>
+        )}
+        {active && (
+          <section
+            className={styles.step}
+            aria-labelledby="checkout-step-payment"
+          >
+            <h2 className={styles.stepTitle} id="checkout-step-payment">
+              <span className={styles.stepNo} aria-hidden="true">
+                {canSelectPoints ? 3 : 2}
+              </span>
+              {t.checkout.stepPayment}
+            </h2>
+            <p className={styles.note}>
+              {vm.next === "CONFIRM_POINTS" ? (
+                t.checkout.nextPoints
+              ) : (
+                <>
+                  {t.checkout.nextGateway}{" "}
+                  <strong className={styles.money}>
+                    {formatMoney(checkout.cashAmount)}
+                  </strong>
                 </>
               )}
-            {expired &&
-              ["MEMBERSHIP", "CLASS", "PT", "COURT_RENTAL"].includes(
-                checkout.kind,
-              ) &&
-              checkout.invoiceStatus === "ISSUED" &&
-              !checkout.reconciliationRequired && (
-                <button
-                  className="btn btn--secondary"
-                  disabled={
-                    busy ||
-                    (checkout.kind === "PT" &&
-                      !retryQuote?.priceVersion &&
-                      !intent?.body.priceVersion)
-                  }
-                  onClick={() =>
-                    run(async () => {
-                      const next = await api.post<CheckoutDto>(
-                        `/api/checkouts/${id}/retry`,
-                        {
-                          priceVersion:
-                            retryQuote?.priceVersion ??
-                            intent?.body.priceVersion,
-                        },
-                        {
-                          idempotencyKey: (retryKey.current ??=
-                            crypto.randomUUID()),
-                        },
-                      );
-                      setCheckout(next);
-                      setAttempt(null);
-                      window.history.replaceState(
-                        null,
-                        "",
-                        `/payments/return?invoiceId=${next.invoiceId}`,
-                      );
-                    })
-                  }
-                >
-                  {l.retry}
-                </button>
-              )}
+            </p>
+            <HoldCountdown
+              expiresAtUtc={checkout.expiresAtUtc}
+              serverNow={serverNow}
+              showSource
+            />
+            <div className={styles.actions}>
+              <Button
+                variant="primary"
+                size="lg"
+                loading={busy}
+                disabled={
+                  !!confirmation ||
+                  (user?.role === "Receptionist" && !counterReady)
+                }
+                onClick={() =>
+                  run(async () => {
+                    if (checkout.cashAmount === 0) {
+                      setCheckout(await paymentApi.confirmPoints(id!));
+                      onChange?.();
+                    } else setAttempt(await paymentApi.attempt(id!));
+                  })
+                }
+              >
+                {l.pay}
+              </Button>
+              <Button
+                variant="ghost"
+                disabled={busy}
+                onClick={() =>
+                  run(async () => {
+                    await api.post(`/api/checkouts/${id}/cancel`);
+                    setAttempt(null);
+                    setConfirmation(null);
+                    await refresh();
+                  })
+                }
+              >
+                {l.cancel}
+              </Button>
+            </div>
             {attempt &&
-              active &&
               checkout.cashAmount > 0 &&
               attempt.cashAmount === checkout.cashAmount &&
               attempt.pointsApplied === checkout.pointsApplied &&
-              Date.parse(attempt.expiresAtUtc) > now + clockOffset && (
-                <PaymentAttemptPanel
-                  key={attempt.paymentAttemptId}
-                  attempt={attempt}
-                />
+              Date.parse(attempt.expiresAtUtc) > serverNow && (
+                <div className={styles.attempt}>
+                  <PaymentAttemptPanel
+                    key={attempt.paymentAttemptId}
+                    attempt={attempt}
+                  />
+                </div>
               )}
-            <button
-              className="btn btn--secondary"
-              disabled={busy}
-              onClick={() => run(refresh)}
-            >
-              {l.refresh}
-            </button>
-            {(user?.role === "Receptionist" ||
-              user?.role === "CenterManager") &&
-              checkout.reconciliationRequired && (
-                <button
-                  className="btn btn--secondary"
-                  disabled={busy}
-                  onClick={() =>
-                    run(async () => {
-                      await api.post(`/api/invoices/${id}/reconcile`);
-                      await refresh();
-                    })
-                  }
-                >
-                  {l.reconcile}
-                </button>
-              )}
-          </>
+          </section>
         )}
+        {expired && checkout.kind === "PT" && checkout.ptMemberPackageId && (
+          <div className={styles.actions}>
+            <Button
+              variant="secondary"
+              disabled={busy}
+              onClick={() =>
+                run(async () => {
+                  setRetryQuote(
+                    await api.post("/api/checkouts/pt/quote", {
+                      memberPackageId: checkout.ptMemberPackageId,
+                      coachId: checkout.ptCoachId,
+                      frequencyPerWeek: checkout.ptFrequency,
+                      targetMemberId: memberId,
+                    }),
+                  );
+                  retryKey.current = null;
+                })
+              }
+            >
+              {l.quote}
+            </Button>
+            {retryQuote && (
+              <p className={styles.money}>
+                {retryQuote.totalQuota} ×{" "}
+                {formatMoney(retryQuote.pricePerSession)} ={" "}
+                {formatMoney(retryQuote.totalPrice)}
+              </p>
+            )}
+          </div>
+        )}
+        {showExpiredRetry && (
+          <div className={styles.actions}>
+            <Button
+              variant="primary"
+              disabled={
+                busy ||
+                (checkout.kind === "PT" &&
+                  !retryQuote?.priceVersion &&
+                  !intent?.body.priceVersion)
+              }
+              onClick={() =>
+                run(async () => {
+                  const next = await api.post<CheckoutDto>(
+                    `/api/checkouts/${id}/retry`,
+                    {
+                      priceVersion:
+                        retryQuote?.priceVersion ?? intent?.body.priceVersion,
+                    },
+                    {
+                      idempotencyKey: (retryKey.current ??=
+                        crypto.randomUUID()),
+                    },
+                  );
+                  setCheckout(next);
+                  setAttempt(null);
+                  window.history.replaceState(
+                    null,
+                    "",
+                    `/checkout/${next.invoiceId}`,
+                  );
+                })
+              }
+            >
+              {l.retry}
+            </Button>
+          </div>
+        )}
+        <div className={styles.actions}>
+          <Button variant="quiet" disabled={busy} onClick={() => run(refresh)}>
+            {l.refresh}
+          </Button>
+          {(user?.role === "Receptionist" || user?.role === "CenterManager") &&
+            checkout.reconciliationRequired && (
+              <Button
+                variant="secondary"
+                disabled={busy}
+                onClick={() =>
+                  run(async () => {
+                    await api.post(`/api/invoices/${id}/reconcile`);
+                    await refresh();
+                  })
+                }
+              >
+                {l.reconcile}
+              </Button>
+            )}
+        </div>
       </div>
-    </Card>
+      <aside className={styles.summary} aria-label={t.checkout.summary}>
+        <h2 className={styles.summaryTitle}>{t.checkout.summary}</h2>
+        <p className={styles.who}>
+          <span>
+            {l.invoice}:{" "}
+            <strong>
+              {detail.data?.summary.invoiceNumber ?? checkout.invoiceId}
+            </strong>
+          </span>
+          {vm.mode === "COUNTER" ? (
+            <>
+              <span>
+                {t.checkout.counterFor}:{" "}
+                <strong>
+                  {vm.beneficiary.displayName ?? t.checkout.buyer}
+                </strong>
+              </span>
+              <span>
+                {t.checkout.operator}:{" "}
+                <strong>
+                  {vm.initiator.displayName ?? t.common.receptionist}
+                </strong>
+              </span>
+            </>
+          ) : (
+            <span>
+              {t.checkout.buyer}:{" "}
+              <strong>
+                {vm.beneficiary.displayName ?? t.checkout.buyerSelf}
+              </strong>
+            </span>
+          )}
+        </p>
+        <dl className={styles.rows}>
+          <div>
+            <dt>{t.checkout.totalLine}</dt>
+            <dd>{formatMoney(vm.totalAmount)}</dd>
+          </div>
+          <div>
+            <dt>{t.checkout.pointsLine}</dt>
+            <dd>
+              {formatPoints(vm.pointsApplied)} {l.points.toLowerCase()}
+              {vm.pointsApplied > 0 && <> (−{formatMoney(pointsValue)})</>}
+            </dd>
+          </div>
+          <div className={styles.rowsTotal}>
+            <dt>{t.checkout.cashLine}</dt>
+            <dd>{formatMoney(vm.cashAmount)}</dd>
+          </div>
+        </dl>
+        {vm.phase === "AWAITING_PAYMENT" && (
+          <HoldCountdown expiresAtUtc={vm.expiresAtUtc} serverNow={serverNow} />
+        )}
+      </aside>
+    </div>
   );
 }
 

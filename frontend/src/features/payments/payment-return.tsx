@@ -6,15 +6,16 @@ import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/apiClient";
 import type { CheckoutDto } from "@/lib/types";
 import Link from "next/link";
-export function PaymentReturn() {
+/** `invoiceId` có sẵn (route /checkout/[invoiceId]) thì dùng thẳng; không thì đọc từ query của /payments/return. */
+export function PaymentReturn({ invoiceId }: { invoiceId?: string } = {}) {
   const { t } = useLanguage();
   const { user, loading } = useAuth();
-  const [id, setId] = useState<string | null>(null);
+  const [id, setId] = useState<string | null>(invoiceId ?? null);
   const [error, setError] = useState("");
   const [next, setNext] = useState("/payments/return");
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
-    const value = q.get("invoiceId");
+    const value = invoiceId ?? q.get("invoiceId");
     const reference = q.get("vnp_TxnRef");
     const controller = new AbortController();
     setTimeout(
@@ -41,11 +42,11 @@ export function PaymentReturn() {
           if (!controller.signal.aborted) setError(e.message);
         });
     return () => controller.abort();
-  }, [user]);
+  }, [user, invoiceId]);
   return (
     <>
       <main className="refactor-public">
-        <h1>{t.refactor.buy}</h1>
+        <h1>{t.checkout.title}</h1>
         {error && <p role="alert">{error}</p>}
         {loading ? (
           <p>{t.refactor.loading}</p>

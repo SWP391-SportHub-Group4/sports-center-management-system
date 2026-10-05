@@ -59,6 +59,8 @@ Ngoài phạm vi: đa chi nhánh, payroll/hợp đồng, chia doanh thu HLV ngo�
 - Return URL không xác nhận payment. Chỉ callback/query được xác minh cấp quyền lợi; retry không thu/cấp/hoàn trùng.
 - Điểm chỉ giữ/trừ theo xác nhận; dùng điểm hộ cần OTP Member. Hoàn trả bằng điểm theo item và cap hệ thống tính.
 - Manager duyệt theo quyền; SystemAdministrator không mặc nhiên có quyền nghiệp vụ; Coach chỉ đọc dữ liệu được phân công.
+- Checkout (A15, đã triển khai): hai cột, tóm tắt hiển thị tổng/điểm/tiền còn lại đúng số server; đồng hồ giữ chỗ tính từ `expiresAtUtc − serverNowUtc` và không reset khi reload; hết giờ thì dừng thao tác và tải lại, FE không "release slot"; quay lại tab thì tải lại ví và đơn; return từ cổng thanh toán không chứng minh đã thu. Route `/checkout/[invoiceId]`; tài chính Member ở `/member/finance?tab=wallet|invoices`, chi tiết `/member/invoices/[id]` (route cũ `/member/wallet`, `/member/invoices` chuyển hướng).
+- Quên mật khẩu bằng link email (BR-103): phản hồi trung tính; xem thiết kế v3 mục Danh tính. Trang xác thực luôn tiếng Anh.
 - “Chờ đợt sau” cần hoàn 100% điểm + subscription thông báo, không giữ tiền/chỗ hoặc tự ghi danh.
 
 ## 5. Quy ước kỹ thuật

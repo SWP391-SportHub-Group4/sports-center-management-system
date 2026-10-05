@@ -41,7 +41,7 @@ Nền tảng đa môn khép kín cho trung tâm thể thao: khác với phần m
 - **Hoàn trả chỉ bằng điểm**: Không hoàn tiền mặt/chuyển khoản, không hoàn qua cổng thanh toán; Manager duyệt yêu cầu hoàn điểm.
 - **Chống trùng lịch**: Sân và Coach không thể bị xếp hai hoạt động cùng khung giờ (exclusion constraint).
 - **Thuê sân của ExternalCoach**: Chỉ ExternalCoach đã duyệt được đặt; hủy trước 24 giờ hoàn 100% điểm, muộn hơn không hoàn; sự cố do trung tâm hoàn 100%.
-- **Tài khoản an toàn**: Mật khẩu mạnh; quên mật khẩu qua OTP email, không cần mật khẩu cũ.
+- **Tài khoản an toàn**: Mật khẩu mạnh; quên mật khẩu qua **link đặt lại gửi email** (hạn 10 phút, dùng một lần, phản hồi trung tính không lộ email đã đăng ký), không cần mật khẩu cũ. Các trang xác thực luôn hiển thị tiếng Anh.
 - **Hỗ trợ đa ngôn ngữ (i18n)**: Mặc định Tiếng Anh (EN) kèm hỗ trợ Tiếng Việt (VI), chuyển đổi tức thì trên navbar không tải lại trang.
 
 ## Brand Commitments
