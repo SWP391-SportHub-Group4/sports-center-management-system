@@ -196,6 +196,90 @@ test("member account keeps shared navigation and toggles each password independe
   ).toBe(true);
 });
 
+for (const rejection of [
+  { status: 400, error: "current_password_incorrect" },
+  { status: 401, error: "invalid_credentials" },
+]) {
+  test(`wrong current password (${rejection.status}) preserves session and allows retry`, async ({
+    page,
+  }) => {
+    await setup(page);
+    let attempts = 0;
+    await page.route("**/api/users/me/password", (route) => {
+      attempts++;
+      return route.fulfill(
+        attempts === 1
+          ? {
+              status: rejection.status,
+              json: {
+                error: rejection.error,
+                message: "Mật khẩu hiện tại không đúng.",
+              },
+            }
+          : { json: { accessToken: "fresh-token" } },
+      );
+    });
+    await page.goto("/account");
+    const current = page.getByLabel("Current password", { exact: true });
+    await current.fill("Wrong-Current-1!");
+    await page
+      .getByLabel("New password", { exact: true })
+      .fill("Fresh-Pass-2!");
+    await page
+      .getByLabel("Confirm new password", { exact: true })
+      .fill("Fresh-Pass-2!");
+    await page
+      .getByRole("button", { name: "Change password", exact: true })
+      .click();
+    await expect(page.getByRole("alert")).toContainText(
+      "Current password is incorrect",
+    );
+    await expect(page).toHaveURL(/\/account$/);
+    await expect(current).toBeFocused();
+    await expect(current).toHaveAttribute("aria-invalid", "true");
+    expect(
+      await page.evaluate(() => localStorage.getItem("sporthub.accessToken")),
+    ).toBe("test-token");
+    await current.fill("Correct-Current-1!");
+    await expect(current).not.toHaveAttribute("aria-invalid", "true");
+    await page
+      .getByRole("button", { name: "Change password", exact: true })
+      .click();
+    await expect(
+      page.getByText("Password updated successfully.", { exact: true }),
+    ).toBeVisible();
+    await expect(current).toHaveValue("");
+    expect(
+      await page.evaluate(() => localStorage.getItem("sporthub.accessToken")),
+    ).toBe("fresh-token");
+    expect(attempts).toBe(2);
+  });
+}
+
+test("password change still signs out a genuinely expired session", async ({
+  page,
+}) => {
+  await setup(page);
+  await page.route("**/api/users/me/password", (route) =>
+    route.fulfill({ status: 401, json: { error: "token_expired" } }),
+  );
+  await page.goto("/account");
+  await page
+    .getByLabel("Current password", { exact: true })
+    .fill("Current-Pass-1!");
+  await page.getByLabel("New password", { exact: true }).fill("Fresh-Pass-2!");
+  await page
+    .getByLabel("Confirm new password", { exact: true })
+    .fill("Fresh-Pass-2!");
+  await page
+    .getByRole("button", { name: "Change password", exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/login/);
+  expect(
+    await page.evaluate(() => localStorage.getItem("sporthub.accessToken")),
+  ).toBeNull();
+});
+
 test("schedule reuses Calendar and includes the last PT page and own attendance", async ({
   page,
 }) => {

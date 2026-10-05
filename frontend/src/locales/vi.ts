@@ -1250,6 +1250,7 @@ export const vi: Translations = {
     saveProfile: "Lưu thông tin",
     profileSuccess: "Đã cập nhật thông tin cá nhân thành công.",
     currentPassword: "Mật khẩu hiện tại",
+    currentPasswordIncorrect: "Mật khẩu hiện tại không đúng. Vui lòng nhập lại.",
     newPassword: "Mật khẩu mới",
     confirmPassword: "Xác nhận mật khẩu mới",
     passwordMinHint: "Mật khẩu yêu cầu tối thiểu 8 ký tự.",

@@ -1253,6 +1253,7 @@ export const en = {
     saveProfile: "Save profile",
     profileSuccess: "Profile updated successfully.",
     currentPassword: "Current password",
+    currentPasswordIncorrect: "Current password is incorrect. Please try again.",
     newPassword: "New password",
     confirmPassword: "Confirm new password",
     passwordMinHint: "Minimum 8 characters required.",
