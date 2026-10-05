@@ -1,15 +1,15 @@
-# Giao việc Khôi — UI/UX Lead, Landing và vận hành Manager
+# Giao việc Khôi — UI/UX Lead, Landing, Auth và ExternalCoach
 
 SportHub là **hệ thống quản lý trung tâm thể thao với ba môn Gym (bao gồm PT), cầu lông và bóng rổ; có thể mở rộng thêm môn trong tương lai**. PT là dịch vụ thuộc Gym, không phải môn thứ tư.
 
-**Khôi là UI/UX Lead của nhóm và vẫn chủ trì landing page.** Khôi quyết định mẫu flow/layout/hierarchy/visual theo DESIGN-TOKENS, review màn mẫu của ba bạn; An chịu trách nhiệm nền tảng kỹ thuật/shared implementation. Khôi nhận thêm vận hành Manager Q01–Q07, Q13–Q18, Q28.
+**Khôi là UI/UX Lead của nhóm và vẫn chủ trì landing page.** Khôi quyết định mẫu flow/layout/hierarchy/visual theo DESIGN-TOKENS, review màn mẫu của ba bạn; An chịu trách nhiệm nền tảng kỹ thuật/shared implementation. Phần vận hành Manager Q01–Q07, Q13–Q18, Q28 đã chuyển cho Khoa; Khôi review flow/visual của màn mẫu.
 
 Đọc bắt buộc: [DESIGN-SKILLS-GUIDE](../../DESIGN-SKILLS-GUIDE.md), [DESIGN-TOKENS](../../DESIGN-TOKENS.md), [PRODUCT](../../PRODUCT.md) và [nguồn nghiệp vụ](../00-Source-of-Truth.md). Kế hoạch API nằm ngay cuối file này. **Dùng cả Impeccable (UX) và Taste (UI) theo guide; DESIGN-TOKENS là chuẩn duy nhất.**
 
 ## Bắt đầu tuần 05–11/10
 
 - **Làm trước:** Chốt hero/CourseCard/Header/Footer/AccountMenu và mẫu list/detail/form; review mẫu của nhóm theo token.
-- **Thứ tự trang:** Landing/catalog → Auth/nội dung public → Lớp Manager → HLV/sân/incident/notices/AI → ExternalCoach.
+- **Thứ tự trang:** Landing/catalog → Auth/nội dung public → ExternalCoach; review mẫu class/incident của Khoa.
 - Bảng tên trang, hạn mục tiêu và tiêu chí xong: [kế hoạch FE một tuần](KE-HOACH-FE-1-TUAN.md). Phần bên dưới giữ đặc tả đầy đủ để tra khi làm từng trang.
 - Chỉ ghi “Hoàn thành” khi UI + API thật + kiểm chứng đạt; fixture có nhãn là “Xong UI – chờ API”. Không chờ toàn bộ backend/shared xong mới bắt đầu.
 
@@ -19,10 +19,11 @@ SportHub là **hệ thống quản lý trung tâm thể thao với ba môn Gym (
 - PublicShell/Header/Footer, landing và toàn bộ public pages, course card/catalog/detail dùng lại ở Member.
 - Auth/register/OTP/Google onboarding/forgot password; account/security dùng cho các role.
 - Portal ExternalCoach, dùng AppShell của An, calendar của Hào và checkout/wallet/invoice của An.
-- Nhận Q01–Q07, Q13–Q18, Q28; sở hữu ClassEditor/ThresholdManager, IncidentWorkbench, NoticeComposer và Manager AI adapter. Chi tiết/API/nghiệm thu ở phần Manager cuối file.
+- Q01–Q07, Q13–Q18, Q28 đã chuyển cho Khoa (ClassEditor/ThresholdManager, IncidentWorkbench, NoticeComposer, Manager AI adapter); Khôi chỉ review UX/UI các mẫu đó.
+- **Quy ước ngôn ngữ trang xác thực:** login, register (Member), register-external-coach và forgot-password luôn **tiếng Anh hoàn toàn**, không có nút đổi ngôn ngữ và không đọc ngôn ngữ đã lưu của portal (component `EnglishOnly` trong `lib/language.tsx`, áp bằng `layout.tsx` của từng route). Không trộn Anh–Việt trong cùng một trang; thông báo lỗi từ API trên các trang này cũng map sang tiếng Anh.
 - Không tự làm payment engine, token CSS riêng hay calendar engine riêng.
 
-Public nav: **Bộ môn · Khóa học · Gym & PT · Sân**; menu phụ Về trung tâm/Hỗ trợ/Dành cho HLV ngoài; EN/VI + Đăng nhập + Tạo tài khoản. Header mobile có menu thật, đủ tên và trạng thái focus.
+Public nav: **Bộ môn · Khóa học · Gym & PT · Sân**; menu phụ Về trung tâm/Hỗ trợ/Dành cho HLV ngoài; EN/VI (chỉ cho trang public/portal, không áp cho trang xác thực) + Đăng nhập + Tạo tài khoản. Header mobile có menu thật, đủ tên và trạng thái focus.
 
 ## 2. Public sitemap và subpage
 
@@ -154,7 +155,7 @@ Trước merge: flow/state matrix → màn mẫu desktop/mobile → critique/aud
 | G11 (phối hợp An) | K20/K24 |
 | CAT-01 (phối hợp An) | K01–K05 |
 
-**G11/D01–D05/D07/D08 và CAT-01** tại [An](01-AN-MEMBER-SHARED.md): Khôi tích hợp payment adapter K20/K24 và classification Gym/PT theo contract. **G06 do Khôi trực tiếp phụ trách** cho Q15/Q17 và K21–K23; không sửa database từ FE.
+**G11/D01–D05/D07/D08 và CAT-01** tại [An](01-AN-MEMBER-SHARED.md): Khôi tích hợp payment adapter K20/K24 và classification Gym/PT theo contract. **G06 do Khoa phụ trách** cho Q15/Q17; Khôi là consumer ở K21–K23 và không sửa database từ FE.
 
 ### API hiện có: tái sử dụng trước khi thêm
 
@@ -166,7 +167,7 @@ Kiểm verb, constraint và body trong controller/OpenAPI; page mới không nh�
 | Public courses | `GET /api/classes`; `GET /api/classes/{id}`; `GET /api/classes/{id}/public-sessions` | Khôi/An; đừng dùng manager DTO công khai |
 | Public Membership | `GET /api/membership-packages/public` | Khôi; không gọi endpoint authenticated khi guest |
 | Auth/account | `/api/auth/register/otp`, `/register`, `/login`, `/password/forgot`, `/password/reset`; Google endpoints; `/api/users/me` | Khôi; đọc verb/body trong controllers, giữ OTP/onboarding/link rule |
-| ExternalCoach | Auth external-coach OTP/register; GET/PUT `/api/external-coaches/me`; manager list/detail/approve/reject/suspend/reactivate | Khôi: Guest/ExternalCoach và Manager Q14 |
+| ExternalCoach | Auth external-coach OTP/register; GET/PUT `/api/external-coaches/me`; manager list/detail/approve/reject/suspend/reactivate | Khôi: Guest/ExternalCoach; Manager Q14 do Khoa |
 | Rental checkout | `POST /api/checkouts/court-rental` | ExternalCoach Approved; giữ room/coach occupancy |
 | Checkout phục hồi | `GET /api/checkouts/{invoiceId}`, `/by-key`, `/by-reference` | Dùng `expiresAtUtc`, `serverNowUtc`, revision, fulfillmentOutcome; timer không thiếu API |
 | Checkout actions | `POST /api/checkouts/{id}/confirm-points`, `/attempts`, `/cancel`, `/retry` | Retry intent/revision; không dựa return URL để commit |
@@ -211,139 +212,11 @@ Không xóa API chỉ vì không thấy FE call. Giữ read-history, callback IP
 
 ## Vai trò UI/UX Lead — Khôi
 
-- Chốt mẫu UX/UI cho landing, checkout, quầy/calendar và Manager class/incident theo token đã chọn. Không tự đổi palette/font để thể hiện vai trò lead.
+- Chốt mẫu UX/UI cho landing, checkout, quầy/calendar; review mẫu Manager class/incident do Khoa làm, theo token đã chọn. Không tự đổi palette/font để thể hiện vai trò lead.
 - Review theo hai mốc: **flow + màn mẫu trước nhân rộng**, và **trước merge thay đổi lớn về UX/UI**. Page chỉ tái sử dụng pattern đã duyệt không cần chờ Khôi review từng padding.
 - An quyết định component API/cascade/accessibility implementation; Khôi quyết định hierarchy/layout/visual consistency. Thay đổi token/variant dùng chung: Khôi review trải nghiệm, An triển khai và quản lý compatibility.
 - Không dùng lead review để thay kiểm nghiệp vụ/API: chủ page vẫn chịu trách nhiệm tests/evidence.
 
-## Phần nhận thêm từ Manager — Khôi trực tiếp triển khai
+## Phần Manager vận hành đã chuyển cho Khoa
 
-**14 mục Q, giữ nguyên ID/route; Khoa không còn là owner các phần này.** Dùng AppShell An và Calendar/AI wrapper Hào; cùng design language với Guest nhưng mật độ dành cho vận hành.
-
-| ID | Page → subpage | Route đề xuất | Chức năng / cấu trúc |
-|---|---|---|---|
-| Q01 | Tổng quan | `/manager` | Việc cần xử lý trước: lớp AtRisk, refund/request chờ duyệt, incident, lịch hôm nay; KPI có khoảng thời gian và link |
-| Q02 | Lịch vận hành → Theo sân / Coach / lớp → Chi tiết | `/manager/schedule?view=...` | Ngày/tuần/list; nhận diện lớp/PT/rental/block; filter giữ trên URL; thay đổi lịch mở form review |
-| Q03 | Khóa học → Danh sách | `/manager/classes` | Status, môn, keyword, threshold; các saved view Draft/Đang tuyển/AtRisk/Đang học/Lịch sử |
-| Q04 | Khóa học → Tạo/sửa | `/manager/classes/new`, `/manager/classes/[id]/edit` | Các bước nội dung → Coach/sân/lịch → giá/chi phí/sĩ số → xem lịch sinh ra → lưu nháp/publish riêng |
-| Q05 | Khóa học → Chi tiết | `/manager/classes/[id]` | Tab Tổng quan, Lịch buổi, Học viên, Giữ chỗ, Điều kiện mở lớp, Lịch sử |
-| Q06 | Chi tiết lớp → Publish / Dời buổi / Hủy buổi-bù / Hủy lớp | F từ Q05 | Preview xung đột/tác động, lý do, lịch mới, hoàn điểm nếu hủy cả lớp; gửi thông báo qua server |
-| Q07 | Điều kiện mở lớp → Xử lý ngưỡng | Tab Q05 hoặc saved view Q03 | Giá/chi phí/ngưỡng/số Confirmed, deadline, phản hồi Member; waive có lý do, không coi hold là đã ghi danh |
-| Q13 | HLV trung tâm → Tạo/sửa → Chi tiết | `/manager/coaches`, `/manager/coaches/[id]` | Account Coach, chuyên môn, mô tả, lịch phân công; cảnh báo chuyên môn thay đổi ảnh hưởng lớp hiện tại |
-| Q14 | HLV ngoài → Duyệt hồ sơ → Chi tiết | `/manager/external-coaches`, detail | Pending/Approved/Rejected/Suspended; approve/reject/suspend/reactivate có lý do; rental history |
-| Q15 | Sân & cơ sở vật chất → Sân/phòng → Chi tiết | `/manager/facilities`, `/manager/facilities/[id]` | Môn tương thích, trạng thái, opening-hours, lịch block; block có hoạt động ảnh hưởng dẫn IncidentWorkbench |
-| Q16 | Loại sân/phòng | Tab Q15 hoặc Danh mục | Loại và môn tương thích, validation tham chiếu; không xóa lịch sử |
-| Q17 | Sự cố → Tạo/preview/xử lý → Chi tiết | `/manager/incidents`, `/manager/incidents/[id]` | IncidentWorkbench bên dưới; history/detail **G06** |
-| Q18 | Thông báo → Soạn/xem trước → Theo dõi gửi | `/manager/notices`, detail | Chọn nhóm đúng quyền, review nội dung/người nhận, idempotency; lịch sử danh sách **G07** |
-| Q28 | AI xếp lịch | Drawer từ Q04/Q02 | Gợi ý → Xem lại & Chỉnh sửa → Lưu nháp; **G03**; không tự publish |
-
-### Tạo lớp và xử lý ngưỡng — Q03–Q07
-
-Form nhiều bước trên page riêng, draft dễ quay lại. Review sinh lịch phải thấy tất cả buổi, sân/Coach, xung đột, ngày ngoài giờ mở cửa. Giá/chi phí/sĩ số cùng phần, ngưỡng = ceil(cost/price) là preview; server xác nhận lại và chặn ngưỡng vượt capacity.
-
-Chi tiết lớp ưu tiên status và tác vụ tiếp theo; table học viên/holds tách vì ý nghĩa khác nhau. Khách công khai không thấy cost nội bộ. Công khai giải thích điều kiện mở lớp theo nội dung được duyệt, không render nguyên manager DTO.
-
-Các lựa chọn của Member:
-
-- Chuyển lớp: cùng môn, hợp lệ, còn chỗ, quote chênh; nếu phải trả thêm thì chờ checkout.
-- **Chờ đợt sau: hoàn 100% điểm ngay và lưu nguyện vọng nhận tin khóa phù hợp.** Không giữ tiền/ghế và không tự đăng ký khóa mới; giá khóa mới theo checkout mới.
-- Hoàn điểm: hoàn 100% theo event/quy tắc, không lưu nguyện vọng nhận tin.
-
-Manager thấy khác nhau giữa “Hoàn điểm” và “Hoàn điểm + nhận tin khóa sau”; không hiển thị cả hai như Transfer pending. Khóa mới publish kích hoạt thông báo matching theo G02, không tự thu điểm.
-
-Q08 nguyện vọng và G02 backend do **An** làm; Khôi gắn entry/status vào Q07. Đóng tuyển sinh G13 là command riêng, không map sang cancel hoặc sửa capacity giả. Khôi sở hữu ClassEditor/ThresholdManager và validation UI; server xác nhận ngưỡng/giá/conflict.
-
-### IncidentWorkbench — Q15/Q17
-
-Một page thực hiện từ preview tới xử lý, không rải ra năm màn mất ngữ cảnh:
-
-1. **Phạm vi:** một sân hoặc toàn trung tâm, thời gian, lý do.
-2. **Preview:** tự tải danh sách bị ảnh hưởng; nhóm lớp/PT/rental/pending/block; tổng số buổi/người/lượt thuê và giá trị bồi hoàn khi API cung cấp. Không dùng con số tự ước lượng như quote chính thức.
-3. **Phương án từng dòng:** lớp dời hoặc hủy kèm buổi bù; PT dời/hủy theo rule; confirmed rental hủy và hoàn 100% điểm; pending rental hủy và release điểm/slot; existing block xử lý theo resolution option hợp lệ.
-4. **Review:** lịch cũ/mới, người nhận, điểm hoàn, thao tác còn chặn; cho Xem lại & Chỉnh sửa. Nút rõ “Xác nhận xử lý và khóa sân”.
-5. **Kết quả:** trạng thái từng thao tác, ledger/refund reference, block, thông báo queued/sent/failed. Email fail không phải nghiệp vụ rollback; retry giao hàng không hoàn điểm lại.
-
-**Hiện trạng quan trọng:** backend preview/resolve đã có nhưng `resolve` từ chối khi còn class/PT/block cần xử lý. UI hiện tại có thể dùng các API dời/bù trong cùng workbench rồi preview lại; các bước này không phải một transaction chung. Phải ghi nhận bước đã hoàn thành khi bước sau lỗi, không nói “tất cả đã rollback”. G06 đề xuất enrichment/history và reservation fence để tránh người khác đặt vào khung đang xử lý trước lúc block cuối.
-
-Không gửi thêm manual notice trùng với thông báo tự động cùng sự kiện. Trường hợp cần thông báo bổ sung chỉ cho chọn người/nội dung rõ ràng. Preview cũ khi lịch thay đổi phải reload; không tin `canResolve` cũ sau vài phút.
-
-### HLV, thông báo và AI — Q13/Q14/Q18/Q28
-
-Q13 quản lý HLV nội bộ và specialty theo CAT-01 của An; Q14 duyệt/suspend/reactivate HLV ngoài phải phản ánh đúng lifecycle portal K18–K25. Q18 là composer/history thông báo; dùng Notification Panel chung của An, không dựng một inbox thứ hai. Q28 dùng AI Drawer của Hào: Xem lại & Chỉnh sửa → lưu nháp bằng ClassEditor; không tự publish.
-
-### API đi cùng phần việc nhận thêm
-
-| Nghiệp vụ | Endpoint hiện có | Consumer / lưu ý |
-|---|---|---|
-| ExternalCoach | Auth external-coach OTP/register; GET/PUT `/api/external-coaches/me`; manager list/detail/approve/reject/suspend/reactivate | Khôi: Guest/ExternalCoach và Manager Q14 |
-| Lịch sân/availability staff | `GET /api/manager/court-schedule`, `/rentals`; `/api/coaches/me/court-schedule`; `/api/availability/rooms`, `/coaches`, `/rooms/{id}/busy` | Quyền khác nhau, public không dùng trực tiếp |
-| Attendance | `GET /api/class-sessions/{id}/roster`; `PUT /api/class-sessions/{id}/attendance/{enrollmentId}` | Lễ tân ghi từng dòng; Coach/Manager đọc theo quyền |
-| Lớp Manager | `/api/manager/classes` CRUD/detail/publish/cancel/cancellation-preview/holds/enrollments/threshold-responses/threshold waive/pricing | G13 nếu cần manual close enrollment |
-| Incident | `POST /api/manager/incidents/preview`, `/resolve`; `GET /{id}/notifications` | Đã có, còn hạn chế tại G06 |
-| Manual notice | `POST /api/manager/notices`; `GET /{id}`, `/by-key/{key}` | Đã gửi/theo dõi được; G07 thiếu history list/preview recipients |
-| Catalog/coaches | sports/room-types/rooms/opening-hours/room-blocks/court-rates/membership-packages, manager coaches/external coaches, system-settings | Tái dùng, gom UI không buộc gom API |
-
-| Mục | Page/subpage | Việc Khôi chịu trách nhiệm |
-|---|---|---|
-| G03 | Q02/Q04/Q28 | Suggestion chỉ đọc, review/edit rồi tạo nháp; Hào cung cấp wrapper |
-| G06 | Q15/Q17; K21–K23 consumer | Incident preview/history/fence/recovery; trạng thái từng bước thật |
-| G07 | Q18 | Notice list/recipient preview/delivery không gửi trùng |
-| G13 | Q03/Q05/Q06 | Chốt đóng tuyển sinh độc lập hủy lớp, xử lý hold đang tồn tại |
-| G02 (consumer) | Q07 | An giữ spec và Q08; tích hợp trạng thái ngưỡng/interest |
-| CAT-01 (consumer) | K01–K05/Q13 | An giữ schema/migration; kiểm public catalog và Coach specialty |
-
-### Backlog API nhận từ Khoa
-
-#### G03 — Manager AI hỗ trợ xếp lịch [P1; Khôi + Hào]
-
-**Bằng chứng:** [AiController](../../backend/SportHub.AI/Api/AiController.cs) `POST chat` chỉ Member; suggestions chỉ Coach PT. Availability và create class đã có, thiếu orchestration gợi ý Manager.
-
-Đề xuất `POST /api/manager/ai/class-schedule-suggestions` body sportId, numSessions, date range, preferred times, optional room/coach IDs; trả `suggestionId`, generatedAt, proposals, proposed fields, warnings/conflicts. Chỉ đọc, không ghi class. Lọc Coach specialty, giờ hoạt động/room compatibility ngay trong service, không tin model tự kiểm.
-
-FE mở review/edit; sau xác nhận dùng **POST `/api/manager/classes` đang có** để lưu nháp. Có thể thêm optional suggestionId làm provenance, không cần thêm endpoint AI có quyền publish. Backend validate lại occupancy tại thời điểm create/save. Nếu cần function-calling theo BR-123, tool registry cũng phải giới hạn và buộc explicit confirmation token/action riêng.
-
-Test role, conflict phát sinh sau suggestion, thiếu provider/dữ liệu, request trễ không ghi đè draft mới, không ghi DB chỉ vì sinh gợi ý. Member/Coach chat không được gọi route Manager.
-
-#### G06 — Sự cố: history/detail, preview đầy đủ và bảo vệ khung giờ đang xử lý [P1; Khôi]
-
-**Bằng chứng:** [IncidentsController](../../backend/SportHub.Scheduling/Rental/Api/IncidentsController.cs) chỉ notifications/preview/resolve; [IncidentService](../../backend/SportHub.Scheduling/Rental/Application/IncidentService.cs) preview trả sourceType/sourceId/time/resolutionOptions, resolve chặn class/PT/block; confirmed rentals hoàn điểm, pending rentals release, cuối cùng mới tạo room block. Không có list/detail route hay preview refund/recipient breakdown đầy đủ.
-
-Đề xuất `GET /api/manager/incidents?from&to&roomId&page&pageSize`, `GET /api/manager/incidents/{id}`; persist initial impacts/outcomes để lịch sử không phải suy từ occupancy đã xóa. Enrich preview: room/class/coach display names, beneficiary counts, confirmed-vs-pending, computed refund points theo item, notification recipients summary (data scoped), required resolution actions và version/fingerprint.
-
-Nâng workflow theo thứ tự: preview → tạo incident draft/fence riêng chặn booking mới vào phạm vi → thực hiện phương án lớp/PT có checkpoint → preview lại → commit rental refunds/final block → outbox. Fence không thể là room occupancy block đè lên occupancy đang tồn tại; thiết kế status/range guard riêng được mọi write kiểm tra trong transaction. Cần release/expiry/recovery fence nếu bỏ dở; không treo sân vô hạn. Đây là phần backend bổ sung, không tuyên bố current resolve đã làm.
-
-Có thể giao giai đoạn đầu chỉ dùng current preview + action riêng + recheck và ghi rõ nguy cơ lịch thay đổi; không nói mọi bước atomic. Mutation cuối nên nhận preview version + idempotency key, trả outcomes/ledger refs/notice IDs để resume sau timeout. Gửi thủ công bổ sung không trùng automated event.
-
-Test incident một sân/toàn trung tâm, PT không room, pending/paid rental, class bù, schedule race giữa preview và commit, failure giữa các bước, repeated resolve, email retry, no double credit, history sau reload. Không lấy preview tổng tiền do FE tự cộng làm nguồn hoàn chính thức.
-
-#### G07 — Lịch sử thông báo thủ công và preview người nhận [P1; Khôi]
-
-**Bằng chứng:** [NoticesController](../../backend/SportHub.Notification/Api/NoticesController.cs) có send/detail/by-key, chưa thấy GET root list hay POST preview. Có thể gửi đúng theo service hiện tại nhưng màn history/review đầy đủ thiếu contract.
-
-Đề xuất `GET /api/manager/notices?status&from&to&page&pageSize`; `POST /api/manager/notices/preview` nhận cùng selector, trả tổng/người nhận được phép/channel và thời điểm; server tính lại khi send. Không cho FE tự upload danh sách email bất kỳ để bypass selector. Dùng Idempotency-Key hiện có khi send, status gắn outbox, retry delivery có dedup.
-
-Test selector Member theo lớp/Coach/ExternalCoach theo rental window; preview khác actual recipients khi dữ liệu đổi phải giải thích; không resend trùng do timeout.
-
-#### G13 — Đóng tuyển sinh thủ công mà vẫn giữ lớp [P1; Khôi]
-
-**Bằng chứng:** ClassesController có publish/cancel và enum ClassStatus chỉ lifecycle; chưa có close-enrollment command. Sơ đồ UI trước đó có “close”, nhưng cancel không tương đương.
-
-Đề xuất tách enrollment availability khỏi class lifecycle, thêm `POST /api/manager/classes/{id}/enrollment/close {reason}` và reopen nếu nghiệp vụ cho phép. Kiểm tra hold/attempt đang tồn tại, late payment, threshold transfer, public CTA. Chính sách đề xuất: chặn checkout mới, giữ quyền lợi Confirmed; hold cũ xử lý theo deadline/quote đã cam kết, không tự hủy khi chưa chốt rule. Đưa chính sách này vào BR trước implementation command. Trong lúc chưa có, bỏ action active khỏi production UI, vẫn giữ thiết kế/gap ID.
-
-### Checklist nhận thêm
-
-- [ ] Q01 KPI có kỳ đo/nguồn/link; ưu tiên việc cần xử lý, không tự tạo aggregate API cho mọi card.
-- [ ] Q02 filter/calendar giữ context; Q04 thấy đủ buổi, conflict và trạng thái draft/publish.
-- [ ] Holds khác Confirmed; ngưỡng không vượt capacity; public không thấy cost nội bộ.
-- [ ] Dời/hủy buổi xử lý bù và thông báo đúng; hủy lớp có preview, không hoàn điểm hai lần.
-- [ ] Q13/Q14 đúng lifecycle/role; suspend không làm mất lịch sử rental.
-- [ ] Q15/Q17 liệt kê đủ impacts, không báo đã khóa khi còn class/PT chưa xử lý; email fail không đồng nghĩa refund fail.
-- [ ] Q18 preview người nhận và trạng thái delivery; timeout/retry không gửi trùng.
-- [ ] Q28 bắt buộc review/edit; conflict khi lưu giữ dữ liệu form.
-- [ ] Khôi review visual; An review thay đổi shared/financial contract, Hào review calendar/AI contract.
-
-### File triển khai, route và thứ tự phần Manager
-
-Code đầu vào: `app/manager` theo route được giao; `features/courses`, `features/coaches`, `features/incidents` và phần facilities/notices tương ứng. Class/court schedule cũ gom thành Q02 nhưng giữ redirect/query/deep-link. Khôi bàn giao cấu hình navigation cho An, không tự tạo AppShell riêng.
-
-Triển khai mẫu class/incident cùng landing mẫu → Q01–Q07 → HLV/sân → incident/notices/AI theo API. Có thể làm UI states bằng fixture có nhãn trong lúc chờ G03/G06/G07/G13; không báo production complete. API và sự cố tài chính review cùng An; Calendar/AI interaction review cùng Hào.
+**Q01–Q07, Q13–Q18, Q28 (task KH-03/KH-04 cũ) do [Khoa](04-KHOA-MANAGER-ADMIN.md) trực tiếp triển khai và nghiệm thu từ 05/10/2026**, gồm ClassEditor/ThresholdManager, IncidentWorkbench, NoticeComposer, Manager AI adapter và G03/G06/G07/G13. Khôi **không còn** là owner các phần này; Khôi vẫn là UI/UX Lead nên review flow/visual của màn mẫu (class và incident) theo mục "Vai trò UI/UX Lead" ở trên. Toàn bộ đặc tả chi tiết đã nằm ở mục 7 của file Khoa; không duy trì bản sao ở đây.

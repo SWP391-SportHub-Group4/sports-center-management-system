@@ -19,7 +19,7 @@ Mục tiêu: lễ tân phục vụ nhanh, ít chọn nhầm người; Coach làm
 - Hào: route Receptionist/Coach, shared Calendar/CalendarEventDrawer/MemberSearch/QuickActions/AttendanceBoard, AI Drawer experience và review wrapper.
 - An: tokens, AppShell, Dialog/Drawer primitive, checkout/OTP/ví/invoice. Không fork các component này.
 - Khôi: auth/onboarding/account/public catalog; lễ tân hỗ trợ đăng ký qua flow thật của Khôi, không gọi Admin CreateStaff để tạo Member.
-- Khôi: lớp/HLV/sự cố và AI Manager; An: PT/Member vận hành. Hào chỉ dẫn link/gửi yêu cầu theo quyền; không cho Coach tự tạo lớp hoặc đổi lịch.
+- Khoa: lớp/HLV/sự cố và AI Manager (nhận từ Khôi 05/10); An: PT/Member vận hành. Hào chỉ dẫn link/gửi yêu cầu theo quyền; không cho Coach tự tạo lớp hoặc đổi lịch.
 
 ## 2. Receptionist sitemap
 
@@ -120,7 +120,7 @@ Mapping: `sell-plans/registrations/member-points` gom về Sales/Member detail c
 1. Search/QuickActions/Calendar contract → quầy mẫu và timeline mẫu; sync An/Khôi.
 2. Receptionist search → check-in/out → attendance → checkout dùng An → reconcile/refund request.
 3. Coach lịch/lớp → học viên PT → session → plan/result/homework.
-4. AI Drawer + review editor cho ba mode, adapter Manager do Khôi hoàn thiện theo G03.
+4. AI Drawer + review editor cho ba mode, adapter Manager do Khoa hoàn thiện theo G03.
 5. G04 QR, test trạng thái/phím tắt/accessibility và phối hợp liên vai trò.
 
 - [ ] Từ Member đã chọn đến check-in hợp lệ chỉ một action; trạng thái thay đổi sau server success.
@@ -152,10 +152,10 @@ Trước merge: flow/state matrix → màn mẫu desktop/mobile → critique/aud
 | G04 | H01–H04/H07 và An A20 |
 | G12 | H02/H08/H14–H18, An Q12, Khoa Q30 |
 | D06 | H17/H19 |
-| G03 (phối hợp Khôi) | H20 wrapper/Q28 |
+| G03 (phối hợp Khoa) | H20 wrapper/Q28 |
 | G11 (phối hợp An) | H06/H09 |
 
-**G11/D01/D02/D07/D08** tại [An](01-AN-MEMBER-SHARED.md): Hào kiểm quầy/OTP/refund, không gọi manual Paid hoặc cancel package như hoàn điểm. **G03/G06** tại [Khôi](02-KHOI-LANDING-PUBLIC.md): dùng chung AI wrapper/calendar, không mở quyền Manager cho Coach.
+**G11/D01/D02/D07/D08** tại [An](01-AN-MEMBER-SHARED.md): Hào kiểm quầy/OTP/refund, không gọi manual Paid hoặc cancel package như hoàn điểm. **G03/G06** tại [Khoa](04-KHOA-MANAGER-ADMIN.md): dùng chung AI wrapper/calendar, không mở quyền Manager cho Coach.
 
 ### API hiện có: tái sử dụng trước khi thêm
 
@@ -218,4 +218,4 @@ Bulk attendance có thể dùng từng PUT; hiện partial failure và chỉ ret
 
 ## Điều phối sau khi san việc
 
-Khôi là UI/UX Lead review mẫu Quầy/Calendar/AI; An giữ component nền tảng. Hào giữ nguyên 20 mục H, không nhận thêm phần Manager từ Khoa. G03/G06 phối hợp Khôi; PT/finance và Manager Member profile phối hợp An. Khoa chỉ phối hợp Admin detail G10/G12, không còn đầu mối điều phối toàn nhóm.
+Khôi là UI/UX Lead review mẫu Quầy/Calendar/AI; An giữ component nền tảng. Hào giữ nguyên 20 mục H, không nhận thêm phần Manager. G03/G06 phối hợp Khoa; PT/finance và Manager Member profile phối hợp An. Khoa chỉ phối hợp Admin detail G10/G12, không còn đầu mối điều phối toàn nhóm.

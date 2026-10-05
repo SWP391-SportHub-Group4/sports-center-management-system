@@ -19,7 +19,7 @@ Mục tiêu: giữ nền tảng frontend dùng chung; hoàn thiện Member và p
 - Owner: tokens, primitives, AppShell/MemberShell, navigation config, notification experience; Member portal; checkout/OTP/ví/hóa đơn/refund primitives dùng chung.
 - Khôi sở hữu public course catalog/detail và auth/account. Member discovery dẫn tới hoặc nhúng các component đó, không clone catalog.
 - Hào sở hữu Calendar và AI experience trên Drawer primitive của An; An nối dữ liệu Member.
-- An trực tiếp sở hữu Q08–Q12 và Q19–Q23: nguyện vọng, PT/Member vận hành, tài chính/báo cáo/export Manager. Khôi sở hữu UI lớp/sân/sự cố; Khoa chỉ giữ cấu hình/Admin theo bảng phân công mới.
+- An trực tiếp sở hữu Q08–Q12 và Q19–Q23: nguyện vọng, PT/Member vận hành, tài chính/báo cáo/export Manager. Khoa sở hữu UI lớp/sân/sự cố/notices/AI Manager (nhận từ Khôi 05/10) cùng cấu hình/Admin theo bảng phân công mới.
 - Checkout lễ tân/ExternalCoach chỉ là adapter và context riêng; không fork logic points/expiry.
 
 Menu desktop: **Tổng quan · Khám phá · Lịch của tôi · Khóa học của tôi · Gym & PT · Tập luyện · Tài chính**. Header: notification, AI khi phù hợp, tài khoản/ngôn ngữ. Mobile: Tổng quan, Lịch, Dịch vụ, Tài chính, Thêm.
@@ -145,7 +145,7 @@ Trước merge: flow/state matrix → màn mẫu desktop/mobile → critique/aud
 
 | Mục | Page/subpage cần triển khai/nghiệm thu |
 |---|---|
-| G02 | A16/A19/Q08 và Khôi Q07 |
+| G02 | A16/A19/Q08 và Khoa Q07 |
 | G05 | A06–A09 |
 | G08 | A13–A14 |
 | G11 | A15, Hào H06/H09, Khôi K20 |
@@ -181,7 +181,7 @@ Kiểm verb, constraint và body trong controller/OpenAPI; page mới không nh�
 
 P0 chặn nghiệm thu luồng liên quan; P1 phục vụ đủ sitemap; P2 tối ưu khi có nhu cầu. Route/wire enum mới phải chốt contract, cập nhật OpenAPI + FE types và error mapping VI/EN.
 
-#### G02 — Chờ đợt sau: hoàn điểm ngay + nhận thông báo khóa mới [P0 cho A16/Q08; An chủ trì, Khôi phối hợp Q07]
+#### G02 — Chờ đợt sau: hoàn điểm ngay + nhận thông báo khóa mới [P0 cho A16/Q08; An chủ trì, Khoa phối hợp Q07]
 
 **Bằng chứng:** [ThresholdResponseChoice](../../backend/SportHub.Scheduling/Threshold/Domain/ThresholdResponseChoice.cs) chỉ `Refund`, `Transfer`; [ThresholdResponseService](../../backend/SportHub.Scheduling/Threshold/Application/ThresholdResponseService.cs) chưa có interest subscription. Người dùng đã chốt lựa chọn mới; không cần hỏi lại giữ tiền hay hoàn điểm.
 
@@ -260,8 +260,8 @@ Split payment, OTP, expiresAtUtc/serverNowUtc, jobs hết hạn và reconciliati
 
 ### Ranh giới file và phối hợp
 
-- An sửa các route/component cho Q08–Q12, Q19–Q23: interests, manager PT, Member profile, finance, points, reports và exports. Khôi sửa classes/incidents; không lấy toàn bộ thư mục `app/manager` làm sở hữu độc quyền.
-- Q08 là subpage riêng; Khôi đặt entry từ Q07, An cung cấp dữ liệu trạng thái đã hoàn + đang nhận tin. G02 vẫn một contract atomic, không tách refund và interest thành hai mutation FE.
+- An sửa các route/component cho Q08–Q12, Q19–Q23: interests, manager PT, Member profile, finance, points, reports và exports. Khoa sửa classes/incidents; không lấy toàn bộ thư mục `app/manager` làm sở hữu độc quyền.
+- Q08 là subpage riêng; Khoa đặt entry từ Q07, An cung cấp dữ liệu trạng thái đã hoàn + đang nhận tin. G02 vẫn một contract atomic, không tách refund và interest thành hai mutation FE.
 - Q09–Q11 dùng Calendar của Hào; kiểm quota/90 phút/Membership, relationship, đổi HLV và request lifecycle. Tạo/dời/hủy buổi chỉ gọi API Manager đúng quyền; không mở quyền cho Coach.
 - Q12 dùng MemberSearch/shared identity của Hào và G12 scope; không cho Manager sửa workout vốn thuộc Coach.
 - Q19–Q21 dùng chính primitives tài chính An đã làm; phân biệt read/detail/review/adjustment theo role, không dùng self-wallet endpoint cho Manager.
@@ -281,11 +281,11 @@ Split payment, OTP, expiresAtUtc/serverNowUtc, jobs hết hạn và reconciliati
 
 | Mục | Page/subpage | Owner và nghiệm thu |
 |---|---|---|
-| G02 | A16/A19 và Q08; Khôi Q07 | An hoàn thiện cả hai phía Member/Manager; publish gửi tin không auto-enroll |
+| G02 | A16/A19 và Q08; Khoa Q07 | An hoàn thiện cả hai phía Member/Manager; publish gửi tin không auto-enroll |
 | G05 | A07 và consumer Q09–Q11 | An đối chiếu self-book với quota/relationship vận hành |
 | G12 (consumer) | Q12 | Hào giữ spec chính; An test Member scope của Manager/PT |
 | D03/D04 | Q20 | An nhận việc retire action legacy, bảo toàn read-history |
-| CAT-01 | Q09–Q12; Khoa Q24–Q25, Khôi Q13 | An chốt contract/migration; consumers nối đúng classification |
+| CAT-01 | Q09–Q12; Khoa Q13, Q24–Q25 | An chốt contract/migration; consumers nối đúng classification |
 
 ### Đặc tả CAT-01 — owner mới An
 
