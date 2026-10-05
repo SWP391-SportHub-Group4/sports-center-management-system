@@ -59,18 +59,9 @@ public sealed class EmailOtpFlow(ISportHubDbContext db, IClock clock, INotificat
         };
         if (resetLink is not null)
         {
-            var url = resetLink(code);
             notifications.QueueEmail(new EmailNotificationRequest(null, email, eventType, Guid.NewGuid(),
-                "SportHub - Đặt lại mật khẩu",
-                "<h2>Quên mật khẩu?</h2>"
-                + "<p>Chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản của bạn. "
-                + "Nếu bạn không thực hiện yêu cầu này, vui lòng bỏ qua email này.</p>"
-                + "<p>Để đặt lại mật khẩu, vui lòng nhấp vào liên kết bên dưới:</p>"
-                + "<p><a href=\"" + System.Net.WebUtility.HtmlEncode(url) + "\" style=\"display:inline-block;padding:12px 24px;"
-                + "background:#02717a;color:#ffffff;border-radius:6px;text-decoration:none;font-weight:bold\">"
-                + "ĐẶT LẠI MẬT KHẨU</a></p>"
-                + "<p>Lưu ý: liên kết chỉ có hiệu lực trong " + AuthService.OtpLifetime.TotalMinutes.ToString("0")
-                + " phút. Sau thời gian này, bạn cần yêu cầu một liên kết mới.</p>"));
+                PasswordResetEmail.Subject,
+                PasswordResetEmail.Render(resetLink(code), (int)AuthService.OtpLifetime.TotalMinutes)));
         }
         else
         notifications.QueueEmail(new EmailNotificationRequest(null, email, eventType, Guid.NewGuid(), subject,

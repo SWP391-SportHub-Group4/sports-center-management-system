@@ -1,17 +1,19 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import { api, ApiError } from "@/lib/apiClient";
-import { Feedback, Field } from "@/components/ui";
+import { api } from "@/lib/apiClient";
+import { Feedback } from "@/components/ui";
 import { Button } from "@/components/primitives";
-import { IconClose } from "@/components/icons";
+import { AuthSplit } from "@/components/auth/AuthSplit";
+import { AuthField } from "@/components/auth/AuthField";
+import { IconMail } from "@/components/icons";
 import { useAction, useNow } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
-import styles from "./forgot-password.module.css";
+import styles from "@/components/auth/AuthSplit.module.css";
 
 /**
- * Quên mật khẩu bằng LINK gửi qua email (không còn OTP). Backend báo rõ khi email không có tài khoản,
- * tài khoản bị khóa hoặc link vừa được gửi; trang này đổi các mã lỗi đó thành thông báo tiếng Anh.
+ * Quên mật khẩu bằng LINK gửi qua email. Câu trả lời luôn trung tính ("nếu tài khoản tồn tại…") để không
+ * lộ email nào đã đăng ký; backend cũng trả 204 cho email không tồn tại/bị khóa/đang chờ gửi lại.
  */
 export default function ForgotPasswordPage() {
   const { t } = useLanguage();
@@ -20,104 +22,91 @@ export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [sentTo, setSentTo] = useState("");
   const [retryAt, setRetryAt] = useState(0);
-  const [problem, setProblem] = useState("");
-
-  const explain = (cause: unknown) => {
-    if (cause instanceof ApiError) {
-      if (cause.code === "account_not_found") return t.identity.accountNotFound;
-      if (cause.code === "account_not_active") return t.identity.accountLocked;
-      if (cause.code === "reset_link_recently_sent")
-        return t.identity.linkRecentlySent;
-    }
-    return cause instanceof Error ? cause.message : t.apiErrors.generic;
-  };
 
   const send = async () => {
     if (action.busy || now < retryAt) return;
-    setProblem("");
     const target = email.trim();
-    const result = await action.run(async () => {
-      try {
-        await api.post(
-          "/api/auth/password/forgot",
-          { email: target },
-          { anonymous: true },
-        );
-        return true;
-      } catch (cause) {
-        setProblem(explain(cause));
-        if (
-          cause instanceof ApiError &&
-          cause.code === "reset_link_recently_sent"
-        )
-          setRetryAt(Date.now() + 60000);
-        return null;
-      }
+    const ok = await action.run(async () => {
+      await api.post(
+        "/api/auth/password/forgot",
+        { email: target },
+        { anonymous: true },
+      );
+      return true;
     });
-    if (result) {
+    if (ok) {
       setSentTo(target);
       setRetryAt(Date.now() + 60000);
     }
   };
 
   const waiting = now < retryAt;
+  const seconds = Math.ceil((retryAt - now) / 1000);
+
   return (
-    <main className="auth">
-      <div className="auth__card">
-        <div className={styles.head}>
-          <h1>{t.identity.forgotTitle}</h1>
-          <Link
-            href="/login"
-            className={styles.close}
-            aria-label={t.common.close}
+    <AuthSplit
+      title={t.identity.forgotTitle}
+      subtitle={sentTo ? undefined : t.identity.forgotDescription}
+      statement={t.identity.forgotStatement}
+      statementDetail={t.identity.forgotStatementDetail}
+      back={{ href: "/login", label: t.identity.backToSignIn }}
+    >
+      {sentTo ? (
+        <div className={styles.outcome} role="status">
+          <span className={styles.outcomeIcon} aria-hidden="true">
+            <IconMail size={28} />
+          </span>
+          <p className={styles.outcomeText}>{t.identity.linkSentNeutral}</p>
+          <p className={styles.hint}>{t.identity.linkSentHint}</p>
+          <Button
+            variant="secondary"
+            block
+            loading={action.busy}
+            disabled={waiting}
+            onClick={() => void send()}
           >
-            <IconClose size={18} />
-          </Link>
+            {waiting
+              ? `${t.identity.resendLink} (${seconds}s)`
+              : t.identity.resendLink}
+          </Button>
+          <Button variant="ghost" block onClick={() => setSentTo("")}>
+            {t.identity.useAnotherEmail}
+          </Button>
         </div>
-        <p className={styles.lead}>{t.identity.forgotDescription}</p>
+      ) : (
         <form
-          className="form"
+          className={styles.form}
+          aria-busy={action.busy}
           onSubmit={(e) => {
             e.preventDefault();
             void send();
           }}
         >
-          <Field label={t.identity.email} error={problem || undefined}>
-            <input
-              type="email"
-              autoComplete="email"
-              required
-              value={email}
-              disabled={action.busy}
-              onChange={(e) => {
-                setEmail(e.target.value);
-                setProblem("");
-                setSentTo("");
-              }}
-            />
-          </Field>
-          <Button type="submit" block loading={action.busy} disabled={waiting}>
-            {waiting
-              ? `${sentTo ? t.identity.resendLink : t.identity.sendLink} (${Math.ceil((retryAt - now) / 1000)}s)`
-              : sentTo
-                ? t.identity.resendLink
-                : t.identity.sendLink}
+          <AuthField
+            label={t.identity.email}
+            icon={<IconMail size={20} />}
+            type="email"
+            autoComplete="email"
+            required
+            value={email}
+            disabled={action.busy}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+          <Feedback error={action.error} />
+          <Button
+            type="submit"
+            className={styles.submit}
+            loading={action.busy}
+            disabled={waiting}
+          >
+            {t.identity.sendLink}
           </Button>
         </form>
-        {sentTo && (
-          <div role="status" className={styles.sent}>
-            <p>
-              {t.identity.linkSent} <strong>{sentTo}</strong>.
-            </p>
-            <p>{t.identity.linkSentHint}</p>
-          </div>
-        )}
-        <Feedback error={action.error} />
-        <p className={styles.footer}>
-          <span>{t.identity.rememberedPassword}</span>
-          <Link href="/login">{t.identity.login}</Link>
-        </p>
-      </div>
-    </main>
+      )}
+      <p className={styles.footer}>
+        <span>{t.identity.rememberedPassword}</span>
+        <Link href="/login">{t.identity.login}</Link>
+      </p>
+    </AuthSplit>
   );
 }
