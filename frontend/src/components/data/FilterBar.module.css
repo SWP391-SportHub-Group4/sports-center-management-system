@@ -1,0 +1,102 @@
+.root {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+  min-width: 0;
+}
+.fields {
+  display: flex;
+  flex: 1 1 480px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.field {
+  flex: 1 1 160px;
+  min-width: 0;
+}
+.field[data-kind="search"] {
+  flex: 2 1 240px;
+}
+.field[data-kind="dateRange"] {
+  flex: 2 1 300px;
+}
+.field > :global(.field),
+.rangeFields > :global(.field) {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  gap: var(--space-1);
+}
+.field input:not([type="checkbox"]),
+.field select {
+  width: 100%;
+  min-width: 0;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.root .actions :global(.btn) {
+  margin: 0;
+}
+.count {
+  margin-left: var(--space-1);
+  font-variant-numeric: tabular-nums;
+}
+.field .toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  min-height: var(--control-height);
+}
+.toggle input[type="checkbox"] {
+  flex: 0 0 auto;
+  width: auto;
+  margin: 0;
+  padding: 0;
+}
+.range {
+  padding: 0;
+  margin: 0;
+  border: 0;
+  min-width: 0;
+}
+.range legend {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  margin-bottom: var(--space-1);
+}
+.rangeFields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+@media (max-width: 639px) {
+  .field {
+    flex-basis: 100%;
+  }
+  .field[data-kind="search"],
+  .field[data-kind="dateRange"] {
+    flex-basis: 100%;
+  }
+  .actions {
+    width: 100%;
+  }
+}
+@media (max-width: 359px) {
+  .rangeFields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (pointer: coarse) {
+  .field .toggle {
+    min-height: var(--control-height-lg);
+  }
+}

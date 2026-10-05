@@ -9,7 +9,6 @@ import {
   type ReactNode,
   type ReactElement,
 } from "react";
-import { chipTone, label } from "@/lib/format";
 import type { ApiError } from "@/lib/apiClient";
 import { useLanguage } from "@/lib/language";
 import { FieldContext } from "@/components/primitives/FieldContext";
@@ -63,17 +62,8 @@ export function Stat({
   );
 }
 
-/** Chip trạng thái — nhãn tiếng Việt và màu lấy chung từ lib/format. */
-export function StatusChip({ value }: { value: string | null | undefined }) {
-  const { t } = useLanguage();
-  if (!value) return <span className="muted">—</span>;
-
-  return (
-    <span className={`chip ${chipTone(value)}`}>
-      {t.wireStatus[value as keyof typeof t.wireStatus] ?? label(value)}
-    </span>
-  );
-}
+// Keep existing imports working while pages move to components/data.
+export { StatusChip } from "@/components/data/StatusChip";
 
 export function Loading({ rows = 3 }: { rows?: number }) {
   return (
