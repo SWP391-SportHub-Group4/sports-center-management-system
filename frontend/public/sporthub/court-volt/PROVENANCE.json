@@ -17,6 +17,9 @@
     },
     {
       "file": "course-basketball.png"
+    },
+    {
+      "file": "hero-performance.png"
     }
   ],
   "prompts": [
@@ -39,6 +42,10 @@
     {
       "asset": "basketball",
       "prompt": "Use case photorealistic-natural. One standalone landscape 3:2 editorial photograph for a basketball course card. Two adult Vietnamese recreational basketball players, woman practicing a controlled dribble with ONE orange basketball, man coaching nearby, realistic anatomy and stance, spacious indoor sports court, deep teal padded wall, warm hardwood floor, natural high-window daylight, clean white court lines. Confident accessible everyday athletes, understated dark teal clothing, tiny lime wristband accent. Crisp professional sports photography with natural texture and restrained color grade, both subjects in central region safe for responsive crop. No text, no logos, no watermark, no UI, no collage, no extra basketballs."
+    },
+    {
+      "asset": "hero-performance",
+      "prompt": "Use case: photorealistic-natural. Asset type: wide landing page hero photograph for a premium athletic performance center. Primary request: a cinematic, genuinely photographic scene of an adult athlete training with a barbell in a refined modern gym. Scene/backdrop: spacious high-performance training room, dark charcoal and deep teal environment, visible real equipment and rubber floor, no brand marks. Subject: one focused athlete captured mid-repetition, believable anatomy and technique, natural concentration, athletic but realistic. Composition/framing: landscape wide 3:2 composition, athlete weighted to the right half, darker negative space on the left for a web headline overlay; waist-up to full body with enough scene context. Lighting/mood: dramatic controlled sports photography, sculpted overhead light, subtle highlights, deep carbon shadows, energetic yet premium and grounded. Color palette: charcoal-black, muted teal, restrained lime reflections only as environmental accents. Materials/textures: realistic skin, brushed steel, rubber flooring, slight natural grain. Constraints: high-end editorial sports photography, no text, no logos, no watermark, no stickers, no graphic overlays, no fabricated stats or readable signage."
     }
   ]
 }
