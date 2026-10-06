@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
+using SportHub.BuildingBlocks.Abstractions.Scheduling;
 using SportHub.Identity.Application.DTOs;
 
 namespace SportHub.Identity.Application.Services;
@@ -10,7 +11,7 @@ public interface IUserSummaryFactory
     Task<UserSummaryResponse> BuildAsync(UserAccount user, CancellationToken ct);
 }
 
-public sealed class UserSummaryFactory(ISportHubDbContext db) : IUserSummaryFactory
+public sealed class UserSummaryFactory(ISportHubDbContext db, ISportCatalogReader catalog) : IUserSummaryFactory
 {
     public async Task<UserSummaryResponse> BuildAsync(UserAccount user, CancellationToken ct)
     {
@@ -27,6 +28,16 @@ public sealed class UserSummaryFactory(ISportHubDbContext db) : IUserSummaryFact
                 .Select(s => s.SportId)
                 .OrderBy(id => id)
                 .ToListAsync(ct);
+        }
+
+        var isPersonalTrainer = false;
+        if (role == UserRole.Coach)
+        {
+            var offering = (await catalog.GetSportForServiceAsync(SportServiceType.PersonalTraining, ct))
+                ?.Services.FirstOrDefault(s => s.ServiceType == SportServiceType.PersonalTraining);
+            isPersonalTrainer = offering is not null
+                && await db.Set<CoachServiceQualification>().AsNoTracking()
+                    .AnyAsync(q => q.UserId == user.UserId && q.OfferingId == offering.OfferingId, ct);
         }
 
         if (role == UserRole.ExternalCoach)
@@ -46,7 +57,8 @@ public sealed class UserSummaryFactory(ISportHubDbContext db) : IUserSummaryFact
             FullName = user.Profile?.FullName ?? string.Empty,
             Role = role.ToString(),
             ApprovalStatus = approval,
-            SportIds = sportIds
+            SportIds = sportIds,
+            IsPersonalTrainer = isPersonalTrainer
         };
     }
 }

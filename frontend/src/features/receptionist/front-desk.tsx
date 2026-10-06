@@ -1,4 +1,5 @@
 "use client";
+import { hasService } from "@/lib/sports";
 import { pagedItems } from "@/lib/paged";
 import { useState } from "react";
 import Link from "next/link";
@@ -36,6 +37,7 @@ import type {
   Paged,
   InvoiceSummaryDto,
   CourtScheduleEntryDto,
+  SportDto,
 } from "@/lib/types";
 export function MemberDesk({
   mode,
@@ -68,11 +70,7 @@ function CoursePurchase({ memberId }: { memberId: string }) {
   const [sportId, setSport] = useState("");
   const [selected, setSelected] = useState<number | null>(null);
   const sports = useApi(
-    (s) =>
-      api.get<{ sportId: number; name: string; operationType: string }[]>(
-        "/api/sports",
-        { signal: s },
-      ),
+    (s) => api.get<SportDto[]>("/api/sports", { signal: s }),
     [],
   );
   const courses = useApi(
@@ -101,7 +99,7 @@ function CoursePurchase({ memberId }: { memberId: string }) {
         >
           <option value="">{l.all}</option>
           {sports.data
-            ?.filter((s) => s.operationType === "GROUP_COURSE")
+            ?.filter((s) => hasService(s, "GROUP_COURSE"))
             .map((s) => (
               <option key={s.sportId} value={s.sportId}>
                 {s.name}

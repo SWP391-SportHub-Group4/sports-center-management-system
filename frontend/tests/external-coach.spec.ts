@@ -11,7 +11,7 @@ async function externalFixture(page: Page, approvalStatus: "PENDING_APPROVAL" | 
     const path = new URL(route.request().url()).pathname;
     if (path === "/api/users/me") return route.fulfill({ json: { userId: externalId, fullName: "External Coach", email: "external@example.com", role: "EXTERNAL_COACH", sportIds: [3], approvalStatus } });
     if (path.includes("notifications")) return route.fulfill({ json: path.endsWith("unread-count") ? { count: 0 } : [] });
-    if (path === "/api/sports") return route.fulfill({ json: [{ sportId: 3, name: "Badminton", operationType: "GROUP_COURSE", isActive: true }] });
+    if (path === "/api/sports") return route.fulfill({ json: [{ sportId: 3, name: "Badminton", code: "course", services: [{ serviceType: "GROUP_COURSE", isEnabled: true, defaultSessionMinutes: 90, defaultMaxCapacity: 12 }], isActive: true }] });
     if (path === "/api/external-coaches/me") return route.fulfill({ json: { userId: externalId, email: "external@example.com", fullName: "External Coach", phone: null, bio: "Coach", approvalStatus, sportIds: [3], reviewedByUserId: null, reviewedAt: null, reviewNote: null, createdAt: "2030-10-01T00:00:00Z" } });
     if (path === "/api/wallet/me") return route.fulfill({ json: { ownerUserId: externalId, availablePoints: 50, heldPoints: 0, vndPerPoint: 1000 } });
     if (path === "/api/wallet/me/ledger") return route.fulfill({ json: { items: [], page: 1, pageSize: 20, totalCount: 0 } });

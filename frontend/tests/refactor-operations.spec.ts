@@ -21,6 +21,7 @@ for (const hasPt of [false, true]) {
             fullName: "Coach A",
             role: "COACH",
             sportIds: hasPt ? [1, 2] : [1],
+            isPersonalTrainer: hasPt,
           },
         }),
       );
@@ -32,7 +33,7 @@ for (const hasPt of [false, true]) {
               ...sport,
               sportId: 2,
               name: "Personal training",
-              operationType: "ONE_ON_ONE",
+              code: "gym", services: [{ serviceType: "PERSONAL_TRAINING", isEnabled: true, defaultSessionMinutes: null, defaultMaxCapacity: null }],
             },
           ],
         }),
@@ -358,7 +359,7 @@ const itemId = "66666666-6666-4666-8666-666666666666";
 const sport = {
   sportId: 1,
   name: "Badminton",
-  operationType: "GROUP_COURSE",
+  code: "course", services: [{ serviceType: "GROUP_COURSE", isEnabled: true, defaultSessionMinutes: 90, defaultMaxCapacity: 12 }],
   defaultSessionMinutes: 90,
   defaultMaxCapacity: 12,
   isActive: true,

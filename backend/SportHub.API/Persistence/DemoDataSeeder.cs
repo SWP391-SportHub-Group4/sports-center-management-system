@@ -118,14 +118,16 @@ public sealed class DemoDataSeeder(
         db.ExternalCoachProfiles.AddRange(externalProfiles);
         await db.SaveChangesAsync(ct);
 
-        // Chuyên môn demo (sport 2 = Personal Training, 3 = Cầu lông, 4 = Bóng rổ; seed trong migration catalog).
+        // Chuyên môn demo (sport 1 = Gym, 3 = Cầu lông, 4 = Bóng rổ; seed trong migration catalog).
         // Mapping cụ thể theo user vì CoachCategory cũ không đủ xác định môn.
         db.UserSportSpecialties.AddRange(
             new UserSportSpecialty { UserId = coachBadminton.UserId, SportId = 3 },
             new UserSportSpecialty { UserId = coachBasketball.UserId, SportId = 4 },
-            new UserSportSpecialty { UserId = coachPt.UserId, SportId = 2 },
+            new UserSportSpecialty { UserId = coachPt.UserId, SportId = 1 },
             new UserSportSpecialty { UserId = externalApproved.UserId, SportId = 3 },
             new UserSportSpecialty { UserId = externalPending.UserId, SportId = 3 });
+        // PT là dịch vụ của Gym (offering 2 trong seed catalog): chỉ Coach có qualification mới nhận quyền PT.
+        db.Set<CoachServiceQualification>().Add(new CoachServiceQualification { UserId = coachPt.UserId, OfferingId = 2 });
         await db.SaveChangesAsync(ct);
 
         members[^1].Status = UserStatus.Deactivated;

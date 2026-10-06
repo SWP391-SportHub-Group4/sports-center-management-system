@@ -41,6 +41,13 @@ public static class CrossModuleRelationships
             .HasForeignKey(e => e.SportId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        // Qualification dịch vụ của Coach trỏ tới offering trong catalog (CAT-01).
+        modelBuilder.Entity<CoachServiceQualification>()
+            .HasOne<SportServiceOffering>()
+            .WithMany()
+            .HasForeignKey(e => e.OfferingId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         // Coach bị chiếm lịch là user_accounts (Coach nội bộ hoặc ExternalCoach).
         modelBuilder.Entity<CoachOccupancy>()
             .HasOne<UserAccount>()

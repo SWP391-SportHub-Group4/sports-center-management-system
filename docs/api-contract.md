@@ -42,12 +42,12 @@ Các endpoint dưới đây phục vụ frontend API-backed. Không thay schema/
 
 | Verb | Route | Hợp đồng / authority |
 |---|---|---|
-| GET / PUT | `/api/users/me`, `/api/users/me/profile` | Thêm `sportIds: number[]`, nullable `approvalStatus`. Role UPPER_SNAKE_CASE. F5 refresh profile trước cấp quyền trên UI; regression Security đã pass. |
+| GET / PUT | `/api/users/me`, `/api/users/me/profile` | Thêm `sportIds: number[]`, `isPersonalTrainer: boolean` (Coach có qualification dịch vụ PT, không suy ra từ chuyên môn Gym), nullable `approvalStatus`. Role UPPER_SNAKE_CASE. F5 refresh profile trước cấp quyền trên UI; regression Security đã pass. |
 | GET | `/api/membership-packages/public` | Anonymous, chỉ catalog active; endpoint quản trị/auth cũ giữ chính sách riêng. |
 | GET | `/api/classes?fromDate=&toDate=&sportId=&page=&pageSize=` | DateOnly YYYY-MM-DD theo startDate khóa; validate khoảng ngày; danh sách public chỉ Published. |
 | GET | `/api/classes/{classId}/public-sessions` | Anonymous, chỉ khóa Published, lịch buổi/room/coach không có roster/attendance. |
 | GET | `/api/members/me/classes/{classId}/sessions` | Member đã có enrollment của chính mình, kể cả lịch sử; không trả roster. Own enrollment thêm `invoiceItemId`. |
-| GET | `/api/coaches?sportId=` | Member/Receptionist/Manager: Coach active cùng specialty, chỉ userId/fullName/sportIds. Không trả email hoặc credential. |
+| GET | `/api/coaches?sportId=&service=PERSONAL_TRAINING` | Member/Receptionist/Manager: Coach active cùng specialty (`sportId`) hoặc có qualification PT (`service`), chỉ userId/fullName/sportIds. Không trả email hoặc credential. |
 | GET | `/api/checkouts/by-key?key=`, `/api/checkouts/by-reference?reference=` | Recovery timeout/return theo invoice của beneficiary hoặc initiator; kiểm scope lại. Query VNPay không là chứng cứ Paid. |
 | POST | `/api/checkouts/{invoiceId}/confirm-points` | Xác nhận cash=0, invoice lock, ownership, hold còn hạn, không reconciliation/verified pending; idempotent Paid, không tạo gateway attempt. |
 | GET | `/api/checkouts/{invoiceId}` | Thêm beneficiaryUserId/initiatorUserId/serverNowUtc và ptMemberPackageId/ptCoachId/ptFrequency để resume/re-quote khi retry. |
@@ -457,11 +457,14 @@ Actor viết tắt: **M** = CenterManager (policy `CatalogManage`), **FD** = Man
 
 | Verb | Path | Actor | Request | Response / lỗi chính |
 |---|---|---|---|---|
-| GET | `api/sports` | ẩn danh | — | `SportResponse[]` chỉ môn active |
-| GET | `api/manager/sports` | M | — | mọi môn |
-| POST | `api/manager/sports` | M | `{name, operationType(WalkIn\|OneOnOne\|GroupCourse), defaultSessionMinutes?, defaultMaxCapacity?, description?, imageUrl?, sortOrder}` | 201; 400 `invalid_operation_type` `sport_group_course_defaults_required`; 409 `sport_name_taken` |
-| PUT | `api/manager/sports/{id}` | M | như trên | 200; 400 `sport_operation_type_immutable`; 404 `sport_not_found` |
+| GET | `api/sports?service=` | ẩn danh | — | `SportResponse[]` chỉ môn active, mỗi môn chỉ gồm service đang bật, không có `readiness`. `service` lọc theo `MEMBERSHIP_ACCESS`, `GROUP_COURSE`, `COURT_RENTAL` hoặc `PERSONAL_TRAINING`. `SportResponse`: `{sportId, code, name, description, imageUrl, sortOrder, isActive, services[{serviceType,isEnabled,defaultSessionMinutes?,defaultMaxCapacity?}], readiness?[{serviceType,ready,missing[]}]}` với `missing` gồm `room_type`, `room`, `opening_hours`, `court_rate`. CAT-01: không còn `operationType`; Personal Training không còn là môn riêng, PT là dịch vụ của Gym. |
+| GET | `api/manager/sports?service=` | M | — | mọi môn, đủ service và `readiness` (chỉ GROUP_COURSE và COURT_RENTAL) |
+| POST | `api/manager/sports` | M | `{code, name, description?, imageUrl?, sortOrder, services[{serviceType,isEnabled,defaultSessionMinutes?,defaultMaxCapacity?}]}` | 201; 400 `sport_code_invalid` `service_type_invalid` `service_not_allowed_for_sport` (Membership/PT ngoài môn Gym) `sport_group_course_defaults_required` `service_defaults_not_allowed`; 409 `sport_code_taken` `sport_name_taken` |
+| PUT | `api/manager/sports/{id}` | M | như trên, không nhận đổi `code`. Service không liệt kê bị TẮT, không bị xóa | 200; 400 `sport_code_immutable` và các lỗi như trên; 404 `sport_not_found` |
 | POST | `api/manager/sports/{id}/deactivate`, `/activate` | M | — | `SportResponse` |
+| POST | `api/manager/sports/{id}/services/{serviceType}/enable`, `/disable` | M | — | `SportResponse`; 404 `service_not_configured`. Tắt chỉ chặn giao dịch mới |
+| PUT | `api/manager/sports/{id}/services/PERSONAL_TRAINING/room-types` | M | `{roomTypeIds[]}` (thay toàn bộ; rỗng nghĩa là PT không gắn phòng) | 200 `{roomTypeIds}`; 400 `service_room_types_not_supported` `invalid_room_type` `room_type_not_linked_to_sport` |
+| GET / PUT | `api/manager/coaches/{userId}/service-qualifications` | M | PUT `{offeringIds[]}` (thay toàn bộ; hiện chỉ offering PT của Gym) | 200 `{offeringIds}`; 400 `qualification_not_supported` `service_not_enabled` `coach_missing_sport_specialty`; 404 `coach_not_found` |
 | GET | `api/room-types` | Auth | — | `[{roomTypeId, name, sportIds[]}]` |
 | POST | `api/manager/room-types` | M | `{name}` | 201; 409 `room_type_name_taken` |
 | PUT | `api/manager/room-types/{id}` | M | `{name}` | 200 |

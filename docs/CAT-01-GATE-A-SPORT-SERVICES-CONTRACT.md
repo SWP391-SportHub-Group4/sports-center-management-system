@@ -1,6 +1,6 @@
 # CAT-01 Cổng A: contract môn và dịch vụ
 
-Trạng thái: **đề xuất để duyệt, chưa có code nào được sửa theo tài liệu này**. Đây là sản phẩm của Cổng A trong [plan tổng](CLAUDE-CODE-PLAN-SPORT-SERVICES-AND-MEMBER-RENTAL.md). Chỉ khi tài liệu này được chấp thuận mới sang Cổng B. Mọi mô tả "hiện tại" dưới đây lấy từ code ngày 07/10/2026.
+Trạng thái: **Cổng B đã triển khai theo tài liệu này (07/10/2026), kèm các điều chỉnh ở mục 9**; kiểm chứng còn hạn chế vì chưa chạy được test tích hợp (cần Docker). Đây là sản phẩm của Cổng A trong [plan tổng](CLAUDE-CODE-PLAN-SPORT-SERVICES-AND-MEMBER-RENTAL.md). Chỉ khi tài liệu này được chấp thuận mới sang Cổng B. Mọi mô tả "hiện tại" dưới đây lấy từ code ngày 07/10/2026.
 
 ## 1. Hiện trạng cần thay
 
@@ -123,12 +123,30 @@ Người dùng chốt: reset toàn bộ dữ liệu DB dự án, **giữ lại**
 Điều kiện thực thi, thuộc Cổng B và **chưa được chạy**:
 
 1. Xác định chính xác server và database mục tiêu từ cấu hình môi trường mà không lộ credential. Không suy tên DB, không đụng DB khác. Nếu không xác định được thì hỏi đúng thông tin còn thiếu.
-2. Script reset giữ đúng hai tài khoản trên (kèm `MemberProfile` và credential của chúng), đặt lại ví Member về trạng thái trống, và chạy riêng, không xóa volume hay thư mục diện rộng. Kiểm trên DB test riêng trước.
+2. Script reset **để nguyên** hai tài khoản trên (dòng tài khoản, profile và credential không bị sửa) để đăng nhập được ngay sau reset; dữ liệu giao dịch của Member đó (ví, hóa đơn, lịch) vẫn bị xóa như mọi dữ liệu khác. Script chạy riêng, không xóa volume hay thư mục diện rộng. Kiểm trên DB test riêng trước.
 3. Seed demo là lệnh riêng, người dùng tự chạy khi sẵn sàng.
+4. Đăng nhập Google với email đã có tài khoản bị chặn (`google_account_not_linked`) cho tới khi tài khoản đó đăng nhập bằng mật khẩu và liên kết Google (BR-59). Vì vậy hai tài khoản giữ lại **phải giữ nguyên credential mật khẩu**; nếu xóa credential thì không đăng nhập được và cũng không liên kết Google được.
 
 **Cần bạn xác nhận:** email giữ lại được ghi là `holethienan3010@gmail.com`, khác email Git hiện tại của bạn (`holethienan30102006@gmail.com`). Cần xác nhận đúng địa chỉ trước khi viết script. Tài liệu này không lưu mật khẩu hay credential nào.
 
-## 8. Điều kiện qua Cổng A
+## 8. Xác thực: hành vi giữ nguyên, chỉ thêm hồi quy
+
+Các yêu cầu sau **đã có trong code**, không cần làm mới ở Cổng B. Cổng B chỉ chạy lại test để bảo đảm không hồi quy.
+
+- **Đăng nhập Google lần đầu** với email chưa có tài khoản: không tạo tài khoản ngay mà cấp phiếu onboarding; người dùng phải nhập họ tên, số điện thoại, mật khẩu mới và xác nhận. Backend kiểm chính sách mật khẩu. Email duy nhất ở DB (chỉ mục unique, citext) và được kiểm lại trong transaction, nên không thể có hai tài khoản cùng email, một có mật khẩu một không.
+- **Đăng nhập Google với email đã có tài khoản chưa liên kết**: bị chặn, phải đăng nhập bằng mật khẩu rồi liên kết (BR-59).
+- **Quên mật khẩu**: gửi email có nút "ĐẶT LẠI MẬT KHẨU" dẫn tới `/reset-password?email=...&token=...`; không có mã OTP để gõ. Liên kết hết hạn sau 10 phút, dùng một lần. Phản hồi của API trung tính, nên chỉ người có tài khoản mới nhận được email.
+- Tên nội bộ còn dùng `EmailOtpFlow` và mã lỗi `otp_*` cho token này; chỉ là tên kỹ thuật, người dùng không thấy OTP.
+- Test cần chạy lại ở Cổng B: `GoogleLoginTests`, `PasswordResetTests` (Security.Tests).
+
+## 9. Điều chỉnh khi triển khai Cổng B
+
+- `PUT api/manager/sports/{id}` **không xóa** service không còn trong danh sách mà chỉ **tắt** nó, để dịch vụ đã bán hoặc đang có lịch vẫn đọc được.
+- `GET /api/users/me` thêm `isPersonalTrainer`; `GET /api/coaches` thêm `service=PERSONAL_TRAINING`. Quyền PT không thể suy ra từ chuyên môn Gym nên frontend dùng hai trường này.
+- **Chưa làm** (còn nợ Cổng B): chặn gỡ qualification hoặc liên kết phòng khi có lịch tương lai (`service_in_use_by_future_schedule`, `qualification_in_use`, cần truy vấn sang Training và Scheduling); test cho callback muộn khi dịch vụ đã tắt.
+- Migration `20261006180025_CatalogSportServices` sinh được script SQL idempotent và model khớp snapshot, nhưng chưa chạy trên PostgreSQL thật.
+
+## 10. Điều kiện qua Cổng A
 
 - [ ] Schema, DTO và mã lỗi ở mục 2 và 3 được duyệt.
 - [ ] Bảng seed ở mục 4 được duyệt (kể cả mặc định lớp Cầu lông 90 phút).
