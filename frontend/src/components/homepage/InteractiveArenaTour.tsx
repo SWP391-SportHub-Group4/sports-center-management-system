@@ -18,36 +18,67 @@ type ZoneId = "badminton" | "basketball" | "conditioning";
 
 const zoneOrder: ZoneId[] = ["badminton", "basketball", "conditioning"];
 
+function isCourseDto(value: unknown): value is CourseDto {
+  if (!value || typeof value !== "object") return false;
+  const course = value as Partial<CourseDto>;
+  return (
+    Number.isFinite(course.classId) &&
+    Number.isFinite(course.sportId) &&
+    typeof course.name === "string" &&
+    typeof course.status === "string" &&
+    Number.isFinite(course.availableSeats) &&
+    Number.isFinite(course.numSessions) &&
+    Number.isFinite(course.price) &&
+    typeof course.startDate === "string"
+  );
+}
+
+function isMembershipPackage(value: unknown): value is MembershipPackageDto {
+  if (!value || typeof value !== "object") return false;
+  const plan = value as Partial<MembershipPackageDto>;
+  return typeof plan.name === "string" && typeof plan.isActive === "boolean";
+}
+
 const copy = {
   en: {
-    kicker: "COURT & VOLT · ARENA TOUR",
     title: "Three disciplines.\nOne connected arena.",
-    lead: "Move through the floor plan to find your court, see the performance details and check the latest class availability.",
-    mapLabel: "INTERACTIVE FLOOR PLAN",
-    mapHelp: "Select a zone on the map or use the switcher.",
-    live: "LIVE SCHEDULE",
-    liveDescription: "Availability refreshes every minute",
-    conditioningStatus: "PERFORMANCE PROGRAM",
-    planDescription: "Current membership plans",
-    liveClasses: "PUBLISHED CLASSES",
-    openPlaces: "OPEN PLACES",
-    switcherLabel: "Switch arena zone",
-    selectedSuffix: "selected",
-    plans: "ACTIVE PLANS",
-    access: "ACCESS",
+    lead: "Select a zone to compare standards and find an open class.",
+    mapLabel: "FLOOR PLAN",
+    mapZones: "SPORT ZONES",
+    mapHelp: "Choose a sport above or select a zone on the map.",
+    live: "CLASS AVAILABILITY",
+    liveDescription: "Updates automatically every minute",
+    conditioningStatus: "STRENGTH & CONDITIONING",
+    planDescription: "Compare Membership plans below",
+    liveClasses: "CLASSES LISTED",
+    openPlaces: "PLACES AVAILABLE",
+    switcherLabel: "Choose a sport",
+    plans: "MEMBERSHIP PLANS",
+    openCourses: "Classes open for enrollment",
+    classSessions: "sessions",
+    placesLeft: "places left",
+    weeklySchedule: "Weekly",
+    scheduleInDetails: "See full schedule in class details",
+    classLoading: "Loading classes and available places…",
+    classEmptyHint: "Choose a different sport above or on the map.",
+    showMoreClasses: "Show {count} more classes",
+    staleSchedule:
+      "We couldn't update available places. These results may be out of date; open a class to check its current status.",
+    access: "PT REQUIRES",
+    accessValue: "Active Gym membership",
     court: "COURT STANDARD",
     lighting: "LIGHTING",
     floor: "PLAYING FLOOR",
     height: "CLEAR HEIGHT",
-    focus: "PERFORMANCE TEST",
+    focus: "TRAINING FOCUS",
     method: "TRAINING METHOD",
     viewDetails: "View class details",
-    plansCta: "Explore membership plans",
-    noClass: "No published classes right now",
-    noPlaces: "All current classes are full",
-    loading: "Loading current availability",
-    error: "Live schedule unavailable",
-    retry: "Retry schedule",
+    plansCta: "See Membership plans",
+    noClass: "No classes are open for enrollment in this sport right now",
+    noPlaces: "All listed classes are full",
+    loading: "Loading class availability",
+    error: "We couldn't load class availability",
+    retry: "Try loading classes again",
     selectedAnnouncement: "Selected arena zone",
     mapAlt:
       "Interactive floor plan with badminton courts on the left, basketball court in the center and conditioning lanes on the right.",
@@ -88,34 +119,44 @@ const copy = {
     },
   },
   vi: {
-    kicker: "COURT & VOLT · KHÁM PHÁ TỔ HỢP",
     title: "Ba bộ môn.\nMột đấu trường kết nối.",
-    lead: "Chọn khu vực trên sơ đồ để xem không gian, tiêu chuẩn vận hành và lịch học mới nhất.",
-    mapLabel: "SƠ ĐỒ MẶT BẰNG TƯƠNG TÁC",
-    mapHelp: "Chọn một khu vực trên sơ đồ hoặc dùng thanh chuyển nhanh.",
-    live: "LỊCH HỌC TRỰC TIẾP",
-    liveDescription: "Số chỗ được làm mới mỗi phút",
-    conditioningStatus: "CHƯƠNG TRÌNH THỂ LỰC",
-    planDescription: "Các gói Membership hiện có",
-    liveClasses: "LỚP ĐÃ CÔNG BỐ",
+    lead: "Chọn khu để xem tiêu chuẩn và tìm lớp đang nhận đăng ký.",
+    mapLabel: "SƠ ĐỒ MẶT BẰNG",
+    mapZones: "CÁC KHU THỂ THAO",
+    mapHelp: "Chọn môn ở phía trên hoặc chọn khu ngay trên sơ đồ.",
+    live: "TÌNH TRẠNG ĐĂNG KÝ",
+    liveDescription: "Tự động cập nhật mỗi phút",
+    conditioningStatus: "RÈN THỂ LỰC",
+    planDescription: "So sánh các gói Membership bên dưới",
+    liveClasses: "LỚP ĐƯỢC CÔNG BỐ",
     openPlaces: "CHỖ CÒN",
-    switcherLabel: "Chọn khu vực",
-    selectedSuffix: "đang chọn",
-    plans: "GÓI ĐANG MỞ",
-    access: "HÌNH THỨC TẬP",
+    switcherLabel: "Chọn môn thể thao",
+    plans: "GÓI MEMBERSHIP",
+    openCourses: "Lớp đang mở đăng ký",
+    classSessions: "buổi",
+    placesLeft: "chỗ còn",
+    weeklySchedule: "Hằng tuần",
+    scheduleInDetails: "Xem lịch đầy đủ trong chi tiết lớp",
+    classLoading: "Đang tải lớp và số chỗ còn…",
+    classEmptyHint: "Chọn môn khác ở phía trên hoặc trên sơ đồ.",
+    showMoreClasses: "Xem thêm {count} lớp",
+    staleSchedule:
+      "Chưa cập nhật được số chỗ còn. Dữ liệu có thể đã cũ; hãy mở lớp để xem tình trạng mới nhất.",
+    access: "ĐIỀU KIỆN PT",
+    accessValue: "Membership Gym còn hạn",
     court: "TIÊU CHUẨN SÂN",
     lighting: "ÁNH SÁNG",
     floor: "MẶT SÀN",
     height: "ĐỘ CAO THÔNG THỦY",
-    focus: "ĐÁNH GIÁ HIỆU NĂNG",
+    focus: "TRỌNG TÂM RÈN LUYỆN",
     method: "PHƯƠNG PHÁP TẬP",
     viewDetails: "Xem lịch và đăng ký",
-    plansCta: "Khám phá gói tập",
-    noClass: "Hiện chưa có lớp được công bố",
-    noPlaces: "Các lớp hiện tại đã đủ chỗ",
-    loading: "Đang tải tình trạng chỗ",
-    error: "Chưa tải được lịch trực tiếp",
-    retry: "Tải lại lịch",
+    plansCta: "Xem các gói Membership",
+    noClass: "Môn này hiện chưa có lớp đang nhận đăng ký",
+    noPlaces: "Các lớp được công bố hiện đã kín chỗ",
+    loading: "Đang tải tình trạng đăng ký lớp",
+    error: "Chưa tải được tình trạng đăng ký lớp",
+    retry: "Thử tải lại danh sách lớp",
     selectedAnnouncement: "Khu vực đang chọn",
     mapAlt:
       "Sơ đồ mặt bằng tương tác gồm sân cầu lông bên trái, sân bóng rổ ở giữa và làn thể lực bên phải.",
@@ -186,8 +227,82 @@ const hotspotClass: Record<ZoneId, string> = {
 
 function formatCount(value: number, language: Language) {
   return new Intl.NumberFormat(language === "vi" ? "vi-VN" : "en-US").format(
-    value,
+    Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0,
   );
+}
+
+function formatCourseStart(course: CourseDto, language: Language) {
+  const hasTime = Boolean(course.firstSessionStartUtc);
+  const value = hasTime
+    ? new Date(course.firstSessionStartUtc!)
+    : new Date(`${course.startDate}T00:00:00+07:00`);
+
+  if (Number.isNaN(value.getTime())) return course.startDate;
+
+  return new Intl.DateTimeFormat(language === "vi" ? "vi-VN" : "en-US", {
+    dateStyle: "medium",
+    ...(hasTime ? { timeStyle: "short" as const } : {}),
+    timeZone: "Asia/Ho_Chi_Minh",
+  }).format(value);
+}
+
+function formatWeeklySchedule(course: CourseDto, language: Language) {
+  if (course.numSessions <= 1) return null;
+
+  const rules = Array.isArray(course.scheduleRules)
+    ? course.scheduleRules.filter(
+        (rule) =>
+          Number.isInteger(rule?.dayOfWeek) &&
+          rule.dayOfWeek >= 0 &&
+          rule.dayOfWeek <= 6 &&
+          typeof rule.startTimeLocal === "string" &&
+          /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(rule.startTimeLocal),
+      )
+    : [];
+
+  if (!rules.length) return copy[language].scheduleInDetails;
+
+  const locale = language === "vi" ? "vi-VN" : "en-US";
+  const timeGroups = new Map<string, number[]>();
+
+  for (const rule of rules) {
+    const days = timeGroups.get(rule.startTimeLocal) ?? [];
+    if (!days.includes(rule.dayOfWeek)) days.push(rule.dayOfWeek);
+    timeGroups.set(rule.startTimeLocal, days);
+  }
+
+  const schedule = [...timeGroups.entries()]
+    .sort(([timeA], [timeB]) => timeA.localeCompare(timeB))
+    .map(([time, days]) => {
+      const [hour, minute] = time.split(":").map(Number);
+      const localClock = new Date(Date.UTC(2023, 0, 1, hour, minute));
+      const formattedTime = new Intl.DateTimeFormat(locale, {
+        hour: "numeric",
+        minute: "2-digit",
+        timeZone: "UTC",
+      }).format(localClock);
+      const formattedDays = [...days]
+        .sort((a, b) => a - b)
+        .map((day) =>
+          new Intl.DateTimeFormat(locale, {
+            weekday: "short",
+            timeZone: "UTC",
+          }).format(new Date(Date.UTC(2023, 0, 1 + day))),
+        )
+        .join(", ");
+
+      return `${formattedDays} · ${formattedTime}`;
+    });
+
+  return `${copy[language].weeklySchedule}: ${schedule.join(" / ")}`;
+}
+
+function formatCoursePrice(value: number, language: Language) {
+  return new Intl.NumberFormat(language === "vi" ? "vi-VN" : "en-US", {
+    style: "currency",
+    currency: "VND",
+    maximumFractionDigits: 0,
+  }).format(value);
 }
 
 function ZoneFloorPlan({
@@ -360,19 +475,25 @@ export function InteractiveArenaTour({
 
   useEffect(() => {
     let active = true;
-    let requestInFlight = false;
+    let controller: AbortController | null = null;
+    let timeout: number | null = null;
 
     const refresh = () => {
-      if (document.visibilityState !== "visible" || requestInFlight) return;
-      requestInFlight = true;
+      if (document.visibilityState !== "visible" || controller) return;
+      controller = new AbortController();
+      const requestController = controller;
+      timeout = window.setTimeout(() => requestController.abort(), 15_000);
       void api
         .get<Paged<CourseDto>>("/api/classes", {
           query: { page: 1, pageSize: 100 },
           anonymous: true,
+          signal: requestController.signal,
         })
         .then((result) => {
           if (active) {
-            setFreshCourses(result.items);
+            if (!Array.isArray(result?.items))
+              throw new Error("Invalid class response");
+            setFreshCourses(result.items.filter(isCourseDto));
             setRefreshFailed(false);
           }
         })
@@ -380,7 +501,9 @@ export function InteractiveArenaTour({
           if (active) setRefreshFailed(true);
         })
         .finally(() => {
-          requestInFlight = false;
+          if (timeout !== null) window.clearTimeout(timeout);
+          timeout = null;
+          if (controller === requestController) controller = null;
         });
     };
 
@@ -388,12 +511,14 @@ export function InteractiveArenaTour({
     document.addEventListener("visibilitychange", refresh);
     return () => {
       active = false;
+      controller?.abort();
+      if (timeout !== null) window.clearTimeout(timeout);
       window.clearInterval(interval);
       document.removeEventListener("visibilitychange", refresh);
     };
   }, []);
 
-  const sourceCourses = freshCourses ?? courses;
+  const sourceCourses = (freshCourses ?? courses).filter(isCourseDto);
   const selected = text.zones[activeZone];
   const selectedSport = sportForZone(activeZone, sports);
   const publishedCourses = sourceCourses.filter(
@@ -402,18 +527,25 @@ export function InteractiveArenaTour({
       selectedSport !== undefined &&
       course.sportId === selectedSport.sportId,
   );
+  const availableCourses = publishedCourses
+    .filter((course) => course.availableSeats > 0)
+    .sort((a, b) => {
+      const aStart = a.firstSessionStartUtc ?? a.startDate;
+      const bStart = b.firstSessionStartUtc ?? b.startDate;
+      return new Date(aStart).getTime() - new Date(bStart).getTime();
+    });
   const openPlaces = publishedCourses.reduce(
-    (total, course) => total + Math.max(course.availableSeats, 0),
+    (total, course) => total + Math.max(0, Math.trunc(course.availableSeats)),
     0,
   );
-  const activePlans = (memberships ?? []).filter(
-    (plan) =>
-      plan.isActive && /gym|fitness|conditioning|thể lực/i.test(plan.name),
-  ).length;
-  const firstCourse = publishedCourses.find(
-    (course) => course.availableSeats > 0,
-  );
-  const scheduleUnavailable = hasError || refreshFailed;
+  const activePlans = (Array.isArray(memberships) ? memberships : [])
+    .filter(isMembershipPackage)
+    .filter(
+      (plan) =>
+        plan.isActive && /gym|fitness|conditioning|thể lực/i.test(plan.name),
+    ).length;
+  const firstCourse = availableCourses[0];
+  const scheduleUnavailable = hasError;
   const metrics: Array<{ label: string; value: string; icon?: LucideIcon }> =
     activeZone === "badminton"
       ? [
@@ -463,7 +595,7 @@ export function InteractiveArenaTour({
               value:
                 memberships === null ? "—" : formatCount(activePlans, language),
             },
-            { label: text.access, value: "GYM + PT" },
+            { label: text.access, value: text.accessValue },
           ];
 
   const courseHref = firstCourse ? `/courses/${firstCourse.classId}` : null;
@@ -475,6 +607,35 @@ export function InteractiveArenaTour({
     : publishedCourses.length
       ? text.noPlaces
       : text.noClass;
+  const renderCourseLink = (course: CourseDto) => {
+    const weeklySchedule = formatWeeklySchedule(course, language);
+
+    return (
+      <Link
+        className={styles.courseRow}
+        href={`/courses/${course.classId}`}
+        key={course.classId}
+      >
+        <span className={styles.courseName}>
+          <strong>{course.name}</strong>
+          <span>
+            {formatCourseStart(course, language)} · {course.numSessions}{" "}
+            {text.classSessions}
+          </span>
+          {weeklySchedule && (
+            <span className={styles.courseSchedule}>{weeklySchedule}</span>
+          )}
+        </span>
+        <span className={styles.courseFacts}>
+          <strong>{formatCoursePrice(course.price, language)}</strong>
+          <span>
+            {formatCount(course.availableSeats, language)} {text.placesLeft}
+          </span>
+        </span>
+        <ArrowUpRight size={16} aria-hidden="true" />
+      </Link>
+    );
+  };
 
   const handleTabKeyDown = (
     event: KeyboardEvent<HTMLButtonElement>,
@@ -509,7 +670,6 @@ export function InteractiveArenaTour({
     >
       <header className={styles.tourHeader}>
         <div>
-          <p className={styles.tourKicker}>{text.kicker}</p>
           <h2 id="arena-tour-title">{text.title}</h2>
         </div>
         <p className={styles.tourLead}>{text.lead}</p>
@@ -564,7 +724,7 @@ export function InteractiveArenaTour({
           <div className={styles.mapShell}>
             <div className={styles.mapHeading}>
               <span>{text.mapLabel}</span>
-              <span>LEVEL 01 / 01</span>
+              <span>{text.mapZones}</span>
             </div>
             <div className={styles.mapCanvas} data-zone={activeZone}>
               <ZoneFloorPlan label={text.mapAlt} onSelect={setActiveZone} />
@@ -576,7 +736,7 @@ export function InteractiveArenaTour({
                       key={zone}
                       type="button"
                       className={`${styles.hotspot} ${hotspotClass[zone]} ${activeZone === zone ? styles.hotspotActive : ""}`}
-                      aria-label={`${zoneText.label} ${text.selectedSuffix}`}
+                      aria-label={zoneText.label}
                       aria-pressed={activeZone === zone}
                       aria-controls="arena-feature-panel"
                       onClick={() => setActiveZone(zone)}
@@ -639,7 +799,10 @@ export function InteractiveArenaTour({
               {metrics.map((metric) => {
                 const MetricIcon = metric.icon;
                 return (
-                  <div className={styles.metric} key={metric.label}>
+                  <div
+                    className={`${styles.metric} ${metric.label === text.access ? styles.metricRequirement : ""}`}
+                    key={metric.label}
+                  >
                     <span className={styles.metricLabel}>
                       {MetricIcon && (
                         <MetricIcon
@@ -655,6 +818,58 @@ export function InteractiveArenaTour({
                 );
               })}
             </div>
+            {activeZone !== "conditioning" && (
+              <div className={styles.courseOfferings}>
+                <div className={styles.courseOfferingsHeading}>
+                  <h3>{text.openCourses}</h3>
+                  {!loading &&
+                    !scheduleUnavailable &&
+                    availableCourses.length > 0 && (
+                      <span>
+                        {formatCount(availableCourses.length, language)}
+                      </span>
+                    )}
+                </div>
+                {loading ? (
+                  <p className={styles.courseEmpty} role="status">
+                    {text.classLoading}
+                  </p>
+                ) : scheduleUnavailable ? (
+                  <p className={styles.courseEmpty} role="status">
+                    {text.error}
+                  </p>
+                ) : availableCourses.length ? (
+                  <>
+                    <div className={styles.courseList}>
+                      {availableCourses.slice(0, 2).map(renderCourseLink)}
+                    </div>
+                    {availableCourses.length > 2 && (
+                      <details className={styles.moreCourses}>
+                        <summary>
+                          {text.showMoreClasses.replace(
+                            "{count}",
+                            formatCount(availableCourses.length - 2, language),
+                          )}
+                        </summary>
+                        <div className={styles.courseList}>
+                          {availableCourses.slice(2).map(renderCourseLink)}
+                        </div>
+                      </details>
+                    )}
+                  </>
+                ) : (
+                  <p className={styles.courseEmpty} role="status">
+                    {publishedCourses.length ? text.noPlaces : text.noClass}{" "}
+                    <span>{text.classEmptyHint}</span>
+                  </p>
+                )}
+                {refreshFailed && !scheduleUnavailable && (
+                  <p className={styles.staleSchedule} role="status">
+                    {text.staleSchedule}
+                  </p>
+                )}
+              </div>
+            )}
             <div className={styles.featureFooter}>
               <p>
                 {activeZone === "conditioning"

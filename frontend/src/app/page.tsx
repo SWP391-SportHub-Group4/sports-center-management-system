@@ -111,9 +111,9 @@ export default function Page() {
               </p>
               <Link
                 className={buttonClass({ variant: "secondary", size: "lg" })}
-                href="/member/my-plans"
+                href="#pricing"
               >
-                {text("Xem gói Gym và PT", "View Gym and PT plans")}
+                {text("Xem các gói Membership", "Compare Membership plans")}
                 <CourtIcon name="arrow" size={18} />
               </Link>
             </div>
@@ -164,7 +164,7 @@ export default function Page() {
             <CourtIcon name="arrow" size={22} />
           </Link>
           <Link href="#pricing">
-            {text("Gói Gym", "Gym plans")}
+            {text("Gói Membership", "Membership plans")}
             <CourtIcon name="arrow" size={22} />
           </Link>
           <Link href="/login">

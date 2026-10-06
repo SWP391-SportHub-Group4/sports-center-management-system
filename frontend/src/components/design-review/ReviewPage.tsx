@@ -251,12 +251,36 @@ export function AccountForm() {
           Giữ thông tin liên hệ chính xác để nhận lịch học và thông báo từ trung
           tâm.
         </p>
-        <div className={s.memberPass}>
-          <span>SportHub.</span>
-          <CourtIcon name="gym" size={48} />
-          <strong>Nguyễn Minh Anh</strong>
-          <small>Thẻ hội viên minh họa · Không dùng để check-in</small>
+        <div className={s.memberPass} aria-label="Thẻ hội viên minh họa">
+          <div className={s.passTopline}>
+            <span className={s.passBrand}>
+              Sport<span>Hub</span>
+            </span>
+            <span className={s.passIndex}>
+              ATHLETE PASS <b>01</b>
+            </span>
+          </div>
+          <div className={s.passIdentity}>
+            <span className={s.passAvatar} aria-hidden="true">
+              <CourtIcon name="user" size={25} />
+            </span>
+            <div>
+              <small>HỘI VIÊN · PERFORMANCE</small>
+              <strong>Nguyễn Minh Anh</strong>
+            </div>
+          </div>
+          <div className={s.passBottomline}>
+            <span>
+              <i /> ACTIVE MEMBER
+            </span>
+            <CourtIcon name="badminton" size={23} />
+            <CourtIcon name="basketball" size={23} />
+            <CourtIcon name="gym" size={23} />
+          </div>
         </div>
+        <p className={s.passCaption}>
+          Thẻ hội viên minh họa · Không dùng để check-in
+        </p>
       </div>
       <form
         className={s.panel}
@@ -552,7 +576,26 @@ export default function ReviewPage() {
     });
   };
   return (
-    <div className={s.root} lang="vi">
+    <div
+      className={s.root}
+      lang="vi"
+      data-theme="performance"
+      onPointerMove={(event) => {
+        if (event.pointerType !== "mouse") return;
+        event.currentTarget.style.setProperty(
+          "--spotlight-x",
+          `${event.clientX}px`,
+        );
+        event.currentTarget.style.setProperty(
+          "--spotlight-y",
+          `${event.clientY}px`,
+        );
+        event.currentTarget.style.setProperty("--spotlight-opacity", "1");
+      }}
+      onPointerLeave={(event) =>
+        event.currentTarget.style.setProperty("--spotlight-opacity", "0")
+      }
+    >
       <a className={s.skip} href="#review-main">
         Bỏ qua điều hướng
       </a>

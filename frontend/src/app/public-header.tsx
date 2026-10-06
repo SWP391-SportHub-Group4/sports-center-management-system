@@ -17,6 +17,11 @@ export function PublicHeader() {
   const accountLabel = loading
     ? t.publicNav.account
     : user?.fullName || t.publicNav.signIn;
+  const menuLabel = menuOpen
+    ? language === "vi"
+      ? "Đóng điều hướng"
+      : "Close navigation"
+    : t.refactor.menu;
 
   return (
     <header
@@ -28,7 +33,13 @@ export function PublicHeader() {
         }
       }}
     >
-      <Link className={styles.logo} href="/" aria-label="SportHub, homepage">
+      <Link
+        className={styles.logo}
+        href="/"
+        aria-label={
+          language === "vi" ? "SportHub, trang chủ" : "SportHub, homepage"
+        }
+      >
         <span className={styles.logoWord}>
           Sport<span className={styles.logoAccent}>Hub</span>
         </span>
@@ -38,15 +49,16 @@ export function PublicHeader() {
         className={styles.menuToggle}
         aria-expanded={menuOpen}
         aria-controls="public-nav"
+        aria-label={menuLabel}
         onClick={() => setMenuOpen((v) => !v)}
       >
         <CourtIcon name={menuOpen ? "close" : "menu"} size={20} />
-        {t.refactor.menu}
+        {menuLabel}
       </button>
       <nav
         id="public-nav"
         className={`${styles.nav} ${menuOpen ? styles.navOpen : ""}`}
-        aria-label="Main navigation"
+        aria-label={language === "vi" ? "Điều hướng chính" : "Main navigation"}
       >
         <Link href="/#activities" onClick={() => setMenuOpen(false)}>
           {t.refactor.sports}
@@ -55,7 +67,7 @@ export function PublicHeader() {
           {t.refactor.pt}
         </Link>
         <Link href="/#pricing" onClick={() => setMenuOpen(false)}>
-          {t.refactor.gym}
+          {language === "vi" ? "Gói Membership" : "Membership"}
         </Link>
       </nav>
       <div className={styles.headerActions}>

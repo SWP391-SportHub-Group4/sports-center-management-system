@@ -28,4 +28,4 @@ Vào http://localhost:3000/design-review. Trang không cần đăng nhập hoặ
 
 Mẫu review bằng tiếng Việt, dữ liệu minh họa, không gọi API hay tạo giao dịch. Form không lưu bền vững. OTP chỉ mô phỏng, không phải xác thực. Giá và phép tính điểm chỉ để xem layout; khi tích hợp phải lấy quote/tổng tiền, số dư, xác nhận OTP và expiry từ backend. Trang không tạo hold hoặc countdown giả. Không dùng mẫu này thay thế checkout nghiệp vụ hiện có.
 
-Hướng thiết kế: Court & Volt hiện hữu; bố cục 6/10, chuyển động 3/10, mật độ 4/10. Taste áp dụng phần public; form/quầy theo luồng tác vụ. Light theme theo token dự án; các trạng thái lỗi có nội dung chữ.
+Hướng thiết kế: đồng bộ giao diện homepage Court & Volt — nền carbon, Volt làm điểm nhấn, Barlow Condensed cho display và Be Vietnam Pro cho nội dung. Dùng cùng hero thể thao đa môn; mẫu list/detail/form/checkout giữ nguyên dữ liệu và tương tác minh họa. Các trạng thái lỗi có nội dung chữ.
