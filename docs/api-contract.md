@@ -66,7 +66,7 @@ Các endpoint dưới đây phục vụ frontend API-backed. Không thay schema/
 ## Quy ước chung
 
 - Enum JSON hiện tại: **UPPER_SNAKE_CASE** (`ISSUED`, `PAID_AFTER_RECONCILIATION`, `GROUP_COURSE`, `VN_PAY`). Enum số không được chấp nhận. DTO string biểu diễn enum có `WireEnum` converter; query enum chấp nhận canonical và tên nội bộ để tương thích. JWT role claim vẫn dùng tên nội bộ, không tự chuyển JWT.
-- Enum DB hiện tại: lưu int mặc định EF (không có `HasConversion`). Khi thêm giá trị phải append, không đổi số cũ. `UserRole` hiện: CenterManager=0, Coach=1, Member=2, Receptionist=3, SystemAdministrator=4 (không có role ExternalCoach; role cũ này được gỡ theo BR-140).
+- Enum DB hiện tại: lưu int mặc định EF (không có `HasConversion`). Khi thêm giá trị phải append, không đổi số cũ. `UserRole` hiện: CenterManager=0, Coach=1, Member=2, Receptionist=3, SystemAdministrator=4 (đúng 5 role, BR-140).
 - `InvoiceStatus` DB: Issued=0, Paid=2, Void=3, PaidAfterReconciliation=4. Wire: `ISSUED`, `PAID`, `VOID`, `PAID_AFTER_RECONCILIATION`.
 - Auth: JWT Bearer; policy trong `backend/SportHub.BuildingBlocks/Api/SportHubPolicies.cs`.
 - Error body thông thường `{error,message}`, mã lỗi chữ thường snake_case; lỗi occupancy có thêm `conflicts[]`. ID vẫn đúng kiểu int/Guid, thời gian UTC ISO-8601; tham số ngày báo cáo/lịch dùng ngày Việt Nam.
@@ -438,7 +438,7 @@ Refund mới không còn tạo/duyệt qua route adjustment chung; refund legacy
 | P1.12 Báo cáo/seed/config | Hoàn tất backend | Xem phần Contract báo cáo và tích hợp. |
 | P1.13 Kiểm thử | 465/465 pass | Xem evidence cuối; frontend và dịch vụ bên ngoài chưa thuộc chứng nhận này. |
 
-AI (`api/ai/*`) nằm ngoài gate của hai plan; chỉ sửa tối thiểu để build.
+AI (`api/ai/*`) chỉ sửa tối thiểu để build.
 
 ## Phần C — Route mới đã triển khai (P1.03)
 

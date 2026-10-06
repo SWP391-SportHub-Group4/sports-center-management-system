@@ -13,8 +13,8 @@ using SportHub.Scheduling.Domain.Enums;
 namespace SportHub.API.Persistence;
 
 /// <summary>
-/// Seed demo của Cổng D: bốn lớp cố định BR-141 và bảng giá thuê sân. Chạy bằng lệnh riêng
-/// (<c>dotnet run --project backend/SportHub.API -- --seed-br141</c>), không chạy khi khởi động.
+/// Seed demo: bốn lớp cố định BR-141 và bảng giá thuê sân. Chạy bằng lệnh riêng
+/// (<c>dotnet run --project backend/SportHub.API -- --seed-br141=true</c>), không chạy khi khởi động.
 ///
 /// - Lớp tạo qua <see cref="IClassService"/> (Create rồi Publish) nên dùng đúng ràng buộc thật: môn có dịch vụ lớp, phòng
 ///   tương thích, Coach đủ chuyên môn, giờ mở cửa, ClassSession và occupancy phòng + Coach được sinh như publish thật.

@@ -90,7 +90,7 @@ Thời hạn OTP registration/reset và OTP chi điểm tại quầy khác nhau;
 
 ## 6. Thuê sân của Member
 
-Mọi Member có thêm mục **Thuê sân** trong menu (cạnh Lịch, Tài chính của An). Trung tâm chỉ tính tiền thuê, không hỏi mục đích và không khai báo số người.
+Mọi Member có thêm mục **Thuê sân** trong menu (giữa Gym & PT và Tập luyện). Trung tâm chỉ tính tiền thuê, không hỏi mục đích và không khai báo số người. Code: `features/rentals` (`availability-picker`, `rental-list`), route `/member/courts/book`, `/member/rentals`, `/member/rentals/[rentalId]`; môn trong form lấy từ `GET /api/sports?service=COURT_RENTAL`, giờ chọn 1 đến `maxHours` từ policy server. Bookmark cũ `/external-coach/*` được chuyển về các route Member trong `next.config.mjs`.
 
 | ID | Page/subpage | Route đề xuất | Chức năng |
 |---|---|---|---|
@@ -148,10 +148,10 @@ Trước merge: flow/state matrix → màn mẫu desktop/mobile → critique/aud
 |---|---|
 | G01 | K05–K06 và K01 phần sân/HLV/PT |
 | G09 | K01 tìm nhanh/K03 catalog |
-| G11 (phối hợp An) | K20/K24 |
+| G11 (phối hợp An) | K20 |
 | CAT-01 (phối hợp An) | K01–K05 |
 
-**G11/D01–D05/D07/D08 và CAT-01** tại [An](01-AN-MEMBER-SHARED.md): Khôi tích hợp payment adapter K20/K24 và classification Gym/PT theo contract. **G06 do Khoa phụ trách** cho Q15/Q17; Khôi là consumer ở K21–K23 và không sửa database từ FE.
+**G11/D01–D05/D07/D08 và CAT-01** tại [An](01-AN-MEMBER-SHARED.md): Khôi tích hợp payment adapter K20 và classification Gym/PT theo contract. **G06 do Khoa phụ trách** cho Q15/Q17; Khôi là consumer ở K21–K23 và không sửa database từ FE.
 
 ### API hiện có: tái sử dụng trước khi thêm
 
@@ -193,7 +193,7 @@ Mở rộng GET `/api/classes` với keyword, minPrice/maxPrice, weekday/timeRan
 
 ### API legacy/dư thừa trong phạm vi
 
-Chưa xác nhận endpoint Guest đủ điều kiện xóa. /classes và /courses là alias **frontend**, không phải hai backend API dư. Financial legacy do An giữ bản chính; Khôi kiểm consumers K20/K24 trước retire.
+Chưa xác nhận endpoint Guest đủ điều kiện xóa. /classes và /courses là alias **frontend**, không phải hai backend API dư. Financial legacy do An giữ bản chính; Khôi kiểm consumer K20 trước retire.
 
 Không xóa API chỉ vì không thấy FE call. Giữ read-history, callback IPN/return, by-key/by-reference và projection theo role. Trước retire: scan consumers/tests/scripts/integrations, deprecation/OpenAPI, replacement, logs nếu có và compatibility regression. Đợt tài liệu này không xóa endpoint.
 

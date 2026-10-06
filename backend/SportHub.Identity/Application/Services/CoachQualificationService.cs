@@ -10,7 +10,7 @@ namespace SportHub.Identity.Application.Services;
 /// <summary>
 /// Qualification dịch vụ của Coach nội bộ (CAT-01). Hiện chỉ dịch vụ PT của Gym cần qualification riêng; Coach phải
 /// đã có chuyên môn môn Gym. Gỡ qualification khi Coach còn lịch PT tương lai chưa được kiểm ở đây (module Training
-/// sở hữu dữ liệu đó): xem tài liệu Cổng B.
+/// sở hữu dữ liệu đó) và hiện chưa được cài đặt.
 /// </summary>
 public sealed class CoachQualificationService(ISportHubDbContext db, ISportCatalogReader catalog, IAuditWriter audit)
 {

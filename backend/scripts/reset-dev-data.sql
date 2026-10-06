@@ -14,7 +14,7 @@
 --      thông báo, OTP, nhật ký, báo cáo xuất, hồ sơ tập luyện, bảng legacy).
 --
 -- Sau reset: phiên đăng nhập cũ bị vô hiệu (security_stamp mới), mật khẩu và liên kết Google của tài khoản giữ nguyên.
--- DemoDataSeeder bỏ qua hoàn toàn khi DB đã có tài khoản, nên sau reset DB giữ rỗng cho tới khi chạy lệnh seed riêng (Cổng D).
+-- DemoDataSeeder bỏ qua hoàn toàn khi DB đã có tài khoản, nên sau reset DB giữ rỗng cho tới khi chạy lệnh seed riêng.
 
 BEGIN;
 

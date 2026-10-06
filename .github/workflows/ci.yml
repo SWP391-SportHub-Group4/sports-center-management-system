@@ -149,7 +149,7 @@ jobs:
           tests/member.spec.ts
           tests/receptionist.spec.ts
           tests/manager-multisport.spec.ts
-          tests/external-coach.spec.ts
+          tests/member-court-rental.spec.ts
           tests/coach-training.spec.ts
           tests/payment-lifecycle.spec.ts
           tests/rbac.spec.ts

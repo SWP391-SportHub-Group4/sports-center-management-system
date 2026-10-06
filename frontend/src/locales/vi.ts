@@ -306,7 +306,7 @@ export const vi: Translations = {
     },
     advanceDays: {
       label: "Thời gian đặt sân trước (ngày)",
-      hint: "Số ngày tối đa Coach ngoài được đặt sân trước.",
+      hint: "Số ngày tối đa Member được đặt sân trước.",
     },
     cancelHours: {
       label: "Mốc hoàn toàn bộ điểm thuê sân (giờ)",
@@ -721,7 +721,6 @@ export const vi: Translations = {
     fullName: "Họ tên",
     finishRegistration: "Hoàn tất đăng ký",
     cancel: "Hủy",
-    externalTitle: "Đăng ký huấn luyện viên ngoài",
     phone: "Số điện thoại",
     bio: "Giới thiệu",
     sports: "Môn thể thao",

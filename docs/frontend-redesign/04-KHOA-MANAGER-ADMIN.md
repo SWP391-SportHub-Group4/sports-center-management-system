@@ -31,7 +31,7 @@ Giữ tên file hiện tại để không làm hỏng link; **ID Q là ID truy v
 
 | ID | Page → subpage | Route đề xuất | Chức năng / cấu trúc |
 |---|---|---|---|
-| Q24 | Danh mục → Bộ môn | `/manager/catalog?tab=sports` | Name, operation type, duration/capacity mặc định, room types, active; không xóa dữ liệu đã tham chiếu |
+| Q24 | Danh mục → Bộ môn | `/manager/catalog?tab=sports` | Mã (bất biến sau khi tạo), tên, dịch vụ (Membership/PT chỉ môn Gym, khóa học nhóm kèm thời lượng và sĩ số mặc định, thuê sân), phần còn thiếu để bán (loại phòng, sân, giờ mở cửa, giá), active; tắt dịch vụ không xóa dữ liệu đã tham chiếu |
 | Q25 | Danh mục → Gói Gym / Giá PT / Giá thuê sân | `/manager/catalog?tab=...` | Gói, thời hạn, giá; PT price/version; court rates giờ cao/thấp điểm; giá dương bội số 1.000 |
 | Q26 | Tham số vận hành | `/manager/settings` | Hold deadline, chốt ngưỡng, hạn phản hồi, giờ hoạt động/nhắc hạn theo contract; helper mô tả tác động |
 | Q27 | Nhật ký → Chi tiết sự kiện | `/manager/audit-log` | Actor/time/object/reason/before-after theo dữ liệu thật; liên kết đối tượng còn tồn tại |
@@ -157,7 +157,7 @@ Không gửi thêm manual notice trùng với thông báo tự động cùng s�
 
 ### HLV, thông báo và AI — Q13/Q14/Q18/Q28
 
-Q13 quản lý HLV nội bộ và specialty theo CAT-01 của An. Q18 là composer/history thông báo; dùng Notification Panel chung của An, không dựng một inbox thứ hai. Q28 dùng AI Drawer của Hào: Xem lại & Chỉnh sửa → lưu nháp bằng ClassEditor; không tự publish.
+Q13 quản lý HLV nội bộ, chuyên môn theo môn và qualification dịch vụ PT (`PUT /api/manager/coaches/{id}/service-qualifications`). Q18 là composer/history thông báo; dùng Notification Panel chung của An, không dựng một inbox thứ hai. Q28 dùng AI Drawer của Hào: Xem lại & Chỉnh sửa → lưu nháp bằng ClassEditor; không tự publish.
 
 ### API đi cùng phần việc nhận thêm
 
@@ -177,7 +177,7 @@ Q13 quản lý HLV nội bộ và specialty theo CAT-01 của An. Q18 là compos
 | G07 | Q18 | Notice list/recipient preview/delivery không gửi trùng |
 | G13 | Q03/Q05/Q06 | Chốt đóng tuyển sinh độc lập hủy lớp, xử lý hold đang tồn tại |
 | G02 (consumer) | Q07 | An giữ spec và Q08; tích hợp trạng thái ngưỡng/interest |
-| CAT-01 (consumer) | K01–K05/Q13 | An giữ schema/migration; kiểm public catalog và Coach specialty |
+| CAT-01 (consumer) | K01–K05/Q13 | An giữ schema/migration; kiểm public catalog, Coach specialty và qualification PT |
 
 ### Backlog API Manager vận hành
 

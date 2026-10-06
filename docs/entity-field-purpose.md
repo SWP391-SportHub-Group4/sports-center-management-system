@@ -84,7 +84,7 @@ Quan hệ 1–N với `USER_SPORT_SPECIALTIES` (Coach); Member có thêm 1 `POIN
 | Field | Vai trò |
 |---|---|
 | `RoleId` (PK) | Khóa để `UserAccount.RoleId` trỏ vào |
-| `RoleName` | **5 giá trị cố định** theo thiết kế hệ thống `UserRole`: `SystemAdministrator`, `CenterManager`, `Coach`, `Member`, `Receptionist`; API UPPER_SNAKE_CASE, JWT PascalCase. Seed unique (BR-63) — gỡ dòng `ExternalCoach` (BR-140) |
+| `RoleName` | **5 giá trị cố định** theo thiết kế hệ thống `UserRole`: `SystemAdministrator`, `CenterManager`, `Coach`, `Member`, `Receptionist`; API UPPER_SNAKE_CASE, JWT PascalCase. Seed unique (BR-63) |
 
 ### `COACH_PROFILES`
 **Mục đích:** chỉ lưu thông tin **nghiệp vụ bổ sung** của tài khoản role `Coach` (huấn luyện viên của trung tâm) — không lưu profile chung (tên/SĐT ở `USER_PROFILES`, mật khẩu ở `USER_CREDENTIALS`) và **không lưu dữ liệu lương/hoa hồng/hợp đồng**. Từ v3 bảng này **không còn phân loại Coach**: năng lực giảng dạy nằm ở `USER_SPORT_SPECIALTIES` (Coach dạy được môn nào), nên 1 Coach có thể dạy nhiều môn.
@@ -97,7 +97,7 @@ Quan hệ 1–N với `USER_SPORT_SPECIALTIES` (Coach); Member có thêm 1 `POIN
 **Quy tắc:** khi tài khoản đổi khỏi role `Coach`, giữ record `COACH_PROFILES` làm lịch sử — không cascade delete, không thêm field trạng thái. `UserAccount.RoleId` hiện tại quyết định hiệu lực. **Sửa v3:** khi đổi lại role `Coach`, không cần chọn category; Manager gán lại specialty nếu cần.
 
 ### `USER_SPORT_SPECIALTIES`
-**Mục đích:** bảng nối Coach ↔ Sport — cho biết ai dạy được môn nào. **Thay thế `CoachCategory`.** Hàm `CoachCanTeach(userId, sportId)` là điều kiện để phân công Coach vào lớp (`CLASSES.CoachId`) và chọn Coach PT (môn có `OperationType = OneOnOne`).
+**Mục đích:** bảng nối Coach ↔ Sport — cho biết ai dạy được môn nào. **Thay thế `CoachCategory`.** Hàm `CoachCanTeach(userId, sportId)` là điều kiện để phân công Coach vào lớp (`CLASSES.CoachId`). Quyền PT không suy ra từ bảng này mà từ `COACH_SERVICE_QUALIFICATIONS`.
 
 | Field | Vai trò |
 |---|---|
@@ -132,7 +132,7 @@ Quan hệ 1–N với `USER_SPORT_SPECIALTIES` (Coach); Member có thêm 1 `POIN
 ### `COACH_MEMBER_RELATIONSHIP`
 **Mục đích:** ghi nhận **ai là HLV phụ trách ai**, và **vì sao** (qua lớp học, cá nhân, hay Manager gán tay) — cần thiết vì 1 Coach chỉ được tạo Workout Plan / xem thông tin của Member mà mình thực sự phụ trách (BR-23/BR-24), không phải mọi Member.
 
-**Quy tắc:** chỉ tạo cho Coach **có specialty PT** (`USER_SPORT_SPECIALTIES` chứa môn `OneOnOne`). Không tự tạo relationship kiểu này từ việc Member ghi danh (`ENROLLMENTS`) khóa Cầu lông/Bóng rổ — ghi danh khóa học và quan hệ huấn luyện cá nhân là 2 khái niệm khác nhau.
+**Quy tắc:** chỉ tạo cho Coach **có qualification PT** (`COACH_SERVICE_QUALIFICATIONS` trỏ tới dịch vụ PT của Gym). Không tự tạo relationship kiểu này từ việc Member ghi danh (`ENROLLMENTS`) khóa Cầu lông/Bóng rổ — ghi danh khóa học và quan hệ huấn luyện cá nhân là 2 khái niệm khác nhau.
 
 | Field | Vai trò |
 |---|---|
@@ -187,13 +187,30 @@ Quan hệ 1–N với `USER_SPORT_SPECIALTIES` (Coach); Member có thêm 1 `POIN
 | Field | Vai trò |
 |---|---|
 | `SportId` (PK) | Định danh môn |
+| `Code` | Mã ổn định, duy nhất (`^[a-z0-9_]{2,32}`), **không đổi sau khi tạo**; chỉ để định danh catalog và seed, không dùng để rẽ nhánh nghiệp vụ. Mã `gym` là môn tham chiếu duy nhất được bật Membership/PT |
 | `Name` | Tên hiển thị — **unique không phân biệt hoa/thường** (`LOWER(name)`) |
-| `OperationType` | Enum `SportOperationType`: `WalkIn` (Gym — ra vào tự do), `OneOnOne` (PT — 1 Coach : 1 Member), `GroupCourse` (khóa học nhóm cố định). Quyết định luồng nghiệp vụ nào áp dụng cho môn |
-| `DefaultSessionMinutes` (nullable) | Thời lượng 1 buổi; **bắt buộc khi `GroupCourse`** (gợi ý seed: Cầu lông 90, Bóng rổ 120) — `CLASS_SESSIONS.EndAtUtc` suy ra từ đây |
-| `DefaultMaxCapacity` (nullable) | Trần sĩ số lớp của môn; **bắt buộc khi `GroupCourse`**; `Class.Capacity` không được vượt (BR-51) |
 | `Description` / `ImageUrl` (nullable) | Hiển thị landing page |
 | `SortOrder` | Thứ tự hiển thị |
 | `IsActive` | Ngừng hoạt động thay cho xóa cứng (giữ lịch sử lớp/hóa đơn) |
+
+### `SPORT_SERVICE_OFFERINGS`
+**Mục đích:** các dịch vụ một môn cung cấp. `UNIQUE(SportId, ServiceType)`.
+
+| Field | Vai trò |
+|---|---|
+| `OfferingId` (PK) | Định danh dịch vụ của môn |
+| `SportId` (FK) | Môn |
+| `ServiceType` | `MEMBERSHIP_ACCESS` (0), `GROUP_COURSE` (1), `COURT_RENTAL` (2), `PERSONAL_TRAINING` (3); chỉ được append |
+| `IsEnabled` | Tắt chỉ chặn giao dịch mới (quote, checkout, publish lớp, mua), không hủy thứ đã bán |
+| `DefaultSessionMinutes` / `DefaultMaxCapacity` (nullable) | Chỉ có với `GROUP_COURSE` (bắt buộc, > 0); phải NULL với dịch vụ khác. `CLASS_SESSIONS.EndAtUtc` suy ra từ thời lượng; `Class.Capacity` không được vượt sĩ số (BR-51). Đổi mặc định chỉ ảnh hưởng lớp tạo sau |
+
+Seed: Gym (`MEMBERSHIP_ACCESS`, `PERSONAL_TRAINING`), Cầu lông và Bóng rổ (`GROUP_COURSE`, `COURT_RENTAL`; mặc định lớp 120 phút theo BR-141).
+
+### `SERVICE_ROOM_TYPES`
+**Mục đích:** thu hẹp loại phòng cho dịch vụ PT để phòng Gym không tự thành phòng PT. PK ghép `(OfferingId, RoomTypeId)`. Tập rỗng nghĩa là PT không gắn phòng; nếu chọn phòng thì loại phòng phải thuộc tập này.
+
+### `COACH_SERVICE_QUALIFICATIONS`
+**Mục đích:** Coach đủ điều kiện dạy một dịch vụ cụ thể (hiện chỉ PT của Gym). PK ghép `(UserId, OfferingId)`. Coach chỉ có chuyên môn Gym không tự nhận quyền PT; cần có chuyên môn môn Gym trước khi được cấp.
 
 ### `ROOM_TYPES`
 **Mục đích:** loại sân/phòng (Phòng Gym, Phòng PT, Sân cầu lông, Sân bóng rổ) — đơn vị gắn giá thuê sân (`COURT_RATES`) và ràng buộc môn nào chơi được ở đâu.
@@ -481,7 +498,7 @@ Ràng buộc: `EXCLUDE USING gist (CoachId WITH =, Period WITH &&) WHERE (IsActi
 | `ActivationReference` | UUID opaque, nullable khi `PendingPayment`, unique khi có giá trị — Payment dùng để activate idempotent (vd theo `InvoiceItemId`) |
 | `MemberId` (FK) | Member hưởng quyền lợi |
 | `OriginMemberPackageId` / `CurrentMemberPackageId` (FK `MEMBER_PACKAGES`) | Membership Active lúc checkout PT / Membership đang cấp validity hiện hành (đổi khi carry-over) |
-| `CoachId` (FK) | Coach có specialty PT (môn `OneOnOne`) mà Member đã chọn |
+| `CoachId` (FK) | Coach có qualification PT mà Member đã chọn |
 | `FrequencyPerWeek` | Chỉ 1, 2 hoặc 3 — chỉ dùng tính `TotalQuota`, không giới hạn số buổi/tuần thực tế |
 | `TotalQuota` | Tổng số buổi PT theo BR-71 (4/8/12 × số tháng Membership) |
 | `ReservedSessions` / `ConsumedSessions` | Đang giữ quota chưa dùng / đã dùng (Completed, late cancel, no-show, old leg của late reschedule) |

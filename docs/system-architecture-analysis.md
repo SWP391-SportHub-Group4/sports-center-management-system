@@ -453,7 +453,7 @@ Module **lớn nhất**, chia thành core + 3 sub-module (Catalog, Occupancy, Th
 |---|---|---|
 | **Api/** | `SportsController.cs` (2.2KB), `RoomTypesController.cs` (2.0KB), `RoomOpeningHoursController.cs` (965B), `RoomBlocksController.cs` (1.5KB), `CourtRatesController.cs` (2.0KB) | CRUD danh mục: sports, room types, opening hours, blocks, court rates |
 | **Application/** | `SportCatalogService.cs` (7.0KB), `RoomTypeService.cs` (6.2KB), `RoomOpeningHourService.cs` (5.3KB), `RoomBlockService.cs` (5.2KB), `CourtRateService.cs` (7.5KB), `SportCatalogReader.cs` (2.7KB), `CatalogContracts.cs` (3.8KB) | Business logic + DTO contracts cho catalog |
-| **Domain/** | `Sport.cs`, `RoomType.cs`, `SportRoomType.cs`, `RoomOpeningHour.cs`, `RoomBlock.cs`, `CourtRate.cs`, `SportOperationType.cs` (7 files) | Entities: Sport (tên, sportOperationType), RoomType, liên kết Sport-RoomType, giờ mở/đóng, block phòng, giá sân |
+| **Domain/** | `Sport.cs`, `RoomType.cs`, `SportRoomType.cs`, `RoomOpeningHour.cs`, `RoomBlock.cs`, `CourtRate.cs`, `SportServiceOffering.cs`, `ServiceRoomType.cs` (8 files) | Entities: Sport (mã, tên), SportServiceOffering (dịch vụ của môn), ServiceRoomType, RoomType, liên kết Sport-RoomType, giờ mở/đóng, block phòng, giá sân |
 | **Persistence/** | 6 EF configuration files | Fluent API configs cho Catalog entities |
 
 ### Occupancy/ (Sub-module — Quản lý lịch trống)

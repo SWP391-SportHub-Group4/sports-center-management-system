@@ -6,7 +6,7 @@ SportHub quản lý trung tâm thể thao với **ba môn Gym (bao gồm PT), c�
 
 Số hóa hoạt động từ tiếp đón, mua dịch vụ, xếp lịch, điểm danh và tập luyện đến thuê sân, thanh toán, hoàn điểm, thông báo và báo cáo. Dữ liệu phải nhất quán giữa năm vai trò và không bán vượt sĩ số hoặc xếp trùng sân/Coach.
 
-Gym dùng Membership có thời hạn; PT mua riêng sau khi Membership Active. Cầu lông/bóng rổ bán khóa học nhiều buổi, độc lập Membership. Mọi Member đều được thuê sân theo giờ (HLV ngoài thuê sân là Member bình thường); lớp cố định seed sẵn: Bóng rổ và Cầu lông, Thứ 2-4-6 07:00–09:00 và Thứ 3-5-7 14:00–16:00 (BR-141). Không có HLV freelancer và không cho gym ngoài vào hoạt động.
+Gym dùng Membership có thời hạn; PT mua riêng sau khi Membership Active. Cầu lông/bóng rổ bán khóa học nhiều buổi, độc lập Membership. Mọi Member đều được thuê sân theo giờ; lớp cố định seed sẵn: Bóng rổ và Cầu lông, Thứ 2-4-6 07:00–09:00 và Thứ 3-5-7 14:00–16:00 (BR-141).
 
 Ngoài phạm vi: đa chi nhánh, payroll/hợp đồng nhân sự, chia doanh thu với người thuê sân, quản lý người đi cùng khi Member thuê sân, mobile native, payment production, hoàn tiền mặt/chuyển khoản và VNPay Refund API.
 
