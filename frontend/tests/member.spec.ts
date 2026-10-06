@@ -245,3 +245,29 @@ test("Member pages pass WCAG A/AA", async ({ page }) => {
     }
   }
 });
+test("the member header stays mounted and pinned while moving between tabs", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 700 });
+  await page.goto("/member");
+  const nav = page.getByRole("navigation", { name: "Member Navigation" });
+  await expect(nav).toBeVisible();
+  // Đánh dấu node header: nếu chuyển trang dựng lại khung thì cờ này biến mất.
+  await page.evaluate(() => {
+    (document.querySelector("header") as HTMLElement).dataset.mounted = "yes";
+  });
+  for (const name of ["My schedule", "Gym & PT", "Finance", "Dashboard"]) {
+    await nav.getByRole("link", { name, exact: true }).click();
+    await expect(nav.getByRole("link", { name, exact: true })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    await expect(page.locator("header[data-mounted='yes']")).toHaveCount(1);
+  }
+  await page.mouse.wheel(0, 2000);
+  await page.waitForTimeout(300);
+  const top = await page
+    .locator("header")
+    .evaluate((el) => el.getBoundingClientRect().top);
+  expect(top).toBe(0);
+});

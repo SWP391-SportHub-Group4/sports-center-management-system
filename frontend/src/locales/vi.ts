@@ -43,6 +43,11 @@ export const vi: Translations = {
     ptQuota: "Buổi tập còn lại",
     walletHint: "Sẵn dùng cho lần đăng ký tiếp theo",
     manageTraining: "Mở phần tập luyện",
+    quickActions: "Thao tác nhanh",
+    attentionTitle: "Cần bạn xử lý",
+    gymEnds: "Membership Gym hết hạn ngày {date}",
+    ptLow: "Còn {n} buổi PT",
+    renew: "Gia hạn",
     moreSchedule: "Xem toàn bộ lịch",
   },
   memberPages: {
@@ -941,6 +946,15 @@ export const vi: Translations = {
     shortcutsEscapeHint: "Bấm Escape để đóng",
     footerTagline: "Trung tâm Thể thao Đa năng",
     footerSub: "Gym · Huấn luyện cá nhân · Khóa học · Thuê sân",
+    groups: {
+      catalog: "Danh mục",
+      operations: "Vận hành",
+      people: "Nhân sự",
+      finance: "Tài chính",
+      system: "Hệ thống",
+      training: "Huấn luyện",
+      billing: "Thu ngân",
+    },
     roleLabel: {
       Member: "Hội viên",
       Receptionist: "Nhân viên Lễ tân",

@@ -2,7 +2,14 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState, useRef, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useRef,
+  type ReactNode,
+} from "react";
 import { HOME_BY_ROLE, useAuth, type Role } from "@/lib/auth";
 import { useLanguage } from "@/lib/language";
 import { NotificationBell } from "./NotificationBell";
@@ -31,6 +38,9 @@ export interface MemberShellProps {
   children: ReactNode;
 }
 
+/** Có khung Member (header, drawer, footer) bao ngoài chưa; nếu rồi thì trang chỉ vẽ phần nội dung. */
+const MemberFrameContext = createContext(false);
+
 function isActive(pathname: string, item: NavItem) {
   if (item.href === "/member") return pathname === item.href;
   return [item.href, ...(item.also ?? [])].some((prefix) =>
@@ -38,13 +48,17 @@ function isActive(pathname: string, item: NavItem) {
   );
 }
 
-export function MemberShell({
-  title,
-  description,
-  actions,
+/**
+ * Khung điều hướng của Member: đặt một lần ở `app/member/layout.tsx` để thanh điều hướng không bị
+ * dựng lại (nhấp nháy) mỗi lần chuyển trang; header sticky luôn ở đầu màn hình khi cuộn.
+ */
+export function MemberFrame({
   allow = ["Member"],
   children,
-}: MemberShellProps) {
+}: {
+  allow?: Role[];
+  children: ReactNode;
+}) {
   const { user, loading, logout } = useAuth();
   const { language, toggleLanguage, t } = useLanguage();
   const router = useRouter();
@@ -352,17 +366,9 @@ export function MemberShell({
 
       {/* Main Page Content */}
       <main id="main-content" className={styles.main} tabIndex={-1}>
-        <div className={styles.pageHeader}>
-          <div className={styles.pageTitleGroup}>
-            <h1 className={styles.pageTitle}>{title}</h1>
-            {description && (
-              <p className={styles.pageDescription}>{description}</p>
-            )}
-          </div>
-          {actions && <div>{actions}</div>}
-        </div>
-
-        {children}
+        <MemberFrameContext.Provider value={true}>
+          {children}
+        </MemberFrameContext.Provider>
       </main>
 
       {/* Footer */}
@@ -373,4 +379,30 @@ export function MemberShell({
       </footer>
     </div>
   );
+}
+
+/** Trang của Member: tiêu đề + nội dung. Dùng trong layout `/member` thì khung đã có sẵn; ngoài đó (vd. /account) tự bọc khung. */
+export function MemberShell({
+  title,
+  description,
+  actions,
+  allow = ["Member"],
+  children,
+}: MemberShellProps) {
+  const inFrame = useContext(MemberFrameContext);
+  const page = (
+    <>
+      <div className={styles.pageHeader}>
+        <div className={styles.pageTitleGroup}>
+          <h1 className={styles.pageTitle}>{title}</h1>
+          {description && (
+            <p className={styles.pageDescription}>{description}</p>
+          )}
+        </div>
+        {actions && <div>{actions}</div>}
+      </div>
+      {children}
+    </>
+  );
+  return inFrame ? page : <MemberFrame allow={allow}>{page}</MemberFrame>;
 }

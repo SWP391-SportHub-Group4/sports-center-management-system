@@ -477,12 +477,19 @@ for (const language of ["en", "vi"] as const)
           name: /Review membership purchase|Xác nhận mua gói Gym/,
         }),
       });
-    const switchLanguage = () =>
-      page
+    const switchLanguage = async () => {
+      // Dưới 1100px công tắc ngôn ngữ nằm trong drawer điều hướng.
+      const menu = page.getByRole("button", {
+        name: /Open navigation menu|Mở menu điều hướng/,
+      });
+      if (await menu.isVisible()) await menu.click();
+      await page
         .getByTitle(
           /Switch to Vietnamese|Switch to English|Chuyển sang Tiếng Việt|Chuyển sang Tiếng Anh/,
         )
+        .filter({ visible: true })
         .click();
+    };
     await page.goto("/receptionist/sell-plans");
     await page.getByPlaceholder(/Enter name|Nhập tên/).fill("Alice");
     await page.getByRole("button", { name: /Alice/ }).click();
@@ -1858,12 +1865,12 @@ for (const language of ["en", "vi"] as const)
     ).toBeVisible();
     await expect(page.getByRole("main").getByRole("alert")).toHaveCount(0);
     await expect(
-      page.getByRole("main").getByRole("heading").first(),
+      page.getByRole("main").getByRole("heading", { level: 2 }).first(),
     ).toHaveText(language === "en" ? "Invoice" : "Hóa đơn");
     await page.getByTitle(/Switch to Vietnamese|Chuyển sang Tiếng Anh/).click();
     await expect(invoice).toBeVisible();
     await expect(
-      page.getByRole("main").getByRole("heading").first(),
+      page.getByRole("main").getByRole("heading", { level: 2 }).first(),
     ).toHaveText(language === "en" ? "Hóa đơn" : "Invoice");
     await page.reload();
     await expect(invoice).toBeVisible();

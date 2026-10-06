@@ -12,6 +12,8 @@ import {
   IconBell,
   IconInvoice,
   IconSearch,
+  IconAlert,
+  IconPlus,
 } from "@/components/icons";
 import { api } from "@/lib/apiClient";
 import { useAuth } from "@/lib/auth";
@@ -25,7 +27,9 @@ import {
   todayIso,
 } from "@/lib/format";
 import { pagedItems } from "@/lib/paged";
+import { rentalApi } from "@/features/rentals/api";
 import type {
+  SportDto,
   MemberPackageDto,
   PtEntitlementDto,
   InvoiceSummaryDto,
@@ -41,6 +45,7 @@ import {
 import styles from "./dashboard.module.css";
 
 function sessionHref(session: MemberEvent) {
+  if (session.type === "COURT_RENTAL") return `/member/rentals/${session.id}`;
   const date = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Ho_Chi_Minh",
   }).format(new Date(session.startAtUtc));
@@ -129,6 +134,126 @@ function DateTile({ value }: { value: string }) {
   );
 }
 
+/** Việc cần làm ngay, xếp theo độ gấp; không có việc nào thì không hiện gì. */
+function AttentionList({
+  invoices,
+  packages,
+  pt,
+  now,
+  today,
+}: {
+  invoices: InvoiceSummaryDto[];
+  packages: MemberPackageDto[];
+  pt: PtEntitlementDto[];
+  now: number;
+  today: string;
+}) {
+  const { t } = useLanguage();
+  const l = t.memberDashboardV2;
+  const daysUntil = (iso: string) =>
+    Math.round(
+      (Date.parse(`${iso}T00:00:00+07:00`) -
+        Date.parse(`${today}T00:00:00+07:00`)) /
+        86_400_000,
+    );
+  const items: {
+    key: string;
+    text: string;
+    detail?: string;
+    href: string;
+    action: string;
+  }[] = [];
+
+  // Hóa đơn gấp nhất trước: hạn giữ chỗ gần nhất, sau đó phát hành lâu nhất.
+  const owed = invoices
+    .filter((i) => i.outstanding > 0)
+    .sort(
+      (x, y) =>
+        (x.checkoutExpiresAtUtc ?? "9").localeCompare(
+          y.checkoutExpiresAtUtc ?? "9",
+        ) || x.issuedAt.localeCompare(y.issuedAt),
+    );
+  const [due, ...rest] = owed;
+  if (due) {
+    const holdActive =
+      !!due.checkoutExpiresAtUtc &&
+      new Date(due.checkoutExpiresAtUtc).getTime() > now;
+    const extra = rest.length
+      ? l.moreUnpaid
+          .replace("{n}", String(rest.length))
+          .replace(
+            "{amount}",
+            formatMoney(rest.reduce((sum, i) => sum + i.outstanding, 0)),
+          )
+      : null;
+    items.push({
+      key: "invoice",
+      text: `${due.invoiceNumber} · ${formatMoney(due.outstanding)}`,
+      detail: [
+        holdActive
+          ? l.heldUntil.replace("{time}", formatTime(due.checkoutExpiresAtUtc))
+          : l.issuedOn.replace("{date}", formatDate(due.issuedAt)),
+        extra,
+      ]
+        .filter(Boolean)
+        .join(" · "),
+      href: `/member/invoices/${due.invoiceId}`,
+      action: l.payNow,
+    });
+  }
+
+  const gym = [...packages].sort(
+    (a, b) =>
+      Number(b.isUsable) - Number(a.isUsable) ||
+      b.endDate.localeCompare(a.endDate),
+  )[0];
+  if (gym?.isUsable && daysUntil(gym.endDate) <= 7) {
+    items.push({
+      key: "gym",
+      text: l.gymEnds.replace("{date}", formatDate(gym.endDate)),
+      href: "/member/services",
+      action: l.renew,
+    });
+  }
+
+  const ptNow = pt.find((p) => p.status === "ACTIVE");
+  if (ptNow && ptNow.remainingQuota <= 1) {
+    items.push({
+      key: "pt",
+      text: l.ptLow.replace("{n}", String(ptNow.remainingQuota)),
+      href: "/member/services?tab=pt",
+      action: l.renew,
+    });
+  }
+
+  if (!items.length) return null;
+  return (
+    <section className={styles.attention} aria-labelledby="attention-title">
+      <h2 id="attention-title">
+        <IconAlert size={20} aria-hidden="true" />
+        {l.attentionTitle}
+      </h2>
+      <ul>
+        {items.map((item) => (
+          <li key={item.key}>
+            <div>
+              <strong>{item.text}</strong>
+              {item.detail && <span>{item.detail}</span>}
+            </div>
+            <Link
+              href={item.href}
+              className={buttonClass({ size: "sm" })}
+              aria-label={`${item.action}: ${item.text}`}
+            >
+              {item.action}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 export default function MemberDashboardPage() {
   const { t, language } = useLanguage();
   const l = t.memberDashboardV2;
@@ -161,6 +286,24 @@ export default function MemberDashboardPage() {
       }),
     [],
   );
+  const rentals = useApi(
+    (signal) =>
+      rentalApi.mine(
+        new Date().toISOString(),
+        new Date(Date.now() + 30 * 86_400_000).toISOString(),
+        signal,
+      ),
+    [],
+  );
+  const sports = useApi(
+    (signal) =>
+      api.get<SportDto[]>("/api/sports", {
+        anonymous: true,
+        signal,
+        query: { service: "COURT_RENTAL" },
+      }),
+    [],
+  );
   const dateLabel = new Intl.DateTimeFormat(
     language === "vi" ? "vi-VN" : "en-GB",
     { dateStyle: "full", timeZone: "Asia/Ho_Chi_Minh" },
@@ -170,17 +313,39 @@ export default function MemberDashboardPage() {
     <MemberShell
       title={user?.fullName ? `${l.hello}, ${user.fullName}` : l.title}
       description={dateLabel}
-      actions={
-        <Link
-          className={buttonClass({ variant: "secondary" })}
-          href="/member/discover"
-        >
-          <IconSearch size={18} aria-hidden="true" />
-          {t.memberPages.discover}
-        </Link>
-      }
     >
       <div className={styles.dashboard}>
+        <div className={styles.top}>
+          <AttentionList
+            invoices={invoices.data ? pagedItems(invoices.data) : []}
+            packages={packages.data ?? []}
+            pt={pt.data ?? []}
+            now={now}
+            today={date}
+          />
+          <div
+            className={styles.quick}
+            role="group"
+            aria-label={l.quickActions}
+          >
+            <Link href="/member/courts/book">
+              <IconPlus size={20} aria-hidden="true" />
+              {t.memberPages.courtRental}
+            </Link>
+            <Link href="/member/discover">
+              <IconSearch size={20} aria-hidden="true" />
+              {t.memberPages.discover}
+            </Link>
+            <Link href="/member/services">
+              <IconDumbbell size={20} aria-hidden="true" />
+              {t.memberPages.services}
+            </Link>
+            <Link href="/member/finance?tab=wallet">
+              <IconInvoice size={20} aria-hidden="true" />
+              {t.wallet.title}
+            </Link>
+          </div>
+        </div>
         <div className={styles.primaryGrid}>
           <section
             className={styles.schedule}
@@ -194,7 +359,25 @@ export default function MemberDashboardPage() {
               <IconCalendar size={24} aria-hidden="true" />
             </div>
             <AsyncSection state={schedule}>
-              {(rows) => {
+              {(classRows) => {
+                // Thuê sân xác nhận cũng là lịch của Member: gộp vào cùng dòng thời gian.
+                const rentalRows: MemberEvent[] = (rentals.data ?? [])
+                  .filter((r) => r.status === "CONFIRMED")
+                  .map((r) => ({
+                    id: r.courtRentalId,
+                    title: t.memberPages.courtRental,
+                    type: "COURT_RENTAL",
+                    startAtUtc: r.startAtUtc,
+                    endAtUtc: r.endAtUtc,
+                    roomName: null,
+                    status: null,
+                    sportName:
+                      sports.data?.find((s) => s.sportId === r.sportId)?.name ??
+                      null,
+                  }));
+                const rows = [...classRows, ...rentalRows].sort((a, b) =>
+                  a.startAtUtc.localeCompare(b.startAtUtc),
+                );
                 const upcoming = rows.filter(
                   (s) =>
                     new Date(s.endAtUtc).getTime() > now &&
@@ -232,10 +415,12 @@ export default function MemberDashboardPage() {
                             {formatTime(next.startAtUtc)} –{" "}
                             {formatTime(next.endAtUtc)}
                           </p>
-                          <p>
-                            <IconLocation size={18} aria-hidden="true" />
-                            {next.roomName || l.notAssigned}
-                          </p>
+                          {(next.roomName || next.type !== "COURT_RENTAL") && (
+                            <p>
+                              <IconLocation size={18} aria-hidden="true" />
+                              {next.roomName || l.notAssigned}
+                            </p>
+                          )}
                           {next.coachName && <p>{next.coachName}</p>}
                           {next.isMakeup && <p>{t.memberPages.makeup}</p>}
                         </div>
@@ -262,8 +447,10 @@ export default function MemberDashboardPage() {
                                       </span>
                                     )}
                                     {formatTime(s.startAtUtc)} –{" "}
-                                    {formatTime(s.endAtUtc)} ·{" "}
-                                    {s.roomName || l.notAssigned}
+                                    {formatTime(s.endAtUtc)}
+                                    {(s.roomName ||
+                                      s.type !== "COURT_RENTAL") &&
+                                      ` · ${s.roomName || l.notAssigned}`}
                                   </p>
                                 </div>
                                 <ExceptionChip value={s.status} />
@@ -381,71 +568,13 @@ export default function MemberDashboardPage() {
                 <IconInvoice size={22} aria-hidden="true" />
               </div>
               <AsyncSection state={invoices}>
-                {(data) => {
-                  // Hóa đơn gấp nhất trước: hạn giữ chỗ gần nhất, sau đó phát hành lâu nhất.
-                  const owed = pagedItems(data)
-                    .filter((i) => i.outstanding > 0)
-                    .sort(
-                      (x, y) =>
-                        (x.checkoutExpiresAtUtc ?? "9").localeCompare(
-                          y.checkoutExpiresAtUtc ?? "9",
-                        ) || x.issuedAt.localeCompare(y.issuedAt),
-                    );
-                  const [due, ...rest] = owed;
-                  if (!due) {
-                    return (
-                      <div className={styles.quietEmpty}>
-                        <strong>{l.noPayments}</strong>
-                      </div>
-                    );
-                  }
-                  const holdActive =
-                    !!due.checkoutExpiresAtUtc &&
-                    new Date(due.checkoutExpiresAtUtc).getTime() > now;
-                  return (
-                    <div className={styles.due} data-owed="true">
-                      <div>
-                        <span className={styles.dueNumber}>
-                          {due.invoiceNumber} ·{" "}
-                          {l.issuedOn.replace(
-                            "{date}",
-                            formatDate(due.issuedAt),
-                          )}
-                        </span>
-                        <strong className={styles.dueAmount}>
-                          {formatMoney(due.outstanding)}
-                        </strong>
-                        {holdActive && (
-                          <span className={styles.dueHold}>
-                            {l.heldUntil.replace(
-                              "{time}",
-                              formatTime(due.checkoutExpiresAtUtc),
-                            )}
-                          </span>
-                        )}
-                      </div>
-                      <Link
-                        href={`/member/invoices/${due.invoiceId}`}
-                        className={buttonClass({ size: "sm" })}
-                        aria-label={`${l.payNow}: ${due.invoiceNumber}`}
-                      >
-                        {l.payNow}
-                      </Link>
-                      {rest.length > 0 && (
-                        <p className={styles.dueMore}>
-                          {l.moreUnpaid
-                            .replace("{n}", String(rest.length))
-                            .replace(
-                              "{amount}",
-                              formatMoney(
-                                rest.reduce((sum, i) => sum + i.outstanding, 0),
-                              ),
-                            )}
-                        </p>
-                      )}
+                {(data) =>
+                  pagedItems(data).some((i) => i.outstanding > 0) ? null : (
+                    <div className={styles.quietEmpty}>
+                      <strong>{l.noPayments}</strong>
                     </div>
-                  );
-                }}
+                  )
+                }
               </AsyncSection>
               <div className={styles.wallet}>
                 <h3>{t.wallet.title}</h3>
