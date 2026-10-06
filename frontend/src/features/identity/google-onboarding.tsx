@@ -1,4 +1,5 @@
 "use client";
+import { PasswordInput } from "@/components/primitives";
 import { useState } from "react";
 import { api } from "@/lib/apiClient";
 import {
@@ -64,9 +65,9 @@ export function GoogleOnboarding({
         />
       </Field>
       <Field label={t.identity.newPassword}>
-        <input
+        <PasswordInput
           required
-          type="password"
+
           autoComplete="new-password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
@@ -74,9 +75,9 @@ export function GoogleOnboarding({
       </Field>
       <PasswordRequirements password={password} email={pending.email} />
       <Field label={t.identity.confirmPassword}>
-        <input
+        <PasswordInput
           required
-          type="password"
+
           autoComplete="new-password"
           value={confirm}
           onChange={(e) => setConfirm(e.target.value)}
