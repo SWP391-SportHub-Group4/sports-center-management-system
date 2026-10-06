@@ -261,7 +261,10 @@ public class PasswordResetTests(SportHubApiFactory factory)
         }
 
         Assert.Equal(HttpStatusCode.BadRequest, (await Client().SendAsync(Change(null, NewPassword, NewPassword))).StatusCode);
-        Assert.Equal(HttpStatusCode.Unauthorized, (await Client().SendAsync(Change("Wrong-Current-1!", NewPassword, NewPassword))).StatusCode);
+        var wrong = await Client().SendAsync(Change("Wrong-Current-1!", NewPassword, NewPassword));
+        Assert.Equal(HttpStatusCode.BadRequest, wrong.StatusCode);
+        Assert.Equal("current_password_incorrect", await ErrorOf(wrong));
+        Assert.Equal(HttpStatusCode.OK, (await Protected(oldToken)).StatusCode);
 
         var same = await Client().SendAsync(Change(OldPassword, OldPassword, OldPassword));
         Assert.Equal("new_password_same_as_current", await ErrorOf(same));
