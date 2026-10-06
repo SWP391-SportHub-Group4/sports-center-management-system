@@ -63,15 +63,19 @@ test("password visibility and login errors do not move the submit button", async
 
   await page.getByLabel("Email").fill("member@sporthub.test");
   const submit = page.getByRole("button", { name: "Sign in" });
-  const before = await submit.boundingBox();
+  const submitTop = () =>
+    submit.evaluate(
+      (button) => button.getBoundingClientRect().top + window.scrollY,
+    );
+  const before = await submitTop();
   await submit.click();
   await expect(
     page
       .getByRole("alert")
       .filter({ hasText: "The email or password is incorrect." }),
   ).toBeVisible();
-  const after = await submit.boundingBox();
-  expect(Math.abs((after?.y ?? 0) - (before?.y ?? 0))).toBeLessThanOrEqual(5);
+  const after = await submitTop();
+  expect(Math.abs(after - before)).toBeLessThanOrEqual(5);
 });
 
 test("authenticated public header shows the member name", async ({ page }) => {
