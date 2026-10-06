@@ -306,7 +306,6 @@ function NavGroup({
   const ref = useRef<HTMLDivElement>(null);
   const active = entry.items.some((i) => isActiveHref(pathname, i.href, root));
 
-  useEffect(() => setOpen(false), [pathname]);
   useEffect(() => {
     if (!open) return;
     const onDown = (e: MouseEvent) => {
@@ -523,7 +522,7 @@ export function AppFrame({
                 </Link>
               ) : (
                 <NavGroup
-                  key={entry.key}
+                  key={`${entry.key}:${pathname}`}
                   entry={entry}
                   pathname={pathname}
                   root={root}
