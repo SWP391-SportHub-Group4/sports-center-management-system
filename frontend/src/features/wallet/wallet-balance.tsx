@@ -3,10 +3,16 @@ import { useLanguage } from "@/lib/language";
 import type { WalletBalanceDto } from "@/lib/types";
 import { formatMoney, formatPoints } from "@/lib/format";
 import styles from "./wallet-balance.module.css";
-export function WalletBalance({ balance }: { balance: WalletBalanceDto }) {
+export function WalletBalance({
+  balance,
+  compact = false,
+}: {
+  balance: WalletBalanceDto;
+  compact?: boolean;
+}) {
   const { t } = useLanguage();
   return (
-    <dl className={styles.balance}>
+    <dl className={`${styles.balance} ${compact ? styles.compact : ""}`}>
       <div>
         <dt>{t.wallet.available}</dt>
         <dd>
@@ -15,8 +21,8 @@ export function WalletBalance({ balance }: { balance: WalletBalanceDto }) {
           </span>
           <span className={styles.hint}>
             {t.finance.walletValue}:{" "}
-            {formatMoney(balance.availablePoints * balance.vndPerPoint)} ·{" "}
-            {t.wallet.availableHint}
+            {formatMoney(balance.availablePoints * balance.vndPerPoint)}
+            {!compact && <> · {t.wallet.availableHint}</>}
           </span>
         </dd>
       </div>
@@ -26,7 +32,7 @@ export function WalletBalance({ balance }: { balance: WalletBalanceDto }) {
           <span className={styles.value}>
             {formatPoints(balance.heldPoints)}
           </span>
-          <span className={styles.hint}>{t.wallet.heldHint}</span>
+          {!compact && <span className={styles.hint}>{t.wallet.heldHint}</span>}
         </dd>
       </div>
     </dl>

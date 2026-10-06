@@ -6,7 +6,7 @@
   flex-direction: column;
   background-color: var(--bg-app);
   color: var(--text-strong);
-  font-family: var(--font-roboto, "Roboto", sans-serif);
+  font-family: var(--font-body);
 }
 
 .authLoading {
@@ -746,6 +746,10 @@
 
   .langToggleBtn {
     display: none;
+  }
+
+  .mobileNavLinks .langToggleBtn {
+    display: inline-flex;
   }
 
   .userMenuWrapper {

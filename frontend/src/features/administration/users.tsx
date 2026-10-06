@@ -1,4 +1,5 @@
 "use client";
+import { PasswordInput } from "@/components/primitives";
 import { useState } from "react";
 import { Card, Field } from "@/components/ui";
 import { ApiTable, FilterBar, StatusChip, type FilterField, type TableColumn } from "@/components/data";
@@ -81,12 +82,12 @@ function CreateStaff({ reload }: { reload: () => void }) {
           </div>
           <div className={fieldClass}>
             <Field label={l.password} required>
-              <input type="password" required autoComplete="new-password" maxLength={64} value={password} onChange={event => setPassword(event.target.value)} />
+              <PasswordInput required autoComplete="new-password" maxLength={64} value={password} onChange={event => setPassword(event.target.value)} />
             </Field>
           </div>
           <div className={fieldClass}>
             <Field label={l.confirmPassword} required error={confirm && confirm !== password ? l.mismatch : undefined}>
-              <input type="password" required autoComplete="new-password" maxLength={64} value={confirm} onChange={event => setConfirm(event.target.value)} />
+              <PasswordInput required autoComplete="new-password" maxLength={64} value={confirm} onChange={event => setConfirm(event.target.value)} />
             </Field>
           </div>
         </div>
