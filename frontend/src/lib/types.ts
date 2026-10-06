@@ -5,16 +5,38 @@ export interface Paged<T> {
   totalCount: number;
 }
 
-export interface SportDto {
-  sportId: number;
-  name: string;
-  operationType: "WALK_IN" | "ONE_ON_ONE" | "GROUP_COURSE";
+export type SportServiceType =
+  | "MEMBERSHIP_ACCESS"
+  | "GROUP_COURSE"
+  | "COURT_RENTAL"
+  | "PERSONAL_TRAINING";
+
+export interface SportServiceDto {
+  serviceType: SportServiceType;
+  isEnabled: boolean;
+  /** Chỉ có với GROUP_COURSE. */
   defaultSessionMinutes: number | null;
   defaultMaxCapacity: number | null;
+}
+
+/** Phần còn thiếu để dịch vụ bán được; chỉ Manager nhận (api/manager/sports). */
+export interface ServiceReadinessDto {
+  serviceType: SportServiceType;
+  ready: boolean;
+  missing: ("room_type" | "room" | "opening_hours" | "court_rate")[];
+}
+
+export interface SportDto {
+  sportId: number;
+  /** Mã ổn định, không đổi sau khi tạo. */
+  code: string;
+  name: string;
   description: string | null;
   imageUrl: string | null;
   sortOrder: number;
   isActive: boolean;
+  services: SportServiceDto[];
+  readiness?: ServiceReadinessDto[] | null;
 }
 
 export interface CourseDto {
@@ -333,7 +355,7 @@ export interface RevenueReportDto {
     source: string;
     sportId: number | null;
     sportName: string | null;
-    externalCoachId: string | null;
+    memberId: string | null;
     cashCollected: number;
     legacyCashCollected: number;
     pointsRedeemed: number;
@@ -367,7 +389,6 @@ export interface UserAdminDto {
   hasPassword: boolean;
   hasGoogleLink: boolean;
   sportIds: number[];
-  approvalStatus?: ExternalCoachProfileDto["approvalStatus"] | null;
 }
 
 export type MyAccountDto = UserAdminDto;
@@ -542,19 +563,6 @@ export interface CoachSpecialtyDto {
   fullName: string;
   sportIds: number[];
 }
-export interface ExternalCoachProfileDto {
-  userId: string;
-  email: string;
-  fullName: string;
-  phone: string | null;
-  bio: string | null;
-  approvalStatus: "PENDING_APPROVAL" | "APPROVED" | "REJECTED" | "SUSPENDED";
-  sportIds: number[];
-  reviewedByUserId: string | null;
-  reviewedAt: string | null;
-  reviewNote: string | null;
-  createdAt: string;
-}
 export interface CourseSessionDto {
   sessionId: string;
   classId: number;
@@ -709,7 +717,6 @@ export interface CourtRentalDto {
   roomId: number;
   startAtUtc: string;
   endAtUtc: string;
-  expectedAttendees: number;
   totalPrice: number;
   status: "PENDING_PAYMENT" | "CONFIRMED" | "COMPLETED" | "CANCELLED";
   invoiceItemId: string | null;
@@ -783,7 +790,9 @@ export interface CourtScheduleEntryDto {
   title: string;
   status: string;
   classId: number | null;
-  expectedAttendees: number | null;
+  /** Người thuê (chỉ với COURT_RENTAL). */
+  memberId?: string | null;
+  memberName?: string | null;
   participants: {
     memberId: string;
     memberName: string;

@@ -1,7 +1,7 @@
 namespace SportHub.BuildingBlocks.Abstractions.Scheduling;
 
 /// <summary>
-/// Quyền lợi thuê sân của ExternalCoach, do Scheduling sở hữu. Bản cài đặt ở Scheduling/Rental.
+/// Quyền lợi thuê sân của Member, do Scheduling sở hữu. Bản cài đặt ở Scheduling/Rental.
 /// Cùng transaction với caller; không SaveChanges/commit riêng.
 /// </summary>
 public interface ICourtRentalFulfillment
@@ -9,7 +9,7 @@ public interface ICourtRentalFulfillment
     /// <summary>Tính giá từng khối 60 phút theo khung giá và kiểm điều kiện; không giữ chỗ.</summary>
     Task<CourtRentalQuote> QuoteAsync(CourtRentalRequest request, CancellationToken cancellationToken = default);
 
-    /// <summary>Tạo CourtRental PendingPayment và chiếm room + coach đến <paramref name="holdExpiresAtUtc"/>.</summary>
+    /// <summary>Tạo CourtRental PendingPayment và chiếm room (không chiếm Coach) đến <paramref name="holdExpiresAtUtc"/>.</summary>
     Task<Guid> ReserveAsync(Guid invoiceId, CourtRentalRequest request, DateTimeOffset holdExpiresAtUtc,
         CourtRentalQuote quotedPrice, CancellationToken cancellationToken = default);
 
@@ -32,12 +32,11 @@ public sealed record CourtRentalRefundFacts(Guid RentalId, Guid OwnerId, DateTim
     string Status, bool IsCancelledByCenter);
 
 public sealed record CourtRentalRequest(
-    Guid ExternalCoachId,
+    Guid MemberId,
     int SportId,
     int RoomId,
     DateTimeOffset StartUtc,
-    DateTimeOffset EndUtc,
-    int ExpectedAttendees);
+    DateTimeOffset EndUtc);
 
 public sealed record CourtRentalBlockPrice(DateTimeOffset StartUtc, DateTimeOffset EndUtc, decimal Price);
 

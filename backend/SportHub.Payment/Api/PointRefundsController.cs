@@ -23,7 +23,7 @@ public sealed class PointRefundsController(IPointRefundService refunds) : Contro
     public async Task<IActionResult> Quote(Guid invoiceItemId, CancellationToken ct)
     {
         var staff = User.IsInRole("Receptionist") || User.IsInRole("CenterManager");
-        if (!staff && !User.IsInRole("Member") && !User.IsInRole("ExternalCoach")) return Forbid();
+        if (!staff && !User.IsInRole("Member")) return Forbid();
         return Ok(new { systemCalculatedPoints = await refunds.QuoteAsync(invoiceItemId, User.RequireUserId(), staff, ct) });
     }
 
@@ -32,7 +32,7 @@ public sealed class PointRefundsController(IPointRefundService refunds) : Contro
         CancellationToken cancellationToken)
     {
         var canRequestForAnotherUser = User.IsInRole("Receptionist") || User.IsInRole("CenterManager");
-        if (!canRequestForAnotherUser && !User.IsInRole("Member") && !User.IsInRole("ExternalCoach"))
+        if (!canRequestForAnotherUser && !User.IsInRole("Member"))
             return Forbid();
         var result = await refunds.RequestAsync(request.InvoiceItemId, request.Reason, User.RequireUserId(),
             canRequestForAnotherUser, cancellationToken);

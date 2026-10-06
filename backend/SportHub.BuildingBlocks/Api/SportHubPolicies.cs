@@ -24,19 +24,16 @@ public static class SportHubPolicies
 
     public const string Receptionist = nameof(Receptionist);
 
-    /// <summary>ExternalCoach (đã đăng nhập). Việc Approved hay chưa do service kiểm qua IExternalCoachAccessReader.</summary>
-    public const string ExternalCoach = nameof(ExternalCoach);
-
     /// <summary>Ghi catalog môn, loại phòng, giờ mở cửa, block, bảng giá sân: chỉ Manager.</summary>
     public const string CatalogManage = nameof(CatalogManage);
 
-    /// <summary>Manager tạo Coach nội bộ và duyệt/từ chối/đình chỉ ExternalCoach.</summary>
+    /// <summary>Manager tạo và quản lý Coach nội bộ.</summary>
     public const string CoachManagement = nameof(CoachManagement);
 
-    /// <summary>Đặt/hủy thuê sân: chỉ ExternalCoach (điều kiện Approved kiểm ở service).</summary>
+    /// <summary>Đặt/hủy thuê sân: mọi Member (điều kiện tài khoản hoạt động và dịch vụ thuê sân bật kiểm ở service).</summary>
     public const string CourtRental = nameof(CourtRental);
 
-    /// <summary>Xem ví và thanh toán bằng điểm của chính mình: Member và ExternalCoach.</summary>
+    /// <summary>Xem ví và thanh toán bằng điểm của chính mình: Member.</summary>
     public const string WalletOwner = nameof(WalletOwner);
 
     /// <summary>Duyệt/từ chối yêu cầu hoàn điểm (BR-93): chỉ Manager.</summary>

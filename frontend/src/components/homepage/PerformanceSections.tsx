@@ -8,6 +8,7 @@ import { buttonClass } from "@/components/primitives/Button";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import type { CourseDto, Paged, SportDto } from "@/lib/types";
+import { hasService } from "@/lib/sports";
 import { InteractiveArenaTour } from "./InteractiveArenaTour";
 import styles from "./performance-sections.module.css";
 
@@ -19,7 +20,7 @@ function isSportDto(value: unknown): value is SportDto {
   return (
     Number.isFinite(sport.sportId) &&
     typeof sport.name === "string" &&
-    typeof sport.operationType === "string" &&
+    Array.isArray(sport.services) &&
     typeof sport.isActive === "boolean" &&
     Number.isFinite(sport.sortOrder)
   );
@@ -133,9 +134,8 @@ export function PerformanceSections({ language }: { language: Language }) {
       .filter(
         (sport) =>
           sport.isActive &&
-          (sport.operationType === "GROUP_COURSE" ||
-            (sport.operationType === "WALK_IN" &&
-              /gym|fitness|conditioning|thể lực/i.test(sport.name))),
+          (hasService(sport, "GROUP_COURSE") ||
+            hasService(sport, "MEMBERSHIP_ACCESS")),
       )
       .sort((a, b) => a.sortOrder - b.sortOrder) ?? [];
   const courseItems = coursesState.data?.items;

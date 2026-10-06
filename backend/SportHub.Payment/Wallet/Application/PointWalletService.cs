@@ -17,8 +17,8 @@ public sealed class PointWalletService(ISportHubDbContext db, IUserAccessReader 
     {
         RequireTransaction();
         var owner = await users.GetAsync(ownerUserId, cancellationToken);
-        if (owner is null || owner.Role is not ("Member" or "ExternalCoach"))
-            throw new BadRequestException("wallet_owner_invalid", "Ví chỉ thuộc Member hoặc ExternalCoach.");
+        if (owner is null || owner.Role != "Member")
+            throw new BadRequestException("wallet_owner_invalid", "Ví chỉ thuộc Member.");
 
         // ON CONFLICT serializes concurrent first use without aborting the caller's transaction.
         var walletId = Guid.NewGuid();

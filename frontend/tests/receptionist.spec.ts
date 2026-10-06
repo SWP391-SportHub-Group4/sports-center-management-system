@@ -22,7 +22,7 @@ async function receptionistFixture(page: Page) {
     if (path.includes("notifications"))
       return route.fulfill({ json: path.endsWith("unread-count") ? { count: 0 } : [] });
     if (path === "/api/sports")
-      return route.fulfill({ json: [{ sportId: 3, name: "Badminton", operationType: "GROUP_COURSE", isActive: true }] });
+      return route.fulfill({ json: [{ sportId: 3, name: "Badminton", code: "course", services: [{ serviceType: "GROUP_COURSE", isEnabled: true, defaultSessionMinutes: 90, defaultMaxCapacity: 12 }], isActive: true }] });
     if (path === "/api/users")
       return route.fulfill({ json: paged([{ userId: memberId, fullName: "Member A", email: "member@example.com", phone: "0900000000", role: "MEMBER", status: "ACTIVE", createdAt: "2030-01-01T00:00:00Z", hasPassword: true, hasGoogleLink: false, sportIds: [] }]) });
     if (path === `/api/members/${memberId}/packages`)

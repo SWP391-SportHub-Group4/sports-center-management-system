@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SportHub.BuildingBlocks.Abstractions.Identity;
 using Npgsql;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
@@ -20,8 +21,10 @@ public sealed record MyAccountResponse(
     DateTime CreatedAt,
     bool HasPassword,
     bool HasGoogleLink,
-    IReadOnlyList<int> SportIds,
-    [property: SportHub.BuildingBlocks.Api.WireEnum] string? ApprovalStatus);
+    IReadOnlyList<int> SportIds)
+{
+    public bool IsPersonalTrainer { get; init; }
+}
 
 /// <summary>JWT mới cho phiên vừa đổi mật khẩu; các token cũ đã bị vô hiệu bằng security stamp.</summary>
 public sealed record PasswordChangedResponse(string AccessToken);
@@ -45,10 +48,12 @@ public sealed class UpdateMyProfileRequest
 public sealed class AccountService(
     ISportHubDbContext db,
     IPasswordHasher passwordHasher,
-    IOptions<JwtOptions> jwtOptions) : IAccountService
+    IOptions<JwtOptions> jwtOptions,
+    ICoachSpecialtyReader specialties) : IAccountService
 {
     public async Task<MyAccountResponse> GetMeAsync(Guid userId, CancellationToken ct = default)
-        => await db.Set<UserAccount>()
+    {
+        var account = await db.Set<UserAccount>()
                .AsNoTracking()
                .Where(u => u.UserId == userId)
                .Select(u => new MyAccountResponse(
@@ -61,11 +66,12 @@ public sealed class AccountService(
                    u.CreatedAt,
                    u.Credential != null && u.Credential.PasswordHash != null,
                    u.ExternalLogins.Any(),
-                   db.Set<UserSportSpecialty>().Where(s => s.UserId == u.UserId).Select(s => s.SportId).ToList(),
-                   db.Set<ExternalCoachProfile>().Where(e => e.UserId == u.UserId)
-                       .Select(e => e.ApprovalStatus.ToString()).FirstOrDefault()))
+                   db.Set<UserSportSpecialty>().Where(s => s.UserId == u.UserId).Select(s => s.SportId).ToList()))
                .SingleOrDefaultAsync(ct)
            ?? throw new NotFoundException("user_not_found", "Không tìm thấy tài khoản.");
+
+        return account with { IsPersonalTrainer = await specialties.IsPersonalTrainerAsync(userId, ct) };
+    }
 
     public async Task<MyAccountResponse> UpdateProfileAsync(
         Guid userId,

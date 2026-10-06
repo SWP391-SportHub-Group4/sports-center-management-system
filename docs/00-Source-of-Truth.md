@@ -24,7 +24,7 @@ Mã nguồn/controller/configuration xác định hành vi đã triển khai, kh
 | Enrollment | Ghi danh vào Class sau thanh toán, không phải booking từng buổi |
 | SeatHold | Giữ chỗ checkout tạm thời, có hạn |
 | Occupancy | Nguồn chống trùng lịch sân/phòng và Coach |
-| ExternalCoach | HLV ngoài cần duyệt để thuê sân, không quản lý học viên riêng |
+| CourtRental | Lượt thuê sân theo giờ của Member; tính tiền thuê của Member, không quan tâm mục đích sử dụng (kể cả dạy học) |
 | CheckoutSession | Một cycle mua/giữ tài nguyên, giữ lịch sử retry |
 | PaymentAttempt | Một lần thử thu phần tiền qua gateway |
 | Payment | Khoản tiền đã được backend xác minh |
@@ -35,18 +35,18 @@ Seed kỹ thuật còn bản ghi Personal Training riêng. Việc gộp danh tí
 
 ## 3. Vai trò và luồng
 
-Sáu role: SystemAdministrator, CenterManager, Receptionist, Coach, Member, ExternalCoach. Guest là người chưa đăng nhập, không phải role lưu trong database. Một Coach có thể có nhiều chuyên môn; quyền truy cập dựa cả role và quan hệ được phân công.
+Năm role: SystemAdministrator, CenterManager, Receptionist, Coach, Member. Guest là người chưa đăng nhập, không phải role lưu trong database. Mọi Member đều có chức năng thuê sân (BR-140). Một Coach có thể có nhiều chuyên môn; quyền truy cập dựa cả role và quan hệ được phân công.
 
 | Luồng | Phạm vi |
 |---|---|
-| User/Membership | Identity, OTP, account/profile, Membership Gym, renewal/check-in, ExternalCoach approval |
+| User/Membership | Identity, OTP, account/profile, Membership Gym, renewal/check-in |
 | Class/Schedule | Môn/phòng/giá, lớp nhiều buổi, hold/enrollment, threshold, occupancy, rental, incident |
 | Payment/Report | Invoice snapshot, checkout, VNPay/điểm, reconciliation, refund điểm, báo cáo |
 | Training/Attendance | PT entitlement/session, plan/result/homework, điểm danh lớp bởi Receptionist |
 | AI workout | Gợi ý cho Coach trong phạm vi học viên được giao |
 | AI assistant | Member context chat; Manager xếp lịch/tạo nháp là phần chưa triển khai |
 
-Ngoài phạm vi: đa chi nhánh, payroll/hợp đồng, chia doanh thu HLV ngoài, quản lý học viên riêng của HLV ngoài, mobile native, VNPay production và hoàn tiền mặt/ngân hàng. Không biến “chờ đợt sau” thành waitlist giữ chỗ.
+Ngoài phạm vi: đa chi nhánh, payroll/hợp đồng, chia doanh thu với người thuê sân, quản lý người đi cùng khi Member thuê sân, mobile native, VNPay production và hoàn tiền mặt/ngân hàng. Không biến “chờ đợt sau” thành waitlist giữ chỗ.
 
 ## 4. Bất biến nghiệp vụ
 

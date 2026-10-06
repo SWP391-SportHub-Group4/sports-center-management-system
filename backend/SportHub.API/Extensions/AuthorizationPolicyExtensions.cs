@@ -45,12 +45,10 @@ public static class AuthorizationPolicyExtensions
             .AddPolicy(SportHubPolicies.Receptionist, p => p.RequireRole(nameof(UserRole.Receptionist)))
 
             // Đa môn (v3): quyền cụ thể theo role, không mặc định Admin có mọi quyền.
-            .AddPolicy(SportHubPolicies.ExternalCoach, p => p.RequireRole(nameof(UserRole.ExternalCoach)))
             .AddPolicy(SportHubPolicies.CatalogManage, p => p.RequireRole(nameof(UserRole.CenterManager)))
             .AddPolicy(SportHubPolicies.CoachManagement, p => p.RequireRole(nameof(UserRole.CenterManager)))
-            .AddPolicy(SportHubPolicies.CourtRental, p => p.RequireRole(nameof(UserRole.ExternalCoach)))
-            .AddPolicy(SportHubPolicies.WalletOwner, p => p.RequireRole(
-                nameof(UserRole.Member), nameof(UserRole.ExternalCoach)))
+            .AddPolicy(SportHubPolicies.CourtRental, p => p.RequireRole(nameof(UserRole.Member)))
+            .AddPolicy(SportHubPolicies.WalletOwner, p => p.RequireRole(nameof(UserRole.Member)))
             .AddPolicy(SportHubPolicies.RefundApprove, p => p.RequireRole(nameof(UserRole.CenterManager)))
             .AddPolicy(SportHubPolicies.PaymentReconciliation, p => p.RequireRole(nameof(UserRole.CenterManager)))
 

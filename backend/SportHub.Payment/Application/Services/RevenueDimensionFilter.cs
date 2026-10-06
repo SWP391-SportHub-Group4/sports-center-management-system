@@ -7,9 +7,9 @@ public static class RevenueDimensionFilter
 {
     public static IReadOnlyList<RevenueReportDimensionRowResponse> Apply(
         IEnumerable<RevenueReportDimensionRowResponse> rows, int? sportId = null,
-        string? source = null, Guid? externalCoachId = null, bool rentalsOnly = false)
+        string? source = null, Guid? memberId = null, bool rentalsOnly = false)
         => rows.Where(r => (!sportId.HasValue || r.SportId == sportId)
             && (string.IsNullOrWhiteSpace(source) || string.Equals(r.Source.Replace("_", ""), source.Replace("_", ""), StringComparison.OrdinalIgnoreCase))
-            && (!externalCoachId.HasValue || r.ExternalCoachId == externalCoachId)
+            && (!memberId.HasValue || r.MemberId == memberId)
             && (!rentalsOnly || r.Source == "Rental")).ToList();
 }

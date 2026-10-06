@@ -15,13 +15,10 @@ public sealed class PtPurchaseFulfillment(PtPricingService pricing, IPtEntitleme
     public async Task<PtPurchaseQuote> QuoteAsync(PtPurchaseRequest request, CancellationToken cancellationToken = default)
     {
         var quote = await pricing.QuoteAsync(request, cancellationToken);
-        var sports = new List<SportHub.BuildingBlocks.Abstractions.Scheduling.SportInfo>();
-        foreach (var id in await specialties.GetSportIdsAsync(request.CoachId, cancellationToken))
-        {
-            var sport = await catalog.GetSportAsync(id, cancellationToken);
-            if (sport is { IsActive: true, OperationType: "OneOnOne" }) sports.Add(sport);
-        }
-        var selected = sports.Count == 1 ? sports[0] : null;
+        // PT là dịch vụ của Gym: môn của gói PT là môn có dịch vụ PT đang bật, miễn Coach đủ điều kiện PT.
+        var selected = await specialties.IsPersonalTrainerAsync(request.CoachId, cancellationToken)
+            ? await catalog.GetSportForServiceAsync(SportHub.BuildingBlocks.Abstractions.Scheduling.SportServiceType.PersonalTraining, cancellationToken)
+            : null;
         return new PtPurchaseQuote(quote.PricePerSession, quote.TotalQuota, quote.TotalPrice,
             quote.FrequencyPerWeek, quote.PriceVersion, selected?.SportId, selected?.Name);
     }

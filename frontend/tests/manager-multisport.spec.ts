@@ -23,7 +23,7 @@ async function managerFixture(page: Page) {
     if (path === "/api/reports/class-enrollment")
       return route.fulfill({ json: { fromDate: "2030-10-01", toDate: "2030-10-31", totalClasses: 1, totalCapacity: 10, totalConfirmed: 4, totalActiveHolds: 1, fillRatio: 0.4, classes: [] } });
     if (path === "/api/reports/exports") return route.fulfill({ json: paged([]) });
-    if (path === "/api/sports" || path === "/api/manager/sports") return route.fulfill({ json: [{ sportId: 3, name: "Badminton", operationType: "GROUP_COURSE", isActive: true }] });
+    if (path === "/api/sports" || path === "/api/manager/sports") return route.fulfill({ json: [{ sportId: 3, name: "Badminton", code: "course", services: [{ serviceType: "GROUP_COURSE", isEnabled: true, defaultSessionMinutes: 90, defaultMaxCapacity: 12 }], isActive: true }] });
     if (path === "/api/refunds") return route.fulfill({ json: paged([]) });
     if (path === "/api/users") return route.fulfill({ json: paged([]) });
     if (path === "/api/audit-logs") return route.fulfill({ json: paged([]) });

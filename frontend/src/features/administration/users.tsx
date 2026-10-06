@@ -15,7 +15,7 @@ import type { SportDto, Paged, UserAdminDto } from "@/lib/types";
 import { SportOptions } from "./SportOptions";
 import styles from "./users.module.css";
 const staffRoles = ["CENTER_MANAGER", "COACH", "RECEPTIONIST", "SYSTEM_ADMINISTRATOR"];
-const accountRoles = [...staffRoles, "MEMBER", "EXTERNAL_COACH"];
+const accountRoles = [...staffRoles, "MEMBER"];
 const accountStatuses = ["ACTIVE", "BANNED", "DEACTIVATED"];
 const accountStatusTones: Partial<Record<string, StatusTone>> = {
   ACTIVE: "success",
@@ -104,7 +104,7 @@ function CreateStaff({ reload }: { reload: () => void }) {
   );
 }
 function EditUser({ account: a, reload }: { account: UserAdminDto; reload: () => void }) { const { t } = useLanguage(); const l = t.staffWork; const { user, logout } = useAuth(); const [role, setRole] = useState(a.role); const [sports, setSports] = useState(a.sportIds); const [reason, setReason] = useState(""); const mutation = useMutation(); async function action(name: string) { const ok = await mutation.run(() => name === "role" ? api.put(`/api/users/${a.userId}/role`, { role, reason: reason.trim(), sportIds: role === "COACH" ? sports : [] }) : api.post(`/api/users/${a.userId}/${name}`, { reason: reason.trim() })); if (ok) { if (name === "role" && a.userId === user?.userId) logout(); reload(); } }
- return <Card title={`${a.fullName} · ${a.email}`}><Field label={l.reason}><textarea required minLength={3} maxLength={500} value={reason} onChange={e => setReason(e.target.value)}/></Field>{a.role !== "EXTERNAL_COACH" && <><RoleSelect member value={role} onChange={r => { setRole(r); setSports([]); }}/>{role === "COACH" && <SportSelect value={sports} onChange={setSports}/>}<button className="btn" disabled={mutation.busy || reason.trim().length < 3 || (role === "COACH" && !sports.length) || role === a.role} onClick={() => action("role")}>{l.changeRole}</button></>}<div className="btn-row">{a.userId !== user?.userId && <>{a.status !== "BANNED" && <button className="btn btn--danger" disabled={mutation.busy || reason.trim().length < 3} onClick={() => action("lock")}>{l.lock}</button>}{a.status !== "ACTIVE" && <button className="btn btn--secondary" disabled={mutation.busy || reason.trim().length < 3} onClick={() => action("unlock")}>{l.unlock}</button>}{a.status !== "DEACTIVATED" && <button className="btn btn--secondary" disabled={mutation.busy || reason.trim().length < 3} onClick={() => action("deactivate")}>{l.deactivate}</button>}</>}</div><MutationFeedback mutation={mutation}/></Card>;
+ return <Card title={`${a.fullName} · ${a.email}`}><Field label={l.reason}><textarea required minLength={3} maxLength={500} value={reason} onChange={e => setReason(e.target.value)}/></Field>{<><RoleSelect member value={role} onChange={r => { setRole(r); setSports([]); }}/>{role === "COACH" && <SportSelect value={sports} onChange={setSports}/>}<button className="btn" disabled={mutation.busy || reason.trim().length < 3 || (role === "COACH" && !sports.length) || role === a.role} onClick={() => action("role")}>{l.changeRole}</button></>}<div className="btn-row">{a.userId !== user?.userId && <>{a.status !== "BANNED" && <button className="btn btn--danger" disabled={mutation.busy || reason.trim().length < 3} onClick={() => action("lock")}>{l.lock}</button>}{a.status !== "ACTIVE" && <button className="btn btn--secondary" disabled={mutation.busy || reason.trim().length < 3} onClick={() => action("unlock")}>{l.unlock}</button>}{a.status !== "DEACTIVATED" && <button className="btn btn--secondary" disabled={mutation.busy || reason.trim().length < 3} onClick={() => action("deactivate")}>{l.deactivate}</button>}</>}</div><MutationFeedback mutation={mutation}/></Card>;
 }
 export function Users() {
   const { t } = useLanguage();
@@ -121,7 +121,7 @@ export function Users() {
   const roleLabels: Record<string, string> = {
     CENTER_MANAGER: t.navigation.roleLabel.CenterManager, COACH: t.navigation.roleLabel.Coach,
     RECEPTIONIST: t.navigation.roleLabel.Receptionist, SYSTEM_ADMINISTRATOR: t.navigation.roleLabel.SystemAdministrator,
-    MEMBER: t.navigation.roleLabel.Member, EXTERNAL_COACH: t.navigation.roleLabel.ExternalCoach,
+    MEMBER: t.navigation.roleLabel.Member,
   };
   const statusLabels: Record<string, string> = {
     ACTIVE: l.accountActive,

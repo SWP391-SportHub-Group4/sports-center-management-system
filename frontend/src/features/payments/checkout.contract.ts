@@ -1,5 +1,5 @@
 /**
- * CONTRACT — Checkout dùng chung cho Member / Quầy lễ tân / ExternalCoach.
+ * CONTRACT — Checkout dùng chung cho Member / Quầy lễ tân.
  *
  * Nguyên tắc cứng (đặc tả A15, mục 3 của 01-AN-MEMBER-SHARED.md):
  *  1. Frontend KHÔNG tự tính tiền. total / pointsApplied / cashAmount là số do server trả
@@ -10,7 +10,7 @@
  *     `fulfillmentOutcome` đọc lại từ backend.
  *
  * Ba ngữ cảnh người mua chỉ khác `mode`, `pointsAuth` và hành động tiếp theo; layout và logic
- * điểm/hết hạn là MỘT. Hào (quầy) và Khôi (ExternalCoach) viết adapter, không fork component.
+ * điểm/hết hạn là MỘT. Hào (quầy) viết adapter, không fork component.
  */
 import type { CheckoutDto } from "@/lib/types";
 
@@ -20,12 +20,10 @@ export type CheckoutMode =
   /** Member tự mua cho mình. */
   | "SELF"
   /** Lễ tân thao tác thay Member — dùng điểm cần OTP email của Member. */
-  | "COUNTER"
-  /** ExternalCoach thuê sân cho chính mình. */
-  | "EXTERNAL_COACH";
+  | "COUNTER";
 
 export type CheckoutPointsAuth =
-  /** Gửi số điểm thẳng qua API self (Member, ExternalCoach). */
+  /** Gửi số điểm thẳng qua API self (Member). */
   | "SELF"
   /** Phải xin OTP gửi email Member rồi xác minh (5 phút, tối đa 5 lần sai). */
   | "OTP_EMAIL";

@@ -1,4 +1,5 @@
 "use client";
+import { hasService } from "@/lib/sports";
 import { pagedItems } from "@/lib/paged";
 import { useState } from "react";
 import Link from "next/link";
@@ -70,7 +71,7 @@ export function ManagerCourses() {
           >
             <option value="">{l.all}</option>
             {sports.data
-              ?.filter((s) => s.operationType === "GROUP_COURSE")
+              ?.filter((s) => hasService(s, "GROUP_COURSE"))
               .map((s) => (
                 <option key={s.sportId} value={s.sportId}>
                   {s.name}

@@ -22,8 +22,11 @@ export function CoursePublishReview({
     async (signal) => {
       const sports = await catalogApi.sports(signal, true);
       const sport = sports.find((s) => s.sportId === course.sportId);
-      if (!sport?.defaultSessionMinutes) return [];
-      const slots = previewSessions(course, sport.defaultSessionMinutes);
+      const minutes = sport?.services.find(
+        (s) => s.serviceType === "GROUP_COURSE",
+      )?.defaultSessionMinutes;
+      if (!minutes) return [];
+      const slots = previewSessions(course, minutes);
       const rows: Array<(typeof slots)[number] & { available: boolean }> = [];
       let next = 0;
       await Promise.all(

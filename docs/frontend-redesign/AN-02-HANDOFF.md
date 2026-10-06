@@ -25,7 +25,6 @@ Notification link chỉ map các nguồn đã biết. `PAYMENT_RECEIVED` dẫn �
 - `npm run lint`: không lỗi; còn 5 warning unused import có sẵn ở trang Coach AI.
 - Chrome, video off: `npx playwright test tests/member-main.spec.ts tests/member-finance.spec.ts --reporter=list`: 15 case đạt (11 AN-02, 4 hồi quy AN-01).
 - Bao phủ phân trang PT và enrollment, chi tiết buổi, ID không có trong enrollment self, alias giữ query, tab/Back/reload, lịch lỗi, notification mutation thành công/thất bại, quota/lịch sử Gym và responsive.
-- Đã xem ảnh [desktop 1440px](evidence/an02/desktop.png) và [mobile tiếng Việt 390px](evidence/an02/mobile-vi.png); kiểm tràn ngang mobile đạt. Ảnh dùng dữ liệu mock có trong test, không phải tài khoản thật.
 
 ## Việc còn lại để đóng AN-02
 

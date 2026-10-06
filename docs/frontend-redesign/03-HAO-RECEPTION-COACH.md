@@ -34,7 +34,7 @@ Menu: **Quầy hôm nay · Hội viên · Bán dịch vụ · Điểm danh · L�
 | H05 | Bán dịch vụ → Chọn Member → Chọn sản phẩm | `/receptionist/sales` | Membership/PT/khóa; PT yêu cầu Membership Active; chọn khóa rồi xem lịch/giá/chỗ |
 | H06 | Bán dịch vụ → Checkout → OTP → Kết quả | Shared An trong sales | Tóm tắt Member, tổng, điểm, cash, timer, OTP khi dùng điểm, biên nhận/trạng thái |
 | H07 | Điểm danh → Chọn buổi → Roster | `/receptionist/attendance`, detail theo session | Present/Absent cho enrollment Confirmed; tìm theo tên/mã; tổng đã ghi/chưa ghi; sửa trong 24h sau kết thúc |
-| H08 | Lịch sân → Chi tiết hoạt động | `/receptionist/court-schedule` | Ngày/tuần/sân, lớp/PT/thuê ngoài/block; roster theo quyền, rental chỉ coach ngoài + attendees nếu có |
+| H08 | Lịch sân → Chi tiết hoạt động | `/receptionist/court-schedule` | Ngày/tuần/sân, lớp/PT/thuê sân/block; roster theo quyền, rental chỉ hiện Member đã thuê (không số người, không điểm danh) |
 | H09 | Giao dịch → Danh sách → Hóa đơn | `/receptionist/invoices`, detail | Keyword/status/Member, points/cash/attempts/fulfillment, yêu cầu backend đối soát |
 | H10 | Hóa đơn → Tạo hộ refund → Theo dõi | Nested F | Target Member/item/lý do/quote; chỉ yêu cầu, Manager duyệt |
 | H11 | Hồ sơ Member → Ví điểm | Tab trong H02, entry từ checkout | Số dư và ledger của Member đã chọn; không cộng/trừ thủ công |
@@ -68,7 +68,7 @@ QR: scan → backend resolve → hiện thẻ Member → lễ tân bấm action.
 
 ## 5. Coach sitemap
 
-Menu cơ bản: **Tổng quan · Lịch giảng dạy · Lớp phụ trách**. Có specialty PT mới thêm **Học viên PT · Buổi PT**. Không để Coach lớp nhóm thấy menu “Điểm danh” dẫn đến form không có quyền.
+Menu cơ bản: **Tổng quan · Lịch giảng dạy · Lớp phụ trách**. Có qualification PT (`isPersonalTrainer` từ `/api/users/me`) mới thêm **Học viên PT · Buổi PT**. Không để Coach lớp nhóm thấy menu “Điểm danh” dẫn đến form không có quyền.
 
 | ID | Page → subpage | Route đề xuất | Nội dung/action |
 |---|---|---|---|
@@ -82,7 +82,7 @@ Menu cơ bản: **Tổng quan · Lịch giảng dạy · Lớp phụ trách**. C
 | H19 | Buổi PT → Chi tiết | `/coach/pt-sessions`, `/coach/pt-sessions/[id]` | Member, thời gian/sân, trạng thái, hoàn thành/no-show theo API, ghi kết quả hợp lệ |
 | H20 | AI gợi ý kế hoạch | Drawer từ H16/H19 | Đầu vào, gợi ý, Xem lại & Chỉnh sửa → Lưu nháp → Áp dụng qua activate nếu hợp lệ |
 
-Không tạo trang AI workout cho ExternalCoach hoặc Coach thiếu specialty PT. Quan hệ hết hiệu lực giữa chừng phải chặn lưu và làm rõ, không dựa vào việc menu từng hiển thị.
+Không tạo trang AI workout cho Coach thiếu qualification PT. Quan hệ hết hiệu lực giữa chừng phải chặn lưu và làm rõ, không dựa vào việc menu từng hiển thị.
 
 ## 6. AI Drawer dùng chung — Hào thiết kế và bàn giao adapter
 
@@ -126,7 +126,7 @@ Mapping: `sell-plans/registrations/member-points` gom về Sales/Member detail c
 - [ ] Từ Member đã chọn đến check-in hợp lệ chỉ một action; trạng thái thay đổi sau server success.
 - [ ] Đổi Member không mang theo số điểm/OTP/plan của người trước.
 - [ ] QR denied/invalid có fallback; QR không tự check-in hoặc tự thanh toán.
-- [ ] Lễ tân không điểm danh ExternalCoach attendees; Coach không ghi attendance lớp nhóm.
+- [ ] Lễ tân không điểm danh lượt thuê sân; Coach không ghi attendance lớp nhóm.
 - [ ] Sửa attendance quá hạn có thông báo rõ; không mất kết quả dòng đã lưu khi dòng khác lỗi.
 - [ ] Coach chỉ xem lớp mình, PT đúng quan hệ; không dùng `/api/users` toàn hệ thống làm cách tìm học viên.
 - [ ] AI response không tự gọi save/activate; review/edit bắt buộc thấy trước action ghi.
@@ -165,7 +165,7 @@ Kiểm verb, constraint và body trong controller/OpenAPI; page mới không nh�
 |---|---|---|
 | OTP quầy | `POST /api/invoices/{id}/point-confirmations`; `GET .../current`; `POST .../clear`; `POST /api/point-confirmations/{id}/verify` | Receptionist; có expiry/revision/Member binding |
 | Ví | `GET /api/wallet/me`, `/ledger`; `/api/members/{id}/points`, `/points/ledger`; `/api/manager/wallets/{id}`, `/ledger` | Đúng consumer self/frontdesk/manager; không alias mù |
-| Invoice | `GET /api/invoices`, `/{id}`, `/by-item/{itemId}`; `/api/members/me/invoices`; `/api/external-coaches/me/invoices` | Detail có `Adjustments`; đủ xem refund theo invoice |
+| Invoice | `GET /api/invoices`, `/{id}`, `/by-item/{itemId}`; `/api/members/me/invoices` | Detail có `Adjustments`; đủ xem refund theo invoice |
 | Refund | `GET /api/refunds/quote/{invoiceItemId}`; `POST /api/refunds`; staff GET `/api/refunds`; manager approve/reject | Item-scoped, server tính điểm; Member không gọi staff list |
 | Reconcile/gateway | `POST /api/invoices/{id}/reconcile`; `GET /api/payments/vnpay/ipn`, `/return` | G11 cần kiểm tra auth callback; không coi return là xác nhận |
 | PT entitlement/session | GET member/coach/manager pt-entitlements; GET member/coach/manager pt-sessions; manager create/cancel/reschedule | G05: chưa có member create booking |

@@ -12,7 +12,6 @@ public sealed class LegacyPaymentAccessTests(PaymentApiFactory factory)
 {
     [Theory]
     [InlineData(UserRole.Member)]
-    [InlineData(UserRole.ExternalCoach)]
     [InlineData(UserRole.Coach)]
     [InlineData(UserRole.SystemAdministrator)]
     public async Task Non_financial_staff_cannot_read_other_invoices_or_search_members(UserRole role)
@@ -24,7 +23,7 @@ public sealed class LegacyPaymentAccessTests(PaymentApiFactory factory)
         using var client = factory.CreateApiClient(actor.UserId, role);
         Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync($"/api/invoices/{invoice.InvoiceId}")).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync("/api/invoices")).StatusCode);
-        if (role is UserRole.Member or UserRole.ExternalCoach)
+        if (role is UserRole.Member)
         {
             var own = await factory.SeedInvoiceAsync(actor.UserId, counter.UserId, 100_000);
             Assert.Equal(HttpStatusCode.OK, (await client.GetAsync($"/api/invoices/{own.InvoiceId}")).StatusCode);

@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
+using SportHub.BuildingBlocks.Abstractions.Scheduling;
 using SportHub.Identity.Application.DTOs;
 
 namespace SportHub.Identity.Application.Services;
@@ -10,16 +11,15 @@ public interface IUserSummaryFactory
     Task<UserSummaryResponse> BuildAsync(UserAccount user, CancellationToken ct);
 }
 
-public sealed class UserSummaryFactory(ISportHubDbContext db) : IUserSummaryFactory
+public sealed class UserSummaryFactory(ISportHubDbContext db, ISportCatalogReader catalog) : IUserSummaryFactory
 {
     public async Task<UserSummaryResponse> BuildAsync(UserAccount user, CancellationToken ct)
     {
         var role = user.Role!.RoleName;
 
-        string? approval = null;
         IReadOnlyList<int> sportIds = [];
 
-        if (role is UserRole.Coach or UserRole.ExternalCoach)
+        if (role == UserRole.Coach)
         {
             sportIds = await db.Set<UserSportSpecialty>()
                 .AsNoTracking()
@@ -29,14 +29,14 @@ public sealed class UserSummaryFactory(ISportHubDbContext db) : IUserSummaryFact
                 .ToListAsync(ct);
         }
 
-        if (role == UserRole.ExternalCoach)
+        var isPersonalTrainer = false;
+        if (role == UserRole.Coach)
         {
-            approval = (await db.Set<ExternalCoachProfile>()
-                    .AsNoTracking()
-                    .Where(p => p.UserId == user.UserId)
-                    .Select(p => (ExternalCoachApprovalStatus?)p.ApprovalStatus)
-                    .SingleOrDefaultAsync(ct))
-                ?.ToString();
+            var offering = (await catalog.GetSportForServiceAsync(SportServiceType.PersonalTraining, ct))
+                ?.Services.FirstOrDefault(s => s.ServiceType == SportServiceType.PersonalTraining);
+            isPersonalTrainer = offering is not null
+                && await db.Set<CoachServiceQualification>().AsNoTracking()
+                    .AnyAsync(q => q.UserId == user.UserId && q.OfferingId == offering.OfferingId, ct);
         }
 
         return new UserSummaryResponse
@@ -45,8 +45,8 @@ public sealed class UserSummaryFactory(ISportHubDbContext db) : IUserSummaryFact
             Email = user.Email,
             FullName = user.Profile?.FullName ?? string.Empty,
             Role = role.ToString(),
-            ApprovalStatus = approval,
-            SportIds = sportIds
+            SportIds = sportIds,
+            IsPersonalTrainer = isPersonalTrainer
         };
     }
 }

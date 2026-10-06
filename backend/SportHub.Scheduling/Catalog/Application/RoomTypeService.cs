@@ -7,7 +7,7 @@ using SportHub.Scheduling.Catalog.Domain;
 namespace SportHub.Scheduling.Catalog.Application;
 
 /// <summary>Loại phòng/sân và bảng môn nào chơi được ở loại nào (BR-108).</summary>
-public sealed class RoomTypeService(ISportHubDbContext db, IAuditWriter audit)
+public sealed class RoomTypeService(ISportHubDbContext db, IAuditWriter audit, ServiceUsageGuard usage)
 {
     public async Task<IReadOnlyList<RoomTypeResponse>> ListAsync(CancellationToken ct = default)
     {
@@ -75,8 +75,15 @@ public sealed class RoomTypeService(ISportHubDbContext db, IAuditWriter audit)
         }
 
         var current = await db.Set<SportRoomType>().Where(l => l.RoomTypeId == roomTypeId).ToListAsync(ct);
+        var unlinked = current.Where(l => !wanted.Contains(l.SportId)).ToList();
 
-        db.Set<SportRoomType>().RemoveRange(current.Where(l => !wanted.Contains(l.SportId)));
+        // Gỡ môn khỏi loại phòng làm phòng thuộc loại đó không còn dùng được cho PT của môn: chặn khi còn buổi PT tương lai.
+        if (unlinked.Count > 0)
+        {
+            await usage.RequireNoFuturePtInRoomTypesAsync([roomTypeId], ct);
+        }
+
+        db.Set<SportRoomType>().RemoveRange(unlinked);
         db.Set<SportRoomType>().AddRange(wanted
             .Where(id => current.All(l => l.SportId != id))
             .Select(id => new SportRoomType { RoomTypeId = roomTypeId, SportId = id }));

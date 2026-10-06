@@ -284,7 +284,8 @@ public sealed class CheckoutFlowTests(PaymentApiFactory factory)
         {
             var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
             db.CoachProfiles.Add(new CoachProfile { UserId = coach.UserId });
-            db.UserSportSpecialties.Add(new UserSportSpecialty { UserId = coach.UserId, SportId = 2 });
+            db.UserSportSpecialties.Add(new UserSportSpecialty { UserId = coach.UserId, SportId = 1 });
+            db.Set<CoachServiceQualification>().Add(new CoachServiceQualification { UserId = coach.UserId, OfferingId = 2 });
             var start = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-1);
             var membership = new MemberPackage
             {

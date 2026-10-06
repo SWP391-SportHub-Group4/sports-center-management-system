@@ -31,13 +31,13 @@ Giữ tên file hiện tại để không làm hỏng link; **ID Q là ID truy v
 
 | ID | Page → subpage | Route đề xuất | Chức năng / cấu trúc |
 |---|---|---|---|
-| Q24 | Danh mục → Bộ môn | `/manager/catalog?tab=sports` | Name, operation type, duration/capacity mặc định, room types, active; không xóa dữ liệu đã tham chiếu |
+| Q24 | Danh mục → Bộ môn | `/manager/catalog?tab=sports` | Mã (bất biến sau khi tạo), tên, dịch vụ (Membership/PT chỉ môn Gym, khóa học nhóm kèm thời lượng và sĩ số mặc định, thuê sân), phần còn thiếu để bán (loại phòng, sân, giờ mở cửa, giá), active; tắt dịch vụ không xóa dữ liệu đã tham chiếu |
 | Q25 | Danh mục → Gói Gym / Giá PT / Giá thuê sân | `/manager/catalog?tab=...` | Gói, thời hạn, giá; PT price/version; court rates giờ cao/thấp điểm; giá dương bội số 1.000 |
 | Q26 | Tham số vận hành | `/manager/settings` | Hold deadline, chốt ngưỡng, hạn phản hồi, giờ hoạt động/nhắc hạn theo contract; helper mô tả tác động |
 | Q27 | Nhật ký → Chi tiết sự kiện | `/manager/audit-log` | Actor/time/object/reason/before-after theo dữ liệu thật; liên kết đối tượng còn tồn tại |
 | Q29 | Tổng quan Admin | `/admin` | Lối tắt tài khoản, trạng thái và hoạt động quản trị gần đây; không KPI revenue |
 | Q30 | Tài khoản → Danh sách → Chi tiết | `/admin/users`, `/admin/users/[id]` | Tìm/lọc role/status, identity đúng quyền; **G10** detail hiện vướng policy |
-| Q31 | Tạo tài khoản nhân sự | `/admin/users/new` | Admin/Manager/Receptionist theo đề; tạo Coach đi luồng Manager; Member/ExternalCoach qua registration |
+| Q31 | Tạo tài khoản nhân sự | `/admin/users/new` | Admin/Manager/Receptionist theo đề; tạo Coach đi luồng Manager; Member qua registration |
 | Q32 | Đổi role / Khóa / Mở khóa | Dialog trong Q30 | Review target/role/lý do/hệ quả; không tự khóa hoặc khóa Admin cuối |
 | Q33 | Nhật ký Admin → Chi tiết | `/admin/audit-log` | Actor/action/reason/time; filter theo endpoint thực tế |
 
@@ -65,7 +65,7 @@ Menu Admin riêng: **Tổng quan · Tài khoản & vai trò · Nhật ký**; kh�
 | `Q30` | GET /api/users/admin + **G10** | List và deep-link detail đúng quyền Admin |
 | `Q31/Q32` | User create/mutations đúng policy | Review target/role/reason; xử lý backend denial rõ ràng |
 
-Endpoint chi tiết đọc [API contract](../api-contract.md) và controller hiện hành; không coi mọi user mutation đều cho mọi role. Khoa tạo nhân sự đúng scope đề, Coach đi luồng Manager của Khôi; Member/ExternalCoach dùng registration của Khôi.
+Endpoint chi tiết đọc [API contract](../api-contract.md) và controller hiện hành; không coi mọi user mutation đều cho mọi role. Khoa tạo nhân sự đúng scope đề, Coach đi luồng Manager của Khôi; Member dùng registration của Khôi.
 
 ### Backlog chính được giao
 
@@ -119,7 +119,6 @@ Mapping routes cũ: sports/court-rates/membership-plans → Catalog; giữ alias
 | Q06 | Chi tiết lớp → Publish / Dời buổi / Hủy buổi-bù / Hủy lớp | F từ Q05 | Preview xung đột/tác động, lý do, lịch mới, hoàn điểm nếu hủy cả lớp; gửi thông báo qua server |
 | Q07 | Điều kiện mở lớp → Xử lý ngưỡng | Tab Q05 hoặc saved view Q03 | Giá/chi phí/ngưỡng/số Confirmed, deadline, phản hồi Member; waive có lý do, không coi hold là đã ghi danh |
 | Q13 | HLV trung tâm → Tạo/sửa → Chi tiết | `/manager/coaches`, `/manager/coaches/[id]` | Account Coach, chuyên môn, mô tả, lịch phân công; cảnh báo chuyên môn thay đổi ảnh hưởng lớp hiện tại |
-| Q14 | HLV ngoài → Duyệt hồ sơ → Chi tiết | `/manager/external-coaches`, detail | Pending/Approved/Rejected/Suspended; approve/reject/suspend/reactivate có lý do; rental history |
 | Q15 | Sân & cơ sở vật chất → Sân/phòng → Chi tiết | `/manager/facilities`, `/manager/facilities/[id]` | Môn tương thích, trạng thái, opening-hours, lịch block; block có hoạt động ảnh hưởng dẫn IncidentWorkbench |
 | Q16 | Loại sân/phòng | Tab Q15 hoặc Danh mục | Loại và môn tương thích, validation tham chiếu; không xóa lịch sử |
 | Q17 | Sự cố → Tạo/preview/xử lý → Chi tiết | `/manager/incidents`, `/manager/incidents/[id]` | IncidentWorkbench bên dưới; history/detail **G06** |
@@ -158,19 +157,18 @@ Không gửi thêm manual notice trùng với thông báo tự động cùng s�
 
 ### HLV, thông báo và AI — Q13/Q14/Q18/Q28
 
-Q13 quản lý HLV nội bộ và specialty theo CAT-01 của An; Q14 duyệt/suspend/reactivate HLV ngoài phải phản ánh đúng lifecycle portal K18–K25 của Khôi. Q18 là composer/history thông báo; dùng Notification Panel chung của An, không dựng một inbox thứ hai. Q28 dùng AI Drawer của Hào: Xem lại & Chỉnh sửa → lưu nháp bằng ClassEditor; không tự publish.
+Q13 quản lý HLV nội bộ, chuyên môn theo môn và qualification dịch vụ PT (`PUT /api/manager/coaches/{id}/service-qualifications`). Q18 là composer/history thông báo; dùng Notification Panel chung của An, không dựng một inbox thứ hai. Q28 dùng AI Drawer của Hào: Xem lại & Chỉnh sửa → lưu nháp bằng ClassEditor; không tự publish.
 
 ### API đi cùng phần việc nhận thêm
 
 | Nghiệp vụ | Endpoint hiện có | Consumer / lưu ý |
 |---|---|---|
-| ExternalCoach | manager list/detail/approve/reject/suspend/reactivate | Khoa: Manager Q14; Khôi giữ phía Guest/ExternalCoach |
 | Lịch sân/availability staff | `GET /api/manager/court-schedule`, `/rentals`; `/api/coaches/me/court-schedule`; `/api/availability/rooms`, `/coaches`, `/rooms/{id}/busy` | Quyền khác nhau, public không dùng trực tiếp |
 | Attendance | `GET /api/class-sessions/{id}/roster`; `PUT /api/class-sessions/{id}/attendance/{enrollmentId}` | Lễ tân ghi từng dòng; Coach/Manager đọc theo quyền |
 | Lớp Manager | `/api/manager/classes` CRUD/detail/publish/cancel/cancellation-preview/holds/enrollments/threshold-responses/threshold waive/pricing | G13 nếu cần manual close enrollment |
 | Incident | `POST /api/manager/incidents/preview`, `/resolve`; `GET /{id}/notifications` | Đã có, còn hạn chế tại G06 |
 | Manual notice | `POST /api/manager/notices`; `GET /{id}`, `/by-key/{key}` | Đã gửi/theo dõi được; G07 thiếu history list/preview recipients |
-| Catalog/coaches | sports/room-types/rooms/opening-hours/room-blocks/court-rates/membership-packages, manager coaches/external coaches, system-settings | Tái dùng, gom UI không buộc gom API |
+| Catalog/coaches | sports/room-types/rooms/opening-hours/room-blocks/court-rates/membership-packages, manager coaches, system-settings | Tái dùng, gom UI không buộc gom API |
 
 | Mục | Page/subpage | Việc Khoa chịu trách nhiệm |
 |---|---|---|
@@ -179,7 +177,7 @@ Q13 quản lý HLV nội bộ và specialty theo CAT-01 của An; Q14 duyệt/su
 | G07 | Q18 | Notice list/recipient preview/delivery không gửi trùng |
 | G13 | Q03/Q05/Q06 | Chốt đóng tuyển sinh độc lập hủy lớp, xử lý hold đang tồn tại |
 | G02 (consumer) | Q07 | An giữ spec và Q08; tích hợp trạng thái ngưỡng/interest |
-| CAT-01 (consumer) | K01–K05/Q13 | An giữ schema/migration; kiểm public catalog và Coach specialty |
+| CAT-01 (consumer) | K01–K05/Q13 | An giữ schema/migration; kiểm public catalog, Coach specialty và qualification PT |
 
 ### Backlog API Manager vận hành
 
@@ -211,7 +209,7 @@ Test incident một sân/toàn trung tâm, PT không room, pending/paid rental, 
 
 Đề xuất `GET /api/manager/notices?status&from&to&page&pageSize`; `POST /api/manager/notices/preview` nhận cùng selector, trả tổng/người nhận được phép/channel và thời điểm; server tính lại khi send. Không cho FE tự upload danh sách email bất kỳ để bypass selector. Dùng Idempotency-Key hiện có khi send, status gắn outbox, retry delivery có dedup.
 
-Test selector Member theo lớp/Coach/ExternalCoach theo rental window; preview khác actual recipients khi dữ liệu đổi phải giải thích; không resend trùng do timeout.
+Test selector Member theo lớp/Coach/Member có rental theo rental window; preview khác actual recipients khi dữ liệu đổi phải giải thích; không resend trùng do timeout.
 
 #### G13 — Đóng tuyển sinh thủ công mà vẫn giữ lớp [P1; Khoa]
 

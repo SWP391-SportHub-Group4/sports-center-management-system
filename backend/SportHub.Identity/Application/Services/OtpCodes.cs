@@ -4,7 +4,7 @@ using System.Text;
 
 namespace SportHub.Identity.Application.Services;
 
-/// <summary>Sinh và băm mã OTP 6 số dùng chung cho đăng ký, quên mật khẩu, đăng ký ExternalCoach.</summary>
+/// <summary>Sinh và băm mã OTP 6 số dùng chung cho đăng ký Member. Quên mật khẩu dùng link, không dùng mã.</summary>
 public static class OtpCodes
 {
     public static string Generate()
