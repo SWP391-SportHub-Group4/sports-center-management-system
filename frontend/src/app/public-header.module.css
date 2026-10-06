@@ -16,11 +16,20 @@
   min-height: var(--control-height-lg);
   flex-shrink: 0;
   align-items: center;
-  gap: var(--space-2);
   color: var(--text-strong);
-  font-size: var(--text-2xl);
-  font-weight: 700;
   text-decoration: none;
+}
+.logoWord {
+  color: inherit;
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-wide);
+  line-height: 1;
+  text-transform: uppercase;
+}
+.logoAccent {
+  color: var(--color-primary);
 }
 .nav {
   display: flex;
@@ -97,12 +106,8 @@
     gap: var(--space-3);
     padding-inline: var(--space-4);
   }
-  .logo {
+  .logoWord {
     font-size: var(--text-xl);
-  }
-  .logo img {
-    width: 28px;
-    height: 28px;
   }
   .menuToggle {
     display: block;

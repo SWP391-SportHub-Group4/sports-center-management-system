@@ -1,31 +1,61 @@
-# SportHub UI review
+# SportHub component review
 
-Mở `/design-review` trên frontend. Nếu chưa chạy server:
+Open `/design-review` on the frontend. The page works without signing in or connecting to the backend.
 
 ```powershell
 cd D:\Roy\sports-center-management-system\frontend
 npm run dev
 ```
 
-Vào http://localhost:3000/design-review. Trang không cần đăng nhập hoặc backend.
+Then open <http://localhost:3000/design-review>.
 
-- `PublicComponents.tsx`: PublicHeader, Footer, AccountMenu, Hero, CourseCard. Card nhận Course và callback chọn khóa; menu tài khoản nhận tên và callback đăng xuất.
-- `ReviewPage.tsx`: mẫu CourseList, CourseDetail, AccountForm, CheckoutLayout; checkout và quầy dùng chung layout qua prop counter.
-- `review.module.css`: CSS Modules dùng semantic tokens Court & Volt và font đã có trong root layout.
+## Reusable public components
 
-## Cách review
+The public-facing components live in `src/components/public` and are exported from `@/components/public`:
 
-1. Mở menu Minh Anh, dùng Tab/Escape và thử đăng xuất/đăng nhập mẫu.
-2. Lọc môn, tìm tên khóa; đổi trạng thái tải, lỗi, rỗng và thử phục hồi.
-3. Chọn Xem chi tiết. Lớp hết chỗ khóa nút đăng ký; lớp cầu lông dẫn đến checkout.
-4. Nhập email sai hoặc bỏ trống tên để xem validation form, sau đó lưu dữ liệu hợp lệ.
-5. Bật dùng điểm tại checkout: tổng tiền giảm 200.000 đồng.
-6. Tại quầy, bật điểm, gửi OTP mẫu và nhập 123456 để mở nút xem thử. Đổi hội viên hoặc lựa chọn điểm sẽ xóa xác nhận cũ.
-7. Đổi checkout sang hết hạn, đối soát hoặc bồi hoàn: khóa hành động thanh toán.
-8. Dùng DevTools ở chiều rộng 390px để review bố cục một cột và menu mobile.
+```tsx
+import {
+  AccountMenu,
+  CourseCard,
+  Footer,
+  Hero,
+  PublicHeader,
+  type Course,
+} from "@/components/public";
+```
 
-## Phạm vi
+- `PublicHeader` accepts navigation links, an account name, and a sign-out callback.
+- `Hero` accepts headline, description, image, and CTA props; its defaults match the homepage's Court & Volt direction.
+- `CourseCard` accepts the shared `Course` model and a selection callback.
+- `AccountMenu` is the same keyboard-aware component used by the application header.
+- `Footer` accepts navigation links.
 
-Mẫu review bằng tiếng Việt, dữ liệu minh họa, không gọi API hay tạo giao dịch. Form không lưu bền vững. OTP chỉ mô phỏng, không phải xác thực. Giá và phép tính điểm chỉ để xem layout; khi tích hợp phải lấy quote/tổng tiền, số dư, xác nhận OTP và expiry từ backend. Trang không tạo hold hoặc countdown giả. Không dùng mẫu này thay thế checkout nghiệp vụ hiện có.
+The showcase building blocks are exported from `@/components/design-review`:
 
-Hướng thiết kế: Court & Volt hiện hữu; bố cục 6/10, chuyển động 3/10, mật độ 4/10. Taste áp dụng phần public; form/quầy theo luồng tác vụ. Light theme theo token dự án; các trạng thái lỗi có nội dung chữ.
+```tsx
+import {
+  AccountForm,
+  CheckoutLayout,
+  CourseDetail,
+  CourseList,
+  demoCourses,
+} from "@/components/design-review";
+```
+
+`CourseList` accepts an `items` prop. `CourseDetail` accepts a course and checkout callback. `AccountForm` supports initial values and an `onSave` callback. `CheckoutLayout` has a `counter` variant for the quầy layout.
+
+## Review flow
+
+1. Use the public header, account menu, hero, and course cards at the top of the page.
+2. Filter the list, search by title, and switch its loading, error, and empty states.
+3. Select a course to view its detail and disabled/full state.
+4. Submit valid or invalid contact information to see form feedback.
+5. Toggle points in checkout. In the counter variant, use the sample OTP `123456`.
+6. Change checkout status to see when payment actions are blocked.
+7. Review the page at 390px and desktop widths.
+
+The page uses the same light Court & Volt tokens, type, and public component treatments as the current homepage. Components use CSS Modules and design tokens; no new UI framework is required.
+
+## Demo boundary
+
+The list data, member identities, point balance, discount, OTP, and checkout statuses are for UI review only. The page makes no API calls and does not create transactions, holds, or persistent form data. Use the real backend quote, balance, confirmation, and expiry data when wiring a production flow.

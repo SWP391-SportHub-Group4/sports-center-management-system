@@ -463,8 +463,8 @@ Actor viết tắt: **M** = CenterManager (policy `CatalogManage`), **FD** = Man
 | PUT | `api/manager/sports/{id}` | M | như trên, không nhận đổi `code`. Service không liệt kê bị TẮT, không bị xóa | 200; 400 `sport_code_immutable` và các lỗi như trên; 404 `sport_not_found` |
 | POST | `api/manager/sports/{id}/deactivate`, `/activate` | M | — | `SportResponse` |
 | POST | `api/manager/sports/{id}/services/{serviceType}/enable`, `/disable` | M | — | `SportResponse`; 404 `service_not_configured`. Tắt chỉ chặn giao dịch mới |
-| PUT | `api/manager/sports/{id}/services/PERSONAL_TRAINING/room-types` | M | `{roomTypeIds[]}` (thay toàn bộ; rỗng nghĩa là PT không gắn phòng) | 200 `{roomTypeIds}`; 400 `service_room_types_not_supported` `invalid_room_type` `room_type_not_linked_to_sport` |
-| GET / PUT | `api/manager/coaches/{userId}/service-qualifications` | M | PUT `{offeringIds[]}` (thay toàn bộ; hiện chỉ offering PT của Gym) | 200 `{offeringIds}`; 400 `qualification_not_supported` `service_not_enabled` `coach_missing_sport_specialty`; 404 `coach_not_found` |
+| PUT | `api/manager/sports/{id}/services/PERSONAL_TRAINING/room-types` | M | `{roomTypeIds[]}` (thay toàn bộ; rỗng nghĩa là PT không gắn phòng) | 200 `{roomTypeIds}`; 400 `service_room_types_not_supported` `invalid_room_type` `room_type_not_linked_to_sport`; 409 `service_in_use_by_future_schedule` (còn buổi PT tương lai trong phòng thuộc loại bị gỡ) |
+| GET / PUT | `api/manager/coaches/{userId}/service-qualifications` | M | PUT `{offeringIds[]}` (thay toàn bộ; hiện chỉ offering PT của Gym) | 200 `{offeringIds}`; 400 `qualification_not_supported` `service_not_enabled` `coach_missing_sport_specialty`; 404 `coach_not_found`; 409 `qualification_in_use` (còn buổi PT tương lai) |
 | GET | `api/room-types` | Auth | — | `[{roomTypeId, name, sportIds[]}]` |
 | POST | `api/manager/room-types` | M | `{name}` | 201; 409 `room_type_name_taken` |
 | PUT | `api/manager/room-types/{id}` | M | `{name}` | 200 |

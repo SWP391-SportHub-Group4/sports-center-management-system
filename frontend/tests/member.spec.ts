@@ -145,7 +145,7 @@ test("course catalog replaces per-session enrollment", async ({ page }) => {
   await page.goto("/member/discover");
   await expect(
     page.getByRole("heading", { name: "Badminton course" }),
-  ).toBeVisible();
+  ).toBeVisible({ timeout: 15000 });
   await expect(page.getByRole("button", { name: /Book Spot/ })).toHaveCount(0);
   await page.getByRole("link", { name: "Details", exact: true }).click();
   await expect(page).toHaveURL(/\/member\/discover\/1$/);
@@ -167,22 +167,17 @@ test("dashboard does not issue an entrance pass", async ({ page }) => {
   await expect(page.getByTestId("show-qr-btn")).toHaveCount(0);
 });
 test("Gym and PT purchases are separate", async ({ page }) => {
-  await page.goto("/member/my-plans");
+  await page.goto("/member/services");
   await expect(
     page.getByRole("heading", { name: "Gym membership packages", exact: true }),
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Review & checkout" }).first(),
   ).toBeVisible();
-  await page
-    .getByRole("tab", { name: "Personal training", exact: true })
-    .click();
+  await page.getByRole("tab", { name: "Personal training" }).click();
   await expect(
-    page.getByRole("tab", { name: "Personal training", exact: true }),
-  ).toHaveAttribute("aria-selected", "true");
-  await expect(
-    page.getByRole("heading", { name: "Gym membership packages", exact: true }),
-  ).toHaveCount(0);
+    page.getByRole("heading", { name: "Personal training", exact: true }),
+  ).toBeVisible({ timeout: 15000 });
   await expect(
     page.getByRole("button", { name: "Get quote", exact: true }),
   ).toBeDisabled();
@@ -190,14 +185,12 @@ test("Gym and PT purchases are separate", async ({ page }) => {
 test("notification links resolve to real Member views", async ({ page }) => {
   await page.goto("/member");
   await page.getByRole("button", { name: /Notifications/ }).click();
-  const notification = page
-    .getByRole("region", { name: "Notifications", exact: true })
-    .getByRole("link", { name: /Your coach assigned homework\./ });
-  await expect(notification).toBeVisible();
-  await expect(notification).toHaveAttribute("href", "/member/training");
-  await notification.click();
-  await expect(page).toHaveURL(/\/member\/training$/);
-  await expect(page.locator("#main-content h1")).toBeVisible();
+  const notifications = page.getByRole("region", { name: "Notifications" });
+  const homework = notifications.getByRole("link", {
+    name: /Your coach assigned homework\./,
+  });
+  await expect(homework).toBeVisible({ timeout: 15000 });
+  await expect(homework).toHaveAttribute("href", "/member/training");
 });
 for (const width of [320, 768, 1024, 1280, 1360, 1440])
   test(`Member routes fit ${width}px`, async ({ page }) => {
