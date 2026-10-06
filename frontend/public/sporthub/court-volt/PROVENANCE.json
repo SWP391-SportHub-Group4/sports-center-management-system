@@ -20,6 +20,12 @@
     },
     {
       "file": "hero-performance.png"
+    },
+    {
+      "file": "program-gym.png"
+    },
+    {
+      "file": "gym-goals-background.png"
     }
   ],
   "prompts": [
@@ -46,6 +52,14 @@
     {
       "asset": "hero-performance",
       "prompt": "Use case: photorealistic-natural. Asset type: wide landing page hero photograph for a premium athletic performance center. Primary request: a cinematic, genuinely photographic scene of an adult athlete training with a barbell in a refined modern gym. Scene/backdrop: spacious high-performance training room, dark charcoal and deep teal environment, visible real equipment and rubber floor, no brand marks. Subject: one focused athlete captured mid-repetition, believable anatomy and technique, natural concentration, athletic but realistic. Composition/framing: landscape wide 3:2 composition, athlete weighted to the right half, darker negative space on the left for a web headline overlay; waist-up to full body with enough scene context. Lighting/mood: dramatic controlled sports photography, sculpted overhead light, subtle highlights, deep carbon shadows, energetic yet premium and grounded. Color palette: charcoal-black, muted teal, restrained lime reflections only as environmental accents. Materials/textures: realistic skin, brushed steel, rubber flooring, slight natural grain. Constraints: high-end editorial sports photography, no text, no logos, no watermark, no stickers, no graphic overlays, no fabricated stats or readable signage."
+    },
+    {
+      "asset": "program-gym",
+      "prompt": "Create one standalone 3:2 landscape editorial sports photograph for a premium Vietnamese multisport center website, used as the full-bleed background of a Gym program card. An adult Vietnamese woman athlete in her late 20s performing a technically sound barbell back squat in a modern strength training area, natural focused expression, believable anatomy and realistic squat rack/barbell. Compose her toward the right half with gym equipment and dark negative space on the left, so the image can be cropped behind overlay text. High windows with soft daylight, matte deep teal wall, chalk-black rubber flooring, brushed steel, small restrained volt-lime details on clothing, premium natural sports photography, athletic energy, realistic and welcoming rather than intimidating. Match the visual direction of a high-end COURT & VOLT identity: deep carbon, teal, chalk, a tiny lime accent; tactile materials and natural color grading. No words, logos, watermarks, stickers, UI, graphics, collage, dramatic artificial glow, extra limbs, or incorrect equipment. This represents illustrative campaign imagery, not an actual facility."
+    },
+    {
+      "asset": "gym-goals-background",
+      "prompt": "Use case: premium website section background image for a high-performance athletic training center, wide landscape 3:2 crop. Create a cinematic but realistic empty strength-training gym interior at early morning: squat racks, neatly arranged barbells and dumbbells, dark rubber floor, high industrial ceiling, soft daylight from tall windows, subtle deep teal accents and a few restrained hyper-lime details in equipment. Composition must reserve the LEFT 55 percent as clean dark negative space (mostly shadowed wall and floor) for large white headline and supporting text overlay; place the most recognizable gym equipment and depth on the RIGHT half. Rich photographic texture, premium sports editorial art direction, dark charcoal and teal palette, high contrast but natural, no people, no text, no logos, no watermark, no graphic overlays, no stickers, no artificial lens flare. Designed to remain legible under a subtle dark gradient overlay."
     }
   ]
 }

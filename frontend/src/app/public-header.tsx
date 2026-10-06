@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { HOME_BY_ROLE, useAuth } from "@/lib/auth";
 import { useLanguage } from "@/lib/language";
@@ -30,8 +29,9 @@ export function PublicHeader() {
       }}
     >
       <Link className={styles.logo} href="/" aria-label="SportHub, homepage">
-        <Image src="/sporthub/brand.svg" alt="" width={36} height={36} />
-        <span>SportHub.</span>
+        <span className={styles.logoWord}>
+          Sport<span className={styles.logoAccent}>Hub</span>
+        </span>
       </Link>
       <button
         ref={menuTrigger}
@@ -51,11 +51,11 @@ export function PublicHeader() {
         <Link href="/#activities" onClick={() => setMenuOpen(false)}>
           {t.refactor.sports}
         </Link>
+        <Link href="/#training" onClick={() => setMenuOpen(false)}>
+          {t.refactor.pt}
+        </Link>
         <Link href="/#pricing" onClick={() => setMenuOpen(false)}>
           {t.refactor.gym}
-        </Link>
-        <Link href="/courses" onClick={() => setMenuOpen(false)}>
-          {t.refactor.courses}
         </Link>
       </nav>
       <div className={styles.headerActions}>

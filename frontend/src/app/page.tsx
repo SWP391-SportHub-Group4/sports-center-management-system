@@ -1,6 +1,6 @@
 "use client";
-import Image from "next/image";
 import Link from "next/link";
+import Image from "next/image";
 import { PublicHeader } from "./public-header";
 import { MembershipPricing } from "./membership-pricing";
 import { useLanguage } from "@/lib/language";
@@ -43,7 +43,27 @@ export default function Page() {
     ],
   ];
   return (
-    <div className={s.page} lang={language} data-theme="performance">
+    <div
+      className={s.page}
+      lang={language}
+      data-theme="performance"
+      onPointerMove={(event) => {
+        if (event.pointerType !== "mouse") return;
+
+        event.currentTarget.style.setProperty(
+          "--spotlight-x",
+          `${event.clientX}px`,
+        );
+        event.currentTarget.style.setProperty(
+          "--spotlight-y",
+          `${event.clientY}px`,
+        );
+        event.currentTarget.style.setProperty("--spotlight-opacity", "1");
+      }}
+      onPointerLeave={(event) => {
+        event.currentTarget.style.setProperty("--spotlight-opacity", "0");
+      }}
+    >
       <a className={s.skip} href="#main-content">
         {text("Đến nội dung chính", "Skip to content")}
       </a>
@@ -52,40 +72,60 @@ export default function Page() {
         <PerformanceSections language={language} />
         <section
           className={`${s.section} ${s.training}`}
+          id="training"
           aria-labelledby="pt-title"
         >
-          <div>
-            <CourtIcon name="gym" size={40} />
-            <h2 id="pt-title">
-              {text(
-                "Mục tiêu của bạn.\nLộ trình của riêng bạn.",
-                "Your own goals.\nYour own game plan.",
-              )}
-            </h2>
+          <div className={s.goalBackground} aria-hidden="true">
+            <Image
+              src="/sporthub/court-volt/gym-goals-background.png"
+              alt=""
+              fill
+              sizes="(max-width: 767px) calc(100vw - 2rem), (max-width: 1199px) calc(100vw - 3rem), 90vw"
+            />
           </div>
-          <div>
-            <p>
-              {text(
-                "Tập 1 kèm 1 với huấn luyện viên cá nhân (PT), dịch vụ riêng thuộc Gym. Bạn cần Membership Gym còn hiệu lực để mua PT.",
-                "Train one to one with a personal trainer (PT), a separate Gym service. An active Gym membership is required to purchase PT.",
-              )}
-            </p>
-            <Link
-              className={buttonClass({ variant: "secondary", size: "lg" })}
-              href="/member/my-plans"
-            >
-              {text("Xem gói Gym và PT", "View Gym and PT plans")}
-              <CourtIcon name="arrow" size={18} />
-            </Link>
+          <div className={s.goalContent}>
+            <div className={s.goalCopy}>
+              <CourtIcon name="gym" size={40} />
+              <h2 id="pt-title">
+                {text(
+                  "Mục tiêu của bạn.\nLộ trình của riêng bạn.",
+                  "Your own goals.\nYour own game plan.",
+                )}
+              </h2>
+            </div>
+            <div className={s.goalDetails}>
+              <Image
+                className={s.goalSticker}
+                src="/sporthub/court-volt/sticker-goals.png"
+                alt=""
+                width={1381}
+                height={1139}
+                aria-hidden="true"
+                priority={false}
+              />
+              <p>
+                {text(
+                  "Tập 1 kèm 1 với huấn luyện viên cá nhân (PT), dịch vụ riêng thuộc Gym. Bạn cần Membership Gym còn hiệu lực để mua PT.",
+                  "Train one to one with a personal trainer (PT), a separate Gym service. An active Gym membership is required to purchase PT.",
+                )}
+              </p>
+              <Link
+                className={buttonClass({ variant: "secondary", size: "lg" })}
+                href="/member/my-plans"
+              >
+                {text("Xem gói Gym và PT", "View Gym and PT plans")}
+                <CourtIcon name="arrow" size={18} />
+              </Link>
+            </div>
           </div>
         </section>
         <div className={`${s.section} ${s.pricing}`}>
           <div className={s.sectionHeading}>
-            <h2>{text("Gói Membership Gym", "Gym memberships")}</h2>
+            <h2>Membership</h2>
             <p>
               {text(
-                "Xem giá và thời hạn các gói Membership Gym đang mở bán. Gói PT được mua riêng và yêu cầu Membership Gym còn hiệu lực.",
-                "Compare prices and durations of available Gym memberships. PT plans are purchased separately and require an active Gym membership.",
+                "So sánh thời hạn và quyền lợi của các gói Membership đang mở bán. Dịch vụ PT yêu cầu Membership còn hiệu lực.",
+                "Compare the validity and benefits of available Membership plans. PT services require an active Membership.",
               )}
             </p>
           </div>
@@ -111,8 +151,7 @@ export default function Page() {
       <footer className={s.footer}>
         <div>
           <Link href="/" className={s.wordmark}>
-            <Image src="/sporthub/brand.svg" width={32} height={32} alt="" />{" "}
-            SportHub.
+            Sport<span className={s.wordmarkAccent}>Hub</span>
           </Link>
           <p className={s.footerStatement}>
             {text("Mỗi buổi tập,", "Every session,")}
@@ -120,8 +159,8 @@ export default function Page() {
           </p>
         </div>
         <nav aria-label={text("Điều hướng chân trang", "Footer navigation")}>
-          <Link href="/courses">
-            {text("Khóa học", "Courses")}
+          <Link href="#activities">
+            {text("Môn tập", "Programs")}
             <CourtIcon name="arrow" size={22} />
           </Link>
           <Link href="#pricing">

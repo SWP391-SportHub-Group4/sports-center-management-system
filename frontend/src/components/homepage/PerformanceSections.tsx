@@ -22,7 +22,7 @@ const copy = {
   en: {
     title: "Every session\nhas a purpose.",
     lead: "Gym, Badminton and Basketball. Compare courses, schedules and available places before you enroll.",
-    courses: "Browse courses",
+    courses: "Explore programs",
     gymPlans: "Gym memberships",
     activePrograms: "Active programs",
     publishedCourses: "Published courses",
@@ -40,7 +40,6 @@ const copy = {
     full: "Enrollment full",
     membership: "Gym access",
     viewPlans: "Compare memberships",
-    viewCourses: "Open course catalog",
     sessions: "sessions",
     aiAlt: "Athlete training in a performance gym",
     plansCount: "active plans",
@@ -48,7 +47,7 @@ const copy = {
   vi: {
     title: "Mỗi buổi tập\nđều có mục tiêu.",
     lead: "Gym, Cầu lông và Bóng rổ. Xem khóa học, lịch tập và số chỗ còn trước khi ghi danh.",
-    courses: "Xem khóa học",
+    courses: "Khám phá môn tập",
     gymPlans: "Gói Membership Gym",
     activePrograms: "Môn đang hoạt động",
     publishedCourses: "Khóa học đã mở",
@@ -66,7 +65,6 @@ const copy = {
     full: "Đã đủ chỗ",
     membership: "Gói tập Gym",
     viewPlans: "So sánh gói tập",
-    viewCourses: "Mở danh sách khóa học",
     sessions: "buổi",
     aiAlt: "Vận động viên tập luyện trong phòng Gym",
     plansCount: "gói đang mở bán",
@@ -120,7 +118,7 @@ function AnimatedNumber({
   );
 }
 
-function MagneticCourseLink({ label }: { label: string }) {
+function MagneticExploreLink({ label }: { label: string }) {
   const ref = useRef<HTMLAnchorElement>(null);
   const target = useRef({ x: 0, y: 0 });
   const current = useRef({ x: 0, y: 0 });
@@ -177,7 +175,7 @@ function MagneticCourseLink({ label }: { label: string }) {
   return (
     <Link
       ref={ref}
-      href="/courses"
+      href="#activities"
       className={`${buttonClass({ size: "lg" })} ${styles.primaryCta}`}
       onPointerMove={move}
       onPointerLeave={reset}
@@ -196,6 +194,17 @@ function programIcon(name: string): CourtIconName | null {
     return "badminton";
   if (normalized.includes("basketball") || normalized.includes("bóng rổ"))
     return "basketball";
+  return null;
+}
+
+function programImage(name: string): string | null {
+  const normalized = name.toLocaleLowerCase();
+  if (normalized.includes("gym") || normalized.includes("fitness"))
+    return "/sporthub/court-volt/program-gym.png";
+  if (normalized.includes("badminton") || normalized.includes("cầu lông"))
+    return "/sporthub/court-volt/course-badminton.png";
+  if (normalized.includes("basketball") || normalized.includes("bóng rổ"))
+    return "/sporthub/court-volt/course-basketball.png";
   return null;
 }
 
@@ -257,7 +266,7 @@ export function PerformanceSections({ language }: { language: Language }) {
           <h1 id="performance-title">{t.title}</h1>
           <p className={styles.heroLead}>{t.lead}</p>
           <div className={styles.heroActions}>
-            <MagneticCourseLink label={t.courses} />
+            <MagneticExploreLink label={t.courses} />
             <Link href="#pricing" className={styles.secondaryCta}>
               {t.gymPlans}
               <CourtIcon name="diagonal" size={16} />
@@ -373,6 +382,7 @@ export function PerformanceSections({ language }: { language: Language }) {
                 0,
               );
               const icon = programIcon(sport.name);
+              const image = programImage(sport.name);
               const isGym = sport.name.toLocaleLowerCase().includes("gym");
 
               return (
@@ -392,6 +402,16 @@ export function PerformanceSections({ language }: { language: Language }) {
                     );
                   }}
                 >
+                  {image && (
+                    <Image
+                      className={styles.programPhoto}
+                      src={image}
+                      alt=""
+                      fill
+                      sizes="(max-width: 767px) 100vw, (max-width: 1199px) 50vw, 58vw"
+                      aria-hidden="true"
+                    />
+                  )}
                   <div className={styles.cardTopline}>
                     {icon ? (
                       <CourtIcon name={icon} size={27} />
@@ -459,13 +479,12 @@ export function PerformanceSections({ language }: { language: Language }) {
                     <p className={styles.gymDescriptor}>{t.membership}</p>
                   )}
 
-                  <Link
-                    className={styles.programLink}
-                    href={isGym ? "#pricing" : "/courses"}
-                  >
-                    {isGym ? t.viewPlans : t.viewCourses}
-                    <CourtIcon name="arrow" size={17} />
-                  </Link>
+                  {isGym && (
+                    <Link className={styles.programLink} href="#pricing">
+                      {t.viewPlans}
+                      <CourtIcon name="arrow" size={17} />
+                    </Link>
+                  )}
                 </article>
               );
             })}
@@ -473,7 +492,6 @@ export function PerformanceSections({ language }: { language: Language }) {
         ) : !sportsState.error ? (
           <div className={styles.emptyPrograms} role="status">
             <p>{t.noPrograms}</p>
-            <Link href="/courses">{t.viewCourses}</Link>
           </div>
         ) : null}
       </section>
