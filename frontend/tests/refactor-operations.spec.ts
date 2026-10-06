@@ -133,11 +133,10 @@ for (const language of ["en", "vi"] as const) {
     "Rental checkout keeps payment confirmation after applying points and switching from " +
       language,
     async ({ page }) => {
-      await session(page, "EXTERNAL_COACH", language);
+      await session(page, "MEMBER", language);
       const copy = language === "en" ? en : vi;
       const other = language === "en" ? vi : en;
-      let profileReads = 0,
-        creates = 0,
+      let creates = 0,
         pointsWrites = 0,
         payments = 0;
       const checkout = {
@@ -154,12 +153,6 @@ for (const language of ["en", "vi"] as const) {
         expiresAtUtc: "2030-10-03T03:15:00Z",
         serverNowUtc: "2030-10-03T03:00:00Z",
       };
-      await page.route("**/api/external-coaches/me", (route) => {
-        profileReads++;
-        return route.fulfill({
-          json: { userId: memberId, sportIds: [1], approvalStatus: "APPROVED" },
-        });
-      });
       await page.route("**/api/court-rentals/availability?**", (route) =>
         route.fulfill({
           json: [
@@ -224,7 +217,7 @@ for (const language of ["en", "vi"] as const) {
           },
         }),
       );
-      await page.goto("/external-coach/book");
+      await page.goto("/member/courts/book");
       await page
         .getByLabel(copy.operations.sport, { exact: true })
         .selectOption("1");
@@ -253,12 +246,7 @@ for (const language of ["en", "vi"] as const) {
       await expect(
         page.getByLabel(copy.refactor.points, { exact: true }),
       ).toHaveValue("100");
-      expect(profileReads).toBe(2);
-      await page
-        .getByTitle(
-          language === "en" ? "Switch to Vietnamese" : "Chuyển sang tiếng Anh",
-        )
-        .click();
+      await page.getByRole("button", { name: "Toggle language" }).click();
       await expect(
         page.getByRole("button", { name: other.refactor.pay, exact: true }),
       ).toBeEnabled();
@@ -946,7 +934,7 @@ for (const recovery of ["retry", "reload"] as const)
 test("historical rental detail loads by owner ID with its snapshot and refund, without a date filter", async ({
   page,
 }) => {
-  await session(page, "EXTERNAL_COACH");
+  await session(page, "MEMBER");
   let rangeCalls = 0;
   await page.route("**/api/court-rentals/mine?**", (r) => {
     rangeCalls++;
@@ -977,7 +965,7 @@ test("historical rental detail loads by owner ID with its snapshot and refund, w
       },
     }),
   );
-  await page.goto(`/external-coach/rentals/${rentalId}`);
+  await page.goto(`/member/rentals/${rentalId}`);
   await expect(
     page.getByRole("heading", { name: "Historical Court · Badminton" }),
   ).toBeVisible();
@@ -991,7 +979,7 @@ test("historical rental detail loads by owner ID with its snapshot and refund, w
     page.getByRole("link", { name: "Invoices", exact: true }).last(),
   ).toHaveAttribute(
     "href",
-    `/external-coach/invoices?invoiceId=${enrollmentId}`,
+    `/member/invoices/${enrollmentId}`,
   );
   await expect(page.getByLabel("From date", { exact: true })).toHaveCount(0);
   await expect(
@@ -1095,7 +1083,6 @@ const rental = {
   endAtUtc: "2030-10-03T03:00:00Z",
   totalPrice: 100000,
   status: "CONFIRMED",
-  expectedAttendees: 3,
   invoiceItemId: itemId,
 };
 function deferred() {
@@ -1389,29 +1376,20 @@ test("incident preview blocks resolution and invalidates when the form changes",
   expect(resolves).toBe(0);
 });
 
-test("suspended external coach cannot book, and rentals have no attendance controls", async ({
+test("any member can open court booking without approval, and rentals have no attendance controls", async ({
   page,
 }) => {
-  await session(page, "EXTERNAL_COACH");
-  await page.route("**/api/external-coaches/me", (r) =>
-    r.fulfill({
-      json: {
-        userId: memberId,
-        approvalStatus: "SUSPENDED",
-        reviewNote: "Under review",
-        sportIds: [1],
-      },
-    }),
-  );
+  await session(page, "MEMBER");
   await page.route("**/api/court-rentals/mine?**", (r) =>
     r.fulfill({ json: [rental] }),
   );
-  await page.goto("/external-coach/book");
-  await expect(page.getByText(/Only approved external coaches/)).toBeVisible();
+  await page.goto("/member/courts/book");
+  // BR-140: không còn bước duyệt hay hồ sơ; Member vào là đặt được.
   await expect(
     page.getByRole("button", { name: "Check availability and price" }),
-  ).toHaveCount(0);
-  await page.goto("/external-coach/rentals");
+  ).toBeVisible();
+  await expect(page.getByLabel("Expected attendees")).toHaveCount(0);
+  await page.goto("/member/rentals");
   await expect(
     page.getByRole("button", { name: "Cancel rental" }),
   ).toBeVisible();
@@ -1423,7 +1401,7 @@ test("suspended external coach cannot book, and rentals have no attendance contr
 test("rental cancellation uses the server refund quote and does not create a refund request", async ({
   page,
 }) => {
-  await session(page, "EXTERNAL_COACH");
+  await session(page, "MEMBER");
   await page.route("**/api/court-rentals/mine?**", (r) =>
     r.fulfill({ json: [rental] }),
   );
@@ -1435,7 +1413,7 @@ test("rental cancellation uses the server refund quote and does not create a ref
     cancelled++;
     return r.fulfill({ status: 204 });
   });
-  await page.goto("/external-coach/rentals");
+  await page.goto("/member/rentals");
   await page.getByRole("button", { name: "Cancel rental" }).click();
   await expect(page.getByRole("dialog")).toContainText("Refund points: 0");
   await page
@@ -1463,21 +1441,12 @@ test("system administrator direct catalog URL never mounts manager data requests
   expect(managerCalls).toBe(0);
 });
 
-test("booking refreshes approval after checkout is rejected and retains no booking action", async ({
+test("a rejected court-rental checkout shows the server error and keeps no booking action", async ({
   page,
 }) => {
-  await session(page, "EXTERNAL_COACH");
+  await session(page, "MEMBER");
   let revoked = false;
   let checkouts = 0;
-  await page.route("**/api/external-coaches/me", (r) =>
-    r.fulfill({
-      json: {
-        userId: memberId,
-        sportIds: [1],
-        approvalStatus: revoked ? "SUSPENDED" : "APPROVED",
-      },
-    }),
-  );
   await page.route("**/api/court-rentals/availability?**", (r) =>
     r.fulfill({
       json: [
@@ -1501,17 +1470,15 @@ test("booking refreshes approval after checkout is rejected and retains no booki
     expect(r.request().postDataJSON()).toMatchObject({
       roomId: 1,
       sportId: 1,
-      expectedAttendees: 3,
     });
     return r.fulfill({
       status: 403,
-      json: { error: "approval_required", message: "Approval revoked" },
+      json: { error: "member_inactive", message: "Member account inactive" },
     });
   });
-  await page.goto("/external-coach/book");
+  await page.goto("/member/courts/book");
   await page.getByLabel("Sport", { exact: true }).selectOption("1");
   await page.getByLabel("Date", { exact: true }).fill("2030-10-03");
-  await page.getByLabel("Expected attendees (optional)").fill("3");
   await page
     .getByRole("button", { name: "Check availability and price" })
     .click();
@@ -1520,10 +1487,7 @@ test("booking refreshes approval after checkout is rejected and retains no booki
     page.getByRole("heading", { name: "Price breakdown" }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Checkout", exact: true }).click();
-  await expect(page.getByText(/Only approved external coaches/)).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Checkout", exact: true }),
-  ).toHaveCount(0);
+  await expect(page.getByText("Member account inactive")).toBeVisible();
   expect(checkouts).toBe(1);
 });
 
@@ -1594,7 +1558,6 @@ test("calendar has no page overflow at desktop and mobile sizes", async ({
           startAtUtc: new Date().toISOString(),
           endAtUtc: new Date(Date.now() + 3600000).toISOString(),
           coachName: "External coach",
-          expectedAttendees: 5,
           status: "CONFIRMED",
           participants: [],
         },
@@ -1653,12 +1616,7 @@ test("late incident preview cannot resolve after its reason changes", async ({
 test("late court availability cannot offer checkout for an earlier date", async ({
   page,
 }) => {
-  await session(page, "EXTERNAL_COACH");
-  await page.route("**/api/external-coaches/me", (route) =>
-    route.fulfill({
-      json: { userId: memberId, sportIds: [1], approvalStatus: "APPROVED" },
-    }),
-  );
+  await session(page, "MEMBER");
   const requested = deferred();
   const release = deferred();
   await page.route("**/api/court-rentals/availability?**", async (route) => {
@@ -1680,7 +1638,7 @@ test("late court availability cannot offer checkout for an earlier date", async 
       ],
     });
   });
-  await page.goto("/external-coach/book");
+  await page.goto("/member/courts/book");
   await page.getByLabel("Sport", { exact: true }).selectOption("1");
   await page.getByLabel("Date", { exact: true }).fill("2030-10-03");
   const availability = page.getByRole("button", {

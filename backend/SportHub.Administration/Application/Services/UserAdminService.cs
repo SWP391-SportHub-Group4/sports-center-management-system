@@ -117,14 +117,6 @@ public sealed class UserAdminService(
     {
         var targetRole = ParseRole(request.Role);
 
-        // ExternalCoach tự đăng ký + Manager duyệt (BR-105); không tạo/gán từ màn hình quản trị.
-        if (targetRole == UserRole.ExternalCoach)
-        {
-            throw new BadRequestException(
-                "external_coach_managed_separately",
-                "Coach ngoài tự đăng ký và do Manager duyệt, không tạo hoặc gán vai trò từ màn hình quản trị.");
-        }
-
         // BR-1: Hội viên TỰ đăng ký. BR-2 liệt kê đúng 4 vai trò mà SysAdmin được tạo và
         // Member không nằm trong đó — nên endpoint này từ chối tạo Member thay vì lặng lẽ cho qua.
         if (targetRole == UserRole.Member)
@@ -218,13 +210,6 @@ public sealed class UserAdminService(
             ?? throw new NotFoundException("user_not_found", "Không tìm thấy tài khoản.");
 
         var currentRole = user.Role!.RoleName;
-
-        if (targetRole == UserRole.ExternalCoach || currentRole == UserRole.ExternalCoach)
-        {
-            throw new BadRequestException(
-                "external_coach_managed_separately",
-                "Vai trò Coach ngoài do quy trình đăng ký/duyệt quản lý, không đổi từ màn hình quản trị.");
-        }
 
         if (currentRole == targetRole)
         {

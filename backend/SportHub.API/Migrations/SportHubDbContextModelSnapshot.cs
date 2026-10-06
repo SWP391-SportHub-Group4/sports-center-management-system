@@ -388,48 +388,6 @@ namespace SportHub.API.Migrations
                     b.ToTable("email_otps", (string)null);
                 });
 
-            modelBuilder.Entity("SportHub.Identity.Domain.Entities.ExternalCoachProfile", b =>
-                {
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("user_id");
-
-                    b.Property<int>("ApprovalStatus")
-                        .HasColumnType("integer")
-                        .HasColumnName("approval_status");
-
-                    b.Property<string>("Bio")
-                        .HasColumnType("text")
-                        .HasColumnName("bio");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<string>("ReviewNote")
-                        .HasColumnType("text")
-                        .HasColumnName("review_note");
-
-                    b.Property<DateTime?>("ReviewedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("reviewed_at");
-
-                    b.Property<Guid?>("ReviewedByUserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("reviewed_by_user_id");
-
-                    b.HasKey("UserId")
-                        .HasName("pk_external_coach_profiles");
-
-                    b.HasIndex("ApprovalStatus")
-                        .HasDatabaseName("ix_external_coach_profiles_approval_status");
-
-                    b.HasIndex("ReviewedByUserId")
-                        .HasDatabaseName("ix_external_coach_profiles_reviewed_by_user_id");
-
-                    b.ToTable("external_coach_profiles", (string)null);
-                });
-
             modelBuilder.Entity("SportHub.Identity.Domain.Entities.GoogleOnboardingTicket", b =>
                 {
                     b.Property<Guid>("TicketId")
@@ -528,11 +486,6 @@ namespace SportHub.API.Migrations
                         {
                             RoleId = 5,
                             RoleName = 4
-                        },
-                        new
-                        {
-                            RoleId = 6,
-                            RoleName = 5
                         });
                 });
 
@@ -2771,14 +2724,6 @@ namespace SportHub.API.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("end_at_utc");
 
-                    b.Property<int>("ExpectedAttendees")
-                        .HasColumnType("integer")
-                        .HasColumnName("expected_attendees");
-
-                    b.Property<Guid>("ExternalCoachId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("external_coach_id");
-
                     b.Property<Guid?>("InvoiceId")
                         .HasColumnType("uuid")
                         .HasColumnName("invoice_id");
@@ -2786,6 +2731,10 @@ namespace SportHub.API.Migrations
                     b.Property<Guid?>("InvoiceItemId")
                         .HasColumnType("uuid")
                         .HasColumnName("invoice_item_id");
+
+                    b.Property<Guid>("MemberId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("member_id");
 
                     b.Property<string>("PriceSnapshotJson")
                         .IsRequired()
@@ -2833,8 +2782,8 @@ namespace SportHub.API.Migrations
                     b.HasIndex("SportId")
                         .HasDatabaseName("ix_court_rentals_sport_id");
 
-                    b.HasIndex("ExternalCoachId", "Status", "StartAtUtc")
-                        .HasDatabaseName("ix_court_rentals_external_coach_id_status_start_at_utc");
+                    b.HasIndex("MemberId", "Status", "StartAtUtc")
+                        .HasDatabaseName("ix_court_rentals_member_id_status_start_at_utc");
 
                     b.ToTable("court_rentals", null, t =>
                         {
@@ -3710,24 +3659,6 @@ namespace SportHub.API.Migrations
                     b.Navigation("UserAccount");
                 });
 
-            modelBuilder.Entity("SportHub.Identity.Domain.Entities.ExternalCoachProfile", b =>
-                {
-                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", null)
-                        .WithMany()
-                        .HasForeignKey("ReviewedByUserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .HasConstraintName("fk_external_coach_profiles_user_accounts_reviewed_by_user_id");
-
-                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", "UserAccount")
-                        .WithOne()
-                        .HasForeignKey("SportHub.Identity.Domain.Entities.ExternalCoachProfile", "UserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
-                        .HasConstraintName("fk_external_coach_profiles_user_accounts_user_id");
-
-                    b.Navigation("UserAccount");
-                });
-
             modelBuilder.Entity("SportHub.Identity.Domain.Entities.UserAccount", b =>
                 {
                     b.HasOne("SportHub.Identity.Domain.Entities.Role", "Role")
@@ -4423,13 +4354,6 @@ namespace SportHub.API.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_court_rentals_incident_notices_cancellation_incident_id");
 
-                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", null)
-                        .WithMany()
-                        .HasForeignKey("ExternalCoachId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
-                        .HasConstraintName("fk_court_rentals_user_accounts_external_coach_id");
-
                     b.HasOne("SportHub.Payment.Domain.Entities.Invoice", null)
                         .WithMany()
                         .HasForeignKey("InvoiceId")
@@ -4441,6 +4365,13 @@ namespace SportHub.API.Migrations
                         .HasForeignKey("InvoiceItemId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_court_rentals_invoice_items_invoice_item_id");
+
+                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", null)
+                        .WithMany()
+                        .HasForeignKey("MemberId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_court_rentals_user_accounts_member_id");
 
                     b.HasOne("SportHub.Scheduling.Domain.Entities.Room", null)
                         .WithMany()

@@ -355,7 +355,7 @@ export interface RevenueReportDto {
     source: string;
     sportId: number | null;
     sportName: string | null;
-    externalCoachId: string | null;
+    memberId: string | null;
     cashCollected: number;
     legacyCashCollected: number;
     pointsRedeemed: number;
@@ -389,7 +389,6 @@ export interface UserAdminDto {
   hasPassword: boolean;
   hasGoogleLink: boolean;
   sportIds: number[];
-  approvalStatus?: ExternalCoachProfileDto["approvalStatus"] | null;
 }
 
 export type MyAccountDto = UserAdminDto;
@@ -564,19 +563,6 @@ export interface CoachSpecialtyDto {
   fullName: string;
   sportIds: number[];
 }
-export interface ExternalCoachProfileDto {
-  userId: string;
-  email: string;
-  fullName: string;
-  phone: string | null;
-  bio: string | null;
-  approvalStatus: "PENDING_APPROVAL" | "APPROVED" | "REJECTED" | "SUSPENDED";
-  sportIds: number[];
-  reviewedByUserId: string | null;
-  reviewedAt: string | null;
-  reviewNote: string | null;
-  createdAt: string;
-}
 export interface CourseSessionDto {
   sessionId: string;
   classId: number;
@@ -731,7 +717,6 @@ export interface CourtRentalDto {
   roomId: number;
   startAtUtc: string;
   endAtUtc: string;
-  expectedAttendees: number;
   totalPrice: number;
   status: "PENDING_PAYMENT" | "CONFIRMED" | "COMPLETED" | "CANCELLED";
   invoiceItemId: string | null;
@@ -805,7 +790,9 @@ export interface CourtScheduleEntryDto {
   title: string;
   status: string;
   classId: number | null;
-  expectedAttendees: number | null;
+  /** Người thuê (chỉ với COURT_RENTAL). */
+  memberId?: string | null;
+  memberName?: string | null;
   participants: {
     memberId: string;
     memberName: string;

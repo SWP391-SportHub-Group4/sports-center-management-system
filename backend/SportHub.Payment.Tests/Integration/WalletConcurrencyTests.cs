@@ -148,7 +148,6 @@ public sealed class WalletConcurrencyTests(PaymentApiFactory factory)
 
     [Theory]
     [InlineData(UserRole.Member)]
-    [InlineData(UserRole.ExternalCoach)]
     [InlineData(UserRole.Receptionist)]
     [InlineData(UserRole.Coach)]
     [InlineData(UserRole.SystemAdministrator)]

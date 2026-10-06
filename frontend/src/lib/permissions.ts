@@ -9,9 +9,6 @@ export function canUsePtFeatures(user: SessionUser | null) {
   return user?.role === "Coach" && user.isPersonalTrainer === true;
 }
 
-export function canBookCourt(user: SessionUser | null) {
-  return user?.role === "ExternalCoach" && user.approvalStatus === "APPROVED";
-}
 
 export function canManageCatalog(user: SessionUser | null) {
   return user?.role === "CenterManager";

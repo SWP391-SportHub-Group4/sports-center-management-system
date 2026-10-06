@@ -167,6 +167,10 @@ INSERT INTO user_sport_specialties (user_id, sport_id)
 SELECT user_id, 1 FROM user_sport_specialties WHERE sport_id = 2
 ON CONFLICT DO NOTHING;
 DELETE FROM user_sport_specialties WHERE sport_id = 2;
+INSERT INTO sport_room_types (sport_id, room_type_id)
+SELECT 1, room_type_id FROM sport_room_types WHERE sport_id = 2
+ON CONFLICT DO NOTHING;
+DELETE FROM sport_room_types WHERE sport_id = 2;
 UPDATE invoice_items SET sport_id = 1 WHERE sport_id = 2;
 DELETE FROM court_rates WHERE sport_id = 2;");
 

@@ -227,8 +227,8 @@ public sealed class CheckoutService(ISportHubDbContext db,
     public async Task<CheckoutResponse> CreateCourtRentalAsync(CourtRentalRequest request, string idempotencyKey,
         Guid actorId, CancellationToken ct)
     {
-        if (request.ExternalCoachId != actorId)
-            throw new ForbiddenException("rental_owner_mismatch", "ExternalCoach chỉ được đặt sân cho chính mình.");
+        if (request.MemberId != actorId)
+            throw new ForbiddenException("rental_owner_mismatch", "Member chỉ được đặt sân cho chính mình.");
         RequireKey(idempotencyKey);
         var now = clock.UtcNow;
         var minutes = await settings.GetIntAsync(SystemSettingKeys.HoldMinutes, ct);
@@ -247,8 +247,7 @@ public sealed class CheckoutService(ISportHubDbContext db,
                 throw new ConflictException("idempotency_key_reused", "Khóa idempotency đã dùng cho giao dịch khác.");
             var priorRequest = await rentals.GetForRetryAsync(existingRentalId, ct);
             if (priorRequest.SportId != request.SportId || priorRequest.RoomId != request.RoomId
-                || priorRequest.StartUtc != request.StartUtc || priorRequest.EndUtc != request.EndUtc
-                || priorRequest.ExpectedAttendees != request.ExpectedAttendees)
+                || priorRequest.StartUtc != request.StartUtc || priorRequest.EndUtc != request.EndUtc)
                 throw new ConflictException("idempotency_key_reused", "Khóa idempotency đã dùng cho lượt thuê khác.");
             await tx.CommitAsync(ct);
             return await GetAsync(existing.Invoice.InvoiceId, actorId, false, ct);

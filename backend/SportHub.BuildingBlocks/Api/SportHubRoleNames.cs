@@ -17,5 +17,4 @@ public static class SportHubRoleNames
     public const string Coach = nameof(Coach);
     public const string Member = nameof(Member);
     public const string Receptionist = nameof(Receptionist);
-    public const string ExternalCoach = nameof(ExternalCoach);
 }

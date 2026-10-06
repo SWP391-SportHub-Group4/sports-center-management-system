@@ -1,9 +1,11 @@
 "use client";
 import { Suspense } from "react";
 import { useParams, useSearchParams } from "next/navigation";
-import { OperationsPage } from "@/features/operations/ui";
-import { RentalList } from "@/features/rentals/rental-list";
+import { MemberShell } from "@/components/MemberShell";
 import { Loading } from "@/components/ui";
+import { RentalList } from "@/features/rentals/rental-list";
+import { useLanguage } from "@/lib/language";
+
 function Content() {
   const { rentalId } = useParams<{ rentalId: string }>();
   const query = useSearchParams();
@@ -15,12 +17,14 @@ function Content() {
     />
   );
 }
+
 export default function Page() {
+  const { t } = useLanguage();
   return (
-    <OperationsPage title="rentals" roles={["ExternalCoach"]}>
+    <MemberShell title={t.operations.rentals}>
       <Suspense fallback={<Loading />}>
         <Content />
       </Suspense>
-    </OperationsPage>
+    </MemberShell>
   );
 }

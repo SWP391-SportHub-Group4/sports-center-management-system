@@ -65,14 +65,6 @@ export const RECEPTIONIST_SHORTCUTS: Record<
  */
 export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
   // Member dùng MemberShell, không dùng AppShell — nhánh này giữ lại chỉ để Record đủ key.
-  ExternalCoach: [
-    { href: "/external-coach", labelKey: "overview" },
-    { href: "/external-coach/book", labelKey: "book" },
-    { href: "/external-coach/rentals", labelKey: "rentals" },
-    { href: "/external-coach/wallet", labelKey: "wallet" },
-    { href: "/external-coach/invoices", labelKey: "invoices" },
-    { href: "/external-coach/profile", labelKey: "profile" },
-  ],
   Member: [
     { href: "/member", labelKey: "overview" },
     { href: "/member/class-schedule", labelKey: "classSchedule" },
@@ -110,7 +102,6 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { href: "/manager/room-types", labelKey: "roomTypes" },
     { href: "/manager/court-rates", labelKey: "rates" },
     { href: "/manager/coaches", labelKey: "coaches" },
-    { href: "/manager/external-coaches", labelKey: "externalCoaches" },
     { href: "/manager/court-schedule", labelKey: "courtSchedule" },
     { href: "/manager/incidents", labelKey: "incidents" },
     { href: "/manager/notices", labelKey: "notices" },
@@ -145,12 +136,6 @@ export function getNavForUser(
     approvalStatus?: string | null;
   },
 ): NavItem[] {
-  if (user.role === "ExternalCoach")
-    return NAV_BY_ROLE.ExternalCoach.filter(
-      (item) =>
-        item.href !== "/external-coach/book" ||
-        user.approvalStatus === "APPROVED",
-    );
   if (user.role !== "Coach") return NAV_BY_ROLE[user.role];
   const base = [
     { href: "/coach", labelKey: "overview" as const },

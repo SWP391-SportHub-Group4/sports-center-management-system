@@ -304,7 +304,7 @@ G01–G13 trỏ [phân công API theo page/owner](../DESIGN-SKILLS-GUIDE.md#api-
 | ID | Khoảng trống | Việc cần hoàn thành |
 |---|---|---|
 | CAT-01 | Tách môn Gym khỏi dịch vụ PT trong schema/seed | Migration bảo toàn specialty/FK/invoice/report; ba môn sản phẩm |
-| CAT-02 | Gỡ role ExternalCoach; thuê sân thành chức năng Member; seed lịch cố định (BR-140, BR-141) | Migration xóa role/`ExternalCoachProfile`/`EmailOtpPurpose.ExternalCoachRegister`, đổi `CourtRental.ExternalCoachId` thành Member, gỡ endpoint external-coaches, seed Bóng rổ/Cầu lông 01–02 |
+| CAT-02 (Cổng C đã triển khai code 07/10/2026; chưa nghiệm thu tích hợp, test backend cần Docker) | Gỡ role ExternalCoach; thuê sân thành chức năng Member; seed lịch cố định (BR-140, BR-141) | Migration xóa role/`ExternalCoachProfile`/`EmailOtpPurpose.ExternalCoachRegister`, đổi `CourtRental.ExternalCoachId` thành Member, gỡ endpoint external-coaches, seed Bóng rổ/Cầu lông 01–02 |
 | G01 | Public sân, availability/giá, Coach profile và PT pricing đầy đủ | DTO public an toàn, giá/availability tính server |
 | G02 | Chờ đợt sau + subscription | Hoàn 100% điểm một lần, lưu nguyện vọng, không giữ chỗ/ghi danh tự động |
 | G03 | Manager AI xếp lịch/tool calling/tạo nháp | Endpoint/service, xác nhận người dùng, recheck quyền/occupancy, audit |

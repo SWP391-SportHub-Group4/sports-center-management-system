@@ -104,8 +104,8 @@
   min-width: 0;
 }
 
-/* Nav nằm cùng một hàng với logo và nhóm hành động; dưới 1280px chuyển vào drawer. */
-@media (min-width: 1280px) {
+/* Nav nằm cùng một hàng với logo và nhóm hành động; dưới 1360px chuyển vào drawer. */
+@media (min-width: 1360px) {
   .desktopNav {
     display: flex;
   }
@@ -434,7 +434,7 @@
   flex-shrink: 0;
 }
 
-@media (min-width: 1280px) {
+@media (min-width: 1360px) {
   .mobileMenuBtn {
     display: none;
   }
