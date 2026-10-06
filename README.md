@@ -2,19 +2,18 @@
 
 SportHub là **hệ thống quản lý trung tâm thể thao với ba môn Gym (bao gồm PT), cầu lông và bóng rổ; có thể mở rộng thêm môn trong tương lai**. PT là dịch vụ thuộc Gym, không phải môn thứ tư.
 
-Monorepo cho hệ thống quản lý **trung tâm thể thao đa môn**: nhiều bộ môn (phạm vi: Gym (bao gồm PT), Cầu lông, Bóng rổ — Manager quản lý danh mục; seed kỹ thuật còn PT riêng, xem CAT-01 trong thiết kế), nhiều sân/phòng, **khóa học cố định theo lớp** (ví dụ Cầu lông 01, 02), huấn luyện viên của trung tâm và huấn luyện viên tự do (ExternalCoach) thuê sân theo giờ. Thanh toán bằng tiền (VNPay-QR) kết hợp **ví điểm** (1 điểm = 1.000 VND). Thiết kế đầy đủ: [`docs/Center-Management-System-Design-v3.md`](docs/Center-Management-System-Design-v3.md).
+Monorepo cho hệ thống quản lý **trung tâm thể thao đa môn**: nhiều bộ môn (phạm vi: Gym (bao gồm PT), Cầu lông, Bóng rổ — Manager quản lý danh mục; mỗi môn có nhiều dịch vụ cấu hình được, xem CAT-01 trong thiết kế), nhiều sân/phòng, **khóa học cố định theo lớp** (ví dụ Cầu lông 01, 02), huấn luyện viên của trung tâm; mọi Member thuê sân theo giờ. Thanh toán bằng tiền (VNPay-QR) kết hợp **ví điểm** (1 điểm = 1.000 VND). Thiết kế đầy đủ: [`docs/Center-Management-System-Design-v3.md`](docs/Center-Management-System-Design-v3.md).
 
 > **Trước khi code:** đọc [SSOT](docs/00-Source-of-Truth.md) và [thiết kế hệ thống](docs/Center-Management-System-Design-v3.md). 
 ## Sản phẩm
 
-### 6 vai trò
+### 5 vai trò
 
 | Vai trò | Làm gì |
 |---|---|
 | System Administrator | Tạo tài khoản nhân sự (Admin/Manager/Receptionist), đổi vai trò, khóa/mở khóa |
-| Center Manager | CRUD môn, phòng/sân, giá thuê sân, Membership; tạo lớp + xếp lịch (AI gợi ý xếp lịch còn là phần chưa triển khai), phân công Coach theo chuyên môn, duyệt ExternalCoach, duyệt hoàn điểm, sự cố/thông báo, báo cáo, Audit Log |
+| Center Manager | CRUD môn, phòng/sân, giá thuê sân, Membership; tạo lớp + xếp lịch (AI gợi ý xếp lịch còn là phần chưa triển khai), phân công Coach theo chuyên môn, duyệt hoàn điểm, sự cố/thông báo, báo cáo, Audit Log |
 | Coach (của trung tâm) | Chuyên môn theo môn (`CoachSpecialty`); xem lịch dạy và roster lớp mình; Coach có chuyên môn PT: PT session, kế hoạch tập, kết quả, homework, gợi ý AI |
-| ExternalCoach | Coach tự do: tự đăng ký, chờ Manager duyệt, xem sân trống + giá, thuê sân theo giờ, thanh toán, ví điểm. Không quản lý/điểm danh học viên riêng |
 | Member | Đăng ký Membership Gym, PT; xem lớp/khóa học, ghi danh có giữ chỗ, ví điểm, lịch hôm nay/tuần, thông báo, chatbot |
 | Receptionist | Tìm/đăng ký Member tại quầy, Gym check-in/out, điểm danh lớp nhóm, checkout thay Member (dùng điểm cần OTP email của Member), Court Schedule, hỗ trợ đối soát |
 
@@ -22,7 +21,7 @@ Monorepo cho hệ thống quản lý **trung tâm thể thao đa môn**: nhiều
 
 | Flow | Loại | Nội dung |
 |---|---|---|
-| 1 — User & Membership | Bắt buộc | 6 vai trò, Coach + chuyên môn, ExternalCoach đăng ký/duyệt, Membership Gym, Gym check-in, mật khẩu mạnh, quên mật khẩu bằng link email (không hỏi mật khẩu cũ, phản hồi trung tính) |
+| 1 — User & Membership | Bắt buộc | 5 vai trò, Coach + chuyên môn, Membership Gym, Gym check-in, mật khẩu mạnh, quên mật khẩu bằng link email (không hỏi mật khẩu cũ, phản hồi trung tính) |
 | 2 — Class booking & schedule | Bắt buộc | Môn/Phòng/Sân, lớp theo khóa, ghi danh + giữ chỗ chống bán vượt sĩ số, ngưỡng hoàn vốn, Court Schedule, thuê sân, điểm danh lớp nhóm |
 | 3 — Payment & report | Bắt buộc | Invoice nhiều loại item, VNPay-QR, ví điểm + split payment, hoàn trả **chỉ bằng điểm**, báo cáo theo môn/nguồn |
 | 4 — Training & attendance | Optional (nhóm vẫn làm) | PT: kế hoạch, kết quả, homework, điểm danh |
@@ -48,7 +47,7 @@ sports-center-management-system/
 └── docker-compose.yml
 ```
 
-**Không thêm project backend mới**: ví điểm nằm trong `SportHub.Payment/Wallet`, catalog môn/phòng/giá sân nằm trong `SportHub.Scheduling/Catalog`, `ExternalCoachProfile` nằm trong `SportHub.Identity`; các module chỉ gọi nhau qua interface ở `BuildingBlocks`.
+**Không thêm project backend mới**: ví điểm nằm trong `SportHub.Payment/Wallet`, catalog môn/phòng/giá sân nằm trong `SportHub.Scheduling/Catalog` nằm trong module tương ứng; các module chỉ gọi nhau qua interface ở `BuildingBlocks`.
 
 ## Tài liệu
 
@@ -87,7 +86,7 @@ backend/
 ├── SportHub.BuildingBlocks/       # Hạ tầng dùng chung — KHÔNG phụ thuộc bất kỳ module nghiệp vụ nào
 │   ├── Abstractions/Persistence/ISportHubDbContext.cs
 │   └── Infrastructure/Authentication/{JwtOptions,JwtService,JwtBearerExtensions}.cs
-├── SportHub.Identity/             # Role (6 vai trò), UserAccount, UserCredential, UserProfile, UserExternalLogin, ExternalCoachProfile, UserSportSpecialty, EmailOtp
+├── SportHub.Identity/             # Role (5 vai trò), UserAccount, UserCredential, UserProfile, UserExternalLogin, UserSportSpecialty, EmailOtp
 ├── SportHub.Membership/           # MembershipPackage, MemberPackage, MemberTrainingProfile
 ├── SportHub.Scheduling/           # Catalog/ (Sport, RoomType, Room, CourtRate), Class, ClassSession, Enrollment, SeatHold, CourtRental, Occupancy, Attendance
 ├── SportHub.Training/             # CoachMemberRelationship, WorkoutPlan, WorkoutPlanItem, WorkoutResult

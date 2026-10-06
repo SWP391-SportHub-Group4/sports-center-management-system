@@ -246,6 +246,7 @@ export function Dialog({
   onClose,
   footer,
   size = "md",
+  className = "",
   children,
 }: {
   title: string;
@@ -254,6 +255,7 @@ export function Dialog({
   onClose: () => void;
   footer?: ReactNode;
   size?: "sm" | "md" | "lg";
+  className?: string;
   children: ReactNode;
 }) {
   const { t } = useLanguage();
@@ -270,7 +272,7 @@ export function Dialog({
       }}
     >
       <div
-        className={`dialog ${size === "md" ? "" : `dialog--${size}`}`}
+        className={`dialog ${size === "md" ? "" : `dialog--${size}`} ${className}`}
         ref={dialogRef}
         tabIndex={-1}
         role="dialog"

@@ -1,4 +1,4 @@
-# Giao việc Khôi — UI/UX Lead, Landing, Auth và ExternalCoach
+# Giao việc Khôi — UI/UX Lead, Landing, Auth và Thuê sân của Member
 
 SportHub là **hệ thống quản lý trung tâm thể thao với ba môn Gym (bao gồm PT), cầu lông và bóng rổ; có thể mở rộng thêm môn trong tương lai**. PT là dịch vụ thuộc Gym, không phải môn thứ tư.
 
@@ -9,7 +9,7 @@ SportHub là **hệ thống quản lý trung tâm thể thao với ba môn Gym (
 ## Bắt đầu tuần 05–11/10
 
 - **Làm trước:** Chốt hero/CourseCard/Header/Footer/AccountMenu và mẫu list/detail/form; review mẫu của nhóm theo token.
-- **Thứ tự trang:** Landing/catalog → Auth/nội dung public → ExternalCoach; review mẫu class/incident của Khoa.
+- **Thứ tự trang:** Landing/catalog → Auth/nội dung public → Thuê sân của Member; review mẫu class/incident của Khoa.
 - Bảng tên trang, hạn mục tiêu và tiêu chí xong: [kế hoạch FE một tuần](KE-HOACH-FE-1-TUAN.md). Phần bên dưới giữ đặc tả đầy đủ để tra khi làm từng trang.
 - Chỉ ghi “Hoàn thành” khi UI + API thật + kiểm chứng đạt; fixture có nhãn là “Xong UI – chờ API”. Không chờ toàn bộ backend/shared xong mới bắt đầu.
 
@@ -18,12 +18,12 @@ SportHub là **hệ thống quản lý trung tâm thể thao với ba môn Gym (
 
 - PublicShell/Header/Footer, landing và toàn bộ public pages, course card/catalog/detail dùng lại ở Member.
 - Auth/register/OTP/Google onboarding/forgot password; account/security dùng cho các role.
-- Portal ExternalCoach, dùng AppShell của An, calendar của Hào và checkout/wallet/invoice của An.
+- Chức năng thuê sân của Member (BR-140), dùng AppShell của An, calendar của Hào và checkout/wallet/invoice của An.
 - Q01–Q07, Q13–Q18, Q28 đã chuyển cho Khoa (ClassEditor/ThresholdManager, IncidentWorkbench, NoticeComposer, Manager AI adapter); Khôi chỉ review UX/UI các mẫu đó.
-- **Quy ước ngôn ngữ trang xác thực:** login, register (Member), register-external-coach và forgot-password luôn **tiếng Anh hoàn toàn**, không có nút đổi ngôn ngữ và không đọc ngôn ngữ đã lưu của portal (component `EnglishOnly` trong `lib/language.tsx`, áp bằng `layout.tsx` của từng route). Không trộn Anh–Việt trong cùng một trang; thông báo lỗi từ API trên các trang này cũng map sang tiếng Anh.
+- **Quy ước ngôn ngữ trang xác thực:** login, register (Member) và forgot-password luôn **tiếng Anh hoàn toàn**, không có nút đổi ngôn ngữ và không đọc ngôn ngữ đã lưu của portal (component `EnglishOnly` trong `lib/language.tsx`, áp bằng `layout.tsx` của từng route). Không trộn Anh–Việt trong cùng một trang; thông báo lỗi từ API trên các trang này cũng map sang tiếng Anh.
 - Không tự làm payment engine, token CSS riêng hay calendar engine riêng.
 
-Public nav: **Bộ môn · Khóa học · Gym & PT · Sân**; menu phụ Về trung tâm/Hỗ trợ/Dành cho HLV ngoài; EN/VI (chỉ cho trang public/portal, không áp cho trang xác thực) + Đăng nhập + Tạo tài khoản. Header mobile có menu thật, đủ tên và trạng thái focus.
+Public nav: **Bộ môn · Khóa học · Gym & PT · Sân**; menu phụ Về trung tâm/Hỗ trợ; EN/VI (chỉ cho trang public/portal, không áp cho trang xác thực) + Đăng nhập + Tạo tài khoản. Header mobile có menu thật, đủ tên và trạng thái focus.
 
 ## 2. Public sitemap và subpage
 
@@ -35,7 +35,7 @@ Public nav: **Bộ môn · Khóa học · Gym & PT · Sân**; menu phụ Về tr
 | K04 | Gym → Gói Membership | `/gym`, tab/anchor giá | So sánh 1/3/6/12 tháng nếu catalog có, quyền lợi thật, giá; mua/gia hạn dẫn qua auth/Member |
 | K05 | Personal Training → HLV | `/personal-training`, `/coaches/[id]` | PT là dịch vụ thuộc Gym, mua riêng với Membership; điều kiện Active Membership, buổi 90 phút, quota; hồ sơ công khai tối thiểu; G01 |
 | K06 | Sân → Chi tiết → Lịch trống | `/courts`, `/courts/[id]`, `/courts/availability` | Loại sân, ảnh, môn, giờ hoạt động, giá theo khung; chỉ trống/bận, không chủ sở hữu; G01 |
-| K07 | Dành cho HLV ngoài | `/for-coaches` | Cách đăng ký/duyệt/thuê sân, chính sách hủy, trả bằng điểm/VNPay; CTA đăng ký ExternalCoach |
+| K07 | Thuê sân | `/courts/rent` (hoặc section của `/courts`) | Mọi Member thuê được khung trống; khung lớp cố định không cho thuê; chính sách hủy, trả bằng điểm/VNPay; CTA đăng ký/đăng nhập Member. |
 | K08 | Về trung tâm → Cơ sở vật chất | `/about`, section hoặc subpage | Thông tin và ảnh đã xác thực; không bịa chứng chỉ, giải thưởng, số khách |
 | K09 | Liên hệ | `/contact` | Địa chỉ, giờ hoạt động, hotline/email, chỉ đường; mặc định liên hệ trực tiếp, không tạo form gửi rồi giả thành công |
 | K10 | Hỗ trợ & chính sách | `/help`, `/policies/[slug]` | FAQ, ghi danh, hủy/hoàn điểm, nội quy, điều khoản, riêng tư; nội dung tĩnh versioned đủ dùng, không bắt buộc CMS |
@@ -52,11 +52,11 @@ API public class hiện lọc môn/ngày/phân trang; tìm keyword, khoảng gi�
 | 04 | Bộ môn | Card hoặc danh sách biên tập từ active sports | Ba môn sản phẩm: Gym (PT), Cầu lông, Bóng rổ; mở rộng từ catalog, CTA theo dịch vụ. Seed PT riêng cần mapping về Gym, không giới thiệu là môn thứ tư |
 | 05 | Khóa đang mở | 4–6 course cards, đủ giá/lịch/chỗ còn | “Xem chi tiết”, “Tất cả khóa học”; skeleton/empty/error thật |
 | 06 | Gym & PT | Gói Gym so sánh và một khối PT riêng | “Xem gói Gym”, “Tìm hiểu PT”; không gộp giá Gym bao gồm PT/lớp |
-| 07 | Sân & lịch trống | Ảnh sân + tìm nhanh ngày/giờ/môn, giá theo slot | “Xem lịch sân”; ghi “Thuê sân dành cho HLV ngoài đã được duyệt”; G01 |
+| 07 | Sân & lịch trống | Ảnh sân + tìm nhanh ngày/giờ/môn, giá theo slot | “Xem lịch sân”; ghi “Đăng nhập Member để thuê sân”; G01 |
 | 08 | Cơ sở vật chất | Một cụm ảnh có chú thích + tiện ích thực tế | “Khám phá trung tâm”; tránh collage ảnh stock giả địa điểm |
 | 09 | HLV | Hồ sơ tối thiểu, chuyên môn và mô tả đã cho phép công khai | “Xem HLV”; không đưa email/SĐT tài khoản nội bộ; G01 |
 | 10 | Cách bắt đầu | Chọn dịch vụ → Tạo tài khoản/xác thực → Thanh toán, xem lịch | “Bắt đầu”; PT có điều kiện riêng, không hứa mọi dịch vụ chung một checkout |
-| 11 | Dành cho HLV tự do | Phí thuê sân, quy trình chờ duyệt, quản lý lịch thuê | “Đăng ký HLV ngoài”; giải thích không quản lý học viên của HLV ngoài |
+| 11 | Thuê sân | Phí thuê sân theo giờ, quy trình đặt/hủy | “Tạo tài khoản để thuê sân”; giải thích trung tâm chỉ tính tiền thuê, không quản lý người đi cùng |
 | 12 | FAQ | 5–7 câu hỏi về mua khóa/Gym/PT/điểm/ngưỡng/hủy thuê | Accordion accessible; nội dung chính đọc được không phụ thuộc hover |
 | 13 | Địa điểm & liên hệ | Địa chỉ thật, giờ mở cửa, đường đi, hotline | “Chỉ đường”, “Liên hệ”; ưu tiên bản đồ tĩnh/link để giảm tải |
 | 14 | Footer | Điều khoản, riêng tư, hoàn điểm, hỗ trợ, thông tin trung tâm | Link hoạt động; không dựng newsletter/sự kiện khi không thuộc phạm vi |
@@ -81,7 +81,6 @@ Public schedule chỉ nhận DTO public; không dùng token nhân viên trong se
 |---|---|---|
 | K11 | `/login` | Email/password, Google, forgot, register; loading/error; chuyển đúng role |
 | K12 | `/register` → OTP → Hoàn tất | Member registration, checklist mật khẩu, xác thực email, resend countdown, max-attempt error; không hỏi vai trò nội bộ |
-| K13 | `/register-external-coach` → OTP → Pending | Họ tên, email, SĐT, môn, mô tả; sau thành công phải nói đang chờ duyệt, không cho đặt sân ngay |
 | K14 | `/forgot-password` → email link → `/reset-password` → Success | **Đã triển khai (link email, không OTP).** Không cần password cũ; phản hồi trung tính; cooldown 60 giây theo từng email, đổi email gửi được ngay; link hết hạn/đã dùng/thiếu token → trạng thái "Link no longer works"; ô mật khẩu có con mắt; luôn tiếng Anh |
 | K15 | Google onboarding | Lần đầu thiết lập mật khẩu; trùng email chưa linked phải đăng nhập/liên kết rõ ràng; không tự merge tài khoản |
 | K16 | `/account` → Hồ sơ / Bảo mật / Ngôn ngữ | Profile, change password, Google link/unlink theo API; giữ shell role; không trùng training profile |
@@ -89,39 +88,36 @@ Public schedule chỉ nhận DTO public; không dùng token nhân viên trong se
 
 Thời hạn OTP registration/reset và OTP chi điểm tại quầy khác nhau; không tái sử dụng một giá trị hard-code cho cả hai. OTP input cho paste/autofill, error theo field và summary; không mất thông tin form khi lỗi mạng.
 
-## 6. Portal ExternalCoach
+## 6. Thuê sân của Member
 
-Menu: **Tổng quan · Tìm & thuê sân · Lượt thuê của tôi · Tài chính**. Hồ sơ trong menu tài khoản và banner trạng thái duyệt.
+Mọi Member có thêm mục **Thuê sân** trong menu (cạnh Lịch, Tài chính của An). Trung tâm chỉ tính tiền thuê, không hỏi mục đích và không khai báo số người.
 
 | ID | Page/subpage | Route đề xuất | Chức năng |
 |---|---|---|---|
-| K18 | Tổng quan | `/external-coach` | Trạng thái Pending/Approved/Rejected/Suspended, lý do phù hợp, lượt thuê kế tiếp và việc cần làm |
-| K19 | Tìm sân → Chọn slot → Review | `/external-coach/book` | Môn, sân, ngày/giờ, tổng số giờ, attendees nếu khai báo; quote chi tiết từng giờ, chính sách server |
+| K19 | Tìm sân → Chọn slot → Review | `/member/courts/book` | Môn, sân, ngày/giờ, tổng số giờ; quote chi tiết từng giờ, chính sách server; không có trường số người |
 | K20 | Pending checkout → Payment/result | Shared An | Countdown tài nguyên, điểm trước/VNPay phần còn; reconnect không tạo rental trùng |
-| K21 | Lượt thuê → Chi tiết | `/external-coach/rentals`, `/external-coach/rentals/[id]` | Sắp tới/hoàn tất/hủy/pending; sân, giờ, price snapshot, invoice, sự cố |
+| K21 | Lượt thuê → Chi tiết | `/member/rentals`, `/member/rentals/[id]` | Sắp tới/hoàn tất/hủy/pending; sân, giờ, price snapshot, invoice, sự cố |
 | K22 | Hủy thuê → Kết quả | Dialog từ rental | >=24h hoàn 100% điểm, muộn 0 theo policy; quote/hệ quả, không gọi generic refund để hoàn lần hai |
 | K23 | Đặt lại sau sự cố | F từ rental bị hủy | Mở availability với môn/ngày phù hợp; phải chọn slot và checkout mới; không hứa backend đã có quyền ưu tiên tự động |
-| K24 | Tài chính → Ví / Hóa đơn | `/external-coach/finance?tab=...` | Shared An, chỉ data của chính mình; giữ alias routes wallet/invoices |
-| K25 | Hồ sơ HLV ngoài | `/external-coach/profile` | Profile và chuyên môn/mô tả, trạng thái duyệt; tách cập nhật hồ sơ khỏi đổi role |
 
-Suspended chặn đặt mới nhưng vẫn trình bày lịch sử, hóa đơn và xử lý lượt thuê hợp lệ theo backend. Không thay cả portal bằng trang trắng. Pending/Rejected có hướng dẫn rõ; không tự thêm “gửi lại hồ sơ” nếu API chưa có lifecycle đó.
+Khung giờ lớp cố định (seed Bóng rổ/Cầu lông 01–02, BR-141) hiện là bận; chỉ khung còn lại cho thuê. Member bị khóa chặn đặt mới nhưng vẫn xem lịch sử.
 
 ## 7. API, file và dependency
 
 - Public đã có: `GET /api/sports`, `/api/classes`, `/api/classes/{id}`, `/api/classes/{id}/public-sessions`, `/api/membership-packages/public`.
 - **G01:** chưa có public projections đầy đủ cho sân/availability/giá, hồ sơ HLV, giá PT công khai. Marketing copy/contact/FAQ có thể là nội dung versioned, không cần CMS backend.
-- Auth đã có: auth OTP/register/login/password forgot/reset, Google exchange/onboarding/link, `/api/users/me`; ExternalCoach auth và `/api/external-coaches/me`.
+- Auth đã có: auth OTP/register/login/password forgot/reset, Google exchange/onboarding/link, `/api/users/me`.
 - Rental: policy, availability, mine/detail/cancel; POST `/api/checkouts/court-rental`. Dùng đúng quyền, không dùng endpoint lịch sân nhân viên cho Guest.
 - **G09:** nâng bộ lọc catalog nếu giữ UI keyword/price/weekday; thu hẹp filter UI theo contract trong khi chờ.
 - **G11:** backend cần kiểm tra callback VNPay anonymous trước nghiệm thu payment thật, không sửa FE để giả success.
 
-Code đầu vào: `app/page.tsx`, `home.module.css`, `public-header.tsx`, `membership-pricing*`, `app/courses`, auth routes, `app/account`, `features/identity`, `features/rentals`, `app/external-coach`. `app/classes` là alias của courses: chọn canonical `/courses`, giữ redirect tương thích, không dựng hai catalog.
+Code đầu vào: `app/page.tsx`, `home.module.css`, `public-header.tsx`, `membership-pricing*`, `app/courses`, auth routes, `app/account`, `features/identity`, `features/rentals` (phần thuê sân thuộc Member). `app/classes` là alias của courses: chọn canonical `/courses`, giữ redirect tương thích, không dựng hai catalog.
 
 ## 8. Thứ tự và nghiệm thu
 
 1. Chủ trì landing: outline/copy/data sources → wireframe mobile/desktop → hero/course card mẫu → 14 section.
 2. Public subpages + course-detail journey; auth preserving intent.
-3. ExternalCoach onboarding → booking → financial history, nối shared An.
+3. Member thuê sân: tìm khung trống → checkout → lịch thuê/hủy, nối shared An.
 4. G01/G09 + responsive/a11y/performance; dọn dead links/legacy sections.
 
 - [ ] Guest xem môn, khóa, giá, lịch công khai trước login; không bị gọi API yêu cầu nhân viên.
@@ -129,7 +125,7 @@ Code đầu vào: `app/page.tsx`, `home.module.css`, `public-header.tsx`, `membe
 - [ ] Màn 360px không tràn ngang; heading/CTA không đè ảnh; dropdown và accordion dùng keyboard được.
 - [ ] Không fake testimonials, coach credentials, số hội viên, sự kiện hoặc form liên hệ gửi giả.
 - [ ] Login/OTP/Google lưu đúng next và không tự link email trùng.
-- [ ] ExternalCoach Pending/Suspended không thể book; Approved có thể book theo policy server.
+- [ ] Member đăng nhập đặt được khung trống theo policy server; khung lớp cố định không hiện là trống; Member bị khóa không đặt mới.
 - [ ] Booking hết hạn nhả occupancy qua backend, lịch công khai refresh; không reset timer khi reload.
 - [ ] Không lộ renter/member/roster trên public schedule.
 - [ ] Hủy sát mốc 24h phản ánh quote/policy server, không tính riêng mâu thuẫn với backend.
@@ -167,13 +163,12 @@ Kiểm verb, constraint và body trong controller/OpenAPI; page mới không nh�
 | Public courses | `GET /api/classes`; `GET /api/classes/{id}`; `GET /api/classes/{id}/public-sessions` | Khôi/An; đừng dùng manager DTO công khai |
 | Public Membership | `GET /api/membership-packages/public` | Khôi; không gọi endpoint authenticated khi guest |
 | Auth/account | `/api/auth/register/otp`, `/register`, `/login`, `/password/forgot`, `/password/reset`; Google endpoints; `/api/users/me` | Khôi; đọc verb/body trong controllers, giữ OTP/onboarding/link rule |
-| ExternalCoach | Auth external-coach OTP/register; GET/PUT `/api/external-coaches/me`; manager list/detail/approve/reject/suspend/reactivate | Khôi: Guest/ExternalCoach; Manager Q14 do Khoa |
-| Rental checkout | `POST /api/checkouts/court-rental` | ExternalCoach Approved; giữ room/coach occupancy |
+| Rental checkout | `POST /api/checkouts/court-rental` | Member; giữ room occupancy |
 | Checkout phục hồi | `GET /api/checkouts/{invoiceId}`, `/by-key`, `/by-reference` | Dùng `expiresAtUtc`, `serverNowUtc`, revision, fulfillmentOutcome; timer không thiếu API |
 | Checkout actions | `POST /api/checkouts/{id}/confirm-points`, `/attempts`, `/cancel`, `/retry` | Retry intent/revision; không dựa return URL để commit |
-| Chọn điểm self | `POST /api/wallet/me/checkouts/{id}/points`; `GET /api/invoices/{id}/point-selection` | Member/ExternalCoach, không nhận user tùy ý |
+| Chọn điểm self | `POST /api/wallet/me/checkouts/{id}/points`; `GET /api/invoices/{id}/point-selection` | Member, không nhận user tùy ý |
 | Ví | `GET /api/wallet/me`, `/ledger`; `/api/members/{id}/points`, `/points/ledger`; `/api/manager/wallets/{id}`, `/ledger` | Đúng consumer self/frontdesk/manager; không alias mù |
-| Invoice | `GET /api/invoices`, `/{id}`, `/by-item/{itemId}`; `/api/members/me/invoices`; `/api/external-coaches/me/invoices` | Detail có `Adjustments`; đủ xem refund theo invoice |
+| Invoice | `GET /api/invoices`, `/{id}`, `/by-item/{itemId}`; `/api/members/me/invoices` | Detail có `Adjustments`; đủ xem refund theo invoice |
 | Rental | `GET /api/court-rentals/policy`, `/availability`, `/mine`, `/{id}`; POST `/{id}/cancel`; manager cancel | Không public, không cần viết lại cho portal Khôi |
 
 ### Backlog chính được giao
@@ -198,7 +193,7 @@ Mở rộng GET `/api/classes` với keyword, minPrice/maxPrice, weekday/timeRan
 
 ### API legacy/dư thừa trong phạm vi
 
-Chưa xác nhận endpoint Guest/ExternalCoach đủ điều kiện xóa. /classes và /courses là alias **frontend**, không phải hai backend API dư. Financial legacy do An giữ bản chính; Khôi kiểm consumers K20/K24 trước retire.
+Chưa xác nhận endpoint Guest đủ điều kiện xóa. /classes và /courses là alias **frontend**, không phải hai backend API dư. Financial legacy do An giữ bản chính; Khôi kiểm consumers K20/K24 trước retire.
 
 Không xóa API chỉ vì không thấy FE call. Giữ read-history, callback IPN/return, by-key/by-reference và projection theo role. Trước retire: scan consumers/tests/scripts/integrations, deprecation/OpenAPI, replacement, logs nếu có và compatibility regression. Đợt tài liệu này không xóa endpoint.
 
