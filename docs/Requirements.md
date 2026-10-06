@@ -4,22 +4,21 @@ SportHub quản lý trung tâm thể thao với **ba môn Gym (bao gồm PT), c�
 
 ## 1. Mục tiêu và phạm vi
 
-Số hóa hoạt động từ tiếp đón, mua dịch vụ, xếp lịch, điểm danh và tập luyện đến thuê sân, thanh toán, hoàn điểm, thông báo và báo cáo. Dữ liệu phải nhất quán giữa sáu vai trò và không bán vượt sĩ số hoặc xếp trùng sân/Coach.
+Số hóa hoạt động từ tiếp đón, mua dịch vụ, xếp lịch, điểm danh và tập luyện đến thuê sân, thanh toán, hoàn điểm, thông báo và báo cáo. Dữ liệu phải nhất quán giữa năm vai trò và không bán vượt sĩ số hoặc xếp trùng sân/Coach.
 
-Gym dùng Membership có thời hạn; PT mua riêng sau khi Membership Active. Cầu lông/bóng rổ bán khóa học nhiều buổi, độc lập Membership. ExternalCoach đã được duyệt được thuê sân theo giờ.
+Gym dùng Membership có thời hạn; PT mua riêng sau khi Membership Active. Cầu lông/bóng rổ bán khóa học nhiều buổi, độc lập Membership. Mọi Member đều được thuê sân theo giờ; lớp cố định seed sẵn: Bóng rổ và Cầu lông, Thứ 2-4-6 07:00–09:00 và Thứ 3-5-7 14:00–16:00 (BR-141).
 
-Ngoài phạm vi: đa chi nhánh, payroll/hợp đồng nhân sự, chia doanh thu HLV ngoài, quản lý học viên riêng của ExternalCoach, mobile native, payment production, hoàn tiền mặt/chuyển khoản và VNPay Refund API.
+Ngoài phạm vi: đa chi nhánh, payroll/hợp đồng nhân sự, chia doanh thu với người thuê sân, quản lý người đi cùng khi Member thuê sân, mobile native, payment production, hoàn tiền mặt/chuyển khoản và VNPay Refund API.
 
 ## 2. Yêu cầu theo vai trò
 
 | Vai trò | Chức năng yêu cầu |
 |---|---|
-| Guest | Xem trung tâm, ba môn, khóa/gói công khai; đăng ký Member hoặc ExternalCoach; không đọc dữ liệu cá nhân |
-| Member | Account/profile, Membership/PT/khóa học, lịch cá nhân, quyền lợi, invoice/wallet/refund, thông báo, kết quả tập và AI assistant |
+| Guest | Xem trung tâm, ba môn, khóa/gói công khai; đăng ký Member; không đọc dữ liệu cá nhân |
+| Member | Account/profile, Membership/PT/khóa học, thuê/hủy sân còn trống, lịch cá nhân, quyền lợi, invoice/wallet/refund, thông báo, kết quả tập và AI assistant |
 | Receptionist | Tìm Member, hỗ trợ đăng ký/mua dịch vụ, Gym check-in/out, điểm danh lớp, checkout hộ; dùng điểm cần OTP Member |
 | Coach | Xem lịch/lớp được giao; Coach PT lập kế hoạch, ghi kết quả, giao homework và dùng AI workout cho học viên được phân công |
-| ExternalCoach | Đăng ký/chờ duyệt, xem sân phù hợp, thuê/thanh toán/quản lý lượt thuê; không có roster học viên riêng |
-| CenterManager | Môn/phòng/giá, Coach/chuyên môn, lớp/lịch, threshold, ExternalCoach approval, incident, hoàn điểm và báo cáo |
+| CenterManager | Môn/phòng/giá, Coach/chuyên môn, lớp/lịch, threshold, incident, hoàn điểm và báo cáo |
 | SystemAdministrator | Tài khoản nhân sự, role và trạng thái tài khoản; không tự có quyền tài chính hoặc hồ sơ tập luyện |
 
 Guest không phải role account. Coach có nhiều chuyên môn, không chia role cứng thành PersonalTrainer/ClassInstructor. Backend kiểm cả role và ownership/relationship.

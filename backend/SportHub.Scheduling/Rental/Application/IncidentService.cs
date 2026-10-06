@@ -83,16 +83,16 @@ public sealed class IncidentService(ISportHubDbContext db, IOccupancyService occ
         foreach (var rental in rentalRows)
         {
             rental.CancellationIncidentId = incidentId;
-            var access = await users.GetAsync(rental.ExternalCoachId, ct);
+            var access = await users.GetAsync(rental.MemberId, ct);
             if (access is not null)
             {
                 var source = rental.CourtRentalId;
                 var text = pendingIds.Contains(rental.CourtRentalId)
                     ? "Lượt thuê sân đang chờ thanh toán đã hủy do sự cố trung tâm; điểm giữ đã được nhả. Liên hệ Manager để được hỗ trợ ưu tiên đặt lại."
                     : "Lượt thuê sân đã hủy do sự cố trung tâm; 100% giá trị đã trả được hoàn bằng điểm vào ví. Liên hệ Manager để được hỗ trợ ưu tiên đặt lại.";
-                notifications.Queue(new NotificationRequest(rental.ExternalCoachId,
+                notifications.Queue(new NotificationRequest(rental.MemberId,
                     NotificationEvents.IncidentResolution, text, source));
-                notifications.QueueEmail(new EmailNotificationRequest(rental.ExternalCoachId, access.Email,
+                notifications.QueueEmail(new EmailNotificationRequest(rental.MemberId, access.Email,
                     NotificationEvents.IncidentResolution, source, "SportHub - Lịch thuê sân bị hủy",
                     "<p>" + text + "</p>"));
             }

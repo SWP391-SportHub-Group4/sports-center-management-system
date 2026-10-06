@@ -17,7 +17,6 @@ export default function Page() {
       allow={[
         "Member",
         "Coach",
-        "ExternalCoach",
         "Receptionist",
         "CenterManager",
         "SystemAdministrator",

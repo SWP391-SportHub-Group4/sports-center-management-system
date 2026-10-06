@@ -1,4 +1,5 @@
 "use client";
+import { findSportWithService, hasService } from "@/lib/sports";
 import { useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/apiClient";
@@ -197,6 +198,8 @@ export function MembershipCatalog({
             <div className={styles.publicSportGrid}>
               {activeSports.map((sport, index) => {
                 const sportCourses = coursesBySport(sport.sportId);
+                const isCourseSport = hasService(sport, "GROUP_COURSE");
+                const isGym = hasService(sport, "MEMBERSHIP_ACCESS");
                 return (
                   <article
                     className={styles.publicSportCard}
@@ -205,15 +208,12 @@ export function MembershipCatalog({
                     <span className={styles.publicPlanIndex}>
                       {String(index + 1).padStart(2, "0")}
                       <span aria-hidden="true"> / </span>
-                      {sport.operationType === "GROUP_COURSE"
+                      {isCourseSport
                         ? text("KHÓA HỌC", "COURSES")
-                        : sport.operationType === "ONE_ON_ONE"
-                          ? text("HUẤN LUYỆN CÁ NHÂN", "PERSONAL TRAINING")
-                          : text("THỂ LỰC", "CONDITIONING")}
+                        : text("THỂ LỰC", "CONDITIONING")}
                     </span>
                     <h3>{sportLabel(sport)}</h3>
-                    {sport.operationType === "GROUP_COURSE" &&
-                    sportCourses.length ? (
+                    {isCourseSport && sportCourses.length ? (
                       <ul className={styles.sportCourseList}>
                         {sportCourses.slice(0, 3).map((course) => (
                           <li key={course.classId}>
@@ -239,7 +239,7 @@ export function MembershipCatalog({
                           </li>
                         ))}
                       </ul>
-                    ) : sport.operationType === "GROUP_COURSE" ? (
+                    ) : isCourseSport ? (
                       <p className={styles.noCourseCopy}>
                         {text(
                           "Chưa có khóa học mở đăng ký. Xem lịch lớp mới nhất tại trang môn tập.",
@@ -248,10 +248,10 @@ export function MembershipCatalog({
                       </p>
                     ) : (
                       <p className={styles.noCourseCopy}>
-                        {sport.operationType === "ONE_ON_ONE"
+                        {isGym && hasService(sport, "PERSONAL_TRAINING")
                           ? text(
-                              "Huấn luyện cá nhân 1 kèm 1 theo lịch hẹn riêng, tập trung vào mục tiêu và tiến độ của bạn.",
-                              "One-to-one coaching by appointment, tailored to your goals and progress.",
+                              "Khu tập Gym tự do để rèn sức mạnh, sức bền và thể lực tổng quát, kèm huấn luyện cá nhân 1 kèm 1 theo lịch hẹn riêng.",
+                              "Open Gym training for strength, endurance, and overall conditioning, plus one-to-one coaching by appointment.",
                             )
                           : text(
                               "Khu tập Gym tự do để rèn sức mạnh, sức bền và thể lực tổng quát.",
@@ -307,13 +307,13 @@ export function PtPurchase({
     (signal) => api.get<SportDto[]>("/api/sports", { anonymous: true, signal }),
     [],
   );
-  const ptSport = sports.data?.find((s) => s.operationType === "ONE_ON_ONE");
+  const ptSport = findSportWithService(sports.data, "PERSONAL_TRAINING");
   const coaches = useApi(
     (signal) =>
       ptSport
         ? api.get<{ userId: string; fullName: string }[]>("/api/coaches", {
             signal,
-            query: { sportId: ptSport.sportId },
+            query: { service: "PERSONAL_TRAINING" },
           })
         : Promise.resolve([]),
     [ptSport?.sportId],

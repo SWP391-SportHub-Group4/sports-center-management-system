@@ -6,29 +6,36 @@ namespace SportHub.Scheduling.Catalog.Application;
 
 public sealed record SportResponse(
     int SportId,
+    string Code,
     string Name,
-    [property: SportHub.BuildingBlocks.Api.WireEnum] string OperationType,
-    int? DefaultSessionMinutes,
-    int? DefaultMaxCapacity,
     string? Description,
     string? ImageUrl,
     int SortOrder,
-    bool IsActive);
+    bool IsActive,
+    IReadOnlyList<SportServiceResponse> Services,
+    IReadOnlyList<ServiceReadinessResponse>? Readiness = null);
+
+public sealed record SportServiceResponse(
+    [property: SportHub.BuildingBlocks.Api.WireEnum] string ServiceType,
+    bool IsEnabled,
+    int? DefaultSessionMinutes,
+    int? DefaultMaxCapacity,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] int? OfferingId = null);
+
+/// <summary>Phần còn thiếu để dịch vụ bán/publish được. Chỉ Manager thấy.</summary>
+public sealed record ServiceReadinessResponse(
+    [property: SportHub.BuildingBlocks.Api.WireEnum] string ServiceType,
+    bool Ready,
+    IReadOnlyList<string> Missing);
 
 public sealed class SaveSportRequest
 {
+    /// <summary>Bắt buộc khi tạo (a-z, 0-9, _; 2-32 ký tự). Không đổi được sau khi tạo; PUT chỉ được gửi cùng mã hiện có hoặc bỏ trống.</summary>
+    [MaxLength(32)]
+    public string? Code { get; set; }
+
     [Required, MinLength(1), MaxLength(100)]
     public string Name { get; set; } = string.Empty;
-
-    /// <summary>WalkIn / OneOnOne / GroupCourse. Không đổi được sau khi tạo.</summary>
-    [Required]
-    [SportHub.BuildingBlocks.Api.WireEnum] public string OperationType { get; set; } = string.Empty;
-
-    [Range(15, 480)]
-    public int? DefaultSessionMinutes { get; set; }
-
-    [Range(1, 500)]
-    public int? DefaultMaxCapacity { get; set; }
 
     [MaxLength(2000)]
     public string? Description { get; set; }
@@ -37,6 +44,31 @@ public sealed class SaveSportRequest
     public string? ImageUrl { get; set; }
 
     public int SortOrder { get; set; }
+
+    /// <summary>Tập dịch vụ của môn; thay thế toàn bộ khi sửa.</summary>
+    [Required, MaxLength(8)]
+    public List<SaveSportServiceRequest> Services { get; set; } = [];
+}
+
+public sealed class SaveSportServiceRequest
+{
+    /// <summary>MembershipAccess | GroupCourse | CourtRental | PersonalTraining.</summary>
+    [Required]
+    [SportHub.BuildingBlocks.Api.WireEnum] public string ServiceType { get; set; } = string.Empty;
+
+    public bool IsEnabled { get; set; } = true;
+
+    [Range(15, 480)]
+    public int? DefaultSessionMinutes { get; set; }
+
+    [Range(1, 500)]
+    public int? DefaultMaxCapacity { get; set; }
+}
+
+public sealed class SetServiceRoomTypesRequest
+{
+    [Required, MaxLength(50)]
+    public List<int> RoomTypeIds { get; set; } = [];
 }
 
 // --- Room type ---

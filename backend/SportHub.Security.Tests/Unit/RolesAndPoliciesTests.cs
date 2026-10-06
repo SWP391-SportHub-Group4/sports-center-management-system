@@ -20,14 +20,14 @@ public class RolesAndPoliciesTests
     }
 
     [Fact]
-    public void Existing_role_numbers_are_unchanged_and_ExternalCoach_is_appended()
+    public void Role_numbers_are_unchanged_and_there_are_exactly_five_roles()
     {
         Assert.Equal(0, (int)UserRole.CenterManager);
         Assert.Equal(1, (int)UserRole.Coach);
         Assert.Equal(2, (int)UserRole.Member);
         Assert.Equal(3, (int)UserRole.Receptionist);
         Assert.Equal(4, (int)UserRole.SystemAdministrator);
-        Assert.Equal(5, (int)UserRole.ExternalCoach);
+        Assert.Equal(5, Enum.GetValues<UserRole>().Length); // BR-140: đúng 5 role
     }
 
     [Fact]

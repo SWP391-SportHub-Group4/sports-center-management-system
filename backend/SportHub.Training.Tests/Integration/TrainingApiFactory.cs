@@ -140,7 +140,7 @@ public sealed class TrainingApiFactory : WebApplicationFactory<Program>, IAsyncL
     }
 
     /// <summary>
-    /// Coach voi chuyen mon tuong ung (thay CoachCategory cu): PersonalTrainer = mon OneOnOne (sport 2), ClassInstructor = mon nhom
+    /// Coach voi chuyen mon tuong ung (thay CoachCategory cu): PersonalTrainer = chuyen mon Gym (sport 1) + qualification dich vu PT (offering 2), ClassInstructor = mon nhom
     /// (sport 3). Can cho moi test RBAC/authorization cua PT.
     /// </summary>
     public async Task<UserAccount> SeedCoachAsync(
@@ -156,8 +156,12 @@ public sealed class TrainingApiFactory : WebApplicationFactory<Program>, IAsyncL
         db.UserSportSpecialties.Add(new UserSportSpecialty
         {
             UserId = coach.UserId,
-            SportId = kind == CoachKind.PersonalTrainer ? 2 : 3
+            SportId = kind == CoachKind.PersonalTrainer ? 1 : 3
         });
+        if (kind == CoachKind.PersonalTrainer)
+        {
+            db.Set<CoachServiceQualification>().Add(new CoachServiceQualification { UserId = coach.UserId, OfferingId = 2 });
+        }
         await db.SaveChangesAsync();
 
         return coach;

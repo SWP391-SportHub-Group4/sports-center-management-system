@@ -1,7 +1,13 @@
 "use client";
 
 import { pagedItems } from "@/lib/paged";
-import { useCallback, useEffect, useState, type KeyboardEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useState,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
@@ -21,12 +27,15 @@ export function MemberPicker({
   label: fieldLabel,
   autoFocus = false,
   placeholder,
+  emptyHint,
 }: {
   value: UserAdminDto | null;
   onChange: (member: UserAdminDto | null) => void;
   label?: string;
   autoFocus?: boolean;
   placeholder?: string;
+  /** Hiện dưới dòng "không tìm thấy" (vd. hướng dẫn hội viên tự đăng ký). */
+  emptyHint?: ReactNode;
 }) {
   const { language } = useLanguage();
   const [keyword, setKeyword] = useState("");
@@ -203,6 +212,7 @@ export function MemberPicker({
             : "Không tìm thấy hội viên phù hợp."}
         </span>
       )}
+      {ready && !search.loading && results.length === 0 && emptyHint}
 
       {results.length > 0 && (
         <div

@@ -24,7 +24,7 @@ public sealed class CourseValidator(
             throw new BadRequestException("sport_inactive", "Môn đã ngừng hoạt động.");
         }
 
-        if (sport.OperationType != "GroupCourse")
+        if (!sport.HasEnabledService(SportServiceType.GroupCourse))
         {
             throw new BadRequestException("sport_not_group_course", "Chỉ môn dạng khóa học nhóm mới mở được lớp.");
         }

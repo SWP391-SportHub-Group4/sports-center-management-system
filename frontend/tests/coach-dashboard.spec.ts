@@ -34,13 +34,14 @@ async function fixture(
           fullName: "Test Coach",
           role: "COACH",
           sportIds,
+          isPersonalTrainer: sportIds.includes(2),
         },
       });
     if (path === "/api/sports")
       return route.fulfill({
         json: [
-          { sportId: 2, name: "Personal training", operationType: "ONE_ON_ONE", isActive: true },
-          { sportId: 3, name: "Cầu lông", operationType: "GROUP_COURSE", isActive: true },
+          { sportId: 2, name: "Personal training", code: "gym", services: [{ serviceType: "PERSONAL_TRAINING", isEnabled: true, defaultSessionMinutes: null, defaultMaxCapacity: null }], isActive: true },
+          { sportId: 3, name: "Cầu lông", code: "course", services: [{ serviceType: "GROUP_COURSE", isEnabled: true, defaultSessionMinutes: 90, defaultMaxCapacity: 12 }], isActive: true },
         ],
       });
     if (path.includes("notifications"))

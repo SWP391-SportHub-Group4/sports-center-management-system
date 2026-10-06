@@ -6,7 +6,7 @@ using SportHub.Scheduling.Catalog.Application;
 
 namespace SportHub.Scheduling.Catalog.Api;
 
-/// <summary>Bảng giá thuê sân (BR-127). Đọc khung đang hoạt động: người đã đăng nhập (ExternalCoach cần xem giá); ghi: Manager.</summary>
+/// <summary>Bảng giá thuê sân (BR-127). Đọc khung đang hoạt động: người đã đăng nhập (Member cần xem giá); ghi: Manager.</summary>
 [ApiController]
 [Authorize]
 public class CourtRatesController(CourtRateService rates) : ControllerBase

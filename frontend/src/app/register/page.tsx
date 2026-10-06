@@ -19,7 +19,13 @@ import {
   passwordChecks,
 } from "@/features/identity/password-requirements";
 import { useLanguage } from "@/lib/language";
-import { IconCheck, IconLock, IconMail, IconPhone, IconUser } from "@/components/icons";
+import {
+  IconCheck,
+  IconLock,
+  IconMail,
+  IconPhone,
+  IconUser,
+} from "@/components/icons";
 
 const OTP_EXPIRY_SECONDS = 600; // Member registration OTP: 10 minutes
 const RESEND_COOLDOWN_SECONDS = 60; // 1 minute
@@ -51,8 +57,31 @@ export default function RegisterPage() {
 
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<
+    Partial<
+      Record<
+        "email" | "otp" | "fullName" | "password" | "confirmPassword",
+        string
+      >
+    >
+  >({});
 
+  const emailInputRef = useRef<HTMLInputElement>(null);
   const otpInputRef = useRef<HTMLInputElement>(null);
+  const fullNameInputRef = useRef<HTMLInputElement>(null);
+  const passwordInputRef = useRef<HTMLInputElement>(null);
+  const confirmInputRef = useRef<HTMLInputElement>(null);
+  const requiredMessage =
+    language === "vi"
+      ? "Vui lòng điền thông tin này."
+      : "Please fill out this field.";
+  const requiredError = (value: string) =>
+    !value.trim() ? requiredMessage : undefined;
+  const emailError = (value: string) =>
+    requiredError(value) ??
+    (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())
+      ? t.refactor.emailInvalid
+      : undefined);
 
   // Timers for OTP expiration and resend cooldown
   useEffect(() => {
@@ -78,7 +107,8 @@ export default function RegisterPage() {
   };
 
   const message = (cause: unknown) => {
-    if(language === "vi") return cause instanceof ApiError ? cause.message : t.refactor.loginFailed;
+    if (language === "vi")
+      return cause instanceof ApiError ? cause.message : t.refactor.loginFailed;
     if (!(cause instanceof ApiError)) {
       return "We couldn't complete your request.";
     }
@@ -112,8 +142,10 @@ export default function RegisterPage() {
   const sendOtp = async () => {
     if (sendingOtp) return;
     const trimmedEmail = form.email.trim();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
-      setError(t.refactor.emailInvalid);
+    const validationError = emailError(trimmedEmail);
+    setFieldErrors((current) => ({ ...current, email: validationError }));
+    if (validationError) {
+      emailInputRef.current?.focus();
       return;
     }
     setSendingOtp(true);
@@ -144,7 +176,12 @@ export default function RegisterPage() {
   const verifyOtpAndContinue = (event?: React.FormEvent) => {
     if (event) event.preventDefault();
     if (form.otp.length !== 6) {
-      setError("Please enter the complete 6-digit code.");
+      setFieldErrors((current) => ({
+        ...current,
+        otp:
+          requiredError(form.otp) ?? "Please enter the complete 6-digit code.",
+      }));
+      otpInputRef.current?.focus();
       return;
     }
     if (otpSecondsLeft === 0) {
@@ -160,23 +197,51 @@ export default function RegisterPage() {
   const submitFinal = async (event: React.FormEvent) => {
     event.preventDefault();
     if (busy) return;
+    const nextErrors = {
+      fullName: requiredError(form.fullName),
+      password: requiredError(form.password),
+      confirmPassword: requiredError(form.confirmPassword),
+    };
+    setFieldErrors((current) => ({ ...current, ...nextErrors }));
+    if (
+      nextErrors.fullName ||
+      nextErrors.password ||
+      nextErrors.confirmPassword
+    ) {
+      (nextErrors.fullName
+        ? fullNameInputRef
+        : nextErrors.password
+          ? passwordInputRef
+          : confirmInputRef
+      ).current?.focus();
+      return;
+    }
     if (form.otp.length !== 6) {
       setError("Verification code is missing or invalid. Please check Step 1.");
       setStep(1);
       return;
     }
     if (!passwordChecks(form.password, form.email).every(Boolean)) {
-      setError(t.identity.passwordInvalid);
+      setFieldErrors((current) => ({
+        ...current,
+        password: t.identity.passwordInvalid,
+      }));
+      passwordInputRef.current?.focus();
       return;
     }
     if (form.password !== form.confirmPassword) {
-      setError(t.refactor.mismatch);
+      setFieldErrors((current) => ({
+        ...current,
+        confirmPassword: t.refactor.mismatch,
+      }));
+      confirmInputRef.current?.focus();
       return;
     }
 
     setBusy(true);
     setError(null);
     setNotice(null);
+    setFieldErrors({});
 
     try {
       const user = await register({
@@ -207,6 +272,7 @@ export default function RegisterPage() {
     setForm((prev) => ({ ...prev, otp: "" }));
     setError(null);
     setNotice(null);
+    setFieldErrors({});
     setStep(1);
   };
 
@@ -236,9 +302,9 @@ export default function RegisterPage() {
             <p className="auth__eyebrow">Sport · Community · Progress</p>
             <p className="auth__statement">Start your athletic journey.</p>
             <p className="auth__visual-detail">
-              Join SportHub today to access high-performance gym floors, connect
-              with top coaches, and elevate your fitness routine with our
-              vibrant community.
+              Join SportHub to access state-of-the-art sports facilities, join
+              diverse group activities, and connect with a vibrant athletic
+              community for all ages.
             </p>
           </div>
         </aside>
@@ -308,24 +374,38 @@ export default function RegisterPage() {
               <div className="form">
                 <div className="otp-request-row">
                   <AuthField
+                    ref={emailInputRef}
                     type="email"
                     label={t.refactor.email}
                     icon={<IconMail size={20} />}
                     autoComplete="email"
                     required
+                    error={fieldErrors.email}
+                    reserveErrorSpace
                     disabled={otpSent || sendingOtp}
                     value={form.email}
                     suppressHydrationWarning
                     onChange={(event) => {
                       setForm({ ...form, email: event.target.value });
+                      if (fieldErrors.email)
+                        setFieldErrors((current) => ({
+                          ...current,
+                          email: emailError(event.target.value),
+                        }));
                       setError(null);
                     }}
+                    onBlur={(event) =>
+                      setFieldErrors((current) => ({
+                        ...current,
+                        email: emailError(event.target.value),
+                      }))
+                    }
                   />
                   {!otpSent ? (
                     <button
                       type="button"
                       className="btn btn--secondary"
-                      disabled={sendingOtp || !form.email.trim()}
+                      disabled={sendingOtp}
                       onClick={() => void sendOtp()}
                     >
                       {sendingOtp ? t.refactor.sending : t.refactor.sendCode}
@@ -344,6 +424,7 @@ export default function RegisterPage() {
                 {/* OTP Verification Card: Revealed once code is sent */}
                 {otpSent && (
                   <form
+                    noValidate
                     onSubmit={(e) => void verifyOtpAndContinue(e)}
                     className="otp-box"
                   >
@@ -364,6 +445,10 @@ export default function RegisterPage() {
                       pattern="\d{6}"
                       maxLength={6}
                       required
+                      aria-invalid={Boolean(fieldErrors.otp)}
+                      aria-describedby={
+                        fieldErrors.otp ? "register-otp-error" : undefined
+                      }
                       placeholder="••••••"
                       disabled={otpSecondsLeft === 0}
                       value={form.otp}
@@ -371,9 +456,35 @@ export default function RegisterPage() {
                       onChange={(event) => {
                         const code = event.target.value.replace(/\D/g, "");
                         setForm({ ...form, otp: code });
+                        if (fieldErrors.otp)
+                          setFieldErrors((current) => ({
+                            ...current,
+                            otp:
+                              code.length === 6
+                                ? undefined
+                                : (requiredError(code) ??
+                                  "Please enter the complete 6-digit code."),
+                          }));
                         setError(null);
                       }}
+                      onBlur={(event) =>
+                        setFieldErrors((current) => ({
+                          ...current,
+                          otp:
+                            event.target.value.length === 6
+                              ? undefined
+                              : (requiredError(event.target.value) ??
+                                "Please enter the complete 6-digit code."),
+                        }))
+                      }
                     />
+                    <div className="otp-error-slot">
+                      {fieldErrors.otp && (
+                        <p id="register-otp-error" role="alert">
+                          {fieldErrors.otp}
+                        </p>
+                      )}
+                    </div>
 
                     <div className="otp-box__actions">
                       <button
@@ -392,7 +503,7 @@ export default function RegisterPage() {
                       <button
                         type="submit"
                         className="btn btn--sm"
-                        disabled={form.otp.length !== 6 || otpSecondsLeft === 0}
+                        disabled={otpSecondsLeft === 0}
                       >
                         Continue to Step 2 →
                       </button>
@@ -409,7 +520,7 @@ export default function RegisterPage() {
 
           {/* Step 2: Name & Password Setup */}
           {step === 2 && (
-            <form className="form" onSubmit={submitFinal}>
+            <form className="form" onSubmit={submitFinal} noValidate>
               <div className="verified-chip">
                 <span>
                   Verified:{" "}
@@ -425,18 +536,32 @@ export default function RegisterPage() {
               </div>
 
               <AuthField
+                ref={fullNameInputRef}
                 label={t.refactor.fullName}
                 icon={<IconUser size={20} />}
                 autoComplete="name"
                 maxLength={100}
                 required
+                error={fieldErrors.fullName}
+                reserveErrorSpace
                 disabled={busy}
                 value={form.fullName}
                 suppressHydrationWarning
                 onChange={(event) => {
                   setForm({ ...form, fullName: event.target.value });
+                  if (fieldErrors.fullName)
+                    setFieldErrors((current) => ({
+                      ...current,
+                      fullName: requiredError(event.target.value),
+                    }));
                   setError(null);
                 }}
+                onBlur={(event) =>
+                  setFieldErrors((current) => ({
+                    ...current,
+                    fullName: requiredError(event.target.value),
+                  }))
+                }
               />
 
               <AuthField
@@ -452,6 +577,7 @@ export default function RegisterPage() {
               />
 
               <AuthPasswordField
+                ref={passwordInputRef}
                 label={t.refactor.password}
                 icon={<IconLock size={20} />}
                 showLabel={t.refactor.show}
@@ -460,17 +586,31 @@ export default function RegisterPage() {
                 minLength={8}
                 maxLength={128}
                 required
+                error={fieldErrors.password}
+                reserveErrorSpace
                 disabled={busy}
                 value={form.password}
                 suppressHydrationWarning
                 onChange={(event) => {
                   setForm({ ...form, password: event.target.value });
+                  if (fieldErrors.password)
+                    setFieldErrors((current) => ({
+                      ...current,
+                      password: requiredError(event.target.value),
+                    }));
                   setError(null);
                 }}
+                onBlur={(event) =>
+                  setFieldErrors((current) => ({
+                    ...current,
+                    password: requiredError(event.target.value),
+                  }))
+                }
               />
 
               <div>
                 <AuthPasswordField
+                  ref={confirmInputRef}
                   label={t.refactor.confirmPassword}
                   icon={<IconLock size={20} />}
                   showLabel={t.refactor.show}
@@ -479,25 +619,45 @@ export default function RegisterPage() {
                   minLength={8}
                   maxLength={128}
                   required
+                  error={fieldErrors.confirmPassword}
+                  reserveErrorSpace
                   disabled={busy}
                   value={form.confirmPassword}
                   suppressHydrationWarning
                   onChange={(event) => {
                     setForm({ ...form, confirmPassword: event.target.value });
+                    if (fieldErrors.confirmPassword)
+                      setFieldErrors((current) => ({
+                        ...current,
+                        confirmPassword: requiredError(event.target.value),
+                      }));
                     setError(null);
                   }}
+                  onBlur={(event) =>
+                    setFieldErrors((current) => ({
+                      ...current,
+                      confirmPassword: requiredError(event.target.value),
+                    }))
+                  }
                 />
                 {passwordMatch === true && (
                   <span
                     className="match-hint match-hint--ok"
                     aria-live="polite"
-                    style={{ display: "inline-flex", alignItems: "center", gap: 4 }}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 4,
+                    }}
                   >
                     <IconCheck size={14} strokeWidth={2.4} /> Passwords match
                   </span>
                 )}
                 {passwordMatch === false && (
-                  <span className="match-hint match-hint--warn" aria-live="polite">
+                  <span
+                    className="match-hint match-hint--warn"
+                    aria-live="polite"
+                  >
                     Passwords do not match yet
                   </span>
                 )}

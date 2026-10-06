@@ -1,10 +1,4 @@
-"use client";
-import { OperationsPage } from "@/features/operations/ui";
-import { SportsManager } from "@/features/catalog/sports-manager";
+import { ManagerCatalog } from "@/features/catalog/manager-catalog";
 export default function Page() {
-  return (
-    <OperationsPage title="sports">
-      <SportsManager />
-    </OperationsPage>
-  );
+  return <ManagerCatalog defaultTab="sports" />;
 }

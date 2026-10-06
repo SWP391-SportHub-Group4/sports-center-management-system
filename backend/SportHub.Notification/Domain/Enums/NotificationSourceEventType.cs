@@ -13,8 +13,9 @@ public enum NotificationSourceEventType
     ClassThresholdAtRisk,
     RegisterOtpRequested,
     PasswordResetOtpRequested,
-    ExternalCoachOtpRequested,
-    ExternalCoachReviewed,
+    // Hai giá trị 10, 11 đã ngừng dùng (ExternalCoach bị gỡ, BR-140). Giữ chỗ để không đổi số enum đã lưu.
+    RetiredEvent10,
+    RetiredEvent11,
     ManualNotice,
     IncidentResolution,
     PointConfirmationOtpRequested,

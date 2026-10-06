@@ -5,6 +5,7 @@ using SportHub.Audit.Domain.Entities;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.SharedKernel.Pagination;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
+using SportHub.Identity.Domain.Entities;
 
 namespace SportHub.Administration.Application.Services;
 
@@ -18,7 +19,10 @@ public sealed record AuditLogResponse(
     string? OldValue,
     string? NewValue,
     string IpAddress,
-    DateTime Timestamp);
+    DateTime Timestamp,
+    string? TargetFullName = null,
+    string? TargetEmail = null,
+    bool? TargetAccountExists = null);
 
 /// <summary>
 /// Đọc Audit Log (BR-7 — "Center Manager xem lịch sử thao tác").
@@ -34,7 +38,7 @@ public sealed class AuditQueryService(ISportHubDbContext db) : IAuditQueryServic
         int page,
         int pageSize,
         CancellationToken ct = default, Guid? actorId = null, bool accountsOnly = false,
-        string? sortBy = null, string? sortDirection = null)
+        string? sortBy = null, string? sortDirection = null, string? targetId = null)
     {
         page = page < 1 ? 1 : page;
         pageSize = Math.Clamp(pageSize <= 0 ? 25 : pageSize, 1, 200);
@@ -42,6 +46,7 @@ public sealed class AuditQueryService(ISportHubDbContext db) : IAuditQueryServic
         var query = db.Set<AuditLog>().AsNoTracking();
         if (actorId.HasValue) query = query.Where(a => a.UserId == actorId);
         if (accountsOnly) query = query.Where(a => a.TargetEntity == "UserAccount");
+        if (!string.IsNullOrWhiteSpace(targetId)) query = query.Where(a => a.TargetId == targetId);
 
         if (!string.IsNullOrWhiteSpace(action))
         {
@@ -92,8 +97,48 @@ public sealed class AuditQueryService(ISportHubDbContext db) : IAuditQueryServic
                 a.OldValue,
                 a.NewValue,
                 a.IpAddress,
-                a.Timestamp))
+                a.Timestamp,
+                null,
+                null,
+                null))
             .ToListAsync(ct);
+
+        // Resolve only account targets on this page in one bounded query. TargetId is
+        // also used for integer-keyed entities, so never cast the entire audit table to Guid.
+        var accountRows = items.Where(a => a.TargetEntity == nameof(UserAccount)).ToList();
+        if (accountRows.Count > 0)
+        {
+            var accountIds = accountRows
+                .Select(a => Guid.TryParse(a.TargetId, out var id) ? (Guid?)id : null)
+                .Where(id => id.HasValue)
+                .Select(id => id!.Value)
+                .Distinct()
+                .ToArray();
+            var targets = await db.Set<UserAccount>()
+                .AsNoTracking()
+                .Where(u => accountIds.Contains(u.UserId))
+                .Select(u => new
+                {
+                    u.UserId,
+                    u.Email,
+                    FullName = u.Profile != null ? u.Profile.FullName : null
+                })
+                .ToDictionaryAsync(u => u.UserId, ct);
+
+            // These are current identity fields, not a snapshot at the event time.
+            // Missing targets remain in the audit; non-account events retain their contract.
+            items = items.Select(row =>
+            {
+                if (row.TargetEntity != nameof(UserAccount)) return row;
+                var target = Guid.TryParse(row.TargetId, out var id) ? targets.GetValueOrDefault(id) : null;
+                return row with
+                {
+                    TargetFullName = target?.FullName,
+                    TargetEmail = target?.Email,
+                    TargetAccountExists = target is not null
+                };
+            }).ToList();
+        }
 
         return new PagedResult<AuditLogResponse>
         {

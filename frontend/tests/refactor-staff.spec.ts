@@ -8,8 +8,8 @@ const paged = (items: unknown[]) => ({ items, page: 1, pageSize: 20, totalCount:
 async function auth(page: Page, role = "COACH", sports = [2,3]) {
  await page.addInitScript(() => { localStorage.setItem("sporthub.accessToken", "fixture-token"); if (!localStorage.getItem("sporthub_lang")) localStorage.setItem("sporthub_lang", "en"); });
  await page.route("**/api/**", r => { const p = new URL(r.request().url()).pathname;
-  if (p === "/api/users/me") return r.fulfill({ json: { userId: actor, fullName: "Staff A", email: "staff@example.com", role, sportIds: sports } });
-  if (p === "/api/sports" || p === "/api/manager/sports") return r.fulfill({ json: [{ sportId: 2, name: "PT", operationType: "ONE_ON_ONE", isActive: true }, { sportId: 3, name: "Badminton", operationType: "GROUP_COURSE", isActive: true }] });
+  if (p === "/api/users/me") return r.fulfill({ json: { userId: actor, fullName: "Staff A", email: "staff@example.com", role, sportIds: sports, isPersonalTrainer: sports.includes(2) } });
+  if (p === "/api/sports" || p === "/api/manager/sports") return r.fulfill({ json: [{ sportId: 2, name: "PT", code: "gym", services: [{ serviceType: "PERSONAL_TRAINING", isEnabled: true, defaultSessionMinutes: null, defaultMaxCapacity: null }], isActive: true }, { sportId: 3, name: "Badminton", code: "course", services: [{ serviceType: "GROUP_COURSE", isEnabled: true, defaultSessionMinutes: 90, defaultMaxCapacity: 12 }], isActive: true }] });
   if (p === "/api/rooms") return r.fulfill({ json: [{ roomId: 1, name: "Court A", isActive: true }] });
   if (p.includes("notifications")) return r.fulfill({ json: [] });
   if (p === "/api/coach-member-relationships") return r.fulfill({ json: [relationship] });

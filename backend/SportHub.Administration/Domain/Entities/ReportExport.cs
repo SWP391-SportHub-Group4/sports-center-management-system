@@ -56,8 +56,8 @@ public static class ReportTypes
                 "legacyCashCollected", "reconciliationCashCollected"
             ],
             [RevenueSummary] = ["fromDate", "toDate", "collectedAmount", "refundedAmount", "netCollected", "legacyCashCollected", "reconciliationCashCollected", "pointsRedeemed", "pointsRedeemedVnd", "pointsIssued", "managerPointAdjustment", "outstandingPoints"],
-            [RevenueDimensions] = ["source", "sportId", "sportName", "externalCoachId", "collectedAmount", "legacyCashCollected", "pointsRedeemed", "pointsRedeemedVnd"],
-            [CourtRentalRevenue] = ["source", "sportId", "sportName", "externalCoachId", "collectedAmount", "legacyCashCollected", "pointsRedeemed", "pointsRedeemedVnd"],
+            [RevenueDimensions] = ["source", "sportId", "sportName", "memberId", "collectedAmount", "legacyCashCollected", "pointsRedeemed", "pointsRedeemedVnd"],
+            [CourtRentalRevenue] = ["source", "sportId", "sportName", "memberId", "collectedAmount", "legacyCashCollected", "pointsRedeemed", "pointsRedeemedVnd"],
             [MembershipPeriod] = ["fromDate", "toDate", "newMembers", "activeMembersAtPeriodEnd"],
             [ClassEnrollment] = ["classId", "code", "name", "sportId", "sportName", "status", "capacity", "confirmedCount", "activeHoldCount", "availableSeats", "fillRatio", "breakEvenThreshold", "thresholdStatus", "firstSessionStartUtc"],
             [Revenue] =

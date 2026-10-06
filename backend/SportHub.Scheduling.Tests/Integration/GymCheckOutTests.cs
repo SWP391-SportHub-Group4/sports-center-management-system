@@ -27,7 +27,7 @@ public sealed class GymCheckOutTests(SchedulingApiFactory factory)
         Assert.InRange(first.CheckOutTime!.Value, before.AddMilliseconds(-1), DateTime.UtcNow);
         Assert.True(first.CheckOutTime >= first.CheckInTime);
         Assert.Equal(receptionist.UserId, first.CheckedOutByUserId);
-        foreach (var role in new[] { UserRole.Member, UserRole.Coach, UserRole.CenterManager, UserRole.SystemAdministrator, UserRole.ExternalCoach })
+        foreach (var role in new[] { UserRole.Member, UserRole.Coach, UserRole.CenterManager, UserRole.SystemAdministrator })
         {
             var actor = await factory.SeedUserAsync(role);
             Assert.Equal(HttpStatusCode.Forbidden, (await factory.CreateApiClient(actor.UserId, role).PostAsync($"api/gym-checkins/{checkin.CheckInId}/checkout", null)).StatusCode);

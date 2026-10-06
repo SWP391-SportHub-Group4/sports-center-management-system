@@ -42,7 +42,7 @@ public sealed class CourseAttendanceTests(SchedulingApiFactory factory)
     }
 
     [Theory]
-    [InlineData(UserRole.Coach)] [InlineData(UserRole.CenterManager)] [InlineData(UserRole.Member)] [InlineData(UserRole.SystemAdministrator)] [InlineData(UserRole.ExternalCoach)]
+    [InlineData(UserRole.Coach)] [InlineData(UserRole.CenterManager)] [InlineData(UserRole.Member)] [InlineData(UserRole.SystemAdministrator)]
     public async Task Only_receptionist_can_write_through_API(UserRole role)
     {
         var user = await factory.SeedUserAsync(role);

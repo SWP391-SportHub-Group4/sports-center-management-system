@@ -108,6 +108,10 @@ public sealed class SportHubApiFactory : WebApplicationFactory<Program>, IAsyncL
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        // Program validates SMTP before deferred test configuration is applied.
+        // These process-local placeholders never send mail: services below replace IEmailSender.
+        Environment.SetEnvironmentVariable("Smtp__FromAddress", "integration-tests@example.invalid");
+        Environment.SetEnvironmentVariable("Email__Smtp__FromAddress", "integration-tests@example.invalid");
         builder.UseEnvironment("Development");
 
         // AddInMemoryCollection dat cuoi chuoi provider nen thang ca appsettings lan
@@ -120,7 +124,11 @@ public sealed class SportHubApiFactory : WebApplicationFactory<Program>, IAsyncL
                 ["JwtOptions:Audience"] = TestAudience,
                 ["JwtOptions:SecretKey"] = TestSecretKey,
                 ["JwtOptions:AccessTokenExpiryMinutes"] = "60",
-                ["Cors:AllowedOrigins:0"] = "http://localhost:3000"
+                ["Cors:AllowedOrigins:0"] = "http://localhost:3000",
+                // Isolate test startup from SMTP credentials in the developer's .env.
+                ["Smtp:Host"] = "",
+                ["Email:Smtp:Host"] = "",
+                ["Email:DemoLoggingEnabled"] = "true"
             }));
 
         builder.ConfigureTestServices(services =>

@@ -55,6 +55,7 @@
 }
 
 .page > :global(header) {
+  width: calc(min(100%, 1360px) - 64px);
   position: sticky;
   z-index: 20;
   top: var(--space-3);
@@ -213,6 +214,10 @@
 }
 
 @media (max-width: 1199px) {
+  .page > :global(header) {
+    width: calc(100% - 2 * var(--space-6));
+  }
+
   .main {
     padding-inline: var(--space-6);
   }
@@ -232,6 +237,10 @@
 }
 
 @media (max-width: 767px) {
+  .page > :global(header) {
+    width: calc(100% - 2 * var(--space-4));
+  }
+
   .main {
     padding-inline: var(--space-4);
   }

@@ -8,7 +8,7 @@ using SportHub.Identity.Domain.Enums;
 namespace SportHub.Identity.Application.Services;
 
 /// <summary>
-/// Vòng đời OTP email dùng chung cho quên mật khẩu và đăng ký ExternalCoach (BR-78 áp dụng như nhau):
+/// Vòng đời OTP email cho quên mật khẩu bằng link (BR-78):
 /// mã 6 số, hết hạn 10 phút, tối đa 5 lần sai, gửi lại sau 60 giây, chỉ mã mới nhất còn hiệu lực,
 /// băm SHA-256, dùng một lần.
 ///
@@ -26,6 +26,12 @@ public sealed class EmailOtpFlow(ISportHubDbContext db, IClock clock, INotificat
         string email, EmailOtpPurpose purpose, CancellationToken ct, Func<string, string>? resetLink = null,
         string? supportUrl = null)
     {
+        // Đặt lại mật khẩu chỉ đi bằng link; không bao giờ gửi mã 6 số cho mục đích này.
+        if (purpose == EmailOtpPurpose.ResetPassword && resetLink is null)
+        {
+            throw new InvalidOperationException("Đặt lại mật khẩu chỉ gửi bằng link, không gửi mã OTP.");
+        }
+
         var now = clock.UtcNow;
         var otp = await db.Set<EmailOtp>().SingleOrDefaultAsync(o => o.Email == email && o.Purpose == purpose, ct);
 
@@ -50,26 +56,15 @@ public sealed class EmailOtpFlow(ISportHubDbContext db, IClock clock, INotificat
         otp.ConsumedAt = null;
         otp.CreatedAt = now;
 
-        var (eventType, subject, purposeText) = purpose switch
+        // Chỉ còn mục đích đặt lại mật khẩu bằng link (không gửi mã OTP).
+        if (purpose != EmailOtpPurpose.ResetPassword)
         {
-            EmailOtpPurpose.ResetPassword => (NotificationEvents.PasswordResetOtpRequested,
-                "SportHub - Mã đặt lại mật khẩu", "đặt lại mật khẩu"),
-            EmailOtpPurpose.ExternalCoachRegister => (NotificationEvents.ExternalCoachOtpRequested,
-                "SportHub - Mã xác thực đăng ký Coach ngoài", "đăng ký tài khoản Coach ngoài"),
-            _ => throw new ArgumentOutOfRangeException(nameof(purpose), purpose, "OTP purpose chưa có template email.")
-        };
-        if (resetLink is not null)
-        {
-            notifications.QueueEmail(new EmailNotificationRequest(null, email, eventType, Guid.NewGuid(),
-                PasswordResetEmail.Subject,
-                PasswordResetEmail.Render(resetLink(code), (int)AuthService.OtpLifetime.TotalMinutes, supportUrl)));
+            throw new ArgumentOutOfRangeException(nameof(purpose), purpose, "Chỉ đặt lại mật khẩu dùng EmailOtpFlow.");
         }
-        else
-        notifications.QueueEmail(new EmailNotificationRequest(null, email, eventType, Guid.NewGuid(), subject,
-            "<p>Mã xác thực " + purposeText + " SportHub của bạn là:</p>"
-            + "<p style=\"font-size:24px;font-weight:bold;letter-spacing:4px\">" + code + "</p>"
-            + "<p>Mã có hiệu lực trong " + AuthService.OtpLifetime.TotalMinutes.ToString("0")
-            + " phút. Nếu bạn không yêu cầu, hãy bỏ qua email này.</p>"));
+
+        notifications.QueueEmail(new EmailNotificationRequest(null, email, NotificationEvents.PasswordResetOtpRequested,
+            Guid.NewGuid(), PasswordResetEmail.Subject,
+            PasswordResetEmail.Render(resetLink!(code), (int)AuthService.OtpLifetime.TotalMinutes, supportUrl)));
 
         try
         {

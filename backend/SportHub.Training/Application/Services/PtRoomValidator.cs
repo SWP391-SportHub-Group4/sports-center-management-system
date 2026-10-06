@@ -6,7 +6,7 @@ namespace SportHub.Training.Application.Services;
 
 internal static class PtRoomValidator
 {
-    /// <summary>Phòng phải active, chơi được ít nhất một môn 1-1 (OneOnOne) mà Coach dạy, và đang mở cửa trong cả buổi.</summary>
+    /// <summary>Coach đủ điều kiện PT, phòng active thuộc loại phòng PT (service_room_types) và đang mở cửa trong cả buổi.</summary>
     public static async Task RequireAsync(ISportCatalogReader catalog, ICoachSpecialtyReader specialties, int roomId, Guid coachId, DateTime startAtUtc, DateTime endAtUtc, CancellationToken ct)
     {
         var room = await catalog.GetRoomAsync(roomId, ct)
@@ -17,17 +17,9 @@ internal static class PtRoomValidator
             throw new BadRequestException("room_inactive", "Phòng đã ngừng hoạt động.");
         }
 
-        var compatible = false;
-        foreach (var sportId in await specialties.GetSportIdsAsync(coachId, ct))
-        {
-            var sport = await catalog.GetSportAsync(sportId, ct);
-
-            if (sport is { IsActive: true, OperationType: "OneOnOne" } && await catalog.IsRoomCompatibleAsync(roomId, sportId, ct))
-            {
-                compatible = true;
-                break;
-            }
-        }
+        // Phòng Gym không tự thành phòng PT chỉ vì cùng môn: phải thuộc tập loại phòng của dịch vụ PT.
+        var compatible = await specialties.IsPersonalTrainerAsync(coachId, ct)
+                         && await catalog.IsRoomAllowedForServiceAsync(roomId, SportServiceType.PersonalTraining, ct);
 
         if (!compatible)
         {

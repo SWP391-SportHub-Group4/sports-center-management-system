@@ -97,7 +97,7 @@ function RentalRangeList({ initialDate }: { initialDate?: string }) {
                     <td>
                       <Link
                         className="btn btn--secondary"
-                        href={`/external-coach/rentals/${r.courtRentalId}`}
+                        href={`/member/rentals/${r.courtRentalId}`}
                       >
                         {l.details}
                       </Link>
@@ -106,8 +106,8 @@ function RentalRangeList({ initialDate }: { initialDate?: string }) {
                           className="btn btn--ghost"
                           href={
                             r.invoiceId
-                              ? `/external-coach/invoices?invoiceId=${r.invoiceId}`
-                              : `/external-coach/invoices?invoiceItemId=${r.invoiceItemId}`
+                              ? `/member/invoices/${r.invoiceId}`
+                              : `/member/finance?tab=invoices&invoiceItemId=${r.invoiceItemId}`
                           }
                         >
                           {l.invoices}
@@ -161,9 +161,6 @@ function RentalDetail({ rentalId }: { rentalId: string }) {
               {formatDateTime(detail.rental.startAtUtc)} –{" "}
               {formatDateTime(detail.rental.endAtUtc)}
             </p>
-            <p>
-              {l.expectedAttendees}: {detail.rental.expectedAttendees}
-            </p>
             <RentalPriceBreakdown
               quote={{
                 totalPrice: detail.rental.totalPrice,
@@ -185,12 +182,12 @@ function RentalDetail({ rentalId }: { rentalId: string }) {
               {detail.rental.invoiceId && (
                 <Link
                   className="btn btn--secondary"
-                  href={`/external-coach/invoices?invoiceId=${detail.rental.invoiceId}`}
+                  href={`/member/invoices/${detail.rental.invoiceId}`}
                 >
                   {l.invoices}
                 </Link>
               )}
-              <Link className="btn btn--ghost" href="/external-coach/wallet">
+              <Link className="btn btn--ghost" href="/member/finance?tab=wallet">
                 {l.wallet}
               </Link>
               <button className="btn btn--ghost" onClick={state.reload}>

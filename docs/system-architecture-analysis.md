@@ -166,7 +166,6 @@ Thư viện dùng chung — **KHÔNG chứa logic nghiệp vụ**, chỉ interfa
 | `Persistence/` | `ISportHubDbContext.cs` | 1.2KB | Interface DbContext — module không phụ thuộc implementation cụ thể |
 | `Identity/` | `IUserAccessReader.cs` | 763B | Đọc thông tin user (tên, email, role, status) xuyên module |
 | `Identity/` | `ICoachSpecialtyReader.cs` | 1.3KB | Đọc chuyên môn thể thao của coach |
-| `Identity/` | `IExternalCoachAccessReader.cs` | 845B | Đọc thông tin coach bên ngoài hệ thống |
 | `Scheduling/` | `IOccupancyService.cs` | 1.9KB | Kiểm tra + đặt lịch trống phòng/coach (exclusion constraint) |
 | `Scheduling/` | `IClassEnrollmentFulfillment.cs` | 2.4KB | Fulfill đăng ký lớp học (tạo enrollment khi thanh toán xong) |
 | `Scheduling/` | `ICourtRentalFulfillment.cs` | 1.7KB | Fulfill thuê sân |
@@ -217,7 +216,6 @@ Thư viện dùng chung — **KHÔNG chứa logic nghiệp vụ**, chỉ interfa
 | `GoogleAuthController.cs` | 1.9KB | `POST /api/auth/google` — đăng nhập Google OAuth, `POST /api/auth/google/onboarding` — hoàn tất onboarding |
 | `AccountController.cs` | 1.3KB | `GET /api/users/me` — lấy profile, `PUT /api/users/me` — cập nhật profile, `PUT /api/users/me/password` — đổi mật khẩu |
 | `CoachesController.cs` | 1.6KB | `GET /api/coaches` — danh sách coach, `GET/PUT /api/coaches/{id}/specialties` — chuyên môn thể thao |
-| `ExternalCoachesController.cs` | 4.0KB | CRUD coach bên ngoài hệ thống — đăng ký, duyệt, danh sách |
 
 ### Application/Commands/ (11 files — input DTOs cho thao tác ghi)
 
@@ -231,8 +229,6 @@ Thư viện dùng chung — **KHÔNG chứa logic nghiệp vụ**, chỉ interfa
 | `ChangePasswordRequest.cs` | 767B | DTO đổi mật khẩu: currentPassword, newPassword |
 | `ForgotPasswordRequest.cs` | 235B | DTO quên mật khẩu: email |
 | `ResetPasswordRequest.cs` | 718B | DTO đặt lại mật khẩu: token + newPassword |
-| `RegisterExternalCoachRequest.cs` | 1.3KB | DTO đăng ký coach ngoài |
-| `ReviewExternalCoachRequest.cs` | 508B | DTO duyệt coach ngoài |
 | `SaveCoachRequest.cs` | 1.2KB | DTO lưu thông tin coach |
 
 ### Application/DTOs/ (5 files — output response)
@@ -243,7 +239,6 @@ Thư viện dùng chung — **KHÔNG chứa logic nghiệp vụ**, chỉ interfa
 | `UserSummaryResponse.cs` | 679B | Thông tin user: userId, email, fullName, role, coachCategory |
 | `GoogleLoginResult.cs` | 266B | Kết quả login Google |
 | `GoogleOnboardingPendingResponse.cs` | 402B | Response pending onboarding |
-| `ExternalCoachResponse.cs` | 591B | Thông tin coach ngoài |
 
 ### Application/Interfaces/ (8 files)
 
@@ -256,7 +251,6 @@ Thư viện dùng chung — **KHÔNG chứa logic nghiệp vụ**, chỉ interfa
 | `IGoogleTokenVerifier.cs` | 916B | Verify Google ID token |
 | `IPasswordHasher.cs` | 988B | Hash, Verify password |
 | `IUserAccountRepository.cs` | 1.2KB | CRUD UserAccount + lookup |
-| `IExternalCoachService.cs` | 1.8KB | CRUD coach ngoài + review workflow |
 
 ### Application/Services/ (12 files)
 
@@ -271,8 +265,7 @@ Thư viện dùng chung — **KHÔNG chứa logic nghiệp vụ**, chỉ interfa
 | `PasswordPolicyGuard.cs` | 965B | Validate password strength |
 | `CoachSpecialtyService.cs` | 3.1KB | Quản lý chuyên môn thể thao cho coach |
 | `CoachAdminService.cs` | 7.5KB | Admin quản lý coach: tạo, cập nhật, gán sport specialties |
-| `ExternalCoachService.cs` | 17.6KB | CRUD + workflow duyệt coach bên ngoài |
-| `IdentityPortReaders.cs` | 4.9KB | Implement `IUserAccessReader`, `ICoachSpecialtyReader`, `IExternalCoachAccessReader` cho BuildingBlocks |
+| `IdentityPortReaders.cs` | 4.9KB | Implement `IUserAccessReader`, `ICoachSpecialtyReader` cho BuildingBlocks |
 | `UserSummaryFactory.cs` | 1.8KB | Factory tạo UserSummary response |
 
 ### Domain/Entities/ (10 files)
@@ -287,7 +280,6 @@ Thư viện dùng chung — **KHÔNG chứa logic nghiệp vụ**, chỉ interfa
 | `EmailOtp.cs` | 1.2KB | OTP email: Email, Code, Purpose, ExpiresAt, Verified |
 | `GoogleOnboardingTicket.cs` | 1.0KB | Ticket onboarding Google: Email, GoogleSubject, ExpiresAt |
 | `CoachProfile.cs` | 596B | Profile coach: UserId, Category (PersonalTrainer/ClassInstructor) |
-| `ExternalCoachProfile.cs` | 759B | Coach ngoài: Name, Phone, Email, ApprovalStatus |
 | `UserSportSpecialty.cs` | 507B | Chuyên môn thể thao: UserId, SportId |
 
 ### Domain/Enums/ (5 files)
@@ -298,7 +290,6 @@ Thư viện dùng chung — **KHÔNG chứa logic nghiệp vụ**, chỉ interfa
 | `UserStatus.cs` | Active, Locked, Deleted |
 | `EmailOtpPurpose.cs` | Registration, PasswordReset |
 | `ExternalAuthProvider.cs` | Google |
-| `ExternalCoachApprovalStatus.cs` | Pending, Approved, Rejected |
 
 ### Domain/Exceptions/ (4 files)
 
@@ -340,7 +331,7 @@ Thư viện dùng chung — **KHÔNG chứa logic nghiệp vụ**, chỉ interfa
 ### Infrastructure/Persistence/Configurations/ (10 files)
 
 Mỗi file 1 `IEntityTypeConfiguration<T>` — cấu hình Fluent API cho 1 entity:
-`UserAccountConfiguration`, `UserCredentialConfiguration`, `UserProfileConfiguration`, `UserExternalLoginConfiguration`, `RoleConfiguration`, `EmailOtpConfiguration`, `GoogleOnboardingTicketConfiguration`, `CoachProfileConfiguration`, `ExternalCoachProfileConfiguration`, `UserSportSpecialtyConfiguration`
+`UserAccountConfiguration`, `UserCredentialConfiguration`, `UserProfileConfiguration`, `UserExternalLoginConfiguration`, `RoleConfiguration`, `EmailOtpConfiguration`, `GoogleOnboardingTicketConfiguration`, `CoachProfileConfiguration`, `UserSportSpecialtyConfiguration`, `CoachServiceQualificationConfiguration`
 
 ---
 
@@ -462,7 +453,7 @@ Module **lớn nhất**, chia thành core + 3 sub-module (Catalog, Occupancy, Th
 |---|---|---|
 | **Api/** | `SportsController.cs` (2.2KB), `RoomTypesController.cs` (2.0KB), `RoomOpeningHoursController.cs` (965B), `RoomBlocksController.cs` (1.5KB), `CourtRatesController.cs` (2.0KB) | CRUD danh mục: sports, room types, opening hours, blocks, court rates |
 | **Application/** | `SportCatalogService.cs` (7.0KB), `RoomTypeService.cs` (6.2KB), `RoomOpeningHourService.cs` (5.3KB), `RoomBlockService.cs` (5.2KB), `CourtRateService.cs` (7.5KB), `SportCatalogReader.cs` (2.7KB), `CatalogContracts.cs` (3.8KB) | Business logic + DTO contracts cho catalog |
-| **Domain/** | `Sport.cs`, `RoomType.cs`, `SportRoomType.cs`, `RoomOpeningHour.cs`, `RoomBlock.cs`, `CourtRate.cs`, `SportOperationType.cs` (7 files) | Entities: Sport (tên, sportOperationType), RoomType, liên kết Sport-RoomType, giờ mở/đóng, block phòng, giá sân |
+| **Domain/** | `Sport.cs`, `RoomType.cs`, `SportRoomType.cs`, `RoomOpeningHour.cs`, `RoomBlock.cs`, `CourtRate.cs`, `SportServiceOffering.cs`, `ServiceRoomType.cs` (8 files) | Entities: Sport (mã, tên), SportServiceOffering (dịch vụ của môn), ServiceRoomType, RoomType, liên kết Sport-RoomType, giờ mở/đóng, block phòng, giá sân |
 | **Persistence/** | 6 EF configuration files | Fluent API configs cho Catalog entities |
 
 ### Occupancy/ (Sub-module — Quản lý lịch trống)

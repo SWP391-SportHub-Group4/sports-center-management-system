@@ -35,9 +35,8 @@ public sealed class DemoDataSeeder(
     {
         if (await db.UserAccounts.AnyAsync(ct))
         {
+            // DB đã có tài khoản thì không thêm gì nữa: sau reset dữ liệu dev, DB phải rỗng cho tới khi chạy lệnh seed riêng.
             logger.LogInformation("Bỏ qua seed dữ liệu demo: database đã có tài khoản.");
-            await SeedWalletAndRentalAsync(ct);
-            await SeedArenaShowcaseCoursesAsync(ct);
             return;
         }
 
@@ -58,38 +57,6 @@ public sealed class DemoDataSeeder(
         var coachBasketball = NewUser("coach.bongro@sporthub.vn", "Vũ Hải Bóng Rổ", "0902000002", UserRole.Coach);
         var coachPt = NewUser("coach.pt@sporthub.vn", "Đỗ Quang PT", "0902000003", UserRole.Coach);
 
-        var externalApproved = NewUser("coach.external.approved@sporthub.vn", "Huấn Luyện Viên Sân Đã Duyệt", "0902000011", UserRole.ExternalCoach);
-        var externalPending = NewUser("coach.external.pending@sporthub.vn", "Huấn Luyện Viên Sân Chờ Duyệt", "0902000012", UserRole.ExternalCoach);
-        var externalRejected = NewUser("coach.external.rejected@sporthub.vn", "Huấn Luyện Viên Sân Bị Từ Chối", "0902000013", UserRole.ExternalCoach);
-        var externalSuspended = NewUser("coach.external.suspended@sporthub.vn", "Huấn Luyện Viên Sân Tạm Ngưng", "0902000014", UserRole.ExternalCoach);
-
-        var externalProfiles = new[]
-        {
-            new ExternalCoachProfile
-            {
-                UserId = externalApproved.UserId, Bio = "ExternalCoach demo đã được duyệt để kiểm thử đặt sân.",
-                ApprovalStatus = ExternalCoachApprovalStatus.Approved, ReviewedByUserId = manager.UserId,
-                ReviewedAt = now, CreatedAt = now.AddDays(-3)
-            },
-            new ExternalCoachProfile
-            {
-                UserId = externalPending.UserId, Bio = "ExternalCoach demo đang chờ duyệt.",
-                ApprovalStatus = ExternalCoachApprovalStatus.PendingApproval, CreatedAt = now
-            },
-            new ExternalCoachProfile
-            {
-                UserId = externalRejected.UserId, Bio = "ExternalCoach demo bị từ chối.",
-                ApprovalStatus = ExternalCoachApprovalStatus.Rejected, ReviewedByUserId = manager.UserId,
-                ReviewedAt = now, ReviewNote = "Thiếu thông tin chuyên môn.", CreatedAt = now.AddDays(-5)
-            },
-            new ExternalCoachProfile
-            {
-                UserId = externalSuspended.UserId, Bio = "ExternalCoach demo tạm ngưng.",
-                ApprovalStatus = ExternalCoachApprovalStatus.Suspended, ReviewedByUserId = manager.UserId,
-                ReviewedAt = now, ReviewNote = "Tạm ngưng để rà soát hồ sơ.", CreatedAt = now.AddDays(-10)
-            }
-        };
-
         // BR-96 — mỗi tài khoản Coach demo có CoachProfile ngay khi tạo; chuyên môn theo môn gán ngay sau khi lưu user.
         coachBadminton.CoachProfile = new CoachProfile();
         coachBasketball.CoachProfile = new CoachProfile();
@@ -105,8 +72,7 @@ public sealed class DemoDataSeeder(
             NewUser("hoa.member@sporthub.vn", "Bùi Thanh Hoa", "0903000006", UserRole.Member)
         };
 
-        var allUsers = new List<UserAccount> { admin, manager, reception, coachBadminton, coachBasketball, coachPt,
-            externalApproved, externalPending, externalRejected, externalSuspended };
+        var allUsers = new List<UserAccount> { admin, manager, reception, coachBadminton, coachBasketball, coachPt };
         allUsers.AddRange(members);
 
         foreach (var user in allUsers)
@@ -116,17 +82,16 @@ public sealed class DemoDataSeeder(
 
         db.UserAccounts.AddRange(allUsers);
         await db.SaveChangesAsync(ct);
-        db.ExternalCoachProfiles.AddRange(externalProfiles);
         await db.SaveChangesAsync(ct);
 
-        // Chuyên môn demo (sport 2 = Personal Training, 3 = Cầu lông, 4 = Bóng rổ; seed trong migration catalog).
+        // Chuyên môn demo (sport 1 = Gym, 3 = Cầu lông, 4 = Bóng rổ; seed trong migration catalog).
         // Mapping cụ thể theo user vì CoachCategory cũ không đủ xác định môn.
         db.UserSportSpecialties.AddRange(
             new UserSportSpecialty { UserId = coachBadminton.UserId, SportId = 3 },
             new UserSportSpecialty { UserId = coachBasketball.UserId, SportId = 4 },
-            new UserSportSpecialty { UserId = coachPt.UserId, SportId = 2 },
-            new UserSportSpecialty { UserId = externalApproved.UserId, SportId = 3 },
-            new UserSportSpecialty { UserId = externalPending.UserId, SportId = 3 });
+            new UserSportSpecialty { UserId = coachPt.UserId, SportId = 1 });
+        // PT là dịch vụ của Gym (offering 2 trong seed catalog): chỉ Coach có qualification mới nhận quyền PT.
+        db.Set<CoachServiceQualification>().Add(new CoachServiceQualification { UserId = coachPt.UserId, OfferingId = 2 });
         await db.SaveChangesAsync(ct);
 
         members[^1].Status = UserStatus.Deactivated;
@@ -275,7 +240,7 @@ public sealed class DemoDataSeeder(
         var basketballCoach = await EnsureDemoCoachAsync(
             "coach.bongro@sporthub.vn", "Vũ Hải Bóng Rổ", "0902000002", 4, ct);
         await EnsureDemoCoachAsync(
-            "coach.pt@sporthub.vn", "Đỗ Quang PT", "0902000003", 2, ct);
+            "coach.pt@sporthub.vn", "Đỗ Quang PT", "0902000003", 1, ct);
         var badmintonRoom = await EnsureDemoRoomAsync("Sân cầu lông 1", 3, 12, ct);
         var basketballRoom = await EnsureDemoRoomAsync("Sân bóng rổ 1", 4, 30, ct);
 
@@ -322,8 +287,7 @@ public sealed class DemoDataSeeder(
     {
         var presentation = new (int SportId, string Description, string ImageUrl)[]
         {
-            (1, "Tập Gym tự do để rèn sức mạnh, sức bền và thể lực tổng quát. Membership Gym còn hiệu lực là điều kiện mua PT.", "/sporthub/court-volt/conditioning-speed-track.png"),
-            (2, "Huấn luyện cá nhân 1 kèm 1 theo lịch hẹn riêng. PT mua riêng và yêu cầu Membership Gym còn hiệu lực.", "/sporthub/court-volt/hero-community.png"),
+            (1, "Tập Gym tự do để rèn sức mạnh, sức bền và thể lực tổng quát. Huấn luyện cá nhân (PT) là dịch vụ của Gym, mua riêng và yêu cầu Membership Gym còn hiệu lực.", "/sporthub/court-volt/conditioning-speed-track.png"),
             (3, "Lớp Cầu lông theo khóa, lịch lặp 90 phút mỗi buổi; đăng ký riêng, không cần Membership Gym.", "/sporthub/court-volt/course-badminton.png"),
             (4, "Lớp Bóng rổ theo khóa, lịch lặp 120 phút mỗi buổi; có thể đặt sân riêng, không cần Membership Gym.", "/sporthub/court-volt/course-basketball.png")
         };
@@ -543,14 +507,13 @@ public sealed class DemoDataSeeder(
     {
         // Only extend the named demo dataset; never infer real accounts as demo owners.
         var manager = await db.UserAccounts.SingleOrDefaultAsync(x => x.Email == "manager@sporthub.vn", ct);
-        var coach = await db.UserAccounts.SingleOrDefaultAsync(x => x.Email == "coach.external.approved@sporthub.vn", ct);
         var member = await db.UserAccounts.SingleOrDefaultAsync(x => x.Email == "an.member@sporthub.vn", ct);
         var room = await db.Rooms.FirstOrDefaultAsync(x => x.Name == "Sân cầu lông 1", ct);
-        if (manager is null || coach is null || member is null || room is null) return;
+        if (manager is null || member is null || room is null) return;
         var reference = Guid.Parse("311aa2a3-764e-4a9f-a8c2-988790e52723");
         await using (var tx = await db.Database.BeginTransactionAsync(ct))
         {
-            foreach (var owner in new[] { member, coach })
+            foreach (var owner in new[] { member })
                 await wallets.AdjustAsync(new(owner.UserId, 500,
                     SportHub.BuildingBlocks.Abstractions.Wallet.WalletAdjustmentDirection.Credit,
                     "DemoOpeningBalance", reference, manager.UserId, "Số dư demo P1.12"), ct);
@@ -567,15 +530,15 @@ public sealed class DemoDataSeeder(
         if (existing is null)
         {
             var start = VietnamTime.StartOfDayUtc(VietnamTime.TodayLocal(clock).AddDays(7)).AddHours(10);
-            var checkout = await checkouts.CreateCourtRentalAsync(new(coach.UserId, 3, room.RoomId,
-                start, start.AddHours(1), 4), key, coach.UserId, ct);
+            var checkout = await checkouts.CreateCourtRentalAsync(new(member.UserId, 3, room.RoomId,
+                start, start.AddHours(1)), key, member.UserId, ct);
             invoiceId = checkout.InvoiceId;
         }
         else invoiceId = existing.InvoiceId;
         var invoice = await db.Invoices.AsNoTracking().SingleAsync(x => x.InvoiceId == invoiceId, ct);
         if (invoice.Status != InvoiceStatus.Issued || invoice.HoldExpiresAtUtc <= clock.UtcNow) return;
-        await pointConfirmations.SelectSelfAsync(invoiceId, checked((int)(invoice.TotalAmount / 1000m)), coach.UserId, ct);
-        await checkouts.StartPaymentAsync(invoiceId, coach.UserId, false, "127.0.0.1", ct);
+        await pointConfirmations.SelectSelfAsync(invoiceId, checked((int)(invoice.TotalAmount / 1000m)), member.UserId, ct);
+        await checkouts.StartPaymentAsync(invoiceId, member.UserId, false, "127.0.0.1", ct);
     }
 
     private async Task<int> SeedCoursesAsync(

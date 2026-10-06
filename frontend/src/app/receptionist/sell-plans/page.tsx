@@ -1,10 +1,6 @@
-"use client";
-import { OperationsPage } from "@/features/operations/ui";
-import { MemberDesk } from "@/features/receptionist/front-desk";
+import { redirect } from "next/navigation";
+
+/** Tuyến cũ: gộp vào Bán dịch vụ. Giữ bookmark. */
 export default function Page() {
-  return (
-    <OperationsPage title="sellPlans" roles={["Receptionist"]}>
-      <MemberDesk mode="sales" />
-    </OperationsPage>
-  );
+  redirect("/receptionist/sales");
 }

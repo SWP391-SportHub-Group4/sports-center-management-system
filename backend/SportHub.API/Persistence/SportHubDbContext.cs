@@ -35,8 +35,8 @@ public class SportHubDbContext : DbContext, ISportHubDbContext
     public DbSet<EmailOtp> EmailOtps => Set<EmailOtp>();
     public DbSet<GoogleOnboardingTicket> GoogleOnboardingTickets => Set<GoogleOnboardingTicket>();
     public DbSet<CoachProfile> CoachProfiles => Set<CoachProfile>();
-    public DbSet<ExternalCoachProfile> ExternalCoachProfiles => Set<ExternalCoachProfile>();
     public DbSet<UserSportSpecialty> UserSportSpecialties => Set<UserSportSpecialty>();
+    public DbSet<CoachServiceQualification> CoachServiceQualifications => Set<CoachServiceQualification>();
 
     public DbSet<MembershipPackage> MembershipPackages => Set<MembershipPackage>();
     public DbSet<MemberPackage> MemberPackages => Set<MemberPackage>();

@@ -15,9 +15,9 @@ using SportHub.Scheduling.Rental.Domain;
 
 namespace SportHub.Scheduling.Rental.Application;
 
-/// <summary>Validates, prices and reserves ExternalCoach court bookings against the shared occupancy ledger.</summary>
+/// <summary>Kiểm tra, tính giá và giữ chỗ thuê sân của Member trên sổ occupancy chung. Rental chỉ chiếm phòng, không chiếm Coach.</summary>
 public sealed class CourtRentalService(ISportHubDbContext db, IUserAccessReader users,
-    ICoachSpecialtyReader specialties, IExternalCoachAccessReader externalCoaches, IOccupancyService occupancy, ISystemSettingProvider settings,
+    ISportCatalogReader catalog, IOccupancyService occupancy, ISystemSettingProvider settings,
     IClock clock) : ICourtRentalFulfillment
 {
     public async Task<CourtRentalQuote> QuoteAsync(CourtRentalRequest request, CancellationToken cancellationToken = default)
@@ -26,23 +26,19 @@ public sealed class CourtRentalService(ISportHubDbContext db, IUserAccessReader 
         var maxHours = await settings.GetIntAsync(SystemSettingKeys.RentalMaxHours, cancellationToken);
         var advanceDays = await settings.GetIntAsync(SystemSettingKeys.RentalAdvanceDays, cancellationToken);
         ValidateWindow(request, slotMinutes, maxHours, advanceDays);
-        var access = await users.GetAsync(request.ExternalCoachId, cancellationToken);
-        if (access is null || !access.IsActive || access.Role != "ExternalCoach")
-            throw new ForbiddenException("external_coach_inactive", "Tài khoản ExternalCoach không hoạt động.");
-        var profile = await externalCoaches.GetAsync(request.ExternalCoachId, cancellationToken);
-        if (profile?.ApprovalStatus != "Approved")
-            throw new ForbiddenException("external_coach_not_approved", "Chỉ ExternalCoach đã được duyệt mới được đặt sân.");
-        if (!await specialties.HasSportAsync(request.ExternalCoachId, request.SportId, cancellationToken))
-            throw new ForbiddenException("external_coach_sport_forbidden", "Môn này chưa nằm trong hồ sơ ExternalCoach.");
+        // Mọi Member đang hoạt động đều thuê được sân: không cần Membership Gym, chuyên môn hay duyệt.
+        var access = await users.GetAsync(request.MemberId, cancellationToken);
+        if (access is null || !access.IsActive || access.Role != "Member")
+            throw new ForbiddenException("member_inactive", "Chỉ Member đang hoạt động mới được thuê sân.");
 
-        var sportActive = await db.Set<Sport>().AsNoTracking().AnyAsync(x => x.SportId == request.SportId && x.IsActive, cancellationToken);
-        if (!sportActive) throw new BadRequestException("sport_inactive", "Môn đã ngừng hoạt động hoặc không tồn tại.");
+        // Môn phải đang hoạt động và dịch vụ thuê sân đang bật; không whitelist theo tên hay ID môn.
+        if (!await catalog.IsServiceEnabledAsync(request.SportId, SportServiceType.CourtRental, cancellationToken))
+            throw new BadRequestException("rental_not_available", "Môn này không cho thuê sân hoặc đã ngừng hoạt động.");
         var room = await (from r in db.Set<Room>().AsNoTracking()
                           join link in db.Set<SportRoomType>().AsNoTracking() on r.RoomTypeId equals link.RoomTypeId
-                          where r.RoomId == request.RoomId && r.IsActive && r.Capacity >= request.ExpectedAttendees
-                                && link.SportId == request.SportId
+                          where r.RoomId == request.RoomId && r.IsActive && link.SportId == request.SportId
                           select r).SingleOrDefaultAsync(cancellationToken)
-            ?? throw new ConflictException("rental_room_incompatible", "Sân không hoạt động, không đủ sức chứa hoặc không phù hợp môn.");
+            ?? throw new ConflictException("rental_room_incompatible", "Sân không hoạt động hoặc không phù hợp môn.");
         if (room.RoomTypeId is not int roomTypeId)
             throw new ConflictException("rental_room_unclassified", "Sân chưa được phân loại để thuê.");
 
@@ -72,13 +68,13 @@ public sealed class CourtRentalService(ISportHubDbContext db, IUserAccessReader 
             throw new ConflictException("rental_price_changed", "Bảng giá đã đổi trong lúc đặt sân; hãy xác nhận lại báo giá.");
         var id = Guid.NewGuid();
         var result = await occupancy.ReserveAsync(new OccupancyRequest(OccupancySources.CourtRental, id,
-            request.RoomId, request.ExternalCoachId, request.StartUtc, request.EndUtc), cancellationToken);
+            request.RoomId, null, request.StartUtc, request.EndUtc), cancellationToken);
         if (!result.Succeeded) throw new OccupancyConflictException(result.Conflicts);
         db.Set<CourtRental>().Add(new CourtRental
         {
-            CourtRentalId = id, ExternalCoachId = request.ExternalCoachId, SportId = request.SportId,
+            CourtRentalId = id, MemberId = request.MemberId, SportId = request.SportId,
             RoomId = request.RoomId, StartAtUtc = request.StartUtc.UtcDateTime, EndAtUtc = request.EndUtc.UtcDateTime,
-            ExpectedAttendees = request.ExpectedAttendees, TotalPrice = quote.TotalPrice,
+            TotalPrice = quote.TotalPrice,
             PriceSnapshotJson = JsonSerializer.Serialize(quote.Blocks), Status = CourtRentalStatus.PendingPayment,
             CreatedAtUtc = clock.UtcNow, InvoiceId = invoiceId
         });
@@ -136,15 +132,15 @@ public sealed class CourtRentalService(ISportHubDbContext db, IUserAccessReader 
     {
         var row = await db.Set<CourtRental>().AsNoTracking().SingleOrDefaultAsync(x => x.CourtRentalId == courtRentalId, cancellationToken)
             ?? throw new NotFoundException("rental_not_found", "Không tìm thấy lượt thuê sân.");
-        return new CourtRentalRequest(row.ExternalCoachId, row.SportId, row.RoomId,
+        return new CourtRentalRequest(row.MemberId, row.SportId, row.RoomId,
             new DateTimeOffset(DateTime.SpecifyKind(row.StartAtUtc, DateTimeKind.Utc)),
-            new DateTimeOffset(DateTime.SpecifyKind(row.EndAtUtc, DateTimeKind.Utc)), row.ExpectedAttendees);
+            new DateTimeOffset(DateTime.SpecifyKind(row.EndAtUtc, DateTimeKind.Utc)));
     }
 
     public async Task<CourtRentalRefundFacts?> GetRefundFactsAsync(Guid invoiceItemId, CancellationToken cancellationToken = default)
     {
         var row = await db.Set<CourtRental>().AsNoTracking().SingleOrDefaultAsync(x => x.InvoiceItemId == invoiceItemId, cancellationToken);
-        return row is null ? null : new CourtRentalRefundFacts(row.CourtRentalId, row.ExternalCoachId,
+        return row is null ? null : new CourtRentalRefundFacts(row.CourtRentalId, row.MemberId,
             new DateTimeOffset(DateTime.SpecifyKind(row.StartAtUtc, DateTimeKind.Utc)), row.Status.ToString(),
             row.Status == CourtRentalStatus.Cancelled && row.CancelReason?.StartsWith("CenterFault:", StringComparison.Ordinal) == true);
     }
@@ -184,9 +180,9 @@ public sealed class CourtRentalService(ISportHubDbContext db, IUserAccessReader 
             return false;
         var room = await db.Set<Room>().AsNoTracking().SingleOrDefaultAsync(x => x.RoomId == rental.RoomId, cancellationToken);
         var sportActive = await db.Set<Sport>().AsNoTracking().AnyAsync(x => x.SportId == rental.SportId && x.IsActive, cancellationToken);
-        if (room is null || !room.IsActive || !sportActive || room.Capacity < rental.ExpectedAttendees) return false;
+        if (room is null || !room.IsActive || !sportActive) return false;
         var result = await occupancy.ReserveAsync(new OccupancyRequest(OccupancySources.CourtRental, courtRentalId,
-            rental.RoomId, rental.ExternalCoachId,
+            rental.RoomId, null,
             new DateTimeOffset(DateTime.SpecifyKind(rental.StartAtUtc, DateTimeKind.Utc)),
             new DateTimeOffset(DateTime.SpecifyKind(rental.EndAtUtc, DateTimeKind.Utc))), cancellationToken);
         if (!result.Succeeded) return false;
@@ -208,8 +204,8 @@ public sealed class CourtRentalService(ISportHubDbContext db, IUserAccessReader 
 
     private void ValidateWindow(CourtRentalRequest request, int slotMinutes, int maxHours, int advanceDays)
     {
-        if (request.ExternalCoachId == Guid.Empty || request.SportId <= 0 || request.RoomId <= 0
-            || request.ExpectedAttendees <= 0 || request.StartUtc.Offset != TimeSpan.Zero || request.EndUtc.Offset != TimeSpan.Zero)
+        if (request.MemberId == Guid.Empty || request.SportId <= 0 || request.RoomId <= 0
+            || request.StartUtc.Offset != TimeSpan.Zero || request.EndUtc.Offset != TimeSpan.Zero)
             throw new BadRequestException("invalid_rental_request", "Thông tin sân thuê không hợp lệ.");
         var duration = request.EndUtc - request.StartUtc;
         if (slotMinutes is not (30 or 60) || maxHours is < 1 or > 4 || advanceDays is < 1 or > 30

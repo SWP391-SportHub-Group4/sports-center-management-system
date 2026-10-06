@@ -11,15 +11,14 @@ public class RoleConfiguration : IEntityTypeConfiguration<Role>
         // Unique — 5 giá trị cố định, seed data (BR-55, ràng buộc #12; bổ sung SystemAdministrator 11/09/2026).
         builder.HasIndex(e => e.RoleName).IsUnique();
 
-        // Seed role cố định (5 cũ + ExternalCoach RoleId=6, v3) (SSOT §2/§3) — migration sẽ tự insert, không cần insert tay.
+        // Seed role cố định: đúng 5 vai trò (SSOT §2/§3, BR-140) — migration sẽ tự insert, không cần insert tay.
         // SystemAdministrator (RoleId=5) bổ sung do thiết kế hệ thống (BR-2/BR-3), không có trong đề bài gốc.
         builder.HasData(
             new Role { RoleId = 1, RoleName = UserRole.CenterManager },
             new Role { RoleId = 2, RoleName = UserRole.Coach },
             new Role { RoleId = 3, RoleName = UserRole.Member },
             new Role { RoleId = 4, RoleName = UserRole.Receptionist },
-            new Role { RoleId = 5, RoleName = UserRole.SystemAdministrator },
-            new Role { RoleId = 6, RoleName = UserRole.ExternalCoach }
+            new Role { RoleId = 5, RoleName = UserRole.SystemAdministrator }
         );
     }
 }
