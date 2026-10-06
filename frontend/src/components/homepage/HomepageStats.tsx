@@ -48,8 +48,8 @@ function CountUp({ value, language }: { value: number; language: Language }) {
     const duration = 1250;
 
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      setCount(value);
-      return;
+      frame = window.requestAnimationFrame(() => setCount(value));
+      return () => window.cancelAnimationFrame(frame);
     }
 
     const animate = (now: number) => {
