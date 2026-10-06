@@ -14,10 +14,10 @@ import {
   money,
   courseImage,
   type Course,
-} from "./PublicComponents";
+} from "@/components/public";
 import s from "./review.module.css";
 
-const courses: Course[] = [
+export const demoCourses: Course[] = [
   {
     id: "badminton",
     sport: "Cầu lông",
@@ -42,13 +42,15 @@ const courses: Course[] = [
 
 export function CourseList({
   onSelect,
+  items = demoCourses,
 }: {
   onSelect: (course: Course) => void;
+  items?: Course[];
 }) {
   const [query, setQuery] = useState("");
   const [sport, setSport] = useState("Tất cả");
   const [state, setState] = useState("ready");
-  const filtered = courses.filter(
+  const filtered = items.filter(
     (course) =>
       (sport === "Tất cả" || course.sport === sport) &&
       course.title
@@ -225,8 +227,8 @@ export function CourseDetail({
         <details className={s.disclosure}>
           <summary>Điều kiện tham gia</summary>
           <p>
-            Khóa cầu lông và bóng rổ mua độc lập với Membership Gym. Mang giày
-            thể thao và đến trước giờ học.
+            Đăng ký áp dụng cho trọn khóa. Mang giày thể thao và đến trước giờ
+            học.
           </p>
         </details>
       </aside>
@@ -234,7 +236,23 @@ export function CourseDetail({
   );
 }
 
-export function AccountForm() {
+export interface AccountFormValues {
+  fullName: string;
+  email: string;
+  phone: string;
+}
+
+export function AccountForm({
+  initialValues = {
+    fullName: "Nguyễn Minh Anh",
+    email: "minhanh@example.com",
+    phone: "",
+  },
+  onSave,
+}: {
+  initialValues?: AccountFormValues;
+  onSave?: (values: AccountFormValues) => void;
+}) {
   const [saved, setSaved] = useState(false);
   return (
     <section
@@ -287,6 +305,12 @@ export function AccountForm() {
         onChange={() => setSaved(false)}
         onSubmit={(event) => {
           event.preventDefault();
+          const data = new FormData(event.currentTarget);
+          onSave?.({
+            fullName: String(data.get("fullName") ?? ""),
+            email: String(data.get("email") ?? ""),
+            phone: String(data.get("phone") ?? ""),
+          });
           setSaved(true);
         }}
       >
@@ -295,7 +319,7 @@ export function AccountForm() {
           <input
             name="fullName"
             autoComplete="name"
-            defaultValue="Nguyễn Minh Anh"
+            defaultValue={initialValues.fullName}
             required
             maxLength={100}
           />
@@ -306,7 +330,7 @@ export function AccountForm() {
             name="email"
             type="email"
             autoComplete="email"
-            defaultValue="minhanh@example.com"
+            defaultValue={initialValues.email}
             required
           />
         </label>
@@ -316,6 +340,7 @@ export function AccountForm() {
             name="phone"
             type="tel"
             autoComplete="tel"
+            defaultValue={initialValues.phone}
             placeholder="Nhập số điện thoại"
             pattern="[+0-9 ]{9,20}"
             title="Nhập số điện thoại từ 9 đến 20 ký tự"
@@ -562,7 +587,7 @@ export function CheckoutLayout({
 }
 
 export default function ReviewPage() {
-  const [course, setCourse] = useState(courses[0]);
+  const [course, setCourse] = useState(demoCourses[0]);
   const moveTo = (id: string) => {
     const section = document.getElementById(id);
     const heading = section?.querySelector("h2");
@@ -576,26 +601,7 @@ export default function ReviewPage() {
     });
   };
   return (
-    <div
-      className={s.root}
-      lang="vi"
-      data-theme="performance"
-      onPointerMove={(event) => {
-        if (event.pointerType !== "mouse") return;
-        event.currentTarget.style.setProperty(
-          "--spotlight-x",
-          `${event.clientX}px`,
-        );
-        event.currentTarget.style.setProperty(
-          "--spotlight-y",
-          `${event.clientY}px`,
-        );
-        event.currentTarget.style.setProperty("--spotlight-opacity", "1");
-      }}
-      onPointerLeave={(event) =>
-        event.currentTarget.style.setProperty("--spotlight-opacity", "0")
-      }
-    >
+    <div className={s.root} lang="vi" data-theme="arena-light">
       <a className={s.skip} href="#review-main">
         Bỏ qua điều hướng
       </a>

@@ -7,12 +7,7 @@ import { CourtIcon } from "@/components/brand/CourtIcon";
 import { buttonClass } from "@/components/primitives/Button";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
-import type {
-  CourseDto,
-  MembershipPackageDto,
-  Paged,
-  SportDto,
-} from "@/lib/types";
+import type { CourseDto, Paged, SportDto } from "@/lib/types";
 import { InteractiveArenaTour } from "./InteractiveArenaTour";
 import styles from "./performance-sections.module.css";
 
@@ -35,7 +30,7 @@ const copy = {
     title: "Every session\nhas a purpose.",
     lead: "Compare sports, class dates, prices and open places.",
     courses: "Find a class",
-    gymPlans: "Membership plans",
+    sportsInfo: "Explore sports",
     aiAlt:
       "Badminton, basketball and strength athletes sharing an indoor sports court",
   },
@@ -43,7 +38,7 @@ const copy = {
     title: "Mỗi buổi tập\nđều có mục tiêu.",
     lead: "So sánh môn tập, lịch khai giảng, học phí và chỗ còn.",
     courses: "Tìm lớp học",
-    gymPlans: "Gói Membership",
+    sportsInfo: "Khám phá các môn",
     aiAlt:
       "Vận động viên cầu lông, bóng rổ và thể lực cùng tập trong nhà thi đấu",
   },
@@ -132,15 +127,6 @@ export function PerformanceSections({ language }: { language: Language }) {
       }),
     [],
   );
-  const packagesState = useApi(
-    (signal) =>
-      api.get<MembershipPackageDto[]>("/api/membership-packages/public", {
-        anonymous: true,
-        signal,
-      }),
-    [],
-  );
-
   const programs =
     (Array.isArray(sportsState.data) ? sportsState.data : [])
       .filter(isSportDto)
@@ -167,8 +153,8 @@ export function PerformanceSections({ language }: { language: Language }) {
             }
           >
             <MagneticExploreLink label={t.courses} />
-            <Link href="#pricing" className={styles.secondaryCta}>
-              {t.gymPlans}
+            <Link href="#programs" className={styles.secondaryCta}>
+              {t.sportsInfo}
               <CourtIcon name="diagonal" size={16} />
             </Link>
           </nav>
@@ -191,13 +177,11 @@ export function PerformanceSections({ language }: { language: Language }) {
         language={language}
         sports={programs}
         courses={courses}
-        memberships={packagesState.data}
         loading={sportsState.loading || coursesState.loading}
         hasError={Boolean(sportsState.error || coursesState.error)}
         onRetry={() => {
           if (sportsState.error) sportsState.reload();
           if (coursesState.error) coursesState.reload();
-          if (packagesState.error) packagesState.reload();
         }}
       />
     </>

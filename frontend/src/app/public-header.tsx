@@ -66,8 +66,8 @@ export function PublicHeader() {
         <Link href="/#training" onClick={() => setMenuOpen(false)}>
           {t.refactor.pt}
         </Link>
-        <Link href="/#pricing" onClick={() => setMenuOpen(false)}>
-          {language === "vi" ? "Gói Membership" : "Membership"}
+        <Link href="/#programs" onClick={() => setMenuOpen(false)}>
+          {language === "vi" ? "Các môn tập" : "Sports & programs"}
         </Link>
       </nav>
       <div className={styles.headerActions}>

@@ -5,12 +5,7 @@ import Link from "next/link";
 import { Activity, ArrowUpRight, MapPin, type LucideIcon } from "lucide-react";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { api } from "@/lib/apiClient";
-import type {
-  CourseDto,
-  MembershipPackageDto,
-  Paged,
-  SportDto,
-} from "@/lib/types";
+import type { CourseDto, Paged, SportDto } from "@/lib/types";
 import styles from "./interactive-arena-tour.module.css";
 
 type Language = "en" | "vi";
@@ -33,12 +28,6 @@ function isCourseDto(value: unknown): value is CourseDto {
   );
 }
 
-function isMembershipPackage(value: unknown): value is MembershipPackageDto {
-  if (!value || typeof value !== "object") return false;
-  const plan = value as Partial<MembershipPackageDto>;
-  return typeof plan.name === "string" && typeof plan.isActive === "boolean";
-}
-
 const copy = {
   en: {
     title: "Three disciplines.\nOne connected arena.",
@@ -49,11 +38,9 @@ const copy = {
     live: "CLASS AVAILABILITY",
     liveDescription: "Updates automatically every minute",
     conditioningStatus: "STRENGTH & CONDITIONING",
-    planDescription: "Compare Membership plans below",
     liveClasses: "CLASSES LISTED",
     openPlaces: "PLACES AVAILABLE",
     switcherLabel: "Choose a sport",
-    plans: "MEMBERSHIP PLANS",
     openCourses: "Classes open for enrollment",
     classSessions: "sessions",
     placesLeft: "places left",
@@ -64,8 +51,8 @@ const copy = {
     showMoreClasses: "Show {count} more classes",
     staleSchedule:
       "We couldn't update available places. These results may be out of date; open a class to check its current status.",
-    access: "PT REQUIRES",
-    accessValue: "Active Gym membership",
+    formats: "TRAINING FORMATS",
+    formatsValue: "Gym · Personal training",
     court: "COURT STANDARD",
     lighting: "LIGHTING",
     floor: "PLAYING FLOOR",
@@ -73,7 +60,7 @@ const copy = {
     focus: "TRAINING FOCUS",
     method: "TRAINING METHOD",
     viewDetails: "View class details",
-    plansCta: "See Membership plans",
+    programsCta: "Explore training options",
     noClass: "No classes are open for enrollment in this sport right now",
     noPlaces: "All listed classes are full",
     loading: "Loading class availability",
@@ -127,11 +114,9 @@ const copy = {
     live: "TÌNH TRẠNG ĐĂNG KÝ",
     liveDescription: "Tự động cập nhật mỗi phút",
     conditioningStatus: "RÈN THỂ LỰC",
-    planDescription: "So sánh các gói Membership bên dưới",
     liveClasses: "LỚP ĐƯỢC CÔNG BỐ",
     openPlaces: "CHỖ CÒN",
     switcherLabel: "Chọn môn thể thao",
-    plans: "GÓI MEMBERSHIP",
     openCourses: "Lớp đang mở đăng ký",
     classSessions: "buổi",
     placesLeft: "chỗ còn",
@@ -142,8 +127,8 @@ const copy = {
     showMoreClasses: "Xem thêm {count} lớp",
     staleSchedule:
       "Chưa cập nhật được số chỗ còn. Dữ liệu có thể đã cũ; hãy mở lớp để xem tình trạng mới nhất.",
-    access: "ĐIỀU KIỆN PT",
-    accessValue: "Membership Gym còn hạn",
+    formats: "HÌNH THỨC TẬP",
+    formatsValue: "Gym · Huấn luyện cá nhân",
     court: "TIÊU CHUẨN SÂN",
     lighting: "ÁNH SÁNG",
     floor: "MẶT SÀN",
@@ -151,7 +136,7 @@ const copy = {
     focus: "TRỌNG TÂM RÈN LUYỆN",
     method: "PHƯƠNG PHÁP TẬP",
     viewDetails: "Xem lịch và đăng ký",
-    plansCta: "Xem các gói Membership",
+    programsCta: "Khám phá các hình thức tập",
     noClass: "Môn này hiện chưa có lớp đang nhận đăng ký",
     noPlaces: "Các lớp được công bố hiện đã kín chỗ",
     loading: "Đang tải tình trạng đăng ký lớp",
@@ -204,7 +189,6 @@ type TourProps = {
   language: Language;
   sports: SportDto[];
   courses: CourseDto[];
-  memberships: MembershipPackageDto[] | null;
   loading: boolean;
   hasError: boolean;
   onRetry: () => void;
@@ -458,7 +442,6 @@ export function InteractiveArenaTour({
   language,
   sports,
   courses,
-  memberships,
   loading,
   hasError,
   onRetry,
@@ -538,12 +521,6 @@ export function InteractiveArenaTour({
     (total, course) => total + Math.max(0, Math.trunc(course.availableSeats)),
     0,
   );
-  const activePlans = (Array.isArray(memberships) ? memberships : [])
-    .filter(isMembershipPackage)
-    .filter(
-      (plan) =>
-        plan.isActive && /gym|fitness|conditioning|thể lực/i.test(plan.name),
-    ).length;
   const firstCourse = availableCourses[0];
   const scheduleUnavailable = hasError;
   const metrics: Array<{ label: string; value: string; icon?: LucideIcon }> =
@@ -590,18 +567,14 @@ export function InteractiveArenaTour({
         : [
             { label: text.focus, value: selected.specOne },
             { label: text.method, value: selected.specTwo },
-            {
-              label: text.plans,
-              value:
-                memberships === null ? "—" : formatCount(activePlans, language),
-            },
-            { label: text.access, value: text.accessValue },
+            { label: text.conditioningStatus, value: selected.label },
+            { label: text.formats, value: text.formatsValue },
           ];
 
   const courseHref = firstCourse ? `/courses/${firstCourse.classId}` : null;
-  const ctaHref = activeZone === "conditioning" ? "#pricing" : courseHref;
+  const ctaHref = activeZone === "conditioning" ? "#programs" : courseHref;
   const ctaLabel =
-    activeZone === "conditioning" ? text.plansCta : text.viewDetails;
+    activeZone === "conditioning" ? text.programsCta : text.viewDetails;
   const scheduleFallback = scheduleUnavailable
     ? text.error
     : publishedCourses.length
@@ -664,6 +637,7 @@ export function InteractiveArenaTour({
     <section
       id="activities"
       className={styles.tour}
+      data-theme="light"
       data-zone={activeZone}
       aria-labelledby="arena-tour-title"
       aria-busy={loading}
@@ -799,10 +773,7 @@ export function InteractiveArenaTour({
               {metrics.map((metric) => {
                 const MetricIcon = metric.icon;
                 return (
-                  <div
-                    className={`${styles.metric} ${metric.label === text.access ? styles.metricRequirement : ""}`}
-                    key={metric.label}
-                  >
+                  <div className={styles.metric} key={metric.label}>
                     <span className={styles.metricLabel}>
                       {MetricIcon && (
                         <MetricIcon
@@ -873,7 +844,7 @@ export function InteractiveArenaTour({
             <div className={styles.featureFooter}>
               <p>
                 {activeZone === "conditioning"
-                  ? text.planDescription
+                  ? text.formatsValue
                   : loading
                     ? text.loading
                     : scheduleUnavailable

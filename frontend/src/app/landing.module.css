@@ -7,77 +7,33 @@
   font: var(--text-md) / var(--leading-relaxed) var(--font-body);
 }
 
-.page::before {
-  position: fixed;
-  z-index: 10;
-  inset: 0;
-  background: radial-gradient(
-    320px circle at var(--spotlight-x, 50vw) var(--spotlight-y, 40vh),
-    color-mix(in srgb, var(--color-accent) 9%, transparent),
-    transparent 74%
-  );
-  content: "";
-  opacity: var(--spotlight-opacity, 0);
-  pointer-events: none;
-  transition: opacity 260ms ease-out;
-  mix-blend-mode: screen;
-}
-
-.page[data-theme="performance"] {
-  color-scheme: dark;
-  --bg-app: var(--chalk-950);
-  --bg-surface: var(--chalk-900);
-  --bg-surface-sunken: var(--chalk-900);
-  --bg-inverse: var(--chalk-950);
-  --bg-inverse-raised: var(--chalk-900);
-  --bg-brand-deep: var(--chalk-950);
-  --text-strong: var(--chalk-50);
-  --text-body: var(--chalk-200);
-  --text-muted: var(--chalk-300);
-  --text-on-inverse: var(--chalk-50);
-  --text-on-inverse-muted: var(--chalk-300);
-  --text-link: var(--volt-400);
-  --color-primary: var(--volt-400);
-  --color-primary-hover: var(--volt-300);
-  --color-primary-active: var(--volt-300);
-  --color-primary-soft: color-mix(
-    in srgb,
-    var(--volt-400) 14%,
-    var(--chalk-900)
-  );
-  --color-primary-soft-text: var(--volt-300);
-  --color-on-primary: var(--chalk-950);
-  --border-subtle: rgb(255 255 255 / 11%);
-  --border-strong: rgb(255 255 255 / 22%);
-  --border-inverse: rgb(255 255 255 / 14%);
-  --focus-ring: var(--volt-400);
-  --surface: var(--bg-surface);
-  --surface-alt: var(--bg-app);
-  --surface-muted: var(--bg-surface-sunken);
+.page[data-theme="arena-light"] {
+  color-scheme: light;
+  --bg-brand-deep: var(--white);
+  --text-on-inverse: var(--chalk-950);
+  --text-on-inverse-muted: var(--chalk-600);
+  --text-link: var(--court-700);
+  --border-inverse: var(--chalk-200);
+  --focus-ring: var(--court-500);
   --surface-ink: var(--chalk-950);
-  --surface-blue: var(--chalk-900);
-  --line: var(--border-subtle);
-  --line-soft: var(--border-subtle);
-  --line-strong: var(--border-strong);
-  --border: var(--border-subtle);
-  --border-color: var(--border-subtle);
-  --navy: var(--chalk-50);
-  --sky: var(--volt-400);
-  --ice: var(--chalk-900);
-  --slate: var(--chalk-300);
-  --text: var(--chalk-50);
-  --background: var(--chalk-950);
-  --ink-900: var(--chalk-50);
-  --ink-700: var(--chalk-200);
-  --ink-500: var(--chalk-300);
-  --ink-400: var(--chalk-400);
-  --brand-900: var(--chalk-950);
-  --brand-700: var(--volt-400);
-  --brand-500: var(--volt-400);
-  --brand-300: var(--volt-300);
-  --brand-100: color-mix(in srgb, var(--volt-400) 14%, var(--chalk-900));
-  --text-primary: var(--chalk-50);
-  --text-secondary: var(--chalk-300);
+  --surface-blue: var(--court-50);
+  --navy: var(--chalk-950);
+  --sky: var(--court-600);
+  --ice: var(--chalk-100);
+  --slate: var(--chalk-600);
+  --text: var(--chalk-950);
+  --background: var(--chalk-50);
+  --ink-900: var(--chalk-950);
+  --ink-700: var(--chalk-800);
+  --ink-500: var(--chalk-600);
+  --ink-400: var(--chalk-500);
+  --brand-900: var(--court-900);
+  --brand-700: var(--court-700);
+  --brand-500: var(--court-600);
+  --brand-300: var(--court-300);
+  --brand-100: var(--court-50);
+  --text-primary: var(--chalk-950);
+  --text-secondary: var(--chalk-600);
 }
 
 .page h1,
@@ -162,9 +118,9 @@
   margin-block: var(--space-6);
   padding: clamp(36px, 6vw, 76px);
   overflow: hidden;
-  border: 1px solid rgb(255 255 255 / 0.16);
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-xl);
-  background: var(--ink-950, #090e0f);
+  background: var(--chalk-100);
 }
 
 .goalBackground {
@@ -180,11 +136,11 @@
   background:
     linear-gradient(
       90deg,
-      rgb(4 10 11 / 0.94) 0%,
-      rgb(4 10 11 / 0.82) 52%,
-      rgb(4 10 11 / 0.68) 100%
+      rgb(246 249 249 / 0.96) 0%,
+      rgb(246 249 249 / 0.89) 52%,
+      rgb(246 249 249 / 0.66) 100%
     ),
-    linear-gradient(0deg, rgb(4 10 11 / 0.26), transparent 55%);
+    linear-gradient(0deg, rgb(246 249 249 / 0.22), transparent 55%);
   content: "";
   pointer-events: none;
 }
@@ -210,7 +166,7 @@
 .goalContent > div {
   min-width: 0;
   overflow-wrap: anywhere;
-  color: var(--text-on-inverse);
+  color: var(--chalk-950);
 }
 
 .goalDetails {
@@ -236,13 +192,13 @@
 
 .goalCopy > svg {
   margin-bottom: var(--space-4);
-  color: var(--color-accent);
+  color: var(--color-primary);
 }
 
 .training h2 {
   max-width: 11ch;
   margin: 0;
-  color: var(--text-on-inverse);
+  color: var(--chalk-950);
   font-size: clamp(48px, 5.2vw, 76px);
   letter-spacing: var(--tracking-tight);
   line-height: 0.98;
@@ -250,26 +206,26 @@
 }
 
 .goalDetails p {
-  color: var(--text-on-inverse-muted);
+  color: var(--chalk-700);
   font-size: var(--text-lg);
 }
 
 .training :global(.btn) {
-  border-color: rgb(255 255 255 / 0.64);
-  color: var(--text-on-inverse);
+  border-color: var(--court-600);
+  color: var(--court-800);
   max-width: 100%;
   min-height: var(--control-height-lg);
   height: auto;
   white-space: normal;
 }
 
-.page[data-theme="performance"] .training :global(.btn--secondary) {
-  border-color: rgb(255 255 255 / 0.64);
-  background: transparent;
-  color: var(--text-on-inverse);
+.page[data-theme="arena-light"] .training :global(.btn--secondary) {
+  border-color: var(--court-600);
+  background: var(--white);
+  color: var(--court-800);
 }
 
-.page[data-theme="performance"] .training :global(.btn--secondary):hover {
+.page[data-theme="arena-light"] .training :global(.btn--secondary):hover {
   border-color: var(--color-accent);
   background: var(--color-accent);
   color: var(--color-on-accent);
@@ -404,14 +360,14 @@
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-xl);
   background: var(--bg-surface);
-  color: var(--text-on-inverse);
+  color: var(--text-strong);
 }
 
 .wordmark {
   display: inline-flex;
   min-height: var(--control-height-lg);
   align-items: center;
-  color: var(--text-on-inverse);
+  color: var(--text-strong);
   font-family: var(--font-display);
   font-size: var(--text-2xl);
   font-weight: var(--weight-bold);
@@ -422,7 +378,7 @@
 }
 
 .wordmarkAccent {
-  color: var(--color-accent);
+  color: var(--color-primary);
 }
 
 .footerStatement {
@@ -437,7 +393,7 @@
 
 .footerStatement span {
   display: block;
-  color: var(--color-accent);
+  color: var(--color-primary);
   font-style: italic;
 }
 
@@ -452,8 +408,8 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
-  border-bottom: 1px solid var(--border-inverse);
-  color: var(--text-on-inverse);
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-strong);
   font-family: var(--font-display);
   font-size: clamp(26px, 2.7vw, 38px);
   line-height: 1.05;
@@ -462,26 +418,88 @@
 }
 
 .footer nav a:hover {
-  color: var(--color-accent);
+  color: var(--color-primary);
 }
 
 .footer nav a svg {
   flex: none;
-  color: var(--color-accent);
+  color: var(--color-primary);
 }
 
 .footerIcons {
   display: flex;
   align-self: end;
   gap: var(--space-5);
-  color: var(--color-accent);
+  color: var(--color-primary);
 }
 
 .footer small {
   grid-column: 2;
   align-self: end;
-  color: var(--text-on-inverse-muted);
+  color: var(--text-muted);
   text-align: right;
+}
+
+@media (min-width: 1200px) {
+  .main {
+    width: min(100%, 1360px);
+    padding-inline: 32px;
+  }
+
+  .section {
+    padding-block: clamp(52px, 5vw, 76px);
+  }
+
+  .sectionHeading {
+    max-width: 720px;
+    margin-bottom: var(--space-6);
+  }
+
+  .sectionHeading h2,
+  .faq > h2 {
+    font-size: clamp(40px, 4.2vw, 60px);
+  }
+
+  .training {
+    min-height: 390px;
+    padding: clamp(32px, 4vw, 56px);
+  }
+
+  .goalContent {
+    max-width: 1040px;
+    gap: clamp(28px, 4vw, 64px);
+  }
+
+  .goalDetails {
+    padding-top: clamp(92px, 9vw, 116px);
+  }
+
+  .goalSticker {
+    width: clamp(120px, 12vw, 160px);
+  }
+
+  .training h2 {
+    font-size: clamp(44px, 4.5vw, 64px);
+  }
+
+  .faq {
+    gap: clamp(24px, 4vw, 60px);
+  }
+
+  .footer {
+    gap: var(--space-6);
+    padding: clamp(32px, 3.8vw, 48px);
+  }
+
+  .footerStatement {
+    margin-top: var(--space-4);
+    font-size: clamp(44px, 4.5vw, 60px);
+  }
+
+  .footer nav a {
+    min-height: 56px;
+    font-size: clamp(24px, 2.2vw, 32px);
+  }
 }
 
 @media (max-width: 1199px) {
@@ -635,10 +653,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .page::before {
-    display: none;
-  }
-
   .page *,
   .page *::before,
   .page *::after {
@@ -646,12 +660,6 @@
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
-  }
-}
-
-@media (pointer: coarse) {
-  .page::before {
-    display: none;
   }
 }
 
