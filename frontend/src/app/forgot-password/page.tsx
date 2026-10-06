@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/apiClient";
 import { Feedback } from "@/components/ui";
@@ -16,10 +16,12 @@ import styles from "@/components/auth/AuthCard.module.css";
  * lộ email nào đã đăng ký; backend cũng trả 204 cho email không tồn tại/bị khóa/đang chờ gửi lại.
  */
 export default function ForgotPasswordPage() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const action = useAction();
   const now = useNow(1000);
   const [email, setEmail] = useState("");
+  const [emailError, setEmailError] = useState<string>();
+  const emailRef = useRef<HTMLInputElement>(null);
   const [sentTo, setSentTo] = useState("");
   // Thời gian chờ gắn với ĐỊA CHỈ đã gửi: sửa sang email khác thì không còn bị chặn.
   const [cooldown, setCooldown] = useState<{ email: string; until: number }>({
@@ -27,9 +29,25 @@ export default function ForgotPasswordPage() {
     until: 0,
   });
   const current = email.trim().toLowerCase();
+  const requiredMessage =
+    language === "vi"
+      ? "Vui lòng điền thông tin này."
+      : "Please fill out this field.";
+  const validateEmail = (value: string) =>
+    !value.trim()
+      ? requiredMessage
+      : !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())
+        ? t.refactor.emailInvalid
+        : undefined;
 
   const send = async () => {
     if (action.busy) return;
+    const validationError = validateEmail(email);
+    setEmailError(validationError);
+    if (validationError) {
+      emailRef.current?.focus();
+      return;
+    }
     const target = email.trim();
     if (cooldown.email === target.toLowerCase() && now < cooldown.until) return;
     const ok = await action.run(async () => {
@@ -88,6 +106,7 @@ export default function ForgotPasswordPage() {
       ) : (
         <form
           className={styles.form}
+          noValidate
           aria-busy={action.busy}
           onSubmit={(e) => {
             e.preventDefault();
@@ -95,17 +114,22 @@ export default function ForgotPasswordPage() {
           }}
         >
           <AuthField
+            ref={emailRef}
             label={t.identity.email}
             icon={<IconMail size={20} />}
             type="email"
             autoComplete="email"
             required
+            error={emailError}
+            reserveErrorSpace
             autoFocus
             value={email}
             onChange={(e) => {
               setEmail(e.target.value);
+              if (emailError) setEmailError(validateEmail(e.target.value));
               action.reset();
             }}
+            onBlur={(e) => setEmailError(validateEmail(e.target.value))}
           />
           <Feedback error={action.error} />
           <Button

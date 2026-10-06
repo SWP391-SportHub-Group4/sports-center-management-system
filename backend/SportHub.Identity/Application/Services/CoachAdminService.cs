@@ -20,7 +20,7 @@ public sealed record CoachResponse(
     DateTime CreatedAt);
 
 /// <summary>
-/// Manager quản lý Coach nội bộ: tạo tài khoản Coach kèm chuyên môn theo môn và đổi chuyên môn (BR-96). Không đụng ExternalCoach
+/// Manager quản lý Coach nội bộ: tạo tài khoản Coach kèm chuyên môn theo môn và đổi chuyên môn (BR-96). Chỉ Coach nội bộ
 /// (có quy trình đăng ký/duyệt riêng) và không tạo được role nào khác Coach.
 /// </summary>
 public sealed class CoachAdminService(

@@ -8,6 +8,7 @@ using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.Abstractions.Scheduling;
 using SportHub.Identity.Domain.Enums;
 using SportHub.Scheduling.Domain.Entities;
+using SportHub.Scheduling.Catalog.Domain;
 
 namespace SportHub.Scheduling.Tests.Integration;
 
@@ -15,8 +16,27 @@ namespace SportHub.Scheduling.Tests.Integration;
 [Collection(nameof(SchedulingApiCollection))]
 public class SportCatalogTests(SchedulingApiFactory factory)
 {
-    private const int BadmintonSportId = 3;   // seed: GroupCourse
-    private const int GymSportId = 1;         // seed: WalkIn
+    [Fact]
+    public async Task Manager_service_offering_ids_map_qualifications_without_exposing_staff_fields_publicly()
+    {
+        using var manager = await ManagerAsync();
+        var staff = await Json(await manager.GetAsync("api/manager/sports"));
+        var gym = staff.EnumerateArray().Single(x => x.GetProperty("code").GetString() == "gym");
+        var pt = gym.GetProperty("services").EnumerateArray().Single(x => x.GetProperty("serviceType").GetString() == "PERSONAL_TRAINING");
+        var offeringId = pt.GetProperty("offeringId").GetInt32();
+        var gymId = gym.GetProperty("sportId").GetInt32();
+        Assert.True(offeringId > 0);
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
+            Assert.True(await db.Set<SportServiceOffering>().AnyAsync(o => o.OfferingId == offeringId && o.SportId == gymId));
+        }
+        using var publicClient = factory.CreateApiClient();
+        var publicSports = await Json(await publicClient.GetAsync("api/sports"));
+        Assert.All(publicSports.EnumerateArray(), sport => Assert.All(sport.GetProperty("services").EnumerateArray(), service => Assert.False(service.TryGetProperty("offeringId", out _))));
+    }
+    private const int BadmintonSportId = 3;   // seed: GroupCourse + CourtRental
+    private const int GymSportId = 1;         // seed: MembershipAccess + PersonalTraining
     private const int BadmintonRoomTypeId = 3;
     private const int BasketballRoomTypeId = 4;
 
@@ -27,6 +47,11 @@ public class SportCatalogTests(SchedulingApiFactory factory)
     }
 
     private static string Unique(string prefix) => prefix + "-" + Guid.NewGuid().ToString("N")[..8];
+
+    private static string UniqueCode() => "s_" + Guid.NewGuid().ToString("N")[..10];
+
+    private static object[] GroupCourse(int minutes = 60, int capacity = 8)
+        => [new { serviceType = "GROUP_COURSE", isEnabled = true, defaultSessionMinutes = minutes, defaultMaxCapacity = capacity }];
 
     private static async Task<JsonElement> Json(HttpResponseMessage r) => JsonDocument.Parse(await r.Content.ReadAsStringAsync()).RootElement;
 
@@ -41,12 +66,15 @@ public class SportCatalogTests(SchedulingApiFactory factory)
         var name = Unique("Pickleball");
         var created = await manager.PostAsJsonAsync("api/manager/sports", new
         {
-            name, operationType = "GroupCourse", defaultSessionMinutes = 60, defaultMaxCapacity = 8, sortOrder = 90
+            code = UniqueCode(), name, sortOrder = 90, services = GroupCourse()
         });
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
         var sportId = (await Json(created)).GetProperty("sportId").GetInt32();
 
         var anonymous = factory.CreateApiClient();
+        var publicSports = (await Json(await anonymous.GetAsync("api/sports"))).EnumerateArray().ToList();
+        // Công khai không lộ readiness; chỉ có dịch vụ đang bật.
+        Assert.All(publicSports, e => Assert.False(e.TryGetProperty("readiness", out var r) && r.ValueKind != JsonValueKind.Null));
         var publicNames = (await Json(await anonymous.GetAsync("api/sports"))).EnumerateArray().Select(e => e.GetProperty("name").GetString()).ToList();
         Assert.Contains(name, publicNames);
         Assert.Contains("Gym", publicNames);
@@ -61,28 +89,84 @@ public class SportCatalogTests(SchedulingApiFactory factory)
     }
 
     [Fact]
-    public async Task Sport_validation_uniqueness_and_immutable_operation_type()
+    public async Task Sport_validation_uniqueness_and_immutable_code()
     {
         var manager = await ManagerAsync();
 
-        var noDefaults = await manager.PostAsJsonAsync("api/manager/sports", new { name = Unique("Tennis"), operationType = "GroupCourse" });
+        var noDefaults = await manager.PostAsJsonAsync("api/manager/sports", new
+        {
+            code = UniqueCode(), name = Unique("Tennis"), services = new[] { new { serviceType = "GROUP_COURSE", isEnabled = true } }
+        });
         Assert.Equal("sport_group_course_defaults_required", await ErrorOf(noDefaults));
 
-        var badType = await manager.PostAsJsonAsync("api/manager/sports", new { name = Unique("X"), operationType = "Nope" });
-        Assert.Equal("invalid_operation_type", await ErrorOf(badType));
+        var badType = await manager.PostAsJsonAsync("api/manager/sports", new
+        {
+            code = UniqueCode(), name = Unique("X"), services = new[] { new { serviceType = "NOPE", isEnabled = true } }
+        });
+        Assert.Equal("service_type_invalid", await ErrorOf(badType));
+
+        var badCode = await manager.PostAsJsonAsync("api/manager/sports", new { code = "Bad Code!", name = Unique("Y"), services = Array.Empty<object>() });
+        Assert.Equal("sport_code_invalid", await ErrorOf(badCode));
+
+        // Membership/PT chỉ thuộc môn Gym: backend chặn, không chỉ ẩn ở UI.
+        var notGym = await manager.PostAsJsonAsync("api/manager/sports", new
+        {
+            code = UniqueCode(), name = Unique("Yoga"), services = new[] { new { serviceType = "PERSONAL_TRAINING", isEnabled = true } }
+        });
+        Assert.Equal("service_not_allowed_for_sport", await ErrorOf(notGym));
+
+        var defaultsOnRental = await manager.PostAsJsonAsync("api/manager/sports", new
+        {
+            code = UniqueCode(), name = Unique("Z"), services = new[] { new { serviceType = "COURT_RENTAL", isEnabled = true, defaultSessionMinutes = 60 } }
+        });
+        Assert.Equal("service_defaults_not_allowed", await ErrorOf(defaultsOnRental));
 
         var name = Unique("Squash");
-        var ok = await manager.PostAsJsonAsync("api/manager/sports", new { name, operationType = "OneOnOne" });
+        var code = UniqueCode();
+        var ok = await manager.PostAsJsonAsync("api/manager/sports", new { code, name, services = GroupCourse() });
         Assert.Equal(HttpStatusCode.Created, ok.StatusCode);
         var id = (await Json(ok)).GetProperty("sportId").GetInt32();
 
-        // Trùng tên khác hoa/thường.
-        var dup = await manager.PostAsJsonAsync("api/manager/sports", new { name = name.ToUpperInvariant(), operationType = "OneOnOne" });
+        // Trùng tên khác hoa/thường, trùng mã.
+        var dup = await manager.PostAsJsonAsync("api/manager/sports", new { code = UniqueCode(), name = name.ToUpperInvariant(), services = GroupCourse() });
         Assert.Equal(HttpStatusCode.Conflict, dup.StatusCode);
         Assert.Equal("sport_name_taken", await ErrorOf(dup));
+        var dupCode = await manager.PostAsJsonAsync("api/manager/sports", new { code = code.ToUpperInvariant(), name = Unique("W"), services = GroupCourse() });
+        Assert.Equal("sport_code_taken", await ErrorOf(dupCode));
 
-        var change = await manager.PutAsJsonAsync($"api/manager/sports/{id}", new { name, operationType = "WalkIn" });
-        Assert.Equal("sport_operation_type_immutable", await ErrorOf(change));
+        var change = await manager.PutAsJsonAsync($"api/manager/sports/{id}", new { code = UniqueCode(), name, services = GroupCourse() });
+        Assert.Equal("sport_code_immutable", await ErrorOf(change));
+    }
+
+    [Fact]
+    public async Task Disabling_one_service_keeps_the_others_and_unlisted_services_are_disabled_not_deleted()
+    {
+        var manager = await ManagerAsync();
+        var created = await manager.PostAsJsonAsync("api/manager/sports", new
+        {
+            code = UniqueCode(), name = Unique("Padel"), services = new object[]
+            {
+                new { serviceType = "GROUP_COURSE", isEnabled = true, defaultSessionMinutes = 90, defaultMaxCapacity = 8 },
+                new { serviceType = "COURT_RENTAL", isEnabled = true }
+            }
+        });
+        var id = (await Json(created)).GetProperty("sportId").GetInt32();
+
+        var off = await manager.PostAsync($"api/manager/sports/{id}/services/COURT_RENTAL/disable", null);
+        Assert.Equal(HttpStatusCode.OK, off.StatusCode);
+        var services = (await Json(off)).GetProperty("services").EnumerateArray().ToDictionary(
+            e => e.GetProperty("serviceType").GetString()!, e => e.GetProperty("isEnabled").GetBoolean());
+        Assert.False(services["COURT_RENTAL"]);
+        Assert.True(services["GROUP_COURSE"]);
+
+        // PUT chỉ liệt kê lớp: thuê sân không bị xóa mà bị tắt.
+        var put = await manager.PutAsJsonAsync($"api/manager/sports/{id}", new { name = Unique("Padel2"), services = GroupCourse(90, 8) });
+        Assert.Equal(HttpStatusCode.OK, put.StatusCode);
+        Assert.Equal(2, (await Json(put)).GetProperty("services").GetArrayLength());
+
+        // Dịch vụ chưa cấu hình thì không bật được.
+        var missing = await manager.PostAsync($"api/manager/sports/{id}/services/PERSONAL_TRAINING/enable", null);
+        Assert.Equal("service_not_configured", await ErrorOf(missing));
     }
 
     [Theory]
@@ -90,14 +174,13 @@ public class SportCatalogTests(SchedulingApiFactory factory)
     [InlineData(UserRole.Coach)]
     [InlineData(UserRole.Member)]
     [InlineData(UserRole.SystemAdministrator)]
-    [InlineData(UserRole.ExternalCoach)]
     public async Task Only_the_manager_writes_catalog(UserRole role)
     {
         var user = await factory.SeedUserAsync(role);
         var client = factory.CreateApiClient(user.UserId, role);
 
         Assert.Equal(HttpStatusCode.Forbidden,
-            (await client.PostAsJsonAsync("api/manager/sports", new { name = Unique("Z"), operationType = "WalkIn" })).StatusCode);
+            (await client.PostAsJsonAsync("api/manager/sports", new { code = UniqueCode(), name = Unique("Z"), services = Array.Empty<object>() })).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden,
             (await client.PostAsJsonAsync("api/manager/room-types", new { name = Unique("Z") })).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden,
@@ -115,7 +198,7 @@ public class SportCatalogTests(SchedulingApiFactory factory)
         var manager = await ManagerAsync();
         var name = Unique("Cờ \"vua\"\n2");
 
-        var sport = await manager.PostAsJsonAsync("api/manager/sports", new { name, operationType = "OneOnOne" });
+        var sport = await manager.PostAsJsonAsync("api/manager/sports", new { code = UniqueCode(), name, services = Array.Empty<object>() });
         Assert.Equal(HttpStatusCode.Created, sport.StatusCode);
 
         var type = await manager.PostAsJsonAsync("api/manager/room-types", new { name = Unique("Loại \"đặc biệt\"") });

@@ -40,7 +40,7 @@ public sealed class WalletQueryService(ISportHubDbContext db, IUserAccessReader 
     private async Task ValidateOwnerAsync(Guid ownerId, Guid? staffActorId, CancellationToken ct, bool manager)
     {
         var owner = await users.GetAsync(ownerId, ct);
-        if (owner is null || owner.Role is not ("Member" or "ExternalCoach") || (staffActorId.HasValue && !manager && owner.Role != "Member"))
+        if (owner is null || owner.Role != "Member")
             throw new NotFoundException("wallet_owner_not_found", "Không tìm thấy chủ ví hợp lệ.");
         if (staffActorId is Guid actor)
         {

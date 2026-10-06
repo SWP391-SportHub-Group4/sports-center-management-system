@@ -5,8 +5,9 @@ public sealed record CourtScheduleParticipant(Guid MemberId, string MemberName, 
 
 public sealed record CourtScheduleEntry([property: SportHub.BuildingBlocks.Api.WireEnum] string SourceType, Guid SourceId, int? RoomId,
     DateTime StartAtUtc, DateTime EndAtUtc, Guid? CoachId, string? CoachName,
-    string Title, [property: SportHub.BuildingBlocks.Api.WireEnum] string Status, int? ClassId, int? ExpectedAttendees,
-    IReadOnlyList<CourtScheduleParticipant> Participants);
+    string Title, [property: SportHub.BuildingBlocks.Api.WireEnum] string Status, int? ClassId,
+    IReadOnlyList<CourtScheduleParticipant> Participants,
+    Guid? MemberId = null, string? MemberName = null);
 
 /// <summary>Training supplies PT schedule data to authorized court-calendar orchestration.</summary>
 public interface IPtCourtScheduleReader

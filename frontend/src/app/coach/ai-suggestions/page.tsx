@@ -13,18 +13,13 @@ import {
   Table,
 } from "@/components/ui";
 import {
-  IconCalendar,
-  IconCheck,
   IconClipboard,
   IconClock,
   IconDumbbell,
-  IconHeartbeat,
   IconLightning,
-  IconQrCode,
   IconSparkles,
   IconTarget,
   IconUser,
-  StickerGoalTarget,
 } from "@/components/icons";
 import { api } from "@/lib/apiClient";
 import { formatDateTime, label } from "@/lib/format";

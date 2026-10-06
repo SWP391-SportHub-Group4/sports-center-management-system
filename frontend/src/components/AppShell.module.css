@@ -1,36 +1,176 @@
-.operations :global(.header) {
-  height: auto;
-  min-height: var(--header-height);
-  flex-wrap: wrap;
-  padding-top: 12px;
-  padding-bottom: 12px;
-}
-.operations :global(.header__title) {
+/* Phần riêng của khung nhân sự; header/nav dùng chung lớp trong MemberShell.module.css */
+.staffNav {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  flex: 1 1 auto;
   min-width: 0;
-  overflow-wrap: anywhere;
 }
-.operations :global(.header__actions) {
-  min-width: 0;
-  flex-wrap: wrap;
+.menuButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--bg-surface);
+  color: var(--text-strong);
+  cursor: pointer;
+  flex-shrink: 0;
 }
-.operations :global(.content) {
+@media (min-width: 1100px) {
+  .staffNav {
+    display: flex;
+  }
+  .menuButton {
+    display: none;
+  }
+}
+.main {
+  flex: 1;
   min-width: 0;
+  width: 100%;
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: var(--space-6) 24px var(--space-8);
+  box-sizing: border-box;
+}
+.main:focus {
+  outline: none;
+}
+.pageHeader {
+  margin-bottom: var(--space-5);
+}
+.pageHeader h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-4xl);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-snug);
+  color: var(--text-strong);
+}
+.pageHeader p {
+  margin: var(--space-2) 0 0;
+  color: var(--text-muted);
+}
+.main :global(.content) {
+  padding: 0;
+  max-width: none;
+}
+.group {
+  position: relative;
+}
+.groupButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  font-family: inherit;
+}
+.groupButton[aria-expanded="true"] {
+  background-color: var(--bg-surface-sunken);
+  color: var(--text-strong);
+}
+.groupMenu {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  z-index: 60;
+  min-width: 220px;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: 0 10px 28px rgb(9 14 15 / 0.14);
+}
+.groupLink {
+  display: block;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-body);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.groupLink:hover {
+  background: var(--bg-surface-sunken);
+  color: var(--text-strong);
+}
+.groupLinkActive {
+  background: var(--color-primary-soft);
+  color: var(--text-strong);
+  font-weight: 700;
+}
+.shortcutsButton {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  min-height: 38px;
+  padding: 0 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  color: var(--text-strong);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.shortcutsButton:hover {
+  background: var(--bg-surface-sunken);
+}
+@media (min-width: 1100px) {
+  .shortcutsButton {
+    display: inline-flex;
+  }
+}
+.drawerGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: var(--space-3);
+}
+.drawerGroupLabel {
+  margin: 0;
+  padding: 0 12px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
 }
 @media (max-width: 600px) {
-  .operations :global(.header) {
-    align-items: flex-start;
+  .main {
+    padding: var(--space-5) 16px var(--space-7);
   }
-  .operations :global(.header__title),
-  .operations :global(.header__actions) {
-    width: 100%;
+  .pageHeader h1 {
+    font-size: var(--text-3xl);
   }
-  .operations :global(.header__actions) {
-    gap: 8px;
-  }
-  .operations :global(.header__user) {
-    flex: 1 0 140px;
-    min-width: 0;
-    text-align: left;
-    overflow-wrap: anywhere;
+}
+
+/* Nhãn vai trò cạnh logo: ẩn khi hẹp để không đẩy nút menu ra ngoài màn hình. */
+.roleBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: var(--radius-sm);
+  background: var(--color-primary-soft);
+  color: var(--text-strong);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  line-height: 1.2;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+@media (max-width: 560px) {
+  .roleBadge {
+    display: none;
   }
 }

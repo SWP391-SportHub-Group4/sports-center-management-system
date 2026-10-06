@@ -1,10 +1,29 @@
 "use client";
-import { OperationsPage } from "@/features/operations/ui";
+import { Suspense } from "react";
+import { useSearchParams } from "next/navigation";
+import { AppShell } from "@/components/AppShell";
 import { AttendanceBoard } from "@/components/AttendanceBoard";
-export default function Page() {
+import { Loading } from "@/components/ui";
+import { useLanguage } from "@/lib/language";
+
+function Board() {
+  const params = useSearchParams();
   return (
-    <OperationsPage title="attendance" roles={["Receptionist"]}>
-      <AttendanceBoard coachOnly={false} />
-    </OperationsPage>
+    <AttendanceBoard
+      coachOnly={false}
+      initialDate={params.get("date")}
+      initialSessionId={params.get("session")}
+    />
+  );
+}
+
+export default function Page() {
+  const { t } = useLanguage();
+  return (
+    <AppShell title={t.operations.attendance} allow={["Receptionist"]}>
+      <Suspense fallback={<Loading />}>
+        <Board />
+      </Suspense>
+    </AppShell>
   );
 }

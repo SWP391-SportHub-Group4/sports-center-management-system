@@ -1,5 +1,21 @@
 /* Ô nhập xác thực: icon đầu ô + nhãn bay. Chỉ dùng token semantic (styles/tokens.css). */
 
+.group {
+  min-width: 0;
+}
+
+.errorSlot {
+  min-height: 20px;
+  margin-top: 4px;
+}
+
+.error {
+  margin: 0;
+  color: var(--danger-text);
+  font-size: var(--text-xs);
+  line-height: 20px;
+}
+
 .field {
   position: relative;
 }

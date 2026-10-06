@@ -3,7 +3,6 @@ import type {
   CourtRentalDto,
   CourtRentalPolicyDto,
   CourtRentalDetailDto,
-  ExternalCoachProfileDto,
   RentalAvailabilityDto,
 } from "@/lib/types";
 export const rentalApi = {
@@ -11,8 +10,6 @@ export const rentalApi = {
     api.get<CourtRentalPolicyDto>("/api/court-rentals/policy", { signal }),
   detail: (id: string, signal?: AbortSignal) =>
     api.get<CourtRentalDetailDto>(`/api/court-rentals/${id}`, { signal }),
-  profile: (signal?: AbortSignal) =>
-    api.get<ExternalCoachProfileDto>("/api/external-coaches/me", { signal }),
   mine: (fromUtc: string, toUtc: string, signal?: AbortSignal) =>
     api.get<CourtRentalDto[]>("/api/court-rentals/mine", {
       signal,

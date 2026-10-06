@@ -42,7 +42,6 @@ export const courtScheduleApi = {
           title: s.memberName,
           status: s.status,
           classId: null,
-          expectedAttendees: null,
           participants: [
             {
               memberId: s.memberId,

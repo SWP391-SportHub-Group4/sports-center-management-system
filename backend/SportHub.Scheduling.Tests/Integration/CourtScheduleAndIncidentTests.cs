@@ -60,7 +60,7 @@ public sealed class CourtScheduleAndIncidentTests(SchedulingApiFactory factory)
         Assert.NotEmpty(entries);
         Assert.All(entries, x => { Assert.Equal(own.Id, x.ClassId); Assert.Equal("ClassSession", x.SourceType); });
         Assert.DoesNotContain(member.UserId.ToString(), await response.Content.ReadAsStringAsync());
-        foreach (var role in new[] { UserRole.Coach, UserRole.Member, UserRole.ExternalCoach, UserRole.SystemAdministrator })
+        foreach (var role in new[] { UserRole.Coach, UserRole.Member, UserRole.SystemAdministrator })
         {
             var user = await factory.SeedUserAsync(role);
             using var client = factory.CreateApiClient(user.UserId, role);

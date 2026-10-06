@@ -1,10 +1,6 @@
-"use client";
-import { OperationsPage } from "@/features/operations/ui";
-import { MemberDesk } from "@/features/receptionist/front-desk";
+import { redirect } from "next/navigation";
+
+/** Tuyến cũ: đăng ký khóa nay là tab Khóa học nhóm của Bán dịch vụ. Giữ bookmark. */
 export default function Page() {
-  return (
-    <OperationsPage title="registration" roles={["Receptionist"]}>
-      <MemberDesk mode="courses" />
-    </OperationsPage>
-  );
+  redirect("/receptionist/sales?tab=courses");
 }

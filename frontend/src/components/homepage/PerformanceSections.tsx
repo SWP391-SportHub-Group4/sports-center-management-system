@@ -114,40 +114,39 @@ export function PerformanceSections({ language }: { language: Language }) {
   const t = copy[language];
   const { user, loading: authLoading } = useAuth();
   const destination = user ? HOME_BY_ROLE[user.role] : "/login";
+
   return (
-    <>
-      <section className={styles.hero} aria-labelledby="performance-title">
-        <div className={styles.heroCopy}>
-          <h1 id="performance-title">{t.title}</h1>
-          <p className={styles.heroLead}>{t.lead}</p>
-          <nav
-            className={styles.heroActions}
-            aria-label={
+    <section className={styles.hero} aria-labelledby="performance-title">
+      <div className={styles.heroCopy}>
+        <h1 id="performance-title">{t.title}</h1>
+        <p className={styles.heroLead}>{t.lead}</p>
+        <nav
+          className={styles.heroActions}
+          aria-label={
             language === "vi"
               ? "Bắt đầu với SportHub"
               : "Get started with SportHub"
-            }
-          >
-            <MagneticAccountLink
-              label={authLoading ? t.start : user ? t.enter : t.start}
-              href={destination}
-              disabled={authLoading}
-            />
-          </nav>
-        </div>
-
-        <div className={styles.heroImage}>
-          <Image
-            src="/sporthub/court-volt/hero-community.png"
-            alt={t.aiAlt}
-            fill
-            priority
-            sizes="(max-width: 767px) 100vw, 58vw"
+          }
+        >
+          <MagneticAccountLink
+            label={authLoading ? t.start : user ? t.enter : t.start}
+            href={destination}
+            disabled={authLoading}
           />
-          <span className={styles.imageFrame} aria-hidden="true" />
-          <span className={styles.imageGlint} aria-hidden="true" />
-        </div>
-      </section>
-    </>
+        </nav>
+      </div>
+
+      <div className={styles.heroImage}>
+        <Image
+          src="/sporthub/court-volt/hero-community.png"
+          alt={t.aiAlt}
+          fill
+          priority
+          sizes="(max-width: 767px) 100vw, 58vw"
+        />
+        <span className={styles.imageFrame} aria-hidden="true" />
+        <span className={styles.imageGlint} aria-hidden="true" />
+      </div>
+    </section>
   );
 }

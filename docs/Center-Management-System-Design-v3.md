@@ -14,8 +14,8 @@ Tài liệu này mô tả độc lập phạm vi, kiến trúc, dữ liệu, lu�
 |---|---|---|---|
 | Gym | Tập tự do | Membership có thời hạn | Check-in/out tại quầy khi gói có hiệu lực |
 | Gym | PT một Coach — một Member | Gói PT riêng, cần Membership Active | Quota buổi tập, lịch PT, kế hoạch, kết quả, homework |
-| Cầu lông | Khóa học; thuê sân | Gói cả khóa hoặc lượt thuê | Ghi danh nhiều buổi; ExternalCoach Approved được thuê sân |
-| Bóng rổ | Khóa học; thuê sân | Gói cả khóa hoặc lượt thuê | Ghi danh nhiều buổi; ExternalCoach Approved được thuê sân |
+| Cầu lông | Khóa học; thuê sân | Gói cả khóa hoặc lượt thuê | Ghi danh nhiều buổi; Member được thuê sân khung trống |
+| Bóng rổ | Khóa học; thuê sân | Gói cả khóa hoặc lượt thuê | Ghi danh nhiều buổi; Member được thuê sân khung trống |
 
 Membership chỉ cấp quyền vào Gym và là điều kiện mua PT. Khóa cầu lông/bóng rổ mua độc lập Membership. PT dùng domain riêng, không lưu buổi tập vào Class/ClassSession/Enrollment.
 
@@ -23,23 +23,22 @@ Membership chỉ cấp quyền vào Gym và là điều kiện mua PT. Khóa c�
 
 Môn, chuyên môn Coach, loại phòng/sân, giờ mở cửa và giá là dữ liệu cấu hình. Thêm môn dùng hình thức vận hành đã hỗ trợ phải tái sử dụng luồng lịch, mua dịch vụ, thanh toán và báo cáo; không rẽ nhánh nghiệp vụ theo tên môn hoặc ID seed cố định. Môn có quy tắc khác cần bổ sung validation, thiết kế và kiểm thử.
 
-**Khoảng cách với mã hiện tại:** `SportOperationType` đang có `WalkIn`, `OneOnOne`, `GroupCourse`; seed có Gym, Personal Training, Cầu lông, Bóng rổ. Đây là bốn bản ghi kỹ thuật, không phải bốn môn sản phẩm. Thiết kế đích tách danh tính môn khỏi hình thức dịch vụ, để Gym hỗ trợ tập tự do và PT. Cần migration ánh xạ PT về Gym, bảo toàn specialty, giá, FK, invoice snapshot và báo cáo. Không xóa record PT hoặc sửa ID trực tiếp trên dữ liệu đã có giao dịch.
+**Mô hình đã triển khai (CAT-01):** môn (`sports`, có `code` bất biến) tách khỏi dịch vụ (`sport_service_offerings`: `MEMBERSHIP_ACCESS`, `GROUP_COURSE`, `COURT_RENTAL`, `PERSONAL_TRAINING`). Ba môn seed là Gym (Membership và PT), Cầu lông và Bóng rổ (khóa học nhóm và thuê sân); PT không còn là môn riêng. Membership và PT chỉ bật được ở môn có mã `gym`, kiểm ở backend. Mặc định thời lượng và sĩ số lớp nằm trên dịch vụ `GROUP_COURSE`. Quyền PT của Coach đến từ `coach_service_qualifications` (không suy ra từ chuyên môn Gym) và phòng PT từ `service_room_types`. Tắt môn hoặc dịch vụ chỉ chặn giao dịch mới, không hủy hay sửa thứ đã bán; fulfillment của hóa đơn đã tạo vẫn chạy. Manager thêm môn có lớp hoặc thuê sân bằng cấu hình, không sửa code. Chi tiết API ở [api-contract](api-contract.md).
 
 ### 1.3 Ranh giới
 
 Trong phạm vi: tài khoản, Membership Gym, PT, môn/sân, khóa học, lịch, điểm danh, thuê sân, payment/ví điểm, hoàn điểm, thông báo, báo cáo và AI hỗ trợ.
 
-Ngoài phạm vi: đa chi nhánh, payroll/hợp đồng nhân sự, chia doanh thu với ExternalCoach, quản lý học viên riêng của ExternalCoach, mobile native, hoàn tiền mặt/chuyển khoản, VNPay Refund API và cổng thanh toán production. Gói dịch vụ bổ sung và waitlist tự giữ chỗ chưa thuộc phạm vi. “Chờ đợt sau” là hoàn điểm và lưu nguyện vọng nhận thông báo, không phải giữ chỗ tương lai.
+Ngoài phạm vi: đa chi nhánh, payroll/hợp đồng nhân sự, gym bên ngoài, chia doanh thu với người thuê sân, quản lý người đi cùng khi Member thuê sân, mobile native, hoàn tiền mặt/chuyển khoản, VNPay Refund API và cổng thanh toán production. Gói dịch vụ bổ sung và waitlist tự giữ chỗ chưa thuộc phạm vi. “Chờ đợt sau” là hoàn điểm và lưu nguyện vọng nhận thông báo, không phải giữ chỗ tương lai.
 
 ## 2. Vai trò và quyền hạn
 
 | Vai trò | Trách nhiệm | Giới hạn |
 |---|---|---|
 | Guest | Xem thông tin trung tâm, môn, khóa/gói công khai; đăng ký | Không phải role tài khoản; không đọc roster, ví hoặc lịch cá nhân |
-| Member | Mua dịch vụ; xem lịch, quyền lợi, hóa đơn, ví; yêu cầu hỗ trợ | Chỉ dữ liệu của mình; không tự xác nhận payment |
+| Member | Mua dịch vụ; thuê/hủy sân còn trống; xem lịch, quyền lợi, hóa đơn, ví; yêu cầu hỗ trợ | Chỉ dữ liệu của mình; không tự xác nhận payment |
 | Receptionist | Tiếp đón, Gym check-in/out, điểm danh lớp, checkout hộ | Dùng điểm hộ cần OTP Member; không tự cấp điểm hoặc duyệt refund |
 | Coach | Xem lịch được giao; Coach PT lập plan, ghi result, giao homework | Chỉ lớp/học viên được phân công; kiểm cả role và quan hệ |
-| ExternalCoach | Đăng ký chờ duyệt, xem sân phù hợp, quản lý lượt thuê | Cần Approved; không quản lý/điểm danh học viên riêng |
 | CenterManager | Môn/sân, Coach/chuyên môn, lớp/lịch, sự cố, hoàn điểm, báo cáo | Theo mức hệ thống tính; không tự duyệt yêu cầu của mình |
 | SystemAdministrator | Tài khoản nhân sự, role, khóa/mở tài khoản | Không mặc nhiên có quyền tài chính hoặc hồ sơ tập luyện |
 
@@ -51,7 +50,7 @@ Next.js phục vụ frontend; ASP.NET Core phục vụ API; PostgreSQL lưu dữ
 
 | Module | Trách nhiệm |
 |---|---|
-| `SportHub.Identity` | Account, credential, profile, external login, OTP, ExternalCoach, chuyên môn |
+| `SportHub.Identity` | Account, credential, profile, external login, OTP, chuyên môn |
 | `SportHub.Membership` | Catalog Membership, gói đã mua, hiệu lực và gia hạn |
 | `SportHub.Scheduling` | Môn/phòng/giá, lớp, ghi danh, giữ chỗ, occupancy, thuê sân, sự cố, Gym check-in |
 | `SportHub.Training` | Quan hệ Coach–Member, PT entitlement/session/change request, plan/result/homework |
@@ -72,7 +71,7 @@ Controller xác thực request; application service kiểm nghiệp vụ và tra
 | Nhóm | Thực thể | Quy tắc |
 |---|---|---|
 | Danh tính | UserAccount, UserCredential, UserProfile, UserExternalLogin, EmailOtp | Tách account/auth/profile; FK nghiệp vụ trỏ account |
-| Coach | CoachProfile, UserSportSpecialty, ExternalCoachProfile | Nhiều chuyên môn; approval độc lập role |
+| Coach | CoachProfile, UserSportSpecialty | Nhiều chuyên môn |
 | Catalog | Sport, RoomType, SportRoomType, Room, RoomOpeningHour, RoomBlock, CourtRate | Môn tương thích loại phòng; giờ/giá do trung tâm cấu hình |
 | Membership | MembershipPackage, MemberPackage | Catalog khác quyền lợi đã mua; snapshot thời hạn |
 | Khóa học | Class, ClassScheduleRule, ClassSession, Enrollment, Attendance | Lớp có nhiều buổi; ghi danh cả lớp; attendance unique theo enrollment/session |
@@ -80,7 +79,7 @@ Controller xác thực request; application service kiểm nghiệp vụ và tra
 | Ngưỡng lớp | ThresholdResponse | Token hash, deadline, choice, resolution; bảng class_threshold_responses |
 | PT | CoachMemberRelationship, PtEntitlement, PtSession, PtSessionChangeRequest, PtCoachChangeRequest | Quota/lịch thuộc Training; phòng PT có thể nullable |
 | Tập luyện | WorkoutPlan, WorkoutPlanItem, WorkoutResult, HomeworkAssignment, HomeworkAssignmentItem | Result gắn buổi PT; plan có lifecycle |
-| Thuê sân | CourtRental, IncidentNotice | Môn, phòng, ExternalCoach, khoảng giờ, invoice/item |
+| Thuê sân | CourtRental, IncidentNotice | Môn, phòng, Member thuê, khoảng giờ, invoice/item |
 | Thanh toán | Invoice, InvoiceItem, CheckoutSession, PaymentAttempt, Payment, VerifiedGatewayEvent | Tách nghĩa vụ mua, cycle, lần thử, tiền xác minh, inbox callback |
 | Điểm/hoàn | PointWallet, PointLedgerEntry, PointConfirmation, PaymentAdjustment | Ledger phát sinh; OTP ủy quyền; refund theo item, không thêm bảng Refund song song |
 | Hỗ trợ | Notification, AuditLog, AiLog, SystemSetting, ReportExport | Thông báo, truy vết, cấu hình và xuất báo cáo |
@@ -116,7 +115,7 @@ erDiagram
     PointWallet ||--o{ PointLedgerEntry : records
 ```
 
-- API `beneficiaryUserId` là Member hoặc ExternalCoach; entity `Invoice.MemberId`/cột `member_id` giữ tương thích, không suy role từ tên field.
+- API `beneficiaryUserId` là Member; entity `Invoice.MemberId`/cột `member_id` giữ tương thích, không suy role từ tên field.
 - InvoiceItem có typed FK `ClassId`, `CourtRentalId`, `PtEntitlementId`, `MemberPackageId`, `SportId`; `RelatedEntityId` giữ cho lịch sử có kiểm soát, không dùng để đoán FK.
 - Giá, tên môn, tần suất PT và `MemberPackage.DurationDaysSnapshot` được snapshot tại checkout. Sửa catalog không đổi quyền lợi đã mua.
 - `SourceInvoiceItemId`/`TransferDifferenceInvoiceItemId` giữ chuỗi giá trị chuyển lớp và cap refund.
@@ -130,11 +129,11 @@ Chi tiết tại [từ điển dữ liệu](entity-field-purpose.md) và [API co
 
 ### 5.1 Tài khoản và Membership Gym
 
-Đăng ký Member bằng email dùng OTP; ExternalCoach cần Manager duyệt thêm. Tài khoản nhân sự được tạo theo policy. Đổi/reset mật khẩu và khóa tài khoản phải vô hiệu phiên không còn hợp lệ.
+Đăng ký Member bằng email dùng OTP. Tài khoản nhân sự được tạo theo policy. Đổi/reset mật khẩu và khóa tài khoản phải vô hiệu phiên không còn hợp lệ.
 
-**Quên mật khẩu (BR-103) — đã triển khai bằng link email, không dùng OTP:** `POST /api/auth/password/forgot` luôn trả 204 trung tính (không lộ email nào đã đăng ký; email không tồn tại, bị khóa hay đang chờ gửi lại đều như nhau). Với tài khoản Active, hệ thống tạo token ngẫu nhiên 256-bit, chỉ lưu SHA-256 trong `EmailOtp` (purpose `ResetPassword`), hạn 10 phút, dùng một lần, chỉ link mới nhất hợp lệ, gửi lại sau 60 giây; email mang nút tới `{Frontend:BaseUrl}/reset-password?email=&token=`. `POST /api/auth/password/reset` nhận `{email, token, newPassword, confirmNewPassword}`, tiêu token và đổi security stamp trong cùng transaction. Giao diện: `/forgot-password` (thông điệp trung tính, cooldown 60 giây gắn theo từng email, đổi email gửi được ngay) và `/reset-password` (ô mật khẩu có con mắt, ba trạng thái form/thành công/link hỏng). Đăng ký Member và ExternalCoach vẫn dùng OTP 6 số. *Chưa có:* email thông báo "mật khẩu đã thay đổi" mà BR-103/104 mô tả.
+**Quên mật khẩu (BR-103) — đã triển khai bằng link email, không dùng OTP:** `POST /api/auth/password/forgot` luôn trả 204 trung tính (không lộ email nào đã đăng ký; email không tồn tại, bị khóa hay đang chờ gửi lại đều như nhau). Với tài khoản Active, hệ thống tạo token ngẫu nhiên 256-bit, chỉ lưu SHA-256 trong `EmailOtp` (purpose `ResetPassword`), hạn 10 phút, dùng một lần, chỉ link mới nhất hợp lệ, gửi lại sau 60 giây; email mang nút tới `{Frontend:BaseUrl}/reset-password?email=&token=`. `POST /api/auth/password/reset` nhận `{email, token, newPassword, confirmNewPassword}`, tiêu token và đổi security stamp trong cùng transaction. Giao diện: `/forgot-password` (thông điệp trung tính, cooldown 60 giây gắn theo từng email, đổi email gửi được ngay) và `/reset-password` (ô mật khẩu có con mắt, ba trạng thái form/thành công/link hỏng). Đăng ký Member vẫn dùng OTP 6 số. *Chưa có:* email thông báo "mật khẩu đã thay đổi" mà BR-103/104 mô tả.
 
-**Ngôn ngữ giao diện:** các trang xác thực (`/login`, `/register`, `/register-external-coach`, `/forgot-password`, `/reset-password`) luôn tiếng Anh, không đọc ngôn ngữ đã lưu và không có nút đổi ngôn ngữ; phần còn lại giữ EN/VI.
+**Ngôn ngữ giao diện:** các trang xác thực (`/login`, `/register`, `/forgot-password`, `/reset-password`) luôn tiếng Anh, không đọc ngôn ngữ đã lưu và không có nút đổi ngôn ngữ; phần còn lại giữ EN/VI.
 
 Chọn Membership → snapshot và checkout → payment xác minh → kích hoạt gói. Receptionist check-in/out dựa trên hiệu lực gói. Không dùng SessionLimit/RemainingSessions legacy để giới hạn vào Gym. Gia hạn giữ snapshot quyền lợi, xử lý gói nối tiếp và carry-over PT theo Business Rules.
 
@@ -145,6 +144,8 @@ Membership Active → chọn Coach có chuyên môn, lấy PT quote → checkout
 Coach ghi kết quả/plan/homework cho học viên được giao. Đổi/hủy/đổi Coach qua change request. Member self-booking và slot availability chưa có đầy đủ API, không mô tả là đã triển khai.
 
 ### 5.3 Khóa cầu lông và bóng rổ
+
+**Seed lịch cố định (BR-141):** Bóng rổ 01 Thứ 2-4-6 07:00–09:00, Bóng rổ 02 Thứ 3-5-7 14:00–16:00; Cầu lông 01/02 cùng khung giờ trên sân cầu lông riêng. Khung còn lại mở cho Member thuê (mục 5.5); Manager có thể thêm lớp/sân vào khung khác sau.
 
 Manager tạo lớp, nhiều buổi, phòng và Coach phù hợp → publish → Member mua cả khóa → giữ chỗ TTL → payment thành công tạo Enrollment → Receptionist điểm danh từng buổi.
 
@@ -160,9 +161,9 @@ Chuyển lớp kiểm tra chỗ, điều kiện lớp đích và chuỗi giá tr
 
 ### 5.5 Thuê sân
 
-ExternalCoach Approved chọn môn/sân/giờ/số người → kiểm giờ mở cửa, sức chứa, giá, occupancy → snapshot giá theo block giờ → giữ sân/Coach → checkout → xác nhận rental.
+Member chọn môn/sân/giờ trong khung trống (khung lớp cố định theo BR-141 không cho thuê) → kiểm giờ mở cửa, giá, occupancy → snapshot giá theo block giờ → giữ sân → checkout → xác nhận rental. Không khai báo số người, không giới hạn số người, không quan tâm mục đích sử dụng.
 
-Hủy/hết hạn giải phóng occupancy đúng một lần. Hủy đủ hạn hoặc lỗi trung tâm hoàn điểm theo rule; không hoàn qua gateway. Không lưu roster học viên riêng của ExternalCoach.
+Hủy/hết hạn giải phóng occupancy đúng một lần. Hủy đủ hạn hoặc lỗi trung tâm hoàn điểm theo rule; không hoàn qua gateway. Không lưu roster hay số người đi cùng của Member thuê sân.
 
 ### 5.6 Sự cố
 
@@ -302,7 +303,8 @@ G01–G13 trỏ [phân công API theo page/owner](../DESIGN-SKILLS-GUIDE.md#api-
 
 | ID | Khoảng trống | Việc cần hoàn thành |
 |---|---|---|
-| CAT-01 | Tách môn Gym khỏi dịch vụ PT trong schema/seed | Migration bảo toàn specialty/FK/invoice/report; ba môn sản phẩm |
+| CAT-01 | Môn nhiều dịch vụ, PT là dịch vụ của Gym | Đã có schema, migration, API và UI. Gỡ qualification PT hoặc liên kết loại phòng bị chặn khi còn buổi PT tương lai (`qualification_in_use`, `service_in_use_by_future_schedule`). Còn thiếu: test callback muộn khi dịch vụ đã tắt; chưa chạy test tích hợp backend (cần Docker) |
+| CAT-02 | Thuê sân là chức năng của Member; lịch lớp cố định BR-141 | Đã có code, migration và seed riêng (`dotnet run -- --seed-br141=true`). Còn thiếu: test tích hợp backend và nghiệm thu E2E với PostgreSQL thật |
 | G01 | Public sân, availability/giá, Coach profile và PT pricing đầy đủ | DTO public an toàn, giá/availability tính server |
 | G02 | Chờ đợt sau + subscription | Hoàn 100% điểm một lần, lưu nguyện vọng, không giữ chỗ/ghi danh tự động |
 | G03 | Manager AI xếp lịch/tool calling/tạo nháp | Endpoint/service, xác nhận người dùng, recheck quyền/occupancy, audit |
@@ -321,7 +323,7 @@ G01–G13 trỏ [phân công API theo page/owner](../DESIGN-SKILLS-GUIDE.md#api-
 
 ### 13.3 Thứ tự xử lý
 
-Ưu tiên PAY-03/G12, sau đó nghiệm thu payment sandbox/QueryDR và bảo toàn dữ liệu. Thiết kế CAT-01 trước khi đổi seed/báo cáo. Triển khai G02 và contract cần cho frontend theo phụ thuộc; Manager AI và màn bổ sung theo kế hoạch. Chỉ đóng từng mục khi có mã, test và evidence phù hợp.
+Ưu tiên PAY-03/G12, sau đó nghiệm thu payment sandbox/QueryDR và bảo toàn dữ liệu. Triển khai G02 và contract cần cho frontend theo phụ thuộc; Manager AI và màn bổ sung theo kế hoạch. Chỉ đóng từng mục khi có mã, test và evidence phù hợp.
 
 ## 14. Nguồn và quy tắc duy trì
 

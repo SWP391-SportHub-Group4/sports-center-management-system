@@ -18,11 +18,11 @@ public class RevenueReportsController(IRevenueReportService revenue) : Controlle
     [HttpGet("revenue-dimensions")]
     public async Task<IActionResult> Dimensions(
         [FromQuery] DateOnly fromDate, [FromQuery] DateOnly toDate,
-        [FromQuery] int? sportId, [FromQuery] string? source, [FromQuery] Guid? externalCoachId,
+        [FromQuery] int? sportId, [FromQuery] string? source, [FromQuery] Guid? memberId,
         CancellationToken ct = default)
     {
         var report = await revenue.GetAsync(fromDate, toDate, ct);
-        var rows = RevenueDimensionFilter.Apply(report.BySportAndSource, sportId, source, externalCoachId);
+        var rows = RevenueDimensionFilter.Apply(report.BySportAndSource, sportId, source, memberId);
         return Ok(new { report.FromDate, report.ToDate, Rows = rows,
             CashCollected = rows.Sum(r => r.CashCollected), PointsRedeemedVnd = rows.Sum(r => r.PointsRedeemed) * 1000m });
     }

@@ -1,278 +1,118 @@
-﻿"use client";
-import { PasswordInput } from "@/components/primitives";
-import { pagedItems } from "@/lib/paged";
+"use client";
 import { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
-import { AsyncSection, Card, Field, StatusChip, Table } from "@/components/ui";
-import {
-  MutationFeedback,
-  Pagination,
-  useMutation,
-} from "@/features/operations";
-import { PasswordRequirements, passwordChecks } from "@/features/identity";
-import { SpecialtyEditor } from "./specialty-editor";
+import { useUrlQuery, pageQuery } from "@/lib/useUrlQuery";
+import { ApiTable, FilterBar, StatusChip } from "@/components/data";
 import { catalogApi } from "@/features/catalog";
+import { CoachEditor } from "./coach-editor";
 import type { CoachAdminDto, Paged } from "@/lib/types";
 export function CoachesManager() {
   const { t } = useLanguage();
   const l = t.operations;
-  const [page, setPage] = useState(1);
-  const [keyword, setKeyword] = useState("");
-  const [sportId, setSport] = useState("");
-  const state = useApi(
-    (s) =>
-      api.get<Paged<CoachAdminDto>>("/api/manager/coaches", {
-        signal: s,
-        query: { page, pageSize: 20, keyword, sportId },
-      }),
-    [page, keyword, sportId],
+  const router = useRouter();
+  const [editing, setEditing] = useState<CoachAdminDto | null | undefined>(
+    undefined,
   );
-  const sports = useApi((s) => catalogApi.sports(s, true), []);
-  const mutation = useMutation();
-  const empty = {
-    email: "",
-    password: "",
-    confirmPassword: "",
-    fullName: "",
-    phone: "",
-    bio: "",
-    sportIds: [] as number[],
-  };
-  const [form, setForm] = useState(empty);
-  const [id, setId] = useState<string | null>(null);
-  const valid =
-    form.sportIds.length > 0 &&
-    (id ||
-      (passwordChecks(form.password, form.email).every(Boolean) &&
-        form.password === form.confirmPassword));
+  const { values, setValues } = useUrlQuery(
+    { keyword: "", sportId: "", page: "1" },
+    { page: pageQuery },
+  );
+  const page = Number(values.page);
+  const state = useApi(
+    (signal) =>
+      api.get<Paged<CoachAdminDto>>("/api/manager/coaches", {
+        signal,
+        query: { ...values, page, pageSize: 20 },
+      }),
+    [values.keyword, values.sportId, page],
+  );
+  const sports = useApi((signal) => catalogApi.sports(signal, true), []);
   return (
     <>
-      <Card>
-        <form
-          onSubmit={async (e) => {
-            e.preventDefault();
-            if (!valid) return;
-            if (
-              await mutation.run(() =>
-                id
-                  ? api.put(`/api/manager/coaches/${id}`, {
-                      fullName: form.fullName,
-                      phone: form.phone,
-                      bio: form.bio,
-                      sportIds: form.sportIds,
-                    })
-                  : api.post("/api/manager/coaches", {
-                      email: form.email,
-                      password: form.password,
-                      fullName: form.fullName,
-                      phone: form.phone || null,
-                      bio: form.bio,
-                      sportIds: form.sportIds,
-                    }),
-              )
-            ) {
-              state.reload();
-              setId(null);
-              setForm(empty);
-            }
-          }}
-        >
-          {!id && (
-            <>
-              <div className="form-grid">
-                <Field label={l.email}>
-                  <input
-                    required
-                    type="email"
-                    autoComplete="off"
-                    value={form.email}
-                    onChange={(e) =>
-                      setForm({ ...form, email: e.target.value })
-                    }
-                  />
-                </Field>
-                <Field label={l.fullName}>
-                  <input
-                    required
-                    value={form.fullName}
-                    onChange={(e) =>
-                      setForm({ ...form, fullName: e.target.value })
-                    }
-                  />
-                </Field>
-                <Field label={l.phone}>
-                  <input
-                    type="tel"
-                    value={form.phone}
-                    onChange={(e) =>
-                      setForm({ ...form, phone: e.target.value })
-                    }
-                  />
-                </Field>
-                <Field label={l.password}>
-                  <PasswordInput
-                    required
-
-                    autoComplete="new-password"
-                    maxLength={64}
-                    value={form.password}
-                    onChange={(e) =>
-                      setForm({ ...form, password: e.target.value })
-                    }
-                  />
-                </Field>
-                <Field label={l.confirmPassword}>
-                  <PasswordInput
-                    required
-
-                    autoComplete="new-password"
-                    value={form.confirmPassword}
-                    onChange={(e) =>
-                      setForm({ ...form, confirmPassword: e.target.value })
-                    }
-                  />
-                </Field>
-              </div>
-              <PasswordRequirements
-                password={form.password}
-                email={form.email}
-              />
-            </>
-          )}
-          {id && (
-            <div className="form-grid">
-              <p>{form.email}</p>
-              <Field label={l.fullName}>
-                <input
-                  required
-                  minLength={2}
-                  maxLength={100}
-                  value={form.fullName}
-                  onChange={(e) =>
-                    setForm({ ...form, fullName: e.target.value })
-                  }
-                />
-              </Field>
-              <Field label={l.phone}>
-                <input
-                  type="tel"
-                  value={form.phone}
-                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                />
-              </Field>
-            </div>
-          )}
-          <Field label={l.bio}>
-            <textarea
-              maxLength={1000}
-              value={form.bio}
-              onChange={(e) => setForm({ ...form, bio: e.target.value })}
-            />
-          </Field>
-          <AsyncSection state={sports}>
-            {(rows) => (
-              <SpecialtyEditor
-                sports={rows}
-                value={form.sportIds}
-                onChange={(sportIds) => setForm({ ...form, sportIds })}
-              />
-            )}
-          </AsyncSection>
-          {id && <p className="alert alert--info">{l.specialtyWarning}</p>}
-          <div className="btn-row">
-            <button className="btn" disabled={mutation.busy || !valid}>
-              {id ? l.save : l.create}
-            </button>
-            <button
-              className="btn btn--secondary"
-              type="button"
-              onClick={() => {
-                setId(null);
-                setForm(empty);
-              }}
-            >
-              {id ? l.cancel : l.resetForm}
-            </button>
-          </div>
-        </form>
-        <MutationFeedback mutation={mutation} />
-      </Card>
-      <div className="form-grid">
-        <Field label={l.search}>
-          <input
-            value={keyword}
-            onChange={(e) => {
-              setKeyword(e.target.value);
-              setPage(1);
-            }}
-          />
-        </Field>
-        <Field label={l.sport}>
-          <select
-            value={sportId}
-            onChange={(e) => {
-              setSport(e.target.value);
-              setPage(1);
-            }}
-          >
-            <option value="">{l.all}</option>
-            {sports.data?.map((s) => (
-              <option key={s.sportId} value={s.sportId}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-        </Field>
-      </div>
-      <AsyncSection state={state}>
-        {(data) => (
+      <FilterBar
+        fields={[
+          { id: "keyword", label: l.search, kind: "search" },
+          {
+            id: "sportId",
+            label: l.sport,
+            kind: "select",
+            options: [
+              { value: "", label: l.all },
+              ...(sports.data ?? []).map((s) => ({
+                value: String(s.sportId),
+                label: s.name,
+              })),
+            ],
+          },
+        ]}
+        values={values}
+        onChange={(next) => setValues({ ...next, page: "1" })}
+        onReset={() => setValues({ keyword: "", sportId: "", page: "1" })}
+        actions={
+          <button className="btn" onClick={() => setEditing(null)}>
+            {l.create}
+          </button>
+        }
+      />
+      {sports.error && <p role="alert">{sports.error.message}</p>}
+      <ApiTable
+        state={state}
+        caption={l.coaches}
+        page={page}
+        pageSize={20}
+        onPageChange={(page) => setValues({ page: String(page) })}
+        getRowId={(c) => c.userId}
+        columns={[
+          { id: "fullName", header: l.fullName, rowHeader: true },
+          { id: "email", header: l.email },
+          {
+            id: "sportIds",
+            header: l.specialties,
+            cell: (c) =>
+              c.sportIds
+                .map(
+                  (id) =>
+                    sports.data?.find((s) => s.sportId === id)?.name ??
+                    `#${id}`,
+                )
+                .join(", "),
+          },
+          {
+            id: "status",
+            header: l.status,
+            cell: (c) => <StatusChip value={c.status} />,
+          },
+        ]}
+        rowActions={(c) => (
           <>
-            <Table headers={[l.fullName, l.email, l.specialties, l.status, ""]}>
-              {pagedItems(data).map((c) => (
-                <tr key={c.userId}>
-                  <td>{c.fullName}</td>
-                  <td>{c.email}</td>
-                  <td>
-                    {c.sportIds
-                      .map(
-                        (id) =>
-                          sports.data?.find((s) => s.sportId === id)?.name ??
-                          id,
-                      )
-                      .join(", ")}
-                  </td>
-                  <td>
-                    <StatusChip value={c.status} />
-                  </td>
-                  <td>
-                    <button
-                      className="btn btn--secondary"
-                      onClick={() => {
-                        setId(c.userId);
-                        setForm({
-                          ...empty,
-                          ...c,
-                          bio: c.bio ?? "",
-                          phone: c.phone ?? "",
-                        });
-                      }}
-                    >
-                      {l.edit}
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </Table>
-            <Pagination
-              page={page}
-              count={data.totalCount}
-              onChange={setPage}
-            />
+            <Link
+              className="btn btn--secondary"
+              href={`/manager/coaches/${c.userId}`}
+            >
+              {l.details}
+            </Link>
+            <button className="btn btn--ghost" onClick={() => setEditing(c)}>
+              {l.edit}
+            </button>
           </>
         )}
-      </AsyncSection>
+      />
+      {editing !== undefined && (
+        <CoachEditor
+          coach={editing ?? undefined}
+          onClose={() => setEditing(undefined)}
+          onSaved={(saved) => {
+            setEditing(undefined);
+            state.reload();
+            if (editing === null)
+              router.push(`/manager/coaches/${saved.userId}`);
+          }}
+        />
+      )}
     </>
   );
 }

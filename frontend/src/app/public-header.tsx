@@ -138,13 +138,10 @@ export function PublicHeader() {
                   label: copy.account,
                   icon: "shield",
                 },
-                ...(user.role === "Member" || user.role === "ExternalCoach"
+                ...(user.role === "Member"
                   ? [
                       {
-                        href:
-                          user.role === "Member"
-                            ? "/member/finance?tab=wallet"
-                            : "/external-coach/wallet",
+                        href: "/member/finance?tab=wallet",
                         label: vi ? "Ví điểm" : "Point wallet",
                         icon: "wallet" as const,
                       },

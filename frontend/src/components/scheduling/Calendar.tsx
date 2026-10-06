@@ -138,6 +138,11 @@ export function Calendar({
                     </span>
 
                     <span>
+                      {labels.types && (
+                        <span className={styles.eventType}>
+                          {labels.types[event.type] ?? event.type}
+                        </span>
+                      )}
                       <span className={styles.eventTitle}>{event.title}</span>
 
                       <span className={styles.eventMeta}>
@@ -185,6 +190,11 @@ export function Calendar({
                       key={event.id}
                       onClick={() => onSelectEvent(event)}
                     >
+                      {labels.types && (
+                        <span className={styles.eventType}>
+                          {labels.types[event.type] ?? event.type}
+                        </span>
+                      )}
                       <span className={styles.eventTitle}>{event.title}</span>
 
                       <span className={styles.eventMeta}>

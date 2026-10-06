@@ -1,0 +1,13 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-width: 0;
+}
+@media (max-width: 767px) {
+  /* The operations workspace sets a desktop minimum on legacy tables.
+     This view uses the shared responsive Table, whose mobile cards must fit. */
+  .root :global(.card) :global(table) {
+    min-width: 0;
+  }
+}

@@ -1,4 +1,5 @@
 "use client";
+import { hasService } from "@/lib/sports";
 import { Field, AsyncSection } from "@/components/ui";
 import { useLanguage } from "@/lib/language";
 import { useApi } from "@/lib/useApi";
@@ -25,7 +26,7 @@ export function SportSelector({
           >
             <option value="">—</option>
             {rows
-              .filter((s) => !groupOnly || s.operationType === "GROUP_COURSE")
+              .filter((s) => !groupOnly || hasService(s, "GROUP_COURSE"))
               .map((s) => (
                 <option key={s.sportId} value={s.sportId}>
                   {s.name}

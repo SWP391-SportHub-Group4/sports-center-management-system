@@ -34,14 +34,21 @@ public static class CrossModuleRelationships
             .HasOne<UserAccount>().WithMany().HasForeignKey(e => e.RequestedByUserId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<SportHub.Membership.Domain.Entities.MemberPackage>()
             .HasOne<InvoiceItem>().WithMany().HasForeignKey(e => e.InvoiceItemId).OnDelete(DeleteBehavior.Restrict);
-        // Chuyên môn của Coach/ExternalCoach trỏ tới môn trong catalog.
+        // Chuyên môn của Coach trỏ tới môn trong catalog.
         modelBuilder.Entity<UserSportSpecialty>()
             .HasOne<Sport>()
             .WithMany()
             .HasForeignKey(e => e.SportId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        // Coach bị chiếm lịch là user_accounts (Coach nội bộ hoặc ExternalCoach).
+        // Qualification dịch vụ của Coach trỏ tới offering trong catalog (CAT-01).
+        modelBuilder.Entity<CoachServiceQualification>()
+            .HasOne<SportServiceOffering>()
+            .WithMany()
+            .HasForeignKey(e => e.OfferingId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Coach bị chiếm lịch là user_accounts (Coach nội bộ).
         modelBuilder.Entity<CoachOccupancy>()
             .HasOne<UserAccount>()
             .WithMany()
@@ -69,7 +76,7 @@ public static class CrossModuleRelationships
             .HasOne<Room>().WithMany().HasForeignKey(e => e.RoomId).OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<CourtRental>().HasOne<UserAccount>().WithMany()
-            .HasForeignKey(e => e.ExternalCoachId).OnDelete(DeleteBehavior.Restrict);
+            .HasForeignKey(e => e.MemberId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<CourtRental>().HasOne<Sport>().WithMany()
             .HasForeignKey(e => e.SportId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<CourtRental>().HasOne<Room>().WithMany()

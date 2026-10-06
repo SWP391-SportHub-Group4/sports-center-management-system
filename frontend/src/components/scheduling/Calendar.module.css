@@ -20,21 +20,20 @@
 }
 
 .viewButton[aria-pressed="true"] {
-  background: var(--bg-active);
-  color: var(--text-primary);
+  background: var(--bg-surface-sunken);
+  color: var(--text-link);
+  border-color: var(--border-strong);
 }
 
 .grid {
   display: grid;
-  grid-template-columns:
-    repeat(7, minmax(0, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: var(--space-2);
   overflow-x: auto;
 }
 
 .gridDay {
-  grid-template-columns:
-    minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .day {
@@ -50,8 +49,7 @@
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-3);
-  border-bottom:
-    1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .dayBody {
@@ -65,8 +63,7 @@
 .event {
   width: 100%;
   text-align: left;
-  border:
-    1px solid var(--border-subtle);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
   background: var(--bg-surface);
   color: inherit;
@@ -80,14 +77,21 @@
   border-color: var(--color-primary);
 }
 
+.grid:focus-visible,
 .event:focus-visible {
-  outline:
-    2px solid var(--color-primary);
+  outline: 2px solid var(--color-primary);
   outline-offset: 2px;
 }
 
 .eventTitle {
   font-weight: 700;
+}
+
+.eventType {
+  display: block;
+  color: var(--text-link);
+  font-size: var(--text-xs);
+  font-weight: 600;
 }
 
 .eventMeta {
@@ -119,8 +123,7 @@
 }
 
 .listEvent {
-  grid-template-columns:
-    minmax(6rem, 9rem) 1fr;
+  grid-template-columns: minmax(6rem, 9rem) 1fr;
   align-items: start;
 }
 
@@ -131,8 +134,7 @@
 
 @media (max-width: 900px) {
   .grid {
-    grid-template-columns:
-      repeat(7, minmax(12rem, 1fr));
+    grid-template-columns: repeat(7, minmax(12rem, 1fr));
   }
 }
 

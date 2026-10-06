@@ -22,13 +22,13 @@
   max-width: 100%;
   overflow-x: auto;
 }
-.workspace :global(table) {
+.workspace :global(.table-wrap table) {
   min-width: 640px;
 }
-.workspace :global(table:has(th:nth-child(6))) {
+.workspace :global(.table-wrap table:has(th:nth-child(6))) {
   min-width: 960px;
 }
-.workspace :global(td) {
+.workspace :global(.table-wrap td) {
   min-width: 100px;
 }
 .workspace :global(th) {

@@ -1,14 +1,18 @@
+/* Mỗi tone là một cặp nền + chữ cố định (không dùng token semantic bị đảo ở
+   vùng nền tối), nên chip đọc được cả trên data-surface="inverse". */
 .root:global(.chip) {
-  --status-chip-color: var(--text-muted);
+  --status-chip-bg: var(--chalk-100);
+  --status-chip-color: var(--chalk-600);
+  --status-chip-border: var(--chalk-300);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   min-height: 24px;
   max-width: 100%;
   padding: 2px var(--space-3);
-  border: 1px solid var(--status-chip-color);
+  border: 1px solid var(--status-chip-border);
   border-radius: var(--radius-pill);
-  background: #ede5e4;
+  background: var(--status-chip-bg);
   color: var(--status-chip-color);
   font-size: var(--text-xs);
   font-weight: var(--weight-semibold);
@@ -19,17 +23,25 @@
 }
 
 .root:global(.chip--ok) {
-  --status-chip-color: var(--success-solid);
+  --status-chip-bg: var(--success-bg);
+  --status-chip-color: var(--success-text);
+  --status-chip-border: var(--success-solid);
 }
 
 .root:global(.chip--danger) {
-  --status-chip-color: var(--danger-solid);
+  --status-chip-bg: var(--danger-bg);
+  --status-chip-color: var(--danger-text);
+  --status-chip-border: var(--danger-solid);
 }
 
 .root:global(.chip--warn) {
+  --status-chip-bg: var(--warning-bg);
   --status-chip-color: var(--warning-text);
+  --status-chip-border: var(--warning-solid);
 }
 
 .root:global(.chip--info) {
-  --status-chip-color: var(--info-solid);
+  --status-chip-bg: var(--info-bg);
+  --status-chip-color: var(--info-text);
+  --status-chip-border: var(--info-solid);
 }

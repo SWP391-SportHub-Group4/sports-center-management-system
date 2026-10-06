@@ -59,9 +59,7 @@ function CheckoutFlow({
       ? (targetMemberId ?? checkout?.beneficiaryUserId)
       : undefined;
   const canSelectPoints =
-    user?.role === "Member" ||
-    user?.role === "ExternalCoach" ||
-    user?.role === "Receptionist";
+    user?.role === "Member" || user?.role === "Receptionist";
   // Điểm đang soạn gắn với revision: server đổi đơn (ví dụ ở tab khác) thì bản nháp cũ bị bỏ và ô
   // nhập quay về số điểm server đang áp dụng, thay vì ghi đè mù.
   const [draft, setDraft] = useState<{
@@ -334,11 +332,7 @@ function CheckoutFlow({
   }, [id, status, reloadWallet]);
   const vm = checkout
     ? toCheckoutViewModel(checkout, {
-        mode: memberId
-          ? "COUNTER"
-          : user?.role === "ExternalCoach"
-            ? "EXTERNAL_COACH"
-            : "SELF",
+        mode: memberId ? "COUNTER" : "SELF",
         beneficiaryName: detail.data?.summary.memberName,
         initiatorName: user?.fullName,
       })

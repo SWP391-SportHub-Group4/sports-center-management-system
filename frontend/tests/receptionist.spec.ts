@@ -22,7 +22,7 @@ async function receptionistFixture(page: Page) {
     if (path.includes("notifications"))
       return route.fulfill({ json: path.endsWith("unread-count") ? { count: 0 } : [] });
     if (path === "/api/sports")
-      return route.fulfill({ json: [{ sportId: 3, name: "Badminton", operationType: "GROUP_COURSE", isActive: true }] });
+      return route.fulfill({ json: [{ sportId: 3, name: "Badminton", code: "course", services: [{ serviceType: "GROUP_COURSE", isEnabled: true, defaultSessionMinutes: 90, defaultMaxCapacity: 12 }], isActive: true }] });
     if (path === "/api/users")
       return route.fulfill({ json: paged([{ userId: memberId, fullName: "Member A", email: "member@example.com", phone: "0900000000", role: "MEMBER", status: "ACTIVE", createdAt: "2030-01-01T00:00:00Z", hasPassword: true, hasGoogleLink: false, sportIds: [] }]) });
     if (path === `/api/members/${memberId}/packages`)
@@ -47,8 +47,9 @@ test.beforeEach(async ({ page }) => receptionistFixture(page));
 
 test("receptionist dashboard uses real operational links and no manual-paid workflow", async ({ page }) => {
   await page.goto("/receptionist");
-  await expect(page.getByRole("heading", { name: "Operations overview", exact: true })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Gym check-in", exact: true }).first()).toHaveAttribute("href", "/receptionist/gym-checkin");
+  await expect(page.getByRole("heading", { name: "Today's desk", exact: true })).toBeVisible();
+  // Buổi lớp hôm nay dẫn thẳng tới điểm danh của đúng buổi đó.
+  await expect(page.locator("a[href*='/receptionist/attendance?date=2030-10-03&session=']")).toHaveCount(1);
   await expect(page.getByText(/manual paid/i)).toHaveCount(0);
   await expect(page.getByText(/cash payout/i)).toHaveCount(0);
 });
@@ -78,4 +79,51 @@ test("only receptionist UI writes group attendance and uses enrollment+session i
   await expect(page.getByText("Member A", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Present", exact: true }).click();
   await expect.poll(() => payload).toEqual({ status: "PRESENT" });
+});
+
+test("the selected Member follows the desk from check-in to sales and profile", async ({ page }) => {
+  let checkIns = 0;
+  page.on("request", (request) => {
+    if (request.method() === "POST" && new URL(request.url()).pathname === "/api/gym-checkins") checkIns++;
+  });
+  await page.route(new RegExp(`/api/users/${memberId}$`), (route) =>
+    route.fulfill({ json: { userId: memberId, fullName: "Member A", email: "member@example.com", phone: "0900000000", role: "MEMBER", status: "ACTIVE", createdAt: "2030-01-01T00:00:00Z", hasPassword: true, hasGoogleLink: false, sportIds: [] } }),
+  );
+  await page.goto("/receptionist");
+  await page.getByLabel("Find a member").fill("Member A");
+  await page.waitForTimeout(300);
+  await page.getByRole("button", { name: /Member A/ }).click();
+  await expect(page.getByRole("heading", { name: "Member A" })).toBeVisible();
+  await expect(page.getByText("Active until")).toBeVisible();
+  // Một thao tác: check-in xong mới báo, trạng thái không đổi trước khi server trả lời.
+  await page.getByRole("button", { name: "Check in", exact: true }).click();
+  await expect.poll(() => checkIns).toBe(1);
+  await expect(page.getByRole("status").filter({ hasText: "Checked in at" })).toBeVisible();
+
+  // Chuyển tác vụ vẫn giữ đúng hội viên.
+  const nav = page.getByRole("navigation", { name: "Receptionist" });
+  await nav.getByRole("link", { name: "Sales", exact: true }).click();
+  await expect(page.getByText("Selling for Member A")).toBeVisible();
+  await page.getByRole("link", { name: "Today's desk", exact: true }).first().click();
+  await expect(page.getByRole("heading", { name: "Member A" })).toBeVisible();
+
+  // Hồ sơ: ví chỉ đọc, không có thao tác cộng/trừ điểm.
+  await page.getByRole("link", { name: "Open profile" }).click();
+  await page.getByRole("tab", { name: "Wallet" }).click();
+  await expect(page.getByText(/never added or removed/)).toBeVisible();
+  await expect(page.getByRole("button", { name: /adjust/i })).toHaveCount(0);
+});
+
+test("no search result shows how the Member registers themselves instead of a staff-made account", async ({ page }) => {
+  await page.route("**/api/users?**", (route) => route.fulfill({ json: paged([]) }));
+  await page.goto("/receptionist");
+  await page.getByLabel("Find a member").fill("Nobody");
+  await expect(page.getByText("No matching members found.")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Open the registration page" })).toHaveAttribute("href", "/register");
+});
+
+test("attendance deep link opens the right class session and explains a closed window", async ({ page }) => {
+  await page.goto(`/receptionist/attendance?date=2030-10-03&session=${sessionId}`);
+  await expect(page.getByText("Member A", { exact: true })).toBeVisible();
+  await expect(page.getByText("0 of 1 recorded")).toBeVisible();
 });

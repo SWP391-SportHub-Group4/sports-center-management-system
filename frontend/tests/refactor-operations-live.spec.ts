@@ -30,7 +30,8 @@ test("paid course cancellation from Manager UI refunds the real wallet once", as
   const memberHeaders = { Authorization: `Bearer ${member.accessToken}` };
   const sports = await (await request.get(`${base}/api/sports`)).json();
   const sport = sports.find(
-    (s: { operationType: string }) => s.operationType === "GROUP_COURSE",
+    (s: { services: { serviceType: string; isEnabled: boolean }[] }) =>
+      s.services.some((x) => x.serviceType === "GROUP_COURSE" && x.isEnabled),
   );
   const coaches = await (
     await request.get(`${base}/api/coaches?sportId=${sport.sportId}`, {
@@ -88,9 +89,11 @@ test("paid course cancellation from Manager UI refunds the real wallet once", as
   expect(paid.ok(), await paid.text()).toBeTruthy();
   await browserAuth(page, manager.accessToken);
   await page.goto(`/manager/classes/${course.classId}`);
+  await page.getByRole("tab", { name: "Students", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Enrollments", exact: true }),
   ).toBeVisible();
+  await page.getByRole("tab", { name: "Overview", exact: true }).click();
   const cancellation = page.locator(".card").filter({
     has: page.getByRole("heading", { name: "Cancel", exact: true }),
   });
@@ -124,6 +127,7 @@ test("paid course cancellation from Manager UI refunds the real wallet once", as
   expect(after.availablePoints).toBe(before.availablePoints);
   expect(after.heldPoints).toBe(0);
   await page.reload();
+  await page.getByRole("tab", { name: "Students", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Enrollments", exact: true }),
   ).toBeVisible();
