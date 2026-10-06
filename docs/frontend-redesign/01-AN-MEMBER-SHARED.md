@@ -20,7 +20,7 @@ Mục tiêu: giữ nền tảng frontend dùng chung; hoàn thiện Member và p
 - Khôi sở hữu public course catalog/detail và auth/account. Member discovery dẫn tới hoặc nhúng các component đó, không clone catalog.
 - Hào sở hữu Calendar và AI experience trên Drawer primitive của An; An nối dữ liệu Member.
 - An trực tiếp sở hữu Q08–Q12 và Q19–Q23: nguyện vọng, PT/Member vận hành, tài chính/báo cáo/export Manager. Khoa sở hữu UI lớp/sân/sự cố/notices/AI Manager (nhận từ Khôi 05/10) cùng cấu hình/Admin theo bảng phân công mới.
-- Checkout lễ tân/ExternalCoach chỉ là adapter và context riêng; không fork logic points/expiry.
+- Checkout lễ tân chỉ là adapter và context riêng; không fork logic points/expiry.
 
 Menu desktop: **Tổng quan · Khám phá · Lịch của tôi · Khóa học của tôi · Gym & PT · Tập luyện · Tài chính**. Header: notification, AI khi phù hợp, tài khoản/ngôn ngữ. Mobile: Tổng quan, Lịch, Dịch vụ, Tài chính, Thêm.
 
@@ -164,10 +164,10 @@ Kiểm verb, constraint và body trong controller/OpenAPI; page mới không nh�
 | PT checkout/quote | `POST /api/checkouts/pt`; `POST /api/checkouts/pt/quote`; `GET /api/pt-pricing` | Quote/price hiện cần auth; không gộp Membership mới với PT |
 | Checkout phục hồi | `GET /api/checkouts/{invoiceId}`, `/by-key`, `/by-reference` | Dùng `expiresAtUtc`, `serverNowUtc`, revision, fulfillmentOutcome; timer không thiếu API |
 | Checkout actions | `POST /api/checkouts/{id}/confirm-points`, `/attempts`, `/cancel`, `/retry` | Retry intent/revision; không dựa return URL để commit |
-| Chọn điểm self | `POST /api/wallet/me/checkouts/{id}/points`; `GET /api/invoices/{id}/point-selection` | Member/ExternalCoach, không nhận user tùy ý |
+| Chọn điểm self | `POST /api/wallet/me/checkouts/{id}/points`; `GET /api/invoices/{id}/point-selection` | Member, không nhận user tùy ý |
 | OTP quầy | `POST /api/invoices/{id}/point-confirmations`; `GET .../current`; `POST .../clear`; `POST /api/point-confirmations/{id}/verify` | Receptionist; có expiry/revision/Member binding |
 | Ví | `GET /api/wallet/me`, `/ledger`; `/api/members/{id}/points`, `/points/ledger`; `/api/manager/wallets/{id}`, `/ledger` | Đúng consumer self/frontdesk/manager; không alias mù |
-| Invoice | `GET /api/invoices`, `/{id}`, `/by-item/{itemId}`; `/api/members/me/invoices`; `/api/external-coaches/me/invoices` | Detail có `Adjustments`; đủ xem refund theo invoice |
+| Invoice | `GET /api/invoices`, `/{id}`, `/by-item/{itemId}`; `/api/members/me/invoices` | Detail có `Adjustments`; đủ xem refund theo invoice |
 | Refund | `GET /api/refunds/quote/{invoiceItemId}`; `POST /api/refunds`; staff GET `/api/refunds`; manager approve/reject | Item-scoped, server tính điểm; Member không gọi staff list |
 | Reconcile/gateway | `POST /api/invoices/{id}/reconcile`; `GET /api/payments/vnpay/ipn`, `/return` | G11 cần kiểm tra auth callback; không coi return là xác nhận |
 | Member lịch/ghi danh | `GET /api/members/me/enrollments`, `/schedule`, `/classes/{id}/sessions` | `/schedule` chỉ lớp; ghép với PT ở FE |
@@ -254,8 +254,8 @@ Split payment, OTP, expiresAtUtc/serverNowUtc, jobs hết hạn và reconciliati
 | Q12 | Hội viên → Hồ sơ vận hành | `/manager/members`, `/manager/members/[id]` | Membership/ghi danh/PT relationship và lịch sử giao dịch theo quyền; không thêm quyền sửa workout của Coach |
 | Q19 | Giao dịch → Danh sách → Hóa đơn | `/manager/finance?tab=invoices`, detail | Filter/points/cash/fulfillment; đối soát server, không manual Paid |
 | Q20 | Hoàn điểm → Hàng đợi → Chi tiết review | `/manager/finance?tab=refunds` | Quote từng item, đã hoàn/còn hoàn, quyền lợi ảnh hưởng; approve/reject có lý do; legacy chỉ đọc |
-| Q21 | Ví điểm → Chủ ví → Ledger / Điều chỉnh | `/manager/points`, detail | Tìm đúng Member/ExternalCoach, available/held, số điểm điều chỉnh, lý do và preview trước submit |
-| Q22 | Báo cáo → Các tab nghiệp vụ | `/manager/reports?tab=...` | Hội viên, đăng ký/lấp lớp, cash theo môn/nguồn, rental theo HLV ngoài, issued/redeemed/outstanding points |
+| Q21 | Ví điểm → Chủ ví → Ledger / Điều chỉnh | `/manager/points`, detail | Tìm đúng Member, available/held, số điểm điều chỉnh, lý do và preview trước submit |
+| Q22 | Báo cáo → Các tab nghiệp vụ | `/manager/reports?tab=...` | Hội viên, đăng ký/lấp lớp, cash theo môn/nguồn, rental theo Member thuê, issued/redeemed/outstanding points |
 | Q23 | Báo cáo → Xuất → Lịch sử tệp | `/manager/reports/exports` | Chọn kỳ/cột/PDF hoặc CSV, queued/generating/completed/failed, download/retry theo quyền và retention |
 
 ### Ranh giới file và phối hợp
@@ -272,7 +272,7 @@ Split payment, OTP, expiresAtUtc/serverNowUtc, jobs hết hạn và reconciliati
 | Nghiệp vụ | Endpoint hiện có | Consumer / lưu ý |
 |---|---|---|
 | Điều chỉnh điểm | `POST /api/wallets/{ownerId}/adjustments` | Manager, reason/idempotency theo contract; không dùng cho lễ tân |
-| Invoice | `GET /api/invoices`, `/{id}`, `/by-item/{itemId}`; `/api/members/me/invoices`; `/api/external-coaches/me/invoices` | Detail có `Adjustments`; đủ xem refund theo invoice |
+| Invoice | `GET /api/invoices`, `/{id}`, `/by-item/{itemId}`; `/api/members/me/invoices` | Detail có `Adjustments`; đủ xem refund theo invoice |
 | Refund | `GET /api/refunds/quote/{invoiceItemId}`; `POST /api/refunds`; staff GET `/api/refunds`; manager approve/reject | Item-scoped, server tính điểm; Member không gọi staff list |
 | PT entitlement/session | GET member/coach/manager pt-entitlements; GET member/coach/manager pt-sessions; manager create/cancel/reschedule | G05: chưa có member create booking |
 | PT yêu cầu | Member create/list session-change/coach-change request; manager list/approve/reject | Đang chờ khác với đã đổi lịch |

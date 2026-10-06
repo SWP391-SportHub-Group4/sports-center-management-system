@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/auth";
 import { useLanguage } from "@/lib/language";
 import { memberCodePayload } from "@/lib/member-code";
 import styles from "./MemberShell.module.css";
+import codeStyles from "./MemberCodeCard.module.css";
 
 /**
  * Nút mã hội viên trên thanh đầu dashboard. Bấm vào mở popup nhỏ chứa QR để lễ tân quét.
@@ -54,6 +55,7 @@ export function MemberCodeButton() {
         <Dialog
           title={label}
           size="sm"
+          className={codeStyles.dialog}
           description={
             en
               ? "Show this code to the front desk so they can find your account. It does not grant entry by itself."
@@ -61,17 +63,18 @@ export function MemberCodeButton() {
           }
           onClose={() => setOpen(false)}
         >
-          <div style={{ display: "grid", justifyItems: "center", gap: 12 }}>
+          <div className={codeStyles.content}>
             {dataUrl && (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={dataUrl}
                 width={240}
                 height={240}
+                className={codeStyles.qr}
                 alt={en ? "Member code QR" : "Mã QR hội viên"}
               />
             )}
-            <p className="small muted" style={{ wordBreak: "break-all" }}>
+            <p className={`small muted ${codeStyles.memberId}`}>
               {userId}
             </p>
           </div>

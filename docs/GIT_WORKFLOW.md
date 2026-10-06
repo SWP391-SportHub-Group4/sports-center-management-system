@@ -88,7 +88,7 @@ Ví dụ:
 feature/member-management
 feature/class-enrollment
 feature/wallet-points
-feature/external-coach-rental
+feature/member-court-rental
 feature/auth-login
 feature/notification
 ```
@@ -665,17 +665,17 @@ Team chỉ cần nhớ:
 
 Phạm vi đã đổi sang trung tâm thể thao đa môn. Để giảm xung đột merge, **mỗi module do một người/nhóm nhỏ phụ trách**; các module chỉ gọi nhau qua interface ở `SportHub.BuildingBlocks`.
 
-**Quyết định "không thêm project mới":** không tạo project backend mới. Ví điểm nằm trong `SportHub.Payment/Wallet`; catalog môn/phòng/giá sân nằm trong `SportHub.Scheduling/Catalog`; `ExternalCoachProfile` nằm trong `SportHub.Identity`. Nếu PR có thêm `.csproj` mới thì phải được cả nhóm đồng ý trước.
+**Quyết định "không thêm project mới":** không tạo project backend mới. Ví điểm nằm trong `SportHub.Payment/Wallet`; catalog môn/phòng/giá sân nằm trong `SportHub.Scheduling/Catalog`. Nếu PR có thêm `.csproj` mới thì phải được cả nhóm đồng ý trước.
 
 ## 18.1 Module sở hữu và giai đoạn
 
 | Module / khu vực | Giai đoạn | Nội dung chính | Ghi chú xung đột |
 |---|---|---|---|
 | Tài liệu + migration nền | G0, G1 | Đồng bộ tài liệu; migration `RefactorToMultiSport` + seed; xóa `CoachCategory`, mã Yoga/Group X; sửa test để build xanh | **Làm trước và một người làm**; các nhánh khác chờ merge G1 rồi mới rẽ nhánh |
-| `SportHub.Identity` | G2 | Role `ExternalCoach`, password policy, quên/đổi mật khẩu, `security_stamp`, Manager tạo Coach + chuyên môn | Sở hữu `ExternalCoachProfile`, `UserSportSpecialty` |
+| `SportHub.Identity` | G2 | Password policy, quên/đổi mật khẩu, `security_stamp`, Manager tạo Coach + chuyên môn | Sở hữu `UserSportSpecialty` |
 | `SportHub.Scheduling` (gồm `Catalog/`) | G3, G4, G8 | Sport/Room/giờ hoạt động/giá thuê sân; occupancy + exclusion constraint; tạo/publish lớp, Court Schedule; điểm danh lớp nhóm (Receptionist), Gym check-out | Module thay đổi nhiều nhất — tách PR nhỏ theo G3 / G4 / G8 |
 | `SportHub.Payment` (gồm `Wallet/`, `VnPay/`) | G5a, G5b, G6, G10 | `IPaymentGateway` (VNPay + Mock); ví điểm, split payment, OTP xác nhận, hoàn điểm; ghi danh có giữ chỗ (phần thanh toán); báo cáo mới | Người làm G5a/G5b nên cũng làm G6 để tránh lệch hợp đồng `IClassEnrollmentFulfillment` |
-| Ngưỡng + Rental + Notification | G7, G9 | Ngưỡng hoàn vốn (T5–T8), email, trang phản hồi; ExternalCoach đăng ký/duyệt, thuê sân, sự cố, thông báo thủ công | Phụ thuộc G4, G5b, G6 |
+| Ngưỡng + Rental + Notification | G7, G9 | Ngưỡng hoàn vốn (T5–T8), email, trang phản hồi; Member thuê sân, sự cố, thông báo thủ công | Phụ thuộc G4, G5b, G6 |
 | `SportHub.AI` | G11 | Chatbot function calling (`ChatToolRegistry`) + fallback khi thiếu `Gemini__ApiKey` | Sau G4 |
 | `SportHub.Training` | G8 (nhỏ) | Đổi kiểm tra `CoachCategory=PersonalTrainer` sang `CoachSpecialty` chứa môn PT | Chạm cùng G8 |
 | `frontend` | G12 (song song từ G3) | Landing đa môn, lớp/khóa học, Court Schedule, thuê sân, ví điểm, dashboard theo vai trò (thiết kế hệ thống) | Chia theo vai trò/khu vực trang, không chia theo file dùng chung |
@@ -685,7 +685,7 @@ Thứ tự phụ thuộc: G0 → G1 → {G2, G3, G5a} → G4 → G5b → G6 → 
 
 ## 18.2 Quy ước branch cho refactor
 
-- Đặt tên theo giai đoạn + module: `feature/g2-identity-external-coach`, `feature/g3-catalog-sport-room`, `feature/g5a-vnpay-gateway`, `feature/g6-enrollment-seat-hold`, `feature/g11-chatbot-tools`.
+- Đặt tên theo giai đoạn + module: `feature/g2-identity-password-policy`, `feature/g3-catalog-sport-room`, `feature/g5a-vnpay-gateway`, `feature/g6-enrollment-seat-hold`, `feature/g11-chatbot-tools`.
 - Vẫn tạo từ `develop`, PR vào `develop`, cần review — **không đổi quy tắc ở các mục 1–17**.
 - Migration: mỗi PR chỉ thêm migration của giai đoạn mình; **không sửa migration cũ** (thiết kế hệ thống); trước khi merge phải `git merge develop` để tránh hai migration cùng snapshot.
 - Không commit khóa `VnPay__*`, `Email__*`, `Gemini__*` (chỉ đặt trong `.env`, không commit).

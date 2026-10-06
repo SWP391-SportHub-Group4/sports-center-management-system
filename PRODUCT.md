@@ -12,19 +12,18 @@ web
 
 - **Hội viên (Member)**: Xem lớp/khóa học đa môn (Cầu lông, Bóng rổ...) và ghi danh có giữ chỗ; mua Membership Gym và gói PT; quản lý ví điểm và lịch sử điểm; xem lịch hôm nay/tuần, hóa đơn, thông báo; hỏi chatbot lịch tập; chuyển đổi ngôn ngữ EN / VI.
 - **Huấn luyện viên của trung tâm (Coach)**: Có chuyên môn theo môn; xem lịch dạy và roster lớp mình phụ trách. Coach có chuyên môn Personal Training còn lập kế hoạch tập, ghi kết quả, giao homework, dùng gợi ý AI cho học viên được phân công.
-- **Huấn luyện viên ngoài (ExternalCoach)**: Coach tự do tự đăng ký, chờ Manager duyệt; xem sân trống và giá, thuê sân theo giờ để tự dạy, thanh toán bằng VNPay-QR và/hoặc điểm, xem lịch sử thuê. Không được quản lý hay điểm danh học viên riêng trên hệ thống.
 - **Nhân viên lễ tân (Receptionist)**: Tìm và đăng ký Member tại quầy; Gym check-in/out; điểm danh lớp nhóm; checkout thay Member (dùng điểm phải có mã OTP gửi email Member); xem Court Schedule; hỗ trợ đối soát thanh toán.
-- **Quản lý trung tâm (Center Manager)**: Cấu hình môn, phòng/sân, giá thuê sân, Membership; tạo lớp và xếp lịch, phân công Coach theo chuyên môn, duyệt ExternalCoach, duyệt hoàn điểm, xử lý lớp dưới ngưỡng hoàn vốn, sự cố, báo cáo doanh thu, audit log.
+- **Quản lý trung tâm (Center Manager)**: Cấu hình môn, phòng/sân, giá thuê sân, Membership; tạo lớp và xếp lịch, phân công Coach theo chuyên môn, duyệt hoàn điểm, xử lý lớp dưới ngưỡng hoàn vốn, sự cố, báo cáo doanh thu, audit log.
 - **Quản trị hệ thống (System Administrator)**: Quản trị tài khoản nhân sự, phân quyền vai trò (RBAC), khóa/mở khóa tài khoản.
-- **Khách vãng lai (Public Guest)**: Xem trang chủ đa môn, danh sách lớp đang mở (giá, lịch, chỗ còn), lịch sân trống tổng quát; đăng ký Member hoặc đăng ký Coach ngoài.
+- **Khách vãng lai (Public Guest)**: Xem trang chủ đa môn, danh sách lớp đang mở (giá, lịch, chỗ còn), lịch sân trống tổng quát; đăng ký Member.
 
 ## Product Purpose
 
-SportHub là hệ thống quản lý **trung tâm thể thao đa môn**, vận hành liền mạch giữa 6 vai trò. Sản phẩm số hóa chu trình từ tiếp đón tại quầy, ghi danh khóa học có giữ chỗ, thanh toán bằng tiền kết hợp ví điểm, xếp lịch sân/huấn luyện viên không trùng, cho thuê sân cho huấn luyện viên ngoài, đến theo dõi tập luyện và báo cáo. Thành công nghĩa là học viên ghi danh trơn tru và không bị bán vượt chỗ, lớp đạt ngưỡng hoàn vốn hoặc được xử lý minh bạch, nhân viên thao tác chính xác và quản lý nắm tức thời tình hình vận hành.
+SportHub là hệ thống quản lý **trung tâm thể thao đa môn**, vận hành liền mạch giữa 5 vai trò. Sản phẩm số hóa chu trình từ tiếp đón tại quầy, ghi danh khóa học có giữ chỗ, thanh toán bằng tiền kết hợp ví điểm, xếp lịch sân/huấn luyện viên không trùng, cho Member thuê sân theo giờ, đến theo dõi tập luyện và báo cáo. Thành công nghĩa là học viên ghi danh trơn tru và không bị bán vượt chỗ, lớp đạt ngưỡng hoàn vốn hoặc được xử lý minh bạch, nhân viên thao tác chính xác và quản lý nắm tức thời tình hình vận hành.
 
 ## Positioning
 
-Nền tảng đa môn khép kín cho trung tâm thể thao: khác với phần mềm gym đơn môn hoặc ứng dụng ghi chép tập luyện, SportHub xem **môn thể thao là dữ liệu cấu hình**, bán khóa học cố định theo lớp, chống trùng sân/huấn luyện viên bằng ràng buộc cơ sở dữ liệu, giữ chỗ khi checkout để không bán vượt sĩ số, có ngưỡng hoàn vốn cho từng lớp, ví điểm 1 điểm = 1.000 VND (không hết hạn) với hoàn trả chỉ bằng điểm, cho ExternalCoach thuê sân theo giờ, và AI assistant cho Member chỉ đọc context SportHub; các thao tác nghiệp vụ vẫn đi qua API/authorization riêng. Hỗ trợ song ngữ EN / VI.
+Nền tảng đa môn khép kín cho trung tâm thể thao: khác với phần mềm gym đơn môn hoặc ứng dụng ghi chép tập luyện, SportHub xem **môn thể thao là dữ liệu cấu hình**, bán khóa học cố định theo lớp, chống trùng sân/huấn luyện viên bằng ràng buộc cơ sở dữ liệu, giữ chỗ khi checkout để không bán vượt sĩ số, có ngưỡng hoàn vốn cho từng lớp, ví điểm 1 điểm = 1.000 VND (không hết hạn) với hoàn trả chỉ bằng điểm, cho Member thuê sân theo giờ, và AI assistant cho Member chỉ đọc context SportHub; các thao tác nghiệp vụ vẫn đi qua API/authorization riêng. Hỗ trợ song ngữ EN / VI.
 
 ## Operating Context
 
@@ -40,7 +39,7 @@ Nền tảng đa môn khép kín cho trung tâm thể thao: khác với phần m
 - **Ví điểm và split payment**: Một hóa đơn có thể trả bằng điểm + VNPay-QR (ví dụ 300.000đ = 200 điểm + 100.000đ). Receptionist thanh toán thay Member bắt buộc có OTP email của Member (5 phút, tối đa 5 lần sai).
 - **Hoàn trả chỉ bằng điểm**: Không hoàn tiền mặt/chuyển khoản, không hoàn qua cổng thanh toán; Manager duyệt yêu cầu hoàn điểm.
 - **Chống trùng lịch**: Sân và Coach không thể bị xếp hai hoạt động cùng khung giờ (exclusion constraint).
-- **Thuê sân của ExternalCoach**: Chỉ ExternalCoach đã duyệt được đặt; hủy trước 24 giờ hoàn 100% điểm, muộn hơn không hoàn; sự cố do trung tâm hoàn 100%.
+- **Thuê sân của Member**: Mọi Member đang hoạt động được đặt sân còn trống theo giờ (1-4 giờ), không cần Membership hay duyệt; hủy trước 24 giờ hoàn 100% điểm, muộn hơn không hoàn; sự cố do trung tâm hoàn 100%.
 - **Tài khoản an toàn**: Mật khẩu mạnh; quên mật khẩu qua **link đặt lại gửi email** (hạn 10 phút, dùng một lần, phản hồi trung tính không lộ email đã đăng ký), không cần mật khẩu cũ. Các trang xác thực luôn hiển thị tiếng Anh.
 - **Hỗ trợ đa ngôn ngữ (i18n)**: Mặc định Tiếng Anh (EN) kèm hỗ trợ Tiếng Việt (VI), chuyển đổi tức thì trên navbar không tải lại trang.
 

@@ -8,7 +8,7 @@ Phần này chốt tên field thực tế sau refactor; các bảng logic cũ b�
 
 | Entity.field thực tế | Mục đích |
 |---|---|
-| Invoice.MemberId | Beneficiary UserAccount của hóa đơn, có thể là Member hoặc ExternalCoach. DB giữ `member_id`; API dùng `beneficiaryUserId` và alias tương thích `memberId`. |
+| Invoice.MemberId | Beneficiary UserAccount của hóa đơn, là Member (kể cả khi thuê sân). DB giữ `member_id`; API dùng `beneficiaryUserId` và alias tương thích `memberId`. |
 | InvoiceItem.ClassId/CourtRentalId/PtEntitlementId/MemberPackageId | Typed FK nullable theo loại item, thay việc suy kiểu từ một Guid polymorphic. Nullable cho legacy chưa xác định được; các FK tài chính dùng Restrict. |
 | InvoiceItem.RelatedEntityId | Legacy reference giữ để đọc/backfill/fallback; không xóa lịch sử hoặc đoán entity đích. |
 | InvoiceItem.SportId/SportNameSnapshot/PtFrequencyPerWeek | Chiều môn/tên môn/tần suất PT tại lúc mua. Báo cáo ưu tiên snapshot; Membership sport null; PT chưa xác định duy nhất môn cũng null. |
@@ -32,7 +32,7 @@ Phần này chốt tên field thực tế sau refactor; các bảng logic cũ b�
 ## Module: Identity
 
 ### `USER_ACCOUNTS`
-**Mục đích:** bảng định danh + vòng đời gốc — mọi vai trò (System Administrator, Center Manager, Coach, **ExternalCoach**, Member, Receptionist) đều là 1 row ở đây, phân biệt qua `role_id`. Không tách bảng riêng cho từng vai trò để tránh trùng lặp logic auth/login. Đây là bảng cha duy nhất mà gần như mọi entity khác (member, coach, staff...) trỏ FK vào — cố tình giữ tối giản (chỉ định danh + vòng đời) để hầu như không bao giờ cần đổi schema, tách khỏi phần auth (`USER_CREDENTIALS`/`USER_EXTERNAL_LOGINS`) và phần hiển thị (`USER_PROFILES`) vốn thay đổi thường xuyên hơn.
+**Mục đích:** bảng định danh + vòng đời gốc — mọi vai trò (System Administrator, Center Manager, Coach, Member, Receptionist) đều là 1 row ở đây, phân biệt qua `role_id`. Không tách bảng riêng cho từng vai trò để tránh trùng lặp logic auth/login. Đây là bảng cha duy nhất mà gần như mọi entity khác (member, coach, staff...) trỏ FK vào — cố tình giữ tối giản (chỉ định danh + vòng đời) để hầu như không bao giờ cần đổi schema, tách khỏi phần auth (`USER_CREDENTIALS`/`USER_EXTERNAL_LOGINS`) và phần hiển thị (`USER_PROFILES`) vốn thay đổi thường xuyên hơn.
 
 **Quy tắc:** quan hệ 1–1 **tùy chọn** với `COACH_PROFILES` — được tạo cho Coach; khi đổi role vẫn giữ record lịch sử, role hiện tại quyết định hiệu lực.
 
@@ -40,12 +40,12 @@ Phần này chốt tên field thực tế sau refactor; các bảng logic cũ b�
 |---|---|
 | `UserId` (PK) | Định danh duy nhất, dùng làm khóa ngoại ở gần như mọi entity khác (member, coach, staff đều trỏ về đây) |
 | `Email` | Định danh đăng nhập/liên hệ — **unique không phân biệt hoa/thường** (BR-1, BR-49, index `LOWER(email)`). Đặt ở đây (không phải `USER_CREDENTIALS`) vì email là định danh, không phải bí mật — nhiều module (Invoice, Notification) cần đọc mà không nên phải đụng tới bảng chứa `PasswordHash` |
-| `RoleId` (FK → ROLES) | Quyết định phân quyền (RBAC) — 1 user chỉ có 1 role (6 role sau v3) |
+| `RoleId` (FK → ROLES) | Quyết định phân quyền (RBAC) — 1 user chỉ có 1 role (5 role) |
 | `Status` | `ACTIVE / BANNED / DEACTIVATED` — kiểm soát user có được login/thao tác hay không, không xóa cứng user (giữ lịch sử payment/attendance) |
 | `CreatedAt` | Audit, hiển thị "thành viên từ ngày..." |
 | `SecurityStamp` (uuid, ) | Đổi mỗi khi reset/đổi mật khẩu hoặc đổi vai trò (BR-103/104). JWT mang claim `sst`; middleware so với DB nên mọi phiên/token cũ bị vô hiệu ngay sau khi đổi mật khẩu — không cần blacklist token |
 
-Quan hệ 1–1 tùy chọn với `EXTERNAL_COACH_PROFILES` (chỉ khi role = `ExternalCoach`) và quan hệ 1–N với `USER_SPORT_SPECIALTIES` (Coach và ExternalCoach); Member và ExternalCoach có thêm 1 `POINT_WALLETS` (tạo tự động khi tạo tài khoản).
+Quan hệ 1–N với `USER_SPORT_SPECIALTIES` (Coach); Member có thêm 1 `POINT_WALLETS` (tạo tự động khi tạo tài khoản).
 
 ### `USER_CREDENTIALS`
 **Mục đích:** lưu thông tin xác thực **nội bộ** (local password) — tách khỏi `USER_ACCOUNTS` vì đây là dữ liệu nhạy cảm, muốn cô lập khỏi các query hiển thị/business thông thường (tránh vô tình `SELECT`/trả về `password_hash` trong response). Quan hệ 1–1 với `USER_ACCOUNTS` (chung PK) vì 1 user chỉ có đúng 1 password tại 1 thời điểm — khác `USER_EXTERNAL_LOGINS` (1-N thật).
@@ -79,12 +79,12 @@ Quan hệ 1–1 tùy chọn với `EXTERNAL_COACH_PROFILES` (chỉ khi role = `E
 **Business rule đăng nhập Google (BR-59/60 chính thức):** nếu `POST /api/auth/google` nhận email đã tồn tại nhưng chưa link thì không tự tạo/tự link. Với email mới, hệ thống tạo account ở trạng thái chờ thiết lập mật khẩu; chính người dùng phải nhập và xác nhận mật khẩu mạnh trước khi hoàn tất onboarding. Không sinh hoặc gửi mật khẩu gợi ý.
 
 ### `ROLES`
-**Mục đích:** danh mục cố định 6 vai trò trong hệ thống, tách riêng để RBAC dễ mở rộng (thêm role mới không cần đổi schema `USER_ACCOUNTS`).
+**Mục đích:** danh mục cố định 5 vai trò trong hệ thống, tách riêng để RBAC dễ mở rộng (thêm role mới không cần đổi schema `USER_ACCOUNTS`).
 
 | Field | Vai trò |
 |---|---|
 | `RoleId` (PK) | Khóa để `UserAccount.RoleId` trỏ vào |
-| `RoleName` | **6 giá trị cố định** theo thiết kế hệ thống `UserRole`: `SystemAdministrator`, `CenterManager`, `Coach`, `ExternalCoach`, `Member`, `Receptionist`; API UPPER_SNAKE_CASE, JWT PascalCase. Seed unique (BR-63) — seed thêm dòng `ExternalCoach` |
+| `RoleName` | **5 giá trị cố định** theo thiết kế hệ thống `UserRole`: `SystemAdministrator`, `CenterManager`, `Coach`, `Member`, `Receptionist`; API UPPER_SNAKE_CASE, JWT PascalCase. Seed unique (BR-63) — gỡ dòng `ExternalCoach` (BR-140) |
 
 ### `COACH_PROFILES`
 **Mục đích:** chỉ lưu thông tin **nghiệp vụ bổ sung** của tài khoản role `Coach` (huấn luyện viên của trung tâm) — không lưu profile chung (tên/SĐT ở `USER_PROFILES`, mật khẩu ở `USER_CREDENTIALS`) và **không lưu dữ liệu lương/hoa hồng/hợp đồng**. Từ v3 bảng này **không còn phân loại Coach**: năng lực giảng dạy nằm ở `USER_SPORT_SPECIALTIES` (Coach dạy được môn nào), nên 1 Coach có thể dạy nhiều môn.
@@ -96,23 +96,12 @@ Quan hệ 1–1 tùy chọn với `EXTERNAL_COACH_PROFILES` (chỉ khi role = `E
 
 **Quy tắc:** khi tài khoản đổi khỏi role `Coach`, giữ record `COACH_PROFILES` làm lịch sử — không cascade delete, không thêm field trạng thái. `UserAccount.RoleId` hiện tại quyết định hiệu lực. **Sửa v3:** khi đổi lại role `Coach`, không cần chọn category; Manager gán lại specialty nếu cần.
 
-### `EXTERNAL_COACH_PROFILES`
-**Mục đích:** hồ sơ của **huấn luyện viên tự do** (ExternalCoach) tự đăng ký để thuê sân theo giờ. Tách khỏi `COACH_PROFILES` vì ExternalCoach không thuộc biên chế trung tâm, cần luồng duyệt riêng và bị giới hạn quyền (không điểm danh/quản lý học viên riêng). Quan hệ 1–1 với `USER_ACCOUNTS` role `ExternalCoach`. Module Identity.
-
-| Field | Vai trò |
-|---|---|
-| `UserId` (PK, FK → USER_ACCOUNTS) | 1–1 với tài khoản role `ExternalCoach` |
-| `Bio` (nullable) | Mô tả bản thân/kinh nghiệm để Manager xét duyệt |
-| `ApprovalStatus` | Enum `ExternalCoachApprovalStatus`: `PendingApproval`, `Approved`, `Rejected`, `Suspended`. Chỉ `Approved` mới được thuê sân |
-| `ReviewedByUserId` (FK, nullable) / `ReviewedAt` (nullable) | Manager đã duyệt/từ chối/đình chỉ và thời điểm — phục vụ audit |
-| `ReviewNote` (nullable) | Lý do; **bắt buộc khi `Rejected`/`Suspended`** |
-
 ### `USER_SPORT_SPECIALTIES`
-**Mục đích:** bảng nối Coach/ExternalCoach ↔ Sport — cho biết ai dạy được môn nào. **Thay thế `CoachCategory`.** Hàm `CoachCanTeach(userId, sportId)` là điều kiện để phân công Coach vào lớp (`CLASSES.CoachId`) và chọn Coach PT (môn có `OperationType = OneOnOne`). Với ExternalCoach đây là môn giảng dạy tự khai báo, không dùng để phân công lớp của trung tâm.
+**Mục đích:** bảng nối Coach ↔ Sport — cho biết ai dạy được môn nào. **Thay thế `CoachCategory`.** Hàm `CoachCanTeach(userId, sportId)` là điều kiện để phân công Coach vào lớp (`CLASSES.CoachId`) và chọn Coach PT (môn có `OperationType = OneOnOne`).
 
 | Field | Vai trò |
 |---|---|
-| `UserId` (FK → USER_ACCOUNTS) | Coach hoặc ExternalCoach |
+| `UserId` (FK → USER_ACCOUNTS) | Coach |
 | `SportId` (FK → SPORTS) | Môn được khai báo/gán. PK ghép `(UserId, SportId)` — không gán trùng |
 
 ### `EMAIL_OTPS`
@@ -120,7 +109,7 @@ Quan hệ 1–1 tùy chọn với `EXTERNAL_COACH_PROFILES` (chỉ khi role = `E
 
 | Field | Vai trò |
 |---|---|
-| `Purpose` () | Enum `EmailOtpPurpose`: `Register`, `ResetPassword` (quên mật khẩu, không hỏi mật khẩu cũ — BR-103), `ExternalCoachRegister` (BR-105). Cho phép mỗi mục đích có OTP còn hiệu lực riêng cho cùng 1 email; đăng ký/ExternalCoach dùng OTP 6 số; **reset dùng token link ngẫu nhiên 256-bit (base64url)** — `CodeHash` luôn là SHA-256 của mã/token, không lưu bản rõ |
+| `Purpose` () | Enum `EmailOtpPurpose`: `Register`, `ResetPassword` (quên mật khẩu, không hỏi mật khẩu cũ — BR-103). Cho phép mỗi mục đích có OTP còn hiệu lực riêng cho cùng 1 email; đăng ký dùng OTP 6 số; **reset dùng token link ngẫu nhiên 256-bit (base64url)** — `CodeHash` luôn là SHA-256 của mã/token, không lưu bản rõ |
 
 > OTP xác nhận dùng điểm tại quầy **không** dùng bảng này mà dùng `POINT_CONFIRMATIONS` (hiệu lực 5 phút, tối đa 5 lần sai, BR-139).
 
@@ -143,7 +132,7 @@ Quan hệ 1–1 tùy chọn với `EXTERNAL_COACH_PROFILES` (chỉ khi role = `E
 ### `COACH_MEMBER_RELATIONSHIP`
 **Mục đích:** ghi nhận **ai là HLV phụ trách ai**, và **vì sao** (qua lớp học, cá nhân, hay Manager gán tay) — cần thiết vì 1 Coach chỉ được tạo Workout Plan / xem thông tin của Member mà mình thực sự phụ trách (BR-23/BR-24), không phải mọi Member.
 
-**Quy tắc:** chỉ tạo cho Coach **có specialty PT** (`USER_SPORT_SPECIALTIES` chứa môn `OneOnOne`). Không tự tạo relationship kiểu này từ việc Member ghi danh (`ENROLLMENTS`) khóa Cầu lông/Bóng rổ — ghi danh khóa học và quan hệ huấn luyện cá nhân là 2 khái niệm khác nhau; ExternalCoach không có relationship này.
+**Quy tắc:** chỉ tạo cho Coach **có specialty PT** (`USER_SPORT_SPECIALTIES` chứa môn `OneOnOne`). Không tự tạo relationship kiểu này từ việc Member ghi danh (`ENROLLMENTS`) khóa Cầu lông/Bóng rổ — ghi danh khóa học và quan hệ huấn luyện cá nhân là 2 khái niệm khác nhau.
 
 | Field | Vai trò |
 |---|---|
@@ -378,7 +367,7 @@ Ràng buộc: unique một phần `(ClassId, MemberId) WHERE Status = 'Active'`.
 | `EnrollmentId` (FK) | Ghi danh nào |
 | `LastModifiedAt` | Mốc sửa gần nhất — cho phép sửa sau buổi **≤ 24 giờ**, có Audit (BR-98) |
 
-> ExternalCoach **không có** bảng điểm danh: lượt thuê sân không điểm danh học viên riêng của họ (chỉ có `CourtRentals.ExpectedAttendees` do coach tự khai, BR-131).
+> Lượt thuê sân **không có** bảng điểm danh và không lưu số người đi cùng: trung tâm chỉ tính tiền thuê của Member (BR-128, BR-131, BR-132).
 
 ### `ROOM_OCCUPANCIES`
 **Mục đích:** nơi **duy nhất** database kiểm tra trùng phòng/sân (PostgreSQL không cho exclusion constraint chạy chéo nhiều bảng). Mỗi buổi lớp, buổi PT có phòng, lượt thuê sân và block đều ghi 1 dòng ở đây.
@@ -394,34 +383,33 @@ Ràng buộc: unique một phần `(ClassId, MemberId) WHERE Status = 'Active'`.
 Ràng buộc: `EXCLUDE USING gist (RoomId WITH =, Period WITH &&) WHERE (IsActive)` (cần extension `btree_gist`). Vi phạm trả `23P01` → service trả `409 conflict` kèm mô tả xung đột. Dòng occupancy phải được ghi/vô hiệu cùng transaction với thao tác nguồn.
 
 ### `COACH_OCCUPANCIES`
-**Mục đích:** chống trùng lịch **Coach** (cả Coach và ExternalCoach): một người không thể ở hai nơi cùng lúc giữa buổi lớp, buổi PT và lượt thuê sân.
+**Mục đích:** chống trùng lịch **Coach**: một người không thể ở hai nơi cùng lúc giữa buổi lớp và buổi PT.
 
 | Field | Vai trò |
 |---|---|
 | `OccupancyId` (PK) | Định danh |
-| `CoachId` (FK → USER_ACCOUNTS) | Coach hoặc ExternalCoach |
+| `CoachId` (FK → USER_ACCOUNTS) | Coach |
 | `Period` (`tstzrange`) | Khoảng thời gian bận |
-| `SourceType` / `SourceId` | `ClassSession`, `PtSession`, `CourtRental` (không có `RoomBlock`) |
+| `SourceType` / `SourceId` | `ClassSession`, `PtSession` (không có `CourtRental` và `RoomBlock`: Member thuê sân không phải Coach; chống trùng sân dùng `ROOM_OCCUPANCIES`) |
 | `IsActive` | `false` khi hủy/dời |
 
 Ràng buộc: `EXCLUDE USING gist (CoachId WITH =, Period WITH &&) WHERE (IsActive)`.
 
 ### `COURT_RENTALS`
-**Mục đích:** lượt **thuê sân theo giờ** của ExternalCoach (dạy học viên riêng của họ). Thanh toán qua Invoice item `CourtRental` (điểm và/hoặc VNPay). Giữ chỗ khi `PendingPayment`.
+**Mục đích:** lượt **thuê sân theo giờ** của Member (trung tâm không quan tâm mục đích sử dụng, kể cả dạy học). Thanh toán qua Invoice item `CourtRental` (điểm và/hoặc VNPay). Giữ chỗ khi `PendingPayment`.
 
 | Field | Vai trò |
 |---|---|
 | `RentalId` (PK) | Định danh |
-| `ExternalCoachId` (FK) / `RoomId` (FK) | Ai thuê, sân nào |
+| `MemberId` (FK → USER_ACCOUNTS) / `RoomId` (FK) | Ai thuê, sân nào |
 | `StartAtUtc` / `EndAtUtc` | **Bội số 60 phút** (`rental.slot_minutes`), tối đa `rental.max_hours` (4), đặt trước tối đa `rental.advance_days` (30), phải nằm trong giờ hoạt động |
 | `HourlyRateSnapshot` / `TotalAmount` | Đơn giá snapshot từ `COURT_RATES` và tổng tiền — đổi giá sau không ảnh hưởng lượt đã đặt |
-| `Status` | `CourtRentalStatus`: `PendingPayment`, `Confirmed`, `Expired`, `CancelledByCoach`, `CancelledByCenter`, `Completed` |
+| `Status` | `CourtRentalStatus`: `PendingPayment`, `Confirmed`, `Expired`, `CancelledByMember`, `CancelledByCenter`, `Completed` |
 | `HoldExpiresAt` (nullable) | Hạn giữ sân khi `PendingPayment` |
 | `InvoiceId` (FK) | Hóa đơn item `CourtRental` |
-| `ExpectedAttendees` (nullable) | Số học viên coach tự khai (BR-131) — chỉ để tham khảo, **không điểm danh** |
 | `CancelledAt` / `CancelReason` (nullable) | Hủy: miễn phí nếu trước `rental.cancel_free_hours` (24) |
 
-`PendingPayment` và `Confirmed` giữ dòng `ROOM_OCCUPANCIES` + `COACH_OCCUPANCIES`; `Expired`/hủy vô hiệu hóa chúng.
+`PendingPayment` và `Confirmed` giữ dòng `ROOM_OCCUPANCIES`; `Expired`/hủy vô hiệu hóa chúng.
 
 ### `GYM_CHECKINS`
 **Mục đích:** ghi nhận Member ra vào tập Gym/Fitness **tự do, không qua đặt lịch** — tách khỏi ghi danh lớp. Chỉ Receptionist ghi nhận — xem BR-64. **Giữ nguyên ở v3** (Gym là môn `WalkIn` trong `SPORTS`; đảm bảo có `CheckOutTime`).
@@ -572,7 +560,7 @@ Khi `Approved`: đổi `PT_ENTITLEMENTS.CoachId`, kết thúc `COACH_MEMBER_RELA
 | `MemberFeedback` | Phản hồi của Member — chỉ Member sửa, PT không sửa |
 | `Version` | Optimistic concurrency token |
 
-Chỉ PT có quan hệ `Active` với Member mới tạo/sửa/hủy/review; Member chỉ đọc và cập nhật `InProgress`/`Completed` + feedback của chính mình; Coach không có specialty PT (và ExternalCoach) luôn bị 403; relationship kết thúc không xóa homework cũ, chỉ chặn assignment mới. `NOTIFICATIONS` chỉ báo "có bài mới", không thay thế bản ghi này.
+Chỉ PT có quan hệ `Active` với Member mới tạo/sửa/hủy/review; Member chỉ đọc và cập nhật `InProgress`/`Completed` + feedback của chính mình; Coach không có specialty PT luôn bị 403; relationship kết thúc không xóa homework cũ, chỉ chặn assignment mới. `NOTIFICATIONS` chỉ báo "có bài mới", không thay thế bản ghi này.
 
 ### `HOMEWORK_ASSIGNMENT_ITEMS`
 **Mục đích:** snapshot từng bài tập trong 1 `HOMEWORK_ASSIGNMENTS` — tách bảng con như `WORKOUT_PLAN_ITEMS`.
@@ -589,7 +577,7 @@ Chỉ PT có quan hệ `Active` với Member mới tạo/sửa/hủy/review; Mem
 
 > Invoice được tạo tại checkout và trả **đủ một lần** trong một checkout, nhưng có thể **chia**: một phần bằng **điểm** (`PointsApplied`) và phần còn lại bằng **VNPay-QR** (`CashAmount`). Tối đa một Payment thành công cho phần tiền. PaymentAttempt có thể tạo lại. **Hoàn trả chỉ bằng điểm** — không hoàn tiền mặt/chuyển khoản, **không gọi VNPay Refund API** (BR-135). Quy đổi **1 điểm = 1.000 VND, không hết hạn, không rút tiền mặt** (BR-134).
 > **Implementation:** checkout, wallet, VNPay adapter/IPN/QueryDR và refund điểm đã có mã. Sandbox thật chưa được nghiệm thu trong đợt rà soát; xem mục 13 của thiết kế hệ thống.
-> Người thụ hưởng Invoice có thể là **Member hoặc ExternalCoach** (thuê sân).
+> Người thụ hưởng Invoice là **Member** (kể cả khi thuê sân).
 
 ### `INVOICES`
 **Mục đích:** chứng từ checkout bất biến sau khi Paid, giữ người thụ hưởng, người khởi tạo, tổng tiền snapshot và cách chia điểm/tiền.
@@ -598,8 +586,8 @@ Chỉ PT có quan hệ `Active` với Member mới tạo/sửa/hủy/review; Mem
 |---|---|
 | `InvoiceId` (PK) | Định danh nội bộ |
 | `InvoiceNumber` | Mã hóa đơn dễ đọc, **unique**, sinh từ DB sequence (không random ở app) để tránh trùng khi 2 request song song (constraint #5, BR-58) |
-| `MemberId` (FK), API `beneficiaryUserId` | Member (Membership/PT/gói lớp) hoặc ExternalCoach (thuê sân) hưởng dịch vụ; tách khỏi người checkout |
-| `IssuedByUserId` (FK) | Member/ExternalCoach tự checkout hoặc Receptionist thao tác hộ |
+| `MemberId` (FK), API `beneficiaryUserId` | Member (Membership/PT/gói lớp/thuê sân) hưởng dịch vụ; tách khỏi người checkout |
+| `IssuedByUserId` (FK) | Member tự checkout hoặc Receptionist thao tác hộ |
 | `TotalAmount` | Tổng snapshot các InvoiceItem; VND, trả đủ trong một checkout, không cọc/trả góp/thiếu/thừa |
 | `PointsApplied` (int, mặc định 0, ) | Số điểm dùng thanh toán (BR-136). Điểm được **giữ** (`Hold`) lúc checkout và **trừ** (`Spend`) khi Invoice Paid |
 | `CashAmount` () | Phần phải thu tiền = `TotalAmount − PointsApplied × 1000`. Khi `= 0` **không tạo `PAYMENT_ATTEMPTS`** và Invoice chuyển `Paid` ngay trong transaction fulfillment (BR-85) |
@@ -660,7 +648,7 @@ Chỉ PT có quan hệ `Active` với Member mới tạo/sửa/hủy/review; Mem
 **Persistence:** `PaymentAdjustment` là persistence chung: Refund mới yêu cầu `InvoiceItemId`, ghi `CenterFault`, `SystemCalculatedPoints`, `ApprovedPoints`, `PointLedgerEntryId`; `Amount`/`RequestedAmount` để 0. `RefundMethod`, `RefundReferenceCode`, `LegacyPayoutUnverified`, `CompletedByUserId` được giữ để đọc dữ liệu legacy, nhưng endpoint payout đã gỡ. Legacy Refund không tự backfill item khi invoice có nhiều item; migration chỉ gắn item nếu chính xác một item. Manager hoàn điểm và module entitlement hủy quyền lợi trong cùng transaction.
 
 ### `POINT_WALLETS`
-**Mục đích:** ví điểm của Member/ExternalCoach; điểm là công cụ hoàn trả và thanh toán nội bộ, không rút được thành tiền, **không hết hạn**. Module Payment (`Wallet/`). Tạo tự động khi tạo tài khoản Member/ExternalCoach.
+**Mục đích:** ví điểm của Member; điểm là công cụ hoàn trả và thanh toán nội bộ, không rút được thành tiền, **không hết hạn**. Module Payment (`Wallet/`). Tạo tự động khi tạo tài khoản Member.
 
 | Field | Vai trò |
 |---|---|
@@ -713,7 +701,7 @@ Ràng buộc: **unique `(ReferenceId, EntryType)`** để idempotent (không c�
 | `NotificationId` (PK) | Định danh |
 | `UserId` (FK) | Gửi cho ai |
 | `Channel` | `IN_APP/EMAIL/SMS` — kênh gửi |
-| `SourceEventType` | `CLASS_CANCELLED/SCHEDULE_CHANGED/PACKAGE_EXPIRING/PAYMENT_RECEIVED` (giữ) — loại sự kiện sinh ra thông báo này. **Thêm v3** (thiết kế hệ thống): `ClassThresholdAtRisk`, `ClassTransferResult`, `ClassCancelledByCenter`, `PointsCredited`, `RentalConfirmed`, `RentalCancelled`, `IncidentNotice`, `ExternalCoachDecision`, `PasswordChanged`, `PointConfirmationOtp`, `PasswordResetOtp` (email OTP/thông báo đi qua outbox) |
+| `SourceEventType` | `CLASS_CANCELLED/SCHEDULE_CHANGED/PACKAGE_EXPIRING/PAYMENT_RECEIVED` (giữ) — loại sự kiện sinh ra thông báo này. **Thêm v3** (thiết kế hệ thống): `ClassThresholdAtRisk`, `ClassTransferResult`, `ClassCancelledByCenter`, `PointsCredited`, `RentalConfirmed`, `RentalCancelled`, `IncidentNotice`, `PasswordChanged`, `PointConfirmationOtp`, `PasswordResetOtp` (email OTP/thông báo đi qua outbox) |
 | `SourceEntityId` (nullable) | Trỏ tới entity gây ra sự kiện (vd `SessionId` nếu là `CLASS_CANCELLED`) |
 | `Message` | Nội dung hiển thị |
 | `Status` | `PENDING/SENT/FAILED/READ` — vòng đời gửi + đã đọc chưa |
@@ -772,8 +760,8 @@ Các field này mô tả yêu cầu BR-60/BR-78; trạng thái code/migration đ
 
 | Entity.Field | Mục đích và ràng buộc |
 |---|---|
-| EmailOtp (entity mới, module Identity) | Theo email và purpose; chỉ mã hiện hành có hiệu lực. Phục vụ BR-78 — xác thực OTP khi Register bằng email/mật khẩu. thêm `Purpose` (`Register`/`ResetPassword`/`ExternalCoachRegister`) — mỗi mục đích một OTP còn hiệu lực cho cùng email (xem `EMAIL_OTPS`) |
-| EmailOtp.Purpose () | Enum `EmailOtpPurpose`; dùng cho đăng ký, quên mật khẩu (BR-103, bằng link email) và đăng ký ExternalCoach (BR-105) |
+| EmailOtp (entity mới, module Identity) | Theo email và purpose; chỉ mã hiện hành có hiệu lực. Phục vụ BR-78 — xác thực OTP khi Register bằng email/mật khẩu. thêm `Purpose` (`Register`/`ResetPassword`) — mỗi mục đích một OTP còn hiệu lực cho cùng email (xem `EMAIL_OTPS`) |
+| EmailOtp.Purpose () | Enum `EmailOtpPurpose`; dùng cho đăng ký, quên mật khẩu (BR-103, bằng link email) |
 | EmailOtp.Email | Email chuẩn hóa; chỉ OTP mới nhất còn hiệu lực; rate limit theo email và IP |
 | EmailOtp.CodeHash | Hash của mã OTP 6 số; không lưu hoặc log plaintext |
 | EmailOtp.ExpiresAt | Mã hết hạn sau 10 phút kể từ lần yêu cầu gần nhất |
@@ -787,7 +775,7 @@ Các field này mô tả yêu cầu BR-60/BR-78; trạng thái code/migration đ
 | Entity.Field | Mục đích và ràng buộc |
 |---|---|
 | CoachProfile (entity, module Identity) | 1–1 `UserAccount`, được tạo cho Coach, giữ record lịch sử khi đổi role. Không nhân bản email/họ tên/số điện thoại/mật khẩu. chỉ còn `UserId` + `Bio` |
-| CoachProfile.Salary/HourlyRate/CommissionRate/EmploymentContract | **Không dùng (giữ).** Payroll/hợp đồng nhân sự ngoài phạm vi (BR-101, kể cả chia doanh thu với coach ngoài) |
+| CoachProfile.Salary/HourlyRate/CommissionRate/EmploymentContract | **Không dùng (giữ).** Payroll/hợp đồng nhân sự ngoài phạm vi (BR-101, kể cả chia doanh thu với người thuê sân) |
 | Vòng đời CoachProfile khi đổi role | **Quy tắc:** giữ làm lịch sử, không cascade delete, không soft-disable; role hiện tại trên `UserAccount` quyết định hiệu lực |
 
 ---

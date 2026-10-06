@@ -98,11 +98,14 @@
 .desktopNav {
   display: none;
   align-items: center;
-  gap: 3px;
-  flex-shrink: 0;
+  justify-content: center;
+  gap: 2px;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
-@media (min-width: 1360px) {
+/* Nav nằm cùng một hàng với logo và nhóm hành động; dưới 1280px chuyển vào drawer. */
+@media (min-width: 1280px) {
   .desktopNav {
     display: flex;
   }
@@ -234,17 +237,16 @@
   line-height: 1;
 }
 
-@media (max-width: 1279px) {
-  .qrTextTitle {
-    display: none;
-  }
-  .qrButton {
-    padding: 5px;
-    border-radius: 50%;
-    min-width: 38px;
-    min-height: 38px;
-    justify-content: center;
-  }
+/* Member code luôn là nút tròn chỉ có icon; tên nằm trong aria-label và title. */
+.qrTextTitle {
+  display: none;
+}
+.qrButton {
+  padding: 5px;
+  border-radius: 50%;
+  min-width: 38px;
+  min-height: 38px;
+  justify-content: center;
 }
 
 /* Language Switcher */
@@ -432,7 +434,7 @@
   flex-shrink: 0;
 }
 
-@media (min-width: 1360px) {
+@media (min-width: 1280px) {
   .mobileMenuBtn {
     display: none;
   }
@@ -578,9 +580,10 @@
 }
 
 .pageTitle {
-  font-size: 26px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
+  font-family: var(--font-display);
+  font-size: var(--text-3xl);
+  font-weight: var(--weight-semibold);
+  text-wrap: balance;
   color: var(--text-strong);
   margin: 0;
   line-height: 1.25;

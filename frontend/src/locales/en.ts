@@ -2,12 +2,12 @@ export const en = {
   memberDashboardV2: {
     hello: "Hello",
     title: "Your overview",
-    dateNote: "Vietnam time",
     discoverHint:
       "Find your next course. Compare schedules, available places and fees before enrolling.",
     backDiscover: "Back to discovery",
-    scheduleHint: "Your next 30 days of classes and personal training.",
-    openSchedule: "Open schedule",
+    scheduleHint:
+      "Your next 30 days of classes and personal training, in Vietnam time.",
+    openSchedule: "View details",
     upNext: "Coming up",
     noScheduleTitle: "Make room for your next session.",
     noScheduleBody:
@@ -23,11 +23,17 @@ export const en = {
     noUpdates: "You're all caught up.",
     noUpdatesHint:
       "Schedule changes and updates from the center will appear here.",
-    payments: "Payments to review",
     noPayments: "No pending invoices.",
-    noPaymentsHint:
-      "Your invoices and payment history are available in Finance.",
-    viewInvoice: "Review invoice",
+    money: "Wallet and payments",
+    sportGym: "Gym",
+    issuedOn: "Issued {date}",
+    heldUntil: "Seat held until {time}",
+    moreUnpaid: "{n} more unpaid ({amount})",
+    payNow: "Pay now",
+    inProgress: "In progress now",
+    startsInMin: "Starts in {n} min",
+    startsInHourMin: "Starts in {h} h {m} min",
+    viewAllInvoices: "View all invoices",
     notAssigned: "Location to be confirmed",
     viewServices: "Manage services",
     morePackages: "View all packages",
