@@ -17,7 +17,7 @@ import type { SportDto } from "@/lib/types";
 import { rentalApi } from "./api";
 import { RentalList } from "./rental-list";
 export function ExternalDashboard() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const l = t.operations;
   const profile = useApi((s) => rentalApi.profile(s), []);
   const wallet = useApi((s) => walletApi.balance(s), []);
@@ -31,7 +31,9 @@ export function ExternalDashboard() {
               <p>{p.reviewNote}</p>
               {p.approvalStatus === "APPROVED" ? (
                 <Link className="btn" href="/external-coach/book">
-                  {l.book}
+                  {language === "vi"
+                    ? "Tìm sân phù hợp"
+                    : "Find an available court"}
                 </Link>
               ) : (
                 <p>{l.approvalRequired}</p>

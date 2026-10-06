@@ -246,11 +246,9 @@ function LoginForm() {
               </Link>
             </div>
 
-            {error && (
-              <div className={styles.feedback}>
-                <Feedback id="login-error" error={error} />
-              </div>
-            )}
+            <div className={styles.feedback}>
+              <Feedback id="login-error" error={error} />
+            </div>
 
             <button
               type="submit"

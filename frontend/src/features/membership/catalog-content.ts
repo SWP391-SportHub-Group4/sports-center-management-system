@@ -1,11 +1,15 @@
 import { ApiError } from "@/lib/apiClient";
 import type { MembershipPackageDto } from "@/lib/types";
 
-// Exact text verified in DemoDataSeeder.cs and the public catalog on 2026-10-05.
-// This is a legacy provenance fallback, not language detection by name/script.
-// New or edited text needs language metadata from its publisher.
+// Exact Vietnamese labels/descriptions verified in the demo seed and catalog.
+// Historical labels stay here so sold/discontinued packages keep their language metadata.
+// This is a provenance fallback, not language detection by name/script.
 const verifiedVietnameseContent = new Set([
   "Gym tháng",
+  "Gym 3 tháng",
+  "Gym 6 tháng",
+  "Gym 12 tháng",
+  "Gym thử 14 ngày (ngừng bán)",
   "Yoga 12 buổi",
   "Group X 20 buổi",
   "Personal Training 10 buổi",
@@ -13,6 +17,11 @@ const verifiedVietnameseContent = new Set([
   "Membership 120 ngày",
   "Membership 90 ngày nâng cao",
   "Membership thử 14 ngày (ngừng bán)",
+  "Tập Gym tự do trong 30 ngày, không giới hạn check-in. Cần Membership Gym còn hiệu lực để mua PT riêng.",
+  "Tập Gym tự do trong 90 ngày. Cần Membership Gym còn hiệu lực để mua PT riêng.",
+  "Tập Gym tự do trong 180 ngày. Cần Membership Gym còn hiệu lực để mua PT riêng.",
+  "Tập Gym tự do trong 365 ngày. Cần Membership Gym còn hiệu lực để mua PT riêng.",
+  "Gói Gym dùng thử cũ — giữ lại để minh hoạ gói đã ngừng áp dụng (BR-8).",
   "Ra vào Gym/Fitness tự do trong 30 ngày, không giới hạn số lần check-in.",
   "12 buổi Yoga nhóm, dùng trong 90 ngày.",
   "20 buổi Group X / Aerobic / HIIT, dùng trong 120 ngày.",
