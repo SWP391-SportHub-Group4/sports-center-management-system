@@ -1,8 +1,26 @@
 .page {
+  position: relative;
+  isolation: isolate;
   min-height: 100vh;
   background: var(--bg-app);
   color: var(--text-body);
   font: var(--text-md) / var(--leading-relaxed) var(--font-body);
+}
+
+.page::before {
+  position: fixed;
+  z-index: 10;
+  inset: 0;
+  background: radial-gradient(
+    320px circle at var(--spotlight-x, 50vw) var(--spotlight-y, 40vh),
+    color-mix(in srgb, var(--color-accent) 9%, transparent),
+    transparent 74%
+  );
+  content: "";
+  opacity: var(--spotlight-opacity, 0);
+  pointer-events: none;
+  transition: opacity 260ms ease-out;
+  mix-blend-mode: screen;
 }
 
 .page[data-theme="performance"] {
@@ -135,48 +153,110 @@
 }
 
 .training {
+  position: relative;
+  isolation: isolate;
   display: grid;
   min-width: 0;
-  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
   align-items: center;
-  gap: clamp(28px, 6vw, 88px);
+  min-height: 460px;
   margin-block: var(--space-6);
-  padding: clamp(36px, 6vw, 80px);
-  border: 1px solid var(--border-subtle);
+  padding: clamp(36px, 6vw, 76px);
+  overflow: hidden;
+  border: 1px solid rgb(255 255 255 / 0.16);
   border-radius: var(--radius-xl);
-  background: var(--bg-surface-sunken);
+  background: var(--ink-950, #090e0f);
 }
 
-.training > div {
+.goalBackground {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+}
+
+.goalBackground::after {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  background:
+    linear-gradient(
+      90deg,
+      rgb(4 10 11 / 0.94) 0%,
+      rgb(4 10 11 / 0.82) 52%,
+      rgb(4 10 11 / 0.68) 100%
+    ),
+    linear-gradient(0deg, rgb(4 10 11 / 0.26), transparent 55%);
+  content: "";
+  pointer-events: none;
+}
+
+.goalBackground img {
+  object-fit: cover;
+  object-position: center 54%;
+  transition: transform 650ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.goalContent {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.92fr);
+  align-items: center;
+  gap: clamp(32px, 7vw, 112px);
+  width: 100%;
+  max-width: 1120px;
+  margin-inline: auto;
+}
+
+.goalContent > div {
   min-width: 0;
   overflow-wrap: anywhere;
+  color: var(--text-on-inverse);
 }
 
-.training > div > svg {
+.goalDetails {
+  position: relative;
+  max-width: 48ch;
+  padding-top: clamp(112px, 12vw, 146px);
+}
+
+.goalSticker {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: clamp(126px, 15vw, 190px);
+  height: auto;
+  filter: drop-shadow(0 14px 18px rgb(0 0 0 / 0.16));
+  transform: rotate(7deg);
+  transform-origin: 52% 88%;
+  transition:
+    transform 420ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    filter 420ms ease;
+  pointer-events: none;
+}
+
+.goalCopy > svg {
   margin-bottom: var(--space-4);
-  color: var(--color-primary);
+  color: var(--color-accent);
 }
 
 .training h2 {
-  max-width: 10ch;
+  max-width: 11ch;
   margin: 0;
-  font-size: clamp(48px, 5.5vw, 76px);
+  color: var(--text-on-inverse);
+  font-size: clamp(48px, 5.2vw, 76px);
   letter-spacing: var(--tracking-tight);
   line-height: 0.98;
   white-space: pre-line;
 }
 
-.training > div:last-child {
-  justify-self: end;
-  max-width: 48ch;
-}
-
-.training > div:last-child p {
-  color: var(--text-body);
+.goalDetails p {
+  color: var(--text-on-inverse-muted);
   font-size: var(--text-lg);
 }
 
 .training :global(.btn) {
+  border-color: rgb(255 255 255 / 0.64);
+  color: var(--text-on-inverse);
   max-width: 100%;
   min-height: var(--control-height-lg);
   height: auto;
@@ -184,9 +264,9 @@
 }
 
 .page[data-theme="performance"] .training :global(.btn--secondary) {
-  border-color: var(--border-inverse);
+  border-color: rgb(255 255 255 / 0.64);
   background: transparent;
-  color: var(--text-strong);
+  color: var(--text-on-inverse);
 }
 
 .page[data-theme="performance"] .training :global(.btn--secondary):hover {
@@ -331,11 +411,18 @@
   display: inline-flex;
   min-height: var(--control-height-lg);
   align-items: center;
-  gap: var(--space-2);
   color: var(--text-on-inverse);
+  font-family: var(--font-display);
   font-size: var(--text-2xl);
-  font-weight: 700;
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-wide);
+  line-height: 1;
+  text-transform: uppercase;
   text-decoration: none;
+}
+
+.wordmarkAccent {
+  color: var(--color-accent);
 }
 
 .footerStatement {
@@ -413,29 +500,59 @@
   }
 }
 
+@media (max-width: 1023px) {
+  .training {
+    min-height: 0;
+  }
+
+  .goalContent {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-5);
+    max-width: 680px;
+  }
+
+  .goalBackground img {
+    object-position: 45% center;
+  }
+}
+
 @media (max-width: 767px) {
   .main {
     padding-inline: var(--space-4);
   }
 
-  .training,
   .faq {
     grid-template-columns: minmax(0, 1fr);
   }
 
   .training {
-    gap: var(--space-5);
     padding: var(--space-7) var(--space-5);
     border-radius: var(--radius-lg);
   }
 
-  .training h2 {
-    max-width: 12ch;
-    font-size: clamp(48px, 12vw, 62px);
+  .goalContent {
+    gap: var(--space-4);
   }
 
-  .training > div:last-child {
-    justify-self: start;
+  .goalCopy > svg {
+    width: 34px;
+    height: 34px;
+    margin-bottom: var(--space-3);
+  }
+
+  .training h2 {
+    max-width: 10ch;
+    font-size: clamp(42px, 11vw, 58px);
+  }
+
+  .goalDetails {
+    padding-top: 78px;
+  }
+
+  .goalSticker {
+    top: -8px;
+    right: 0;
+    width: 118px;
   }
 
   .pricing :global(.refactor-grid > .card) {
@@ -486,7 +603,42 @@
   }
 }
 
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .training:hover .goalBackground img {
+    transform: scale(1.035);
+  }
+
+  .training:hover .goalSticker,
+  .training:focus-within .goalSticker {
+    filter: drop-shadow(0 20px 24px rgb(0 0 0 / 0.22));
+    transform: translateY(-9px) rotate(-7deg) scale(1.06);
+    animation: goalStickerHello 520ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+}
+
+@keyframes goalStickerHello {
+  0% {
+    rotate: 7deg;
+  }
+  58% {
+    rotate: -11deg;
+  }
+  100% {
+    rotate: -7deg;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .goalSticker {
+    transition: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page::before {
+    display: none;
+  }
+
   .page *,
   .page *::before,
   .page *::after {
@@ -494,6 +646,12 @@
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+@media (pointer: coarse) {
+  .page::before {
+    display: none;
   }
 }
 
