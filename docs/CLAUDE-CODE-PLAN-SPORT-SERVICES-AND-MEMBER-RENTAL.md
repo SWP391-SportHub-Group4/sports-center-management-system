@@ -121,6 +121,8 @@ Thực hiện chi tiết trong `CLAUDE-CODE-PLAN-MEMBER-COURT-RENTAL.md` trên n
 
 ## 6. Cổng D — Seed demo trên nền chung
 
+> Tiến độ 07/10/2026: đã làm. Lệnh seed riêng: `dotnet run --project backend/SportHub.API -- --seed-br141` (mã nguồn `Br141DemoSeeder.cs`, cần `ASPNETCORE_ENVIRONMENT=Development`). Lệnh tạo bốn lớp BR-141 qua `ClassService` (Create rồi Publish), sân riêng mỗi môn, Coach demo nếu chưa có, bảng giá 100.000 và 200.000 đồng/giờ, và nâng thời lượng lớp mặc định Cầu lông từ 90 lên 120 phút khi môn chưa có lớp nào. Idempotent. Đã chạy trên DB dev ngày 07/10/2026 và kiểm tra lịch thực tế (giờ Việt Nam, 120 phút, không trùng occupancy). Chưa có test tự động cho seeder.
+
 | Môn seed | Dịch vụ | Giá rental giả định |
 |---|---|---:|
 | Gym | Membership, PT | Không bật thuê sân |

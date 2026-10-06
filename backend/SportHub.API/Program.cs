@@ -409,9 +409,24 @@ builder.Services.AddControllers()
 builder.Services.AddSportHubSwagger();
 
 builder.Services.AddScoped<DemoDataSeeder>();
+builder.Services.AddScoped<Br141DemoSeeder>();
 builder.Services.AddScoped<PaymentNoticeService>();
 
 var app = builder.Build();
+
+// Seed demo BR-141 (lớp cố định + giá thuê sân): lệnh riêng, chạy tay khi sẵn sàng, không chạy lúc khởi động bình thường.
+//   dotnet run --project backend/SportHub.API -- --seed-br141=true
+// Viết `--seed-br141=true` (có giá trị): provider dòng lệnh của .NET coi tham số `--khoá` đứng một mình là "khóa + giá trị là
+// tham số kế tiếp", nên `--seed-br141 --ConnectionStrings:Default=...` nuốt mất chuỗi kết nối và seed chạy vào DB mặc định.
+if (args.Any(a => a.StartsWith("--seed-br141", StringComparison.Ordinal)))
+{
+    var target = new Npgsql.NpgsqlConnectionStringBuilder(app.Configuration.GetConnectionString("Default"));
+    Console.WriteLine($"[seed-br141] database '{target.Database}' trên '{target.Host}:{target.Port}'");
+    await using var seedScope = app.Services.CreateAsyncScope();
+    await seedScope.ServiceProvider.GetRequiredService<SportHubDbContext>().Database.MigrateAsync();
+    await seedScope.ServiceProvider.GetRequiredService<Br141DemoSeeder>().SeedAsync();
+    return;
+}
 
 // Ở Development: áp migration rồi seed dữ liệu demo. Seeder tự bỏ qua nếu DB đã có tài khoản,
 // nên không bao giờ ghi đè dữ liệu người dùng đang có.
