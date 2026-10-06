@@ -303,7 +303,7 @@ G01–G13 trỏ [phân công API theo page/owner](../DESIGN-SKILLS-GUIDE.md#api-
 
 | ID | Khoảng trống | Việc cần hoàn thành |
 |---|---|---|
-| CAT-01 | Môn nhiều dịch vụ, PT là dịch vụ của Gym | Đã có schema, migration, API và UI. Còn thiếu: chặn gỡ qualification Coach hoặc liên kết phòng khi còn lịch tương lai (`service_in_use_by_future_schedule`, `qualification_in_use`); test callback muộn khi dịch vụ đã tắt; chưa chạy test tích hợp backend (cần Docker) |
+| CAT-01 | Môn nhiều dịch vụ, PT là dịch vụ của Gym | Đã có schema, migration, API và UI. Gỡ qualification PT hoặc liên kết loại phòng bị chặn khi còn buổi PT tương lai (`qualification_in_use`, `service_in_use_by_future_schedule`). Còn thiếu: test callback muộn khi dịch vụ đã tắt; chưa chạy test tích hợp backend (cần Docker) |
 | CAT-02 | Thuê sân là chức năng của Member; lịch lớp cố định BR-141 | Đã có code, migration và seed riêng (`dotnet run -- --seed-br141=true`). Còn thiếu: test tích hợp backend và nghiệm thu E2E với PostgreSQL thật |
 | G01 | Public sân, availability/giá, Coach profile và PT pricing đầy đủ | DTO public an toàn, giá/availability tính server |
 | G02 | Chờ đợt sau + subscription | Hoàn 100% điểm một lần, lưu nguyện vọng, không giữ chỗ/ghi danh tự động |

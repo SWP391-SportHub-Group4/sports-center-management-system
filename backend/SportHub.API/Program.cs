@@ -239,6 +239,8 @@ builder.Services.AddScoped<IGymCheckInService, GymCheckInService>();
 builder.Services.AddScoped<IRoomService, RoomService>();
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Scheduling.IOccupancyService, SportHub.Scheduling.Occupancy.Application.OccupancyService>();
 builder.Services.AddScoped<SportHub.Scheduling.Occupancy.Application.AvailabilityService>();
+builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Training.IPersonalTrainingScheduleReader, SportHub.Training.Application.Services.PersonalTrainingScheduleReader>();
+builder.Services.AddScoped<SportHub.Scheduling.Catalog.Application.ServiceUsageGuard>();
 builder.Services.AddScoped<SportHub.Scheduling.Catalog.Application.SportCatalogService>();
 builder.Services.AddScoped<SportHub.Scheduling.Catalog.Application.RoomTypeService>();
 builder.Services.AddScoped<SportHub.Scheduling.Catalog.Application.RoomOpeningHourService>();

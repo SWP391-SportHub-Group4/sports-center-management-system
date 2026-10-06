@@ -2,17 +2,19 @@ using Microsoft.EntityFrameworkCore;
 using SportHub.BuildingBlocks.Abstractions.Audit;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.Abstractions.Scheduling;
+using SportHub.BuildingBlocks.Abstractions.Training;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
+using SportHub.BuildingBlocks.SharedKernel.Time;
 using SportHub.Identity.Domain.Entities;
 
 namespace SportHub.Identity.Application.Services;
 
 /// <summary>
 /// Qualification dịch vụ của Coach nội bộ (CAT-01). Hiện chỉ dịch vụ PT của Gym cần qualification riêng; Coach phải
-/// đã có chuyên môn môn Gym. Gỡ qualification khi Coach còn lịch PT tương lai chưa được kiểm ở đây (module Training
-/// sở hữu dữ liệu đó) và hiện chưa được cài đặt.
+/// đã có chuyên môn môn Gym. Không gỡ được qualification khi Coach còn buổi PT tương lai (<c>qualification_in_use</c>).
 /// </summary>
-public sealed class CoachQualificationService(ISportHubDbContext db, ISportCatalogReader catalog, IAuditWriter audit)
+public sealed class CoachQualificationService(ISportHubDbContext db, ISportCatalogReader catalog, IAuditWriter audit,
+    IPersonalTrainingScheduleReader ptSchedule, IClock clock)
 {
     public async Task<IReadOnlyList<int>> GetAsync(Guid coachId, CancellationToken ct)
         => await db.Set<CoachServiceQualification>().AsNoTracking()
@@ -47,7 +49,13 @@ public sealed class CoachQualificationService(ISportHubDbContext db, ISportCatal
 
         var current = await db.Set<CoachServiceQualification>().Where(q => q.UserId == coach.UserId).ToListAsync(ct);
         var before = current.Select(q => q.OfferingId).OrderBy(x => x).ToList();
-        db.Set<CoachServiceQualification>().RemoveRange(current.Where(q => !ids.Contains(q.OfferingId)));
+        var removed = current.Where(q => !ids.Contains(q.OfferingId)).ToList();
+        if (removed.Count > 0 && await ptSchedule.CoachHasFutureSessionsAsync(coachId, clock.UtcNow, ct))
+        {
+            throw new ConflictException("qualification_in_use", "Coach còn buổi PT tương lai — hủy hoặc chuyển các buổi đó trước khi gỡ qualification PT.");
+        }
+
+        db.Set<CoachServiceQualification>().RemoveRange(removed);
         db.Set<CoachServiceQualification>().AddRange(ids.Where(id => current.All(q => q.OfferingId != id))
             .Select(id => new CoachServiceQualification { UserId = coach.UserId, OfferingId = id }));
 

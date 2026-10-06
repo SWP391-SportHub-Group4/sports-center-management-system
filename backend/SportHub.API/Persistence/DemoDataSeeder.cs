@@ -121,43 +121,43 @@ public sealed class DemoDataSeeder(
                 Price = 600_000m,
                 DurationDays = 30,
                 SessionLimit = null,
-                Description = "Ra vào Gym/Fitness tự do trong 30 ngày, không giới hạn số lần check-in.",
+                Description = "Tập Gym tự do trong 30 ngày, không giới hạn check-in. Cần Membership Gym còn hiệu lực để mua PT riêng.",
                 IsActive = true
             },
             new MembershipPackage
             {
-                Name = "Membership 90 ngày",
+                Name = "Gym 3 tháng",
                 Price = 1_800_000m,
                 DurationDays = 90,
                 SessionLimit = null,
-                Description = "Quyền sử dụng trung tâm trong 90 ngày.",
+                Description = "Tập Gym tự do trong 90 ngày. Cần Membership Gym còn hiệu lực để mua PT riêng.",
                 IsActive = true
             },
             new MembershipPackage
             {
-                Name = "Membership 120 ngày",
+                Name = "Gym 6 tháng",
                 Price = 2_400_000m,
-                DurationDays = 120,
+                DurationDays = 180,
                 SessionLimit = null,
-                Description = "Quyền sử dụng trung tâm trong 120 ngày.",
+                Description = "Tập Gym tự do trong 180 ngày. Cần Membership Gym còn hiệu lực để mua PT riêng.",
                 IsActive = true
             },
             new MembershipPackage
             {
-                Name = "Membership 90 ngày nâng cao",
+                Name = "Gym 12 tháng",
                 Price = 6_000_000m,
-                DurationDays = 90,
+                DurationDays = 365,
                 SessionLimit = null,
-                Description = "Membership nền để mua PT riêng.",
+                Description = "Tập Gym tự do trong 365 ngày. Cần Membership Gym còn hiệu lực để mua PT riêng.",
                 IsActive = true
             },
             new MembershipPackage
             {
-                Name = "Membership thử 14 ngày (ngừng bán)",
+                Name = "Gym thử 14 ngày (ngừng bán)",
                 Price = 300_000m,
                 DurationDays = 14,
                 SessionLimit = null,
-                Description = "Gói dùng thử cũ — giữ lại để minh hoạ gói đã ngừng áp dụng (BR-8).",
+                Description = "Gói Gym dùng thử cũ — giữ lại để minh hoạ gói đã ngừng áp dụng (BR-8).",
                 IsActive = false
             }
         };
@@ -178,6 +178,7 @@ public sealed class DemoDataSeeder(
         await transaction.CommitAsync(ct);
         await transaction.DisposeAsync();
         await SeedWalletAndRentalAsync(ct);
+        await SeedArenaShowcaseCoursesAsync(ct);
 
         logger.LogInformation(
             "Đã seed dữ liệu demo: {Users} tài khoản, {Sessions} buổi học. Mật khẩu chung: {Password}",
@@ -220,6 +221,286 @@ public sealed class DemoDataSeeder(
             }
         }
         await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Fills missing public arena data in an existing Development database. Stable demo
+    /// identities and class codes make this safe to run on every startup without duplicating
+    /// courses or touching classes created by a manager.
+    /// </summary>
+    private async Task SeedArenaShowcaseCoursesAsync(CancellationToken ct)
+    {
+        var manager = await db.UserAccounts.SingleOrDefaultAsync(x => x.Email == "manager@sporthub.vn", ct);
+        if (manager is null || manager.Status != UserStatus.Active) return;
+
+        await SeedSportPresentationAsync(ct);
+
+        var badmintonCoach = await EnsureDemoCoachAsync(
+            "coach.caulong@sporthub.vn", "Phạm Minh Cầu Lông", "0902000001", 3, ct);
+        var basketballCoach = await EnsureDemoCoachAsync(
+            "coach.bongro@sporthub.vn", "Vũ Hải Bóng Rổ", "0902000002", 4, ct);
+        await EnsureDemoCoachAsync(
+            "coach.pt@sporthub.vn", "Đỗ Quang PT", "0902000003", 1, ct);
+        var badmintonRoom = await EnsureDemoRoomAsync("Sân cầu lông 1", 3, 12, ct);
+        var basketballRoom = await EnsureDemoRoomAsync("Sân bóng rổ 1", 4, 30, ct);
+
+        if (badmintonCoach is null || basketballCoach is null
+            || badmintonRoom is null || basketballRoom is null) return;
+
+        var now = clock.UtcNow;
+        var today = VietnamTime.TodayLocal(clock);
+
+        await SeedPublishedShowcaseCourseAsync(
+            code: "DEMO-ARENA-CAULONG",
+            name: "Cầu lông cơ bản · 6 buổi",
+            sportId: 3,
+            coachId: badmintonCoach.UserId,
+            roomId: badmintonRoom.RoomId,
+            startDate: NextWeekday(today.AddDays(7), DayOfWeek.Monday),
+            days: [(DayOfWeek.Monday, new TimeOnly(18, 0)), (DayOfWeek.Wednesday, new TimeOnly(18, 0))],
+            numSessions: 6,
+            sessionMinutes: 90,
+            capacity: 12,
+            price: 900_000m,
+            cost: 3_600_000m,
+            now,
+            ct);
+
+        await SeedPublishedShowcaseCourseAsync(
+            code: "DEMO-ARENA-BONGRO",
+            name: "Bóng rổ nhập môn · 8 buổi",
+            sportId: 4,
+            coachId: basketballCoach.UserId,
+            roomId: basketballRoom.RoomId,
+            startDate: NextWeekday(today.AddDays(7), DayOfWeek.Tuesday),
+            days: [(DayOfWeek.Tuesday, new TimeOnly(19, 0)), (DayOfWeek.Thursday, new TimeOnly(19, 0))],
+            numSessions: 8,
+            sessionMinutes: 120,
+            capacity: 20,
+            price: 1_200_000m,
+            cost: 6_000_000m,
+            now,
+            ct);
+    }
+
+    private async Task SeedSportPresentationAsync(CancellationToken ct)
+    {
+        var presentation = new (int SportId, string Description, string ImageUrl)[]
+        {
+            (1, "Tập Gym tự do để rèn sức mạnh, sức bền và thể lực tổng quát. Huấn luyện cá nhân (PT) là dịch vụ của Gym, mua riêng và yêu cầu Membership Gym còn hiệu lực.", "/sporthub/court-volt/conditioning-speed-track.png"),
+            (3, "Lớp Cầu lông theo khóa, lịch lặp 90 phút mỗi buổi; đăng ký riêng, không cần Membership Gym.", "/sporthub/court-volt/course-badminton.png"),
+            (4, "Lớp Bóng rổ theo khóa, lịch lặp 120 phút mỗi buổi; có thể đặt sân riêng, không cần Membership Gym.", "/sporthub/court-volt/course-basketball.png")
+        };
+
+        var changed = false;
+        foreach (var item in presentation)
+        {
+            var sport = await db.Sports.SingleOrDefaultAsync(x => x.SportId == item.SportId, ct);
+            if (sport is null) continue;
+
+            if (string.IsNullOrWhiteSpace(sport.Description))
+            {
+                sport.Description = item.Description;
+                changed = true;
+            }
+
+            if (string.IsNullOrWhiteSpace(sport.ImageUrl))
+            {
+                sport.ImageUrl = item.ImageUrl;
+                changed = true;
+            }
+        }
+
+        if (changed) await db.SaveChangesAsync(ct);
+    }
+
+    private async Task<UserAccount?> EnsureDemoCoachAsync(
+        string email,
+        string fullName,
+        string phone,
+        int sportId,
+        CancellationToken ct)
+    {
+        var role = await db.Roles.SingleOrDefaultAsync(x => x.RoleName == UserRole.Coach, ct);
+        if (role is null) return null;
+
+        var coach = await db.UserAccounts.SingleOrDefaultAsync(x => x.Email == email, ct);
+        if (coach is null)
+        {
+            coach = NewUser(email, fullName, await EnsureUniqueDemoPhoneAsync(phone, sportId, ct), UserRole.Coach);
+            coach.RoleId = role.RoleId;
+            coach.CoachProfile = new CoachProfile();
+            db.UserAccounts.Add(coach);
+            await db.SaveChangesAsync(ct);
+        }
+        else if (coach.Status != UserStatus.Active || coach.RoleId != role.RoleId)
+        {
+            return null;
+        }
+
+        var hasProfile = await db.Set<CoachProfile>().AnyAsync(x => x.UserId == coach.UserId, ct);
+        if (!hasProfile)
+        {
+            db.Set<CoachProfile>().Add(new CoachProfile { UserId = coach.UserId });
+            await db.SaveChangesAsync(ct);
+        }
+
+        await EnsureDemoCoachSpecialtyAsync(coach.UserId, sportId, ct);
+        return coach;
+    }
+
+    private async Task<string> EnsureUniqueDemoPhoneAsync(string preferred, int sportId, CancellationToken ct)
+    {
+        if (!await db.Set<UserProfile>().AnyAsync(x => x.Phone == preferred, ct)) return preferred;
+
+        for (var attempt = 1; attempt <= 9999; attempt++)
+        {
+            var candidate = $"0999{sportId}{attempt:00000}";
+            if (!await db.Set<UserProfile>().AnyAsync(x => x.Phone == candidate, ct)) return candidate;
+        }
+
+        throw new InvalidOperationException("Unable to allocate a unique demo coach phone number.");
+    }
+
+    private async Task<Room?> EnsureDemoRoomAsync(
+        string name,
+        int roomTypeId,
+        int capacity,
+        CancellationToken ct)
+    {
+        var room = await db.Rooms.SingleOrDefaultAsync(x => x.Name == name, ct);
+        if (room is not null)
+        {
+            if (!room.IsActive || room.RoomTypeId != roomTypeId) return null;
+            return room;
+        }
+
+        if (!await db.Set<RoomType>().AnyAsync(x => x.RoomTypeId == roomTypeId, ct)) return null;
+
+        room = new Room { Name = name, Capacity = capacity, RoomTypeId = roomTypeId };
+        db.Rooms.Add(room);
+        await db.SaveChangesAsync(ct);
+
+        db.RoomOpeningHours.AddRange(Enumerable.Range(0, 7).Select(day => new RoomOpeningHour
+        {
+            RoomId = room.RoomId,
+            DayOfWeek = day,
+            OpenTimeLocal = new TimeOnly(6, 0),
+            CloseTimeLocal = new TimeOnly(22, 0)
+        }));
+        await db.SaveChangesAsync(ct);
+        return room;
+    }
+
+    private async Task EnsureDemoCoachSpecialtyAsync(Guid coachId, int sportId, CancellationToken ct)
+    {
+        var exists = await db.Set<UserSportSpecialty>()
+            .AnyAsync(x => x.UserId == coachId && x.SportId == sportId, ct);
+        if (exists) return;
+
+        db.Set<UserSportSpecialty>().Add(new UserSportSpecialty { UserId = coachId, SportId = sportId });
+        await db.SaveChangesAsync(ct);
+    }
+
+    private async Task SeedPublishedShowcaseCourseAsync(
+        string code,
+        string name,
+        int sportId,
+        Guid coachId,
+        int roomId,
+        DateOnly startDate,
+        (DayOfWeek Day, TimeOnly Time)[] days,
+        int numSessions,
+        int sessionMinutes,
+        int capacity,
+        decimal price,
+        decimal cost,
+        DateTime now,
+        CancellationToken ct)
+    {
+        if (await db.Classes.AnyAsync(x => x.Code == code, ct)
+            || await db.Classes.AnyAsync(x => x.SportId == sportId && x.Status == ClassStatus.Published, ct))
+        {
+            return;
+        }
+
+        var breakEvenThreshold = decimal.ToInt32(decimal.Ceiling(cost / price));
+        var schedule = days.Select(x => ((int)x.Day, x.Time)).ToArray();
+        var generated = CourseRules.GenerateSessions(startDate, numSessions, schedule, sessionMinutes);
+        if (generated.Count == 0) return;
+
+        var course = new Class
+        {
+            Code = code,
+            Name = name,
+            SportId = sportId,
+            CoachId = coachId,
+            DefaultRoomId = roomId,
+            StartDate = startDate,
+            NumSessions = numSessions,
+            Capacity = capacity,
+            Price = price,
+            CostAmount = cost,
+            BreakEvenThreshold = breakEvenThreshold,
+            ThresholdStatus = ThresholdStatus.WaivedByManager,
+            ThresholdDeadlineUtc = generated[0].StartAtUtc.AddDays(-3),
+            Status = ClassStatus.Published,
+            Version = 1,
+            CreatedAt = now,
+            PublishedAt = now
+        };
+
+        db.Classes.Add(course);
+        await db.SaveChangesAsync(ct);
+
+        db.ClassScheduleRules.AddRange(days.Select(day => new ClassScheduleRule
+        {
+            ClassId = course.ClassId,
+            DayOfWeek = (int)day.Day,
+            StartTimeLocal = day.Time
+        }));
+
+        var sessions = generated.Select(slot => new ClassSession
+        {
+            SessionId = Guid.NewGuid(),
+            ClassId = course.ClassId,
+            SessionNo = slot.SessionNo,
+            RoomId = roomId,
+            CoachId = coachId,
+            StartAtUtc = slot.StartAtUtc,
+            EndAtUtc = slot.EndAtUtc,
+            Status = ClassSessionStatus.Scheduled
+        }).ToArray();
+        db.ClassSessions.AddRange(sessions);
+        db.RoomOccupancies.AddRange(sessions.Select(session => new RoomOccupancy
+        {
+            OccupancyId = Guid.NewGuid(),
+            RoomId = roomId,
+            SourceType = OccupancySourceType.ClassSession,
+            SourceId = session.SessionId,
+            StartAtUtc = session.StartAtUtc,
+            EndAtUtc = session.EndAtUtc,
+            IsActive = true
+        }));
+        db.CoachOccupancies.AddRange(sessions.Select(session => new CoachOccupancy
+        {
+            OccupancyId = Guid.NewGuid(),
+            CoachId = coachId,
+            SourceType = OccupancySourceType.ClassSession,
+            SourceId = session.SessionId,
+            StartAtUtc = session.StartAtUtc,
+            EndAtUtc = session.EndAtUtc,
+            IsActive = true
+        }));
+
+        await db.SaveChangesAsync(ct);
+        logger.LogInformation("Đã thêm lớp showcase {ClassCode} cho sport {SportId}.", code, sportId);
+    }
+
+    private static DateOnly NextWeekday(DateOnly from, DayOfWeek day)
+    {
+        while (from.DayOfWeek != day) from = from.AddDays(1);
+        return from;
     }
 
     private async Task SeedWalletAndRentalAsync(CancellationToken ct)
@@ -574,7 +855,7 @@ public sealed class DemoDataSeeder(
 
         // Đổi 29/09/2026 (BE-4): PT dùng PtEntitlement/PtSession riêng, không còn ép
         // WorkoutResult vào Enrollment khóa nhóm. Entitlement mượn validity của MemberPackage
-        // "Membership 90 ngày nâng cao" đã seed cho members[2] ở SeedPackagesAndInvoicesAsync —
+        // "Gym 12 tháng" đã seed cho members[2] ở SeedPackagesAndInvoicesAsync —
         // đây là dữ liệu demo, Payment thật sẽ tạo PtEntitlement qua IPtEntitlementLifecycle.
         var ptMemberPackage = await db.MemberPackages
             .Where(mp => mp.MemberId == members[2].UserId && mp.Status == MemberPackageStatus.Active)

@@ -1,10 +1,38 @@
 .root {
+  position: relative;
+  isolation: isolate;
   background: var(--bg-app);
   color: var(--text-body);
   font-family: var(--font-body);
   font-size: var(--text-md);
   line-height: var(--leading-relaxed);
   min-height: 100dvh;
+  color-scheme: light;
+  --bg-brand-deep: var(--white);
+  --text-on-inverse: var(--chalk-950);
+  --text-on-inverse-muted: var(--chalk-600);
+  --text-link: var(--court-700);
+  --border-inverse: var(--chalk-200);
+  --focus-ring: var(--court-500);
+  --surface-ink: var(--chalk-950);
+  --surface-blue: var(--court-50);
+  --navy: var(--chalk-950);
+  --sky: var(--court-600);
+  --ice: var(--chalk-100);
+  --slate: var(--chalk-600);
+  --text: var(--chalk-950);
+  --background: var(--chalk-50);
+  --ink-900: var(--chalk-950);
+  --ink-700: var(--chalk-800);
+  --ink-500: var(--chalk-600);
+  --ink-400: var(--chalk-500);
+  --brand-900: var(--court-900);
+  --brand-700: var(--court-700);
+  --brand-500: var(--court-600);
+  --brand-300: var(--court-300);
+  --brand-100: var(--court-50);
+  --text-primary: var(--chalk-950);
+  --text-secondary: var(--chalk-600);
 }
 .root h1,
 .root h2,
@@ -67,24 +95,52 @@
   padding: 0 var(--space-6);
 }
 .reviewBar {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: 1fr auto;
   align-items: center;
-  justify-content: space-between;
   gap: var(--space-3);
   padding: var(--space-3) var(--space-6);
-  background: var(--bg-surface-sunken);
+  background: var(--bg-surface);
   border-bottom: 1px solid var(--border-subtle);
   font-size: var(--text-xs);
 }
+.reviewBar > strong {
+  color: var(--text-strong);
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+}
+.reviewBar > span {
+  color: var(--text-muted);
+  text-align: right;
+}
 .reviewBar nav {
+  grid-column: 1 / -1;
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-4);
+  gap: var(--space-2);
+  min-width: 0;
+  overflow-x: auto;
+  padding-bottom: var(--space-1);
+  scrollbar-color: var(--chalk-600) transparent;
+  scrollbar-width: thin;
 }
 .reviewBar a {
-  padding-block: var(--space-2);
-  color: var(--color-primary-soft-text);
+  display: inline-flex;
+  min-height: var(--control-height-lg);
+  flex: 0 0 auto;
+  align-items: center;
+  padding-inline: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-body);
+  white-space: nowrap;
+}
+.reviewBar a:hover,
+.reviewBar a:focus-visible {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  text-decoration: none;
 }
 .header {
   min-height: var(--header-height);
@@ -99,8 +155,14 @@
   align-items: center;
   gap: var(--space-2);
   color: var(--text-strong);
+  font-family: var(--font-display);
   font-size: var(--text-2xl);
   font-weight: 700;
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+}
+.brandAccent {
+  color: var(--color-accent);
 }
 .nav {
   display: flex;
@@ -155,7 +217,7 @@
   color: var(--text-on-inverse);
 }
 .root .heroCopy h1 span {
-  color: var(--color-accent);
+  color: var(--color-primary);
 }
 .heroCopy p {
   max-width: 38ch;
@@ -363,7 +425,7 @@
   line-height: var(--leading-tight);
 }
 .footer p strong {
-  color: var(--color-accent);
+  color: var(--color-primary);
   font-weight: 600;
 }
 .footer nav a {
@@ -376,30 +438,7 @@
 .footerSports {
   display: flex;
   gap: var(--space-5);
-  color: var(--color-accent);
-}
-.sportRail {
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  border-top: 1px solid var(--border-inverse);
-}
-.sportRail a {
-  display: flex;
-  gap: var(--space-4);
-  align-items: center;
-  padding: var(--space-5) var(--space-6);
-  color: var(--text-on-inverse);
-}
-.sportRail a + a {
-  border-left: 1px solid var(--border-inverse);
-}
-.sportRail svg {
-  color: var(--color-accent);
-}
-.sportRail small {
-  color: var(--text-on-inverse-muted);
-  font-size: var(--text-xs);
+  color: var(--color-primary);
 }
 .heroCopy :global(.btn) {
   background: var(--color-accent);
@@ -413,28 +452,6 @@
   position: relative;
   height: 240px;
   overflow: hidden;
-}
-.cardSticker,
-.detailSticker {
-  position: absolute;
-  z-index: 1;
-  top: var(--space-3);
-  right: var(--space-3);
-  width: 88px;
-  height: 88px;
-  object-fit: contain;
-  filter: drop-shadow(0 3px 5px rgb(9 14 15 / 24%));
-  pointer-events: none;
-  transition: transform var(--duration-base) var(--ease-out);
-}
-.course:hover .cardSticker {
-  transform: rotate(-5deg) scale(1.06);
-}
-.detailSticker {
-  width: 112px;
-  height: 112px;
-  top: var(--space-4);
-  right: var(--space-4);
 }
 .coursePhoto img,
 .detailPhoto img {
@@ -647,7 +664,11 @@
     padding-inline: var(--space-4);
   }
   .reviewBar {
+    grid-template-columns: 1fr;
     padding: var(--space-3) var(--space-4);
+  }
+  .reviewBar > span {
+    text-align: left;
   }
   .header {
     flex-wrap: wrap;
@@ -697,16 +718,6 @@
   }
   .panel {
     padding: var(--space-5);
-  }
-  .sportRail a {
-    padding: var(--space-4) var(--space-2);
-    flex-direction: column;
-    gap: var(--space-2);
-    text-align: center;
-    font-size: var(--text-sm);
-  }
-  .sportRail small {
-    display: none;
   }
   .summary,
   .bookingPanel {
@@ -762,13 +773,14 @@
 .header {
   min-height: calc(var(--header-height) + var(--space-3));
   margin-top: var(--space-4);
-  padding: var(--space-3) var(--space-6);
-  border-radius: var(--radius-lg);
-  background: var(--bg-brand-deep);
+  padding: var(--space-3) var(--space-5);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
 }
 .header .brand,
 .header .nav a {
-  color: var(--text-on-inverse);
+  color: var(--text-strong);
 }
 .header .nav a {
   min-height: var(--control-height-lg);
@@ -782,7 +794,7 @@
   text-decoration: none;
 }
 .header .mobileToggle {
-  color: var(--text-on-inverse);
+  color: var(--text-strong);
 }
 .header :focus-visible {
   outline-color: var(--color-accent);
@@ -791,7 +803,7 @@
   display: block;
   position: relative;
   isolation: isolate;
-  min-height: 570px;
+  min-height: clamp(600px, 78svh, 820px);
 }
 .heroCopy {
   position: relative;
@@ -801,15 +813,15 @@
   align-items: flex-start;
   justify-content: center;
   width: min(62%, 760px);
-  min-height: 570px;
-  padding-bottom: calc(var(--space-8) + 64px);
+  min-height: clamp(600px, 78svh, 820px);
+  padding-bottom: var(--space-8);
 }
 .root .heroCopy h1 {
   font-size: clamp(52px, 5.5vw, 82px);
   line-height: 0.98;
 }
 .heroCopy p {
-  color: var(--text-on-inverse);
+  color: var(--text-muted);
   font-size: var(--text-lg);
 }
 .heroImage {
@@ -819,6 +831,7 @@
 }
 .heroImage img {
   object-position: center 44%;
+  opacity: 0.74;
   transition: transform var(--duration-slow) var(--ease-out);
 }
 .hero:hover .heroImage img {
@@ -828,30 +841,20 @@
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(
-    90deg,
-    var(--bg-brand-deep) 2%,
-    color-mix(in srgb, var(--bg-brand-deep) 93%, transparent) 31%,
-    color-mix(in srgb, var(--bg-brand-deep) 35%, transparent) 58%,
-    transparent 76%
-  );
+  background:
+    linear-gradient(
+      90deg,
+      var(--bg-surface) 2%,
+      color-mix(in srgb, var(--bg-surface) 94%, transparent) 31%,
+      color-mix(in srgb, var(--bg-surface) 50%, transparent) 58%,
+      transparent 76%
+    ),
+    linear-gradient(
+      0deg,
+      color-mix(in srgb, var(--bg-surface) 82%, transparent),
+      transparent 32%
+    );
   pointer-events: none;
-}
-.sportRail {
-  position: absolute;
-  z-index: 2;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: color-mix(in srgb, var(--bg-brand-deep) 94%, transparent);
-}
-.sportRail a {
-  min-height: 78px;
-  transition: background-color var(--duration-base) var(--ease-out);
-}
-.sportRail a:hover {
-  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
-  text-decoration: none;
 }
 .root .section {
   padding-block: calc(var(--space-9) + var(--space-4));
@@ -894,8 +897,8 @@
 }
 .sportFilters button[aria-pressed="true"] {
   border-color: var(--color-primary);
-  background: var(--bg-brand-deep);
-  color: var(--text-on-inverse);
+  background: var(--color-primary-soft);
+  color: var(--color-primary-soft-text);
 }
 .courseGrid {
   grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
@@ -916,10 +919,10 @@
 .course:nth-child(2) .coursePhoto {
   height: 280px;
 }
-.coursePhoto img:not(.cardSticker) {
+.coursePhoto img {
   transition: transform var(--duration-slow) var(--ease-out);
 }
-.course:hover .coursePhoto img:not(.cardSticker) {
+.course:hover .coursePhoto img {
   transform: scale(1.04);
 }
 .courseBody {
@@ -982,20 +985,129 @@
   position: relative;
   overflow: hidden;
   max-width: 480px;
-  min-height: 230px;
-  padding: var(--space-8);
+  min-height: 248px;
+  padding: var(--space-6);
+  display: grid;
+  align-content: space-between;
+  gap: var(--space-6);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 34%, transparent);
+  background:
+    radial-gradient(ellipse at 92% 8%, rgb(224 254 16 / 15%), transparent 35%),
+    linear-gradient(138deg, #171a17 0%, var(--bg-brand-deep) 48%, #0c1114 100%);
+  box-shadow: 0 22px 56px rgb(0 0 0 / 28%);
+  isolation: isolate;
+  transition:
+    transform var(--duration-normal) var(--ease-out),
+    border-color var(--duration-normal) var(--ease-out),
+    box-shadow var(--duration-normal) var(--ease-out);
+}
+.memberPass:hover {
+  transform: translateY(-4px) rotate(-0.5deg);
+  border-color: color-mix(in srgb, var(--color-accent) 72%, transparent);
+  box-shadow:
+    0 28px 64px rgb(0 0 0 / 38%),
+    0 0 32px rgb(224 254 16 / 8%);
 }
 .memberPass::after {
   content: "";
   position: absolute;
-  right: -72px;
-  bottom: -132px;
-  width: 260px;
-  aspect-ratio: 1;
-  border: 1px solid var(--color-accent);
-  border-radius: 50%;
-  opacity: 0.5;
+  z-index: -1;
+  inset: 0;
+  background:
+    linear-gradient(
+      90deg,
+      transparent 49.7%,
+      rgb(255 255 255 / 8%) 50%,
+      transparent 50.3%
+    ),
+    linear-gradient(
+      transparent 49.7%,
+      rgb(255 255 255 / 8%) 50%,
+      transparent 50.3%
+    );
+  background-size: 52px 52px;
+  mask-image: linear-gradient(125deg, transparent 35%, #000 100%);
   pointer-events: none;
+}
+.passTopline,
+.passIdentity,
+.passBottomline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+.passBrand {
+  color: var(--text-on-inverse);
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: 800;
+  letter-spacing: var(--tracking-tight);
+  text-transform: uppercase;
+}
+.passBrand span {
+  color: var(--color-accent);
+}
+.passIndex,
+.passIdentity small,
+.passBottomline > span {
+  color: var(--text-on-inverse-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.08em;
+}
+.passIndex b {
+  margin-left: var(--space-2);
+  color: var(--color-accent);
+}
+.passIdentity {
+  justify-content: flex-start;
+}
+.passAvatar {
+  display: grid;
+  width: 52px;
+  height: 52px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid rgb(255 255 255 / 18%);
+  border-radius: 50%;
+  background: rgb(255 255 255 / 7%);
+  color: var(--color-accent);
+}
+.passIdentity > div {
+  display: grid;
+  gap: var(--space-1);
+}
+.passIdentity strong {
+  color: var(--text-on-inverse);
+  font-family: var(--font-display);
+  font-size: var(--text-3xl);
+  line-height: var(--leading-tight);
+}
+.passBottomline {
+  justify-content: flex-start;
+  padding-top: var(--space-4);
+  border-top: 1px solid rgb(255 255 255 / 13%);
+  color: var(--color-accent);
+}
+.passBottomline > span {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-right: auto;
+  color: var(--text-on-inverse);
+}
+.passBottomline i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  box-shadow: 0 0 12px var(--color-accent);
+}
+.passCaption {
+  margin-top: var(--space-3);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
 }
 .root form.panel {
   padding: var(--space-8);
@@ -1060,16 +1172,17 @@
     padding: var(--space-3) var(--space-4);
   }
   .header .nav {
-    border-top: 1px solid var(--border-inverse);
+    border-top: 1px solid var(--border-subtle);
   }
   .hero {
-    min-height: 0;
+    min-height: 680px;
   }
   .heroCopy {
     width: 100%;
-    min-height: 0;
-    padding: var(--space-6) var(--space-5);
-    background: var(--bg-brand-deep);
+    min-height: 680px;
+    justify-content: flex-start;
+    padding: clamp(36px, 9vw, 52px) var(--space-5);
+    background: transparent;
   }
   .root .heroCopy h1 {
     font-size: clamp(40px, 10vw, 54px);
@@ -1078,15 +1191,29 @@
     font-size: var(--text-md);
   }
   .heroImage {
-    position: relative;
-    height: 280px;
+    position: absolute;
+    inset: 0;
+    height: 100%;
     min-height: 0;
   }
-  .heroImage::after {
-    display: none;
+  .heroImage img {
+    object-position: 67% 54%;
+    opacity: 0.6;
   }
-  .sportRail {
-    position: relative;
+  .heroImage::after {
+    display: block;
+    background:
+      linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--bg-brand-deep) 36%, transparent),
+        color-mix(in srgb, var(--bg-brand-deep) 78%, transparent) 46%,
+        var(--bg-brand-deep) 88%
+      ),
+      linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--bg-brand-deep) 66%, transparent),
+        transparent
+      );
   }
   .root .section {
     padding-block: var(--space-8);
@@ -1114,8 +1241,7 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .hero:hover .heroImage img,
-  .course:hover .coursePhoto img:not(.cardSticker),
-  .course:hover .cardSticker {
+  .course:hover .coursePhoto img {
     transform: none;
   }
 }

@@ -14,7 +14,7 @@ namespace SportHub.Scheduling.Catalog.Application;
 /// chỉ chặn giao dịch mới, không đụng thứ đã bán. <c>code</c> không đổi được sau khi tạo.
 /// Membership/PT chỉ bật được ở môn tham chiếu Gym (<see cref="SportCodes.Gym"/>), kiểm ở backend.
 /// </summary>
-public sealed partial class SportCatalogService(ISportHubDbContext db, IAuditWriter audit)
+public sealed partial class SportCatalogService(ISportHubDbContext db, IAuditWriter audit, ServiceUsageGuard usage)
 {
     /// <summary>Danh sách công khai chỉ gồm môn đang hoạt động và dịch vụ đang bật; Manager xem tất cả kèm readiness.</summary>
     public async Task<IReadOnlyList<SportResponse>> ListAsync(bool includeInactive, CancellationToken ct = default,
@@ -190,7 +190,9 @@ public sealed partial class SportCatalogService(ISportHubDbContext db, IAuditWri
         }
 
         var current = await db.Set<ServiceRoomType>().Where(l => l.OfferingId == offering.OfferingId).ToListAsync(ct);
-        db.Set<ServiceRoomType>().RemoveRange(current.Where(l => !ids.Contains(l.RoomTypeId)));
+        var removed = current.Where(l => !ids.Contains(l.RoomTypeId)).ToList();
+        await usage.RequireNoFuturePtInRoomTypesAsync(removed.Select(l => l.RoomTypeId).ToList(), ct);
+        db.Set<ServiceRoomType>().RemoveRange(removed);
         db.Set<ServiceRoomType>().AddRange(ids.Where(id => current.All(l => l.RoomTypeId != id))
             .Select(id => new ServiceRoomType { OfferingId = offering.OfferingId, RoomTypeId = id }));
 
