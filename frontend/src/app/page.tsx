@@ -16,54 +16,34 @@ export default function Page() {
   const questions = [
     [
       text(
-        "Đăng ký khóa học Cầu lông hoặc Bóng rổ có cần Membership Gym không?",
-        "Do Badminton or Basketball courses require a Gym membership?",
+        "Tôi xem lịch và số chỗ còn của lớp ở đâu?",
+        "Where can I see a class schedule and available places?",
       ),
       text(
-        "Không. Khóa học Cầu lông và Bóng rổ được đăng ký riêng, không cần Membership Gym.",
-        "No. Badminton and Basketball courses are purchased separately and do not require a Gym membership.",
+        "Mở thẻ môn học để xem lịch, học phí, số buổi và chỗ còn trước khi đăng ký.",
+        "Open a course card to review its schedule, price, session count, and available places before enrolling.",
       ),
     ],
     [
       text(
-        "Mua PT có cần Membership Gym không?",
-        "Do I need a Gym membership to purchase PT?",
+        "PT khác với tập Gym tự do như thế nào?",
+        "How is personal training different from Open Gym?",
       ),
       text(
-        "Có. PT được mua riêng và bạn cần Membership Gym còn hiệu lực.",
-        "Yes. PT is purchased separately and requires an active Gym membership.",
+        "PT là buổi tập 1 kèm 1 theo lịch hẹn; Gym tự do phù hợp với lịch tập linh hoạt.",
+        "PT is one-to-one coaching by appointment; Open Gym gives you a more flexible training schedule.",
       ),
     ],
     [
       text("Tôi bắt đầu đăng ký như thế nào?", "How do I get started?"),
       text(
-        "Chọn khóa học hoặc gói Gym, đăng nhập và kiểm tra thông tin tại bước thanh toán trước khi xác nhận.",
-        "Choose a course or gym plan, sign in and review your purchase at checkout before confirming.",
+        "Chọn môn hoặc lớp phù hợp, xem chi tiết lịch tập rồi đăng nhập để hoàn tất đăng ký.",
+        "Choose a sport or class, review its schedule, then sign in to complete your registration.",
       ),
     ],
   ];
   return (
-    <div
-      className={s.page}
-      lang={language}
-      data-theme="performance"
-      onPointerMove={(event) => {
-        if (event.pointerType !== "mouse") return;
-
-        event.currentTarget.style.setProperty(
-          "--spotlight-x",
-          `${event.clientX}px`,
-        );
-        event.currentTarget.style.setProperty(
-          "--spotlight-y",
-          `${event.clientY}px`,
-        );
-        event.currentTarget.style.setProperty("--spotlight-opacity", "1");
-      }}
-      onPointerLeave={(event) => {
-        event.currentTarget.style.setProperty("--spotlight-opacity", "0");
-      }}
-    >
+    <div className={s.page} lang={language} data-theme="arena-light">
       <a className={s.skip} href="#main-content">
         {text("Đến nội dung chính", "Skip to content")}
       </a>
@@ -105,15 +85,15 @@ export default function Page() {
               />
               <p>
                 {text(
-                  "Tập 1 kèm 1 với huấn luyện viên cá nhân (PT), dịch vụ riêng thuộc Gym. Bạn cần Membership Gym còn hiệu lực để mua PT.",
-                  "Train one to one with a personal trainer (PT), a separate Gym service. An active Gym membership is required to purchase PT.",
+                  "Huấn luyện cá nhân (PT) giúp bạn xây dựng chương trình tập phù hợp và theo sát tiến độ.",
+                  "Personal training (PT) gives you a tailored program and coaching to track your progress.",
                 )}
               </p>
               <Link
                 className={buttonClass({ variant: "secondary", size: "lg" })}
-                href="#pricing"
+                href="#programs"
               >
-                {text("Xem các gói Membership", "Compare Membership plans")}
+                {text("Khám phá các môn tập", "Explore sports")}
                 <CourtIcon name="arrow" size={18} />
               </Link>
             </div>
@@ -121,11 +101,11 @@ export default function Page() {
         </section>
         <div className={`${s.section} ${s.pricing}`}>
           <div className={s.sectionHeading}>
-            <h2>Membership</h2>
+            <h2>{text("Các môn thể thao", "Sports & programs")}</h2>
             <p>
               {text(
-                "So sánh thời hạn và quyền lợi của các gói Membership đang mở bán. Dịch vụ PT yêu cầu Membership còn hiệu lực.",
-                "Compare the validity and benefits of available Membership plans. PT services require an active Membership.",
+                "Xem thông tin Gym & PT, Cầu lông, Bóng rổ và các lớp đang nhận đăng ký.",
+                "Explore Gym & PT, Badminton, Basketball, and classes currently open for registration.",
               )}
             </p>
           </div>
@@ -163,8 +143,8 @@ export default function Page() {
             {text("Môn tập", "Programs")}
             <CourtIcon name="arrow" size={22} />
           </Link>
-          <Link href="#pricing">
-            {text("Gói Membership", "Membership plans")}
+          <Link href="#programs">
+            {text("Các môn tập", "Sports & programs")}
             <CourtIcon name="arrow" size={22} />
           </Link>
           <Link href="/login">

@@ -1,6 +1,5 @@
 "use client";
-import { useAuth } from "@/lib/auth";
-import { useState, type PointerEvent } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
@@ -8,128 +7,13 @@ import { useLanguage } from "@/lib/language";
 import { formatMoney, formatDate } from "@/lib/format";
 import { Card } from "@/components/ui";
 import { Button } from "@/components/primitives/Button";
-import type { MemberPackageDto, SportDto } from "@/lib/types";
+import type { CourseDto, MemberPackageDto, Paged, SportDto } from "@/lib/types";
 import { CheckoutPanel } from "@/features/payments";
 import {
   catalogContentLanguage,
   parseMembershipCatalog,
 } from "./catalog-content";
 import styles from "./catalog.module.css";
-
-function PublicMembershipCard({
-  plan,
-  index,
-  dayLabel,
-  sessionLabel,
-  benefitLabel,
-  revealHint,
-  fallbackBenefit,
-  action,
-}: {
-  plan: {
-    packageId: number;
-    name: string;
-    price: number;
-    durationDays: number;
-    sessionLimit: number | null;
-    description: string | null;
-    nameLanguage?: string | null;
-    descriptionLanguage?: string | null;
-  };
-  index: number;
-  dayLabel: string;
-  sessionLabel: string;
-  benefitLabel: string;
-  revealHint: string;
-  fallbackBenefit: string;
-  action: { href: string; label: string } | null;
-}) {
-  const onPointerMove = (event: PointerEvent<HTMLElement>) => {
-    if (event.pointerType !== "mouse") return;
-
-    const card = event.currentTarget;
-    const bounds = card.getBoundingClientRect();
-    card.style.setProperty(
-      "--pointer-x",
-      `${((event.clientX - bounds.left) / bounds.width) * 100}%`,
-    );
-    card.style.setProperty(
-      "--pointer-y",
-      `${((event.clientY - bounds.top) / bounds.height) * 100}%`,
-    );
-
-    const benefit = card.querySelector<HTMLElement>("[data-benefit-copy]");
-    if (benefit) {
-      const benefitBounds = benefit.getBoundingClientRect();
-      benefit.style.setProperty(
-        "--benefit-x",
-        `${event.clientX - benefitBounds.left}px`,
-      );
-      benefit.style.setProperty(
-        "--benefit-y",
-        `${event.clientY - benefitBounds.top}px`,
-      );
-    }
-    card.style.setProperty("--benefit-reveal", "1");
-  };
-
-  return (
-    <article
-      className={styles.publicPlanCard}
-      aria-labelledby={`membership-plan-${plan.packageId}`}
-      tabIndex={0}
-      onPointerMove={onPointerMove}
-      onPointerLeave={(event) =>
-        event.currentTarget.style.setProperty("--benefit-reveal", "0")
-      }
-    >
-      <span className={styles.publicPlanIndex}>
-        {String(index + 1).padStart(2, "0")}
-        <span aria-hidden="true"> / </span>
-        MEMBERSHIP
-      </span>
-      <h3
-        id={`membership-plan-${plan.packageId}`}
-        lang={catalogContentLanguage(plan.name, plan.nameLanguage)}
-        dir="auto"
-      >
-        {plan.name}
-      </h3>
-      <div className={styles.publicPlanPrice}>
-        <strong>{formatMoney(plan.price)}</strong>
-        <span>
-          {plan.durationDays} {dayLabel}
-          {plan.sessionLimit !== null &&
-            ` · ${plan.sessionLimit} ${sessionLabel}`}
-        </span>
-      </div>
-      <div className={styles.benefitReveal}>
-        <span className={styles.benefitLabel} aria-hidden="true">
-          <span className={styles.benefitDot} />
-          {benefitLabel}
-          <span className={styles.revealHint}>{revealHint}</span>
-        </span>
-        <p
-          className={styles.benefitCopy}
-          data-benefit-copy
-          lang={catalogContentLanguage(
-            plan.description ?? "",
-            plan.descriptionLanguage,
-          )}
-          dir="auto"
-        >
-          {plan.description?.trim() || fallbackBenefit}
-        </p>
-      </div>
-      {action && (
-        <Link className={styles.publicPlanAction} href={action.href}>
-          {action.label}
-          <span aria-hidden="true">↗</span>
-        </Link>
-      )}
-    </article>
-  );
-}
 
 export function MembershipCatalog({
   purchase = false,
@@ -138,36 +22,69 @@ export function MembershipCatalog({
 }) {
   const { t, language } = useLanguage();
   const text = (vi: string, en: string) => (language === "vi" ? vi : en);
-  const { user } = useAuth();
   const [selected, setSelected] = useState<number | null>(null);
   const state = useApi(
     async (signal) =>
-      parseMembershipCatalog(
-        await api.get<unknown>(
-          purchase
-            ? "/api/membership-packages"
-            : "/api/membership-packages/public",
-          { anonymous: !purchase, signal },
-        ),
-      ),
+      purchase
+        ? parseMembershipCatalog(
+            await api.get<unknown>("/api/membership-packages", { signal }),
+          )
+        : [],
     [purchase],
   );
   const activePackages =
     state.data?.filter((packageItem) => packageItem.isActive) ?? [];
+  const programs = useApi(
+    async (signal) => {
+      if (purchase)
+        return { sports: [] as SportDto[], courses: [] as CourseDto[] };
+      const [sports, coursePage] = await Promise.all([
+        api.get<SportDto[]>("/api/sports", { anonymous: true, signal }),
+        api.get<Paged<CourseDto>>("/api/classes", {
+          query: { page: 1, pageSize: 100 },
+          anonymous: true,
+          signal,
+        }),
+      ]);
+      return { sports, courses: coursePage.items };
+    },
+    [purchase],
+  );
+  const activeSports = (programs.data?.sports ?? []).filter(
+    (sport) => sport.isActive,
+  );
+  const coursesBySport = (sportId: number) =>
+    (programs.data?.courses ?? []).filter(
+      (course) =>
+        course.sportId === sportId &&
+        course.status === "PUBLISHED" &&
+        course.availableSeats > 0,
+    );
+  const sportLabel = (sport: SportDto) => {
+    if (/badminton|cầu\s*lông/i.test(sport.name))
+      return text("Cầu lông", "Badminton");
+    if (/basketball|bóng\s*rổ/i.test(sport.name))
+      return text("Bóng rổ", "Basketball");
+    if (/pt|personal training/i.test(sport.name))
+      return text("Huấn luyện cá nhân", "Personal training");
+    if (/gym|fitness|conditioning|thể lực/i.test(sport.name))
+      return text("Gym & thể lực", "Gym & conditioning");
+    return sport.name;
+  };
   return (
     <section
-      id="pricing"
+      id="programs"
       className={`${styles.catalog} ${!purchase ? styles.publicCatalog : ""}`}
-      aria-busy={state.loading}
+      aria-busy={purchase ? state.loading : programs.loading}
     >
       {purchase && (
         <h2>{text("Gói Gym đang mở bán", "Gym membership packages")}</h2>
       )}
-      {state.loading ? (
+      {purchase && state.loading ? (
         <p role="status">
           {text("Đang tải danh mục gói…", "Loading available packages…")}
         </p>
-      ) : state.error ? (
+      ) : purchase && state.error ? (
         <div role="alert">
           <p>
             {state.error.status === 429
@@ -204,7 +121,7 @@ export function MembershipCatalog({
             </Link>
           </p>
         </div>
-      ) : !activePackages.length ? (
+      ) : purchase && !activePackages.length ? (
         <p role="status">
           {text(
             "Hiện chưa có gói đang mở bán. Bạn có thể xem các môn tập đang hoạt động.",
@@ -216,14 +133,6 @@ export function MembershipCatalog({
         </p>
       ) : (
         <>
-          {!purchase && (
-            <p>
-              {text(
-                "Tên gói và mô tả do trung tâm cung cấp. Đọc quyền lợi và điều kiện của từng gói trước khi chọn mua.",
-                "Package names and descriptions are published by the center and may be in Vietnamese. Read each package’s benefits and conditions before choosing.",
-              )}
-            </p>
-          )}
           {purchase ? (
             <div className="refactor-grid">
               {activePackages.map((p) => (
@@ -265,36 +174,94 @@ export function MembershipCatalog({
                 </Card>
               ))}
             </div>
+          ) : null}
+        </>
+      )}
+      {!purchase && (
+        <>
+          {programs.loading ? (
+            <p role="status">
+              {text("Đang tải lớp đang mở…", "Loading available classes…")}
+            </p>
+          ) : programs.error ? (
+            <p role="status">
+              {text(
+                "Chưa tải được danh sách khóa học. Bạn vẫn có thể xem các môn tập.",
+                "Course prices could not be loaded. You can still explore the sports.",
+              )}{" "}
+              <Link href="/#activities">
+                {text("Xem môn tập", "Explore sports")}
+              </Link>
+            </p>
           ) : (
-            <div className={styles.publicPlanGrid}>
-              {activePackages.map((plan, index) => (
-                <PublicMembershipCard
-                  key={plan.packageId}
-                  plan={plan}
-                  index={index}
-                  dayLabel={t.refactor.days}
-                  sessionLabel={text("buổi", "sessions")}
-                  benefitLabel={text("QUYỀN LỢI", "BENEFITS")}
-                  revealHint={text("Rê chuột để khám phá", "Move to reveal")}
-                  fallbackBenefit={text(
-                    "Trung tâm chưa cung cấp mô tả quyền lợi cho gói này.",
-                    "The center has not published benefits for this plan yet.",
-                  )}
-                  action={
-                    user?.role === "Member"
-                      ? {
-                          href: "/member/my-plans",
-                          label: text("Chọn gói", "Choose plan"),
-                        }
-                      : !user
-                        ? {
-                            href: "/login?next=%2Fmember%2Fmy-plans",
-                            label: text("Đăng nhập để mua", "Sign in to join"),
-                          }
-                        : null
-                  }
-                />
-              ))}
+            <div className={styles.publicSportGrid}>
+              {activeSports.map((sport, index) => {
+                const sportCourses = coursesBySport(sport.sportId);
+                return (
+                  <article
+                    className={styles.publicSportCard}
+                    key={sport.sportId}
+                  >
+                    <span className={styles.publicPlanIndex}>
+                      {String(index + 1).padStart(2, "0")}
+                      <span aria-hidden="true"> / </span>
+                      {sport.operationType === "GROUP_COURSE"
+                        ? text("KHÓA HỌC", "COURSES")
+                        : sport.operationType === "ONE_ON_ONE"
+                          ? text("HUẤN LUYỆN CÁ NHÂN", "PERSONAL TRAINING")
+                          : text("THỂ LỰC", "CONDITIONING")}
+                    </span>
+                    <h3>{sportLabel(sport)}</h3>
+                    {sport.operationType === "GROUP_COURSE" &&
+                    sportCourses.length ? (
+                      <ul className={styles.sportCourseList}>
+                        {sportCourses.slice(0, 3).map((course) => (
+                          <li key={course.classId}>
+                            <div className={styles.sportCourseTitle}>
+                              <strong>{course.name}</strong>
+                              <span>{formatMoney(course.price)}</span>
+                            </div>
+                            <p>
+                              {course.numSessions} {text("buổi", "sessions")}
+                              {course.scheduleRules.length > 0 &&
+                                ` · ${course.scheduleRules
+                                  .map(
+                                    (rule) =>
+                                      `${text(["", "T2", "T3", "T4", "T5", "T6", "T7", "CN"][rule.dayOfWeek] ?? "", ["", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][rule.dayOfWeek] ?? "")} ${rule.startTimeLocal}`,
+                                  )
+                                  .join(" / ")}`}
+                              {` · ${course.availableSeats} ${text("chỗ", "spots")}`}
+                            </p>
+                            <Link href={`/courses/${course.classId}`}>
+                              {text("Xem khóa học", "View course")}{" "}
+                              <span aria-hidden="true">↗</span>
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : sport.operationType === "GROUP_COURSE" ? (
+                      <p className={styles.noCourseCopy}>
+                        {text(
+                          "Chưa có khóa học mở đăng ký. Xem lịch lớp mới nhất tại trang môn tập.",
+                          "No open courses at the moment. Check the sport page for the latest schedule.",
+                        )}
+                      </p>
+                    ) : (
+                      <p className={styles.noCourseCopy}>
+                        {sport.operationType === "ONE_ON_ONE"
+                          ? text(
+                              "Huấn luyện cá nhân 1 kèm 1 theo lịch hẹn riêng, tập trung vào mục tiêu và tiến độ của bạn.",
+                              "One-to-one coaching by appointment, tailored to your goals and progress.",
+                            )
+                          : text(
+                              "Khu tập Gym tự do để rèn sức mạnh, sức bền và thể lực tổng quát.",
+                              "Open Gym training for strength, endurance, and overall conditioning.",
+                            )}
+                      </p>
+                    )}
+                  </article>
+                );
+              })}
             </div>
           )}
         </>
@@ -308,7 +275,7 @@ export function MembershipCatalog({
           }}
         />
       )}
-      <p>{t.refactor.ptSeparate}</p>
+      {purchase && <p>{t.refactor.ptSeparate}</p>}
     </section>
   );
 }

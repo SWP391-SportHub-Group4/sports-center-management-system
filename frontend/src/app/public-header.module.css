@@ -29,7 +29,7 @@
   text-transform: uppercase;
 }
 .logoAccent {
-  color: var(--color-accent);
+  color: var(--color-primary);
 }
 .nav {
   display: flex;

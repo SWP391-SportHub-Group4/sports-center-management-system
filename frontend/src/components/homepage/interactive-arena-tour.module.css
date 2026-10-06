@@ -684,13 +684,6 @@
   white-space: nowrap;
 }
 
-.metricRequirement strong {
-  overflow-wrap: anywhere;
-  font-size: clamp(12px, 1.25vw, 15px);
-  text-overflow: clip;
-  white-space: normal;
-}
-
 .featureFooter {
   display: flex;
   align-items: center;
@@ -768,6 +761,142 @@
   color: inherit;
   cursor: pointer;
   font: 600 var(--text-xs) / 1 var(--font-body);
+}
+
+/* The arena remains data-rich while sharing the public page's light color scheme. */
+.tour[data-theme="light"] {
+  border-color: var(--chalk-200);
+  background-color: var(--chalk-50);
+  background-image:
+    linear-gradient(rgb(0 37 40 / 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(0 37 40 / 0.035) 1px, transparent 1px);
+  color: var(--chalk-950);
+  box-shadow: 0 24px 70px rgb(0 37 40 / 0.07);
+}
+
+.tour[data-theme="light"] .tourLead,
+.tour[data-theme="light"] .mapHelp,
+.tour[data-theme="light"] .featureDescription,
+.tour[data-theme="light"] .courseName > span,
+.tour[data-theme="light"] .courseFacts > span,
+.tour[data-theme="light"] .courseEmpty span,
+.tour[data-theme="light"] .metricLabel,
+.tour[data-theme="light"] .featureFooter p {
+  color: var(--chalk-600);
+}
+
+.tour[data-theme="light"] .zoneTabs {
+  scrollbar-color: var(--chalk-300) transparent;
+}
+
+.tour[data-theme="light"] .zoneTab {
+  border-color: var(--chalk-200);
+  background: rgb(255 255 255 / 0.82);
+  color: var(--chalk-700);
+}
+
+.tour[data-theme="light"] .zoneTab:hover,
+.tour[data-theme="light"] .zoneTab:focus-visible,
+.tour[data-theme="light"] .zoneTab[aria-selected="true"] {
+  color: var(--chalk-950);
+}
+
+.tour[data-theme="light"] .mapShell {
+  border-color: var(--chalk-200);
+  background:
+    radial-gradient(ellipse at 50% 45%, rgb(8 148 160 / 0.07), transparent 72%),
+    var(--white);
+}
+
+.tour[data-theme="light"] .mapHeading {
+  color: var(--chalk-600);
+}
+
+.tour[data-theme="light"] .floorExtrusion {
+  fill: var(--chalk-200);
+  stroke: var(--chalk-400);
+}
+
+.tour[data-theme="light"] .floorPlate {
+  stroke: var(--chalk-400);
+}
+
+.tour[data-theme="light"] .gridLine {
+  stroke: rgb(0 37 40 / 0.12);
+}
+
+.tour[data-theme="light"] .depthTop {
+  stop-color: var(--chalk-200);
+}
+
+.tour[data-theme="light"] .depthBottom {
+  stop-color: var(--chalk-100);
+}
+
+.tour[data-theme="light"] .zoneDivider {
+  stroke: rgb(0 37 40 / 0.25);
+}
+
+.tour[data-theme="light"] .hotspotCore {
+  background: var(--white);
+  box-shadow: 0 0 0 5px rgb(246 249 249 / 0.82);
+}
+
+.tour[data-theme="light"] .hotspotActive .hotspotCore,
+.tour[data-theme="light"] .hotspot:hover .hotspotCore,
+.tour[data-theme="light"] .hotspot:focus-visible .hotspotCore {
+  background: var(--chalk-50);
+}
+
+.tour[data-theme="light"] .hotspotLabel {
+  border-color: color-mix(in srgb, currentColor 35%, var(--chalk-200));
+  background: var(--white);
+  color: var(--chalk-950);
+  box-shadow: 0 4px 12px rgb(0 37 40 / 0.12);
+}
+
+.tour[data-theme="light"] .featurePanel {
+  border-color: color-mix(in srgb, var(--panel-accent) 34%, var(--chalk-200));
+  background: var(--white);
+  box-shadow: 0 18px 52px rgb(0 37 40 / 0.1);
+}
+
+.tour[data-theme="light"] .featurePhoto {
+  background: var(--chalk-200);
+}
+
+.tour[data-theme="light"] .courseOfferingsHeading h3,
+.tour[data-theme="light"] .courseRow,
+.tour[data-theme="light"] .courseEmpty,
+.tour[data-theme="light"] .metric strong {
+  color: var(--chalk-950);
+}
+
+.tour[data-theme="light"] .courseList,
+.tour[data-theme="light"] .courseRow,
+.tour[data-theme="light"] .moreCourses,
+.tour[data-theme="light"] .metric,
+.tour[data-theme="light"] .featureFooter {
+  border-color: var(--chalk-200);
+}
+
+.tour[data-theme="light"] .staleSchedule {
+  color: var(--amber-700);
+}
+
+.tour[data-theme="light"] .featureCta {
+  color: var(--chalk-950);
+}
+
+.tour[data-theme="light"] .featureCtaDisabled {
+  border-color: var(--chalk-300);
+  color: var(--chalk-500);
+}
+
+.tour[data-theme="light"] .dataError {
+  border-color: var(--amber-400);
+  background: var(--amber-50);
+  color: var(--amber-700);
 }
 
 @keyframes radarPulse {
@@ -945,5 +1074,42 @@
 
   .hotspotPulse {
     display: none;
+  }
+}
+
+@media (min-width: 1200px) {
+  .tour {
+    margin-block: clamp(48px, 4.5vw, 72px);
+    padding: clamp(32px, 3.6vw, 48px);
+    border-radius: 22px;
+  }
+
+  .tourHeader {
+    gap: clamp(24px, 4vw, 60px);
+    margin-bottom: clamp(24px, 3vw, 40px);
+  }
+
+  .tourHeader h2 {
+    font-size: clamp(38px, 4.2vw, 58px);
+  }
+
+  .tourGrid {
+    gap: clamp(16px, 2vw, 24px);
+  }
+
+  .featurePanel {
+    min-height: 470px;
+  }
+
+  .featurePhoto {
+    min-height: 220px;
+  }
+
+  .featureBody {
+    padding: clamp(18px, 2vw, 22px);
+  }
+
+  .metric {
+    min-height: 60px;
   }
 }
