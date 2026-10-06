@@ -154,7 +154,6 @@ public class SportCatalogTests(SchedulingApiFactory factory)
     [InlineData(UserRole.Coach)]
     [InlineData(UserRole.Member)]
     [InlineData(UserRole.SystemAdministrator)]
-    [InlineData(UserRole.ExternalCoach)]
     public async Task Only_the_manager_writes_catalog(UserRole role)
     {
         var user = await factory.SeedUserAsync(role);

@@ -17,10 +17,9 @@ public sealed class UserSummaryFactory(ISportHubDbContext db, ISportCatalogReade
     {
         var role = user.Role!.RoleName;
 
-        string? approval = null;
         IReadOnlyList<int> sportIds = [];
 
-        if (role is UserRole.Coach or UserRole.ExternalCoach)
+        if (role == UserRole.Coach)
         {
             sportIds = await db.Set<UserSportSpecialty>()
                 .AsNoTracking()
@@ -40,23 +39,12 @@ public sealed class UserSummaryFactory(ISportHubDbContext db, ISportCatalogReade
                     .AnyAsync(q => q.UserId == user.UserId && q.OfferingId == offering.OfferingId, ct);
         }
 
-        if (role == UserRole.ExternalCoach)
-        {
-            approval = (await db.Set<ExternalCoachProfile>()
-                    .AsNoTracking()
-                    .Where(p => p.UserId == user.UserId)
-                    .Select(p => (ExternalCoachApprovalStatus?)p.ApprovalStatus)
-                    .SingleOrDefaultAsync(ct))
-                ?.ToString();
-        }
-
         return new UserSummaryResponse
         {
             UserId = user.UserId,
             Email = user.Email,
             FullName = user.Profile?.FullName ?? string.Empty,
             Role = role.ToString(),
-            ApprovalStatus = approval,
             SportIds = sportIds,
             IsPersonalTrainer = isPersonalTrainer
         };

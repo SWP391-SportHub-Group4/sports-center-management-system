@@ -46,6 +46,7 @@ export const vi: Translations = {
     moreSchedule: "Xem toàn bộ lịch",
   },
   memberPages: {
+    courtRental: "Thuê sân",
     schedule: "Lịch của tôi",
     scheduleHint:
       "Lớp học và buổi PT theo giờ Việt Nam. Chọn một buổi để xem chi tiết.",
@@ -207,7 +208,7 @@ export const vi: Translations = {
     apply: "Áp dụng bộ lọc",
     sport: "Môn",
     source: "Nguồn",
-    externalCoach: "ID HLV ngoài",
+    memberId: "ID hội viên",
     all: "Tất cả",
     cash: "Tiền đã thu (VND)",
     redeemed: "Điểm đã dùng (VND)",
@@ -341,7 +342,6 @@ export const vi: Translations = {
     roomTypes: "Loại phòng/sân",
     rates: "Giá thuê sân",
     coaches: "Coach trung tâm",
-    externalCoaches: "Duyệt Coach ngoài",
     courtSchedule: "Lịch sân",
     incidents: "Sự cố",
     notices: "Thông báo thủ công",
@@ -509,7 +509,6 @@ export const vi: Translations = {
     ptSession: "Buổi PT",
     classSession: "Buổi học",
     roomBlock: "Khóa sân",
-    expectedAttendees: "Số người dự kiến (tùy chọn)",
     hours: "Số giờ",
     daysAhead: "Số ngày đặt trước tối đa",
     cancelFreeHours: "Số giờ trước lượt thuê để hoàn đủ điểm",
@@ -527,8 +526,6 @@ export const vi: Translations = {
       "Khóa đã kết thúc hoặc ghi danh cũ thiếu hóa đơn đã trả. Cần xử lý dữ liệu này trước khi hủy.",
     availability: "Kiểm tra sân trống và giá",
     priceBreakdown: "Chi tiết giá",
-    approvalRequired:
-      "Chỉ Coach ngoài đã duyệt được đặt mới. Các lượt thuê đã có vẫn truy cập được.",
     rentalPolicy:
       "Điều kiện và số điểm hoàn do server tính. Hủy lượt thuê không thể hoàn tác.",
     refundPoints: "Điểm hoàn",
@@ -539,8 +536,6 @@ export const vi: Translations = {
       "Xem hóa đơn và lịch sử điểm để đối chiếu khoản thanh toán và hoàn trả.",
     bookingSettingsLimit:
       "Chọn thời gian để kiểm tra sân trống, giá và giới hạn đặt hiện hành.",
-    profileHint:
-      "Sửa giới thiệu không thay đổi trạng thái duyệt. Chuyên môn do trung tâm xét duyệt.",
     unknownOutcome:
       "Chưa xác minh được kết quả. Kiểm tra trạng thái đã lưu trước khi thử lại.",
     closed: "Đóng cửa",
@@ -948,7 +943,6 @@ export const vi: Translations = {
     footerTagline: "Trung tâm Thể thao Đa năng",
     footerSub: "Gym · Huấn luyện cá nhân · Khóa học · Thuê sân",
     roleLabel: {
-      ExternalCoach: "Huấn luyện viên ngoài",
       Member: "Hội viên",
       Receptionist: "Nhân viên Lễ tân",
       Coach: "Huấn luyện viên",
@@ -960,7 +954,6 @@ export const vi: Translations = {
       roomTypes: "Loại phòng/sân",
       rates: "Giá thuê sân",
       coaches: "Coach trung tâm",
-      externalCoaches: "Duyệt Coach ngoài",
       courtSchedule: "Lịch sân",
       incidents: "Sự cố",
       notices: "Thông báo thủ công",

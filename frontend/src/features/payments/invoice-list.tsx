@@ -70,7 +70,7 @@ export function InvoiceList({
         staff
           ? "/api/invoices"
           : rental
-            ? "/api/external-coaches/me/invoices"
+            ? "/api/members/me/rental-invoices"
             : "/api/members/me/invoices",
         { signal, query: { page, pageSize: 10, status, memberId } },
       ),

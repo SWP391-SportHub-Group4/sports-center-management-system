@@ -135,7 +135,6 @@ export default function AccountPage() {
       title={t.account.title}
       description={t.account.description}
       allow={[
-        "ExternalCoach",
         "Member",
         "Receptionist",
         "Coach",

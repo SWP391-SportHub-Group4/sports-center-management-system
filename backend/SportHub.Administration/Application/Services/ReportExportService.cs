@@ -51,7 +51,7 @@ public sealed class CreateReportExportRequest
     public string? Format { get; set; }
     public int? SportId { get; set; }
     public string? Source { get; set; }
-    public Guid? ExternalCoachId { get; set; }
+    public Guid? MemberId { get; set; }
 }
 
 public sealed class ReportExportService(
@@ -160,7 +160,7 @@ public sealed class ReportExportService(
                 columns,
                 sportId = request.SportId,
                 source = request.Source,
-                externalCoachId = request.ExternalCoachId,
+                memberId = request.MemberId,
                 format
             }),
             Format = format,
@@ -177,7 +177,7 @@ public sealed class ReportExportService(
 
         await db.SaveChangesAsync(ct);
 
-        await RunAsync(export, fromDate, toDate, columns, request.SportId, ct, request.Source, request.ExternalCoachId);
+        await RunAsync(export, fromDate, toDate, columns, request.SportId, ct, request.Source, request.MemberId);
 
         return await GetOneAsync(export.ReportExportId, ct);
     }
@@ -258,7 +258,7 @@ public sealed class ReportExportService(
             DateOnly.ParseExact(parameters.ToDate, "yyyy-MM-dd", CultureInfo.InvariantCulture),
             parameters.Columns,
             parameters.SportId,
-            ct, parameters.Source, parameters.ExternalCoachId);
+            ct, parameters.Source, parameters.MemberId);
 
         return await GetOneAsync(reportExportId, ct);
     }
@@ -269,7 +269,7 @@ public sealed class ReportExportService(
         DateOnly toDate,
         IReadOnlyList<string> columns,
         int? sportId,
-        CancellationToken ct, string? source = null, Guid? externalCoachId = null)
+        CancellationToken ct, string? source = null, Guid? memberId = null)
     {
         try
         {
@@ -277,7 +277,7 @@ public sealed class ReportExportService(
             {
                 ReportTypes.RevenueDaily => await BuildRevenueDailyRowsAsync(fromDate, toDate, columns, ct),
                 ReportTypes.RevenueSummary => await BuildRevenueSummaryRowsAsync(fromDate, toDate, columns, ct),
-                ReportTypes.RevenueDimensions or ReportTypes.CourtRentalRevenue => await BuildDimensionRowsAsync(fromDate, toDate, columns, export.ReportType == ReportTypes.CourtRentalRevenue, ct, sportId, source, externalCoachId),
+                ReportTypes.RevenueDimensions or ReportTypes.CourtRentalRevenue => await BuildDimensionRowsAsync(fromDate, toDate, columns, export.ReportType == ReportTypes.CourtRentalRevenue, ct, sportId, source, memberId),
                 ReportTypes.MembershipPeriod => await BuildMembershipPeriodRowsAsync(fromDate, toDate, columns, ct),
                 ReportTypes.ClassEnrollment => (await classes.ReadAsync(fromDate, toDate, sportId, ct))
                     .Select(row => (IReadOnlyList<string>)columns.Select(c => row[c]).ToList()).ToList(),
@@ -352,16 +352,16 @@ public sealed class ReportExportService(
     }
 
     private async Task<IReadOnlyList<IReadOnlyList<string>>> BuildDimensionRowsAsync(
-        DateOnly from, DateOnly to, IReadOnlyList<string> columns, bool rentalsOnly, CancellationToken ct, int? sportId, string? source, Guid? externalCoachId)
+        DateOnly from, DateOnly to, IReadOnlyList<string> columns, bool rentalsOnly, CancellationToken ct, int? sportId, string? source, Guid? memberId)
     {
         var report = await revenue.GetAsync(from, to, ct);
-        return SportHub.Payment.Application.Services.RevenueDimensionFilter.Apply(report.BySportAndSource, sportId, source, externalCoachId, rentalsOnly)
+        return SportHub.Payment.Application.Services.RevenueDimensionFilter.Apply(report.BySportAndSource, sportId, source, memberId, rentalsOnly)
             .Select(row => (IReadOnlyList<string>)columns.Select(column => column switch
             {
                 "source" => row.Source,
                 "sportId" => row.SportId?.ToString(CultureInfo.InvariantCulture) ?? "",
                 "sportName" => row.SportName ?? "",
-                "externalCoachId" => row.ExternalCoachId?.ToString() ?? "",
+                "memberId" => row.MemberId?.ToString() ?? "",
                 "collectedAmount" => row.CashCollected.ToString(CultureInfo.InvariantCulture),
                 "legacyCashCollected" => row.LegacyCashCollected.ToString(CultureInfo.InvariantCulture),
                 "pointsRedeemed" => row.PointsRedeemed.ToString(CultureInfo.InvariantCulture),
@@ -606,5 +606,5 @@ public sealed class ReportExportService(
             r.ExpiresAt,
             r.Format);
 
-    private sealed record ExportParameters(string FromDate, string ToDate, List<string> Columns, int? SportId = null, string? Source = null, Guid? ExternalCoachId = null);
+    private sealed record ExportParameters(string FromDate, string ToDate, List<string> Columns, int? SportId = null, string? Source = null, Guid? MemberId = null);
 }

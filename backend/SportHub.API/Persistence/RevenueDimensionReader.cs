@@ -29,10 +29,10 @@ public sealed class RevenueDimensionReader(SportHubDbContext db) : IRevenueDimen
         var rentals = await (from rental in db.Set<CourtRental>().AsNoTracking()
                              join sport in db.Set<SportHub.Scheduling.Catalog.Domain.Sport>() on rental.SportId equals sport.SportId
                              where rental.InvoiceItemId.HasValue && invoiceItemIds.Contains(rental.InvoiceItemId.Value)
-                             select new { ItemId = rental.InvoiceItemId!.Value, rental.SportId, sport.Name, rental.ExternalCoachId })
+                             select new { ItemId = rental.InvoiceItemId!.Value, rental.SportId, sport.Name, rental.MemberId })
             .ToListAsync(ct);
         foreach (var rental in rentals)
-            result[rental.ItemId] = new(rental.SportId, rental.Name, rental.ExternalCoachId);
+            result[rental.ItemId] = new(rental.SportId, rental.Name, rental.MemberId);
         // PT là dịch vụ của Gym: doanh thu PT cũ chưa có tham chiếu môn được gán cho môn có dịch vụ PT đang bật.
         var ptSports = await db.Set<SportHub.Scheduling.Catalog.Domain.Sport>().AsNoTracking()
             .Where(x => x.IsActive && x.Services.Any(o => o.ServiceType == SportHub.BuildingBlocks.Abstractions.Scheduling.SportServiceType.PersonalTraining && o.IsEnabled))
@@ -47,7 +47,7 @@ public sealed class RevenueDimensionReader(SportHubDbContext db) : IRevenueDimen
         var snapshots = await db.Set<InvoiceItem>().AsNoTracking().Where(x => invoiceItemIds.Contains(x.ItemId)
             && x.SportId != null).Select(x => new { x.ItemId, x.SportId, x.SportNameSnapshot }).ToListAsync(ct);
         foreach (var item in snapshots)
-            result[item.ItemId] = new(item.SportId, item.SportNameSnapshot, result.GetValueOrDefault(item.ItemId)?.ExternalCoachId);
+            result[item.ItemId] = new(item.SportId, item.SportNameSnapshot, result.GetValueOrDefault(item.ItemId)?.MemberId);
         return result;
     }
 }

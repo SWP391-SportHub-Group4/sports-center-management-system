@@ -60,6 +60,11 @@ export function MemberShell({
     { href: "/member/schedule", label: t.memberPages.schedule },
     { href: "/member/courses", label: t.memberPages.courses },
     { href: "/member/services", label: t.memberPages.services },
+    {
+      href: "/member/courts/book",
+      label: t.memberPages.courtRental,
+      also: ["/member/rentals"],
+    },
     { href: "/member/training", label: t.nav.training },
     {
       href: "/member/finance",

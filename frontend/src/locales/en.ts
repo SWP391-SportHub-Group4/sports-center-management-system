@@ -44,6 +44,7 @@ export const en = {
     moreSchedule: "View full schedule",
   },
   memberPages: {
+    courtRental: "Court rental",
     schedule: "My schedule",
     scheduleHint:
       "Classes and personal training, shown in Vietnam time. Select a session to see its details.",
@@ -204,7 +205,7 @@ export const en = {
     apply: "Apply filters",
     sport: "Sport",
     source: "Source",
-    externalCoach: "External coach ID",
+    memberId: "Member ID",
     all: "All",
     cash: "Cash collected (VND)",
     redeemed: "Points redeemed (VND)",
@@ -338,7 +339,6 @@ export const en = {
     roomTypes: "Room types",
     rates: "Court rates",
     coaches: "Coaches",
-    externalCoaches: "External coach reviews",
     courtSchedule: "Court schedule",
     incidents: "Incidents",
     notices: "Manual notices",
@@ -507,7 +507,6 @@ export const en = {
     ptSession: "PT session",
     classSession: "Class session",
     roomBlock: "Room block",
-    expectedAttendees: "Expected attendees (optional)",
     hours: "Hours",
     daysAhead: "Maximum advance days",
     cancelFreeHours: "Hours before rental for a full point refund",
@@ -525,8 +524,6 @@ export const en = {
       "The course has ended or legacy enrollments lack paid invoices. Resolve those records before cancellation.",
     availability: "Check availability and price",
     priceBreakdown: "Price breakdown",
-    approvalRequired:
-      "Only approved external coaches can make new bookings. Existing rentals remain accessible.",
     rentalPolicy:
       "Refund eligibility and points are calculated by the server. Cancellation is final.",
     refundPoints: "Refund points",
@@ -538,8 +535,6 @@ export const en = {
       "See the invoice and points history to review recorded payments and refunds.",
     bookingSettingsLimit:
       "Choose a time to check available courts, prices and current booking limits.",
-    profileHint:
-      "Updating your bio does not change your approval status. Specialties are reviewed by the center.",
     unknownOutcome:
       "The result could not be verified. Check the recorded state before retrying.",
     closed: "Closed",
@@ -950,7 +945,6 @@ export const en = {
     footerTagline: "Multidisciplinary Sports Centre",
     footerSub: "Gym · Personal Training · Courses · Court rentals",
     roleLabel: {
-      ExternalCoach: "External Coach",
       Member: "Member",
       Receptionist: "Receptionist",
       Coach: "Coach",
@@ -962,7 +956,6 @@ export const en = {
       roomTypes: "Room types",
       rates: "Court rates",
       coaches: "Coaches",
-      externalCoaches: "External coach reviews",
       courtSchedule: "Court schedule",
       incidents: "Incidents",
       notices: "Manual notices",

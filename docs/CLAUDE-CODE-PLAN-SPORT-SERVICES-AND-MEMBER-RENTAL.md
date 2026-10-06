@@ -105,6 +105,8 @@ Trong schema và seed sạch, xác định rõ:
 
 ## 5. Cổng C — CAT-02: ExternalCoach thành Member
 
+> Tiến độ 07/10/2026: code Cổng C đã làm (backend, migration `RemoveExternalCoachMemberRental`, frontend, test). Chuỗi migration đã chạy trên DB trắng và trên DB dev. Test tích hợp backend chưa chạy được (cần Docker). Script reset dữ liệu dev: `backend/scripts/reset-dev-data.sql` (chưa chạy trên DB thật).
+
 Thực hiện chi tiết trong `CLAUDE-CODE-PLAN-MEMBER-COURT-RENTAL.md` trên nền catalog mới, với các điểm bắt buộc:
 
 - Thay role/ownership rental trong code bằng Member. Dữ liệu ExternalCoach cũ bỏ cùng reset; không cần chuyển account, ví hoặc invoice cũ. Token/session cũ không được tiếp tục dùng sau reset.

@@ -1,6 +1,6 @@
 namespace SportHub.Identity.Domain.Entities;
 
-/// <summary>Chuyên môn của Coach / môn giảng dạy khai báo của ExternalCoach (BR-96, BR-105). PK ghép (UserId, SportId).</summary>
+/// <summary>Chuyên môn của Coach nội bộ (BR-96). PK ghép (UserId, SportId).</summary>
 public class UserSportSpecialty
 {
     public Guid UserId { get; set; }

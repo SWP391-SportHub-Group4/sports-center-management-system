@@ -199,7 +199,7 @@ test("notification links resolve to real Member views", async ({ page }) => {
   await expect(page).toHaveURL(/\/member\/training$/);
   await expect(page.locator("#main-content h1")).toBeVisible();
 });
-for (const width of [320, 768, 1024, 1280, 1440])
+for (const width of [320, 768, 1024, 1280, 1360, 1440])
   test(`Member routes fit ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 1000 });
     for (const path of [
@@ -215,10 +215,10 @@ for (const width of [320, 768, 1024, 1280, 1440])
       await page.goto(`/member${path}`);
       await expect(page.locator("#main-content h1")).toBeVisible();
       await expect(page.getByRole("banner")).toBeVisible();
-      if (width >= 1280) {
+      if (width >= 1360) {
         const nav = page.getByRole("navigation", { name: "Member Navigation" });
         await expect(nav).toBeVisible();
-        await expect(nav.getByRole("link")).toHaveCount(7);
+        await expect(nav.getByRole("link")).toHaveCount(8);
       } else {
         await expect(
           page.getByRole("button", { name: "Open navigation menu" }),

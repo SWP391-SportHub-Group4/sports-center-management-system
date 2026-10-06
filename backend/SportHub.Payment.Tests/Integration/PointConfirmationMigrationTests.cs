@@ -44,8 +44,8 @@ public sealed class PointConfirmationMigrationTests(PaymentApiFactory factory)
         Assert.Equal(3, account.RoleId);
         Assert.NotEqual(Guid.Empty, account.SecurityStamp);
         Assert.Equal(UserRole.Member, await db.Roles.Where(x => x.RoleId == 3).Select(x => x.RoleName).SingleAsync());
-        Assert.Equal(UserRole.ExternalCoach, await db.Roles.Where(x => x.RoleId == 6).Select(x => x.RoleName).SingleAsync());
-        Assert.Equal(4, await db.Sports.CountAsync());
+        Assert.False(await db.Roles.AnyAsync(x => x.RoleId == 6)); // BR-140: role ExternalCoach đã bị gỡ
+        Assert.Equal(3, await db.Sports.CountAsync()); // Gym, Cầu lông, Bóng rổ; PT là dịch vụ của Gym
         Assert.True(await db.Rooms.Where(x => x.RoomId == 991).Select(x => x.IsActive).SingleAsync());
         Assert.False(db.Database.HasPendingModelChanges());
     }

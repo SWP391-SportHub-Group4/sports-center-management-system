@@ -17,8 +17,7 @@ export type Role =
   | "CenterManager"
   | "Coach"
   | "Member"
-  | "Receptionist"
-  | "ExternalCoach";
+  | "Receptionist";
 
 
 export interface SessionUser {
@@ -228,7 +227,6 @@ export function useAuth() {
 
 /** Home default of each role after đăng nhập. */
 export const HOME_BY_ROLE: Record<Role, string> = {
-  ExternalCoach: "/external-coach",
   Member: "/member",
   Receptionist: "/receptionist",
   Coach: "/coach",
@@ -237,7 +235,6 @@ export const HOME_BY_ROLE: Record<Role, string> = {
 };
 
 export const ROLE_LABEL: Record<Role, string> = {
-  ExternalCoach: "External Coach",
   Member: "Member",
   Receptionist: "Receptionist",
   Coach: "Coach",
@@ -260,7 +257,6 @@ const WIRE_ROLES: Record<string, Role> = {
   COACH: "Coach",
   MEMBER: "Member",
   RECEPTIONIST: "Receptionist",
-  EXTERNAL_COACH: "ExternalCoach",
 };
 export function adaptSessionUser(me: WireSessionUser): SessionUser {
   const role =

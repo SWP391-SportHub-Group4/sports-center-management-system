@@ -41,6 +41,16 @@ const nextConfig = {
       ["/quan-tri", "/admin"],
       ["/quan-tri/nguoi-dung", "/admin/users"],
       ["/quan-tri/nhat-ky", "/admin/audit-log"],
+      // BR-140: không còn portal ExternalCoach; thuê sân là chức năng của Member.
+      ["/external-coach", "/member"],
+      ["/external-coach/book", "/member/courts/book"],
+      ["/external-coach/rentals", "/member/rentals"],
+      ["/external-coach/rentals/:rentalId", "/member/rentals/:rentalId"],
+      ["/external-coach/wallet", "/member/finance?tab=wallet"],
+      ["/external-coach/invoices", "/member/invoices"],
+      ["/external-coach/profile", "/member/profile"],
+      ["/register-external-coach", "/register"],
+      ["/manager/external-coaches", "/manager"],
     ].map(([source, destination]) => ({
       source,
       destination,

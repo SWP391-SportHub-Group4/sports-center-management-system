@@ -11,7 +11,7 @@ public static class ReportColumnLabels
             ["source"] = "Nguồn thu",
             ["sportId"] = "Mã môn",
             ["sportName"] = "Môn thể thao",
-            ["externalCoachId"] = "HLV ngoài",
+            ["memberId"] = "HLV ngoài",
             ["pointsRedeemed"] = "Điểm đã dùng",
             ["pointsRedeemedVnd"] = "Giá trị điểm (VND)",
             ["pointsIssued"] = "Điểm hoàn/bồi hoàn",

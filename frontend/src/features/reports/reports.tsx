@@ -24,7 +24,7 @@ function initialFilters(): ReportFilters {
     toDate,
     sportId: "",
     source: "",
-    externalCoachId: "",
+    memberId: "",
   };
 }
 
@@ -161,12 +161,12 @@ export function Reports() {
                 ))}
               </select>
             </Field>
-            <Field label={l.externalCoach}>
+            <Field label={l.memberId}>
               <input
-                value={draft.externalCoachId}
+                value={draft.memberId}
                 pattern="[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
                 onChange={(event) =>
-                  setDraft({ ...draft, externalCoachId: event.target.value })
+                  setDraft({ ...draft, memberId: event.target.value })
                 }
               />
             </Field>

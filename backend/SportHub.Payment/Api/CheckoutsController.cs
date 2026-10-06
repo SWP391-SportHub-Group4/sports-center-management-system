@@ -59,7 +59,7 @@ public sealed class CheckoutsController(CheckoutService checkouts, IPackagePurch
         return Created($"/api/checkouts/{result.InvoiceId}", result);
     }
 
-    [Authorize(Roles = SportHubRoleNames.ExternalCoach)]
+    [Authorize(Roles = SportHubRoleNames.Member)]
     [HttpPost("court-rental")]
     [EnableRateLimiting("checkout-write")]
     public async Task<IActionResult> CourtRental([FromBody] CourtRentalCheckoutRequest request,
@@ -67,10 +67,11 @@ public sealed class CheckoutsController(CheckoutService checkouts, IPackagePurch
     {
         if (string.IsNullOrWhiteSpace(key) || key.Length > 120)
             throw new BadRequestException("idempotency_key_required", "Cần Idempotency-Key hợp lệ.");
-        var coachId = User.RequireUserId();
+        // Chủ lượt thuê luôn là Member đã xác thực; giá và owner không nhận từ client.
+        var memberId = User.RequireUserId();
         var command = new SportHub.BuildingBlocks.Abstractions.Scheduling.CourtRentalRequest(
-            coachId, request.SportId, request.RoomId, request.StartUtc, request.EndUtc, request.ExpectedAttendees);
-        var result = await checkouts.CreateCourtRentalAsync(command, key, coachId, ct);
+            memberId, request.SportId, request.RoomId, request.StartUtc, request.EndUtc);
+        var result = await checkouts.CreateCourtRentalAsync(command, key, memberId, ct);
         return Created($"/api/checkouts/{result.InvoiceId}", result);
     }
 
@@ -141,7 +142,7 @@ public sealed class CheckoutsController(CheckoutService checkouts, IPackagePurch
 
     private void RequireBuyer()
     {
-        if (!User.IsInRole(SportHubRoleNames.Member) && !User.IsInRole(SportHubRoleNames.ExternalCoach) && !IsStaff())
+        if (!User.IsInRole(SportHubRoleNames.Member) && !IsStaff())
             throw new ForbiddenException("checkout_forbidden", "Tài khoản không được thực hiện checkout.");
     }
 
@@ -155,4 +156,4 @@ public sealed class CheckoutsController(CheckoutService checkouts, IPackagePurch
 public sealed record RetryCheckoutRequest(string? PriceVersion = null);
 
 public sealed record CourtRentalCheckoutRequest(int SportId, int RoomId,
-    DateTimeOffset StartUtc, DateTimeOffset EndUtc, int ExpectedAttendees);
+    DateTimeOffset StartUtc, DateTimeOffset EndUtc);

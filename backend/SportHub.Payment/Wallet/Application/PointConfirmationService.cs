@@ -130,7 +130,7 @@ public sealed class PointConfirmationService(
     public async Task<PointSelectionResponse> SelectSelfAsync(Guid invoiceId, int points, Guid ownerId, CancellationToken ct)
     {
         var owner = await users.GetAsync(ownerId, ct);
-        if (owner is null || !owner.IsActive || owner.Role is not ("Member" or "ExternalCoach"))
+        if (owner is null || !owner.IsActive || owner.Role != "Member")
             throw new ForbiddenException("wallet_owner_invalid", "Tài khoản không được dùng ví.");
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         var invoice = await LockInvoiceAsync(invoiceId, ct);
@@ -180,7 +180,7 @@ public sealed class PointConfirmationService(
     public async Task<PointSelectionResponse> GetSelectionAsync(Guid invoiceId, Guid actorId, CancellationToken ct)
     {
         var actor = await users.GetAsync(actorId, ct);
-        if (actor is null || !actor.IsActive || actor.Role is not ("Member" or "ExternalCoach" or "Receptionist"))
+        if (actor is null || !actor.IsActive || actor.Role is not ("Member" or "Receptionist"))
             throw new ForbiddenException("point_selection_forbidden", "Không có quyền xem lựa chọn điểm.");
         var invoice = await db.Set<Invoice>().AsNoTracking().SingleOrDefaultAsync(x => x.InvoiceId == invoiceId, ct)
             ?? throw new NotFoundException("invoice_not_found", "Không tìm thấy hóa đơn.");
