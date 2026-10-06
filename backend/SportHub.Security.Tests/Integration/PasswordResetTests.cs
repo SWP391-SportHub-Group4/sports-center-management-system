@@ -70,8 +70,10 @@ public class PasswordResetTests(SportHubApiFactory factory)
     private static async Task<string> ErrorOf(HttpResponseMessage r)
         => JsonDocument.Parse(await r.Content.ReadAsStringAsync()).RootElement.GetProperty("error").GetString()!;
 
-    [Fact]
-    public async Task Account_profile_refresh_returns_authoritative_role_and_specialties()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Account_profile_refresh_returns_authoritative_role_and_specialties(bool isPersonalTrainer)
     {
         var coach = await factory.SeedUserAsync(NewEmail(), OldPassword, role: UserRole.Coach);
         using (var scope = factory.Services.CreateScope())
@@ -85,6 +87,12 @@ public class PasswordResetTests(SportHubApiFactory factory)
             db.Sports.Add(sport);
             await db.SaveChangesAsync();
             db.Set<SportHub.Identity.Domain.Entities.UserSportSpecialty>().Add(new() { UserId = coach.UserId, SportId = sport.SportId });
+            if (isPersonalTrainer)
+            {
+                // Seeded offering 2 is Gym's Personal Training service.
+                db.Set<SportHub.Identity.Domain.Entities.CoachServiceQualification>()
+                    .Add(new() { UserId = coach.UserId, OfferingId = 2 });
+            }
             await db.SaveChangesAsync();
         }
         var client = Client();
@@ -95,7 +103,20 @@ public class PasswordResetTests(SportHubApiFactory factory)
         Assert.Equal("COACH", body.GetProperty("role").GetString());
         Assert.False(body.TryGetProperty("approvalStatus", out _)); // BR-140: không có trạng thái duyệt hồ sơ
         Assert.Single(body.GetProperty("sportIds").EnumerateArray());
-        Assert.False(body.GetProperty("isPersonalTrainer").GetBoolean()); // chuyên môn không tự cấp quyền PT
+        Assert.Equal(isPersonalTrainer, body.GetProperty("isPersonalTrainer").GetBoolean());
+
+        if (isPersonalTrainer)
+        {
+            using var scope = factory.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
+            await db.Set<SportHub.Identity.Domain.Entities.CoachServiceQualification>()
+                .Where(q => q.UserId == coach.UserId).ExecuteDeleteAsync();
+
+            var refreshed = await client.GetAsync("api/users/me");
+            Assert.Equal(HttpStatusCode.OK, refreshed.StatusCode);
+            var refreshedBody = JsonDocument.Parse(await refreshed.Content.ReadAsStringAsync()).RootElement;
+            Assert.False(refreshedBody.GetProperty("isPersonalTrainer").GetBoolean());
+        }
     }
 
     [Fact]

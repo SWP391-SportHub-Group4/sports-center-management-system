@@ -1452,7 +1452,6 @@ test("a rejected court-rental checkout shows the server error and keeps no booki
   page,
 }) => {
   await session(page, "MEMBER");
-  let revoked = false;
   let checkouts = 0;
   await page.route("**/api/court-rentals/availability?**", (r) =>
     r.fulfill({
@@ -1473,7 +1472,6 @@ test("a rejected court-rental checkout shows the server error and keeps no booki
   );
   await page.route("**/api/checkouts/court-rental", (r) => {
     checkouts++;
-    revoked = true;
     expect(r.request().postDataJSON()).toMatchObject({
       roomId: 1,
       sportId: 1,
