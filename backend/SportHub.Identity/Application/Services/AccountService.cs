@@ -143,7 +143,7 @@ public sealed class AccountService(
 
             if (!passwordHasher.Verify(request.CurrentPassword, credential.PasswordHash))
             {
-                throw new AppException(401, "invalid_credentials", "Mật khẩu hiện tại không đúng.");
+                throw new BadRequestException("current_password_incorrect", "Mật khẩu hiện tại không đúng.");
             }
 
             if (passwordHasher.Verify(request.NewPassword, credential.PasswordHash))
