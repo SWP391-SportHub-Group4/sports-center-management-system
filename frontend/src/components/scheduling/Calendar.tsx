@@ -266,6 +266,9 @@ export function Calendar({
         </div>
       ) : (
         <div
+          role="region"
+          aria-label={labels[view]}
+          tabIndex={0}
           className={`${styles.grid} ${
             view === "day"
               ? styles.gridDay
