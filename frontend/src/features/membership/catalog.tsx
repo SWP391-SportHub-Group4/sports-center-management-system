@@ -1,4 +1,5 @@
 "use client";
+import { findSportWithService } from "@/lib/sports";
 import { useAuth } from "@/lib/auth";
 import { useState } from "react";
 import Link from "next/link";
@@ -196,13 +197,13 @@ export function PtPurchase({
     (signal) => api.get<SportDto[]>("/api/sports", { anonymous: true, signal }),
     [],
   );
-  const ptSport = sports.data?.find((s) => s.operationType === "ONE_ON_ONE");
+  const ptSport = findSportWithService(sports.data, "PERSONAL_TRAINING");
   const coaches = useApi(
     (signal) =>
       ptSport
         ? api.get<{ userId: string; fullName: string }[]>("/api/coaches", {
             signal,
-            query: { sportId: ptSport.sportId },
+            query: { service: "PERSONAL_TRAINING" },
           })
         : Promise.resolve([]),
     [ptSport?.sportId],

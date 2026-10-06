@@ -26,6 +26,12 @@ public sealed class EmailOtpFlow(ISportHubDbContext db, IClock clock, INotificat
         string email, EmailOtpPurpose purpose, CancellationToken ct, Func<string, string>? resetLink = null,
         string? supportUrl = null)
     {
+        // Đặt lại mật khẩu chỉ đi bằng link; không bao giờ gửi mã 6 số cho mục đích này.
+        if (purpose == EmailOtpPurpose.ResetPassword && resetLink is null)
+        {
+            throw new InvalidOperationException("Đặt lại mật khẩu chỉ gửi bằng link, không gửi mã OTP.");
+        }
+
         var now = clock.UtcNow;
         var otp = await db.Set<EmailOtp>().SingleOrDefaultAsync(o => o.Email == email && o.Purpose == purpose, ct);
 
@@ -53,7 +59,7 @@ public sealed class EmailOtpFlow(ISportHubDbContext db, IClock clock, INotificat
         var (eventType, subject, purposeText) = purpose switch
         {
             EmailOtpPurpose.ResetPassword => (NotificationEvents.PasswordResetOtpRequested,
-                "SportHub - Mã đặt lại mật khẩu", "đặt lại mật khẩu"),
+                PasswordResetEmail.Subject, "đặt lại mật khẩu"),
             EmailOtpPurpose.ExternalCoachRegister => (NotificationEvents.ExternalCoachOtpRequested,
                 "SportHub - Mã xác thực đăng ký Coach ngoài", "đăng ký tài khoản Coach ngoài"),
             _ => throw new ArgumentOutOfRangeException(nameof(purpose), purpose, "OTP purpose chưa có template email.")

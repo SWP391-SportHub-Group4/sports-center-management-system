@@ -5,16 +5,38 @@ export interface Paged<T> {
   totalCount: number;
 }
 
-export interface SportDto {
-  sportId: number;
-  name: string;
-  operationType: "WALK_IN" | "ONE_ON_ONE" | "GROUP_COURSE";
+export type SportServiceType =
+  | "MEMBERSHIP_ACCESS"
+  | "GROUP_COURSE"
+  | "COURT_RENTAL"
+  | "PERSONAL_TRAINING";
+
+export interface SportServiceDto {
+  serviceType: SportServiceType;
+  isEnabled: boolean;
+  /** Chỉ có với GROUP_COURSE. */
   defaultSessionMinutes: number | null;
   defaultMaxCapacity: number | null;
+}
+
+/** Phần còn thiếu để dịch vụ bán được; chỉ Manager nhận (api/manager/sports). */
+export interface ServiceReadinessDto {
+  serviceType: SportServiceType;
+  ready: boolean;
+  missing: ("room_type" | "room" | "opening_hours" | "court_rate")[];
+}
+
+export interface SportDto {
+  sportId: number;
+  /** Mã ổn định, không đổi sau khi tạo. */
+  code: string;
+  name: string;
   description: string | null;
   imageUrl: string | null;
   sortOrder: number;
   isActive: boolean;
+  services: SportServiceDto[];
+  readiness?: ServiceReadinessDto[] | null;
 }
 
 export interface CourseDto {

@@ -1,12 +1,9 @@
 "use client";
 import { type ReactNode } from "react";
 import { AppShell } from "@/components/AppShell";
-import { AsyncSection } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
 import { useLanguage } from "@/lib/language";
-import { useApi } from "@/lib/useApi";
-import { api } from "@/lib/apiClient";
-import type { SportDto } from "@/lib/types";
+import { canUsePtFeatures } from "@/lib/permissions";
 import type { Translations } from "@/locales/en";
 import { operationsStyles as styles } from "@/features/operations";
 
@@ -16,8 +13,7 @@ export function PtPage({ title, manager = false, children }: { title: keyof Tran
 }
 export function Specialty({ children }: { children: (hasPt: boolean) => ReactNode }) {
   const { user } = useAuth();
-  const sports = useApi(signal => api.get<SportDto[]>("/api/sports", { signal }), []);
-  return <AsyncSection state={sports}>{rows => children(rows.some(s => s.operationType === "ONE_ON_ONE" && user?.sportIds.includes(s.sportId)))}</AsyncSection>;
+  return <>{children(canUsePtFeatures(user))}</>;
 }
 export function ListPager({ page, count, onChange }: { page: number; count: number; onChange: (page: number) => void }) {
   const { t } = useLanguage();

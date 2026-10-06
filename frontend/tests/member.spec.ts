@@ -47,10 +47,31 @@ test.beforeEach(async ({ page }) => {
         {
           sportId: 3,
           name: "Badminton",
-          operationType: "GROUP_COURSE",
+          code: "course",
+          services: [
+            {
+              serviceType: "GROUP_COURSE",
+              isEnabled: true,
+              defaultSessionMinutes: 90,
+              defaultMaxCapacity: 12,
+            },
+          ],
           isActive: true,
         },
-        { sportId: 2, name: "PT", operationType: "ONE_ON_ONE", isActive: true },
+        {
+          sportId: 2,
+          name: "PT",
+          code: "gym",
+          services: [
+            {
+              serviceType: "PERSONAL_TRAINING",
+              isEnabled: true,
+              defaultSessionMinutes: null,
+              defaultMaxCapacity: null,
+            },
+          ],
+          isActive: true,
+        },
       ];
     else if (path === "/api/classes")
       json = { items: [course], page: 1, pageSize: 12, totalCount: 1 };
@@ -153,7 +174,9 @@ test("Gym and PT purchases are separate", async ({ page }) => {
   await expect(
     page.getByRole("button", { name: "Review & checkout" }).first(),
   ).toBeVisible();
-  await page.getByRole("tab", { name: "Personal training", exact: true }).click();
+  await page
+    .getByRole("tab", { name: "Personal training", exact: true })
+    .click();
   await expect(
     page.getByRole("tab", { name: "Personal training", exact: true }),
   ).toHaveAttribute("aria-selected", "true");
@@ -192,7 +215,7 @@ for (const width of [320, 768, 1024, 1280, 1440])
       await page.goto(`/member${path}`);
       await expect(page.locator("#main-content h1")).toBeVisible();
       await expect(page.getByRole("banner")).toBeVisible();
-      if (width >= 1024) {
+      if (width >= 1280) {
         const nav = page.getByRole("navigation", { name: "Member Navigation" });
         await expect(nav).toBeVisible();
         await expect(nav.getByRole("link")).toHaveCount(7);

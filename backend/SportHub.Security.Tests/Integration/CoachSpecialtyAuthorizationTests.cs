@@ -11,12 +11,13 @@ using SportHub.Identity.Domain.Enums;
 
 namespace SportHub.Security.Tests.Integration;
 
-/// <summary>BR-96 — chuyên môn theo môn thay CoachCategory: Manager quản lý Coach, guard PT dựa trên môn OneOnOne.</summary>
+/// <summary>BR-96 — chuyên môn theo môn thay CoachCategory: Manager quản lý Coach, guard PT dựa trên qualification dịch vụ PT của Gym.</summary>
 [Collection(nameof(SportHubApiCollection))]
 public class CoachSpecialtyAuthorizationTests(SportHubApiFactory factory)
 {
     private const string Password = "Coach-Strong-Pass-1!";
-    private const int PersonalTrainingSportId = 2; // OneOnOne, seed trong migration
+    private const int PersonalTrainingSportId = 1; // Gym: PT là dịch vụ của Gym (offering 2 trong seed)
+    private const int PersonalTrainingOfferingId = 2;
     private const int BadmintonSportId = 3;        // GroupCourse
 
     private static int _ip = 40;
@@ -190,6 +191,16 @@ public class CoachSpecialtyAuthorizationTests(SportHubApiFactory factory)
         using var scope = factory.Services.CreateScope();
         var reader = scope.ServiceProvider.GetRequiredService<ICoachSpecialtyReader>();
 
+        // Chỉ có chuyên môn Gym thì chưa phải PT: quyền PT đến từ qualification dịch vụ PT.
+        Assert.False(await reader.IsPersonalTrainerAsync(trainerId));
+        var qualify = await manager.PutAsJsonAsync($"api/manager/coaches/{trainerId}/service-qualifications",
+            new { offeringIds = new[] { PersonalTrainingOfferingId } });
+        Assert.Equal(HttpStatusCode.OK, qualify.StatusCode);
+        // Coach không có chuyên môn Gym không được cấp qualification PT.
+        var rejected = await manager.PutAsJsonAsync($"api/manager/coaches/{instructorId}/service-qualifications",
+            new { offeringIds = new[] { PersonalTrainingOfferingId } });
+        Assert.Equal("coach_missing_sport_specialty", await ErrorOf(rejected));
+
         Assert.True(await reader.IsPersonalTrainerAsync(trainerId));
         Assert.False(await reader.IsPersonalTrainerAsync(instructorId)); // chỉ môn nhóm
         Assert.False(await reader.IsPersonalTrainerAsync(Guid.NewGuid())); // không tồn tại
@@ -206,14 +217,14 @@ public class CoachSpecialtyAuthorizationTests(SportHubApiFactory factory)
         await factory.SetStatusAsync(trainerId, UserStatus.Active);
         Assert.True(await reader.IsPersonalTrainerAsync(trainerId));
 
-        // Có chuyên môn OneOnOne nhưng không còn role Coach thì không phải PT (chuyên môn chỉ hiệu lực với role Coach).
+        // Có chuyên môn Gym nhưng không còn role Coach thì không phải PT (chuyên môn chỉ hiệu lực với role Coach).
         var member = await factory.SeedUserAsync(NewEmail(), Password);
         var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
         db.UserSportSpecialties.Add(new UserSportSpecialty { UserId = member.UserId, SportId = PersonalTrainingSportId });
         await db.SaveChangesAsync();
         Assert.False(await reader.IsPersonalTrainerAsync(member.UserId));
 
-        // Môn PT ngừng hoạt động thì không ai được coi là PT.
+        // Môn Gym (chứa dịch vụ PT) ngừng hoạt động thì không ai được coi là PT.
         var sports = scope.ServiceProvider.GetRequiredService<SportHub.Scheduling.Catalog.Application.SportCatalogService>();
         var actor = (await factory.SeedUserAsync(NewEmail(), Password, role: UserRole.CenterManager)).UserId;
         await sports.DeactivateAsync(PersonalTrainingSportId, actor);

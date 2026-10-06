@@ -171,6 +171,7 @@ builder.Services.AddScoped<IAccountService, AccountService>();
 builder.Services.AddScoped<IPasswordResetService, PasswordResetService>();
 builder.Services.AddScoped<EmailOtpFlow>();
 builder.Services.AddScoped<CoachSpecialtyService>();
+builder.Services.AddScoped<CoachQualificationService>();
 builder.Services.AddScoped<CoachAdminService>();
 builder.Services.AddScoped<IUserSummaryFactory, UserSummaryFactory>();
 builder.Services.AddScoped<IExternalCoachService, ExternalCoachService>();

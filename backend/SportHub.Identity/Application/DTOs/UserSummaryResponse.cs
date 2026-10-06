@@ -13,4 +13,7 @@ public class UserSummaryResponse
 
     /// <summary>Môn chuyên môn (Coach) / môn giảng dạy khai báo (ExternalCoach). Rỗng với role khác.</summary>
     public IReadOnlyList<int> SportIds { get; set; } = [];
+
+    /// <summary>Coach có qualification dịch vụ PT đang bật (không suy ra từ chuyên môn môn Gym). False với role khác.</summary>
+    public bool IsPersonalTrainer { get; set; }
 }

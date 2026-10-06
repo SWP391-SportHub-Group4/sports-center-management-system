@@ -5,9 +5,6 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { HOME_BY_ROLE, useAuth, type Role } from "@/lib/auth";
 import { canUsePtFeatures } from "@/lib/permissions";
-import { api } from "@/lib/apiClient";
-import { useApi } from "@/lib/useApi";
-import type { SportDto } from "@/lib/types";
 import { useLanguage } from "@/lib/language";
 import type { Translations } from "@/locales/en";
 import { NotificationBell } from "./NotificationBell";
@@ -141,8 +138,12 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
 };
 
 export function getNavForUser(
-  user: { role: Role; sportIds: number[]; approvalStatus?: string | null },
-  ptSportId?: number | number[],
+  user: {
+    role: Role;
+    sportIds: number[];
+    isPersonalTrainer?: boolean;
+    approvalStatus?: string | null;
+  },
 ): NavItem[] {
   if (user.role === "ExternalCoach")
     return NAV_BY_ROLE.ExternalCoach.filter(
@@ -157,8 +158,7 @@ export function getNavForUser(
     { href: "/coach/members", labelKey: "assignedMembers" as const },
     { href: "/coach/attendance", labelKey: "attendance" as const },
   ];
-  const ptIds = Array.isArray(ptSportId) ? ptSportId : ptSportId === undefined ? [] : [ptSportId];
-  return ptIds.some(id => user.sportIds.includes(id))
+  return user.isPersonalTrainer === true
     ? [
         ...base,
         ...NAV_BY_ROLE.Coach.filter((item) =>
@@ -192,16 +192,9 @@ export function AppShell({
   const router = useRouter();
   const pathname = usePathname();
   const [showShortcuts, setShowShortcuts] = useState(false);
-  const sports = useApi(
-    (signal) => api.get<SportDto[]>("/api/sports", { signal, anonymous: true }),
-    [],
-  );
-  const ptSportId = sports.data?.find(
-    (sport) => sport.operationType === "ONE_ON_ONE",
-  )?.sportId;
 
   useEffect(() => {
-    if (loading || (requirePtSpecialty && sports.loading)) return;
+    if (loading) return;
 
     if (!user) {
       router.replace(`/login?next=${encodeURIComponent(pathname)}`);
@@ -221,7 +214,7 @@ export function AppShell({
     if (
       requirePtSpecialty &&
       user.role === "Coach" &&
-      !canUsePtFeatures(user, ptSportId ?? -1)
+      !canUsePtFeatures(user)
     ) {
       router.replace(HOME_BY_ROLE[user.role]);
     }
@@ -230,8 +223,6 @@ export function AppShell({
     loading,
     allow,
     requirePtSpecialty,
-    ptSportId,
-    sports.loading,
     router,
     pathname,
   ]);
@@ -299,7 +290,7 @@ export function AppShell({
   const ptSpecialtyMismatch =
     requirePtSpecialty &&
     user?.role === "Coach" &&
-    !canUsePtFeatures(user, ptSportId ?? -1);
+    !canUsePtFeatures(user);
 
   if (loading || !user || !allow.includes(user.role) || ptSpecialtyMismatch) {
     return (
@@ -311,7 +302,7 @@ export function AppShell({
     );
   }
 
-  const nav = getNavForUser(user, ptSportId);
+  const nav = getNavForUser(user);
   const roleDisplay = t.navigation.roleLabel[user.role];
 
   return (

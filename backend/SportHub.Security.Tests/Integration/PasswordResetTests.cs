@@ -79,8 +79,8 @@ public class PasswordResetTests(SportHubApiFactory factory)
             var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
             var sport = new SportHub.Scheduling.Catalog.Domain.Sport
             {
-                Name = $"Profile test {Guid.NewGuid():N}",
-                OperationType = SportHub.Scheduling.Catalog.Domain.SportOperationType.WalkIn
+                Code = $"profile_{Guid.NewGuid():N}"[..32],
+                Name = $"Profile test {Guid.NewGuid():N}"
             };
             db.Sports.Add(sport);
             await db.SaveChangesAsync();

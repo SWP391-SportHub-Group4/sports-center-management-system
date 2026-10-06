@@ -33,10 +33,10 @@ public sealed class RevenueDimensionReader(SportHubDbContext db) : IRevenueDimen
             .ToListAsync(ct);
         foreach (var rental in rentals)
             result[rental.ItemId] = new(rental.SportId, rental.Name, rental.ExternalCoachId);
+        // PT là dịch vụ của Gym: doanh thu PT cũ chưa có tham chiếu môn được gán cho môn có dịch vụ PT đang bật.
         var ptSports = await db.Set<SportHub.Scheduling.Catalog.Domain.Sport>().AsNoTracking()
-            .Where(x => x.OperationType == SportHub.Scheduling.Catalog.Domain.SportOperationType.OneOnOne)
+            .Where(x => x.IsActive && x.Services.Any(o => o.ServiceType == SportHub.BuildingBlocks.Abstractions.Scheduling.SportServiceType.PersonalTraining && o.IsEnabled))
             .Select(x => new { x.SportId, x.Name }).Take(2).ToListAsync(ct);
-        // Old PT entitlements carry no sport reference. Attribute only when the catalog is unambiguous.
         if (ptSports.Count == 1)
         {
             var ptItems = await db.Set<InvoiceItem>().AsNoTracking().Where(x => invoiceItemIds.Contains(x.ItemId)
