@@ -16,7 +16,9 @@ export default function Page() {
   );
   const entitlements = useApi(
     (signal) =>
-      api.get<PtEntitlementDto[]>("/api/members/me/pt-entitlements", { signal }),
+      api.get<PtEntitlementDto[]>("/api/members/me/pt-entitlements", {
+        signal,
+      }),
     [],
   );
   return (
@@ -56,13 +58,14 @@ export default function Page() {
               <StatusChip value={e.status} /> · {e.remainingQuota}/
               {e.totalQuota} {t.refactor.sessions} · {e.reservedSessions}{" "}
               {t.refactor.held} · {e.consumedSessions} {t.refactor.used} ·{" "}
-              {formatDate(e.validityEndDate)}{e.carryOverUntilDate && ` · ${formatDate(e.carryOverUntilDate)}`}
+              {formatDate(e.validityEndDate)}
+              {e.carryOverUntilDate && ` · ${formatDate(e.carryOverUntilDate)}`}
             </p>
           </Card>
         ))
       )}
       <MembershipCatalog purchase />
-      {state.data && <PtPurchase packages={state.data} />}
+      <PtPurchase packages={state.data ?? []} />
     </MemberShell>
   );
 }

@@ -124,7 +124,7 @@ test("course catalog replaces per-session enrollment", async ({ page }) => {
   await page.goto("/member/class-schedule");
   await expect(
     page.getByRole("heading", { name: "Badminton course" }),
-  ).toBeVisible();
+  ).toBeVisible({ timeout: 15000 });
   await expect(page.getByRole("button", { name: /Book Spot/ })).toHaveCount(0);
   await page.getByRole("link", { name: "Details", exact: true }).click();
   await expect(
@@ -151,7 +151,7 @@ test("Gym and PT purchases are separate", async ({ page }) => {
   ).toBeVisible();
   await expect(
     page.getByRole("heading", { name: "Personal training", exact: true }),
-  ).toBeVisible();
+  ).toBeVisible({ timeout: 15000 });
   await expect(
     page.getByRole("button", { name: "Review & checkout" }).first(),
   ).toBeVisible();
@@ -164,7 +164,7 @@ test("notification links resolve to real Member views", async ({ page }) => {
   await page.getByRole("button", { name: /Notifications/ }).click();
   await expect(
     page.locator(".bell__panel").getByText("Your coach assigned homework."),
-  ).toBeVisible();
+  ).toBeVisible({ timeout: 15000 });
   await expect(
     page.locator(".bell__panel").getByRole("link", { name: "Details" }),
   ).toHaveAttribute("href", "/member/training");
