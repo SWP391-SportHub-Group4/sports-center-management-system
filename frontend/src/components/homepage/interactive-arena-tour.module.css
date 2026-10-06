@@ -34,7 +34,6 @@
   margin-bottom: clamp(32px, 5vw, 56px);
 }
 
-.tourKicker,
 .mapHeading,
 .photoTopline,
 .metricLabel {
@@ -43,21 +42,6 @@
   font-weight: 500;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-}
-
-.tourKicker {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: 0 0 var(--space-4);
-  color: var(--zone-accent);
-}
-
-.tourKicker::before {
-  width: 28px;
-  height: 1px;
-  background: currentColor;
-  content: "";
 }
 
 .tourHeader h2 {
@@ -523,6 +507,148 @@
   margin-bottom: 20px;
 }
 
+.courseOfferings {
+  margin-bottom: 20px;
+}
+
+.courseOfferingsHeading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.courseOfferingsHeading h3 {
+  margin: 0;
+  color: #f6f9f9;
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+
+.courseOfferingsHeading > span {
+  color: var(--panel-accent);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.courseList {
+  border-top: 1px solid rgb(255 255 255 / 0.11);
+}
+
+.courseRow {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr) auto 16px;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 2px;
+  border-bottom: 1px solid rgb(255 255 255 / 0.11);
+  color: #f6f9f9;
+  text-decoration: none;
+  transition:
+    color 160ms ease,
+    padding-inline 160ms ease;
+}
+
+.courseRow:hover,
+.courseRow:focus-visible {
+  padding-inline: 7px;
+  color: var(--panel-accent);
+}
+
+.courseName,
+.courseFacts {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.courseName strong,
+.courseFacts strong {
+  overflow: hidden;
+  font-size: var(--text-xs);
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.courseName > span,
+.courseFacts > span {
+  color: rgb(246 249 249 / 0.58);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.courseName > .courseSchedule {
+  color: rgb(246 249 249 / 0.76);
+  font-family: var(--font-body);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.courseFacts {
+  justify-items: end;
+  text-align: right;
+}
+
+.courseFacts > span {
+  color: var(--panel-accent);
+}
+
+.courseRow > svg {
+  color: var(--panel-accent);
+}
+
+.courseEmpty {
+  margin: 0;
+  padding: 11px 0;
+  color: #f6f9f9;
+  font-size: var(--text-xs);
+  line-height: 1.5;
+}
+
+.courseEmpty span {
+  display: block;
+  margin-top: 4px;
+  color: rgb(246 249 249 / 0.58);
+}
+
+.moreCourses {
+  border-bottom: 1px solid rgb(255 255 255 / 0.11);
+}
+
+.moreCourses summary {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  color: var(--panel-accent);
+  cursor: pointer;
+  font-size: var(--text-xs);
+  font-weight: 650;
+  list-style-position: inside;
+}
+
+.moreCourses[open] .courseList {
+  max-height: 300px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-color: color-mix(in srgb, var(--panel-accent) 52%, transparent)
+    transparent;
+  scrollbar-width: thin;
+}
+
+.staleSchedule {
+  margin: 8px 0 0;
+  color: #f2c879;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
 .metric {
   display: flex;
   min-width: 0;
@@ -556,6 +682,13 @@
   text-overflow: ellipsis;
   text-transform: uppercase;
   white-space: nowrap;
+}
+
+.metricRequirement strong {
+  overflow-wrap: anywhere;
+  font-size: clamp(12px, 1.25vw, 15px);
+  text-overflow: clip;
+  white-space: normal;
 }
 
 .featureFooter {

@@ -18,77 +18,36 @@ import styles from "./performance-sections.module.css";
 
 type Language = "en" | "vi";
 
+function isSportDto(value: unknown): value is SportDto {
+  if (!value || typeof value !== "object") return false;
+  const sport = value as Partial<SportDto>;
+  return (
+    Number.isFinite(sport.sportId) &&
+    typeof sport.name === "string" &&
+    typeof sport.operationType === "string" &&
+    typeof sport.isActive === "boolean" &&
+    Number.isFinite(sport.sortOrder)
+  );
+}
+
 const copy = {
   en: {
     title: "Every session\nhas a purpose.",
-    lead: "Badminton, basketball and athletic conditioning. Find your court, explore the arena and check current class availability.",
-    courses: "Explore the arena",
+    lead: "Compare sports, class dates, prices and open places.",
+    courses: "Find a class",
     gymPlans: "Membership plans",
-    activePrograms: "Active programs",
-    publishedCourses: "Published courses",
-    unavailable: "Unavailable",
     aiAlt:
       "Badminton, basketball and strength athletes sharing an indoor sports court",
   },
   vi: {
     title: "Mỗi buổi tập\nđều có mục tiêu.",
-    lead: "Cầu lông, bóng rổ và thể lực vận động viên. Chọn khu vực, xem sơ đồ và kiểm tra lịch học còn chỗ.",
-    courses: "Khám phá tổ hợp",
+    lead: "So sánh môn tập, lịch khai giảng, học phí và chỗ còn.",
+    courses: "Tìm lớp học",
     gymPlans: "Gói Membership",
-    activePrograms: "Môn đang hoạt động",
-    publishedCourses: "Khóa học đã mở",
-    unavailable: "Chưa tải được",
     aiAlt:
       "Vận động viên cầu lông, bóng rổ và thể lực cùng tập trong nhà thi đấu",
   },
 } satisfies Record<Language, Record<string, string>>;
-
-function AnimatedNumber({
-  value,
-  locale,
-}: {
-  value: number;
-  locale: Language;
-}) {
-  const ref = useRef<HTMLSpanElement>(null);
-
-  useEffect(() => {
-    const element = ref.current;
-    if (!element) return;
-
-    const formatter = new Intl.NumberFormat(
-      locale === "vi" ? "vi-VN" : "en-US",
-    );
-    const reduceMotion = window.matchMedia(
-      "(prefers-reduced-motion: reduce)",
-    ).matches;
-    if (reduceMotion) {
-      element.textContent = formatter.format(value);
-      return;
-    }
-
-    element.textContent = formatter.format(0);
-    let frame = 0;
-    let startedAt = 0;
-    const duration = 720;
-    const animate = (time: number) => {
-      if (!startedAt) startedAt = time;
-      const progress = Math.min((time - startedAt) / duration, 1);
-      const eased = 1 - Math.pow(1 - progress, 4);
-      element.textContent = formatter.format(Math.round(value * eased));
-      if (progress < 1) frame = window.requestAnimationFrame(animate);
-    };
-
-    frame = window.requestAnimationFrame(animate);
-    return () => window.cancelAnimationFrame(frame);
-  }, [locale, value]);
-
-  return (
-    <span ref={ref}>
-      {value.toLocaleString(locale === "vi" ? "vi-VN" : "en-US")}
-    </span>
-  );
-}
 
 function MagneticExploreLink({ label }: { label: string }) {
   const ref = useRef<HTMLAnchorElement>(null);
@@ -183,8 +142,9 @@ export function PerformanceSections({ language }: { language: Language }) {
   );
 
   const programs =
-    sportsState.data
-      ?.filter(
+    (Array.isArray(sportsState.data) ? sportsState.data : [])
+      .filter(isSportDto)
+      .filter(
         (sport) =>
           sport.isActive &&
           (sport.operationType === "GROUP_COURSE" ||
@@ -192,29 +152,26 @@ export function PerformanceSections({ language }: { language: Language }) {
               /gym|fitness|conditioning|thể lực/i.test(sport.name))),
       )
       .sort((a, b) => a.sortOrder - b.sortOrder) ?? [];
-  const courses = coursesState.data?.items ?? [];
-  const courseCount = coursesState.data?.totalCount ?? 0;
+  const courseItems = coursesState.data?.items;
+  const courses = Array.isArray(courseItems) ? courseItems : [];
   return (
     <>
       <section className={styles.hero} aria-labelledby="performance-title">
         <div className={styles.heroCopy}>
-          <p className={styles.heroKicker}>
-            <span>
-              {language === "vi"
-                ? "SPORT HUB · HIỆU SUẤT"
-                : "SPORTHUB · PERFORMANCE"}
-            </span>
-            <span className={styles.kickerRule} aria-hidden="true" />
-          </p>
           <h1 id="performance-title">{t.title}</h1>
           <p className={styles.heroLead}>{t.lead}</p>
-          <div className={styles.heroActions}>
+          <nav
+            className={styles.heroActions}
+            aria-label={
+              language === "vi" ? "Chọn cách bắt đầu" : "Choose how to start"
+            }
+          >
             <MagneticExploreLink label={t.courses} />
             <Link href="#pricing" className={styles.secondaryCta}>
               {t.gymPlans}
               <CourtIcon name="diagonal" size={16} />
             </Link>
-          </div>
+          </nav>
         </div>
 
         <div className={styles.heroImage}>
@@ -227,39 +184,6 @@ export function PerformanceSections({ language }: { language: Language }) {
           />
           <span className={styles.imageFrame} aria-hidden="true" />
           <span className={styles.imageGlint} aria-hidden="true" />
-        </div>
-
-        <div
-          className={styles.heroStats}
-          role="group"
-          aria-label={
-            language === "vi" ? "Thống kê danh mục" : "Catalog statistics"
-          }
-        >
-          <div className={styles.heroStat}>
-            <span className={styles.statLabel}>{t.activePrograms}</span>
-            {sportsState.loading ? (
-              <span className={styles.statSkeleton} aria-hidden="true" />
-            ) : sportsState.error ? (
-              <span className={styles.statError}>{t.unavailable}</span>
-            ) : (
-              <strong>
-                <AnimatedNumber value={programs.length} locale={language} />
-              </strong>
-            )}
-          </div>
-          <div className={styles.heroStat}>
-            <span className={styles.statLabel}>{t.publishedCourses}</span>
-            {coursesState.loading ? (
-              <span className={styles.statSkeleton} aria-hidden="true" />
-            ) : coursesState.error ? (
-              <span className={styles.statError}>{t.unavailable}</span>
-            ) : (
-              <strong>
-                <AnimatedNumber value={courseCount} locale={language} />
-              </strong>
-            )}
-          </div>
         </div>
       </section>
 

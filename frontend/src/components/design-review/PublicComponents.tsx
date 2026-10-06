@@ -57,8 +57,7 @@ export function PublicHeader() {
       }}
     >
       <a href="#public" className={s.brand}>
-        <Image src="/sporthub/brand.svg" width={32} height={32} alt="" />
-        SportHub.
+        Sport<span className={s.brandAccent}>Hub</span>
       </a>
       <Button
         className={s.mobileToggle}
@@ -99,46 +98,23 @@ export function Hero() {
     <section className={s.hero} aria-labelledby="hero-title">
       <div className={s.heroCopy}>
         <h1 id="hero-title">
-          Bắt đầu ở đây.
+          Mỗi buổi tập
           <br />
-          <span>Bứt phá mỗi ngày.</span>
+          <span>đều có mục tiêu.</span>
         </h1>
-        <p>
-          Gym, cầu lông, bóng rổ. Chọn nhịp tập hợp với bạn và bắt đầu ngay hôm
-          nay.
-        </p>
+        <p>So sánh môn tập, lịch khai giảng, học phí và chỗ còn.</p>
         <a className={buttonClass({ size: "lg" })} href="#list">
-          Khám phá khóa học <CourtIcon name="arrow" size={20} />
+          Tìm lớp học <CourtIcon name="arrow" size={20} />
         </a>
       </div>
       <div className={s.heroImage}>
         <Image
-          src="/sporthub/court-volt/hero-rally.png"
-          alt="Ảnh AI minh họa vận động viên chơi cầu lông trên sân trong nhà"
+          src="/sporthub/court-volt/hero-community.png"
+          alt="Ảnh AI minh họa vận động viên cầu lông, bóng rổ và thể lực cùng tập trong nhà thi đấu"
           fill
           priority
           sizes="(max-width: 767px) 100vw, 60vw"
         />
-      </div>
-      <div className={s.sportRail}>
-        <a href="#detail">
-          <CourtIcon name="gym" size={28} />
-          <span>
-            Gym <small>Tập tự do & PT</small>
-          </span>
-        </a>
-        <a href="#list">
-          <CourtIcon name="badminton" size={28} />
-          <span>
-            Cầu lông <small>Vững kỹ thuật</small>
-          </span>
-        </a>
-        <a href="#list">
-          <CourtIcon name="basketball" size={28} />
-          <span>
-            Bóng rổ <small>Cùng nhau tiến bộ</small>
-          </span>
-        </a>
       </div>
     </section>
   );
@@ -202,8 +178,7 @@ export function Footer() {
     <footer className={s.footer}>
       <div>
         <a className={s.brand} href="#public">
-          <Image src="/sporthub/brand.svg" alt="" width={32} height={32} />
-          SportHub.
+          Sport<span className={s.brandAccent}>Hub</span>
         </a>
         <p>
           Mỗi buổi tập,
