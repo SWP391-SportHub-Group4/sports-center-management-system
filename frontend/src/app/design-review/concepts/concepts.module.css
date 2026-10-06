@@ -4,6 +4,17 @@
   background: var(--bg-app);
   color: var(--text-body);
   font: var(--text-md) / var(--leading-relaxed) var(--font-body);
+  color-scheme: dark;
+  --bg-app: var(--chalk-950);
+  --bg-surface: var(--chalk-900);
+  --bg-surface-sunken: var(--chalk-900);
+  --text-strong: var(--chalk-50);
+  --text-body: var(--chalk-200);
+  --text-muted: var(--chalk-300);
+  --color-primary: var(--volt-400);
+  --color-primary-soft-text: var(--volt-300);
+  --border-subtle: rgb(255 255 255 / 11%);
+  --focus-ring: var(--volt-400);
 }
 .intro,
 .index,

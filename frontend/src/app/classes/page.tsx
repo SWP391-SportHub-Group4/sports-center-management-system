@@ -1,1 +1,5 @@
-export { default } from "../courses/page";
+import { redirect } from "next/navigation";
+
+export default function Page() {
+  redirect("/#activities");
+}

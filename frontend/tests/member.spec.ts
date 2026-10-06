@@ -121,10 +121,10 @@ test.beforeEach(async ({ page }) => {
   });
 });
 test("course catalog replaces per-session enrollment", async ({ page }) => {
-  await page.goto("/member/class-schedule");
+  await page.goto("/member/discover");
   await expect(
     page.getByRole("heading", { name: "Badminton course" }),
-  ).toBeVisible();
+  ).toBeVisible({ timeout: 15000 });
   await expect(page.getByRole("button", { name: /Book Spot/ })).toHaveCount(0);
   await page.getByRole("link", { name: "Details", exact: true }).click();
   await expect(
@@ -145,16 +145,17 @@ test("dashboard does not issue an entrance pass", async ({ page }) => {
   await expect(page.getByTestId("show-qr-btn")).toHaveCount(0);
 });
 test("Gym and PT purchases are separate", async ({ page }) => {
-  await page.goto("/member/my-plans");
+  await page.goto("/member/services");
   await expect(
     page.getByRole("heading", { name: "Gym membership packages", exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "Personal training", exact: true }),
-  ).toBeVisible();
-  await expect(
     page.getByRole("button", { name: "Review & checkout" }).first(),
   ).toBeVisible();
+  await page.getByRole("tab", { name: "Personal training" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Personal training", exact: true }),
+  ).toBeVisible({ timeout: 15000 });
   await expect(
     page.getByRole("button", { name: "Get quote", exact: true }),
   ).toBeDisabled();
@@ -162,12 +163,12 @@ test("Gym and PT purchases are separate", async ({ page }) => {
 test("notification links resolve to real Member views", async ({ page }) => {
   await page.goto("/member");
   await page.getByRole("button", { name: /Notifications/ }).click();
-  await expect(
-    page.locator(".bell__panel").getByText("Your coach assigned homework."),
-  ).toBeVisible();
-  await expect(
-    page.locator(".bell__panel").getByRole("link", { name: "Details" }),
-  ).toHaveAttribute("href", "/member/training");
+  const notifications = page.getByRole("region", { name: "Notifications" });
+  const homework = notifications.getByRole("link", {
+    name: /Your coach assigned homework\./,
+  });
+  await expect(homework).toBeVisible({ timeout: 15000 });
+  await expect(homework).toHaveAttribute("href", "/member/training");
 });
 for (const width of [320, 768, 1280])
   test(`Member routes fit ${width}px`, async ({ page }) => {

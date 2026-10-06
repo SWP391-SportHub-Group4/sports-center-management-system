@@ -9,3 +9,111 @@
 .catalog :global(.card__body > *) {
   min-width: 0;
 }
+
+.publicCatalog > p:first-of-type {
+  max-width: 58ch;
+  margin-block: var(--space-4) var(--space-6);
+  color: var(--text-muted);
+}
+
+.publicSportGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(14px, 2vw, 24px);
+  margin-top: var(--space-4);
+}
+
+.publicSportCard {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  padding: clamp(20px, 2.6vw, 32px);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--white);
+  box-shadow: 0 8px 24px rgb(0 37 40 / 0.045);
+}
+
+.publicSportCard h3 {
+  margin: clamp(18px, 2vw, 26px) 0 var(--space-4);
+  color: var(--text-strong);
+  font-family: var(--font-display);
+  font-size: clamp(26px, 3vw, 38px);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.sportCourseList {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sportCourseList li {
+  min-width: 0;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.sportCourseTitle {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  color: var(--text-strong);
+  font-size: var(--text-sm);
+}
+
+.sportCourseTitle strong {
+  min-width: 0;
+  font-weight: 700;
+}
+
+.sportCourseTitle > span {
+  flex: none;
+  color: var(--court-700);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.sportCourseList li p,
+.noCourseCopy {
+  margin: var(--space-2) 0 0;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--leading-relaxed);
+}
+
+.sportCourseList li a {
+  display: inline-flex;
+  min-height: var(--control-height);
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+  color: var(--court-800);
+  font-size: var(--text-xs);
+  font-weight: 700;
+}
+
+.publicPlanIndex {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--court-700);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.08em;
+}
+
+.publicPlanIndex span {
+  color: var(--text-muted);
+}
+
+@media (max-width: 767px) {
+  .publicSportGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
