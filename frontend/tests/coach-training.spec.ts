@@ -21,7 +21,10 @@ async function coachFixture(page: Page, sportIds: number[]) {
 test("coach with PT and group specialties can navigate both workspaces", async ({ page }) => {
   await coachFixture(page, [2, 3]);
   await page.goto("/coach");
+  // PT nằm trong nhóm "Training" của thanh điều hướng trên cùng.
+  await page.getByRole("button", { name: "Training", exact: true }).click();
   await expect(page.getByRole("link", { name: "PT schedule", exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
   await expect(page.getByRole("link", { name: "Attendance", exact: true })).toBeVisible();
 });
 
