@@ -47,10 +47,31 @@ test.beforeEach(async ({ page }) => {
         {
           sportId: 3,
           name: "Badminton",
-          operationType: "GROUP_COURSE",
+          code: "course",
+          services: [
+            {
+              serviceType: "GROUP_COURSE",
+              isEnabled: true,
+              defaultSessionMinutes: 90,
+              defaultMaxCapacity: 12,
+            },
+          ],
           isActive: true,
         },
-        { sportId: 2, name: "PT", operationType: "ONE_ON_ONE", isActive: true },
+        {
+          sportId: 2,
+          name: "PT",
+          code: "gym",
+          services: [
+            {
+              serviceType: "PERSONAL_TRAINING",
+              isEnabled: true,
+              defaultSessionMinutes: null,
+              defaultMaxCapacity: null,
+            },
+          ],
+          isActive: true,
+        },
       ];
     else if (path === "/api/classes")
       json = { items: [course], page: 1, pageSize: 12, totalCount: 1 };
@@ -127,6 +148,7 @@ test("course catalog replaces per-session enrollment", async ({ page }) => {
   ).toBeVisible({ timeout: 15000 });
   await expect(page.getByRole("button", { name: /Book Spot/ })).toHaveCount(0);
   await page.getByRole("link", { name: "Details", exact: true }).click();
+  await expect(page).toHaveURL(/\/member\/discover\/1$/);
   await expect(
     page.getByRole("button", { name: "Checkout", exact: true }),
   ).toBeVisible();
@@ -170,7 +192,7 @@ test("notification links resolve to real Member views", async ({ page }) => {
   await expect(homework).toBeVisible({ timeout: 15000 });
   await expect(homework).toHaveAttribute("href", "/member/training");
 });
-for (const width of [320, 768, 1280])
+for (const width of [320, 768, 1024, 1280, 1360, 1440])
   test(`Member routes fit ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 1000 });
     for (const path of [
@@ -185,6 +207,16 @@ for (const width of [320, 768, 1280])
     ]) {
       await page.goto(`/member${path}`);
       await expect(page.locator("#main-content h1")).toBeVisible();
+      await expect(page.getByRole("banner")).toBeVisible();
+      if (width >= 1360) {
+        const nav = page.getByRole("navigation", { name: "Member Navigation" });
+        await expect(nav).toBeVisible();
+        await expect(nav.getByRole("link")).toHaveCount(8);
+      } else {
+        await expect(
+          page.getByRole("button", { name: "Open navigation menu" }),
+        ).toBeVisible();
+      }
       expect(
         await page.evaluate(() => document.documentElement.scrollWidth),
       ).toBeLessThanOrEqual(width + 1);
@@ -212,4 +244,30 @@ test("Member pages pass WCAG A/AA", async ({ page }) => {
       expect(result.violations, path).toEqual([]);
     }
   }
+});
+test("the member header stays mounted and pinned while moving between tabs", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 700 });
+  await page.goto("/member");
+  const nav = page.getByRole("navigation", { name: "Member Navigation" });
+  await expect(nav).toBeVisible();
+  // Đánh dấu node header: nếu chuyển trang dựng lại khung thì cờ này biến mất.
+  await page.evaluate(() => {
+    (document.querySelector("header") as HTMLElement).dataset.mounted = "yes";
+  });
+  for (const name of ["My schedule", "Gym & PT", "Finance", "Dashboard"]) {
+    await nav.getByRole("link", { name, exact: true }).click();
+    await expect(nav.getByRole("link", { name, exact: true })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    await expect(page.locator("header[data-mounted='yes']")).toHaveCount(1);
+  }
+  await page.mouse.wheel(0, 2000);
+  await page.waitForTimeout(300);
+  const top = await page
+    .locator("header")
+    .evaluate((el) => el.getBoundingClientRect().top);
+  expect(top).toBe(0);
 });

@@ -44,8 +44,8 @@ public class InvoicesController(
         => await GetDetail(await invoices.FindInvoiceByItemAsync(itemId, ct), ct);
 
     [Authorize(Policy = SportHubPolicies.CourtRental)]
-    [HttpGet("external-coaches/me/invoices")]
-    public async Task<IActionResult> ExternalInvoices([FromQuery] int page = 1, [FromQuery] int pageSize = 20,
+    [HttpGet("members/me/rental-invoices")]
+    public async Task<IActionResult> RentalInvoices([FromQuery] int page = 1, [FromQuery] int pageSize = 20,
         [FromQuery] string? status = null, CancellationToken ct = default)
         => Ok(await invoices.SearchAsync(User.RequireUserId(), status, null, page, pageSize, ct, rentalOnly: true));
 
@@ -53,7 +53,7 @@ public class InvoicesController(
     public async Task<IActionResult> GetDetail(Guid invoiceId, CancellationToken ct)
     {
         var staff = User.IsInRole(SportHubRoleNames.CenterManager) || User.IsInRole(SportHubRoleNames.Receptionist);
-        if (!staff && !User.IsInRole(SportHubRoleNames.Member) && !User.IsInRole(SportHubRoleNames.ExternalCoach))
+        if (!staff && !User.IsInRole(SportHubRoleNames.Member))
             throw new ForbiddenException("invoice_access_denied", "Vai trò này không được xem hóa đơn.");
         var detail = await invoices.GetDetailAsync(invoiceId, ct);
 

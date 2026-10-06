@@ -13,7 +13,7 @@ public sealed class CourtRentalConfiguration : IEntityTypeConfiguration<CourtRen
         builder.Property(x => x.TotalPrice).HasPrecision(12, 2);
         builder.Property(x => x.PriceSnapshotJson).HasColumnType("jsonb");
         builder.Property(x => x.CancelReason).HasMaxLength(500);
-        builder.HasIndex(x => new { x.ExternalCoachId, x.Status, x.StartAtUtc });
+        builder.HasIndex(x => new { x.MemberId, x.Status, x.StartAtUtc });
         builder.HasIndex(x => x.InvoiceItemId).IsUnique().HasFilter("invoice_item_id IS NOT NULL");
     }
 }

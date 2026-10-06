@@ -38,10 +38,10 @@ public sealed class ManagerWorkspaceTests(PaymentApiFactory factory)
     }
 
     [Fact]
-    public async Task External_wallet_lookup_is_manager_only_audited_and_adjustment_retry_is_idempotent()
+    public async Task Member_wallet_lookup_is_manager_only_audited_and_adjustment_retry_is_idempotent()
     {
         var manager = await factory.SeedUserAsync(UserRole.CenterManager);
-        var owner = await factory.SeedUserAsync(UserRole.ExternalCoach);
+        var owner = await factory.SeedUserAsync(UserRole.Member);
         using var client = factory.CreateApiClient(manager.UserId, UserRole.CenterManager);
         Assert.Equal(HttpStatusCode.OK, (await client.GetAsync($"/api/manager/wallets/{owner.UserId}")).StatusCode);
         var body = new { idempotencyKey = Guid.NewGuid(), points = 37, direction = "CREDIT", reason = "Approved correction" };
@@ -51,7 +51,7 @@ public sealed class ManagerWorkspaceTests(PaymentApiFactory factory)
         Assert.Equal(37, balance.RootElement.GetProperty("availablePoints").GetInt32());
         Assert.Equal(HttpStatusCode.OK, (await client.GetAsync($"/api/manager/wallets/{owner.UserId}/ledger")).StatusCode);
         Assert.True(await factory.QueryAsync(db => db.AuditLogs.AnyAsync(a => a.Action == "VIEW_OWNER_WALLET" && a.UserId == manager.UserId && a.TargetId == owner.UserId.ToString())));
-        foreach (var role in new[] { UserRole.Receptionist, UserRole.SystemAdministrator, UserRole.Member, UserRole.Coach, UserRole.ExternalCoach })
+        foreach (var role in new[] { UserRole.Receptionist, UserRole.SystemAdministrator, UserRole.Member, UserRole.Coach })
         {
             var user = await factory.SeedUserAsync(role);
             using var denied = factory.CreateApiClient(user.UserId, role);
@@ -70,15 +70,15 @@ public sealed class ManagerWorkspaceTests(PaymentApiFactory factory)
         var rental = Assert.Single(report.BySportAndSource.Where(r => r.Source == "Rental").Take(1));
         var exports = scope.ServiceProvider.GetRequiredService<IReportExportService>();
         var export = await exports.CreateAsync(new() { ReportType = "REVENUE_DIMENSIONS", FromDate = from, ToDate = to,
-            SportId = rental.SportId, Source = "RENTAL", ExternalCoachId = rental.ExternalCoachId,
-            Columns = ["source", "sportId", "externalCoachId", "collectedAmount", "pointsRedeemedVnd"] }, manager.UserId);
+            SportId = rental.SportId, Source = "RENTAL", MemberId = rental.MemberId,
+            Columns = ["source", "sportId", "memberId", "collectedAmount", "pointsRedeemedVnd"] }, manager.UserId);
         Assert.Equal("Completed", export.Status);
         Assert.Contains("RENTAL", export.ParametersJson);
         var (_, bytes) = await exports.DownloadAsync(export.ReportExportId, manager.UserId, true);
         var csv = System.Text.Encoding.UTF8.GetString(bytes);
-        Assert.Contains(rental.ExternalCoachId!.Value.ToString(), csv);
+        Assert.Contains(rental.MemberId!.Value.ToString(), csv);
         using var client = factory.CreateApiClient(manager.UserId, UserRole.CenterManager);
-        var response = await client.GetAsync($"/api/reports/revenue-dimensions?fromDate={from:yyyy-MM-dd}&toDate={to:yyyy-MM-dd}&sportId={rental.SportId}&source=RENTAL&externalCoachId={rental.ExternalCoachId}");
+        var response = await client.GetAsync($"/api/reports/revenue-dimensions?fromDate={from:yyyy-MM-dd}&toDate={to:yyyy-MM-dd}&sportId={rental.SportId}&source=RENTAL&memberId={rental.MemberId}");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
         Assert.Equal(export.RowCount, json.GetProperty("rows").GetArrayLength());

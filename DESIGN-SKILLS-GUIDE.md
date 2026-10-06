@@ -9,7 +9,7 @@
 | Người | File giao việc, gồm page/subpage và kế hoạch API tại chỗ | Công cụ chính |
 |---|---|---|
 | An | [Nền tảng, Member, PT & tài chính Manager](docs/frontend-redesign/01-AN-MEMBER-SHARED.md) | Claude Code; **owner nền tảng kỹ thuật** |
-| Khôi | [Landing, Guest, Auth & ExternalCoach](docs/frontend-redesign/02-KHOI-LANDING-PUBLIC.md) | ChatGPT Plus + Antigravity; **UI/UX Lead, chủ trì landing page** |
+| Khôi | [Landing, Guest, Auth & thuê sân Member](docs/frontend-redesign/02-KHOI-LANDING-PUBLIC.md) | ChatGPT Plus + Antigravity; **UI/UX Lead, chủ trì landing page** |
 | Hào | [Receptionist & Coach](docs/frontend-redesign/03-HAO-RECEPTION-COACH.md) | ChatGPT Plus + Antigravity |
 | Khoa | [Cấu hình, nhật ký & Admin](docs/frontend-redesign/04-KHOA-MANAGER-ADMIN.md) | ChatGPT Plus + Antigravity; **khối lượng ít nhất**, không điều phối toàn nhóm |
 
@@ -286,23 +286,23 @@ Không kết luận production-ready khi còn gap nghiệp vụ P0 liên quan.
 | An A12–A15 | Tài chính → ví/ledger; hóa đơn/detail; yêu cầu hoàn/theo dõi; shared checkout → điểm → VNPay → kết quả | UX tiền/trạng thái trước UI |
 | An A16–A20 | Phản hồi ngưỡng 3 phương án; inbox thông báo; AI Member Drawer; nguyện vọng khóa sau; thẻ hội viên mã/QR | UX ngoại lệ, context, quyền |
 | Khôi K01–K03 | Landing; Bộ môn → chi tiết; Khóa học → lọc/chi tiết/lịch toàn khóa | UX Persuade → Taste đầy đủ |
-| Khôi K04–K07 | Gym → Membership; PT → hồ sơ HLV; Sân → chi tiết/lịch trống; Dành cho HLV ngoài | UX chọn dịch vụ → Taste |
+| Khôi K04–K07 | Gym → Membership; PT → hồ sơ HLV; Sân → chi tiết/lịch trống | UX chọn dịch vụ → Taste |
 | Khôi K08–K10 | Về trung tâm/cơ sở vật chất; Liên hệ; Hỗ trợ/FAQ/chính sách | UX nội dung → Taste |
-| Khôi K11–K17 | Login; Member register/OTP; ExternalCoach register/OTP/Pending; forgot/reset; Google onboarding; account/profile/security/language; trang lỗi/phiên | UX auth → UI shared |
-| Khôi K18–K25 | ExternalCoach: tổng quan; tìm sân/chọn slot/review; pending/payment; rentals/detail; hủy; đặt lại; ví/hóa đơn; hồ sơ | UX Operate → UI shared |
+| Khôi K11–K17 | Login; Member register/OTP; forgot/reset; Google onboarding; account/profile/security/language; trang lỗi/phiên | UX auth → UI shared |
+| Khôi K19–K23 | Member thuê sân: tìm sân/chọn slot/review; pending/payment; rentals/detail; hủy; đặt lại | UX Operate → UI shared |
 | Hào H01–H04 | Quầy hôm nay; hội viên → hồ sơ; hỗ trợ đăng ký; Gym check-in/out/danh sách đang ở Gym | UX tốc độ/nhận diện → UI quick actions |
 | Hào H05–H11 | Bán dịch vụ → Member/sản phẩm/checkout/OTP; điểm danh/roster; lịch sân/detail; hóa đơn; tạo hộ refund; ví Member | UX thao tác/quyền → UI dense |
 | Hào H12–H15 | Coach tổng quan; lịch dạy/detail; lớp/roster; học viên PT/hồ sơ | UX scope/relationship → UI lịch |
 | Hào H16–H20 | Plan tạo/sửa/detail; kết quả/tiến độ; homework; buổi PT/detail; AI gợi ý → review/edit/draft/apply | UX human review → UI editor |
 | Khoa Q01–Q07 | Manager tổng quan/lịch; lớp list/create/edit/detail; publish/dời/bù/hủy; xử lý ngưỡng | UX tác động/flow → UI bảng/form |
 | An Q08–Q12 | Nguyện vọng khóa sau; PT relationship/sessions/requests; Member profile vận hành | UX quyền/quota → UI dùng chung |
-| Khoa Q13–Q18 | HLV trung tâm; duyệt HLV ngoài; sân/phòng/loại sân; incident preview/resolve/detail/history; notices compose/preview/delivery | UX ngoại lệ trước UI |
+| Khoa Q13–Q18 | HLV trung tâm; sân/phòng/loại sân; incident preview/resolve/detail/history; notices compose/preview/delivery | UX ngoại lệ trước UI |
 | An Q19–Q23 | Hóa đơn; refund queue/review; ví/ledger/adjustment; báo cáo; export/history/download/retry | UX tiền/async → UI bảng/biểu đồ |
 | Khoa Q24–Q27 | Danh mục môn/Gym/PT/rental rates; settings; audit/detail | UX validation → UI theo mẫu đã duyệt |
 | Khoa Q28 | Manager AI xếp lịch → review/edit/draft trong ClassEditor | UX human review → UI shared Drawer |
 | Khoa Q29–Q33 | Admin tổng quan; users list/detail; tạo nhân sự; đổi role/khóa/mở; audit log/detail | UX authorization → UI shared |
 
-Landing K01 gồm **14 section**: Header → Hero → tìm khóa → Bộ môn → khóa đang mở → Gym & PT → sân/lịch trống → cơ sở vật chất → HLV → cách bắt đầu → HLV ngoài → FAQ → địa điểm/liên hệ → Footer. Khôi chịu trách nhiệm nội dung, nguồn dữ liệu, CTA, ảnh hợp lệ, SEO và responsive từng section; chi tiết ở assignment Khôi. Không thêm testimonial, số hội viên, thành tích hay form gửi thành công giả để lấp section.
+Landing K01 gồm **13 section**: Header → Hero → tìm khóa → Bộ môn → khóa đang mở → Gym & PT → sân/lịch trống → cơ sở vật chất → HLV → cách bắt đầu → FAQ → địa điểm/liên hệ → Footer. Khôi chịu trách nhiệm nội dung, nguồn dữ liệu, CTA, ảnh hợp lệ, SEO và responsive từng section; chi tiết ở assignment Khôi. Không thêm testimonial, số hội viên, thành tích hay form gửi thành công giả để lấp section.
 
 **ID Q được giữ để truy vết, không còn đồng nghĩa owner Khoa.** Tổng 98 mục được chia: An 30 (A01–A20 + 10 Q), Khôi 25 (K01–K25), Hào 20, Khoa 23 (9 Q gốc + 14 Q nhận từ Khôi ngày 05/10/2026). Đây là số mục page/tab/flow, không phải 98 page độc lập hoặc thước đo công sức bằng nhau. Khoa giữ cấu hình/nhật ký/Admin và vận hành Manager (lớp, HLV, sân, sự cố, notices, AI); tài chính/PT/báo cáo thuộc An.
 
@@ -322,7 +322,7 @@ Manager vẫn có **một sidebar**, An tích hợp route config từ ba owner: 
 | Notification bell/dropdown/panel/inbox | **An** | Mọi role theo quyền backend; unread/read/read-all/deep link/failure thống nhất. Khoa sở hữu composer gửi tin Q18 |
 | Loading / Empty / Error / Forbidden / Conflict | **An** | Cùng API component, content/CTA theo task; không tạo error page/card tùy role |
 | AppShell/MemberShell, breadcrumbs/navigation | **An** | Hào/Khoa/Khôi portal cung cấp cấu hình role; Guest shell Khôi dùng nền tảng header/footer chung |
-| **Payment flow**: Checkout, PointsSelector, HoldCountdown, OTP, result, invoice, ledger, refund quote | **An** | Member, quầy, ExternalCoach dùng adapter; Manager dùng read/review variant. Không fork tính điểm, timer, callback |
+| **Payment flow**: Checkout, PointsSelector, HoldCountdown, OTP, result, invoice, ledger, refund quote | **An** | Member và quầy dùng adapter; Manager dùng read/review variant. Không fork tính điểm, timer, callback |
 | Calendar, event drawer, MemberSearch, QuickActions, AttendanceBoard | **Hào** | Consumer gắn DTO theo quyền; public chỉ projection an toàn. An cung cấp Drawer primitive |
 | AI Drawer experience + Review/Edit wrapper | **Hào** | Member/Coach/Manager giữ cùng loading/error/cancel UX; mỗi role có adapter/quyền riêng; không tự save |
 | CourseCard/catalog/detail | **Khôi** | An reuse discovery; ClassEditor là nghiệp vụ Manager riêng, dùng primitives An, không fork public card |
@@ -337,7 +337,7 @@ Consumer yêu cầu owner bằng mẫu `component — page ID — state/props c�
 
 ## 8. Các flow nghiệp vụ phải đồng nhất
 
-- **Đặt dịch vụ:** lớp mua toàn khóa; Gym bằng Membership; PT mua riêng sau Membership Active; thuê sân chỉ ExternalCoach Approved. Không tự biến thành đặt lẻ buổi lớp nhóm.
+- **Đặt dịch vụ:** lớp mua toàn khóa; Gym bằng Membership; PT mua riêng sau Membership Active; mọi Member đang hoạt động thuê được sân. Không tự biến thành đặt lẻ buổi lớp nhóm.
 - **Split payment:** chọn/dùng ví điểm trước → xác nhận → phần chênh lệch VNPay. Hiện đủ tổng VND, điểm khả dụng/đang giữ, điểm chọn/quy đổi, số VND còn lại. Có thể chọn ít điểm hơn hoặc 0; không trừ điểm chỉ vì mở trang. `1 điểm = 1.000 VND`; 0 VND còn lại dùng luồng xác nhận điểm, không redirect VNPay vô ích.
 - **Quầy dùng điểm:** cần OTP email Member đúng checkout/revision; thay người thụ hưởng/số điểm phải xử lý lại xác nhận. OTP deadline riêng, gửi lại OTP không kéo dài hold.
 - **Pending checkout:** countdown lấy `expiresAtUtc` và `serverNowUtc`, không reset khi reload, không hard-code 15 phút. Hết hạn khóa action cũ, đọc server; backend nhả hold/slot/điểm theo lifecycle và reconciliation. FE refresh availability, không tự hứa slot chắc chắn trống đúng giây 0. Gateway return không tự xác nhận Paid; callback muộn/replay cần xử lý thật.

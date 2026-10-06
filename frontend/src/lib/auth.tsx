@@ -17,8 +17,7 @@ export type Role =
   | "CenterManager"
   | "Coach"
   | "Member"
-  | "Receptionist"
-  | "ExternalCoach";
+  | "Receptionist";
 
 
 export interface SessionUser {
@@ -28,6 +27,8 @@ export interface SessionUser {
   role: Role;
   /** Authoritative specialties from the API. */
   sportIds: number[];
+  /** Coach có qualification dịch vụ PT (không suy ra từ chuyên môn môn Gym). */
+  isPersonalTrainer?: boolean;
   approvalStatus?:
     "PENDING_APPROVAL" | "APPROVED" | "REJECTED" | "SUSPENDED" | null;
 }
@@ -226,7 +227,6 @@ export function useAuth() {
 
 /** Home default of each role after đăng nhập. */
 export const HOME_BY_ROLE: Record<Role, string> = {
-  ExternalCoach: "/external-coach",
   Member: "/member",
   Receptionist: "/receptionist",
   Coach: "/coach",
@@ -235,7 +235,6 @@ export const HOME_BY_ROLE: Record<Role, string> = {
 };
 
 export const ROLE_LABEL: Record<Role, string> = {
-  ExternalCoach: "External Coach",
   Member: "Member",
   Receptionist: "Receptionist",
   Coach: "Coach",
@@ -249,6 +248,7 @@ export interface WireSessionUser {
   fullName: string;
   role: string;
   sportIds?: number[];
+  isPersonalTrainer?: boolean;
   approvalStatus?: SessionUser["approvalStatus"];
 }
 const WIRE_ROLES: Record<string, Role> = {
@@ -257,7 +257,6 @@ const WIRE_ROLES: Record<string, Role> = {
   COACH: "Coach",
   MEMBER: "Member",
   RECEPTIONIST: "Receptionist",
-  EXTERNAL_COACH: "ExternalCoach",
 };
 export function adaptSessionUser(me: WireSessionUser): SessionUser {
   const role =
@@ -272,6 +271,7 @@ export function adaptSessionUser(me: WireSessionUser): SessionUser {
     fullName: me.fullName,
     role,
     sportIds: me.sportIds ?? [],
+    isPersonalTrainer: me.isPersonalTrainer ?? false,
     approvalStatus: me.approvalStatus ?? null,
   };
 }

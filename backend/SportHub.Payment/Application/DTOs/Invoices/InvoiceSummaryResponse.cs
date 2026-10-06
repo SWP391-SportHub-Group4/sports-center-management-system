@@ -23,7 +23,7 @@ public sealed record InvoiceSummaryResponse(
     DateTime? CheckoutExpiresAtUtc = null,
     bool ReconciliationRequired = false)
 {
-    /// <summary>Compatibility alias; beneficiary can be a Member or an ExternalCoach.</summary>
+    /// <summary>Compatibility alias; beneficiary is the Member.</summary>
     public Guid MemberId => BeneficiaryUserId;
     [SportHub.BuildingBlocks.Api.WireEnum]
     public string FulfillmentOutcome => SportHub.BuildingBlocks.Api.WireEnum.TryParse<Domain.Enums.InvoiceStatus>(Status, true, out var status)

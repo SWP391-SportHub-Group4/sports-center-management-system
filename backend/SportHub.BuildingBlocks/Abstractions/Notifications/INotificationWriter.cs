@@ -44,8 +44,6 @@ public static class NotificationEvents
     public const string ClassThresholdAtRisk = nameof(ClassThresholdAtRisk);
     public const string RegisterOtpRequested = nameof(RegisterOtpRequested);
     public const string PasswordResetOtpRequested = nameof(PasswordResetOtpRequested);
-    public const string ExternalCoachOtpRequested = nameof(ExternalCoachOtpRequested);
-    public const string ExternalCoachReviewed = nameof(ExternalCoachReviewed);
     public const string ManualNotice = nameof(ManualNotice);
     public const string IncidentResolution = nameof(IncidentResolution);
     public const string PointConfirmationOtpRequested = nameof(PointConfirmationOtpRequested);

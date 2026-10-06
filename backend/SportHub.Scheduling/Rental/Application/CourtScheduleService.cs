@@ -40,7 +40,7 @@ public sealed class CourtScheduleService(ISportHubDbContext db, IUserAccessReade
         {
             var roster = await sessions.GetRosterAsync(row.SessionId, coachScope, ct);
             result.Add(new("ClassSession", row.SessionId, row.RoomId, row.StartAtUtc, row.EndAtUtc,
-                row.CoachId, await Name(row.CoachId), row.Name, row.Status.ToString(), row.ClassId, null,
+                row.CoachId, await Name(row.CoachId), row.Name, row.Status.ToString(), row.ClassId,
                 roster.Entries.Select(x => new CourtScheduleParticipant(x.MemberId, x.MemberName, x.EnrollmentId,
                     x.AttendanceStatus, x.AttendanceRecordedAt)).ToList()));
         }
@@ -51,12 +51,12 @@ public sealed class CourtScheduleService(ISportHubDbContext db, IUserAccessReade
             && (roomId == null || x.RoomId == roomId)).ToListAsync(ct);
         foreach (var rental in rentals)
             result.Add(new("CourtRental", rental.CourtRentalId, rental.RoomId, rental.StartAtUtc, rental.EndAtUtc,
-                rental.ExternalCoachId, await Name(rental.ExternalCoachId), "Thuê sân", rental.Status.ToString(),
-                null, rental.ExpectedAttendees, []));
+                null, null, "Thuê sân", rental.Status.ToString(),
+                null, [], rental.MemberId, await Name(rental.MemberId)));
         var blocks = await db.Set<RoomBlock>().AsNoTracking().Where(x => x.StartAtUtc < to && x.EndAtUtc > from
             && (roomId == null || x.RoomId == roomId)).ToListAsync(ct);
         result.AddRange(blocks.Select(x => new CourtScheduleEntry("RoomBlock", x.BlockId, x.RoomId,
-            x.StartAtUtc, x.EndAtUtc, null, null, x.Reason, "Blocked", null, null, [])));
+            x.StartAtUtc, x.EndAtUtc, null, null, x.Reason, "Blocked", null, [])));
         return result.OrderBy(x => x.StartAtUtc).ThenBy(x => x.SourceType).ThenBy(x => x.SourceId).ToList();
     }
 }

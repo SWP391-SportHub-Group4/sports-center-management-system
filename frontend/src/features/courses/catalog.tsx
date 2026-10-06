@@ -1,4 +1,5 @@
 "use client";
+import { hasService } from "@/lib/sports";
 import { pagedItems } from "@/lib/paged";
 import { courseApi } from "./api";
 import { useState } from "react";
@@ -46,7 +47,7 @@ export function CourseCatalog({
           >
             <option value="">{l.all}</option>
             {sports.data
-              ?.filter((s) => s.operationType === "GROUP_COURSE")
+              ?.filter((s) => hasService(s, "GROUP_COURSE"))
               .map((s) => (
                 <option key={s.sportId} value={s.sportId}>
                   {s.name}

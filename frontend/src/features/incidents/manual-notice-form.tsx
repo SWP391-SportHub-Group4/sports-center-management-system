@@ -182,7 +182,6 @@ export function ManualNoticeForm() {
               }}
             >
               <option value="COACH">{l.coaches}</option>
-              <option value="EXTERNAL_COACH">{l.externalCoaches}</option>
               <option value="MEMBER">{l.member}</option>
             </select>
           </Field>
@@ -217,29 +216,17 @@ export function ManualNoticeForm() {
             <AsyncSection state={users}>
               {(data) => {
                 const allowed =
-                  role === "EXTERNAL_COACH"
+                  role === "MEMBER"
                     ? new Set(
                         entries
                           .filter(
                             (r) =>
-                              r.sourceType === "COURT_RENTAL" &&
-                              r.status === "CONFIRMED",
+                              r.sourceType === "CLASS_SESSION" &&
+                              (!classId || String(r.classId) === classId),
                           )
-                          .map((r) => r.coachId),
+                          .flatMap((r) => r.participants.map((p) => p.memberId)),
                       )
-                    : role === "MEMBER"
-                      ? new Set(
-                          entries
-                            .filter(
-                              (r) =>
-                                r.sourceType === "CLASS_SESSION" &&
-                                (!classId || String(r.classId) === classId),
-                            )
-                            .flatMap((r) =>
-                              r.participants.map((p) => p.memberId),
-                            ),
-                        )
-                      : null;
+                    : null;
                 const rows = pagedItems(data).filter(
                   (u) => !allowed || allowed.has(u.userId),
                 );

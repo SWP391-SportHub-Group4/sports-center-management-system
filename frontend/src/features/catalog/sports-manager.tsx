@@ -1,44 +1,109 @@
-﻿"use client";
+"use client";
 import { useState } from "react";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { AsyncSection, Card, Field, StatusChip, Table } from "@/components/ui";
 import { MutationFeedback, useMutation } from "@/features/operations";
-import type { SportDto } from "@/lib/types";
+import type { SportDto, SportServiceType } from "@/lib/types";
 import { catalogApi } from "./api";
+
+const SERVICE_TYPES: SportServiceType[] = [
+  "MEMBERSHIP_ACCESS",
+  "GROUP_COURSE",
+  "COURT_RENTAL",
+  "PERSONAL_TRAINING",
+];
+
+/** Membership và PT chỉ thuộc môn Gym; backend chặn, form chỉ ẩn lựa chọn cho khỏi nhầm. */
+const GYM_ONLY: SportServiceType[] = ["MEMBERSHIP_ACCESS", "PERSONAL_TRAINING"];
+const GYM_CODE = "gym";
+
+interface FormState {
+  code: string;
+  name: string;
+  description: string;
+  imageUrl: string;
+  sortOrder: number;
+  enabled: Record<SportServiceType, boolean>;
+  defaultSessionMinutes: number;
+  defaultMaxCapacity: number;
+}
+
+const EMPTY: FormState = {
+  code: "",
+  name: "",
+  description: "",
+  imageUrl: "",
+  sortOrder: 0,
+  enabled: {
+    MEMBERSHIP_ACCESS: false,
+    GROUP_COURSE: true,
+    COURT_RENTAL: false,
+    PERSONAL_TRAINING: false,
+  },
+  defaultSessionMinutes: 90,
+  defaultMaxCapacity: 12,
+};
+
 export function SportsManager() {
   const { t } = useLanguage();
   const l = t.operations;
   const state = useApi((s) => catalogApi.sports(s, true), []);
   const mutation = useMutation();
-  const empty = {
-    name: "",
-    operationType: "GROUP_COURSE" as SportDto["operationType"],
-    defaultSessionMinutes: 90,
-    defaultMaxCapacity: 12,
-    description: "",
-    imageUrl: "",
-    sortOrder: 0,
-  };
-  const [form, setForm] = useState(empty);
+  const [form, setForm] = useState<FormState>(EMPTY);
   const [id, setId] = useState<number | null>(null);
+
+  const serviceLabel: Record<SportServiceType, string> = {
+    MEMBERSHIP_ACCESS: l.serviceMembershipAccess,
+    GROUP_COURSE: l.serviceGroupCourse,
+    COURT_RENTAL: l.serviceCourtRental,
+    PERSONAL_TRAINING: l.servicePersonalTraining,
+  };
+  const missingLabel: Record<string, string> = {
+    room_type: l.missingRoomType,
+    room: l.missingRoom,
+    opening_hours: l.missingOpeningHours,
+    court_rate: l.missingCourtRate,
+  };
+
+  const isGym = (form.code || "").toLowerCase() === GYM_CODE;
+  const visibleServices = SERVICE_TYPES.filter(
+    (type) => isGym || !GYM_ONLY.includes(type),
+  );
+
+  const reset = () => {
+    setId(null);
+    setForm(EMPTY);
+  };
+
   return (
     <>
       <Card>
         <form
           onSubmit={async (e) => {
             e.preventDefault();
+            const services = visibleServices
+              .filter((type) => form.enabled[type])
+              .map((serviceType) => ({
+                serviceType,
+                isEnabled: true,
+                defaultSessionMinutes:
+                  serviceType === "GROUP_COURSE"
+                    ? form.defaultSessionMinutes
+                    : null,
+                defaultMaxCapacity:
+                  serviceType === "GROUP_COURSE"
+                    ? form.defaultMaxCapacity
+                    : null,
+              }));
             const body = {
-              ...form,
-              defaultSessionMinutes:
-                form.operationType === "GROUP_COURSE"
-                  ? form.defaultSessionMinutes
-                  : null,
-              defaultMaxCapacity:
-                form.operationType === "GROUP_COURSE"
-                  ? form.defaultMaxCapacity
-                  : null,
+              ...(id === null ? { code: form.code.trim().toLowerCase() } : {}),
+              name: form.name,
+              description: form.description,
+              imageUrl: form.imageUrl,
+              sortOrder: form.sortOrder,
+              services,
             };
             if (
               await mutation.run(() =>
@@ -48,12 +113,22 @@ export function SportsManager() {
               )
             ) {
               state.reload();
-              setId(null);
-              setForm(empty);
+              reset();
             }
           }}
         >
           <div className="form-grid">
+            <Field label={l.code}>
+              <input
+                required={id === null}
+                disabled={id !== null}
+                maxLength={32}
+                pattern="[a-z0-9_]{2,32}"
+                title={l.codeHint}
+                value={form.code}
+                onChange={(e) => setForm({ ...form, code: e.target.value })}
+              />
+            </Field>
             <Field label={l.name}>
               <input
                 required
@@ -62,56 +137,6 @@ export function SportsManager() {
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
               />
             </Field>
-            <Field label={l.operation}>
-              <select
-                disabled={id !== null}
-                value={form.operationType}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    operationType: e.target.value as SportDto["operationType"],
-                  })
-                }
-              >
-                <option value="WALK_IN">{l.walkIn}</option>
-                <option value="ONE_ON_ONE">{l.oneOnOne}</option>
-                <option value="GROUP_COURSE">{l.groupCourse}</option>
-              </select>
-            </Field>
-            {form.operationType === "GROUP_COURSE" && (
-              <>
-                <Field label={l.duration}>
-                  <input
-                    required
-                    type="number"
-                    min={15}
-                    max={480}
-                    value={form.defaultSessionMinutes}
-                    onChange={(e) =>
-                      setForm({
-                        ...form,
-                        defaultSessionMinutes: Number(e.target.value),
-                      })
-                    }
-                  />
-                </Field>
-                <Field label={l.capacity}>
-                  <input
-                    required
-                    type="number"
-                    min={1}
-                    max={500}
-                    value={form.defaultMaxCapacity}
-                    onChange={(e) =>
-                      setForm({
-                        ...form,
-                        defaultMaxCapacity: Number(e.target.value),
-                      })
-                    }
-                  />
-                </Field>
-              </>
-            )}
             <Field label={l.sortOrder}>
               <input
                 type="number"
@@ -129,6 +154,59 @@ export function SportsManager() {
               />
             </Field>
           </div>
+          <fieldset>
+            <legend>{l.services}</legend>
+            {visibleServices.map((type) => (
+              <label key={type}>
+                <input
+                  type="checkbox"
+                  checked={form.enabled[type]}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      enabled: { ...form.enabled, [type]: e.target.checked },
+                    })
+                  }
+                />{" "}
+                {serviceLabel[type]}
+              </label>
+            ))}
+            {!isGym && <p className="muted">{l.serviceNote}</p>}
+          </fieldset>
+          {form.enabled.GROUP_COURSE && (
+            <div className="form-grid">
+              <Field label={l.duration}>
+                <input
+                  required
+                  type="number"
+                  min={15}
+                  max={480}
+                  value={form.defaultSessionMinutes}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      defaultSessionMinutes: Number(e.target.value),
+                    })
+                  }
+                />
+              </Field>
+              <Field label={l.capacity}>
+                <input
+                  required
+                  type="number"
+                  min={1}
+                  max={500}
+                  value={form.defaultMaxCapacity}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      defaultMaxCapacity: Number(e.target.value),
+                    })
+                  }
+                />
+              </Field>
+            </div>
+          )}
           <Field label={l.description}>
             <textarea
               maxLength={2000}
@@ -145,10 +223,7 @@ export function SportsManager() {
             <button
               type="button"
               className="btn btn--secondary"
-              onClick={() => {
-                setId(null);
-                setForm(empty);
-              }}
+              onClick={reset}
             >
               {id ? l.cancel : l.resetForm}
             </button>
@@ -158,16 +233,19 @@ export function SportsManager() {
       </Card>
       <AsyncSection state={state}>
         {(rows) => (
-          <Table headers={[l.name, l.operation, l.status, ""]}>
+          <Table headers={[l.name, l.services, l.status, ""]}>
             {rows.map((s) => (
               <tr key={s.sportId}>
                 <td>{s.name}</td>
                 <td>
-                  {s.operationType === "GROUP_COURSE"
-                    ? l.groupCourse
-                    : s.operationType === "ONE_ON_ONE"
-                      ? l.oneOnOne
-                      : l.walkIn}
+                  <ServiceList
+                    sport={s}
+                    serviceLabel={serviceLabel}
+                    missingLabel={missingLabel}
+                    notReady={l.notReady}
+                    missingPrefix={l.missingPrefix}
+                    off={l.serviceOff}
+                  />
                 </td>
                 <td>
                   <StatusChip value={s.isActive ? "ACTIVE" : "INACTIVE"} />
@@ -176,14 +254,27 @@ export function SportsManager() {
                   <button
                     className="btn btn--secondary"
                     onClick={() => {
+                      const group = s.services.find(
+                        (x) => x.serviceType === "GROUP_COURSE",
+                      );
                       setId(s.sportId);
                       setForm({
-                        ...empty,
-                        ...s,
-                        defaultSessionMinutes: s.defaultSessionMinutes ?? 90,
-                        defaultMaxCapacity: s.defaultMaxCapacity ?? 12,
+                        code: s.code,
+                        name: s.name,
                         description: s.description ?? "",
                         imageUrl: s.imageUrl ?? "",
+                        sortOrder: s.sortOrder,
+                        enabled: Object.fromEntries(
+                          SERVICE_TYPES.map((type) => [
+                            type,
+                            s.services.some(
+                              (x) => x.serviceType === type && x.isEnabled,
+                            ),
+                          ]),
+                        ) as FormState["enabled"],
+                        defaultSessionMinutes:
+                          group?.defaultSessionMinutes ?? 90,
+                        defaultMaxCapacity: group?.defaultMaxCapacity ?? 12,
                       });
                     }}
                   >
@@ -212,5 +303,44 @@ export function SportsManager() {
         )}
       </AsyncSection>
     </>
+  );
+}
+
+function ServiceList({
+  sport,
+  serviceLabel,
+  missingLabel,
+  notReady,
+  missingPrefix,
+  off,
+}: {
+  sport: SportDto;
+  serviceLabel: Record<SportServiceType, string>;
+  missingLabel: Record<string, string>;
+  notReady: string;
+  missingPrefix: string;
+  off: string;
+}) {
+  return (
+    <ul>
+      {sport.services.map((svc) => {
+        const readiness = sport.readiness?.find(
+          (r) => r.serviceType === svc.serviceType,
+        );
+        return (
+          <li key={svc.serviceType}>
+            {serviceLabel[svc.serviceType]}
+            {!svc.isEnabled && <span className="muted"> ({off})</span>}
+            {svc.isEnabled && readiness && !readiness.ready && (
+              <span className="muted">
+                {" "}
+                ({notReady}. {missingPrefix}{" "}
+                {readiness.missing.map((m) => missingLabel[m] ?? m).join(", ")})
+              </span>
+            )}
+          </li>
+        );
+      })}
+    </ul>
   );
 }

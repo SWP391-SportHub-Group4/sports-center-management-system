@@ -17,12 +17,12 @@ export function OccupancyDetail({
     <Card title={entry.title}>
       <p>
         {formatDateTime(entry.startAtUtc)} – {formatDateTime(entry.endAtUtc)} ·{" "}
-        {entry.coachName}
+        {entry.sourceType === "COURT_RENTAL" ? "" : entry.coachName}
       </p>
       <StatusChip value={entry.status} />
       {entry.sourceType === "COURT_RENTAL" ? (
         <p>
-          {l.expectedAttendees}: {entry.expectedAttendees}
+          {l.member}: {entry.memberName ?? "-"}
         </p>
       ) : ["CLASS_SESSION", "PT_SESSION"].includes(entry.sourceType) ? (
         <Table

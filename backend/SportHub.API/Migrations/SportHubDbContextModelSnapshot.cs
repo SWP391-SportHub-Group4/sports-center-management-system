@@ -322,6 +322,25 @@ namespace SportHub.API.Migrations
                     b.ToTable("coach_profiles", (string)null);
                 });
 
+            modelBuilder.Entity("SportHub.Identity.Domain.Entities.CoachServiceQualification", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<int>("OfferingId")
+                        .HasColumnType("integer")
+                        .HasColumnName("offering_id");
+
+                    b.HasKey("UserId", "OfferingId")
+                        .HasName("pk_coach_service_qualifications");
+
+                    b.HasIndex("OfferingId")
+                        .HasDatabaseName("ix_coach_service_qualifications_offering_id");
+
+                    b.ToTable("coach_service_qualifications", (string)null);
+                });
+
             modelBuilder.Entity("SportHub.Identity.Domain.Entities.EmailOtp", b =>
                 {
                     b.Property<Guid>("EmailOtpId")
@@ -367,48 +386,6 @@ namespace SportHub.API.Migrations
                         .HasDatabaseName("ix_email_otps_email_purpose");
 
                     b.ToTable("email_otps", (string)null);
-                });
-
-            modelBuilder.Entity("SportHub.Identity.Domain.Entities.ExternalCoachProfile", b =>
-                {
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("user_id");
-
-                    b.Property<int>("ApprovalStatus")
-                        .HasColumnType("integer")
-                        .HasColumnName("approval_status");
-
-                    b.Property<string>("Bio")
-                        .HasColumnType("text")
-                        .HasColumnName("bio");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<string>("ReviewNote")
-                        .HasColumnType("text")
-                        .HasColumnName("review_note");
-
-                    b.Property<DateTime?>("ReviewedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("reviewed_at");
-
-                    b.Property<Guid?>("ReviewedByUserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("reviewed_by_user_id");
-
-                    b.HasKey("UserId")
-                        .HasName("pk_external_coach_profiles");
-
-                    b.HasIndex("ApprovalStatus")
-                        .HasDatabaseName("ix_external_coach_profiles_approval_status");
-
-                    b.HasIndex("ReviewedByUserId")
-                        .HasDatabaseName("ix_external_coach_profiles_reviewed_by_user_id");
-
-                    b.ToTable("external_coach_profiles", (string)null);
                 });
 
             modelBuilder.Entity("SportHub.Identity.Domain.Entities.GoogleOnboardingTicket", b =>
@@ -509,11 +486,6 @@ namespace SportHub.API.Migrations
                         {
                             RoleId = 5,
                             RoleName = 4
-                        },
-                        new
-                        {
-                            RoleId = 6,
-                            RoleName = 5
                         });
                 });
 
@@ -1917,6 +1889,32 @@ namespace SportHub.API.Migrations
                         });
                 });
 
+            modelBuilder.Entity("SportHub.Scheduling.Catalog.Domain.ServiceRoomType", b =>
+                {
+                    b.Property<int>("OfferingId")
+                        .HasColumnType("integer")
+                        .HasColumnName("offering_id");
+
+                    b.Property<int>("RoomTypeId")
+                        .HasColumnType("integer")
+                        .HasColumnName("room_type_id");
+
+                    b.HasKey("OfferingId", "RoomTypeId")
+                        .HasName("pk_service_room_types");
+
+                    b.HasIndex("RoomTypeId")
+                        .HasDatabaseName("ix_service_room_types_room_type_id");
+
+                    b.ToTable("service_room_types", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            OfferingId = 2,
+                            RoomTypeId = 2
+                        });
+                });
+
             modelBuilder.Entity("SportHub.Scheduling.Catalog.Domain.Sport", b =>
                 {
                     b.Property<int>("SportId")
@@ -1926,13 +1924,10 @@ namespace SportHub.API.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("SportId"));
 
-                    b.Property<int?>("DefaultMaxCapacity")
-                        .HasColumnType("integer")
-                        .HasColumnName("default_max_capacity");
-
-                    b.Property<int?>("DefaultSessionMinutes")
-                        .HasColumnType("integer")
-                        .HasColumnName("default_session_minutes");
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasColumnType("citext")
+                        .HasColumnName("code");
 
                     b.Property<string>("Description")
                         .HasColumnType("text")
@@ -1951,10 +1946,6 @@ namespace SportHub.API.Migrations
                         .HasColumnType("citext")
                         .HasColumnName("name");
 
-                    b.Property<int>("OperationType")
-                        .HasColumnType("integer")
-                        .HasColumnName("operation_type");
-
                     b.Property<int>("SortOrder")
                         .HasColumnType("integer")
                         .HasColumnName("sort_order");
@@ -1962,55 +1953,40 @@ namespace SportHub.API.Migrations
                     b.HasKey("SportId")
                         .HasName("pk_sports");
 
+                    b.HasIndex("Code")
+                        .IsUnique()
+                        .HasDatabaseName("ix_sports_code");
+
                     b.HasIndex("Name")
                         .IsUnique()
                         .HasDatabaseName("ix_sports_name");
 
-                    b.ToTable("sports", null, t =>
-                        {
-                            t.HasCheckConstraint("ck_sports_default_capacity", "default_max_capacity IS NULL OR default_max_capacity > 0");
-
-                            t.HasCheckConstraint("ck_sports_default_minutes", "default_session_minutes IS NULL OR default_session_minutes > 0");
-
-                            t.HasCheckConstraint("ck_sports_group_course_defaults", "operation_type <> 2 OR (default_session_minutes IS NOT NULL AND default_max_capacity IS NOT NULL)");
-                        });
+                    b.ToTable("sports", (string)null);
 
                     b.HasData(
                         new
                         {
                             SportId = 1,
+                            Code = "gym",
                             IsActive = true,
                             Name = "Gym",
-                            OperationType = 0,
                             SortOrder = 1
                         },
                         new
                         {
-                            SportId = 2,
+                            SportId = 3,
+                            Code = "badminton",
                             IsActive = true,
-                            Name = "Personal Training",
-                            OperationType = 1,
+                            Name = "Cầu lông",
                             SortOrder = 2
                         },
                         new
                         {
-                            SportId = 3,
-                            DefaultMaxCapacity = 12,
-                            DefaultSessionMinutes = 90,
-                            IsActive = true,
-                            Name = "Cầu lông",
-                            OperationType = 2,
-                            SortOrder = 3
-                        },
-                        new
-                        {
                             SportId = 4,
-                            DefaultMaxCapacity = 20,
-                            DefaultSessionMinutes = 120,
+                            Code = "basketball",
                             IsActive = true,
                             Name = "Bóng rổ",
-                            OperationType = 2,
-                            SortOrder = 4
+                            SortOrder = 3
                         });
                 });
 
@@ -2040,7 +2016,7 @@ namespace SportHub.API.Migrations
                         },
                         new
                         {
-                            SportId = 2,
+                            SportId = 1,
                             RoomTypeId = 2
                         },
                         new
@@ -2052,6 +2028,98 @@ namespace SportHub.API.Migrations
                         {
                             SportId = 4,
                             RoomTypeId = 4
+                        });
+                });
+
+            modelBuilder.Entity("SportHub.Scheduling.Catalog.Domain.SportServiceOffering", b =>
+                {
+                    b.Property<int>("OfferingId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("offering_id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("OfferingId"));
+
+                    b.Property<int?>("DefaultMaxCapacity")
+                        .HasColumnType("integer")
+                        .HasColumnName("default_max_capacity");
+
+                    b.Property<int?>("DefaultSessionMinutes")
+                        .HasColumnType("integer")
+                        .HasColumnName("default_session_minutes");
+
+                    b.Property<bool>("IsEnabled")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_enabled");
+
+                    b.Property<int>("ServiceType")
+                        .HasColumnType("integer")
+                        .HasColumnName("service_type");
+
+                    b.Property<int>("SportId")
+                        .HasColumnType("integer")
+                        .HasColumnName("sport_id");
+
+                    b.HasKey("OfferingId")
+                        .HasName("pk_sport_service_offerings");
+
+                    b.HasIndex("SportId", "ServiceType")
+                        .IsUnique()
+                        .HasDatabaseName("ix_sport_service_offerings_sport_id_service_type");
+
+                    b.ToTable("sport_service_offerings", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_sport_service_offerings_defaults", "(service_type = 1 AND default_session_minutes > 0 AND default_max_capacity > 0) OR (service_type <> 1 AND default_session_minutes IS NULL AND default_max_capacity IS NULL)");
+
+                            t.HasCheckConstraint("ck_sport_service_offerings_type", "service_type BETWEEN 0 AND 3");
+                        });
+
+                    b.HasData(
+                        new
+                        {
+                            OfferingId = 1,
+                            IsEnabled = true,
+                            ServiceType = 0,
+                            SportId = 1
+                        },
+                        new
+                        {
+                            OfferingId = 2,
+                            IsEnabled = true,
+                            ServiceType = 3,
+                            SportId = 1
+                        },
+                        new
+                        {
+                            OfferingId = 3,
+                            DefaultMaxCapacity = 12,
+                            DefaultSessionMinutes = 90,
+                            IsEnabled = true,
+                            ServiceType = 1,
+                            SportId = 3
+                        },
+                        new
+                        {
+                            OfferingId = 4,
+                            IsEnabled = true,
+                            ServiceType = 2,
+                            SportId = 3
+                        },
+                        new
+                        {
+                            OfferingId = 5,
+                            DefaultMaxCapacity = 20,
+                            DefaultSessionMinutes = 120,
+                            IsEnabled = true,
+                            ServiceType = 1,
+                            SportId = 4
+                        },
+                        new
+                        {
+                            OfferingId = 6,
+                            IsEnabled = true,
+                            ServiceType = 2,
+                            SportId = 4
                         });
                 });
 
@@ -2656,14 +2724,6 @@ namespace SportHub.API.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("end_at_utc");
 
-                    b.Property<int>("ExpectedAttendees")
-                        .HasColumnType("integer")
-                        .HasColumnName("expected_attendees");
-
-                    b.Property<Guid>("ExternalCoachId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("external_coach_id");
-
                     b.Property<Guid?>("InvoiceId")
                         .HasColumnType("uuid")
                         .HasColumnName("invoice_id");
@@ -2671,6 +2731,10 @@ namespace SportHub.API.Migrations
                     b.Property<Guid?>("InvoiceItemId")
                         .HasColumnType("uuid")
                         .HasColumnName("invoice_item_id");
+
+                    b.Property<Guid>("MemberId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("member_id");
 
                     b.Property<string>("PriceSnapshotJson")
                         .IsRequired()
@@ -2718,8 +2782,8 @@ namespace SportHub.API.Migrations
                     b.HasIndex("SportId")
                         .HasDatabaseName("ix_court_rentals_sport_id");
 
-                    b.HasIndex("ExternalCoachId", "Status", "StartAtUtc")
-                        .HasDatabaseName("ix_court_rentals_external_coach_id_status_start_at_utc");
+                    b.HasIndex("MemberId", "Status", "StartAtUtc")
+                        .HasDatabaseName("ix_court_rentals_member_id_status_start_at_utc");
 
                     b.ToTable("court_rentals", null, t =>
                         {
@@ -3576,20 +3640,21 @@ namespace SportHub.API.Migrations
                     b.Navigation("UserAccount");
                 });
 
-            modelBuilder.Entity("SportHub.Identity.Domain.Entities.ExternalCoachProfile", b =>
+            modelBuilder.Entity("SportHub.Identity.Domain.Entities.CoachServiceQualification", b =>
                 {
-                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", null)
+                    b.HasOne("SportHub.Scheduling.Catalog.Domain.SportServiceOffering", null)
                         .WithMany()
-                        .HasForeignKey("ReviewedByUserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .HasConstraintName("fk_external_coach_profiles_user_accounts_reviewed_by_user_id");
-
-                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", "UserAccount")
-                        .WithOne()
-                        .HasForeignKey("SportHub.Identity.Domain.Entities.ExternalCoachProfile", "UserId")
+                        .HasForeignKey("OfferingId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
-                        .HasConstraintName("fk_external_coach_profiles_user_accounts_user_id");
+                        .HasConstraintName("fk_coach_service_qualifications_sport_service_offerings_offeri");
+
+                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", "UserAccount")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_coach_service_qualifications_user_accounts_user_id");
 
                     b.Navigation("UserAccount");
                 });
@@ -4018,6 +4083,23 @@ namespace SportHub.API.Migrations
                         .HasConstraintName("fk_room_opening_hours_rooms_room_id");
                 });
 
+            modelBuilder.Entity("SportHub.Scheduling.Catalog.Domain.ServiceRoomType", b =>
+                {
+                    b.HasOne("SportHub.Scheduling.Catalog.Domain.SportServiceOffering", null)
+                        .WithMany()
+                        .HasForeignKey("OfferingId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_service_room_types_sport_service_offerings_offering_id");
+
+                    b.HasOne("SportHub.Scheduling.Catalog.Domain.RoomType", null)
+                        .WithMany()
+                        .HasForeignKey("RoomTypeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_service_room_types_room_types_room_type_id");
+                });
+
             modelBuilder.Entity("SportHub.Scheduling.Catalog.Domain.SportRoomType", b =>
                 {
                     b.HasOne("SportHub.Scheduling.Catalog.Domain.RoomType", null)
@@ -4033,6 +4115,16 @@ namespace SportHub.API.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_sport_room_types_sports_sport_id");
+                });
+
+            modelBuilder.Entity("SportHub.Scheduling.Catalog.Domain.SportServiceOffering", b =>
+                {
+                    b.HasOne("SportHub.Scheduling.Catalog.Domain.Sport", null)
+                        .WithMany("Services")
+                        .HasForeignKey("SportId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_sport_service_offerings_sports_sport_id");
                 });
 
             modelBuilder.Entity("SportHub.Scheduling.Domain.Entities.Attendance", b =>
@@ -4262,13 +4354,6 @@ namespace SportHub.API.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_court_rentals_incident_notices_cancellation_incident_id");
 
-                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", null)
-                        .WithMany()
-                        .HasForeignKey("ExternalCoachId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
-                        .HasConstraintName("fk_court_rentals_user_accounts_external_coach_id");
-
                     b.HasOne("SportHub.Payment.Domain.Entities.Invoice", null)
                         .WithMany()
                         .HasForeignKey("InvoiceId")
@@ -4280,6 +4365,13 @@ namespace SportHub.API.Migrations
                         .HasForeignKey("InvoiceItemId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_court_rentals_invoice_items_invoice_item_id");
+
+                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", null)
+                        .WithMany()
+                        .HasForeignKey("MemberId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_court_rentals_user_accounts_member_id");
 
                     b.HasOne("SportHub.Scheduling.Domain.Entities.Room", null)
                         .WithMany()
@@ -4684,6 +4776,11 @@ namespace SportHub.API.Migrations
             modelBuilder.Entity("SportHub.Payment.Domain.Entities.Payment", b =>
                 {
                     b.Navigation("Adjustments");
+                });
+
+            modelBuilder.Entity("SportHub.Scheduling.Catalog.Domain.Sport", b =>
+                {
+                    b.Navigation("Services");
                 });
 
             modelBuilder.Entity("SportHub.Scheduling.Domain.Entities.Class", b =>

@@ -147,9 +147,9 @@ public sealed class RevenueReportService(ISportHubDbContext db,
         var dimensionRows = dimensionCash.Concat(dimensionPoints)
             .GroupBy(x => new { x.Source, x.Dimension })
             .Select(g => new RevenueReportDimensionRowResponse(g.Key.Source,
-                g.Key.Dimension?.SportId, g.Key.Dimension?.SportName, g.Key.Dimension?.ExternalCoachId,
+                g.Key.Dimension?.SportId, g.Key.Dimension?.SportName, g.Key.Dimension?.MemberId,
                 g.Sum(x => x.Cash), g.Where(x => x.Legacy).Sum(x => x.Cash), g.Sum(x => x.Points)))
-            .OrderBy(x => x.Source).ThenBy(x => x.SportId).ThenBy(x => x.ExternalCoachId).ToList();
+            .OrderBy(x => x.Source).ThenBy(x => x.SportId).ThenBy(x => x.MemberId).ToList();
         if (reconciliationCash.Count > 0)
         {
             var cash = reconciliationCash.Sum(x => x.Amount);

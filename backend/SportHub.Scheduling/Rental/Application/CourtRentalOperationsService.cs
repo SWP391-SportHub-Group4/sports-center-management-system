@@ -23,7 +23,7 @@ public sealed class CourtRentalOperationsService(ISportHubDbContext db,
     public async Task<CourtRentalDetail> GetMineAsync(Guid rentalId, Guid ownerId, CancellationToken ct = default)
     {
         var row = await db.Set<CourtRental>().AsNoTracking()
-            .SingleOrDefaultAsync(x => x.CourtRentalId == rentalId && x.ExternalCoachId == ownerId, ct)
+            .SingleOrDefaultAsync(x => x.CourtRentalId == rentalId && x.MemberId == ownerId, ct)
             ?? throw new NotFoundException("rental_not_found", "Không tìm thấy lượt thuê sân.");
         var summary = await db.Set<CourtRental>().AsNoTracking().Where(x => x.CourtRentalId == rentalId)
             .Select(Project()).SingleAsync(ct);
@@ -39,7 +39,7 @@ public sealed class CourtRentalOperationsService(ISportHubDbContext db,
         CancellationToken ct = default)
     {
         ValidateRange(fromUtc, toUtc);
-        return await db.Set<CourtRental>().AsNoTracking().Where(x => x.ExternalCoachId == ownerId
+        return await db.Set<CourtRental>().AsNoTracking().Where(x => x.MemberId == ownerId
                 && x.StartAtUtc < toUtc && x.EndAtUtc > fromUtc)
             .OrderBy(x => x.StartAtUtc).Select(Project()).ToListAsync(ct);
     }
@@ -54,7 +54,7 @@ public sealed class CourtRentalOperationsService(ISportHubDbContext db,
     }
 
     public async Task CancelByOwnerAsync(Guid rentalId, Guid ownerId, CancellationToken ct = default)
-        => await CancelAsync(rentalId, ownerId, false, "Hủy bởi ExternalCoach", ct);
+        => await CancelAsync(rentalId, ownerId, false, "Hủy bởi Member", ct);
 
     public async Task CancelByCenterAsync(Guid rentalId, Guid managerId, string reason, CancellationToken ct = default)
     {
@@ -68,7 +68,7 @@ public sealed class CourtRentalOperationsService(ISportHubDbContext db,
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         var reference = await db.Set<CourtRental>().AsNoTracking().SingleOrDefaultAsync(x => x.CourtRentalId == rentalId, ct)
             ?? throw new NotFoundException("rental_not_found", "Không tìm thấy lượt thuê sân.");
-        if (!centerFault && reference.ExternalCoachId != actorId)
+        if (!centerFault && reference.MemberId != actorId)
             throw new ForbiddenException("rental_not_owned", "Lượt thuê không thuộc tài khoản này.");
         if (reference.Status == CourtRentalStatus.Confirmed && reference.InvoiceItemId is Guid referencedItem)
             await refunds.LockPaidItemAsync(referencedItem, ct);
@@ -95,7 +95,7 @@ public sealed class CourtRentalOperationsService(ISportHubDbContext db,
 
     private static System.Linq.Expressions.Expression<Func<CourtRental, CourtRentalSummary>> Project()
         => x => new CourtRentalSummary(x.CourtRentalId, x.SportId, x.RoomId, x.StartAtUtc,
-            x.EndAtUtc, x.ExpectedAttendees, x.TotalPrice, x.Status.ToString(), x.InvoiceItemId) { InvoiceId = x.InvoiceId };
+            x.EndAtUtc, x.TotalPrice, x.Status.ToString(), x.InvoiceItemId) { InvoiceId = x.InvoiceId };
 
     private static void ValidateRange(DateTime fromUtc, DateTime toUtc)
     {
@@ -105,7 +105,7 @@ public sealed class CourtRentalOperationsService(ISportHubDbContext db,
 }
 
 public sealed record CourtRentalSummary(Guid CourtRentalId, int SportId, int RoomId,
-    DateTime StartAtUtc, DateTime EndAtUtc, int ExpectedAttendees, decimal TotalPrice,
+    DateTime StartAtUtc, DateTime EndAtUtc, decimal TotalPrice,
     [property: SportHub.BuildingBlocks.Api.WireEnum] string Status, Guid? InvoiceItemId)
 {
     public Guid? InvoiceId { get; init; }

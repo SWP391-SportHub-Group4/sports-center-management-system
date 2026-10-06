@@ -24,7 +24,7 @@ for (const points of [0, 50, 200])
     const headers = { Authorization: `Bearer ${manager.accessToken}` };
     const sports = await (await request.get(`${base}/api/sports`)).json();
     const sport = sports.find(
-      (s: { operationType: string }) => s.operationType === "GROUP_COURSE",
+      (s: { services: { serviceType: string; isEnabled: boolean }[] }) => s.services.some((x) => x.serviceType === "GROUP_COURSE" && x.isEnabled),
     );
     const coaches = await (
       await request.get(`${base}/api/coaches?sportId=${sport.sportId}`, {

@@ -4,6 +4,5 @@ namespace SportHub.Identity.Domain.Enums;
 public enum EmailOtpPurpose
 {
     Register,
-    ResetPassword,
-    ExternalCoachRegister
+    ResetPassword
 }

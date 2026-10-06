@@ -33,14 +33,14 @@ public sealed class CourtRentalsController(CourtRentalOperationsService operatio
         var start = DateTime.SpecifyKind(startUtc, DateTimeKind.Utc);
         var end = DateTime.SpecifyKind(endUtc, DateTimeKind.Utc);
         var free = await availability.FreeRoomsAsync(sportId, start, end, ct);
-        var coachId = User.RequireUserId();
+        var memberId = User.RequireUserId();
         var options = new List<CourtRentalAvailabilityOption>();
         foreach (var room in free)
         {
             try
             {
-                var quote = await rentals.QuoteAsync(new CourtRentalRequest(coachId, sportId, room.RoomId,
-                    new DateTimeOffset(start, TimeSpan.Zero), new DateTimeOffset(end, TimeSpan.Zero), 1), ct);
+                var quote = await rentals.QuoteAsync(new CourtRentalRequest(memberId, sportId, room.RoomId,
+                    new DateTimeOffset(start, TimeSpan.Zero), new DateTimeOffset(end, TimeSpan.Zero)), ct);
                 options.Add(new CourtRentalAvailabilityOption(room.RoomId, room.Name, room.Capacity,
                     quote.TotalPrice, quote.Blocks));
             }

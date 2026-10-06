@@ -1,4 +1,5 @@
 "use client";
+import { findSportWithService } from "@/lib/sports";
 import { useState } from "react";
 import { api } from "@/lib/apiClient";
 import { useApi, useAction } from "@/lib/useApi";
@@ -162,13 +163,13 @@ function CoachChange({ reload }: { reload: () => void }) {
     (signal) => api.get<SportDto[]>("/api/sports", { signal, anonymous: true }),
     [],
   );
-  const pt = sports.data?.find((s) => s.operationType === "ONE_ON_ONE");
+  const pt = findSportWithService(sports.data, "PERSONAL_TRAINING");
   const coaches = useApi(
     (signal) =>
       pt
         ? api.get<{ userId: string; fullName: string }[]>("/api/coaches", {
             signal,
-            query: { sportId: pt.sportId },
+            query: { service: "PERSONAL_TRAINING" },
           })
         : Promise.resolve([]),
     [pt?.sportId],

@@ -91,8 +91,7 @@ export function CalendarEventDrawer({
 
       {entry.sourceType === "COURT_RENTAL" && (
         <p>
-          {l.expectedAttendees}:{" "}
-          <strong>{entry.expectedAttendees ?? 0}</strong>
+          {l.member}: <strong>{entry.memberName ?? "-"}</strong>
         </p>
       )}
 

@@ -43,17 +43,13 @@ public sealed class CoachSpecialtyReader(ISportHubDbContext db, ISportCatalogRea
             return false;
         }
 
-        foreach (var sportId in await GetSportIdsAsync(coachId, cancellationToken))
-        {
-            var sport = await catalog.GetSportAsync(sportId, cancellationToken);
+        // Quyền PT đến từ qualification dịch vụ PT đang bật, không suy ra từ chuyên môn môn Gym.
+        var pt = await catalog.GetSportForServiceAsync(SportServiceType.PersonalTraining, cancellationToken);
+        var offering = pt?.Services.FirstOrDefault(s => s.ServiceType == SportServiceType.PersonalTraining);
 
-            if (sport is { IsActive: true, OperationType: "OneOnOne" })
-            {
-                return true;
-            }
-        }
-
-        return false;
+        return offering is not null
+               && await db.Set<CoachServiceQualification>().AsNoTracking()
+                   .AnyAsync(q => q.UserId == coachId && q.OfferingId == offering.OfferingId, cancellationToken);
     }
 
     public async Task<IReadOnlyList<Guid>> GetCoachIdsForSportAsync(int sportId, CancellationToken cancellationToken = default)
@@ -75,38 +71,3 @@ public sealed class CoachSpecialtyReader(ISportHubDbContext db, ISportCatalogRea
             .ToListAsync(cancellationToken);
 }
 
-/// <summary>Bản cài đặt <see cref="IExternalCoachAccessReader"/>: Approved + tài khoản Active + đúng môn mới được thuê sân.</summary>
-public sealed class ExternalCoachAccessReader(ISportHubDbContext db) : IExternalCoachAccessReader
-{
-    public async Task<ExternalCoachAccess?> GetAsync(Guid userId, CancellationToken cancellationToken = default)
-    {
-        var row = await db.Set<ExternalCoachProfile>()
-            .AsNoTracking()
-            .Where(p => p.UserId == userId)
-            .Select(p => new { p.ApprovalStatus, Active = p.UserAccount!.Status == UserStatus.Active })
-            .SingleOrDefaultAsync(cancellationToken);
-
-        if (row is null)
-        {
-            return null;
-        }
-
-        var sportIds = await db.Set<UserSportSpecialty>()
-            .AsNoTracking()
-            .Where(s => s.UserId == userId)
-            .Select(s => s.SportId)
-            .OrderBy(id => id)
-            .ToListAsync(cancellationToken);
-
-        return new ExternalCoachAccess(userId, row.ApprovalStatus.ToString(), row.Active, sportIds);
-    }
-
-    public async Task<bool> CanRentForSportAsync(Guid userId, int sportId, CancellationToken cancellationToken = default)
-    {
-        var access = await GetAsync(userId, cancellationToken);
-
-        return access is { IsAccountActive: true }
-               && access.ApprovalStatus == nameof(ExternalCoachApprovalStatus.Approved)
-               && access.SportIds.Contains(sportId);
-    }
-}

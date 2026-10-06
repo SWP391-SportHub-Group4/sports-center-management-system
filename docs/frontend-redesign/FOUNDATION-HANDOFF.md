@@ -27,7 +27,7 @@ Dialog và Drawer chia chung `useModalBehavior`: Esc chỉ đóng lớp trên c�
 
 ## 3. Shell
 
-- `AppShell` (Receptionist/Coach/Manager/Admin/ExternalCoach): sidebar nền Ink (`data-surface="inverse"`), mục đang chọn nền volt; wordmark `SPORT`+`HUB`. Cấu hình điều hướng theo role vẫn ở `NAV_BY_ROLE` — thêm mục mới ở đó.
+- `AppShell` (Receptionist/Coach/Manager/Admin/Member): sidebar nền Ink (`data-surface="inverse"`), mục đang chọn nền volt; wordmark `SPORT`+`HUB`. Cấu hình điều hướng theo role vẫn ở `NAV_BY_ROLE` — thêm mục mới ở đó.
 - `MemberShell`: toàn bộ màu cứng đã đổi sang token; wordmark đổi sang Barlow Condensed.
 - Bỏ emoji cờ ở nút ngôn ngữ, thay bằng chữ `EN`/`VI`.
 - **Đã làm (AN-01):** mục "Tài chính" (`/member/finance`) thay hai mục Ví + Hóa đơn; `/member/wallet`, `/member/invoices` chuyển hướng giữ query; component `Tabs` dùng chung trong `components/primitives`; `AuthCard` (thẻ xác thực đứng giữa) trong `components/auth`.
@@ -37,7 +37,7 @@ Dialog và Drawer chia chung `useModalBehavior`: Esc chỉ đóng lớp trên c�
 
 - Table / FilterBar / StatusChip: `components/contracts/table.ts`. **Khoa** triển khai ở `components/data/*`; `Table`/`StatusChip` hiện có trong `ui.tsx` chạy tiếp tới khi trang cuối chuyển sang.
 - 5 trạng thái (loading / empty / error / forbidden / conflict): `components/contracts/state.ts` — `StateViewProps` và `stateKindFromStatus(httpStatus)`. **Khoa** triển khai `<StateView>`.
-- Checkout: `features/payments/checkout.contract.ts` — `CheckoutViewModel`, `toCheckoutViewModel(dto, { mode })`, `derivePhase`, `remainingSeconds`. Quy tắc: FE **không tự tính tiền**; người mua do server xác định; hạn giữ chỗ tính từ `expiresAtUtc − serverNowUtc`; return từ cổng thanh toán không chứng minh đã thu. Ba ngữ cảnh (`SELF`, `COUNTER` — dùng điểm cần OTP email Member, `EXTERNAL_COACH`) chỉ khác adapter. **Hào** (quầy) và **Khôi** (ExternalCoach) viết adapter, không fork `CheckoutPanel`.
+- Checkout: `features/payments/checkout.contract.ts` — `CheckoutViewModel`, `toCheckoutViewModel(dto, { mode })`, `derivePhase`, `remainingSeconds`. Quy tắc: FE **không tự tính tiền**; người mua do server xác định; hạn giữ chỗ tính từ `expiresAtUtc − serverNowUtc`; return từ cổng thanh toán không chứng minh đã thu. Hai ngữ cảnh (`SELF`, `COUNTER` — dùng điểm cần OTP email Member; thuê sân dùng `SELF`) chỉ khác adapter. **Hào** (quầy) viết adapter, không fork `CheckoutPanel`.
 
 ## 5. Quy tắc nhanh khi làm trang
 

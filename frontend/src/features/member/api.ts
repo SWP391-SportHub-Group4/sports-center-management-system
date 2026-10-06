@@ -11,6 +11,8 @@ import type { CalendarEvent } from "@/components/scheduling";
 
 export interface MemberEvent extends CalendarEvent {
   classId?: number;
+  /** Có sẵn ở buổi lớp; buổi PT không có (PT thuộc Gym, suy ra ở UI). */
+  sportName?: string | null;
   attendanceStatus?: string | null;
   isMakeup?: boolean;
   quotaState?: string;
