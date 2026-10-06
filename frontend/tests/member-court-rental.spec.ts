@@ -133,7 +133,7 @@ test("any active member prices a 2-hour rental from the server and sends no owne
   expect(requests[0].body).toMatchObject({ sportId: 3, roomId: 7 });
 });
 
-test("old external-coach bookmarks land on the member routes", async ({
+test("legacy portal bookmarks land on the member routes", async ({
   page,
 }) => {
   await setup(page);
@@ -143,7 +143,7 @@ test("old external-coach bookmarks land on the member routes", async ({
   await expect(page).toHaveURL(/\/member\/rentals$/);
   await page.goto("/external-coach/wallet");
   await expect(page).toHaveURL(/\/member\/finance\?tab=wallet$/);
-  // Đăng ký/duyệt ExternalCoach không còn: về trang đăng ký Member.
+  // Trang đăng ký riêng cho Coach ngoài không còn: về trang đăng ký Member.
   await page.goto("/register-external-coach");
   await expect(page).toHaveURL(/\/register$/);
 });

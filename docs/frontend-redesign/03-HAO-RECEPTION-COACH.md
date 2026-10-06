@@ -68,7 +68,7 @@ QR: scan → backend resolve → hiện thẻ Member → lễ tân bấm action.
 
 ## 5. Coach sitemap
 
-Menu cơ bản: **Tổng quan · Lịch giảng dạy · Lớp phụ trách**. Có specialty PT mới thêm **Học viên PT · Buổi PT**. Không để Coach lớp nhóm thấy menu “Điểm danh” dẫn đến form không có quyền.
+Menu cơ bản: **Tổng quan · Lịch giảng dạy · Lớp phụ trách**. Có qualification PT (`isPersonalTrainer` từ `/api/users/me`) mới thêm **Học viên PT · Buổi PT**. Không để Coach lớp nhóm thấy menu “Điểm danh” dẫn đến form không có quyền.
 
 | ID | Page → subpage | Route đề xuất | Nội dung/action |
 |---|---|---|---|
@@ -82,7 +82,7 @@ Menu cơ bản: **Tổng quan · Lịch giảng dạy · Lớp phụ trách**. C
 | H19 | Buổi PT → Chi tiết | `/coach/pt-sessions`, `/coach/pt-sessions/[id]` | Member, thời gian/sân, trạng thái, hoàn thành/no-show theo API, ghi kết quả hợp lệ |
 | H20 | AI gợi ý kế hoạch | Drawer từ H16/H19 | Đầu vào, gợi ý, Xem lại & Chỉnh sửa → Lưu nháp → Áp dụng qua activate nếu hợp lệ |
 
-Không tạo trang AI workout cho Coach thiếu specialty PT. Quan hệ hết hiệu lực giữa chừng phải chặn lưu và làm rõ, không dựa vào việc menu từng hiển thị.
+Không tạo trang AI workout cho Coach thiếu qualification PT. Quan hệ hết hiệu lực giữa chừng phải chặn lưu và làm rõ, không dựa vào việc menu từng hiển thị.
 
 ## 6. AI Drawer dùng chung — Hào thiết kế và bàn giao adapter
 

@@ -27,7 +27,7 @@ public class RolesAndPoliciesTests
         Assert.Equal(2, (int)UserRole.Member);
         Assert.Equal(3, (int)UserRole.Receptionist);
         Assert.Equal(4, (int)UserRole.SystemAdministrator);
-        Assert.Equal(5, Enum.GetValues<UserRole>().Length); // BR-140: không còn ExternalCoach
+        Assert.Equal(5, Enum.GetValues<UserRole>().Length); // BR-140: đúng 5 role
     }
 
     [Fact]

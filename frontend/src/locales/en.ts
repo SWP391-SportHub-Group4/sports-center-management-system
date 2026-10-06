@@ -303,7 +303,7 @@ export const en = {
     },
     advanceDays: {
       label: "Rental booking window (days)",
-      hint: "Maximum number of days ahead an external coach can book a court.",
+      hint: "Maximum number of days ahead a member can book a court.",
     },
     cancelHours: {
       label: "Full rental refund cutoff (hours)",
@@ -722,7 +722,6 @@ export const en = {
     fullName: "Full name",
     finishRegistration: "Complete registration",
     cancel: "Cancel",
-    externalTitle: "Register as an external coach",
     phone: "Phone",
     bio: "Biography",
     sports: "Sports",

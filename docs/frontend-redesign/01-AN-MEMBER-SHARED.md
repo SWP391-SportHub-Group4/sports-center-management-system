@@ -22,7 +22,7 @@ Mục tiêu: giữ nền tảng frontend dùng chung; hoàn thiện Member và p
 - An trực tiếp sở hữu Q08–Q12 và Q19–Q23: nguyện vọng, PT/Member vận hành, tài chính/báo cáo/export Manager. Khoa sở hữu UI lớp/sân/sự cố/notices/AI Manager (nhận từ Khôi 05/10) cùng cấu hình/Admin theo bảng phân công mới.
 - Checkout lễ tân chỉ là adapter và context riêng; không fork logic points/expiry.
 
-Menu desktop: **Tổng quan · Khám phá · Lịch của tôi · Khóa học của tôi · Gym & PT · Tập luyện · Tài chính**. Header: notification, AI khi phù hợp, tài khoản/ngôn ngữ. Mobile: Tổng quan, Lịch, Dịch vụ, Tài chính, Thêm.
+Menu desktop (tám mục): **Tổng quan · Khám phá · Lịch của tôi · Khóa học của tôi · Gym & PT · Thuê sân · Tập luyện · Tài chính**. Header sticky một hàng: logo và badge Member, menu ở giữa, bên phải là mã Member (nút tròn chỉ icon), ngôn ngữ, chuông, avatar. Menu nằm trên cùng hàng từ 1360px; dưới đó thu vào drawer qua nút hamburger. Lời chào và ngày là page header riêng bên dưới thanh header. Mobile: Tổng quan, Lịch, Dịch vụ, Tài chính, Thêm.
 
 ## 2. Page và subpage phải giao
 

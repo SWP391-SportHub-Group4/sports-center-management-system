@@ -35,7 +35,7 @@ Seed kỹ thuật còn bản ghi Personal Training riêng. Việc gộp danh tí
 
 ## 3. Vai trò và luồng
 
-Năm role: SystemAdministrator, CenterManager, Receptionist, Coach, Member. Guest là người chưa đăng nhập, không phải role lưu trong database. Không có HLV freelancer và không cho phép gym/HLV bên ngoài vào hoạt động; HLV ngoài thuê sân được hiểu là Member bình thường, mọi Member đều có chức năng đặt sân (BR-140). Một Coach có thể có nhiều chuyên môn; quyền truy cập dựa cả role và quan hệ được phân công.
+Năm role: SystemAdministrator, CenterManager, Receptionist, Coach, Member. Guest là người chưa đăng nhập, không phải role lưu trong database. Mọi Member đều có chức năng thuê sân (BR-140). Một Coach có thể có nhiều chuyên môn; quyền truy cập dựa cả role và quan hệ được phân công.
 
 | Luồng | Phạm vi |
 |---|---|

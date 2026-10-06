@@ -37,7 +37,6 @@ const DEMO_ACCOUNTS = [
     label: "Coach · Cầu lông",
     email: "coach.caulong@sporthub.vn",
   },
-  { label: "External Coach", email: "coach.external.approved@sporthub.vn" },
   { label: "Member", email: "an.member@sporthub.vn" },
 ];
 

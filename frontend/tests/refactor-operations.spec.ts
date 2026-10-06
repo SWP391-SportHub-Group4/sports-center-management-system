@@ -210,7 +210,7 @@ for (const language of ["en", "vi"] as const) {
       await page.route("**/api/invoices/" + itemId, (route) =>
         route.fulfill({
           json: {
-            summary: { memberName: "External coach" },
+            summary: { memberName: "Member renter" },
             items: [
               { itemId, description: "Court rental", lineAmount: 100000 },
             ],
@@ -1557,7 +1557,7 @@ test("calendar has no page overflow at desktop and mobile sizes", async ({
           roomId: 1,
           startAtUtc: new Date().toISOString(),
           endAtUtc: new Date(Date.now() + 3600000).toISOString(),
-          coachName: "External coach",
+          coachName: "Member renter",
           status: "CONFIRMED",
           participants: [],
         },

@@ -23,13 +23,13 @@ Membership chỉ cấp quyền vào Gym và là điều kiện mua PT. Khóa c�
 
 Môn, chuyên môn Coach, loại phòng/sân, giờ mở cửa và giá là dữ liệu cấu hình. Thêm môn dùng hình thức vận hành đã hỗ trợ phải tái sử dụng luồng lịch, mua dịch vụ, thanh toán và báo cáo; không rẽ nhánh nghiệp vụ theo tên môn hoặc ID seed cố định. Môn có quy tắc khác cần bổ sung validation, thiết kế và kiểm thử.
 
-**Khoảng cách với mã hiện tại:** `SportOperationType` đang có `WalkIn`, `OneOnOne`, `GroupCourse`; seed có Gym, Personal Training, Cầu lông, Bóng rổ. Đây là bốn bản ghi kỹ thuật, không phải bốn môn sản phẩm. Thiết kế đích tách danh tính môn khỏi hình thức dịch vụ, để Gym hỗ trợ tập tự do và PT. Cần migration ánh xạ PT về Gym, bảo toàn specialty, giá, FK, invoice snapshot và báo cáo. Không xóa record PT hoặc sửa ID trực tiếp trên dữ liệu đã có giao dịch.
+**Mô hình đã triển khai (CAT-01):** môn (`sports`, có `code` bất biến) tách khỏi dịch vụ (`sport_service_offerings`: `MEMBERSHIP_ACCESS`, `GROUP_COURSE`, `COURT_RENTAL`, `PERSONAL_TRAINING`). Ba môn seed là Gym (Membership và PT), Cầu lông và Bóng rổ (khóa học nhóm và thuê sân); PT không còn là môn riêng. Membership và PT chỉ bật được ở môn có mã `gym`, kiểm ở backend. Mặc định thời lượng và sĩ số lớp nằm trên dịch vụ `GROUP_COURSE`. Quyền PT của Coach đến từ `coach_service_qualifications` (không suy ra từ chuyên môn Gym) và phòng PT từ `service_room_types`. Tắt môn hoặc dịch vụ chỉ chặn giao dịch mới, không hủy hay sửa thứ đã bán; fulfillment của hóa đơn đã tạo vẫn chạy. Manager thêm môn có lớp hoặc thuê sân bằng cấu hình, không sửa code. Chi tiết API ở [api-contract](api-contract.md).
 
 ### 1.3 Ranh giới
 
 Trong phạm vi: tài khoản, Membership Gym, PT, môn/sân, khóa học, lịch, điểm danh, thuê sân, payment/ví điểm, hoàn điểm, thông báo, báo cáo và AI hỗ trợ.
 
-Ngoài phạm vi: đa chi nhánh, payroll/hợp đồng nhân sự, HLV freelancer/gym bên ngoài, chia doanh thu với người thuê sân, quản lý người đi cùng khi Member thuê sân, mobile native, hoàn tiền mặt/chuyển khoản, VNPay Refund API và cổng thanh toán production. Gói dịch vụ bổ sung và waitlist tự giữ chỗ chưa thuộc phạm vi. “Chờ đợt sau” là hoàn điểm và lưu nguyện vọng nhận thông báo, không phải giữ chỗ tương lai.
+Ngoài phạm vi: đa chi nhánh, payroll/hợp đồng nhân sự, gym bên ngoài, chia doanh thu với người thuê sân, quản lý người đi cùng khi Member thuê sân, mobile native, hoàn tiền mặt/chuyển khoản, VNPay Refund API và cổng thanh toán production. Gói dịch vụ bổ sung và waitlist tự giữ chỗ chưa thuộc phạm vi. “Chờ đợt sau” là hoàn điểm và lưu nguyện vọng nhận thông báo, không phải giữ chỗ tương lai.
 
 ## 2. Vai trò và quyền hạn
 
@@ -129,7 +129,7 @@ Chi tiết tại [từ điển dữ liệu](entity-field-purpose.md) và [API co
 
 ### 5.1 Tài khoản và Membership Gym
 
-Đăng ký Member bằng email dùng OTP; không có luồng đăng ký riêng cho HLV ngoài (BR-140). Tài khoản nhân sự được tạo theo policy. Đổi/reset mật khẩu và khóa tài khoản phải vô hiệu phiên không còn hợp lệ.
+Đăng ký Member bằng email dùng OTP. Tài khoản nhân sự được tạo theo policy. Đổi/reset mật khẩu và khóa tài khoản phải vô hiệu phiên không còn hợp lệ.
 
 **Quên mật khẩu (BR-103) — đã triển khai bằng link email, không dùng OTP:** `POST /api/auth/password/forgot` luôn trả 204 trung tính (không lộ email nào đã đăng ký; email không tồn tại, bị khóa hay đang chờ gửi lại đều như nhau). Với tài khoản Active, hệ thống tạo token ngẫu nhiên 256-bit, chỉ lưu SHA-256 trong `EmailOtp` (purpose `ResetPassword`), hạn 10 phút, dùng một lần, chỉ link mới nhất hợp lệ, gửi lại sau 60 giây; email mang nút tới `{Frontend:BaseUrl}/reset-password?email=&token=`. `POST /api/auth/password/reset` nhận `{email, token, newPassword, confirmNewPassword}`, tiêu token và đổi security stamp trong cùng transaction. Giao diện: `/forgot-password` (thông điệp trung tính, cooldown 60 giây gắn theo từng email, đổi email gửi được ngay) và `/reset-password` (ô mật khẩu có con mắt, ba trạng thái form/thành công/link hỏng). Đăng ký Member vẫn dùng OTP 6 số. *Chưa có:* email thông báo "mật khẩu đã thay đổi" mà BR-103/104 mô tả.
 
@@ -303,8 +303,8 @@ G01–G13 trỏ [phân công API theo page/owner](../DESIGN-SKILLS-GUIDE.md#api-
 
 | ID | Khoảng trống | Việc cần hoàn thành |
 |---|---|---|
-| CAT-01 | Tách môn Gym khỏi dịch vụ PT trong schema/seed | Migration bảo toàn specialty/FK/invoice/report; ba môn sản phẩm |
-| CAT-02 (Cổng C đã triển khai code 07/10/2026; chưa nghiệm thu tích hợp, test backend cần Docker) | Gỡ role ExternalCoach; thuê sân thành chức năng Member; seed lịch cố định (BR-140, BR-141) | Migration xóa role/`ExternalCoachProfile`/`EmailOtpPurpose.ExternalCoachRegister`, đổi `CourtRental.ExternalCoachId` thành Member, gỡ endpoint external-coaches, seed Bóng rổ/Cầu lông 01–02 |
+| CAT-01 | Môn nhiều dịch vụ, PT là dịch vụ của Gym | Đã có schema, migration, API và UI. Còn thiếu: chặn gỡ qualification Coach hoặc liên kết phòng khi còn lịch tương lai (`service_in_use_by_future_schedule`, `qualification_in_use`); test callback muộn khi dịch vụ đã tắt; chưa chạy test tích hợp backend (cần Docker) |
+| CAT-02 | Thuê sân là chức năng của Member; lịch lớp cố định BR-141 | Đã có code, migration và seed riêng (`dotnet run -- --seed-br141=true`). Còn thiếu: test tích hợp backend và nghiệm thu E2E với PostgreSQL thật |
 | G01 | Public sân, availability/giá, Coach profile và PT pricing đầy đủ | DTO public an toàn, giá/availability tính server |
 | G02 | Chờ đợt sau + subscription | Hoàn 100% điểm một lần, lưu nguyện vọng, không giữ chỗ/ghi danh tự động |
 | G03 | Manager AI xếp lịch/tool calling/tạo nháp | Endpoint/service, xác nhận người dùng, recheck quyền/occupancy, audit |
@@ -323,7 +323,7 @@ G01–G13 trỏ [phân công API theo page/owner](../DESIGN-SKILLS-GUIDE.md#api-
 
 ### 13.3 Thứ tự xử lý
 
-Ưu tiên PAY-03/G12, sau đó nghiệm thu payment sandbox/QueryDR và bảo toàn dữ liệu. Thiết kế CAT-01 trước khi đổi seed/báo cáo. Triển khai G02 và contract cần cho frontend theo phụ thuộc; Manager AI và màn bổ sung theo kế hoạch. Chỉ đóng từng mục khi có mã, test và evidence phù hợp.
+Ưu tiên PAY-03/G12, sau đó nghiệm thu payment sandbox/QueryDR và bảo toàn dữ liệu. Triển khai G02 và contract cần cho frontend theo phụ thuộc; Manager AI và màn bổ sung theo kế hoạch. Chỉ đóng từng mục khi có mã, test và evidence phù hợp.
 
 ## 14. Nguồn và quy tắc duy trì
 
