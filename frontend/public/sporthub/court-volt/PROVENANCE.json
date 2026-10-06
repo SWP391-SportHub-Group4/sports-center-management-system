@@ -26,6 +26,9 @@
     },
     {
       "file": "gym-goals-background.png"
+    },
+    {
+      "file": "conditioning-speed-track.png"
     }
   ],
   "prompts": [
@@ -60,6 +63,10 @@
     {
       "asset": "gym-goals-background",
       "prompt": "Use case: premium website section background image for a high-performance athletic training center, wide landscape 3:2 crop. Create a cinematic but realistic empty strength-training gym interior at early morning: squat racks, neatly arranged barbells and dumbbells, dark rubber floor, high industrial ceiling, soft daylight from tall windows, subtle deep teal accents and a few restrained hyper-lime details in equipment. Composition must reserve the LEFT 55 percent as clean dark negative space (mostly shadowed wall and floor) for large white headline and supporting text overlay; place the most recognizable gym equipment and depth on the RIGHT half. Rich photographic texture, premium sports editorial art direction, dark charcoal and teal palette, high contrast but natural, no people, no text, no logos, no watermark, no graphic overlays, no stickers, no artificial lens flare. Designed to remain legible under a subtle dark gradient overlay."
+    },
+    {
+      "asset": "conditioning-speed-track",
+      "prompt": "Use case: premium sports-performance website feature image for a multi-sport arena, wide 3:2 landscape editorial sports photograph. Show an adult Vietnamese woman athlete accelerating through a short sprint test on an indoor synthetic speed track, seen mid-stride with clear track-lane markings; a coach near the lane checks a compact handheld timing gate/tablet in the background. Include tall airy arena roof structure and daylight, small deep-teal and electric-cyan accents, realistic athletic form and natural skin tones. Compose athlete toward center-right with visible turf lane and environment, sharp foreground motion, no barbell, no dumbbells, no bodybuilding equipment, no lab-coat scientist. Visual message: speed, movement quality and athletic performance testing, not gym membership. Premium but welcoming real sports photography, no text, no logos, no watermark, no UI, no overlays, no collage."
     }
   ]
 }

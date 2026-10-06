@@ -77,7 +77,7 @@ export default function Page() {
         >
           <div className={s.goalBackground} aria-hidden="true">
             <Image
-              src="/sporthub/court-volt/gym-goals-background.png"
+              src="/sporthub/court-volt/conditioning-speed-track.png"
               alt=""
               fill
               sizes="(max-width: 767px) calc(100vw - 2rem), (max-width: 1199px) calc(100vw - 3rem), 90vw"
