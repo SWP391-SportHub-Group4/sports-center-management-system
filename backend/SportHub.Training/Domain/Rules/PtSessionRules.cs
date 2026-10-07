@@ -11,6 +11,20 @@ public static class PtSessionRules
 
     public const int ChangeDeadlineHours = 24;
 
+    // Chính sách Member tự đặt lịch (BE G05). Giữ ở đây để mọi nơi dùng cùng một bộ số; có thể chuyển thành system setting sau.
+
+    /// <summary>Bước lưới giờ bắt đầu theo giờ địa phương: chỉ xx:00 và xx:30.</summary>
+    public const int SlotStepMinutes = 30;
+
+    /// <summary>Đặt tự phục vụ phải cách hiện tại tối thiểu từng này giờ, để Coach và phòng kịp chuẩn bị.</summary>
+    public const int SelfBookMinLeadHours = 12;
+
+    /// <summary>Chỉ đặt trước tối đa từng này ngày.</summary>
+    public const int SelfBookMaxAdvanceDays = 30;
+
+    /// <summary>Mỗi lần xem khung trống tối đa từng này ngày (giữ truy vấn nhỏ và giao diện gọn).</summary>
+    public const int MaxAvailabilityRangeDays = 14;
+
     public static DateTime EndAtUtc(DateTime startAtUtc) => startAtUtc.AddMinutes(SessionDurationMinutes);
 
     public static DateTime ChangeDeadline(DateTime sessionStartAtUtc)

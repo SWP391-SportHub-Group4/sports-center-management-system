@@ -72,6 +72,11 @@ export interface CourseEnrollmentDto {
   numSessions: number;
   firstSessionStartUtc: string | null;
   classStatus: string;
+  coachName?: string | null;
+  roomName?: string | null;
+  lastSessionEndUtc?: string | null;
+  /** Số buổi đã diễn ra (không tính buổi hủy). */
+  completedSessions?: number;
 }
 
 export interface WalletBalanceDto {
@@ -488,6 +493,10 @@ export interface AuditLogDto {
   targetEmail?: string | null;
   /** Null/absent for non-account targets or an older API. */
   targetAccountExists?: boolean | null;
+  /** Display-only current label; never a historical snapshot. */
+  currentTargetLabel?: string | null;
+  /** Current names for references in this event, keyed as Entity:ID. */
+  referenceNames?: Record<string, string> | null;
   oldValue: string | null;
   newValue: string | null;
   ipAddress: string;
@@ -625,6 +634,28 @@ export interface PtSessionDto {
   cancellationReason: string | null;
   roomId: number | null;
   roomName: string | null;
+}
+
+/** Khung PT trống của Coach được giao (Member tự đặt lịch). */
+export interface PtAvailabilityDto {
+  entitlementId: string;
+  coachId: string;
+  coachName: string;
+  sessionMinutes: number;
+  remainingQuota: number;
+  /** Null khi đặt được; ngược lại là mã lý do ổn định. */
+  bookableReason: string | null;
+  policy: {
+    minLeadHours: number;
+    advanceDays: number;
+    stepMinutes: number;
+    changeDeadlineHours: number;
+  };
+  slots: {
+    startAtUtc: string;
+    endAtUtc: string;
+    rooms: { roomId: number; name: string }[];
+  }[];
 }
 
 export interface HomeworkDto {

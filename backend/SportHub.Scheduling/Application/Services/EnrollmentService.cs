@@ -1,3 +1,4 @@
+using SportHub.Identity.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.SharedKernel.Pagination;
@@ -19,6 +20,7 @@ public sealed class EnrollmentService(ISportHubDbContext db) : IEnrollmentServic
         var query = db.Set<Enrollment>().AsNoTracking().Where(e => e.MemberId == memberId);
         var total = await query.CountAsync(ct);
 
+        var now = DateTime.UtcNow;
         var items = await query
             .OrderByDescending(e => e.EnrolledAt)
             .Skip((page - 1) * pageSize)
@@ -35,7 +37,12 @@ public sealed class EnrollmentService(ISportHubDbContext db) : IEnrollmentServic
                 e.EndedAt,
                 e.Class.NumSessions,
                 e.Class.Sessions.Where(s => s.Status != ClassSessionStatus.Cancelled).Min(s => (DateTime?)s.StartAtUtc),
-                e.Class.Status.ToString(), e.InvoiceItemId))
+                e.Class.Status.ToString(), e.InvoiceItemId,
+                db.Set<UserAccount>().Where(u => u.UserId == e.Class.CoachId)
+                    .Select(u => u.Profile != null ? u.Profile.FullName : u.Email).FirstOrDefault(),
+                e.Class.DefaultRoom!.Name,
+                e.Class.Sessions.Where(s => s.Status != ClassSessionStatus.Cancelled).Max(s => (DateTime?)s.EndAtUtc),
+                e.Class.Sessions.Count(s => s.Status != ClassSessionStatus.Cancelled && s.EndAtUtc <= now)))
             .ToListAsync(ct);
 
         return new PagedResult<EnrollmentResponse> { Items = items, Page = page, PageSize = pageSize, TotalCount = total };

@@ -34,6 +34,7 @@ public sealed class PtSessionService(
     ISportCatalogReader catalog,
     ICoachSpecialtyReader specialties,
     IUserAccessReader users,
+    ISchedulingAvailabilityReader availability,
     IClock clock) : IPtSessionService
 {
     public const int DefaultPageSize = 50;
@@ -143,6 +144,23 @@ public sealed class PtSessionService(
             await PtRoomValidator.RequireAsync(catalog, specialties, requestedRoom, entitlement.CoachId, startAtUtc, endAtUtc, ct);
         }
 
+        var session = await PersistNewSessionAsync(
+            entitlement, startAtUtc, endAtUtc, request.RoomId, managerId, "CREATE_PT_SESSION", ct);
+
+        await db.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
+
+        return await GetAsync(session.SessionId, ct);
+    }
+
+    /// <summary>
+    /// Giữ quota, tạo buổi và chiếm lịch Coach (và phòng nếu có). Gọi trong transaction đã khoá Coach/Member/quyền lợi;
+    /// dùng chung cho Manager xếp lịch và Member tự đặt để hai đường không lệch quy tắc.
+    /// </summary>
+    private async Task<PtSession> PersistNewSessionAsync(
+        PtEntitlement entitlement, DateTime startAtUtc, DateTime endAtUtc, int? roomId,
+        Guid actorUserId, string auditAction, CancellationToken ct)
+    {
         entitlement.ReservedSessions += 1;
         entitlement.Version += 1;
 
@@ -152,12 +170,12 @@ public sealed class PtSessionService(
             EntitlementId = entitlement.EntitlementId,
             MemberId = entitlement.MemberId,
             CoachId = entitlement.CoachId,
-            RoomId = request.RoomId,
+            RoomId = roomId,
             StartAtUtc = startAtUtc,
             EndAtUtc = endAtUtc,
             Status = PtSessionStatus.Scheduled,
             QuotaState = PtSessionQuotaState.Reserved,
-            CreatedByUserId = managerId,
+            CreatedByUserId = actorUserId,
             Version = 0
         };
 
@@ -167,14 +185,149 @@ public sealed class PtSessionService(
         await ReserveOccupancyAsync(session, ct);
 
         audit.Write(new AuditEntry(
-            managerId, "CREATE_PT_SESSION", nameof(PtSession), session.SessionId.ToString(),
+            actorUserId, auditAction, nameof(PtSession), session.SessionId.ToString(),
             NewValue: $"{{\"entitlementId\":\"{entitlement.EntitlementId}\",\"startAtUtc\":\"{startAtUtc:O}\"}}"));
+
+        return session;
+    }
+
+    /// <summary>Khung PT còn trống của Coach được giao cho quyền lợi này, trong khoảng ngày địa phương [fromDate, toDate].</summary>
+    public async Task<PtAvailabilityResponse> GetSelfBookingAvailabilityAsync(
+        Guid memberId, Guid entitlementId, DateOnly fromDate, DateOnly toDate, CancellationToken ct = default)
+    {
+        if (toDate < fromDate)
+        {
+            throw new BadRequestException("invalid_availability_range", "Ngày kết thúc phải sau hoặc bằng ngày bắt đầu.");
+        }
+
+        if (toDate.DayNumber - fromDate.DayNumber + 1 > PtSessionRules.MaxAvailabilityRangeDays)
+        {
+            throw new BadRequestException(
+                "range_too_large", $"Mỗi lần xem tối đa {PtSessionRules.MaxAvailabilityRangeDays} ngày.");
+        }
+
+        var entitlement = await db.Set<PtEntitlement>().AsNoTracking()
+            .SingleOrDefaultAsync(e => e.EntitlementId == entitlementId && e.MemberId == memberId, ct)
+            ?? throw new NotFoundException("pt_entitlement_not_found", "Không tìm thấy quyền lợi PT.");
+
+        var coachName = await db.Set<PtEntitlement>().AsNoTracking()
+            .Where(e => e.EntitlementId == entitlementId)
+            .Select(e => e.Coach!.Profile != null ? e.Coach.Profile.FullName : e.Coach.Email)
+            .SingleAsync(ct);
+        var remaining = Math.Max(0, entitlement.TotalQuota - entitlement.ReservedSessions - entitlement.ConsumedSessions);
+        var policy = new PtBookingPolicy(
+            PtSessionRules.SelfBookMinLeadHours, PtSessionRules.SelfBookMaxAdvanceDays,
+            PtSessionRules.SlotStepMinutes, PtSessionRules.ChangeDeadlineHours);
+
+        string? reason = null;
+        if (entitlement.Status != PtEntitlementStatus.Active)
+        {
+            reason = "pt_entitlement_not_active";
+        }
+        else if (remaining <= 0)
+        {
+            reason = "pt_quota_exhausted";
+        }
+        else if (!await HasActiveRelationshipAsync(entitlement.MemberId, entitlement.CoachId, ct))
+        {
+            reason = "pt_relationship_required";
+        }
+
+        var fromUtc = VietnamTime.StartOfDayUtc(fromDate);
+        var toUtc = VietnamTime.EndOfDayExclusiveUtc(toDate);
+        var rooms = await availability.GetServiceRoomsAsync(SportServiceType.PersonalTraining, fromUtc, toUtc, ct);
+
+        if (reason is null && rooms.Count == 0)
+        {
+            reason = "pt_no_room_configured";
+        }
+
+        IReadOnlyList<PtSlot> slots = [];
+        if (reason is null)
+        {
+            var coachBusy = await availability.GetCoachBusyAsync(entitlement.CoachId, fromUtc, toUtc, ct);
+            var memberBusy = await db.Set<PtSession>().AsNoTracking()
+                .Where(s => s.MemberId == memberId && s.Status == PtSessionStatus.Scheduled
+                            && s.StartAtUtc < toUtc && s.EndAtUtc > fromUtc)
+                .Select(s => new TimeWindow(s.StartAtUtc, s.EndAtUtc))
+                .ToListAsync(ct);
+
+            slots = PtSlotCalculator.Compute(
+                clock.UtcNow, fromDate, toDate, rooms, coachBusy, memberBusy,
+                VietnamTime.StartOfDayUtc(entitlement.ValidityStartDate),
+                VietnamTime.EndOfDayExclusiveUtc(entitlement.ValidityEndDate));
+        }
+
+        return new PtAvailabilityResponse(
+            entitlementId, entitlement.CoachId, coachName, PtSessionRules.SessionDurationMinutes, remaining, reason, policy,
+            slots.Select(slot => new PtAvailabilitySlot(
+                slot.StartAtUtc, slot.EndAtUtc, slot.Rooms.Select(room => new PtAvailabilityRoom(room.RoomId, room.Name)).ToList()))
+                .ToList());
+    }
+
+    /// <summary>
+    /// Member tự đặt buổi PT. Cùng khoá, quota, hiệu lực và chống trùng như Manager xếp lịch, cộng thêm: quyền lợi phải của
+    /// chính Member, có quan hệ Coach–Member đang hoạt động, giờ trên lưới 30 phút, báo trước tối thiểu và đặt trước tối đa,
+    /// và phòng PT trống (tự gán nếu không chọn). Đặt trùng giờ sẽ nhận 409 nên gửi lại cùng yêu cầu là an toàn.
+    /// </summary>
+    public async Task<PtSessionResponse> SelfBookAsync(
+        Guid memberId, SelfBookPtSessionRequest request, CancellationToken ct = default)
+    {
+        var startAtUtc = DateTime.SpecifyKind(request.StartAtUtc, DateTimeKind.Utc);
+        PtSlotCalculator.ValidateStart(clock.UtcNow, startAtUtc);
+        var endAtUtc = PtSessionRules.EndAtUtc(startAtUtc);
+
+        var preview = await db.Set<PtEntitlement>().AsNoTracking()
+            .Where(e => e.EntitlementId == request.EntitlementId && e.MemberId == memberId)
+            .Select(e => new { e.CoachId, e.MemberId })
+            .SingleOrDefaultAsync(ct)
+            ?? throw new NotFoundException("pt_entitlement_not_found", "Không tìm thấy quyền lợi PT.");
+
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+
+        await LockCoachAndMemberAsync(preview.CoachId, preview.MemberId, ct);
+        var entitlement = await LockEntitlementAsync(request.EntitlementId, ct);
+
+        if (entitlement.MemberId != memberId || entitlement.CoachId != preview.CoachId)
+        {
+            throw new ConflictException(
+                "pt_session_assignment_changed", "Phân công PT vừa thay đổi; vui lòng tải lại và thử lại.");
+        }
+
+        EnsureActiveWithQuota(entitlement);
+
+        if (!await HasActiveRelationshipAsync(entitlement.MemberId, entitlement.CoachId, ct))
+        {
+            throw new ConflictException(
+                "pt_relationship_required", "Chưa có quan hệ Coach–Member đang hoạt động. Liên hệ trung tâm.");
+        }
+
+        EnsureWithinValidity(entitlement, startAtUtc, endAtUtc);
+        await EnsureNoConflictAsync(entitlement.CoachId, entitlement.MemberId, startAtUtc, endAtUtc, null, ct);
+
+        var rooms = await availability.GetServiceRoomsAsync(SportServiceType.PersonalTraining, startAtUtc, endAtUtc, ct);
+        var freeRooms = PtSlotCalculator.FreeRooms(rooms, startAtUtc, endAtUtc);
+        var roomId = request.RoomId ?? freeRooms.FirstOrDefault()?.RoomId;
+
+        if (roomId is null || freeRooms.All(r => r.RoomId != roomId))
+        {
+            throw new ConflictException("pt_slot_unavailable", "Khung giờ này không còn phòng PT trống. Hãy chọn khung khác.");
+        }
+
+        await PtRoomValidator.RequireAsync(catalog, specialties, roomId.Value, entitlement.CoachId, startAtUtc, endAtUtc, ct);
+
+        var session = await PersistNewSessionAsync(
+            entitlement, startAtUtc, endAtUtc, roomId, memberId, "SELF_BOOK_PT_SESSION", ct);
 
         await db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
 
         return await GetAsync(session.SessionId, ct);
     }
+
+    private async Task<bool> HasActiveRelationshipAsync(Guid memberId, Guid coachId, CancellationToken ct)
+        => await db.Set<CoachMemberRelationship>().AsNoTracking()
+            .AnyAsync(r => r.MemberId == memberId && r.CoachId == coachId && r.Status == RelationshipStatus.Active, ct);
 
     public async Task<PtSessionResponse> ManagerCancelAsync(
         Guid sessionId, ManagerCancelPtSessionRequest request, Guid managerId, CancellationToken ct = default)

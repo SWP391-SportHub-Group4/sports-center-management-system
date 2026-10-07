@@ -557,3 +557,81 @@
     gap: var(--space-2);
   }
 }
+
+.statusLine {
+  margin: var(--space-2) 0 0;
+  color: var(--text-strong);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  font-variant-numeric: tabular-nums;
+}
+.benefitSection :global(.btn) {
+  margin-top: var(--space-2);
+  margin-right: var(--space-4);
+  min-height: 44px;
+}
+
+/* Thẻ buổi tiếp theo: tag môn (màu) + loại buổi (viền) cạnh nhau. */
+.kind {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border-inverse);
+  border-radius: var(--radius-sm);
+  color: var(--text-on-inverse);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
+}
+.agendaKind {
+  display: inline-block;
+  margin-right: var(--space-2);
+  color: var(--text-strong);
+  font-weight: var(--weight-medium);
+}
+.agendaKind::after {
+  content: " ·";
+  color: var(--text-muted);
+}
+.nextTop {
+  justify-content: flex-start;
+}
+.nextTop > :last-child:not(.activity):not(.kind) {
+  margin-left: auto;
+}
+
+/* Trạng thái chưa có buổi: cùng bề mặt tối với hero để cột trái luôn có điểm nhấn, giọng tích cực. */
+.emptySchedule {
+  min-height: 0;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-7) var(--space-6);
+  border: 0;
+  background: var(--bg-brand-deep);
+  color: var(--text-body);
+}
+.emptySchedule > svg {
+  color: var(--color-accent);
+}
+.emptySchedule h3 {
+  font-family: var(--font-display);
+  font-size: var(--text-4xl);
+  line-height: var(--leading-tight);
+  color: var(--text-strong);
+}
+.emptySchedule p {
+  max-width: 46ch;
+  color: var(--text-body);
+}
+.emptyActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+.benefitSection:last-of-type {
+  border-bottom: 0;
+  padding-bottom: 0;
+}

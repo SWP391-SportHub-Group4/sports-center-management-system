@@ -231,9 +231,10 @@ for (const rejection of [
     await page
       .getByRole("button", { name: "Change password", exact: true })
       .click();
-    await expect(page.getByRole("alert")).toContainText(
-      "Current password is incorrect",
-    );
+    // Có thêm vùng alert rỗng của Next (route announcer): chỉ xét lỗi của ô nhập.
+    await expect(
+      page.locator("[role=alert]:not(#__next-route-announcer__)"),
+    ).toContainText("Current password is incorrect");
     await expect(page).toHaveURL(/\/account$/);
     await expect(current).toBeFocused();
     await expect(current).toHaveAttribute("aria-invalid", "true");
@@ -286,12 +287,12 @@ test("schedule reuses Calendar and includes the last PT page and own attendance"
   await setup(page);
   await page.goto("/member/schedule");
   await expect(
-    page.getByText("PT · Coach Last", { exact: true }),
+    page.getByText("PT with Coach Last", { exact: true }),
   ).toBeVisible();
   await page.getByRole("button", { name: /Badminton course/ }).click();
   await expect(page.getByRole("dialog")).toContainText("Make-up session");
   await expect(page.getByRole("dialog")).toContainText("Present");
-  await page.getByRole("dialog").getByRole("link", { name: "Details" }).click();
+  await page.getByRole("dialog").getByRole("link", { name: "View course" }).click();
   await expect(page).toHaveURL(/\/member\/courses\/7$/);
   await expect(page.getByText("BAD-07", { exact: false })).toBeVisible();
 });
@@ -472,7 +473,7 @@ test("Discover stays in Member shell through list and course details", async ({
   );
   await page
     .getByRole("main")
-    .getByRole("link", { name: "Details", exact: true })
+    .getByRole("link", { name: "View details", exact: true })
     .click();
   await expect(page).toHaveURL(/\/member\/discover\/7$/);
   await expect(
@@ -487,10 +488,9 @@ test("Discover stays in Member shell through list and course details", async ({
   );
   await page.getByRole("link", { name: "Back to discovery" }).click();
   await expect(page).toHaveURL(/\/member\/discover$/);
+  // Danh sách khóa công khai nay nằm ở mục Activities của trang chủ.
   await page.goto("/courses");
-  await expect(
-    page.getByRole("main").getByRole("link", { name: "Details", exact: true }),
-  ).toHaveAttribute("href", "/courses/7");
+  await expect(page).toHaveURL(/#activities$/);
 });
 
 test("dashboard empty state offers Member discovery and handles API failure", async ({
@@ -504,16 +504,16 @@ test("dashboard empty state offers Member discovery and handles API failure", as
     route.fulfill({ json: [] }),
   );
   await page.goto("/member");
-  await expect(
-    page.getByText("Make room for your next session."),
-  ).toBeVisible();
+  await expect(page.getByText("Your next session starts here.")).toBeVisible();
   await expect(page.getByText("No pending invoices.")).toBeVisible();
   await expect(
     page
       .getByRole("main")
-      .getByRole("link", { name: "Discover", exact: true })
-      .last(),
+      .getByRole("link", { name: "Explore courses", exact: true }),
   ).toHaveAttribute("href", "/member/discover");
+  await expect(
+    page.getByRole("main").getByRole("link", { name: "Gym & PT services" }),
+  ).toHaveAttribute("href", "/member/services");
   await page.screenshot({
     path: "test-results/an02-dashboard-empty.png",
     fullPage: true,
@@ -523,9 +523,7 @@ test("dashboard empty state offers Member discovery and handles API failure", as
   );
   await page.reload();
   await expect(page.getByRole("main").getByRole("alert")).toBeVisible();
-  await expect(page.getByText("Make room for your next session.")).toHaveCount(
-    0,
-  );
+  await expect(page.getByText("Your next session starts here.")).toHaveCount(0);
   await expect(
     page.getByRole("heading", { name: "Your membership" }),
   ).toBeVisible();

@@ -27,29 +27,16 @@ export function CourtFilters({
           required
           type="date"
           value={date}
-          onChange={(e) =>
-            e.target.value &&
-            onDate(e.target.value)
-          }
+          onChange={(e) => e.target.value && onDate(e.target.value)}
         />
       </Field>
 
       <Field label={l.room}>
-        <select
-          value={roomId}
-          onChange={(e) =>
-            onRoom(e.target.value)
-          }
-        >
-          <option value="">
-            {l.all}
-          </option>
+        <select value={roomId} onChange={(e) => onRoom(e.target.value)}>
+          <option value="">{l.all}</option>
 
           {rooms.map((room) => (
-            <option
-              key={room.roomId}
-              value={room.roomId}
-            >
+            <option key={room.roomId} value={room.roomId}>
               {room.name}
             </option>
           ))}
