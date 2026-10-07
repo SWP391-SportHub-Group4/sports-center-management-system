@@ -147,7 +147,7 @@ test("course catalog replaces per-session enrollment", async ({ page }) => {
     page.getByRole("heading", { name: "Badminton course" }),
   ).toBeVisible({ timeout: 15000 });
   await expect(page.getByRole("button", { name: /Book Spot/ })).toHaveCount(0);
-  await page.getByRole("link", { name: "Details", exact: true }).click();
+  await page.getByRole("link", { name: "View details", exact: true }).click();
   await expect(page).toHaveURL(/\/member\/discover\/1$/);
   await expect(
     page.getByRole("button", { name: "Checkout", exact: true }),

@@ -32,6 +32,8 @@ services:
       JwtOptions__SecretKey: ${JwtOptions__SecretKey}
       Cors__AllowedOrigins__0: ${Cors__AllowedOrigins__0:-http://localhost:3000}
       Cors__AllowedOrigins__1: ${Cors__AllowedOrigins__1:-http://127.0.0.1:3000}
+      Cors__AllowedOrigins__2: ${Cors__AllowedOrigins__2:-http://localhost:3001}
+      Cors__AllowedOrigins__3: ${Cors__AllowedOrigins__3:-http://127.0.0.1:3001}
       Google__ClientId: ${Google__ClientId}
 
       VnPay__TmnCode: ${VnPay__TmnCode:-}

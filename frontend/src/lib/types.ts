@@ -72,6 +72,11 @@ export interface CourseEnrollmentDto {
   numSessions: number;
   firstSessionStartUtc: string | null;
   classStatus: string;
+  coachName?: string | null;
+  roomName?: string | null;
+  lastSessionEndUtc?: string | null;
+  /** Số buổi đã diễn ra (không tính buổi hủy). */
+  completedSessions?: number;
 }
 
 export interface WalletBalanceDto {

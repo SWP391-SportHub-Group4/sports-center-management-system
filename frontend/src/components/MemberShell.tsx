@@ -148,7 +148,9 @@ export function MemberFrame({
             <span className={styles.brandLogo}>
               Sport<span className={styles.brandLogoAccent}>Hub</span>
             </span>
-            <span className={styles.portalBadge}>Member</span>
+            <span className={styles.roleBadge}>
+              {t.navigation.roleLabel.Member}
+            </span>
           </Link>
 
           {/* Desktop Navigation */}

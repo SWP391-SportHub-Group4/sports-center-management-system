@@ -468,7 +468,7 @@ export function AppFrame({
             <span className={shell.brandLogo}>
               Sport<span className={shell.brandLogoAccent}>Hub</span>
             </span>
-            <span className={styles.roleBadge}>{roleDisplay}</span>
+            <span className={shell.roleBadge}>{roleDisplay}</span>
           </Link>
 
           <nav className={styles.staffNav} aria-label={roleDisplay}>

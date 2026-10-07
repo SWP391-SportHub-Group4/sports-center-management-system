@@ -42,7 +42,11 @@ export const DeskContext = createContext<DeskContextValue | null>(null);
  */
 export function DeskProvider({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
-  const storedValue = useSyncExternalStore(subscribe, getStoredValue, () => null);
+  const storedValue = useSyncExternalStore(
+    subscribe,
+    getStoredValue,
+    () => null,
+  );
   const storedMember = useMemo(() => {
     if (!storedValue) return null;
     try {
