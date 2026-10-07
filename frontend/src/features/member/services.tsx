@@ -14,7 +14,7 @@ import type {
 } from "@/lib/types";
 import { useApi } from "@/lib/useApi";
 import { choiceQuery, pageQuery, useUrlQuery } from "@/lib/useUrlQuery";
-import { CoachChangeSection } from "@/features/training/coach-change";
+import { CoachChangeSection } from "@/features/training";
 
 function Visits() {
   const { t } = useLanguage();

@@ -19,7 +19,7 @@ import type {
   PtEntitlementDto,
   UserAdminDto,
 } from "@/lib/types";
-import styles from "@/features/training/training.module.css";
+import { trainingStyles as styles } from "@/features/training";
 
 /** Danh sách hội viên của Manager (Q12). Chỉ xem, mở hồ sơ vận hành. */
 export function ManagerMemberList() {

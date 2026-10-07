@@ -3,8 +3,7 @@
 import { Tabs } from "@/components/primitives";
 import { useLanguage } from "@/lib/language";
 import { choiceQuery, useUrlQuery } from "@/lib/useUrlQuery";
-import { InvoiceList } from "@/features/payments";
-import { ManagerRefunds } from "@/features/payments/manager-refunds";
+import { InvoiceList, ManagerRefunds } from "@/features/payments";
 import styles from "./finance.module.css";
 
 const TABS = ["invoices", "refunds"] as const;
