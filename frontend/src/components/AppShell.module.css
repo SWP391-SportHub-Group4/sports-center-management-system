@@ -154,27 +154,6 @@
   }
 }
 
-/* Nhãn vai trò cạnh logo: ẩn khi hẹp để không đẩy nút menu ra ngoài màn hình. */
-.roleBadge {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 7px;
-  border-radius: var(--radius-sm);
-  background: var(--color-primary-soft);
-  color: var(--text-strong);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  line-height: 1.2;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-@media (max-width: 560px) {
-  .roleBadge {
-    display: none;
-  }
-}
-
 /* Công tắc ngôn ngữ của nhân sự luôn hiện trên thanh trên cùng, kể cả màn hẹp. */
 button.staffLang {
   display: inline-flex;

@@ -30,24 +30,24 @@ Route dưới đây là đề xuất; ưu tiên giữ link cũ bằng alias/redi
 
 | ID | Page chính → subpage | Route/kiểu đề xuất | Nội dung và hành động |
 |---|---|---|---|
-| A01 | Tổng quan | `/member`, D | Lịch hôm nay, buổi tiếp theo, Membership/quota, số điểm, checkout đang chờ, việc cần phản hồi. CTA theo dữ liệu thật |
+| A01 | Tổng quan | `/member`, D | Lịch hôm nay, buổi tiếp theo, Membership/quota, số điểm, checkout đang chờ, việc cần phản hồi. CTA theo dữ liệu thật (đã có: dải Cần bạn xử lý gồm hóa đơn, lớp dưới ngưỡng, Membership sắp hết, PT còn ít buổi; thẻ Gym có số ngày còn lại và trạng thái đang ở Gym; thẻ PT có nút đặt buổi) |
 | A02 | Khám phá → Danh mục/chi tiết | `/courses`, `/courses/[id]`, `/gym`, `/personal-training`; dùng component Khôi | Bộ lọc, lịch toàn khóa, giá, chỗ còn; quay lại sau login và đưa đúng intent vào checkout |
 | A03 | Lịch của tôi → Chi tiết buổi | `/member/schedule`, D + O | Ngày/tuần/tháng/list, lớp và PT chung timeline; room/coach, trạng thái, buổi bù; xuất `.ics` phía client nếu đủ dữ liệu |
 | A04 | Khóa học của tôi → Chi tiết ghi danh | `/member/courses`, `/member/courses/[classId]`, D | Tabs Sắp học/Đang học/Lịch sử; lịch từng buổi, điểm danh của chính mình, invoice và yêu cầu hoàn liên quan |
 | A05 | Gym & PT → Membership | `/member/services?tab=gym`, T | Gói đang hiệu lực/sắp có hiệu lực/hết hạn; ngày bắt đầu-kết thúc; mua/gia hạn; lịch sử check-in/out |
 | A06 | Gym & PT → Gói PT | `/member/services?tab=pt`, T → detail | Coach, Membership liên kết, quota đã dùng/còn/chờ bảo lưu/hết hạn; mức frequency chỉ để tính quota, không chặn cứng mỗi tuần |
-| A07 | Gói PT → Đặt lịch | `/member/pt/book`, F | Chọn giờ theo Coach được phép, kiểm tra ngày/90 phút/quota/conflict, review. **G05**: Member self-book chưa có API hiện tại |
-| A08 | Buổi PT → Chi tiết → Hủy/đổi lịch | `/member/pt/sessions/[id]`, D + F | Lịch hiện tại, thời hạn 24 giờ, ảnh hưởng quota; hiện tại gửi change request, không giả thao tác đổi lịch đã hoàn tất |
-| A09 | Gói PT → Yêu cầu đổi HLV | Nested F + request detail | Lý do, Coach đề xuất hợp lệ, đang chờ/duyệt/từ chối; các buổi bị conflict giữ trạng thái cần xử lý |
-| A10 | Tập luyện → Hồ sơ | `/member/training?tab=profile`, T | Mục tiêu/trình độ/thông tin được phép cập nhật, validation |
-| A11 | Tập luyện → Kế hoạch / Kết quả / Tiến độ / Homework | `/member/training?tab=...`, T → D | Xem kế hoạch và nhận xét riêng mình; chỉ đọc nội dung Coach tạo, không tự thêm quyền sửa hoặc hoàn thành homework khi contract chưa có |
+| A07 | Gói PT → Đặt lịch | `/member/pt/book`, F | Chọn giờ theo Coach được phép, kiểm tra ngày/90 phút/quota/conflict, review. **G05** đã có API (xem api-contract); giao diện đã làm: chọn ngày, giờ, phòng, xác nhận, báo "vừa có người đặt" khi 409 |
+| A08 | Buổi PT → Chi tiết → Hủy/đổi lịch | `/member/pt/sessions/[id]`, D + F (đã làm: form chỉ mở khi bấm, quy tắc 24 giờ, yêu cầu chờ duyệt ghi rõ lịch chưa đổi) | Lịch hiện tại, thời hạn 24 giờ, ảnh hưởng quota; hiện tại gửi change request, không giả thao tác đổi lịch đã hoàn tất |
+| A09 | Gói PT → Yêu cầu đổi HLV | Form lồng trong `/member/services?tab=pt` + lịch sử yêu cầu | Lý do, Coach đề xuất hợp lệ, đang chờ/duyệt/từ chối; các buổi bị conflict giữ trạng thái cần xử lý |
+| A10 | Tập luyện → Hồ sơ | `/member/training?tab=profile`, T | Mục tiêu/trình độ/thông tin được phép cập nhật, validation. `/member/profile` chuyển hướng về đây |
+| A11 | Tập luyện → Kế hoạch / Kết quả / Tiến độ / Homework | `/member/training?tab=...`, T → D | Xem kế hoạch và nhận xét riêng mình; chỉ đọc nội dung Coach tạo; Homework chỉ đọc (Member không đánh dấu hoàn thành trên giao diện). Tab: Buổi tập · Kế hoạch · Kết quả · Tiến độ · Homework · Hồ sơ, kèm dải tóm tắt HLV/quota/buổi tiếp theo |
 | A12 | Tài chính → Ví điểm | `/member/finance?tab=wallet`, T | Available/Held, quy đổi VND, ledger Hold/Spend/Release/Earn/Adjustment, link invoice/source |
 | A13 | Tài chính → Hóa đơn → Chi tiết | `/member/finance?tab=invoices`, `/member/invoices/[id]`, D | Từng item, giá snapshot, points/cash, lịch sử payment và adjustment; tiếp tục thanh toán/hủy checkout nếu hợp lệ |
-| A14 | Hóa đơn → Tạo yêu cầu hoàn → Theo dõi | D + F | Quote theo item, chính sách, số điểm server tính, lý do, hệ quả quyền lợi; Requested/Completed/Rejected. G08 nếu cần danh sách tổng hợp độc lập |
+| A14 | Hóa đơn → Tạo yêu cầu hoàn → Theo dõi | D + F (đã làm: form chỉ mở khi bấm, ước tính điểm kèm VND, thông báo chưa hoàn điểm đến khi Manager duyệt) | Quote theo item, chính sách, số điểm server tính, lý do, hệ quả quyền lợi; Requested/Completed/Rejected. G08 nếu cần danh sách tổng hợp độc lập |
 | A15 | Checkout → Chọn điểm → VNPay → Kết quả | `/checkout/[invoiceId]`, F; `/payments/return` | Shared cho ba người mua; nhận identity từ server, không dựa role trong URL |
 | A16 | Ngưỡng mở lớp → Phản hồi ba phương án | `/member/threshold-responses/[responseId]`, D; entry email token | Chuyển lớp / Chờ đợt sau / Hoàn 100% điểm; deadline, hệ quả, xác nhận và kết quả; G02 |
 | A17 | Thông báo → Chi tiết/đi đến tác vụ | `/notifications`, D + header bell | Tất cả/chưa đọc, read/read-all; link đúng đối tượng; mỗi role chỉ dữ liệu được phép |
-| A18 | AI Assistant | Drawer từ dashboard/lịch | Hỏi lịch hôm nay, kết quả có link mở buổi, timestamp; không điều hướng rời lịch |
+| A18 | AI Assistant | Drawer từ dashboard/lịch | Hỏi lịch hôm nay, kết quả có link mở buổi, timestamp; không điều hướng rời lịch  Đã làm trên dashboard: nút Hỏi SportHub mở Drawer dùng chung (modal; chưa phải slide-over không chặn như thiết kế), gợi ý câu hỏi, luồng giữ `previousInteractionId`, dừng/thử lại, văn bản thuần, liên kết nhanh tới lịch/dịch vụ/tài chính. Chưa có link mở đúng buổi vì câu trả lời là văn bản tự do. |
 | A19 | Khóa học của tôi → Nguyện vọng khóa sau | `/member/courses?tab=interests`, T | Lớp nguồn, môn muốn nhận tin, điểm đã hoàn, trạng thái nhận tin, khóa mới được gợi ý; hủy nhận tin không thu hồi điểm; G02 |
 | A20 | Thẻ hội viên → Mã/QR nhận diện | O từ dashboard hoặc account | Mã dễ đọc + QR backend cấp, trạng thái/hạn nếu có; QR chỉ nhận diện để lễ tân tra cứu, không chứng minh quyền vào Gym; G04 |
 
@@ -195,7 +195,9 @@ Matching MVP đề xuất: cùng sport, Published, chưa bắt đầu, đang nh�
 
 Test: ba lựa chọn đầy đủ; request lặp trả kết quả cũ; cạnh tranh với expiry/waive/cancel không refund đôi; transaction rollback không để subscription thiếu refund; khóa mới gửi đúng môn, email failure retry không refund lần hai; cancel subscription có ownership; checkout khóa mới dùng giá/slot mới. Không biến thành waitlist xếp hàng.
 
-#### G05 — Member tự đặt buổi PT / xem slot khả dụng [P1; An]
+#### G05 — Member tự đặt buổi PT / xem slot khả dụng [P1; An] — đã triển khai
+
+**Trạng thái (07/10/2026):** backend `GET members/me/pt-entitlements/{id}/availability` và `POST members/me/pt-sessions` (tên route khác đề xuất bên dưới vì gắn theo quyền lợi), lõi tạo buổi dùng chung với Manager; test đơn vị `PtSlotCalculatorTests` đạt, test tích hợp `PtSelfBookingTests` chưa chạy được vì thiếu Docker. Khác đề xuất: chống đặt trùng bằng 409 thay vì Idempotency-Key; chưa kiểm Membership Active ngoài hiệu lực của quyền lợi; chính sách (báo trước 12 giờ, tối đa 30 ngày, lưới 30 phút) là hằng số trong `PtSessionRules`, chưa là system setting. Đổi/hủy vẫn qua change request.
 
 **Bằng chứng:** [PtSessionsController](../../backend/SportHub.Training/Api/PtSessionsController.cs) chỉ Manager POST create; Member GET lịch và gửi change request ở controller riêng. Không có Member create booking/availability chuyên dụng.
 
@@ -248,15 +250,15 @@ Split payment, OTP, expiresAtUtc/serverNowUtc, jobs hết hạn và reconciliati
 | ID | Page → subpage | Route đề xuất | Chức năng / cấu trúc |
 |---|---|---|---|
 | Q08 | Nguyện vọng khóa sau | Subpage trong Khóa học | Danh sách theo môn/lớp nguồn, đã hoàn điểm, đang nhận tin/hủy nhận tin, khóa mới đã thông báo; **G02** |
-| Q09 | Vận hành PT → Quan hệ Coach–Member | `/manager/pt?tab=relationships` | Tạo/kết thúc quan hệ; HLV phải có specialty và Member đúng điều kiện |
+| Q09 | Vận hành PT → Quan hệ Coach–Member | `/manager/pt?tab=relationships` (một trang ba tab; route cũ chuyển hướng) | Tạo/kết thúc quan hệ; HLV phải có specialty và Member đúng điều kiện |
 | Q10 | Vận hành PT → Buổi PT → Tạo/dời/hủy | `/manager/pt?tab=sessions` | 90 phút, quota/Membership, thời gian/sân/Coach, conflict, hệ quả quota |
 | Q11 | Vận hành PT → Hàng đợi yêu cầu | `/manager/pt?tab=requests` → detail | Đổi Coach, đổi lịch, ngoại lệ muộn; duyệt/từ chối có lý do, các buổi conflict không âm thầm hủy |
-| Q12 | Hội viên → Hồ sơ vận hành | `/manager/members`, `/manager/members/[id]` | Membership/ghi danh/PT relationship và lịch sử giao dịch theo quyền; không thêm quyền sửa workout của Coach |
-| Q19 | Giao dịch → Danh sách → Hóa đơn | `/manager/finance?tab=invoices`, detail | Filter/points/cash/fulfillment; đối soát server, không manual Paid |
-| Q20 | Hoàn điểm → Hàng đợi → Chi tiết review | `/manager/finance?tab=refunds` | Quote từng item, đã hoàn/còn hoàn, quyền lợi ảnh hưởng; approve/reject có lý do; legacy chỉ đọc |
+| Q12 | Hội viên → Hồ sơ vận hành | `/manager/members`, `/manager/members/[id]` | Đã làm (chỉ xem): Membership, gói PT, quan hệ Coach, hóa đơn; ghi danh lớp chưa có; siết scope khi G12 xong; không thêm quyền sửa workout của Coach |
+| Q19 | Giao dịch → Danh sách → Hóa đơn | `/manager/finance?tab=invoices`, detail (đã làm) | Filter/points/cash/fulfillment; đối soát server, không manual Paid |
+| Q20 | Hoàn điểm → Hàng đợi → Chi tiết review | `/manager/finance?tab=refunds` (đã làm; `/manager/payment-adjustments` chuyển hướng) | Quote từng item, đã hoàn/còn hoàn, quyền lợi ảnh hưởng; approve/reject có lý do; legacy chỉ đọc |
 | Q21 | Ví điểm → Chủ ví → Ledger / Điều chỉnh | `/manager/points`, detail | Tìm đúng Member, available/held, số điểm điều chỉnh, lý do và preview trước submit |
-| Q22 | Báo cáo → Các tab nghiệp vụ | `/manager/reports?tab=...` | Hội viên, đăng ký/lấp lớp, cash theo môn/nguồn, rental theo Member thuê, issued/redeemed/outstanding points |
-| Q23 | Báo cáo → Xuất → Lịch sử tệp | `/manager/reports/exports` | Chọn kỳ/cột/PDF hoặc CSV, queued/generating/completed/failed, download/retry theo quyền và retention |
+| Q22 | Báo cáo → Các tab nghiệp vụ | `/manager/reports?tab=revenue|rentals|classes|members` (đã làm; bộ lọc kỳ dùng chung) | Hội viên, đăng ký/lấp lớp, cash theo môn/nguồn, rental theo Member thuê, issued/redeemed/outstanding points |
+| Q23 | Báo cáo → Xuất → Lịch sử tệp | `/manager/reports/exports` (đã làm; tự làm mới khi tệp còn chuẩn bị) | Chọn kỳ/cột/PDF hoặc CSV, queued/generating/completed/failed, download/retry theo quyền và retention |
 
 ### Ranh giới file và phối hợp
 

@@ -187,7 +187,10 @@ function RentalDetail({ rentalId }: { rentalId: string }) {
                   {l.invoices}
                 </Link>
               )}
-              <Link className="btn btn--ghost" href="/member/finance?tab=wallet">
+              <Link
+                className="btn btn--ghost"
+                href="/member/finance?tab=wallet"
+              >
                 {l.wallet}
               </Link>
               <button className="btn btn--ghost" onClick={state.reload}>

@@ -287,12 +287,12 @@ test("schedule reuses Calendar and includes the last PT page and own attendance"
   await setup(page);
   await page.goto("/member/schedule");
   await expect(
-    page.getByText("PT · Coach Last", { exact: true }),
+    page.getByText("PT with Coach Last", { exact: true }),
   ).toBeVisible();
   await page.getByRole("button", { name: /Badminton course/ }).click();
   await expect(page.getByRole("dialog")).toContainText("Make-up session");
   await expect(page.getByRole("dialog")).toContainText("Present");
-  await page.getByRole("dialog").getByRole("link", { name: "Details" }).click();
+  await page.getByRole("dialog").getByRole("link", { name: "View course" }).click();
   await expect(page).toHaveURL(/\/member\/courses\/7$/);
   await expect(page.getByText("BAD-07", { exact: false })).toBeVisible();
 });
@@ -473,7 +473,7 @@ test("Discover stays in Member shell through list and course details", async ({
   );
   await page
     .getByRole("main")
-    .getByRole("link", { name: "Details", exact: true })
+    .getByRole("link", { name: "View details", exact: true })
     .click();
   await expect(page).toHaveURL(/\/member\/discover\/7$/);
   await expect(

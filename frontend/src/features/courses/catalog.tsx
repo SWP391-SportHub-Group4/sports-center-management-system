@@ -12,32 +12,59 @@ import { Card, StatusChip } from "@/components/ui";
 import type { SportDto } from "@/lib/types";
 import { CheckoutPanel } from "@/features/payments";
 import { useAuth } from "@/lib/auth";
+import tags from "../member/tags.module.css";
+import {
+  scheduleSummary,
+  sessionMinutes,
+  sportTone,
+} from "../member/event-meta";
 import styles from "./catalog.module.css";
 export function CourseCatalog({
   detailBasePath = "/courses",
 }: {
   detailBasePath?: "/courses" | "/member/discover";
 }) {
-  const { t } = useLanguage();
-  const l = t.refactor;
+  const { t, language } = useLanguage();
+  const d = t.mDiscover;
+  const vi = language === "vi";
   const [sportId, setSport] = useState("");
   const [fromDate, setFrom] = useState("");
   const [toDate, setTo] = useState("");
+  const [openOnly, setOpenOnly] = useState(false);
   const [page, setPage] = useState(1);
+  const PAGE = 12;
   const sports = useApi(
     (signal) => api.get<SportDto[]>("/api/sports", { anonymous: true, signal }),
     [],
   );
+  // "Còn chỗ" chưa có tham số ở server: lấy tối đa 100 lớp rồi lọc và chia trang ở máy khách.
   const courses = useApi(
     (signal) =>
-      courseApi.list({ sportId, fromDate, toDate, page, pageSize: 12 }, signal),
-    [sportId, fromDate, toDate, page],
+      courseApi.list(
+        {
+          sportId,
+          fromDate,
+          toDate,
+          page: openOnly ? 1 : page,
+          pageSize: openOnly ? 100 : PAGE,
+        },
+        signal,
+      ),
+    [sportId, fromDate, toDate, page, openOnly],
   );
+  const all = pagedItems(courses.data);
+  const filtered = openOnly ? all.filter((c) => c.availableSeats > 0) : all;
+  const total = openOnly ? filtered.length : (courses.data?.totalCount ?? 0);
+  const shown = openOnly
+    ? filtered.slice((page - 1) * PAGE, page * PAGE)
+    : filtered;
+  const pages = Math.max(1, Math.ceil(total / PAGE));
+  const hasFilter = !!(sportId || fromDate || toDate || openOnly);
   return (
     <>
-      <div className={styles.filters}>
+      <section className={styles.filters} aria-label={d.filtersLabel}>
         <label>
-          {l.all}
+          {d.sport}
           <select
             value={sportId}
             onChange={(e) => {
@@ -45,7 +72,7 @@ export function CourseCatalog({
               setPage(1);
             }}
           >
-            <option value="">{l.all}</option>
+            <option value="">{d.allSports}</option>
             {sports.data
               ?.filter((s) => hasService(s, "GROUP_COURSE"))
               .map((s) => (
@@ -56,7 +83,7 @@ export function CourseCatalog({
           </select>
         </label>
         <label>
-          {l.from}
+          {d.from}
           <input
             type="date"
             value={fromDate}
@@ -67,61 +94,169 @@ export function CourseCatalog({
           />
         </label>
         <label>
-          {l.to}
+          {d.to}
           <input
             type="date"
             value={toDate}
+            min={fromDate || undefined}
             onChange={(e) => {
               setTo(e.target.value);
               setPage(1);
             }}
           />
         </label>
-      </div>
-      {courses.loading ? (
-        <p>{l.loading}</p>
-      ) : courses.error ? (
-        <p role="alert">
-          {courses.error.message}
-          <button onClick={courses.reload}>{l.refresh}</button>
+        <div className={styles.filterTail}>
+          <label className={styles.check}>
+            <input
+              type="checkbox"
+              checked={openOnly}
+              onChange={(e) => {
+                setOpenOnly(e.target.checked);
+                setPage(1);
+              }}
+            />
+            {d.openOnly}
+          </label>
+        </div>
+      </section>
+
+      {detailBasePath === "/member/discover" && (
+        <p className={styles.note}>
+          {d.independent.split(/Gym & PT\.?$/)[0]}
+          <Link href="/member/services">{d.gymPt}</Link>.
         </p>
-      ) : !pagedItems(courses.data).length ? (
-        <p>{l.empty}</p>
-      ) : (
-        <div className="refactor-grid">
-          {pagedItems(courses.data).map((c) => (
-            <Card key={c.classId} title={c.name}>
-              <p>
-                {c.sportName} · {c.coachName} · {c.roomName}
-              </p>
-              <p>
-                {formatDate(c.startDate)} · {c.numSessions} {l.sessions} ·{" "}
-                {c.availableSeats} {l.seats}
-              </p>
-              <p>{formatMoney(c.price)}</p>
-              <Link href={`${detailBasePath}/${c.classId}`}>{l.details}</Link>
-            </Card>
+      )}
+
+      {courses.loading ? (
+        <div className={styles.grid} aria-busy="true" aria-label={d.loading}>
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div
+              key={i}
+              className="skeleton"
+              style={{ height: 300, borderRadius: 16 }}
+            />
           ))}
         </div>
+      ) : courses.error ? (
+        <div className={styles.empty} role="alert" data-surface="inverse">
+          <h3>{d.errorTitle}</h3>
+          <p>{courses.error.message}</p>
+          <div className={styles.emptyActions}>
+            <button className="btn" onClick={courses.reload}>
+              {d.retry}
+            </button>
+          </div>
+        </div>
+      ) : !shown.length ? (
+        <div className={styles.empty} data-surface="inverse">
+          <h3>{d.emptyTitle}</h3>
+          <p>{hasFilter ? d.emptyFiltered : d.emptyAll}</p>
+          {detailBasePath === "/member/discover" && (
+            <div className={styles.emptyActions}>
+              <Link className="btn" href="/member/courts/book">
+                {d.rent}
+              </Link>
+              <Link className="btn btn--secondary" href="/member/services">
+                {d.gymPt}
+              </Link>
+            </div>
+          )}
+        </div>
+      ) : (
+        <>
+          <p className={styles.count} aria-live="polite">
+            {total === 1
+              ? d.resultOne
+              : d.resultCount.replace("{n}", String(total))}
+          </p>
+          <div className={styles.grid}>
+            {shown.map((c) => {
+              const schedule = scheduleSummary(
+                c.scheduleRules,
+                sessionMinutes(sports.data, c.sportId),
+                d.days,
+                vi,
+              );
+              const state =
+                c.availableSeats <= 0
+                  ? "full"
+                  : c.availableSeats <= 3
+                    ? "few"
+                    : "ok";
+              return (
+                <article key={c.classId} className={styles.course}>
+                  <div className={styles.courseHead}>
+                    <span
+                      className={tags.sport}
+                      data-sport={sportTone(c.sportName)}
+                    >
+                      {c.sportName}
+                    </span>
+                    <span className={tags.kind}>
+                      {d.sessions.replace("{n}", String(c.numSessions))}
+                    </span>
+                  </div>
+                  <h3>{c.name}</h3>
+                  <dl className={styles.facts}>
+                    <dt>{d.coach}</dt>
+                    <dd>{c.coachName || d.coachTbc}</dd>
+                    <dt>{d.room}</dt>
+                    <dd>{c.roomName}</dd>
+                    <dt>{d.schedule}</dt>
+                    <dd>{schedule ?? d.scheduleTbc}</dd>
+                    <dt>{d.startDate}</dt>
+                    <dd>{formatDate(c.startDate)}</dd>
+                  </dl>
+                  <div className={styles.courseFoot}>
+                    <div>
+                      <p className={styles.price}>
+                        <span className={styles.priceLabel}>{d.fee}</span>
+                        {formatMoney(c.price)}
+                      </p>
+                      <p className={styles.seats} data-state={state}>
+                        {state === "full"
+                          ? d.full
+                          : (state === "few" ? d.fewSeats : d.seatsLeft)
+                              .replace("{left}", String(c.availableSeats))
+                              .replace("{cap}", String(c.capacity))}
+                      </p>
+                    </div>
+                    <Link
+                      className="btn"
+                      href={`${detailBasePath}/${c.classId}`}
+                    >
+                      {d.view}
+                    </Link>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+          {pages > 1 && (
+            <nav className={styles.pager} aria-label={d.filtersLabel}>
+              <button
+                className="btn btn--secondary"
+                disabled={page === 1}
+                onClick={() => setPage(page - 1)}
+              >
+                {d.prev}
+              </button>
+              <span>
+                {d.page
+                  .replace("{page}", String(page))
+                  .replace("{pages}", String(pages))}
+              </span>
+              <button
+                className="btn btn--secondary"
+                disabled={page >= pages}
+                onClick={() => setPage(page + 1)}
+              >
+                {d.next}
+              </button>
+            </nav>
+          )}
+        </>
       )}
-      <button
-        className="btn btn--secondary"
-        disabled={page === 1 || courses.loading}
-        onClick={() => setPage(page - 1)}
-      >
-        {l.previous}
-      </button>
-      <button
-        className="btn btn--secondary"
-        disabled={
-          !courses.data ||
-          page * 12 >= courses.data.totalCount ||
-          courses.loading
-        }
-        onClick={() => setPage(page + 1)}
-      >
-        {l.more}
-      </button>
     </>
   );
 }

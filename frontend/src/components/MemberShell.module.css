@@ -84,20 +84,32 @@
   color: var(--court-600);
 }
 
-.portalBadge {
-  font-size: 12px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  padding: 4px 8px;
-  border-radius: var(--radius-sm, 6px);
-  border: 1px solid var(--border-strong);
-  background: var(--bg-surface);
-  color: var(--text-strong);
-  white-space: nowrap;
+.roleBadge {
   display: inline-flex;
   align-items: center;
+  padding: 2px 7px;
+  border-radius: var(--radius-sm);
+  background: var(--color-primary-soft);
+  color: var(--text-strong);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
   line-height: 1.2;
+  white-space: nowrap;
+}
+
+@media (max-width: 560px) {
+  .brandGroup {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .roleBadge {
+    font-size: 9px;
+    padding: 1px 4px;
+  }
 }
 
 /* Navigation Links */
@@ -810,12 +822,6 @@
 
   .qrTextTitle {
     display: none;
-  }
-
-  .portalBadge {
-    font-size: 10px;
-    letter-spacing: 0;
-    padding: 3px 4px;
   }
 
   .brandLogo {

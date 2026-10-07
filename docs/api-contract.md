@@ -414,6 +414,10 @@ Refund mới không còn tạo/duyệt qua route adjustment chung; refund legacy
 | POST | `api/coaches/me/pt-sessions/{sessionId:guid}/complete` |
 | POST | `api/coaches/me/pt-sessions/{sessionId:guid}/no-show` |
 | GET | `api/members/me/pt-sessions` |
+| GET | `api/members/me/pt-entitlements/{entitlementId:guid}/availability?fromDate&toDate` |
+| POST | `api/members/me/pt-sessions` |
+
+Tự đặt lịch PT (G05). `availability` (Member, ngày giờ Việt Nam, mặc định 7 ngày, tối đa 14) trả `{entitlementId, coachId, coachName, sessionMinutes: 90, remainingQuota, bookableReason, policy{minLeadHours:12, advanceDays:30, stepMinutes:30, changeDeadlineHours:24}, slots[{startAtUtc, endAtUtc, rooms[{roomId,name}]}]}`. `bookableReason` null khi đặt được, hoặc `pt_entitlement_not_active`, `pt_quota_exhausted`, `pt_relationship_required`, `pt_no_room_configured` (khi đó `slots` rỗng). Khung trống = lưới 30 phút trong giờ mở cửa của ít nhất một phòng PT còn trống, Coach và Member đều không bận, trong hiệu lực gói, cách hiện tại ≥12 giờ và ≤30 ngày. `POST` nhận `{entitlementId, startAtUtc, roomId?}` (bỏ trống phòng thì hệ thống gán phòng trống đầu tiên theo tên) và trả 201 `PtSessionResponse`. Lỗi: 400 `pt_start_not_aligned` `pt_booking_too_soon` `pt_booking_too_far`; 404 `pt_entitlement_not_found` (kể cả quyền lợi của người khác); 409 `pt_entitlement_not_active` `pt_quota_exhausted` `pt_relationship_required` `pt_session_outside_membership_validity` `pt_coach_conflict` `pt_member_conflict` `pt_slot_unavailable`. Không có Idempotency-Key: đặt lại cùng giờ trả 409 `pt_member_conflict`, không giữ quota hai lần. Cùng khoá advisory Coach/Member, quota và occupancy với Manager xếp lịch.
 
 ### WorkoutController — `api`
 

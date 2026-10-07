@@ -4,10 +4,7 @@ import { useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
-import {
-  addDaysIso,
-  todayIso,
-} from "@/lib/format";
+import { addDaysIso, todayIso } from "@/lib/format";
 import { AsyncSection } from "@/components/ui";
 import { catalogApi } from "@/features/catalog";
 import type { CourtScheduleEntryDto } from "@/lib/types";
@@ -34,28 +31,17 @@ export function CourtCalendar({
 
   const l = t.operations;
 
-  const [date, setDate] =
-    useState(todayIso());
+  const [date, setDate] = useState(todayIso());
 
-  const [view, setView] =
-    useState<CalendarView>("week");
+  const [view, setView] = useState<CalendarView>("week");
 
-  const [roomId, setRoom] =
-    useState("");
+  const [roomId, setRoom] = useState("");
 
-  const [selected, setSelected] =
-    useState<CourtScheduleEntryDto | null>(
-      null,
-    );
+  const [selected, setSelected] = useState<CourtScheduleEntryDto | null>(null);
 
-  const days =
-    view === "day" ? 1 : 7;
+  const days = view === "day" ? 1 : 7;
 
-  const rooms = useApi(
-    (signal) =>
-      catalogApi.rooms(signal),
-    [],
-  );
+  const rooms = useApi((signal) => catalogApi.rooms(signal), []);
 
   const state = useApi(
     (signal) =>
@@ -67,13 +53,7 @@ export function CourtCalendar({
         signal,
         includeCoachPt,
       ),
-    [
-      date,
-      days,
-      roomId,
-      user?.role,
-      includeCoachPt,
-    ],
+    [date, days, roomId, user?.role, includeCoachPt],
   );
 
   const labels = {
@@ -115,17 +95,12 @@ export function CourtCalendar({
             classesOnly
               ? type === "CLASS_SESSION"
               : user?.role === "Coach"
-                ? type ===
-                    "CLASS_SESSION" ||
-                  (includeCoachPt &&
-                    type === "PT_SESSION")
+                ? type === "CLASS_SESSION" ||
+                  (includeCoachPt && type === "PT_SESSION")
                 : true,
           )
           .map(([, label]) => (
-            <span
-              className={`chip ${styles.legendChip}`}
-              key={label}
-            >
+            <span className={`chip ${styles.legendChip}`} key={label}>
               {label}
             </span>
           ))}
@@ -144,49 +119,34 @@ export function CourtCalendar({
 
       <AsyncSection state={state}>
         {(rows) => {
-          const filteredRows =
-            rows.filter((entry) =>
-              classesOnly
-                ? entry.sourceType ===
-                  "CLASS_SESSION"
-                : user?.role === "Coach"
-                  ? entry.sourceType ===
-                      "CLASS_SESSION" ||
-                    (includeCoachPt &&
-                      entry.sourceType ===
-                        "PT_SESSION")
-                  : true,
-            );
+          const filteredRows = rows.filter((entry) =>
+            classesOnly
+              ? entry.sourceType === "CLASS_SESSION"
+              : user?.role === "Coach"
+                ? entry.sourceType === "CLASS_SESSION" ||
+                  (includeCoachPt && entry.sourceType === "PT_SESSION")
+                : true,
+          );
 
-          const events: CalendarEvent[] =
-            filteredRows.map(
-              (entry) => ({
-                id: `${entry.sourceType}-${entry.sourceId}`,
+          const events: CalendarEvent[] = filteredRows.map((entry) => ({
+            id: `${entry.sourceType}-${entry.sourceId}`,
 
-                title: entry.title,
+            title: entry.title,
 
-                type: entry.sourceType,
+            type: entry.sourceType,
 
-                startAtUtc:
-                  entry.startAtUtc,
+            startAtUtc: entry.startAtUtc,
 
-                endAtUtc:
-                  entry.endAtUtc,
+            endAtUtc: entry.endAtUtc,
 
-                roomName:
-                  rooms.data?.find(
-                    (room) =>
-                      room.roomId ===
-                      entry.roomId,
-                  )?.name ?? null,
+            roomName:
+              rooms.data?.find((room) => room.roomId === entry.roomId)?.name ??
+              null,
 
-                coachName:
-                  entry.coachName,
+            coachName: entry.coachName,
 
-                status:
-                  entry.status,
-              }),
-            );
+            status: entry.status,
+          }));
 
           return (
             <Calendar
@@ -195,48 +155,31 @@ export function CourtCalendar({
               view={view}
               labels={{
                 day: t.calendar.day,
-                week:
-                  t.calendar.week,
-                list:
-                  t.calendar.list,
-                previous:
-                  t.calendar.previous,
-                today:
-                  t.calendar.today,
-                next:
-                  t.calendar.next,
-                empty:
-                  t.calendar.empty,
-                eventDetails:
-                  t.calendar
-                    .eventDetails,
+                week: t.calendar.week,
+                list: t.calendar.list,
+                previous: t.calendar.previous,
+                today: t.calendar.today,
+                next: t.calendar.next,
+                empty: t.calendar.empty,
+                eventDetails: t.calendar.eventDetails,
               }}
-              onDateChange={(
-                value,
-              ) => {
+              onDateChange={(value) => {
                 setDate(value);
                 clear();
               }}
-              onViewChange={(
-                value,
-              ) => {
+              onViewChange={(value) => {
                 setView(value);
                 clear();
               }}
-              onSelectEvent={(
-                event,
-              ) => {
-                const entry =
-                  filteredRows.find(
-                    (candidate) =>
-                      `${candidate.sourceType}-${candidate.sourceId}` ===
-                      event.id,
-                  );
+              onSelectEvent={(event) => {
+                const entry = filteredRows.find(
+                  (candidate) =>
+                    `${candidate.sourceType}-${candidate.sourceId}` ===
+                    event.id,
+                );
 
                 if (entry) {
-                  setSelected(
-                    entry,
-                  );
+                  setSelected(entry);
                 }
               }}
             />
@@ -248,19 +191,10 @@ export function CourtCalendar({
         <CalendarEventDrawer
           entry={selected}
           roomName={
-            rooms.data?.find(
-              (room) =>
-                room.roomId ===
-                selected.roomId,
-            )?.name
+            rooms.data?.find((room) => room.roomId === selected.roomId)?.name
           }
-          manager={
-            user?.role ===
-            "CenterManager"
-          }
-          onClose={() =>
-            setSelected(null)
-          }
+          manager={user?.role === "CenterManager"}
+          onClose={() => setSelected(null)}
         />
       )}
     </>
