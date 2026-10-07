@@ -1,7 +1,27 @@
 import { vietnamUtc } from "@/lib/vietnam-time";
 import { addDaysIso } from "@/lib/format";
 import type { ManagerCourseDto } from "@/lib/types";
-export function previewSessions(course: ManagerCourseDto, duration: number) {
+export function previewSessions(
+  course: Pick<ManagerCourseDto, "startDate" | "numSessions" | "scheduleRules">,
+  duration: number,
+) {
+  if (
+    !/^\d{4}-\d{2}-\d{2}$/.test(course.startDate) ||
+    !Number.isInteger(course.numSessions) ||
+    course.numSessions < 1 ||
+    course.numSessions > 100 ||
+    !Number.isFinite(duration) ||
+    duration <= 0 ||
+    !course.scheduleRules.length ||
+    course.scheduleRules.some(
+      (r) =>
+        !Number.isInteger(r.dayOfWeek) ||
+        r.dayOfWeek < 0 ||
+        r.dayOfWeek > 6 ||
+        !/^([01]\d|2[0-3]):[0-5]\d$/.test(r.startTimeLocal),
+    )
+  )
+    return [];
   const weekday = new Date(`${course.startDate}T12:00:00Z`).getUTCDay();
   if (
     !course.scheduleRules.some((r) => r.dayOfWeek === weekday) ||

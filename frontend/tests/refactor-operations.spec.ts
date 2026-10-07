@@ -103,7 +103,7 @@ for (const hasPt of [false, true]) {
         en.operations.teachingSchedule,
       );
       await page
-        .getByRole("button", { name: /Class session.*My badminton course/ })
+        .getByRole("button", { name: /My badminton course/ })
         .click();
       await expect(
         page.getByRole("cell", { name: "Assigned member", exact: true }),
@@ -111,9 +111,11 @@ for (const hasPt of [false, true]) {
       await expect(
         page.getByRole("button", { name: "Present", exact: true }),
       ).toHaveCount(0);
+      await page.keyboard.press("Escape");
+      await expect(page.getByRole("dialog")).toHaveCount(0);
       // Assigned PT sessions stay visible read-only even after the PT specialty is removed.
       await page
-        .getByRole("button", { name: /PT session.*My PT member/ })
+        .getByRole("button", { name: /My PT member/ })
         .click();
       await expect(
         page.getByRole("cell", { name: "My PT member", exact: true }),
@@ -1307,6 +1309,8 @@ test("manager creates an API-backed draft and preserves the form on conflict", a
   page,
 }) => {
   await session(page, "CENTER_MANAGER");
+  await page.route("**/api/availability/rooms?**", (r) => r.fulfill({ json: [{ roomId: 1, isAvailable: true }] }));
+  await page.route("**/api/availability/coaches?**", (r) => r.fulfill({ json: [{ coachId: memberId, isAvailable: true }] }));
   await page.route("**/api/manager/classes?**", (r) =>
     r.fulfill({ json: { items: [], totalCount: 0, page: 1, pageSize: 20 } }),
   );
@@ -1322,16 +1326,21 @@ test("manager creates an API-backed draft and preserves the form on conflict", a
     });
   });
   await page.goto("/manager/classes");
-  await page.getByRole("button", { name: "Create", exact: true }).click();
+  await page.getByRole("link", { name: "Create", exact: true }).click();
   await page.getByLabel("Code", { exact: true }).fill("COURSE-2");
   await page.getByLabel("Name", { exact: true }).fill("Badminton course");
   await page.getByLabel("Sport", { exact: true }).first().selectOption("1");
+  await page.getByRole("button", { name: en.operations.next, exact: true }).click();
   await page.getByLabel("Room", { exact: true }).selectOption("1");
   await page.getByLabel("Coach", { exact: true }).selectOption(memberId);
-  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await page.getByRole("button", { name: en.operations.next, exact: true }).click();
+  await page.getByRole("button", { name: en.operations.next, exact: true }).click();
+  await page.getByRole("button", { name: en.managerOperations.saveDraft, exact: true }).click();
   await expect(page.locator("main [role=alert]")).toHaveText(
     "Code already exists",
   );
+  for (let step = 0; step < 3; step++)
+    await page.getByRole("button", { name: en.operations.previous, exact: true }).click();
   await expect(page.getByLabel("Code", { exact: true })).toHaveValue(
     "COURSE-2",
   );
@@ -1374,11 +1383,12 @@ test("incident preview blocks resolution and invalidates when the form changes",
   await page.getByLabel("Reason").fill("Court maintenance");
   await page.getByRole("button", { name: "Review", exact: true }).click();
   await expect(
-    page.getByRole("button", { name: "Resolve incident" }),
-  ).toBeDisabled();
+    page.getByText("Move the class first"),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: en.managerOperations.finalResolve })).toHaveCount(0);
   await page.getByLabel("Reason").fill("Different scope reason");
   await expect(
-    page.getByRole("button", { name: "Resolve incident" }),
+    page.getByRole("button", { name: en.managerOperations.recheck }),
   ).toHaveCount(0);
   expect(resolves).toBe(0);
 });
@@ -1614,7 +1624,7 @@ test("late incident preview cannot resolve after its reason changes", async ({
   release.resolve();
   await expect(review).toBeEnabled();
   await expect(
-    page.getByRole("button", { name: "Resolve incident", exact: true }),
+    page.getByRole("button", { name: en.managerOperations.finalResolve, exact: true }),
   ).toHaveCount(0);
 });
 

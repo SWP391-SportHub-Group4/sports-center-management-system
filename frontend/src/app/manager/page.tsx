@@ -1,4 +1,12 @@
 "use client";
 import { PtPage } from "@/features/pt/ui";
 import { ManagerOverview } from "@/features/reports/reports";
-export default function Page() { return <PtPage title="overview" manager><ManagerOverview/></PtPage>; }
+import { OperationsOverview } from "@/features/manager/operations-overview";
+export default function Page() {
+  return (
+    <PtPage title="overview" manager>
+      <OperationsOverview />
+      <ManagerOverview />
+    </PtPage>
+  );
+}
