@@ -1,6 +1,34 @@
 import type { Translations } from "./en";
 
 export const vi: Translations = {
+  facilityHours: {
+    hint: "Bật các ngày sân hoạt động và chọn giờ mở, đóng cửa. Ngày không bật được coi là đóng cửa.",
+    open: "Mở cửa",
+    openTime: "Giờ mở cửa",
+    closeTime: "Giờ đóng cửa",
+    invalidRange: "Giờ đóng cửa phải sau giờ mở cửa.",
+  },
+  courseHistory: {
+    coachUnavailable: "Không tìm thấy coach",
+    actor: "Người thực hiện",
+    before: "Trước thay đổi",
+    after: "Sau thay đổi",
+    empty: "Không có giá trị được ghi nhận",
+    reason: "Lý do",
+    class: "Lớp",
+    thresholdStatus: "Trạng thái ngưỡng",
+    breakEvenThreshold: "Ngưỡng hòa vốn",
+    confirmedCount: "Đã ghi danh thanh toán",
+    activeHoldCount: "Chỗ đang giữ",
+    refundPoints: "Điểm hoàn trả",
+    sessionsNotProvided: "Buổi chưa cung cấp",
+    CREATE_CLASS: "Tạo lớp",
+    UPDATE_CLASS: "Cập nhật lớp",
+    PUBLISH_CLASS: "Mở lớp",
+    CANCEL_CLASS: "Hủy lớp",
+    WAIVE_CLASS_THRESHOLD: "Miễn ngưỡng hòa vốn",
+    UPDATE_CLASS_THRESHOLD_PRICING: "Đổi giá và chi phí",
+  },
   managerOperations: {
     overview: "Tổng quan vận hành",
     priorities: "Việc cần xử lý",

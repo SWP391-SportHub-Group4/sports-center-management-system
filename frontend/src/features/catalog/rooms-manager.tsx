@@ -21,6 +21,8 @@ import { dayRange, vietnamUtc } from "@/lib/vietnam-time";
 import { OpeningHoursEditor } from "./opening-hours-editor";
 import { catalogApi } from "./api";
 import type { RoomBlockDto } from "@/lib/types";
+import { CatalogFormDialog } from "./manager-shared";
+import styles from "./manager-catalog.module.css";
 function Blocks({ roomId }: { roomId: number }) {
   const { t } = useLanguage();
   const l = t.operations;
@@ -39,7 +41,7 @@ function Blocks({ roomId }: { roomId: number }) {
   return (
     <>
       <h3>{l.blocks}</h3>
-      <div className="form-grid">
+      <div className={styles.facilityGrid}>
         <Field label={l.from}>
           <input
             type="date"
@@ -90,6 +92,7 @@ function Blocks({ roomId }: { roomId: number }) {
         )}
       </AsyncSection>
       <form
+        className="stack"
         onSubmit={async (e) => {
           e.preventDefault();
           if (end <= start) return;
@@ -110,7 +113,7 @@ function Blocks({ roomId }: { roomId: number }) {
           }
         }}
       >
-        <div className="form-grid">
+        <div className={styles.facilityGrid}>
           <Field label={l.start}>
             <input
               type="datetime-local"
@@ -235,107 +238,83 @@ export function RoomsManager({ detailId }: { detailId?: number } = {}) {
         )}
       </div>
       {editing && (
-        <Dialog
+        <CatalogFormDialog
           title={id ? l.edit : l.create}
-          size="lg"
+          busy={mutation.busy}
+          mutation={mutation}
           onClose={() => {
             if (!mutation.busy) setEditing(false);
           }}
+          onSubmit={async (e) => {
+            e.preventDefault();
+            const body = {
+              ...form,
+              roomTypeId: form.roomTypeId ? Number(form.roomTypeId) : null,
+            };
+            if (
+              await mutation.run(() =>
+                id
+                  ? api.put(`/api/rooms/${id}`, body)
+                  : api.post("/api/rooms", body),
+              )
+            ) {
+              state.reload();
+              setId(null);
+              setForm(empty);
+              setEditing(false);
+            }
+          }}
         >
-          <form
-            onSubmit={async (e) => {
-              e.preventDefault();
-              const body = {
-                ...form,
-                roomTypeId: form.roomTypeId ? Number(form.roomTypeId) : null,
-              };
-              if (
-                await mutation.run(() =>
-                  id
-                    ? api.put(`/api/rooms/${id}`, body)
-                    : api.post("/api/rooms", body),
-                )
-              ) {
-                state.reload();
-                setId(null);
-                setForm(empty);
-                setEditing(false);
-              }
-            }}
-          >
-            <fieldset disabled={mutation.busy}>
-              <div className="form-grid">
-                <Field label={l.name}>
-                  <input
-                    required
-                    maxLength={100}
-                    pattern=".*\S.*"
-                    value={form.name}
-                    onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  />
-                </Field>
-                <Field label={l.capacity}>
-                  <input
-                    required
-                    type="number"
-                    min={1}
-                    value={form.capacity}
+          <div className="form-grid">
+            <Field label={l.name}>
+              <input
+                required
+                maxLength={100}
+                pattern=".*\S.*"
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+              />
+            </Field>
+            <Field label={l.capacity}>
+              <input
+                required
+                type="number"
+                min={1}
+                value={form.capacity}
+                onChange={(e) =>
+                  setForm({ ...form, capacity: Number(e.target.value) })
+                }
+              />
+            </Field>
+            <AsyncSection state={types}>
+              {(rows) => (
+                <Field label={l.roomType}>
+                  <select
+                    value={form.roomTypeId}
                     onChange={(e) =>
-                      setForm({ ...form, capacity: Number(e.target.value) })
+                      setForm({ ...form, roomTypeId: e.target.value })
                     }
-                  />
+                  >
+                    <option value="">—</option>
+                    {rows.map((r) => (
+                      <option key={r.roomTypeId} value={r.roomTypeId}>
+                        {r.name}
+                      </option>
+                    ))}
+                  </select>
                 </Field>
-                <AsyncSection state={types}>
-                  {(rows) => (
-                    <Field label={l.roomType}>
-                      <select
-                        value={form.roomTypeId}
-                        onChange={(e) =>
-                          setForm({ ...form, roomTypeId: e.target.value })
-                        }
-                      >
-                        <option value="">—</option>
-                        {rows.map((r) => (
-                          <option key={r.roomTypeId} value={r.roomTypeId}>
-                            {r.name}
-                          </option>
-                        ))}
-                      </select>
-                    </Field>
-                  )}
-                </AsyncSection>
-              </div>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={form.isActive}
-                  onChange={(e) =>
-                    setForm({ ...form, isActive: e.target.checked })
-                  }
-                />
-                {l.active}
-              </label>
-              <div className="btn-row">
-                <button className="btn" disabled={mutation.busy}>
-                  {id ? l.save : l.create}
-                </button>
-                <button
-                  type="button"
-                  className="btn btn--secondary"
-                  disabled={mutation.busy}
-                  onClick={() => {
-                    setId(null);
-                    setForm(empty);
-                    setEditing(false);
-                  }}
-                >
-                  {id ? l.cancel : l.resetForm}
-                </button>
-              </div>
-            </fieldset>
-          </form>
-          <MutationFeedback mutation={mutation} />
-        </Dialog>
+              )}
+            </AsyncSection>
+          </div>
+          <label className={styles.check}>
+            <input
+              type="checkbox"
+              checked={form.isActive}
+              onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
+            />
+            {l.active}
+          </label>
+        </CatalogFormDialog>
       )}
       {!detailId && (
         <FilterBar
