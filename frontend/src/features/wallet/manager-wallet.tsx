@@ -46,7 +46,7 @@ function OwnerWallet({ owner }: { owner: UserAdminDto }) {
 export function ManagerWallet() {
   const { t } = useLanguage();
   const l = t.staffWork;
-  const [role, setRole] = useState("MEMBER");
+  const role = "MEMBER";
   const [keyword, setKeyword] = useState("");
   const [page, setPage] = useState(1);
   const [owner, setOwner] = useState<UserAdminDto | null>(null);

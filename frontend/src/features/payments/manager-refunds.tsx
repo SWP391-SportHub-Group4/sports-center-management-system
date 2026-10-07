@@ -10,7 +10,7 @@ import { formatDateTime, formatMoney, formatPoints } from "@/lib/format";
 import { pagedItems } from "@/lib/paged";
 import type { PaymentAdjustmentDto, Paged } from "@/lib/types";
 import { MutationFeedback, useMutation } from "@/features/operations";
-import styles from "@/features/finance/finance.module.css";
+import { financeStyles as styles } from "@/features/finance";
 
 const VND_PER_POINT = 1000;
 const VIEWS = ["REQUESTED", "COMPLETED", "REJECTED", ""] as const;

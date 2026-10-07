@@ -8,7 +8,7 @@ import { useLanguage } from "@/lib/language";
 import { MutationFeedback, useMutation } from "@/features/operations";
 import { reportsApi, type ReportFilters } from "./api";
 import { formatDateTime } from "@/lib/format";
-import fin from "@/features/finance/finance.module.css";
+import { financeStyles as fin } from "@/features/finance";
 import { useEffect } from "react";
 const columnsByType: Record<string, string[]> = {
   REVENUE_DIMENSIONS: [

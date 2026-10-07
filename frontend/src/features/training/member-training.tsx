@@ -10,7 +10,7 @@ import { useLanguage } from "@/lib/language";
 import { formatDate, formatDateTime, formatTime } from "@/lib/format";
 import { pagedItems } from "@/lib/paged";
 import { choiceQuery, useUrlQuery } from "@/lib/useUrlQuery";
-import { ListPager } from "@/features/pt/ui";
+import { ListPager } from "@/features/pt";
 import type {
   HomeworkDto,
   Paged,
