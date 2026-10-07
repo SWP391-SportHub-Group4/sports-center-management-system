@@ -584,6 +584,10 @@ textarea {
   font-weight: 600;
 }
 
+.field__error--reserved {
+  min-height: 1.1em;
+}
+
 .sr-only {
   position: absolute;
   width: 1px;
