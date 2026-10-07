@@ -31,7 +31,7 @@ section.card {
 }
 
 .separator {
-  margin: var(--space-6) 0;
+  margin: var(--space-5) 0;
 }
 
 .form {
@@ -64,9 +64,11 @@ section.card {
   text-underline-offset: 0.2em;
 }
 
+/* Lỗi đăng nhập nằm ngay dưới tiêu đề, trước các ô nhập. Chỗ của nó được giữ sẵn (thay cho khoảng trắng
+   dưới phụ đề) để nút Sign In không bị đẩy xuống khi lỗi xuất hiện. */
 .feedback {
-  min-height: 36px;
-  margin-top: calc(var(--space-1) * -1);
+  min-height: 52px;
+  margin: calc(var(--space-5) * -1) 0 var(--space-4);
 }
 
 .feedback :global(.alert) {

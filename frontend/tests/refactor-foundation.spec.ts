@@ -42,12 +42,19 @@ test("F5 ignores stale cached role and refreshes the authoritative profile", asy
     route.fulfill({ json: [] }),
   );
   await page.goto("/member");
-  await expect(page.locator("#main-content h1")).toHaveText("Member space");
+  await expect(page.locator("#main-content h1")).toHaveText(
+    "Hello, Current Member",
+  );
   await expect(page.getByText("Stale administrator")).toHaveCount(0);
-  await expect(page.getByText("Current Member").first()).toBeVisible();
+  // Tên trong menu tài khoản chỉ hiện từ 1600px; tiêu đề trang luôn có lời chào.
+  await expect(
+    page.getByRole("heading", { name: "Hello, Current Member" }),
+  ).toBeVisible();
   await expect(page.getByText("250", { exact: true })).toBeVisible();
   await page.reload();
-  await expect(page.locator("#main-content h1")).toHaveText("Member space");
+  await expect(page.locator("#main-content h1")).toHaveText(
+    "Hello, Current Member",
+  );
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 900 });
     await expect(page.locator("#main-content h1")).toBeVisible();
