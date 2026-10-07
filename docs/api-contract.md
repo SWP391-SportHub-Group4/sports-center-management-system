@@ -61,7 +61,7 @@ Các endpoint dưới đây phục vụ frontend API-backed. Không thay schema/
 | POST | `/api/class-threshold-responses/{id}` | `{choice:REFUND|TRANSFER,targetClassId}`; dùng cùng transaction/lock/idempotent-final-choice như token route. Retry AwaitingPayment giữ nguyên đích. |
 | GET | `/api/members/me/pt-session-change-requests`, `/api/members/me/pt-coach-change-requests` | Chỉ owner, 100 request gần nhất với trạng thái/reviewNote. |
 | GET | `/api/coach-member-relationships` | Member/Coach/Manager; Member/Coach bị clamp theo owner. Không có endpoint members/me/relationships giả. |
-| GET | `/api/wallet/me/ledger?page=&pageSize=&entryType=` | Array WalletLedgerResponse, không Paged; timestamp createdAtUtc. Filter HOLD/RELEASE/SPEND/EARN/ADJUSTMENT áp trước pagination; filter sai 400. Staff audited ledger cũng hỗ trợ filter. |
+| GET | `/api/wallet/me/ledger?page=&pageSize=&entryType=` | Array WalletLedgerResponse, không Paged; timestamp createdAtUtc. Filter HOLD/RELEASE/SPEND/EARN/ADJUSTMENT áp trước pagination; filter sai 400. Ledger staff cũng hỗ trợ filter; chỉ Receptionist ghi audit lần xem. |
 
 ## Quy ước chung
 
@@ -470,7 +470,7 @@ Actor viết tắt: **M** = CenterManager (policy `CatalogManage`), **FD** = Man
 |---|---|---|---|---|
 | GET | `api/sports?service=` | ẩn danh | — | `SportResponse[]` chỉ môn active, mỗi môn chỉ gồm service đang bật, không có `readiness`. `service` lọc theo `MEMBERSHIP_ACCESS`, `GROUP_COURSE`, `COURT_RENTAL` hoặc `PERSONAL_TRAINING`. `SportResponse`: `{sportId, code, name, description, imageUrl, sortOrder, isActive, services[{serviceType,isEnabled,defaultSessionMinutes?,defaultMaxCapacity?}], readiness?[{serviceType,ready,missing[]}]}` với `missing` gồm `room_type`, `room`, `opening_hours`, `court_rate`. CAT-01: không còn `operationType`; Personal Training không còn là môn riêng, PT là dịch vụ của Gym. |
 | GET | `api/manager/sports?service=` | M | — | mọi môn, đủ service và `readiness` (chỉ GROUP_COURSE và COURT_RENTAL) |
-| POST | `api/manager/sports` | M | `{code, name, description?, imageUrl?, sortOrder, services[{serviceType,isEnabled,defaultSessionMinutes?,defaultMaxCapacity?}]}` | 201; 400 `sport_code_invalid` `service_type_invalid` `service_not_allowed_for_sport` (Membership/PT ngoài môn Gym) `sport_group_course_defaults_required` `service_defaults_not_allowed`; 409 `sport_code_taken` `sport_name_taken` |
+| POST | `api/manager/sports` | M | `{code, name, description?, imageUrl?, services[{serviceType,isEnabled,defaultSessionMinutes?,defaultMaxCapacity?}]}` | 201; 400 `sport_code_invalid` `service_type_invalid` `service_not_allowed_for_sport` (Membership/PT ngoài môn Gym) `sport_group_course_defaults_required` `service_defaults_not_allowed`; 409 `sport_code_taken` `sport_name_taken` |
 | PUT | `api/manager/sports/{id}` | M | như trên, không nhận đổi `code`. Service không liệt kê bị TẮT, không bị xóa | 200; 400 `sport_code_immutable` và các lỗi như trên; 404 `sport_not_found` |
 | POST | `api/manager/sports/{id}/deactivate`, `/activate` | M | — | `SportResponse` |
 | POST | `api/manager/sports/{id}/services/{serviceType}/enable`, `/disable` | M | — | `SportResponse`; 404 `service_not_configured`. Tắt chỉ chặn giao dịch mới |
@@ -510,7 +510,8 @@ Các endpoint sau đã có source và integration test PostgreSQL. 1 điểm = 1
 |---|---|---|---|
 | GET | `api/wallet/me` | Member | `{ownerUserId, availablePoints, heldPoints, vndPerPoint}`; subject lấy từ JWT |
 | GET | `api/wallet/me/ledger?page&pageSize` | Member | Mảng ledger, mới nhất trước; page >=1, pageSize 1..100 |
-| GET | `api/members/{memberId}/points`, `.../points/ledger` | Receptionist/Manager | Chỉ Member; ghi audit lần xem |
+| GET | `api/members/{memberId}/points`, `.../points/ledger` | Receptionist/Manager | Chỉ Member; Receptionist ghi audit lần xem, Manager chỉ đọc và không ghi audit |
+| GET | `api/manager/wallets/{ownerId}`, `.../ledger` | Manager | Số dư/lịch sử của Member; xem, refresh, lọc và phân trang không ghi audit |
 | POST | `api/wallets/{ownerId}/adjustments` | Manager | `{idempotencyKey:guid, points:int>0, direction:"CREDIT"|"DEBIT", reason}`; trả WalletResult. Cùng key khác payload → 409; Debit chỉ tiêu available |
 | GET | `api/invoices/{invoiceId}/point-selection` | Chủ invoice hoặc Receptionist | `{invoiceId, memberId, pointsApplied, cashAmount, holdExpiresAtUtc, status, revision}`; Receptionist chỉ xem Member, có audit |
 | POST | `api/invoices/{invoiceId}/point-confirmations` | Receptionist | `{memberId, points:int>0, revision:int}`; trả `{confirmationId, invoiceId, memberId, points, expiresAtUtc, holdExpiresAtUtc, status:"Pending", revision}` |
@@ -519,6 +520,10 @@ Các endpoint sau đã có source và integration test PostgreSQL. 1 điểm = 1
 | POST | `api/wallet/me/checkouts/{invoiceId}/points` | Member | `{points:int>=0}`; 0 = bỏ điểm; invoice phải thuộc JWT subject, không nhận owner từ client, không cần OTP |
 
 Ledger trả `id, entryType, points, availableDelta, heldDelta, availableAfter, heldAfter, referenceType, referenceId, note, createdAtUtc`. Entry types: `HOLD/RELEASE/SPEND/EARN/ADJUSTMENT`. Actor được lưu ở ledger; không có endpoint nạp/rút/chuyển điểm.
+
+Cột **Tham chiếu** trên lịch sử điểm hiển thị `referenceType · referenceId`: loại và mã nguồn của giao dịch, không phải mã chủ ví hay ID dòng ledger. Với `ManagerAdjustment`, `referenceId` là `idempotencyKey` của yêu cầu điều chỉnh; retry cùng key/payload dùng lại kết quả, không cộng/trừ hay ghi audit lần nữa. `id`/`ledgerEntryId` là ID bút toán riêng. Ví dụ nguồn khác: `RefundRequest` (yêu cầu hoàn), `SystemEvent` (hoàn do sự kiện hệ thống), `Invoice`/`CheckoutSession` (hóa đơn/chu kỳ checkout tùy luồng).
+
+Theo yêu cầu cập nhật 07/10/2026, Manager mở/xem ví không ghi `VIEW_OWNER_WALLET` hoặc `VIEW_MEMBER_WALLET`. Điều chỉnh lưu thành công ghi `ADJUST_POINTS` cùng transaction; validation/thất bại/retry đã áp dụng không sinh thêm log điều chỉnh. Các log xem ví đã ghi trước thay đổi vẫn giữ nguyên lịch sử. Quyền truy cập và audit xem ví của Receptionist không đổi.
 
 **Luồng và lỗi:**
 - Đọc point-selection lấy revision trước khi yêu cầu OTP. Stale revision → 409 `checkout_revision_changed`. Hóa đơn legacy không có cycle, đã Paid/Void hoặc quá hạn → 409 `checkout_unavailable`; khác Member → 403 `invoice_not_owned`.
@@ -636,3 +641,34 @@ Các loại export mới:
 - `GET /api/audit-logs` accepts optional `targetId` together with existing `targetEntity` filters. Exact target filtering happens before pagination/count. Existing role restrictions remain: Manager can read operational audit; Admin remains restricted to account events; Member/Coach/Receptionist cannot gain audit access through this parameter.
 - `GET /api/manager/sports` service rows include the actual `offeringId`. The Manager PT qualification editor sends these IDs to `/api/manager/coaches/{id}/service-qualifications`; it must not derive an offering ID from a sport ID. Public `GET /api/sports` omits `offeringId`.
 - This adds no migration and implements no new G03/G06/G07/G13 command. Current incident preview/action/recheck/resolve remains a sequence of separate operations; timeout resolve requires reconciliation before a fresh attempt.
+
+## Audit target display context
+
+`GET /api/audit-logs` adds optional `currentTargetLabel` and `referenceNames` (`Entity:ID` → current display name) for Manager results. Names are resolved only for targets and allowed references on the filtered, paginated page, with one bounded query per relevant entity type. Administrator results remain limited to account events and keep the existing target-account fields. This change does not grant access to any additional audit records or account/detail endpoints.
+
+The Manager UI prefers recorded identity (`name`, `targetName`, court-rate room-type name, notification subject or report type). If no identity was captured, it displays the current label and marks it as current. Missing/deleted/invalid targets retain their type and ID with an unavailable-name message. Reference names are also current display context, not historical evidence. Neither `oldValue` nor `newValue` is rewritten or backfilled. Changed prices, statuses, times, capacities and other operation values come exclusively from the event.
+
+Metadata uses an explicit field allowlist, localizes labels, compares recorded values, and understands legacy arrays for room opening hours and room-type sport links, PascalCase service fields, and `{value, reason}` wrappers. Unknown objects and secret fields are omitted. Empty details explicitly state that no details were recorded. Legacy missing values are shown as not recorded, never inferred from the current entity.
+
+New sport snapshots include name/code, description/image URL, activity/order and service duration/capacity; activity changes record name/code as well. Service compatibility logs include both previous and next room-type lists. Opening-hours and room-type compatibility snapshots now record the room/type name and their arrays. Room-block creation/deletion snapshots record the room name, room ID, start/end time and reason. Report export audits record the report type alongside the original parameters. These payload additions do not alter the operations themselves and require no audit-table migration.
+
+## Automatic sport display order
+
+
+`sortOrder` remains in `SportResponse` but is no longer a create/update input. Legacy requests containing `sortOrder` are ignored. The backend assigns consecutive positive ranks `1..N` across all sports: active first, inactive last. Creating or reactivating a sport appends it to the active group; deactivating appends it to the inactive group and compacts the ranks. Repeating activate/deactivate has no effect on position. Editing a name or service does not move the sport. Manager status/search filters preserve these global ranks; they do not renumber filtered results. Public/member lists include only active sports. Create and activity changes are serialized in one database transaction, including audit writes. No sport deletion or changes to sport IDs/codes are introduced.
+
+Migration `20261007110000_AutomaticSportOrder` normalizes negative, duplicate and sparse legacy ranks while preserving prior relative order within each activity group (`sortOrder`, name, ID). Historical audit snapshots are unchanged.
+
+## Manager class-slot preview — 07/10/2026
+
+`GET /api/manager/class-schedule/availability` is Manager-only. Query: `sportId`, `roomId`, `coachId` (optional), positive `capacity`, UTC `startUtc`/`endUtc`, optional `excludeSessionId`. The slot must have positive duration and be at most 12 hours. Response:
+
+```json
+{"available":false,"roomName":"Court A","coachName":"Coach Linh","reasons":["outside_opening_hours","coach_busy"]}
+```
+
+Reasons: `sport_inactive`, `room_not_found`, `room_inactive`, `room_incompatible`, `room_capacity_exceeded`, `outside_opening_hours`, `room_busy`, `coach_required`, `coach_inactive`, `coach_specialty_mismatch`, `coach_busy`. Names describe current records. The room must cover the entire slot under Vietnam-local opening hours. Both room and coach occupancy use overlapping active reservations across all source types.
+
+`excludeSessionId` must identify an existing Scheduled class session belonging to the requested sport; otherwise the endpoint returns `400 invalid_preview_session`. It excludes only occupancies whose source type is ClassSession and source ID is that session, allowing review of its replacement without treating its existing reservation as a conflict. Other reservations remain checked. Missing sport returns `404 sport_not_found`; invalid duration/capacity returns `400`.
+
+This endpoint does not reserve resources, change sessions, write audit events or require a migration. It checks resource availability, not all final command rules. Publish/reschedule/makeup still validate lifecycle, students, dates and occupancy in their existing transactions. The frontend also marks overlaps within the proposed draft as `draft_overlap`; that is a local validation code, not an API reason. Existing `/api/availability/rooms`, `/coaches` and room-busy contracts are unchanged.

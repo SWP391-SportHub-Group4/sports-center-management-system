@@ -195,6 +195,15 @@ async function fixture(
       return route.fulfill({ json: [{ roomId: 7 }] });
     if (p === "/api/availability/coaches")
       return route.fulfill({ json: [{ coachId }] });
+    if (p === "/api/manager/class-schedule/availability")
+      return route.fulfill({
+        json: {
+          available: true,
+          reasons: [],
+          roomName: "Court A",
+          coachName: "Coach Linh",
+        },
+      });
     if (p === "/api/manager/classes")
       return route.fulfill({
         json: route.request().method() === "POST" ? course : paged([course]),
@@ -448,11 +457,20 @@ test("class history scopes audit query by entity and target ID", async ({
   const url = new URL((await response).url());
   expect(url.searchParams.get("targetEntity")).toBe("Class");
   expect(url.searchParams.get("targetId")).toBe("1");
-  await expect(page.getByRole("cell", { name: "CREATE_CLASS" })).toBeVisible();
+  await expect(
+    page.getByRole("cell", { name: en.courseHistory.CREATE_CLASS }),
+  ).toBeVisible();
 });
 test("publish is blocked by room conflict", async ({ page }) => {
-  await page.route("**/api/availability/rooms?**", (route) =>
-    route.fulfill({ json: [] }),
+  await page.route("**/api/manager/class-schedule/availability?**", (route) =>
+    route.fulfill({
+      json: {
+        available: false,
+        reasons: ["room_busy"],
+        roomName: "Court A",
+        coachName: "Coach Linh",
+      },
+    }),
   );
   await page.goto("/manager/classes/1");
   await page
@@ -466,7 +484,7 @@ test("publish is blocked by room conflict", async ({ page }) => {
   await expect(
     page
       .getByRole("dialog")
-      .getByRole("cell", { name: en.operations.conflict, exact: true }),
+      .getByRole("cell", { name: new RegExp(en.operations.conflict) }),
   ).toHaveCount(2);
 });
 
@@ -544,6 +562,159 @@ test("session change is reviewed and rejected form stays intact", async ({
   ).toHaveValue("Move to next week");
   expect(changes).toBe(1);
 });
+test("session preview names resources, excludes itself and blocks unavailable changes", async ({
+  page,
+}) => {
+  let available = false;
+  let writes = 0;
+  await page.route("**/api/manager/class-schedule/availability?**", (route) => {
+    const query = new URL(route.request().url()).searchParams;
+    expect(query.get("excludeSessionId")).toBe(sessionId);
+    expect(query.get("capacity")).toBe("12");
+    return route.fulfill({
+      json: {
+        available,
+        roomName: "Court A",
+        coachName: "Coach Linh",
+        reasons: available ? [] : ["outside_opening_hours", "coach_busy"],
+      },
+    });
+  });
+  await page.route(`**/api/class-sessions/${sessionId}/reschedule`, (route) => {
+    writes++;
+    return route.fulfill({ json: session });
+  });
+  await page.goto("/manager/classes/1?tab=sessions");
+  await page
+    .getByRole("row")
+    .filter({ hasText: "Court A" })
+    .getByRole("button", { name: en.operations.edit, exact: true })
+    .click();
+  const dialog = page.getByRole("dialog");
+  await dialog
+    .getByLabel(en.operations.reason, { exact: true })
+    .fill("Move to next week");
+  await dialog
+    .getByRole("button", { name: en.managerOperations.reviewChange })
+    .click();
+  await expect(
+    dialog.getByText(
+      en.managerOperations.availabilityReasons.outside_opening_hours,
+    ),
+  ).toBeVisible();
+  await expect(
+    dialog.getByText(en.managerOperations.availabilityReasons.coach_busy),
+  ).toBeVisible();
+  await expect(
+    dialog.getByRole("button", { name: en.operations.confirm, exact: true }),
+  ).toBeDisabled();
+  await expect(
+    dialog.getByText(
+      new RegExp(`${en.managerOperations.newSchedule}.*Court A.*Coach Linh`),
+    ),
+  ).toBeVisible();
+  expect(writes).toBe(0);
+  available = true;
+  await dialog
+    .getByRole("button", { name: en.operations.refresh, exact: true })
+    .click();
+  await expect(
+    dialog.getByRole("button", { name: en.operations.confirm, exact: true }),
+  ).toBeEnabled();
+  await dialog
+    .getByRole("button", { name: en.operations.confirm, exact: true })
+    .click();
+  await expect(dialog).toHaveCount(0);
+  expect(writes).toBe(1);
+});
+
+test("failed session availability never enables confirmation and retry keeps the reason", async ({
+  page,
+}) => {
+  let failed = true;
+  await page.route("**/api/manager/class-schedule/availability?**", (route) =>
+    route.fulfill(
+      failed
+        ? {
+            status: 503,
+            json: {
+              code: "preview_unavailable",
+              message: "Preview temporarily unavailable",
+            },
+          }
+        : {
+            json: {
+              available: true,
+              roomName: "Court A",
+              coachName: "Coach Linh",
+              reasons: [],
+            },
+          },
+    ),
+  );
+  await page.goto("/manager/classes/1?tab=sessions");
+  await page
+    .getByRole("row")
+    .filter({ hasText: "Court A" })
+    .getByRole("button", { name: en.operations.edit, exact: true })
+    .click();
+  const dialog = page.getByRole("dialog");
+  await dialog
+    .getByLabel(en.operations.reason, { exact: true })
+    .fill("Keep this reason");
+  await dialog
+    .getByRole("button", { name: en.managerOperations.reviewChange })
+    .click();
+  await expect(
+    dialog.getByText("Preview temporarily unavailable"),
+  ).toBeVisible();
+  await expect(
+    dialog.getByRole("button", { name: en.operations.confirm, exact: true }),
+  ).toHaveCount(0);
+  failed = false;
+  await dialog
+    .getByRole("button", { name: en.operations.refresh, exact: true })
+    .click();
+  await expect(
+    dialog.getByRole("button", { name: en.operations.confirm, exact: true }),
+  ).toBeEnabled();
+  await expect(dialog.getByText("Reschedule · Keep this reason")).toBeVisible();
+});
+
+test("G02 remains an honest dependency with existing refund and transfer responses", async ({
+  page,
+}) => {
+  await page.route("**/api/manager/classes/1/threshold-responses?**", (route) =>
+    route.fulfill({
+      json: paged([
+        {
+          responseId: "refund",
+          memberName: "Member refunded",
+          choice: "REFUND",
+          resolutionStatus: "COMPLETED",
+        },
+        {
+          responseId: "transfer",
+          memberName: "Member transferring",
+          choice: "TRANSFER",
+          resolutionStatus: "AWAITING_PAYMENT",
+        },
+      ]),
+    }),
+  );
+  await page.goto("/manager/classes/1?tab=threshold");
+  await expect(page.getByText(en.managerOperations.interestGap)).toBeVisible();
+  await expect(
+    page.getByRole("row").filter({ hasText: "Member refunded" }),
+  ).toContainText(en.wireStatus.REFUND);
+  await expect(
+    page.getByRole("row").filter({ hasText: "Member transferring" }),
+  ).toContainText(en.wireStatus.TRANSFER);
+  await expect(
+    page.getByRole("button", { name: /Wait.*next|Chờ.*sau/i }),
+  ).toHaveCount(0);
+});
+
 test("schedule URL keeps day, room and activity filter through reload", async ({
   page,
 }) => {

@@ -13,6 +13,15 @@ namespace SportHub.Scheduling.Occupancy.Api;
 [Authorize]
 public class AvailabilityController(AvailabilityService availability) : ControllerBase
 {
+    [Authorize(Policy = SportHubPolicies.CenterManager)]
+    [HttpGet("api/manager/class-schedule/availability")]
+    public async Task<IActionResult> ClassSlot(
+        [FromQuery] int sportId, [FromQuery] int roomId, [FromQuery] Guid? coachId,
+        [FromQuery] int capacity, [FromQuery] DateTime startUtc, [FromQuery] DateTime endUtc,
+        CancellationToken ct, [FromQuery] Guid? excludeSessionId = null)
+        => Ok(await availability.CheckClassSlotAsync(sportId, roomId, coachId, capacity,
+            startUtc, endUtc, excludeSessionId, ct));
+
     [Authorize(Policy = SportHubPolicies.StaffRead)]
     [HttpGet("api/availability/rooms")]
     public async Task<IActionResult> FreeRooms(

@@ -33,7 +33,7 @@ function ClassImpactEditor({
         `/api/manager/classes/${session.classId}`,
         { signal },
       );
-      return { session, sportId: course.sportId };
+      return { session, sportId: course.sportId, capacity: course.capacity };
     },
     [id],
   );
@@ -43,6 +43,7 @@ function ClassImpactEditor({
         <SessionEditor
           session={data.session}
           sportId={data.sportId}
+          capacity={data.capacity}
           onSaved={onSaved}
           onClose={onClose}
         />

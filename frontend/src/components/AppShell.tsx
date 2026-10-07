@@ -471,7 +471,10 @@ export function AppFrame({
             <span className={shell.roleBadge}>{roleDisplay}</span>
           </Link>
 
-          <nav className={styles.staffNav} aria-label={roleDisplay}>
+          <nav
+            className={`${styles.staffNav} ${user.role === "SystemAdministrator" ? styles.adminNav : ""}`}
+            aria-label={roleDisplay}
+          >
             {entries.map((entry) =>
               entry.kind === "link" ? (
                 <Link
