@@ -5,13 +5,28 @@ import {
   useCallback,
   useContext,
   useEffect,
-  useState,
+  useMemo,
+  useSyncExternalStore,
   type ReactNode,
 } from "react";
 import { useAuth } from "@/lib/auth";
 import type { UserAdminDto } from "@/lib/types";
 
 const KEY = "sporthub.desk.member";
+const CHANGE_EVENT = "sporthub.desk.member.change";
+
+function getStoredValue() {
+  try {
+    return sessionStorage.getItem(KEY);
+  } catch {
+    return null;
+  }
+}
+
+function subscribe(callback: () => void) {
+  window.addEventListener(CHANGE_EVENT, callback);
+  return () => window.removeEventListener(CHANGE_EVENT, callback);
+}
 
 interface DeskContextValue {
   member: UserAdminDto | null;
@@ -27,30 +42,36 @@ export const DeskContext = createContext<DeskContextValue | null>(null);
  */
 export function DeskProvider({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
-  const [member, setState] = useState<UserAdminDto | null>(null);
-
-  useEffect(() => {
+  const storedValue = useSyncExternalStore(subscribe, getStoredValue, () => null);
+  const storedMember = useMemo(() => {
+    if (!storedValue) return null;
     try {
-      const raw = sessionStorage.getItem(KEY);
-      if (raw) setState(JSON.parse(raw) as UserAdminDto);
+      return JSON.parse(storedValue) as UserAdminDto;
     } catch {
-      /* storage bị chặn: chạy không lưu */
+      return null;
     }
-  }, []);
+  }, [storedValue]);
+  const member = !loading && !user ? null : storedMember;
 
   const setMember = useCallback((next: UserAdminDto | null) => {
-    setState(next);
     try {
       if (next) sessionStorage.setItem(KEY, JSON.stringify(next));
       else sessionStorage.removeItem(KEY);
     } catch {
       /* bỏ qua */
     }
+    window.dispatchEvent(new Event(CHANGE_EVENT));
   }, []);
 
   useEffect(() => {
-    if (!loading && !user) setMember(null);
-  }, [loading, user, setMember]);
+    if (loading || user) return;
+    try {
+      sessionStorage.removeItem(KEY);
+    } catch {
+      /* storage bị chặn: chạy không lưu */
+    }
+    window.dispatchEvent(new Event(CHANGE_EVENT));
+  }, [loading, user]);
 
   return (
     <DeskContext.Provider value={{ member, setMember }}>
