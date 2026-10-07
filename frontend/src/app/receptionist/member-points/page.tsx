@@ -1,10 +1,6 @@
-"use client";
-import { OperationsPage } from "@/features/operations/ui";
-import { MemberDesk } from "@/features/receptionist/front-desk";
+import { redirect } from "next/navigation";
+
+/** Tuyến cũ: ví điểm nay là tab trong hồ sơ hội viên. Giữ bookmark. */
 export default function Page() {
-  return (
-    <OperationsPage title="wallet" roles={["Receptionist"]}>
-      <MemberDesk mode="wallet" />
-    </OperationsPage>
-  );
+  redirect("/receptionist/members");
 }

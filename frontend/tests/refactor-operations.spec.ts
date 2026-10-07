@@ -1287,14 +1287,29 @@ test("switching members resets wallet data and fetches the selected member only"
       },
     });
   });
-  await page.goto("/receptionist/member-points");
+  await page.route(new RegExp("/api/users/[0-9a-f-]{36}$"), (r) => {
+    const id = new URL(r.request().url()).pathname.split("/").pop()!;
+    return r.fulfill({
+      json: {
+        userId: id,
+        fullName: id === memberId ? "Alice" : "Bob",
+        email: `${id}@example.com`,
+        status: "ACTIVE",
+        role: "MEMBER",
+      },
+    });
+  });
+  await page.goto("/receptionist");
   await page.getByPlaceholder(/Enter name/).fill("Alice");
   await page.getByRole("button", { name: /Alice/ }).click();
+  await page.getByRole("link", { name: "Open profile" }).click();
+  await page.getByRole("tab", { name: "Wallet" }).click();
   await expect(page.getByText("987", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Change", exact: true }).click();
+  await page.getByRole("button", { name: "Change member" }).click();
   await expect(page.getByText("987", { exact: true })).toHaveCount(0);
-  await page.getByPlaceholder(/Enter name/).fill("Bob");
-  await page.getByRole("button", { name: /Bob/ }).click();
+  await page.getByLabel("Find a member").fill("Bob");
+  await page.getByRole("row", { name: /Bob/ }).getByRole("link").click();
+  await page.getByRole("tab", { name: "Wallet" }).click();
   await expect(page.getByText("20", { exact: true })).toBeVisible();
   expect(lookedUp).toEqual([
     `/api/members/${memberId}/points`,

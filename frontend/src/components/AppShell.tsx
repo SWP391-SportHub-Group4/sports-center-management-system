@@ -50,7 +50,7 @@ export const RECEPTIONIST_SHORTCUTS: Record<
     label: "Alt + 1",
     contentKey: "gymCheckin",
   },
-  "/receptionist/sell-plans": {
+  "/receptionist/sales": {
     key: "2",
     label: "Alt + 2",
     contentKey: "sellPlans",
@@ -65,7 +65,7 @@ export const RECEPTIONIST_SHORTCUTS: Record<
     label: "Alt + 4",
     contentKey: "invoices",
   },
-  "/receptionist/registrations": {
+  "/receptionist/members": {
     key: "5",
     label: "Alt + 5",
     contentKey: "registrations",
@@ -89,14 +89,12 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { href: "/member/profile", labelKey: "trainingProfile" },
   ],
   Receptionist: [
-    { href: "/receptionist", labelKey: "overview" },
-    { href: "/receptionist/gym-checkin", labelKey: "gymCheckin" },
-    { href: "/receptionist/sell-plans", labelKey: "sellPlansInvoices" },
+    { href: "/receptionist", labelKey: "frontDesk" },
+    { href: "/receptionist/members", labelKey: "members" },
+    { href: "/receptionist/sales", labelKey: "sales" },
     { href: "/receptionist/attendance", labelKey: "attendance" },
-    { href: "/receptionist/invoices", labelKey: "invoiceLookup" },
-    { href: "/receptionist/registrations", labelKey: "classRegistration" },
     { href: "/receptionist/court-schedule", labelKey: "courtSchedule" },
-    { href: "/receptionist/member-points", labelKey: "wallet" },
+    { href: "/receptionist/invoices", labelKey: "transactions" },
   ],
   // PT actions are filtered by current specialties in getNavForUser().
   Coach: [
@@ -233,21 +231,6 @@ const GROUP_SPEC: Partial<Record<Role, (string | [GroupKey, string[]])[]>> = {
         "/coach/progress",
         "/coach/homework",
         "/coach/ai-suggestions",
-      ],
-    ],
-  ],
-  Receptionist: [
-    "/receptionist",
-    "/receptionist/gym-checkin",
-    "/receptionist/attendance",
-    "/receptionist/registrations",
-    "/receptionist/court-schedule",
-    [
-      "billing",
-      [
-        "/receptionist/sell-plans",
-        "/receptionist/invoices",
-        "/receptionist/member-points",
       ],
     ],
   ],
@@ -502,7 +485,7 @@ export function AppFrame({
             <span className={shell.brandLogo}>
               Sport<span className={shell.brandLogoAccent}>Hub</span>
             </span>
-            <span className={shell.portalBadge}>{roleDisplay}</span>
+            <span className={styles.roleBadge}>{roleDisplay}</span>
           </Link>
 
           <nav className={styles.staffNav} aria-label={roleDisplay}>

@@ -20,6 +20,9 @@ export interface AuthFieldProps extends Omit<
   icon?: ReactNode;
   /** Phần tử cuối ô (vd. nút con mắt). Ô tự chừa chỗ để chữ không chạy dưới nó. */
   trailing?: ReactNode;
+  /** Inline validation message; reserveErrorSpace keeps the form from shifting. */
+  error?: string;
+  reserveErrorSpace?: boolean;
 }
 
 /**
@@ -28,33 +31,54 @@ export interface AuthFieldProps extends Omit<
  * (autofill) cũng đẩy nhãn lên để không đè chữ.
  */
 export const AuthField = forwardRef<HTMLInputElement, AuthFieldProps>(
-  function AuthField({ label, icon, trailing, id, className, ...rest }, ref) {
+  function AuthField(
+    { label, icon, trailing, error, reserveErrorSpace, id, className, ...rest },
+    ref,
+  ) {
     const generatedId = useId();
     const inputId = id ?? generatedId;
+    const errorId = `${inputId}-error`;
+    const describedBy =
+      [rest["aria-describedby"], error ? errorId : null]
+        .filter(Boolean)
+        .join(" ") || undefined;
 
     return (
-      <div
-        className={[
-          styles.field,
-          icon ? styles.hasIcon : "",
-          trailing ? styles.hasTrailing : "",
-          className ?? "",
-        ]
-          .filter(Boolean)
-          .join(" ")}
-      >
-        {icon && <span className={styles.icon}>{icon}</span>}
-        <input
-          ref={ref}
-          id={inputId}
-          className={styles.input}
-          placeholder=" "
-          {...rest}
-        />
-        <label htmlFor={inputId} className={styles.label}>
-          {label}
-        </label>
-        {trailing && <span className={styles.trailing}>{trailing}</span>}
+      <div className={styles.group}>
+        <div
+          className={[
+            styles.field,
+            icon ? styles.hasIcon : "",
+            trailing ? styles.hasTrailing : "",
+            className ?? "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
+        >
+          {icon && <span className={styles.icon}>{icon}</span>}
+          <input
+            ref={ref}
+            id={inputId}
+            className={styles.input}
+            placeholder=" "
+            {...rest}
+            aria-invalid={Boolean(error) || rest["aria-invalid"] || undefined}
+            aria-describedby={describedBy}
+          />
+          <label htmlFor={inputId} className={styles.label}>
+            {label}
+          </label>
+          {trailing && <span className={styles.trailing}>{trailing}</span>}
+        </div>
+        {(reserveErrorSpace || error) && (
+          <div className={styles.errorSlot}>
+            {error && (
+              <p id={errorId} role="alert" className={styles.error}>
+                {error}
+              </p>
+            )}
+          </div>
+        )}
       </div>
     );
   },
