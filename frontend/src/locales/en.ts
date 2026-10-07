@@ -193,6 +193,9 @@ export const en = {
       "You have no upcoming sessions in the next 30 days. Explore a course or view your Gym and PT services.",
     benefits: "Your membership",
     emptyGym: "No Gym membership yet.",
+    chooseMembership: "Choose a Gym membership",
+    ownedPackage:
+      "You already have this package (until {date}). Choose a different package, or buy it again after it ends.",
     emptyGymHint: "You can still join group courses without a Gym membership.",
     emptyPt: "No personal training package yet.",
     walletLink: "Open wallet",
@@ -1100,6 +1103,11 @@ export const en = {
     pointsSyncing: "Points changed elsewhere. Showing the latest balance.",
     loadingOrder: "Loading your order…",
     viewInvoice: "View invoice",
+    nextMembership: "Go to my Gym membership",
+    nextPt: "Go to my PT package",
+    nextCourse: "Go to my courses",
+    nextRental: "Go to my rentals",
+    nextDashboard: "Back to my overview",
   },
 
   finance: {
@@ -1347,7 +1355,8 @@ export const en = {
     noOpenInvoices: "No invoices waiting for payment.",
     membersSearch: "Search members",
     membersEmpty: "No members match this search.",
-    membersPrompt: "Type at least two characters, or leave blank to list members.",
+    membersPrompt:
+      "Type at least two characters, or leave blank to list members.",
     colName: "Name",
     colContact: "Contact",
     colStatus: "Status",
@@ -1392,9 +1401,11 @@ export const en = {
     details: "Details",
     roomTbc: "Room to be confirmed",
     emptySessions: "No personal training sessions yet.",
-    emptyPlans: "No training plan yet. Your coach adds one after your first sessions.",
+    emptyPlans:
+      "No training plan yet. Your coach adds one after your first sessions.",
     emptyResults: "No session results yet.",
-    emptyProgress: "Progress appears here after your coach records session results.",
+    emptyProgress:
+      "Progress appears here after your coach records session results.",
     emptyHomework: "No homework assigned.",
     homeworkReadOnly:
       "Your coach manages homework. Read the instructions and feedback here.",
@@ -1457,7 +1468,8 @@ export const en = {
     noPtPackages: "No PT packages.",
     pairs: "Coach relationships",
     noPairs: "No coach relationships.",
-    readOnlyNote: "Read-only view. Training plans and results belong to the coach.",
+    readOnlyNote:
+      "Read-only view. Training plans and results belong to the coach.",
     openMember: "Open profile",
     members: "Members",
     findMember: "Find a member",

@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
-import { PublicHeader } from "../../public-header";
-import { PaymentReturn } from "@/features/payments/payment-return";
+import { CheckoutScreen } from "@/features/payments/checkout-screen";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -15,10 +14,5 @@ export default async function Page({
 }) {
   const { invoiceId } = await params;
   if (!UUID.test(invoiceId)) notFound();
-  return (
-    <>
-      <PublicHeader />
-      <PaymentReturn invoiceId={invoiceId} />
-    </>
-  );
+  return <CheckoutScreen invoiceId={invoiceId} />;
 }

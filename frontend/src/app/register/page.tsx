@@ -449,6 +449,7 @@ export default function RegisterPage() {
                       aria-describedby={
                         fieldErrors.otp ? "register-otp-error" : undefined
                       }
+                      aria-label="Verification code"
                       placeholder="••••••"
                       disabled={otpSecondsLeft === 0}
                       value={form.otp}
