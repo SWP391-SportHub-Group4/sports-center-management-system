@@ -43,7 +43,6 @@ public sealed class SaveSportRequest
     [MaxLength(500)]
     public string? ImageUrl { get; set; }
 
-    public int SortOrder { get; set; }
 
     /// <summary>Tập dịch vụ của môn; thay thế toàn bộ khi sửa.</summary>
     [Required, MaxLength(8)]

@@ -1,11 +1,15 @@
 "use client";
-import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { formatDateTime } from "@/lib/format";
 import { AsyncSection, Table } from "@/components/ui";
 import { previewSessions } from "./preview";
 import type { ManagerCourseDto } from "@/lib/types";
+import {
+  checkClassSlot,
+  availabilityReason,
+  type ClassSlotAvailability,
+} from "./slot-availability";
 export type ScheduleDraft = Pick<
   ManagerCourseDto,
   | "startDate"
@@ -14,6 +18,7 @@ export type ScheduleDraft = Pick<
   | "sportId"
   | "defaultRoomId"
   | "coachId"
+  | "capacity"
 >;
 export async function checkSchedule(
   course: ScheduleDraft,
@@ -21,33 +26,24 @@ export async function checkSchedule(
   signal: AbortSignal,
 ) {
   const slots = previewSessions(course, minutes);
-  const rows: Array<(typeof slots)[number] & { available: boolean }> = [];
+  const rows: Array<(typeof slots)[number] & ClassSlotAvailability> = [];
   let next = 0;
   await Promise.all(
     Array.from({ length: Math.min(4, slots.length) }, async () => {
       while (next < slots.length) {
         const index = next++;
         const slot = slots[index];
-        const [rooms, coaches] = await Promise.all([
-          api.get<{ roomId: number }[]>("/api/availability/rooms", {
-            signal,
-            query: {
-              sportId: course.sportId,
-              startUtc: slot.startAtUtc,
-              endUtc: slot.endAtUtc,
-            },
-          }),
-          course.coachId
-            ? api.get<{ coachId: string }[]>("/api/availability/coaches", {
-                signal,
-                query: {
-                  sportId: course.sportId,
-                  startUtc: slot.startAtUtc,
-                  endUtc: slot.endAtUtc,
-                },
-              })
-            : Promise.resolve([]),
-        ]);
+        const result = await checkClassSlot(
+          {
+            sportId: course.sportId,
+            roomId: course.defaultRoomId,
+            coachId: course.coachId,
+            capacity: course.capacity,
+            startUtc: slot.startAtUtc,
+            endUtc: slot.endAtUtc,
+          },
+          signal,
+        );
         const overlaps = slots.some(
           (other, n) =>
             n !== index &&
@@ -56,11 +52,9 @@ export async function checkSchedule(
         );
         rows[index] = {
           ...slot,
-          available:
-            !overlaps &&
-            rooms.some((r) => r.roomId === course.defaultRoomId) &&
-            (!course.coachId ||
-              coaches.some((c) => c.coachId === course.coachId)),
+          ...result,
+          available: !overlaps && result.available,
+          reasons: [...result.reasons, ...(overlaps ? ["draft_overlap"] : [])],
         };
       }
     }),
@@ -87,13 +81,15 @@ export function ScheduleReview({
   return (
     <div className="stack">
       <p>{t.managerOperations.previewHint}</p>
-      <p>
-        {roomName || `#${course.defaultRoomId}`} ·{" "}
-        {coachName || t.managerOperations.coachRequired}
-      </p>
       <AsyncSection state={state}>
         {(rows) => (
           <>
+            <p>
+              {rows[0]?.roomName || roomName || `#${course.defaultRoomId}`} ·{" "}
+              {rows[0]?.coachName ||
+                coachName ||
+                t.managerOperations.coachRequired}
+            </p>
             <Table
               headers={[
                 "#",
@@ -111,6 +107,11 @@ export function ScheduleReview({
                     {r.available
                       ? t.operations.available
                       : t.operations.conflict}
+                    {r.reasons.map((reason) => (
+                      <p className="small" key={reason}>
+                        {availabilityReason(reason, t)}
+                      </p>
+                    ))}
                   </td>
                 </tr>
               ))}
