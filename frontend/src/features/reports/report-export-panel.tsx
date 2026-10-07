@@ -7,17 +7,302 @@ import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { MutationFeedback, useMutation } from "@/features/operations";
 import { reportsApi, type ReportFilters } from "./api";
+import { formatDateTime } from "@/lib/format";
+import { financeStyles as fin } from "@/features/finance";
+import { useEffect } from "react";
 const columnsByType: Record<string, string[]> = {
- REVENUE_DIMENSIONS: ["source", "sportId", "sportName", "memberId", "collectedAmount", "legacyCashCollected", "pointsRedeemed", "pointsRedeemedVnd"],
- COURT_RENTAL_REVENUE: ["source", "sportId", "sportName", "memberId", "collectedAmount", "legacyCashCollected", "pointsRedeemed", "pointsRedeemedVnd"],
- REVENUE_SUMMARY: ["fromDate", "toDate", "collectedAmount", "legacyCashCollected", "reconciliationCashCollected", "pointsRedeemedVnd", "pointsIssued", "managerPointAdjustment", "outstandingPoints"],
- CLASS_ENROLLMENT: ["classId", "name", "sportName", "capacity", "confirmedCount", "activeHoldCount", "availableSeats", "fillRatio", "breakEvenThreshold", "thresholdStatus"],
- MEMBERSHIP_PERIOD: ["fromDate", "toDate", "newMembers", "activeMembersAtPeriodEnd"],
+  REVENUE_DIMENSIONS: [
+    "source",
+    "sportId",
+    "sportName",
+    "memberId",
+    "collectedAmount",
+    "legacyCashCollected",
+    "pointsRedeemed",
+    "pointsRedeemedVnd",
+  ],
+  COURT_RENTAL_REVENUE: [
+    "source",
+    "sportId",
+    "sportName",
+    "memberId",
+    "collectedAmount",
+    "legacyCashCollected",
+    "pointsRedeemed",
+    "pointsRedeemedVnd",
+  ],
+  REVENUE_SUMMARY: [
+    "fromDate",
+    "toDate",
+    "collectedAmount",
+    "legacyCashCollected",
+    "reconciliationCashCollected",
+    "pointsRedeemedVnd",
+    "pointsIssued",
+    "managerPointAdjustment",
+    "outstandingPoints",
+  ],
+  CLASS_ENROLLMENT: [
+    "classId",
+    "name",
+    "sportName",
+    "capacity",
+    "confirmedCount",
+    "activeHoldCount",
+    "availableSeats",
+    "fillRatio",
+    "breakEvenThreshold",
+    "thresholdStatus",
+  ],
+  MEMBERSHIP_PERIOD: [
+    "fromDate",
+    "toDate",
+    "newMembers",
+    "activeMembersAtPeriodEnd",
+  ],
 };
 export function ReportExportPanel({ filters }: { filters: ReportFilters }) {
- const { t } = useLanguage(); const l = t.staffWork; const [type, setType] = useState("REVENUE_DIMENSIONS"); const [columns, setColumns] = useState<string[]>([]); const [format, setFormat] = useState("Csv"); const [page, setPage] = useState(1); const mutation = useMutation(); const state = useApi(signal => reportsApi.exports(page, signal), [page]);
- const dimensional = type === "REVENUE_DIMENSIONS" || type === "COURT_RENTAL_REVENUE";
- const labels: Record<string, string> = { REVENUE_DIMENSIONS: l.dimensions, COURT_RENTAL_REVENUE: l.rentals, REVENUE_SUMMARY: l.points, CLASS_ENROLLMENT: l.enrollment, MEMBERSHIP_PERIOD: l.membership };
- const columnLabels: Record<string, string> = { source: l.source, sportId: `${l.sport} ID`, sportName: l.sport, memberId: l.memberId, collectedAmount: l.cash, legacyCashCollected: l.legacyCash, reconciliationCashCollected: l.reconciliationCash, pointsRedeemed: l.points, pointsRedeemedVnd: l.redeemed, pointsIssued: l.issued, managerPointAdjustment: l.adjusted, outstandingPoints: l.outstanding, fromDate: l.from, toDate: l.to, classId: "ID", name: l.title, capacity: l.capacity, confirmedCount: l.confirmed, activeHoldCount: l.holds, availableSeats: l.available, fillRatio: l.fillRatio, breakEvenThreshold: l.threshold, thresholdStatus: l.status, newMembers: l.newMembers, activeMembersAtPeriodEnd: l.activeMembers };
- return <Card title={l.export}><form className="form" onSubmit={async e => { e.preventDefault(); if (await mutation.run(() => api.post("/api/reports/exports", { reportType: type, fromDate: filters.fromDate, toDate: filters.toDate, columns, format, sportId: dimensional || type === "CLASS_ENROLLMENT" ? (filters.sportId ? Number(filters.sportId) : null) : null, source: dimensional ? (type === "COURT_RENTAL_REVENUE" ? "RENTAL" : filters.source || null) : null, memberId: dimensional ? filters.memberId || null : null }))) state.reload(); }}><Field label={l.exportType}><select value={type} onChange={e => { setType(e.target.value); setColumns([]); }}>{Object.keys(columnsByType).map(key => <option key={key} value={key}>{labels[key]}</option>)}</select></Field><p>{filters.fromDate} – {filters.toDate}{(dimensional || type === "CLASS_ENROLLMENT") && ` · ${l.sport}: ${filters.sportId || l.all}`}{dimensional && ` · ${l.source}: ${type === "COURT_RENTAL_REVENUE" ? l.rentals : filters.source || l.all} · ${l.memberId}: ${filters.memberId || l.all}`}</p>{type === "REVENUE_SUMMARY" && <p>{l.globalPoints}</p>}<fieldset><legend>{l.columns}</legend>{columnsByType[type].map(c => <label key={c}><input type="checkbox" checked={columns.includes(c)} onChange={e => setColumns(e.target.checked ? [...columns, c] : columns.filter(x => x !== c))}/>{columnLabels[c] ?? c}</label>)}</fieldset><Field label={l.format}><select value={format} onChange={e => setFormat(e.target.value)}><option value="Csv">CSV</option><option value="Pdf">PDF</option></select></Field><button className="btn" disabled={mutation.busy || !columns.length}>{l.export}</button></form><MutationFeedback mutation={mutation}/><h3>{l.exportHistory}</h3><button className="btn btn--secondary" onClick={state.reload}>{l.refresh}</button><AsyncSection state={state}>{data => <>{pagedItems(data).map(r => <article key={r.reportExportId}><p>{labels[r.reportType] ?? r.reportType} · <StatusChip value={r.status}/></p>{r.failureReason && <p role="alert">{r.failureReason}</p>}{r.status === "COMPLETED" && <button className="btn btn--secondary" disabled={mutation.busy} onClick={() => mutation.run(() => downloadFile(`/api/reports/exports/${r.reportExportId}/download`, `${r.reportType}.${r.format.toLowerCase()}`))}>{l.download}</button>}{r.status === "FAILED" && <button className="btn btn--secondary" disabled={mutation.busy} onClick={async () => { if (await mutation.run(() => api.post(`/api/reports/exports/${r.reportExportId}/retry`))) state.reload(); }}>{t.common.retry}</button>}</article>)}<Pager page={data.page} pageSize={data.pageSize} totalCount={data.totalCount} onChange={setPage}/></>}</AsyncSection></Card>;
+  const { t } = useLanguage();
+  const l = t.staffWork;
+  const [type, setType] = useState("REVENUE_DIMENSIONS");
+  const [columns, setColumns] = useState<string[]>([]);
+  const [format, setFormat] = useState("Csv");
+  const [page, setPage] = useState(1);
+  const mutation = useMutation();
+  const state = useApi((signal) => reportsApi.exports(page, signal), [page]);
+  useEffect(() => {
+    const rows = pagedItems(state.data);
+    if (
+      !rows.some(
+        (x) =>
+          !["COMPLETED", "FAILED", "EXPIRED"].includes(x.status.toUpperCase()),
+      )
+    )
+      return;
+    const id = window.setInterval(state.reload, 5000);
+    return () => window.clearInterval(id);
+  }, [state.data, state.reload]);
+  const dimensional =
+    type === "REVENUE_DIMENSIONS" || type === "COURT_RENTAL_REVENUE";
+  const labels: Record<string, string> = {
+    REVENUE_DIMENSIONS: l.dimensions,
+    COURT_RENTAL_REVENUE: l.rentals,
+    REVENUE_SUMMARY: l.points,
+    CLASS_ENROLLMENT: l.enrollment,
+    MEMBERSHIP_PERIOD: l.membership,
+  };
+  const columnLabels: Record<string, string> = {
+    source: l.source,
+    sportId: `${l.sport} ID`,
+    sportName: l.sport,
+    memberId: l.memberId,
+    collectedAmount: l.cash,
+    legacyCashCollected: l.legacyCash,
+    reconciliationCashCollected: l.reconciliationCash,
+    pointsRedeemed: l.points,
+    pointsRedeemedVnd: l.redeemed,
+    pointsIssued: l.issued,
+    managerPointAdjustment: l.adjusted,
+    outstandingPoints: l.outstanding,
+    fromDate: l.from,
+    toDate: l.to,
+    classId: "ID",
+    name: l.title,
+    capacity: l.capacity,
+    confirmedCount: l.confirmed,
+    activeHoldCount: l.holds,
+    availableSeats: l.available,
+    fillRatio: l.fillRatio,
+    breakEvenThreshold: l.threshold,
+    thresholdStatus: l.status,
+    newMembers: l.newMembers,
+    activeMembersAtPeriodEnd: l.activeMembers,
+  };
+  return (
+    <Card title={l.export}>
+      <form
+        className="form"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          if (
+            await mutation.run(() =>
+              api.post("/api/reports/exports", {
+                reportType: type,
+                fromDate: filters.fromDate,
+                toDate: filters.toDate,
+                columns,
+                format,
+                sportId:
+                  dimensional || type === "CLASS_ENROLLMENT"
+                    ? filters.sportId
+                      ? Number(filters.sportId)
+                      : null
+                    : null,
+                source: dimensional
+                  ? type === "COURT_RENTAL_REVENUE"
+                    ? "RENTAL"
+                    : filters.source || null
+                  : null,
+                memberId: dimensional ? filters.memberId || null : null,
+              }),
+            )
+          )
+            state.reload();
+        }}
+      >
+        <Field label={l.exportType}>
+          <select
+            value={type}
+            onChange={(e) => {
+              setType(e.target.value);
+              setColumns([]);
+            }}
+          >
+            {Object.keys(columnsByType).map((key) => (
+              <option key={key} value={key}>
+                {labels[key]}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <p>
+          {filters.fromDate} – {filters.toDate}
+          {(dimensional || type === "CLASS_ENROLLMENT") &&
+            ` · ${l.sport}: ${filters.sportId || l.all}`}
+          {dimensional &&
+            ` · ${l.source}: ${type === "COURT_RENTAL_REVENUE" ? l.rentals : filters.source || l.all} · ${l.memberId}: ${filters.memberId || l.all}`}
+        </p>
+        {type === "REVENUE_SUMMARY" && <p>{l.globalPoints}</p>}
+        <fieldset>
+          <legend>{l.columns}</legend>
+          {columnsByType[type].map((c) => (
+            <label key={c}>
+              <input
+                type="checkbox"
+                checked={columns.includes(c)}
+                onChange={(e) =>
+                  setColumns(
+                    e.target.checked
+                      ? [...columns, c]
+                      : columns.filter((x) => x !== c),
+                  )
+                }
+              />
+              {columnLabels[c] ?? c}
+            </label>
+          ))}
+        </fieldset>
+        <Field label={l.format}>
+          <select value={format} onChange={(e) => setFormat(e.target.value)}>
+            <option value="Csv">CSV</option>
+            <option value="Pdf">PDF</option>
+          </select>
+        </Field>
+        <button className="btn" disabled={mutation.busy || !columns.length}>
+          {l.export}
+        </button>
+      </form>
+      <MutationFeedback mutation={mutation} />
+      <h3>{l.exportHistory}</h3>
+      <button className="btn btn--secondary" onClick={state.reload}>
+        {l.refresh}
+      </button>
+      <AsyncSection state={state}>
+        {(data) => {
+          const rows = pagedItems(data);
+          return (
+            <>
+              {!rows.length && <p>{t.finOps.exportEmpty}</p>}
+              {rows.map((r) => {
+                const final = ["COMPLETED", "FAILED", "EXPIRED"].includes(
+                  r.status.toUpperCase(),
+                );
+                return (
+                  <article key={r.reportExportId} className={fin.exportRow}>
+                    <div>
+                      <strong>
+                        {labels[r.reportType] ?? r.reportType} ·{" "}
+                        {r.format.toUpperCase()}
+                      </strong>
+                      <span>
+                        {[
+                          t.finOps.exportRequested.replace(
+                            "{date}",
+                            formatDateTime(r.createdAt),
+                          ),
+                          r.status === "COMPLETED"
+                            ? t.finOps.exportRows.replace(
+                                "{n}",
+                                String(r.rowCount),
+                              )
+                            : null,
+                          r.status === "COMPLETED"
+                            ? t.finOps.exportExpires.replace(
+                                "{date}",
+                                formatDateTime(r.expiresAt),
+                              )
+                            : null,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </span>
+                      {!final && (
+                        <span role="status">{t.finOps.exportPreparing}</span>
+                      )}
+                      {r.failureReason && (
+                        <span role="alert">{r.failureReason}</span>
+                      )}
+                    </div>
+                    <div className="btn-row">
+                      <StatusChip value={r.status} />
+                      {r.status === "COMPLETED" && (
+                        <button
+                          className="btn btn--secondary"
+                          disabled={mutation.busy}
+                          onClick={() =>
+                            mutation.run(() =>
+                              downloadFile(
+                                `/api/reports/exports/${r.reportExportId}/download`,
+                                `${r.reportType}.${r.format.toLowerCase()}`,
+                              ),
+                            )
+                          }
+                        >
+                          {l.download}
+                        </button>
+                      )}
+                      {r.status === "FAILED" && (
+                        <button
+                          className="btn btn--secondary"
+                          disabled={mutation.busy}
+                          onClick={async () => {
+                            if (
+                              await mutation.run(() =>
+                                api.post(
+                                  `/api/reports/exports/${r.reportExportId}/retry`,
+                                ),
+                              )
+                            )
+                              state.reload();
+                          }}
+                        >
+                          {t.common.retry}
+                        </button>
+                      )}
+                    </div>
+                  </article>
+                );
+              })}
+              <Pager
+                page={data.page}
+                pageSize={data.pageSize}
+                totalCount={data.totalCount}
+                onChange={setPage}
+              />
+            </>
+          );
+        }}
+      </AsyncSection>
+    </Card>
+  );
 }

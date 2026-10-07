@@ -1,4 +1,6 @@
-"use client";
-import { PtPage } from "@/features/pt/ui";
-import { PtChangeRequestPanel } from "@/features/pt/pt-change-request-panel";
-export default function Page() { return <PtPage title="requests" manager><PtChangeRequestPanel/></PtPage>; }
+import { redirect } from "next/navigation";
+
+/** Tuyến cũ: nay là tab của Huấn luyện cá nhân. Giữ bookmark. */
+export default function Page() {
+  redirect("/manager/pt?tab=requests");
+}

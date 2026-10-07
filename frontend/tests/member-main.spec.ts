@@ -231,9 +231,10 @@ for (const rejection of [
     await page
       .getByRole("button", { name: "Change password", exact: true })
       .click();
-    await expect(page.getByRole("alert")).toContainText(
-      "Current password is incorrect",
-    );
+    // Có thêm vùng alert rỗng của Next (route announcer): chỉ xét lỗi của ô nhập.
+    await expect(
+      page.locator("[role=alert]:not(#__next-route-announcer__)"),
+    ).toContainText("Current password is incorrect");
     await expect(page).toHaveURL(/\/account$/);
     await expect(current).toBeFocused();
     await expect(current).toHaveAttribute("aria-invalid", "true");
@@ -487,10 +488,9 @@ test("Discover stays in Member shell through list and course details", async ({
   );
   await page.getByRole("link", { name: "Back to discovery" }).click();
   await expect(page).toHaveURL(/\/member\/discover$/);
+  // Danh sách khóa công khai nay nằm ở mục Activities của trang chủ.
   await page.goto("/courses");
-  await expect(
-    page.getByRole("main").getByRole("link", { name: "Details", exact: true }),
-  ).toHaveAttribute("href", "/courses/7");
+  await expect(page).toHaveURL(/#activities$/);
 });
 
 test("dashboard empty state offers Member discovery and handles API failure", async ({
