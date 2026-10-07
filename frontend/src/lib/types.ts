@@ -6,12 +6,11 @@ export interface Paged<T> {
 }
 
 export type SportServiceType =
-  | "MEMBERSHIP_ACCESS"
-  | "GROUP_COURSE"
-  | "COURT_RENTAL"
-  | "PERSONAL_TRAINING";
+  "MEMBERSHIP_ACCESS" | "GROUP_COURSE" | "COURT_RENTAL" | "PERSONAL_TRAINING";
 
 export interface SportServiceDto {
+  /** Server-owned ID, returned only by the Manager catalog for service qualification mapping. */
+  offeringId?: number;
   serviceType: SportServiceType;
   isEnabled: boolean;
   /** Chỉ có với GROUP_COURSE. */
@@ -484,6 +483,11 @@ export interface AuditLogDto {
   action: string;
   targetEntity: string;
   targetId: string;
+  /** Current target identity; not an immutable snapshot of the audit event. */
+  targetFullName?: string | null;
+  targetEmail?: string | null;
+  /** Null/absent for non-account targets or an older API. */
+  targetAccountExists?: boolean | null;
   oldValue: string | null;
   newValue: string | null;
   ipAddress: string;
@@ -674,7 +678,22 @@ export interface ClassEnrollmentReportDto {
   totalConfirmed: number;
   totalActiveHolds: number;
   fillRatio: number;
-  classes: { classId: number; code: string; name: string; sportId: number; sportName: string; status: string; capacity: number; confirmedCount: number; activeHoldCount: number; availableSeats: number; fillRatio: number; breakEvenThreshold: number | null; thresholdStatus: string; firstSessionStartUtc: string | null }[];
+  classes: {
+    classId: number;
+    code: string;
+    name: string;
+    sportId: number;
+    sportName: string;
+    status: string;
+    capacity: number;
+    confirmedCount: number;
+    activeHoldCount: number;
+    availableSeats: number;
+    fillRatio: number;
+    breakEvenThreshold: number | null;
+    thresholdStatus: string;
+    firstSessionStartUtc: string | null;
+  }[];
 }
 export interface PtReviewRequestDto extends PtChangeRequestDto {
   memberId: string;

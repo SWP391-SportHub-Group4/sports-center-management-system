@@ -139,6 +139,13 @@ Invoice checkout giữ phòng bằng cùng occupancy constraints với class/PT/
 |---|---|
 | GET | `api/audit-logs` |
 
+Với sự kiện `targetEntity = UserAccount`, mỗi item bổ sung `targetFullName`,
+`targetEmail` (thông tin hiện tại của tài khoản đích) và `targetAccountExists`.
+Các trường này không phải snapshot tại thời điểm sự kiện. Tài khoản không còn
+tồn tại trả `targetAccountExists = false`, tên/email null; sự kiện trên entity
+khác trả cả ba trường null. `targetId` vẫn được giữ để đối chiếu.
+Việc bổ sung không thay đổi quyền đọc audit, scope tài khoản của Admin hay policy G10.
+
 ### ReportExportsController — `api/reports/exports`
 
 | Verb | Path |
@@ -482,6 +489,8 @@ Actor viết tắt: **M** = CenterManager (policy `CatalogManage`), **FD** = Man
 | GET | `api/manager/court-rates?roomTypeId` | M | — | gồm cả inactive |
 | POST, PUT | `api/manager/court-rates`, `.../{rateId}` | M | `{roomTypeId, sportId?, daysOfWeek["MON".."SUN"], startTimeLocal, endTimeLocal, pricePerHour, isActive}` | 400 `invalid_price` `invalid_rate_window` `invalid_days` `sport_not_compatible`; 409 `court_rate_overlap` |
 | DELETE | `api/manager/court-rates/{rateId}` | M | — | 204 |
+
+CourtRate audit snapshots (`CREATE_COURT_RATE`, `UPDATE_COURT_RATE`, `DELETE_COURT_RATE`) contain `roomTypeId`, `roomTypeName`, nullable `sportId`/`sportName`, `days` (comma-separated day codes), `startTimeLocal`/`endTimeLocal` (`HH:mm`, Vietnam local time), `price` and `active`. Names and times are recorded at the event; historical snapshots are not backfilled from the current catalog. Older snapshots may omit names/times. Updates preserve both old and new snapshots; create has only new, delete only old. No schema migration or pricing request/response changes.
 | GET | `api/availability/rooms?sportId&startUtc&endUtc` | Staff | — | `[{roomId,name,roomTypeId,capacity}]`; khoảng tối đa 12 giờ |
 | GET | `api/availability/coaches?sportId&startUtc&endUtc` | Staff | — | `[{coachId, fullName}]` |
 | GET | `api/availability/rooms/{roomId}/busy?fromUtc&toUtc` | FD | — | `[{resource, sourceType, sourceId, startAtUtc, endAtUtc}]`; tối đa 31 ngày |
@@ -617,3 +626,9 @@ Các loại export mới:
 `REVENUE` cũ vẫn là danh sách hóa đơn theo ngày phát hành; không dùng loại này để so với tổng thu theo ngày thanh toán. `MEMBER_SUMMARY` cũ giữ tương thích. Export mới gọi cùng service API, không nhân bản truy vấn tài chính. Phạm vi doanh thu tối đa 366 ngày, trả `range_too_large`; report export thất bại giữ trạng thái Failed và failure reason theo contract hiện hữu. Điểm không cộng thành cash; outstanding là available+held hiện tại. Membership sport null; PT legacy chưa có sport reference chỉ được phân loại khi có đúng một môn OneOnOne.
 
 - `REVENUE_SUMMARY`: `fromDate,toDate,collectedAmount,refundedAmount,netCollected,legacyCashCollected,reconciliationCashCollected,pointsRedeemed,pointsRedeemedVnd,pointsIssued,managerPointAdjustment,outstandingPoints`.
+
+## Manager operations read contracts — 07/10/2026
+
+- `GET /api/audit-logs` accepts optional `targetId` together with existing `targetEntity` filters. Exact target filtering happens before pagination/count. Existing role restrictions remain: Manager can read operational audit; Admin remains restricted to account events; Member/Coach/Receptionist cannot gain audit access through this parameter.
+- `GET /api/manager/sports` service rows include the actual `offeringId`. The Manager PT qualification editor sends these IDs to `/api/manager/coaches/{id}/service-qualifications`; it must not derive an offering ID from a sport ID. Public `GET /api/sports` omits `offeringId`.
+- This adds no migration and implements no new G03/G06/G07/G13 command. Current incident preview/action/recheck/resolve remains a sequence of separate operations; timeout resolve requires reconciliation before a fresh attempt.

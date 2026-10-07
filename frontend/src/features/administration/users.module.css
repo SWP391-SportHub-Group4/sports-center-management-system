@@ -29,7 +29,45 @@
   margin: 0;
 }
 
+.details {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-5);
+  margin: 0;
+}
+
+.details dt {
+  margin-bottom: var(--space-1);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.details dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.reason {
+  white-space: pre-wrap;
+}
+
+.target {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+  overflow-wrap: anywhere;
+}
+
+.accountIdentifier {
+  overflow-wrap: anywhere;
+}
+
 @media (max-width: 720px) {
+  .details {
+    grid-template-columns: minmax(0, 1fr);
+  }
   .createForm :global(.pw-rules) {
     grid-template-columns: minmax(0, 1fr);
   }

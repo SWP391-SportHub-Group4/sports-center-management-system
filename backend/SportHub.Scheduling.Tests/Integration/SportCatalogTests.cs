@@ -8,6 +8,7 @@ using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.Abstractions.Scheduling;
 using SportHub.Identity.Domain.Enums;
 using SportHub.Scheduling.Domain.Entities;
+using SportHub.Scheduling.Catalog.Domain;
 
 namespace SportHub.Scheduling.Tests.Integration;
 
@@ -15,6 +16,25 @@ namespace SportHub.Scheduling.Tests.Integration;
 [Collection(nameof(SchedulingApiCollection))]
 public class SportCatalogTests(SchedulingApiFactory factory)
 {
+    [Fact]
+    public async Task Manager_service_offering_ids_map_qualifications_without_exposing_staff_fields_publicly()
+    {
+        using var manager = await ManagerAsync();
+        var staff = await Json(await manager.GetAsync("api/manager/sports"));
+        var gym = staff.EnumerateArray().Single(x => x.GetProperty("code").GetString() == "gym");
+        var pt = gym.GetProperty("services").EnumerateArray().Single(x => x.GetProperty("serviceType").GetString() == "PERSONAL_TRAINING");
+        var offeringId = pt.GetProperty("offeringId").GetInt32();
+        var gymId = gym.GetProperty("sportId").GetInt32();
+        Assert.True(offeringId > 0);
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
+            Assert.True(await db.Set<SportServiceOffering>().AnyAsync(o => o.OfferingId == offeringId && o.SportId == gymId));
+        }
+        using var publicClient = factory.CreateApiClient();
+        var publicSports = await Json(await publicClient.GetAsync("api/sports"));
+        Assert.All(publicSports.EnumerateArray(), sport => Assert.All(sport.GetProperty("services").EnumerateArray(), service => Assert.False(service.TryGetProperty("offeringId", out _))));
+    }
     private const int BadmintonSportId = 3;   // seed: GroupCourse + CourtRental
     private const int GymSportId = 1;         // seed: MembershipAccess + PersonalTraining
     private const int BadmintonRoomTypeId = 3;

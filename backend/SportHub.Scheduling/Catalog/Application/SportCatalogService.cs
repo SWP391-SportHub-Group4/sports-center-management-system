@@ -327,7 +327,7 @@ public sealed partial class SportCatalogService(ISportHubDbContext db, IAuditWri
     private static SportResponse ToResponse(Sport s, bool publicView, IReadOnlyList<ServiceReadinessResponse>? readiness) => new(
         s.SportId, s.Code, s.Name, s.Description, s.ImageUrl, s.SortOrder, s.IsActive,
         s.Services.Where(x => !publicView || x.IsEnabled).OrderBy(x => x.ServiceType)
-            .Select(x => new SportServiceResponse(x.ServiceType.ToString(), x.IsEnabled, x.DefaultSessionMinutes, x.DefaultMaxCapacity))
+            .Select(x => new SportServiceResponse(x.ServiceType.ToString(), x.IsEnabled, x.DefaultSessionMinutes, x.DefaultMaxCapacity, publicView ? null : x.OfferingId))
             .ToList(),
         publicView ? null : readiness);
 }

@@ -29,14 +29,21 @@ type Row = {
   enrolledAt?: string;
   deadlineUtc?: string;
 };
-export function CourseOperations({ classId }: { classId: number }) {
+export function CourseOperations({
+  classId,
+  kind,
+}: {
+  classId: number;
+  kind?: "holds" | "enrollments" | "threshold-responses";
+}) {
   return (
     <>
-      {(["holds", "enrollments", "threshold-responses"] as const).map(
-        (kind) => (
-          <OperationsRows key={kind} classId={classId} kind={kind} />
-        ),
-      )}
+      {(kind
+        ? [kind]
+        : (["holds", "enrollments", "threshold-responses"] as const)
+      ).map((kind) => (
+        <OperationsRows key={kind} classId={classId} kind={kind} />
+      ))}
     </>
   );
 }

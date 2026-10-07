@@ -13,8 +13,15 @@ import { useApi } from "@/lib/useApi";
 import { choiceQuery, pageQuery, useUrlQuery } from "@/lib/useUrlQuery";
 import { useLanguage } from "@/lib/language";
 import { formatDateTime } from "@/lib/format";
-import type { AuditLogDto, Paged } from "@/lib/types";
+import type { AuditLogDto, Paged, RoomTypeDto } from "@/lib/types";
 import { auditMetadata } from "@/features/administration/audit-metadata";
+import { AuditTargetAccount } from "@/features/administration/AuditTargetAccount";
+import { MembershipAuditChanges } from "@/features/administration/MembershipAuditChanges";
+import {
+  CourtRateAuditChanges,
+  needsCourtRateRoomNames,
+} from "@/features/administration/CourtRateAuditChanges";
+import styles from "./AuditLogView.module.css";
 
 const auditQueryDefaults = {
   action: "",
@@ -156,6 +163,16 @@ export function AuditLogView({
       sort.direction,
     ],
   );
+  const needsRoomNames =
+    !accountsOnly && !!state.data?.items.some(needsCourtRateRoomNames);
+  // One shared reference request for the page, never one request per audit row.
+  const roomTypes = useApi(
+    (signal) =>
+      needsRoomNames
+        ? api.get<RoomTypeDto[]>("/api/room-types", { signal })
+        : Promise.resolve<RoomTypeDto[]>([]),
+    [needsRoomNames],
+  );
   const columns: TableColumn<AuditLogDto>[] = [
     {
       id: "timestamp",
@@ -179,42 +196,57 @@ export function AuditLogView({
     { id: "action", header: l.action, sortable: true },
     {
       id: "targetEntity",
-      header: l.entity,
-      sortable: true,
-      cell: (row) => (
-        <>
-          {row.targetEntity}
-          <br />
-          <span className="small muted">{row.targetId}</span>
-        </>
-      ),
+      header: accountsOnly ? t.adminWork.target : l.entity,
+      sortable: !accountsOnly,
+      cell: (row) =>
+        row.targetEntity === "UserAccount" ? (
+          <AuditTargetAccount row={row} linkToAccount={accountsOnly} />
+        ) : (
+          <>
+            {row.targetEntity}
+            <br />
+            <span className="small muted">{row.targetId}</span>
+          </>
+        ),
     },
     {
       id: "metadata",
       header: l.metadata,
-      cell: (row) => (
-        <>
-          {auditMetadata(row.oldValue).map(([key, value]) => (
-            <p key={`old-${key}`}>
-              <del>
+      cell: (row) =>
+        row.targetEntity === "MembershipPackage" ? (
+          <MembershipAuditChanges row={row} />
+        ) : row.targetEntity === "CourtRate" ? (
+          <CourtRateAuditChanges row={row} roomTypes={roomTypes.data ?? []} />
+        ) : (
+          <>
+            {auditMetadata(row.oldValue).map(([key, value]) => (
+              <p key={`old-${key}`}>
+                <del>
+                  {key}: {value}
+                </del>
+              </p>
+            ))}
+            {auditMetadata(row.newValue).map(([key, value]) => (
+              <p key={`new-${key}`}>
                 {key}: {value}
-              </del>
-            </p>
-          ))}
-          {auditMetadata(row.newValue).map(([key, value]) => (
-            <p key={`new-${key}`}>
-              {key}: {value}
-            </p>
-          ))}
-        </>
-      ),
+              </p>
+            ))}
+          </>
+        ),
     },
   ];
   const clearFilters = () =>
     query.setValues({ action: "", targetEntity: "", actorId: "", page: "1" });
   return (
-    <>
-      <Card title={l.audit} hint={accountsOnly ? l.accountScope : l.auditHint}>
+    <div className={styles.root}>
+      <Card
+        title={l.audit}
+        hint={
+          accountsOnly
+            ? `${l.accountScope} ${t.adminWork.targetAccountHint}`
+            : `${l.auditHint}${needsRoomNames ? ` ${t.courtRateAudit.currentNameHint}` : ""}`
+        }
+      >
         <AuditFilterForm
           key={JSON.stringify(filters)}
           values={filters}
@@ -227,6 +259,18 @@ export function AuditLogView({
         />
       </Card>
       <Card>
+        {needsRoomNames && roomTypes.error && (
+          <p className="small muted" role="status">
+            {t.courtRateAudit.namesUnavailable}{" "}
+            <button
+              className="btn btn-ghost"
+              type="button"
+              onClick={roomTypes.reload}
+            >
+              {t.common.retry}
+            </button>
+          </p>
+        )}
         <ApiTable
           caption={l.audit}
           columns={columns}
@@ -246,6 +290,6 @@ export function AuditLogView({
           empty={{ title: t.common.noData, hint: t.dataTable.emptyHint }}
         />
       </Card>
-    </>
+    </div>
   );
 }
