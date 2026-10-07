@@ -627,6 +627,28 @@ export interface PtSessionDto {
   roomName: string | null;
 }
 
+/** Khung PT trống của Coach được giao (Member tự đặt lịch). */
+export interface PtAvailabilityDto {
+  entitlementId: string;
+  coachId: string;
+  coachName: string;
+  sessionMinutes: number;
+  remainingQuota: number;
+  /** Null khi đặt được; ngược lại là mã lý do ổn định. */
+  bookableReason: string | null;
+  policy: {
+    minLeadHours: number;
+    advanceDays: number;
+    stepMinutes: number;
+    changeDeadlineHours: number;
+  };
+  slots: {
+    startAtUtc: string;
+    endAtUtc: string;
+    rooms: { roomId: number; name: string }[];
+  }[];
+}
+
 export interface HomeworkDto {
   assignmentId: string;
   memberId: string;

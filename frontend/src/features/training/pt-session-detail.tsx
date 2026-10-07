@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AsyncSection, Feedback, Field, StatusChip } from "@/components/ui";
 import { api } from "@/lib/apiClient";
 import { useAction, useApi } from "@/lib/useApi";
@@ -26,6 +26,13 @@ export function PtSessionDetail({ sessionId }: { sessionId: string }) {
   const [exception, setException] = useState(false);
   const [now] = useState(() => Date.now());
   const action = useAction();
+  // Vừa đặt xong ở /member/pt/book: xác nhận ngay trên trang chi tiết.
+  const [justBooked, setJustBooked] = useState(false);
+  useEffect(() => {
+    setJustBooked(
+      new URLSearchParams(window.location.search).get("booked") === "1",
+    );
+  }, []);
 
   const sessions = useApi(
     (signal) =>
@@ -49,6 +56,19 @@ export function PtSessionDetail({ sessionId }: { sessionId: string }) {
       <Link className={styles.back} href="/member/training">
         ← {l.back}
       </Link>
+      {justBooked && (
+        <div className={styles.panel} role="status">
+          <h2>{t.ptBook.bookedTitle}</h2>
+          <p className={styles.muted}>
+            {t.ptBook.bookedBody.replace("{deadline}", "24")}
+          </p>
+          <div className="btn-row">
+            <Link className="btn btn--secondary" href="/member/pt/book">
+              {t.ptBook.bookAnother}
+            </Link>
+          </div>
+        </div>
+      )}
       <AsyncSection state={sessions}>
         {(data) => {
           const s = pagedItems(data).find((x) => x.sessionId === sessionId);

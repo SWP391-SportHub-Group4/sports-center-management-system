@@ -130,6 +130,11 @@ function PtSummary() {
               ) : (
                 <p className={styles.muted}>{l.noNextSession}</p>
               )}
+              {active.remainingQuota > 0 && (
+                <Link className="btn" href="/member/pt/book">
+                  {t.ptBook.bookCta}
+                </Link>
+              )}
               {pending > 0 && (
                 <p className={styles.alertNote} role="status">
                   {l.pendingRequests.replace("{n}", String(pending))}
