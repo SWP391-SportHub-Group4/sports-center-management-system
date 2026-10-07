@@ -384,10 +384,33 @@ function CheckoutFlow({
         {vm.phase === "FULFILLED" && user?.role === "Member" && (
           <div className={styles.actions}>
             <Link
+              className={buttonClass()}
+              href={
+                checkout.kind === "CLASS"
+                  ? "/member/courses"
+                  : checkout.kind === "COURT_RENTAL"
+                    ? "/member/rentals"
+                    : checkout.kind === "PT"
+                      ? "/member/services?tab=pt"
+                      : "/member/services?tab=gym"
+              }
+            >
+              {checkout.kind === "CLASS"
+                ? t.checkout.nextCourse
+                : checkout.kind === "COURT_RENTAL"
+                  ? t.checkout.nextRental
+                  : checkout.kind === "PT"
+                    ? t.checkout.nextPt
+                    : t.checkout.nextMembership}
+            </Link>
+            <Link
               className={buttonClass({ variant: "secondary" })}
               href={`/member/invoices/${checkout.invoiceId}`}
             >
               {t.checkout.viewInvoice}
+            </Link>
+            <Link className={buttonClass({ variant: "ghost" })} href="/member">
+              {t.checkout.nextDashboard}
             </Link>
           </div>
         )}

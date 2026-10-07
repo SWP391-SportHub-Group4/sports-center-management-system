@@ -18,8 +18,11 @@ import styles from "./catalog.module.css";
 
 export function MembershipCatalog({
   purchase = false,
+  owned = [],
 }: {
   purchase?: boolean;
+  /** Gói hội viên đã có: cùng loại gói đang hiệu lực hoặc chờ thanh toán thì chưa mua lại được. */
+  owned?: MemberPackageDto[];
 }) {
   const { t, language } = useLanguage();
   const text = (vi: string, en: string) => (language === "vi" ? vi : en);
@@ -169,9 +172,27 @@ export function MembershipCatalog({
                       )}
                     </p>
                   )}
-                  <button onClick={() => setSelected(p.packageId)}>
-                    {text("Kiểm tra & thanh toán", "Review & checkout")}
-                  </button>
+                  {(() => {
+                    const have = owned.find(
+                      (o) =>
+                        o.packageId === p.packageId &&
+                        ["ACTIVE", "PENDING_PAYMENT"].includes(
+                          o.status.toUpperCase(),
+                        ),
+                    );
+                    return have ? (
+                      <p role="note" className="muted">
+                        {t.memberDashboardV2.ownedPackage.replace(
+                          "{date}",
+                          formatDate(have.endDate),
+                        )}
+                      </p>
+                    ) : (
+                      <button onClick={() => setSelected(p.packageId)}>
+                        {text("Kiểm tra & thanh toán", "Review & checkout")}
+                      </button>
+                    );
+                  })()}
                 </Card>
               ))}
             </div>

@@ -2,6 +2,11 @@
 import Link from "next/link";
 import { Tabs } from "@/components/primitives";
 import { AsyncSection, Card, StatusChip, Table } from "@/components/ui";
+import type { CourseEnrollmentDto } from "@/lib/types";
+import { formatDate } from "@/lib/format";
+import { sportTone } from "./event-meta";
+import tags from "./tags.module.css";
+import styles from "./courses.module.css";
 import { useApi, useNow } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { choiceQuery, useUrlQuery } from "@/lib/useUrlQuery";
@@ -9,68 +14,193 @@ import { formatDateTime } from "@/lib/format";
 import { memberEnrollments } from "./api";
 import { courseApi } from "@/features/courses";
 
+type TabId = "upcoming" | "ongoing" | "history" | "all";
+
+function classify(e: CourseEnrollmentDto, now: number) {
+  const ended =
+    e.status !== "CONFIRMED" ||
+    ["COMPLETED", "CANCELLED"].includes(e.classStatus) ||
+    (!!e.lastSessionEndUtc && new Date(e.lastSessionEndUtc).getTime() <= now);
+  const upcoming =
+    !ended &&
+    (!e.firstSessionStartUtc ||
+      new Date(e.firstSessionStartUtc).getTime() > now);
+  return { history: ended, upcoming, ongoing: !ended && !upcoming };
+}
+
 export function MemberCourses() {
   const { t } = useLanguage();
+  const c = t.mCourses;
   const now = useNow();
   const state = useApi(memberEnrollments, []);
   const { values, setValues } = useUrlQuery(
     { tab: "upcoming" },
     { tab: choiceQuery(["upcoming", "ongoing", "history", "all"], "upcoming") },
   );
+  const tab = values.tab as TabId;
+  const rows = state.data ?? [];
+  const counts: Record<TabId, number> = {
+    upcoming: rows.filter((e) => classify(e, now).upcoming).length,
+    ongoing: rows.filter((e) => classify(e, now).ongoing).length,
+    history: rows.filter((e) => classify(e, now).history).length,
+    all: rows.length,
+  };
+  const names: Record<TabId, string> = {
+    upcoming: c.tabUpcoming,
+    ongoing: c.tabOngoing,
+    history: c.tabHistory,
+    all: c.tabAll,
+  };
+  const empty: Record<TabId, [string, string]> = {
+    upcoming: [c.emptyUpcomingTitle, c.emptyUpcomingBody],
+    ongoing: [c.emptyOngoingTitle, c.emptyOngoingBody],
+    history: [c.emptyHistoryTitle, c.emptyHistoryBody],
+    all: [c.emptyAllTitle, c.emptyAllBody],
+  };
+
+  function status(e: CourseEnrollmentDto) {
+    const k = classify(e, now);
+    if (e.status === "TRANSFERRED")
+      return { label: c.statusTransferred, tone: "neutral" as const };
+    if (e.status === "REFUNDED")
+      return { label: c.statusRefunded, tone: "neutral" as const };
+    if (e.status === "CANCELLED")
+      return { label: c.statusCancelled, tone: "warning" as const };
+    if (e.classStatus === "CANCELLED")
+      return { label: c.statusClassCancelled, tone: "warning" as const };
+    if (k.history) return { label: c.statusDone, tone: "neutral" as const };
+    if (k.upcoming) return { label: c.statusUpcoming, tone: "info" as const };
+    return { label: c.statusOngoing, tone: "success" as const };
+  }
+
   return (
     <>
+      <p className={styles.intro}>
+        {c.independent.split("Gym & PT")[0]}
+        <Link href="/member/services">{c.gymPt}</Link>.
+      </p>
       <Tabs
-        ariaLabel={t.memberPages.courses}
-        value={values.tab}
-        onChange={(tab) => setValues({ tab })}
+        ariaLabel={c.tabsLabel}
+        value={tab}
+        onChange={(id) => setValues({ tab: id })}
         tabs={(["upcoming", "ongoing", "history", "all"] as const).map(
-          (id) => ({ id, label: t.memberPages[id] }),
+          (id) => ({
+            id,
+            label: `${names[id]}${state.data ? ` (${counts[id]})` : ""}`,
+          }),
         )}
       >
         <AsyncSection state={state}>
-          {(rows) => {
-            const filtered = rows.filter((e) => {
-              const history =
-                e.status !== "CONFIRMED" ||
-                ["COMPLETED", "CANCELLED"].includes(e.classStatus);
-              const upcoming =
-                !history &&
-                (!e.firstSessionStartUtc ||
-                  new Date(e.firstSessionStartUtc).getTime() > now);
+          {() => {
+            const k = (e: CourseEnrollmentDto) => classify(e, now);
+            const filtered = rows.filter((e) =>
+              tab === "all"
+                ? true
+                : tab === "upcoming"
+                  ? k(e).upcoming
+                  : tab === "ongoing"
+                    ? k(e).ongoing
+                    : k(e).history,
+            );
+            if (!filtered.length)
               return (
-                values.tab === "all" ||
-                (values.tab === "history"
-                  ? history
-                  : values.tab === "upcoming"
-                    ? upcoming
-                    : !history && !upcoming)
+                <div className={styles.empty} data-surface="inverse">
+                  <h3>{empty[tab][0]}</h3>
+                  <p>{empty[tab][1]}</p>
+                  <Link className="btn" href="/member/discover">
+                    {c.explore}
+                  </Link>
+                </div>
               );
-            });
-            return filtered.length ? (
-              <div className="stack">
-                {filtered.map((e) => (
-                  <Card key={e.enrollmentId} title={e.className}>
-                    <p>
-                      {e.sportName} · <StatusChip value={e.status} /> ·{" "}
-                      <StatusChip value={e.classStatus} />
-                    </p>
-                    <p>
-                      {formatDateTime(e.firstSessionStartUtc)} · {e.numSessions}{" "}
-                      {t.refactor.sessions}
-                    </p>
-                    <Link href={`/member/courses/${e.classId}`}>
-                      {t.refactor.details}
-                    </Link>
-                  </Card>
-                ))}
+            return (
+              <div className={styles.list}>
+                {filtered.map((e) => {
+                  const st = status(e);
+                  const firstDay = e.firstSessionStartUtc?.slice(0, 10);
+                  return (
+                    <article key={e.enrollmentId} className={styles.row}>
+                      <div className={styles.main}>
+                        <div className={styles.head}>
+                          <span
+                            className={tags.sport}
+                            data-sport={sportTone(e.sportName)}
+                          >
+                            {e.sportName}
+                          </span>
+                          <StatusChip
+                            tone={st.tone}
+                            label={st.label}
+                            value={e.status}
+                          />
+                        </div>
+                        <h3>{e.className}</h3>
+                        <dl className={styles.facts}>
+                          <div>
+                            <dt>{c.progressLabel}</dt>
+                            <dd>
+                              {c.progress
+                                .replace(
+                                  "{done}",
+                                  String(e.completedSessions ?? 0),
+                                )
+                                .replace("{total}", String(e.numSessions))}
+                            </dd>
+                          </div>
+                          <div>
+                            <dt>{c.dates}</dt>
+                            <dd>
+                              {e.firstSessionStartUtc
+                                ? e.lastSessionEndUtc
+                                  ? c.datesRange
+                                      .replace(
+                                        "{from}",
+                                        formatDate(e.firstSessionStartUtc),
+                                      )
+                                      .replace(
+                                        "{to}",
+                                        formatDate(e.lastSessionEndUtc),
+                                      )
+                                  : c.datesFrom.replace(
+                                      "{from}",
+                                      formatDate(e.firstSessionStartUtc),
+                                    )
+                                : "—"}
+                            </dd>
+                          </div>
+                          <div>
+                            <dt>{c.coach}</dt>
+                            <dd>{e.coachName || c.coachTbc}</dd>
+                          </div>
+                          <div>
+                            <dt>{c.room}</dt>
+                            <dd>{e.roomName || "—"}</dd>
+                          </div>
+                        </dl>
+                      </div>
+                      <div className={styles.actions}>
+                        <Link
+                          className="btn"
+                          href={`/member/courses/${e.classId}`}
+                        >
+                          {c.details}
+                        </Link>
+                        {firstDay && (
+                          <Link
+                            className="btn btn--secondary"
+                            href={`/member/schedule?date=${firstDay}`}
+                          >
+                            {c.sessions}
+                          </Link>
+                        )}
+                      </div>
+                    </article>
+                  );
+                })}
               </div>
-            ) : (
-              <p>{t.memberPages.emptyCourses}</p>
             );
           }}
         </AsyncSection>
       </Tabs>
-      <Link href="/member/discover">{t.memberPages.discover}</Link>
     </>
   );
 }

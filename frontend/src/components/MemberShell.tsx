@@ -14,6 +14,7 @@ import { HOME_BY_ROLE, useAuth, type Role } from "@/lib/auth";
 import { useLanguage } from "@/lib/language";
 import { NotificationBell } from "./NotificationBell";
 import { MemberCodeButton } from "./MemberCodeCard";
+import { AssistantButton } from "@/features/member/assistant";
 import {
   IconSettings,
   IconHeartbeat,
@@ -147,7 +148,9 @@ export function MemberFrame({
             <span className={styles.brandLogo}>
               Sport<span className={styles.brandLogoAccent}>Hub</span>
             </span>
-            <span className={styles.portalBadge}>Member</span>
+            <span className={styles.roleBadge}>
+              {t.navigation.roleLabel.Member}
+            </span>
           </Link>
 
           {/* Desktop Navigation */}
@@ -377,10 +380,42 @@ export function MemberFrame({
 
       {/* Footer */}
       <footer className={styles.footer}>
-        {language === "en"
-          ? "SportHub · Multi-Sport Center"
-          : "SportHub · Trung tâm Thể thao Đa môn"}
+        <div className={styles.footerInner}>
+          <div className={styles.footerBrand}>
+            <p className={styles.footerLogo}>
+              Sport<span>Hub</span>
+            </p>
+            <p>
+              A training home for badminton, basketball, gym &amp; personal
+              coaching.
+            </p>
+          </div>
+          <div>
+            <h2>{language === "en" ? "Sports" : "Môn tập"}</h2>
+            <ul>
+              <li>Badminton</li>
+              <li>Basketball</li>
+              <li>Gym &amp; conditioning</li>
+              <li>Personal training</li>
+            </ul>
+          </div>
+          <div>
+            <h2>{language === "en" ? "Contact" : "Liên hệ"}</h2>
+            <ul>
+              <li>
+                <a href="tel:+842873002026">(+84) 28 7300 2026</a>
+              </li>
+              <li>
+                <a href="mailto:hello@sporthub.vn">hello@sporthub.vn</a>
+              </li>
+              <li>123 Sports Avenue, District 1, Ho Chi Minh City</li>
+              <li>Daily 6:00 AM–10:00 PM</li>
+            </ul>
+          </div>
+        </div>
+        <p className={styles.footerLegal}>© 2026 SportHub</p>
       </footer>
+      <AssistantButton />
     </div>
   );
 }

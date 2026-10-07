@@ -26,7 +26,9 @@ export function PasswordRequirements({
       {t.identity.passwordRules.map((rule, i) => (
         <li
           key={rule}
-          className={checks[i] ? "pw-rules__item pw-rules__item--ok" : "pw-rules__item"}
+          className={
+            checks[i] ? "pw-rules__item pw-rules__item--ok" : "pw-rules__item"
+          }
         >
           <span className="pw-rules__mark" aria-hidden="true">
             {checks[i] ? <IconCheck size={14} strokeWidth={2.6} /> : null}
