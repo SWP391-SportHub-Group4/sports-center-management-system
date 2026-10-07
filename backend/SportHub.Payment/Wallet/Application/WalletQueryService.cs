@@ -42,9 +42,13 @@ public sealed class WalletQueryService(ISportHubDbContext db, IUserAccessReader 
         var owner = await users.GetAsync(ownerId, ct);
         if (owner is null || owner.Role != "Member")
             throw new NotFoundException("wallet_owner_not_found", "Không tìm thấy chủ ví hợp lệ.");
-        if (staffActorId is Guid actor)
+        // Manager wallet views are read-only: audit the committed adjustment instead.
+        // Shared /members/{id}/points routes also skip audits for Manager actors.
+        // Receptionist retains the access audit required by the counter workflow.
+        if (staffActorId is Guid actor && !manager
+            && (await users.GetAsync(actor, ct))?.Role == "Receptionist")
         {
-            audit.Write(new AuditEntry(actor, manager ? "VIEW_OWNER_WALLET" : "VIEW_MEMBER_WALLET", nameof(PointWallet), ownerId.ToString()));
+            audit.Write(new AuditEntry(actor, "VIEW_MEMBER_WALLET", nameof(PointWallet), ownerId.ToString()));
             await db.SaveChangesAsync(ct);
         }
     }

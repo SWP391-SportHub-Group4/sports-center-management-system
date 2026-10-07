@@ -66,6 +66,13 @@ public sealed class ReportExportService(
 {
     public const int RetentionMonths = 6;
 
+    private static string DescribeAudit(ReportExport export)
+    {
+        var snapshot = JsonSerializer.Deserialize<Dictionary<string, object?>>(export.ParametersJson) ?? [];
+        snapshot["reportType"] = export.ReportType;
+        return JsonSerializer.Serialize(snapshot);
+    }
+
     public async Task<PagedResult<ReportExportResponse>> SearchAsync(
         Guid actorUserId,
         bool actorIsCenterManager,
@@ -173,7 +180,7 @@ public sealed class ReportExportService(
 
         audit.Write(new AuditEntry(
             actorUserId, "CREATE_REPORT_EXPORT", nameof(ReportExport), export.ReportExportId.ToString(),
-            NewValue: export.ParametersJson));
+            NewValue: DescribeAudit(export)));
 
         await db.SaveChangesAsync(ct);
 
@@ -220,7 +227,7 @@ public sealed class ReportExportService(
 
         audit.Write(new AuditEntry(
             actorUserId, "DELETE_REPORT_EXPORT", nameof(ReportExport), reportExportId.ToString(),
-            OldValue: export.ParametersJson));
+            OldValue: DescribeAudit(export)));
 
         await db.SaveChangesAsync(ct);
     }

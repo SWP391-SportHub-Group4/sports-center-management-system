@@ -14,8 +14,9 @@ import { choiceQuery, pageQuery, useUrlQuery } from "@/lib/useUrlQuery";
 import { useLanguage } from "@/lib/language";
 import { formatDateTime } from "@/lib/format";
 import type { AuditLogDto, Paged, RoomTypeDto } from "@/lib/types";
-import { auditMetadata } from "@/features/administration/audit-metadata";
 import { AuditTargetAccount } from "@/features/administration/AuditTargetAccount";
+import { AuditTargetEntity } from "@/features/administration/AuditTargetEntity";
+import { ManagerAuditChanges } from "@/features/administration/ManagerAuditChanges";
 import { MembershipAuditChanges } from "@/features/administration/MembershipAuditChanges";
 import {
   CourtRateAuditChanges,
@@ -202,11 +203,7 @@ export function AuditLogView({
         row.targetEntity === "UserAccount" ? (
           <AuditTargetAccount row={row} linkToAccount={accountsOnly} />
         ) : (
-          <>
-            {row.targetEntity}
-            <br />
-            <span className="small muted">{row.targetId}</span>
-          </>
+          <AuditTargetEntity row={row} />
         ),
     },
     {
@@ -218,20 +215,7 @@ export function AuditLogView({
         ) : row.targetEntity === "CourtRate" ? (
           <CourtRateAuditChanges row={row} roomTypes={roomTypes.data ?? []} />
         ) : (
-          <>
-            {auditMetadata(row.oldValue).map(([key, value]) => (
-              <p key={`old-${key}`}>
-                <del>
-                  {key}: {value}
-                </del>
-              </p>
-            ))}
-            {auditMetadata(row.newValue).map(([key, value]) => (
-              <p key={`new-${key}`}>
-                {key}: {value}
-              </p>
-            ))}
-          </>
+          <ManagerAuditChanges row={row} />
         ),
     },
   ];
@@ -244,7 +228,7 @@ export function AuditLogView({
         hint={
           accountsOnly
             ? `${l.accountScope} ${t.adminWork.targetAccountHint}`
-            : `${l.auditHint}${needsRoomNames ? ` ${t.courtRateAudit.currentNameHint}` : ""}`
+            : `${l.auditHint} ${t.managerAudit.currentNamesHint}${needsRoomNames ? ` ${t.courtRateAudit.currentNameHint}` : ""}`
         }
       >
         <AuditFilterForm

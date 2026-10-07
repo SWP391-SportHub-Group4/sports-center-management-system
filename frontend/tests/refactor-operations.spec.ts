@@ -1333,6 +1333,16 @@ test("manager creates an API-backed draft and preserves the form on conflict", a
   await page.route("**/api/availability/coaches?**", (r) =>
     r.fulfill({ json: [{ coachId: memberId, isAvailable: true }] }),
   );
+  await page.route("**/api/manager/class-schedule/availability?**", (r) =>
+    r.fulfill({
+      json: {
+        available: true,
+        reasons: [],
+        roomName: "Court A",
+        coachName: "Coach A",
+      },
+    }),
+  );
   await page.route("**/api/manager/classes?**", (r) =>
     r.fulfill({ json: { items: [], totalCount: 0, page: 1, pageSize: 20 } }),
   );

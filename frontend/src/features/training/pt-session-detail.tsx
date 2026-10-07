@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { AsyncSection, Feedback, Field, StatusChip } from "@/components/ui";
 import { api } from "@/lib/apiClient";
 import { useAction, useApi } from "@/lib/useApi";
@@ -13,6 +13,13 @@ import { RequestList, isPending } from "./request-list";
 import styles from "./training.module.css";
 
 const HOUR = 3_600_000;
+const subscribeToLocation = (onChange: () => void) => {
+  window.addEventListener("popstate", onChange);
+  return () => window.removeEventListener("popstate", onChange);
+};
+const hasBookedQuery = () =>
+  new URLSearchParams(window.location.search).get("booked") === "1";
+const hasBookedQueryOnServer = () => false;
 
 /** Chi tiết một buổi PT (A08): lịch hiện tại, quy tắc 24 giờ và yêu cầu hủy/đổi. Gửi yêu cầu không đổi lịch. */
 export function PtSessionDetail({ sessionId }: { sessionId: string }) {
@@ -27,12 +34,11 @@ export function PtSessionDetail({ sessionId }: { sessionId: string }) {
   const [now] = useState(() => Date.now());
   const action = useAction();
   // Vừa đặt xong ở /member/pt/book: xác nhận ngay trên trang chi tiết.
-  const [justBooked, setJustBooked] = useState(false);
-  useEffect(() => {
-    setJustBooked(
-      new URLSearchParams(window.location.search).get("booked") === "1",
-    );
-  }, []);
+  const justBooked = useSyncExternalStore(
+    subscribeToLocation,
+    hasBookedQuery,
+    hasBookedQueryOnServer,
+  );
 
   const sessions = useApi(
     (signal) =>

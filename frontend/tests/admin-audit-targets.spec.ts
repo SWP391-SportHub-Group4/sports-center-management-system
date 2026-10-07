@@ -55,6 +55,29 @@ async function setup(page: Page, rows: object[]) {
   });
 }
 
+test("account audit displays recorded reasons and changes without exposing unknown metadata", async ({
+  page,
+}) => {
+  await setup(page, [
+    {
+      ...audit,
+      oldValue: JSON.stringify({ role: "Receptionist" }),
+      newValue: JSON.stringify({
+        value: { role: "CenterManager", password: "MUST_NOT_RENDER" },
+        reason: "Promotion approved by leader",
+      }),
+    },
+  ]);
+  await page.goto("/admin/audit-log");
+  const table = page.getByRole("table");
+  await expect(table).toContainText("Promotion approved by leader");
+  await expect(table.locator("del")).toContainText("Receptionist");
+  await expect(table).not.toContainText("MUST_NOT_RENDER");
+  await page.getByTitle("Switch to Vietnamese").click();
+  await expect(table).toContainText("Lý do:");
+  await expect(table).toContainText("Promotion approved by leader");
+});
+
 test("audit and overview distinguish target identity from actor without row detail requests", async ({
   page,
 }) => {
