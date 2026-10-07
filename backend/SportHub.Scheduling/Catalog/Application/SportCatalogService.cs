@@ -23,7 +23,8 @@ public sealed partial class SportCatalogService(ISportHubDbContext db, IAuditWri
         var sports = await db.Set<Sport>().AsNoTracking()
             .Include(s => s.Services)
             .Where(s => includeInactive || s.IsActive)
-            .OrderBy(s => s.SortOrder).ThenBy(s => s.Name)
+            .OrderByDescending(s => s.IsActive)
+            .ThenBy(s => s.SortOrder).ThenBy(s => s.SportId)
             .ToListAsync(ct);
 
         var readiness = includeInactive ? await ReadinessAsync(sports, ct) : null;
@@ -58,18 +59,20 @@ public sealed partial class SportCatalogService(ISportHubDbContext db, IAuditWri
             Name = name,
             Description = Clean(request.Description),
             ImageUrl = Clean(request.ImageUrl),
-            SortOrder = request.SortOrder,
             IsActive = true,
             Services = services
         };
 
         await using var tx = await db.Database.BeginTransactionAsync(ct);
+        var ordered = await LockAndListSportsAsync(ct);
+        ordered.Add(sport);
+        AssignSortOrders(ordered);
 
         db.Set<Sport>().Add(sport);
         await db.SaveChangesAsync(ct); // unique citext trên code/name là nơi chặn thật khi hai request đồng thời
 
         audit.Write(new AuditEntry(actorUserId, "CREATE_SPORT", nameof(Sport), sport.SportId.ToString(),
-            NewValue: System.Text.Json.JsonSerializer.Serialize(new { code, name, services = services.Select(x => x.ServiceType.ToString()) })));
+            NewValue: Describe(sport)));
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
 
@@ -94,16 +97,11 @@ public sealed partial class SportCatalogService(ISportHubDbContext db, IAuditWri
             throw new ConflictException("sport_name_taken", "Đã có môn trùng tên.");
         }
 
-        var before = System.Text.Json.JsonSerializer.Serialize(new
-        {
-            name = sport.Name,
-            services = sport.Services.Select(x => new { x.ServiceType, x.IsEnabled, x.DefaultSessionMinutes })
-        });
+        var before = Describe(sport);
 
         sport.Name = name;
         sport.Description = Clean(request.Description);
         sport.ImageUrl = Clean(request.ImageUrl);
-        sport.SortOrder = request.SortOrder;
 
         // Đổi mặc định chỉ có tác dụng với lớp tạo sau, không sửa lịch cũ. Dịch vụ không còn trong yêu cầu chỉ bị TẮT,
         // không bị xóa: dịch vụ đã bán/đang có lịch vẫn đọc được.
@@ -125,11 +123,7 @@ public sealed partial class SportCatalogService(ISportHubDbContext db, IAuditWri
 
         audit.Write(new AuditEntry(actorUserId, "UPDATE_SPORT", nameof(Sport), sportId.ToString(),
             OldValue: before,
-            NewValue: System.Text.Json.JsonSerializer.Serialize(new
-            {
-                name,
-                services = sport.Services.Select(x => new { x.ServiceType, x.IsEnabled, x.DefaultSessionMinutes })
-            })));
+            NewValue: Describe(sport)));
 
         await db.SaveChangesAsync(ct);
         return ToResponse(sport, publicView: false, null);
@@ -151,10 +145,12 @@ public sealed partial class SportCatalogService(ISportHubDbContext db, IAuditWri
 
         if (offering.IsEnabled != enabled)
         {
+            var before = System.Text.Json.JsonSerializer.Serialize(new { targetName = sport.Name, sportId, serviceType = type.ToString(), enabled = offering.IsEnabled });
             offering.IsEnabled = enabled;
             audit.Write(new AuditEntry(actorUserId, enabled ? "ENABLE_SPORT_SERVICE" : "DISABLE_SPORT_SERVICE",
                 nameof(SportServiceOffering), offering.OfferingId.ToString(),
-                NewValue: System.Text.Json.JsonSerializer.Serialize(new { sportId, serviceType = type.ToString(), enabled })));
+                OldValue: before,
+                NewValue: System.Text.Json.JsonSerializer.Serialize(new { targetName = sport.Name, sportId, serviceType = type.ToString(), enabled })));
             await db.SaveChangesAsync(ct);
         }
 
@@ -197,25 +193,60 @@ public sealed partial class SportCatalogService(ISportHubDbContext db, IAuditWri
             .Select(id => new ServiceRoomType { OfferingId = offering.OfferingId, RoomTypeId = id }));
 
         audit.Write(new AuditEntry(actorUserId, "SET_SERVICE_ROOM_TYPES", nameof(SportServiceOffering), offering.OfferingId.ToString(),
-            NewValue: System.Text.Json.JsonSerializer.Serialize(new { roomTypeIds = ids })));
+            OldValue: System.Text.Json.JsonSerializer.Serialize(new { targetName = sport.Name, sportId, serviceType = type.ToString(), roomTypeIds = current.Select(x => x.RoomTypeId).OrderBy(x => x) }),
+            NewValue: System.Text.Json.JsonSerializer.Serialize(new { targetName = sport.Name, sportId, serviceType = type.ToString(), roomTypeIds = ids })));
         await db.SaveChangesAsync(ct);
         return ids;
     }
 
     private async Task<SportResponse> SetActiveAsync(int sportId, bool active, string action, Guid actorUserId, CancellationToken ct)
     {
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        var ordered = await LockAndListSportsAsync(ct);
+        // Load the current state only after taking the catalog lock.
         var sport = await FindAsync(sportId, ct);
-
         if (sport.IsActive != active)
         {
+            var before = System.Text.Json.JsonSerializer.Serialize(new { name = sport.Name, code = sport.Code, isActive = sport.IsActive, sortOrder = sport.SortOrder });
+            ordered.Remove(sport);
             sport.IsActive = active;
+            ordered.Add(sport); // Append to the end of its new activity group.
+            AssignSortOrders(ordered);
             audit.Write(new AuditEntry(actorUserId, action, nameof(Sport), sportId.ToString(),
-                OldValue: "{\"isActive\":" + (!active).ToString().ToLowerInvariant() + "}",
-                NewValue: "{\"isActive\":" + active.ToString().ToLowerInvariant() + "}"));
+                OldValue: before,
+                NewValue: System.Text.Json.JsonSerializer.Serialize(new { name = sport.Name, code = sport.Code, isActive = active, sortOrder = sport.SortOrder })));
             await db.SaveChangesAsync(ct);
         }
-
+        await tx.CommitAsync(ct);
         return ToResponse(sport, publicView: false, null);
+    }
+
+    private static string Describe(Sport sport) => System.Text.Json.JsonSerializer.Serialize(new
+    {
+        code = sport.Code, name = sport.Name, description = sport.Description, imageUrl = sport.ImageUrl,
+        isActive = sport.IsActive, sortOrder = sport.SortOrder,
+        services = sport.Services.OrderBy(x => x.ServiceType).Select(x => new
+        {
+            serviceType = x.ServiceType.ToString(), isEnabled = x.IsEnabled,
+            defaultSessionMinutes = x.DefaultSessionMinutes, defaultMaxCapacity = x.DefaultMaxCapacity
+        })
+    });
+
+    private async Task<List<Sport>> LockAndListSportsAsync(CancellationToken ct)
+    {
+        // PostgreSQL table lock also covers an empty catalog. Serializes create and
+        // activity changes across API instances until their transaction commits.
+        await db.Database.ExecuteSqlRawAsync("LOCK TABLE sports IN SHARE ROW EXCLUSIVE MODE", ct);
+        return await db.Set<Sport>()
+            .OrderByDescending(s => s.IsActive).ThenBy(s => s.SortOrder)
+            .ThenBy(s => s.Name).ThenBy(s => s.SportId).ToListAsync(ct);
+    }
+
+    private static void AssignSortOrders(IReadOnlyList<Sport> sports)
+    {
+        var rank = 1;
+        foreach (var sport in sports.Where(s => s.IsActive).Concat(sports.Where(s => !s.IsActive)))
+            sport.SortOrder = rank++;
     }
 
     private async Task<Sport> FindAsync(int sportId, CancellationToken ct)

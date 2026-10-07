@@ -7,7 +7,8 @@ import { Card, Table, AsyncSection } from "@/components/ui";
 import { MutationFeedback, useMutation } from "@/features/operations";
 import { catalogApi } from "@/features/catalog";
 import type { ManagerCourseDto } from "@/lib/types";
-import { previewSessions } from "./preview";
+import { checkSchedule } from "./schedule-review";
+import { availabilityReason } from "./slot-availability";
 export function CoursePublishReview({
   course,
   onSaved,
@@ -26,42 +27,7 @@ export function CoursePublishReview({
         (s) => s.serviceType === "GROUP_COURSE",
       )?.defaultSessionMinutes;
       if (!minutes) return [];
-      const slots = previewSessions(course, minutes);
-      const rows: Array<(typeof slots)[number] & { available: boolean }> = [];
-      let next = 0;
-      await Promise.all(
-        Array.from({ length: Math.min(4, slots.length) }, async () => {
-          while (next < slots.length) {
-            const index = next++;
-            const slot = slots[index];
-            const [rooms, coaches] = await Promise.all([
-              api.get<{ roomId: number }[]>("/api/availability/rooms", {
-                signal,
-                query: {
-                  sportId: course.sportId,
-                  startUtc: slot.startAtUtc,
-                  endUtc: slot.endAtUtc,
-                },
-              }),
-              api.get<{ coachId: string }[]>("/api/availability/coaches", {
-                signal,
-                query: {
-                  sportId: course.sportId,
-                  startUtc: slot.startAtUtc,
-                  endUtc: slot.endAtUtc,
-                },
-              }),
-            ]);
-            rows[index] = {
-              ...slot,
-              available:
-                rooms.some((r) => r.roomId === course.defaultRoomId) &&
-                coaches.some((c) => c.coachId === course.coachId),
-            };
-          }
-        }),
-      );
-      return rows;
+      return checkSchedule(course, minutes, signal);
     },
     [course.classId, course.version],
   );
@@ -79,13 +45,24 @@ export function CoursePublishReview({
       <AsyncSection state={preview}>
         {(rows) => (
           <>
+            <p>
+              {rows[0]?.roomName || course.roomName} ·{" "}
+              {rows[0]?.coachName || course.coachName}
+            </p>
             {!rows.length && <p role="alert">{l.invalidSchedule}</p>}
             <Table headers={[l.start, l.end, l.status]}>
               {rows.map((r) => (
                 <tr key={r.startAtUtc}>
                   <td>{formatDateTime(r.startAtUtc)}</td>
                   <td>{formatDateTime(r.endAtUtc)}</td>
-                  <td>{r.available ? l.available : l.conflict}</td>
+                  <td>
+                    {r.available ? l.available : l.conflict}
+                    {r.reasons.map((reason) => (
+                      <p className="small" key={reason}>
+                        {availabilityReason(reason, t)}
+                      </p>
+                    ))}
+                  </td>
                 </tr>
               ))}
             </Table>

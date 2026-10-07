@@ -84,13 +84,19 @@ public sealed class RoomBlockService(ISportHubDbContext db, IOccupancyService oc
         db.Set<RoomBlock>().Add(block);
 
         audit.Write(new AuditEntry(actorUserId, "CREATE_ROOM_BLOCK", nameof(RoomBlock), block.BlockId.ToString(),
-            NewValue: System.Text.Json.JsonSerializer.Serialize(new { roomId = block.RoomId, reason = block.Reason }),
+            NewValue: await DescribeAsync(block, ct),
             Reason: block.Reason));
 
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
 
         return ToResponse(block);
+    }
+
+    private async Task<string> DescribeAsync(RoomBlock block, CancellationToken ct)
+    {
+        var name = await db.Set<Room>().Where(r => r.RoomId == block.RoomId).Select(r => r.Name).SingleAsync(ct);
+        return System.Text.Json.JsonSerializer.Serialize(new { targetName = name, roomId = block.RoomId, startAtUtc = block.StartAtUtc, endAtUtc = block.EndAtUtc, reason = block.Reason });
     }
 
     public async Task DeleteAsync(Guid blockId, Guid actorUserId, CancellationToken ct = default)
@@ -110,7 +116,7 @@ public sealed class RoomBlockService(ISportHubDbContext db, IOccupancyService oc
         db.Set<RoomBlock>().Remove(block);
 
         audit.Write(new AuditEntry(actorUserId, "DELETE_ROOM_BLOCK", nameof(RoomBlock), blockId.ToString(),
-            OldValue: "{\"roomId\":" + block.RoomId + "}"));
+            OldValue: await DescribeAsync(block, ct)));
 
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
