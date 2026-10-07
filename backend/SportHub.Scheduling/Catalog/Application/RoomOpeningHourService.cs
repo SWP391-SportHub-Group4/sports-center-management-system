@@ -59,8 +59,9 @@ public sealed class RoomOpeningHourService(ISportHubDbContext db, IAuditWriter a
         await db.SaveChangesAsync(ct);
         db.Set<RoomOpeningHour>().AddRange(parsed);
 
+        var name = await db.Set<Room>().Where(r => r.RoomId == roomId).Select(r => r.Name).SingleAsync(ct);
         audit.Write(new AuditEntry(actorUserId, "SET_ROOM_OPENING_HOURS", nameof(Room), roomId.ToString(),
-            OldValue: Describe(current), NewValue: Describe(parsed)));
+            OldValue: Describe(name, current), NewValue: Describe(name, parsed)));
 
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
@@ -111,8 +112,8 @@ public sealed class RoomOpeningHourService(ISportHubDbContext db, IAuditWriter a
             h.OpenTimeLocal.ToString(TimeFormat, CultureInfo.InvariantCulture),
             h.CloseTimeLocal.ToString(TimeFormat, CultureInfo.InvariantCulture));
 
-    private static string Describe(IEnumerable<RoomOpeningHour> rows)
-        => System.Text.Json.JsonSerializer.Serialize(rows.OrderBy(r => r.DayOfWeek).Select(r =>
+    private static string Describe(string name, IEnumerable<RoomOpeningHour> rows)
+        => System.Text.Json.JsonSerializer.Serialize(new { name, hours = rows.OrderBy(r => r.DayOfWeek).Select(r =>
             r.DayOfWeek + ":" + r.OpenTimeLocal.ToString(TimeFormat, CultureInfo.InvariantCulture)
-            + "-" + r.CloseTimeLocal.ToString(TimeFormat, CultureInfo.InvariantCulture)));
+            + "-" + r.CloseTimeLocal.ToString(TimeFormat, CultureInfo.InvariantCulture)) });
 }

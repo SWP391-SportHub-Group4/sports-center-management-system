@@ -7,7 +7,6 @@ import { todayIso, formatDateTime } from "@/lib/format";
 import { pagedItems } from "@/lib/paged";
 import { AsyncSection, Card, StatusChip, Table } from "@/components/ui";
 import { courtScheduleApi } from "@/features/court-schedule";
-import { ApiGap } from "./api-gap";
 import type {
   ManagerCourseDto,
   Paged,
@@ -122,10 +121,11 @@ export function OperationsOverview() {
               </>
             )}
           </AsyncSection>
+          <h3>{t.operations.incidents}</h3>
+          <p className="small muted">{m.incidentOverviewUnavailable}</p>
           <Link className="btn btn--secondary" href="/manager/incidents">
             {t.operations.incidents}
           </Link>
-          <ApiGap code="G06" message={m.incidentGap} />
         </div>
       </Card>
       <Card

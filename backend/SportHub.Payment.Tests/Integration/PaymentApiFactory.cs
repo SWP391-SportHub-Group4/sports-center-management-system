@@ -91,6 +91,10 @@ public sealed class PaymentApiFactory : WebApplicationFactory<Program>, IAsyncLi
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        // Program validates SMTP before deferred test configuration is applied.
+        // Test delivery is replaced with CapturingPaymentEmailSender below.
+        Environment.SetEnvironmentVariable("Smtp__FromAddress", "integration-tests@example.invalid");
+        Environment.SetEnvironmentVariable("Email__Smtp__FromAddress", "integration-tests@example.invalid");
         builder.UseEnvironment("Development");
 
         builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(
@@ -104,7 +108,10 @@ public sealed class PaymentApiFactory : WebApplicationFactory<Program>, IAsyncLi
                 ["Cors:AllowedOrigins:0"] = "http://localhost:3000",
                 ["Logging:LogLevel:Default"] = "Warning",
                 ["Logging:LogLevel:Microsoft.EntityFrameworkCore"] = "Error"
-                , ["VnPay:UseMock"] = "true"
+                , ["VnPay:UseMock"] = "true",
+                ["Smtp:Host"] = "",
+                ["Email:Smtp:Host"] = "",
+                ["Email:DemoLoggingEnabled"] = "true"
             }));
         builder.ConfigureTestServices(services =>
         {

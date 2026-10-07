@@ -1,7 +1,0 @@
-services:
-  backend:
-    environment:
-      ASPNETCORE_ENVIRONMENT: Development
-      Smtp__Host: ""
-      Email__Smtp__Host: ""
-      Email__DemoLoggingEnabled: "true"

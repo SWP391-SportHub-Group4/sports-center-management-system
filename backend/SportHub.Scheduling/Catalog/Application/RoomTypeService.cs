@@ -63,7 +63,7 @@ public sealed class RoomTypeService(ISportHubDbContext db, IAuditWriter audit, S
     /// <summary>Thay toàn bộ danh sách môn chơi được ở loại phòng này. Môn phải tồn tại.</summary>
     public async Task<RoomTypeResponse> SetSportsAsync(int roomTypeId, SetRoomTypeSportsRequest request, Guid actorUserId, CancellationToken ct = default)
     {
-        await FindAsync(roomTypeId, ct);
+        var type = await FindAsync(roomTypeId, ct);
 
         var wanted = request.SportIds.Distinct().ToList();
         var known = await db.Set<Sport>().AsNoTracking().Where(s => wanted.Contains(s.SportId)).Select(s => s.SportId).ToListAsync(ct);
@@ -89,8 +89,8 @@ public sealed class RoomTypeService(ISportHubDbContext db, IAuditWriter audit, S
             .Select(id => new SportRoomType { RoomTypeId = roomTypeId, SportId = id }));
 
         audit.Write(new AuditEntry(actorUserId, "SET_ROOM_TYPE_SPORTS", nameof(RoomType), roomTypeId.ToString(),
-            OldValue: "[" + string.Join(",", current.Select(l => l.SportId).OrderBy(x => x)) + "]",
-            NewValue: "[" + string.Join(",", wanted.OrderBy(x => x)) + "]"));
+            OldValue: System.Text.Json.JsonSerializer.Serialize(new { name = type.Name, sportIds = current.Select(l => l.SportId).OrderBy(x => x) }),
+            NewValue: System.Text.Json.JsonSerializer.Serialize(new { name = type.Name, sportIds = wanted.OrderBy(x => x) })));
 
         await db.SaveChangesAsync(ct);
         return await GetAsync(roomTypeId, ct);
