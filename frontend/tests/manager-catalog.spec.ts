@@ -204,6 +204,9 @@ test("sport creation uses service contract, reloads, and edits with immutable co
     .click();
   await expect(dialog(page).getByLabel("Code", { exact: true })).toBeDisabled();
   await expect(
+    dialog(page).getByLabel("Display order", { exact: true }),
+  ).toHaveCount(0);
+  await expect(
     dialog(page).getByLabel("Membership", { exact: true }),
   ).toHaveCount(0);
   await expect(
@@ -236,6 +239,8 @@ test("sport creation uses service contract, reloads, and edits with immutable co
       ],
     },
   });
+  expect(fixture.writes[0].body).not.toHaveProperty("sortOrder");
+  expect(fixture.writes[1].body).not.toHaveProperty("sortOrder");
   expect(fixture.writes[1].body).not.toHaveProperty("code");
   expect(fixture.writes[1].body).not.toHaveProperty("operationType");
 });

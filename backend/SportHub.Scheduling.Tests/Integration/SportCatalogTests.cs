@@ -57,6 +57,106 @@ public class SportCatalogTests(SchedulingApiFactory factory)
 
     private static async Task<string> ErrorOf(HttpResponseMessage r) => (await Json(r)).GetProperty("error").GetString()!;
 
+    [Fact]
+    public async Task Automatic_order_appends_compacts_and_preserves_identity_on_activity_changes()
+    {
+        using var manager = await ManagerAsync();
+        async Task<List<JsonElement>> List() => (await Json(await manager.GetAsync("api/manager/sports"))).EnumerateArray().ToList();
+        static int Id(JsonElement row) => row.GetProperty("sportId").GetInt32();
+        static bool Active(JsonElement row) => row.GetProperty("isActive").GetBoolean();
+        static void AssertOrder(List<JsonElement> rows, List<int> active, List<int> inactive)
+        {
+            Assert.Equal(active.Concat(inactive), rows.Select(Id));
+            Assert.Equal(Enumerable.Range(1, rows.Count), rows.Select(r => r.GetProperty("sortOrder").GetInt32()));
+            Assert.All(rows.Take(active.Count), r => Assert.True(Active(r)));
+            Assert.All(rows.Skip(active.Count), r => Assert.False(Active(r)));
+        }
+        var initial = await List();
+        var active = initial.Where(Active).Select(Id).ToList();
+        var inactive = initial.Where(r => !Active(r)).Select(Id).ToList();
+        var createdIds = new List<int>();
+        var codes = new List<string>();
+        for (var n = 0; n < 3; n++)
+        {
+            var code = UniqueCode();
+            codes.Add(code);
+            var response = await manager.PostAsJsonAsync("api/manager/sports", new
+            { code, name = Unique("Order"), sortOrder = -900, services = GroupCourse() });
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+            var row = await Json(response);
+            createdIds.Add(Id(row));
+            active.Add(Id(row));
+            Assert.Equal(active.Count, row.GetProperty("sortOrder").GetInt32());
+            AssertOrder(await List(), active, inactive);
+        }
+        var middle = createdIds[1];
+        Assert.Equal(HttpStatusCode.OK, (await manager.PostAsync($"api/manager/sports/{middle}/deactivate", null)).StatusCode);
+        active.Remove(middle); inactive.Add(middle);
+        AssertOrder(await List(), active, inactive);
+        using var anonymous = factory.CreateApiClient();
+        var publicRows = (await Json(await anonymous.GetAsync("api/sports"))).EnumerateArray().ToList();
+        Assert.Equal(active, publicRows.Select(Id));
+        Assert.DoesNotContain(publicRows, r => Id(r) == middle);
+        Assert.Equal(HttpStatusCode.OK, (await manager.PostAsync($"api/manager/sports/{middle}/deactivate", null)).StatusCode);
+        AssertOrder(await List(), active, inactive);
+        Assert.Equal(HttpStatusCode.OK, (await manager.PostAsync($"api/manager/sports/{middle}/activate", null)).StatusCode);
+        inactive.Remove(middle); active.Add(middle);
+        AssertOrder(await List(), active, inactive);
+        Assert.Equal(HttpStatusCode.OK, (await manager.PostAsync($"api/manager/sports/{middle}/activate", null)).StatusCode);
+        AssertOrder(await List(), active, inactive);
+        var updated = await manager.PutAsJsonAsync($"api/manager/sports/{middle}", new
+        { name = Unique("Renamed"), sortOrder = -24, services = GroupCourse() });
+        Assert.Equal(HttpStatusCode.OK, updated.StatusCode);
+        AssertOrder(await List(), active, inactive);
+        var current = await List();
+        for (var i = 0; i < createdIds.Count; i++)
+            Assert.Equal(codes[i], current.Single(r => Id(r) == createdIds[i]).GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task Automatic_order_serializes_concurrent_creates_and_deactivations()
+    {
+        using var manager = await ManagerAsync();
+        var responses = await Task.WhenAll(Enumerable.Range(0, 4).Select(_ => manager.PostAsJsonAsync("api/manager/sports",
+            new { code = UniqueCode(), name = Unique("Parallel"), services = GroupCourse() })));
+        Assert.All(responses, r => Assert.Equal(HttpStatusCode.Created, r.StatusCode));
+        var ids = new List<int>();
+        foreach (var response in responses) ids.Add((await Json(response)).GetProperty("sportId").GetInt32());
+        var changes = await Task.WhenAll(ids.Take(2).Select(id => manager.PostAsync($"api/manager/sports/{id}/deactivate", null)));
+        Assert.All(changes, r => Assert.Equal(HttpStatusCode.OK, r.StatusCode));
+        var rows = (await Json(await manager.GetAsync("api/manager/sports"))).EnumerateArray().ToList();
+        Assert.Equal(Enumerable.Range(1, rows.Count), rows.Select(r => r.GetProperty("sortOrder").GetInt32()));
+        var inactiveStarted = false;
+        foreach (var row in rows)
+        {
+            if (!row.GetProperty("isActive").GetBoolean()) inactiveStarted = true;
+            else Assert.False(inactiveStarted);
+        }
+    }
+
+    [Fact]
+    public async Task Automatic_order_migration_normalizes_legacy_ranks_without_changing_ids()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
+        await using var tx = await db.Database.BeginTransactionAsync();
+        // A temporary table shadows the real catalog only on this connection.
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE TEMP TABLE sports (sport_id integer PRIMARY KEY, name text, sort_order integer, is_active boolean) ON COMMIT DROP;
+            INSERT INTO sports VALUES
+            (10, 'Zulu', -24, true), (20, 'Beta', 8, true), (30, 'Alpha', 8, true),
+            (40, 'Inactive first', -50, false), (50, 'Inactive last', 900, false);
+            """);
+        var migration = new SportHub.API.Migrations.AutomaticSportOrder();
+        foreach (var operation in migration.UpOperations.OfType<Microsoft.EntityFrameworkCore.Migrations.Operations.SqlOperation>())
+            await db.Database.ExecuteSqlRawAsync(operation.Sql);
+        var ids = await db.Database.SqlQueryRaw<int>("SELECT sport_id AS \"Value\" FROM sports ORDER BY sort_order").ToListAsync();
+        var ranks = await db.Database.SqlQueryRaw<int>("SELECT sort_order AS \"Value\" FROM sports ORDER BY sort_order").ToListAsync();
+        Assert.Equal(new[] { 10, 30, 20, 40, 50 }, ids);
+        Assert.Equal(new[] { 1, 2, 3, 4, 5 }, ranks);
+        await tx.RollbackAsync();
+    }
+
     // --- Môn ---
 
     [Fact]

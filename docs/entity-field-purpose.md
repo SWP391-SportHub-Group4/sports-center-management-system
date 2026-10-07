@@ -190,7 +190,7 @@ Quan hệ 1–N với `USER_SPORT_SPECIALTIES` (Coach); Member có thêm 1 `POIN
 | `Code` | Mã ổn định, duy nhất (`^[a-z0-9_]{2,32}`), **không đổi sau khi tạo**; chỉ để định danh catalog và seed, không dùng để rẽ nhánh nghiệp vụ. Mã `gym` là môn tham chiếu duy nhất được bật Membership/PT |
 | `Name` | Tên hiển thị — **unique không phân biệt hoa/thường** (`LOWER(name)`) |
 | `Description` / `ImageUrl` (nullable) | Hiển thị landing page |
-| `SortOrder` | Thứ tự hiển thị |
+| `SortOrder` | Backend-managed consecutive order `1..N`: active sports first, inactive sports last. Create/reactivate appends to the active group; deactivate appends to the inactive group and compacts the order. Managers cannot edit it. `SportId` and `Code` remain unchanged. |
 | `IsActive` | Ngừng hoạt động thay cho xóa cứng (giữ lịch sử lớp/hóa đơn) |
 
 ### `SPORT_SERVICE_OFFERINGS`
@@ -690,6 +690,8 @@ Chỉ PT có quan hệ `Active` với Member mới tạo/sửa/hủy/review; Mem
 | `CreatedByUserId` / `Reason` | Ai/lý do — bắt buộc lý do với `Adjustment` |
 
 Ràng buộc: **unique `(ReferenceId, EntryType)`** để idempotent (không cộng/trừ hai lần cùng một sự kiện).
+
+Cột **Tham chiếu** của lịch sử điểm trình bày cặp `ReferenceType · ReferenceId` để truy về nguồn tạo giao dịch. Với `ManagerAdjustment`, ID là `IdempotencyKey` của yêu cầu điều chỉnh (giữ nguyên khi retry), khác `LedgerEntryId` của dòng sổ cái và `OwnerUserId` của chủ ví. Backend cũng có nguồn `CheckoutSession` theo chu kỳ chọn điểm; không phải mọi tham chiếu đều là ID hóa đơn. Từ 07/10/2026 Manager xem ví không sinh audit; chỉ điều chỉnh thành công sinh `ADJUST_POINTS`, retry cùng yêu cầu không ghi thêm. Ledger giao dịch và các audit cũ giữ nguyên.
 
 ### `POINT_CONFIRMATIONS`
 **Mục đích:** xác nhận của Member khi **Receptionist dùng điểm thanh toán thay** tại quầy. **OTP bắt buộc** — 6 chữ số gửi email Member, hiệu lực 5 phút, tối đa 5 lần nhập sai; không có cách xác nhận khác tại quầy. Member tự checkout khi đã đăng nhập chỉ bấm xác nhận số điểm (`ConfirmedVia = MemberSession`), không cần OTP.
