@@ -174,3 +174,8 @@
     display: none;
   }
 }
+
+/* Công tắc ngôn ngữ của nhân sự luôn hiện trên thanh trên cùng, kể cả màn hẹp. */
+button.staffLang {
+  display: inline-flex;
+}

@@ -79,7 +79,11 @@ export function MemberFrame({
       label: t.memberPages.courtRental,
       also: ["/member/rentals"],
     },
-    { href: "/member/training", label: t.nav.training },
+    {
+      href: "/member/training",
+      label: t.nav.training,
+      also: ["/member/pt", "/member/profile"],
+    },
     {
       href: "/member/finance",
       label: t.finance.title,

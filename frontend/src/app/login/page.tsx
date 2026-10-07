@@ -181,6 +181,10 @@ function LoginForm() {
           </h1>
           <p className={styles.subtitle}>{t.auth.signInSubtitle}</p>
 
+          <div className={styles.feedback}>
+            <Feedback id="login-error" error={error} />
+          </div>
+
           {expired && (
             <div
               className="alert alert--warn auth__session-alert"
@@ -189,39 +193,6 @@ function LoginForm() {
               {t.refactor.sessionExpired}
             </div>
           )}
-
-          <GoogleSignInButton
-            text="continue_with"
-            disabled={busy}
-            onError={(cause) => {
-              setError(loginErrorMessage(cause, language));
-              setErrorSource("form");
-            }}
-            onCredential={(idToken) => {
-              void (async () => {
-                if (busy) return;
-                setBusy(true);
-                setError(null);
-                setErrorSource(null);
-                try {
-                  const user = await loginWithGoogle(idToken);
-                  const target = safeReturnTo(next, HOME_BY_ROLE[user.role]);
-                  router.replace(target);
-                } catch (cause) {
-                  if (cause instanceof GoogleOnboardingRequired) {
-                    setOnboarding(cause.pending);
-                  } else setError(loginErrorMessage(cause, language));
-                  setErrorSource("form");
-                } finally {
-                  setBusy(false);
-                }
-              })();
-            }}
-          />
-
-          <div className={`auth__separator ${styles.separator}`}>
-            <span>{t.refactor.emailSignIn}</span>
-          </div>
 
           <form
             className={styles.form}
@@ -312,10 +283,6 @@ function LoginForm() {
               </Link>
             </div>
 
-            <div className={styles.feedback}>
-              <Feedback id="login-error" error={error} />
-            </div>
-
             <button
               type="submit"
               className={`btn ${styles.submit}`}
@@ -331,6 +298,39 @@ function LoginForm() {
               )}
             </button>
           </form>
+
+          <div className={`auth__separator ${styles.separator}`}>
+            <span>{t.refactor.emailSignIn}</span>
+          </div>
+
+          <GoogleSignInButton
+            text="continue_with"
+            disabled={busy}
+            onError={(cause) => {
+              setError(loginErrorMessage(cause, language));
+              setErrorSource("form");
+            }}
+            onCredential={(idToken) => {
+              void (async () => {
+                if (busy) return;
+                setBusy(true);
+                setError(null);
+                setErrorSource(null);
+                try {
+                  const user = await loginWithGoogle(idToken);
+                  const target = safeReturnTo(next, HOME_BY_ROLE[user.role]);
+                  router.replace(target);
+                } catch (cause) {
+                  if (cause instanceof GoogleOnboardingRequired) {
+                    setOnboarding(cause.pending);
+                  } else setError(loginErrorMessage(cause, language));
+                  setErrorSource("form");
+                } finally {
+                  setBusy(false);
+                }
+              })();
+            }}
+          />
 
           <p className={styles.signup}>
             {t.auth.noAccount} <Link href="/register">{t.auth.createOne}</Link>
