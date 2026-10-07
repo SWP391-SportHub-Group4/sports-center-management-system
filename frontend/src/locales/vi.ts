@@ -1,6 +1,183 @@
 import type { Translations } from "./en";
 
 export const vi: Translations = {
+  managerOperations: {
+    overview: "Tổng quan vận hành",
+    priorities: "Việc cần xử lý",
+    todaySchedule: "Lịch hôm nay",
+    atRisk: "Lớp chưa đạt ngưỡng",
+    requests: "Yêu cầu PT chờ duyệt",
+    refunds: "Yêu cầu hoàn điểm chờ duyệt",
+    schedule: "Lịch vận hành",
+    facilities: "Sân & cơ sở vật chất",
+    roomTypes: "Loại sân/phòng",
+    contentStep: "Thông tin lớp",
+    scheduleStep: "HLV, sân & lịch",
+    pricingStep: "Giá, chi phí & sĩ số",
+    reviewStep: "Xem lịch được sinh",
+    saveDraft: "Lưu nháp",
+    draftHint: "Lưu tạo lớp nháp. Xem lại và publish riêng để mở đăng ký.",
+    draftRecovered: "Đã khôi phục bản nhập chưa lưu trên thiết bị này.",
+    previewHint:
+      "Đây là lịch xem trước. Server kiểm tra lại khi lưu và publish.",
+    thresholdExceeded:
+      "Ngưỡng mở lớp vượt sĩ số. Hãy điều chỉnh chi phí, giá hoặc sĩ số.",
+    capacityExceeded: "Sĩ số lớp vượt giới hạn của sân/phòng hoặc bộ môn.",
+    missingDuration: "Bộ môn chưa cấu hình thời lượng khóa học nhóm.",
+    coachRequired: "Chọn HLV trước khi publish.",
+    noResults: "Không có lớp phù hợp với bộ lọc.",
+    overviewTab: "Tổng quan",
+    sessionsTab: "Lịch buổi",
+    studentsTab: "Học viên",
+    holdsTab: "Giữ chỗ",
+    thresholdTab: "Điều kiện mở lớp",
+    historyTab: "Lịch sử",
+    holdHint:
+      "Giữ chỗ chỉ là tạm thời. Chỉ đăng ký đã xác nhận được tính vào ngưỡng mở lớp.",
+    registration: "Đăng ký",
+    recruiting: "Đang tuyển",
+    history: "Lịch sử",
+    all: "Tất cả",
+    waitingApi: "Chờ API",
+    closeGap: "Đóng tuyển sinh thủ công cần G13. Hủy lớp là thao tác khác.",
+    interestGap:
+      "Hoàn điểm và nguyện vọng khóa sau phụ thuộc contract G02 của An. Không tự ghi danh vào khóa mới.",
+    historyHint:
+      "Nhật ký của lớp này. Thao tác buổi học liên quan có thể nằm dưới ID buổi riêng.",
+    created: "Ngày tạo",
+    published: "Đã publish",
+    version: "Phiên bản",
+    backToList: "Quay lại danh sách",
+    oldSchedule: "Lịch hiện tại",
+    newSchedule: "Lịch đề xuất",
+    reviewChange: "Xem trước thay đổi",
+    editReview: "Xem lại & chỉnh sửa",
+    serverConflict:
+      "Server kiểm tra sân, HLV, giờ mở cửa và xung đột khi xác nhận. Form được giữ nếu bị từ chối.",
+    aiTitle: "AI gợi ý xếp lịch",
+    aiGap:
+      "Gợi ý lịch cho Manager cần G03. Chat Member và gợi ý bài tập Coach không cung cấp thao tác này.",
+    aiWorkflow: "Gợi ý → xem lại & chỉnh sửa → lưu nháp → publish riêng.",
+    qualification: "Điều kiện cung cấp dịch vụ PT",
+    qualificationHint:
+      "Chuyên môn bộ môn và quyền cung cấp PT là hai phần riêng. Server có thể từ chối gỡ PT khi còn phân công đang hoạt động.",
+    noPtOffering:
+      "Chưa có dịch vụ PT của Gym đang bật. Hãy cấu hình dịch vụ bộ môn trước.",
+    assignedSchedule: "Lịch phân công",
+    coachDetail: "Chi tiết HLV",
+    externalRetired:
+      "Contract hiện tại hỗ trợ HLV nội bộ. Luồng duyệt HLV ngoài đã ngừng trong contract hiện tại.",
+    incidentScope: "Phạm vi sự cố",
+    incidentWorkflow:
+      "Xem ảnh hưởng → xử lý từng hoạt động → kiểm tra lại → xác nhận & khóa",
+    incidentGap:
+      "Cần G06 cho lịch sử sự cố trên server, quote hoàn điểm chi tiết và bảo vệ khung giờ đang xử lý. Đặt chỗ mới có thể thay đổi ảnh hưởng trước bước kiểm tra cuối.",
+    partialHint:
+      "Mỗi hoạt động là một thao tác server riêng. Thay đổi đã xong vẫn được giữ khi bước sau lỗi. Hãy kiểm tra lại trước xác nhận cuối.",
+    completedSteps: "Các bước đã xong trong phiên xử lý này",
+    completedStep: "Thao tác server đã hoàn thành",
+    noSteps: "Chưa thay đổi hoạt động nào.",
+    finalResolve: "Xác nhận xử lý và khóa sân",
+    recheck: "Kiểm tra lại ảnh hưởng",
+    resolveReview: "Xem lại xử lý cuối",
+    resolvedHint:
+      "Server đã ghi nhận xử lý. Theo dõi gửi thông báo riêng; email lỗi không đảo ngược xử lý hay hoàn điểm.",
+    unknownIncident:
+      "Chưa xác minh được kết quả. Kiểm tra nhật ký và lịch khóa sân trước khi thử lại; không coi là đã rollback.",
+    incidentLookup: "Theo dõi gửi thông báo bằng ID sự cố",
+    receiptId: "ID biên nhận",
+    invalidId: "Nhập UUID hợp lệ.",
+    noticeGap:
+      "Cần G07 cho lịch sử thông báo và preview người nhận trên server. Bước xem lại hiển thị lựa chọn của bạn; server kiểm tra người nhận khi gửi.",
+    noticeLookup: "Theo dõi thông báo đã gửi",
+    noticeChannels: "Kênh gửi",
+    noticeSelection: "Người nhận đã chọn",
+    noticeUncertain:
+      "Yêu cầu gửi đang chờ xác minh. Kiểm tra biên nhận trước khi tạo thông báo khác.",
+    noActivities: "Không có hoạt động trong khoảng thời gian này.",
+    deleteBlockReview:
+      "Gỡ lịch khóa này? Xem thời gian và lý do trước khi xác nhận.",
+    blockImpactHint:
+      "Để khóa sân có hoạt động đã xếp lịch, dùng màn sự cố để xem trước và xử lý ảnh hưởng.",
+    openingHint:
+      "Đổi giờ mở cửa không tự dời hoạt động hiện có. Hãy xem lịch vận hành trước.",
+    savedFilters: "Xem nhanh",
+    source: "Loại hoạt động",
+    metricScope:
+      "Số lượng lấy theo bộ lọc API hiển thị, không phải ước tính tài chính.",
+  },
+  courtRateAudit: {
+    rate: "Bảng giá thuê sân",
+    days: "Ngày áp dụng",
+    pricePerHour: "Giá mỗi giờ",
+    allSports: "Tất cả môn tương thích",
+    currentNameHint:
+      "Log cũ chưa ghi tên loại phòng/sân sẽ hiển thị tên trong danh mục hiện tại.",
+    namesUnavailable:
+      "Chưa tải được tên loại phòng/sân. Mã định danh vẫn được hiển thị.",
+  },
+  auditChanges: {
+    package: "Gói",
+    name: "Tên gói",
+    price: "Giá",
+    duration: "Thời hạn",
+    sessionLimit: "Giới hạn lượt",
+    status: "Trạng thái",
+    dayUnit: "ngày",
+    before: "Trước",
+    after: "Sau",
+    notRecorded: "Không được ghi nhận",
+    unlimited: "Không giới hạn",
+    unavailable: "Không có thông tin thao tác được ghi nhận.",
+    unchanged: "Không có thay đổi trong các trường được ghi nhận.",
+  },
+  managerCatalog: {
+    title: "Danh mục và bảng giá",
+    gymPackages: "Gói Gym",
+    ptPricing: "Giá PT",
+    ptService: "Huấn luyện cá nhân · Dịch vụ Gym",
+    service: "Dịch vụ",
+    priceVersion: "Phiên bản giá",
+    createSport: "Tạo bộ môn",
+    editSport: "Sửa bộ môn",
+    createPackage: "Tạo gói Gym",
+    editPackage: "Sửa gói Gym",
+    editPtPrice: "Cập nhật giá PT",
+    createRate: "Tạo giá thuê sân",
+    editRate: "Sửa giá thuê sân",
+    defaults: "Buổi tập mặc định",
+    minutes: "phút",
+    people: "người",
+    sportsHint:
+      "Quản lý bộ môn và thông số vận hành mặc định. Lịch đã tạo giữ nguyên thông số hiện tại.",
+    operationImmutable: "Không thể đổi loại vận hành sau khi tạo.",
+    compatibleRooms: "Loại phòng tương thích",
+    compatibleRoomsHint:
+      "Thiết lập tương thích được quản lý tại mục Loại phòng.",
+    noCompatibleRooms: "Chưa thiết lập loại phòng tương thích.",
+    priceHint: "Nhập số tiền VND dương, là bội số của 1.000.",
+    ratesHint: "Thiết lập giá theo giờ, loại phòng, môn, ngày và khung giờ.",
+    timeWindow: "Khung giờ",
+    daysRequired: "Chọn ít nhất một ngày.",
+    invalidWindow: "Giờ kết thúc phải sau giờ bắt đầu.",
+    confirm: "Xác nhận",
+    deactivateHint:
+      "Ngừng cung cấp mục này cho hoạt động mới. Các bản ghi hiện có được giữ lại.",
+    activateHint:
+      "Cho phép sử dụng lại mục này. Máy chủ sẽ kiểm tra tham chiếu và khung giá trùng.",
+    empty: "Không có mục phù hợp",
+    emptyHint: "Xóa bộ lọc hoặc tạo mục mới để bắt đầu.",
+    errorCode: "Mã lỗi",
+    invalidPrice: "Giá phải dương và là bội số của 1.000 VND.",
+    rateOverlap:
+      "Khung giá này trùng với một khung giá đang hoạt động. Hãy đổi ngày hoặc giờ.",
+    invalidReference:
+      "Tham chiếu đã chọn không còn hợp lệ. Tải lại danh sách và kiểm tra lựa chọn.",
+    duplicateName: "Tên này đã được sử dụng. Hãy nhập tên khác.",
+    ptInvalid: "Giá PT phải là bội số của 1.000 VND, từ 1.000 đến 100.000.000.",
+    forbidden: "Bạn không có quyền thực hiện thay đổi này.",
+    notFound: "Mục này không còn tồn tại. Đóng form và tải lại danh sách.",
+  },
   memberDashboardV2: {
     hello: "Chào",
     title: "Tổng quan của bạn",
@@ -117,6 +294,73 @@ export const vi: Translations = {
       ROOM_BLOCK: "Khóa sân",
     },
   },
+  adminWork: {
+    overviewTitle: "Tổng quan Admin",
+    overviewHint: "Trạng thái tài khoản và hoạt động quản trị gần đây.",
+    shortcuts: "Quản trị tài khoản",
+    statusTitle: "Tài khoản theo trạng thái",
+    statusHint:
+      "Tổng số tài khoản hiện tại. Chọn một trạng thái để mở danh sách đã lọc.",
+    recentTitle: "Hoạt động tài khoản gần đây",
+    recentHint: "Năm sự kiện quản trị tài khoản mới nhất, theo giờ Việt Nam.",
+    recentEmpty: "Chưa có hoạt động quản trị tài khoản.",
+    actor: "Người thực hiện",
+    target: "Tài khoản bị tác động",
+    targetAccountHint:
+      "Họ tên và email thể hiện thông tin hiện tại của tài khoản.",
+    targetAccountDeleted: "Tài khoản không còn tồn tại",
+    targetAccountUnavailable: "Chưa có thông tin tài khoản",
+    createAction: "Đã tạo tài khoản nhân sự",
+    roleAction: "Đã đổi vai trò",
+    lockAction: "Đã khóa / vô hiệu hóa tài khoản",
+    unlockAction: "Đã mở khóa tài khoản",
+    viewDetail: "Xem chi tiết",
+    detailTitle: "Chi tiết tài khoản",
+    backUsers: "Về danh sách tài khoản",
+    identityTitle: "Thông tin và quyền truy cập",
+    accountId: "ID tài khoản",
+    createdAt: "Ngày tạo",
+    signInTitle: "Phương thức đăng nhập",
+    passwordSet: "Đã đặt mật khẩu",
+    googleLinked: "Đã liên kết Google",
+    yes: "Có",
+    no: "Không",
+    noSports: "Chưa có môn chuyên môn.",
+    detailBlockedTitle: "Chưa thể tải chi tiết tài khoản",
+    detailBlockedHint:
+      "API chi tiết tài khoản hiện chưa cho phép quyền Admin. Bạn vẫn có thể tạo tài khoản, đổi vai trò và khóa/mở từ danh sách tài khoản.",
+    notFoundTitle: "Không tìm thấy tài khoản",
+    notFoundHint:
+      "Tài khoản có thể không còn tồn tại. Về danh sách để tìm lại.",
+    invalidId: "Đường dẫn tài khoản không hợp lệ.",
+    reviewTitle: "Xem lại thay đổi tài khoản",
+    reviewCreate: "Xem lại tài khoản nhân sự",
+    reviewHint: "Kiểm tra tài khoản, thay đổi và lý do trước khi xác nhận.",
+    createHint:
+      "Tài khoản nhân sự mới sẽ hoạt động và có quyền theo vai trò đã chọn.",
+    roleImpact:
+      "Đổi vai trò sẽ vô hiệu hóa các phiên đăng nhập hiện tại. Người dùng cần đăng nhập lại.",
+    selfRoleImpact:
+      "Bạn đang đổi vai trò của chính mình. Bạn sẽ được đăng xuất sau khi xác nhận.",
+    lockImpact:
+      "Tài khoản sẽ bị chặn truy cập các chức năng cần đăng nhập cho đến khi được mở khóa.",
+    unlockImpact: "Tài khoản sẽ được truy cập trở lại theo vai trò hiện tại.",
+    deactivateImpact:
+      "Tài khoản sẽ bị vô hiệu hóa, không truy cập được các chức năng cần đăng nhập cho đến khi được mở khóa.",
+    guardHint:
+      "Không thể tự khóa tài khoản. Server cũng chặn khóa hoặc hạ vai trò Admin hoạt động cuối cùng.",
+    externalRoleHint:
+      "Vai trò Coach ngoài được quản lý qua đăng ký và phê duyệt của Manager.",
+    editChange: "Sửa lại",
+    requestedAction: "Thao tác yêu cầu",
+    currentRole: "Vai trò hiện tại",
+    newRole: "Vai trò mới",
+    currentStatus: "Trạng thái hiện tại",
+    newStatus: "Trạng thái mới",
+    specialtyCount: "Số môn chuyên môn đã chọn: {count}",
+    changeSaved: "Đã cập nhật tài khoản và tải lại danh sách.",
+    staffCreated: "Đã tạo tài khoản nhân sự và tải lại danh sách.",
+  },
   staffWork: {
     overview: "Tổng quan",
     sessions: "Buổi PT",
@@ -151,9 +395,12 @@ export const vi: Translations = {
     classes: "Lớp được phân công",
     members: "Học viên phụ trách",
     attendance: "Điểm danh lớp (chỉ xem)",
-    readOnly: "Chỉ Lễ tân ghi điểm danh lớp nhóm. Chọn buổi để xem danh sách học viên.",
-    specialtyWarning: "Bạn không còn chuyên môn PT. Lịch đã phân công vẫn được giữ; liên hệ Quản lý để xử lý phân công.",
-    sessionHint: "Buổi PT kéo dài 90 phút. Máy chủ kiểm tra hiệu lực Membership, hạn mức và xung đột lịch.",
+    readOnly:
+      "Chỉ Lễ tân ghi điểm danh lớp nhóm. Chọn buổi để xem danh sách học viên.",
+    specialtyWarning:
+      "Bạn không còn chuyên môn PT. Lịch đã phân công vẫn được giữ; liên hệ Quản lý để xử lý phân công.",
+    sessionHint:
+      "Buổi PT kéo dài 90 phút. Máy chủ kiểm tra hiệu lực Membership, hạn mức và xung đột lịch.",
     previousSession: "Buổi trước",
     progressNote: "Ghi nhận tiến độ",
     coachComment: "Nhận xét của HLV",
@@ -182,8 +429,10 @@ export const vi: Translations = {
     reviewNote: "Lý do xét duyệt",
     requestedTime: "Thời gian đề nghị",
     exception: "Xin ngoại lệ",
-    quotaImpact: "Thay đổi đúng hạn nhả lượt giữ cũ. Hủy muộn dùng một lượt; dời muộn còn giữ thêm lượt mới. Ngoại lệ được duyệt nhả lượt cũ. Máy chủ áp dụng phân loại thời hạn đã lưu khi gửi yêu cầu.",
-    coachImpact: "Chỉ chuyển buổi tương lai khi HLV mới rảnh. Buổi xung đột vẫn giữ HLV cũ.",
+    quotaImpact:
+      "Thay đổi đúng hạn nhả lượt giữ cũ. Hủy muộn dùng một lượt; dời muộn còn giữ thêm lượt mới. Ngoại lệ được duyệt nhả lượt cũ. Máy chủ áp dụng phân loại thời hạn đã lưu khi gửi yêu cầu.",
+    coachImpact:
+      "Chỉ chuyển buổi tương lai khi HLV mới rảnh. Buổi xung đột vẫn giữ HLV cũ.",
     unmoved: "Buổi còn giữ HLV cũ",
     moved: "Buổi đã chuyển",
     newRelationship: "Phân công quan hệ PT",
@@ -194,7 +443,8 @@ export const vi: Translations = {
     systemCap: "Điểm hệ thống tính",
     approvedPoints: "Điểm đã duyệt",
     centerFault: "Lỗi trung tâm (máy chủ tính lại giới hạn)",
-    refundHint: "Duyệt sẽ cộng điểm và hủy quyền lợi liên quan trong cùng giao dịch. Máy chủ tính số điểm; không có bước chi tiền hoàn.",
+    refundHint:
+      "Duyệt sẽ cộng điểm và hủy quyền lợi liên quan trong cùng giao dịch. Máy chủ tính số điểm; không có bước chi tiền hoàn.",
     invoiceItem: "Mục hóa đơn",
     ledger: "Tham chiếu sổ điểm",
     wallet: "Quản trị ví điểm",
@@ -206,7 +456,8 @@ export const vi: Translations = {
     adjustmentReview: "Kiểm tra điều chỉnh",
     confirm: "Xác nhận",
     newIntent: "Tạo điều chỉnh khác",
-    uncertain: "Chưa xác định kết quả. Tải lại ví và gửi lại cùng yêu cầu này để đối chiếu.",
+    uncertain:
+      "Chưa xác định kết quả. Tải lại ví và gửi lại cùng yêu cầu này để đối chiếu.",
     reports: "Báo cáo",
     from: "Từ ngày (Việt Nam)",
     to: "Đến ngày (Việt Nam)",
@@ -220,7 +471,8 @@ export const vi: Translations = {
     issued: "Điểm phát hành",
     outstanding: "Điểm còn lại (khả dụng + đang giữ)",
     adjusted: "Điều chỉnh điểm của Quản lý",
-    globalPoints: "Tổng ví của mọi chủ ví; kỳ lọc áp dụng cho biến động, điểm còn lại là số dư hiện tại.",
+    globalPoints:
+      "Tổng ví của mọi chủ ví; kỳ lọc áp dụng cho biến động, điểm còn lại là số dư hiện tại.",
     legacyCash: "Tiền thu cũ (VND)",
     reconciliationCash: "Tiền đối soát (VND)",
     dimensions: "Doanh thu theo môn và nguồn",
@@ -248,7 +500,8 @@ export const vi: Translations = {
     entity: "Đối tượng",
     time: "Thời điểm",
     metadata: "Thông tin thao tác",
-    auditHint: "Chỉ hiển thị thông tin nghiệp vụ; bỏ qua bí mật và nội dung email.",
+    auditHint:
+      "Chỉ hiển thị thông tin nghiệp vụ; bỏ qua bí mật và nội dung email.",
     adminAudit: "Nhật ký tài khoản",
     admin: "Quản trị tài khoản",
     users: "Tài khoản và vai trò",
@@ -265,7 +518,8 @@ export const vi: Translations = {
     unlock: "Mở khóa",
     deactivate: "Ngừng hoạt động",
     keyword: "Tìm theo tên hoặc email",
-    accountHint: "Quản lý tài khoản nhân sự, vai trò và quyền truy cập tài khoản.",
+    accountHint:
+      "Quản lý tài khoản nhân sự, vai trò và quyền truy cập tài khoản.",
     search: "Tìm kiếm",
     accountState: "Trạng thái tài khoản",
     accountActive: "Đang hoạt động",
@@ -283,7 +537,8 @@ export const vi: Translations = {
     accountScope: "Màn hình chỉ chứa sự kiện quản trị tài khoản.",
     refundSelf: "Cần Quản lý khác xét duyệt yêu cầu này.",
     newRequest: "Yêu cầu mới",
-    reloadBeforeRetry: "Tải lại dữ liệu hiện tại trước khi thử lại thay đổi bị từ chối.",
+    reloadBeforeRetry:
+      "Tải lại dữ liệu hiện tại trước khi thử lại thay đổi bị từ chối.",
     monthOverview: "Tổng quan tháng hiện tại",
     courseCount: "Khóa học trong kỳ báo cáo",
     quickLinks: "Lối tắt quản lý",
@@ -752,7 +1007,8 @@ export const vi: Translations = {
     useAnotherEmail: "Dùng email khác",
     backToSignIn: "Về trang đăng nhập",
     forgotStatement: "Quay lại sân chơi.",
-    forgotStatementDetail: "Chúng tôi sẽ gửi link bảo mật để bạn đặt mật khẩu mới.",
+    forgotStatementDetail:
+      "Chúng tôi sẽ gửi link bảo mật để bạn đặt mật khẩu mới.",
     resetStatement: "Khởi đầu mới, vẫn là buổi tập quen.",
     resetStatementDetail: "Chọn mật khẩu mới và tiếp tục từ chỗ bạn dừng lại.",
     resetDoneTitle: "Đã đổi mật khẩu",
@@ -815,22 +1071,28 @@ export const vi: Translations = {
     pointsBalance: "Khả dụng",
     pointsHeld: "Đang giữ",
     pointsInput: "Số điểm muốn dùng",
-    pointsHint: "Chỉ nhập số nguyên. Hệ thống xác nhận số tiền sau khi bạn áp dụng.",
+    pointsHint:
+      "Chỉ nhập số nguyên. Hệ thống xác nhận số tiền sau khi bạn áp dụng.",
     pointsWorth: "tương đương khoảng",
     noPoints: "Không dùng điểm",
-    pointsNone: "Bạn chưa có điểm khả dụng — thanh toán toàn bộ qua cổng thanh toán.",
-    pointsOtpNote: "Dùng điểm tại quầy cần mã xác nhận gửi qua email của hội viên.",
+    pointsNone:
+      "Bạn chưa có điểm khả dụng — thanh toán toàn bộ qua cổng thanh toán.",
+    pointsOtpNote:
+      "Dùng điểm tại quầy cần mã xác nhận gửi qua email của hội viên.",
     timerLabel: "Thời gian còn lại để thanh toán",
     timerLow: "Còn dưới một phút",
     timerExpired: "Đã hết giờ. Đang kiểm tra trạng thái mới nhất…",
-    timerSource: "Tính theo đồng hồ máy chủ; tải lại trang không làm đồng hồ chạy lại.",
+    timerSource:
+      "Tính theo đồng hồ máy chủ; tải lại trang không làm đồng hồ chạy lại.",
     nextPoints: "Điểm đủ trả toàn bộ đơn. Không cần thanh toán qua cổng.",
     nextGateway: "Phần còn lại được thanh toán qua cổng thanh toán:",
-    returnNote: "Quay về từ cổng thanh toán chưa chứng minh đã thu tiền. Hệ thống sẽ đối chiếu với máy chủ.",
+    returnNote:
+      "Quay về từ cổng thanh toán chưa chứng minh đã thu tiền. Hệ thống sẽ đối chiếu với máy chủ.",
     phaseFulfilled: "Hoàn tất — quyền lợi của bạn đã được kích hoạt.",
     phasePaidPending: "Đã nhận thanh toán. Quyền lợi đang được kích hoạt.",
     phaseVoid: "Phiên thanh toán này đã bị hủy hoặc đã hết hạn.",
-    pointsSyncing: "Điểm vừa thay đổi ở nơi khác. Đang hiển thị số dư mới nhất.",
+    pointsSyncing:
+      "Điểm vừa thay đổi ở nơi khác. Đang hiển thị số dư mới nhất.",
     loadingOrder: "Đang tải đơn của bạn…",
     viewInvoice: "Xem hóa đơn",
   },
@@ -902,13 +1164,16 @@ export const vi: Translations = {
     loadingTitle: "Đang tải danh sách bộ môn",
     loadingHint: "Các bộ môn có thể chọn sẽ xuất hiện tại đây.",
     emptyTitle: "Chưa có bộ môn để chọn",
-    emptyHint: "Chưa có bộ môn đang hoạt động. Liên hệ quản lý trung tâm rồi tải lại danh sách.",
+    emptyHint:
+      "Chưa có bộ môn đang hoạt động. Liên hệ quản lý trung tâm rồi tải lại danh sách.",
     errorTitle: "Không tải được danh sách bộ môn",
-    errorHint: "Kiểm tra kết nối và thử lại. Nội dung bạn đã nhập trong form vẫn được giữ.",
+    errorHint:
+      "Kiểm tra kết nối và thử lại. Nội dung bạn đã nhập trong form vẫn được giữ.",
     forbiddenTitle: "Bạn không có quyền xem danh sách này",
     forbiddenHint: "Tài khoản hiện tại không có quyền xem các lựa chọn này.",
     conflictTitle: "Danh sách bộ môn đã thay đổi",
-    conflictHint: "Tải lại các lựa chọn mới nhất và kiểm tra bộ môn đã chọn trước khi tiếp tục.",
+    conflictHint:
+      "Tải lại các lựa chọn mới nhất và kiểm tra bộ môn đã chọn trước khi tiếp tục.",
   },
   filterBar: {
     from: "Từ ngày",
@@ -1260,7 +1525,6 @@ export const vi: Translations = {
     sunriseDesc:
       "Khởi động sáng Chủ Nhật với cự ly chạy 5K nhóm nhẹ nhàng, tiếp nối bởi bài tập giãn cơ toàn thân và con lăn foam roller trên sân cỏ trong nhà.",
     sunriseCta: "Xem lịch tập trong tuần",
-
   },
   account: {
     showPassword: "Hiện mật khẩu",
@@ -1277,7 +1541,8 @@ export const vi: Translations = {
     saveProfile: "Lưu thông tin",
     profileSuccess: "Đã cập nhật thông tin cá nhân thành công.",
     currentPassword: "Mật khẩu hiện tại",
-    currentPasswordIncorrect: "Mật khẩu hiện tại không đúng. Vui lòng nhập lại.",
+    currentPasswordIncorrect:
+      "Mật khẩu hiện tại không đúng. Vui lòng nhập lại.",
     newPassword: "Mật khẩu mới",
     confirmPassword: "Xác nhận mật khẩu mới",
     passwordMinHint: "Mật khẩu yêu cầu tối thiểu 8 ký tự.",

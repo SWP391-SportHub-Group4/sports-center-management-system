@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using SportHub.BuildingBlocks.Abstractions.Audit;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
@@ -39,7 +40,7 @@ public sealed class CourtRateService(ISportHubDbContext db, IAuditWriter audit)
         db.Set<CourtRate>().Add(rate);
         await db.SaveChangesAsync(ct);
 
-        audit.Write(new AuditEntry(actorUserId, "CREATE_COURT_RATE", nameof(CourtRate), rate.RateId.ToString(), NewValue: Describe(rate)));
+        audit.Write(new AuditEntry(actorUserId, "CREATE_COURT_RATE", nameof(CourtRate), rate.RateId.ToString(), NewValue: await DescribeAsync(rate, ct)));
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
 
@@ -55,11 +56,11 @@ public sealed class CourtRateService(ISportHubDbContext db, IAuditWriter audit)
         var rate = await db.Set<CourtRate>().SingleOrDefaultAsync(r => r.RateId == rateId, ct)
                    ?? throw new NotFoundException("court_rate_not_found", "Không tìm thấy khung giá.");
 
-        var before = Describe(rate);
+        var before = await DescribeAsync(rate, ct);
         await ApplyAsync(rate, request, rateId, ct);
 
         audit.Write(new AuditEntry(actorUserId, "UPDATE_COURT_RATE", nameof(CourtRate), rateId.ToString(),
-            OldValue: before, NewValue: Describe(rate)));
+            OldValue: before, NewValue: await DescribeAsync(rate, ct)));
 
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
@@ -77,7 +78,7 @@ public sealed class CourtRateService(ISportHubDbContext db, IAuditWriter audit)
 
         // Giá đã được snapshot vào hóa đơn khi đặt nên xóa khung giá không ảnh hưởng lượt thuê cũ.
         db.Set<CourtRate>().Remove(rate);
-        audit.Write(new AuditEntry(actorUserId, "DELETE_COURT_RATE", nameof(CourtRate), rateId.ToString(), OldValue: Describe(rate)));
+        audit.Write(new AuditEntry(actorUserId, "DELETE_COURT_RATE", nameof(CourtRate), rateId.ToString(), OldValue: await DescribeAsync(rate, ct)));
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
     }
@@ -167,10 +168,25 @@ public sealed class CourtRateService(ISportHubDbContext db, IAuditWriter audit)
             ? t
             : throw new BadRequestException("invalid_time", "Giờ phải có dạng HH:mm.");
 
-    private static string Describe(CourtRate r)
-        => "{\"roomTypeId\":" + r.RoomTypeId + ",\"sportId\":" + (r.SportId?.ToString() ?? "null")
-           + ",\"days\":\"" + r.DaysOfWeek + "\",\"price\":" + r.PricePerHour.ToString(CultureInfo.InvariantCulture)
-           + ",\"active\":" + r.IsActive.ToString().ToLowerInvariant() + "}";
+    private async Task<string> DescribeAsync(CourtRate r, CancellationToken ct)
+    {
+        // Names and local times belong to the event snapshot. Reading a historical
+        // log must not substitute today's catalog names or prices.
+        var roomTypeName = await db.Set<RoomType>().AsNoTracking()
+            .Where(t => t.RoomTypeId == r.RoomTypeId).Select(t => t.Name).SingleOrDefaultAsync(ct);
+        var sportName = r.SportId is int sportId
+            ? await db.Set<Sport>().AsNoTracking().Where(s => s.SportId == sportId)
+                .Select(s => s.Name).SingleOrDefaultAsync(ct)
+            : null;
+        return JsonSerializer.Serialize(new
+        {
+            roomTypeId = r.RoomTypeId, roomTypeName, sportId = r.SportId, sportName,
+            days = r.DaysOfWeek,
+            startTimeLocal = r.StartTimeLocal.ToString(TimeFormat, CultureInfo.InvariantCulture),
+            endTimeLocal = r.EndTimeLocal.ToString(TimeFormat, CultureInfo.InvariantCulture),
+            price = r.PricePerHour, active = r.IsActive
+        });
+    }
 
     private static CourtRateResponse ToResponse(CourtRate r)
         => new(r.RateId, r.RoomTypeId, r.SportId, r.DaysOfWeek,

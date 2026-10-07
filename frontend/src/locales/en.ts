@@ -1,4 +1,183 @@
 export const en = {
+  managerOperations: {
+    overview: "Operations overview",
+    priorities: "Needs attention",
+    todaySchedule: "Today's schedule",
+    atRisk: "Classes below threshold",
+    requests: "PT requests awaiting review",
+    refunds: "Refund requests awaiting review",
+    schedule: "Operations schedule",
+    facilities: "Facilities",
+    roomTypes: "Room types",
+    contentStep: "Class information",
+    scheduleStep: "Coach, room & schedule",
+    pricingStep: "Price, cost & capacity",
+    reviewStep: "Review generated sessions",
+    saveDraft: "Save draft",
+    draftHint:
+      "Saving creates a draft. Review and publish separately to open registration.",
+    draftRecovered: "Your unsaved draft was restored on this device.",
+    previewHint:
+      "Preview only. The server validates the schedule again when saving and publishing.",
+    thresholdExceeded:
+      "The opening threshold exceeds class capacity. Adjust cost, price or capacity.",
+    capacityExceeded: "Class capacity exceeds the room or sport limit.",
+    missingDuration: "This sport has no group-course duration configured.",
+    coachRequired: "Select a coach before publishing.",
+    noResults: "No classes match these filters.",
+    overviewTab: "Overview",
+    sessionsTab: "Sessions",
+    studentsTab: "Students",
+    holdsTab: "Seat holds",
+    thresholdTab: "Opening conditions",
+    historyTab: "History",
+    holdHint:
+      "Seat holds are temporary. Only confirmed registrations count toward the opening threshold.",
+    registration: "Registration",
+    recruiting: "Recruiting",
+    history: "History",
+    all: "All",
+    waitingApi: "Waiting for API",
+    closeGap:
+      "Manual enrollment closure needs G13. Cancelling a class is a different action.",
+    interestGap:
+      "Refund and next-course interest depend on An's G02 contract. No automatic enrollment in a new course.",
+    historyHint:
+      "Audit history for this class. Related session actions may appear under their own session IDs.",
+    created: "Created",
+    published: "Published",
+    version: "Version",
+    backToList: "Back to list",
+    oldSchedule: "Current schedule",
+    newSchedule: "Proposed schedule",
+    reviewChange: "Review change",
+    editReview: "Review & edit",
+    serverConflict:
+      "The server checks room, coach, opening hours and conflicts when confirming. Your form is preserved if rejected.",
+    aiTitle: "AI schedule suggestions",
+    aiGap:
+      "Manager scheduling suggestions need G03. Member chat and Coach workout suggestions cannot provide this operation.",
+    aiWorkflow: "Suggestion → review & edit → save draft → publish separately.",
+    qualification: "PT service qualification",
+    qualificationHint:
+      "Sport specialties and permission to deliver PT are separate. Removing PT qualification may be rejected when active assignments exist.",
+    noPtOffering:
+      "No enabled Gym PT offering is available. Configure the sport service first.",
+    assignedSchedule: "Assigned schedule",
+    coachDetail: "Coach details",
+    externalRetired:
+      "The current contract supports internal Coaches. External Coach approval is retired in the current contract.",
+    incidentScope: "Incident scope",
+    incidentWorkflow:
+      "Preview impacts → resolve each activity → recheck → confirm & block",
+    incidentGap:
+      "G06 is required for server incident history, detailed refund quotes and a reservation fence. New bookings may change impacts until the final server check.",
+    partialHint:
+      "Each activity is a separate server operation. Completed changes remain if a later step fails. Refresh preview before the final confirmation.",
+    completedSteps: "Completed steps in this workbench",
+    completedStep: "Server operation completed",
+    noSteps: "No activity has been changed yet.",
+    finalResolve: "Confirm resolution and block",
+    recheck: "Recheck impacts",
+    resolveReview: "Review final resolution",
+    resolvedHint:
+      "Resolution recorded by the server. Notification delivery is tracked separately; a failed email does not undo resolution or refunds.",
+    unknownIncident:
+      "Outcome could not be confirmed. Check the audit log and room blocks before retrying; do not assume rollback.",
+    incidentLookup: "Track notification delivery by incident ID",
+    receiptId: "Receipt ID",
+    invalidId: "Enter a valid UUID.",
+    noticeGap:
+      "G07 is required for server notice history and recipient preview. This review shows your selection; the server validates recipients when sending.",
+    noticeLookup: "Track an existing notice",
+    noticeChannels: "Delivery channels",
+    noticeSelection: "Selected recipients",
+    noticeUncertain:
+      "A send request is awaiting confirmation. Check its receipt before creating another notice.",
+    noActivities: "No activities in this period.",
+    deleteBlockReview:
+      "Remove this block? Review its time and reason before confirming.",
+    blockImpactHint:
+      "To close a room with scheduled activities, use the incident workbench to preview and resolve impacts.",
+    openingHint:
+      "Changing opening hours does not reschedule existing activities. Review the operating calendar first.",
+    savedFilters: "Quick views",
+    source: "Activity type",
+    metricScope:
+      "Counts come from the displayed API filters, not a financial estimate.",
+  },
+  courtRateAudit: {
+    rate: "Court rate",
+    days: "Applicable days",
+    pricePerHour: "Price per hour",
+    allSports: "All compatible sports",
+    currentNameHint:
+      "Older logs without a recorded room type name display its current catalog name.",
+    namesUnavailable:
+      "Room type names could not be loaded. IDs remain visible.",
+  },
+  auditChanges: {
+    package: "Package",
+    name: "Package name",
+    price: "Price",
+    duration: "Duration",
+    sessionLimit: "Session limit",
+    status: "Status",
+    dayUnit: "days",
+    before: "Before",
+    after: "After",
+    notRecorded: "Not recorded",
+    unlimited: "Unlimited",
+    unavailable: "No operation details were recorded.",
+    unchanged: "No changes in the recorded fields.",
+  },
+  managerCatalog: {
+    title: "Catalog & pricing",
+    gymPackages: "Gym packages",
+    ptPricing: "PT pricing",
+    ptService: "Personal training · Gym service",
+    service: "Service",
+    priceVersion: "Price version",
+    createSport: "Create sport",
+    editSport: "Edit sport",
+    createPackage: "Create Gym package",
+    editPackage: "Edit Gym package",
+    editPtPrice: "Update PT price",
+    createRate: "Create court rate",
+    editRate: "Edit court rate",
+    defaults: "Default session",
+    minutes: "min",
+    people: "participants",
+    sportsHint:
+      "Manage sports and their operating defaults. Existing schedules keep their current settings.",
+    operationImmutable: "The operating type is fixed after creation.",
+    compatibleRooms: "Compatible room types",
+    compatibleRoomsHint: "Compatibility is managed in Room types.",
+    noCompatibleRooms: "No compatible room types are configured.",
+    priceHint: "Enter a positive amount in VND, in multiples of 1,000.",
+    ratesHint: "Set hourly prices by room type, sport, day and time window.",
+    timeWindow: "Time window",
+    daysRequired: "Select at least one day.",
+    invalidWindow: "The end time must be after the start time.",
+    confirm: "Confirm",
+    deactivateHint:
+      "Stop offering this item for new activity. Existing records remain available.",
+    activateHint:
+      "Make this item available again. The server will check references and overlapping rates.",
+    empty: "No matching items",
+    emptyHint: "Clear your filters or create an item to get started.",
+    errorCode: "Error code",
+    invalidPrice: "The price must be positive and a multiple of 1,000 VND.",
+    rateOverlap:
+      "This rate overlaps an existing active rate. Change the days or time window.",
+    invalidReference:
+      "The selected reference is no longer valid. Reload the list and check the selection.",
+    duplicateName: "This name is already in use. Enter another name.",
+    ptInvalid:
+      "PT pricing must be a multiple of 1,000 VND between 1,000 and 100,000,000.",
+    forbidden: "You do not have permission to make this change.",
+    notFound: "This item no longer exists. Close the form and reload the list.",
+  },
   memberDashboardV2: {
     hello: "Hello",
     title: "Your overview",
@@ -114,6 +293,75 @@ export const en = {
       ROOM_BLOCK: "Room block",
     },
   },
+  adminWork: {
+    overviewTitle: "Admin overview",
+    overviewHint: "Account access and recent administration activity.",
+    shortcuts: "Account administration",
+    statusTitle: "Accounts by status",
+    statusHint:
+      "Current totals across all accounts. Select a status to open its filtered list.",
+    recentTitle: "Recent account activity",
+    recentHint:
+      "The five latest account administration events, in Vietnam time.",
+    recentEmpty: "No account administration activity yet.",
+    actor: "Performed by",
+    target: "Affected account",
+    targetAccountHint:
+      "Account names and emails reflect their current information.",
+    targetAccountDeleted: "Account no longer exists",
+    targetAccountUnavailable: "Account information unavailable",
+    createAction: "Staff account created",
+    roleAction: "Role changed",
+    lockAction: "Account locked / deactivated",
+    unlockAction: "Account unlocked",
+    viewDetail: "View details",
+    detailTitle: "Account details",
+    backUsers: "Back to accounts",
+    identityTitle: "Identity and access",
+    accountId: "Account ID",
+    createdAt: "Created at",
+    signInTitle: "Sign-in methods",
+    passwordSet: "Password set",
+    googleLinked: "Google linked",
+    yes: "Yes",
+    no: "No",
+    noSports: "No specialties assigned.",
+    detailBlockedTitle: "Account details are temporarily unavailable",
+    detailBlockedHint:
+      "The account detail API does not currently allow Administrator access. You can still create accounts and change roles or access from the account list.",
+    notFoundTitle: "Account not found",
+    notFoundHint:
+      "This account may no longer exist. Return to the account list to search again.",
+    invalidId: "The account link is invalid.",
+    reviewTitle: "Review account change",
+    reviewCreate: "Review staff account",
+    reviewHint:
+      "Check the account, requested change and reason before confirming.",
+    createHint:
+      "The new staff account will be active and have access for the selected role.",
+    roleImpact:
+      "Changing the role invalidates existing sessions. The user will need to sign in again.",
+    selfRoleImpact:
+      "You are changing your own role. You will be signed out after confirmation.",
+    lockImpact:
+      "The account will be blocked from authenticated requests until it is unlocked.",
+    unlockImpact: "The account will regain access for its current role.",
+    deactivateImpact:
+      "The account will be deactivated and cannot access authenticated features until it is unlocked.",
+    guardHint:
+      "You cannot lock yourself. The server also prevents locking or demoting the last active Administrator.",
+    externalRoleHint:
+      "External Coach roles are managed through registration and Manager approval.",
+    editChange: "Edit change",
+    requestedAction: "Requested action",
+    currentRole: "Current role",
+    newRole: "New role",
+    currentStatus: "Current status",
+    newStatus: "New status",
+    specialtyCount: "Selected specialties: {count}",
+    changeSaved: "Account updated. The list has been refreshed.",
+    staffCreated: "Staff account created. The list has been refreshed.",
+  },
   staffWork: {
     overview: "Overview",
     sessions: "PT sessions",
@@ -148,9 +396,12 @@ export const en = {
     classes: "Assigned classes",
     members: "Assigned members",
     attendance: "Class attendance (read only)",
-    readOnly: "Only Receptionists record group attendance. Select a session to view its roster.",
-    specialtyWarning: "Your PT specialty is no longer assigned. Existing sessions remain visible; contact the Manager about your assignments.",
-    sessionHint: "PT lasts 90 minutes. The server checks membership validity, quota and scheduling conflicts.",
+    readOnly:
+      "Only Receptionists record group attendance. Select a session to view its roster.",
+    specialtyWarning:
+      "Your PT specialty is no longer assigned. Existing sessions remain visible; contact the Manager about your assignments.",
+    sessionHint:
+      "PT lasts 90 minutes. The server checks membership validity, quota and scheduling conflicts.",
     previousSession: "Previous session",
     progressNote: "Progress note",
     coachComment: "Coach comment",
@@ -179,8 +430,10 @@ export const en = {
     reviewNote: "Review reason",
     requestedTime: "Requested time",
     exception: "Exception requested",
-    quotaImpact: "On-time changes release the old reservation. Late cancellation consumes one session; late rescheduling also reserves a new session. Approved exceptions release the old reservation. The server applies the recorded timing classification.",
-    coachImpact: "Future sessions move only when the requested coach is available. Conflicting sessions remain with the previous coach.",
+    quotaImpact:
+      "On-time changes release the old reservation. Late cancellation consumes one session; late rescheduling also reserves a new session. Approved exceptions release the old reservation. The server applies the recorded timing classification.",
+    coachImpact:
+      "Future sessions move only when the requested coach is available. Conflicting sessions remain with the previous coach.",
     unmoved: "Sessions still assigned to the previous coach",
     moved: "Sessions moved",
     newRelationship: "Assign PT relationship",
@@ -191,7 +444,8 @@ export const en = {
     systemCap: "System-calculated points",
     approvedPoints: "Approved points",
     centerFault: "Center fault (server recalculates the cap)",
-    refundHint: "Approval credits points and cancels the related benefit atomically. The server calculates the amount; no cash payout is needed.",
+    refundHint:
+      "Approval credits points and cancels the related benefit atomically. The server calculates the amount; no cash payout is needed.",
     invoiceItem: "Invoice item",
     ledger: "Ledger reference",
     wallet: "Wallet management",
@@ -203,7 +457,8 @@ export const en = {
     adjustmentReview: "Review adjustment",
     confirm: "Confirm",
     newIntent: "Start another adjustment",
-    uncertain: "The outcome is not yet confirmed. Refresh the wallet and retry this same request to reconcile it.",
+    uncertain:
+      "The outcome is not yet confirmed. Refresh the wallet and retry this same request to reconcile it.",
     reports: "Reports",
     from: "From date (Vietnam)",
     to: "To date (Vietnam)",
@@ -217,7 +472,8 @@ export const en = {
     issued: "Points issued",
     outstanding: "Outstanding points (available + held)",
     adjusted: "Manager point adjustments",
-    globalPoints: "Wallet totals for all owners; date range applies to movements, outstanding is the current balance.",
+    globalPoints:
+      "Wallet totals for all owners; date range applies to movements, outstanding is the current balance.",
     legacyCash: "Legacy cash (VND)",
     reconciliationCash: "Reconciliation cash (VND)",
     dimensions: "Revenue by sport and source",
@@ -245,7 +501,8 @@ export const en = {
     entity: "Entity",
     time: "Time",
     metadata: "Metadata",
-    auditHint: "Only operational metadata is displayed; secrets and email payloads are omitted.",
+    auditHint:
+      "Only operational metadata is displayed; secrets and email payloads are omitted.",
     adminAudit: "Account audit",
     admin: "Account administration",
     users: "Users and roles",
@@ -280,7 +537,8 @@ export const en = {
     accountScope: "This view contains account administration events only.",
     refundSelf: "A different Manager must review this request.",
     newRequest: "New request",
-    reloadBeforeRetry: "Refresh current data before retrying a rejected change.",
+    reloadBeforeRetry:
+      "Refresh current data before retrying a rejected change.",
     monthOverview: "Current month summary",
     courseCount: "Courses in report period",
     quickLinks: "Management shortcuts",
@@ -365,12 +623,14 @@ export const en = {
     oneOnOne: "One-on-one",
     groupCourse: "Group course",
     services: "Services",
-    serviceNote: "Membership and personal training are only available for the Gym sport.",
+    serviceNote:
+      "Membership and personal training are only available for the Gym sport.",
     serviceMembershipAccess: "Membership",
     serviceGroupCourse: "Group courses",
     serviceCourtRental: "Court rental",
     servicePersonalTraining: "Personal training",
-    codeHint: "Lowercase letters, digits and underscore. Cannot be changed later.",
+    codeHint:
+      "Lowercase letters, digits and underscore. Cannot be changed later.",
     notReady: "Not ready to sell",
     missingRoomType: "room type",
     missingRoom: "active room",
@@ -754,9 +1014,11 @@ export const en = {
     useAnotherEmail: "Use a different email",
     backToSignIn: "Back to sign in",
     forgotStatement: "Back in the game.",
-    forgotStatementDetail: "We will email you a secure link to set a new password.",
+    forgotStatementDetail:
+      "We will email you a secure link to set a new password.",
     resetStatement: "A fresh start, same training.",
-    resetStatementDetail: "Choose a new password and pick up where you left off.",
+    resetStatementDetail:
+      "Choose a new password and pick up where you left off.",
     resetDoneTitle: "Password updated",
     linkInvalidTitle: "Link no longer works",
     linkSentHint: "The link expires in 10 minutes.",
@@ -817,18 +1079,22 @@ export const en = {
     pointsBalance: "Available",
     pointsHeld: "Reserved",
     pointsInput: "Points to use",
-    pointsHint: "Whole points only. The server confirms the amount after you apply.",
+    pointsHint:
+      "Whole points only. The server confirms the amount after you apply.",
     pointsWorth: "worth about",
     noPoints: "Don't use points",
-    pointsNone: "No points available — pay the full amount through the gateway.",
+    pointsNone:
+      "No points available — pay the full amount through the gateway.",
     pointsOtpNote: "Using points at the counter needs the member's email code.",
     timerLabel: "Time left to pay",
     timerLow: "Less than a minute left",
     timerExpired: "Time is up. Checking the latest status…",
-    timerSource: "Counted from the server clock; refreshing the page does not restart it.",
+    timerSource:
+      "Counted from the server clock; refreshing the page does not restart it.",
     nextPoints: "Points cover the full amount. No gateway payment is needed.",
     nextGateway: "The remaining amount is paid through the payment gateway:",
-    returnNote: "Coming back from the payment gateway does not confirm payment. We check with the server.",
+    returnNote:
+      "Coming back from the payment gateway does not confirm payment. We check with the server.",
     phaseFulfilled: "Done — your purchase is active.",
     phasePaidPending: "Payment received. Your purchase is being activated.",
     phaseVoid: "This checkout was cancelled or has expired.",
@@ -904,13 +1170,17 @@ export const en = {
     loadingTitle: "Loading specialties",
     loadingHint: "The available sports will appear here.",
     emptyTitle: "No sports available to select",
-    emptyHint: "There are no active sports. Contact the center Manager, then reload this list.",
+    emptyHint:
+      "There are no active sports. Contact the center Manager, then reload this list.",
     errorTitle: "Unable to load specialties",
-    errorHint: "Check your connection and try again. Your form entries are kept.",
+    errorHint:
+      "Check your connection and try again. Your form entries are kept.",
     forbiddenTitle: "You do not have access to this list",
-    forbiddenHint: "Your current account does not have permission to view these options.",
+    forbiddenHint:
+      "Your current account does not have permission to view these options.",
     conflictTitle: "The sports list has changed",
-    conflictHint: "Reload the latest options and check your selection before continuing.",
+    conflictHint:
+      "Reload the latest options and check your selection before continuing.",
   },
   filterBar: {
     from: "From date",
@@ -927,7 +1197,8 @@ export const en = {
     errorTitle: "Unable to load the list",
     errorHint: "Try loading the list again.",
     forbiddenTitle: "You do not have access to this list",
-    forbiddenHint: "Your current account does not have permission to view this data.",
+    forbiddenHint:
+      "Your current account does not have permission to view this data.",
     conflictTitle: "The data has changed",
     conflictHint: "Reload the latest data before continuing.",
     home: "Go to home page",
@@ -1262,7 +1533,6 @@ export const en = {
     sunriseDesc:
       "Kick off your Sunday morning with a self-paced 5K group run followed by a coach-led full-body foam rolling and mobility session on the indoor turf.",
     sunriseCta: "View weekly schedule",
-
   },
   account: {
     showPassword: "Show password",
@@ -1279,7 +1549,8 @@ export const en = {
     saveProfile: "Save profile",
     profileSuccess: "Profile updated successfully.",
     currentPassword: "Current password",
-    currentPasswordIncorrect: "Current password is incorrect. Please try again.",
+    currentPasswordIncorrect:
+      "Current password is incorrect. Please try again.",
     newPassword: "New password",
     confirmPassword: "Confirm new password",
     passwordMinHint: "Minimum 8 characters required.",

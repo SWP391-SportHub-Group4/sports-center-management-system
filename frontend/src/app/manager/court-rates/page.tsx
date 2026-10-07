@@ -1,10 +1,4 @@
-"use client";
-import { OperationsPage } from "@/features/operations/ui";
-import { CourtRateEditor } from "@/features/catalog/court-rate-editor";
+import { ManagerCatalog } from "@/features/catalog/manager-catalog";
 export default function Page() {
-  return (
-    <OperationsPage title="rates">
-      <CourtRateEditor />
-    </OperationsPage>
-  );
+  return <ManagerCatalog defaultTab="court-rates" />;
 }
