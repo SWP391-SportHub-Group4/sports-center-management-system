@@ -1,4 +1,6 @@
-"use client";
-import { PtPage } from "@/features/pt/ui";
-import { ManagerRelationships } from "@/features/pt/manager-relationships";
-export default function Page() { return <PtPage title="relationships" manager><ManagerRelationships/></PtPage>; }
+import { redirect } from "next/navigation";
+
+/** Tuyến cũ: nay là tab của Huấn luyện cá nhân. Giữ bookmark. */
+export default function Page() {
+  redirect("/manager/pt?tab=relationships");
+}

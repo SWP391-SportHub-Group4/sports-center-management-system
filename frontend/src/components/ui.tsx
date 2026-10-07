@@ -179,6 +179,7 @@ export function Field({
   hint,
   required,
   error,
+  reserveErrorSpace,
   children,
 }: {
   label: string;
@@ -187,6 +188,8 @@ export function Field({
   required?: boolean;
   /** Thông báo lỗi hiện ngay dưới control, gắn `role="alert"` để trình đọc màn hình báo ngay. */
   error?: ReactNode;
+  /** Giữ một dòng dưới control để thông báo lỗi không đẩy các trường khác khi xuất hiện. */
+  reserveErrorSpace?: boolean;
   children: ReactNode;
 }) {
   const { t } = useLanguage();
@@ -231,8 +234,13 @@ export function Field({
           {hint}
         </span>
       )}
-      {error && (
-        <span id={messageId} className="field__error" role="alert">
+      {(error || reserveErrorSpace) && (
+        <span
+          id={error ? messageId : undefined}
+          className={`field__error${reserveErrorSpace ? " field__error--reserved" : ""}`}
+          role={error ? "alert" : undefined}
+          aria-hidden={!error}
+        >
           {error}
         </span>
       )}

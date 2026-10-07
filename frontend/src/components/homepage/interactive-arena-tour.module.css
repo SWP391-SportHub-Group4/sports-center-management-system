@@ -732,6 +732,24 @@
   border-color: var(--chalk-200);
 }
 
+.tour[data-theme="light"] .staleSchedule {
+  color: var(--amber-700);
+}
+
+.tour[data-theme="light"] .featureCta {
+  color: var(--chalk-950);
+}
+
+.tour[data-theme="light"] .featureCtaDisabled {
+  border-color: var(--chalk-300);
+  color: var(--chalk-600);
+}
+
+.tour[data-theme="light"] .dataError {
+  border-color: var(--amber-400);
+  background: var(--amber-50);
+  color: var(--amber-700);
+}
 @keyframes radarPulse {
   0% {
     opacity: 0.72;

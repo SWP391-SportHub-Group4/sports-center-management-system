@@ -1,0 +1,31 @@
+# Disposable acceptance environment: no shared dev database or SMTP credentials.
+# Uses the backend image built by the project's normal Docker Compose build.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: manager_task_acceptance
+      POSTGRES_USER: sporthub_test
+      POSTGRES_PASSWORD: local-acceptance-only
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sporthub_test -d manager_task_acceptance"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+  backend:
+    image: sporthub-fresh-20260929-backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "5201:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__Default: Host=postgres;Database=manager_task_acceptance;Username=sporthub_test;Password=local-acceptance-only
+      JwtOptions__SecretKey: manager-task-acceptance-only-64-byte-test-key-not-for-production-123
+      Smtp__Host: ""
+      Email__Smtp__Host: ""
+      Email__DemoLoggingEnabled: "true"
+      Frontend__BaseUrl: http://localhost:3000
+      Cors__AllowedOrigins__0: http://localhost:3000
+      VnPay__UseMock: "true"

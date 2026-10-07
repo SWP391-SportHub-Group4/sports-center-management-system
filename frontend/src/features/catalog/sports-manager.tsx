@@ -29,7 +29,6 @@ interface FormState {
   name: string;
   description: string;
   imageUrl: string;
-  sortOrder: number;
   enabled: Record<SportServiceType, boolean>;
   defaultSessionMinutes: number;
   defaultMaxCapacity: number;
@@ -47,7 +46,6 @@ const empty: FormState = {
   defaultMaxCapacity: 12,
   description: "",
   imageUrl: "",
-  sortOrder: 0,
 };
 export function SportsManager() {
   const { t } = useLanguage();
@@ -95,7 +93,6 @@ export function SportsManager() {
             defaultMaxCapacity: group?.defaultMaxCapacity ?? 12,
             description: row.description ?? "",
             imageUrl: row.imageUrl ?? "",
-            sortOrder: row.sortOrder,
           }
         : empty,
     );
@@ -125,6 +122,7 @@ export function SportsManager() {
           )}
           getRowId={(s) => String(s.sportId)}
           columns={[
+            { id: "sortOrder", header: c.ordinal, numeric: true },
             { id: "name", header: l.name, rowHeader: true },
             {
               id: "code",
@@ -216,7 +214,6 @@ export function SportsManager() {
               name: form.name.trim(),
               description: form.description,
               imageUrl: form.imageUrl,
-              sortOrder: form.sortOrder,
               services: visibleServices
                 .filter((type) => form.enabled[type])
                 .map((serviceType) => ({
@@ -298,16 +295,6 @@ export function SportsManager() {
                 </Field>
               </>
             )}
-            <Field label={l.sortOrder}>
-              <input
-                required
-                type="number"
-                value={form.sortOrder}
-                onChange={(e) =>
-                  setForm({ ...form, sortOrder: Number(e.target.value) })
-                }
-              />
-            </Field>
             <Field label={l.image}>
               <input
                 maxLength={500}

@@ -5,7 +5,10 @@ import { useLanguage } from "@/lib/language";
 export default function Page() {
   const { t } = useLanguage();
   return (
-    <MemberShell title={t.memberPages.schedule}>
+    <MemberShell
+      title={t.memberPages.schedule}
+      description={t.mSchedule.description}
+    >
       <MemberSchedule />
     </MemberShell>
   );

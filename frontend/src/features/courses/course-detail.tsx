@@ -292,7 +292,9 @@ export function ManagerCourseDetail({ classId }: { classId: number }) {
                     classId={classId}
                     kind="threshold-responses"
                   />
-                  <ApiGap code="G02" message={m.interestGap} />
+                  <p className="small muted" role="status">
+                    {m.interestGap}
+                  </p>
                 </div>
               )}
               {values.tab === "history" && (
@@ -318,6 +320,7 @@ export function ManagerCourseDetail({ classId }: { classId: number }) {
                   key={session.sessionId}
                   session={session}
                   sportId={c.sportId}
+                  capacity={c.capacity}
                   onSaved={reload}
                   onClose={() => setSession(null)}
                 />

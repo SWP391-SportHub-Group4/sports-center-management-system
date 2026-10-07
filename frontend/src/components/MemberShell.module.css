@@ -84,20 +84,32 @@
   color: var(--court-600);
 }
 
-.portalBadge {
-  font-size: 12px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  padding: 4px 8px;
-  border-radius: var(--radius-sm, 6px);
-  border: 1px solid var(--border-strong);
-  background: var(--bg-surface);
-  color: var(--text-strong);
-  white-space: nowrap;
+.roleBadge {
   display: inline-flex;
   align-items: center;
+  padding: 2px 7px;
+  border-radius: var(--radius-sm);
+  background: var(--color-primary-soft);
+  color: var(--text-strong);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
   line-height: 1.2;
+  white-space: nowrap;
+}
+
+@media (max-width: 560px) {
+  .brandGroup {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .roleBadge {
+    font-size: 9px;
+    padding: 1px 4px;
+  }
 }
 
 /* Navigation Links */
@@ -563,7 +575,7 @@
   width: 100%;
   max-width: 1280px;
   margin: 0 auto;
-  padding: 24px 24px 48px;
+  padding: 24px 24px 112px;
   scroll-margin-top: 80px;
 }
 
@@ -606,13 +618,77 @@
 }
 
 /* Footer */
+/* Footer toàn chiều ngang, nền tối; cùng thông tin với Landing. */
 .footer {
-  border-top: 1px solid var(--border-subtle);
-  background: var(--bg-surface);
-  padding: 20px 24px;
-  text-align: center;
-  font-size: 13px;
-  color: var(--text-muted);
+  margin-top: var(--space-8);
+  background: var(--bg-inverse);
+  color: var(--text-on-inverse-muted);
+  font-size: var(--text-sm);
+}
+.footerInner {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1.3fr;
+  gap: var(--space-7);
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: var(--space-8) 24px var(--space-6);
+}
+.footer h2 {
+  margin: 0 0 var(--space-3);
+  color: var(--text-on-inverse);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}
+.footer ul {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.footer p {
+  margin: 0;
+}
+.footerLogo {
+  margin-bottom: var(--space-3) !important;
+  font-family: var(--font-display);
+  font-size: var(--text-3xl);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  line-height: 1;
+  color: var(--text-on-inverse);
+}
+.footerLogo span {
+  color: var(--color-accent);
+}
+.footerBrand p:last-child {
+  max-width: 34ch;
+  line-height: var(--leading-relaxed);
+}
+.footer a {
+  color: var(--text-on-inverse);
+  text-underline-offset: 3px;
+}
+.footer a:hover {
+  color: var(--color-accent);
+}
+.footerLegal {
+  max-width: 1440px;
+  margin: 0 auto !important;
+  padding: var(--space-4) 24px var(--space-6);
+  border-top: 1px solid var(--border-inverse);
+  box-sizing: border-box;
+}
+@media (max-width: 760px) {
+  .footerInner {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-6);
+    padding: var(--space-7) 16px var(--space-5);
+  }
+  .footerLegal {
+    padding: var(--space-4) 16px var(--space-6);
+  }
 }
 
 /* Quick QR Modal in Shell */
@@ -722,7 +798,7 @@
   }
 
   .main {
-    padding: 16px 14px 36px;
+    padding: 16px 14px 108px;
   }
 }
 
@@ -748,12 +824,6 @@
     display: none;
   }
 
-  .portalBadge {
-    font-size: 10px;
-    letter-spacing: 0;
-    padding: 3px 4px;
-  }
-
   .brandLogo {
     font-size: var(--text-xl);
   }
@@ -771,7 +841,7 @@
   }
 
   .main {
-    padding: 14px 10px 32px;
+    padding: 14px 10px 108px;
   }
 
   .mobileDrawer {

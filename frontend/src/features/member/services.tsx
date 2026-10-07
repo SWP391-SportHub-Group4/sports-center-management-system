@@ -14,6 +14,7 @@ import type {
 } from "@/lib/types";
 import { useApi } from "@/lib/useApi";
 import { choiceQuery, pageQuery, useUrlQuery } from "@/lib/useUrlQuery";
+import { CoachChangeSection } from "@/features/training";
 
 function Visits() {
   const { t } = useLanguage();
@@ -119,7 +120,7 @@ export function MemberServices() {
                 </div>
               )}
             </AsyncSection>
-            <MembershipCatalog purchase />
+            <MembershipCatalog purchase owned={packages.data ?? []} />
           </>
         ) : (
           <>
@@ -164,6 +165,9 @@ export function MemberServices() {
               )}
             </AsyncSection>
             <p className="muted">{t.memberPages.frequencyHint}</p>
+            <AsyncSection state={entitlements}>
+              {(rows) => <CoachChangeSection entitlements={rows} />}
+            </AsyncSection>
             <AsyncSection state={packages}>
               {(rows) => <PtPurchase packages={rows} />}
             </AsyncSection>

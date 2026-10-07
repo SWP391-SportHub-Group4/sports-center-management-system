@@ -119,13 +119,9 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { href: "/manager/notices", labelKey: "notices" },
     { href: "/manager/classes", labelKey: "classes" },
     { href: "/manager/membership-plans", labelKey: "membershipPlans" },
-    {
-      href: "/manager/coaching-relationships",
-      labelKey: "coachingRelationships",
-    },
-    { href: "/manager/payment-adjustments", labelKey: "paymentAdjustments" },
-    { href: "/manager/pt-sessions", labelKey: "ptSchedule" },
-    { href: "/manager/pt-change-requests", labelKey: "ptChangeRequests" },
+    { href: "/manager/finance", labelKey: "finance" },
+    { href: "/manager/pt", labelKey: "pt" },
+    { href: "/manager/members", labelKey: "members" },
     { href: "/manager/points", labelKey: "wallet" },
     { href: "/manager/reports", labelKey: "revenueReports" },
     { href: "/manager/settings", labelKey: "systemSettings" },
@@ -196,23 +192,13 @@ const GROUP_SPEC: Partial<Record<Role, (string | [GroupKey, string[]])[]>> = {
       [
         "/manager/classes",
         "/manager/schedule",
-        "/manager/pt-sessions",
+        "/manager/pt",
         "/manager/incidents",
         "/manager/notices",
       ],
     ],
-    [
-      "people",
-      [
-        "/manager/coaches",
-        "/manager/coaching-relationships",
-        "/manager/pt-change-requests",
-      ],
-    ],
-    [
-      "finance",
-      ["/manager/payment-adjustments", "/manager/points", "/manager/reports"],
-    ],
+    ["people", ["/manager/coaches", "/manager/members"]],
+    ["finance", ["/manager/finance", "/manager/points", "/manager/reports"]],
     ["system", ["/manager/settings", "/manager/audit-log"]],
   ],
   Coach: [
@@ -482,10 +468,13 @@ export function AppFrame({
             <span className={shell.brandLogo}>
               Sport<span className={shell.brandLogoAccent}>Hub</span>
             </span>
-            <span className={styles.roleBadge}>{roleDisplay}</span>
+            <span className={shell.roleBadge}>{roleDisplay}</span>
           </Link>
 
-          <nav className={styles.staffNav} aria-label={roleDisplay}>
+          <nav
+            className={`${styles.staffNav} ${user.role === "SystemAdministrator" ? styles.adminNav : ""}`}
+            aria-label={roleDisplay}
+          >
             {entries.map((entry) =>
               entry.kind === "link" ? (
                 <Link
@@ -525,14 +514,9 @@ export function AppFrame({
             )}
             <button
               type="button"
-              className={shell.langToggleBtn}
+              className={`${shell.langToggleBtn} ${styles.staffLang}`}
               onClick={toggleLanguage}
               title={
-                language === "en"
-                  ? t.navigation.languageToggleToVi
-                  : t.navigation.languageToggleToEn
-              }
-              aria-label={
                 language === "en"
                   ? t.navigation.languageToggleToVi
                   : t.navigation.languageToggleToEn
