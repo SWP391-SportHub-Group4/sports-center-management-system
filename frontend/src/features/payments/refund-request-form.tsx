@@ -3,17 +3,20 @@ import { useState } from "react";
 import { api } from "@/lib/apiClient";
 import { useApi, useAction } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
-import { formatPoints } from "@/lib/format";
+import { formatMoney, formatPoints } from "@/lib/format";
 import type { InvoiceItemDto } from "@/lib/types";
 export function RefundRequestForm({
   items,
   onChange,
+  onSent,
 }: {
   items: InvoiceItemDto[];
   onChange: () => void;
+  onSent?: () => void;
 }) {
   const { t } = useLanguage();
   const l = t.refactor;
+  const [open, setOpen] = useState(false);
   const [item, setItem] = useState("");
   const [reason, setReason] = useState("");
   const action = useAction();
@@ -27,8 +30,23 @@ export function RefundRequestForm({
         : Promise.resolve(null),
     [item],
   );
+  const f = t.finOps;
+  if (!open)
+    return (
+      <section aria-label={l.refund}>
+        <p className="muted">{f.refundHint}</p>
+        <button
+          type="button"
+          className="btn btn--secondary"
+          onClick={() => setOpen(true)}
+        >
+          {f.refundOpen}
+        </button>
+      </section>
+    );
   return (
     <section aria-label={l.refund}>
+      <p className="muted">{f.refundHint}</p>
       <label>
         {l.refund}
         <select
@@ -53,7 +71,17 @@ export function RefundRequestForm({
       ) : (
         quote.data && (
           <p>
-            {formatPoints(quote.data.systemCalculatedPoints)} {l.points}
+            {quote.data.systemCalculatedPoints > 0
+              ? f.refundEstimate
+                  .replace(
+                    "{points}",
+                    formatPoints(quote.data.systemCalculatedPoints),
+                  )
+                  .replace(
+                    "{vnd}",
+                    formatMoney(quote.data.systemCalculatedPoints * 1000),
+                  )
+              : f.refundNothing}
           </p>
         )
       )}
@@ -82,12 +110,20 @@ export function RefundRequestForm({
               invoiceItemId: item,
               reason: reason.trim(),
             });
+            onSent?.();
             onChange();
             quote.reload();
-          }, l.send)
+          })
         }
       >
         {l.refund}
+      </button>
+      <button
+        type="button"
+        className="btn btn--ghost"
+        onClick={() => setOpen(false)}
+      >
+        {f.refundClose}
       </button>
     </section>
   );

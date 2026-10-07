@@ -39,6 +39,8 @@ test("member dashboard shows the member code QR without claiming entry rights", 
     });
   });
   await page.goto("/member");
+  // Mã nằm sau nút tròn trên thanh header, mở thành popup khi cần.
+  await page.getByRole("button", { name: "Member code" }).click();
   await expect(page.getByRole("img", { name: "Member code QR" })).toBeVisible();
   await expect(page.getByText("does not grant entry by itself")).toBeVisible();
   await expect(page.getByText(id)).toBeVisible();

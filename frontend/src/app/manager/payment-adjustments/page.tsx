@@ -1,4 +1,6 @@
-"use client";
-import { PtPage } from "@/features/pt/ui";
-import { ManagerRefunds } from "@/features/payments/manager-refunds";
-export default function Page() { return <PtPage title="refunds" manager><ManagerRefunds/></PtPage>; }
+import { redirect } from "next/navigation";
+
+/** Tuyến cũ: hoàn điểm nay là tab của Tài chính. Giữ bookmark. */
+export default function Page() {
+  redirect("/manager/finance?tab=refunds");
+}

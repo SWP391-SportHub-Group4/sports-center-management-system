@@ -380,7 +380,9 @@ test("court-rate creation validates days/window and uses actual compatible IDs",
       endTimeLocal: "08:00",
     },
   });
-  await expect.poll(() => fixture.reads["/api/manager/court-rates"]).toBeGreaterThan(1);
+  await expect
+    .poll(() => fixture.reads["/api/manager/court-rates"])
+    .toBeGreaterThan(1);
 });
 
 test("court activation PUT preserves the whole existing rate; cancel never writes", async ({
@@ -649,10 +651,13 @@ test("mobile tabs, tables and forms fit and English/Vietnamese labels are access
         .withTags(["wcag2a", "wcag2aa"])
         .analyze();
       expect(results.violations).toEqual([]);
-      await page.screenshot({
-        path: "../output/manager-catalog-mobile.png",
-        fullPage: true,
-      });
+      // Ảnh minh chứng: lỗi ghi tệp không làm hỏng phép kiểm tra.
+      await page
+        .screenshot({
+          path: "../output/manager-catalog-mobile.png",
+          fullPage: true,
+        })
+        .catch(() => undefined);
     }
     await page.goto("/manager/catalog?tab=sports");
     await page
@@ -668,11 +673,13 @@ test("mobile tabs, tables and forms fit and English/Vietnamese labels are access
       ),
     ).toBe(true);
     if (width === 390 || width === 1440) {
-      await page.screenshot({
-        path: `../output/merge-sport-form-${width}.png`,
-        fullPage: true,
-        animations: "disabled",
-      });
+      await page
+        .screenshot({
+          path: `../output/merge-sport-form-${width}.png`,
+          fullPage: true,
+          animations: "disabled",
+        })
+        .catch(() => undefined);
     }
     if (width === 390) {
       const results = await new AxeBuilder({ page })
@@ -683,9 +690,7 @@ test("mobile tabs, tables and forms fit and English/Vietnamese labels are access
     }
   }
   await page.goto("/manager/catalog?tab=pt");
-  await page
-    .getByRole("button", { name: "Switch to Vietnamese", exact: true })
-    .click();
+  await page.getByRole("button", { name: "EN", exact: true }).click();
   await expect(
     page.getByText("Huấn luyện cá nhân · Dịch vụ Gym", { exact: true }),
   ).toBeVisible();
