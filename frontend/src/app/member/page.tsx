@@ -488,6 +488,12 @@ export default function MemberDashboardPage() {
                       <>
                         <p>{l.emptyGym}</p>
                         <p className={styles.caption}>{l.emptyGymHint}</p>
+                        <Link
+                          className={buttonClass({ size: "sm" })}
+                          href="/member/services?tab=gym"
+                        >
+                          {l.chooseMembership}
+                        </Link>
                       </>
                     );
                   }}

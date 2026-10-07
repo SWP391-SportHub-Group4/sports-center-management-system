@@ -171,9 +171,11 @@ test("Gym and PT purchases are separate", async ({ page }) => {
   await expect(
     page.getByRole("heading", { name: "Gym membership packages", exact: true }),
   ).toBeVisible();
+  // Fixture đã có đúng gói này đang hiệu lực: không mua trùng, kèm lý do.
+  await expect(page.getByText(/You already have this package/)).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Review & checkout" }).first(),
-  ).toBeVisible();
+    page.getByRole("button", { name: "Review & checkout" }),
+  ).toHaveCount(0);
   await page.getByRole("tab", { name: "Personal training" }).click();
   await expect(
     page.getByRole("heading", { name: "Personal training", exact: true }),

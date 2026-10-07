@@ -193,6 +193,9 @@ export const vi: Translations = {
       "Bạn chưa có lịch trong 30 ngày tới. Khám phá khóa học hoặc xem dịch vụ Gym và PT của mình.",
     benefits: "Quyền lợi của bạn",
     emptyGym: "Bạn chưa có Membership Gym.",
+    chooseMembership: "Chọn Membership Gym",
+    ownedPackage:
+      "Bạn đã có gói này (đến {date}). Hãy chọn gói khác, hoặc mua lại sau khi gói hết hạn.",
     emptyGymHint:
       "Bạn vẫn có thể tham gia khóa học nhóm mà không cần Membership Gym.",
     emptyPt: "Bạn chưa có gói huấn luyện cá nhân.",
@@ -1094,6 +1097,11 @@ export const vi: Translations = {
       "Điểm vừa thay đổi ở nơi khác. Đang hiển thị số dư mới nhất.",
     loadingOrder: "Đang tải đơn của bạn…",
     viewInvoice: "Xem hóa đơn",
+    nextMembership: "Đến Membership Gym của tôi",
+    nextPt: "Đến gói PT của tôi",
+    nextCourse: "Đến khóa học của tôi",
+    nextRental: "Đến lượt thuê sân của tôi",
+    nextDashboard: "Về tổng quan",
   },
 
   finance: {
@@ -1385,8 +1393,7 @@ export const vi: Translations = {
     details: "Chi tiết",
     roomTbc: "Phòng sẽ được xác nhận",
     emptySessions: "Chưa có buổi PT nào.",
-    emptyPlans:
-      "Chưa có kế hoạch tập. HLV sẽ thêm sau vài buổi đầu.",
+    emptyPlans: "Chưa có kế hoạch tập. HLV sẽ thêm sau vài buổi đầu.",
     emptyResults: "Chưa có kết quả buổi tập.",
     emptyProgress: "Tiến độ sẽ hiện ở đây sau khi HLV ghi kết quả buổi tập.",
     emptyHomework: "Chưa có bài tập về nhà.",

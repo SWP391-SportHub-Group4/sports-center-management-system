@@ -1,10 +1,5 @@
-import { PublicHeader } from "../../public-header";
-import { PaymentReturn } from "@/features/payments/payment-return";
+import { CheckoutScreen } from "@/features/payments/checkout-screen";
+
 export default function Page() {
-  return (
-    <>
-      <PublicHeader />
-      <PaymentReturn />
-    </>
-  );
+  return <CheckoutScreen />;
 }

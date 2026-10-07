@@ -7,7 +7,10 @@ import { api } from "@/lib/apiClient";
 import type { CheckoutDto } from "@/lib/types";
 import Link from "next/link";
 /** `invoiceId` có sẵn (route /checkout/[invoiceId]) thì dùng thẳng; không thì đọc từ query của /payments/return. */
-export function PaymentReturn({ invoiceId }: { invoiceId?: string } = {}) {
+export function PaymentReturn({
+  invoiceId,
+  embedded = false,
+}: { invoiceId?: string; embedded?: boolean } = {}) {
   const { t } = useLanguage();
   const { user, loading } = useAuth();
   const [id, setId] = useState<string | null>(invoiceId ?? null);
@@ -43,23 +46,22 @@ export function PaymentReturn({ invoiceId }: { invoiceId?: string } = {}) {
         });
     return () => controller.abort();
   }, [user, invoiceId]);
-  return (
+  const body = (
     <>
-      <main className="refactor-public">
-        <h1>{t.checkout.title}</h1>
-        {error && <p role="alert">{error}</p>}
-        {loading ? (
-          <p>{t.refactor.loading}</p>
-        ) : !user ? (
-          <Link href={`/login?next=${encodeURIComponent(next)}`}>
-            {t.refactor.login}
-          </Link>
-        ) : id ? (
-          <CheckoutPanel key={`${user.userId}-${id}`} invoiceId={id} />
-        ) : (
-          <p>{t.refactor.uncertain}</p>
-        )}
-      </main>
+      {!embedded && <h1>{t.checkout.title}</h1>}
+      {error && <p role="alert">{error}</p>}
+      {loading ? (
+        <p>{t.refactor.loading}</p>
+      ) : !user ? (
+        <Link href={`/login?next=${encodeURIComponent(next)}`}>
+          {t.refactor.login}
+        </Link>
+      ) : id ? (
+        <CheckoutPanel key={`${user.userId}-${id}`} invoiceId={id} />
+      ) : (
+        <p>{t.refactor.uncertain}</p>
+      )}
     </>
   );
+  return embedded ? body : <main className="refactor-public">{body}</main>;
 }
