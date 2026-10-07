@@ -1,5 +1,5 @@
 "use client";
-import { Suspense, useState } from "react";
+import { Suspense, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { api, ApiError } from "@/lib/apiClient";
@@ -22,26 +22,55 @@ const BAD_LINK_CODES = [
 
 /** Trang đích của link trong email: `/reset-password?email=…&token=…`. */
 function ResetPasswordForm() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const params = useSearchParams();
   const email = params.get("email") ?? "";
   const token = params.get("token") ?? "";
   const action = useAction();
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<{
+    password?: string;
+    confirm?: string;
+  }>({});
+  const passwordRef = useRef<HTMLInputElement>(null);
+  const confirmRef = useRef<HTMLInputElement>(null);
   const [done, setDone] = useState(false);
   const [badLink, setBadLink] = useState(!email || !token);
   const [problem, setProblem] = useState("");
+  const requiredMessage =
+    language === "vi"
+      ? "Vui lòng điền thông tin này."
+      : "Please fill out this field.";
+  const validateRequired = (value: string) =>
+    !value.trim() ? requiredMessage : undefined;
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     setProblem("");
+    const nextErrors = {
+      password: validateRequired(password),
+      confirm: validateRequired(confirm),
+    };
+    setFieldErrors(nextErrors);
+    if (nextErrors.password || nextErrors.confirm) {
+      (nextErrors.password ? passwordRef : confirmRef).current?.focus();
+      return;
+    }
     if (!passwordChecks(password, email).every(Boolean)) {
-      setProblem(t.identity.passwordInvalid);
+      setFieldErrors((current) => ({
+        ...current,
+        password: t.identity.passwordInvalid,
+      }));
+      passwordRef.current?.focus();
       return;
     }
     if (password !== confirm) {
-      setProblem(t.refactor.mismatch);
+      setFieldErrors((current) => ({
+        ...current,
+        confirm: t.refactor.mismatch,
+      }));
+      confirmRef.current?.focus();
       return;
     }
     await action.run(async () => {
@@ -115,27 +144,64 @@ function ResetPasswordForm() {
         </>
       }
     >
-      <form className={styles.form} aria-busy={action.busy} onSubmit={submit}>
+      <form
+        className={styles.form}
+        aria-busy={action.busy}
+        onSubmit={submit}
+        noValidate
+      >
         <AuthPasswordField
+          ref={passwordRef}
           label={t.identity.newPassword}
           icon={<IconLock size={20} />}
           autoComplete="new-password"
           required
+          error={fieldErrors.password}
+          reserveErrorSpace
           value={password}
           showLabel={t.refactor.show}
           hideLabel={t.refactor.hide}
-          onChange={(e) => setPassword(e.target.value)}
+          onChange={(e) => {
+            setPassword(e.target.value);
+            if (fieldErrors.password)
+              setFieldErrors((current) => ({
+                ...current,
+                password: validateRequired(e.target.value),
+              }));
+          }}
+          onBlur={(e) =>
+            setFieldErrors((current) => ({
+              ...current,
+              password: validateRequired(e.target.value),
+            }))
+          }
         />
         <PasswordRequirements password={password} email={email} />
         <AuthPasswordField
+          ref={confirmRef}
           label={t.identity.confirmPassword}
           icon={<IconLock size={20} />}
           autoComplete="new-password"
           required
+          error={fieldErrors.confirm}
+          reserveErrorSpace
           value={confirm}
           showLabel={t.refactor.show}
           hideLabel={t.refactor.hide}
-          onChange={(e) => setConfirm(e.target.value)}
+          onChange={(e) => {
+            setConfirm(e.target.value);
+            if (fieldErrors.confirm)
+              setFieldErrors((current) => ({
+                ...current,
+                confirm: validateRequired(e.target.value),
+              }));
+          }}
+          onBlur={(e) =>
+            setFieldErrors((current) => ({
+              ...current,
+              confirm: validateRequired(e.target.value),
+            }))
+          }
         />
         {problem && (
           <p role="alert" className={styles.problem}>

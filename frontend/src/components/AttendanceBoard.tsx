@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "@/lib/apiClient";
 import { useAuth } from "@/lib/auth";
 import { useApi, useNow } from "@/lib/useApi";
@@ -59,6 +59,12 @@ export function AttendanceBoard({
         : Promise.resolve(null),
     [sessionId],
   );
+  // Link sâu (?session=) chỉ mang id buổi: suy ra lớp để ô chọn buổi hiển thị đúng.
+  useEffect(() => {
+    if (!sessionId || classId) return;
+    const entry = sessions.data?.find((r) => r.sourceId === sessionId);
+    if (entry?.classId) setClass(String(entry.classId));
+  }, [sessionId, classId, sessions.data]);
   const classes = [
     ...new Map(
       (sessions.data ?? [])
@@ -70,6 +76,10 @@ export function AttendanceBoard({
     roster.data &&
     now >= new Date(roster.data.attendanceOpensAtUtc).getTime() &&
     now <= new Date(roster.data.attendanceClosesAtUtc).getTime();
+  const notOpenYet =
+    roster.data && now < new Date(roster.data.attendanceOpensAtUtc).getTime();
+  const closed =
+    roster.data && now > new Date(roster.data.attendanceClosesAtUtc).getTime();
   const rows =
     roster.data?.entries.filter(
       (r) =>
@@ -167,6 +177,37 @@ export function AttendanceBoard({
                 {l.attendanceWindow}:{" "}
                 {formatDateTime(data.attendanceOpensAtUtc)} –{" "}
                 {formatDateTime(data.attendanceClosesAtUtc)}
+              </p>
+              {writable && !inWindow && (
+                <p role="status">
+                  {notOpenYet
+                    ? t.frontDesk.attendanceNotOpen
+                    : closed
+                      ? t.frontDesk.attendanceClosed
+                      : null}
+                </p>
+              )}
+              <p>
+                {t.frontDesk.recorded
+                  .replace(
+                    "{done}",
+                    String(
+                      data.entries.filter(
+                        (e) =>
+                          e.enrollmentStatus === "CONFIRMED" &&
+                          e.attendanceStatus &&
+                          e.attendanceStatus !== "NOT_RECORDED",
+                      ).length,
+                    ),
+                  )
+                  .replace(
+                    "{total}",
+                    String(
+                      data.entries.filter(
+                        (e) => e.enrollmentStatus === "CONFIRMED",
+                      ).length,
+                    ),
+                  )}
               </p>
               <Field label={l.search}>
                 <input
