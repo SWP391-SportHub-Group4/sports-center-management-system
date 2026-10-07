@@ -20,6 +20,12 @@ public interface IPtSessionService
     Task<PtSessionResponse> CreateAsync(
         CreatePtSessionRequest request, Guid managerId, CancellationToken ct = default);
 
+    Task<PtAvailabilityResponse> GetSelfBookingAvailabilityAsync(
+        Guid memberId, Guid entitlementId, DateOnly fromDate, DateOnly toDate, CancellationToken ct = default);
+
+    Task<PtSessionResponse> SelfBookAsync(
+        Guid memberId, SelfBookPtSessionRequest request, CancellationToken ct = default);
+
     Task<PtSessionResponse> ManagerCancelAsync(
         Guid sessionId, ManagerCancelPtSessionRequest request, Guid managerId, CancellationToken ct = default);
 

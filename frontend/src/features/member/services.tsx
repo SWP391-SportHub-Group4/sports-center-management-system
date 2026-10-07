@@ -120,7 +120,7 @@ export function MemberServices() {
                 </div>
               )}
             </AsyncSection>
-            <MembershipCatalog purchase />
+            <MembershipCatalog purchase owned={packages.data ?? []} />
           </>
         ) : (
           <>

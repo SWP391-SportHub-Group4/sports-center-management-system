@@ -27,6 +27,8 @@ import {
 import { pagedItems } from "@/lib/paged";
 import { rentalApi } from "@/features/rentals/api";
 import type {
+  GymCheckInDto,
+  ThresholdResponseDto,
   SportDto,
   MemberPackageDto,
   PtEntitlementDto,
@@ -94,6 +96,18 @@ function sportTone(label: string | null) {
   return "other";
 }
 
+/** Loại buổi: lớp nhóm, PT hay thuê sân (khác với môn thể thao). */
+function kindLabel(
+  session: MemberEvent,
+  l: { kindClass: string; kindPt: string; kindRental: string },
+) {
+  return session.type === "PT_SESSION"
+    ? l.kindPt
+    : session.type === "COURT_RENTAL"
+      ? l.kindRental
+      : l.kindClass;
+}
+
 /** Trạng thái bình thường thì không cần chip; chỉ hiện chip khi có gì cần chú ý. */
 const ROUTINE_STATUS = new Set(["scheduled", "confirmed", "active"]);
 
@@ -137,12 +151,14 @@ function AttentionList({
   invoices,
   packages,
   pt,
+  thresholds,
   now,
   today,
 }: {
   invoices: InvoiceSummaryDto[];
   packages: MemberPackageDto[];
   pt: PtEntitlementDto[];
+  thresholds: ThresholdResponseDto[];
   now: number;
   today: string;
 }) {
@@ -197,6 +213,25 @@ function AttentionList({
         .join(" · "),
       href: `/member/invoices/${due.invoiceId}`,
       action: l.payNow,
+    });
+  }
+
+  // Lớp dưới ngưỡng đang chờ Member chọn phương án (A16): việc có hạn nên đứng trước các nhắc nhở khác.
+  for (const th of thresholds
+    .filter(
+      (x) =>
+        x.choice === null &&
+        new Date(x.deadlineUtc).getTime() > now &&
+        !/RESOLVED|COMPLETED|CANCELLED/i.test(x.resolutionStatus ?? ""),
+    )
+    .sort((a, b) => a.deadlineUtc.localeCompare(b.deadlineUtc))) {
+    items.push({
+      key: `threshold-${th.responseId}`,
+      text: l.thresholdDue
+        .replace("{name}", th.className)
+        .replace("{date}", formatDateTime(th.deadlineUtc)),
+      href: `/member/threshold-responses/${th.responseId}`,
+      action: l.respond,
     });
   }
 
@@ -272,6 +307,21 @@ export default function MemberDashboardPage() {
     [],
   );
   const wallet = useApi((signal) => walletApi.balance(signal), []);
+  const thresholds = useApi(
+    (signal) =>
+      api.get<ThresholdResponseDto[]>("/api/class-threshold-responses/mine", {
+        signal,
+      }),
+    [],
+  );
+  const gymVisit = useApi(
+    (signal) =>
+      api.get<Paged<GymCheckInDto>>("/api/members/me/gym-checkins", {
+        signal,
+        query: { page: 1, pageSize: 3 },
+      }),
+    [],
+  );
   const notifications = useApi(
     (signal) => notificationsApi.list(true, signal),
     [],
@@ -317,6 +367,7 @@ export default function MemberDashboardPage() {
           invoices={invoices.data ? pagedItems(invoices.data) : []}
           packages={packages.data ?? []}
           pt={pt.data ?? []}
+          thresholds={Array.isArray(thresholds.data) ? thresholds.data : []}
           now={now}
           today={date}
         />
@@ -375,6 +426,9 @@ export default function MemberDashboardPage() {
                               ? t.memberPages.pt
                               : t.refactor.courses)}
                         </span>
+                        <span className={styles.kind}>
+                          {kindLabel(next, l)}
+                        </span>
                         <ExceptionChip value={next.status} />
                       </div>
                       {countdown && (
@@ -420,6 +474,9 @@ export default function MemberDashboardPage() {
                                         {sport}
                                       </span>
                                     )}
+                                    <span className={styles.agendaKind}>
+                                      {kindLabel(s, l)}
+                                    </span>
                                     {formatTime(s.startAtUtc)} –{" "}
                                     {formatTime(s.endAtUtc)}
                                     {(s.roomName ||
@@ -436,20 +493,25 @@ export default function MemberDashboardPage() {
                     )}
                   </>
                 ) : (
-                  <div className={styles.emptySchedule}>
-                    <IconCalendar size={40} aria-hidden="true" />
+                  <div className={styles.emptySchedule} data-surface="inverse">
+                    <IconCalendar size={32} aria-hidden="true" />
                     <h3>{l.noScheduleTitle}</h3>
                     <p>{l.noScheduleBody}</p>
-                    <Link className={buttonClass()} href="/member/discover">
-                      {t.memberPages.discover}
-                    </Link>
+                    <div className={styles.emptyActions}>
+                      <Link className={buttonClass()} href="/member/discover">
+                        {l.exploreCourses}
+                      </Link>
+                      <Link
+                        className={buttonClass({ variant: "secondary" })}
+                        href="/member/services"
+                      >
+                        {l.gymPtServices}
+                      </Link>
+                    </div>
                   </div>
                 );
               }}
             </AsyncSection>
-            <Link className={styles.sectionLink} href="/member/schedule">
-              {l.moreSchedule}
-            </Link>
           </section>
 
           <div className={styles.rail}>
@@ -482,12 +544,47 @@ export default function MemberDashboardPage() {
                         <p>
                           {formatDate(current.startDate)} –{" "}
                           {formatDate(current.endDate)}
+                          {current.isUsable &&
+                            ` · ${l.daysLeft.replace(
+                              "{n}",
+                              String(
+                                Math.max(
+                                  0,
+                                  Math.round(
+                                    (Date.parse(
+                                      `${current.endDate}T00:00:00+07:00`,
+                                    ) -
+                                      Date.parse(`${date}T00:00:00+07:00`)) /
+                                      86_400_000,
+                                  ),
+                                ),
+                              ),
+                            )}`}
                         </p>
+                        {(() => {
+                          const open = pagedItems(gymVisit.data).find(
+                            (v) => !v.checkOutTime,
+                          );
+                          return open ? (
+                            <p className={styles.statusLine} role="status">
+                              {l.insideGym.replace(
+                                "{time}",
+                                formatTime(open.checkInTime),
+                              )}
+                            </p>
+                          ) : null;
+                        })()}
                       </>
                     ) : (
                       <>
                         <p>{l.emptyGym}</p>
                         <p className={styles.caption}>{l.emptyGymHint}</p>
+                        <Link
+                          className={buttonClass({ size: "sm" })}
+                          href="/member/services?tab=gym"
+                        >
+                          {l.chooseMembership}
+                        </Link>
                       </>
                     );
                   }}
@@ -529,11 +626,17 @@ export default function MemberDashboardPage() {
                     );
                   }}
                 </AsyncSection>
-                <Link href="/member/services?tab=pt">{l.morePackages}</Link>
+                {(pt.data ?? []).some(
+                  (p) => p.status === "ACTIVE" && p.remainingQuota > 0,
+                ) && (
+                  <Link
+                    className={buttonClass({ size: "sm" })}
+                    href="/member/pt/book"
+                  >
+                    {t.ptBook.bookCta}
+                  </Link>
+                )}
               </section>
-              <Link className={styles.sectionLink} href="/member/services">
-                {l.viewServices}
-              </Link>
             </section>
 
             <section className={styles.money} aria-labelledby="money-title">
@@ -555,12 +658,6 @@ export default function MemberDashboardPage() {
                 <AsyncSection state={wallet}>
                   {(balance) => <WalletBalance balance={balance} compact />}
                 </AsyncSection>
-              </div>
-              <div className={styles.moneyLinks}>
-                <Link href="/member/finance?tab=wallet">{l.walletLink}</Link>
-                <Link href="/member/finance?tab=invoices">
-                  {l.viewAllInvoices}
-                </Link>
               </div>
             </section>
           </div>
@@ -595,9 +692,6 @@ export default function MemberDashboardPage() {
                 )
               }
             </AsyncSection>
-            <Link className={styles.sectionLink} href="/notifications">
-              {t.memberPages.viewAll}
-            </Link>
           </section>
         </div>
       </div>

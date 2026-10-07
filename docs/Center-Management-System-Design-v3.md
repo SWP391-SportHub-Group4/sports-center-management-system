@@ -309,7 +309,7 @@ G01–G13 trỏ [phân công API theo page/owner](../DESIGN-SKILLS-GUIDE.md#api-
 | G02 | Chờ đợt sau + subscription | Hoàn 100% điểm một lần, lưu nguyện vọng, không giữ chỗ/ghi danh tự động |
 | G03 | Manager AI xếp lịch/tool calling/tạo nháp | Endpoint/service, xác nhận người dùng, recheck quyền/occupancy, audit |
 | G04 | Member code/QR backend | Xác thực lookup, không dùng mã FE tự suy hoặc QR làm chứng cứ payment |
-| G05 | Member self-booking PT/available slots | Quota, validity, Coach cố định, overlap, ownership, idempotency |
+| G05 | Member self-booking PT/available slots | Đã có API và UI; còn thiếu: chạy test tích hợp có Docker, kiểm Membership Active riêng, chuyển chính sách đặt lịch thành system setting |
 | G06 | Incident history/detail, preview bồi hoàn/người nhận, fence xử lý | Recovery bỏ dở, chống race và double refund; không giả toàn luồng atomic |
 | G07 | History thông báo thủ công và preview người nhận | Scoped recipient, paging, send/retry dedup |
 | G08 | Refund tổng hợp riêng Member nếu cần tab độc lập | Owner scope/paging; invoice detail đã có adjustments |
