@@ -23,7 +23,9 @@ Mục tiêu: lễ tân phục vụ nhanh, ít chọn nhầm người; Coach làm
 
 ## 2. Receptionist sitemap
 
-Menu: **Quầy hôm nay · Hội viên · Bán dịch vụ · Điểm danh · Lịch sân · Giao dịch**. Không có menu chỉnh điểm hay báo cáo doanh thu.
+Menu (thanh điều hướng ngang trên cùng): **Quầy hôm nay · Hội viên · Bán dịch vụ · Điểm danh · Lịch sân · Giao dịch**. Không có menu chỉnh điểm hay báo cáo doanh thu. Hội viên đang chọn được giữ khi chuyển giữa các mục (`features/receptionist/desk-context.tsx`, lưu theo tab, xóa khi đăng xuất).
+
+Trạng thái mã (07/10/2026): H01 `/receptionist`, H02 `/receptionist/members` và `/members/[id]` (tab Tổng quan, Lượt vào Gym, Ví điểm, Hóa đơn), H04 check-in/out ngay trên thẻ hội viên và danh sách đang ở Gym, H05/H06 `/receptionist/sales` (tab Membership và PT, Khóa học nhóm; checkout/OTP của An), H07 `/receptionist/attendance?date=&session=`, H08 `/receptionist/court-schedule`, H09–H11 `/receptionist/invoices` và tab Ví/Hóa đơn trong hồ sơ. Route cũ `sell-plans`, `registrations`, `member-points` chuyển hướng về trang mới. H03 chỉ hướng dẫn hội viên tự đăng ký (không tạo tài khoản hộ).
 
 | ID | Page → subpage | Route đề xuất | Nội dung và action |
 |---|---|---|---|

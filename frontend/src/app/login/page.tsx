@@ -1,7 +1,7 @@
 "use client";
 
-import {useLanguage} from "@/lib/language";
-import { Suspense, useState } from "react";
+import { useLanguage } from "@/lib/language";
+import { Suspense, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ApiError } from "@/lib/apiClient";
@@ -44,7 +44,10 @@ const DEMO_PASSWORD = "Sporthub@123";
 const SHOW_DEMO_ACCOUNTS = process.env.NODE_ENV === "development";
 
 function loginErrorMessage(cause: unknown, language: "en" | "vi") {
-  if (language === "vi") return cause instanceof ApiError ? cause.message : "Không thể đăng nhập. Vui lòng thử lại.";
+  if (language === "vi")
+    return cause instanceof ApiError
+      ? cause.message
+      : "Không thể đăng nhập. Vui lòng thử lại.";
   if (!(cause instanceof ApiError)) {
     return "We could not sign you in. Please try again.";
   }
@@ -71,7 +74,7 @@ function loginErrorMessage(cause: unknown, language: "en" | "vi") {
 }
 
 function LoginForm() {
-  const {t,language} = useLanguage();
+  const { t, language } = useLanguage();
   const { login, loginWithGoogle } = useAuth();
   const router = useRouter();
   const [onboarding, setOnboarding] = useState<GoogleOnboardingPending | null>(
@@ -81,6 +84,12 @@ function LoginForm() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<{
+    email?: string;
+    password?: string;
+  }>({});
+  const emailRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [errorSource, setErrorSource] = useState<"credentials" | "form" | null>(
     null,
@@ -89,10 +98,31 @@ function LoginForm() {
 
   const expired = params.get("reason") === "session-expired";
   const next = params.get("next");
+  const requiredMessage =
+    language === "vi"
+      ? "Vui lòng điền thông tin này."
+      : "Please fill out this field.";
+  const validateEmail = (value: string) =>
+    !value.trim()
+      ? requiredMessage
+      : !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())
+        ? t.refactor.emailInvalid
+        : undefined;
+  const validatePassword = (value: string) =>
+    !value.trim() ? requiredMessage : undefined;
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (busy) return;
+    const nextErrors = {
+      email: validateEmail(email),
+      password: validatePassword(password),
+    };
+    setFieldErrors(nextErrors);
+    if (nextErrors.email || nextErrors.password) {
+      (nextErrors.email ? emailRef : passwordRef).current?.focus();
+      return;
+    }
     setBusy(true);
     setError(null);
     setErrorSource(null);
@@ -106,7 +136,7 @@ function LoginForm() {
 
       router.replace(target);
     } catch (cause) {
-      setError(loginErrorMessage(cause,language));
+      setError(loginErrorMessage(cause, language));
       setErrorSource("credentials");
     } finally {
       setBusy(false);
@@ -164,7 +194,7 @@ function LoginForm() {
             text="continue_with"
             disabled={busy}
             onError={(cause) => {
-              setError(loginErrorMessage(cause,language));
+              setError(loginErrorMessage(cause, language));
               setErrorSource("form");
             }}
             onCredential={(idToken) => {
@@ -180,7 +210,7 @@ function LoginForm() {
                 } catch (cause) {
                   if (cause instanceof GoogleOnboardingRequired) {
                     setOnboarding(cause.pending);
-                  } else setError(loginErrorMessage(cause,language));
+                  } else setError(loginErrorMessage(cause, language));
                   setErrorSource("form");
                 } finally {
                   setBusy(false);
@@ -193,31 +223,53 @@ function LoginForm() {
             <span>{t.refactor.emailSignIn}</span>
           </div>
 
-          <form className={styles.form} onSubmit={submit} aria-busy={busy}>
+          <form
+            className={styles.form}
+            onSubmit={submit}
+            aria-busy={busy}
+            noValidate
+          >
             <AuthField
+              ref={emailRef}
               label={t.refactor.email}
               icon={<IconMail size={20} />}
               type="email"
               value={email}
               autoComplete="username"
               required
+              error={fieldErrors.email}
+              reserveErrorSpace
               disabled={busy}
               suppressHydrationWarning
-              aria-invalid={errorSource === "credentials"}
+              aria-invalid={
+                errorSource === "credentials" || Boolean(fieldErrors.email)
+              }
               aria-describedby={
                 errorSource === "credentials" ? "login-error" : undefined
               }
               onChange={(event) => {
                 setEmail(event.target.value);
+                if (fieldErrors.email)
+                  setFieldErrors((current) => ({
+                    ...current,
+                    email: validateEmail(event.target.value),
+                  }));
                 if (errorSource === "credentials") {
                   setError(null);
                   setErrorSource(null);
                 }
               }}
+              onBlur={(event) =>
+                setFieldErrors((current) => ({
+                  ...current,
+                  email: validateEmail(event.target.value),
+                }))
+              }
             />
 
             <div className={styles.passwordGroup}>
               <AuthPasswordField
+                ref={passwordRef}
                 label={t.refactor.password}
                 icon={<IconLock size={20} />}
                 showLabel={t.refactor.show}
@@ -226,19 +278,34 @@ function LoginForm() {
                 autoComplete="current-password"
                 maxLength={256}
                 required
+                error={fieldErrors.password}
+                reserveErrorSpace
                 disabled={busy}
                 suppressHydrationWarning
-                aria-invalid={errorSource === "credentials"}
+                aria-invalid={
+                  errorSource === "credentials" || Boolean(fieldErrors.password)
+                }
                 aria-describedby={
                   errorSource === "credentials" ? "login-error" : undefined
                 }
                 onChange={(event) => {
                   setPassword(event.target.value);
+                  if (fieldErrors.password)
+                    setFieldErrors((current) => ({
+                      ...current,
+                      password: validatePassword(event.target.value),
+                    }));
                   if (errorSource === "credentials") {
                     setError(null);
                     setErrorSource(null);
                   }
                 }}
+                onBlur={(event) =>
+                  setFieldErrors((current) => ({
+                    ...current,
+                    password: validatePassword(event.target.value),
+                  }))
+                }
               />
               <Link className={styles.forgot} href="/forgot-password">
                 {t.auth.forgotPassword}
@@ -266,8 +333,7 @@ function LoginForm() {
           </form>
 
           <p className={styles.signup}>
-            {t.auth.noAccount}{" "}
-            <Link href="/register">{t.auth.createOne}</Link>
+            {t.auth.noAccount} <Link href="/register">{t.auth.createOne}</Link>
           </p>
 
           {SHOW_DEMO_ACCOUNTS && (
@@ -291,6 +357,7 @@ function LoginForm() {
                     onClick={() => {
                       setEmail(account.email);
                       setPassword(DEMO_PASSWORD);
+                      setFieldErrors({});
                       setError(null);
                       setErrorSource(null);
                     }}
