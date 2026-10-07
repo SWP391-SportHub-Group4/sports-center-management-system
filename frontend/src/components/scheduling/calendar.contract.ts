@@ -13,6 +13,7 @@ export interface CalendarEvent {
 }
 
 export interface CalendarLabels {
+  types?: Record<string, string>;
   day: string;
   week: string;
   list: string;

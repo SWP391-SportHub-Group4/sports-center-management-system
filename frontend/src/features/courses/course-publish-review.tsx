@@ -68,6 +68,9 @@ export function CoursePublishReview({
   return (
     <Card title={l.publish}>
       <p>{l.publishHint}</p>
+      {!course.coachId && (
+        <p role="alert">{t.managerOperations.coachRequired}</p>
+      )}
       <p>
         {course.numSessions} · {formatMoney(course.price)} · {l.threshold}:{" "}
         {course.breakEvenThreshold ??
@@ -90,6 +93,7 @@ export function CoursePublishReview({
               className="btn"
               disabled={
                 mutation.busy ||
+                !course.coachId ||
                 rows.length !== course.numSessions ||
                 !rows.every((r) => r.available)
               }

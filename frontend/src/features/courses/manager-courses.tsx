@@ -1,356 +1,202 @@
 "use client";
-import { hasService } from "@/lib/sports";
-import { pagedItems } from "@/lib/paged";
-import { useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
-import { formatMoney, formatDateTime } from "@/lib/format";
-import { Card, AsyncSection, Field, Table, StatusChip } from "@/components/ui";
-import { Pagination } from "@/features/operations";
-import { CourseOperations, CourseCancellation } from "./course-operations";
+import { useUrlQuery, pageQuery, choiceQuery } from "@/lib/useUrlQuery";
+import { hasService } from "@/lib/sports";
+import { formatMoney } from "@/lib/format";
+import {
+  ApiTable,
+  FilterBar,
+  StatusChip,
+  type TableColumn,
+} from "@/components/data";
 import { catalogApi } from "@/features/catalog";
-import type {
-  ManagerCourseDto,
-  Paged,
-  CourseSessionDto,
-  CourseRosterDto,
-} from "@/lib/types";
-import { CourseEditor } from "./course-editor";
-import { CoursePublishReview } from "./course-publish-review";
-import { SessionEditor } from "./session-editor";
-import { ThresholdPanel } from "./threshold-panel";
+import { ApiGap } from "@/features/manager";
+import type { ManagerCourseDto, Paged } from "@/lib/types";
+export { ManagerCourseDetail } from "./course-detail";
+const statuses = [
+  "DRAFT",
+  "PUBLISHED",
+  "IN_PROGRESS",
+  "COMPLETED",
+  "CANCELLED",
+];
+const thresholds = ["NOT_EVALUATED", "MET", "AT_RISK", "WAIVED_BY_MANAGER"];
+const defaults = {
+  sportId: "",
+  status: "",
+  thresholdStatus: "",
+  keyword: "",
+  page: "1",
+};
+const validators = {
+  page: pageQuery,
+  status: choiceQuery(["", ...statuses], ""),
+  thresholdStatus: choiceQuery(["", ...thresholds], ""),
+};
 export function ManagerCourses() {
   const { t } = useLanguage();
   const l = t.operations;
-  const [page, setPage] = useState(1);
-  const [sportId, setSport] = useState("");
-  const [status, setStatus] = useState("");
-  const [thresholdStatus, setThresholdStatus] = useState("");
-  const [keyword, setKeyword] = useState("");
-  const [creating, setCreating] = useState(false);
-  const sports = useApi((s) => catalogApi.sports(s, true), []);
+  const m = t.managerOperations;
+  const { values, setValues } = useUrlQuery(defaults, validators);
+  const page = Number(values.page);
+  const sports = useApi((signal) => catalogApi.sports(signal, true), []);
   const courses = useApi(
-    (s) =>
+    (signal) =>
       api.get<Paged<ManagerCourseDto>>("/api/manager/classes", {
-        signal: s,
-        query: {
-          page,
-          pageSize: 20,
-          sportId,
-          status,
-          thresholdStatus,
-          keyword,
-        },
+        signal,
+        query: { ...values, page, pageSize: 20 },
       }),
-    [page, sportId, status, thresholdStatus, keyword],
+    [
+      values.sportId,
+      values.status,
+      values.thresholdStatus,
+      values.keyword,
+      page,
+    ],
   );
+  const statusLabel = (s: string) =>
+    t.wireStatus[s as keyof typeof t.wireStatus] ?? s;
+  const columns: TableColumn<ManagerCourseDto>[] = [
+    {
+      id: "name",
+      header: l.name,
+      rowHeader: true,
+      cell: (c) => (
+        <>
+          <strong>{c.name}</strong>
+          <div className="small muted">{c.code}</div>
+        </>
+      ),
+    },
+    { id: "sportName", header: l.sport },
+    {
+      id: "status",
+      header: l.status,
+      cell: (c) => <StatusChip value={c.status} />,
+    },
+    {
+      id: "confirmedCount",
+      header: l.confirmed,
+      numeric: true,
+      cell: (c) => `${c.confirmedCount}/${c.capacity}`,
+    },
+    { id: "activeHoldCount", header: l.held, numeric: true },
+    {
+      id: "threshold",
+      header: l.threshold,
+      cell: (c) => (
+        <>
+          <StatusChip value={c.thresholdStatus} /> ·{" "}
+          {c.breakEvenThreshold ?? "—"}
+        </>
+      ),
+    },
+    {
+      id: "price",
+      header: l.price,
+      numeric: true,
+      cell: (c) => formatMoney(c.price),
+    },
+  ];
   return (
     <>
-      <button className="btn" onClick={() => setCreating(true)}>
-        {l.create}
-      </button>
-      {creating && (
-        <CourseEditor
-          onClose={() => setCreating(false)}
-          onSaved={() => {
-            setCreating(false);
-            courses.reload();
-          }}
-        />
-      )}
-      <div className="form-grid">
-        <Field label={l.sport}>
-          <select
-            value={sportId}
-            onChange={(e) => {
-              setSport(e.target.value);
-              setPage(1);
-            }}
+      <div className="btn-row" role="group" aria-label={m.savedFilters}>
+        {[
+          [m.all, "", ""],
+          [statusLabel("DRAFT"), "DRAFT", ""],
+          [m.recruiting, "PUBLISHED", ""],
+          [statusLabel("AT_RISK"), "PUBLISHED", "AT_RISK"],
+          [statusLabel("IN_PROGRESS"), "IN_PROGRESS", ""],
+          [m.history, "COMPLETED", ""],
+        ].map(([label, status, thresholdStatus]) => (
+          <button
+            key={label}
+            type="button"
+            className="btn btn--secondary"
+            aria-pressed={
+              values.status === status &&
+              values.thresholdStatus === thresholdStatus
+            }
+            onClick={() => setValues({ status, thresholdStatus, page: "1" })}
           >
-            <option value="">{l.all}</option>
-            {sports.data
-              ?.filter((s) => hasService(s, "GROUP_COURSE"))
-              .map((s) => (
-                <option key={s.sportId} value={s.sportId}>
-                  {s.name}
-                </option>
-              ))}
-          </select>
-        </Field>
-        <Field label={l.status}>
-          <select
-            value={status}
-            onChange={(e) => {
-              setStatus(e.target.value);
-              setPage(1);
-            }}
-          >
-            <option value="">{l.all}</option>
-            {[
-              "DRAFT",
-              "PUBLISHED",
-              "IN_PROGRESS",
-              "COMPLETED",
-              "CANCELLED",
-            ].map((s) => (
-              <option value={s} key={s}>
-                {t.wireStatus[s as keyof typeof t.wireStatus] ?? s}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <Field label={l.thresholdFilter}>
-          <select
-            value={thresholdStatus}
-            onChange={(e) => {
-              setThresholdStatus(e.target.value);
-              setPage(1);
-            }}
-          >
-            <option value="">{l.all}</option>
-            {["NOT_EVALUATED", "MET", "AT_RISK", "WAIVED_BY_MANAGER"].map(
-              (value) => (
-                <option key={value} value={value}>
-                  {t.wireStatus[value as keyof typeof t.wireStatus] ?? value}
-                </option>
-              ),
-            )}
-          </select>
-        </Field>
-        <Field label={l.search}>
-          <input
-            value={keyword}
-            onChange={(e) => {
-              setKeyword(e.target.value);
-              setPage(1);
-            }}
-          />
-        </Field>
+            {label}
+          </button>
+        ))}
       </div>
-      <AsyncSection state={courses}>
-        {(data) => (
-          <>
-            <Table
-              headers={[
-                l.code,
-                l.name,
-                l.sport,
-                l.status,
-                l.confirmed,
-                l.held,
-                l.threshold,
-                l.price,
-                "",
-              ]}
-            >
-              {pagedItems(data).map((c) => (
-                <tr key={c.classId}>
-                  <td>{c.code}</td>
-                  <td>{c.name}</td>
-                  <td>{c.sportName}</td>
-                  <td>
-                    <StatusChip value={c.status} />
-                  </td>
-                  <td>
-                    {c.confirmedCount}/{c.capacity}
-                  </td>
-                  <td>{c.activeHoldCount}</td>
-                  <td>
-                    <StatusChip value={c.thresholdStatus} /> ·{" "}
-                    {c.breakEvenThreshold ?? "—"}
-                  </td>
-                  <td>{formatMoney(c.price)}</td>
-                  <td>
-                    <Link
-                      className="btn btn--secondary"
-                      href={`/manager/classes/${c.classId}`}
-                    >
-                      {l.details}
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-            </Table>
-            <Pagination
-              page={page}
-              count={data.totalCount}
-              onChange={setPage}
-            />
-          </>
+      <FilterBar
+        values={values}
+        onChange={(next) => setValues({ ...next, page: "1" })}
+        onReset={() => setValues(defaults)}
+        fields={[
+          { id: "keyword", label: l.search, kind: "search" },
+          {
+            id: "sportId",
+            label: l.sport,
+            kind: "select",
+            options: [
+              { value: "", label: l.all },
+              ...(sports.data ?? [])
+                .filter((s) => hasService(s, "GROUP_COURSE"))
+                .map((s) => ({ value: String(s.sportId), label: s.name })),
+            ],
+          },
+          {
+            id: "status",
+            label: l.status,
+            kind: "select",
+            options: [
+              { value: "", label: l.all },
+              ...statuses.map((s) => ({ value: s, label: statusLabel(s) })),
+            ],
+          },
+          {
+            id: "thresholdStatus",
+            label: l.thresholdFilter,
+            kind: "select",
+            options: [
+              { value: "", label: l.all },
+              ...thresholds.map((s) => ({ value: s, label: statusLabel(s) })),
+            ],
+          },
+        ]}
+        actions={
+          <Link className="btn" href="/manager/classes/new">
+            {l.create}
+          </Link>
+        }
+      />
+      {sports.error && <p role="alert">{sports.error.message}</p>}
+      <p>{m.holdHint}</p>
+      <ApiTable
+        caption={l.courses}
+        state={courses}
+        page={page}
+        pageSize={20}
+        onPageChange={(page) => setValues({ page: String(page) })}
+        columns={columns}
+        getRowId={(c) => String(c.classId)}
+        empty={{
+          title: m.noResults,
+          hint: m.draftHint,
+          action: (
+            <Link className="btn btn--secondary" href="/manager/classes/new">
+              {l.create}
+            </Link>
+          ),
+        }}
+        rowActions={(c) => (
+          <Link
+            className="btn btn--secondary"
+            href={`/manager/classes/${c.classId}`}
+          >
+            {l.details}
+          </Link>
         )}
-      </AsyncSection>
+      />
+      <ApiGap code="G13" message={m.closeGap} />
     </>
-  );
-}
-function CourseRoster({ sessionId }: { sessionId: string }) {
-  const { t } = useLanguage();
-  const l = t.operations;
-  const state = useApi(
-    (s) =>
-      api.get<CourseRosterDto>(`/api/class-sessions/${sessionId}/roster`, {
-        signal: s,
-      }),
-    [sessionId],
-  );
-  return (
-    <AsyncSection state={state}>
-      {(data) => (
-        <Table headers={[l.member, l.status, l.attendance]}>
-          {data.entries.map((r) => (
-            <tr key={r.enrollmentId}>
-              <td>{r.memberName}</td>
-              <td>
-                <StatusChip value={r.enrollmentStatus} />
-              </td>
-              <td>
-                <StatusChip value={r.attendanceStatus} />
-              </td>
-            </tr>
-          ))}
-        </Table>
-      )}
-    </AsyncSection>
-  );
-}
-export function ManagerCourseDetail({ classId }: { classId: number }) {
-  const { t } = useLanguage();
-  const l = t.operations;
-  const [editing, setEditing] = useState(false);
-  const [publishing, setPublishing] = useState(false);
-  const [session, setSession] = useState<CourseSessionDto | null>(null);
-  const [rosterId, setRoster] = useState("");
-
-  const state = useApi(
-    (s) =>
-      api.get<ManagerCourseDto>(`/api/manager/classes/${classId}`, {
-        signal: s,
-      }),
-    [classId],
-  );
-  const sessions = useApi(
-    (s) =>
-      api.get<CourseSessionDto[]>(`/api/classes/${classId}/sessions`, {
-        signal: s,
-      }),
-    [classId],
-  );
-  function reload() {
-    state.reload();
-    sessions.reload();
-    setEditing(false);
-    setPublishing(false);
-    setSession(null);
-  }
-  return (
-    <AsyncSection state={state}>
-      {(c) => (
-        <>
-          <Card title={`${c.code} · ${c.name}`}>
-            <p>
-              {c.sportName} · {c.coachName} · {c.roomName}
-            </p>
-            <StatusChip value={c.status} />
-            <p>
-              {l.numSessions}: {c.numSessions} · {l.price}:{" "}
-              {formatMoney(c.price)} · {l.confirmed}: {c.confirmedCount} ·{" "}
-              {l.held}: {c.activeHoldCount} · {l.availableSeats}:{" "}
-              {c.availableSeats}
-            </p>
-
-            <div className="btn-row">
-              {c.status === "DRAFT" && (
-                <>
-                  <button
-                    className="btn btn--secondary"
-                    onClick={() => setEditing(true)}
-                  >
-                    {l.edit}
-                  </button>
-                  <button className="btn" onClick={() => setPublishing(true)}>
-                    {l.publish}
-                  </button>
-                </>
-              )}
-              <button className="btn btn--ghost" onClick={reload}>
-                {l.refresh}
-              </button>
-            </div>
-          </Card>
-          {editing && (
-            <CourseEditor
-              key={`${classId}-${c.version}`}
-              course={c}
-              onClose={() => setEditing(false)}
-              onSaved={reload}
-            />
-          )}
-          {publishing && <CoursePublishReview course={c} onSaved={reload} />}
-          {c.status !== "DRAFT" && (
-            <ThresholdPanel
-              key={`${classId}-${c.price}-${c.costAmount}-${c.thresholdStatus}`}
-              course={c}
-              onSaved={reload}
-            />
-          )}
-          <Card title={l.sessions}>
-            <AsyncSection state={sessions}>
-              {(rows) => (
-                <Table
-                  headers={[l.start, l.end, l.room, l.coach, l.status, ""]}
-                >
-                  {rows.map((s) => (
-                    <tr key={s.sessionId}>
-                      <td>{formatDateTime(s.startAtUtc)}</td>
-                      <td>{formatDateTime(s.endAtUtc)}</td>
-                      <td>{s.roomName}</td>
-                      <td>{s.coachName}</td>
-                      <td>
-                        <StatusChip value={s.status} />
-                      </td>
-                      <td>
-                        <button
-                          className="btn btn--secondary"
-                          onClick={() => setRoster(s.sessionId)}
-                        >
-                          {l.roster}
-                        </button>
-                        {s.status === "SCHEDULED" && (
-                          <button
-                            className="btn btn--ghost"
-                            onClick={() => setSession(s)}
-                          >
-                            {l.edit}
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </Table>
-              )}
-            </AsyncSection>
-          </Card>
-          {session && (
-            <SessionEditor
-              key={session.sessionId}
-              session={session}
-              sportId={c.sportId}
-              onSaved={reload}
-              onClose={() => setSession(null)}
-            />
-          )}
-          {rosterId && (
-            <Card title={l.roster}>
-              <CourseRoster key={rosterId} sessionId={rosterId} />
-            </Card>
-          )}
-          <CourseOperations key={c.version} classId={classId} />
-          {!["CANCELLED", "COMPLETED"].includes(c.status) && (
-            <CourseCancellation classId={classId} onSaved={reload} />
-          )}
-        </>
-      )}
-    </AsyncSection>
   );
 }

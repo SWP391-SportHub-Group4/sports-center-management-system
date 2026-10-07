@@ -19,7 +19,8 @@ public sealed record SportServiceResponse(
     [property: SportHub.BuildingBlocks.Api.WireEnum] string ServiceType,
     bool IsEnabled,
     int? DefaultSessionMinutes,
-    int? DefaultMaxCapacity);
+    int? DefaultMaxCapacity,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] int? OfferingId = null);
 
 /// <summary>Phần còn thiếu để dịch vụ bán/publish được. Chỉ Manager thấy.</summary>
 public sealed record ServiceReadinessResponse(

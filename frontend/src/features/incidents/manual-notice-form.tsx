@@ -169,7 +169,12 @@ export function ManualNoticeForm() {
               min={from}
               max={addDaysIso(from, 30)}
               value={to}
-              onChange={(e) => e.target.value && setTo(e.target.value)}
+              onChange={(e) => {
+                if (e.target.value) {
+                  setTo(e.target.value);
+                  change();
+                }
+              }}
             />
           </Field>
           <Field label={l.recipients}>
@@ -221,12 +226,28 @@ export function ManualNoticeForm() {
                         entries
                           .filter(
                             (r) =>
-                              r.sourceType === "CLASS_SESSION" &&
+                              ["CLASS_SESSION", "COURT_RENTAL"].includes(
+                                r.sourceType,
+                              ) &&
                               (!classId || String(r.classId) === classId),
                           )
-                          .flatMap((r) => r.participants.map((p) => p.memberId)),
+                          .flatMap((r) =>
+                            r.sourceType === "COURT_RENTAL"
+                              ? r.memberId
+                                ? [r.memberId]
+                                : []
+                              : r.participants.map((p) => p.memberId),
+                          ),
                       )
-                    : null;
+                    : classId
+                      ? new Set(
+                          entries
+                            .filter(
+                              (r) => String(r.classId) === classId && r.coachId,
+                            )
+                            .map((r) => r.coachId!),
+                        )
+                      : null;
                 const rows = pagedItems(data).filter(
                   (u) => !allowed || allowed.has(u.userId),
                 );
@@ -389,6 +410,7 @@ export function ManualNoticeForm() {
         )}
         {uncertain && (
           <>
+            <p role="status">{t.managerOperations.noticeUncertain}</p>
             <button
               className="btn btn--secondary"
               disabled={mutation.busy}

@@ -12,5 +12,5 @@ public interface IAuditQueryService
     Task<PagedResult<AuditLogResponse>> SearchAsync(
         string? action, string? targetEntity, DateTime? fromUtc, DateTime? toUtc,
         int page, int pageSize, CancellationToken ct = default, Guid? actorId = null, bool accountsOnly = false,
-        string? sortBy = null, string? sortDirection = null);
+        string? sortBy = null, string? sortDirection = null, string? targetId = null);
 }
