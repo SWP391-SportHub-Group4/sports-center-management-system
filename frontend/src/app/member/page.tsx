@@ -11,9 +11,7 @@ import {
   IconDumbbell,
   IconBell,
   IconInvoice,
-  IconSearch,
   IconAlert,
-  IconPlus,
 } from "@/components/icons";
 import { api } from "@/lib/apiClient";
 import { useAuth } from "@/lib/auth";
@@ -315,37 +313,13 @@ export default function MemberDashboardPage() {
       description={dateLabel}
     >
       <div className={styles.dashboard}>
-        <div className={styles.top}>
-          <AttentionList
-            invoices={invoices.data ? pagedItems(invoices.data) : []}
-            packages={packages.data ?? []}
-            pt={pt.data ?? []}
-            now={now}
-            today={date}
-          />
-          <div
-            className={styles.quick}
-            role="group"
-            aria-label={l.quickActions}
-          >
-            <Link href="/member/courts/book">
-              <IconPlus size={20} aria-hidden="true" />
-              {t.memberPages.courtRental}
-            </Link>
-            <Link href="/member/discover">
-              <IconSearch size={20} aria-hidden="true" />
-              {t.memberPages.discover}
-            </Link>
-            <Link href="/member/services">
-              <IconDumbbell size={20} aria-hidden="true" />
-              {t.memberPages.services}
-            </Link>
-            <Link href="/member/finance?tab=wallet">
-              <IconInvoice size={20} aria-hidden="true" />
-              {t.wallet.title}
-            </Link>
-          </div>
-        </div>
+        <AttentionList
+          invoices={invoices.data ? pagedItems(invoices.data) : []}
+          packages={packages.data ?? []}
+          pt={pt.data ?? []}
+          now={now}
+          today={date}
+        />
         <div className={styles.primaryGrid}>
           <section
             className={styles.schedule}

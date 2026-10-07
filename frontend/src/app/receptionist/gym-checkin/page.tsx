@@ -18,7 +18,13 @@ function GymDesk() {
     [memberId],
   );
   if (memberId && found.loading) return null;
-  return <MemberDesk key={memberId ?? "none"} mode="gym" initialMember={found.data} />;
+  return (
+    <MemberDesk
+      key={memberId ?? "none"}
+      mode="gym"
+      initialMember={found.data}
+    />
+  );
 }
 
 export default function Page() {

@@ -1,20 +1,19 @@
 "use client";
 import { hasService } from "@/lib/sports";
 import { pagedItems } from "@/lib/paged";
-import { useState } from "react";
-import Link from "next/link";
+import { useEffect, useState } from "react";
 import { api, ApiError } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import {
-  todayIso,
   formatDate,
   formatDateTime,
   formatMoney,
 } from "@/lib/format";
 import { AsyncSection, Card, Field, Table, StatusChip } from "@/components/ui";
 import { MemberPicker } from "@/components/MemberPicker";
-import { ScanMemberPanel } from "./scan-member";
+import { useDeskMember } from "./desk-context";
+import { RegistrationHint } from "./dashboard";
 import { CheckoutPanel } from "@/features/payments";
 import { PtPurchase } from "@/features/membership";
 import { WalletBalance } from "@/features/wallet";
@@ -35,8 +34,6 @@ import type {
   MembershipPackageDto,
   WalletBalanceDto,
   Paged,
-  InvoiceSummaryDto,
-  CourtScheduleEntryDto,
   SportDto,
 } from "@/lib/types";
 export function MemberDesk({
@@ -47,10 +44,28 @@ export function MemberDesk({
   initialMember?: UserAdminDto | null;
 }) {
   const { t } = useLanguage();
-  const [member, setMember] = useState<UserAdminDto | null>(initialMember);
+  const desk = useDeskMember();
+  // Ngoài khung quầy (không có provider) vẫn chạy được bằng state cục bộ.
+  const [local, setLocal] = useState<UserAdminDto | null>(initialMember);
+  const member = desk.member ?? local;
+  const setMember = (next: UserAdminDto | null) => {
+    setLocal(next);
+    desk.setMember(next);
+  };
+  const initialId = initialMember?.userId;
+  useEffect(() => {
+    if (initialMember && desk.member?.userId !== initialId)
+      desk.setMember(initialMember);
+    // chỉ đồng bộ khi link mang sẵn hội viên (quét QR, link hóa đơn)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialId]);
   return (
     <>
-      <MemberPicker value={member} onChange={setMember} />
+      <MemberPicker
+        value={member}
+        onChange={setMember}
+        emptyHint={<RegistrationHint />}
+      />
       {member ? (
         <MemberWork
           key={`${member.userId}-${mode}`}
@@ -63,7 +78,7 @@ export function MemberDesk({
     </>
   );
 }
-function CoursePurchase({ memberId }: { memberId: string }) {
+export function CoursePurchase({ memberId }: { memberId: string }) {
   const { t } = useLanguage();
   const l = t.operations;
   const [page, setPage] = useState(1);
@@ -191,7 +206,7 @@ function MemberWork({
   if (mode === "gym") return <GymVisits memberId={member.userId} />;
   return <PlanSales member={member} />;
 }
-function PlanSales({ member }: { member: UserAdminDto }) {
+export function PlanSales({ member }: { member: UserAdminDto }) {
   const memberId = member.userId;
   const { t } = useLanguage();
   const l = t.operations;
@@ -279,7 +294,7 @@ function PlanSales({ member }: { member: UserAdminDto }) {
     </>
   );
 }
-function MemberWallet({ memberId }: { memberId: string }) {
+export function MemberWallet({ memberId }: { memberId: string }) {
   const balance = useApi(
     (s) =>
       api.get<WalletBalanceDto>(`/api/members/${memberId}/points`, {
@@ -296,7 +311,7 @@ function MemberWallet({ memberId }: { memberId: string }) {
     </>
   );
 }
-function GymVisits({ memberId }: { memberId: string }) {
+export function GymVisits({ memberId }: { memberId: string }) {
   const { t } = useLanguage();
   const l = t.operations;
   const [page, setPage] = useState(1);
@@ -412,143 +427,6 @@ function GymVisits({ memberId }: { memberId: string }) {
           </>
         )}
       </AsyncSection>
-    </>
-  );
-}
-export function ReceptionDashboard() {
-  const { t } = useLanguage();
-  const l = t.operations;
-  const today = todayIso();
-  const schedule = useApi(
-    (s) =>
-      api.get<CourtScheduleEntryDto[]>("/api/manager/court-schedule", {
-        signal: s,
-        query: { fromDate: today, toDate: today },
-      }),
-    [today],
-  );
-  const invoices = useApi(
-    (s) =>
-      api.get<Paged<InvoiceSummaryDto>>("/api/invoices", {
-        signal: s,
-        query: { status: "ISSUED", page: 1, pageSize: 10 },
-      }),
-    [],
-  );
-  return (
-    <>
-      <ScanMemberPanel />
-      <Card title={l.classSession}>
-        <AsyncSection state={schedule}>
-          {(rows) => (
-            <Table headers={[l.name, l.start, l.room, l.coach]}>
-              {rows
-                .filter((r) => r.sourceType === "CLASS_SESSION")
-                .map((r) => (
-                  <tr key={r.sourceId}>
-                    <td>{r.title}</td>
-                    <td>{formatDateTime(r.startAtUtc)}</td>
-                    <td>{r.roomId}</td>
-                    <td>{r.coachName}</td>
-                  </tr>
-                ))}
-            </Table>
-          )}
-        </AsyncSection>
-      </Card>
-      <Card title={l.pending}>
-        <AsyncSection state={invoices}>
-          {(data) => (
-            <Table headers={[l.invoices, l.member, l.price, ""]}>
-              {pagedItems(data).map((i) => (
-                <tr key={i.invoiceId}>
-                  <td>{i.invoiceNumber}</td>
-                  <td>{i.memberName}</td>
-                  <td>{formatMoney(i.totalAmount)}</td>
-                  <td>
-                    <Link
-                      className="btn btn--secondary"
-                      href={`/receptionist/invoices?invoiceId=${i.invoiceId}`}
-                    >
-                      {l.details}
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-            </Table>
-          )}
-        </AsyncSection>
-      </Card>
-      <Card title={l.inside}>
-        <GymInside />
-        <MemberDesk mode="gym" />
-      </Card>
-    </>
-  );
-}
-function GymInside() {
-  const { t } = useLanguage();
-  const l = t.operations;
-  const [page, setPage] = useState(1);
-  const mutation = useMutation();
-  const state = useApi(
-    (signal) =>
-      api.get<
-        Paged<{
-          checkInId: string;
-          memberId: string;
-          memberName: string;
-          checkInTime: string;
-        }>
-      >("/api/gym-checkins/inside", { signal, query: { page, pageSize: 20 } }),
-    [page],
-  );
-  return (
-    <>
-      <button className="btn btn--ghost" onClick={state.reload}>
-        {l.refresh}
-      </button>
-      <AsyncSection state={state}>
-        {(data) => (
-          <>
-            <p>
-              {l.inside}: {data.totalCount}
-            </p>
-            <Table headers={[l.member, l.start, ""]}>
-              {pagedItems(data).map((row) => (
-                <tr key={row.checkInId}>
-                  <td>{row.memberName}</td>
-                  <td>{formatDateTime(row.checkInTime)}</td>
-                  <td>
-                    <button
-                      className="btn btn--secondary"
-                      disabled={mutation.busy}
-                      onClick={async () => {
-                        if (
-                          await mutation.run(() =>
-                            api.post(
-                              `/api/gym-checkins/${row.checkInId}/checkout`,
-                            ),
-                          )
-                        )
-                          state.reload();
-                      }}
-                    >
-                      {l.checkOut}
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </Table>
-            <Pagination
-              page={page}
-              count={data.totalCount}
-              onChange={setPage}
-            />
-          </>
-        )}
-      </AsyncSection>
-      <MutationFeedback mutation={mutation} />
     </>
   );
 }

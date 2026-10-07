@@ -1,10 +1,13 @@
 "use client";
-import { OperationsPage } from "@/features/operations/ui";
-import { ReceptionDashboard } from "@/features/receptionist/front-desk";
+import { AppShell } from "@/components/AppShell";
+import { useLanguage } from "@/lib/language";
+import { ReceptionDashboard } from "@/features/receptionist/dashboard";
+
 export default function Page() {
+  const { t } = useLanguage();
   return (
-    <OperationsPage title="dashboard" roles={["Receptionist"]}>
+    <AppShell title={t.frontDesk.pageDesk} allow={["Receptionist"]}>
       <ReceptionDashboard />
-    </OperationsPage>
+    </AppShell>
   );
 }

@@ -1669,10 +1669,12 @@ textarea {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 8px;
+  align-items: start;
 }
 
 .otp-request-row .btn {
   min-width: 104px;
+  min-height: 56px;
   white-space: nowrap;
 }
 
@@ -1770,6 +1772,21 @@ textarea {
   font-weight: 700;
   text-align: center;
   font-family: inherit;
+}
+
+.otp-input[aria-invalid="true"] {
+  border-color: var(--danger-solid);
+}
+
+.otp-error-slot {
+  min-height: 20px;
+}
+
+.otp-error-slot p {
+  margin: 0;
+  color: var(--danger-text);
+  font-size: var(--text-xs);
+  line-height: 20px;
 }
 
 .otp-box__actions {

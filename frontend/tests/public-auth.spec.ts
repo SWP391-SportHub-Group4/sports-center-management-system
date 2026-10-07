@@ -78,6 +78,37 @@ test("password visibility and login errors do not move the submit button", async
   expect(Math.abs(after - before)).toBeLessThanOrEqual(5);
 });
 
+test("login shows inline required errors without browser validation tooltips", async ({ page }) => {
+  let loginRequests = 0;
+  await page.route("**/api/auth/login", (route) => {
+    loginRequests += 1;
+    return route.abort();
+  });
+  await page.goto("/login");
+  const form = page.locator("form");
+  const email = form.locator('input[type="email"]');
+  const password = form.locator('input[type="password"]');
+  const submit = form.locator('button[type="submit"]');
+  await expect(form).toHaveAttribute("novalidate", "");
+  const submitTop = () =>
+    submit.evaluate(
+      (button) => button.getBoundingClientRect().top + window.scrollY,
+    );
+  const before = await submitTop();
+
+  await submit.click();
+  await expect(form.getByText("Please fill out this field.")).toHaveCount(2);
+  await expect(email).toHaveAttribute("aria-invalid", "true");
+  await expect(password).toHaveAttribute("aria-invalid", "true");
+  const after = await submitTop();
+  expect(Math.abs(after - before)).toBeLessThanOrEqual(5);
+  expect(loginRequests).toBe(0);
+
+  await email.fill("member@sporthub.test");
+  await password.fill("password123");
+  await expect(form.getByText("Please fill out this field.")).toHaveCount(0);
+});
+
 test("authenticated public header shows the member name", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("sporthub.accessToken", "test-token");

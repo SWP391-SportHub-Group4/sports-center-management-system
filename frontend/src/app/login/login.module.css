@@ -36,7 +36,7 @@ section.card {
 
 .form {
   display: grid;
-  gap: var(--space-5);
+  gap: var(--space-3);
 }
 
 /* "Quên mật khẩu?" nằm ngay dưới ô mật khẩu, căn phải, đủ vùng chạm 44px. */
@@ -65,14 +65,20 @@ section.card {
 }
 
 .feedback {
-  min-height: 64px;
-  margin-top: calc(var(--space-2) * -1);
+  min-height: 36px;
+  margin-top: calc(var(--space-1) * -1);
+}
+
+.feedback :global(.alert) {
+  padding: 6px 10px;
+  font-size: var(--text-xs);
+  line-height: 20px;
 }
 
 .submit {
   width: 100%;
   min-height: 52px;
-  margin-top: var(--space-4);
+  margin-top: 0;
   border-radius: var(--radius-md);
   font-size: var(--text-md);
 }
