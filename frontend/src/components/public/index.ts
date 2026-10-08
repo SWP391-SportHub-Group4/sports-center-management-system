@@ -1,6 +1,5 @@
 export {
   CourseCard,
-  Footer,
   Hero,
   PublicHeader,
   courseImage,

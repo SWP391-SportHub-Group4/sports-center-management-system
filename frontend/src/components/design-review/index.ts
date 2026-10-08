@@ -10,7 +10,6 @@ export type { AccountFormValues } from "./ReviewPage";
 export {
   AccountMenu,
   CourseCard,
-  Footer,
   Hero,
   PublicHeader,
   courseImage,

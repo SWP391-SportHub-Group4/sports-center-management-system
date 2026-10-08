@@ -263,66 +263,6 @@
   font-variant-numeric: tabular-nums;
 }
 
-.footer {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: start;
-  gap: var(--space-6);
-  margin-block: var(--space-8) var(--space-6);
-  padding: clamp(28px, 4vw, 48px);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-xl);
-  background: var(--bg-surface);
-  color: var(--text-body);
-}
-
-.footer > div:first-child > p {
-  margin-block: var(--space-4) 0;
-  color: var(--text-strong);
-  font-family: var(--font-display);
-  font-size: var(--text-4xl);
-  line-height: var(--leading-tight);
-}
-
-.footer > div:first-child > p strong {
-  color: var(--color-primary);
-  font-weight: 600;
-}
-
-.footer nav {
-  display: grid;
-  min-width: 200px;
-  gap: var(--space-2);
-}
-
-.footer nav a {
-  display: flex;
-  min-height: var(--control-height-lg);
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  border-bottom: 1px solid var(--border-subtle);
-  color: var(--text-body);
-  text-decoration: none;
-}
-
-.footer nav a:hover {
-  color: var(--color-primary);
-}
-
-.footerSports {
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-  color: var(--color-primary);
-}
-
-.footer > small {
-  grid-column: 1 / -1;
-  color: var(--text-muted);
-  font-size: var(--text-xs);
-}
-
 @media (max-width: 900px) {
   .header {
     flex-wrap: wrap;
@@ -420,15 +360,6 @@
 
   .courseBody {
     padding: var(--space-4);
-  }
-
-  .footer {
-    grid-template-columns: minmax(0, 1fr);
-    padding: var(--space-5);
-  }
-
-  .footer nav {
-    width: 100%;
   }
 }
 

@@ -83,9 +83,6 @@ export function HomepageStats({ language }: { language: Language }) {
             {vi ? "Cùng nhau tiến bộ" : "A stronger community"}
           </h2>
         </div>
-        <p className={styles.note}>
-          {vi ? "Số liệu minh họa" : "Illustrative figures"}
-        </p>
       </header>
 
       <div className={styles.grid}>
