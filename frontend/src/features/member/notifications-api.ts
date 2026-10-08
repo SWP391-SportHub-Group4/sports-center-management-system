@@ -31,8 +31,6 @@ export function memberNotificationHref(item: NotificationDto): string | null {
     return `/member/invoices/${encodeURIComponent(item.sourceEntityId)}`;
   if (["PAYMENT_RECEIVED", "REFUND_COMPLETED"].includes(item.sourceEventType))
     return "/member/finance?tab=invoices";
-  if (item.sourceEventType.startsWith("HOMEWORK") && item.sourceEntityId)
-    return `/member/training?tab=homework&assignment=${encodeURIComponent(item.sourceEntityId)}`;
   if (item.sourceEventType === "PACKAGE_EXPIRING") return "/member/services";
   if (
     ["SCHEDULE_CHANGED", "CLASS_CANCELLED", "INCIDENT_RESOLUTION"].includes(
@@ -56,9 +54,6 @@ export function notificationActionLabel(
       return vi
         ? "Chọn chuyển lớp hoặc hoàn điểm"
         : "Choose transfer or refund";
-    case "HOMEWORK_ASSIGNED":
-    case "HOMEWORK_STATUS_CHANGED":
-      return vi ? "Mở bài tập" : "Open assignment";
     case "SCHEDULE_CHANGED":
       return vi ? "Xem lịch và xử lý thay đổi" : "Review schedule change";
     case "REFUND_COMPLETED":

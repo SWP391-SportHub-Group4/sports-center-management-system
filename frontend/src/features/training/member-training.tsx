@@ -2,17 +2,16 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { AsyncSection, Card, StatusChip, Feedback } from "@/components/ui";
+import { AsyncSection, Card, StatusChip } from "@/components/ui";
 import { Tabs } from "@/components/primitives";
 import { api } from "@/lib/apiClient";
-import { useApi, useAction } from "@/lib/useApi";
+import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { formatDate, formatDateTime, formatTime } from "@/lib/format";
 import { pagedItems } from "@/lib/paged";
 import { choiceQuery, useUrlQuery } from "@/lib/useUrlQuery";
 import { ListPager } from "@/features/pt";
 import type {
-  HomeworkDto,
   Paged,
   ProgressItemDto,
   PtChangeRequestDto,
@@ -25,14 +24,7 @@ import { TrainingProfile } from "./training-profile";
 import { isPending } from "./request-list";
 import styles from "./training.module.css";
 
-const TABS = [
-  "sessions",
-  "plans",
-  "results",
-  "progress",
-  "homework",
-  "profile",
-] as const;
+const TABS = ["sessions", "plans", "results", "progress", "profile"] as const;
 type Tab = (typeof TABS)[number];
 const PAGE = 20;
 
@@ -349,137 +341,11 @@ function ProgressTab() {
   );
 }
 
-function HomeworkProgress({
-  homework: h,
-  onSaved,
-}: {
-  homework: HomeworkDto;
-  onSaved: () => void;
-}) {
-  const { language } = useLanguage();
-  const vi = language === "vi";
-  const [feedback, setFeedback] = useState(h.memberFeedback ?? "");
-  const action = useAction();
-  const editable = ["ASSIGNED", "IN_PROGRESS"].includes(h.status);
-  if (!editable) return null;
-  async function save(status: string) {
-    const saved = await action.run(() =>
-      api.patch(
-        `/api/members/me/homework/${encodeURIComponent(h.assignmentId)}`,
-        {
-          status,
-          memberFeedback: feedback.trim() || null,
-          version: h.version,
-        },
-      ),
-    );
-    if (saved !== null) onSaved();
-  }
-  return (
-    <div className="stack">
-      <label>
-        {vi ? "Phản hồi cho huấn luyện viên" : "Feedback for your coach"}
-        <textarea
-          value={feedback}
-          maxLength={2000}
-          onChange={(e) => setFeedback(e.target.value)}
-          disabled={action.busy}
-        />
-      </label>
-      <Feedback error={action.error} />
-      <div className="btn-row">
-        {h.status === "ASSIGNED" && (
-          <button
-            className="btn btn--secondary"
-            disabled={action.busy}
-            onClick={() => void save("IN_PROGRESS")}
-          >
-            {vi ? "Bắt đầu tập" : "Start assignment"}
-          </button>
-        )}
-        <button
-          className="btn btn--primary"
-          disabled={action.busy}
-          onClick={() => void save("COMPLETED")}
-        >
-          {vi ? "Hoàn thành bài tập" : "Complete assignment"}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function HomeworkTab({ assignment }: { assignment: string }) {
-  const { t } = useLanguage();
-  const l = t.ptOps;
-  const state = useApi(
-    async (signal) => {
-      const rows: HomeworkDto[] = [];
-      for (let page = 1; ; page++) {
-        const batch = pagedItems(
-          await api.get<HomeworkDto[]>("/api/members/me/homework", {
-            signal,
-            query: { page, pageSize: PAGE },
-          }),
-        );
-        rows.push(...batch);
-        if (!assignment) return rows;
-        const selected = rows.find((h) => h.assignmentId === assignment);
-        if (selected) return [selected];
-        if (batch.length < PAGE) return [];
-      }
-    },
-    [assignment],
-  );
-  return (
-    <>
-      <AsyncSection
-        state={state}
-        isEmpty={(d) => !pagedItems(d).length}
-        emptyMessage={l.emptyHomework}
-      >
-        {(data) => (
-          <div className="stack">
-            {pagedItems(data).map((h) => (
-              <Card key={h.assignmentId} title={h.title}>
-                <p className={styles.muted}>
-                  {l.assignedBy.replace("{coach}", h.coachName)} ·{" "}
-                  {l.due.replace("{date}", formatDate(h.dueAt))} ·{" "}
-                  <StatusChip value={h.status} />
-                </p>
-                {h.coachNote && <p>{h.coachNote}</p>}
-                <ul className={styles.exerciseList}>
-                  {h.items.map((i) => (
-                    <li key={i.itemId}>
-                      {i.exercise} · {i.sets} × {i.reps}
-                      {i.notes ? ` · ${i.notes}` : ""}
-                    </li>
-                  ))}
-                </ul>
-                {h.memberFeedback && (
-                  <p>
-                    {l.yourNote}: {h.memberFeedback}
-                  </p>
-                )}
-                <HomeworkProgress
-                  key={`${h.assignmentId}-${h.version}`}
-                  homework={h}
-                  onSaved={state.reload}
-                />
-              </Card>
-            ))}
-          </div>
-        )}
-      </AsyncSection>
-    </>
-  );
-}
-
 export function MemberTraining() {
   const { t } = useLanguage();
   const l = t.ptOps;
   const { values, setValues } = useUrlQuery(
-    { tab: "sessions", assignment: "" },
+    { tab: "sessions" },
     { tab: choiceQuery([...TABS], "sessions") },
   );
   const tab = values.tab as Tab;
@@ -488,7 +354,6 @@ export function MemberTraining() {
     plans: l.tabPlans,
     results: l.tabResults,
     progress: l.tabProgress,
-    homework: l.tabHomework,
     profile: l.tabProfile,
   };
   return (
@@ -505,7 +370,6 @@ export function MemberTraining() {
           {tab === "plans" && <PlansTab />}
           {tab === "results" && <ResultsTab />}
           {tab === "progress" && <ProgressTab />}
-          {tab === "homework" && <HomeworkTab assignment={values.assignment} />}
           {tab === "profile" && <TrainingProfile />}
         </div>
       </Tabs>

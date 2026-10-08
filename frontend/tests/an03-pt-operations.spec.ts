@@ -85,28 +85,6 @@ async function memberFixture(page: Page, opts: { pending?: boolean } = {}) {
           : [],
       );
     if (path === "/api/members/me/pt-coach-change-requests") return json([]);
-    if (path === "/api/members/me/homework")
-      return json([
-        {
-          assignmentId: "h1",
-          coachName: "Coach Minh",
-          title: "Mobility routine",
-          coachNote: "Ten minutes daily",
-          dueAt: hours(48),
-          status: "ASSIGNED",
-          memberFeedback: null,
-          version: 1,
-          items: [
-            {
-              itemId: "i1",
-              exercise: "Hip opener",
-              sets: 2,
-              reps: 10,
-              notes: null,
-            },
-          ],
-        },
-      ]);
     if (path === "/api/members/me/training-profile")
       return json({
         goal: "Run 10 km",
@@ -144,7 +122,7 @@ async function memberFixture(page: Page, opts: { pending?: boolean } = {}) {
   return posts;
 }
 
-test("training page leads with the coach, quota and next session, and homework supports progress", async ({
+test("training page leads with the coach, quota and next session", async ({
   page,
 }) => {
   await memberFixture(page);
@@ -154,12 +132,6 @@ test("training page leads with the coach, quota and next session, and homework s
   await expect(
     page.getByRole("link", { name: "Details" }).first(),
   ).toHaveAttribute("href", `/member/pt/sessions/${lateSession}`);
-  await page.getByRole("tab", { name: "Homework" }).click();
-  await expect(page.getByText("Mobility routine")).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Complete assignment", exact: true }),
-  ).toBeVisible();
-  await expect(page.getByLabel("Feedback for your coach")).toBeVisible();
   await page.getByRole("tab", { name: "Profile" }).click();
   await expect(page.getByLabel("Primary Training Goal")).toHaveValue(
     "Run 10 km",
@@ -363,7 +335,7 @@ test("manager reads a member's operations profile without any workout editing", 
   await expect(page).toHaveURL(new RegExp(`/manager/members/${memberId}$`));
   await expect(page.getByText("Gym monthly")).toBeVisible();
   await expect(page.getByText("Coach Minh").first()).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: /plan|workout|homework/i }),
-  ).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /plan|workout/i })).toHaveCount(
+    0,
+  );
 });

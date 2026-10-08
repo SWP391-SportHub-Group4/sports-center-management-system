@@ -634,7 +634,6 @@ Module **lớn nhất**, chia thành core + 3 sub-module (Catalog, Occupancy, Th
 | File | Size | Chức năng |
 |---|---|---|
 | `WorkoutController.cs` | 9.3KB | CRUD workout plans + ghi workout results |
-| `HomeworkController.cs` | 4.7KB | CRUD homework assignments cho member |
 | `PtSessionsController.cs` | 6.1KB | CRUD buổi PT: tạo, cancel, reschedule, complete |
 | `PtEntitlementsController.cs` | 2.0KB | Quản lý quyền lợi PT (quota buổi tập) |
 | `PtSessionChangeRequestsController.cs` | 2.9KB | Yêu cầu đổi lịch PT: tạo, duyệt/từ chối |
@@ -643,7 +642,7 @@ Module **lớn nhất**, chia thành core + 3 sub-module (Catalog, Occupancy, Th
 
 ### Application/Commands/ (8 subfolders)
 
-`WorkoutPlans/`, `WorkoutResults/`, `Homework/`, `PtSessions/`, `PtEntitlements/`, `PtSessionChangeRequests/`, `PtCoachChangeRequests/`, `Relationships/`
+`WorkoutPlans/`, `WorkoutResults/`, `PtSessions/`, `PtEntitlements/`, `PtSessionChangeRequests/`, `PtCoachChangeRequests/`, `Relationships/`
 
 ### Application/DTOs/ (8 subfolders) — tương ứng với Commands.
 
@@ -652,7 +651,6 @@ Module **lớn nhất**, chia thành core + 3 sub-module (Catalog, Occupancy, Th
 | File | Chức năng |
 |---|---|
 | `IWorkoutService.cs` (1.4KB) | CRUD workout plans, record results |
-| `IHomeworkService.cs` (1.3KB) | CRUD homework assignments |
 | `IPtSessionService.cs` (1.3KB) | CRUD PT sessions: schedule, cancel, reschedule, complete |
 | `IPtEntitlementLifecycle.cs` (1.6KB) | Activate/suspend/expire PT entitlements |
 | `IPtEntitlementQueryService.cs` (334B) | Query PT entitlements |
@@ -666,7 +664,6 @@ Module **lớn nhất**, chia thành core + 3 sub-module (Catalog, Occupancy, Th
 |---|---|---|
 | `PtSessionService.cs` | 29.8KB | **Logic phức tạp nhất module**: schedule PT session (validate coach availability, room availability, member entitlement quota), cancel (release occupancy + restore quota), reschedule, complete (mark attendance) |
 | `PtCoachChangeRequestService.cs` | 19.8KB | Workflow đổi coach: member request → manager approve → migrate sessions + relationships |
-| `HomeworkService.cs` | 13.7KB | CRUD homework: assign items, due dates, completion tracking |
 | `CoachMemberRelationshipService.cs` | 10.7KB | Manage relationships: create (Manual/ClassBased), end, list. Implement `ICoachRelationshipRegistrar` |
 | `PtSessionChangeRequestService.cs` | 10.6KB | Workflow đổi lịch PT: request → approve (reuse PtSessionService logic) |
 | `PtEntitlementLifecycleService.cs` | 10.0KB | PT entitlement lifecycle: activate, suspend, expire, check quota |
@@ -687,12 +684,10 @@ Module **lớn nhất**, chia thành core + 3 sub-module (Catalog, Occupancy, Th
 | `PtSession.cs` | 2.1KB | Buổi PT: EntitlementId, RoomId, StartAtUtc, EndAtUtc, Status |
 | `PtSessionChangeRequest.cs` | 1.4KB | Yêu cầu đổi lịch: SessionId, Type (Cancel/Reschedule), NewStart/End |
 | `PtCoachChangeRequest.cs` | 1.3KB | Yêu cầu đổi coach: EntitlementId, FromCoachId, ToCoachId, Status |
-| `HomeworkAssignment.cs` | 1.8KB | Bài tập về nhà: MemberId, CoachId, DueDate, Status |
-| `HomeworkAssignmentItem.cs` | 582B | Chi tiết bài tập: Exercise, Sets, Reps |
 
 ### Domain/Enums/ (11 files)
 
-`RelationshipStatus`, `RelationshipSourceType`, `WorkoutPlanStatus`, `PtEntitlementStatus`, `PtSessionStatus`, `PtSessionQuotaState`, `PtSessionTimingClassification`, `PtSessionChangeRequestStatus`, `PtSessionChangeRequestType`, `PtCoachChangeRequestStatus`, `HomeworkAssignmentStatus`
+`RelationshipStatus`, `RelationshipSourceType`, `WorkoutPlanStatus`, `PtEntitlementStatus`, `PtSessionStatus`, `PtSessionQuotaState`, `PtSessionTimingClassification`, `PtSessionChangeRequestStatus`, `PtSessionChangeRequestType`, `PtCoachChangeRequestStatus`
 
 ### Domain/Rules/
 

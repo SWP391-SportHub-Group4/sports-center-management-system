@@ -72,11 +72,6 @@ function MemberContent({
     [memberId],
   );
 
-  const homework = useApi(
-    (signal) => ptApi.homework(1, signal, memberId),
-    [memberId],
-  );
-
   return (
     <div className="stack">
       <Card title={t.coach.members.profileTitle.replace("{name}", memberName)}>
@@ -211,38 +206,6 @@ function MemberContent({
                   </div>
 
                   <StatusChip value={plan.status} />
-                </div>
-              ))}
-            </div>
-          )}
-        </AsyncSection>
-      </Card>
-
-      <Card
-        title={t.staffWork.homework}
-        actions={
-          <Link
-            className="btn btn--secondary"
-            href={`/coach/homework?memberId=${memberId}`}
-          >
-            {t.staffWork.homework}
-          </Link>
-        }
-      >
-        <AsyncSection state={homework} isEmpty={(rows) => !rows.length}>
-          {(rows) => (
-            <div className="stack">
-              {rows.map((assignment) => (
-                <div className="row spread" key={assignment.assignmentId}>
-                  <div>
-                    <strong>{assignment.title}</strong>
-
-                    <div className="small muted">
-                      {formatDateTime(assignment.dueAt)}
-                    </div>
-                  </div>
-
-                  <StatusChip value={assignment.status} />
                 </div>
               ))}
             </div>

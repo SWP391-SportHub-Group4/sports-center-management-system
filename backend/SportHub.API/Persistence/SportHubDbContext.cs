@@ -73,8 +73,6 @@ public class SportHubDbContext : DbContext, ISportHubDbContext
     public DbSet<PtSession> PtSessions => Set<PtSession>();
     public DbSet<PtSessionChangeRequest> PtSessionChangeRequests => Set<PtSessionChangeRequest>();
     public DbSet<PtCoachChangeRequest> PtCoachChangeRequests => Set<PtCoachChangeRequest>();
-    public DbSet<HomeworkAssignment> HomeworkAssignments => Set<HomeworkAssignment>();
-    public DbSet<HomeworkAssignmentItem> HomeworkAssignmentItems => Set<HomeworkAssignmentItem>();
 
     public DbSet<Invoice> Invoices => Set<Invoice>();
     public DbSet<InvoiceItem> InvoiceItems => Set<InvoiceItem>();

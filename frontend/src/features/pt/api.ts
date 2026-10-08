@@ -3,7 +3,6 @@ import type {
   CoachMemberRelationshipDto,
   CourseDto,
   CourseSessionDto,
-  HomeworkDto,
   PtSessionDto,
   PtEntitlementDto,
   WorkoutPlanDto,
@@ -98,16 +97,6 @@ export const ptApi = {
 
   plans: (page: number, signal?: AbortSignal, memberId?: string) =>
     api.get<WorkoutPlanDto[]>("/api/coaches/me/workout-plans", {
-      signal,
-      query: {
-        page,
-        pageSize: 20,
-        memberId,
-      },
-    }),
-
-  homework: (page: number, signal?: AbortSignal, memberId?: string) =>
-    api.get<HomeworkDto[]>("/api/coaches/me/homework", {
       signal,
       query: {
         page,

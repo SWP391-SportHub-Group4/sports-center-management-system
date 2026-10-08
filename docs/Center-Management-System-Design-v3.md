@@ -13,7 +13,7 @@ Tài liệu này mô tả độc lập phạm vi, kiến trúc, dữ liệu, lu�
 | Môn | Dịch vụ | Đơn vị mua | Quyền lợi |
 |---|---|---|---|
 | Gym | Tập tự do | Membership có thời hạn | Check-in/out tại quầy khi gói có hiệu lực |
-| Gym | PT một Coach — một Member | Gói PT riêng, cần Membership Active | Quota buổi tập, lịch PT, kế hoạch, kết quả, homework |
+| Gym | PT một Coach — một Member | Gói PT riêng, cần Membership Active | Quota buổi tập, lịch PT, kế hoạch, kết quả |
 | Cầu lông | Khóa học; thuê sân | Gói cả khóa hoặc lượt thuê | Ghi danh nhiều buổi; Member được thuê sân khung trống |
 | Bóng rổ | Khóa học; thuê sân | Gói cả khóa hoặc lượt thuê | Ghi danh nhiều buổi; Member được thuê sân khung trống |
 
@@ -38,7 +38,7 @@ Ngoài phạm vi: đa chi nhánh, payroll/hợp đồng nhân sự, gym bên ngo
 | Guest | Xem thông tin trung tâm, môn, khóa/gói công khai; đăng ký | Không phải role tài khoản; không đọc roster, ví hoặc lịch cá nhân |
 | Member | Mua dịch vụ; thuê/hủy sân còn trống; xem lịch, quyền lợi, hóa đơn, ví; yêu cầu hỗ trợ | Chỉ dữ liệu của mình; không tự xác nhận payment |
 | Receptionist | Tiếp đón, Gym check-in/out, điểm danh lớp, checkout hộ | Dùng điểm hộ cần OTP Member; không tự cấp điểm hoặc duyệt refund |
-| Coach | Xem lịch được giao; Coach PT lập plan, ghi result, giao homework | Chỉ lớp/học viên được phân công; kiểm cả role và quan hệ |
+| Coach | Xem lịch được giao; Coach PT lập plan, ghi result | Chỉ lớp/học viên được phân công; kiểm cả role và quan hệ |
 | CenterManager | Môn/sân, Coach/chuyên môn, lớp/lịch, sự cố, hoàn điểm, báo cáo | Theo mức hệ thống tính; không tự duyệt yêu cầu của mình |
 | SystemAdministrator | Tài khoản nhân sự, role, khóa/mở tài khoản | Không mặc nhiên có quyền tài chính hoặc hồ sơ tập luyện |
 
@@ -53,7 +53,7 @@ Next.js phục vụ frontend; ASP.NET Core phục vụ API; PostgreSQL lưu dữ
 | `SportHub.Identity` | Account, credential, profile, external login, OTP, chuyên môn |
 | `SportHub.Membership` | Catalog Membership, gói đã mua, hiệu lực và gia hạn |
 | `SportHub.Scheduling` | Môn/phòng/giá, lớp, ghi danh, giữ chỗ, occupancy, thuê sân, sự cố, Gym check-in |
-| `SportHub.Training` | Quan hệ Coach–Member, PT entitlement/session/change request, plan/result/homework |
+| `SportHub.Training` | Quan hệ Coach–Member, PT entitlement/session/change request, plan/result |
 | `SportHub.Payment` | Invoice, checkout, attempt, gateway, reconciliation, ví/ledger, OTP dùng điểm, refund |
 | `SportHub.Notification` | Feed, email outbox, thông báo thủ công, retry delivery |
 | `SportHub.AI` | Member assistant theo context, workout recommendation; Manager AI còn thiếu |
@@ -78,7 +78,7 @@ Controller xác thực request; application service kiểm nghiệp vụ và tra
 | Giữ chỗ | SeatHold, RoomOccupancy, CoachOccupancy | Hold có TTL; một cơ chế chung chống trùng sân/Coach |
 | Ngưỡng lớp | ThresholdResponse | Token hash, deadline, choice, resolution; bảng class_threshold_responses |
 | PT | CoachMemberRelationship, PtEntitlement, PtSession, PtSessionChangeRequest, PtCoachChangeRequest | Quota/lịch thuộc Training; phòng PT có thể nullable |
-| Tập luyện | WorkoutPlan, WorkoutPlanItem, WorkoutResult, HomeworkAssignment, HomeworkAssignmentItem | Result gắn buổi PT; plan có lifecycle |
+| Tập luyện | WorkoutPlan, WorkoutPlanItem, WorkoutResult | Result gắn buổi PT; plan có lifecycle |
 | Thuê sân | CourtRental, IncidentNotice | Môn, phòng, Member thuê, khoảng giờ, invoice/item |
 | Thanh toán | Invoice, InvoiceItem, CheckoutSession, PaymentAttempt, Payment, VerifiedGatewayEvent | Tách nghĩa vụ mua, cycle, lần thử, tiền xác minh, inbox callback |
 | Điểm/hoàn | PointWallet, PointLedgerEntry, PointConfirmation, PaymentAdjustment | Ledger phát sinh; OTP ủy quyền; refund theo item, không thêm bảng Refund song song |
@@ -141,7 +141,7 @@ Chọn Membership → snapshot và checkout → payment xác minh → kích ho�
 
 Membership Active → chọn Coach có chuyên môn, lấy PT quote → checkout riêng → kích hoạt PtEntitlement → xếp buổi theo quota, validity, availability và quan hệ Coach–Member. Buổi PT 90 phút; frequency 1/2/3 buổi mỗi tuần dùng tính gói, không tự tạo booking tuần.
 
-Coach ghi kết quả/plan/homework cho học viên được giao. Đổi/hủy/đổi Coach qua change request. Member self-booking và slot availability chưa có đầy đủ API, không mô tả là đã triển khai.
+Coach ghi kết quả/plan cho học viên được giao. Đổi/hủy/đổi Coach qua change request. Member self-booking và slot availability chưa có đầy đủ API, không mô tả là đã triển khai.
 
 ### 5.3 Khóa cầu lông và bóng rổ
 

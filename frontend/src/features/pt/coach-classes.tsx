@@ -476,10 +476,6 @@ function CoachDashboard({ hasPt }: { hasPt: boolean }) {
                 {t.coach.dashboard.quickEditPlans}
               </Link>
 
-              <Link className="btn btn--secondary" href="/coach/homework">
-                {t.staffWork.homework}
-              </Link>
-
               <Link className="btn btn--secondary" href="/coach/pt-sessions">
                 {t.staffWork.sessions}
               </Link>
