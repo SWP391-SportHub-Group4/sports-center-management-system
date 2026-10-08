@@ -20,6 +20,7 @@ import "./member.css";
 import "@/styles/foundation.css";
 import { AuthProvider } from "@/lib/auth";
 import { LanguageProvider } from "@/lib/language";
+import { SiteFooter } from "@/components/SiteFooter";
 
 export const metadata: Metadata = {
   title: "SportHub | Sports Center Management",
@@ -42,7 +43,10 @@ export default function RootLayout({
       <body>
         {/* AuthProvider and LanguageProvider wrap the entire application */}
         <LanguageProvider>
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider>
+            {children}
+            <SiteFooter />
+          </AuthProvider>
         </LanguageProvider>
       </body>
     </html>
