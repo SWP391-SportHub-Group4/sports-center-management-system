@@ -1864,6 +1864,7 @@ export const vi: Translations = {
     weekSchedule: "Thời khóa biểu tuần",
     present: "Có mặt",
     completed: "Hoàn thành",
+    absent: "Vắng mặt",
     viewLabel: "Chế độ xem",
     day: "Ngày",
     week: "Tuần",

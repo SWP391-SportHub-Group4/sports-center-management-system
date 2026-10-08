@@ -167,9 +167,12 @@ export function MemberSchedule() {
 
   const renderEvent = (item: Item) => {
     const cancelled = /CANCEL/i.test(item.status ?? "");
-    const present = item.attendanceStatus?.toUpperCase() === "PRESENT";
-    const completed =
-      item.kind !== "class" && item.status?.toUpperCase() === "COMPLETED";
+    const absent = item.attendanceStatus?.toUpperCase() === "ABSENT";
+    // Một nhãn duy nhất cho buổi đã diễn ra: buổi lớp có mặt, buổi PT hoặc lượt thuê đã xong đều là "Hoàn thành".
+    const done =
+      !absent &&
+      (item.attendanceStatus?.toUpperCase() === "PRESENT" ||
+        item.status?.toUpperCase() === "COMPLETED");
     return (
       <button
         key={item.id}
@@ -185,16 +188,19 @@ export function MemberSchedule() {
           {formatTime(item.startAtUtc)}–{formatTime(item.endAtUtc)}
         </time>
         {item.roomName && <span className={styles.meta}>{item.roomName}</span>}
+        {item.kind === "rental" && item.sport && (
+          <span className={styles.meta}>{item.sport}</span>
+        )}
         {item.coachName && (
           <span className={styles.meta}>{item.coachName}</span>
         )}
-        {(present || completed) && (
+        {done && (
           <span className={styles.done}>
-            <span aria-hidden="true">✓</span>{" "}
-            {present ? m.present : m.completed}
+            <span aria-hidden="true">✓</span> {m.completed}
           </span>
         )}
-        {exceptional(item.status) && !completed && (
+        {absent && <span className={styles.absent}>{m.absent}</span>}
+        {exceptional(item.status) && !done && !absent && (
           <StatusChip value={item.status} />
         )}
       </button>

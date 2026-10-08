@@ -289,7 +289,7 @@ test("weekly schedule includes the last PT page and own attendance", async ({
   await page.goto("/member/schedule");
   await expect(page.getByText("Coach Last", { exact: true })).toBeVisible();
   await expect(page.getByText("Coach Minh", { exact: true })).toBeVisible();
-  await expect(page.getByText("✓ Present").first()).toBeVisible();
+  await expect(page.getByText("✓ Completed").first()).toBeVisible();
   await page.getByRole("button", { name: /Badminton course/ }).click();
   await expect(page.getByRole("dialog")).toContainText("Make-up session");
   await expect(page.getByRole("dialog")).toContainText("Present");

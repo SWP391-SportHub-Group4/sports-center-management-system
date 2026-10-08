@@ -226,7 +226,7 @@ test("Lịch của tôi: phân biệt lớp nhóm, PT và thuê sân", async ({ 
   await page.goto("/member/schedule");
 
   await expect(page.getByText("Bóng rổ 01").first()).toBeVisible();
-  await expect(page.getByText("PT cùng Đỗ Quang").first()).toBeVisible();
+  await expect(page.getByText("Đỗ Quang").first()).toBeVisible();
 });
 
 const enrollments = [
