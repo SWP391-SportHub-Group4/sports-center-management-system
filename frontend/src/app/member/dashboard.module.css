@@ -635,3 +635,51 @@
   border-bottom: 0;
   padding-bottom: 0;
 }
+
+/* Hero "Buổi tiếp theo": thông tin buổi bên trái, nút mở lịch căn đáy bên phải để nửa phải không bị bỏ trống. */
+.nextSession {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "top top"
+    "count count"
+    "body cta";
+  align-items: end;
+  gap: var(--space-3) var(--space-6);
+}
+.nextSession > .nextTop {
+  grid-area: top;
+}
+.nextSession > .startsIn {
+  grid-area: count;
+  margin-top: var(--space-1);
+}
+.nextSession > .nextBody {
+  grid-area: body;
+  margin: var(--space-4) 0 0;
+}
+.nextSession > :global(.btn) {
+  grid-area: cta;
+}
+.dateTile {
+  min-width: 72px;
+  white-space: nowrap;
+}
+@media (max-width: 720px) {
+  .nextSession {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "top" "count" "body" "cta";
+  }
+  .nextSession > :global(.btn) {
+    justify-self: start;
+  }
+}
+
+@media (max-width: 720px) {
+  .agenda li > div {
+    flex-basis: calc(100% - 96px);
+  }
+  .agenda li > span {
+    margin-left: 88px;
+  }
+}

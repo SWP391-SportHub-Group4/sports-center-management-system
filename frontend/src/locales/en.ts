@@ -1871,6 +1871,7 @@ export const en = {
     weekSchedule: "Weekly schedule",
     present: "Present",
     completed: "Completed",
+    absent: "Absent",
     viewLabel: "View",
     day: "Day",
     week: "Week",
