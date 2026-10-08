@@ -180,12 +180,6 @@ export function MemberSchedule() {
       >
         <span className={styles.eventHeading}>
           <strong>{item.title}</strong>
-          {(present || completed) && (
-            <span className={styles.done}>
-              <span aria-hidden="true">✓</span>{" "}
-              {present ? m.present : m.completed}
-            </span>
-          )}
         </span>
         <time dateTime={item.startAtUtc}>
           {formatTime(item.startAtUtc)}–{formatTime(item.endAtUtc)}
@@ -193,6 +187,12 @@ export function MemberSchedule() {
         {item.roomName && <span className={styles.meta}>{item.roomName}</span>}
         {item.coachName && (
           <span className={styles.meta}>{item.coachName}</span>
+        )}
+        {(present || completed) && (
+          <span className={styles.done}>
+            <span aria-hidden="true">✓</span>{" "}
+            {present ? m.present : m.completed}
+          </span>
         )}
         {exceptional(item.status) && !completed && (
           <StatusChip value={item.status} />
