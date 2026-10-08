@@ -220,3 +220,99 @@
   background: var(--warning-bg);
   color: var(--warning-text);
 }
+
+@media (max-width: 560px) {
+  .nav {
+    flex-wrap: nowrap;
+    width: 100%;
+  }
+  .nav button {
+    flex: 1 1 0;
+    min-width: 0;
+    padding-inline: var(--space-2);
+    font-size: var(--text-xs);
+    line-height: var(--leading-snug);
+  }
+}
+
+/* Mobile: tuần hiển thị theo từng ngày, mỗi buổi là một dòng chạm được, không cuộn ngang. */
+.agendaList {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.agendaRange {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+}
+
+.agendaDay {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+  overflow: hidden;
+}
+
+.agendaDay[data-today="true"] {
+  border-color: var(--success-text);
+}
+
+.agendaDay h3 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-2) var(--space-4);
+  background: var(--bg-surface-sunken);
+  color: var(--text-strong);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}
+
+.agendaDay[data-today="true"] h3 {
+  background: var(--success-bg);
+  color: var(--success-text);
+}
+
+.todayTag {
+  margin-left: auto;
+  font-size: var(--text-xs);
+}
+
+.agendaDay ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.agendaDay li + li {
+  border-top: 1px solid var(--border-subtle);
+}
+
+.agendaDay li .event {
+  padding: var(--space-3) var(--space-4);
+  gap: var(--space-1);
+  font-size: var(--text-sm);
+}
+
+.agendaDay li .event time {
+  font-size: var(--text-base);
+}
+
+.agendaDay > .free {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--text-sm);
+}
+
+@media (max-width: 560px) {
+  .weekPicker {
+    width: 100%;
+  }
+  .weekPicker input {
+    min-width: 0;
+    width: 100%;
+  }
+}

@@ -144,7 +144,7 @@ async function memberFixture(page: Page, opts: { pending?: boolean } = {}) {
   return posts;
 }
 
-test("training page leads with the coach, quota and next session, and homework is read-only", async ({
+test("training page leads with the coach, quota and next session, and homework supports progress", async ({
   page,
 }) => {
   await memberFixture(page);
@@ -157,9 +157,9 @@ test("training page leads with the coach, quota and next session, and homework i
   await page.getByRole("tab", { name: "Homework" }).click();
   await expect(page.getByText("Mobility routine")).toBeVisible();
   await expect(
-    page.getByRole("button", { name: /mark completed/i }),
-  ).toHaveCount(0);
-  await expect(page.getByRole("textbox")).toHaveCount(0);
+    page.getByRole("button", { name: "Complete assignment", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Feedback for your coach")).toBeVisible();
   await page.getByRole("tab", { name: "Profile" }).click();
   await expect(page.getByLabel("Primary Training Goal")).toHaveValue(
     "Run 10 km",
@@ -181,9 +181,7 @@ test("a session more than 24 hours away sends a request and says the schedule is
   await page.getByRole("button", { name: "Request a change" }).click();
   await expect(page.getByLabel(/Ask for an exception/)).toHaveCount(0);
   await page.getByLabel("Move to another time").check();
-  await page
-    .getByLabel("New start time (Vietnam time)")
-    .fill("2031-01-05T18:00");
+  await page.getByLabel("New start time").fill("2031-01-05T18:00");
   await page.getByLabel("Reason").fill("Meeting");
   await page.getByRole("button", { name: "Send request" }).click();
   await expect.poll(() => posts.length).toBe(1);
