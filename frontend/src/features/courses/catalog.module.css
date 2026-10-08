@@ -190,7 +190,10 @@
 }
 @media (max-width: 560px) {
   .filters {
-    grid-template-columns: minmax(0, 1fr);
     padding: var(--space-4);
+    gap: var(--space-3);
+  }
+  .filterTail {
+    grid-column: 1 / -1;
   }
 }

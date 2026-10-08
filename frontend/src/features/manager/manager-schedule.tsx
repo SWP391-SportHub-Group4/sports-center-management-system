@@ -190,7 +190,6 @@ export function ManagerSchedule({
         }
       />
       {rooms.error && <p role="alert">{rooms.error.message}</p>}
-      <p>{l.timeZone}</p>
       <AsyncSection state={state}>
         {() => (
           <Calendar

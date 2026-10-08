@@ -379,7 +379,6 @@ export default function MemberDashboardPage() {
             <div className={styles.sectionHeading}>
               <div>
                 <h2 id="next-session-title">{t.memberPages.nextSession}</h2>
-                <p>{l.scheduleHint}</p>
               </div>
               <IconCalendar size={24} aria-hidden="true" />
             </div>

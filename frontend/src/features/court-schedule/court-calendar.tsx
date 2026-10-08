@@ -95,8 +95,6 @@ export function CourtCalendar({
         )}
       </AsyncSection>
 
-      <p>{l.timeZone}</p>
-
       <div className="btn-row">
         {Object.entries(labels)
           .filter(([type]) =>

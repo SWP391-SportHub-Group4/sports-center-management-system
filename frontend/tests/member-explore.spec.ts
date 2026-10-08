@@ -550,3 +550,38 @@ test("Lịch của tôi: lượt thuê sát giờ chơi cảnh báo không hoàn
     page.getByRole("dialog", { name: "Hủy lượt thuê sân?" }),
   ).toContainText("không được hoàn điểm");
 });
+
+test("Lịch của tôi trên điện thoại: tuần chia theo ngày, không cuộn ngang, bấm buổi mở chi tiết", async ({
+  page,
+}) => {
+  await base(page);
+  await page.route("**/api/members/me/pt-sessions**", (r) =>
+    r.fulfill({
+      json: [
+        {
+          sessionId: "p1",
+          entitlementId: "e",
+          memberId: "m",
+          memberName: "An",
+          coachId: "c",
+          coachName: "Đỗ Quang",
+          startAtUtc: h(30),
+          endAtUtc: h(31.5),
+          status: "SCHEDULED",
+          quotaState: "RESERVED",
+          roomId: 3,
+          roomName: "Phòng PT 2",
+        },
+      ],
+    }),
+  );
+  await page.setViewportSize({ width: 360, height: 800 });
+  await page.goto("/member/schedule?date=" + vnDate(h(30)));
+  await expect(page.locator("table")).toHaveCount(0);
+  await expect(page.getByRole("region", { name: /^(Thứ|Chủ)/ })).toHaveCount(7);
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth),
+  ).toBeLessThanOrEqual(361);
+  await page.getByRole("button", { name: /Buổi PT/ }).click();
+  await expect(page.getByRole("dialog")).toContainText("Phòng PT 2");
+});

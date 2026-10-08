@@ -9,6 +9,7 @@ import { useApi, useNow } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { addDaysIso, formatDate, formatTime, todayIso } from "@/lib/format";
 import { useUrlQuery } from "@/lib/useUrlQuery";
+import { useMediaQuery } from "@/lib/useMediaQuery";
 import { rentalApi } from "../rentals/api";
 import type { CourtRentalDto, SportDto } from "@/lib/types";
 import { memberSchedule, type MemberEvent } from "./api";
@@ -142,6 +143,7 @@ export function MemberSchedule() {
   const [selection, setSelection] = useState<Item | null>(null);
   const [cancelling, setCancelling] = useState<CourtRentalDto | null>(null);
   const now = useNow();
+  const narrow = useMediaQuery("(max-width: 720px)");
   function setSelected(item: Item | null) {
     setSelection(item);
     if (values.event) setValues({ event: "" });
@@ -260,6 +262,40 @@ export function MemberSchedule() {
             1,
             ...columns.map(([, events]) => events.length),
           );
+          if (narrow)
+            return (
+              <section
+                className={styles.agendaList}
+                aria-label={m.weekSchedule}
+              >
+                <h2 className={styles.agendaRange}>{range}</h2>
+                {columns.map(([day, events], index) => (
+                  <section
+                    key={day}
+                    className={styles.agendaDay}
+                    data-today={day === todayIso()}
+                    aria-label={`${m.weekdays[index]} ${fmt(day, { day: "2-digit", month: "2-digit" })}`}
+                  >
+                    <h3>
+                      {m.weekdays[index]},{" "}
+                      {fmt(day, { day: "2-digit", month: "2-digit" })}
+                      {day === todayIso() && (
+                        <span className={styles.todayTag}>{m.todayTag}</span>
+                      )}
+                    </h3>
+                    {events.length ? (
+                      <ul>
+                        {events.map((event) => (
+                          <li key={event.id}>{renderEvent(event)}</li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className={styles.free}>{m.dayEmpty}</p>
+                    )}
+                  </section>
+                ))}
+              </section>
+            );
           return (
             <div
               className={styles.calendarScroll}
