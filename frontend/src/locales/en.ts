@@ -484,8 +484,7 @@ export const en = {
     unread: "Unread",
     read: "Mark as read",
     readStatus: "Read",
-    notificationsHint:
-      "Your latest 100 notifications. Use Unread to find messages that need attention.",
+    notificationsHint: "Use Unread to find messages that need attention.",
     emptyCourses: "No courses in this view. Discover a course to get started.",
     emptyVisits: "Your gym check-ins will appear here after your first visit.",
     nextSession: "Next session",
@@ -504,6 +503,7 @@ export const en = {
     viewAll: "View all",
     pending: "Continue payment",
     emptyNotifications: "You're all caught up.",
+    noNotifications: "You don't have any notifications yet.",
     enrollment: "Enrollment",
     frequencyHint:
       "Weekly frequency determines the package quota; it is not a weekly booking limit.",

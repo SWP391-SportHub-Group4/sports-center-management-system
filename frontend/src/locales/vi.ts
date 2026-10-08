@@ -483,8 +483,7 @@ export const vi: Translations = {
     unread: "Chưa đọc",
     read: "Đánh dấu đã đọc",
     readStatus: "Đã đọc",
-    notificationsHint:
-      "100 thông báo gần nhất. Chọn Chưa đọc để xem các tin cần chú ý.",
+    notificationsHint: "Chọn Chưa đọc để xem các tin cần chú ý.",
     emptyCourses:
       "Chưa có khóa học trong mục này. Khám phá khóa học để bắt đầu.",
     emptyVisits: "Lịch sử vào ra sẽ xuất hiện sau lần đầu bạn đến Gym.",
@@ -504,6 +503,7 @@ export const vi: Translations = {
     viewAll: "Xem tất cả",
     pending: "Tiếp tục thanh toán",
     emptyNotifications: "Bạn đã xem hết thông báo.",
+    noNotifications: "Bạn chưa có thông báo nào.",
     enrollment: "Ghi danh",
     frequencyHint:
       "Tần suất mỗi tuần dùng để tính quota gói, không giới hạn cứng số buổi đặt mỗi tuần.",

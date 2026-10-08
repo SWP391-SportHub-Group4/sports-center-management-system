@@ -328,6 +328,19 @@ test("notification read is persisted and unknown source has no fabricated link",
   ).toHaveCount(0);
 });
 
+test("empty notification list does not claim 100 messages", async ({ page }) => {
+  await setup(page);
+  await page.route("**/api/notifications?**", (route) =>
+    route.fulfill({ json: [] }),
+  );
+  await page.goto("/notifications");
+  await expect(page.getByText("You don't have any notifications yet.")).toBeVisible();
+  await expect(page.getByText(/latest 100 notifications/i)).toHaveCount(0);
+
+  await page.getByRole("tab", { name: "Unread" }).click();
+  await expect(page.getByText("You're all caught up.")).toBeVisible();
+});
+
 test("course details reject IDs outside own enrollments", async ({ page }) => {
   await setup(page);
   await page.goto("/member/courses/999");
