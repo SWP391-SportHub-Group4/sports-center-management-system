@@ -1,0 +1,40 @@
+.list {
+  display: grid;
+  gap: var(--space-3);
+  margin: var(--space-4) 0;
+  padding: 0;
+  list-style: none;
+}
+.entry {
+  padding: var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+}
+.entryTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+.entryTop > div {
+  display: grid;
+  gap: var(--space-1);
+}
+.entry time, .entry small {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.entry small {
+  display: block;
+  margin-top: var(--space-1);
+}
+.entry p {
+  margin: var(--space-2) 0;
+}
+.inflow, .outflow {
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+.inflow { color: var(--success-text); }
+.outflow { color: var(--danger-text); }

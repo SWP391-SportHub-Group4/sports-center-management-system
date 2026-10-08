@@ -51,7 +51,7 @@ Route dưới đây là đề xuất; ưu tiên giữ link cũ bằng alias/redi
 | A19 | Khóa học của tôi → Nguyện vọng khóa sau | `/member/courses?tab=interests`, T | Lớp nguồn, môn muốn nhận tin, điểm đã hoàn, trạng thái nhận tin, khóa mới được gợi ý; hủy nhận tin không thu hồi điểm; G02 |
 | A20 | Thẻ hội viên → Mã/QR nhận diện | O từ dashboard hoặc account | Mã dễ đọc + QR backend cấp, trạng thái/hạn nếu có; QR chỉ nhận diện để lễ tân tra cứu, không chứng minh quyền vào Gym; G04 |
 
-Tài khoản, mật khẩu, Google linking do Khôi làm trong `/account`; An cung cấp entry và shell đúng role. Không tạo trang Member profile trùng nội dung account; training profile là phần riêng.
+Tài khoản, mật khẩu (tạo mật khẩu có OTP cho tài khoản Google), Google linking do Khôi làm trong `/account`; An cung cấp entry và shell đúng role. Không tạo trang Member profile trùng nội dung account; training profile là phần riêng.
 
 ## 3. Checkout — đặc tả bắt buộc
 

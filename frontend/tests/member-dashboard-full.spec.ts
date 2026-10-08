@@ -143,6 +143,43 @@ test("dashboard surfaces what needs a reply, the Gym and PT status and a way to 
   ).toHaveAttribute("href", "/member/pt/book");
 });
 
+test("dashboard separates today's sessions from the next day", async ({ page }) => {
+  await install(page);
+  const today = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Ho_Chi_Minh",
+  }).format(new Date());
+  const tomorrow = new Date(`${today}T12:00:00Z`);
+  tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+  const nextDay = tomorrow.toISOString().slice(0, 10);
+  await page.route("**/api/members/me/schedule?**", (route) =>
+    route.fulfill({
+      json: [
+        {
+          sessionId: "today-class",
+          className: "Today's badminton",
+          startAtUtc: new Date(`${today}T18:00:00+07:00`).toISOString(),
+          endAtUtc: new Date(`${today}T20:00:00+07:00`).toISOString(),
+          roomName: "Court A",
+          status: "SCHEDULED",
+        },
+        {
+          sessionId: "next-class",
+          className: "Tomorrow's basketball",
+          startAtUtc: new Date(`${nextDay}T09:00:00+07:00`).toISOString(),
+          endAtUtc: new Date(`${nextDay}T11:00:00+07:00`).toISOString(),
+          roomName: "Court B",
+          status: "SCHEDULED",
+        },
+      ],
+    }),
+  );
+  await page.goto("/member");
+  const schedule = page.getByRole("region", { name: "My schedule" });
+  await expect(schedule.getByText("Today's badminton")).toBeVisible();
+  await expect(schedule.getByText("Tomorrow's basketball")).toBeVisible();
+  await expect(schedule.getByText("Today's schedule")).toBeVisible();
+});
+
 test("the assistant answers from a suggestion, keeps the thread and offers links", async ({
   page,
 }) => {

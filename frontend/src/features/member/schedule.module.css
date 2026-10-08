@@ -42,6 +42,18 @@
   min-height: 44px;
 }
 
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+.filters button[aria-pressed="true"] {
+  background: var(--bg-brand-deep);
+  color: var(--chalk-50);
+  border-color: var(--bg-brand-deep);
+}
+
 .calendarScroll {
   max-width: 100%;
   overflow-x: auto;

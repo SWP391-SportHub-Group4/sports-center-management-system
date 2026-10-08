@@ -388,57 +388,6 @@ namespace SportHub.API.Migrations
                     b.ToTable("email_otps", (string)null);
                 });
 
-            modelBuilder.Entity("SportHub.Identity.Domain.Entities.GoogleOnboardingTicket", b =>
-                {
-                    b.Property<Guid>("TicketId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("ticket_id");
-
-                    b.Property<DateTime?>("ConsumedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("consumed_at");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<string>("Email")
-                        .IsRequired()
-                        .HasColumnType("citext")
-                        .HasColumnName("email");
-
-                    b.Property<DateTime>("ExpiresAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("expires_at");
-
-                    b.Property<string>("ProviderUserId")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("provider_user_id");
-
-                    b.Property<string>("SuggestedFullName")
-                        .HasColumnType("text")
-                        .HasColumnName("suggested_full_name");
-
-                    b.Property<string>("TokenHash")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("token_hash");
-
-                    b.HasKey("TicketId")
-                        .HasName("pk_google_onboarding_tickets");
-
-                    b.HasIndex("ProviderUserId")
-                        .HasDatabaseName("ix_google_onboarding_tickets_provider_user_id");
-
-                    b.HasIndex("TokenHash")
-                        .IsUnique()
-                        .HasDatabaseName("ix_google_onboarding_tickets_token_hash");
-
-                    b.ToTable("google_onboarding_tickets", (string)null);
-                });
-
             modelBuilder.Entity("SportHub.Identity.Domain.Entities.Role", b =>
                 {
                     b.Property<int>("RoleId")

@@ -213,7 +213,7 @@ Thư viện dùng chung — **KHÔNG chứa logic nghiệp vụ**, chỉ interfa
 | File | Size | Chức năng |
 |---|---|---|
 | `AuthController.cs` | 2.7KB | `POST /api/auth/login` — đăng nhập, `POST /api/auth/register` — đăng ký, `POST /api/auth/register/otp` — gửi OTP |
-| `GoogleAuthController.cs` | 1.9KB | `POST /api/auth/google` — đăng nhập Google OAuth, `POST /api/auth/google/onboarding` — hoàn tất onboarding |
+| `GoogleAuthController.cs` | 1.9KB | `POST /api/auth/google` — đăng nhập Google: tự tạo tài khoản hoặc tự liên kết theo email đã xác minh |
 | `AccountController.cs` | 1.3KB | `GET /api/users/me` — lấy profile, `PUT /api/users/me` — cập nhật profile, `PUT /api/users/me/password` — đổi mật khẩu |
 | `CoachesController.cs` | 1.6KB | `GET /api/coaches` — danh sách coach, `GET/PUT /api/coaches/{id}/specialties` — chuyên môn thể thao |
 
@@ -225,7 +225,6 @@ Thư viện dùng chung — **KHÔNG chứa logic nghiệp vụ**, chỉ interfa
 | `RegisterRequest.cs` | 2.9KB | DTO đăng ký: email, otpCode, password, fullName, phone + validation |
 | `RequestRegisterOtpRequest.cs` | 232B | DTO yêu cầu gửi OTP: email |
 | `GoogleTokenRequest.cs` | 220B | DTO login Google: idToken |
-| `CompleteGoogleOnboardingRequest.cs` | 621B | DTO hoàn tất onboarding Google |
 | `ChangePasswordRequest.cs` | 767B | DTO đổi mật khẩu: currentPassword, newPassword |
 | `ForgotPasswordRequest.cs` | 235B | DTO quên mật khẩu: email |
 | `ResetPasswordRequest.cs` | 718B | DTO đặt lại mật khẩu: token + newPassword |
@@ -237,8 +236,7 @@ Thư viện dùng chung — **KHÔNG chứa logic nghiệp vụ**, chỉ interfa
 |---|---|---|
 | `AuthResponse.cs` | 379B | Response đăng nhập/đăng ký: `{accessToken, user}` |
 | `UserSummaryResponse.cs` | 679B | Thông tin user: userId, email, fullName, role, coachCategory |
-| `GoogleLoginResult.cs` | 266B | Kết quả login Google |
-| `GoogleOnboardingPendingResponse.cs` | 402B | Response pending onboarding |
+| `GoogleLoginResult.cs` | — | (đã gỡ cùng onboarding) |
 
 ### Application/Interfaces/ (8 files)
 
@@ -247,7 +245,7 @@ Thư viện dùng chung — **KHÔNG chứa logic nghiệp vụ**, chỉ interfa
 | `IAuthService.cs` | 578B | Login, Register, RequestOtp |
 | `IAccountService.cs` | 796B | GetProfile, UpdateProfile, ChangePassword |
 | `IPasswordResetService.cs` | 459B | ForgotPassword, ResetPassword |
-| `IGoogleAuthService.cs` | 576B | LoginWithGoogle, CompleteOnboarding |
+| `IGoogleAuthService.cs` | 576B | LoginAsync, LinkAsync, UnlinkAsync |
 | `IGoogleTokenVerifier.cs` | 916B | Verify Google ID token |
 | `IPasswordHasher.cs` | 988B | Hash, Verify password |
 | `IUserAccountRepository.cs` | 1.2KB | CRUD UserAccount + lookup |
@@ -259,7 +257,7 @@ Thư viện dùng chung — **KHÔNG chứa logic nghiệp vụ**, chỉ interfa
 | `AuthService.cs` | 11.1KB | **Core auth logic**: login (validate credentials, generate JWT), register (verify OTP, create account, assign role), request OTP |
 | `AccountService.cs` | 6.7KB | Get/update profile, change password |
 | `PasswordResetService.cs` | 4.0KB | Forgot password (generate token, send email), reset password (validate token, update) |
-| `GoogleAuthService.cs` | 14.1KB | Google OAuth flow: verify token → find/create account → handle onboarding |
+| `GoogleAuthService.cs` | 14.1KB | Google OAuth flow: verify token → đã link thì đăng nhập; trùng email thì tự link; chưa có thì tạo tài khoản mật khẩu NULL |
 | `EmailOtpFlow.cs` | 5.0KB | Generate OTP, send via email, verify OTP code |
 | `OtpCodes.cs` | 943B | Generate random 6-digit OTP |
 | `PasswordPolicyGuard.cs` | 965B | Validate password strength |
@@ -278,7 +276,6 @@ Thư viện dùng chung — **KHÔNG chứa logic nghiệp vụ**, chỉ interfa
 | `UserExternalLogin.cs` | 611B | Liên kết OAuth: UserId, Provider, ProviderKey |
 | `Role.cs` | 304B | Role: Id, Name |
 | `EmailOtp.cs` | 1.2KB | OTP email: Email, Code, Purpose, ExpiresAt, Verified |
-| `GoogleOnboardingTicket.cs` | 1.0KB | Ticket onboarding Google: Email, GoogleSubject, ExpiresAt |
 | `CoachProfile.cs` | 596B | Profile coach: UserId, Category (PersonalTrainer/ClassInstructor) |
 | `UserSportSpecialty.cs` | 507B | Chuyên môn thể thao: UserId, SportId |
 
@@ -320,7 +317,6 @@ Thư viện dùng chung — **KHÔNG chứa logic nghiệp vụ**, chỉ interfa
 | File | Size | Chức năng |
 |---|---|---|
 | `PasswordHasher.cs` | 1.9KB | Hash + verify password dùng BCrypt |
-| `GoogleOnboardingTokenService.cs` | 791B | Tạo/verify onboarding token |
 
 ### Infrastructure/Repositories/
 
@@ -331,7 +327,7 @@ Thư viện dùng chung — **KHÔNG chứa logic nghiệp vụ**, chỉ interfa
 ### Infrastructure/Persistence/Configurations/ (10 files)
 
 Mỗi file 1 `IEntityTypeConfiguration<T>` — cấu hình Fluent API cho 1 entity:
-`UserAccountConfiguration`, `UserCredentialConfiguration`, `UserProfileConfiguration`, `UserExternalLoginConfiguration`, `RoleConfiguration`, `EmailOtpConfiguration`, `GoogleOnboardingTicketConfiguration`, `CoachProfileConfiguration`, `UserSportSpecialtyConfiguration`, `CoachServiceQualificationConfiguration`
+`UserAccountConfiguration`, `UserCredentialConfiguration`, `UserProfileConfiguration`, `UserExternalLoginConfiguration`, `RoleConfiguration`, `EmailOtpConfiguration`, `CoachProfileConfiguration`, `UserSportSpecialtyConfiguration`, `CoachServiceQualificationConfiguration`
 
 ---
 

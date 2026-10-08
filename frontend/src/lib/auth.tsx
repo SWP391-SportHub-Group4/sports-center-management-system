@@ -13,12 +13,7 @@ import { api, setUnauthorizedHandler, TOKEN_STORAGE_KEY } from "./apiClient";
 
 /** Khớp tên member enum UserRole of backend (PascalCase — SSOT §5.6). */
 export type Role =
-  | "SystemAdministrator"
-  | "CenterManager"
-  | "Coach"
-  | "Member"
-  | "Receptionist";
-
+  "SystemAdministrator" | "CenterManager" | "Coach" | "Member" | "Receptionist";
 
 export interface SessionUser {
   userId: string;
@@ -150,14 +145,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loginWithGoogle = useCallback(
     async (idToken: string) => {
-      const response = await api.post<AuthResponse | GoogleOnboardingPending>(
-        "/api/auth/google",
-        { idToken },
-        { anonymous: true },
+      // Máy chủ tự tạo tài khoản mới hoặc tự liên kết theo email Google đã xác minh; luôn trả phiên đăng nhập.
+      return persist(
+        await api.post<AuthResponse>(
+          "/api/auth/google",
+          { idToken },
+          { anonymous: true },
+        ),
       );
-      if ("requiresOnboarding" in response)
-        throw new GoogleOnboardingRequired(response);
-      return persist(response);
     },
     [persist],
   );
@@ -274,18 +269,6 @@ export function adaptSessionUser(me: WireSessionUser): SessionUser {
     isPersonalTrainer: me.isPersonalTrainer ?? false,
     approvalStatus: me.approvalStatus ?? null,
   };
-}
-export interface GoogleOnboardingPending {
-  requiresOnboarding: true;
-  onboardingToken: string;
-  email: string;
-  fullName: string;
-  expiresAt: string;
-}
-export class GoogleOnboardingRequired extends Error {
-  constructor(public readonly pending: GoogleOnboardingPending) {
-    super("Google onboarding required");
-  }
 }
 export function safeReturnTo(value: string | null, fallback: string): string {
   if (!value) return fallback;
