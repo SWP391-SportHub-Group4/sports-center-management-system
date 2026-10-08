@@ -7,6 +7,7 @@ import { DeliveryStatus } from "./delivery-status";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { todayIso, addDaysIso } from "@/lib/format";
+import { useOperationsCopy, validReceiptId } from "@/features/manager";
 import { AsyncSection, Card, Field, Table } from "@/components/ui";
 import {
   MutationFeedback,
@@ -17,6 +18,7 @@ import type { UserAdminDto, Paged, CourtScheduleEntryDto } from "@/lib/types";
 export function ManualNoticeForm() {
   const { t } = useLanguage();
   const l = t.operations;
+  const c = useOperationsCopy();
   const mutation = useMutation();
   const [role, setRole] = useState("COACH");
   const [keyword, setKeyword] = useState("");
@@ -32,24 +34,27 @@ export function ManualNoticeForm() {
     Record<string, { name: string; email: string }>
   >({});
   const [review, setReview] = useState(false);
+  const [audienceChanged, setAudienceChanged] = useState(false);
   const [savedId, setSentId] = useState(() => {
     if (typeof window === "undefined") return "";
     const id = new URLSearchParams(window.location.search).get("noticeId");
-    return id && /^[0-9a-f-]{36}$/i.test(id) ? id : "";
+    return id && validReceiptId(id) ? id : "";
   });
   const [recoveryKey, setRecoveryKey] = useState(() => {
     if (typeof window === "undefined") return "";
     const key = new URLSearchParams(window.location.search).get("noticeKey");
-    return key && /^[0-9a-f-]{36}$/i.test(key) ? key : "";
+    return key && validReceiptId(key) ? key : "";
   });
   const recovered = useApi(
-    (signal) =>
-      recoveryKey
-        ? api.get<{ noticeId: string }>(
-            `/api/manager/notices/by-key/${recoveryKey}`,
-            { signal },
-          )
-        : Promise.resolve(null),
+    async (signal) => {
+      if (!recoveryKey) return null;
+      const response = await api.get<{ noticeId: string }>(
+        `/api/manager/notices/by-key/${recoveryKey}`,
+        { signal },
+      );
+      if (!validReceiptId(response.noticeId)) throw new Error(c.invalidReceipt);
+      return response;
+    },
     [recoveryKey],
   );
   const sentId = savedId || (recoveryKey ? recovered.data?.noticeId : "") || "";
@@ -65,6 +70,8 @@ export function ManualNoticeForm() {
     };
   } | null>(null);
   async function send() {
+    if (mutation.busy || sentId || (!uncertain && (!review || !validSelection)))
+      return;
     request.current ??= {
       key: recoveryKey || crypto.randomUUID(),
       body: {
@@ -102,7 +109,9 @@ export function ManualNoticeForm() {
           }
           throw error;
         });
+      if (!validReceiptId(response.noticeId)) throw new Error(c.invalidReceipt);
       setSentId(response.noticeId);
+      setRecoveryKey("");
       setUncertain(false);
       window.history.replaceState(null, "", `?noticeId=${response.noticeId}`);
     }, l.queued);
@@ -131,178 +140,226 @@ export function ManualNoticeForm() {
         .map((r) => [r.classId, r]),
     ).values(),
   ];
+  const allowed =
+    role === "MEMBER"
+      ? new Set(
+          (schedule.data ?? [])
+            .filter(
+              (r) =>
+                ["CLASS_SESSION", "COURT_RENTAL"].includes(r.sourceType) &&
+                (!classId || String(r.classId) === classId),
+            )
+            .flatMap((r) =>
+              r.sourceType === "COURT_RENTAL"
+                ? r.memberId
+                  ? [r.memberId]
+                  : []
+                : r.participants.map((p) => p.memberId),
+            ),
+        )
+      : classId
+        ? new Set(
+            (schedule.data ?? [])
+              .filter((r) => String(r.classId) === classId && r.coachId)
+              .map((r) => r.coachId!),
+          )
+        : null;
+  const invalidSelection = Object.keys(chosen).some(
+    (id) => allowed && !allowed.has(id),
+  );
+  const validSelection =
+    Object.keys(chosen).length > 0 &&
+    !invalidSelection &&
+    !schedule.loading &&
+    !schedule.error &&
+    !users.loading &&
+    !users.error &&
+    subject.trim().length >= 3 &&
+    message.trim().length >= 3 &&
+    (sendEmail || sendInApp);
+  const locked = mutation.busy || !!sentId || uncertain || !!recoveryKey;
   function change() {
     setReview(false);
+  }
+  function changeAudience() {
+    change();
+    setChosen({});
+    setAudienceChanged(true);
+    setPage(1);
   }
   return (
     <>
       {recoveryKey && (
         <Card title={l.delivery}>
           <p>{l.noticeRecovery}</p>
+          <p>{c.recoveryOnly}</p>
           {recovered.error && <p role="alert">{recovered.error.message}</p>}
           <button className="btn btn--ghost" onClick={recovered.reload}>
             {l.refresh}
           </button>
+          {recovered.error?.status === 404 && (
+            <>
+              <p>{c.recoveryNotFound}</p>
+              <button
+                className="btn btn--secondary"
+                onClick={() => {
+                  setRecoveryKey("");
+                  setUncertain(false);
+                  setReview(false);
+                  setChosen({});
+                  request.current = null;
+                  mutation.reset();
+                  window.history.replaceState(
+                    null,
+                    "",
+                    window.location.pathname,
+                  );
+                }}
+              >
+                {c.clearRecovery}
+              </button>
+            </>
+          )}
         </Card>
       )}
       <Card title={l.recipients}>
-        <div className="form-grid">
-          <Field label={l.from}>
-            <input
-              type="date"
-              required
-              value={from}
-              onChange={(e) => {
-                if (e.target.value) {
-                  setFrom(e.target.value);
-                  setTo(addDaysIso(e.target.value, 6));
-                  setClass("");
-                  change();
-                }
-              }}
-            />
-          </Field>
-          <Field label={l.to}>
-            <input
-              type="date"
-              required
-              min={from}
-              max={addDaysIso(from, 30)}
-              value={to}
-              onChange={(e) => {
-                if (e.target.value) {
-                  setTo(e.target.value);
-                  change();
-                }
-              }}
-            />
-          </Field>
-          <Field label={l.recipients}>
-            <select
-              value={role}
-              onChange={(e) => {
-                setRole(e.target.value);
-                setPage(1);
-                change();
-              }}
-            >
-              <option value="COACH">{l.coaches}</option>
-              <option value="MEMBER">{l.member}</option>
-            </select>
-          </Field>
-          <Field label={l.registration}>
-            <select
-              value={classId}
-              onChange={(e) => {
-                setClass(e.target.value);
-                change();
-              }}
-            >
-              <option value="">{l.all}</option>
-              {classes.map((c) => (
-                <option key={c.classId} value={c.classId ?? ""}>
-                  {c.title}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label={l.search}>
-            <input
-              value={keyword}
-              onChange={(e) => {
-                setKeyword(e.target.value);
-                setPage(1);
-              }}
-            />
-          </Field>
-        </div>
-        <AsyncSection state={schedule}>
-          {(entries) => (
-            <AsyncSection state={users}>
-              {(data) => {
-                const allowed =
-                  role === "MEMBER"
-                    ? new Set(
-                        entries
-                          .filter(
-                            (r) =>
-                              ["CLASS_SESSION", "COURT_RENTAL"].includes(
-                                r.sourceType,
-                              ) &&
-                              (!classId || String(r.classId) === classId),
-                          )
-                          .flatMap((r) =>
-                            r.sourceType === "COURT_RENTAL"
-                              ? r.memberId
-                                ? [r.memberId]
-                                : []
-                              : r.participants.map((p) => p.memberId),
-                          ),
-                      )
-                    : classId
-                      ? new Set(
-                          entries
-                            .filter(
-                              (r) => String(r.classId) === classId && r.coachId,
-                            )
-                            .map((r) => r.coachId!),
-                        )
-                      : null;
-                const rows = pagedItems(data).filter(
-                  (u) => !allowed || allowed.has(u.userId),
-                );
-                return (
-                  <>
-                    <Table headers={[l.fullName, l.email, ""]}>
-                      {rows.map((u) => (
-                        <tr key={u.userId}>
-                          <td>{u.fullName}</td>
-                          <td>{u.email}</td>
-                          <td>
-                            <input
-                              type="checkbox"
-                              aria-label={u.fullName || u.email}
-                              checked={!!chosen[u.userId]}
-                              disabled={
-                                !!sentId ||
-                                uncertain ||
-                                mutation.busy ||
-                                (!chosen[u.userId] &&
-                                  Object.keys(chosen).length >= 200)
-                              }
-                              onChange={(e) => {
-                                const next = { ...chosen };
-                                if (e.target.checked)
-                                  next[u.userId] = {
-                                    name: u.fullName,
-                                    email: u.email,
-                                  };
-                                else delete next[u.userId];
-                                setChosen(next);
-                                change();
-                              }}
-                            />
-                          </td>
-                        </tr>
-                      ))}
-                    </Table>
-                    <Pagination
-                      page={page}
-                      count={data.totalCount}
-                      onChange={setPage}
-                    />
-                  </>
-                );
-              }}
-            </AsyncSection>
-          )}
-        </AsyncSection>
+        <fieldset disabled={locked}>
+          <div className="form-grid">
+            <Field label={l.from}>
+              <input
+                type="date"
+                required
+                value={from}
+                onChange={(e) => {
+                  if (e.target.value) {
+                    setFrom(e.target.value);
+                    setTo(addDaysIso(e.target.value, 6));
+                    setClass("");
+                    changeAudience();
+                  }
+                }}
+              />
+            </Field>
+            <Field label={l.to}>
+              <input
+                type="date"
+                required
+                min={from}
+                max={addDaysIso(from, 30)}
+                value={to}
+                onChange={(e) => {
+                  if (e.target.value) {
+                    setTo(e.target.value);
+                    setClass("");
+                    changeAudience();
+                  }
+                }}
+              />
+            </Field>
+            <Field label={l.recipients}>
+              <select
+                value={role}
+                onChange={(e) => {
+                  setRole(e.target.value);
+                  setPage(1);
+                  changeAudience();
+                }}
+              >
+                <option value="COACH">{l.coaches}</option>
+                <option value="MEMBER">{l.member}</option>
+              </select>
+            </Field>
+            <Field label={l.registration}>
+              <select
+                value={classId}
+                onChange={(e) => {
+                  setClass(e.target.value);
+                  changeAudience();
+                }}
+              >
+                <option value="">{l.all}</option>
+                {classes.map((c) => (
+                  <option key={c.classId} value={c.classId ?? ""}>
+                    {c.title}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label={l.search}>
+              <input
+                value={keyword}
+                onChange={(e) => {
+                  setKeyword(e.target.value);
+                  setPage(1);
+                }}
+              />
+            </Field>
+          </div>
+          <AsyncSection state={schedule}>
+            {(entries) => (
+              <AsyncSection state={users}>
+                {(data) => {
+                  void entries;
+                  const rows = pagedItems(data).filter(
+                    (u) => !allowed || allowed.has(u.userId),
+                  );
+                  return (
+                    <>
+                      {!rows.length && <p role="status">{c.noRecipients}</p>}
+                      <Table headers={[l.fullName, l.email, ""]}>
+                        {rows.map((u) => (
+                          <tr key={u.userId}>
+                            <td>{u.fullName}</td>
+                            <td>{u.email}</td>
+                            <td>
+                              <input
+                                type="checkbox"
+                                aria-label={u.fullName || u.email}
+                                checked={!!chosen[u.userId]}
+                                disabled={
+                                  !!sentId ||
+                                  uncertain ||
+                                  mutation.busy ||
+                                  (!chosen[u.userId] &&
+                                    Object.keys(chosen).length >= 200)
+                                }
+                                onChange={(e) => {
+                                  const next = { ...chosen };
+                                  if (e.target.checked)
+                                    next[u.userId] = {
+                                      name: u.fullName,
+                                      email: u.email,
+                                    };
+                                  else delete next[u.userId];
+                                  setChosen(next);
+                                  setAudienceChanged(false);
+                                  change();
+                                }}
+                              />
+                            </td>
+                          </tr>
+                        ))}
+                      </Table>
+                      <Pagination
+                        page={page}
+                        count={data.totalCount}
+                        onChange={setPage}
+                      />
+                    </>
+                  );
+                }}
+              </AsyncSection>
+            )}
+          </AsyncSection>
+        </fieldset>
+        {audienceChanged && <p role="status">{c.audienceChanged}</p>}
+        {invalidSelection && <p role="alert">{c.invalidSelection}</p>}
       </Card>
       <Card title={l.notices}>
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            setReview(true);
+            if (!locked && validSelection) setReview(true);
           }}
         >
           <Field label={l.subject}>
@@ -310,7 +367,7 @@ export function ManualNoticeForm() {
               required
               minLength={3}
               maxLength={150}
-              disabled={mutation.busy || !!sentId || uncertain}
+              disabled={locked}
               value={subject}
               onChange={(e) => {
                 setSubject(e.target.value);
@@ -323,7 +380,7 @@ export function ManualNoticeForm() {
               required
               minLength={3}
               maxLength={3000}
-              disabled={mutation.busy || !!sentId || uncertain}
+              disabled={locked}
               value={message}
               onChange={(e) => {
                 setMessage(e.target.value);
@@ -335,7 +392,7 @@ export function ManualNoticeForm() {
             <input
               type="checkbox"
               checked={sendEmail}
-              disabled={mutation.busy || !!sentId || uncertain}
+              disabled={locked}
               onChange={(e) => {
                 setEmail(e.target.checked);
                 change();
@@ -347,7 +404,7 @@ export function ManualNoticeForm() {
             <input
               type="checkbox"
               checked={sendInApp}
-              disabled={mutation.busy || !!sentId || uncertain}
+              disabled={locked}
               onChange={(e) => {
                 setInApp(e.target.checked);
                 change();
@@ -357,14 +414,7 @@ export function ManualNoticeForm() {
           </label>
           <button
             className="btn btn--secondary"
-            disabled={
-              !!sentId ||
-              mutation.busy ||
-              (recoveryKey !== "" && recovered.loading) ||
-              uncertain ||
-              !Object.keys(chosen).length ||
-              (!sendEmail && !sendInApp)
-            }
+            disabled={locked || !validSelection}
           >
             {l.review}
           </button>
@@ -372,6 +422,24 @@ export function ManualNoticeForm() {
         <p>{l.noticeLimit}</p>
         {review && (
           <>
+            <p role="note">{c.localReview}</p>
+            <dl>
+              <dt>{c.recipientCount}</dt>
+              <dd>{Object.keys(chosen).length}</dd>
+              <dt>{c.channels}</dt>
+              <dd>
+                {[sendInApp ? l.sendInApp : "", sendEmail ? l.sendEmail : ""]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </dd>
+              <dt>{l.recipients}</dt>
+              <dd>
+                {role === "COACH" ? l.coaches : l.member} · {from} – {to}
+                {classId
+                  ? ` · ${classes.find((row) => String(row.classId) === classId)?.title || classId}`
+                  : ""}
+              </dd>
+            </dl>
             <p>{l.recipientPreview}</p>
             <ul>
               {Object.entries(chosen).map(([id, u]) => (
@@ -379,7 +447,7 @@ export function ManualNoticeForm() {
                   {u.name} · {u.email}
                   <button
                     className="btn btn--ghost"
-                    disabled={mutation.busy || !!sentId || uncertain}
+                    disabled={locked}
                     onClick={() => {
                       const next = { ...chosen };
                       delete next[id];
@@ -393,10 +461,20 @@ export function ManualNoticeForm() {
               ))}
             </ul>
             <p>{subject}</p>
-            <p style={{ whiteSpace: "pre-wrap" }}>{message}</p>
+            <p style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
+              {message}
+            </p>
+            <button
+              type="button"
+              className="btn btn--secondary"
+              disabled={locked}
+              onClick={() => setReview(false)}
+            >
+              {t.managerOperations.editReview}
+            </button>
             <button
               className="btn"
-              disabled={mutation.busy || !!sentId || uncertain}
+              disabled={locked || !validSelection}
               onClick={send}
             >
               {l.send}
