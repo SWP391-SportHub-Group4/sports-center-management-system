@@ -81,11 +81,16 @@
   will-change: transform;
 }
 
-.primaryCta:hover:not(:disabled),
-.primaryCta:focus-visible:not(:disabled) {
+.primaryCta:hover:not([aria-disabled="true"]),
+.primaryCta:focus-visible:not([aria-disabled="true"]) {
   border-color: var(--color-accent-hover);
   background: var(--color-accent-hover);
   color: var(--color-on-accent);
+}
+
+.primaryCta[aria-disabled="true"] {
+  cursor: wait;
+  opacity: 0.82;
 }
 
 .primaryCta:active {

@@ -5,47 +5,39 @@ import Link from "next/link";
 import { useEffect, useRef, type PointerEvent } from "react";
 import { CourtIcon } from "@/components/brand/CourtIcon";
 import { buttonClass } from "@/components/primitives/Button";
-import { api } from "@/lib/apiClient";
-import { useApi } from "@/lib/useApi";
-import type { CourseDto, Paged, SportDto } from "@/lib/types";
-import { hasService } from "@/lib/sports";
-import { InteractiveArenaTour } from "./InteractiveArenaTour";
+import { HOME_BY_ROLE, useAuth } from "@/lib/auth";
 import styles from "./performance-sections.module.css";
 
 type Language = "en" | "vi";
 
-function isSportDto(value: unknown): value is SportDto {
-  if (!value || typeof value !== "object") return false;
-  const sport = value as Partial<SportDto>;
-  return (
-    Number.isFinite(sport.sportId) &&
-    typeof sport.name === "string" &&
-    Array.isArray(sport.services) &&
-    typeof sport.isActive === "boolean" &&
-    Number.isFinite(sport.sortOrder)
-  );
-}
-
 const copy = {
   en: {
     title: "Every session\nhas a purpose.",
-    lead: "Compare sports, class dates, prices and open places.",
-    courses: "Find a class",
-    sportsInfo: "Explore sports",
+    lead: "Explore dedicated spaces for court sports and athletic training.",
+    start: "Sign in to get started",
+    enter: "Go to my space",
     aiAlt:
       "Badminton, basketball and strength athletes sharing an indoor sports court",
   },
   vi: {
     title: "Mỗi buổi tập\nđều có mục tiêu.",
-    lead: "So sánh môn tập, lịch khai giảng, học phí và chỗ còn.",
-    courses: "Tìm lớp học",
-    sportsInfo: "Khám phá các môn",
+    lead: "Khám phá không gian dành cho thể thao sân đấu và rèn luyện thể lực.",
+    start: "Đăng nhập để bắt đầu",
+    enter: "Vào không gian của tôi",
     aiAlt:
       "Vận động viên cầu lông, bóng rổ và thể lực cùng tập trong nhà thi đấu",
   },
 } satisfies Record<Language, Record<string, string>>;
 
-function MagneticExploreLink({ label }: { label: string }) {
+function MagneticAccountLink({
+  label,
+  href,
+  disabled,
+}: {
+  label: string;
+  href: string;
+  disabled: boolean;
+}) {
   const ref = useRef<HTMLAnchorElement>(null);
   const target = useRef({ x: 0, y: 0 });
   const current = useRef({ x: 0, y: 0 });
@@ -102,10 +94,15 @@ function MagneticExploreLink({ label }: { label: string }) {
   return (
     <Link
       ref={ref}
-      href="#activities"
+      href={href}
+      aria-disabled={disabled}
+      tabIndex={disabled ? -1 : undefined}
       className={`${buttonClass({ size: "lg" })} ${styles.primaryCta}`}
-      onPointerMove={move}
-      onPointerLeave={reset}
+      onPointerMove={disabled ? undefined : move}
+      onPointerLeave={disabled ? undefined : reset}
+      onClick={(event) => {
+        if (disabled) event.preventDefault();
+      }}
     >
       {label}
       <CourtIcon name="arrow" size={18} />
@@ -115,75 +112,41 @@ function MagneticExploreLink({ label }: { label: string }) {
 
 export function PerformanceSections({ language }: { language: Language }) {
   const t = copy[language];
-  const sportsState = useApi(
-    (signal) => api.get<SportDto[]>("/api/sports", { anonymous: true, signal }),
-    [],
-  );
-  const coursesState = useApi(
-    (signal) =>
-      api.get<Paged<CourseDto>>("/api/classes", {
-        query: { page: 1, pageSize: 100 },
-        anonymous: true,
-        signal,
-      }),
-    [],
-  );
-  const programs =
-    (Array.isArray(sportsState.data) ? sportsState.data : [])
-      .filter(isSportDto)
-      .filter(
-        (sport) =>
-          sport.isActive &&
-          (hasService(sport, "GROUP_COURSE") ||
-            hasService(sport, "MEMBERSHIP_ACCESS")),
-      )
-      .sort((a, b) => a.sortOrder - b.sortOrder) ?? [];
-  const courseItems = coursesState.data?.items;
-  const courses = Array.isArray(courseItems) ? courseItems : [];
+  const { user, loading: authLoading } = useAuth();
+  const destination = user ? HOME_BY_ROLE[user.role] : "/login";
+
   return (
-    <>
-      <section className={styles.hero} aria-labelledby="performance-title">
-        <div className={styles.heroCopy}>
-          <h1 id="performance-title">{t.title}</h1>
-          <p className={styles.heroLead}>{t.lead}</p>
-          <nav
-            className={styles.heroActions}
-            aria-label={
-              language === "vi" ? "Chọn cách bắt đầu" : "Choose how to start"
-            }
-          >
-            <MagneticExploreLink label={t.courses} />
-            <Link href="#programs" className={styles.secondaryCta}>
-              {t.sportsInfo}
-              <CourtIcon name="diagonal" size={16} />
-            </Link>
-          </nav>
-        </div>
-
-        <div className={styles.heroImage}>
-          <Image
-            src="/sporthub/court-volt/hero-community.png"
-            alt={t.aiAlt}
-            fill
-            priority
-            sizes="(max-width: 767px) 100vw, 58vw"
+    <section className={styles.hero} aria-labelledby="performance-title">
+      <div className={styles.heroCopy}>
+        <h1 id="performance-title">{t.title}</h1>
+        <p className={styles.heroLead}>{t.lead}</p>
+        <nav
+          className={styles.heroActions}
+          aria-label={
+            language === "vi"
+              ? "Bắt đầu với SportHub"
+              : "Get started with SportHub"
+          }
+        >
+          <MagneticAccountLink
+            label={authLoading ? t.start : user ? t.enter : t.start}
+            href={destination}
+            disabled={authLoading}
           />
-          <span className={styles.imageFrame} aria-hidden="true" />
-          <span className={styles.imageGlint} aria-hidden="true" />
-        </div>
-      </section>
+        </nav>
+      </div>
 
-      <InteractiveArenaTour
-        language={language}
-        sports={programs}
-        courses={courses}
-        loading={sportsState.loading || coursesState.loading}
-        hasError={Boolean(sportsState.error || coursesState.error)}
-        onRetry={() => {
-          if (sportsState.error) sportsState.reload();
-          if (coursesState.error) coursesState.reload();
-        }}
-      />
-    </>
+      <div className={styles.heroImage}>
+        <Image
+          src="/sporthub/court-volt/hero-community.png"
+          alt={t.aiAlt}
+          fill
+          priority
+          sizes="(max-width: 767px) 100vw, 58vw"
+        />
+        <span className={styles.imageFrame} aria-hidden="true" />
+        <span className={styles.imageGlint} aria-hidden="true" />
+      </div>
+    </section>
   );
 }

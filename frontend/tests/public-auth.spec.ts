@@ -23,7 +23,7 @@ test("public header and section links work without an account", async ({
   ).toHaveAttribute("href", "/login");
   await page
     .getByRole("navigation", { name: "Main navigation" })
-    .getByRole("link", { name: "Sports at SportHub" })
+    .getByRole("link", { name: "Sports", exact: true })
     .click();
   await expect(page).toHaveURL(/#(activities|hoat-dong)$/);
   await expect
@@ -151,10 +151,10 @@ test("authenticated public header shows the member name", async ({ page }) => {
     return route.fulfill({ json: [] });
   });
   await page.goto("/");
-  // Tên người dùng nằm trên nút mở menu tài khoản; mục "My dashboard" trong menu dẫn tới /member.
+  // Tên người dùng nằm trên nút mở menu tài khoản; mục "My space" dẫn tới dashboard theo vai trò.
   await page.getByRole("button", { name: /Alex Johnson/ }).click();
   await expect(
-    page.getByRole("link", { name: "My dashboard" }),
+    page.getByRole("link", { name: "My space", exact: true }),
   ).toHaveAttribute("href", "/member");
 });
 
