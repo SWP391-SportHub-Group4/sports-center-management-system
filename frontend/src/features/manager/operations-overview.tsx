@@ -3,7 +3,13 @@ import Link from "next/link";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
-import { todayIso, formatDateTime } from "@/lib/format";
+import {
+  todayIso,
+  formatDateTime,
+  formatDate,
+  formatPoints,
+} from "@/lib/format";
+import styles from "./operations-overview.module.css";
 import { pagedItems } from "@/lib/paged";
 import { AsyncSection, Card, StatusChip, Table } from "@/components/ui";
 import { courtScheduleApi } from "@/features/court-schedule";
@@ -11,6 +17,7 @@ import type {
   ManagerCourseDto,
   Paged,
   PaymentAdjustmentDto,
+  PtReviewRequestDto,
 } from "@/lib/types";
 export function OperationsOverview() {
   const { t } = useLanguage();
@@ -41,11 +48,13 @@ export function OperationsOverview() {
     const endpoints = ["coach", "session"];
     return (
       await Promise.all(
-        endpoints.map((kind) =>
-          api.get<{ requestId: string; memberName: string; status: string }[]>(
-            `/api/manager/pt-${kind}-change-requests`,
-            { signal, query: { status: "PENDING", page: 1, pageSize: 5 } },
-          ),
+        endpoints.map(async (kind) =>
+          (
+            await api.get<PtReviewRequestDto[]>(
+              `/api/manager/pt-${kind}-change-requests`,
+              { signal, query: { status: "PENDING", page: 1, pageSize: 100 } },
+            )
+          ).map((r) => ({ ...r, kind })),
         ),
       )
     ).flat();
@@ -58,7 +67,7 @@ export function OperationsOverview() {
     <>
       <Card
         title={m.priorities}
-        hint={`${date} · ${m.metricScope}`}
+        hint={`${formatDate(date)} · ${t.operationsUx.pendingHint}`}
         actions={
           <button
             className="btn btn--ghost"
@@ -73,59 +82,127 @@ export function OperationsOverview() {
           </button>
         }
       >
-        <div className="stack">
-          <h3>{m.atRisk}</h3>
-          <AsyncSection state={classes}>
-            {(data) => (
-              <>
-                <p>{data.totalCount}</p>
-                {pagedItems(data).map((c) => (
-                  <p key={c.classId}>
-                    <Link href={`/manager/classes/${c.classId}?tab=threshold`}>
-                      {c.name}
-                    </Link>{" "}
-                    · {c.confirmedCount}/{c.breakEvenThreshold ?? "—"} ·{" "}
-                    <StatusChip value={c.thresholdStatus} />
-                  </p>
-                ))}
-                <Link href="/manager/classes?status=PUBLISHED&thresholdStatus=AT_RISK">
-                  {t.operations.details}
-                </Link>
-              </>
-            )}
-          </AsyncSection>
-          <h3>{m.refunds}</h3>
-          <AsyncSection state={refunds}>
-            {(data) => (
-              <>
-                <p>{data.totalCount}</p>
-                <Link href="/manager/payment-adjustments">
-                  {t.operations.details}
-                </Link>
-              </>
-            )}
-          </AsyncSection>
-          <h3>{m.requests}</h3>
-          <AsyncSection state={requests}>
-            {(rows) => (
-              <>
-                {rows.map((r) => (
-                  <p key={r.requestId}>
-                    {r.memberName} · <StatusChip value={r.status} />
-                  </p>
-                ))}
-                {!rows.length && <p>{t.common.noData}</p>}
-                <Link href="/manager/pt-change-requests">
-                  {t.operations.details}
-                </Link>
-              </>
-            )}
-          </AsyncSection>
-          <h3>{t.operations.incidents}</h3>
-          <p className="small muted">{m.incidentOverviewUnavailable}</p>
-          <Link className="btn btn--secondary" href="/manager/incidents">
-            {t.operations.incidents}
-          </Link>
+        <div className={styles.inbox}>
+          <section className={styles.group}>
+            <div className={styles.heading}>
+              <h3>{m.atRisk}</h3>
+              {classes.data && (
+                <span className={styles.count}>{classes.data.totalCount}</span>
+              )}
+              <Link href="/manager/classes?status=PUBLISHED&thresholdStatus=AT_RISK">
+                {t.operations.details}
+              </Link>
+            </div>
+            <AsyncSection state={classes}>
+              {(data) => (
+                <>
+                  <ul className={styles.preview}>
+                    {pagedItems(data).map((c) => (
+                      <li key={c.classId}>
+                        <Link
+                          href={`/manager/classes/${c.classId}?tab=threshold`}
+                        >
+                          {c.name}
+                        </Link>{" "}
+                        <span className={styles.meta}>
+                          {c.confirmedCount}/{c.breakEvenThreshold ?? "—"}
+                        </span>
+                        <StatusChip value={c.thresholdStatus} />
+                      </li>
+                    ))}
+                  </ul>
+                  {!data.totalCount && (
+                    <p className={styles.empty}>{t.operationsUx.emptyQueue}</p>
+                  )}
+                </>
+              )}
+            </AsyncSection>
+          </section>
+          <section className={styles.group}>
+            <div className={styles.heading}>
+              <h3>{m.refunds}</h3>
+              {refunds.data && (
+                <span className={styles.count}>{refunds.data.totalCount}</span>
+              )}
+              <Link href="/manager/payment-adjustments">
+                {t.operations.details}
+              </Link>
+            </div>
+            <AsyncSection state={refunds}>
+              {(data) => (
+                <>
+                  <ul className={styles.preview}>
+                    {pagedItems(data).map((r) => (
+                      <li key={r.adjustmentId}>
+                        <span>
+                          {r.requestedByName || t.operationsUx.unnamedMember}
+                        </span>
+                        <span className={styles.meta}>{r.invoiceNumber}</span>
+                        <span>
+                          {formatPoints(r.systemCalculatedPoints)}{" "}
+                          {t.staffWork.points.toLowerCase()}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                  {!data.totalCount && (
+                    <p className={styles.empty}>{t.operationsUx.emptyQueue}</p>
+                  )}
+                </>
+              )}
+            </AsyncSection>
+          </section>
+          <section className={styles.group}>
+            <div className={styles.heading}>
+              <h3>{m.requests}</h3>
+              {requests.data && (
+                <span className={styles.count}>
+                  {requests.data.length}
+                  {requests.data.length >= 100 ? "+" : ""}
+                </span>
+              )}
+              <Link href="/manager/pt-change-requests">
+                {t.operations.details}
+              </Link>
+            </div>
+            <AsyncSection state={requests}>
+              {(rows) => (
+                <>
+                  <ul className={styles.preview}>
+                    {rows.slice(0, 5).map((r) => (
+                      <li key={`${r.kind}-${r.requestId}`}>
+                        <span>
+                          {r.memberName?.trim() || t.operationsUx.unnamedMember}
+                        </span>
+                        <span className={styles.meta}>
+                          {r.kind === "coach" ? (
+                            t.staffWork.coachChanges
+                          ) : (
+                            <StatusChip value={r.requestType} />
+                          )}
+                        </span>
+                        {r.sessionStartAtUtc && (
+                          <span className={styles.meta}>
+                            {formatDateTime(r.sessionStartAtUtc)}
+                          </span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                  {!rows.length && (
+                    <p className={styles.empty}>{t.operationsUx.emptyQueue}</p>
+                  )}
+                </>
+              )}
+            </AsyncSection>
+          </section>
+          <section className={styles.group}>
+            <div className={styles.heading}>
+              <h3>{t.operations.incidents}</h3>
+              <Link href="/manager/incidents">{t.operations.details}</Link>
+            </div>
+            <p className={styles.empty}>{t.operationsUx.incidentHint}</p>
+          </section>
         </div>
       </Card>
       <Card

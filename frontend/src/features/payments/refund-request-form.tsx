@@ -9,10 +9,12 @@ export function RefundRequestForm({
   items,
   onChange,
   onSent,
+  staff = false,
 }: {
   items: InvoiceItemDto[];
   onChange: () => void;
   onSent?: () => void;
+  staff?: boolean;
 }) {
   const { t } = useLanguage();
   const l = t.refactor;
@@ -34,7 +36,9 @@ export function RefundRequestForm({
   if (!open)
     return (
       <section aria-label={l.refund}>
-        <p className="muted">{f.refundHint}</p>
+        <p className="muted">
+          {staff ? t.operationsUx.staffRefundHint : f.refundHint}
+        </p>
         <button
           type="button"
           className="btn btn--secondary"
@@ -46,7 +50,9 @@ export function RefundRequestForm({
     );
   return (
     <section aria-label={l.refund}>
-      <p className="muted">{f.refundHint}</p>
+      <p className="muted">
+        {staff ? t.operationsUx.staffRefundHint : f.refundHint}
+      </p>
       <label>
         {l.refund}
         <select

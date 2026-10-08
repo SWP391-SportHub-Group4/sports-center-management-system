@@ -278,6 +278,9 @@ export interface InvoiceSummaryDto {
 }
 
 export interface InvoiceItemDto {
+  roomName?: string | null;
+  rentalStartAtUtc?: string | null;
+  rentalEndAtUtc?: string | null;
   classId: number | null;
   courtRentalId: string | null;
   ptEntitlementId: string | null;
@@ -727,6 +730,8 @@ export interface ClassEnrollmentReportDto {
   }[];
 }
 export interface PtReviewRequestDto extends PtChangeRequestDto {
+  coachName?: string;
+  requestedAt?: string;
   memberId: string;
   memberName?: string;
   entitlementId?: string;

@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { AsyncSection, Card, Field, Stat } from "@/components/ui";
+import { AsyncSection, Card, Field } from "@/components/ui";
+import { Metric, MetricGrid } from "@/components/data";
 import { Tabs } from "@/components/primitives";
 import { choiceQuery, useUrlQuery } from "@/lib/useUrlQuery";
 import { api } from "@/lib/apiClient";
@@ -184,13 +185,13 @@ function MembersTab({ filters: f }: { filters: ReportFilters }) {
     <Card title={t.staffWork.membership}>
       <AsyncSection state={membership}>
         {(report) => (
-          <div className="stats-grid">
-            <Stat label={t.staffWork.newMembers} value={report.newMembers} />
-            <Stat
+          <MetricGrid columns={2}>
+            <Metric label={t.staffWork.newMembers} value={report.newMembers} />
+            <Metric
               label={t.staffWork.activeMembers}
               value={report.activeMembersAtPeriodEnd}
             />
-          </div>
+          </MetricGrid>
         )}
       </AsyncSection>
     </Card>
@@ -277,67 +278,79 @@ export function ManagerOverview() {
         title={l.monthOverview}
         hint={`${filters.fromDate} – ${filters.toDate}`}
       >
-        <AsyncSection state={summary}>
-          {(report) => (
-            <div className="stats-grid">
-              <Stat label={l.cash} value={formatMoney(report.totalCollected)} />
-              <Stat
-                label={l.redeemed}
-                value={formatMoney(report.pointsRedeemedVnd)}
-              />
-              <Stat
-                label={l.issued}
-                value={formatPoints(report.pointsIssued)}
-              />
-              <Stat
-                label={l.outstanding}
-                value={formatPoints(report.outstandingPoints)}
-              />
-            </div>
-          )}
-        </AsyncSection>
-        <AsyncSection state={membership}>
-          {(report) => (
-            <div className="stats-grid">
-              <Stat label={l.newMembers} value={report.newMembers} />
-              <Stat
-                label={l.activeMembers}
-                value={report.activeMembersAtPeriodEnd}
-              />
-            </div>
-          )}
-        </AsyncSection>
-        <AsyncSection state={classes}>
-          {(report) => (
-            <div className="stats-grid">
-              <Stat label={l.courseCount} value={report.classes.length} />
-            </div>
-          )}
-        </AsyncSection>
-      </Card>
-
-      <Card title={l.quickLinks}>
-        <div className="btn-row">
-          <Link className="btn btn--secondary" href="/manager/classes">
-            {t.navigation.items.classes}
-          </Link>
-          <Link className="btn btn--secondary" href="/manager/points">
-            {l.wallet}
-          </Link>
-          <Link
-            className="btn btn--secondary"
-            href="/manager/finance?tab=refunds"
-          >
-            {l.refunds}
-          </Link>
-          <Link className="btn btn--secondary" href="/manager/reports">
-            {l.reports}
-          </Link>
-          <Link className="btn btn--secondary" href="/manager/audit-log">
-            {l.audit}
-          </Link>
-        </div>
+        <MetricGrid>
+          <AsyncSection state={summary}>
+            {(report) => (
+              <>
+                <Metric
+                  label={l.cash}
+                  value={formatMoney(report.totalCollected)}
+                />
+                <Metric
+                  label={l.redeemed}
+                  value={formatMoney(report.pointsRedeemedVnd)}
+                />
+                <Metric
+                  label={l.issued}
+                  value={formatPoints(report.pointsIssued)}
+                />
+                <Metric
+                  label={l.outstanding}
+                  value={formatPoints(report.outstandingPoints)}
+                />
+              </>
+            )}
+          </AsyncSection>
+          <AsyncSection state={membership}>
+            {(report) => (
+              <>
+                <Metric label={l.newMembers} value={report.newMembers} />
+                <Metric
+                  label={l.activeMembers}
+                  value={report.activeMembersAtPeriodEnd}
+                />
+              </>
+            )}
+          </AsyncSection>
+          <AsyncSection state={classes}>
+            {(report) => (
+              <Metric label={l.courseCount} value={report.classes.length} />
+            )}
+          </AsyncSection>
+        </MetricGrid>
       </Card>
     </>
+  );
+}
+
+export function ManagerQuickLinks() {
+  const { t } = useLanguage();
+  const l = t.staffWork;
+  return (
+    <Card title={l.quickLinks}>
+      <div className="btn-row">
+        <Link className="btn btn--secondary" href="/manager/incidents">
+          {t.operations.incidents}
+        </Link>
+        <Link className="btn btn--secondary" href="/manager/classes">
+          {t.navigation.items.classes}
+        </Link>
+        <Link className="btn btn--secondary" href="/manager/points">
+          {l.wallet}
+        </Link>
+        <Link
+          className="btn btn--secondary"
+          href="/manager/finance?tab=refunds"
+        >
+          {l.refunds}
+        </Link>
+        <Link className="btn btn--secondary" href="/manager/reports">
+          {l.reports}
+        </Link>
+        <Link className="btn btn--secondary" href="/manager/audit-log">
+          {l.audit}
+        </Link>
+      </div>
+    </Card>
   );
 }

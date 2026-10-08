@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
+using SportHub.BuildingBlocks.Abstractions.Scheduling;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.BuildingBlocks.SharedKernel.Pagination;
 using SportHub.Payment.Application.DTOs;
@@ -8,7 +9,7 @@ using SportHub.Payment.Domain.Rules;
 
 namespace SportHub.Payment.Application.Services;
 
-public sealed class InvoiceQueryService(ISportHubDbContext db) : IInvoiceQueryService
+public sealed class InvoiceQueryService(ISportHubDbContext db, ICourtRentalDetailsReader rentalDetails) : IInvoiceQueryService
 {
     public async Task<Guid> FindInvoiceByItemAsync(Guid itemId, CancellationToken ct)
         => await db.Set<InvoiceItem>().AsNoTracking().Where(i => i.ItemId == itemId).Select(i => (Guid?)i.InvoiceId).SingleOrDefaultAsync(ct)
@@ -104,6 +105,22 @@ public sealed class InvoiceQueryService(ISportHubDbContext db) : IInvoiceQuerySe
                 it.RelatedEntityId, it.ClassId, it.CourtRentalId, it.PtEntitlementId, it.MemberPackageId,
                 it.SportId, it.SportNameSnapshot, it.PtFrequencyPerWeek, it.SourceInvoiceItemId))
             .ToListAsync(ct);
+
+        var rentalIds = items.Where(i => i.CourtRentalId.HasValue).Select(i => i.CourtRentalId!.Value).Distinct().ToArray();
+        if (rentalIds.Length > 0)
+        {
+            var details = (await rentalDetails.ReadAsync(rentalIds, ct)).ToDictionary(r => r.RentalId);
+            items = items.Select(i => i.CourtRentalId is Guid id && details.TryGetValue(id, out var rental)
+                ? i with
+                {
+                    Description = $"Thuê sân {rental.RoomName} · {i.SportName ?? rental.SportName}",
+                    SportName = i.SportName ?? rental.SportName,
+                    RoomName = rental.RoomName,
+                    RentalStartAtUtc = rental.StartAtUtc,
+                    RentalEndAtUtc = rental.EndAtUtc
+                }
+                : i).ToList();
+        }
 
         var payments = await db.Set<Domain.Entities.Payment>()
             .AsNoTracking()

@@ -2,11 +2,17 @@
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
-import { formatMoney, formatPoints } from "@/lib/format";
+import {
+  formatMoney,
+  formatPoints,
+  formatDateTime,
+  formatTime,
+} from "@/lib/format";
 import type { InvoiceDetailDto } from "@/lib/types";
 import { Card, StatusChip } from "@/components/ui";
 import { RefundRequestForm } from "./refund-request-form";
 import { CheckoutPanel } from "./checkout-panel";
+import styles from "./invoice-detail.module.css";
 export function InvoiceDetail({
   invoiceId,
   staff = false,
@@ -25,48 +31,110 @@ export function InvoiceDetail({
   );
   const d = state.data;
   return (
-    <Card title={l.invoice}>
+    <Card
+      title={d ? `${l.invoice} ${d.summary.invoiceNumber}` : l.invoice}
+      hint={
+        d
+          ? `${d.summary.memberName || d.summary.memberEmail} · ${formatDateTime(d.summary.issuedAt)}`
+          : undefined
+      }
+      actions={
+        d && (
+          <>
+            <StatusChip value={d.summary.status} />
+            <StatusChip value={d.summary.fulfillmentOutcome} />
+          </>
+        )
+      }
+    >
       {state.loading ? (
         <p>{l.loading}</p>
       ) : state.error ? (
         <p role="alert">{state.error.message}</p>
       ) : (
         d && (
-          <>
-            <p>
-              {d.summary.invoiceNumber} ·{" "}
-              <StatusChip value={d.summary.status} /> ·{" "}
-              <StatusChip value={d.summary.fulfillmentOutcome} />
-            </p>
-            <p>
-              {l.total}: {formatMoney(d.summary.totalAmount)} · {l.points}:{" "}
-              {formatPoints(d.summary.pointsSpent ?? 0)} · {l.cash}:{" "}
-              {formatMoney(d.summary.cashAmount ?? 0)}
-            </p>
+          <div className={styles.content}>
+            <dl className={styles.totals}>
+              <div>
+                <dt>{l.total}</dt>
+                <dd>{formatMoney(d.summary.totalAmount)}</dd>
+              </div>
+              <div>
+                <dt>{t.operationsUx.paidPoints}</dt>
+                <dd>
+                  {formatPoints(d.summary.pointsSpent ?? 0)}{" "}
+                  {l.points.toLowerCase()}
+                </dd>
+                <span>
+                  {t.operationsUx.pointValue}:{" "}
+                  {formatMoney((d.summary.pointsSpent ?? 0) * 1000)}
+                </span>
+              </div>
+              <div>
+                <dt>{t.operationsUx.paidCash}</dt>
+                <dd>{formatMoney(d.summary.cashAmount ?? 0)}</dd>
+              </div>
+            </dl>
             {d.summary.reconciliationRequired && <p>{l.reconciliation}</p>}
             {d.summary.fulfillmentOutcome === "COMPENSATED" && (
               <p>{l.compensated}</p>
             )}
-            <ul>
-              {d.items.map((i) => (
-                <li key={i.itemId}>
-                  {i.description} · {formatMoney(i.lineAmount)}
-                </li>
-              ))}
-            </ul>
-            <ul>
-              {d.adjustments.map((a) => (
-                <li key={a.adjustmentId}>
-                  <StatusChip value={a.status} /> ·{" "}
-                  {formatPoints(
-                    a.status === "REQUESTED"
-                      ? a.systemCalculatedPoints
-                      : (a.approvedPoints ?? 0),
-                  )}{" "}
-                  {l.points} · {a.reason}
-                </li>
-              ))}
-            </ul>
+            <section className={styles.services}>
+              <h3>{t.operationsUx.invoiceItems}</h3>
+              <ul className={styles.items}>
+                {d.items.map((i) => (
+                  <li key={i.itemId} className={styles.item}>
+                    <div>
+                      <strong>
+                        {i.itemType === "RENTAL"
+                          ? `${t.operationsUx.rental}${i.sportName ? ` · ${i.sportName}` : ""}`
+                          : i.description}
+                      </strong>
+                      {i.roomName && <p>{i.roomName}</p>}
+                      {i.rentalStartAtUtc && i.rentalEndAtUtc ? (
+                        <p>
+                          {formatDateTime(i.rentalStartAtUtc)}–
+                          {formatTime(i.rentalEndAtUtc)} ·{" "}
+                          {(new Date(i.rentalEndAtUtc).getTime() -
+                            new Date(i.rentalStartAtUtc).getTime()) /
+                            3600000}{" "}
+                          {t.operationsUx.hours}
+                        </p>
+                      ) : (
+                        <p>
+                          {t.operationsUx.quantity}: {i.quantity} ·{" "}
+                          {t.operationsUx.unitPrice}: {formatMoney(i.unitPrice)}
+                        </p>
+                      )}
+                    </div>
+                    <strong className={styles.amount}>
+                      {formatMoney(i.lineAmount)}
+                    </strong>
+                  </li>
+                ))}
+              </ul>
+            </section>
+            {d.adjustments.length > 0 && (
+              <section className={styles.services}>
+                <h3>{t.operationsUx.refunds}</h3>
+                <ul className={styles.items}>
+                  {d.adjustments.map((a) => (
+                    <li key={a.adjustmentId} className={styles.adjustment}>
+                      <StatusChip value={a.status} />
+                      <span>
+                        {formatPoints(
+                          a.status === "REQUESTED"
+                            ? a.systemCalculatedPoints
+                            : (a.approvedPoints ?? 0),
+                        )}{" "}
+                        {l.points.toLowerCase()}
+                      </span>
+                      <span className={styles.muted}>{a.reason}</span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
             {d.summary.status === "ISSUED" &&
               d.summary.checkoutExpiresAtUtc === null && (
                 <p>{l.legacyInvoice}</p>
@@ -81,9 +149,13 @@ export function InvoiceDetail({
                 />
               )}
             {!rental && (
-              <RefundRequestForm items={d.items} onChange={state.reload} />
+              <RefundRequestForm
+                items={d.items}
+                onChange={state.reload}
+                staff={staff}
+              />
             )}
-          </>
+          </div>
         )
       )}
     </Card>

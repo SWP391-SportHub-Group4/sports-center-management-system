@@ -20,6 +20,7 @@ import type {
   UserAdminDto,
 } from "@/lib/types";
 import { trainingStyles as styles } from "@/features/training";
+import profileStyles from "@/components/data/ProfileSummary.module.css";
 
 /** Danh sách hội viên của Manager (Q12). Chỉ xem, mở hồ sơ vận hành. */
 export function ManagerMemberList() {
@@ -141,27 +142,31 @@ export function ManagerMemberProfile({ memberId }: { memberId: string }) {
   );
 
   return (
-    <div className={styles.page}>
-      <Link className={styles.back} href="/manager/members">
+    <div className={profileStyles.profilePage}>
+      <Link className={profileStyles.back} href="/manager/members">
         ← {l.members}
       </Link>
       <AsyncSection state={member}>
         {(m) => (
           <section
-            className={styles.summary}
+            className={profileStyles.summary}
             aria-label={m.fullName || m.email}
           >
-            <div>
-              <p className={styles.coachName}>{m.fullName || m.email}</p>
-              <p className={styles.muted}>
-                {m.email}
-                {m.phone ? ` · ${m.phone}` : ""}
-              </p>
-            </div>
-            <div className={styles.next}>
+            <div className={profileStyles.summaryHeader}>
+              <h2>{m.fullName || m.email}</h2>
               <StatusChip value={m.status} />
-              <p className={styles.muted}>{l.readOnlyNote}</p>
             </div>
+            <dl className={profileStyles.contacts}>
+              <div>
+                <dt>{t.operations.email}</dt>
+                <dd>{m.email}</dd>
+              </div>
+              <div>
+                <dt>{t.operations.phone}</dt>
+                <dd>{m.phone || "—"}</dd>
+              </div>
+            </dl>
+            <p className={profileStyles.note}>{l.readOnlyNote}</p>
           </section>
         )}
       </AsyncSection>
@@ -178,8 +183,8 @@ export function ManagerMemberProfile({ memberId }: { memberId: string }) {
           {tab === "invoices" ? (
             <InvoiceList staff memberId={memberId} />
           ) : (
-            <>
-              <section className={styles.section}>
+            <div className={profileStyles.detailGrid}>
+              <section className={profileStyles.group}>
                 <h2>{l.gymMembership}</h2>
                 <AsyncSection
                   state={packages}
@@ -187,7 +192,7 @@ export function ManagerMemberProfile({ memberId }: { memberId: string }) {
                   emptyMessage={l.noMembership}
                 >
                   {(rows) => (
-                    <ul className={styles.list}>
+                    <ul className={profileStyles.list}>
                       {rows.map((p) => (
                         <li key={p.memberPackageId}>
                           <div>
@@ -204,7 +209,7 @@ export function ManagerMemberProfile({ memberId }: { memberId: string }) {
                   )}
                 </AsyncSection>
               </section>
-              <section className={styles.section}>
+              <section className={profileStyles.group}>
                 <h2>{l.ptPackages}</h2>
                 <AsyncSection
                   state={entitlements}
@@ -212,13 +217,16 @@ export function ManagerMemberProfile({ memberId }: { memberId: string }) {
                   emptyMessage={l.noPtPackages}
                 >
                   {(rows) => (
-                    <ul className={styles.list}>
+                    <ul className={profileStyles.list}>
                       {pagedItems(rows).map((e) => (
                         <li key={e.entitlementId}>
                           <div>
                             <strong>{e.coachName}</strong>
                             <span>
-                              {e.remainingQuota} / {e.totalQuota} ·{" "}
+                              {t.staffWork.remaining}: {e.remainingQuota} /{" "}
+                              {e.totalQuota}
+                            </span>
+                            <span>
                               {formatDate(e.validityStartDate)} –{" "}
                               {formatDate(e.validityEndDate)}
                             </span>
@@ -230,7 +238,9 @@ export function ManagerMemberProfile({ memberId }: { memberId: string }) {
                   )}
                 </AsyncSection>
               </section>
-              <section className={styles.section}>
+              <section
+                className={`${profileStyles.group} ${profileStyles.wide}`}
+              >
                 <h2>{l.pairs}</h2>
                 <AsyncSection
                   state={pairs}
@@ -238,11 +248,13 @@ export function ManagerMemberProfile({ memberId }: { memberId: string }) {
                   emptyMessage={l.noPairs}
                 >
                   {(rows) => (
-                    <ul className={styles.list}>
+                    <ul className={profileStyles.list}>
                       {pagedItems(rows).map((p) => (
                         <li key={p.relationshipId}>
                           <div>
-                            <strong>{p.coachName}</strong>
+                            <Link href={`/manager/coaches/${p.coachId}`}>
+                              <strong>{p.coachName}</strong>
+                            </Link>
                           </div>
                           <StatusChip value={p.status} />
                         </li>
@@ -251,7 +263,7 @@ export function ManagerMemberProfile({ memberId }: { memberId: string }) {
                   )}
                 </AsyncSection>
               </section>
-            </>
+            </div>
           )}
         </div>
       </Tabs>

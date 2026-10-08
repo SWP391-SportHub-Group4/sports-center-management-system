@@ -5,6 +5,37 @@ import type { ManagerCourseDto } from "../src/lib/types";
 import { en } from "../src/locales/en";
 import { vi } from "../src/locales/vi";
 
+test("Manager week spans Monday through Sunday and day view keeps the selected date", async ({
+  page,
+}) => {
+  await session(page, "CENTER_MANAGER", "vi");
+  const ranges: string[][] = [];
+  await page.route("**/api/manager/court-schedule?**", (route) => {
+    const query = new URL(route.request().url()).searchParams;
+    ranges.push([query.get("fromDate")!, query.get("toDate")!]);
+    return route.fulfill({ json: [] });
+  });
+  await page.goto("/manager/schedule?date=2026-11-01&view=week");
+  const days = page.locator("main time[datetime]");
+  await expect(days).toHaveCount(7);
+  await expect(days.first()).toHaveAttribute("datetime", "2026-10-26");
+  await expect(days.last()).toHaveAttribute("datetime", "2026-11-01");
+  expect(ranges.at(-1)).toEqual(["2026-10-26", "2026-11-01"]);
+  await expect(
+    page.getByText(vi.operations.timeZone, { exact: true }),
+  ).toHaveCount(0);
+  await page
+    .getByRole("button", { name: vi.calendar.next, exact: true })
+    .click();
+  await expect(days.first()).toHaveAttribute("datetime", "2026-11-02");
+  await expect(days.last()).toHaveAttribute("datetime", "2026-11-08");
+  expect(ranges.at(-1)).toEqual(["2026-11-02", "2026-11-08"]);
+  await page.goto("/manager/schedule?date=2026-11-01&view=day");
+  await expect(days).toHaveCount(1);
+  await expect(days.first()).toHaveAttribute("datetime", "2026-11-01");
+  expect(ranges.at(-1)).toEqual(["2026-11-01", "2026-11-01"]);
+});
+
 // HTTP fixtures validate frontend behavior only. No payments, email, or production API calls.
 
 for (const hasPt of [false, true]) {

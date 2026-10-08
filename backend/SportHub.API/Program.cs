@@ -248,6 +248,8 @@ builder.Services.AddScoped<SportHub.Scheduling.Catalog.Application.RoomOpeningHo
 builder.Services.AddScoped<SportHub.Scheduling.Catalog.Application.RoomBlockService>();
 builder.Services.AddScoped<SportHub.Scheduling.Catalog.Application.CourtRateService>();
 builder.Services.AddScoped<SportHub.Scheduling.Rental.Application.CourtRentalService>();
+builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Scheduling.ICourtRentalDetailsReader,
+    SportHub.Scheduling.Rental.Application.CourtRentalDetailsReader>();
 builder.Services.AddScoped<SportHub.Scheduling.Rental.Application.CourtRentalOperationsService>();
 builder.Services.AddScoped<SportHub.Scheduling.Rental.Application.IncidentService>();
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Scheduling.ICourtRentalFulfillment>(

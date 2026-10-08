@@ -1,0 +1,62 @@
+.sessionPage {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.sessionList {
+  display: grid;
+  min-width: 0;
+}
+
+.session {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.session:last-child {
+  border-bottom: 0;
+}
+
+.session p,
+.session h3 {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.session h3 {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  font-weight: var(--weight-semibold);
+}
+
+.sessionSummary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3) var(--space-5);
+  min-width: 0;
+}
+
+.sessionInfo {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.sessionTime {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}

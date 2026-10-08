@@ -19,6 +19,7 @@ import {
   Table,
 } from "@/components/ui";
 import { toCheckoutViewModel } from "@/features/payments/checkout.contract";
+import { Metric, MetricGrid } from "@/components/data";
 import { formatMoney, formatPoints } from "@/lib/format";
 import type { CheckoutDto } from "@/lib/types";
 
@@ -80,6 +81,21 @@ export function DesignSystemGallery() {
           </>
         }
       />
+
+      <Card
+        title="MetricGrid + Metric"
+        hint="Dữ liệu minh họa. Nhãn và giá trị thẳng hàng; tự chia 4, 2 hoặc 1 cột theo chiều rộng vùng chứa."
+      >
+        <MetricGrid>
+          <Metric label="Tiền đã thu (VND)" value={formatMoney(12500000)} />
+          <Metric label="Điểm đã dùng (VND)" value={formatMoney(150000)} />
+          <Metric
+            label="Điểm còn lại (khả dụng + đang giữ)"
+            value={formatPoints(200)}
+          />
+          <Metric label="Hội viên mới" value={27} />
+        </MetricGrid>
+      </Card>
 
       <Card title="Button" hint="Mỗi vùng chỉ một nút primary.">
         <div className="btn-row">

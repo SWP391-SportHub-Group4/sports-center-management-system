@@ -7,6 +7,7 @@ import { useLanguage } from "@/lib/language";
 import { formatPoints } from "@/lib/format";
 import type { WalletBalanceDto } from "@/lib/types";
 import { MutationFeedback, useMutation } from "@/features/operations";
+import styles from "./manager-adjustment-form.module.css";
 type Intent = {
   idempotencyKey: string;
   points: number;
@@ -92,117 +93,130 @@ export function ManagerAdjustmentForm({
   }
   return (
     <Card title={l.adjustment}>
-      <p>
-        {ownerName} · {formatPoints(balance.availablePoints)}
-      </p>
-      {!review ? (
-        <form
-          className="form"
-          onSubmit={(e) => {
-            e.preventDefault();
-            setReview({
-              idempotencyKey: crypto.randomUUID(),
-              points,
-              direction,
-              reason: reason.trim(),
-            });
-          }}
-        >
-          <Field label={l.action}>
-            <select
-              value={direction}
-              onChange={(e) => setDirection(e.target.value)}
-            >
-              <option value="CREDIT">{l.credit}</option>
-              <option value="DEBIT">{l.debit}</option>
-            </select>
-          </Field>
-          <Field label={l.points}>
-            <input
-              type="number"
-              required
-              min={1}
-              max={direction === "DEBIT" ? balance.availablePoints : 2147483647}
-              step={1}
-              value={points}
-              onChange={(e) => setPoints(Number(e.target.value))}
-            />
-          </Field>
-          <Field label={l.reason}>
-            <textarea
-              required
-              maxLength={1000}
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-            />
-          </Field>
-          <button
-            className="btn"
-            disabled={
-              disabled ||
-              !reason.trim() ||
-              !Number.isSafeInteger(points) ||
-              points <= 0 ||
-              (direction === "DEBIT" && points > balance.availablePoints)
-            }
-          >
-            {l.adjustmentReview}
-          </button>
-        </form>
-      ) : (
-        <>
-          <p>
-            {review.direction === "CREDIT" ? l.credit : l.debit}:{" "}
-            {formatPoints(review.points)}
-          </p>
-          <p>{review.reason}</p>
-          <p>
-            {t.finOps.balanceAfter}:{" "}
-            {formatPoints(
-              Math.max(
-                0,
-                balance.availablePoints +
-                  (review.direction === "CREDIT"
-                    ? review.points
-                    : -review.points),
-              ),
-            )}
-          </p>
-          <div className="btn-row">
-            {!done && (
-              <button
-                className="btn"
-                disabled={disabled || mutation.busy}
-                onClick={confirm}
-              >
-                {l.confirm}
-              </button>
-            )}
-            {!uncertain && (
-              <button
-                className="btn btn--secondary"
-                disabled={disabled || mutation.busy}
-                onClick={() => {
-                  setReview(null);
-                  setDone(false);
-                  mutation.reset();
-                }}
-              >
-                {done ? l.newIntent : l.cancel}
-              </button>
-            )}
+      <div className={styles.adjustment}>
+        <div className={styles.ownerSummary}>
+          <div className={styles.ownerIdentity}>
+            <span>{l.owner}</span>
+            <strong>{ownerName}</strong>
           </div>
-        </>
-      )}
-      <MutationFeedback mutation={mutation} />
-      {uncertain && !mutation.busy && (
-        <>
-          <p role="status">{l.uncertain}</p>
-          <button className="btn btn--secondary" onClick={onSaved}>
-            {l.refresh}
-          </button>
-        </>
-      )}
+          <dl className={styles.balance}>
+            <dt>{t.wallet.available}</dt>
+            <dd>{formatPoints(balance.availablePoints)}</dd>
+          </dl>
+        </div>
+        {!review ? (
+          <form
+            className={styles.form}
+            onSubmit={(e) => {
+              e.preventDefault();
+              setReview({
+                idempotencyKey: crypto.randomUUID(),
+                points,
+                direction,
+                reason: reason.trim(),
+              });
+            }}
+          >
+            <div className={styles.fields}>
+              <Field label={l.action}>
+                <select
+                  value={direction}
+                  onChange={(e) => setDirection(e.target.value)}
+                >
+                  <option value="CREDIT">{l.credit}</option>
+                  <option value="DEBIT">{l.debit}</option>
+                </select>
+              </Field>
+              <Field label={l.points}>
+                <input
+                  type="number"
+                  required
+                  min={1}
+                  max={
+                    direction === "DEBIT" ? balance.availablePoints : 2147483647
+                  }
+                  step={1}
+                  value={points}
+                  onChange={(e) => setPoints(Number(e.target.value))}
+                />
+              </Field>
+            </div>
+            <Field label={l.reason}>
+              <textarea
+                required
+                maxLength={1000}
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+              />
+            </Field>
+            <button
+              className={`btn ${styles.reviewButton}`}
+              disabled={
+                disabled ||
+                !reason.trim() ||
+                !Number.isSafeInteger(points) ||
+                points <= 0 ||
+                (direction === "DEBIT" && points > balance.availablePoints)
+              }
+            >
+              {l.adjustmentReview}
+            </button>
+          </form>
+        ) : (
+          <div className={styles.review}>
+            <p>
+              {review.direction === "CREDIT" ? l.credit : l.debit}:{" "}
+              {formatPoints(review.points)}
+            </p>
+            <p>{review.reason}</p>
+            <p>
+              {t.finOps.balanceAfter}:{" "}
+              {formatPoints(
+                Math.max(
+                  0,
+                  balance.availablePoints +
+                    (review.direction === "CREDIT"
+                      ? review.points
+                      : -review.points),
+                ),
+              )}
+            </p>
+            <div className="btn-row">
+              {!done && (
+                <button
+                  className="btn"
+                  disabled={disabled || mutation.busy}
+                  onClick={confirm}
+                >
+                  {l.confirm}
+                </button>
+              )}
+              {!uncertain && (
+                <button
+                  className="btn btn--secondary"
+                  disabled={disabled || mutation.busy}
+                  onClick={() => {
+                    setReview(null);
+                    setDone(false);
+                    mutation.reset();
+                  }}
+                >
+                  {done ? l.newIntent : l.cancel}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+        <MutationFeedback mutation={mutation} />
+        {uncertain && !mutation.busy && (
+          <>
+            <p role="status">{l.uncertain}</p>
+            <button className="btn btn--secondary" onClick={onSaved}>
+              {l.refresh}
+            </button>
+          </>
+        )}
+      </div>
     </Card>
   );
 }

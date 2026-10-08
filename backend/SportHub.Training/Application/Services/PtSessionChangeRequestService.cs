@@ -239,5 +239,7 @@ public sealed class PtSessionChangeRequestService(
             r.Status.ToString(),
             r.ReviewedByUserId,
             r.ReviewedAt,
-            r.ReviewNote);
+            r.ReviewNote,
+            r.Session.Member!.Profile != null ? r.Session.Member.Profile.FullName : r.Session.Member.Email,
+            r.Session.Coach!.Profile != null ? r.Session.Coach.Profile.FullName : r.Session.Coach.Email);
 }

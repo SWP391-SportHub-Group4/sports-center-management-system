@@ -20,6 +20,7 @@ import {
   type IncidentStep,
   type StepStatus,
 } from "./incident-progress";
+import formStyles from "./incident-forms.module.css";
 export function IncidentForm() {
   const { t } = useLanguage();
   const l = t.operations;
@@ -129,11 +130,12 @@ export function IncidentForm() {
           }}
         >
           <fieldset
+            className={formStyles.incidentFields}
             disabled={
               mutation.busy || resolving || editing || uncertain || !!incidentId
             }
           >
-            <div className="form-grid">
+            <div className={formStyles.incidentGrid}>
               <Field label={l.scope}>
                 <select
                   value={scope}
@@ -192,7 +194,7 @@ export function IncidentForm() {
               />
             </Field>
             <button
-              className="btn"
+              className={`btn ${formStyles.previewButton}`}
               disabled={
                 mutation.busy ||
                 !start ||

@@ -163,6 +163,14 @@ export function managerAuditSnapshot(
     } else if (object(data)) {
       for (const [rawKey, value] of Object.entries(data)) {
         const key = lowerFirst(rawKey);
+        // Activating/deactivating a sport can reorder it automatically.
+        // That bookkeeping is not part of the status change shown to managers.
+        if (
+          key === "sortOrder" &&
+          row.targetEntity === "Sport" &&
+          ["ACTIVATE_SPORT", "DEACTIVATE_SPORT"].includes(row.action)
+        )
+          continue;
         if (scalarFields.has(key) && scalar(value)) result[key] = value;
         else if (
           arrayFields.has(key) &&

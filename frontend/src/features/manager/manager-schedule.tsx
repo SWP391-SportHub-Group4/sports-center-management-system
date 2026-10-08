@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { useUrlQuery, choiceQuery } from "@/lib/useUrlQuery";
-import { todayIso, addDaysIso } from "@/lib/format";
+import { todayIso, addDaysIso, startOfWeekIso } from "@/lib/format";
 import { AsyncSection } from "@/components/ui";
 import { FilterBar } from "@/components/data";
 import {
@@ -55,18 +55,20 @@ export function ManagerSchedule({
   const [selectedId, setSelected] = useState("");
   const [ai, setAi] = useState(false);
   const days = values.view === "day" ? 1 : 7;
+  const rangeStart =
+    values.view === "week" ? startOfWeekIso(values.date) : values.date;
   const roomId = fixedRoom ? String(fixedRoom) : values.roomId;
   const rooms = useApi((signal) => catalogApi.rooms(signal), []);
   const state = useApi(
     (signal) =>
       courtScheduleApi.list(
-        values.date,
-        addDaysIso(values.date, days - 1),
+        rangeStart,
+        addDaysIso(rangeStart, days - 1),
         roomId,
         false,
         signal,
       ),
-    [values.date, days, roomId],
+    [rangeStart, days, roomId],
   );
   const rows = (state.data ?? []).filter(
     (r) =>
@@ -107,103 +109,114 @@ export function ManagerSchedule({
       rooms.data?.find((room) => room.roomId === r.roomId)?.name ?? null,
     coachName: r.coachName,
     status: r.status,
+    statusLabel:
+      r.sourceType === "COURT_RENTAL" && r.status === "CONFIRMED"
+        ? t.operationsUx.rentalConfirmed
+        : undefined,
   }));
+  const filters = (
+    <FilterBar
+      values={values}
+      onChange={update}
+      activeCount={
+        [
+          !fixedRoom && values.roomId,
+          !fixedCoach && values.coachId,
+          values.classId,
+          !classesOnly && values.sourceType,
+        ].filter(Boolean).length
+      }
+      fields={[
+        ...(values.view !== "week"
+          ? [{ id: "date", label: l.date, kind: "date" as const }]
+          : []),
+        ...(!fixedRoom
+          ? [
+              {
+                id: "roomId",
+                label: l.room,
+                kind: "select" as const,
+                options: [
+                  { value: "", label: l.all },
+                  ...(rooms.data ?? []).map((r) => ({
+                    value: String(r.roomId),
+                    label: r.name,
+                  })),
+                ],
+              },
+            ]
+          : []),
+        ...(!fixedCoach
+          ? [
+              {
+                id: "coachId",
+                label: l.coach,
+                kind: "select" as const,
+                options: [
+                  { value: "", label: l.all },
+                  ...coaches.map(([value, label]) => ({ value, label })),
+                ],
+              },
+            ]
+          : []),
+        {
+          id: "classId",
+          label: l.courses,
+          kind: "select",
+          options: [
+            { value: "", label: l.all },
+            ...classes.map(([id, label]) => ({ value: String(id), label })),
+          ],
+        },
+        ...(!classesOnly
+          ? [
+              {
+                id: "sourceType",
+                label: m.source,
+                kind: "select" as const,
+                options: [
+                  { value: "", label: l.all },
+                  ...Object.entries(t.calendar.types).map(([value, label]) => ({
+                    value,
+                    label,
+                  })),
+                ],
+              },
+            ]
+          : []),
+      ]}
+      onReset={() =>
+        update({ roomId: "", coachId: "", classId: "", sourceType: "" })
+      }
+      actions={
+        <>
+          <button
+            className="btn btn--ghost"
+            onClick={() => {
+              state.reload();
+              setSelected("");
+            }}
+          >
+            {l.refresh}
+          </button>
+          <button className="btn btn--secondary" onClick={() => setAi(true)}>
+            {m.aiTitle}
+          </button>
+        </>
+      }
+    />
+  );
   return (
     <>
-      <FilterBar
-        values={values}
-        onChange={update}
-        activeCount={
-          [
-            !fixedRoom && values.roomId,
-            !fixedCoach && values.coachId,
-            values.classId,
-            !classesOnly && values.sourceType,
-          ].filter(Boolean).length
-        }
-        fields={[
-          { id: "date", label: l.date, kind: "date" },
-          ...(!fixedRoom
-            ? [
-                {
-                  id: "roomId",
-                  label: l.room,
-                  kind: "select" as const,
-                  options: [
-                    { value: "", label: l.all },
-                    ...(rooms.data ?? []).map((r) => ({
-                      value: String(r.roomId),
-                      label: r.name,
-                    })),
-                  ],
-                },
-              ]
-            : []),
-          ...(!fixedCoach
-            ? [
-                {
-                  id: "coachId",
-                  label: l.coach,
-                  kind: "select" as const,
-                  options: [
-                    { value: "", label: l.all },
-                    ...coaches.map(([value, label]) => ({ value, label })),
-                  ],
-                },
-              ]
-            : []),
-          {
-            id: "classId",
-            label: l.courses,
-            kind: "select",
-            options: [
-              { value: "", label: l.all },
-              ...classes.map(([id, label]) => ({ value: String(id), label })),
-            ],
-          },
-          ...(!classesOnly
-            ? [
-                {
-                  id: "sourceType",
-                  label: m.source,
-                  kind: "select" as const,
-                  options: [
-                    { value: "", label: l.all },
-                    ...Object.entries(t.calendar.types).map(
-                      ([value, label]) => ({ value, label }),
-                    ),
-                  ],
-                },
-              ]
-            : []),
-        ]}
-        onReset={() =>
-          update({ roomId: "", coachId: "", classId: "", sourceType: "" })
-        }
-        actions={
-          <>
-            <button
-              className="btn btn--ghost"
-              onClick={() => {
-                state.reload();
-                setSelected("");
-              }}
-            >
-              {l.refresh}
-            </button>
-            <button className="btn btn--secondary" onClick={() => setAi(true)}>
-              {m.aiTitle}
-            </button>
-          </>
-        }
-      />
+      {values.view !== "week" && filters}
       {rooms.error && <p role="alert">{rooms.error.message}</p>}
-      <p>{l.timeZone}</p>
       <AsyncSection state={state}>
         {() => (
           <Calendar
+            weekTable
+            filters={filters}
             events={events}
-            date={values.date}
+            date={rangeStart}
             view={values.view as CalendarView}
             labels={{
               types: t.calendar.types,

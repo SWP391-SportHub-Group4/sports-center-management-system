@@ -3,6 +3,7 @@ export { ApiTable } from "./ApiTable";
 export { StateView } from "./StateView";
 export { FilterBar } from "./FilterBar";
 export { StatusChip } from "./StatusChip";
+export { Metric, MetricGrid } from "./MetricGrid";
 export type { StatusChipProps, StatusTone } from "@/components/contracts/table";
 export type { FilterBarProps, FilterField } from "@/components/contracts/table";
 export type {

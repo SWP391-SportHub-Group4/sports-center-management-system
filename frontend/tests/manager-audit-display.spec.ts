@@ -84,7 +84,7 @@ test("only resolved targets link to supported Manager detail pages", async ({
   );
 });
 
-test("legacy activity logs identify the sport and show localized before/after status", async ({
+test("sport activity logs show localized status without automatic sort order changes", async ({
   page,
 }) => {
   await setup(
@@ -94,9 +94,17 @@ test("legacy activity logs identify the sport and show localized before/after st
         "4",
         "Sport",
         "DEACTIVATE_SPORT",
-        { isActive: true },
-        { isActive: false },
+        { isActive: true, sortOrder: 4 },
+        { isActive: false, sortOrder: 5 },
         { currentTargetLabel: "Bóng rổ" },
+      ),
+      entry(
+        "6",
+        "Sport",
+        "ACTIVATE_SPORT",
+        { IsActive: false, SortOrder: 5 },
+        { IsActive: true, SortOrder: 4 },
+        { currentTargetLabel: "MMA" },
       ),
     ],
     "vi",
@@ -106,9 +114,14 @@ test("legacy activity logs identify the sport and show localized before/after st
   await expect(table).toContainText("Tên hiện tại");
   await expect(table).toContainText("ID: 4");
   await expect(table).toContainText("Trạng thái:");
-  await expect(table.locator("del")).toHaveText("Đang hoạt động");
+  await expect(table.locator("del")).toHaveText([
+    "Đang hoạt động",
+    "Ngừng hoạt động",
+  ]);
   await expect(table).toContainText("Ngừng hoạt động");
   await expect(table).not.toContainText("isActive");
+  await expect(table).not.toContainText("Thứ tự hiển thị");
+  await expect(table).not.toContainText("sortOrder");
 });
 
 test("recorded identity wins over current names; deleted and malformed snapshots keep honest fallbacks", async ({

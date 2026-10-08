@@ -15,6 +15,7 @@ import {
   Pagination,
 } from "@/features/operations";
 import type { UserAdminDto, Paged, CourtScheduleEntryDto } from "@/lib/types";
+import styles from "./incident-forms.module.css";
 export function ManualNoticeForm() {
   const { t } = useLanguage();
   const l = t.operations;
@@ -223,8 +224,8 @@ export function ManualNoticeForm() {
         </Card>
       )}
       <Card title={l.recipients}>
-        <fieldset disabled={locked}>
-          <div className="form-grid">
+        <fieldset className={styles.recipientSection} disabled={locked}>
+          <div className={styles.recipientFilters}>
             <Field label={l.from}>
               <input
                 type="date"
@@ -304,7 +305,7 @@ export function ManualNoticeForm() {
                     (u) => !allowed || allowed.has(u.userId),
                   );
                   return (
-                    <>
+                    <div className={styles.recipientResults}>
                       {!rows.length && <p role="status">{c.noRecipients}</p>}
                       <Table headers={[l.fullName, l.email, ""]}>
                         {rows.map((u) => (
@@ -345,7 +346,7 @@ export function ManualNoticeForm() {
                         count={data.totalCount}
                         onChange={setPage}
                       />
-                    </>
+                    </div>
                   );
                 }}
               </AsyncSection>

@@ -1,0 +1,44 @@
+:global(.card) .incidentFields,
+:global(.card) .recipientSection {
+  display: grid;
+  gap: var(--space-5);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  text-align: left;
+}
+
+.incidentGrid,
+.recipientFilters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: var(--space-4);
+  align-items: end;
+}
+
+.incidentFields :global(label.field),
+.recipientFilters :global(label.field) {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-2);
+  min-width: 0;
+  margin: 0;
+  text-align: left;
+}
+
+.incidentFields textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+.previewButton {
+  justify-self: start;
+}
+
+.recipientResults {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}

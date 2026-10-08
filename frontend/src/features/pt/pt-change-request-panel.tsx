@@ -9,6 +9,7 @@ import { MutationFeedback, useMutation } from "@/features/operations";
 import type { PtReviewRequestDto } from "@/lib/types";
 import { ptApi } from "./api";
 import { ListPager } from "./ui";
+import styles from "./pt-change-request-panel.module.css";
 function RequestCard({
   r,
   coach,
@@ -43,58 +44,106 @@ function RequestCard({
       reload();
   }
   return (
-    <Card title={r.memberName ?? r.memberId}>
-      <p>
-        <StatusChip value={r.status} /> ·{" "}
-        {coach ? (
-          `${r.currentCoachName} → ${r.requestedCoachName}`
-        ) : (
-          <>
-            <StatusChip value={r.requestType} /> ·{" "}
-            <StatusChip value={r.timingClassification} />
-          </>
-        )}
-      </p>
-      <p>{r.reason}</p>
-      {r.sessionStartAtUtc && (
-        <p>
-          {formatDateTime(r.sessionStartAtUtc)} →{" "}
-          {r.requestedStartAtUtc ? formatDateTime(r.requestedStartAtUtc) : "—"}
-        </p>
-      )}
-      {r.requestsException && <p>{l.exception}</p>}
-      <p>{coach ? l.coachImpact : l.quotaImpact}</p>
-      {r.reviewNote && <p>{r.reviewNote}</p>}
-      {r.status === "PENDING" && (
-        <>
-          <Field label={l.reviewNote}>
-            <textarea
-              required
-              minLength={3}
-              maxLength={500}
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-            />
-          </Field>
-          <div className="btn-row">
-            <button
-              className="btn"
-              disabled={mutation.busy || reason.trim().length < 3}
-              onClick={() => review(true)}
-            >
-              {l.approve}
-            </button>
-            <button
-              className="btn btn--danger"
-              disabled={mutation.busy || reason.trim().length < 3}
-              onClick={() => review(false)}
-            >
-              {l.reject}
-            </button>
+    <Card
+      title={r.memberName?.trim() || t.operationsUx.unnamedMember}
+      actions={<StatusChip value={r.status} />}
+    >
+      <div className={styles.content}>
+        <div className={styles.badges}>
+          {coach ? (
+            <span>{l.coachChanges}</span>
+          ) : (
+            <>
+              <StatusChip value={r.requestType} />
+              <StatusChip value={r.timingClassification} />
+            </>
+          )}
+          {r.requestsException && (
+            <StatusChip value="EXCEPTION" label={l.exception} tone="warning" />
+          )}
+          {!coach && r.coachName && (
+            <span className={styles.muted}>
+              {l.coach}: {r.coachName}
+            </span>
+          )}
+        </div>
+        <dl className={styles.times}>
+          {coach ? (
+            <>
+              <div>
+                <dt>{t.operationsUx.currentCoach}</dt>
+                <dd>{r.currentCoachName || "—"}</dd>
+              </div>
+              <div>
+                <dt>{t.operationsUx.proposedCoach}</dt>
+                <dd>{r.requestedCoachName || "—"}</dd>
+              </div>
+            </>
+          ) : (
+            <>
+              {r.sessionStartAtUtc && (
+                <div>
+                  <dt>{t.operationsUx.currentTime}</dt>
+                  <dd>{formatDateTime(r.sessionStartAtUtc)}</dd>
+                </div>
+              )}
+              {r.requestedStartAtUtc && (
+                <div>
+                  <dt>{l.requestedTime}</dt>
+                  <dd>{formatDateTime(r.requestedStartAtUtc)}</dd>
+                </div>
+              )}
+            </>
+          )}
+        </dl>
+        {r.reason && (
+          <div className={styles.reason}>
+            <strong>{l.reason}</strong>
+            <p>{r.reason}</p>
           </div>
-        </>
-      )}
-      <MutationFeedback mutation={mutation} />
+        )}
+        <details className={styles.policy}>
+          <summary>{t.operationsUx.policy}</summary>
+          <p>{coach ? l.coachImpact : l.quotaImpact}</p>
+        </details>
+        {r.reviewNote && (
+          <div className={styles.reason}>
+            <strong>{l.reviewNote}</strong>
+            <p>{r.reviewNote}</p>
+          </div>
+        )}
+        {r.status === "PENDING" && (
+          <div className={styles.review}>
+            <Field label={l.reviewNote} hint={t.operationsUx.reviewHint}>
+              <textarea
+                required
+                minLength={3}
+                maxLength={500}
+                rows={2}
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+              />
+            </Field>
+            <div className="btn-row">
+              <button
+                className="btn"
+                disabled={mutation.busy || reason.trim().length < 3}
+                onClick={() => review(true)}
+              >
+                {l.approve}
+              </button>
+              <button
+                className="btn btn--danger"
+                disabled={mutation.busy || reason.trim().length < 3}
+                onClick={() => review(false)}
+              >
+                {l.reject}
+              </button>
+            </div>
+          </div>
+        )}
+        <MutationFeedback mutation={mutation} />
+      </div>
     </Card>
   );
 }
@@ -117,16 +166,18 @@ function Requests({ coach }: { coach: boolean }) {
             {t.staffWork.moved}: {moved.movedSessionIds.length}
           </p>
           <p>
-            {t.staffWork.unmoved}: {moved.unmovedSessionIds.join(", ") || "0"}
+            {t.staffWork.unmoved}: {moved.unmovedSessionIds.length}
           </p>
         </Card>
       )}
-      <button className="btn btn--secondary" onClick={state.reload}>
-        {t.staffWork.refresh}
-      </button>
+      <div className={styles.toolbar}>
+        <button className="btn btn--ghost btn--sm" onClick={state.reload}>
+          {t.staffWork.refresh}
+        </button>
+      </div>
       <AsyncSection state={state}>
         {(rows) => (
-          <>
+          <div className={styles.list}>
             {rows.map((r) => (
               <RequestCard
                 key={`${r.requestId}-${r.status}`}
@@ -138,7 +189,7 @@ function Requests({ coach }: { coach: boolean }) {
             ))}
             {!rows.length && <p>{t.common.noData}</p>}
             <ListPager page={page} count={rows.length} onChange={setPage} />
-          </>
+          </div>
         )}
       </AsyncSection>
     </>

@@ -12,6 +12,7 @@ import { useMutation, MutationFeedback } from "@/features/operations";
 import { CoachEditor } from "./coach-editor";
 import { ManagerSchedule } from "@/features/manager";
 import type { CoachAdminDto } from "@/lib/types";
+import styles from "@/components/data/ProfileSummary.module.css";
 function Qualifications({ coach }: { coach: CoachAdminDto }) {
   const { t } = useLanguage();
   const l = t.managerOperations;
@@ -65,7 +66,10 @@ function Qualifications({ coach }: { coach: CoachAdminDto }) {
                 }
               }}
             >
-              <fieldset disabled={mutation.busy}>
+              <fieldset
+                className={styles.qualificationOptions}
+                disabled={mutation.busy}
+              >
                 {offerings.map(({ sport, id }) => (
                   <label key={id}>
                     <input
@@ -131,17 +135,17 @@ export function CoachDetail({ userId }: { userId: string }) {
     [userId],
   );
   return (
-    <>
-      <Link href="/manager/coaches" className="btn btn--ghost">
+    <div className={styles.profilePage}>
+      <Link href="/manager/coaches" className={`btn btn--ghost ${styles.back}`}>
         {m.backToList}
       </Link>
       <AsyncSection state={state}>
         {(coach) => (
           <>
-            <Card
-              title={coach.fullName}
-              actions={
-                <>
+            <section className={styles.summary} aria-label={coach.fullName}>
+              <div className={styles.summaryHeader}>
+                <h2>{coach.fullName}</h2>
+                <div className="btn-row">
                   <StatusChip value={coach.status} />
                   <button
                     className="btn btn--secondary"
@@ -149,13 +153,19 @@ export function CoachDetail({ userId }: { userId: string }) {
                   >
                     {t.operations.edit}
                   </button>
-                </>
-              }
-            >
-              <p>
-                {coach.email} · {coach.phone ?? "—"}
-              </p>
-            </Card>
+                </div>
+              </div>
+              <dl className={styles.contacts}>
+                <div>
+                  <dt>{t.operations.email}</dt>
+                  <dd>{coach.email}</dd>
+                </div>
+                <div>
+                  <dt>{t.operations.phone}</dt>
+                  <dd>{coach.phone || "—"}</dd>
+                </div>
+              </dl>
+            </section>
             <Tabs
               value={values.tab}
               onChange={(tab) => setValues({ tab })}
@@ -168,8 +178,16 @@ export function CoachDetail({ userId }: { userId: string }) {
             >
               {values.tab === "overview" && (
                 <Card title={m.coachDetail}>
-                  <p style={{ whiteSpace: "pre-wrap" }}>{coach.bio || "—"}</p>
-                  <CoachSpecialties coach={coach} />
+                  <div className={styles.coachOverview}>
+                    <section className={styles.bio}>
+                      <h3>{t.operations.bio}</h3>
+                      <p>{coach.bio || "—"}</p>
+                    </section>
+                    <section className={styles.specialties}>
+                      <h3>{t.operations.specialties}</h3>
+                      <CoachSpecialties coach={coach} />
+                    </section>
+                  </div>
                 </Card>
               )}
               {values.tab === "qualification" && (
@@ -195,7 +213,7 @@ export function CoachDetail({ userId }: { userId: string }) {
           </>
         )}
       </AsyncSection>
-    </>
+    </div>
   );
 }
 function CoachSpecialties({ coach }: { coach: CoachAdminDto }) {
@@ -203,14 +221,19 @@ function CoachSpecialties({ coach }: { coach: CoachAdminDto }) {
   const state = useApi((signal) => catalogApi.sports(signal, true), []);
   return (
     <AsyncSection state={state}>
-      {(sports) => (
-        <p>
-          {t.operations.specialties}:{" "}
-          {coach.sportIds
-            .map((id) => sports.find((s) => s.sportId === id)?.name ?? `#${id}`)
-            .join(", ")}
-        </p>
-      )}
+      {(sports) =>
+        coach.sportIds.length ? (
+          <ul className={styles.specialtyList}>
+            {coach.sportIds.map((id) => (
+              <li key={id}>
+                {sports.find((s) => s.sportId === id)?.name ?? `#${id}`}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className={styles.note}>{t.common.noData}</p>
+        )
+      }
     </AsyncSection>
   );
 }

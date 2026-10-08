@@ -2,7 +2,13 @@
 
 import Link from "next/link";
 import { Card } from "@/components/ui";
-import { StateView, Table, type TableColumn } from "@/components/data";
+import {
+  Metric,
+  MetricGrid,
+  StateView,
+  Table,
+  type TableColumn,
+} from "@/components/data";
 import { stateKindFromStatus } from "@/components/contracts/state";
 import { api } from "@/lib/apiClient";
 import { formatDateTime } from "@/lib/format";
@@ -10,7 +16,6 @@ import { pagedItems } from "@/lib/paged";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import type { AuditLogDto, Paged, UserAdminDto } from "@/lib/types";
-import styles from "./overview.module.css";
 import { AuditTargetAccount } from "./AuditTargetAccount";
 
 const statuses = ["ACTIVE", "BANNED", "DEACTIVATED"] as const;
@@ -130,21 +135,16 @@ export function AdminOverview() {
         ) : totals.loading ? (
           <StateView kind="loading" title={t.common.loading} />
         ) : (
-          <ul className={styles.statusList}>
+          <MetricGrid columns={3}>
             {statuses.map((status, index) => (
-              <li key={status}>
-                <Link
-                  className={styles.statusLink}
-                  href={`/admin/users?status=${status}`}
-                >
-                  <span>{labels[index]}</span>
-                  <strong className={styles.count}>
-                    {totals.data?.[index] ?? "—"}
-                  </strong>
-                </Link>
-              </li>
+              <Metric
+                key={status}
+                label={labels[index]}
+                value={totals.data?.[index] ?? "—"}
+                href={`/admin/users?status=${status}`}
+              />
             ))}
-          </ul>
+          </MetricGrid>
         )}
       </Card>
       <Card

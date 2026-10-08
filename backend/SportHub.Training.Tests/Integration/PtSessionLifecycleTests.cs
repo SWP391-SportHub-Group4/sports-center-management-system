@@ -383,8 +383,16 @@ public sealed class PtSessionLifecycleTests(TrainingApiFactory factory)
         var changeRequest = await requestResponse.Content.ReadApiJsonAsync<PtSessionChangeRequestResponse>();
         Assert.Equal("OnTime", changeRequest!.TimingClassification);
         Assert.Equal("Pending", changeRequest.Status);
+        Assert.False(string.IsNullOrWhiteSpace(changeRequest.MemberName));
+        Assert.False(string.IsNullOrWhiteSpace(changeRequest.CoachName));
+        Assert.NotEqual(member.UserId.ToString(), changeRequest.MemberName);
 
         var managerClient = factory.CreateApiClient(manager.UserId, UserRole.CenterManager);
+        var pending = await (await managerClient.GetAsync("api/manager/pt-session-change-requests?status=PENDING&pageSize=100"))
+            .Content.ReadApiJsonAsync<List<PtSessionChangeRequestResponse>>();
+        var listed = Assert.Single(pending!, r => r.RequestId == changeRequest.RequestId);
+        Assert.Equal(changeRequest.MemberName, listed.MemberName);
+        Assert.Equal(changeRequest.CoachName, listed.CoachName);
         var approveResponse = await managerClient.PostAsJsonAsync(
             $"api/manager/pt-session-change-requests/{changeRequest.RequestId}/approve",
             new ReviewPtSessionChangeRequest { ReviewNote = "Đồng ý." });

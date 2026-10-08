@@ -19,6 +19,35 @@ namespace SportHub.Payment.Tests.Integration;
 public sealed class CourtRentalTests(PaymentApiFactory factory)
 {
     [Fact]
+    public async Task Invoice_detail_resolves_names_and_times_for_legacy_rental_descriptions()
+    {
+        var request = await SetupAsync();
+        using var scope = factory.Services.CreateScope();
+        var checkout = await scope.ServiceProvider.GetRequiredService<CheckoutService>()
+            .CreateCourtRentalAsync(request, Guid.NewGuid().ToString(), request.MemberId, default);
+        var expectedRoom = await factory.QueryAsync(db => db.Rooms.AsNoTracking()
+            .Where(r => r.RoomId == request.RoomId).Select(r => r.Name).SingleAsync());
+        await factory.QueryAsync(async db =>
+        {
+            var item = await db.Set<SportHub.Payment.Domain.Entities.InvoiceItem>().SingleAsync(i => i.InvoiceId == checkout.InvoiceId);
+            item.Description = $"Thuê sân #{request.RoomId}, môn #3, 1 giờ";
+            await db.SaveChangesAsync();
+            return 0;
+        });
+        var owner = factory.CreateApiClient(request.MemberId, UserRole.Member);
+        var response = await owner.GetAsync($"/api/invoices/{checkout.InvoiceId}");
+        Assert.True(response.IsSuccessStatusCode, await response.Content.ReadAsStringAsync());
+        var detail = await response.Content.ReadFromJsonAsync<SportHub.Payment.Application.DTOs.InvoiceDetailResponse>();
+        var rental = Assert.Single(detail!.Items);
+        Assert.Equal(expectedRoom, rental.RoomName);
+        Assert.False(string.IsNullOrWhiteSpace(rental.SportName));
+        Assert.Contains(expectedRoom, rental.Description);
+        Assert.DoesNotContain("môn #", rental.Description);
+        Assert.Equal(request.StartUtc.UtcDateTime, rental.RentalStartAtUtc);
+        Assert.Equal(request.EndUtc.UtcDateTime, rental.RentalEndAtUtc);
+    }
+
+    [Fact]
     public async Task Paid_rental_is_private_and_center_cancellation_credits_points_once()
     {
         var request = await SetupAsync();

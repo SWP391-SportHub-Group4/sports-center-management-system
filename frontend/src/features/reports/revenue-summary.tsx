@@ -1,5 +1,6 @@
 "use client";
-import { Card, Stat, Table } from "@/components/ui";
+import { Card, Table } from "@/components/ui";
+import { Metric, MetricGrid } from "@/components/data";
 import { useLanguage } from "@/lib/language";
 import { formatMoney } from "@/lib/format";
 import type { RevenueDimensionsDto, RevenueReportDto } from "@/lib/types";
@@ -47,13 +48,13 @@ export function RevenueSummary({ report }: { report: RevenueDimensionsDto }) {
   const l = t.staffWork;
   return (
     <Card title={l.dimensions}>
-      <div className="stats-grid">
-        <Stat label={l.cash} value={formatMoney(report.cashCollected)} />
-        <Stat
+      <MetricGrid columns={2}>
+        <Metric label={l.cash} value={formatMoney(report.cashCollected)} />
+        <Metric
           label={l.redeemed}
           value={formatMoney(report.pointsRedeemedVnd)}
         />
-      </div>
+      </MetricGrid>
       <RevenueRows rows={report.rows} />
       {!report.rows.length && <p>{t.common.noData}</p>}
     </Card>

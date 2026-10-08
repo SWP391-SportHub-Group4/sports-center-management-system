@@ -79,6 +79,11 @@ export function addDaysIso(isoDate: string, days: number): string {
   return date.toISOString().slice(0, 10);
 }
 
+export function startOfWeekIso(isoDate: string): string {
+  const weekday = new Date(`${isoDate}T00:00:00Z`).getUTCDay();
+  return addDaysIso(isoDate, -((weekday + 6) % 7));
+}
+
 export function vietnamLocalToUtcIso(
   dateIso: string,
   timeHhmm: string,
@@ -144,7 +149,6 @@ export const LABELS: Record<string, string> = {
 
   Pending: "Processing",
   Failed: "Failed",
-
 };
 
 export function label(value: string | null | undefined): string {

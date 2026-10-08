@@ -12,6 +12,7 @@ import { ptApi } from "./api";
 import { ListPager, Specialty } from "./ui";
 import { PtQuotaSummary } from "./pt-quota-summary";
 import { PtSessionEditor } from "./pt-session-editor";
+import styles from "./pt-sessions.module.css";
 
 function SessionActions({
   session: s,
@@ -39,14 +40,25 @@ function SessionActions({
     if (ok || mutation.error?.status === 409) reload();
   }
   return (
-    <Card title={`${s.memberName} · ${s.coachName}`}>
-      <p>
-        {formatDateTime(s.startAtUtc)} – {formatDateTime(s.endAtUtc)} ·{" "}
-        {s.roomName ?? l.noRoom}
-      </p>
-      <p>
-        <StatusChip value={s.status} /> · <StatusChip value={s.quotaState} />
-      </p>
+    <article
+      className={styles.session}
+      aria-label={`${s.memberName} · ${s.coachName}`}
+    >
+      <div className={styles.sessionSummary}>
+        <div className={styles.sessionInfo}>
+          <h3>
+            {s.memberName} · {s.coachName}
+          </h3>
+          <p className={styles.sessionTime}>
+            {formatDateTime(s.startAtUtc)} – {formatDateTime(s.endAtUtc)} ·{" "}
+            {s.roomName ?? l.noRoom}
+          </p>
+        </div>
+        <div className={styles.badges}>
+          <StatusChip value={s.status} />
+          <StatusChip value={s.quotaState} />
+        </div>
+      </div>
       {s.cancellationReason && <p>{s.cancellationReason}</p>}
       {s.rescheduledFromSessionId && (
         <p>
@@ -111,7 +123,7 @@ function SessionActions({
       )}
       <MutationFeedback mutation={mutation} />
       {editing && <PtSessionEditor session={s} onSaved={reload} />}
-    </Card>
+    </article>
   );
 }
 function SessionList({ manager, hasPt }: { manager: boolean; hasPt: boolean }) {
@@ -154,8 +166,8 @@ function SessionList({ manager, hasPt }: { manager: boolean; hasPt: boolean }) {
       >
         <AsyncSection state={state}>
           {(rows) => (
-            <>
-              <div className="stack">
+            <div className={styles.sessionPage}>
+              <div className={styles.sessionList}>
                 {rows.map((s) => (
                   <SessionActions
                     key={`${s.sessionId}-${s.status}`}
@@ -168,7 +180,7 @@ function SessionList({ manager, hasPt }: { manager: boolean; hasPt: boolean }) {
               </div>
               {!rows.length && <p>{t.common.noData}</p>}
               <ListPager page={page} count={rows.length} onChange={setPage} />
-            </>
+            </div>
           )}
         </AsyncSection>
       </Card>

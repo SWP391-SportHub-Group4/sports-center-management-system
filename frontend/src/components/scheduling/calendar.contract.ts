@@ -9,6 +9,7 @@ export interface CalendarEvent {
   roomName?: string | null;
   coachName?: string | null;
   status?: string | null;
+  statusLabel?: string;
   description?: string | null;
 }
 

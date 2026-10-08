@@ -16,4 +16,6 @@ public sealed record PtSessionChangeRequestResponse(
     [property: SportHub.BuildingBlocks.Api.WireEnum] string Status,
     Guid? ReviewedByUserId,
     DateTime? ReviewedAt,
-    string? ReviewNote);
+    string? ReviewNote,
+    string MemberName = "",
+    string CoachName = "");

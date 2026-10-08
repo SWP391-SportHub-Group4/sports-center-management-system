@@ -1,6 +1,9 @@
 "use client";
 
 import { Button } from "@/components/primitives";
+import type { ReactNode } from "react";
+import { WeekSchedule } from "./WeekSchedule";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { StatusChip } from "@/components/ui";
 import { addDaysIso, formatDate, formatTime, todayIso } from "@/lib/format";
 import type {
@@ -28,6 +31,8 @@ export function Calendar({
   date,
   view,
   labels,
+  weekTable = false,
+  filters,
   onDateChange,
   onViewChange,
   onSelectEvent,
@@ -36,6 +41,8 @@ export function Calendar({
   date: string;
   view: CalendarView;
   labels: CalendarLabels;
+  weekTable?: boolean;
+  filters?: ReactNode;
   onDateChange: (date: string) => void;
   onViewChange: (view: CalendarView) => void;
   onSelectEvent: (event: CalendarEvent) => void;
@@ -69,6 +76,19 @@ export function Calendar({
   const move = (direction: -1 | 1) =>
     onDateChange(addDaysIso(date, direction * rangeDays));
 
+  if (weekTable && view === "week")
+    return (
+      <WeekSchedule
+        days={days}
+        byDay={byDay}
+        labels={labels}
+        filters={filters}
+        onDateChange={onDateChange}
+        onViewChange={onViewChange}
+        onSelectEvent={onSelectEvent}
+      />
+    );
+
   return (
     <section className={styles.calendar} aria-label={labels.eventDetails}>
       <div className={styles.toolbar}>
@@ -92,7 +112,8 @@ export function Calendar({
         </div>
 
         <div className={styles.navGroup}>
-          <Button variant="quiet" size="sm" onClick={() => move(-1)}>
+          <Button variant="ghost" size="sm" onClick={() => move(-1)}>
+            <ChevronLeft size={16} aria-hidden="true" />
             {labels.previous}
           </Button>
 
@@ -104,8 +125,9 @@ export function Calendar({
             {labels.today}
           </Button>
 
-          <Button variant="quiet" size="sm" onClick={() => move(1)}>
+          <Button variant="ghost" size="sm" onClick={() => move(1)}>
             {labels.next}
+            <ChevronRight size={16} aria-hidden="true" />
           </Button>
         </div>
       </div>
@@ -117,12 +139,17 @@ export function Calendar({
 
             return (
               <section className={styles.listDay} key={day}>
-                <h3 className={styles.listDayTitle}>
-                  <time dateTime={day}>{formatDate(day)}</time>
-                </h3>
+                <header className={styles.listDayHeader}>
+                  <h3 className={styles.listDayTitle}>
+                    <time dateTime={day}>{formatDate(day)}</time>
+                  </h3>
+                  <span className={styles.dayCount}>{items.length}</span>
+                </header>
 
                 {!items.length && (
-                  <p className={styles.empty}>{labels.empty}</p>
+                  <p className={`${styles.empty} ${styles.listEmpty}`}>
+                    {labels.empty}
+                  </p>
                 )}
 
                 {items.map((event) => (
@@ -137,22 +164,28 @@ export function Calendar({
                       {formatTime(event.endAtUtc)}
                     </span>
 
-                    <span>
+                    <span className={styles.listContent}>
+                      <span className={styles.eventTitle}>{event.title}</span>
                       {labels.types && (
                         <span className={styles.eventType}>
                           {labels.types[event.type] ?? event.type}
                         </span>
                       )}
-                      <span className={styles.eventTitle}>{event.title}</span>
 
                       <span className={styles.eventMeta}>
                         {event.roomName && <span>{event.roomName}</span>}
 
                         {event.coachName && <span>{event.coachName}</span>}
-
-                        {event.status && <StatusChip value={event.status} />}
                       </span>
                     </span>
+                    {event.status && (
+                      <span className={styles.listStatus}>
+                        <StatusChip
+                          value={event.status}
+                          label={event.statusLabel}
+                        />
+                      </span>
+                    )}
                   </button>
                 ))}
               </section>
@@ -208,7 +241,12 @@ export function Calendar({
                         {event.coachName && <span>{event.coachName}</span>}
                       </span>
 
-                      {event.status && <StatusChip value={event.status} />}
+                      {event.status && (
+                        <StatusChip
+                          value={event.status}
+                          label={event.statusLabel}
+                        />
+                      )}
                     </button>
                   ))}
                 </div>

@@ -10,4 +10,9 @@ public sealed record InvoiceItemResponse(
     Guid? RelatedEntityId,
     int? ClassId = null, Guid? CourtRentalId = null, Guid? PtEntitlementId = null,
     Guid? MemberPackageId = null, int? SportId = null, string? SportName = null,
-    int? PtFrequencyPerWeek = null, Guid? SourceInvoiceItemId = null);
+    int? PtFrequencyPerWeek = null, Guid? SourceInvoiceItemId = null)
+{
+    public string? RoomName { get; init; }
+    public DateTime? RentalStartAtUtc { get; init; }
+    public DateTime? RentalEndAtUtc { get; init; }
+}

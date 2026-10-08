@@ -78,7 +78,6 @@ export function WalletLedger({
                     <th>{t.wallet.event}</th>
                     <th>{t.wallet.available}</th>
                     <th>{t.wallet.held}</th>
-                    <th>{t.wallet.reference}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -88,9 +87,6 @@ export function WalletLedger({
                       <td>{events[row.entryType] ?? row.entryType}</td>
                       <td>{formatPoints(row.availableDelta)}</td>
                       <td>{formatPoints(row.heldDelta)}</td>
-                      <td>
-                        {row.referenceType} · {row.referenceId}
-                      </td>
                     </tr>
                   ))}
                 </tbody>
