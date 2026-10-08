@@ -396,7 +396,17 @@ export function CourseEditor({
           </button>
         </div>
       </form>
-      {ai && <AiScheduleDrawer onClose={() => setAi(false)} />}
+      {ai && (
+        <AiScheduleDrawer
+          initial={form}
+          onClose={() => setAi(false)}
+          onManualReview={(preferences) => {
+            setForm((current) => ({ ...current, ...preferences }));
+            setStep(1);
+            mutation.reset();
+          }}
+        />
+      )}
     </Card>
   );
 }
