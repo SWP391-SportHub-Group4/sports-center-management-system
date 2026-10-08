@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useApi } from "@/lib/useApi";
-import { api } from "@/lib/apiClient";
+import { api, ApiError } from "@/lib/apiClient";
 import { useLanguage } from "@/lib/language";
 import { Card, Field, AsyncSection } from "@/components/ui";
 import { MutationFeedback, useMutation } from "@/features/operations";
@@ -132,12 +132,17 @@ export function SessionEditor({
   capacity,
   onSaved,
   onClose,
+  onOutcome,
 }: {
   session: CourseSessionDto;
   sportId: number;
   capacity: number;
   onSaved: () => void;
   onClose: () => void;
+  onOutcome?: (
+    status: "pending" | "succeeded" | "failed" | "unknown",
+    message?: string,
+  ) => void;
 }) {
   const { t } = useLanguage();
   const l = t.operations;
@@ -148,6 +153,8 @@ export function SessionEditor({
   const [coachId, setCoach] = useState(session.coachId);
   const [reason, setReason] = useState("");
   const [review, setReview] = useState(false);
+  const [unknown, setUnknown] = useState(false);
+  const busy = mutation.busy || (unknown && !!onOutcome);
   return (
     <Card title={l.sessions}>
       <p>{l.notifyHint}</p>
@@ -159,7 +166,7 @@ export function SessionEditor({
           }
         }}
       >
-        <fieldset disabled={mutation.busy} hidden={review}>
+        <fieldset disabled={busy} hidden={review}>
           <Field label={l.edit}>
             <select value={mode} onChange={(e) => setMode(e.target.value)}>
               <option value="reschedule">{l.reschedule}</option>
@@ -200,7 +207,7 @@ export function SessionEditor({
             coachId={coachId}
             reason={reason}
             mode={mode}
-            busy={mutation.busy}
+            busy={busy}
             onEdit={() => setReview(false)}
             onConfirm={async () => {
               const schedule = {
@@ -208,15 +215,32 @@ export function SessionEditor({
                 roomId: Number(roomId),
                 coachId,
               };
-              const success = await mutation.run(() =>
-                api.post(
-                  `/api/class-sessions/${session.sessionId}/${mode === "reschedule" ? "reschedule" : "cancel"}`,
-                  mode === "reschedule"
-                    ? { ...schedule, reason }
-                    : { reason, makeup: schedule },
-                ),
-              );
-              if (success) onSaved();
+              onOutcome?.("pending");
+              const success = await mutation.run(async () => {
+                try {
+                  await api.post(
+                    `/api/class-sessions/${session.sessionId}/${mode === "reschedule" ? "reschedule" : "cancel"}`,
+                    mode === "reschedule"
+                      ? { ...schedule, reason }
+                      : { reason, makeup: schedule },
+                  );
+                } catch (error) {
+                  const uncertain =
+                    !(error instanceof ApiError) ||
+                    error.status === 0 ||
+                    error.status >= 500;
+                  setUnknown(uncertain);
+                  onOutcome?.(
+                    uncertain ? "unknown" : "failed",
+                    error instanceof Error ? error.message : undefined,
+                  );
+                  throw error;
+                }
+              });
+              if (success) {
+                onOutcome?.("succeeded");
+                onSaved();
+              }
               return success;
             }}
           />
@@ -226,7 +250,7 @@ export function SessionEditor({
             <button
               className="btn"
               disabled={
-                mutation.busy ||
+                busy ||
                 !roomId ||
                 !coachId ||
                 !start ||

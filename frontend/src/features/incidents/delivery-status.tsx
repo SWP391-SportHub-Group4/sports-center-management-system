@@ -3,6 +3,7 @@ import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { AsyncSection, Card, Table } from "@/components/ui";
+import { useOperationsCopy } from "@/features/manager";
 export interface DeliveryCounts {
   total: number;
   pending: number;
@@ -19,6 +20,7 @@ export function DeliveryStatus({
   receipt?: boolean;
 }) {
   const { t } = useLanguage();
+  const c = useOperationsCopy();
   const state = useApi(
     async (signal) => {
       const result = await api.get<
@@ -32,6 +34,7 @@ export function DeliveryStatus({
   );
   return (
     <Card title={t.operations.delivery}>
+      <p>{c.deliveryHint}</p>
       <AsyncSection state={state}>
         {(d) => (
           <Table
@@ -53,7 +56,11 @@ export function DeliveryStatus({
           </Table>
         )}
       </AsyncSection>
-      <button className="btn btn--ghost" onClick={state.reload}>
+      <button
+        className="btn btn--ghost"
+        disabled={state.loading}
+        onClick={state.reload}
+      >
         {t.operations.refresh}
       </button>
     </Card>

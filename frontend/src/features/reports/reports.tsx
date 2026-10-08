@@ -17,6 +17,7 @@ import { PointsReport } from "./points-report";
 import { ClassEnrollmentReport } from "./class-enrollment-report";
 import { CourtRentalReport } from "./court-rental-report";
 import { ReportExportPanel } from "./report-export-panel";
+import styles from "./reports.module.css";
 
 function initialFilters(): ReportFilters {
   const now = new Date();
@@ -48,7 +49,7 @@ export function ReportFilterForm({
   return (
     <Card>
       <form
-        className="form"
+        className={`form ${styles.filterForm}`}
         onSubmit={(event) => {
           event.preventDefault();
           const days =
@@ -61,7 +62,7 @@ export function ReportFilterForm({
           onApply({ ...draft });
         }}
       >
-        <div className="form-grid">
+        <div className={styles.filterGrid}>
           <Field label={l.from}>
             <input
               type="date"
@@ -243,13 +244,13 @@ export function ReportExports() {
   const f = t.finOps;
   const [filters, setFilters] = useState(initialFilters);
   return (
-    <>
-      <Link className="btn btn--ghost" href="/manager/reports">
+    <div className={styles.page}>
+      <Link className={`btn btn--ghost ${styles.back}`} href="/manager/reports">
         ← {f.backToReports}
       </Link>
       <ReportFilterForm initial={filters} onApply={setFilters} />
       <ReportExportPanel filters={filters} />
-    </>
+    </div>
   );
 }
 

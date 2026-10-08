@@ -868,7 +868,9 @@ test("incident block removal requires review and records only the successful ste
   await expect(
     page.getByText(en.managerOperations.noSteps, { exact: true }),
   ).toHaveCount(0);
-  await expect(page.getByText(/ROOM_BLOCK/)).toBeVisible();
+  await expect(
+    page.getByRole("row").filter({ hasText: noticeId }),
+  ).toContainText(en.operations.roomBlock);
   expect(deletes).toBe(1);
 });
 
@@ -930,7 +932,9 @@ test("incident PT review preserves input and does not record a rejected step", a
   await page
     .getByRole("button", { name: en.operations.confirm, exact: true })
     .click();
-  await expect(page.getByText("Session state has changed")).toBeVisible();
+  await expect(
+    page.getByRole("alert").filter({ hasText: "Session state has changed" }),
+  ).toBeVisible();
   await expect(
     page.getByText(en.managerOperations.noSteps, { exact: true }),
   ).toBeVisible();
@@ -1071,6 +1075,331 @@ test("notice receipt distinguishes failed delivery from business outcome", async
     }),
   ).toBeVisible();
 });
+
+test("AI stays blocked and manual review preserves the class draft without writing", async ({
+  page,
+}) => {
+  let writes = 0;
+  page.on("request", (request) => {
+    if (
+      request.method() !== "GET" &&
+      /\/api\/manager\/(classes|ai)/.test(request.url())
+    )
+      writes++;
+  });
+  await fillDraft(page);
+  await page
+    .getByRole("button", { name: en.operations.previous, exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: en.managerOperations.aiTitle, exact: true })
+    .click();
+  const drawer = page.getByRole("dialog");
+  await expect(drawer.getByText(en.managerOperations.aiGap)).toBeVisible();
+  await expect(
+    drawer.getByRole("button", { name: "Generate suggestions", exact: true }),
+  ).toBeDisabled();
+  await drawer.getByLabel(en.operations.numSessions, { exact: true }).fill("4");
+  await drawer
+    .getByRole("button", { name: "Review and edit manually", exact: true })
+    .click();
+  await expect(drawer).toHaveCount(0);
+  await expect(
+    page.getByLabel(en.operations.numSessions, { exact: true }),
+  ).toHaveValue("4");
+  await page
+    .getByRole("button", { name: en.operations.previous, exact: true })
+    .click();
+  await expect(
+    page.getByLabel(en.operations.code, { exact: true }),
+  ).toHaveValue("TEST-NEW");
+  await expect(
+    page.getByLabel(en.operations.name, { exact: true }),
+  ).toHaveValue("New badminton course");
+  expect(writes).toBe(0);
+});
+
+test("notice audience changes clear selection and invalidate review", async ({
+  page,
+}) => {
+  let writes = 0;
+  page.on("request", (r) => {
+    if (r.method() === "POST" && r.url().endsWith("/api/manager/notices"))
+      writes++;
+  });
+  await page.goto("/manager/notices");
+  await page.getByRole("checkbox", { name: "Coach Linh", exact: true }).check();
+  await page
+    .getByLabel(en.operations.subject, { exact: true })
+    .fill("Schedule update");
+  await page
+    .getByLabel(en.operations.message, { exact: true })
+    .fill("Please review your schedule.");
+  await page
+    .getByRole("button", { name: en.operations.review, exact: true })
+    .click();
+  await expect(
+    page.getByText(/Server-side recipient preview.*awaiting G07/),
+  ).toBeVisible();
+  await page
+    .getByLabel(en.operations.recipients, { exact: true })
+    .selectOption("MEMBER");
+  await expect(
+    page.getByRole("checkbox", { name: "Member An", exact: true }),
+  ).not.toBeChecked();
+  await expect(
+    page.getByRole("button", { name: en.operations.send, exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: en.operations.review, exact: true }),
+  ).toBeDisabled();
+  expect(writes).toBe(0);
+});
+
+test("notice locks its reviewed audience while sending and keeps one request", async ({
+  page,
+}) => {
+  let finish!: () => void;
+  const pending = new Promise<void>((resolve) => {
+    finish = resolve;
+  });
+  let writes = 0;
+  await page.route("**/api/manager/notices", async (route) => {
+    writes++;
+    expect(route.request().postDataJSON().recipientUserIds).toEqual([coachId]);
+    await pending;
+    await route.fulfill({ json: { noticeId } });
+  });
+  await page.goto("/manager/notices");
+  await page.getByRole("checkbox", { name: "Coach Linh", exact: true }).check();
+  await page
+    .getByLabel(en.operations.subject, { exact: true })
+    .fill("Coach timetable");
+  await page
+    .getByLabel(en.operations.message, { exact: true })
+    .fill("Please review your timetable.");
+  await page
+    .getByRole("button", { name: en.operations.review, exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: en.operations.send, exact: true })
+    .click();
+  await expect(
+    page.getByLabel(en.operations.recipients, { exact: true }),
+  ).toBeDisabled();
+  await expect(
+    page.getByRole("checkbox", { name: "Coach Linh", exact: true }),
+  ).toBeDisabled();
+  finish();
+  await expect(page).toHaveURL(/noticeId=/);
+  expect(writes).toBe(1);
+});
+
+test("notice recovery failure never unlocks a new send", async ({ page }) => {
+  await page.route(`**/api/manager/notices/by-key/${noticeId}`, (route) =>
+    route.fulfill({
+      status: 503,
+      json: { code: "unavailable", message: "Receipt lookup unavailable" },
+    }),
+  );
+  await page.goto(`/manager/notices?noticeKey=${noticeId}`);
+  await expect(page.getByText("Receipt lookup unavailable")).toBeVisible();
+  await expect(
+    page.getByLabel(en.operations.subject, { exact: true }),
+  ).toBeDisabled();
+  await expect(
+    page.getByRole("checkbox", { name: "Coach Linh", exact: true }),
+  ).toBeDisabled();
+  await expect(
+    page.getByRole("button", { name: "Start a new notice", exact: true }),
+  ).toHaveCount(0);
+});
+
+test("incident confirmed steps remain visible when the next preview fails", async ({
+  page,
+}) => {
+  let removed = false;
+  await page.route("**/api/manager/incidents/preview", (route) =>
+    route.fulfill(
+      removed
+        ? {
+            status: 503,
+            json: { code: "unavailable", message: "Recheck unavailable" },
+          }
+        : {
+            json: {
+              ...session,
+              canResolve: false,
+              impacts: [
+                {
+                  sourceType: "ROOM_BLOCK",
+                  sourceId: noticeId,
+                  startAtUtc: session.startAtUtc,
+                  endAtUtc: session.endAtUtc,
+                  resolutionOptions: [{ action: "RemoveExistingBlock" }],
+                },
+              ],
+            },
+          },
+    ),
+  );
+  await page.route(`**/api/manager/room-blocks/${noticeId}`, (route) => {
+    removed = true;
+    return route.fulfill({ status: 204 });
+  });
+  await incidentInputs(page);
+  await page
+    .getByRole("button", { name: en.operations.review, exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: en.operations.remove, exact: true })
+    .click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: en.operations.confirm, exact: true })
+    .click();
+  await expect(page.getByText("Recheck unavailable")).toBeVisible();
+  await expect(
+    page.getByRole("row").filter({ hasText: noticeId }),
+  ).toContainText("Confirmed by server");
+  await expect(page.getByText(en.managerOperations.incidentGap)).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: en.managerOperations.finalResolve }),
+  ).toHaveCount(0);
+});
+
+test("incident uses read-only display names and retains core impacts when display loading fails", async ({
+  page,
+}) => {
+  await page.route("**/api/manager/incidents/preview", (route) =>
+    route.fulfill({
+      json: {
+        startAtUtc: session.startAtUtc,
+        endAtUtc: session.endAtUtc,
+        canResolve: false,
+        impacts: [
+          {
+            sourceType: "CLASS_SESSION",
+            sourceId: sessionId,
+            startAtUtc: session.startAtUtc,
+            endAtUtc: session.endAtUtc,
+            resolutionOptions: [],
+          },
+        ],
+      },
+    }),
+  );
+  await incidentInputs(page);
+  await page
+    .getByRole("button", { name: en.operations.review, exact: true })
+    .click();
+  await expect(
+    page.getByRole("row").filter({ hasText: sessionId }),
+  ).toContainText("Badminton autumn");
+  await expect(
+    page.getByRole("row").filter({ hasText: sessionId }),
+  ).toContainText("Coach Linh");
+  await page.route("**/api/manager/court-schedule?**", (route) =>
+    route.fulfill({
+      status: 503,
+      json: { code: "unavailable", message: "Display unavailable" },
+    }),
+  );
+  await page
+    .getByRole("button", { name: en.managerOperations.recheck })
+    .click();
+  await expect(page.getByText(/Display details are unavailable/)).toBeVisible();
+  await expect(
+    page.getByRole("row").filter({ hasText: sessionId }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: en.managerOperations.finalResolve }),
+  ).toHaveCount(0);
+});
+
+test("incident does not report success for a final response without a receipt", async ({
+  page,
+}) => {
+  await page.route("**/api/manager/incidents/preview", (route) =>
+    route.fulfill({ json: { canResolve: true, impacts: [] } }),
+  );
+  await page.route("**/api/manager/incidents/resolve", (route) =>
+    route.fulfill({ json: {} }),
+  );
+  await incidentInputs(page);
+  await page
+    .getByRole("button", { name: en.operations.review, exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: en.managerOperations.recheck })
+    .click();
+  await page
+    .getByRole("button", { name: en.managerOperations.finalResolve })
+    .click();
+  await expect(
+    page.getByText(en.managerOperations.unknownIncident),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Confirmed by server", { exact: true }),
+  ).toHaveCount(0);
+});
+
+test("incident step timeout records unknown and blocks blind retry", async ({
+  page,
+}) => {
+  let writes = 0;
+  await page.route("**/api/manager/incidents/preview", (route) =>
+    route.fulfill({
+      json: {
+        canResolve: false,
+        impacts: [
+          {
+            sourceType: "ROOM_BLOCK",
+            sourceId: noticeId,
+            startAtUtc: session.startAtUtc,
+            endAtUtc: session.endAtUtc,
+            resolutionOptions: [{ action: "RemoveExistingBlock" }],
+          },
+        ],
+      },
+    }),
+  );
+  await page.route(`**/api/manager/room-blocks/${noticeId}`, (route) => {
+    writes++;
+    return route.abort("failed");
+  });
+  await incidentInputs(page);
+  await page
+    .getByRole("button", { name: en.operations.review, exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: en.operations.remove, exact: true })
+    .click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: en.operations.confirm, exact: true })
+    .click();
+  await expect(
+    page
+      .getByRole("dialog")
+      .getByRole("button", { name: en.operations.confirm, exact: true }),
+  ).toBeDisabled();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: en.operations.close, exact: true })
+    .first()
+    .click();
+  await expect(
+    page.getByText("Outcome unknown — check before retrying", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: en.managerOperations.recheck }),
+  ).toBeDisabled();
+  await expect(
+    page.getByText("Confirmed by server", { exact: true }),
+  ).toHaveCount(0);
+  expect(writes).toBe(1);
+});
 test("Member cannot mount Manager operational requests", async ({ page }) => {
   let calls = 0;
   page.on("request", (r) => {
@@ -1096,6 +1425,76 @@ test("generated preview rejects duplicates, wrong start day and invalid session 
     ),
   ).toEqual([]);
 });
+test("incident keeps the rejected attempt when the same PT action is retried successfully", async ({
+  page,
+}) => {
+  let attempts = 0;
+  await page.route("**/api/manager/incidents/preview", (route) =>
+    route.fulfill({
+      json: {
+        canResolve: false,
+        impacts: [
+          {
+            sourceType: "PT_SESSION",
+            sourceId: sessionId,
+            startAtUtc: session.startAtUtc,
+            endAtUtc: session.endAtUtc,
+            resolutionOptions: [],
+          },
+        ],
+      },
+    }),
+  );
+  await page.route(
+    `**/api/manager/pt-sessions/${sessionId}/cancel`,
+    (route) => {
+      attempts++;
+      return route.fulfill(
+        attempts === 1
+          ? {
+              status: 409,
+              json: { code: "conflict", message: "Refresh this session" },
+            }
+          : { status: 204 },
+      );
+    },
+  );
+  await incidentInputs(page);
+  await page
+    .getByRole("button", { name: en.operations.review, exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: en.operations.edit, exact: true })
+    .click();
+  await page
+    .getByLabel(en.operations.edit, { exact: true })
+    .selectOption("cancel");
+  await page
+    .getByLabel(en.operations.reason, { exact: true })
+    .last()
+    .fill("Cancel affected PT");
+  await page
+    .getByRole("button", { name: en.operations.review, exact: true })
+    .last()
+    .click();
+  await page
+    .getByRole("button", { name: en.operations.confirm, exact: true })
+    .click();
+  await expect(
+    page.getByText("Rejected by server", { exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: en.operations.confirm, exact: true })
+    .click();
+  await expect(
+    page.getByText("Confirmed by server", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Rejected by server", { exact: true }),
+  ).toBeVisible();
+  expect(attempts).toBe(2);
+});
+
 for (const width of [390, 960, 1440])
   test(`Manager operational pages fit ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 1000 });
@@ -1116,11 +1515,6 @@ for (const width of [390, 960, 1440])
       ).toBeLessThanOrEqual(width + 1);
     }
     await page.goto("/manager/classes/1?tab=holds");
-    await page.screenshot({
-      path: `../output/manager-operations-${width}.png`,
-      fullPage: true,
-      animations: "disabled",
-    });
   });
 test("Vietnamese copy and keyboard tabs preserve selected state", async ({
   page,

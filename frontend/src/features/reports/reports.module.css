@@ -1,0 +1,80 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-width: 0;
+}
+
+.back {
+  align-self: flex-start;
+}
+
+.filterForm,
+.exportForm {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  gap: var(--space-4);
+}
+
+.filterGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: var(--space-4);
+  align-items: end;
+}
+
+.filterGrid > * {
+  min-width: 0;
+}
+
+.filterGrid :global(.field > label) {
+  margin: 0;
+}
+
+.filterForm > button,
+.exportForm > button {
+  justify-self: start;
+}
+
+.exportForm > p {
+  margin: 0;
+}
+
+.columns {
+  min-width: 0;
+  margin: 0;
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.columns legend {
+  padding: 0 var(--space-2);
+  font-weight: var(--weight-medium);
+}
+
+.columnList {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  gap: var(--space-2) var(--space-4);
+}
+
+.columns .column {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  min-height: 44px;
+  margin: 0;
+  cursor: pointer;
+}
+
+.column input {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+}
