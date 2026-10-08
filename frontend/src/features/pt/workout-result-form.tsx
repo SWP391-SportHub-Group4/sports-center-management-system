@@ -1,16 +1,58 @@
 "use client";
-import { pagedItems } from "@/lib/paged";
-import { useState } from "react";
-import { AsyncSection, Card, Field, Pager, StatusChip } from "@/components/ui";
-import { api } from "@/lib/apiClient";
-import { useApi } from "@/lib/useApi";
-import { useLanguage } from "@/lib/language";
-import { formatDateTime } from "@/lib/format";
-import { MutationFeedback, useMutation } from "@/features/operations";
-import type { PtSessionDto, WorkoutResultDto } from "@/lib/types";
-import { ptApi } from "./api";
-import { ListPager } from "./ui";
-import { PtMemberSelect } from "./member-select";
+
+import {
+  useState,
+} from "react";
+
+import {
+  AsyncSection,
+  Card,
+  Field,
+  Pager,
+  StatusChip,
+} from "@/components/ui";
+
+import {
+  api,
+} from "@/lib/apiClient";
+
+import {
+  useApi,
+} from "@/lib/useApi";
+
+import {
+  useLanguage,
+} from "@/lib/language";
+
+import {
+  formatDateTime,
+} from "@/lib/format";
+
+import {
+  pagedItems,
+} from "@/lib/paged";
+
+import {
+  MutationFeedback,
+  useMutation,
+} from "@/features/operations";
+
+import type {
+  PtSessionDto,
+  WorkoutResultDto,
+} from "@/lib/types";
+
+import {
+  ptApi,
+} from "./api";
+
+import {
+  ListPager,
+} from "./ui";
+
+import {
+  PtMemberSelect,
+} from "./member-select";
 
 export function WorkoutResultForm({
   session,
@@ -21,55 +63,135 @@ export function WorkoutResultForm({
   result?: WorkoutResultDto;
   onSaved: () => void;
 }) {
-  const { t } = useLanguage();
-  const l = t.staffWork;
-  const mutation = useMutation();
-  const [note, setNote] = useState(result?.progressNote ?? "");
-  const [comment, setComment] = useState(result?.coachComment ?? "");
+  const { t } =
+    useLanguage();
+
+  const l =
+    t.staffWork;
+
+  const mutation =
+    useMutation();
+
+  const [
+    note,
+    setNote,
+  ] = useState(
+    result?.progressNote ??
+      "",
+  );
+
+  const [
+    comment,
+    setComment,
+  ] = useState(
+    result?.coachComment ??
+      "",
+  );
+
   return (
     <form
       className="form"
-      onSubmit={async (e) => {
+      onSubmit={async (
+        e,
+      ) => {
         e.preventDefault();
-        if (
-          await mutation.run(() =>
-            api.put(`/api/workout-results/${session.sessionId}`, {
-              ptSessionId: session.sessionId,
-              progressNote: note.trim() || null,
-              coachComment: comment.trim() || null,
-            }),
-          )
-        )
+
+        const ok =
+          await mutation.run(
+            () =>
+              api.put(
+                `/api/workout-results/${session.sessionId}`,
+                {
+                  ptSessionId:
+                    session.sessionId,
+
+                  progressNote:
+                    note.trim() ||
+                    null,
+
+                  coachComment:
+                    comment.trim() ||
+                    null,
+                },
+              ),
+          );
+
+        if (ok) {
           onSaved();
+        }
       }}
     >
       <p>
-        {session.memberName} · {formatDateTime(session.startAtUtc)}
+        {session.memberName}
+        {" · "}
+        {formatDateTime(
+          session.startAtUtc,
+        )}
       </p>
-      <Field label={l.progressNote}>
+
+      <Field
+        label={
+          l.progressNote
+        }
+      >
         <textarea
-          maxLength={2000}
+          maxLength={
+            2000
+          }
           value={note}
-          onChange={(e) => setNote(e.target.value)}
+          onChange={(
+            e,
+          ) =>
+            setNote(
+              e.target.value,
+            )
+          }
         />
       </Field>
-      <Field label={l.coachComment}>
+
+      <Field
+        label={
+          l.coachComment
+        }
+      >
         <textarea
-          maxLength={2000}
-          value={comment}
-          onChange={(e) => setComment(e.target.value)}
+          maxLength={
+            2000
+          }
+          value={
+            comment
+          }
+          onChange={(
+            e,
+          ) =>
+            setComment(
+              e.target.value,
+            )
+          }
         />
       </Field>
-      <MutationFeedback mutation={mutation} />
+
+      <MutationFeedback
+        mutation={
+          mutation
+        }
+      />
+
       <button
+        type="submit"
         className="btn"
-        disabled={mutation.busy || session.status !== "COMPLETED"}
+        disabled={
+          mutation.busy ||
+          session.status !==
+            "COMPLETED"
+        }
       >
         {l.save}
       </button>
     </form>
   );
 }
+
 function ResultEditor({
   session,
   reload,
@@ -77,29 +199,70 @@ function ResultEditor({
   session: PtSessionDto;
   reload: () => void;
 }) {
-  // Timeline is scoped to the member and coach; find the session through the paginated result API.
-  const results = useApi(
-    async (signal) => {
-      for (let page = 1; ; page++) {
-        const rows = await api.get<WorkoutResultDto[]>(
-          "/api/coaches/me/workout-results",
-          {
-            signal,
-            query: { memberId: session.memberId, page, pageSize: 100 },
-          },
-        );
-        const found = rows.find((r) => r.ptSessionId === session.sessionId);
-        if (found || rows.length < 100) return { result: found };
-      }
-    },
-    [session.sessionId, session.memberId],
-  );
+  const results =
+    useApi(
+      async (
+        signal,
+      ) => {
+        for (
+          let page = 1;
+          ;
+          page++
+        ) {
+          const rows =
+            await api.get<
+              WorkoutResultDto[]
+            >(
+              "/api/coaches/me/workout-results",
+              {
+                signal,
+                query: {
+                  memberId:
+                    session.memberId,
+                  page,
+                  pageSize:
+                    100,
+                },
+              },
+            );
+
+          const found =
+            rows.find(
+              (result) =>
+                result.ptSessionId ===
+                session.sessionId,
+            );
+
+          if (
+            found ||
+            rows.length <
+              100
+          ) {
+            return {
+              result:
+                found,
+            };
+          }
+        }
+      },
+      [
+        session.sessionId,
+        session.memberId,
+      ],
+    );
+
   return (
-    <AsyncSection state={results}>
+    <AsyncSection
+      state={results}
+    >
       {(data) => (
         <WorkoutResultForm
-          session={session}
-          result={data.result}
+          session={
+            session
+          }
+          result={
+            data.result
+          }
           onSaved={() => {
             results.reload();
             reload();
@@ -109,110 +272,364 @@ function ResultEditor({
     </AsyncSection>
   );
 }
+
 export function CoachProgress({
   initialSessionId = "",
+  initialMemberId = "",
 }: {
   initialSessionId?: string;
+  initialMemberId?: string;
 }) {
-  const { t } = useLanguage();
-  const l = t.staffWork;
-  const [page, setPage] = useState(1);
-  const [selected, setSelected] = useState<PtSessionDto | null>(null);
-  const [member, setMember] = useState("");
-  const [timelinePage, setTimelinePage] = useState(1);
-  const [revision, setRevision] = useState(0);
-  const sessions = useApi(
-    (signal) => ptApi.sessions(false, page, signal, "COMPLETED"),
-    [page],
+  const { t } =
+    useLanguage();
+
+  const l =
+    t.staffWork;
+
+  const [
+    page,
+    setPage,
+  ] = useState(1);
+
+  const [
+    selected,
+    setSelected,
+  ] =
+    useState<PtSessionDto | null>(
+      null,
+    );
+
+  const [
+    member,
+    setMember,
+  ] = useState(
+    initialMemberId,
   );
-  const initial = useApi(
-    (signal) =>
-      initialSessionId
-        ? api.get<PtSessionDto>(
-            `/api/coaches/me/pt-sessions/${encodeURIComponent(initialSessionId)}`,
-            { signal },
-          )
-        : Promise.resolve(null),
-    [initialSessionId],
-  );
-  const timeline = useApi(
-    (signal) =>
-      member
-        ? ptApi.progress(member, timelinePage, signal)
-        : Promise.resolve(null),
-    [member, timelinePage, revision],
-  );
-  const active = selected ?? initial.data;
+
+  const [
+    timelinePage,
+    setTimelinePage,
+  ] =
+    useState(1);
+
+  const [
+    revision,
+    setRevision,
+  ] =
+    useState(0);
+
+  const sessions =
+    useApi(
+      (signal) =>
+        ptApi.sessions(
+          false,
+          page,
+          signal,
+          "COMPLETED",
+        ),
+      [page],
+    );
+
+  const initial =
+    useApi(
+      (signal) =>
+        initialSessionId
+          ? api.get<PtSessionDto>(
+              `/api/coaches/me/pt-sessions/${encodeURIComponent(
+                initialSessionId,
+              )}`,
+              {
+                signal,
+              },
+            )
+          : Promise.resolve(
+              null,
+            ),
+      [
+        initialSessionId,
+      ],
+    );
+
+  const timeline =
+    useApi(
+      (signal) =>
+        member
+          ? ptApi.progress(
+              member,
+              timelinePage,
+              signal,
+            )
+          : Promise.resolve(
+              null,
+            ),
+      [
+        member,
+        timelinePage,
+        revision,
+      ],
+    );
+
+  const active =
+    selected ??
+    initial.data;
+
   return (
     <>
-      <Card title={l.results}>
-        <AsyncSection state={sessions}>
-          {(rows) => (
-            <>
-              <Field label={l.session}>
-                <select
-                  value={active?.sessionId ?? ""}
-                  onChange={(e) =>
-                    setSelected(
-                      rows.find((s) => s.sessionId === e.target.value) ?? null,
-                    )
+      <Card
+        title={
+          l.results
+        }
+      >
+        <AsyncSection
+          state={
+            sessions
+          }
+        >
+          {(rows) => {
+            const visibleRows =
+              initialMemberId
+                ? rows.filter(
+                    (
+                      session,
+                    ) =>
+                      session.memberId ===
+                      initialMemberId,
+                  )
+                : rows;
+
+            return (
+              <>
+                <Field
+                  label={
+                    l.session
                   }
                 >
-                  <option value="">—</option>
-                  {active &&
-                    !rows.some((s) => s.sessionId === active.sessionId) && (
-                      <option value={active.sessionId}>
-                        {active.memberName} ·{" "}
-                        {formatDateTime(active.startAtUtc)}
-                      </option>
-                    )}
-                  {rows.map((s) => (
-                    <option key={s.sessionId} value={s.sessionId}>
-                      {s.memberName} · {formatDateTime(s.startAtUtc)}
+                  <select
+                    value={
+                      active?.sessionId ??
+                      ""
+                    }
+                    onChange={(
+                      e,
+                    ) =>
+                      setSelected(
+                        visibleRows.find(
+                          (
+                            session,
+                          ) =>
+                            session.sessionId ===
+                            e.target.value,
+                        ) ??
+                          null,
+                      )
+                    }
+                  >
+                    <option value="">
+                      —
                     </option>
-                  ))}
-                </select>
-              </Field>
-              <ListPager page={page} count={rows.length} onChange={setPage} />
-            </>
-          )}
+
+                    {active &&
+                      !visibleRows.some(
+                        (
+                          session,
+                        ) =>
+                          session.sessionId ===
+                          active.sessionId,
+                      ) && (
+                        <option
+                          value={
+                            active.sessionId
+                          }
+                        >
+                          {
+                            active.memberName
+                          }
+                          {" · "}
+                          {formatDateTime(
+                            active.startAtUtc,
+                          )}
+                        </option>
+                      )}
+
+                    {visibleRows.map(
+                      (
+                        session,
+                      ) => (
+                        <option
+                          key={
+                            session.sessionId
+                          }
+                          value={
+                            session.sessionId
+                          }
+                        >
+                          {
+                            session.memberName
+                          }
+                          {" · "}
+                          {formatDateTime(
+                            session.startAtUtc,
+                          )}
+                        </option>
+                      ),
+                    )}
+                  </select>
+                </Field>
+
+                <ListPager
+                  page={page}
+                  count={
+                    rows.length
+                  }
+                  onChange={
+                    setPage
+                  }
+                />
+              </>
+            );
+          }}
         </AsyncSection>
-        {initialSessionId && initial.error && (
-          <AsyncSection state={initial}>{() => null}</AsyncSection>
-        )}
-        {active?.status === "COMPLETED" && (
+
+        {initialSessionId &&
+          initial.error && (
+            <AsyncSection
+              state={
+                initial
+              }
+            >
+              {() =>
+                null
+              }
+            </AsyncSection>
+          )}
+
+        {active?.status ===
+          "COMPLETED" && (
           <ResultEditor
-            key={active.sessionId}
-            session={active}
-            reload={() => setRevision((r) => r + 1)}
+            key={
+              active.sessionId
+            }
+            session={
+              active
+            }
+            reload={() =>
+              setRevision(
+                (
+                  value,
+                ) =>
+                  value +
+                  1,
+              )
+            }
           />
         )}
       </Card>
-      <Card title={l.timeline}>
+
+      <Card
+        title={
+          l.timeline
+        }
+      >
         <PtMemberSelect
-          value={member}
-          onChange={(id) => {
-            setMember(id);
-            setTimelinePage(1);
+          value={
+            member
+          }
+          onChange={(
+            id,
+          ) => {
+            setMember(
+              id,
+            );
+            setTimelinePage(
+              1,
+            );
           }}
         />
+
         {member && (
-          <AsyncSection state={timeline}>
+          <AsyncSection
+            state={
+              timeline
+            }
+          >
             {(data) => (
               <>
-                {pagedItems(data).map((r) => (
-                  <article key={r.ptSessionId}>
-                    <h3>{formatDateTime(r.startAtUtc)}</h3>
-                    <StatusChip value={r.sessionStatus} />
-                    <p>{r.progressNote}</p>
-                    <p>{r.coachComment}</p>
-                  </article>
-                ))}
+                {pagedItems(
+                  data,
+                ).map(
+                  (
+                    result,
+                  ) => (
+                    <article
+                      key={
+                        result.ptSessionId
+                      }
+                    >
+                      <h3>
+                        {formatDateTime(
+                          result.startAtUtc,
+                        )}
+                      </h3>
+
+                      <StatusChip
+                        value={
+                          result.sessionStatus
+                        }
+                      />
+
+                      {result.progressNote && (
+                        <p>
+                          {
+                            result.progressNote
+                          }
+                        </p>
+                      )}
+
+                      {result.coachComment && (
+                        <p>
+                          {
+                            result.coachComment
+                          }
+                        </p>
+                      )}
+
+                      {!result.progressNote &&
+                        !result.coachComment && (
+                          <p className="muted">
+                            {
+                              t.common
+                                .noData
+                            }
+                          </p>
+                        )}
+                    </article>
+                  ),
+                )}
+
+                {!pagedItems(
+                  data,
+                ).length && (
+                  <p>
+                    {
+                      t.common
+                        .noData
+                    }
+                  </p>
+                )}
+
                 <Pager
-                  page={data.page}
-                  pageSize={data.pageSize}
-                  totalCount={data.totalCount}
-                  onChange={setTimelinePage}
+                  page={
+                    data.page
+                  }
+                  pageSize={
+                    data.pageSize
+                  }
+                  totalCount={
+                    data.totalCount
+                  }
+                  onChange={
+                    setTimelinePage
+                  }
                 />
               </>
             )}
