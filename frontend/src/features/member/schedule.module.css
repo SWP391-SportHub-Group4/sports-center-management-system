@@ -81,6 +81,9 @@
   gap: var(--space-3);
   align-items: start;
 }
+:global(body:has(.backdrop--nonmodal)) .week {
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+}
 .stack {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
