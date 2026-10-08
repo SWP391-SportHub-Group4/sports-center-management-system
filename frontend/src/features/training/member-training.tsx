@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { AsyncSection, Card, StatusChip } from "@/components/ui";
+import { AsyncSection, Card, StatusChip, Feedback } from "@/components/ui";
 import { Tabs } from "@/components/primitives";
 import { api } from "@/lib/apiClient";
-import { useApi } from "@/lib/useApi";
+import { useApi, useAction } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { formatDate, formatDateTime, formatTime } from "@/lib/format";
 import { pagedItems } from "@/lib/paged";
@@ -349,21 +349,90 @@ function ProgressTab() {
   );
 }
 
-/** Homework chỉ đọc: HLV giao và review, Member xem hướng dẫn và nhận xét. */
-function HomeworkTab() {
+function HomeworkProgress({
+  homework: h,
+  onSaved,
+}: {
+  homework: HomeworkDto;
+  onSaved: () => void;
+}) {
+  const { language } = useLanguage();
+  const vi = language === "vi";
+  const [feedback, setFeedback] = useState(h.memberFeedback ?? "");
+  const action = useAction();
+  const editable = ["ASSIGNED", "IN_PROGRESS"].includes(h.status);
+  if (!editable) return null;
+  async function save(status: string) {
+    const saved = await action.run(() =>
+      api.patch(
+        `/api/members/me/homework/${encodeURIComponent(h.assignmentId)}`,
+        {
+          status,
+          memberFeedback: feedback.trim() || null,
+          version: h.version,
+        },
+      ),
+    );
+    if (saved !== null) onSaved();
+  }
+  return (
+    <div className="stack">
+      <label>
+        {vi ? "Phản hồi cho huấn luyện viên" : "Feedback for your coach"}
+        <textarea
+          value={feedback}
+          maxLength={2000}
+          onChange={(e) => setFeedback(e.target.value)}
+          disabled={action.busy}
+        />
+      </label>
+      <Feedback error={action.error} />
+      <div className="btn-row">
+        {h.status === "ASSIGNED" && (
+          <button
+            className="btn btn--secondary"
+            disabled={action.busy}
+            onClick={() => void save("IN_PROGRESS")}
+          >
+            {vi ? "Bắt đầu tập" : "Start assignment"}
+          </button>
+        )}
+        <button
+          className="btn btn--primary"
+          disabled={action.busy}
+          onClick={() => void save("COMPLETED")}
+        >
+          {vi ? "Hoàn thành bài tập" : "Complete assignment"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function HomeworkTab({ assignment }: { assignment: string }) {
   const { t } = useLanguage();
   const l = t.ptOps;
   const state = useApi(
-    (signal) =>
-      api.get<HomeworkDto[]>("/api/members/me/homework", {
-        signal,
-        query: { page: 1, pageSize: PAGE },
-      }),
-    [],
+    async (signal) => {
+      const rows: HomeworkDto[] = [];
+      for (let page = 1; ; page++) {
+        const batch = pagedItems(
+          await api.get<HomeworkDto[]>("/api/members/me/homework", {
+            signal,
+            query: { page, pageSize: PAGE },
+          }),
+        );
+        rows.push(...batch);
+        if (!assignment) return rows;
+        const selected = rows.find((h) => h.assignmentId === assignment);
+        if (selected) return [selected];
+        if (batch.length < PAGE) return [];
+      }
+    },
+    [assignment],
   );
   return (
     <>
-      <p className={styles.muted}>{l.homeworkReadOnly}</p>
       <AsyncSection
         state={state}
         isEmpty={(d) => !pagedItems(d).length}
@@ -392,6 +461,11 @@ function HomeworkTab() {
                     {l.yourNote}: {h.memberFeedback}
                   </p>
                 )}
+                <HomeworkProgress
+                  key={`${h.assignmentId}-${h.version}`}
+                  homework={h}
+                  onSaved={state.reload}
+                />
               </Card>
             ))}
           </div>
@@ -405,7 +479,7 @@ export function MemberTraining() {
   const { t } = useLanguage();
   const l = t.ptOps;
   const { values, setValues } = useUrlQuery(
-    { tab: "sessions" },
+    { tab: "sessions", assignment: "" },
     { tab: choiceQuery([...TABS], "sessions") },
   );
   const tab = values.tab as Tab;
@@ -431,7 +505,7 @@ export function MemberTraining() {
           {tab === "plans" && <PlansTab />}
           {tab === "results" && <ResultsTab />}
           {tab === "progress" && <ProgressTab />}
-          {tab === "homework" && <HomeworkTab />}
+          {tab === "homework" && <HomeworkTab assignment={values.assignment} />}
           {tab === "profile" && <TrainingProfile />}
         </div>
       </Tabs>

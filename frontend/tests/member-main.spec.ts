@@ -395,6 +395,97 @@ test("notification read is persisted and unknown source has no fabricated link",
   ).toHaveCount(0);
 });
 
+for (const entry of ["bell", "list"] as const) {
+  test(`notification ${entry} opens the assigned homework and submits progress`, async ({
+    page,
+  }) => {
+    await setup(page);
+    let read = false;
+    let status = "ASSIGNED";
+    let feedback: string | null = null;
+    await page.route("**/api/notifications**", async (route) => {
+      const path = new URL(route.request().url()).pathname;
+      if (path.endsWith("/read")) {
+        read = true;
+        return route.fulfill({ status: 204 });
+      }
+      if (path.endsWith("unread-count"))
+        return route.fulfill({ json: { count: read ? 0 : 1 } });
+      return route.fulfill({
+        json: [
+          {
+            notificationId: "homework-notice",
+            sourceEventType: "HOMEWORK_ASSIGNED",
+            sourceEntityId: "assignment-1",
+            actionUrl: "/member/training?tab=homework&assignment=assignment-1",
+            message: "Your new PT assignment is ready",
+            status: read ? "READ" : "SENT",
+            sentAt: "2026-10-08T10:00:00Z",
+          },
+        ],
+      });
+    });
+    await page.route("**/api/members/me/homework**", async (route) => {
+      if (route.request().method() === "PATCH") {
+        const body = route.request().postDataJSON();
+        expect(body.version).toBe(0);
+        status = body.status;
+        feedback = body.memberFeedback;
+        return route.fulfill({ json: { status } });
+      }
+      return route.fulfill({
+        json: [
+          {
+            assignmentId: "assignment-1",
+            title: "PT practice",
+            coachName: "Coach Minh",
+            dueAt: "2030-06-10T10:00:00Z",
+            status,
+            memberFeedback: feedback,
+            version: status === "ASSIGNED" ? 0 : 1,
+            items: [
+              { itemId: "exercise-1", exercise: "Squat", sets: 2, reps: 10 },
+            ],
+          },
+        ],
+      });
+    });
+    await page.goto("/notifications");
+    if (entry === "bell") {
+      await page
+        .getByRole("button", { name: "Notifications (1)", exact: true })
+        .click();
+      await page
+        .getByRole("region", { name: "Notifications" })
+        .getByRole("link", { name: /Your new PT assignment/ })
+        .click();
+    } else {
+      await page
+        .getByRole("main")
+        .getByRole("link", { name: /Your new PT assignment/ })
+        .click();
+    }
+    await expect(page).toHaveURL(
+      /\/member\/training\?tab=homework&assignment=assignment-1$/,
+    );
+    expect(read).toBe(true);
+    await page
+      .getByLabel("Feedback for your coach")
+      .fill("Finished both sets.");
+    await page
+      .getByRole("button", { name: "Complete assignment", exact: true })
+      .click();
+    await expect(
+      page.getByText("Finished both sets.", { exact: false }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Complete assignment", exact: true }),
+    ).toHaveCount(0);
+    expect(status).toBe("COMPLETED");
+    expect(feedback).toBe("Finished both sets.");
+  });
+}
+
 test("empty notification list does not claim 100 messages", async ({
   page,
 }) => {

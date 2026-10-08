@@ -233,6 +233,7 @@ builder.Services.AddScoped<IMembershipReportService, MembershipReportService>();
 
 // Notification
 builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<INotificationActionReader, SportHub.API.Persistence.NotificationActionReader>();
 
 // Scheduling
 builder.Services.AddScoped<IGymCheckInRepository, GymCheckInRepository>();

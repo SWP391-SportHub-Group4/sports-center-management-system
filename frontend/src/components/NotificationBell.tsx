@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useLanguage } from "@/lib/language";
 import { useAuth } from "@/lib/auth";
 import { useEffect, useId, useRef, useState } from "react";
@@ -8,18 +9,14 @@ import { api } from "@/lib/apiClient";
 import { formatDateTime } from "@/lib/format";
 import { useApi } from "@/lib/useApi";
 import { IconBell } from "@/components/icons";
-import { memberNotificationHref } from "@/features/member/notifications-api";
+import {
+  memberNotificationHref,
+  notificationActionLabel,
+  notificationsApi,
+  type NotificationDto,
+} from "@/features/member/notifications-api";
 
 import styles from "./NotificationBell.module.css";
-
-interface NotificationDto {
-  notificationId: string;
-  sourceEventType: string;
-  sourceEntityId: string | null;
-  message: string;
-  status: string;
-  sentAt: string | null;
-}
 
 /**
  * Hộp thư trong ứng dụng (BR-33). MVP chỉ có kênh InApp hoạt động thật (SSOT §1.3), nên
@@ -29,7 +26,8 @@ interface NotificationDto {
  * phút không ảnh hưởng gì, và một kết nối realtime chỉ để làm việc đó là chi phí thừa.
  */
 export function NotificationBell() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const router = useRouter();
   const { user } = useAuth();
   const [actionError, setActionError] = useState("");
   const panelId = useId();
@@ -97,6 +95,7 @@ export function NotificationBell() {
       await api.post("/api/notifications/read-all");
       unread.reload();
       items.reload();
+      window.dispatchEvent(new Event("sporthub:notifications-read"));
     } catch (e) {
       setActionError((e as Error).message);
     } finally {
@@ -106,6 +105,23 @@ export function NotificationBell() {
 
   const count = unread.data?.count ?? 0;
   const list = items.data ?? [];
+
+  async function openItem(item: NotificationDto, href: string) {
+    if (busy) return;
+    setBusy(true);
+    setActionError("");
+    try {
+      if (item.status !== "READ")
+        await notificationsApi.read(item.notificationId);
+      window.dispatchEvent(new Event("sporthub:notifications-read"));
+      setOpen(false);
+      router.push(href);
+    } catch (e) {
+      setActionError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
     <div className="bell" ref={containerRef}>
@@ -152,25 +168,46 @@ export function NotificationBell() {
             ) : list.length === 0 ? (
               <p className="state">{t.refactor.empty}</p>
             ) : (
-              list.map((item) => (
-                <Link
-                  key={item.notificationId}
-                  className={styles.item}
-                  data-unread={item.status !== "READ"}
-                  href={
-                    (user?.role === "Member"
-                      ? memberNotificationHref(item)
-                      : null) ?? "/notifications"
-                  }
-                  onClick={() => setOpen(false)}
-                >
-                  <span className={styles.dot} aria-hidden="true" />
-                  <span>
-                    <span className={styles.message}>{item.message}</span>
-                    <time>{formatDateTime(item.sentAt)}</time>
-                  </span>
-                </Link>
-              ))
+              list.map((item) => {
+                const href =
+                  user?.role === "Member" ? memberNotificationHref(item) : null;
+                const content = (
+                  <>
+                    <span className={styles.dot} aria-hidden="true" />
+                    <span>
+                      <span className={styles.message}>{item.message}</span>
+                      <time>{formatDateTime(item.sentAt)}</time>
+                      {href && (
+                        <span className={styles.action}>
+                          {notificationActionLabel(item, language)} →
+                        </span>
+                      )}
+                    </span>
+                  </>
+                );
+                return href ? (
+                  <Link
+                    key={item.notificationId}
+                    className={styles.item}
+                    data-unread={item.status !== "READ"}
+                    href={href}
+                    onNavigate={(event) => {
+                      event.preventDefault();
+                      void openItem(item, href);
+                    }}
+                  >
+                    {content}
+                  </Link>
+                ) : (
+                  <div
+                    key={item.notificationId}
+                    className={styles.item}
+                    data-unread={item.status !== "READ"}
+                  >
+                    {content}
+                  </div>
+                );
+              })
             )}
           </div>
           <Link
