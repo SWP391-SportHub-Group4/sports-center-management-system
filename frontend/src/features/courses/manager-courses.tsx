@@ -37,7 +37,7 @@ const validators = {
   thresholdStatus: choiceQuery(["", ...thresholds], ""),
 };
 export function ManagerCourses() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const l = t.operations;
   const m = t.managerOperations;
   const { values, setValues } = useUrlQuery(defaults, validators);
@@ -103,6 +103,11 @@ export function ManagerCourses() {
   ];
   return (
     <>
+      <p>
+        <Link href="/manager/classes/interests">
+          {language === "vi" ? "Nguyện vọng khóa sau" : "Course interests"}
+        </Link>
+      </p>
       <div className="btn-row" role="group" aria-label={m.savedFilters}>
         {[
           [m.all, "", ""],
