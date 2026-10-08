@@ -483,8 +483,7 @@ export const vi: Translations = {
     unread: "Chưa đọc",
     read: "Đánh dấu đã đọc",
     readStatus: "Đã đọc",
-    notificationsHint:
-      "100 thông báo gần nhất. Chọn Chưa đọc để xem các tin cần chú ý.",
+    notificationsHint: "Chọn Chưa đọc để xem các tin cần chú ý.",
     emptyCourses:
       "Chưa có khóa học trong mục này. Khám phá khóa học để bắt đầu.",
     emptyVisits: "Lịch sử vào ra sẽ xuất hiện sau lần đầu bạn đến Gym.",
@@ -504,6 +503,7 @@ export const vi: Translations = {
     viewAll: "Xem tất cả",
     pending: "Tiếp tục thanh toán",
     emptyNotifications: "Bạn đã xem hết thông báo.",
+    noNotifications: "Bạn chưa có thông báo nào.",
     enrollment: "Ghi danh",
     frequencyHint:
       "Tần suất mỗi tuần dùng để tính quota gói, không giới hạn cứng số buổi đặt mỗi tuần.",
@@ -1848,8 +1848,22 @@ export const vi: Translations = {
     days: ["", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "CN"],
   },
   mSchedule: {
-    description:
-      "Lớp nhóm, buổi PT và lượt thuê sân của bạn, theo giờ Việt Nam. Chọn một mục để xem chi tiết.",
+    chooseWeek: "Chọn tuần",
+    prevWeek: "Tuần trước",
+    currentWeek: "Tuần hiện tại",
+    nextWeek: "Tuần sau",
+    weekdays: [
+      "Thứ 2",
+      "Thứ 3",
+      "Thứ 4",
+      "Thứ 5",
+      "Thứ 6",
+      "Thứ 7",
+      "Chủ nhật",
+    ],
+    weekSchedule: "Thời khóa biểu tuần",
+    present: "Có mặt",
+    completed: "Hoàn thành",
     viewLabel: "Chế độ xem",
     day: "Ngày",
     week: "Tuần",
@@ -1890,6 +1904,19 @@ export const vi: Translations = {
     retry: "Thử lại",
     loading: "Đang tải lịch của bạn",
     todayTag: "Hôm nay",
+    addToCalendar: "Thêm vào lịch (.ics)",
+    cancelRental: "Hủy lượt thuê",
+    cancelTitle: "Hủy lượt thuê sân?",
+    cancelFree:
+      "Bạn hủy trước giờ chơi từ {hours} giờ trở lên nên được hoàn 100% điểm.",
+    cancelLate:
+      "Giờ chơi còn chưa đến {hours} giờ nữa nên lượt thuê này không được hoàn điểm.",
+    rentalBooked: "Đã đặt sân",
+    cancelKeep: "Giữ lượt thuê",
+    cancelConfirm: "Xác nhận hủy",
+    cancelDone: "Đã hủy lượt thuê sân.",
+    rentalCancelled: "Đã hủy",
+    ptHint: "Đổi hoặc hủy buổi PT thực hiện ở trang chi tiết buổi.",
   },
   mCourses: {
     description:
@@ -1934,6 +1961,12 @@ export const vi: Translations = {
     errorTitle: "Chưa tải được khóa học của bạn",
     retry: "Thử lại",
     loading: "Đang tải khóa học của bạn",
+    nextSession: "Buổi kế tiếp",
+    thresholdTitle: "Lớp chưa đủ học viên để mở",
+    thresholdBody:
+      "Hãy chọn chuyển sang lớp khác hoặc nhận hoàn điểm trước {deadline}.",
+    thresholdCta: "Chọn phương án",
+    renew: "Xem khóa {sport} tiếp theo",
   },
   apiErrors: {
     duplicateActivePackage:

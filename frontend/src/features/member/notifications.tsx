@@ -53,7 +53,11 @@ export function MemberNotifications() {
         <AsyncSection
           state={state}
           isEmpty={(rows) => !rows.length}
-          emptyMessage={t.memberPages.emptyNotifications}
+          emptyMessage={
+            values.tab === "unread"
+              ? t.memberPages.emptyNotifications
+              : t.memberPages.noNotifications
+          }
         >
           {(rows) => (
             <ul className={styles.list}>

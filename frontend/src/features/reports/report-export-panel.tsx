@@ -10,6 +10,7 @@ import { reportsApi, type ReportFilters } from "./api";
 import { formatDateTime } from "@/lib/format";
 import { financeStyles as fin } from "@/features/finance";
 import { useEffect } from "react";
+import styles from "./reports.module.css";
 const columnsByType: Record<string, string[]> = {
   REVENUE_DIMENSIONS: [
     "source",
@@ -121,7 +122,7 @@ export function ReportExportPanel({ filters }: { filters: ReportFilters }) {
   return (
     <Card title={l.export}>
       <form
-        className="form"
+        className={`form ${styles.exportForm}`}
         onSubmit={async (e) => {
           e.preventDefault();
           if (
@@ -173,24 +174,26 @@ export function ReportExportPanel({ filters }: { filters: ReportFilters }) {
             ` · ${l.source}: ${type === "COURT_RENTAL_REVENUE" ? l.rentals : filters.source || l.all} · ${l.memberId}: ${filters.memberId || l.all}`}
         </p>
         {type === "REVENUE_SUMMARY" && <p>{l.globalPoints}</p>}
-        <fieldset>
+        <fieldset className={styles.columns}>
           <legend>{l.columns}</legend>
-          {columnsByType[type].map((c) => (
-            <label key={c}>
-              <input
-                type="checkbox"
-                checked={columns.includes(c)}
-                onChange={(e) =>
-                  setColumns(
-                    e.target.checked
-                      ? [...columns, c]
-                      : columns.filter((x) => x !== c),
-                  )
-                }
-              />
-              {columnLabels[c] ?? c}
-            </label>
-          ))}
+          <div className={styles.columnList}>
+            {columnsByType[type].map((c) => (
+              <label key={c} className={styles.column}>
+                <input
+                  type="checkbox"
+                  checked={columns.includes(c)}
+                  onChange={(e) =>
+                    setColumns(
+                      e.target.checked
+                        ? [...columns, c]
+                        : columns.filter((x) => x !== c),
+                    )
+                  }
+                />
+                <span>{columnLabels[c] ?? c}</span>
+              </label>
+            ))}
+          </div>
         </fieldset>
         <Field label={l.format}>
           <select value={format} onChange={(e) => setFormat(e.target.value)}>

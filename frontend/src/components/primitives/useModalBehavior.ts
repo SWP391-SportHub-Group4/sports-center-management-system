@@ -17,6 +17,7 @@ const stack: symbol[] = [];
 export function useModalBehavior(
   ref: RefObject<HTMLElement | null>,
   onClose: () => void,
+  modal = true,
 ) {
   // Giữ onClose mới nhất mà không phải gắn lại listener (và không làm mất focus) mỗi lần render.
   const closeRef = useRef(onClose);
@@ -33,18 +34,19 @@ export function useModalBehavior(
     node?.querySelector<HTMLElement>(FOCUSABLE)?.focus();
 
     const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    if (modal) document.body.style.overflow = "hidden";
 
     function onKeyDown(event: KeyboardEvent) {
       if (stack[stack.length - 1] !== token) return;
 
       if (event.key === "Escape") {
+        if (!modal && !node?.contains(document.activeElement)) return;
         event.stopPropagation();
         closeRef.current();
         return;
       }
 
-      if (event.key !== "Tab" || !node) return;
+      if (event.key !== "Tab" || !node || !modal) return;
 
       const targets = Array.from(
         node.querySelectorAll<HTMLElement>(FOCUSABLE),
@@ -70,8 +72,8 @@ export function useModalBehavior(
       document.removeEventListener("keydown", onKeyDown);
       const index = stack.indexOf(token);
       if (index >= 0) stack.splice(index, 1);
-      if (stack.length === 0) document.body.style.overflow = previousOverflow;
-      previous?.focus();
+      if (modal) document.body.style.overflow = previousOverflow;
+      if (modal || node?.contains(document.activeElement)) previous?.focus();
     };
-  }, [ref]);
+  }, [ref, modal]);
 }

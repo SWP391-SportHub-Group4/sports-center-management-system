@@ -1,12 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import QRCode from "qrcode";
+import { useState } from "react";
 import { Dialog } from "@/components/ui";
 import { IconQrCode } from "@/components/icons";
 import { useAuth } from "@/lib/auth";
 import { useLanguage } from "@/lib/language";
-import { memberCodePayload } from "@/lib/member-code";
 import styles from "./MemberShell.module.css";
 import codeStyles from "./MemberCodeCard.module.css";
 
@@ -18,19 +16,9 @@ export function MemberCodeButton() {
   const { user } = useAuth();
   const { language } = useLanguage();
   const [open, setOpen] = useState(false);
-  const [dataUrl, setDataUrl] = useState("");
+  const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState(false);
   const userId = user?.userId;
-
-  useEffect(() => {
-    if (!open || !userId) return;
-    let cancelled = false;
-    QRCode.toDataURL(memberCodePayload(userId), { width: 240, margin: 1 })
-      .then((url) => !cancelled && setDataUrl(url))
-      .catch(() => !cancelled && setDataUrl(""));
-    return () => {
-      cancelled = true;
-    };
-  }, [open, userId]);
 
   if (!userId) return null;
   const en = language === "en";
@@ -41,7 +29,12 @@ export function MemberCodeButton() {
       <button
         type="button"
         className={styles.qrButton}
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          setOpen(true);
+          setCopied(false);
+          setCopyError(false);
+        }}
+        aria-expanded={open}
         aria-haspopup="dialog"
         aria-label={label}
         title={label}
@@ -64,18 +57,40 @@ export function MemberCodeButton() {
           onClose={() => setOpen(false)}
         >
           <div className={codeStyles.content}>
-            {dataUrl && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={dataUrl}
-                width={240}
-                height={240}
-                className={codeStyles.qr}
-                alt={en ? "Member code QR" : "Mã QR hội viên"}
-              />
+            <strong>{user.fullName}</strong>
+            <p>{user.email}</p>
+            <p className={`small muted ${codeStyles.memberId}`}>{userId}</p>
+            <button
+              className="btn btn--secondary"
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(userId);
+                  setCopied(true);
+                  setCopyError(false);
+                } catch {
+                  setCopyError(true);
+                }
+              }}
+            >
+              {copied
+                ? en
+                  ? "Copied"
+                  : "Đã sao chép"
+                : en
+                  ? "Copy member code"
+                  : "Sao chép mã hội viên"}
+            </button>
+            {copyError && (
+              <p role="alert">
+                {en
+                  ? "Copy is unavailable. Select the code above to copy it manually."
+                  : "Chưa sao chép được. Bạn có thể chọn mã ở trên để sao chép thủ công."}
+              </p>
             )}
-            <p className={`small muted ${codeStyles.memberId}`}>
-              {userId}
+            <p role="status">
+              {en
+                ? "Your center-issued QR is not available yet. The front desk can look up your account using this code or email."
+                : "Mã QR do trung tâm cấp chưa khả dụng. Lễ tân có thể tra cứu bằng mã hội viên hoặc email này."}
             </p>
           </div>
         </Dialog>

@@ -14,9 +14,16 @@ import { IncidentImpactReview } from "./incident-impact-review";
 import { ApiGap } from "@/features/manager";
 import { ReceiptLookup, validReceiptId } from "@/features/manager";
 import { managerWorkspaceStyles as styles } from "@/features/manager";
+import { useOperationsCopy } from "@/features/manager";
+import {
+  IncidentProgress,
+  type IncidentStep,
+  type StepStatus,
+} from "./incident-progress";
 export function IncidentForm() {
   const { t } = useLanguage();
   const l = t.operations;
+  const c = useOperationsCopy();
   const params = useSearchParams();
   const mutation = useMutation();
   const revision = useRef(0);
@@ -47,9 +54,39 @@ export function IncidentForm() {
     params.get("incidentUncertain") === "1",
   );
   const [resolving, setResolving] = useState(false);
-  const [completed, setCompleted] = useState<
-    { type: string; id: string; at: string }[]
-  >([]);
+  const [steps, setSteps] = useState<IncidentStep[]>([]);
+  const [editing, setEditing] = useState(false);
+  function record(
+    type: string,
+    id: string,
+    status: StepStatus,
+    message?: string,
+  ) {
+    setSteps((rows) => {
+      const next = { type, id, status, message, at: new Date().toISOString() };
+      // Keep earlier attempts; only complete the current in-flight attempt.
+      if (status !== "pending") {
+        for (let index = rows.length - 1; index >= 0; index--) {
+          const row = rows[index];
+          if (
+            row.type === type &&
+            (row.id === id || type === "FINAL") &&
+            row.status === "pending"
+          ) {
+            return rows.map((item, i) => (i === index ? next : item));
+          }
+        }
+      }
+      return [...rows, next];
+    });
+    setFinalReview(false);
+    if (status === "unknown") {
+      setUncertain(true);
+      const query = new URLSearchParams(window.location.search);
+      query.set("incidentUncertain", "1");
+      window.history.replaceState(null, "", `?${query}`);
+    }
+  }
   function clear() {
     revision.current++;
     setReview(null);
@@ -91,7 +128,11 @@ export function IncidentForm() {
             await preview();
           }}
         >
-          <fieldset disabled={resolving || uncertain || !!incidentId}>
+          <fieldset
+            disabled={
+              mutation.busy || resolving || editing || uncertain || !!incidentId
+            }
+          >
             <div className="form-grid">
               <Field label={l.scope}>
                 <select
@@ -184,6 +225,8 @@ export function IncidentForm() {
                 setIncidentId("");
                 setReview(null);
                 setFinalReview(false);
+                setSteps([]);
+                setReason("");
                 mutation.reset();
                 window.history.replaceState(null, "", window.location.pathname);
               }}
@@ -199,34 +242,27 @@ export function IncidentForm() {
         )}
       </Card>
       <div className={styles.checkpoint}>
-        <h2>{t.managerOperations.completedSteps}</h2>
-        {!completed.length && <p>{t.managerOperations.noSteps}</p>}
-        {completed.map((r, i) => (
-          <p key={`${r.id}-${i}`}>
-            {t.managerOperations.completedStep} · {r.type} · <code>{r.id}</code>{" "}
-            · {r.at}
-          </p>
-        ))}
+        <IncidentProgress steps={steps} />
       </div>
       {review && (
-        <Card title={l.impact}>
+        <section className="stack">
+          <h2>{l.impact}</h2>
           <IncidentImpactReview
             preview={review.preview}
             onRefresh={() => preview()}
-            onCompleted={(type, id) => {
-              setCompleted((rows) => [
-                ...rows,
-                { type, id, at: new Date().toLocaleTimeString() },
-              ]);
+            onResult={record}
+            onEditingChange={(value) => {
+              setEditing(value);
               setFinalReview(false);
             }}
+            disabled={mutation.busy || uncertain || !!incidentId}
           />
           {!review.preview.canResolve && <p>{l.resolutionRequired}</p>}
           {!finalReview && (
             <button
               type="button"
               className="btn btn--secondary"
-              disabled={mutation.busy || uncertain || !!incidentId}
+              disabled={mutation.busy || editing || uncertain || !!incidentId}
               onClick={() => preview(true)}
             >
               {t.managerOperations.recheck}
@@ -244,12 +280,14 @@ export function IncidentForm() {
                 className="btn"
                 disabled={
                   mutation.busy ||
+                  editing ||
                   !review.preview.canResolve ||
                   !!incidentId ||
                   uncertain
                 }
                 onClick={async () => {
                   setResolving(true);
+                  record("FINAL", "—", "pending");
                   let unknown = false;
                   const ok = await mutation.run(async () => {
                     const response = await api
@@ -257,6 +295,11 @@ export function IncidentForm() {
                         "/api/manager/incidents/resolve",
                         review.body,
                       )
+                      .then((response) => {
+                        if (!validReceiptId(response.incidentId))
+                          throw new Error(c.invalidReceipt);
+                        return response;
+                      })
                       .catch((error) => {
                         unknown =
                           !(error instanceof ApiError) ||
@@ -265,6 +308,7 @@ export function IncidentForm() {
                         throw error;
                       });
                     setIncidentId(response.incidentId);
+                    record("FINAL", response.incidentId, "succeeded");
                     window.history.replaceState(
                       null,
                       "",
@@ -273,6 +317,7 @@ export function IncidentForm() {
                   }, l.resolved);
                   setResolving(false);
                   if (!ok) {
+                    record("FINAL", "—", unknown ? "unknown" : "failed");
                     setReview(null);
                     setFinalReview(false);
                     setUncertain(unknown);
@@ -288,7 +333,7 @@ export function IncidentForm() {
               </button>
             </>
           )}
-        </Card>
+        </section>
       )}
       {uncertain && (
         <div className="alert alert--warning" role="alert">

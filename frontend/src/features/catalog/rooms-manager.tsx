@@ -363,28 +363,32 @@ export function RoomsManager({ detailId }: { detailId?: number } = {}) {
                     <StatusChip value={r.isActive ? "ACTIVE" : "INACTIVE"} />
                   </td>
                   <td>
-                    <button
-                      className="btn btn--secondary"
-                      onClick={() => {
-                        setId(r.roomId);
-                        setForm({
-                          ...r,
-                          roomTypeId: r.roomTypeId ? String(r.roomTypeId) : "",
-                        });
-                        setEditing(true);
-                        mutation.reset();
-                      }}
-                    >
-                      {l.edit}
-                    </button>
-                    <button
-                      className="btn btn--ghost"
-                      onClick={() =>
-                        router.push(`/manager/facilities/${r.roomId}`)
-                      }
-                    >
-                      {l.openingHours} / {l.blocks}
-                    </button>
+                    <div className="btn-row">
+                      <button
+                        className="btn btn--secondary"
+                        onClick={() => {
+                          setId(r.roomId);
+                          setForm({
+                            ...r,
+                            roomTypeId: r.roomTypeId
+                              ? String(r.roomTypeId)
+                              : "",
+                          });
+                          setEditing(true);
+                          mutation.reset();
+                        }}
+                      >
+                        {l.edit}
+                      </button>
+                      <button
+                        className="btn btn--ghost"
+                        onClick={() =>
+                          router.push(`/manager/facilities/${r.roomId}`)
+                        }
+                      >
+                        {l.openingHours} / {l.blocks}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
