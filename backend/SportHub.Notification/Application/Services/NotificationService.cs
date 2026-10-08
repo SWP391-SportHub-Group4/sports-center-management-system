@@ -13,9 +13,10 @@ public sealed record NotificationResponse(
     Guid? SourceEntityId,
     string Message,
     [property: SportHub.BuildingBlocks.Api.WireEnum] string Status,
-    DateTime? SentAt);
+    DateTime? SentAt,
+    string? ActionUrl = null);
 
-public sealed class NotificationService(ISportHubDbContext db, IClock clock) : INotificationService
+public sealed class NotificationService(ISportHubDbContext db, IClock clock, INotificationActionReader actions) : INotificationService
 {
     public async Task<IReadOnlyList<NotificationResponse>> GetMineAsync(
         Guid userId,
@@ -31,7 +32,7 @@ public sealed class NotificationService(ISportHubDbContext db, IClock clock) : I
             query = query.Where(n => n.Status != NotificationStatus.Read);
         }
 
-        return await query
+        var rows = await query
             .OrderByDescending(n => n.SentAt ?? DateTime.MinValue)
             .ThenByDescending(n => n.NotificationId)
             .Take(100)
@@ -41,8 +42,10 @@ public sealed class NotificationService(ISportHubDbContext db, IClock clock) : I
                 n.SourceEntityId,
                 n.Message,
                 n.Status.ToString(),
-                n.SentAt))
+                n.SentAt, null))
             .ToListAsync(ct);
+        var destinations = await actions.GetMemberActionsAsync(userId, rows, ct);
+        return rows.Select(n => n with { ActionUrl = destinations.GetValueOrDefault(n.NotificationId) }).ToList();
     }
 
     // Pending cũng tính là chưa đọc: ở MVP thông báo InApp hiển thị ngay khi có trong DB,
