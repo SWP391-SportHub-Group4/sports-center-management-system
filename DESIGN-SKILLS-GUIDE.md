@@ -288,7 +288,7 @@ Không kết luận production-ready khi còn gap nghiệp vụ P0 liên quan.
 | Khôi K01–K03 | Landing; Bộ môn → chi tiết; Khóa học → lọc/chi tiết/lịch toàn khóa | UX Persuade → Taste đầy đủ |
 | Khôi K04–K07 | Gym → Membership; PT → hồ sơ HLV; Sân → chi tiết/lịch trống | UX chọn dịch vụ → Taste |
 | Khôi K08–K10 | Về trung tâm/cơ sở vật chất; Liên hệ; Hỗ trợ/FAQ/chính sách | UX nội dung → Taste |
-| Khôi K11–K17 | Login; Member register/OTP; forgot/reset; Google onboarding; account/profile/security/language; trang lỗi/phiên | UX auth → UI shared |
+| Khôi K11–K17 | Login; Member register/OTP; forgot/reset; Google đăng nhập; account/profile/security/language; trang lỗi/phiên | UX auth → UI shared |
 | Khôi K19–K23 | Member thuê sân: tìm sân/chọn slot/review; pending/payment; rentals/detail; hủy; đặt lại | UX Operate → UI shared |
 | Hào H01–H04 | Quầy hôm nay; hội viên → hồ sơ; hỗ trợ đăng ký; Gym check-in/out/danh sách đang ở Gym | UX tốc độ/nhận diện → UI quick actions |
 | Hào H05–H11 | Bán dịch vụ → Member/sản phẩm/checkout/OTP; điểm danh/roster; lịch sân/detail; hóa đơn; tạo hộ refund; ví Member | UX thao tác/quyền → UI dense |

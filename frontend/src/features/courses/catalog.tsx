@@ -128,10 +128,7 @@ export function CourseCatalog({
       </section>
 
       {detailBasePath === "/member/discover" && (
-        <p className={styles.note}>
-          {d.independent.split(/Gym & PT\.?$/)[0]}
-          <Link href="/member/services">{d.gymPt}</Link>.
-        </p>
+        <p className={styles.note}>{d.independent}</p>
       )}
 
       {courses.loading ? (
@@ -163,7 +160,10 @@ export function CourseCatalog({
               <Link className="btn" href="/member/courts/book">
                 {d.rent}
               </Link>
-              <Link className="btn btn--secondary" href="/member/services">
+              <Link
+                className="btn btn--secondary"
+                href="/member/discover?tab=gym"
+              >
                 {d.gymPt}
               </Link>
             </div>

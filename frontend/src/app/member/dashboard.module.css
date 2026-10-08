@@ -33,6 +33,16 @@
   border-radius: var(--radius-lg);
   background: var(--warning-bg);
 }
+.attentionClear {
+  border-color: var(--border-subtle);
+  background: var(--bg-surface);
+}
+.attentionClear h2 {
+  color: var(--text-strong);
+}
+.attentionClear p {
+  color: var(--text-muted);
+}
 .attention h2 {
   display: flex;
   align-items: center;
@@ -100,6 +110,42 @@
 }
 .schedule {
   grid-column: 1;
+}
+.todayAgenda {
+  padding: var(--space-4);
+  margin-bottom: var(--space-5);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+}
+.todayAgenda h3, .nextHeading {
+  margin-bottom: var(--space-3) !important;
+}
+.todayAgenda ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.todayAgenda li + li {
+  border-top: 1px solid var(--border-subtle);
+}
+.todayAgenda a {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  min-height: 44px;
+  padding: var(--space-2) 0;
+  color: var(--text-strong);
+}
+.todayAgenda strong {
+  font-variant-numeric: tabular-nums;
+}
+.todayAgenda small, .todayAgenda p {
+  color: var(--text-muted);
+}
+.todayAgenda p {
+  margin: 0;
 }
 .nextSession {
   background: var(--bg-brand-deep);

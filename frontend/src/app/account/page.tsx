@@ -14,7 +14,7 @@ import {
 } from "@/components/ui";
 import { api, ApiError } from "@/lib/apiClient";
 import { formatDate } from "@/lib/format";
-import { useAction, useApi } from "@/lib/useApi";
+import { useAction, useApi, useNow } from "@/lib/useApi";
 import { useAuth, type Role } from "@/lib/auth";
 import { useLanguage } from "@/lib/language";
 import {
@@ -41,6 +41,7 @@ export default function AccountPage() {
   });
   const [profileErrors, setProfileErrors] = useState<{ fullName?: string }>({});
   const [passwordErrors, setPasswordErrors] = useState<{
+    otp?: string;
     current?: string;
     next?: string;
     confirm?: string;
@@ -48,6 +49,13 @@ export default function AccountPage() {
 
   const profileAction = useAction();
   const passwordAction = useAction();
+  // Luồng A: tài khoản chưa có mật khẩu (đăng ký bằng Google) xác nhận bằng mã 6 số gửi về email.
+  const otpAction = useAction();
+  const [otp, setOtp] = useState("");
+  const [otpResendAt, setOtpResendAt] = useState(0);
+  const otpRef = useRef<HTMLInputElement>(null);
+  const now = useNow(1000);
+  const resendSeconds = Math.max(0, Math.ceil((otpResendAt - now) / 1000));
   const fullNameRef = useRef<HTMLInputElement>(null);
   const currentPasswordRef = useRef<HTMLInputElement>(null);
   const nextPasswordRef = useRef<HTMLInputElement>(null);
@@ -105,12 +113,39 @@ export default function AccountPage() {
     }
   };
 
+  const sendOtp = async () => {
+    if (otpAction.busy || resendSeconds > 0) return;
+    otpAction.reset();
+    const sent = await otpAction.run(
+      async () => {
+        try {
+          await api.post<void>("/api/users/me/password/otp");
+          return true;
+        } catch (error) {
+          if (error instanceof ApiError && error.code === "otp_resend_too_soon")
+            setOtpResendAt(Date.now() + 60_000);
+          throw error;
+        }
+      },
+      t.account.otpSent.replace("{email}", account.data?.email ?? ""),
+    );
+    if (sent) {
+      setOtpResendAt(Date.now() + 60_000);
+      otpRef.current?.focus();
+    }
+  };
+
   const savePassword = async (event: React.FormEvent) => {
     event.preventDefault();
     if (passwordAction.busy) return;
     setCurrentPasswordError(false);
     passwordAction.reset();
+    const needsOtp = account.data?.hasPassword === false;
     const errors = {
+      otp:
+        needsOtp && !/^[0-9]{6}$/.test(otp.trim())
+          ? t.account.otpInvalid
+          : undefined,
       current:
         account.data?.hasPassword && !passwordForm.current.trim()
           ? requiredMessage
@@ -119,6 +154,10 @@ export default function AccountPage() {
       confirm: validateConfirmPassword(passwordForm.confirm),
     };
     setPasswordErrors(errors);
+    if (errors.otp) {
+      otpRef.current?.focus();
+      return;
+    }
     if (errors.current) {
       currentPasswordRef.current?.focus();
       return;
@@ -140,6 +179,7 @@ export default function AccountPage() {
             currentPassword: account.data?.hasPassword
               ? passwordForm.current
               : null,
+            otpCode: account.data?.hasPassword ? null : otp.trim(),
             newPassword: passwordForm.next,
             confirmNewPassword: passwordForm.confirm,
           },
@@ -168,6 +208,8 @@ export default function AccountPage() {
       await refreshUser();
       setPasswordForm({ current: "", next: "", confirm: "" });
       setPasswordErrors({});
+      setOtp("");
+      otpAction.reset();
       account.reload();
     }
   };
@@ -279,9 +321,55 @@ export default function AccountPage() {
                 noValidate
               >
                 {!data.hasPassword && (
-                  <div className="alert alert--info">
-                    {t.account.noPasswordNotice}
-                  </div>
+                  <>
+                    <div className="alert alert--info">
+                      {t.account.noPasswordNotice}
+                    </div>
+                    <div>
+                      <button
+                        type="button"
+                        className="btn btn--secondary"
+                        onClick={() => void sendOtp()}
+                        disabled={otpAction.busy || resendSeconds > 0}
+                      >
+                        {resendSeconds > 0
+                          ? t.account.resendCodeIn.replace(
+                              "{seconds}",
+                              String(resendSeconds),
+                            )
+                          : otpResendAt > 0
+                            ? t.account.resendCode
+                            : t.account.sendCode}
+                      </button>
+                    </div>
+                    <Feedback
+                      error={otpAction.error}
+                      success={otpAction.success}
+                    />
+                    <Field
+                      label={t.account.otpLabel}
+                      required
+                      error={passwordErrors.otp}
+                      reserveErrorSpace
+                    >
+                      <input
+                        ref={otpRef}
+                        inputMode="numeric"
+                        autoComplete="one-time-code"
+                        maxLength={6}
+                        value={otp}
+                        required
+                        onChange={(event) => {
+                          passwordAction.reset();
+                          setPasswordErrors((current) => ({
+                            ...current,
+                            otp: undefined,
+                          }));
+                          setOtp(event.target.value.replace(/[^0-9]/g, ""));
+                        }}
+                      />
+                    </Field>
+                  </>
                 )}
 
                 {data.hasPassword && (

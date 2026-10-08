@@ -196,6 +196,7 @@ Việc bổ sung không thay đổi quyền đọc audit, scope tài khoản c�
 |---|---|
 | GET | `api/users/me` |
 | PUT | `api/users/me/profile` |
+| POST | `api/users/me/password/otp` |
 | POST | `api/users/me/password` |
 
 ### AuthController — `api/auth`
@@ -211,7 +212,6 @@ Việc bổ sung không thay đổi quyền đọc audit, scope tài khoản c�
 | Verb | Path |
 |---|---|
 | POST | `api/auth/google` |
-| POST | `api/auth/google/onboarding` |
 | POST | `api/auth/google/link` |
 | DELETE | `api/auth/google/link` |
 

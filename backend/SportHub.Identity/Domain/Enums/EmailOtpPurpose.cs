@@ -4,5 +4,7 @@ namespace SportHub.Identity.Domain.Enums;
 public enum EmailOtpPurpose
 {
     Register,
-    ResetPassword
+    ResetPassword,
+    /// <summary>Mã 6 số xác nhận chủ email trước khi tài khoản Google-only đặt mật khẩu lần đầu trong Cài đặt tài khoản.</summary>
+    SetPassword
 }

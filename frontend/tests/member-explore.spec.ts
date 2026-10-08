@@ -143,9 +143,7 @@ test("Khám phá: thẻ lớp đủ thông tin, lọc còn chỗ", async ({ page
   );
   await page.goto("/member/discover");
   await expect(
-    page.getByText(
-      "Tìm khóa học phù hợp với bạn. Xem lịch, chỗ còn và học phí trước khi đăng ký.",
-    ),
+    page.getByText("Tìm và mua khóa học, Membership Gym, PT hoặc đặt sân."),
   ).toBeVisible();
 
   const br = page.locator("article").filter({ hasText: "Bóng rổ 01" });
@@ -164,6 +162,36 @@ test("Khám phá: thẻ lớp đủ thông tin, lọc còn chỗ", async ({ page
   await page.getByLabel(/còn chỗ/i).check();
   await expect(page.locator("article")).toHaveCount(2);
   await expect(page.getByText("Cầu lông 02")).toHaveCount(0);
+});
+
+test("Khám phá có danh mục Gym, PT và lối đặt sân", async ({ page }) => {
+  await base(page);
+  await page.route("**/api/membership-packages", (route) =>
+    route.fulfill({
+      json: [
+        {
+          packageId: 1,
+          name: "Gym tháng",
+          price: 500000,
+          durationDays: 30,
+          sessionLimit: null,
+          description: "Tập Gym tự do trong 30 ngày.",
+          isActive: true,
+        },
+      ],
+    }),
+  );
+  await page.goto("/member/discover");
+  await page.getByRole("tab", { name: "Membership Gym" }).click();
+  await expect(page.getByText("Gym tháng")).toBeVisible();
+  await page.getByRole("tab", { name: "Huấn luyện cá nhân" }).click();
+  await expect(
+    page.getByRole("tab", { name: "Huấn luyện cá nhân" }),
+  ).toHaveAttribute("aria-selected", "true");
+  await page.getByRole("tab", { name: "Sân" }).click();
+  await expect(
+    page.getByRole("link", { name: "Tìm sân trống" }),
+  ).toHaveAttribute("href", "/member/courts/book");
 });
 
 test("Khám phá: không có lớp thì hiện trạng thái trống có lối đi tiếp", async ({
@@ -227,6 +255,13 @@ test("Lịch của tôi: phân biệt lớp nhóm, PT và thuê sân", async ({ 
 
   await expect(page.getByText("Bóng rổ 01").first()).toBeVisible();
   await expect(page.getByText("Đỗ Quang").first()).toBeVisible();
+  const filters = page.getByRole("group", { name: "Hiển thị" });
+  await filters.getByRole("button", { name: "Buổi PT" }).click();
+  const calendar = page.getByRole("region", { name: "Thời khóa biểu tuần" });
+  await expect(calendar.getByText("Đỗ Quang").first()).toBeVisible();
+  await expect(calendar.getByText("Bóng rổ 01")).toHaveCount(0);
+  await filters.getByRole("button", { name: "Tất cả" }).click();
+  await expect(calendar.getByText("Bóng rổ 01").first()).toBeVisible();
 });
 
 const enrollments = [

@@ -53,7 +53,7 @@ Quan hệ 1–N với `USER_SPORT_SPECIALTIES` (Coach); Member có thêm 1 `POIN
 | Field | Vai trò |
 |---|---|
 | `UserId` (PK, FK → USER_ACCOUNTS) | Cùng giá trị PK với `UserAccount.UserId` — quan hệ 1–1 |
-| `PasswordHash` | Lưu hash, không bao giờ lưu plaintext — dùng để xác thực khi login. **Nullable**: account tạo thuần qua Google (chưa từng đặt password nội bộ) sẽ để trống; `POST /api/auth/login` chỉ cho phép khi field này khác null |
+| `PasswordHash` | Lưu hash, không bao giờ lưu plaintext — dùng để xác thực khi login. **Nullable**: account đăng ký bằng Google được tạo ngay với `PasswordHash = NULL` (chưa có mật khẩu nội bộ); `POST /api/auth/login` chỉ cho phép khi field này khác null. Có mật khẩu sau khi dùng luồng đặt mật khẩu có OTP trong Cài đặt tài khoản hoặc luồng quên mật khẩu (xem [auth-account-rules.md](auth-account-rules.md)) |
 
 ### `USER_PROFILES`
 **Mục đích:** thông tin **hiển thị** của user — tách khỏi `USER_ACCOUNTS` vì đây là dữ liệu không liên quan đến cơ chế đăng nhập/phân quyền, thay đổi theo nhu cầu UX (đổi tên, thêm field liên hệ...) độc lập với logic auth. Quan hệ 1–1 với `USER_ACCOUNTS` (chung PK).
@@ -76,7 +76,7 @@ Quan hệ 1–N với `USER_SPORT_SPECIALTIES` (Coach); Member có thêm 1 `POIN
 | `RefreshToken` | Nullable; scope Google login hiện không lưu refresh token. Nếu bổ sung lưu trữ phải thiết kế bảo vệ riêng, không lưu thô |
 | `CreatedAt` | Mốc link provider — cũng là mốc dùng để kiểm tra `(UserId, Provider)` unique (1 user không link trùng 1 provider 2 lần) |
 
-**Business rule đăng nhập Google (BR-59/60 chính thức):** nếu `POST /api/auth/google` nhận email đã tồn tại nhưng chưa link thì không tự tạo/tự link. Với email mới, hệ thống tạo account ở trạng thái chờ thiết lập mật khẩu; chính người dùng phải nhập và xác nhận mật khẩu mạnh trước khi hoàn tất onboarding. Không sinh hoặc gửi mật khẩu gợi ý.
+**Business rule đăng nhập Google (BR-59/60, bản mới):** `POST /api/auth/google` đăng nhập thẳng nếu danh tính Google đã link; nếu email Google (đã xác minh) trùng một tài khoản đang hoạt động thì **tự link** danh tính Google vào tài khoản đó; nếu email chưa tồn tại thì **tạo ngay** tài khoản Member với `PasswordHash = NULL`. Không có bước onboarding. Chi tiết: [auth-account-rules.md](auth-account-rules.md).
 
 ### `ROLES`
 **Mục đích:** danh mục cố định 5 vai trò trong hệ thống, tách riêng để RBAC dễ mở rộng (thêm role mới không cần đổi schema `USER_ACCOUNTS`).
@@ -109,7 +109,7 @@ Quan hệ 1–N với `USER_SPORT_SPECIALTIES` (Coach); Member có thêm 1 `POIN
 
 | Field | Vai trò |
 |---|---|
-| `Purpose` () | Enum `EmailOtpPurpose`: `Register`, `ResetPassword` (quên mật khẩu, không hỏi mật khẩu cũ — BR-103). Cho phép mỗi mục đích có OTP còn hiệu lực riêng cho cùng 1 email; đăng ký dùng OTP 6 số; **reset dùng token link ngẫu nhiên 256-bit (base64url)** — `CodeHash` luôn là SHA-256 của mã/token, không lưu bản rõ |
+| `Purpose` () | Enum `EmailOtpPurpose`: `Register`, `ResetPassword` (quên mật khẩu, không hỏi mật khẩu cũ — BR-103), `SetPassword` (mã 6 số xác nhận chủ email khi tài khoản Google tạo mật khẩu lần đầu — BR-60 luồng A). Cho phép mỗi mục đích có OTP còn hiệu lực riêng cho cùng 1 email; đăng ký dùng OTP 6 số; **reset dùng token link ngẫu nhiên 256-bit (base64url)** — `CodeHash` luôn là SHA-256 của mã/token, không lưu bản rõ |
 
 > OTP xác nhận dùng điểm tại quầy **không** dùng bảng này mà dùng `POINT_CONFIRMATIONS` (hiệu lực 5 phút, tối đa 5 lần sai, BR-139).
 
@@ -750,19 +750,19 @@ Cột **Tham chiếu** của lịch sử điểm trình bày cặp `ReferenceTyp
 
 ## Field Identity
 
-Các field này mô tả yêu cầu BR-60/BR-78; trạng thái code/migration được đánh giá riêng khi triển khai.
+Các field này mô tả yêu cầu BR-59/BR-60/BR-78; trạng thái code/migration được đánh giá riêng khi triển khai.
 
 | Entity.Field | Mục đích và ràng buộc |
 |---|---|
-| EmailOtp (entity mới, module Identity) | Theo email và purpose; chỉ mã hiện hành có hiệu lực. Phục vụ BR-78 — xác thực OTP khi Register bằng email/mật khẩu. thêm `Purpose` (`Register`/`ResetPassword`) — mỗi mục đích một OTP còn hiệu lực cho cùng email (xem `EMAIL_OTPS`) |
-| EmailOtp.Purpose () | Enum `EmailOtpPurpose`; dùng cho đăng ký, quên mật khẩu (BR-103, bằng link email) |
+| EmailOtp (entity mới, module Identity) | Theo email và purpose; chỉ mã hiện hành có hiệu lực. Phục vụ BR-78 — xác thực OTP khi Register bằng email/mật khẩu. thêm `Purpose` (`Register`/`ResetPassword`/`SetPassword`) — mỗi mục đích một OTP còn hiệu lực cho cùng email (xem `EMAIL_OTPS`) |
+| EmailOtp.Purpose () | Enum `EmailOtpPurpose`; dùng cho đăng ký, quên mật khẩu (BR-103, bằng link email) và tạo mật khẩu lần đầu của tài khoản Google (BR-60, mã 6 số) |
 | EmailOtp.Email | Email chuẩn hóa; chỉ OTP mới nhất còn hiệu lực; rate limit theo email và IP |
 | EmailOtp.CodeHash | Hash của mã OTP 6 số; không lưu hoặc log plaintext |
 | EmailOtp.ExpiresAt | Mã hết hạn sau 10 phút kể từ lần yêu cầu gần nhất |
 | EmailOtp.Attempts | Số lần verify sai liên tiếp cho mã hiện tại; vượt 5 lần → phải yêu cầu mã mới |
 | EmailOtp.ConsumedAt | null = còn dùng được; set khi verify đúng, mã không dùng lại được lần 2 |
-| Google onboarding state | Email mới qua Google tạo account chờ thiết lập password; user phải nhập/confirm password mạnh trước khi dùng chức năng protected |
-| AuthResponse.SuggestedPassword | **Không sử dụng.** Hệ thống không sinh hoặc gửi mật khẩu gợi ý theo BR-60 v1.8 |
+| Google account state | Email mới qua Google tạo account Active ngay, `PasswordHash = NULL`; người dùng tự tạo mật khẩu sau (OTP trong Cài đặt tài khoản hoặc Quên mật khẩu). Không còn bảng/phiếu onboarding (`GOOGLE_ONBOARDING_TICKETS` đã bị gỡ) |
+| AuthResponse.SuggestedPassword | **Không sử dụng.** Hệ thống không sinh hoặc gửi mật khẩu gợi ý (BR-60) |
 
 ## Field chuyên môn Coach
 

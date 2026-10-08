@@ -142,6 +142,7 @@ export function MemberSchedule() {
   const days = 7;
   const [selection, setSelection] = useState<Item | null>(null);
   const [cancelling, setCancelling] = useState<CourtRentalDto | null>(null);
+  const [filterKind, setFilterKind] = useState<EventKind | "all">("all");
   const now = useNow();
   const narrow = useMediaQuery("(max-width: 720px)");
   function setSelected(item: Item | null) {
@@ -252,11 +253,37 @@ export function MemberSchedule() {
         </div>
       </div>
 
+      <div className={styles.filters} role="group" aria-label={m.filterLabel}>
+        {(
+          [
+            ["all", t.memberPages.all],
+            ["class", m.kindClass],
+            ["pt", m.kindPt],
+            ["rental", m.kindRental],
+          ] as const
+        ).map(([kind, label]) => (
+          <button
+            key={kind}
+            type="button"
+            className="btn btn--secondary btn--sm"
+            aria-pressed={filterKind === kind}
+            onClick={() => setFilterKind(kind)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
       <AsyncSection state={state}>
         {(all) => {
           const byDay = new Map<string, Item[]>();
           for (let i = 0; i < days; i++) byDay.set(addDaysIso(monday, i), []);
-          for (const item of all) byDay.get(vnDay(item.startAtUtc))?.push(item);
+          const visible =
+            filterKind === "all"
+              ? all
+              : all.filter((item) => item.kind === filterKind);
+          for (const item of visible)
+            byDay.get(vnDay(item.startAtUtc))?.push(item);
           const columns = [...byDay.entries()];
           const rows = Math.max(
             1,
