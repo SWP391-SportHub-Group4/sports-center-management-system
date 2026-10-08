@@ -33,7 +33,15 @@ for (const hasPt of [false, true]) {
               ...sport,
               sportId: 2,
               name: "Personal training",
-              code: "gym", services: [{ serviceType: "PERSONAL_TRAINING", isEnabled: true, defaultSessionMinutes: null, defaultMaxCapacity: null }],
+              code: "gym",
+              services: [
+                {
+                  serviceType: "PERSONAL_TRAINING",
+                  isEnabled: true,
+                  defaultSessionMinutes: null,
+                  defaultMaxCapacity: null,
+                },
+              ],
             },
           ],
         }),
@@ -102,9 +110,7 @@ for (const hasPt of [false, true]) {
       await expect(page.getByRole("heading", { level: 1 })).toHaveText(
         en.operations.teachingSchedule,
       );
-      await page
-        .getByRole("button", { name: /My badminton course/ })
-        .click();
+      await page.getByRole("button", { name: /My badminton course/ }).click();
       await expect(
         page.getByRole("cell", { name: "Assigned member", exact: true }),
       ).toBeVisible();
@@ -114,9 +120,7 @@ for (const hasPt of [false, true]) {
       await page.keyboard.press("Escape");
       await expect(page.getByRole("dialog")).toHaveCount(0);
       // Assigned PT sessions stay visible read-only even after the PT specialty is removed.
-      await page
-        .getByRole("button", { name: /My PT member/ })
-        .click();
+      await page.getByRole("button", { name: /My PT member/ }).click();
       await expect(
         page.getByRole("cell", { name: "My PT member", exact: true }),
       ).toBeVisible();
@@ -349,7 +353,15 @@ const itemId = "66666666-6666-4666-8666-666666666666";
 const sport = {
   sportId: 1,
   name: "Badminton",
-  code: "course", services: [{ serviceType: "GROUP_COURSE", isEnabled: true, defaultSessionMinutes: 90, defaultMaxCapacity: 12 }],
+  code: "course",
+  services: [
+    {
+      serviceType: "GROUP_COURSE",
+      isEnabled: true,
+      defaultSessionMinutes: 90,
+      defaultMaxCapacity: 12,
+    },
+  ],
   defaultSessionMinutes: 90,
   defaultMaxCapacity: 12,
   isActive: true,
@@ -479,19 +491,13 @@ for (const language of ["en", "vi"] as const)
           name: /Review membership purchase|Xác nhận mua gói Gym/,
         }),
       });
-    const switchLanguage = async () => {
-      // Dưới 1100px công tắc ngôn ngữ nằm trong drawer điều hướng.
-      const menu = page.getByRole("button", {
-        name: /Open navigation menu|Mở menu điều hướng/,
-      });
-      if (await menu.isVisible()) await menu.click();
-      await page
+    const switchLanguage = () =>
+      page
         .getByTitle(
           /Switch to Vietnamese|Switch to English|Chuyển sang Tiếng Việt|Chuyển sang Tiếng Anh/,
         )
         .filter({ visible: true })
         .click();
-    };
     await page.goto("/receptionist/sell-plans");
     await page.getByPlaceholder(/Enter name|Nhập tên/).fill("Alice");
     await page.getByRole("button", { name: /Alice/ }).click();
@@ -986,10 +992,7 @@ test("historical rental detail loads by owner ID with its snapshot and refund, w
   ).toBeVisible();
   await expect(
     page.getByRole("link", { name: "Invoices", exact: true }).last(),
-  ).toHaveAttribute(
-    "href",
-    `/member/invoices/${enrollmentId}`,
-  );
+  ).toHaveAttribute("href", `/member/invoices/${enrollmentId}`);
   await expect(page.getByLabel("From date", { exact: true })).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: /attendance|cancel rental/i }),
@@ -1324,8 +1327,22 @@ test("manager creates an API-backed draft and preserves the form on conflict", a
   page,
 }) => {
   await session(page, "CENTER_MANAGER");
-  await page.route("**/api/availability/rooms?**", (r) => r.fulfill({ json: [{ roomId: 1, isAvailable: true }] }));
-  await page.route("**/api/availability/coaches?**", (r) => r.fulfill({ json: [{ coachId: memberId, isAvailable: true }] }));
+  await page.route("**/api/availability/rooms?**", (r) =>
+    r.fulfill({ json: [{ roomId: 1, isAvailable: true }] }),
+  );
+  await page.route("**/api/availability/coaches?**", (r) =>
+    r.fulfill({ json: [{ coachId: memberId, isAvailable: true }] }),
+  );
+  await page.route("**/api/manager/class-schedule/availability?**", (r) =>
+    r.fulfill({
+      json: {
+        available: true,
+        reasons: [],
+        roomName: "Court A",
+        coachName: "Coach A",
+      },
+    }),
+  );
   await page.route("**/api/manager/classes?**", (r) =>
     r.fulfill({ json: { items: [], totalCount: 0, page: 1, pageSize: 20 } }),
   );
@@ -1345,17 +1362,27 @@ test("manager creates an API-backed draft and preserves the form on conflict", a
   await page.getByLabel("Code", { exact: true }).fill("COURSE-2");
   await page.getByLabel("Name", { exact: true }).fill("Badminton course");
   await page.getByLabel("Sport", { exact: true }).first().selectOption("1");
-  await page.getByRole("button", { name: en.operations.next, exact: true }).click();
+  await page
+    .getByRole("button", { name: en.operations.next, exact: true })
+    .click();
   await page.getByLabel("Room", { exact: true }).selectOption("1");
   await page.getByLabel("Coach", { exact: true }).selectOption(memberId);
-  await page.getByRole("button", { name: en.operations.next, exact: true }).click();
-  await page.getByRole("button", { name: en.operations.next, exact: true }).click();
-  await page.getByRole("button", { name: en.managerOperations.saveDraft, exact: true }).click();
+  await page
+    .getByRole("button", { name: en.operations.next, exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: en.operations.next, exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: en.managerOperations.saveDraft, exact: true })
+    .click();
   await expect(page.locator("main [role=alert]")).toHaveText(
     "Code already exists",
   );
   for (let step = 0; step < 3; step++)
-    await page.getByRole("button", { name: en.operations.previous, exact: true }).click();
+    await page
+      .getByRole("button", { name: en.operations.previous, exact: true })
+      .click();
   await expect(page.getByLabel("Code", { exact: true })).toHaveValue(
     "COURSE-2",
   );
@@ -1397,10 +1424,10 @@ test("incident preview blocks resolution and invalidates when the form changes",
   await page.getByLabel("End (Vietnam time)").fill("2030-10-03T10:00");
   await page.getByLabel("Reason").fill("Court maintenance");
   await page.getByRole("button", { name: "Review", exact: true }).click();
+  await expect(page.getByText("Move the class first")).toBeVisible();
   await expect(
-    page.getByText("Move the class first"),
-  ).toBeVisible();
-  await expect(page.getByRole("button", { name: en.managerOperations.finalResolve })).toHaveCount(0);
+    page.getByRole("button", { name: en.managerOperations.finalResolve }),
+  ).toHaveCount(0);
   await page.getByLabel("Reason").fill("Different scope reason");
   await expect(
     page.getByRole("button", { name: en.managerOperations.recheck }),
@@ -1639,7 +1666,10 @@ test("late incident preview cannot resolve after its reason changes", async ({
   release.resolve();
   await expect(review).toBeEnabled();
   await expect(
-    page.getByRole("button", { name: en.managerOperations.finalResolve, exact: true }),
+    page.getByRole("button", {
+      name: en.managerOperations.finalResolve,
+      exact: true,
+    }),
   ).toHaveCount(0);
 });
 

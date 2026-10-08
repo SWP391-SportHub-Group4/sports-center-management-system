@@ -21,7 +21,7 @@ import {
   todayIso,
 } from "@/lib/format";
 
-import { courtScheduleApi } from "@/features/court-schedule/api";
+import { courtScheduleApi } from "@/features/court-schedule";
 import { catalogApi } from "@/features/catalog";
 
 import { ptApi } from "./api";

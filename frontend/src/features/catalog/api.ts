@@ -11,7 +11,7 @@ import type {
 
 export type SaveSport = Pick<
   SportDto,
-  "name" | "description" | "imageUrl" | "sortOrder" | "services"
+  "name" | "description" | "imageUrl" | "services"
 > & { code?: string };
 export type SavePackage = Pick<
   MembershipPackageDto,

@@ -25,7 +25,7 @@ import type { MyAccountDto } from "@/lib/types";
 
 export default function AccountPage() {
   const { user, refreshUser, updateToken } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   const account = useApi(
     (signal) => api.get<MyAccountDto>("/api/users/me", { signal }),
@@ -39,12 +39,37 @@ export default function AccountPage() {
     next: "",
     confirm: "",
   });
+  const [profileErrors, setProfileErrors] = useState<{ fullName?: string }>({});
+  const [passwordErrors, setPasswordErrors] = useState<{
+    current?: string;
+    next?: string;
+    confirm?: string;
+  }>({});
 
   const profileAction = useAction();
   const passwordAction = useAction();
+  const fullNameRef = useRef<HTMLInputElement>(null);
   const currentPasswordRef = useRef<HTMLInputElement>(null);
+  const nextPasswordRef = useRef<HTMLInputElement>(null);
+  const confirmPasswordRef = useRef<HTMLInputElement>(null);
   const [currentPasswordError, setCurrentPasswordError] = useState(false);
   const Shell = user?.role === "Member" ? MemberShell : AppShell;
+  const requiredMessage =
+    language === "vi"
+      ? "Vui lòng điền thông tin này."
+      : "Please fill out this field.";
+  const validateNewPassword = (value: string) =>
+    !value.trim()
+      ? requiredMessage
+      : !passwordChecks(value, account.data?.email ?? "").every(Boolean)
+        ? t.identity.passwordInvalid
+        : undefined;
+  const validateConfirmPassword = (value: string) =>
+    !value.trim()
+      ? requiredMessage
+      : value !== passwordForm.next
+        ? t.account.passwordMismatch
+        : undefined;
 
   if (account.data && hydratedFor !== account.data.userId) {
     setHydratedFor(account.data.userId);
@@ -56,6 +81,14 @@ export default function AccountPage() {
 
   const saveProfile = async (event: React.FormEvent) => {
     event.preventDefault();
+    const fullNameError = profileForm.fullName.trim()
+      ? undefined
+      : requiredMessage;
+    setProfileErrors({ fullName: fullNameError });
+    if (fullNameError) {
+      fullNameRef.current?.focus();
+      return;
+    }
 
     const done = await profileAction.run(
       () =>
@@ -77,17 +110,25 @@ export default function AccountPage() {
     if (passwordAction.busy) return;
     setCurrentPasswordError(false);
     passwordAction.reset();
-
-    if (
-      !passwordChecks(passwordForm.next, account.data?.email ?? "").every(
-        Boolean,
-      )
-    ) {
-      passwordAction.setError(t.identity.passwordInvalid);
+    const errors = {
+      current:
+        account.data?.hasPassword && !passwordForm.current.trim()
+          ? requiredMessage
+          : undefined,
+      next: validateNewPassword(passwordForm.next),
+      confirm: validateConfirmPassword(passwordForm.confirm),
+    };
+    setPasswordErrors(errors);
+    if (errors.current) {
+      currentPasswordRef.current?.focus();
       return;
     }
-    if (passwordForm.next !== passwordForm.confirm) {
-      passwordAction.setError(t.account.passwordMismatch);
+    if (errors.next) {
+      nextPasswordRef.current?.focus();
+      return;
+    }
+    if (errors.confirm) {
+      confirmPasswordRef.current?.focus();
       return;
     }
 
@@ -126,6 +167,7 @@ export default function AccountPage() {
       updateToken(done.accessToken);
       await refreshUser();
       setPasswordForm({ current: "", next: "", confirm: "" });
+      setPasswordErrors({});
       account.reload();
     }
   };
@@ -162,15 +204,33 @@ export default function AccountPage() {
                   <StatusChip value={data.status} />
                 </div>
 
-                <form className="form" onSubmit={saveProfile}>
-                  <Field label={t.account.fullName} required>
+                <form
+                  className={`form ${styles.form}`}
+                  onSubmit={saveProfile}
+                  noValidate
+                >
+                  <Field
+                    label={t.account.fullName}
+                    required
+                    error={profileErrors.fullName}
+                    reserveErrorSpace
+                  >
                     <input
+                      ref={fullNameRef}
                       value={profileForm.fullName}
                       required
-                      onChange={(event) =>
+                      onChange={(event) => {
+                        setProfileErrors({});
                         setProfileForm({
                           ...profileForm,
                           fullName: event.target.value,
+                        });
+                      }}
+                      onBlur={(event) =>
+                        setProfileErrors({
+                          fullName: event.target.value.trim()
+                            ? undefined
+                            : requiredMessage,
                         })
                       }
                     />
@@ -213,7 +273,11 @@ export default function AccountPage() {
                   : t.account.setPassword
               }
             >
-              <form className="form" onSubmit={savePassword}>
+              <form
+                className={`form ${styles.form}`}
+                onSubmit={savePassword}
+                noValidate
+              >
                 {!data.hasPassword && (
                   <div className="alert alert--info">
                     {t.account.noPasswordNotice}
@@ -227,8 +291,9 @@ export default function AccountPage() {
                     error={
                       currentPasswordError
                         ? t.account.currentPasswordIncorrect
-                        : undefined
+                        : passwordErrors.current
                     }
+                    reserveErrorSpace
                   >
                     <PasswordInput
                       ref={currentPasswordRef}
@@ -237,27 +302,54 @@ export default function AccountPage() {
                       required
                       onChange={(event) => {
                         setCurrentPasswordError(false);
+                        setPasswordErrors((current) => ({
+                          ...current,
+                          current: undefined,
+                        }));
                         passwordAction.reset();
                         setPasswordForm({
                           ...passwordForm,
                           current: event.target.value,
                         });
                       }}
+                      onBlur={(event) =>
+                        setPasswordErrors((current) => ({
+                          ...current,
+                          current: event.target.value.trim()
+                            ? undefined
+                            : requiredMessage,
+                        }))
+                      }
                     />
                   </Field>
                 )}
 
-                <Field label={t.account.newPassword} required>
+                <Field
+                  label={t.account.newPassword}
+                  required
+                  error={passwordErrors.next}
+                  reserveErrorSpace
+                >
                   <PasswordInput
+                    ref={nextPasswordRef}
                     autoComplete="new-password"
-                    minLength={8}
                     value={passwordForm.next}
                     required
-                    onChange={(event) =>
+                    onChange={(event) => {
+                      setPasswordErrors((current) => ({
+                        ...current,
+                        next: undefined,
+                      }));
                       setPasswordForm({
                         ...passwordForm,
                         next: event.target.value,
-                      })
+                      });
+                    }}
+                    onBlur={(event) =>
+                      setPasswordErrors((current) => ({
+                        ...current,
+                        next: validateNewPassword(event.target.value),
+                      }))
                     }
                   />
                 </Field>
@@ -267,17 +359,32 @@ export default function AccountPage() {
                   email={data.email}
                 />
 
-                <Field label={t.account.confirmPassword} required>
+                <Field
+                  label={t.account.confirmPassword}
+                  required
+                  error={passwordErrors.confirm}
+                  reserveErrorSpace
+                >
                   <PasswordInput
+                    ref={confirmPasswordRef}
                     autoComplete="new-password"
-                    minLength={8}
                     value={passwordForm.confirm}
                     required
-                    onChange={(event) =>
+                    onChange={(event) => {
+                      setPasswordErrors((current) => ({
+                        ...current,
+                        confirm: undefined,
+                      }));
                       setPasswordForm({
                         ...passwordForm,
                         confirm: event.target.value,
-                      })
+                      });
+                    }}
+                    onBlur={(event) =>
+                      setPasswordErrors((current) => ({
+                        ...current,
+                        confirm: validateConfirmPassword(event.target.value),
+                      }))
                     }
                   />
                 </Field>

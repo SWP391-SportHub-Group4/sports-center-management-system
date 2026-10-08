@@ -22,7 +22,9 @@ public sealed record AuditLogResponse(
     DateTime Timestamp,
     string? TargetFullName = null,
     string? TargetEmail = null,
-    bool? TargetAccountExists = null);
+    bool? TargetAccountExists = null,
+    string? CurrentTargetLabel = null,
+    IReadOnlyDictionary<string, string>? ReferenceNames = null);
 
 /// <summary>
 /// Đọc Audit Log (BR-7 — "Center Manager xem lịch sử thao tác").
@@ -139,6 +141,9 @@ public sealed class AuditQueryService(ISportHubDbContext db) : IAuditQueryServic
                 };
             }).ToList();
         }
+
+        if (!accountsOnly)
+            items = await AuditDisplayResolver.ResolveAsync(db, items, ct);
 
         return new PagedResult<AuditLogResponse>
         {

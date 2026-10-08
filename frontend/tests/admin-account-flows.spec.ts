@@ -116,9 +116,7 @@ test("live Admin overview uses account APIs and detail exposes the current G10 p
   await expect(
     page.getByRole("link", { name: `Active ${count}`, exact: true }),
   ).toBeVisible();
-  await page
-    .getByRole("button", { name: "Switch to Vietnamese", exact: true })
-    .click();
+  await page.getByRole("button", { name: "EN", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Tổng quan Admin", exact: true }),
   ).toBeVisible();
@@ -156,10 +154,13 @@ test("overview uses server totals and preserves status filters and create shortc
   await expect(
     page.getByRole("table", { name: "Recent account activity" }),
   ).toContainText("Role changed");
-  await page.screenshot({
-    path: "../output/admin-overview-desktop.png",
-    fullPage: true,
-  });
+  // Ảnh minh chứng: lỗi ghi tệp (bị khóa bởi trình xem ảnh) không làm hỏng phép kiểm tra.
+  await page
+    .screenshot({
+      path: "../output/admin-overview-desktop.png",
+      fullPage: true,
+    })
+    .catch(() => undefined);
   await page.setViewportSize({ width: 390, height: 844 });
   await expect
     .poll(() =>
