@@ -1,21 +1,27 @@
 .header {
   position: sticky;
-  top: var(--space-3);
+  top: 0;
   z-index: 30;
   display: grid;
-  width: min(1312px, calc(100% - 2 * var(--space-9)));
+  width: 100%;
   min-height: 72px;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  gap: clamp(28px, 5vw, 72px);
-  margin: var(--space-4) auto 0;
-  padding: 10px 20px;
-  border: 1px solid var(--border-subtle);
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--bg-surface) 94%, transparent);
-  box-shadow: 0 8px 28px rgb(0 37 40 / 0.045);
-  backdrop-filter: blur(16px) saturate(130%);
+  gap: clamp(24px, 3vw, 48px);
+  margin: 0;
+  padding: 10px max(32px, calc((100% - 1312px) / 2));
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  transition:
+    background-color 300ms ease,
+    box-shadow 300ms ease;
   font-family: var(--font-body);
+}
+
+.scrolled {
+  background: color-mix(in srgb, var(--bg-surface) 90%, transparent);
+  box-shadow: 0 8px 28px rgb(0 37 40 / 0.055);
+  backdrop-filter: blur(12px) saturate(125%);
 }
 
 .logo {
@@ -62,10 +68,11 @@
 }
 
 .navLinks {
+  position: relative;
   display: flex;
   min-width: 0;
   align-items: center;
-  gap: clamp(18px, 2.6vw, 36px);
+  gap: clamp(16px, 1.7vw, 24px);
 }
 
 .navLinks a {
@@ -76,30 +83,38 @@
   color: var(--text-body);
   font-size: var(--text-sm);
   font-weight: var(--weight-semibold);
+  white-space: nowrap;
   text-decoration: none;
   transition: color var(--duration-fast) var(--ease-out);
 }
 
-.navLinks a::after {
+.navIndicator {
   position: absolute;
-  right: 0;
   bottom: 4px;
   left: 0;
+  width: var(--indicator-width, 0px);
   height: 2px;
   border-radius: 2px;
   background: var(--color-primary);
-  content: "";
-  transform: scaleX(0);
-  transform-origin: left;
-  transition: transform var(--duration-fast) var(--ease-out);
+  opacity: 0;
+  pointer-events: none;
+  transform: translate3d(var(--indicator-x, 0px), 0, 0);
+  transition:
+    transform 360ms cubic-bezier(0.16, 1, 0.3, 1),
+    width 360ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 160ms ease;
+}
+
+.navIndicator[data-positioned] {
+  opacity: 1;
 }
 
 .navLinks a:hover {
   color: var(--text-strong);
 }
 
-.navLinks a:hover::after {
-  transform: scaleX(1);
+.navLinks a[aria-current="location"] {
+  color: var(--color-primary);
 }
 
 .headerActions {
@@ -209,12 +224,12 @@
   }
 }
 
-@media (max-width: 1050px) {
+@media (max-width: 1199px) {
   .header {
-    width: calc(100% - 2 * var(--space-4));
+    width: 100%;
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 12px;
-    padding-inline: 16px;
+    padding-inline: 24px;
   }
 
   .menuToggle {
@@ -231,14 +246,18 @@
 
   .navigation {
     position: absolute;
-    top: calc(100% + 10px);
+    top: 100%;
     right: 0;
     left: 0;
     display: none;
     align-items: stretch;
+    justify-content: stretch;
+    max-height: calc(100dvh - 72px);
+    overflow-y: auto;
+    gap: 12px;
     padding: 12px;
     border: 1px solid var(--border-subtle);
-    border-radius: 14px;
+    border-radius: 0 0 14px 14px;
     background: var(--bg-surface);
     box-shadow: 0 18px 42px rgb(0 37 40 / 0.12);
   }
@@ -259,11 +278,12 @@
     border-radius: 8px;
   }
 
-  .navLinks a::after {
+  .navIndicator {
     display: none;
   }
 
-  .navLinks a:hover {
+  .navLinks a:hover,
+  .navLinks a[aria-current="location"] {
     background: var(--bg-surface-sunken);
   }
 
@@ -325,12 +345,20 @@
 
 @media (prefers-reduced-motion: reduce) {
   .navLinks a,
-  .navLinks a::after,
+  .navIndicator,
+  .header,
   .signIn,
   .signUp,
   .navigationOpen,
   .accountLoading {
     animation: none;
     transition: none;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .scrolled {
+    background: var(--bg-surface);
+    backdrop-filter: none;
   }
 }

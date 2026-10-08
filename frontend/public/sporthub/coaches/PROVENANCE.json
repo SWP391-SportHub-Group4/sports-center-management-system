@@ -1,0 +1,22 @@
+{
+  "tool": "Built-in image_gen",
+  "purpose": "Illustrative coach portraits for homepage seed content. These are fictional profiles, not photographs of real staff.",
+  "date": "2026-10-08",
+  "assets": [
+    {
+      "file": "minh-khang.webp",
+      "prompt": "Photorealistic editorial sports coach portrait for SportHub demo website. Vietnamese male strength and conditioning coach age 34, short black hair, athletic black polo without text, standing relaxed arms crossed in a modern indoor gym. Waist up, centered face, professional confident friendly expression, soft daylight, deep court green gym equipment blurred background, realistic skin texture, no logos no text no watermark. Portrait 4:5 aspect ratio. One person.",
+      "processing": "Exported as WebP at 800px width, quality 85."
+    },
+    {
+      "file": "hai-linh.webp",
+      "prompt": "Photorealistic editorial sports coach portrait for SportHub demo website. Vietnamese female HIIT coach age 29, black hair tied back, black modest athletic t-shirt without text, standing relaxed in a modern indoor training studio. Waist up, centered face, confident friendly expression, soft daylight, deep court green gym equipment blurred background, realistic skin texture, no logos no text no watermark. Portrait 4:5 aspect ratio. One person.",
+      "processing": "Exported as WebP at 800px width, quality 85."
+    },
+    {
+      "file": "thao-an.webp",
+      "prompt": "Photorealistic editorial sports coach portrait for SportHub demo website. Vietnamese female mobility and recovery coach age 36, dark shoulder length hair, muted deep green modest sports top, standing relaxed in a modern indoor stretching and recovery studio. Waist up, centered face, calm friendly expression, soft daylight, deep court green studio equipment blurred background, realistic skin texture, no logos no text no watermark. Portrait 4:5 aspect ratio. One person.",
+      "processing": "Exported as WebP at 800px width, quality 85."
+    }
+  ]
+}
