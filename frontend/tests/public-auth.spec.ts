@@ -1,4 +1,18 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
+
+async function waitForLoginLayout(page: Page) {
+  const card = page.locator(".auth__card");
+  await expect(card.locator("form")).toBeVisible();
+  // The Suspense login form can mount after page load. Its fonts may still
+  // change title wrapping, and the card entrance animation changes its position.
+  // Measure validation layout changes only after both have settled.
+  await card.evaluate(async (element) => {
+    await document.fonts.ready;
+    await Promise.all(
+      element.getAnimations().map((animation) => animation.finished),
+    );
+  });
+}
 
 test("public header and section links work without an account", async ({
   page,
@@ -63,6 +77,7 @@ test("password visibility and login errors do not move the submit button", async
 
   await page.getByLabel("Email").fill("member@sporthub.test");
   const submit = page.getByRole("button", { name: "Sign in" });
+  await waitForLoginLayout(page);
   const submitTop = () =>
     submit.evaluate(
       (button) => button.getBoundingClientRect().top + window.scrollY,
@@ -78,7 +93,9 @@ test("password visibility and login errors do not move the submit button", async
   expect(Math.abs(after - before)).toBeLessThanOrEqual(5);
 });
 
-test("login shows inline required errors without browser validation tooltips", async ({ page }) => {
+test("login shows inline required errors without browser validation tooltips", async ({
+  page,
+}) => {
   let loginRequests = 0;
   await page.route("**/api/auth/login", (route) => {
     loginRequests += 1;
@@ -90,6 +107,7 @@ test("login shows inline required errors without browser validation tooltips", a
   const password = form.locator('input[type="password"]');
   const submit = form.locator('button[type="submit"]');
   await expect(form).toHaveAttribute("novalidate", "");
+  await waitForLoginLayout(page);
   const submitTop = () =>
     submit.evaluate(
       (button) => button.getBoundingClientRect().top + window.scrollY,

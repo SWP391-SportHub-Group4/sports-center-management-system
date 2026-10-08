@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useRef, type ReactNode } from "react";
+import { useId, useRef, useSyncExternalStore, type ReactNode } from "react";
 import { useLanguage } from "@/lib/language";
 import { Button } from "./Button";
 import { useModalBehavior } from "./useModalBehavior";
@@ -14,7 +14,18 @@ export interface DrawerProps {
   footer?: ReactNode;
   size?: "sm" | "md" | "lg";
   children: ReactNode;
+  /** AI can leave the calendar interactive on desktop; mobile keeps modal behavior. */
+  nonModalDesktop?: boolean;
 }
+
+const desktopQuery = "(min-width: 1024px)";
+const subscribeDesktop = (listener: () => void) => {
+  const query = window.matchMedia(desktopQuery);
+  query.addEventListener("change", listener);
+  return () => query.removeEventListener("change", listener);
+};
+const isDesktop = () => window.matchMedia(desktopQuery).matches;
+const serverDesktop = () => false;
 
 /**
  * Ngăn kéo cạnh phải (bottom sheet trên mobile) cho tác vụ cần xem nền phía sau:
@@ -29,15 +40,22 @@ export function Drawer({
   footer,
   size = "md",
   children,
+  nonModalDesktop = false,
 }: DrawerProps) {
   const { t } = useLanguage();
   const ref = useRef<HTMLDivElement>(null);
   const titleId = useId();
-  useModalBehavior(ref, onClose);
+  const desktop = useSyncExternalStore(
+    subscribeDesktop,
+    isDesktop,
+    serverDesktop,
+  );
+  const modal = !(nonModalDesktop && desktop);
+  useModalBehavior(ref, onClose, modal);
 
   return (
     <div
-      className="backdrop backdrop--drawer"
+      className={`backdrop backdrop--drawer${!modal ? " backdrop--nonmodal" : ""}`}
       role="presentation"
       onClick={(event) => {
         if (event.target === event.currentTarget) onClose();
@@ -47,7 +65,7 @@ export function Drawer({
         ref={ref}
         className={`drawer drawer--${size}`}
         role="dialog"
-        aria-modal="true"
+        aria-modal={modal ? true : undefined}
         aria-labelledby={titleId}
         tabIndex={-1}
       >

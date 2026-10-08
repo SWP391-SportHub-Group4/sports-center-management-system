@@ -254,7 +254,9 @@ function buildNav(items: NavItem[], role: Role, t: Translations): NavEntry[] {
 
 /** Trang gốc của nhánh chỉ sáng ở đúng nó; các mục còn lại khớp theo tiền tố. */
 function isActiveHref(pathname: string, href: string, root: string) {
-  return href === root ? pathname === href : pathname.startsWith(href);
+  return (
+    pathname === href || (href !== root && pathname.startsWith(`${href}/`))
+  );
 }
 
 const FrameContext = createContext(false);

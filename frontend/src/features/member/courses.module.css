@@ -95,3 +95,28 @@
     flex-wrap: wrap;
   }
 }
+
+.notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3) var(--space-5);
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+
+.notice p {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-sm);
+}
+
+.renew {
+  align-self: flex-start;
+  color: var(--text-link, var(--brand-700));
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  text-underline-offset: 0.2em;
+}
