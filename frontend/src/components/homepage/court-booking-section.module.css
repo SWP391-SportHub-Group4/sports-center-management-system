@@ -1,0 +1,80 @@
+.section {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  margin-block: clamp(48px, 7vw, 100px);
+  background: var(--chalk-100);
+}
+
+.photo {
+  position: relative;
+  min-height: 540px;
+  overflow: hidden;
+  background: var(--court-900);
+}
+
+.photo img {
+  object-fit: cover;
+  object-position: center;
+}
+
+.copy {
+  align-self: center;
+  padding: clamp(32px, 5vw, 72px);
+}
+
+.eyebrow {
+  margin: 0 0 var(--space-5);
+  color: var(--court-700);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}
+
+.copy h2 {
+  margin: 0;
+  font-size: clamp(2.75rem, 5vw, 5rem);
+  letter-spacing: -0.035em;
+  line-height: 1;
+  white-space: pre-line;
+}
+
+.lead {
+  max-width: 38ch;
+  margin: var(--space-5) 0;
+  color: var(--chalk-700);
+  font-size: var(--text-lg);
+  line-height: var(--leading-relaxed);
+}
+
+.sports {
+  margin: 0 0 var(--space-6);
+  color: var(--court-800);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}
+
+.cta {
+  gap: var(--space-4);
+}
+
+.note {
+  max-width: 38ch;
+  margin: var(--space-3) 0 0;
+  color: var(--chalk-600);
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
+}
+
+@media (max-width: 900px) {
+  .section {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .photo {
+    min-height: 0;
+    aspect-ratio: 4 / 3;
+  }
+
+  .copy {
+    padding: clamp(24px, 6vw, 48px);
+  }
+}

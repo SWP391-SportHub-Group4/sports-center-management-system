@@ -15,7 +15,7 @@ const zoneOrder: ZoneId[] = ["badminton", "basketball", "conditioning"];
 const copy = {
   en: {
     title: "Three disciplines.\nOne connected arena.",
-    lead: "Explore dedicated spaces for court sports and athletic training.",
+    lead: "SportHub brings court sports, Gym and personal coaching into one training space. Find your rhythm with a class, an individual workout or a game with friends.",
     mapLabel: "FLOOR PLAN",
     mapZones: "SPORT ZONES",
     mapHelp: "Select a sport above or explore a zone on the map.",
@@ -72,7 +72,7 @@ const copy = {
   },
   vi: {
     title: "Ba bộ môn.\nMột đấu trường kết nối.",
-    lead: "Khám phá không gian dành cho thể thao sân đấu và rèn luyện thể lực.",
+    lead: "SportHub kết nối thể thao sân đấu, Gym và huấn luyện cá nhân trong cùng một không gian. Chọn lớp học, buổi tập riêng hoặc trận đấu cùng bạn bè phù hợp với bạn.",
     mapLabel: "SƠ ĐỒ MẶT BẰNG",
     mapZones: "CÁC KHU THỂ THAO",
     mapHelp: "Chọn môn ở phía trên hoặc khám phá trực tiếp trên sơ đồ.",
@@ -470,9 +470,7 @@ export function InteractiveArenaTour({ language }: { language: Language }) {
               {metrics.map((metric) => {
                 return (
                   <div className={styles.metric} key={metric.label}>
-                    <span className={styles.metricLabel}>
-                      {metric.label}
-                    </span>
+                    <span className={styles.metricLabel}>{metric.label}</span>
                     <strong>{metric.value}</strong>
                   </div>
                 );
