@@ -929,6 +929,16 @@ textarea {
 
 /* ---------- Dialog ---------- */
 
+.backdrop--nonmodal.backdrop {
+  top: var(--member-header-height, 0px);
+  pointer-events: none;
+  background: transparent;
+}
+.backdrop--nonmodal .drawer {
+  pointer-events: auto;
+  width: min(40vw, 440px);
+  max-width: 40vw;
+}
 .backdrop {
   position: fixed;
   inset: 0;

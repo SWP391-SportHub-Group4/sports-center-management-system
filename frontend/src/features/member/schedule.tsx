@@ -100,13 +100,17 @@ export function MemberSchedule() {
   const m = t.mSchedule;
   const vi = language === "vi";
   const { values, setValues } = useUrlQuery(
-    { date: todayIso() },
+    { date: todayIso(), event: "" },
     { date: scheduleDate },
   );
   const date = values.date;
   const [view, setView] = useState<View>("week");
   const [hidden, setHidden] = useState<EventKind[]>([]);
-  const [selected, setSelected] = useState<Item | null>(null);
+  const [selection, setSelection] = useState<Item | null>(null);
+  function setSelected(item: Item | null) {
+    setSelection(item);
+    if (values.event) setValues({ event: "" });
+  }
   const days = view === "day" ? 1 : view === "week" ? 7 : 30;
   const kindLabel: Record<EventKind, string> = {
     class: m.kindClass,
@@ -127,6 +131,9 @@ export function MemberSchedule() {
   );
 
   const locale = vi ? "vi-VN" : "en-GB";
+  const selected = values.event
+    ? (state.data?.find((item) => item.id === values.event) ?? null)
+    : selection;
   const fmt = (iso: string, options: Intl.DateTimeFormatOptions) =>
     new Intl.DateTimeFormat(locale, { timeZone: "UTC", ...options }).format(
       new Date(`${iso}T00:00:00Z`),

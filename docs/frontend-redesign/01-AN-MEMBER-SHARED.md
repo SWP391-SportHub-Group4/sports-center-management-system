@@ -8,6 +8,8 @@ Mục tiêu: giữ nền tảng frontend dùng chung; hoàn thiện Member và p
 
 ## Bắt đầu tuần 05–11/10
 
+**Cập nhật AN-05 (08/10):** xem [báo cáo triển khai và kiểm chứng](AN-05-IMPLEMENTATION.md). A07 dùng API self-book; A16 có xác nhận Refund/Transfer và phương án chờ chưa khả dụng; A18 dùng Drawer không khóa lịch desktop và link session từ dữ liệu server. A19/Q08 có màn chờ API cùng demo development gắn nhãn. A20 hiển thị mã tra cứu, không tự sinh QR từ userId. **G02/G04 vẫn BLOCKED API**, chưa nghiệm thu production toàn task.
+
 - **Làm trước:** Bật token và shell; bàn giao Button/Form/Dialog/Drawer, props Table/State và checkout để cả nhóm dùng.
 - **Thứ tự trang:** Checkout/ví/hóa đơn → Member chính → Tập luyện/PT Manager → Finance/reports → các màn gap/AI.
 - Bảng tên trang, hạn mục tiêu và tiêu chí xong: [kế hoạch FE một tuần](KE-HOACH-FE-1-TUAN.md). Phần bên dưới giữ đặc tả đầy đủ để tra khi làm từng trang.

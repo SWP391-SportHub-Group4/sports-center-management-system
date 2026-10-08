@@ -56,6 +56,18 @@
   font-size: var(--text-sm);
   line-height: var(--leading-relaxed);
 }
+.scheduleLinks {
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+}
+.scheduleLinks h3 {
+  font-size: var(--text-md);
+}
+.scheduleLinks a {
+  display: inline-block;
+  padding-block: var(--space-3);
+}
 .thread {
   display: flex;
   flex-direction: column;

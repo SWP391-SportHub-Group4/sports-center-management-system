@@ -13,6 +13,7 @@ import { choiceQuery, useUrlQuery } from "@/lib/useUrlQuery";
 import { formatDateTime } from "@/lib/format";
 import { memberEnrollments } from "./api";
 import { courseApi } from "@/features/courses";
+import { CourseInterests } from "@/features/courses";
 
 type TabId = "upcoming" | "ongoing" | "history" | "all";
 
@@ -29,13 +30,18 @@ function classify(e: CourseEnrollmentDto, now: number) {
 }
 
 export function MemberCourses() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const c = t.mCourses;
   const now = useNow();
   const state = useApi(memberEnrollments, []);
   const { values, setValues } = useUrlQuery(
     { tab: "upcoming" },
-    { tab: choiceQuery(["upcoming", "ongoing", "history", "all"], "upcoming") },
+    {
+      tab: choiceQuery(
+        ["upcoming", "ongoing", "history", "all", "interests"],
+        "upcoming",
+      ),
+    },
   );
   const tab = values.tab as TabId;
   const rows = state.data ?? [];
@@ -83,123 +89,132 @@ export function MemberCourses() {
         ariaLabel={c.tabsLabel}
         value={tab}
         onChange={(id) => setValues({ tab: id })}
-        tabs={(["upcoming", "ongoing", "history", "all"] as const).map(
-          (id) => ({
+        tabs={[
+          ...(["upcoming", "ongoing", "history", "all"] as const).map((id) => ({
             id,
             label: `${names[id]}${state.data ? ` (${counts[id]})` : ""}`,
-          }),
-        )}
+          })),
+          {
+            id: "interests",
+            label:
+              language === "vi" ? "Nguyện vọng khóa sau" : "Course interests",
+          },
+        ]}
       >
-        <AsyncSection state={state}>
-          {() => {
-            const k = (e: CourseEnrollmentDto) => classify(e, now);
-            const filtered = rows.filter((e) =>
-              tab === "all"
-                ? true
-                : tab === "upcoming"
-                  ? k(e).upcoming
-                  : tab === "ongoing"
-                    ? k(e).ongoing
-                    : k(e).history,
-            );
-            if (!filtered.length)
-              return (
-                <div className={styles.empty} data-surface="inverse">
-                  <h3>{empty[tab][0]}</h3>
-                  <p>{empty[tab][1]}</p>
-                  <Link className="btn" href="/member/discover">
-                    {c.explore}
-                  </Link>
-                </div>
+        {values.tab === "interests" ? (
+          <CourseInterests />
+        ) : (
+          <AsyncSection state={state}>
+            {() => {
+              const k = (e: CourseEnrollmentDto) => classify(e, now);
+              const filtered = rows.filter((e) =>
+                tab === "all"
+                  ? true
+                  : tab === "upcoming"
+                    ? k(e).upcoming
+                    : tab === "ongoing"
+                      ? k(e).ongoing
+                      : k(e).history,
               );
-            return (
-              <div className={styles.list}>
-                {filtered.map((e) => {
-                  const st = status(e);
-                  const firstDay = e.firstSessionStartUtc?.slice(0, 10);
-                  return (
-                    <article key={e.enrollmentId} className={styles.row}>
-                      <div className={styles.main}>
-                        <div className={styles.head}>
-                          <span
-                            className={tags.sport}
-                            data-sport={sportTone(e.sportName)}
-                          >
-                            {e.sportName}
-                          </span>
-                          <StatusChip
-                            tone={st.tone}
-                            label={st.label}
-                            value={e.status}
-                          />
-                        </div>
-                        <h3>{e.className}</h3>
-                        <dl className={styles.facts}>
-                          <div>
-                            <dt>{c.progressLabel}</dt>
-                            <dd>
-                              {c.progress
-                                .replace(
-                                  "{done}",
-                                  String(e.completedSessions ?? 0),
-                                )
-                                .replace("{total}", String(e.numSessions))}
-                            </dd>
+              if (!filtered.length)
+                return (
+                  <div className={styles.empty} data-surface="inverse">
+                    <h3>{empty[tab][0]}</h3>
+                    <p>{empty[tab][1]}</p>
+                    <Link className="btn" href="/member/discover">
+                      {c.explore}
+                    </Link>
+                  </div>
+                );
+              return (
+                <div className={styles.list}>
+                  {filtered.map((e) => {
+                    const st = status(e);
+                    const firstDay = e.firstSessionStartUtc?.slice(0, 10);
+                    return (
+                      <article key={e.enrollmentId} className={styles.row}>
+                        <div className={styles.main}>
+                          <div className={styles.head}>
+                            <span
+                              className={tags.sport}
+                              data-sport={sportTone(e.sportName)}
+                            >
+                              {e.sportName}
+                            </span>
+                            <StatusChip
+                              tone={st.tone}
+                              label={st.label}
+                              value={e.status}
+                            />
                           </div>
-                          <div>
-                            <dt>{c.dates}</dt>
-                            <dd>
-                              {e.firstSessionStartUtc
-                                ? e.lastSessionEndUtc
-                                  ? c.datesRange
-                                      .replace(
+                          <h3>{e.className}</h3>
+                          <dl className={styles.facts}>
+                            <div>
+                              <dt>{c.progressLabel}</dt>
+                              <dd>
+                                {c.progress
+                                  .replace(
+                                    "{done}",
+                                    String(e.completedSessions ?? 0),
+                                  )
+                                  .replace("{total}", String(e.numSessions))}
+                              </dd>
+                            </div>
+                            <div>
+                              <dt>{c.dates}</dt>
+                              <dd>
+                                {e.firstSessionStartUtc
+                                  ? e.lastSessionEndUtc
+                                    ? c.datesRange
+                                        .replace(
+                                          "{from}",
+                                          formatDate(e.firstSessionStartUtc),
+                                        )
+                                        .replace(
+                                          "{to}",
+                                          formatDate(e.lastSessionEndUtc),
+                                        )
+                                    : c.datesFrom.replace(
                                         "{from}",
                                         formatDate(e.firstSessionStartUtc),
                                       )
-                                      .replace(
-                                        "{to}",
-                                        formatDate(e.lastSessionEndUtc),
-                                      )
-                                  : c.datesFrom.replace(
-                                      "{from}",
-                                      formatDate(e.firstSessionStartUtc),
-                                    )
-                                : "—"}
-                            </dd>
-                          </div>
-                          <div>
-                            <dt>{c.coach}</dt>
-                            <dd>{e.coachName || c.coachTbc}</dd>
-                          </div>
-                          <div>
-                            <dt>{c.room}</dt>
-                            <dd>{e.roomName || "—"}</dd>
-                          </div>
-                        </dl>
-                      </div>
-                      <div className={styles.actions}>
-                        <Link
-                          className="btn"
-                          href={`/member/courses/${e.classId}`}
-                        >
-                          {c.details}
-                        </Link>
-                        {firstDay && (
+                                  : "—"}
+                              </dd>
+                            </div>
+                            <div>
+                              <dt>{c.coach}</dt>
+                              <dd>{e.coachName || c.coachTbc}</dd>
+                            </div>
+                            <div>
+                              <dt>{c.room}</dt>
+                              <dd>{e.roomName || "—"}</dd>
+                            </div>
+                          </dl>
+                        </div>
+                        <div className={styles.actions}>
                           <Link
-                            className="btn btn--secondary"
-                            href={`/member/schedule?date=${firstDay}`}
+                            className="btn"
+                            href={`/member/courses/${e.classId}`}
                           >
-                            {c.sessions}
+                            {c.details}
                           </Link>
-                        )}
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
-            );
-          }}
-        </AsyncSection>
+                          {firstDay && (
+                            <Link
+                              className="btn btn--secondary"
+                              href={`/member/schedule?date=${firstDay}`}
+                            >
+                              {c.sessions}
+                            </Link>
+                          )}
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              );
+            }}
+          </AsyncSection>
+        )}
       </Tabs>
     </>
   );
