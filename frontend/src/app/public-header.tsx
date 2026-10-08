@@ -23,6 +23,7 @@ export function PublicHeader() {
         activities: "Các bộ môn",
         training: "Không khí luyện tập",
         signIn: "Đăng nhập",
+        signUp: "Đăng ký",
         mySpace: "Không gian của tôi",
         account: "Tài khoản & bảo mật",
         subtitle: "Tài khoản SportHub",
@@ -34,6 +35,7 @@ export function PublicHeader() {
         activities: "Sports",
         training: "Training life",
         signIn: "Sign in",
+        signUp: "Sign up",
         mySpace: "My space",
         account: "Account & security",
         subtitle: "SportHub account",
@@ -150,10 +152,19 @@ export function PublicHeader() {
               ]}
             />
           ) : (
-            <Link className={styles.signIn} href="/login" onClick={closeMenu}>
-              {copy.signIn}
-              <CourtIcon name="arrow" size={17} />
-            </Link>
+            <div className={styles.authLinks}>
+              <Link className={styles.signIn} href="/login" onClick={closeMenu}>
+                {copy.signIn}
+              </Link>
+              <Link
+                className={styles.signUp}
+                href="/register"
+                onClick={closeMenu}
+              >
+                {copy.signUp}
+                <CourtIcon name="arrow" size={17} />
+              </Link>
+            </div>
           )}
         </div>
       </nav>
