@@ -195,11 +195,9 @@ export function MemberSchedule() {
           <span className={styles.meta}>{item.coachName}</span>
         )}
         {done && (
-          <span className={styles.done}>
-            <span aria-hidden="true">✓</span> {m.completed}
-          </span>
+          <StatusChip value="COMPLETED" tone="success" label={`✓ ${m.completed}`} />
         )}
-        {absent && <span className={styles.absent}>{m.absent}</span>}
+        {absent && <StatusChip value="ABSENT" tone="danger" label={m.absent} />}
         {exceptional(item.status) && !done && !absent && (
           <StatusChip value={item.status} />
         )}
