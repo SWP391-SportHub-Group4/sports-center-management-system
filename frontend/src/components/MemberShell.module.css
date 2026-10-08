@@ -1,6 +1,7 @@
 /* MemberShell.module.css - SportHub Member Portal Navigation & Layout */
 
 .shell {
+  --member-header-height: 68px;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -577,6 +578,14 @@
   margin: 0 auto;
   padding: 24px 24px 112px;
   scroll-margin-top: 80px;
+}
+
+@media (min-width: 1024px) {
+  .shell:has(:global(.backdrop--nonmodal)) .main {
+    width: calc(100% - min(40vw, 440px));
+    margin-left: 0;
+    margin-right: min(40vw, 440px);
+  }
 }
 
 .pageHeader {
