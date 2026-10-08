@@ -12,4 +12,5 @@ public sealed record MemberSessionResponse(
     DateTime EndAtUtc,
     [property: SportHub.BuildingBlocks.Api.WireEnum] string Status,
     bool IsMakeup,
-    [property: SportHub.BuildingBlocks.Api.WireEnum] string? AttendanceStatus);
+    [property: SportHub.BuildingBlocks.Api.WireEnum] string? AttendanceStatus,
+    string? CoachName);

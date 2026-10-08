@@ -5,22 +5,24 @@ import { useState } from "react";
 import { Drawer } from "@/components/primitives";
 import { AsyncSection, StatusChip } from "@/components/ui";
 import { api } from "@/lib/apiClient";
-import { useApi } from "@/lib/useApi";
+import { useApi, useNow } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { addDaysIso, formatDate, formatTime, todayIso } from "@/lib/format";
 import { useUrlQuery } from "@/lib/useUrlQuery";
 import { rentalApi } from "../rentals/api";
-import type { SportDto } from "@/lib/types";
+import type { CourtRentalDto, SportDto } from "@/lib/types";
 import { memberSchedule, type MemberEvent } from "./api";
 import { eventKind, sportTone, type EventKind } from "./event-meta";
+import { downloadIcs } from "./ics";
+import { RentalCancelConfirm } from "./rental-cancel";
 import tags from "./tags.module.css";
 import styles from "./schedule.module.css";
 
-type View = "day" | "week" | "list";
 type Item = MemberEvent & {
   kind: EventKind;
   refId: string;
   sport: string | null;
+  rental?: CourtRentalDto;
 };
 
 const ROUTINE = new Set(["scheduled", "confirmed", "active"]);
@@ -36,6 +38,33 @@ function scheduleDate(value: string) {
     : todayIso();
 }
 
+function weekMonday(date: string) {
+  const day = new Date(`${date}T12:00:00Z`).getUTCDay();
+  return addDaysIso(date, -((day + 6) % 7));
+}
+
+function isoWeekValue(monday: string) {
+  const thursday = addDaysIso(monday, 3);
+  const year = thursday.slice(0, 4);
+  const firstMonday = weekMonday(`${year}-01-04`);
+  const weeks = Math.round(
+    (Date.parse(`${monday}T00:00:00Z`) -
+      Date.parse(`${firstMonday}T00:00:00Z`)) /
+      604800000,
+  );
+  return `${year}-W${String(weeks + 1).padStart(2, "0")}`;
+}
+
+function mondayFromWeek(value: string) {
+  const match = /^(\d{4})-W(\d{2})$/.exec(value);
+  if (!match) return null;
+  const monday = addDaysIso(
+    weekMonday(`${match[1]}-01-04`),
+    (Number(match[2]) - 1) * 7,
+  );
+  return isoWeekValue(monday) === value ? monday : null;
+}
+
 const vnDay = (utc: string) =>
   new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(
     new Date(utc),
@@ -47,7 +76,7 @@ async function loadTimeline(
   days: number,
   signal: AbortSignal,
   ptSport: string,
-  ptTitle: (c: string) => string,
+  ptTitle: string,
   rentalTitle: string,
 ): Promise<Item[]> {
   const fromUtc = new Date(`${date}T00:00:00+07:00`).toISOString();
@@ -72,12 +101,10 @@ async function loadTimeline(
       kind,
       refId: e.id.split(":")[1] ?? e.id,
       sport: kind === "pt" ? ptSport : (e.sportName ?? null),
-      title: kind === "pt" ? ptTitle(e.coachName ?? "") : e.title,
+      title: kind === "pt" ? ptTitle : e.title,
     };
   });
-  for (const r of rentals.filter(
-    (x) => x.status === "CONFIRMED" || x.status === "COMPLETED",
-  )) {
+  for (const r of rentals.filter((x) => x.status !== "PENDING_PAYMENT")) {
     items.push({
       id: `rental:${r.courtRentalId}`,
       refId: r.courtRentalId,
@@ -90,6 +117,7 @@ async function loadTimeline(
       coachName: null,
       status: r.status,
       sport: sports.find((s) => s.sportId === r.sportId)?.name ?? null,
+      rental: r,
     });
   }
   return items.sort((a, b) => a.startAtUtc.localeCompare(b.startAtUtc));
@@ -104,14 +132,15 @@ export function MemberSchedule() {
     { date: scheduleDate },
   );
   const date = values.date;
-  const [view, setView] = useState<View>("week");
-  const [hidden, setHidden] = useState<EventKind[]>([]);
+  const monday = weekMonday(date);
+  const days = 7;
   const [selection, setSelection] = useState<Item | null>(null);
+  const [cancelling, setCancelling] = useState<CourtRentalDto | null>(null);
+  const now = useNow();
   function setSelected(item: Item | null) {
     setSelection(item);
     if (values.event) setValues({ event: "" });
   }
-  const days = view === "day" ? 1 : view === "week" ? 7 : 30;
   const kindLabel: Record<EventKind, string> = {
     class: m.kindClass,
     pt: m.kindPt,
@@ -119,15 +148,8 @@ export function MemberSchedule() {
   };
   const state = useApi(
     (signal) =>
-      loadTimeline(
-        date,
-        days,
-        signal,
-        "Gym",
-        (c) => (vi ? `PT cùng ${c}` : `PT with ${c}`),
-        m.rentalTitle,
-      ),
-    [date, days, vi],
+      loadTimeline(monday, days, signal, "Gym", m.kindPt, m.rentalTitle),
+    [monday, m.kindPt, m.rentalTitle],
   );
 
   const locale = vi ? "vi-VN" : "en-GB";
@@ -138,24 +160,16 @@ export function MemberSchedule() {
     new Intl.DateTimeFormat(locale, { timeZone: "UTC", ...options }).format(
       new Date(`${iso}T00:00:00Z`),
     );
-  const last = addDaysIso(date, days - 1);
-  const range =
-    view === "day"
-      ? m.rangeDay.replace(
-          "{date}",
-          fmt(date, { weekday: "long", day: "numeric", month: "long" }),
-        )
-      : view === "week"
-        ? m.rangeWeek
-            .replace("{from}", fmt(date, { day: "numeric", month: "numeric" }))
-            .replace("{to}", fmt(last, { day: "numeric", month: "numeric" }))
-        : m.rangeList.replace(
-            "{from}",
-            fmt(date, { day: "numeric", month: "numeric" }),
-          );
+  const last = addDaysIso(monday, 6);
+  const range = m.rangeWeek
+    .replace("{from}", fmt(monday, { day: "2-digit", month: "2-digit" }))
+    .replace("{to}", fmt(last, { day: "2-digit", month: "2-digit" }));
 
   const renderEvent = (item: Item) => {
     const cancelled = /CANCEL/i.test(item.status ?? "");
+    const present = item.attendanceStatus?.toUpperCase() === "PRESENT";
+    const completed =
+      item.kind !== "class" && item.status?.toUpperCase() === "COMPLETED";
     return (
       <button
         key={item.id}
@@ -164,174 +178,114 @@ export function MemberSchedule() {
         data-state={cancelled ? "cancelled" : undefined}
         onClick={() => setSelected(item)}
       >
-        <time dateTime={item.startAtUtc}>
-          {formatTime(item.startAtUtc)} – {formatTime(item.endAtUtc)}
-        </time>
-        <strong>{item.title}</strong>
-        <span className={styles.eventTags}>
-          {item.sport && (
-            <span className={tags.sport} data-sport={sportTone(item.sport)}>
-              {item.sport}
+        <span className={styles.eventHeading}>
+          <strong>{item.title}</strong>
+          {(present || completed) && (
+            <span className={styles.done}>
+              <span aria-hidden="true">✓</span>{" "}
+              {present ? m.present : m.completed}
             </span>
           )}
-          <span className={tags.kind}>{kindLabel[item.kind]}</span>
         </span>
-        <span className={styles.meta}>
-          {[
-            item.kind === "rental" ? null : item.roomName || m.roomTbc,
-            item.kind === "class" ? item.coachName : null,
-          ]
-            .filter(Boolean)
-            .join(" · ")}
-        </span>
-        {exceptional(item.status) && <StatusChip value={item.status} />}
-      </button>
-    );
-  };
-
-  const renderDay = (day: string, items: Item[]) => {
-    const isToday = day === todayIso();
-    return (
-      <section
-        key={day}
-        className={styles.dayCol}
-        aria-label={fmt(day, {
-          weekday: "long",
-          day: "numeric",
-          month: "long",
-        })}
-      >
-        <h3
-          className={styles.dayHead}
-          data-today={isToday}
-          style={{ margin: 0 }}
-        >
-          <strong>{fmt(day, { day: "numeric" })}</strong>
-          {fmt(day, { weekday: "long" })}
-          {isToday && <span className={styles.todayTag}>{m.todayTag}</span>}
-        </h3>
-        {items.length ? (
-          items.map(renderEvent)
-        ) : (
-          <p className={styles.free}>{m.dayEmpty}</p>
+        <time dateTime={item.startAtUtc}>
+          {formatTime(item.startAtUtc)}–{formatTime(item.endAtUtc)}
+        </time>
+        {item.roomName && <span className={styles.meta}>{item.roomName}</span>}
+        {item.coachName && (
+          <span className={styles.meta}>{item.coachName}</span>
         )}
-      </section>
+        {exceptional(item.status) && !completed && (
+          <StatusChip value={item.status} />
+        )}
+      </button>
     );
   };
 
   return (
     <>
       <div className={styles.toolbar}>
-        <div className={styles.group} role="group" aria-label={m.viewLabel}>
-          {(["day", "week", "list"] as const).map((v) => (
-            <button
-              key={v}
-              type="button"
-              aria-pressed={view === v}
-              onClick={() => {
-                setView(v);
-                setSelected(null);
-              }}
-            >
-              {m[v]}
-            </button>
-          ))}
+        <div className={styles.weekPicker}>
+          <label htmlFor="member-schedule-week">{m.chooseWeek}</label>
+          <input
+            id="member-schedule-week"
+            type="week"
+            value={isoWeekValue(monday)}
+            onChange={(event) => {
+              const chosen = mondayFromWeek(event.target.value);
+              if (chosen) setValues({ date: chosen });
+            }}
+          />
         </div>
         <div className={styles.nav}>
           <button
             type="button"
             className="btn btn--secondary btn--sm"
-            onClick={() => setValues({ date: addDaysIso(date, -days) })}
+            onClick={() => setValues({ date: addDaysIso(monday, -7) })}
           >
-            ← {m.prev}
+            ← {m.prevWeek}
           </button>
           <button
             type="button"
             className="btn btn--secondary btn--sm"
             onClick={() => setValues({ date: todayIso() })}
           >
-            {m.today}
+            {m.currentWeek}
           </button>
           <button
             type="button"
             className="btn btn--secondary btn--sm"
-            onClick={() => setValues({ date: addDaysIso(date, days) })}
+            onClick={() => setValues({ date: addDaysIso(monday, 7) })}
           >
-            {m.next} →
+            {m.nextWeek} →
           </button>
-          <p className={styles.range} aria-live="polite">
-            {range}
-          </p>
         </div>
-      </div>
-
-      <div className={styles.filters} role="group" aria-label={m.filterLabel}>
-        <span>{m.filterLabel}</span>
-        {(["class", "pt", "rental"] as const).map((k) => (
-          <button
-            key={k}
-            type="button"
-            className={styles.chip}
-            aria-pressed={!hidden.includes(k)}
-            onClick={() =>
-              setHidden((h) =>
-                h.includes(k) ? h.filter((x) => x !== k) : [...h, k],
-              )
-            }
-          >
-            {kindLabel[k]}
-          </button>
-        ))}
       </div>
 
       <AsyncSection state={state}>
         {(all) => {
-          const items = all.filter((i) => !hidden.includes(i.kind));
           const byDay = new Map<string, Item[]>();
-          for (let i = 0; i < days; i++) byDay.set(addDaysIso(date, i), []);
-          for (const item of items)
-            byDay.get(vnDay(item.startAtUtc))?.push(item);
-
-          if (!all.length)
-            return (
-              <div className={styles.empty} data-surface="inverse">
-                <h3>
-                  {date === todayIso() && view === "week"
-                    ? m.emptyTitle
-                    : m.emptyRange}
-                </h3>
-                <p>{m.emptyBody}</p>
-                <div className={styles.emptyActions}>
-                  <Link className="btn" href="/member/discover">
-                    {m.ctaCourses}
-                  </Link>
-                  <Link className="btn btn--secondary" href="/member/pt/book">
-                    {m.ctaPt}
-                  </Link>
-                  <Link
-                    className="btn btn--secondary"
-                    href="/member/courts/book"
-                  >
-                    {m.ctaRental}
-                  </Link>
-                </div>
-              </div>
-            );
-          if (!items.length)
-            return <p className={styles.free}>{m.noneFiltered}</p>;
-          if (view === "list") {
-            const withItems = [...byDay.entries()].filter(
-              ([, list]) => list.length,
-            );
-            return (
-              <div className={styles.stack}>
-                {withItems.map(([day, list]) => renderDay(day, list))}
-              </div>
-            );
-          }
+          for (let i = 0; i < days; i++) byDay.set(addDaysIso(monday, i), []);
+          for (const item of all) byDay.get(vnDay(item.startAtUtc))?.push(item);
+          const columns = [...byDay.entries()];
+          const rows = Math.max(
+            1,
+            ...columns.map(([, events]) => events.length),
+          );
           return (
-            <div className={view === "week" ? styles.week : styles.stack}>
-              {[...byDay.entries()].map(([day, list]) => renderDay(day, list))}
+            <div
+              className={styles.calendarScroll}
+              tabIndex={0}
+              role="region"
+              aria-label={m.weekSchedule}
+            >
+              <table className={styles.week}>
+                <caption>{range}</caption>
+                <thead>
+                  <tr>
+                    {columns.map(([day], index) => (
+                      <th key={day} scope="col" data-today={day === todayIso()}>
+                        {m.weekdays[index]} (
+                        {fmt(day, { day: "2-digit", month: "2-digit" })})
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {Array.from({ length: rows }, (_, row) => (
+                    <tr key={row}>
+                      {columns.map(([day, events]) => (
+                        <td key={day} data-today={day === todayIso()}>
+                          {events[row] ? (
+                            renderEvent(events[row])
+                          ) : (
+                            <span className={styles.free}>–</span>
+                          )}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           );
         }}
@@ -376,7 +330,16 @@ export function MemberSchedule() {
               )}
               <dt>{m.status}</dt>
               <dd>
-                <StatusChip value={selected.status} />
+                {selected.kind === "rental" &&
+                selected.status === "CONFIRMED" ? (
+                  <StatusChip
+                    tone="success"
+                    label={m.rentalBooked}
+                    value={selected.status}
+                  />
+                ) : (
+                  <StatusChip value={selected.status} />
+                )}
               </dd>
               {selected.kind === "class" && selected.attendanceStatus && (
                 <>
@@ -388,24 +351,73 @@ export function MemberSchedule() {
               )}
             </dl>
             {selected.isMakeup && <p>{m.makeup}</p>}
-            <Link
-              className="btn"
-              href={
-                selected.kind === "class"
-                  ? `/member/courses/${selected.classId}`
+            <div className={styles.actions}>
+              <Link
+                className="btn"
+                href={
+                  selected.kind === "class"
+                    ? `/member/courses/${selected.classId}`
+                    : selected.kind === "pt"
+                      ? `/member/pt/sessions/${selected.refId}`
+                      : `/member/rentals/${selected.refId}`
+                }
+              >
+                {selected.kind === "class"
+                  ? m.openClass
                   : selected.kind === "pt"
-                    ? `/member/pt/sessions/${selected.refId}`
-                    : `/member/rentals/${selected.refId}`
-              }
-            >
-              {selected.kind === "class"
-                ? m.openClass
-                : selected.kind === "pt"
-                  ? m.openPt
-                  : m.openRental}
-            </Link>
+                    ? m.openPt
+                    : m.openRental}
+              </Link>
+              {!/CANCEL/i.test(selected.status ?? "") && (
+                <button
+                  type="button"
+                  className="btn btn--secondary"
+                  onClick={() =>
+                    downloadIcs(
+                      {
+                        uid: selected.id,
+                        title: selected.title,
+                        startAtUtc: selected.startAtUtc,
+                        endAtUtc: selected.endAtUtc,
+                        location: selected.roomName,
+                        description: [selected.sport, selected.coachName]
+                          .filter(Boolean)
+                          .join(" · "),
+                      },
+                      `sporthub-${selected.kind}-${selected.startAtUtc.slice(0, 10)}.ics`,
+                    )
+                  }
+                >
+                  {m.addToCalendar}
+                </button>
+              )}
+              {selected.rental?.status === "CONFIRMED" &&
+                new Date(selected.startAtUtc).getTime() > now && (
+                  <button
+                    type="button"
+                    className={`btn btn--secondary ${styles.cancel}`}
+                    onClick={() => setCancelling(selected.rental ?? null)}
+                  >
+                    {m.cancelRental}
+                  </button>
+                )}
+            </div>
+            {selected.kind === "pt" && (
+              <p className={styles.hint}>{m.ptHint}</p>
+            )}
           </div>
         </Drawer>
+      )}
+      {cancelling && (
+        <RentalCancelConfirm
+          rental={cancelling}
+          onClose={() => setCancelling(null)}
+          onCancelled={() => {
+            setCancelling(null);
+            setSelected(null);
+            state.reload();
+          }}
+        />
       )}
     </>
   );

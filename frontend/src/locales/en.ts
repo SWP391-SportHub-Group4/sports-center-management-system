@@ -1863,8 +1863,14 @@ export const en = {
     days: ["", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
   },
   mSchedule: {
-    description:
-      "Your group classes, personal training sessions and court rentals, in Vietnam time. Select an item for details.",
+    chooseWeek: "Choose week",
+    prevWeek: "Previous week",
+    currentWeek: "Current week",
+    nextWeek: "Next week",
+    weekdays: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+    weekSchedule: "Weekly schedule",
+    present: "Present",
+    completed: "Completed",
     viewLabel: "View",
     day: "Day",
     week: "Week",
@@ -1905,6 +1911,19 @@ export const en = {
     retry: "Try again",
     loading: "Loading your calendar",
     todayTag: "Today",
+    addToCalendar: "Add to calendar (.ics)",
+    cancelRental: "Cancel rental",
+    cancelTitle: "Cancel this court rental?",
+    cancelFree:
+      "You are cancelling {hours}+ hours ahead, so you get a 100% points refund.",
+    cancelLate:
+      "Play starts in under {hours} hours, so this rental is not refunded.",
+    rentalBooked: "Court booked",
+    cancelKeep: "Keep rental",
+    cancelConfirm: "Confirm cancellation",
+    cancelDone: "Court rental cancelled.",
+    rentalCancelled: "Cancelled",
+    ptHint: "Change or cancel a PT session on its detail page.",
   },
   mCourses: {
     description:
@@ -1950,6 +1969,12 @@ export const en = {
     errorTitle: "We could not load your courses",
     retry: "Try again",
     loading: "Loading your courses",
+    nextSession: "Next session",
+    thresholdTitle: "This class has not reached its minimum size",
+    thresholdBody:
+      "Choose to transfer to another class or take a points refund before {deadline}.",
+    thresholdCta: "Choose an option",
+    renew: "See the next {sport} course",
   },
   apiErrors: {
     duplicateActivePackage:

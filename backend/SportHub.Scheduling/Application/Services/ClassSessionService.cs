@@ -99,7 +99,7 @@ public sealed class ClassSessionService(
         var rangeFrom = DateTime.SpecifyKind(fromUtc, DateTimeKind.Utc);
         var rangeTo = DateTime.SpecifyKind(toUtc, DateTimeKind.Utc);
 
-        return await (from e in db.Set<Enrollment>().AsNoTracking()
+        var sessions = await (from e in db.Set<Enrollment>().AsNoTracking()
                       where e.MemberId == memberId && e.Status == EnrollmentStatus.Confirmed
                       join s in db.Set<ClassSession>().AsNoTracking() on e.ClassId equals s.ClassId
                       where s.StartAtUtc >= rangeFrom && s.StartAtUtc < rangeTo
@@ -107,11 +107,19 @@ public sealed class ClassSessionService(
                           equals new { a.EnrollmentId, a.SessionId } into att
                       from a in att.DefaultIfEmpty()
                       orderby s.StartAtUtc
-                      select new MemberSessionResponse(
-                          s.SessionId, s.ClassId, s.Class!.Name, s.Class.Sport!.Name, s.SessionNo, s.Room!.Name,
-                          s.StartAtUtc, s.EndAtUtc, s.Status.ToString(), s.IsMakeup,
-                          a == null ? null : a.Status.ToString()))
+                      select new
+                      {
+                          s.SessionId, s.ClassId, ClassName = s.Class!.Name, SportName = s.Class.Sport!.Name,
+                          s.SessionNo, RoomName = s.Room!.Name, s.CoachId, s.StartAtUtc, s.EndAtUtc,
+                          Status = s.Status.ToString(), s.IsMakeup,
+                          AttendanceStatus = a == null ? null : a.Status.ToString()
+                      })
             .ToListAsync(ct);
+        var coachNames = await validator.CoachNamesAsync(sessions.Select(s => (Guid?)s.CoachId), ct);
+        return sessions.Select(s => new MemberSessionResponse(
+            s.SessionId, s.ClassId, s.ClassName, s.SportName, s.SessionNo, s.RoomName,
+            s.StartAtUtc, s.EndAtUtc, s.Status, s.IsMakeup, s.AttendanceStatus,
+            coachNames.TryGetValue(s.CoachId, out var coachName) ? coachName : null)).ToList();
     }
 
     // ---------------------------------------------------------------- Dời
