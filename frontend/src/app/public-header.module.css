@@ -130,17 +130,22 @@
   color: var(--border-strong);
 }
 
-.signIn {
+.authLinks {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.signIn,
+.signUp {
   display: inline-flex;
   min-height: 44px;
   align-items: center;
   justify-content: center;
   gap: 10px;
   padding: 0 16px;
-  border: 1px solid var(--text-strong);
+  border: 1px solid transparent;
   border-radius: 10px;
-  background: var(--text-strong);
-  color: var(--bg-surface);
   font-size: var(--text-sm);
   font-weight: var(--weight-semibold);
   text-decoration: none;
@@ -150,14 +155,33 @@
     transform var(--duration-fast) var(--ease-out);
 }
 
+.signIn {
+  border-color: var(--border-control);
+  background: transparent;
+  color: var(--text-strong);
+}
+
 .signIn:hover {
+  border-color: var(--color-primary);
+  background: var(--bg-surface-sunken);
+  color: var(--color-primary);
+}
+
+.signUp {
+  border-color: var(--court-800);
+  background: var(--court-800);
+  color: var(--white);
+}
+
+.signUp:hover {
   border-color: var(--color-primary);
   background: var(--color-primary);
   color: var(--white);
   transform: translateY(-1px);
 }
 
-.signIn:active {
+.signIn:active,
+.signUp:active {
   transform: scale(0.98);
 }
 
@@ -167,7 +191,7 @@
 
 .accountLoading {
   display: block;
-  width: 116px;
+  width: 220px;
   height: 42px;
   border-radius: 10px;
   background: var(--bg-surface-sunken);
@@ -185,7 +209,7 @@
   }
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1050px) {
   .header {
     width: calc(100% - 2 * var(--space-4));
     grid-template-columns: minmax(0, 1fr) auto;
@@ -244,6 +268,7 @@
   }
 
   .headerActions {
+    flex-wrap: wrap;
     justify-content: space-between;
     gap: 12px;
     padding: 10px 8px 2px;
@@ -252,6 +277,18 @@
 
   .langToggle {
     text-align: left;
+  }
+
+  .authLinks {
+    display: grid;
+    width: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .signIn,
+  .signUp {
+    min-height: 48px;
+    padding-inline: 12px;
   }
 }
 
@@ -290,6 +327,7 @@
   .navLinks a,
   .navLinks a::after,
   .signIn,
+  .signUp,
   .navigationOpen,
   .accountLoading {
     animation: none;
