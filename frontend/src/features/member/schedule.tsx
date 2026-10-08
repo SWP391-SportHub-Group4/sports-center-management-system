@@ -120,7 +120,12 @@ async function loadTimeline(
       rental: r,
     });
   }
-  return items.sort((a, b) => a.startAtUtc.localeCompare(b.startAtUtc));
+  return items.sort(
+    (a, b) =>
+      a.startAtUtc.localeCompare(b.startAtUtc) ||
+      a.endAtUtc.localeCompare(b.endAtUtc) ||
+      a.id.localeCompare(b.id),
+  );
 }
 
 export function MemberSchedule() {
@@ -195,7 +200,7 @@ export function MemberSchedule() {
           <span className={styles.meta}>{item.coachName}</span>
         )}
         {done && (
-          <StatusChip value="COMPLETED" tone="success" label={`✓ ${m.completed}`} />
+          <StatusChip value="COMPLETED" tone="success" label={m.completed} />
         )}
         {absent && <StatusChip value="ABSENT" tone="danger" label={m.absent} />}
         {exceptional(item.status) && !done && !absent && (

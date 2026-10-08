@@ -61,11 +61,11 @@ export function MemberCourses() {
     format: (d: Date) => dayFmt.format(d) + " · " + timeFmt.format(d),
   };
   const { values, setValues } = useUrlQuery(
-    { tab: "upcoming" },
+    { tab: "all" },
     {
       tab: choiceQuery(
-        ["upcoming", "ongoing", "history", "all", "interests"],
-        "upcoming",
+        ["all", "upcoming", "ongoing", "history", "interests"],
+        "all",
       ),
     },
   );
@@ -118,7 +118,7 @@ export function MemberCourses() {
         value={tab}
         onChange={(id) => setValues({ tab: id })}
         tabs={[
-          ...(["upcoming", "ongoing", "history", "all"] as const).map((id) => ({
+          ...(["all", "upcoming", "ongoing", "history"] as const).map((id) => ({
             id,
             label: `${names[id]}${state.data ? ` (${counts[id]})` : ""}`,
           })),
@@ -203,7 +203,7 @@ export function MemberCourses() {
                             </div>
                             <div>
                               <dt>{c.dates}</dt>
-                              <dd>
+                              <dd className={styles.when}>
                                 {e.firstSessionStartUtc
                                   ? e.lastSessionEndUtc
                                     ? c.datesRange
