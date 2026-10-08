@@ -17,4 +17,6 @@ public sealed record EnrollmentResponse(
     string? CoachName = null,
     string? RoomName = null,
     DateTime? LastSessionEndUtc = null,
-    int CompletedSessions = 0);
+    int CompletedSessions = 0,
+    DateTime? NextSessionStartUtc = null,
+    int SportId = 0);

@@ -2,7 +2,8 @@
 import Link from "next/link";
 import { Tabs } from "@/components/primitives";
 import { AsyncSection, Card, StatusChip, Table } from "@/components/ui";
-import type { CourseEnrollmentDto } from "@/lib/types";
+import type { CourseEnrollmentDto, ThresholdResponseDto } from "@/lib/types";
+import { api } from "@/lib/apiClient";
 import { formatDate } from "@/lib/format";
 import { sportTone } from "./event-meta";
 import tags from "./tags.module.css";
@@ -34,6 +35,31 @@ export function MemberCourses() {
   const c = t.mCourses;
   const now = useNow();
   const state = useApi(memberEnrollments, []);
+  const thresholds = useApi(
+    (signal) =>
+      api
+        .get<ThresholdResponseDto[]>("/api/class-threshold-responses/mine", {
+          signal,
+        })
+        .catch(() => [] as ThresholdResponseDto[]),
+    [],
+  );
+  const vi = language === "vi";
+  const locale = vi ? "vi-VN" : "en-GB";
+  const dayFmt = new Intl.DateTimeFormat(locale, {
+    timeZone: "Asia/Ho_Chi_Minh",
+    weekday: "long",
+    day: "2-digit",
+    month: "2-digit",
+  });
+  const timeFmt = new Intl.DateTimeFormat(locale, {
+    timeZone: "Asia/Ho_Chi_Minh",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  const when = {
+    format: (d: Date) => dayFmt.format(d) + " · " + timeFmt.format(d),
+  };
   const { values, setValues } = useUrlQuery(
     { tab: "upcoming" },
     {
@@ -66,10 +92,12 @@ export function MemberCourses() {
 
   function status(e: CourseEnrollmentDto) {
     const k = classify(e, now);
-    if (e.status === "TRANSFERRED")
+    if (e.status === "TRANSFERRED_OUT")
       return { label: c.statusTransferred, tone: "neutral" as const };
     if (e.status === "REFUNDED")
       return { label: c.statusRefunded, tone: "neutral" as const };
+    if (e.status === "CANCELLED_BY_CENTER")
+      return { label: c.statusClassCancelled, tone: "warning" as const };
     if (e.status === "CANCELLED")
       return { label: c.statusCancelled, tone: "warning" as const };
     if (e.classStatus === "CANCELLED")
@@ -131,6 +159,19 @@ export function MemberCourses() {
                   {filtered.map((e) => {
                     const st = status(e);
                     const firstDay = e.firstSessionStartUtc?.slice(0, 10);
+                    const pending = (thresholds.data ?? []).find(
+                      (r) =>
+                        r.classId === e.classId &&
+                        r.resolutionStatus === "PENDING" &&
+                        !r.choice &&
+                        new Date(r.deadlineUtc).getTime() > now,
+                    );
+                    const left = e.numSessions - (e.completedSessions ?? 0);
+                    const renew =
+                      e.status === "CONFIRMED" &&
+                      e.classStatus !== "CANCELLED" &&
+                      !!e.sportId &&
+                      (k(e).history || (k(e).ongoing && left <= 2));
                     return (
                       <article key={e.enrollmentId} className={styles.row}>
                         <div className={styles.main}>
@@ -181,6 +222,14 @@ export function MemberCourses() {
                                   : "—"}
                               </dd>
                             </div>
+                            {!k(e).history && e.nextSessionStartUtc && (
+                              <div>
+                                <dt>{c.nextSession}</dt>
+                                <dd>
+                                  {when.format(new Date(e.nextSessionStartUtc))}
+                                </dd>
+                              </div>
+                            )}
                             <div>
                               <dt>{c.coach}</dt>
                               <dd>{e.coachName || c.coachTbc}</dd>
@@ -190,6 +239,33 @@ export function MemberCourses() {
                               <dd>{e.roomName || "—"}</dd>
                             </div>
                           </dl>
+                          {pending && (
+                            <div className={styles.notice} role="status">
+                              <div>
+                                <strong>{c.thresholdTitle}</strong>
+                                <p>
+                                  {c.thresholdBody.replace(
+                                    "{deadline}",
+                                    formatDateTime(pending.deadlineUtc),
+                                  )}
+                                </p>
+                              </div>
+                              <Link
+                                className="btn"
+                                href={`/member/threshold-responses/${pending.responseId}`}
+                              >
+                                {c.thresholdCta}
+                              </Link>
+                            </div>
+                          )}
+                          {renew && (
+                            <Link
+                              className={styles.renew}
+                              href={`/member/discover?sport=${e.sportId}`}
+                            >
+                              {c.renew.replace("{sport}", e.sportName)} →
+                            </Link>
+                          )}
                         </div>
                         <div className={styles.actions}>
                           <Link

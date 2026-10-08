@@ -55,6 +55,7 @@ async function setup(page: Page) {
             sportName: "Badminton",
             sessionNo: 1,
             roomName: "Court A",
+            coachName: "Coach Minh",
             startAtUtc: `${today}T10:00:00Z`,
             endAtUtc: `${today}T11:00:00Z`,
             status: "SCHEDULED",
@@ -281,18 +282,21 @@ test("password change still signs out a genuinely expired session", async ({
   ).toBeNull();
 });
 
-test("schedule reuses Calendar and includes the last PT page and own attendance", async ({
+test("weekly schedule includes the last PT page and own attendance", async ({
   page,
 }) => {
   await setup(page);
   await page.goto("/member/schedule");
-  await expect(
-    page.getByText("PT with Coach Last", { exact: true }),
-  ).toBeVisible();
+  await expect(page.getByText("Coach Last", { exact: true })).toBeVisible();
+  await expect(page.getByText("Coach Minh", { exact: true })).toBeVisible();
+  await expect(page.getByText("✓ Present").first()).toBeVisible();
   await page.getByRole("button", { name: /Badminton course/ }).click();
   await expect(page.getByRole("dialog")).toContainText("Make-up session");
   await expect(page.getByRole("dialog")).toContainText("Present");
-  await page.getByRole("dialog").getByRole("link", { name: "View course" }).click();
+  await page
+    .getByRole("dialog")
+    .getByRole("link", { name: "View course" })
+    .click();
   await expect(page).toHaveURL(/\/member\/courses\/7$/);
   await expect(page.getByText("BAD-07", { exact: false })).toBeVisible();
 });
@@ -328,13 +332,17 @@ test("notification read is persisted and unknown source has no fabricated link",
   ).toHaveCount(0);
 });
 
-test("empty notification list does not claim 100 messages", async ({ page }) => {
+test("empty notification list does not claim 100 messages", async ({
+  page,
+}) => {
   await setup(page);
   await page.route("**/api/notifications?**", (route) =>
     route.fulfill({ json: [] }),
   );
   await page.goto("/notifications");
-  await expect(page.getByText("You don't have any notifications yet.")).toBeVisible();
+  await expect(
+    page.getByText("You don't have any notifications yet."),
+  ).toBeVisible();
   await expect(page.getByText(/latest 100 notifications/i)).toHaveCount(0);
 
   await page.getByRole("tab", { name: "Unread" }).click();
@@ -548,9 +556,27 @@ test("schedule reads the date from dashboard deep links", async ({ page }) => {
     (req) =>
       req.url().includes("/api/members/me/schedule") &&
       new URL(req.url()).searchParams.get("fromUtc") ===
-        "2099-01-09T17:00:00.000Z",
+        "2099-01-04T17:00:00.000Z",
   );
   await page.goto("/member/schedule?date=2099-01-10");
   await request;
   await expect(page).toHaveURL(/date=2099-01-10/);
+  await expect(page.getByRole("columnheader")).toHaveCount(7);
+  await expect(page.getByRole("columnheader").first()).toContainText(
+    "Mon (05/01)",
+  );
+  await expect(page.getByRole("columnheader").last()).toContainText(
+    "Sun (11/01)",
+  );
+  await expect(
+    page.getByRole("button", { name: "Day", exact: true }),
+  ).toHaveCount(0);
+  await page.getByRole("button", { name: "Next week" }).click();
+  await expect(page.getByRole("columnheader").first()).toContainText(
+    "Mon (12/01)",
+  );
+  await page.getByLabel("Choose week").fill("2099-W04");
+  await expect(page.getByRole("columnheader").first()).toContainText(
+    "Mon (19/01)",
+  );
 });

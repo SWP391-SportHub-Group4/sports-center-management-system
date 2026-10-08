@@ -265,10 +265,9 @@ test("AI leaves desktop calendar interactive and links to the exact server sessi
   await expect
     .poll(() => page.evaluate(() => document.body.style.overflow))
     .not.toBe("hidden");
-  await page.getByRole("button", { name: "Day", exact: true }).click();
-  await expect(
-    page.getByRole("button", { name: "Day", exact: true }),
-  ).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("button", { name: "Next week" }).click();
+  await expect(page.getByRole("columnheader")).toHaveCount(7);
+  await page.getByRole("button", { name: "Previous week" }).click();
   await drawer.locator("textarea").fill("What is on my schedule?");
   await drawer.locator("textarea").press("Enter");
   await expect(
