@@ -282,7 +282,7 @@ Không kết luận production-ready khi còn gap nghiệp vụ P0 liên quan.
 |---|---|---|
 | An A01–A04 | Tổng quan; Khám phá dùng catalog Khôi; Lịch lớp + PT → chi tiết; Khóa của tôi → ghi danh/lịch/điểm danh | UX Operate → UI có mật độ vừa |
 | An A05–A09 | Gym & PT → Membership/lịch sử Gym; gói PT/quota; đặt PT; chi tiết buổi → yêu cầu hủy/đổi lịch; yêu cầu đổi HLV | UX điều kiện/quota/conflict → UI form |
-| An A10–A11 | Tập luyện → hồ sơ, kế hoạch, kết quả, tiến độ, homework | UX relationship/quyền → UI nội dung |
+| An A10–A11 | Tập luyện → hồ sơ, kế hoạch, kết quả, tiến độ | UX relationship/quyền → UI nội dung |
 | An A12–A15 | Tài chính → ví/ledger; hóa đơn/detail; yêu cầu hoàn/theo dõi; shared checkout → điểm → VNPay → kết quả | UX tiền/trạng thái trước UI |
 | An A16–A20 | Phản hồi ngưỡng 3 phương án; inbox thông báo; AI Member Drawer; nguyện vọng khóa sau; thẻ hội viên mã/QR | UX ngoại lệ, context, quyền |
 | Khôi K01–K03 | Landing; Bộ môn → chi tiết; Khóa học → lọc/chi tiết/lịch toàn khóa | UX Persuade → Taste đầy đủ |
@@ -293,7 +293,7 @@ Không kết luận production-ready khi còn gap nghiệp vụ P0 liên quan.
 | Hào H01–H04 | Quầy hôm nay; hội viên → hồ sơ; hỗ trợ đăng ký; Gym check-in/out/danh sách đang ở Gym | UX tốc độ/nhận diện → UI quick actions |
 | Hào H05–H11 | Bán dịch vụ → Member/sản phẩm/checkout/OTP; điểm danh/roster; lịch sân/detail; hóa đơn; tạo hộ refund; ví Member | UX thao tác/quyền → UI dense |
 | Hào H12–H15 | Coach tổng quan; lịch dạy/detail; lớp/roster; học viên PT/hồ sơ | UX scope/relationship → UI lịch |
-| Hào H16–H20 | Plan tạo/sửa/detail; kết quả/tiến độ; homework; buổi PT/detail; AI gợi ý → review/edit/draft/apply | UX human review → UI editor |
+| Hào H16–H20 | Plan tạo/sửa/detail; kết quả/tiến độ; buổi PT/detail; AI gợi ý → review/edit/draft/apply | UX human review → UI editor |
 | Khoa Q01–Q07 | Manager tổng quan/lịch; lớp list/create/edit/detail; publish/dời/bù/hủy; xử lý ngưỡng | UX tác động/flow → UI bảng/form |
 | An Q08–Q12 | Nguyện vọng khóa sau; PT relationship/sessions/requests; Member profile vận hành | UX quyền/quota → UI dùng chung |
 | Khoa Q13–Q18 | HLV trung tâm; sân/phòng/loại sân; incident preview/resolve/detail/history; notices compose/preview/delivery | UX ngoại lệ trước UI |

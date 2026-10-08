@@ -80,7 +80,6 @@ Menu cơ bản: **Tổng quan · Lịch giảng dạy · Lớp phụ trách**. C
 | H15 | Học viên PT → Hồ sơ | `/coach/members`, `/coach/members/[memberId]` | Quan hệ Active, mục tiêu/trình độ, thông tin tập cần thiết; không tự gán học viên |
 | H16 | Hồ sơ PT → Kế hoạch | Tab → tạo/sửa/chi tiết | Bài tập, cấu trúc plan, Draft/Active/Archived theo API; review trước activate |
 | H17 | Hồ sơ PT → Kết quả & tiến độ | Tab/list/detail | Kết quả buổi hợp lệ, nhận xét, tiến độ với thời gian/đơn vị; không bịa đường biểu đồ khi thiếu dữ liệu |
-| H18 | Hồ sơ PT → Homework | Tab → tạo/sửa/chi tiết | Bài tập giao, hướng dẫn; chỉ Coach phụ trách được ghi, Member xem |
 | H19 | Buổi PT → Chi tiết | `/coach/pt-sessions`, `/coach/pt-sessions/[id]` | Member, thời gian/sân, trạng thái, hoàn thành/no-show theo API, ghi kết quả hợp lệ |
 | H20 | AI gợi ý kế hoạch | Drawer từ H16/H19 | Đầu vào, gợi ý, Xem lại & Chỉnh sửa → Lưu nháp → Áp dụng qua activate nếu hợp lệ |
 
@@ -109,19 +108,19 @@ Shared states: empty prompt, đang tạo, cancel, retry, thiếu đầu vào, ch
 - Attendance: `GET /api/class-sessions/{id}/roster`, `PUT /api/class-sessions/{id}/attendance/{enrollmentId}`.
 - Lịch sân: `GET /api/manager/court-schedule` dành FrontDesk; tên manager trong URL không có nghĩa Receptionist bị cấm. Coach dùng `/api/coaches/me/court-schedule`.
 - Coach classes: `GET /api/coaches/me/classes` và sessions/roster có CoachScope.
-- PT: `/api/coaches/me/pt-sessions`, detail/complete/no-show; workout-plans, workout-results, progress, homework theo role/relationship.
+- PT: `/api/coaches/me/pt-sessions`, detail/complete/no-show; workout-plans, workout-results, progress theo role/relationship.
 - AI Coach: `POST /api/ai/workout-suggestions/{memberId}`; plan create/update/activate riêng. Không gọi `POST /api/ai/chat` bằng role Coach vì endpoint đó hiện chỉ Member.
 - Staff payments: invoices/reconcile/refunds, Member points/ledger; shared An dùng exact contract.
 
 Code đầu vào: `features/receptionist`, `features/pt`, `features/court-schedule`, `components/AttendanceBoard.tsx`, `components/MemberPicker.tsx`, `CameraQrScanner.tsx`, `app/receptionist`, `app/coach`. Scanner component tồn tại không chứng minh backend QR đã tồn tại.
 
-Mapping: `sell-plans/registrations/member-points` gom về Sales/Member detail có adapter; Coach `training-plans/progress/homework/ai-suggestions` thành deep link đúng tab/member, không để bốn menu chọn lại người. Bookmark thiếu Member phải đưa tới picker, không chọn bừa Member đầu tiên.
+Mapping: `sell-plans/registrations/member-points` gom về Sales/Member detail có adapter; Coach `training-plans/progress/ai-suggestions` thành deep link đúng tab/member, không để bốn menu chọn lại người. Bookmark thiếu Member phải đưa tới picker, không chọn bừa Member đầu tiên.
 
 ## 8. Thứ tự và nghiệm thu
 
 1. Search/QuickActions/Calendar contract → quầy mẫu và timeline mẫu; sync An/Khôi.
 2. Receptionist search → check-in/out → attendance → checkout dùng An → reconcile/refund request.
-3. Coach lịch/lớp → học viên PT → session → plan/result/homework.
+3. Coach lịch/lớp → học viên PT → session → plan/result.
 4. AI Drawer + review editor cho ba mode, adapter Manager do Khoa hoàn thiện theo G03.
 5. G04 QR, test trạng thái/phím tắt/accessibility và phối hợp liên vai trò.
 
@@ -172,7 +171,7 @@ Kiểm verb, constraint và body trong controller/OpenAPI; page mới không nh�
 | Reconcile/gateway | `POST /api/invoices/{id}/reconcile`; `GET /api/payments/vnpay/ipn`, `/return` | G11 cần kiểm tra auth callback; không coi return là xác nhận |
 | PT entitlement/session | GET member/coach/manager pt-entitlements; GET member/coach/manager pt-sessions; manager create/cancel/reschedule | G05: chưa có member create booking |
 | PT yêu cầu | Member create/list session-change/coach-change request; manager list/approve/reject | Đang chờ khác với đã đổi lịch |
-| Training | Profile, plans, results, progress, homework, relationship APIs | Phân quyền relationship/specialty; không tạo endpoint chỉ vì thêm tab |
+| Training | Profile, plans, results, progress, relationship APIs | Phân quyền relationship/specialty; không tạo endpoint chỉ vì thêm tab |
 | AI | `POST /api/ai/chat`; `/workout-suggestions/{memberId}`; `GET /api/ai/logs` | Chat Member, suggestions Coach PT, logs theo actor scope |
 | Lịch sân/availability staff | `GET /api/manager/court-schedule`, `/rentals`; `/api/coaches/me/court-schedule`; `/api/availability/rooms`, `/coaches`, `/rooms/{id}/busy` | Quyền khác nhau, public không dùng trực tiếp |
 | Gym | `GET /api/gym-checkins/inside`; POST root/`{id}/checkout`; history ở MemberGymCheckInsController | Receptionist ghi, Member self-read |

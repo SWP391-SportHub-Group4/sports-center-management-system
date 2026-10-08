@@ -105,7 +105,6 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { href: "/coach/pt-sessions", labelKey: "ptSchedule" },
     { href: "/coach/training-plans", labelKey: "trainingPlans" },
     { href: "/coach/progress", labelKey: "progress" },
-    { href: "/coach/homework", labelKey: "homework" },
     { href: "/coach/ai-suggestions", labelKey: "aiSuggestions" },
   ],
   CenterManager: [
@@ -156,7 +155,6 @@ export function getNavForUser(user: {
             "/coach/training-plans",
             "/coach/ai-suggestions",
             "/coach/progress",
-            "/coach/homework",
           ].includes(item.href),
         ),
       ]
@@ -212,7 +210,6 @@ const GROUP_SPEC: Partial<Record<Role, (string | [GroupKey, string[]])[]>> = {
         "/coach/pt-sessions",
         "/coach/training-plans",
         "/coach/progress",
-        "/coach/homework",
         "/coach/ai-suggestions",
       ],
     ],

@@ -24,7 +24,7 @@ public class WorkoutPlan
 
     public DateTime CreatedAt { get; set; }
 
-    // Mới 29/09/2026 (BE-4) — archive thay hard delete cho plan đã giao/dùng làm nguồn homework.
+    // Mới 29/09/2026 (BE-4) — archive thay hard delete cho plan đã giao cho Member.
     public WorkoutPlanStatus Status { get; set; }
 
     public DateTime UpdatedAt { get; set; }
@@ -33,5 +33,4 @@ public class WorkoutPlan
 
     public ICollection<WorkoutPlanItem> Items { get; set; } = new List<WorkoutPlanItem>();
 
-    public ICollection<HomeworkAssignment> HomeworkAssignments { get; set; } = new List<HomeworkAssignment>();
 }

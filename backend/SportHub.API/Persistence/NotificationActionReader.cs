@@ -29,12 +29,6 @@ public sealed class NotificationActionReader(SportHubDbContext db) : INotificati
                                  .Select(x => x.ThresholdResponseId).ToListAsync(ct))
                         links[id] = $"/member/threshold?responseId={id}";
                     break;
-                case "HomeworkAssigned":
-                case "HomeworkStatusChanged":
-                    foreach (var id in await db.HomeworkAssignments.Where(x => x.MemberId == userId && ids.Contains(x.AssignmentId))
-                                 .Select(x => x.AssignmentId).ToListAsync(ct))
-                        links[id] = $"/member/training?tab=homework&assignment={id}";
-                    break;
                 case "IncidentResolution":
                     foreach (var id in await db.CourtRentals.Where(x => x.MemberId == userId && ids.Contains(x.CourtRentalId))
                                  .Select(x => x.CourtRentalId).ToListAsync(ct))

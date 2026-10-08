@@ -448,7 +448,7 @@ Ràng buộc: `EXCLUDE USING gist (CoachId WITH =, Period WITH &&) WHERE (IsActi
 ### `WORKOUT_PLANS`
 **Mục đích:** kế hoạch tập do Coach lập cho 1 Member — chỉ được tạo nếu Coach có `COACH_MEMBER_RELATIONSHIP` ACTIVE với Member đó (đảm bảo đúng quyền phụ trách).
 
-**Quy tắc:** thêm `Status`/`UpdatedAt`/`Version` để có lifecycle archive thay vì hard delete — plan đã giao cho Member hoặc đã dùng làm nguồn `HOMEWORK_ASSIGNMENTS` không được xóa cứng.
+**Quy tắc:** thêm `Status`/`UpdatedAt`/`Version` để có lifecycle archive thay vì hard delete — plan đã giao cho Member không được xóa cứng.
 
 | Field | Vai trò |
 |---|---|
@@ -562,31 +562,6 @@ Mỗi session tối đa 1 request `Pending`; request `Approved` phải áp dụn
 | `ReviewedByUserId` / `ReviewedAt` / `ReviewNote` | Manager xử lý |
 
 Khi `Approved`: đổi `PT_ENTITLEMENTS.CoachId`, kết thúc `COACH_MEMBER_RELATIONSHIP` cũ và tạo/đảm bảo quan hệ mới, chuyển từng `PT_SESSIONS` tương lai `Scheduled` sang Coach mới nếu không conflict (session conflict giữ Coach cũ, trả `unmovedSessionIds` cho Manager xử lý thủ công) — không tự hủy session conflict.
-
-### `HOMEWORK_ASSIGNMENTS`
-**Mục đích:** bài tập về nhà PT giao cho Member — nguồn dữ liệu thật thay vì dùng chuỗi `NOTIFICATIONS` làm nguồn.
-
-| Field | Vai trò |
-|---|---|
-| `AssignmentId` (PK) | Định danh |
-| `MemberId` / `CoachId` / `RelationshipId` (FK) | Ai giao cho ai, theo đúng quan hệ đang `Active` |
-| `SourceWorkoutPlanId` (FK, nullable) | Snapshot từ `WORKOUT_PLANS` nếu có, không phụ thuộc ngược khi plan nguồn đổi sau |
-| `Title` / `CoachNote` | Tiêu đề và ghi chú của Coach |
-| `AssignedAt` / `DueAt` / `CompletedAt` / `ReviewedAt` | Mốc thời gian theo từng bước |
-| `Status` | `Assigned/InProgress/Completed/Reviewed/Cancelled` |
-| `MemberFeedback` | Phản hồi của Member — chỉ Member sửa, PT không sửa |
-| `Version` | Optimistic concurrency token |
-
-Chỉ PT có quan hệ `Active` với Member mới tạo/sửa/hủy/review; Member chỉ đọc và cập nhật `InProgress`/`Completed` + feedback của chính mình; Coach không có specialty PT luôn bị 403; relationship kết thúc không xóa homework cũ, chỉ chặn assignment mới. `NOTIFICATIONS` chỉ báo "có bài mới", không thay thế bản ghi này.
-
-### `HOMEWORK_ASSIGNMENT_ITEMS`
-**Mục đích:** snapshot từng bài tập trong 1 `HOMEWORK_ASSIGNMENTS` — tách bảng con như `WORKOUT_PLAN_ITEMS`.
-
-| Field | Vai trò |
-|---|---|
-| `ItemId` (PK) | Định danh |
-| `AssignmentId` (FK) | Thuộc assignment nào |
-| `Exercise` / `Sets` / `Reps` / `Notes` | Thông số bài tập, snapshot tại thời điểm giao |
 
 ---
 

@@ -5,25 +5,25 @@ BEGIN;
 DO $$
 DECLARE
     member uuid := (SELECT user_id FROM user_accounts WHERE email = 'an.member@sporthub.vn');
-    coach uuid := (SELECT user_id FROM user_accounts WHERE email = 'coach.pt@sporthub.vn');
-    relationship uuid;
     pt uuid;
     pt_start timestamptz;
+    package_id uuid;
+    package_end date;
     course classes%ROWTYPE;
     invoice uuid := 'a0300000-0000-4000-8000-000000000001';
     cycle uuid := 'a0300000-0000-4000-8000-000000000002';
     hold uuid := 'a0300000-0000-4000-8000-000000000003';
-    homework uuid := 'a0300000-0000-4000-8000-000000000004';
     expiry timestamptz := now() + interval '15 minutes';
 BEGIN
-    SELECT relationship_id INTO relationship FROM coach_member_relationships
-    WHERE member_id = member AND coach_id = coach AND status = 0 LIMIT 1;
+    SELECT member_package_id, end_date INTO package_id, package_end FROM member_packages
+    WHERE member_id = member AND status = 1 AND end_date >= CURRENT_DATE
+    ORDER BY end_date LIMIT 1;
     SELECT session_id, start_at_utc INTO pt, pt_start FROM pt_sessions
     WHERE member_id = member AND status = 0 AND start_at_utc > now()
     ORDER BY start_at_utc LIMIT 1;
     SELECT * INTO course FROM classes WHERE code = 'BR141-BONGRO-01' FOR UPDATE;
-    IF member IS NULL OR relationship IS NULL OR pt IS NULL OR course.class_id IS NULL THEN
-        RAISE EXCEPTION 'Run the Member pages demo seed first; a future PT session is required.';
+    IF member IS NULL OR package_id IS NULL OR pt IS NULL OR course.class_id IS NULL THEN
+        RAISE EXCEPTION 'Run the Member pages demo seed first; an active package and future PT session are required.';
     END IF;
 
     -- Remove only the three obsolete placeholders, including any already marked read.
@@ -54,21 +54,16 @@ BEGIN
         VALUES (cycle, invoice, 1, 'demo-actionable-notice-class-v1', 'Class', 'Active', now(), expiry, hold, course.class_id);
     END IF;
 
-    INSERT INTO homework_assignments (assignment_id, member_id, coach_id, relationship_id, title, coach_note,
-        assigned_at, due_at, status, version)
-    VALUES (homework, member, coach, relationship, 'Ôn bài tập PT tại nhà',
-        'Thực hiện theo hướng dẫn đã học trong buổi PT. Gửi phản hồi sau khi hoàn thành.', now(), now() + interval '7 days', 0, 0)
-    ON CONFLICT (assignment_id) DO NOTHING;
-    INSERT INTO homework_assignment_items (item_id, assignment_id, exercise, sets, reps, notes)
-    VALUES ('a0300000-0000-4000-8000-000000000006', homework, 'Squat không tạ', 2, 10, 'Giữ kỹ thuật như buổi tập cùng HLV.')
-    ON CONFLICT (item_id) DO NOTHING;
+    -- Retire the previous homework demo notice before inserting its replacement.
+    DELETE FROM notifications WHERE notification_id = 'a0300000-0000-4000-8000-000000000012'
+      AND user_id = member AND source_event_type = 4;
 
     INSERT INTO notifications (notification_id, user_id, channel, source_event_type, source_entity_id, message, status, retry_count, sent_at)
     VALUES
       ('a0300000-0000-4000-8000-000000000011', member, 0, 15, invoice,
         'Hóa đơn DEMO-NOTICE-001 cho khóa ' || course.name || ' đang chờ thanh toán. Mở hóa đơn để thanh toán hoặc tạo lại checkout nếu đã hết hạn.', 1, 0, now()),
-      ('a0300000-0000-4000-8000-000000000012', member, 0, 4, homework,
-        'Bạn có bài tập về nhà mới: Ôn bài tập PT tại nhà. Mở bài tập để xem hướng dẫn và gửi tiến độ cho huấn luyện viên.', 1, 0, now() - interval '1 minute'),
+      ('a0300000-0000-4000-8000-000000000012', member, 0, 2, package_id,
+        'Gói tập của bạn sẽ hết hạn vào ' || to_char(package_end, 'DD/MM/YYYY') || '. Mở Gym & PT để xem quyền lợi và gia hạn tại quầy lễ tân.', 1, 0, now() - interval '1 minute'),
       ('a0300000-0000-4000-8000-000000000013', member, 0, 1, pt,
         'Lịch PT đã cập nhật: ' || to_char(pt_start AT TIME ZONE 'Asia/Ho_Chi_Minh', 'HH24:MI DD/MM/YYYY') || '. Kiểm tra lịch mới hoặc gửi yêu cầu đổi/hủy nếu không phù hợp.', 1, 0, now() - interval '2 minutes')
     ON CONFLICT (notification_id) DO NOTHING;
