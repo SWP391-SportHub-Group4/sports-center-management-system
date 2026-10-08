@@ -1,4 +1,6 @@
-"use client";
-import { PtPage } from "@/features/pt/ui";
-import { PtSessions } from "@/features/pt/pt-sessions";
-export default function Page() { return <PtPage title="sessions" manager><PtSessions manager/></PtPage>; }
+import { redirect } from "next/navigation";
+
+/** Tuyến cũ: nay là tab của Huấn luyện cá nhân. Giữ bookmark. */
+export default function Page() {
+  redirect("/manager/pt?tab=sessions");
+}

@@ -27,10 +27,19 @@ async function setup(page: Page, response: (route: Route) => Promise<void>) {
     if (path === "/api/users/admin")
       return route.fulfill({
         json: {
-          items: [],
+          items: [
+            {
+              userId: "22222222-2222-4222-8222-222222222222",
+              fullName: "Desk account",
+              email: "desk@example.com",
+              role: "RECEPTIONIST",
+              status: "ACTIVE",
+              sportIds: [],
+            },
+          ],
           page: 1,
           pageSize: 20,
-          totalCount: 0,
+          totalCount: 1,
         },
       });
     if (path === "/api/sports")
@@ -39,11 +48,10 @@ async function setup(page: Page, response: (route: Route) => Promise<void>) {
     return route.fulfill({ status: 404, json: { code: "fixture_missing" } });
   });
   await page.goto("/admin/users");
-  await page
-    .getByRole("button", { name: "Create staff account", exact: true })
-    .click();
-  const form = page.locator("form");
-  await form.getByLabel("Full name", { exact: true }).fill("Keep this name");
+  // Vai trò Coach không còn trong form tạo tài khoản nhân sự; chuyên môn chọn khi đổi vai trò một tài khoản.
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  const form = page.getByRole("dialog");
+  await form.getByLabel("Reason", { exact: true }).fill("Keep this reason");
   showOptions = true;
   await form.getByLabel("Role", { exact: true }).selectOption("COACH");
   return { form, group: form.getByRole("group", { name: "Specialties" }) };
@@ -77,8 +85,8 @@ test("sport loading shows checkbox-shaped skeletons and then selectable active s
   await expect(
     group.getByRole("checkbox", { name: "Gym", exact: true }),
   ).toBeChecked();
-  await expect(form.getByLabel("Full name", { exact: true })).toHaveValue(
-    "Keep this name",
+  await expect(form.getByLabel("Reason", { exact: true })).toHaveValue(
+    "Keep this reason",
   );
 });
 
@@ -150,8 +158,8 @@ for (const status of [500, 403, 409, 412]) {
         group.getByRole("checkbox", { name: "Gym", exact: true }),
       ).toBeVisible();
     }
-    await expect(form.getByLabel("Full name", { exact: true })).toHaveValue(
-      "Keep this name",
+    await expect(form.getByLabel("Reason", { exact: true })).toHaveValue(
+      "Keep this reason",
     );
   });
 }

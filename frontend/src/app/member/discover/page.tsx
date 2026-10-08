@@ -8,7 +8,7 @@ export default function Page() {
   return (
     <MemberShell
       title={t.memberPages.discover}
-      description={t.memberDashboardV2.discoverHint}
+      description={t.mDiscover.description}
     >
       <CourseCatalog detailBasePath="/member/discover" />
     </MemberShell>

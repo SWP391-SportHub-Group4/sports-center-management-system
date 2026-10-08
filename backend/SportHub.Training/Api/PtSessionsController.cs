@@ -116,6 +116,33 @@ public class PtSessionsController(IPtSessionService sessions, PersonalTrainerGua
         return Ok(await sessions.NoShowAsync(sessionId, request, coachId, ct));
     }
 
+    /// <summary>
+    /// Khung PT còn trống của Coach được giao (G05). Ngày theo giờ Việt Nam; mặc định 7 ngày từ hôm nay, tối đa 14 ngày.
+    /// Chỉ là gợi ý: đặt lịch vẫn kiểm lại trong transaction.
+    /// </summary>
+    [Authorize(Policy = SportHubPolicies.Member)]
+    [HttpGet("members/me/pt-entitlements/{entitlementId:guid}/availability")]
+    [ProducesResponseType<PtAvailabilityResponse>(StatusCodes.Status200OK)]
+    public async Task<IActionResult> MemberAvailability(
+        Guid entitlementId,
+        [FromQuery] DateOnly? fromDate,
+        [FromQuery] DateOnly? toDate,
+        [FromServices] SportHub.BuildingBlocks.SharedKernel.Time.IClock clock,
+        CancellationToken ct = default)
+    {
+        var from = fromDate ?? SportHub.BuildingBlocks.SharedKernel.Time.VietnamTime.TodayLocal(clock);
+        var to = toDate ?? from.AddDays(6);
+
+        return Ok(await sessions.GetSelfBookingAvailabilityAsync(User.RequireUserId(), entitlementId, from, to, ct));
+    }
+
+    /// <summary>Member tự đặt buổi PT bằng quyền lợi của mình. 409 khi hết quota, trùng giờ hoặc khung không còn trống.</summary>
+    [Authorize(Policy = SportHubPolicies.Member)]
+    [HttpPost("members/me/pt-sessions")]
+    [ProducesResponseType<PtSessionResponse>(StatusCodes.Status201Created)]
+    public async Task<IActionResult> MemberBook([FromBody] SelfBookPtSessionRequest request, CancellationToken ct)
+        => StatusCode(StatusCodes.Status201Created, await sessions.SelfBookAsync(User.RequireUserId(), request, ct));
+
     [Authorize(Policy = SportHubPolicies.Member)]
     [HttpGet("members/me/pt-sessions")]
     [ProducesResponseType<IReadOnlyList<PtSessionResponse>>(StatusCodes.Status200OK)]

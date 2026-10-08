@@ -298,7 +298,10 @@ test("court metadata stays readable on mobile and switches language", async ({
         fullPage: true,
       });
   }
-  await page.getByRole("button", { name: "EN", exact: true }).click();
+  await page.getByRole("button", { name: "Open navigation menu" }).click();
+  await page
+    .getByRole("button", { name: "Language: English (Switch to VI)" })
+    .click();
   await expect(page.getByRole("table")).toContainText("Giá mỗi giờ:");
   await expect(page.getByRole("table")).toContainText("Thứ hai");
 });

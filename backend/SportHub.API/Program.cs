@@ -178,6 +178,7 @@ builder.Services.AddScoped<SportHub.Training.Application.Services.PersonalTraine
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Identity.IUserAccessReader, UserAccessReader>();
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Identity.ICoachSpecialtyReader, CoachSpecialtyReader>();
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Scheduling.ISportCatalogReader, SportHub.Scheduling.Catalog.Application.SportCatalogReader>();
+builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Scheduling.ISchedulingAvailabilityReader, SportHub.Scheduling.Occupancy.Application.SchedulingAvailabilityReader>();
 builder.Services.AddScoped<IGoogleTokenVerifier, GoogleTokenVerifier>();
 builder.Services.AddScoped<IGoogleAuthService, GoogleAuthService>();
 

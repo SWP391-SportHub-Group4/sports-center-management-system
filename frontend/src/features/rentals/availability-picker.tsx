@@ -60,8 +60,8 @@ export function AvailabilityPicker() {
       <AsyncSection state={policy}>
         {(limits) => (
           <p>
-            {l.hours}: 1-{limits.maxHours} · {l.daysAhead}:{" "}
-            {limits.advanceDays} · {l.cancelFreeHours}: {limits.cancelFreeHours}
+            {l.hours}: 1-{limits.maxHours} · {l.daysAhead}: {limits.advanceDays}{" "}
+            · {l.cancelFreeHours}: {limits.cancelFreeHours}
           </p>
         )}
       </AsyncSection>
