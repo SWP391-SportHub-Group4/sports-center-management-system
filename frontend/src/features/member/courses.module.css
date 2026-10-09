@@ -41,9 +41,9 @@
   overflow-wrap: anywhere;
 }
 .facts {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: var(--space-3) var(--space-5);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-7);
   margin: 0;
 }
 .facts dt {
@@ -119,4 +119,14 @@
   font-size: var(--text-sm);
   font-weight: var(--weight-semibold);
   text-underline-offset: 0.2em;
+}
+
+.when {
+  white-space: nowrap;
+}
+
+@media (max-width: 560px) {
+  .when {
+    white-space: normal;
+  }
 }

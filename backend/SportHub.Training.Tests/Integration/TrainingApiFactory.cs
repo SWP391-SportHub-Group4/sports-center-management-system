@@ -22,7 +22,7 @@ using Testcontainers.PostgreSql;
 namespace SportHub.Training.Tests.Integration;
 
 /// <summary>
-/// Ha tang test cua module Training (BE-4: PT entitlement/session/homework) — cung mau voi
+/// Ha tang test cua module Training (BE-4: PT entitlement/session) — cung mau voi
 /// SchedulingApiFactory (PostgreSQL that qua Testcontainers, schema sinh bang chinh migration).
 /// </summary>
 public sealed class TrainingApiFactory : WebApplicationFactory<Program>, IAsyncLifetime

@@ -388,57 +388,6 @@ namespace SportHub.API.Migrations
                     b.ToTable("email_otps", (string)null);
                 });
 
-            modelBuilder.Entity("SportHub.Identity.Domain.Entities.GoogleOnboardingTicket", b =>
-                {
-                    b.Property<Guid>("TicketId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("ticket_id");
-
-                    b.Property<DateTime?>("ConsumedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("consumed_at");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<string>("Email")
-                        .IsRequired()
-                        .HasColumnType("citext")
-                        .HasColumnName("email");
-
-                    b.Property<DateTime>("ExpiresAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("expires_at");
-
-                    b.Property<string>("ProviderUserId")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("provider_user_id");
-
-                    b.Property<string>("SuggestedFullName")
-                        .HasColumnType("text")
-                        .HasColumnName("suggested_full_name");
-
-                    b.Property<string>("TokenHash")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("token_hash");
-
-                    b.HasKey("TicketId")
-                        .HasName("pk_google_onboarding_tickets");
-
-                    b.HasIndex("ProviderUserId")
-                        .HasDatabaseName("ix_google_onboarding_tickets_provider_user_id");
-
-                    b.HasIndex("TokenHash")
-                        .IsUnique()
-                        .HasDatabaseName("ix_google_onboarding_tickets_token_hash");
-
-                    b.ToTable("google_onboarding_tickets", (string)null);
-                });
-
             modelBuilder.Entity("SportHub.Identity.Domain.Entities.Role", b =>
                 {
                     b.Property<int>("RoleId")
@@ -2993,125 +2942,6 @@ namespace SportHub.API.Migrations
                     b.ToTable("coach_member_relationships", (string)null);
                 });
 
-            modelBuilder.Entity("SportHub.Training.Domain.Entities.HomeworkAssignment", b =>
-                {
-                    b.Property<Guid>("AssignmentId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("assignment_id");
-
-                    b.Property<DateTime>("AssignedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("assigned_at");
-
-                    b.Property<Guid>("CoachId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("coach_id");
-
-                    b.Property<string>("CoachNote")
-                        .HasColumnType("text")
-                        .HasColumnName("coach_note");
-
-                    b.Property<DateTime?>("CompletedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("completed_at");
-
-                    b.Property<DateTime>("DueAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("due_at");
-
-                    b.Property<string>("MemberFeedback")
-                        .HasColumnType("text")
-                        .HasColumnName("member_feedback");
-
-                    b.Property<Guid>("MemberId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("member_id");
-
-                    b.Property<Guid>("RelationshipId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("relationship_id");
-
-                    b.Property<DateTime?>("ReviewedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("reviewed_at");
-
-                    b.Property<Guid?>("SourceWorkoutPlanId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("source_workout_plan_id");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("integer")
-                        .HasColumnName("status");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("title");
-
-                    b.Property<int>("Version")
-                        .IsConcurrencyToken()
-                        .HasColumnType("integer")
-                        .HasColumnName("version");
-
-                    b.HasKey("AssignmentId")
-                        .HasName("pk_homework_assignments");
-
-                    b.HasIndex("RelationshipId")
-                        .HasDatabaseName("ix_homework_assignments_relationship_id");
-
-                    b.HasIndex("SourceWorkoutPlanId")
-                        .HasDatabaseName("ix_homework_assignments_source_workout_plan_id");
-
-                    b.HasIndex("CoachId", "Status", "DueAt")
-                        .HasDatabaseName("ix_homework_assignments_coach_id_status_due_at");
-
-                    b.HasIndex("MemberId", "Status", "DueAt")
-                        .HasDatabaseName("ix_homework_assignments_member_id_status_due_at");
-
-                    b.ToTable("homework_assignments", null, t =>
-                        {
-                            t.HasCheckConstraint("CK_homework_assignments_due_after_assigned", "due_at > assigned_at");
-                        });
-                });
-
-            modelBuilder.Entity("SportHub.Training.Domain.Entities.HomeworkAssignmentItem", b =>
-                {
-                    b.Property<Guid>("ItemId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("item_id");
-
-                    b.Property<Guid>("AssignmentId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("assignment_id");
-
-                    b.Property<string>("Exercise")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("exercise");
-
-                    b.Property<string>("Notes")
-                        .HasColumnType("text")
-                        .HasColumnName("notes");
-
-                    b.Property<int>("Reps")
-                        .HasColumnType("integer")
-                        .HasColumnName("reps");
-
-                    b.Property<int>("Sets")
-                        .HasColumnType("integer")
-                        .HasColumnName("sets");
-
-                    b.HasKey("ItemId")
-                        .HasName("pk_homework_assignment_items");
-
-                    b.HasIndex("AssignmentId")
-                        .HasDatabaseName("ix_homework_assignment_items_assignment_id");
-
-                    b.ToTable("homework_assignment_items", (string)null);
-                });
-
             modelBuilder.Entity("SportHub.Training.Domain.Entities.PtCoachChangeRequest", b =>
                 {
                     b.Property<Guid>("RequestId")
@@ -4469,56 +4299,6 @@ namespace SportHub.API.Migrations
                     b.Navigation("Member");
                 });
 
-            modelBuilder.Entity("SportHub.Training.Domain.Entities.HomeworkAssignment", b =>
-                {
-                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", "Coach")
-                        .WithMany()
-                        .HasForeignKey("CoachId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
-                        .HasConstraintName("fk_homework_assignments_user_accounts_coach_id");
-
-                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", "Member")
-                        .WithMany()
-                        .HasForeignKey("MemberId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
-                        .HasConstraintName("fk_homework_assignments_user_accounts_member_id");
-
-                    b.HasOne("SportHub.Training.Domain.Entities.CoachMemberRelationship", "Relationship")
-                        .WithMany("HomeworkAssignments")
-                        .HasForeignKey("RelationshipId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
-                        .HasConstraintName("fk_homework_assignments_coach_member_relationships_relationshi");
-
-                    b.HasOne("SportHub.Training.Domain.Entities.WorkoutPlan", "SourceWorkoutPlan")
-                        .WithMany("HomeworkAssignments")
-                        .HasForeignKey("SourceWorkoutPlanId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .HasConstraintName("fk_homework_assignments_workout_plans_source_workout_plan_id");
-
-                    b.Navigation("Coach");
-
-                    b.Navigation("Member");
-
-                    b.Navigation("Relationship");
-
-                    b.Navigation("SourceWorkoutPlan");
-                });
-
-            modelBuilder.Entity("SportHub.Training.Domain.Entities.HomeworkAssignmentItem", b =>
-                {
-                    b.HasOne("SportHub.Training.Domain.Entities.HomeworkAssignment", "Assignment")
-                        .WithMany("Items")
-                        .HasForeignKey("AssignmentId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_homework_assignment_items_homework_assignments_assignment_id");
-
-                    b.Navigation("Assignment");
-                });
-
             modelBuilder.Entity("SportHub.Training.Domain.Entities.PtCoachChangeRequest", b =>
                 {
                     b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", "CurrentCoach")
@@ -4792,14 +4572,7 @@ namespace SportHub.API.Migrations
 
             modelBuilder.Entity("SportHub.Training.Domain.Entities.CoachMemberRelationship", b =>
                 {
-                    b.Navigation("HomeworkAssignments");
-
                     b.Navigation("WorkoutPlans");
-                });
-
-            modelBuilder.Entity("SportHub.Training.Domain.Entities.HomeworkAssignment", b =>
-                {
-                    b.Navigation("Items");
                 });
 
             modelBuilder.Entity("SportHub.Training.Domain.Entities.PtEntitlement", b =>
@@ -4818,8 +4591,6 @@ namespace SportHub.API.Migrations
 
             modelBuilder.Entity("SportHub.Training.Domain.Entities.WorkoutPlan", b =>
                 {
-                    b.Navigation("HomeworkAssignments");
-
                     b.Navigation("Items");
                 });
 #pragma warning restore 612, 618

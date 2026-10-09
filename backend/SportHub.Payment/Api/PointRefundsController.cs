@@ -19,6 +19,12 @@ public sealed class PointRefundsController(IPointRefundService refunds) : Contro
         CancellationToken cancellationToken = default)
         => Ok(await refunds.SearchAsync(status, invoiceId, invoiceItemId, page, pageSize, cancellationToken));
 
+    [Authorize(Roles = "Member")]
+    [HttpGet("mine")]
+    public async Task<IActionResult> Mine([FromQuery] string? status, [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20, CancellationToken cancellationToken = default)
+        => Ok(await refunds.SearchMineAsync(User.RequireUserId(), status, page, pageSize, cancellationToken));
+
     [HttpGet("quote/{invoiceItemId:guid}")]
     public async Task<IActionResult> Quote(Guid invoiceItemId, CancellationToken ct)
     {

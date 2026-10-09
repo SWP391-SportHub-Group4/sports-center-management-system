@@ -33,10 +33,20 @@ public sealed class PointRefundService(
 {
     public async Task<PagedResult<PaymentAdjustmentResponse>> SearchAsync(string? status, Guid? invoiceId,
         Guid? invoiceItemId, int page, int pageSize, CancellationToken cancellationToken = default)
+        => await SearchCoreAsync(status, invoiceId, invoiceItemId, null, page, pageSize, cancellationToken);
+
+    public Task<PagedResult<PaymentAdjustmentResponse>> SearchMineAsync(Guid memberUserId, string? status,
+        int page, int pageSize, CancellationToken cancellationToken = default)
+        => SearchCoreAsync(status, null, null, memberUserId, page, pageSize, cancellationToken);
+
+    private async Task<PagedResult<PaymentAdjustmentResponse>> SearchCoreAsync(string? status, Guid? invoiceId,
+        Guid? invoiceItemId, Guid? memberUserId, int page, int pageSize, CancellationToken cancellationToken)
     {
         page = page < 1 ? 1 : page;
         pageSize = Math.Clamp(pageSize <= 0 ? 20 : pageSize, 1, 100);
         var query = db.Set<PaymentAdjustment>().AsNoTracking().Where(x => x.Type == PaymentAdjustmentType.Refund);
+        if (memberUserId is not null)
+            query = query.Where(x => x.InvoiceItemId != null && x.Invoice != null && x.Invoice.MemberId == memberUserId);
         if (!string.IsNullOrWhiteSpace(status))
         {
             if (!SportHub.BuildingBlocks.Api.WireEnum.TryParse<PaymentAdjustmentStatus>(status, true, out var parsed))

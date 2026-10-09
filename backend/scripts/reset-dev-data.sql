@@ -49,8 +49,6 @@ TRUNCATE TABLE
     enrollments,
     google_onboarding_tickets,
     gym_checkins,
-    homework_assignment_items,
-    homework_assignments,
     incident_notices,
     invoice_items,
     invoices,
