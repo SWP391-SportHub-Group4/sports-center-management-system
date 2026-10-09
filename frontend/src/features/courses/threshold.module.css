@@ -70,9 +70,12 @@
   gap: var(--space-3);
 }
 .amounts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-5);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--space-4);
+  margin: 0;
+  padding: var(--space-4) 0 0;
+  border-top: 1px solid var(--border-control);
 }
 .amounts dt {
   color: var(--text-muted);

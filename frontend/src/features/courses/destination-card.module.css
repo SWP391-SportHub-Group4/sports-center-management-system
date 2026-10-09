@@ -1,0 +1,108 @@
+.card {
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-md);
+}
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  justify-content: space-between;
+  align-items: start;
+}
+.head h3 {
+  margin: 0;
+}
+.head p {
+  margin: var(--space-1) 0 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.seats {
+  padding: var(--space-1) var(--space-3);
+  border-radius: 999px;
+  background: var(--bg-surface-sunken);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+.seats[data-few="true"] {
+  color: var(--danger-700);
+}
+.schedule {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  background: var(--bg-surface-sunken);
+  border-radius: var(--radius-md);
+}
+.schedule p {
+  margin: 0;
+}
+.label {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.pattern {
+  font-size: 1.125rem;
+  font-weight: var(--weight-semibold);
+}
+.range {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+.all summary {
+  cursor: pointer;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  color: var(--color-primary);
+  font-weight: var(--weight-semibold);
+  font-size: var(--text-sm);
+}
+.all ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: var(--space-2);
+  max-height: 260px;
+  overflow: auto;
+}
+.all li {
+  display: flex;
+  gap: var(--space-3);
+  align-items: baseline;
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-surface);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+.all li span {
+  min-width: 2ch;
+  color: var(--text-muted);
+}
+.foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  justify-content: space-between;
+  align-items: end;
+}
+.price {
+  margin: 0;
+  display: grid;
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+.price span {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-weight: 400;
+}

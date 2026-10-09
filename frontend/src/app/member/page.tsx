@@ -41,6 +41,7 @@ import { memberSchedule, type MemberEvent } from "@/features/member/api";
 import {
   notificationsApi,
   memberNotificationHref,
+  notificationActionLabel,
 } from "@/features/member/notifications-api";
 import styles from "./dashboard.module.css";
 
@@ -758,6 +759,11 @@ export default function MemberDashboardPage() {
                         >
                           <p>{n.message}</p>
                           <time>{formatDateTime(n.sentAt)}</time>
+                          {memberNotificationHref(n) && (
+                            <span className={styles.feedAction}>
+                              {notificationActionLabel(n, language)} →
+                            </span>
+                          )}
                         </Link>
                       </li>
                     ))}

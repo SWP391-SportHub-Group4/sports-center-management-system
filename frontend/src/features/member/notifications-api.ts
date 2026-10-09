@@ -55,6 +55,8 @@ export function notificationActionLabel(
         ? "Chọn chuyển lớp hoặc hoàn điểm"
         : "Choose transfer or refund";
     case "SCHEDULE_CHANGED":
+      if (item.actionUrl?.startsWith("/member/pt/sessions/"))
+        return vi ? "Xem buổi PT và gửi yêu cầu" : "Review PT session";
       return vi ? "Xem lịch và xử lý thay đổi" : "Review schedule change";
     case "REFUND_COMPLETED":
       return vi ? "Kiểm tra hoàn điểm" : "Check refund";

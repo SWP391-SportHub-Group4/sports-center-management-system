@@ -45,7 +45,21 @@ public sealed class NotificationService(ISportHubDbContext db, IClock clock, INo
                 n.SentAt, null))
             .ToListAsync(ct);
         var destinations = await actions.GetMemberActionsAsync(userId, rows, ct);
-        return rows.Select(n => n with { ActionUrl = destinations.GetValueOrDefault(n.NotificationId) }).ToList();
+        return rows.Select(n => n with
+        {
+            Message = MemberMessage(n),
+            ActionUrl = destinations.GetValueOrDefault(n.NotificationId)
+        }).ToList();
+    }
+
+    private static string MemberMessage(NotificationResponse notification)
+    {
+        // Older in-app notices included an email-style token link in the message body.
+        // The owned ThresholdResponse ID already supplies the actionable destination.
+        const string legacyLink = " Liên kết phản hồi: /class-threshold-response?token=";
+        if (notification.SourceEventType != "ClassThresholdAtRisk") return notification.Message;
+        var linkStart = notification.Message.IndexOf(legacyLink, StringComparison.Ordinal);
+        return linkStart < 0 ? notification.Message : notification.Message[..linkStart];
     }
 
     // Pending cũng tính là chưa đọc: ở MVP thông báo InApp hiển thị ngay khi có trong DB,

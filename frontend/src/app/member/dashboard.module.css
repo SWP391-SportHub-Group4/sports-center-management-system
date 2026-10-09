@@ -118,7 +118,8 @@
   border-radius: var(--radius-lg);
   background: var(--bg-surface);
 }
-.todayAgenda h3, .nextHeading {
+.todayAgenda h3,
+.nextHeading {
   margin-bottom: var(--space-3) !important;
 }
 .todayAgenda ul {
@@ -141,7 +142,8 @@
 .todayAgenda strong {
   font-variant-numeric: tabular-nums;
 }
-.todayAgenda small, .todayAgenda p {
+.todayAgenda small,
+.todayAgenda p {
   color: var(--text-muted);
 }
 .todayAgenda p {
@@ -496,6 +498,12 @@
   color: var(--text-muted);
   font-size: var(--text-xs);
   margin-top: var(--space-2);
+}
+.feedAction {
+  display: inline-block;
+  margin-top: var(--space-2);
+  color: var(--color-primary);
+  font-weight: var(--weight-medium);
 }
 .feedList p {
   line-height: var(--leading-relaxed);

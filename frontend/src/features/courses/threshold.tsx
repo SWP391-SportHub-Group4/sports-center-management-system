@@ -9,6 +9,7 @@ import { formatDateTime, formatMoney, formatPoints } from "@/lib/format";
 import type { CourseDto, Paged, ThresholdResponseDto } from "@/lib/types";
 import { AsyncSection, Dialog, Field, StatusChip } from "@/components/ui";
 import { CheckoutPanel } from "@/features/payments";
+import { DestinationCard } from "./destination-card";
 import { thresholdCopy } from "./threshold-copy";
 import styles from "./threshold.module.css";
 
@@ -262,22 +263,7 @@ export function ThresholdPanel({
                     </AsyncSection>
                     {destination && (
                       <>
-                        <p>
-                          {l.coach}: {destination.coachName ?? "—"} · {l.seats}:{" "}
-                          {destination.availableSeats}
-                        </p>
-                        {destination.firstSessionStartUtc && (
-                          <p>
-                            {formatDateTime(destination.firstSessionStartUtc)}
-                          </p>
-                        )}
-                        <Link
-                          href={`/courses/${destination.classId}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          {l.schedule}
-                        </Link>
+                        <DestinationCard course={destination} />
                         <AsyncSection state={quote}>
                           {(q) =>
                             q && (
@@ -334,7 +320,7 @@ export function ThresholdPanel({
       </AsyncSection>
       {action.error && <p role="alert">{action.error}</p>}
       <button
-        className="btn btn--secondary"
+        className="btn btn--quiet btn--sm"
         disabled={action.busy}
         onClick={state.reload}
       >

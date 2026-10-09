@@ -7,6 +7,9 @@ DECLARE
     member uuid := (SELECT user_id FROM user_accounts WHERE email = 'an.member@sporthub.vn');
     pt uuid;
     pt_start timestamptz;
+    pt_end timestamptz;
+    pt_coach text;
+    pt_room text;
     package_id uuid;
     package_end date;
     course classes%ROWTYPE;
@@ -18,9 +21,13 @@ BEGIN
     SELECT member_package_id, end_date INTO package_id, package_end FROM member_packages
     WHERE member_id = member AND status = 1 AND end_date >= CURRENT_DATE
     ORDER BY end_date LIMIT 1;
-    SELECT session_id, start_at_utc INTO pt, pt_start FROM pt_sessions
-    WHERE member_id = member AND status = 0 AND start_at_utc > now()
-    ORDER BY start_at_utc LIMIT 1;
+    SELECT s.session_id, s.start_at_utc, s.end_at_utc, p.full_name, r.name
+      INTO pt, pt_start, pt_end, pt_coach, pt_room
+    FROM pt_sessions s
+    LEFT JOIN user_profiles p ON p.user_id = s.coach_id
+    LEFT JOIN rooms r ON r.room_id = s.room_id
+    WHERE s.member_id = member AND s.status = 0 AND s.start_at_utc > now()
+    ORDER BY s.start_at_utc LIMIT 1;
     SELECT * INTO course FROM classes WHERE code = 'BR141-BONGRO-01' FOR UPDATE;
     IF member IS NULL OR package_id IS NULL OR pt IS NULL OR course.class_id IS NULL THEN
         RAISE EXCEPTION 'Run the Member pages demo seed first; an active package and future PT session are required.';
@@ -65,7 +72,13 @@ BEGIN
       ('a0300000-0000-4000-8000-000000000012', member, 0, 2, package_id,
         'Gói tập của bạn sẽ hết hạn vào ' || to_char(package_end, 'DD/MM/YYYY') || '. Mở Gym & PT để xem quyền lợi và gia hạn tại quầy lễ tân.', 1, 0, now() - interval '1 minute'),
       ('a0300000-0000-4000-8000-000000000013', member, 0, 1, pt,
-        'Lịch PT đã cập nhật: ' || to_char(pt_start AT TIME ZONE 'Asia/Ho_Chi_Minh', 'HH24:MI DD/MM/YYYY') || '. Kiểm tra lịch mới hoặc gửi yêu cầu đổi/hủy nếu không phù hợp.', 1, 0, now() - interval '2 minutes')
-    ON CONFLICT (notification_id) DO NOTHING;
+        'Buổi PT sắp tới với ' || coalesce('HLV ' || nullif(pt_coach, ''), 'huấn luyện viên của bạn') || ' diễn ra lúc '
+        || to_char(pt_start AT TIME ZONE 'Asia/Ho_Chi_Minh', 'HH24:MI') || '–'
+        || to_char(pt_end AT TIME ZONE 'Asia/Ho_Chi_Minh', 'HH24:MI DD/MM/YYYY')
+        || coalesce(' tại ' || nullif(pt_room, ''), '')
+        || '. Mở chi tiết buổi tập để xem lịch hoặc gửi yêu cầu đổi/hủy nếu không phù hợp.', 1, 0, now() - interval '2 minutes')
+    ON CONFLICT (notification_id) DO UPDATE
+      SET source_entity_id = EXCLUDED.source_entity_id, message = EXCLUDED.message
+      WHERE notifications.notification_id = 'a0300000-0000-4000-8000-000000000013';
 END $$;
 COMMIT;
