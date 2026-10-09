@@ -74,7 +74,7 @@
   color: var(--text-muted);
 }
 .shell :global(.auth__card) {
-  width: min(480px, 100%);
+  width: min(540px, 100%);
   justify-self: end;
   padding: clamp(24px, 2.5vw, 32px);
   border: 1px solid var(--border-subtle);
@@ -137,10 +137,15 @@
   color: var(--text-strong);
   border-color: var(--border-control);
 }
-.shell :global(.alert--bad) {
-  background: #442323;
-  color: #ffcdc9;
-  border-color: #aa6260;
+.shell :global(.alert--error) {
+  background: rgb(104 37 40 / 32%);
+  color: #ffd3cf;
+  border-color: rgb(240 138 133 / 65%);
+}
+.shell :global(.alert--success) {
+  background: var(--color-primary-soft);
+  color: var(--color-primary-soft-text);
+  border-color: var(--border-control);
 }
 .shell :global(.auth input:-webkit-autofill) {
   -webkit-text-fill-color: var(--text-strong);
@@ -156,6 +161,9 @@
   }
 }
 @media (min-width: 896px) {
+  .shell :global(.auth__layout) {
+    grid-template-columns: minmax(0, 1fr) minmax(480px, 540px);
+  }
   .shell :global(.auth__card) {
     max-height: calc(100dvh - 48px);
     overflow-y: auto;

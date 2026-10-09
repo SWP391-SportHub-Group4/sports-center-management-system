@@ -63,6 +63,7 @@ export function GoogleSignInButton({
   const onErrorRef = useRef(onError);
   const disabledRef = useRef(disabled);
   const [gsiReady, setGsiReady] = useState(false);
+  const [scriptFailed, setScriptFailed] = useState(false);
   const [internalError, setInternalError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -101,11 +102,13 @@ export function GoogleSignInButton({
         text,
         locale,
       });
+      setScriptFailed(false);
       setGsiReady(true);
     };
 
     const fail = () => {
       setGsiReady(false);
+      setScriptFailed(true);
     };
 
     const existing = document.querySelector<HTMLScriptElement>(
@@ -168,6 +171,18 @@ export function GoogleSignInButton({
           "Google Sign-In is not configured yet. Set NEXT_PUBLIC_GOOGLE_CLIENT_ID in .env.local to enable.",
         );
       }
+    } else if (scriptFailed) {
+      onErrorRef.current?.(
+        new ApiError(
+          0,
+          "google_script_failed",
+          "Google sign-in could not load.",
+        ),
+      );
+    } else {
+      onErrorRef.current?.(
+        new ApiError(0, "google_script_loading", "Google sign-in is loading."),
+      );
     }
   };
 
@@ -176,8 +191,7 @@ export function GoogleSignInButton({
       {/* Official Google GSI container when script initializes */}
       <div
         ref={host}
-        className={`google-sign-in ${disabled ? "google-sign-in--disabled" : ""}`}
-        style={{ display: gsiReady ? "block" : "none" }}
+        className={`google-sign-in ${!gsiReady ? "google-sign-in--pending" : ""} ${disabled ? "google-sign-in--disabled" : ""}`}
       />
 
       {/* Branded native button shown when GSI is loading or clientId is pending */}

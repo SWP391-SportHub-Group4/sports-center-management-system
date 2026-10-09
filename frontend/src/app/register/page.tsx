@@ -119,10 +119,16 @@ export default function RegisterPage() {
         "The verification code is incorrect. Please check and try again.",
       invalid_otp: "The verification code is incorrect.",
       otp_resend_too_soon: "Please wait before requesting another code.",
-      google_account_not_linked:
-        "This email address already has a SportHub account. Sign in with your password, then link Google from Account settings.",
       invalid_google_token: "Google couldn't verify this sign-up attempt.",
       google_login_not_configured: "Google sign-up is not configured yet.",
+      google_identity_mismatch:
+        "This email is linked to a different Google account.",
+      google_email_not_verified: "Verify your Google email before signing in.",
+      google_login_conflict: "Google sign-in is busy. Please try again.",
+      google_script_failed:
+        "Google sign-in could not load. Check your connection or browser settings and try again.",
+      google_script_loading:
+        "Google sign-in is loading. Please try again shortly.",
       network_error: "We couldn't connect to the server. Try again shortly.",
     };
     return (
@@ -153,7 +159,7 @@ export default function RegisterPage() {
       setOtpSecondsLeft(OTP_EXPIRY_SECONDS);
       setResendCooldown(RESEND_COOLDOWN_SECONDS);
       setNotice(
-        "If registration is available, a 6-digit verification code has been sent to your email.",
+        "If registration is available, check your email for the 6-digit code.",
       );
       setTimeout(() => {
         otpInputRef.current?.focus();
@@ -289,7 +295,12 @@ export default function RegisterPage() {
 
         {/* Right Form Card */}
         <section className="auth__card" aria-labelledby="register-title">
-          <AuthBrand />
+          <div className="auth__top-row">
+            <AuthBrand />
+            <Link className="auth__landing-link" href="/">
+              ← Back to homepage
+            </Link>
+          </div>
 
           <h1 id="register-title" className="auth__brand">
             Create your member account
@@ -322,7 +333,7 @@ export default function RegisterPage() {
             <>
               {/* Quick Google Sign-Up */}
               <GoogleSignInButton
-                text="signup_with"
+                text="continue_with"
                 disabled={busy || sendingOtp}
                 onError={(cause) => setError(message(cause))}
                 onCredential={(idToken) => {
@@ -355,7 +366,6 @@ export default function RegisterPage() {
                     autoComplete="email"
                     required
                     error={fieldErrors.email}
-                    reserveErrorSpace
                     disabled={otpSent || sendingOtp}
                     value={form.email}
                     suppressHydrationWarning
@@ -375,120 +385,129 @@ export default function RegisterPage() {
                       }))
                     }
                   />
-                  {!otpSent ? (
+                  {!otpSent && (
                     <button
                       type="button"
-                      className="btn btn--secondary"
+                      className="btn"
                       disabled={sendingOtp}
                       onClick={() => void sendOtp()}
                     >
                       {sendingOtp ? t.refactor.sending : t.refactor.sendCode}
                     </button>
-                  ) : (
-                    <button
-                      type="button"
-                      className="btn btn--quiet"
-                      onClick={handleResetEmail}
-                    >
-                      Change
-                    </button>
                   )}
                 </div>
 
+                {(error || notice) && (
+                  <div className="auth__feedback auth__feedback--before-otp">
+                    {error ? (
+                      <Feedback error={error} />
+                    ) : (
+                      <p className="auth__inline-notice" role="status">
+                        {notice}
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 {/* OTP Verification Card: Revealed once code is sent */}
                 {otpSent && (
-                  <form
-                    noValidate
-                    onSubmit={(e) => void verifyOtpAndContinue(e)}
-                    className="otp-box"
-                  >
-                    <div className="otp-box__header">
-                      <span>Enter the 6-digit verification code:</span>
-                      <span className="otp-box__timer" aria-live="polite">
-                        {otpSecondsLeft > 0
-                          ? `Expires in ${formatTimer(otpSecondsLeft)}`
-                          : t.refactor.codeExpired}
-                      </span>
-                    </div>
+                  <>
+                    <button
+                      type="button"
+                      className="auth__back-step"
+                      onClick={handleResetEmail}
+                    >
+                      ← Back to email step
+                    </button>
+                    <form
+                      noValidate
+                      onSubmit={(e) => void verifyOtpAndContinue(e)}
+                      className="otp-box"
+                    >
+                      <div className="otp-box__header">
+                        <span>Enter the 6-digit verification code:</span>
+                        <span className="otp-box__timer" aria-live="polite">
+                          {otpSecondsLeft > 0
+                            ? `Expires in ${formatTimer(otpSecondsLeft)}`
+                            : t.refactor.codeExpired}
+                        </span>
+                      </div>
 
-                    <input
-                      ref={otpInputRef}
-                      className="otp-input"
-                      inputMode="numeric"
-                      autoComplete="one-time-code"
-                      pattern="\d{6}"
-                      maxLength={6}
-                      required
-                      aria-invalid={Boolean(fieldErrors.otp)}
-                      aria-describedby={
-                        fieldErrors.otp ? "register-otp-error" : undefined
-                      }
-                      aria-label="Verification code"
-                      placeholder="••••••"
-                      disabled={otpSecondsLeft === 0}
-                      value={form.otp}
-                      suppressHydrationWarning
-                      onChange={(event) => {
-                        const code = event.target.value.replace(/\D/g, "");
-                        setForm({ ...form, otp: code });
-                        if (fieldErrors.otp)
+                      <input
+                        ref={otpInputRef}
+                        className="otp-input"
+                        inputMode="numeric"
+                        autoComplete="one-time-code"
+                        pattern="\d{6}"
+                        maxLength={6}
+                        required
+                        aria-invalid={Boolean(fieldErrors.otp)}
+                        aria-describedby={
+                          fieldErrors.otp ? "register-otp-error" : undefined
+                        }
+                        aria-label="Verification code"
+                        placeholder="••••••"
+                        disabled={otpSecondsLeft === 0}
+                        value={form.otp}
+                        suppressHydrationWarning
+                        onChange={(event) => {
+                          const code = event.target.value.replace(/\D/g, "");
+                          setForm({ ...form, otp: code });
+                          if (fieldErrors.otp)
+                            setFieldErrors((current) => ({
+                              ...current,
+                              otp:
+                                code.length === 6
+                                  ? undefined
+                                  : (requiredError(code) ??
+                                    "Please enter the complete 6-digit code."),
+                            }));
+                          setError(null);
+                        }}
+                        onBlur={(event) =>
                           setFieldErrors((current) => ({
                             ...current,
                             otp:
-                              code.length === 6
+                              event.target.value.length === 6
                                 ? undefined
-                                : (requiredError(code) ??
+                                : (requiredError(event.target.value) ??
                                   "Please enter the complete 6-digit code."),
-                          }));
-                        setError(null);
-                      }}
-                      onBlur={(event) =>
-                        setFieldErrors((current) => ({
-                          ...current,
-                          otp:
-                            event.target.value.length === 6
-                              ? undefined
-                              : (requiredError(event.target.value) ??
-                                "Please enter the complete 6-digit code."),
-                        }))
-                      }
-                    />
-                    <div className="otp-error-slot">
+                          }))
+                        }
+                      />
                       {fieldErrors.otp && (
-                        <p id="register-otp-error" role="alert">
-                          {fieldErrors.otp}
-                        </p>
+                        <div className="otp-error-slot">
+                          <p id="register-otp-error" role="alert">
+                            {fieldErrors.otp}
+                          </p>
+                        </div>
                       )}
-                    </div>
 
-                    <div className="otp-box__actions">
-                      <button
-                        type="button"
-                        className="btn btn--quiet btn--sm"
-                        disabled={resendCooldown > 0 || sendingOtp}
-                        onClick={() => void sendOtp()}
-                      >
-                        {resendCooldown > 0
-                          ? `Resend in ${resendCooldown}s`
-                          : sendingOtp
-                            ? "Sending…"
-                            : t.refactor.resendCode}
-                      </button>
+                      <div className="otp-box__actions">
+                        <button
+                          type="button"
+                          className="btn btn--quiet btn--sm"
+                          disabled={resendCooldown > 0 || sendingOtp}
+                          onClick={() => void sendOtp()}
+                        >
+                          {resendCooldown > 0
+                            ? `Resend in ${resendCooldown}s`
+                            : sendingOtp
+                              ? "Sending…"
+                              : t.refactor.resendCode}
+                        </button>
 
-                      <button
-                        type="submit"
-                        className="btn btn--sm"
-                        disabled={otpSecondsLeft === 0}
-                      >
-                        Continue to Step 2 →
-                      </button>
-                    </div>
-                  </form>
+                        <button
+                          type="submit"
+                          className="btn btn--sm"
+                          disabled={otpSecondsLeft === 0}
+                        >
+                          Continue →
+                        </button>
+                      </div>
+                    </form>
+                  </>
                 )}
-
-                <div className="auth__feedback">
-                  <Feedback error={error} success={notice} />
-                </div>
               </div>
             </>
           )}
@@ -496,18 +515,18 @@ export default function RegisterPage() {
           {/* Step 2: Name & Password Setup */}
           {step === 2 && (
             <form className="form" onSubmit={submitFinal} noValidate>
+              <button
+                type="button"
+                className="auth__back-step"
+                onClick={handleResetEmail}
+              >
+                ← Back to email step
+              </button>
               <div className="verified-chip">
                 <span>
-                  Verified:{" "}
+                  Email:{" "}
                   <strong className="verified-chip__email">{form.email}</strong>
                 </span>
-                <button
-                  type="button"
-                  className="verified-chip__change"
-                  onClick={handleResetEmail}
-                >
-                  Change email
-                </button>
               </div>
 
               <AuthField
@@ -518,7 +537,6 @@ export default function RegisterPage() {
                 maxLength={100}
                 required
                 error={fieldErrors.fullName}
-                reserveErrorSpace
                 disabled={busy}
                 value={form.fullName}
                 suppressHydrationWarning
@@ -562,7 +580,6 @@ export default function RegisterPage() {
                 maxLength={128}
                 required
                 error={fieldErrors.password}
-                reserveErrorSpace
                 disabled={busy}
                 value={form.password}
                 suppressHydrationWarning
@@ -595,7 +612,6 @@ export default function RegisterPage() {
                   maxLength={128}
                   required
                   error={fieldErrors.confirmPassword}
-                  reserveErrorSpace
                   disabled={busy}
                   value={form.confirmPassword}
                   suppressHydrationWarning
@@ -657,14 +673,6 @@ export default function RegisterPage() {
                 }
               >
                 {busy ? t.refactor.creating : t.refactor.createAccount}
-              </button>
-
-              <button
-                type="button"
-                className="auth__back-step"
-                onClick={() => setStep(1)}
-              >
-                ← Back to email step
               </button>
             </form>
           )}

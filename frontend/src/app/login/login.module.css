@@ -67,14 +67,13 @@ section.card {
 /* Lỗi đăng nhập nằm ngay dưới tiêu đề, trước các ô nhập. Chỗ của nó được giữ sẵn (thay cho khoảng trắng
    dưới phụ đề) để nút Sign In không bị đẩy xuống khi lỗi xuất hiện. */
 .feedback {
-  min-height: 52px;
-  margin: calc(var(--space-5) * -1) 0 var(--space-4);
+  margin: 0 0 var(--space-4);
 }
 
 .feedback :global(.alert) {
-  padding: 6px 10px;
-  font-size: var(--text-xs);
-  line-height: 20px;
+  padding: 12px 14px;
+  font-size: var(--text-sm);
+  line-height: 1.45;
 }
 
 .submit {
