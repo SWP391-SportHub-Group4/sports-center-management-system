@@ -10,6 +10,8 @@ export function SiteFooter() {
   const pathname = usePathname();
   const cinematic = ["/", "/login", "/register"].includes(pathname);
 
+  if (pathname === "/login" || pathname === "/register") return null;
+
   return (
     <footer
       id="contact"

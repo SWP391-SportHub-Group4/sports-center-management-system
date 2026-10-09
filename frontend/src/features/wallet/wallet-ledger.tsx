@@ -4,7 +4,7 @@ import { walletApi } from "./api";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { formatDateTime, formatPoints } from "@/lib/format";
-import { AsyncSection } from "@/components/ui";
+import { AsyncSection, PageNav } from "@/components/ui";
 import { api } from "@/lib/apiClient";
 import type { WalletLedgerDto } from "@/lib/types";
 import styles from "./wallet-ledger.module.css";
@@ -115,23 +115,12 @@ export function WalletLedger({
               ))}
             </ul>
             {!data.length && <p>{t.wallet.empty}</p>}
-            <div className="btn-row">
-              <button
-                className="btn btn--secondary"
-                disabled={page === 1 || state.loading}
-                onClick={() => setPage((p) => p - 1)}
-              >
-                {t.wallet.previous}
-              </button>
-              <span>{page}</span>
-              <button
-                className="btn btn--secondary"
-                disabled={data.length < 20 || state.loading}
-                onClick={() => setPage((p) => p + 1)}
-              >
-                {t.wallet.next}
-              </button>
-            </div>
+            <PageNav
+              page={page}
+              hasNext={data.length >= 20}
+              loading={state.loading}
+              onChange={setPage}
+            />
           </>
         )}
       </AsyncSection>

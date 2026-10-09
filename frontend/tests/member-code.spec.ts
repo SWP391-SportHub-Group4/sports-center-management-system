@@ -10,7 +10,7 @@ test("member code payload round-trips and rejects other text", () => {
   expect(parseMemberCode("SPORTHUB-MEMBER:not-a-guid")).toBeNull();
 });
 
-test("member card shows the server identity and explains unavailable issued QR", async ({
+test("member card shows the server identity with a scannable QR", async ({
   page,
 }) => {
   await page.addInitScript(() => {
@@ -41,19 +41,12 @@ test("member card shows the server identity and explains unavailable issued QR",
   await page.goto("/member");
   // Mã nằm sau nút tròn trên thanh header, mở thành popup khi cần.
   await page.getByRole("button", { name: "Member code" }).click();
-  await expect(page.getByRole("img", { name: "Member code QR" })).toHaveCount(
-    0,
-  );
-  await expect(
-    page.getByText("Your center-issued QR is not available yet.", {
-      exact: false,
-    }),
-  ).toBeVisible();
+  await expect(page.getByRole("img", { name: "Member code QR" })).toBeVisible();
   await expect(page.getByText("does not grant entry by itself")).toBeVisible();
   await expect(page.getByText(id)).toBeVisible();
 });
 
-test("receptionist can open the camera scanner from the member picker", async ({
+test("receptionist sees the camera scanner ready in the member picker", async ({
   page,
 }) => {
   await page.addInitScript(() => {
@@ -79,8 +72,9 @@ test("receptionist can open the camera scanner from the member picker", async ({
     return route.fulfill({ json: [] });
   });
   await page.goto("/receptionist/gym-checkin");
-  await page.getByRole("button", { name: "Scan member QR" }).click();
+  // Máy quét hiện sẵn, không cần bấm mở.
+  await expect(page.getByText("Live Camera QR Scanner")).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Close scanner" }),
-  ).toBeVisible();
+    page.getByRole("button", { name: "Scan member QR" }),
+  ).toHaveCount(0);
 });

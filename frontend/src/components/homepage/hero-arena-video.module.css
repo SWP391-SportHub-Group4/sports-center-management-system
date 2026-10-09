@@ -33,6 +33,14 @@
 .scene[data-ready="true"] .video {
   opacity: 1;
 }
+.authScene::after {
+  background: rgb(8 21 16 / 66%);
+}
+.authScene .poster,
+.authScene .video {
+  filter: blur(12px);
+  transform: scale(1.08);
+}
 @media (prefers-reduced-motion: reduce) {
   .depth {
     transform: none;

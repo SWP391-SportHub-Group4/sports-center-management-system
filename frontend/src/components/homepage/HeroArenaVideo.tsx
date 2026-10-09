@@ -8,11 +8,11 @@ import styles from "./hero-arena-video.module.css";
 export function HomepageBackdrop() {
   const pathname = usePathname();
   return ["/", "/login", "/register"].includes(pathname) ? (
-    <HeroArenaVideo />
+    <HeroArenaVideo auth={pathname !== "/"} />
   ) : null;
 }
 
-export function HeroArenaVideo() {
+export function HeroArenaVideo({ auth = false }: { auth?: boolean }) {
   const root = useRef<HTMLDivElement>(null);
   const video = useRef<HTMLVideoElement>(null);
 
@@ -135,7 +135,10 @@ export function HeroArenaVideo() {
   }, []);
 
   return (
-    <div ref={root} className={styles.scene}>
+    <div
+      ref={root}
+      className={`${styles.scene} ${auth ? styles.authScene : ""}`}
+    >
       <div className={styles.depth}>
         <Image
           className={styles.poster}
