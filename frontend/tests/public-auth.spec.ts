@@ -39,9 +39,9 @@ for (const width of [1440, 1280, 390]) {
       navigation.getByRole("link", { name: "Sign up", exact: true }),
     ).toHaveAttribute("href", "/register");
     await navigation
-      .getByRole("link", { name: "Facilities", exact: true })
+      .getByRole("link", { name: "Discover SportHub", exact: true })
       .click();
-    await expect(page).toHaveURL(/#facilities$/);
+    await expect(page).toHaveURL(/#sporthub$/);
     await expect
       .poll(() => page.evaluate(() => window.scrollY))
       .toBeGreaterThan(0);

@@ -1,0 +1,23 @@
+{
+  "createdAt": "2026-10-09",
+  "kind": "original procedural 3D architectural illustration",
+  "description": "Illustrative SportHub arena with badminton courts, an adjacent basketball court, timber flooring, roof trusses and glazing. Not a photograph or an accurate model of a real facility.",
+  "sceneSource": "frontend/scripts/hero-arena-scene.html",
+  "renderCommand": "FFMPEG_PATH=/path/to/ffmpeg node scripts/render-hero-video.mjs",
+  "renderer": "Three.js (MIT), offline Playwright Chromium capture",
+  "durationSeconds": 8,
+  "framesPerSecond": 24,
+  "camera": "Seamless periodic dolly and lateral orbit",
+  "quality": "Procedural oak grain and staggered plank joints, rubber bump/roughness, physical clearcoat surfaces, PMREM room reflections, 4096px directional shadows and soft contact shadows. Rendered at 1.25 pixel ratio before downsampling, higher-quality encoding.",
+  "assets": {
+    "arena-loop.mp4": "1600x900, H.264, no audio, faststart",
+    "arena-loop.webm": "1280x720, VP9, no audio",
+    "arena-poster-v2.jpg": "1600x900, first camera frame"
+  },
+  "motionReferences": [
+    "https://threejs.org/examples/",
+    "https://gsap.com/docs/v3/Plugins/ScrollTrigger/",
+    "https://developer.mozilla.org/en-US/docs/Web/CSS/Guides/Scroll-driven_animations"
+  ],
+  "runtime": "Native video plus CSS scroll animations and pointer parallax. Three.js is used only to generate media. No third-party stock media or runtime CDN requests."
+}

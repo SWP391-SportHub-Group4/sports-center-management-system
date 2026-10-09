@@ -24,6 +24,42 @@
   backdrop-filter: blur(12px) saturate(125%);
 }
 
+.heroOverlay {
+  --text-strong: #f0f2e8;
+  --text-body: #e7edde;
+  --text-muted: #dce5d8;
+  --color-primary: var(--color-accent);
+  --border-control: rgb(234 241 225 / 45%);
+  --bg-surface: #172925;
+  --bg-surface-sunken: rgb(234 241 225 / 10%);
+  border-bottom-color: transparent;
+  background: linear-gradient(180deg, rgb(12 26 22 / 85%), rgb(12 26 22 / 15%));
+}
+
+.heroOverlay .logoMark {
+  background: var(--color-accent);
+  color: var(--court-900);
+}
+
+.heroOverlay .signUp,
+.heroOverlay .signUp:hover {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+
+.cinema .logoMark {
+  background: var(--color-accent);
+  color: var(--court-900);
+}
+
+.cinema .signUp,
+.cinema .signUp:hover {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+
 .logo {
   display: inline-flex;
   min-width: 0;
@@ -191,7 +227,7 @@
 .signUp:hover {
   border-color: var(--color-primary);
   background: var(--color-primary);
-  color: var(--white);
+  color: var(--color-on-primary);
   transform: translateY(-1px);
 }
 
@@ -225,6 +261,15 @@
 }
 
 @media (max-width: 1359px) {
+  .heroOverlay .navigation {
+    --text-strong: var(--chalk-950);
+    --text-body: var(--chalk-800);
+    --text-muted: var(--chalk-600);
+    --color-primary: var(--court-700);
+    --border-control: var(--chalk-400);
+    --bg-surface: var(--white);
+    --bg-surface-sunken: var(--chalk-100);
+  }
   .header {
     width: 100%;
     grid-template-columns: minmax(0, 1fr) auto;

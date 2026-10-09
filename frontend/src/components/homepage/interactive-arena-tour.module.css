@@ -18,6 +18,12 @@
   --zone-accent: #10b981;
 }
 
+.tour[data-theme="cinema"] {
+  border-color: var(--border-subtle);
+  background-color: var(--bg-surface);
+  background-image: none;
+}
+
 .tour[data-zone="basketball"] {
   --zone-accent: #f59e0b;
 }
@@ -904,7 +910,6 @@
     justify-content: space-between;
     text-align: left;
   }
-
 }
 
 @media (prefers-reduced-motion: reduce) {
