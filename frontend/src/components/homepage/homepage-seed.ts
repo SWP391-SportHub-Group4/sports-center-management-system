@@ -30,22 +30,22 @@ export const homepageCategories: Array<{
     items: [
       {
         name: { en: "Trần Minh Khang", vi: "Trần Minh Khang" },
-        detail: { en: "Strength & Conditioning", vi: "Sức mạnh & thể lực" },
+        detail: { en: "Badminton", vi: "Cầu lông" },
         highlight: {
           en: "8 years of coaching experience",
           vi: "8 năm kinh nghiệm huấn luyện",
         },
         image: "/sporthub/coaches/minh-khang.webp",
         alt: {
-          en: "Illustrative portrait of a strength coach in a gym",
-          vi: "Chân dung minh họa huấn luyện viên thể lực trong phòng tập",
+          en: "Illustrative portrait of badminton coach Trần Minh Khang",
+          vi: "Chân dung minh họa huấn luyện viên cầu lông Trần Minh Khang",
         },
       },
       {
         name: { en: "Nguyễn Hải Linh", vi: "Nguyễn Hải Linh" },
         detail: {
-          en: "HIIT & athletic performance",
-          vi: "HIIT & hiệu năng vận động",
+          en: "Basketball",
+          vi: "Bóng rổ",
         },
         highlight: {
           en: "6 years of coaching experience",
@@ -53,15 +53,15 @@ export const homepageCategories: Array<{
         },
         image: "/sporthub/coaches/hai-linh.webp",
         alt: {
-          en: "Illustrative portrait of a HIIT coach in a training studio",
-          vi: "Chân dung minh họa huấn luyện viên HIIT trong khu tập",
+          en: "Illustrative portrait of basketball coach Nguyễn Hải Linh",
+          vi: "Chân dung minh họa huấn luyện viên bóng rổ Nguyễn Hải Linh",
         },
       },
       {
         name: { en: "Lê Thảo An", vi: "Lê Thảo An" },
         detail: {
-          en: "Mobility & recovery",
-          vi: "Vận động linh hoạt & phục hồi",
+          en: "Gym",
+          vi: "Gym",
         },
         highlight: {
           en: "10 years of coaching experience",
@@ -69,8 +69,8 @@ export const homepageCategories: Array<{
         },
         image: "/sporthub/coaches/thao-an.webp",
         alt: {
-          en: "Illustrative portrait of a recovery coach",
-          vi: "Chân dung minh họa huấn luyện viên phục hồi vận động",
+          en: "Illustrative portrait of gym coach Lê Thảo An",
+          vi: "Chân dung minh họa huấn luyện viên Gym Lê Thảo An",
         },
       },
     ],
@@ -141,8 +141,8 @@ export const homepageCategories: Array<{
     suffix: "+",
     title: { en: "Members", vi: "Hội viên" },
     lead: {
-      en: "Shared sessions, familiar faces and a little more motivation every day.",
-      vi: "Những buổi tập chung, gương mặt thân quen và thêm động lực mỗi ngày.",
+      en: "Train together. Find fresh motivation every day.",
+      vi: "Cùng tập luyện, cùng tiếp thêm động lực mỗi ngày.",
     },
     items: [
       {

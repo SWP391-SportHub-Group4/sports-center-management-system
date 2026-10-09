@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, type PointerEvent } from "react";
 import { CourtIcon } from "@/components/brand/CourtIcon";
@@ -16,16 +15,12 @@ const copy = {
     lead: "Explore dedicated spaces for court sports and athletic training.",
     start: "Sign in to get started",
     enter: "Go to my space",
-    aiAlt:
-      "Badminton, basketball and strength athletes sharing an indoor sports court",
   },
   vi: {
     title: "Mỗi buổi tập\nđều có mục tiêu.",
     lead: "Khám phá không gian dành cho thể thao sân đấu và rèn luyện thể lực.",
     start: "Đăng nhập để bắt đầu",
     enter: "Vào không gian của tôi",
-    aiAlt:
-      "Vận động viên cầu lông, bóng rổ và thể lực cùng tập trong nhà thi đấu",
   },
 } satisfies Record<Language, Record<string, string>>;
 
@@ -122,7 +117,15 @@ export function PerformanceSections({ language }: { language: Language }) {
       aria-labelledby="performance-title"
     >
       <div className={styles.heroCopy}>
-        <h1 id="performance-title">{t.title}</h1>
+        <h1 id="performance-title" aria-label={t.title.replace("\n", " ")}>
+          {t.title.split("\n").map((line, index) => (
+            <span className={styles.titleLine} key={line}>
+              <span style={{ animationDelay: `${160 + index * 130}ms` }}>
+                {line}
+              </span>
+            </span>
+          ))}
+        </h1>
         <p className={styles.heroLead}>{t.lead}</p>
         <nav
           className={styles.heroActions}
@@ -140,14 +143,13 @@ export function PerformanceSections({ language }: { language: Language }) {
         </nav>
       </div>
 
-      <div className={styles.heroImage}>
-        <Image
-          src="/sporthub/court-volt/hero-community.png"
-          alt={t.aiAlt}
-          fill
-          priority
-          sizes="(max-width: 1023px) 95vw, 58vw"
-        />
+      <div
+        className={styles.disciplines}
+        aria-label={language === "vi" ? "Các môn thể thao" : "Our sports"}
+      >
+        <span>{language === "vi" ? "Cầu lông" : "Badminton"}</span>
+        <span>{language === "vi" ? "Bóng rổ" : "Basketball"}</span>
+        <span>Gym</span>
       </div>
     </section>
   );

@@ -1,39 +1,11 @@
 .page {
   position: relative;
+  z-index: 1;
   isolation: isolate;
   min-height: 100vh;
   background: var(--bg-app);
   color: var(--text-body);
   font: var(--text-md) / var(--leading-relaxed) var(--font-body);
-}
-
-.page[data-theme="arena-light"] {
-  color-scheme: light;
-  --bg-brand-deep: var(--white);
-  --text-on-inverse: var(--chalk-950);
-  --text-on-inverse-muted: var(--chalk-600);
-  --text-link: var(--court-700);
-  --border-inverse: var(--chalk-200);
-  --focus-ring: var(--court-500);
-  --surface-ink: var(--chalk-950);
-  --surface-blue: var(--court-50);
-  --navy: var(--chalk-950);
-  --sky: var(--court-600);
-  --ice: var(--chalk-100);
-  --slate: var(--chalk-600);
-  --text: var(--chalk-950);
-  --background: var(--chalk-50);
-  --ink-900: var(--chalk-950);
-  --ink-700: var(--chalk-800);
-  --ink-500: var(--chalk-600);
-  --ink-400: var(--chalk-500);
-  --brand-900: var(--court-900);
-  --brand-700: var(--court-700);
-  --brand-500: var(--court-600);
-  --brand-300: var(--court-300);
-  --brand-100: var(--court-50);
-  --text-primary: var(--chalk-950);
-  --text-secondary: var(--chalk-600);
 }
 
 .page h1,
@@ -56,13 +28,16 @@
 
 .page > :global(header) {
   width: 100%;
-  position: sticky;
+  position: fixed;
   z-index: 30;
   top: 0;
-  border-color: var(--border-inverse);
 }
 
 .main {
+  width: 100%;
+}
+
+.content {
   width: min(100%, 1440px);
   padding-inline: var(--space-9);
   margin-inline: auto;
@@ -96,13 +71,13 @@
 }
 
 @media (max-width: 1199px) {
-  .main {
+  .content {
     padding-inline: var(--space-6);
   }
 }
 
 @media (max-width: 767px) {
-  .main {
+  .content {
     padding-inline: var(--space-4);
   }
 }

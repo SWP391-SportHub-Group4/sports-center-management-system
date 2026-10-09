@@ -14,6 +14,16 @@
   padding: var(--space-8) 24px var(--space-6);
 }
 
+.cinema {
+  position: relative;
+  z-index: 0;
+  --text-on-inverse: #f0f2e8;
+  --text-on-inverse-muted: #c4d0c0;
+  --border-inverse: rgb(229 239 218 / 20%);
+  border-top: 1px solid var(--border-inverse);
+  background: rgb(12 26 21 / 86%);
+}
+
 .footer h2 {
   margin: 0 0 var(--space-3);
   color: var(--text-on-inverse);
