@@ -113,6 +113,14 @@ export function ManagerSchedule({
       <FilterBar
         values={values}
         onChange={update}
+        activeCount={
+          [
+            !fixedRoom && values.roomId,
+            !fixedCoach && values.coachId,
+            values.classId,
+            !classesOnly && values.sourceType,
+          ].filter(Boolean).length
+        }
         fields={[
           { id: "date", label: l.date, kind: "date" },
           ...(!fixedRoom
