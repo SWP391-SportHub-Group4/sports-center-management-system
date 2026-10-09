@@ -116,7 +116,11 @@ export function PerformanceSections({ language }: { language: Language }) {
   const destination = user ? HOME_BY_ROLE[user.role] : "/login";
 
   return (
-    <section className={styles.hero} aria-labelledby="performance-title">
+    <section
+      data-home-section="top"
+      className={styles.hero}
+      aria-labelledby="performance-title"
+    >
       <div className={styles.heroCopy}>
         <h1 id="performance-title">{t.title}</h1>
         <p className={styles.heroLead}>{t.lead}</p>
@@ -142,10 +146,8 @@ export function PerformanceSections({ language }: { language: Language }) {
           alt={t.aiAlt}
           fill
           priority
-          sizes="(max-width: 767px) 100vw, 58vw"
+          sizes="(max-width: 1023px) 95vw, 58vw"
         />
-        <span className={styles.imageFrame} aria-hidden="true" />
-        <span className={styles.imageGlint} aria-hidden="true" />
       </div>
     </section>
   );

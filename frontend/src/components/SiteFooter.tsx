@@ -8,7 +8,12 @@ export function SiteFooter() {
   const en = language === "en";
 
   return (
-    <footer className={styles.footer} aria-label={en ? "Footer" : "Chân trang"}>
+    <footer
+      id="contact"
+      className={styles.footer}
+      style={{ scrollMarginTop: 96 }}
+      aria-label={en ? "Footer" : "Chân trang"}
+    >
       <div className={styles.inner}>
         <div className={styles.brand}>
           <p className={styles.logo}>
@@ -45,7 +50,9 @@ export function SiteFooter() {
                 ? "123 Sports Avenue, District 1, Ho Chi Minh City"
                 : "123 Đường Thể Thao, Quận 1, TP. Hồ Chí Minh"}
             </li>
-            <li>{en ? "Daily 6:00 AM–10:00 PM" : "Hằng ngày 06:00–22:00"}</li>
+            <li>
+              {en ? "Daily 6:00 AM - 10:00 PM" : "Hằng ngày 06:00 - 22:00"}
+            </li>
           </ul>
         </section>
       </div>

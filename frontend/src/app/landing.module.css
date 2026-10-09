@@ -55,19 +55,30 @@
 }
 
 .page > :global(header) {
-  width: calc(min(100%, 1360px) - 64px);
+  width: 100%;
   position: sticky;
-  z-index: 20;
-  top: var(--space-3);
+  z-index: 30;
+  top: 0;
   border-color: var(--border-inverse);
-  background: color-mix(in srgb, var(--bg-surface) 78%, transparent);
-  backdrop-filter: blur(18px) saturate(125%);
 }
 
 .main {
   width: min(100%, 1440px);
   padding-inline: var(--space-9);
   margin-inline: auto;
+  padding-top: 24px;
+}
+
+.sentinel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+}
+.main :global([id]) {
+  scroll-margin-top: 96px;
 }
 
 .skip {
@@ -85,20 +96,12 @@
 }
 
 @media (max-width: 1199px) {
-  .page > :global(header) {
-    width: calc(100% - 2 * var(--space-6));
-  }
-
   .main {
     padding-inline: var(--space-6);
   }
 }
 
 @media (max-width: 767px) {
-  .page > :global(header) {
-    width: calc(100% - 2 * var(--space-4));
-  }
-
   .main {
     padding-inline: var(--space-4);
   }
@@ -106,8 +109,6 @@
 
 @media (prefers-reduced-transparency: reduce) {
   .page > :global(header) {
-    position: relative;
-    top: auto;
     background: var(--bg-surface);
     backdrop-filter: none;
   }
