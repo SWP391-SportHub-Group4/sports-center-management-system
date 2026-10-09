@@ -26,7 +26,7 @@ namespace SportHub.Training.Application.Services;
 /// PtSessionConfiguration) — dùng transaction + Postgres advisory lock theo Coach/Member để bịt
 /// khe race, thay vì chỉ AnyAsync không khoá.
 /// </summary>
-public sealed class PtSessionService(
+public sealed partial class PtSessionService(
     ISportHubDbContext db,
     IAuditWriter audit,
     INotificationWriter notifications,
@@ -159,7 +159,7 @@ public sealed class PtSessionService(
     /// </summary>
     private async Task<PtSession> PersistNewSessionAsync(
         PtEntitlement entitlement, DateTime startAtUtc, DateTime endAtUtc, int? roomId,
-        Guid actorUserId, string auditAction, CancellationToken ct)
+        Guid actorUserId, string auditAction, CancellationToken ct, PtSessionStatus status = PtSessionStatus.Scheduled)
     {
         entitlement.ReservedSessions += 1;
         entitlement.Version += 1;
@@ -173,7 +173,7 @@ public sealed class PtSessionService(
             RoomId = roomId,
             StartAtUtc = startAtUtc,
             EndAtUtc = endAtUtc,
-            Status = PtSessionStatus.Scheduled,
+            Status = status,
             QuotaState = PtSessionQuotaState.Reserved,
             CreatedByUserId = actorUserId,
             Version = 0
@@ -247,7 +247,7 @@ public sealed class PtSessionService(
         {
             var coachBusy = await availability.GetCoachBusyAsync(entitlement.CoachId, fromUtc, toUtc, ct);
             var memberBusy = await db.Set<PtSession>().AsNoTracking()
-                .Where(s => s.MemberId == memberId && s.Status == PtSessionStatus.Scheduled
+                .Where(s => s.MemberId == memberId && (s.Status == PtSessionStatus.Scheduled || s.Status == PtSessionStatus.PendingPayment)
                             && s.StartAtUtc < toUtc && s.EndAtUtc > fromUtc)
                 .Select(s => new TimeWindow(s.StartAtUtc, s.EndAtUtc))
                 .ToListAsync(ct);
@@ -849,7 +849,7 @@ public sealed class PtSessionService(
     {
         var coachConflict = await db.Set<PtSession>().AnyAsync(
             s => s.CoachId == coachId
-                 && s.Status == PtSessionStatus.Scheduled
+                 && (s.Status == PtSessionStatus.Scheduled || s.Status == PtSessionStatus.PendingPayment)
                  && (excludeSessionId == null || s.SessionId != excludeSessionId)
                  && s.StartAtUtc < endAtUtc && startAtUtc < s.EndAtUtc,
             ct);
@@ -861,7 +861,7 @@ public sealed class PtSessionService(
 
         var memberConflict = await db.Set<PtSession>().AnyAsync(
             s => s.MemberId == memberId
-                 && s.Status == PtSessionStatus.Scheduled
+                 && (s.Status == PtSessionStatus.Scheduled || s.Status == PtSessionStatus.PendingPayment)
                  && (excludeSessionId == null || s.SessionId != excludeSessionId)
                  && s.StartAtUtc < endAtUtc && startAtUtc < s.EndAtUtc,
             ct);

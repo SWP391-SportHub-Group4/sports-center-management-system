@@ -870,6 +870,14 @@ namespace SportHub.API.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("pt_member_package_id");
 
+                    b.Property<int?>("PtRoomId")
+                        .HasColumnType("integer")
+                        .HasColumnName("pt_room_id");
+
+                    b.Property<DateTime?>("PtStartAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("pt_start_at_utc");
+
                     b.Property<Guid?>("ResourceHoldId")
                         .HasColumnType("uuid")
                         .HasColumnName("resource_hold_id");

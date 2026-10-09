@@ -148,9 +148,9 @@ test("course catalog replaces per-session enrollment", async ({ page }) => {
   ).toBeVisible({ timeout: 15000 });
   await expect(page.getByRole("button", { name: /Book Spot/ })).toHaveCount(0);
   await page.getByRole("link", { name: "View details", exact: true }).click();
-  await expect(page).toHaveURL(/\/member\/discover\/1$/);
+  await expect(page).toHaveURL(/\/member\/services\/courses\/1$/);
   await expect(
-    page.getByRole("button", { name: "Checkout", exact: true }),
+    page.getByRole("button", { name: "Payment", exact: true }),
   ).toBeVisible();
 });
 test("profile validation and training goal edits persist", async ({ page }) => {
@@ -167,22 +167,22 @@ test("dashboard does not issue an entrance pass", async ({ page }) => {
   await expect(page.getByTestId("show-qr-btn")).toHaveCount(0);
 });
 test("Gym and PT purchases are separate", async ({ page }) => {
-  await page.goto("/member/discover?tab=gym");
+  await page.goto("/member/services?section=gym&view=explore");
   await expect(
-    page.getByRole("heading", { name: "Gym membership packages", exact: true }),
+    page.getByRole("heading", { name: "Membership", exact: true }),
   ).toBeVisible();
-  // Fixture đã có đúng gói này đang hiệu lực: không mua trùng, kèm lý do.
-  await expect(page.getByText(/You already have this package/)).toBeVisible();
+  // An active membership is shown instead of another purchase action.
+  await expect(page.getByRole("heading", { name: "Your Gym is active" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Gym monthly" })).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Review & checkout" }),
   ).toHaveCount(0);
-  await page.getByRole("tab", { name: "Personal training" }).click();
   await expect(
     page.getByRole("heading", { name: "Personal training", exact: true }),
   ).toBeVisible({ timeout: 15000 });
   await expect(
-    page.getByRole("button", { name: "Get quote", exact: true }),
-  ).toBeDisabled();
+    page.getByRole("link", { name: "Book & pay for PT" }),
+  ).toHaveAttribute("href", "/member/training?tab=book");
 });
 test("notification links resolve to real Member views", async ({ page }) => {
   await page.goto("/member");
@@ -213,7 +213,7 @@ for (const width of [320, 768, 1024, 1280, 1360, 1440])
       if (width >= 1360) {
         const nav = page.getByRole("navigation", { name: "Member Navigation" });
         await expect(nav).toBeVisible();
-        await expect(nav.getByRole("link")).toHaveCount(8);
+        await expect(nav.getByRole("link")).toHaveCount(5);
       } else {
         await expect(
           page.getByRole("button", { name: "Open navigation menu" }),
@@ -258,7 +258,7 @@ test("the member header stays mounted and pinned while moving between tabs", asy
   await page.evaluate(() => {
     (document.querySelector("header") as HTMLElement).dataset.mounted = "yes";
   });
-  for (const name of ["My schedule", "Gym & PT", "Finance", "Dashboard"]) {
+  for (const name of ["My schedule", "Services", "Finance", "Overview"]) {
     await nav.getByRole("link", { name, exact: true }).click();
     await expect(nav.getByRole("link", { name, exact: true })).toHaveAttribute(
       "aria-current",

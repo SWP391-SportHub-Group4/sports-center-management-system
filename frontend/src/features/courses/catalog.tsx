@@ -8,11 +8,14 @@ import Link from "next/link";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
-import { formatMoney, formatDate, formatDateTime } from "@/lib/format";
+import {
+  formatMoney,
+  formatDate,
+  formatDateTime,
+  todayIso,
+} from "@/lib/format";
 import { Card, StatusChip } from "@/components/ui";
 import type { SportDto } from "@/lib/types";
-import { CheckoutPanel } from "@/features/payments";
-import { useAuth } from "@/lib/auth";
 import tags from "../member/tags.module.css";
 import {
   scheduleSummary,
@@ -22,8 +25,14 @@ import {
 import styles from "./catalog.module.css";
 export function CourseCatalog({
   detailBasePath = "/courses",
+  compact = false,
+  pageSize,
+  registrationOnly = false,
 }: {
-  detailBasePath?: "/courses" | "/member/discover";
+  detailBasePath?: "/courses" | "/member/discover" | "/member/services";
+  compact?: boolean;
+  pageSize?: number;
+  registrationOnly?: boolean;
 }) {
   const { t, language } = useLanguage();
   const d = t.mDiscover;
@@ -39,7 +48,12 @@ export function CourseCatalog({
   const [toDate, setTo] = useState("");
   const [openOnly, setOpenOnly] = useState(false);
   const [page, setPage] = useState(1);
-  const PAGE = 12;
+  const PAGE = pageSize ?? (compact ? 3 : 12);
+  const registrationStart = registrationOnly ? todayIso() : "";
+  const effectiveFromDate =
+    registrationOnly && fromDate < registrationStart
+      ? registrationStart
+      : fromDate;
   const sports = useApi(
     (signal) => api.get<SportDto[]>("/api/sports", { anonymous: true, signal }),
     [],
@@ -50,14 +64,14 @@ export function CourseCatalog({
       courseApi.list(
         {
           sportId,
-          fromDate,
+          fromDate: effectiveFromDate,
           toDate,
           page: openOnly ? 1 : page,
           pageSize: openOnly ? 100 : PAGE,
         },
         signal,
       ),
-    [sportId, fromDate, toDate, page, openOnly],
+    [sportId, effectiveFromDate, toDate, page, openOnly],
   );
   const all = pagedItems(courses.data);
   const filtered = openOnly ? all.filter((c) => c.availableSeats > 0) : all;
@@ -67,77 +81,90 @@ export function CourseCatalog({
     : filtered;
   const pages = Math.max(1, Math.ceil(total / PAGE));
   const hasFilter = !!(sportId || fromDate || toDate || openOnly);
+  const filters = (
+    <section className={styles.filters} aria-label={d.filtersLabel}>
+      <label>
+        {d.sport}
+        <select
+          value={sportId}
+          onChange={(e) => {
+            setSport(e.target.value);
+            setPage(1);
+          }}
+        >
+          <option value="">{d.allSports}</option>
+          {sports.data
+            ?.filter((s) => hasService(s, "GROUP_COURSE"))
+            .map((s) => (
+              <option key={s.sportId} value={s.sportId}>
+                {s.name}
+              </option>
+            ))}
+        </select>
+      </label>
+      <label>
+        {d.from}
+        <input
+          type="date"
+          value={fromDate}
+          min={registrationStart || undefined}
+          onChange={(e) => {
+            setFrom(e.target.value);
+            setPage(1);
+          }}
+        />
+      </label>
+      <label>
+        {d.to}
+        <input
+          type="date"
+          value={toDate}
+          min={fromDate || undefined}
+          onChange={(e) => {
+            setTo(e.target.value);
+            setPage(1);
+          }}
+        />
+      </label>
+      <div className={styles.filterTail}>
+        <label className={styles.check}>
+          <input
+            type="checkbox"
+            checked={openOnly}
+            onChange={(e) => {
+              setOpenOnly(e.target.checked);
+              setPage(1);
+            }}
+          />
+          {d.openOnly}
+        </label>
+      </div>
+    </section>
+  );
   return (
-    <>
-      <section className={styles.filters} aria-label={d.filtersLabel}>
-        <label>
-          {d.sport}
-          <select
-            value={sportId}
-            onChange={(e) => {
-              setSport(e.target.value);
-              setPage(1);
-            }}
-          >
-            <option value="">{d.allSports}</option>
-            {sports.data
-              ?.filter((s) => hasService(s, "GROUP_COURSE"))
-              .map((s) => (
-                <option key={s.sportId} value={s.sportId}>
-                  {s.name}
-                </option>
-              ))}
-          </select>
-        </label>
-        <label>
-          {d.from}
-          <input
-            type="date"
-            value={fromDate}
-            onChange={(e) => {
-              setFrom(e.target.value);
-              setPage(1);
-            }}
-          />
-        </label>
-        <label>
-          {d.to}
-          <input
-            type="date"
-            value={toDate}
-            min={fromDate || undefined}
-            onChange={(e) => {
-              setTo(e.target.value);
-              setPage(1);
-            }}
-          />
-        </label>
-        <div className={styles.filterTail}>
-          <label className={styles.check}>
-            <input
-              type="checkbox"
-              checked={openOnly}
-              onChange={(e) => {
-                setOpenOnly(e.target.checked);
-                setPage(1);
-              }}
-            />
-            {d.openOnly}
-          </label>
-        </div>
-      </section>
-
-      {detailBasePath === "/member/discover" && (
+    <div className={compact ? styles.compact : undefined}>
+      {compact ? (
+        <details
+          className={styles.filterDisclosure}
+          open={hasFilter || undefined}
+        >
+          <summary>{vi ? "Lọc lớp học" : "Filter classes"}</summary>
+          {filters}
+        </details>
+      ) : (
+        filters
+      )}
+      {detailBasePath.startsWith("/member") && (
         <p className={styles.note}>{d.independent}</p>
       )}
 
       {courses.loading ? (
         <div className={styles.grid} aria-busy="true" aria-label={d.loading}>
-          {Array.from({ length: 6 }).map((_, i) => (
+          {Array.from({ length: compact ? 3 : 6 }).map((_, i) => (
             <div
               key={i}
               className="skeleton"
-              style={{ height: 300, borderRadius: 16 }}
+              style={{ height: compact ? 180 : 300, borderRadius: 16 }}
             />
           ))}
         </div>
@@ -155,14 +182,17 @@ export function CourseCatalog({
         <div className={styles.empty} data-surface="inverse">
           <h3>{d.emptyTitle}</h3>
           <p>{hasFilter ? d.emptyFiltered : d.emptyAll}</p>
-          {detailBasePath === "/member/discover" && (
+          {detailBasePath.startsWith("/member") && (
             <div className={styles.emptyActions}>
-              <Link className="btn" href="/member/courts/book">
+              <Link
+                className="btn"
+                href="/member/services?section=courts&view=explore"
+              >
                 {d.rent}
               </Link>
               <Link
                 className="btn btn--secondary"
-                href="/member/discover?tab=gym"
+                href="/member/services?section=gym&view=explore"
               >
                 {d.gymPt}
               </Link>
@@ -202,18 +232,48 @@ export function CourseCatalog({
                     <span className={tags.kind}>
                       {d.sessions.replace("{n}", String(c.numSessions))}
                     </span>
+                    {registrationOnly && (
+                      <span className={tags.kind}>
+                        {c.startDate > registrationStart
+                          ? vi
+                            ? "Sắp khai giảng"
+                            : "Starting soon"
+                          : vi
+                            ? "Khai giảng hôm nay"
+                            : "Starts today"}
+                      </span>
+                    )}
                   </div>
                   <h3>{c.name}</h3>
-                  <dl className={styles.facts}>
-                    <dt>{d.coach}</dt>
-                    <dd>{c.coachName || d.coachTbc}</dd>
-                    <dt>{d.room}</dt>
-                    <dd>{c.roomName}</dd>
-                    <dt>{d.schedule}</dt>
-                    <dd>{schedule ?? d.scheduleTbc}</dd>
-                    <dt>{d.startDate}</dt>
-                    <dd>{formatDate(c.startDate)}</dd>
-                  </dl>
+                  {compact ? (
+                    <details className={styles.classDetails}>
+                      <summary>
+                        {vi ? "Coach & lịch học" : "Coach & schedule"}
+                      </summary>
+                      <dl className={styles.facts}>
+                        <dt>{d.coach}</dt>
+                        <dd>{c.coachName || d.coachTbc}</dd>
+                        <dt>{d.room}</dt>
+                        <dd>{c.roomName}</dd>
+                        <dt>{d.schedule}</dt>
+                        <dd>{schedule ?? d.scheduleTbc}</dd>
+                        <dt>{d.startDate}</dt>
+                        <dd>{formatDate(c.startDate)}</dd>
+                      </dl>{" "}
+                    </details>
+                  ) : (
+                    <dl className={styles.facts}>
+                      <dt>{d.coach}</dt>
+                      <dd>{c.coachName || d.coachTbc}</dd>
+                      <dt>{d.room}</dt>
+                      <dd>{c.roomName}</dd>
+                      <dt>{d.schedule}</dt>
+                      <dd>{schedule ?? d.scheduleTbc}</dd>
+                      <dt>{d.startDate}</dt>
+                      <dd>{formatDate(c.startDate)}</dd>
+                    </dl>
+                  )}
+
                   <div className={styles.courseFoot}>
                     <div>
                       <p className={styles.price}>
@@ -230,7 +290,11 @@ export function CourseCatalog({
                     </div>
                     <Link
                       className="btn"
-                      href={`${detailBasePath}/${c.classId}`}
+                      href={
+                        detailBasePath === "/member/services"
+                          ? `/member/services/courses/${c.classId}`
+                          : `${detailBasePath}/${c.classId}`
+                      }
                     >
                       {d.view}
                     </Link>
@@ -264,7 +328,7 @@ export function CourseCatalog({
           )}
         </>
       )}
-    </>
+    </div>
   );
 }
 export function CourseSessions({
@@ -302,46 +366,4 @@ export function CourseSessions({
     </Card>
   );
 }
-export function CourseDetail({ classId }: { classId: number }) {
-  const { t } = useLanguage();
-  const { user } = useAuth();
-  const state = useApi(
-    (signal) => courseApi.detail(classId, signal),
-    [classId],
-  );
-  return (
-    <>
-      {state.loading ? (
-        <p>{t.refactor.loading}</p>
-      ) : state.error ? (
-        <p role="alert">{state.error.message}</p>
-      ) : (
-        state.data && (
-          <Card title={state.data.name}>
-            <p>
-              {state.data.sportName} · {state.data.coachName} ·{" "}
-              {state.data.roomName}
-            </p>
-            <p>
-              {formatMoney(state.data.price)} · {state.data.availableSeats}{" "}
-              {t.refactor.seats}
-            </p>
-          </Card>
-        )
-      )}
-      <CourseSessions classId={classId} />
-      {state.data &&
-        (user?.role === "Member"
-          ? state.data.availableSeats > 0 && (
-              <CheckoutPanel intent={{ kind: "class", body: { classId } }} />
-            )
-          : !user && (
-              <Link
-                href={`/login?next=${encodeURIComponent(`/courses/${classId}`)}`}
-              >
-                {t.refactor.login}
-              </Link>
-            ))}
-    </>
-  );
-}
+export { CourseDetail } from "./member-course-detail";

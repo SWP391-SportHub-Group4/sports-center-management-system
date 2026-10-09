@@ -454,7 +454,8 @@ export const en = {
     attentionTitle: "Needs your attention",
     noAttention: "Nothing needs your attention right now.",
     checkingAttention: "Checking what needs your attention…",
-    attentionUnavailable: "Could not check every item that needs your attention. Reload the page.",
+    attentionUnavailable:
+      "Could not check every item that needs your attention. Reload the page.",
     gymEnds: "Your Gym membership ends {date}",
     ptLow: "{n} personal training session(s) left",
     renew: "Renew",
@@ -468,7 +469,7 @@ export const en = {
     courtRental: "Court rental",
     schedule: "My schedule",
     courses: "My courses",
-    services: "Gym & PT",
+    services: "Services",
     discover: "Discover",
     upcoming: "Upcoming",
     ongoing: "In progress",
@@ -496,7 +497,8 @@ export const en = {
       "Gym membership and group courses are separate. Personal training requires an eligible Gym membership.",
     unlimitedGym: "Unlimited Gym access during your membership.",
     gymVisitsLeft: "{n} Gym visits left in this package.",
-    ptSeparatePurchase: "You can buy PT separately while your membership is active.",
+    ptSeparatePurchase:
+      "You can buy PT separately while your membership is active.",
     remaining: "Remaining",
     held: "Reserved",
     used: "Used",
@@ -1353,7 +1355,8 @@ export const en = {
     tabWallet: "Point wallet",
     tabInvoices: "Invoices",
     tabRefunds: "Point refunds",
-    refundRule: "Eligible refunds go to your points wallet; the system and manager confirm the final amount.",
+    refundRule:
+      "Eligible refunds go to your points wallet; the system and manager confirm the final amount.",
     refundPoints: "Refund points",
     refundEstimate: "Estimated refund",
     refundNoCredit: "No points refunded",
@@ -1827,14 +1830,14 @@ export const en = {
     linkFinance: "Finance",
   },
   mDiscover: {
-    description:
-      "Find and buy courses, Gym membership, PT or a court booking.",
+    description: "Find and buy courses, Gym membership, PT or a court booking.",
     tabs: "Service catalog",
     tabCourses: "Courses",
     tabCourts: "Courts",
     chooseGym: "Explore Gym membership",
     choosePt: "Buy PT package",
-    courtHint: "Choose a sport, date and duration to check available courts before booking.",
+    courtHint:
+      "Choose a sport, date and duration to check available courts before booking.",
     bookCourt: "Find an open court",
     filtersLabel: "Filter courses",
     sport: "Sport",

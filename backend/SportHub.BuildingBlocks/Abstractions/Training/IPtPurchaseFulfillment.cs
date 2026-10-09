@@ -25,7 +25,8 @@ public interface IPtPurchaseFulfillment
 
 public sealed record PtRefundFacts(Guid MemberId, int ReservedSessions, int ConsumedSessions, string Status);
 
-public sealed record PtPurchaseRequest(Guid MemberId, Guid MemberPackageId, Guid CoachId, int FrequencyPerWeek);
+public sealed record PtPurchaseRequest(Guid MemberId, Guid MemberPackageId, Guid CoachId, int FrequencyPerWeek,
+    DateTime? StartAtUtc = null, int? RoomId = null);
 
 /// <param name="PriceVersion">Phiên bản giá lúc báo giá; đổi giá sau preview thì checkout phải xác nhận lại.</param>
 public sealed record PtPurchaseQuote(

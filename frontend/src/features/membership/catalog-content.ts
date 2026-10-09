@@ -1,6 +1,16 @@
 import { ApiError } from "@/lib/apiClient";
 import type { MembershipPackageDto } from "@/lib/types";
 
+/** Retired activities must not appear in Services, including legacy owned packages. */
+export function isRetiredActivityPackage(
+  name: string,
+  description = "",
+): boolean {
+  return /(?:^|[^\p{L}\p{N}])(?:yoga|group[\s_-]*x)(?:$|[^\p{L}\p{N}])/iu.test(
+    `${name} ${description}`,
+  );
+}
+
 // Exact Vietnamese labels/descriptions verified in the demo seed and catalog.
 // Historical labels stay here so sold/discontinued packages keep their language metadata.
 // This is a provenance fallback, not language detection by name/script.
@@ -82,5 +92,9 @@ export function parseMembershipCatalog(value: unknown): MembershipPackageDto[] {
       "Invalid membership catalog response.",
     );
   }
-  return value as MembershipPackageDto[];
+  // Old databases may still return retired activities before the cleanup migration
+  // is applied. Exclude them from the purchase catalog, keeping owned history intact.
+  return (value as MembershipPackageDto[]).filter(
+    (p) => !isRetiredActivityPackage(p.name, p.description ?? ""),
+  );
 }

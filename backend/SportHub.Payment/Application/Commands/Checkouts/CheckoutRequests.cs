@@ -13,4 +13,5 @@ public sealed record ClassCheckoutRequest(
     Guid? TargetMemberId);
 
 public sealed record PtCheckoutRequest(Guid MemberPackageId, Guid CoachId,
-    [param: Range(1, 3)] int FrequencyPerWeek, string PriceVersion, Guid? TargetMemberId);
+    [param: Range(1, 3)] int FrequencyPerWeek, string PriceVersion, Guid? TargetMemberId,
+    DateTime? StartAtUtc = null, int? RoomId = null);
