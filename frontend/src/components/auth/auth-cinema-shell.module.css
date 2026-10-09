@@ -17,7 +17,7 @@
   text-decoration: none;
   align-self: flex-start;
   width: fit-content;
-  margin-bottom: 20px;
+  margin-bottom: 0;
 }
 .mark {
   display: grid;
@@ -37,7 +37,7 @@
 }
 .shell :global(.auth) {
   min-height: 100dvh;
-  padding: 24px;
+  padding: 16px;
   background: transparent;
 }
 .shell :global(.auth__layout) {
@@ -76,7 +76,7 @@
 .shell :global(.auth__card) {
   width: min(540px, 100%);
   justify-self: end;
-  padding: clamp(24px, 2.5vw, 32px);
+  padding: clamp(18px, 2vw, 24px);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-xl);
   background: rgb(18 34 29 / 94%);
@@ -87,7 +87,19 @@
 }
 .shell :global(.auth__sub) {
   font-size: var(--text-sm);
-  margin-bottom: 16px;
+  margin-bottom: 6px;
+}
+
+.shell :global(.auth__top-row) {
+  margin-bottom: 10px;
+}
+
+.shell :global(.auth__steps) {
+  margin: 6px 0 10px;
+}
+
+.shell :global(.auth__separator) {
+  margin: 10px 0;
 }
 .shell :global(.auth__brand) {
   color: var(--text-strong);
@@ -133,7 +145,7 @@
   background: var(--bg-surface-sunken);
 }
 .shell :global(.btn--google):hover {
-  background: var(--bg-surface-sunken);
+  background: var(--color-primary-soft);
   color: var(--text-strong);
   border-color: var(--border-control);
 }
@@ -165,11 +177,8 @@
     grid-template-columns: minmax(0, 1fr) minmax(480px, 540px);
   }
   .shell :global(.auth__card) {
-    max-height: calc(100dvh - 48px);
-    overflow-y: auto;
-    overscroll-behavior-y: contain;
-    scrollbar-width: thin;
-    scrollbar-color: var(--border-control) transparent;
+    max-height: none;
+    overflow: visible;
     justify-content: flex-start;
   }
 }
@@ -178,7 +187,11 @@
     font-size: 24px;
   }
   .shell :global(.auth) {
-    padding: 16px;
+    padding: 12px;
+  }
+
+  .shell :global(.auth__brand) {
+    font-size: 30px;
   }
 }
 @media (prefers-reduced-motion: reduce) {

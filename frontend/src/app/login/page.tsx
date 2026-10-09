@@ -178,13 +178,15 @@ function LoginForm() {
           <h1 id="login-title" className={styles.title}>
             {t.auth.signInTitle}
           </h1>
-          <p className={styles.subtitle}>{t.auth.signInSubtitle}</p>
-
-          {error && (
-            <div className={styles.feedback}>
-              <Feedback id="login-error" error={error} />
-            </div>
-          )}
+          <div className={styles.introMessage}>
+            {error ? (
+              <div className={styles.feedback}>
+                <Feedback id="login-error" error={error} />
+              </div>
+            ) : (
+              <p className={styles.subtitle}>{t.auth.signInSubtitle}</p>
+            )}
+          </div>
 
           {expired && (
             <div
@@ -209,6 +211,7 @@ function LoginForm() {
               value={email}
               autoComplete="username"
               required
+              reserveErrorSpace
               error={fieldErrors.email}
               disabled={busy}
               suppressHydrationWarning
@@ -249,6 +252,7 @@ function LoginForm() {
                 autoComplete="current-password"
                 maxLength={256}
                 required
+                reserveErrorSpace
                 error={fieldErrors.password}
                 disabled={busy}
                 suppressHydrationWarning
