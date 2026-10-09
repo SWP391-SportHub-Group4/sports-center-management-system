@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { useLanguage } from "@/lib/language";
 import { useAction, useApi } from "@/lib/useApi";
@@ -7,11 +8,17 @@ import { choiceQuery, useUrlQuery } from "@/lib/useUrlQuery";
 import { formatDateTime } from "@/lib/format";
 import { Tabs, Button } from "@/components/primitives";
 import { AsyncSection, Feedback } from "@/components/ui";
-import { memberNotificationHref, notificationsApi } from "./notifications-api";
+import {
+  memberNotificationHref,
+  notificationActionLabel,
+  notificationsApi,
+  type NotificationDto,
+} from "./notifications-api";
 import styles from "./member.module.css";
 
 export function MemberNotifications() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const router = useRouter();
   const { user } = useAuth();
   const { values, setValues } = useUrlQuery(
     { tab: "all" },
@@ -29,6 +36,16 @@ export function MemberNotifications() {
       state.reload();
       window.dispatchEvent(new Event("sporthub:notifications-read"));
     });
+  }
+  async function openItem(item: NotificationDto, href: string) {
+    if (action.busy) return;
+    const ok = await action.run(async () => {
+      if (item.status !== "READ")
+        await notificationsApi.read(item.notificationId);
+      window.dispatchEvent(new Event("sporthub:notifications-read"));
+      return true;
+    });
+    if (ok) router.push(href);
   }
   return (
     <>
@@ -53,7 +70,11 @@ export function MemberNotifications() {
         <AsyncSection
           state={state}
           isEmpty={(rows) => !rows.length}
-          emptyMessage={t.memberPages.emptyNotifications}
+          emptyMessage={
+            values.tab === "unread"
+              ? t.memberPages.emptyNotifications
+              : t.memberPages.noNotifications
+          }
         >
           {(rows) => (
             <ul className={styles.list}>
@@ -63,8 +84,21 @@ export function MemberNotifications() {
                 return (
                   <li key={n.notificationId} className={styles.item}>
                     {href ? (
-                      <Link className={styles.notificationLink} href={href}>
+                      <Link
+                        className={styles.notificationLink}
+                        href={href}
+                        onNavigate={(event) => {
+                          event.preventDefault();
+                          void openItem(n, href);
+                        }}
+                      >
                         {n.message}
+                        <span
+                          className="small"
+                          style={{ display: "block", marginTop: 8 }}
+                        >
+                          {notificationActionLabel(n, language)} →
+                        </span>
                       </Link>
                     ) : (
                       <p>{n.message}</p>

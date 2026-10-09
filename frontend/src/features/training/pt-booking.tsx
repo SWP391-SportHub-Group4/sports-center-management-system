@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { AsyncSection, Feedback, Field } from "@/components/ui";
 import { api, ApiError } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
@@ -37,6 +37,7 @@ export function PtBooking() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [revision, setRevision] = useState(0);
+  const submitting = useRef(false);
 
   const entitlements = useApi(
     (signal) =>
@@ -84,6 +85,8 @@ export function PtBooking() {
     startAtUtc: string,
     roomId: number | null,
   ) {
+    if (submitting.current) return;
+    submitting.current = true;
     setBusy(true);
     setError(null);
     try {
@@ -111,11 +114,16 @@ export function PtBooking() {
         cause.code === "pt_member_conflict"
       ) {
         setError(cause.message);
+        setSlot(null);
         setRevision((n) => n + 1);
       } else {
         setError(cause instanceof ApiError ? cause.message : String(cause));
+        // Recheck quota/relationship/validity after every rejected or uncertain write.
+        setSlot(null);
+        setRevision((n) => n + 1);
       }
     } finally {
+      submitting.current = false;
       setBusy(false);
     }
   }

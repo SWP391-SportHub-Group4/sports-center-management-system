@@ -13,7 +13,7 @@ Monorepo cho hệ thống quản lý **trung tâm thể thao đa môn**: nhiều
 |---|---|
 | System Administrator | Tạo tài khoản nhân sự (Admin/Manager/Receptionist), đổi vai trò, khóa/mở khóa |
 | Center Manager | CRUD môn, phòng/sân, giá thuê sân, Membership; tạo lớp + xếp lịch (AI gợi ý xếp lịch còn là phần chưa triển khai), phân công Coach theo chuyên môn, duyệt hoàn điểm, sự cố/thông báo, báo cáo, Audit Log |
-| Coach (của trung tâm) | Chuyên môn theo môn (`CoachSpecialty`); xem lịch dạy và roster lớp mình; Coach có chuyên môn PT: PT session, kế hoạch tập, kết quả, homework, gợi ý AI |
+| Coach (của trung tâm) | Chuyên môn theo môn (`CoachSpecialty`); xem lịch dạy và roster lớp mình; Coach có chuyên môn PT: PT session, kế hoạch tập, kết quả, gợi ý AI |
 | Member | Đăng ký Membership Gym, PT; xem lớp/khóa học, ghi danh có giữ chỗ, ví điểm, lịch hôm nay/tuần, thông báo, chatbot |
 | Receptionist | Tìm/đăng ký Member tại quầy, Gym check-in/out, điểm danh lớp nhóm, checkout thay Member (dùng điểm cần OTP email của Member), Court Schedule, hỗ trợ đối soát |
 
@@ -24,7 +24,7 @@ Monorepo cho hệ thống quản lý **trung tâm thể thao đa môn**: nhiều
 | 1 — User & Membership | Bắt buộc | 5 vai trò, Coach + chuyên môn, Membership Gym, Gym check-in, mật khẩu mạnh, quên mật khẩu bằng link email (không hỏi mật khẩu cũ, phản hồi trung tính) |
 | 2 — Class booking & schedule | Bắt buộc | Môn/Phòng/Sân, lớp theo khóa, ghi danh + giữ chỗ chống bán vượt sĩ số, ngưỡng hoàn vốn, Court Schedule, thuê sân, điểm danh lớp nhóm |
 | 3 — Payment & report | Bắt buộc | Invoice nhiều loại item, VNPay-QR, ví điểm + split payment, hoàn trả **chỉ bằng điểm**, báo cáo theo môn/nguồn |
-| 4 — Training & attendance | Optional (nhóm vẫn làm) | PT: kế hoạch, kết quả, homework, điểm danh |
+| 4 — Training & attendance | Optional (nhóm vẫn làm) | PT: kế hoạch, kết quả, điểm danh |
 | 5 — AI workout recommendation | Optional (nhóm vẫn làm) | Gợi ý bài tập cho Coach có chuyên môn PT |
 | 6 — AI assistant | Nhóm làm | Member assistant theo context đã có mã; Manager AI xếp lịch/function calling chưa triển khai |
 

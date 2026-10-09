@@ -10,7 +10,7 @@ test("member code payload round-trips and rejects other text", () => {
   expect(parseMemberCode("SPORTHUB-MEMBER:not-a-guid")).toBeNull();
 });
 
-test("member dashboard shows the member code QR without claiming entry rights", async ({
+test("member card shows the server identity and explains unavailable issued QR", async ({
   page,
 }) => {
   await page.addInitScript(() => {
@@ -41,7 +41,14 @@ test("member dashboard shows the member code QR without claiming entry rights", 
   await page.goto("/member");
   // Mã nằm sau nút tròn trên thanh header, mở thành popup khi cần.
   await page.getByRole("button", { name: "Member code" }).click();
-  await expect(page.getByRole("img", { name: "Member code QR" })).toBeVisible();
+  await expect(page.getByRole("img", { name: "Member code QR" })).toHaveCount(
+    0,
+  );
+  await expect(
+    page.getByText("Your center-issued QR is not available yet.", {
+      exact: false,
+    }),
+  ).toBeVisible();
   await expect(page.getByText("does not grant entry by itself")).toBeVisible();
   await expect(page.getByText(id)).toBeVisible();
 });

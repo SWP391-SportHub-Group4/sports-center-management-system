@@ -40,7 +40,7 @@ Route dưới đây là đề xuất; ưu tiên giữ link cũ bằng alias/redi
 | A08 | Buổi PT → Chi tiết → Hủy/đổi lịch | `/member/pt/sessions/[id]`, D + F (đã làm: form chỉ mở khi bấm, quy tắc 24 giờ, yêu cầu chờ duyệt ghi rõ lịch chưa đổi) | Lịch hiện tại, thời hạn 24 giờ, ảnh hưởng quota; hiện tại gửi change request, không giả thao tác đổi lịch đã hoàn tất |
 | A09 | Gói PT → Yêu cầu đổi HLV | Form lồng trong `/member/services?tab=pt` + lịch sử yêu cầu | Lý do, Coach đề xuất hợp lệ, đang chờ/duyệt/từ chối; các buổi bị conflict giữ trạng thái cần xử lý |
 | A10 | Tập luyện → Hồ sơ | `/member/training?tab=profile`, T | Mục tiêu/trình độ/thông tin được phép cập nhật, validation. `/member/profile` chuyển hướng về đây |
-| A11 | Tập luyện → Kế hoạch / Kết quả / Tiến độ / Homework | `/member/training?tab=...`, T → D | Xem kế hoạch và nhận xét riêng mình; chỉ đọc nội dung Coach tạo; Homework chỉ đọc (Member không đánh dấu hoàn thành trên giao diện). Tab: Buổi tập · Kế hoạch · Kết quả · Tiến độ · Homework · Hồ sơ, kèm dải tóm tắt HLV/quota/buổi tiếp theo |
+| A11 | Tập luyện → Kế hoạch / Kết quả / Tiến độ | `/member/training?tab=...`, T → D | Xem kế hoạch và nhận xét riêng mình; chỉ đọc nội dung Coach tạo. Tab: Buổi tập · Kế hoạch · Kết quả · Tiến độ · Hồ sơ, kèm dải tóm tắt HLV/quota/buổi tiếp theo |
 | A12 | Tài chính → Ví điểm | `/member/finance?tab=wallet`, T | Available/Held, quy đổi VND, ledger Hold/Spend/Release/Earn/Adjustment, link invoice/source |
 | A13 | Tài chính → Hóa đơn → Chi tiết | `/member/finance?tab=invoices`, `/member/invoices/[id]`, D | Từng item, giá snapshot, points/cash, lịch sử payment và adjustment; tiếp tục thanh toán/hủy checkout nếu hợp lệ |
 | A14 | Hóa đơn → Tạo yêu cầu hoàn → Theo dõi | D + F (đã làm: form chỉ mở khi bấm, ước tính điểm kèm VND, thông báo chưa hoàn điểm đến khi Manager duyệt) | Quote theo item, chính sách, số điểm server tính, lý do, hệ quả quyền lợi; Requested/Completed/Rejected. G08 nếu cần danh sách tổng hợp độc lập |
@@ -51,7 +51,7 @@ Route dưới đây là đề xuất; ưu tiên giữ link cũ bằng alias/redi
 | A19 | Khóa học của tôi → Nguyện vọng khóa sau | `/member/courses?tab=interests`, T | Lớp nguồn, môn muốn nhận tin, điểm đã hoàn, trạng thái nhận tin, khóa mới được gợi ý; hủy nhận tin không thu hồi điểm; G02 |
 | A20 | Thẻ hội viên → Mã/QR nhận diện | O từ dashboard hoặc account | Mã dễ đọc + QR backend cấp, trạng thái/hạn nếu có; QR chỉ nhận diện để lễ tân tra cứu, không chứng minh quyền vào Gym; G04 |
 
-Tài khoản, mật khẩu, Google linking do Khôi làm trong `/account`; An cung cấp entry và shell đúng role. Không tạo trang Member profile trùng nội dung account; training profile là phần riêng.
+Tài khoản, mật khẩu (tạo mật khẩu có OTP cho tài khoản Google), Google linking do Khôi làm trong `/account`; An cung cấp entry và shell đúng role. Không tạo trang Member profile trùng nội dung account; training profile là phần riêng.
 
 ## 3. Checkout — đặc tả bắt buộc
 
@@ -100,7 +100,7 @@ Trạng thái: còn hạn/chưa phản hồi; đã chọn; cần thanh toán ch�
 | Hóa đơn/hoàn | `GET /api/members/me/invoices`, `/api/invoices/{id}`; refund quote và POST `/api/refunds`; adjustments có trong invoice detail |
 | Ngưỡng | GET/POST `/api/class-threshold-responses/...`; transfer quote; bổ sung G02 |
 | AI | `POST /api/ai/chat` hiện chỉ Member; dùng server data, không thêm write action |
-| Workout | APIs training-profile, workout-plans/results, progress và homework đang có; dùng đúng owner scope |
+| Workout | APIs training-profile, workout-plans/results và progress đang có; dùng đúng owner scope |
 
 Code đầu vào: `frontend/src/features/payments`, `features/wallet`, `features/training`, `features/pt`, `app/member`, `components/MemberShell.tsx`, `components/ui.tsx`, `shared/lib/clock.ts`. Đọc logic trước khi thay layout. Không xóa idempotency/reconciliation vì khó thiết kế.
 
@@ -173,7 +173,7 @@ Kiểm verb, constraint và body trong controller/OpenAPI; page mới không nh�
 | Member lịch/ghi danh | `GET /api/members/me/enrollments`, `/schedule`, `/classes/{id}/sessions` | `/schedule` chỉ lớp; ghép với PT ở FE |
 | PT entitlement/session | GET member/coach/manager pt-entitlements; GET member/coach/manager pt-sessions; manager create/cancel/reschedule | G05: chưa có member create booking |
 | PT yêu cầu | Member create/list session-change/coach-change request; manager list/approve/reject | Đang chờ khác với đã đổi lịch |
-| Training | Profile, plans, results, progress, homework, relationship APIs | Phân quyền relationship/specialty; không tạo endpoint chỉ vì thêm tab |
+| Training | Profile, plans, results, progress, relationship APIs | Phân quyền relationship/specialty; không tạo endpoint chỉ vì thêm tab |
 | AI | `POST /api/ai/chat`; `/workout-suggestions/{memberId}`; `GET /api/ai/logs` | Chat Member, suggestions Coach PT, logs theo actor scope |
 | Threshold | `/api/class-threshold-responses/mine`, `/{id}`, `/by-token`, `/{id}/transfer-quote`; POST `/{id}` hoặc root token flow | Choice hiện Refund/Transfer; G02 mở rộng |
 

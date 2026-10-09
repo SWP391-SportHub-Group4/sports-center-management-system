@@ -66,7 +66,12 @@ export interface CourseEnrollmentDto {
   className: string;
   sportName: string;
   memberId: string;
-  status: "CONFIRMED" | "CANCELLED" | "TRANSFERRED" | "REFUNDED";
+  status:
+    | "CONFIRMED"
+    | "TRANSFERRED_OUT"
+    | "REFUNDED"
+    | "CANCELLED_BY_CENTER"
+    | "CANCELLED";
   enrolledAt: string;
   endedAt: string | null;
   numSessions: number;
@@ -77,6 +82,8 @@ export interface CourseEnrollmentDto {
   lastSessionEndUtc?: string | null;
   /** Số buổi đã diễn ra (không tính buổi hủy). */
   completedSessions?: number;
+  nextSessionStartUtc?: string | null;
+  sportId?: number;
 }
 
 export interface WalletBalanceDto {
@@ -538,6 +545,7 @@ export interface CourseMemberSessionDto {
   sportName: string;
   sessionNo: number;
   roomName: string;
+  coachName?: string | null;
   startAtUtc: string;
   endAtUtc: string;
   status: string;
@@ -661,31 +669,6 @@ export interface PtAvailabilityDto {
   }[];
 }
 
-export interface HomeworkDto {
-  assignmentId: string;
-  memberId: string;
-  memberName: string;
-  coachId: string;
-  coachName: string;
-  relationshipId: string;
-  sourceWorkoutPlanId: string | null;
-  title: string;
-  coachNote: string | null;
-  assignedAt: string;
-  dueAt: string;
-  completedAt: string | null;
-  reviewedAt: string | null;
-  status: string;
-  memberFeedback: string | null;
-  version: number;
-  items: {
-    itemId: string;
-    exercise: string;
-    sets: number;
-    reps: number;
-    notes: string | null;
-  }[];
-}
 export interface PtChangeRequestDto {
   requestId: string;
   sessionId?: string;

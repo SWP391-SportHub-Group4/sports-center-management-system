@@ -3,6 +3,7 @@ import { hasService } from "@/lib/sports";
 import { pagedItems } from "@/lib/paged";
 import { courseApi } from "./api";
 import { useState } from "react";
+import { useUrlQuery } from "@/lib/useUrlQuery";
 import Link from "next/link";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
@@ -27,7 +28,13 @@ export function CourseCatalog({
   const { t, language } = useLanguage();
   const d = t.mDiscover;
   const vi = language === "vi";
-  const [sportId, setSport] = useState("");
+  // Liên kết từ trang khác (ví dụ gợi ý gia hạn) có thể mang sẵn ?sport=; chọn tay thì ưu tiên lựa chọn đó.
+  const preset = useUrlQuery(
+    { sport: "" },
+    { sport: (value) => (/^[0-9]+$/.test(value) ? value : "") },
+  ).values.sport;
+  const [picked, setSport] = useState<string | null>(null);
+  const sportId = picked ?? preset;
   const [fromDate, setFrom] = useState("");
   const [toDate, setTo] = useState("");
   const [openOnly, setOpenOnly] = useState(false);
@@ -121,10 +128,7 @@ export function CourseCatalog({
       </section>
 
       {detailBasePath === "/member/discover" && (
-        <p className={styles.note}>
-          {d.independent.split(/Gym & PT\.?$/)[0]}
-          <Link href="/member/services">{d.gymPt}</Link>.
-        </p>
+        <p className={styles.note}>{d.independent}</p>
       )}
 
       {courses.loading ? (
@@ -156,7 +160,10 @@ export function CourseCatalog({
               <Link className="btn" href="/member/courts/book">
                 {d.rent}
               </Link>
-              <Link className="btn btn--secondary" href="/member/services">
+              <Link
+                className="btn btn--secondary"
+                href="/member/discover?tab=gym"
+              >
                 {d.gymPt}
               </Link>
             </div>

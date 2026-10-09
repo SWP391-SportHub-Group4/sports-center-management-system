@@ -17,7 +17,7 @@ SportHub là **hệ thống quản lý trung tâm thể thao với ba môn Gym (
 ## 1. Phạm vi
 
 - PublicShell/Header/Footer, landing và toàn bộ public pages, course card/catalog/detail dùng lại ở Member.
-- Auth/register/OTP/Google onboarding/forgot password; account/security dùng cho các role.
+- Auth/register/OTP/Google đăng nhập (tự tạo hoặc tự liên kết theo email)/forgot password; account/security dùng cho các role.
 - Chức năng thuê sân của Member (BR-140), dùng AppShell của An, calendar của Hào và checkout/wallet/invoice của An.
 - Q01–Q07, Q13–Q18, Q28 đã chuyển cho Khoa (ClassEditor/ThresholdManager, IncidentWorkbench, NoticeComposer, Manager AI adapter); Khôi chỉ review UX/UI các mẫu đó.
 - **Quy ước ngôn ngữ trang xác thực:** login, register (Member) và forgot-password luôn **tiếng Anh hoàn toàn**, không có nút đổi ngôn ngữ và không đọc ngôn ngữ đã lưu của portal (component `EnglishOnly` trong `lib/language.tsx`, áp bằng `layout.tsx` của từng route). Không trộn Anh–Việt trong cùng một trang; thông báo lỗi từ API trên các trang này cũng map sang tiếng Anh.
@@ -82,8 +82,8 @@ Public schedule chỉ nhận DTO public; không dùng token nhân viên trong se
 | K11 | `/login` | Email/password, Google, forgot, register; loading/error; chuyển đúng role |
 | K12 | `/register` → OTP → Hoàn tất | Member registration, checklist mật khẩu, xác thực email, resend countdown, max-attempt error; không hỏi vai trò nội bộ |
 | K14 | `/forgot-password` → email link → `/reset-password` → Success | **Đã triển khai (link email, không OTP).** Không cần password cũ; phản hồi trung tính; cooldown 60 giây theo từng email, đổi email gửi được ngay; link hết hạn/đã dùng/thiếu token → trạng thái "Link no longer works"; ô mật khẩu có con mắt; luôn tiếng Anh |
-| K15 | Google onboarding | Lần đầu thiết lập mật khẩu; trùng email chưa linked phải đăng nhập/liên kết rõ ràng; không tự merge tài khoản |
-| K16 | `/account` → Hồ sơ / Bảo mật / Ngôn ngữ | Profile, change password, Google link/unlink theo API; giữ shell role; không trùng training profile |
+| K15 | Google đăng nhập | Không còn màn onboarding: email mới tạo tài khoản ngay (chưa có mật khẩu); email trùng tài khoản có sẵn tự liên kết và đăng nhập; chi tiết [auth-account-rules.md](../auth-account-rules.md) |
+| K16 | `/account` → Hồ sơ / Bảo mật / Ngôn ngữ | Profile; đổi mật khẩu (có mật khẩu) hoặc tạo mật khẩu bằng mã OTP gửi email (tài khoản Google chưa có mật khẩu); giữ shell role; không trùng training profile |
 | K17 | Trang lỗi/phiên hết hạn | 401, 403, 404, unavailable; next hợp lệ, không open redirect; tích hợp primitive An |
 
 Thời hạn OTP registration/reset và OTP chi điểm tại quầy khác nhau; không tái sử dụng một giá trị hard-code cho cả hai. OTP input cho paste/autofill, error theo field và summary; không mất thông tin form khi lỗi mạng.
@@ -106,7 +106,7 @@ Khung giờ lớp cố định (seed Bóng rổ/Cầu lông 01–02, BR-141) hi�
 
 - Public đã có: `GET /api/sports`, `/api/classes`, `/api/classes/{id}`, `/api/classes/{id}/public-sessions`, `/api/membership-packages/public`.
 - **G01:** chưa có public projections đầy đủ cho sân/availability/giá, hồ sơ HLV, giá PT công khai. Marketing copy/contact/FAQ có thể là nội dung versioned, không cần CMS backend.
-- Auth đã có: auth OTP/register/login/password forgot/reset, Google exchange/onboarding/link, `/api/users/me`.
+- Auth đã có: auth OTP/register/login/password forgot/reset, Google đăng nhập/link/unlink, `/api/users/me/password/otp`, `/api/users/me`.
 - Rental: policy, availability, mine/detail/cancel; POST `/api/checkouts/court-rental`. Dùng đúng quyền, không dùng endpoint lịch sân nhân viên cho Guest.
 - **G09:** nâng bộ lọc catalog nếu giữ UI keyword/price/weekday; thu hẹp filter UI theo contract trong khi chờ.
 - **G11:** backend cần kiểm tra callback VNPay anonymous trước nghiệm thu payment thật, không sửa FE để giả success.
@@ -124,7 +124,7 @@ Code đầu vào: `app/page.tsx`, `home.module.css`, `public-header.tsx`, `membe
 - [ ] Khôi có đủ landing sections, mỗi section có mục đích/CTA/data source, không chỉ một hero đẹp.
 - [ ] Màn 360px không tràn ngang; heading/CTA không đè ảnh; dropdown và accordion dùng keyboard được.
 - [ ] Không fake testimonials, coach credentials, số hội viên, sự kiện hoặc form liên hệ gửi giả.
-- [ ] Login/OTP/Google lưu đúng next và không tự link email trùng.
+- [ ] Login/OTP/Google lưu đúng next; Google trùng email tự link đúng tài khoản cũ.
 - [ ] Member đăng nhập đặt được khung trống theo policy server; khung lớp cố định không hiện là trống; Member bị khóa không đặt mới.
 - [ ] Booking hết hạn nhả occupancy qua backend, lịch công khai refresh; không reset timer khi reload.
 - [ ] Không lộ renter/member/roster trên public schedule.

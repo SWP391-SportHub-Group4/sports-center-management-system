@@ -143,9 +143,7 @@ test("Khám phá: thẻ lớp đủ thông tin, lọc còn chỗ", async ({ page
   );
   await page.goto("/member/discover");
   await expect(
-    page.getByText(
-      "Tìm khóa học phù hợp với bạn. Xem lịch, chỗ còn và học phí trước khi đăng ký.",
-    ),
+    page.getByText("Tìm và mua khóa học, Membership Gym, PT hoặc đặt sân."),
   ).toBeVisible();
 
   const br = page.locator("article").filter({ hasText: "Bóng rổ 01" });
@@ -164,6 +162,36 @@ test("Khám phá: thẻ lớp đủ thông tin, lọc còn chỗ", async ({ page
   await page.getByLabel(/còn chỗ/i).check();
   await expect(page.locator("article")).toHaveCount(2);
   await expect(page.getByText("Cầu lông 02")).toHaveCount(0);
+});
+
+test("Khám phá có danh mục Gym, PT và lối đặt sân", async ({ page }) => {
+  await base(page);
+  await page.route("**/api/membership-packages", (route) =>
+    route.fulfill({
+      json: [
+        {
+          packageId: 1,
+          name: "Gym tháng",
+          price: 500000,
+          durationDays: 30,
+          sessionLimit: null,
+          description: "Tập Gym tự do trong 30 ngày.",
+          isActive: true,
+        },
+      ],
+    }),
+  );
+  await page.goto("/member/discover");
+  await page.getByRole("tab", { name: "Membership Gym" }).click();
+  await expect(page.getByText("Gym tháng")).toBeVisible();
+  await page.getByRole("tab", { name: "Huấn luyện cá nhân" }).click();
+  await expect(
+    page.getByRole("tab", { name: "Huấn luyện cá nhân" }),
+  ).toHaveAttribute("aria-selected", "true");
+  await page.getByRole("tab", { name: "Sân" }).click();
+  await expect(
+    page.getByRole("link", { name: "Tìm sân trống" }),
+  ).toHaveAttribute("href", "/member/courts/book");
 });
 
 test("Khám phá: không có lớp thì hiện trạng thái trống có lối đi tiếp", async ({
@@ -224,26 +252,16 @@ test("Lịch của tôi: phân biệt lớp nhóm, PT và thuê sân", async ({ 
     }),
   );
   await page.goto("/member/schedule");
-  await page.getByRole("button", { name: "Danh sách" }).click();
-  await expect(page.getByText("Bóng rổ 01").first()).toBeVisible();
-  await expect(page.getByText("PT cùng Đỗ Quang").first()).toBeVisible();
-});
 
-test("Lịch của tôi: lịch trống có ba lối đi", async ({ page }) => {
-  await base(page);
-  await page.goto("/member/schedule");
-  const main = page.getByRole("main");
-  await expect(
-    main.getByRole("link", { name: "Khám phá khóa học" }),
-  ).toHaveAttribute("href", "/member/discover");
-  await expect(main.getByRole("link", { name: /Đặt lịch PT/ })).toHaveAttribute(
-    "href",
-    "/member/pt/book",
-  );
-  await expect(main.getByRole("link", { name: /Thuê sân/ })).toHaveAttribute(
-    "href",
-    "/member/courts/book",
-  );
+  await expect(page.getByText("Bóng rổ 01").first()).toBeVisible();
+  await expect(page.getByText("Đỗ Quang").first()).toBeVisible();
+  const filters = page.getByRole("group", { name: "Hiển thị" });
+  await filters.getByRole("button", { name: "Buổi PT" }).click();
+  const calendar = page.getByRole("region", { name: "Thời khóa biểu tuần" });
+  await expect(calendar.getByText("Đỗ Quang").first()).toBeVisible();
+  await expect(calendar.getByText("Bóng rổ 01")).toHaveCount(0);
+  await filters.getByRole("button", { name: "Tất cả" }).click();
+  await expect(calendar.getByText("Bóng rổ 01").first()).toBeVisible();
 });
 
 const enrollments = [
@@ -292,7 +310,7 @@ const enrollments = [
     className: "Cầu lông cơ bản",
     sportName: "Cầu lông",
     memberId: "u",
-    status: "TRANSFERRED",
+    status: "TRANSFERRED_OUT",
     enrolledAt: h(-900),
     endedAt: h(-300),
     numSessions: 8,
@@ -345,4 +363,260 @@ test("Khóa học của tôi: mỗi tab trống có CTA Khám phá khóa học",
       page.getByRole("main").getByRole("link", { name: "Khám phá khóa học" }),
     ).toHaveAttribute("href", "/member/discover");
   }
+});
+
+const vnDate = (iso: string) =>
+  new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(
+    new Date(iso),
+  );
+
+test("Khóa học của tôi: buổi kế tiếp, nhắc chọn phương án khi lớp thiếu học viên và gợi ý khóa tiếp theo", async ({
+  page,
+}) => {
+  await base(page);
+  const rows = [
+    {
+      ...enrollments[0],
+      completedSessions: 11,
+      nextSessionStartUtc: h(30),
+      sportId: 4,
+    },
+    { ...enrollments[1], nextSessionStartUtc: h(140), sportId: 3 },
+    {
+      ...enrollments[2],
+      status: "TRANSFERRED_OUT",
+      sportId: 3,
+      nextSessionStartUtc: null,
+    },
+  ];
+  await page.route("**/api/members/me/enrollments**", (r) =>
+    r.fulfill({ json: { items: rows, page: 1, pageSize: 50, totalCount: 3 } }),
+  );
+  await page.route("**/api/class-threshold-responses/mine", (r) =>
+    r.fulfill({
+      json: [
+        {
+          responseId: "th1",
+          classId: 2,
+          className: "Cầu lông 01",
+          sportId: 3,
+          paidValueVnd: 900000,
+          deadlineUtc: h(48),
+          choice: null,
+          targetClassId: null,
+          resolutionStatus: "PENDING",
+          additionalInvoiceId: null,
+          serverNowUtc: h(0),
+        },
+      ],
+    }),
+  );
+  await page.goto("/member/courses?tab=all");
+
+  const going = page.locator("article").filter({ hasText: "Bóng rổ 01" });
+  await expect(going).toContainText("Buổi kế tiếp");
+  await expect(
+    going.getByRole("link", { name: "Xem khóa Bóng rổ tiếp theo" }),
+  ).toHaveAttribute("href", "/member/discover?sport=4");
+
+  const short = page.locator("article").filter({ hasText: "Cầu lông 01" });
+  await expect(short.getByRole("status")).toContainText(
+    "Lớp chưa đủ học viên để mở",
+  );
+  await expect(
+    short.getByRole("link", { name: "Chọn phương án" }),
+  ).toHaveAttribute("href", "/member/threshold-responses/th1");
+  await expect(going.getByRole("status")).toHaveCount(0);
+
+  const moved = page.locator("article").filter({ hasText: "Cầu lông cơ bản" });
+  await expect(moved).toContainText("Đã chuyển lớp");
+  await expect(moved).not.toContainText("Buổi kế tiếp");
+});
+
+test("Khám phá: mở từ liên kết gia hạn thì đã lọc sẵn theo môn", async ({
+  page,
+}) => {
+  await base(page);
+  await page.route("**/api/classes?**", (r) => {
+    const sport = new URL(r.request().url()).searchParams.get("sportId");
+    return r.fulfill({
+      json: {
+        items: sport === "4" ? [courses[0]] : courses,
+        page: 1,
+        pageSize: 12,
+        totalCount: 3,
+      },
+    });
+  });
+  await page.goto("/member/discover?sport=4");
+  await expect(page.locator("article")).toHaveCount(1);
+  await expect(page.locator("article")).toContainText("Bóng rổ 01");
+});
+
+test("Lịch của tôi: lượt thuê sân hủy được kèm quy tắc hoàn điểm, xuất .ics, PT chỉ xem", async ({
+  page,
+}) => {
+  await base(page);
+  const rental = {
+    courtRentalId: "r1",
+    sportId: 3,
+    roomId: 6,
+    startAtUtc: h(30),
+    endAtUtc: h(31),
+    totalPrice: 100000,
+    status: "CONFIRMED",
+    invoiceItemId: null,
+  };
+  let cancelled = false;
+  await page.route("**/api/court-rentals/mine**", (r) =>
+    r.fulfill({
+      json: [cancelled ? { ...rental, status: "CANCELLED" } : rental],
+    }),
+  );
+  await page.route("**/api/court-rentals/policy", (r) =>
+    r.fulfill({
+      json: {
+        slotMinutes: 60,
+        maxHours: 4,
+        advanceDays: 30,
+        cancelFreeHours: 24,
+        serverNowUtc: h(0),
+      },
+    }),
+  );
+  await page.route("**/api/court-rentals/r1/cancel", (r) => {
+    cancelled = true;
+    return r.fulfill({ status: 204, body: "" });
+  });
+  await page.route("**/api/members/me/pt-sessions**", (r) =>
+    r.fulfill({
+      json: [
+        {
+          sessionId: "p1",
+          entitlementId: "e",
+          memberId: "m",
+          memberName: "An",
+          coachId: "c",
+          coachName: "Đỗ Quang",
+          startAtUtc: h(30),
+          endAtUtc: h(31.5),
+          status: "SCHEDULED",
+          quotaState: "RESERVED",
+          roomId: 3,
+          roomName: "Phòng PT 2",
+        },
+      ],
+    }),
+  );
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/member/schedule?date=" + vnDate(h(30)));
+
+  // PT: chỉ xem, không có nút hủy; có hướng dẫn sang trang chi tiết
+  await page.locator("table button").filter({ hasText: "Buổi PT" }).click();
+  let drawer = page.getByRole("dialog");
+  await expect(
+    drawer.getByRole("button", { name: "Hủy lượt thuê" }),
+  ).toHaveCount(0);
+  await expect(drawer).toContainText(
+    "Đổi hoặc hủy buổi PT thực hiện ở trang chi tiết buổi.",
+  );
+  await drawer.getByRole("button", { name: "Đóng" }).click();
+
+  // Thuê sân: xuất .ics
+  await page.locator("table button").filter({ hasText: "Thuê sân" }).click();
+  drawer = page.getByRole("dialog");
+  const [download] = await Promise.all([
+    page.waitForEvent("download"),
+    drawer.getByRole("button", { name: "Thêm vào lịch (.ics)" }).click(),
+  ]);
+  expect(download.suggestedFilename()).toMatch(/^sporthub-rental-.*[.]ics$/);
+
+  // Hủy: còn hơn 24 giờ nên hoàn 100% điểm
+  await drawer.getByRole("button", { name: "Hủy lượt thuê" }).click();
+  const confirm = page.getByRole("dialog", { name: "Hủy lượt thuê sân?" });
+  await expect(confirm).toContainText("được hoàn 100% điểm");
+  await confirm.getByRole("button", { name: "Xác nhận hủy" }).click();
+  await expect(
+    page.getByRole("dialog", { name: "Hủy lượt thuê sân?" }),
+  ).toHaveCount(0);
+  await expect(
+    page.locator("table button").filter({ hasText: "Thuê sân" }),
+  ).toContainText("Đã hủy");
+});
+
+test("Lịch của tôi: lượt thuê sát giờ chơi cảnh báo không hoàn điểm", async ({
+  page,
+}) => {
+  await base(page);
+  await page.route("**/api/court-rentals/mine**", (r) =>
+    r.fulfill({
+      json: [
+        {
+          courtRentalId: "r2",
+          sportId: 3,
+          roomId: 6,
+          startAtUtc: h(5),
+          endAtUtc: h(6),
+          totalPrice: 100000,
+          status: "CONFIRMED",
+          invoiceItemId: null,
+        },
+      ],
+    }),
+  );
+  await page.route("**/api/court-rentals/policy", (r) =>
+    r.fulfill({
+      json: {
+        slotMinutes: 60,
+        maxHours: 4,
+        advanceDays: 30,
+        cancelFreeHours: 24,
+        serverNowUtc: h(0),
+      },
+    }),
+  );
+  await page.goto("/member/schedule?date=" + vnDate(h(5)));
+  await page.locator("table button").filter({ hasText: "Thuê sân" }).click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Hủy lượt thuê" })
+    .click();
+  await expect(
+    page.getByRole("dialog", { name: "Hủy lượt thuê sân?" }),
+  ).toContainText("không được hoàn điểm");
+});
+
+test("Lịch của tôi trên điện thoại: tuần chia theo ngày, không cuộn ngang, bấm buổi mở chi tiết", async ({
+  page,
+}) => {
+  await base(page);
+  await page.route("**/api/members/me/pt-sessions**", (r) =>
+    r.fulfill({
+      json: [
+        {
+          sessionId: "p1",
+          entitlementId: "e",
+          memberId: "m",
+          memberName: "An",
+          coachId: "c",
+          coachName: "Đỗ Quang",
+          startAtUtc: h(30),
+          endAtUtc: h(31.5),
+          status: "SCHEDULED",
+          quotaState: "RESERVED",
+          roomId: 3,
+          roomName: "Phòng PT 2",
+        },
+      ],
+    }),
+  );
+  await page.setViewportSize({ width: 360, height: 800 });
+  await page.goto("/member/schedule?date=" + vnDate(h(30)));
+  await expect(page.locator("table")).toHaveCount(0);
+  await expect(page.getByRole("region", { name: /^(Thứ|Chủ)/ })).toHaveCount(7);
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth),
+  ).toBeLessThanOrEqual(361);
+  await page.getByRole("button", { name: /Buổi PT/ }).click();
+  await expect(page.getByRole("dialog")).toContainText("Phòng PT 2");
 });

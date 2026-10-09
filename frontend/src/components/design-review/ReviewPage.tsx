@@ -8,7 +8,6 @@ import { SportSticker } from "@/components/brand/SportSticker";
 import { Button } from "@/components/primitives/Button";
 import {
   CourseCard,
-  Footer,
   Hero,
   PublicHeader,
   money,
@@ -689,7 +688,6 @@ export default function ReviewPage() {
             </details>
           </section>
         </main>
-        <Footer />
       </div>
     </div>
   );

@@ -362,16 +362,12 @@ test("court-rate creation validates days/window and uses actual compatible IDs",
   );
   expect(fixture.writes).toHaveLength(0);
   await dialog(page).getByLabel("Tuesday", { exact: true }).check();
-  await dialog(page)
-    .getByLabel("End (Vietnam time)", { exact: true })
-    .fill("05:00");
+  await dialog(page).getByLabel("End", { exact: true }).fill("05:00");
   await dialog(page).getByRole("button", { name: "Save", exact: true }).click();
   await expect(dialog(page).getByRole("alert")).toHaveText(
     "The end time must be after the start time.",
   );
-  await dialog(page)
-    .getByLabel("End (Vietnam time)", { exact: true })
-    .fill("08:00");
+  await dialog(page).getByLabel("End", { exact: true }).fill("08:00");
   await dialog(page).getByRole("button", { name: "Save", exact: true }).click();
   await expect(dialog(page)).toHaveCount(0);
   expect(fixture.writes[0]).toMatchObject({

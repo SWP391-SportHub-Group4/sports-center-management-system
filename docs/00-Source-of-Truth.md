@@ -42,7 +42,7 @@ Năm role: SystemAdministrator, CenterManager, Receptionist, Coach, Member. Gues
 | User/Membership | Identity, OTP, account/profile, Membership Gym, renewal/check-in |
 | Class/Schedule | Môn/phòng/giá, lớp nhiều buổi, hold/enrollment, threshold, occupancy, rental, incident |
 | Payment/Report | Invoice snapshot, checkout, VNPay/điểm, reconciliation, refund điểm, báo cáo |
-| Training/Attendance | PT entitlement/session, plan/result/homework, điểm danh lớp bởi Receptionist |
+| Training/Attendance | PT entitlement/session, plan/result, điểm danh lớp bởi Receptionist |
 | AI workout | Gợi ý cho Coach trong phạm vi học viên được giao |
 | AI assistant | Member context chat; Manager xếp lịch/tạo nháp là phần chưa triển khai |
 
