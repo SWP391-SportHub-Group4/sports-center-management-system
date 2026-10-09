@@ -12,9 +12,13 @@ import { MutationFeedback, useMutation } from "@/features/operations";
 import type { RentalAvailabilityDto, SportDto } from "@/lib/types";
 import { RentalPriceBreakdown } from "./rental-price-breakdown";
 import { rentalApi } from "./api";
+import styles from "./availability-picker.module.css";
 
 /** Đặt sân theo giờ: mọi Member đang hoạt động, không cần Membership, hồ sơ hay số người. */
-export function AvailabilityPicker() {
+export function AvailabilityPicker({
+  compact = false,
+  paymentModal = false,
+}: { compact?: boolean; paymentModal?: boolean } = {}) {
   const { t } = useLanguage();
   const l = t.operations;
   const { refreshUser } = useAuth();
@@ -56,7 +60,7 @@ export function AvailabilityPicker() {
   }
   const maxHours = policy.data?.maxHours ?? 4;
   return (
-    <>
+    <div className={compact ? styles.compact : undefined}>
       <AsyncSection state={policy}>
         {(limits) => (
           <p>
@@ -195,6 +199,7 @@ export function AvailabilityPicker() {
         <>
           <RentalPriceBreakdown quote={selected} />
           <CheckoutPanel
+            modal={paymentModal}
             key={`${selected.roomId}-${snapshot.startUtc}-${snapshot.endUtc}`}
             intent={{
               kind: "court-rental",
@@ -206,6 +211,6 @@ export function AvailabilityPicker() {
           />
         </>
       )}
-    </>
+    </div>
   );
 }

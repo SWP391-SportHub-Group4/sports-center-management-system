@@ -23,13 +23,16 @@ public sealed class PtPurchaseFulfillment(PtPricingService pricing, IPtEntitleme
             quote.FrequencyPerWeek, quote.PriceVersion, selected?.SportId, selected?.Name);
     }
 
-    public Task<Guid> CreatePendingAsync(PtPurchaseRequest request, Guid invoiceItemId,
+    public async Task<Guid> CreatePendingAsync(PtPurchaseRequest request, Guid invoiceItemId,
         CancellationToken cancellationToken = default)
     {
         RequireTransaction();
-        return lifecycle.CreatePendingAsync(new CreatePendingPtEntitlementCommand(
-            request.MemberId, request.CoachId, request.MemberPackageId, request.FrequencyPerWeek, invoiceItemId),
-            cancellationToken);
+        var id = await lifecycle.CreatePendingAsync(new CreatePendingPtEntitlementCommand(
+            request.MemberId, request.CoachId, request.MemberPackageId, request.FrequencyPerWeek, invoiceItemId,
+            request.StartAtUtc.HasValue), cancellationToken);
+        if (request.StartAtUtc is DateTime start)
+            await sessions.HoldPurchaseSessionAsync(id, start, request.RoomId, request.MemberId, cancellationToken);
+        return id;
     }
 
     public Task ActivateAsync(Guid ptEntitlementId, CancellationToken cancellationToken = default)
@@ -63,17 +66,23 @@ public sealed class PtPurchaseFulfillment(PtPricingService pricing, IPtEntitleme
 
     private async Task ActivateForInvoiceItemAsync(Guid ptEntitlementId, CancellationToken cancellationToken)
     {
+        var pending = await db.Set<PtSession>().AsNoTracking().FirstOrDefaultAsync(
+            s => s.EntitlementId == ptEntitlementId && s.Status == PtSessionStatus.PendingPayment, cancellationToken);
+        if (pending is not null)
+            await sessions.LockCoachAndMemberAsync(pending.CoachId, pending.MemberId, cancellationToken);
         var invoiceItemId = await db.Set<PtEntitlement>().AsNoTracking()
             .Where(x => x.EntitlementId == ptEntitlementId)
             .Select(x => x.ActivationReference)
             .SingleOrDefaultAsync(cancellationToken);
         await lifecycle.ActivateAsync(ptEntitlementId, invoiceItemId ?? ptEntitlementId, cancellationToken);
+        await sessions.ConfirmPurchaseSessionAsync(ptEntitlementId, cancellationToken);
     }
 
-    public Task CancelAsync(Guid ptEntitlementId, string reason, CancellationToken cancellationToken = default)
+    public async Task CancelAsync(Guid ptEntitlementId, string reason, CancellationToken cancellationToken = default)
     {
         RequireTransaction();
-        return lifecycle.CancelAsync(ptEntitlementId, reason, cancellationToken);
+        await sessions.ReleasePurchaseSessionAsync(ptEntitlementId, reason, cancellationToken);
+        await lifecycle.CancelAsync(ptEntitlementId, reason, cancellationToken);
     }
 
     private void RequireTransaction()

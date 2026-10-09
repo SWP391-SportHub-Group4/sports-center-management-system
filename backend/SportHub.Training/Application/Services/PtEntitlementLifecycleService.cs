@@ -44,7 +44,7 @@ public sealed class PtEntitlementLifecycleService(
             throw new NotFoundException("pt_entitlement_not_found", "Không tìm thấy Membership của hội viên này.");
         if (originPackage.Status != "Active")
             throw new ConflictException("pt_entitlement_not_active", "Membership gốc phải đang Active mới checkout PT.");
-        var totalQuota = PtEntitlementRules.ComputeTotalQuota(
+        var totalQuota = command.SingleSession ? 1 : PtEntitlementRules.ComputeTotalQuota(
             command.FrequencyPerWeek, originPackage.StartDate, originPackage.EndDate);
 
         var entitlement = new PtEntitlement
@@ -61,7 +61,7 @@ public sealed class PtEntitlementLifecycleService(
             ConsumedSessions = 0,
             ValidityStartDate = originPackage.StartDate,
             ValidityEndDate = originPackage.EndDate,
-            CarryOverUntilDate = originPackage.EndDate.AddDays(30),
+            CarryOverUntilDate = command.SingleSession ? originPackage.EndDate : originPackage.EndDate.AddDays(30),
             Status = PtEntitlementStatus.PendingPayment,
             Version = 0
         };

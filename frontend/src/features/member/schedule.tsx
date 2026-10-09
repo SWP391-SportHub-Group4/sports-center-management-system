@@ -11,7 +11,7 @@ import { addDaysIso, formatDate, formatTime, todayIso } from "@/lib/format";
 import { useUrlQuery } from "@/lib/useUrlQuery";
 import { useMediaQuery } from "@/lib/useMediaQuery";
 import { rentalApi } from "../rentals/api";
-import type { CourtRentalDto, SportDto } from "@/lib/types";
+import type { CourtRentalDto, SportDto, CourseSessionDto } from "@/lib/types";
 import { memberSchedule, type MemberEvent } from "./api";
 import { eventKind, sportTone, type EventKind } from "./event-meta";
 import { downloadIcs } from "./ics";
@@ -24,6 +24,7 @@ type Item = MemberEvent & {
   refId: string;
   sport: string | null;
   rental?: CourtRentalDto;
+  preview?: boolean;
 };
 
 const ROUTINE = new Set(["scheduled", "confirmed", "active"]);
@@ -129,12 +130,28 @@ async function loadTimeline(
   );
 }
 
-export function MemberSchedule() {
+type PreviewCourse = {
+  classId: number;
+  name: string;
+  sportName: string;
+  startDate?: string;
+  sessions: CourseSessionDto[];
+};
+
+export function MemberSchedule({
+  previewCourse,
+  initialDate,
+  compact = false,
+}: {
+  previewCourse?: PreviewCourse;
+  initialDate?: string;
+  compact?: boolean;
+} = {}) {
   const { t, language } = useLanguage();
   const m = t.mSchedule;
   const vi = language === "vi";
   const { values, setValues } = useUrlQuery(
-    { date: todayIso(), event: "" },
+    { date: initialDate ? scheduleDate(initialDate) : todayIso(), event: "" },
     { date: scheduleDate },
   );
   const date = values.date;
@@ -142,7 +159,6 @@ export function MemberSchedule() {
   const days = 7;
   const [selection, setSelection] = useState<Item | null>(null);
   const [cancelling, setCancelling] = useState<CourtRentalDto | null>(null);
-  const [filterKind, setFilterKind] = useState<EventKind | "all">("all");
   const now = useNow();
   const narrow = useMediaQuery("(max-width: 720px)");
   function setSelected(item: Item | null) {
@@ -160,9 +176,46 @@ export function MemberSchedule() {
     [monday, m.kindPt, m.rentalTitle],
   );
 
+  // Preview rows are local only; they never become registrations or exportable events.
+  const previews: Item[] = (previewCourse?.sessions ?? [])
+    .filter((session) => {
+      const day = vnDay(session.startAtUtc);
+      return (
+        day >= monday &&
+        day < addDaysIso(monday, days) &&
+        !/CANCEL/i.test(session.status)
+      );
+    })
+    .filter(
+      (session) =>
+        !state.data?.some(
+          (item) =>
+            item.id === `class:${session.sessionId}` ||
+            (item.kind === "class" &&
+              item.classId === session.classId &&
+              item.startAtUtc === session.startAtUtc),
+        ),
+    )
+    .map((session) => ({
+      ...session,
+      id: `preview:${session.sessionId}`,
+      refId: String(session.sessionId),
+      title: previewCourse!.name,
+      type: "CLASS_SESSION",
+      kind: "class",
+      sport: previewCourse!.sportName,
+      preview: true,
+    }));
+  const timeline = [...(state.data ?? []), ...previews].sort(
+    (a, b) =>
+      a.startAtUtc.localeCompare(b.startAtUtc) || a.id.localeCompare(b.id),
+  );
+  const previewLabel = vi
+    ? "Dự kiến · Chưa đăng ký"
+    : "Preview · Not registered";
   const locale = vi ? "vi-VN" : "en-GB";
   const selected = values.event
-    ? (state.data?.find((item) => item.id === values.event) ?? null)
+    ? (timeline.find((item) => item.id === values.event) ?? null)
     : selection;
   const fmt = (iso: string, options: Intl.DateTimeFormatOptions) =>
     new Intl.DateTimeFormat(locale, { timeZone: "UTC", ...options }).format(
@@ -186,11 +239,17 @@ export function MemberSchedule() {
         key={item.id}
         type="button"
         className={styles.event}
+        data-preview={
+          item.preview ? "true" : previewCourse ? "false" : undefined
+        }
         data-state={cancelled ? "cancelled" : undefined}
         onClick={() => setSelected(item)}
       >
         <span className={styles.eventHeading}>
           <strong>{item.title}</strong>
+          {item.preview && (
+            <span className={styles.previewLabel}>{previewLabel}</span>
+          )}
         </span>
         <time dateTime={item.startAtUtc}>
           {formatTime(item.startAtUtc)}–{formatTime(item.endAtUtc)}
@@ -214,7 +273,7 @@ export function MemberSchedule() {
   };
 
   return (
-    <>
+    <div className={compact ? styles.compact : undefined}>
       <div className={styles.toolbar}>
         <div className={styles.weekPicker}>
           <label htmlFor="member-schedule-week">{m.chooseWeek}</label>
@@ -250,40 +309,41 @@ export function MemberSchedule() {
           >
             {m.nextWeek} →
           </button>
+          {previewCourse?.startDate && (
+            <button
+              type="button"
+              className="btn btn--secondary btn--sm"
+              onClick={() =>
+                setValues({ date: scheduleDate(previewCourse.startDate!) })
+              }
+            >
+              {vi ? "Tuần khai giảng" : "Course start week"}
+            </button>
+          )}
         </div>
       </div>
 
-      <div className={styles.filters} role="group" aria-label={m.filterLabel}>
-        {(
-          [
-            ["all", t.memberPages.all],
-            ["class", m.kindClass],
-            ["pt", m.kindPt],
-            ["rental", m.kindRental],
-          ] as const
-        ).map(([kind, label]) => (
-          <button
-            key={kind}
-            type="button"
-            className="btn btn--secondary btn--sm"
-            aria-pressed={filterKind === kind}
-            onClick={() => setFilterKind(kind)}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
+      {previewCourse && (
+        <div
+          className={styles.legend}
+          aria-label={vi ? "Chú thích lịch" : "Schedule legend"}
+        >
+          <span>
+            <i />
+            {vi ? "Đã đăng ký" : "Registered"}
+          </span>
+          <span>
+            <i data-preview="true" />
+            {previewLabel}
+          </span>
+        </div>
+      )}
       <AsyncSection state={state}>
-        {(all) => {
+        {() => {
+          const all = timeline;
           const byDay = new Map<string, Item[]>();
           for (let i = 0; i < days; i++) byDay.set(addDaysIso(monday, i), []);
-          const visible =
-            filterKind === "all"
-              ? all
-              : all.filter((item) => item.kind === filterKind);
-          for (const item of visible)
-            byDay.get(vnDay(item.startAtUtc))?.push(item);
+          for (const item of all) byDay.get(vnDay(item.startAtUtc))?.push(item);
           const columns = [...byDay.entries()];
           const rows = Math.max(
             1,
@@ -301,6 +361,7 @@ export function MemberSchedule() {
                     key={day}
                     className={styles.agendaDay}
                     data-today={day === todayIso()}
+                    aria-current={day === todayIso() ? "date" : undefined}
                     aria-label={`${m.weekdays[index]} ${fmt(day, { day: "2-digit", month: "2-digit" })}`}
                   >
                     <h3>
@@ -335,7 +396,12 @@ export function MemberSchedule() {
                 <thead>
                   <tr>
                     {columns.map(([day], index) => (
-                      <th key={day} scope="col" data-today={day === todayIso()}>
+                      <th
+                        key={day}
+                        scope="col"
+                        data-today={day === todayIso()}
+                        aria-current={day === todayIso() ? "date" : undefined}
+                      >
                         {m.weekdays[index]} (
                         {fmt(day, { day: "2-digit", month: "2-digit" })})
                       </th>
@@ -402,8 +468,10 @@ export function MemberSchedule() {
               )}
               <dt>{m.status}</dt>
               <dd>
-                {selected.kind === "rental" &&
-                selected.status === "CONFIRMED" ? (
+                {selected.preview ? (
+                  <span className={styles.previewLabel}>{previewLabel}</span>
+                ) : selected.kind === "rental" &&
+                  selected.status === "CONFIRMED" ? (
                   <StatusChip
                     tone="success"
                     label={m.rentalBooked}
@@ -423,56 +491,83 @@ export function MemberSchedule() {
               )}
             </dl>
             {selected.isMakeup && <p>{m.makeup}</p>}
+            {selected.preview && (
+              <p className={styles.hint}>
+                {vi
+                  ? "Đây là lịch dự kiến của khóa đang xem, chưa được thêm vào lịch đã đăng ký của bạn."
+                  : "These are proposed sessions for this course, not a confirmed booking."}
+              </p>
+            )}
             <div className={styles.actions}>
-              <Link
-                className="btn"
-                href={
-                  selected.kind === "class"
-                    ? `/member/courses/${selected.classId}`
-                    : selected.kind === "pt"
-                      ? `/member/pt/sessions/${selected.refId}`
-                      : `/member/rentals/${selected.refId}`
-                }
-              >
-                {selected.kind === "class"
-                  ? m.openClass
-                  : selected.kind === "pt"
-                    ? m.openPt
-                    : m.openRental}
-              </Link>
-              {!/CANCEL/i.test(selected.status ?? "") && (
+              {selected.preview ? (
                 <button
                   type="button"
-                  className="btn btn--secondary"
-                  onClick={() =>
-                    downloadIcs(
-                      {
-                        uid: selected.id,
-                        title: selected.title,
-                        startAtUtc: selected.startAtUtc,
-                        endAtUtc: selected.endAtUtc,
-                        location: selected.roomName,
-                        description: [selected.sport, selected.coachName]
-                          .filter(Boolean)
-                          .join(" · "),
-                      },
-                      `sporthub-${selected.kind}-${selected.startAtUtc.slice(0, 10)}.ics`,
-                    )
-                  }
+                  className="btn"
+                  onClick={() => {
+                    setSelected(null);
+                    requestAnimationFrame(() => {
+                      const enrollment =
+                        document.getElementById("course-enrollment");
+                      enrollment?.focus({ preventScroll: true });
+                      enrollment?.scrollIntoView({ block: "start" });
+                    });
+                  }}
                 >
-                  {m.addToCalendar}
+                  {vi ? "Đến phần đăng ký" : "Go to registration"}
                 </button>
-              )}
-              {selected.rental?.status === "CONFIRMED" &&
-                new Date(selected.startAtUtc).getTime() > now && (
-                  <button
-                    type="button"
-                    className={`btn btn--secondary ${styles.cancel}`}
-                    onClick={() => setCancelling(selected.rental ?? null)}
+              ) : (
+                <>
+                  <Link
+                    className="btn"
+                    href={
+                      selected.kind === "class"
+                        ? `/member/services?section=courses&view=owned&course=${selected.classId}`
+                        : selected.kind === "pt"
+                          ? `/member/training?session=${selected.refId}`
+                          : `/member/services?section=courts&view=owned&rental=${selected.refId}`
+                    }
                   >
-                    {m.cancelRental}
-                  </button>
-                )}
+                    {selected.kind === "class"
+                      ? m.openClass
+                      : selected.kind === "pt"
+                        ? m.openPt
+                        : m.openRental}
+                  </Link>
+                  {!/CANCEL/i.test(selected.status ?? "") && (
+                    <button
+                      type="button"
+                      className="btn btn--secondary"
+                      onClick={() =>
+                        downloadIcs(
+                          {
+                            uid: selected.id,
+                            title: selected.title,
+                            startAtUtc: selected.startAtUtc,
+                            endAtUtc: selected.endAtUtc,
+                            location: selected.roomName,
+                            description: [selected.sport, selected.coachName]
+                              .filter(Boolean)
+                              .join(" · "),
+                          },
+                          `sporthub-${selected.kind}-${selected.startAtUtc.slice(0, 10)}.ics`,
+                        )
+                      }
+                    >
+                      {m.addToCalendar}
+                    </button>
+                  )}
+                  {selected.rental?.status === "CONFIRMED" &&
+                    new Date(selected.startAtUtc).getTime() > now && (
+                      <button
+                        type="button"
+                        className={`btn btn--secondary ${styles.cancel}`}
+                        onClick={() => setCancelling(selected.rental ?? null)}
+                      >
+                        {m.cancelRental}
+                      </button>
+                    )}
+                </>
+              )}
             </div>
             {selected.kind === "pt" && (
               <p className={styles.hint}>{m.ptHint}</p>
@@ -491,6 +586,6 @@ export function MemberSchedule() {
           }}
         />
       )}
-    </>
+    </div>
   );
 }

@@ -18,7 +18,7 @@ export default async function Page({
   };
   const invoiceId = pick("invoiceId");
   if (invoiceId && UUID.test(invoiceId))
-    redirect(`/member/invoices/${invoiceId}`);
+    redirect(`/member/finance?tab=invoices&invoice=${invoiceId}`);
   const item = pick("invoiceItemId");
   redirect(
     item && UUID.test(item)

@@ -96,7 +96,7 @@ POST checkout trả 201 `CheckoutResponse`, yêu cầu header `Idempotency-Key` 
 |---|---|---|
 | `/api/checkouts/membership` | `{packageId,targetMemberId?,allowStacking:false,stackingApprovalReason?}` | Member hoặc FrontDesk; stacking cần quyền Manager và lý do. |
 | `/api/checkouts/class` | `{classId,targetMemberId?}` | Member hoặc FrontDesk. |
-| `/api/checkouts/pt` | `{memberPackageId,coachId,frequencyPerWeek:1..3,priceVersion,targetMemberId?}` | Member hoặc FrontDesk; lấy version từ PT quote. |
+| `/api/checkouts/pt` | `{memberPackageId,coachId,frequencyPerWeek:1..3,priceVersion,targetMemberId?,startAtUtc?,roomId?}` | Member hoặc FrontDesk; lấy version từ PT quote. Có `startAtUtc`: mua/giữ đúng một buổi 90 phút, giá bằng đơn giá PT; không có: contract gói cũ. Xem [PT từng buổi](PT-Per-Session.md). |
 | `/api/checkouts/court-rental` | `{sportId,roomId,startUtc,endUtc}` | Member tự mua. |
 
 FrontDesk là Manager/Lễ tân; staff mua cho Member phải có targetMemberId, Member chỉ mua cho mình. Lỗi chung: 400 `idempotency_key_required`/`target_member_required`, 403 `target_member_forbidden`/`checkout_not_owned`; conflict nghiệp vụ trả 409. GET checkout trả 200; attempts trả 200 `PaymentAttemptResponse` (`paymentAttemptId,invoiceId,transactionReference,cashAmount,pointsApplied,expiresAtUtc,paymentUrl,state`); không gửi giá do client tính.
@@ -124,6 +124,7 @@ Invoice lịch sử vẫn đọc theo ownership/FrontDesk. Discount/correction k
 |---|---|---|
 | POST | `/api/checkouts/court-rental` | Member; `Idempotency-Key`; body `{sportId, roomId, startUtc, endUtc}` (không khai báo số người). Giá server tính theo giờ, giữ occupancy rồi trả checkout; payment mới chuyển Confirmed. |
 | GET | `/api/court-rentals/availability?sportId&startUtc&endUtc` | Member; chỉ trả sân trống + báo giá giờ, không trả lớp/Member/nguồn lịch bận. |
+| GET | `/api/court-rentals/calendar?sportId&date&hours` | Member đang hoạt động; ngày Việt Nam `yyyy-MM-dd`, thời lượng nguyên giờ (mặc định 1). Trả `{sportId,date,serverNowUtc,rooms:[{roomId,name,slots:[{startUtc,endUtc,status,totalPrice,blocks}]}]}`. Trạng thái `AVAILABLE/BOOKED/HELD/SCHEDULED/BLOCKED/UNAVAILABLE/NO_RATE`; chỉ `AVAILABLE` có báo giá và được chọn. Không trả danh tính khách, ID lượt đặt hay nguồn lịch bận. Checkout vẫn kiểm tra lại giá, giờ mở cửa và tranh chấp occupancy. UI chỉ báo thành công khi invoice `PAID` hoặc `PAID_AFTER_RECONCILIATION` và `fulfillmentOutcome=FULFILLED`. |
 | GET | `/api/court-rentals/mine?fromUtc&toUtc` | Member; lượt thuê của chính họ. |
 | POST | `/api/court-rentals/{rentalId}/cancel` | Chủ thuê; ≥24h trước giờ bắt đầu hoàn 100%, dưới 24h 0%; cùng transaction hủy occupancy. |
 | GET | `/api/manager/court-schedule/rentals?roomId&fromUtc&toUtc` | Manager/Receptionist qua `FrontDesk`; chỉ metadata thuê cần cho lịch, không roster Member. |

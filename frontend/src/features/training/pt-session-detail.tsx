@@ -69,7 +69,10 @@ export function PtSessionDetail({ sessionId }: { sessionId: string }) {
             {t.ptBook.bookedBody.replace("{deadline}", "24")}
           </p>
           <div className="btn-row">
-            <Link className="btn btn--secondary" href="/member/pt/book">
+            <Link
+              className="btn btn--secondary"
+              href="/member/training?tab=book"
+            >
               {t.ptBook.bookAnother}
             </Link>
           </div>

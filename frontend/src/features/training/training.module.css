@@ -4,6 +4,82 @@
   gap: var(--space-5);
   min-width: 0;
 }
+.sessionIntro {
+  padding: var(--space-4) var(--space-5);
+  background: #edf5fc;
+  border: 1px solid #c6dceb;
+  border-left: 4px solid #4d88b6;
+  border-radius: var(--radius-lg);
+}
+.sessionIntro > span {
+  color: #275d85;
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+.sessionIntro h2 {
+  font-family: var(--font-display);
+  font-size: 30px;
+  margin: var(--space-2) 0;
+}
+.sessionIntro p {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+.purchaseLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+.purchaseFields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+.purchaseFields select,
+.purchaseFields input {
+  min-width: 0;
+  width: 100%;
+}
+.sessionReview {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  background: #edf5fc;
+  border: 1px solid #c6dceb;
+  border-radius: var(--radius-lg);
+}
+.sessionReview h3,
+.sessionReview p {
+  margin: 0;
+}
+.sessionReview p {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.sessionPrice {
+  font-family: var(--font-display);
+  font-size: 32px;
+  color: #275d85;
+}
+.sessionPrice small {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 400;
+}
+@media (max-width: 900px) {
+  .purchaseLayout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 600px) {
+  .purchaseFields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
 .summary {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);

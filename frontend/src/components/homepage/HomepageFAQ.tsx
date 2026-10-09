@@ -24,14 +24,14 @@ const copy = {
         answer:
           "Sign in to your Member account, open the class catalog, choose an available class and follow checkout. If you are signed out, SportHub will ask you to sign in first.",
         link: "Browse classes",
-        href: "/member/discover",
+        href: "/member/services",
       },
       {
         question: "Can I book a personal training session?",
         answer:
           "Yes. Sign in to check your PT options and available sessions, then book through your Member space.",
         link: "Explore PT booking",
-        href: "/member/pt/book",
+        href: "/member/training?tab=book",
       },
       {
         question: "Do I need an account to browse SportHub?",
@@ -63,14 +63,14 @@ const copy = {
         answer:
           "Đăng nhập tài khoản Member, mở danh mục lớp, chọn lớp còn chỗ và làm theo hướng dẫn thanh toán. Nếu chưa đăng nhập, SportHub sẽ yêu cầu bạn đăng nhập trước.",
         link: "Khám phá lớp học",
-        href: "/member/discover",
+        href: "/member/services",
       },
       {
         question: "Tôi có thể đặt buổi huấn luyện cá nhân không?",
         answer:
           "Có. Đăng nhập để xem lựa chọn PT và lịch còn trống, sau đó đặt buổi trong không gian Member.",
         link: "Khám phá lịch đặt PT",
-        href: "/member/pt/book",
+        href: "/member/training?tab=book",
       },
       {
         question: "Tôi có cần tài khoản để xem SportHub không?",

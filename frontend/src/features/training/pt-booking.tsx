@@ -14,6 +14,7 @@ import type {
   PtSessionDto,
 } from "@/lib/types";
 import styles from "./training.module.css";
+import { PtSessionPurchase } from "./pt-session-purchase";
 
 const WINDOW_DAYS = 7;
 const TZ = "Asia/Ho_Chi_Minh";
@@ -24,7 +25,38 @@ const dayKey = (utc: string) =>
  * Member tự đặt buổi PT (A07 / G05). Server là nguồn sự thật về giờ trống: giao diện chỉ hiển thị khung do server trả,
  * và khi đặt trùng (409) thì tải lại danh sách thay vì giả định khung vẫn còn.
  */
-export function PtBooking() {
+export function PtBooking({ showBackLink = true }: { showBackLink?: boolean }) {
+  const { language } = useLanguage();
+  const legacyEntitlements = useApi(
+    (signal) =>
+      api.get<PtEntitlementDto[]>("/api/members/me/pt-entitlements", {
+        signal,
+      }),
+    [],
+  );
+  return (
+    <div className="stack">
+      <PtSessionPurchase showBackLink={showBackLink} />
+      {legacyEntitlements.data?.some(
+        (e) =>
+          e.totalQuota > 1 &&
+          e.status.toUpperCase() === "ACTIVE" &&
+          e.remainingQuota > 0,
+      ) && (
+        <details>
+          <summary>
+            {language === "vi"
+              ? "Đặt lịch bằng gói PT đã mua trước đây"
+              : "Book using a previously purchased PT package"}
+          </summary>
+          <LegacyPtBooking showBackLink={false} />
+        </details>
+      )}
+    </div>
+  );
+}
+
+function LegacyPtBooking({ showBackLink = true }: { showBackLink?: boolean }) {
   const { t, language } = useLanguage();
   const l = t.ptBook;
   const router = useRouter();
@@ -47,7 +79,7 @@ export function PtBooking() {
     [],
   );
   const active = (entitlements.data ?? []).filter(
-    (e) => e.status.toUpperCase() === "ACTIVE",
+    (e) => e.status.toUpperCase() === "ACTIVE" && e.totalQuota > 1,
   );
   const entitlementId = entitlementPick || active[0]?.entitlementId || "";
   const to = addDaysIso(from, WINDOW_DAYS - 1);
@@ -98,7 +130,7 @@ export function PtBooking() {
           roomId,
         },
       );
-      router.push(`/member/pt/sessions/${session.sessionId}?booked=1`);
+      router.push(`/member/training?session=${session.sessionId}&booked=1`);
     } catch (cause) {
       if (
         cause instanceof ApiError &&
@@ -130,16 +162,21 @@ export function PtBooking() {
 
   return (
     <div className={styles.page}>
-      <Link className={styles.back} href="/member/training">
-        ← {l.back}
-      </Link>
+      {showBackLink && (
+        <Link className={styles.back} href="/member/training">
+          ← {l.back}
+        </Link>
+      )}
 
       <AsyncSection state={entitlements}>
         {() =>
           !active.length ? (
             <div className={styles.panel}>
               <p className={styles.muted}>{l.noPackage}</p>
-              <Link className="btn" href="/member/services?tab=pt">
+              <Link
+                className="btn"
+                href="/member/services?section=pt&view=owned"
+              >
                 {l.buyMore}
               </Link>
             </div>
@@ -229,7 +266,10 @@ export function PtBooking() {
                   <div className={styles.panel} role="status">
                     <p>{reasonText(data.bookableReason)}</p>
                     {data.bookableReason === "pt_quota_exhausted" && (
-                      <Link className="btn" href="/member/services?tab=pt">
+                      <Link
+                        className="btn"
+                        href="/member/services?section=pt&view=owned"
+                      >
                         {l.buyMore}
                       </Link>
                     )}

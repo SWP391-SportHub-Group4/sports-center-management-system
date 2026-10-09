@@ -12,6 +12,7 @@ import type { CourseDto, MemberPackageDto, Paged, SportDto } from "@/lib/types";
 import { CheckoutPanel } from "@/features/payments";
 import {
   catalogContentLanguage,
+  isRetiredActivityPackage,
   parseMembershipCatalog,
 } from "./catalog-content";
 import styles from "./catalog.module.css";
@@ -19,8 +20,14 @@ import styles from "./catalog.module.css";
 export function MembershipCatalog({
   purchase = false,
   owned = [],
+  compact = false,
+  dense = false,
+  paymentModal = false,
 }: {
   purchase?: boolean;
+  compact?: boolean;
+  dense?: boolean;
+  paymentModal?: boolean;
   /** Gói hội viên đã có: cùng loại gói đang hiệu lực hoặc chờ thanh toán thì chưa mua lại được. */
   owned?: MemberPackageDto[];
 }) {
@@ -78,10 +85,10 @@ export function MembershipCatalog({
   return (
     <section
       id="programs"
-      className={`${styles.catalog} ${!purchase ? styles.publicCatalog : ""}`}
+      className={`${styles.catalog} ${!purchase ? styles.publicCatalog : ""} ${compact ? styles.compact : ""} ${dense ? styles.dense : ""}`}
       aria-busy={purchase ? state.loading : programs.loading}
     >
-      {purchase && (
+      {purchase && !compact && (
         <h2>{text("Gói Gym đang mở bán", "Gym membership packages")}</h2>
       )}
       {purchase && state.loading ? (
@@ -138,7 +145,7 @@ export function MembershipCatalog({
       ) : (
         <>
           {purchase ? (
-            <div className="refactor-grid">
+            <div className={compact ? styles.packageGrid : "refactor-grid"}>
               {activePackages.map((p) => (
                 <Card
                   key={p.packageId}
@@ -151,26 +158,58 @@ export function MembershipCatalog({
                     </h3>
                   }
                 >
-                  <p>
-                    {formatMoney(p.price)} · {p.durationDays} {t.refactor.days}
+                  <p className={compact ? styles.packagePrice : undefined}>
+                    <strong>{formatMoney(p.price)}</strong>
+                    <span>
+                      {" "}
+                      · {p.durationDays} {t.refactor.days}
+                    </span>
                   </p>
-                  {p.description?.trim() ? (
-                    <p
-                      lang={catalogContentLanguage(
-                        p.description,
-                        p.descriptionLanguage,
+                  {compact ? (
+                    <details className={styles.packageDetails}>
+                      <summary>
+                        {text("Quyền lợi & điều kiện", "Benefits & conditions")}
+                      </summary>
+                      {p.description?.trim() ? (
+                        <p
+                          lang={catalogContentLanguage(
+                            p.description,
+                            p.descriptionLanguage,
+                          )}
+                          dir="auto"
+                        >
+                          {p.description}
+                        </p>
+                      ) : (
+                        <p>
+                          {text(
+                            "Trung tâm chưa cung cấp mô tả. Kiểm tra quyền lợi trước khi mua.",
+                            "The center has not provided a description. Check the benefits before buying.",
+                          )}
+                        </p>
                       )}
-                      dir="auto"
-                    >
-                      {p.description}
-                    </p>
+                    </details>
                   ) : (
-                    <p>
-                      {text(
-                        "Trung tâm chưa cung cấp mô tả. Kiểm tra quyền lợi trước khi mua.",
-                        "The center has not provided a description. Check the benefits before buying.",
+                    <>
+                      {p.description?.trim() ? (
+                        <p
+                          lang={catalogContentLanguage(
+                            p.description,
+                            p.descriptionLanguage,
+                          )}
+                          dir="auto"
+                        >
+                          {p.description}
+                        </p>
+                      ) : (
+                        <p>
+                          {text(
+                            "Trung tâm chưa cung cấp mô tả. Kiểm tra quyền lợi trước khi mua.",
+                            "The center has not provided a description. Check the benefits before buying.",
+                          )}
+                        </p>
                       )}
-                    </p>
+                    </>
                   )}
                   {(() => {
                     const have = owned.find(
@@ -187,6 +226,30 @@ export function MembershipCatalog({
                           formatDate(have.endDate),
                         )}
                       </p>
+                    ) : paymentModal ? (
+                      <CheckoutPanel
+                        modal
+                        intent={{
+                          kind: "membership",
+                          body: {
+                            packageId: p.packageId,
+                            allowStacking: false,
+                          },
+                        }}
+                        review={{
+                          title: text(
+                            "Thanh toán gói Gym",
+                            "Gym package payment",
+                          ),
+                          submitLabel: text("Thanh toán", "Payment"),
+                          items: [
+                            {
+                              label: text("Gói tập", "Package"),
+                              value: p.name,
+                            },
+                          ],
+                        }}
+                      />
                     ) : (
                       <button onClick={() => setSelected(p.packageId)}>
                         {text("Kiểm tra & thanh toán", "Review & checkout")}
@@ -296,7 +359,9 @@ export function MembershipCatalog({
           }}
         />
       )}
-      {purchase && <p>{t.refactor.ptSeparate}</p>}
+      {purchase && (
+        <p className={styles.purchaseNote}>{t.refactor.ptSeparate}</p>
+      )}
     </section>
   );
 }
@@ -313,14 +378,19 @@ interface PtQuote {
 export function PtPurchase({
   packages,
   memberId,
+  compact = false,
+  dense = false,
+  paymentModal = false,
 }: {
+  compact?: boolean;
+  dense?: boolean;
+  paymentModal?: boolean;
   packages: MemberPackageDto[];
   memberId?: string;
 }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [packageId, setPackage] = useState("");
   const [coachId, setCoach] = useState("");
-  const [frequency, setFrequency] = useState(1);
   const [quote, setQuote] = useState<PtQuote | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -340,110 +410,113 @@ export function PtPurchase({
     [ptSport?.sportId],
   );
   return (
-    <Card title={t.refactor.pt}>
-      <p>{t.refactor.ptSeparate}</p>
-      <label>
-        {t.refactor.gym}
-        <select
-          value={packageId}
-          onChange={(e) => {
-            setPackage(e.target.value);
-            setQuote(null);
+    <div
+      className={`${compact ? styles.ptCompact : ""} ${dense ? styles.dense : ""}`}
+    >
+      <Card title={t.refactor.pt}>
+        <p>{t.refactor.ptSeparate}</p>
+        <p>
+          {language === "vi"
+            ? "Tự chọn ngày và giờ tập khi đặt buổi PT, trong thời hạn và số buổi của gói."
+            : "Choose your training dates and times when booking PT, within your package validity and session allowance."}
+        </p>
+        <div className={compact ? styles.ptFields : styles.ptFieldsStack}>
+          <label>
+            {t.refactor.gym}
+            <select
+              value={packageId}
+              onChange={(e) => {
+                setPackage(e.target.value);
+                setQuote(null);
+              }}
+            >
+              <option value="">—</option>
+              {packages
+                .filter(
+                  (p) =>
+                    p.isUsable &&
+                    p.status === "ACTIVE" &&
+                    !isRetiredActivityPackage(p.packageName),
+                )
+                .map((p) => (
+                  <option key={p.memberPackageId} value={p.memberPackageId}>
+                    {p.packageName} · {formatDate(p.endDate)}
+                  </option>
+                ))}
+            </select>
+          </label>
+          <label>
+            {t.refactor.coach}
+            <select
+              value={coachId}
+              onChange={(e) => {
+                setCoach(e.target.value);
+                setQuote(null);
+              }}
+            >
+              <option value="">—</option>
+              {coaches.data?.map((c) => (
+                <option key={c.userId} value={c.userId}>
+                  {c.fullName}
+                </option>
+              ))}
+            </select>
+          </label>
+          {coaches.error && <p role="alert">{coaches.error.message}</p>}
+        </div>
+        <button
+          className="btn btn--secondary"
+          disabled={busy || !packageId || !coachId}
+          onClick={async () => {
+            setBusy(true);
+            setError("");
+            try {
+              setQuote(
+                await api.post<PtQuote>("/api/checkouts/pt/quote", {
+                  memberPackageId: packageId,
+                  coachId,
+                  // The API uses this only to price the base session allowance,
+                  // not to create a weekly schedule. Show its quote before checkout.
+                  frequencyPerWeek: 1,
+                  targetMemberId: memberId,
+                }),
+              );
+            } catch (e) {
+              setError((e as Error).message);
+            } finally {
+              setBusy(false);
+            }
           }}
         >
-          <option value="">—</option>
-          {packages
-            .filter((p) => p.isUsable && p.status === "ACTIVE")
-            .map((p) => (
-              <option key={p.memberPackageId} value={p.memberPackageId}>
-                {p.packageName} · {formatDate(p.endDate)}
-              </option>
-            ))}
-        </select>
-      </label>
-      <label>
-        {t.refactor.coach}
-        <select
-          value={coachId}
-          onChange={(e) => {
-            setCoach(e.target.value);
-            setQuote(null);
-          }}
-        >
-          <option value="">—</option>
-          {coaches.data?.map((c) => (
-            <option key={c.userId} value={c.userId}>
-              {c.fullName}
-            </option>
-          ))}
-        </select>
-      </label>
-      {coaches.error && <p role="alert">{coaches.error.message}</p>}
-      <label>
-        {t.refactor.frequency}
-        <select
-          value={frequency}
-          onChange={(e) => {
-            setFrequency(Number(e.target.value));
-            setQuote(null);
-          }}
-        >
-          {[1, 2, 3].map((v) => (
-            <option key={v} value={v}>
-              {v}
-            </option>
-          ))}
-        </select>
-      </label>
-      <button
-        className="btn btn--secondary"
-        disabled={busy || !packageId || !coachId}
-        onClick={async () => {
-          setBusy(true);
-          setError("");
-          try {
-            setQuote(
-              await api.post<PtQuote>("/api/checkouts/pt/quote", {
-                memberPackageId: packageId,
-                coachId,
-                frequencyPerWeek: frequency,
-                targetMemberId: memberId,
-              }),
-            );
-          } catch (e) {
-            setError((e as Error).message);
-          } finally {
-            setBusy(false);
-          }
-        }}
-      >
-        {t.refactor.quote}
-      </button>
-      {error && <p role="alert">{error}</p>}
-      {quote && (
-        <>
-          <p>
-            {quote.totalQuota} {t.refactor.quota} ×{" "}
-            {formatMoney(quote.pricePerSession)} ={" "}
-            {formatMoney(quote.totalPrice)} ·{" "}
-            {formatDate(quote.validityEndDate)}
-          </p>
-          <CheckoutPanel
-            key={`${packageId}-${coachId}-${frequency}-${quote.priceVersion}`}
-            memberId={memberId}
-            intent={{
-              kind: "pt",
-              body: {
-                memberPackageId: packageId,
-                coachId,
-                frequencyPerWeek: frequency,
-                priceVersion: quote.priceVersion,
-                targetMemberId: memberId,
-              },
-            }}
-          />
-        </>
-      )}
-    </Card>
+          {t.refactor.quote}
+        </button>
+        {error && <p role="alert">{error}</p>}
+        {quote && (
+          <>
+            <p>
+              {quote.totalQuota} {t.refactor.quota} ×{" "}
+              {formatMoney(quote.pricePerSession)} ={" "}
+              {formatMoney(quote.totalPrice)} ·{" "}
+              {formatDate(quote.validityEndDate)}
+            </p>
+            <CheckoutPanel
+              modal={paymentModal}
+              key={`${packageId}-${coachId}-${quote.frequencyPerWeek}-${quote.priceVersion}`}
+              memberId={memberId}
+              intent={{
+                kind: "pt",
+                body: {
+                  memberPackageId: packageId,
+                  coachId,
+                  frequencyPerWeek: quote.frequencyPerWeek,
+                  priceVersion: quote.priceVersion,
+                  targetMemberId: memberId,
+                },
+              }}
+            />
+          </>
+        )}
+      </Card>
+    </div>
   );
 }

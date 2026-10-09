@@ -9,8 +9,6 @@ import {
   IconClock,
   IconLocation,
   IconDumbbell,
-  IconBell,
-  IconInvoice,
   IconAlert,
 } from "@/components/icons";
 import { api } from "@/lib/apiClient";
@@ -35,17 +33,12 @@ import type {
   InvoiceSummaryDto,
   Paged,
 } from "@/lib/types";
-import { walletApi } from "@/features/wallet/api";
-import { WalletBalance } from "@/features/wallet/wallet-balance";
 import { memberSchedule, type MemberEvent } from "@/features/member/api";
-import {
-  notificationsApi,
-  memberNotificationHref,
-} from "@/features/member/notifications-api";
 import styles from "./dashboard.module.css";
 
 function sessionHref(session: MemberEvent) {
-  if (session.type === "COURT_RENTAL") return `/member/rentals/${session.id}`;
+  if (session.type === "COURT_RENTAL")
+    return `/member/services?section=courts&view=owned&rental=${session.id}`;
   const date = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Ho_Chi_Minh",
   }).format(new Date(session.startAtUtc));
@@ -219,7 +212,7 @@ function AttentionList({
       ]
         .filter(Boolean)
         .join(" · "),
-      href: `/member/invoices/${due.invoiceId}`,
+      href: `/member/finance?tab=invoices&invoice=${due.invoiceId}`,
       action: l.payNow,
     });
   }
@@ -238,7 +231,7 @@ function AttentionList({
       text: l.thresholdDue
         .replace("{name}", th.className)
         .replace("{date}", formatDateTime(th.deadlineUtc)),
-      href: `/member/threshold-responses/${th.responseId}`,
+      href: `/member/services?section=courses&view=owned&responseId=${th.responseId}`,
       action: l.respond,
     });
   }
@@ -252,7 +245,7 @@ function AttentionList({
     items.push({
       key: "gym",
       text: l.gymEnds.replace("{date}", formatDate(gym.endDate)),
-      href: "/member/discover?tab=gym",
+      href: "/member/services?section=gym&view=explore",
       action: l.renew,
     });
   }
@@ -262,7 +255,7 @@ function AttentionList({
     items.push({
       key: "pt",
       text: l.ptLow.replace("{n}", String(ptNow.remainingQuota)),
-      href: "/member/discover?tab=pt",
+      href: "/member/services?section=pt&view=explore",
       action: l.renew,
     });
   }
@@ -329,7 +322,6 @@ export default function MemberDashboardPage() {
       }),
     [],
   );
-  const wallet = useApi((signal) => walletApi.balance(signal), []);
   const thresholds = useApi(
     (signal) =>
       api.get<ThresholdResponseDto[]>("/api/class-threshold-responses/mine", {
@@ -343,10 +335,6 @@ export default function MemberDashboardPage() {
         signal,
         query: { page: 1, pageSize: 3 },
       }),
-    [],
-  );
-  const notifications = useApi(
-    (signal) => notificationsApi.list(true, signal),
     [],
   );
   const invoices = useApi(
@@ -573,13 +561,13 @@ export default function MemberDashboardPage() {
                         <div className={styles.emptyActions}>
                           <Link
                             className={buttonClass()}
-                            href="/member/discover"
+                            href="/member/services"
                           >
                             {l.exploreCourses}
                           </Link>
                           <Link
                             className={buttonClass({ variant: "secondary" })}
-                            href="/member/discover?tab=gym"
+                            href="/member/services?section=gym&view=explore"
                           >
                             {l.gymPtServices}
                           </Link>
@@ -659,7 +647,7 @@ export default function MemberDashboardPage() {
                         <p className={styles.caption}>{l.emptyGymHint}</p>
                         <Link
                           className={buttonClass({ size: "sm" })}
-                          href="/member/discover?tab=gym"
+                          href="/member/services?section=gym&view=explore"
                         >
                           {l.chooseMembership}
                         </Link>
@@ -709,68 +697,14 @@ export default function MemberDashboardPage() {
                 ) && (
                   <Link
                     className={buttonClass({ size: "sm" })}
-                    href="/member/pt/book"
+                    href="/member/training?tab=book"
                   >
                     {t.ptBook.bookCta}
                   </Link>
                 )}
               </section>
             </section>
-
-            <section className={styles.money} aria-labelledby="money-title">
-              <div className={styles.sectionHeading}>
-                <h2 id="money-title">{l.money}</h2>
-                <IconInvoice size={22} aria-hidden="true" />
-              </div>
-              <AsyncSection state={invoices}>
-                {(data) =>
-                  pagedItems(data).some((i) => i.outstanding > 0) ? null : (
-                    <div className={styles.quietEmpty}>
-                      <strong>{l.noPayments}</strong>
-                    </div>
-                  )
-                }
-              </AsyncSection>
-              <div className={styles.wallet}>
-                <h3>{t.wallet.title}</h3>
-                <AsyncSection state={wallet}>
-                  {(balance) => <WalletBalance balance={balance} compact />}
-                </AsyncSection>
-              </div>
-            </section>
           </div>
-        </div>
-
-        <div className={styles.secondaryGrid}>
-          <section className={styles.feed} aria-labelledby="updates-title">
-            <div className={styles.sectionHeading}>
-              <h2 id="updates-title">{l.notifications}</h2>
-              <IconBell size={22} aria-hidden="true" />
-            </div>
-            <AsyncSection state={notifications}>
-              {(rows) =>
-                rows.length ? (
-                  <ul className={styles.feedList}>
-                    {rows.slice(0, 3).map((n) => (
-                      <li key={n.notificationId}>
-                        <Link
-                          href={memberNotificationHref(n) ?? "/notifications"}
-                        >
-                          <p>{n.message}</p>
-                          <time>{formatDateTime(n.sentAt)}</time>
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <div className={styles.quietEmpty}>
-                    <strong>{l.noUpdates}</strong>
-                    <p>{l.noUpdatesHint}</p>
-                  </div>
-                )
-              }
-            </AsyncSection>
-          </section>
         </div>
       </div>
     </MemberShell>

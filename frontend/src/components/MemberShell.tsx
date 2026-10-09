@@ -70,19 +70,21 @@ export function MemberFrame({
   const menuRef = useRef<HTMLDivElement>(null);
 
   const memberNavItems: NavItem[] = [
-    { href: "/member", label: t.nav.home },
-    { href: "/member/discover", label: t.memberPages.discover },
-    { href: "/member/schedule", label: t.memberPages.schedule },
-    { href: "/member/courses", label: t.memberPages.courses },
-    { href: "/member/services", label: t.memberPages.services },
+    { href: "/member", label: language === "vi" ? "Tổng quan" : "Overview" },
     {
-      href: "/member/courts/book",
-      label: t.memberPages.courtRental,
-      also: ["/member/rentals"],
+      href: "/member/services",
+      label: t.memberPages.services,
+      also: [
+        "/member/discover",
+        "/member/courses",
+        "/member/courts",
+        "/member/rentals",
+      ],
     },
+    { href: "/member/schedule", label: t.memberPages.schedule },
     {
       href: "/member/training",
-      label: t.nav.training,
+      label: language === "vi" ? "Tập luyện" : "Training",
       also: ["/member/pt", "/member/profile"],
     },
     {
