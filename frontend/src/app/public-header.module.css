@@ -72,7 +72,7 @@
   display: flex;
   min-width: 0;
   align-items: center;
-  gap: clamp(16px, 1.7vw, 24px);
+  gap: clamp(12px, 1.2vw, 18px);
 }
 
 .navLinks a {
@@ -224,7 +224,7 @@
   }
 }
 
-@media (max-width: 1199px) {
+@media (max-width: 1359px) {
   .header {
     width: 100%;
     grid-template-columns: minmax(0, 1fr) auto;

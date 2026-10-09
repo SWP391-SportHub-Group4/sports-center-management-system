@@ -24,10 +24,10 @@ export default function Page() {
       <main className={s.main} id="main-content">
         <PerformanceSections language={language} />
         <HomepageStats language={language} />
-        <ScrollReveal section="facilities">
+        <ScrollReveal section="activities">
           <InteractiveArenaTour language={language} />
         </ScrollReveal>
-        <ScrollReveal section="facilities">
+        <ScrollReveal section="book-court">
           <CourtBookingSection language={language} />
         </ScrollReveal>
         <ScrollReveal section="facilities">

@@ -30,6 +30,8 @@ export function PublicHeader() {
         coaches: "Huấn luyện viên",
         facilities: "Sân tập",
         membership: "Hội viên",
+        bookCourt: "Đặt sân",
+        arenaTour: "Khám phá sân",
         contact: "Liên hệ",
         signIn: "Đăng nhập",
         signUp: "Đăng ký",
@@ -45,6 +47,8 @@ export function PublicHeader() {
         coaches: "Coaches",
         facilities: "Facilities",
         membership: "Members",
+        bookCourt: "Book court",
+        arenaTour: "Tour arena",
         contact: "Contact",
         signIn: "Sign in",
         signUp: "Sign up",
@@ -200,6 +204,8 @@ export function PublicHeader() {
     { id: "coaches", label: copy.coaches },
     { id: "facilities", label: copy.facilities },
     { id: "membership", label: copy.membership },
+    { id: "activities", label: copy.arenaTour },
+    { id: "book-court", label: copy.bookCourt },
     { id: "contact", label: copy.contact },
   ];
 

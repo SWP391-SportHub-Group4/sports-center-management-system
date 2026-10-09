@@ -14,7 +14,11 @@ export function CourtBookingSection({ language }: { language: "en" | "vi" }) {
   const vi = language === "vi";
 
   return (
-    <section className={styles.section} aria-labelledby="court-booking-title">
+    <section
+      id="book-court"
+      className={styles.section}
+      aria-labelledby="court-booking-title"
+    >
       <div className={styles.photo}>
         <Image
           src="/sporthub/court-volt/hero-rally.png"
@@ -46,7 +50,7 @@ export function CourtBookingSection({ language }: { language: "en" | "vi" }) {
         </p>
         <Link
           href={
-            user
+            user?.role === "Member"
               ? bookingPath
               : `/login?next=${encodeURIComponent(bookingPath)}`
           }
