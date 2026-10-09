@@ -289,7 +289,10 @@ test("weekly schedule includes the last PT page and own attendance", async ({
   await page.goto("/member/schedule");
   await expect(page.getByText("Coach Last", { exact: true })).toBeVisible();
   await expect(page.getByText("Coach Minh", { exact: true })).toBeVisible();
-  await expect(page.getByText("✓ Present").first()).toBeVisible();
+  await expect(
+    page.getByText("Completed", { exact: true }).first(),
+  ).toBeVisible();
+  await expect(page.getByText("✓ Completed")).toHaveCount(0);
   await page.getByRole("button", { name: /Badminton course/ }).click();
   await expect(page.getByRole("dialog")).toContainText("Make-up session");
   await expect(page.getByRole("dialog")).toContainText("Present");
@@ -299,6 +302,66 @@ test("weekly schedule includes the last PT page and own attendance", async ({
     .click();
   await expect(page).toHaveURL(/\/member\/courses\/7$/);
   await expect(page.getByText("BAD-07", { exact: false })).toBeVisible();
+});
+
+test("weekly schedule orders sessions by start and then end time", async ({
+  page,
+}) => {
+  await setup(page);
+  await page.route("**/api/members/me/schedule?**", (route) =>
+    route.fulfill({
+      json: [
+        {
+          sessionId: "long-session",
+          classId: 8,
+          className: "Long class",
+          startAtUtc: "2030-06-10T00:00:00Z",
+          endAtUtc: "2030-06-10T03:00:00Z",
+          status: "SCHEDULED",
+        },
+        {
+          sessionId: "afternoon-session",
+          classId: 9,
+          className: "Afternoon class",
+          startAtUtc: "2030-06-10T07:00:00Z",
+          endAtUtc: "2030-06-10T12:00:00Z",
+          status: "SCHEDULED",
+        },
+        {
+          sessionId: "short-session",
+          classId: 7,
+          className: "Short class",
+          startAtUtc: "2030-06-10T00:00:00Z",
+          endAtUtc: "2030-06-10T02:00:00Z",
+          status: "SCHEDULED",
+        },
+      ],
+    }),
+  );
+  await page.route("**/api/members/me/pt-sessions?**", (route) =>
+    route.fulfill({ json: [] }),
+  );
+  await page.goto("/member/schedule?date=2030-06-10");
+  const mondayEvents = page
+    .getByRole("region", { name: "Weekly schedule" })
+    .locator("tbody tr td:first-child button");
+  await expect(mondayEvents).toHaveCount(3);
+  await expect(mondayEvents.nth(0)).toContainText("Short class");
+  await expect(mondayEvents.nth(0)).toContainText("07:00–09:00");
+  await expect(mondayEvents.nth(1)).toContainText("Long class");
+  await expect(mondayEvents.nth(1)).toContainText("07:00–10:00");
+  await expect(mondayEvents.nth(2)).toContainText("Afternoon class");
+});
+
+test("all courses is the first and default tab", async ({ page }) => {
+  await setup(page);
+  await page.goto("/member/courses");
+  const tabs = page.getByRole("tablist").getByRole("tab");
+  await expect(tabs.first()).toHaveText("All (1)");
+  await expect(tabs.first()).toHaveAttribute("aria-selected", "true");
+  await expect(
+    page.getByText("Badminton course", { exact: true }),
+  ).toBeVisible();
 });
 
 test("old routes retain query and services show visits and quota", async ({
@@ -332,6 +395,53 @@ test("notification read is persisted and unknown source has no fabricated link",
   ).toHaveCount(0);
 });
 
+for (const entry of ["bell", "list"] as const) {
+  test(`notification ${entry} opens expiring package benefits`, async ({
+    page,
+  }) => {
+    await setup(page);
+    let read = false;
+    await page.route("**/api/notifications**", async (route) => {
+      const path = new URL(route.request().url()).pathname;
+      if (path.endsWith("/read")) {
+        read = true;
+        return route.fulfill({ status: 204 });
+      }
+      if (path.endsWith("unread-count"))
+        return route.fulfill({ json: { count: read ? 0 : 1 } });
+      return route.fulfill({
+        json: [
+          {
+            notificationId: "package-notice",
+            sourceEventType: "PACKAGE_EXPIRING",
+            sourceEntityId: "package-1",
+            actionUrl: "/member/services",
+            message: "Your membership is expiring soon",
+            status: read ? "READ" : "SENT",
+            sentAt: "2026-10-08T10:00:00Z",
+          },
+        ],
+      });
+    });
+    await page.goto("/notifications");
+    if (entry === "bell") {
+      await page
+        .getByRole("button", { name: "Notifications (1)", exact: true })
+        .click();
+      await page
+        .getByRole("region", { name: "Notifications" })
+        .getByRole("link", { name: /Your membership is expiring soon/ })
+        .click();
+    } else {
+      await page
+        .getByRole("main")
+        .getByRole("link", { name: /Your membership is expiring soon/ })
+        .click();
+    }
+    await expect(page).toHaveURL(/\/member\/services$/);
+    expect(read).toBe(true);
+  });
+}
 test("empty notification list does not claim 100 messages", async ({
   page,
 }) => {

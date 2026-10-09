@@ -12,7 +12,6 @@ import { pagedItems } from "@/lib/paged";
 import { choiceQuery, useUrlQuery } from "@/lib/useUrlQuery";
 import { ListPager } from "@/features/pt";
 import type {
-  HomeworkDto,
   Paged,
   ProgressItemDto,
   PtChangeRequestDto,
@@ -25,14 +24,7 @@ import { TrainingProfile } from "./training-profile";
 import { isPending } from "./request-list";
 import styles from "./training.module.css";
 
-const TABS = [
-  "sessions",
-  "plans",
-  "results",
-  "progress",
-  "homework",
-  "profile",
-] as const;
+const TABS = ["sessions", "plans", "results", "progress", "profile"] as const;
 type Tab = (typeof TABS)[number];
 const PAGE = 20;
 
@@ -349,58 +341,6 @@ function ProgressTab() {
   );
 }
 
-/** Homework chỉ đọc: HLV giao và review, Member xem hướng dẫn và nhận xét. */
-function HomeworkTab() {
-  const { t } = useLanguage();
-  const l = t.ptOps;
-  const state = useApi(
-    (signal) =>
-      api.get<HomeworkDto[]>("/api/members/me/homework", {
-        signal,
-        query: { page: 1, pageSize: PAGE },
-      }),
-    [],
-  );
-  return (
-    <>
-      <p className={styles.muted}>{l.homeworkReadOnly}</p>
-      <AsyncSection
-        state={state}
-        isEmpty={(d) => !pagedItems(d).length}
-        emptyMessage={l.emptyHomework}
-      >
-        {(data) => (
-          <div className="stack">
-            {pagedItems(data).map((h) => (
-              <Card key={h.assignmentId} title={h.title}>
-                <p className={styles.muted}>
-                  {l.assignedBy.replace("{coach}", h.coachName)} ·{" "}
-                  {l.due.replace("{date}", formatDate(h.dueAt))} ·{" "}
-                  <StatusChip value={h.status} />
-                </p>
-                {h.coachNote && <p>{h.coachNote}</p>}
-                <ul className={styles.exerciseList}>
-                  {h.items.map((i) => (
-                    <li key={i.itemId}>
-                      {i.exercise} · {i.sets} × {i.reps}
-                      {i.notes ? ` · ${i.notes}` : ""}
-                    </li>
-                  ))}
-                </ul>
-                {h.memberFeedback && (
-                  <p>
-                    {l.yourNote}: {h.memberFeedback}
-                  </p>
-                )}
-              </Card>
-            ))}
-          </div>
-        )}
-      </AsyncSection>
-    </>
-  );
-}
-
 export function MemberTraining() {
   const { t } = useLanguage();
   const l = t.ptOps;
@@ -414,7 +354,6 @@ export function MemberTraining() {
     plans: l.tabPlans,
     results: l.tabResults,
     progress: l.tabProgress,
-    homework: l.tabHomework,
     profile: l.tabProfile,
   };
   return (
@@ -431,7 +370,6 @@ export function MemberTraining() {
           {tab === "plans" && <PlansTab />}
           {tab === "results" && <ResultsTab />}
           {tab === "progress" && <ProgressTab />}
-          {tab === "homework" && <HomeworkTab />}
           {tab === "profile" && <TrainingProfile />}
         </div>
       </Tabs>

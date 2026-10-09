@@ -196,6 +196,7 @@ Việc bổ sung không thay đổi quyền đọc audit, scope tài khoản c�
 |---|---|
 | GET | `api/users/me` |
 | PUT | `api/users/me/profile` |
+| POST | `api/users/me/password/otp` |
 | POST | `api/users/me/password` |
 
 ### AuthController — `api/auth`
@@ -211,7 +212,6 @@ Việc bổ sung không thay đổi quyền đọc audit, scope tài khoản c�
 | Verb | Path |
 |---|---|
 | POST | `api/auth/google` |
-| POST | `api/auth/google/onboarding` |
 | POST | `api/auth/google/link` |
 | DELETE | `api/auth/google/link` |
 
@@ -363,18 +363,6 @@ Refund mới không còn tạo/duyệt qua route adjustment chung; refund legacy
 | GET | `api/coach-member-relationships` |
 | POST | `api/coach-member-relationships` |
 | POST | `api/coach-member-relationships/{relationshipId:guid}/end` |
-
-### HomeworkController — `api`
-
-| Verb | Path |
-|---|---|
-| GET | `api/coaches/me/homework` |
-| POST | `api/coaches/me/homework` |
-| PUT | `api/coaches/me/homework/{assignmentId:guid}` |
-| POST | `api/coaches/me/homework/{assignmentId:guid}/review` |
-| POST | `api/coaches/me/homework/{assignmentId:guid}/cancel` |
-| GET | `api/members/me/homework` |
-| PATCH | `api/members/me/homework/{assignmentId:guid}` |
 
 ### PtCoachChangeRequestsController — `api`
 
@@ -550,7 +538,7 @@ Chu kỳ có snapshot trên Invoice (`CheckoutCycleId/CheckoutRevision/HoldExpir
 | GET | `api/members/me/enrollments`, `.../schedule` | Member | Ghi danh và lịch cá nhân; không có endpoint tự ghi danh từng buổi. |
 | POST | `api/gym-checkins/{checkInId}/checkout` | Receptionist | Giờ server, idempotent; checkin chưa tồn tại/giờ vào tương lai bị từ chối. |
 
-`IClassEnrollmentFulfillment` cung cấp quote, giữ chỗ, confirm, release và cancel trong transaction của checkout/fulfillment caller. PT giữ các endpoint lịch/workout/homework, thêm `roomId` tùy chọn và chống trùng occupancy. Job NoShow chỉ xử lý buổi PT đã kết thúc; lớp nhóm không tự tạo Present/Absent.
+`IClassEnrollmentFulfillment` cung cấp quote, giữ chỗ, confirm, release và cancel trong transaction của checkout/fulfillment caller. PT giữ các endpoint lịch/workout, thêm `roomId` tùy chọn và chống trùng occupancy. Job NoShow chỉ xử lý buổi PT đã kết thúc; lớp nhóm không tự tạo Present/Absent.
 
 ## Phần G — P1.07 Checkout hiện hành
 

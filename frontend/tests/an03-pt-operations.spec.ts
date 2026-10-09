@@ -85,28 +85,6 @@ async function memberFixture(page: Page, opts: { pending?: boolean } = {}) {
           : [],
       );
     if (path === "/api/members/me/pt-coach-change-requests") return json([]);
-    if (path === "/api/members/me/homework")
-      return json([
-        {
-          assignmentId: "h1",
-          coachName: "Coach Minh",
-          title: "Mobility routine",
-          coachNote: "Ten minutes daily",
-          dueAt: hours(48),
-          status: "ASSIGNED",
-          memberFeedback: null,
-          version: 1,
-          items: [
-            {
-              itemId: "i1",
-              exercise: "Hip opener",
-              sets: 2,
-              reps: 10,
-              notes: null,
-            },
-          ],
-        },
-      ]);
     if (path === "/api/members/me/training-profile")
       return json({
         goal: "Run 10 km",
@@ -144,7 +122,7 @@ async function memberFixture(page: Page, opts: { pending?: boolean } = {}) {
   return posts;
 }
 
-test("training page leads with the coach, quota and next session, and homework is read-only", async ({
+test("training page leads with the coach, quota and next session", async ({
   page,
 }) => {
   await memberFixture(page);
@@ -154,12 +132,6 @@ test("training page leads with the coach, quota and next session, and homework i
   await expect(
     page.getByRole("link", { name: "Details" }).first(),
   ).toHaveAttribute("href", `/member/pt/sessions/${lateSession}`);
-  await page.getByRole("tab", { name: "Homework" }).click();
-  await expect(page.getByText("Mobility routine")).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: /mark completed/i }),
-  ).toHaveCount(0);
-  await expect(page.getByRole("textbox")).toHaveCount(0);
   await page.getByRole("tab", { name: "Profile" }).click();
   await expect(page.getByLabel("Primary Training Goal")).toHaveValue(
     "Run 10 km",
@@ -181,9 +153,7 @@ test("a session more than 24 hours away sends a request and says the schedule is
   await page.getByRole("button", { name: "Request a change" }).click();
   await expect(page.getByLabel(/Ask for an exception/)).toHaveCount(0);
   await page.getByLabel("Move to another time").check();
-  await page
-    .getByLabel("New start time (Vietnam time)")
-    .fill("2031-01-05T18:00");
+  await page.getByLabel("New start time").fill("2031-01-05T18:00");
   await page.getByLabel("Reason").fill("Meeting");
   await page.getByRole("button", { name: "Send request" }).click();
   await expect.poll(() => posts.length).toBe(1);
@@ -365,7 +335,7 @@ test("manager reads a member's operations profile without any workout editing", 
   await expect(page).toHaveURL(new RegExp(`/manager/members/${memberId}$`));
   await expect(page.getByText("Gym monthly")).toBeVisible();
   await expect(page.getByText("Coach Minh").first()).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: /plan|workout|homework/i }),
-  ).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /plan|workout/i })).toHaveCount(
+    0,
+  );
 });

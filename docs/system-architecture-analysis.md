@@ -213,7 +213,7 @@ Thư viện dùng chung — **KHÔNG chứa logic nghiệp vụ**, chỉ interfa
 | File | Size | Chức năng |
 |---|---|---|
 | `AuthController.cs` | 2.7KB | `POST /api/auth/login` — đăng nhập, `POST /api/auth/register` — đăng ký, `POST /api/auth/register/otp` — gửi OTP |
-| `GoogleAuthController.cs` | 1.9KB | `POST /api/auth/google` — đăng nhập Google OAuth, `POST /api/auth/google/onboarding` — hoàn tất onboarding |
+| `GoogleAuthController.cs` | 1.9KB | `POST /api/auth/google` — đăng nhập Google: tự tạo tài khoản hoặc tự liên kết theo email đã xác minh |
 | `AccountController.cs` | 1.3KB | `GET /api/users/me` — lấy profile, `PUT /api/users/me` — cập nhật profile, `PUT /api/users/me/password` — đổi mật khẩu |
 | `CoachesController.cs` | 1.6KB | `GET /api/coaches` — danh sách coach, `GET/PUT /api/coaches/{id}/specialties` — chuyên môn thể thao |
 
@@ -225,7 +225,6 @@ Thư viện dùng chung — **KHÔNG chứa logic nghiệp vụ**, chỉ interfa
 | `RegisterRequest.cs` | 2.9KB | DTO đăng ký: email, otpCode, password, fullName, phone + validation |
 | `RequestRegisterOtpRequest.cs` | 232B | DTO yêu cầu gửi OTP: email |
 | `GoogleTokenRequest.cs` | 220B | DTO login Google: idToken |
-| `CompleteGoogleOnboardingRequest.cs` | 621B | DTO hoàn tất onboarding Google |
 | `ChangePasswordRequest.cs` | 767B | DTO đổi mật khẩu: currentPassword, newPassword |
 | `ForgotPasswordRequest.cs` | 235B | DTO quên mật khẩu: email |
 | `ResetPasswordRequest.cs` | 718B | DTO đặt lại mật khẩu: token + newPassword |
@@ -237,8 +236,7 @@ Thư viện dùng chung — **KHÔNG chứa logic nghiệp vụ**, chỉ interfa
 |---|---|---|
 | `AuthResponse.cs` | 379B | Response đăng nhập/đăng ký: `{accessToken, user}` |
 | `UserSummaryResponse.cs` | 679B | Thông tin user: userId, email, fullName, role, coachCategory |
-| `GoogleLoginResult.cs` | 266B | Kết quả login Google |
-| `GoogleOnboardingPendingResponse.cs` | 402B | Response pending onboarding |
+| `GoogleLoginResult.cs` | — | (đã gỡ cùng onboarding) |
 
 ### Application/Interfaces/ (8 files)
 
@@ -247,7 +245,7 @@ Thư viện dùng chung — **KHÔNG chứa logic nghiệp vụ**, chỉ interfa
 | `IAuthService.cs` | 578B | Login, Register, RequestOtp |
 | `IAccountService.cs` | 796B | GetProfile, UpdateProfile, ChangePassword |
 | `IPasswordResetService.cs` | 459B | ForgotPassword, ResetPassword |
-| `IGoogleAuthService.cs` | 576B | LoginWithGoogle, CompleteOnboarding |
+| `IGoogleAuthService.cs` | 576B | LoginAsync, LinkAsync, UnlinkAsync |
 | `IGoogleTokenVerifier.cs` | 916B | Verify Google ID token |
 | `IPasswordHasher.cs` | 988B | Hash, Verify password |
 | `IUserAccountRepository.cs` | 1.2KB | CRUD UserAccount + lookup |
@@ -259,7 +257,7 @@ Thư viện dùng chung — **KHÔNG chứa logic nghiệp vụ**, chỉ interfa
 | `AuthService.cs` | 11.1KB | **Core auth logic**: login (validate credentials, generate JWT), register (verify OTP, create account, assign role), request OTP |
 | `AccountService.cs` | 6.7KB | Get/update profile, change password |
 | `PasswordResetService.cs` | 4.0KB | Forgot password (generate token, send email), reset password (validate token, update) |
-| `GoogleAuthService.cs` | 14.1KB | Google OAuth flow: verify token → find/create account → handle onboarding |
+| `GoogleAuthService.cs` | 14.1KB | Google OAuth flow: verify token → đã link thì đăng nhập; trùng email thì tự link; chưa có thì tạo tài khoản mật khẩu NULL |
 | `EmailOtpFlow.cs` | 5.0KB | Generate OTP, send via email, verify OTP code |
 | `OtpCodes.cs` | 943B | Generate random 6-digit OTP |
 | `PasswordPolicyGuard.cs` | 965B | Validate password strength |
@@ -278,7 +276,6 @@ Thư viện dùng chung — **KHÔNG chứa logic nghiệp vụ**, chỉ interfa
 | `UserExternalLogin.cs` | 611B | Liên kết OAuth: UserId, Provider, ProviderKey |
 | `Role.cs` | 304B | Role: Id, Name |
 | `EmailOtp.cs` | 1.2KB | OTP email: Email, Code, Purpose, ExpiresAt, Verified |
-| `GoogleOnboardingTicket.cs` | 1.0KB | Ticket onboarding Google: Email, GoogleSubject, ExpiresAt |
 | `CoachProfile.cs` | 596B | Profile coach: UserId, Category (PersonalTrainer/ClassInstructor) |
 | `UserSportSpecialty.cs` | 507B | Chuyên môn thể thao: UserId, SportId |
 
@@ -320,7 +317,6 @@ Thư viện dùng chung — **KHÔNG chứa logic nghiệp vụ**, chỉ interfa
 | File | Size | Chức năng |
 |---|---|---|
 | `PasswordHasher.cs` | 1.9KB | Hash + verify password dùng BCrypt |
-| `GoogleOnboardingTokenService.cs` | 791B | Tạo/verify onboarding token |
 
 ### Infrastructure/Repositories/
 
@@ -331,7 +327,7 @@ Thư viện dùng chung — **KHÔNG chứa logic nghiệp vụ**, chỉ interfa
 ### Infrastructure/Persistence/Configurations/ (10 files)
 
 Mỗi file 1 `IEntityTypeConfiguration<T>` — cấu hình Fluent API cho 1 entity:
-`UserAccountConfiguration`, `UserCredentialConfiguration`, `UserProfileConfiguration`, `UserExternalLoginConfiguration`, `RoleConfiguration`, `EmailOtpConfiguration`, `GoogleOnboardingTicketConfiguration`, `CoachProfileConfiguration`, `UserSportSpecialtyConfiguration`, `CoachServiceQualificationConfiguration`
+`UserAccountConfiguration`, `UserCredentialConfiguration`, `UserProfileConfiguration`, `UserExternalLoginConfiguration`, `RoleConfiguration`, `EmailOtpConfiguration`, `CoachProfileConfiguration`, `UserSportSpecialtyConfiguration`, `CoachServiceQualificationConfiguration`
 
 ---
 
@@ -634,7 +630,6 @@ Module **lớn nhất**, chia thành core + 3 sub-module (Catalog, Occupancy, Th
 | File | Size | Chức năng |
 |---|---|---|
 | `WorkoutController.cs` | 9.3KB | CRUD workout plans + ghi workout results |
-| `HomeworkController.cs` | 4.7KB | CRUD homework assignments cho member |
 | `PtSessionsController.cs` | 6.1KB | CRUD buổi PT: tạo, cancel, reschedule, complete |
 | `PtEntitlementsController.cs` | 2.0KB | Quản lý quyền lợi PT (quota buổi tập) |
 | `PtSessionChangeRequestsController.cs` | 2.9KB | Yêu cầu đổi lịch PT: tạo, duyệt/từ chối |
@@ -643,7 +638,7 @@ Module **lớn nhất**, chia thành core + 3 sub-module (Catalog, Occupancy, Th
 
 ### Application/Commands/ (8 subfolders)
 
-`WorkoutPlans/`, `WorkoutResults/`, `Homework/`, `PtSessions/`, `PtEntitlements/`, `PtSessionChangeRequests/`, `PtCoachChangeRequests/`, `Relationships/`
+`WorkoutPlans/`, `WorkoutResults/`, `PtSessions/`, `PtEntitlements/`, `PtSessionChangeRequests/`, `PtCoachChangeRequests/`, `Relationships/`
 
 ### Application/DTOs/ (8 subfolders) — tương ứng với Commands.
 
@@ -652,7 +647,6 @@ Module **lớn nhất**, chia thành core + 3 sub-module (Catalog, Occupancy, Th
 | File | Chức năng |
 |---|---|
 | `IWorkoutService.cs` (1.4KB) | CRUD workout plans, record results |
-| `IHomeworkService.cs` (1.3KB) | CRUD homework assignments |
 | `IPtSessionService.cs` (1.3KB) | CRUD PT sessions: schedule, cancel, reschedule, complete |
 | `IPtEntitlementLifecycle.cs` (1.6KB) | Activate/suspend/expire PT entitlements |
 | `IPtEntitlementQueryService.cs` (334B) | Query PT entitlements |
@@ -666,7 +660,6 @@ Module **lớn nhất**, chia thành core + 3 sub-module (Catalog, Occupancy, Th
 |---|---|---|
 | `PtSessionService.cs` | 29.8KB | **Logic phức tạp nhất module**: schedule PT session (validate coach availability, room availability, member entitlement quota), cancel (release occupancy + restore quota), reschedule, complete (mark attendance) |
 | `PtCoachChangeRequestService.cs` | 19.8KB | Workflow đổi coach: member request → manager approve → migrate sessions + relationships |
-| `HomeworkService.cs` | 13.7KB | CRUD homework: assign items, due dates, completion tracking |
 | `CoachMemberRelationshipService.cs` | 10.7KB | Manage relationships: create (Manual/ClassBased), end, list. Implement `ICoachRelationshipRegistrar` |
 | `PtSessionChangeRequestService.cs` | 10.6KB | Workflow đổi lịch PT: request → approve (reuse PtSessionService logic) |
 | `PtEntitlementLifecycleService.cs` | 10.0KB | PT entitlement lifecycle: activate, suspend, expire, check quota |
@@ -687,12 +680,10 @@ Module **lớn nhất**, chia thành core + 3 sub-module (Catalog, Occupancy, Th
 | `PtSession.cs` | 2.1KB | Buổi PT: EntitlementId, RoomId, StartAtUtc, EndAtUtc, Status |
 | `PtSessionChangeRequest.cs` | 1.4KB | Yêu cầu đổi lịch: SessionId, Type (Cancel/Reschedule), NewStart/End |
 | `PtCoachChangeRequest.cs` | 1.3KB | Yêu cầu đổi coach: EntitlementId, FromCoachId, ToCoachId, Status |
-| `HomeworkAssignment.cs` | 1.8KB | Bài tập về nhà: MemberId, CoachId, DueDate, Status |
-| `HomeworkAssignmentItem.cs` | 582B | Chi tiết bài tập: Exercise, Sets, Reps |
 
 ### Domain/Enums/ (11 files)
 
-`RelationshipStatus`, `RelationshipSourceType`, `WorkoutPlanStatus`, `PtEntitlementStatus`, `PtSessionStatus`, `PtSessionQuotaState`, `PtSessionTimingClassification`, `PtSessionChangeRequestStatus`, `PtSessionChangeRequestType`, `PtCoachChangeRequestStatus`, `HomeworkAssignmentStatus`
+`RelationshipStatus`, `RelationshipSourceType`, `WorkoutPlanStatus`, `PtEntitlementStatus`, `PtSessionStatus`, `PtSessionQuotaState`, `PtSessionTimingClassification`, `PtSessionChangeRequestStatus`, `PtSessionChangeRequestType`, `PtCoachChangeRequestStatus`
 
 ### Domain/Rules/
 

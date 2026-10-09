@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using SportHub.Identity.Domain.Enums;
 using SportHub.Membership.Domain.Entities;
 using SportHub.Membership.Domain.Enums;
@@ -81,6 +82,27 @@ public sealed class RefundWorkflowTests(PaymentApiFactory factory)
         var responses = await Task.WhenAll(Enumerable.Range(0, 2).Select(_ => member.PostAsJsonAsync("/api/refunds", new { invoiceItemId = fixture.InvoiceItemId, reason = "Member refund request" })));
         Assert.All(responses, response => Assert.Equal(HttpStatusCode.OK, response.StatusCode));
         Assert.Equal(1, await factory.QueryAsync(db => db.PaymentAdjustments.CountAsync(a => a.InvoiceItemId == fixture.InvoiceItemId && a.Status == PaymentAdjustmentStatus.Requested)));
+    }
+
+    [Fact]
+    public async Task Member_refund_history_contains_only_their_own_requests()
+    {
+        var fixture = await SeedPaidMembershipAsync();
+        using var member = factory.CreateApiClient(fixture.MemberId, UserRole.Member);
+        var stranger = await factory.SeedUserAsync(UserRole.Member);
+        using var other = factory.CreateApiClient(stranger.UserId, UserRole.Member);
+        using var staff = factory.CreateApiClient(fixture.ReceptionistId, UserRole.Receptionist);
+
+        var created = await member.PostAsJsonAsync("/api/refunds",
+            new { invoiceItemId = fixture.InvoiceItemId, reason = "Kiểm tra lịch sử hoàn điểm" });
+        Assert.Equal(HttpStatusCode.OK, created.StatusCode);
+
+        var mine = await member.GetFromJsonAsync<JsonElement>("/api/refunds/mine");
+        var others = await other.GetFromJsonAsync<JsonElement>("/api/refunds/mine");
+        Assert.Equal(1, mine.GetProperty("totalCount").GetInt32());
+        Assert.Equal(fixture.InvoiceId, mine.GetProperty("items")[0].GetProperty("invoiceId").GetGuid());
+        Assert.Equal(0, others.GetProperty("totalCount").GetInt32());
+        Assert.Equal(HttpStatusCode.Forbidden, (await staff.GetAsync("/api/refunds/mine")).StatusCode);
     }
 
     [Fact]

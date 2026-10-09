@@ -52,6 +52,12 @@ function sessionHref(session: MemberEvent) {
   return `/member/schedule?date=${date}`;
 }
 
+function vietnamDate(value: string) {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Ho_Chi_Minh",
+  }).format(new Date(value));
+}
+
 /** Môn của buổi: lớp có sportName; PT thuộc Gym nên dùng nhãn Gym. */
 function sportOf(session: MemberEvent, gymLabel: string) {
   return (
@@ -154,6 +160,7 @@ function AttentionList({
   thresholds,
   now,
   today,
+  loadState,
 }: {
   invoices: InvoiceSummaryDto[];
   packages: MemberPackageDto[];
@@ -161,6 +168,7 @@ function AttentionList({
   thresholds: ThresholdResponseDto[];
   now: number;
   today: string;
+  loadState: "loading" | "error" | "ready";
 }) {
   const { t } = useLanguage();
   const l = t.memberDashboardV2;
@@ -244,7 +252,7 @@ function AttentionList({
     items.push({
       key: "gym",
       text: l.gymEnds.replace("{date}", formatDate(gym.endDate)),
-      href: "/member/services",
+      href: "/member/discover?tab=gym",
       action: l.renew,
     });
   }
@@ -254,12 +262,27 @@ function AttentionList({
     items.push({
       key: "pt",
       text: l.ptLow.replace("{n}", String(ptNow.remainingQuota)),
-      href: "/member/services?tab=pt",
+      href: "/member/discover?tab=pt",
       action: l.renew,
     });
   }
 
-  if (!items.length) return null;
+  if (!items.length)
+    return (
+      <section
+        className={`${styles.attention} ${styles.attentionClear}`}
+        aria-labelledby="attention-title"
+      >
+        <h2 id="attention-title">{l.attentionTitle}</h2>
+        <p>
+          {loadState === "error"
+            ? l.attentionUnavailable
+            : loadState === "loading"
+              ? l.checkingAttention
+              : l.noAttention}
+        </p>
+      </section>
+    );
   return (
     <section className={styles.attention} aria-labelledby="attention-title">
       <h2 id="attention-title">
@@ -370,6 +393,15 @@ export default function MemberDashboardPage() {
           thresholds={Array.isArray(thresholds.data) ? thresholds.data : []}
           now={now}
           today={date}
+          loadState={
+            [invoices, packages, pt, thresholds].some((state) => state.error)
+              ? "error"
+              : [invoices, packages, pt, thresholds].some(
+                    (state) => state.loading || !state.data,
+                  )
+                ? "loading"
+                : "ready"
+          }
         />
         <div className={styles.primaryGrid}>
           <section
@@ -378,8 +410,7 @@ export default function MemberDashboardPage() {
           >
             <div className={styles.sectionHeading}>
               <div>
-                <h2 id="next-session-title">{t.memberPages.nextSession}</h2>
-                <p>{l.scheduleHint}</p>
+                <h2 id="next-session-title">{t.memberPages.schedule}</h2>
               </div>
               <IconCalendar size={24} aria-hidden="true" />
             </div>
@@ -403,112 +434,159 @@ export default function MemberDashboardPage() {
                 const rows = [...classRows, ...rentalRows].sort((a, b) =>
                   a.startAtUtc.localeCompare(b.startAtUtc),
                 );
+                const todayRows = rows.filter(
+                  (s) => vietnamDate(s.startAtUtc) === date,
+                );
                 const upcoming = rows.filter(
                   (s) =>
                     new Date(s.endAtUtc).getTime() > now &&
+                    vietnamDate(s.startAtUtc) > date &&
                     !["CANCELLED", "COMPLETED", "NO_SHOW"].includes(
                       s.status ?? "",
                     ),
                 );
                 const next = upcoming[0];
                 const countdown = next ? startsInLabel(next, now, l) : null;
-                return next ? (
+                return (
                   <>
-                    <div
-                      className={styles.nextSession}
-                      data-surface="inverse"
-                      data-sport={sportTone(sportOf(next, l.sportGym))}
-                    >
-                      <div className={styles.nextTop}>
-                        <span className={styles.activity}>
-                          {sportOf(next, l.sportGym) ??
-                            (next.type === "PT_SESSION"
-                              ? t.memberPages.pt
-                              : t.refactor.courses)}
-                        </span>
-                        <span className={styles.kind}>
-                          {kindLabel(next, l)}
-                        </span>
-                        <ExceptionChip value={next.status} />
-                      </div>
-                      {countdown && (
-                        <p className={styles.startsIn}>{countdown}</p>
+                    <div className={styles.todayAgenda}>
+                      <h3>{l.todayTitle}</h3>
+                      {todayRows.length ? (
+                        <ul>
+                          {todayRows.map((session) => (
+                            <li key={session.id}>
+                              <Link href={sessionHref(session)}>
+                                <strong>
+                                  {formatTime(session.startAtUtc)}–
+                                  {formatTime(session.endAtUtc)}
+                                </strong>
+                                <span>{session.title}</span>
+                                {session.roomName && (
+                                  <small>{session.roomName}</small>
+                                )}
+                                <ExceptionChip value={session.status} />
+                              </Link>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p>{l.todayEmpty}</p>
                       )}
-                      <div className={styles.nextBody}>
-                        <DateTile value={next.startAtUtc} />
-                        <div className={styles.nextInfo}>
-                          <h3>{next.title}</h3>
-                          <p>
-                            <IconClock size={18} aria-hidden="true" />
-                            {formatTime(next.startAtUtc)} –{" "}
-                            {formatTime(next.endAtUtc)}
-                          </p>
-                          {(next.roomName || next.type !== "COURT_RENTAL") && (
-                            <p>
-                              <IconLocation size={18} aria-hidden="true" />
-                              {next.roomName || l.notAssigned}
-                            </p>
+                    </div>
+                    {next ? (
+                      <>
+                        <h3 className={styles.nextHeading}>
+                          {t.memberPages.nextSession}
+                        </h3>
+                        <div
+                          className={styles.nextSession}
+                          data-surface="inverse"
+                          data-sport={sportTone(sportOf(next, l.sportGym))}
+                        >
+                          <div className={styles.nextTop}>
+                            <span className={styles.activity}>
+                              {sportOf(next, l.sportGym) ??
+                                (next.type === "PT_SESSION"
+                                  ? t.memberPages.pt
+                                  : t.refactor.courses)}
+                            </span>
+                            <span className={styles.kind}>
+                              {kindLabel(next, l)}
+                            </span>
+                            <ExceptionChip value={next.status} />
+                          </div>
+                          {countdown && (
+                            <p className={styles.startsIn}>{countdown}</p>
                           )}
-                          {next.coachName && <p>{next.coachName}</p>}
-                          {next.isMakeup && <p>{t.memberPages.makeup}</p>}
+                          <div className={styles.nextBody}>
+                            <DateTile value={next.startAtUtc} />
+                            <div className={styles.nextInfo}>
+                              <h3>{next.title}</h3>
+                              <p>
+                                <IconClock size={18} aria-hidden="true" />
+                                {formatTime(next.startAtUtc)} –{" "}
+                                {formatTime(next.endAtUtc)}
+                              </p>
+                              {(next.roomName ||
+                                next.type !== "COURT_RENTAL") && (
+                                <p>
+                                  <IconLocation size={18} aria-hidden="true" />
+                                  {next.roomName || l.notAssigned}
+                                </p>
+                              )}
+                              {next.coachName && <p>{next.coachName}</p>}
+                              {next.isMakeup && <p>{t.memberPages.makeup}</p>}
+                            </div>
+                          </div>
+                          <Link
+                            href={sessionHref(next)}
+                            className={buttonClass()}
+                          >
+                            {l.openSchedule}
+                          </Link>
+                        </div>
+                        {upcoming.length > 1 && (
+                          <div className={styles.upcoming}>
+                            <h3>{l.upNext}</h3>
+                            <ul className={styles.agenda}>
+                              {upcoming.slice(1, 4).map((s) => {
+                                const sport = sportOf(s, l.sportGym);
+                                return (
+                                  <li key={s.id} data-sport={sportTone(sport)}>
+                                    <DateTile value={s.startAtUtc} />
+                                    <div>
+                                      <Link href={sessionHref(s)}>
+                                        {s.title}
+                                      </Link>
+                                      <p>
+                                        {sport && (
+                                          <span className={styles.agendaSport}>
+                                            {sport}
+                                          </span>
+                                        )}
+                                        <span className={styles.agendaKind}>
+                                          {kindLabel(s, l)}
+                                        </span>
+                                        {formatTime(s.startAtUtc)} –{" "}
+                                        {formatTime(s.endAtUtc)}
+                                        {(s.roomName ||
+                                          s.type !== "COURT_RENTAL") &&
+                                          ` · ${s.roomName || l.notAssigned}`}
+                                      </p>
+                                    </div>
+                                    <ExceptionChip value={s.status} />
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          </div>
+                        )}
+                      </>
+                    ) : !todayRows.length ? (
+                      <div
+                        className={styles.emptySchedule}
+                        data-surface="inverse"
+                      >
+                        <IconCalendar size={32} aria-hidden="true" />
+                        <h3>{l.noScheduleTitle}</h3>
+                        <p>{l.noScheduleBody}</p>
+                        <div className={styles.emptyActions}>
+                          <Link
+                            className={buttonClass()}
+                            href="/member/discover"
+                          >
+                            {l.exploreCourses}
+                          </Link>
+                          <Link
+                            className={buttonClass({ variant: "secondary" })}
+                            href="/member/discover?tab=gym"
+                          >
+                            {l.gymPtServices}
+                          </Link>
                         </div>
                       </div>
-                      <Link href={sessionHref(next)} className={buttonClass()}>
-                        {l.openSchedule}
-                      </Link>
-                    </div>
-                    {upcoming.length > 1 && (
-                      <div className={styles.upcoming}>
-                        <h3>{l.upNext}</h3>
-                        <ul className={styles.agenda}>
-                          {upcoming.slice(1, 4).map((s) => {
-                            const sport = sportOf(s, l.sportGym);
-                            return (
-                              <li key={s.id} data-sport={sportTone(sport)}>
-                                <DateTile value={s.startAtUtc} />
-                                <div>
-                                  <Link href={sessionHref(s)}>{s.title}</Link>
-                                  <p>
-                                    {sport && (
-                                      <span className={styles.agendaSport}>
-                                        {sport}
-                                      </span>
-                                    )}
-                                    <span className={styles.agendaKind}>
-                                      {kindLabel(s, l)}
-                                    </span>
-                                    {formatTime(s.startAtUtc)} –{" "}
-                                    {formatTime(s.endAtUtc)}
-                                    {(s.roomName ||
-                                      s.type !== "COURT_RENTAL") &&
-                                      ` · ${s.roomName || l.notAssigned}`}
-                                  </p>
-                                </div>
-                                <ExceptionChip value={s.status} />
-                              </li>
-                            );
-                          })}
-                        </ul>
-                      </div>
-                    )}
+                    ) : null}
                   </>
-                ) : (
-                  <div className={styles.emptySchedule} data-surface="inverse">
-                    <IconCalendar size={32} aria-hidden="true" />
-                    <h3>{l.noScheduleTitle}</h3>
-                    <p>{l.noScheduleBody}</p>
-                    <div className={styles.emptyActions}>
-                      <Link className={buttonClass()} href="/member/discover">
-                        {l.exploreCourses}
-                      </Link>
-                      <Link
-                        className={buttonClass({ variant: "secondary" })}
-                        href="/member/services"
-                      >
-                        {l.gymPtServices}
-                      </Link>
-                    </div>
-                  </div>
                 );
               }}
             </AsyncSection>
@@ -581,7 +659,7 @@ export default function MemberDashboardPage() {
                         <p className={styles.caption}>{l.emptyGymHint}</p>
                         <Link
                           className={buttonClass({ size: "sm" })}
-                          href="/member/services?tab=gym"
+                          href="/member/discover?tab=gym"
                         >
                           {l.chooseMembership}
                         </Link>

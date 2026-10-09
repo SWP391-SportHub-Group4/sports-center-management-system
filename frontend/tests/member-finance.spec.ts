@@ -78,6 +78,26 @@ async function setup(
       return route.fulfill({
         json: { items: [summary], page: 1, pageSize: 10, totalCount: 1 },
       });
+    if (path === "/api/refunds/mine")
+      return route.fulfill({
+        json: {
+          items: [
+            {
+              adjustmentId: "refund-1",
+              invoiceId: id,
+              invoiceNumber: "INV-0001",
+              reason: "Membership cancellation",
+              status: "REQUESTED",
+              systemCalculatedPoints: 150,
+              approvedPoints: null,
+              createdAt: new Date().toISOString(),
+            },
+          ],
+          page: 1,
+          pageSize: 10,
+          totalCount: 1,
+        },
+      });
     return route.fulfill({ json: [] });
   });
 }
@@ -135,5 +155,19 @@ test("finance tabs, invoice detail and legacy aliases", async ({ page }) => {
     page.getByRole("link", { name: "Continue payment" }),
   ).toHaveAttribute("href", `/checkout/${id}`);
   await page.goto(`/member/invoices?invoiceId=${id}`);
+  await expect(page).toHaveURL(`/member/invoices/${id}`);
+});
+
+test("member can review their point refund and open its invoice", async ({
+  page,
+}) => {
+  await setup(page);
+  await page.goto("/member/finance?tab=refunds");
+  await expect(
+    page.getByRole("tab", { name: "Point refunds" }),
+  ).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByText("Membership cancellation")).toBeVisible();
+  await expect(page.getByText("150", { exact: false })).toBeVisible();
+  await page.getByRole("link", { name: "View invoice" }).click();
   await expect(page).toHaveURL(`/member/invoices/${id}`);
 });
