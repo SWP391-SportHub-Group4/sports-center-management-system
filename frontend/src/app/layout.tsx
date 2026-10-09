@@ -21,6 +21,7 @@ import "@/styles/foundation.css";
 import { AuthProvider } from "@/lib/auth";
 import { LanguageProvider } from "@/lib/language";
 import { SiteFooter } from "@/components/SiteFooter";
+import { HomepageBackdrop } from "@/components/homepage/HeroArenaVideo";
 
 export const metadata: Metadata = {
   title: "SportHub | Sports Center Management",
@@ -44,6 +45,7 @@ export default function RootLayout({
         {/* AuthProvider and LanguageProvider wrap the entire application */}
         <LanguageProvider>
           <AuthProvider>
+            <HomepageBackdrop />
             {children}
             <SiteFooter />
           </AuthProvider>

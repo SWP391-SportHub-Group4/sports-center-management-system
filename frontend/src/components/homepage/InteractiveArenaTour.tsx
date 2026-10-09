@@ -346,7 +346,7 @@ export function InteractiveArenaTour({ language }: { language: Language }) {
     <section
       id="activities"
       className={styles.tour}
-      data-theme="light"
+      data-theme="cinema"
       data-zone={activeZone}
       aria-labelledby="arena-tour-title"
     >
