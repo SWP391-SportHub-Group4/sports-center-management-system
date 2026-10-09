@@ -2031,9 +2031,16 @@ body:has(.auth--login, .auth--register) {
   gap: 12px;
 }
 
-.auth--register .auth__feedback {
+.auth--register .auth__feedback:has(.pw-rules) {
+  display: grid;
+  gap: 24px;
   min-height: 0;
   padding-top: 0;
+}
+
+.auth--register .auth__feedback:has(.pw-rules) .alert {
+  margin-bottom: 4px;
+  padding: 14px 16px;
 }
 
 .auth--register .pw-rules {
