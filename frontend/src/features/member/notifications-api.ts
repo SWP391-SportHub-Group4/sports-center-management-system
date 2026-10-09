@@ -26,19 +26,20 @@ export function memberNotificationHref(item: NotificationDto): string | null {
   if (item.actionUrl !== undefined)
     return item.actionUrl?.startsWith("/member/") ? item.actionUrl : null;
   if (item.sourceEventType === "CLASS_THRESHOLD_AT_RISK" && item.sourceEntityId)
-    return `/member/threshold?responseId=${encodeURIComponent(item.sourceEntityId)}`;
+    return `/member/services?section=courses&view=owned&responseId=${encodeURIComponent(item.sourceEntityId)}`;
   if (item.sourceEventType === "INVOICE_CREATED" && item.sourceEntityId)
-    return `/member/invoices/${encodeURIComponent(item.sourceEntityId)}`;
+    return `/member/finance?tab=invoices&invoice=${encodeURIComponent(item.sourceEntityId)}`;
   if (["PAYMENT_RECEIVED", "REFUND_COMPLETED"].includes(item.sourceEventType))
     return "/member/finance?tab=invoices";
-  if (item.sourceEventType === "PACKAGE_EXPIRING") return "/member/services";
+  if (item.sourceEventType === "PACKAGE_EXPIRING")
+    return "/member/services?section=gym&view=owned";
   if (
     ["SCHEDULE_CHANGED", "CLASS_CANCELLED", "INCIDENT_RESOLUTION"].includes(
       item.sourceEventType,
     )
   )
     return "/member/schedule";
-  if (item.sourceEventType === "CLASS_PUBLISHED") return "/member/discover";
+  if (item.sourceEventType === "CLASS_PUBLISHED") return "/member/services";
   return null;
 }
 

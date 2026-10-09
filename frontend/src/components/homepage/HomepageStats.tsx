@@ -78,9 +78,9 @@ export function HomepageStats({ language }: { language: HomepageLanguage }) {
   const vi = language === "vi";
   const memberPath =
     active === "facilities"
-      ? "/member/courts/book"
+      ? "/member/services?section=courts&view=explore"
       : active === "coaches"
-        ? "/member/pt/book"
+        ? "/member/training?tab=book"
         : "/member";
   const href =
     user?.role === "Member"

@@ -1,0 +1,183 @@
+.layout {
+  display: grid;
+  grid-template-areas: "main enrollment" "schedule schedule";
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 280px);
+  gap: var(--space-5);
+  align-items: start;
+}
+.main,
+.enrollment {
+  min-width: 0;
+}
+.main {
+  grid-area: main;
+  display: grid;
+  grid-template-columns: 140px minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  column-gap: var(--space-5);
+  align-items: center;
+}
+.schedule {
+  min-width: 0;
+  grid-area: schedule;
+}
+.enrollment {
+  grid-area: enrollment;
+  scroll-margin-top: calc(var(--member-header-height, 68px) + 24px);
+}
+.main > figure {
+  grid-column: 1;
+  grid-row: 1 / 3;
+}
+.heading {
+  grid-column: 2;
+  margin-bottom: var(--space-3);
+}
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+.meta > span:first-child {
+  color: var(--color-primary);
+  font-weight: var(--weight-semibold);
+}
+.heading h1,
+.heading h2 {
+  margin: var(--space-3) 0 0;
+  font-family: var(--font-display);
+  font-size: clamp(26px, 3vw, 36px);
+  line-height: 1.06;
+  text-wrap: balance;
+}
+.facts {
+  display: grid;
+  grid-column: 2;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  font-size: var(--text-sm);
+}
+.facts dt {
+  margin-bottom: var(--space-1);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+.facts dd {
+  margin: 0;
+  font-weight: var(--weight-semibold);
+  overflow-wrap: anywhere;
+}
+.sectionHeading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+.sectionHeading h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+}
+.sectionHeading > span {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.enrollment {
+  position: static;
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+}
+.fee > span {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+.fee > strong {
+  display: block;
+  margin-top: var(--space-1);
+  font-family: var(--font-display);
+  font-size: clamp(26px, 2.5vw, 32px);
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.fee p,
+.policy {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  line-height: 1.65;
+}
+.capacity {
+  margin: var(--space-2) 0;
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border-subtle);
+}
+.capacity > div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+}
+.capacity > div > span {
+  color: var(--text-muted);
+}
+.payment {
+  display: grid;
+}
+.payment > button {
+  width: 100%;
+}
+.policy {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-xs);
+  line-height: 1.5;
+}
+.muted {
+  color: var(--text-muted);
+  line-height: 1.65;
+}
+.loading {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: var(--space-6);
+}
+.loading > div {
+  min-height: 360px;
+  border-radius: var(--radius-lg);
+}
+.failure {
+  padding: var(--space-6) 0;
+}
+@media (max-width: 1120px) {
+  .facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 880px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "main" "enrollment" "schedule";
+  }
+  .main {
+    grid-template-columns: 100px minmax(0, 1fr);
+    column-gap: var(--space-3);
+  }
+  .loading {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 480px) {
+  .facts {
+    gap: var(--space-4);
+  }
+  .enrollment {
+    padding: var(--space-5);
+  }
+}

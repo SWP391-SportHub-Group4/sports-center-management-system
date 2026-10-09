@@ -109,10 +109,6 @@ export function MemberCourses() {
 
   return (
     <>
-      <p className={styles.intro}>
-        {c.independent.split("Gym & PT")[0]}
-        <Link href="/member/services">{c.gymPt}</Link>.
-      </p>
       <Tabs
         ariaLabel={c.tabsLabel}
         value={tab}
@@ -149,7 +145,7 @@ export function MemberCourses() {
                   <div className={styles.empty} data-surface="inverse">
                     <h3>{empty[tab][0]}</h3>
                     <p>{empty[tab][1]}</p>
-                    <Link className="btn" href="/member/discover">
+                    <Link className="btn" href="/member/services">
                       {c.explore}
                     </Link>
                   </div>
@@ -252,7 +248,7 @@ export function MemberCourses() {
                               </div>
                               <Link
                                 className="btn"
-                                href={`/member/threshold-responses/${pending.responseId}`}
+                                href={`/member/services?section=courses&view=owned&responseId=${pending.responseId}`}
                               >
                                 {c.thresholdCta}
                               </Link>
@@ -261,7 +257,7 @@ export function MemberCourses() {
                           {renew && (
                             <Link
                               className={styles.renew}
-                              href={`/member/discover?sport=${e.sportId}`}
+                              href={`/member/services?section=courses&view=explore&sport=${e.sportId}`}
                             >
                               {c.renew.replace("{sport}", e.sportName)} →
                             </Link>
@@ -270,7 +266,7 @@ export function MemberCourses() {
                         <div className={styles.actions}>
                           <Link
                             className="btn"
-                            href={`/member/courses/${e.classId}`}
+                            href={`/member/services?section=courses&view=owned&course=${e.classId}`}
                           >
                             {c.details}
                           </Link>
@@ -333,12 +329,22 @@ function EnrollmentSessions({ classId }: { classId: number }) {
   );
 }
 
-export function MemberCourseDetail({ classId }: { classId: number }) {
+export function MemberCourseDetail({
+  classId,
+  showBackLink = true,
+}: {
+  classId: number;
+  showBackLink?: boolean;
+}) {
   const { t } = useLanguage();
   const state = useApi(memberEnrollments, []);
   return (
     <>
-      <Link href="/member/courses">{t.memberPages.backCourses}</Link>
+      {showBackLink && (
+        <Link href="/member/services?section=courses&view=owned">
+          {t.memberPages.backCourses}
+        </Link>
+      )}
       <AsyncSection state={state}>
         {(rows) => {
           const enrollment = rows.find((e) => e.classId === classId);

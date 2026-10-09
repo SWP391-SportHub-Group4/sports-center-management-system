@@ -5,7 +5,37 @@ import type {
   CourtRentalDetailDto,
   RentalAvailabilityDto,
 } from "@/lib/types";
+export interface CourtCalendarSlot {
+  startUtc: string;
+  endUtc: string;
+  status:
+    | "AVAILABLE"
+    | "BOOKED"
+    | "HELD"
+    | "BLOCKED"
+    | "SCHEDULED"
+    | "UNAVAILABLE"
+    | "NO_RATE";
+  totalPrice: number | null;
+  blocks: RentalAvailabilityDto["blocks"];
+}
+export interface CourtCalendarDay {
+  sportId: number;
+  date: string;
+  serverNowUtc: string;
+  rooms: { roomId: number; name: string; slots: CourtCalendarSlot[] }[];
+}
 export const rentalApi = {
+  calendar: (
+    sportId: number,
+    date: string,
+    hours: number,
+    signal?: AbortSignal,
+  ) =>
+    api.get<CourtCalendarDay>("/api/court-rentals/calendar", {
+      signal,
+      query: { sportId, date, hours },
+    }),
   policy: (signal?: AbortSignal) =>
     api.get<CourtRentalPolicyDto>("/api/court-rentals/policy", { signal }),
   detail: (id: string, signal?: AbortSignal) =>

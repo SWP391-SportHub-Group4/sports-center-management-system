@@ -38,7 +38,9 @@ export function MemberInvoices() {
       })
       .then((d) => {
         if (!controller.signal.aborted)
-          router.replace(`/member/invoices/${d.summary.invoiceId}`);
+          router.replace(
+            `/member/finance?tab=invoices&invoice=${d.summary.invoiceId}`,
+          );
       })
       .catch((error) => {
         if (!controller.signal.aborted) setLinkError(error.message);
@@ -104,7 +106,7 @@ export function MemberInvoices() {
                         variant: "secondary",
                         size: "sm",
                       })}
-                      href={`/member/invoices/${invoice.invoiceId}`}
+                      href={`/member/finance?tab=invoices&invoice=${invoice.invoiceId}`}
                     >
                       {t.refactor.details}
                     </Link>

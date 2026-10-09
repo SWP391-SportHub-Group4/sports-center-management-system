@@ -28,7 +28,16 @@ public sealed class PtPricingService(IMembershipAccessReader memberships, ISyste
             throw new ConflictException("membership_not_active", "Membership liên kết phải đang có hiệu lực.");
         if (!await specialties.IsPersonalTrainerAsync(request.CoachId, ct))
             throw new BadRequestException("coach_must_be_personal_trainer", "Coach chưa có chuyên môn PT.");
-        var quota = PtEntitlementRules.ComputeTotalQuota(
+        if (request.StartAtUtc is DateTime start)
+        {
+            if (start.Kind != DateTimeKind.Utc)
+                throw new BadRequestException("pt_start_not_utc", "Giờ PT phải dùng UTC (hậu tố Z).");
+            PtSlotCalculator.ValidateStart(clock.UtcNow, start);
+            if (start < VietnamTime.StartOfDayUtc(package.StartDate)
+                || PtSessionRules.EndAtUtc(start) > VietnamTime.EndOfDayExclusiveUtc(package.EndDate))
+                throw new ConflictException("pt_session_outside_membership_validity", "Buổi PT phải nằm trong thời hạn Membership.");
+        }
+        var quota = request.StartAtUtc.HasValue ? 1 : PtEntitlementRules.ComputeTotalQuota(
             request.FrequencyPerWeek, package.StartDate, package.EndDate);
         var price = await GetPriceAsync(ct);
         if (price.Value <= 0 || price.Value % 1000 != 0)

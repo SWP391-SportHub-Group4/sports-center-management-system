@@ -1,15 +1,18 @@
-"use client";
-import { useParams } from "next/navigation";
-import { MemberShell } from "@/components/MemberShell";
-import { PtSessionDetail } from "@/features/training/pt-session-detail";
-import { useLanguage } from "@/lib/language";
+import {
+  redirectMemberPage,
+  type MemberSearchParams,
+} from "@/lib/member-route-redirect";
 
-export default function Page() {
-  const { t } = useLanguage();
-  const { id } = useParams<{ id: string }>();
-  return (
-    <MemberShell title={t.ptOps.sessionTitle}>
-      <PtSessionDetail sessionId={id} />
-    </MemberShell>
-  );
+export default async function Page({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: MemberSearchParams;
+}) {
+  const { id } = await params;
+  return redirectMemberPage(searchParams, "/member/training", {
+    tab: "sessions",
+    session: id,
+  });
 }

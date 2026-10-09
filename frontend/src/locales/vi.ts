@@ -452,7 +452,8 @@ export const vi: Translations = {
     attentionTitle: "Cần bạn xử lý",
     noAttention: "Hiện không có việc nào cần bạn xử lý.",
     checkingAttention: "Đang kiểm tra các việc cần xử lý…",
-    attentionUnavailable: "Chưa kiểm tra được đầy đủ các việc cần xử lý. Hãy tải lại trang.",
+    attentionUnavailable:
+      "Chưa kiểm tra được đầy đủ các việc cần xử lý. Hãy tải lại trang.",
     gymEnds: "Membership Gym hết hạn ngày {date}",
     ptLow: "Còn {n} buổi PT",
     renew: "Gia hạn",
@@ -467,7 +468,7 @@ export const vi: Translations = {
     courtRental: "Thuê sân",
     schedule: "Lịch của tôi",
     courses: "Khóa học của tôi",
-    services: "Gym & PT",
+    services: "Dịch vụ",
     discover: "Khám phá",
     upcoming: "Sắp học",
     ongoing: "Đang học",
@@ -1347,7 +1348,8 @@ export const vi: Translations = {
     tabWallet: "Ví điểm",
     tabInvoices: "Hóa đơn",
     tabRefunds: "Hoàn điểm",
-    refundRule: "Yêu cầu hợp lệ được hoàn vào ví điểm; số điểm cuối cùng do hệ thống và Quản lý xác nhận.",
+    refundRule:
+      "Yêu cầu hợp lệ được hoàn vào ví điểm; số điểm cuối cùng do hệ thống và Quản lý xác nhận.",
     refundPoints: "Điểm hoàn",
     refundEstimate: "Dự kiến hoàn",
     refundNoCredit: "Không hoàn điểm",
@@ -1813,14 +1815,14 @@ export const vi: Translations = {
     linkFinance: "Tài chính",
   },
   mDiscover: {
-    description:
-      "Tìm và mua khóa học, Membership Gym, PT hoặc đặt sân.",
+    description: "Tìm và mua khóa học, Membership Gym, PT hoặc đặt sân.",
     tabs: "Danh mục dịch vụ",
     tabCourses: "Khóa học",
     tabCourts: "Sân",
     chooseGym: "Khám phá Membership Gym",
     choosePt: "Mua gói PT",
-    courtHint: "Chọn môn, ngày và thời lượng để xem sân còn trống trước khi đặt.",
+    courtHint:
+      "Chọn môn, ngày và thời lượng để xem sân còn trống trước khi đặt.",
     bookCourt: "Tìm sân trống",
     filtersLabel: "Bộ lọc khóa học",
     sport: "Môn",

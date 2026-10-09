@@ -7,7 +7,7 @@ import { useAuth } from "@/lib/auth";
 import { buttonClass } from "@/components/primitives/Button";
 import styles from "./court-booking-section.module.css";
 
-const bookingPath = "/member/courts/book";
+const bookingPath = "/member/services?section=courts&view=explore";
 
 export function CourtBookingSection({ language }: { language: "en" | "vi" }) {
   const { user } = useAuth();

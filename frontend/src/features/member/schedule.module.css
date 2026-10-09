@@ -42,24 +42,36 @@
   min-height: 44px;
 }
 
-.filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  margin-bottom: var(--space-4);
-}
-.filters button[aria-pressed="true"] {
-  background: var(--bg-brand-deep);
-  color: var(--chalk-50);
-  border-color: var(--bg-brand-deep);
-}
-
 .calendarScroll {
   max-width: 100%;
   overflow-x: auto;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
   background: var(--bg-surface);
+}
+.compact .toolbar {
+  padding: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+.compact .legend {
+  margin-bottom: var(--space-2);
+  font-size: var(--text-xs);
+}
+.compact .week caption {
+  padding: var(--space-2) var(--space-3);
+}
+@media (min-width: 881px) {
+  .compact .weekPicker label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .compact .week {
+    min-width: 840px;
+  }
 }
 
 .week {
@@ -181,6 +193,51 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-1);
+}
+
+.event[data-preview] {
+  min-height: 44px;
+  padding: var(--space-3);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-md);
+  background: var(--color-primary-soft);
+}
+.event[data-preview="true"] {
+  border: 1px dashed var(--border-control);
+  background: var(--bg-surface-sunken);
+}
+.event[data-preview="true"] strong,
+.event[data-preview="true"] time {
+  color: var(--text-muted);
+}
+.previewLabel {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  line-height: 1.6;
+}
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-5);
+  margin-bottom: var(--space-4);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.legend i {
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--color-primary);
+  border-radius: 5px;
+  background: var(--color-primary-soft);
+}
+.legend i[data-preview="true"] {
+  border: 1px dashed var(--border-control);
+  background: var(--bg-surface-sunken);
 }
 
 .detail {

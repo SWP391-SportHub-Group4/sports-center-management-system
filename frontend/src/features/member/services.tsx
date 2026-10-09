@@ -1,6 +1,4 @@
 "use client";
-import Link from "next/link";
-import { Tabs } from "@/components/primitives";
 import { AsyncSection, Card, StatusChip, Table } from "@/components/ui";
 import { api } from "@/lib/apiClient";
 import { formatDate, formatDateTime } from "@/lib/format";
@@ -13,8 +11,10 @@ import type {
   PtEntitlementDto,
 } from "@/lib/types";
 import { useApi } from "@/lib/useApi";
-import { choiceQuery, pageQuery, useUrlQuery } from "@/lib/useUrlQuery";
+import { pageQuery, useUrlQuery } from "@/lib/useUrlQuery";
+import styles from "./services.module.css";
 import { CoachChangeSection } from "@/features/training";
+import { isRetiredActivityPackage } from "@/features/membership";
 
 function Visits() {
   const { t } = useLanguage();
@@ -70,15 +70,23 @@ function Visits() {
   );
 }
 
-export function MemberServices() {
-  const { t } = useLanguage();
-  const { values, setValues } = useUrlQuery(
-    { tab: "gym" },
-    { tab: choiceQuery(["gym", "pt", "visits"], "gym") },
-  );
+export function MemberServices({
+  section = "gym",
+  showVisits = false,
+  compact = false,
+}: {
+  section?: "gym" | "pt";
+  showVisits?: boolean;
+  compact?: boolean;
+}) {
+  const { t, language } = useLanguage();
   const packages = useApi(
-    (signal) =>
-      api.get<MemberPackageDto[]>("/api/members/me/packages", { signal }),
+    async (signal) =>
+      (
+        await api.get<MemberPackageDto[]>("/api/members/me/packages", {
+          signal,
+        })
+      ).filter((row) => !isRetiredActivityPackage(row.packageName)),
     [],
   );
   const entitlements = useApi(
@@ -91,22 +99,12 @@ export function MemberServices() {
   return (
     <>
       <p className="muted">{t.memberPages.membershipNote}</p>
-      <Tabs
-        ariaLabel={t.memberPages.services}
-        value={values.tab}
-        onChange={(tab) => setValues({ tab })}
-        tabs={(["gym", "pt", "visits"] as const).map((id) => ({
-          id,
-          label: t.memberPages[id],
-        }))}
-      >
-        {values.tab === "visits" ? (
-          <Visits />
-        ) : values.tab === "gym" ? (
+      <div>
+        {section === "gym" ? (
           <>
             <AsyncSection state={packages} isEmpty={(rows) => !rows.length}>
               {(rows) => (
-                <div className="stack">
+                <div className={compact ? styles.packages : "stack"}>
                   {rows.map((p) => (
                     <Card key={p.memberPackageId} title={p.packageName}>
                       <p>
@@ -133,18 +131,16 @@ export function MemberServices() {
                 </div>
               )}
             </AsyncSection>
-            <Link
-              className="btn btn--secondary"
-              href="/member/discover?tab=gym"
-            >
-              {t.mDiscover.chooseGym}
-            </Link>
+            <details open={showVisits || undefined}>
+              <summary>{t.memberPages.visits}</summary>
+              <Visits />
+            </details>
           </>
         ) : (
           <>
             <AsyncSection state={entitlements} isEmpty={(rows) => !rows.length}>
               {(rows) => (
-                <div className="stack">
+                <div className={compact ? styles.packages : "stack"}>
                   {rows.map((e) => (
                     <Card key={e.entitlementId} title={e.coachName}>
                       <p>
@@ -183,15 +179,23 @@ export function MemberServices() {
               )}
             </AsyncSection>
             <p className="muted">{t.memberPages.frequencyHint}</p>
-            <AsyncSection state={entitlements}>
-              {(rows) => <CoachChangeSection entitlements={rows} />}
-            </AsyncSection>
-            <Link className="btn btn--secondary" href="/member/discover?tab=pt">
-              {t.mDiscover.choosePt}
-            </Link>
+            {compact ? (
+              <details className={styles.disclosure}>
+                <summary>
+                  {language === "vi" ? "Đổi huấn luyện viên" : "Change coach"}
+                </summary>
+                <AsyncSection state={entitlements}>
+                  {(rows) => <CoachChangeSection entitlements={rows} />}
+                </AsyncSection>
+              </details>
+            ) : (
+              <AsyncSection state={entitlements}>
+                {(rows) => <CoachChangeSection entitlements={rows} />}
+              </AsyncSection>
+            )}
           </>
         )}
-      </Tabs>
+      </div>
     </>
   );
 }

@@ -9,4 +9,5 @@ public sealed record CreatePendingPtEntitlementCommand(
     Guid CoachId,
     Guid OriginMemberPackageId,
     int FrequencyPerWeek,
-    Guid InvoiceItemId);
+    Guid InvoiceItemId,
+    bool SingleSession = false);
