@@ -1500,7 +1500,9 @@ body:has(.auth--login, .auth--register) {
 
 .google-sign-in-wrap {
   position: relative;
+  width: min(400px, 100%);
   min-height: 44px;
+  margin-inline: auto;
 }
 
 .google-sign-in--disabled {
@@ -1530,7 +1532,7 @@ body:has(.auth--login, .auth--register) {
   min-height: 44px;
   padding: 10px 16px;
   border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-pill);
   background: var(--surface);
   color: var(--navy);
   font-family: inherit;

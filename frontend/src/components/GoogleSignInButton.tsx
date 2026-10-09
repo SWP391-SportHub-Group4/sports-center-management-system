@@ -98,7 +98,8 @@ export function GoogleSignInButton({
       window.google.accounts.id.renderButton(host.current, {
         theme: "outline",
         size: "large",
-        width: host.current.clientWidth,
+        shape: "pill",
+        width: Math.min(host.current.clientWidth, 400),
         text,
         locale,
       });

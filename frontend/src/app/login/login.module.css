@@ -77,10 +77,10 @@ section.card {
 }
 
 .submit {
-  width: 100%;
+  width: min(400px, 100%);
   min-height: 52px;
-  margin-top: 0;
-  border-radius: var(--radius-md);
+  margin: 0 auto;
+  border-radius: var(--radius-pill);
   font-size: var(--text-md);
 }
 
