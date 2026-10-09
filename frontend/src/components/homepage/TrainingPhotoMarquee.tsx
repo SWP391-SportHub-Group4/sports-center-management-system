@@ -46,7 +46,7 @@ export function TrainingPhotoMarquee({
         </h2>
       </header>
 
-      <div className={styles.viewport}>
+      <div className={styles.viewport} tabIndex={0}>
         <div className={styles.track}>
           {[0, 1].map((copy) => (
             <div
