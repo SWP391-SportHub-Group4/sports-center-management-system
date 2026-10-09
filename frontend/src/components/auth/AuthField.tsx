@@ -23,6 +23,7 @@ export interface AuthFieldProps extends Omit<
   /** Inline validation message; reserveErrorSpace keeps the form from shifting. */
   error?: string;
   reserveErrorSpace?: boolean;
+  compactErrorSpace?: boolean;
 }
 
 /**
@@ -32,7 +33,17 @@ export interface AuthFieldProps extends Omit<
  */
 export const AuthField = forwardRef<HTMLInputElement, AuthFieldProps>(
   function AuthField(
-    { label, icon, trailing, error, reserveErrorSpace, id, className, ...rest },
+    {
+      label,
+      icon,
+      trailing,
+      error,
+      reserveErrorSpace,
+      compactErrorSpace,
+      id,
+      className,
+      ...rest
+    },
     ref,
   ) {
     const generatedId = useId();
@@ -44,7 +55,9 @@ export const AuthField = forwardRef<HTMLInputElement, AuthFieldProps>(
         .join(" ") || undefined;
 
     return (
-      <div className={styles.group}>
+      <div
+        className={`${styles.group} ${compactErrorSpace ? styles.compactErrorSpace : ""}`}
+      >
         <div
           className={[
             styles.field,

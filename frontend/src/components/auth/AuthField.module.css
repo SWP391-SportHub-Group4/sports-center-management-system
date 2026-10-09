@@ -16,6 +16,15 @@
   line-height: 20px;
 }
 
+.compactErrorSpace .errorSlot {
+  min-height: 16px;
+  margin-top: 0;
+}
+
+.compactErrorSpace .error {
+  line-height: 16px;
+}
+
 .field {
   position: relative;
 }

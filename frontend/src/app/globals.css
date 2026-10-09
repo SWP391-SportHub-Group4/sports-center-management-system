@@ -1833,11 +1833,11 @@ body:has(.auth--login, .auth--register) {
   background: var(--bg-surface-sunken);
   border: 1px solid var(--border-control);
   border-radius: var(--radius-md);
-  padding: 14px;
+  padding: 20px;
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 0;
 }
 
 .otp-box__header {
@@ -1848,6 +1848,7 @@ body:has(.auth--login, .auth--register) {
   gap: 12px;
   font-size: 0.8125rem;
   color: var(--navy);
+  margin-bottom: 10px;
 }
 
 .otp-box__timer {
@@ -1871,6 +1872,12 @@ body:has(.auth--login, .auth--register) {
 
 .otp-error-slot {
   min-height: 20px;
+  margin-top: 6px;
+  margin-bottom: 20px;
+}
+
+.otp-input + .otp-box__actions {
+  margin-top: 20px;
 }
 
 .otp-error-slot p {
