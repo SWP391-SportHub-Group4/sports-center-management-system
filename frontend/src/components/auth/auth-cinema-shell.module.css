@@ -92,12 +92,20 @@
   margin-bottom: 6px;
 }
 
+.shell :global(.auth--register .auth__card) {
+  padding: clamp(20px, 4vw, 28px);
+}
+
 .shell :global(.auth__top-row) {
   margin-bottom: 10px;
 }
 
+.shell :global(.auth--register .auth__top-row) {
+  margin-bottom: 12px;
+}
+
 .shell :global(.auth__steps) {
-  margin: 16px 0 14px;
+  margin: 18px 0 20px;
 }
 
 .shell :global(.auth__separator) {
