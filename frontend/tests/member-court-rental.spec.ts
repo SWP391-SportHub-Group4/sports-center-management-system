@@ -46,8 +46,8 @@ async function setup(page: Page) {
         },
       });
     if (path === "/api/sports") {
-      // Chỉ môn có dịch vụ thuê sân bật mới xuất hiện trong form đặt sân.
-      expect(url.searchParams.get("service")).toBe("COURT_RENTAL");
+      // The Services hub also fetches the unfiltered sport catalog.
+      expect([null, "COURT_RENTAL"]).toContain(url.searchParams.get("service"));
       return route.fulfill({ json: [sport] });
     }
     if (path === "/api/court-rentals/policy")
@@ -60,26 +60,31 @@ async function setup(page: Page) {
           serverNowUtc: "2030-10-02T00:00:00Z",
         },
       });
-    if (path === "/api/court-rentals/availability") {
-      const start = url.searchParams.get("startUtc")!;
-      const end = url.searchParams.get("endUtc")!;
-      const hours = (Date.parse(end) - Date.parse(start)) / 3600000;
+    if (path === "/api/court-rentals/calendar") {
+      const hours = Number(url.searchParams.get("hours"));
+      const start = Date.parse(`${url.searchParams.get("date")}T03:00:00Z`);
+      const end = start + hours * 3600000;
       return route.fulfill({
-        json: [
-          {
+        json: {
+          sportId: 3,
+          date: url.searchParams.get("date"),
+          serverNowUtc: "2030-10-02T00:00:00Z",
+          rooms: [{
             roomId: 7,
             name: "Court A",
-            capacity: 2,
-            totalPrice: 100000 * hours,
-            blocks: Array.from({ length: hours }, (_, i) => ({
-              startUtc: new Date(Date.parse(start) + i * 3600000).toISOString(),
-              endUtc: new Date(
-                Date.parse(start) + (i + 1) * 3600000,
-              ).toISOString(),
-              price: 100000,
-            })),
-          },
-        ],
+            slots: [{
+              startUtc: new Date(start).toISOString(),
+              endUtc: new Date(end).toISOString(),
+              status: "AVAILABLE",
+              totalPrice: 100000 * hours,
+              blocks: Array.from({ length: hours }, (_, i) => ({
+                startUtc: new Date(start + i * 3600000).toISOString(),
+                endUtc: new Date(start + (i + 1) * 3600000).toISOString(),
+                price: 100000,
+              })),
+            }],
+          }],
+        },
       });
     }
     if (path === "/api/checkouts/court-rental") {
@@ -104,25 +109,20 @@ test("any active member prices a 2-hour rental from the server and sends no owne
   const requests = await setup(page);
   await page.goto("/member/courts/book");
 
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-    "Book a court",
-  );
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Services");
   // Không còn số người, hồ sơ hay trạng thái duyệt.
   await expect(page.getByLabel(/attendees/i)).toHaveCount(0);
   await expect(page.getByText(/approved/i)).toHaveCount(0);
 
-  await page.getByLabel("Sport", { exact: true }).selectOption("3");
-  await page.getByLabel("Date", { exact: true }).fill("2030-10-03");
-  await page.getByLabel("Hours", { exact: true }).selectOption("2");
-  await page
-    .getByRole("button", { name: "Check availability and price" })
-    .click();
-  await page.getByLabel("Room", { exact: true }).selectOption("7");
+  await page.getByRole("group", { name: "Sport" }).getByRole("button", { name: "Badminton" }).click();
+  await page.getByRole("button", { name: "03/10/2030" }).click();
+  await page.getByLabel("Rental duration").selectOption("2");
+  await page.getByRole("button", { name: /10:00.*12:00.*Available/ }).click();
 
   // 2 giờ x 100.000 = 200.000: tổng do server báo, FE chỉ hiển thị.
   await expect(page.getByText(/200,000/).first()).toBeVisible();
 
-  await page.getByRole("button", { name: "Checkout", exact: true }).click();
+  await page.getByRole("button", { name: "Payment", exact: true }).click();
   await expect.poll(() => requests.length).toBe(1);
   expect(Object.keys(requests[0].body).sort()).toEqual([
     "endUtc",
@@ -148,15 +148,15 @@ test("legacy portal bookmarks land on the member routes", async ({
   await expect(page).toHaveURL(/\/register$/);
 });
 
-test("the member menu has a court rental entry that stays on one row at 1360px", async ({
+test("the member menu keeps Services on one row at 1360px", async ({
   page,
 }) => {
   await setup(page);
   await page.setViewportSize({ width: 1360, height: 800 });
   await page.goto("/member");
   const nav = page.getByRole("navigation", { name: "Member Navigation" });
-  await expect(nav.getByRole("link", { name: "Court rental" })).toBeVisible();
-  await expect(nav.getByRole("link")).toHaveCount(8);
+  await expect(nav.getByRole("link", { name: "Services" })).toBeVisible();
+  await expect(nav.getByRole("link")).toHaveCount(5);
   const box = await page.evaluate(() => {
     const header = document.querySelector("header") as HTMLElement;
     const navEl = document.querySelector("header nav") as HTMLElement;
