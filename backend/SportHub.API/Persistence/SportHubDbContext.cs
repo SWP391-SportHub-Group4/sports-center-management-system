@@ -33,7 +33,6 @@ public class SportHubDbContext : DbContext, ISportHubDbContext
     public DbSet<UserProfile> UserProfiles => Set<UserProfile>();
     public DbSet<UserExternalLogin> UserExternalLogins => Set<UserExternalLogin>();
     public DbSet<EmailOtp> EmailOtps => Set<EmailOtp>();
-    public DbSet<GoogleOnboardingTicket> GoogleOnboardingTickets => Set<GoogleOnboardingTicket>();
     public DbSet<CoachProfile> CoachProfiles => Set<CoachProfile>();
     public DbSet<UserSportSpecialty> UserSportSpecialties => Set<UserSportSpecialty>();
     public DbSet<CoachServiceQualification> CoachServiceQualifications => Set<CoachServiceQualification>();
@@ -73,8 +72,6 @@ public class SportHubDbContext : DbContext, ISportHubDbContext
     public DbSet<PtSession> PtSessions => Set<PtSession>();
     public DbSet<PtSessionChangeRequest> PtSessionChangeRequests => Set<PtSessionChangeRequest>();
     public DbSet<PtCoachChangeRequest> PtCoachChangeRequests => Set<PtCoachChangeRequest>();
-    public DbSet<HomeworkAssignment> HomeworkAssignments => Set<HomeworkAssignment>();
-    public DbSet<HomeworkAssignmentItem> HomeworkAssignmentItems => Set<HomeworkAssignmentItem>();
 
     public DbSet<Invoice> Invoices => Set<Invoice>();
     public DbSet<InvoiceItem> InvoiceItems => Set<InvoiceItem>();

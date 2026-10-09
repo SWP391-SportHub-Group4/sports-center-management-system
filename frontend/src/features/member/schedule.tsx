@@ -9,6 +9,7 @@ import { useApi, useNow } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { addDaysIso, formatDate, formatTime, todayIso } from "@/lib/format";
 import { useUrlQuery } from "@/lib/useUrlQuery";
+import { useMediaQuery } from "@/lib/useMediaQuery";
 import { rentalApi } from "../rentals/api";
 import type { CourtRentalDto, SportDto } from "@/lib/types";
 import { memberSchedule, type MemberEvent } from "./api";
@@ -120,7 +121,12 @@ async function loadTimeline(
       rental: r,
     });
   }
-  return items.sort((a, b) => a.startAtUtc.localeCompare(b.startAtUtc));
+  return items.sort(
+    (a, b) =>
+      a.startAtUtc.localeCompare(b.startAtUtc) ||
+      a.endAtUtc.localeCompare(b.endAtUtc) ||
+      a.id.localeCompare(b.id),
+  );
 }
 
 export function MemberSchedule() {
@@ -136,7 +142,9 @@ export function MemberSchedule() {
   const days = 7;
   const [selection, setSelection] = useState<Item | null>(null);
   const [cancelling, setCancelling] = useState<CourtRentalDto | null>(null);
+  const [filterKind, setFilterKind] = useState<EventKind | "all">("all");
   const now = useNow();
+  const narrow = useMediaQuery("(max-width: 720px)");
   function setSelected(item: Item | null) {
     setSelection(item);
     if (values.event) setValues({ event: "" });
@@ -167,9 +175,12 @@ export function MemberSchedule() {
 
   const renderEvent = (item: Item) => {
     const cancelled = /CANCEL/i.test(item.status ?? "");
-    const present = item.attendanceStatus?.toUpperCase() === "PRESENT";
-    const completed =
-      item.kind !== "class" && item.status?.toUpperCase() === "COMPLETED";
+    const absent = item.attendanceStatus?.toUpperCase() === "ABSENT";
+    // Một nhãn duy nhất cho buổi đã diễn ra: buổi lớp có mặt, buổi PT hoặc lượt thuê đã xong đều là "Hoàn thành".
+    const done =
+      !absent &&
+      (item.attendanceStatus?.toUpperCase() === "PRESENT" ||
+        item.status?.toUpperCase() === "COMPLETED");
     return (
       <button
         key={item.id}
@@ -180,21 +191,22 @@ export function MemberSchedule() {
       >
         <span className={styles.eventHeading}>
           <strong>{item.title}</strong>
-          {(present || completed) && (
-            <span className={styles.done}>
-              <span aria-hidden="true">✓</span>{" "}
-              {present ? m.present : m.completed}
-            </span>
-          )}
         </span>
         <time dateTime={item.startAtUtc}>
           {formatTime(item.startAtUtc)}–{formatTime(item.endAtUtc)}
         </time>
         {item.roomName && <span className={styles.meta}>{item.roomName}</span>}
+        {item.kind === "rental" && item.sport && (
+          <span className={styles.meta}>{item.sport}</span>
+        )}
         {item.coachName && (
           <span className={styles.meta}>{item.coachName}</span>
         )}
-        {exceptional(item.status) && !completed && (
+        {done && (
+          <StatusChip value="COMPLETED" tone="success" label={m.completed} />
+        )}
+        {absent && <StatusChip value="ABSENT" tone="danger" label={m.absent} />}
+        {exceptional(item.status) && !done && !absent && (
           <StatusChip value={item.status} />
         )}
       </button>
@@ -241,16 +253,76 @@ export function MemberSchedule() {
         </div>
       </div>
 
+      <div className={styles.filters} role="group" aria-label={m.filterLabel}>
+        {(
+          [
+            ["all", t.memberPages.all],
+            ["class", m.kindClass],
+            ["pt", m.kindPt],
+            ["rental", m.kindRental],
+          ] as const
+        ).map(([kind, label]) => (
+          <button
+            key={kind}
+            type="button"
+            className="btn btn--secondary btn--sm"
+            aria-pressed={filterKind === kind}
+            onClick={() => setFilterKind(kind)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
       <AsyncSection state={state}>
         {(all) => {
           const byDay = new Map<string, Item[]>();
           for (let i = 0; i < days; i++) byDay.set(addDaysIso(monday, i), []);
-          for (const item of all) byDay.get(vnDay(item.startAtUtc))?.push(item);
+          const visible =
+            filterKind === "all"
+              ? all
+              : all.filter((item) => item.kind === filterKind);
+          for (const item of visible)
+            byDay.get(vnDay(item.startAtUtc))?.push(item);
           const columns = [...byDay.entries()];
           const rows = Math.max(
             1,
             ...columns.map(([, events]) => events.length),
           );
+          if (narrow)
+            return (
+              <section
+                className={styles.agendaList}
+                aria-label={m.weekSchedule}
+              >
+                <h2 className={styles.agendaRange}>{range}</h2>
+                {columns.map(([day, events], index) => (
+                  <section
+                    key={day}
+                    className={styles.agendaDay}
+                    data-today={day === todayIso()}
+                    aria-label={`${m.weekdays[index]} ${fmt(day, { day: "2-digit", month: "2-digit" })}`}
+                  >
+                    <h3>
+                      {m.weekdays[index]},{" "}
+                      {fmt(day, { day: "2-digit", month: "2-digit" })}
+                      {day === todayIso() && (
+                        <span className={styles.todayTag}>{m.todayTag}</span>
+                      )}
+                    </h3>
+                    {events.length ? (
+                      <ul>
+                        {events.map((event) => (
+                          <li key={event.id}>{renderEvent(event)}</li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className={styles.free}>{m.dayEmpty}</p>
+                    )}
+                  </section>
+                ))}
+              </section>
+            );
           return (
             <div
               className={styles.calendarScroll}

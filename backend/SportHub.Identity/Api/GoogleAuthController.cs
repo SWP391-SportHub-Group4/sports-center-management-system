@@ -8,7 +8,7 @@ using SportHub.Identity.Application.Interfaces;
 
 namespace SportHub.Identity.Api;
 
-/// <summary>Đăng nhập Google — BR-59, BR-60.</summary>
+/// <summary>Đăng nhập Google: tự tạo tài khoản hoặc tự liên kết theo email đã xác minh (docs/auth-account-rules.md).</summary>
 [ApiController]
 [Route("api/auth")]
 public class GoogleAuthController(IGoogleAuthService google) : ControllerBase
@@ -17,27 +17,7 @@ public class GoogleAuthController(IGoogleAuthService google) : ControllerBase
     [EnableRateLimiting("auth-login")]
     [HttpPost("google")]
     public async Task<IActionResult> Login([FromBody] GoogleTokenRequest request, CancellationToken ct)
-    {
-        var result = await google.LoginAsync(request.IdToken, ct);
-
-        if (result.RequiresOnboarding)
-        {
-            return StatusCode(StatusCodes.Status202Accepted, result.Onboarding);
-        }
-
-        return Ok(result.Auth);
-    }
-
-    [AllowAnonymous]
-    [EnableRateLimiting("auth-register")]
-    [HttpPost("google/onboarding")]
-    public async Task<IActionResult> CompleteOnboarding(
-        [FromBody] CompleteGoogleOnboardingRequest request,
-        CancellationToken ct)
-    {
-        var auth = await google.CompleteOnboardingAsync(request, ct);
-        return StatusCode(StatusCodes.Status201Created, auth);
-    }
+        => Ok(await google.LoginAsync(request.IdToken, ct));
 
     [Authorize]
     [HttpPost("google/link")]

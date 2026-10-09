@@ -8,7 +8,7 @@ using SportHub.Identity.Domain.Enums;
 namespace SportHub.Identity.Application.Services;
 
 /// <summary>
-/// Vòng đời OTP email cho quên mật khẩu bằng link (BR-78):
+/// Vòng đời OTP email cho quên mật khẩu bằng link và đặt mật khẩu lần đầu bằng mã 6 số:
 /// mã 6 số, hết hạn 10 phút, tối đa 5 lần sai, gửi lại sau 60 giây, chỉ mã mới nhất còn hiệu lực,
 /// băm SHA-256, dùng một lần.
 ///
@@ -30,6 +30,12 @@ public sealed class EmailOtpFlow(ISportHubDbContext db, IClock clock, INotificat
         if (purpose == EmailOtpPurpose.ResetPassword && resetLink is null)
         {
             throw new InvalidOperationException("Đặt lại mật khẩu chỉ gửi bằng link, không gửi mã OTP.");
+        }
+
+        // Đặt mật khẩu lần đầu (tài khoản Google) chỉ đi bằng mã 6 số.
+        if (purpose == EmailOtpPurpose.SetPassword && resetLink is not null)
+        {
+            throw new InvalidOperationException("Đặt mật khẩu lần đầu chỉ gửi mã OTP, không gửi link.");
         }
 
         var now = clock.UtcNow;
@@ -56,15 +62,22 @@ public sealed class EmailOtpFlow(ISportHubDbContext db, IClock clock, INotificat
         otp.ConsumedAt = null;
         otp.CreatedAt = now;
 
-        // Chỉ còn mục đích đặt lại mật khẩu bằng link (không gửi mã OTP).
-        if (purpose != EmailOtpPurpose.ResetPassword)
+        if (purpose == EmailOtpPurpose.ResetPassword)
         {
-            throw new ArgumentOutOfRangeException(nameof(purpose), purpose, "Chỉ đặt lại mật khẩu dùng EmailOtpFlow.");
+            notifications.QueueEmail(new EmailNotificationRequest(null, email, NotificationEvents.PasswordResetOtpRequested,
+                Guid.NewGuid(), PasswordResetEmail.Subject,
+                PasswordResetEmail.Render(resetLink!(code), (int)AuthService.OtpLifetime.TotalMinutes, supportUrl)));
         }
-
-        notifications.QueueEmail(new EmailNotificationRequest(null, email, NotificationEvents.PasswordResetOtpRequested,
-            Guid.NewGuid(), PasswordResetEmail.Subject,
-            PasswordResetEmail.Render(resetLink!(code), (int)AuthService.OtpLifetime.TotalMinutes, supportUrl)));
+        else if (purpose == EmailOtpPurpose.SetPassword)
+        {
+            notifications.QueueEmail(new EmailNotificationRequest(null, email, NotificationEvents.PasswordResetOtpRequested,
+                Guid.NewGuid(), SetPasswordEmail.Subject,
+                SetPasswordEmail.Render(code, (int)AuthService.OtpLifetime.TotalMinutes, supportUrl)));
+        }
+        else
+        {
+            throw new ArgumentOutOfRangeException(nameof(purpose), purpose, "EmailOtpFlow chỉ dùng cho đặt lại và đặt mật khẩu.");
+        }
 
         try
         {

@@ -1420,8 +1420,8 @@ test("incident preview blocks resolution and invalidates when the form changes",
   });
   await page.goto("/manager/incidents");
   await page.getByLabel("Room", { exact: true }).selectOption("1");
-  await page.getByLabel("Start (Vietnam time)").fill("2030-10-03T09:00");
-  await page.getByLabel("End (Vietnam time)").fill("2030-10-03T10:00");
+  await page.getByLabel("Start", { exact: true }).fill("2030-10-03T09:00");
+  await page.getByLabel("End", { exact: true }).fill("2030-10-03T10:00");
   await page.getByLabel("Reason").fill("Court maintenance");
   await page.getByRole("button", { name: "Review", exact: true }).click();
   await expect(page.getByText("Move the class first")).toBeVisible();
@@ -1652,8 +1652,8 @@ test("late incident preview cannot resolve after its reason changes", async ({
   });
   await page.goto("/manager/incidents");
   await page.getByLabel("Room", { exact: true }).selectOption("1");
-  await page.getByLabel("Start (Vietnam time)").fill("2030-10-03T09:00");
-  await page.getByLabel("End (Vietnam time)").fill("2030-10-03T10:00");
+  await page.getByLabel("Start", { exact: true }).fill("2030-10-03T09:00");
+  await page.getByLabel("End", { exact: true }).fill("2030-10-03T10:00");
   await page
     .getByLabel("Reason", { exact: true })
     .fill("Original maintenance reason");

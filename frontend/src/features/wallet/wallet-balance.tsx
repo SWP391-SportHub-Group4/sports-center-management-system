@@ -35,6 +35,17 @@ export function WalletBalance({
           {!compact && <span className={styles.hint}>{t.wallet.heldHint}</span>}
         </dd>
       </div>
+      {!compact && (
+        <div>
+          <dt>{t.wallet.total}</dt>
+          <dd>
+            <span className={styles.value}>
+              {formatPoints(balance.availablePoints + balance.heldPoints)}
+            </span>
+            <span className={styles.hint}>{t.wallet.totalHint}</span>
+          </dd>
+        </div>
+      )}
     </dl>
   );
 }

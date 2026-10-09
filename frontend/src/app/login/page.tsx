@@ -5,18 +5,11 @@ import { Suspense, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ApiError } from "@/lib/apiClient";
-import {
-  GoogleOnboardingRequired,
-  type GoogleOnboardingPending,
-  safeReturnTo,
-  HOME_BY_ROLE,
-  useAuth,
-} from "@/lib/auth";
+import { safeReturnTo, HOME_BY_ROLE, useAuth } from "@/lib/auth";
 import { Feedback } from "@/components/ui";
 import { AuthField, AuthPasswordField } from "@/components/auth/AuthField";
 import { AuthBrand } from "@/components/auth/AuthCinemaShell";
 import { IconLock, IconMail } from "@/components/icons";
-import { GoogleOnboarding } from "@/features/identity/google-onboarding";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 import styles from "./login.module.css";
 
@@ -78,9 +71,6 @@ function LoginForm() {
   const { t, language } = useLanguage();
   const { login, loginWithGoogle } = useAuth();
   const router = useRouter();
-  const [onboarding, setOnboarding] = useState<GoogleOnboardingPending | null>(
-    null,
-  );
   const params = useSearchParams();
 
   const [email, setEmail] = useState("");
@@ -143,18 +133,6 @@ function LoginForm() {
       setBusy(false);
     }
   };
-
-  if (onboarding)
-    return (
-      <main className="auth">
-        <div className="auth__card">
-          <GoogleOnboarding
-            pending={onboarding}
-            onCancel={() => setOnboarding(null)}
-          />
-        </div>
-      </main>
-    );
 
   return (
     <div className="auth auth--login">
@@ -320,9 +298,7 @@ function LoginForm() {
                   const target = safeReturnTo(next, HOME_BY_ROLE[user.role]);
                   router.replace(target);
                 } catch (cause) {
-                  if (cause instanceof GoogleOnboardingRequired) {
-                    setOnboarding(cause.pending);
-                  } else setError(loginErrorMessage(cause, language));
+                  setError(loginErrorMessage(cause, language));
                   setErrorSource("form");
                 } finally {
                   setBusy(false);

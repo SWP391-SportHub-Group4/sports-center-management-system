@@ -130,9 +130,9 @@ test.beforeEach(async ({ page }) => {
       json = [
         {
           notificationId: "notification-1",
-          sourceEventType: "HOMEWORK_ASSIGNED",
+          sourceEventType: "SCHEDULE_CHANGED",
           sourceEntityId: null,
-          message: "Your coach assigned homework.",
+          message: "Your class schedule changed.",
           status: "PENDING",
           sentAt: "2026-10-01T00:00:00Z",
         },
@@ -167,7 +167,7 @@ test("dashboard does not issue an entrance pass", async ({ page }) => {
   await expect(page.getByTestId("show-qr-btn")).toHaveCount(0);
 });
 test("Gym and PT purchases are separate", async ({ page }) => {
-  await page.goto("/member/services");
+  await page.goto("/member/discover?tab=gym");
   await expect(
     page.getByRole("heading", { name: "Gym membership packages", exact: true }),
   ).toBeVisible();
@@ -188,11 +188,11 @@ test("notification links resolve to real Member views", async ({ page }) => {
   await page.goto("/member");
   await page.getByRole("button", { name: /Notifications/ }).click();
   const notifications = page.getByRole("region", { name: "Notifications" });
-  const homework = notifications.getByRole("link", {
-    name: /Your coach assigned homework\./,
+  const notice = notifications.getByRole("link", {
+    name: /Your class schedule changed\./,
   });
-  await expect(homework).toBeVisible({ timeout: 15000 });
-  await expect(homework).toHaveAttribute("href", "/member/training");
+  await expect(notice).toBeVisible({ timeout: 15000 });
+  await expect(notice).toHaveAttribute("href", "/member/schedule");
 });
 for (const width of [320, 768, 1024, 1280, 1360, 1440])
   test(`Member routes fit ${width}px`, async ({ page }) => {

@@ -4,16 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ApiError, api } from "@/lib/apiClient";
-import {
-  GoogleOnboardingRequired,
-  type GoogleOnboardingPending,
-  HOME_BY_ROLE,
-  useAuth,
-} from "@/lib/auth";
+import { HOME_BY_ROLE, useAuth } from "@/lib/auth";
 import { Feedback } from "@/components/ui";
 import { AuthField, AuthPasswordField } from "@/components/auth/AuthField";
 import { AuthBrand } from "@/components/auth/AuthCinemaShell";
-import { GoogleOnboarding } from "@/features/identity/google-onboarding";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 import {
   PasswordRequirements,
@@ -34,9 +28,6 @@ const RESEND_COOLDOWN_SECONDS = 60; // 1 minute
 export default function RegisterPage() {
   const { register, loginWithGoogle } = useAuth();
   const router = useRouter();
-  const [onboarding, setOnboarding] = useState<GoogleOnboardingPending | null>(
-    null,
-  );
   const { t, language } = useLanguage();
 
   const [step, setStep] = useState<1 | 2>(1);
@@ -282,18 +273,6 @@ export default function RegisterPage() {
       ? form.password === form.confirmPassword
       : null;
 
-  if (onboarding)
-    return (
-      <main className="auth">
-        <div className="auth__card">
-          <GoogleOnboarding
-            pending={onboarding}
-            onCancel={() => setOnboarding(null)}
-          />
-        </div>
-      </main>
-    );
-
   return (
     <div className="auth auth--register">
       <main className="auth__layout">
@@ -354,9 +333,7 @@ export default function RegisterPage() {
                       const user = await loginWithGoogle(idToken);
                       router.replace(HOME_BY_ROLE[user.role]);
                     } catch (cause) {
-                      if (cause instanceof GoogleOnboardingRequired) {
-                        setOnboarding(cause.pending);
-                      } else setError(message(cause));
+                      setError(message(cause));
                     } finally {
                       setBusy(false);
                     }
