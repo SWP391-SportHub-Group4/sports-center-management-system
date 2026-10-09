@@ -15,6 +15,9 @@ import { useLanguage } from "@/lib/language";
 import { NotificationBell } from "./NotificationBell";
 import { MemberCodeButton } from "./MemberCodeCard";
 import { AssistantButton } from "@/features/member/assistant";
+import { walletApi } from "@/features/wallet/api";
+import { useApi } from "@/lib/useApi";
+import { formatPoints } from "@/lib/format";
 import {
   IconSettings,
   IconHeartbeat,
@@ -41,6 +44,31 @@ export interface MemberShellProps {
 
 /** Có khung Member (header, drawer, footer) bao ngoài chưa; nếu rồi thì trang chỉ vẽ phần nội dung. */
 const MemberFrameContext = createContext(false);
+
+function MemberWalletHeader() {
+  const { language } = useLanguage();
+  const wallet = useApi((signal) => walletApi.balance(signal), []);
+  return (
+    <Link
+      href="/member/finance?tab=wallet"
+      className={styles.walletHeader}
+      aria-label={
+        wallet.data
+          ? `${language === "vi" ? "Ví điểm" : "Point wallet"}: ${formatPoints(wallet.data.availablePoints)}`
+          : language === "vi"
+            ? "Mở ví điểm"
+            : "Open point wallet"
+      }
+    >
+      <span className={styles.walletHeaderLabel}>
+        {language === "vi" ? "Ví điểm" : "Points"}
+      </span>
+      <strong>
+        {wallet.data ? formatPoints(wallet.data.availablePoints) : "—"}
+      </strong>
+    </Link>
+  );
+}
 
 function isActive(pathname: string, item: NavItem) {
   if (item.href === "/member") return pathname === item.href;
@@ -195,6 +223,7 @@ export function MemberFrame({
             </button>
 
             {/* Notification Bell */}
+            <MemberWalletHeader />
             <NotificationBell />
 
             {/* User Dropdown */}

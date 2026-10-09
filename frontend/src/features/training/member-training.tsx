@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { AsyncSection, Card, StatusChip } from "@/components/ui";
+import { AsyncSection, Card, PageNav, StatusChip } from "@/components/ui";
 import { Tabs } from "@/components/primitives";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
@@ -10,7 +10,6 @@ import { useLanguage } from "@/lib/language";
 import { formatDate, formatDateTime, formatTime } from "@/lib/format";
 import { pagedItems } from "@/lib/paged";
 import { choiceQuery, useUrlQuery } from "@/lib/useUrlQuery";
-import { ListPager } from "@/features/pt";
 import type {
   Paged,
   ProgressItemDto,
@@ -236,7 +235,11 @@ function SessionsTab() {
                 <p className={styles.muted}>{l.noHistory}</p>
               )}
             </div>
-            <ListPager page={page} count={rows.length} onChange={setPage} />
+            <PageNav
+              page={page}
+              hasNext={rows.length >= PAGE}
+              onChange={setPage}
+            />
           </>
         );
       }}

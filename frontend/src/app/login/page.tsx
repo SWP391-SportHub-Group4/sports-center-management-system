@@ -10,6 +10,7 @@ import { Feedback } from "@/components/ui";
 import { AuthField, AuthPasswordField } from "@/components/auth/AuthField";
 import { AuthBrand } from "@/components/auth/AuthCinemaShell";
 import { IconLock, IconMail } from "@/components/icons";
+import { ForgotPasswordModal } from "@/components/auth/ForgotPasswordModal";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 import styles from "./login.module.css";
 
@@ -37,13 +38,19 @@ const DEMO_ACCOUNTS = [
 const DEMO_PASSWORD = "Sporthub@123";
 const SHOW_DEMO_ACCOUNTS = process.env.NODE_ENV === "development";
 
-function loginErrorMessage(cause: unknown, language: "en" | "vi") {
+function loginErrorMessage(
+  cause: unknown,
+  language: "en" | "vi",
+  method: "password" | "google" = "password",
+) {
   if (language === "vi")
     return cause instanceof ApiError
       ? cause.message
       : "Không thể đăng nhập. Vui lòng thử lại.";
   if (!(cause instanceof ApiError)) {
-    return "We could not sign you in. Please try again.";
+    return method === "google"
+      ? "Google sign-in could not start. Please try again."
+      : "We could not sign you in. Please try again.";
   }
 
   const messages: Record<string, string> = {
@@ -56,15 +63,26 @@ function loginErrorMessage(cause: unknown, language: "en" | "vi") {
     network_error:
       "We could not reach SportHub. Check your connection and try again.",
     invalid_google_token: "Google could not verify this sign-in attempt.",
-    google_account_not_linked:
-      "This Google account is not linked to SportHub. Sign in with your password first.",
     google_login_not_configured: "Google Sign-In is not configured yet.",
+    google_identity_mismatch:
+      "This email is linked to a different Google account.",
+    google_email_not_verified: "Verify your Google email before signing in.",
+    google_login_conflict: "Google sign-in is busy. Please try again.",
+    google_script_failed:
+      "Google sign-in could not load. Check your connection or browser settings and try again.",
+    google_script_loading:
+      "Google sign-in is loading. Please try again shortly.",
   };
 
   if (messages[cause.code]) return messages[cause.code];
-  if (cause.status === 401) return "The email or password is incorrect.";
+  if (cause.status === 401)
+    return method === "google"
+      ? "Google could not verify this sign-in attempt. Please try again."
+      : "The email or password is incorrect.";
 
-  return "We could not sign you in. Please try again.";
+  return method === "google"
+    ? "Google sign-in failed. Please try again."
+    : "We could not sign you in. Please try again.";
 }
 
 function LoginForm() {
@@ -86,6 +104,9 @@ function LoginForm() {
     null,
   );
   const [busy, setBusy] = useState(false);
+  const [forgotOpen, setForgotOpen] = useState(
+    params.get("forgot") === "1",
+  );
 
   const expired = params.get("reason") === "session-expired";
   const next = params.get("next");
@@ -152,14 +173,21 @@ function LoginForm() {
           className={`auth__card ${styles.card}`}
           aria-labelledby="login-title"
         >
-          <AuthBrand />
+          <div className="auth__top-row">
+            <AuthBrand />
+            <Link className="auth__landing-link" href="/">
+              ← Back to homepage
+            </Link>
+          </div>
           <h1 id="login-title" className={styles.title}>
             {t.auth.signInTitle}
           </h1>
-          <p className={styles.subtitle}>{t.auth.signInSubtitle}</p>
-
-          <div className={styles.feedback}>
-            <Feedback id="login-error" error={error} />
+          <div className={styles.introMessage}>
+            {error && (
+              <div className={styles.feedback}>
+                <Feedback id="login-error" error={error} />
+              </div>
+            )}
           </div>
 
           {expired && (
@@ -180,13 +208,13 @@ function LoginForm() {
             <AuthField
               ref={emailRef}
               label={t.refactor.email}
+              placeholder="example@gmail.com"
               icon={<IconMail size={20} />}
               type="email"
               value={email}
               autoComplete="username"
               required
               error={fieldErrors.email}
-              reserveErrorSpace
               disabled={busy}
               suppressHydrationWarning
               aria-invalid={
@@ -227,7 +255,6 @@ function LoginForm() {
                 maxLength={256}
                 required
                 error={fieldErrors.password}
-                reserveErrorSpace
                 disabled={busy}
                 suppressHydrationWarning
                 aria-invalid={
@@ -255,9 +282,13 @@ function LoginForm() {
                   }))
                 }
               />
-              <Link className={styles.forgot} href="/forgot-password">
+              <button
+                type="button"
+                className={styles.forgot}
+                onClick={() => setForgotOpen(true)}
+              >
                 {t.auth.forgotPassword}
-              </Link>
+              </button>
             </div>
 
             <button
@@ -281,10 +312,10 @@ function LoginForm() {
           </div>
 
           <GoogleSignInButton
-            text="continue_with"
+            text="signin_with"
             disabled={busy}
             onError={(cause) => {
-              setError(loginErrorMessage(cause, language));
+              setError(loginErrorMessage(cause, language, "google"));
               setErrorSource("form");
             }}
             onCredential={(idToken) => {
@@ -298,7 +329,8 @@ function LoginForm() {
                   const target = safeReturnTo(next, HOME_BY_ROLE[user.role]);
                   router.replace(target);
                 } catch (cause) {
-                  setError(loginErrorMessage(cause, language));
+                  console.error("Google sign-in failed", cause);
+                  setError(loginErrorMessage(cause, language, "google"));
                   setErrorSource("form");
                 } finally {
                   setBusy(false);
@@ -345,6 +377,12 @@ function LoginForm() {
           )}
         </section>
       </main>
+      {forgotOpen && (
+        <ForgotPasswordModal
+          initialEmail={email}
+          onClose={() => setForgotOpen(false)}
+        />
+      )}
     </div>
   );
 }

@@ -20,6 +20,7 @@ import {
   formatDate,
   formatTime,
   formatMoney,
+  formatPoints,
   todayIso,
 } from "@/lib/format";
 import { pagedItems } from "@/lib/paged";
@@ -32,8 +33,10 @@ import type {
   PtEntitlementDto,
   InvoiceSummaryDto,
   Paged,
+  WorkoutResultDto,
 } from "@/lib/types";
 import { memberSchedule, type MemberEvent } from "@/features/member/api";
+import { walletApi } from "@/features/wallet/api";
 import styles from "./dashboard.module.css";
 
 function sessionHref(session: MemberEvent) {
@@ -107,6 +110,59 @@ function kindLabel(
       : l.kindClass;
 }
 
+function KindTag({ session }: { session: MemberEvent }) {
+  const { t } = useLanguage();
+  const kind =
+    session.type === "PT_SESSION"
+      ? "pt"
+      : session.type === "COURT_RENTAL"
+        ? "rental"
+        : "class";
+  return (
+    <span className={styles.kindTag} data-kind={kind}>
+      {kindLabel(session, t.memberDashboardV2)}
+    </span>
+  );
+}
+
+function CheckInTag({ session, now }: { session: MemberEvent; now: number }) {
+  const { t } = useLanguage();
+  const l = t.memberDashboardV2;
+  const attendance = session.attendanceStatus?.toUpperCase();
+  const state =
+    attendance === "PRESENT"
+      ? "present"
+      : attendance === "ABSENT"
+        ? "absent"
+        : new Date(session.startAtUtc).getTime() > now
+          ? "upcoming"
+          : "pending";
+  const label =
+    state === "present"
+      ? l.checkinPresent
+      : state === "absent"
+        ? l.checkinAbsent
+        : state === "upcoming"
+          ? l.checkinUpcoming
+          : l.checkinPending;
+  return (
+    <span className={styles.checkInTag} data-state={state}>
+      {label}
+    </span>
+  );
+}
+
+function responseTime(deadlineUtc: string, now: number) {
+  const minutes = Math.max(
+    1,
+    Math.ceil((new Date(deadlineUtc).getTime() - now) / 60_000),
+  );
+  if (minutes >= 1440)
+    return `${Math.floor(minutes / 1440)}d ${Math.floor((minutes % 1440) / 60)}h`;
+  if (minutes >= 60) return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+  return `${minutes}m`;
+}
+
 /** Trạng thái bình thường thì không cần chip; chỉ hiện chip khi có gì cần chú ý. */
 const ROUTINE_STATUS = new Set(["scheduled", "confirmed", "active"]);
 
@@ -175,6 +231,7 @@ function AttentionList({
     key: string;
     text: string;
     detail?: string;
+    deadline?: string;
     href: string;
     action: string;
   }[] = [];
@@ -231,8 +288,12 @@ function AttentionList({
       text: l.thresholdDue
         .replace("{name}", th.className)
         .replace("{date}", formatDateTime(th.deadlineUtc)),
+      deadline: l.responseDueIn.replace(
+        "{time}",
+        responseTime(th.deadlineUtc, now),
+      ),
       href: `/member/services?section=courses&view=owned&responseId=${th.responseId}`,
-      action: l.respond,
+      action: l.transferOrRefund,
     });
   }
 
@@ -288,6 +349,11 @@ function AttentionList({
             <div>
               <strong>{item.text}</strong>
               {item.detail && <span>{item.detail}</span>}
+              {item.deadline && (
+                <span className={styles.deadline} aria-live="polite">
+                  {item.deadline}
+                </span>
+              )}
             </div>
             <Link
               href={item.href}
@@ -309,7 +375,27 @@ export default function MemberDashboardPage() {
   const { user } = useAuth();
   const now = useNow();
   const date = todayIso();
+  const monthStart = `${date.slice(0, 7)}-01`;
+  const monthDays =
+    Math.round(
+      (Date.parse(`${date}T00:00:00+07:00`) -
+        Date.parse(`${monthStart}T00:00:00+07:00`)) /
+        86_400_000,
+    ) + 1;
+  const wallet = useApi((signal) => walletApi.balance(signal), []);
   const schedule = useApi((signal) => memberSchedule(date, 30, signal), [date]);
+  const training = useApi(
+    async (signal) => {
+      const [sessions, results] = await Promise.all([
+        memberSchedule(monthStart, monthDays, signal),
+        api.get<WorkoutResultDto[]>("/api/members/me/workout-results", {
+          signal,
+        }),
+      ]);
+      return { sessions, results };
+    },
+    [monthStart, monthDays],
+  );
   const packages = useApi(
     (signal) =>
       api.get<MemberPackageDto[]>("/api/members/me/packages", { signal }),
@@ -333,7 +419,7 @@ export default function MemberDashboardPage() {
     (signal) =>
       api.get<Paged<GymCheckInDto>>("/api/members/me/gym-checkins", {
         signal,
-        query: { page: 1, pageSize: 3 },
+        query: { page: 1, pageSize: 20 },
       }),
     [],
   );
@@ -391,6 +477,18 @@ export default function MemberDashboardPage() {
                 : "ready"
           }
         />
+        <nav className={styles.quickActions} aria-label={l.quickActions}>
+          <strong>{l.quickActions}</strong>
+          <Link href="/member/services?section=courts&view=explore">
+            {l.quickCourt}
+          </Link>
+          <Link href="/member/services?section=courses&view=explore">
+            {l.quickClass}
+          </Link>
+          <Link href="/member/services?section=gym&view=explore">
+            {l.quickRenew}
+          </Link>
+        </nav>
         <div className={styles.primaryGrid}>
           <section
             className={styles.schedule}
@@ -425,10 +523,27 @@ export default function MemberDashboardPage() {
                 const todayRows = rows.filter(
                   (s) => vietnamDate(s.startAtUtc) === date,
                 );
+                const todayGym = pagedItems(gymVisit.data).filter(
+                  (visit) => vietnamDate(visit.checkInTime) === date,
+                );
+                const todayEntries: (
+                  | { kind: "session"; at: string; session: MemberEvent }
+                  | { kind: "gym"; at: string; visit: GymCheckInDto }
+                )[] = [
+                  ...todayRows.map((session) => ({
+                    kind: "session" as const,
+                    at: session.startAtUtc,
+                    session,
+                  })),
+                  ...todayGym.map((visit) => ({
+                    kind: "gym" as const,
+                    at: visit.checkInTime,
+                    visit,
+                  })),
+                ].sort((a, b) => a.at.localeCompare(b.at));
                 const upcoming = rows.filter(
                   (s) =>
-                    new Date(s.endAtUtc).getTime() > now &&
-                    vietnamDate(s.startAtUtc) > date &&
+                    new Date(s.startAtUtc).getTime() > now &&
                     !["CANCELLED", "COMPLETED", "NO_SHOW"].includes(
                       s.status ?? "",
                     ),
@@ -439,23 +554,45 @@ export default function MemberDashboardPage() {
                   <>
                     <div className={styles.todayAgenda}>
                       <h3>{l.todayTitle}</h3>
-                      {todayRows.length ? (
+                      {todayEntries.length ? (
                         <ul>
-                          {todayRows.map((session) => (
-                            <li key={session.id}>
-                              <Link href={sessionHref(session)}>
-                                <strong>
-                                  {formatTime(session.startAtUtc)}–
-                                  {formatTime(session.endAtUtc)}
-                                </strong>
-                                <span>{session.title}</span>
-                                {session.roomName && (
-                                  <small>{session.roomName}</small>
-                                )}
-                                <ExceptionChip value={session.status} />
-                              </Link>
-                            </li>
-                          ))}
+                          {todayEntries.map((entry) =>
+                            entry.kind === "session" ? (
+                              <li key={entry.session.id}>
+                                <Link href={sessionHref(entry.session)}>
+                                  <strong>
+                                    {formatTime(entry.session.startAtUtc)}–
+                                    {formatTime(entry.session.endAtUtc)}
+                                  </strong>
+                                  <span>{entry.session.title}</span>
+                                  <KindTag session={entry.session} />
+                                  {entry.session.roomName && (
+                                    <small>{entry.session.roomName}</small>
+                                  )}
+                                  <CheckInTag
+                                    session={entry.session}
+                                    now={now}
+                                  />
+                                  <ExceptionChip value={entry.session.status} />
+                                </Link>
+                              </li>
+                            ) : (
+                              <li key={`gym:${entry.visit.checkInId}`}>
+                                <Link href="/member/services?section=gym&view=owned">
+                                  <strong>
+                                    {formatTime(entry.visit.checkInTime)}
+                                  </strong>
+                                  <span>{l.gymWalkIn}</span>
+                                  <span
+                                    className={styles.checkInTag}
+                                    data-state="present"
+                                  >
+                                    {l.checkinPresent}
+                                  </span>
+                                </Link>
+                              </li>
+                            ),
+                          )}
                         </ul>
                       ) : (
                         <p>{l.todayEmpty}</p>
@@ -478,9 +615,8 @@ export default function MemberDashboardPage() {
                                   ? t.memberPages.pt
                                   : t.refactor.courses)}
                             </span>
-                            <span className={styles.kind}>
-                              {kindLabel(next, l)}
-                            </span>
+                            <KindTag session={next} />
+                            <CheckInTag session={next} now={now} />
                             <ExceptionChip value={next.status} />
                           </div>
                           {countdown && (
@@ -532,9 +668,7 @@ export default function MemberDashboardPage() {
                                             {sport}
                                           </span>
                                         )}
-                                        <span className={styles.agendaKind}>
-                                          {kindLabel(s, l)}
-                                        </span>
+                                        <KindTag session={s} />
                                         {formatTime(s.startAtUtc)} –{" "}
                                         {formatTime(s.endAtUtc)}
                                         {(s.roomName ||
@@ -542,6 +676,7 @@ export default function MemberDashboardPage() {
                                           ` · ${s.roomName || l.notAssigned}`}
                                       </p>
                                     </div>
+                                    <CheckInTag session={s} now={now} />
                                     <ExceptionChip value={s.status} />
                                   </li>
                                 );
@@ -550,7 +685,7 @@ export default function MemberDashboardPage() {
                           </div>
                         )}
                       </>
-                    ) : !todayRows.length ? (
+                    ) : !todayEntries.length ? (
                       <div
                         className={styles.emptySchedule}
                         data-surface="inverse"
@@ -703,6 +838,88 @@ export default function MemberDashboardPage() {
                   </Link>
                 )}
               </section>
+            </section>
+            <section
+              className={styles.walletCard}
+              aria-labelledby="wallet-title"
+            >
+              <div className={styles.sectionHeading}>
+                <h2 id="wallet-title">{l.walletTitle}</h2>
+                <Link href="/member/finance?tab=wallet">{l.walletHistory}</Link>
+              </div>
+              {wallet.data ? (
+                <div className={styles.walletBalance}>
+                  <span>{l.walletAvailable}</span>
+                  <strong>{formatPoints(wallet.data.availablePoints)}</strong>
+                  <span>
+                    {l.walletValue.replace(
+                      "{amount}",
+                      formatMoney(
+                        wallet.data.availablePoints * wallet.data.vndPerPoint,
+                      ),
+                    )}
+                  </span>
+                </div>
+              ) : (
+                <p
+                  className={styles.caption}
+                  role={wallet.error ? "status" : undefined}
+                >
+                  {wallet.loading ? "…" : l.walletUnavailable}
+                </p>
+              )}
+              <Link
+                className={styles.renewLink}
+                href="/member/services?section=gym&view=explore"
+              >
+                {l.quickRenew} <span aria-hidden="true">→</span>
+              </Link>
+            </section>
+            <section
+              className={styles.trainingCard}
+              aria-labelledby="training-title"
+            >
+              <div className={styles.sectionHeading}>
+                <h2 id="training-title">{l.trainingTitle}</h2>
+                <Link href="/member/training?tab=results">
+                  {l.manageTraining}
+                </Link>
+              </div>
+              {training.data ? (
+                <>
+                  <div className={styles.trainingMetric}>
+                    <strong>
+                      {
+                        training.data.sessions.filter((session) =>
+                          session.type === "CLASS_SESSION"
+                            ? session.attendanceStatus?.toUpperCase() ===
+                              "PRESENT"
+                            : session.status?.toUpperCase() === "COMPLETED",
+                        ).length
+                      }
+                    </strong>
+                    <span>{l.sessionsThisMonth}</span>
+                  </div>
+                  <div className={styles.coachNote}>
+                    <h3>{l.coachNote}</h3>
+                    <p>
+                      {[...training.data.results]
+                        .filter((result) => result.coachComment?.trim())
+                        .sort((a, b) =>
+                          b.recordedAt.localeCompare(a.recordedAt),
+                        )[0]
+                        ?.coachComment?.trim() ?? l.noCoachNote}
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <p
+                  className={styles.caption}
+                  role={training.error ? "status" : undefined}
+                >
+                  {training.loading ? "…" : l.trainingUnavailable}
+                </p>
+              )}
             </section>
           </div>
         </div>

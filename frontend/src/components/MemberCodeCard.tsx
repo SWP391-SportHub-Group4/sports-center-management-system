@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import QRCode from "qrcode";
 import { Dialog } from "@/components/ui";
 import { IconQrCode } from "@/components/icons";
 import { useAuth } from "@/lib/auth";
 import { useLanguage } from "@/lib/language";
+import { memberCodePayload } from "@/lib/member-code";
 import styles from "./MemberShell.module.css";
 import codeStyles from "./MemberCodeCard.module.css";
 
@@ -18,7 +20,19 @@ export function MemberCodeButton() {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState(false);
+  const [dataUrl, setDataUrl] = useState("");
   const userId = user?.userId;
+
+  useEffect(() => {
+    if (!open || !userId) return;
+    let cancelled = false;
+    QRCode.toDataURL(memberCodePayload(userId), { width: 240, margin: 1 })
+      .then((url) => !cancelled && setDataUrl(url))
+      .catch(() => !cancelled && setDataUrl(""));
+    return () => {
+      cancelled = true;
+    };
+  }, [open, userId]);
 
   if (!userId) return null;
   const en = language === "en";
@@ -57,6 +71,16 @@ export function MemberCodeButton() {
           onClose={() => setOpen(false)}
         >
           <div className={codeStyles.content}>
+            {dataUrl && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                className={codeStyles.qr}
+                src={dataUrl}
+                width={240}
+                height={240}
+                alt={en ? "Member code QR" : "Mã QR hội viên"}
+              />
+            )}
             <strong>{user.fullName}</strong>
             <p>{user.email}</p>
             <p className={`small muted ${codeStyles.memberId}`}>{userId}</p>
@@ -87,11 +111,6 @@ export function MemberCodeButton() {
                   : "Chưa sao chép được. Bạn có thể chọn mã ở trên để sao chép thủ công."}
               </p>
             )}
-            <p role="status">
-              {en
-                ? "Your center-issued QR is not available yet. The front desk can look up your account using this code or email."
-                : "Mã QR do trung tâm cấp chưa khả dụng. Lễ tân có thể tra cứu bằng mã hội viên hoặc email này."}
-            </p>
           </div>
         </Dialog>
       )}

@@ -634,17 +634,24 @@ test("dashboard empty state offers Member discovery and handles API failure", as
   await page.route("**/api/members/me/pt-sessions?**", (route) =>
     route.fulfill({ json: [] }),
   );
+  // Gym walk-in hôm nay cũng là mục lịch trong ngày; bỏ nó đi để thấy trạng thái trống.
+  await page.route("**/api/members/me/gym-checkins**", (route) =>
+    route.fulfill({ json: { items: [], totalCount: 0 } }),
+  );
   await page.goto("/member");
   await expect(page.getByText("Your next session starts here.")).toBeVisible();
-  await expect(page.getByText("No pending invoices.")).toBeVisible();
+  // Hóa đơn chờ thanh toán nằm trong khối "Needs your attention".
+  await expect(
+    page.getByText("Nothing needs your attention right now."),
+  ).toBeVisible();
   await expect(
     page
       .getByRole("main")
       .getByRole("link", { name: "Explore courses", exact: true }),
-  ).toHaveAttribute("href", "/member/discover");
+  ).toHaveAttribute("href", "/member/services");
   await expect(
     page.getByRole("main").getByRole("link", { name: "Gym & PT services" }),
-  ).toHaveAttribute("href", "/member/services");
+  ).toHaveAttribute("href", "/member/services?section=gym&view=explore");
   await page.screenshot({
     path: "test-results/an02-dashboard-empty.png",
     fullPage: true,

@@ -6,6 +6,10 @@ namespace SportHub.Notification.Infrastructure;
 public static class EmailTemplateRenderer
 {
     public static string Render(EmailPayload payload)
-        => "<!doctype html><html><body style=\"font-family:Arial,sans-serif;line-height:1.5\">"
-           + payload.HtmlBody + "</body></html>";
+        // Bản đã là tài liệu HTML đầy đủ (vd. email đặt lại mật khẩu) thì giữ nguyên: lồng <html> trong <html>
+        // làm một số bộ lọc thư đánh giá thư là rác.
+        => payload.HtmlBody.TrimStart().StartsWith("<!doctype", StringComparison.OrdinalIgnoreCase)
+            ? payload.HtmlBody
+            : "<!doctype html><html><body style=\"font-family:Arial,sans-serif;line-height:1.5\">"
+              + payload.HtmlBody + "</body></html>";
 }

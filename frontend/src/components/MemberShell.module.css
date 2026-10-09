@@ -162,6 +162,34 @@
   flex-shrink: 0;
 }
 
+.walletHeader {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  min-height: 40px;
+  padding: 9px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface-sunken);
+  color: var(--text-strong);
+  font-size: var(--text-sm);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.walletHeader:hover {
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
+}
+
+.walletHeader strong {
+  font-variant-numeric: tabular-nums;
+}
+
+.walletHeaderLabel {
+  color: var(--text-muted);
+}
+
 /* Prevent notification bell text from blowing up navbar width */
 .headerActions :global(.bell__label) {
   display: none !important;
@@ -745,6 +773,15 @@
 
   .headerActions {
     gap: 4px;
+  }
+
+  .walletHeader {
+    min-height: 38px;
+    padding: 8px;
+  }
+
+  .walletHeaderLabel {
+    display: none;
   }
 
   .qrButton {

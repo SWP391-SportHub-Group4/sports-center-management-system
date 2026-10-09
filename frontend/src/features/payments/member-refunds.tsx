@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { AsyncSection, Pager, StatusChip } from "@/components/ui";
+import { AsyncSection, PageNav, StatusChip } from "@/components/ui";
 import { buttonClass } from "@/components/primitives";
 import { api } from "@/lib/apiClient";
 import { formatDateTime, formatPoints } from "@/lib/format";
@@ -60,10 +60,9 @@ export function MemberRefunds() {
             ) : (
               <p>{t.finance.noRefunds}</p>
             )}
-            <Pager
+            <PageNav
               page={data.page}
-              pageSize={data.pageSize}
-              totalCount={data.totalCount}
+              totalPages={Math.ceil(data.totalCount / data.pageSize)}
               onChange={setPage}
             />
           </>
