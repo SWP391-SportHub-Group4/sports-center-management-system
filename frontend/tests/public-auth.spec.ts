@@ -137,11 +137,15 @@ test("branded Google button keeps the Google credential flow", async ({
   });
   await page.goto("/login");
   const google = page.locator(".google-sign-in-wrap--ready");
+  const visual = google.locator(".google-sign-in__visual");
   await expect(google).toBeVisible();
-  await expect(google.locator(".google-sign-in__visual")).toHaveCSS(
-    "background-color",
-    "rgb(26, 56, 44)",
-  );
+  await expect(visual).toHaveCSS("background-color", "rgb(26, 56, 44)");
+  await page.mouse.move(0, 0);
+  await expect(visual).toHaveCSS("border-color", "rgba(0, 0, 0, 0)");
+  await google.hover();
+  await expect(visual).toHaveCSS("border-color", "rgba(143, 202, 161, 0.7)");
+  await page.mouse.move(0, 0);
+  await expect(visual).toHaveCSS("border-color", "rgba(0, 0, 0, 0)");
   await google.click();
   await expect(page).toHaveURL(/\/coach$/);
 });
