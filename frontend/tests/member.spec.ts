@@ -167,7 +167,7 @@ test("dashboard does not issue an entrance pass", async ({ page }) => {
   await expect(page.getByTestId("show-qr-btn")).toHaveCount(0);
 });
 test("Gym and PT purchases are separate", async ({ page }) => {
-  await page.goto("/member/services");
+  await page.goto("/member/discover?tab=gym");
   await expect(
     page.getByRole("heading", { name: "Gym membership packages", exact: true }),
   ).toBeVisible();
