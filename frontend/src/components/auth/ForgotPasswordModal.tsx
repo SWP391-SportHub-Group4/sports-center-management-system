@@ -40,6 +40,11 @@ export function ForgotPasswordModal({
         ? t.refactor.emailInvalid
         : undefined;
 
+  // Quay lại ô nhập (Use a different email) thì đưa con trỏ về ô email.
+  useEffect(() => {
+    if (!sentTo) emailRef.current?.focus();
+  }, [sentTo]);
+
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose();

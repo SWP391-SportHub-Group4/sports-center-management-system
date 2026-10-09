@@ -405,3 +405,57 @@ export function Pager({
     </div>
   );
 }
+
+/**
+ * Phân trang cho các trang hội viên: [Previous] Page 1 of 2 [Next], căn giữa.
+ * Biết tổng số trang thì hiện "Page x of y" và ẩn khi chỉ có một trang; chưa biết tổng
+ * (API trả mảng) thì chỉ hiện "Page x" và dựa vào `hasNext`.
+ */
+export function PageNav({
+  page,
+  totalPages,
+  hasNext,
+  loading,
+  onChange,
+}: {
+  page: number;
+  totalPages?: number;
+  hasNext?: boolean;
+  loading?: boolean;
+  onChange: (page: number) => void;
+}) {
+  const { language } = useLanguage();
+  const vi = language === "vi";
+  const known = totalPages !== undefined;
+  const canNext = known ? page < totalPages : Boolean(hasNext);
+  if (known ? totalPages <= 1 : page <= 1 && !canNext) return null;
+  const current = known
+    ? vi
+      ? `Trang ${page}/${totalPages}`
+      : `Page ${page} of ${totalPages}`
+    : vi
+      ? `Trang ${page}`
+      : `Page ${page}`;
+
+  return (
+    <nav className="page-nav" aria-label={vi ? "Phân trang" : "Pagination"}>
+      <button
+        type="button"
+        className="btn btn--secondary"
+        disabled={loading || page <= 1}
+        onClick={() => onChange(page - 1)}
+      >
+        {vi ? "Trước" : "Previous"}
+      </button>
+      <span aria-live="polite">{current}</span>
+      <button
+        type="button"
+        className="btn btn--secondary"
+        disabled={loading || !canNext}
+        onClick={() => onChange(page + 1)}
+      >
+        {vi ? "Sau" : "Next"}
+      </button>
+    </nav>
+  );
+}

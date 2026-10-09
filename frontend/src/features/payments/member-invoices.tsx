@@ -8,7 +8,7 @@ import { useLanguage } from "@/lib/language";
 import { formatDateTime, formatMoney } from "@/lib/format";
 import { pagedItems } from "@/lib/paged";
 import type { InvoiceDetailDto, InvoiceSummaryDto, Paged } from "@/lib/types";
-import { AsyncSection, Field, Pager, StatusChip, Table } from "@/components/ui";
+import { AsyncSection, Field, PageNav, StatusChip, Table } from "@/components/ui";
 import { Select, buttonClass } from "@/components/primitives";
 
 const STATUSES = ["ISSUED", "PAID", "VOID", "PAID_AFTER_RECONCILIATION"];
@@ -114,10 +114,9 @@ export function MemberInvoices() {
                 </tr>
               ))}
             </Table>
-            <Pager
+            <PageNav
               page={data.page}
-              pageSize={data.pageSize}
-              totalCount={data.totalCount}
+              totalPages={Math.ceil(data.totalCount / data.pageSize)}
               onChange={setPage}
             />
           </>

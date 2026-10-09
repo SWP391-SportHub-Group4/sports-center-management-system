@@ -40,7 +40,6 @@ export function MemberPicker({
   const { language } = useLanguage();
   const [keyword, setKeyword] = useState("");
   const [debounced, setDebounced] = useState("");
-  const [scanning, setScanning] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
 
   const handleScan = useCallback(
@@ -66,7 +65,6 @@ export function MemberPicker({
           return;
         }
         setScanError(null);
-        setScanning(false);
         onChange(found);
       } catch {
         setScanError(
@@ -168,26 +166,7 @@ export function MemberPicker({
         style={{ height: 44, borderRadius: 8 }}
       />
 
-      <div className="row">
-        <button
-          type="button"
-          className="btn btn--secondary btn--sm"
-          aria-expanded={scanning}
-          onClick={() => {
-            setScanError(null);
-            setScanning((v) => !v);
-          }}
-        >
-          {scanning
-            ? language === "en"
-              ? "Close scanner"
-              : "Đóng máy quét"
-            : language === "en"
-              ? "Scan member QR"
-              : "Quét QR hội viên"}
-        </button>
-      </div>
-      {scanning && <CameraQrScanner onScan={handleScan} />}
+      <CameraQrScanner onScan={handleScan} />
       {scanError && (
         <span className="field__hint" role="alert">
           {scanError}

@@ -1,5 +1,11 @@
 "use client";
-import { AsyncSection, Card, StatusChip, Table } from "@/components/ui";
+import {
+  AsyncSection,
+  Card,
+  PageNav,
+  StatusChip,
+  Table,
+} from "@/components/ui";
 import { api } from "@/lib/apiClient";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { useLanguage } from "@/lib/language";
@@ -50,22 +56,14 @@ function Visits() {
           </Table>
         )}
       </AsyncSection>
-      <div className="row">
-        <button
-          disabled={state.loading || page === 1}
-          onClick={() => setValues({ page: String(page - 1) })}
-        >
-          {t.refactor.previous}
-        </button>
-        <button
-          disabled={
-            state.loading || !state.data || page * 10 >= state.data.totalCount
-          }
-          onClick={() => setValues({ page: String(page + 1) })}
-        >
-          {t.refactor.more}
-        </button>
-      </div>
+      {state.data && (
+        <PageNav
+          page={page}
+          totalPages={Math.max(1, Math.ceil(state.data.totalCount / 10))}
+          loading={state.loading}
+          onChange={(next) => setValues({ page: String(next) })}
+        />
+      )}
     </>
   );
 }
