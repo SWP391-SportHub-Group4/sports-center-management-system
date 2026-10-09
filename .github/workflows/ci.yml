@@ -32,19 +32,29 @@ jobs:
       - name: Build
         run: dotnet build backend/SportHub.sln --configuration Release --no-restore
 
-      # Testcontainers kéo postgres từ Docker Hub; kéo trước có thử lại để một lần timeout mạng
-      # không làm hỏng hàng trăm test tích hợp cùng lúc.
+      # Testcontainers và docker compose đều dùng postgres:16-alpine. Docker Hub (auth.docker.io) đôi khi
+      # timeout trên runner GitHub, nên thử Docker Hub rồi tới các bản mirror và gắn lại đúng tag.
       - name: Pre-pull PostgreSQL image
         shell: bash
         run: |
-          for i in 1 2 3 4 5; do
-            docker pull postgres:16-alpine && exit 0
-            echo "docker pull failed (attempt $i), retrying..."
-            sleep $((i * 10))
+          IMAGE=postgres:16-alpine
+          SOURCES="$IMAGE mirror.gcr.io/library/$IMAGE public.ecr.aws/docker/library/$IMAGE"
+          for round in 1 2 3; do
+            for src in $SOURCES; do
+              if timeout 90 docker pull "$src"; then
+                [ "$src" = "$IMAGE" ] || docker tag "$src" "$IMAGE"
+                exit 0
+              fi
+              echo "docker pull $src failed (round $round)"
+            done
+            sleep $((round * 10))
           done
           exit 1
 
       - name: Test
+        env:
+          # Ryuk là image Docker Hub thứ hai của Testcontainers; CI runner dùng một lần nên không cần dọn nền.
+          TESTCONTAINERS_RYUK_DISABLED: "true"
         run: dotnet test backend/SportHub.sln --configuration Release --no-build --logger "trx;LogFilePrefix=ci"
 
       - name: Upload backend test evidence
@@ -118,6 +128,23 @@ jobs:
           node-version: '24'
           cache: npm
           cache-dependency-path: frontend/package-lock.json
+
+      - name: Pre-pull PostgreSQL image
+        shell: bash
+        run: |
+          IMAGE=postgres:16-alpine
+          SOURCES="$IMAGE mirror.gcr.io/library/$IMAGE public.ecr.aws/docker/library/$IMAGE"
+          for round in 1 2 3; do
+            for src in $SOURCES; do
+              if timeout 90 docker pull "$src"; then
+                [ "$src" = "$IMAGE" ] || docker tag "$src" "$IMAGE"
+                exit 0
+              fi
+              echo "docker pull $src failed (round $round)"
+            done
+            sleep $((round * 10))
+          done
+          exit 1
 
       - name: Start isolated PostgreSQL and API
         run: docker compose up -d --build postgres backend
