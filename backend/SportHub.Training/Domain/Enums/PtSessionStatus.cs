@@ -9,5 +9,6 @@ public enum PtSessionStatus
     CancelledLate,
     NoShow,
     RescheduledOnTime,
-    RescheduledLate
+    RescheduledLate,
+    PendingPayment
 }

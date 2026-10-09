@@ -139,9 +139,11 @@ Chọn Membership → snapshot và checkout → payment xác minh → kích ho�
 
 ### 5.2 PT thuộc Gym
 
-Membership Active → chọn Coach có chuyên môn, lấy PT quote → checkout riêng → kích hoạt PtEntitlement → xếp buổi theo quota, validity, availability và quan hệ Coach–Member. Buổi PT 90 phút; frequency 1/2/3 buổi mỗi tuần dùng tính gói, không tự tạo booking tuần.
+Luồng Member hiện tại: Membership Gym Active → Training → chọn Coach có chuyên môn PT, ngày/giờ/phòng trống → báo giá **một buổi 90 phút** → checkout giữ lịch `PendingPayment` → thanh toán được xác minh → xác nhận buổi `Scheduled`. Services chỉ có nút dẫn đến Training, không bán gói PT theo tuần. Giá mỗi checkout bằng đơn giá PT đang cấu hình; client không gửi giá. Hủy/hết hạn checkout nhả phòng, Coach và quota của buổi chờ thanh toán. Quan hệ Personal Coach–Member được tạo sau khi thanh toán thành công nếu chưa có.
 
-Coach ghi kết quả/plan cho học viên được giao. Đổi/hủy/đổi Coach qua change request. Member self-booking và slot availability chưa có đầy đủ API, không mô tả là đã triển khai.
+Gói PT đã bán trước đây giữ nguyên quota và quyền đặt lịch. `frequency` 1/2/3 chỉ còn phục vụ hợp đồng gói cũ và luồng tương thích; không tự tạo booking tuần. Xem [PT theo từng buổi](PT-Per-Session.md).
+
+Coach ghi kết quả/plan cho học viên được giao. Đổi/hủy/đổi Coach qua change request. Member có API xem slot, giữ lịch qua checkout và đặt lịch bằng quota đã mua trước đây.
 
 ### 5.3 Khóa cầu lông và bóng rổ
 

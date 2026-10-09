@@ -1,12 +1,5 @@
 "use client";
-import { MemberShell } from "@/components/MemberShell";
-import { MemberServices } from "@/features/member/services";
-import { useLanguage } from "@/lib/language";
+import { MemberServiceHub } from "@/features/member/service-hub";
 export default function Page() {
-  const { t } = useLanguage();
-  return (
-    <MemberShell title={t.memberPages.services}>
-      <MemberServices />
-    </MemberShell>
-  );
+  return <MemberServiceHub />;
 }

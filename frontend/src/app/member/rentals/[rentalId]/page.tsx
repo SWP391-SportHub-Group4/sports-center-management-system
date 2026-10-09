@@ -1,30 +1,19 @@
-"use client";
-import { Suspense } from "react";
-import { useParams, useSearchParams } from "next/navigation";
-import { MemberShell } from "@/components/MemberShell";
-import { Loading } from "@/components/ui";
-import { RentalList } from "@/features/rentals/rental-list";
-import { useLanguage } from "@/lib/language";
+import {
+  redirectMemberPage,
+  type MemberSearchParams,
+} from "@/lib/member-route-redirect";
 
-function Content() {
-  const { rentalId } = useParams<{ rentalId: string }>();
-  const query = useSearchParams();
-  const date = query.get("date");
-  return (
-    <RentalList
-      rentalId={rentalId}
-      initialDate={date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : undefined}
-    />
-  );
-}
-
-export default function Page() {
-  const { t } = useLanguage();
-  return (
-    <MemberShell title={t.operations.rentals}>
-      <Suspense fallback={<Loading />}>
-        <Content />
-      </Suspense>
-    </MemberShell>
-  );
+export default async function Page({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ rentalId: string }>;
+  searchParams: MemberSearchParams;
+}) {
+  const { rentalId } = await params;
+  return redirectMemberPage(searchParams, "/member/services", {
+    section: "courts",
+    view: "owned",
+    rental: rentalId,
+  });
 }

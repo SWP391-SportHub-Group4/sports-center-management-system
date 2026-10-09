@@ -1,0 +1,13 @@
+.back {
+  width: fit-content;
+  align-self: flex-start;
+  justify-self: start;
+}
+.page {
+  display: grid;
+  gap: var(--space-3);
+}
+.back {
+  min-height: 36px;
+  padding-block: var(--space-1);
+}

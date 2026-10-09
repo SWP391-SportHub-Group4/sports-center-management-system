@@ -49,7 +49,9 @@ export function MemberRefunds() {
                           ? `${t.finance.refundEstimate}: ${formatPoints(refund.systemCalculatedPoints)}`
                           : t.finance.refundNoCredit}
                     </p>
-                    <Link href={`/member/invoices/${refund.invoiceId}`}>
+                    <Link
+                      href={`/member/finance?tab=invoices&invoice=${refund.invoiceId}`}
+                    >
                       {t.finance.refundInvoice}
                     </Link>
                   </li>

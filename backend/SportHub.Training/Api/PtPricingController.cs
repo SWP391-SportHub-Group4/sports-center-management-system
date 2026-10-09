@@ -8,7 +8,7 @@ using SportHub.Training.Application.Services;
 namespace SportHub.Training.Api;
 
 public sealed record PtQuoteRequest(Guid MemberPackageId, Guid CoachId, int FrequencyPerWeek,
-    Guid? TargetMemberId);
+    Guid? TargetMemberId, DateTime? StartAtUtc = null, int? RoomId = null);
 
 [ApiController, Authorize, Route("api")]
 public sealed class PtPricingController(PtPricingService pricing) : ControllerBase
@@ -32,6 +32,6 @@ public sealed class PtPricingController(PtPricingService pricing) : ControllerBa
         if (!staff && request.TargetMemberId is Guid target && target != member)
             throw new ForbiddenException("target_member_forbidden", "Không thể báo giá cho hội viên khác.");
         return Ok(await pricing.QuoteAsync(new PtPurchaseRequest(member, request.MemberPackageId,
-            request.CoachId, request.FrequencyPerWeek), ct));
+            request.CoachId, request.FrequencyPerWeek, request.StartAtUtc, request.RoomId), ct));
     }
 }

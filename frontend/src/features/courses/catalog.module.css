@@ -180,6 +180,65 @@
   gap: var(--space-4);
   margin-top: var(--space-6);
 }
+.compact .grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+.compact .course {
+  gap: var(--space-2);
+  padding: var(--space-4);
+}
+.compact .course h3 {
+  font-size: 24px;
+}
+.compact .courseFoot {
+  padding-top: var(--space-2);
+}
+.compact .price {
+  font-size: 24px;
+}
+.compact .priceLabel {
+  display: none;
+}
+.compact .seats {
+  font-size: var(--text-xs);
+}
+.compact .note {
+  margin-bottom: var(--space-2);
+  font-size: var(--text-xs);
+  max-width: none;
+}
+.compact .pager {
+  margin-top: var(--space-3);
+}
+.filterDisclosure {
+  margin-bottom: var(--space-2);
+}
+.filterDisclosure > summary,
+.classDetails > summary {
+  min-height: 36px;
+  display: list-item;
+  align-content: center;
+  color: var(--color-primary-soft-text);
+  cursor: pointer;
+  font-size: var(--text-sm);
+}
+.classDetails .facts {
+  padding-block: var(--space-2);
+}
+.filterDisclosure .filters {
+  padding: var(--space-3);
+}
+@media (max-width: 880px) {
+  .compact .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 600px) {
+  .compact .grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
 @media (max-width: 900px) {
   .filters {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
