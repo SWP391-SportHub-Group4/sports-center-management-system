@@ -1532,9 +1532,16 @@ body:has(.auth--login, .auth--register) {
   opacity: 0.55;
 }
 
-.google-sign-in-wrap--ready:focus-within .google-sign-in__visual {
-  outline: 3px solid var(--focus-ring);
+.google-sign-in-wrap--ready:has(.google-sign-in :focus-visible)
+  .google-sign-in__visual {
+  outline: 2px solid #f0f2e8;
   outline-offset: 3px;
+}
+
+.google-sign-in-wrap--ready:hover .google-sign-in__visual {
+  background: #234537;
+  border-color: rgb(143 202 161 / 70%);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 12%);
 }
 
 .google-sign-in__visual {
@@ -1580,7 +1587,7 @@ body:has(.auth--login, .auth--register) {
   width: 100%;
   min-height: 48px;
   padding: 8px 16px;
-  border: 1px solid rgb(143 202 161 / 50%);
+  border: 1px solid transparent;
   border-radius: var(--radius-pill);
   background: #1a382c;
   color: #f0f2e8;
@@ -1603,8 +1610,8 @@ body:has(.auth--login, .auth--register) {
 }
 
 .auth .btn--google:focus-visible {
-  outline: 2px solid var(--sky);
-  outline-offset: 2px;
+  outline: 2px solid #f0f2e8;
+  outline-offset: 3px;
 }
 
 .auth .btn--google:disabled {
