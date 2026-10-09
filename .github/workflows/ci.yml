@@ -32,6 +32,18 @@ jobs:
       - name: Build
         run: dotnet build backend/SportHub.sln --configuration Release --no-restore
 
+      # Testcontainers kéo postgres từ Docker Hub; kéo trước có thử lại để một lần timeout mạng
+      # không làm hỏng hàng trăm test tích hợp cùng lúc.
+      - name: Pre-pull PostgreSQL image
+        shell: bash
+        run: |
+          for i in 1 2 3 4 5; do
+            docker pull postgres:16-alpine && exit 0
+            echo "docker pull failed (attempt $i), retrying..."
+            sleep $((i * 10))
+          done
+          exit 1
+
       - name: Test
         run: dotnet test backend/SportHub.sln --configuration Release --no-build --logger "trx;LogFilePrefix=ci"
 
