@@ -21,10 +21,12 @@ import type {
   WorkoutResultDto,
 } from "@/lib/types";
 import { TrainingProfile } from "./training-profile";
+import { PtBooking } from "./pt-booking";
+import { PtSessionDetail } from "./pt-session-detail";
 import { isPending } from "./request-list";
 import styles from "./training.module.css";
 
-const TABS = ["sessions", "plans", "results", "progress", "profile"] as const;
+const TABS = ["sessions", "book", "plans", "results", "profile"] as const;
 type Tab = (typeof TABS)[number];
 const PAGE = 20;
 
@@ -34,7 +36,7 @@ const upcoming = (s: PtSessionDto, now: number) =>
 
 /** Tóm tắt PT: HLV, quota còn lại, buổi tiếp theo và số yêu cầu đang chờ. */
 function PtSummary() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const l = t.ptOps;
   const entitlements = useApi(
     (signal) =>
@@ -85,9 +87,15 @@ function PtSummary() {
         !active ? (
           <div className={styles.summary}>
             <div className={styles.next}>
-              <p className={styles.muted}>{l.noPackage}</p>
-              <Link className="btn" href="/member/services?tab=pt">
-                {l.viewPackages}
+              <p className={styles.muted}>
+                {language === "vi"
+                  ? "Chọn coach và lịch tập để thanh toán PT từng buổi."
+                  : "Choose a coach and time to book and pay per PT session."}
+              </p>
+              <Link className="btn" href="/member/training?tab=book">
+                {language === "vi"
+                  ? "Đặt lịch & thanh toán PT"
+                  : "Book & pay for PT"}
               </Link>
             </div>
           </div>
@@ -96,13 +104,21 @@ function PtSummary() {
             <div>
               <p className={styles.summaryLabel}>{l.yourCoach}</p>
               <p className={styles.coachName}>{active.coachName}</p>
-              <p className={styles.quotaLine}>
-                <strong>{active.remainingQuota}</strong>
-                <span>
-                  {l.sessionsLeft} ·{" "}
-                  {l.ofTotal.replace("{total}", String(active.totalQuota))}
-                </span>
-              </p>
+              {active.totalQuota === 1 ? (
+                <p className={styles.muted}>
+                  {language === "vi"
+                    ? "PT từng buổi · Buổi tập đã thanh toán"
+                    : "Pay-per-session PT · Session paid"}
+                </p>
+              ) : (
+                <p className={styles.quotaLine}>
+                  <strong>{active.remainingQuota}</strong>
+                  <span>
+                    {l.sessionsLeft} ·{" "}
+                    {l.ofTotal.replace("{total}", String(active.totalQuota))}
+                  </span>
+                </p>
+              )}
             </div>
             <div className={styles.next}>
               <p className={styles.summaryLabel}>{l.nextSession}</p>
@@ -114,7 +130,7 @@ function PtSummary() {
                   <p className={styles.muted}>{next.roomName || l.roomTbc}</p>
                   <Link
                     className="btn btn--secondary"
-                    href={`/member/pt/sessions/${next.sessionId}`}
+                    href={`/member/training?session=${next.sessionId}`}
                   >
                     {l.details}
                   </Link>
@@ -123,7 +139,7 @@ function PtSummary() {
                 <p className={styles.muted}>{l.noNextSession}</p>
               )}
               {active.remainingQuota > 0 && (
-                <Link className="btn" href="/member/pt/book">
+                <Link className="btn" href="/member/training?tab=book">
                   {t.ptBook.bookCta}
                 </Link>
               )}
@@ -158,7 +174,7 @@ function SessionRow({ s }: { s: PtSessionDto }) {
         )}
         <Link
           className="btn btn--secondary btn--sm"
-          href={`/member/pt/sessions/${s.sessionId}`}
+          href={`/member/training?session=${s.sessionId}`}
         >
           {l.details}
         </Link>
@@ -342,34 +358,56 @@ function ProgressTab() {
 }
 
 export function MemberTraining() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const l = t.ptOps;
   const { values, setValues } = useUrlQuery(
-    { tab: "sessions" },
-    { tab: choiceQuery([...TABS], "sessions") },
+    { tab: "sessions", session: "", booked: "" },
+    {
+      tab: (value) =>
+        value === "progress" ? "results" : choiceQuery(TABS, "sessions")(value),
+    },
   );
   const tab = values.tab as Tab;
   const labels: Record<Tab, string> = {
     sessions: l.tabSessions,
+    book: language === "vi" ? "Đặt PT & thanh toán" : "Book & pay for PT",
     plans: l.tabPlans,
-    results: l.tabResults,
-    progress: l.tabProgress,
+    results: language === "vi" ? "Kết quả & tiến độ" : "Results & progress",
     profile: l.tabProfile,
   };
   return (
     <div className={styles.page}>
-      <PtSummary />
+      {tab === "sessions" && !values.session && <PtSummary />}
       <Tabs
         tabs={TABS.map((id) => ({ id, label: labels[id] }))}
         value={tab}
         ariaLabel={l.tabsLabel}
-        onChange={(id) => setValues({ tab: id })}
+        onChange={(id) => setValues({ tab: id, session: "", booked: "" })}
       >
         <div className={styles.tabBody}>
-          {tab === "sessions" && <SessionsTab />}
+          {tab === "sessions" &&
+            (values.session ? (
+              <PtSessionDetail
+                key={values.session}
+                sessionId={values.session}
+              />
+            ) : (
+              <SessionsTab />
+            ))}
+          {tab === "book" && <PtBooking showBackLink={false} />}
           {tab === "plans" && <PlansTab />}
-          {tab === "results" && <ResultsTab />}
-          {tab === "progress" && <ProgressTab />}
+          {tab === "results" && (
+            <div className="stack">
+              <section>
+                <h2>{l.tabResults}</h2>
+                <ResultsTab />
+              </section>
+              <section>
+                <h2>{l.tabProgress}</h2>
+                <ProgressTab />
+              </section>
+            </div>
+          )}
           {tab === "profile" && <TrainingProfile />}
         </div>
       </Tabs>

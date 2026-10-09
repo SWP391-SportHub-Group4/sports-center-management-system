@@ -1,17 +1,17 @@
-"use client";
-import { Suspense } from "react";
-import { MemberShell } from "@/components/MemberShell";
-import { Loading } from "@/components/ui";
-import { RentalList } from "@/features/rentals/rental-list";
-import { useLanguage } from "@/lib/language";
+import {
+  redirectMemberPage,
+  type MemberSearchParams,
+} from "@/lib/member-route-redirect";
 
-export default function Page() {
-  const { t } = useLanguage();
-  return (
-    <MemberShell title={t.operations.rentals}>
-      <Suspense fallback={<Loading />}>
-        <RentalList />
-      </Suspense>
-    </MemberShell>
+export default function Page({
+  searchParams,
+}: {
+  searchParams: MemberSearchParams;
+}) {
+  return redirectMemberPage(
+    searchParams,
+    "/member/services",
+    { section: "courts", view: "owned" },
+    false,
   );
 }

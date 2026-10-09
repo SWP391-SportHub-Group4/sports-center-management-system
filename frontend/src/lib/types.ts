@@ -114,6 +114,8 @@ export interface CheckoutDto {
   ptMemberPackageId: string | null;
   ptCoachId: string | null;
   ptFrequency: number | null;
+  ptStartAtUtc?: string | null;
+  ptRoomId?: number | null;
   invoiceId: string;
   checkoutSessionId: string;
   revision: number;

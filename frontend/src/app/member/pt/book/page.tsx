@@ -1,13 +1,17 @@
-"use client";
-import { MemberShell } from "@/components/MemberShell";
-import { PtBooking } from "@/features/training/pt-booking";
-import { useLanguage } from "@/lib/language";
+import {
+  redirectMemberPage,
+  type MemberSearchParams,
+} from "@/lib/member-route-redirect";
 
-export default function Page() {
-  const { t } = useLanguage();
-  return (
-    <MemberShell title={t.ptBook.title}>
-      <PtBooking />
-    </MemberShell>
+export default function Page({
+  searchParams,
+}: {
+  searchParams: MemberSearchParams;
+}) {
+  return redirectMemberPage(
+    searchParams,
+    "/member/training",
+    { tab: "book" },
+    false,
   );
 }

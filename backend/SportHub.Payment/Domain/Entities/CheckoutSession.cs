@@ -15,4 +15,6 @@ public sealed class CheckoutSession
     public Guid? PtMemberPackageId { get; set; }
     public Guid? PtCoachId { get; set; }
     public int? PtFrequency { get; set; }
+    public DateTime? PtStartAtUtc { get; set; }
+    public int? PtRoomId { get; set; }
 }

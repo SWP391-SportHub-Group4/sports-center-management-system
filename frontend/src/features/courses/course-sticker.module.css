@@ -1,0 +1,217 @@
+.stage {
+  display: grid;
+  justify-items: center;
+  padding: 16px 24px 24px;
+  margin: 0;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface-sunken);
+}
+.scene {
+  position: relative;
+  width: 260px;
+  height: 210px;
+}
+.character {
+  position: absolute;
+  left: 63px;
+  top: 48px;
+  width: 130px;
+  height: 132px;
+}
+.body {
+  position: absolute;
+  inset: 0 0 12px;
+  border-radius: 42% 54% 44% 52%;
+  background: #b9e5cf;
+  transform: rotate(-10deg);
+}
+.eyes {
+  position: absolute;
+  top: 42px;
+  left: 45px;
+  display: flex;
+  gap: 22px;
+}
+.eyes i {
+  display: block;
+  width: 7px;
+  height: 13px;
+  border-radius: 8px;
+  background: #163a31;
+}
+.smile {
+  position: absolute;
+  left: 52px;
+  top: 65px;
+  width: 22px;
+  height: 12px;
+  border: 3px solid #163a31;
+  border-top: 0;
+  border-radius: 0 0 24px 24px;
+}
+.arm {
+  position: absolute;
+  right: -18px;
+  top: 44px;
+  width: 40px;
+  height: 15px;
+  background: #163a31;
+  border-radius: 20px;
+  transform: rotate(-35deg);
+  transform-origin: left center;
+}
+.foot,
+.footRight {
+  position: absolute;
+  bottom: 0;
+  left: 23px;
+  width: 32px;
+  height: 18px;
+  border-radius: 20px;
+  background: #163a31;
+}
+.footRight {
+  left: 78px;
+}
+.sport {
+  position: absolute;
+  right: 8px;
+  top: 25px;
+  display: grid;
+  place-items: center;
+  width: 76px;
+  height: 76px;
+  border-radius: 28px;
+  color: #163a31;
+  background: #efd977;
+  transform: rotate(12deg);
+}
+.spark,
+.sparkSmall {
+  position: absolute;
+  left: 22px;
+  top: 38px;
+  width: 28px;
+  height: 28px;
+  background: #d77b65;
+  clip-path: polygon(
+    50% 0,
+    62% 38%,
+    100% 50%,
+    62% 62%,
+    50% 100%,
+    38% 62%,
+    0 50%,
+    38% 38%
+  );
+}
+.sparkSmall {
+  left: auto;
+  right: 30px;
+  top: 146px;
+  width: 18px;
+  height: 18px;
+  background: #789cbd;
+}
+.shadow {
+  position: absolute;
+  bottom: 19px;
+  left: 55px;
+  width: 146px;
+  height: 12px;
+  border-radius: 50%;
+  background: #163a3114;
+}
+.stage figcaption {
+  font-size: var(--text-sm);
+  color: var(--color-primary-soft-text);
+  font-weight: var(--weight-semibold);
+}
+.compact {
+  position: relative;
+  height: 150px;
+  padding: 0;
+}
+.compact .scene {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  margin: -105px 0 0 -130px;
+  transform: scale(0.52);
+}
+.compact figcaption {
+  display: none;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .character {
+    animation: rally 3.6s cubic-bezier(0.45, 0, 0.25, 1) infinite;
+  }
+  .sport {
+    animation: toss 3.6s cubic-bezier(0.45, 0, 0.25, 1) infinite;
+  }
+  .arm {
+    animation: wave 3.6s ease-in-out infinite;
+  }
+  .shadow {
+    animation: ground 3.6s ease-in-out infinite;
+  }
+  .spark {
+    animation: twinkle 3.6s ease-in-out infinite;
+  }
+  .sparkSmall {
+    animation: twinkle 3.6s 1.8s ease-in-out infinite;
+  }
+}
+@keyframes rally {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-3deg);
+  }
+  40% {
+    transform: translateY(-12px) rotate(4deg);
+  }
+  70% {
+    transform: translateY(0) rotate(-2deg);
+  }
+}
+@keyframes toss {
+  0%,
+  100% {
+    transform: translateY(0) rotate(12deg);
+  }
+  40% {
+    transform: translateY(-18px) rotate(-14deg);
+  }
+  70% {
+    transform: translateY(0) rotate(18deg);
+  }
+}
+@keyframes wave {
+  0%,
+  100% {
+    transform: rotate(-35deg);
+  }
+  40% {
+    transform: rotate(-65deg);
+  }
+}
+@keyframes ground {
+  0%,
+  70%,
+  100% {
+    transform: scaleX(1);
+  }
+  40% {
+    transform: scaleX(0.82);
+  }
+}
+@keyframes twinkle {
+  0%,
+  100% {
+    transform: scale(0.8) rotate(0);
+  }
+  40% {
+    transform: scale(1.1) rotate(25deg);
+  }
+}

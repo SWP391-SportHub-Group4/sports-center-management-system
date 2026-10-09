@@ -289,7 +289,7 @@ function ZoneFloorPlan({
 export function InteractiveArenaTour({ language }: { language: Language }) {
   const text = copy[language];
   const { user, loading: authLoading } = useAuth();
-  const memberCatalogPath = "/member/discover";
+  const memberCatalogPath = "/member/services";
   const memberCatalogHref =
     user?.role === "Member"
       ? memberCatalogPath

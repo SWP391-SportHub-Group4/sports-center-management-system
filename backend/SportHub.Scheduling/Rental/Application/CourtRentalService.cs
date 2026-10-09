@@ -16,7 +16,7 @@ using SportHub.Scheduling.Rental.Domain;
 namespace SportHub.Scheduling.Rental.Application;
 
 /// <summary>Kiểm tra, tính giá và giữ chỗ thuê sân của Member trên sổ occupancy chung. Rental chỉ chiếm phòng, không chiếm Coach.</summary>
-public sealed class CourtRentalService(ISportHubDbContext db, IUserAccessReader users,
+public sealed partial class CourtRentalService(ISportHubDbContext db, IUserAccessReader users,
     ISportCatalogReader catalog, IOccupancyService occupancy, ISystemSettingProvider settings,
     IClock clock) : ICourtRentalFulfillment
 {
