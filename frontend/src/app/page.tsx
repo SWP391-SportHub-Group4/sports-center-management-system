@@ -31,14 +31,14 @@ export default function Page() {
         <PerformanceSections language={language} />
         <div className={s.content}>
           <HomepageStats language={language} />
+          <ScrollReveal section="facilities">
+            <TrainingPhotoMarquee language={language} />
+          </ScrollReveal>
           <ScrollReveal section="activities">
             <InteractiveArenaTour language={language} />
           </ScrollReveal>
           <ScrollReveal section="book-court">
             <CourtBookingSection language={language} />
-          </ScrollReveal>
-          <ScrollReveal section="facilities">
-            <TrainingPhotoMarquee language={language} />
           </ScrollReveal>
           <ScrollReveal section="membership">
             <HomepageFAQ language={language} />
