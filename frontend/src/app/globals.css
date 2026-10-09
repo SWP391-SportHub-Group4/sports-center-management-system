@@ -1743,17 +1743,26 @@ body:has(.auth--login, .auth--register) {
 
 .otp-request-row .btn {
   width: auto;
-  min-height: 44px;
+  min-height: 56px;
   white-space: nowrap;
 }
 
+.otp-request-row--sent {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.otp-request-row .auth__email-field--locked input {
+  padding-right: 88px;
+  text-overflow: ellipsis;
+}
+
 .auth__change-email {
-  min-width: 76px;
+  min-width: 68px;
   min-height: 44px;
-  padding: 0 10px;
-  border: 1px solid var(--border-subtle);
+  padding: 0 8px;
+  border: 0;
   border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--bg-surface-sunken) 72%, transparent);
+  background: transparent;
   color: var(--text-muted);
   font: inherit;
   font-size: var(--text-sm);
@@ -1764,6 +1773,11 @@ body:has(.auth--login, .auth--register) {
 .auth__change-email:hover {
   background: var(--color-primary-soft);
   color: var(--text-strong);
+}
+
+.auth__change-email:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
 }
 
 /* ---------- 2-Step Registration Wizard ---------- */
@@ -1858,15 +1872,29 @@ body:has(.auth--login, .auth--register) {
   color: var(--brand-700);
 }
 
-.otp-input {
-  letter-spacing: 0.35em;
+.otp-inputs {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 48px));
+  justify-content: space-between;
+  gap: 4px;
+}
+
+.otp-digit {
+  width: 100%;
+  aspect-ratio: 1;
+  min-height: 44px;
+  padding: 0;
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  color: var(--text-strong);
   font-size: 1.25rem;
   font-weight: 700;
   text-align: center;
   font-family: inherit;
 }
 
-.otp-input[aria-invalid="true"] {
+.otp-digit[aria-invalid="true"] {
   border-color: var(--danger-solid);
 }
 
@@ -1876,7 +1904,7 @@ body:has(.auth--login, .auth--register) {
   margin-bottom: 20px;
 }
 
-.otp-input + .otp-box__actions {
+.otp-inputs + .otp-box__actions {
   margin-top: 20px;
 }
 
@@ -1972,7 +2000,7 @@ body:has(.auth--login, .auth--register) {
 }
 
 .auth__signin-prompt {
-  margin: 12px 0 0;
+  margin: 24px 0 0;
 }
 
 .auth--register .form > .btn[type="submit"] {

@@ -33,12 +33,13 @@ export default function RegisterPage() {
   const [step, setStep] = useState<1 | 2>(1);
   const [form, setForm] = useState({
     email: "",
-    otp: "",
     fullName: "",
     phone: "",
     password: "",
     confirmPassword: "",
   });
+  const [otpDigits, setOtpDigits] = useState<string[]>(Array(6).fill(""));
+  const otpCode = otpDigits.join("");
 
   const [otpSent, setOtpSent] = useState(false);
   const [sendingOtp, setSendingOtp] = useState(false);
@@ -58,7 +59,7 @@ export default function RegisterPage() {
   >({});
 
   const emailInputRef = useRef<HTMLInputElement>(null);
-  const otpInputRef = useRef<HTMLInputElement>(null);
+  const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const fullNameInputRef = useRef<HTMLInputElement>(null);
   const passwordInputRef = useRef<HTMLInputElement>(null);
   const confirmInputRef = useRef<HTMLInputElement>(null);
@@ -157,7 +158,7 @@ export default function RegisterPage() {
       setOtpSecondsLeft(OTP_EXPIRY_SECONDS);
       setResendCooldown(RESEND_COOLDOWN_SECONDS);
       setTimeout(() => {
-        otpInputRef.current?.focus();
+        otpInputRefs.current[0]?.focus();
       }, 100);
     } catch (cause) {
       setError(message(cause));
@@ -168,13 +169,13 @@ export default function RegisterPage() {
 
   const verifyOtpAndContinue = (event?: React.FormEvent) => {
     if (event) event.preventDefault();
-    if (form.otp.length !== 6) {
+    if (otpDigits.some((digit) => !digit)) {
       setFieldErrors((current) => ({
         ...current,
         otp:
-          requiredError(form.otp) ?? "Please enter the complete 6-digit code.",
+          requiredError(otpCode) ?? "Please enter the complete 6-digit code.",
       }));
-      otpInputRef.current?.focus();
+      otpInputRefs.current[otpDigits.findIndex((digit) => !digit)]?.focus();
       return;
     }
     if (otpSecondsLeft === 0) {
@@ -208,7 +209,7 @@ export default function RegisterPage() {
       ).current?.focus();
       return;
     }
-    if (form.otp.length !== 6) {
+    if (otpDigits.some((digit) => !digit)) {
       setError("Verification code is missing or invalid. Please check Step 1.");
       setStep(1);
       return;
@@ -237,7 +238,7 @@ export default function RegisterPage() {
     try {
       const user = await register({
         email: form.email.trim(),
-        otpCode: form.otp.trim(),
+        otpCode,
         fullName: form.fullName.trim(),
         phone: form.phone.trim() || undefined,
         password: form.password,
@@ -260,7 +261,7 @@ export default function RegisterPage() {
     setOtpSent(false);
     setOtpSecondsLeft(0);
     setResendCooldown(0);
-    setForm((prev) => ({ ...prev, otp: "" }));
+    setOtpDigits(Array(6).fill(""));
     setError(null);
     setFieldErrors({});
     setStep(1);
@@ -297,9 +298,6 @@ export default function RegisterPage() {
           <h1 id="register-title" className="auth__brand">
             Create your member account
           </h1>
-          <p className="auth__sub">
-            Join SportHub in 2 quick steps and start training today.
-          </p>
 
           {/* 2-Step Progress Indicator */}
           <nav className="auth__steps" aria-label="Registration steps">
@@ -349,12 +347,28 @@ export default function RegisterPage() {
               </div>
 
               <div className="form">
-                <div className="otp-request-row">
+                <div
+                  className={`otp-request-row ${otpSent ? "otp-request-row--sent" : ""}`}
+                >
                   <AuthField
                     ref={emailInputRef}
                     type="email"
                     label={t.refactor.email}
                     icon={otpSent ? undefined : <IconMail size={20} />}
+                    className={
+                      otpSent ? "auth__email-field--locked" : undefined
+                    }
+                    trailing={
+                      otpSent ? (
+                        <button
+                          type="button"
+                          className="auth__change-email"
+                          onClick={handleResetEmail}
+                        >
+                          Change
+                        </button>
+                      ) : undefined
+                    }
                     autoComplete="email"
                     title={otpSent ? form.email : undefined}
                     required
@@ -387,15 +401,7 @@ export default function RegisterPage() {
                     >
                       {sendingOtp ? t.refactor.sending : t.refactor.sendCode}
                     </button>
-                  ) : (
-                    <button
-                      type="button"
-                      className="auth__change-email"
-                      onClick={handleResetEmail}
-                    >
-                      Change
-                    </button>
-                  )}
+                  ) : null}
                 </div>
 
                 {error && (
@@ -420,48 +426,98 @@ export default function RegisterPage() {
                       </span>
                     </div>
 
-                    <input
-                      ref={otpInputRef}
-                      className="otp-input"
-                      inputMode="numeric"
-                      autoComplete="one-time-code"
-                      pattern="\d{6}"
-                      maxLength={6}
-                      required
-                      aria-invalid={Boolean(fieldErrors.otp)}
-                      aria-describedby={
-                        fieldErrors.otp ? "register-otp-error" : undefined
-                      }
+                    <div
+                      className="otp-inputs"
+                      role="group"
                       aria-label="Verification code"
-                      placeholder="••••••"
-                      disabled={otpSecondsLeft === 0}
-                      value={form.otp}
-                      suppressHydrationWarning
-                      onChange={(event) => {
-                        const code = event.target.value.replace(/\D/g, "");
-                        setForm({ ...form, otp: code });
-                        if (fieldErrors.otp)
-                          setFieldErrors((current) => ({
-                            ...current,
-                            otp:
-                              code.length === 6
-                                ? undefined
-                                : (requiredError(code) ??
-                                  "Please enter the complete 6-digit code."),
-                          }));
-                        setError(null);
-                      }}
-                      onBlur={(event) =>
-                        setFieldErrors((current) => ({
-                          ...current,
-                          otp:
-                            event.target.value.length === 6
-                              ? undefined
-                              : (requiredError(event.target.value) ??
-                                "Please enter the complete 6-digit code."),
-                        }))
-                      }
-                    />
+                    >
+                      {otpDigits.map((digit, index) => (
+                        <input
+                          key={index}
+                          ref={(node) => {
+                            otpInputRefs.current[index] = node;
+                          }}
+                          className="otp-digit"
+                          type="text"
+                          inputMode="numeric"
+                          autoComplete={index === 0 ? "one-time-code" : "off"}
+                          maxLength={index === 0 ? 6 : 1}
+                          aria-label={`Digit ${index + 1} of 6`}
+                          aria-invalid={Boolean(fieldErrors.otp)}
+                          aria-describedby={
+                            fieldErrors.otp ? "register-otp-error" : undefined
+                          }
+                          disabled={otpSecondsLeft === 0}
+                          value={digit}
+                          onChange={(event) => {
+                            const value = event.target.value.replace(/\D/g, "");
+                            const next = [...otpDigits];
+                            if (value.length > 1) {
+                              value
+                                .slice(0, 6)
+                                .split("")
+                                .forEach((part, offset) => {
+                                  if (index + offset < 6)
+                                    next[index + offset] = part;
+                                });
+                              otpInputRefs.current[
+                                Math.min(index + value.length, 5)
+                              ]?.focus();
+                            } else {
+                              next[index] = value;
+                              if (value && index < 5)
+                                otpInputRefs.current[index + 1]?.focus();
+                            }
+                            setOtpDigits(next);
+                            setFieldErrors((current) => ({
+                              ...current,
+                              otp: undefined,
+                            }));
+                            setError(null);
+                          }}
+                          onKeyDown={(event) => {
+                            if (
+                              event.key === "Backspace" &&
+                              !digit &&
+                              index > 0
+                            ) {
+                              const next = [...otpDigits];
+                              next[index - 1] = "";
+                              setOtpDigits(next);
+                              otpInputRefs.current[index - 1]?.focus();
+                            } else if (event.key === "ArrowLeft" && index > 0) {
+                              otpInputRefs.current[index - 1]?.focus();
+                            } else if (
+                              event.key === "ArrowRight" &&
+                              index < 5
+                            ) {
+                              otpInputRefs.current[index + 1]?.focus();
+                            }
+                          }}
+                          onPaste={(event) => {
+                            const pasted = event.clipboardData
+                              .getData("text")
+                              .replace(/\D/g, "")
+                              .slice(0, 6);
+                            if (!pasted) return;
+                            event.preventDefault();
+                            const next = [...otpDigits];
+                            pasted.split("").forEach((part, offset) => {
+                              if (index + offset < 6)
+                                next[index + offset] = part;
+                            });
+                            setOtpDigits(next);
+                            setFieldErrors((current) => ({
+                              ...current,
+                              otp: undefined,
+                            }));
+                            otpInputRefs.current[
+                              Math.min(index + pasted.length, 5)
+                            ]?.focus();
+                          }}
+                        />
+                      ))}
+                    </div>
                     {fieldErrors.otp && (
                       <div className="otp-error-slot">
                         <p id="register-otp-error" role="alert">
