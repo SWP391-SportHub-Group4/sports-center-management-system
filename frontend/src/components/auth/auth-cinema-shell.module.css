@@ -97,7 +97,7 @@
 }
 
 .shell :global(.auth__steps) {
-  margin: 6px 0 10px;
+  margin: 16px 0 14px;
 }
 
 .shell :global(.auth__separator) {

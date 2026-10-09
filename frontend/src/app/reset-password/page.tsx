@@ -127,7 +127,7 @@ function ResetPasswordForm() {
           </p>
           <Link
             className={`${buttonClass({ variant: "primary", size: "lg", block: true })} ${styles.link}`}
-            href="/forgot-password"
+            href="/login?forgot=1"
           >
             {t.identity.requestNewLink}
           </Link>

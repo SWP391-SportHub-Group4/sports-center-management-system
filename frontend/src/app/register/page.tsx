@@ -334,6 +334,7 @@ export default function RegisterPage() {
                       const user = await loginWithGoogle(idToken);
                       router.replace(HOME_BY_ROLE[user.role]);
                     } catch (cause) {
+                      console.error("Google sign-up failed", cause);
                       setError(message(cause));
                     } finally {
                       setBusy(false);
@@ -348,28 +349,14 @@ export default function RegisterPage() {
 
               <div className="form">
                 <div
-                  className={`otp-request-row ${otpSent ? "otp-request-row--sent" : ""}`}
+                  className="otp-request-row"
                 >
                   <AuthField
                     ref={emailInputRef}
                     type="email"
                     label={t.refactor.email}
                     placeholder="example@gmail.com"
-                    icon={otpSent ? undefined : <IconMail size={20} />}
-                    className={
-                      otpSent ? "auth__email-field--locked" : undefined
-                    }
-                    trailing={
-                      otpSent ? (
-                        <button
-                          type="button"
-                          className="auth__change-email"
-                          onClick={handleResetEmail}
-                        >
-                          Change
-                        </button>
-                      ) : undefined
-                    }
+                    icon={<IconMail size={20} />}
                     autoComplete="email"
                     title={otpSent ? form.email : undefined}
                     required
@@ -402,7 +389,15 @@ export default function RegisterPage() {
                     >
                       {sendingOtp ? t.refactor.sending : t.refactor.sendCode}
                     </button>
-                  ) : null}
+                  ) : (
+                    <button
+                      type="button"
+                      className="btn"
+                      onClick={handleResetEmail}
+                    >
+                      Change
+                    </button>
+                  )}
                 </div>
 
                 {error && (

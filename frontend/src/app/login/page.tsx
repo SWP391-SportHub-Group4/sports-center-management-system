@@ -10,6 +10,7 @@ import { Feedback } from "@/components/ui";
 import { AuthField, AuthPasswordField } from "@/components/auth/AuthField";
 import { AuthBrand } from "@/components/auth/AuthCinemaShell";
 import { IconLock, IconMail } from "@/components/icons";
+import { ForgotPasswordModal } from "@/components/auth/ForgotPasswordModal";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 import styles from "./login.module.css";
 
@@ -103,6 +104,9 @@ function LoginForm() {
     null,
   );
   const [busy, setBusy] = useState(false);
+  const [forgotOpen, setForgotOpen] = useState(
+    params.get("forgot") === "1",
+  );
 
   const expired = params.get("reason") === "session-expired";
   const next = params.get("next");
@@ -278,9 +282,13 @@ function LoginForm() {
                   }))
                 }
               />
-              <Link className={styles.forgot} href="/forgot-password">
+              <button
+                type="button"
+                className={styles.forgot}
+                onClick={() => setForgotOpen(true)}
+              >
                 {t.auth.forgotPassword}
-              </Link>
+              </button>
             </div>
 
             <button
@@ -321,6 +329,7 @@ function LoginForm() {
                   const target = safeReturnTo(next, HOME_BY_ROLE[user.role]);
                   router.replace(target);
                 } catch (cause) {
+                  console.error("Google sign-in failed", cause);
                   setError(loginErrorMessage(cause, language, "google"));
                   setErrorSource("form");
                 } finally {
@@ -368,6 +377,12 @@ function LoginForm() {
           )}
         </section>
       </main>
+      {forgotOpen && (
+        <ForgotPasswordModal
+          initialEmail={email}
+          onClose={() => setForgotOpen(false)}
+        />
+      )}
     </div>
   );
 }

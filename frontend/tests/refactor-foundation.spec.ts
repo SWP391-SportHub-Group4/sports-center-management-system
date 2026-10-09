@@ -82,7 +82,10 @@ test("forgot password gives a neutral answer, and the reset page sets the new pa
     return route.fulfill({ status: 204 });
   });
   await page.goto("/forgot-password");
-  await page.getByLabel("Email", { exact: true }).fill("person@example.com");
+  await page
+    .getByRole("dialog")
+    .getByLabel("Email", { exact: true })
+    .fill("person@example.com");
   await page.getByRole("button", { name: "Send reset link" }).click();
   await expect(page.getByRole("status")).toContainText(
     "If an account associated with this email exists, we have sent a password reset link. Please check your inbox (including spam).",
