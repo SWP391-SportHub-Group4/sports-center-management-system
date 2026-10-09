@@ -10,17 +10,14 @@ import {
 import { IconEye, IconEyeOff } from "@/components/icons";
 import styles from "./AuthField.module.css";
 
-export interface AuthFieldProps extends Omit<
-  InputHTMLAttributes<HTMLInputElement>,
-  "placeholder"
-> {
+export interface AuthFieldProps extends InputHTMLAttributes<HTMLInputElement> {
   /** Nhãn bay: nằm trong ô khi trống, thu nhỏ lên trên khi focus hoặc đã có giá trị. */
   label: string;
   /** Icon đầu ô (từ components/icons). Chỉ trang trí nên luôn aria-hidden. */
   icon?: ReactNode;
   /** Phần tử cuối ô (vd. nút con mắt). Ô tự chừa chỗ để chữ không chạy dưới nó. */
   trailing?: ReactNode;
-  /** Inline validation message; reserveErrorSpace keeps the form from shifting. */
+  /** Inline validation message. */
   error?: string;
   reserveErrorSpace?: boolean;
   compactErrorSpace?: boolean;
@@ -40,6 +37,7 @@ export const AuthField = forwardRef<HTMLInputElement, AuthFieldProps>(
       error,
       reserveErrorSpace,
       compactErrorSpace,
+      placeholder,
       id,
       className,
       ...rest
@@ -73,7 +71,7 @@ export const AuthField = forwardRef<HTMLInputElement, AuthFieldProps>(
             ref={ref}
             id={inputId}
             className={styles.input}
-            placeholder=" "
+            placeholder={placeholder ?? " "}
             {...rest}
             aria-invalid={Boolean(error) || rest["aria-invalid"] || undefined}
             aria-describedby={describedBy}
@@ -84,7 +82,9 @@ export const AuthField = forwardRef<HTMLInputElement, AuthFieldProps>(
           {trailing && <span className={styles.trailing}>{trailing}</span>}
         </div>
         {(reserveErrorSpace || error) && (
-          <div className={styles.errorSlot}>
+          <div
+            className={`${styles.errorSlot} ${!error ? styles.errorSlotEmpty : ""}`}
+          >
             {error && (
               <p id={errorId} role="alert" className={styles.error}>
                 {error}

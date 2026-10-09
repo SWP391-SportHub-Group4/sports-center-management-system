@@ -3,6 +3,7 @@
   z-index: 1;
   min-height: 100dvh;
   color: var(--text-body);
+  background: transparent;
 }
 .logo {
   display: inline-flex;
@@ -74,18 +75,15 @@
   color: var(--text-muted);
 }
 .shell :global(.auth__card) {
-  width: min(540px, 100%);
+  width: min(448px, 100%);
   justify-self: end;
-  padding: clamp(18px, 2vw, 24px);
+  padding: clamp(18px, 5vw, 24px);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-xl);
   background: rgb(18 34 29 / 94%);
   box-shadow: 0 24px 64px rgb(5 17 12 / 24%);
 }
 
-.shell :global(.auth--login .auth__card) {
-  width: min(448px, 100%);
-}
 .shell :global(.auth__card) > * {
   flex-shrink: 0;
 }
@@ -149,9 +147,9 @@
   background: var(--bg-surface-sunken);
 }
 .shell :global(.btn--google):hover {
-  background: var(--color-primary-soft);
+  background: #234537;
   color: var(--text-strong);
-  border-color: var(--border-control);
+  border-color: rgb(143 202 161 / 70%);
 }
 .shell :global(.alert--error) {
   background: rgb(104 37 40 / 32%);
