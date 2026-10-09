@@ -188,10 +188,8 @@ test("Khám phá có danh mục Gym, PT và lối đặt sân", async ({ page })
   await expect(
     page.getByRole("tab", { name: "Huấn luyện cá nhân" }),
   ).toHaveAttribute("aria-selected", "true");
-  await page.getByRole("tab", { name: "Sân" }).click();
-  await expect(
-    page.getByRole("link", { name: "Tìm sân trống" }),
-  ).toHaveAttribute("href", "/member/courts/book");
+  // Thuê sân đã có mục riêng trên menu, không lặp lại thành tab.
+  await expect(page.getByRole("tab", { name: "Sân" })).toHaveCount(0);
 });
 
 test("Khám phá: không có lớp thì hiện trạng thái trống có lối đi tiếp", async ({
@@ -333,7 +331,7 @@ test("Khóa học của tôi: tiến độ, trạng thái, coach, phòng", async
       json: { items: enrollments, page: 1, pageSize: 50, totalCount: 3 },
     }),
   );
-  await page.goto("/member/courses?tab=all");
+  await page.goto("/member/courses?tab=ongoing");
   const ongoing = page.locator("article").filter({ hasText: "Bóng rổ 01" });
   await expect(ongoing).toContainText("Đang học");
   await expect(ongoing).toContainText("3/12 buổi");
@@ -342,9 +340,11 @@ test("Khóa học của tôi: tiến độ, trạng thái, coach, phòng", async
   await expect(
     ongoing.getByRole("link", { name: "Xem chi tiết" }),
   ).toHaveAttribute("href", "/member/courses/1");
+  await page.goto("/member/courses?tab=upcoming");
   await expect(
     page.locator("article").filter({ hasText: "Cầu lông 01" }),
   ).toContainText("Sắp bắt đầu");
+  await page.goto("/member/courses?tab=history");
   await expect(
     page.locator("article").filter({ hasText: "Cầu lông cơ bản" }),
   ).toContainText("Đã chuyển lớp");
@@ -357,12 +357,17 @@ test("Khóa học của tôi: mỗi tab trống có CTA Khám phá khóa học",
   await page.route("**/api/members/me/enrollments**", (r) =>
     r.fulfill({ json: { items: [], page: 1, pageSize: 50, totalCount: 0 } }),
   );
-  for (const tab of ["upcoming", "ongoing", "history", "all"]) {
+  for (const tab of ["upcoming", "ongoing"]) {
     await page.goto(`/member/courses?tab=${tab}`);
     await expect(
       page.getByRole("main").getByRole("link", { name: "Khám phá khóa học" }),
     ).toHaveAttribute("href", "/member/discover");
   }
+  // Lịch sử trống không cần lời mời mua thêm.
+  await page.goto("/member/courses?tab=history");
+  await expect(
+    page.getByRole("main").getByRole("link", { name: "Khám phá khóa học" }),
+  ).toHaveCount(0);
 });
 
 const vnDate = (iso: string) =>
@@ -411,7 +416,7 @@ test("Khóa học của tôi: buổi kế tiếp, nhắc chọn phương án khi
       ],
     }),
   );
-  await page.goto("/member/courses?tab=all");
+  await page.goto("/member/courses?tab=ongoing");
 
   const going = page.locator("article").filter({ hasText: "Bóng rổ 01" });
   await expect(going).toContainText("Buổi kế tiếp");
@@ -419,15 +424,17 @@ test("Khóa học của tôi: buổi kế tiếp, nhắc chọn phương án khi
     going.getByRole("link", { name: "Xem khóa Bóng rổ tiếp theo" }),
   ).toHaveAttribute("href", "/member/discover?sport=4");
 
+  await page.goto("/member/courses?tab=upcoming");
   const short = page.locator("article").filter({ hasText: "Cầu lông 01" });
   await expect(short.getByRole("status")).toContainText(
-    "Lớp chưa đủ học viên để mở",
+    "Lớp chưa đủ sĩ số để khai giảng",
   );
   await expect(
     short.getByRole("link", { name: "Chọn phương án" }),
   ).toHaveAttribute("href", "/member/threshold-responses/th1");
   await expect(going.getByRole("status")).toHaveCount(0);
 
+  await page.goto("/member/courses?tab=history");
   const moved = page.locator("article").filter({ hasText: "Cầu lông cơ bản" });
   await expect(moved).toContainText("Đã chuyển lớp");
   await expect(moved).not.toContainText("Buổi kế tiếp");
@@ -617,6 +624,6 @@ test("Lịch của tôi trên điện thoại: tuần chia theo ngày, không cu
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth),
   ).toBeLessThanOrEqual(361);
-  await page.getByRole("button", { name: /Buổi PT/ }).click();
+  await page.getByRole("button", { name: /^Buổi PT \d/ }).click();
   await expect(page.getByRole("dialog")).toContainText("Phòng PT 2");
 });

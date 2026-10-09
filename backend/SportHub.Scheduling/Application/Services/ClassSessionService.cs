@@ -112,14 +112,15 @@ public sealed class ClassSessionService(
                           s.SessionId, s.ClassId, ClassName = s.Class!.Name, SportName = s.Class.Sport!.Name,
                           s.SessionNo, RoomName = s.Room!.Name, s.CoachId, s.StartAtUtc, s.EndAtUtc,
                           Status = s.Status.ToString(), s.IsMakeup,
-                          AttendanceStatus = a == null ? null : a.Status.ToString()
+                          AttendanceStatus = a == null ? null : a.Status.ToString(),
+                          NumSessions = s.Class.NumSessions
                       })
             .ToListAsync(ct);
         var coachNames = await validator.CoachNamesAsync(sessions.Select(s => (Guid?)s.CoachId), ct);
         return sessions.Select(s => new MemberSessionResponse(
             s.SessionId, s.ClassId, s.ClassName, s.SportName, s.SessionNo, s.RoomName,
             s.StartAtUtc, s.EndAtUtc, s.Status, s.IsMakeup, s.AttendanceStatus,
-            coachNames.TryGetValue(s.CoachId, out var coachName) ? coachName : null)).ToList();
+            coachNames.TryGetValue(s.CoachId, out var coachName) ? coachName : null, s.NumSessions)).ToList();
     }
 
     // ---------------------------------------------------------------- Dời

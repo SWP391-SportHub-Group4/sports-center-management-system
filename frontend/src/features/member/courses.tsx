@@ -1,11 +1,12 @@
 "use client";
 import Link from "next/link";
+import { TextLink } from "@/components/TextLink";
 import { Tabs } from "@/components/primitives";
 import { AsyncSection, Card, StatusChip, Table } from "@/components/ui";
 import type { CourseEnrollmentDto, ThresholdResponseDto } from "@/lib/types";
 import { api } from "@/lib/apiClient";
 import { formatDate } from "@/lib/format";
-import { sportTone } from "./event-meta";
+import { scheduleSummary, sportTone } from "./event-meta";
 import tags from "./tags.module.css";
 import styles from "./courses.module.css";
 import { useApi, useNow } from "@/lib/useApi";
@@ -16,7 +17,7 @@ import { memberEnrollments } from "./api";
 import { courseApi } from "@/features/courses";
 import { CourseInterests } from "@/features/courses";
 
-type TabId = "upcoming" | "ongoing" | "history" | "all";
+type TabId = "upcoming" | "ongoing" | "history";
 
 function classify(e: CourseEnrollmentDto, now: number) {
   const ended =
@@ -61,33 +62,41 @@ export function MemberCourses() {
     format: (d: Date) => dayFmt.format(d) + " · " + timeFmt.format(d),
   };
   const { values, setValues } = useUrlQuery(
-    { tab: "all" },
+    { tab: "auto" },
     {
       tab: choiceQuery(
-        ["all", "upcoming", "ongoing", "history", "interests"],
-        "all",
+        ["auto", "upcoming", "ongoing", "history", "interests"],
+        "auto",
       ),
     },
   );
-  const tab = values.tab as TabId;
   const rows = state.data ?? [];
   const counts: Record<TabId, number> = {
     upcoming: rows.filter((e) => classify(e, now).upcoming).length,
     ongoing: rows.filter((e) => classify(e, now).ongoing).length,
     history: rows.filter((e) => classify(e, now).history).length,
-    all: rows.length,
   };
+  // Chưa chọn tab thì mở tab đầu tiên có khóa: Đang học, rồi Sắp học, rồi Lịch sử.
+  const tab = (
+    values.tab === "auto"
+      ? counts.ongoing
+        ? "ongoing"
+        : counts.upcoming
+          ? "upcoming"
+          : counts.history
+            ? "history"
+            : "ongoing"
+      : values.tab
+  ) as TabId | "interests";
   const names: Record<TabId, string> = {
     upcoming: c.tabUpcoming,
     ongoing: c.tabOngoing,
     history: c.tabHistory,
-    all: c.tabAll,
   };
   const empty: Record<TabId, [string, string]> = {
     upcoming: [c.emptyUpcomingTitle, c.emptyUpcomingBody],
     ongoing: [c.emptyOngoingTitle, c.emptyOngoingBody],
     history: [c.emptyHistoryTitle, c.emptyHistoryBody],
-    all: [c.emptyAllTitle, c.emptyAllBody],
   };
 
   function status(e: CourseEnrollmentDto) {
@@ -110,55 +119,55 @@ export function MemberCourses() {
   return (
     <>
       <p className={styles.intro}>
-        {c.independent.split("Gym & PT")[0]}
-        <Link href="/member/services">{c.gymPt}</Link>.
+        {c.independent}{" "}
+        <TextLink direction="forward" href="/member/services">
+          {c.gymPtLink}
+        </TextLink>
       </p>
       <Tabs
         ariaLabel={c.tabsLabel}
         value={tab}
         onChange={(id) => setValues({ tab: id })}
         tabs={[
-          ...(["all", "upcoming", "ongoing", "history"] as const).map((id) => ({
+          ...(["ongoing", "upcoming", "history"] as const).map((id) => ({
             id,
             label: `${names[id]}${state.data ? ` (${counts[id]})` : ""}`,
           })),
           {
             id: "interests",
-            label:
-              language === "vi" ? "Nguyện vọng khóa sau" : "Course interests",
+            label: c.tabInterests,
           },
         ]}
       >
-        {values.tab === "interests" ? (
+        {tab === "interests" ? (
           <CourseInterests />
         ) : (
           <AsyncSection state={state}>
             {() => {
               const k = (e: CourseEnrollmentDto) => classify(e, now);
               const filtered = rows.filter((e) =>
-                tab === "all"
-                  ? true
-                  : tab === "upcoming"
-                    ? k(e).upcoming
-                    : tab === "ongoing"
-                      ? k(e).ongoing
-                      : k(e).history,
+                tab === "upcoming"
+                  ? k(e).upcoming
+                  : tab === "ongoing"
+                    ? k(e).ongoing
+                    : k(e).history,
               );
               if (!filtered.length)
                 return (
                   <div className={styles.empty} data-surface="inverse">
                     <h3>{empty[tab][0]}</h3>
                     <p>{empty[tab][1]}</p>
-                    <Link className="btn" href="/member/discover">
-                      {c.explore}
-                    </Link>
+                    {tab !== "history" && (
+                      <Link className="btn" href="/member/discover">
+                        {c.explore}
+                      </Link>
+                    )}
                   </div>
                 );
               return (
                 <div className={styles.list}>
                   {filtered.map((e) => {
                     const st = status(e);
-                    const firstDay = e.firstSessionStartUtc?.slice(0, 10);
                     const pending = (thresholds.data ?? []).find(
                       (r) =>
                         r.classId === e.classId &&
@@ -199,8 +208,27 @@ export function MemberCourses() {
                                     String(e.completedSessions ?? 0),
                                   )
                                   .replace("{total}", String(e.numSessions))}
+                                <progress
+                                  className={styles.bar}
+                                  value={e.completedSessions ?? 0}
+                                  max={Math.max(1, e.numSessions)}
+                                  aria-label={c.progressLabel}
+                                />
                               </dd>
                             </div>
+                            {!!e.scheduleRules?.length && (
+                              <div>
+                                <dt>{c.schedule}</dt>
+                                <dd>
+                                  {scheduleSummary(
+                                    e.scheduleRules,
+                                    null,
+                                    t.mDiscover.days,
+                                    vi,
+                                  )}
+                                </dd>
+                              </div>
+                            )}
                             <div>
                               <dt>{c.dates}</dt>
                               <dd className={styles.when}>
@@ -259,12 +287,13 @@ export function MemberCourses() {
                             </div>
                           )}
                           {renew && (
-                            <Link
+                            <TextLink
+                              direction="forward"
                               className={styles.renew}
                               href={`/member/discover?sport=${e.sportId}`}
                             >
-                              {c.renew.replace("{sport}", e.sportName)} →
-                            </Link>
+                              {c.renew.replace("{sport}", e.sportName)}
+                            </TextLink>
                           )}
                         </div>
                         <div className={styles.actions}>
@@ -274,14 +303,6 @@ export function MemberCourses() {
                           >
                             {c.details}
                           </Link>
-                          {firstDay && (
-                            <Link
-                              className="btn btn--secondary"
-                              href={`/member/schedule?date=${firstDay}`}
-                            >
-                              {c.sessions}
-                            </Link>
-                          )}
                         </div>
                       </article>
                     );
@@ -338,7 +359,9 @@ export function MemberCourseDetail({ classId }: { classId: number }) {
   const state = useApi(memberEnrollments, []);
   return (
     <>
-      <Link href="/member/courses">{t.memberPages.backCourses}</Link>
+      <TextLink direction="back" standalone href="/member/courses">
+        {t.memberPages.backCourses}
+      </TextLink>
       <AsyncSection state={state}>
         {(rows) => {
           const enrollment = rows.find((e) => e.classId === classId);

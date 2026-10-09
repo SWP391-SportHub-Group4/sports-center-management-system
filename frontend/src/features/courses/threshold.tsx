@@ -1,5 +1,5 @@
 "use client";
-import Link from "next/link";
+import { TextLink } from "@/components/TextLink";
 import { useId, useRef, useState } from "react";
 import { pagedItems } from "@/lib/paged";
 import { api } from "@/lib/apiClient";
@@ -228,9 +228,12 @@ export function ThresholdPanel({
                 {choice === "WAIT_NEXT_COURSE" && (
                   <div className={styles.notice} role="status">
                     <p>{l.waitBlocked}</p>
-                    <Link href="/member/courses?tab=interests">
+                    <TextLink
+                      direction="forward"
+                      href="/member/courses?tab=interests"
+                    >
                       {l.interests}
-                    </Link>
+                    </TextLink>
                   </div>
                 )}
                 {choice === "TRANSFER" && (
@@ -319,13 +322,6 @@ export function ThresholdPanel({
         )}
       </AsyncSection>
       {action.error && <p role="alert">{action.error}</p>}
-      <button
-        className="btn btn--quiet btn--sm"
-        disabled={action.busy}
-        onClick={state.reload}
-      >
-        {t.refactor.refresh}
-      </button>
       {review && !closed && choice && choice !== "WAIT_NEXT_COURSE" && (
         <Dialog
           title={l.confirmation}

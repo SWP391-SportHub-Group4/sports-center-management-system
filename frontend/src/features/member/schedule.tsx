@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useState } from "react";
 import { Drawer } from "@/components/primitives";
 import { AsyncSection, StatusChip } from "@/components/ui";
@@ -114,7 +115,7 @@ async function loadTimeline(
       title: rentalTitle,
       startAtUtc: r.startAtUtc,
       endAtUtc: r.endAtUtc,
-      roomName: null,
+      roomName: r.roomName ?? null,
       coachName: null,
       status: r.status,
       sport: sports.find((s) => s.sportId === r.sportId)?.name ?? null,
@@ -196,6 +197,13 @@ export function MemberSchedule() {
           {formatTime(item.startAtUtc)}–{formatTime(item.endAtUtc)}
         </time>
         {item.roomName && <span className={styles.meta}>{item.roomName}</span>}
+        {item.kind === "class" && !!item.numSessions && item.sessionNo && (
+          <span className={styles.meta}>
+            {m.sessionOf
+              .replace("{n}", String(item.sessionNo))
+              .replace("{total}", String(item.numSessions))}
+          </span>
+        )}
         {item.kind === "rental" && item.sport && (
           <span className={styles.meta}>{item.sport}</span>
         )}
@@ -234,7 +242,8 @@ export function MemberSchedule() {
             className="btn btn--secondary btn--sm"
             onClick={() => setValues({ date: addDaysIso(monday, -7) })}
           >
-            ← {m.prevWeek}
+            <ChevronLeft size={16} aria-hidden="true" />
+            {m.prevWeek}
           </button>
           <button
             type="button"
@@ -248,7 +257,8 @@ export function MemberSchedule() {
             className="btn btn--secondary btn--sm"
             onClick={() => setValues({ date: addDaysIso(monday, 7) })}
           >
-            {m.nextWeek} →
+            {m.nextWeek}
+            <ChevronRight size={16} aria-hidden="true" />
           </button>
         </div>
       </div>
@@ -284,6 +294,39 @@ export function MemberSchedule() {
               : all.filter((item) => item.kind === filterKind);
           for (const item of visible)
             byDay.get(vnDay(item.startAtUtc))?.push(item);
+          if (!all.length || !visible.length)
+            return (
+              <div className={styles.emptyState} role="status">
+                <h2>{all.length ? m.noneFiltered : m.emptyRange}</h2>
+                {all.length ? (
+                  <button
+                    type="button"
+                    className="btn btn--secondary"
+                    onClick={() => setFilterKind("all")}
+                  >
+                    {t.memberPages.all}
+                  </button>
+                ) : (
+                  <>
+                    <p>{m.emptyWeekBody}</p>
+                    <div className={styles.actions}>
+                      <Link className="btn" href="/member/discover">
+                        {m.ctaCourses}
+                      </Link>
+                      <Link className="btn btn--secondary" href="/member/pt/book">
+                        {m.ctaPt}
+                      </Link>
+                      <Link
+                        className="btn btn--secondary"
+                        href="/member/courts/book"
+                      >
+                        {m.ctaRental}
+                      </Link>
+                    </div>
+                  </>
+                )}
+              </div>
+            );
           const columns = [...byDay.entries()];
           const rows = Math.max(
             1,
@@ -346,7 +389,7 @@ export function MemberSchedule() {
                   {Array.from({ length: rows }, (_, row) => (
                     <tr key={row}>
                       {columns.map(([day, events]) => (
-                        <td key={day} data-today={day === todayIso()}>
+                        <td key={day}>
                           {events[row] ? (
                             renderEvent(events[row])
                           ) : (
@@ -394,25 +437,32 @@ export function MemberSchedule() {
                   <dd>{selected.roomName || m.roomTbc}</dd>
                 </>
               )}
+              {selected.kind === "class" &&
+                !!selected.numSessions &&
+                selected.sessionNo && (
+                  <>
+                    <dt>{t.mCourses.progressLabel}</dt>
+                    <dd>
+                      {m.sessionOf
+                        .replace("{n}", String(selected.sessionNo))
+                        .replace("{total}", String(selected.numSessions))}
+                    </dd>
+                  </>
+                )}
               {selected.coachName && (
                 <>
                   <dt>{m.coach}</dt>
                   <dd>{selected.coachName}</dd>
                 </>
               )}
-              <dt>{m.status}</dt>
-              <dd>
-                {selected.kind === "rental" &&
-                selected.status === "CONFIRMED" ? (
-                  <StatusChip
-                    tone="success"
-                    label={m.rentalBooked}
-                    value={selected.status}
-                  />
-                ) : (
-                  <StatusChip value={selected.status} />
-                )}
-              </dd>
+              {exceptional(selected.status) && (
+                <>
+                  <dt>{m.status}</dt>
+                  <dd>
+                    <StatusChip value={selected.status} />
+                  </dd>
+                </>
+              )}
               {selected.kind === "class" && selected.attendanceStatus && (
                 <>
                   <dt>{m.attendance}</dt>

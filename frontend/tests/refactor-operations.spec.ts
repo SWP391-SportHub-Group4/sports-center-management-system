@@ -1467,6 +1467,17 @@ test("rental cancellation uses the server refund quote and does not create a ref
   await page.route(`**/api/refunds/quote/${itemId}`, (r) =>
     r.fulfill({ json: { systemCalculatedPoints: 0 } }),
   );
+  await page.route("**/api/court-rentals/policy", (r) =>
+    r.fulfill({
+      json: {
+        slotMinutes: 60,
+        maxHours: 4,
+        advanceDays: 30,
+        cancelFreeHours: 24,
+        serverNowUtc: "2030-10-02T00:00:00Z",
+      },
+    }),
+  );
   let cancelled = 0;
   await page.route(`**/api/court-rentals/${rentalId}/cancel`, (r) => {
     cancelled++;
@@ -1477,7 +1488,7 @@ test("rental cancellation uses the server refund quote and does not create a ref
   await expect(page.getByRole("dialog")).toContainText("Refund points: 0");
   await page
     .getByRole("dialog")
-    .getByRole("button", { name: "Confirm", exact: true })
+    .getByRole("button", { name: "Confirm cancellation", exact: true })
     .click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   expect(cancelled).toBe(1);

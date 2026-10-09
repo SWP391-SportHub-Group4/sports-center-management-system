@@ -19,4 +19,5 @@ public sealed record EnrollmentResponse(
     DateTime? LastSessionEndUtc = null,
     int CompletedSessions = 0,
     DateTime? NextSessionStartUtc = null,
-    int SportId = 0);
+    int SportId = 0,
+    IReadOnlyList<ClassScheduleRuleResponse>? ScheduleRules = null);

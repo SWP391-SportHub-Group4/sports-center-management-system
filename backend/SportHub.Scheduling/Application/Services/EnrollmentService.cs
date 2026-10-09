@@ -47,6 +47,18 @@ public sealed class EnrollmentService(ISportHubDbContext db) : IEnrollmentServic
                 e.Class.SportId))
             .ToListAsync(ct);
 
+        var classIds = items.Select(i => i.ClassId).Distinct().ToList();
+        var rules = (await db.Set<ClassScheduleRule>().AsNoTracking()
+                .Where(r => classIds.Contains(r.ClassId))
+                .OrderBy(r => r.DayOfWeek).ThenBy(r => r.StartTimeLocal)
+                .ToListAsync(ct))
+            .GroupBy(r => r.ClassId)
+            .ToDictionary(g => g.Key, g => (IReadOnlyList<ClassScheduleRuleResponse>)g
+                .Select(r => new ClassScheduleRuleResponse(
+                    r.DayOfWeek, r.StartTimeLocal.ToString("HH:mm", System.Globalization.CultureInfo.InvariantCulture)))
+                .ToList());
+        items = items.Select(i => i with { ScheduleRules = rules.GetValueOrDefault(i.ClassId) ?? [] }).ToList();
+
         return new PagedResult<EnrollmentResponse> { Items = items, Page = page, PageSize = pageSize, TotalCount = total };
     }
 }

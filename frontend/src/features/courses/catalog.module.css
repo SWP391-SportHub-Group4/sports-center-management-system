@@ -47,7 +47,6 @@
 }
 .note {
   margin: 0 0 var(--space-5);
-  max-width: 72ch;
   color: var(--text-muted);
   font-size: var(--text-sm);
   line-height: var(--leading-relaxed);
@@ -196,4 +195,10 @@
   .filterTail {
     grid-column: 1 / -1;
   }
+}
+
+.threshold {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
 }

@@ -13,4 +13,5 @@ public sealed record MemberSessionResponse(
     [property: SportHub.BuildingBlocks.Api.WireEnum] string Status,
     bool IsMakeup,
     [property: SportHub.BuildingBlocks.Api.WireEnum] string? AttendanceStatus,
-    string? CoachName);
+    string? CoachName,
+    int NumSessions = 0);

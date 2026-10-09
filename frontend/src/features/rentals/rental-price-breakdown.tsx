@@ -5,8 +5,10 @@ import { formatDateTime, formatMoney } from "@/lib/format";
 import type { CourtRentalQuoteDto } from "@/lib/types";
 export function RentalPriceBreakdown({
   quote,
+  showTotal = true,
 }: {
   quote: CourtRentalQuoteDto;
+  showTotal?: boolean;
 }) {
   const { t } = useLanguage();
   const l = t.operations;
@@ -22,9 +24,11 @@ export function RentalPriceBreakdown({
           </tr>
         ))}
       </Table>
-      <p>
-        {t.refactor.total}: {formatMoney(quote.totalPrice)}
-      </p>
+      {showTotal && (
+        <p>
+          {t.refactor.total}: {formatMoney(quote.totalPrice)}
+        </p>
+      )}
     </>
   );
 }

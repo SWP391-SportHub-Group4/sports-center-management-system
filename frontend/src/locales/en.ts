@@ -1022,8 +1022,8 @@ export const en = {
       "The course has ended or legacy enrollments lack paid invoices. Resolve those records before cancellation.",
     availability: "Check availability and price",
     priceBreakdown: "Price breakdown",
-    rentalPolicy:
-      "Refund eligibility and points are calculated by the server. Cancellation is final.",
+    rentalRule:
+      "Rent for 1 to {max} hours, up to {days} days ahead. Cancel at least {free} hours before play starts for a 100% points refund; later cancellations are not refunded.",
     refundPoints: "Refund points",
     cancelRental: "Cancel rental",
     selfOnly: "Only your own rentals, wallet and invoices are shown.",
@@ -1334,6 +1334,10 @@ export const en = {
     nextGateway: "The remaining amount is paid through the payment gateway:",
     returnNote:
       "Coming back from the payment gateway does not confirm payment. We check with the server.",
+    holdRule:
+      "Your spot is held for {minutes} minutes once you continue. Refunds are returned as points only (1 point = 1,000 VND).",
+    holdRuleClass:
+      "If the class does not reach its minimum before it opens, you can transfer to another class or take a 100% points refund.",
     phaseFulfilled: "Done — your purchase is active.",
     phasePaidPending: "Payment received. Your purchase is being activated.",
     phaseVoid: "This checkout was cancelled or has expired.",
@@ -1859,6 +1863,8 @@ export const en = {
     coachTbc: "To be announced",
     scheduleTbc: "Schedule to be confirmed",
     emptyTitle: "No courses match right now",
+    clearFilters: "Clear filters",
+    minStudents: "Opens with at least {n} students. Enrollment closes {date}.",
     emptyFiltered:
       "Try another sport or a wider date range. You can also rent a court or look at Gym & PT.",
     emptyAll:
@@ -1901,7 +1907,10 @@ export const en = {
     emptyTitle: "Nothing on your calendar yet",
     emptyBody:
       "Join a course, book a personal training session or rent a court. Everything you book appears here.",
-    emptyRange: "Nothing scheduled in this period",
+    sessionOf: "Session {n} of {total}",
+    emptyRange: "Nothing scheduled this week",
+    emptyWeekBody:
+      "Classes, PT sessions and court rentals you book will appear here. You can also check another week.",
     ctaCourses: "Explore courses",
     ctaPt: "Book a PT session",
     ctaRental: "Rent a court",
@@ -1946,8 +1955,10 @@ export const en = {
     tabHistory: "History",
     tabAll: "All",
     independent:
-      "Badminton and basketball courses are bought on their own. Your Gym membership and PT package are under Gym & PT.",
-    gymPt: "Gym & PT",
+      "Badminton and basketball courses are bought on their own, no Gym membership needed.",
+    gymPtLink: "See my Gym membership and PT package",
+    tabInterests: "Course interests",
+    schedule: "Schedule",
     statusUpcoming: "Starting soon",
     statusOngoing: "In progress",
     statusDone: "Finished",
@@ -1964,7 +1975,6 @@ export const en = {
     datesFrom: "Starts {from}",
     coachTbc: "To be announced",
     details: "View details",
-    sessions: "View sessions",
     emptyUpcomingTitle: "No course starting soon",
     emptyUpcomingBody:
       "Pick a badminton or basketball course and your first session will show up here.",

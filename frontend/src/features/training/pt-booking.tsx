@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { TextLink } from "@/components/TextLink";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { AsyncSection, Feedback, Field } from "@/components/ui";
@@ -130,9 +132,14 @@ export function PtBooking() {
 
   return (
     <div className={styles.page}>
-      <Link className={styles.back} href="/member/training">
-        ← {l.back}
-      </Link>
+      <TextLink
+        direction="back"
+        standalone
+        className={styles.back}
+        href="/member/training"
+      >
+        {l.back}
+      </TextLink>
 
       <AsyncSection state={entitlements}>
         {() =>
@@ -251,7 +258,8 @@ export function PtBooking() {
                           setSlot(null);
                         }}
                       >
-                        ← {l.prevWeek}
+                        <ChevronLeft size={16} aria-hidden="true" />
+                        {l.prevWeek}
                       </button>
                       <strong>
                         {l.weekOf
@@ -268,7 +276,8 @@ export function PtBooking() {
                           setSlot(null);
                         }}
                       >
-                        {l.nextWeek} →
+                        {l.nextWeek}
+                        <ChevronRight size={16} aria-hidden="true" />
                       </button>
                     </div>
 

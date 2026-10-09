@@ -1927,3 +1927,56 @@ textarea {
 .public-menu-toggle{display:none}@media(max-width:800px){.public-menu-toggle{display:block;min-height:44px;padding:8px 12px;color:white;background:transparent;border:1px solid #698399;border-radius:6px;font:inherit}.public-nav-open{display:flex!important;position:absolute;top:80px;left:0;right:0;flex-direction:column;background:var(--brand-900);padding:20px;z-index:30}}
 
 .wallet-ledger th{color:#475569}.card{min-width:0}.card__body{overflow-wrap:anywhere}.card__body label{display:block;margin-block:12px}.card__body .btn{margin:6px 8px 6px 0}
+
+/* Liên kết văn bản dùng chung (xem components/TextLink.tsx) */
+.text-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1, 4px);
+  color: var(--text-link, var(--brand-700));
+  font-weight: var(--weight-semibold, 600);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-decoration-color: color-mix(in srgb, currentColor 35%, transparent);
+  text-underline-offset: 0.22em;
+  border-radius: var(--radius-sm, 4px);
+  transition: text-decoration-color 160ms ease-out;
+}
+
+.text-link--standalone {
+  min-height: 44px;
+}
+
+.text-link:hover {
+  color: var(--brand-900);
+  text-decoration-color: currentColor;
+}
+
+.text-link:focus-visible {
+  outline: 2px solid var(--color-primary, var(--brand-700));
+  outline-offset: 3px;
+}
+
+.text-link__icon {
+  flex: none;
+  transition: transform 160ms ease-out;
+}
+
+.text-link[data-direction="forward"]:hover .text-link__icon,
+.text-link[data-direction="external"]:hover .text-link__icon {
+  transform: translate(2px, -0px);
+}
+
+.text-link[data-direction="back"]:hover .text-link__icon {
+  transform: translateX(-2px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .text-link,
+  .text-link__icon {
+    transition: none;
+  }
+  .text-link:hover .text-link__icon {
+    transform: none;
+  }
+}

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { TextLink } from "@/components/TextLink";
 import { useState, useSyncExternalStore } from "react";
 import { AsyncSection, Feedback, Field, StatusChip } from "@/components/ui";
 import { api } from "@/lib/apiClient";
@@ -59,9 +60,14 @@ export function PtSessionDetail({ sessionId }: { sessionId: string }) {
 
   return (
     <div className={styles.page}>
-      <Link className={styles.back} href="/member/training">
-        ← {l.back}
-      </Link>
+      <TextLink
+        direction="back"
+        standalone
+        className={styles.back}
+        href="/member/training"
+      >
+        {l.back}
+      </TextLink>
       {justBooked && (
         <div className={styles.panel} role="status">
           <h2>{t.ptBook.bookedTitle}</h2>

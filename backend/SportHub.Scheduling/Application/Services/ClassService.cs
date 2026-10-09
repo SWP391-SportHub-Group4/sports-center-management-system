@@ -468,7 +468,8 @@ public sealed class ClassService(
             r.Class.DefaultRoomId, r.RoomName, r.Class.StartDate, r.Class.NumSessions,
             r.Class.Capacity, Math.Max(0, r.Class.Capacity - r.Class.ReservedCount), r.Class.Price,
             r.Class.Status.ToString(), r.FirstStart,
-            rules.TryGetValue(r.Class.ClassId, out var rl) ? rl : [])).ToList();
+            rules.TryGetValue(r.Class.ClassId, out var rl) ? rl : [],
+            r.Class.BreakEvenThreshold, r.Class.ThresholdDeadlineUtc)).ToList();
     }
 
     private async Task<IReadOnlyList<ClassManagerResponse>> ToManagerAsync(IReadOnlyList<Row> rows, CancellationToken ct)

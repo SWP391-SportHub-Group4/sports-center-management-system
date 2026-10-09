@@ -16,6 +16,8 @@ export interface MemberEvent extends CalendarEvent {
   attendanceStatus?: string | null;
   isMakeup?: boolean;
   quotaState?: string;
+  sessionNo?: number;
+  numSessions?: number;
 }
 
 export async function memberSchedule(

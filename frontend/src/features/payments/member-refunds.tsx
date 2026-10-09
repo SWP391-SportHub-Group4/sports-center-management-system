@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { TextLink } from "@/components/TextLink";
 import { useState } from "react";
 import { AsyncSection, Pager, StatusChip } from "@/components/ui";
 import { buttonClass } from "@/components/primitives";
@@ -49,9 +50,12 @@ export function MemberRefunds() {
                           ? `${t.finance.refundEstimate}: ${formatPoints(refund.systemCalculatedPoints)}`
                           : t.finance.refundNoCredit}
                     </p>
-                    <Link href={`/member/invoices/${refund.invoiceId}`}>
+                    <TextLink
+                      direction="forward"
+                      href={`/member/invoices/${refund.invoiceId}`}
+                    >
                       {t.finance.refundInvoice}
-                    </Link>
+                    </TextLink>
                   </li>
                 ))}
               </ul>

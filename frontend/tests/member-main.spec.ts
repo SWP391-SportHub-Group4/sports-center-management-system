@@ -353,12 +353,13 @@ test("weekly schedule orders sessions by start and then end time", async ({
   await expect(mondayEvents.nth(2)).toContainText("Afternoon class");
 });
 
-test("all courses is the first and default tab", async ({ page }) => {
+test("courses open on the first tab that has a course", async ({ page }) => {
   await setup(page);
   await page.goto("/member/courses");
   const tabs = page.getByRole("tablist").getByRole("tab");
-  await expect(tabs.first()).toHaveText("All (1)");
-  await expect(tabs.first()).toHaveAttribute("aria-selected", "true");
+  await expect(tabs.first()).toHaveText("In progress (0)");
+  await expect(tabs.nth(1)).toHaveText("Upcoming (1)");
+  await expect(tabs.nth(1)).toHaveAttribute("aria-selected", "true");
   await expect(
     page.getByText("Badminton course", { exact: true }),
   ).toBeVisible();
@@ -685,7 +686,7 @@ test("schedule reads the date from dashboard deep links", async ({ page }) => {
   await expect(page.getByRole("columnheader").first()).toContainText(
     "Mon (12/01)",
   );
-  await page.getByLabel("Choose week").fill("2099-W04");
+  await page.getByRole("button", { name: "Next week" }).click();
   await expect(page.getByRole("columnheader").first()).toContainText(
     "Mon (19/01)",
   );

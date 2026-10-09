@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using SportHub.BuildingBlocks.Abstractions.Configuration;
 using SportHub.BuildingBlocks.Api;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.Payment.Application.Commands;
@@ -11,8 +12,14 @@ using SportHub.Payment.Application.Services;
 namespace SportHub.Payment.Api;
 
 [ApiController, Authorize, Route("api/checkouts")]
-public sealed class CheckoutsController(CheckoutService checkouts, IPackagePurchaseService packages) : ControllerBase
+public sealed class CheckoutsController(
+    CheckoutService checkouts, IPackagePurchaseService packages, ISystemSettingProvider settings) : ControllerBase
 {
+    /// <summary>Số phút giữ chỗ khi checkout (cấu hình <c>hold.minutes</c>), để UI báo trước khi người dùng bấm mua.</summary>
+    [HttpGet("policy")]
+    public async Task<IActionResult> Policy(CancellationToken ct)
+        => Ok(new CheckoutPolicyResponse(await settings.GetIntAsync(SystemSettingKeys.HoldMinutes, ct)));
+
     [HttpPost("membership")]
     [EnableRateLimiting("checkout-write")]
     public async Task<IActionResult> Membership([FromBody] MembershipCheckoutRequest request,
@@ -157,3 +164,5 @@ public sealed record RetryCheckoutRequest(string? PriceVersion = null);
 
 public sealed record CourtRentalCheckoutRequest(int SportId, int RoomId,
     DateTimeOffset StartUtc, DateTimeOffset EndUtc);
+
+public sealed record CheckoutPolicyResponse(int HoldMinutes);

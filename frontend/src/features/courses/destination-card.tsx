@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
+import { ArrowUpRight } from "lucide-react";
 import { useMemo } from "react";
-import { formatMoney } from "@/lib/format";
 import { useLanguage } from "@/lib/language";
 import type { CourseDto } from "@/lib/types";
 import { previewSessions } from "./preview";
@@ -114,10 +114,6 @@ export function DestinationCard({ course }: { course: CourseDto }) {
       </div>
 
       <footer className={styles.foot}>
-        <p className={styles.price}>
-          <span>{l.price}</span>
-          {formatMoney(course.price)}
-        </p>
         <Link
           className="btn btn--quiet btn--sm"
           href={`/courses/${course.classId}`}
@@ -125,7 +121,7 @@ export function DestinationCard({ course }: { course: CourseDto }) {
           rel="noopener noreferrer"
         >
           {l.classDetails}
-          <span aria-hidden="true"> ↗</span>
+          <ArrowUpRight size={14} aria-hidden="true" />
           <span className="sr-only">{l.newTab}</span>
         </Link>
       </footer>

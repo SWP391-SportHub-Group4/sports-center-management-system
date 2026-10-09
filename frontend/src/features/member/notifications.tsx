@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { useLanguage } from "@/lib/language";
@@ -97,7 +98,8 @@ export function MemberNotifications() {
                           className="small"
                           style={{ display: "block", marginTop: 8 }}
                         >
-                          {notificationActionLabel(n, language)} →
+                          {notificationActionLabel(n, language)}{" "}
+                          <ArrowRight size={14} aria-hidden="true" />
                         </span>
                       </Link>
                     ) : (

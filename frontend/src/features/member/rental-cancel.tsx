@@ -4,6 +4,8 @@ import { Dialog } from "@/components/ui";
 import { MutationFeedback, useMutation } from "@/features/operations";
 import { useApi, useNow } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
+import { formatPoints } from "@/lib/format";
+import { paymentApi } from "@/features/payments";
 import { rentalApi } from "../rentals/api";
 import type { CourtRentalDto } from "@/lib/types";
 import styles from "./schedule.module.css";
@@ -23,6 +25,14 @@ export function RentalCancelConfirm({
   const mutation = useMutation();
   const policy = useApi((signal) => rentalApi.policy(signal), []);
   const hours = policy.data?.cancelFreeHours ?? 24;
+  // Số điểm hoàn cuối cùng luôn do server tính; quy tắc 24h chỉ là lời giải thích.
+  const quote = useApi(
+    (signal) =>
+      rental.invoiceItemId
+        ? paymentApi.refundQuote(rental.invoiceItemId, signal)
+        : Promise.resolve(null),
+    [rental.invoiceItemId],
+  );
   const clock = useNow();
   const now = policy.data
     ? new Date(policy.data.serverNowUtc).getTime()
@@ -64,6 +74,11 @@ export function RentalCancelConfirm({
       <p className={styles.policy} data-refund={free ? "yes" : "no"}>
         {(free ? m.cancelFree : m.cancelLate).replace("{hours}", String(hours))}
       </p>
+      {quote.data && (
+        <p>
+          {t.operations.refundPoints}: {formatPoints(quote.data.systemCalculatedPoints)}
+        </p>
+      )}
       <MutationFeedback mutation={mutation} />
     </Dialog>
   );

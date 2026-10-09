@@ -11,6 +11,8 @@ export const paymentApi = {
     }),
   get: (invoiceId: string, signal?: AbortSignal) =>
     api.get<CheckoutDto>(`/api/checkouts/${invoiceId}`, { signal }),
+  policy: (signal?: AbortSignal) =>
+    api.get<{ holdMinutes: number }>("/api/checkouts/policy", { signal }),
   recover: (key: string) =>
     api.get<CheckoutDto>("/api/checkouts/by-key", { query: { key } }),
   attempt: (invoiceId: string) =>

@@ -51,6 +51,8 @@ function CheckoutFlow({
   const { t } = useLanguage();
   const l = t.refactor;
   const now = useNow(1000);
+  // Số phút giữ chỗ do Manager cấu hình (`hold.minutes`); chưa tải được thì không nêu con số.
+  const policy = useApi((signal) => paymentApi.policy(signal), []);
   const [checkout, setCheckout] = useState<CheckoutDto | null>(null);
   const [attempt, setAttempt] = useState<PaymentAttemptDto | null>(null);
   const { user } = useAuth();
@@ -361,6 +363,15 @@ function CheckoutFlow({
               ))}
             </dl>
           )}
+          {policy.data && (
+            <p className={styles.note}>
+              {t.checkout.holdRule.replace(
+                "{minutes}",
+                String(policy.data.holdMinutes),
+              )}
+              {intent?.kind === "class" && ` ${t.checkout.holdRuleClass}`}
+            </p>
+          )}
           <Button
             variant="primary"
             loading={busy}
@@ -586,11 +597,6 @@ function CheckoutFlow({
                 </>
               )}
             </p>
-            <HoldCountdown
-              expiresAtUtc={checkout.expiresAtUtc}
-              serverNow={serverNow}
-              showSource
-            />
             <div className={styles.actions}>
               <Button
                 variant="primary"
@@ -779,7 +785,11 @@ function CheckoutFlow({
           </div>
         </dl>
         {vm.phase === "AWAITING_PAYMENT" && (
-          <HoldCountdown expiresAtUtc={vm.expiresAtUtc} serverNow={serverNow} />
+          <HoldCountdown
+            expiresAtUtc={vm.expiresAtUtc}
+            serverNow={serverNow}
+            showSource
+          />
         )}
       </aside>
     </div>

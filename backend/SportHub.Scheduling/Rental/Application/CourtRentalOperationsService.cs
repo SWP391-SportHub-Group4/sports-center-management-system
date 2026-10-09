@@ -39,9 +39,13 @@ public sealed class CourtRentalOperationsService(ISportHubDbContext db,
         CancellationToken ct = default)
     {
         ValidateRange(fromUtc, toUtc);
-        return await db.Set<CourtRental>().AsNoTracking().Where(x => x.MemberId == ownerId
+        var rows = await db.Set<CourtRental>().AsNoTracking().Where(x => x.MemberId == ownerId
                 && x.StartAtUtc < toUtc && x.EndAtUtc > fromUtc)
             .OrderBy(x => x.StartAtUtc).Select(Project()).ToListAsync(ct);
+        var roomIds = rows.Select(x => x.RoomId).Distinct().ToList();
+        var names = await db.Set<Room>().Where(x => roomIds.Contains(x.RoomId))
+            .ToDictionaryAsync(x => x.RoomId, x => x.Name, ct);
+        return rows.Select(x => x with { RoomName = names.GetValueOrDefault(x.RoomId) }).ToList();
     }
 
     public async Task<IReadOnlyList<CourtRentalSummary>> StaffScheduleAsync(int? roomId, DateTime fromUtc,
@@ -109,6 +113,7 @@ public sealed record CourtRentalSummary(Guid CourtRentalId, int SportId, int Roo
     [property: SportHub.BuildingBlocks.Api.WireEnum] string Status, Guid? InvoiceItemId)
 {
     public Guid? InvoiceId { get; init; }
+    public string? RoomName { get; init; }
 }
 public sealed record CourtRentalPolicy(int SlotMinutes, int MaxHours, int AdvanceDays, int CancelFreeHours, DateTime ServerNowUtc);
 public sealed record CourtRentalDetail(CourtRentalSummary Rental, string RoomName, string SportName,

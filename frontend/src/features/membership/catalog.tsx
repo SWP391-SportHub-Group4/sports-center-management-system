@@ -2,6 +2,7 @@
 import { findSportWithService, hasService } from "@/lib/sports";
 import { useState } from "react";
 import Link from "next/link";
+import { TextLink } from "@/components/TextLink";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
@@ -253,10 +254,12 @@ export function MembershipCatalog({
                                   .join(" / ")}`}
                               {` · ${course.availableSeats} ${text("chỗ", "spots")}`}
                             </p>
-                            <Link href={`/courses/${course.classId}`}>
-                              {text("Xem khóa học", "View course")}{" "}
-                              <span aria-hidden="true">↗</span>
-                            </Link>
+                            <TextLink
+                              direction="forward"
+                              href={`/courses/${course.classId}`}
+                            >
+                              {text("Xem khóa học", "View course")}
+                            </TextLink>
                           </li>
                         ))}
                       </ul>

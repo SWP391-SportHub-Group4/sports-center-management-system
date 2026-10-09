@@ -13,7 +13,7 @@ import { AsyncSection, Field, Table, Card, StatusChip } from "@/components/ui";
 import { dayRange } from "@/lib/vietnam-time";
 import type { CourtRentalDto } from "@/lib/types";
 import { rentalApi } from "./api";
-import { RentalCancelDialog } from "./rental-cancel-dialog";
+import { RentalCancelConfirm } from "@/features/member/rental-cancel";
 import { RentalPriceBreakdown } from "./rental-price-breakdown";
 export function RentalList(props: { rentalId?: string; initialDate?: string }) {
   return props.rentalId ? (
@@ -74,9 +74,6 @@ function RentalRangeList({ initialDate }: { initialDate?: string }) {
           </select>
         </Field>
       </div>
-      <button className="btn btn--ghost" onClick={state.reload}>
-        {l.refresh}
-      </button>
       <AsyncSection state={state}>
         {(data) => {
           const rows = data.filter((r) => !status || r.status === status);
@@ -86,7 +83,7 @@ function RentalRangeList({ initialDate }: { initialDate?: string }) {
                 {rows.map((r) => (
                   <tr key={r.courtRentalId}>
                     <td>
-                      {l.room} #{r.roomId}
+                      {r.roomName ?? `${l.room} #${r.roomId}`}
                     </td>
                     <td>{formatDateTime(r.startAtUtc)}</td>
                     <td>{formatDateTime(r.endAtUtc)}</td>
@@ -130,11 +127,11 @@ function RentalRangeList({ initialDate }: { initialDate?: string }) {
         }}
       </AsyncSection>
       {target && (
-        <RentalCancelDialog
+        <RentalCancelConfirm
           key={target.courtRentalId}
           rental={target}
           onClose={() => setTarget(null)}
-          onSaved={() => {
+          onCancelled={() => {
             setTarget(null);
             state.reload();
           }}
@@ -193,9 +190,6 @@ function RentalDetail({ rentalId }: { rentalId: string }) {
               >
                 {l.wallet}
               </Link>
-              <button className="btn btn--ghost" onClick={state.reload}>
-                {l.refresh}
-              </button>
               {detail.rental.status === "CONFIRMED" && (
                 <button
                   className="btn btn--secondary"
@@ -207,10 +201,10 @@ function RentalDetail({ rentalId }: { rentalId: string }) {
             </div>
           </Card>
           {cancelling && (
-            <RentalCancelDialog
+            <RentalCancelConfirm
               rental={detail.rental}
               onClose={() => setCancelling(false)}
-              onSaved={() => {
+              onCancelled={() => {
                 setCancelling(false);
                 state.reload();
               }}

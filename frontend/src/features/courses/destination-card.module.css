@@ -92,17 +92,5 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-4);
-  justify-content: space-between;
-  align-items: end;
-}
-.price {
-  margin: 0;
-  display: grid;
-  font-weight: var(--weight-semibold);
-  font-variant-numeric: tabular-nums;
-}
-.price span {
-  color: var(--text-muted);
-  font-size: var(--text-sm);
-  font-weight: 400;
+  justify-content: flex-end;
 }

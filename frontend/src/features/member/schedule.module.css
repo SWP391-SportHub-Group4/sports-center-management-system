@@ -102,10 +102,6 @@
   vertical-align: top;
 }
 
-.week td[data-today="true"] {
-  background: color-mix(in srgb, var(--success-bg) 55%, var(--bg-surface));
-}
-
 .free {
   color: var(--text-muted);
   font-size: var(--text-xs);
@@ -234,6 +230,13 @@
 }
 
 @media (max-width: 560px) {
+  .weekPicker {
+    width: 100%;
+  }
+  .weekPicker input {
+    min-width: 0;
+    width: 100%;
+  }
   .nav {
     flex-wrap: nowrap;
     width: 100%;
@@ -319,12 +322,19 @@
   font-size: var(--text-sm);
 }
 
-@media (max-width: 560px) {
-  .weekPicker {
-    width: 100%;
-  }
-  .weekPicker input {
-    min-width: 0;
-    width: 100%;
-  }
+.emptyState {
+  display: grid;
+  gap: var(--space-3);
+  justify-items: start;
+  padding: var(--space-6) var(--space-5);
+  background: var(--bg-surface-sunken);
+  border-radius: var(--radius-md);
+}
+.emptyState h2,
+.emptyState p {
+  margin: 0;
+  max-width: 60ch;
+}
+.emptyState p {
+  color: var(--text-muted);
 }

@@ -24,7 +24,9 @@ public sealed record ClassPublicResponse(
     decimal Price,
     [property: SportHub.BuildingBlocks.Api.WireEnum] string Status,
     DateTime? FirstSessionStartUtc,
-    IReadOnlyList<ClassScheduleRuleResponse> ScheduleRules);
+    IReadOnlyList<ClassScheduleRuleResponse> ScheduleRules,
+    int? MinStudents = null,
+    DateTime? ThresholdDeadlineUtc = null);
 
 /// <summary>Khóa học cho Manager: đủ trường tài chính/ngưỡng/đồng thời.</summary>
 public sealed record ClassManagerResponse(

@@ -3,7 +3,7 @@ import { useRef, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
-import { todayIso, addDaysIso } from "@/lib/format";
+import { todayIso, addDaysIso, formatMoney } from "@/lib/format";
 import { api } from "@/lib/apiClient";
 import { AsyncSection, Field } from "@/components/ui";
 import { vietnamUtc } from "@/lib/vietnam-time";
@@ -60,8 +60,10 @@ export function AvailabilityPicker() {
       <AsyncSection state={policy}>
         {(limits) => (
           <p>
-            {l.hours}: 1-{limits.maxHours} · {l.daysAhead}: {limits.advanceDays}{" "}
-            · {l.cancelFreeHours}: {limits.cancelFreeHours}
+            {l.rentalRule
+              .replace("{max}", String(limits.maxHours))
+              .replace("{days}", String(limits.advanceDays))
+              .replace("{free}", String(limits.cancelFreeHours))}
           </p>
         )}
       </AsyncSection>
@@ -193,12 +195,22 @@ export function AvailabilityPicker() {
       )}
       {selected && snapshot && (
         <>
-          <RentalPriceBreakdown quote={selected} />
+          <RentalPriceBreakdown quote={selected} showTotal={false} />
           <CheckoutPanel
             key={`${selected.roomId}-${snapshot.startUtc}-${snapshot.endUtc}`}
             intent={{
               kind: "court-rental",
               body: { ...snapshot, roomId: selected.roomId },
+            }}
+            review={{
+              title: t.checkout.title,
+              submitLabel: t.refactor.buy,
+              items: [
+                {
+                  label: t.refactor.total,
+                  value: formatMoney(selected.totalPrice),
+                },
+              ],
             }}
             onAccessChanged={() => {
               void refreshUser();

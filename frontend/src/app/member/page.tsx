@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 import { MemberShell } from "@/components/MemberShell";
 import { AsyncSection, StatusChip } from "@/components/ui";
 import { buttonClass } from "@/components/primitives";
@@ -761,7 +762,8 @@ export default function MemberDashboardPage() {
                           <time>{formatDateTime(n.sentAt)}</time>
                           {memberNotificationHref(n) && (
                             <span className={styles.feedAction}>
-                              {notificationActionLabel(n, language)} →
+                              {notificationActionLabel(n, language)}{" "}
+                              <ArrowRight size={14} aria-hidden="true" />
                             </span>
                           )}
                         </Link>

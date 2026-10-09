@@ -56,6 +56,10 @@ export interface CourseDto {
   status: "PUBLISHED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
   firstSessionStartUtc: string | null;
   scheduleRules: { dayOfWeek: number; startTimeLocal: string }[];
+  /** Số học viên tối thiểu để lớp mở; null khi chưa cấu hình. */
+  minStudents?: number | null;
+  /** Hạn chốt lớp; dưới ngưỡng thì hội viên được chọn chuyển lớp hoặc hoàn điểm. */
+  thresholdDeadlineUtc?: string | null;
 }
 
 export interface CourseEnrollmentDto {
@@ -84,6 +88,7 @@ export interface CourseEnrollmentDto {
   completedSessions?: number;
   nextSessionStartUtc?: string | null;
   sportId?: number;
+  scheduleRules?: { dayOfWeek: number; startTimeLocal: string }[];
 }
 
 export interface WalletBalanceDto {
@@ -541,6 +546,8 @@ export interface CourseMemberSessionDto {
   className: string;
   sportName: string;
   sessionNo: number;
+  /** Tổng số buổi của khóa; 0 khi server cũ chưa trả. */
+  numSessions?: number;
   roomName: string;
   coachName?: string | null;
   startAtUtc: string;
@@ -748,6 +755,7 @@ export interface CourtRentalDto {
   courtRentalId: string;
   sportId: number;
   roomId: number;
+  roomName?: string | null;
   startAtUtc: string;
   endAtUtc: string;
   totalPrice: number;

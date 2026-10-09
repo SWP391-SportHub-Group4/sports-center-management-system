@@ -155,7 +155,23 @@ export function CourseCatalog({
         <div className={styles.empty} data-surface="inverse">
           <h3>{d.emptyTitle}</h3>
           <p>{hasFilter ? d.emptyFiltered : d.emptyAll}</p>
-          {detailBasePath === "/member/discover" && (
+          {hasFilter && (
+            <div className={styles.emptyActions}>
+              <button
+                className="btn"
+                onClick={() => {
+                  setSport("");
+                  setFrom("");
+                  setTo("");
+                  setOpenOnly(false);
+                  setPage(1);
+                }}
+              >
+                {d.clearFilters}
+              </button>
+            </div>
+          )}
+          {!hasFilter && detailBasePath === "/member/discover" && (
             <div className={styles.emptyActions}>
               <Link className="btn" href="/member/courts/book">
                 {d.rent}
@@ -199,9 +215,6 @@ export function CourseCatalog({
                     >
                       {c.sportName}
                     </span>
-                    <span className={tags.kind}>
-                      {d.sessions.replace("{n}", String(c.numSessions))}
-                    </span>
                   </div>
                   <h3>{c.name}</h3>
                   <dl className={styles.facts}>
@@ -210,10 +223,25 @@ export function CourseCatalog({
                     <dt>{d.room}</dt>
                     <dd>{c.roomName}</dd>
                     <dt>{d.schedule}</dt>
-                    <dd>{schedule ?? d.scheduleTbc}</dd>
+                    <dd>
+                      {schedule ?? d.scheduleTbc} ·{" "}
+                      {d.sessions.replace("{n}", String(c.numSessions))}
+                    </dd>
                     <dt>{d.startDate}</dt>
                     <dd>{formatDate(c.startDate)}</dd>
                   </dl>
+                  {c.minStudents ? (
+                    <p className={styles.threshold}>
+                      {d.minStudents
+                        .replace("{n}", String(c.minStudents))
+                        .replace(
+                          "{date}",
+                          c.thresholdDeadlineUtc
+                            ? formatDate(c.thresholdDeadlineUtc)
+                            : formatDate(c.startDate),
+                        )}
+                    </p>
+                  ) : null}
                   <div className={styles.courseFoot}>
                     <div>
                       <p className={styles.price}>
