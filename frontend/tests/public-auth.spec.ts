@@ -23,9 +23,9 @@ test("public header and section links work without an account", async ({
   ).toHaveAttribute("href", "/login");
   await page
     .getByRole("navigation", { name: "Main navigation" })
-    .getByRole("link", { name: "Sports", exact: true })
+    .getByRole("link", { name: "Facilities", exact: true })
     .click();
-  await expect(page).toHaveURL(/#(activities|hoat-dong)$/);
+  await expect(page).toHaveURL(/#facilities$/);
   await expect
     .poll(() => page.evaluate(() => window.scrollY))
     .toBeGreaterThan(0);
