@@ -213,7 +213,9 @@ test("login validation grows naturally with spacing below each field", async ({
   const spacing = await form.evaluate((element) => {
     const inputs = element.querySelectorAll("input");
     const errors = element.querySelectorAll('[role="alert"]');
-    const forgot = element.querySelector("a");
+    const forgot = Array.from(element.querySelectorAll("button")).find(
+      (button) => button.textContent?.trim() === "Forgot password?",
+    );
     return {
       emailTop:
         errors[0].getBoundingClientRect().top -
