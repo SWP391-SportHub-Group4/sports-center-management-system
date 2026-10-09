@@ -212,6 +212,7 @@ function LoginForm() {
               autoComplete="username"
               required
               reserveErrorSpace
+              compactErrorSpace
               error={fieldErrors.email}
               disabled={busy}
               suppressHydrationWarning
@@ -253,6 +254,7 @@ function LoginForm() {
                 maxLength={256}
                 required
                 reserveErrorSpace
+                compactErrorSpace
                 error={fieldErrors.password}
                 disabled={busy}
                 suppressHydrationWarning

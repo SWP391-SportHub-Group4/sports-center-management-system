@@ -82,6 +82,10 @@
   background: rgb(18 34 29 / 94%);
   box-shadow: 0 24px 64px rgb(5 17 12 / 24%);
 }
+
+.shell :global(.auth--login .auth__card) {
+  width: min(448px, 100%);
+}
 .shell :global(.auth__card) > * {
   flex-shrink: 0;
 }
@@ -99,7 +103,7 @@
 }
 
 .shell :global(.auth__separator) {
-  margin: 10px 0;
+  margin: 20px auto;
 }
 .shell :global(.auth__brand) {
   color: var(--text-strong);

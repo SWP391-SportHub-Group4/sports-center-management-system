@@ -31,26 +31,35 @@ section.card {
 }
 
 .separator {
-  margin: var(--space-3) 0;
+  margin: var(--space-5) auto;
 }
 
 .form {
   display: grid;
-  gap: var(--space-2);
+  gap: 0;
+}
+
+.form,
+.separator,
+.signup,
+.card :global(.demo-accounts) {
+  width: min(400px, 100%);
+  margin-inline: auto;
 }
 
 /* "Quên mật khẩu?" nằm ngay dưới ô mật khẩu, căn phải, đủ vùng chạm 44px. */
 .passwordGroup {
-  display: grid;
-  gap: var(--space-1);
+  position: relative;
 }
 
 .forgot {
-  justify-self: end;
+  position: absolute;
+  top: 56px;
+  right: 0;
   display: inline-flex;
-  align-items: center;
-  min-height: 36px;
-  padding: 0 var(--space-1);
+  align-items: flex-start;
+  min-height: 44px;
+  padding: 8px var(--space-1) 0;
   color: var(--text-muted);
   font-size: var(--text-sm);
   font-weight: var(--weight-medium);
@@ -82,7 +91,7 @@ section.card {
 .submit {
   width: min(400px, 100%);
   min-height: 52px;
-  margin: 0 auto;
+  margin: 52px auto 0;
   border-radius: var(--radius-pill);
   font-size: var(--text-md);
 }
@@ -111,7 +120,7 @@ section.card {
 
 /* Khối tài khoản demo (chỉ môi trường development): giữ huy hiệu DEV trên một dòng. */
 .card :global(.demo-accounts) {
-  margin-top: var(--space-3);
+  margin-top: var(--space-6);
 }
 
 .card :global(.demo-accounts__badge) {
