@@ -14,23 +14,46 @@ async function waitForLoginLayout(page: Page) {
   });
 }
 
-test("public header and section links work without an account", async ({
-  page,
-}) => {
-  await page.goto("/");
-  await expect(
-    page.getByRole("link", { name: "Sign in", exact: true }),
-  ).toHaveAttribute("href", "/login");
-  await page
-    .getByRole("navigation", { name: "Main navigation" })
-    .getByRole("link", { name: "Facilities", exact: true })
-    .click();
-  await expect(page).toHaveURL(/#facilities$/);
-  await expect
-    .poll(() => page.evaluate(() => window.scrollY))
-    .toBeGreaterThan(0);
-  await expect(page.locator("html")).toHaveCSS("scroll-behavior", "smooth");
-});
+async function openPublicNavigation(page: Page) {
+  const navigation = page.getByRole("navigation", { name: "Main navigation" });
+  if (!(await navigation.isVisible())) {
+    await page
+      .getByRole("button", { name: "Open navigation", exact: true })
+      .click();
+  }
+  await expect(navigation).toBeVisible();
+  return navigation;
+}
+
+for (const width of [1440, 1280, 390]) {
+  test(`public header and section links work without an account (${width}px)`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/");
+    const navigation = await openPublicNavigation(page);
+    await expect(
+      navigation.getByRole("link", { name: "Sign in", exact: true }),
+    ).toHaveAttribute("href", "/login");
+    await expect(
+      navigation.getByRole("link", { name: "Sign up", exact: true }),
+    ).toHaveAttribute("href", "/register");
+    await navigation
+      .getByRole("link", { name: "Facilities", exact: true })
+      .click();
+    await expect(page).toHaveURL(/#facilities$/);
+    await expect
+      .poll(() => page.evaluate(() => window.scrollY))
+      .toBeGreaterThan(0);
+    await expect(page.locator("html")).toHaveCSS("scroll-behavior", "smooth");
+    if (width < 1360) {
+      await expect(
+        page.getByRole("button", { name: "Open navigation", exact: true }),
+      ).toHaveAttribute("aria-expanded", "false");
+      await expect(navigation).toBeHidden();
+    }
+  });
+}
 
 test("successful login routes each role to its dashboard", async ({ page }) => {
   await page.route("**/api/auth/login", async (route) => {
@@ -127,36 +150,42 @@ test("login shows inline required errors without browser validation tooltips", a
   await expect(form.getByText("Please fill out this field.")).toHaveCount(0);
 });
 
-test("authenticated public header shows the member name", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("sporthub.accessToken", "test-token");
-    localStorage.setItem("sporthub_lang", "en");
+for (const width of [1440, 1280, 390]) {
+  test(`authenticated public header shows the member name (${width}px)`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.addInitScript(() => {
+      localStorage.setItem("sporthub.accessToken", "test-token");
+      localStorage.setItem("sporthub_lang", "en");
+    });
+    await page.route("**/api/**", (route) => {
+      const path = new URL(route.request().url()).pathname;
+      if (path === "/api/users/me")
+        return route.fulfill({
+          json: {
+            userId: "00000000-0000-4000-8000-000000000001",
+            email: "member@sporthub.test",
+            fullName: "Alex Johnson",
+            role: "MEMBER",
+            sportIds: [],
+          },
+        });
+      if (path.includes("notifications"))
+        return route.fulfill({
+          json: path.endsWith("unread-count") ? { count: 0 } : [],
+        });
+      return route.fulfill({ json: [] });
+    });
+    await page.goto("/");
+    await openPublicNavigation(page);
+    // Tên người dùng nằm trên nút mở menu tài khoản; mục "My space" dẫn tới dashboard theo vai trò.
+    await page.getByRole("button", { name: /Alex Johnson/ }).click();
+    await expect(
+      page.getByRole("link", { name: "My space", exact: true }),
+    ).toHaveAttribute("href", "/member");
   });
-  await page.route("**/api/**", (route) => {
-    const path = new URL(route.request().url()).pathname;
-    if (path === "/api/users/me")
-      return route.fulfill({
-        json: {
-          userId: "00000000-0000-4000-8000-000000000001",
-          email: "member@sporthub.test",
-          fullName: "Alex Johnson",
-          role: "MEMBER",
-          sportIds: [],
-        },
-      });
-    if (path.includes("notifications"))
-      return route.fulfill({
-        json: path.endsWith("unread-count") ? { count: 0 } : [],
-      });
-    return route.fulfill({ json: [] });
-  });
-  await page.goto("/");
-  // Tên người dùng nằm trên nút mở menu tài khoản; mục "My space" dẫn tới dashboard theo vai trò.
-  await page.getByRole("button", { name: /Alex Johnson/ }).click();
-  await expect(
-    page.getByRole("link", { name: "My space", exact: true }),
-  ).toHaveAttribute("href", "/member");
-});
+}
 
 test("protected role page sends guests to login", async ({ page }) => {
   await page.goto("/admin");
