@@ -150,6 +150,54 @@ test("login shows inline required errors without browser validation tooltips", a
   await expect(form.getByText("Please fill out this field.")).toHaveCount(0);
 });
 
+test("registration code supports six digits, editing, and paste", async ({
+  page,
+}) => {
+  await page.route("**/api/auth/register/otp", (route) =>
+    route.fulfill({ json: {} }),
+  );
+  await page.goto("/register");
+  await page.getByLabel("Email").fill("member@sporthub.test");
+  await page.getByRole("button", { name: "Send code" }).click();
+
+  const digits = page
+    .getByRole("group", { name: "Verification code" })
+    .locator("input");
+  await expect(digits).toHaveCount(6);
+  await page.getByRole("button", { name: "Change" }).click();
+  await expect(digits).toHaveCount(0);
+  await expect(page.getByLabel("Email")).toBeEnabled();
+  await page.getByRole("button", { name: "Send code" }).click();
+  await expect(digits).toHaveCount(6);
+  await digits.first().focus();
+  await page.keyboard.type("123456");
+  for (let index = 0; index < 6; index += 1) {
+    await expect(digits.nth(index)).toHaveValue(String(index + 1));
+  }
+
+  await digits.last().fill("");
+  await digits.last().press("Backspace");
+  await expect(digits.nth(4)).toBeFocused();
+  await expect(digits.nth(4)).toHaveValue("");
+
+  await digits.first().evaluate((input) => {
+    const clipboardData = new DataTransfer();
+    clipboardData.setData("text", "654321");
+    input.dispatchEvent(
+      new ClipboardEvent("paste", {
+        bubbles: true,
+        cancelable: true,
+        clipboardData,
+      }),
+    );
+  });
+  for (let index = 0; index < 6; index += 1) {
+    await expect(digits.nth(index)).toHaveValue(String(6 - index));
+  }
+  await page.getByRole("button", { name: "Step 2" }).click();
+  await expect(page.getByLabel("Full name")).toBeVisible();
+});
+
 for (const width of [1440, 1280, 390]) {
   test(`authenticated public header shows the member name (${width}px)`, async ({
     page,

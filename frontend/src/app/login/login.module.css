@@ -20,16 +20,6 @@ section.card {
   text-wrap: balance;
 }
 
-.subtitle {
-  max-width: 34ch;
-  margin: var(--space-1) auto 0;
-  color: var(--text-muted);
-  font-size: var(--text-md);
-  line-height: var(--leading-normal);
-  text-align: center;
-  text-wrap: pretty;
-}
-
 .separator {
   margin: var(--space-5) auto;
 }
@@ -74,8 +64,8 @@ section.card {
 }
 
 .introMessage {
-  height: 72px;
-  margin-bottom: var(--space-2);
+  min-height: 36px;
+  margin-bottom: 0;
 }
 
 .feedback {

@@ -179,12 +179,10 @@ function LoginForm() {
             {t.auth.signInTitle}
           </h1>
           <div className={styles.introMessage}>
-            {error ? (
+            {error && (
               <div className={styles.feedback}>
                 <Feedback id="login-error" error={error} />
               </div>
-            ) : (
-              <p className={styles.subtitle}>{t.auth.signInSubtitle}</p>
             )}
           </div>
 
