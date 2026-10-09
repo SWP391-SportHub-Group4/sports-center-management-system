@@ -56,6 +56,17 @@ for (const width of [1440, 1280, 390]) {
 }
 
 test("successful login routes each role to its dashboard", async ({ page }) => {
+  await page.route("**/api/users/me", (route) =>
+    route.fulfill({
+      json: {
+        userId: "coach-1",
+        email: "coach@sporthub.test",
+        fullName: "Coach Minh",
+        role: "Coach",
+        sportIds: [],
+      },
+    }),
+  );
   await page.route("**/api/auth/login", async (route) => {
     await route.fulfill({
       contentType: "application/json",
@@ -73,11 +84,69 @@ test("successful login routes each role to its dashboard", async ({ page }) => {
   await page.goto("/login");
   await page.getByLabel("Email").fill("coach@sporthub.test");
   await page.getByLabel("Password").fill("password123");
-  await page.getByRole("button", { name: "Sign in" }).click();
+  await page.locator('form button[type="submit"]').click();
   await expect(page).toHaveURL(/\/coach$/);
 });
 
-test("password visibility and login errors do not move the submit button", async ({
+test("branded Google button keeps the Google credential flow", async ({
+  page,
+}) => {
+  await page.route("**/api/users/me", (route) =>
+    route.fulfill({
+      json: {
+        userId: "coach-1",
+        email: "coach@sporthub.test",
+        fullName: "Coach Minh",
+        role: "Coach",
+        sportIds: [],
+      },
+    }),
+  );
+  await page.route("https://accounts.google.com/gsi/client**", (route) =>
+    route.fulfill({
+      contentType: "application/javascript",
+      body: `window.google = { accounts: { id: {
+        initialize(options) { window.googleCallback = options.callback; },
+        renderButton(host) {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.textContent = "Google SDK";
+          button.style.width = "100%";
+          button.style.height = "48px";
+          button.onclick = () => window.googleCallback({ credential: "mock-google-id-token" });
+          host.append(button);
+        }
+      } } };`,
+    }),
+  );
+  await page.route("**/api/auth/google", (route) => {
+    expect(route.request().postDataJSON()).toEqual({
+      idToken: "mock-google-id-token",
+    });
+    return route.fulfill({
+      json: {
+        accessToken: "test-token",
+        user: {
+          userId: "coach-1",
+          email: "coach@sporthub.test",
+          fullName: "Coach Minh",
+          role: "Coach",
+        },
+      },
+    });
+  });
+  await page.goto("/login");
+  const google = page.locator(".google-sign-in-wrap--ready");
+  await expect(google).toBeVisible();
+  await expect(google.locator(".google-sign-in__visual")).toHaveCSS(
+    "background-color",
+    "rgb(26, 56, 44)",
+  );
+  await google.click();
+  await expect(page).toHaveURL(/\/coach$/);
+});
+
+test("password visibility and credential errors remain accessible", async ({
   page,
 }) => {
   await page.route("**/api/auth/login", async (route) => {
@@ -99,24 +168,18 @@ test("password visibility and login errors do not move the submit button", async
   await expect(password).toHaveAttribute("type", "password");
 
   await page.getByLabel("Email").fill("member@sporthub.test");
-  const submit = page.getByRole("button", { name: "Sign in" });
+  const submit = page.locator('form button[type="submit"]');
   await waitForLoginLayout(page);
-  const submitTop = () =>
-    submit.evaluate(
-      (button) => button.getBoundingClientRect().top + window.scrollY,
-    );
-  const before = await submitTop();
   await submit.click();
   await expect(
     page
       .getByRole("alert")
       .filter({ hasText: "The email or password is incorrect." }),
   ).toBeVisible();
-  const after = await submitTop();
-  expect(Math.abs(after - before)).toBeLessThanOrEqual(5);
+  await expect(submit).toBeVisible();
 });
 
-test("login shows inline required errors without browser validation tooltips", async ({
+test("login validation grows naturally with spacing below each field", async ({
   page,
 }) => {
   let loginRequests = 0;
@@ -131,18 +194,41 @@ test("login shows inline required errors without browser validation tooltips", a
   const submit = form.locator('button[type="submit"]');
   await expect(form).toHaveAttribute("novalidate", "");
   await waitForLoginLayout(page);
-  const submitTop = () =>
-    submit.evaluate(
-      (button) => button.getBoundingClientRect().top + window.scrollY,
-    );
-  const before = await submitTop();
+  const formHeightBefore = await form.evaluate(
+    (element) => element.clientHeight,
+  );
 
   await submit.click();
   await expect(form.getByText("Please fill out this field.")).toHaveCount(2);
   await expect(email).toHaveAttribute("aria-invalid", "true");
   await expect(password).toHaveAttribute("aria-invalid", "true");
-  const after = await submitTop();
-  expect(Math.abs(after - before)).toBeLessThanOrEqual(5);
+  const formHeightAfter = await form.evaluate(
+    (element) => element.clientHeight,
+  );
+  expect(formHeightAfter).toBeGreaterThan(formHeightBefore);
+  const spacing = await form.evaluate((element) => {
+    const inputs = element.querySelectorAll("input");
+    const errors = element.querySelectorAll('[role="alert"]');
+    const forgot = element.querySelector("a");
+    return {
+      emailTop:
+        errors[0].getBoundingClientRect().top -
+        inputs[0].getBoundingClientRect().bottom,
+      nextTop:
+        inputs[1].getBoundingClientRect().top -
+        errors[0].getBoundingClientRect().bottom,
+      passwordTop:
+        errors[1].getBoundingClientRect().top -
+        inputs[1].getBoundingClientRect().bottom,
+      forgotTop:
+        forgot!.getBoundingClientRect().top -
+        errors[1].getBoundingClientRect().bottom,
+    };
+  });
+  expect(spacing.emailTop).toBeGreaterThanOrEqual(6);
+  expect(spacing.passwordTop).toBeGreaterThanOrEqual(6);
+  expect(spacing.nextTop).toBeGreaterThanOrEqual(8);
+  expect(spacing.forgotTop).toBeGreaterThanOrEqual(8);
   expect(loginRequests).toBe(0);
 
   await email.fill("member@sporthub.test");
@@ -196,6 +282,58 @@ test("registration code supports six digits, editing, and paste", async ({
   }
   await page.getByRole("button", { name: "Step 2" }).click();
   await expect(page.getByLabel("Full name")).toBeVisible();
+});
+
+test("registration errors keep readable gaps without overlap", async ({
+  page,
+}) => {
+  await page.route("**/api/auth/register/otp", (route) =>
+    route.fulfill({ json: {} }),
+  );
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/register");
+  const email = page.getByLabel("Email");
+  await expect(email).toHaveAttribute("placeholder", "example@gmail.com");
+  await page.getByRole("button", { name: "Send code" }).click();
+  const emailError = page.getByText("Please fill out this field.");
+  await expect(emailError).toBeVisible();
+  const emailGap = await page.evaluate(() => {
+    const field = document.querySelector('input[type="email"]')!;
+    const error = document.querySelector('[role="alert"]')!;
+    const footer = document.querySelector(".auth__signin-prompt")!;
+    return {
+      above:
+        error.getBoundingClientRect().top -
+        field.getBoundingClientRect().bottom,
+      below:
+        footer.getBoundingClientRect().top -
+        error.getBoundingClientRect().bottom,
+    };
+  });
+  expect(emailGap.above).toBeGreaterThanOrEqual(6);
+  expect(emailGap.below).toBeGreaterThanOrEqual(8);
+
+  await email.fill("member@sporthub.test");
+  await page.getByRole("button", { name: "Send code" }).click();
+  const otp = page.getByRole("group", { name: "Verification code" });
+  await expect(otp).toBeVisible();
+  const actions = page.locator(".otp-box__actions");
+  const before = await actions.evaluate(
+    (element) => element.getBoundingClientRect().top,
+  );
+  await page.getByRole("button", { name: "Step 2" }).click();
+  await expect(page.getByText("Please fill out this field.")).toBeVisible();
+  const after = await actions.evaluate(
+    (element) => element.getBoundingClientRect().top,
+  );
+  expect(after).toBeGreaterThan(before);
+  await expect(otp.locator("input").first()).toHaveAttribute(
+    "aria-invalid",
+    "true",
+  );
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth),
+  ).toBeLessThanOrEqual(390);
 });
 
 for (const width of [1440, 1280, 390]) {

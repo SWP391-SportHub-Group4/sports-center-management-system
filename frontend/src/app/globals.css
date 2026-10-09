@@ -1511,9 +1511,46 @@ body:has(.auth--login, .auth--register) {
 
 .google-sign-in-wrap {
   position: relative;
-  width: min(400px, 100%);
-  min-height: 44px;
+  width: 100%;
+  min-height: 48px;
   margin-inline: auto;
+}
+
+.google-sign-in-wrap--ready .google-sign-in {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  align-items: center;
+  opacity: 0.01;
+}
+
+.google-sign-in-wrap--ready .google-sign-in [role="button"] {
+  min-height: 48px;
+}
+
+.google-sign-in-wrap--disabled .google-sign-in__visual {
+  opacity: 0.55;
+}
+
+.google-sign-in-wrap--ready:focus-within .google-sign-in__visual {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 3px;
+}
+
+.google-sign-in__visual {
+  position: relative;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.google-sign-in__logo {
+  display: inline-grid;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  place-items: center;
+  border-radius: 50%;
+  background: #fff;
 }
 
 .google-sign-in--disabled {
@@ -1534,18 +1571,19 @@ body:has(.auth--login, .auth--register) {
   text-align: center;
 }
 
-.btn--google {
+.auth .btn--google,
+.google-sign-in__visual {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  gap: 10px;
   width: 100%;
-  min-height: 44px;
-  padding: 10px 16px;
-  border: 1px solid var(--border-control);
+  min-height: 48px;
+  padding: 8px 16px;
+  border: 1px solid rgb(143 202 161 / 50%);
   border-radius: var(--radius-pill);
-  background: var(--bg-surface-sunken);
-  color: var(--text-strong);
+  background: #1a382c;
+  color: #f0f2e8;
   font-family: inherit;
   font-size: 0.9375rem;
   font-weight: 500;
@@ -1558,23 +1596,23 @@ body:has(.auth--login, .auth--register) {
     box-shadow 160ms ease;
 }
 
-.btn--google:hover:not(:disabled) {
-  background: var(--color-primary-soft);
-  border-color: var(--color-primary);
+.auth .btn--google:hover:not(:disabled) {
+  background: #234537;
+  border-color: rgb(143 202 161 / 70%);
   box-shadow: 0 2px 8px rgb(0 0 0 / 12%);
 }
 
-.btn--google:focus-visible {
+.auth .btn--google:focus-visible {
   outline: 2px solid var(--sky);
   outline-offset: 2px;
 }
 
-.btn--google:disabled {
+.auth .btn--google:disabled {
   opacity: 0.55;
   cursor: not-allowed;
 }
 
-.btn--google svg {
+.auth .btn--google svg {
   width: 18px;
   height: 18px;
   flex-shrink: 0;
@@ -1738,12 +1776,19 @@ body:has(.auth--login, .auth--register) {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 8px;
-  align-items: center;
+  align-items: start;
+}
+
+.otp-request-row input[type="email"] {
+  height: 48px;
+  min-height: 48px;
+  padding-top: 18px;
+  padding-bottom: 3px;
 }
 
 .otp-request-row .btn {
   width: auto;
-  min-height: 56px;
+  min-height: 48px;
   white-space: nowrap;
 }
 
@@ -1792,7 +1837,8 @@ body:has(.auth--login, .auth--register) {
 .auth__step {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+  white-space: nowrap;
   font-size: 0.8125rem;
   font-weight: 500;
   color: var(--ink-500);
@@ -1810,6 +1856,7 @@ body:has(.auth--login, .auth--register) {
 .auth__step-badge {
   display: inline-grid;
   place-items: center;
+  flex: none;
   width: 22px;
   height: 22px;
   border-radius: 50%;
@@ -1874,15 +1921,15 @@ body:has(.auth--login, .auth--register) {
 
 .otp-inputs {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 48px));
-  justify-content: space-between;
-  gap: 4px;
+  grid-template-columns: repeat(6, minmax(0, 44px));
+  justify-content: center;
+  gap: 8px;
 }
 
 .otp-digit {
   width: 100%;
-  aspect-ratio: 1;
-  min-height: 44px;
+  height: 48px;
+  min-height: 48px;
   padding: 0;
   border: 1px solid var(--border-control);
   border-radius: var(--radius-sm);
@@ -1899,13 +1946,16 @@ body:has(.auth--login, .auth--register) {
 }
 
 .otp-error-slot {
-  min-height: 20px;
   margin-top: 6px;
-  margin-bottom: 20px;
+  margin-bottom: 8px;
 }
 
 .otp-inputs + .otp-box__actions {
   margin-top: 20px;
+}
+
+.otp-error-slot + .otp-box__actions {
+  margin-top: 12px;
 }
 
 .otp-error-slot p {
@@ -1924,7 +1974,7 @@ body:has(.auth--login, .auth--register) {
 
 .otp-box__actions .btn {
   width: 100%;
-  min-height: 44px;
+  min-height: 48px;
   white-space: nowrap;
 }
 

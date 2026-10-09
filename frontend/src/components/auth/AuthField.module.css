@@ -5,8 +5,13 @@
 }
 
 .errorSlot {
+  margin-top: 8px;
+  margin-bottom: 8px;
+}
+
+.errorSlotEmpty {
   min-height: 20px;
-  margin-top: 6px;
+  margin: 0;
 }
 
 .error {
@@ -14,15 +19,6 @@
   color: var(--danger-text);
   font-size: var(--text-xs);
   line-height: 20px;
-}
-
-.compactErrorSpace .errorSlot {
-  min-height: 16px;
-  margin-top: 0;
-}
-
-.compactErrorSpace .error {
-  line-height: 16px;
 }
 
 .field {
@@ -80,6 +76,11 @@
   box-shadow: 0 0 0 3px rgb(179 34 40 / 28%);
 }
 
+.field .input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.65;
+}
+
 .label {
   position: absolute;
   top: 50%;
@@ -111,6 +112,7 @@
 /* Nổi lên khi focus, có giá trị, hoặc trình duyệt vừa autofill. */
 .input:focus ~ .label,
 .input:not(:placeholder-shown) ~ .label,
+.input[placeholder]:not([placeholder=" "]) ~ .label,
 .input:-webkit-autofill ~ .label {
   top: 17px;
   font-size: var(--text-xs);

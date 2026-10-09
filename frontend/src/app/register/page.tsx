@@ -354,6 +354,7 @@ export default function RegisterPage() {
                     ref={emailInputRef}
                     type="email"
                     label={t.refactor.email}
+                    placeholder="example@gmail.com"
                     icon={otpSent ? undefined : <IconMail size={20} />}
                     className={
                       otpSent ? "auth__email-field--locked" : undefined
@@ -451,24 +452,30 @@ export default function RegisterPage() {
                           value={digit}
                           onChange={(event) => {
                             const value = event.target.value.replace(/\D/g, "");
-                            const next = [...otpDigits];
                             if (value.length > 1) {
-                              value
-                                .slice(0, 6)
-                                .split("")
-                                .forEach((part, offset) => {
-                                  if (index + offset < 6)
-                                    next[index + offset] = part;
-                                });
+                              setOtpDigits((current) => {
+                                const next = [...current];
+                                value
+                                  .slice(0, 6)
+                                  .split("")
+                                  .forEach((part, offset) => {
+                                    if (index + offset < 6)
+                                      next[index + offset] = part;
+                                  });
+                                return next;
+                              });
                               otpInputRefs.current[
                                 Math.min(index + value.length, 5)
                               ]?.focus();
                             } else {
-                              next[index] = value;
+                              setOtpDigits((current) => {
+                                const next = [...current];
+                                next[index] = value;
+                                return next;
+                              });
                               if (value && index < 5)
                                 otpInputRefs.current[index + 1]?.focus();
                             }
-                            setOtpDigits(next);
                             setFieldErrors((current) => ({
                               ...current,
                               otp: undefined,
@@ -478,12 +485,14 @@ export default function RegisterPage() {
                           onKeyDown={(event) => {
                             if (
                               event.key === "Backspace" &&
-                              !digit &&
+                              !event.currentTarget.value &&
                               index > 0
                             ) {
-                              const next = [...otpDigits];
-                              next[index - 1] = "";
-                              setOtpDigits(next);
+                              setOtpDigits((current) => {
+                                const next = [...current];
+                                next[index - 1] = "";
+                                return next;
+                              });
                               otpInputRefs.current[index - 1]?.focus();
                             } else if (event.key === "ArrowLeft" && index > 0) {
                               otpInputRefs.current[index - 1]?.focus();
@@ -501,12 +510,14 @@ export default function RegisterPage() {
                               .slice(0, 6);
                             if (!pasted) return;
                             event.preventDefault();
-                            const next = [...otpDigits];
-                            pasted.split("").forEach((part, offset) => {
-                              if (index + offset < 6)
-                                next[index + offset] = part;
+                            setOtpDigits((current) => {
+                              const next = [...current];
+                              pasted.split("").forEach((part, offset) => {
+                                if (index + offset < 6)
+                                  next[index + offset] = part;
+                              });
+                              return next;
                             });
-                            setOtpDigits(next);
                             setFieldErrors((current) => ({
                               ...current,
                               otp: undefined,

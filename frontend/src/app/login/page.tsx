@@ -204,13 +204,12 @@ function LoginForm() {
             <AuthField
               ref={emailRef}
               label={t.refactor.email}
+              placeholder="example@gmail.com"
               icon={<IconMail size={20} />}
               type="email"
               value={email}
               autoComplete="username"
               required
-              reserveErrorSpace
-              compactErrorSpace
               error={fieldErrors.email}
               disabled={busy}
               suppressHydrationWarning
@@ -251,8 +250,6 @@ function LoginForm() {
                 autoComplete="current-password"
                 maxLength={256}
                 required
-                reserveErrorSpace
-                compactErrorSpace
                 error={fieldErrors.password}
                 disabled={busy}
                 suppressHydrationWarning
@@ -307,7 +304,7 @@ function LoginForm() {
           </div>
 
           <GoogleSignInButton
-            text="continue_with"
+            text="signin_with"
             disabled={busy}
             onError={(cause) => {
               setError(loginErrorMessage(cause, language, "google"));

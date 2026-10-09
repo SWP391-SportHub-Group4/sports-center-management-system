@@ -96,7 +96,7 @@ export function GoogleSignInButton({
         },
       });
       window.google.accounts.id.renderButton(host.current, {
-        theme: "filled_black",
+        theme: "outline",
         size: "large",
         shape: "pill",
         width: Math.min(host.current.clientWidth, 400),
@@ -188,15 +188,23 @@ export function GoogleSignInButton({
   };
 
   return (
-    <div className="google-sign-in-wrap">
+    <div
+      className={`google-sign-in-wrap ${gsiReady ? "google-sign-in-wrap--ready" : ""} ${disabled ? "google-sign-in-wrap--disabled" : ""}`}
+    >
       {/* Official Google GSI container when script initializes */}
       <div
         ref={host}
         className={`google-sign-in ${!gsiReady ? "google-sign-in--pending" : ""} ${disabled ? "google-sign-in--disabled" : ""}`}
       />
 
-      {/* Branded native button shown when GSI is loading or clientId is pending */}
-      {!gsiReady && (
+      {gsiReady ? (
+        <div className="google-sign-in__visual" aria-hidden="true">
+          <span className="google-sign-in__logo">
+            <GoogleLogo />
+          </span>
+          <span>{buttonLabel}</span>
+        </div>
+      ) : (
         <button
           type="button"
           className="btn btn--google"
@@ -204,7 +212,9 @@ export function GoogleSignInButton({
           onClick={handleFallbackClick}
           aria-label={buttonLabel}
         >
-          <GoogleLogo />
+          <span className="google-sign-in__logo">
+            <GoogleLogo />
+          </span>
           <span>{buttonLabel}</span>
         </button>
       )}
