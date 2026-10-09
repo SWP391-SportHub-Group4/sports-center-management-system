@@ -1907,8 +1907,8 @@ body:has(.auth--login, .auth--register) {
   background: var(--bg-surface-sunken);
   border: 1px solid var(--border-control);
   border-radius: var(--radius-md);
-  padding: 20px;
-  margin: 0;
+  padding: 22px 20px;
+  margin: 4px 0 0;
   display: flex;
   flex-direction: column;
   gap: 0;
@@ -1922,7 +1922,7 @@ body:has(.auth--login, .auth--register) {
   gap: 12px;
   font-size: 0.8125rem;
   color: var(--navy);
-  margin-bottom: 10px;
+  margin-bottom: 16px;
 }
 
 .otp-box__timer {
@@ -1964,7 +1964,7 @@ body:has(.auth--login, .auth--register) {
 }
 
 .otp-inputs + .otp-box__actions {
-  margin-top: 20px;
+  margin-top: 24px;
 }
 
 .otp-error-slot + .otp-box__actions {
@@ -1989,6 +1989,24 @@ body:has(.auth--login, .auth--register) {
   width: 100%;
   min-height: 48px;
   white-space: nowrap;
+}
+
+/* Resend phải trông bấm được: viền + chữ sáng, chỉ mờ đi khi đang chờ. */
+.otp-box__actions .btn--quiet {
+  border: 1px solid var(--color-primary);
+  background: transparent;
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+.otp-box__actions .btn--quiet:hover:not(:disabled) {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.otp-box__actions .btn--quiet:disabled {
+  border-color: var(--border-control);
+  color: var(--text-muted);
 }
 
 .verified-chip {
@@ -2025,6 +2043,7 @@ body:has(.auth--login, .auth--register) {
 .auth__feedback--before-otp {
   min-height: 0;
   padding: 0;
+  margin: 4px 0;
 }
 
 .auth--register .form {
@@ -2171,4 +2190,14 @@ body:has(.auth--login, .auth--register) {
 }
 .card__body .btn {
   margin: 6px 8px 6px 0;
+}
+
+/* Phân trang hội viên: Previous · Page x of y · Next. */
+.page-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4, 16px);
+  margin-top: var(--space-6, 24px);
 }

@@ -50,7 +50,12 @@ test("F5 ignores stale cached role and refreshes the authoritative profile", asy
   await expect(
     page.getByRole("heading", { name: "Hello, Current Member" }),
   ).toBeVisible();
-  await expect(page.getByText("250", { exact: true })).toBeVisible();
+  // Số dư hiện ở cả header và widget Point wallet.
+  await expect(
+    page.getByRole("region", { name: "Point wallet" }).getByText("250", {
+      exact: true,
+    }),
+  ).toBeVisible();
   await page.reload();
   await expect(page.locator("#main-content h1")).toHaveText(
     "Hello, Current Member",
@@ -97,7 +102,7 @@ test("forgot password gives a neutral answer, and the reset page sets the new pa
     page.getByRole("button", { name: /Resend link/ }),
   ).toBeDisabled();
   await page.getByRole("button", { name: "Use a different email" }).click();
-  const email = page.getByLabel("Email", { exact: true });
+  const email = page.getByRole("dialog").getByLabel("Email", { exact: true });
   await expect(email).toBeFocused();
   // Đổi email thì gửi được ngay, không bị thời gian chờ của email trước chặn.
   const send = page.getByRole("button", { name: "Send reset link" });

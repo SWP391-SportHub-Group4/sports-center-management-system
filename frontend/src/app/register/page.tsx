@@ -52,7 +52,7 @@ export default function RegisterPage() {
   const [fieldErrors, setFieldErrors] = useState<
     Partial<
       Record<
-        "email" | "otp" | "fullName" | "password" | "confirmPassword",
+        "email" | "otp" | "fullName" | "phone" | "password" | "confirmPassword",
         string
       >
     >
@@ -61,6 +61,7 @@ export default function RegisterPage() {
   const emailInputRef = useRef<HTMLInputElement>(null);
   const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const fullNameInputRef = useRef<HTMLInputElement>(null);
+  const phoneInputRef = useRef<HTMLInputElement>(null);
   const passwordInputRef = useRef<HTMLInputElement>(null);
   const confirmInputRef = useRef<HTMLInputElement>(null);
   const requiredMessage =
@@ -74,6 +75,15 @@ export default function RegisterPage() {
     (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())
       ? t.refactor.emailInvalid
       : undefined);
+
+  // Optional field; same pattern as the backend PhoneNumberAttribute.
+  const phoneError = (value: string) =>
+    value.trim() &&
+    !/^(0|\+84)(3[2-9]|5[689]|7[06-9]|8[1-9]|9[0-46-9])\d{7}$/.test(
+      value.trim(),
+    )
+      ? "Enter a valid phone number, e.g. 0912345678 or +84912345678."
+      : undefined;
 
   // Timers for OTP expiration and resend cooldown
   useEffect(() => {
@@ -155,6 +165,8 @@ export default function RegisterPage() {
         { anonymous: true },
       );
       setOtpSent(true);
+      setOtpDigits(Array(6).fill(""));
+      setFieldErrors((current) => ({ ...current, otp: undefined }));
       setOtpSecondsLeft(OTP_EXPIRY_SECONDS);
       setResendCooldown(RESEND_COOLDOWN_SECONDS);
       setTimeout(() => {
@@ -192,18 +204,22 @@ export default function RegisterPage() {
     if (busy) return;
     const nextErrors = {
       fullName: requiredError(form.fullName),
+      phone: phoneError(form.phone),
       password: requiredError(form.password),
       confirmPassword: requiredError(form.confirmPassword),
     };
     setFieldErrors((current) => ({ ...current, ...nextErrors }));
     if (
       nextErrors.fullName ||
+      nextErrors.phone ||
       nextErrors.password ||
       nextErrors.confirmPassword
     ) {
       (nextErrors.fullName
         ? fullNameInputRef
-        : nextErrors.password
+        : nextErrors.phone
+          ? phoneInputRef
+          : nextErrors.password
           ? passwordInputRef
           : confirmInputRef
       ).current?.focus();
@@ -610,14 +626,30 @@ export default function RegisterPage() {
               />
 
               <AuthField
+                ref={phoneInputRef}
                 type="tel"
-                label={t.auth.phoneLabel}
+                name="phone"
+                label={`${t.auth.phoneLabel} (optional)`}
+                placeholder="0912345678"
                 icon={<IconPhone size={20} />}
-                autoComplete="tel"
+                autoComplete="tel-national"
+                inputMode="tel"
+                error={fieldErrors.phone}
                 disabled={busy}
                 value={form.phone}
-                onChange={(event) =>
-                  setForm({ ...form, phone: event.target.value })
+                onChange={(event) => {
+                  setForm({ ...form, phone: event.target.value });
+                  if (fieldErrors.phone)
+                    setFieldErrors((current) => ({
+                      ...current,
+                      phone: phoneError(event.target.value),
+                    }));
+                }}
+                onBlur={(event) =>
+                  setFieldErrors((current) => ({
+                    ...current,
+                    phone: phoneError(event.target.value),
+                  }))
                 }
               />
 
