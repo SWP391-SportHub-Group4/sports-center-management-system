@@ -113,6 +113,17 @@ export function MemberInvoiceDetail({ invoiceId }: { invoiceId: string }) {
               </Card>
               <Card title={t.checkout.summary}>
                 <dl className={styles.rows}>
+                  {d.payments.some((p) => p.status === "SUCCESS") && (
+                    <div>
+                      <dt>{f.paidAt}</dt>
+                      <dd>
+                        {formatDateTime(
+                          d.payments.find((p) => p.status === "SUCCESS")!
+                            .paidAt,
+                        )}
+                      </dd>
+                    </div>
+                  )}
                   <div>
                     <dt>{t.checkout.totalLine}</dt>
                     <dd>{formatMoney(s.totalAmount)}</dd>
@@ -178,13 +189,15 @@ export function MemberInvoiceDetail({ invoiceId }: { invoiceId: string }) {
                   <p className="state">{f.noAdjustments}</p>
                 )}
               </Card>
-              <Card>
-                <RefundRequestForm
-                  items={d.items}
-                  onChange={state.reload}
-                  onSent={() => setRefundSent(true)}
-                />
-              </Card>
+              {["PAID", "PAID_AFTER_RECONCILIATION"].includes(s.status) && (
+                <Card>
+                  <RefundRequestForm
+                    items={d.items}
+                    onChange={state.reload}
+                    onSent={() => setRefundSent(true)}
+                  />
+                </Card>
+              )}
             </>
           );
         }}

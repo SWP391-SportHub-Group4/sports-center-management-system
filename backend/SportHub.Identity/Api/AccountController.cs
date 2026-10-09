@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using SportHub.BuildingBlocks.Api;
 using SportHub.Identity.Application.Commands;
 using SportHub.Identity.Application.Interfaces;
@@ -21,7 +22,16 @@ public class AccountController(IAccountService accounts) : ControllerBase
     public async Task<IActionResult> UpdateProfile([FromBody] UpdateMyProfileRequest request, CancellationToken ct)
         => Ok(await accounts.UpdateProfileAsync(User.RequireUserId(), request, ct));
 
-    /// <summary>BR-60/104 — đặt mật khẩu lần đầu (Google-only) hoặc đổi mật khẩu; trả JWT mới cho phiên hiện tại.</summary>
+    /// <summary>Luồng A bước 1: gửi mã 6 số về email để tài khoản chưa có mật khẩu (Google) xác nhận trước khi tạo mật khẩu.</summary>
+    [HttpPost("password/otp")]
+    [EnableRateLimiting("auth-register-otp")]
+    public async Task<IActionResult> RequestSetPasswordOtp(CancellationToken ct)
+    {
+        await accounts.RequestSetPasswordOtpAsync(User.RequireUserId(), ct);
+        return NoContent();
+    }
+
+    /// <summary>Tạo mật khẩu lần đầu (kèm OTP) hoặc đổi mật khẩu (kèm mật khẩu hiện tại); trả JWT mới cho phiên hiện tại.</summary>
     [HttpPost("password")]
     public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request, CancellationToken ct)
         => Ok(await accounts.ChangePasswordAsync(User.RequireUserId(), request, ct));

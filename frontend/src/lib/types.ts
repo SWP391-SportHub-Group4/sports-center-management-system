@@ -666,31 +666,6 @@ export interface PtAvailabilityDto {
   }[];
 }
 
-export interface HomeworkDto {
-  assignmentId: string;
-  memberId: string;
-  memberName: string;
-  coachId: string;
-  coachName: string;
-  relationshipId: string;
-  sourceWorkoutPlanId: string | null;
-  title: string;
-  coachNote: string | null;
-  assignedAt: string;
-  dueAt: string;
-  completedAt: string | null;
-  reviewedAt: string | null;
-  status: string;
-  memberFeedback: string | null;
-  version: number;
-  items: {
-    itemId: string;
-    exercise: string;
-    sets: number;
-    reps: number;
-    notes: string | null;
-  }[];
-}
 export interface PtChangeRequestDto {
   requestId: string;
   sessionId?: string;

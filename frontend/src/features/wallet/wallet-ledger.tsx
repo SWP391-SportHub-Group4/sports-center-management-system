@@ -7,6 +7,7 @@ import { formatDateTime, formatPoints } from "@/lib/format";
 import { AsyncSection } from "@/components/ui";
 import { api } from "@/lib/apiClient";
 import type { WalletLedgerDto } from "@/lib/types";
+import styles from "./wallet-ledger.module.css";
 export function WalletLedger({
   memberId,
   ownerId,
@@ -65,37 +66,54 @@ export function WalletLedger({
       <AsyncSection state={state} emptyMessage={t.wallet.empty}>
         {(data) => (
           <>
-            <div
-              className="table-wrap wallet-ledger"
-              tabIndex={0}
-              role="region"
-              aria-label={t.wallet.history}
-            >
-              <table>
-                <thead>
-                  <tr>
-                    <th>{t.wallet.date}</th>
-                    <th>{t.wallet.event}</th>
-                    <th>{t.wallet.available}</th>
-                    <th>{t.wallet.held}</th>
-                    <th>{t.wallet.reference}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.slice(0, 20).map((row) => (
-                    <tr key={row.id}>
-                      <td>{formatDateTime(row.createdAtUtc)}</td>
-                      <td>{events[row.entryType] ?? row.entryType}</td>
-                      <td>{formatPoints(row.availableDelta)}</td>
-                      <td>{formatPoints(row.heldDelta)}</td>
-                      <td>
-                        {row.referenceType} · {row.referenceId}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <ul className={styles.list}>
+              {data.slice(0, 20).map((row) => (
+                <li key={row.id} className={styles.entry}>
+                  <div className={styles.entryTop}>
+                    <div>
+                      <time dateTime={row.createdAtUtc}>
+                        {formatDateTime(row.createdAtUtc)}
+                      </time>
+                      <strong>
+                        {row.entryType === "EARN" &&
+                        row.referenceType === "PaymentAdjustment"
+                          ? t.wallet.refundEarn
+                          : (events[row.entryType] ?? row.entryType)}
+                      </strong>
+                    </div>
+                    <span
+                      className={
+                        row.availableDelta < 0 ? styles.outflow : styles.inflow
+                      }
+                    >
+                      {row.availableDelta > 0 ? "+" : ""}
+                      {formatPoints(row.availableDelta)}
+                    </span>
+                  </div>
+                  {row.note && <p>{row.note}</p>}
+                  {row.availableDelta !== 0 && (
+                    <small>
+                      {t.wallet.availableTransition
+                        .replace(
+                          "{before}",
+                          formatPoints(row.availableAfter - row.availableDelta),
+                        )
+                        .replace("{after}", formatPoints(row.availableAfter))}
+                    </small>
+                  )}
+                  {row.heldDelta !== 0 && (
+                    <small>
+                      {t.wallet.heldTransition
+                        .replace(
+                          "{before}",
+                          formatPoints(row.heldAfter - row.heldDelta),
+                        )
+                        .replace("{after}", formatPoints(row.heldAfter))}
+                    </small>
+                  )}
+                </li>
+              ))}
+            </ul>
             {!data.length && <p>{t.wallet.empty}</p>}
             <div className="btn-row">
               <button

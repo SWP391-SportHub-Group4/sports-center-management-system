@@ -1,7 +1,7 @@
 "use client";
+import Link from "next/link";
 import { Tabs } from "@/components/primitives";
 import { AsyncSection, Card, StatusChip, Table } from "@/components/ui";
-import { MembershipCatalog, PtPurchase } from "@/features/membership";
 import { api } from "@/lib/apiClient";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { useLanguage } from "@/lib/language";
@@ -115,12 +115,30 @@ export function MemberServices() {
                       <p>
                         {formatDate(p.startDate)} – {formatDate(p.endDate)}
                       </p>
+                      {p.isUsable && (
+                        <ul>
+                          <li>
+                            {p.sessionLimit === null
+                              ? t.memberPages.unlimitedGym
+                              : t.memberPages.gymVisitsLeft.replace(
+                                  "{n}",
+                                  String(p.remainingSessions ?? 0),
+                                )}
+                          </li>
+                          <li>{t.memberPages.ptSeparatePurchase}</li>
+                        </ul>
+                      )}
                     </Card>
                   ))}
                 </div>
               )}
             </AsyncSection>
-            <MembershipCatalog purchase owned={packages.data ?? []} />
+            <Link
+              className="btn btn--secondary"
+              href="/member/discover?tab=gym"
+            >
+              {t.mDiscover.chooseGym}
+            </Link>
           </>
         ) : (
           <>
@@ -168,9 +186,9 @@ export function MemberServices() {
             <AsyncSection state={entitlements}>
               {(rows) => <CoachChangeSection entitlements={rows} />}
             </AsyncSection>
-            <AsyncSection state={packages}>
-              {(rows) => <PtPurchase packages={rows} />}
-            </AsyncSection>
+            <Link className="btn btn--secondary" href="/member/discover?tab=pt">
+              {t.mDiscover.choosePt}
+            </Link>
           </>
         )}
       </Tabs>

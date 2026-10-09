@@ -3,6 +3,7 @@ import { MemberShell } from "@/components/MemberShell";
 import { Tabs } from "@/components/primitives";
 import { AsyncSection } from "@/components/ui";
 import { MemberInvoices } from "@/features/payments";
+import { MemberRefunds } from "@/features/payments/member-refunds";
 import { walletApi } from "@/features/wallet/api";
 import { WalletBalance } from "@/features/wallet/wallet-balance";
 import { WalletLedger } from "@/features/wallet/wallet-ledger";
@@ -10,7 +11,7 @@ import { useLanguage } from "@/lib/language";
 import { choiceQuery, useUrlQuery } from "@/lib/useUrlQuery";
 import { useApi } from "@/lib/useApi";
 
-const TABS = ["wallet", "invoices"] as const;
+const TABS = ["wallet", "invoices", "refunds"] as const;
 
 function WalletTab() {
   const { t } = useLanguage();
@@ -42,9 +43,16 @@ export default function Page() {
         tabs={[
           { id: "wallet", label: t.finance.tabWallet },
           { id: "invoices", label: t.finance.tabInvoices },
+          { id: "refunds", label: t.finance.tabRefunds },
         ]}
       >
-        {values.tab === "invoices" ? <MemberInvoices /> : <WalletTab />}
+        {values.tab === "invoices" ? (
+          <MemberInvoices />
+        ) : values.tab === "refunds" ? (
+          <MemberRefunds />
+        ) : (
+          <WalletTab />
+        )}
       </Tabs>
     </MemberShell>
   );
