@@ -286,6 +286,17 @@ test("registration code supports six digits, editing, and paste", async ({
   }
   await page.getByRole("button", { name: "Step 2" }).click();
   await expect(page.getByLabel("Full name")).toBeVisible();
+  await expect(page.getByText("Back to email step")).toHaveCount(0);
+  await page.getByRole("button", { name: "← Back", exact: true }).click();
+  await expect(
+    page.getByRole("group", { name: "Verification code" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "← Back", exact: true }),
+  ).toHaveAttribute("href", "/");
+  for (let index = 0; index < 6; index += 1) {
+    await expect(digits.nth(index)).toHaveValue(String(6 - index));
+  }
 });
 
 test("registration errors keep readable gaps without overlap", async ({

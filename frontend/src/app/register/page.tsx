@@ -290,9 +290,22 @@ export default function RegisterPage() {
         <section className="auth__card" aria-labelledby="register-title">
           <div className="auth__top-row">
             <AuthBrand />
-            <Link className="auth__landing-link" href="/">
-              ← Back to homepage
-            </Link>
+            {step === 2 ? (
+              <button
+                type="button"
+                className="auth__landing-link"
+                onClick={() => {
+                  setError(null);
+                  setStep(1);
+                }}
+              >
+                ← Back
+              </button>
+            ) : (
+              <Link className="auth__landing-link" href="/">
+                ← Back
+              </Link>
+            )}
           </div>
 
           <h1 id="register-title" className="auth__brand">
@@ -348,9 +361,7 @@ export default function RegisterPage() {
               </div>
 
               <div className="form">
-                <div
-                  className="otp-request-row"
-                >
+                <div className="otp-request-row">
                   <AuthField
                     ref={emailInputRef}
                     type="email"
@@ -563,13 +574,6 @@ export default function RegisterPage() {
           {/* Step 2: Name & Password Setup */}
           {step === 2 && (
             <form className="form" onSubmit={submitFinal} noValidate>
-              <button
-                type="button"
-                className="auth__back-step"
-                onClick={handleResetEmail}
-              >
-                ← Back to email step
-              </button>
               <div className="verified-chip">
                 <span>
                   Email:{" "}
