@@ -116,6 +116,8 @@ jobs:
       Email__DemoLoggingEnabled: "false"
       ASPNETCORE_ENVIRONMENT: Development
       NEXT_PUBLIC_API_BASE_URL: http://127.0.0.1:5000
+      # Nút Google chỉ render khi có client id lúc build; test E2E mock SDK nên giá trị giả là đủ.
+      NEXT_PUBLIC_GOOGLE_CLIENT_ID: ci-test-client-id.apps.googleusercontent.com
       P2_LIVE_API: http://127.0.0.1:5000
       PLAYWRIGHT_BASE_URL: http://127.0.0.1:3100
       Cors__AllowedOrigins__1: http://127.0.0.1:3100
