@@ -56,52 +56,138 @@ function Roster({ id }: { id: string }) {
   );
 }
 
-export function CoachClassDetail({ classId }: { classId: number }) {
+export function CoachClassDetail({
+  classId,
+}: {
+  classId: number;
+}) {
   const { t } = useLanguage();
 
-  const [session, setSession] = useState("");
+  const [sessionId, setSessionId] =
+    useState("");
 
   const state = useApi(
-    (signal) => ptApi.classSessions(classId, signal),
+    (signal) =>
+      ptApi.classSessions(
+        classId,
+        signal,
+      ),
     [classId],
   );
 
   return (
-    <Card title={t.staffWork.attendance} hint={t.staffWork.readOnly}>
-      <AsyncSection state={state}>
-        {(rows) => (
-          <>
-            <Field label={t.staffWork.sessions}>
-              <select
-                value={session}
-                onChange={(e) => setSession(e.target.value)}
+    <Card
+      title={t.staffWork.attendance}
+      hint={t.staffWork.readOnly}
+    >
+      <AsyncSection
+        state={state}
+        isEmpty={(rows) => !rows.length}
+        emptyMessage={t.common.noData}
+      >
+        {(rows) => {
+          const selected =
+            rows.find(
+              (row) =>
+                row.sessionId ===
+                sessionId,
+            ) ?? null;
+
+          return (
+            <div className="stack">
+              <Field
+                label={
+                  t.operations.classSession
+                }
               >
-                <option value="">—</option>
-
-                {rows.map((row) => (
-                  <option key={row.sessionId} value={row.sessionId}>
-                    {formatDateTime(row.startAtUtc)} · {row.roomName} ·{" "}
-                    {row.coachName}
+                <select
+                  value={sessionId}
+                  onChange={(e) =>
+                    setSessionId(
+                      e.target.value,
+                    )
+                  }
+                >
+                  <option value="">
+                    —
                   </option>
-                ))}
-              </select>
-            </Field>
 
-            {rows.map((row) => (
-              <p key={row.sessionId}>
-                {formatDateTime(row.startAtUtc)} –{" "}
-                {formatDateTime(row.endAtUtc)} · {row.roomName} ·{" "}
-                {row.coachName} · <StatusChip value={row.status} />
-              </p>
-            ))}
+                  {rows.map((row) => (
+                    <option
+                      key={row.sessionId}
+                      value={row.sessionId}
+                    >
+                      {formatDateTime(
+                        row.startAtUtc,
+                      )}
+                      {" · "}
+                      {row.roomName}
+                    </option>
+                  ))}
+                </select>
+              </Field>
 
-            {!rows.length && <p>{t.common.noData}</p>}
+              {selected ? (
+                <>
+                  <div className="card">
+                    <div className="row spread">
+                      <div>
+                        <strong>
+                          {formatDateTime(
+                            selected.startAtUtc,
+                          )}
+                        </strong>
 
-            {session && rows.some((row) => row.sessionId === session) && (
-              <Roster key={session} id={session} />
-            )}
-          </>
-        )}
+                        <p className="muted">
+                          {formatDateTime(
+                            selected.endAtUtc,
+                          )}
+                        </p>
+                      </div>
+
+                      <StatusChip
+                        value={
+                          selected.status
+                        }
+                      />
+                    </div>
+
+                    <dl className="stack">
+                      <div className="row spread">
+                        <dt>
+                          {t.staffWork.room}
+                        </dt>
+                        <dd>
+                          {selected.roomName ||
+                            "—"}
+                        </dd>
+                      </div>
+
+                      <div className="row spread">
+                        <dt>
+                          {t.staffWork.coach}
+                        </dt>
+                        <dd>
+                          {selected.coachName ||
+                            "—"}
+                        </dd>
+                      </div>
+                    </dl>
+                  </div>
+
+                  <Roster
+                    key={selected.sessionId}
+                    id={selected.sessionId}
+                  />
+                </>
+              ) : (
+                <p className="muted">
+                  {t.staffWork.readOnly}
+                </p>
+              )}
+            </div>
+          );
+        }}
       </AsyncSection>
     </Card>
   );
