@@ -96,7 +96,7 @@ export function GoogleSignInButton({
         },
       });
       window.google.accounts.id.renderButton(host.current, {
-        theme: "outline",
+        theme: "filled_black",
         size: "large",
         shape: "pill",
         width: Math.min(host.current.clientWidth, 400),

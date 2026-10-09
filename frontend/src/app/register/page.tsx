@@ -48,7 +48,6 @@ export default function RegisterPage() {
   const [resendCooldown, setResendCooldown] = useState(0);
 
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<
     Partial<
       Record<
@@ -148,7 +147,6 @@ export default function RegisterPage() {
     }
     setSendingOtp(true);
     setError(null);
-    setNotice(null);
     try {
       await api.post(
         "/api/auth/register/otp",
@@ -158,9 +156,6 @@ export default function RegisterPage() {
       setOtpSent(true);
       setOtpSecondsLeft(OTP_EXPIRY_SECONDS);
       setResendCooldown(RESEND_COOLDOWN_SECONDS);
-      setNotice(
-        "If registration is available, check your email for the 6-digit code.",
-      );
       setTimeout(() => {
         otpInputRef.current?.focus();
       }, 100);
@@ -188,7 +183,6 @@ export default function RegisterPage() {
     }
 
     setError(null);
-    setNotice(null);
     setStep(2);
   };
 
@@ -238,7 +232,6 @@ export default function RegisterPage() {
 
     setBusy(true);
     setError(null);
-    setNotice(null);
     setFieldErrors({});
 
     try {
@@ -269,7 +262,6 @@ export default function RegisterPage() {
     setResendCooldown(0);
     setForm((prev) => ({ ...prev, otp: "" }));
     setError(null);
-    setNotice(null);
     setFieldErrors({});
     setStep(1);
   };
@@ -333,7 +325,7 @@ export default function RegisterPage() {
             <>
               {/* Quick Google Sign-Up */}
               <GoogleSignInButton
-                text="continue_with"
+                text="signup_with"
                 disabled={busy || sendingOtp}
                 onError={(cause) => setError(message(cause))}
                 onCredential={(idToken) => {
@@ -362,8 +354,9 @@ export default function RegisterPage() {
                     ref={emailInputRef}
                     type="email"
                     label={t.refactor.email}
-                    icon={<IconMail size={20} />}
+                    icon={otpSent ? undefined : <IconMail size={20} />}
                     autoComplete="email"
+                    title={otpSent ? form.email : undefined}
                     required
                     error={fieldErrors.email}
                     disabled={otpSent || sendingOtp}
@@ -385,7 +378,7 @@ export default function RegisterPage() {
                       }))
                     }
                   />
-                  {!otpSent && (
+                  {!otpSent ? (
                     <button
                       type="button"
                       className="btn"
@@ -394,119 +387,112 @@ export default function RegisterPage() {
                     >
                       {sendingOtp ? t.refactor.sending : t.refactor.sendCode}
                     </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="auth__change-email"
+                      onClick={handleResetEmail}
+                    >
+                      Change
+                    </button>
                   )}
                 </div>
 
-                {(error || notice) && (
+                {error && (
                   <div className="auth__feedback auth__feedback--before-otp">
-                    {error ? (
-                      <Feedback error={error} />
-                    ) : (
-                      <p className="auth__inline-notice" role="status">
-                        {notice}
-                      </p>
-                    )}
+                    <Feedback error={error} />
                   </div>
                 )}
 
                 {/* OTP Verification Card: Revealed once code is sent */}
                 {otpSent && (
-                  <>
-                    <button
-                      type="button"
-                      className="auth__back-step"
-                      onClick={handleResetEmail}
-                    >
-                      ← Back to email step
-                    </button>
-                    <form
-                      noValidate
-                      onSubmit={(e) => void verifyOtpAndContinue(e)}
-                      className="otp-box"
-                    >
-                      <div className="otp-box__header">
-                        <span>Enter the 6-digit verification code:</span>
-                        <span className="otp-box__timer" aria-live="polite">
-                          {otpSecondsLeft > 0
-                            ? `Expires in ${formatTimer(otpSecondsLeft)}`
-                            : t.refactor.codeExpired}
-                        </span>
-                      </div>
+                  <form
+                    noValidate
+                    onSubmit={(e) => void verifyOtpAndContinue(e)}
+                    className="otp-box"
+                  >
+                    <div className="otp-box__header">
+                      <span>Enter the 6-digit verification code:</span>
+                      <span className="otp-box__timer" aria-live="polite">
+                        {otpSecondsLeft > 0
+                          ? `Expires in ${formatTimer(otpSecondsLeft)}`
+                          : t.refactor.codeExpired}
+                      </span>
+                    </div>
 
-                      <input
-                        ref={otpInputRef}
-                        className="otp-input"
-                        inputMode="numeric"
-                        autoComplete="one-time-code"
-                        pattern="\d{6}"
-                        maxLength={6}
-                        required
-                        aria-invalid={Boolean(fieldErrors.otp)}
-                        aria-describedby={
-                          fieldErrors.otp ? "register-otp-error" : undefined
-                        }
-                        aria-label="Verification code"
-                        placeholder="••••••"
-                        disabled={otpSecondsLeft === 0}
-                        value={form.otp}
-                        suppressHydrationWarning
-                        onChange={(event) => {
-                          const code = event.target.value.replace(/\D/g, "");
-                          setForm({ ...form, otp: code });
-                          if (fieldErrors.otp)
-                            setFieldErrors((current) => ({
-                              ...current,
-                              otp:
-                                code.length === 6
-                                  ? undefined
-                                  : (requiredError(code) ??
-                                    "Please enter the complete 6-digit code."),
-                            }));
-                          setError(null);
-                        }}
-                        onBlur={(event) =>
+                    <input
+                      ref={otpInputRef}
+                      className="otp-input"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      pattern="\d{6}"
+                      maxLength={6}
+                      required
+                      aria-invalid={Boolean(fieldErrors.otp)}
+                      aria-describedby={
+                        fieldErrors.otp ? "register-otp-error" : undefined
+                      }
+                      aria-label="Verification code"
+                      placeholder="••••••"
+                      disabled={otpSecondsLeft === 0}
+                      value={form.otp}
+                      suppressHydrationWarning
+                      onChange={(event) => {
+                        const code = event.target.value.replace(/\D/g, "");
+                        setForm({ ...form, otp: code });
+                        if (fieldErrors.otp)
                           setFieldErrors((current) => ({
                             ...current,
                             otp:
-                              event.target.value.length === 6
+                              code.length === 6
                                 ? undefined
-                                : (requiredError(event.target.value) ??
+                                : (requiredError(code) ??
                                   "Please enter the complete 6-digit code."),
-                          }))
-                        }
-                      />
-                      {fieldErrors.otp && (
-                        <div className="otp-error-slot">
-                          <p id="register-otp-error" role="alert">
-                            {fieldErrors.otp}
-                          </p>
-                        </div>
-                      )}
-
-                      <div className="otp-box__actions">
-                        <button
-                          type="button"
-                          className="btn btn--quiet btn--sm"
-                          disabled={resendCooldown > 0 || sendingOtp}
-                          onClick={() => void sendOtp()}
-                        >
-                          {resendCooldown > 0
-                            ? `Resend in ${resendCooldown}s`
-                            : sendingOtp
-                              ? "Sending…"
-                              : t.refactor.resendCode}
-                        </button>
-
-                        <button
-                          type="submit"
-                          className="btn btn--sm"
-                          disabled={otpSecondsLeft === 0}
-                        >
-                          Continue →
-                        </button>
+                          }));
+                        setError(null);
+                      }}
+                      onBlur={(event) =>
+                        setFieldErrors((current) => ({
+                          ...current,
+                          otp:
+                            event.target.value.length === 6
+                              ? undefined
+                              : (requiredError(event.target.value) ??
+                                "Please enter the complete 6-digit code."),
+                        }))
+                      }
+                    />
+                    {fieldErrors.otp && (
+                      <div className="otp-error-slot">
+                        <p id="register-otp-error" role="alert">
+                          {fieldErrors.otp}
+                        </p>
                       </div>
-                    </form>
-                  </>
+                    )}
+
+                    <div className="otp-box__actions">
+                      <button
+                        type="button"
+                        className="btn btn--quiet btn--sm"
+                        disabled={resendCooldown > 0 || sendingOtp}
+                        onClick={() => void sendOtp()}
+                      >
+                        {resendCooldown > 0
+                          ? `Resend in ${resendCooldown}s`
+                          : sendingOtp
+                            ? "Sending…"
+                            : t.refactor.resendCode}
+                      </button>
+
+                      <button
+                        type="submit"
+                        className="btn btn--sm"
+                        disabled={otpSecondsLeft === 0}
+                      >
+                        Step 2 →
+                      </button>
+                    </div>
+                  </form>
                 )}
               </div>
             </>
@@ -659,7 +645,7 @@ export default function RegisterPage() {
                   password={form.password}
                   email={form.email}
                 />
-                <Feedback error={error} success={notice} />
+                <Feedback error={error} />
               </div>
 
               <button
@@ -677,7 +663,7 @@ export default function RegisterPage() {
             </form>
           )}
 
-          <p className="small muted" style={{ marginTop: 16 }}>
+          <p className="small muted auth__signin-prompt">
             Already have an account? <Link href="/login">Sign in</Link>.
           </p>
         </section>

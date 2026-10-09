@@ -3,7 +3,7 @@
 /* section.card (0,1,1) thắng `.auth__card` toàn cục (0,1,0) mà không phụ thuộc thứ tự nạp CSS. */
 section.card {
   width: min(460px, 100%);
-  padding: clamp(24px, 6vw, 48px) clamp(20px, 6vw, 44px);
+  padding: clamp(18px, 2vw, 24px);
   border-radius: var(--radius-xl);
 }
 
@@ -22,7 +22,7 @@ section.card {
 
 .subtitle {
   max-width: 34ch;
-  margin: var(--space-2) auto var(--space-5);
+  margin: var(--space-1) auto 0;
   color: var(--text-muted);
   font-size: var(--text-md);
   line-height: var(--leading-normal);
@@ -31,12 +31,12 @@ section.card {
 }
 
 .separator {
-  margin: var(--space-4) 0;
+  margin: var(--space-3) 0;
 }
 
 .form {
   display: grid;
-  gap: var(--space-3);
+  gap: var(--space-2);
 }
 
 /* "Quên mật khẩu?" nằm ngay dưới ô mật khẩu, căn phải, đủ vùng chạm 44px. */
@@ -64,16 +64,19 @@ section.card {
   text-underline-offset: 0.2em;
 }
 
-/* Lỗi đăng nhập nằm ngay dưới tiêu đề, trước các ô nhập. Chỗ của nó được giữ sẵn (thay cho khoảng trắng
-   dưới phụ đề) để nút Sign In không bị đẩy xuống khi lỗi xuất hiện. */
+.introMessage {
+  height: 72px;
+  margin-bottom: var(--space-2);
+}
+
 .feedback {
-  margin: 0 0 var(--space-4);
+  margin: 0;
 }
 
 .feedback :global(.alert) {
-  padding: 12px 14px;
-  font-size: var(--text-sm);
-  line-height: 1.45;
+  padding: 8px 10px;
+  font-size: var(--text-xs);
+  line-height: 1.35;
 }
 
 .submit {
@@ -86,8 +89,8 @@ section.card {
 
 /* Nhóm liên kết đăng ký tách khỏi form bằng khoảng trắng + đường kẻ mảnh. */
 .signup {
-  margin: var(--space-5) 0 0;
-  padding-top: var(--space-4);
+  margin: var(--space-3) 0 0;
+  padding-top: var(--space-3);
   border-top: 1px solid var(--border-subtle);
   color: var(--text-muted);
   font-size: var(--text-sm);
@@ -108,7 +111,7 @@ section.card {
 
 /* Khối tài khoản demo (chỉ môi trường development): giữ huy hiệu DEV trên một dòng. */
 .card :global(.demo-accounts) {
-  margin-top: var(--space-6);
+  margin-top: var(--space-3);
 }
 
 .card :global(.demo-accounts__badge) {
