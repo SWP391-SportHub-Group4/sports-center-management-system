@@ -1,11 +1,20 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { useLanguage } from "@/lib/language";
 import styles from "./SiteFooter.module.css";
 
 export function SiteFooter() {
+  const pathname = usePathname();
   const { language } = useLanguage();
   const en = language === "en";
+
+  if (
+    pathname === "/login" ||
+    pathname === "/register" ||
+    pathname === "/forgot-password"
+  )
+    return null;
 
   return (
     <footer
