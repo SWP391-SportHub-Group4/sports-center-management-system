@@ -1,0 +1,300 @@
+.booking {
+  display: grid;
+  gap: var(--space-5);
+  min-width: 0;
+}
+.booking h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 26px;
+}
+.sports {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+.sports button {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 58px;
+  padding: var(--space-3) var(--space-5);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+  color: var(--text-strong);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.sports button[aria-pressed="true"] {
+  background: #006d77;
+  color: white;
+  border-color: #006d77;
+}
+.layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.7fr) minmax(0, 1.6fr);
+  gap: var(--space-5);
+  align-items: start;
+}
+.calendar,
+.slotsPanel,
+.review,
+.resume {
+  padding: var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+  min-width: 0;
+}
+.calendar > h2 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.monthNav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin: var(--space-3) 0;
+}
+.monthNav button {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  cursor: pointer;
+}
+.monthNav strong {
+  text-transform: capitalize;
+  font-size: var(--text-sm);
+}
+.weekdays,
+.dates {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+}
+.weekdays {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  text-align: center;
+  margin-bottom: var(--space-2);
+}
+.dates button {
+  min-height: 42px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  font: inherit;
+  font-size: var(--text-sm);
+  background: var(--bg-surface);
+  color: var(--text-strong);
+  cursor: pointer;
+}
+.dates button[data-today="true"] {
+  background: var(--success-bg);
+  color: var(--success-text);
+  border-color: var(--success-text);
+}
+.dates button[aria-pressed="true"] {
+  background: #006d77;
+  color: white;
+  border-color: #006d77;
+  font-weight: 700;
+}
+.dates button:disabled,
+.monthNav button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.policy {
+  margin: var(--space-3) 0 0;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  line-height: 1.6;
+}
+.slotHeading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+.slotHeading p {
+  margin: var(--space-1) 0 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.slotHeading select {
+  min-width: 100px;
+}
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin: var(--space-3) 0 var(--space-4);
+  font-size: var(--text-xs);
+}
+.legend span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.legend span::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  background: #459d79;
+}
+.legend [data-state="booked"]::before {
+  background: #cb7777;
+}
+.legend [data-state="held"]::before {
+  background: #c79a3b;
+}
+.rooms {
+  display: grid;
+  gap: var(--space-5);
+}
+.room h3 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  margin: 0 0 var(--space-3);
+}
+.slots {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(145px, 1fr));
+  gap: var(--space-2);
+}
+.slots button {
+  display: grid;
+  gap: 4px;
+  min-height: 88px;
+  border: 1px solid #acd5bf;
+  border-radius: var(--radius-md);
+  background: #eff8f2;
+  color: #215b41;
+  padding: var(--space-3);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+.slots strong {
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+.slots span,
+.slots small {
+  font-size: var(--text-xs);
+}
+.slots button[data-state="BOOKED"],
+.slots button[data-state="SCHEDULED"] {
+  color: #7e3838;
+  background: #faeded;
+  border-color: #e2baba;
+}
+.slots button[data-state="HELD"] {
+  color: #74521b;
+  background: #fff5dd;
+  border-color: #e1c985;
+}
+.slots button[data-state="BLOCKED"],
+.slots button[data-state="UNAVAILABLE"],
+.slots button[data-state="NO_RATE"] {
+  color: var(--text-muted);
+  background: var(--bg-surface-sunken);
+  border-color: var(--border-subtle);
+}
+.slots button:disabled {
+  cursor: not-allowed;
+}
+.slots button[aria-pressed="true"] {
+  background: #006d77;
+  border-color: #006d77;
+  color: white;
+}
+.booking button:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+.review {
+  display: grid;
+  gap: var(--space-3);
+  background: #eaf3f4;
+  border-color: #bdd8dc;
+}
+.reviewHeading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+.reviewHeading p {
+  margin: var(--space-2) 0 0;
+  color: #315b60;
+  font-size: var(--text-sm);
+}
+.reviewHeading > strong {
+  color: #006d77;
+  font-family: var(--font-display);
+  font-size: 32px;
+}
+.review > button {
+  justify-self: start;
+  min-width: 180px;
+}
+.success {
+  display: flex;
+  align-items: start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid #acd5bf;
+  border-radius: var(--radius-lg);
+  background: #eff8f2;
+  color: #215b41;
+}
+.success > svg {
+  flex-shrink: 0;
+}
+.success p {
+  margin: var(--space-2) 0;
+  font-size: var(--text-sm);
+}
+.success a {
+  color: inherit;
+}
+@media (max-width: 900px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .calendar {
+    max-width: 460px;
+    width: 100%;
+  }
+}
+@media (max-width: 440px) {
+  .sports button {
+    flex: 1;
+    justify-content: center;
+    padding: var(--space-3);
+  }
+  .slots {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .calendar,
+  .slotsPanel,
+  .review {
+    padding: var(--space-3);
+  }
+}

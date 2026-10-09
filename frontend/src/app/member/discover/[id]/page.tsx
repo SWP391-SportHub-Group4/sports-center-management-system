@@ -1,17 +1,15 @@
-"use client";
-import Link from "next/link";
-import { useParams } from "next/navigation";
-import { MemberShell } from "@/components/MemberShell";
-import { CourseDetail } from "@/features/courses/catalog";
-import { useLanguage } from "@/lib/language";
+import {
+  redirectMemberPage,
+  type MemberSearchParams,
+} from "@/lib/member-route-redirect";
 
-export default function Page() {
-  const { id } = useParams<{ id: string }>();
-  const { t } = useLanguage();
-  return (
-    <MemberShell title={t.memberPages.discover}>
-      <Link href="/member/discover">{t.memberDashboardV2.backDiscover}</Link>
-      <CourseDetail key={id} classId={Number(id)} />
-    </MemberShell>
-  );
+export default async function Page({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: MemberSearchParams;
+}) {
+  const { id } = await params;
+  return redirectMemberPage(searchParams, `/member/services/courses/${id}`, {});
 }

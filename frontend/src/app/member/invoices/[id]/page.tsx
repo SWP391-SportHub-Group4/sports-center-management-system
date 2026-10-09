@@ -1,15 +1,17 @@
-"use client";
-import { useParams } from "next/navigation";
-import { MemberShell } from "@/components/MemberShell";
-import { MemberInvoiceDetail } from "@/features/payments";
-import { useLanguage } from "@/lib/language";
-
-export default function Page() {
-  const { t } = useLanguage();
-  const { id } = useParams<{ id: string }>();
-  return (
-    <MemberShell title={t.finance.invoiceTitle}>
-      <MemberInvoiceDetail key={id} invoiceId={id} />
-    </MemberShell>
-  );
+import {
+  redirectMemberPage,
+  type MemberSearchParams,
+} from "@/lib/member-route-redirect";
+export default async function Page({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: MemberSearchParams;
+}) {
+  const { id } = await params;
+  return redirectMemberPage(searchParams, "/member/finance", {
+    tab: "invoices",
+    invoice: id,
+  });
 }

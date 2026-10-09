@@ -1,0 +1,279 @@
+.hub {
+  min-width: 0;
+}
+.board {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: var(--space-5);
+  align-items: start;
+}
+.board section {
+  min-width: 0;
+}
+.board h2 {
+  margin: 0 0 var(--space-2);
+  font-family: var(--font-display);
+  font-size: 24px;
+}
+.packagePanels {
+  display: grid;
+  gap: var(--space-4);
+}
+.ownedPackages {
+  display: grid;
+  gap: var(--space-2);
+}
+.ownedPackage {
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+.ownedPackage h3,
+.bookingEntry h3 {
+  margin: var(--space-1) 0;
+  font-size: var(--text-sm);
+}
+.ownedPackage p,
+.bookingEntry p {
+  margin: var(--space-1) 0;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+.ownership {
+  color: var(--color-primary-soft-text);
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+.gymPanel .ownedPackage {
+  background: #f1faf5;
+  border-color: #c1dfcb;
+  border-left: 4px solid #37966f;
+}
+.ptPanel .ownedPackage {
+  background: #edf5fc;
+  border-color: #c6dceb;
+  border-left: 4px solid #4d88b6;
+}
+.ptPanel .ownership {
+  color: #275d85;
+}
+.board .coursePanel > h2,
+.gymPanel > h2,
+.ptPanel > h2 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.board .coursePanel > h2::before,
+.gymPanel > h2::before,
+.ptPanel > h2::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: #c18b2f;
+}
+.gymPanel > h2::before {
+  background: #37966f;
+}
+.ptPanel > h2::before {
+  background: #4d88b6;
+}
+.bookingEntry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border);
+}
+.coursePanel article {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-2);
+  padding: var(--space-3);
+}
+.coursePanel article > :not(:last-child) {
+  grid-column: 1;
+}
+.coursePanel article > div:last-child {
+  grid-column: 2;
+  grid-row: 1 / 4;
+  display: grid;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  align-content: center;
+}
+.coursePanel article > div:last-child a {
+  align-self: end;
+}
+.board .coursePanel > div > div {
+  grid-template-columns: minmax(0, 1fr);
+}
+.sticker figure {
+  height: 60px;
+}
+.hub > div > [role="tablist"] {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+  padding: 4px;
+  overflow: visible;
+  border: 0;
+  margin-bottom: var(--space-4);
+}
+.hub > div > [role="tablist"] > button {
+  min-width: 0;
+  min-height: 90px;
+  margin: 0;
+  padding: var(--space-4);
+  border: 1px solid #bdd8dc;
+  border-radius: var(--radius-lg);
+  background: #eaf3f4;
+  color: #315b60;
+  text-align: left;
+  white-space: normal;
+}
+.hub > div > [role="tablist"] > button[aria-selected="true"] {
+  background: #006d77;
+  border-color: #006d77;
+  color: white;
+  box-shadow: 0 4px 12px #153b3f14;
+}
+.hub > div > [role="tablist"] > button:hover {
+  border-color: #006d77;
+}
+.hub > div > [role="tablist"] > button:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 3px;
+}
+.categoryLabel {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.categoryIcon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: #d2e6e8;
+  color: #006d77;
+}
+[aria-selected="true"] .categoryIcon {
+  background: #cafa52;
+  color: #163c40;
+}
+.categoryCopy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+}
+.categoryCopy strong {
+  font-family: var(--font-display);
+  font-size: 26px;
+  line-height: 1.1;
+  font-weight: 600;
+}
+.categoryCopy > span {
+  font-size: var(--text-xs);
+  line-height: 1.4;
+  font-weight: 400;
+}
+.categoryArrow {
+  flex-shrink: 0;
+}
+@media (max-width: 600px) {
+  .hub > div > [role="tablist"] {
+    gap: var(--space-2);
+    padding: 3px;
+  }
+  .hub > div > [role="tablist"] > button {
+    min-height: 104px;
+    padding: var(--space-3);
+  }
+  .categoryLabel {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+  .categoryIcon {
+    width: 32px;
+    height: 32px;
+    flex-basis: 32px;
+    border-radius: 8px;
+  }
+  .categoryIcon svg {
+    width: 20px;
+    height: 20px;
+  }
+  .categoryCopy strong {
+    font-size: 22px;
+  }
+  .categoryCopy > span,
+  .categoryArrow {
+    display: none;
+  }
+}
+@media (max-width: 1000px) {
+  .board {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 440px) {
+  .coursePanel article {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .coursePanel article > div:last-child {
+    grid-column: 1;
+    grid-row: auto;
+    display: flex;
+  }
+}
+.intro {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-3);
+}
+.intro h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(30px, 3vw, 40px);
+  line-height: 1.1;
+}
+.intro p {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+.sticker {
+  flex: 0 0 104px;
+}
+.sticker figure {
+  height: 86px;
+  background: transparent;
+}
+.hub .sticker figure > div {
+  transform: scale(0.34);
+}
+.hub > div > [role="tabpanel"] {
+  padding-top: var(--space-3);
+}
+@media (max-width: 540px) {
+  .sticker {
+    flex-basis: 80px;
+  }
+  .hub .sticker figure > div {
+    transform: scale(0.28);
+  }
+}

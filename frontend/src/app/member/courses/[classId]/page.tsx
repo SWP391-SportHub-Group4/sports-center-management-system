@@ -1,18 +1,19 @@
-"use client";
-import { use } from "react";
-import { MemberShell } from "@/components/MemberShell";
-import { MemberCourseDetail } from "@/features/member/courses";
-import { useLanguage } from "@/lib/language";
-export default function Page({
+import {
+  redirectMemberPage,
+  type MemberSearchParams,
+} from "@/lib/member-route-redirect";
+
+export default async function Page({
   params,
+  searchParams,
 }: {
   params: Promise<{ classId: string }>;
+  searchParams: MemberSearchParams;
 }) {
-  const { classId } = use(params);
-  const { t } = useLanguage();
-  return (
-    <MemberShell title={t.memberPages.courses}>
-      <MemberCourseDetail classId={Number(classId)} />
-    </MemberShell>
-  );
+  const { classId } = await params;
+  return redirectMemberPage(searchParams, "/member/services", {
+    section: "courses",
+    view: "owned",
+    course: classId,
+  });
 }

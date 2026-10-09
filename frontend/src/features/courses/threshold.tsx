@@ -227,7 +227,7 @@ export function ThresholdPanel({
                 {choice === "WAIT_NEXT_COURSE" && (
                   <div className={styles.notice} role="status">
                     <p>{l.waitBlocked}</p>
-                    <Link href="/member/courses?tab=interests">
+                    <Link href="/member/services?section=courses&view=owned&tab=interests">
                       {l.interests}
                     </Link>
                   </div>

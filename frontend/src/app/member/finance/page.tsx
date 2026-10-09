@@ -2,7 +2,7 @@
 import { MemberShell } from "@/components/MemberShell";
 import { Tabs } from "@/components/primitives";
 import { AsyncSection } from "@/components/ui";
-import { MemberInvoices } from "@/features/payments";
+import { MemberInvoices, MemberInvoiceDetail } from "@/features/payments";
 import { MemberRefunds } from "@/features/payments/member-refunds";
 import { walletApi } from "@/features/wallet/api";
 import { WalletBalance } from "@/features/wallet/wallet-balance";
@@ -31,7 +31,7 @@ function WalletTab() {
 export default function Page() {
   const { t } = useLanguage();
   const { values, setValues } = useUrlQuery(
-    { tab: "wallet" },
+    { tab: "wallet", invoice: "" },
     { tab: choiceQuery(TABS, "wallet") },
   );
   return (
@@ -39,7 +39,7 @@ export default function Page() {
       <Tabs
         ariaLabel={t.finance.tabs}
         value={values.tab}
-        onChange={(tab) => setValues({ tab })}
+        onChange={(tab) => setValues({ tab, invoice: "" })}
         tabs={[
           { id: "wallet", label: t.finance.tabWallet },
           { id: "invoices", label: t.finance.tabInvoices },
@@ -47,7 +47,14 @@ export default function Page() {
         ]}
       >
         {values.tab === "invoices" ? (
-          <MemberInvoices />
+          values.invoice ? (
+            <MemberInvoiceDetail
+              key={values.invoice}
+              invoiceId={values.invoice}
+            />
+          ) : (
+            <MemberInvoices />
+          )
         ) : values.tab === "refunds" ? (
           <MemberRefunds />
         ) : (

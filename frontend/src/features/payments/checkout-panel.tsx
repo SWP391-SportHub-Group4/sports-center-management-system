@@ -5,7 +5,7 @@ import {
 } from "./counter-point-confirmation";
 import { paymentApi, type PurchaseIntent } from "./api";
 export type { PurchaseIntent } from "./api";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { PaymentAttemptPanel } from "./payment-attempt-panel";
 import { PointsSelector } from "./points-selector";
 import { InvoiceStatus } from "./invoice-status";
@@ -21,7 +21,7 @@ import type {
   InvoiceDetailDto,
 } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
-import { Card } from "@/components/ui";
+import { Card, Dialog } from "@/components/ui";
 import { Button, buttonClass } from "@/components/primitives";
 import Link from "next/link";
 import { toCheckoutViewModel } from "./checkout.contract";
@@ -38,20 +38,42 @@ function CheckoutFlow({
   invoiceId,
   memberId: targetMemberId,
   onChange,
+  onPaid,
   onAccessChanged,
   review,
+  compact = false,
+  modal = false,
 }: {
   intent?: PurchaseIntent;
   invoiceId?: string;
   memberId?: string;
   onChange?: () => void;
+  onPaid?: (checkout: CheckoutDto) => void;
   onAccessChanged?: () => void;
   review?: CheckoutReview;
+  compact?: boolean;
+  modal?: boolean;
 }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const vi = language === "vi";
+  const [open, setOpen] = useState(false);
   const l = t.refactor;
   const now = useNow(1000);
   const [checkout, setCheckout] = useState<CheckoutDto | null>(null);
+  const notifiedPaid = useRef<string | null>(null);
+  useEffect(() => {
+    if (
+      !checkout ||
+      !onPaid ||
+      checkout.reconciliationRequired ||
+      checkout.fulfillmentOutcome !== "FULFILLED" ||
+      !["PAID", "PAID_AFTER_RECONCILIATION"].includes(checkout.invoiceStatus) ||
+      notifiedPaid.current === checkout.invoiceId
+    )
+      return;
+    notifiedPaid.current = checkout.invoiceId;
+    onPaid(checkout);
+  }, [checkout, onPaid]);
   const [attempt, setAttempt] = useState<PaymentAttemptDto | null>(null);
   const { user } = useAuth();
   const memberId =
@@ -99,18 +121,21 @@ function CheckoutFlow({
     totalQuota: number;
     pricePerSession: number;
   } | null>(null);
+  const [paymentChoice, setPaymentChoice] = useState<"vnpay" | "points">(
+    "vnpay",
+  );
   const [counterReady, setCounterReady] = useState(false);
   const [code, setCode] = useState("");
   const [resendAt, setResendAt] = useState(0);
   const wallet = useApi(
     (signal) =>
-      !canSelectPoints
+      !canSelectPoints || (modal && !open && !invoiceId)
         ? Promise.resolve(null)
         : api.get<WalletBalanceDto>(
             memberId ? `/api/members/${memberId}/points` : "/api/wallet/me",
             { signal },
           ),
-    [memberId, canSelectPoints],
+    [memberId, canSelectPoints, modal, open, invoiceId],
   );
   useEffect(() => {
     alive.current = true;
@@ -245,6 +270,21 @@ function CheckoutFlow({
       if (alive.current) setBusy(false);
     }
   }
+  function rememberInvoice(nextId: string) {
+    if (!modal) {
+      window.history.replaceState(null, "", `/checkout/${nextId}`);
+      return;
+    }
+    // Retain the course route and a recoverable checkout ID across reloads.
+    const url = new URL(window.location.href);
+    url.searchParams.set("checkout", nextId);
+    if (intent) url.searchParams.set("checkoutIntent", JSON.stringify(intent));
+    window.history.replaceState(
+      null,
+      "",
+      `${url.pathname}${url.search}${url.hash}`,
+    );
+  }
   async function create() {
     if (!intent) return;
     key.current ??= crypto.randomUUID();
@@ -252,7 +292,7 @@ function CheckoutFlow({
       const next = await paymentApi.create(intent, key.current);
       if (alive.current) {
         setCheckout(next);
-        window.history.replaceState(null, "", `/checkout/${next.invoiceId}`);
+        rememberInvoice(next.invoiceId);
       }
     } catch (e) {
       if (e instanceof ApiError && (e.status === 0 || e.status >= 500)) {
@@ -261,11 +301,7 @@ function CheckoutFlow({
           .catch(() => null);
         if (recovered) {
           setCheckout(recovered);
-          window.history.replaceState(
-            null,
-            "",
-            `/checkout/${recovered.invoiceId}`,
-          );
+          rememberInvoice(recovered.invoiceId);
           return;
         }
       }
@@ -346,12 +382,48 @@ function CheckoutFlow({
     ) &&
     checkout?.invoiceStatus === "ISSUED" &&
     !checkout.reconciliationRequired;
-  if (!checkout || !vm)
+  function openPayment() {
+    setOpen(true);
+    if (!checkout)
+      void run(async () => {
+        if (invoiceId) setCheckout(await paymentApi.get(invoiceId));
+        else await create();
+      });
+  }
+  function present(content: ReactNode) {
+    if (!modal) return content;
     return (
+      <>
+        <Button variant="primary" loading={busy && !open} onClick={openPayment}>
+          {checkout
+            ? vi
+              ? "Tiếp tục thanh toán"
+              : "Resume payment"
+            : vi
+              ? "Thanh toán"
+              : "Payment"}
+        </Button>
+        {open && (
+          <Dialog
+            title={
+              review?.title ?? (vi ? "Thanh toán dịch vụ" : "Service payment")
+            }
+            size="lg"
+            className={styles.paymentDialog}
+            onClose={() => setOpen(false)}
+          >
+            {content}
+          </Dialog>
+        )}
+      </>
+    );
+  }
+  if (!checkout || !vm)
+    return present(
       <Card title={review ? review.title : l.buy}>
         <div aria-live="polite">
           {errorMessage && <p role="alert">{errorMessage}</p>}
-          {review && (
+          {review && review.items.length > 0 && (
             <dl className={styles.review}>
               {review.items.map((item) => (
                 <div key={item.label}>
@@ -365,15 +437,24 @@ function CheckoutFlow({
             variant="primary"
             loading={busy}
             disabled={!intent}
-            onClick={() => run(create)}
+            onClick={() =>
+              run(
+                invoiceId
+                  ? async () => setCheckout(await paymentApi.get(invoiceId))
+                  : create,
+              )
+            }
           >
             {review?.submitLabel ?? l.buy}
           </Button>
         </div>
-      </Card>
+      </Card>,
     );
-  return (
-    <div className={styles.layout}>
+  return present(
+    <div
+      className={`${styles.layout} ${compact && !modal ? styles.compact : ""}`}
+      data-checkout-active="true"
+    >
       <div className={styles.steps} aria-live="polite">
         {errorMessage && (
           <p role="alert" className={styles.alert}>
@@ -387,9 +468,9 @@ function CheckoutFlow({
               className={buttonClass()}
               href={
                 checkout.kind === "CLASS"
-                  ? "/member/courses"
+                  ? "/member/services?section=courses&view=owned"
                   : checkout.kind === "COURT_RENTAL"
-                    ? "/member/rentals"
+                    ? "/member/schedule"
                     : checkout.kind === "PT"
                       ? "/member/services?tab=pt"
                       : "/member/services?tab=gym"
@@ -398,14 +479,16 @@ function CheckoutFlow({
               {checkout.kind === "CLASS"
                 ? t.checkout.nextCourse
                 : checkout.kind === "COURT_RENTAL"
-                  ? t.checkout.nextRental
+                  ? vi
+                    ? "Xem lịch của tôi"
+                    : "View my schedule"
                   : checkout.kind === "PT"
                     ? t.checkout.nextPt
                     : t.checkout.nextMembership}
             </Link>
             <Link
               className={buttonClass({ variant: "secondary" })}
-              href={`/member/invoices/${checkout.invoiceId}`}
+              href={`/member/finance?tab=invoices&invoice=${checkout.invoiceId}`}
             >
               {t.checkout.viewInvoice}
             </Link>
@@ -436,133 +519,173 @@ function CheckoutFlow({
             <p className={styles.note}>{t.checkout.loadingOrder}</p>
           )}
         </section>
-        {active && canSelectPoints && (
+        {active && modal && (
           <section
-            className={styles.step}
-            aria-labelledby="checkout-step-points"
+            className={styles.methods}
+            aria-label={vi ? "Phương thức thanh toán" : "Payment method"}
           >
-            <h2 className={styles.stepTitle} id="checkout-step-points">
-              <span className={styles.stepNo} aria-hidden="true">
-                2
-              </span>
-              {t.checkout.stepPoints}
-            </h2>
-            {vm.pointsAuth === "OTP_EMAIL" && (
-              <p className={styles.note}>{t.checkout.pointsOtpNote}</p>
+            <button
+              type="button"
+              aria-pressed={paymentChoice === "vnpay"}
+              onClick={() => setPaymentChoice("vnpay")}
+            >
+              <strong>VNPay</strong>
+              <span>{vi ? "Thanh toán trực tuyến" : "Online payment"}</span>
+            </button>
+            <button type="button" disabled>
+              <strong>VietQR</strong>
+              <span>{vi ? "Chưa hỗ trợ" : "Not supported yet"}</span>
+            </button>
+            {canSelectPoints && (
+              <button
+                type="button"
+                aria-pressed={paymentChoice === "points"}
+                onClick={() => setPaymentChoice("points")}
+              >
+                <strong>{vi ? "Điểm ví" : "Wallet points"}</strong>
+                <span>
+                  {vi
+                    ? "Dùng toàn bộ hoặc một phần"
+                    : "Full or partial payment"}
+                </span>
+              </button>
             )}
-            <PointsSelector
-              value={points}
-              onChange={setPoints}
-              wallet={wallet.data}
-              totalAmount={checkout.totalAmount}
-              pointsApplied={checkout.pointsApplied}
-              disabled={busy || !!confirmation}
-            />
-            {wallet.error && (
-              <p role="alert" className={styles.alert}>
-                {wallet.error.message}
-              </p>
-            )}
-            <div className={styles.actions}>
-              <Button
-                variant="secondary"
-                disabled={
-                  busy ||
-                  !validPoints ||
-                  !!confirmation ||
-                  (!!memberId && !counterReady)
-                }
-                onClick={() =>
-                  run(async () => {
-                    setAttempt(null);
-                    if (memberId && Number(points) === 0) {
+          </section>
+        )}
+        {active &&
+          canSelectPoints &&
+          (!modal ||
+            paymentChoice === "points" ||
+            checkout.pointsApplied > 0) && (
+            <section
+              className={styles.step}
+              aria-labelledby="checkout-step-points"
+            >
+              <h2 className={styles.stepTitle} id="checkout-step-points">
+                <span className={styles.stepNo} aria-hidden="true">
+                  2
+                </span>
+                {t.checkout.stepPoints}
+              </h2>
+              {vm.pointsAuth === "OTP_EMAIL" && (
+                <p className={styles.note}>{t.checkout.pointsOtpNote}</p>
+              )}
+              <PointsSelector
+                value={points}
+                onChange={setPoints}
+                wallet={wallet.data}
+                totalAmount={checkout.totalAmount}
+                pointsApplied={checkout.pointsApplied}
+                disabled={busy || !!confirmation}
+              />
+              {wallet.error && (
+                <p role="alert" className={styles.alert}>
+                  {wallet.error.message}
+                </p>
+              )}
+              <div className={styles.actions}>
+                <Button
+                  variant="secondary"
+                  disabled={
+                    busy ||
+                    !validPoints ||
+                    !!confirmation ||
+                    (!!memberId && !counterReady)
+                  }
+                  onClick={() =>
+                    run(async () => {
+                      setAttempt(null);
+                      if (memberId && Number(points) === 0) {
+                        await api.post(
+                          `/api/invoices/${id}/point-confirmations/clear`,
+                          { memberId, revision: checkout.revision },
+                        );
+                        setConfirmation(null);
+                      } else if (memberId) {
+                        const result = await api.post<{
+                          confirmationId: string;
+                          expiresAtUtc: string;
+                          revision: number;
+                        }>(`/api/invoices/${id}/point-confirmations`, {
+                          memberId,
+                          revision: checkout.revision,
+                          points: Number(points),
+                        });
+                        setConfirmation(result);
+                        setResendAt(Date.now() + 60000);
+                      } else
+                        await api.post(
+                          `/api/wallet/me/checkouts/${id}/points`,
+                          {
+                            points: Number(points),
+                          },
+                        );
+                      await refresh();
+                    })
+                  }
+                >
+                  {memberId ? l.requestOtp : l.apply}
+                </Button>
+              </div>
+              {confirmation && (
+                <CounterPointConfirmation
+                  confirmation={confirmation}
+                  code={code}
+                  onCodeChange={setCode}
+                  busy={busy}
+                  serverNow={serverNow}
+                  resendAt={resendAt}
+                  onVerify={() =>
+                    run(async () => {
+                      try {
+                        await api.post(
+                          `/api/point-confirmations/${confirmation.confirmationId}/verify`,
+                          { code },
+                        );
+                      } catch (e) {
+                        setConfirmation(
+                          await api.get<CounterConfirmation | null>(
+                            `/api/invoices/${id}/point-confirmations/current`,
+                          ),
+                        );
+                        throw e;
+                      }
+                      setConfirmation(null);
+                      setCode("");
+                      await refresh();
+                    })
+                  }
+                  onClear={() =>
+                    run(async () => {
                       await api.post(
                         `/api/invoices/${id}/point-confirmations/clear`,
                         { memberId, revision: checkout.revision },
                       );
                       setConfirmation(null);
-                    } else if (memberId) {
-                      const result = await api.post<{
-                        confirmationId: string;
-                        expiresAtUtc: string;
-                        revision: number;
-                      }>(`/api/invoices/${id}/point-confirmations`, {
-                        memberId,
-                        revision: checkout.revision,
-                        points: Number(points),
-                      });
-                      setConfirmation(result);
+                      setCode("");
+                      await refresh();
+                    })
+                  }
+                  onResend={() =>
+                    run(async () => {
+                      const next = await api.post<CounterConfirmation>(
+                        `/api/invoices/${id}/point-confirmations`,
+                        {
+                          memberId,
+                          revision: checkout.revision,
+                          points: confirmation.points ?? Number(points),
+                        },
+                      );
+                      setConfirmation(next);
+                      setCode("");
                       setResendAt(Date.now() + 60000);
-                    } else
-                      await api.post(`/api/wallet/me/checkouts/${id}/points`, {
-                        points: Number(points),
-                      });
-                    await refresh();
-                  })
-                }
-              >
-                {memberId ? l.requestOtp : l.apply}
-              </Button>
-            </div>
-            {confirmation && (
-              <CounterPointConfirmation
-                confirmation={confirmation}
-                code={code}
-                onCodeChange={setCode}
-                busy={busy}
-                serverNow={serverNow}
-                resendAt={resendAt}
-                onVerify={() =>
-                  run(async () => {
-                    try {
-                      await api.post(
-                        `/api/point-confirmations/${confirmation.confirmationId}/verify`,
-                        { code },
-                      );
-                    } catch (e) {
-                      setConfirmation(
-                        await api.get<CounterConfirmation | null>(
-                          `/api/invoices/${id}/point-confirmations/current`,
-                        ),
-                      );
-                      throw e;
-                    }
-                    setConfirmation(null);
-                    setCode("");
-                    await refresh();
-                  })
-                }
-                onClear={() =>
-                  run(async () => {
-                    await api.post(
-                      `/api/invoices/${id}/point-confirmations/clear`,
-                      { memberId, revision: checkout.revision },
-                    );
-                    setConfirmation(null);
-                    setCode("");
-                    await refresh();
-                  })
-                }
-                onResend={() =>
-                  run(async () => {
-                    const next = await api.post<CounterConfirmation>(
-                      `/api/invoices/${id}/point-confirmations`,
-                      {
-                        memberId,
-                        revision: checkout.revision,
-                        points: confirmation.points ?? Number(points),
-                      },
-                    );
-                    setConfirmation(next);
-                    setCode("");
-                    setResendAt(Date.now() + 60000);
-                    await refresh();
-                  })
-                }
-              />
-            )}
-          </section>
-        )}
+                      await refresh();
+                    })
+                  }
+                />
+              )}
+            </section>
+          )}
         {active && (
           <section
             className={styles.step}
@@ -570,7 +693,12 @@ function CheckoutFlow({
           >
             <h2 className={styles.stepTitle} id="checkout-step-payment">
               <span className={styles.stepNo} aria-hidden="true">
-                {canSelectPoints ? 3 : 2}
+                {canSelectPoints &&
+                (!modal ||
+                  paymentChoice === "points" ||
+                  checkout.pointsApplied > 0)
+                  ? 3
+                  : 2}
               </span>
               {t.checkout.stepPayment}
             </h2>
@@ -609,7 +737,15 @@ function CheckoutFlow({
                   })
                 }
               >
-                {l.pay}
+                {checkout.cashAmount === 0
+                  ? vi
+                    ? "Xác nhận thanh toán bằng điểm"
+                    : "Confirm payment with points"
+                  : modal
+                    ? vi
+                      ? "Thanh toán qua VNPay"
+                      : "Pay with VNPay"
+                    : l.pay}
               </Button>
               <Button
                 variant="ghost"
@@ -652,6 +788,8 @@ function CheckoutFlow({
                       memberPackageId: checkout.ptMemberPackageId,
                       coachId: checkout.ptCoachId,
                       frequencyPerWeek: checkout.ptFrequency,
+                      startAtUtc: checkout.ptStartAtUtc,
+                      roomId: checkout.ptRoomId,
                       targetMemberId: memberId,
                     }),
                   );
@@ -695,11 +833,7 @@ function CheckoutFlow({
                   );
                   setCheckout(next);
                   setAttempt(null);
-                  window.history.replaceState(
-                    null,
-                    "",
-                    `/checkout/${next.invoiceId}`,
-                  );
+                  rememberInvoice(next.invoiceId);
                 })
               }
             >
@@ -782,7 +916,7 @@ function CheckoutFlow({
           <HoldCountdown expiresAtUtc={vm.expiresAtUtc} serverNow={serverNow} />
         )}
       </aside>
-    </div>
+    </div>,
   );
 }
 
@@ -791,14 +925,26 @@ export function CheckoutPanel(props: {
   invoiceId?: string;
   memberId?: string;
   onChange?: () => void;
+  onPaid?: (checkout: CheckoutDto) => void;
   onAccessChanged?: () => void;
   review?: CheckoutReview;
+  compact?: boolean;
+  modal?: boolean;
 }) {
   const { user } = useAuth();
+  const [resumeInvoiceId] = useState(() => {
+    if (!props.modal || typeof window === "undefined") return undefined;
+    const query = new URLSearchParams(window.location.search);
+    return query.get("checkoutIntent") === JSON.stringify(props.intent ?? null)
+      ? (query.get("checkout") ?? undefined)
+      : undefined;
+  });
+  const invoiceId = props.invoiceId ?? resumeInvoiceId;
   return (
     <CheckoutFlow
-      key={`${user?.userId ?? "guest"}-${props.invoiceId ?? ""}-${props.memberId ?? ""}-${JSON.stringify(props.intent ?? null)}`}
+      key={`${user?.userId ?? "guest"}-${invoiceId ?? ""}-${props.memberId ?? ""}-${JSON.stringify(props.intent ?? null)}`}
       {...props}
+      invoiceId={invoiceId}
     />
   );
 }

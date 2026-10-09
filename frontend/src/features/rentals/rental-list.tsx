@@ -97,7 +97,7 @@ function RentalRangeList({ initialDate }: { initialDate?: string }) {
                     <td>
                       <Link
                         className="btn btn--secondary"
-                        href={`/member/rentals/${r.courtRentalId}`}
+                        href={`/member/services?section=courts&view=owned&rental=${r.courtRentalId}`}
                       >
                         {l.details}
                       </Link>
@@ -106,7 +106,7 @@ function RentalRangeList({ initialDate }: { initialDate?: string }) {
                           className="btn btn--ghost"
                           href={
                             r.invoiceId
-                              ? `/member/invoices/${r.invoiceId}`
+                              ? `/member/finance?tab=invoices&invoice=${r.invoiceId}`
                               : `/member/finance?tab=invoices&invoiceItemId=${r.invoiceItemId}`
                           }
                         >
@@ -182,7 +182,7 @@ function RentalDetail({ rentalId }: { rentalId: string }) {
               {detail.rental.invoiceId && (
                 <Link
                   className="btn btn--secondary"
-                  href={`/member/invoices/${detail.rental.invoiceId}`}
+                  href={`/member/finance?tab=invoices&invoice=${detail.rental.invoiceId}`}
                 >
                   {l.invoices}
                 </Link>
