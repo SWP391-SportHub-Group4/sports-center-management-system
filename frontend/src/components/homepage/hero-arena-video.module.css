@@ -1,0 +1,44 @@
+.scene {
+  position: fixed;
+  z-index: 0;
+  inset: 0;
+  overflow: hidden;
+  background: #172925;
+  pointer-events: none;
+}
+.scene::after {
+  position: absolute;
+  inset: 0;
+  background: rgb(8 21 16 / 54%);
+  content: "";
+}
+.depth {
+  position: absolute;
+  inset: -3%;
+  transform: translate3d(var(--hero-x, 0px), var(--hero-y, 0px), 0);
+}
+.poster,
+.video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 64% center;
+}
+.video {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 700ms ease;
+}
+.scene[data-ready="true"] .video {
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .depth {
+    transform: none;
+  }
+  .video {
+    display: none;
+    transition: none;
+  }
+}

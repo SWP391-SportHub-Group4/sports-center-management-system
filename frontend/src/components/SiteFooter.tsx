@@ -1,16 +1,19 @@
 "use client";
 
 import { useLanguage } from "@/lib/language";
+import { usePathname } from "next/navigation";
 import styles from "./SiteFooter.module.css";
 
 export function SiteFooter() {
   const { language } = useLanguage();
   const en = language === "en";
+  const pathname = usePathname();
+  const cinematic = ["/", "/login", "/register"].includes(pathname);
 
   return (
     <footer
       id="contact"
-      className={styles.footer}
+      className={`${styles.footer} ${cinematic ? styles.cinema : ""}`}
       style={{ scrollMarginTop: 96 }}
       aria-label={en ? "Footer" : "Chân trang"}
     >

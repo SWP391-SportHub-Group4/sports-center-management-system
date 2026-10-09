@@ -1,0 +1,181 @@
+.shell {
+  position: relative;
+  z-index: 1;
+  min-height: 100dvh;
+  color: var(--text-body);
+}
+.logo {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-strong);
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 700;
+  text-transform: uppercase;
+  text-decoration: none;
+  align-self: flex-start;
+  width: fit-content;
+  margin-bottom: 20px;
+}
+.mark {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 10px;
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+.accent {
+  color: var(--color-accent);
+}
+.shell :focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 3px;
+}
+.shell :global(.auth) {
+  min-height: 100dvh;
+  padding: 24px;
+  background: transparent;
+}
+.shell :global(.auth__layout) {
+  width: min(1200px, 100%);
+  min-height: 0;
+  overflow: visible;
+  background: transparent;
+  box-shadow: none;
+  gap: clamp(32px, 6vw, 88px);
+  align-items: center;
+}
+.shell :global(.auth__visual) {
+  align-items: center;
+  min-height: 0;
+  background: none;
+}
+.shell :global(.auth__visual)::after {
+  display: none;
+}
+.shell :global(.auth__visual-copy) {
+  padding: 0;
+  color: var(--text-strong);
+}
+.shell :global(.auth__statement) {
+  max-width: 15ch;
+  color: var(--text-strong);
+  font-family: var(--font-display);
+  font-size: clamp(48px, 5.2vw, 76px);
+  font-weight: 600;
+  line-height: 1.04;
+  text-transform: uppercase;
+}
+.shell :global(.auth__visual-detail) {
+  color: var(--text-muted);
+}
+.shell :global(.auth__card) {
+  width: min(480px, 100%);
+  justify-self: end;
+  padding: clamp(24px, 2.5vw, 32px);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  background: rgb(18 34 29 / 94%);
+  box-shadow: 0 24px 64px rgb(5 17 12 / 24%);
+}
+.shell :global(.auth__card) > * {
+  flex-shrink: 0;
+}
+.shell :global(.auth__sub) {
+  font-size: var(--text-sm);
+  margin-bottom: 16px;
+}
+.shell :global(.auth__brand) {
+  color: var(--text-strong);
+  font-family: var(--font-display);
+  font-size: 34px;
+}
+.shell :global(.auth__home-link) {
+  color: var(--text-muted);
+}
+.shell :global(.auth__home-link):hover {
+  color: var(--color-primary);
+}
+.shell :global(.auth__step--active) {
+  color: var(--text-strong);
+}
+.shell :global(.auth__step-badge) {
+  background: var(--bg-surface-sunken);
+  color: var(--text-muted);
+}
+.shell :global(.auth__step--active .auth__step-badge) {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+.shell :global(.auth__step--done .auth__step-badge),
+.shell :global(.otp-box),
+.shell :global(.verified-chip) {
+  background: var(--color-primary-soft);
+  color: var(--text-strong);
+}
+.shell :global(.auth__step-line) {
+  background: var(--border-strong);
+}
+.shell :global(.auth__step-line--done) {
+  background: var(--color-primary);
+}
+.shell :global(.match-hint--ok) {
+  color: var(--color-primary-soft-text);
+}
+.shell :global(.match-hint--warn) {
+  color: var(--danger-text);
+}
+.shell :global(.demo-accounts) {
+  background: var(--bg-surface-sunken);
+}
+.shell :global(.btn--google):hover {
+  background: var(--bg-surface-sunken);
+  color: var(--text-strong);
+  border-color: var(--border-control);
+}
+.shell :global(.alert--bad) {
+  background: #442323;
+  color: #ffcdc9;
+  border-color: #aa6260;
+}
+.shell :global(.auth input:-webkit-autofill) {
+  -webkit-text-fill-color: var(--text-strong);
+  box-shadow: inset 0 0 0 100px #1c3027;
+}
+@media (max-width: 895px) {
+  .shell :global(.auth__layout) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .shell :global(.auth__card) {
+    justify-self: center;
+  }
+}
+@media (min-width: 896px) {
+  .shell :global(.auth__card) {
+    max-height: calc(100dvh - 48px);
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-control) transparent;
+    justify-content: flex-start;
+  }
+}
+@media (max-width: 600px) {
+  .logo {
+    font-size: 24px;
+  }
+  .shell :global(.auth) {
+    padding: 16px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .shell :global(.auth__card),
+  .shell :global(.auth__visual-copy) {
+    animation: none;
+  }
+}

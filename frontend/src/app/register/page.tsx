@@ -7,6 +7,7 @@ import { ApiError, api } from "@/lib/apiClient";
 import { HOME_BY_ROLE, useAuth } from "@/lib/auth";
 import { Feedback } from "@/components/ui";
 import { AuthField, AuthPasswordField } from "@/components/auth/AuthField";
+import { AuthBrand } from "@/components/auth/AuthCinemaShell";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 import {
   PasswordRequirements,
@@ -278,21 +279,17 @@ export default function RegisterPage() {
         {/* Left Branded Visual Panel */}
         <aside className="auth__visual" aria-label="SportHub Member Community">
           <div className="auth__visual-copy">
-            <p className="auth__eyebrow">Sport · Community · Progress</p>
             <p className="auth__statement">Start your athletic journey.</p>
             <p className="auth__visual-detail">
-              Join SportHub to access state-of-the-art sports facilities, join
-              diverse group activities, and connect with a vibrant athletic
-              community for all ages.
+              Find your court, join a class and train with the SportHub
+              community.
             </p>
           </div>
         </aside>
 
         {/* Right Form Card */}
         <section className="auth__card" aria-labelledby="register-title">
-          <Link className="auth__home-link" href="/">
-            <span aria-hidden="true">←</span> Back to SportHub
-          </Link>
+          <AuthBrand />
 
           <h1 id="register-title" className="auth__brand">
             Create your member account

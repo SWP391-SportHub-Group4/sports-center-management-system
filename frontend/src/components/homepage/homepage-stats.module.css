@@ -114,7 +114,7 @@
   transform: none;
 }
 .panelLead {
-  max-width: 65ch;
+  max-width: 100%;
   min-height: 52px;
   margin: 0 0 20px;
   color: var(--text-muted);

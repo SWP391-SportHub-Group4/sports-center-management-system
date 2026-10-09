@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>SportHub original 3D arena render</title>
+  </head>
+  <body style="margin: 0; background: #101c1b">
+    <script type="module">
+      import * as THREE from "/three.module.js";
+
+      // Original architectural illustration, not a representation of a real venue.
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color("#172925");
+      scene.fog = new THREE.Fog("#172925", 35, 85);
+      const renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        preserveDrawingBuffer: true,
+      });
+      renderer.setSize(1600, 900);
+      renderer.setPixelRatio(1.25);
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.05;
+      document.body.appendChild(renderer.domElement);
+      const camera = new THREE.PerspectiveCamera(53, 16 / 9, 0.1, 110);
+      // Deterministic procedural maps: no stock textures or remote assets.
+      let seed = 391;
+      const random = () => {
+        seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+        return seed / 4294967296;
+      };
+      function surfaceTexture(wood = false) {
+        const canvas = document.createElement("canvas");
+        canvas.width = canvas.height = 1024;
+        const context = canvas.getContext("2d");
+        const image = context.createImageData(1024, 1024);
+        const boardTones = Array.from(
+          { length: 32 },
+          () => (random() - 0.5) * 22,
+        );
+        for (let y = 0; y < 1024; y++) {
+          for (let x = 0; x < 1024; x++) {
+            const i = (y * 1024 + x) * 4;
+            const column = Math.floor(x / 32);
+            const grain = Math.sin(x * 1.7 + Math.sin(y * 0.014) * 3) * 3;
+            const noise = (random() - 0.5) * (wood ? 7 : 28);
+            const seam =
+              wood && (x % 32 < 1 || (y + (column % 2) * 128) % 256 < 1);
+            const value = wood
+              ? grain + noise + boardTones[column] - (seam ? 24 : 0)
+              : noise;
+            image.data[i] = (wood ? 174 : 204) + value;
+            image.data[i + 1] = (wood ? 145 : 204) + value;
+            image.data[i + 2] = (wood ? 104 : 204) + value;
+            image.data[i + 3] = 255;
+          }
+        }
+        context.putImageData(image, 0, 0);
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+        texture.repeat.set(wood ? 5 : 6, wood ? 5 : 12);
+        texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+        return texture;
+      }
+      const oakMap = surfaceTexture(true);
+      oakMap.colorSpace = THREE.SRGBColorSpace;
+      const oakBump = oakMap.clone();
+      oakBump.colorSpace = THREE.NoColorSpace;
+      const rubberMap = surfaceTexture();
+
+      // Prefiltered room lighting gives wood, steel and glass coherent reflections.
+      const lightRoom = new THREE.Scene();
+      lightRoom.add(
+        new THREE.Mesh(
+          new THREE.BoxGeometry(80, 36, 90),
+          new THREE.MeshBasicMaterial({
+            color: "#64756c",
+            side: THREE.BackSide,
+          }),
+        ),
+      );
+      for (const x of [-16, 0, 16]) {
+        const lightPanel = new THREE.Mesh(
+          new THREE.BoxGeometry(4, 0.1, 52),
+          new THREE.MeshBasicMaterial({ color: new THREE.Color(4, 3.8, 3.4) }),
+        );
+        lightPanel.position.set(x, 12, -4);
+        lightRoom.add(lightPanel);
+      }
+      const windowPanel = new THREE.Mesh(
+        new THREE.BoxGeometry(0.1, 18, 55),
+        new THREE.MeshBasicMaterial({ color: new THREE.Color(2.2, 2.5, 2.6) }),
+      );
+      windowPanel.position.set(25, 5, -4);
+      lightRoom.add(windowPanel);
+      const pmrem = new THREE.PMREMGenerator(renderer);
+      scene.environment = pmrem.fromScene(lightRoom, 0.08).texture;
+      scene.environmentIntensity = 0.7;
+      pmrem.dispose();
+      const material = (color, roughness = 0.8, metalness = 0) =>
+        new THREE.MeshStandardMaterial({ color, roughness, metalness });
+      const charcoal = material("#1a2927");
+      const metal = material("#69736d", 0.34, 0.8);
+      const cream = material("#ecede1");
+      const timber = material("#a38a5b");
+      const lime = material("#c3d97b");
+      const whiteLight = new THREE.MeshBasicMaterial({ color: "#fff4d4" });
+      function box(x, y, z, w, h, d, mat, shadow = true) {
+        const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+        mesh.position.set(x, y, z);
+        mesh.castShadow = shadow;
+        mesh.receiveShadow = true;
+        scene.add(mesh);
+        return mesh;
+      }
+      function beam(a, b, radius, mat) {
+        const from = new THREE.Vector3(...a),
+          to = new THREE.Vector3(...b);
+        const mesh = new THREE.Mesh(
+          new THREE.CylinderGeometry(radius, radius, from.distanceTo(to), 8),
+          mat,
+        );
+        mesh.position.copy(from).add(to).multiplyScalar(0.5);
+        mesh.quaternion.setFromUnitVectors(
+          new THREE.Vector3(0, 1, 0),
+          to.sub(from).normalize(),
+        );
+        mesh.castShadow = true;
+        scene.add(mesh);
+        return mesh;
+      }
+      function courtLine(x, z, w, d) {
+        box(x, 0.055, z, w, 0.012, d, cream, false);
+      }
+      scene.add(new THREE.HemisphereLight("#e1e9e4", "#70664f", 1.3));
+      const sun = new THREE.DirectionalLight("#fff1da", 2.5);
+      sun.position.set(23, 18, 4);
+      sun.castShadow = true;
+      sun.shadow.mapSize.set(4096, 4096);
+      Object.assign(sun.shadow.camera, {
+        left: -30,
+        right: 30,
+        top: 30,
+        bottom: -30,
+        far: 80,
+      });
+      sun.shadow.bias = -0.001;
+      sun.shadow.normalBias = 0.035;
+      sun.shadow.radius = 4;
+      scene.add(sun);
+      const fill = new THREE.DirectionalLight("#bfd4ce", 0.6);
+      fill.position.set(-18, 8, -12);
+      scene.add(fill);
+
+      // Timber sports floor with staggered boards and two contrasting playing surfaces.
+      box(0, -0.18, -6, 50, 0.3, 60, charcoal);
+      const woodFloor = new THREE.MeshPhysicalMaterial({
+        color: "#f2e8d4",
+        map: oakMap,
+        bumpMap: oakBump,
+        bumpScale: 0.025,
+        roughness: 0.48,
+        clearcoat: 0.55,
+        clearcoatRoughness: 0.32,
+      });
+      box(0, -0.012, -6, 49, 0.03, 50, woodFloor, false);
+      const green = new THREE.MeshPhysicalMaterial({
+        color: "#286a53",
+        roughness: 0.82,
+        roughnessMap: rubberMap,
+        bumpMap: rubberMap,
+        bumpScale: 0.012,
+        clearcoat: 0.1,
+        clearcoatRoughness: 0.65,
+      });
+      const apron = material("#254e43");
+      for (const x of [3, 14]) {
+        box(x, 0.025, -4, 8.6, 0.04, 18.5, apron, false);
+        box(x, 0.042, -4, 6.1, 0.018, 13.4, green, false);
+        for (const edge of [-3.05, 3.05]) courtLine(x + edge, -4, 0.055, 13.4);
+        for (const edge of [-6.7, 6.7, -5.94, 5.94, -1.98, 1.98])
+          courtLine(x, -4 + edge, 6.1, 0.055);
+        for (const edge of [-2.59, 2.59]) courtLine(x + edge, -4, 0.045, 13.4);
+        courtLine(x, -8.34, 0.05, 4.72);
+        courtLine(x, 0.34, 0.05, 4.72);
+        for (const edge of [-3.45, 3.45]) {
+          beam([x + edge, 0, -4], [x + edge, 1.57, -4], 0.045, metal);
+          box(x + edge, 0.06, -4, 0.5, 0.12, 0.5, charcoal);
+        }
+        // Individually modeled net strands retain foreground depth in the render.
+        for (let i = 0; i <= 65; i++) {
+          const nx = x - 3.05 + (i * 6.1) / 65;
+          beam([nx, 0.78, -4], [nx, 1.55, -4], 0.006, cream);
+        }
+        for (let i = 0; i <= 8; i++) {
+          const y = 0.78 + (i * 0.77) / 8;
+          beam([x - 3.05, y, -4], [x + 3.05, y, -4], 0.006, cream);
+        }
+        box(x, 1.56, -4, 6.9, 0.055, 0.024, cream, false);
+      }
+      // Adjacent basketball court and backboard.
+      const basketballFloor = woodFloor.clone();
+      basketballFloor.color.set("#d8c7a4");
+      box(-11, 0.026, -4, 14, 0.04, 24, basketballFloor, false);
+      for (const dx of [-6.5, 6.5]) courtLine(-11 + dx, -4, 0.065, 23);
+      for (const dz of [-11.5, 0, 11.5]) courtLine(-11, -4 + dz, 13, 0.065);
+      const circle = new THREE.Mesh(
+        new THREE.RingGeometry(1.72, 1.78, 80),
+        cream,
+      );
+      circle.rotation.x = -Math.PI / 2;
+      circle.position.set(-11, 0.062, -4);
+      scene.add(circle);
+      for (const z of [-14, 6]) {
+        beam([-11, 0, z], [-11, 4, z], 0.1, metal);
+        box(-11, 3.9, z, 1.8, 1.05, 0.09, cream);
+        const hoop = new THREE.Mesh(
+          new THREE.TorusGeometry(0.24, 0.022, 8, 32),
+          material("#ce814c"),
+        );
+        hoop.rotation.x = Math.PI / 2;
+        hoop.position.set(-11, 3.4, z + (z < 0 ? 0.45 : -0.45));
+        scene.add(hoop);
+      }
+
+      // Repeating structure gives the camera a strong vanishing point.
+      box(0, 5, -27, 50, 10, 0.4, charcoal);
+      for (let x = -24; x <= 24; x += 1.2)
+        box(x, 4.5, -26.7, 0.22, 8, 0.15, timber);
+      for (let z = -25; z <= 17; z += 7) {
+        for (const x of [-23, 23]) {
+          box(x, 5, z, 0.32, 10, 0.32, metal);
+          beam([x, 8, z], [x > 0 ? 16 : -16, 11, z], 0.09, metal);
+        }
+        box(0, 11, z, 47, 0.25, 0.28, metal);
+        box(0, 9.8, z, 43, 0.13, 0.13, metal);
+        for (let x = -21; x < 21; x += 3.5) {
+          beam([x, 9.8, z], [x + 1.75, 11, z], 0.035, metal);
+          beam([x + 1.75, 11, z], [x + 3.5, 9.8, z], 0.035, metal);
+        }
+        for (const x of [-12, 4, 16]) {
+          box(x, 9.2, z, 3.4, 0.08, 0.32, whiteLight, false);
+          beam([x, 9.25, z], [x, 11, z], 0.018, metal);
+        }
+      }
+      for (const x of [-16, -8, 0, 8, 16])
+        box(x, 11.5, -5, 0.12, 0.15, 53, metal);
+      // Roof skylights and right hand glazing.
+      box(0, 12, -4, 49, 0.1, 52, material("#4c625b"), false);
+      for (const x of [-16, 0, 16])
+        box(
+          x,
+          11.85,
+          -4,
+          3,
+          0.04,
+          52,
+          new THREE.MeshBasicMaterial({ color: "#abc3b9" }),
+          false,
+        );
+      const glass = new THREE.MeshPhysicalMaterial({
+        color: "#d5e5de",
+        transparent: true,
+        opacity: 0.22,
+        roughness: 0.08,
+        metalness: 0.1,
+        clearcoat: 1,
+        clearcoatRoughness: 0.06,
+        side: THREE.DoubleSide,
+      });
+      box(23.1, 4.8, -5, 0.1, 9.5, 47, glass, false);
+      for (let z = -25; z < 20; z += 3.5)
+        box(23, 4.8, z, 0.12, 9.5, 0.1, metal);
+      for (const y of [1.5, 4.5, 7.5]) box(23, y, -5, 0.13, 0.1, 48, metal);
+      // Benches and a quiet lime accent echo the existing SportHub brand.
+      for (const z of [-17, -9, -1]) {
+        box(20.5, 0.6, z, 1, 0.12, 3, timber);
+        for (const dz of [-1, 1]) box(20.5, 0.3, z + dz, 0.8, 0.6, 0.1, metal);
+      }
+      box(3, 3.5, -26.35, 9, 0.06, 0.1, lime, false);
+      const labelCanvas = document.createElement("canvas");
+      labelCanvas.width = 1024;
+      labelCanvas.height = 256;
+      const ctx = labelCanvas.getContext("2d");
+      ctx.fillStyle = "#e5eadc";
+      ctx.font = "bold 140px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText("SPORTHUB", 512, 170);
+      const label = new THREE.Mesh(
+        new THREE.PlaneGeometry(9, 2.25),
+        new THREE.MeshBasicMaterial({
+          map: new THREE.CanvasTexture(labelCanvas),
+          transparent: true,
+        }),
+      );
+      label.position.set(3, 5.1, -26.35);
+      scene.add(label);
+
+      // Soft contact shadows keep furniture and posts grounded under ambient light.
+      const shadowCanvas = document.createElement("canvas");
+      shadowCanvas.width = shadowCanvas.height = 128;
+      const shadowContext = shadowCanvas.getContext("2d");
+      const gradient = shadowContext.createRadialGradient(
+        64,
+        64,
+        4,
+        64,
+        64,
+        64,
+      );
+      gradient.addColorStop(0, "rgba(14, 24, 20, 0.42)");
+      gradient.addColorStop(0.45, "rgba(14, 24, 20, 0.16)");
+      gradient.addColorStop(1, "rgba(14, 24, 20, 0)");
+      shadowContext.fillStyle = gradient;
+      shadowContext.fillRect(0, 0, 128, 128);
+      const shadowMaterial = new THREE.MeshBasicMaterial({
+        map: new THREE.CanvasTexture(shadowCanvas),
+        transparent: true,
+        depthWrite: false,
+      });
+      function contactShadow(x, z, w, d) {
+        const mesh = new THREE.Mesh(
+          new THREE.PlaneGeometry(w, d),
+          shadowMaterial,
+        );
+        mesh.rotation.x = -Math.PI / 2;
+        mesh.position.set(x, 0.073, z);
+        scene.add(mesh);
+      }
+      for (const x of [3, 14])
+        for (const edge of [-3.45, 3.45]) contactShadow(x + edge, -4, 1.2, 1.2);
+      for (const z of [-17, -9, -1]) contactShadow(20.5, z, 2, 4);
+      for (const z of [-14, 6]) contactShadow(-11, z, 1.4, 1.4);
+
+      window.renderFrame = (phase) => {
+        const angle = phase * Math.PI * 2;
+        camera.position.set(
+          12 + Math.sin(angle) * 1.25,
+          5.1 + Math.sin(angle) * 0.25,
+          19 + Math.cos(angle) * 1.7,
+        );
+        camera.lookAt(2, 3.2, -10);
+        renderer.render(scene, camera);
+      };
+      window.renderFrame(0);
+      window.sceneReady = true;
+    </script>
+  </body>
+</html>

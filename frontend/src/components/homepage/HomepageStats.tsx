@@ -137,7 +137,8 @@ export function HomepageStats({ language }: { language: HomepageLanguage }) {
     <section
       className={styles.section}
       aria-labelledby="homepage-stats-title"
-      data-home-section={active}
+      id="sporthub"
+      data-home-section="sporthub"
     >
       <header className={styles.heading}>
         <h2 id="homepage-stats-title">

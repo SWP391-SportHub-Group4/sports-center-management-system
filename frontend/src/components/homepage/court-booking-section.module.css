@@ -2,7 +2,10 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   margin-block: clamp(48px, 7vw, 100px);
-  background: var(--chalk-100);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--bg-surface);
 }
 
 .photo {
@@ -24,7 +27,7 @@
 
 .eyebrow {
   margin: 0 0 var(--space-5);
-  color: var(--court-700);
+  color: var(--color-primary);
   font-size: var(--text-sm);
   font-weight: var(--weight-semibold);
 }
@@ -40,14 +43,14 @@
 .lead {
   max-width: 38ch;
   margin: var(--space-5) 0;
-  color: var(--chalk-700);
+  color: var(--text-muted);
   font-size: var(--text-lg);
   line-height: var(--leading-relaxed);
 }
 
 .sports {
   margin: 0 0 var(--space-6);
-  color: var(--court-800);
+  color: var(--color-primary);
   font-size: var(--text-sm);
   font-weight: var(--weight-semibold);
 }
@@ -59,7 +62,7 @@
 .note {
   max-width: 38ch;
   margin: var(--space-3) 0 0;
-  color: var(--chalk-600);
+  color: var(--text-muted);
   font-size: var(--text-sm);
   line-height: var(--leading-relaxed);
 }

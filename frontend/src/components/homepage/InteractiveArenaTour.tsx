@@ -346,7 +346,7 @@ export function InteractiveArenaTour({ language }: { language: Language }) {
     <section
       id="activities"
       className={styles.tour}
-      data-theme="light"
+      data-theme="cinema"
       data-zone={activeZone}
       aria-labelledby="arena-tour-title"
     >
@@ -437,7 +437,7 @@ export function InteractiveArenaTour({ language }: { language: Language }) {
           </div>
         </div>
 
-        <article
+        <div
           className={styles.featurePanel}
           id="arena-feature-panel"
           role="tabpanel"
@@ -492,7 +492,7 @@ export function InteractiveArenaTour({ language }: { language: Language }) {
               </Link>
             </div>
           </div>
-        </article>
+        </div>
       </div>
       <p className="sr-only" aria-live="polite" aria-atomic="true">
         {text.selectedAnnouncement}: {selected.label}

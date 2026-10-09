@@ -9,6 +9,10 @@ import { HOME_BY_ROLE, useAuth } from "@/lib/auth";
 import { useLanguage } from "@/lib/language";
 import styles from "./public-header.module.css";
 
+function navigationSection(id: string) {
+  return ["coaches", "facilities", "membership"].includes(id) ? "sporthub" : id;
+}
+
 export function PublicHeader() {
   const [menuOpen, setMenuOpen] = useState(false);
   const headerRef = useRef<HTMLElement>(null);
@@ -27,9 +31,9 @@ export function PublicHeader() {
         closeMenu: "Đóng điều hướng",
         home: "SportHub, trang chủ",
         hero: "Trang chủ",
-        coaches: "Huấn luyện viên",
-        facilities: "Sân tập",
-        membership: "Hội viên",
+        discover: "Khám phá SportHub",
+        bookCourt: "Đặt sân",
+        arenaTour: "Khám phá sân",
         contact: "Liên hệ",
         signIn: "Đăng nhập",
         signUp: "Đăng ký",
@@ -42,9 +46,9 @@ export function PublicHeader() {
         closeMenu: "Close navigation",
         home: "SportHub, homepage",
         hero: "Home",
-        coaches: "Coaches",
-        facilities: "Facilities",
-        membership: "Members",
+        discover: "Discover SportHub",
+        bookCourt: "Book court",
+        arenaTour: "Tour arena",
         contact: "Contact",
         signIn: "Sign in",
         signUp: "Sign up",
@@ -93,7 +97,7 @@ export function PublicHeader() {
             Math.abs(b.getBoundingClientRect().top - 96),
         )[0];
       if (current?.dataset.homeSection)
-        setActiveSection(current.dataset.homeSection);
+        setActiveSection(navigationSection(current.dataset.homeSection));
     };
     let observer: IntersectionObserver;
     const observeSections = () => {
@@ -124,7 +128,7 @@ export function PublicHeader() {
     const selectShowcase = (event: Event) => {
       const id = (event as CustomEvent<string>).detail;
       if (["coaches", "facilities", "membership"].includes(id))
-        setActiveSection(id);
+        setActiveSection("sporthub");
     };
     window.addEventListener("sporthub:showcase", selectShowcase);
     const sentinel = document.getElementById("home-nav-sentinel");
@@ -197,16 +201,16 @@ export function PublicHeader() {
   const closeMenu = () => setMenuOpen(false);
   const sections = [
     { id: "top", label: copy.hero },
-    { id: "coaches", label: copy.coaches },
-    { id: "facilities", label: copy.facilities },
-    { id: "membership", label: copy.membership },
+    { id: "sporthub", label: copy.discover },
+    { id: "activities", label: copy.arenaTour },
+    { id: "book-court", label: copy.bookCourt },
     { id: "contact", label: copy.contact },
   ];
 
   return (
     <header
       ref={headerRef}
-      className={`${styles.header} ${scrolled || !homepage ? styles.scrolled : ""}`}
+      className={`${styles.header} ${homepage ? styles.cinema : ""} ${scrolled || !homepage ? styles.scrolled : styles.heroOverlay}`}
     >
       <Link
         className={styles.logo}

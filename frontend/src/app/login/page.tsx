@@ -8,6 +8,7 @@ import { ApiError } from "@/lib/apiClient";
 import { safeReturnTo, HOME_BY_ROLE, useAuth } from "@/lib/auth";
 import { Feedback } from "@/components/ui";
 import { AuthField, AuthPasswordField } from "@/components/auth/AuthField";
+import { AuthBrand } from "@/components/auth/AuthCinemaShell";
 import { IconLock, IconMail } from "@/components/icons";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 import styles from "./login.module.css";
@@ -142,7 +143,7 @@ function LoginForm() {
               Pick up where your training left off.
             </h2>
             <p className="auth__visual-detail">
-              Your schedules, membership, and coaching journey—all in one place.
+              Your classes, court bookings and coaching, together in one place.
             </p>
           </div>
         </aside>
@@ -151,9 +152,7 @@ function LoginForm() {
           className={`auth__card ${styles.card}`}
           aria-labelledby="login-title"
         >
-          <Link className="auth__home-link" href="/">
-            <span aria-hidden="true">←</span> {t.refactor.backHome}
-          </Link>
+          <AuthBrand />
           <h1 id="login-title" className={styles.title}>
             {t.auth.signInTitle}
           </h1>

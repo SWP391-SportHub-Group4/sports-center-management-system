@@ -1,0 +1,38 @@
+.theme {
+  color-scheme: dark;
+  --bg-app: transparent;
+  --bg-surface: rgb(18 34 29 / 86%);
+  --bg-surface-sunken: rgb(34 54 44 / 82%);
+  --bg-brand-deep: #13251e;
+  --text-strong: #f0f2e8;
+  --text-body: #e5eada;
+  --text-muted: #c4d0c0;
+  --text-on-inverse: #f0f2e8;
+  --text-on-inverse-muted: #c4d0c0;
+  --text-link: var(--color-accent);
+  --color-primary: var(--color-accent);
+  --color-primary-hover: var(--volt-300);
+  --color-on-primary: #14241b;
+  --color-primary-soft: rgb(202 240 120 / 12%);
+  --color-primary-soft-text: #d5edaa;
+  --border-subtle: rgb(229 239 218 / 20%);
+  --border-strong: rgb(229 239 218 / 35%);
+  --border-control: rgb(229 239 218 / 45%);
+  --border-inverse: rgb(229 239 218 / 20%);
+  --focus-ring: var(--color-accent);
+  --surface: var(--bg-surface);
+  --surface-alt: var(--bg-surface-sunken);
+  --ink-900: var(--text-strong);
+  --ink-700: var(--text-body);
+  --ink-500: var(--text-muted);
+  --ink-400: var(--text-muted);
+  --brand-900: var(--bg-brand-deep);
+  --brand-700: var(--color-primary);
+  --brand-500: var(--color-primary);
+  --brand-100: var(--color-primary-soft);
+  --navy: var(--text-strong);
+  --sky: var(--color-primary);
+  --line: var(--border-subtle);
+  --danger-text: #ffb8b4;
+  --danger-solid: #f08a85;
+}

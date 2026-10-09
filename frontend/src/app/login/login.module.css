@@ -22,7 +22,7 @@ section.card {
 
 .subtitle {
   max-width: 34ch;
-  margin: var(--space-3) auto var(--space-7);
+  margin: var(--space-2) auto var(--space-5);
   color: var(--text-muted);
   font-size: var(--text-md);
   line-height: var(--leading-normal);
@@ -31,7 +31,7 @@ section.card {
 }
 
 .separator {
-  margin: var(--space-5) 0;
+  margin: var(--space-4) 0;
 }
 
 .form {
@@ -87,8 +87,8 @@ section.card {
 
 /* Nhóm liên kết đăng ký tách khỏi form bằng khoảng trắng + đường kẻ mảnh. */
 .signup {
-  margin: var(--space-8) 0 0;
-  padding-top: var(--space-6);
+  margin: var(--space-5) 0 0;
+  padding-top: var(--space-4);
   border-top: 1px solid var(--border-subtle);
   color: var(--text-muted);
   font-size: var(--text-sm);
