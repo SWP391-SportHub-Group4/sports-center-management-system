@@ -88,7 +88,7 @@ Phần này dùng cho môi trường nghiệm thu thật; các mục 1–3 ở t
 
 ### Backlog chức năng còn lại
 
-Theo mục 13 của thiết kế: G01 (public sân/Coach/PT và giá), G03 (Manager AI), G06 (incident recovery), G07 (lịch sử/preview thông báo), G09 (filter catalog), G13 (đóng/mở tuyển sinh), và G08 nếu cần màn refund độc lập. G02/G04 và phần code G05/G12 đã bổ sung nhưng phải áp hai migration mới và chạy test PostgreSQL/E2E trước khi đóng. CAT-01/CAT-02 cần test upgrade/callback muộn và E2E PostgreSQL. Xem [bàn giao An và Hào](AN-HAO-HANDOFF.md).
+Theo mục 13 của thiết kế: G01 (public sân/Coach/PT và giá), G03 (Manager AI), G06 (incident recovery), G07 (lịch sử/preview thông báo), G09 (filter catalog), G13 (đóng/mở tuyển sinh), và G08 nếu cần màn refund độc lập. G02/G04 và phần code G05/G12 đã bổ sung; test PostgreSQL cho các luồng An/Hào và callback sau khi tắt dịch vụ đã qua trên máy phát triển. Team vẫn phải áp migration, thử nâng cấp trên bản sao dữ liệu, và nghiệm thu staging/sandbox/thiết bị thật trước khi đóng. Xem [bàn giao An và Hào](AN-HAO-HANDOFF.md) và [các bước nghiệm thu thủ công](AN-HAO-MANUAL-STEPS.md).
 
 ### Cổng quyết định go-live
 

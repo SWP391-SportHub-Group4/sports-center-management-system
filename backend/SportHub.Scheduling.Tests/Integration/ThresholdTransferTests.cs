@@ -47,19 +47,14 @@ public sealed class ThresholdTransferTests(SchedulingApiFactory factory)
         }
         using (var scope = factory.Services.CreateScope())
             await scope.ServiceProvider.GetRequiredService<IClassThresholdService>().EvaluateDueAsync();
-        var token = await factory.QueryAsync(async db =>
-        {
-            var response = await db.Set<ThresholdResponse>().SingleAsync(x => x.ClassId == source.Id && x.MemberId == member.UserId);
-            var message = await db.Notifications.Where(x => x.SourceEntityId == response.ThresholdResponseId
-                && x.Channel == SportHub.Notification.Domain.Enums.NotificationChannel.InApp)
-                .Select(x => x.Message).SingleAsync();
-            return message.Split("token=")[1];
-        });
+        var responseId = await factory.QueryAsync(db => db.Set<ThresholdResponse>()
+            .Where(x => x.ClassId == source.Id && x.MemberId == member.UserId)
+            .Select(x => x.ThresholdResponseId).SingleAsync());
         using (var scope = factory.Services.CreateScope())
         {
             var service = scope.ServiceProvider.GetRequiredService<ThresholdResponseService>();
-            var first = await service.RespondAsync(token, ThresholdResponseChoice.WaitNextCourse, null, member.UserId);
-            Assert.Equal(first, await service.RespondAsync(token, ThresholdResponseChoice.WaitNextCourse, null, member.UserId));
+            var first = await service.RespondByIdAsync(responseId, ThresholdResponseChoice.WaitNextCourse, null, member.UserId, default);
+            Assert.Equal(first, await service.RespondByIdAsync(responseId, ThresholdResponseChoice.WaitNextCourse, null, member.UserId, default));
         }
         var subscriptionId = await factory.QueryAsync(async db =>
         {
@@ -125,13 +120,11 @@ public sealed class ThresholdTransferTests(SchedulingApiFactory factory)
             await scope.ServiceProvider.GetRequiredService<IClassThresholdService>().EvaluateDueAsync();
         var response = await factory.QueryAsync(db => db.Set<ThresholdResponse>().AsNoTracking()
             .SingleAsync(x => x.ClassId == source.Id && x.MemberId == member.UserId));
-        var token = await factory.QueryAsync(async db => (await db.Notifications
-            .Where(x => x.SourceEntityId == response.ThresholdResponseId && x.Channel == SportHub.Notification.Domain.Enums.NotificationChannel.InApp).Select(x => x.Message).SingleAsync()).Split("token=")[1]);
         Guid invoiceId;
         using (var scope = factory.Services.CreateScope())
         {
             var result = await scope.ServiceProvider.GetRequiredService<ThresholdResponseService>()
-                .RespondAsync(token, ThresholdResponseChoice.Transfer, target.Id, member.UserId);
+                .RespondByIdAsync(response.ThresholdResponseId, ThresholdResponseChoice.Transfer, target.Id, member.UserId, default);
             invoiceId = result.AdditionalInvoiceId!.Value;
         }
         if (retry)
@@ -146,7 +139,7 @@ public sealed class ThresholdTransferTests(SchedulingApiFactory factory)
             }
             using var scope2 = factory.Services.CreateScope();
             var result = await scope2.ServiceProvider.GetRequiredService<ThresholdResponseService>()
-                .RespondAsync(token, ThresholdResponseChoice.Transfer, target.Id, member.UserId);
+                .RespondByIdAsync(response.ThresholdResponseId, ThresholdResponseChoice.Transfer, target.Id, member.UserId, default);
             Assert.NotEqual(invoiceId, result.AdditionalInvoiceId);
             invoiceId = result.AdditionalInvoiceId!.Value;
         }
@@ -216,17 +209,14 @@ public sealed class ThresholdTransferTests(SchedulingApiFactory factory)
         }
         using (var scope = factory.Services.CreateScope())
             await scope.ServiceProvider.GetRequiredService<IClassThresholdService>().EvaluateDueAsync();
-        var token = await factory.QueryAsync(async db =>
-        {
-            var response = await db.Set<ThresholdResponse>().SingleAsync(x => x.ClassId == source.Id && x.MemberId == member.UserId);
-            var message = await db.Notifications.Where(x => x.SourceEntityId == response.ThresholdResponseId && x.Channel == SportHub.Notification.Domain.Enums.NotificationChannel.InApp).Select(x => x.Message).SingleAsync();
-            return message.Split("token=")[1];
-        });
+        var responseId = await factory.QueryAsync(db => db.Set<ThresholdResponse>()
+            .Where(x => x.ClassId == source.Id && x.MemberId == member.UserId)
+            .Select(x => x.ThresholdResponseId).SingleAsync());
         using var work = factory.Services.CreateScope();
         var service = work.ServiceProvider.GetRequiredService<ThresholdResponseService>();
-        await Assert.ThrowsAsync<ForbiddenException>(() => service.RespondAsync(token, ThresholdResponseChoice.Transfer, target.Id, source.ManagerId));
-        var result = await service.RespondAsync(token, ThresholdResponseChoice.Transfer, target.Id, member.UserId);
-        Assert.Equal(result, await service.RespondAsync(token, ThresholdResponseChoice.Transfer, target.Id, member.UserId));
+        await Assert.ThrowsAsync<NotFoundException>(() => service.RespondByIdAsync(responseId, ThresholdResponseChoice.Transfer, target.Id, source.ManagerId, default));
+        var result = await service.RespondByIdAsync(responseId, ThresholdResponseChoice.Transfer, target.Id, member.UserId, default);
+        Assert.Equal(result, await service.RespondByIdAsync(responseId, ThresholdResponseChoice.Transfer, target.Id, member.UserId, default));
         if (targetPrice > 100_000)
         {
             Assert.NotNull(result.AdditionalInvoiceId);

@@ -305,20 +305,20 @@ G01–G13 trỏ [phân công API theo page/owner](../DESIGN-SKILLS-GUIDE.md#api-
 
 | ID | Khoảng trống | Việc cần hoàn thành |
 |---|---|---|
-| CAT-01 | Môn nhiều dịch vụ, PT là dịch vụ của Gym | Đã có schema, migration, API và UI. Gỡ qualification PT hoặc liên kết loại phòng bị chặn khi còn buổi PT tương lai (`qualification_in_use`, `service_in_use_by_future_schedule`). Còn thiếu: test callback muộn khi dịch vụ đã tắt; chưa chạy test tích hợp backend (cần Docker) |
+| CAT-01 | Môn nhiều dịch vụ, PT là dịch vụ của Gym | Đã có schema, migration, API và UI. Gỡ qualification PT hoặc liên kết loại phòng bị chặn khi còn buổi PT tương lai (`qualification_in_use`, `service_in_use_by_future_schedule`). Test PostgreSQL callback sau khi tắt dịch vụ PT đã qua; còn nghiệm thu nâng cấp dữ liệu cũ và thanh toán VNPay sandbox trên staging. |
 | CAT-02 | Thuê sân là chức năng của Member; lịch lớp cố định BR-141 | Đã có code, migration và seed riêng (`dotnet run -- --seed-br141=true`). Còn thiếu: test tích hợp backend và nghiệm thu E2E với PostgreSQL thật |
 | G01 | Public sân, availability/giá, Coach profile và PT pricing đầy đủ | DTO public an toàn, giá/availability tính server |
-| G02 | Chờ đợt sau + subscription | Đã có mã: hoàn 100% điểm trong cùng transaction, subscription theo môn, hủy nhận tin, thông báo khi khóa cùng môn publish; UI dùng API thật. Có test tích hợp chưa chạy vì Docker; cần xác nhận PostgreSQL trước khi đóng |
+| G02 | Chờ đợt sau + subscription | Đã có mã: hoàn 100% điểm trong cùng transaction, subscription theo môn, hủy nhận tin, thông báo khi khóa cùng môn publish; UI dùng API thật. Test PostgreSQL `ThresholdTransferTests` 6/6; còn nghiệm thu staging. |
 | G03 | Manager AI xếp lịch/tool calling/tạo nháp | Endpoint/service, xác nhận người dùng, recheck quyền/occupancy, audit |
-| G04 | Member code/QR backend | Đã có mã ngắn hạn 5 phút do backend phát, lookup chỉ quầy/Manager, UI quét mã opaque thay userId; có test tích hợp chưa chạy. QR không phải chứng cứ payment/check-in |
-| G05 | Member self-booking PT/available slots | Đã kiểm Membership Active tại availability và booking; min lead/max advance lấy từ System Settings qua migration. Cần chạy test tích hợp trên PostgreSQL và nghiệm thu chính sách thực tế |
+| G04 | Member code/QR backend | Đã có mã ngắn hạn 5 phút do backend phát, lookup chỉ quầy/Manager, UI quét mã opaque thay userId; test backend và Playwright đã qua. Còn thử camera/quầy trên thiết bị thật. QR không phải chứng cứ payment/check-in. |
+| G05 | Member self-booking PT/available slots | Đã kiểm Membership Active tại availability và booking; min lead/max advance lấy từ System Settings qua migration. Test PostgreSQL và Playwright đã qua; còn nghiệm thu chính sách thực tế trên staging. |
 | G06 | Incident history/detail, preview bồi hoàn/người nhận, fence xử lý | Recovery bỏ dở, chống race và double refund; không giả toàn luồng atomic |
 | G07 | History thông báo thủ công và preview người nhận | Scoped recipient, paging, send/retry dedup |
 | G08 | Refund tổng hợp riêng Member nếu cần tab độc lập | Owner scope/paging; invoice detail đã có adjustments |
 | G09 | Filter public catalog nâng cao | Đã chuyển `openOnly` và `keyword` sang server trước paging/count, giữ sport/date hiện có; test integration đã viết, chờ chạy với PostgreSQL. Level chưa có schema |
 | G10 | Admin account detail đúng policy | Đã thêm route `/api/users/admin/{userId}` và nối UI; test integration đã viết, chờ chạy với PostgreSQL. Không nới StaffRead |
 | G11 | Callback VNPay public | Đã sửa route theo PAY-03; còn test runtime và sandbox thật. Mock endpoint có đăng nhập không thay thế IPN public |
-| G12 | Scoping Member search/detail cho Coach | Đã chặn Coach duyệt users/packages, đưa guard training profile/workout history và PT detail xuống service, giới hạn danh sách workout/PT entitlement/PT session theo quan hệ Active, ép relationship search Active. Cần chạy negative tests PostgreSQL và rà tiếp các thao tác Coach ghi kết quả/hoàn thành theo hợp đồng quyền cuối cùng |
+| G12 | Scoping Member search/detail cho Coach | Đã chặn Coach duyệt users/packages, đưa guard training profile/workout history và PT detail xuống service, giới hạn danh sách workout/PT entitlement/PT session theo quan hệ Active, ép relationship search Active. Negative tests PostgreSQL cho PT list/detail và workout list sau quan hệ Ended đã qua; còn nghiệm thu role E2E trên staging. |
 | G13 | Đóng/mở tuyển sinh độc lập lifecycle lớp | Chốt hold/payment cũ, không dùng cancel thay close enrollment |
 | UI-01 | Frontend redesign theo contract hiện có | Kế hoạch từng màn phải nối API thật, kiểm E2E trước khi ghi hoàn thành |
 | OPS-01 | Nghiệm thu vận hành | Deploy/migration, backup-restore, giám sát job/outbox/reconciliation có evidence |

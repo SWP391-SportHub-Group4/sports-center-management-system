@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { AsyncSection, Feedback, Field } from "@/components/ui";
 import { api, ApiError } from "@/lib/apiClient";
@@ -59,7 +58,6 @@ export function PtBooking({ showBackLink = true }: { showBackLink?: boolean }) {
 function LegacyPtBooking({ showBackLink = true }: { showBackLink?: boolean }) {
   const { t, language } = useLanguage();
   const l = t.ptBook;
-  const router = useRouter();
   const today = todayIso();
   const [from, setFrom] = useState(today);
   const [entitlementPick, setEntitlement] = useState("");
@@ -130,7 +128,10 @@ function LegacyPtBooking({ showBackLink = true }: { showBackLink?: boolean }) {
           roomId,
         },
       );
-      router.push(`/member/training?session=${session.sessionId}&booked=1`);
+      // This is a tab change within the Training page. Notify its URL-backed tabs
+      // immediately so the new session detail is shown without a full reload.
+      window.history.pushState(null, "", `/member/training?session=${session.sessionId}&booked=1`);
+      window.dispatchEvent(new PopStateEvent("popstate"));
     } catch (cause) {
       if (
         cause instanceof ApiError &&

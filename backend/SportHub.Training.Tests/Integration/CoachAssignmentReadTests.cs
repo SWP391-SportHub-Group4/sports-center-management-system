@@ -12,6 +12,68 @@ namespace SportHub.Training.Tests.Integration;
 [Collection(nameof(TrainingApiCollection))]
 public sealed class CoachAssignmentReadTests(TrainingApiFactory factory)
 {
+    [Fact]
+    public async Task Ended_relationship_removes_coach_pt_and_workout_reads_but_preserves_member_history()
+    {
+        var coach = await factory.SeedCoachAsync(CoachKind.PersonalTrainer);
+        var manager = await factory.SeedUserAsync(UserRole.CenterManager);
+        var member = await factory.SeedUserAsync(UserRole.Member);
+        var entitlement = await factory.SeedPtEntitlementAsync(member.UserId, coach.UserId);
+        var relationshipId = Guid.NewGuid();
+        var planId = Guid.NewGuid();
+        await factory.ExecuteAsync(async db =>
+        {
+            db.CoachMemberRelationships.Add(new CoachMemberRelationship
+            {
+                RelationshipId = relationshipId,
+                CoachId = coach.UserId,
+                MemberId = member.UserId,
+                SourceType = RelationshipSourceType.AssignedByManager,
+                Status = RelationshipStatus.Active,
+                StartedAt = DateTime.UtcNow
+            });
+            db.Set<WorkoutPlan>().Add(new WorkoutPlan
+            {
+                PlanId = planId,
+                RelationshipId = relationshipId,
+                CoachId = coach.UserId,
+                MemberId = member.UserId,
+                Goal = "Strength",
+                Level = "Beginner",
+                Status = WorkoutPlanStatus.Active,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            });
+            await db.SaveChangesAsync();
+        });
+
+        using var staff = factory.CreateApiClient(manager.UserId, UserRole.CenterManager);
+        var created = await staff.PostAsJsonAsync("/api/manager/pt-sessions", new CreatePtSessionRequest
+        { EntitlementId = entitlement.EntitlementId, StartAtUtc = DateTime.UtcNow.Date.AddDays(7).AddHours(2) });
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var session = (await created.Content.ReadApiJsonAsync<PtSessionResponse>())!;
+
+        using var own = factory.CreateApiClient(coach.UserId, UserRole.Coach);
+        Assert.Single((await (await own.GetAsync("/api/coaches/me/pt-sessions")).Content.ReadApiJsonAsync<List<PtSessionResponse>>())!);
+        Assert.Single((await (await own.GetAsync("/api/coaches/me/workout-plans")).Content.ReadApiJsonAsync<List<WorkoutPlanResponse>>())!);
+
+        var ended = await staff.PostAsJsonAsync($"/api/coach-member-relationships/{relationshipId}/end",
+            new EndRelationshipRequest { Reason = "Coach reassigned" });
+        Assert.Equal(HttpStatusCode.OK, ended.StatusCode);
+
+        Assert.Empty((await (await own.GetAsync("/api/coaches/me/pt-sessions")).Content.ReadApiJsonAsync<List<PtSessionResponse>>())!);
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await own.GetAsync($"/api/coaches/me/pt-sessions/{session.SessionId}")).StatusCode);
+        Assert.Empty((await (await own.GetAsync("/api/coaches/me/workout-plans")).Content.ReadApiJsonAsync<List<WorkoutPlanResponse>>())!);
+        Assert.Empty((await (await own.GetAsync($"/api/coaches/me/workout-plans?memberId={member.UserId}"))
+            .Content.ReadApiJsonAsync<List<WorkoutPlanResponse>>())!);
+
+        using var memberClient = factory.CreateApiClient(member.UserId, UserRole.Member);
+        var history = await (await memberClient.GetAsync("/api/members/me/workout-plans"))
+            .Content.ReadApiJsonAsync<List<WorkoutPlanResponse>>();
+        Assert.Equal(planId, Assert.Single(history!).PlanId);
+    }
+
     [Theory]
     [InlineData(false, HttpStatusCode.OK)]
     [InlineData(true, HttpStatusCode.Forbidden)]

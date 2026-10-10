@@ -382,6 +382,84 @@ public sealed class CheckoutFlowTests(PaymentApiFactory factory)
     }
 
     [Fact]
+    public async Task Callback_after_pt_service_is_disabled_fulfills_existing_checkout_once()
+    {
+        var context = await SeedAsync();
+        var coach = await factory.SeedUserAsync(UserRole.Coach);
+        var manager = await factory.SeedUserAsync(UserRole.CenterManager);
+        Guid membershipId;
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
+            db.CoachProfiles.Add(new CoachProfile { UserId = coach.UserId });
+            db.UserSportSpecialties.Add(new UserSportSpecialty { UserId = coach.UserId, SportId = 1 });
+            db.Set<CoachServiceQualification>().Add(new CoachServiceQualification { UserId = coach.UserId, OfferingId = 2 });
+            var start = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-1);
+            var membership = new MemberPackage
+            {
+                MemberPackageId = Guid.NewGuid(), MemberId = context.MemberId,
+                PackageId = context.PackageId, StartDate = start,
+                EndDate = start.AddMonths(1).AddDays(-1), Status = MemberPackageStatus.Active
+            };
+            db.MemberPackages.Add(membership);
+            await db.SaveChangesAsync();
+            membershipId = membership.MemberPackageId;
+        }
+
+        using var member = factory.CreateApiClient(context.MemberId, UserRole.Member);
+        using var managerClient = factory.CreateApiClient(manager.UserId, UserRole.CenterManager);
+        var request = new { memberPackageId = membershipId, coachId = coach.UserId, frequencyPerWeek = 1 };
+        var quoteResponse = await member.PostAsJsonAsync("/api/checkouts/pt/quote", request);
+        Assert.Equal(HttpStatusCode.OK, quoteResponse.StatusCode);
+        var quote = (await quoteResponse.Content.ReadFromJsonAsync<PtPurchaseQuoteResponse>())!;
+        using var createRequest = new HttpRequestMessage(HttpMethod.Post, "/api/checkouts/pt")
+        {
+            Content = JsonContent.Create(new { memberPackageId = membershipId, coachId = coach.UserId,
+                frequencyPerWeek = 1, priceVersion = quote.PriceVersion })
+        };
+        createRequest.Headers.Add("Idempotency-Key", Guid.NewGuid().ToString("N"));
+        var created = await member.SendAsync(createRequest);
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var checkout = (await created.Content.ReadFromJsonAsync<CheckoutResponse>())!;
+        var attempt = (await (await member.PostAsync($"/api/checkouts/{checkout.InvoiceId}/attempts", null))
+            .Content.ReadFromJsonAsync<PaymentAttemptResponse>())!;
+
+        Assert.Equal(HttpStatusCode.OK, (await managerClient.PostAsync(
+            "/api/manager/sports/1/services/PERSONAL_TRAINING/disable", null)).StatusCode);
+        try
+        {
+            Assert.NotEqual(HttpStatusCode.OK,
+                (await member.PostAsJsonAsync("/api/checkouts/pt/quote", request)).StatusCode);
+
+            var mock = Assert.IsType<MockPaymentGateway>(factory.Services.GetRequiredService<IPaymentGateway>());
+            var callback = mock.BuildCallback(attempt.TransactionReference, attempt.CashAmount, true);
+            for (var i = 0; i < 2; i++)
+            {
+                using var scope = factory.Services.CreateScope();
+                await scope.ServiceProvider.GetRequiredService<PaymentReconciliationService>()
+                    .ReceiveCallbackAsync(callback, default);
+            }
+            await factory.QueryAsync(async db =>
+            {
+                var invoice = await db.Invoices.SingleAsync(x => x.InvoiceId == checkout.InvoiceId);
+                var item = await db.InvoiceItems.SingleAsync(x => x.InvoiceId == checkout.InvoiceId);
+                Assert.Equal(InvoiceStatus.Paid, invoice.Status);
+                Assert.Equal(1, await db.Payments.CountAsync(x => x.InvoiceId == checkout.InvoiceId));
+                Assert.Equal(PtEntitlementStatus.Active, await db.PtEntitlements
+                    .Where(x => x.EntitlementId == item.RelatedEntityId).Select(x => x.Status).SingleAsync());
+                Assert.Equal("Fulfilled", await db.VerifiedGatewayEvents
+                    .Where(x => x.TransactionReference == attempt.TransactionReference)
+                    .Select(x => x.ProcessingStatus).SingleAsync());
+                return 0;
+            });
+        }
+        finally
+        {
+            await managerClient.PostAsync("/api/manager/sports/1/services/PERSONAL_TRAINING/enable", null);
+        }
+    }
+
+    [Fact]
     public async Task Fulfillment_failure_keeps_verified_event_and_retries_without_partial_payment()
     {
         var context = await SeedAsync();

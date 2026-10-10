@@ -144,9 +144,9 @@ test("a member picks a free day and time, confirms, and lands on the booked sess
   page,
 }) => {
   const requests = await install(page);
-  await page.goto("/member/pt/book");
+  await page.goto("/member/training?tab=book");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-    "Book a PT session",
+    "Training",
   );
   await expect(page.getByText("5 sessions left in your package")).toBeVisible();
   await expect(
@@ -178,7 +178,7 @@ test("a member picks a free day and time, confirms, and lands on the booked sess
   );
 
   await expect(page).toHaveURL(
-    new RegExp(`/member/pt/sessions/${sessionId}\\?booked=1$`),
+    new RegExp(`/member/training\\?session=${sessionId}&booked=1$`),
   );
   await expect(
     page.getByRole("heading", { name: "Session booked" }),
@@ -189,11 +189,11 @@ test("when the time was just taken the list refreshes and nothing is booked", as
   page,
 }) => {
   const requests = await install(page, { conflictOnBook: true });
-  await page.goto("/member/pt/book");
+  await page.goto("/member/training?tab=book");
   await page.getByRole("button", { name: "09:00" }).click();
   await page.getByRole("button", { name: "Book this session" }).click();
   await expect(page.getByText(/That time was just taken/)).toBeVisible();
-  await expect(page).toHaveURL(/\/member\/pt\/book$/);
+  await expect(page).toHaveURL(/\/member\/training\?tab=book$/);
   // Danh sách được tải lại: 09:00 không còn.
   await expect(page.getByRole("button", { name: "09:00" })).toHaveCount(0);
   expect(
@@ -205,7 +205,7 @@ test("an exhausted package explains why and offers new packages instead of times
   page,
 }) => {
   await install(page, { reason: "pt_quota_exhausted" });
-  await page.goto("/member/pt/book");
+  await page.goto("/member/training?tab=book");
   await expect(
     page.getByText("You have used all sessions in this package."),
   ).toBeVisible();
@@ -217,14 +217,16 @@ test("an exhausted package explains why and offers new packages instead of times
   );
 });
 
-test("without an active package the page sends the member to buy one", async ({
+test("without an active package the page offers a Gym membership", async ({
   page,
 }) => {
   await install(page, { noPackage: true });
-  await page.goto("/member/pt/book");
+  await page.goto("/member/training?tab=book");
   await expect(
-    page.getByText("You need an active PT package to book a session."),
+    page.getByText("You need an active Gym membership to book PT."),
   ).toBeVisible();
+  await expect(page.getByRole("link", { name: "Choose a membership" }))
+    .toHaveAttribute("href", "/member/services");
 });
 
 test("the training page offers booking when sessions remain", async ({
@@ -234,5 +236,5 @@ test("the training page offers booking when sessions remain", async ({
   await page.goto("/member/training");
   await expect(
     page.getByRole("link", { name: "Book a session" }),
-  ).toHaveAttribute("href", "/member/pt/book");
+  ).toHaveAttribute("href", "/member/training?tab=book");
 });

@@ -70,7 +70,7 @@ export function MemberServiceHub() {
     : ["gym", "pt", "visits"].includes(legacy)
       ? "owned"
       : "explore";
-  const owned = view === "owned" && (!!values.course || legacy === "visits");
+  const owned = view === "owned";
   return (
     <div className={styles.hub}>
       <header className={styles.intro}>
