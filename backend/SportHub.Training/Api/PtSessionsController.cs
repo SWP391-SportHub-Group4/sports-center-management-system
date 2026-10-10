@@ -74,7 +74,8 @@ public class PtSessionsController(IPtSessionService sessions, PersonalTrainerGua
         CancellationToken ct = default)
     {
         var coachId = User.RequireUserId();
-        return Ok(await sessions.SearchAsync(memberId: null, coachId, status, fromUtc, toUtc, page, pageSize, ct));
+        return Ok(await sessions.SearchAsync(memberId: null, coachId, status, fromUtc, toUtc, page, pageSize, ct,
+            activeRelationshipOnly: true));
     }
 
     [Authorize(Policy = SportHubPolicies.Coach)]
@@ -83,14 +84,7 @@ public class PtSessionsController(IPtSessionService sessions, PersonalTrainerGua
     public async Task<IActionResult> CoachGet(Guid sessionId, CancellationToken ct)
     {
         var coachId = User.RequireUserId();
-        var session = await sessions.GetAsync(sessionId, ct);
-
-        if (session.CoachId != coachId)
-        {
-            return Forbid();
-        }
-
-        return Ok(session);
+        return Ok(await sessions.GetForCoachAsync(sessionId, coachId, ct));
     }
 
     [Authorize(Policy = SportHubPolicies.Coach)]

@@ -216,6 +216,7 @@ builder.Services.AddScoped<IEmailSender>(sp =>
 
 // Administration (BR-2, BR-6, BR-7, BR-39, BR-44..BR-48)
 builder.Services.AddScoped<IUserAdminService, UserAdminService>();
+builder.Services.AddScoped<MemberCodeService>();
 builder.Services.AddScoped<ISystemSettingService, SystemSettingService>();
 builder.Services.AddScoped<IAuditQueryService, AuditQueryService>();
 builder.Services.AddSingleton<IReportStorage, FileSystemReportStorage>();
@@ -258,6 +259,7 @@ builder.Services.AddScoped<CourseCancellationService>();
 builder.Services.AddScoped<SportHub.Scheduling.Threshold.Application.IClassThresholdService,
     SportHub.Scheduling.Threshold.Application.ClassThresholdService>();
 builder.Services.AddScoped<SportHub.Scheduling.Threshold.Application.ThresholdResponseService>();
+builder.Services.AddScoped<SportHub.Scheduling.Threshold.Application.CourseInterestService>();
 builder.Services.AddScoped<SportHub.Scheduling.Threshold.Application.ThresholdResponseExpiryService>();
 builder.Services.AddScoped<IClassSessionService, ClassSessionService>();
 builder.Services.AddScoped<IClassEnrollmentReportService, ClassEnrollmentReportService>();

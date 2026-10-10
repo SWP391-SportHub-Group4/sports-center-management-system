@@ -74,7 +74,7 @@ public sealed class ThresholdResponseService(ISportHubDbContext db, IClassEnroll
             throw new BadRequestException("invalid_threshold_response", "Liên kết hoặc lựa chọn phản hồi không hợp lệ.");
         if (choice == ThresholdResponseChoice.Transfer && targetClassId is null)
             throw new BadRequestException("target_class_required", "Cần chọn khóa đích khi chuyển lớp.");
-        if (choice == ThresholdResponseChoice.Refund && targetClassId is not null)
+        if (choice != ThresholdResponseChoice.Transfer && targetClassId is not null)
             throw new BadRequestException("target_class_unexpected", "Không gửi khóa đích khi chọn hoàn điểm.");
 
         var tokenHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
@@ -85,7 +85,7 @@ public sealed class ThresholdResponseService(ISportHubDbContext db, IClassEnroll
     {
         if (!Enum.IsDefined(choice)) throw new BadRequestException("invalid_threshold_response", "Lựa chọn không hợp lệ.");
         if (choice == ThresholdResponseChoice.Transfer && targetClassId is null) throw new BadRequestException("target_class_required", "Cần khóa đích.");
-        if (choice == ThresholdResponseChoice.Refund && targetClassId is not null) throw new BadRequestException("target_class_unexpected", "Không gửi khóa đích.");
+        if (choice != ThresholdResponseChoice.Transfer && targetClassId is not null) throw new BadRequestException("target_class_unexpected", "Không gửi khóa đích.");
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         var rows = await db.Set<ThresholdResponse>().FromSqlInterpolated($"""
             SELECT * FROM class_threshold_responses WHERE token_hash = {tokenHash} FOR UPDATE
@@ -140,11 +140,22 @@ public sealed class ThresholdResponseService(ISportHubDbContext db, IClassEnroll
             ?? throw new ConflictException("threshold_invoice_item_missing", "Ghi danh thiếu hóa đơn đã thanh toán.");
 
         Guid? additionalInvoiceId = null;
-        if (choice == ThresholdResponseChoice.Refund)
+        if (choice is ThresholdResponseChoice.Refund or ThresholdResponseChoice.WaitNextCourse)
         {
-            await refunds.CreditAsync(new RefundCreditRequest(itemId, 100,
+            var refund = await refunds.CreditAsync(new RefundCreditRequest(itemId, 100,
                 "Hoàn điểm theo lựa chọn khi khóa chưa đạt ngưỡng hoàn vốn", response.ThresholdResponseId), ct);
             await classes.CancelAsync(itemId, EnrollmentEndReason.Refunded, ct);
+            if (choice == ThresholdResponseChoice.WaitNextCourse)
+            {
+                var sportId = await db.Set<Class>().Where(x => x.ClassId == response.ClassId)
+                    .Select(x => x.SportId).SingleAsync(ct);
+                db.Set<CourseInterestSubscription>().Add(new CourseInterestSubscription
+                {
+                    SubscriptionId = Guid.NewGuid(), ThresholdResponseId = response.ThresholdResponseId,
+                    MemberId = memberId, SourceClassId = response.ClassId, SportId = sportId,
+                    RefundedPoints = refund.PointsCredited, IsActive = true, CreatedAtUtc = clock.UtcNow
+                });
+            }
         }
         else
         {

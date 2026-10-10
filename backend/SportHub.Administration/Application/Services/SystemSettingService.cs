@@ -38,7 +38,9 @@ public sealed class SystemSettingService(
             [SystemSettingKeys.RentalMaxHours] = (1, 4),
             [SystemSettingKeys.RentalAdvanceDays] = (1, 30),
             [SystemSettingKeys.RentalCancelFreeHours] = (0, 168),
-            [SystemSettingKeys.PtPricePerSessionVnd] = (1_000, 100_000_000)
+            [SystemSettingKeys.PtPricePerSessionVnd] = (1_000, 100_000_000),
+            [SystemSettingKeys.PtSelfBookMinLeadHours] = (1, 168),
+            [SystemSettingKeys.PtSelfBookMaxAdvanceDays] = (1, 90)
         };
 
     public async Task<IReadOnlyList<SystemSettingResponse>> GetAllAsync(CancellationToken ct = default)
@@ -69,6 +71,18 @@ public sealed class SystemSettingService(
                 throw new BadRequestException("invalid_setting_value", "Đơn giá PT phải là bội số của 1.000 VND.");
             if (key == SystemSettingKeys.RentalSlotMinutes && parsed is not (30 or 60))
                 throw new BadRequestException("invalid_setting_value", "Khối thuê sân phải là 30 hoặc 60 phút.");
+            if (key is SystemSettingKeys.PtSelfBookMinLeadHours or SystemSettingKeys.PtSelfBookMaxAdvanceDays)
+            {
+                var otherKey = key == SystemSettingKeys.PtSelfBookMinLeadHours
+                    ? SystemSettingKeys.PtSelfBookMaxAdvanceDays : SystemSettingKeys.PtSelfBookMinLeadHours;
+                var otherValue = await db.Set<SystemSetting>().AsNoTracking()
+                    .Where(s => s.Key == otherKey).Select(s => s.Value).SingleAsync(ct);
+                var other = int.Parse(otherValue, System.Globalization.CultureInfo.InvariantCulture);
+                var lead = key == SystemSettingKeys.PtSelfBookMinLeadHours ? parsed : other;
+                var days = key == SystemSettingKeys.PtSelfBookMaxAdvanceDays ? parsed : other;
+                if (lead >= days * 24)
+                    throw new BadRequestException("invalid_setting_value", "Thời gian báo trước PT phải ngắn hơn khoảng ngày cho phép đặt trước.");
+            }
         }
 
         var previous = setting.Value;

@@ -7,6 +7,7 @@ using SportHub.Identity.Domain.Enums;
 using SportHub.Payment.Application.Services;
 using SportHub.Payment.Wallet.Application;
 using SportHub.Scheduling.Domain.Enums;
+using SportHub.Scheduling.Application.Interfaces;
 using SportHub.Scheduling.Threshold.Application;
 using SportHub.Scheduling.Threshold.Domain;
 
@@ -15,6 +16,82 @@ namespace SportHub.Scheduling.Tests.Integration;
 [Collection(nameof(SchedulingApiCollection))]
 public sealed class ThresholdTransferTests(SchedulingApiFactory factory)
 {
+    [Fact]
+    public async Task Wait_next_course_refunds_once_records_interest_and_never_enrolls_in_future_class()
+    {
+        var source = await CourseTestData.CreateAsync(factory);
+        var future = await CourseTestData.CreateAsync(factory, publish: false, time: "14:00");
+        var member = await factory.SeedUserAsync(UserRole.Member);
+        await factory.QueryAsync(async db =>
+        {
+            await db.Classes.Where(x => x.ClassId == source.Id).ExecuteUpdateAsync(s => s
+                .SetProperty(x => x.CostAmount, 200_000m).SetProperty(x => x.BreakEvenThreshold, 2)
+                .SetProperty(x => x.ThresholdDeadlineUtc, DateTime.UtcNow.AddMinutes(-1)));
+            return 0;
+        });
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
+            await using (var tx = await db.Database.BeginTransactionAsync())
+            {
+                await scope.ServiceProvider.GetRequiredService<IPointWalletService>()
+                    .EarnAsync(new(member.UserId, 200, "TestCredit", Guid.NewGuid()));
+                await tx.CommitAsync();
+            }
+            var checkout = await scope.ServiceProvider.GetRequiredService<CheckoutService>()
+                .CreateClassAsync(new(source.Id, null), Guid.NewGuid().ToString(), member.UserId, false, default);
+            await scope.ServiceProvider.GetRequiredService<PointConfirmationService>()
+                .SelectSelfAsync(checkout.InvoiceId, 100, member.UserId, default);
+            await scope.ServiceProvider.GetRequiredService<CheckoutService>()
+                .StartPaymentAsync(checkout.InvoiceId, member.UserId, false, "127.0.0.1", default);
+        }
+        using (var scope = factory.Services.CreateScope())
+            await scope.ServiceProvider.GetRequiredService<IClassThresholdService>().EvaluateDueAsync();
+        var token = await factory.QueryAsync(async db =>
+        {
+            var response = await db.Set<ThresholdResponse>().SingleAsync(x => x.ClassId == source.Id && x.MemberId == member.UserId);
+            var message = await db.Notifications.Where(x => x.SourceEntityId == response.ThresholdResponseId
+                && x.Channel == SportHub.Notification.Domain.Enums.NotificationChannel.InApp)
+                .Select(x => x.Message).SingleAsync();
+            return message.Split("token=")[1];
+        });
+        using (var scope = factory.Services.CreateScope())
+        {
+            var service = scope.ServiceProvider.GetRequiredService<ThresholdResponseService>();
+            var first = await service.RespondAsync(token, ThresholdResponseChoice.WaitNextCourse, null, member.UserId);
+            Assert.Equal(first, await service.RespondAsync(token, ThresholdResponseChoice.WaitNextCourse, null, member.UserId));
+        }
+        var subscriptionId = await factory.QueryAsync(async db =>
+        {
+            var interest = await db.Set<CourseInterestSubscription>().SingleAsync(x => x.MemberId == member.UserId);
+            Assert.True(interest.IsActive);
+            Assert.Equal(100, interest.RefundedPoints);
+            Assert.Equal(200, await db.PointWallets.Where(x => x.OwnerUserId == member.UserId)
+                .Select(x => x.AvailablePoints).SingleAsync());
+            Assert.False(await db.Enrollments.AnyAsync(x => x.ClassId == source.Id && x.MemberId == member.UserId
+                && x.Status == EnrollmentStatus.Confirmed));
+            return interest.SubscriptionId;
+        });
+        using (var scope = factory.Services.CreateScope())
+            await scope.ServiceProvider.GetRequiredService<IClassService>()
+                .PublishAsync(future.Id, new(), future.ManagerId);
+        await factory.QueryAsync(async db =>
+        {
+            Assert.False(await db.Enrollments.AnyAsync(x => x.ClassId == future.Id && x.MemberId == member.UserId));
+            Assert.True(await db.Notifications.AnyAsync(x => x.UserId == member.UserId
+                && x.Message.Contains("cùng môn bạn quan tâm")));
+            return 0;
+        });
+        using (var scope = factory.Services.CreateScope())
+        {
+            var interests = scope.ServiceProvider.GetRequiredService<CourseInterestService>();
+            await interests.UnsubscribeAsync(subscriptionId, member.UserId, default);
+            await interests.UnsubscribeAsync(subscriptionId, member.UserId, default);
+        }
+        Assert.False(await factory.QueryAsync(db => db.Set<CourseInterestSubscription>()
+            .Where(x => x.SubscriptionId == subscriptionId).Select(x => x.IsActive).SingleAsync()));
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

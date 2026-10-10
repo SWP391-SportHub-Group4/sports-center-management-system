@@ -23,10 +23,12 @@ public static class PtSlotCalculator
         IReadOnlyList<TimeWindow> coachBusy,
         IReadOnlyList<TimeWindow> memberBusy,
         DateTime validityStartUtc,
-        DateTime validityEndUtc)
+        DateTime validityEndUtc,
+        int minLeadHours = PtSessionRules.SelfBookMinLeadHours,
+        int maxAdvanceDays = PtSessionRules.SelfBookMaxAdvanceDays)
     {
-        var earliest = nowUtc.AddHours(PtSessionRules.SelfBookMinLeadHours);
-        var latest = nowUtc.AddDays(PtSessionRules.SelfBookMaxAdvanceDays);
+        var earliest = nowUtc.AddHours(minLeadHours);
+        var latest = nowUtc.AddDays(maxAdvanceDays);
         var slots = new List<PtSlot>();
 
         for (var date = fromDate; date <= toDate; date = date.AddDays(1))
@@ -105,7 +107,9 @@ public static class PtSlotCalculator
     }
 
     /// <summary>Kiểm tra giờ bắt đầu do Member gửi lên; ném lỗi 400 có mã ổn định để giao diện giải thích.</summary>
-    public static void ValidateStart(DateTime nowUtc, DateTime startAtUtc)
+    public static void ValidateStart(DateTime nowUtc, DateTime startAtUtc,
+        int minLeadHours = PtSessionRules.SelfBookMinLeadHours,
+        int maxAdvanceDays = PtSessionRules.SelfBookMaxAdvanceDays)
     {
         var local = VietnamTime.ToLocal(startAtUtc);
 
@@ -116,17 +120,17 @@ public static class PtSlotCalculator
                 $"Giờ bắt đầu phải rơi vào bội số {PtSessionRules.SlotStepMinutes} phút (giờ Việt Nam).");
         }
 
-        if (startAtUtc < nowUtc.AddHours(PtSessionRules.SelfBookMinLeadHours))
+        if (startAtUtc < nowUtc.AddHours(minLeadHours))
         {
             throw new BadRequestException(
                 "pt_booking_too_soon",
-                $"Cần đặt trước ít nhất {PtSessionRules.SelfBookMinLeadHours} giờ. Liên hệ lễ tân nếu cần gấp.");
+                $"Cần đặt trước ít nhất {minLeadHours} giờ. Liên hệ lễ tân nếu cần gấp.");
         }
 
-        if (startAtUtc > nowUtc.AddDays(PtSessionRules.SelfBookMaxAdvanceDays))
+        if (startAtUtc > nowUtc.AddDays(maxAdvanceDays))
         {
             throw new BadRequestException(
-                "pt_booking_too_far", $"Chỉ đặt trước tối đa {PtSessionRules.SelfBookMaxAdvanceDays} ngày.");
+                "pt_booking_too_far", $"Chỉ đặt trước tối đa {maxAdvanceDays} ngày.");
         }
     }
 

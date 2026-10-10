@@ -44,9 +44,9 @@ export function MemberPicker({
 
   const handleScan = useCallback(
     async (text: string) => {
-      const id = parseMemberCode(text);
+      const code = parseMemberCode(text);
       const en = language === "en";
-      if (!id) {
+      if (!code) {
         setScanError(
           en
             ? "This QR is not a member code."
@@ -55,7 +55,7 @@ export function MemberPicker({
         return;
       }
       try {
-        const found = await api.get<UserAdminDto>(`/api/users/${id}`);
+        const found = await api.post<UserAdminDto>("/api/member-codes/lookup", { code });
         if (found.role !== "MEMBER") {
           setScanError(
             en

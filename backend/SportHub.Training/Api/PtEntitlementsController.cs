@@ -25,7 +25,8 @@ public class PtEntitlementsController(IPtEntitlementQueryService entitlements) :
     public async Task<IActionResult> CoachMine(
         [FromQuery] int page = 1, [FromQuery] int pageSize = PtEntitlementQueryService.DefaultPageSize,
         CancellationToken ct = default)
-        => Ok(await entitlements.SearchAsync(null, User.RequireUserId(), null, page, pageSize, ct));
+        => Ok(await entitlements.SearchAsync(null, User.RequireUserId(), null, page, pageSize, ct,
+            activeRelationshipOnly: true));
 
     [Authorize(Policy = SportHubPolicies.CenterManager)]
     [HttpGet("manager/pt-entitlements")]

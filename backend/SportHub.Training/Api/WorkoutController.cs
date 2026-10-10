@@ -180,7 +180,6 @@ public class WorkoutController(IWorkoutService workouts, PersonalTrainerGuard pe
     [ProducesResponseType<IReadOnlyList<WorkoutResultResponse>>(StatusCodes.Status200OK)]
     public async Task<IActionResult> GetMemberResults(
         Guid memberId,
-        [FromServices] ICoachMemberRelationshipService relationships,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = WorkoutService.DefaultPageSize,
         CancellationToken ct = default)
@@ -188,15 +187,6 @@ public class WorkoutController(IWorkoutService workouts, PersonalTrainerGuard pe
         var coachId = User.RequireUserId();
         await personalTrainers.RequireAsync(coachId, ct);
 
-        var active = await relationships.SearchAsync(
-            coachId, memberId, activeOnly: true, page: 1, pageSize: 1, ct: ct);
-
-        if (active.Count == 0)
-        {
-            throw new ForbiddenException(
-                "no_active_relationship", "Bạn không phụ trách hội viên này (BR-23).");
-        }
-
-        return Ok(await workouts.GetResultsAsync(memberId, null, null, page, pageSize, ct));
+        return Ok(await workouts.GetMemberResultsForCoachAsync(memberId, coachId, page, pageSize, ct));
     }
 }

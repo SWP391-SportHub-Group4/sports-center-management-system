@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import QRCode from "qrcode";
+import { api } from "@/lib/apiClient";
 import { Dialog } from "@/components/ui";
 import { IconQrCode } from "@/components/icons";
 import { useAuth } from "@/lib/auth";
@@ -21,14 +22,22 @@ export function MemberCodeButton() {
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState(false);
   const [dataUrl, setDataUrl] = useState("");
+  const [code, setCode] = useState("");
+  const [error, setError] = useState(false);
   const userId = user?.userId;
 
   useEffect(() => {
     if (!open || !userId) return;
     let cancelled = false;
-    QRCode.toDataURL(memberCodePayload(userId), { width: 240, margin: 1 })
-      .then((url) => !cancelled && setDataUrl(url))
-      .catch(() => !cancelled && setDataUrl(""));
+    api.get<{ code: string; expiresAtUtc: string }>("/api/member-codes/me")
+      .then(async ({ code: issued }) => {
+        const url = await QRCode.toDataURL(memberCodePayload(issued), { width: 240, margin: 1 });
+        if (!cancelled) {
+          setCode(issued);
+          setDataUrl(url);
+        }
+      })
+      .catch(() => { if (!cancelled) setError(true); });
     return () => {
       cancelled = true;
     };
@@ -47,6 +56,9 @@ export function MemberCodeButton() {
           setOpen(true);
           setCopied(false);
           setCopyError(false);
+          setCode("");
+          setDataUrl("");
+          setError(false);
         }}
         aria-expanded={open}
         aria-haspopup="dialog"
@@ -71,6 +83,7 @@ export function MemberCodeButton() {
           onClose={() => setOpen(false)}
         >
           <div className={codeStyles.content}>
+            {error && <p role="alert">{en ? "Could not load member code. Please reopen this dialog." : "Chưa tải được mã hội viên. Hãy mở lại cửa sổ này."}</p>}
             {dataUrl && (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -83,12 +96,13 @@ export function MemberCodeButton() {
             )}
             <strong>{user.fullName}</strong>
             <p>{user.email}</p>
-            <p className={`small muted ${codeStyles.memberId}`}>{userId}</p>
+            <p className={`small muted ${codeStyles.memberId}`}>{en ? "Code expires in 5 minutes" : "Mã hết hạn sau 5 phút"}</p>
             <button
               className="btn btn--secondary"
+              disabled={!code}
               onClick={async () => {
                 try {
-                  await navigator.clipboard.writeText(userId);
+                  await navigator.clipboard.writeText(memberCodePayload(code));
                   setCopied(true);
                   setCopyError(false);
                 } catch {

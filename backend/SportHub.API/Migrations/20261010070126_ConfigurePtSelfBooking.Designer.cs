@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using SportHub.API.Persistence;
@@ -11,9 +12,11 @@ using SportHub.API.Persistence;
 namespace SportHub.API.Migrations
 {
     [DbContext(typeof(SportHubDbContext))]
-    partial class SportHubDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261010070126_ConfigurePtSelfBooking")]
+    partial class ConfigurePtSelfBooking
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -2823,67 +2826,6 @@ namespace SportHub.API.Migrations
                         });
                 });
 
-            modelBuilder.Entity("SportHub.Scheduling.Threshold.Domain.CourseInterestSubscription", b =>
-                {
-                    b.Property<Guid>("SubscriptionId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("subscription_id");
-
-                    b.Property<DateTime>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at_utc");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_active");
-
-                    b.Property<Guid>("MemberId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("member_id");
-
-                    b.Property<int>("RefundedPoints")
-                        .HasColumnType("integer")
-                        .HasColumnName("refunded_points");
-
-                    b.Property<int>("SourceClassId")
-                        .HasColumnType("integer")
-                        .HasColumnName("source_class_id");
-
-                    b.Property<int>("SportId")
-                        .HasColumnType("integer")
-                        .HasColumnName("sport_id");
-
-                    b.Property<Guid>("ThresholdResponseId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("threshold_response_id");
-
-                    b.Property<DateTime?>("UnsubscribedAtUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("unsubscribed_at_utc");
-
-                    b.HasKey("SubscriptionId")
-                        .HasName("pk_course_interest_subscriptions");
-
-                    b.HasIndex("SourceClassId")
-                        .HasDatabaseName("ix_course_interest_subscriptions_source_class_id");
-
-                    b.HasIndex("ThresholdResponseId")
-                        .IsUnique()
-                        .HasDatabaseName("ix_course_interest_subscriptions_threshold_response_id");
-
-                    b.HasIndex("MemberId", "CreatedAtUtc")
-                        .HasDatabaseName("ix_course_interest_subscriptions_member_id_created_at_utc");
-
-                    b.HasIndex("SportId", "IsActive")
-                        .HasDatabaseName("ix_course_interest_subscriptions_sport_id_is_active");
-
-                    b.ToTable("course_interest_subscriptions", null, t =>
-                        {
-                            t.HasCheckConstraint("ck_course_interest_refunded_points", "refunded_points >= 0");
-                        });
-                });
-
             modelBuilder.Entity("SportHub.Scheduling.Threshold.Domain.ThresholdResponse", b =>
                 {
                     b.Property<Guid>("ThresholdResponseId")
@@ -2969,7 +2911,7 @@ namespace SportHub.API.Migrations
 
                     b.ToTable("class_threshold_responses", null, t =>
                         {
-                            t.HasCheckConstraint("ck_class_threshold_response_choice_target", "(choice IS NULL AND target_class_id IS NULL) OR (choice IN (0, 2) AND target_class_id IS NULL) OR (choice = 1 AND target_class_id IS NOT NULL)");
+                            t.HasCheckConstraint("ck_class_threshold_response_choice_target", "(choice IS NULL AND target_class_id IS NULL) OR (choice = 0 AND target_class_id IS NULL) OR (choice = 1 AND target_class_id IS NOT NULL)");
                         });
                 });
 
@@ -4315,30 +4257,6 @@ namespace SportHub.API.Migrations
                         .HasForeignKey("RoomId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_incident_notices_rooms_room_id");
-                });
-
-            modelBuilder.Entity("SportHub.Scheduling.Threshold.Domain.CourseInterestSubscription", b =>
-                {
-                    b.HasOne("SportHub.Scheduling.Domain.Entities.Class", null)
-                        .WithMany()
-                        .HasForeignKey("SourceClassId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
-                        .HasConstraintName("fk_course_interest_subscriptions_classes_source_class_id");
-
-                    b.HasOne("SportHub.Scheduling.Catalog.Domain.Sport", null)
-                        .WithMany()
-                        .HasForeignKey("SportId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
-                        .HasConstraintName("fk_course_interest_subscriptions_sports_sport_id");
-
-                    b.HasOne("SportHub.Scheduling.Threshold.Domain.ThresholdResponse", null)
-                        .WithMany()
-                        .HasForeignKey("ThresholdResponseId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
-                        .HasConstraintName("fk_course_interest_subscriptions_threshold_responses_threshold");
                 });
 
             modelBuilder.Entity("SportHub.Scheduling.Threshold.Domain.ThresholdResponse", b =>

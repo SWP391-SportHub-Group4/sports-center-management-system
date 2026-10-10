@@ -32,6 +32,8 @@ public static class SystemSettingKeys
     public const string HoldMinutes = "hold.minutes";
 
     public const string PtPricePerSessionVnd = "pt.price_per_session_vnd";
+    public const string PtSelfBookMinLeadHours = "pt.self_book_min_lead_hours";
+    public const string PtSelfBookMaxAdvanceDays = "pt.self_book_max_advance_days";
     public const string PointsConfirmOtpMinutes = "points.confirm_otp_minutes";
     public const string RentalSlotMinutes = "rental.slot_minutes";
     public const string RentalMaxHours = "rental.max_hours";

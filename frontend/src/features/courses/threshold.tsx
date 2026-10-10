@@ -117,7 +117,7 @@ export function ThresholdPanel({
     !state.loading &&
     !state.error &&
     !action.busy &&
-    (choice === "REFUND" || (choice === "TRANSFER" && validQuote));
+    (choice === "REFUND" || choice === "WAIT_NEXT_COURSE" || (choice === "TRANSFER" && validQuote));
   const labels = {
     TRANSFER: l.transfer,
     WAIT_NEXT_COURSE: l.wait,
@@ -137,7 +137,7 @@ export function ThresholdPanel({
     )
       return;
     const submittedChoice = retry ? d.choice : choice;
-    if (submittedChoice !== "TRANSFER" && submittedChoice !== "REFUND") return;
+    if (submittedChoice !== "TRANSFER" && submittedChoice !== "REFUND" && submittedChoice !== "WAIT_NEXT_COURSE") return;
     sending.current = true;
     await action.run(async () => {
       try {
@@ -216,22 +216,11 @@ export function ThresholdPanel({
                         <span>
                           <strong>{labels[option]}</strong>
                           <span>{bodies[option]}</span>
-                          {option === "WAIT_NEXT_COURSE" && (
-                            <em>{l.unavailable}</em>
-                          )}
                         </span>
                       </label>
                     ),
                   )}
                 </fieldset>
-                {choice === "WAIT_NEXT_COURSE" && (
-                  <div className={styles.notice} role="status">
-                    <p>{l.waitBlocked}</p>
-                    <Link href="/member/services?section=courses&view=owned&tab=interests">
-                      {l.interests}
-                    </Link>
-                  </div>
-                )}
                 {choice === "TRANSFER" && (
                   <div className={styles.details}>
                     <p>{l.targetHint}</p>
@@ -340,7 +329,7 @@ export function ThresholdPanel({
       >
         {t.refactor.refresh}
       </button>
-      {review && !closed && choice && choice !== "WAIT_NEXT_COURSE" && (
+      {review && !closed && choice && (
         <Dialog
           title={l.confirmation}
           description={l.final}

@@ -22,6 +22,9 @@ public interface IWorkoutService
         Guid? memberId, Guid? coachId, DateTime? sinceUtc,
         int page, int pageSize, CancellationToken ct = default);
 
+    Task<IReadOnlyList<WorkoutResultResponse>> GetMemberResultsForCoachAsync(
+        Guid memberId, Guid coachId, int page, int pageSize, CancellationToken ct = default);
+
     Task<WorkoutResultResponse> SaveResultAsync(
         SaveWorkoutResultRequest request, Guid coachId, CancellationToken ct = default);
 

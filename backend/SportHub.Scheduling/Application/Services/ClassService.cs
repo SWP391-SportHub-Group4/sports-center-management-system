@@ -371,6 +371,13 @@ public sealed class ClassService(
         notifications.Queue(new NotificationRequest(coachId, NotificationEvents.ClassPublished,
             $"Khóa {entity.Name} đã được mở với {sessions.Count} buổi. Buổi đầu: {VietnamTime.ToLocal(first.StartAtUtc):HH:mm dd/MM/yyyy}."));
 
+        var interestedMembers = await db.Set<CourseInterestSubscription>().AsNoTracking()
+            .Where(x => x.IsActive && x.SportId == entity.SportId && x.SourceClassId != classId)
+            .Select(x => x.MemberId).Distinct().ToListAsync(ct);
+        foreach (var memberId in interestedMembers)
+            notifications.Queue(new NotificationRequest(memberId, NotificationEvents.ClassPublished,
+                $"Khóa {entity.Name} cùng môn bạn quan tâm vừa mở đăng ký. Xem chi tiết để tự đăng ký nếu phù hợp."));
+
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
 

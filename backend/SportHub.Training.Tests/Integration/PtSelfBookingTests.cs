@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using SportHub.API.Persistence;
 using SportHub.Identity.Domain.Enums;
+using SportHub.Membership.Domain.Enums;
 using SportHub.Scheduling.Catalog.Domain;
 using SportHub.Scheduling.Domain.Entities;
 using SportHub.Training.Application.Commands;
@@ -159,5 +160,29 @@ public sealed class PtSelfBookingTests(TrainingApiFactory factory)
         Assert.Equal("pt_quota_exhausted", exhausted.BookableReason);
         Assert.Equal(HttpStatusCode.Conflict, (await other.PostAsJsonAsync("api/members/me/pt-sessions",
             new SelfBookPtSessionRequest { EntitlementId = single.EntitlementId, StartAtUtc = Start(hour: 14) })).StatusCode);
+    }
+
+    [Fact]
+    public async Task Revoked_current_membership_blocks_availability_and_booking()
+    {
+        var (memberId, _, entitlement) = await SeedAsync();
+        await RoomAsync();
+        await factory.ExecuteAsync(async db =>
+        {
+            await db.MemberPackages.Where(x => x.MemberPackageId == entitlement.CurrentMemberPackageId)
+                .ExecuteUpdateAsync(s => s.SetProperty(x => x.Status, MemberPackageStatus.Cancelled));
+        });
+        using var client = factory.CreateApiClient(memberId, UserRole.Member);
+        var availability = (await (await client.GetAsync(
+            $"api/members/me/pt-entitlements/{entitlement.EntitlementId}/availability"))
+            .Content.ReadApiJsonAsync<PtAvailabilityResponse>())!;
+        Assert.Equal("membership_not_active", availability.BookableReason);
+        Assert.Empty(availability.Slots);
+        var booking = await client.PostAsJsonAsync("api/members/me/pt-sessions",
+            new SelfBookPtSessionRequest { EntitlementId = entitlement.EntitlementId, StartAtUtc = Start() });
+        Assert.Equal(HttpStatusCode.Conflict, booking.StatusCode);
+        Assert.Equal(0, await factory.QueryAsync(db => db.PtEntitlements
+            .Where(x => x.EntitlementId == entitlement.EntitlementId)
+            .Select(x => x.ReservedSessions).SingleAsync()));
     }
 }

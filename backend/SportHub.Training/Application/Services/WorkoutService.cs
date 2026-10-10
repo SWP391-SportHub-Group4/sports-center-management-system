@@ -42,7 +42,8 @@ public sealed class WorkoutService(
 
         if (coachId is not null)
         {
-            query = query.Where(p => p.CoachId == coachId);
+            query = query.Where(p => p.CoachId == coachId && db.Set<CoachMemberRelationship>().Any(r =>
+                r.CoachId == coachId && r.MemberId == p.MemberId && r.Status == RelationshipStatus.Active));
         }
 
         (page, pageSize) = NormalizePage(page, pageSize);
@@ -196,7 +197,9 @@ public sealed class WorkoutService(
 
         if (coachId is not null)
         {
-            query = query.Where(r => r.CoachId == coachId);
+            query = query.Where(r => r.CoachId == coachId && db.Set<CoachMemberRelationship>().Any(link =>
+                link.CoachId == coachId && link.MemberId == r.PtSession!.MemberId
+                && link.Status == RelationshipStatus.Active));
         }
 
         if (sinceUtc is not null)
@@ -208,6 +211,15 @@ public sealed class WorkoutService(
         return await query.OrderByDescending(r => r.RecordedAt)
             .Skip((page - 1) * pageSize).Take(pageSize)
             .Select(ResultProjection()).ToListAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<WorkoutResultResponse>> GetMemberResultsForCoachAsync(
+        Guid memberId, Guid coachId, int page, int pageSize, CancellationToken ct = default)
+    {
+        var active = await db.Set<CoachMemberRelationship>().AsNoTracking().AnyAsync(r =>
+            r.CoachId == coachId && r.MemberId == memberId && r.Status == RelationshipStatus.Active, ct);
+        if (!active) throw new ForbiddenException("no_active_relationship", "Bạn không phụ trách hội viên này.");
+        return await GetResultsAsync(memberId, null, null, page, pageSize, ct);
     }
 
     public async Task<WorkoutResultResponse> SaveResultAsync(

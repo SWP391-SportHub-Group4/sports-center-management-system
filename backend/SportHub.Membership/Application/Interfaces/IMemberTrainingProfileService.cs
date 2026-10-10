@@ -11,5 +11,7 @@ public interface IMemberTrainingProfileService
 {
     Task<MemberTrainingProfileResponse?> GetAsync(Guid memberId, CancellationToken ct = default);
 
+    Task<MemberTrainingProfileResponse?> GetForCoachAsync(Guid memberId, Guid coachId, CancellationToken ct = default);
+
     Task<MemberTrainingProfileResponse> SaveAsync(Guid memberId, SaveTrainingProfileRequest request, CancellationToken ct = default);
 }

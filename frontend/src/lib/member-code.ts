@@ -1,14 +1,14 @@
-const PREFIX = "SPORTHUB-MEMBER:";
-const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const PREFIX = "SPORTHUB-MEMBER-V1:";
 
-/** Text encoded in a Member's QR. It only identifies the Member; it is not an entry credential. */
-export function memberCodePayload(userId: string) {
-  return PREFIX + userId;
+/** Opaque, short-lived backend code. Never use this as an entry or payment credential. */
+export function memberCodePayload(code: string) {
+  return PREFIX + code;
 }
 
-/** Accepts the QR payload or a bare user ID typed/scanned at the desk. Returns the user ID. */
+/** Accept only server-issued QR payloads, never a guessed Member user ID. */
 export function parseMemberCode(text: string): string | null {
   const value = text.trim();
-  const id = value.startsWith(PREFIX) ? value.slice(PREFIX.length) : value;
-  return GUID.test(id) ? id.toLowerCase() : null;
+  if (!value.startsWith(PREFIX)) return null;
+  const code = value.slice(PREFIX.length);
+  return code.length > 20 && code.length <= 2048 ? code : null;
 }

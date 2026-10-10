@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
+using SportHub.BuildingBlocks.Abstractions.Training;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.BuildingBlocks.SharedKernel.Time;
 using SportHub.Membership.Application.Commands;
@@ -14,7 +15,7 @@ namespace SportHub.Membership.Application.Services;
 ///
 /// Quan hệ 1–1 với UserAccount nên dùng upsert: không có khái niệm "tạo hồ sơ thứ hai".
 /// </summary>
-public sealed class MemberTrainingProfileService(ISportHubDbContext db, IClock clock)
+public sealed class MemberTrainingProfileService(ISportHubDbContext db, IClock clock, ICoachMemberAccess coachAccess)
     : IMemberTrainingProfileService
 {
     public Task<MemberTrainingProfileResponse?> GetAsync(Guid memberId, CancellationToken ct = default)
@@ -24,6 +25,13 @@ public sealed class MemberTrainingProfileService(ISportHubDbContext db, IClock c
             .Select(p => new MemberTrainingProfileResponse(
                 p.MemberId, p.Goal, p.ExperienceLevel.ToString(), p.Notes, p.UpdatedAt))
             .SingleOrDefaultAsync(ct);
+
+    public async Task<MemberTrainingProfileResponse?> GetForCoachAsync(Guid memberId, Guid coachId, CancellationToken ct = default)
+    {
+        if (!await coachAccess.HasActiveRelationshipAsync(coachId, memberId, ct))
+            throw new ForbiddenException("no_active_relationship", "Bạn không phụ trách hội viên này.");
+        return await GetAsync(memberId, ct);
+    }
 
     public async Task<MemberTrainingProfileResponse> SaveAsync(
         Guid memberId,

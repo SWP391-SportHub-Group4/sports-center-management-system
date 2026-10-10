@@ -88,7 +88,7 @@ Phần này dùng cho môi trường nghiệm thu thật; các mục 1–3 ở t
 
 ### Backlog chức năng còn lại
 
-Theo mục 13 của thiết kế: G01 (public sân/Coach/PT và giá), G02 (chờ đợt sau), G03 (Manager AI), G04 (mã Member/QR do backend xác thực), G05 (chính sách tự đặt PT), G06 (incident recovery), G07 (lịch sử/preview thông báo), G09 (filter catalog), G13 (đóng/mở tuyển sinh), và G08 nếu cần màn refund độc lập. Rà thêm tất cả API đọc Member của Coach để đóng hoàn toàn G12 ở tầng service. CAT-01/CAT-02 cần test upgrade/callback muộn và E2E PostgreSQL. Không đánh dấu hoàn thành các mục này chỉ vì đã có UI hoặc DTO.
+Theo mục 13 của thiết kế: G01 (public sân/Coach/PT và giá), G03 (Manager AI), G06 (incident recovery), G07 (lịch sử/preview thông báo), G09 (filter catalog), G13 (đóng/mở tuyển sinh), và G08 nếu cần màn refund độc lập. G02/G04 và phần code G05/G12 đã bổ sung nhưng phải áp hai migration mới và chạy test PostgreSQL/E2E trước khi đóng. CAT-01/CAT-02 cần test upgrade/callback muộn và E2E PostgreSQL. Xem [bàn giao An và Hào](AN-HAO-HANDOFF.md).
 
 ### Cổng quyết định go-live
 

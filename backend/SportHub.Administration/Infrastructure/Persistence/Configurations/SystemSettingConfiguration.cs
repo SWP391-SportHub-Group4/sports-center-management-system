@@ -61,6 +61,20 @@ public class SystemSettingConfiguration : IEntityTypeConfiguration<SystemSetting
             },
             new SystemSetting
             {
+                Key = SystemSettingKeys.PtSelfBookMinLeadHours,
+                Value = "12",
+                Description = "Số giờ tối thiểu Member phải đặt trước buổi PT.",
+                UpdatedAt = new DateTime(2026, 10, 10, 0, 0, 0, DateTimeKind.Utc)
+            },
+            new SystemSetting
+            {
+                Key = SystemSettingKeys.PtSelfBookMaxAdvanceDays,
+                Value = "30",
+                Description = "Số ngày tối đa Member được tự đặt buổi PT trước.",
+                UpdatedAt = new DateTime(2026, 10, 10, 0, 0, 0, DateTimeKind.Utc)
+            },
+            new SystemSetting
+            {
                 Key = SystemSettingKeys.PointsConfirmOtpMinutes,
                 Value = "5",
                 Description = "BR-139 — Số phút OTP tại quầy xác nhận dùng điểm còn hiệu lực.",

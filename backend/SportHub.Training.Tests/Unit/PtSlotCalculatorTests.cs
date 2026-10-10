@@ -139,4 +139,18 @@ public sealed class PtSlotCalculatorTests
         Assert.Equal("pt_booking_too_far",
             Assert.Throws<BadRequestException>(() => PtSlotCalculator.ValidateStart(NowUtc, Local(DateOnly.FromDateTime(VietnamTime.ToLocal(NowUtc)).AddDays(40), 6))).ErrorCode);
     }
+
+    [Fact]
+    public void Configured_booking_window_controls_both_available_slots_and_submission()
+    {
+        var now = Local(Monday, 6);
+        var room = Room(1, "Studio A", 6, 22);
+        var slots = PtSlotCalculator.Compute(now, Monday, Monday, [room], [], [],
+            ValidityStart, ValidityEnd, minLeadHours: 20, maxAdvanceDays: 1);
+        Assert.Empty(slots);
+        Assert.Equal("pt_booking_too_soon", Assert.Throws<BadRequestException>(() =>
+            PtSlotCalculator.ValidateStart(now, Local(Monday, 18), minLeadHours: 20, maxAdvanceDays: 1)).ErrorCode);
+        Assert.Equal("pt_booking_too_far", Assert.Throws<BadRequestException>(() =>
+            PtSlotCalculator.ValidateStart(now, Local(Monday.AddDays(2), 6), minLeadHours: 1, maxAdvanceDays: 1)).ErrorCode);
+    }
 }

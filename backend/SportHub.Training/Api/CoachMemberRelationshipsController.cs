@@ -43,6 +43,7 @@ public class CoachMemberRelationshipsController(ICoachMemberRelationshipService 
         if (User.IsInRole(SportHubRoleNames.Coach))
         {
             coachId = actorId;
+            activeOnly = true;
         }
         else if (User.IsInRole(SportHubRoleNames.Member))
         {

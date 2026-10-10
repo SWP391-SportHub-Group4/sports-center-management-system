@@ -2,6 +2,8 @@
 
 Ngày lập: 10/10/2026. Theo dõi trạng thái và tiêu chí đóng tại mục 13 của `Center-Management-System-Design-v3.md`. Mỗi hạng mục chỉ được đánh dấu hoàn thành khi có mã, test và evidence trên môi trường phù hợp. Các sửa đổi PAY-03/G09/G10/G12 hiện có trong nhánh bàn giao là nền tảng để tiếp tục, chưa thay cho nghiệm thu PostgreSQL hoặc VNPay sandbox.
 
+**Cập nhật 10/10/2026:** AI đã triển khai mã G02, G04, phần cấu hình/Membership Active của G05 và tăng scoping G12. Hai migration `ConfigurePtSelfBooking` và `CourseInterestSubscriptions` cần áp trên staging trước khi chạy luồng mới. Build .NET, typecheck và ESLint đạt; test PostgreSQL chưa chạy vì Docker Desktop không kết nối được. Xem [bàn giao An và Hào](AN-HAO-HANDOFF.md) để nghiệm thu và lấy danh sách thông tin môi trường cần cung cấp.
+
 | Người | Task chính | Kết quả bàn giao/điều kiện đóng |
 |---|---|---|
 | **An** | **Payment và nghiệp vụ Member:** PAY-01–05/G11; G02 “chờ đợt sau”; G05 PT self-booking; CAT-01 migration và callback muộn; G08 chỉ khi cần danh sách refund riêng. | Chạy test PostgreSQL cho checkout, split điểm, OTP, expiry, retry, late payment, hoàn điểm; chứng minh một giao dịch chỉ cấp quyền lợi một lần. Nghiệm thu VNPay sandbox/IPN/QueryDR/return với Khôi. G02 hoàn 100% điểm đúng một lần, lưu subscription nhưng không tự ghi danh. Chính sách đặt PT lấy từ setting và kiểm Membership Active. |

@@ -14,7 +14,7 @@ public sealed class PtEntitlementQueryService(ISportHubDbContext db) : IPtEntitl
 
     public async Task<IReadOnlyList<PtEntitlementResponse>> SearchAsync(
         Guid? memberId, Guid? coachId, string? status,
-        int page, int pageSize, CancellationToken ct = default)
+        int page, int pageSize, CancellationToken ct = default, bool activeRelationshipOnly = false)
     {
         var query = db.Set<PtEntitlement>().AsNoTracking();
 
@@ -26,6 +26,9 @@ public sealed class PtEntitlementQueryService(ISportHubDbContext db) : IPtEntitl
         if (coachId is not null)
         {
             query = query.Where(e => e.CoachId == coachId);
+            if (activeRelationshipOnly)
+                query = query.Where(e => db.Set<CoachMemberRelationship>().Any(r =>
+                    r.CoachId == coachId && r.MemberId == e.MemberId && r.Status == RelationshipStatus.Active));
         }
 
         if (!string.IsNullOrWhiteSpace(status))

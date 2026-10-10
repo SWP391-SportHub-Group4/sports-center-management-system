@@ -1,6 +1,7 @@
 using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 using SportHub.BuildingBlocks.Abstractions.Audit;
+using SportHub.BuildingBlocks.Abstractions.Configuration;
 using SportHub.BuildingBlocks.Abstractions.Identity;
 using SportHub.BuildingBlocks.Abstractions.Notifications;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
@@ -11,6 +12,8 @@ using SportHub.Training.Application.Commands;
 using SportHub.Training.Application.DTOs;
 using SportHub.Training.Application.Interfaces;
 using SportHub.Scheduling.Domain.Entities;
+using SportHub.Membership.Domain.Entities;
+using SportHub.Membership.Domain.Enums;
 using SportHub.Training.Domain.Rules;
 
 namespace SportHub.Training.Application.Services;
@@ -35,6 +38,7 @@ public sealed partial class PtSessionService(
     ICoachSpecialtyReader specialties,
     IUserAccessReader users,
     ISchedulingAvailabilityReader availability,
+    ISystemSettingProvider settings,
     IClock clock) : IPtSessionService
 {
     public const int DefaultPageSize = 50;
@@ -49,7 +53,8 @@ public sealed partial class PtSessionService(
         DateTime? toUtc,
         int page,
         int pageSize,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        bool activeRelationshipOnly = false)
     {
         if (fromUtc is not null && toUtc is not null && fromUtc > toUtc)
         {
@@ -74,6 +79,9 @@ public sealed partial class PtSessionService(
         if (coachId is not null)
         {
             query = query.Where(s => s.CoachId == coachId);
+            if (activeRelationshipOnly)
+                query = query.Where(s => db.Set<CoachMemberRelationship>().Any(r =>
+                    r.CoachId == coachId && r.MemberId == s.MemberId && r.Status == RelationshipStatus.Active));
         }
 
         if (!string.IsNullOrWhiteSpace(status))
@@ -105,6 +113,15 @@ public sealed partial class PtSessionService(
         => await db.Set<PtSession>().AsNoTracking()
                .Where(s => s.SessionId == sessionId).Select(Projection()).SingleOrDefaultAsync(ct)
            ?? throw new NotFoundException("pt_session_not_found", "Không tìm thấy buổi PT.");
+
+    public async Task<PtSessionResponse> GetForCoachAsync(Guid sessionId, Guid coachId, CancellationToken ct = default)
+    {
+        var allowed = await db.Set<PtSession>().AsNoTracking().AnyAsync(s => s.SessionId == sessionId
+            && s.CoachId == coachId && db.Set<CoachMemberRelationship>().Any(r =>
+                r.CoachId == coachId && r.MemberId == s.MemberId && r.Status == RelationshipStatus.Active), ct);
+        if (!allowed) throw new NotFoundException("pt_session_not_found", "Không tìm thấy buổi PT.");
+        return await GetAsync(sessionId, ct);
+    }
 
     public async Task<PtSessionResponse> CreateAsync(
         CreatePtSessionRequest request, Guid managerId, CancellationToken ct = default)
@@ -215,9 +232,7 @@ public sealed partial class PtSessionService(
             .Select(e => e.Coach!.Profile != null ? e.Coach.Profile.FullName : e.Coach.Email)
             .SingleAsync(ct);
         var remaining = Math.Max(0, entitlement.TotalQuota - entitlement.ReservedSessions - entitlement.ConsumedSessions);
-        var policy = new PtBookingPolicy(
-            PtSessionRules.SelfBookMinLeadHours, PtSessionRules.SelfBookMaxAdvanceDays,
-            PtSessionRules.SlotStepMinutes, PtSessionRules.ChangeDeadlineHours);
+        var policy = await GetSelfBookingPolicyAsync(ct);
 
         string? reason = null;
         if (entitlement.Status != PtEntitlementStatus.Active)
@@ -231,6 +246,10 @@ public sealed partial class PtSessionService(
         else if (!await HasActiveRelationshipAsync(entitlement.MemberId, entitlement.CoachId, ct))
         {
             reason = "pt_relationship_required";
+        }
+        else if (!await HasActiveMembershipAsync(entitlement, ct))
+        {
+            reason = "membership_not_active";
         }
 
         var fromUtc = VietnamTime.StartOfDayUtc(fromDate);
@@ -255,7 +274,8 @@ public sealed partial class PtSessionService(
             slots = PtSlotCalculator.Compute(
                 clock.UtcNow, fromDate, toDate, rooms, coachBusy, memberBusy,
                 VietnamTime.StartOfDayUtc(entitlement.ValidityStartDate),
-                VietnamTime.EndOfDayExclusiveUtc(entitlement.ValidityEndDate));
+                VietnamTime.EndOfDayExclusiveUtc(entitlement.ValidityEndDate),
+                policy.MinLeadHours, policy.AdvanceDays);
         }
 
         return new PtAvailabilityResponse(
@@ -274,7 +294,8 @@ public sealed partial class PtSessionService(
         Guid memberId, SelfBookPtSessionRequest request, CancellationToken ct = default)
     {
         var startAtUtc = DateTime.SpecifyKind(request.StartAtUtc, DateTimeKind.Utc);
-        PtSlotCalculator.ValidateStart(clock.UtcNow, startAtUtc);
+        var policy = await GetSelfBookingPolicyAsync(ct);
+        PtSlotCalculator.ValidateStart(clock.UtcNow, startAtUtc, policy.MinLeadHours, policy.AdvanceDays);
         var endAtUtc = PtSessionRules.EndAtUtc(startAtUtc);
 
         var preview = await db.Set<PtEntitlement>().AsNoTracking()
@@ -295,6 +316,9 @@ public sealed partial class PtSessionService(
         }
 
         EnsureActiveWithQuota(entitlement);
+
+        if (!await HasActiveMembershipAsync(entitlement, ct))
+            throw new ConflictException("membership_not_active", "Cần Membership Gym còn hiệu lực để đặt PT.");
 
         if (!await HasActiveRelationshipAsync(entitlement.MemberId, entitlement.CoachId, ct))
         {
@@ -328,6 +352,19 @@ public sealed partial class PtSessionService(
     private async Task<bool> HasActiveRelationshipAsync(Guid memberId, Guid coachId, CancellationToken ct)
         => await db.Set<CoachMemberRelationship>().AsNoTracking()
             .AnyAsync(r => r.MemberId == memberId && r.CoachId == coachId && r.Status == RelationshipStatus.Active, ct);
+
+    private async Task<PtBookingPolicy> GetSelfBookingPolicyAsync(CancellationToken ct)
+        => new(await settings.GetIntAsync(SystemSettingKeys.PtSelfBookMinLeadHours, ct),
+            await settings.GetIntAsync(SystemSettingKeys.PtSelfBookMaxAdvanceDays, ct),
+            PtSessionRules.SlotStepMinutes, PtSessionRules.ChangeDeadlineHours);
+
+    private Task<bool> HasActiveMembershipAsync(PtEntitlement entitlement, CancellationToken ct)
+    {
+        var today = VietnamTime.TodayLocal(clock);
+        return db.Set<MemberPackage>().AsNoTracking().AnyAsync(p =>
+            p.MemberPackageId == entitlement.CurrentMemberPackageId && p.MemberId == entitlement.MemberId
+            && p.Status == MemberPackageStatus.Active && p.StartDate <= today && p.EndDate >= today, ct);
+    }
 
     public async Task<PtSessionResponse> ManagerCancelAsync(
         Guid sessionId, ManagerCancelPtSessionRequest request, Guid managerId, CancellationToken ct = default)

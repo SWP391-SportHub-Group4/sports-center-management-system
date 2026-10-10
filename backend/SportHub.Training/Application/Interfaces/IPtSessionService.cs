@@ -13,9 +13,12 @@ public interface IPtSessionService
         DateTime? toUtc,
         int page,
         int pageSize,
-        CancellationToken ct = default);
+        CancellationToken ct = default,
+        bool activeRelationshipOnly = false);
 
     Task<PtSessionResponse> GetAsync(Guid sessionId, CancellationToken ct = default);
+
+    Task<PtSessionResponse> GetForCoachAsync(Guid sessionId, Guid coachId, CancellationToken ct = default);
 
     Task<PtSessionResponse> CreateAsync(
         CreatePtSessionRequest request, Guid managerId, CancellationToken ct = default);

@@ -36,12 +36,13 @@ public sealed partial class PtSessionService
             .Where(s => s.MemberId == memberId && (s.Status == PtSessionStatus.Scheduled || s.Status == PtSessionStatus.PendingPayment)
                 && s.StartAtUtc < toUtc && s.EndAtUtc > fromUtc)
             .Select(s => new TimeWindow(s.StartAtUtc, s.EndAtUtc)).ToListAsync(ct);
+        var policy = await GetSelfBookingPolicyAsync(ct);
         var slots = PtSlotCalculator.Compute(clock.UtcNow, fromDate, toDate, rooms, coachBusy, memberBusy,
-            VietnamTime.StartOfDayUtc(package.StartDate), VietnamTime.EndOfDayExclusiveUtc(package.EndDate));
+            VietnamTime.StartOfDayUtc(package.StartDate), VietnamTime.EndOfDayExclusiveUtc(package.EndDate),
+            policy.MinLeadHours, policy.AdvanceDays);
         return new PtAvailabilityResponse(Guid.Empty, coachId, coachName, 90, 0,
             rooms.Count == 0 ? "pt_no_room_configured" : null,
-            new PtBookingPolicy(PtSessionRules.SelfBookMinLeadHours, PtSessionRules.SelfBookMaxAdvanceDays,
-                PtSessionRules.SlotStepMinutes, PtSessionRules.ChangeDeadlineHours),
+            policy,
             slots.Select(s => new PtAvailabilitySlot(s.StartAtUtc, s.EndAtUtc,
                 s.Rooms.Select(r => new PtAvailabilityRoom(r.RoomId, r.Name)).ToList())).ToList());
     }
@@ -50,7 +51,8 @@ public sealed partial class PtSessionService
         Guid memberId, CancellationToken ct)
     {
         if (db.Database.CurrentTransaction is null) throw new InvalidOperationException("PT hold requires a transaction.");
-        PtSlotCalculator.ValidateStart(clock.UtcNow, start);
+        var policy = await GetSelfBookingPolicyAsync(ct);
+        PtSlotCalculator.ValidateStart(clock.UtcNow, start, policy.MinLeadHours, policy.AdvanceDays);
         var preview = await db.Set<PtEntitlement>().AsNoTracking().SingleAsync(e => e.EntitlementId == entitlementId, ct);
         await LockCoachAndMemberAsync(preview.CoachId, memberId, ct);
         var entitlement = await LockEntitlementAsync(entitlementId, ct);
