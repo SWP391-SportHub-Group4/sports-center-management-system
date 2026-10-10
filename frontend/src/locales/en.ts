@@ -1947,7 +1947,7 @@ export const en = {
     retry: "Try again",
     loading: "Loading your calendar",
     todayTag: "Today",
-    addToCalendar: "Add to calendar (.ics)",
+    addToCalendar: "Add to Google Calendar",
     cancelRental: "Cancel rental",
     cancelTitle: "Cancel this court rental?",
     cancelFree:

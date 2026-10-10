@@ -1940,7 +1940,7 @@ export const vi: Translations = {
     retry: "Thử lại",
     loading: "Đang tải lịch của bạn",
     todayTag: "Hôm nay",
-    addToCalendar: "Thêm vào lịch (.ics)",
+    addToCalendar: "Thêm vào Google Calendar",
     cancelRental: "Hủy lượt thuê",
     cancelTitle: "Hủy lượt thuê sân?",
     cancelFree:

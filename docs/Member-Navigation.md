@@ -12,8 +12,19 @@ The member portal has five primary destinations:
 
 Courts opens the sport/date/time booking calendar directly, without a My rentals
 subsection. After successful court payment, the next action opens My schedule.
-Existing links to a specific rental still open its details and cancellation actions
-inside Services; the detail view links back to My schedule.
+Existing links to a specific rental redirect to My schedule, which shows its details
+and cancellation actions in a sliding page with a return to the calendar.
+
+My schedule opens a full month grid with previous/next month navigation, Today,
+and a month picker. Event colors distinguish classes, PT and court rentals.
+Mobile retains the seven-column month and displays the selected day's agenda below.
+The compact schedule embedded in course details retains its week view.
+Confirmed class, PT and court events offer an Add to Google Calendar link that
+opens a prefilled event editor in a new tab; the member confirms Save in Google.
+The link includes UTC start/end timestamps, Vietnam timezone, and available
+location/coach details. Preview and cancelled events do not offer this action.
+Rental requests are split into ranges of at most 31 days to cover adjacent-month
+days in a 35/42-day grid without exceeding the API limit.
 
 Course discovery opens a dedicated detail page at `/member/services/courses/[id]`,
 with a compact class overview, an animated vector sports sticker and the shared Member calendar.
@@ -25,7 +36,7 @@ The shared Member calendar combines registered classes, PT and court bookings wi
 local previews of the viewed course. Preview sessions use a muted fill, dashed border
 and an explicit not-registered label. Matching registered sessions are deduplicated;
 preview details cannot export bookings or open registered-class actions.
-Registered class and court details render inside Services; PT session details render inside
+Registered class and court details render inside My schedule; PT session details render inside
 Training; invoice details render inside Finance. Query parameters preserve the
 selected category, activity and item for browser Back/Forward and incoming links.
 

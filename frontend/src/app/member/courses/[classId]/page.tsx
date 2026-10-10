@@ -11,9 +11,7 @@ export default async function Page({
   searchParams: MemberSearchParams;
 }) {
   const { classId } = await params;
-  return redirectMemberPage(searchParams, "/member/services", {
-    section: "courses",
-    view: "owned",
+  return redirectMemberPage(searchParams, "/member/schedule", {
     course: classId,
   });
 }
