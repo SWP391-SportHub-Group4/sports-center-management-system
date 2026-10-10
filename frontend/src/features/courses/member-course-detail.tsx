@@ -34,6 +34,7 @@ export function CourseDetail({
         undefined),
   );
   const [calendarRevision, setCalendarRevision] = useState(0);
+  const [checkoutCompleted, setCheckoutCompleted] = useState(false);
   const handleCheckoutChange = useCallback(
     () => setCalendarRevision((value) => value + 1),
     [],
@@ -42,6 +43,12 @@ export function CourseDetail({
   const vi = language === "vi";
   const { user } = useAuth();
   const enrollments = useCourseEnrollments();
+  const reloadEnrollments = enrollments.reload;
+  const handlePaid = useCallback(() => {
+    // Keep the receipt mounted when fulfillment refreshes the enrollment list.
+    setCheckoutCompleted(true);
+    reloadEnrollments();
+  }, [reloadEnrollments]);
   const enrolled = enrollments.isEnrolled(classId);
   const now = useNow(30000);
   const state = useApi(
@@ -163,7 +170,25 @@ export function CourseDetail({
             </span>
           </div>
         </div>
-        {enrolled ? (
+        {user?.role === "Member" &&
+        (resumeInvoiceId ||
+          checkoutCompleted ||
+          (canRegister && !enrollments.loading && !enrollments.error)) ? (
+          <div className={styles.payment}>
+            <CheckoutPanel
+              modal
+              onChange={handleCheckoutChange}
+              onPaid={handlePaid}
+              invoiceId={resumeInvoiceId}
+              intent={{ kind: "class", body: { classId } }}
+              review={{
+                title: vi ? "Đăng ký khóa học" : "Register for this course",
+                submitLabel: vi ? "Tiếp tục thanh toán" : "Continue to payment",
+                items: [],
+              }}
+            />
+          </div>
+        ) : enrolled ? (
           <Link
             className="btn btn--secondary"
             href={`/member/schedule?course=${classId}`}
@@ -196,21 +221,6 @@ export function CourseDetail({
               {vi ? "Không thể đăng ký" : "Registration unavailable"}
             </strong>
             <p>{registrationReason(registration, vi)}</p>
-          </div>
-        ) : user?.role === "Member" && hasSeats ? (
-          <div className={styles.payment}>
-            <CheckoutPanel
-              modal
-              onChange={handleCheckoutChange}
-              onPaid={enrollments.reload}
-              invoiceId={resumeInvoiceId}
-              intent={{ kind: "class", body: { classId } }}
-              review={{
-                title: vi ? "Đăng ký khóa học" : "Register for this course",
-                submitLabel: vi ? "Tiếp tục thanh toán" : "Continue to payment",
-                items: [],
-              }}
-            />
           </div>
         ) : !user ? (
           <Link

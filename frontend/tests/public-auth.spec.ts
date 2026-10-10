@@ -1,5 +1,26 @@
 import { expect, test, type Page } from "@playwright/test";
 
+async function mockCoachDashboard(page: Page) {
+  // Login fixtures use a fake token. Keep dashboard requests inside the fixture
+  // so a running API cannot return 401 and clear the just-created session.
+  await page.route("**/api/**", (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (path.endsWith("/unread-count"))
+      return route.fulfill({ json: { count: 0 } });
+    if (
+      path === "/api/notifications" ||
+      path === "/api/coaches/me/classes" ||
+      path === "/api/coach-member-relationships" ||
+      path.includes("/pt-sessions")
+    )
+      return route.fulfill({ json: [] });
+    return route.fulfill({
+      status: 404,
+      json: { code: "fixture_missing", message: path },
+    });
+  });
+}
+
 async function waitForLoginLayout(page: Page) {
   const card = page.locator(".auth__card");
   await expect(card.locator("form")).toBeVisible();
@@ -56,6 +77,7 @@ for (const width of [1440, 1280, 390]) {
 }
 
 test("successful login routes each role to its dashboard", async ({ page }) => {
+  await mockCoachDashboard(page);
   await page.route("**/api/users/me", (route) =>
     route.fulfill({
       json: {
@@ -91,6 +113,7 @@ test("successful login routes each role to its dashboard", async ({ page }) => {
 test("branded Google button keeps the Google credential flow", async ({
   page,
 }) => {
+  await mockCoachDashboard(page);
   await page.route("**/api/users/me", (route) =>
     route.fulfill({
       json: {
