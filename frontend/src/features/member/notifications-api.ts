@@ -63,3 +63,11 @@ export function notificationActionLabel(
       return vi ? "Mở để xử lý" : "Open to take action";
   }
 }
+
+/** Thông báo cũ còn nhúng đường dẫn phản hồi kèm token; hành động đã có nút riêng nên ẩn đi. */
+export function displayMessage(message: string) {
+  return message
+    .replace(/\s*Liên kết phản hồi:\s*\S+/i, "")
+    .replace(/\s*Mở liên kết sau trên ứng dụng SportHub:\s*\S+/i, "")
+    .trim();
+}

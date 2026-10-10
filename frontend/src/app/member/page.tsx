@@ -110,22 +110,18 @@ function kindLabel(
       : l.kindClass;
 }
 
-function KindTag({ session }: { session: MemberEvent }) {
-  const { t } = useLanguage();
-  const kind =
-    session.type === "PT_SESSION"
-      ? "pt"
-      : session.type === "COURT_RENTAL"
-        ? "rental"
-        : "class";
-  return (
-    <span className={styles.kindTag} data-kind={kind}>
-      {kindLabel(session, t.memberDashboardV2)}
-    </span>
-  );
+/** Một nhãn duy nhất: "Môn · Loại buổi" (bỏ môn khi buổi không gắn môn). */
+function sessionLabel(
+  session: MemberEvent,
+  l: { kindClass: string; kindPt: string; kindRental: string; sportGym: string },
+) {
+  return [sportOf(session, l.sportGym), kindLabel(session, l)]
+    .filter(Boolean)
+    .join(" · ");
 }
 
-function CheckInTag({ session, now }: { session: MemberEvent; now: number }) {
+/** Chỉ báo điều đã xảy ra (có mặt/vắng); "sắp tới/chờ" là mặc định nên không hiện. */
+function CheckInTag({ session }: { session: MemberEvent; now?: number }) {
   const { t } = useLanguage();
   const l = t.memberDashboardV2;
   const attendance = session.attendanceStatus?.toUpperCase();
@@ -134,23 +130,19 @@ function CheckInTag({ session, now }: { session: MemberEvent; now: number }) {
       ? "present"
       : attendance === "ABSENT"
         ? "absent"
-        : new Date(session.startAtUtc).getTime() > now
-          ? "upcoming"
-          : "pending";
-  const label =
-    state === "present"
-      ? l.checkinPresent
-      : state === "absent"
-        ? l.checkinAbsent
-        : state === "upcoming"
-          ? l.checkinUpcoming
-          : l.checkinPending;
+        : null;
+  if (!state) return null;
+  const label = state === "present" ? l.checkinPresent : l.checkinAbsent;
   return (
     <span className={styles.checkInTag} data-state={state}>
       {label}
     </span>
   );
 }
+
+type TimelineEntry =
+  | { kind: "session"; at: string; session: MemberEvent }
+  | { kind: "gym"; at: string; visit: GymCheckInDto };
 
 function responseTime(deadlineUtc: string, now: number) {
   const minutes = Math.max(
@@ -210,6 +202,7 @@ function AttentionList({
   now,
   today,
   loadState,
+  onRetry,
 }: {
   invoices: InvoiceSummaryDto[];
   packages: MemberPackageDto[];
@@ -218,6 +211,7 @@ function AttentionList({
   now: number;
   today: string;
   loadState: "loading" | "error" | "ready";
+  onRetry: () => void;
 }) {
   const { t } = useLanguage();
   const l = t.memberDashboardV2;
@@ -234,6 +228,8 @@ function AttentionList({
     deadline?: string;
     href: string;
     action: string;
+    /** high: tiền/hạn chót; low: nhắc gia hạn. */
+    tier: "high" | "low";
   }[] = [];
 
   // Hóa đơn gấp nhất trước: hạn giữ chỗ gần nhất, sau đó phát hành lâu nhất.
@@ -260,6 +256,7 @@ function AttentionList({
       : null;
     items.push({
       key: "invoice",
+      tier: "high",
       text: `${due.invoiceNumber} · ${formatMoney(due.outstanding)}`,
       detail: [
         holdActive
@@ -285,6 +282,7 @@ function AttentionList({
     .sort((a, b) => a.deadlineUtc.localeCompare(b.deadlineUtc))) {
     items.push({
       key: `threshold-${th.responseId}`,
+      tier: "high",
       text: l.thresholdDue
         .replace("{name}", th.className)
         .replace("{date}", formatDateTime(th.deadlineUtc)),
@@ -305,6 +303,7 @@ function AttentionList({
   if (gym?.isUsable && daysUntil(gym.endDate) <= 7) {
     items.push({
       key: "gym",
+      tier: "low",
       text: l.gymEnds.replace("{date}", formatDate(gym.endDate)),
       href: "/member/services?section=gym&view=explore",
       action: l.renew,
@@ -315,56 +314,70 @@ function AttentionList({
   if (ptNow && ptNow.remainingQuota <= 1) {
     items.push({
       key: "pt",
+      tier: "low",
       text: l.ptLow.replace("{n}", String(ptNow.remainingQuota)),
       href: "/member/services?section=pt&view=explore",
       action: l.renew,
     });
   }
 
+  // Không có việc (hoặc đang tải) thì không chiếm chỗ; chỉ báo khi không kiểm tra được.
   if (!items.length)
-    return (
+    return loadState === "error" ? (
       <section
         className={`${styles.attention} ${styles.attentionClear}`}
         aria-labelledby="attention-title"
       >
         <h2 id="attention-title">{l.attentionTitle}</h2>
-        <p>
-          {loadState === "error"
-            ? l.attentionUnavailable
-            : loadState === "loading"
-              ? l.checkingAttention
-              : l.noAttention}
-        </p>
+        <p role="status">{l.attentionUnavailable}</p>
+        <button
+          type="button"
+          className={buttonClass({ size: "sm", variant: "secondary" })}
+          onClick={onRetry}
+        >
+          {t.common.retry}
+        </button>
       </section>
-    );
+    ) : null;
+
+  const renderItem = (item: (typeof items)[number]) => (
+    <li key={item.key} data-tier={item.tier}>
+      <div>
+        <strong>{item.text}</strong>
+        {item.detail && <span>{item.detail}</span>}
+        {item.deadline && (
+          <span className={styles.deadline} aria-live="polite">
+            {item.deadline}
+          </span>
+        )}
+      </div>
+      <Link
+        href={item.href}
+        className={buttonClass({
+          size: "sm",
+          variant: item.tier === "high" ? undefined : "secondary",
+        })}
+        aria-label={`${item.action}: ${item.text}`}
+      >
+        {item.action}
+      </Link>
+    </li>
+  );
+  const visible = items.slice(0, 3);
+  const hidden = items.slice(3);
   return (
     <section className={styles.attention} aria-labelledby="attention-title">
       <h2 id="attention-title">
         <IconAlert size={20} aria-hidden="true" />
         {l.attentionTitle}
       </h2>
-      <ul>
-        {items.map((item) => (
-          <li key={item.key}>
-            <div>
-              <strong>{item.text}</strong>
-              {item.detail && <span>{item.detail}</span>}
-              {item.deadline && (
-                <span className={styles.deadline} aria-live="polite">
-                  {item.deadline}
-                </span>
-              )}
-            </div>
-            <Link
-              href={item.href}
-              className={buttonClass({ size: "sm" })}
-              aria-label={`${item.action}: ${item.text}`}
-            >
-              {item.action}
-            </Link>
-          </li>
-        ))}
-      </ul>
+      <ul>{visible.map(renderItem)}</ul>
+      {hidden.length > 0 && (
+        <details className={styles.attentionMore}>
+          <summary>{l.attentionMore.replace("{n}", String(hidden.length))}</summary>
+          <ul>{hidden.map(renderItem)}</ul>
+        </details>
+      )}
     </section>
   );
 }
@@ -449,6 +462,18 @@ export default function MemberDashboardPage() {
       }),
     [],
   );
+  // Một tín hiệu khẩn cấp mỗi lần: khi Attention có khoản phải trả hoặc hạn chọn
+  // phương án lớp, hạ countdown của hero.
+  const owes =
+    (invoices.data ? pagedItems(invoices.data) : []).some(
+      (i) => i.outstanding > 0,
+    ) ||
+    (Array.isArray(thresholds.data) ? thresholds.data : []).some(
+      (x) =>
+        x.choice === null &&
+        new Date(x.deadlineUtc).getTime() > now &&
+        !/RESOLVED|COMPLETED|CANCELLED/i.test(x.resolutionStatus ?? ""),
+    );
   const dateLabel = new Intl.DateTimeFormat(
     language === "vi" ? "vi-VN" : "en-GB",
     { dateStyle: "full", timeZone: "Asia/Ho_Chi_Minh" },
@@ -467,6 +492,11 @@ export default function MemberDashboardPage() {
           thresholds={Array.isArray(thresholds.data) ? thresholds.data : []}
           now={now}
           today={date}
+          onRetry={() => {
+            for (const state of [invoices, packages, pt, thresholds]) {
+              if (state.error) state.reload();
+            }
+          }}
           loadState={
             [invoices, packages, pt, thresholds].some((state) => state.error)
               ? "error"
@@ -484,9 +514,6 @@ export default function MemberDashboardPage() {
           </Link>
           <Link href="/member/services?section=courses&view=explore">
             {l.quickClass}
-          </Link>
-          <Link href="/member/services?section=gym&view=explore">
-            {l.quickRenew}
           </Link>
         </nav>
         <div className={styles.primaryGrid}>
@@ -550,73 +577,35 @@ export default function MemberDashboardPage() {
                 );
                 const next = upcoming[0];
                 const countdown = next ? startsInLabel(next, now, l) : null;
+                // Một dòng thời gian: mục hôm nay + buổi sắp tới, trừ buổi đã lên hero.
+                const timeline: TimelineEntry[] = [
+                  ...todayEntries.filter(
+                    (e) => !(e.kind === "session" && e.session.id === next?.id),
+                  ),
+                  ...upcoming
+                    .slice(1, 4)
+                    .filter((s) => vietnamDate(s.startAtUtc) !== date)
+                    .map((session) => ({
+                      kind: "session" as const,
+                      at: session.startAtUtc,
+                      session,
+                    })),
+                ].sort((x, y) => x.at.localeCompare(y.at));
                 return (
                   <>
-                    <div className={styles.todayAgenda}>
-                      <h3>{l.todayTitle}</h3>
-                      {todayEntries.length ? (
-                        <ul>
-                          {todayEntries.map((entry) =>
-                            entry.kind === "session" ? (
-                              <li key={entry.session.id}>
-                                <Link href={sessionHref(entry.session)}>
-                                  <strong>
-                                    {formatTime(entry.session.startAtUtc)}–
-                                    {formatTime(entry.session.endAtUtc)}
-                                  </strong>
-                                  <span>{entry.session.title}</span>
-                                  <KindTag session={entry.session} />
-                                  {entry.session.roomName && (
-                                    <small>{entry.session.roomName}</small>
-                                  )}
-                                  <CheckInTag
-                                    session={entry.session}
-                                    now={now}
-                                  />
-                                  <ExceptionChip value={entry.session.status} />
-                                </Link>
-                              </li>
-                            ) : (
-                              <li key={`gym:${entry.visit.checkInId}`}>
-                                <Link href="/member/services?section=gym&view=owned">
-                                  <strong>
-                                    {formatTime(entry.visit.checkInTime)}
-                                  </strong>
-                                  <span>{l.gymWalkIn}</span>
-                                  <span
-                                    className={styles.checkInTag}
-                                    data-state="present"
-                                  >
-                                    {l.checkinPresent}
-                                  </span>
-                                </Link>
-                              </li>
-                            ),
-                          )}
-                        </ul>
-                      ) : (
-                        <p>{l.todayEmpty}</p>
-                      )}
-                    </div>
                     {next ? (
                       <>
-                        <h3 className={styles.nextHeading}>
-                          {t.memberPages.nextSession}
-                        </h3>
                         <div
                           className={styles.nextSession}
                           data-surface="inverse"
+                          data-calm={owes || undefined}
                           data-sport={sportTone(sportOf(next, l.sportGym))}
                         >
                           <div className={styles.nextTop}>
                             <span className={styles.activity}>
-                              {sportOf(next, l.sportGym) ??
-                                (next.type === "PT_SESSION"
-                                  ? t.memberPages.pt
-                                  : t.refactor.courses)}
+                              {sessionLabel(next, l)}
                             </span>
-                            <KindTag session={next} />
-                            <CheckInTag session={next} now={now} />
+                            <CheckInTag session={next} />
                             <ExceptionChip value={next.status} />
                           </div>
                           {countdown && (
@@ -638,7 +627,9 @@ export default function MemberDashboardPage() {
                                   {next.roomName || l.notAssigned}
                                 </p>
                               )}
-                              {next.coachName && <p>{next.coachName}</p>}
+                              {next.coachName && !next.title.includes(next.coachName) && (
+                                <p>{next.coachName}</p>
+                              )}
                               {next.isMakeup && <p>{t.memberPages.makeup}</p>}
                             </div>
                           </div>
@@ -649,43 +640,61 @@ export default function MemberDashboardPage() {
                             {l.openSchedule}
                           </Link>
                         </div>
-                        {upcoming.length > 1 && (
-                          <div className={styles.upcoming}>
-                            <h3>{l.upNext}</h3>
-                            <ul className={styles.agenda}>
-                              {upcoming.slice(1, 4).map((s) => {
-                                const sport = sportOf(s, l.sportGym);
-                                return (
-                                  <li key={s.id} data-sport={sportTone(sport)}>
-                                    <DateTile value={s.startAtUtc} />
-                                    <div>
-                                      <Link href={sessionHref(s)}>
-                                        {s.title}
-                                      </Link>
-                                      <p>
-                                        {sport && (
-                                          <span className={styles.agendaSport}>
-                                            {sport}
-                                          </span>
-                                        )}
-                                        <KindTag session={s} />
-                                        {formatTime(s.startAtUtc)} –{" "}
-                                        {formatTime(s.endAtUtc)}
-                                        {(s.roomName ||
-                                          s.type !== "COURT_RENTAL") &&
-                                          ` · ${s.roomName || l.notAssigned}`}
-                                      </p>
-                                    </div>
-                                    <CheckInTag session={s} now={now} />
-                                    <ExceptionChip value={s.status} />
-                                  </li>
-                                );
-                              })}
-                            </ul>
-                          </div>
-                        )}
                       </>
-                    ) : !todayEntries.length ? (
+                    ) : null}
+                    {next && !todayEntries.length && (
+                      <p className={styles.todayNote}>{l.todayEmpty}</p>
+                    )}
+                    {timeline.length > 0 && (
+                      <div className={styles.upcoming}>
+                        <h3>{next ? l.upNext : l.todayTitle}</h3>
+                        <ul className={styles.agenda}>
+                          {timeline.map((entry) => {
+                            if (entry.kind === "gym")
+                              return (
+                                <li key={`gym:${entry.visit.checkInId}`}>
+                                  <DateTile value={entry.visit.checkInTime} />
+                                  <div>
+                                    <Link href="/member/services?section=gym&view=owned">
+                                      {l.gymWalkIn}
+                                    </Link>
+                                    <p>{formatTime(entry.visit.checkInTime)}</p>
+                                  </div>
+                                  <span
+                                    className={styles.checkInTag}
+                                    data-state="present"
+                                  >
+                                    {l.checkinPresent}
+                                  </span>
+                                </li>
+                              );
+                            const s = entry.session;
+                            const sport = sportOf(s, l.sportGym);
+                            return (
+                              <li key={s.id} data-sport={sportTone(sport)}>
+                                <DateTile value={s.startAtUtc} />
+                                <div>
+                                  <Link href={sessionHref(s)}>{s.title}</Link>
+                                  <p>
+                                    <span className={styles.agendaSport}>
+                                      {sessionLabel(s, l)}
+                                    </span>
+                                    {formatTime(s.startAtUtc)} –{" "}
+                                    {formatTime(s.endAtUtc)}
+                                    {(s.roomName ||
+                                      s.type !== "COURT_RENTAL") &&
+                                      ` · ${s.roomName || l.notAssigned}`}
+                                  </p>
+                                </div>
+                                <CheckInTag session={s} />
+                                <ExceptionChip value={s.status} />
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </div>
+                    )}
+                    {!next && !todayEntries.length ? (
                       <div
                         className={styles.emptySchedule}
                         data-surface="inverse"
@@ -716,6 +725,50 @@ export default function MemberDashboardPage() {
           </section>
 
           <div className={styles.rail}>
+            <section
+              className={styles.walletCard}
+              aria-labelledby="wallet-title"
+            >
+              <div className={styles.sectionHeading}>
+                <h2 id="wallet-title">{l.walletTitle}</h2>
+                <Link href="/member/finance?tab=wallet">{l.walletLink}</Link>
+              </div>
+              {wallet.data ? (
+                <div className={styles.walletBalance}>
+                  <span>{l.walletAvailable}</span>
+                  <strong>{formatPoints(wallet.data.availablePoints)}</strong>
+                  <span>
+                    {l.walletValue.replace(
+                      "{amount}",
+                      formatMoney(
+                        wallet.data.availablePoints * wallet.data.vndPerPoint,
+                      ),
+                    )}
+                  </span>
+                </div>
+              ) : (
+                <div className={styles.unavailable}>
+                  <p
+                    className={styles.caption}
+                    role={wallet.error ? "status" : undefined}
+                  >
+                    {wallet.loading ? "…" : l.walletUnavailable}
+                  </p>
+                  {wallet.error && (
+                    <button
+                      type="button"
+                      className={buttonClass({
+                        size: "sm",
+                        variant: "secondary",
+                      })}
+                      onClick={wallet.reload}
+                    >
+                      {t.common.retry}
+                    </button>
+                  )}
+                </div>
+              )}
+            </section>
             <section
               className={styles.benefits}
               aria-labelledby="benefits-title"
@@ -818,8 +871,9 @@ export default function MemberDashboardPage() {
                           <span>{l.ptQuota}</span>
                         </p>
                         <p className={styles.caption}>
-                          {t.memberPages.held}: {current.reservedSessions} ·{" "}
-                          {t.memberPages.used}: {current.consumedSessions}
+                          {l.ptBreakdown
+                            .replace("{held}", String(current.reservedSessions))
+                            .replace("{used}", String(current.consumedSessions))}
                         </p>
                       </>
                     ) : (
@@ -838,42 +892,6 @@ export default function MemberDashboardPage() {
                   </Link>
                 )}
               </section>
-            </section>
-            <section
-              className={styles.walletCard}
-              aria-labelledby="wallet-title"
-            >
-              <div className={styles.sectionHeading}>
-                <h2 id="wallet-title">{l.walletTitle}</h2>
-                <Link href="/member/finance?tab=wallet">{l.walletHistory}</Link>
-              </div>
-              {wallet.data ? (
-                <div className={styles.walletBalance}>
-                  <span>{l.walletAvailable}</span>
-                  <strong>{formatPoints(wallet.data.availablePoints)}</strong>
-                  <span>
-                    {l.walletValue.replace(
-                      "{amount}",
-                      formatMoney(
-                        wallet.data.availablePoints * wallet.data.vndPerPoint,
-                      ),
-                    )}
-                  </span>
-                </div>
-              ) : (
-                <p
-                  className={styles.caption}
-                  role={wallet.error ? "status" : undefined}
-                >
-                  {wallet.loading ? "…" : l.walletUnavailable}
-                </p>
-              )}
-              <Link
-                className={styles.renewLink}
-                href="/member/services?section=gym&view=explore"
-              >
-                {l.quickRenew} <span aria-hidden="true">→</span>
-              </Link>
             </section>
             <section
               className={styles.trainingCard}
@@ -913,12 +931,26 @@ export default function MemberDashboardPage() {
                   </div>
                 </>
               ) : (
-                <p
-                  className={styles.caption}
-                  role={training.error ? "status" : undefined}
-                >
-                  {training.loading ? "…" : l.trainingUnavailable}
-                </p>
+                <div className={styles.unavailable}>
+                  <p
+                    className={styles.caption}
+                    role={training.error ? "status" : undefined}
+                  >
+                    {training.loading ? "…" : l.trainingUnavailable}
+                  </p>
+                  {training.error && (
+                    <button
+                      type="button"
+                      className={buttonClass({
+                        size: "sm",
+                        variant: "secondary",
+                      })}
+                      onClick={training.reload}
+                    >
+                      {t.common.retry}
+                    </button>
+                  )}
+                </div>
               )}
             </section>
           </div>

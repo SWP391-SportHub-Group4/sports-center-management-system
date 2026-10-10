@@ -139,17 +139,7 @@ export function CourseCatalog({
   );
   return (
     <div className={compact ? styles.compact : undefined}>
-      {compact ? (
-        <details
-          className={styles.filterDisclosure}
-          open={hasFilter || undefined}
-        >
-          <summary>{vi ? "Lọc lớp học" : "Filter classes"}</summary>
-          {filters}
-        </details>
-      ) : (
-        filters
-      )}
+      {filters}
       {detailBasePath.startsWith("/member") && (
         <p className={styles.note}>{d.independent}</p>
       )}
@@ -241,34 +231,17 @@ export function CourseCatalog({
                     )}
                   </div>
                   <h3>{c.name}</h3>
-                  {compact ? (
-                    <details className={styles.classDetails}>
-                      <summary>
-                        {vi ? "Coach & lịch học" : "Coach & schedule"}
-                      </summary>
-                      <dl className={styles.facts}>
-                        <dt>{d.coach}</dt>
-                        <dd>{c.coachName || d.coachTbc}</dd>
-                        <dt>{d.room}</dt>
-                        <dd>{c.roomName}</dd>
-                        <dt>{d.schedule}</dt>
-                        <dd>{schedule ?? d.scheduleTbc}</dd>
-                        <dt>{d.startDate}</dt>
-                        <dd>{formatDate(c.startDate)}</dd>
-                      </dl>{" "}
-                    </details>
-                  ) : (
-                    <dl className={styles.facts}>
-                      <dt>{d.coach}</dt>
-                      <dd>{c.coachName || d.coachTbc}</dd>
-                      <dt>{d.room}</dt>
-                      <dd>{c.roomName}</dd>
-                      <dt>{d.schedule}</dt>
-                      <dd>{schedule ?? d.scheduleTbc}</dd>
-                      <dt>{d.startDate}</dt>
-                      <dd>{formatDate(c.startDate)}</dd>
-                    </dl>
-                  )}
+                  <dl className={styles.facts}>
+                    <dt>{d.coach}</dt>
+                    <dd>{c.coachName || d.coachTbc}</dd>
+                    <dt>{d.room}</dt>
+                    <dd>{c.roomName}</dd>
+                    <dt>{d.schedule}</dt>
+                    <dd>{schedule ?? d.scheduleTbc}</dd>
+                    <dt>{d.startDate}</dt>
+                    <dd>{formatDate(c.startDate)}</dd>
+                  </dl>
+
 
                   <div className={styles.courseFoot}>
                     <div>

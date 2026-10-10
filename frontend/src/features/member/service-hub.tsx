@@ -2,7 +2,7 @@
 
 import { Suspense } from "react";
 import Link from "next/link";
-import { BookOpen, MapPin, ChevronRight } from "lucide-react";
+import { ArrowLeft, BookOpen, MapPin, ChevronRight } from "lucide-react";
 import { Tabs } from "@/components/primitives";
 import { AsyncSection, Loading } from "@/components/ui";
 import {
@@ -168,10 +168,12 @@ export function MemberServiceHub() {
           {section === "courses" && values.responseId ? (
             <div className="stack">
               <button
-                className="btn btn--quiet"
+                type="button"
+                className={styles.backLink}
                 onClick={() => setValues({ responseId: "" })}
               >
-                {vi ? "Trở về lớp của tôi" : "Back to my classes"}
+                <ArrowLeft size={18} aria-hidden="true" />
+                {vi ? "Lớp của tôi" : "My classes"}
               </button>
               <ThresholdPanel
                 key={values.responseId}

@@ -52,3 +52,46 @@
     gap: var(--space-5);
   }
 }
+
+/* Hàng thông báo: cùng bố cục với hộp chuông (chấm chưa đọc, nội dung, giờ, hành động). */
+.item:has(.notifDot) {
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr);
+  gap: var(--space-3);
+}
+.notifDot {
+  width: 8px;
+  height: 8px;
+  margin-top: 9px;
+  border-radius: 50%;
+  background: transparent;
+}
+.item[data-unread="true"] .notifDot {
+  background: var(--color-primary);
+}
+.item .notifMessage {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: 1.6;
+}
+.notifTime {
+  display: block;
+  margin-top: var(--space-1);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+.notifActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  margin-top: var(--space-1);
+}
+.notifAction {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--color-primary);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}

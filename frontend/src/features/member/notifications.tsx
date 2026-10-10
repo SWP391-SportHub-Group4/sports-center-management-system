@@ -9,6 +9,7 @@ import { formatDateTime } from "@/lib/format";
 import { Tabs, Button } from "@/components/primitives";
 import { AsyncSection, Feedback } from "@/components/ui";
 import {
+  displayMessage,
   memberNotificationHref,
   notificationActionLabel,
   notificationsApi,
@@ -49,7 +50,6 @@ export function MemberNotifications() {
   }
   return (
     <>
-      <p className="muted">{t.memberPages.notificationsHint}</p>
       <Button
         variant="secondary"
         disabled={action.busy || !state.data?.some((n) => n.status !== "READ")}
@@ -82,43 +82,42 @@ export function MemberNotifications() {
                 const href =
                   user?.role === "Member" ? memberNotificationHref(n) : null;
                 return (
-                  <li key={n.notificationId} className={styles.item}>
-                    {href ? (
-                      <Link
-                        className={styles.notificationLink}
-                        href={href}
-                        onNavigate={(event) => {
-                          event.preventDefault();
-                          void openItem(n, href);
-                        }}
-                      >
-                        {n.message}
-                        <span
-                          className="small"
-                          style={{ display: "block", marginTop: 8 }}
-                        >
-                          {notificationActionLabel(n, language)} →
-                        </span>
-                      </Link>
-                    ) : (
-                      <p>{n.message}</p>
-                    )}
-                    <p className="muted">
-                      <time>{formatDateTime(n.sentAt)}</time> ·{" "}
-                      {n.status === "READ"
-                        ? t.memberPages.readStatus
-                        : t.memberPages.unread}
-                    </p>
-                    <div className="row">
-                      {n.status !== "READ" && (
-                        <Button
-                          variant="ghost"
-                          disabled={action.busy}
-                          onClick={() => void mark(n.notificationId)}
-                        >
-                          {t.memberPages.read}
-                        </Button>
-                      )}
+                  <li
+                    key={n.notificationId}
+                    className={styles.item}
+                    data-unread={n.status !== "READ"}
+                  >
+                    <span className={styles.notifDot} aria-hidden="true" />
+                    <div>
+                      <p className={styles.notifMessage}>
+                        {displayMessage(n.message)}
+                      </p>
+                      <time className={styles.notifTime} dateTime={n.sentAt ?? undefined}>
+                        {formatDateTime(n.sentAt)}
+                      </time>
+                      <div className={styles.notifActions}>
+                        {href && (
+                          <Link
+                            className={styles.notifAction}
+                            href={href}
+                            onNavigate={(event) => {
+                              event.preventDefault();
+                              void openItem(n, href);
+                            }}
+                          >
+                            {notificationActionLabel(n, language)} →
+                          </Link>
+                        )}
+                        {n.status !== "READ" && (
+                          <Button
+                            variant="ghost"
+                            disabled={action.busy}
+                            onClick={() => void mark(n.notificationId)}
+                          >
+                            {t.memberPages.read}
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </li>
                 );

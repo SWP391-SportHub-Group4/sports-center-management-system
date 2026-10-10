@@ -165,52 +165,26 @@ export function MembershipCatalog({
                       · {p.durationDays} {t.refactor.days}
                     </span>
                   </p>
-                  {compact ? (
-                    <details className={styles.packageDetails}>
-                      <summary>
-                        {text("Quyền lợi & điều kiện", "Benefits & conditions")}
-                      </summary>
-                      {p.description?.trim() ? (
-                        <p
-                          lang={catalogContentLanguage(
-                            p.description,
-                            p.descriptionLanguage,
-                          )}
-                          dir="auto"
-                        >
-                          {p.description}
-                        </p>
-                      ) : (
-                        <p>
-                          {text(
-                            "Trung tâm chưa cung cấp mô tả. Kiểm tra quyền lợi trước khi mua.",
-                            "The center has not provided a description. Check the benefits before buying.",
-                          )}
-                        </p>
-                      )}
-                    </details>
-                  ) : (
-                    <>
-                      {p.description?.trim() ? (
-                        <p
-                          lang={catalogContentLanguage(
-                            p.description,
-                            p.descriptionLanguage,
-                          )}
-                          dir="auto"
-                        >
-                          {p.description}
-                        </p>
-                      ) : (
-                        <p>
-                          {text(
-                            "Trung tâm chưa cung cấp mô tả. Kiểm tra quyền lợi trước khi mua.",
-                            "The center has not provided a description. Check the benefits before buying.",
-                          )}
-                        </p>
-                      )}
-                    </>
-                  )}
+                  <div className={styles.packageDetails}>
+                {p.description?.trim() ? (
+                  <p
+                    lang={catalogContentLanguage(
+                      p.description,
+                      p.descriptionLanguage,
+                    )}
+                    dir="auto"
+                  >
+                    {p.description}
+                  </p>
+                ) : (
+                  <p>
+                    {text(
+                      "Trung tâm chưa cung cấp mô tả. Kiểm tra quyền lợi trước khi mua.",
+                      "The center has not provided a description. Check the benefits before buying.",
+                    )}
+                  </p>
+                )}
+                  </div>
                   {(() => {
                     const have = owned.find(
                       (o) =>

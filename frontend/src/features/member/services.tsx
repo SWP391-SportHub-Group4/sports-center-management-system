@@ -70,14 +70,13 @@ function Visits() {
 
 export function MemberServices({
   section = "gym",
-  showVisits = false,
   compact = false,
 }: {
   section?: "gym" | "pt";
   showVisits?: boolean;
   compact?: boolean;
 }) {
-  const { t, language } = useLanguage();
+  const { t } = useLanguage();
   const packages = useApi(
     async (signal) =>
       (
@@ -129,10 +128,10 @@ export function MemberServices({
                 </div>
               )}
             </AsyncSection>
-            <details open={showVisits || undefined}>
-              <summary>{t.memberPages.visits}</summary>
+            <section id="visits" className="stack">
+              <h3>{t.memberPages.visits}</h3>
               <Visits />
-            </details>
+            </section>
           </>
         ) : (
           <>
@@ -177,20 +176,10 @@ export function MemberServices({
               )}
             </AsyncSection>
             <p className="muted">{t.memberPages.frequencyHint}</p>
-            {compact ? (
-              <details className={styles.disclosure}>
-                <summary>
-                  {language === "vi" ? "Đổi huấn luyện viên" : "Change coach"}
-                </summary>
-                <AsyncSection state={entitlements}>
-                  {(rows) => <CoachChangeSection entitlements={rows} />}
-                </AsyncSection>
-              </details>
-            ) : (
               <AsyncSection state={entitlements}>
                 {(rows) => <CoachChangeSection entitlements={rows} />}
               </AsyncSection>
-            )}
+
           </>
         )}
       </div>

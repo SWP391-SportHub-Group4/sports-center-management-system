@@ -151,7 +151,7 @@ public sealed class ClassThresholdService(ISportHubDbContext db, ISystemSettingP
             });
             notifications.Queue(new NotificationRequest(enrollment.MemberId, NotificationEvents.ClassThresholdAtRisk,
                 $"Khóa {entity.Name} chưa đạt ngưỡng đăng ký. Hãy chọn hoàn điểm hoặc chuyển lớp trước "
-                + $"{VietnamTime.ToLocal(deadline):dd/MM/yyyy HH:mm}. Liên kết phản hồi: /class-threshold-response?token={token}",
+                + $"{VietnamTime.ToLocal(deadline):dd/MM/yyyy HH:mm}.",
                 responseId));
             var recipient = await users.GetAsync(enrollment.MemberId, ct);
             if (recipient is not null)

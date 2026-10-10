@@ -1,0 +1,247 @@
+.panel {
+  display: grid;
+  gap: var(--space-4);
+  max-width: 960px;
+}
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+.head h2 {
+  margin: 0;
+  font-size: var(--text-xl);
+}
+.head select {
+  min-height: 44px;
+  width: auto;
+  min-width: 180px;
+}
+.caption {
+  margin: var(--space-1) 0 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.count {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+.quietAction {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  color: var(--color-primary);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  text-decoration: none;
+}
+.quietAction:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+/* Hóa đơn: một danh sách liền, mỗi dòng ngày + số tiền + trạng thái; cả dòng bấm được. */
+.invoices {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+}
+.invoices li {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) auto minmax(110px, auto) minmax(18px, auto);
+  align-items: center;
+  gap: var(--space-4);
+  min-height: 72px;
+  padding: var(--space-3) var(--space-5);
+}
+.invoices li + li {
+  border-top: 1px solid var(--border-subtle);
+}
+.invoices li:hover {
+  background: var(--bg-surface-sunken);
+}
+.invoiceMain {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.invoiceLink {
+  color: var(--text-strong);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+.invoiceLink::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+.invoiceLink:focus-visible {
+  outline: none;
+}
+.invoiceLink:focus-visible::after {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: -3px;
+  border-radius: var(--radius-lg);
+}
+.invoiceMain time {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+}
+.invoiceMoney {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+}
+.invoiceMoney strong {
+  color: var(--text-strong);
+  font-family: var(--font-mono);
+  font-size: var(--text-md);
+  font-variant-numeric: tabular-nums;
+}
+.invoiceMoney small {
+  color: var(--warning-text);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+}
+.chevron {
+  color: var(--text-muted);
+  justify-self: end;
+}
+.hold {
+  color: var(--warning-text);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+}
+.payAction {
+  position: relative;
+  z-index: 1;
+  min-height: 44px;
+  justify-self: end;
+}
+/* Hóa đơn đã hủy lùi xuống: vẫn tra cứu được nhưng không tranh chú ý với hóa đơn cần xử lý. */
+.invoices li[data-status="VOID"] {
+  background: var(--bg-surface-sunken);
+}
+.invoices li[data-status="VOID"] .invoiceLink,
+.invoices li[data-status="VOID"] .invoiceMoney strong {
+  color: var(--text-muted);
+  font-weight: var(--weight-medium);
+}
+.invoices li:hover .chevron {
+  color: var(--color-primary);
+}
+@media (max-width: 640px) {
+  .invoices li {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "main status"
+      "money money";
+    gap: var(--space-2) var(--space-3);
+    padding: var(--space-4);
+  }
+  .invoices .invoiceMain {
+    grid-area: main;
+  }
+  .invoices li > :nth-child(2) {
+    grid-area: status;
+    justify-self: end;
+  }
+  .invoices .invoiceMoney {
+    grid-area: money;
+    grid-auto-flow: column;
+    justify-content: space-between;
+    justify-items: start;
+    align-items: baseline;
+  }
+  .chevron {
+    display: none;
+  }
+  .payAction {
+    grid-column: 1 / -1;
+    justify-self: stretch;
+    justify-content: center;
+  }
+}
+
+/* Hoàn điểm: đường thời gian dọc, chấm màu theo trạng thái yêu cầu. */
+.timeline {
+  position: relative;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.timeline::before {
+  content: "";
+  position: absolute;
+  top: 12px;
+  bottom: 12px;
+  left: 5px;
+  width: 1px;
+  background: var(--border-strong);
+}
+.timeline li {
+  position: relative;
+  display: grid;
+  gap: var(--space-1);
+  padding: 0 0 var(--space-5) var(--space-6);
+}
+.timeline li::before {
+  content: "";
+  position: absolute;
+  top: 6px;
+  left: 0;
+  width: 11px;
+  height: 11px;
+  border: 2px solid var(--bg-page, var(--bg-surface));
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+.timeline li[data-status="REQUESTED"]::before {
+  background: var(--warning-solid);
+}
+.timeline li[data-status="COMPLETED"]::before {
+  background: var(--success-solid);
+}
+.timelineHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+.timelineHead strong {
+  color: var(--text-strong);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}
+.reason {
+  margin: 0;
+  color: var(--text-body);
+  font-size: var(--text-sm);
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.timelineMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+}

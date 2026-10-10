@@ -10,6 +10,7 @@ import { formatDateTime } from "@/lib/format";
 import { useApi } from "@/lib/useApi";
 import { IconBell } from "@/components/icons";
 import {
+  displayMessage,
   memberNotificationHref,
   notificationActionLabel,
   notificationsApi,
@@ -17,6 +18,7 @@ import {
 } from "@/features/member/notifications-api";
 
 import styles from "./NotificationBell.module.css";
+
 
 /**
  * Hộp thư trong ứng dụng (BR-33). MVP chỉ có kênh InApp hoạt động thật (SSOT §1.3), nên
@@ -175,7 +177,9 @@ export function NotificationBell() {
                   <>
                     <span className={styles.dot} aria-hidden="true" />
                     <span>
-                      <span className={styles.message}>{item.message}</span>
+                      <span className={styles.message}>
+                        {displayMessage(item.message)}
+                      </span>
                       <time>{formatDateTime(item.sentAt)}</time>
                       {href && (
                         <span className={styles.action}>

@@ -48,7 +48,7 @@
 .quickActions a {
   display: inline-flex;
   align-items: center;
-  min-height: 36px;
+  min-height: 44px;
   padding: 6px 12px;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
@@ -127,6 +127,26 @@
   flex-shrink: 0;
   white-space: nowrap;
 }
+.attention li[data-tier="low"] strong {
+  font-weight: var(--weight-medium);
+}
+.attentionMore {
+  border-top: 1px solid var(--border-subtle);
+}
+.attentionMore summary {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  cursor: pointer;
+  color: var(--warning-text);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}
+.todayNote {
+  margin-top: var(--space-4);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
 .sectionHeading {
   display: flex;
   justify-content: space-between;
@@ -144,54 +164,11 @@
   font-size: var(--text-sm);
 }
 .schedule,
-.benefits,
-.feed {
+.benefits {
   min-width: 0;
 }
 .schedule {
   grid-column: 1;
-}
-.todayAgenda {
-  padding: var(--space-4);
-  margin-bottom: var(--space-5);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
-  background: var(--bg-surface);
-}
-.todayAgenda h3,
-.nextHeading {
-  margin-bottom: var(--space-3) !important;
-}
-.todayAgenda ul {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-.todayAgenda li + li {
-  border-top: 1px solid var(--border-subtle);
-}
-.todayAgenda a {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2) var(--space-4);
-  min-height: 44px;
-  padding: var(--space-2) 0;
-  color: var(--text-strong);
-  text-decoration: none;
-}
-.todayAgenda a:hover span:not(.kindTag, .checkInTag) {
-  color: var(--color-primary);
-}
-.todayAgenda strong {
-  font-variant-numeric: tabular-nums;
-}
-.todayAgenda small,
-.todayAgenda p {
-  color: var(--text-muted);
-}
-.todayAgenda p {
-  margin: 0;
 }
 .nextSession {
   background: var(--bg-brand-deep);
@@ -261,6 +238,11 @@
   font-variant-numeric: tabular-nums;
   color: var(--color-accent);
 }
+.nextSession[data-calm] .startsIn {
+  font-size: var(--text-md);
+  font-weight: var(--weight-medium);
+  color: var(--text-body);
+}
 .nextBody {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -314,7 +296,7 @@
   color: var(--sport);
 }
 .upcoming {
-  padding-top: var(--space-5);
+  padding-top: var(--space-6);
 }
 .upcoming > h3 {
   margin-bottom: var(--space-2);
@@ -351,7 +333,9 @@
   min-width: 0;
 }
 .agenda a {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
   font-weight: var(--weight-semibold);
   color: var(--text-strong);
   padding: var(--space-1) 0;
@@ -362,7 +346,6 @@
   font-size: var(--text-sm);
   margin-top: var(--space-1);
 }
-.kindTag,
 .checkInTag {
   display: inline-flex;
   align-items: center;
@@ -375,44 +358,16 @@
   line-height: 1.2;
   white-space: nowrap;
 }
-.kindTag[data-kind="class"] {
-  background: #d8ecdf;
-  color: #20583a;
-}
-.kindTag[data-kind="pt"] {
-  background: #dcebf8;
-  color: #255579;
-}
-.kindTag[data-kind="rental"] {
-  background: #f8ebbf;
-  color: #755613;
-}
-.agenda .kindTag {
-  margin-right: var(--space-2);
-}
 .checkInTag[data-state="present"] {
-  background: #d8ecdf;
-  color: #20583a;
-}
-.checkInTag[data-state="upcoming"] {
-  background: var(--bg-surface-sunken);
-  color: var(--text-muted);
+  background: var(--success-bg);
+  color: var(--success-text);
 }
 .checkInTag[data-state="absent"] {
   background: var(--danger-bg);
   color: var(--danger-text);
 }
-.checkInTag[data-state="pending"] {
-  background: var(--bg-surface-sunken);
-  color: var(--text-muted);
-}
 .nextTop .checkInTag {
   margin-left: auto;
-}
-.nextSession .checkInTag[data-state="upcoming"],
-.nextSession .checkInTag[data-state="pending"] {
-  background: rgb(255 255 255 / 12%);
-  color: var(--text-strong);
 }
 .agendaSport {
   display: inline-block;
@@ -424,13 +379,6 @@
   font-size: var(--text-xs);
   font-weight: var(--weight-semibold);
 }
-.sectionLink {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  margin-top: var(--space-3);
-  font-weight: var(--weight-medium);
-}
 .rail {
   grid-column: 2;
   grid-row: auto;
@@ -441,7 +389,6 @@
   min-width: 0;
 }
 .benefits,
-.money,
 .walletCard,
 .trainingCard {
   background: var(--bg-surface);
@@ -451,11 +398,16 @@
 }
 .walletCard .sectionHeading,
 .trainingCard .sectionHeading {
-  align-items: baseline;
+  align-items: center;
   margin-bottom: var(--space-4);
 }
 .walletCard .sectionHeading a,
 .trainingCard .sectionHeading a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding-inline: var(--space-2);
+  margin-inline: calc(var(--space-2) * -1);
   color: var(--color-primary);
   font-size: var(--text-xs);
   font-weight: var(--weight-semibold);
@@ -473,31 +425,36 @@
 .walletBalance strong {
   color: var(--text-strong);
   font-family: var(--font-display);
-  font-size: var(--text-4xl);
+  font-size: var(--text-5xl);
   font-variant-numeric: tabular-nums;
   line-height: 1;
 }
-.renewLink {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  min-height: 44px;
-  margin-top: var(--space-4);
-  padding-top: var(--space-3);
+/* Ví là thẻ chính của cột phải: đứng đầu, viền đậm hơn, số lớn nhất cột. */
+.walletCard {
+  border-color: var(--border-strong);
+  padding: var(--space-6) var(--space-5);
+}
+/* Luyện tập là ghi chú phụ: không khung, không số lớn. */
+.trainingCard {
+  background: transparent;
+  border: 0;
   border-top: 1px solid var(--border-subtle);
-  color: var(--text-strong);
-  font-size: var(--text-sm);
-  font-weight: var(--weight-semibold);
+  border-radius: 0;
+  padding: var(--space-4) 0 0;
+}
+.trainingCard h2 {
+  font-size: var(--text-md);
+  color: var(--text-muted);
 }
 .trainingMetric {
   display: flex;
   align-items: baseline;
   gap: var(--space-3);
-  padding-bottom: var(--space-4);
+  padding-bottom: var(--space-3);
 }
 .trainingMetric strong {
   font-family: var(--font-display);
-  font-size: var(--text-4xl);
+  font-size: var(--text-2xl);
   font-variant-numeric: tabular-nums;
   line-height: 1;
 }
@@ -575,129 +532,6 @@
   color: var(--text-muted);
   font-size: var(--text-xs);
 }
-.wallet {
-  border-top: 1px solid var(--border-subtle);
-  padding-top: var(--space-5);
-  margin-top: var(--space-3);
-}
-.wallet h3 {
-  margin-bottom: var(--space-3);
-  color: var(--text-muted);
-  font-size: var(--text-sm);
-}
-.due {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-4);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--warning-solid);
-  background: var(--warning-bg);
-}
-.due > div {
-  min-width: 0;
-}
-.dueHold {
-  display: block;
-  margin-top: var(--space-1);
-  color: var(--warning-text);
-  font-size: var(--text-sm);
-  font-weight: var(--weight-medium);
-}
-.dueMore {
-  flex-basis: 100%;
-  color: var(--text-muted);
-  font-size: var(--text-sm);
-}
-.dueNumber {
-  display: block;
-  color: var(--text-muted);
-  font-size: var(--text-sm);
-  overflow-wrap: anywhere;
-}
-.dueAmount {
-  display: block;
-  margin-top: var(--space-1);
-  color: var(--text-strong);
-  font-size: var(--text-xl);
-  font-variant-numeric: tabular-nums;
-}
-.due :global(.btn) {
-  min-height: 44px;
-  flex-shrink: 0;
-  white-space: nowrap;
-}
-.moneyLinks {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2) var(--space-5);
-  margin-top: var(--space-3);
-  border-top: 1px solid var(--border-subtle);
-  padding-top: var(--space-2);
-}
-.moneyLinks a {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  font-weight: var(--weight-medium);
-}
-.secondaryGrid {
-  grid-column: 1;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--space-6);
-  padding-top: var(--space-6);
-  border-top: 1px solid var(--border-strong);
-}
-.feedList {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-.feedList li {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: var(--space-4);
-  padding: var(--space-4) 0;
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-.feedList li > a {
-  display: block;
-  width: 100%;
-  min-width: 0;
-  min-height: 44px;
-  overflow-wrap: anywhere;
-  color: inherit;
-  text-decoration: none;
-  border-radius: var(--radius-sm);
-}
-.feedList li > a:hover {
-  color: var(--color-primary);
-}
-.feedList time {
-  display: block;
-  color: var(--text-muted);
-  font-size: var(--text-xs);
-  margin-top: var(--space-2);
-}
-.feedList p {
-  line-height: var(--leading-relaxed);
-}
-.quietEmpty {
-  padding: var(--space-4) 0;
-}
-.quietEmpty strong {
-  font-weight: var(--weight-medium);
-}
-.quietEmpty p {
-  margin-top: var(--space-2);
-  color: var(--text-muted);
-  max-width: 50ch;
-}
 .emptySchedule {
   min-height: 288px;
   display: flex;
@@ -737,8 +571,7 @@
   }
 }
 @media (max-width: 760px) {
-  .dashboard,
-  .secondaryGrid {
+  .dashboard {
     grid-template-columns: minmax(0, 1fr);
   }
   .schedule {
@@ -759,12 +592,6 @@
   .quickActions a {
     flex: 1 1 auto;
     justify-content: center;
-  }
-  .secondaryGrid {
-    grid-column: auto;
-    grid-row: auto;
-    padding-top: var(--space-5);
-    gap: var(--space-5);
   }
   .agenda li {
     flex-wrap: wrap;
@@ -792,10 +619,6 @@
   .nextInfo p {
     font-size: var(--text-xs);
   }
-  .feedList li {
-    flex-wrap: wrap;
-    gap: var(--space-2);
-  }
 }
 
 .statusLine {
@@ -810,35 +633,8 @@
   margin-right: var(--space-4);
   min-height: 44px;
 }
-
-/* Thẻ buổi tiếp theo: tag môn (màu) + loại buổi (viền) cạnh nhau. */
-.kind {
-  display: inline-flex;
-  align-items: center;
-  min-height: 32px;
-  padding: 0 var(--space-3);
-  border: 1px solid var(--border-inverse);
-  border-radius: var(--radius-sm);
-  color: var(--text-on-inverse);
-  font-size: var(--text-sm);
-  font-weight: var(--weight-medium);
-  white-space: nowrap;
-}
-.agendaKind {
-  display: inline-block;
-  margin-right: var(--space-2);
-  color: var(--text-strong);
-  font-weight: var(--weight-medium);
-}
-.agendaKind::after {
-  content: " ·";
-  color: var(--text-muted);
-}
 .nextTop {
   justify-content: flex-start;
-}
-.nextTop > :last-child:not(.activity):not(.kind) {
-  margin-left: auto;
 }
 
 /* Trạng thái chưa có buổi: cùng bề mặt tối với hero để cột trái luôn có điểm nhấn, giọng tích cực. */
@@ -922,4 +718,15 @@
   .agenda li > span {
     margin-left: 88px;
   }
+}
+
+.unavailable {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+.attention button {
+  margin-top: var(--space-2);
+  min-height: 44px;
 }

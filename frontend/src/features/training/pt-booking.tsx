@@ -42,14 +42,14 @@ export function PtBooking({ showBackLink = true }: { showBackLink?: boolean }) {
           e.status.toUpperCase() === "ACTIVE" &&
           e.remainingQuota > 0,
       ) && (
-        <details>
-          <summary>
+        <section className="stack">
+          <h3>
             {language === "vi"
               ? "Đặt lịch bằng gói PT đã mua trước đây"
               : "Book using a previously purchased PT package"}
-          </summary>
+          </h3>
           <LegacyPtBooking showBackLink={false} />
-        </details>
+        </section>
       )}
     </div>
   );
