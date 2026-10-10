@@ -6,7 +6,8 @@ import { AsyncSection, Feedback, Field, StatusChip } from "@/components/ui";
 import { api } from "@/lib/apiClient";
 import { useAction, useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
-import { formatDateTime } from "@/lib/format";
+import { formatDateTime, formatTime } from "@/lib/format";
+import { CourseSticker } from "@/features/courses";
 import { pagedItems } from "@/lib/paged";
 import type { PtChangeRequestDto, PtSessionDto } from "@/lib/types";
 import { RequestList, isPending } from "./request-list";
@@ -23,7 +24,7 @@ const hasBookedQueryOnServer = () => false;
 
 /** Chi tiết một buổi PT (A08): lịch hiện tại, quy tắc 24 giờ và yêu cầu hủy/đổi. Gửi yêu cầu không đổi lịch. */
 export function PtSessionDetail({ sessionId }: { sessionId: string }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const l = t.ptOps;
   const [revision, setRevision] = useState(0);
   const [open, setOpen] = useState(false);
@@ -120,10 +121,27 @@ export function PtSessionDetail({ sessionId }: { sessionId: string }) {
 
           return (
             <>
+              <header className={styles.trainingIntro}>
+                <div>
+                  <h2>
+                    {language === "vi"
+                      ? "Buổi tập cùng coach"
+                      : "Your PT session"}
+                  </h2>
+                  <p>
+                    {s.coachName} · {s.roomName || l.roomTbc}
+                  </p>
+                </div>
+                <div className={styles.introSticker} aria-hidden="true">
+                  <CourseSticker sport="Gym" compact />
+                </div>
+              </header>
               <dl className={styles.facts}>
                 <div className={styles.fact}>
                   <dt>{l.time}</dt>
-                  <dd>{formatDateTime(s.startAtUtc)}</dd>
+                  <dd>
+                    {formatDateTime(s.startAtUtc)}–{formatTime(s.endAtUtc)}
+                  </dd>
                 </div>
                 <div className={styles.fact}>
                   <dt>{l.coach}</dt>

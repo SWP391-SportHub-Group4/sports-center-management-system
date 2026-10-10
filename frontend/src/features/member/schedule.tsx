@@ -481,7 +481,7 @@ export function MemberSchedule({
         </div>
       )}
 
-      {previewCourse && (
+      {(previewCourse || compact) && (
         <div
           className={styles.legend}
           aria-label={vi ? "Chú thích lịch" : "Schedule legend"}
@@ -499,10 +499,12 @@ export function MemberSchedule({
             <UserRound size={14} aria-hidden="true" />
             {vi ? "Lịch PT" : "PT sessions"}
           </span>
-          <span>
-            <i data-preview="true" />
-            {previewLabel}
-          </span>
+          {previewCourse && (
+            <span>
+              <i data-preview="true" />
+              {previewLabel}
+            </span>
+          )}
         </div>
       )}
       <AsyncSection state={state}>

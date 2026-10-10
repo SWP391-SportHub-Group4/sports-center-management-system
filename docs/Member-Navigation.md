@@ -57,3 +57,22 @@ Gym, PT and court purchases open the shared checkout dialog. The checkoutIntent
 query value scopes recovery to the selected service intent, preventing another
 package's button from resuming an unrelated invoice. Wallet data loads when a
 payment dialog opens rather than for every package card.
+
+Training shares the Services/Schedule teal accents, animated Gym sticker and
+icon-labelled tabs. The Sessions tab embeds the shared weekly calendar, combining
+PT, registered classes and booked courts with a Book PT action. Booking and payment
+expand inline below the weekly calendar within Sessions. The calendar stays mounted;
+closing booking preserves the selected date and returns focus to Book PT.
+The legacy `tab=book` URL still opens booking under Sessions. Booking separates available coach/time
+selection from the session review and existing payment dialog. Workout plans show
+exercise sets/reps alongside notes; results label progress and coach feedback.
+Sticker animations respect reduced-motion preferences.
+
+BMI Profile replaces the member training-goal form with centre-measured height (cm),
+weight (kg), calculated BMI (kg/m²), and measurement date. Members cannot enter or
+edit measurements. A member without results submits one persistent measurement
+request; repeated submissions return that same request. Pending and confirmed
+appointments appear in BMI Profile. Receptionist/Manager member lists include a
+measurement request queue; their member profiles include a BMI tab to confirm an
+appointment and record measurements. Recorded results are immutable at the API.
+The previous training-goal data and API remain available for existing coach/AI flows.

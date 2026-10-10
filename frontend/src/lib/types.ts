@@ -414,6 +414,17 @@ export interface MemberTrainingProfileDto {
   updatedAt: string;
 }
 
+export interface MemberBmiProfileDto {
+  memberId: string;
+  status: "REQUESTED" | "SCHEDULED" | "MEASURED";
+  requestedAt: string;
+  appointmentAt: string | null;
+  heightCm: number | null;
+  weightKg: number | null;
+  bmi: number | null;
+  measuredAt: string | null;
+}
+
 export interface CoachMemberRelationshipDto {
   relationshipId: string;
   coachId: string;

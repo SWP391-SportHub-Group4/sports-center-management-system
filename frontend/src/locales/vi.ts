@@ -1643,7 +1643,7 @@ export const vi: Translations = {
     tabPlans: "Kế hoạch",
     tabResults: "Kết quả",
     tabProgress: "Tiến độ",
-    tabProfile: "Hồ sơ",
+    tabProfile: "Hồ sơ BMI",
     yourCoach: "Huấn luyện viên của bạn",
     sessionsLeft: "buổi còn lại",
     ofTotal: "trên {total}",
