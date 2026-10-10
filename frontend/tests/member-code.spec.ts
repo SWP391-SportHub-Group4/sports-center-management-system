@@ -48,8 +48,10 @@ test("member card loads a short-lived code and displays its QR", async ({
     });
   });
   await page.goto("/member");
-  // Mã nằm sau nút tròn trên thanh header, mở thành popup khi cần.
-  await page.getByRole("button", { name: "Member code" }).click();
+  // Header hiển thị tên nút để Member biết mã dùng cho việc gì.
+  const memberCodeButton = page.getByRole("button", { name: "Show member QR code" });
+  await expect(memberCodeButton.getByText("Member QR code")).toBeVisible();
+  await memberCodeButton.click();
   await expect(page.getByRole("img", { name: "Member code QR" })).toBeVisible();
   await expect(page.getByText("does not grant entry by itself")).toBeVisible();
   await expect(

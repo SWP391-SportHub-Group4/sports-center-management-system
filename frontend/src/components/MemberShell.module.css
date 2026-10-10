@@ -285,18 +285,6 @@
   line-height: 1;
 }
 
-/* Member code luôn là nút tròn chỉ có icon; tên nằm trong aria-label và title. */
-.qrTextTitle {
-  display: none;
-}
-.qrButton {
-  padding: 5px;
-  border-radius: 50%;
-  min-width: 38px;
-  min-height: 38px;
-  justify-content: center;
-}
-
 /* Language Switcher */
 .langToggleBtn {
   display: inline-flex;
@@ -760,6 +748,17 @@
     gap: 10px;
   }
 
+  .qrButton {
+    padding: 5px;
+    min-width: 38px;
+    border-radius: 50%;
+    justify-content: center;
+  }
+
+  .qrTextTitle {
+    display: none;
+  }
+
   .main {
     padding: 16px 14px 108px;
   }
@@ -781,18 +780,6 @@
   }
 
   .walletHeaderLabel {
-    display: none;
-  }
-
-  .qrButton {
-    padding: 5px;
-    min-height: 38px;
-    min-width: 38px;
-    border-radius: 50%;
-    justify-content: center;
-  }
-
-  .qrTextTitle {
     display: none;
   }
 

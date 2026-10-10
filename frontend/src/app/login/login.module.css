@@ -111,7 +111,7 @@ section.card {
   text-underline-offset: 0.2em;
 }
 
-/* Khối tài khoản demo (chỉ môi trường development): giữ huy hiệu DEV trên một dòng. */
+/* Khối tài khoản demo ở môi trường kiểm thử: giữ huy hiệu DEV trên một dòng. */
 .card :global(.demo-accounts) {
   margin-top: var(--space-6);
 }

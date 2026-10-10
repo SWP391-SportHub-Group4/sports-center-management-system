@@ -25,6 +25,29 @@ async function openPublicNavigation(page: Page) {
   return navigation;
 }
 
+test("login and registration keep the site footer", async ({ page }) => {
+  for (const path of ["/login", "/register"]) {
+    await page.goto(path);
+    await expect(page.getByRole("contentinfo", { name: "Footer" })).toBeVisible();
+  }
+});
+
+test("enabled demo accounts fill the login form", async ({ page }) => {
+  test.skip(
+    process.env.NEXT_PUBLIC_SHOW_DEMO_ACCOUNTS !== "true",
+    "Demo accounts are only shown in enabled test builds",
+  );
+  await page.goto("/login");
+  await page.getByText("Quick Fill Demo Accounts").click();
+  await page.getByRole("button", { name: "Member", exact: true }).click();
+  await expect(page.getByRole("textbox", { name: "Email" })).toHaveValue(
+    "an.member@sporthub.vn",
+  );
+  await expect(page.locator('input[type="password"]')).toHaveValue(
+    "Sporthub@123",
+  );
+});
+
 for (const width of [1440, 1280, 390]) {
   test(`public header and section links work without an account (${width}px)`, async ({
     page,

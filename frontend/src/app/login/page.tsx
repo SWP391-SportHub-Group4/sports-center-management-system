@@ -15,7 +15,8 @@ import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 import styles from "./login.module.css";
 
 /**
- * Demo accounts for development environment (see SportHub.API/Persistence/DemoDataSeeder.cs).
+ * Demo accounts for development and explicitly enabled test environments
+ * (see SportHub.API/Persistence/DemoDataSeeder.cs).
  *
  * Clicking autofills the form; authentication still proceeds through POST /api/auth/login
  * with BCrypt hashed passwords in DB (BR-5). No shortcuts bypass authentication.
@@ -36,7 +37,9 @@ const DEMO_ACCOUNTS = [
 ];
 
 const DEMO_PASSWORD = "Sporthub@123";
-const SHOW_DEMO_ACCOUNTS = process.env.NODE_ENV === "development";
+const SHOW_DEMO_ACCOUNTS =
+  process.env.NODE_ENV === "development" ||
+  process.env.NEXT_PUBLIC_SHOW_DEMO_ACCOUNTS === "true";
 
 function loginErrorMessage(
   cause: unknown,

@@ -79,7 +79,8 @@ export function MemberCodeButton() {
 
   if (!userId) return null;
   const en = language === "en";
-  const label = en ? "Member code" : "Mã hội viên";
+  const label = en ? "Member QR code" : "Mã QR hội viên";
+  const actionLabel = en ? "Show member QR code" : "Hiển thị mã QR hội viên";
 
   return (
     <>
@@ -96,8 +97,8 @@ export function MemberCodeButton() {
         }}
         aria-expanded={open}
         aria-haspopup="dialog"
-        aria-label={label}
-        title={label}
+        aria-label={actionLabel}
+        title={actionLabel}
       >
         <span className={styles.qrIconWrapper}>
           <IconQrCode size={14} />
