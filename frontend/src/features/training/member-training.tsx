@@ -1,249 +1,111 @@
 "use client";
 
-import Link from "next/link";
-import { useState } from "react";
-import { AsyncSection, Card, PageNav, StatusChip } from "@/components/ui";
+import { useEffect, useRef } from "react";
+import {
+  CalendarDays,
+  CalendarPlus,
+  ClipboardList,
+  TrendingUp,
+  UserRound,
+  Dumbbell,
+} from "lucide-react";
+import { CourseSticker } from "@/features/courses";
+import { AsyncSection, Card, StatusChip } from "@/components/ui";
 import { Tabs } from "@/components/primitives";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
-import { formatDate, formatDateTime, formatTime } from "@/lib/format";
+import { formatDate, formatDateTime } from "@/lib/format";
 import { pagedItems } from "@/lib/paged";
 import { choiceQuery, useUrlQuery } from "@/lib/useUrlQuery";
 import type {
   Paged,
   ProgressItemDto,
-  PtChangeRequestDto,
-  PtEntitlementDto,
-  PtSessionDto,
   WorkoutPlanDto,
   WorkoutResultDto,
 } from "@/lib/types";
 import { TrainingProfile } from "./training-profile";
 import { PtBooking } from "./pt-booking";
 import { PtSessionDetail } from "./pt-session-detail";
-import { isPending } from "./request-list";
+import { MemberSchedule } from "@/features/member";
 import styles from "./training.module.css";
 
-const TABS = ["sessions", "book", "plans", "results", "profile"] as const;
+const TABS = ["sessions", "plans", "results", "profile"] as const;
 type Tab = (typeof TABS)[number];
 const PAGE = 20;
 
-const upcoming = (s: PtSessionDto, now: number) =>
-  s.status.toUpperCase() === "SCHEDULED" &&
-  new Date(s.endAtUtc).getTime() > now;
-
-/** Tóm tắt PT: HLV, quota còn lại, buổi tiếp theo và số yêu cầu đang chờ. */
-function PtSummary() {
-  const { t, language } = useLanguage();
-  const l = t.ptOps;
-  const entitlements = useApi(
-    (signal) =>
-      api.get<PtEntitlementDto[]>("/api/members/me/pt-entitlements", {
-        signal,
-      }),
-    [],
-  );
-  const sessions = useApi(
-    (signal) =>
-      api.get<PtSessionDto[]>("/api/members/me/pt-sessions", {
-        signal,
-        query: { page: 1, pageSize: 50 },
-      }),
-    [],
-  );
-  const sessionRequests = useApi(
-    (signal) =>
-      api.get<PtChangeRequestDto[]>(
-        "/api/members/me/pt-session-change-requests",
-        { signal },
-      ),
-    [],
-  );
-  const coachRequests = useApi(
-    (signal) =>
-      api.get<PtChangeRequestDto[]>(
-        "/api/members/me/pt-coach-change-requests",
-        { signal },
-      ),
-    [],
-  );
-  const [now] = useState(() => Date.now());
-  const active = entitlements.data?.find(
-    (e) => e.status.toUpperCase() === "ACTIVE",
-  );
-  const next = pagedItems(sessions.data)
-    .filter((s) => upcoming(s, now))
-    .sort((a, b) => a.startAtUtc.localeCompare(b.startAtUtc))[0];
-  const pending = [
-    ...(sessionRequests.data ?? []),
-    ...(coachRequests.data ?? []),
-  ].filter((q) => isPending(q.status)).length;
-
+function SessionsTab({
+  booking,
+  onBook,
+  onClose,
+}: {
+  booking: boolean;
+  onBook: () => void;
+  onClose: () => void;
+}) {
+  const { language } = useLanguage();
+  const vi = language === "vi";
+  const bookingHeading = useRef<HTMLHeadingElement>(null);
+  const bookButton = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!booking) return;
+    bookingHeading.current?.focus({ preventScroll: true });
+    bookingHeading.current?.scrollIntoView({
+      block: "start",
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+        ? "instant"
+        : "smooth",
+    });
+  }, [booking]);
   return (
-    <AsyncSection state={entitlements}>
-      {() =>
-        !active ? (
-          <div className={styles.summary}>
-            <div className={styles.next}>
-              <p className={styles.muted}>
-                {language === "vi"
-                  ? "Chọn coach và lịch tập để thanh toán PT từng buổi."
-                  : "Choose a coach and time to book and pay per PT session."}
-              </p>
-              <Link className="btn" href="/member/training?tab=book">
-                {language === "vi"
-                  ? "Đặt lịch & thanh toán PT"
-                  : "Book & pay for PT"}
-              </Link>
-            </div>
-          </div>
-        ) : (
-          <section className={styles.summary} aria-label={l.yourCoach}>
-            <div>
-              <p className={styles.summaryLabel}>{l.yourCoach}</p>
-              <p className={styles.coachName}>{active.coachName}</p>
-              {active.totalQuota === 1 ? (
-                <p className={styles.muted}>
-                  {language === "vi"
-                    ? "PT từng buổi · Buổi tập đã thanh toán"
-                    : "Pay-per-session PT · Session paid"}
-                </p>
-              ) : (
-                <p className={styles.quotaLine}>
-                  <strong>{active.remainingQuota}</strong>
-                  <span>
-                    {l.sessionsLeft} ·{" "}
-                    {l.ofTotal.replace("{total}", String(active.totalQuota))}
-                  </span>
-                </p>
-              )}
-            </div>
-            <div className={styles.next}>
-              <p className={styles.summaryLabel}>{l.nextSession}</p>
-              {next ? (
-                <>
-                  <p className={styles.nextWhen}>
-                    {formatDateTime(next.startAtUtc)}
-                  </p>
-                  <p className={styles.muted}>{next.roomName || l.roomTbc}</p>
-                  <Link
-                    className="btn btn--secondary"
-                    href={`/member/training?session=${next.sessionId}`}
-                  >
-                    {l.details}
-                  </Link>
-                </>
-              ) : (
-                <p className={styles.muted}>{l.noNextSession}</p>
-              )}
-              {active.remainingQuota > 0 && (
-                <Link className="btn" href="/member/training?tab=book">
-                  {t.ptBook.bookCta}
-                </Link>
-              )}
-              {pending > 0 && (
-                <p className={styles.alertNote} role="status">
-                  {l.pendingRequests.replace("{n}", String(pending))}
-                </p>
-              )}
-            </div>
-          </section>
-        )
-      }
-    </AsyncSection>
-  );
-}
-
-function SessionRow({ s }: { s: PtSessionDto }) {
-  const { t } = useLanguage();
-  const l = t.ptOps;
-  return (
-    <li>
-      <div>
-        <strong>{formatDateTime(s.startAtUtc)}</strong>
-        <span>
-          {s.coachName} · {s.roomName || l.roomTbc} · {formatTime(s.startAtUtc)}{" "}
-          – {formatTime(s.endAtUtc)}
-        </span>
-      </div>
-      <div className="btn-row">
-        {s.status.toUpperCase() !== "SCHEDULED" && (
-          <StatusChip value={s.status} />
-        )}
-        <Link
-          className="btn btn--secondary btn--sm"
-          href={`/member/training?session=${s.sessionId}`}
+    <section className={styles.section}>
+      <header className={styles.calendarHeader}>
+        <div>
+          <h2>{vi ? "Lịch tập trong tuần" : "Your weekly schedule"}</h2>
+          <p className={styles.muted}>
+            {vi
+              ? "Lịch PT, lớp đã đăng ký và sân đã đặt trong cùng một lịch."
+              : "PT sessions, registered classes and booked courts in one calendar."}
+          </p>
+        </div>
+        <button
+          ref={bookButton}
+          type="button"
+          onClick={onBook}
+          className="btn"
+          aria-expanded={booking}
+          aria-controls={booking ? "training-inline-booking" : undefined}
         >
-          {l.details}
-        </Link>
-      </div>
-    </li>
-  );
-}
-
-function SessionsTab() {
-  const { t } = useLanguage();
-  const l = t.ptOps;
-  const [page, setPage] = useState(1);
-  const [now] = useState(() => Date.now());
-  const state = useApi(
-    (signal) =>
-      api.get<PtSessionDto[]>("/api/members/me/pt-sessions", {
-        signal,
-        query: { page, pageSize: PAGE },
-      }),
-    [page],
-  );
-  return (
-    <AsyncSection
-      state={state}
-      isEmpty={(d) => !pagedItems(d).length}
-      emptyMessage={l.emptySessions}
-    >
-      {(data) => {
-        const rows = pagedItems(data);
-        const next = rows
-          .filter((s) => upcoming(s, now))
-          .sort((a, b) => a.startAtUtc.localeCompare(b.startAtUtc));
-        const past = rows
-          .filter((s) => !upcoming(s, now))
-          .sort((a, b) => b.startAtUtc.localeCompare(a.startAtUtc));
-        return (
-          <>
-            <div className={styles.section}>
-              <h2>{l.upcoming}</h2>
-              {next.length ? (
-                <ul className={styles.list}>
-                  {next.map((s) => (
-                    <SessionRow key={s.sessionId} s={s} />
-                  ))}
-                </ul>
-              ) : (
-                <p className={styles.muted}>{l.noUpcoming}</p>
-              )}
-            </div>
-            <div className={styles.section}>
-              <h2>{l.history}</h2>
-              {past.length ? (
-                <ul className={styles.list}>
-                  {past.map((s) => (
-                    <SessionRow key={s.sessionId} s={s} />
-                  ))}
-                </ul>
-              ) : (
-                <p className={styles.muted}>{l.noHistory}</p>
-              )}
-            </div>
-            <PageNav
-              page={page}
-              hasNext={rows.length >= PAGE}
-              onChange={setPage}
-            />
-          </>
-        );
-      }}
-    </AsyncSection>
+          <CalendarPlus size={18} aria-hidden="true" />
+          {vi ? "Đặt PT" : "Book PT"}
+        </button>
+      </header>
+      <MemberSchedule compact />
+      {booking && (
+        <section
+          id="training-inline-booking"
+          className={styles.inlineBooking}
+          aria-labelledby="training-booking-title"
+        >
+          <header className={styles.calendarHeader}>
+            <h2 id="training-booking-title" ref={bookingHeading} tabIndex={-1}>
+              {vi ? "Đặt lịch PT" : "Book a PT session"}
+            </h2>
+            <button
+              type="button"
+              className="btn btn--quiet btn--sm"
+              onClick={() => {
+                onClose();
+                bookButton.current?.focus();
+              }}
+            >
+              {vi ? "Đóng phần đặt PT" : "Close PT booking"}
+            </button>
+          </header>
+          <PtBooking showBackLink={false} />
+        </section>
+      )}
+    </section>
   );
 }
 
@@ -274,8 +136,13 @@ function PlansTab() {
               <ul className={styles.exerciseList}>
                 {p.items.map((i) => (
                   <li key={i.itemId}>
-                    {i.exercise} · {i.sets} × {i.reps}
-                    {i.notes ? ` · ${i.notes}` : ""}
+                    <div>
+                      <strong>{i.exercise}</strong>
+                      {i.notes && <p>{i.notes}</p>}
+                    </div>
+                    <span>
+                      {i.sets} × {i.reps}
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -288,7 +155,7 @@ function PlansTab() {
 }
 
 function ResultsTab() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const l = t.ptOps;
   const state = useApi(
     (signal) =>
@@ -309,8 +176,28 @@ function ResultsTab() {
           {pagedItems(data).map((r) => (
             <Card key={r.resultId} title={formatDateTime(r.sessionStartAtUtc)}>
               <p className={styles.muted}>{r.coachName}</p>
-              {r.progressNote && <p>{r.progressNote}</p>}
-              {r.coachComment && <p>{r.coachComment}</p>}
+              <dl className={styles.resultNotes}>
+                {r.progressNote && (
+                  <div>
+                    <dt>
+                      {language === "vi"
+                        ? "Tiến độ buổi tập"
+                        : "Session progress"}
+                    </dt>
+                    <dd>{r.progressNote}</dd>
+                  </div>
+                )}
+                {r.coachComment && (
+                  <div>
+                    <dt>
+                      {language === "vi"
+                        ? "Nhận xét của coach"
+                        : "Coach feedback"}
+                    </dt>
+                    <dd>{r.coachComment}</dd>
+                  </div>
+                )}
+              </dl>
             </Card>
           ))}
         </div>
@@ -367,37 +254,82 @@ export function MemberTraining() {
     { tab: "sessions", session: "", booked: "" },
     {
       tab: (value) =>
-        value === "progress" ? "results" : choiceQuery(TABS, "sessions")(value),
+        value === "progress"
+          ? "results"
+          : choiceQuery([...TABS, "book"], "sessions")(value),
     },
   );
-  const tab = values.tab as Tab;
+  const booking = values.tab === "book";
+  const tab: Tab = booking ? "sessions" : (values.tab as Tab);
+  const vi = language === "vi";
+  const tabIcons = {
+    sessions: CalendarDays,
+    plans: ClipboardList,
+    results: TrendingUp,
+    profile: UserRound,
+  };
   const labels: Record<Tab, string> = {
     sessions: l.tabSessions,
-    book: language === "vi" ? "Đặt PT & thanh toán" : "Book & pay for PT",
     plans: l.tabPlans,
     results: language === "vi" ? "Kết quả & tiến độ" : "Results & progress",
     profile: l.tabProfile,
   };
   return (
     <div className={styles.page}>
-      {tab === "sessions" && !values.session && <PtSummary />}
       <Tabs
-        tabs={TABS.map((id) => ({ id, label: labels[id] }))}
+        tabs={TABS.map((id) => {
+          const Icon = tabIcons[id];
+          return {
+            id,
+            label: (
+              <span className={styles.tabLabel}>
+                <Icon size={18} aria-hidden="true" />
+                {labels[id]}
+              </span>
+            ),
+          };
+        })}
         value={tab}
         ariaLabel={l.tabsLabel}
         onChange={(id) => setValues({ tab: id, session: "", booked: "" })}
       >
         <div className={styles.tabBody}>
+          {!values.session && (tab === "plans" || tab === "results") && (
+            <header className={styles.trainingIntro}>
+              <div>
+                <h2>{vi ? "Tập luyện cùng coach" : "Train with your coach"}</h2>
+                <p>
+                  {vi
+                    ? "Quản lý lịch PT, kế hoạch tập và theo dõi tiến độ của bạn."
+                    : "Manage PT sessions, workout plans and your training progress."}
+                </p>
+                <span className={styles.trainingMeta}>
+                  <Dumbbell size={16} aria-hidden="true" />
+                  {vi ? "Gym · Huấn luyện cá nhân" : "Gym · Personal training"}
+                </span>
+              </div>
+              <div className={styles.introSticker} aria-hidden="true">
+                <CourseSticker sport="Gym" compact />
+              </div>
+            </header>
+          )}
           {tab === "sessions" &&
-            (values.session ? (
+            (values.session && !booking ? (
               <PtSessionDetail
                 key={values.session}
                 sessionId={values.session}
               />
             ) : (
-              <SessionsTab />
+              <SessionsTab
+                booking={booking}
+                onClose={() =>
+                  setValues({ tab: "sessions", session: "", booked: "" })
+                }
+                onBook={() =>
+                  setValues({ tab: "book", session: "", booked: "" })
+                }
+              />
             ))}
-          {tab === "book" && <PtBooking showBackLink={false} />}
           {tab === "plans" && <PlansTab />}
           {tab === "results" && (
             <div className="stack">

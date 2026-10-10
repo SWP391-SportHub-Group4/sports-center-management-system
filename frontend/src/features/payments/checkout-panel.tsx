@@ -43,6 +43,7 @@ function CheckoutFlow({
   review,
   compact = false,
   modal = false,
+  vnpayOnly = false,
 }: {
   intent?: PurchaseIntent;
   invoiceId?: string;
@@ -53,6 +54,8 @@ function CheckoutFlow({
   review?: CheckoutReview;
   compact?: boolean;
   modal?: boolean;
+  /** Dịch vụ chỉ thu qua VNPay (ví dụ thuê sân): ẩn lựa chọn điểm và phương thức khác. */
+  vnpayOnly?: boolean;
 }) {
   const { t, language } = useLanguage();
   const vi = language === "vi";
@@ -81,7 +84,7 @@ function CheckoutFlow({
       ? (targetMemberId ?? checkout?.beneficiaryUserId)
       : undefined;
   const canSelectPoints =
-    user?.role === "Member" || user?.role === "Receptionist";
+    !vnpayOnly && (user?.role === "Member" || user?.role === "Receptionist");
   // Điểm đang soạn gắn với revision: server đổi đơn (ví dụ ở tab khác) thì bản nháp cũ bị bỏ và ô
   // nhập quay về số điểm server đang áp dụng, thay vì ghi đè mù.
   const [draft, setDraft] = useState<{
@@ -519,7 +522,7 @@ function CheckoutFlow({
             <p className={styles.note}>{t.checkout.loadingOrder}</p>
           )}
         </section>
-        {active && modal && (
+        {active && modal && !vnpayOnly && (
           <section
             className={styles.methods}
             aria-label={vi ? "Phương thức thanh toán" : "Payment method"}
@@ -714,11 +717,6 @@ function CheckoutFlow({
                 </>
               )}
             </p>
-            <HoldCountdown
-              expiresAtUtc={checkout.expiresAtUtc}
-              serverNow={serverNow}
-              showSource
-            />
             <div className={styles.actions}>
               <Button
                 variant="primary"
@@ -900,20 +898,26 @@ function CheckoutFlow({
             <dt>{t.checkout.totalLine}</dt>
             <dd>{formatMoney(vm.totalAmount)}</dd>
           </div>
-          <div>
-            <dt>{t.checkout.pointsLine}</dt>
-            <dd>
-              {formatPoints(vm.pointsApplied)} {l.points.toLowerCase()}
-              {vm.pointsApplied > 0 && <> (−{formatMoney(pointsValue)})</>}
-            </dd>
-          </div>
+          {!vnpayOnly && (
+            <div>
+              <dt>{t.checkout.pointsLine}</dt>
+              <dd>
+                {formatPoints(vm.pointsApplied)} {l.points.toLowerCase()}
+                {vm.pointsApplied > 0 && <> (−{formatMoney(pointsValue)})</>}
+              </dd>
+            </div>
+          )}
           <div className={styles.rowsTotal}>
             <dt>{t.checkout.cashLine}</dt>
             <dd>{formatMoney(vm.cashAmount)}</dd>
           </div>
         </dl>
         {vm.phase === "AWAITING_PAYMENT" && (
-          <HoldCountdown expiresAtUtc={vm.expiresAtUtc} serverNow={serverNow} />
+          <HoldCountdown
+            expiresAtUtc={vm.expiresAtUtc}
+            serverNow={serverNow}
+            showSource
+          />
         )}
       </aside>
     </div>,
@@ -930,6 +934,7 @@ export function CheckoutPanel(props: {
   review?: CheckoutReview;
   compact?: boolean;
   modal?: boolean;
+  vnpayOnly?: boolean;
 }) {
   const { user } = useAuth();
   const [resumeInvoiceId] = useState(() => {

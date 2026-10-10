@@ -1,7 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { ScheduleCoursePage } from "./schedule-course-page";
+import { ScheduleRentalPage } from "./schedule-rental-page";
+import {
+  BookOpen,
+  MapPin,
+  UserRound,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
+import { MemberMonthCalendar } from "./month-calendar";
+import { CalendarSticker } from "./calendar-sticker";
+import { CourseSticker } from "@/features/courses";
 import { Drawer } from "@/components/primitives";
 import { AsyncSection, StatusChip } from "@/components/ui";
 import { api } from "@/lib/apiClient";
@@ -14,7 +26,7 @@ import { rentalApi } from "../rentals/api";
 import type { CourtRentalDto, SportDto, CourseSessionDto } from "@/lib/types";
 import { memberSchedule, type MemberEvent } from "./api";
 import { eventKind, sportTone, type EventKind } from "./event-meta";
-import { downloadIcs } from "./ics";
+import { googleCalendarHref } from "./google-calendar";
 import { RentalCancelConfirm } from "./rental-cancel";
 import tags from "./tags.module.css";
 import styles from "./schedule.module.css";
@@ -45,28 +57,6 @@ function weekMonday(date: string) {
   return addDaysIso(date, -((day + 6) % 7));
 }
 
-function isoWeekValue(monday: string) {
-  const thursday = addDaysIso(monday, 3);
-  const year = thursday.slice(0, 4);
-  const firstMonday = weekMonday(`${year}-01-04`);
-  const weeks = Math.round(
-    (Date.parse(`${monday}T00:00:00Z`) -
-      Date.parse(`${firstMonday}T00:00:00Z`)) /
-      604800000,
-  );
-  return `${year}-W${String(weeks + 1).padStart(2, "0")}`;
-}
-
-function mondayFromWeek(value: string) {
-  const match = /^(\d{4})-W(\d{2})$/.exec(value);
-  if (!match) return null;
-  const monday = addDaysIso(
-    weekMonday(`${match[1]}-01-04`),
-    (Number(match[2]) - 1) * 7,
-  );
-  return isoWeekValue(monday) === value ? monday : null;
-}
-
 const vnDay = (utc: string) =>
   new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(
     new Date(utc),
@@ -81,13 +71,26 @@ async function loadTimeline(
   ptTitle: string,
   rentalTitle: string,
 ): Promise<Item[]> {
-  const fromUtc = new Date(`${date}T00:00:00+07:00`).toISOString();
-  const toUtc = new Date(
-    `${addDaysIso(date, days)}T00:00:00+07:00`,
-  ).toISOString();
+  // Rental reads allow at most 31 days; a month grid includes 35 or 42 days.
+  const rentalRanges = Array.from({ length: Math.ceil(days / 31) }, (_, i) => ({
+    fromUtc: new Date(
+      `${addDaysIso(date, i * 31)}T00:00:00+07:00`,
+    ).toISOString(),
+    toUtc: new Date(
+      `${addDaysIso(date, Math.min(days, (i + 1) * 31))}T00:00:00+07:00`,
+    ).toISOString(),
+  }));
   const [base, rentals, sports] = await Promise.all([
     memberSchedule(date, days, signal),
-    rentalApi.mine(fromUtc, toUtc, signal).catch(() => []),
+    Promise.all(
+      rentalRanges.map((range) =>
+        rentalApi.mine(range.fromUtc, range.toUtc, signal),
+      ),
+    ).then((batches) => [
+      ...new Map(
+        batches.flat().map((rental) => [rental.courtRentalId, rental]),
+      ).values(),
+    ]),
     api
       .get<SportDto[]>("/api/sports", {
         anonymous: true,
@@ -151,13 +154,41 @@ export function MemberSchedule({
   const m = t.mSchedule;
   const vi = language === "vi";
   const { values, setValues } = useUrlQuery(
-    { date: initialDate ? scheduleDate(initialDate) : todayIso(), event: "" },
-    { date: scheduleDate },
+    {
+      date: initialDate ? scheduleDate(initialDate) : todayIso(),
+      event: "",
+      course: "",
+      rental: "",
+    },
+    {
+      date: scheduleDate,
+      course: (value) =>
+        /^[1-9]\d*$/.test(value) && Number.isSafeInteger(Number(value))
+          ? value
+          : "",
+      rental: (value) =>
+        /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i.test(value)
+          ? value
+          : "",
+    },
   );
   const date = values.date;
-  const monday = weekMonday(date);
-  const days = 7;
+  const month = date.slice(0, 7);
+  const monthStart = `${month}-01`;
+  const nextMonth = new Date(
+    Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 1),
+  )
+    .toISOString()
+    .slice(0, 10);
+  const monday = weekMonday(compact ? date : monthStart);
+  const monthDays = Math.round(
+    (Date.parse(nextMonth) - Date.parse(monday)) / 86400000,
+  );
+  const days = compact ? 7 : Math.ceil(monthDays / 7) * 7;
   const [selection, setSelection] = useState<Item | null>(null);
+  const [compactCourse, setCompactCourse] = useState<Item | null>(null);
+  const [compactRental, setCompactRental] = useState<string | null>(null);
+  const calendarScroll = useRef(0);
   const [cancelling, setCancelling] = useState<CourtRentalDto | null>(null);
   const now = useNow();
   const narrow = useMediaQuery("(max-width: 720px)");
@@ -173,7 +204,7 @@ export function MemberSchedule({
   const state = useApi(
     (signal) =>
       loadTimeline(monday, days, signal, "Gym", m.kindPt, m.rentalTitle),
-    [monday, m.kindPt, m.rentalTitle],
+    [monday, days, m.kindPt, m.rentalTitle],
   );
 
   // Preview rows are local only; they never become registrations or exportable events.
@@ -225,6 +256,17 @@ export function MemberSchedule({
   const range = m.rangeWeek
     .replace("{from}", fmt(monday, { day: "2-digit", month: "2-digit" }))
     .replace("{to}", fmt(last, { day: "2-digit", month: "2-digit" }));
+  function moveMonth(offset: number) {
+    const target = new Date(
+      Date.UTC(
+        Number(month.slice(0, 4)),
+        Number(month.slice(5, 7)) - 1 + offset,
+        1,
+      ),
+    );
+    setSelection(null);
+    setValues({ date: target.toISOString().slice(0, 10), event: "" });
+  }
 
   const renderEvent = (item: Item) => {
     const cancelled = /CANCEL/i.test(item.status ?? "");
@@ -246,9 +288,32 @@ export function MemberSchedule({
         onClick={() => setSelected(item)}
       >
         <span className={styles.eventHeading}>
+          <CalendarSticker sport={item.sport} kind={item.kind} />
           <strong>{item.title}</strong>
-          {item.preview && (
-            <span className={styles.previewLabel}>{previewLabel}</span>
+          {previewCourse && (
+            <span
+              className={
+                item.preview ? styles.previewLabel : styles.registeredLabel
+              }
+            >
+              {item.preview
+                ? previewLabel
+                : cancelled
+                  ? vi
+                    ? "Đã hủy"
+                    : "Cancelled"
+                  : item.kind === "rental"
+                    ? vi
+                      ? "Sân đã đặt"
+                      : "Booked court"
+                    : item.kind === "pt"
+                      ? vi
+                        ? "PT đã đặt"
+                        : "Booked PT"
+                      : vi
+                        ? "Đã đăng ký"
+                        : "Registered"}
+            </span>
           )}
         </span>
         <time dateTime={item.startAtUtc}>
@@ -272,70 +337,174 @@ export function MemberSchedule({
     );
   };
 
+  function returnToCalendar() {
+    setSelection(null);
+    setCompactCourse(null);
+    setCompactRental(null);
+    if (!compact) setValues({ course: "", rental: "", event: "" });
+    requestAnimationFrame(() => {
+      document
+        .querySelector<HTMLInputElement>(
+          'input[type="month"], #member-schedule-date',
+        )
+        ?.focus({ preventScroll: true });
+      window.scrollTo({ top: calendarScroll.current, behavior: "instant" });
+    });
+  }
+  const activeRental = compact ? compactRental : values.rental;
+  const activeCourse = compact ? compactCourse?.classId : Number(values.course);
+  const courseEvent = compact
+    ? (compactCourse ?? undefined)
+    : selected?.classId === activeCourse
+      ? (selected ?? undefined)
+      : undefined;
+  if (activeRental)
+    return (
+      <ScheduleRentalPage
+        key={activeRental}
+        rentalId={activeRental}
+        onBack={returnToCalendar}
+        onChanged={state.reload}
+      />
+    );
+  if (activeCourse)
+    return (
+      <ScheduleCoursePage
+        key={activeCourse}
+        classId={activeCourse}
+        event={courseEvent}
+        onBack={returnToCalendar}
+      />
+    );
+
   return (
-    <div className={compact ? styles.compact : undefined}>
-      <div className={styles.toolbar}>
-        <div className={styles.weekPicker}>
-          <label htmlFor="member-schedule-week">{m.chooseWeek}</label>
-          <input
-            id="member-schedule-week"
-            type="week"
-            value={isoWeekValue(monday)}
-            onChange={(event) => {
-              const chosen = mondayFromWeek(event.target.value);
-              if (chosen) setValues({ date: chosen });
-            }}
-          />
-        </div>
-        <div className={styles.nav}>
-          <button
-            type="button"
-            className="btn btn--secondary btn--sm"
-            onClick={() => setValues({ date: addDaysIso(monday, -7) })}
-          >
-            ← {m.prevWeek}
-          </button>
-          <button
-            type="button"
-            className="btn btn--secondary btn--sm"
-            onClick={() => setValues({ date: todayIso() })}
-          >
-            {m.currentWeek}
-          </button>
-          <button
-            type="button"
-            className="btn btn--secondary btn--sm"
-            onClick={() => setValues({ date: addDaysIso(monday, 7) })}
-          >
-            {m.nextWeek} →
-          </button>
-          {previewCourse?.startDate && (
+    <div className={compact ? styles.compact : styles.scheduleSurface}>
+      {!compact ? (
+        <div className={styles.monthToolbar}>
+          <div className={styles.monthControls}>
             <button
               type="button"
               className="btn btn--secondary btn--sm"
-              onClick={() =>
-                setValues({ date: scheduleDate(previewCourse.startDate!) })
-              }
+              onClick={() => {
+                setSelection(null);
+                setValues({ date: todayIso(), event: "" });
+              }}
             >
-              {vi ? "Tuần khai giảng" : "Course start week"}
+              {vi ? "Hôm nay" : "Today"}
             </button>
-          )}
+            <button
+              type="button"
+              className={styles.monthArrow}
+              aria-label={vi ? "Tháng trước" : "Previous month"}
+              onClick={() => moveMonth(-1)}
+            >
+              <ChevronLeft size={20} />
+            </button>
+            <button
+              type="button"
+              className={styles.monthArrow}
+              aria-label={vi ? "Tháng sau" : "Next month"}
+              onClick={() => moveMonth(1)}
+            >
+              <ChevronRight size={20} />
+            </button>
+            <h2 aria-live="polite">
+              {fmt(monthStart, { month: "long", year: "numeric" })}
+            </h2>
+          </div>
+          <label className={styles.monthPicker}>
+            <span className="sr-only">
+              {vi ? "Chọn tháng" : "Choose month"}
+            </span>
+            <input
+              type="month"
+              value={month}
+              onChange={(e) => {
+                if (/^\d{4}-\d{2}$/.test(e.target.value)) {
+                  setSelection(null);
+                  setValues({ date: `${e.target.value}-01`, event: "" });
+                }
+              }}
+            />
+          </label>
         </div>
-      </div>
+      ) : (
+        <div className={styles.toolbar}>
+          <div className={styles.weekPicker}>
+            <label htmlFor="member-schedule-date">
+              {vi ? "Chọn ngày để xem lịch" : "Choose a date to view"}
+            </label>
+            <input
+              id="member-schedule-date"
+              type="date"
+              value={date}
+              onChange={(event) => {
+                if (event.target.value)
+                  setValues({ date: scheduleDate(event.target.value) });
+              }}
+            />
+          </div>
+          <div className={styles.nav}>
+            <button
+              type="button"
+              className="btn btn--secondary btn--sm"
+              onClick={() => setValues({ date: addDaysIso(monday, -7) })}
+            >
+              ← {m.prevWeek}
+            </button>
+            <button
+              type="button"
+              className="btn btn--secondary btn--sm"
+              onClick={() => setValues({ date: todayIso() })}
+            >
+              {m.currentWeek}
+            </button>
+            <button
+              type="button"
+              className="btn btn--secondary btn--sm"
+              onClick={() => setValues({ date: addDaysIso(monday, 7) })}
+            >
+              {m.nextWeek} →
+            </button>
+            {previewCourse?.startDate && (
+              <button
+                type="button"
+                className="btn btn--secondary btn--sm"
+                onClick={() =>
+                  setValues({ date: scheduleDate(previewCourse.startDate!) })
+                }
+              >
+                {vi ? "Tuần khai giảng" : "Course start week"}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
-      {previewCourse && (
+      {(previewCourse || compact) && (
         <div
           className={styles.legend}
           aria-label={vi ? "Chú thích lịch" : "Schedule legend"}
         >
           <span>
             <i />
-            {vi ? "Đã đăng ký" : "Registered"}
+            <BookOpen size={14} aria-hidden="true" />
+            {vi ? "Lớp đã đăng ký" : "Registered classes"}
           </span>
           <span>
-            <i data-preview="true" />
-            {previewLabel}
+            <MapPin size={14} aria-hidden="true" />
+            {vi ? "Sân đã đặt" : "Booked courts"}
           </span>
+          <span>
+            <UserRound size={14} aria-hidden="true" />
+            {vi ? "Lịch PT" : "PT sessions"}
+          </span>
+          {previewCourse && (
+            <span>
+              <i data-preview="true" />
+              {previewLabel}
+            </span>
+          )}
         </div>
       )}
       <AsyncSection state={state}>
@@ -345,6 +514,18 @@ export function MemberSchedule({
           for (let i = 0; i < days; i++) byDay.set(addDaysIso(monday, i), []);
           for (const item of all) byDay.get(vnDay(item.startAtUtc))?.push(item);
           const columns = [...byDay.entries()];
+          if (!compact)
+            return (
+              <MemberMonthCalendar
+                key={month}
+                month={month}
+                columns={columns}
+                weekdays={m.weekdays}
+                kindLabels={kindLabel}
+                onSelect={setSelected}
+                renderEvent={renderEvent}
+              />
+            );
           const rows = Math.max(
             1,
             ...columns.map(([, events]) => events.length),
@@ -517,44 +698,77 @@ export function MemberSchedule({
                 </button>
               ) : (
                 <>
-                  <Link
-                    className="btn"
-                    href={
-                      selected.kind === "class"
-                        ? `/member/services?section=courses&view=owned&course=${selected.classId}`
-                        : selected.kind === "pt"
-                          ? `/member/training?session=${selected.refId}`
-                          : `/member/services?section=courts&view=owned&rental=${selected.refId}`
-                    }
-                  >
-                    {selected.kind === "class"
-                      ? m.openClass
-                      : selected.kind === "pt"
-                        ? m.openPt
-                        : m.openRental}
-                  </Link>
-                  {!/CANCEL/i.test(selected.status ?? "") && (
+                  {selected.kind === "class" ? (
                     <button
                       type="button"
+                      className="btn"
+                      disabled={!selected.classId}
+                      onClick={() => {
+                        calendarScroll.current = window.scrollY;
+                        if (compact) {
+                          setCompactCourse(selected);
+                          setSelected(null);
+                          return;
+                        }
+                        setSelection(null);
+                        setValues({
+                          course: String(selected.classId),
+                          rental: "",
+                          event: selected.id,
+                        });
+                      }}
+                    >
+                      {m.openClass}
+                    </button>
+                  ) : selected.kind === "rental" ? (
+                    <button
+                      type="button"
+                      className="btn"
+                      onClick={() => {
+                        calendarScroll.current = window.scrollY;
+                        if (compact) {
+                          setCompactRental(selected.refId);
+                          setSelected(null);
+                          return;
+                        }
+                        setSelection(null);
+                        setValues({
+                          rental: selected.refId,
+                          course: "",
+                          event: "",
+                        });
+                      }}
+                    >
+                      {m.openRental}
+                    </button>
+                  ) : (
+                    <Link
+                      className="btn"
+                      href={`/member/training?session=${selected.refId}`}
+                    >
+                      {m.openPt}
+                    </Link>
+                  )}
+                  {!/CANCEL/i.test(selected.status ?? "") && (
+                    <a
                       className="btn btn--secondary"
-                      onClick={() =>
-                        downloadIcs(
-                          {
-                            uid: selected.id,
-                            title: selected.title,
-                            startAtUtc: selected.startAtUtc,
-                            endAtUtc: selected.endAtUtc,
-                            location: selected.roomName,
-                            description: [selected.sport, selected.coachName]
-                              .filter(Boolean)
-                              .join(" · "),
-                          },
-                          `sporthub-${selected.kind}-${selected.startAtUtc.slice(0, 10)}.ics`,
-                        )
-                      }
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      href={googleCalendarHref({
+                        title:
+                          selected.kind === "rental" && selected.sport
+                            ? `${selected.title} · ${selected.sport}`
+                            : selected.title,
+                        startAtUtc: selected.startAtUtc,
+                        endAtUtc: selected.endAtUtc,
+                        location: selected.roomName,
+                        description: [selected.sport, selected.coachName]
+                          .filter(Boolean)
+                          .join(" · "),
+                      })}
                     >
                       {m.addToCalendar}
-                    </button>
+                    </a>
                   )}
                   {selected.rental?.status === "CONFIRMED" &&
                     new Date(selected.startAtUtc).getTime() > now && (
@@ -572,6 +786,14 @@ export function MemberSchedule({
             {selected.kind === "pt" && (
               <p className={styles.hint}>{m.ptHint}</p>
             )}
+            <div className={styles.drawerSticker} aria-hidden="true">
+              <CourseSticker
+                sport={
+                  selected.sport ||
+                  (selected.kind === "pt" ? "Gym" : kindLabel[selected.kind])
+                }
+              />
+            </div>
           </div>
         </Drawer>
       )}

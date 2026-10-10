@@ -7,8 +7,8 @@ SportHub là **hệ thống quản lý trung tâm thể thao với ba môn Gym (
 1. Yêu cầu trực tiếp đã xác nhận của chủ sản phẩm, bao gồm phạm vi ba môn và PT thuộc Gym.
 2. [Business Rules](SportManagement_BusinessRules_v2.0_updated.docx): quy tắc nghiệp vụ cụ thể.
 3. [Thiết kế hệ thống](Center-Management-System-Design-v3.md): kiến trúc, dữ liệu, transaction, luồng và khoảng trống triển khai.
-4. [Requirements](Requirements.md), [từ điển dữ liệu](entity-field-purpose.md), [API contract](api-contract.md): yêu cầu, field/mapping và hợp đồng tích hợp.
-5. [PRODUCT](../PRODUCT.md), [DESIGN-SKILLS-GUIDE](../DESIGN-SKILLS-GUIDE.md), [DESIGN-TOKENS](../DESIGN-TOKENS.md): sản phẩm, quy trình thiết kế và nguồn token duy nhất. Page/API được phân vào bốn file giao việc frontend.
+4. [Requirements](Requirements.md), [API contract](api-contract.md), Phụ lục A (từ điển dữ liệu) của [thiết kế hệ thống](Center-Management-System-Design-v3.md): yêu cầu, field/mapping và hợp đồng tích hợp.
+5. [PRODUCT](../PRODUCT.md), [DESIGN-SKILLS-GUIDE](../DESIGN-SKILLS-GUIDE.md), [DESIGN-TOKENS](../DESIGN-TOKENS.md): sản phẩm, quy trình thiết kế và nguồn token duy nhất.
 
 Mã nguồn/controller/configuration xác định hành vi đã triển khai, không tự thay thế yêu cầu nghiệp vụ. Khi thiết kế và mã khác nhau, ghi gap cùng evidence; không tuyên bố hoàn thành chỉ vì đã có trong tài liệu. SRS Word là tài liệu yêu cầu tổng quan; các mô tả chi tiết chưa đồng bộ phải đọc theo phạm vi và thiết kế hiện hành.
 
@@ -84,4 +84,4 @@ Ngoài phạm vi: đa chi nhánh, payroll/hợp đồng, chia doanh thu với ng
 
 Danh sách tập trung ở **mục 13 của [thiết kế hệ thống](Center-Management-System-Design-v3.md)**: payment đã có mã nhưng sandbox thật chưa nghiệm thu; callback public cần kiểm tra/sửa; mô hình Gym/PT cần đồng bộ; Manager AI, chờ đợt sau, QR Member, PT self-booking và các API hỗ trợ frontend còn thiếu.
 
-Chi tiết G01–G13 và D01–D08 được phân trực tiếp vào file [An](frontend-redesign/01-AN-MEMBER-SHARED.md), [Khôi](frontend-redesign/02-KHOI-LANDING-PUBLIC.md), [Hào](frontend-redesign/03-HAO-RECEPTION-COACH.md), [Khoa](frontend-redesign/04-KHOA-MANAGER-ADMIN.md), theo ownership trong [guide](../DESIGN-SKILLS-GUIDE.md). Không duy trì API plan riêng hoặc quyết định cũ trái phạm vi.
+Chi tiết G01–G13 và D01–D08 theo ownership trong [guide](../DESIGN-SKILLS-GUIDE.md). Không duy trì API plan riêng hoặc quyết định cũ trái phạm vi.

@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { AsyncSection, Field, Feedback } from "@/components/ui";
 import { CheckoutPanel } from "@/features/payments";
+import { CourseSticker } from "@/features/courses";
 import { isRetiredActivityPackage } from "@/features/membership";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
@@ -145,19 +146,23 @@ export function PtSessionPurchase({
         </Link>
       )}
       <section className={styles.sessionIntro}>
-        <span>{text("PT TỪNG BUỔI", "PAY PER SESSION")}</span>
-        <h2>
-          {text(
-            "Chọn lịch tập. Thanh toán một buổi.",
-            "Choose your time. Pay for one session.",
-          )}
-        </h2>
-        <p>
-          {text(
-            "90 phút cùng coach · Cần Membership Gym còn hiệu lực · Lịch xác nhận sau khi thanh toán thành công.",
-            "90 minutes with your coach · Active Gym membership required · Booking confirmed after successful payment.",
-          )}
-        </p>
+        <div>
+          <h2>
+            {text(
+              "Chọn lịch tập. Thanh toán một buổi.",
+              "Choose your time. Pay for one session.",
+            )}
+          </h2>
+          <p>
+            {text(
+              "90 phút cùng coach · Cần Membership Gym còn hiệu lực · Lịch xác nhận sau khi thanh toán thành công.",
+              "90 minutes with your coach · Active Gym membership required · Booking confirmed after successful payment.",
+            )}
+          </p>
+        </div>
+        <div className={styles.introSticker} aria-hidden="true">
+          <CourseSticker sport="Gym" compact />
+        </div>
       </section>
       {values.checkout && !quote && (
         <section className={styles.panel}>
@@ -189,8 +194,8 @@ export function PtSessionPurchase({
               <section className={styles.panel}>
                 <h3>
                   {text(
-                    "1. Chọn coach và lịch trống",
-                    "1. Choose a coach and available time",
+                    "Chọn coach & lịch trống",
+                    "Choose a coach & available time",
                   )}
                 </h3>
                 <div className={styles.purchaseFields}>
@@ -321,16 +326,16 @@ export function PtSessionPurchase({
                 )}
               </section>
               <section className={styles.sessionReview}>
-                <h3>{text("2. Xem giá và thanh toán", "2. Review and pay")}</h3>
+                <h3>{text("Xác nhận buổi tập", "Session review")}</h3>
                 <p>
                   {text(
-                    "Chỉ thanh toán buổi tập bạn chọn. Không mua gói theo tuần.",
-                    "Pay only for your selected session. No weekly package purchase.",
+                    "Chọn lịch trống để xem giá và thanh toán cho một buổi PT 90 phút.",
+                    "Choose an available time to review and pay for a 90-minute PT session.",
                   )}
                 </p>
                 {quote ? (
                   <>
-                    <dl className={styles.facts}>
+                    <dl className={styles.reviewFacts}>
                       <div>
                         <dt>{text("Coach", "Coach")}</dt>
                         <dd>{quote.coachName}</dd>

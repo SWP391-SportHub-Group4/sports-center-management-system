@@ -20,6 +20,7 @@ import type {
   UserAdminDto,
 } from "@/lib/types";
 import { trainingStyles as styles } from "@/features/training";
+import { BmiDesk, BmiRequestQueue } from "@/features/training";
 
 /** Danh sách hội viên của Manager (Q12). Chỉ xem, mở hồ sơ vận hành. */
 export function ManagerMemberList() {
@@ -45,73 +46,78 @@ export function ManagerMemberList() {
     [search, page],
   );
   return (
-    <Card title={l.members}>
-      <Field label={l.findMember}>
-        <input
-          type="search"
-          value={keyword}
-          onChange={(e) => setKeyword(e.target.value)}
-        />
-      </Field>
-      <AsyncSection state={state}>
-        {(data) => {
-          const rows = pagedItems(data);
-          if (!rows.length)
-            return <p className={styles.muted}>{l.noMembers}</p>;
-          return (
-            <>
-              <Table
-                headers={[
-                  t.frontDesk.colName,
-                  t.frontDesk.colContact,
-                  t.frontDesk.colStatus,
-                  "",
-                ]}
-              >
-                {rows.map((m) => (
-                  <tr key={m.userId}>
-                    <td>{m.fullName || m.email}</td>
-                    <td>
-                      {m.email}
-                      {m.phone ? ` · ${m.phone}` : ""}
-                    </td>
-                    <td>
-                      <StatusChip value={m.status} />
-                    </td>
-                    <td>
-                      <Link
-                        className="btn btn--secondary btn--sm"
-                        href={`/manager/members/${m.userId}`}
-                      >
-                        {l.openMember}
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </Table>
-              <Pagination
-                page={page}
-                count={data.totalCount}
-                onChange={setPage}
-              />
-            </>
-          );
-        }}
-      </AsyncSection>
-    </Card>
+    <div>
+      <BmiRequestQueue basePath="/manager/members" />
+      <Card title={l.members}>
+        <Field label={l.findMember}>
+          <input
+            type="search"
+            value={keyword}
+            onChange={(e) => setKeyword(e.target.value)}
+          />
+        </Field>
+        <AsyncSection state={state}>
+          {(data) => {
+            const rows = pagedItems(data);
+            if (!rows.length)
+              return <p className={styles.muted}>{l.noMembers}</p>;
+            return (
+              <>
+                <Table
+                  headers={[
+                    t.frontDesk.colName,
+                    t.frontDesk.colContact,
+                    t.frontDesk.colStatus,
+                    "",
+                  ]}
+                >
+                  {rows.map((m) => (
+                    <tr key={m.userId}>
+                      <td>{m.fullName || m.email}</td>
+                      <td>
+                        {m.email}
+                        {m.phone ? ` · ${m.phone}` : ""}
+                      </td>
+                      <td>
+                        <StatusChip value={m.status} />
+                      </td>
+                      <td>
+                        <Link
+                          className="btn btn--secondary btn--sm"
+                          href={`/manager/members/${m.userId}`}
+                        >
+                          {l.openMember}
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </Table>
+                <Pagination
+                  page={page}
+                  count={data.totalCount}
+                  onChange={setPage}
+                />
+              </>
+            );
+          }}
+        </AsyncSection>
+      </Card>
+    </div>
   );
 }
 
-type TabId = "overview" | "invoices";
+type TabId = "overview" | "invoices" | "bmi";
 
 /** Hồ sơ vận hành của hội viên (Q12): Membership, gói PT, quan hệ Coach, hóa đơn. Không có thao tác sửa kế hoạch tập. */
 export function ManagerMemberProfile({ memberId }: { memberId: string }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const l = t.ptOps;
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
-  const tab: TabId = params.get("tab") === "invoices" ? "invoices" : "overview";
+  const requested = params.get("tab");
+  const tab: TabId =
+    requested === "invoices" || requested === "bmi" ? requested : "overview";
   const member = useApi(
     (signal) => api.get<UserAdminDto>(`/api/users/${memberId}`, { signal }),
     [memberId],
@@ -169,13 +175,16 @@ export function ManagerMemberProfile({ memberId }: { memberId: string }) {
         tabs={[
           { id: "overview", label: l.memberOverview },
           { id: "invoices", label: l.memberInvoices },
+          { id: "bmi", label: language === "vi" ? "Hồ sơ BMI" : "BMI Profile" },
         ]}
         value={tab}
         ariaLabel={l.memberTabsLabel}
         onChange={(id) => router.replace(`${pathname}?tab=${id}`)}
       >
         <div className={styles.tabBody}>
-          {tab === "invoices" ? (
+          {tab === "bmi" ? (
+            <BmiDesk key={memberId} memberId={memberId} />
+          ) : tab === "invoices" ? (
             <InvoiceList staff memberId={memberId} />
           ) : (
             <>

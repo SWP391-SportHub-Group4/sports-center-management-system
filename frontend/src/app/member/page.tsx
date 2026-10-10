@@ -40,12 +40,10 @@ import { walletApi } from "@/features/wallet/api";
 import styles from "./dashboard.module.css";
 
 function sessionHref(session: MemberEvent) {
-  if (session.type === "COURT_RENTAL")
-    return `/member/services?section=courts&view=owned&rental=${session.id}`;
   const date = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Ho_Chi_Minh",
   }).format(new Date(session.startAtUtc));
-  return `/member/schedule?date=${date}`;
+  return `/member/schedule?date=${date}${session.type === "COURT_RENTAL" ? `&rental=${encodeURIComponent(session.id)}` : ""}`;
 }
 
 function vietnamDate(value: string) {

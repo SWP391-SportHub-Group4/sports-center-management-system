@@ -87,6 +87,12 @@
   color: var(--text-muted);
   font-size: var(--text-sm);
 }
+.scheduleHint {
+  margin: 0 0 var(--space-3);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  line-height: 1.6;
+}
 .enrollment {
   position: static;
   padding: var(--space-3);
@@ -130,6 +136,26 @@
 }
 .payment {
   display: grid;
+}
+.registrationClosed {
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface-sunken);
+}
+.registrationClosed strong {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+}
+.registrationClosed svg {
+  flex-shrink: 0;
+}
+.registrationClosed p {
+  margin: var(--space-2) 0 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  line-height: 1.6;
 }
 .payment > button {
   width: 100%;
