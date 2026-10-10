@@ -42,7 +42,8 @@ public sealed class ClassService(
     // ---------------------------------------------------------------- Truy vấn
 
     public async Task<PagedResult<ClassPublicResponse>> ListPublicAsync(
-        int? sportId, int page, int pageSize, CancellationToken ct = default, DateOnly? fromDate = null, DateOnly? toDate = null)
+        int? sportId, int page, int pageSize, CancellationToken ct = default, DateOnly? fromDate = null,
+        DateOnly? toDate = null, bool openOnly = false, string? keyword = null)
     {
         (page, pageSize) = Normalize(page, pageSize);
 
@@ -50,6 +51,19 @@ public sealed class ClassService(
         if (sportId is int sid)
         {
             query = query.Where(c => c.SportId == sid);
+        }
+
+        if (openOnly)
+            query = query.Where(c => c.ReservedCount < c.Capacity);
+
+        if (!string.IsNullOrWhiteSpace(keyword))
+        {
+            var term = keyword.Trim();
+            if (term.Length > 100)
+                throw new BadRequestException("keyword_too_long", "Từ khóa tối đa 100 ký tự.");
+            var normalized = term.ToLowerInvariant();
+            query = query.Where(c => c.Code.ToLower().Contains(normalized)
+                || c.Name.ToLower().Contains(normalized));
         }
 
         if (fromDate.HasValue && toDate.HasValue && fromDate > toDate)

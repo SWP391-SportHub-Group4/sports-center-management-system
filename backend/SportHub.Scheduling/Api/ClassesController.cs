@@ -21,8 +21,10 @@ public class ClassesController(IClassService classes, IClassSessionService sessi
     [AllowAnonymous]
     [HttpGet("api/classes")]
     public async Task<IActionResult> ListPublic(
-        [FromQuery] int? sportId, [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default, DateOnly? fromDate = null, DateOnly? toDate = null)
-        => Ok(await classes.ListPublicAsync(sportId, page, pageSize, ct, fromDate, toDate));
+        [FromQuery] int? sportId, [FromQuery] int page = 1, [FromQuery] int pageSize = 20,
+        CancellationToken ct = default, DateOnly? fromDate = null, DateOnly? toDate = null,
+        [FromQuery] bool openOnly = false, [FromQuery] string? keyword = null)
+        => Ok(await classes.ListPublicAsync(sportId, page, pageSize, ct, fromDate, toDate, openOnly, keyword));
 
     [AllowAnonymous]
     [HttpGet("api/classes/{classId:int}")]

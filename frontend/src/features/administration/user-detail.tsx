@@ -58,9 +58,8 @@ export function UserDetail({ userId }: { userId: string }) {
       ) {
         throw new ApiError(400, "invalid_account_id", l.invalidId);
       }
-      // G10: this existing endpoint currently excludes SystemAdministrator.
-      // Keep the failure visible; never bypass it using Member/finance APIs.
-      return api.get<UserAdminDto>(`/api/users/${userId}`, { signal });
+      // Dedicated administrative account detail; no staff data policy is widened.
+      return api.get<UserAdminDto>(`/api/users/admin/${userId}`, { signal });
     },
     [userId],
   );

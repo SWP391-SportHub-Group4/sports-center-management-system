@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SportHub.BuildingBlocks.Api;
+using SportHub.BuildingBlocks.Abstractions.Training;
+using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.Membership.Application.Commands;
 using SportHub.Membership.Application.DTOs;
 using SportHub.Membership.Application.Interfaces;
@@ -16,7 +18,7 @@ namespace SportHub.Membership.Api;
 [ApiController]
 [Authorize]
 [Route("api")]
-public class TrainingProfilesController(IMemberTrainingProfileService profiles) : ControllerBase
+public class TrainingProfilesController(IMemberTrainingProfileService profiles, ICoachMemberAccess coachAccess) : ControllerBase
 {
     [Authorize(Policy = SportHubPolicies.Member)]
     [HttpGet("members/me/training-profile")]
@@ -38,6 +40,10 @@ public class TrainingProfilesController(IMemberTrainingProfileService profiles) 
     [HttpGet("members/{memberId:guid}/training-profile")]
     public async Task<IActionResult> GetByMember(Guid memberId, CancellationToken ct)
     {
+        if (User.IsInRole(SportHubRoleNames.Coach)
+            && !await coachAccess.HasActiveRelationshipAsync(User.RequireUserId(), memberId, ct))
+            throw new ForbiddenException("no_active_relationship", "Bạn không phụ trách hội viên này.");
+
         var profile = await profiles.GetAsync(memberId, ct);
 
         return profile is null ? NoContent() : Ok(profile);

@@ -16,6 +16,34 @@ namespace SportHub.Scheduling.Tests.Integration;
 public sealed class CoursePublishTests(SchedulingApiFactory factory)
 {
     [Fact]
+    public async Task Public_open_seat_filter_runs_before_count_and_paging()
+    {
+        var course = await CourseTestData.CreateAsync(factory);
+        using var guest = factory.CreateApiClient();
+        var path = $"/api/classes?keyword={Uri.EscapeDataString(course.Request.Code)}&openOnly=true&page=1&pageSize=1";
+        using (var available = System.Text.Json.JsonDocument.Parse(await guest.GetStringAsync(path)))
+        {
+            Assert.Equal(1, available.RootElement.GetProperty("totalCount").GetInt32());
+            Assert.Equal(course.Id, available.RootElement.GetProperty("items")[0].GetProperty("classId").GetInt32());
+        }
+
+        await factory.QueryAsync(async db =>
+        {
+            await db.Classes.Where(c => c.ClassId == course.Id)
+                .ExecuteUpdateAsync(s => s.SetProperty(c => c.ReservedCount, c => c.Capacity));
+            return 0;
+        });
+        using (var full = System.Text.Json.JsonDocument.Parse(await guest.GetStringAsync(path)))
+        {
+            Assert.Equal(0, full.RootElement.GetProperty("totalCount").GetInt32());
+            Assert.Empty(full.RootElement.GetProperty("items").EnumerateArray());
+        }
+        using var all = System.Text.Json.JsonDocument.Parse(
+            await guest.GetStringAsync(path.Replace("openOnly=true", "openOnly=false")));
+        Assert.Equal(1, all.RootElement.GetProperty("totalCount").GetInt32());
+    }
+
+    [Fact]
     public async Task Public_course_schedule_hides_draft_and_roster_and_validates_date_filters()
     {
         var c = await CourseTestData.CreateAsync(factory, publish: false);

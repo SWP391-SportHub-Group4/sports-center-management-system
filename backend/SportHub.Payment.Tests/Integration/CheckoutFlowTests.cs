@@ -60,6 +60,46 @@ public sealed class CheckoutFlowTests(PaymentApiFactory factory)
     }
 
     [Fact]
+    public async Task Anonymous_ipn_requires_valid_gateway_proof_and_return_never_fulfills()
+    {
+        var context = await SeedAsync();
+        using var member = factory.CreateApiClient(context.MemberId, UserRole.Member);
+        using var anonymous = factory.CreateApiClient();
+        var checkout = await CreateAsync(member, context.PackageId);
+        var started = await member.PostAsync($"/api/checkouts/{checkout.InvoiceId}/attempts", null);
+        Assert.Equal(HttpStatusCode.OK, started.StatusCode);
+        var attempt = (await started.Content.ReadFromJsonAsync<PaymentAttemptResponse>())!;
+
+        Assert.Equal(HttpStatusCode.OK,
+            (await anonymous.GetAsync("/api/payments/vnpay/return?vnp_ResponseCode=00")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK,
+            (await anonymous.GetAsync("/api/payments/vnpay/ipn?vnp_ResponseCode=00")).StatusCode);
+        await factory.QueryAsync(async db =>
+        {
+            Assert.Equal(InvoiceStatus.Issued,
+                (await db.Invoices.SingleAsync(x => x.InvoiceId == checkout.InvoiceId)).Status);
+            Assert.Equal(0, await db.Payments.CountAsync(x => x.InvoiceId == checkout.InvoiceId));
+            return 0;
+        });
+
+        var mock = Assert.IsType<MockPaymentGateway>(factory.Services.GetRequiredService<IPaymentGateway>());
+        var signed = mock.BuildCallback(attempt.TransactionReference, attempt.CashAmount, true);
+        var query = string.Join("&", signed.Select(x =>
+            $"{Uri.EscapeDataString(x.Key)}={Uri.EscapeDataString(x.Value)}"));
+        Assert.Equal(HttpStatusCode.OK,
+            (await anonymous.GetAsync($"/api/payments/vnpay/ipn?{query}")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK,
+            (await anonymous.GetAsync($"/api/payments/vnpay/ipn?{query}")).StatusCode);
+        await factory.QueryAsync(async db =>
+        {
+            Assert.Equal(InvoiceStatus.Paid,
+                (await db.Invoices.SingleAsync(x => x.InvoiceId == checkout.InvoiceId)).Status);
+            Assert.Equal(1, await db.Payments.CountAsync(x => x.InvoiceId == checkout.InvoiceId));
+            return 0;
+        });
+    }
+
+    [Fact]
     public async Task Explicit_points_confirmation_is_idempotent_without_gateway_attempt_and_recovery_is_owned()
     {
         var context = await SeedAsync();

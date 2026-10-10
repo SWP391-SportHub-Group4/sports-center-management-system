@@ -322,6 +322,7 @@ builder.Services.AddScoped<ICoachMemberRelationshipService>(
     sp => sp.GetRequiredService<CoachMemberRelationshipService>());
 builder.Services.AddScoped<ICoachRelationshipRegistrar>(
     sp => sp.GetRequiredService<CoachMemberRelationshipService>());
+builder.Services.AddScoped<ICoachMemberAccess, CoachMemberAccess>();
 builder.Services.AddScoped<IWorkoutService, WorkoutService>();
 
 // PT (BE-4) — entitlement/session lifecycle. PtSessionService đăng ký cụ thể vì

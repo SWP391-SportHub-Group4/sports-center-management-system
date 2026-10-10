@@ -53,6 +53,7 @@ public class AuditTargetAccountTests(SportHubApiFactory factory)
         using var oldValue = JsonDocument.Parse(row.OldValue!);
         Assert.Equal("RECEPTIONIST", oldValue.RootElement.GetProperty("role").GetString());
         Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync($"api/users/{target.UserId}")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync($"api/users/admin/{target.UserId}")).StatusCode);
 
         var updatedEmail = $"updated-target-{Guid.NewGuid():N}@example.com";
         using (var scope = factory.Services.CreateScope())

@@ -56,7 +56,7 @@ public sealed class GoogleTokenVerifier(IConfiguration configuration) : IGoogleT
 }
 
 /// <summary>
-/// Đăng nhập Google. Quy tắc nghiệp vụ: docs/auth-account-rules.md (thay BR-59, BR-60 cũ).
+/// Đăng nhập Google. Quy tắc nghiệp vụ: docs/SportManagement_BusinessRules_v2.0_updated.docx, mục P (thay BR-59, BR-60 cũ).
 /// - Danh tính Google đã liên kết: đăng nhập thẳng.
 /// - Email Google (đã được Google xác minh) trùng một tài khoản có sẵn: tự liên kết tài khoản đó với Google rồi đăng nhập.
 /// - Email chưa có tài khoản: tạo ngay tài khoản Member với mật khẩu trống (password_hash = NULL).

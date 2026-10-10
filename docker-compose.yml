@@ -40,7 +40,7 @@ services:
       VnPay__HashSecret: ${VnPay__HashSecret:-}
       VnPay__PaymentUrl: ${VnPay__PaymentUrl:-}
       VnPay__QueryUrl: ${VnPay__QueryUrl:-https://sandbox.vnpayment.vn/merchant_webapi/api/transaction}
-      VnPay__ReturnUrl: ${VnPay__ReturnUrl:-http://localhost:5000/api/payments/vnpay/return}
+      VnPay__ReturnUrl: ${VnPay__ReturnUrl:-http://localhost:3000/payments/return}
       VnPay__UseMock: ${VnPay__UseMock:-true}
 
       Smtp__Host: ${Email__Smtp__Host:-}
@@ -56,6 +56,7 @@ services:
       # Website hỗ trợ ghi ở cuối email (để trống = chỉ ghi "liên hệ trung tâm"; điền khi đã deploy).
       Frontend__SupportUrl: ${Frontend__SupportUrl:-}
       DataProtection__KeysPath: ${DataProtection__KeysPath:-/var/lib/sporthub/dataprotection-keys}
+      Reports__StorageRoot: ${Reports__StorageRoot:-/var/lib/sporthub/reports}
 
 
       Gemini__ApiKey: ${Gemini__ApiKey:-}
@@ -68,10 +69,15 @@ services:
       - "5000:8080"
     volumes:
       - sporthub_dataprotection:/var/lib/sporthub/dataprotection-keys
+      - sporthub_reports:/var/lib/sporthub/reports
 
   frontend:
     build:
       context: ./frontend
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL}
+        NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${NEXT_PUBLIC_GOOGLE_CLIENT_ID:-}
+        NEXT_PUBLIC_SIGNALR_HUB_URL: ${NEXT_PUBLIC_SIGNALR_HUB_URL:-}
     container_name: sporthub-frontend
     restart: unless-stopped
     depends_on:
@@ -84,3 +90,4 @@ services:
 volumes:
   sporthub_pgdata:
   sporthub_dataprotection:
+  sporthub_reports:

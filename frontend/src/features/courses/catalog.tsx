@@ -58,7 +58,6 @@ export function CourseCatalog({
     (signal) => api.get<SportDto[]>("/api/sports", { anonymous: true, signal }),
     [],
   );
-  // "Còn chỗ" chưa có tham số ở server: lấy tối đa 100 lớp rồi lọc và chia trang ở máy khách.
   const courses = useApi(
     (signal) =>
       courseApi.list(
@@ -66,19 +65,16 @@ export function CourseCatalog({
           sportId,
           fromDate: effectiveFromDate,
           toDate,
-          page: openOnly ? 1 : page,
-          pageSize: openOnly ? 100 : PAGE,
+          page,
+          pageSize: PAGE,
+          openOnly,
         },
         signal,
       ),
     [sportId, effectiveFromDate, toDate, page, openOnly],
   );
-  const all = pagedItems(courses.data);
-  const filtered = openOnly ? all.filter((c) => c.availableSeats > 0) : all;
-  const total = openOnly ? filtered.length : (courses.data?.totalCount ?? 0);
-  const shown = openOnly
-    ? filtered.slice((page - 1) * PAGE, page * PAGE)
-    : filtered;
+  const shown = pagedItems(courses.data);
+  const total = courses.data?.totalCount ?? 0;
   const pages = Math.max(1, Math.ceil(total / PAGE));
   const hasFilter = !!(sportId || fromDate || toDate || openOnly);
   const filters = (

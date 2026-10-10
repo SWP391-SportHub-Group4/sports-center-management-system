@@ -8,7 +8,7 @@ using SportHub.Identity.Application.Interfaces;
 
 namespace SportHub.Identity.Api;
 
-/// <summary>Đăng nhập Google: tự tạo tài khoản hoặc tự liên kết theo email đã xác minh (docs/auth-account-rules.md).</summary>
+/// <summary>Đăng nhập Google: tự tạo tài khoản hoặc tự liên kết theo email đã xác minh (docs/SportManagement_BusinessRules_v2.0_updated.docx, mục P).</summary>
 [ApiController]
 [Route("api/auth")]
 public class GoogleAuthController(IGoogleAuthService google) : ControllerBase

@@ -43,7 +43,7 @@ public sealed class UpdateMyProfileRequest
 
 /// <summary>
 /// Hồ sơ và mật khẩu của chính người dùng — đặt/đổi mật khẩu chỉ làm được từ bên trong phiên đã xác thực
-/// (xem docs/auth-account-rules.md), BR-62 (số điện thoại duy nhất).
+/// (xem docs/SportManagement_BusinessRules_v2.0_updated.docx, mục P), BR-62 (số điện thoại duy nhất).
 ///
 /// Mọi hàm nhận userId từ JWT ở controller, không nhận từ body.
 /// </summary>

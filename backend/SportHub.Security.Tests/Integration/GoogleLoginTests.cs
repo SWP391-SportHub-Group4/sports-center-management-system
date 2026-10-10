@@ -9,7 +9,7 @@ using SportHub.Identity.Domain.Enums;
 namespace SportHub.Security.Tests.Integration;
 
 /// <summary>
-/// Đăng nhập Google theo docs/auth-account-rules.md: tự tạo tài khoản (password_hash = NULL) và
+/// Đăng nhập Google theo docs/SportManagement_BusinessRules_v2.0_updated.docx, mục P: tự tạo tài khoản (password_hash = NULL) và
 /// tự liên kết tài khoản có sẵn theo email Google đã xác minh. Không còn bước onboarding.
 /// </summary>
 [Collection(nameof(SportHubApiCollection))]

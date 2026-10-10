@@ -14,7 +14,7 @@ public class GymCheckInConfiguration : IEntityTypeConfiguration<GymCheckIn>
         builder.HasKey(e => e.CheckInId);
 
         // Cột đặt tên tường minh vì doc lệch nhau: ERD ghi check_in_time_utc, còn SSOT §2
-        // và entity-field-purpose.md ghi CheckInTime. Chốt theo SSOT và theo tiền lệ
+        // và Center-Management-System-Design-v3.md (Phụ lục A) ghi CheckInTime. Chốt theo SSOT và theo tiền lệ
         // Attendance.CheckInTime (cùng module, cũng là mốc UTC); ERD đã sửa cho khớp.
         builder.Property(e => e.CheckInTime).HasColumnName("check_in_time");
         builder.Property(e => e.CheckOutTime).HasColumnName("check_out_time");

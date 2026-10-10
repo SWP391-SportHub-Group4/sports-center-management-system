@@ -8,6 +8,8 @@ export const courseApi = {
       toDate?: string;
       page?: number;
       pageSize?: number;
+      openOnly?: boolean;
+      keyword?: string;
     },
     signal?: AbortSignal,
   ) =>

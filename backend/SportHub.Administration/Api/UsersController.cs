@@ -20,10 +20,10 @@ namespace SportHub.Administration.Api;
 public class UsersController(IUserAdminService users) : ControllerBase
 {
     /// <summary>
-    /// Danh sách tài khoản. SystemAdministrator dùng để quản trị; Lễ tân/Quản lý cần tra
-    /// hội viên khi bán gói hay đăng ký hộ.
+    /// Danh sách tài khoản cho Lễ tân/Quản lý tra hội viên khi bán gói hay đăng ký hộ.
+    /// SystemAdministrator dùng route admin riêng.
     /// </summary>
-    [Authorize(Policy = SportHubPolicies.StaffRead)]
+    [Authorize(Policy = SportHubPolicies.FrontDesk)]
     [HttpGet]
     public async Task<IActionResult> Search(
         [FromQuery] string? keyword,
@@ -47,7 +47,13 @@ public class UsersController(IUserAdminService users) : ControllerBase
         [FromQuery] string? sortDirection = null)
         => Ok(await users.SearchAsync(keyword, role, status, page, pageSize, ct, sortBy, sortDirection));
 
-    [Authorize(Policy = SportHubPolicies.StaffRead)]
+    /// <summary>Administrative account detail without granting broader staff read access.</summary>
+    [Authorize(Policy = SportHubPolicies.SystemAdministrator)]
+    [HttpGet("admin/{userId:guid}")]
+    public async Task<IActionResult> GetForAdmin(Guid userId, CancellationToken ct)
+        => Ok(await users.GetAsync(userId, ct));
+
+    [Authorize(Policy = SportHubPolicies.FrontDesk)]
     [HttpGet("{userId:guid}")]
     public async Task<IActionResult> Get(Guid userId, CancellationToken ct) => Ok(await users.GetAsync(userId, ct));
 

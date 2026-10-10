@@ -28,12 +28,12 @@ public class MemberPackagesController(IMemberPackageService memberPackages) : Co
     public async Task<IActionResult> GetMine(CancellationToken ct)
         => Ok(await memberPackages.GetByMemberAsync(User.RequireUserId(), ct));
 
-    [Authorize(Policy = SportHubPolicies.StaffRead)]
+    [Authorize(Policy = SportHubPolicies.FrontDesk)]
     [HttpGet("members/{memberId:guid}/packages")]
     public async Task<IActionResult> GetByMember(Guid memberId, CancellationToken ct)
         => Ok(await memberPackages.GetByMemberAsync(memberId, ct));
 
-    [Authorize(Policy = SportHubPolicies.StaffRead)]
+    [Authorize(Policy = SportHubPolicies.FrontDesk)]
     [HttpGet("member-packages")]
     public async Task<IActionResult> Search(
         [FromQuery] string? status,

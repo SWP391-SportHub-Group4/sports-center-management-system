@@ -10,7 +10,7 @@ using SportHub.Identity.Domain.Enums;
 namespace SportHub.Security.Tests.Integration;
 
 /// <summary>
-/// Luồng A (docs/auth-account-rules.md): tài khoản chưa có mật khẩu (đăng ký bằng Google) tạo mật khẩu trong Cài đặt
+/// Luồng A (docs/SportManagement_BusinessRules_v2.0_updated.docx, mục P): tài khoản chưa có mật khẩu (đăng ký bằng Google) tạo mật khẩu trong Cài đặt
 /// tài khoản, bắt buộc kèm mã OTP 6 số gửi về chính email đó. Tài khoản đã có mật khẩu vẫn đổi bằng mật khẩu hiện tại.
 /// </summary>
 [Collection(nameof(SportHubApiCollection))]
