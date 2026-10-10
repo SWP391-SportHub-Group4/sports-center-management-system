@@ -158,7 +158,11 @@ export function getNavForUser(user: {
           ].includes(item.href),
         ),
       ]
-    : base;
+    : [
+        { href: "/coach/schedule", labelKey: "teachingSchedule" },
+        { href: "/coach/classes", labelKey: "assignedClasses" },
+        { href: "/coach/members", labelKey: "classStudents" },
+      ];
 }
 
 type GroupKey = keyof Translations["navigation"]["groups"];
@@ -202,6 +206,7 @@ const GROUP_SPEC: Partial<Record<Role, (string | [GroupKey, string[]])[]>> = {
   Coach: [
     "/coach",
     "/coach/schedule",
+    "/coach/classes",
     "/coach/members",
     "/coach/attendance",
     [

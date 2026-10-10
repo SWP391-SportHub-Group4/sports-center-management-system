@@ -18,6 +18,14 @@ public sealed class NotificationActionReader(SportHubDbContext db) : INotificati
             var links = new Dictionary<Guid, string>();
             switch (group.Key)
             {
+                case "ClassTeachingUpdated":
+                    var teaching = await db.Set<SportHub.Scheduling.Domain.Entities.ClassTeachingRecord>()
+                        .Where(x => ids.Contains(x.RecordId) && (x.MemberId == null || x.MemberId == userId))
+                        .Where(x => db.Enrollments.Any(e => e.ClassId == x.ClassId && e.MemberId == userId))
+                        .Select(x => new { x.RecordId, x.ClassId }).ToListAsync(ct);
+                    foreach (var record in teaching)
+                        links[record.RecordId] = $"/member/schedule?course={record.ClassId}";
+                    break;
                 case "InvoiceCreated":
                 case "PaymentReceived":
                     foreach (var id in await db.Invoices.Where(x => x.MemberId == userId && ids.Contains(x.InvoiceId))

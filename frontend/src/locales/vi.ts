@@ -1532,6 +1532,8 @@ export const vi: Translations = {
       ptChangeRequests: "Yêu cầu thay đổi PT",
       trainingResults: "Kết quả buổi tập",
       assignedMembers: "Hội viên phụ trách",
+      assignedClasses: "Lớp phụ trách",
+      classStudents: "Học viên",
       trainingPlans: "Giáo án bài tập",
       progress: "Kết quả & tiến độ",
       aiSuggestions: "Gợi ý thông minh AI",

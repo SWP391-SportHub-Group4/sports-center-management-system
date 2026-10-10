@@ -63,7 +63,11 @@ Các endpoint dưới đây phục vụ frontend API-backed. Không thay schema/
 | GET | `/api/coach-member-relationships` | Member/Coach/Manager; Member/Coach bị clamp theo owner. Không có endpoint members/me/relationships giả. |
 | GET | `/api/wallet/me/ledger?page=&pageSize=&entryType=` | Array WalletLedgerResponse, không Paged; timestamp createdAtUtc. Filter HOLD/RELEASE/SPEND/EARN/ADJUSTMENT áp trước pagination; filter sai 400. Ledger staff cũng hỗ trợ filter; chỉ Receptionist ghi audit lần xem. |
 
-## Quy ước chung
+## API bổ sung cho Coach lớp nhóm
+
+Xem [Coach Teaching Workspace](Coach-Teaching-Workspace.md#hợp-đồng-api): endpoint được giới hạn theo lớp/buổi được phân công, hỗ trợ lưu giáo án, kết quả, bài tập/thông báo, điểm danh và Gemini suggestion. Member có feed theo lớp đã ghi danh. Có migration `AddClassTeachingWorkspace`; extension này được chủ sản phẩm xác nhận cho phép Coach ghi điểm danh lớp nhóm qua route mới.
+
+## Quy ước wire và dữ liệu
 
 - Enum JSON hiện tại: **UPPER_SNAKE_CASE** (`ISSUED`, `PAID_AFTER_RECONCILIATION`, `GROUP_COURSE`, `VN_PAY`). Enum số không được chấp nhận. DTO string biểu diễn enum có `WireEnum` converter; query enum chấp nhận canonical và tên nội bộ để tương thích. JWT role claim vẫn dùng tên nội bộ, không tự chuyển JWT.
 - Enum DB hiện tại: lưu int mặc định EF (không có `HasConversion`). Khi thêm giá trị phải append, không đổi số cũ. `UserRole` hiện: CenterManager=0, Coach=1, Member=2, Receptionist=3, SystemAdministrator=4 (đúng 5 role, BR-140).

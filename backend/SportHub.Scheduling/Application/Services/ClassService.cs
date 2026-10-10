@@ -136,7 +136,7 @@ public sealed class ClassService(
     public async Task<IReadOnlyList<ClassPublicResponse>> ListForCoachAsync(Guid coachId, CancellationToken ct = default)
     {
         var rows = await Rows(db.Set<Class>().AsNoTracking()
-            .Where(c => c.CoachId == coachId && c.Status != ClassStatus.Draft && c.Status != ClassStatus.Cancelled)
+            .Where(c => (c.CoachId == coachId || db.Set<ClassSession>().Any(s => s.ClassId == c.ClassId && s.CoachId == coachId)) && c.Status != ClassStatus.Draft && c.Status != ClassStatus.Cancelled)
             .OrderBy(c => c.StartDate).Take(200)).ToListAsync(ct);
 
         return await ToPublicAsync(rows, ct);

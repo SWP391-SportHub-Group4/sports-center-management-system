@@ -255,6 +255,7 @@ builder.Services.AddScoped<SportHub.Scheduling.Rental.Application.IncidentServic
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Scheduling.ICourtRentalFulfillment>(
     sp => sp.GetRequiredService<SportHub.Scheduling.Rental.Application.CourtRentalService>());
 builder.Services.AddScoped<IClassService, ClassService>();
+builder.Services.AddScoped<ClassTeachingService>();
 builder.Services.AddScoped<CourseCancellationService>();
 builder.Services.AddScoped<SportHub.Scheduling.Threshold.Application.IClassThresholdService,
     SportHub.Scheduling.Threshold.Application.ClassThresholdService>();
@@ -417,6 +418,20 @@ builder.Services.AddScoped<Br141DemoSeeder>();
 builder.Services.AddScoped<PaymentNoticeService>();
 
 var app = builder.Build();
+
+if (args.Any(a => a == "--seed-coach-teaching=true"))
+{
+    if (!app.Environment.IsDevelopment())
+        throw new InvalidOperationException("Coach teaching fixtures are only available in Development.");
+    var target = new Npgsql.NpgsqlConnectionStringBuilder(app.Configuration.GetConnectionString("Default"));
+    if (target.Host is not ("localhost" or "127.0.0.1" or "::1"))
+        throw new InvalidOperationException("Coach teaching fixtures must target a local Development database.");
+    Console.WriteLine($"[seed-coach-teaching] database '{target.Database}' on '{target.Host}:{target.Port}'");
+    await using var scope = app.Services.CreateAsyncScope();
+    await scope.ServiceProvider.GetRequiredService<SportHubDbContext>().Database.MigrateAsync();
+    await scope.ServiceProvider.GetRequiredService<DemoDataSeeder>().SeedCoachTeachingAsync();
+    return;
+}
 
 if (args.Any(a => a == "--seed-member-calendar=true"))
 {

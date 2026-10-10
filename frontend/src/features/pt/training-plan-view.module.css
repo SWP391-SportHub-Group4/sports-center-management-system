@@ -1,0 +1,362 @@
+.workspace {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.scopeTabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+.scopeTabs button {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  color: var(--text-body);
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+  min-height: 52px;
+}
+.scopeTabs button strong {
+  margin-left: auto;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+.scopeTabs button[data-scope="course"][aria-pressed="true"] {
+  background: var(--info-bg);
+  color: var(--info-text);
+  border-color: var(--info-solid);
+}
+.scopeTabs button[data-scope="session"][aria-pressed="true"] {
+  background: var(--color-primary-soft);
+  color: var(--color-primary-soft-text);
+  border-color: var(--color-primary);
+}
+.scopeTabs button[data-scope="personal"][aria-pressed="true"] {
+  background: var(--warning-bg);
+  color: var(--warning-text);
+  border-color: var(--warning-solid);
+}
+.scopeTabs button:hover {
+  border-color: var(--border-strong);
+}
+.scopeDescription {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: var(--text-body);
+}
+.toolbar {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+.toolbar label {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+  flex: 1 1 200px;
+  font-size: 0.8rem;
+  color: var(--text-body);
+}
+.toolbar select {
+  min-width: 0;
+  width: 100%;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  color: var(--text-strong);
+  font: inherit;
+  padding: var(--space-2);
+  min-height: 40px;
+}
+.planList {
+  display: grid;
+  border-top: 1px solid var(--border-subtle);
+}
+.plan {
+  min-width: 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.planSummary {
+  display: flex;
+  width: 100%;
+  gap: var(--space-3);
+  align-items: start;
+  padding: var(--space-4) var(--space-2);
+  border: 0;
+  background: transparent;
+  color: var(--text-strong);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+.planSummary:hover {
+  background: var(--bg-surface-sunken);
+}
+.summaryMain {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  gap: var(--space-1);
+  overflow-wrap: anywhere;
+}
+.summaryMain > strong {
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+.summaryMain > small {
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--text-body);
+}
+.scopeLabel {
+  width: fit-content;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--info-text);
+}
+.plan[data-scope="session"] .scopeLabel {
+  color: var(--color-primary-soft-text);
+}
+.plan[data-scope="personal"] .scopeLabel {
+  color: var(--warning-text);
+}
+.preview {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  color: var(--text-body);
+  font-size: 0.85rem;
+  line-height: 1.5;
+  white-space: pre-line;
+}
+.chevron {
+  margin-top: var(--space-2);
+  flex-shrink: 0;
+  transition: transform 0.18s ease;
+}
+.plan[data-expanded="true"] .chevron {
+  transform: rotate(180deg);
+}
+.planBody {
+  padding: 0 var(--space-2) var(--space-3);
+}
+.steps {
+  display: grid;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.steps li {
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 0.85rem;
+  line-height: 1.7;
+}
+.steps li:last-child {
+  border-bottom: 0;
+}
+.stepIndex {
+  flex: 0 0 28px;
+  align-self: start;
+  text-align: center;
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface-sunken);
+  color: var(--text-body);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+.steps li > div {
+  min-width: 0;
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+.steps p {
+  margin: 0;
+  white-space: pre-wrap;
+}
+.steps strong {
+  display: block;
+  font-weight: 600;
+}
+.longText summary {
+  cursor: pointer;
+  list-style: none;
+}
+.longText summary small {
+  display: block;
+  color: var(--text-link);
+  font-weight: 600;
+}
+.longText[open] summary > span {
+  display: none;
+}
+.longText summary .readLess,
+.longText[open] summary .readMore {
+  display: none;
+}
+.longText[open] summary .readLess {
+  display: block;
+}
+.longText[open] p {
+  margin-top: var(--space-2);
+}
+.planFooter {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+}
+.planFooter small {
+  color: var(--text-body);
+  font-size: 0.75rem;
+}
+.roadmap {
+  min-width: 0;
+  margin-top: var(--space-3);
+}
+.roadmapHeader h3 {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 1rem;
+  line-height: 1.5;
+}
+.roadmapHeader p {
+  margin: var(--space-1) 0 var(--space-4);
+  color: var(--text-body);
+  font-size: 0.8rem;
+}
+.roadmapList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.roadmapList > li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  position: relative;
+  padding-bottom: var(--space-5);
+}
+.roadmapList > li:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  left: 17px;
+  top: 36px;
+  bottom: 0;
+  width: 1px;
+  background: var(--border-subtle);
+}
+.roadmapNumber {
+  display: grid;
+  place-items: center;
+  flex: 0 0 36px;
+  height: 36px;
+  border: 1px solid var(--info-solid);
+  border-radius: var(--radius-md);
+  color: var(--info-text);
+  background: var(--info-bg);
+  font-size: 0.8rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.roadmapContent {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.roadmapContent > header {
+  display: grid;
+  gap: var(--space-1);
+  margin-bottom: var(--space-2);
+}
+.roadmapContent > header strong {
+  color: var(--text-strong);
+  font-size: 0.9rem;
+}
+.roadmapContent > header small {
+  color: var(--text-body);
+  font-size: 0.75rem;
+}
+.roadmapLesson + .roadmapLesson {
+  margin-top: var(--space-3);
+}
+.roadmapLesson h4 {
+  margin: 0 0 var(--space-1);
+  color: var(--text-strong);
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+.roadmapTopics {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  margin: 0;
+  color: var(--text-body);
+  font-size: 0.85rem;
+  line-height: 1.7;
+}
+.roadmapDetails summary {
+  width: fit-content;
+  cursor: pointer;
+  color: var(--text-link);
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: var(--space-2) 0;
+}
+.empty {
+  padding: var(--space-5) var(--space-3);
+  text-align: center;
+  color: var(--text-body);
+}
+.empty h3 {
+  font-size: 0.95rem;
+  margin: var(--space-2) 0;
+}
+.empty p {
+  font-size: 0.85rem;
+  margin: 0;
+  line-height: 1.7;
+}
+.workspace :is(button, select, summary):focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 3px;
+}
+@media (max-width: 480px) {
+  .scopeTabs button {
+    gap: var(--space-1);
+    padding: var(--space-2);
+    font-size: 0.8rem;
+  }
+  .scopeTabs button svg {
+    width: 16px;
+  }
+  .scopeTabs button strong {
+    width: 100%;
+    margin: 0;
+    font-weight: 500;
+  }
+  .toolbar > button {
+    width: 100%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chevron {
+    transition: none;
+  }
+}

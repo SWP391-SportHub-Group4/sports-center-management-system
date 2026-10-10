@@ -20,5 +20,6 @@ public enum NotificationSourceEventType
     IncidentResolution,
     PointConfirmationOtpRequested,
     InvoiceCreated = 15,
-    RefundCompleted = 16
+    RefundCompleted = 16,
+    ClassTeachingUpdated = 17
 }
