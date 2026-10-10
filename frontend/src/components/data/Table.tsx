@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import type { TableColumn, TableProps } from "@/components/contracts/table";
+import { usePathname } from "next/navigation";
 import { StateView } from "./StateView";
 import { useLanguage } from "@/lib/language";
 import styles from "./Table.module.css";
@@ -42,6 +43,7 @@ export function Table<Row>({
 }: TableProps<Row>) {
   const { t } = useLanguage();
   const id = useId();
+  const management = /^\/(manager|admin)(\/|$)/.test(usePathname());
   const labels = t.dataTable;
   const kind = status === "ready" && rows.length === 0 ? "empty" : status;
   const hiddenClass = (column: TableColumn<Row>) =>
@@ -160,13 +162,14 @@ export function Table<Row>({
             </div>
           )}
           <div
+            data-management-table={management || undefined}
             className={`${styles.viewport} ${mobile === "cards" ? styles.cardTable : ""}`}
             role="region"
             aria-label={caption}
             tabIndex={mobile === "scroll" ? 0 : undefined}
             aria-busy={kind === "loading" || undefined}
           >
-            <table>
+            <table data-columns={columns.length + (hasActions ? 1 : 0)}>
               <caption className="sr-only">{caption}</caption>
               <thead>
                 <tr>

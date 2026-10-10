@@ -99,7 +99,7 @@ function Qualifications({ coach }: { coach: CoachAdminDto }) {
                           )
                         }
                       />
-                      PT · #{id}
+                      PT · {t.managerAudit.nameUnavailable}
                     </label>
                   ))}
               </fieldset>
@@ -207,7 +207,11 @@ function CoachSpecialties({ coach }: { coach: CoachAdminDto }) {
         <p>
           {t.operations.specialties}:{" "}
           {coach.sportIds
-            .map((id) => sports.find((s) => s.sportId === id)?.name ?? `#${id}`)
+            .map(
+              (id) =>
+                sports.find((s) => s.sportId === id)?.name ??
+                t.managerAudit.nameUnavailable,
+            )
             .join(", ")}
         </p>
       )}

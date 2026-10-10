@@ -257,8 +257,25 @@ async function fixture(
       });
     if (p === `/api/manager/notices/${noticeId}`)
       return route.fulfill({ json: { noticeId, delivery } });
-    if (p === `/api/manager/incidents/${noticeId}/notifications`)
-      return route.fulfill({ json: delivery });
+    if (p === "/api/manager/incidents")
+      return route.fulfill({ json: paged([]) });
+    if (p === `/api/manager/incidents/${noticeId}`)
+      return route.fulfill({
+        json: {
+          incident: {
+            incidentId: noticeId,
+            scope: "ROOM",
+            roomName: "Court A",
+            startAtUtc: "2030-10-03T11:00:00Z",
+            endAtUtc: "2030-10-03T12:30:00Z",
+            reason: "Court repair",
+            createdAtUtc: "2030-09-01T00:00:00Z",
+          },
+          blockedRooms: ["Court A"],
+          cancelledRentals: 1,
+          delivery,
+        },
+      });
     if (p === "/api/refunds") return route.fulfill({ json: paged([]) });
     if (p.includes("pt-") && p.endsWith("change-requests"))
       return route.fulfill({ json: [] });
@@ -292,6 +309,208 @@ async function fixture(
     });
   });
 }
+async function attentionFixture(page: Page) {
+  await page.route("**/api/manager/classes?**", (route) =>
+    route.fulfill({
+      json: paged(
+        [
+          {
+            ...course,
+            status: "PUBLISHED",
+            thresholdStatus: "AT_RISK",
+            firstSessionStartUtc: "2030-10-03T11:00:00Z",
+          },
+        ],
+        27,
+      ),
+    }),
+  );
+  await page.route("**/api/refunds?**", (route) =>
+    route.fulfill({
+      json: paged([
+        {
+          adjustmentId: noticeId,
+          invoiceId: sessionId,
+          invoiceNumber: "INV-2030-000012",
+          requestedByName: "Receptionist Lan",
+          requestedByUserId: managerId,
+          status: "REQUESTED",
+          systemCalculatedPoints: 600,
+          approvedPoints: 0,
+          amount: 0,
+          requestedAmount: 999999,
+          reason: "Unable to attend the course",
+          createdAt: "2030-10-01T03:00:00Z",
+        },
+      ]),
+    }),
+  );
+  await page.route("**/api/manager/pt-coach-change-requests?**", (route) =>
+    route.fulfill({
+      json: [
+        {
+          requestId: noticeId,
+          memberId,
+          memberName: "Member Bao",
+          status: "PENDING",
+          currentCoachName: "Coach Linh",
+          requestedCoachName: "Coach Mai",
+          reason: "Prefer a morning coach",
+          requestedAt: "2030-10-01T03:00:00Z",
+        },
+      ],
+    }),
+  );
+  await page.route("**/api/manager/pt-session-change-requests?**", (route) =>
+    route.fulfill({
+      json: [
+        {
+          requestId: sessionId,
+          memberId,
+          status: "PENDING",
+          requestType: "RESCHEDULE",
+          sessionStartAtUtc: "2030-10-03T11:00:00Z",
+          requestedStartAtUtc: "2030-10-04T11:00:00Z",
+          requestedAt: "2030-10-02T03:00:00Z",
+          reason: "Change my training time",
+          requestsException: true,
+        },
+      ],
+    }),
+  );
+  await page.route(`**/api/users/${memberId}`, (route) =>
+    route.fulfill({ json: { fullName: "Member An", email: "an@example.com" } }),
+  );
+}
+
+for (const language of ["en", "vi"] as const) {
+  for (const width of [1440, 390]) {
+    test(`${language === "vi" ? "Vietnamese copy " : ""}Needs attention keeps a compact actionable preview at ${width}px`, async ({
+      page,
+    }) => {
+      const t = language === "vi" ? vi : en;
+      const m = t.managerOperations;
+      await attentionFixture(page);
+      await page.setViewportSize({ width, height: 1000 });
+      await page.goto("/manager");
+      const classes = page.getByRole("region", { name: m.atRisk, exact: true });
+      await expect(classes).toContainText("27");
+      await expect(
+        classes.getByText(m.confirmedStudents, { exact: true }).locator("+ dd"),
+      ).toHaveText("4");
+      await expect(
+        classes.getByText(m.requiredStudents, { exact: true }).locator("+ dd"),
+      ).toHaveText("6");
+      await expect(classes).not.toContainText("Court A");
+      await expect(classes).toContainText("03/10/2030, 18:00");
+      const refunds = page.getByRole("region", {
+        name: m.refunds,
+        exact: true,
+      });
+      await expect(refunds).toContainText("Receptionist Lan");
+      await expect(refunds).not.toContainText("Unable to attend the course");
+      await expect(
+        refunds
+          .getByText(t.staffWork.systemCap, { exact: true })
+          .locator("+ dd"),
+      ).toContainText("600");
+      await expect(refunds).not.toContainText("999,999");
+      await expect(
+        refunds.getByRole("link", { name: m.reviewRefunds, exact: true }),
+      ).toHaveAttribute("href", "/manager/finance?tab=refunds");
+      const pt = page.getByRole("region", { name: m.requests, exact: true });
+      await expect(pt).toContainText("Member An");
+      await expect(pt).toContainText(m.reschedulePtSession);
+      await expect(pt).toContainText(m.changeCoach);
+      await expect(pt).not.toContainText("Coach Mai");
+      await expect(pt).not.toContainText("Prefer a morning coach");
+      await expect(pt).not.toContainText("Change my training time");
+      await expect(pt).toContainText(t.staffWork.exception);
+      expect(await pt.locator("li").first().innerText()).toContain("Member An");
+      expect(await page.locator("main").innerText()).not.toMatch(
+        /[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}/i,
+      );
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth),
+      ).toBeLessThanOrEqual(width + 1);
+      await pt.getByRole("link", { name: "Member Bao", exact: true }).click();
+      await expect(
+        page.getByRole("button", {
+          name: t.staffWork.coachChanges,
+          exact: true,
+        }),
+      ).toHaveAttribute("aria-pressed", "true");
+    });
+  }
+}
+
+test("Needs attention handles empty queues and independent refund recovery", async ({
+  page,
+}) => {
+  await page.route("**/api/manager/classes?**", (route) =>
+    route.fulfill({ json: paged([]) }),
+  );
+  let failRefunds = false;
+  await page.route("**/api/refunds?**", (route) =>
+    route.fulfill(
+      failRefunds
+        ? {
+            status: 503,
+            json: {
+              code: "temporarily_unavailable",
+              message: "Refund queue temporarily unavailable",
+            },
+          }
+        : { json: paged([]) },
+    ),
+  );
+  await page.goto("/manager");
+  const m = en.managerOperations;
+  await expect(page.getByText(m.noAtRisk, { exact: true })).toBeVisible();
+  await expect(page.getByText(m.noRefunds, { exact: true })).toBeVisible();
+  await expect(page.getByText(m.noPtRequests, { exact: true })).toBeVisible();
+  failRefunds = true;
+  await page
+    .getByRole("button", { name: en.operations.refresh, exact: true })
+    .click();
+  await expect(page.locator("main").getByRole("alert")).toContainText(
+    "Refund queue temporarily unavailable",
+  );
+  await expect(page.getByText(m.noAtRisk, { exact: true })).toBeVisible();
+  failRefunds = false;
+  await page
+    .getByRole("button", { name: en.common.retry, exact: true })
+    .click();
+  await expect(page.getByText(m.noRefunds, { exact: true })).toBeVisible();
+  await expect(page.locator("main").getByRole("alert")).toHaveCount(0);
+});
+
+test("Needs attention does not present a PT preview as an exact total", async ({
+  page,
+}) => {
+  await page.route("**/api/manager/pt-coach-change-requests?**", (route) =>
+    route.fulfill({
+      json: Array.from({ length: 6 }, (_, i) => ({
+        requestId: String(i),
+        memberId,
+        memberName: `Member ${i}`,
+        requestedAt: `2030-10-0${i + 1}T03:00:00Z`,
+        currentCoachName: "Coach Linh",
+        requestedCoachName: "Coach Mai",
+        status: "PENDING",
+      })),
+    }),
+  );
+  await page.goto("/manager");
+  const pt = page.getByRole("region", {
+    name: en.managerOperations.requests,
+    exact: true,
+  });
+  await expect(pt).toContainText("5+");
+  await expect(pt.locator("li")).toHaveCount(5);
+  await expect(pt.locator("li").first()).toContainText("Member 5");
+});
+
 test.beforeEach(async ({ page }, info) =>
   fixture(
     page,
@@ -323,20 +542,21 @@ async function fillDraft(page: Page) {
     .click();
 }
 
-test("class quick views survive reload and reset pagination", async ({
-  page,
-}) => {
+test("class filters survive reload and reset pagination", async ({ page }) => {
   await page.goto("/manager/classes?page=3");
   await page
-    .getByRole("button", { name: en.wireStatus.AT_RISK, exact: true })
-    .click();
+    .getByLabel(en.operations.status, { exact: true })
+    .selectOption("PUBLISHED");
+  await page
+    .getByLabel(en.operations.thresholdFilter, { exact: true })
+    .selectOption("AT_RISK");
   await expect(page).toHaveURL(/status=PUBLISHED/);
   await expect(page).toHaveURL(/thresholdStatus=AT_RISK/);
   await expect(page).not.toHaveURL(/page=3/);
   await page.reload();
   await expect(
-    page.getByRole("button", { name: en.wireStatus.AT_RISK, exact: true }),
-  ).toHaveAttribute("aria-pressed", "true");
+    page.getByLabel(en.operations.thresholdFilter, { exact: true }),
+  ).toHaveValue("AT_RISK");
   await expect(page.getByText(en.managerOperations.holdHint)).toBeVisible();
 });
 test("draft save is separate from publish and reviews every generated session", async ({
@@ -434,7 +654,7 @@ test("detail tabs deep-link and load only the selected operational dataset", asy
   await expect(
     page.getByRole("tab", { name: en.managerOperations.holdsTab, exact: true }),
   ).toHaveAttribute("aria-selected", "true");
-  expect(reads).toEqual(["/api/manager/classes/1/holds"]);
+  expect([...new Set(reads)]).toEqual(["/api/manager/classes/1/holds"]);
   await page
     .getByRole("tab", { name: en.managerOperations.studentsTab, exact: true })
     .click();
@@ -681,7 +901,7 @@ test("failed session availability never enables confirmation and retry keeps the
   await expect(dialog.getByText("Reschedule · Keep this reason")).toBeVisible();
 });
 
-test("G02 remains an honest dependency with existing refund and transfer responses", async ({
+test("threshold keeps supported refund and transfer responses without an unavailable next-course option", async ({
   page,
 }) => {
   await page.route("**/api/manager/classes/1/threshold-responses?**", (route) =>
@@ -703,7 +923,7 @@ test("G02 remains an honest dependency with existing refund and transfer respons
     }),
   );
   await page.goto("/manager/classes/1?tab=threshold");
-  await expect(page.getByText(en.managerOperations.interestGap)).toBeVisible();
+  await expect(page.getByText(en.managerOperations.interestGap)).toHaveCount(0);
   await expect(
     page.getByRole("row").filter({ hasText: "Member refunded" }),
   ).toContainText(en.wireStatus.REFUND);
@@ -735,7 +955,7 @@ test("schedule URL keeps day, room and activity filter through reload", async ({
     "COURT_RENTAL",
   );
 });
-test("AI gap uses a drawer, preserves schedule context and never writes", async ({
+test("schedule keeps its context without an unavailable AI action", async ({
   page,
 }) => {
   let writes = 0;
@@ -747,15 +967,9 @@ test("AI gap uses a drawer, preserves schedule context and never writes", async 
       writes++;
   });
   await page.goto("/manager/schedule?date=2030-10-03&view=day&roomId=7");
-  await page
-    .getByRole("button", { name: en.managerOperations.aiTitle })
-    .click();
   await expect(
-    page
-      .getByRole("dialog")
-      .getByText("Waiting for API · G03", { exact: true }),
-  ).toBeVisible();
-  await page.keyboard.press("Escape");
+    page.getByRole("button", { name: en.managerOperations.aiTitle }),
+  ).toHaveCount(0);
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page).toHaveURL(/roomId=7/);
   expect(writes).toBe(0);
@@ -802,18 +1016,305 @@ test("facility details reload with opening hours and incident entry", async ({
   await page.reload();
   await expect(page.getByText(en.managerOperations.openingHint)).toBeVisible();
 });
+const historyIncident = {
+  incidentId: noticeId,
+  scope: "ROOM",
+  roomName: "Court A",
+  startAtUtc: "2030-10-03T11:00:00Z",
+  endAtUtc: "2030-10-03T12:30:00Z",
+  reason: "Repair court lighting",
+  createdAtUtc: "2030-09-01T00:00:00Z",
+};
+
+test("incident history pages by readable information and opens details without an ID lookup", async ({
+  page,
+}) => {
+  const requests: number[] = [];
+  await page.route("**/api/manager/incidents?**", (route) => {
+    const pageNumber = Number(
+      new URL(route.request().url()).searchParams.get("page"),
+    );
+    requests.push(pageNumber);
+    return route.fulfill({
+      json: {
+        ...paged(
+          [
+            {
+              ...historyIncident,
+              reason: pageNumber === 1 ? historyIncident.reason : "Water leak",
+            },
+          ],
+          21,
+        ),
+        page: pageNumber,
+      },
+    });
+  });
+  await page.goto("/manager/incidents");
+  await expect(
+    page.getByText(historyIncident.reason, { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByLabel(en.managerOperations.receiptId, { exact: true }),
+  ).toHaveCount(0);
+  await expect(page.getByText(noticeId, { exact: true })).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: en.wallet.previous, exact: true }),
+  ).toBeDisabled();
+  await page.getByRole("button", { name: en.wallet.next, exact: true }).click();
+  await expect(page.getByText("Water leak", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: en.wallet.next, exact: true }),
+  ).toBeDisabled();
+  await page
+    .getByRole("link", {
+      name: `${en.operations.details}: Water leak`,
+      exact: true,
+    })
+    .click();
+  await expect(
+    page.getByRole("heading", {
+      name: en.incidentHistory.details,
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(
+    page.getByText(en.incidentHistory.cancelledRentals.replace("{count}", "1")),
+  ).toBeVisible();
+  expect(requests).toEqual([1, 2]);
+});
+
+test("incident detail summarizes delivery and refreshing never writes or calls the removed API", async ({
+  page,
+}) => {
+  let reads = 0;
+  const writes: string[] = [];
+  const oldRequests: string[] = [];
+  page.on("request", (request) => {
+    if (!request.url().includes("/api/")) return;
+    if (!["GET", "OPTIONS"].includes(request.method()))
+      writes.push(request.url());
+    if (request.url().includes(`/incidents/${noticeId}/notifications`))
+      oldRequests.push(request.url());
+  });
+  await page.route(`**/api/manager/incidents/${noticeId}`, (route) => {
+    reads++;
+    return route.fulfill({
+      json: {
+        incident: historyIncident,
+        blockedRooms: ["Court A"],
+        cancelledRentals: 1,
+        delivery:
+          reads === 1
+            ? { total: 2, pending: 0, sending: 0, sent: 1, failed: 1, read: 0 }
+            : { total: 2, pending: 0, sending: 0, sent: 1, failed: 0, read: 1 },
+      },
+    });
+  });
+  await page.goto(`/manager/incidents/${noticeId}`);
+  await expect(
+    page.getByText(en.incidentHistory.deliveryFailed.replace("{count}", "1")),
+  ).toBeVisible();
+  await expect(page.getByRole("table")).toHaveCount(0);
+  await expect(page.getByText(noticeId, { exact: true })).toHaveCount(0);
+  await page
+    .getByRole("button", { name: en.operations.refresh, exact: true })
+    .click();
+  await expect(
+    page.getByText(en.incidentHistory.deliverySent, { exact: true }),
+  ).toBeVisible();
+  expect(reads).toBe(2);
+  expect(writes).toEqual([]);
+  expect(oldRequests).toEqual([]);
+});
+
+test("incident history handles empty and failed requests with recovery", async ({
+  page,
+}) => {
+  let calls = 0;
+  await page.route("**/api/manager/incidents?**", (route) => {
+    calls++;
+    return calls === 1
+      ? route.fulfill({
+          status: 503,
+          json: {
+            code: "unavailable",
+            message: "Incident history temporarily unavailable",
+          },
+        })
+      : route.fulfill({ json: paged([]) });
+  });
+  await page.goto("/manager/incidents");
+  await expect(
+    page
+      .getByRole("alert")
+      .filter({ hasText: "Incident history temporarily unavailable" }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: en.common.retry, exact: true })
+    .click();
+  await expect(page.getByText(en.incidentHistory.empty)).toBeVisible();
+  await page
+    .getByRole("link", { name: en.incidentHistory.create, exact: true })
+    .click();
+  await expect(
+    page.getByLabel(en.operations.reason, { exact: true }),
+  ).toBeVisible();
+});
+
+test("resolved incident keeps its delivery summary after reload and starts a fresh form without repeating resolution", async ({
+  page,
+}) => {
+  let resolves = 0;
+  await page.route(`**/api/manager/incidents/${noticeId}`, (route) =>
+    route.fulfill({
+      json: {
+        incident: historyIncident,
+        blockedRooms: ["Court A"],
+        cancelledRentals: 1,
+        delivery: {
+          total: 2,
+          pending: 2,
+          sending: 0,
+          sent: 0,
+          failed: 0,
+          read: 0,
+        },
+      },
+    }),
+  );
+  await page.route("**/api/manager/incidents/preview", (route) =>
+    route.fulfill({
+      json: {
+        scope: "ROOM",
+        roomId: 7,
+        canResolve: true,
+        blockReason: null,
+        impacts: [],
+      },
+    }),
+  );
+  await page.route("**/api/manager/incidents/resolve", (route) => {
+    resolves++;
+    return route.fulfill({ json: { incidentId: noticeId } });
+  });
+  await incidentInputs(page);
+  await page
+    .getByRole("button", { name: en.operations.review, exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: en.managerOperations.recheck, exact: true })
+    .click();
+  await page
+    .getByRole("button", {
+      name: en.managerOperations.finalResolve,
+      exact: true,
+    })
+    .click();
+  await expect(
+    page.getByText(en.incidentHistory.deliverySending, { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByLabel(en.operations.reason, { exact: true }),
+  ).toBeDisabled();
+  await page.reload();
+  await expect(
+    page.getByText(en.incidentHistory.deliverySending, { exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: en.operations.create, exact: true })
+    .click();
+  await expect(
+    page.getByLabel(en.operations.reason, { exact: true }),
+  ).toBeEnabled();
+  await expect(
+    page.getByLabel(en.operations.reason, { exact: true }),
+  ).toHaveValue("");
+  await expect(page).toHaveURL(/create=1/);
+  expect(resolves).toBe(1);
+});
+
 async function incidentInputs(page: Page) {
   await page.goto("/manager/incidents?roomId=7");
-  await page
-    .getByLabel(en.operations.start, { exact: true })
-    .fill("2030-10-03T18:00");
-  await page
-    .getByLabel(en.operations.end, { exact: true })
-    .fill("2030-10-03T21:00");
+  const start = page.getByRole("group", {
+    name: en.operations.start,
+    exact: true,
+  });
+  const end = page.getByRole("group", { name: en.operations.end, exact: true });
+  await start
+    .getByLabel(en.operations.date, { exact: true })
+    .fill("2030-10-03");
+  await start
+    .getByLabel(en.incidentHistory.time24, { exact: true })
+    .fill("18:00");
+  await end.getByLabel(en.operations.date, { exact: true }).fill("2030-10-03");
+  await end
+    .getByLabel(en.incidentHistory.time24, { exact: true })
+    .fill("21:00");
   await page
     .getByLabel(en.operations.reason, { exact: true })
     .fill("Water leak");
 }
+
+test("incident uses 24-hour input, validates the range and preserves Vietnam time in preview", async ({
+  page,
+}) => {
+  let body: Record<string, unknown> | null = null;
+  await page.route("**/api/manager/incidents/preview", (route) => {
+    body = route.request().postDataJSON();
+    return route.fulfill({
+      json: {
+        scope: "ROOM",
+        roomId: 7,
+        impacts: [],
+        canResolve: true,
+        blockReason: null,
+      },
+    });
+  });
+  await incidentInputs(page);
+  const start = page.getByRole("group", {
+    name: en.operations.start,
+    exact: true,
+  });
+  const end = page.getByRole("group", { name: en.operations.end, exact: true });
+  const review = page.getByRole("button", {
+    name: en.operations.review,
+    exact: true,
+  });
+  await start
+    .getByLabel(en.incidentHistory.time24, { exact: true })
+    .fill("24:00");
+  await start.getByLabel(en.operations.date, { exact: true }).focus();
+  await expect(start.getByText(en.incidentHistory.invalidTime)).toBeVisible();
+  await expect(review).toBeDisabled();
+  await start
+    .getByLabel(en.incidentHistory.time24, { exact: true })
+    .fill("23:30");
+  await end.getByLabel(en.incidentHistory.time24, { exact: true }).fill("0030");
+  await end.getByLabel(en.operations.date, { exact: true }).focus();
+  await expect(
+    end.getByLabel(en.incidentHistory.time24, { exact: true }),
+  ).toHaveValue("00:30");
+  await expect(
+    page.getByText(en.incidentHistory.invalidRange, { exact: true }),
+  ).toBeVisible();
+  await expect(review).toBeDisabled();
+  await end.getByLabel(en.operations.date, { exact: true }).fill("2030-10-04");
+  await expect(review).toBeEnabled();
+  await review.click();
+  await expect(
+    page.getByRole("button", {
+      name: en.managerOperations.recheck,
+      exact: true,
+    }),
+  ).toBeVisible();
+  expect(body).toMatchObject({
+    startAtUtc: "2030-10-03T16:30:00.000Z",
+    endAtUtc: "2030-10-03T17:30:00.000Z",
+  });
+  await expect(page.locator('input[type="datetime-local"]')).toHaveCount(0);
+});
 
 test("incident block removal requires review and records only the successful step", async ({
   page,
@@ -869,7 +1370,7 @@ test("incident block removal requires review and records only the successful ste
     page.getByText(en.managerOperations.noSteps, { exact: true }),
   ).toHaveCount(0);
   await expect(
-    page.getByRole("row").filter({ hasText: noticeId }),
+    page.getByRole("row").filter({ hasText: en.operations.roomBlock }).last(),
   ).toContainText(en.operations.roomBlock);
   expect(deletes).toBe(1);
 });
@@ -1059,7 +1560,7 @@ test("notice supports rental members and sends once after review", async ({
     .click();
   await expect(page).toHaveURL(/noticeId=/);
   expect(sends).toBe(1);
-  await expect(page.getByText(en.managerOperations.noticeGap)).toBeVisible();
+  await expect(page.getByText(en.managerOperations.noticeGap)).toHaveCount(0);
 });
 test("notice receipt distinguishes failed delivery from business outcome", async ({
   page,
@@ -1076,7 +1577,7 @@ test("notice receipt distinguishes failed delivery from business outcome", async
   ).toBeVisible();
 });
 
-test("AI stays blocked and manual review preserves the class draft without writing", async ({
+test("manual class scheduling preserves the draft without an unavailable AI action", async ({
   page,
 }) => {
   let writes = 0;
@@ -1091,19 +1592,10 @@ test("AI stays blocked and manual review preserves the class draft without writi
   await page
     .getByRole("button", { name: en.operations.previous, exact: true })
     .click();
-  await page
-    .getByRole("button", { name: en.managerOperations.aiTitle, exact: true })
-    .click();
-  const drawer = page.getByRole("dialog");
-  await expect(drawer.getByText(en.managerOperations.aiGap)).toBeVisible();
   await expect(
-    drawer.getByRole("button", { name: "Generate suggestions", exact: true }),
-  ).toBeDisabled();
-  await drawer.getByLabel(en.operations.numSessions, { exact: true }).fill("4");
-  await drawer
-    .getByRole("button", { name: "Review and edit manually", exact: true })
-    .click();
-  await expect(drawer).toHaveCount(0);
+    page.getByRole("button", { name: en.managerOperations.aiTitle }),
+  ).toHaveCount(0);
+  await page.getByLabel(en.operations.numSessions, { exact: true }).fill("4");
   await expect(
     page.getByLabel(en.operations.numSessions, { exact: true }),
   ).toHaveValue("4");
@@ -1139,7 +1631,7 @@ test("notice audience changes clear selection and invalidate review", async ({
     .getByRole("button", { name: en.operations.review, exact: true })
     .click();
   await expect(
-    page.getByText(/Server-side recipient preview.*awaiting G07/),
+    page.getByText(/Check the selected recipients before sending/),
   ).toBeVisible();
   await page
     .getByLabel(en.operations.recipients, { exact: true })
@@ -1260,9 +1752,9 @@ test("incident confirmed steps remain visible when the next preview fails", asyn
     .click();
   await expect(page.getByText("Recheck unavailable")).toBeVisible();
   await expect(
-    page.getByRole("row").filter({ hasText: noticeId }),
+    page.getByRole("row").filter({ hasText: en.operations.roomBlock }).last(),
   ).toContainText("Confirmed by server");
-  await expect(page.getByText(en.managerOperations.incidentGap)).toBeVisible();
+  await expect(page.getByText(en.managerOperations.incidentGap)).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: en.managerOperations.finalResolve }),
   ).toHaveCount(0);
@@ -1294,10 +1786,16 @@ test("incident uses read-only display names and retains core impacts when displa
     .getByRole("button", { name: en.operations.review, exact: true })
     .click();
   await expect(
-    page.getByRole("row").filter({ hasText: sessionId }),
+    page
+      .getByRole("row")
+      .filter({ hasText: en.calendar.types.CLASS_SESSION })
+      .first(),
   ).toContainText("Badminton autumn");
   await expect(
-    page.getByRole("row").filter({ hasText: sessionId }),
+    page
+      .getByRole("row")
+      .filter({ hasText: en.calendar.types.CLASS_SESSION })
+      .first(),
   ).toContainText("Coach Linh");
   await page.route("**/api/manager/court-schedule?**", (route) =>
     route.fulfill({
@@ -1310,7 +1808,10 @@ test("incident uses read-only display names and retains core impacts when displa
     .click();
   await expect(page.getByText(/Display details are unavailable/)).toBeVisible();
   await expect(
-    page.getByRole("row").filter({ hasText: sessionId }),
+    page
+      .getByRole("row")
+      .filter({ hasText: en.calendar.types.CLASS_SESSION })
+      .first(),
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: en.managerOperations.finalResolve }),

@@ -22,6 +22,11 @@ export function StatusChip({ value, tone, label }: StatusChipProps) {
   const text =
     label ??
     t.wireStatus[value as keyof typeof t.wireStatus] ??
+    t.wireStatus[
+      value
+        ?.replace(/([a-z])([A-Z])/g, "$1_$2")
+        .toUpperCase() as keyof typeof t.wireStatus
+    ] ??
     defaultLabel(value);
   const colorClass = tone === undefined ? chipTone(value) : toneClasses[tone];
 

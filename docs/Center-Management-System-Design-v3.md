@@ -171,7 +171,7 @@ Hủy/hết hạn giải phóng occupancy đúng một lần. Hủy đủ hạn 
 
 Preview tác động → Manager thực hiện phương án dời/bù/hủy lớp hoặc PT → preview lại → resolve. Resolve recheck lịch, hủy/hoàn rental phù hợp và tạo incident/block trong transaction cuối.
 
-Toàn chuỗi tương tác không phải một transaction duy nhất. Incident history/detail, preview bồi hoàn/người nhận đầy đủ và cơ chế chặn booking trong lúc xử lý còn thiếu.
+Toàn chuỗi tương tác không phải một transaction duy nhất. Đã có danh sách sự cố đã xử lý có phân trang và chi tiết theo tên phòng/sân, thời gian, lý do, kết quả khóa sân/hủy rental và tóm tắt gửi thông báo (10/10/2026). Trạng thái gửi được gộp vào API chi tiết, bỏ tra cứu thủ công bằng ID và endpoint notifications riêng. Preview bồi hoàn/người nhận đầy đủ, recovery phiên xử lý bỏ dở và cơ chế chặn booking trong lúc xử lý còn thiếu.
 
 ## 6. Payment, VNPay và ví điểm
 
@@ -312,7 +312,7 @@ G01–G13 trỏ [phân công API theo page/owner](../DESIGN-SKILLS-GUIDE.md#api-
 | G03 | Manager AI xếp lịch/tool calling/tạo nháp | Endpoint/service, xác nhận người dùng, recheck quyền/occupancy, audit |
 | G04 | Member code/QR backend | Xác thực lookup, không dùng mã FE tự suy hoặc QR làm chứng cứ payment |
 | G05 | Member self-booking PT/available slots | Đã có API và UI; còn thiếu: chạy test tích hợp có Docker, kiểm Membership Active riêng, chuyển chính sách đặt lịch thành system setting |
-| G06 | Incident history/detail, preview bồi hoàn/người nhận, fence xử lý | Recovery bỏ dở, chống race và double refund; không giả toàn luồng atomic |
+| G06 | Preview bồi hoàn/người nhận đầy đủ, fence xử lý; đã có history/detail cho sự cố đã xử lý | Recovery bỏ dở, chống race và double refund; không giả toàn luồng atomic |
 | G07 | History thông báo thủ công và preview người nhận | Scoped recipient, paging, send/retry dedup |
 | G08 | Refund tổng hợp riêng Member nếu cần tab độc lập | Owner scope/paging; invoice detail đã có adjustments |
 | G09 | Filter public catalog nâng cao | Filter server trước paging/count; không giả có level khi schema chưa có |

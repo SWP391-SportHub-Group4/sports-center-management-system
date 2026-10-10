@@ -144,7 +144,6 @@ export const LABELS: Record<string, string> = {
 
   Pending: "Processing",
   Failed: "Failed",
-
 };
 
 export function label(value: string | null | undefined): string {
@@ -160,6 +159,13 @@ export function label(value: string | null | undefined): string {
 
 export function chipTone(value: string | null | undefined): string {
   const normalized = value?.replace(/_/g, "").toLowerCase();
+  if (normalized === "notevaluated" || normalized === "draft")
+    return "chip--neutral";
+  if (normalized === "atrisk") return "chip--warn";
+  if (normalized === "met") return "chip--ok";
+  if (normalized === "rescheduledontime" || normalized === "rescheduledlate")
+    return "chip--info";
+  if (normalized === "cancelledontime") return "chip--danger";
   const key =
     Object.keys(LABELS).find((k) => k.toLowerCase() === normalized) ?? value;
   switch (key) {

@@ -14,6 +14,7 @@ export interface CalendarEvent {
 
 export interface CalendarLabels {
   types?: Record<string, string>;
+  weekdays?: string[];
   day: string;
   week: string;
   list: string;

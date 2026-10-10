@@ -3,13 +3,17 @@ import { Card, Stat, Table } from "@/components/ui";
 import { useLanguage } from "@/lib/language";
 import { formatMoney } from "@/lib/format";
 import type { RevenueDimensionsDto, RevenueReportDto } from "@/lib/types";
+import { MemberName } from "@/components/RecordName";
 export function RevenueRows({
   rows,
+  showSource = true,
 }: {
   rows: RevenueReportDto["bySportAndSource"];
+  showSource?: boolean;
 }) {
   const { t } = useLanguage();
   const l = t.staffWork;
+  const hasLegacyCash = rows.some((row) => row.legacyCashCollected !== 0);
   const names: Record<string, string> = {
     MEMBERSHIP: l.sourceMembership,
     PT: l.sourcePt,
@@ -21,21 +25,34 @@ export function RevenueRows({
   return (
     <Table
       headers={[
-        l.source,
+        ...(showSource ? [l.source] : []),
         l.sport,
-        l.memberId,
+        t.ptOps.members,
         l.cash,
-        l.legacyCash,
+        ...(hasLegacyCash ? [l.legacyCash] : []),
         l.redeemed,
       ]}
     >
       {rows.map((r, i) => (
         <tr key={i}>
-          <td>{names[r.source] ?? r.source}</td>
+          {showSource && <td>{names[r.source] ?? r.source}</td>}
           <td>{r.sportName ?? "—"}</td>
-          <td>{r.memberId ?? "—"}</td>
+          <td>
+            {r.memberId ? (
+              <MemberName
+                id={r.memberId}
+                name={
+                  "memberName" in r
+                    ? (r.memberName as string | null)
+                    : undefined
+                }
+              />
+            ) : (
+              "—"
+            )}
+          </td>
           <td>{formatMoney(r.cashCollected)}</td>
-          <td>{formatMoney(r.legacyCashCollected)}</td>
+          {hasLegacyCash && <td>{formatMoney(r.legacyCashCollected)}</td>}
           <td>{formatMoney(r.pointsRedeemed * 1000)}</td>
         </tr>
       ))}

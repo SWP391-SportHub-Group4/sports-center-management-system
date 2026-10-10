@@ -3,18 +3,19 @@ import { useState } from "react";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { useUrlQuery, choiceQuery } from "@/lib/useUrlQuery";
-import { todayIso, addDaysIso } from "@/lib/format";
-import { AsyncSection } from "@/components/ui";
+import { todayIso, addDaysIso, formatDate } from "@/lib/format";
+import styles from "./manager-schedule.module.css";
+import { Button } from "@/components/primitives";
+import { mondayOf, isoWeek, weekMonday } from "./schedule-week";
+import { AsyncSection, Card, Field } from "@/components/ui";
 import { FilterBar } from "@/components/data";
 import {
   Calendar,
   CalendarEventDrawer,
   type CalendarEvent,
-  type CalendarView,
 } from "@/components/scheduling";
 import { catalogApi } from "@/features/catalog";
 import { courtScheduleApi } from "@/features/court-schedule";
-import { AiScheduleDrawer } from "./ai-schedule-drawer";
 
 const validDate = (value: string) =>
   /^\d{4}-\d{2}-\d{2}$/.test(value) &&
@@ -36,7 +37,7 @@ export function ManagerSchedule({
   const m = t.managerOperations;
   const { values, setValues } = useUrlQuery(
     {
-      date: todayIso(),
+      date: mondayOf(todayIso()),
       view: "week",
       roomId: "",
       coachId: "",
@@ -44,8 +45,8 @@ export function ManagerSchedule({
       sourceType: "",
     },
     {
-      date: validDate,
-      view: choiceQuery(["day", "week", "list"], "week"),
+      date: (value) => mondayOf(validDate(value)),
+      view: choiceQuery(["week"], "week"),
       sourceType: choiceQuery(
         ["", "CLASS_SESSION", "PT_SESSION", "COURT_RENTAL", "ROOM_BLOCK"],
         "",
@@ -53,8 +54,7 @@ export function ManagerSchedule({
     },
   );
   const [selectedId, setSelected] = useState("");
-  const [ai, setAi] = useState(false);
-  const days = values.view === "day" ? 1 : 7;
+  const days = 7;
   const roomId = fixedRoom ? String(fixedRoom) : values.roomId;
   const rooms = useApi((signal) => catalogApi.rooms(signal), []);
   const state = useApi(
@@ -83,7 +83,8 @@ export function ManagerSchedule({
     ...new Map(
       (state.data ?? [])
         .filter((r) => r.coachId)
-        .map((r) => [r.coachId!, r.coachName ?? r.coachId!]),
+        .filter((r) => r.coachName?.trim())
+        .map((r) => [r.coachId!, r.coachName!]),
     ).entries(),
   ];
   const classes = [
@@ -110,115 +111,164 @@ export function ManagerSchedule({
   }));
   return (
     <>
-      <FilterBar
-        values={values}
-        onChange={update}
-        activeCount={
-          [
-            !fixedRoom && values.roomId,
-            !fixedCoach && values.coachId,
-            values.classId,
-            !classesOnly && values.sourceType,
-          ].filter(Boolean).length
-        }
-        fields={[
-          { id: "date", label: l.date, kind: "date" },
-          ...(!fixedRoom
-            ? [
-                {
-                  id: "roomId",
-                  label: l.room,
-                  kind: "select" as const,
-                  options: [
-                    { value: "", label: l.all },
-                    ...(rooms.data ?? []).map((r) => ({
-                      value: String(r.roomId),
-                      label: r.name,
-                    })),
-                  ],
-                },
-              ]
-            : []),
-          ...(!fixedCoach
-            ? [
-                {
-                  id: "coachId",
-                  label: l.coach,
-                  kind: "select" as const,
-                  options: [
-                    { value: "", label: l.all },
-                    ...coaches.map(([value, label]) => ({ value, label })),
-                  ],
-                },
-              ]
-            : []),
-          {
-            id: "classId",
-            label: l.courses,
-            kind: "select",
-            options: [
-              { value: "", label: l.all },
-              ...classes.map(([id, label]) => ({ value: String(id), label })),
-            ],
-          },
-          ...(!classesOnly
-            ? [
-                {
-                  id: "sourceType",
-                  label: m.source,
-                  kind: "select" as const,
-                  options: [
-                    { value: "", label: l.all },
-                    ...Object.entries(t.calendar.types).map(
-                      ([value, label]) => ({ value, label }),
-                    ),
-                  ],
-                },
-              ]
-            : []),
-        ]}
-        onReset={() =>
-          update({ roomId: "", coachId: "", classId: "", sourceType: "" })
-        }
-        actions={
-          <>
-            <button
-              className="btn btn--ghost"
-              onClick={() => {
-                state.reload();
-                setSelected("");
+      <Card>
+        <div className={styles.weekToolbar}>
+          <Field label={t.mSchedule.chooseWeek}>
+            <input
+              type="week"
+              value={isoWeek(values.date)}
+              onChange={(e) => {
+                if (e.target.value)
+                  update({ date: weekMonday(e.target.value), view: "week" });
               }}
+            />
+          </Field>
+          <div className={styles.weekNavigation}>
+            <Button
+              variant="quiet"
+              size="sm"
+              onClick={() => update({ date: addDaysIso(values.date, -7) })}
             >
-              {l.refresh}
-            </button>
-            <button className="btn btn--secondary" onClick={() => setAi(true)}>
-              {m.aiTitle}
-            </button>
-          </>
-        }
-      />
+              {t.mSchedule.prevWeek}
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => update({ date: mondayOf(todayIso()) })}
+            >
+              {t.mSchedule.currentWeek}
+            </Button>
+            <Button
+              variant="quiet"
+              size="sm"
+              onClick={() => update({ date: addDaysIso(values.date, 7) })}
+            >
+              {t.mSchedule.nextWeek}
+            </Button>
+          </div>
+        </div>
+        <details className={styles.filters}>
+          <summary>{t.common.filter}</summary>
+          <FilterBar
+            values={values}
+            onChange={update}
+            activeCount={
+              [
+                !fixedRoom && values.roomId,
+                !fixedCoach && values.coachId,
+                values.classId,
+                !classesOnly && values.sourceType,
+              ].filter(Boolean).length
+            }
+            fields={[
+              ...(!fixedRoom
+                ? [
+                    {
+                      id: "roomId",
+                      label: l.room,
+                      kind: "select" as const,
+                      options: [
+                        { value: "", label: l.all },
+                        ...(rooms.data ?? []).map((r) => ({
+                          value: String(r.roomId),
+                          label: r.name,
+                        })),
+                      ],
+                    },
+                  ]
+                : []),
+              ...(!fixedCoach
+                ? [
+                    {
+                      id: "coachId",
+                      label: l.coach,
+                      kind: "select" as const,
+                      options: [
+                        { value: "", label: l.all },
+                        ...coaches.map(([value, label]) => ({ value, label })),
+                      ],
+                    },
+                  ]
+                : []),
+              {
+                id: "classId",
+                label: l.courses,
+                kind: "select",
+                options: [
+                  { value: "", label: l.all },
+                  ...classes.map(([id, label]) => ({
+                    value: String(id),
+                    label,
+                  })),
+                ],
+              },
+              ...(!classesOnly
+                ? [
+                    {
+                      id: "sourceType",
+                      label: m.source,
+                      kind: "select" as const,
+                      options: [
+                        { value: "", label: l.all },
+                        ...Object.entries(t.calendar.types).map(
+                          ([value, label]) => ({ value, label }),
+                        ),
+                      ],
+                    },
+                  ]
+                : []),
+            ]}
+            onReset={() =>
+              update({ roomId: "", coachId: "", classId: "", sourceType: "" })
+            }
+            actions={
+              <>
+                <button
+                  className="btn btn--ghost"
+                  onClick={() => {
+                    state.reload();
+                    setSelected("");
+                  }}
+                >
+                  {l.refresh}
+                </button>
+              </>
+            }
+          />
+        </details>
+      </Card>
       {rooms.error && <p role="alert">{rooms.error.message}</p>}
       <AsyncSection state={state}>
         {() => (
-          <Calendar
-            events={events}
-            date={values.date}
-            view={values.view as CalendarView}
-            labels={{
-              types: t.calendar.types,
-              day: t.calendar.day,
-              week: t.calendar.week,
-              list: t.calendar.list,
-              previous: t.calendar.previous,
-              today: t.calendar.today,
-              next: t.calendar.next,
-              empty: t.calendar.empty,
-              eventDetails: t.calendar.eventDetails,
-            }}
-            onDateChange={(date) => update({ date })}
-            onViewChange={(view) => update({ view })}
-            onSelectEvent={(event) => setSelected(event.id)}
-          />
+          <Card
+            title={
+              formatDate(values.date) +
+              " – " +
+              formatDate(addDaysIso(values.date, 6))
+            }
+          >
+            <Calendar
+              events={events}
+              date={values.date}
+              view="week"
+              hideToolbar
+              labels={{
+                types: t.calendar.types,
+                weekdays: t.mSchedule.weekdays,
+                day: t.calendar.day,
+                week: t.calendar.week,
+                list: t.calendar.list,
+                previous: t.calendar.previous,
+                today: t.calendar.today,
+                next: t.calendar.next,
+                empty: t.calendar.empty,
+                eventDetails: t.calendar.eventDetails,
+              }}
+              onDateChange={(date) => update({ date })}
+              onViewChange={(view) => update({ view })}
+              onSelectEvent={(event) => setSelected(event.id)}
+            />
+          </Card>
         )}
       </AsyncSection>
       {selected && (
@@ -229,7 +279,6 @@ export function ManagerSchedule({
           onClose={() => setSelected("")}
         />
       )}
-      {ai && <AiScheduleDrawer onClose={() => setAi(false)} />}
     </>
   );
 }

@@ -75,8 +75,8 @@ function SessionChangeReview({
             <p>
               <strong>{t.managerOperations.newSchedule}</strong>:{" "}
               {formatDateTime(startUtc)} – {formatDateTime(endUtc)} ·{" "}
-              {result.roomName || `#${roomId}`} ·{" "}
-              {result.coachName || `#${coachId}`}
+              {result.roomName || t.managerAudit.nameUnavailable} ·{" "}
+              {result.coachName || t.managerAudit.nameUnavailable}
             </p>
             <p>
               {mode === "reschedule" ? l.reschedule : l.makeup} · {reason}

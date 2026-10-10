@@ -7,14 +7,37 @@ import type { InvoiceDetailDto } from "@/lib/types";
 import { Card, StatusChip } from "@/components/ui";
 import { RefundRequestForm } from "./refund-request-form";
 import { CheckoutPanel } from "./checkout-panel";
+import type { ReactNode } from "react";
+import { Dialog } from "@/components/ui";
+import { useInvoiceItemLabels } from "./invoice-item-labels";
+
+function InvoiceFrame({
+  title,
+  onClose,
+  children,
+}: {
+  title: string;
+  onClose?: () => void;
+  children: ReactNode;
+}) {
+  return onClose ? (
+    <Dialog title={title} onClose={onClose} size="lg">
+      <div className="stack">{children}</div>
+    </Dialog>
+  ) : (
+    <Card title={title}>{children}</Card>
+  );
+}
 export function InvoiceDetail({
   invoiceId,
   staff = false,
   rental = false,
+  onClose,
 }: {
   invoiceId: string;
   staff?: boolean;
   rental?: boolean;
+  onClose?: () => void;
 }) {
   const { t } = useLanguage();
   const l = t.refactor;
@@ -24,8 +47,12 @@ export function InvoiceDetail({
     [invoiceId],
   );
   const d = state.data;
+  const itemLabel = useInvoiceItemLabels(d?.items ?? []);
   return (
-    <Card title={l.invoice}>
+    <InvoiceFrame
+      title={d?.summary.invoiceNumber ?? l.invoice}
+      onClose={onClose}
+    >
       {state.loading ? (
         <p>{l.loading}</p>
       ) : state.error ? (
@@ -50,7 +77,7 @@ export function InvoiceDetail({
             <ul>
               {d.items.map((i) => (
                 <li key={i.itemId}>
-                  {i.description} · {formatMoney(i.lineAmount)}
+                  {itemLabel(i)} · {formatMoney(i.lineAmount)}
                 </li>
               ))}
             </ul>
@@ -86,6 +113,6 @@ export function InvoiceDetail({
           </>
         )
       )}
-    </Card>
+    </InvoiceFrame>
   );
 }

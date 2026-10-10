@@ -31,7 +31,9 @@ export function Calendar({
   onDateChange,
   onViewChange,
   onSelectEvent,
+  hideToolbar = false,
 }: {
+  hideToolbar?: boolean;
   events: CalendarEvent[];
   date: string;
   view: CalendarView;
@@ -71,44 +73,46 @@ export function Calendar({
 
   return (
     <section className={styles.calendar} aria-label={labels.eventDetails}>
-      <div className={styles.toolbar}>
-        <div
-          className={styles.viewGroup}
-          role="group"
-          aria-label={labels.eventDetails}
-        >
-          {(["day", "week", "list"] as const).map((item) => (
-            <Button
-              key={item}
-              variant="ghost"
-              size="sm"
-              className={styles.viewButton}
-              aria-pressed={view === item}
-              onClick={() => onViewChange(item)}
-            >
-              {labels[item]}
-            </Button>
-          ))}
-        </div>
-
-        <div className={styles.navGroup}>
-          <Button variant="quiet" size="sm" onClick={() => move(-1)}>
-            {labels.previous}
-          </Button>
-
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => onDateChange(todayIso())}
+      {!hideToolbar && (
+        <div className={styles.toolbar}>
+          <div
+            className={styles.viewGroup}
+            role="group"
+            aria-label={labels.eventDetails}
           >
-            {labels.today}
-          </Button>
+            {(["day", "week", "list"] as const).map((item) => (
+              <Button
+                key={item}
+                variant="ghost"
+                size="sm"
+                className={styles.viewButton}
+                aria-pressed={view === item}
+                onClick={() => onViewChange(item)}
+              >
+                {labels[item]}
+              </Button>
+            ))}
+          </div>
 
-          <Button variant="quiet" size="sm" onClick={() => move(1)}>
-            {labels.next}
-          </Button>
+          <div className={styles.navGroup}>
+            <Button variant="quiet" size="sm" onClick={() => move(-1)}>
+              {labels.previous}
+            </Button>
+
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => onDateChange(todayIso())}
+            >
+              {labels.today}
+            </Button>
+
+            <Button variant="quiet" size="sm" onClick={() => move(1)}>
+              {labels.next}
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
 
       {view === "list" ? (
         <div className={styles.list}>
@@ -122,7 +126,9 @@ export function Calendar({
                 </h3>
 
                 {!items.length && (
-                  <p className={styles.empty}>{labels.empty}</p>
+                  <p className={styles.empty}>
+                    {hideToolbar ? "–" : labels.empty}
+                  </p>
                 )}
 
                 {items.map((event) => (
@@ -161,7 +167,7 @@ export function Calendar({
         </div>
       ) : (
         <div
-          className={`${styles.grid} ${view === "day" ? styles.gridDay : ""}`}
+          className={`${styles.grid} ${view === "day" ? styles.gridDay : ""} ${hideToolbar ? styles.weekGrid : ""}`}
           tabIndex={0}
           aria-label={labels.eventDetails}
         >
@@ -172,10 +178,23 @@ export function Calendar({
               <section className={styles.day} key={day}>
                 <header className={styles.dayHeader}>
                   <strong>
-                    <time dateTime={day}>{formatDate(day)}</time>
+                    <time dateTime={day}>
+                      {labels.weekdays
+                        ? labels.weekdays[
+                            (new Date(day + "T00:00:00Z").getUTCDay() + 6) % 7
+                          ] +
+                          " (" +
+                          day.slice(8) +
+                          "-" +
+                          day.slice(5, 7) +
+                          ")"
+                        : formatDate(day)}
+                    </time>
                   </strong>
 
-                  <span className="small muted">{items.length}</span>
+                  {!hideToolbar && (
+                    <span className="small muted">{items.length}</span>
+                  )}
                 </header>
 
                 <div className={styles.dayBody}>

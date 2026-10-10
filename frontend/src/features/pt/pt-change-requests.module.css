@@ -1,0 +1,20 @@
+.table :global(th:nth-child(1)) {
+  width: 22%;
+}
+.table :global(th:nth-child(2)) {
+  width: 25%;
+}
+.table :global(th:nth-child(3)) {
+  width: 27%;
+}
+.table :global(th:nth-child(4)) {
+  width: 14%;
+}
+.table :global(th:nth-child(5)) {
+  width: 12%;
+}
+
+.line {
+  display: block;
+  margin-block: var(--space-1);
+}

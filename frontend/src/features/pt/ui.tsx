@@ -1,4 +1,5 @@
 "use client";
+import pagerStyles from "./list-pager.module.css";
 import { type ReactNode } from "react";
 import { AppShell } from "@/components/AppShell";
 import { useAuth } from "@/lib/auth";
@@ -39,14 +40,19 @@ export function ListPager({
   page,
   count,
   onChange,
+  align = "right",
 }: {
   page: number;
   count: number;
+  align?: "left" | "right";
   onChange: (page: number) => void;
 }) {
   const { t } = useLanguage();
   return (
-    <div className="btn-row">
+    <nav
+      className={`${pagerStyles.pagination} ${align === "left" ? pagerStyles.left : ""}`}
+      aria-label={t.dataTable.pagination}
+    >
       <button
         type="button"
         className="btn btn--secondary"
@@ -55,7 +61,9 @@ export function ListPager({
       >
         {t.wallet.previous}
       </button>
-      <span>{page}</span>
+      <span className={pagerStyles.page} aria-live="polite">
+        {t.common.pageLabel} {page}
+      </span>
       <button
         type="button"
         className="btn btn--secondary"
@@ -64,6 +72,6 @@ export function ListPager({
       >
         {t.wallet.next}
       </button>
-    </div>
+    </nav>
   );
 }

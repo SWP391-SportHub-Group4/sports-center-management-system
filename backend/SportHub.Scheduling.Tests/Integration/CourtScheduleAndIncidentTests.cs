@@ -115,11 +115,61 @@ public sealed class CourtScheduleAndIncidentTests(SchedulingApiFactory factory)
         Assert.True(await factory.QueryAsync(db => db.RoomOccupancies.AnyAsync(x => x.SourceId == session.SessionId && x.IsActive)));
         await CourseTestData.RunAsync<IClassSessionService, object>(factory, async svc =>
             await svc.RescheduleAsync(session.SessionId, new() { StartAtUtc = session.StartAtUtc.AddHours(3), Reason = "Incident resolution" }, course.ManagerId));
+        Guid incidentId;
         using (var scope = factory.Services.CreateScope())
-            await scope.ServiceProvider.GetRequiredService<IncidentService>().ResolveAsync(request, course.ManagerId);
+            incidentId = await scope.ServiceProvider.GetRequiredService<IncidentService>().ResolveAsync(request, course.ManagerId);
         var updated = (await CourseTestData.SessionsAsync(factory, course.Id))[0];
         Assert.Equal(ClassSessionStatus.Scheduled, updated.Status);
         Assert.Equal(session.StartAtUtc.AddHours(3), updated.StartAtUtc);
         Assert.True(await factory.QueryAsync(db => db.Set<RoomBlock>().AnyAsync(x => x.RoomId == course.RoomId && x.IncidentId != null)));
+        using var client = factory.CreateApiClient(course.ManagerId, UserRole.CenterManager);
+        var detail = await client.GetFromJsonAsync<IncidentDetailResponse>($"/api/manager/incidents/{incidentId}");
+        Assert.Equal(incidentId, detail!.Incident.IncidentId);
+        Assert.Equal(request.Reason, detail.Incident.Reason);
+        Assert.Equal(request.StartAtUtc, detail.Incident.StartAtUtc);
+        Assert.NotNull(detail.Incident.RoomName);
+        Assert.Contains(detail.Incident.RoomName, detail.BlockedRooms);
+        Assert.Equal(0, detail.CancelledRentals);
+        Assert.Equal(0, detail.Delivery.Total);
+    }
+
+    [Fact]
+    public async Task Incident_history_is_paged_manager_only_and_details_reject_unknown_ids()
+    {
+        var manager = await factory.SeedUserAsync(UserRole.CenterManager);
+        var member = await factory.SeedUserAsync(UserRole.Member);
+        var ids = Enumerable.Range(0, 23).Select(_ => Guid.NewGuid()).ToArray();
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<SportHub.BuildingBlocks.Abstractions.Persistence.ISportHubDbContext>();
+            for (var i = 0; i < ids.Length; i++)
+                db.Set<SportHub.Scheduling.Rental.Domain.IncidentNotice>().Add(new()
+                {
+                    IncidentId = ids[i], Scope = SportHub.Scheduling.Rental.Domain.IncidentScope.Center,
+                    StartAtUtc = new DateTime(2040, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+                    EndAtUtc = new DateTime(2040, 1, 1, 1, 0, 0, DateTimeKind.Utc),
+                    Reason = "Incident history test", CreatedByUserId = manager.UserId,
+                    CreatedAtUtc = new DateTime(2040, 1, 1, 0, 0, 0, DateTimeKind.Utc).AddMinutes(i)
+                });
+            await db.SaveChangesAsync();
+        }
+        using var client = factory.CreateApiClient(manager.UserId, UserRole.CenterManager);
+        var first = await client.GetFromJsonAsync<IncidentListResponse>("/api/manager/incidents?page=1&pageSize=20");
+        var second = await client.GetFromJsonAsync<IncidentListResponse>("/api/manager/incidents?page=2&pageSize=20");
+        Assert.Equal(20, first!.Items.Count);
+        Assert.True(first.TotalCount >= 23);
+        Assert.Equal(ids[22], first.Items[0].IncidentId);
+        Assert.Equal(ids[2], second!.Items[0].IncidentId);
+        Assert.Empty(first.Items.Select(x => x.IncidentId).Intersect(second.Items.Select(x => x.IncidentId)));
+        Assert.All(first.Items, x => Assert.Equal("CENTER", x.Scope, ignoreCase: true));
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.GetAsync("/api/manager/incidents?page=0")).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.GetAsync("/api/manager/incidents?pageSize=101")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/api/manager/incidents/{Guid.NewGuid()}")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/api/manager/incidents/{ids[0]}/notifications")).StatusCode);
+        using var memberClient = factory.CreateApiClient(member.UserId, UserRole.Member);
+        Assert.Equal(HttpStatusCode.Forbidden, (await memberClient.GetAsync("/api/manager/incidents")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await memberClient.GetAsync($"/api/manager/incidents/{ids[0]}")).StatusCode);
+        using var anonymous = factory.CreateApiClient();
+        Assert.Equal(HttpStatusCode.Unauthorized, (await anonymous.GetAsync("/api/manager/incidents")).StatusCode);
     }
 }

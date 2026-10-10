@@ -77,7 +77,7 @@ export function CoachesManager() {
                 .map(
                   (id) =>
                     sports.data?.find((s) => s.sportId === id)?.name ??
-                    `#${id}`,
+                    t.managerAudit.nameUnavailable,
                 )
                 .join(", "),
           },

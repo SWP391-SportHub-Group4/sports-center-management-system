@@ -31,9 +31,9 @@ export function PtQuotaSummary({
                 l.member,
                 l.coach,
                 l.validity,
-                l.quota,
+                manager ? l.remaining : l.quota,
                 l.status,
-                l.actions,
+                ...(onSelect ? [l.actions] : []),
               ]}
             >
               {rows.map((r) => (
@@ -50,21 +50,28 @@ export function PtQuotaSummary({
                     )}
                   </td>
                   <td>
-                    {l.total}: {r.totalQuota}
-                    <br />
-                    {l.reserved}: {r.reservedSessions}
-                    <br />
-                    {l.consumed}: {r.consumedSessions}
-                    <br />
-                    {l.remaining}: {r.remainingQuota}
+                    {manager ? (
+                      <>
+                        {r.remainingQuota}/{r.totalQuota}
+                      </>
+                    ) : (
+                      <>
+                        {l.total}: {r.totalQuota}
+                        <br />
+                        {l.reserved}: {r.reservedSessions}
+                        <br />
+                        {l.consumed}: {r.consumedSessions}
+                        <br />
+                        {l.remaining}: {r.remainingQuota}
+                      </>
+                    )}
                   </td>
                   <td>
                     <StatusChip value={r.status} />
                   </td>
-                  <td>
-                    {onSelect &&
-                      r.status === "ACTIVE" &&
-                      r.remainingQuota > 0 && (
+                  {onSelect && (
+                    <td>
+                      {r.status === "ACTIVE" && r.remainingQuota > 0 && (
                         <button
                           className="btn btn--secondary"
                           onClick={() => onSelect(r)}
@@ -72,7 +79,8 @@ export function PtQuotaSummary({
                           {l.schedule}
                         </button>
                       )}
-                  </td>
+                    </td>
+                  )}
                 </tr>
               ))}
             </Table>

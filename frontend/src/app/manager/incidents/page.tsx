@@ -1,10 +1,10 @@
 "use client";
 import { OperationsPage } from "@/features/operations/ui";
-import { IncidentForm } from "@/features/incidents/incident-form";
+import { IncidentWorkspace } from "@/features/incidents/incident-history";
 export default function Page() {
   return (
     <OperationsPage title="incidents">
-      <IncidentForm />
+      <IncidentWorkspace />
     </OperationsPage>
   );
 }

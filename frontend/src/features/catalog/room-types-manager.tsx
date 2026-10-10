@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { useState } from "react";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
@@ -9,6 +9,7 @@ import { useUrlQuery } from "@/lib/useUrlQuery";
 import { MutationFeedback, useMutation } from "@/features/operations";
 import { SpecialtyEditor } from "@/features/coaches";
 import { catalogApi } from "./api";
+import styles from "./manager-catalog.module.css";
 export function RoomTypesManager() {
   const { t } = useLanguage();
   const l = t.operations;
@@ -86,7 +87,10 @@ export function RoomTypesManager() {
               }
             }}
           >
-            <fieldset disabled={mutation.busy}>
+            <fieldset
+              className={`${styles.formFields} ${styles.roomTypeFields}`}
+              disabled={mutation.busy}
+            >
               <Field label={l.name}>
                 <input
                   required
@@ -99,14 +103,23 @@ export function RoomTypesManager() {
               <AsyncSection state={sports}>
                 {(rows) => (
                   <SpecialtyEditor
-                    sports={rows}
+                    legend={l.sports}
+                    sports={id ? rows : rows.filter((sport) => sport.isActive)}
                     value={sportIds}
                     onChange={setSports}
                   />
                 )}
               </AsyncSection>
               <div className="btn-row">
-                <button className="btn" disabled={mutation.busy}>
+                <button
+                  className="btn"
+                  disabled={
+                    mutation.busy ||
+                    !name.trim() ||
+                    sports.loading ||
+                    !!sports.error
+                  }
+                >
                   {id ? l.save : l.create}
                 </button>
                 <button
@@ -128,7 +141,7 @@ export function RoomTypesManager() {
           <MutationFeedback mutation={mutation} />
           {partial && (
             <p role="status">
-              {t.managerOperations.completedStep} · {l.roomType} #{id}.{" "}
+              {t.managerOperations.completedStep} · {name}.{" "}
               {t.managerOperations.partialHint}
             </p>
           )}

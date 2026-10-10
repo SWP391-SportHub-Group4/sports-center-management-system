@@ -10,7 +10,12 @@ export function SiteFooter() {
   const pathname = usePathname();
   const cinematic = ["/", "/login", "/register"].includes(pathname);
 
-  if (pathname === "/login" || pathname === "/register") return null;
+  if (
+    pathname === "/login" ||
+    pathname === "/register" ||
+    pathname.startsWith("/manager")
+  )
+    return null;
 
   return (
     <footer

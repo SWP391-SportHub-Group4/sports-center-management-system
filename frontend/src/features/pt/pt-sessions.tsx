@@ -1,17 +1,18 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import { AsyncSection, Card, Field, StatusChip } from "@/components/ui";
+import { AsyncSection, Card, Field, Dialog, StatusChip } from "@/components/ui";
 import { useApi } from "@/lib/useApi";
 import { api } from "@/lib/apiClient";
 import { useLanguage } from "@/lib/language";
-import { formatDateTime } from "@/lib/format";
+import { formatDate, formatTime } from "@/lib/format";
 import { MutationFeedback, useMutation } from "@/features/operations";
 import type { PtEntitlementDto, PtSessionDto } from "@/lib/types";
 import { ptApi } from "./api";
 import { ListPager, Specialty } from "./ui";
 import { PtQuotaSummary } from "./pt-quota-summary";
 import { PtSessionEditor } from "./pt-session-editor";
+import styles from "./pt-sessions.module.css";
 
 function SessionActions({
   session: s,
@@ -37,45 +38,50 @@ function SessionActions({
       ),
     );
     if (ok || mutation.error?.status === 409) reload();
+    return ok;
   }
+  const [cancelling, setCancelling] = useState(false);
   return (
-    <Card title={`${s.memberName} · ${s.coachName}`}>
-      <p>
-        {formatDateTime(s.startAtUtc)} – {formatDateTime(s.endAtUtc)} ·{" "}
-        {s.roomName ?? l.noRoom}
-      </p>
-      <p>
-        <StatusChip value={s.status} /> · <StatusChip value={s.quotaState} />
-      </p>
-      {s.cancellationReason && <p>{s.cancellationReason}</p>}
-      {s.rescheduledFromSessionId && (
-        <p>
-          {l.previousSession}: {s.rescheduledFromSessionId}
-        </p>
-      )}
-      {s.status === "SCHEDULED" && (manager || hasPt) && (
-        <>
-          <Field label={l.reason}>
-            <textarea
-              maxLength={500}
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-            />
-          </Field>
-          <div className="btn-row">
-            {manager ? (
+    <article
+      className={styles.session}
+      aria-label={s.memberName + " · " + s.coachName}
+    >
+      <div className={styles.row}>
+        <strong>{s.memberName}</strong>
+        <div className={styles.schedule}>
+          <time dateTime={s.startAtUtc}>{formatDate(s.startAtUtc)}</time>
+          <span>
+            {formatTime(s.startAtUtc)}–{formatTime(s.endAtUtc)}
+          </span>
+        </div>
+        <div className={styles.location}>
+          <span>{s.coachName}</span>
+          <span className="small muted">{s.roomName ?? l.noRoom}</span>
+        </div>
+        <div className={styles.status}>
+          <StatusChip value={s.status} />
+          {!manager && <StatusChip value={s.quotaState} />}
+        </div>
+        <div className={styles.actions}>
+          {s.status === "SCHEDULED" &&
+            (manager || hasPt) &&
+            (manager ? (
               <>
                 <button
                   className="btn btn--secondary"
                   disabled={mutation.busy}
-                  onClick={() => setEditing(!editing)}
+                  onClick={() => setEditing(true)}
                 >
                   {l.reschedule}
                 </button>
                 <button
                   className="btn btn--danger"
-                  disabled={mutation.busy || reason.trim().length < 3}
-                  onClick={() => perform("cancel")}
+                  disabled={mutation.busy}
+                  onClick={() => {
+                    setReason("");
+                    mutation.reset();
+                    setCancelling(true);
+                  }}
                 >
                   {l.cancelSession}
                 </button>
@@ -97,21 +103,78 @@ function SessionActions({
                   {l.noShow}
                 </button>
               </>
-            )}
-          </div>
-        </>
+            ))}
+          {!manager && hasPt && s.status === "COMPLETED" && (
+            <Link
+              className="btn btn--secondary"
+              href={"/coach/progress?sessionId=" + s.sessionId}
+            >
+              {l.results}
+            </Link>
+          )}
+        </div>
+      </div>
+      {!manager && s.cancellationReason && (
+        <p className="small muted">{s.cancellationReason}</p>
       )}
-      {!manager && hasPt && s.status === "COMPLETED" && (
-        <Link
-          className="btn btn--secondary"
-          href={`/coach/progress?sessionId=${s.sessionId}`}
+      {!manager && s.status === "SCHEDULED" && hasPt && (
+        <Field label={l.reason}>
+          <textarea
+            maxLength={500}
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+          />
+        </Field>
+      )}
+      {!cancelling && <MutationFeedback mutation={mutation} />}
+      {editing && (
+        <Dialog
+          title={l.reschedule}
+          onClose={() => setEditing(false)}
+          size="lg"
         >
-          {l.results}
-        </Link>
+          <PtSessionEditor
+            session={s}
+            onSaved={() => {
+              setEditing(false);
+              reload();
+            }}
+          />
+        </Dialog>
       )}
-      <MutationFeedback mutation={mutation} />
-      {editing && <PtSessionEditor session={s} onSaved={reload} />}
-    </Card>
+      {cancelling && (
+        <Dialog
+          title={l.cancelSession}
+          onClose={() => setCancelling(false)}
+          footer={
+            <button
+              className="btn btn--danger"
+              disabled={mutation.busy || reason.trim().length < 3}
+              onClick={async () => {
+                if (await perform("cancel")) setCancelling(false);
+              }}
+            >
+              {l.cancelSession}
+            </button>
+          }
+        >
+          <p>
+            <strong>{s.memberName}</strong> · {formatDate(s.startAtUtc)} ·{" "}
+            {formatTime(s.startAtUtc)}–{formatTime(s.endAtUtc)}
+          </p>
+          <Field label={l.reason}>
+            <textarea
+              required
+              minLength={3}
+              maxLength={500}
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+            />
+          </Field>
+          <MutationFeedback mutation={mutation} />
+        </Dialog>
+      )}
+    </article>
   );
 }
 function SessionList({ manager, hasPt }: { manager: boolean; hasPt: boolean }) {
@@ -155,7 +218,18 @@ function SessionList({ manager, hasPt }: { manager: boolean; hasPt: boolean }) {
         <AsyncSection state={state}>
           {(rows) => (
             <>
-              <div className="stack">
+              <div className={styles.list}>
+                {manager && (
+                  <div className={styles.head} aria-hidden="true">
+                    <span>{t.frontDesk.colName}</span>
+                    <span>{t.staffWork.start}</span>
+                    <span>
+                      {t.staffWork.coach} / {t.staffWork.room}
+                    </span>
+                    <span>{t.operations.status}</span>
+                    <span>{t.common.actions}</span>
+                  </div>
+                )}
                 {rows.map((s) => (
                   <SessionActions
                     key={`${s.sessionId}-${s.status}`}

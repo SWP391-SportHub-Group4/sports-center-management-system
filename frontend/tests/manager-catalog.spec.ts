@@ -1,3 +1,4 @@
+import { toggleHeaderLanguage } from "./helpers/language";
 import { expect, test, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import type { SportDto } from "../src/lib/types";
@@ -266,9 +267,7 @@ test("sport readiness and disabled services are visible; server errors keep serv
   await dialog(page).getByLabel("Group courses", { exact: true }).uncheck();
   await dialog(page).getByLabel("Court rental", { exact: true }).check();
   await dialog(page).getByRole("button", { name: "Save", exact: true }).click();
-  await expect(
-    dialog(page).getByText("sport_name_taken", { exact: true }),
-  ).toBeVisible();
+  await expect(dialog(page).getByRole("alert")).toBeVisible();
   await expect(
     dialog(page).getByLabel("Court rental", { exact: true }),
   ).toBeChecked();
@@ -322,18 +321,20 @@ test("Gym creates, edits without changing active state, and reactivates via the 
   await expect(row(page, "Gym 60 days")).toBeVisible();
 });
 
-test("PT displays and reloads current price/version and only uses the supported PUT", async ({
+test("PT displays and reloads the current price without technical versions and only uses the supported PUT", async ({
   page,
 }) => {
   const fixture = await setup(page);
   await page.goto("/manager/catalog?tab=pt");
-  await expect(page.getByText("v-original", { exact: true })).toBeVisible();
+  await expect(page.getByText("250,000", { exact: false })).toBeVisible();
+  await expect(page.getByText("v-original", { exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: "Edit", exact: true }).click();
   await dialog(page)
     .getByLabel("PT price per session (VND)", { exact: true })
     .fill("280000");
   await dialog(page).getByRole("button", { name: "Save", exact: true }).click();
-  await expect(page.getByText("v-updated", { exact: true })).toBeVisible();
+  await expect(page.getByText("280,000", { exact: false })).toBeVisible();
+  await expect(page.getByText("v-updated", { exact: true })).toHaveCount(0);
   expect(fixture.writes).toEqual([
     {
       path: "/api/manager/pt-pricing",
@@ -438,7 +439,7 @@ for (const [status, code] of [
       .getByRole("button", { name: "Save", exact: true })
       .click();
     await expect(dialog(page).getByRole("alert")).toBeVisible();
-    await expect(dialog(page).getByText(code, { exact: true })).toBeVisible();
+    await expect(dialog(page).getByText(code, { exact: true })).toHaveCount(0);
     await expect(
       dialog(page).getByLabel("Price per hour (VND)", { exact: true }),
     ).toHaveValue("150000");
@@ -510,7 +511,7 @@ for (const [tab, code, priceLabel] of [
       .getByRole("button", { name: "Save", exact: true })
       .click();
     await expect(dialog(page).getByRole("alert")).toBeVisible();
-    await expect(dialog(page).getByText(code, { exact: true })).toBeVisible();
+    await expect(dialog(page).getByText(code, { exact: true })).toHaveCount(0);
     await expect(
       dialog(page).getByLabel(priceLabel, { exact: true }),
     ).toHaveValue("350000");
@@ -691,11 +692,11 @@ test("mobile tabs, tables and forms fit and English/Vietnamese labels are access
     }
   }
   await page.goto("/manager/catalog?tab=pt");
-  await page.getByRole("button", { name: "EN", exact: true }).click();
+  await toggleHeaderLanguage(page);
   await expect(
     page.getByText("Huấn luyện cá nhân · Dịch vụ Gym", { exact: true }),
   ).toBeVisible();
-  await expect(page.getByText("Phiên bản giá", { exact: true })).toBeVisible();
+  await expect(page.getByText("Phiên bản giá", { exact: true })).toHaveCount(0);
 });
 
 test("live Manager API list contracts and aliases match the rendered catalog", async ({

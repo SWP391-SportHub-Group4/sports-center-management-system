@@ -85,7 +85,8 @@ export function ScheduleReview({
         {(rows) => (
           <>
             <p>
-              {rows[0]?.roomName || roomName || `#${course.defaultRoomId}`} ·{" "}
+              {rows[0]?.roomName || roomName || t.managerAudit.nameUnavailable}{" "}
+              ·{" "}
               {rows[0]?.coachName ||
                 coachName ||
                 t.managerOperations.coachRequired}

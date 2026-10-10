@@ -21,6 +21,7 @@ import type {
   InvoiceDetailDto,
 } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
+import { useInvoiceItemLabels } from "./invoice-item-labels";
 import { Card, Dialog } from "@/components/ui";
 import { Button, buttonClass } from "@/components/primitives";
 import Link from "next/link";
@@ -166,6 +167,7 @@ function CheckoutFlow({
     [checkout?.invoiceId],
   );
   const id = checkout?.invoiceId;
+  const itemLabel = useInvoiceItemLabels(detail.data?.items ?? []);
   const status = checkout?.invoiceStatus;
   useEffect(() => {
     if (!id || !memberId) return;
@@ -508,7 +510,7 @@ function CheckoutFlow({
             <ul className={styles.items}>
               {detail.data.items.map((item) => (
                 <li key={item.itemId}>
-                  <span>{item.description}</span>
+                  <span>{itemLabel(item)}</span>
                   <span className={styles.money}>
                     {formatMoney(item.lineAmount)}
                   </span>

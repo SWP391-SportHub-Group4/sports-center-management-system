@@ -9,7 +9,10 @@ import { MutationFeedback, useMutation } from "@/features/operations";
 import type { SystemSettingDto } from "@/lib/types";
 import type { Translations } from "@/locales/en";
 import styles from "./settings-manager.module.css";
-const settingLabels: Record<string, keyof Translations["settingFields"]> = {
+export const settingLabels: Record<
+  string,
+  keyof Translations["settingFields"]
+> = {
   "class.threshold_days_before_start": "thresholdDays",
   "class.threshold_response_hours": "responseHours",
   "hold.minutes": "holdMinutes",

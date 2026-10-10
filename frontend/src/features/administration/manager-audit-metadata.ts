@@ -271,7 +271,7 @@ export function recordedAuditTarget(row: AuditLogDto): string | undefined {
                 ].includes(row.targetEntity)
               ? ["name", "Name"]
               : [];
-      for (const key of ["targetName", ...keys])
+      for (const key of [...keys, "targetName"])
         if (typeof data[key] === "string" && data[key].trim())
           return row.targetEntity === "SportServiceOffering" &&
             typeof data.serviceType === "string"

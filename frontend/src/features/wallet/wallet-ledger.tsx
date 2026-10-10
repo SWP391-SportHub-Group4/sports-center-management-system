@@ -4,7 +4,7 @@ import { walletApi } from "./api";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { formatDateTime, formatPoints } from "@/lib/format";
-import { AsyncSection, PageNav } from "@/components/ui";
+import { AsyncSection, PageNav, Table } from "@/components/ui";
 import { api } from "@/lib/apiClient";
 import type { WalletLedgerDto } from "@/lib/types";
 import styles from "./wallet-ledger.module.css";
@@ -66,56 +66,81 @@ export function WalletLedger({
       <AsyncSection state={state} emptyMessage={t.wallet.empty}>
         {(data) => (
           <>
-            <ul className={styles.list}>
-              {data.slice(0, 20).map((row) => (
-                <li key={row.id} className={styles.entry}>
-                  <div className={styles.entryTop}>
-                    <div>
-                      <time dateTime={row.createdAtUtc}>
-                        {formatDateTime(row.createdAtUtc)}
-                      </time>
-                      <strong>
-                        {row.entryType === "EARN" &&
-                        row.referenceType === "PaymentAdjustment"
-                          ? t.wallet.refundEarn
-                          : (events[row.entryType] ?? row.entryType)}
-                      </strong>
+            {ownerId ? (
+              <Table
+                headers={[
+                  t.wallet.date,
+                  t.wallet.event,
+                  t.wallet.available,
+                  t.wallet.held,
+                ]}
+              >
+                {data.slice(0, 20).map((row) => (
+                  <tr key={row.id}>
+                    <td>{formatDateTime(row.createdAtUtc)}</td>
+                    <td>{events[row.entryType] ?? row.entryType}</td>
+                    <td>{formatPoints(row.availableDelta)}</td>
+                    <td>{formatPoints(row.heldDelta)}</td>
+                  </tr>
+                ))}
+              </Table>
+            ) : (
+              <ul className={styles.list}>
+                {data.slice(0, 20).map((row) => (
+                  <li key={row.id} className={styles.entry}>
+                    <div className={styles.entryTop}>
+                      <div>
+                        <time dateTime={row.createdAtUtc}>
+                          {formatDateTime(row.createdAtUtc)}
+                        </time>
+                        <strong>
+                          {row.entryType === "EARN" &&
+                          row.referenceType === "PaymentAdjustment"
+                            ? t.wallet.refundEarn
+                            : (events[row.entryType] ?? row.entryType)}
+                        </strong>
+                      </div>
+                      <span
+                        className={
+                          row.availableDelta < 0
+                            ? styles.outflow
+                            : styles.inflow
+                        }
+                      >
+                        {row.availableDelta > 0 ? "+" : ""}
+                        {formatPoints(row.availableDelta)}
+                      </span>
                     </div>
-                    <span
-                      className={
-                        row.availableDelta < 0 ? styles.outflow : styles.inflow
-                      }
-                    >
-                      {row.availableDelta > 0 ? "+" : ""}
-                      {formatPoints(row.availableDelta)}
-                    </span>
-                  </div>
-                  {row.note && <p>{row.note}</p>}
-                  {row.availableDelta !== 0 && (
-                    <small>
-                      {t.wallet.availableTransition
-                        .replace(
-                          "{before}",
-                          formatPoints(row.availableAfter - row.availableDelta),
-                        )
-                        .replace("{after}", formatPoints(row.availableAfter))}
-                    </small>
-                  )}
-                  {row.heldDelta !== 0 && (
-                    <small>
-                      {t.wallet.heldTransition
-                        .replace(
-                          "{before}",
-                          formatPoints(row.heldAfter - row.heldDelta),
-                        )
-                        .replace("{after}", formatPoints(row.heldAfter))}
-                    </small>
-                  )}
-                </li>
-              ))}
-            </ul>
+                    {row.note && <p>{row.note}</p>}
+                    {row.availableDelta !== 0 && (
+                      <small>
+                        {t.wallet.availableTransition
+                          .replace(
+                            "{before}",
+                            formatPoints(
+                              row.availableAfter - row.availableDelta,
+                            ),
+                          )
+                          .replace("{after}", formatPoints(row.availableAfter))}
+                      </small>
+                    )}
+                    {row.heldDelta !== 0 && (
+                      <small>
+                        {t.wallet.heldTransition
+                          .replace(
+                            "{before}",
+                            formatPoints(row.heldAfter - row.heldDelta),
+                          )
+                          .replace("{after}", formatPoints(row.heldAfter))}
+                      </small>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
             {!data.length && <p>{t.wallet.empty}</p>}
             <PageNav
+              label={t.wallet.history}
               page={page}
               hasNext={data.length >= 20}
               loading={state.loading}

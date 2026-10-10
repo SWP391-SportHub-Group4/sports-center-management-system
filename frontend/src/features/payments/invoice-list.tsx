@@ -8,14 +8,17 @@ import { formatMoney } from "@/lib/format";
 import type { InvoiceSummaryDto, InvoiceDetailDto, Paged } from "@/lib/types";
 import { Card, StatusChip } from "@/components/ui";
 import { InvoiceDetail } from "./invoice-detail";
+import { ApiTable } from "@/components/data";
 export function InvoiceList({
   staff = false,
   memberId,
   rental = false,
+  detailsInDialog = false,
 }: {
   staff?: boolean;
   memberId?: string;
   rental?: boolean;
+  detailsInDialog?: boolean;
 }) {
   const { t } = useLanguage();
   const [page, setPage] = useState(1);
@@ -85,6 +88,7 @@ export function InvoiceList({
           invoiceId={selected}
           staff={staff}
           rental={rental}
+          onClose={detailsInDialog ? () => setSelected(null) : undefined}
         />
       )}
       <label>
@@ -104,7 +108,53 @@ export function InvoiceList({
           ))}
         </select>
       </label>
-      {state.loading ? (
+      {detailsInDialog ? (
+        <ApiTable
+          state={state}
+          page={page}
+          pageSize={10}
+          onPageChange={setPage}
+          caption={t.refactor.invoice}
+          getRowId={(row) => row.invoiceId}
+          columns={[
+            {
+              id: "invoice",
+              header: t.refactor.invoice,
+              cell: (row) => row.invoiceNumber,
+            },
+            {
+              id: "member",
+              header: t.operations.member,
+              cell: (row) => row.memberName || row.memberEmail,
+            },
+            {
+              id: "status",
+              header: t.refactor.status,
+              cell: (row) => <StatusChip value={row.status} />,
+            },
+            {
+              id: "total",
+              header: t.refactor.total,
+              cell: (row) => formatMoney(row.totalAmount),
+            },
+            {
+              id: "remaining",
+              header: t.refactor.remaining,
+              cell: (row) => formatMoney(row.outstanding),
+            },
+          ]}
+          rowActions={(row) => (
+            <button
+              type="button"
+              className="btn btn--secondary"
+              aria-haspopup="dialog"
+              onClick={() => setSelected(row.invoiceId)}
+            >
+              {t.refactor.details}
+            </button>
+          )}
+        />
+      ) : state.loading ? (
         <p>{t.refactor.loading}</p>
       ) : state.error ? (
         <p role="alert">{state.error.message}</p>
@@ -130,22 +180,24 @@ export function InvoiceList({
           </Card>
         ))
       )}
-      <div className="btn-row">
-        <button
-          className="btn btn--secondary"
-          disabled={page === 1}
-          onClick={() => setPage(page - 1)}
-        >
-          {t.refactor.previous}
-        </button>
-        <button
-          className="btn btn--secondary"
-          disabled={!state.data || page * 10 >= state.data.totalCount}
-          onClick={() => setPage(page + 1)}
-        >
-          {t.refactor.more}
-        </button>
-      </div>
+      {!detailsInDialog && (
+        <div className="btn-row">
+          <button
+            className="btn btn--secondary"
+            disabled={page === 1}
+            onClick={() => setPage(page - 1)}
+          >
+            {t.refactor.previous}
+          </button>
+          <button
+            className="btn btn--secondary"
+            disabled={!state.data || page * 10 >= state.data.totalCount}
+            onClick={() => setPage(page + 1)}
+          >
+            {t.refactor.more}
+          </button>
+        </div>
+      )}
     </>
   );
 }

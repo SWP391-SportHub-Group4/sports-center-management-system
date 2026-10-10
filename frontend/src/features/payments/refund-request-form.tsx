@@ -5,6 +5,7 @@ import { useApi, useAction } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { formatMoney, formatPoints } from "@/lib/format";
 import type { InvoiceItemDto } from "@/lib/types";
+import { useInvoiceItemLabels } from "./invoice-item-labels";
 export function RefundRequestForm({
   items,
   onChange,
@@ -16,6 +17,7 @@ export function RefundRequestForm({
 }) {
   const { t } = useLanguage();
   const l = t.refactor;
+  const itemLabel = useInvoiceItemLabels(items);
   const [open, setOpen] = useState(false);
   const [item, setItem] = useState("");
   const [reason, setReason] = useState("");
@@ -59,7 +61,7 @@ export function RefundRequestForm({
           <option value="">—</option>
           {items.map((i) => (
             <option key={i.itemId} value={i.itemId}>
-              {i.description}
+              {itemLabel(i)}
             </option>
           ))}
         </select>
