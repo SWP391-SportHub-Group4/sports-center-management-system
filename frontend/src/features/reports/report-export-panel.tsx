@@ -7,7 +7,7 @@ import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { MutationFeedback, useMutation } from "@/features/operations";
 import { reportsApi, type ReportFilters } from "./api";
-import { formatDateTime } from "@/lib/format";
+import { formatDate, formatDateTime } from "@/lib/format";
 import { financeStyles as fin } from "@/features/finance";
 import { useEffect } from "react";
 import styles from "./reports.module.css";
@@ -62,11 +62,50 @@ const columnsByType: Record<string, string[]> = {
     "activeMembersAtPeriodEnd",
   ],
 };
-export function ReportExportPanel({ filters }: { filters: ReportFilters }) {
+export function ReportTypeSelect({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
   const { t } = useLanguage();
   const l = t.staffWork;
-  const [type, setType] = useState("REVENUE_DIMENSIONS");
-  const [columns, setColumns] = useState<string[]>([]);
+  const labels: Record<string, string> = {
+    REVENUE_DIMENSIONS: l.dimensions,
+    COURT_RENTAL_REVENUE: l.rentals,
+    REVENUE_SUMMARY: l.points,
+    CLASS_ENROLLMENT: l.enrollment,
+    MEMBERSHIP_PERIOD: l.membership,
+  };
+  return (
+    <Field label={l.exportType}>
+      <select value={value} onChange={(event) => onChange(event.target.value)}>
+        {Object.keys(columnsByType).map((key) => (
+          <option key={key} value={key}>
+            {labels[key]}
+          </option>
+        ))}
+      </select>
+    </Field>
+  );
+}
+
+export function ReportExportPanel({
+  filters,
+  type,
+}: {
+  filters: ReportFilters;
+  type: string;
+}) {
+  const { t } = useLanguage();
+  const l = t.staffWork;
+  const [selectedColumns, setSelectedColumns] = useState<
+    Record<string, string[]>
+  >({});
+  const columns = selectedColumns[type] ?? [];
+  const setColumns = (next: string[]) =>
+    setSelectedColumns((current) => ({ ...current, [type]: next }));
   const [format, setFormat] = useState("Csv");
   const [page, setPage] = useState(1);
   const mutation = useMutation();
@@ -151,27 +190,9 @@ export function ReportExportPanel({ filters }: { filters: ReportFilters }) {
             state.reload();
         }}
       >
-        <Field label={l.exportType}>
-          <select
-            value={type}
-            onChange={(e) => {
-              setType(e.target.value);
-              setColumns([]);
-            }}
-          >
-            {Object.keys(columnsByType).map((key) => (
-              <option key={key} value={key}>
-                {labels[key]}
-              </option>
-            ))}
-          </select>
-        </Field>
         <p>
-          {filters.fromDate} – {filters.toDate}
-          {(dimensional || type === "CLASS_ENROLLMENT") &&
-            ` · ${l.sport}: ${filters.sportId || l.all}`}
-          {dimensional &&
-            ` · ${l.source}: ${type === "COURT_RENTAL_REVENUE" ? l.rentals : filters.source || l.all} · ${l.memberId}: ${filters.memberId || l.all}`}
+          {labels[type]} · {formatDate(filters.fromDate)} –{" "}
+          {formatDate(filters.toDate)}
         </p>
         {type === "REVENUE_SUMMARY" && <p>{l.globalPoints}</p>}
         <fieldset className={styles.columns}>

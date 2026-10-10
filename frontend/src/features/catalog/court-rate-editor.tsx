@@ -146,21 +146,37 @@ export function CourtRateEditor() {
               id: "daysOfWeek",
               header: l.day,
               cell: (r) =>
-                r.daysOfWeek
-                  .split(",")
-                  .map((day) => l.weekdays[codes.indexOf(day.trim())] ?? day)
-                  .join(", "),
+                codes.every((code) =>
+                  r.daysOfWeek
+                    .split(",")
+                    .map((day) => day.trim())
+                    .includes(code),
+                )
+                  ? c.everyDay
+                  : r.daysOfWeek
+                      .split(",")
+                      .map(
+                        (day) => l.weekdays[codes.indexOf(day.trim())] ?? day,
+                      )
+                      .join(", "),
             },
             {
               id: "window",
               header: c.timeWindow,
-              cell: (r) => r.startTimeLocal + " – " + r.endTimeLocal,
+              cell: (r) =>
+                r.startTimeLocal.slice(0, 5) +
+                " – " +
+                r.endTimeLocal.slice(0, 5),
             },
             {
               id: "pricePerHour",
               header: l.priceHour,
               numeric: true,
-              cell: (r) => formatMoney(r.pricePerHour),
+              cell: (r) => (
+                <span className={styles.courtRatePrice}>
+                  {formatMoney(r.pricePerHour)}
+                </span>
+              ),
             },
             {
               id: "isActive",

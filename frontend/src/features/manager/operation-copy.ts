@@ -6,7 +6,7 @@ const copy = {
     weeklyTime: "Time for selected weekdays",
     generate: "Generate suggestions",
     aiBlocked:
-      "Suggestions are unavailable until G03 is connected. No schedule has been generated or checked by AI.",
+      "AI suggestions are currently unavailable. You can review and edit the schedule manually.",
     manualReview: "Review and edit manually",
     manualHint:
       "These are your inputs, not an AI proposal. Continue in the class editor to check the schedule, review pricing and save a draft separately.",
@@ -18,7 +18,7 @@ const copy = {
     ready: "Not processed",
     results: "Step results in this session",
     resultsHint:
-      "Each step is independent. A later failure does not undo earlier confirmed steps. Persistent incident history and refund breakdown are awaiting G06.",
+      "Each step is independent. A later failure does not undo earlier confirmed steps.",
     emptyImpacts:
       "No affected activities were returned for this preview. Recheck before confirming the final operation.",
     impactCount: "Affected activities",
@@ -36,7 +36,7 @@ const copy = {
     recipientCount: "Selected recipients",
     channels: "Delivery channels",
     localReview:
-      "This review uses the users and schedule already loaded in the browser. Server-side recipient preview and a notice history list are awaiting G07.",
+      "Check the selected recipients before sending. Recipient eligibility is checked when the notice is sent.",
     audienceChanged:
       "The audience has changed. Select recipients again and review before sending.",
     noRecipients:
@@ -60,7 +60,7 @@ const copy = {
     weeklyTime: "Giờ cho các thứ đã chọn",
     generate: "Sinh gợi ý lịch",
     aiBlocked:
-      "Chưa thể sinh gợi ý khi G03 chưa được kết nối. Chưa có lịch nào được AI tạo hoặc kiểm tra.",
+      "Gợi ý AI hiện chưa khả dụng. Bạn có thể xem lại và chỉnh lịch thủ công.",
     manualReview: "Xem lại và chỉnh lịch thủ công",
     manualHint:
       "Đây là thông số bạn nhập, không phải gợi ý AI. Tiếp tục trong form lớp để kiểm tra lịch, xem lại giá và lưu nháp bằng thao tác riêng.",
@@ -72,7 +72,7 @@ const copy = {
     ready: "Chưa xử lý",
     results: "Kết quả từng bước trong phiên này",
     resultsHint:
-      "Mỗi bước là thao tác riêng. Bước sau lỗi không hoàn tác bước đã được xác nhận. Lịch sử sự cố và chi tiết hoàn điểm còn chờ G06.",
+      "Mỗi bước là thao tác riêng. Bước sau lỗi không hoàn tác bước đã được xác nhận.",
     emptyImpacts:
       "Preview không trả về hoạt động bị ảnh hưởng. Kiểm tra lại trước khi xác nhận thao tác cuối.",
     impactCount: "Hoạt động bị ảnh hưởng",
@@ -90,7 +90,7 @@ const copy = {
     recipientCount: "Người nhận đã chọn",
     channels: "Kênh gửi",
     localReview:
-      "Bản xem lại dùng danh sách người dùng và lịch đã tải trên trình duyệt. Preview người nhận phía server và danh sách lịch sử thông báo còn chờ G07.",
+      "Kiểm tra người nhận đã chọn trước khi gửi. Điều kiện nhận thông báo được kiểm tra khi gửi.",
     audienceChanged:
       "Nhóm người nhận đã thay đổi. Hãy chọn lại và xem lại trước khi gửi.",
     noRecipients:

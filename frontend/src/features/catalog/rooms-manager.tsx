@@ -80,7 +80,7 @@ function Blocks({ roomId }: { roomId: number }) {
                     </button>
                   ) : (
                     <Link
-                      href={`/manager/incidents?roomId=${roomId}&incidentId=${b.incidentId}`}
+                      href={`/manager/incidents/${b.incidentId}`}
                     >
                       {l.incidents}
                     </Link>
@@ -338,61 +338,63 @@ export function RoomsManager({ detailId }: { detailId?: number } = {}) {
       )}
       <AsyncSection state={state}>
         {(rows) => (
-          <Table headers={[l.room, l.roomType, l.capacity, l.status, ""]}>
-            {rows
-              .filter((r) =>
-                detailId
-                  ? r.roomId === detailId
-                  : r.name
-                      .toLocaleLowerCase()
-                      .includes(values.q.trim().toLocaleLowerCase()) &&
-                    (!values.status ||
-                      r.isActive === (values.status === "active")),
-              )
-              .map((r) => (
-                <tr key={r.roomId}>
-                  <td>{r.name}</td>
-                  <td>
-                    {
-                      types.data?.find((x) => x.roomTypeId === r.roomTypeId)
-                        ?.name
-                    }
-                  </td>
-                  <td>{r.capacity}</td>
-                  <td>
-                    <StatusChip value={r.isActive ? "ACTIVE" : "INACTIVE"} />
-                  </td>
-                  <td>
-                    <div className="btn-row">
-                      <button
-                        className="btn btn--secondary"
-                        onClick={() => {
-                          setId(r.roomId);
-                          setForm({
-                            ...r,
-                            roomTypeId: r.roomTypeId
-                              ? String(r.roomTypeId)
-                              : "",
-                          });
-                          setEditing(true);
-                          mutation.reset();
-                        }}
-                      >
-                        {l.edit}
-                      </button>
-                      <button
-                        className="btn btn--ghost"
-                        onClick={() =>
-                          router.push(`/manager/facilities/${r.roomId}`)
-                        }
-                      >
-                        {l.openingHours} / {l.blocks}
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-          </Table>
+          <div className={styles.roomsTable}>
+            <Table headers={[l.room, l.roomType, l.capacity, l.status, ""]}>
+              {rows
+                .filter((r) =>
+                  detailId
+                    ? r.roomId === detailId
+                    : r.name
+                        .toLocaleLowerCase()
+                        .includes(values.q.trim().toLocaleLowerCase()) &&
+                      (!values.status ||
+                        r.isActive === (values.status === "active")),
+                )
+                .map((r) => (
+                  <tr key={r.roomId}>
+                    <td>{r.name}</td>
+                    <td>
+                      {
+                        types.data?.find((x) => x.roomTypeId === r.roomTypeId)
+                          ?.name
+                      }
+                    </td>
+                    <td>{r.capacity}</td>
+                    <td>
+                      <StatusChip value={r.isActive ? "ACTIVE" : "INACTIVE"} />
+                    </td>
+                    <td>
+                      <div className="btn-row">
+                        <button
+                          className="btn btn--secondary"
+                          onClick={() => {
+                            setId(r.roomId);
+                            setForm({
+                              ...r,
+                              roomTypeId: r.roomTypeId
+                                ? String(r.roomTypeId)
+                                : "",
+                            });
+                            setEditing(true);
+                            mutation.reset();
+                          }}
+                        >
+                          {l.edit}
+                        </button>
+                        <button
+                          className="btn btn--ghost"
+                          onClick={() =>
+                            router.push(`/manager/facilities/${r.roomId}`)
+                          }
+                        >
+                          {l.openingHours} / {l.blocks}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+            </Table>
+          </div>
         )}
       </AsyncSection>
       {detailId &&
@@ -413,7 +415,8 @@ export function RoomsManager({ detailId }: { detailId?: number } = {}) {
               )
               ?.sportIds.map(
                 (id) =>
-                  sports.data?.find((s) => s.sportId === id)?.name ?? `#${id}`,
+                  sports.data?.find((s) => s.sportId === id)?.name ??
+                  t.managerAudit.nameUnavailable,
               )
               .join(", ") || "—"}
           </p>

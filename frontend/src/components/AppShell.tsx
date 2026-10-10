@@ -15,6 +15,7 @@ import { canUsePtFeatures } from "@/lib/permissions";
 import { useLanguage } from "@/lib/language";
 import type { Translations } from "@/locales/en";
 import { NotificationBell } from "./NotificationBell";
+import { LanguageSwitcher } from "./LanguageSwitcher";
 import {
   IconKeyboard,
   IconLogout,
@@ -455,7 +456,10 @@ export function AppFrame({
   const initial = (user.fullName || user.email).charAt(0).toUpperCase();
 
   return (
-    <div className={shell.shell}>
+    <div
+      className={`${shell.shell} ${user.role === "CenterManager" ? styles.managerShell : ""}`}
+      data-portal={user.role === "CenterManager" ? "manager" : undefined}
+    >
       <a href="#main-content" className="skip-link">
         {language === "en"
           ? "Skip to main content"
@@ -511,20 +515,24 @@ export function AppFrame({
                 <span>{t.navigation.shortcutsButton}</span>
               </button>
             )}
-            <button
-              type="button"
-              className={`${shell.langToggleBtn} ${styles.staffLang}`}
-              onClick={toggleLanguage}
-              title={
-                language === "en"
-                  ? t.navigation.languageToggleToVi
-                  : t.navigation.languageToggleToEn
-              }
-            >
-              <span className={shell.langText}>
-                {language === "en" ? "EN" : "VI"}
-              </span>
-            </button>
+            {user.role === "CenterManager" ? (
+              <LanguageSwitcher />
+            ) : (
+              <button
+                type="button"
+                className={`${shell.langToggleBtn} ${styles.staffLang}`}
+                onClick={toggleLanguage}
+                title={
+                  language === "en"
+                    ? t.navigation.languageToggleToVi
+                    : t.navigation.languageToggleToEn
+                }
+              >
+                <span className={shell.langText}>
+                  {language === "en" ? "EN" : "VI"}
+                </span>
+              </button>
+            )}
             <NotificationBell />
             <div className={shell.userMenuWrapper} ref={userRef}>
               <button
@@ -534,7 +542,11 @@ export function AppFrame({
                 aria-expanded={userMenu}
                 aria-label={user.fullName || user.email}
               >
-                <div className={shell.userAvatar}>{initial}</div>
+                <div
+                  className={`${shell.userAvatar} ${user.role === "CenterManager" ? styles.managerAvatar : ""}`}
+                >
+                  {initial}
+                </div>
                 <span className={shell.userName}>
                   {user.fullName || user.email}
                 </span>
@@ -654,30 +666,36 @@ export function AppFrame({
                   </div>
                 ),
               )}
-              <button
-                type="button"
-                className={shell.langToggleBtn}
-                style={{
-                  marginTop: 12,
-                  width: "100%",
-                  justifyContent: "center",
-                }}
-                onClick={() => {
-                  toggleLanguage();
-                  setDrawer(false);
-                }}
-                title={
-                  language === "en"
-                    ? t.navigation.languageToggleToVi
-                    : t.navigation.languageToggleToEn
-                }
-              >
-                <span className={shell.langText}>
-                  {language === "en"
-                    ? "Language: English (Switch to VI)"
-                    : "Ngôn ngữ: Tiếng Việt (Chuyển EN)"}
-                </span>
-              </button>
+              {user.role === "CenterManager" ? (
+                <LanguageSwitcher onSelect={() => setDrawer(false)} />
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    className={shell.langToggleBtn}
+                    style={{
+                      marginTop: 12,
+                      width: "100%",
+                      justifyContent: "center",
+                    }}
+                    onClick={() => {
+                      toggleLanguage();
+                      setDrawer(false);
+                    }}
+                    title={
+                      language === "en"
+                        ? t.navigation.languageToggleToVi
+                        : t.navigation.languageToggleToEn
+                    }
+                  >
+                    <span className={shell.langText}>
+                      {language === "en"
+                        ? "Language: English (Switch to VI)"
+                        : "Ngôn ngữ: Tiếng Việt (Chuyển EN)"}
+                    </span>
+                  </button>
+                </>
+              )}
               <Link
                 href="/account"
                 className={shell.mobileNavLink}

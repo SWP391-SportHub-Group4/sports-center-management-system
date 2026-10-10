@@ -11,3 +11,24 @@
     min-width: 0;
   }
 }
+
+@media (min-width: 768px) {
+  .root table {
+    table-layout: fixed;
+  }
+  .root table thead th:nth-child(1) {
+    width: 11%;
+  }
+  .root table thead th:nth-child(2) {
+    width: 18%;
+  }
+  .root table thead th:nth-child(3) {
+    width: 17%;
+  }
+  .root table thead th:nth-child(4) {
+    width: 21%;
+  }
+  .root table thead th:nth-child(5) {
+    width: 33%;
+  }
+}

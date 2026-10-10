@@ -20,13 +20,35 @@ public sealed class IncidentService(ISportHubDbContext db, IOccupancyService occ
     INotificationWriter notifications, IUserAccessReader users, IAuditWriter audit, IClock clock,
     INotificationDeliveryReader delivery)
 {
-    public async Task<NotificationDelivery> DeliveryAsync(Guid incidentId, CancellationToken ct = default)
+    private IQueryable<IncidentListItem> ProjectIncidents(IQueryable<IncidentNotice> query)
+        => query.Select(incident => new IncidentListItem(incident.IncidentId, incident.Scope.ToString(),
+            db.Set<Room>().Where(room => room.RoomId == incident.RoomId).Select(room => room.Name).FirstOrDefault(),
+            incident.StartAtUtc, incident.EndAtUtc, incident.Reason, incident.CreatedAtUtc));
+
+    public async Task<IncidentListResponse> ListAsync(int page = 1, int pageSize = 20, CancellationToken ct = default)
     {
-        if (!await db.Set<IncidentNotice>().AnyAsync(x => x.IncidentId == incidentId, ct))
-            throw new NotFoundException("incident_not_found", "Không tìm thấy sự cố.");
-        var ids = await db.Set<CourtRental>().Where(x => x.CancellationIncidentId == incidentId)
+        if (page < 1 || pageSize is < 1 or > 100 || (long)(page - 1) * pageSize > int.MaxValue)
+            throw new BadRequestException("invalid_incident_pagination", "Trang phải từ 1 và số mục mỗi trang từ 1 đến 100.");
+        var totalCount = await db.Set<IncidentNotice>().CountAsync(ct);
+        var query = db.Set<IncidentNotice>().AsNoTracking().OrderByDescending(x => x.CreatedAtUtc).ThenByDescending(x => x.IncidentId)
+            .Skip((page - 1) * pageSize).Take(pageSize);
+        var items = await ProjectIncidents(query).ToListAsync(ct);
+        return new(items, page, pageSize, totalCount);
+    }
+
+    public async Task<IncidentDetailResponse> DetailAsync(Guid incidentId, CancellationToken ct = default)
+    {
+        var incident = await ProjectIncidents(db.Set<IncidentNotice>().AsNoTracking().Where(x => x.IncidentId == incidentId)).SingleOrDefaultAsync(ct)
+            ?? throw new NotFoundException("incident_not_found", "Không tìm thấy sự cố.");
+        var ids = await db.Set<CourtRental>().AsNoTracking().Where(x => x.CancellationIncidentId == incidentId)
             .Select(x => x.CourtRentalId).ToListAsync(ct);
-        return await delivery.GetManyAsync(NotificationEvents.IncidentResolution, ids, ct);
+        var rooms = await (from block in db.Set<RoomBlock>().AsNoTracking()
+                           join room in db.Set<Room>().AsNoTracking() on block.RoomId equals room.RoomId
+                           where block.IncidentId == incidentId
+                           orderby room.Name
+                           select room.Name).Distinct().ToListAsync(ct);
+        return new(incident, rooms, ids.Count,
+            await delivery.GetManyAsync(NotificationEvents.IncidentResolution, ids, ct));
     }
 
     public async Task<IncidentPreviewResponse> PreviewAsync(IncidentRequest request, CancellationToken ct = default)
@@ -198,6 +220,11 @@ public sealed class IncidentService(ISportHubDbContext db, IOccupancyService occ
 }
 
 public sealed record IncidentRequest([property: SportHub.BuildingBlocks.Api.WireEnum] string Scope, int? RoomId, DateTime StartAtUtc, DateTime EndAtUtc, string Reason);
+public sealed record IncidentListItem(Guid IncidentId, [property: SportHub.BuildingBlocks.Api.WireEnum] string Scope,
+    string? RoomName, DateTime StartAtUtc, DateTime EndAtUtc, string Reason, DateTime CreatedAtUtc);
+public sealed record IncidentListResponse(IReadOnlyList<IncidentListItem> Items, int Page, int PageSize, int TotalCount);
+public sealed record IncidentDetailResponse(IncidentListItem Incident, IReadOnlyList<string> BlockedRooms,
+    int CancelledRentals, NotificationDelivery Delivery);
 public sealed record IncidentImpact([property: SportHub.BuildingBlocks.Api.WireEnum] string SourceType, Guid SourceId, DateTime StartAtUtc, DateTime EndAtUtc)
 {
     public IReadOnlyList<IncidentResolutionOption> ResolutionOptions => SourceType switch

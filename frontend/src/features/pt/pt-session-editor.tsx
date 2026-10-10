@@ -1,4 +1,5 @@
 "use client";
+import styles from "./pt-session-editor.module.css";
 import { useState } from "react";
 import { AsyncSection, Card, Field } from "@/components/ui";
 import { api } from "@/lib/apiClient";
@@ -31,7 +32,7 @@ export function PtSessionEditor({
   return (
     <Card title={session ? l.reschedule : l.schedule} hint={l.sessionHint}>
       <form
-        className="form"
+        className={styles.form}
         onSubmit={async (e) => {
           e.preventDefault();
           if (

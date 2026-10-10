@@ -5,6 +5,7 @@ import styles from "./course-history.module.css";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
+import { CourseName } from "@/components/RecordName";
 import { pageQuery, useUrlQuery } from "@/lib/useUrlQuery";
 import { formatDate, formatMoney, formatDateTime } from "@/lib/format";
 import { ApiTable } from "@/components/data";
@@ -102,9 +103,9 @@ export function CourseHistory({ classId }: { classId: number }) {
           {
             id: "targetId",
             header: t.staffWork.entity,
-            cell: (r) => (
+            cell: () => (
               <span className={styles.nowrap}>
-                {h.class} #{r.targetId}
+                {h.class} · <CourseName id={classId} />
               </span>
             ),
           },
@@ -138,12 +139,14 @@ export function CourseHistory({ classId }: { classId: number }) {
               title={h.before}
               raw={selected.oldValue}
               coachNames={coaches.data ?? {}}
+              referenceNames={selected.referenceNames ?? {}}
               coachesLoading={coaches.loading}
             />
             <Snapshot
               title={h.after}
               raw={selected.newValue}
               coachNames={coaches.data ?? {}}
+              referenceNames={selected.referenceNames ?? {}}
               coachesLoading={coaches.loading}
             />
           </div>
@@ -158,11 +161,13 @@ function Snapshot({
   raw,
   coachNames,
   coachesLoading,
+  referenceNames,
 }: {
   title: string;
   raw: string | null;
   coachNames: Record<string, string | null>;
   coachesLoading: boolean;
+  referenceNames: Record<string, string>;
 }) {
   const { t } = useLanguage();
   const l = t.operations;
@@ -171,9 +176,9 @@ function Snapshot({
     reason: h.reason,
     code: l.code,
     name: l.name,
-    sportId: `${l.sports} (ID)`,
+    sportId: l.sports,
     coachId: l.coach,
-    roomId: `${l.room} (ID)`,
+    roomId: l.room,
     startDate: l.startDate,
     numSessions: l.numSessions,
     capacity: l.capacity,
@@ -214,6 +219,7 @@ function Snapshot({
         .filter(
           ([key, value]) =>
             key in labels &&
+            key !== "code" &&
             (value === null ||
               ["string", "number", "boolean"].includes(typeof value)),
         );
@@ -227,7 +233,15 @@ function Snapshot({
       if (!value) return "\u2014";
       return (
         coachNames[value.toLowerCase()] ||
-        (coachesLoading ? t.common.loading : `${h.coachUnavailable} (${value})`)
+        (coachesLoading ? t.common.loading : h.coachUnavailable)
+      );
+    }
+    if (key === "sportId" || key === "roomId") {
+      const kind = key === "sportId" ? "Sport" : "Room";
+      return (
+        Object.entries(referenceNames).find(
+          ([ref]) => ref.toLowerCase() === `${kind}:${value}`.toLowerCase(),
+        )?.[1] ?? t.managerAudit.nameUnavailable
       );
     }
     if ((key === "price" || key === "costAmount") && typeof value === "number")

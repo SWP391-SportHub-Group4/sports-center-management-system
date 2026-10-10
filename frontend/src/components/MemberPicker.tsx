@@ -28,6 +28,7 @@ export function MemberPicker({
   autoFocus = false,
   placeholder,
   emptyHint,
+  scanner = true,
 }: {
   value: UserAdminDto | null;
   onChange: (member: UserAdminDto | null) => void;
@@ -36,6 +37,7 @@ export function MemberPicker({
   placeholder?: string;
   /** Hiện dưới dòng "không tìm thấy" (vd. hướng dẫn hội viên tự đăng ký). */
   emptyHint?: ReactNode;
+  scanner?: boolean;
 }) {
   const { language } = useLanguage();
   const [keyword, setKeyword] = useState("");
@@ -166,7 +168,7 @@ export function MemberPicker({
         style={{ height: 44, borderRadius: 8 }}
       />
 
-      <CameraQrScanner onScan={handleScan} />
+      {scanner && <CameraQrScanner onScan={handleScan} />}
       {scanError && (
         <span className="field__hint" role="alert">
           {scanError}

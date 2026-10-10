@@ -85,6 +85,12 @@ export default function RegisterPage() {
       ? "Enter a valid phone number, e.g. 0912345678 or +84912345678."
       : undefined;
 
+  // Focus after the OTP inputs mount, without a delayed callback that can
+  // steal focus once the member has started entering or editing the code.
+  useEffect(() => {
+    if (otpSent && step === 1) otpInputRefs.current[0]?.focus();
+  }, [otpSent, step]);
+
   // Timers for OTP expiration and resend cooldown
   useEffect(() => {
     if (otpSecondsLeft <= 0) return;
@@ -169,9 +175,8 @@ export default function RegisterPage() {
       setFieldErrors((current) => ({ ...current, otp: undefined }));
       setOtpSecondsLeft(OTP_EXPIRY_SECONDS);
       setResendCooldown(RESEND_COOLDOWN_SECONDS);
-      setTimeout(() => {
-        otpInputRefs.current[0]?.focus();
-      }, 100);
+      // On resend the inputs are already mounted; focus without a timer.
+      otpInputRefs.current[0]?.focus();
     } catch (cause) {
       setError(message(cause));
     } finally {
@@ -220,8 +225,8 @@ export default function RegisterPage() {
         : nextErrors.phone
           ? phoneInputRef
           : nextErrors.password
-          ? passwordInputRef
-          : confirmInputRef
+            ? passwordInputRef
+            : confirmInputRef
       ).current?.focus();
       return;
     }
@@ -510,6 +515,9 @@ export default function RegisterPage() {
                               !event.currentTarget.value &&
                               index > 0
                             ) {
+                              // This branch handles deletion and focus itself;
+                              // do not also run native deletion on the input.
+                              event.preventDefault();
                               setOtpDigits((current) => {
                                 const next = [...current];
                                 next[index - 1] = "";

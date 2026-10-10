@@ -5,7 +5,7 @@ import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { choiceQuery, useUrlQuery } from "@/lib/useUrlQuery";
-import { formatMoney, formatDateTime } from "@/lib/format";
+import { formatMoney, formatDate, formatDateTime } from "@/lib/format";
 import { Card, AsyncSection, Table, StatusChip, Dialog } from "@/components/ui";
 import { Tabs } from "@/components/primitives";
 import { CoursePublishReview } from "./course-publish-review";
@@ -13,7 +13,6 @@ import { SessionEditor } from "./session-editor";
 import { ThresholdPanel } from "./threshold-panel";
 import { CourseOperations, CourseCancellation } from "./course-operations";
 import { CourseHistory } from "./course-history";
-import { ApiGap } from "@/features/manager";
 import { managerWorkspaceStyles as styles } from "@/features/manager";
 import type {
   ManagerCourseDto,
@@ -104,7 +103,7 @@ export function ManagerCourseDetail({ classId }: { classId: number }) {
         {(c) => (
           <>
             <Card
-              title={`${c.code} · ${c.name}`}
+              title={c.name}
               actions={
                 <>
                   <StatusChip value={c.status} />
@@ -183,13 +182,7 @@ export function ManagerCourseDetail({ classId }: { classId: number }) {
                         [l.price, formatMoney(c.price)],
                         [l.cost, formatMoney(c.costAmount)],
                         [l.numSessions, String(c.numSessions)],
-                        [l.startDate, c.startDate],
-                        [m.created, formatDateTime(c.createdAt)],
-                        [
-                          m.published,
-                          c.publishedAt ? formatDateTime(c.publishedAt) : "—",
-                        ],
-                        [m.version, String(c.version)],
+                        [l.startDate, formatDate(c.startDate)],
                       ].map(([label, value]) => (
                         <div key={label}>
                           <dt>{label}</dt>
@@ -198,7 +191,6 @@ export function ManagerCourseDetail({ classId }: { classId: number }) {
                       ))}
                     </dl>
                     <p>{m.holdHint}</p>
-                    <ApiGap code="G13" message={m.closeGap} />
                   </Card>
                   {!["CANCELLED", "COMPLETED"].includes(c.status) && (
                     <CourseCancellation classId={classId} onSaved={reload} />
@@ -292,9 +284,6 @@ export function ManagerCourseDetail({ classId }: { classId: number }) {
                     classId={classId}
                     kind="threshold-responses"
                   />
-                  <p className="small muted" role="status">
-                    {m.interestGap}
-                  </p>
                 </div>
               )}
               {values.tab === "history" && (

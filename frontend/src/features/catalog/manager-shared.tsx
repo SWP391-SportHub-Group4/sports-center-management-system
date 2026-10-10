@@ -66,7 +66,11 @@ export function CatalogFilters({
       ]}
       values={filters.values}
       onChange={filters.set}
-      onReset={() => filters.set({ q: "", status: "", roomType: "" })}
+      onReset={
+        Object.values(filters.values).some(Boolean)
+          ? () => filters.set({ q: "", status: "", roomType: "" })
+          : undefined
+      }
     />
   );
 }
@@ -123,25 +127,41 @@ export function CatalogTable<Row>({
     filters.page,
     Math.max(1, Math.ceil(rows.length / pageSize)),
   );
+  const layout = columns.some((c) => c.id === "pricePerHour")
+    ? styles.ratesTable
+    : columns.some((c) => c.id === "durationDays")
+      ? styles.packageTable
+      : "";
   return (
-    <Table
-      caption={caption}
-      columns={columns}
-      rows={rows.slice((page - 1) * pageSize, page * pageSize)}
-      getRowId={getRowId}
-      rowActions={actions}
-      status={state.loading ? "loading" : "ready"}
-      empty={{
-        title: t.managerCatalog.empty,
-        hint: t.managerCatalog.emptyHint,
-      }}
-      pagination={{
-        page,
-        pageSize,
-        totalCount: rows.length,
-        onChange: filters.setPage,
-      }}
-    />
+    <div className={layout}>
+      <Table
+        caption={caption}
+        columns={columns}
+        rows={rows.slice((page - 1) * pageSize, page * pageSize)}
+        getRowId={getRowId}
+        rowActions={actions}
+        status={state.loading ? "loading" : "ready"}
+        empty={{
+          title: t.managerCatalog.empty,
+          hint: t.managerCatalog.emptyHint,
+        }}
+        pagination={
+          rows.length > pageSize
+            ? {
+                page,
+                pageSize,
+                totalCount: rows.length,
+                onChange: filters.setPage,
+              }
+            : undefined
+        }
+      />
+      {rows.length > 0 && rows.length <= pageSize && (
+        <p className="small muted">
+          {rows.length} {t.common.items}
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -175,11 +195,6 @@ export function CatalogFeedback({
   return (
     <>
       <Feedback error={message} success={mutation.success} />
-      {mutation.error && (
-        <p className="small muted">
-          {t.managerCatalog.errorCode}: <code>{mutation.error.code}</code>
-        </p>
-      )}
     </>
   );
 }

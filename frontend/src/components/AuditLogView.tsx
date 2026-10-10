@@ -14,9 +14,12 @@ import { choiceQuery, pageQuery, useUrlQuery } from "@/lib/useUrlQuery";
 import { useLanguage } from "@/lib/language";
 import { formatDateTime } from "@/lib/format";
 import type { AuditLogDto, Paged, RoomTypeDto } from "@/lib/types";
+import type { UserAdminDto } from "@/lib/types";
+import { pagedItems } from "@/lib/paged";
 import { AuditTargetAccount } from "@/features/administration/AuditTargetAccount";
 import { AuditTargetEntity } from "@/features/administration/AuditTargetEntity";
 import { ManagerAuditChanges } from "@/features/administration/ManagerAuditChanges";
+import { ReportExportAuditDetails } from "@/features/administration/ReportExportAuditDetails";
 import { MembershipAuditChanges } from "@/features/administration/MembershipAuditChanges";
 import {
   CourtRateAuditChanges,
@@ -57,12 +60,54 @@ function AuditFilterForm({
   const l = t.staffWork;
   const [draft, setDraft] = useState<Record<string, string>>(values);
   const [invalidActor, setInvalidActor] = useState(false);
+  const actors = useApi(
+    (signal) =>
+      api.get<Paged<UserAdminDto>>("/api/users", {
+        signal,
+        query: { page: 1, pageSize: 100 },
+      }),
+    [],
+  );
   const fields: FilterField[] = [
-    { id: "action", label: l.action, kind: "search" },
+    {
+      id: "action",
+      label: l.action,
+      kind: "select",
+      options: [
+        { value: "", label: t.staffWork.all },
+        ...Object.entries(t.managerAudit.actions).map(([value, label]) => ({
+          value,
+          label,
+        })),
+      ],
+    },
     ...(!accountsOnly
-      ? [{ id: "targetEntity", label: l.entity, kind: "search" as const }]
+      ? [
+          {
+            id: "targetEntity",
+            label: l.entity,
+            kind: "select" as const,
+            options: [
+              { value: "", label: t.staffWork.all },
+              ...Object.entries(t.managerAudit.entities).map(
+                ([value, label]) => ({ value, label }),
+              ),
+            ],
+          },
+        ]
       : []),
-    { id: "actorId", label: l.actor, kind: "search" },
+    {
+      id: "actorId",
+      label: t.courseHistory.actor,
+      kind: "select",
+      options: [
+        { value: "", label: t.staffWork.all },
+        ...pagedItems(actors.data).map((user) => ({
+          value: user.userId,
+          label: user.fullName || user.email,
+        })),
+      ],
+    },
   ];
   return (
     <form
@@ -183,18 +228,20 @@ export function AuditLogView({
     },
     {
       id: "actorEmail",
-      header: l.actor,
+      header: t.courseHistory.actor,
       sortable: true,
       rowHeader: true,
-      cell: (row) => (
-        <>
-          {row.actorEmail}
-          <br />
-          <span className="small muted">{row.userId}</span>
-        </>
-      ),
+      cell: (row) => row.actorEmail,
     },
-    { id: "action", header: l.action, sortable: true },
+    {
+      id: "action",
+      header: l.action,
+      sortable: true,
+      cell: (row) =>
+        t.managerAudit.actions[
+          row.action as keyof typeof t.managerAudit.actions
+        ] ?? t.managerAudit.otherAction,
+    },
     {
       id: "targetEntity",
       header: accountsOnly ? t.adminWork.target : l.entity,
@@ -210,7 +257,9 @@ export function AuditLogView({
       id: "metadata",
       header: l.metadata,
       cell: (row) =>
-        row.targetEntity === "MembershipPackage" ? (
+        row.targetEntity === "ReportExport" ? (
+          <ReportExportAuditDetails row={row} />
+        ) : row.targetEntity === "MembershipPackage" ? (
           <MembershipAuditChanges row={row} />
         ) : row.targetEntity === "CourtRate" ? (
           <CourtRateAuditChanges row={row} roomTypes={roomTypes.data ?? []} />
@@ -228,7 +277,7 @@ export function AuditLogView({
         hint={
           accountsOnly
             ? `${l.accountScope} ${t.adminWork.targetAccountHint}`
-            : `${l.auditHint} ${t.managerAudit.currentNamesHint}${needsRoomNames ? ` ${t.courtRateAudit.currentNameHint}` : ""}`
+            : l.auditHint
         }
       >
         <AuditFilterForm

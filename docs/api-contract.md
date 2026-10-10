@@ -28,13 +28,24 @@ Các API dưới đây bổ sung đúng dependency của frontend P2.06–P2.10,
 | POST | `/api/manager/notices` | Manager; body hiện có, thêm header `Idempotency-Key` UUID. Cùng Manager/key/payload nhận cùng noticeId và không tạo thêm outbox; đổi payload trả 409 `notice_idempotency_conflict`. Client cũ không có key vẫn được hỗ trợ. |
 | GET | `/api/manager/notices/{noticeId}` | Manager đã gửi; `{noticeId,delivery}`. Manager khác nhận 404. |
 | GET | `/api/manager/notices/by-key/{key}` | Manager đã gửi; phục hồi receipt sau timeout/F5, chờ transaction gửi cùng key hoàn tất. |
-| GET | `/api/manager/incidents/{incidentId}/notifications` | Manager; delivery tổng các notice IncidentResolution của rental thuộc incident. |
+| GET | `/api/manager/incidents?page=1&pageSize=20` | Manager; danh sách sự cố đã xử lý, mới nhất trước; `{items,page,pageSize,totalCount}`. |
+| GET | `/api/manager/incidents/{incidentId}` | Manager; chi tiết sự cố, phòng/sân đã khóa, số lượt thuê bị hủy và trạng thái thông báo đi kèm. |
 | GET | `/api/court-rentals/policy` | Member; `slotMinutes,maxHours,advanceDays,cancelFreeHours,serverNow`; không mở quyền đọc mọi system setting. |
 | GET | `/api/court-rentals/{rentalId}` | Member chủ thuê; `rental,roomName,sportName,blocks,cancelReason,cancelledAtUtc,refundedPoints`. Rental summary thêm nullable invoiceId kể cả PendingPayment. Người khác 404; blocks là snapshot giá, refundedPoints từ ledger SystemEvent. |
 
 Hủy khóa tính `floor(remainingPaidValueVnd × sessionsNotProvided / totalSessions / 1000)`; giá trị còn lại trừ các lần refund/transfer trước. Buổi gốc hoặc buổi bù đã Completed được coi đã cung cấp theo authority scheduling; không lấy giờ browser để tính hoàn. Ghi danh legacy thiếu paid item chặn hủy để tránh hoàn sai. Pending/AwaitingPayment threshold responses được hết hạn cùng transaction, tiền gateway đến muộn đi qua cơ chế compensation hiện có.
 
 Delivery có `total,pending,sending,sent,failed,read`; đây là trạng thái outbox/in-app. SMTP vẫn at-least-once; receipt/idempotency không có nghĩa người nhận đã đọc email hoặc exactly-once SMTP.
+
+### Danh sách và chi tiết sự cố (cập nhật 10/10/2026)
+
+- `GET /api/manager/incidents`: `page >= 1`, `pageSize` từ 1 đến 100, mặc định 20. Sai phân trang trả 400 `invalid_incident_pagination`. Sắp xếp `createdAtUtc` giảm dần, rồi `incidentId` giảm dần để phân trang ổn định. Trang vượt phạm vi trả `items: []` cùng tổng số mục.
+- Mỗi item: `{incidentId,scope,roomName,startAtUtc,endAtUtc,reason,createdAtUtc}`; `scope` là `ROOM` hoặc `CENTER`, `roomName` nullable với sự cố toàn trung tâm.
+- `GET /api/manager/incidents/{incidentId}` trả `{incident,blockedRooms,cancelledRentals,delivery}`. `incident` có cấu trúc như item danh sách; `blockedRooms` là tên các phòng/sân từ block gắn với sự cố đã lưu, không suy lại từ danh sách phòng đang hoạt động; `cancelledRentals` đếm rental có `CancellationIncidentId` tương ứng. Không tìm thấy trả 404 `incident_not_found`.
+- `delivery` tổng hợp cả email và in-app của event `IncidentResolution` cho rental thuộc sự cố; đây là số thông báo, không phải số người nhận. `total = 0` nghĩa không có thông báo được ghi nhận, không chứng minh không có khách bị ảnh hưởng. Không bao gồm thông báo dời/hủy lớp hoặc PT ở các bước xử lý lịch trước đó.
+- Frontend `/manager/incidents` hiển thị danh sách phân trang với phòng/sân, thời gian ảnh hưởng, lý do và liên kết chi tiết. Nút **Xử lý sự cố** mở quy trình preview → xử lý lịch → recheck → resolve hiện có. Chi tiết không hiển thị UUID hoặc bảng đếm từng trạng thái; chỉ tóm tắt đang gửi/đã gửi/gửi thất bại/chưa có thông báo. Làm mới chỉ đọc lại chi tiết, không gửi lại, không hoàn điểm lại.
+- Endpoint cũ `GET /api/manager/incidents/{incidentId}/notifications` đã bỏ; trạng thái gửi nằm trong API chi tiết. Ô nhập ID sự cố đã bỏ. Link sự cố từ lịch khóa phòng/sân mở thẳng trang chi tiết. API preview/resolve và logic transaction/outbox giữ nguyên; không thêm migration.
+- Biểu mẫu phạm vi/thời gian sự cố tách ngày và giờ; giờ nhập theo hệ 24h `HH:mm` (00:00–23:59), không dùng popup SA/CH. Có thể nhập `0930` hoặc `9:30`, khi rời ô sẽ chuẩn hóa thành `09:30`. Kiểm tra kết thúc sau bắt đầu trước preview; thời gian vẫn là giờ Việt Nam và chuyển UTC trước khi gửi API.
 
 ## Contract tích hợp frontend
 

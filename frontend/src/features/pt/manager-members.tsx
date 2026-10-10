@@ -1,5 +1,6 @@
 "use client";
 
+import listStyles from "./manager-members.module.css";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -46,13 +47,15 @@ export function ManagerMemberList() {
   );
   return (
     <Card title={l.members}>
-      <Field label={l.findMember}>
-        <input
-          type="search"
-          value={keyword}
-          onChange={(e) => setKeyword(e.target.value)}
-        />
-      </Field>
+      <div className={listStyles.search}>
+        <Field label={l.findMember}>
+          <input
+            type="search"
+            value={keyword}
+            onChange={(e) => setKeyword(e.target.value)}
+          />
+        </Field>
+      </div>
       <AsyncSection state={state}>
         {(data) => {
           const rows = pagedItems(data);
@@ -60,40 +63,44 @@ export function ManagerMemberList() {
             return <p className={styles.muted}>{l.noMembers}</p>;
           return (
             <>
-              <Table
-                headers={[
-                  t.frontDesk.colName,
-                  t.frontDesk.colContact,
-                  t.frontDesk.colStatus,
-                  "",
-                ]}
-              >
-                {rows.map((m) => (
-                  <tr key={m.userId}>
-                    <td>{m.fullName || m.email}</td>
-                    <td>
-                      {m.email}
-                      {m.phone ? ` · ${m.phone}` : ""}
-                    </td>
-                    <td>
-                      <StatusChip value={m.status} />
-                    </td>
-                    <td>
-                      <Link
-                        className="btn btn--secondary btn--sm"
-                        href={`/manager/members/${m.userId}`}
-                      >
-                        {l.openMember}
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </Table>
-              <Pagination
-                page={page}
-                count={data.totalCount}
-                onChange={setPage}
-              />
+              <div className={listStyles.memberTable}>
+                <Table
+                  headers={[
+                    t.frontDesk.colName,
+                    t.frontDesk.colContact,
+                    t.frontDesk.colStatus,
+                    "",
+                  ]}
+                >
+                  {rows.map((m) => (
+                    <tr key={m.userId}>
+                      <td>{m.fullName || m.email}</td>
+                      <td>
+                        {m.email}
+                        {m.phone ? ` · ${m.phone}` : ""}
+                      </td>
+                      <td>
+                        <StatusChip value={m.status} />
+                      </td>
+                      <td>
+                        <Link
+                          className="btn btn--secondary btn--sm"
+                          href={`/manager/members/${m.userId}`}
+                        >
+                          {l.openMember}
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </Table>
+              </div>
+              <div className={listStyles.pagination}>
+                <Pagination
+                  page={page}
+                  count={data.totalCount}
+                  onChange={setPage}
+                />
+              </div>
             </>
           );
         }}

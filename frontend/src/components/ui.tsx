@@ -9,6 +9,9 @@ import {
   type ReactNode,
   type ReactElement,
 } from "react";
+import { usePathname } from "next/navigation";
+import tableStyles from "./LegacyTable.module.css";
+import pagerStyles from "@/features/pt/list-pager.module.css";
 import type { ApiError } from "@/lib/apiClient";
 import { useLanguage } from "@/lib/language";
 import { FieldContext } from "@/components/primitives/FieldContext";
@@ -315,10 +318,12 @@ export function Table({
   children: ReactNode;
 }) {
   const { t } = useLanguage();
+  const management = /^\/(manager|admin)(\/|$)/.test(usePathname());
   const rows = Children.toArray(children);
   return (
     <div
-      className="table-wrap"
+      className={`table-wrap ${tableStyles.viewport} ${management ? tableStyles.cards : ""}`}
+      data-management-table={management || undefined}
       tabIndex={0}
       role="region"
       aria-label={headers
@@ -326,7 +331,7 @@ export function Table({
         .filter(Boolean)
         .join(", ")}
     >
-      <table>
+      <table className="legacy-table" data-columns={headers.length}>
         <thead>
           <tr>
             {headers.map((header, index) => {
@@ -348,7 +353,36 @@ export function Table({
         </thead>
         <tbody>
           {rows.length ? (
-            rows
+            rows.map((row) => {
+              if (
+                !isValidElement<{ children?: ReactNode }>(row) ||
+                row.type !== "tr"
+              )
+                return row;
+              return cloneElement(
+                row,
+                {},
+                Children.toArray(row.props.children).map((cell, index) => {
+                  if (
+                    !isValidElement<Record<string, unknown>>(cell) ||
+                    !["td", "th"].includes(String(cell.type))
+                  )
+                    return cell;
+                  const header = headers[index];
+                  const label =
+                    typeof header === "string" ? header : header?.text;
+                  return cloneElement(
+                    cell,
+                    {
+                      "data-label": label || t.common.actions,
+                    },
+                    <div className={tableStyles.cell}>
+                      {cell.props.children as ReactNode}
+                    </div>,
+                  );
+                }),
+              );
+            })
           ) : (
             <tr>
               <td colSpan={headers.length}>{t.operations.empty}</td>
@@ -415,12 +449,14 @@ export function PageNav({
   page,
   totalPages,
   hasNext,
+  label,
   loading,
   onChange,
 }: {
   page: number;
   totalPages?: number;
   hasNext?: boolean;
+  label?: string;
   loading?: boolean;
   onChange: (page: number) => void;
 }) {
@@ -438,7 +474,10 @@ export function PageNav({
       : `Page ${page}`;
 
   return (
-    <nav className="page-nav" aria-label={vi ? "Phân trang" : "Pagination"}>
+    <nav
+      className={`page-nav ${pagerStyles.pagination} ${pagerStyles.left}`}
+      aria-label={label ?? (vi ? "Phân trang" : "Pagination")}
+    >
       <button
         type="button"
         className="btn btn--secondary"
@@ -447,7 +486,9 @@ export function PageNav({
       >
         {vi ? "Trước" : "Previous"}
       </button>
-      <span aria-live="polite">{current}</span>
+      <span className={pagerStyles.page} aria-live="polite">
+        {current}
+      </span>
       <button
         type="button"
         className="btn btn--secondary"

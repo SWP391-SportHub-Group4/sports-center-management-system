@@ -150,7 +150,8 @@ public sealed class CourtRentalTests(PaymentApiFactory factory)
             request.EndUtc.UtcDateTime, "Court floor repair");
         Assert.True((await incidents.PreviewAsync(incident)).CanResolve);
         var incidentId = await incidents.ResolveAsync(incident, manager.UserId);
-        var delivery = await incidents.DeliveryAsync(incidentId);
+        var detail = await incidents.DetailAsync(incidentId);
+        var delivery = detail.Delivery;
         Assert.Equal(2, delivery.Total);
         Assert.Equal(2, delivery.Pending);
         var rental = await factory.QueryAsync(db => db.Set<CourtRental>().AsNoTracking()

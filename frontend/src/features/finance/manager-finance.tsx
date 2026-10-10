@@ -29,7 +29,11 @@ export function ManagerFinance() {
         onChange={(id) => setValues({ tab: id })}
       >
         <div className={styles.tabBody}>
-          {tab === "refunds" ? <ManagerRefunds /> : <InvoiceList staff />}
+          {tab === "refunds" ? (
+            <ManagerRefunds />
+          ) : (
+            <InvoiceList staff detailsInDialog />
+          )}
         </div>
       </Tabs>
     </div>

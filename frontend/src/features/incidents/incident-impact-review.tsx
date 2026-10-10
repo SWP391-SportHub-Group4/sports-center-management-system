@@ -5,6 +5,7 @@ import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { formatDateTime } from "@/lib/format";
 import { Card, Table, Field, AsyncSection, Dialog } from "@/components/ui";
+import { PtSessionName } from "@/components/RecordName";
 import { RoomSelector, catalogApi } from "@/features/catalog";
 import { useOperationsCopy } from "@/features/manager";
 import { SessionEditor } from "@/features/courses";
@@ -157,7 +158,7 @@ function PtImpactEditor({
         {reviewing && (
           <div className="stack">
             <p>
-              {cancel ? l.cancel : l.reschedule} · <code>{id}</code>
+              {cancel ? l.cancel : l.reschedule} · <PtSessionName id={id} />
             </p>
             {!cancel && (
               <p>
@@ -265,17 +266,7 @@ export function IncidentImpactReview({
         </p>
       )}
       {!preview.impacts.length && <p>{c.emptyImpacts}</p>}
-      <Table
-        headers={[
-          l.impact,
-          t.managerOperations.receiptId,
-          l.room,
-          l.coach,
-          l.start,
-          l.end,
-          "",
-        ]}
-      >
+      <Table headers={[l.impact, l.room, l.coach, l.start, l.end, ""]}>
         {preview.impacts.map((r) => {
           const entry = details.data?.entries.find(
             (e) => e.sourceType === r.sourceType && e.sourceId === r.sourceId,
@@ -285,9 +276,6 @@ export function IncidentImpactReview({
               <td>
                 {labels[r.sourceType] ?? r.sourceType}
                 {entry && <p>{entry.title}</p>}
-              </td>
-              <td>
-                <code>{r.sourceId}</code>
               </td>
               <td>
                 {details.data?.rooms.find(
@@ -351,7 +339,9 @@ export function IncidentImpactReview({
           }}
         >
           <p>
-            {l.roomBlock} · <code>{removeId}</code>
+            {l.roomBlock} ·{" "}
+            {details.data?.entries.find((entry) => entry.sourceId === removeId)
+              ?.title ?? t.managerAudit.nameUnavailable}
           </p>
           <p>{t.managerOperations.partialHint}</p>
           <div className="btn-row">

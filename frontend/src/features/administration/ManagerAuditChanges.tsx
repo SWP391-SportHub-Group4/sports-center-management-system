@@ -14,6 +14,7 @@ import {
   managerAuditSnapshot,
   type AuditValue,
 } from "./manager-audit-metadata";
+import { AuditChange } from "./AuditChange";
 import styles from "./MembershipAuditChanges.module.css";
 
 export function ManagerAuditChanges({ row }: { row: AuditLogDto }) {
@@ -21,16 +22,41 @@ export function ManagerAuditChanges({ row }: { row: AuditLogDto }) {
   const l = t.managerAudit;
   const before = managerAuditSnapshot(row.oldValue, row);
   const after = managerAuditSnapshot(row.newValue, row);
+  if (row.targetEntity === "PtSession" && after.newStartAtUtc) {
+    after.startAtUtc = after.newStartAtUtc;
+    delete after.newStartAtUtc;
+  }
   const comparison = row.oldValue !== null && row.newValue !== null;
   const keys = [
     ...new Set([...Object.keys(before), ...Object.keys(after)]),
   ].filter(
     (key) =>
-      !comparison || JSON.stringify(before[key]) !== JSON.stringify(after[key]),
+      ![
+        "ledgerEntryId",
+        "code",
+        "confirmationId",
+        "revision",
+        "version",
+        "imageUrl",
+        "replacementSessionId",
+        "sessionId",
+        "entitlementId",
+        "ownerId",
+        "ownerUserId",
+        "timing",
+        "timingClassification",
+        "quotaState",
+      ].includes(key) &&
+      (!comparison ||
+        JSON.stringify(before[key]) !== JSON.stringify(after[key])),
   );
   const code = (value: string): string =>
     l.codes[value as keyof typeof l.codes] ??
-    t.wireStatus[value as keyof typeof t.wireStatus] ??
+    t.wireStatus[
+      value
+        .replace(/([a-z])([A-Z])/g, "$1_$2")
+        .toUpperCase() as keyof typeof t.wireStatus
+    ] ??
     value;
   const label = (key: string) => {
     if (key.startsWith("hours."))
@@ -41,7 +67,10 @@ export function ManagerAuditChanges({ row }: { row: AuditLogDto }) {
     }
     if (key.startsWith("affected."))
       return `${l.fields.affectedSources} · ${l.entities[key.split(".")[1] as keyof typeof l.entities] ?? key.split(".")[1]}`;
-    return l.fields[key as keyof typeof l.fields] ?? key;
+    return (l.fields[key as keyof typeof l.fields] ?? key).replace(
+      /^ID\s+|\s+ID$/g,
+      "",
+    );
   };
   const value = (key: string, item: AuditValue | undefined): string => {
     if (item === undefined) return t.auditChanges.notRecorded;
@@ -56,7 +85,7 @@ export function ManagerAuditChanges({ row }: { row: AuditLogDto }) {
         ? item
             .map((id) =>
               auditReferenceKinds[key]
-                ? `${currentReference(row, auditReferenceKinds[key], id) ?? `#${id}`}`
+                ? `${currentReference(row, auditReferenceKinds[key], id) ?? l.nameUnavailable}`
                 : String(id),
             )
             .join(", ")
@@ -74,7 +103,7 @@ export function ManagerAuditChanges({ row }: { row: AuditLogDto }) {
     if (auditReferenceKinds[key])
       return (
         currentReference(row, auditReferenceKinds[key], String(item)) ??
-        `#${item}`
+        l.nameUnavailable
       );
     if (key === "sessionId")
       return (
@@ -82,11 +111,12 @@ export function ManagerAuditChanges({ row }: { row: AuditLogDto }) {
           row,
           row.targetEntity === "Attendance" ? "ClassSession" : "PtSession",
           String(item),
-        ) ?? `#${item}`
+        ) ?? l.nameUnavailable
       );
     if (key.startsWith("affected."))
       return (
-        currentReference(row, key.split(".")[1], String(item)) ?? `#${item}`
+        currentReference(row, key.split(".")[1], String(item)) ??
+        l.nameUnavailable
       );
     if (key === "direction" && (item === 0 || item === 1))
       return item === 0 ? l.codes.Credit : l.codes.Debit;
@@ -134,30 +164,36 @@ export function ManagerAuditChanges({ row }: { row: AuditLogDto }) {
     return <p className="small muted">{t.auditChanges.unchanged}</p>;
   return (
     <div className={styles.root}>
-      {keys.map((key) => (
-        <p key={key} className={styles.change}>
-          <span>{label(key)}: </span>
-          {key === "reason" ? (
-            <span>{value(key, after[key] ?? before[key])}</span>
-          ) : comparison ? (
-            <>
-              <span>
-                <span className="sr-only">{t.auditChanges.before}: </span>
-                <del>{value(key, before[key])}</del>
-              </span>
-              <span aria-hidden="true"> → </span>
-              <strong>
-                <span className="sr-only">{t.auditChanges.after}: </span>
-                {value(key, after[key])}
-              </strong>
-            </>
-          ) : (
-            <span>
-              {value(key, row.newValue !== null ? after[key] : before[key])}
-            </span>
-          )}
-        </p>
-      ))}
+      {keys
+        .sort((a, b) => {
+          const priority = [
+            "status",
+            "startAtUtc",
+            "points",
+            "reason",
+            "direction",
+            "reviewNote",
+            "name",
+            "roomTypeId",
+          ];
+          const rank = (k: string) =>
+            priority.includes(k) ? priority.indexOf(k) : priority.length;
+          return rank(a) - rank(b);
+        })
+        .slice(0, 3)
+        .map((key) => (
+          <AuditChange
+            key={key}
+            label={label(key)}
+            comparison={comparison && key !== "reason"}
+            before={
+              before[key] !== undefined ? value(key, before[key]) : undefined
+            }
+            after={
+              after[key] !== undefined ? value(key, after[key]) : undefined
+            }
+          />
+        ))}
     </div>
   );
 }

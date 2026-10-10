@@ -133,13 +133,13 @@ export function CourtRateAuditChanges({
     if (!recorded(key, data)) return l.notRecorded;
     switch (key) {
       case "roomTypeId":
-        return roomName(data) ?? `#${data.roomTypeId}`;
+        return roomName(data) ?? t.managerAudit.nameUnavailable;
       case "sportId":
         return data.sportId === null
           ? c.allSports
           : data.sportName
-            ? `${data.sportName} (#${data.sportId})`
-            : `#${data.sportId}`;
+            ? data.sportName
+            : t.managerAudit.nameUnavailable;
       case "days":
         return data
           .days!.split(",")
@@ -160,7 +160,7 @@ export function CourtRateAuditChanges({
     <div className={styles.root}>
       <p className={styles.subject}>
         <strong>
-          {c.rate}: {roomName(subject) ?? `#${row.targetId}`}
+          {c.rate}: {roomName(subject) ?? t.managerAudit.nameUnavailable}
         </strong>
       </p>
       {(["roomTypeId", "sportId"] as const)

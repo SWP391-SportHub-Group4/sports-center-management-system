@@ -1,0 +1,44 @@
+.formFields.formFields,
+.group.group {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.formFields.formFields label {
+  display: flex;
+  margin: 0;
+  text-align: left;
+}
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+.group legend {
+  padding: 0;
+  margin-bottom: var(--space-2);
+  font-weight: var(--weight-semibold);
+}
+.inputs {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 7rem;
+  gap: var(--space-3);
+  align-items: start;
+}
+.inputs :global(input) {
+  min-width: 0;
+  width: 100%;
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 680px) {
+  .formGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 360px) {
+  .inputs {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

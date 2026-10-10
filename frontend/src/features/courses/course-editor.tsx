@@ -12,7 +12,6 @@ import { CoachSelector } from "@/features/coaches";
 import { ScheduleRuleEditor } from "./schedule-rule-editor";
 import { ScheduleReview } from "./schedule-review";
 import { previewSessions } from "./preview";
-import { AiScheduleDrawer } from "@/features/manager";
 import { managerWorkspaceStyles as styles } from "@/features/manager";
 import type { ManagerCourseDto } from "@/lib/types";
 
@@ -33,7 +32,6 @@ export function CourseEditor({
   const formRef = useRef<HTMLFormElement>(null);
   const saved = useRef(false);
   const [step, setStep] = useState(0);
-  const [ai, setAi] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const [recovered, setRecovered] = useState(false);
   const [form, setForm] = useState({
@@ -286,13 +284,6 @@ export function CourseEditor({
                   </>
                 )}
               </AsyncSection>
-              <button
-                type="button"
-                className="btn btn--secondary"
-                onClick={() => setAi(true)}
-              >
-                {m.aiTitle}
-              </button>
             </>
           )}
           {step === 2 && (
@@ -396,17 +387,6 @@ export function CourseEditor({
           </button>
         </div>
       </form>
-      {ai && (
-        <AiScheduleDrawer
-          initial={form}
-          onClose={() => setAi(false)}
-          onManualReview={(preferences) => {
-            setForm((current) => ({ ...current, ...preferences }));
-            setStep(1);
-            mutation.reset();
-          }}
-        />
-      )}
     </Card>
   );
 }

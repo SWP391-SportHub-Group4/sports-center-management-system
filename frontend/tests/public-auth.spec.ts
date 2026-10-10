@@ -245,6 +245,7 @@ test("login validation grows naturally with spacing below each field", async ({
 test("registration code supports six digits, editing, and paste", async ({
   page,
 }) => {
+  await page.clock.install();
   await page.route("**/api/auth/register/otp", (route) =>
     route.fulfill({ json: {} }),
   );
@@ -267,10 +268,40 @@ test("registration code supports six digits, editing, and paste", async ({
     await expect(digits.nth(index)).toHaveValue(String(index + 1));
   }
 
-  await digits.last().fill("");
+  // Sending or replacing a code must not leave a timer that steals focus.
+  await page.clock.runFor(200);
+  await expect(digits.last()).toBeFocused();
+
+  // A filled digit uses native deletion and keeps focus in the same cell.
+  await digits.last().press("Backspace");
+  await expect(digits.last()).toBeFocused();
+  await expect(digits.last()).toHaveValue("");
+  await expect(digits.nth(4)).toHaveValue("5");
+
+  // An empty digit clears the previous cell and moves back exactly once.
   await digits.last().press("Backspace");
   await expect(digits.nth(4)).toBeFocused();
   await expect(digits.nth(4)).toHaveValue("");
+  await expect(digits.last()).toHaveValue("");
+  await expect(digits.nth(3)).toHaveValue("4");
+
+  for (let index = 3; index >= 0; index -= 1) {
+    await page.keyboard.press("Backspace");
+    await expect(digits.nth(index)).toBeFocused();
+    await expect(digits.nth(index)).toHaveValue("");
+  }
+  await page.keyboard.press("Backspace");
+  await expect(digits.first()).toBeFocused();
+  for (let index = 0; index < 6; index += 1) {
+    await expect(digits.nth(index)).toHaveValue("");
+  }
+
+  // Resending resets the code and focuses the existing first input.
+  await page.clock.runFor(60_000);
+  await digits.last().fill("9");
+  await page.getByRole("button", { name: "Resend code", exact: true }).click();
+  await expect(digits.first()).toBeFocused();
+  await expect(digits.last()).toHaveValue("");
 
   await digits.first().evaluate((input) => {
     const clipboardData = new DataTransfer();

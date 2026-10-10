@@ -4,7 +4,7 @@ import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { formatMoney } from "@/lib/format";
 import { AsyncSection, Card, Field } from "@/components/ui";
-import { Table } from "@/components/data/Table";
+import styles from "./manager-catalog.module.css";
 import { useMutation } from "@/features/operations";
 import { catalogApi } from "./api";
 import { CatalogFeedback, CatalogFormDialog } from "./manager-shared";
@@ -19,39 +19,24 @@ export function PtPricingManager() {
     <Card title={c.ptPricing} hint={t.operations.ptPriceHint}>
       <AsyncSection state={state}>
         {(p) => (
-          <Table
-            caption={c.ptPricing}
-            rows={[p]}
-            getRowId={() => "pt"}
-            columns={[
-              {
-                id: "service",
-                header: c.service,
-                rowHeader: true,
-                cell: () => c.ptService,
-              },
-              {
-                id: "pricePerSessionVnd",
-                header: t.operations.ptPrice,
-                numeric: true,
-                cell: (row) => formatMoney(row.pricePerSessionVnd),
-              },
-              { id: "priceVersion", header: c.priceVersion },
-            ]}
-            rowActions={() => (
-              <button
-                className="btn btn--secondary btn--sm"
-                disabled={mutation.busy}
-                onClick={() => {
-                  mutation.reset();
-                  setPrice(String(p.pricePerSessionVnd));
-                  setOpen(true);
-                }}
-              >
-                {t.operations.edit}
-              </button>
-            )}
-          />
+          <div className={styles.pricingSummary}>
+            <strong>{c.ptService}</strong>
+            <p className={styles.priceValue}>
+              {formatMoney(p.pricePerSessionVnd)}
+            </p>
+
+            <button
+              className="btn btn--secondary btn--sm"
+              disabled={mutation.busy}
+              onClick={() => {
+                mutation.reset();
+                setPrice(String(p.pricePerSessionVnd));
+                setOpen(true);
+              }}
+            >
+              {t.operations.edit}
+            </button>
+          </div>
         )}
       </AsyncSection>
       {!open && <CatalogFeedback mutation={mutation} />}

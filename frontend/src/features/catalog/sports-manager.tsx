@@ -113,90 +113,92 @@ export function SportsManager() {
         }
       >
         <CatalogFilters filters={filters} />
-        <CatalogTable
-          state={state}
-          filters={filters}
-          caption={l.sports}
-          rows={(state.data ?? []).filter((s) =>
-            matchesCatalog(s, `${s.code} ${s.name}`, filters.values),
-          )}
-          getRowId={(s) => String(s.sportId)}
-          columns={[
-            { id: "sortOrder", header: c.ordinal, numeric: true },
-            { id: "name", header: l.name, rowHeader: true },
-            {
-              id: "code",
-              header: l.code,
-              cell: (s) => <span className={styles.sportCode}>{s.code}</span>,
-            },
-            {
-              id: "services",
-              header: l.services,
-              cell: (s) => (
-                <ul>
-                  {s.services.map((svc) => {
-                    const readiness = s.readiness?.find(
-                      (r) => r.serviceType === svc.serviceType,
-                    );
-                    return (
-                      <li key={svc.serviceType}>
-                        {serviceLabel[svc.serviceType]}
-                        {!svc.isEnabled && (
-                          <span className="muted"> ({l.serviceOff})</span>
-                        )}
-                        {svc.serviceType === "GROUP_COURSE" && (
-                          <span className="muted">
-                            {" "}
-                            — {svc.defaultSessionMinutes} {c.minutes} ·{" "}
-                            {svc.defaultMaxCapacity} {c.people}
-                          </span>
-                        )}
-                        {svc.isEnabled && readiness && !readiness.ready && (
-                          <span className="muted">
-                            {" "}
-                            ({l.notReady}. {l.missingPrefix}{" "}
-                            {readiness.missing
-                              .map((m) => missingLabel[m] ?? m)
-                              .join(", ")}
-                            )
-                          </span>
-                        )}
-                      </li>
-                    );
-                  })}
-                </ul>
-              ),
-            },
-            {
-              id: "isActive",
-              header: l.status,
-              cell: (s) => (
-                <StatusChip value={s.isActive ? "ACTIVE" : "INACTIVE"} />
-              ),
-            },
-          ]}
-          actions={(s) => (
-            <>
-              <button
-                className="btn btn--secondary btn--sm"
-                disabled={mutation.busy}
-                onClick={() => edit(s)}
-              >
-                {l.edit}
-              </button>
-              <button
-                className="btn btn--ghost btn--sm"
-                disabled={mutation.busy}
-                onClick={() => {
-                  mutation.reset();
-                  setActivity(s);
-                }}
-              >
-                {s.isActive ? l.deactivate : l.activate}
-              </button>
-            </>
-          )}
-        />
+        <div className={styles.sportsTable}>
+          <CatalogTable
+            state={state}
+            filters={filters}
+            caption={l.sports}
+            rows={(state.data ?? []).filter((s) =>
+              matchesCatalog(s, `${s.code} ${s.name}`, filters.values),
+            )}
+            getRowId={(s) => String(s.sportId)}
+            columns={[
+              { id: "sortOrder", header: c.ordinal, numeric: true },
+              { id: "name", header: l.name, rowHeader: true },
+              {
+                id: "code",
+                header: l.code,
+                cell: (s) => <span className={styles.sportCode}>{s.code}</span>,
+              },
+              {
+                id: "services",
+                header: l.services,
+                cell: (s) => (
+                  <ul className={styles.serviceList}>
+                    {s.services.map((svc) => {
+                      const readiness = s.readiness?.find(
+                        (r) => r.serviceType === svc.serviceType,
+                      );
+                      return (
+                        <li key={svc.serviceType}>
+                          {serviceLabel[svc.serviceType]}
+                          {!svc.isEnabled && (
+                            <span className="muted"> ({l.serviceOff})</span>
+                          )}
+                          {svc.serviceType === "GROUP_COURSE" && (
+                            <span className="muted">
+                              {" "}
+                              — {svc.defaultSessionMinutes} {c.minutes} ·{" "}
+                              {svc.defaultMaxCapacity} {c.people}
+                            </span>
+                          )}
+                          {svc.isEnabled && readiness && !readiness.ready && (
+                            <span className="muted">
+                              {" "}
+                              ({l.notReady}. {l.missingPrefix}{" "}
+                              {readiness.missing
+                                .map((m) => missingLabel[m] ?? m)
+                                .join(", ")}
+                              )
+                            </span>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                ),
+              },
+              {
+                id: "isActive",
+                header: l.status,
+                cell: (s) => (
+                  <StatusChip value={s.isActive ? "ACTIVE" : "INACTIVE"} />
+                ),
+              },
+            ]}
+            actions={(s) => (
+              <>
+                <button
+                  className="btn btn--secondary btn--sm"
+                  disabled={mutation.busy}
+                  onClick={() => edit(s)}
+                >
+                  {l.edit}
+                </button>
+                <button
+                  className="btn btn--ghost btn--sm"
+                  disabled={mutation.busy}
+                  onClick={() => {
+                    mutation.reset();
+                    setActivity(s);
+                  }}
+                >
+                  {s.isActive ? l.deactivate : l.activate}
+                </button>
+              </>
+            )}
+          />
+        </div>
         {!editor && !activity && <CatalogFeedback mutation={mutation} />}
       </Card>
       {editor && (

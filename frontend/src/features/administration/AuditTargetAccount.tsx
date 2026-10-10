@@ -25,14 +25,11 @@ export function AuditTargetAccount({
             ? l.targetAccountDeleted
             : l.targetAccountUnavailable}
         </span>
-        <span className={`small muted ${styles.identifier}`}>
-          {row.targetId}
-        </span>
       </div>
     );
   }
   return (
-    <div className={styles.root} title={`${l.accountId}: ${row.targetId}`}>
+    <div className={styles.root}>
       <strong>
         {linkToAccount ? (
           <Link href={`/admin/users/${row.targetId}`}>{name || email}</Link>
