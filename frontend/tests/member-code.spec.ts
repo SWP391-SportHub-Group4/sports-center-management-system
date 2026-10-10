@@ -2,15 +2,17 @@ import { expect, test } from "@playwright/test";
 import { memberCodePayload, parseMemberCode } from "../src/lib/member-code";
 
 const id = "22222222-2222-4222-8222-222222222222";
+const code = "opaque-server-issued-member-code-1234567890";
 
 test("member code payload round-trips and rejects other text", () => {
-  expect(parseMemberCode(memberCodePayload(id))).toBe(id);
-  expect(parseMemberCode(` ${id.toUpperCase()} `)).toBe(id);
+  expect(parseMemberCode(memberCodePayload(code))).toBe(code);
+  expect(parseMemberCode(` ${memberCodePayload(code)} `)).toBe(code);
+  expect(parseMemberCode(id)).toBeNull();
   expect(parseMemberCode("https://example.com")).toBeNull();
   expect(parseMemberCode("SPORTHUB-MEMBER:not-a-guid")).toBeNull();
 });
 
-test("member card shows the server identity with a scannable QR", async ({
+test("member card loads a short-lived code and displays its QR", async ({
   page,
 }) => {
   await page.addInitScript(() => {
@@ -29,6 +31,13 @@ test("member card shows the server identity with a scannable QR", async ({
           sportIds: [],
         },
       });
+    if (path === "/api/member-codes/me")
+      return route.fulfill({
+        json: {
+          code,
+          expiresAtUtc: new Date(Date.now() + 300_000).toISOString(),
+        },
+      });
     if (path.includes("notifications"))
       return route.fulfill({
         json: path.endsWith("unread-count") ? { count: 0 } : [],
@@ -43,7 +52,9 @@ test("member card shows the server identity with a scannable QR", async ({
   await page.getByRole("button", { name: "Member code" }).click();
   await expect(page.getByRole("img", { name: "Member code QR" })).toBeVisible();
   await expect(page.getByText("does not grant entry by itself")).toBeVisible();
-  await expect(page.getByText(id)).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Copy member code" }),
+  ).toBeEnabled();
 });
 
 test("receptionist sees the camera scanner ready in the member picker", async ({
@@ -65,6 +76,20 @@ test("receptionist sees the camera scanner ready in the member picker", async ({
           sportIds: [],
         },
       });
+    if (path === "/api/member-codes/lookup") {
+      expect(route.request().postDataJSON()).toEqual({ code });
+      return route.fulfill({
+        json: {
+          userId: id,
+          fullName: "Member A",
+          email: "member@example.com",
+          phone: null,
+          role: "MEMBER",
+          status: "ACTIVE",
+          sportIds: [],
+        },
+      });
+    }
     if (path.includes("notifications"))
       return route.fulfill({
         json: path.endsWith("unread-count") ? { count: 0 } : [],
@@ -77,4 +102,8 @@ test("receptionist sees the camera scanner ready in the member picker", async ({
   await expect(
     page.getByRole("button", { name: "Scan member QR" }),
   ).toHaveCount(0);
+  const picker = page.getByRole("textbox", { name: "Select Member" });
+  await picker.fill(memberCodePayload(code));
+  await picker.press("Enter");
+  await expect(page.getByText("Member A")).toBeVisible();
 });

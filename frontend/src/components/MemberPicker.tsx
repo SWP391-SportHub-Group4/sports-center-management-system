@@ -55,7 +55,9 @@ export function MemberPicker({
         return;
       }
       try {
-        const found = await api.post<UserAdminDto>("/api/member-codes/lookup", { code });
+        const found = await api.post<UserAdminDto>("/api/member-codes/lookup", {
+          code,
+        });
         if (found.role !== "MEMBER") {
           setScanError(
             en
@@ -109,6 +111,12 @@ export function MemberPicker({
 
   // Khi quét mã hoặc ấn Enter, nếu có đúng 1 kết quả hoặc kết quả đầu tiên khớp, tự chọn ngay
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && parseMemberCode(keyword)) {
+      e.preventDefault();
+      void handleScan(keyword);
+      setKeyword("");
+      return;
+    }
     if (e.key === "Enter" && results.length > 0) {
       e.preventDefault();
       onChange(results[0]);
@@ -163,6 +171,13 @@ export function MemberPicker({
         placeholder={placeholderText}
         onChange={(event) => setKeyword(event.target.value)}
         onKeyDown={handleKeyDown}
+        onPaste={(event) => {
+          const pasted = event.clipboardData.getData("text");
+          if (!parseMemberCode(pasted)) return;
+          event.preventDefault();
+          setKeyword("");
+          void handleScan(pasted);
+        }}
         style={{ height: 44, borderRadius: 8 }}
       />
 

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import QRCode from "qrcode";
-import { api } from "@/lib/apiClient";
+import { api, ApiError } from "@/lib/apiClient";
 import { Dialog } from "@/components/ui";
 import { IconQrCode } from "@/components/icons";
 import { useAuth } from "@/lib/auth";
@@ -23,25 +23,59 @@ export function MemberCodeButton() {
   const [copyError, setCopyError] = useState(false);
   const [dataUrl, setDataUrl] = useState("");
   const [code, setCode] = useState("");
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<
+    "network" | "forbidden" | "missing" | "generic" | null
+  >(null);
+  const [refreshVersion, setRefreshVersion] = useState(0);
   const userId = user?.userId;
 
   useEffect(() => {
     if (!open || !userId) return;
     let cancelled = false;
-    api.get<{ code: string; expiresAtUtc: string }>("/api/member-codes/me")
+    let refreshTimer: ReturnType<typeof setTimeout> | undefined;
+    api
+      .get<{ code: string; expiresAtUtc: string }>("/api/member-codes/me")
       .then(async ({ code: issued }) => {
-        const url = await QRCode.toDataURL(memberCodePayload(issued), { width: 240, margin: 1 });
+        const url = await QRCode.toDataURL(memberCodePayload(issued), {
+          width: 240,
+          margin: 1,
+        });
         if (!cancelled) {
           setCode(issued);
           setDataUrl(url);
+          setError(null);
+          // Refresh before the server's five-minute expiry while the dialog stays open.
+          refreshTimer = setTimeout(
+            () => {
+              setCode("");
+              setDataUrl("");
+              setRefreshVersion((version) => version + 1);
+            },
+            4 * 60 * 1000,
+          );
         }
       })
-      .catch(() => { if (!cancelled) setError(true); });
+      .catch((reason: unknown) => {
+        if (cancelled) return;
+        setCode("");
+        setDataUrl("");
+        setError(
+          reason instanceof ApiError
+            ? reason.status === 0
+              ? "network"
+              : reason.status === 403
+                ? "forbidden"
+                : reason.status === 404
+                  ? "missing"
+                  : "generic"
+            : "generic",
+        );
+      });
     return () => {
       cancelled = true;
+      if (refreshTimer) clearTimeout(refreshTimer);
     };
-  }, [open, userId]);
+  }, [open, userId, refreshVersion]);
 
   if (!userId) return null;
   const en = language === "en";
@@ -58,7 +92,7 @@ export function MemberCodeButton() {
           setCopyError(false);
           setCode("");
           setDataUrl("");
-          setError(false);
+          setError(null);
         }}
         aria-expanded={open}
         aria-haspopup="dialog"
@@ -83,7 +117,42 @@ export function MemberCodeButton() {
           onClose={() => setOpen(false)}
         >
           <div className={codeStyles.content}>
-            {error && <p role="alert">{en ? "Could not load member code. Please reopen this dialog." : "Chưa tải được mã hội viên. Hãy mở lại cửa sổ này."}</p>}
+            {!dataUrl && !error && (
+              <p role="status">
+                {en ? "Loading member code..." : "Đang tạo mã hội viên..."}
+              </p>
+            )}
+            {error && (
+              <>
+                <p role="alert">
+                  {error === "network"
+                    ? en
+                      ? "Cannot connect to the server."
+                      : "Không kết nối được máy chủ."
+                    : error === "forbidden"
+                      ? en
+                        ? "Your member account is not active."
+                        : "Tài khoản hội viên chưa hoạt động."
+                      : error === "missing"
+                        ? en
+                          ? "Member codes are not available on this server yet."
+                          : "Máy chủ chưa được cập nhật chức năng mã hội viên."
+                        : en
+                          ? "Could not load member code."
+                          : "Chưa tải được mã hội viên."}
+                </p>
+                <button
+                  type="button"
+                  className="btn btn--secondary"
+                  onClick={() => {
+                    setError(null);
+                    setRefreshVersion((version) => version + 1);
+                  }}
+                >
+                  {en ? "Try again" : "Thử lại"}
+                </button>
+              </>
+            )}
             {dataUrl && (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -96,7 +165,9 @@ export function MemberCodeButton() {
             )}
             <strong>{user.fullName}</strong>
             <p>{user.email}</p>
-            <p className={`small muted ${codeStyles.memberId}`}>{en ? "Code expires in 5 minutes" : "Mã hết hạn sau 5 phút"}</p>
+            <p className={`small muted ${codeStyles.memberId}`}>
+              {en ? "Code expires in 5 minutes" : "Mã hết hạn sau 5 phút"}
+            </p>
             <button
               className="btn btn--secondary"
               disabled={!code}
@@ -121,8 +192,8 @@ export function MemberCodeButton() {
             {copyError && (
               <p role="alert">
                 {en
-                  ? "Copy is unavailable. Select the code above to copy it manually."
-                  : "Chưa sao chép được. Bạn có thể chọn mã ở trên để sao chép thủ công."}
+                  ? "Copy is unavailable. Show the QR code to the front desk instead."
+                  : "Chưa sao chép được. Hãy đưa mã QR cho lễ tân quét."}
               </p>
             )}
           </div>

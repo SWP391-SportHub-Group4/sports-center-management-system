@@ -40,6 +40,7 @@ public sealed class MemberCodeTests(SportHubApiFactory factory)
         Assert.Equal(HttpStatusCode.OK, lookedUp.StatusCode);
         using var resolved = JsonDocument.Parse(await lookedUp.Content.ReadAsStringAsync());
         Assert.Equal(member.UserId.ToString(), resolved.RootElement.GetProperty("userId").GetString());
+        Assert.Equal("MEMBER", resolved.RootElement.GetProperty("role").GetString());
 
         Assert.Equal(HttpStatusCode.BadRequest,
             (await client.PostAsJsonAsync("/api/member-codes/lookup", new { code = "guessed-user-id" })).StatusCode);
