@@ -1,0 +1,56 @@
+.sticker {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 30px;
+  width: 30px;
+  height: 30px;
+  vertical-align: middle;
+}
+.emblem {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 2px solid white;
+  border-radius: 9px;
+  background: #dcf693;
+  color: #385712;
+  box-shadow: 0 1px 2px #0002;
+  transform: rotate(-7deg);
+}
+.sticker[data-sport="basketball"] .emblem {
+  background: #ffce95;
+  color: #753e14;
+}
+.sticker[data-sport="gym"] .emblem {
+  background: #a9e8de;
+  color: #175d53;
+}
+.badge {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  display: grid;
+  place-items: center;
+  width: 15px;
+  height: 15px;
+  border: 2px solid white;
+  border-radius: 50%;
+  background: #2969ae;
+  color: white;
+}
+.sticker[data-kind="rental"] .badge {
+  background: #97610a;
+}
+.sticker[data-kind="pt"] .badge {
+  background: #007d73;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .emblem {
+    transition: transform 180ms ease-out;
+  }
+  button:hover .emblem,
+  button:focus-visible .emblem {
+    transform: rotate(5deg) translateY(-1px);
+  }
+}

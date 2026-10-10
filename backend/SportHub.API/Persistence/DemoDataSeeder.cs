@@ -19,7 +19,7 @@ using SportHub.Training.Domain.Enums;
 
 namespace SportHub.API.Persistence;
 
-public sealed class DemoDataSeeder(
+public sealed partial class DemoDataSeeder(
     SportHubDbContext db,
     IPasswordHasher passwordHasher,
     IInvoiceNumberGenerator invoiceNumbers,
@@ -416,10 +416,11 @@ public sealed class DemoDataSeeder(
         decimal price,
         decimal cost,
         DateTime now,
-        CancellationToken ct)
+        CancellationToken ct,
+        bool allowExistingPublished = false)
     {
         if (await db.Classes.AnyAsync(x => x.Code == code, ct)
-            || await db.Classes.AnyAsync(x => x.SportId == sportId && x.Status == ClassStatus.Published, ct))
+            || (!allowExistingPublished && await db.Classes.AnyAsync(x => x.SportId == sportId && x.Status == ClassStatus.Published, ct)))
         {
             return;
         }

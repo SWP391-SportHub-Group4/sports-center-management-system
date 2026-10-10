@@ -1,6 +1,7 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { BookOpen, MapPin, ChevronRight } from "lucide-react";
 import { Tabs } from "@/components/primitives";
@@ -15,14 +16,14 @@ import {
   MembershipCatalog,
   isRetiredActivityPackage,
 } from "@/features/membership";
-import { CourtBookingCalendar, RentalList } from "@/features/rentals";
+import { CourtBookingCalendar } from "@/features/rentals";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { formatDate } from "@/lib/format";
 import { choiceQuery, useUrlQuery } from "@/lib/useUrlQuery";
 import type { MemberPackageDto } from "@/lib/types";
-import { MemberCourses, MemberCourseDetail } from "./courses";
+import { MemberCourses } from "./courses";
 import { MemberServices } from "./services";
 import { GymStatusSticker } from "./gym-status-sticker";
 import styles from "./service-hub.module.css";
@@ -30,6 +31,7 @@ import styles from "./service-hub.module.css";
 const SECTIONS = ["courses", "gym", "pt", "courts"] as const;
 
 export function MemberServiceHub() {
+  const router = useRouter();
   const { t, language } = useLanguage();
   const vi = language === "vi";
   const raw = useUrlQuery({ tab: "", section: "", view: "" }).values;
@@ -70,7 +72,21 @@ export function MemberServiceHub() {
     : ["gym", "pt", "visits"].includes(legacy)
       ? "owned"
       : "explore";
-  const owned = view === "owned" && (!!values.course || legacy === "visits");
+  const registeredCourse =
+    section === "courses" &&
+    view === "owned" &&
+    /^[1-9]\d*$/.test(values.course);
+  const rentalDetail = section === "courts" && !!values.rental;
+  const detailDestination = registeredCourse
+    ? `/member/schedule?course=${encodeURIComponent(values.course)}`
+    : rentalDetail
+      ? `/member/schedule?rental=${encodeURIComponent(values.rental)}`
+      : null;
+  useEffect(() => {
+    if (detailDestination) router.replace(detailDestination);
+  }, [detailDestination, router]);
+  const owned = view === "owned" && legacy === "visits";
+  if (detailDestination) return <Loading />;
   return (
     <div className={styles.hub}>
       <header className={styles.intro}>
@@ -186,38 +202,20 @@ export function MemberServiceHub() {
               >
                 {vi ? "Trở về danh sách lớp" : "Back to classes"}
               </button>
-              {owned ? (
-                <MemberCourseDetail
-                  classId={Number(values.course)}
-                  showBackLink={false}
-                />
-              ) : (
-                <CourseDetail
-                  key={values.course}
-                  classId={Number(values.course)}
-                />
-              )}
+              <CourseDetail
+                key={values.course}
+                classId={Number(values.course)}
+              />
             </div>
           ) : section === "courts" ? (
-            values.rental ? (
-              <div className="stack">
-                <Link className="btn btn--quiet" href="/member/schedule">
-                  {vi ? "Trở về lịch của tôi" : "Back to my schedule"}
-                </Link>
-                <RentalList rentalId={values.rental} />
-              </div>
-            ) : (
-              <CourtBookingCalendar />
-            )
+            <CourtBookingCalendar />
           ) : (
             <div className={styles.board}>
               <section
                 className={styles.coursePanel}
                 aria-labelledby="services-classes"
               >
-                <h2 id="services-classes">
-                  {vi ? "Lớp mở đăng ký" : "Classes open for registration"}
-                </h2>
+                <h2 id="services-classes">{vi ? "Lớp học" : "Classes"}</h2>
                 {owned ? (
                   <MemberCourses />
                 ) : (

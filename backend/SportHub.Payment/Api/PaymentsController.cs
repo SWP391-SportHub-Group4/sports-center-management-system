@@ -23,10 +23,12 @@ public sealed class PaymentsController(PaymentReconciliationService reconciliati
             ?? throw new NotFoundException("payment_attempt_not_found", "Không tìm thấy attempt.");
         return Ok(new { verified = await reconciliation.ReconcileAttemptAsync(attemptId, ct) });
     }
+    [AllowAnonymous]
     [HttpGet("return")]
     public IActionResult Return()
         => Ok(new { message = "Kết quả đang được xác nhận qua IPN. Hãy tải lại trạng thái checkout." });
 
+    [AllowAnonymous]
     [HttpGet("ipn")]
     [EnableRateLimiting("vnp-ipn")]
     public async Task<IActionResult> Ipn(CancellationToken ct)

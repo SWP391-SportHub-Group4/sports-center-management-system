@@ -229,6 +229,7 @@ builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Membership.IMemb
 builder.Services.AddScoped<IMemberPackageService, MemberPackageService>();
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Membership.IMembershipRefundFulfillment, MembershipRefundFulfillment>();
 builder.Services.AddScoped<IMemberTrainingProfileService, MemberTrainingProfileService>();
+builder.Services.AddScoped<MemberBmiProfileService>();
 builder.Services.AddScoped<IMembershipReportService, MembershipReportService>();
 
 // Notification
@@ -416,6 +417,18 @@ builder.Services.AddScoped<Br141DemoSeeder>();
 builder.Services.AddScoped<PaymentNoticeService>();
 
 var app = builder.Build();
+
+if (args.Any(a => a == "--seed-member-calendar=true"))
+{
+    if (!app.Environment.IsDevelopment())
+        throw new InvalidOperationException("Member calendar fixtures are only available in Development.");
+    var calendarDatabase = new Npgsql.NpgsqlConnectionStringBuilder(app.Configuration.GetConnectionString("Default"));
+    if (calendarDatabase.Host is not ("localhost" or "127.0.0.1" or "::1"))
+        throw new InvalidOperationException("Calendar fixtures must target a local Development database.");
+    await using var calendarScope = app.Services.CreateAsyncScope();
+    await calendarScope.ServiceProvider.GetRequiredService<DemoDataSeeder>().SeedMemberCalendarAsync();
+    return;
+}
 
 // Seed demo BR-141 (lớp cố định + giá thuê sân): lệnh riêng, chạy tay khi sẵn sàng, không chạy lúc khởi động bình thường.
 //   dotnet run --project backend/SportHub.API -- --seed-br141=true
