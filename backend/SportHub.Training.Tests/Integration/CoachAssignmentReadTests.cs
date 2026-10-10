@@ -4,6 +4,8 @@ using Microsoft.EntityFrameworkCore;
 using SportHub.Identity.Domain.Enums;
 using SportHub.Training.Application.Commands;
 using SportHub.Training.Application.DTOs;
+using SportHub.Training.Domain.Entities;
+using SportHub.Training.Domain.Enums;
 
 namespace SportHub.Training.Tests.Integration;
 
@@ -21,6 +23,19 @@ public sealed class CoachAssignmentReadTests(TrainingApiFactory factory)
         var manager = await factory.SeedUserAsync(UserRole.CenterManager);
         var member = await factory.SeedUserAsync(UserRole.Member);
         var entitlement = await factory.SeedPtEntitlementAsync(member.UserId, coach.UserId);
+        await factory.ExecuteAsync(async db =>
+        {
+            db.CoachMemberRelationships.Add(new CoachMemberRelationship
+            {
+                RelationshipId = Guid.NewGuid(),
+                CoachId = coach.UserId,
+                MemberId = member.UserId,
+                SourceType = RelationshipSourceType.AssignedByManager,
+                Status = RelationshipStatus.Active,
+                StartedAt = DateTime.UtcNow
+            });
+            await db.SaveChangesAsync();
+        });
         using var staff = factory.CreateApiClient(manager.UserId, UserRole.CenterManager);
         var response = await staff.PostAsJsonAsync("/api/manager/pt-sessions", new CreatePtSessionRequest
         { EntitlementId = entitlement.EntitlementId, StartAtUtc = DateTime.UtcNow.Date.AddDays(7).AddHours(2) });
@@ -46,7 +61,7 @@ public sealed class CoachAssignmentReadTests(TrainingApiFactory factory)
         Assert.Equal(entitlement.EntitlementId, quota![0].EntitlementId);
         Assert.Equal(expectedCompletionStatus, (await own.PostAsync($"/api/coaches/me/pt-sessions/{session.SessionId}/complete", null)).StatusCode);
         using var stranger = factory.CreateApiClient(other.UserId, UserRole.Coach);
-        Assert.Equal(HttpStatusCode.Forbidden, (await stranger.GetAsync($"/api/coaches/me/pt-sessions/{session.SessionId}")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await stranger.GetAsync($"/api/coaches/me/pt-sessions/{session.SessionId}")).StatusCode);
         Assert.Empty((await (await stranger.GetAsync("/api/coaches/me/pt-entitlements")).Content.ReadApiJsonAsync<List<PtEntitlementResponse>>())!);
     }
 }
