@@ -7,11 +7,17 @@ import { CourseSticker } from "./course-sticker";
 import { CheckoutPanel } from "@/features/payments";
 import { StatusChip } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
-import { useApi } from "@/lib/useApi";
+import { useApi, useNow } from "@/lib/useApi";
+import { LockKeyhole } from "lucide-react";
 import { useLanguage } from "@/lib/language";
 import { formatDate, formatMoney } from "@/lib/format";
 import { courseApi } from "./api";
 import styles from "./member-course-detail.module.css";
+import { useCourseEnrollments } from "./use-course-enrollments";
+import {
+  courseRegistrationState,
+  registrationReason,
+} from "./registration-state";
 
 export function CourseDetail({
   classId,
@@ -35,6 +41,9 @@ export function CourseDetail({
   const { language, t } = useLanguage();
   const vi = language === "vi";
   const { user } = useAuth();
+  const enrollments = useCourseEnrollments();
+  const enrolled = enrollments.isEnrolled(classId);
+  const now = useNow(30000);
   const state = useApi(
     (signal) => courseApi.detail(classId, signal),
     [classId],
@@ -66,10 +75,18 @@ export function CourseDetail({
     );
   const course = state.data;
   if (!course) return <p role="status">{t.refactor.empty}</p>;
-  const rows = [...(sessions.data ?? [])].sort(
-    (a, b) => a.sessionNo - b.sessionNo,
+  const rows = [...(sessions.data ?? [])].sort((a, b) =>
+    a.startAtUtc.localeCompare(b.startAtUtc),
   );
+  const firstSession = rows.find((session) => !/CANCEL/i.test(session.status));
+  const calendarStart = firstSession
+    ? new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(
+        new Date(firstSession.startAtUtc),
+      )
+    : course.startDate.slice(0, 10);
   const hasSeats = course.availableSeats > 0;
+  const registration = courseRegistrationState(course, enrolled, now);
+  const canRegister = registration === "open";
   const facts = [
     [
       vi ? "Huấn luyện viên" : "Coach",
@@ -91,6 +108,13 @@ export function CourseDetail({
             <span>{course.sportName}</span>
             <span>{course.code}</span>
             <StatusChip value={course.status} />
+            {enrolled && (
+              <StatusChip
+                value="CONFIRMED"
+                label={vi ? "Đã đăng ký" : "Registered"}
+                tone="success"
+              />
+            )}
           </div>
           <Heading>{course.name}</Heading>
         </header>
@@ -118,24 +142,67 @@ export function CourseDetail({
         <div className={styles.capacity}>
           <div>
             <strong>
-              {hasSeats
+              {enrolled
                 ? vi
-                  ? `Còn ${course.availableSeats} chỗ`
-                  : `${course.availableSeats} spots left`
-                : vi
-                  ? "Lớp đã đủ người"
-                  : "Class is full"}
+                  ? "Bạn đã đăng ký lớp này"
+                  : "You are registered for this class"
+                : !canRegister
+                  ? vi
+                    ? "Không nhận đăng ký"
+                    : "Not accepting registrations"
+                  : hasSeats
+                    ? vi
+                      ? `Còn ${course.availableSeats} chỗ`
+                      : `${course.availableSeats} spots left`
+                    : vi
+                      ? "Lớp đã đủ người"
+                      : "Class is full"}
             </strong>
             <span>
               {vi ? `Sĩ số ${course.capacity}` : `Capacity ${course.capacity}`}
             </span>
           </div>
         </div>
-        {user?.role === "Member" && hasSeats ? (
+        {enrolled ? (
+          <Link
+            className="btn btn--secondary"
+            href={`/member/schedule?course=${classId}`}
+          >
+            {vi ? "Xem lớp đã đăng ký" : "View registered class"}
+          </Link>
+        ) : user?.role === "Member" && enrollments.loading ? (
+          <p role="status">
+            {vi ? "Đang kiểm tra đăng ký…" : "Checking registration…"}
+          </p>
+        ) : user?.role === "Member" && enrollments.error ? (
+          <div role="alert">
+            <p>
+              {vi
+                ? "Chưa kiểm tra được trạng thái đăng ký."
+                : "Could not verify your registration."}
+            </p>
+            <button
+              type="button"
+              className="btn btn--secondary"
+              onClick={enrollments.reload}
+            >
+              {vi ? "Thử lại" : "Try again"}
+            </button>
+          </div>
+        ) : !canRegister ? (
+          <div className={styles.registrationClosed} role="status">
+            <strong>
+              <LockKeyhole size={18} aria-hidden="true" />
+              {vi ? "Không thể đăng ký" : "Registration unavailable"}
+            </strong>
+            <p>{registrationReason(registration, vi)}</p>
+          </div>
+        ) : user?.role === "Member" && hasSeats ? (
           <div className={styles.payment}>
             <CheckoutPanel
               modal
               onChange={handleCheckoutChange}
+              onPaid={enrollments.reload}
               invoiceId={resumeInvoiceId}
               intent={{ kind: "class", body: { classId } }}
               review={{
@@ -159,13 +226,16 @@ export function CourseDetail({
               : "Explore Services to find another class."}
           </p>
         ) : null}
-        {hasSeats && (
-          <p className={styles.policy}>
-            {vi
-              ? "Giữ chỗ 15 phút sau khi tạo đơn."
-              : "Your place is held for 15 minutes after creating an order."}
-          </p>
-        )}
+        {canRegister &&
+          !enrolled &&
+          !enrollments.loading &&
+          !enrollments.error && (
+            <p className={styles.policy}>
+              {vi
+                ? "Giữ chỗ 15 phút sau khi tạo đơn."
+                : "Your place is held for 15 minutes after creating an order."}
+            </p>
+          )}
       </aside>
       <section
         className={styles.schedule}
@@ -173,12 +243,19 @@ export function CourseDetail({
       >
         <div className={styles.sectionHeading}>
           <h3 id={`course-${classId}-schedule`}>
-            {vi ? "Lịch của bạn" : "Your schedule"}
+            {vi
+              ? "Lịch tuần & buổi học dự kiến"
+              : "Weekly schedule & course preview"}
           </h3>
           <span>
             {rows.length ? `${rows.length} ${vi ? "buổi" : "sessions"}` : null}
           </span>
         </div>
+        <p className={styles.scheduleHint}>
+          {vi
+            ? "So sánh buổi dự kiến của khóa học với lớp đã đăng ký, lịch PT và sân đã đặt trong cùng một lịch tuần."
+            : "Compare proposed course sessions with your registered classes, PT sessions and court bookings in one weekly calendar."}
+        </p>
         {sessions.loading && <p role="status">{t.refactor.loading}</p>}
         {sessions.error && (
           <div role="alert">
@@ -196,13 +273,14 @@ export function CourseDetail({
           </p>
         )}
         <MemberSchedule
-          key={`${classId}-${calendarRevision}`}
+          key={`${classId}-${calendarRevision}-${calendarStart}`}
           compact
+          initialDate={calendarStart}
           previewCourse={{
             classId,
             name: course.name,
             sportName: course.sportName,
-            startDate: course.startDate.slice(0, 10),
+            startDate: calendarStart,
             sessions: sessions.data ?? [],
           }}
         />

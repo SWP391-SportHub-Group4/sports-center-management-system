@@ -3,10 +3,11 @@ import { hasService } from "@/lib/sports";
 import { pagedItems } from "@/lib/paged";
 import { courseApi } from "./api";
 import { useState } from "react";
+import { ChevronDown, LockKeyhole, SlidersHorizontal } from "lucide-react";
 import { useUrlQuery } from "@/lib/useUrlQuery";
 import Link from "next/link";
 import { api } from "@/lib/apiClient";
-import { useApi } from "@/lib/useApi";
+import { useApi, useNow } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import {
   formatMoney,
@@ -15,7 +16,7 @@ import {
   todayIso,
 } from "@/lib/format";
 import { Card, StatusChip } from "@/components/ui";
-import type { SportDto } from "@/lib/types";
+import type { CourseDto, SportDto } from "@/lib/types";
 import tags from "../member/tags.module.css";
 import {
   scheduleSummary,
@@ -23,6 +24,11 @@ import {
   sportTone,
 } from "../member/event-meta";
 import styles from "./catalog.module.css";
+import { useCourseEnrollments } from "./use-course-enrollments";
+import {
+  courseRegistrationState,
+  registrationReason,
+} from "./registration-state";
 export function CourseCatalog({
   detailBasePath = "/courses",
   compact = false,
@@ -37,6 +43,8 @@ export function CourseCatalog({
   const { t, language } = useLanguage();
   const d = t.mDiscover;
   const vi = language === "vi";
+  const enrollments = useCourseEnrollments();
+  const now = useNow(30000);
   // Liên kết từ trang khác (ví dụ gợi ý gia hạn) có thể mang sẵn ?sport=; chọn tay thì ưu tiên lựa chọn đó.
   const preset = useUrlQuery(
     { sport: "" },
@@ -47,40 +55,65 @@ export function CourseCatalog({
   const [fromDate, setFrom] = useState("");
   const [toDate, setTo] = useState("");
   const [openOnly, setOpenOnly] = useState(false);
+  const [filtersExpanded, setFiltersExpanded] = useState(() => !!preset);
   const [page, setPage] = useState(1);
   const PAGE = pageSize ?? (compact ? 3 : 12);
-  const registrationStart = registrationOnly ? todayIso() : "";
-  const effectiveFromDate =
-    registrationOnly && fromDate < registrationStart
-      ? registrationStart
-      : fromDate;
+  const registrationStart = todayIso();
   const sports = useApi(
     (signal) => api.get<SportDto[]>("/api/sports", { anonymous: true, signal }),
     [],
   );
-  // "Còn chỗ" chưa có tham số ở server: lấy tối đa 100 lớp rồi lọc và chia trang ở máy khách.
+  // Sort the complete result before pagination, including ownership for this member.
   const courses = useApi(
-    (signal) =>
-      courseApi.list(
-        {
-          sportId,
-          fromDate: effectiveFromDate,
-          toDate,
-          page: openOnly ? 1 : page,
-          pageSize: openOnly ? 100 : PAGE,
-        },
-        signal,
-      ),
-    [sportId, effectiveFromDate, toDate, page, openOnly],
+    async (signal) => {
+      const rows: CourseDto[] = [];
+      for (let batchPage = 1; ; batchPage++) {
+        const result = await courseApi.list(
+          { sportId, fromDate, toDate, page: batchPage, pageSize: 100 },
+          signal,
+        );
+        const batch = pagedItems(result);
+        rows.push(...batch);
+        if (
+          !batch.length ||
+          rows.length >= result.totalCount ||
+          batch.length < 100
+        )
+          return rows;
+      }
+    },
+    [sportId, fromDate, toDate],
   );
-  const all = pagedItems(courses.data);
+  const all = [...(courses.data ?? [])].sort(
+    (a, b) =>
+      Number(
+        courseRegistrationState(b, enrollments.isEnrolled(b.classId), now) ===
+          "open",
+      ) -
+        Number(
+          courseRegistrationState(a, enrollments.isEnrolled(a.classId), now) ===
+            "open",
+        ) ||
+      (a.firstSessionStartUtc ?? a.startDate).localeCompare(
+        b.firstSessionStartUtc ?? b.startDate,
+      ) ||
+      a.classId - b.classId,
+  );
   const filtered = openOnly ? all.filter((c) => c.availableSeats > 0) : all;
-  const total = openOnly ? filtered.length : (courses.data?.totalCount ?? 0);
-  const shown = openOnly
-    ? filtered.slice((page - 1) * PAGE, page * PAGE)
-    : filtered;
+  const total = filtered.length;
+  const shown = filtered.slice((page - 1) * PAGE, page * PAGE);
   const pages = Math.max(1, Math.ceil(total / PAGE));
   const hasFilter = !!(sportId || fromDate || toDate || openOnly);
+  const filterCount = [sportId, fromDate, toDate, openOnly].filter(
+    Boolean,
+  ).length;
+  function resetFilters() {
+    setSport("");
+    setFrom("");
+    setTo("");
+    setOpenOnly(false);
+    setPage(1);
+  }
   const filters = (
     <section className={styles.filters} aria-label={d.filtersLabel}>
       <label>
@@ -107,7 +140,6 @@ export function CourseCatalog({
         <input
           type="date"
           value={fromDate}
-          min={registrationStart || undefined}
           onChange={(e) => {
             setFrom(e.target.value);
             setPage(1);
@@ -138,6 +170,15 @@ export function CourseCatalog({
           />
           {d.openOnly}
         </label>
+        {hasFilter && (
+          <button
+            type="button"
+            className={styles.resetFilters}
+            onClick={resetFilters}
+          >
+            {vi ? "Xóa bộ lọc" : "Clear filters"}
+          </button>
+        )}
       </div>
     </section>
   );
@@ -146,9 +187,21 @@ export function CourseCatalog({
       {compact ? (
         <details
           className={styles.filterDisclosure}
-          open={hasFilter || undefined}
+          open={filtersExpanded}
+          onToggle={(event) => setFiltersExpanded(event.currentTarget.open)}
         >
-          <summary>{vi ? "Lọc lớp học" : "Filter classes"}</summary>
+          <summary>
+            <SlidersHorizontal size={17} aria-hidden="true" />
+            <span>{vi ? "Lọc lớp học" : "Filter classes"}</span>
+            {filterCount > 0 && (
+              <span className={styles.filterCount}>{filterCount}</span>
+            )}
+            <ChevronDown
+              size={17}
+              className={styles.filterChevron}
+              aria-hidden="true"
+            />
+          </summary>
           {filters}
         </details>
       ) : (
@@ -208,6 +261,9 @@ export function CourseCatalog({
           </p>
           <div className={styles.grid}>
             {shown.map((c) => {
+              const enrolled = enrollments.isEnrolled(c.classId);
+              const registration = courseRegistrationState(c, enrolled, now);
+              const closed = registration !== "open" && !enrolled;
               const schedule = scheduleSummary(
                 c.scheduleRules,
                 sessionMinutes(sports.data, c.sportId),
@@ -221,7 +277,11 @@ export function CourseCatalog({
                     ? "few"
                     : "ok";
               return (
-                <article key={c.classId} className={styles.course}>
+                <article
+                  key={c.classId}
+                  className={styles.course}
+                  data-registration={registration}
+                >
                   <div className={styles.courseHead}>
                     <span
                       className={tags.sport}
@@ -232,15 +292,27 @@ export function CourseCatalog({
                     <span className={tags.kind}>
                       {d.sessions.replace("{n}", String(c.numSessions))}
                     </span>
+                    {enrolled && (
+                      <StatusChip
+                        value="CONFIRMED"
+                        label={vi ? "Đã đăng ký" : "Registered"}
+                        tone="success"
+                      />
+                    )}
                     {registrationOnly && (
                       <span className={tags.kind}>
-                        {c.startDate > registrationStart
+                        {registration === "started" ||
+                        c.startDate < registrationStart
                           ? vi
-                            ? "Sắp khai giảng"
-                            : "Starting soon"
-                          : vi
-                            ? "Khai giảng hôm nay"
-                            : "Starts today"}
+                            ? "Đã khai giảng"
+                            : "Already started"
+                          : c.startDate > registrationStart
+                            ? vi
+                              ? "Sắp khai giảng"
+                              : "Starting soon"
+                            : vi
+                              ? "Khai giảng hôm nay"
+                              : "Starts today"}
                       </span>
                     )}
                   </div>
@@ -281,23 +353,60 @@ export function CourseCatalog({
                         {formatMoney(c.price)}
                       </p>
                       <p className={styles.seats} data-state={state}>
-                        {state === "full"
-                          ? d.full
-                          : (state === "few" ? d.fewSeats : d.seatsLeft)
-                              .replace("{left}", String(c.availableSeats))
-                              .replace("{cap}", String(c.capacity))}
+                        {enrolled
+                          ? vi
+                            ? "Bạn đã đăng ký lớp này"
+                            : "You are registered for this class"
+                          : closed
+                            ? vi
+                              ? "Không nhận đăng ký"
+                              : "Not accepting registrations"
+                            : state === "full"
+                              ? d.full
+                              : (state === "few" ? d.fewSeats : d.seatsLeft)
+                                  .replace("{left}", String(c.availableSeats))
+                                  .replace("{cap}", String(c.capacity))}
                       </p>
                     </div>
-                    <Link
-                      className="btn"
-                      href={
-                        detailBasePath === "/member/services"
-                          ? `/member/services/courses/${c.classId}`
-                          : `${detailBasePath}/${c.classId}`
-                      }
-                    >
-                      {d.view}
-                    </Link>
+                    <div className={styles.courseActions}>
+                      {closed && (
+                        <>
+                          <button
+                            type="button"
+                            className="btn btn--secondary"
+                            disabled
+                          >
+                            <LockKeyhole size={16} aria-hidden="true" />
+                            {vi
+                              ? "Không thể đăng ký"
+                              : "Registration unavailable"}
+                          </button>
+                          <p className={styles.closedReason}>
+                            {registrationReason(registration, vi)}
+                          </p>
+                        </>
+                      )}
+                      <Link
+                        className={closed ? "btn btn--quiet" : "btn"}
+                        href={
+                          enrolled && detailBasePath.startsWith("/member")
+                            ? `/member/schedule?course=${c.classId}`
+                            : detailBasePath === "/member/services"
+                              ? `/member/services/courses/${c.classId}`
+                              : `${detailBasePath}/${c.classId}`
+                        }
+                      >
+                        {enrolled
+                          ? vi
+                            ? "Xem lớp đã đăng ký"
+                            : "View registered class"
+                          : closed
+                            ? vi
+                              ? "Xem thông tin"
+                              : "View information"
+                            : d.view}
+                      </Link>
+                    </div>
                   </div>
                 </article>
               );

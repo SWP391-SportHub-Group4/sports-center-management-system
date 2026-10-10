@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { Tabs } from "@/components/primitives";
-import { AsyncSection, Card, StatusChip, Table } from "@/components/ui";
+import { AsyncSection, StatusChip } from "@/components/ui";
 import type { CourseEnrollmentDto, ThresholdResponseDto } from "@/lib/types";
 import { api } from "@/lib/apiClient";
 import { formatDate } from "@/lib/format";
@@ -13,7 +13,6 @@ import { useLanguage } from "@/lib/language";
 import { choiceQuery, useUrlQuery } from "@/lib/useUrlQuery";
 import { formatDateTime } from "@/lib/format";
 import { memberEnrollments } from "./api";
-import { courseApi } from "@/features/courses";
 import { CourseInterests } from "@/features/courses";
 
 type TabId = "upcoming" | "ongoing" | "history" | "all";
@@ -266,7 +265,7 @@ export function MemberCourses() {
                         <div className={styles.actions}>
                           <Link
                             className="btn"
-                            href={`/member/services?section=courses&view=owned&course=${e.classId}`}
+                            href={`/member/schedule?course=${e.classId}`}
                           >
                             {c.details}
                           </Link>
@@ -288,94 +287,6 @@ export function MemberCourses() {
           </AsyncSection>
         )}
       </Tabs>
-    </>
-  );
-}
-
-function EnrollmentSessions({ classId }: { classId: number }) {
-  const { t } = useLanguage();
-  const state = useApi(
-    (signal) => courseApi.sessions(classId, true, signal),
-    [classId],
-  );
-  return (
-    <AsyncSection state={state} isEmpty={(rows) => !rows.length}>
-      {(rows) => (
-        <Table
-          headers={[
-            t.refactor.schedule,
-            t.operations.room,
-            t.operations.coach,
-            t.operations.status,
-          ]}
-        >
-          {rows.map((s) => (
-            <tr key={s.sessionId}>
-              <td>
-                {s.sessionNo}. {formatDateTime(s.startAtUtc)} –{" "}
-                {formatDateTime(s.endAtUtc)}
-                {s.isMakeup && <p>{t.memberPages.makeup}</p>}
-              </td>
-              <td>{s.roomName}</td>
-              <td>{s.coachName}</td>
-              <td>
-                <StatusChip value={s.status} />
-              </td>
-            </tr>
-          ))}
-        </Table>
-      )}
-    </AsyncSection>
-  );
-}
-
-export function MemberCourseDetail({
-  classId,
-  showBackLink = true,
-}: {
-  classId: number;
-  showBackLink?: boolean;
-}) {
-  const { t } = useLanguage();
-  const state = useApi(memberEnrollments, []);
-  return (
-    <>
-      {showBackLink && (
-        <Link href="/member/services?section=courses&view=owned">
-          {t.memberPages.backCourses}
-        </Link>
-      )}
-      <AsyncSection state={state}>
-        {(rows) => {
-          const enrollment = rows.find((e) => e.classId === classId);
-          if (!enrollment)
-            return <p role="status">{t.memberPages.missingCourse}</p>;
-          return (
-            <>
-              <Card title={enrollment.className}>
-                <p>
-                  {enrollment.classCode} · {enrollment.sportName} ·{" "}
-                  <StatusChip value={enrollment.status} />
-                </p>
-                <p>
-                  {t.memberPages.enrollment}:{" "}
-                  {formatDateTime(enrollment.enrolledAt)}
-                </p>
-                <Link
-                  href={
-                    enrollment.invoiceItemId
-                      ? `/member/finance?tab=invoices&invoiceItemId=${encodeURIComponent(enrollment.invoiceItemId)}`
-                      : "/member/finance?tab=invoices"
-                  }
-                >
-                  {t.refactor.invoices}
-                </Link>
-              </Card>
-              <EnrollmentSessions classId={classId} />
-            </>
-          );
-        }}
-      </AsyncSection>
     </>
   );
 }
