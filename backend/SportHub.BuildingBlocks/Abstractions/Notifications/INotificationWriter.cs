@@ -47,4 +47,5 @@ public static class NotificationEvents
     public const string PointConfirmationOtpRequested = nameof(PointConfirmationOtpRequested);
     public const string InvoiceCreated = nameof(InvoiceCreated);
     public const string RefundCompleted = nameof(RefundCompleted);
+    public const string ClassTeachingUpdated = nameof(ClassTeachingUpdated);
 }

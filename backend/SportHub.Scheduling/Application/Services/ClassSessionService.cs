@@ -358,7 +358,8 @@ public sealed class ClassSessionService(
             .SingleOrDefaultAsync(ct)
             ?? throw new NotFoundException("class_not_found", "Không tìm thấy khóa học.");
 
-        if (restrictToCoachId is Guid id && coachId.CoachId != id)
+        if (restrictToCoachId is Guid id && coachId.CoachId != id &&
+            !await db.Set<ClassSession>().AnyAsync(s => s.ClassId == classId && s.CoachId == id, ct))
         {
             throw new ForbiddenException("class_not_owned", "Coach chỉ xem được khóa mình phụ trách.");
         }

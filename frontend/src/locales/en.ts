@@ -1541,6 +1541,8 @@ export const en = {
       ptChangeRequests: "PT change requests",
       trainingResults: "Training results",
       assignedMembers: "Assigned members",
+      assignedClasses: "Assigned classes",
+      classStudents: "Students",
       trainingPlans: "Training plans",
       progress: "Results & progress",
       aiSuggestions: "AI suggestions",

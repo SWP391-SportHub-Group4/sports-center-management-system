@@ -10,16 +10,18 @@ import { operationsStyles as styles } from "@/features/operations";
 export function PtPage({
   title,
   manager = false,
+  titleText,
   children,
 }: {
   title: keyof Translations["staffWork"];
   manager?: boolean;
+  titleText?: string;
   children: ReactNode;
 }) {
   const { t } = useLanguage();
   return (
     <AppShell
-      title={t.staffWork[title]}
+      title={titleText ?? t.staffWork[title]}
       allow={[manager ? "CenterManager" : "Coach"]}
       operationalLayout
     >

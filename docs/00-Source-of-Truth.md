@@ -12,6 +12,8 @@ SportHub là **hệ thống quản lý trung tâm thể thao với ba môn Gym (
 
 Mã nguồn/controller/configuration xác định hành vi đã triển khai, không tự thay thế yêu cầu nghiệp vụ. Khi thiết kế và mã khác nhau, ghi gap cùng evidence; không tuyên bố hoàn thành chỉ vì đã có trong tài liệu. SRS Word là tài liệu yêu cầu tổng quan; các mô tả chi tiết chưa đồng bộ phải đọc theo phạm vi và thiết kế hiện hành.
 
+Phần mở rộng được chủ sản phẩm xác nhận: [Không gian giảng dạy Coach lớp nhóm](Coach-Teaching-Workspace.md). Coach được phân công có thể soạn giáo án, điểm danh đúng buổi, lưu kết quả/nhận xét, gửi bài tập/thông báo và dùng AI gợi ý; không yêu cầu qualification PT cho các thao tác lớp nhóm này.
+
 ## 2. Phạm vi và thuật ngữ
 
 | Thuật ngữ | Nghĩa thống nhất |

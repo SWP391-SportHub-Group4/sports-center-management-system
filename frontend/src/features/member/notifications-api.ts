@@ -49,6 +49,8 @@ export function notificationActionLabel(
 ) {
   const vi = language === "vi";
   switch (item.sourceEventType) {
+    case "CLASS_TEACHING_UPDATED":
+      return vi ? "Xem nội dung từ coach" : "View your coach’s update";
     case "INVOICE_CREATED":
       return vi ? "Xem và thanh toán hóa đơn" : "View and pay invoice";
     case "CLASS_THRESHOLD_AT_RISK":
