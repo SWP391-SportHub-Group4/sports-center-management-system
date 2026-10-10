@@ -76,13 +76,17 @@ export function MemberWallet() {
               <dl className={styles.secondary}>
                 <div>
                   <dt>{w.held}</dt>
-                  <dd>{formatPoints(b.heldPoints)}</dd>
-                  <small>{l.heldNote}</small>
+                  <dd>
+                    {formatPoints(b.heldPoints)}
+                    <small>{l.heldNote}</small>
+                  </dd>
                 </div>
                 <div>
                   <dt>{w.total}</dt>
-                  <dd>{formatPoints(b.availablePoints + b.heldPoints)}</dd>
-                  <small>{l.totalNote}</small>
+                  <dd>
+                    {formatPoints(b.availablePoints + b.heldPoints)}
+                    <small>{l.totalNote}</small>
+                  </dd>
                 </div>
               </dl>
             )}

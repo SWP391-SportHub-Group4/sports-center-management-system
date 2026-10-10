@@ -61,29 +61,25 @@ async function setup(page: Page) {
         },
       });
     if (path === "/api/court-rentals/calendar") {
-      const hours = Number(url.searchParams.get("hours"));
+      expect(url.searchParams.get("hours")).toBe("1");
       const start = Date.parse(`${url.searchParams.get("date")}T03:00:00Z`);
-      const end = start + hours * 3600000;
       return route.fulfill({
         json: {
           sportId: 3,
           date: url.searchParams.get("date"),
           serverNowUtc: "2030-10-02T00:00:00Z",
-          rooms: [{
-            roomId: 7,
-            name: "Court A",
-            slots: [{
-              startUtc: new Date(start).toISOString(),
-              endUtc: new Date(end).toISOString(),
-              status: "AVAILABLE",
-              totalPrice: 100000 * hours,
-              blocks: Array.from({ length: hours }, (_, i) => ({
+          rooms: [
+            {
+              roomId: 7,
+              name: "Court A",
+              slots: [0, 1].map((i) => ({
                 startUtc: new Date(start + i * 3600000).toISOString(),
                 endUtc: new Date(start + (i + 1) * 3600000).toISOString(),
-                price: 100000,
+                status: "AVAILABLE",
+                totalPrice: 100000,
               })),
-            }],
-          }],
+            },
+          ],
         },
       });
     }
@@ -116,8 +112,8 @@ test("any active member prices a 2-hour rental from the server and sends no owne
 
   await page.getByRole("group", { name: "Sport" }).getByRole("button", { name: "Badminton" }).click();
   await page.getByRole("button", { name: "03/10/2030" }).click();
-  await page.getByLabel("Rental duration").selectOption("2");
-  await page.getByRole("button", { name: /10:00.*12:00.*Available/ }).click();
+  await page.getByRole("button", { name: /10:00.*11:00.*Available/ }).click();
+  await page.getByRole("button", { name: /11:00.*12:00.*Available/ }).click();
 
   // 2 giờ x 100.000 = 200.000: tổng do server báo, FE chỉ hiển thị.
   await expect(page.getByText(/200,000/).first()).toBeVisible();
