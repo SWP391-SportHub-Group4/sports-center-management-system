@@ -1652,7 +1652,7 @@ export const en = {
     tabPlans: "Plans",
     tabResults: "Results",
     tabProgress: "Progress",
-    tabProfile: "Profile",
+    tabProfile: "BMI Profile",
     yourCoach: "Your coach",
     sessionsLeft: "sessions left",
     ofTotal: "of {total}",

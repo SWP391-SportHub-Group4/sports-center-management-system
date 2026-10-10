@@ -241,7 +241,26 @@ Việc bổ sung không thay đổi quyền đọc audit, scope tài khoản c�
 |---|---|
 | GET | `api/reports/membership-summary` |
 
-### TrainingProfilesController — `api`
+### BMI profiles and centre measurements — `api`
+
+| Method | Route | Permission / behaviour |
+|---|---|---|
+| GET | `/api/members/me/bmi-profile` | Member self; 204 if no measurement request |
+| POST | `/api/members/me/bmi-measurement-request` | Member self; idempotent, one request/result per member |
+| GET | `/api/bmi-measurement-requests?page=1` | FrontDesk (Receptionist/Manager); pending requests, 20 per page |
+| GET | `/api/members/{memberId}/bmi-profile` | FrontDesk; 204 if no request |
+| PUT | `/api/members/{memberId}/bmi-appointment` | FrontDesk; future UTC `appointmentAt`; results cannot be rescheduled |
+| POST | `/api/members/{memberId}/bmi-measurement` | FrontDesk; `heightCm` 50–250 and `weightKg` 10–400, up to one decimal place |
+
+Response: `memberId`, `status` (REQUESTED/SCHEDULED/MEASURED), `requestedAt`,
+`appointmentAt`, `heightCm`, `weightKg`, calculated `bmi`, `measuredAt`.
+BMI is weight in kilograms divided by height in metres squared, rounded to one
+decimal. The API derives BMI and the measurement date; members cannot submit them.
+Measurements lock after recording (409 `bmi_profile_locked` on further staff writes).
+All writes lock the member row and persist within a transaction. BMI is stored
+separately from the legacy training-goal profile. No clinical classification is applied.
+
+### Legacy training profiles — `api`
 
 | Verb | Path |
 |---|---|
