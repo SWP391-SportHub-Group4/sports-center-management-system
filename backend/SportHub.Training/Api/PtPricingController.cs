@@ -13,6 +13,7 @@ public sealed record PtQuoteRequest(Guid MemberPackageId, Guid CoachId, int Freq
 [ApiController, Authorize, Route("api")]
 public sealed class PtPricingController(PtPricingService pricing) : ControllerBase
 {
+    [AllowAnonymous]
     [HttpGet("pt-pricing")]
     public async Task<IActionResult> Get(CancellationToken ct)
     {
