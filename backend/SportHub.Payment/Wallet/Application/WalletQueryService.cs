@@ -33,8 +33,18 @@ public sealed class WalletQueryService(ISportHubDbContext db, IUserAccessReader 
         }
         var rows = await query.OrderByDescending(x => x.CreatedAtUtc).ThenByDescending(x => x.LedgerEntryId)
             .Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
+        var itemIds = rows.Where(x => x.InvoiceItemId.HasValue).Select(x => x.InvoiceItemId!.Value).Distinct().ToList();
+        var sources = itemIds.Count == 0
+            ? new Dictionary<Guid, (string Description, Guid InvoiceId)>()
+            : await (from item in db.Set<InvoiceItem>().AsNoTracking()
+                     join invoice in db.Set<Invoice>().AsNoTracking() on item.InvoiceId equals invoice.InvoiceId
+                     where itemIds.Contains(item.ItemId)
+                     select new { item.ItemId, item.Description, invoice.InvoiceId })
+                .ToDictionaryAsync(x => x.ItemId, x => (x.Description, x.InvoiceId), ct);
         return rows.Select(x => new WalletLedgerResponse(x.LedgerEntryId, x.EntryType.ToString().ToUpperInvariant(), x.Points,
-            x.AvailableDelta, x.HeldDelta, x.AvailableAfter, x.HeldAfter, x.ReferenceType, x.ReferenceId, x.Note, x.CreatedAtUtc)).ToList();
+            x.AvailableDelta, x.HeldDelta, x.AvailableAfter, x.HeldAfter, x.ReferenceType, x.ReferenceId, x.Note, x.CreatedAtUtc,
+            x.InvoiceItemId is Guid sourceId && sources.TryGetValue(sourceId, out var source) ? source.Description : null,
+            x.InvoiceItemId is Guid invoiceItemId && sources.TryGetValue(invoiceItemId, out var invoiceSource) ? invoiceSource.InvoiceId : null)).ToList();
     }
 
     private async Task ValidateOwnerAsync(Guid ownerId, Guid? staffActorId, CancellationToken ct, bool manager)
