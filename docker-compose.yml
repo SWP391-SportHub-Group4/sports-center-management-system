@@ -58,7 +58,8 @@ services:
       CLOUDINARY_URL: ${CLOUDINARY_URL:-}
       # Website hỗ trợ ghi ở cuối email (để trống = chỉ ghi "liên hệ trung tâm"; điền khi đã deploy).
       Frontend__SupportUrl: ${Frontend__SupportUrl:-}
-      DataProtection__KeysPath: ${DataProtection__KeysPath:-/var/lib/sporthub/dataprotection-keys}
+      # Always use the container volume path, not a Windows host path from .env.
+      DataProtection__KeysPath: /var/lib/sporthub/dataprotection-keys
 
 
       Gemini__ApiKey: ${Gemini__ApiKey:-}
