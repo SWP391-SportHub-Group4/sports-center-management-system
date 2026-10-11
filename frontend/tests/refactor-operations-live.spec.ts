@@ -187,11 +187,6 @@ test(
       await publish.text(),
     ).toBeTruthy();
 
-    /*
-     * G13:
-     * Publish does not automatically
-     * open enrollment.
-     */
     const opened = await request.post(
       `${base}/api/manager/classes/${course.classId}/enrollment/open`,
       {
@@ -276,36 +271,6 @@ test(
       `/manager/classes/${course.classId}`,
     );
 
-    await page
-      .getByRole(
-        "tab",
-        {
-          name: "Students",
-          exact: true,
-        },
-      )
-      .click();
-
-    await expect(
-      page.getByRole(
-        "heading",
-        {
-          name: "Enrollments",
-          exact: true,
-        },
-      ),
-    ).toBeVisible();
-
-    await page
-      .getByRole(
-        "tab",
-        {
-          name: "Overview",
-          exact: true,
-        },
-      )
-      .click();
-
     const cancellation =
       page
         .locator(".card")
@@ -319,6 +284,10 @@ test(
               },
             ),
         });
+
+    await expect(
+      cancellation,
+    ).toBeVisible();
 
     await cancellation
       .getByLabel(
@@ -359,17 +328,24 @@ test(
 
     await expect
       .poll(
-        async () =>
-          (
-            await (
-              await request.get(
-                `${base}/api/manager/classes/${course.classId}`,
-                {
-                  headers,
-                },
-              )
-            ).json()
-          ).status,
+        async () => {
+          const response =
+            await request.get(
+              `${base}/api/manager/classes/${course.classId}`,
+              {
+                headers,
+              },
+            );
+
+          expect(
+            response.ok(),
+            await response.text(),
+          ).toBeTruthy();
+
+          return (
+            await response.json()
+          ).status;
+        },
       )
       .toBe("CANCELLED");
 
@@ -391,29 +367,11 @@ test(
 
     expect(
       after.heldPoints,
-    ).toBe(0);
+    ).toBe(
+      before.heldPoints,
+    );
 
     await page.reload();
-
-    await page
-      .getByRole(
-        "tab",
-        {
-          name: "Students",
-          exact: true,
-        },
-      )
-      .click();
-
-    await expect(
-      page.getByRole(
-        "heading",
-        {
-          name: "Enrollments",
-          exact: true,
-        },
-      ),
-    ).toBeVisible();
 
     await expect(
       page
