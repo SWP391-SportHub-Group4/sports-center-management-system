@@ -2,85 +2,76 @@
 
 import { Suspense, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { BookOpen, MapPin, ChevronRight } from "lucide-react";
-import { Tabs } from "@/components/primitives";
-import { AsyncSection, Loading } from "@/components/ui";
-import {
-  CourseCatalog,
-  CourseDetail,
-  ThresholdPanel,
-  CourseSticker,
-} from "@/features/courses";
-import {
-  MembershipCatalog,
-  isRetiredActivityPackage,
-} from "@/features/membership";
+import { Loading } from "@/components/ui";
+import { CourseDetail, ThresholdPanel } from "@/features/courses";
 import { CourtBookingCalendar } from "@/features/rentals";
-import { api } from "@/lib/apiClient";
-import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
-import { formatDate } from "@/lib/format";
 import { choiceQuery, useUrlQuery } from "@/lib/useUrlQuery";
-import type { MemberPackageDto } from "@/lib/types";
-import { MemberCourses } from "./courses";
-import { MemberServices } from "./services";
-import { GymStatusSticker } from "./gym-status-sticker";
+import { ExplorePackages } from "./explore-packages";
+import { MyServices } from "./my-services";
+import { SERVICE_KINDS } from "./service-kinds";
+import { SubNav, type FilterValue, type HubView } from "./service-ui";
 import styles from "./service-hub.module.css";
 
-const SECTIONS = ["courses", "gym", "pt", "courts"] as const;
+const TYPES = ["", "all", ...SERVICE_KINDS] as const;
+const LEGACY_TYPE: Record<string, FilterValue> = {
+  courses: "class",
+  gym: "gym",
+  pt: "pt",
+};
+const RESET = {
+  type: "",
+  sport: "",
+  tab: "",
+  page: "1",
+  rental: "",
+  course: "",
+  responseId: "",
+  section: "",
+};
 
 export function MemberServiceHub() {
   const router = useRouter();
   const { t, language } = useLanguage();
   const vi = language === "vi";
-  const raw = useUrlQuery({ tab: "", section: "", view: "" }).values;
+  const tx = (v: string, e: string) => (vi ? v : e);
+  const raw = useUrlQuery({ tab: "", section: "", view: "", type: "" }).values;
   const legacy = raw.tab;
-  const legacySection =
-    legacy === "pt"
-      ? "pt"
-      : legacy === "gym" || legacy === "visits"
-        ? "gym"
-        : "courses";
   const { values, setValues } = useUrlQuery(
     {
-      section: "courses",
+      section: "",
       view: "explore",
       tab: "",
       page: "1",
       rental: "",
       course: "",
       responseId: "",
+      type: "",
+      sport: "",
     },
     {
-      section: choiceQuery(SECTIONS, "courses"),
       view: choiceQuery(["explore", "owned"], "explore"),
+      type: choiceQuery(TYPES, ""),
     },
   );
-  const packages = useApi(
-    async (signal) =>
-      (
-        await api.get<MemberPackageDto[]>("/api/members/me/packages", {
-          signal,
-        })
-      ).filter((row) => !isRetiredActivityPackage(row.packageName)),
-    [],
-  );
-  const hasGym =
-    packages.data?.some(
-      (row) => row.status.toUpperCase() === "ACTIVE" && row.isUsable,
-    ) ?? false;
-  const section = raw.section ? values.section : legacySection;
-  const view = raw.view
-    ? values.view
+  const view: HubView = raw.view
+    ? (values.view as HubView)
     : ["gym", "pt", "visits"].includes(legacy)
       ? "owned"
       : "explore";
-  const registeredCourse =
-    section === "courses" &&
-    view === "owned" &&
-    /^[1-9]\d*$/.test(values.course);
-  const rentalDetail = section === "courts" && !!values.rental;
+  const filter: FilterValue =
+    (values.type as FilterValue) ||
+    LEGACY_TYPE[raw.section] ||
+    (legacy === "pt"
+      ? "pt"
+      : legacy === "gym" || legacy === "visits"
+        ? "gym"
+        : "all");
+  const sportId = /^[1-9]\d{0,5}$/.test(values.sport)
+    ? Number(values.sport)
+    : null;
+  const registeredCourse = view === "owned" && /^[1-9]\d*$/.test(values.course);
+  const rentalDetail = values.section === "courts" && !!values.rental;
   const detailDestination = registeredCourse
     ? `/member/schedule?course=${encodeURIComponent(values.course)}`
     : rentalDetail
@@ -89,278 +80,103 @@ export function MemberServiceHub() {
   useEffect(() => {
     if (detailDestination) router.replace(detailDestination);
   }, [detailDestination, router]);
-  const owned = view === "owned" && legacy === "visits";
   if (detailDestination) return <Loading />;
+
+  const booking = values.section === "courts";
+  const exploreCourse = view === "explore" && /^[1-9]\d*$/.test(values.course);
+
+  const goView = (next: HubView) => setValues({ ...RESET, view: next });
+  const setFilter = (next: FilterValue) =>
+    setValues({
+      type: next === "all" ? "" : next,
+      section: "",
+      sport: next === "class" || next === "all" ? values.sport : "",
+      course: "",
+      responseId: "",
+      tab: "",
+    });
+
   return (
     <div className={styles.hub}>
       <header className={styles.intro}>
         <div>
           <h1>{t.memberPages.services}</h1>
           <p>
-            {section === "courts"
-              ? vi
-                ? "Chọn môn, ngày và giờ để tìm sân trống."
-                : "Choose a sport, date and time to find a court."
-              : vi
-                ? "Đăng ký lớp học, chọn Membership Gym hoặc đặt sân theo lịch của bạn."
-                : "Register for classes, choose a Gym membership or book a court on your schedule."}
+            {booking
+              ? tx(
+                  "Chọn môn, ngày và giờ để tìm sân trống.",
+                  "Choose a sport, date and time to find a court.",
+                )
+              : view === "owned"
+                ? tx(
+                    "Các gói bạn đang sở hữu, hạn dùng và lịch sử sử dụng.",
+                    "What you own, when it expires and how you used it.",
+                  )
+                : tx(
+                    "Chọn gói phù hợp, thanh toán xong dùng ngay.",
+                    "Pick a package, pay and start right away.",
+                  )}
           </p>
         </div>
-        <div className={styles.sticker} aria-hidden="true">
-          <CourseSticker
-            sport={
-              section === "courses"
-                ? "Cầu lông"
-                : section === "courts"
-                  ? "Bóng rổ"
-                  : "Gym"
-            }
-            compact
-          />
-        </div>
+        <SubNav
+          view={view}
+          onChange={goView}
+          vi={vi}
+          label={tx("Trang dịch vụ", "Services pages")}
+        />
       </header>
-      <Tabs
-        ariaLabel={t.memberPages.services}
-        value={section === "courts" ? "courts" : "training"}
-        tabs={[
-          {
-            id: "training",
-            label: (
-              <span className={styles.categoryLabel}>
-                <span className={styles.categoryIcon}>
-                  <BookOpen size={24} aria-hidden="true" />
-                </span>
-                <span className={styles.categoryCopy}>
-                  <strong>
-                    {vi ? "Khóa học & gói tập" : "Classes & packages"}
-                  </strong>
-                  <span>
-                    {vi
-                      ? "Lớp học và Membership Gym"
-                      : "Classes and Gym membership"}
-                  </span>
-                </span>
-                <ChevronRight
-                  className={styles.categoryArrow}
-                  size={20}
-                  aria-hidden="true"
-                />
-              </span>
-            ),
-          },
-          {
-            id: "courts",
-            label: (
-              <span className={styles.categoryLabel}>
-                <span className={styles.categoryIcon}>
-                  <MapPin size={24} aria-hidden="true" />
-                </span>
-                <span className={styles.categoryCopy}>
-                  <strong>{vi ? "Đặt sân" : "Courts"}</strong>
-                  <span>
-                    {vi
-                      ? "Chọn sân và khung giờ trống"
-                      : "Find a court and available time"}
-                  </span>
-                </span>
-                <ChevronRight
-                  className={styles.categoryArrow}
-                  size={20}
-                  aria-hidden="true"
-                />
-              </span>
-            ),
-          },
-        ]}
-        onChange={(section) =>
-          setValues({
-            section: section === "training" ? "courses" : section,
-            view: "explore",
-            tab: "",
-            page: "1",
-            rental: "",
-            course: "",
-            responseId: "",
-          })
-        }
-      >
-        <Suspense fallback={<Loading />}>
-          {section === "courses" && values.responseId ? (
-            <div className="stack">
-              <button
-                className="btn btn--quiet"
-                onClick={() => setValues({ responseId: "" })}
-              >
-                {vi ? "Trở về lớp của tôi" : "Back to my classes"}
-              </button>
-              <ThresholdPanel
-                key={values.responseId}
-                responseId={values.responseId}
-              />
-            </div>
-          ) : section === "courses" && /^[1-9]\d*$/.test(values.course) ? (
-            <div className="stack">
-              <button
-                className="btn btn--quiet"
-                onClick={() => setValues({ course: "" })}
-              >
-                {vi ? "Trở về danh sách lớp" : "Back to classes"}
-              </button>
-              <CourseDetail
-                key={values.course}
-                classId={Number(values.course)}
-              />
-            </div>
-          ) : section === "courts" ? (
+      <Suspense fallback={<Loading />}>
+        {booking ? (
+          <div className={styles.stack}>
+            <button
+              type="button"
+              className="btn btn--quiet"
+              onClick={() => setValues({ ...RESET, type: "court" })}
+            >
+              {tx("← Về khám phá gói", "← Back to packages")}
+            </button>
             <CourtBookingCalendar />
-          ) : (
-            <div className={styles.board}>
-              <section
-                className={styles.coursePanel}
-                aria-labelledby="services-classes"
-              >
-                <h2 id="services-classes">{vi ? "Lớp học" : "Classes"}</h2>
-                {owned ? (
-                  <MemberCourses />
-                ) : (
-                  <CourseCatalog
-                    detailBasePath="/member/services"
-                    compact
-                    pageSize={2}
-                    registrationOnly
-                  />
-                )}
-              </section>
-              <div className={styles.packagePanels}>
-                <section
-                  className={styles.gymPanel}
-                  aria-labelledby="services-gym"
-                >
-                  <h2 id="services-gym">Membership</h2>
-                  {packages.data && (
-                    <GymStatusSticker
-                      state={
-                        packages.data.some(
-                          (row) =>
-                            row.status.toUpperCase() === "ACTIVE" &&
-                            row.isUsable,
-                        )
-                          ? "active"
-                          : packages.data.some(
-                                (row) => row.status.toUpperCase() === "ACTIVE",
-                              )
-                            ? "purchased"
-                            : packages.data.some(
-                                  (row) =>
-                                    row.status.toUpperCase() ===
-                                    "PENDING_PAYMENT",
-                                )
-                              ? "pending"
-                              : "available"
-                      }
-                    />
-                  )}
-                  {owned ? (
-                    <MemberServices
-                      compact
-                      section="gym"
-                      showVisits={legacy === "visits"}
-                    />
-                  ) : (
-                    <AsyncSection state={packages}>
-                      {(rows) => {
-                        const current = rows.filter(
-                          (row) =>
-                            row.status.toUpperCase() === "PENDING_PAYMENT" ||
-                            row.status.toUpperCase() === "ACTIVE",
-                        );
-                        return (
-                          <>
-                            {current.length > 0 && (
-                              <div className={styles.ownedPackages}>
-                                {current.map((row) => (
-                                  <article
-                                    key={row.memberPackageId}
-                                    className={styles.ownedPackage}
-                                  >
-                                    <span className={styles.ownership}>
-                                      {row.status.toUpperCase() ===
-                                      "PENDING_PAYMENT"
-                                        ? vi
-                                          ? "Chờ thanh toán"
-                                          : "Awaiting payment"
-                                        : row.isUsable
-                                          ? vi
-                                            ? "Đang sử dụng"
-                                            : "Active membership"
-                                          : vi
-                                            ? "Đã đăng ký"
-                                            : "Purchased"}
-                                    </span>
-                                    <h3>{row.packageName}</h3>
-                                    <p>
-                                      {formatDate(row.startDate)} –{" "}
-                                      {formatDate(row.endDate)}
-                                    </p>
-                                    {row.isUsable && (
-                                      <p>
-                                        {vi
-                                          ? "Quyền truy cập khu tập Gym đang có hiệu lực."
-                                          : "Your Gym access is active."}
-                                      </p>
-                                    )}
-                                  </article>
-                                ))}
-                              </div>
-                            )}
-                            <MembershipCatalog
-                              purchase
-                              owned={rows}
-                              compact
-                              dense
-                              paymentModal
-                              gymActive={hasGym}
-                            />
-                          </>
-                        );
-                      }}
-                    </AsyncSection>
-                  )}
-                </section>
-                <section
-                  className={styles.ptPanel}
-                  aria-labelledby="services-pt"
-                >
-                  <h2 id="services-pt">
-                    {vi ? "Huấn luyện cá nhân" : "Personal training"}
-                  </h2>
-                  {hasGym ? (
-                    <>
-                      <p className="muted">
-                        {vi
-                          ? "Chọn coach, đặt lịch và thanh toán từng buổi 90 phút tại Training."
-                          : "Choose a coach, book and pay per 90-minute session in Training."}
-                      </p>
-                      <Link
-                        className="btn btn--secondary"
-                        href="/member/training?tab=book"
-                      >
-                        {vi ? "Đặt lịch & thanh toán PT" : "Book & pay for PT"}
-                      </Link>
-                    </>
-                  ) : (
-                    <p className="muted" role="note">
-                      {vi
-                        ? "Cần có Membership Gym đang hiệu lực để đặt và mua buổi PT. Hãy mua Membership ở cột bên cạnh trước."
-                        : "An active Gym membership is required to book and buy PT sessions. Buy a Membership first."}
-                    </p>
-                  )}
-                </section>
-              </div>
-            </div>
-          )}
-        </Suspense>
-      </Tabs>
+          </div>
+        ) : values.responseId ? (
+          <div className={styles.stack}>
+            <button
+              type="button"
+              className="btn btn--quiet"
+              onClick={() => setValues({ responseId: "" })}
+            >
+              {tx("← Về lớp của tôi", "← Back to my classes")}
+            </button>
+            <ThresholdPanel
+              key={values.responseId}
+              responseId={values.responseId}
+            />
+          </div>
+        ) : exploreCourse ? (
+          <div className={styles.stack}>
+            <button
+              type="button"
+              className="btn btn--quiet"
+              onClick={() => setValues({ course: "" })}
+            >
+              {tx("← Về danh sách lớp", "← Back to classes")}
+            </button>
+            <CourseDetail key={values.course} classId={Number(values.course)} />
+          </div>
+        ) : view === "owned" ? (
+          <MyServices
+            filter={filter}
+            onFilter={setFilter}
+            tab={values.tab === "interests" ? "interests" : ""}
+            onTab={(next) => setValues({ tab: next })}
+          />
+        ) : (
+          <ExplorePackages
+            filter={filter}
+            onFilter={setFilter}
+            sportId={sportId}
+          />
+        )}
+      </Suspense>
     </div>
   );
 }

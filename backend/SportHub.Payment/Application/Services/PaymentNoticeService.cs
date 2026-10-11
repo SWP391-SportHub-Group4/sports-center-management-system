@@ -17,5 +17,5 @@ public sealed class PaymentNoticeService(IUserAccessReader users, INotificationW
 
     public Task CreatedAsync(Invoice invoice, CancellationToken ct)
         => QueueAsync(invoice.MemberId, NotificationEvents.InvoiceCreated, invoice.InvoiceId,
-            $"Hóa đơn {invoice.InvoiceNumber}: {invoice.TotalAmount:N0} VND. Vui lòng thanh toán trước khi hết hạn giữ chỗ.", ct);
+            $"Invoice {invoice.InvoiceNumber}: {invoice.TotalAmount:N0} VND. Please pay before the hold expires.", ct);
 }

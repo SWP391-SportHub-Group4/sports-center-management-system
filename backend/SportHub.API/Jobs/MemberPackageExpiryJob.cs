@@ -70,8 +70,8 @@ public sealed class MemberPackageExpiryJob(
             notifications.Queue(new NotificationRequest(
                 item.MemberId,
                 NotificationEvents.PackageExpiring,
-                $"Gói {item.PackageName} của bạn sẽ hết hạn vào {item.EndDate:dd/MM/yyyy}. "
-                + "Liên hệ quầy lễ tân để gia hạn nếu bạn muốn tiếp tục tập luyện.",
+                $"Your package {item.PackageName} expires on {item.EndDate:dd/MM/yyyy}. "
+                + "Contact reception to renew it if you want to continue training.",
                 item.MemberPackageId));
         }
 

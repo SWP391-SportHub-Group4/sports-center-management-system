@@ -19,6 +19,8 @@ import {
 } from "@/lib/format";
 import type { MemberPackageDto, PtAvailabilityDto } from "@/lib/types";
 import styles from "./training.module.css";
+import { AvatarImage } from "@/components/AvatarImage";
+import { ReportAvatarButton } from "@/components/ReportAvatarButton";
 
 type SessionQuote = {
   totalQuota: number;
@@ -70,10 +72,13 @@ export function PtSessionPurchase({
     : (active[0]?.memberPackageId ?? "");
   const coaches = useApi(
     (signal) =>
-      api.get<{ userId: string; fullName: string }[]>("/api/coaches", {
-        signal,
-        query: { service: "PERSONAL_TRAINING" },
-      }),
+      api.get<{ userId: string; fullName: string; avatarUrl: string | null }[]>(
+        "/api/coaches",
+        {
+          signal,
+          query: { service: "PERSONAL_TRAINING" },
+        },
+      ),
     [],
   );
   const availability = useApi(
@@ -241,6 +246,32 @@ export function PtSessionPurchase({
                       </Field>
                     )}
                   </AsyncSection>
+                  <div className={styles.coachChoices}>
+                    {coaches.data?.map((coach) => (
+                      <div key={coach.userId} className={styles.coachChoice}>
+                        <AvatarImage
+                          name={coach.fullName}
+                          avatarUrl={coach.avatarUrl}
+                          size={40}
+                        />
+                        <button
+                          type="button"
+                          className="btn btn--secondary btn--sm"
+                          aria-pressed={coachId === coach.userId}
+                          onClick={() => {
+                            setCoach(coach.userId);
+                            resetSelection();
+                          }}
+                        >
+                          {coach.fullName}
+                        </button>
+                        <ReportAvatarButton
+                          targetUserId={coach.userId}
+                          avatarUrl={coach.avatarUrl}
+                        />
+                      </div>
+                    ))}
+                  </div>
                   <Field label={text("Ngày tập", "Training date")}>
                     <input
                       disabled={busy}

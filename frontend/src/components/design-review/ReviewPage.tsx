@@ -600,7 +600,7 @@ export default function ReviewPage() {
     });
   };
   return (
-    <div className={s.root} lang="vi" data-theme="arena-light">
+    <div className={s.root} lang="en" data-theme="arena-light">
       <a className={s.skip} href="#review-main">
         Bỏ qua điều hướng
       </a>

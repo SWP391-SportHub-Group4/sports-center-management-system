@@ -54,6 +54,12 @@
   font-weight: var(--weight-medium);
   color: var(--text-muted);
 }
+.weekdays span[data-today="true"],
+.todayWeekday {
+  background: #006d77;
+  color: #ffffff;
+  font-weight: var(--weight-bold);
+}
 .grid {
   min-height: calc(var(--week-count) * 170px);
   height: max(calc(var(--week-count) * 170px), calc(100dvh - 310px));
@@ -73,6 +79,9 @@
 }
 .day[data-outside="true"] {
   background: var(--bg-surface-sunken);
+}
+.day[data-today="true"]:not([data-outside="true"]) {
+  background: color-mix(in srgb, #006d77 4%, var(--bg-surface));
 }
 .date {
   display: block;
