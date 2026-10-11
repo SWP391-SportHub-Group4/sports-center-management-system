@@ -157,16 +157,16 @@ public sealed class PointConfirmationService(
     public async Task<int> ReleaseExpiredAsync(CancellationToken ct)
     {
         var expiredIds = await db.Set<Invoice>().AsNoTracking()
-            .Where(x => x.PointsApplied > 0 && (x.Status == InvoiceStatus.Void
-                || (x.HoldExpiresAtUtc <= clock.UtcNow && x.Status == InvoiceStatus.Issued)))
+            .Where(x => x.PointsApplied > 0 && x.Status == InvoiceStatus.Issued
+                && x.HoldExpiresAtUtc <= clock.UtcNow)
             .Select(x => x.InvoiceId).Take(100).ToListAsync(ct);
         var released = 0;
         foreach (var id in expiredIds)
         {
             await using var tx = await db.Database.BeginTransactionAsync(ct);
             var invoice = await LockInvoiceAsync(id, ct);
-            if (invoice.PointsApplied > 0 && (invoice.Status == InvoiceStatus.Void
-                || (invoice.HoldExpiresAtUtc <= clock.UtcNow && invoice.Status == InvoiceStatus.Issued)))
+            if (invoice.PointsApplied > 0 && invoice.Status == InvoiceStatus.Issued
+                && invoice.HoldExpiresAtUtc <= clock.UtcNow)
             {
                 await ResetSelectionAsync(invoice, null, ct);
                 await db.SaveChangesAsync(ct);
