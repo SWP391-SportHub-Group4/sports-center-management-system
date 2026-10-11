@@ -10,6 +10,7 @@ export function AccountMenu({
   links,
   logoutLabel,
   onSignOut,
+  avatarUrl,
   tone = "default",
 }: {
   name: string;
@@ -17,6 +18,7 @@ export function AccountMenu({
   links: { href: string; label: string; icon: CourtIconName }[];
   logoutLabel: string;
   onSignOut: () => void;
+  avatarUrl?: string | null;
   tone?: "default" | "inverse";
 }) {
   const [open, setOpen] = useState(false);
@@ -63,7 +65,11 @@ export function AccountMenu({
         onClick={() => setOpen(!open)}
       >
         <span className={s.avatar} aria-hidden="true">
-          {initials}
+          {avatarUrl ? (
+            <img src={avatarUrl} alt="" className={s.avatarPhoto} />
+          ) : (
+            initials
+          )}
         </span>
         <span className={s.accountName}>{name}</span>
         <CourtIcon name="chevron" size={16} />

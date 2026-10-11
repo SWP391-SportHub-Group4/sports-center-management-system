@@ -14,10 +14,24 @@ import codeStyles from "./MemberCodeCard.module.css";
  * Nút mã hội viên trên thanh đầu dashboard. Bấm vào mở popup nhỏ chứa QR để lễ tân quét.
  * Mã chỉ định danh hội viên, không phải vé vào cửa.
  */
-export function MemberCodeButton() {
+export function MemberCodeButton({
+  open: controlledOpen,
+  onOpenChange,
+  hideTrigger = false,
+}: {
+  /** Điều khiển từ ngoài (vd. mục trong menu tài khoản); bỏ trống thì tự giữ trạng thái. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  hideTrigger?: boolean;
+} = {}) {
   const { user } = useAuth();
   const { language } = useLanguage();
-  const [open, setOpen] = useState(false);
+  const [ownOpen, setOwnOpen] = useState(false);
+  const open = controlledOpen ?? ownOpen;
+  const setOpen = (next: boolean) => {
+    setOwnOpen(next);
+    onOpenChange?.(next);
+  };
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState(false);
   const [dataUrl, setDataUrl] = useState("");
@@ -40,24 +54,26 @@ export function MemberCodeButton() {
 
   return (
     <>
-      <button
-        type="button"
-        className={styles.qrButton}
-        onClick={() => {
-          setOpen(true);
-          setCopied(false);
-          setCopyError(false);
-        }}
-        aria-expanded={open}
-        aria-haspopup="dialog"
-        aria-label={label}
-        title={label}
-      >
-        <span className={styles.qrIconWrapper}>
-          <IconQrCode size={14} />
-        </span>
-        <span className={styles.qrTextTitle}>{label}</span>
-      </button>
+      {!hideTrigger && (
+        <button
+          type="button"
+          className={styles.qrButton}
+          onClick={() => {
+            setOpen(true);
+            setCopied(false);
+            setCopyError(false);
+          }}
+          aria-expanded={open}
+          aria-haspopup="dialog"
+          aria-label={label}
+          title={label}
+        >
+          <span className={styles.qrIconWrapper}>
+            <IconQrCode size={14} />
+          </span>
+          <span className={styles.qrTextTitle}>{label}</span>
+        </button>
+      )}
       {open && (
         <Dialog
           title={label}

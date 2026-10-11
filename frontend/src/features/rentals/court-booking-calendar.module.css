@@ -298,3 +298,24 @@
     padding: var(--space-3);
   }
 }
+
+/* Cột trái: lịch chọn ngày + tóm tắt lượt thuê (tổng tiền cập nhật theo ô giờ đã chọn) */
+.side {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+  align-content: start;
+}
+.pickHint {
+  margin: 0;
+  align-self: center;
+  padding: var(--space-1) var(--space-3);
+  border-radius: 999px;
+  background: var(--color-primary-soft);
+  color: var(--color-primary-soft-text);
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+.review .reviewHeading > strong {
+  font-size: 28px;
+}

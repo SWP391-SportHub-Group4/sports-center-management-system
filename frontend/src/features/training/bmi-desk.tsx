@@ -1,4 +1,5 @@
 "use client";
+import { UserAvatar } from "@/components/UserAvatar";
 
 import Link from "next/link";
 import { useRef, useState } from "react";
@@ -220,7 +221,14 @@ export function BmiRequestQueue({
               {data.items.map((row) => (
                 <li key={row.memberId}>
                   <div>
-                    <strong>{row.memberName || row.memberEmail}</strong>
+                    <span className="row">
+                      <UserAvatar
+                        userId={row.memberId}
+                        name={row.memberName || row.memberEmail}
+                        size={32}
+                      />
+                      <strong>{row.memberName || row.memberEmail}</strong>
+                    </span>
                     <p>
                       {row.appointmentAt
                         ? (vi ? "Lịch đo: " : "Appointment: ") +

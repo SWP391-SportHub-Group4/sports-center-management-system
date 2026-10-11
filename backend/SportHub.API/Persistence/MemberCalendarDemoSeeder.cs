@@ -30,14 +30,14 @@ public sealed partial class DemoDataSeeder
         foreach (var sport in new[] { 3, 4 })
         {
             var badminton = sport == 3;
-            var label = badminton ? "Cầu lông" : "Bóng rổ";
+            var label = badminton ? "Badminton" : "Basketball";
             var room = await EnsureDemoRoomAsync($"Demo Calendar · {label}", sport, 20, ct)
                 ?? throw new InvalidOperationException("Demo court type is unavailable.");
             var coach = await EnsureDemoCoachAsync($"calendar.coach{sport}@sporthub.vn", $"Coach Demo · {label}", $"090299000{sport}", sport, ct)
                 ?? throw new InvalidOperationException("Demo coach is unavailable.");
             rooms[sport] = room;
             var code = $"{prefix}-{sport}";
-            await SeedPublishedShowcaseCourseAsync(code, $"{label} · Lớp demo Calendar", sport, coach.UserId, room.RoomId,
+            await SeedPublishedShowcaseCourseAsync(code, $"{label} · Calendar demo course", sport, coach.UserId, room.RoomId,
                 NextWeekday(today.AddDays(2), badminton ? DayOfWeek.Monday : DayOfWeek.Tuesday), badminton
                     ? [(DayOfWeek.Monday, new TimeOnly(8, 0)), (DayOfWeek.Wednesday, new TimeOnly(8, 0))]
                     : [(DayOfWeek.Tuesday, new TimeOnly(9, 0)), (DayOfWeek.Thursday, new TimeOnly(9, 0))],
@@ -47,7 +47,7 @@ public sealed partial class DemoDataSeeder
             {
                 var holdId = Guid.NewGuid();
                 var item = await AddCalendarDemoInvoiceAsync(member.UserId, manager.UserId, course.Price,
-                    InvoiceItemType.ClassPackage, holdId, $"Calendar demo · {label} · 6 buổi", now, ct);
+                    InvoiceItemType.ClassPackage, holdId, $"Calendar demo · {label} · 6 sessions", now, ct);
                 db.Set<SeatHold>().Add(new SeatHold { HoldId = holdId, ClassId = course.ClassId, MemberId = member.UserId,
                     InvoiceId = item.InvoiceId, Status = SeatHoldStatus.Converted, CreatedAt = now, ExpiresAtUtc = now });
                 db.Enrollments.Add(new Enrollment { EnrollmentId = Guid.NewGuid(), ClassId = course.ClassId,

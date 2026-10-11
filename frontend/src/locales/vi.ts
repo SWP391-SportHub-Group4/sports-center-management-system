@@ -1538,6 +1538,7 @@ export const vi: Translations = {
       roomTypes: "Loại phòng/sân",
       rates: "Giá thuê sân",
       coaches: "Coach trung tâm",
+      avatarReports: "Báo cáo ảnh",
       courtSchedule: "Lịch sân",
       incidents: "Sự cố",
       notices: "Thông báo thủ công",

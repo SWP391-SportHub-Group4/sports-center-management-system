@@ -58,7 +58,10 @@ for (const points of [0, 50, 200])
         price: 200000,
         costAmount: 100000,
         scheduleRules: [
-          { dayOfWeek: date.getUTCDay(), startTimeLocal: "10:00" },
+          {
+            dayOfWeek: date.getUTCDay(),
+            startTimeLocal: points === 0 ? "15:00" : points === 50 ? "16:00" : "17:00",
+          },
         ],
       },
     });
@@ -77,17 +80,13 @@ for (const points of [0, 50, 200])
     page.on("request", (r) => {
       if (r.method() === "POST" && r.url().endsWith("/attempts")) attempts++;
     });
-    await page.goto(`/member/services/courses/${course.classId}`);
-    await page.getByRole("button", { name: "Payment", exact: true }).click();
-    await expect(
-      page.getByRole("dialog", { name: "Register for this course" }),
-    ).toBeVisible();
-    // The modal keeps the course URL and stores the invoice in a query parameter.
-    await expect(page).toHaveURL(/checkout=[0-9a-f-]{36}/i);
-    const invoiceId = new URL(page.url()).searchParams.get("checkout")!;
+    await page.goto("/member/services?view=explore&type=class");
+    const courseRow = page.getByRole("listitem").filter({ hasText: course.name });
+    await courseRow.getByRole("button", { name: "Select" }).click();
+    await expect(page).toHaveURL(/\/checkout\/[0-9a-f-]{36}$/i);
+    const invoiceId = page.url().split("/").at(-1)!;
     expect(invoiceId).toBeTruthy();
     if (points > 0) {
-      await page.getByRole("button", { name: /Wallet points/ }).click();
       await page.getByLabel("Points", { exact: true }).fill(String(points));
       await page
         .getByRole("button", { name: "Apply points", exact: true })
@@ -103,10 +102,7 @@ for (const points of [0, 50, 200])
         .toBe(points);
     }
     await page.reload();
-    await page.getByRole("button", { name: "Resume payment", exact: true }).click();
-    await expect(
-      page.getByRole("dialog", { name: "Register for this course" }),
-    ).toBeVisible();
+    await expect(page.locator("[data-checkout-active='true']")).toBeVisible();
     const attemptPromise =
       points < 200
         ? page.waitForResponse(
@@ -115,7 +111,7 @@ for (const points of [0, 50, 200])
           )
         : null;
     await page.getByRole("button", {
-      name: points === 200 ? "Confirm payment with points" : "Pay with VNPay",
+      name: points === 200 ? "Confirm payment with points" : "Confirm payment",
       exact: true,
     }).click();
     if (points < 200) {
@@ -152,7 +148,6 @@ for (const points of [0, 50, 200])
       ),
     ).toBeTruthy();
     await page.reload();
-    await page.getByRole("button", { name: "Resume payment", exact: true }).click();
     await expect(
       page.getByText("Payment verified by server", { exact: true }),
     ).toBeVisible();

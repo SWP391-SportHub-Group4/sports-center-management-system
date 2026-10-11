@@ -3,6 +3,7 @@ import { pagedItems } from "@/lib/paged";
 import { useState } from "react";
 import Link from "next/link";
 import { MemberPicker } from "@/components/MemberPicker";
+import { UserAvatar } from "@/components/UserAvatar";
 import { AsyncSection, Card, Field, StatusChip } from "@/components/ui";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
@@ -28,6 +29,7 @@ function Relationship({
   const mutation = useMutation();
   return (
     <Card title={`${r.memberName} · ${r.coachName}`}>
+      <UserAvatar userId={r.memberId} name={r.memberName} size={40} />
       <StatusChip value={r.status} />
       {r.status === "ACTIVE" && (
         <form

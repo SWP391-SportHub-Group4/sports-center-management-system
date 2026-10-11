@@ -10,6 +10,7 @@ import { ApiTable, FilterBar, StatusChip } from "@/components/data";
 import { catalogApi } from "@/features/catalog";
 import { CoachEditor } from "./coach-editor";
 import type { CoachAdminDto, Paged } from "@/lib/types";
+import { AvatarImage } from "@/components/AvatarImage";
 export function CoachesManager() {
   const { t } = useLanguage();
   const l = t.operations;
@@ -67,7 +68,21 @@ export function CoachesManager() {
         onPageChange={(page) => setValues({ page: String(page) })}
         getRowId={(c) => c.userId}
         columns={[
-          { id: "fullName", header: l.fullName, rowHeader: true },
+          {
+            id: "fullName",
+            header: l.fullName,
+            rowHeader: true,
+            cell: (c) => (
+              <span>
+                <AvatarImage
+                  name={c.fullName}
+                  avatarUrl={c.avatarUrl}
+                  size={32}
+                />{" "}
+                {c.fullName}
+              </span>
+            ),
+          },
           { id: "email", header: l.email },
           {
             id: "sportIds",

@@ -47,7 +47,7 @@ public class ReportPdfRendererTests
 
         return new ReportTable(
             ReportColumnLabels.ReportTitle(ReportTypes.Revenue),
-            "Kỳ 01/09/2026 – 30/09/2026 · Xuất lúc 10:30 22/09/2026 (giờ Việt Nam)",
+            "Period 01/09/2026 – 30/09/2026 · Exported at 10:30 22/09/2026 (Vietnam time)",
             headers,
             rows,
             numeric);
@@ -83,14 +83,14 @@ public class ReportPdfRendererTests
     /// phải lỗi font. Chuỗi dài được kiểm riêng ở test dưới với bảng ít cột.
     /// </summary>
     [Theory]
-    [InlineData("Báo cáo doanh thu")]
-    [InlineData("Số hóa đơn")]
-    [InlineData("Đã thu")]
-    [InlineData("Đã hoàn")]
-    [InlineData("Thực thu")]
-    [InlineData("Cần hoàn")]
-    [InlineData("Trạng thái")]
-    [InlineData("giờ Việt Nam")]
+    [InlineData("Revenue report")]
+    [InlineData("Invoice number")]
+    [InlineData("Collected")]
+    [InlineData("Refunded")]
+    [InlineData("Net collected")]
+    [InlineData("Refund due")]
+    [InlineData("Status")]
+    [InlineData("Vietnam time")]
     public void Chu_tieng_Viet_co_dau_trich_nguoc_ra_dung(string expected)
     {
         var text = ExtractText(new ReportPdfRenderer().Render(BuildTable(3)));
@@ -152,7 +152,7 @@ public class ReportPdfRendererTests
 
         foreach (var page in document.GetPages())
         {
-            Assert.Contains("Số hóa đơn", page.Text);
+            Assert.Contains("Invoice number", page.Text);
         }
     }
 
@@ -164,7 +164,7 @@ public class ReportPdfRendererTests
 
         foreach (var page in document.GetPages())
         {
-            Assert.Contains("Trang", page.Text);
+            Assert.Contains("Page", page.Text);
         }
     }
 
@@ -187,9 +187,9 @@ public class ReportPdfRendererTests
 
         var text = ExtractText(new ReportPdfRenderer().Render(table));
 
-        Assert.Contains("Số hóa đơn", text);
-        Assert.DoesNotContain("Cần hoàn", text);
-        Assert.DoesNotContain("Giảm nghĩa vụ", text);
+        Assert.Contains("Invoice number", text);
+        Assert.DoesNotContain("Refund due", text);
+        Assert.DoesNotContain("Obligation reduction", text);
     }
 
     /// <summary>

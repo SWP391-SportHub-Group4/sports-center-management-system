@@ -138,7 +138,7 @@ public class PasswordResetTests(SportHubApiFactory factory)
         Assert.Equal(0, factory.Emails.CountFor(unknown));
         var body = factory.Emails.Sent.Last(m => m.To == existing).Body;
         Assert.Contains("/reset-password?email=", body);
-        Assert.Contains("ĐẶT LẠI MẬT KHẨU", body);
+        Assert.Contains("RESET PASSWORD", body);
     }
 
     [Fact]

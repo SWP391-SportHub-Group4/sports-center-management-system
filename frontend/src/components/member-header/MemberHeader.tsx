@@ -34,12 +34,10 @@ export interface MemberNavItem {
 export interface MemberHeaderProps {
   nav: MemberNavItem[];
   user: { name: string; email: string };
-  language: "en" | "vi";
-  onToggleLanguage: () => void;
   onLogout: () => void;
   /** Slot for <NotificationBell />. */
   bell: ReactNode;
-  /** Optional slot for the check-in QR button, rendered before the language switch. */
+  /** Optional slot for the check-in QR button. */
   codeSlot?: ReactNode;
   labels: {
     openNav: string;
@@ -57,8 +55,6 @@ const focusRing =
 export function MemberHeader({
   nav,
   user,
-  language,
-  onToggleLanguage,
   onLogout,
   bell,
   codeSlot,
@@ -173,17 +169,6 @@ export function MemberHeader({
           {/* Right: actions */}
           <div className="col-start-3 row-start-1 flex items-center gap-1 sm:gap-2">
             {codeSlot}
-
-            <button
-              type="button"
-              onClick={onToggleLanguage}
-              aria-label={
-                language === "en" ? "Chuyển sang Tiếng Việt" : "Switch to English"
-              }
-              className={`hidden h-9 min-w-9 items-center justify-center rounded-md px-2 text-xs font-semibold tracking-wider text-muted transition-colors hover:bg-sunken hover:text-ink sm:inline-flex ${focusRing}`}
-            >
-              {language === "en" ? "EN" : "VI"}
-            </button>
 
             {bell}
 
@@ -334,16 +319,6 @@ export function MemberHeader({
               <IconSettings size={16} />
               {labels.myAccount}
             </Link>
-            <button
-              type="button"
-              onClick={onToggleLanguage}
-              className="flex min-h-11 w-full items-center justify-between px-3 text-sm text-muted hover:bg-sunken hover:text-ink sm:hidden"
-            >
-              <span>{language === "en" ? "Language" : "Ngôn ngữ"}</span>
-              <span className="text-xs font-semibold tracking-wider text-ink">
-                {language === "en" ? "EN" : "VI"}
-              </span>
-            </button>
             <button
               type="button"
               onClick={() => {

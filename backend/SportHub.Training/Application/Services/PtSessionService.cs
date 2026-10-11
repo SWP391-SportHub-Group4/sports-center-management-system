@@ -426,10 +426,10 @@ public sealed partial class PtSessionService(
         notifications.Queue(new NotificationRequest(
             session.MemberId,
             NotificationEvents.ClassCancelled,
-            $"Buổi PT lúc {VietnamTime.ToLocal(session.StartAtUtc):HH:mm dd/MM/yyyy} đã bị hủy: {reason.Trim()}",
+            $"PT session at {VietnamTime.ToLocal(session.StartAtUtc):HH:mm dd/MM/yyyy} was canceled: {reason.Trim()}",
             sessionId));
         await QueueScheduleEmailAsync(session.MemberId, sessionId, NotificationEvents.ClassCancelled,
-            $"Buổi PT lúc {VietnamTime.ToLocal(session.StartAtUtc):HH:mm dd/MM/yyyy} đã bị hủy: {reason.Trim()}", ct);
+            $"PT session at {VietnamTime.ToLocal(session.StartAtUtc):HH:mm dd/MM/yyyy} was canceled: {reason.Trim()}", ct);
 
         await db.SaveChangesAsync(ct);
 
@@ -560,10 +560,10 @@ public sealed partial class PtSessionService(
         notifications.Queue(new NotificationRequest(
             session.MemberId,
             NotificationEvents.ScheduleChanged,
-            $"Buổi PT lúc {VietnamTime.ToLocal(oldStartAtUtc):HH:mm dd/MM/yyyy} đã được dời sang {VietnamTime.ToLocal(newStartAtUtc):HH:mm dd/MM/yyyy}.",
+            $"PT session at {VietnamTime.ToLocal(oldStartAtUtc):HH:mm dd/MM/yyyy} was moved to {VietnamTime.ToLocal(newStartAtUtc):HH:mm dd/MM/yyyy}.",
             replacement.SessionId));
         await QueueScheduleEmailAsync(session.MemberId, replacement.SessionId, NotificationEvents.ScheduleChanged,
-            $"Buổi PT lúc {VietnamTime.ToLocal(oldStartAtUtc):HH:mm dd/MM/yyyy} đã được dời sang {VietnamTime.ToLocal(newStartAtUtc):HH:mm dd/MM/yyyy}.", ct);
+            $"PT session at {VietnamTime.ToLocal(oldStartAtUtc):HH:mm dd/MM/yyyy} was moved to {VietnamTime.ToLocal(newStartAtUtc):HH:mm dd/MM/yyyy}.", ct);
 
         await db.SaveChangesAsync(ct);
 
@@ -580,7 +580,7 @@ public sealed partial class PtSessionService(
         var recipient = await users.GetAsync(memberId, ct);
         if (recipient is not null)
             notifications.QueueEmail(new EmailNotificationRequest(memberId, recipient.Email, eventType, eventId,
-                "SportHub - Thay đổi lịch PT", "<p>" + System.Net.WebUtility.HtmlEncode(message) + "</p>"));
+                "SportHub - PT schedule changed", "<p>" + System.Net.WebUtility.HtmlEncode(message) + "</p>"));
     }
 
     public async Task<PtSessionResponse> CompleteAsync(Guid sessionId, Guid coachId, CancellationToken ct = default)
@@ -642,7 +642,7 @@ public sealed partial class PtSessionService(
 
     /// <summary>BR-20: uses the same locked transition as a coach, with a system audit actor.</summary>
     public async Task FinalizeNoShowAsync(Guid sessionId, CancellationToken ct = default)
-        => await RecordNoShowAsync(sessionId, new NoShowPtSessionRequest { Reason = "Tự động chốt buổi PT đã kết thúc." }, null, ct);
+        => await RecordNoShowAsync(sessionId, new NoShowPtSessionRequest { Reason = "The completed PT session was closed automatically." }, null, ct);
 
     private async Task<PtSessionResponse> RecordNoShowAsync(
         Guid sessionId, NoShowPtSessionRequest request, Guid? coachId, CancellationToken ct)
