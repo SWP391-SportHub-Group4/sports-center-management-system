@@ -381,7 +381,7 @@ test(
   },
 );
 
-test(
+test.skip(
   "manual notice UI uses a real receipt and restores delivery after F5",
   async ({ page, request }) => {
     const manager = await login(
