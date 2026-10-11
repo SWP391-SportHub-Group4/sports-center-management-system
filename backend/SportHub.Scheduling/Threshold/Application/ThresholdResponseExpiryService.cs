@@ -77,7 +77,7 @@ public sealed class ThresholdResponseExpiryService(ISportHubDbContext db, IRefun
         if (enrollment?.InvoiceItemId is Guid itemId)
         {
             await refunds.CreditAsync(new RefundCreditRequest(itemId, 100,
-                "Tự hoàn điểm do hết hạn phản hồi ngưỡng hoàn vốn", response.ThresholdResponseId), ct);
+                "Automatic points refund after the course threshold response expired", response.ThresholdResponseId), ct);
             await classes.CancelAsync(itemId, EnrollmentEndReason.Refunded, ct);
         }
         response.ResolutionStatus = ThresholdResolutionStatus.Expired;
@@ -122,7 +122,7 @@ public sealed class ThresholdResponseExpiryService(ISportHubDbContext db, IRefun
             var response = await db.Set<ThresholdResponse>().SingleOrDefaultAsync(x => x.EnrollmentId == enrollment.EnrollmentId, ct);
             var eventId = response?.ThresholdResponseId ?? Guid.NewGuid();
             await refunds.CreditAsync(new RefundCreditRequest(itemId, 100,
-                "Hoàn điểm khi khóa bị hủy do không đạt ngưỡng hoàn vốn", eventId), ct);
+                "Points refunded after the course was canceled for missing its break-even threshold", eventId), ct);
             await classes.CancelAsync(itemId, EnrollmentEndReason.CancelledByCenter, ct);
             if (response is not null)
             {

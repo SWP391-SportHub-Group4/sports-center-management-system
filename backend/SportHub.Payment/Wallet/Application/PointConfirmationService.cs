@@ -59,9 +59,9 @@ public sealed class PointConfirmationService(
         db.Set<PointConfirmation>().Add(confirmation);
         notifications.QueueEmail(new EmailNotificationRequest(memberId, member.Email,
             NotificationEvents.PointConfirmationOtpRequested, confirmation.PointConfirmationId,
-            "Mã xác nhận sử dụng điểm SportHub",
-            $"<p>Mã xác nhận sử dụng {points} điểm cho hóa đơn {System.Net.WebUtility.HtmlEncode(invoice.InvoiceNumber)}: <strong>{code}</strong></p>"
-            + $"<p>Mã có hiệu lực tối đa {otpMinutes} phút. Không chia sẻ mã ngoài giao dịch tại quầy.</p>"));
+            "SportHub points confirmation code",
+            $"<p>Use this code to confirm {points} points for invoice {System.Net.WebUtility.HtmlEncode(invoice.InvoiceNumber)}: <strong>{code}</strong></p>"
+            + $"<p>The code is valid for up to {otpMinutes} minutes. Do not share it outside this reception transaction.</p>"));
         audit.Write(new AuditEntry(receptionistId, "REQUEST_POINT_CONFIRMATION", nameof(Invoice), invoiceId.ToString(),
             NewValue: System.Text.Json.JsonSerializer.Serialize(new { memberId, points, confirmation.PointConfirmationId })));
         await db.SaveChangesAsync(ct);

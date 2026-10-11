@@ -12,7 +12,7 @@ public sealed class PaymentNoticeService(IUserAccessReader users, INotificationW
         var recipient = await users.GetAsync(ownerId, ct);
         if (recipient is not null)
             notifications.QueueEmail(new EmailNotificationRequest(ownerId, recipient.Email, eventType, eventId,
-                "SportHub - Thông báo giao dịch", "<p>" + System.Net.WebUtility.HtmlEncode(message) + "</p>"));
+                "SportHub - Transaction notice", "<p>" + System.Net.WebUtility.HtmlEncode(message) + "</p>"));
     }
 
     public Task CreatedAsync(Invoice invoice, CancellationToken ct)

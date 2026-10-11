@@ -143,7 +143,7 @@ public sealed class PtSessionChangeRequestService(
 
         EnsurePending(changeRequest);
 
-        var reason = changeRequest.Reason ?? "Member yêu cầu";
+        var reason = changeRequest.Reason ?? "Requested by member";
 
         changeRequest.Status = PtSessionChangeRequestStatus.Approved;
         changeRequest.ReviewedByUserId = managerId;

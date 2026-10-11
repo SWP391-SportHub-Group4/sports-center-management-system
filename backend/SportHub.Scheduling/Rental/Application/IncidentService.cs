@@ -111,7 +111,7 @@ public sealed class IncidentService(ISportHubDbContext db, IOccupancyService occ
             IncidentId = incidentId, Scope = shape.Scope, RoomId = shape.RoomId,
             StartAtUtc = shape.StartUtc, EndAtUtc = shape.EndUtc,
             Reason = request.Reason.Trim(),
-            ResolutionSummary = $"Đã hoàn thuê sân bị ảnh hưởng và khóa {shape.RoomIds.Count} phòng trong khung giờ incident.",
+            ResolutionSummary = $"Affected court rentals were refunded and {shape.RoomIds.Count} rooms were blocked during the incident.",
             CreatedByUserId = managerId, CreatedAtUtc = clock.UtcNow
         };
         db.Set<IncidentNotice>().Add(notice);
