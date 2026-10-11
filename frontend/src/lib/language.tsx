@@ -1,16 +1,10 @@
 "use client";
 
-import React, {
-  createContext,
-  useContext,
-  useEffect,
-  useMemo,
-  useCallback,
-  useSyncExternalStore,
-} from "react";
+import React, { createContext, useContext, useEffect } from "react";
 import { en, type Translations } from "@/locales/en";
-import { vi } from "@/locales/vi";
 
+// Keep the legacy union until bilingual call sites are simplified. The app always
+// supplies English, regardless of language values saved by older releases.
 export type Language = "en" | "vi";
 
 interface LanguageContextType {
@@ -20,153 +14,41 @@ interface LanguageContextType {
   t: Translations;
 }
 
-const LANGUAGE_STORAGE_KEY = "sporthub_lang";
-const LANG_CHANGE_EVENT = "sporthub_lang_change";
-
-const dictionaries: Record<Language, Translations> = {
-  en,
-  vi,
-};
-
-const LanguageContext = createContext<LanguageContextType>({
+const englishContext: LanguageContextType = {
   language: "en",
   setLanguage: () => {},
   toggleLanguage: () => {},
   t: en,
-});
+};
 
-function subscribe(callback: () => void) {
-  if (typeof window === "undefined") return () => {};
-  window.addEventListener("storage", callback);
-  window.addEventListener(LANG_CHANGE_EVENT, callback);
-  return () => {
-    window.removeEventListener("storage", callback);
-    window.removeEventListener(LANG_CHANGE_EVENT, callback);
-  };
-}
-
-function getSnapshot(): Language {
-  if (typeof window === "undefined") return "en";
-  try {
-    const stored = localStorage.getItem(
-      LANGUAGE_STORAGE_KEY,
-    ) as Language | null;
-    if (stored === "vi" || stored === "en") {
-      return stored;
-    }
-  } catch {
-    // Ignore localStorage read errors in restricted environments
-  }
-  return "en";
-}
-
-function getServerSnapshot(): Language {
-  return "en";
-}
+const LanguageContext = createContext<LanguageContextType>(englishContext);
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
-  const language = useSyncExternalStore(
-    subscribe,
-    getSnapshot,
-    getServerSnapshot,
-  );
-
-  // Update html lang attribute for accessibility
   useEffect(() => {
-    // Trang xác thực (EnglishOnly) tự giữ lang="en"; không ghi đè ở đây.
-    if (
-      typeof document !== "undefined" &&
-      !document.documentElement.dataset.forceLang
-    ) {
-      document.documentElement.lang = language;
-    }
-  }, [language]);
-
-  const setLanguage = useCallback((lang: Language) => {
+    document.documentElement.lang = "en";
     try {
-      localStorage.setItem(LANGUAGE_STORAGE_KEY, lang);
-      window.dispatchEvent(new Event(LANG_CHANGE_EVENT));
+      localStorage.removeItem("sporthub_lang");
     } catch {
-      // Ignore write errors
+      // Storage may be unavailable in restricted browser contexts.
     }
   }, []);
-
-  const toggleLanguage = useCallback(() => {
-    try {
-      const current = getSnapshot();
-      const next = current === "en" ? "vi" : "en";
-      localStorage.setItem(LANGUAGE_STORAGE_KEY, next);
-      window.dispatchEvent(new Event(LANG_CHANGE_EVENT));
-    } catch {
-      // Ignore
-    }
-  }, []);
-
-  const t = useMemo(() => {
-    return dictionaries[language] || en;
-  }, [language]);
-
-  const value = useMemo(
-    () => ({
-      language,
-      setLanguage,
-      toggleLanguage,
-      t,
-    }),
-    [language, setLanguage, toggleLanguage, t],
-  );
 
   return (
-    <LanguageContext.Provider value={value}>
+    <LanguageContext.Provider value={englishContext}>
       {children}
     </LanguageContext.Provider>
   );
 }
 
-/**
- * Đọc ngôn ngữ hiện tại đồng bộ, ngoài React — dùng cho module không phải component
- * (vd apiClient.ts) cần chọn thông báo lỗi theo ngôn ngữ mà không gọi được hook.
- */
 export function getCurrentLanguage(): Language {
-  return getSnapshot();
+  return "en";
 }
 
-/**
- * Trang dùng chung cho khách (login, register, forgot-password…) luôn hiển thị TIẾNG ANH, bất kể
- * ngôn ngữ đã lưu của portal. Ghi cờ lên <html> để apiClient (ngoài React) cũng chọn thông báo lỗi
- * tiếng Anh. Không có nút đổi ngôn ngữ trên các trang này.
- */
+/** Compatibility wrapper for public authentication routes. */
 export function EnglishOnly({ children }: { children: React.ReactNode }) {
-  useEffect(() => {
-    const root = document.documentElement;
-    const previous = root.lang;
-    root.dataset.forceLang = "en";
-    root.lang = "en";
-    return () => {
-      delete root.dataset.forceLang;
-      root.lang = previous;
-    };
-  }, []);
-  const value = useMemo(
-    () => ({
-      language: "en" as const,
-      setLanguage: () => {},
-      toggleLanguage: () => {},
-      t: en,
-    }),
-    [],
-  );
-  return (
-    <LanguageContext.Provider value={value}>
-      {children}
-    </LanguageContext.Provider>
-  );
+  return <LanguageProvider>{children}</LanguageProvider>;
 }
 
 export function useLanguage() {
-  const context = useContext(LanguageContext);
-  if (!context) {
-    throw new Error("useLanguage must be used within a LanguageProvider");
-  }
-  return context;
+  return useContext(LanguageContext);
 }

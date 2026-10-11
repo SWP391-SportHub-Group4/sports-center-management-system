@@ -2,6 +2,7 @@ using System.Text;
 using Google.Apis.Auth;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Npgsql;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
@@ -16,7 +17,7 @@ using SportHub.Identity.Infrastructure.Security;
 
 namespace SportHub.Identity.Application.Services;
 
-public sealed record GoogleIdentity(string Subject, string Email, string? Name);
+public sealed record GoogleIdentity(string Subject, string Email, string? Name, string? Picture = null);
 
 public sealed class GoogleTokenVerifier(IConfiguration configuration) : IGoogleTokenVerifier
 {
@@ -51,7 +52,7 @@ public sealed class GoogleTokenVerifier(IConfiguration configuration) : IGoogleT
                 401, "google_email_not_verified", "Email Google chưa được xác minh.");
         }
 
-        return new GoogleIdentity(payload.Subject, payload.Email, payload.Name);
+        return new GoogleIdentity(payload.Subject, payload.Email, payload.Name, payload.Picture);
     }
 }
 
@@ -67,7 +68,9 @@ public sealed class GoogleAuthService(
     IGoogleTokenVerifier verifier,
     IOptions<JwtOptions> jwtOptions,
     IClock clock,
-    IUserSummaryFactory summaries) : IGoogleAuthService
+    IUserSummaryFactory summaries,
+    AvatarService avatars,
+    ILogger<GoogleAuthService> logger) : IGoogleAuthService
 {
     public async Task<AuthResponse> LoginAsync(string idToken, CancellationToken ct = default)
     {
@@ -126,6 +129,17 @@ public sealed class GoogleAuthService(
         await SaveOrConflictAsync(ct);
 
         user.Role = role;
+
+        if (!string.IsNullOrWhiteSpace(identity.Picture))
+        {
+            try { await avatars.ImportGooglePictureAsync(user.UserId, identity.Picture, ct); }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                // Account creation must still succeed if Cloudinary is unavailable.
+                // Import is intentionally attempted only once, at account creation.
+                logger.LogWarning(ex, "Could not import initial Google avatar for user {UserId}", user.UserId);
+            }
+        }
 
         return await SignInAsync(user, isNewAccount: true, ct);
     }

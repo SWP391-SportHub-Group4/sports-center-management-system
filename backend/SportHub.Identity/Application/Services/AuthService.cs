@@ -74,10 +74,10 @@ public sealed class AuthService(
         otp.ConsumedAt = null;
         otp.CreatedAt = now;
         notifications.QueueEmail(new EmailNotificationRequest(null, email, NotificationEvents.RegisterOtpRequested,
-            Guid.NewGuid(), "SportHub - Mã xác thực đăng ký",
-            $"<p>Mã xác thực đăng ký tài khoản SportHub của bạn là:</p>"
+            Guid.NewGuid(), "SportHub - Registration verification code",
+            $"<p>Your SportHub registration verification code is:</p>"
             + $"<p style=\"font-size:24px;font-weight:bold;letter-spacing:4px\">{code}</p>"
-            + $"<p>Mã có hiệu lực trong {OtpLifetime.TotalMinutes:0} phút. Nếu bạn không yêu cầu đăng ký, hãy bỏ qua email này.</p>"));
+            + $"<p>The code is valid for {OtpLifetime.TotalMinutes:0} minutes. If you did not request registration, ignore this email.</p>"));
 
         try
         {

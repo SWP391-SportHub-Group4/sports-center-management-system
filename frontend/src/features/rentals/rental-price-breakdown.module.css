@@ -1,7 +1,7 @@
 .breakdown {
   min-width: 0;
   container-type: inline-size;
-  margin-bottom: var(--space-4);
+  margin-bottom: var(--space-3);
 }
 .header {
   display: flex;
@@ -12,9 +12,9 @@
   margin-bottom: var(--space-4);
 }
 .header h3 {
-  margin: 0 0 var(--space-2);
+  margin: 0;
   font-family: var(--font-display);
-  font-size: 26px;
+  font-size: 20px;
 }
 .header p {
   margin: 0;

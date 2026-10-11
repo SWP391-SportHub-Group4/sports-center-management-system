@@ -15,7 +15,7 @@ export interface MemberPageHeaderProps {
 export function MemberPageHeader({
   title,
   description,
-  language = "vi",
+  language = "en",
   showDate = false,
   actions,
 }: MemberPageHeaderProps) {

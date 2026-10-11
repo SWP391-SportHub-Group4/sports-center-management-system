@@ -174,7 +174,7 @@ public sealed class PointRefundService(
         adjustment.ResolvedAt = now;
         adjustment.Status = PaymentAdjustmentStatus.Completed;
         await notices.QueueAsync(invoice.MemberId, SportHub.BuildingBlocks.Abstractions.Notifications.NotificationEvents.RefundCompleted,
-            adjustment.AdjustmentId, $"Đã hoàn {points} điểm cho hóa đơn {invoice.InvoiceNumber}.", cancellationToken);
+            adjustment.AdjustmentId, $"Refunded {points} points for invoice {invoice.InvoiceNumber}.", cancellationToken);
         audit.Write(new AuditEntry(managerUserId, "APPROVE_POINT_REFUND", nameof(PaymentAdjustment),
             adjustment.AdjustmentId.ToString(), OldValue: "{\"status\":\"Requested\"}",
             NewValue: System.Text.Json.JsonSerializer.Serialize(new

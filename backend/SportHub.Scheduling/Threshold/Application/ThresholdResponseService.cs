@@ -143,7 +143,7 @@ public sealed class ThresholdResponseService(ISportHubDbContext db, IClassEnroll
         if (choice == ThresholdResponseChoice.Refund)
         {
             await refunds.CreditAsync(new RefundCreditRequest(itemId, 100,
-                "Hoàn điểm theo lựa chọn khi khóa chưa đạt ngưỡng hoàn vốn", response.ThresholdResponseId), ct);
+                "Points refunded by member choice after the course missed its break-even threshold", response.ThresholdResponseId), ct);
             await classes.CancelAsync(itemId, EnrollmentEndReason.Refunded, ct);
         }
         else
@@ -189,7 +189,7 @@ public sealed class ThresholdResponseService(ISportHubDbContext db, IClassEnroll
             if (difference % 1_000 != 0)
                 throw new ConflictException("transfer_value_not_point_divisible", "Phần chênh lệch không đổi chính xác sang điểm.");
             await refunds.CreditDifferenceAsync(new RefundCreditDifferenceRequest(itemId,
-                checked((int)(difference / 1_000)), "Hoàn chênh lệch khi chuyển sang khóa rẻ hơn",
+                checked((int)(difference / 1_000)), "Difference refunded after transfer to a lower-priced course",
                 response.ThresholdResponseId), ct);
         }
 
@@ -240,7 +240,7 @@ public sealed class ThresholdResponseService(ISportHubDbContext db, IClassEnroll
             await db.Database.ExecuteSqlInterpolatedAsync($"SELECT class_id FROM classes WHERE class_id = {classId} FOR UPDATE", ct);
         var hold = await classes.ReserveAsync(targetClassId, memberId, null, expiresOffset, ct, source.EnrollmentId);
         var draft = await invoiceDrafts.CreateAsync(new InvoiceDraft(memberId, memberId,
-            [new InvoiceDraftItem("ClassTransferDifference", $"Chênh lệch chuyển sang khóa {targetQuote.ClassId}",
+            [new InvoiceDraftItem("ClassTransferDifference", $"Transfer difference for course {targetQuote.ClassId}",
                 difference, targetQuote.SportId, targetQuote.ClassId, SourceEnrollmentId: source.EnrollmentId,
                 SourceInvoiceItemId: rootItemId, RelatedEntityId: response.ThresholdResponseId, ResourceHoldId: hold.SeatHoldId,
                 SportName: targetQuote.SportName)],

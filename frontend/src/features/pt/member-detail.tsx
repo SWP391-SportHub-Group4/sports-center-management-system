@@ -6,6 +6,7 @@ import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { formatDateTime } from "@/lib/format";
 import { ptApi } from "./api";
+import { UserAvatar } from "@/components/UserAvatar";
 
 export function CoachMemberDetail({ memberId }: { memberId: string }) {
   const { t } = useLanguage();
@@ -76,6 +77,7 @@ function MemberContent({
     <div className="stack">
       <Card title={t.coach.members.profileTitle.replace("{name}", memberName)}>
         <div className="stack">
+          <UserAvatar userId={memberId} name={memberName} size={64} report />
           <div className="row spread">
             <span>{t.staffWork.status}</span>
 

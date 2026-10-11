@@ -19,6 +19,7 @@ export interface SessionUser {
   userId: string;
   email: string;
   fullName: string;
+  avatarUrl?: string | null;
   role: Role;
   /** Authoritative specialties from the API. */
   sportIds: number[];
@@ -241,6 +242,7 @@ export interface WireSessionUser {
   userId: string;
   email: string;
   fullName: string;
+  avatarUrl?: string | null;
   role: string;
   sportIds?: number[];
   isPersonalTrainer?: boolean;
@@ -264,6 +266,7 @@ export function adaptSessionUser(me: WireSessionUser): SessionUser {
     userId: me.userId,
     email: me.email,
     fullName: me.fullName,
+    avatarUrl: me.avatarUrl ?? null,
     role,
     sportIds: me.sportIds ?? [],
     isPersonalTrainer: me.isPersonalTrainer ?? false,

@@ -36,7 +36,9 @@ const DEMO_ACCOUNTS = [
 ];
 
 const DEMO_PASSWORD = "Sporthub@123";
-const SHOW_DEMO_ACCOUNTS = process.env.NODE_ENV === "development";
+const SHOW_DEMO_ACCOUNTS =
+  process.env.NODE_ENV === "development" ||
+  process.env.NEXT_PUBLIC_SHOW_DEMO_ACCOUNTS === "true";
 
 function loginErrorMessage(
   cause: unknown,
