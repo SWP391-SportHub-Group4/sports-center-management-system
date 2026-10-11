@@ -23,6 +23,7 @@ public sealed record ClassPublicResponse(
     int AvailableSeats,
     decimal Price,
     [property: SportHub.BuildingBlocks.Api.WireEnum] string Status,
+    bool EnrollmentOpen,
     DateTime? FirstSessionStartUtc,
     IReadOnlyList<ClassScheduleRuleResponse> ScheduleRules);
 
@@ -51,6 +52,7 @@ public sealed record ClassManagerResponse(
     int ActiveHoldCount,
     int AvailableSeats,
     bool CreatedByAi,
+    bool EnrollmentOpen,
     int Version,
     DateTime CreatedAt,
     DateTime? PublishedAt,

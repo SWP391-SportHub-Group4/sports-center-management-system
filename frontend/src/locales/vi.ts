@@ -1610,6 +1610,8 @@ export const vi: Translations = {
     pageMembers: "Hội viên",
     pageProfile: "Hồ sơ hội viên",
     pageSales: "Bán dịch vụ",
+    attendanceClass: "Lớp học",
+    attendanceSession: "Buổi học",
     findMember: "Tìm hội viên",
     findHint: "SĐT, tên hoặc email. Quét QR nếu hội viên có mã.",
     notRegistered:
@@ -1631,6 +1633,7 @@ export const vi: Translations = {
     alreadyInside: "Hội viên này đã ở trong Gym. Trạng thái đã được làm mới.",
     attendance: "Điểm danh lớp",
     sell: "Bán dịch vụ",
+    viewInvoices: "Xem hóa đơn",
     openProfile: "Mở hồ sơ",
     nextAction: "Làm gì tiếp?",
     sessionsToday: "Lớp hôm nay",
