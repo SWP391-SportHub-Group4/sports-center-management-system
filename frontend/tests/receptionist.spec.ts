@@ -23,403 +23,233 @@ async function receptionistFixture(page: Page) {
       "receptionist-fixture-token",
     );
 
-    localStorage.setItem(
-      "sporthub_lang",
-      "en",
-    );
+    localStorage.setItem("sporthub_lang", "en");
   });
 
-  await page.route(
-    "**/api/**",
-    async (route) => {
-      const request =
-        route.request();
-
-      const url =
-        new URL(
-          request.url(),
-        );
-
-      const path =
-        url.pathname;
-
-      if (
-        path ===
-        "/api/users/me"
-      ) {
-        return route.fulfill({
-          json: {
-            userId:
-              receptionistId,
-test("only receptionist UI writes group attendance and uses enrollment+session identity", async ({ page }) => {
-  let payload: unknown = null;
-  await page.route(`**/api/class-sessions/${sessionId}/attendance/${enrollmentId}`, async (route) => {
-    payload = route.request().postDataJSON();
-    await route.fulfill({ json: { ok: true } });
-  });
-  await page.goto("/receptionist/attendance");
-  await page.getByLabel("Course registration").selectOption("7");
-  await page.getByLabel("Sessions").selectOption(sessionId);
-  await expect(page.getByRole("row", { name: /Member A.*Present Absent/ })).toBeVisible();
-  await page.getByRole("button", { name: "Present", exact: true }).click();
-  await expect.poll(() => payload).toEqual({ status: "PRESENT" });
-});
-
-            fullName:
-              "Receptionist",
-
-            email:
-              "desk@example.com",
-
-            role:
-              "RECEPTIONIST",
-
-            sportIds: [],
-          },
-        });
-      }
-
-      if (
-        path.includes(
-          "notifications",
-        )
-      ) {
-        return route.fulfill({
-          json:
-            path.endsWith(
-              "unread-count",
-            )
-              ? {
-                  count: 0,
-                }
-              : [],
-        });
-      }
-
-      if (
-        path ===
-        "/api/sports"
-      ) {
-        return route.fulfill({
-          json: [
-            {
-              sportId: 3,
-
-              name:
-                "Badminton",
-
-              code:
-                "course",
-
-              services: [
-                {
-                  serviceType:
-                    "GROUP_COURSE",
-
-                  isEnabled:
-                    true,
-
-                  defaultSessionMinutes:
-                    90,
-
-                  defaultMaxCapacity:
-                    12,
-                },
-              ],
-
-              isActive:
-                true,
-            },
-          ],
-        });
-      }
-
-      if (
-        path ===
-        "/api/users"
-      ) {
-        return route.fulfill({
-          json: paged([
-            {
-              userId:
-                memberId,
-
-              fullName:
-                "Member A",
-
-              email:
-                "member@example.com",
-
-              phone:
-                "0900000000",
-
-              role:
-                "MEMBER",
-
-              status:
-                "ACTIVE",
-
-              createdAt:
-                "2030-01-01T00:00:00Z",
-
-              hasPassword:
-                true,
-
-              hasGoogleLink:
-                false,
-
-              sportIds: [],
-            },
-          ]),
-        });
-      }
-
-      if (
-        path ===
-        `/api/members/${memberId}/packages`
-      ) {
-        return route.fulfill({
-          json: [
-            {
-              memberPackageId:
-                "55555555-5555-4555-8555-555555555555",
-
-              packageId:
-                1,
-
-              packageName:
-                "Gym monthly",
-
-              startDate:
-                "2030-10-01",
-
-              endDate:
-                "2030-10-31",
-
-              status:
-                "ACTIVE",
-
-              isUsable:
-                true,
-            },
-          ],
-        });
-      }
-
-      if (
-        path ===
-        `/api/members/${memberId}/gym-checkins`
-      ) {
-        return route.fulfill({
-          json: paged([]),
-        });
-      }
-
-      if (
-        path ===
-        "/api/gym-checkins/inside"
-      ) {
-        return route.fulfill({
-          json: paged([]),
-        });
-      }
-
-      if (
-        path ===
-          "/api/gym-checkins" &&
-        request.method() ===
-          "POST"
-      ) {
-        return route.fulfill({
-          json: {
-            checkInId:
-              "66666666-6666-4666-8666-666666666666",
-
-            memberId,
-
-            checkInTime:
-              "2030-10-03T03:00:00Z",
-
-            checkOutTime:
-              null,
-          },
-        });
-      }
-
-      if (
-        path ===
-        "/api/invoices"
-      ) {
-        return route.fulfill({
-          json: paged([]),
-        });
-      }
-
-      if (
-        path ===
-        "/api/manager/court-schedule"
-      ) {
-        return route.fulfill({
-          json: [
-            {
-              sourceType:
-                "CLASS_SESSION",
-
-              sourceId:
-                sessionId,
-
-              classId:
-                7,
-
-              title:
-                "Badminton group",
-
-              roomId:
-                3,
-
-              coachId:
-                "77777777-7777-4777-8777-777777777777",
-
-              coachName:
-                "Coach A",
-
-              startAtUtc:
-                "2030-10-03T02:30:00Z",
-
-              endAtUtc:
-                "2030-10-03T04:00:00Z",
-            },
-          ],
-        });
-      }
-
-      if (
-        path ===
-        `/api/class-sessions/${sessionId}/roster`
-      ) {
-        return route.fulfill({
-          json: {
-            session: {
-              sessionId,
-
-              classId:
-                7,
-
-              className:
-                "Badminton group",
-
-              sessionNo:
-                1,
-
-              roomId:
-                3,
-
-              roomName:
-                "Court 3",
-
-              coachId:
-                "77777777-7777-4777-8777-777777777777",
-
-              coachName:
-                "Coach A",
-
-              startAtUtc:
-                "2030-10-03T02:30:00Z",
-
-              endAtUtc:
-                "2030-10-03T04:00:00Z",
-
-              status:
-                "SCHEDULED",
-
-              isMakeup:
-                false,
-
-              rescheduledFromSessionId:
-                null,
-            },
-
-            attendanceOpensAtUtc:
-              "2030-10-03T02:30:00Z",
-
-            attendanceClosesAtUtc:
-              "2030-10-04T04:00:00Z",
-
-            entries: [
-              {
-                enrollmentId,
-
-                memberId,
-
-                memberName:
-                  "Member A",
-
-                enrollmentStatus:
-                  "CONFIRMED",
-
-                attendanceStatus:
-                  null,
-
-                attendanceRecordedAt:
-                  null,
-              },
-            ],
-          },
-        });
-      }
-
-      if (
-        path ===
-          `/api/class-sessions/${sessionId}/attendance/${enrollmentId}` &&
-        request.method() ===
-          "PUT"
-      ) {
-        return route.fulfill({
-          json: {
-            ok: true,
-          },
-        });
-      }
-
+  await page.route("**/api/**", async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const path = url.pathname;
+
+    if (path === "/api/users/me") {
       return route.fulfill({
-        status: 404,
-
         json: {
-          code:
-            "fixture_missing",
-
-          message:
-            `${request.method()} ${path}`,
+          userId: receptionistId,
+          fullName: "Receptionist",
+          email: "desk@example.com",
+          role: "RECEPTIONIST",
+          sportIds: [],
         },
       });
-    },
-  );
+    }
+
+    if (path.includes("notifications")) {
+      return route.fulfill({
+        json: path.endsWith("unread-count")
+          ? { count: 0 }
+          : [],
+      });
+    }
+
+    if (path === "/api/sports") {
+      return route.fulfill({
+        json: [
+          {
+            sportId: 3,
+            name: "Badminton",
+            code: "course",
+            services: [
+              {
+                serviceType: "GROUP_COURSE",
+                isEnabled: true,
+                defaultSessionMinutes: 90,
+                defaultMaxCapacity: 12,
+              },
+            ],
+            isActive: true,
+          },
+        ],
+      });
+    }
+
+    if (path === "/api/users") {
+      return route.fulfill({
+        json: paged([
+          {
+            userId: memberId,
+            fullName: "Member A",
+            email: "member@example.com",
+            phone: "0900000000",
+            role: "MEMBER",
+            status: "ACTIVE",
+            createdAt: "2030-01-01T00:00:00Z",
+            hasPassword: true,
+            hasGoogleLink: false,
+            sportIds: [],
+          },
+        ]),
+      });
+    }
+
+    if (path === `/api/users/${memberId}`) {
+      return route.fulfill({
+        json: {
+          userId: memberId,
+          fullName: "Member A",
+          email: "member@example.com",
+          phone: "0900000000",
+          role: "MEMBER",
+          status: "ACTIVE",
+          createdAt: "2030-01-01T00:00:00Z",
+          hasPassword: true,
+          hasGoogleLink: false,
+          sportIds: [],
+        },
+      });
+    }
+
+    if (path === `/api/members/${memberId}/packages`) {
+      return route.fulfill({
+        json: [
+          {
+            memberPackageId:
+              "55555555-5555-4555-8555-555555555555",
+            packageId: 1,
+            packageName: "Gym monthly",
+            startDate: "2030-10-01",
+            endDate: "2030-10-31",
+            status: "ACTIVE",
+            isUsable: true,
+          },
+        ],
+      });
+    }
+
+    if (path === `/api/members/${memberId}/gym-checkins`) {
+      return route.fulfill({
+        json: paged([]),
+      });
+    }
+
+    if (path === "/api/gym-checkins/inside") {
+      return route.fulfill({
+        json: paged([]),
+      });
+    }
+
+    if (
+      path === "/api/gym-checkins" &&
+      request.method() === "POST"
+    ) {
+      return route.fulfill({
+        json: {
+          checkInId:
+            "66666666-6666-4666-8666-666666666666",
+          memberId,
+          checkInTime: "2030-10-03T03:00:00Z",
+          checkOutTime: null,
+        },
+      });
+    }
+
+    if (path === "/api/invoices") {
+      return route.fulfill({
+        json: paged([]),
+      });
+    }
+
+    if (path === "/api/manager/court-schedule") {
+      return route.fulfill({
+        json: [
+          {
+            sourceType: "CLASS_SESSION",
+            sourceId: sessionId,
+            classId: 7,
+            title: "Badminton group",
+            roomId: 3,
+            coachId:
+              "77777777-7777-4777-8777-777777777777",
+            coachName: "Coach A",
+            startAtUtc: "2030-10-03T02:30:00Z",
+            endAtUtc: "2030-10-03T04:00:00Z",
+          },
+        ],
+      });
+    }
+
+    if (path === `/api/class-sessions/${sessionId}/roster`) {
+      return route.fulfill({
+        json: {
+          session: {
+            sessionId,
+            classId: 7,
+            className: "Badminton group",
+            sessionNo: 1,
+            roomId: 3,
+            roomName: "Court 3",
+            coachId:
+              "77777777-7777-4777-8777-777777777777",
+            coachName: "Coach A",
+            startAtUtc: "2030-10-03T02:30:00Z",
+            endAtUtc: "2030-10-03T04:00:00Z",
+            status: "SCHEDULED",
+            isMakeup: false,
+            rescheduledFromSessionId: null,
+          },
+          attendanceOpensAtUtc:
+            "2030-10-03T02:30:00Z",
+          attendanceClosesAtUtc:
+            "2030-10-04T04:00:00Z",
+          entries: [
+            {
+              enrollmentId,
+              memberId,
+              memberName: "Member A",
+              enrollmentStatus: "CONFIRMED",
+              attendanceStatus: null,
+              attendanceRecordedAt: null,
+            },
+          ],
+        },
+      });
+    }
+
+    if (
+      path ===
+        `/api/class-sessions/${sessionId}/attendance/${enrollmentId}` &&
+      request.method() === "PUT"
+    ) {
+      return route.fulfill({
+        json: {
+          ok: true,
+        },
+      });
+    }
+
+    return route.fulfill({
+      status: 404,
+      json: {
+        code: "fixture_missing",
+        message: `${request.method()} ${path}`,
+      },
+    });
+  });
 }
 
-test.beforeEach(
-  async ({ page }) =>
-    receptionistFixture(
-      page,
-    ),
-);
+test.beforeEach(async ({ page }) => {
+  await receptionistFixture(page);
+});
 
 test(
   "receptionist dashboard uses real operational links and no manual-paid workflow",
   async ({ page }) => {
-    await page.goto(
-      "/receptionist",
-    );
+    await page.goto("/receptionist");
 
     await expect(
-      page.getByRole(
-        "heading",
-        {
-          name:
-            "Today's desk",
-
-          exact: true,
-        },
-      ),
+      page.getByRole("heading", {
+        name: "Today's desk",
+        exact: true,
+      }),
     ).toBeVisible();
 
     await expect(
@@ -429,15 +259,11 @@ test(
     ).toHaveCount(1);
 
     await expect(
-      page.getByText(
-        /manual paid/i,
-      ),
+      page.getByText(/manual paid/i),
     ).toHaveCount(0);
 
     await expect(
-      page.getByText(
-        /cash payout/i,
-      ),
+      page.getByText(/cash payout/i),
     ).toHaveCount(0);
   },
 );
@@ -447,81 +273,50 @@ test(
   async ({ page }) => {
     let checkIns = 0;
 
-    page.on(
-      "request",
-      (request) => {
-        if (
-          request.method() ===
-            "POST" &&
-          new URL(
-            request.url(),
-          ).pathname ===
-            "/api/gym-checkins"
-        ) {
-          checkIns++;
-        }
-      },
-    );
+    page.on("request", (request) => {
+      if (
+        request.method() === "POST" &&
+        new URL(request.url()).pathname ===
+          "/api/gym-checkins"
+      ) {
+        checkIns++;
+      }
+    });
 
-    await page.goto(
-      "/receptionist/gym-checkin",
-    );
+    await page.goto("/receptionist/gym-checkin");
 
     await page
-      .getByLabel(
-        "Select Member",
-      )
-      .fill(
-        "Member A",
-      );
+      .getByLabel("Select Member")
+      .fill("Member A");
 
-    await page.waitForTimeout(
-      250,
-    );
+    await page.waitForTimeout(250);
 
     await page
-      .getByRole(
-        "button",
-        {
-          name: /Member A/,
-        },
-      )
+      .getByRole("button", {
+        name: /Member A/,
+      })
       .click();
 
     await page
-      .getByRole(
-        "button",
-        {
-          name:
-            "Check in",
-
-          exact: true,
-        },
-      )
+      .getByRole("button", {
+        name: "Check in",
+        exact: true,
+      })
       .click();
 
-    await expect
-      .poll(
-        () =>
-          checkIns,
-      )
-      .toBe(1);
+    await expect.poll(() => checkIns).toBe(1);
   },
 );
 
 test(
   "only receptionist UI writes group attendance and uses enrollment+session identity",
   async ({ page }) => {
-    let payload:
-      unknown = null;
+    let payload: unknown = null;
 
     await page.route(
       `**/api/class-sessions/${sessionId}/attendance/${enrollmentId}`,
       async (route) => {
-        payload =
-          route
-            .request()
-            .postDataJSON();
+        payload = route.request().postDataJSON();
 
         await route.fulfill({
           json: {
@@ -531,55 +326,33 @@ test(
       },
     );
 
-    await page.goto(
-      "/receptionist/attendance",
-    );
+    await page.goto("/receptionist/attendance");
 
     await page
-      .getByLabel(
-        "Class",
-      )
-      .selectOption(
-        "7",
-      );
+      .getByLabel("Class")
+      .selectOption("7");
 
     await page
-      .getByLabel(
-        "Session",
-      )
-      .selectOption(
-        sessionId,
-      );
+      .getByLabel("Session")
+      .selectOption(sessionId);
 
     await expect(
-      page.getByText(
-        "Member A",
-        {
-          exact: true,
-        },
-      ),
+      page.getByText("Member A", {
+        exact: true,
+      }),
     ).toBeVisible();
 
     await page
-      .getByRole(
-        "button",
-        {
-          name:
-            "Present",
-
-          exact: true,
-        },
-      )
+      .getByRole("button", {
+        name: "Present",
+        exact: true,
+      })
       .click();
 
     await expect
-      .poll(
-        () =>
-          payload,
-      )
+      .poll(() => payload)
       .toEqual({
-        status:
-          "PRESENT",
+        status: "PRESENT",
       });
   },
 );
@@ -589,214 +362,108 @@ test(
   async ({ page }) => {
     let checkIns = 0;
 
-    page.on(
-      "request",
-      (request) => {
-        if (
-          request.method() ===
-            "POST" &&
-          new URL(
-            request.url(),
-          ).pathname ===
-            "/api/gym-checkins"
-        ) {
-          checkIns++;
-        }
-      },
-    );
+    page.on("request", (request) => {
+      if (
+        request.method() === "POST" &&
+        new URL(request.url()).pathname ===
+          "/api/gym-checkins"
+      ) {
+        checkIns++;
+      }
+    });
 
-    await page.route(
-      new RegExp(
-        `/api/users/${memberId}$`,
-      ),
-      (route) =>
-        route.fulfill({
-          json: {
-            userId:
-              memberId,
-
-            fullName:
-              "Member A",
-
-            email:
-              "member@example.com",
-
-            phone:
-              "0900000000",
-
-            role:
-              "MEMBER",
-
-            status:
-              "ACTIVE",
-
-            createdAt:
-              "2030-01-01T00:00:00Z",
-
-            hasPassword:
-              true,
-
-            hasGoogleLink:
-              false,
-
-            sportIds: [],
-          },
-        }),
-    );
-
-    await page.goto(
-      "/receptionist",
-    );
+    await page.goto("/receptionist");
 
     await page
-      .getByLabel(
-        "Find a member",
-      )
-      .fill(
-        "Member A",
-      );
+      .getByLabel("Find a member")
+      .fill("Member A");
 
-    await page.waitForTimeout(
-      300,
-    );
+    await page.waitForTimeout(300);
 
     await page
-      .getByRole(
-        "button",
-        {
-          name: /Member A/,
-        },
-      )
+      .getByRole("button", {
+        name: /Member A/,
+      })
       .click();
 
     await expect(
-      page.getByRole(
-        "heading",
-        {
-          name:
-            "Member A",
-        },
-      ),
+      page.getByRole("heading", {
+        name: "Member A",
+      }),
     ).toBeVisible();
 
     await expect(
-      page.getByText(
-        "Active until",
-      ),
+      page.getByText("Active until"),
     ).toBeVisible();
 
     await page
-      .getByRole(
-        "button",
-        {
-          name:
-            "Check in",
-
-          exact: true,
-        },
-      )
+      .getByRole("button", {
+        name: "Check in",
+        exact: true,
+      })
       .click();
 
-    await expect
-      .poll(
-        () =>
-          checkIns,
-      )
-      .toBe(1);
+    await expect.poll(() => checkIns).toBe(1);
 
     await expect(
       page
-        .getByRole(
-          "status",
-        )
+        .getByRole("status")
         .filter({
-          hasText:
-            "Checked in at",
+          hasText: "Checked in at",
         }),
     ).toBeVisible();
 
     /*
-     * Sales is no longer a
-     * top-level Receptionist nav.
-     *
-     * Use the selected Member
-     * action instead.
+     * Sales is no longer a top-level navigation item.
+     * Use the selected-member action.
      */
     await page
-      .getByRole(
-        "link",
-        {
-          name:
-            "Sell a service",
-
-          exact: true,
-        },
-      )
+      .getByRole("link", {
+        name: "Sell a service",
+        exact: true,
+      })
       .click();
 
     await expect(
-      page.getByText(
-        "Selling for Member A",
-      ),
+      page.getByText("Selling for Member A"),
     ).toBeVisible();
 
     await page
-      .getByRole(
-        "link",
-        {
-          name:
-            "Today's desk",
-
-          exact: true,
-        },
-      )
+      .getByRole("link", {
+        name: "Today's desk",
+        exact: true,
+      })
       .first()
       .click();
 
     await expect(
-      page.getByRole(
-        "heading",
-        {
-          name:
-            "Member A",
-        },
-      ),
+      page.getByRole("heading", {
+        name: "Member A",
+      }),
     ).toBeVisible();
 
     await page
-      .getByRole(
-        "link",
-        {
-          name:
-            "Open profile",
-        },
-      )
+      .getByRole("link", {
+        name: "Open profile",
+        exact: true,
+      })
       .click();
 
     await page
-      .getByRole(
-        "tab",
-        {
-          name:
-            "Wallet",
-        },
-      )
+      .getByRole("tab", {
+        name: "Wallet",
+        exact: true,
+      })
       .click();
 
     await expect(
-      page.getByText(
-        /never added or removed/,
-      ),
+      page.getByText(/never added or removed/),
     ).toBeVisible();
 
     await expect(
-      page.getByRole(
-        "button",
-        {
-          name:
-            /adjust/i,
-        },
-      ),
+      page.getByRole("button", {
+        name: /adjust/i,
+      }),
     ).toHaveCount(0);
   },
 );
@@ -808,22 +475,15 @@ test(
       "**/api/users?**",
       (route) =>
         route.fulfill({
-          json:
-            paged([]),
+          json: paged([]),
         }),
     );
 
-    await page.goto(
-      "/receptionist",
-    );
+    await page.goto("/receptionist");
 
     await page
-      .getByLabel(
-        "Find a member",
-      )
-      .fill(
-        "Nobody",
-      );
+      .getByLabel("Find a member")
+      .fill("Nobody");
 
     await expect(
       page.getByText(
@@ -832,13 +492,9 @@ test(
     ).toBeVisible();
 
     await expect(
-      page.getByRole(
-        "link",
-        {
-          name:
-            "Open the registration page",
-        },
-      ),
+      page.getByRole("link", {
+        name: "Open the registration page",
+      }),
     ).toHaveAttribute(
       "href",
       "/register",
@@ -854,18 +510,13 @@ test(
     );
 
     await expect(
-      page.getByText(
-        "Member A",
-        {
-          exact: true,
-        },
-      ),
+      page.getByText("Member A", {
+        exact: true,
+      }),
     ).toBeVisible();
 
     await expect(
-      page.getByText(
-        "0 of 1 recorded",
-      ),
+      page.getByText("0 of 1 recorded"),
     ).toBeVisible();
   },
 );
