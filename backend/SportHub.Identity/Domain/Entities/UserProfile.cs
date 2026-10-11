@@ -9,4 +9,7 @@ public class UserProfile
     public string FullName { get; set; } = string.Empty;
 
     public string? Phone { get; set; } // unique nếu có giá trị, nullable
+
+    public string? AvatarUrl { get; set; }
+    public string? AvatarPublicId { get; set; }
 }

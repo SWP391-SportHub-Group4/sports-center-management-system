@@ -52,12 +52,13 @@
   grid-row: 1;
 }
 .dense .packageDetails {
-  grid-column: 1 / 3;
+  grid-column: 1 / -1;
   grid-row: 2;
 }
 .dense .packageGrid > :global(.card) > :global(.card__body) > button {
   grid-column: 3;
-  grid-row: 1 / 3;
+  grid-row: 1;
+  align-self: center;
 }
 @media (max-width: 540px) {
   .dense .packageGrid > :global(.card) {
@@ -68,12 +69,12 @@
     grid-row: 2;
   }
   .dense .packageDetails {
-    grid-column: 1;
+    grid-column: 1 / -1;
     grid-row: 3;
   }
   .dense .packageGrid > :global(.card) > :global(.card__body) > button {
     grid-column: 2;
-    grid-row: 1 / 4;
+    grid-row: 1;
   }
 }
 .dense .packageDetails > summary {
@@ -297,4 +298,89 @@
   .publicSportGrid {
     grid-template-columns: minmax(0, 1fr);
   }
+}
+
+/* Bộ chọn thời hạn Gym 1/3/6/12 tháng */
+.planPicker {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  margin-bottom: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+.planPicker h3 {
+  margin: 0;
+  font-size: var(--text-sm);
+}
+.planTabs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(64px, 1fr));
+  gap: var(--space-2);
+}
+.planTabs button {
+  display: grid;
+  justify-items: center;
+  gap: 0;
+  padding: var(--space-2) var(--space-1);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  color: var(--text-strong);
+  font: inherit;
+  cursor: pointer;
+}
+.planTabs button strong {
+  font-family: var(--font-display);
+  font-size: 24px;
+  line-height: 1.1;
+}
+.planTabs button span {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+.planTabs button[aria-checked="true"] {
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
+}
+.planTabs button:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+.planBody {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+}
+.planBody > p {
+  margin: 0;
+}
+.planPrice strong {
+  font-family: var(--font-display);
+  font-size: 28px;
+}
+.planPrice span,
+.planMeta {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+.planSaving {
+  margin-left: var(--space-2);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-sm, 6px);
+  background: var(--color-primary-soft);
+  color: var(--color-primary-soft-text);
+  font-size: var(--text-xs);
+}
+
+/* Danh sách gói còn lại: thẳng hàng tiêu đề / giá / nút, đủ khoảng thở */
+.dense .packageGrid > :global(.card) {
+  align-items: center;
+  padding: var(--space-3) var(--space-4);
+  row-gap: var(--space-2);
+}
+.dense .packageGrid > :global(.card) > :global(.card__head) h3,
+.dense .packageGrid > :global(.card) > :global(.card__body) > p.packagePrice {
+  align-self: center;
 }

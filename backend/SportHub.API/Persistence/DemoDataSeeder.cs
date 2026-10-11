@@ -117,7 +117,7 @@ public sealed partial class DemoDataSeeder(
         {
             new MembershipPackage
             {
-                Name = "Gym tháng",
+                Name = "Gym 1 tháng",
                 Price = 600_000m,
                 DurationDays = 30,
                 SessionLimit = null,
@@ -150,15 +150,6 @@ public sealed partial class DemoDataSeeder(
                 SessionLimit = null,
                 Description = "Tập Gym tự do trong 365 ngày. Cần Membership Gym còn hiệu lực để mua PT riêng.",
                 IsActive = true
-            },
-            new MembershipPackage
-            {
-                Name = "Gym thử 14 ngày (ngừng bán)",
-                Price = 300_000m,
-                DurationDays = 14,
-                SessionLimit = null,
-                Description = "Gói Gym dùng thử cũ — giữ lại để minh hoạ gói đã ngừng áp dụng (BR-8).",
-                IsActive = false
             }
         };
 
@@ -179,6 +170,7 @@ public sealed partial class DemoDataSeeder(
         await transaction.DisposeAsync();
         await SeedWalletAndRentalAsync(ct);
         await SeedArenaShowcaseCoursesAsync(ct);
+        await SeedMemberWorkoutPlanAsync(ct);
 
         logger.LogInformation(
             "Đã seed dữ liệu demo: {Users} tài khoản, {Sessions} buổi học. Mật khẩu chung: {Password}",
@@ -281,6 +273,66 @@ public sealed partial class DemoDataSeeder(
             cost: 6_000_000m,
             now,
             ct);
+    }
+
+    /// <summary>
+    /// Idempotent demo data: coach.pt giao một kế hoạch tập Active cho an.member để xem giao diện Member.
+    /// Chỉ thêm khi chưa có kế hoạch nào của cặp Coach–Member này, không đụng dữ liệu do người dùng tạo.
+    /// </summary>
+    public async Task SeedMemberWorkoutPlanAsync(CancellationToken ct = default)
+    {
+        var member = await db.UserAccounts.SingleOrDefaultAsync(x => x.Email == "an.member@sporthub.vn", ct);
+        var coach = await db.UserAccounts.SingleOrDefaultAsync(x => x.Email == "coach.pt@sporthub.vn", ct);
+        if (member is null || coach is null
+            || member.Status != UserStatus.Active || coach.Status != UserStatus.Active) return;
+        if (await db.WorkoutPlans.AnyAsync(x => x.MemberId == member.UserId && x.CoachId == coach.UserId, ct)) return;
+
+        var now = clock.UtcNow;
+        var relationship = await db.CoachMemberRelationships.FirstOrDefaultAsync(x =>
+            x.MemberId == member.UserId && x.CoachId == coach.UserId && x.Status == RelationshipStatus.Active, ct);
+        if (relationship is null)
+        {
+            relationship = new CoachMemberRelationship
+            {
+                RelationshipId = Guid.NewGuid(),
+                CoachId = coach.UserId,
+                MemberId = member.UserId,
+                SourceType = RelationshipSourceType.Personal,
+                Status = RelationshipStatus.Active,
+                StartedAt = now.AddDays(-14)
+            };
+            db.CoachMemberRelationships.Add(relationship);
+            await db.SaveChangesAsync(ct);
+        }
+
+        var plan = new WorkoutPlan
+        {
+            PlanId = Guid.NewGuid(),
+            MemberId = member.UserId,
+            CoachId = coach.UserId,
+            RelationshipId = relationship.RelationshipId,
+            Goal = "Tăng cơ và cải thiện sức bền",
+            Level = nameof(ExperienceLevel.Intermediate),
+            Status = WorkoutPlanStatus.Active,
+            CreatedAt = now.AddDays(-7),
+            UpdatedAt = now.AddDays(-2)
+        };
+        db.WorkoutPlans.Add(plan);
+        var items = new (string Exercise, int Sets, int Reps, string? Notes)[]
+        {
+            ("Back squat", 4, 8, "Nghỉ 90 giây giữa hiệp, giữ lưng thẳng"),
+            ("Bench press", 4, 8, "Hạ thanh chậm 3 giây"),
+            ("Barbell row", 3, 10, "Siết bả vai ở cuối động tác"),
+            ("Romanian deadlift", 3, 10, null),
+            ("Plank", 3, 45, "45 giây mỗi hiệp"),
+            ("Chạy bộ nhẹ trên máy", 1, 20, "20 phút, nhịp tim vùng 2")
+        };
+        db.WorkoutPlanItems.AddRange(items.Select(i => new WorkoutPlanItem
+        {
+            ItemId = Guid.NewGuid(), PlanId = plan.PlanId,
+            Exercise = i.Exercise, Sets = i.Sets, Reps = i.Reps, Notes = i.Notes
+        }));
+        await db.SaveChangesAsync(ct);
     }
 
     private async Task SeedSportPresentationAsync(CancellationToken ct)

@@ -9,7 +9,7 @@ import {
   ChevronRight,
   MapPin,
 } from "lucide-react";
-import { AsyncSection, Field } from "@/components/ui";
+import { AsyncSection } from "@/components/ui";
 import { CheckoutPanel } from "@/features/payments";
 import { CourtIcon } from "@/components/brand/CourtIcon";
 import { api } from "@/lib/apiClient";
@@ -26,7 +26,6 @@ import {
 } from "@/lib/format";
 import type { CheckoutDto, SportDto } from "@/lib/types";
 import { rentalApi, type CourtCalendarSlot } from "./api";
-import { RentalPriceBreakdown } from "./rental-price-breakdown";
 import styles from "./court-booking-calendar.module.css";
 
 function shiftMonth(month: string, amount: number) {
@@ -35,6 +34,14 @@ function shiftMonth(month: string, amount: number) {
     .toISOString()
     .slice(0, 7);
 }
+/** Số giờ liên tiếp tối đa cho một lượt thuê. */
+const MAX_PICK_HOURS = 4;
+type Picked = {
+  roomId: number;
+  roomName: string;
+  date: string;
+  slots: CourtCalendarSlot[];
+};
 type Selection = CourtCalendarSlot & {
   roomId: number;
   roomName: string;
@@ -50,8 +57,7 @@ export function CourtBookingCalendar() {
   const [sportId, setSport] = useState<number | null>(null);
   const [datePick, setDate] = useState<string | null>(null);
   const [monthPick, setMonth] = useState<string | null>(null);
-  const [hours, setHours] = useState(1);
-  const [selected, setSelected] = useState<Selection | null>(null);
+  const [picked, setPicked] = useState<Picked | null>(null);
   const [paid, setPaid] = useState<CheckoutDto | null>(null);
   const { values } = useUrlQuery({ checkout: "" });
   const policy = useApi((signal) => rentalApi.policy(signal), []);
@@ -68,6 +74,28 @@ export function CourtBookingCalendar() {
     (s) => s.isActive && hasService(s, "COURT_RENTAL"),
   );
   const sport = choices.find((s) => s.sportId === sportId);
+  const maxPick = Math.min(
+    MAX_PICK_HOURS,
+    policy.data?.maxHours ?? MAX_PICK_HOURS,
+  );
+  const selected: Selection | null =
+    picked && sport
+      ? {
+          startUtc: picked.slots[0].startUtc,
+          endUtc: picked.slots[picked.slots.length - 1].endUtc,
+          status: "AVAILABLE",
+          totalPrice: picked.slots.reduce(
+            (sum, slot) => sum + (slot.totalPrice ?? 0),
+            0,
+          ),
+          blocks: picked.slots.flatMap((slot) => slot.blocks),
+          roomId: picked.roomId,
+          roomName: picked.roomName,
+          sportId: sport.sportId,
+          sportName: sport.name,
+          date: picked.date,
+        }
+      : null;
   const today = policy.data
     ? new Date(Date.parse(policy.data.serverNowUtc) + 7 * 3600000)
         .toISOString()
@@ -95,9 +123,9 @@ export function CourtBookingCalendar() {
   const day = useApi(
     (signal) =>
       sport && policy.data
-        ? rentalApi.calendar(sport.sportId, date, hours, signal)
+        ? rentalApi.calendar(sport.sportId, date, 1, signal)
         : Promise.resolve(null),
-    [sport?.sportId, date, hours, !!policy.data],
+    [sport?.sportId, date, !!policy.data],
   );
   const reload = day.reload;
   const onPaid = useCallback(
@@ -109,8 +137,42 @@ export function CourtBookingCalendar() {
     [reload],
   );
   function clear() {
-    setSelected(null);
+    setPicked(null);
     setPaid(null);
+  }
+  /** Chọn các khung 1 giờ liền kề trong cùng một sân (tối đa ${MAX_PICK_HOURS} giờ); bấm lại ô ở rìa để bỏ. */
+  function toggleSlot(
+    room: { roomId: number; name: string },
+    slot: CourtCalendarSlot,
+  ) {
+    setPaid(null);
+    setPicked((prev) => {
+      const fresh = {
+        roomId: room.roomId,
+        roomName: room.name,
+        date,
+        slots: [slot],
+      };
+      if (!prev || prev.roomId !== room.roomId || prev.date !== date)
+        return fresh;
+      const index = prev.slots.findIndex(
+        (item) => item.startUtc === slot.startUtc,
+      );
+      if (index >= 0) {
+        const kept =
+          index === 0 ? prev.slots.slice(1) : prev.slots.slice(0, index);
+        return kept.length ? { ...prev, slots: kept } : null;
+      }
+      const first = prev.slots[0];
+      const last = prev.slots[prev.slots.length - 1];
+      if (prev.slots.length < maxPick) {
+        if (slot.startUtc === last.endUtc)
+          return { ...prev, slots: [...prev.slots, slot] };
+        if (slot.endUtc === first.startUtc)
+          return { ...prev, slots: [slot, ...prev.slots] };
+      }
+      return fresh;
+    });
   }
   const statusLabel: Record<CourtCalendarSlot["status"], string> = {
     AVAILABLE: text("Còn trống", "Available"),
@@ -121,6 +183,60 @@ export function CourtBookingCalendar() {
     UNAVAILABLE: text("Không thể đặt", "Unavailable"),
     NO_RATE: text("Chưa mở bán", "Not on sale"),
   };
+  const reviewSection =
+    selected && selected.totalPrice !== null ? (
+      <section className={styles.review}>
+        <div className={styles.reviewHeading}>
+          <div>
+            <h2>{text("Lượt thuê đã chọn", "Your selected booking")}</h2>
+            <p>
+              {selected.sportName} · {selected.roomName} ·{" "}
+              {formatDate(selected.date)} · {formatTime(selected.startUtc)}–
+              {formatTime(selected.endUtc)}
+            </p>
+          </div>
+          <strong>{formatMoney(selected.totalPrice)}</strong>
+        </div>
+        <CheckoutPanel
+          modal
+          vnpayOnly
+          key={`${selected.sportId}-${selected.roomId}-${selected.startUtc}-${selected.endUtc}`}
+          intent={{
+            kind: "court-rental",
+            body: {
+              sportId: selected.sportId,
+              roomId: selected.roomId,
+              startUtc: selected.startUtc,
+              endUtc: selected.endUtc,
+            },
+          }}
+          onPaid={onPaid}
+          onChange={reload}
+          review={{
+            title: text("Thanh toán đặt sân", "Court booking payment"),
+            submitLabel: text("Thanh toán", "Pay"),
+            items: [
+              { label: text("Môn", "Sport"), value: selected.sportName },
+              { label: text("Sân", "Court"), value: selected.roomName },
+              {
+                label: text("Ngày", "Date"),
+                value: formatDate(selected.date),
+              },
+              {
+                label: text("Giờ", "Time"),
+                value: `${formatTime(selected.startUtc)}–${formatTime(selected.endUtc)}`,
+              },
+            ],
+          }}
+        />
+        <p className={styles.policy}>
+          {text(
+            "Sân được giữ trong thời gian thanh toán. Lượt thuê chỉ được xác nhận khi thanh toán thành công.",
+            "Your court is held during checkout. The booking is confirmed after successful payment.",
+          )}
+        </p>
+      </section>
+    ) : null;
   return (
     <div className={styles.booking}>
       {paid && (
@@ -194,75 +310,81 @@ export function CourtBookingCalendar() {
         <AsyncSection state={policy}>
           {(limits) => (
             <div className={styles.layout}>
-              <section
-                className={styles.calendar}
-                aria-label={text("Chọn ngày đặt sân", "Choose a booking date")}
-              >
-                <h2>
-                  <CalendarDays size={20} aria-hidden="true" />
-                  {text("Chọn ngày", "Choose a date")}
-                </h2>
-                <div className={styles.monthNav}>
-                  <button
-                    type="button"
-                    disabled={month <= today.slice(0, 7)}
-                    aria-label={text("Tháng trước", "Previous month")}
-                    onClick={() => setMonth(shiftMonth(month, -1))}
-                  >
-                    <ChevronLeft size={20} />
-                  </button>
-                  <strong>{monthLabel}</strong>
-                  <button
-                    type="button"
-                    disabled={month >= maxDate.slice(0, 7)}
-                    aria-label={text("Tháng sau", "Next month")}
-                    onClick={() => setMonth(shiftMonth(month, 1))}
-                  >
-                    <ChevronRight size={20} />
-                  </button>
-                </div>
-                <div className={styles.weekdays} aria-hidden="true">
-                  {(vi
-                    ? ["T2", "T3", "T4", "T5", "T6", "T7", "CN"]
-                    : ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-                  ).map((d) => (
-                    <span key={d}>{d}</span>
-                  ))}
-                </div>
-                <div
-                  className={styles.dates}
-                  role="group"
-                  aria-label={monthLabel}
+              <div className={styles.side}>
+                <section
+                  className={styles.calendar}
+                  aria-label={text(
+                    "Chọn ngày đặt sân",
+                    "Choose a booking date",
+                  )}
                 >
-                  {cells.map((d, i) =>
-                    d ? (
-                      <button
-                        type="button"
-                        key={d}
-                        disabled={d < today || d > maxDate}
-                        aria-label={formatDate(d)}
-                        aria-current={d === today ? "date" : undefined}
-                        aria-pressed={date === d}
-                        data-today={d === today}
-                        onClick={() => {
-                          setDate(d);
-                          clear();
-                        }}
-                      >
-                        {Number(d.slice(-2))}
-                      </button>
-                    ) : (
-                      <span key={`blank-${i}`} />
-                    ),
-                  )}
-                </div>
-                <p className={styles.policy}>
-                  {text(
-                    `Đặt trước tối đa ${limits.advanceDays} ngày. Giờ hiển thị theo Việt Nam.`,
-                    `Book up to ${limits.advanceDays} days ahead. Times are in Vietnam time.`,
-                  )}
-                </p>
-              </section>
+                  <h2>
+                    <CalendarDays size={20} aria-hidden="true" />
+                    {text("Chọn ngày", "Choose a date")}
+                  </h2>
+                  <div className={styles.monthNav}>
+                    <button
+                      type="button"
+                      disabled={month <= today.slice(0, 7)}
+                      aria-label={text("Tháng trước", "Previous month")}
+                      onClick={() => setMonth(shiftMonth(month, -1))}
+                    >
+                      <ChevronLeft size={20} />
+                    </button>
+                    <strong>{monthLabel}</strong>
+                    <button
+                      type="button"
+                      disabled={month >= maxDate.slice(0, 7)}
+                      aria-label={text("Tháng sau", "Next month")}
+                      onClick={() => setMonth(shiftMonth(month, 1))}
+                    >
+                      <ChevronRight size={20} />
+                    </button>
+                  </div>
+                  <div className={styles.weekdays} aria-hidden="true">
+                    {(vi
+                      ? ["T2", "T3", "T4", "T5", "T6", "T7", "CN"]
+                      : ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+                    ).map((d) => (
+                      <span key={d}>{d}</span>
+                    ))}
+                  </div>
+                  <div
+                    className={styles.dates}
+                    role="group"
+                    aria-label={monthLabel}
+                  >
+                    {cells.map((d, i) =>
+                      d ? (
+                        <button
+                          type="button"
+                          key={d}
+                          disabled={d < today || d > maxDate}
+                          aria-label={formatDate(d)}
+                          aria-current={d === today ? "date" : undefined}
+                          aria-pressed={date === d}
+                          data-today={d === today}
+                          onClick={() => {
+                            setDate(d);
+                            clear();
+                          }}
+                        >
+                          {Number(d.slice(-2))}
+                        </button>
+                      ) : (
+                        <span key={`blank-${i}`} />
+                      ),
+                    )}
+                  </div>
+                  <p className={styles.policy}>
+                    {text(
+                      `Đặt trước tối đa ${limits.advanceDays} ngày. Giờ hiển thị theo Việt Nam.`,
+                      `Book up to ${limits.advanceDays} days ahead. Times are in Vietnam time.`,
+                    )}
+                  </p>
+                </section>
+                {reviewSection}
+              </div>
               <section className={styles.slotsPanel}>
                 <div className={styles.slotHeading}>
                   <div>
@@ -271,24 +393,17 @@ export function CourtBookingCalendar() {
                     </h2>
                     <p>{sport.name}</p>
                   </div>
-                  <Field label={text("Thời lượng thuê", "Rental duration")}>
-                    <select
-                      value={hours}
-                      onChange={(e) => {
-                        setHours(Number(e.target.value));
-                        clear();
-                      }}
-                    >
-                      {Array.from(
-                        { length: limits.maxHours },
-                        (_, i) => i + 1,
-                      ).map((h) => (
-                        <option key={h} value={h}>
-                          {h} {text("giờ", "hour(s)")}
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
+                  <p className={styles.pickHint} aria-live="polite">
+                    {picked
+                      ? text(
+                          `Đã chọn ${picked.slots.length}/${maxPick} giờ`,
+                          `${picked.slots.length}/${maxPick} hours selected`,
+                        )
+                      : text(
+                          `Chọn tối đa ${maxPick} giờ liên tiếp`,
+                          `Pick up to ${maxPick} consecutive hours`,
+                        )}
+                  </p>
                 </div>
                 <div className={styles.legend}>
                   <span data-state="available">
@@ -331,20 +446,14 @@ export function CourtBookingCalendar() {
                                     }
                                     data-state={slot.status}
                                     aria-pressed={
-                                      selected?.roomId === room.roomId &&
-                                      selected.startUtc === slot.startUtc
+                                      picked?.roomId === room.roomId &&
+                                      picked.date === date &&
+                                      picked.slots.some(
+                                        (item) =>
+                                          item.startUtc === slot.startUtc,
+                                      )
                                     }
-                                    onClick={() => {
-                                      setPaid(null);
-                                      setSelected({
-                                        ...slot,
-                                        roomId: room.roomId,
-                                        roomName: room.name,
-                                        sportId: sport.sportId,
-                                        sportName: sport.name,
-                                        date,
-                                      });
-                                    }}
+                                    onClick={() => toggleSlot(room, slot)}
                                   >
                                     <strong>
                                       {formatTime(slot.startUtc)}–
@@ -377,68 +486,6 @@ export function CourtBookingCalendar() {
             </div>
           )}
         </AsyncSection>
-      )}
-      {selected && selected.totalPrice !== null && (
-        <section className={styles.review}>
-          <div className={styles.reviewHeading}>
-            <div>
-              <h2>{text("Lượt thuê đã chọn", "Your selected booking")}</h2>
-              <p>
-                {selected.sportName} · {selected.roomName} ·{" "}
-                {formatDate(selected.date)} · {formatTime(selected.startUtc)}–
-                {formatTime(selected.endUtc)}
-              </p>
-            </div>
-            <strong>{formatMoney(selected.totalPrice)}</strong>
-          </div>
-          <details>
-            <summary>{text("Chi tiết giá thuê", "Price breakdown")}</summary>
-            <RentalPriceBreakdown
-              quote={{
-                totalPrice: selected.totalPrice,
-                blocks: selected.blocks,
-              }}
-            />
-          </details>
-          <CheckoutPanel
-            modal
-            vnpayOnly
-            key={`${selected.sportId}-${selected.roomId}-${selected.startUtc}-${selected.endUtc}`}
-            intent={{
-              kind: "court-rental",
-              body: {
-                sportId: selected.sportId,
-                roomId: selected.roomId,
-                startUtc: selected.startUtc,
-                endUtc: selected.endUtc,
-              },
-            }}
-            onPaid={onPaid}
-            onChange={reload}
-            review={{
-              title: text("Thanh toán đặt sân", "Court booking payment"),
-              submitLabel: text("Thanh toán", "Pay"),
-              items: [
-                { label: text("Môn", "Sport"), value: selected.sportName },
-                { label: text("Sân", "Court"), value: selected.roomName },
-                {
-                  label: text("Ngày", "Date"),
-                  value: formatDate(selected.date),
-                },
-                {
-                  label: text("Giờ", "Time"),
-                  value: `${formatTime(selected.startUtc)}–${formatTime(selected.endUtc)}`,
-                },
-              ],
-            }}
-          />
-          <p className={styles.policy}>
-            {text(
-              "Sân được giữ trong thời gian thanh toán. Lượt thuê chỉ được xác nhận khi thanh toán thành công.",
-              "Your court is held during checkout. The booking is confirmed after successful payment.",
-            )}
-          </p>
-        </section>
       )}
     </div>
   );

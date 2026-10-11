@@ -33,19 +33,12 @@ export function RentalPriceBreakdown({
   return (
     <section className={styles.breakdown} aria-labelledby={titleId}>
       <header className={styles.header}>
-        <div>
-          <h3 id={titleId}>{t.operations.priceBreakdown}</h3>
-          <p>
-            {vi
-              ? "Giá theo từng khung giờ · Giờ Việt Nam (GMT+7)"
-              : "Price per time slot · Vietnam time (GMT+7)"}
-          </p>
-        </div>
-        {quote.blocks.length > 0 && (
-          <span className={styles.count}>
-            {quote.blocks.length} {vi ? "khung giờ" : "time slots"}
-          </span>
-        )}
+        <h3 id={titleId}>{t.operations.priceBreakdown}</h3>
+        <span className={styles.count}>
+          {quote.blocks.length > 0 &&
+            `${quote.blocks.length} ${vi ? "khung giờ" : "time slots"} · `}
+          {vi ? "Giờ Việt Nam (GMT+7)" : "Vietnam time (GMT+7)"}
+        </span>
       </header>
       <div className={styles.ledger}>
         {Array.from(days, ([day, blocks]) => (
@@ -84,7 +77,6 @@ export function RentalPriceBreakdown({
                       {minutes} {vi ? "phút thuê" : "minutes"}
                     </span>
                     <div className={styles.price}>
-                      <span>{vi ? "Giá khung giờ" : "Slot price"}</span>
                       <strong>{formatMoney(block.price)}</strong>
                     </div>
                   </li>
