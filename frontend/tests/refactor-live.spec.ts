@@ -4,9 +4,7 @@ import {
   type APIRequestContext,
 } from "@playwright/test";
 
-import {
-  loginApi,
-} from "./helpers/auth";
+import { loginApi } from "./helpers/auth";
 
 import type {
   CourseDto,
@@ -14,8 +12,7 @@ import type {
   PaymentAttemptDto,
 } from "../src/lib/types";
 
-const base =
-  process.env.P2_LIVE_API;
+const base = process.env.P2_LIVE_API;
 
 test.skip(
   !base,
@@ -29,104 +26,104 @@ test.describe.configure({
 const login = (
   request: APIRequestContext,
   email: string,
-) =>
-  loginApi(
-    request,
-    email,
-  );
+) => loginApi(request, email);
 
-for (
-  const points
-  of [0, 50, 200]
-) {
+for (const points of [0, 50, 200]) {
   test(
     `real course checkout ${points} points, F5 and server fulfillment`,
-    async ({
-      page,
-      request,
-    }) => {
-      const member =
-        await login(
-          request,
-          "an.member@sporthub.vn",
-        );
+    async ({ page, request }) => {
+      const member = await login(
+        request,
+        "an.member@sporthub.vn",
+      );
 
-      const staff =
-        await login(
-          request,
-          "letan@sporthub.vn",
-        );
+      const staff = await login(
+        request,
+        "letan@sporthub.vn",
+      );
 
-      const manager =
-        await login(
-          request,
-          "manager@sporthub.vn",
-        );
+      const manager = await login(
+        request,
+        "manager@sporthub.vn",
+      );
 
       const headers = {
         Authorization:
           `Bearer ${manager.accessToken}`,
       };
 
-      const sports =
-        await (
-          await request.get(
-            `${base}/api/sports`,
-          )
-        ).json();
+      const sports = await (
+        await request.get(
+          `${base}/api/sports`,
+        )
+      ).json();
 
-      const sport =
-        sports.find(
-          (
-            s: {
-              services: {
-                serviceType:
-                  string;
-
-                isEnabled:
-                  boolean;
-              }[];
-            },
-          ) =>
-            s.services.some(
-              (x) =>
-                x.serviceType ===
-                  "GROUP_COURSE" &&
-                x.isEnabled,
-            ),
-        );
-
-      const coaches =
-        await (
-          await request.get(
-            `${base}/api/coaches?sportId=${sport.sportId}`,
-            {
-              headers,
-            },
-          )
-        ).json();
-
-      const rooms =
-        await (
-          await request.get(
-            `${base}/api/rooms`,
-            {
-              headers,
-            },
-          )
-        ).json();
-
-      const courseTemplate =
+      const sport = sports.find(
         (
-          await (
-            await request.get(
-              `${base}/api/classes?sportId=${sport.sportId}`,
-            )
-          ).json()
-        ).items[0] as CourseDto;
+          s: {
+            services: {
+              serviceType: string;
+              isEnabled: boolean;
+            }[];
+          },
+        ) =>
+          s.services.some(
+            (x) =>
+              x.serviceType ===
+                "GROUP_COURSE" &&
+              x.isEnabled,
+          ),
+      );
 
-      const date =
-        new Date();
+      expect(sport).toBeTruthy();
+
+      const coaches = await (
+        await request.get(
+          `${base}/api/coaches?sportId=${sport.sportId}`,
+          {
+            headers,
+          },
+        )
+      ).json();
+
+      expect(
+        coaches.length,
+      ).toBeGreaterThan(0);
+
+      const rooms = await (
+        await request.get(
+          `${base}/api/rooms`,
+          {
+            headers,
+          },
+        )
+      ).json();
+
+      const courseTemplate = (
+        await (
+          await request.get(
+            `${base}/api/classes?sportId=${sport.sportId}`,
+          )
+        ).json()
+      ).items[0] as CourseDto;
+
+      expect(
+        courseTemplate,
+      ).toBeTruthy();
+
+      const room = rooms.find(
+        (
+          r: {
+            roomId: number;
+          },
+        ) =>
+          r.roomId ===
+          courseTemplate.defaultRoomId,
+      );
+
+      expect(room).toBeTruthy();
+
+      const date = new Date();
 
       date.setUTCDate(
         date.getUTCDate() +
@@ -134,17 +131,15 @@ for (
           points,
       );
 
-      const startDate =
-        date
-          .toISOString()
-          .slice(0, 10);
+      const startDate = date
+        .toISOString()
+        .slice(0, 10);
 
       const created =
         await request.post(
           `${base}/api/manager/classes`,
           {
             headers,
-
             data: {
               code:
                 `P2-${points}-${Date.now()}`,
@@ -159,33 +154,19 @@ for (
                 coaches[0].userId,
 
               defaultRoomId:
-                rooms.find(
-                  (
-                    r: {
-                      roomId:
-                        number;
-                    },
-                  ) =>
-                    r.roomId ===
-                    courseTemplate.defaultRoomId,
-                ).roomId,
+                room.roomId,
 
               startDate,
 
-              numSessions:
-                1,
+              numSessions: 1,
 
-              capacity:
-                8,
+              capacity: 8,
 
-              price:
-                200000,
+              price: 200000,
 
-              costAmount:
-                100000,
+              costAmount: 100000,
 
-              scheduleRules:
-              [
+              scheduleRules: [
                 {
                   dayOfWeek:
                     date.getUTCDay(),
@@ -206,6 +187,9 @@ for (
       const course =
         await created.json();
 
+      /*
+       * Publish class.
+       */
       const published =
         await request.post(
           `${base}/api/manager/classes/${course.classId}/publish`,
@@ -222,8 +206,8 @@ for (
 
       /*
        * G13:
-       * Published does NOT mean
-       * enrollment is open.
+       * Publish no longer automatically
+       * opens enrollment.
        */
       const opened =
         await request.post(
@@ -259,13 +243,10 @@ for (
         "request",
         (r) => {
           if (
-            r.method() ===
-              "POST" &&
-            r
-              .url()
-              .endsWith(
-                "/attempts",
-              )
+            r.method() === "POST" &&
+            r.url().endsWith(
+              "/attempts",
+            )
           ) {
             attempts++;
           }
@@ -348,25 +329,17 @@ for (
     if (points > 0) {
       await page.getByLabel("Points", { exact: true }).fill(String(points));
       await page
-        .getByRole(
-          "button",
-          {
-            name:
-              "Payment",
-
-            exact: true,
-          },
-        )
+        .getByRole("button", {
+          name: "Payment",
+          exact: true,
+        })
         .click();
 
       await expect(
-        page.getByRole(
-          "dialog",
-          {
-            name:
-              "Register for this course",
-          },
-        ),
+        page.getByRole("dialog", {
+          name:
+            "Register for this course",
+        }),
       ).toBeVisible();
 
       await expect(
@@ -380,48 +353,40 @@ for (
           page.url(),
         ).searchParams.get(
           "checkout",
-        )!;
+        );
 
       expect(
         invoiceId,
       ).toBeTruthy();
 
-      if (
-        points > 0
-      ) {
+      if (!invoiceId) {
+        throw new Error(
+          "Checkout invoice id missing",
+        );
+      }
+
+      if (points > 0) {
         await page
-          .getByRole(
-            "button",
-            {
-              name:
-                /Wallet points/,
-            },
-          )
+          .getByRole("button", {
+            name:
+              /Wallet points/,
+          })
           .click();
 
         await page
-          .getByLabel(
-            "Points",
-            {
-              exact: true,
-            },
-          )
+          .getByLabel("Points", {
+            exact: true,
+          })
           .fill(
-            String(
-              points,
-            ),
+            String(points),
           );
 
         await page
-          .getByRole(
-            "button",
-            {
-              name:
-                "Apply points",
-
-              exact: true,
-            },
-          )
+          .getByRole("button", {
+            name:
+              "Apply points",
+            exact: true,
+          })
           .click();
 
         await expect
@@ -438,49 +403,44 @@ for (
                   },
                 );
 
-              return (
-                await response.json()
-              ).pointsApplied;
+              const snapshot =
+                await response.json();
+
+              return snapshot.pointsApplied;
             },
           )
-          .toBe(
-            points,
-          );
+          .toBe(points);
       }
 
+      /*
+       * Verify checkout survives F5.
+       */
       await page.reload();
 
       await page
-        .getByRole(
-          "button",
-          {
-            name:
-              "Resume payment",
-
-            exact: true,
-          },
-        )
+        .getByRole("button", {
+          name:
+            "Resume payment",
+          exact: true,
+        })
         .click();
 
       await expect(
-        page.getByRole(
-          "dialog",
-          {
-            name:
-              "Register for this course",
-          },
-        ),
+        page.getByRole("dialog", {
+          name:
+            "Register for this course",
+        }),
       ).toBeVisible();
 
       const attemptPromise =
         points < 200
           ? page.waitForResponse(
-              (r) =>
-                r
+              (response) =>
+                response
                   .request()
                   .method() ===
                   "POST" &&
-                r
+                response
                   .url()
                   .endsWith(
                     "/attempts",
@@ -489,68 +449,54 @@ for (
           : null;
 
       await page
-        .getByRole(
-          "button",
-          {
-            name:
-              points ===
-              200
-                ? "Confirm payment with points"
-                : "Pay with VNPay",
-
-            exact: true,
-          },
-        )
+        .getByRole("button", {
+          name:
+            points === 200
+              ? "Confirm payment with points"
+              : "Pay with VNPay",
+          exact: true,
+        })
         .click();
 
-      if (
-        points < 200
-      ) {
+      if (points < 200) {
         const attempt =
           await attemptPromise;
 
-        if (
-          attempt
-        ) {
-          const data =
-            (
-              await attempt.json()
-            ) as PaymentAttemptDto;
-
-          expect(
-            data.cashAmount,
-          ).toBe(
-            200000 -
-              points *
-                1000,
-          );
-
-          expect(
-            data.gatewayMode,
-          ).toBe(
-            "MOCK",
-          );
-
-          const paid =
-            await request.post(
-              `${base}/api/dev/payments/${data.transactionReference}/simulate`,
-              {
-                headers: {
-                  Authorization:
-                    `Bearer ${staff.accessToken}`,
-                },
-              },
-            );
-
-          expect(
-            paid.ok(),
-            await paid.text(),
-          ).toBeTruthy();
-        } else {
+        if (!attempt) {
           throw new Error(
             "Payment attempt response missing",
           );
         }
+
+        const data =
+          (await attempt.json()) as PaymentAttemptDto;
+
+        expect(
+          data.cashAmount,
+        ).toBe(
+          200000 -
+            points * 1000,
+        );
+
+        expect(
+          data.gatewayMode,
+        ).toBe("MOCK");
+
+        const paid =
+          await request.post(
+            `${base}/api/dev/payments/${data.transactionReference}/simulate`,
+            {
+              headers: {
+                Authorization:
+                  `Bearer ${staff.accessToken}`,
+              },
+            },
+          );
+
+        expect(
+          paid.ok(),
+          await paid.text(),
+        ).toBeTruthy();
       }
 
       await expect(
@@ -562,9 +508,7 @@ for (
         ),
       ).toBeVisible();
 
-      if (
-        points === 200
-      ) {
+      if (points === 200) {
         expect(
           attempts,
         ).toBe(0);
@@ -607,61 +551,65 @@ for (
           { headers: { Authorization: `Bearer ${staff.accessToken}` } },
         );
 
+      expect(
+        status.ok(),
+        await status.text(),
+      ).toBeTruthy();
+
       const snapshot =
-        (
-          await status.json()
-        ) as CheckoutDto;
+        (await status.json()) as CheckoutDto;
 
       expect(
         snapshot.invoiceStatus,
-      ).toBe(
-        "PAID",
-      );
+      ).toBe("PAID");
 
       expect(
         snapshot.fulfillmentOutcome,
-      ).toBe(
-        "FULFILLED",
-      );
+      ).toBe("FULFILLED");
+
+      const enrollmentResponse =
+        await request.get(
+          `${base}/api/members/me/enrollments?pageSize=100`,
+          {
+            headers: {
+              Authorization:
+                `Bearer ${member.accessToken}`,
+            },
+          },
+        );
+
+      expect(
+        enrollmentResponse.ok(),
+        await enrollmentResponse.text(),
+      ).toBeTruthy();
 
       const enrollments =
-        await (
-          await request.get(
-            `${base}/api/members/me/enrollments?pageSize=100`,
-            {
-              headers: {
-                Authorization:
-                  `Bearer ${member.accessToken}`,
-              },
-            },
-          )
-        ).json();
+        await enrollmentResponse.json();
 
       expect(
         enrollments.items.some(
           (
-            e: {
-              classId:
-                number;
+            enrollment: {
+              classId: number;
             },
           ) =>
-            e.classId ===
+            enrollment.classId ===
             course.classId,
         ),
       ).toBeTruthy();
 
+      /*
+       * Server result remains stable
+       * after another F5.
+       */
       await page.reload();
 
       await page
-        .getByRole(
-          "button",
-          {
-            name:
-              "Resume payment",
-
-            exact: true,
-          },
-        )
+        .getByRole("button", {
+          name:
+            "Resume payment",
+          exact: true,
+        })
         .click();
 
       await expect(
@@ -678,15 +626,11 @@ for (
 
 test(
   "real Member views and responsive public catalog",
-  async ({
-    page,
-    request,
-  }) => {
-    const member =
-      await login(
-        request,
-        "an.member@sporthub.vn",
-      );
+  async ({ page, request }) => {
+    const member = await login(
+      request,
+      "an.member@sporthub.vn",
+    );
 
     await page.addInitScript(
       (token) => {
@@ -703,21 +647,16 @@ test(
       member.accessToken,
     );
 
-    for (
-      const path
-      of [
-        "/member",
-        "/member/class-schedule",
-        "/member/my-registrations",
-        "/member/my-plans",
-        "/member/invoices",
-        "/member/training",
-        "/member/wallet",
-      ]
-    ) {
-      await page.goto(
-        path,
-      );
+    for (const path of [
+      "/member",
+      "/member/class-schedule",
+      "/member/my-registrations",
+      "/member/my-plans",
+      "/member/invoices",
+      "/member/training",
+      "/member/wallet",
+    ]) {
+      await page.goto(path);
 
       await expect(
         page.locator(
@@ -732,18 +671,16 @@ test(
       ).toHaveCount(0);
     }
 
-    for (
-      const width
-      of [1440, 390]
-    ) {
+    for (const width of [
+      1440,
+      390,
+    ]) {
       await page.setViewportSize({
         width,
         height: 900,
       });
 
-      await page.goto(
-        "/",
-      );
+      await page.goto("/");
 
       await expect(
         page.getByRole(
@@ -767,9 +704,7 @@ test(
       await page.screenshot({
         path:
           `test-results/p2-public-live-${width}.png`,
-
-        fullPage:
-          true,
+        fullPage: true,
       });
     }
   },
