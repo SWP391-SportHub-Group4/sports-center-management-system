@@ -119,11 +119,27 @@ export function MyServices({
 
   const items: Owned[] = [];
 
-  (packages.data ?? []).forEach((p) => {
+  const allPackages = packages.data ?? [];
+  const startsLater = (p: MemberPackageDto) =>
+    p.status.toUpperCase() === "ACTIVE" &&
+    new Date(`${p.startDate.slice(0, 10)}T00:00:00+07:00`).getTime() > now;
+  const queued = allPackages
+    .filter(startsLater)
+    .sort((a, b) => a.startDate.localeCompare(b.startDate));
+  const hasCurrent = allPackages.some(
+    (p) => p.status.toUpperCase() === "ACTIVE" && p.isUsable,
+  );
+
+  allPackages.forEach((p) => {
     const status = p.status.toUpperCase();
     if (!["ACTIVE", "PENDING_PAYMENT", "EXPIRED"].includes(status)) return;
-    const left = daysUntil(p.endDate, now);
-    const ended = status === "EXPIRED" || (status === "ACTIVE" && !p.isUsable);
+    if (startsLater(p) && hasCurrent) return;
+    const chain = p.isUsable ? queued : [];
+    const endDate = chain.length ? chain[chain.length - 1].endDate : p.endDate;
+    const left = daysUntil(endDate, now);
+    const ended =
+      status === "EXPIRED" ||
+      (status === "ACTIVE" && !p.isUsable && !startsLater(p));
     const tone: Tone =
       status === "PENDING_PAYMENT"
         ? "pending"
@@ -142,6 +158,7 @@ export function MyServices({
         <GymCard
           key={p.memberPackageId}
           pkg={p}
+          chain={chain}
           tone={tone}
           left={left}
           index={i}
@@ -483,11 +500,14 @@ function Pips({
 
 function GymCard({
   pkg,
+  chain,
   tone,
   left,
   index,
 }: {
   pkg: MemberPackageDto;
+  /** Các lần gia hạn sớm đã xếp nối tiếp sau gói đang dùng (BR-65). */
+  chain: MemberPackageDto[];
   tone: Tone;
   left: number;
   index: number;
@@ -496,14 +516,20 @@ function GymCard({
   const vi = language === "vi";
   const tx = (v: string, e: string) => (vi ? v : e);
   const [open, setOpen] = useState<"detail" | "history" | null>(null);
+  const endDate = chain.length ? chain[chain.length - 1].endDate : pkg.endDate;
   const total = Math.max(
     1,
+    Math.round(
+      (new Date(endDate).getTime() - new Date(pkg.startDate).getTime()) /
+        86_400_000,
+    ) + 1,
+  );
+  const months = monthsOf(
     Math.round(
       (new Date(pkg.endDate).getTime() - new Date(pkg.startDate).getTime()) /
         86_400_000,
     ) + 1,
   );
-  const months = monthsOf(total);
   const pending = tone === "pending";
   const renew = tone === "soon" || tone === "ended";
   return (
@@ -545,7 +571,12 @@ function GymCard({
               }
             />
             <p className={styles.fine}>
-              {tx("Hết hạn", "Expires")} <b>{formatDate(pkg.endDate)}</b>
+              {tx("Hết hạn", "Expires")} <b>{formatDate(endDate)}</b>
+              {chain.length > 0 &&
+                tx(
+                  ` · đã gia hạn thêm ${chain.length} gói`,
+                  ` · ${chain.length} renewal${chain.length > 1 ? "s" : ""} queued`,
+                )}
             </p>
           </>
         )
@@ -591,8 +622,17 @@ function GymCard({
                 </div>
                 <div>
                   <dt>{tx("Hết hạn", "Ends")}</dt>
-                  <dd>{formatDate(pkg.endDate)}</dd>
+                  <dd>{formatDate(endDate)}</dd>
                 </div>
+                {chain.map((q) => (
+                  <div key={q.memberPackageId}>
+                    <dt>{tx("Gia hạn nối tiếp", "Queued renewal")}</dt>
+                    <dd>
+                      {q.packageName} · {formatDate(q.startDate)} –{" "}
+                      {formatDate(q.endDate)}
+                    </dd>
+                  </div>
+                ))}
                 <div>
                   <dt>{tx("Quyền lợi", "Includes")}</dt>
                   <dd>

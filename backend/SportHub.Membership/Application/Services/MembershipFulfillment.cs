@@ -34,11 +34,14 @@ public sealed class MembershipFulfillment(ISportHubDbContext db, IAuditWriter au
     {
         RequireTransaction();
         var quote = await QuoteAsync(packageId, ct);
+        // Gói đang Active không chặn mua: đó là gia hạn sớm (BR-65). Chỉ chặn khi còn một lần mua cùng gói chưa thanh toán.
         if (!allowStacking && await db.Set<MemberPackage>().AnyAsync(x => x.MemberId == memberId
-            && x.PackageId == packageId && (x.Status == MemberPackageStatus.Active || x.Status == MemberPackageStatus.PendingPayment), ct))
-            throw new ConflictException("duplicate_active_package", "Hội viên đã có gói cùng loại đang hoạt động hoặc chờ thanh toán.");
+            && x.PackageId == packageId && x.Status == MemberPackageStatus.PendingPayment, ct))
+            throw new ConflictException("duplicate_active_package", "Hội viên đã có gói cùng loại đang chờ thanh toán.");
         var id = Guid.NewGuid();
-        var (pendingStart, pendingEnd) = MemberPackageRules.ComputePeriod(VietnamTime.TodayLocal(clock), quote.DurationDays);
+        var today = VietnamTime.TodayLocal(clock);
+        var (pendingStart, pendingEnd) = MemberPackageRules.ComputePeriod(
+            MemberPackageRules.RenewalStart(today, await LatestActiveEndAsync(memberId, null, today, ct)), quote.DurationDays);
         db.Set<MemberPackage>().Add(new MemberPackage
         {
             MemberPackageId = id, MemberId = memberId, PackageId = packageId,
@@ -68,11 +71,9 @@ public sealed class MembershipFulfillment(ISportHubDbContext db, IAuditWriter au
         if (entity.Status != MemberPackageStatus.PendingPayment)
             throw new ConflictException("membership_inactive", "Gói không còn chờ thanh toán.");
         var catalog = await db.Set<MembershipPackage>().SingleAsync(x => x.PackageId == entity.PackageId, ct);
-        if (entity.StackingApprovedByUserId is null && await db.Set<MemberPackage>().AnyAsync(x =>
-            x.MemberId == entity.MemberId && x.PackageId == entity.PackageId && x.MemberPackageId != memberPackageId
-            && x.Status == MemberPackageStatus.Active, ct))
-            throw new ConflictException("package_stacking_not_approved", "Cộng dồn cùng loại gói phải được Manager duyệt trước.");
-        var (start, end) = MemberPackageRules.ComputePeriod(VietnamTime.TodayLocal(clock),
+        var today = VietnamTime.TodayLocal(clock);
+        var (start, end) = MemberPackageRules.ComputePeriod(
+            MemberPackageRules.RenewalStart(today, await LatestActiveEndAsync(entity.MemberId, memberPackageId, today, ct)),
             entity.DurationDaysSnapshot ?? catalog.DurationDays);
         entity.StartDate = start;
         entity.EndDate = end;
@@ -90,6 +91,15 @@ public sealed class MembershipFulfillment(ISportHubDbContext db, IAuditWriter au
         var entity = await db.Set<MemberPackage>().SingleOrDefaultAsync(x => x.MemberPackageId == memberPackageId, ct);
         if (entity?.Status == MemberPackageStatus.PendingPayment) entity.Status = MemberPackageStatus.Cancelled;
     }
+
+    /// <summary>EndDate muộn nhất trong các Membership đang Active còn hiệu lực hoặc đã xếp lịch nối tiếp của Member.</summary>
+    private async Task<DateOnly?> LatestActiveEndAsync(Guid memberId, Guid? excludeId, DateOnly today, CancellationToken ct)
+        => await db.Set<MemberPackage>().AsNoTracking()
+            .Where(x => x.MemberId == memberId && x.Status == MemberPackageStatus.Active
+                && x.EndDate >= today && x.MemberPackageId != excludeId)
+            .Select(x => (DateOnly?)x.EndDate)
+            .OrderByDescending(x => x)
+            .FirstOrDefaultAsync(ct);
 
     private void RequireTransaction()
     {

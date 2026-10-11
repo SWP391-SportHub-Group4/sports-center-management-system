@@ -63,7 +63,9 @@ public class ServiceRoomTypeConfiguration : IEntityTypeConfiguration<ServiceRoom
         builder.HasOne<SportServiceOffering>().WithMany().HasForeignKey(e => e.OfferingId).OnDelete(DeleteBehavior.Cascade);
         builder.HasOne<RoomType>().WithMany().HasForeignKey(e => e.RoomTypeId).OnDelete(DeleteBehavior.Restrict);
 
-        // Phòng PT (loại phòng 2) là phòng hợp lệ của dịch vụ PT; phòng Gym (loại 1) thì không.
-        builder.HasData(new ServiceRoomType { OfferingId = 2, RoomTypeId = 2 });
+        // PT can train in a shared Gym room or a dedicated PT room.
+        builder.HasData(
+            new ServiceRoomType { OfferingId = 2, RoomTypeId = 1 },
+            new ServiceRoomType { OfferingId = 2, RoomTypeId = 2 });
     }
 }

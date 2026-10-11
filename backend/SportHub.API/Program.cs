@@ -429,6 +429,7 @@ builder.Services.AddSportHubSwagger();
 
 builder.Services.AddScoped<DemoDataSeeder>();
 builder.Services.AddScoped<Br141DemoSeeder>();
+builder.Services.AddScoped<FacilityBaselineSeeder>();
 builder.Services.AddScoped<PaymentNoticeService>();
 
 var app = builder.Build();
@@ -466,6 +467,7 @@ if (args.Any(a => a.StartsWith("--seed-br141", StringComparison.Ordinal)))
     Console.WriteLine($"[seed-br141] database '{target.Database}' trên '{target.Host}:{target.Port}'");
     await using var seedScope = app.Services.CreateAsyncScope();
     await seedScope.ServiceProvider.GetRequiredService<SportHubDbContext>().Database.MigrateAsync();
+    await seedScope.ServiceProvider.GetRequiredService<FacilityBaselineSeeder>().SeedAsync();
     await seedScope.ServiceProvider.GetRequiredService<Br141DemoSeeder>().SeedAsync();
     return;
 }
@@ -480,6 +482,7 @@ if (app.Environment.IsDevelopment())
 
     await startupScope.ServiceProvider.GetRequiredService<SportHubDbContext>().Database.MigrateAsync();
     await startupScope.ServiceProvider.GetRequiredService<DemoDataSeeder>().SeedAsync();
+    await startupScope.ServiceProvider.GetRequiredService<FacilityBaselineSeeder>().SeedAsync();
 }
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();

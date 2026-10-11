@@ -7,7 +7,7 @@ import {
   parseMembershipCatalog,
 } from "@/features/membership";
 import { api } from "@/lib/apiClient";
-import { formatDate, formatMoney } from "@/lib/format";
+import { addDaysIso, formatDate, formatMoney, todayIso } from "@/lib/format";
 import { useLanguage } from "@/lib/language";
 import { hasService } from "@/lib/sports";
 import { useApi } from "@/lib/useApi";
@@ -22,6 +22,7 @@ import type {
 } from "@/lib/types";
 import {
   emblemForSport,
+  membershipEnd,
   monthsOf,
   sportLabel,
   type ServiceKind,
@@ -163,12 +164,22 @@ export function ExplorePackages({
   };
   const show = (kind: ServiceKind) => filter === "all" || filter === kind;
 
-  const ownedPlan = (packageId: number) =>
+  const pendingPlan = (packageId: number) =>
     owned.data?.find(
       (o) =>
         o.packageId === packageId &&
-        ["ACTIVE", "PENDING_PAYMENT"].includes(o.status.toUpperCase()),
+        o.status.toUpperCase() === "PENDING_PAYMENT",
     );
+  const today = todayIso();
+  const latestEnd = (owned.data ?? [])
+    .filter(
+      (o) =>
+        o.status.toUpperCase() === "ACTIVE" && o.endDate.slice(0, 10) >= today,
+    )
+    .map((o) => o.endDate.slice(0, 10))
+    .sort()
+    .pop();
+  const membershipStart = latestEnd ? addDaysIso(latestEnd, 1) : today;
 
   const loadingAll = catalog.loading && courses.loading && sports.loading;
   const nothing = !loadingAll && counts.all === 0;
@@ -230,7 +241,9 @@ export function ExplorePackages({
                     key={p.packageId}
                     plan={p}
                     baseMonthly={baseMonthly}
-                    have={ownedPlan(p.packageId)}
+                    pending={!!pendingPlan(p.packageId)}
+                    start={membershipStart}
+                    renewing={!!latestEnd}
                     busy={checkout.busyId === `gym:${p.packageId}`}
                     error={
                       checkout.error?.id === `gym:${p.packageId}`
@@ -379,7 +392,9 @@ function Retry({
 function GymTier({
   plan,
   baseMonthly,
-  have,
+  pending,
+  start,
+  renewing,
   busy,
   error,
   index,
@@ -387,7 +402,10 @@ function GymTier({
 }: {
   plan: MembershipPackageDto;
   baseMonthly: number | null;
-  have?: MemberPackageDto;
+  pending: boolean;
+  /** Ngày bắt đầu của gói này: hôm nay, hoặc ngay sau EndDate Membership đang dùng khi gia hạn sớm. */
+  start: string;
+  renewing: boolean;
   busy: boolean;
   error: string | null;
   index: number;
@@ -399,7 +417,6 @@ function GymTier({
   const months = monthsOf(plan.durationDays);
   const original = baseMonthly ? baseMonthly * months : 0;
   const saving = original > plan.price ? original - plan.price : 0;
-  const pending = have?.status.toUpperCase() === "PENDING_PAYMENT";
   return (
     <article
       className={styles.tier}
@@ -422,18 +439,13 @@ function GymTier({
         {saving > 0 && <s>{formatMoney(original)}</s>}
       </p>
       <p className={styles.meta}>
-        {plan.durationDays} {tx("ngày", "days")}
+        {tx("Đến", "Until")} {formatDate(membershipEnd(start, months))}
         {" · "}≈ {formatMoney(Math.round(plan.price / months))}
         {tx("/tháng", "/month")}
       </p>
-      {have ? (
+      {pending ? (
         <button type="button" className={styles.cta} disabled>
-          {pending
-            ? tx("Đang chờ thanh toán", "Awaiting payment")
-            : tx(
-                `Đang dùng đến ${formatDate(have.endDate)}`,
-                `Active until ${formatDate(have.endDate)}`,
-              )}
+          {tx("Đang chờ thanh toán", "Awaiting payment")}
         </button>
       ) : (
         <button
@@ -442,7 +454,11 @@ function GymTier({
           disabled={busy}
           onClick={onChoose}
         >
-          {busy ? tx("Đang chuyển…", "Redirecting…") : tx("Chọn gói", "Select")}
+          {busy
+            ? tx("Đang chuyển…", "Redirecting…")
+            : renewing
+              ? tx("Gia hạn", "Renew")
+              : tx("Chọn gói", "Select")}
         </button>
       )}
       {error && (

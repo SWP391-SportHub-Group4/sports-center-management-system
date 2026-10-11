@@ -202,7 +202,6 @@ export function CourtBookingCalendar() {
         </div>
         <CheckoutPanel
           modal
-          vnpayOnly
           key={`${selected.sportId}-${selected.roomId}-${selected.startUtc}-${selected.endUtc}`}
           intent={{
             kind: "court-rental",
@@ -264,7 +263,6 @@ export function CourtBookingCalendar() {
           <h3>{text("Tiếp tục thanh toán sân", "Resume court payment")}</h3>
           <CheckoutPanel
             modal
-            vnpayOnly
             invoiceId={values.checkout}
             onPaid={onPaid}
             onChange={reload}

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ScheduleCoursePage } from "./schedule-course-page";
 import { ScheduleRentalPage } from "./schedule-rental-page";
 import {
@@ -37,6 +37,7 @@ type Item = MemberEvent & {
   sport: string | null;
   rental?: CourtRentalDto;
   preview?: boolean;
+  fading?: boolean;
 };
 
 const ROUTINE = new Set(["scheduled", "confirmed", "active"]);
@@ -190,6 +191,19 @@ export function MemberSchedule({
   const [compactRental, setCompactRental] = useState<string | null>(null);
   const calendarScroll = useRef(0);
   const [cancelling, setCancelling] = useState<CourtRentalDto | null>(null);
+  const [cancelTransitions, setCancelTransitions] = useState<
+    Record<string, Item>
+  >({});
+  const cancelTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(
+    new Map(),
+  );
+  useEffect(
+    () => () => {
+      for (const timer of cancelTimers.current.values()) clearTimeout(timer);
+      cancelTimers.current.clear();
+    },
+    [],
+  );
   const now = useNow();
   const narrow = useMediaQuery("(max-width: 720px)");
   function setSelected(item: Item | null) {
@@ -237,7 +251,14 @@ export function MemberSchedule({
       sport: previewCourse!.sportName,
       preview: true,
     }));
-  const timeline = [...(state.data ?? []), ...previews].sort(
+  const timeline = [
+    ...(state.data ?? []).filter(
+      (item) =>
+        !/CANCEL/i.test(item.status ?? "") && !cancelTransitions[item.id],
+    ),
+    ...Object.values(cancelTransitions),
+    ...previews,
+  ].sort(
     (a, b) =>
       a.startAtUtc.localeCompare(b.startAtUtc) || a.id.localeCompare(b.id),
   );
@@ -268,6 +289,31 @@ export function MemberSchedule({
     setValues({ date: target.toISOString().slice(0, 10), event: "" });
   }
 
+  function showCancelledThenDismiss(rentalId: string) {
+    const id = `rental:${rentalId}`;
+    const item = timeline.find((entry) => entry.id === id);
+    if (item) {
+      setCancelTransitions((current) => ({
+        ...current,
+        [id]: { ...item, status: "CANCELLED", fading: true },
+      }));
+      const previous = cancelTimers.current.get(id);
+      if (previous) clearTimeout(previous);
+      cancelTimers.current.set(
+        id,
+        setTimeout(() => {
+          setCancelTransitions((current) => {
+            const next = { ...current };
+            delete next[id];
+            return next;
+          });
+          cancelTimers.current.delete(id);
+          state.reload();
+        }, 2600),
+      );
+    } else state.reload();
+  }
+
   const renderEvent = (item: Item) => {
     const cancelled = /CANCEL/i.test(item.status ?? "");
     const absent = item.attendanceStatus?.toUpperCase() === "ABSENT";
@@ -285,6 +331,7 @@ export function MemberSchedule({
           item.preview ? "true" : previewCourse ? "false" : undefined
         }
         data-state={cancelled ? "cancelled" : undefined}
+        data-fading={item.fading ? "true" : undefined}
         onClick={() => setSelected(item)}
       >
         <span className={styles.eventHeading}>
@@ -364,7 +411,10 @@ export function MemberSchedule({
         key={activeRental}
         rentalId={activeRental}
         onBack={returnToCalendar}
-        onChanged={state.reload}
+        onCancelled={(rentalId) => {
+          showCancelledThenDismiss(rentalId);
+          returnToCalendar();
+        }}
       />
     );
   if (activeCourse)
@@ -802,9 +852,9 @@ export function MemberSchedule({
           rental={cancelling}
           onClose={() => setCancelling(null)}
           onCancelled={() => {
+            showCancelledThenDismiss(cancelling.courtRentalId);
             setCancelling(null);
             setSelected(null);
-            state.reload();
           }}
         />
       )}

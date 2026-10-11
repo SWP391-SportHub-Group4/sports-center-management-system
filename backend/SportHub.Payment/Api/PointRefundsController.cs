@@ -45,6 +45,17 @@ public sealed class PointRefundsController(IPointRefundService refunds) : Contro
         return Ok(result);
     }
 
+    /// <summary>Hủy ghi danh lớp trước buổi đầu: hoàn điểm tự động theo mốc 5 ngày (Member, hoặc Lễ tân/Manager thay Member).</summary>
+    [HttpPost("class-cancellations")]
+    public async Task<IActionResult> CancelClass([FromBody] CancelClassEnrollmentRequest request,
+        CancellationToken cancellationToken)
+    {
+        var staff = User.IsInRole("Receptionist") || User.IsInRole("CenterManager");
+        if (!staff && !User.IsInRole("Member")) return Forbid();
+        return Ok(await refunds.CancelClassEnrollmentAsync(request.InvoiceItemId, User.RequireUserId(), staff,
+            cancellationToken));
+    }
+
     [Authorize(Policy = SportHubPolicies.RefundApprove)]
     [HttpPost("{adjustmentId:guid}/approve")]
     public async Task<IActionResult> Approve(Guid adjustmentId, [FromBody] ApprovePointRefundRequest request,

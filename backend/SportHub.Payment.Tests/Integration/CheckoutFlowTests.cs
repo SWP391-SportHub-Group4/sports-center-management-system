@@ -351,17 +351,13 @@ public sealed class CheckoutFlowTests(PaymentApiFactory factory)
             $"/api/wallet/me/checkouts/{checkout.InvoiceId}/points", new { points = 40 })).StatusCode);
         var attempt = (await (await member.PostAsync($"/api/checkouts/{checkout.InvoiceId}/attempts", null))
             .Content.ReadFromJsonAsync<PaymentAttemptResponse>())!;
-        var conflictingId = Guid.NewGuid();
+        // Hủy bản ghi Membership đang chờ để kích hoạt thất bại (gia hạn sớm không còn là lỗi cộng dồn).
+        var pendingPackageId = await factory.QueryAsync(db => db.Invoices
+            .Where(x => x.InvoiceId == checkout.InvoiceId).Select(x => x.MemberPackageId!.Value).SingleAsync());
         await factory.QueryAsync(async db =>
         {
-            var start = DateOnly.FromDateTime(DateTime.UtcNow);
-            db.MemberPackages.Add(new MemberPackage
-            {
-                MemberPackageId = conflictingId, MemberId = context.MemberId,
-                PackageId = context.PackageId, StartDate = start,
-                EndDate = start.AddMonths(1).AddDays(-1), Status = MemberPackageStatus.Active
-            });
-            await db.SaveChangesAsync();
+            await db.MemberPackages.Where(x => x.MemberPackageId == pendingPackageId)
+                .ExecuteUpdateAsync(p => p.SetProperty(x => x.Status, MemberPackageStatus.Cancelled));
             return 0;
         });
         var mock = Assert.IsType<MockPaymentGateway>(factory.Services.GetRequiredService<IPaymentGateway>());
@@ -378,7 +374,8 @@ public sealed class CheckoutFlowTests(PaymentApiFactory factory)
             Assert.Equal("ReconciliationRequired", await db.VerifiedGatewayEvents
                 .Where(x => db.PaymentAttempts.Any(a => a.PaymentAttemptId == x.PaymentAttemptId
                     && a.InvoiceId == checkout.InvoiceId)).Select(x => x.ProcessingStatus).SingleAsync());
-            await db.MemberPackages.Where(x => x.MemberPackageId == conflictingId).ExecuteDeleteAsync();
+            await db.MemberPackages.Where(x => x.MemberPackageId == pendingPackageId)
+                .ExecuteUpdateAsync(p => p.SetProperty(x => x.Status, MemberPackageStatus.PendingPayment));
             return 0;
         });
         using (var scope = factory.Services.CreateScope())
@@ -475,6 +472,70 @@ public sealed class CheckoutFlowTests(PaymentApiFactory factory)
                 && x.ClassId == classId && x.Status == EnrollmentStatus.Confirmed));
             Assert.Equal(1, await db.Classes.Where(x => x.ClassId == classId)
                 .Select(x => x.ReservedCount).SingleAsync());
+            return 0;
+        });
+    }
+
+    [Fact]
+    public async Task Member_cancelling_a_class_far_from_start_gets_full_points_and_frees_the_seat()
+    {
+        var context = await SeedAsync();
+        var manager = await factory.SeedUserAsync(UserRole.CenterManager);
+        var coach = await factory.SeedUserAsync(UserRole.Coach);
+        int classId;
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
+            var room = new Room { Name = "Cancel-room-" + Guid.NewGuid().ToString("N"), Capacity = 5, RoomTypeId = 3 };
+            db.Rooms.Add(room);
+            await db.SaveChangesAsync();
+            db.RoomOpeningHours.AddRange(Enumerable.Range(0, 7).Select(day => new RoomOpeningHour
+            { RoomId = room.RoomId, DayOfWeek = day, OpenTimeLocal = new(6, 0), CloseTimeLocal = new(22, 0) }));
+            db.UserSportSpecialties.Add(new UserSportSpecialty { UserId = coach.UserId, SportId = 3 });
+            db.CoachProfiles.Add(new CoachProfile { UserId = coach.UserId });
+            await db.SaveChangesAsync();
+            var start = new DateOnly(2032, 3, 1);
+            var created = await scope.ServiceProvider.GetRequiredService<IClassService>().CreateAsync(
+                new SaveClassRequest
+                {
+                    Code = "CANCEL-" + Guid.NewGuid().ToString("N"), Name = "Cancel class",
+                    SportId = 3, CoachId = coach.UserId, DefaultRoomId = room.RoomId,
+                    StartDate = start, NumSessions = 3, Capacity = 1, Price = 100_000m, CostAmount = 0,
+                    ScheduleRules = [new() { DayOfWeek = (int)start.DayOfWeek, StartTimeLocal = "09:00" }]
+                }, manager.UserId);
+            await scope.ServiceProvider.GetRequiredService<IClassService>()
+                .PublishAsync(created.ClassId, new(), manager.UserId);
+            classId = created.ClassId;
+        }
+        using var member = factory.CreateApiClient(context.MemberId, UserRole.Member);
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/checkouts/class")
+        { Content = JsonContent.Create(new { classId }) };
+        request.Headers.Add("Idempotency-Key", Guid.NewGuid().ToString("N"));
+        var checkout = (await (await member.SendAsync(request)).Content.ReadFromJsonAsync<CheckoutResponse>())!;
+        var attempt = (await (await member.PostAsync($"/api/checkouts/{checkout.InvoiceId}/attempts", null))
+            .Content.ReadFromJsonAsync<PaymentAttemptResponse>())!;
+        using var receptionist = factory.CreateApiClient(context.ReceptionistId, UserRole.Receptionist);
+        Assert.Equal(HttpStatusCode.OK, (await receptionist.PostAsync(
+            $"/api/dev/payments/{attempt.TransactionReference}/simulate", null)).StatusCode);
+        var itemId = await factory.QueryAsync(db => db.InvoiceItems
+            .Where(x => x.InvoiceId == checkout.InvoiceId).Select(x => x.ItemId).SingleAsync());
+        var stranger = await factory.SeedUserAsync(UserRole.Member);
+        using var other = factory.CreateApiClient(stranger.UserId, UserRole.Member);
+        Assert.Equal(HttpStatusCode.Forbidden, (await other.PostAsJsonAsync(
+            "/api/refunds/class-cancellations", new { invoiceItemId = itemId })).StatusCode);
+        var pointsBefore = await factory.QueryAsync(db => db.PointWallets
+            .Where(x => x.OwnerUserId == context.MemberId).Select(x => x.AvailablePoints).SingleAsync());
+        var cancelled = await member.PostAsJsonAsync("/api/refunds/class-cancellations", new { invoiceItemId = itemId });
+        Assert.Equal(HttpStatusCode.OK, cancelled.StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await member.PostAsJsonAsync(
+            "/api/refunds/class-cancellations", new { invoiceItemId = itemId })).StatusCode);
+        await factory.QueryAsync(async db =>
+        {
+            Assert.Equal(EnrollmentStatus.Refunded, await db.Enrollments.Where(x => x.MemberId == context.MemberId
+                && x.ClassId == classId).Select(x => x.Status).SingleAsync());
+            Assert.Equal(0, await db.Classes.Where(x => x.ClassId == classId).Select(x => x.ConfirmedCount).SingleAsync());
+            Assert.Equal(pointsBefore + 100, await db.PointWallets.Where(x => x.OwnerUserId == context.MemberId)
+                .Select(x => x.AvailablePoints).SingleAsync());
             return 0;
         });
     }

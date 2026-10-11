@@ -73,6 +73,16 @@
   cursor: pointer;
 }
 
+.event[data-cancelled="true"] {
+  background: var(--bg-surface-sunken);
+  border-color: var(--border-subtle);
+}
+
+.event[data-cancelled="true"] .eventTitle {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
 .event:hover {
   border-color: var(--color-primary);
 }
