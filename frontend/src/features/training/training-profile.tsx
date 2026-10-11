@@ -219,13 +219,15 @@ export function TrainingProfile() {
                 onClick={requestMeasurement}
               >
                 <CalendarPlus size={18} aria-hidden="true" />
-                {action.busy
-                  ? vi
-                    ? "Đang đăng ký…"
-                    : "Submitting…"
-                  : vi
-                    ? "Đăng ký lịch đo tại trung tâm"
-                    : "Request a centre measurement"}
+                <span>
+                  {action.busy
+                    ? vi
+                      ? "Đang đăng ký…"
+                      : "Submitting…"
+                    : vi
+                      ? "Đăng ký lịch đo tại trung tâm"
+                      : "Request a centre measurement"}
+                </span>
               </button>
             </section>
           );

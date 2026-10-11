@@ -1,7 +1,9 @@
 .profile {
   width: 100%;
+  min-width: 0;
   max-width: 960px;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-4);
 }
 .header {
@@ -79,8 +81,22 @@
 }
 .appointment {
   display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
   justify-items: start;
   gap: var(--space-3);
+}
+.appointment > button {
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
+}
+.appointment > button > svg {
+  flex-shrink: 0;
+}
+.appointment > button > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .appointment > svg {
   color: var(--color-primary);
