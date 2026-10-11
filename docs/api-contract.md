@@ -257,26 +257,7 @@ and cool-down. Group coach suggestions include these values in exercise lines.
 |---|---|
 | GET | `api/reports/membership-summary` |
 
-### BMI profiles and centre measurements — `api`
-
-| Method | Route | Permission / behaviour |
-|---|---|---|
-| GET | `/api/members/me/bmi-profile` | Member self; 204 if no measurement request |
-| POST | `/api/members/me/bmi-measurement-request` | Member self; idempotent, one request/result per member |
-| GET | `/api/bmi-measurement-requests?page=1` | FrontDesk (Receptionist/Manager); pending requests, 20 per page |
-| GET | `/api/members/{memberId}/bmi-profile` | FrontDesk; 204 if no request |
-| PUT | `/api/members/{memberId}/bmi-appointment` | FrontDesk; future UTC `appointmentAt`; results cannot be rescheduled |
-| POST | `/api/members/{memberId}/bmi-measurement` | FrontDesk; `heightCm` 50–250 and `weightKg` 10–400, up to one decimal place |
-
-Response: `memberId`, `status` (REQUESTED/SCHEDULED/MEASURED), `requestedAt`,
-`appointmentAt`, `heightCm`, `weightKg`, calculated `bmi`, `measuredAt`.
-BMI is weight in kilograms divided by height in metres squared, rounded to one
-decimal. The API derives BMI and the measurement date; members cannot submit them.
-Measurements lock after recording (409 `bmi_profile_locked` on further staff writes).
-All writes lock the member row and persist within a transaction. BMI is stored
-separately from the legacy training-goal profile. No clinical classification is applied.
-
-### Legacy training profiles — `api`
+### TrainingProfilesController — `api`
 
 | Verb | Path |
 |---|---|
@@ -700,3 +681,10 @@ This endpoint does not reserve resources, change sessions, write audit events or
 ## Coach yêu cầu thay đổi buổi học lớp nhóm
 
 Contract, payload, trạng thái, quyền và transaction cho các API `/api/coaches/me/teaching/.../change-requests` và `/api/manager/class-session-change-requests` được mô tả tại [Yêu cầu thay đổi buổi học](Class-Session-Change-Requests.md). Coach gửi/rút yêu cầu, Manager quyết định phương án và áp dụng đổi lịch/học bù nguyên tử; không cấp quyền tự hủy buổi cho Coach. Migration: `20261011025932_AddClassSessionChangeRequests`.
+
+## An/Hào handoff contracts — 10/10/2026
+
+- `GET /api/member-codes/me` (Member Active) returns `{code, expiresAtUtc}`. The code is opaque and expires after five minutes. QR payload is `SPORTHUB-MEMBER-V1:` followed by `code`; it contains no user ID. `POST /api/member-codes/lookup` (Receptionist/CenterManager) receives `{code}` and returns the existing `UserAdminResponse` for an active Member. Invalid/expired/locked/non-Member codes return `400 member_code_invalid`. The QR is identity lookup only and does not grant check-in, points usage or payment.
+- Threshold response accepts `WAIT_NEXT_COURSE` with `targetClassId: null` in `POST /api/class-threshold-responses/{id}` or the token route. It credits the remaining refundable value 100% as points, cancels source enrollment and creates one course-interest subscription in the same transaction. A repeated identical response returns the stored result; a different choice returns 409. A published class in the same sport queues a notice but never enrolls or reserves a seat.
+- `GET /api/members/me/course-interests` and `GET /api/manager/course-interests` return `PagedResult<CourseInterestRow>` with optional `sportId`, `active`, `page`, `pageSize`. Member route is owner scoped. `POST /api/members/me/course-interests/{id}/unsubscribe` is owner scoped and idempotent, returns 204. `CourseInterestRow` includes `subscriptionId`, `memberId`, `memberName`, source class and sport IDs/names, `refundedPoints`, `isActive`, timestamps.
+- PT self-booking policy `minLeadHours` and `advanceDays` comes from `pt.self_book_min_lead_hours` and `pt.self_book_max_advance_days`. Both availability and booking recheck an Active current Membership. `membership_not_active` is returned as `bookableReason` in availability and 409 on booking. Slot step 30 minutes and change deadline 24 hours remain fixed.

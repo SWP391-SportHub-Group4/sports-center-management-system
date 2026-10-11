@@ -54,11 +54,10 @@ sports-center-management-system/
 | Tài liệu | Vai trò |
 |---|---|
 | [`docs/SportManagement_BusinessRules_v2.0_updated.docx`](docs/SportManagement_BusinessRules_v2.0_updated.docx) | Business Rules v2.0 — nguồn nghiệp vụ hiện hành (thắng khi mâu thuẫn) |
-| [`docs/Center-Management-System-Design-v3.md`](docs/Center-Management-System-Design-v3.md) | Thiết kế độc lập: phạm vi, module, dữ liệu, luồng, payment, bảo mật, kiểm thử và danh sách phần chưa hoàn thành |
+| [`docs/Center-Management-System-Design-v3.md`](docs/Center-Management-System-Design-v3.md) | Thiết kế độc lập (gồm từ điển dữ liệu, kiến trúc mã nguồn, điều hướng Member): phạm vi, module, dữ liệu, luồng, payment, bảo mật, kiểm thử và danh sách phần chưa hoàn thành |
 | [`docs/00-Source-of-Truth.md`](docs/00-Source-of-Truth.md) | Phạm vi, thuật ngữ, quy ước và thứ tự nguồn |
 | [`docs/Requirements.md`](docs/Requirements.md), [`docs/SWP391_Report_SRS.docx`](docs/SWP391_Report_SRS.docx) | Yêu cầu và báo cáo SRS |
-| [`docs/entity-field-purpose.md`](docs/entity-field-purpose.md) | Ý nghĩa từng trường của entity |
-| [`docs/RUNBOOK.md`](docs/RUNBOOK.md) | Khởi động PostgreSQL, backend và frontend trên máy local |
+| [`docs/RUNBOOK.md`](docs/RUNBOOK.md) | Khởi động local (PostgreSQL, backend, frontend) và bàn giao triển khai |
 | [`docs/GIT_WORKFLOW.md`](docs/GIT_WORKFLOW.md) | Quy trình Git, phân module theo giai đoạn G0–G12 |
 | [`PRODUCT.md`](PRODUCT.md), [`DESIGN-SKILLS-GUIDE.md`](DESIGN-SKILLS-GUIDE.md), [`DESIGN-TOKENS.md`](DESIGN-TOKENS.md) | Sản phẩm, quy trình UX/UI hai skill, phân công page/API và bộ token duy nhất |
 
