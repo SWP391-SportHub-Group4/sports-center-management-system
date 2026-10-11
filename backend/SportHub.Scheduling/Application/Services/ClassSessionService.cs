@@ -30,7 +30,7 @@ public sealed class ClassSessionService(
     IAuditWriter audit,
     IClock clock) : IClassSessionService
 {
-    private static readonly TimeSpan AttendanceGrace = TimeSpan.FromHours(24);
+    private static readonly TimeSpan AttendanceGrace = SessionAttendanceWindow.CorrectionWindow;
 
     // ---------------------------------------------------------------- Truy vấn
 
@@ -83,7 +83,7 @@ public sealed class ClassSessionService(
 
         return new SessionRosterResponse(
             session,
-            row.Session.StartAtUtc,
+            SessionAttendanceWindow.OpensAt(row.Session.StartAtUtc),
             row.Session.EndAtUtc + AttendanceGrace,
             result);
     }
@@ -127,7 +127,7 @@ public sealed class ClassSessionService(
     public async Task<ClassSessionResponse> RescheduleAsync(
         Guid sessionId, RescheduleSessionRequest request, Guid actorUserId, CancellationToken ct = default)
     {
-        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        await using var tx = db.Database.CurrentTransaction == null ? await db.Database.BeginTransactionAsync(ct) : null;
 
         var session = await LockAndLoadAsync(sessionId, ct);
         var cls = await db.Set<Class>().SingleAsync(c => c.ClassId == session.ClassId, ct);
@@ -171,7 +171,7 @@ public sealed class ClassSessionService(
             $"Buổi {session.SessionNo} của khóa {cls.Name} đổi từ {Local(oldStart)} sang {Local(start)}. Lý do: {request.Reason.Trim()}", ct);
 
         await db.SaveChangesAsync(ct);
-        await tx.CommitAsync(ct);
+        if (tx != null) await tx.CommitAsync(ct);
 
         return await GetAsync(sessionId, null, ct);
     }
@@ -181,7 +181,7 @@ public sealed class ClassSessionService(
     public async Task<ClassSessionResponse> CancelWithMakeupAsync(
         Guid sessionId, CancelSessionRequest request, Guid actorUserId, CancellationToken ct = default)
     {
-        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        await using var tx = db.Database.CurrentTransaction == null ? await db.Database.BeginTransactionAsync(ct) : null;
 
         var session = await LockAndLoadAsync(sessionId, ct);
         var cls = await db.Set<Class>().SingleAsync(c => c.ClassId == session.ClassId, ct);
@@ -255,7 +255,7 @@ public sealed class ClassSessionService(
             $"Buổi {session.SessionNo} ({Local(session.StartAtUtc)}) của khóa {cls.Name} bị hủy và được bù vào {Local(start)}. Lý do: {request.Reason.Trim()}", ct);
 
         await db.SaveChangesAsync(ct);
-        await tx.CommitAsync(ct);
+        if (tx != null) await tx.CommitAsync(ct);
 
         return await GetAsync(newSession.SessionId, null, ct);
     }
@@ -358,7 +358,8 @@ public sealed class ClassSessionService(
             .SingleOrDefaultAsync(ct)
             ?? throw new NotFoundException("class_not_found", "Không tìm thấy khóa học.");
 
-        if (restrictToCoachId is Guid id && coachId.CoachId != id)
+        if (restrictToCoachId is Guid id && coachId.CoachId != id &&
+            !await db.Set<ClassSession>().AnyAsync(s => s.ClassId == classId && s.CoachId == id, ct))
         {
             throw new ForbiddenException("class_not_owned", "Coach chỉ xem được khóa mình phụ trách.");
         }

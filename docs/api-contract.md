@@ -63,7 +63,11 @@ Các endpoint dưới đây phục vụ frontend API-backed. Không thay schema/
 | GET | `/api/coach-member-relationships` | Member/Coach/Manager; Member/Coach bị clamp theo owner. Không có endpoint members/me/relationships giả. |
 | GET | `/api/wallet/me/ledger?page=&pageSize=&entryType=` | Array WalletLedgerResponse, không Paged; timestamp createdAtUtc. Filter HOLD/RELEASE/SPEND/EARN/ADJUSTMENT áp trước pagination; filter sai 400. Ledger staff cũng hỗ trợ filter; chỉ Receptionist ghi audit lần xem. |
 
-## Quy ước chung
+## API bổ sung cho Coach lớp nhóm
+
+Xem [Coach Teaching Workspace](Coach-Teaching-Workspace.md#hợp-đồng-api): endpoint được giới hạn theo lớp/buổi được phân công, hỗ trợ lưu giáo án, kết quả, bài tập/thông báo, điểm danh và Gemini suggestion. Member có feed theo lớp đã ghi danh. Có migration `AddClassTeachingWorkspace`; extension này được chủ sản phẩm xác nhận cho phép Coach ghi điểm danh lớp nhóm qua route mới.
+
+## Quy ước wire và dữ liệu
 
 - Enum JSON hiện tại: **UPPER_SNAKE_CASE** (`ISSUED`, `PAID_AFTER_RECONCILIATION`, `GROUP_COURSE`, `VN_PAY`). Enum số không được chấp nhận. DTO string biểu diễn enum có `WireEnum` converter; query enum chấp nhận canonical và tên nội bộ để tương thích. JWT role claim vẫn dùng tên nội bộ, không tự chuyển JWT.
 - Enum DB hiện tại: lưu int mặc định EF (không có `HasConversion`). Khi thêm giá trị phải append, không đổi số cũ. `UserRole` hiện: CenterManager=0, Coach=1, Member=2, Receptionist=3, SystemAdministrator=4 (đúng 5 role, BR-140).
@@ -184,6 +188,18 @@ Việc bổ sung không thay đổi quyền đọc audit, scope tài khoản c�
 | POST | `api/ai/workout-suggestions/{memberId:guid}` |
 | POST | `api/ai/chat` |
 | GET | `api/ai/logs` |
+
+Workout suggestions include `items: [{ exercise, sets, reps, notes }]` with numeric
+sets/reps for each exercise. The existing `exercises: string[]` remains available
+for older clients. Timed exercises use reps as the number of holds/rounds;
+duration belongs in `notes` (e.g. plank: 3 sets × 1 hold, 30 seconds per hold).
+General coaching advice belongs in `rationale`, rather than becoming an exercise.
+The PT editor reads `items` directly and lets the coach adjust values before saving.
+The optional `sport` query parameter selects `Gym` (default), `Badminton`, or
+`Basketball`; unsupported values return 400. The selected sport is included in
+the response and AI log input. Existing PT ownership/qualification guards remain
+required. Every generated item includes positive sets/reps, including warm-up
+and cool-down. Group coach suggestions include these values in exercise lines.
 
 ### HealthController — `api/[controller]`
 
@@ -535,7 +551,7 @@ Chu kỳ có snapshot trên Invoice (`CheckoutCycleId/CheckoutRevision/HoldExpir
 | GET/POST/PUT | `api/manager/classes`, `api/manager/classes/{classId}`, `api/manager/classes/{classId}/publish`, `.../cancel` | Manager | Soạn Draft; publish khóa + đủ buổi + occupancy + audit + thông báo Coach cùng transaction; hủy với preview/refund/hold release theo bổ sung P2.06–P2.10 đầu tài liệu. |
 | GET | `api/classes/{classId}/sessions`, `api/class-sessions/{sessionId}`, `.../roster` | Nhân viên; Coach đúng lớp | Buổi của cả khóa và roster Confirmed; Coach chỉ đọc lớp được giao. |
 | POST | `api/class-sessions/{sessionId}/reschedule`, `.../cancel` | Manager | Kiểm lại room/coach/opening/capacity/lịch Member; hủy buộc có buổi bù hợp lệ. |
-| PUT | `api/class-sessions/{sessionId}/attendance/{enrollmentId}` | Receptionist | `{status:"Present"|"Absent"}`; từ đầu buổi đến hết 24 giờ sau cuối buổi; ghi audit khi thay đổi. |
+| PUT | `api/class-sessions/{sessionId}/attendance/{enrollmentId}` | Receptionist | `{status:"Present"|"Absent"}`; từ 5 phút trước đầu buổi đến hết 24 giờ sau cuối buổi; ghi audit khi thay đổi. |
 | GET | `api/members/me/enrollments`, `.../schedule` | Member | Ghi danh và lịch cá nhân; không có endpoint tự ghi danh từng buổi. |
 | POST | `api/gym-checkins/{checkInId}/checkout` | Receptionist | Giờ server, idempotent; checkin chưa tồn tại/giờ vào tương lai bị từ chối. |
 
@@ -661,6 +677,10 @@ Reasons: `sport_inactive`, `room_not_found`, `room_inactive`, `room_incompatible
 `excludeSessionId` must identify an existing Scheduled class session belonging to the requested sport; otherwise the endpoint returns `400 invalid_preview_session`. It excludes only occupancies whose source type is ClassSession and source ID is that session, allowing review of its replacement without treating its existing reservation as a conflict. Other reservations remain checked. Missing sport returns `404 sport_not_found`; invalid duration/capacity returns `400`.
 
 This endpoint does not reserve resources, change sessions, write audit events or require a migration. It checks resource availability, not all final command rules. Publish/reschedule/makeup still validate lifecycle, students, dates and occupancy in their existing transactions. The frontend also marks overlaps within the proposed draft as `draft_overlap`; that is a local validation code, not an API reason. Existing `/api/availability/rooms`, `/coaches` and room-busy contracts are unchanged.
+
+## Coach yêu cầu thay đổi buổi học lớp nhóm
+
+Contract, payload, trạng thái, quyền và transaction cho các API `/api/coaches/me/teaching/.../change-requests` và `/api/manager/class-session-change-requests` được mô tả tại [Yêu cầu thay đổi buổi học](Class-Session-Change-Requests.md). Coach gửi/rút yêu cầu, Manager quyết định phương án và áp dụng đổi lịch/học bù nguyên tử; không cấp quyền tự hủy buổi cho Coach. Migration: `20261011025932_AddClassSessionChangeRequests`.
 
 ## An/Hào handoff contracts — 10/10/2026
 

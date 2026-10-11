@@ -10,7 +10,13 @@ public interface IAiRecommendationService
         Guid coachId,
         string goal,
         string level,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        string sport = "Gym");
 }
 
-public record WorkoutSuggestion(IReadOnlyList<string> Exercises, string Rationale);
+public record WorkoutSuggestedExercise(string Exercise, int Sets, int Reps, string? Notes = null);
+
+public record WorkoutSuggestion(
+    IReadOnlyList<string> Exercises,
+    string Rationale,
+    IReadOnlyList<WorkoutSuggestedExercise>? Items = null);

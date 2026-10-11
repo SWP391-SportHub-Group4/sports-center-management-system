@@ -15,5 +15,5 @@ namespace SportHub.AI.Application.Interfaces;
 
 public interface IWorkoutRecommendationService
 {
-    Task<WorkoutSuggestionResponse> SuggestAsync(Guid memberId, Guid coachId, CancellationToken ct = default);
+    Task<WorkoutSuggestionResponse> SuggestAsync(Guid memberId, Guid coachId, CancellationToken ct = default, string sport = "Gym");
 }

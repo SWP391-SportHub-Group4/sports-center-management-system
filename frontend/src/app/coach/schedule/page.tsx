@@ -1,6 +1,22 @@
 "use client";
 
-import { OperationsPage } from "@/features/operations";
-import { CourtCalendar } from "@/features/court-schedule/court-calendar";
+import { PtPage } from "@/features/pt/ui";
+import { CoachPtSchedule } from "@/features/pt/pt-sessions";
 import { useLanguage } from "@/lib/language";
-export default function CoachSchedulePage() { const { t } = useLanguage(); return <OperationsPage title="teachingSchedule" roles={["Coach"]}><p>{t.staffWork.readOnly}</p><CourtCalendar includeCoachPt/></OperationsPage>; }
+import { CoachWorkspaceRoute } from "@/features/pt/coach-workspace-route";
+export default function CoachSchedulePage() {
+  const { t } = useLanguage();
+  return (
+    <CoachWorkspaceRoute
+      mode="schedule"
+      pt={
+        <PtPage
+          title="sessions"
+          titleText={t.navigation.items.teachingSchedule}
+        >
+          <CoachPtSchedule />
+        </PtPage>
+      }
+    />
+  );
+}

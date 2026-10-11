@@ -24,7 +24,8 @@ public sealed record WorkoutSuggestionInput(
     int SessionsMissed,
     int GymCheckIns,
     IReadOnlyList<string> RecentDisciplines,
-    IReadOnlyList<string> RecentCoachNotes);
+    IReadOnlyList<string> RecentCoachNotes,
+    string Sport = "Gym");
 
 public sealed record WorkoutSuggestionResponse(
     Guid MemberId,
@@ -35,7 +36,9 @@ public sealed record WorkoutSuggestionResponse(
     IReadOnlyList<string> Exercises,
     string Rationale,
     int ResponseTimeMs,
-    DateTime GeneratedAt);
+    DateTime GeneratedAt,
+    IReadOnlyList<WorkoutSuggestedExercise>? Items = null,
+    string Sport = "Gym");
 
 /// <summary>
 /// Gợi ý bài tập cho HLV — BR-26 (bắt buộc đủ ba đầu vào: mục tiêu, trình độ, lịch sử tập
@@ -56,8 +59,11 @@ public sealed class WorkoutRecommendationService(
     public async Task<WorkoutSuggestionResponse> SuggestAsync(
         Guid memberId,
         Guid coachId,
-        CancellationToken ct = default)
+        CancellationToken ct = default, string sport = "Gym")
     {
+        if (sport is not ("Gym" or "Badminton" or "Basketball"))
+            throw new BadRequestException("suggestion_sport_invalid", "Choose Gym, Badminton or Basketball.");
+
         // BR-26 đầu vào (1) và (2). Thiếu hồ sơ thì TỪ CHỐI chứ không đoán mặc định:
         // gợi ý dựa trên mục tiêu bịa ra còn tệ hơn là không có gợi ý.
         var profile = await db.Set<MemberTrainingProfile>()
@@ -110,7 +116,7 @@ public sealed class WorkoutRecommendationService(
             attendance.Count(a => a.AttendanceStatus == AttendanceStatus.Absent),
             gymCheckIns,
             [.. attendance.Select(a => a.Discipline).Distinct()],
-            [.. coachNotes.Where(n => !string.IsNullOrWhiteSpace(n))]);
+            [.. coachNotes.Where(n => !string.IsNullOrWhiteSpace(n))], sport);
 
         var stopwatch = Stopwatch.StartNew();
         WorkoutSuggestion suggestion;
@@ -119,7 +125,7 @@ public sealed class WorkoutRecommendationService(
         try
         {
             suggestion = await provider.SuggestWorkoutAsync(
-                memberId, coachId, profile.Goal, profile.ExperienceLevel.ToString(), ct);
+                memberId, coachId, profile.Goal, profile.ExperienceLevel.ToString(), ct, sport);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -141,6 +147,7 @@ public sealed class WorkoutRecommendationService(
             ResponsePayload = JsonSerializer.Serialize(new
             {
                 exercises = suggestion.Exercises,
+                items = suggestion.Items,
                 rationale = suggestion.Rationale,
                 error = failure
             }),
@@ -165,6 +172,7 @@ public sealed class WorkoutRecommendationService(
             suggestion.Exercises,
             suggestion.Rationale,
             elapsedMs,
-            clock.UtcNow);
+            clock.UtcNow,
+            suggestion.Items, sport);
     }
 }

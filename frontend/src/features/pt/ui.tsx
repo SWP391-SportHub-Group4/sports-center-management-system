@@ -6,24 +6,31 @@ import { useLanguage } from "@/lib/language";
 import { canUsePtFeatures } from "@/lib/permissions";
 import type { Translations } from "@/locales/en";
 import { operationsStyles as styles } from "@/features/operations";
+import { PtCoachWorkspaceHeader } from "./pt-coach-workspace";
 
 export function PtPage({
   title,
   manager = false,
+  titleText,
   children,
 }: {
   title: keyof Translations["staffWork"];
   manager?: boolean;
+  titleText?: string;
   children: ReactNode;
 }) {
   const { t } = useLanguage();
+  const { user } = useAuth();
   return (
     <AppShell
-      title={t.staffWork[title]}
+      title={titleText ?? t.staffWork[title]}
       allow={[manager ? "CenterManager" : "Coach"]}
       operationalLayout
     >
-      <div className={styles.workspace}>{children}</div>
+      <div className={styles.workspace}>
+        {!manager && canUsePtFeatures(user) && <PtCoachWorkspaceHeader />}
+        {children}
+      </div>
     </AppShell>
   );
 }

@@ -11,6 +11,29 @@
   justify-content: space-evenly;
   gap: 0;
 }
+.ptNav {
+  display: flex;
+}
+@media (max-width: 1099px) {
+  .ptHeader {
+    flex-wrap: wrap;
+    justify-content: space-between;
+    height: auto;
+    padding-block: 10px;
+    gap: 8px;
+  }
+  .ptNav {
+    order: 3;
+    flex: 1 0 100%;
+    justify-content: flex-start;
+  }
+  .ptNav > a {
+    flex: 1;
+    text-align: center;
+    white-space: normal;
+    font-size: 0.875rem;
+  }
+}
 .menuButton {
   display: flex;
   align-items: center;
@@ -161,4 +184,17 @@
 /* Công tắc ngôn ngữ của nhân sự luôn hiện trên thanh trên cùng, kể cả màn hẹp. */
 button.staffLang {
   display: inline-flex;
+}
+.coachAccount.coachAccount {
+  display: block;
+}
+@media (max-width: 480px) {
+  .coachAccount > button {
+    width: 38px;
+    padding: 4px;
+    justify-content: center;
+  }
+  .coachAccount > button > span:last-child {
+    display: none;
+  }
 }
