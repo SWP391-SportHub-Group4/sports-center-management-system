@@ -71,7 +71,7 @@ class ManagerScheduleService:
         print("\n========== MANAGER AI RUNTIME CONTEXT ==========")
         print(runtime_context)
         print("================================================\n")
-        
+
         user_prompt = build_user_prompt(
             runtime_context,
         )

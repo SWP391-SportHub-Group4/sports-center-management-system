@@ -170,7 +170,17 @@ export function NotificationBell() {
             ) : (
               list.map((item) => {
                 const href =
-                  user?.role === "Member" ? memberNotificationHref(item) : null;
+                  user?.role === "Member"
+                    ? memberNotificationHref(item)
+                    : item.actionUrl?.startsWith(
+                          user?.role === "CenterManager"
+                            ? "/manager/"
+                            : user?.role === "Coach"
+                              ? "/coach/"
+                              : "/__no_role__/",
+                        )
+                      ? item.actionUrl
+                      : null;
                 const content = (
                   <>
                     <span className={styles.dot} aria-hidden="true" />

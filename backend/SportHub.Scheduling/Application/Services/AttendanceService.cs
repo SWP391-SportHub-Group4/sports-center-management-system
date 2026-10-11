@@ -12,20 +12,20 @@ using SportHub.Scheduling.Application.Interfaces;
 namespace SportHub.Scheduling.Application.Services;
 
 /// <summary>
-/// Điểm danh khóa học do Lễ tân ghi (Present/Absent). Kiểm: ghi danh thuộc ĐÚNG lớp của buổi, ghi danh còn Confirmed tại thời điểm
+/// Điểm danh khóa học do Lễ tân hoặc coach được phân công ghi (Present/Absent). Kiểm: ghi danh thuộc ĐÚNG lớp của buổi, ghi danh còn Confirmed tại thời điểm
 /// thao tác, buổi chưa bị hủy, đúng cửa sổ thời gian. Không còn NoShow tự động cho lớp nhóm và không ghi vào WorkoutResult.
 /// </summary>
 public sealed class AttendanceService(ISportHubDbContext db, IClock clock, IUserAccessReader users, IAuditWriter audit) : IAttendanceService
 {
-    public static readonly TimeSpan CorrectionWindow = TimeSpan.FromHours(24);
+    public static readonly TimeSpan CorrectionWindow = SessionAttendanceWindow.CorrectionWindow;
 
     public async Task<AttendanceResponse> MarkAsync(
         Guid sessionId, Guid enrollmentId, MarkAttendanceRequest request, Guid recorderUserId, CancellationToken ct = default)
     {
         var actor = await users.GetAsync(recorderUserId, ct);
-        if (actor is not { IsActive: true, Role: "Receptionist" })
+        if (actor is not { IsActive: true } || actor.Role is not ("Receptionist" or "Coach"))
         {
-            throw new ForbiddenException("attendance_receptionist_required", "Chỉ Lễ tân đang hoạt động được điểm danh.");
+            throw new ForbiddenException("attendance_recorder_required", "Chỉ Lễ tân hoặc coach được phân công đang hoạt động được điểm danh.");
         }
         var status = ParseStatus(request.Status);
         await using var tx = await db.Database.BeginTransactionAsync(ct);
@@ -36,6 +36,8 @@ public sealed class AttendanceService(ISportHubDbContext db, IClock clock, IUser
 
         var session = await db.Set<ClassSession>().AsNoTracking().SingleOrDefaultAsync(s => s.SessionId == sessionId, ct)
                       ?? throw new NotFoundException("session_not_found", "Không tìm thấy buổi học.");
+        if (actor.Role == "Coach" && session.CoachId != recorderUserId)
+            throw new ForbiddenException("session_not_assigned", "Bạn không được phân công dạy buổi này.");
 
         var enrollment = await db.Set<Enrollment>().AsNoTracking().SingleOrDefaultAsync(e => e.EnrollmentId == enrollmentId, ct)
                          ?? throw new NotFoundException("enrollment_not_found", "Không tìm thấy ghi danh.");
@@ -57,9 +59,9 @@ public sealed class AttendanceService(ISportHubDbContext db, IClock clock, IUser
 
         var now = clock.UtcNow;
 
-        if (now < session.StartAtUtc)
+        if (now < SessionAttendanceWindow.OpensAt(session.StartAtUtc))
         {
-            throw new BadRequestException("attendance_not_open", "Chưa đến giờ bắt đầu buổi học.");
+            throw new BadRequestException("attendance_not_open", "Điểm danh mở từ 5 phút trước giờ bắt đầu buổi học.");
         }
 
         if (now > session.EndAtUtc + CorrectionWindow)

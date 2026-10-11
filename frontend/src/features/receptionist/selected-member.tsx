@@ -149,11 +149,11 @@ export function SelectedMemberPanel({
           </dd>
         </div>
       </dl>
-      
+
       <p className={styles.hint}>
         {l.nextAction}
       </p>
-      
+
       <div className={styles.actions}>
         <button
           type="button"

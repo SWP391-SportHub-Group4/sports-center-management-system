@@ -58,7 +58,7 @@ export function UserDetail({ userId }: { userId: string }) {
       ) {
         throw new ApiError(400, "invalid_account_id", l.invalidId);
       }
-      
+
       return api.get<UserAdminDto>(`/api/users/admin/${userId}`, { signal });
     },
     [userId],

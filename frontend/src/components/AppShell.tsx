@@ -134,25 +134,16 @@ export function getNavForUser(user: {
   approvalStatus?: string | null;
 }): NavItem[] {
   if (user.role !== "Coach") return NAV_BY_ROLE[user.role];
-  const base = [
-    { href: "/coach", labelKey: "overview" as const },
-    { href: "/coach/schedule", labelKey: "teachingSchedule" as const },
-    { href: "/coach/members", labelKey: "assignedMembers" as const },
-    { href: "/coach/attendance", labelKey: "attendance" as const },
-  ];
   return user.isPersonalTrainer === true
     ? [
-        ...base,
-        ...NAV_BY_ROLE.Coach.filter((item) =>
-          [
-            "/coach/pt-sessions",
-            "/coach/training-plans",
-            "/coach/ai-suggestions",
-            "/coach/progress",
-          ].includes(item.href),
-        ),
+        { href: "/coach/schedule", labelKey: "ptSchedule" },
+        { href: "/coach/members", labelKey: "assignedMembers" },
       ]
-    : base;
+    : [
+        { href: "/coach/schedule", labelKey: "teachingSchedule" },
+        { href: "/coach/classes", labelKey: "assignedClasses" },
+        { href: "/coach/members", labelKey: "classStudents" },
+      ];
 }
 
 type GroupKey = keyof Translations["navigation"]["groups"];
@@ -199,6 +190,7 @@ const GROUP_SPEC: Partial<Record<Role, (string | [GroupKey, string[]])[]>> = {
   Coach: [
     "/coach",
     "/coach/schedule",
+    "/coach/classes",
     "/coach/members",
     "/coach/attendance",
     [
@@ -446,6 +438,7 @@ export function AppFrame({
   }
 
   const items = getNavForUser(user);
+  const ptNavigation = user.role === "Coach" && canUsePtFeatures(user);
   const root = items[0].href;
   const entries = buildNav(items, user.role, t);
   const roleDisplay = t.navigation.roleLabel[user.role];
@@ -457,7 +450,9 @@ export function AppFrame({
           : "Chuyển tới nội dung chính"}
       </a>
       <header className={shell.header} data-scrolled={scrolled || undefined}>
-        <div className={shell.headerInner}>
+        <div
+          className={`${shell.headerInner} ${ptNavigation ? styles.ptHeader : ""}`}
+        >
           <Link href={root} className={shell.brandGroup}>
             <span className={shell.brandLogo}>
               Sport<span className={shell.brandLogoAccent}>Hub</span>
@@ -466,7 +461,7 @@ export function AppFrame({
           </Link>
 
           <nav
-            className={`${styles.staffNav} ${user.role === "SystemAdministrator" ? styles.adminNav : ""}`}
+            className={`${styles.staffNav} ${ptNavigation ? styles.ptNav : ""} ${user.role === "SystemAdministrator" ? styles.adminNav : ""}`}
             aria-label={roleDisplay}
           >
             {entries.map((entry) =>
@@ -507,7 +502,10 @@ export function AppFrame({
               </button>
             )}
             <NotificationBell />
-            <div className={shell.userMenuWrapper} ref={userRef}>
+            <div
+              className={`${shell.userMenuWrapper} ${user.role === "Coach" ? styles.coachAccount : ""}`}
+              ref={userRef}
+            >
               <button
                 type="button"
                 className={shell.userButton}
@@ -570,14 +568,16 @@ export function AppFrame({
                 </div>
               )}
             </div>
-            <button
-              type="button"
-              className={styles.menuButton}
-              onClick={() => setDrawer(true)}
-              aria-label={t.nav.openNav}
-            >
-              <IconMenu size={20} />
-            </button>
+            {!ptNavigation && (
+              <button
+                type="button"
+                className={styles.menuButton}
+                onClick={() => setDrawer(true)}
+                aria-label={t.nav.openNav}
+              >
+                <IconMenu size={20} />
+              </button>
+            )}
           </div>
         </div>
       </header>

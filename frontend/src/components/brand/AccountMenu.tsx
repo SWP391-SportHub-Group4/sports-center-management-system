@@ -10,27 +10,21 @@ export function AccountMenu({
   links,
   logoutLabel,
   onSignOut,
-  avatarUrl,
   tone = "default",
+  avatarUrl,
 }: {
   name: string;
   subtitle: string;
   links: { href: string; label: string; icon: CourtIconName }[];
   logoutLabel: string;
   onSignOut: () => void;
-  avatarUrl?: string | null;
   tone?: "default" | "inverse";
+  avatarUrl?: string | null;
 }) {
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const id = useId();
-  const initials = name
-    .trim()
-    .split(/\s+/)
-    .slice(-2)
-    .map((part) => part[0])
-    .join("");
   useEffect(() => {
     if (!open) return;
     const dismiss = (event: PointerEvent) => {
@@ -68,7 +62,7 @@ export function AccountMenu({
           {avatarUrl ? (
             <img src={avatarUrl} alt="" className={s.avatarPhoto} />
           ) : (
-            initials
+            name.trim().charAt(0).toUpperCase() || "?"
           )}
         </span>
         <span className={s.accountName}>{name}</span>

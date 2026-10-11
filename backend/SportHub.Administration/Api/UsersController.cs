@@ -19,12 +19,12 @@ namespace SportHub.Administration.Api;
 [Route("api/users")]
 public class UsersController(IUserAdminService users) : ControllerBase
 {
-    
+
     /// <summary>
     /// Danh sách tài khoản. SystemAdministrator dùng để quản trị; Lễ tân/Quản lý cần tra
     /// hội viên khi bán gói hay đăng ký hộ.
     /// </summary>
-    
+
     [Authorize(Policy = SportHubPolicies.StaffRead)]
     [HttpGet]
     public async Task<IActionResult> Search(

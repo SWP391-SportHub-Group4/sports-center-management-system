@@ -25,6 +25,8 @@ public sealed class WorkoutWorkflowTests(TrainingApiFactory factory)
         Assert.Equal(HttpStatusCode.Created, createSession.StatusCode);
         var session = (await createSession.Content.ReadApiJsonAsync<PtSessionResponse>())!;
 
+        var now = DateTime.UtcNow;
+        await factory.MovePtSessionAsync(session.SessionId, now.AddHours(-2), now.AddMinutes(-30));
         var coachClient = factory.CreateApiClient(coach.UserId, UserRole.Coach);
         var complete = await coachClient.PostAsync(
             $"api/coaches/me/pt-sessions/{session.SessionId}/complete", null);

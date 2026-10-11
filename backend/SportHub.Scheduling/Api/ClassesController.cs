@@ -60,7 +60,7 @@ public class ClassesController(IClassService classes, IClassSessionService sessi
                 false,
                 User.RequireUserId(),
                 ct));
-                
+
     [Authorize(Policy = SportHubPolicies.Member)]
     [HttpGet("api/members/me/classes/{classId:int}/sessions")]
     public async Task<IActionResult> MemberSessions(int classId, CancellationToken ct)
