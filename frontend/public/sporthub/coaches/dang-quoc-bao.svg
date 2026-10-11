@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1000" role="img" aria-label="Chân dung minh họa huấn luyện viên">
+<rect width="800" height="1000" fill="#eef9c2"/>
+<g transform="translate(650 150)"><circle r="82" fill="#ffffff" opacity="0.9"/><g transform="scale(0.9)"><circle cx="-14" cy="22" r="13" fill="#090e0f"/><path d="M-6 12 L26 -26 M-24 8 L-10 -30 M2 22 L36 -2" stroke="#090e0f" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none"/></g></g>
+
+<path d="M110 1000 C110 810 240 748 400 748 C560 748 690 810 690 1000 Z" fill="#02717a"/>
+<path d="M330 748 L400 842 L470 748 Z" fill="#cc9670"/>
+<path d="M322 748 L400 860 L478 748" stroke="#c8f03a" stroke-width="12" fill="none" stroke-linejoin="round"/>
+<rect x="352" y="590" width="96" height="190" rx="40" fill="#cc9670"/>
+<ellipse cx="266" cy="468" rx="24" ry="40" fill="#e6b08a"/>
+<ellipse cx="534" cy="468" rx="24" ry="40" fill="#e6b08a"/>
+<ellipse cx="400" cy="452" rx="138" ry="168" fill="#e6b08a"/>
+<path d="M262 440 C246 290 330 222 410 226 C500 232 556 300 538 440 C530 392 500 352 440 336 C400 372 330 362 262 440 Z" fill="#15100d"/>
+
+<path d="M312 432 Q344 418 376 428" stroke="#15100d" stroke-width="11" stroke-linecap="round" fill="none"/><path d="M424 428 Q456 418 488 432" stroke="#15100d" stroke-width="11" stroke-linecap="round" fill="none"/>
+<ellipse cx="344" cy="462" rx="11" ry="13" fill="#090e0f"/><circle cx="348" cy="457" r="3.5" fill="#fff"/><ellipse cx="456" cy="462" rx="11" ry="13" fill="#090e0f"/><circle cx="460" cy="457" r="3.5" fill="#fff"/>
+
+<path d="M400 478 Q388 520 404 528" stroke="#cc9670" stroke-width="7" stroke-linecap="round" fill="none"/>
+<path d="M352 566 Q400 606 448 566" stroke="#090e0f" stroke-width="9" stroke-linecap="round" fill="none"/>
+
+
+<path d="M338 760 Q400 900 462 760" stroke="#090e0f" stroke-width="7" fill="none" stroke-linecap="round"/>
+<rect x="378" y="868" width="44" height="30" rx="12" fill="#c8f03a" stroke="#090e0f" stroke-width="5"/>
+</svg>

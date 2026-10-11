@@ -124,6 +124,91 @@ public sealed class PointRefundService(
         return await GetOneAsync(adjustment.AdjustmentId, cancellationToken);
     }
 
+    public Task<PaymentAdjustmentResponse> CancelClassEnrollmentAsync(Guid invoiceItemId, Guid actorUserId,
+        bool canActForAnotherUser, CancellationToken cancellationToken = default)
+        => SelfCancelAsync(invoiceItemId, actorUserId, canActForAnotherUser, InvoiceItemType.ClassPackage, cancellationToken);
+
+    public Task<PaymentAdjustmentResponse> CancelMembershipAsync(Guid invoiceItemId, Guid actorUserId,
+        bool canActForAnotherUser, CancellationToken cancellationToken = default)
+        => SelfCancelAsync(invoiceItemId, actorUserId, canActForAnotherUser, InvoiceItemType.Membership, cancellationToken);
+
+    /// <summary>
+    /// Hủy quyền lợi và hoàn điểm tự động theo quy tắc (lớp: mốc 5 ngày; Membership: còn từ 2/3 thời hạn hoàn 50%).
+    /// Dùng chung cho Member tự hủy và Lễ tân/Manager hủy thay.
+    /// </summary>
+    private async Task<PaymentAdjustmentResponse> SelfCancelAsync(Guid invoiceItemId, Guid actorUserId,
+        bool canActForAnotherUser, InvoiceItemType type, CancellationToken cancellationToken)
+    {
+        var isClass = type == InvoiceItemType.ClassPackage;
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        var item = await db.Set<InvoiceItem>().FromSqlInterpolated($"SELECT * FROM invoice_items WHERE item_id = {invoiceItemId} FOR UPDATE")
+            .SingleOrDefaultAsync(cancellationToken)
+            ?? throw new NotFoundException("invoice_item_not_found", "Không tìm thấy sản phẩm hóa đơn.");
+        if (item.ItemType != type)
+            throw new ConflictException("cancel_wrong_item", "Loại sản phẩm không khớp với thao tác hủy này.");
+        var invoice = await db.Set<Invoice>().AsNoTracking()
+            .SingleAsync(x => x.InvoiceId == item.InvoiceId, cancellationToken);
+        if (!canActForAnotherUser && invoice.MemberId != actorUserId)
+            throw new ForbiddenException("refund_item_not_owned", "Hóa đơn không thuộc tài khoản của bạn.");
+        if (!SportHub.Payment.Domain.Rules.InvoiceFulfillment.HasBenefits(invoice.Status, invoice.PaidVia))
+            throw new ConflictException("refund_invoice_not_paid", "Chỉ hóa đơn Paid đã cấp quyền lợi mới được hủy.");
+        await EnsureNoUnmappedLegacyRefundAsync(invoice.InvoiceId, cancellationToken);
+        var now = clock.UtcNow;
+        if (isClass)
+        {
+            var facts = await classes.GetRefundFactsAsync(item.ItemId, cancellationToken)
+                ?? throw new ConflictException("refund_entitlement_not_found", "Ghi danh không còn hiệu lực để hủy.");
+            if (facts.FirstSessionUtc <= now)
+                throw new ConflictException("class_already_started",
+                    "Lớp đã bắt đầu: hãy gửi đơn hoàn điểm để Manager xem xét.");
+        }
+        else
+        {
+            var facts = await memberships.GetFactsAsync(item.ItemId, item.MemberPackageId ?? item.RelatedEntityId, cancellationToken)
+                ?? throw new ConflictException("refund_entitlement_not_found", "Không tìm thấy Membership gắn với item.");
+            if (!facts.IsActive)
+                throw new ConflictException("membership_not_active", "Chỉ Membership đang hiệu lực mới hủy được.");
+            if (facts.HasLaterRenewal)
+                throw new ConflictException("membership_has_renewal",
+                    "Hãy hủy gói gia hạn nối tiếp trước khi hủy gói này.");
+        }
+        var paid = await GetRemainingItemPaidVndAsync(invoice, item, cancellationToken);
+        var points = await CalculatePointsAsync(item, paid, VietnamTime.TodayLocal(clock), false, cancellationToken, now);
+        if (points <= 0)
+            throw new ConflictException("refund_points_zero", "Theo quy tắc hiện hành không có điểm để hoàn.");
+        var subject = isClass ? "class enrollment" : "membership";
+        var reason = actorUserId == invoice.MemberId
+            ? $"Member cancelled {subject}."
+            : $"Staff cancelled {subject} on behalf of the member.";
+        var adjustmentId = Guid.NewGuid();
+        var wallet = await wallets.EarnAsync(new WalletOperation(invoice.MemberId, points,
+            "PaymentAdjustment", adjustmentId, actorUserId, reason, item.ItemId), cancellationToken);
+        var adjustment = new PaymentAdjustment
+        {
+            AdjustmentId = adjustmentId, InvoiceId = invoice.InvoiceId, InvoiceItemId = invoiceItemId,
+            Type = PaymentAdjustmentType.Refund, Amount = 0, RequestedAmount = 0, Reason = reason,
+            Status = PaymentAdjustmentStatus.Completed, RequestedByUserId = actorUserId, CreatedAt = now,
+            SystemCalculatedPoints = points, ApprovedPoints = points, ApprovedByUserId = actorUserId,
+            ApprovedAtUtc = now, CompletedAtUtc = now, ResolvedAt = now,
+            PointLedgerEntryId = wallet.LedgerEntryId
+        };
+        db.Set<PaymentAdjustment>().Add(adjustment);
+        if (isClass)
+            await classes.CancelAsync(item.ItemId, EnrollmentEndReason.Refunded, cancellationToken);
+        else
+            await memberships.CancelAsync(item.ItemId, item.MemberPackageId ?? item.RelatedEntityId, reason, actorUserId, cancellationToken);
+        await notices.QueueAsync(invoice.MemberId, SportHub.BuildingBlocks.Abstractions.Notifications.NotificationEvents.RefundCompleted,
+            adjustment.AdjustmentId, $"Refunded {points} points for cancelled {subject}, invoice {invoice.InvoiceNumber}.", cancellationToken);
+        audit.Write(new AuditEntry(actorUserId, isClass ? "CANCEL_CLASS_ENROLLMENT" : "CANCEL_MEMBERSHIP", nameof(PaymentAdjustment),
+            adjustment.AdjustmentId.ToString(), NewValue: System.Text.Json.JsonSerializer.Serialize(new
+            {
+                invoiceItemId, points, ledgerEntryId = wallet.LedgerEntryId
+            }), Reason: reason));
+        await db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        return await GetOneAsync(adjustment.AdjustmentId, cancellationToken);
+    }
+
     public async Task<PaymentAdjustmentResponse> ApproveAsync(Guid adjustmentId,
         ApprovePointRefundRequest request, Guid managerUserId, CancellationToken cancellationToken = default)
     {
@@ -152,6 +237,12 @@ public sealed class PointRefundService(
             request.CenterFault, cancellationToken, adjustment.CreatedAt);
         var absoluteCap = checked((int)decimal.Floor(itemPaidVnd / RefundCalculator.VndPerPoint));
         var points = allowedByRule;
+        if (request.Percent is int percent)
+        {
+            if (request.Reason.Trim().Length < 10)
+                throw new BadRequestException("refund_percent_reason_required", "Hoàn theo % do Manager quyết định cần nêu căn cứ (ít nhất 10 ký tự).");
+            points = RefundCalculator.PointsForRatio(itemPaidVnd, percent);
+        }
         if (points <= 0)
             throw new ConflictException("refund_points_zero", "Theo quy tắc hiện hành không có điểm để hoàn.");
         if (points > absoluteCap)
@@ -237,8 +328,9 @@ public sealed class PointRefundService(
                 var facts = await classes.GetRefundFactsAsync(item.ItemId, ct)
                     ?? throw new ConflictException("refund_entitlement_not_found", "Không tìm thấy enrollment gắn với item.");
                 if (!facts.EnrollmentActive && !centerFault) return 0;
+                var requestedAt = DateTime.SpecifyKind(requestedAtUtc ?? clock.UtcNow, DateTimeKind.Utc);
                 return RefundCalculator.ClassPoints(paidVnd, facts.TotalProvidedSessions,
-                    facts.SessionsNotProvided, clock.UtcNow < facts.FirstSessionUtc, centerFault);
+                    facts.SessionsNotProvided, facts.FirstSessionUtc - requestedAt, centerFault);
             }
             case InvoiceItemType.Rental:
             {

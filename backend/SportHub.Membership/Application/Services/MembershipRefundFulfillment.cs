@@ -17,8 +17,12 @@ public sealed class MembershipRefundFulfillment(ISportHubDbContext db, IAuditWri
         var package = await db.Set<MemberPackage>().AsNoTracking()
             .SingleOrDefaultAsync(x => x.InvoiceItemId == invoiceItemId
                 || (relatedMemberPackageId != null && x.MemberPackageId == relatedMemberPackageId), cancellationToken);
-        return package is null ? null : new MembershipRefundFacts(package.MemberId,
-            package.StartDate, package.EndDate, package.Status == MemberPackageStatus.Active);
+        if (package is null) return null;
+        var hasLaterRenewal = await db.Set<MemberPackage>().AsNoTracking().AnyAsync(x =>
+            x.MemberId == package.MemberId && x.MemberPackageId != package.MemberPackageId
+            && x.Status == MemberPackageStatus.Active && x.StartDate > package.EndDate, cancellationToken);
+        return new MembershipRefundFacts(package.MemberId, package.StartDate, package.EndDate,
+            package.Status == MemberPackageStatus.Active, hasLaterRenewal);
     }
 
     public async Task CancelAsync(Guid invoiceItemId, Guid? relatedMemberPackageId, string reason, Guid actorUserId,

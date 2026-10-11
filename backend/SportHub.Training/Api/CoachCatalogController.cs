@@ -33,6 +33,7 @@ public sealed class CoachCatalogController(ISportHubDbContext db, ISportCatalogR
         if (sportId is int id) query = query.Where(u => db.Set<UserSportSpecialty>().Any(s => s.UserId == u.UserId && s.SportId == id));
         return Ok(await query.OrderBy(u => u.Profile!.FullName).Take(500).Select(u => new {
             u.UserId, FullName = u.Profile!.FullName, AvatarUrl = u.Profile.AvatarUrl,
+            Bio = u.CoachProfile != null ? u.CoachProfile.Bio : null,
             SportIds = db.Set<UserSportSpecialty>().Where(s => s.UserId == u.UserId).Select(s => s.SportId).ToArray()
         }).ToListAsync(ct));
     }

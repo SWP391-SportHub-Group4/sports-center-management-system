@@ -20,6 +20,7 @@ import type {
   ThresholdResponseDto,
 } from "@/lib/types";
 import { memberEnrollments } from "./api";
+import { RefundCancelDialog } from "@/features/payments";
 import { ServiceEmblem } from "./service-emblem";
 import {
   daysUntil,
@@ -38,7 +39,7 @@ import {
 } from "./service-ui";
 import styles from "./my-services.module.css";
 
-type Tone = "active" | "soon" | "ended" | "pending";
+type Tone = "active" | "soon" | "ended" | "pending" | "scheduled";
 
 interface Owned {
   id: string;
@@ -119,31 +120,46 @@ export function MyServices({
 
   const items: Owned[] = [];
 
-  (packages.data ?? []).forEach((p) => {
+  const allPackages = packages.data ?? [];
+  const startsLater = (p: MemberPackageDto) =>
+    p.status.toUpperCase() === "ACTIVE" &&
+    new Date(`${p.startDate.slice(0, 10)}T00:00:00+07:00`).getTime() > now;
+  allPackages.forEach((p) => {
     const status = p.status.toUpperCase();
     if (!["ACTIVE", "PENDING_PAYMENT", "EXPIRED"].includes(status)) return;
+    const scheduled = startsLater(p);
     const left = daysUntil(p.endDate, now);
-    const ended = status === "EXPIRED" || (status === "ACTIVE" && !p.isUsable);
+    const ended =
+      status === "EXPIRED" ||
+      (status === "ACTIVE" && !p.isUsable && !startsLater(p));
     const tone: Tone =
       status === "PENDING_PAYMENT"
         ? "pending"
         : ended
           ? "ended"
-          : left <= SOON_GYM_DAYS
-            ? "soon"
-            : "active";
+          : scheduled
+            ? "scheduled"
+            : left <= SOON_GYM_DAYS
+              ? "soon"
+              : "active";
     items.push({
       id: `gym:${p.memberPackageId}`,
       kind: "gym",
       emblem: "gym",
       tone,
-      rank: tone === "ended" ? 9e6 : left,
+      rank:
+        tone === "ended"
+          ? 9e6
+          : scheduled
+            ? 1e6 + new Date(`${p.startDate.slice(0, 10)}T00:00:00+07:00`).getTime()
+            : left,
       node: (i) => (
         <GymCard
           key={p.memberPackageId}
           pkg={p}
           tone={tone}
           left={left}
+          onChanged={packages.reload}
           index={i}
         />
       ),
@@ -210,6 +226,7 @@ export function MyServices({
           tone={tone}
           started={started}
           pendingResponseId={pending?.responseId}
+          onChanged={enrollments.reload}
           index={i}
         />
       ),
@@ -398,6 +415,7 @@ const TONE_TEXT: Record<Tone, { vi: string; en: string }> = {
   soon: { vi: "Sắp hết hạn", en: "Expiring soon" },
   ended: { vi: "Đã hết", en: "Ended" },
   pending: { vi: "Chờ thanh toán", en: "Awaiting payment" },
+  scheduled: { vi: "Sắp bắt đầu", en: "Scheduled" },
 };
 
 function Shell({
@@ -486,7 +504,9 @@ function GymCard({
   tone,
   left,
   index,
+  onChanged,
 }: {
+  onChanged: () => void;
   pkg: MemberPackageDto;
   tone: Tone;
   left: number;
@@ -496,14 +516,24 @@ function GymCard({
   const vi = language === "vi";
   const tx = (v: string, e: string) => (vi ? v : e);
   const [open, setOpen] = useState<"detail" | "history" | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<MemberPackageDto | null>(
+    null,
+  );
+  const scheduled = tone === "scheduled";
+  const endDate = pkg.endDate;
   const total = Math.max(
     1,
+    Math.round(
+      (new Date(endDate).getTime() - new Date(pkg.startDate).getTime()) /
+        86_400_000,
+    ) + 1,
+  );
+  const months = monthsOf(
     Math.round(
       (new Date(pkg.endDate).getTime() - new Date(pkg.startDate).getTime()) /
         86_400_000,
     ) + 1,
   );
-  const months = monthsOf(total);
   const pending = tone === "pending";
   const renew = tone === "soon" || tone === "ended";
   return (
@@ -527,26 +557,36 @@ function GymCard({
           </p>
         ) : (
           <>
-            <p className={styles.big}>
-              <strong>{formatNumber(left)}</strong>
-              <span>{tx("ngày còn lại", "days left")}</span>
-            </p>
-            <span
-              className={styles.bar}
-              role="img"
-              aria-label={tx(
-                `Còn ${left} trên ${total} ngày`,
-                `${left} of ${total} days left`,
-              )}
-              style={
-                {
-                  "--fill": `${Math.min(100, (left / total) * 100)}%`,
-                } as CSSProperties
-              }
-            />
-            <p className={styles.fine}>
-              {tx("Hết hạn", "Expires")} <b>{formatDate(pkg.endDate)}</b>
-            </p>
+            {scheduled ? (
+              <p className={styles.fine}>
+                {tx("Bắt đầu", "Starts")} <b>{formatDate(pkg.startDate)}</b>
+                {" · "}
+                {tx("Hết hạn", "Ends")} <b>{formatDate(endDate)}</b>
+              </p>
+            ) : (
+              <>
+                <p className={styles.big}>
+                  <strong>{formatNumber(left)}</strong>
+                  <span>{tx("ngày còn lại", "days left")}</span>
+                </p>
+                <span
+                  className={styles.bar}
+                  role="img"
+                  aria-label={tx(
+                    `Còn ${left} trên ${total} ngày`,
+                    `${left} of ${total} days left`,
+                  )}
+                  style={
+                    {
+                      "--fill": `${Math.min(100, (left / total) * 100)}%`,
+                    } as CSSProperties
+                  }
+                />
+                <p className={styles.fine}>
+                  {tx("Hết hạn", "Expires")} <b>{formatDate(endDate)}</b>
+                </p>
+              </>
+            )}
           </>
         )
       }
@@ -578,6 +618,27 @@ function GymCard({
           >
             {tx("Lịch sử sử dụng", "Usage history")}
           </button>
+          {tone !== "ended" && !pending && pkg.invoiceItemId && (
+            <button
+              type="button"
+              className={styles.cancel}
+              onClick={() => setCancelTarget(pkg)}
+            >
+              {tx("Hủy gói", "Cancel membership")}
+            </button>
+          )}
+          {cancelTarget && (
+            <RefundCancelDialog
+              target={{
+                kind: "gym",
+                name: cancelTarget.packageName,
+                itemId: cancelTarget.invoiceItemId ?? null,
+                endDate: cancelTarget.endDate,
+              }}
+              onClose={() => setCancelTarget(null)}
+              onDone={onChanged}
+            />
+          )}
         </>
       }
       panel={
@@ -591,7 +652,7 @@ function GymCard({
                 </div>
                 <div>
                   <dt>{tx("Hết hạn", "Ends")}</dt>
-                  <dd>{formatDate(pkg.endDate)}</dd>
+                  <dd>{formatDate(endDate)}</dd>
                 </div>
                 <div>
                   <dt>{tx("Quyền lợi", "Includes")}</dt>
@@ -781,17 +842,21 @@ function ClassCard({
   tone,
   started,
   pendingResponseId,
+  onChanged,
   index,
 }: {
   row: CourseEnrollmentDto;
   tone: Tone;
   started: boolean;
   pendingResponseId?: string;
+  onChanged: () => void;
   index: number;
 }) {
   const { language } = useLanguage();
   const vi = language === "vi";
   const tx = (v: string, e: string) => (vi ? v : e);
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const canCancel = tone !== "ended" && !!row.invoiceItemId;
   const done = row.completedSessions ?? 0;
   const renew = tone === "soon" || tone === "ended";
   const sport = sportLabel(row.sportName, vi);
@@ -879,6 +944,30 @@ function ClassCard({
           >
             {tx("Lịch sử sử dụng", "Usage history")}
           </Link>
+          {canCancel && (
+            <button
+              type="button"
+              className={styles.cancel}
+              onClick={() => setCancelOpen(true)}
+            >
+              {started
+                ? tx("Gửi đơn hoàn điểm", "Request refund")
+                : tx("Hủy ghi danh", "Cancel enrollment")}
+            </button>
+          )}
+          {cancelOpen && (
+            <RefundCancelDialog
+              target={{
+                kind: "class",
+                name: row.className,
+                itemId: row.invoiceItemId,
+                firstSessionStartUtc: row.firstSessionStartUtc,
+                started,
+              }}
+              onClose={() => setCancelOpen(false)}
+              onDone={onChanged}
+            />
+          )}
         </>
       }
     />

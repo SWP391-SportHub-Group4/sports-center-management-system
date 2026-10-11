@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ScheduleCoursePage } from "./schedule-course-page";
 import { ScheduleRentalPage } from "./schedule-rental-page";
 import {
@@ -24,7 +24,8 @@ import { useUrlQuery } from "@/lib/useUrlQuery";
 import { useMediaQuery } from "@/lib/useMediaQuery";
 import { rentalApi } from "../rentals/api";
 import type { CourtRentalDto, SportDto, CourseSessionDto } from "@/lib/types";
-import { memberSchedule, type MemberEvent } from "./api";
+import { memberEnrollments, memberSchedule, type MemberEvent } from "./api";
+import { RefundCancelDialog } from "@/features/payments";
 import { eventKind, sportTone, type EventKind } from "./event-meta";
 import { googleCalendarHref } from "./google-calendar";
 import { RentalCancelConfirm } from "./rental-cancel";
@@ -37,6 +38,7 @@ type Item = MemberEvent & {
   sport: string | null;
   rental?: CourtRentalDto;
   preview?: boolean;
+  fading?: boolean;
 };
 
 const ROUTINE = new Set(["scheduled", "confirmed", "active"]);
@@ -190,6 +192,23 @@ export function MemberSchedule({
   const [compactRental, setCompactRental] = useState<string | null>(null);
   const calendarScroll = useRef(0);
   const [cancelling, setCancelling] = useState<CourtRentalDto | null>(null);
+  const [cancellingClass, setCancellingClass] = useState<MemberEvent | null>(
+    null,
+  );
+  const enrollments = useApi(memberEnrollments, []);
+  const [cancelTransitions, setCancelTransitions] = useState<
+    Record<string, Item>
+  >({});
+  const cancelTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(
+    new Map(),
+  );
+  useEffect(
+    () => () => {
+      for (const timer of cancelTimers.current.values()) clearTimeout(timer);
+      cancelTimers.current.clear();
+    },
+    [],
+  );
   const now = useNow();
   const narrow = useMediaQuery("(max-width: 720px)");
   function setSelected(item: Item | null) {
@@ -237,7 +256,14 @@ export function MemberSchedule({
       sport: previewCourse!.sportName,
       preview: true,
     }));
-  const timeline = [...(state.data ?? []), ...previews].sort(
+  const timeline = [
+    ...(state.data ?? []).filter(
+      (item) =>
+        !/CANCEL/i.test(item.status ?? "") && !cancelTransitions[item.id],
+    ),
+    ...Object.values(cancelTransitions),
+    ...previews,
+  ].sort(
     (a, b) =>
       a.startAtUtc.localeCompare(b.startAtUtc) || a.id.localeCompare(b.id),
   );
@@ -268,6 +294,52 @@ export function MemberSchedule({
     setValues({ date: target.toISOString().slice(0, 10), event: "" });
   }
 
+  function showCancelledThenDismiss(items: Item[], transitionKey: string) {
+    if (!items.length) {
+      state.reload();
+      return;
+    }
+
+    const ids = items.map((item) => item.id);
+    setCancelTransitions((current) => ({
+      ...current,
+      ...Object.fromEntries(
+        items.map((item) => [
+          item.id,
+          { ...item, status: "CANCELLED", fading: true },
+        ]),
+      ),
+    }));
+    const previous = cancelTimers.current.get(transitionKey);
+    if (previous) clearTimeout(previous);
+    cancelTimers.current.set(
+      transitionKey,
+      setTimeout(() => {
+        setCancelTransitions((current) => {
+          const next = { ...current };
+          for (const id of ids) delete next[id];
+          return next;
+        });
+        cancelTimers.current.delete(transitionKey);
+        state.reload();
+      }, 2600),
+    );
+  }
+
+  function showCancelledRentalThenDismiss(rentalId: string) {
+    showCancelledThenDismiss(
+      timeline.filter((item) => item.id === `rental:${rentalId}`),
+      `rental:${rentalId}`,
+    );
+  }
+
+  function showCancelledClassThenDismiss(classId: number) {
+    showCancelledThenDismiss(
+      timeline.filter((item) => item.kind === "class" && item.classId === classId),
+      `class:${classId}`,
+    );
+  }
+
   const renderEvent = (item: Item) => {
     const cancelled = /CANCEL/i.test(item.status ?? "");
     const absent = item.attendanceStatus?.toUpperCase() === "ABSENT";
@@ -285,6 +357,7 @@ export function MemberSchedule({
           item.preview ? "true" : previewCourse ? "false" : undefined
         }
         data-state={cancelled ? "cancelled" : undefined}
+        data-fading={item.fading ? "true" : undefined}
         onClick={() => setSelected(item)}
       >
         <span className={styles.eventHeading}>
@@ -351,6 +424,16 @@ export function MemberSchedule({
       window.scrollTo({ top: calendarScroll.current, behavior: "instant" });
     });
   }
+  function classEnrollment(classId?: number) {
+    return enrollments.data?.find(
+      (e) =>
+        e.classId === classId && e.status === "CONFIRMED" && e.invoiceItemId,
+    );
+  }
+  function classStarted(classId?: number) {
+    const first = classEnrollment(classId)?.firstSessionStartUtc;
+    return !!first && new Date(first).getTime() <= now;
+  }
   const activeRental = compact ? compactRental : values.rental;
   const activeCourse = compact ? compactCourse?.classId : Number(values.course);
   const courseEvent = compact
@@ -364,7 +447,10 @@ export function MemberSchedule({
         key={activeRental}
         rentalId={activeRental}
         onBack={returnToCalendar}
-        onChanged={state.reload}
+        onCancelled={(rentalId) => {
+          showCancelledRentalThenDismiss(rentalId);
+          returnToCalendar();
+        }}
       />
     );
   if (activeCourse)
@@ -770,6 +856,23 @@ export function MemberSchedule({
                       {m.addToCalendar}
                     </a>
                   )}
+                  {selected.kind === "class" &&
+                    classEnrollment(selected.classId) &&
+                    !/CANCEL/i.test(selected.status ?? "") && (
+                      <button
+                        type="button"
+                        className={`btn btn--secondary ${styles.cancel}`}
+                        onClick={() => setCancellingClass(selected)}
+                      >
+                        {classStarted(selected.classId)
+                          ? vi
+                            ? "Gửi đơn hoàn điểm"
+                            : "Request refund"
+                          : vi
+                            ? "Hủy ghi danh"
+                            : "Cancel enrollment"}
+                      </button>
+                    )}
                   {selected.rental?.status === "CONFIRMED" &&
                     new Date(selected.startAtUtc).getTime() > now && (
                       <button
@@ -797,14 +900,35 @@ export function MemberSchedule({
           </div>
         </Drawer>
       )}
+      {cancellingClass && classEnrollment(cancellingClass.classId) && (
+        <RefundCancelDialog
+          target={{
+            kind: "class",
+            name: cancellingClass.title,
+            itemId: classEnrollment(cancellingClass.classId)!.invoiceItemId,
+            firstSessionStartUtc: classEnrollment(cancellingClass.classId)!
+              .firstSessionStartUtc,
+            started: classStarted(cancellingClass.classId),
+          }}
+          onClose={() => setCancellingClass(null)}
+          onDone={() => {
+            enrollments.reload();
+            if (!classStarted(cancellingClass.classId)) {
+              showCancelledClassThenDismiss(cancellingClass.classId!);
+            } else {
+              state.reload();
+            }
+          }}
+        />
+      )}
       {cancelling && (
         <RentalCancelConfirm
           rental={cancelling}
           onClose={() => setCancelling(null)}
           onCancelled={() => {
+            showCancelledRentalThenDismiss(cancelling.courtRentalId);
             setCancelling(null);
             setSelected(null);
-            state.reload();
           }}
         />
       )}

@@ -165,5 +165,6 @@ public sealed class MemberPackageService(
             && mp.StartDate <= today
             && today <= mp.EndDate,
             mp.StackingApprovedByUserId != null,
-            mp.StackingApprovalReason);
+            mp.StackingApprovalReason,
+            mp.InvoiceItemId);
 }

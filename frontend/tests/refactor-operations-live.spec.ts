@@ -5,12 +5,9 @@ import {
   type Page,
 } from "@playwright/test";
 
-import {
-  loginApi,
-} from "./helpers/auth";
+import { loginApi } from "./helpers/auth";
 
-const base =
-  process.env.P2_LIVE_API;
+const base = process.env.P2_LIVE_API;
 
 test.skip(
   !base,
@@ -24,11 +21,7 @@ test.describe.configure({
 const login = (
   request: APIRequestContext,
   email: string,
-) =>
-  loginApi(
-    request,
-    email,
-  );
+) => loginApi(request, email);
 
 async function browserAuth(
   page: Page,
@@ -52,21 +45,16 @@ async function browserAuth(
 
 test(
   "paid course cancellation from Manager UI refunds the real wallet once",
-  async ({
-    page,
-    request,
-  }) => {
-    const manager =
-      await login(
-        request,
-        "manager@sporthub.vn",
-      );
+  async ({ page, request }) => {
+    const manager = await login(
+      request,
+      "manager@sporthub.vn",
+    );
 
-    const member =
-      await login(
-        request,
-        "an.member@sporthub.vn",
-      );
+    const member = await login(
+      request,
+      "an.member@sporthub.vn",
+    );
 
     const headers = {
       Authorization:
@@ -78,113 +66,105 @@ test(
         `Bearer ${member.accessToken}`,
     };
 
-    const sports =
-      await (
-        await request.get(
-          `${base}/api/sports`,
-        )
-      ).json();
+    const sports = await (
+      await request.get(
+        `${base}/api/sports`,
+      )
+    ).json();
 
-    const sport =
-      sports.find(
-        (
-          s: {
-            services: {
-              serviceType:
-                string;
-
-              isEnabled:
-                boolean;
-            }[];
-          },
-        ) =>
-          s.services.some(
-            (x) =>
-              x.serviceType ===
-                "GROUP_COURSE" &&
-              x.isEnabled,
-          ),
-      );
-
-    const coaches =
-      await (
-        await request.get(
-          `${base}/api/coaches?sportId=${sport.sportId}`,
-          {
-            headers,
-          },
-        )
-      ).json();
-
-    const template =
+    const sport = sports.find(
       (
-        await (
-          await request.get(
-            `${base}/api/classes?sportId=${sport.sportId}`,
-          )
-        ).json()
-      ).items[0];
-
-    const date =
-      new Date();
-
-    date.setUTCDate(
-      date.getUTCDate() +
-        360,
+        s: {
+          services: {
+            serviceType: string;
+            isEnabled: boolean;
+          }[];
+        },
+      ) =>
+        s.services.some(
+          (x) =>
+            x.serviceType ===
+              "GROUP_COURSE" &&
+            x.isEnabled,
+        ),
     );
 
-    const created =
-      await request.post(
-        `${base}/api/manager/classes`,
+    expect(sport).toBeTruthy();
+
+    const coaches = await (
+      await request.get(
+        `${base}/api/coaches?sportId=${sport.sportId}`,
         {
           headers,
-
-          data: {
-            code:
-              `P2-cancel-${Date.now()}`,
-
-            name:
-              "P2 live cancellation",
-
-            sportId:
-              sport.sportId,
-
-            coachId:
-              coaches[0].userId,
-
-            defaultRoomId:
-              template.defaultRoomId,
-
-            startDate:
-              date
-                .toISOString()
-                .slice(0, 10),
-
-            numSessions:
-              3,
-
-            capacity:
-              8,
-
-            price:
-              100000,
-
-            costAmount:
-              0,
-
-            scheduleRules:
-            [
-              {
-                dayOfWeek:
-                  date.getUTCDay(),
-
-                startTimeLocal:
-                  "10:00",
-              },
-            ],
-          },
         },
-      );
+      )
+    ).json();
+
+    expect(
+      coaches.length,
+    ).toBeGreaterThan(0);
+
+    const template = (
+      await (
+        await request.get(
+          `${base}/api/classes?sportId=${sport.sportId}`,
+        )
+      ).json()
+    ).items[0];
+
+    expect(template).toBeTruthy();
+
+    const date = new Date();
+
+    date.setUTCDate(
+      date.getUTCDate() + 360,
+    );
+
+    const created = await request.post(
+      `${base}/api/manager/classes`,
+      {
+        headers,
+        data: {
+          code:
+            `P2-cancel-${Date.now()}`,
+
+          name:
+            "P2 live cancellation",
+
+          sportId:
+            sport.sportId,
+
+          coachId:
+            coaches[0].userId,
+
+          defaultRoomId:
+            template.defaultRoomId,
+
+          startDate:
+            date
+              .toISOString()
+              .slice(0, 10),
+
+          numSessions: 3,
+
+          capacity: 8,
+
+          price: 100000,
+
+          costAmount: 0,
+
+          scheduleRules: [
+            {
+              dayOfWeek:
+                date.getUTCDay(),
+
+              startTimeLocal:
+                "10:00",
+            },
+          ],
+        },
+      },
+    );
 
     expect(
       created.ok(),
@@ -194,14 +174,13 @@ test(
     const course =
       await created.json();
 
-    const publish =
-      await request.post(
-        `${base}/api/manager/classes/${course.classId}/publish`,
-        {
-          headers,
-          data: {},
-        },
-      );
+    const publish = await request.post(
+      `${base}/api/manager/classes/${course.classId}/publish`,
+      {
+        headers,
+        data: {},
+      },
+    );
 
     expect(
       publish.ok(),
@@ -210,89 +189,78 @@ test(
 
     /*
      * G13:
-     * enrollment must be
-     * explicitly opened after
-     * publishing.
+     * Publish does not automatically
+     * open enrollment.
      */
-    const opened =
-      await request.post(
-        `${base}/api/manager/classes/${course.classId}/enrollment/open`,
-        {
-          headers,
-        },
-      );
+    const opened = await request.post(
+      `${base}/api/manager/classes/${course.classId}/enrollment/open`,
+      {
+        headers,
+      },
+    );
 
     expect(
       opened.ok(),
       await opened.text(),
     ).toBeTruthy();
 
-    const before =
-      await (
-        await request.get(
-          `${base}/api/wallet/me`,
-          {
-            headers:
-              memberHeaders,
-          },
-        )
-      ).json();
-
-    const checkout =
-      await request.post(
-        `${base}/api/checkouts/class`,
+    const before = await (
+      await request.get(
+        `${base}/api/wallet/me`,
         {
-          headers: {
-            ...memberHeaders,
-
-            "Idempotency-Key":
-              crypto.randomUUID(),
-          },
-
-          data: {
-            classId:
-              course.classId,
-          },
+          headers: memberHeaders,
         },
-      );
+      )
+    ).json();
+
+    const checkout = await request.post(
+      `${base}/api/checkouts/class`,
+      {
+        headers: {
+          ...memberHeaders,
+          "Idempotency-Key":
+            crypto.randomUUID(),
+        },
+
+        data: {
+          classId:
+            course.classId,
+        },
+      },
+    );
 
     expect(
       checkout.ok(),
       await checkout.text(),
     ).toBeTruthy();
 
-    const {
-      invoiceId,
-    } =
+    const { invoiceId } =
       await checkout.json();
 
-    const selection =
-      await request.post(
-        `${base}/api/wallet/me/checkouts/${invoiceId}/points`,
-        {
-          headers:
-            memberHeaders,
+    const selection = await request.post(
+      `${base}/api/wallet/me/checkouts/${invoiceId}/points`,
+      {
+        headers:
+          memberHeaders,
 
-          data: {
-            points:
-              100,
-          },
+        data: {
+          points: 100,
         },
-      );
+      },
+    );
 
     expect(
       selection.ok(),
       await selection.text(),
     ).toBeTruthy();
 
-    const paid =
-      await request.post(
-        `${base}/api/checkouts/${invoiceId}/confirm-points`,
-        {
-          headers:
-            memberHeaders,
-        },
-      );
+    const paid = await request.post(
+      `${base}/api/checkouts/${invoiceId}/confirm-points`,
+      {
+        headers:
+          memberHeaders,
+      },
+    );
 
     expect(
       paid.ok(),
@@ -312,9 +280,7 @@ test(
       .getByRole(
         "tab",
         {
-          name:
-            "Students",
-
+          name: "Students",
           exact: true,
         },
       )
@@ -324,9 +290,7 @@ test(
       page.getByRole(
         "heading",
         {
-          name:
-            "Enrollments",
-
+          name: "Enrollments",
           exact: true,
         },
       ),
@@ -336,9 +300,7 @@ test(
       .getByRole(
         "tab",
         {
-          name:
-            "Overview",
-
+          name: "Overview",
           exact: true,
         },
       )
@@ -346,19 +308,14 @@ test(
 
     const cancellation =
       page
-        .locator(
-          ".card",
-        )
+        .locator(".card")
         .filter({
           has:
             page.getByRole(
               "heading",
               {
-                name:
-                  "Cancel",
-
-                exact:
-                  true,
+                name: "Cancel",
+                exact: true,
               },
             ),
         });
@@ -394,9 +351,7 @@ test(
       .getByRole(
         "button",
         {
-          name:
-            "Confirm",
-
+          name: "Confirm",
           exact: true,
         },
       )
@@ -416,20 +371,17 @@ test(
             ).json()
           ).status,
       )
-      .toBe(
-        "CANCELLED",
-      );
+      .toBe("CANCELLED");
 
-    const after =
-      await (
-        await request.get(
-          `${base}/api/wallet/me`,
-          {
-            headers:
-              memberHeaders,
-          },
-        )
-      ).json();
+    const after = await (
+      await request.get(
+        `${base}/api/wallet/me`,
+        {
+          headers:
+            memberHeaders,
+        },
+      )
+    ).json();
 
     expect(
       after.availablePoints,
@@ -447,9 +399,7 @@ test(
       .getByRole(
         "tab",
         {
-          name:
-            "Students",
-
+          name: "Students",
           exact: true,
         },
       )
@@ -459,9 +409,7 @@ test(
       page.getByRole(
         "heading",
         {
-          name:
-            "Enrollments",
-
+          name: "Enrollments",
           exact: true,
         },
       ),
@@ -469,27 +417,19 @@ test(
 
     await expect(
       page
-        .getByRole(
-          "main",
-        )
-        .getByRole(
-          "alert",
-        ),
+        .getByRole("main")
+        .getByRole("alert"),
     ).toHaveCount(0);
   },
 );
 
 test(
   "manual notice UI uses a real receipt and restores delivery after F5",
-  async ({
-    page,
-    request,
-  }) => {
-    const manager =
-      await login(
-        request,
-        "manager@sporthub.vn",
-      );
+  async ({ page, request }) => {
+    const manager = await login(
+      request,
+      "manager@sporthub.vn",
+    );
 
     await browserAuth(
       page,
@@ -538,7 +478,6 @@ test(
         {
           name:
             "Send email",
-
           exact: true,
         },
       )
@@ -548,9 +487,7 @@ test(
       .getByRole(
         "button",
         {
-          name:
-            "Review",
-
+          name: "Review",
           exact: true,
         },
       )
@@ -560,9 +497,7 @@ test(
       .getByRole(
         "button",
         {
-          name:
-            "Send notice",
-
+          name: "Send notice",
           exact: true,
         },
       )
@@ -580,6 +515,16 @@ test(
       ).searchParams.get(
         "noticeId",
       );
+
+    expect(
+      noticeId,
+    ).toBeTruthy();
+
+    if (!noticeId) {
+      throw new Error(
+        "Notice id missing",
+      );
+    }
 
     const receipt =
       await request.get(
@@ -611,9 +556,7 @@ test(
         {
           name:
             "Notification delivery",
-
-          exact:
-            true,
+          exact: true,
         },
       ),
     ).toBeVisible();
@@ -622,23 +565,16 @@ test(
       page.getByRole(
         "columnheader",
         {
-          name:
-            "Failed",
-
-          exact:
-            true,
+          name: "Failed",
+          exact: true,
         },
       ),
     ).toBeVisible();
 
     await expect(
       page
-        .getByRole(
-          "main",
-        )
-        .getByRole(
-          "alert",
-        ),
+        .getByRole("main")
+        .getByRole("alert"),
     ).toHaveCount(0);
   },
 );

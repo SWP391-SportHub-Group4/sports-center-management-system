@@ -8,7 +8,12 @@ import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import styles from "./coaches.module.css";
 
-type Coach = { userId: string; fullName: string; avatarUrl: string | null };
+type Coach = {
+  userId: string;
+  fullName: string;
+  avatarUrl: string | null;
+  bio?: string | null;
+};
 
 export default function PublicCoachesPage() {
   const { language } = useLanguage();
@@ -36,13 +41,18 @@ export default function PublicCoachesPage() {
         )}
         <div className={styles.grid}>
           {coaches.data?.map((coach) => (
-            <article key={coach.userId} className={styles.coach}>
+            <article
+              key={coach.userId}
+              id={`coach-${coach.userId}`}
+              className={styles.coach}
+            >
               <AvatarImage
                 name={coach.fullName}
                 avatarUrl={coach.avatarUrl}
                 size={112}
               />
               <h2>{coach.fullName}</h2>
+              {coach.bio && <p>{coach.bio}</p>}
               <ReportAvatarButton
                 targetUserId={coach.userId}
                 avatarUrl={coach.avatarUrl}
