@@ -23,7 +23,8 @@ public sealed class AvatarsController(AvatarService avatars) : ControllerBase
     [HttpPost("me")]
     [EnableRateLimiting("avatar-write")]
     [RequestSizeLimit(6 * 1024 * 1024)]
-    public async Task<IActionResult> Upload([FromForm] IFormFile? file, CancellationToken ct)
+    [Consumes("multipart/form-data")]
+    public async Task<IActionResult> Upload(IFormFile? file, CancellationToken ct)
     {
         if (file is null || file.Length == 0 || file.Length > AvatarService.MaxUploadBytes)
             throw new BadRequestException("avatar_size_invalid", "The image must be no larger than 5 MB.");
