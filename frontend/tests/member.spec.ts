@@ -261,14 +261,19 @@ test("Gym and PT purchases are separate", async ({ page }) => {
   await expect(
     page.getByRole("heading", { name: "Gym Membership", exact: true }),
   ).toBeVisible();
-  await expect(
-    page.getByRole("region", { name: "Gym Membership" })
-      .getByRole("button", { name: /Active until/ }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("region", { name: "Gym Membership" })
-      .getByRole("button", { name: "Select" }),
-  ).toHaveCount(0);
+
+  // Owned memberships live in My services; Explore packages intentionally shows
+  // purchasable tiers and no longer embeds an "Active until" action in the catalog.
+  await page.getByRole("button", { name: "My services", exact: true }).click();
+  const gymMembership = page
+    .locator("article[data-kind='gym']")
+    .filter({ has: page.getByRole("heading", { name: "Gym monthly" }) });
+  await expect(gymMembership).toBeVisible();
+  await expect(gymMembership).toContainText("Active");
+
+  await page
+    .getByRole("button", { name: "Explore packages", exact: true })
+    .click();
   await page.getByRole("group", { name: "Filter by package type" })
     .getByRole("button", { name: /PT 1/ }).click();
   await expect(

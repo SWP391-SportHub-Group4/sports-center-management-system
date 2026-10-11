@@ -84,7 +84,9 @@ export function PaymentAttemptPanel({
             loading={simulating}
             onClick={() => void simulate(true)}
           >
-            {vi ? "Mô phỏng thanh toán thành công" : "Simulate successful payment"}
+            {vi
+              ? "Mô phỏng thanh toán thành công"
+              : "Simulate successful payment"}
           </Button>{" "}
           <Button
             variant="secondary"

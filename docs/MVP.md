@@ -37,7 +37,8 @@ Tài liệu tổng hợp phạm vi MVP từ `Requirements.md`, `SWP391_Report_SR
 - Tuần 5 (05–11/10): nộp SRS + ERD bản chính thức.
 - Tuần 6 (12–18/10): demo Flow 1 + Flow 2.
 
-## 6. Việc cần rà trước khi nộp SRS
+## 6. Việc còn lại trước khi nộp SRS
 
-- `Requirements.md` (hiện hành) nêu ba môn Gym (gồm PT), cầu lông, bóng rổ; SRS vẫn còn mô tả 6 role gồm ExternalCoach và phạm vi bộ môn cũ. Cần đồng bộ lại SRS §1.3, §2.2 và các UC spec liên quan.
+- SRS đã đồng bộ với `Requirements.md`, SSOT và Business Rules: 5 role, Coach theo chuyên môn, UC-07/UC-08/UC-15/UC-16/UC-17 theo mô hình khóa nhiều buổi, hoàn bằng điểm.
+- Quy tắc hoàn và sự cố (BR-91, BR-130, BR-138): hoàn chuẩn Membership Gym tối đa 50%; sự cố Gym bù bằng gia hạn Membership, buổi lớp bù vào lịch tiếp theo. Phần này mới có trong tài liệu, **chưa triển khai** (INC-01 trong thiết kế).
 - VNPay mới chạy mock; sandbox thật chưa nghiệm thu (`Requirements.md` §6).

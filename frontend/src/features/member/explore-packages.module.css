@@ -242,6 +242,23 @@
   font-weight: var(--weight-semibold);
   line-height: var(--leading-snug);
 }
+.coachLine {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-4);
+  margin: var(--space-1) 0 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.coachLine strong {
+  color: var(--text-strong);
+}
+.coachLine a {
+  color: var(--color-primary);
+  font-weight: var(--weight-semibold);
+  text-underline-offset: 3px;
+}
 .slots {
   display: flex;
   flex-wrap: wrap;
@@ -356,8 +373,13 @@
 }
 .ptActions {
   display: grid;
-  justify-items: end;
+  grid-template-columns: minmax(11rem, max-content);
+  justify-items: stretch;
   gap: var(--space-1);
+}
+.ptActions > * {
+  width: 100%;
+  text-align: center;
 }
 
 @media (max-width: 720px) {
@@ -377,7 +399,7 @@
     justify-content: space-between;
   }
   .rowBuy .cta,
-  .ptActions .cta {
+  .ptActions > * {
     flex: 1 1 140px;
   }
   .search {

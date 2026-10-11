@@ -17,6 +17,7 @@ import type {
 import styles from "./desk.module.css";
 import { AvatarImage } from "@/components/AvatarImage";
 import { ReportAvatarButton } from "@/components/ReportAvatarButton";
+import { MemberCancellations } from "./member-cancellations";
 
 /**
  * Hội viên đang phục vụ: tên, Membership, đang trong Gym hay không, và các thao tác kế tiếp.
@@ -187,6 +188,11 @@ export function SelectedMemberPanel({
         )}
       </div>
       {blocked && <p className={styles.block}>{l.needMembership}</p>}
+      <MemberCancellations
+        memberId={memberId}
+        packages={packages.data ?? []}
+        onChanged={packages.reload}
+      />
       {note && (
         <p className={styles.note} role="status">
           {note}

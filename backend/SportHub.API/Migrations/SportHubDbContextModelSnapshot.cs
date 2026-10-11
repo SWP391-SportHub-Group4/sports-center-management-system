@@ -2027,6 +2027,11 @@ namespace SportHub.API.Migrations
                         new
                         {
                             OfferingId = 2,
+                            RoomTypeId = 1
+                        },
+                        new
+                        {
+                            OfferingId = 2,
                             RoomTypeId = 2
                         });
                 });
