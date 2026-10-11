@@ -66,6 +66,10 @@ export function MemberServiceHub() {
       ).filter((row) => !isRetiredActivityPackage(row.packageName)),
     [],
   );
+  const hasGym =
+    packages.data?.some(
+      (row) => row.status.toUpperCase() === "ACTIVE" && row.isUsable,
+    ) ?? false;
   const section = raw.section ? values.section : legacySection;
   const view = raw.view
     ? values.view
@@ -270,50 +274,54 @@ export function MemberServiceHub() {
                             row.status.toUpperCase() === "PENDING_PAYMENT" ||
                             row.status.toUpperCase() === "ACTIVE",
                         );
-                        return current.length ? (
-                          <div className={styles.ownedPackages}>
-                            {current.map((row) => (
-                              <article
-                                key={row.memberPackageId}
-                                className={styles.ownedPackage}
-                              >
-                                <span className={styles.ownership}>
-                                  {row.status.toUpperCase() ===
-                                  "PENDING_PAYMENT"
-                                    ? vi
-                                      ? "Chờ thanh toán"
-                                      : "Awaiting payment"
-                                    : row.isUsable
-                                      ? vi
-                                        ? "Đang sử dụng"
-                                        : "Active membership"
-                                      : vi
-                                        ? "Đã đăng ký"
-                                        : "Purchased"}
-                                </span>
-                                <h3>{row.packageName}</h3>
-                                <p>
-                                  {formatDate(row.startDate)} –{" "}
-                                  {formatDate(row.endDate)}
-                                </p>
-                                {row.isUsable && (
-                                  <p>
-                                    {vi
-                                      ? "Quyền truy cập khu tập Gym đang có hiệu lực."
-                                      : "Your Gym access is active."}
-                                  </p>
-                                )}
-                              </article>
-                            ))}
-                          </div>
-                        ) : (
-                          <MembershipCatalog
-                            purchase
-                            owned={rows}
-                            compact
-                            dense
-                            paymentModal
-                          />
+                        return (
+                          <>
+                            {current.length > 0 && (
+                              <div className={styles.ownedPackages}>
+                                {current.map((row) => (
+                                  <article
+                                    key={row.memberPackageId}
+                                    className={styles.ownedPackage}
+                                  >
+                                    <span className={styles.ownership}>
+                                      {row.status.toUpperCase() ===
+                                      "PENDING_PAYMENT"
+                                        ? vi
+                                          ? "Chờ thanh toán"
+                                          : "Awaiting payment"
+                                        : row.isUsable
+                                          ? vi
+                                            ? "Đang sử dụng"
+                                            : "Active membership"
+                                          : vi
+                                            ? "Đã đăng ký"
+                                            : "Purchased"}
+                                    </span>
+                                    <h3>{row.packageName}</h3>
+                                    <p>
+                                      {formatDate(row.startDate)} –{" "}
+                                      {formatDate(row.endDate)}
+                                    </p>
+                                    {row.isUsable && (
+                                      <p>
+                                        {vi
+                                          ? "Quyền truy cập khu tập Gym đang có hiệu lực."
+                                          : "Your Gym access is active."}
+                                      </p>
+                                    )}
+                                  </article>
+                                ))}
+                              </div>
+                            )}
+                            <MembershipCatalog
+                              purchase
+                              owned={rows}
+                              compact
+                              dense
+                              paymentModal
+                              gymActive={hasGym}
+                            />
+                          </>
                         );
                       }}
                     </AsyncSection>
@@ -326,17 +334,27 @@ export function MemberServiceHub() {
                   <h2 id="services-pt">
                     {vi ? "Huấn luyện cá nhân" : "Personal training"}
                   </h2>
-                  <p className="muted">
-                    {vi
-                      ? "Chọn coach, đặt lịch và thanh toán từng buổi 90 phút tại Training."
-                      : "Choose a coach, book and pay per 90-minute session in Training."}
-                  </p>
-                  <Link
-                    className="btn btn--secondary"
-                    href="/member/training?tab=book"
-                  >
-                    {vi ? "Đặt lịch & thanh toán PT" : "Book & pay for PT"}
-                  </Link>
+                  {hasGym ? (
+                    <>
+                      <p className="muted">
+                        {vi
+                          ? "Chọn coach, đặt lịch và thanh toán từng buổi 90 phút tại Training."
+                          : "Choose a coach, book and pay per 90-minute session in Training."}
+                      </p>
+                      <Link
+                        className="btn btn--secondary"
+                        href="/member/training?tab=book"
+                      >
+                        {vi ? "Đặt lịch & thanh toán PT" : "Book & pay for PT"}
+                      </Link>
+                    </>
+                  ) : (
+                    <p className="muted" role="note">
+                      {vi
+                        ? "Cần có Membership Gym đang hiệu lực để đặt và mua buổi PT. Hãy mua Membership ở cột bên cạnh trước."
+                        : "An active Gym membership is required to book and buy PT sessions. Buy a Membership first."}
+                    </p>
+                  )}
                 </section>
               </div>
             </div>

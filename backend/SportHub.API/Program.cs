@@ -430,6 +430,17 @@ if (args.Any(a => a == "--seed-member-calendar=true"))
     return;
 }
 
+// Kế hoạch tập coach.pt giao cho an.member (idempotent), để xem giao diện Member trên DB đã có dữ liệu:
+//   dotnet run --project backend/SportHub.API -- --seed-member-training=true
+if (args.Any(a => a == "--seed-member-training=true"))
+{
+    if (!app.Environment.IsDevelopment())
+        throw new InvalidOperationException("Demo fixtures are only available in Development.");
+    await using var trainingScope = app.Services.CreateAsyncScope();
+    await trainingScope.ServiceProvider.GetRequiredService<DemoDataSeeder>().SeedMemberWorkoutPlanAsync();
+    return;
+}
+
 // Seed demo BR-141 (lớp cố định + giá thuê sân): lệnh riêng, chạy tay khi sẵn sàng, không chạy lúc khởi động bình thường.
 //   dotnet run --project backend/SportHub.API -- --seed-br141=true
 // Viết `--seed-br141=true` (có giá trị): provider dòng lệnh của .NET coi tham số `--khoá` đứng một mình là "khóa + giá trị là
