@@ -12,6 +12,7 @@ using SportHub.Identity.Domain.Enums;
 using SportHub.Training.Application.Services;
 using SportHub.Training.Domain.Entities;
 using SportHub.Training.Domain.Enums;
+using SportHub.AI.Application.DTOs.Manager;
 
 namespace SportHub.AI.Api;
 
@@ -30,9 +31,35 @@ public sealed record AiLogResponse(
 public class AiController(
     IWorkoutRecommendationService recommendations,
     IAiChatService chatService,
+    IManagerScheduleSuggestionService managerSchedules,
     ISportHubDbContext db,
     PersonalTrainerGuard personalTrainers) : ControllerBase
 {
+    [Authorize(
+        Policy = SportHubPolicies.CenterManager)]
+    [HttpPost(
+        "manager/schedule-suggestions")]
+    public async Task<
+        ActionResult<
+            ManagerScheduleSuggestionResponse>>
+        SuggestManagerSchedule(
+            [FromBody]
+            ManagerScheduleSuggestionRequest request,
+            CancellationToken ct)
+    {
+        var managerId =
+            User.RequireUserId();
+
+        var result =
+            await managerSchedules
+                .SuggestAsync(
+                    managerId,
+                    request,
+                    ct);
+
+        return Ok(result);
+    }
+    //-----
     [Authorize(Policy = SportHubPolicies.Coach)]
     [HttpPost("workout-suggestions/{memberId:guid}")]
     public async Task<IActionResult> Suggest(

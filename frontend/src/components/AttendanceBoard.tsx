@@ -123,7 +123,7 @@ export function AttendanceBoard({
         <AsyncSection state={sessions}>
           {(data) => (
             <>
-              <Field label={l.registration}>
+              <Field label={t.frontDesk.attendanceClass}>
                 <select
                   disabled={bulk}
                   value={classId}
@@ -141,7 +141,7 @@ export function AttendanceBoard({
                   ))}
                 </select>
               </Field>
-              <Field label={l.sessions}>
+              <Field label={t.frontDesk.attendanceSession}>
                 <select
                   disabled={bulk}
                   value={sessionId}

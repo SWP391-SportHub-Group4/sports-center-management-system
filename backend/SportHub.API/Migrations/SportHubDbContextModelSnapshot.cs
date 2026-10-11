@@ -1289,7 +1289,7 @@ namespace SportHub.API.Migrations
                         {
                             t.HasCheckConstraint("CK_payment_adjustments_completed_has_date", "status <> 3 OR legacy_payout_unverified OR completed_at_utc IS NOT NULL");
 
-                            t.HasCheckConstraint("CK_payment_adjustments_refund_completed_evidence", "(type <> 0 OR status <> 3)\nOR legacy_payout_unverified\nOR (invoice_item_id IS NOT NULL AND point_ledger_entry_id IS NOT NULL\n    AND approved_points > 0 AND completed_at_utc IS NOT NULL)\nOR (completed_at_utc IS NOT NULL\n    AND completed_by_user_id IS NOT NULL\n    AND refund_method IS NOT NULL)");
+                            t.HasCheckConstraint("CK_payment_adjustments_refund_completed_evidence", "(type <> 0 OR status <> 3)\r\nOR legacy_payout_unverified\r\nOR (invoice_item_id IS NOT NULL AND point_ledger_entry_id IS NOT NULL\r\n    AND approved_points > 0 AND completed_at_utc IS NOT NULL)\r\nOR (completed_at_utc IS NOT NULL\r\n    AND completed_by_user_id IS NOT NULL\r\n    AND refund_method IS NOT NULL)");
                         });
                 });
 
@@ -1628,7 +1628,7 @@ namespace SportHub.API.Migrations
                         {
                             t.HasCheckConstraint("ck_point_ledger_balance", "available_after >= 0 AND held_after >= 0 AND points > 0");
 
-                            t.HasCheckConstraint("ck_point_ledger_deltas", "(entry_type = 0 AND available_delta = -points AND held_delta = points) OR\n(entry_type = 1 AND available_delta = points AND held_delta = -points) OR\n(entry_type = 2 AND available_delta = 0 AND held_delta = -points) OR\n(entry_type = 3 AND available_delta = points AND held_delta = 0) OR\n(entry_type = 4 AND held_delta = 0 AND (available_delta = points OR available_delta = -points))");
+                            t.HasCheckConstraint("ck_point_ledger_deltas", "(entry_type = 0 AND available_delta = -points AND held_delta = points) OR\r\n(entry_type = 1 AND available_delta = points AND held_delta = -points) OR\r\n(entry_type = 2 AND available_delta = 0 AND held_delta = -points) OR\r\n(entry_type = 3 AND available_delta = points AND held_delta = 0) OR\r\n(entry_type = 4 AND held_delta = 0 AND (available_delta = points OR available_delta = -points))");
                         });
                 });
 
@@ -2173,6 +2173,10 @@ namespace SportHub.API.Migrations
                     b.Property<int>("DefaultRoomId")
                         .HasColumnType("integer")
                         .HasColumnName("default_room_id");
+
+                    b.Property<bool>("EnrollmentOpen")
+                        .HasColumnType("boolean")
+                        .HasColumnName("enrollment_open");
 
                     b.Property<string>("Name")
                         .IsRequired()

@@ -6,6 +6,7 @@ namespace SportHub.Scheduling.Application.Interfaces;
 
 public interface IClassService
 {
+    
     /// <summary>Khóa đã publish, cho công chúng. Draft/đã hủy không bao giờ xuất hiện.</summary>
     Task<PagedResult<ClassPublicResponse>> ListPublicAsync(int? sportId, int page, int pageSize, CancellationToken ct = default, DateOnly? fromDate = null, DateOnly? toDate = null);
 
@@ -26,4 +27,10 @@ public interface IClassService
     Task<ClassManagerResponse> PublishAsync(int classId, PublishClassRequest request, Guid actorUserId, CancellationToken ct = default);
 
     Task<ClassManagerResponse> CancelAsync(int classId, CancelClassRequest request, Guid actorUserId, CancellationToken ct = default);
+
+    Task<ClassManagerResponse> SetEnrollmentOpenAsync(
+        int classId,
+        bool open,
+        Guid actorUserId,
+        CancellationToken ct = default);
 }
