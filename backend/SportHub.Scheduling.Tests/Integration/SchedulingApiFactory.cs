@@ -1,6 +1,10 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using SportHub.BuildingBlocks.Abstractions.Email;
+using SportHub.Identity.Infrastructure.Email;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -31,11 +35,13 @@ public sealed class SchedulingApiFactory : WebApplicationFactory<Program>, IAsyn
 {
     public const string TestSecretKey = "sporthub-scheduling-tests-secret-key-64-bytes-long-enough!!!";
 
-    private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("postgres:16-alpine")
+    private readonly PostgreSqlContainer? _postgres = ExternalConnectionString is null ? new PostgreSqlBuilder("postgres:16-alpine")
         .WithDatabase("sporthub_scheduling_tests")
         .WithUsername("sporthub")
         .WithPassword("sporthub-test-password")
-        .Build();
+        .Build() : null;
+
+    private static string? ExternalConnectionString => Environment.GetEnvironmentVariable("SPORTHUB_TEST_POSTGRES");
 
     public JwtOptions EffectiveJwtOptions
     {
@@ -59,7 +65,7 @@ public sealed class SchedulingApiFactory : WebApplicationFactory<Program>, IAsyn
 
     async Task IAsyncLifetime.InitializeAsync()
     {
-        await _postgres.StartAsync();
+        if (_postgres is not null) await _postgres.StartAsync();
 
         using var scope = Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
@@ -69,23 +75,46 @@ public sealed class SchedulingApiFactory : WebApplicationFactory<Program>, IAsyn
     async Task IAsyncLifetime.DisposeAsync()
     {
         await base.DisposeAsync();
-        await _postgres.DisposeAsync();
+        if (_postgres is not null) await _postgres.DisposeAsync();
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        Environment.SetEnvironmentVariable("Smtp__FromAddress", "integration-tests@example.invalid");
+        Environment.SetEnvironmentVariable("Email__Smtp__FromAddress", "integration-tests@example.invalid");
         builder.UseEnvironment("Development");
+        builder.ConfigureTestServices(services =>
+        {
+            services.RemoveAll<IEmailSender>();
+            services.AddSingleton<IEmailSender, UnavailableEmailSender>();
+        });
 
         builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(
             new Dictionary<string, string?>
             {
-                ["ConnectionStrings:Default"] = _postgres.GetConnectionString(),
+                ["ConnectionStrings:Default"] = ExternalConnectionString ?? _postgres!.GetConnectionString(),
                 ["JwtOptions:Issuer"] = "SportHub.Api",
                 ["JwtOptions:Audience"] = "SportHub.Client",
                 ["JwtOptions:SecretKey"] = TestSecretKey,
                 ["JwtOptions:AccessTokenExpiryMinutes"] = "60",
-                ["Cors:AllowedOrigins:0"] = "http://localhost:3000"
+                ["Cors:AllowedOrigins:0"] = "http://localhost:3000",
+                ["Smtp:Host"] = "",
+                ["Email:Smtp:Host"] = "",
+                ["Email:DemoLoggingEnabled"] = "true"
             }));
+    }
+
+    /// <summary>Security stamp hiện tại của user trong DB test — token phải mang đúng stamp (claim sst).</summary>
+    public Guid StampOf(Guid userId)
+    {
+        using var scope = Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<SportHub.BuildingBlocks.Abstractions.Persistence.ISportHubDbContext>();
+
+        return db.Set<SportHub.Identity.Domain.Entities.UserAccount>()
+            .AsNoTracking()
+            .Where(u => u.UserId == userId)
+            .Select(u => u.SecurityStamp)
+            .SingleOrDefault();
     }
 
     public HttpClient CreateApiClient(Guid? actingUserId = null, UserRole? actingRole = null)
@@ -96,7 +125,7 @@ public sealed class SchedulingApiFactory : WebApplicationFactory<Program>, IAsyn
         {
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
                 "Bearer",
-                JwtService.GenerateAccessToken(actingUserId.Value, actingRole.Value.ToString(), EffectiveJwtOptions));
+                JwtService.GenerateAccessToken(actingUserId.Value, actingRole.Value.ToString(), EffectiveJwtOptions, StampOf(actingUserId.Value)));
         }
 
         return client;

@@ -6,5 +6,6 @@ public enum NotificationStatus
     Pending,
     Sent,
     Failed,
-    Read
+    Read,
+    Sending
 }

@@ -33,6 +33,12 @@ public sealed class GymCheckInService(IGymCheckInRepository repository) : IGymCh
         return ToDto(checkIn);
     }
 
+    public async Task<GymCheckInResponse> CheckOutAsync(
+        Guid checkInId,
+        Guid checkedOutByUserId,
+        CancellationToken cancellationToken = default)
+        => ToDto(await repository.CheckOutAsync(checkInId, checkedOutByUserId, cancellationToken));
+
     public async Task<PagedResult<GymCheckInResponse>> GetHistoryAsync(
         Guid memberId,
         int page,
@@ -67,6 +73,8 @@ public sealed class GymCheckInService(IGymCheckInRepository repository) : IGymCh
         CheckInId = checkIn.CheckInId,
         MemberId = checkIn.MemberId,
         CheckedInByUserId = checkIn.CheckedInByUserId,
-        CheckInTime = checkIn.CheckInTime
+        CheckInTime = checkIn.CheckInTime,
+        CheckOutTime = checkIn.CheckOutTime,
+        CheckedOutByUserId = checkIn.CheckedOutByUserId
     };
 }

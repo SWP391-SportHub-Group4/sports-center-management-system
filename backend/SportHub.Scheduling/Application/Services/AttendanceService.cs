@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 using SportHub.BuildingBlocks.Abstractions.Audit;
+using SportHub.BuildingBlocks.Abstractions.Identity;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.BuildingBlocks.SharedKernel.Time;
@@ -10,107 +12,104 @@ using SportHub.Scheduling.Application.Interfaces;
 namespace SportHub.Scheduling.Application.Services;
 
 /// <summary>
-/// Điểm danh lớp — BR-21 (tối đa một bản ghi cho mỗi đăng ký), BR-22 (chỉ Coach dạy buổi đó
-/// hoặc Lễ tân), BR-53 (chỉ ghi tay Present/Absent; No-show là việc của job).
+/// Điểm danh khóa học do Lễ tân hoặc coach được phân công ghi (Present/Absent). Kiểm: ghi danh thuộc ĐÚNG lớp của buổi, ghi danh còn Confirmed tại thời điểm
+/// thao tác, buổi chưa bị hủy, đúng cửa sổ thời gian. Không còn NoShow tự động cho lớp nhóm và không ghi vào WorkoutResult.
 /// </summary>
-public sealed class AttendanceService(
-    ISportHubDbContext db,
-    IAuditWriter audit,
-    IClock clock) : IAttendanceService
+public sealed class AttendanceService(ISportHubDbContext db, IClock clock, IUserAccessReader users, IAuditWriter audit) : IAttendanceService
 {
+    public static readonly TimeSpan CorrectionWindow = SessionAttendanceWindow.CorrectionWindow;
+
     public async Task<AttendanceResponse> MarkAsync(
-        Guid enrollmentId,
-        MarkAttendanceRequest request,
-        Guid actorUserId,
-        bool actorIsReceptionist,
-        CancellationToken ct = default)
+        Guid sessionId, Guid enrollmentId, MarkAttendanceRequest request, Guid recorderUserId, CancellationToken ct = default)
     {
-        // BR-53 — NoShow không bao giờ nhận từ client; chỉ AttendanceFinalizerJob sinh ra nó.
-        if (!Enum.TryParse<AttendanceStatus>(request.Status, ignoreCase: true, out var status)
-            || status == AttendanceStatus.NoShow)
+        var actor = await users.GetAsync(recorderUserId, ct);
+        if (actor is not { IsActive: true } || actor.Role is not ("Receptionist" or "Coach"))
         {
-            throw new BadRequestException(
-                "invalid_attendance_status",
-                "Chỉ ghi nhận Present hoặc Absent. No-show do hệ thống tự ghi sau khi buổi học kết thúc (BR-53).");
+            throw new ForbiddenException("attendance_recorder_required", "Chỉ Lễ tân hoặc coach được phân công đang hoạt động được điểm danh.");
+        }
+        var status = ParseStatus(request.Status);
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        await db.Database.ExecuteSqlInterpolatedAsync(
+            $"SELECT session_id FROM class_sessions WHERE session_id = {sessionId} FOR UPDATE", ct);
+        await db.Database.ExecuteSqlInterpolatedAsync(
+            $"SELECT enrollment_id FROM enrollments WHERE enrollment_id = {enrollmentId} FOR UPDATE", ct);
+
+        var session = await db.Set<ClassSession>().AsNoTracking().SingleOrDefaultAsync(s => s.SessionId == sessionId, ct)
+                      ?? throw new NotFoundException("session_not_found", "Không tìm thấy buổi học.");
+        if (actor.Role == "Coach" && session.CoachId != recorderUserId)
+            throw new ForbiddenException("session_not_assigned", "Bạn không được phân công dạy buổi này.");
+
+        var enrollment = await db.Set<Enrollment>().AsNoTracking().SingleOrDefaultAsync(e => e.EnrollmentId == enrollmentId, ct)
+                         ?? throw new NotFoundException("enrollment_not_found", "Không tìm thấy ghi danh.");
+
+        if (enrollment.ClassId != session.ClassId)
+        {
+            throw new BadRequestException("enrollment_not_in_class", "Ghi danh không thuộc lớp của buổi học này.");
         }
 
-        var enrollment = await db.Set<Enrollment>()
-            .Include(e => e.Session)
-            .Include(e => e.Attendance)
-            .SingleOrDefaultAsync(e => e.EnrollmentId == enrollmentId, ct)
-            ?? throw new NotFoundException("enrollment_not_found", "Không tìm thấy đăng ký.");
+        if (session.Status == ClassSessionStatus.Cancelled)
+        {
+            throw new ConflictException("session_cancelled", "Buổi học đã bị hủy — không điểm danh.");
+        }
 
-        // BR-20 — đăng ký đã hủy không bị ghi No-show, và cũng không có lý do gì để điểm danh:
-        // hội viên đã rút khỏi buổi học đó.
         if (enrollment.Status != EnrollmentStatus.Confirmed)
         {
-            throw new ConflictException(
-                "enrollment_not_confirmed",
-                $"Đăng ký đang ở trạng thái {enrollment.Status} — không điểm danh được.");
+            throw new ConflictException("enrollment_not_active", "Ghi danh không còn hiệu lực.");
         }
 
-        // BR-22 — chỉ Coach ĐƯỢC GÁN cho buổi đó, hoặc Lễ tân tại quầy.
-        // Coach khác không điểm danh hộ được, kể cả khi cũng có vai trò Coach.
-        if (!actorIsReceptionist && enrollment.Session!.CoachId != actorUserId)
+        var now = clock.UtcNow;
+
+        if (now < SessionAttendanceWindow.OpensAt(session.StartAtUtc))
         {
-            throw new ForbiddenException(
-                "not_session_coach",
-                "Chỉ HLV được phân công cho buổi học này hoặc Lễ tân mới điểm danh được (BR-22).");
+            throw new BadRequestException("attendance_not_open", "Điểm danh mở từ 5 phút trước giờ bắt đầu buổi học.");
         }
 
-        var attendance = enrollment.Attendance;
-
-        if (attendance is null)
+        if (now > session.EndAtUtc + CorrectionWindow)
         {
-            attendance = new Attendance
-            {
-                AttendanceId = Guid.NewGuid(),
-                EnrollmentId = enrollmentId
-            };
-
-            db.Set<Attendance>().Add(attendance);
+            throw new ConflictException("attendance_closed", "Đã quá 24 giờ sau khi buổi học kết thúc — không điểm danh/sửa được.");
         }
 
-        var previous = attendance.Status;
+        var clsStatus = await db.Set<Class>().Where(c => c.ClassId == session.ClassId).Select(c => c.Status).SingleAsync(ct);
+        if (clsStatus is ClassStatus.Draft or ClassStatus.Cancelled)
+        {
+            throw new ConflictException("class_not_active", "Khóa chưa bắt đầu hoặc đã bị hủy.");
+        }
 
+        var existing = await db.Set<Attendance>()
+            .SingleOrDefaultAsync(a => a.EnrollmentId == enrollmentId && a.SessionId == sessionId, ct);
+        if (existing is not null && existing.Status == status)
+        {
+            await tx.CommitAsync(ct);
+            return ToResponse(existing);
+        }
+
+        var before = existing?.Status.ToString();
+        var attendance = existing ?? new Attendance
+        {
+            AttendanceId = Guid.NewGuid(), EnrollmentId = enrollmentId, SessionId = sessionId,
+            RecordedByUserId = recorderUserId, RecordedAt = now
+        };
         attendance.Status = status;
+        if (existing is null) db.Set<Attendance>().Add(attendance);
+        else attendance.LastModifiedAt = now;
 
-        // CheckInTime chỉ có nghĩa khi có mặt; đánh Absent thì xoá mốc cũ để không còn dấu vết
-        // "đã đến" mâu thuẫn với trạng thái đang lưu.
-        attendance.CheckInTime = status == AttendanceStatus.Present ? clock.UtcNow : null;
-        attendance.CheckedInByUserId = actorUserId;
-
-        audit.Write(new AuditEntry(
-            actorUserId, "MARK_ATTENDANCE", nameof(Attendance), attendance.AttendanceId.ToString(),
-            OldValue: enrollment.Attendance is null ? null : $"{{\"status\":\"{previous}\"}}",
-            NewValue: $"{{\"status\":\"{status}\",\"enrollmentId\":\"{enrollmentId}\"}}"));
-
+        audit.Write(new AuditEntry(recorderUserId, existing is null ? "MARK_COURSE_ATTENDANCE" : "CORRECT_COURSE_ATTENDANCE",
+            nameof(Attendance), attendance.AttendanceId.ToString(),
+            OldValue: before is null ? null : JsonSerializer.Serialize(new { status = before }),
+            NewValue: JsonSerializer.Serialize(new { sessionId, enrollmentId, status = status.ToString() })));
         await db.SaveChangesAsync(ct);
-
-        return await GetOneAsync(attendance.AttendanceId, ct);
+        await tx.CommitAsync(ct);
+        return ToResponse(attendance);
     }
 
-    public async Task<IReadOnlyList<AttendanceResponse>> GetBySessionAsync(
-        Guid sessionId,
-        CancellationToken ct = default)
-        => await db.Set<Attendance>()
-            .AsNoTracking()
-            .Where(a => a.Enrollment!.SessionId == sessionId)
-            .Select(Projection())
-            .ToListAsync(ct);
+    private static AttendanceStatus ParseStatus(string value)
+        => value?.Trim() switch
+        {
+            string s when s.Equals(nameof(AttendanceStatus.Present), StringComparison.OrdinalIgnoreCase) => AttendanceStatus.Present,
+            string s when s.Equals(nameof(AttendanceStatus.Absent), StringComparison.OrdinalIgnoreCase) => AttendanceStatus.Absent,
+            _ => throw new BadRequestException("invalid_attendance_status", "Trạng thái điểm danh chỉ nhận Present hoặc Absent.")
+        };
 
-    private async Task<AttendanceResponse> GetOneAsync(Guid attendanceId, CancellationToken ct)
-        => await db.Set<Attendance>().AsNoTracking().Where(a => a.AttendanceId == attendanceId).Select(Projection())
-               .SingleOrDefaultAsync(ct)
-           ?? throw new NotFoundException("attendance_not_found", "Không tìm thấy bản ghi điểm danh.");
-
-    private static System.Linq.Expressions.Expression<Func<Attendance, AttendanceResponse>> Projection()
-        => a => new AttendanceResponse(
-            a.AttendanceId,
-            a.EnrollmentId,
-            a.Enrollment!.MemberId,
-            a.Enrollment.Member!.Profile != null ? a.Enrollment.Member.Profile.FullName : a.Enrollment.Member.Email,
-            a.Status.ToString(),
-            a.CheckInTime,
-            a.CheckedInByUserId);
+    private static AttendanceResponse ToResponse(Attendance a)
+        => new(a.AttendanceId, a.EnrollmentId, a.SessionId, a.Status.ToString(), a.RecordedByUserId, a.RecordedAt, a.LastModifiedAt);
 }

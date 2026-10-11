@@ -1,134 +1,279 @@
 "use client";
-
 import { useState } from "react";
-import { AsyncSection, Card, Field, Pager, Table } from "@/components/ui";
+import { Card } from "@/components/ui";
+import {
+  ApiTable,
+  FilterBar,
+  type FilterField,
+  type TableColumn,
+} from "@/components/data";
+import type { SortDirection } from "@/components/contracts/table";
 import { api } from "@/lib/apiClient";
-import { formatDateTime } from "@/lib/format";
 import { useApi } from "@/lib/useApi";
-import type { AuditLogDto, Paged } from "@/lib/types";
+import { choiceQuery, pageQuery, useUrlQuery } from "@/lib/useUrlQuery";
+import { useLanguage } from "@/lib/language";
+import { formatDateTime } from "@/lib/format";
+import type { AuditLogDto, Paged, RoomTypeDto } from "@/lib/types";
+import { AuditTargetAccount } from "@/features/administration/AuditTargetAccount";
+import { AuditTargetEntity } from "@/features/administration/AuditTargetEntity";
+import { ManagerAuditChanges } from "@/features/administration/ManagerAuditChanges";
+import { MembershipAuditChanges } from "@/features/administration/MembershipAuditChanges";
+import {
+  CourtRateAuditChanges,
+  needsCourtRateRoomNames,
+} from "@/features/administration/CourtRateAuditChanges";
+import styles from "./AuditLogView.module.css";
 
-/**
- * Nhật ký thao tác (BR-7). Chỉ đọc — không có endpoint nào sửa hoặc xóa audit log, nếu không
- * nhật ký mất giá trị làm bằng chứng.
- *
- * Dùng chung cho Quản lý Trung tâm (BR-7: "xem lịch sử thao tác") và Quản trị hệ thống
- * (cần đối chiếu chính các thao tác khóa/mở khóa mà BR-6 giao cho vai trò này).
- */
-export function AuditLogView() {
-  const [page, setPage] = useState(1);
-  const [action, setAction] = useState("");
-  const [targetEntity, setTargetEntity] = useState("");
+const auditQueryDefaults = {
+  action: "",
+  targetEntity: "",
+  actorId: "",
+  page: "1",
+  sortBy: "timestamp",
+  sortDirection: "desc",
+};
+const auditQueryValidators = {
+  page: pageQuery,
+  sortBy: choiceQuery(
+    ["timestamp", "actorEmail", "action", "targetEntity"],
+    "timestamp",
+  ),
+  sortDirection: choiceQuery(["asc", "desc"], "desc"),
+};
+type AuditFilters = { action: string; targetEntity: string; actorId: string };
 
-  const logs = useApi(
+function AuditFilterForm({
+  values,
+  accountsOnly,
+  onApply,
+  onReset,
+}: {
+  values: AuditFilters;
+  accountsOnly: boolean;
+  onApply: (values: AuditFilters) => void;
+  onReset: () => void;
+}) {
+  const { t } = useLanguage();
+  const l = t.staffWork;
+  const [draft, setDraft] = useState<Record<string, string>>(values);
+  const [invalidActor, setInvalidActor] = useState(false);
+  const fields: FilterField[] = [
+    { id: "action", label: l.action, kind: "search" },
+    ...(!accountsOnly
+      ? [{ id: "targetEntity", label: l.entity, kind: "search" as const }]
+      : []),
+    { id: "actorId", label: l.actor, kind: "search" },
+  ];
+  return (
+    <form
+      onSubmit={(event) => {
+        event.preventDefault();
+        const actorId = (draft.actorId ?? "").trim();
+        if (
+          actorId &&
+          !/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(
+            actorId,
+          )
+        ) {
+          setInvalidActor(true);
+          return;
+        }
+        setInvalidActor(false);
+        onApply({
+          action: (draft.action ?? "").trim(),
+          targetEntity: accountsOnly ? "" : (draft.targetEntity ?? "").trim(),
+          actorId,
+        });
+      }}
+    >
+      <FilterBar
+        fields={fields}
+        values={draft}
+        onChange={(next) => {
+          setDraft(next);
+          setInvalidActor(false);
+        }}
+        activeCount={
+          [
+            values.action,
+            !accountsOnly && values.targetEntity,
+            values.actorId,
+          ].filter(Boolean).length
+        }
+        onReset={() => {
+          setDraft({ action: "", targetEntity: "", actorId: "" });
+          setInvalidActor(false);
+          onReset();
+        }}
+        actions={
+          <button type="submit" className="btn">
+            {l.apply}
+          </button>
+        }
+      />
+      {invalidActor && (
+        <p className="field-error" role="alert">
+          {t.filterBar.invalidActor}
+        </p>
+      )}
+    </form>
+  );
+}
+
+export function AuditLogView({
+  accountsOnly = false,
+}: {
+  accountsOnly?: boolean;
+}) {
+  const { t } = useLanguage();
+  const l = t.staffWork;
+  const query = useUrlQuery(auditQueryDefaults, auditQueryValidators);
+  const page = Number(query.values.page);
+  const sort = {
+    columnId: query.values.sortBy,
+    direction: query.values.sortDirection as SortDirection,
+  };
+  const filters = {
+    action: query.values.action,
+    targetEntity: accountsOnly ? "" : query.values.targetEntity,
+    actorId: query.values.actorId,
+  };
+  const state = useApi(
     (signal) =>
       api.get<Paged<AuditLogDto>>("/api/audit-logs", {
         signal,
         query: {
           page,
           pageSize: 25,
-          action: action || undefined,
-          targetEntity: targetEntity || undefined,
+          action: filters.action || undefined,
+          targetEntity: accountsOnly
+            ? "UserAccount"
+            : filters.targetEntity || undefined,
+          actorId: filters.actorId || undefined,
+          sortBy: sort.columnId,
+          sortDirection: sort.direction,
         },
       }),
-    [page, action, targetEntity],
+    [
+      page,
+      filters.action,
+      filters.targetEntity,
+      filters.actorId,
+      accountsOnly,
+      sort.columnId,
+      sort.direction,
+    ],
   );
-
+  const needsRoomNames =
+    !accountsOnly && !!state.data?.items.some(needsCourtRateRoomNames);
+  // One shared reference request for the page, never one request per audit row.
+  const roomTypes = useApi(
+    (signal) =>
+      needsRoomNames
+        ? api.get<RoomTypeDto[]>("/api/room-types", { signal })
+        : Promise.resolve<RoomTypeDto[]>([]),
+    [needsRoomNames],
+  );
+  const columns: TableColumn<AuditLogDto>[] = [
+    {
+      id: "timestamp",
+      header: l.time,
+      sortable: true,
+      cell: (row) => formatDateTime(row.timestamp),
+    },
+    {
+      id: "actorEmail",
+      header: l.actor,
+      sortable: true,
+      rowHeader: true,
+      cell: (row) => (
+        <>
+          {row.actorEmail}
+          <br />
+          <span className="small muted">{row.userId}</span>
+        </>
+      ),
+    },
+    { id: "action", header: l.action, sortable: true },
+    {
+      id: "targetEntity",
+      header: accountsOnly ? t.adminWork.target : l.entity,
+      sortable: !accountsOnly,
+      cell: (row) =>
+        row.targetEntity === "UserAccount" ? (
+          <AuditTargetAccount row={row} linkToAccount={accountsOnly} />
+        ) : (
+          <AuditTargetEntity row={row} />
+        ),
+    },
+    {
+      id: "metadata",
+      header: l.metadata,
+      cell: (row) =>
+        row.targetEntity === "MembershipPackage" ? (
+          <MembershipAuditChanges row={row} />
+        ) : row.targetEntity === "CourtRate" ? (
+          <CourtRateAuditChanges row={row} roomTypes={roomTypes.data ?? []} />
+        ) : (
+          <ManagerAuditChanges row={row} />
+        ),
+    },
+  ];
+  const clearFilters = () =>
+    query.setValues({ action: "", targetEntity: "", actorId: "", page: "1" });
   return (
-    <>
-      <Card title="Filter">
-        <div className="form form--inline">
-          <Field
-            label="Actions"
-            hint="Examples: LEG_OUR_ACCUCT, RECORD_PAYMENT"
-          >
-            <input
-              value={action}
-              onChange={(event) => {
-                setPage(1);
-                setAction(event.target.value);
-              }}
-            />
-          </Field>
-          <Field
-            label="Objects"
-            hint="Examples: ‹ UserAcunit, Invoice, ClassStatus"
-          >
-            <input
-              value={targetEntity}
-              onChange={(event) => {
-                setPage(1);
-                setTargetEntity(event.target.value);
-              }}
-            />
-          </Field>
-        </div>
+    <div className={styles.root}>
+      <Card
+        title={l.audit}
+        hint={
+          accountsOnly
+            ? `${l.accountScope} ${t.adminWork.targetAccountHint}`
+            : `${l.auditHint} ${t.managerAudit.currentNamesHint}${needsRoomNames ? ` ${t.courtRateAudit.currentNameHint}` : ""}`
+        }
+      >
+        <AuditFilterForm
+          key={JSON.stringify(filters)}
+          values={filters}
+          accountsOnly={accountsOnly}
+          onApply={(next) => {
+            query.setValues({ ...next, page: "1" });
+            state.reload();
+          }}
+          onReset={clearFilters}
+        />
       </Card>
-
-      <Card title="Operations Register" bodyless>
-        <AsyncSection
-          state={logs}
-          emptyMessage="No operation has been recorded."
-          isEmpty={(data) => data.items.length === 0}
-        >
-          {(data) => (
-            <>
-              <Table
-                headers={[
-                  "Schedule",
-                  "Performor",
-                  "Actions",
-                  "Objects",
-                  "Change Text",
-                  "IP",
-                ]}
-              >
-                {data.items.map((log) => (
-                  <tr key={log.auditId}>
-                    <td className="nowrap small">
-                      {formatDateTime(log.timestamp)}
-                    </td>
-                    <td className="small">{log.actorEmail}</td>
-                    <td>
-                      <code className="small">{log.action}</code>
-                    </td>
-                    <td className="small">
-                      {log.targetEntity}
-                      <div className="muted" style={{ wordBreak: "break-all" }}>
-                        {log.targetId}
-                      </div>
-                    </td>
-                    <td
-                      className="small"
-                      style={{ maxWidth: 380, wordBreak: "break-word" }}
-                    >
-                      {log.oldValue && (
-                        <div className="muted">
-                          Before: <code>{log.oldValue}</code>
-                        </div>
-                      )}
-                      {log.newValue && (
-                        <div>
-                          Sau: <code>{log.newValue}</code>
-                        </div>
-                      )}
-                    </td>
-                    <td className="small muted">{log.ipAddress || "—"}</td>
-                  </tr>
-                ))}
-              </Table>
-
-              <div style={{ padding: "0 18px 14px" }}>
-                <Pager
-                  page={data.page}
-                  pageSize={data.pageSize}
-                  totalCount={data.totalCount}
-                  onChange={setPage}
-                />
-              </div>
-            </>
-          )}
-        </AsyncSection>
+      <Card>
+        {needsRoomNames && roomTypes.error && (
+          <p className="small muted" role="status">
+            {t.courtRateAudit.namesUnavailable}{" "}
+            <button
+              className="btn btn-ghost"
+              type="button"
+              onClick={roomTypes.reload}
+            >
+              {t.common.retry}
+            </button>
+          </p>
+        )}
+        <ApiTable
+          caption={l.audit}
+          columns={columns}
+          state={state}
+          getRowId={(row) => row.auditId}
+          page={page}
+          pageSize={25}
+          onPageChange={(next) => query.setValues({ page: String(next) })}
+          sort={sort}
+          onSortChange={(next) =>
+            query.setValues({
+              sortBy: next.columnId,
+              sortDirection: next.direction,
+              page: "1",
+            })
+          }
+          empty={{ title: t.common.noData, hint: t.dataTable.emptyHint }}
+        />
       </Card>
-    </>
+    </div>
   );
 }

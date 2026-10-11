@@ -1,2 +1,2 @@
-export * from "./model";
-export { CoachList } from "./coach-list";
+export { CoachSelector } from "./coach-selector";
+export { SpecialtyEditor } from "./specialty-editor";

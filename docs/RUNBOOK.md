@@ -1,8 +1,8 @@
-# Chạy SportHub trên máy local
+# Chạy và triển khai SportHub
 
-Hướng dẫn chạy toàn bộ hệ thống (PostgreSQL → API → giao diện) và thử từng vai trò.
+SportHub là **hệ thống quản lý trung tâm thể thao với ba môn Gym (bao gồm PT), cầu lông và bóng rổ; có thể mở rộng thêm môn trong tương lai**. PT là dịch vụ thuộc Gym, không phải môn thứ tư.
 
-> **23/09/2026:** Runbook này chỉ dùng cho thao tác đã khớp Business Rules v1.6. Toàn bộ Payment/Invoice/Adjustment/Refund và báo cáo doanh thu đang **PENDING — chưa chốt nghiệp vụ**; không chạy hoặc dùng các bước Payment cũ làm tiêu chí nghiệm thu.
+Mục 1–3: khởi động hệ thống trên máy local (PostgreSQL → backend → frontend). Mục 4: bàn giao triển khai và nghiệm thu môi trường thật.
 
 ## 1. Yêu cầu
 
@@ -10,159 +10,101 @@ Hướng dẫn chạy toàn bộ hệ thống (PostgreSQL → API → giao diệ
 - .NET SDK 10
 - Node.js 24, npm 11
 
-## 2. Khởi động
+## 2. Cấu hình
 
-### 2.1 Database
+Tạo `.env` ở thư mục gốc từ file mẫu rồi điền giá trị (file này không được commit):
+
+```bash
+cp .env.example .env
+```
+
+Link trong email đặt lại mật khẩu dựng từ `Frontend__BaseUrl` (mặc định `http://localhost:3000`; **phải đổi khi deploy**, nếu không người nhận nhận link localhost). `Frontend__SupportUrl` là website hỗ trợ ghi cuối email; để trống thì email chỉ ghi "liên hệ trung tâm". Thiếu SMTP ở Development thì nội dung email (kèm link) được ghi vào log backend (`Email__DemoLoggingEnabled`).
+
+Frontend đọc `frontend/.env.local` (tùy chọn). Mặc định gọi API tại `http://localhost:5000`; chỉ cần tạo file khi backend chạy ở địa chỉ khác (xem `frontend/.env.example`).
+
+## 3. Khởi động
+
+### 3.1 Database
 
 ```bash
 docker compose up -d postgres
 ```
 
-Postgres chạy ở `localhost:5435`. Thông số lấy từ `.env` (mẫu ở `.env.example`).
+PostgreSQL chạy ở `localhost:5435`, thông số lấy từ `.env`.
 
-### 2.2 Backend
-
-```bash
-cd backend/SportHub.API && ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS=http://localhost:5000 dotnet run
-```
-
-Ở môi trường `Development`, API tự làm hai việc khi khởi động:
-
-1. **Áp migration** (`Database.MigrateAsync`).
-2. **Seed dữ liệu demo** — chỉ khi database **chưa có tài khoản nào**. Nếu đã có dữ liệu, seeder
-   bỏ qua và không đụng vào gì.
-
-Ở môi trường khác, migration chạy qua `dotnet ef database update` trong quy trình triển khai —
-tự migrate lúc khởi động sẽ khiến nhiều instance cùng đổi schema một lúc.
-
-Swagger: <http://localhost:5000/swagger>.
-
-### 2.3 Frontend
+### 3.2 Backend
 
 ```bash
-cd frontend && npm install && npm run dev
+cd backend/SportHub.API
+dotnet run
 ```
 
-Giao diện: <http://localhost:3000>. Địa chỉ API đọc từ `NEXT_PUBLIC_API_BASE_URL`
-(mặc định `http://localhost:5000`).
+Ở môi trường `Development`, backend tự áp migration và seed dữ liệu demo khi database chưa có tài khoản nào. API chạy tại [http://localhost:5000](http://localhost:5000), Swagger tại [http://localhost:5000/swagger](http://localhost:5000/swagger)
 
-## 3. Tài khoản demo
+#### Windows chặn DLL với mã `0x800711C7`
 
-Mật khẩu chung: **`Sporthub@123`**
+`FileLoadException: An Application Control policy has blocked this file` là lỗi khi Windows nạp DLL, dù `dotnet build` có thể thành công. Kiểm tra event 3077 trong `Microsoft-Windows-CodeIntegrity/Operational`; tham khảo [hướng dẫn App Control của Microsoft](https://learn.microsoft.com/en-us/windows/security/application-security/application-control/app-control-for-business/operations/appcontrol-debugging-and-troubleshooting).
 
-| Vai trò | Email | Vào được gì |
-|---|---|---|
-| Quản trị hệ thống | `admin@sporthub.vn` | Tài khoản & vai trò; không có quyền xem Audit Log nghiệp vụ khi chưa được chốt trong SSOT |
-| Quản lý trung tâm | `manager@sporthub.vn` | Phòng, lớp, lịch, Membership, báo cáo vận hành không phụ thuộc Payment, cấu hình |
-| Lễ tân | `letan@sporthub.vn` | Gym check-in, hỗ trợ Membership, đăng ký hộ, điểm danh; Payment đang để treo |
-| HLV Yoga | `coach.yoga@sporthub.vn` | Lịch dạy, điểm danh, kế hoạch tập, gợi ý AI |
-| HLV Group X | `coach.groupx@sporthub.vn` | như trên |
-| HLV Personal Training | `coach.pt@sporthub.vn` | như trên |
-| Hội viên | `an.member@sporthub.vn` | Đặt lịch, Membership, kế hoạch tập, hồ sơ; Payment đang để treo |
-| Hội viên | `binh.member@sporthub.vn`, `chi.member@sporthub.vn`, `dung.member@sporthub.vn`, `giang.member@sporthub.vn` | như trên |
-| Hội viên (ngừng hoạt động) | `hoa.member@sporthub.vn` | minh hoạ tài khoản bị khóa (BR-6) |
+Trên máy local đã xác nhận DLL Debug `SportHub.Notification.dll` bị chặn, còn bản Release chạy được. Từ thư mục gốc dự án, dùng PowerShell:
 
-Nút "tài khoản demo" ở màn hình đăng nhập chỉ **điền sẵn form**; việc đăng nhập vẫn đi qua
-`POST /api/auth/login` với mật khẩu băm BCrypt trong DB (BR-5). Không có cửa sau nào bỏ qua
-xác thực.
+```powershell
+dotnet run --project backend/SportHub.API/SportHub.API.csproj -c Release -- --environment=Development --urls=http://localhost:5000 --DataProtection:KeysPath="$PWD/.tmp/local-api-keys"
+```
 
-## 4. Đường đi để xem từng luồng
+Lệnh build Release rồi chạy API tại cổng 5000. Thư mục key riêng cho local giải quyết trường hợp `.env` chứa đường dẫn Docker `/var/lib/sporthub/dataprotection-keys`; key nằm trong `.tmp` đã được Git bỏ qua. `Ctrl+C` dừng API. Nếu bản Release cũng bị chặn, cần người quản lý chính sách App Control cấp quyền cho ứng dụng development theo quy trình của máy.
+Mỗi lần khởi động Development, baseline phòng được bổ sung idempotent, kể cả DB đã có tài khoản: `Badminton Class BC1/BC2`, `Badminton Rental BR1/BR2`, `Basketball Class KC1/KC2`, `Basketball Rental KR1/KR2`, `Gym G1/G2`. Tên cũ của các sân demo được đổi sang mã mới nhưng giữ nguyên `room_id`, lịch lớp và booking. Hai sân Class của mỗi môn vẫn có thể cho Member thuê khi không có buổi học hoặc block trùng giờ. PT sử dụng hai phòng Gym cùng Gym membership; giờ mở cửa mặc định là 06:00–22:00 hằng ngày, giờ đã cấu hình trước đó được giữ nguyên.
 
-### Flow 1 — Tài khoản & gói thành viên
+Trên lịch Member, sau khi hủy thuê sân thành công, thẻ chuyển ngay sang `Cancelled`, mờ dần trong 2,6 giây rồi rời khỏi lịch. Lịch Manager và Receptionist vẫn ghi nhận lượt đã hủy bằng nhãn trạng thái `Cancelled`; bản ghi cũng còn trong lịch sử thuê sân, chi tiết, hóa đơn và dữ liệu hoàn điểm. Với Docker Compose, frontend chạy từ image (không bind mount mã nguồn), nên sau khi sửa UI cần chạy `docker compose up -d --build frontend` và tải lại trang.
 
-1. `admin@sporthub.vn` → **Tài khoản & vai trò**: tạo tài khoản nhân sự, đổi vai trò, khóa/mở
-   khóa (đều bắt buộc nhập lý do — BR-7). Thử tự khóa chính mình để thấy BR-6 chặn.
-2. `manager@sporthub.vn` → **Gói thành viên**: tạo gói, sửa giá, ngừng bán.
-3. `letan@sporthub.vn` → thao tác Membership theo chức năng hiện có. Membership dùng calendar date; `StartDate` và `EndDate` đều inclusive. Sự kiện xác lập `StartDate` cho lần mua mới phụ thuộc nghiệp vụ Payment đang để treo, nên không dùng luồng bán gói/hóa đơn cũ để nghiệm thu.
+### 3.2.1 Dữ liệu dev: seed lớp BR-141 và reset
 
-### Flow 2 — Lớp học & đặt lịch
-
-1. `manager@sporthub.vn` → **Lớp học**: tạo Yoga/Group X 60 phút, chọn Morning/Afternoon slot, Capacity tối đa 20, rồi chuyển `DRAFT → PUBLISHED` để mở booking.
-2. `an.member@sporthub.vn` → **Lịch lớp & đặt chỗ**: chỉ class `PUBLISHED` mới đặt được; tối đa 1 Yoga và 1 Group X trong cùng ngày. Hủy tại hoặc trước 30 phút trước giờ bắt đầu thì booking bị hủy và slot được giải phóng.
-3. `manager@sporthub.vn` → **Lịch học**: hủy hoặc dời class chưa bắt đầu. Booking cũ bị hủy, slot được giải phóng; Member tự booking lại, không tự chuyển chỗ.
-
-### Flow 3 — Thanh toán & báo cáo
-
-**PENDING — chưa chốt nghiệp vụ.** Tạm dừng hướng dẫn thao tác Payment/Invoice/Adjustment/Refund và báo cáo doanh thu. Các bước approve/complete, công thức số dư, thời hạn thanh toán, cọc, hoàn tiền và quyền thao tác trong phiên bản cũ không còn là hướng dẫn vận hành hợp lệ cho đến khi Business Rules được phê duyệt lại.
-
-### Flow 4 — Điểm danh & tập luyện
-
-1. `coach.yoga@sporthub.vn` → **Điểm danh & kết quả**: chọn buổi, đánh Có mặt/Vắng, ghi kết quả.
-2. `coach.pt@sporthub.vn` → **Kế hoạch tập**: soạn giáo án cho hội viên mình phụ trách.
-3. `an.member@sporthub.vn` → **Kế hoạch & kết quả**: xem lại, không sửa được (BR-25).
-
-### Flow 5 — Gợi ý AI
-
-`coach.pt@sporthub.vn` → **Gợi ý AI** → chọn hội viên → **Tạo gợi ý**. Màn hình hiện đủ ba đầu
-vào bắt buộc của BR-26 và thời gian phản hồi đã ghi vào `AI_Logs` (BR-27).
-
-Bản cài đặt hiện tại chạy theo bộ luật cục bộ (`RuleBasedAiRecommendationService`) — không cần
-API key, kết quả tất định; đây là demo/test, chưa nghiệm thu Flow 5. Provider thật cần cấu hình, xử lý lỗi và kiểm thử integration theo plan.
-
-### Gym / Fitness
-
-`letan@sporthub.vn` → **Gym check-in**. Gym ra vào tự do, **không** đặt lịch qua lớp; điều kiện
-duy nhất là hội viên có ≥1 gói Hoạt động, và check-in **không trừ buổi** (BR-64).
-
-## 5. Tác vụ nền
-
-Chạy trong chính tiến trình API (`SportHub.API/Jobs`):
-
-| Job | Chu kỳ | Việc |
-|---|---|---|
-| `NotificationDispatchJob` | 30 giây | Chuyển thông báo `Pending → Sent` (BR-34) |
-| `AttendanceFinalizerJob` | 10 phút | Ghi `NoShow` cho đăng ký chưa điểm danh sau khi buổi kết thúc; đóng buổi đã qua (BR-20, BR-53) |
-| `MemberPackageExpiryJob` | 15 phút | Chuyển gói quá hạn/hết buổi sang `Expired`; nhắc gói sắp hết hạn (BR-11, BR-33) |
-
-## 6. Kiểm tra
+Seed lịch lớp cố định (Bóng rổ và Cầu lông 01 T2/4/6 07:00-09:00, 02 T3/5/7 14:00-16:00) và bảng giá thuê sân (Cầu lông 100.000, Bóng rổ 200.000 đồng/giờ) là lệnh riêng, idempotent, không chạy lúc khởi động:
 
 ```bash
-cd backend && dotnet test SportHub.sln
+cd backend/SportHub.API
+ASPNETCORE_ENVIRONMENT=Development dotnet run -- --seed-br141=true
 ```
 
-**Các suite integration cần một PostgreSQL thật.** Mặc định chúng dựng container qua
-Testcontainers, nên **Docker Desktop phải đang chạy** — nếu không, mọi test integration fail
-với `DockerUnavailableException`.
+Lệnh in `database '...' trên '...'` trước khi ghi. Viết `--seed-br141=true` (có giá trị): nếu viết `--seed-br141` đứng một mình rồi tới `--ConnectionStrings:Default=...`, .NET dùng tham số kế tiếp làm giá trị của cờ và chuỗi kết nối bị bỏ qua. Biến môi trường `ConnectionStrings__Default` cũng không dùng được để đổi DB vì `.env` ở gốc repo được nạp và ghi đè; với `dotnet ef` dùng `--connection`.
 
-Khi không dùng được Docker, suite `SportHub.Payment.Tests` chấp nhận một PostgreSQL có sẵn
-qua biến môi trường. **Phải trỏ vào một DB trống, tách riêng** — suite chạy migration và ghi
-dữ liệu thật:
+Reset dữ liệu dev (giữ tài khoản và cấu hình, xóa mọi dữ liệu phát sinh): sao lưu rồi chạy [reset-dev-data.sql](../backend/scripts/reset-dev-data.sql); đầu file có lệnh `pg_dump`/`psql` mẫu. Script chỉ chạy trên database tên `sporthub` và tạm tắt trigger chặn TRUNCATE của sổ điểm.
+
+### 3.3 Frontend
 
 ```bash
-SPORTHUB_TEST_POSTGRES="Host=localhost;Port=5432;Database=sporthub_payment_tests;Username=postgres;Password=..." dotnet test backend/SportHub.Payment.Tests/SportHub.Payment.Tests.csproj
+cd frontend
+npm ci
+npm run dev
 ```
 
-Chỉ chạy unit test (không cần DB, không cần Docker):
+Giao diện chạy tại [http://localhost:3000](http://localhost:3000)
 
-```bash
-cd backend && dotnet test SportHub.Payment.Tests/SportHub.Payment.Tests.csproj --filter "FullyQualifiedName~Unit"
-```
+# 4. Bàn giao triển khai và nghiệm thu
 
-```bash
-cd frontend && npm run lint && npm run typecheck && npm run build
-```
+Phần này dùng cho môi trường nghiệm thu thật; các mục 1–3 ở trên chỉ hướng dẫn chạy local.
 
-Kịch bản end-to-end qua HTTP thật (**ghi dữ liệu thật — chỉ chạy trên DB demo**):
+### Phần đã chuẩn bị trong repo
 
-```bash
-bash scripts/e2e-business-rules.sh
-```
+- VNPay IPN và return cho phép request không có JWT. IPN vẫn phải qua xác minh chữ ký, merchant, số tiền và xử lý idempotent trước khi cấp quyền lợi. Return không ghi nhận thanh toán.
+- Coach không còn được duyệt danh sách tài khoản/gói của mọi Member. Hồ sơ tập luyện chỉ đọc được khi có quan hệ Coach–Member đang hoạt động.
+- Admin có route chi tiết tài khoản riêng `/api/users/admin/{userId}`; quyền đọc của Staff không bị mở rộng.
+- Frontend Docker build nhận các biến `NEXT_PUBLIC_*` ở build time. Đổi các biến này phải build lại image.
+- Compose lưu bền vững khóa Data Protection và tệp báo cáo bằng named volumes. Không xóa volumes khi nâng cấp.
 
-## 7. Cấu hình tùy chọn
+### Việc chủ hệ thống cần cung cấp và nghiệm thu
 
-| Khóa | Mặc định | Ý nghĩa |
-|---|---|---|
-| `ConnectionStrings:Default` | `.env` | Chuỗi kết nối PostgreSQL |
-| `JwtOptions:SecretKey` | `.env` | Khóa ký JWT — **bắt buộc đổi ở môi trường thật** |
-| `Google:ClientId` | *(trống)* | Bật đăng nhập Google. Khi trống, `/api/auth/google` trả `503 google_login_not_configured` |
-| `Reports:StorageRoot` | `App_Data/reports` | Thư mục lưu tệp xuất (BR-46) |
+1. Chuẩn bị domain và HTTPS public cho frontend, API và VNPay IPN. Cấu hình reverse proxy/TLS; kiểm tra callback public qua internet.
+2. Cung cấp PostgreSQL và secrets riêng cho môi trường; đặt `ASPNETCORE_ENVIRONMENT=Production`, `VnPay__UseMock=false`, merchant sandbox credentials, `VnPay__ReturnUrl=https://<frontend-domain>/payments/return`, `Frontend__BaseUrl=https://<frontend-domain>`, CORS origins và `NEXT_PUBLIC_API_BASE_URL=https://<api-domain>` **trước khi build frontend**. Production startup sẽ từ chối thiếu SMTP, khóa Data Protection bền vững hoặc VNPay HTTPS credentials.
+3. Cấp SMTP thật, Google Client ID (nếu dùng đăng nhập Google), Gemini API key (nếu dùng AI) và kiểm tra OTP/reset link/email, Google login, Gemini timeout/quota. Không dùng địa chỉ localhost hay email demo logging ở môi trường thật.
+4. Chụp backup PostgreSQL trước mỗi migration. Áp migration bằng lệnh triển khai riêng khi backend chưa nhận traffic; Production không tự migrate khi khởi động. Kiểm thử nâng cấp trên bản sao dữ liệu và diễn tập restore trước lần phát hành đầu.
+5. Backup cả PostgreSQL, volume `sporthub_dataprotection` và `sporthub_reports`. Đặt lịch giữ bản sao, kiểm tra restore. Không chạy `docker compose down -v` trên dữ liệu thật.
+6. Chạy bộ backend integration/E2E với PostgreSQL, sau đó giao dịch VNPay sandbox thật: payment, IPN, return, QueryDR, replay IPN, thanh toán muộn và refund điểm. Đối chiếu một giao dịch chỉ sinh một payment/quyền lợi.
+7. Thiết lập giám sát lỗi API, sức khỏe database, job/outbox, sự kiện `ReconciliationRequired`, dung lượng volume và hạn chứng chỉ. Health endpoint hiện chỉ chứng minh process trả lời, chưa kiểm tra database/gateway.
 
-Cấu hình nghiệp vụ (hạn hủy đăng ký, ngưỡng nhắc hạn gói) **không** nằm ở file cấu hình mà ở
-màn hình **Cấu hình hệ thống** của Quản lý Trung tâm (BR-39).
+### Backlog chức năng còn lại
 
-## 8. Payment — PENDING
+Theo mục 13 của thiết kế: G01 (public sân/Coach/PT và giá), G03 (Manager AI), G06 (incident recovery), G07 (lịch sử/preview thông báo), G09 (filter catalog), G13 (đóng/mở tuyển sinh), và G08 nếu cần màn refund độc lập. G02/G04 và phần code G05/G12 đã bổ sung; test PostgreSQL cho các luồng An/Hào và callback sau khi tắt dịch vụ đã qua trên máy phát triển. Team vẫn phải áp migration, thử nâng cấp trên bản sao dữ liệu, và nghiệm thu staging/sandbox/thiết bị thật trước khi đóng. Xem [bàn giao An và Hào](AN-HAO-HANDOFF.md) và [các bước nghiệm thu thủ công](AN-HAO-MANUAL-STEPS.md).
 
-Nghiệp vụ Payment/Invoice/Adjustment/Refund và báo cáo doanh thu chưa được chốt. Không dùng
-các luồng cọc, hạn thanh toán, hoàn tiền, phê duyệt, ghi nhận doanh thu hoặc công thức của phiên
-bản cũ làm căn cứ triển khai hay kiểm thử. Khi nghiệp vụ Payment được phê duyệt, cập nhật Business
-Rules và SSOT trước, sau đó mới bổ sung hướng dẫn chạy/kiểm thử tương ứng vào RUNBOOK.
+### Cổng quyết định go-live
+
+Chỉ chấp nhận go-live khi các gap P0 trong `Center-Management-System-Design-v3.md` mục 13 đã đóng bằng test và evidence, các luồng role/ownership qua nghiệm thu, backup–restore đã diễn tập, và giao dịch VNPay sandbox thật hoàn tất. VNPay production và refund về ngân hàng ngoài phạm vi requirement hiện hành.

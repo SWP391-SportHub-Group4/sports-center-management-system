@@ -3,6 +3,6 @@ namespace SportHub.Membership.Application.DTOs;
 public sealed record MemberTrainingProfileResponse(
     Guid MemberId,
     string Goal,
-    string ExperienceLevel,
+    [property: SportHub.BuildingBlocks.Api.WireEnum] string ExperienceLevel,
     string? Notes,
     DateTime UpdatedAt);

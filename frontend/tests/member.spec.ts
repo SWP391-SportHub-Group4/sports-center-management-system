@@ -1,218 +1,383 @@
 import { expect, test } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
-import { applyCommand } from "../src/infrastructure/demo/member-repository";
-import { createSeed } from "../src/infrastructure/demo/seed";
-
+const courseStart = new Date(Date.now() + 30 * 86400000).toISOString();
+const course = {
+  classId: 1,
+  code: "BAD-01",
+  name: "Badminton course",
+  sportId: 3,
+  sportName: "Badminton",
+  coachId: "coach-1",
+  coachName: "Coach",
+  defaultRoomId: 1,
+  roomName: "Court 1",
+  startDate: courseStart.slice(0, 10),
+  numSessions: 6,
+  capacity: 12,
+  availableSeats: 8,
+  price: 200000,
+  status: "PUBLISHED",
+  firstSessionStartUtc: courseStart,
+  scheduleRules: [],
+};
 test.beforeEach(async ({ page }) => {
-  await page.clock.install({ time: new Date("2026-09-14T03:00:00Z") });
+  await page.addInitScript(() => {
+    localStorage.setItem("sporthub.accessToken", "test-token");
+    localStorage.setItem("sporthub_lang", "en");
+  });
+  await page.route("**/api/**", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (path === "/api/members/me/bmi-profile") {
+      await route.fulfill({ status: 204 });
+      return;
+    }
+    let json: unknown = [];
+    if (path === "/api/users/me")
+      json = {
+        userId: "member-1",
+        email: "member@example.com",
+        fullName: "Current Member",
+        role: "MEMBER",
+        sportIds: [],
+      };
+    else if (path.endsWith("/wallet/me"))
+      json = {
+        ownerUserId: "member-1",
+        availablePoints: 500,
+        heldPoints: 10,
+        vndPerPoint: 1000,
+      };
+    else if (path === "/api/sports")
+      json = [
+        {
+          sportId: 3,
+          name: "Badminton",
+          code: "course",
+          services: [
+            {
+              serviceType: "GROUP_COURSE",
+              isEnabled: true,
+              defaultSessionMinutes: 90,
+              defaultMaxCapacity: 12,
+            },
+          ],
+          isActive: true,
+        },
+        {
+          sportId: 2,
+          name: "PT",
+          code: "gym",
+          services: [
+            {
+              serviceType: "PERSONAL_TRAINING",
+              isEnabled: true,
+              defaultSessionMinutes: null,
+              defaultMaxCapacity: null,
+            },
+          ],
+          isActive: true,
+        },
+      ];
+    else if (path === "/api/classes")
+      json = { items: [course], page: 1, pageSize: 12, totalCount: 1 };
+    else if (path === "/api/classes/1") json = course;
+    else if (path.endsWith("/enrollments"))
+      json = {
+        items: [
+          {
+            enrollmentId: "enrollment-1",
+            classId: 1,
+            className: "Badminton course",
+            sportName: "Badminton",
+            status: "CONFIRMED",
+            classStatus: "PUBLISHED",
+            invoiceItemId: null,
+          },
+        ],
+        page: 1,
+        pageSize: 10,
+        totalCount: 1,
+      };
+    else if (path.endsWith("/invoices"))
+      json = { items: [], page: 1, pageSize: 10, totalCount: 0 };
+    else if (path.endsWith("/membership-packages"))
+      json = [
+        {
+          packageId: 1,
+          name: "Gym monthly",
+          price: 600000,
+          durationDays: 30,
+          isActive: true,
+          description: "Gym access",
+        },
+      ];
+    else if (path.endsWith("/packages"))
+      json = [
+        {
+          memberPackageId: "package-1",
+          packageId: 1,
+          packageName: "Gym monthly",
+          startDate: "2026-10-01",
+          endDate: "2026-10-30",
+          status: "ACTIVE",
+          isUsable: true,
+        },
+      ];
+    else if (path.endsWith("/training-profile"))
+      json = {
+        memberId: "member-1",
+        goal: "Run 10km",
+        experienceLevel: "Beginner",
+        notes: null,
+        updatedAt: "2026-10-01T00:00:00Z",
+      };
+    else if (path === "/api/notifications")
+      json = [
+        {
+          notificationId: "notification-1",
+          sourceEventType: "SCHEDULE_CHANGED",
+          sourceEntityId: null,
+          message: "Your class schedule changed.",
+          status: "PENDING",
+          sentAt: "2026-10-01T00:00:00Z",
+        },
+      ];
+    else if (path.endsWith("/unread-count")) json = { count: 1 };
+    await route.fulfill({ json });
+  });
 });
-
-test("booking persists, cancellation refunds the original package and focus returns", async ({
-  page,
-}) => {
-  await page.goto("/member/calendar");
-  await page
-    .getByRole("button", { name: "Đặt lịch Thể lực cơ bản", exact: true })
-    .click();
-  await page
-    .getByRole("button", { name: "Xác nhận đặt lịch", exact: true })
-    .click();
-  await expect(page.getByRole("dialog")).toHaveCount(0);
-  await expect(
-    page.getByRole("button", {
-      name: "Xem đăng ký Thể lực cơ bản",
-      exact: true,
+test("course catalog replaces per-session enrollment", async ({ page }) => {
+  const invoiceId = "55555555-5555-4555-8555-555555555555";
+  let checkoutRequest: unknown;
+  await page.route("**/api/checkouts/class", async (route) => {
+    checkoutRequest = route.request().postDataJSON();
+    await route.fulfill({ json: { invoiceId } });
+  });
+  await page.route("**/api/members/me/enrollments?*", (route) =>
+    route.fulfill({
+      json: { items: [], page: 1, pageSize: 100, totalCount: 0 },
     }),
-  ).toBeVisible();
-  await page.reload();
-  await page.getByRole("button", { name: "Đã giữ chỗ", exact: true }).click();
-  await page
-    .getByRole("button", { name: "Xem đăng ký Thể lực cơ bản", exact: true })
-    .click();
-  await page.keyboard.press("Escape");
-  await expect(
-    page.getByRole("button", {
-      name: "Xem đăng ký Thể lực cơ bản",
-      exact: true,
-    }),
-  ).toBeFocused();
-  await page
-    .getByRole("button", { name: "Xem đăng ký Thể lực cơ bản", exact: true })
-    .click();
-  await page.getByRole("button", { name: "Xác nhận hủy", exact: true }).click();
-  await expect(
-    page.getByRole("button", {
-      name: "Xem đăng ký Thể lực cơ bản",
-      exact: true,
-    }),
-  ).toHaveCount(0);
-  await page.goto("/member/profile");
-  await expect(
-    page.getByText("Còn 11 lượt tập", { exact: true }),
-  ).toBeVisible();
-});
-
-test("profile validation focuses the invalid field and edits persist", async ({
-  page,
-}) => {
-  await page.goto("/member/profile/edit");
-  await page.getByLabel("Số điện thoại", { exact: true }).fill("123");
-  await page.getByRole("button", { name: "Lưu thay đổi" }).click();
-  await expect(page.getByLabel("Số điện thoại", { exact: true })).toBeFocused();
-  await expect(
-    page.getByLabel("Số điện thoại", { exact: true }),
-  ).toHaveAttribute("aria-invalid", "true");
-  await page.getByLabel("Số điện thoại", { exact: true }).fill("0912345678");
-  await page.getByLabel("Họ và tên", { exact: true }).fill("Nguyễn Minh Triết");
-  await page.getByRole("button", { name: "Lưu thay đổi" }).click();
-  await expect(page.getByRole("status")).toContainText("Đã lưu hồ sơ");
-  await page.reload();
-  await expect(page.getByLabel("Họ và tên", { exact: true })).toHaveValue(
-    "Nguyễn Minh Triết",
   );
+  await page.goto("/member/discover");
+  await expect(
+    page.getByRole("heading", { name: "Badminton course" }),
+  ).toBeVisible({ timeout: 15000 });
+  await expect(page.getByRole("button", { name: /Book Spot/ })).toHaveCount(0);
+  await page.getByRole("listitem").filter({ hasText: "Badminton course" })
+    .getByRole("button", { name: "Select" }).click();
+  await expect(page).toHaveURL(new RegExp(`/checkout/${invoiceId}$`));
+  expect(checkoutRequest).toEqual({ classId: 1 });
 });
-
-test("QR renews after sixty seconds and slider is manually operable", async ({
+test("registered courses cannot be purchased a second time", async ({
   page,
 }) => {
-  await page.goto("/member");
-  const qr = page.getByTestId("member-qr");
-  await expect(qr).toBeVisible();
-  const first = await qr.getAttribute("src");
-  await page.clock.fastForward(61000);
-  await expect(qr).toBeVisible();
-  await expect(qr).not.toHaveAttribute("src", first!);
-  await page.getByRole("button", { name: "Tin tiếp theo" }).click();
+  await page.goto("/member/services/courses/1");
   await expect(
-    page.getByRole("heading", { name: "Tìm người đồng hành tập luyện" }),
+    page.getByText("You are registered for this class", { exact: true }),
   ).toBeVisible();
-});
-
-test("package request stays pending and does not unlock training", async ({
-  page,
-}) => {
-  await page.goto("/member/packages");
-  await page.getByRole("radio", { name: /Diamond/ }).check();
-  await page.getByRole("button", { name: "Đăng ký gói", exact: true }).click();
-  await page
-    .getByRole("button", { name: "Xác nhận đăng ký gói", exact: true })
-    .click();
   await expect(
-    page.getByText("Chờ thanh toán tại quầy", { exact: true }),
-  ).toBeVisible();
-  await page.goto("/member/profile");
+    page.getByRole("link", { name: "View registered class" }),
+  ).toHaveAttribute("href", "/member/schedule?course=1");
   await expect(
-    page.getByRole("heading", { name: "Diamond All-Access" }),
+    page.getByRole("button", { name: "Payment", exact: true }),
   ).toHaveCount(0);
 });
 
-test("notifications read state survives reload", async ({ page }) => {
-  await page.goto("/member/notifications");
-  await page.getByRole("button", { name: "Đánh dấu đã đọc" }).first().click();
+test("members request a centre BMI measurement only once", async ({ page }) => {
+  let requested = false;
+  let submissions = 0;
+  const profile = {
+    memberId: "member-1",
+    status: "REQUESTED",
+    requestedAt: new Date().toISOString(),
+    appointmentAt: null,
+    heightCm: null,
+    weightKg: null,
+    bmi: null,
+    measuredAt: null,
+  };
+  await page.route("**/api/members/me/bmi-profile", (route) =>
+    route.fulfill(requested ? { json: profile } : { status: 204 }),
+  );
+  await page.route("**/api/members/me/bmi-measurement-request", (route) => {
+    expect(route.request().method()).toBe("POST");
+    submissions++;
+    requested = true;
+    return route.fulfill({ json: profile });
+  });
+  await page.goto("/member/profile");
+  await page
+    .getByRole("button", { name: "Request a centre measurement" })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Awaiting a measurement appointment" }),
+  ).toBeVisible();
   await page.reload();
-  await expect(page.getByText("Đã đọc", { exact: true })).toHaveCount(1);
+  await expect(
+    page.getByRole("heading", { name: "Awaiting a measurement appointment" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Request a centre measurement" }),
+  ).toHaveCount(0);
+  expect(submissions).toBe(1);
 });
 
-for (const width of [320, 768, 1280])
-  test(`all Member routes fit ${width}px with loaded assets`, async ({
-    page,
-  }) => {
+test("measured BMI profiles show locked centre results", async ({ page }) => {
+  await page.route("**/api/members/me/bmi-profile", (route) =>
+    route.fulfill({
+      json: {
+        memberId: "member-1",
+        status: "MEASURED",
+        requestedAt: "2026-10-01T00:00:00Z",
+        appointmentAt: null,
+        heightCm: 175,
+        weightKg: 70,
+        bmi: 22.9,
+        measuredAt: "2026-10-02T00:00:00Z",
+      },
+    }),
+  );
+  await page.goto("/member/profile");
+  const results = page.getByRole("region", {
+    name: "Centre measurement results",
+  });
+  await expect(results).toBeVisible();
+  await expect(results).toContainText("175");
+  await expect(results).toContainText("70");
+  await expect(results).toContainText("22.9");
+  await expect(results).toContainText("Measured · Read only");
+  await expect(page.locator("#main-content input")).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Request a centre measurement" }),
+  ).toHaveCount(0);
+});
+test("dashboard does not issue an entrance pass", async ({ page }) => {
+  await page.goto("/member");
+  await expect(page.locator("#main-content h1")).toBeVisible();
+  await expect(page.getByTestId("show-qr-btn")).toHaveCount(0);
+});
+test("Gym and PT purchases are separate", async ({ page }) => {
+  await page.goto("/member/services?section=gym&view=explore");
+  await expect(
+    page.getByRole("heading", { name: "Gym Membership", exact: true }),
+  ).toBeVisible();
+
+  // Owned memberships live in My services; Explore packages intentionally shows
+  // purchasable tiers and no longer embeds an "Active until" action in the catalog.
+  await page.getByRole("button", { name: "My services", exact: true }).click();
+  const gymMembership = page
+    .locator("article[data-kind='gym']")
+    .filter({ has: page.getByRole("heading", { name: "Gym monthly" }) });
+  await expect(gymMembership).toBeVisible();
+  await expect(gymMembership).toContainText("Active");
+
+  await page
+    .getByRole("button", { name: "Explore packages", exact: true })
+    .click();
+  await page.getByRole("group", { name: "Filter by package type" })
+    .getByRole("button", { name: /PT 1/ }).click();
+  await expect(
+    page.getByRole("heading", { name: "Personal training 1-1", exact: true }),
+  ).toBeVisible({ timeout: 15000 });
+  await expect(
+    page.getByRole("region", { name: "Personal training 1-1" })
+      .getByRole("link", { name: "Select" }),
+  ).toHaveAttribute("href", "/member/training?tab=book");
+});
+test("notification links resolve to real Member views", async ({ page }) => {
+  await page.goto("/member");
+  await page.getByRole("button", { name: /Notifications/ }).click();
+  const notifications = page.getByRole("region", { name: "Notifications" });
+  const notice = notifications.getByRole("link", {
+    name: /Your class schedule changed\./,
+  });
+  await expect(notice).toBeVisible({ timeout: 15000 });
+  await expect(notice).toHaveAttribute("href", "/member/schedule");
+});
+for (const width of [320, 768, 1024, 1280, 1360, 1440])
+  test(`Member routes fit ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 1000 });
-    for (const route of [
+    for (const path of [
       "",
-      "/calendar",
-      "/coaches",
+      "/class-schedule",
+      "/my-registrations",
+      "/my-plans",
       "/profile",
-      "/profile/edit",
-      "/packages",
+      "/invoices",
       "/training",
-      "/history",
-      "/notifications",
+      "/wallet",
     ]) {
-      await page.goto(`/member${route}`);
+      await page.goto(`/member${path}`);
       await expect(page.locator("#main-content h1")).toBeVisible();
+      await expect(page.getByRole("banner")).toBeVisible();
+      if (path === "/profile") {
+        await expect(
+          page.getByRole("button", {
+            name: "Request a centre measurement",
+          }),
+        ).toBeVisible();
+      }
+      if (width >= 1360) {
+        const nav = page.getByRole("navigation", { name: "Member Navigation" });
+        await expect(nav).toBeVisible();
+        await expect(nav.getByRole("link")).toHaveCount(5);
+      } else {
+        await expect(
+          page.getByRole("button", { name: "Open navigation menu" }),
+        ).toBeVisible();
+      }
       expect(
-        await page.evaluate(
-          () => document.documentElement.scrollWidth <= innerWidth + 1,
-        ),
-        route,
-      ).toBeTruthy();
-      await expect
-        .poll(
-          async () =>
-            page
-              .locator("img:visible")
-              .evaluateAll((images) =>
-                images.every(
-                  (image) =>
-                    image instanceof HTMLImageElement &&
-                    image.complete &&
-                    image.naturalWidth > 0,
-                ),
-              ),
-          { message: `Images load on ${route || "/member"}` },
-        )
-        .toBeTruthy();
-      if (route === "/calendar" || route === "")
-        await page.screenshot({
-          path: `test-results/member-${route === "" ? "home" : "calendar"}-${width}.png`,
-          fullPage: true,
-        });
+        await page.evaluate(() => document.documentElement.scrollWidth),
+        `Member route /member${path} should fit ${width}px`,
+      ).toBeLessThanOrEqual(width + 1);
     }
   });
-
-test("Member pages pass automated WCAG A/AA checks", async ({ page }) => {
-  for (const width of [390, 1280]) {
+test("Member pages pass WCAG A/AA", async ({ page }) => {
+  test.setTimeout(90000);
+  for (const width of [320, 1280]) {
     await page.setViewportSize({ width, height: 1000 });
-    for (const route of [
+    for (const path of [
       "",
-      "/calendar",
-      "/coaches",
-      "/profile/edit",
-      "/packages",
-      "/notifications",
+      "/class-schedule",
+      "/my-registrations",
+      "/my-plans",
+      "/profile",
+      "/invoices",
+      "/training",
+      "/wallet",
     ]) {
-      await page.goto(`/member${route}`);
+      await page.goto(`/member${path}`);
       await expect(page.locator("#main-content h1")).toBeVisible();
       const result = await new AxeBuilder({ page })
         .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
         .analyze();
-      expect(result.violations, route).toEqual([]);
+      expect(result.violations, path).toEqual([]);
     }
   }
 });
-
-test("demo booking rules reject duplicates/full classes and late cancellation does not refund", () => {
-  const s = createSeed();
-  const session = s.sessions.find((x) => x.id === "strength")!;
-  const now = Date.parse(session.startAt) - 12 * 3600000;
-  applyCommand(
-    s,
-    { type: "book", sessionId: session.id, memberPackageId: "member-gold" },
-    now,
-  );
-  expect(s.packages[0].remainingSessions).toBe(10);
-  expect(() =>
-    applyCommand(
-      s,
-      { type: "book", sessionId: session.id, memberPackageId: "member-gold" },
-      now,
-    ),
-  ).toThrow("đã giữ chỗ");
-  applyCommand(
-    s,
-    { type: "cancel", sessionId: session.id },
-    Date.parse(session.cancellationDeadline) + 1000,
-  );
-  expect(s.packages[0].remainingSessions).toBe(10);
-  expect(s.enrollments.find((e) => e.sessionId === session.id)?.status).toBe(
-    "CancelledLate",
-  );
-  expect(() =>
-    applyCommand(
-      s,
-      { type: "book", sessionId: "groupx", memberPackageId: "member-gold" },
-      now,
-    ),
-  ).toThrow("hết chỗ");
+test("the member header stays mounted and pinned while moving between tabs", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 700 });
+  await page.goto("/member");
+  const nav = page.getByRole("navigation", { name: "Member Navigation" });
+  await expect(nav).toBeVisible();
+  // Đánh dấu node header: nếu chuyển trang dựng lại khung thì cờ này biến mất.
+  await page.evaluate(() => {
+    (document.querySelector("header") as HTMLElement).dataset.mounted = "yes";
+  });
+  for (const name of ["My schedule", "Services", "Billing", "Overview"]) {
+    await nav.getByRole("link", { name, exact: true }).click();
+    await expect(nav.getByRole("link", { name, exact: true })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    await expect(page.locator("header[data-mounted='yes']")).toHaveCount(1);
+  }
+  await page.mouse.wheel(0, 2000);
+  await page.waitForTimeout(300);
+  const top = await page
+    .locator("header")
+    .evaluate((el) => el.getBoundingClientRect().top);
+  expect(top).toBe(0);
 });

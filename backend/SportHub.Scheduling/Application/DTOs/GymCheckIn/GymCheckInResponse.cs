@@ -6,4 +6,6 @@ public sealed class GymCheckInResponse
     public Guid MemberId { get; init; }
     public Guid CheckedInByUserId { get; init; }
     public DateTime CheckInTime { get; init; } // UTC
+    public DateTime? CheckOutTime { get; init; } // UTC; null = đang ở trong Gym
+    public Guid? CheckedOutByUserId { get; init; }
 }

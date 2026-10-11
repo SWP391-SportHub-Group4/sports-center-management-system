@@ -7,6 +7,6 @@ public class LoginRequest
     [Required, EmailAddress]
     public string Email { get; set; } = string.Empty;
     
-    [Required, MaxPasswordBytes(72)]
+    [Required, MaxLength(200)]
     public string Password { get; set; } = string.Empty;
 }

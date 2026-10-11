@@ -6,13 +6,25 @@ namespace SportHub.Administration.Infrastructure;
 
 /// <summary>
 /// Bản cài đặt <see cref="ISystemSettingProvider"/> (BR-39).
-///
-/// KHÔNG cache: các khoá này được đọc ở đường ghi nghiệp vụ (chụp hạn huỷ vào Enrollment,
-/// BR-50) và một giá trị cũ trong cache sẽ được chụp vĩnh viễn vào bản ghi. Truy vấn là một
-/// lần đọc theo PK nên rẻ.
+/// Không cache để thay đổi chính sách vận hành có hiệu lực ở lần chạy job tiếp theo.
 /// </summary>
 public sealed class SystemSettingProvider(ISportHubDbContext db) : ISystemSettingProvider
 {
+    public async Task<VersionedIntSetting> GetVersionedIntAsync(string key, CancellationToken cancellationToken = default)
+    {
+        var source = db.Database.CurrentTransaction is null
+            ? db.Set<SystemSetting>().AsNoTracking()
+            : db.Set<SystemSetting>().FromSqlInterpolated(
+                $"SELECT * FROM system_settings WHERE key = {key} FOR SHARE").AsNoTracking();
+        var row = await source
+            .Where(s => s.Key == key).Select(s => new { s.Value, s.UpdatedAt })
+            .SingleOrDefaultAsync(cancellationToken)
+            ?? throw new InvalidOperationException($"Thiếu system setting '{key}'.");
+        if (!int.TryParse(row.Value, out var value))
+            throw new InvalidOperationException($"System setting '{key}' không phải số nguyên.");
+        return new VersionedIntSetting(value, row.UpdatedAt.Ticks.ToString(System.Globalization.CultureInfo.InvariantCulture));
+    }
+
     public async Task<int> GetIntAsync(string key, CancellationToken cancellationToken = default)
     {
         var raw = await db.Set<SystemSetting>()
@@ -22,8 +34,6 @@ public sealed class SystemSettingProvider(ISportHubDbContext db) : ISystemSettin
             .SingleOrDefaultAsync(cancellationToken);
 
         // Thiếu khoá hoặc giá trị hỏng là lỗi cấu hình, không phải trường hợp nghiệp vụ hợp lệ.
-        // Ném thay vì lặng lẽ dùng mặc định: một mặc định ẩn ở đây sẽ bị CHỤP vào Enrollment
-        // (BR-50) và về sau không ai biết đăng ký đó đang áp chính sách nào.
         if (raw is null)
         {
             throw new InvalidOperationException($"Thiếu system setting '{key}' — kiểm tra seed data.");

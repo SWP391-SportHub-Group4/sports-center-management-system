@@ -1,17 +1,29 @@
 "use client";
-
+import { Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import { AttendanceBoard } from "@/components/AttendanceBoard";
+import { Loading } from "@/components/ui";
+import { useLanguage } from "@/lib/language";
 
-export default function ReceptionAttendancePage() {
+function Board() {
+  const params = useSearchParams();
   return (
-    <AppShell
-      title="Counting at the counter"
-      description="Noted membership is present or absent for the day's study (BR-22)"
-      allow={["Receptionist"]}
-    >
-      {/* Lễ tân điểm danh cho MỌI buổi, khác với HLV chỉ điểm danh buổi mình dạy. */}
-      <AttendanceBoard coachOnly={false} />
+    <AttendanceBoard
+      coachOnly={false}
+      initialDate={params.get("date")}
+      initialSessionId={params.get("session")}
+    />
+  );
+}
+
+export default function Page() {
+  const { t } = useLanguage();
+  return (
+    <AppShell title={t.operations.attendance} allow={["Receptionist"]}>
+      <Suspense fallback={<Loading />}>
+        <Board />
+      </Suspense>
     </AppShell>
   );
 }

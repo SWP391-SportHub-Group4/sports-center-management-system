@@ -21,4 +21,10 @@ public class GymCheckIn
     public UserAccount? CheckedInByUser { get; set; }
 
     public DateTime CheckInTime { get; set; } // UTC, lấy từ server chứ không nhận từ payload
+
+    /// <summary>Giờ ra (UTC, giờ server). Null = đang ở trong Gym. Chỉ ghi được một lần, sau giờ vào.</summary>
+    public DateTime? CheckOutTime { get; set; }
+
+    /// <summary>Lễ tân ghi giờ ra; chỉ scalar để audit.</summary>
+    public Guid? CheckedOutByUserId { get; set; }
 }

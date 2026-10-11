@@ -1,9 +1,6 @@
-import { Suspense } from "react";
-import { MemberPage } from "@/application/member/pages";
+import { redirect } from "next/navigation";
+
+/** Tuyến cũ: hồ sơ tập nay là tab Hồ sơ của Tập luyện. Giữ bookmark. */
 export default function Page() {
-  return (
-    <Suspense fallback={<p role="status">Downloading...</p>}>
-      <MemberPage page="profile" />
-    </Suspense>
-  );
+  redirect("/member/training?tab=profile");
 }

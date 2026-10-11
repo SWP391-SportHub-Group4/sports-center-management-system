@@ -1,0 +1,409 @@
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: grid;
+  width: 100%;
+  min-height: 72px;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(24px, 3vw, 48px);
+  margin: 0;
+  padding: 10px max(32px, calc((100% - 1312px) / 2));
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  transition:
+    background-color 300ms ease,
+    box-shadow 300ms ease;
+  font-family: var(--font-body);
+}
+
+.scrolled {
+  background: color-mix(in srgb, var(--bg-surface) 90%, transparent);
+  box-shadow: 0 8px 28px rgb(0 37 40 / 0.055);
+  backdrop-filter: blur(12px) saturate(125%);
+}
+
+.heroOverlay {
+  --text-strong: #f0f2e8;
+  --text-body: #e7edde;
+  --text-muted: #dce5d8;
+  --color-primary: var(--color-accent);
+  --border-control: rgb(234 241 225 / 45%);
+  --bg-surface: #172925;
+  --bg-surface-sunken: rgb(234 241 225 / 10%);
+  border-bottom-color: transparent;
+  background: linear-gradient(180deg, rgb(12 26 22 / 85%), rgb(12 26 22 / 15%));
+}
+
+.heroOverlay .logoMark {
+  background: var(--color-accent);
+  color: var(--court-900);
+}
+
+.heroOverlay .signUp,
+.heroOverlay .signUp:hover {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+
+.cinema .logoMark {
+  background: var(--color-accent);
+  color: var(--court-900);
+}
+
+.cinema .signUp,
+.cinema .signUp:hover {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+
+.logo {
+  display: inline-flex;
+  min-width: 0;
+  min-height: 44px;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-strong);
+  text-decoration: none;
+}
+
+.logoMark {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  place-items: center;
+  border-radius: 10px;
+  background: var(--text-strong);
+  color: var(--color-accent);
+}
+
+.logoWord {
+  color: inherit;
+  font-family: var(--font-display);
+  font-size: 21px;
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-wide);
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.logoAccent {
+  color: var(--color-primary);
+}
+
+.navigation {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.navLinks {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: clamp(12px, 1.2vw, 18px);
+}
+
+.navLinks a {
+  position: relative;
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  color: var(--text-body);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  white-space: nowrap;
+  text-decoration: none;
+  transition: color var(--duration-fast) var(--ease-out);
+}
+
+.navIndicator {
+  position: absolute;
+  bottom: 4px;
+  left: 0;
+  width: var(--indicator-width, 0px);
+  height: 2px;
+  border-radius: 2px;
+  background: var(--color-primary);
+  opacity: 0;
+  pointer-events: none;
+  transform: translate3d(var(--indicator-x, 0px), 0, 0);
+  transition:
+    transform 360ms cubic-bezier(0.16, 1, 0.3, 1),
+    width 360ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 160ms ease;
+}
+
+.navIndicator[data-positioned] {
+  opacity: 1;
+}
+
+.navLinks a:hover {
+  color: var(--text-strong);
+}
+
+.navLinks a[aria-current="location"] {
+  color: var(--color-primary);
+}
+
+.headerActions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 18px;
+}
+
+.langToggle {
+  min-width: 58px;
+  min-height: 42px;
+  padding: 8px 4px;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font: 500 var(--text-sm) / 1 var(--font-body);
+  cursor: pointer;
+}
+
+.langActive {
+  color: var(--text-strong);
+  font-weight: var(--weight-bold);
+}
+
+.langDivider {
+  padding-inline: 4px;
+  color: var(--border-strong);
+}
+
+.authLinks {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.signIn,
+.signUp {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 0 16px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  text-decoration: none;
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out),
+    transform var(--duration-fast) var(--ease-out);
+}
+
+.signIn {
+  border-color: var(--border-control);
+  background: transparent;
+  color: var(--text-strong);
+}
+
+.signIn:hover {
+  border-color: var(--color-primary);
+  background: var(--bg-surface-sunken);
+  color: var(--color-primary);
+}
+
+.signUp {
+  border-color: var(--court-800);
+  background: var(--court-800);
+  color: var(--white);
+}
+
+.signUp:hover {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  transform: translateY(-1px);
+}
+
+.signIn:active,
+.signUp:active {
+  transform: scale(0.98);
+}
+
+.menuToggle {
+  display: none;
+}
+
+.accountLoading {
+  display: block;
+  width: 220px;
+  height: 42px;
+  border-radius: 10px;
+  background: var(--bg-surface-sunken);
+  animation: accountShimmer 1.2s ease-in-out infinite alternate;
+}
+
+.header :focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 3px;
+}
+
+@keyframes accountShimmer {
+  to {
+    opacity: 0.55;
+  }
+}
+
+@media (max-width: 1359px) {
+  .heroOverlay .navigation {
+    --text-strong: var(--chalk-950);
+    --text-body: var(--chalk-800);
+    --text-muted: var(--chalk-600);
+    --color-primary: var(--court-700);
+    --border-control: var(--chalk-400);
+    --bg-surface: var(--white);
+    --bg-surface-sunken: var(--chalk-100);
+  }
+  .header {
+    width: 100%;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 12px;
+    padding-inline: 24px;
+  }
+
+  .menuToggle {
+    display: grid;
+    width: 42px;
+    height: 42px;
+    place-items: center;
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px;
+    background: var(--bg-surface);
+    color: var(--text-strong);
+    cursor: pointer;
+  }
+
+  .navigation {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    left: 0;
+    display: none;
+    align-items: stretch;
+    justify-content: stretch;
+    max-height: calc(100dvh - 72px);
+    overflow-y: auto;
+    gap: 12px;
+    padding: 12px;
+    border: 1px solid var(--border-subtle);
+    border-radius: 0 0 14px 14px;
+    background: var(--bg-surface);
+    box-shadow: 0 18px 42px rgb(0 37 40 / 0.12);
+  }
+
+  .navigationOpen {
+    display: grid;
+    animation: navigationEnter 160ms ease-out both;
+  }
+
+  .navLinks {
+    display: grid;
+    gap: 2px;
+  }
+
+  .navLinks a {
+    min-height: 48px;
+    padding-inline: 12px;
+    border-radius: 8px;
+  }
+
+  .navIndicator {
+    display: none;
+  }
+
+  .navLinks a:hover,
+  .navLinks a[aria-current="location"] {
+    background: var(--bg-surface-sunken);
+  }
+
+  .headerActions {
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 8px 2px;
+    border-top: 1px solid var(--border-subtle);
+  }
+
+  .langToggle {
+    text-align: left;
+  }
+
+  .authLinks {
+    display: grid;
+    width: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .signIn,
+  .signUp {
+    min-height: 48px;
+    padding-inline: 12px;
+  }
+}
+
+@keyframes navigationEnter {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 390px) {
+  .header {
+    min-height: 64px;
+    padding: 8px 12px;
+  }
+
+  .logo {
+    gap: 8px;
+  }
+
+  .logoMark {
+    width: 32px;
+    height: 32px;
+  }
+
+  .logoWord {
+    font-size: 19px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .navLinks a,
+  .navIndicator,
+  .header,
+  .signIn,
+  .signUp,
+  .navigationOpen,
+  .accountLoading {
+    animation: none;
+    transition: none;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .scrolled {
+    background: var(--bg-surface);
+    backdrop-filter: none;
+  }
+}

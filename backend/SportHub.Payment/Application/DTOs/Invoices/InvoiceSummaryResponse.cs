@@ -1,32 +1,31 @@
 namespace SportHub.Payment.Application.DTOs;
 
-/// <summary>
-/// Số dư hoá đơn theo BR-41 v1.4. Sáu đại lượng tiền được trả riêng vì UI phải phân biệt
-/// được "còn phải thu" với "cần hoàn lại", và "đã hoàn" với "cần hoàn" — gộp lại là nguồn
-/// gốc của sai sót đối soát ở bản trước.
-/// </summary>
 public sealed record InvoiceSummaryResponse(
     Guid InvoiceId,
     string InvoiceNumber,
-    Guid MemberId,
+    Guid BeneficiaryUserId,
     string MemberEmail,
     string MemberName,
     decimal TotalAmount,
-    /// <summary>Tổng Payment Success, chưa trừ hoàn.</summary>
     decimal GrossCollected,
-    /// <summary>Tổng Discount/Correction Completed — giảm nghĩa vụ, KHÔNG phải tiền trả lại.</summary>
     decimal ObligationReduction,
-    /// <summary>Tổng Refund Completed đã xác nhận thực trả.</summary>
     decimal RefundedAmount,
-    /// <summary>GrossCollected − RefundedAmount: tiền trung tâm đang thực giữ.</summary>
     decimal NetCollected,
-    /// <summary>TotalAmount − ObligationReduction.</summary>
     decimal NetPayable,
     decimal Outstanding,
-    /// <summary>Tiền đang giữ vượt nghĩa vụ — cần hoàn nhưng CHƯA hoàn.</summary>
     decimal RefundDue,
-    string Status,
+    [property: SportHub.BuildingBlocks.Api.WireEnum] string Status,
     DateTime IssuedAt,
-    DateTime DueDateUtc,
-    DateTime? FirstDepositAtUtc,
-    bool IsOverdue);
+    int PointsSpent = 0,
+    decimal CashAmount = 0,
+    [property: SportHub.BuildingBlocks.Api.WireEnum] string? PaidVia = null,
+    DateTime? PaidAtUtc = null,
+    DateTime? CheckoutExpiresAtUtc = null,
+    bool ReconciliationRequired = false)
+{
+    /// <summary>Compatibility alias; beneficiary is the Member.</summary>
+    public Guid MemberId => BeneficiaryUserId;
+    [SportHub.BuildingBlocks.Api.WireEnum]
+    public string FulfillmentOutcome => SportHub.BuildingBlocks.Api.WireEnum.TryParse<Domain.Enums.InvoiceStatus>(Status, true, out var status)
+        ? Domain.Rules.InvoiceFulfillment.Outcome(status, PaidVia, ReconciliationRequired) : "Pending";
+}

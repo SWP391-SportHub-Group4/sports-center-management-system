@@ -27,34 +27,34 @@ public sealed class RuleBasedAiRecommendationService(ISportHubDbContext db, IClo
 
     // Ngân hàng bài tập theo trình độ. Giữ trong code chứ không đưa vào DB: đây là tri thức
     // của thuật toán gợi ý, không phải dữ liệu vận hành mà người dùng chỉnh sửa.
-    private static readonly IReadOnlyDictionary<string, string[]> BaseByLevel =
-        new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
+    private static readonly IReadOnlyDictionary<string, WorkoutSuggestedExercise[]> BaseByLevel =
+        new Dictionary<string, WorkoutSuggestedExercise[]>(StringComparer.OrdinalIgnoreCase)
         {
             ["Beginner"] =
             [
-                "Khởi động toàn thân 8 phút",
-                "Squat không tạ 3x12",
-                "Chống đẩy quỳ gối 3x10",
-                "Plank 3x30 giây",
-                "Đi bộ nhanh/incline 15 phút"
+                new("Full-body warm-up", 1, 1, "Continue for 8 minutes."),
+                new("Bodyweight squat", 3, 12),
+                new("Knee push-up", 3, 10),
+                new("Plank", 3, 1, "Hold for 30 seconds per rep."),
+                new("Brisk or incline walk", 1, 1, "Continue for 15 minutes.")
             ],
             ["Intermediate"] =
             [
-                "Khởi động động 10 phút",
-                "Barbell squat 4x8",
-                "Chống đẩy tiêu chuẩn 4x12",
-                "Dumbbell row 4x10 mỗi bên",
-                "Plank nâng cao 3x45 giây",
-                "Interval chạy bộ 6x1 phút"
+                new("Dynamic warm-up", 1, 1, "Continue for 10 minutes."),
+                new("Barbell squat", 4, 8),
+                new("Standard push-up", 4, 12),
+                new("Dumbbell row", 4, 10, "Reps are per side."),
+                new("Advanced plank", 3, 1, "Hold for 45 seconds per rep."),
+                new("Running intervals", 6, 1, "Run for 1 minute per set.")
             ],
             ["Advanced"] =
             [
-                "Khởi động động 12 phút + cơ lõi kích hoạt",
-                "Barbell squat 5x5 tăng tiến",
-                "Deadlift 4x5",
-                "Pull-up 4x8",
-                "Overhead press 4x8",
-                "HIIT 8x40 giây / nghỉ 20 giây"
+                new("Dynamic warm-up and core activation", 1, 1, "Continue for 12 minutes."),
+                new("Barbell squat", 5, 5, "Coach adjusts the load to the member's ability."),
+                new("Deadlift", 4, 5),
+                new("Pull-up", 4, 8),
+                new("Overhead press", 4, 8),
+                new("HIIT", 8, 1, "Work for 40 seconds and rest for 20 seconds per set.")
             ]
         };
 
@@ -67,25 +67,23 @@ public sealed class RuleBasedAiRecommendationService(ISportHubDbContext db, IClo
         Guid coachId,
         string goal,
         string level,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string sport = "Gym")
     {
         var sinceUtc = clock.UtcNow.AddDays(-HistoryWindowDays);
 
-        var present = await db.Set<Enrollment>()
+        var present = await db.Set<Attendance>()
             .CountAsync(
-                e => e.MemberId == memberId
-                     && e.Session!.StartAtUtc >= sinceUtc
-                     && e.Attendance != null
-                     && e.Attendance.Status == AttendanceStatus.Present,
+                a => a.Enrollment!.MemberId == memberId
+                     && a.Session!.StartAtUtc >= sinceUtc
+                     && a.Status == AttendanceStatus.Present,
                 cancellationToken);
 
-        var missed = await db.Set<Enrollment>()
+        var missed = await db.Set<Attendance>()
             .CountAsync(
-                e => e.MemberId == memberId
-                     && e.Session!.StartAtUtc >= sinceUtc
-                     && e.Attendance != null
-                     && (e.Attendance.Status == AttendanceStatus.Absent
-                         || e.Attendance.Status == AttendanceStatus.NoShow),
+                a => a.Enrollment!.MemberId == memberId
+                     && a.Session!.StartAtUtc >= sinceUtc
+                     && a.Status == AttendanceStatus.Absent,
                 cancellationToken);
 
         var gymCheckIns = await db.Set<GymCheckIn>()
@@ -95,52 +93,70 @@ public sealed class RuleBasedAiRecommendationService(ISportHubDbContext db, IClo
             .Where(mp => mp.MemberId == memberId && mp.Status == MemberPackageStatus.Active)
             .SumAsync(mp => (int?)(mp.RemainingSessions ?? 0), cancellationToken) ?? 0;
 
-        var exercises = new List<string>(
+        var exercises = new List<WorkoutSuggestedExercise>(
             BaseByLevel.TryGetValue(level, out var baseSet) ? baseSet : BaseByLevel["Beginner"]);
+
+        if (sport != "Gym")
+        {
+            var sets = level.Equals("Advanced", StringComparison.OrdinalIgnoreCase) ? 4
+                : level.Equals("Intermediate", StringComparison.OrdinalIgnoreCase) ? 3 : 2;
+            exercises = sport == "Badminton"
+                ? [new("Badminton warm-up", 1, 1, "Move lightly and warm up joints for 8 minutes."),
+                   new("Six-corner footwork", sets, 6, "Move to a corner and return to court center per rep."),
+                   new("Short serve", sets, 10), new("Deep clear", sets, 10),
+                   new("Net drop", sets, 10), new("Cool-down stretch", 1, 1, "Continue for 5 minutes.")]
+                : [new("Basketball warm-up", 1, 1, "Move lightly and warm up joints for 8 minutes."),
+                   new("Crossover dribble", sets, 10, "Alternate sides."),
+                   new("Chest pass", sets, 12), new("Layup", sets, 8, "Perform on each side."),
+                   new("Close-range shot", sets, 10), new("Cool-down stretch", 1, 1, "Continue for 5 minutes.")];
+        }
 
         var goalLower = goal.ToLowerInvariant();
 
-        if (GoalKeywordsWeightLoss.Any(goalLower.Contains))
+        if (sport == "Gym" && GoalKeywordsWeightLoss.Any(goalLower.Contains))
         {
-            exercises.Add("Cardio nền 25 phút, nhịp tim mục tiêu 65–75%");
-            exercises.Add("Circuit toàn thân 3 vòng, nghỉ 45 giây");
+            exercises.Add(new("Base cardio", 1, 1, "Continue for 25 minutes; coach adjusts intensity."));
+            exercises.Add(new("Full-body circuit", 3, 1, "One circuit per set; rest 45 seconds between sets."));
         }
 
-        if (GoalKeywordsMuscle.Any(goalLower.Contains))
+        if (sport == "Gym" && GoalKeywordsMuscle.Any(goalLower.Contains))
         {
-            exercises.Add("Tăng tải 2.5kg mỗi tuần ở bài chính");
-            exercises.Add("Bổ sung hip thrust 3x10 và face pull 3x15");
+            exercises.Add(new("Hip thrust", 3, 10));
+            exercises.Add(new("Face pull", 3, 15));
         }
 
-        if (GoalKeywordsFlexibility.Any(goalLower.Contains))
+        if (sport == "Gym" && GoalKeywordsFlexibility.Any(goalLower.Contains))
         {
-            exercises.Add("Chuỗi yoga giãn cơ 15 phút cuối buổi");
-            exercises.Add("Mobility hông và vai 10 phút");
+            exercises.Add(new("Cool-down stretch", 1, 1, "Continue for 15 minutes."));
+            exercises.Add(new("Hip and shoulder mobility", 1, 1, "Continue for 10 minutes."));
         }
 
         var totalActivity = present + gymCheckIns;
-        var rationale = BuildRationale(goal, level, present, missed, gymCheckIns, remainingSessions);
+        var rationale = $"Sport: {sport}. " + BuildRationale(goal, level, present, missed, gymCheckIns, remainingSessions);
 
-        // Tần suất thấp trong 30 ngày thì giảm khối lượng thay vì giữ nguyên giáo án: đây là
-        // điều chỉnh theo LỊCH SỬ — chính là đầu vào thứ ba mà BR-26 yêu cầu phải dùng tới.
+        // Tần suất thấp: ghi lưu ý giảm khối lượng để coach duyệt trong phần giải thích,
+        // không biến lời khuyên thành một bài tập không có sets/reps.
         if (totalActivity < 4)
         {
-            exercises.Add("Ghi chú: bắt đầu lại ở 60% khối lượng trong 2 tuần đầu vì tần suất tập 30 ngày qua còn thấp");
+            rationale += " Recent activity is low: coach should consider a reduced training volume when restarting.";
         }
 
         if (missed >= 3)
         {
-            exercises.Add("Ghi chú: cân nhắc đổi khung giờ lớp — hội viên vắng nhiều buổi đã đăng ký");
+            rationale += " The member missed several sessions: consider a more suitable schedule.";
         }
 
-        return new WorkoutSuggestion(exercises, rationale);
+        return new WorkoutSuggestion(
+            exercises.Select(item => $"{item.Exercise} {item.Sets}x{item.Reps}"
+                + (string.IsNullOrWhiteSpace(item.Notes) ? string.Empty : $" · {item.Notes}")).ToList(),
+            rationale,
+            exercises);
     }
 
     private static string BuildRationale(
         string goal, string level, int present, int missed, int gymCheckIns, int remainingSessions)
-        => $"Gợi ý dựa trên 3 đầu vào bắt buộc (BR-26): mục tiêu \"{goal}\", trình độ {level}, "
-           + $"và lịch sử {HistoryWindowDays} ngày gần nhất ({present} buổi lớp có mặt, "
-           + $"{missed} buổi vắng/không đến, {gymCheckIns} lần check-in Gym). "
-           + $"Hội viên còn {remainingSessions} buổi trong các gói đang hoạt động. "
-           + "Đây là gợi ý theo bộ luật của hệ thống để HLV tham khảo, không phải tư vấn y tế.";
+        => $"This suggestion uses the member's goal (\"{goal}\"), level ({level}), and activity over the last {HistoryWindowDays} days: "
+           + $"{present} attended class sessions, {missed} missed sessions, and {gymCheckIns} gym check-ins. "
+           + $"The member has {remainingSessions} sessions remaining in active packages. "
+           + "This rule-based suggestion is for the coach to review and is not medical advice.";
 }

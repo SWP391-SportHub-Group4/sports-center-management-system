@@ -1,26 +1,11 @@
-# AI Module — reserved
+# SportHub — Module AI
 
-Theo `docs/Center-Management-System-Design-v2.md`, mục 6 (Kiến trúc — điều chỉnh cho đúng scope MVP):
+SportHub là **hệ thống quản lý trung tâm thể thao với ba môn Gym (bao gồm PT), cầu lông và bóng rổ; có thể mở rộng thêm môn trong tương lai**. PT là dịch vụ thuộc Gym.
 
-> AI Module ở MVP là **module/adapter trong chính ASP.NET Core backend**
-> (`backend/SportHub.Service/Modules/AI/IAiRecommendationService.cs`),
-> KHÔNG phải microservice Python riêng.
+AI nằm trong [SportHub.AI](../backend/SportHub.AI), chạy cùng ASP.NET Core backend. Thư mục gốc này chỉ giữ chỗ, không có Python microservice đang chạy.
 
-Folder này được giữ chỗ tại root để khi thật sự cần tách (scale riêng, đổi
-sang xử lý bằng Python/ML, hoặc có người phụ trách AI làm việc độc lập),
-chỉ cần:
+Member assistant dùng context SportHub qua AiChatService/GeminiAiChatProvider. Coach workout recommendation có rule-based implementation. Không cấu hình Gemini không đồng nghĩa chatbot có câu trả lời mô phỏng thành công.
 
-1. Dựng service Python (FastAPI) trong đây.
-2. Đổi implementation của `IAiRecommendationService` trong backend để gọi
-   qua HTTP tới service này thay vì xử lý in-process.
-3. Phần còn lại của hệ thống (Controller, Frontend) không cần đổi.
+**Chưa triển khai:** Manager AI xếp lịch, tool calling và tạo lớp nháp sau xác nhận. Context phải theo ownership; thao tác ghi qua command có authorization/validation, không để LLM tự ghi DB.
 
-Chưa cần tạo code gì ở đây cho tới khi bước "Training/AI" (Design v2, mục 7,
-bước 5) bắt đầu.
-
-> **Lưu ý phạm vi (09/09/2026):** `IAiRecommendationService` (gợi ý bài tập —
-> Flow 5) là phần **cam kết làm**. AI assistant/chat (Flow 6, `POST
-> /api/ai/chat`) đã hạ xuống **stretch — chỉ làm nếu còn thời gian sau khi
-> xong Flow 1–5**, xem `docs/00-Source-of-Truth.md` §1.4. Không sinh
-> interface/controller/service nào cho AI chat trừ khi nhóm xác nhận sẽ làm
-> Flow 6.
+Xem mục 11 và 13 của [thiết kế hệ thống](../docs/Center-Management-System-Design-v3.md).

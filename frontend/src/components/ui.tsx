@@ -1,8 +1,18 @@
 "use client";
 
-import { useEffect, type ReactNode } from "react";
-import { chipTone, label } from "@/lib/format";
+import {
+  Children,
+  useRef,
+  useId,
+  cloneElement,
+  isValidElement,
+  type ReactNode,
+  type ReactElement,
+} from "react";
 import type { ApiError } from "@/lib/apiClient";
+import { useLanguage } from "@/lib/language";
+import { FieldContext } from "@/components/primitives/FieldContext";
+import { useModalBehavior } from "@/components/primitives/useModalBehavior";
 
 export function Card({
   title,
@@ -52,12 +62,8 @@ export function Stat({
   );
 }
 
-/** Chip trạng thái — nhãn tiếng Việt và màu lấy chung từ lib/format. */
-export function StatusChip({ value }: { value: string | null | undefined }) {
-  if (!value) return <span className="muted">—</span>;
-
-  return <span className={`chip ${chipTone(value)}`}>{label(value)}</span>;
-}
+// Keep existing imports working while pages move to components/data.
+export { StatusChip } from "@/components/data/StatusChip";
 
 export function Loading({ rows = 3 }: { rows?: number }) {
   return (
@@ -73,8 +79,12 @@ export function Loading({ rows = 3 }: { rows?: number }) {
   );
 }
 
-export function EmptyState({ message }: { message: string }) {
-  return <p className="state">{message}</p>;
+export function EmptyState({ message }: { message?: ReactNode }) {
+  if (!message) return null;
+  if (typeof message === "string") {
+    return <p className="state">{message}</p>;
+  }
+  return <div className="state-custom">{message}</div>;
 }
 
 export function ErrorState({
@@ -84,6 +94,8 @@ export function ErrorState({
   error: ApiError;
   onRetry?: () => void;
 }) {
+  const { t } = useLanguage();
+
   return (
     <div className="stack">
       <div className="alert alert--error" role="alert">
@@ -99,7 +111,7 @@ export function ErrorState({
             className="btn btn--ghost btn--sm"
             onClick={onRetry}
           >
-            Retry
+            {t.common.retry}
           </button>
         </div>
       )}
@@ -113,7 +125,7 @@ export function ErrorState({
  */
 export function AsyncSection<T>({
   state,
-  emptyMessage = "No data yet.",
+  emptyMessage,
   isEmpty,
   children,
 }: {
@@ -123,15 +135,19 @@ export function AsyncSection<T>({
     error: ApiError | null;
     reload: () => void;
   };
-  emptyMessage?: string;
+  emptyMessage?: ReactNode;
   isEmpty?: (data: T) => boolean;
   children: (data: T) => ReactNode;
 }) {
+  const { t } = useLanguage();
+  const resolvedEmptyMessage = emptyMessage ?? t.common.noData;
+
   if (state.loading && state.data === null) return <Loading />;
   if (state.error)
     return <ErrorState error={state.error} onRetry={state.reload} />;
-  if (state.data === null) return <EmptyState message={emptyMessage} />;
-  if (isEmpty?.(state.data)) return <EmptyState message={emptyMessage} />;
+  if (state.data === null) return <EmptyState message={resolvedEmptyMessage} />;
+  if (isEmpty?.(state.data))
+    return <EmptyState message={resolvedEmptyMessage} />;
 
   return <>{children(state.data)}</>;
 }
@@ -161,42 +177,99 @@ export function Feedback({
 export function Field({
   label: fieldLabel,
   hint,
+  required,
+  error,
+  reserveErrorSpace,
   children,
 }: {
   label: string;
   hint?: ReactNode;
+  /** Hiện dấu `*` sau nhãn — quy ước bắt buộc theo design system (mục 5.1). */
+  required?: boolean;
+  /** Thông báo lỗi hiện ngay dưới control, gắn `role="alert"` để trình đọc màn hình báo ngay. */
+  error?: ReactNode;
+  /** Giữ một dòng dưới control để thông báo lỗi không đẩy các trường khác khi xuất hiện. */
+  reserveErrorSpace?: boolean;
   children: ReactNode;
 }) {
+  const { t } = useLanguage();
+  const labelId = useId();
+  const messageId = useId();
+  const describedBy = error || hint ? messageId : undefined;
+  // Control gốc (input/select/textarea) được nối ARIA trực tiếp; control của design system
+  // (Input/Select/Textarea trong components/primitives) đọc cùng thông tin qua FieldContext.
+  const control =
+    isValidElement(children) &&
+    typeof children.type === "string" &&
+    ["input", "select", "textarea"].includes(children.type)
+      ? cloneElement(children as ReactElement<Record<string, unknown>>, {
+          "aria-labelledby": labelId,
+          "aria-describedby": describedBy,
+          "aria-invalid": error ? true : undefined,
+        })
+      : children;
   return (
     <label className="field">
-      <span>{fieldLabel}</span>
-      {children}
-      {hint && <span className="field__hint">{hint}</span>}
+      <span>
+        <span id={labelId}>{fieldLabel}</span>
+        {required && (
+          <>
+            <span aria-hidden="true"> *</span>
+            <span className="sr-only"> {t.common.requiredSuffix}</span>
+          </>
+        )}
+      </span>
+      <FieldContext.Provider
+        value={{
+          labelId,
+          describedBy,
+          invalid: Boolean(error),
+          required: Boolean(required),
+        }}
+      >
+        {control}
+      </FieldContext.Provider>
+      {hint && !error && (
+        <span id={messageId} className="field__hint">
+          {hint}
+        </span>
+      )}
+      {(error || reserveErrorSpace) && (
+        <span
+          id={error ? messageId : undefined}
+          className={`field__error${reserveErrorSpace ? " field__error--reserved" : ""}`}
+          role={error ? "alert" : undefined}
+          aria-hidden={!error}
+        >
+          {error}
+        </span>
+      )}
     </label>
   );
 }
 
 export function Dialog({
   title,
+  description,
   onClose,
   footer,
+  size = "md",
+  className = "",
   children,
 }: {
   title: string;
+  /** Một câu giải thích hệ quả của hành động (đặc biệt với thao tác không hoàn tác). */
+  description?: ReactNode;
   onClose: () => void;
   footer?: ReactNode;
+  size?: "sm" | "md" | "lg";
+  className?: string;
   children: ReactNode;
 }) {
-  // Escape để đóng: hộp thoại phủ kín thao tác phía sau, phải luôn có đường thoát bằng bàn phím.
-  useEffect(() => {
-    const handler = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-
-    window.addEventListener("keydown", handler);
-
-    return () => window.removeEventListener("keydown", handler);
-  }, [onClose]);
+  const { t } = useLanguage();
+  const dialogRef = useRef<HTMLDivElement>(null);
+  // Focus trap + Escape + trả focus + khóa cuộn: dùng chung với Drawer.
+  useModalBehavior(dialogRef, onClose);
 
   return (
     <div
@@ -207,7 +280,9 @@ export function Dialog({
       }}
     >
       <div
-        className="dialog"
+        className={`dialog ${size === "md" ? "" : `dialog--${size}`} ${className}`}
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={title}
@@ -219,10 +294,13 @@ export function Dialog({
             className="btn btn--ghost btn--sm"
             onClick={onClose}
           >
-            Close
+            {t.common.close}
           </button>
         </header>
-        <div className="dialog__body">{children}</div>
+        <div className="dialog__body">
+          {description && <p className="dialog__desc">{description}</p>}
+          {children}
+        </div>
         {footer && <footer className="dialog__foot">{footer}</footer>}
       </div>
     </div>
@@ -236,8 +314,18 @@ export function Table({
   headers: (string | { text: string; numeric?: boolean })[];
   children: ReactNode;
 }) {
+  const { t } = useLanguage();
+  const rows = Children.toArray(children);
   return (
-    <div className="table-wrap">
+    <div
+      className="table-wrap"
+      tabIndex={0}
+      role="region"
+      aria-label={headers
+        .map((header) => (typeof header === "string" ? header : header.text))
+        .filter(Boolean)
+        .join(", ")}
+    >
       <table>
         <thead>
           <tr>
@@ -247,14 +335,26 @@ export function Table({
                 typeof header === "string" ? false : header.numeric;
 
               return (
-                <th key={index} className={numeric ? "num" : undefined}>
+                <th
+                  key={index}
+                  scope="col"
+                  className={numeric ? "num" : undefined}
+                >
                   {text}
                 </th>
               );
             })}
           </tr>
         </thead>
-        <tbody>{children}</tbody>
+        <tbody>
+          {rows.length ? (
+            rows
+          ) : (
+            <tr>
+              <td colSpan={headers.length}>{t.operations.empty}</td>
+            </tr>
+          )}
+        </tbody>
       </table>
     </div>
   );
@@ -265,12 +365,16 @@ export function Pager({
   pageSize,
   totalCount,
   onChange,
+  noun,
 }: {
   page: number;
   pageSize: number;
   totalCount: number;
   onChange: (page: number) => void;
+  noun?: string;
 }) {
+  const { t } = useLanguage();
+  const resolvedNoun = noun ?? t.common.items;
   const lastPage = Math.max(1, Math.ceil(totalCount / pageSize));
 
   if (totalCount === 0) return null;
@@ -278,7 +382,7 @@ export function Pager({
   return (
     <div className="row spread" style={{ marginTop: 12 }}>
       <span className="small muted">
-        Trang {page}/{lastPage} · {totalCount} log
+        {t.common.pageLabel} {page}/{lastPage} · {totalCount} {resolvedNoun}
       </span>
       <div className="btn-row">
         <button
@@ -287,7 +391,7 @@ export function Pager({
           disabled={page <= 1}
           onClick={() => onChange(page - 1)}
         >
-          Previous Page
+          {t.common.previousPage}
         </button>
         <button
           type="button"
@@ -295,9 +399,63 @@ export function Pager({
           disabled={page >= lastPage}
           onClick={() => onChange(page + 1)}
         >
-          Trang sau
+          {t.common.nextPage}
         </button>
       </div>
     </div>
+  );
+}
+
+/**
+ * Phân trang cho các trang hội viên: [Previous] Page 1 of 2 [Next], căn giữa.
+ * Biết tổng số trang thì hiện "Page x of y" và ẩn khi chỉ có một trang; chưa biết tổng
+ * (API trả mảng) thì chỉ hiện "Page x" và dựa vào `hasNext`.
+ */
+export function PageNav({
+  page,
+  totalPages,
+  hasNext,
+  loading,
+  onChange,
+}: {
+  page: number;
+  totalPages?: number;
+  hasNext?: boolean;
+  loading?: boolean;
+  onChange: (page: number) => void;
+}) {
+  const { language } = useLanguage();
+  const vi = language === "vi";
+  const known = totalPages !== undefined;
+  const canNext = known ? page < totalPages : Boolean(hasNext);
+  if (known ? totalPages <= 1 : page <= 1 && !canNext) return null;
+  const current = known
+    ? vi
+      ? `Trang ${page}/${totalPages}`
+      : `Page ${page} of ${totalPages}`
+    : vi
+      ? `Trang ${page}`
+      : `Page ${page}`;
+
+  return (
+    <nav className="page-nav" aria-label={vi ? "Phân trang" : "Pagination"}>
+      <button
+        type="button"
+        className="btn btn--secondary"
+        disabled={loading || page <= 1}
+        onClick={() => onChange(page - 1)}
+      >
+        {vi ? "Trước" : "Previous"}
+      </button>
+      <span aria-live="polite">{current}</span>
+      <button
+        type="button"
+        className="btn btn--secondary"
+        disabled={loading || !canNext}
+        onClick={() => onChange(page + 1)}
+      >
+        {vi ? "Sau" : "Next"}
+      </button>
+    </nav>
   );
 }

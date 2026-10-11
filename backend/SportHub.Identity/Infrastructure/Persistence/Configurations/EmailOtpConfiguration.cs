@@ -11,7 +11,7 @@ public sealed class EmailOtpConfiguration : IEntityTypeConfiguration<EmailOtp>
 
         // citext như UserAccount.Email — OTP gửi tới "A@x.com" phải khớp khi Register "a@x.com".
         builder.Property(o => o.Email).HasColumnType("citext").IsRequired();
-        builder.HasIndex(o => o.Email).IsUnique();
+        builder.HasIndex(o => new { o.Email, o.Purpose }).IsUnique();
 
         builder.Property(o => o.CodeHash).IsRequired();
     }

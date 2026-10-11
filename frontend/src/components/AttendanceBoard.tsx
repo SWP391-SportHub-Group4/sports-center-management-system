@@ -1,223 +1,302 @@
 "use client";
-
-import { useState } from "react";
+import { UserAvatar } from "./UserAvatar";
+import { useEffect, useState } from "react";
+import { api } from "@/lib/apiClient";
+import { useAuth } from "@/lib/auth";
+import { useApi, useNow } from "@/lib/useApi";
+import { useLanguage } from "@/lib/language";
+import { todayIso, formatDateTime } from "@/lib/format";
 import {
   AsyncSection,
   Card,
-  Feedback,
   Field,
-  StatusChip,
   Table,
+  StatusChip,
+  Dialog,
 } from "@/components/ui";
-import { api } from "@/lib/apiClient";
-import { formatDateTime, formatTime, todayIso } from "@/lib/format";
-import { useAction, useApi } from "@/lib/useApi";
-import type { ClassSessionDto, SessionRosterDto } from "@/lib/types";
-
-/**
- * Bảng điểm danh — BR-22 (chỉ HLV được gán buổi đó hoặc Lễ tân), BR-53 (chỉ ghi tay
- * Present/Absent; No-show do tiến trình tự động sinh sau khi buổi kết thúc, BR-20).
- *
- * Vì vậy UI chỉ có hai nút Có mặt / Vắng — không có nút nào đặt No-show.
- */
+import type { CourtScheduleEntryDto, CourseRosterDto } from "@/lib/types";
 export function AttendanceBoard({
   coachOnly,
-  onResultRequested,
+  initialSessionId,
+  initialDate,
 }: {
-  /** true = chỉ liệt kê buổi của HLV đang đăng nhập. */
   coachOnly: boolean;
-  /** Cho phép màn hình HLV mở form ghi kết quả tập ngay từ danh sách điểm danh. */
+  initialSessionId?: string | null;
+  initialDate?: string | null;
   onResultRequested?: (entry: {
     enrollmentId: string;
     memberName: string;
   }) => void;
 }) {
-  const [date, setDate] = useState(todayIso());
-  const [sessionId, setSessionId] = useState<string | null>(null);
-  const action = useAction();
-
+  const { user } = useAuth();
+  const { t } = useLanguage();
+  const l = t.operations;
+  const now = useNow();
+  const [date, setDate] = useState(initialDate || todayIso());
+  const [classId, setClass] = useState("");
+  const [sessionId, setSession] = useState(initialSessionId || "");
+  const [search, setSearch] = useState("");
+  const [busy, setBusy] = useState<Record<string, boolean>>({});
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [bulk, setBulk] = useState(false);
+  const [confirmBulk, setConfirmBulk] = useState(false);
+  const writable = user?.role === "Receptionist" && !coachOnly;
   const sessions = useApi(
-    (signal) =>
-      api.get<ClassSessionDto[]>(
-        coachOnly ? "/api/class-sessions/mine" : "/api/class-sessions",
-        {
-          signal,
-          query: { fromDate: date, toDate: date },
-        },
+    (s) =>
+      api.get<CourtScheduleEntryDto[]>(
+        coachOnly
+          ? "/api/coaches/me/court-schedule"
+          : "/api/manager/court-schedule",
+        { signal: s, query: { fromDate: date, toDate: date } },
       ),
     [date, coachOnly],
   );
-
   const roster = useApi(
-    (signal) =>
+    (s) =>
       sessionId
-        ? api.get<SessionRosterDto>(`/api/class-sessions/${sessionId}/roster`, {
-            signal,
+        ? api.get<CourseRosterDto>(`/api/class-sessions/${sessionId}/roster`, {
+            signal: s,
           })
         : Promise.resolve(null),
     [sessionId],
   );
-
-  const mark = async (enrollmentId: string, status: "Present" | "Absent") => {
-    const done = await action.run(
-      () => api.post(`/api/attendance/${enrollmentId}`, { status }),
-      status === "Present" ? "Noted present." : "Noted.",
-    );
-
-    if (done !== null) roster.reload();
-  };
-
+  // Link sâu (?session=) chỉ mang id buổi: suy ra lớp để ô chọn buổi hiển thị đúng.
+  useEffect(() => {
+    if (!sessionId || classId) return;
+    const entry = sessions.data?.find((r) => r.sourceId === sessionId);
+    if (entry?.classId) setClass(String(entry.classId));
+  }, [sessionId, classId, sessions.data]);
+  const classes = [
+    ...new Map(
+      (sessions.data ?? [])
+        .filter((r) => r.sourceType === "CLASS_SESSION")
+        .map((r) => [r.classId, r]),
+    ).values(),
+  ];
+  const inWindow =
+    roster.data &&
+    now >= new Date(roster.data.attendanceOpensAtUtc).getTime() &&
+    now <= new Date(roster.data.attendanceClosesAtUtc).getTime();
+  const notOpenYet =
+    roster.data && now < new Date(roster.data.attendanceOpensAtUtc).getTime();
+  const closed =
+    roster.data && now > new Date(roster.data.attendanceClosesAtUtc).getTime();
+  const rows =
+    roster.data?.entries.filter(
+      (r) =>
+        r.enrollmentStatus === "CONFIRMED" &&
+        r.memberName.toLowerCase().includes(search.toLowerCase()),
+    ) ?? [];
+  async function mark(id: string, status: "PRESENT" | "ABSENT") {
+    if (!writable || !sessionId) return;
+    const key = `${sessionId}-${id}`;
+    setBusy((prev) => ({ ...prev, [key]: true }));
+    setErrors((prev) => ({ ...prev, [key]: "" }));
+    try {
+      await api.put(`/api/class-sessions/${sessionId}/attendance/${id}`, {
+        status,
+      });
+      return true;
+    } catch (e) {
+      setErrors((prev) => ({ ...prev, [key]: (e as Error).message }));
+      return false;
+    } finally {
+      setBusy((prev) => ({ ...prev, [key]: false }));
+    }
+  }
   return (
-    <>
-      <Card title="Select Study">
-        <div className="form form--inline">
-          <Field label="Date">
-            <input
-              type="date"
-              value={date}
-              onChange={(event) => {
-                setDate(event.target.value);
-                setSessionId(null);
-              }}
-            />
-          </Field>
-        </div>
-
-        <div style={{ marginTop: 12 }}>
-          <AsyncSection
-            state={sessions}
-            emptyMessage="There is no study day."
-            isEmpty={(data) => data.length === 0}
-          >
-            {(data) => (
-              <div className="btn-row">
-                {data.map((session) => (
-                  <button
-                    key={session.sessionId}
-                    type="button"
-                    className={`btn btn--sm ${sessionId === session.sessionId ? "" : "btn--ghost"}`}
-                    onClick={() => setSessionId(session.sessionId)}
-                  >
-                    {session.className} · {formatTime(session.startAtUtc)} ·{" "}
-                    {session.confirmedCount}/{session.capacity}
-                  </button>
-                ))}
-              </div>
-            )}
-          </AsyncSection>
-        </div>
-      </Card>
-
-      {sessionId && (
-        <Card
-          title="List"
-          hint="Only noted Present or Zagreb. Status No comes due to self-record system after the end of the session (BR-20, BR-53)."
-          bodyless
-        >
-          <div style={{ padding: "0 18px" }}>
-            <Feedback error={action.error} success={action.success} />
-          </div>
-
-          <AsyncSection
-            state={roster}
-            emptyMessage="This study is not registered."
-            isEmpty={(data) => !data || data.entries.length === 0}
-          >
-            {(data) =>
-              data ? (
-                <>
-                  <div
-                    style={{ padding: "0 18px 10px" }}
-                    className="small muted"
-                  >
-                    {data.session.className} ·{" "}
-                    {formatDateTime(data.session.startAtUtc)} ·{" "}
-                    {data.session.roomName} · HLV {data.session.coachName}
-                  </div>
-
-                  <Table
-                    headers={[
-                      "Members",
-                      "Subscript",
-                      "Score",
-                      "Check-in Time",
-                      "",
-                    ]}
-                  >
-                    {data.entries.map((entry) => (
-                      <tr key={entry.enrollmentId}>
-                        <td>
-                          <strong>
-                            {entry.memberName || entry.memberEmail}
-                          </strong>
-                          <div className="small muted">{entry.memberEmail}</div>
-                        </td>
-                        <td>
-                          <StatusChip value={entry.enrollmentStatus} />
-                        </td>
-                        <td>
-                          <StatusChip value={entry.attendanceStatus} />
-                        </td>
-                        <td className="small nowrap">
-                          {entry.checkInTime
-                            ? formatDateTime(entry.checkInTime)
-                            : "—"}
-                        </td>
-                        <td className="right">
-                          {entry.enrollmentStatus === "Confirmed" ? (
-                            <div
-                              className="btn-row"
-                              style={{ justifyContent: "flex-end" }}
-                            >
-                              <button
-                                type="button"
-                                className="btn btn--sm"
-                                disabled={action.busy}
-                                onClick={() =>
-                                  void mark(entry.enrollmentId, "Present")
-                                }
-                              >
-                                Present
-                              </button>
-                              <button
-                                type="button"
-                                className="btn btn--sm btn--ghost"
-                                disabled={action.busy}
-                                onClick={() =>
-                                  void mark(entry.enrollmentId, "Absent")
-                                }
-                              >
-                                Empaine
-                              </button>
-                              {onResultRequested && (
-                                <button
-                                  type="button"
-                                  className="btn btn--sm btn--ghost"
-                                  onClick={() =>
-                                    onResultRequested({
-                                      enrollmentId: entry.enrollmentId,
-                                      memberName:
-                                        entry.memberName || entry.memberEmail,
-                                    })
-                                  }
-                                >
-                                  Write Results
-                                </button>
-                              )}
-                            </div>
-                          ) : (
-                            <span className="small muted">Reschedule</span>
-                          )}
-                        </td>
-                      </tr>
+    <Card title={l.attendance}>
+      <div className="form-grid">
+        <Field label={l.date}>
+          <input
+            required
+            type="date"
+            value={date}
+            onChange={(e) => {
+              if (!e.target.value) return;
+              setDate(e.target.value);
+              setClass("");
+              setSession("");
+              setErrors({});
+            }}
+          />
+        </Field>
+        <AsyncSection state={sessions}>
+          {(data) => (
+            <>
+              <Field label={t.frontDesk.attendanceClass}>
+                <select
+                  disabled={bulk}
+                  value={classId}
+                  onChange={(e) => {
+                    setClass(e.target.value);
+                    setSession("");
+                    setErrors({});
+                  }}
+                >
+                  <option value="">—</option>
+                  {classes.map((c) => (
+                    <option key={c.classId} value={c.classId ?? ""}>
+                      {c.title}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label={t.frontDesk.attendanceSession}>
+                <select
+                  disabled={bulk}
+                  value={sessionId}
+                  onChange={(e) => {
+                    setSession(e.target.value);
+                    setErrors({});
+                  }}
+                >
+                  <option value="">—</option>
+                  {data
+                    .filter(
+                      (r) =>
+                        r.sourceType === "CLASS_SESSION" &&
+                        String(r.classId) === classId,
+                    )
+                    .map((r) => (
+                      <option key={r.sourceId} value={r.sourceId}>
+                        {formatDateTime(r.startAtUtc)}
+                      </option>
                     ))}
-                  </Table>
-                </>
-              ) : null
-            }
-          </AsyncSection>
-        </Card>
+                </select>
+              </Field>
+            </>
+          )}
+        </AsyncSection>
+      </div>
+      {!writable && <p>{l.readOnly}</p>}
+      {sessionId && (
+        <AsyncSection state={roster}>
+          {(data) => (
+            <>
+              <p>
+                {l.attendanceWindow}:{" "}
+                {formatDateTime(data.attendanceOpensAtUtc)} –{" "}
+                {formatDateTime(data.attendanceClosesAtUtc)}
+              </p>
+              {writable && !inWindow && (
+                <p role="status">
+                  {notOpenYet
+                    ? t.frontDesk.attendanceNotOpen
+                    : closed
+                      ? t.frontDesk.attendanceClosed
+                      : null}
+                </p>
+              )}
+              <p>
+                {t.frontDesk.recorded
+                  .replace(
+                    "{done}",
+                    String(
+                      data.entries.filter(
+                        (e) =>
+                          e.enrollmentStatus === "CONFIRMED" &&
+                          e.attendanceStatus &&
+                          e.attendanceStatus !== "NOT_RECORDED",
+                      ).length,
+                    ),
+                  )
+                  .replace(
+                    "{total}",
+                    String(
+                      data.entries.filter(
+                        (e) => e.enrollmentStatus === "CONFIRMED",
+                      ).length,
+                    ),
+                  )}
+              </p>
+              <Field label={l.search}>
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </Field>
+              <Table headers={[l.member, l.status, ""]}>
+                {rows.map((r) => {
+                  const key = `${sessionId}-${r.enrollmentId}`;
+                  return (
+                    <tr key={key}>
+                      <td>
+                        <UserAvatar
+                          userId={r.memberId}
+                          name={r.memberName}
+                          size={28}
+                          report
+                        />{" "}
+                        {r.memberName}
+                      </td>
+                      <td>
+                        <StatusChip value={r.attendanceStatus} />
+                      </td>
+                      <td>
+                        {writable && (
+                          <div className="btn-row">
+                            {(["PRESENT", "ABSENT"] as const).map((status) => (
+                              <button
+                                className="btn btn--secondary"
+                                key={status}
+                                disabled={!inWindow || busy[key] || bulk}
+                                onClick={async () => {
+                                  if (await mark(r.enrollmentId, status))
+                                    roster.reload();
+                                }}
+                              >
+                                {status === "PRESENT" ? l.present : l.absent}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        {errors[key] && <p role="alert">{errors[key]}</p>}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </Table>
+              {!rows.length && <p>{l.empty}</p>}
+              {writable && (
+                <button
+                  className="btn btn--secondary"
+                  disabled={
+                    !inWindow ||
+                    bulk ||
+                    !rows.length ||
+                    Object.values(busy).some(Boolean)
+                  }
+                  onClick={() => setConfirmBulk(true)}
+                >
+                  {l.markAll}
+                </button>
+              )}
+            </>
+          )}
+        </AsyncSection>
       )}
-    </>
+      {confirmBulk && (
+        <Dialog
+          title={l.confirm}
+          onClose={() => !bulk && setConfirmBulk(false)}
+        >
+          <p>{l.bulkConfirm}</p>
+          <button
+            className="btn"
+            disabled={bulk}
+            onClick={async () => {
+              setBulk(true);
+              for (const row of rows) await mark(row.enrollmentId, "PRESENT");
+              setBulk(false);
+              setConfirmBulk(false);
+              roster.reload();
+            }}
+          >
+            {l.confirm}
+          </button>
+        </Dialog>
+      )}
+    </Card>
   );
 }

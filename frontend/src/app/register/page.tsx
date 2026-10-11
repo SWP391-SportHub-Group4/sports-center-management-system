@@ -5,39 +5,85 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ApiError, api } from "@/lib/apiClient";
 import { HOME_BY_ROLE, useAuth } from "@/lib/auth";
-import { Feedback, Field } from "@/components/ui";
+import { Feedback } from "@/components/ui";
+import { AuthField, AuthPasswordField } from "@/components/auth/AuthField";
+import { AuthBrand } from "@/components/auth/AuthCinemaShell";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
+import {
+  PasswordRequirements,
+  passwordChecks,
+} from "@/features/identity/password-requirements";
+import { useLanguage } from "@/lib/language";
+import {
+  IconCheck,
+  IconLock,
+  IconMail,
+  IconPhone,
+  IconUser,
+} from "@/components/icons";
 
-const OTP_EXPIRY_SECONDS = 300; // 5 minutes
+const OTP_EXPIRY_SECONDS = 600; // Member registration OTP: 10 minutes
 const RESEND_COOLDOWN_SECONDS = 60; // 1 minute
 
 export default function RegisterPage() {
   const { register, loginWithGoogle } = useAuth();
   const router = useRouter();
+  const { t, language } = useLanguage();
 
   const [step, setStep] = useState<1 | 2>(1);
   const [form, setForm] = useState({
     email: "",
-    otp: "",
     fullName: "",
+    phone: "",
     password: "",
     confirmPassword: "",
   });
+  const [otpDigits, setOtpDigits] = useState<string[]>(Array(6).fill(""));
+  const otpCode = otpDigits.join("");
 
   const [otpSent, setOtpSent] = useState(false);
   const [sendingOtp, setSendingOtp] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-
   const [otpSecondsLeft, setOtpSecondsLeft] = useState(0);
   const [resendCooldown, setResendCooldown] = useState(0);
 
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<
+    Partial<
+      Record<
+        "email" | "otp" | "fullName" | "phone" | "password" | "confirmPassword",
+        string
+      >
+    >
+  >({});
 
-  const otpInputRef = useRef<HTMLInputElement>(null);
+  const emailInputRef = useRef<HTMLInputElement>(null);
+  const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const fullNameInputRef = useRef<HTMLInputElement>(null);
+  const phoneInputRef = useRef<HTMLInputElement>(null);
+  const passwordInputRef = useRef<HTMLInputElement>(null);
+  const confirmInputRef = useRef<HTMLInputElement>(null);
+  const requiredMessage =
+    language === "vi"
+      ? "Vui lòng điền thông tin này."
+      : "Please fill out this field.";
+  const requiredError = (value: string) =>
+    !value.trim() ? requiredMessage : undefined;
+  const emailError = (value: string) =>
+    requiredError(value) ??
+    (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())
+      ? t.refactor.emailInvalid
+      : undefined);
+
+  // Optional field; same pattern as the backend PhoneNumberAttribute.
+  const phoneError = (value: string) =>
+    value.trim() &&
+    !/^(0|\+84)(3[2-9]|5[689]|7[06-9]|8[1-9]|9[0-46-9])\d{7}$/.test(
+      value.trim(),
+    )
+      ? "Enter a valid phone number, e.g. 0912345678 or +84912345678."
+      : undefined;
 
   // Timers for OTP expiration and resend cooldown
   useEffect(() => {
@@ -63,11 +109,13 @@ export default function RegisterPage() {
   };
 
   const message = (cause: unknown) => {
+    if (language === "vi")
+      return cause instanceof ApiError ? cause.message : t.refactor.loginFailed;
     if (!(cause instanceof ApiError)) {
       return "We couldn't complete your request.";
     }
     const messages: Record<string, string> = {
-      gmail_required: "Enter a valid Gmail address.",
+      gmail_required: "Enter a valid email address.",
       email_already_exists: "This email address is already registered.",
       phone_already_exists: "This phone number is already registered.",
       otp_not_found: "No verification code was requested for this email.",
@@ -81,10 +129,16 @@ export default function RegisterPage() {
         "The verification code is incorrect. Please check and try again.",
       invalid_otp: "The verification code is incorrect.",
       otp_resend_too_soon: "Please wait before requesting another code.",
-      google_account_not_linked:
-        "This Gmail address already has a SportHub account. Sign in with your password, then link Google from Account settings.",
       invalid_google_token: "Google couldn't verify this sign-up attempt.",
       google_login_not_configured: "Google sign-up is not configured yet.",
+      google_identity_mismatch:
+        "This email is linked to a different Google account.",
+      google_email_not_verified: "Verify your Google email before signing in.",
+      google_login_conflict: "Google sign-in is busy. Please try again.",
+      google_script_failed:
+        "Google sign-in could not load. Check your connection or browser settings and try again.",
+      google_script_loading:
+        "Google sign-in is loading. Please try again shortly.",
       network_error: "We couldn't connect to the server. Try again shortly.",
     };
     return (
@@ -96,13 +150,14 @@ export default function RegisterPage() {
   const sendOtp = async () => {
     if (sendingOtp) return;
     const trimmedEmail = form.email.trim();
-    if (!trimmedEmail.toLowerCase().endsWith("@gmail.com")) {
-      setError("Enter a valid Gmail address (ending with @gmail.com).");
+    const validationError = emailError(trimmedEmail);
+    setFieldErrors((current) => ({ ...current, email: validationError }));
+    if (validationError) {
+      emailInputRef.current?.focus();
       return;
     }
     setSendingOtp(true);
     setError(null);
-    setNotice(null);
     try {
       await api.post(
         "/api/auth/register/otp",
@@ -110,13 +165,12 @@ export default function RegisterPage() {
         { anonymous: true },
       );
       setOtpSent(true);
+      setOtpDigits(Array(6).fill(""));
+      setFieldErrors((current) => ({ ...current, otp: undefined }));
       setOtpSecondsLeft(OTP_EXPIRY_SECONDS);
       setResendCooldown(RESEND_COOLDOWN_SECONDS);
-      setNotice(
-        "A 6-digit verification code has been sent to your Gmail inbox.",
-      );
       setTimeout(() => {
-        otpInputRef.current?.focus();
+        otpInputRefs.current[0]?.focus();
       }, 100);
     } catch (cause) {
       setError(message(cause));
@@ -127,8 +181,13 @@ export default function RegisterPage() {
 
   const verifyOtpAndContinue = (event?: React.FormEvent) => {
     if (event) event.preventDefault();
-    if (form.otp.length !== 6) {
-      setError("Please enter the complete 6-digit code.");
+    if (otpDigits.some((digit) => !digit)) {
+      setFieldErrors((current) => ({
+        ...current,
+        otp:
+          requiredError(otpCode) ?? "Please enter the complete 6-digit code.",
+      }));
+      otpInputRefs.current[otpDigits.findIndex((digit) => !digit)]?.focus();
       return;
     }
     if (otpSecondsLeft === 0) {
@@ -137,36 +196,67 @@ export default function RegisterPage() {
     }
 
     setError(null);
-    setNotice(null);
     setStep(2);
   };
 
   const submitFinal = async (event: React.FormEvent) => {
     event.preventDefault();
     if (busy) return;
-    if (form.otp.length !== 6) {
+    const nextErrors = {
+      fullName: requiredError(form.fullName),
+      phone: phoneError(form.phone),
+      password: requiredError(form.password),
+      confirmPassword: requiredError(form.confirmPassword),
+    };
+    setFieldErrors((current) => ({ ...current, ...nextErrors }));
+    if (
+      nextErrors.fullName ||
+      nextErrors.phone ||
+      nextErrors.password ||
+      nextErrors.confirmPassword
+    ) {
+      (nextErrors.fullName
+        ? fullNameInputRef
+        : nextErrors.phone
+          ? phoneInputRef
+          : nextErrors.password
+          ? passwordInputRef
+          : confirmInputRef
+      ).current?.focus();
+      return;
+    }
+    if (otpDigits.some((digit) => !digit)) {
       setError("Verification code is missing or invalid. Please check Step 1.");
       setStep(1);
       return;
     }
-    if (form.password.length < 8) {
-      setError("Password must be at least 8 characters long.");
+    if (!passwordChecks(form.password, form.email).every(Boolean)) {
+      setFieldErrors((current) => ({
+        ...current,
+        password: t.identity.passwordInvalid,
+      }));
+      passwordInputRef.current?.focus();
       return;
     }
     if (form.password !== form.confirmPassword) {
-      setError("The passwords do not match.");
+      setFieldErrors((current) => ({
+        ...current,
+        confirmPassword: t.refactor.mismatch,
+      }));
+      confirmInputRef.current?.focus();
       return;
     }
 
     setBusy(true);
     setError(null);
-    setNotice(null);
+    setFieldErrors({});
 
     try {
       const user = await register({
         email: form.email.trim(),
-        otpCode: form.otp.trim(),
+        otpCode,
         fullName: form.fullName.trim(),
+        phone: form.phone.trim() || undefined,
         password: form.password,
       });
       router.replace(HOME_BY_ROLE[user.role]);
@@ -187,9 +277,9 @@ export default function RegisterPage() {
     setOtpSent(false);
     setOtpSecondsLeft(0);
     setResendCooldown(0);
-    setForm((prev) => ({ ...prev, otp: "" }));
+    setOtpDigits(Array(6).fill(""));
     setError(null);
-    setNotice(null);
+    setFieldErrors({});
     setStep(1);
   };
 
@@ -204,11 +294,9 @@ export default function RegisterPage() {
         {/* Left Branded Visual Panel */}
         <aside className="auth__visual" aria-label="SportHub Member Community">
           <div className="auth__visual-copy">
-            <p className="auth__eyebrow">Sport · Community · Progress</p>
             <p className="auth__statement">Start your athletic journey.</p>
             <p className="auth__visual-detail">
-              Join SportHub today to book premium courts, connect with top
-              coaches, and elevate your fitness routine with our vibrant
+              Find your court, join a class and train with the SportHub
               community.
             </p>
           </div>
@@ -216,16 +304,29 @@ export default function RegisterPage() {
 
         {/* Right Form Card */}
         <section className="auth__card" aria-labelledby="register-title">
-          <Link className="auth__home-link" href="/">
-            <span aria-hidden="true">←</span> Back to SportHub
-          </Link>
+          <div className="auth__top-row">
+            <AuthBrand />
+            {step === 2 ? (
+              <button
+                type="button"
+                className="auth__landing-link"
+                onClick={() => {
+                  setError(null);
+                  setStep(1);
+                }}
+              >
+                ← Back
+              </button>
+            ) : (
+              <Link className="auth__landing-link" href="/">
+                ← Back
+              </Link>
+            )}
+          </div>
 
           <h1 id="register-title" className="auth__brand">
             Create your member account
           </h1>
-          <p className="auth__sub">
-            Join SportHub in 2 quick steps and start training today.
-          </p>
 
           {/* 2-Step Progress Indicator */}
           <nav className="auth__steps" aria-label="Registration steps">
@@ -233,7 +334,7 @@ export default function RegisterPage() {
               className={`auth__step ${step === 1 ? "auth__step--active" : "auth__step--done"}`}
             >
               <span className="auth__step-badge">1</span>
-              <span>Verify Gmail</span>
+              <span>Verify email</span>
             </div>
             <div
               className={`auth__step-line ${step === 2 ? "auth__step-line--done" : ""}`}
@@ -262,6 +363,7 @@ export default function RegisterPage() {
                       const user = await loginWithGoogle(idToken);
                       router.replace(HOME_BY_ROLE[user.role]);
                     } catch (cause) {
+                      console.error("Google sign-up failed", cause);
                       setError(message(cause));
                     } finally {
                       setBusy(false);
@@ -271,53 +373,70 @@ export default function RegisterPage() {
               />
 
               <div className="auth__separator">
-                <span>or sign up with Gmail</span>
+                <span>or sign up with email</span>
               </div>
 
               <div className="form">
-                <Field
-                  label="Gmail"
-                  hint="Only @gmail.com addresses are accepted."
-                >
-                  <div className="otp-request-row">
-                    <input
-                      type="email"
-                      autoComplete="email"
-                      pattern=".+@gmail\.com$"
-                      required
-                      disabled={otpSent || sendingOtp}
-                      value={form.email}
-                      placeholder="your.email@gmail.com"
-                      suppressHydrationWarning
-                      onChange={(event) => {
-                        setForm({ ...form, email: event.target.value });
-                        setError(null);
-                      }}
-                    />
-                    {!otpSent ? (
-                      <button
-                        type="button"
-                        className="btn btn--secondary"
-                        disabled={sendingOtp || !form.email.trim()}
-                        onClick={() => void sendOtp()}
-                      >
-                        {sendingOtp ? "Sending…" : "Send code"}
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        className="btn btn--quiet"
-                        onClick={handleResetEmail}
-                      >
-                        Change
-                      </button>
-                    )}
+                <div className="otp-request-row">
+                  <AuthField
+                    ref={emailInputRef}
+                    type="email"
+                    label={t.refactor.email}
+                    placeholder="example@gmail.com"
+                    icon={<IconMail size={20} />}
+                    autoComplete="email"
+                    title={otpSent ? form.email : undefined}
+                    required
+                    error={fieldErrors.email}
+                    disabled={otpSent || sendingOtp}
+                    value={form.email}
+                    suppressHydrationWarning
+                    onChange={(event) => {
+                      setForm({ ...form, email: event.target.value });
+                      if (fieldErrors.email)
+                        setFieldErrors((current) => ({
+                          ...current,
+                          email: emailError(event.target.value),
+                        }));
+                      setError(null);
+                    }}
+                    onBlur={(event) =>
+                      setFieldErrors((current) => ({
+                        ...current,
+                        email: emailError(event.target.value),
+                      }))
+                    }
+                  />
+                  {!otpSent ? (
+                    <button
+                      type="button"
+                      className="btn"
+                      disabled={sendingOtp}
+                      onClick={() => void sendOtp()}
+                    >
+                      {sendingOtp ? t.refactor.sending : t.refactor.sendCode}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="btn"
+                      onClick={handleResetEmail}
+                    >
+                      Change
+                    </button>
+                  )}
+                </div>
+
+                {error && (
+                  <div className="auth__feedback auth__feedback--before-otp">
+                    <Feedback error={error} />
                   </div>
-                </Field>
+                )}
 
                 {/* OTP Verification Card: Revealed once code is sent */}
                 {otpSent && (
                   <form
+                    noValidate
                     onSubmit={(e) => void verifyOtpAndContinue(e)}
                     className="otp-box"
                   >
@@ -326,28 +445,119 @@ export default function RegisterPage() {
                       <span className="otp-box__timer" aria-live="polite">
                         {otpSecondsLeft > 0
                           ? `Expires in ${formatTimer(otpSecondsLeft)}`
-                          : "Code expired"}
+                          : t.refactor.codeExpired}
                       </span>
                     </div>
 
-                    <input
-                      ref={otpInputRef}
-                      className="otp-input"
-                      inputMode="numeric"
-                      autoComplete="one-time-code"
-                      pattern="\d{6}"
-                      maxLength={6}
-                      required
-                      placeholder="••••••"
-                      disabled={otpSecondsLeft === 0}
-                      value={form.otp}
-                      suppressHydrationWarning
-                      onChange={(event) => {
-                        const code = event.target.value.replace(/\D/g, "");
-                        setForm({ ...form, otp: code });
-                        setError(null);
-                      }}
-                    />
+                    <div
+                      className="otp-inputs"
+                      role="group"
+                      aria-label="Verification code"
+                    >
+                      {otpDigits.map((digit, index) => (
+                        <input
+                          key={index}
+                          ref={(node) => {
+                            otpInputRefs.current[index] = node;
+                          }}
+                          className="otp-digit"
+                          type="text"
+                          inputMode="numeric"
+                          autoComplete={index === 0 ? "one-time-code" : "off"}
+                          maxLength={index === 0 ? 6 : 1}
+                          aria-label={`Digit ${index + 1} of 6`}
+                          aria-invalid={Boolean(fieldErrors.otp)}
+                          aria-describedby={
+                            fieldErrors.otp ? "register-otp-error" : undefined
+                          }
+                          disabled={otpSecondsLeft === 0}
+                          value={digit}
+                          onChange={(event) => {
+                            const value = event.target.value.replace(/\D/g, "");
+                            if (value.length > 1) {
+                              setOtpDigits((current) => {
+                                const next = [...current];
+                                value
+                                  .slice(0, 6)
+                                  .split("")
+                                  .forEach((part, offset) => {
+                                    if (index + offset < 6)
+                                      next[index + offset] = part;
+                                  });
+                                return next;
+                              });
+                              otpInputRefs.current[
+                                Math.min(index + value.length, 5)
+                              ]?.focus();
+                            } else {
+                              setOtpDigits((current) => {
+                                const next = [...current];
+                                next[index] = value;
+                                return next;
+                              });
+                              if (value && index < 5)
+                                otpInputRefs.current[index + 1]?.focus();
+                            }
+                            setFieldErrors((current) => ({
+                              ...current,
+                              otp: undefined,
+                            }));
+                            setError(null);
+                          }}
+                          onKeyDown={(event) => {
+                            if (
+                              event.key === "Backspace" &&
+                              !event.currentTarget.value &&
+                              index > 0
+                            ) {
+                              setOtpDigits((current) => {
+                                const next = [...current];
+                                next[index - 1] = "";
+                                return next;
+                              });
+                              otpInputRefs.current[index - 1]?.focus();
+                            } else if (event.key === "ArrowLeft" && index > 0) {
+                              otpInputRefs.current[index - 1]?.focus();
+                            } else if (
+                              event.key === "ArrowRight" &&
+                              index < 5
+                            ) {
+                              otpInputRefs.current[index + 1]?.focus();
+                            }
+                          }}
+                          onPaste={(event) => {
+                            const pasted = event.clipboardData
+                              .getData("text")
+                              .replace(/\D/g, "")
+                              .slice(0, 6);
+                            if (!pasted) return;
+                            event.preventDefault();
+                            setOtpDigits((current) => {
+                              const next = [...current];
+                              pasted.split("").forEach((part, offset) => {
+                                if (index + offset < 6)
+                                  next[index + offset] = part;
+                              });
+                              return next;
+                            });
+                            setFieldErrors((current) => ({
+                              ...current,
+                              otp: undefined,
+                            }));
+                            otpInputRefs.current[
+                              Math.min(index + pasted.length, 5)
+                            ]?.focus();
+                          }}
+                        />
+                      ))}
+                    </div>
+                    {fieldErrors.otp && (
+                      <div className="otp-error-slot">
+                        <p id="register-otp-error" role="alert">
+                          {fieldErrors.otp}
+                        </p>
+                      </div>
+                    )}
 
                     <div className="otp-box__actions">
                       <button
@@ -360,128 +570,162 @@ export default function RegisterPage() {
                           ? `Resend in ${resendCooldown}s`
                           : sendingOtp
                             ? "Sending…"
-                            : "Resend code"}
+                            : t.refactor.resendCode}
                       </button>
 
                       <button
                         type="submit"
                         className="btn btn--sm"
-                        disabled={form.otp.length !== 6 || otpSecondsLeft === 0}
+                        disabled={otpSecondsLeft === 0}
                       >
-                        Continue to Step 2 →
+                        Step 2 →
                       </button>
                     </div>
                   </form>
                 )}
-
-                <div className="auth__feedback">
-                  <Feedback error={error} success={notice} />
-                </div>
               </div>
             </>
           )}
 
           {/* Step 2: Name & Password Setup */}
           {step === 2 && (
-            <form className="form" onSubmit={submitFinal}>
+            <form className="form" onSubmit={submitFinal} noValidate>
               <div className="verified-chip">
                 <span>
-                  Verified:{" "}
+                  Email:{" "}
                   <strong className="verified-chip__email">{form.email}</strong>
                 </span>
-                <button
-                  type="button"
-                  className="verified-chip__change"
-                  onClick={handleResetEmail}
-                >
-                  Change email
-                </button>
               </div>
 
-              <Field label="Full name">
-                <input
-                  autoComplete="name"
-                  maxLength={100}
+              <AuthField
+                ref={fullNameInputRef}
+                label={t.refactor.fullName}
+                icon={<IconUser size={20} />}
+                autoComplete="name"
+                maxLength={100}
+                required
+                error={fieldErrors.fullName}
+                disabled={busy}
+                value={form.fullName}
+                suppressHydrationWarning
+                onChange={(event) => {
+                  setForm({ ...form, fullName: event.target.value });
+                  if (fieldErrors.fullName)
+                    setFieldErrors((current) => ({
+                      ...current,
+                      fullName: requiredError(event.target.value),
+                    }));
+                  setError(null);
+                }}
+                onBlur={(event) =>
+                  setFieldErrors((current) => ({
+                    ...current,
+                    fullName: requiredError(event.target.value),
+                  }))
+                }
+              />
+
+              <AuthField
+                ref={phoneInputRef}
+                type="tel"
+                name="phone"
+                label={`${t.auth.phoneLabel} (optional)`}
+                placeholder="0912345678"
+                icon={<IconPhone size={20} />}
+                autoComplete="tel-national"
+                inputMode="tel"
+                error={fieldErrors.phone}
+                disabled={busy}
+                value={form.phone}
+                onChange={(event) => {
+                  setForm({ ...form, phone: event.target.value });
+                  if (fieldErrors.phone)
+                    setFieldErrors((current) => ({
+                      ...current,
+                      phone: phoneError(event.target.value),
+                    }));
+                }}
+                onBlur={(event) =>
+                  setFieldErrors((current) => ({
+                    ...current,
+                    phone: phoneError(event.target.value),
+                  }))
+                }
+              />
+
+              <AuthPasswordField
+                ref={passwordInputRef}
+                label={t.refactor.password}
+                icon={<IconLock size={20} />}
+                showLabel={t.refactor.show}
+                hideLabel={t.refactor.hide}
+                autoComplete="new-password"
+                minLength={8}
+                maxLength={128}
+                required
+                error={fieldErrors.password}
+                disabled={busy}
+                value={form.password}
+                suppressHydrationWarning
+                onChange={(event) => {
+                  setForm({ ...form, password: event.target.value });
+                  if (fieldErrors.password)
+                    setFieldErrors((current) => ({
+                      ...current,
+                      password: requiredError(event.target.value),
+                    }));
+                  setError(null);
+                }}
+                onBlur={(event) =>
+                  setFieldErrors((current) => ({
+                    ...current,
+                    password: requiredError(event.target.value),
+                  }))
+                }
+              />
+
+              <div>
+                <AuthPasswordField
+                  ref={confirmInputRef}
+                  label={t.refactor.confirmPassword}
+                  icon={<IconLock size={20} />}
+                  showLabel={t.refactor.show}
+                  hideLabel={t.refactor.hide}
+                  autoComplete="new-password"
+                  minLength={8}
+                  maxLength={128}
                   required
-                  placeholder="e.g. Alex Johnson"
+                  error={fieldErrors.confirmPassword}
                   disabled={busy}
-                  value={form.fullName}
+                  value={form.confirmPassword}
                   suppressHydrationWarning
                   onChange={(event) => {
-                    setForm({ ...form, fullName: event.target.value });
+                    setForm({ ...form, confirmPassword: event.target.value });
+                    if (fieldErrors.confirmPassword)
+                      setFieldErrors((current) => ({
+                        ...current,
+                        confirmPassword: requiredError(event.target.value),
+                      }));
                     setError(null);
                   }}
+                  onBlur={(event) =>
+                    setFieldErrors((current) => ({
+                      ...current,
+                      confirmPassword: requiredError(event.target.value),
+                    }))
+                  }
                 />
-              </Field>
-
-              <Field label="Password" hint="Use at least 8 characters.">
-                <span className="password-field">
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    autoComplete="new-password"
-                    minLength={8}
-                    maxLength={128}
-                    required
-                    disabled={busy}
-                    placeholder="Create a strong password"
-                    value={form.password}
-                    suppressHydrationWarning
-                    onChange={(event) => {
-                      setForm({ ...form, password: event.target.value });
-                      setError(null);
-                    }}
-                  />
-                  <button
-                    type="button"
-                    className="password-field__toggle"
-                    onClick={() => setShowPassword(!showPassword)}
-                    title={showPassword ? "Hide password" : "Show password"}
-                    aria-label={
-                      showPassword ? "Hide password" : "Show password"
-                    }
-                  >
-                    {showPassword ? "Hide" : "Show"}
-                  </button>
-                </span>
-              </Field>
-
-              <Field label="Confirm password">
-                <span className="password-field">
-                  <input
-                    type={showConfirmPassword ? "text" : "password"}
-                    autoComplete="new-password"
-                    minLength={8}
-                    maxLength={128}
-                    required
-                    disabled={busy}
-                    placeholder="Repeat your password"
-                    value={form.confirmPassword}
-                    suppressHydrationWarning
-                    onChange={(event) => {
-                      setForm({ ...form, confirmPassword: event.target.value });
-                      setError(null);
-                    }}
-                  />
-                  <button
-                    type="button"
-                    className="password-field__toggle"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    title={
-                      showConfirmPassword ? "Hide password" : "Show password"
-                    }
-                    aria-label={
-                      showConfirmPassword ? "Hide password" : "Show password"
-                    }
-                  >
-                    {showConfirmPassword ? "Hide" : "Show"}
-                  </button>
-                </span>
                 {passwordMatch === true && (
                   <span
                     className="match-hint match-hint--ok"
                     aria-live="polite"
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 4,
+                    }}
                   >
-                    ✓ Passwords match
+                    <IconCheck size={14} strokeWidth={2.4} /> Passwords match
                   </span>
                 )}
                 {passwordMatch === false && (
@@ -492,10 +736,14 @@ export default function RegisterPage() {
                     Passwords do not match yet
                   </span>
                 )}
-              </Field>
+              </div>
 
               <div className="auth__feedback">
-                <Feedback error={error} success={notice} />
+                <PasswordRequirements
+                  password={form.password}
+                  email={form.email}
+                />
+                <Feedback error={error} />
               </div>
 
               <button
@@ -508,20 +756,12 @@ export default function RegisterPage() {
                   form.password !== form.confirmPassword
                 }
               >
-                {busy ? "Creating account…" : "Create account"}
-              </button>
-
-              <button
-                type="button"
-                className="auth__back-step"
-                onClick={() => setStep(1)}
-              >
-                ← Back to email step
+                {busy ? t.refactor.creating : t.refactor.createAccount}
               </button>
             </form>
           )}
 
-          <p className="small muted" style={{ marginTop: 16 }}>
+          <p className="small muted auth__signin-prompt">
             Already have an account? <Link href="/login">Sign in</Link>.
           </p>
         </section>

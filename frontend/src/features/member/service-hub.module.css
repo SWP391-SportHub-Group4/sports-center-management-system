@@ -1,0 +1,41 @@
+.hub {
+  display: grid;
+  gap: var(--space-5);
+  min-width: 0;
+}
+.intro {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+.intro h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-4xl);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-tight);
+}
+.intro p {
+  max-width: 52ch;
+  margin: var(--space-1) 0 0;
+  color: var(--text-muted);
+}
+.stack {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-3);
+}
+.stack > :not(button) {
+  justify-self: stretch;
+}
+
+@media (max-width: 520px) {
+  .intro {
+    align-items: stretch;
+  }
+  .intro h1 {
+    font-size: var(--text-3xl);
+  }
+}

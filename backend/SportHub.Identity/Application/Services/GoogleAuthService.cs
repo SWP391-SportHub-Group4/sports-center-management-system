@@ -1,18 +1,23 @@
+using System.Text;
 using Google.Apis.Auth;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Npgsql;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.Infrastructure.Authentication;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.BuildingBlocks.SharedKernel.Time;
+using SportHub.Identity.Application.Commands;
 using SportHub.Identity.Application.DTOs;
 using SportHub.Identity.Application.Interfaces;
 using SportHub.Identity.Domain.Exceptions;
+using SportHub.Identity.Infrastructure.Security;
 
 namespace SportHub.Identity.Application.Services;
 
-public sealed record GoogleIdentity(string Subject, string Email, string? Name);
+public sealed record GoogleIdentity(string Subject, string Email, string? Name, string? Picture = null);
 
 public sealed class GoogleTokenVerifier(IConfiguration configuration) : IGoogleTokenVerifier
 {
@@ -20,8 +25,6 @@ public sealed class GoogleTokenVerifier(IConfiguration configuration) : IGoogleT
     {
         var clientId = configuration["Google:ClientId"];
 
-        // Chưa cấu hình thì báo rõ là lỗi CẤU HÌNH, không phải token sai — nếu không, người
-        // chạy demo sẽ đi tìm lỗi ở phía Google trong khi vấn đề nằm ở file .env.
         if (string.IsNullOrWhiteSpace(clientId))
         {
             throw new AppException(
@@ -43,111 +46,165 @@ public sealed class GoogleTokenVerifier(IConfiguration configuration) : IGoogleT
             throw new AppException(401, "invalid_google_token", $"Google ID token không hợp lệ: {ex.Message}");
         }
 
-        // Email chưa xác minh phía Google thì không dùng để định danh được: bất kỳ ai cũng
-        // khai được một email chưa xác minh và sẽ dựng nên tài khoản mang email của người khác.
         if (!payload.EmailVerified)
         {
             throw new AppException(
                 401, "google_email_not_verified", "Email Google chưa được xác minh.");
         }
 
-        return new GoogleIdentity(payload.Subject, payload.Email, payload.Name);
+        return new GoogleIdentity(payload.Subject, payload.Email, payload.Name, payload.Picture);
     }
 }
 
 /// <summary>
-/// Đăng nhập Google — BR-59 (chỉ liên kết bằng thao tác TƯỜNG MINH khi đã đăng nhập; không
-/// bao giờ tự liên kết hay tự tạo tài khoản chỉ vì trùng email) và BR-60 (tài khoản
-/// Google-only chưa có mật khẩu thì phải đăng nhập qua Google).
+/// Đăng nhập Google. Quy tắc nghiệp vụ: docs/auth-account-rules.md (thay BR-59, BR-60 cũ).
+/// - Danh tính Google đã liên kết: đăng nhập thẳng.
+/// - Email Google (đã được Google xác minh) trùng một tài khoản có sẵn: tự liên kết tài khoản đó với Google rồi đăng nhập.
+/// - Email chưa có tài khoản: tạo ngay tài khoản Member với mật khẩu trống (password_hash = NULL).
+///   Người dùng tự đặt mật khẩu sau, trong Cài đặt tài khoản (có xác nhận OTP qua email) hoặc qua "Quên mật khẩu".
 /// </summary>
 public sealed class GoogleAuthService(
     ISportHubDbContext db,
     IGoogleTokenVerifier verifier,
     IOptions<JwtOptions> jwtOptions,
     IClock clock,
-    IPasswordGenerator passwordGenerator) : IGoogleAuthService
+    IUserSummaryFactory summaries,
+    AvatarService avatars,
+    ILogger<GoogleAuthService> logger) : IGoogleAuthService
 {
     public async Task<AuthResponse> LoginAsync(string idToken, CancellationToken ct = default)
     {
         var identity = await verifier.VerifyAsync(idToken, ct);
+        var email = identity.Email.Trim();
 
-        var existingLink = await db.Set<UserExternalLogin>()
-            .Include(l => l.UserAccount).ThenInclude(u => u!.Role)
-            .Include(l => l.UserAccount).ThenInclude(u => u!.Profile)
-            .SingleOrDefaultAsync(
-                l => l.Provider == ExternalAuthProvider.Google && l.ProviderUserId == identity.Subject, ct);
+        var existingLink = await FindByGoogleSubjectAsync(identity.Subject, ct);
 
         if (existingLink is not null)
         {
-            var linkedUser = existingLink.UserAccount!;
+            return await SignInAsync(existingLink.UserAccount!, isNewAccount: false, ct);
+        }
 
-            if (linkedUser.Status != UserStatus.Active)
+        var owner = await db.Set<UserAccount>()
+            .Include(u => u.Role)
+            .Include(u => u.Profile)
+            .Include(u => u.CoachProfile)
+            .SingleOrDefaultAsync(u => u.Email == email, ct);
+
+        if (owner is not null)
+        {
+            EnsureActive(owner);
+
+            if (await db.Set<UserExternalLogin>().AnyAsync(
+                    l => l.UserId == owner.UserId && l.Provider == ExternalAuthProvider.Google, ct))
             {
-                throw new AccountBlockedException(linkedUser.Status);
+                // Tài khoản này đã gắn với một danh tính Google khác: không ghi đè ngầm.
+                throw new ConflictException(
+                    "google_identity_mismatch",
+                    "Tài khoản với email này đã liên kết với một tài khoản Google khác.");
             }
 
-            return BuildResponse(linkedUser, isNewAccount: false, suggestedPassword: null);
+            db.Set<UserExternalLogin>().Add(NewLink(owner.UserId, identity.Subject));
+
+            await SaveOrConflictAsync(ct);
+
+            return await SignInAsync(owner, isNewAccount: false, ct);
         }
 
-        var emailOwner = await db.Set<UserAccount>().AnyAsync(u => u.Email == identity.Email, ct);
-
-        // BR-59 — đây chính là chỗ chặn pre-hijacking: đã có tài khoản mang email đó nhưng
-        // CHƯA liên kết Google thì từ chối, không tự nối hai bên lại với nhau.
-        if (emailOwner)
-        {
-            throw new ConflictException(
-                "google_account_not_linked",
-                "Email này đã có tài khoản trong hệ thống nhưng chưa liên kết Google. "
-                + "Hãy đăng nhập bằng mật khẩu rồi thực hiện liên kết tài khoản Google (BR-59).");
-        }
-
-        // Chưa có tài khoản nào mang email đó — đăng ký mới qua Google. Không mâu thuẫn BR-59:
-        // BR-59 cấm tự liên kết/tự tạo khi TRÙNG email của tài khoản đã tồn tại.
         var role = await db.Set<Role>().SingleAsync(r => r.RoleName == UserRole.Member, ct);
-        var now = clock.UtcNow;
-
         var user = new UserAccount
         {
             UserId = Guid.NewGuid(),
-            Email = identity.Email,
+            Email = email,
             RoleId = role.RoleId,
             Status = UserStatus.Active,
-            CreatedAt = now,
-
-            // BR-60 — tài khoản tạo thuần qua Google KHÔNG có password_hash; đăng nhập
-            // email/mật khẩu bị chặn cho tới khi người dùng chủ động đặt mật khẩu.
+            CreatedAt = clock.UtcNow,
+            // Chưa có mật khẩu nội bộ: dòng credential tồn tại nhưng password_hash = NULL.
             Credential = new UserCredential { PasswordHash = null },
-            Profile = new UserProfile { FullName = identity.Name ?? identity.Email, Phone = null }
+            Profile = new UserProfile { FullName = DisplayName(identity), Phone = null }
         };
 
-        user.ExternalLogins.Add(new UserExternalLogin
-        {
-            ExternalLoginId = Guid.NewGuid(),
-            Provider = ExternalAuthProvider.Google,
-            ProviderUserId = identity.Subject,
-
-            // KHÔNG lưu refresh token: SSOT §7 còn để mở việc mã hoá field này at rest, nên
-            // không lưu vẫn hơn là lưu thô. Ứng dụng chỉ cần xác minh id_token rồi tự cấp JWT.
-            RefreshToken = null,
-            CreatedAt = now
-        });
-
+        user.ExternalLogins.Add(NewLink(user.UserId, identity.Subject));
         db.Set<UserAccount>().Add(user);
-        await db.SaveChangesAsync(ct);
+
+        await SaveOrConflictAsync(ct);
 
         user.Role = role;
 
-        // Chỉ GỢI Ý — không gán vào Credential ở trên, PasswordHash vẫn null (BR-60) cho tới
-        // khi người dùng tự gọi POST /api/users/me/password.
-        var suggestedPassword = passwordGenerator.GenerateStrong();
+        if (!string.IsNullOrWhiteSpace(identity.Picture))
+        {
+            try { await avatars.ImportGooglePictureAsync(user.UserId, identity.Picture, ct); }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                // Account creation must still succeed if Cloudinary is unavailable.
+                // Import is intentionally attempted only once, at account creation.
+                logger.LogWarning(ex, "Could not import initial Google avatar for user {UserId}", user.UserId);
+            }
+        }
 
-        return BuildResponse(user, isNewAccount: true, suggestedPassword);
+        return await SignInAsync(user, isNewAccount: true, ct);
+    }
+
+    private Task<UserExternalLogin?> FindByGoogleSubjectAsync(string subject, CancellationToken ct)
+        => db.Set<UserExternalLogin>()
+            .Include(l => l.UserAccount).ThenInclude(u => u!.Role)
+            .Include(l => l.UserAccount).ThenInclude(u => u!.Profile)
+            .Include(l => l.UserAccount).ThenInclude(u => u!.CoachProfile)
+            .SingleOrDefaultAsync(l => l.Provider == ExternalAuthProvider.Google && l.ProviderUserId == subject, ct);
+
+    private UserExternalLogin NewLink(Guid userId, string subject) => new()
+    {
+        ExternalLoginId = Guid.NewGuid(),
+        UserId = userId,
+        Provider = ExternalAuthProvider.Google,
+        ProviderUserId = subject,
+        RefreshToken = null,
+        CreatedAt = clock.UtcNow
+    };
+
+    private static string DisplayName(GoogleIdentity identity)
+    {
+        if (!string.IsNullOrWhiteSpace(identity.Name))
+        {
+            return identity.Name.Trim();
+        }
+
+        var at = identity.Email.IndexOf('@');
+        return at > 0 ? identity.Email[..at] : identity.Email;
+    }
+
+    private static void EnsureActive(UserAccount user)
+    {
+        if (user.Status != UserStatus.Active)
+        {
+            throw new AccountBlockedException(user.Status);
+        }
+    }
+
+    private async Task<AuthResponse> SignInAsync(UserAccount user, bool isNewAccount, CancellationToken ct)
+    {
+        EnsureActive(user);
+        return await BuildAuthResponseAsync(user, isNewAccount, ct);
     }
 
     /// <summary>
-    /// BR-59 — liên kết TƯỜNG MINH, chỉ thực hiện được từ bên trong phiên đã đăng nhập đúng
-    /// tài khoản đó (userId lấy từ JWT, không nhận từ body).
+    /// Lưu thay đổi. Vi phạm unique index nghĩa là một request song song vừa tạo cùng email/danh tính Google:
+    /// trả 409 để client thử lại (lần sau sẽ vào nhánh đã liên kết). Request kết thúc nên không cần dọn tracker.
     /// </summary>
+    private async Task SaveOrConflictAsync(CancellationToken ct)
+    {
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException ex)
+            when (ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
+        {
+            throw new ConflictException(
+                "google_login_conflict",
+                "Đăng nhập Google đang được xử lý ở một yêu cầu khác. Vui lòng thử lại.");
+        }
+    }
+
     public async Task LinkAsync(Guid userId, string idToken, CancellationToken ct = default)
     {
         var identity = await verifier.VerifyAsync(idToken, ct);
@@ -195,32 +252,23 @@ public sealed class GoogleAuthService(
         var hasPassword = await db.Set<UserCredential>()
             .AnyAsync(c => c.UserId == userId && c.PasswordHash != null, ct);
 
-        // Gỡ liên kết khi chưa có mật khẩu sẽ khoá người dùng ra khỏi chính tài khoản của họ:
-        // không còn đường đăng nhập nào (BR-60).
         if (!hasPassword)
         {
             throw new ConflictException(
                 "password_required_before_unlink",
-                "Hãy đặt mật khẩu trước khi gỡ liên kết Google, nếu không bạn sẽ không đăng nhập được nữa (BR-60).");
+                "Hãy đặt mật khẩu trước khi gỡ liên kết Google, nếu không bạn sẽ không đăng nhập được nữa.");
         }
 
         db.Set<UserExternalLogin>().Remove(link);
         await db.SaveChangesAsync(ct);
     }
 
-    private AuthResponse BuildResponse(UserAccount user, bool isNewAccount, string? suggestedPassword)
+    private async Task<AuthResponse> BuildAuthResponseAsync(UserAccount user, bool isNewAccount, CancellationToken ct)
         => new()
         {
             AccessToken = JwtService.GenerateAccessToken(
-                user.UserId, user.Role!.RoleName.ToString(), jwtOptions.Value),
-            User = new UserSummaryResponse
-            {
-                UserId = user.UserId,
-                Email = user.Email,
-                FullName = user.Profile?.FullName ?? string.Empty,
-                Role = user.Role.RoleName.ToString()
-            },
-            IsNewAccount = isNewAccount,
-            SuggestedPassword = suggestedPassword
+                user.UserId, user.Role!.RoleName.ToString(), jwtOptions.Value, user.SecurityStamp),
+            User = await summaries.BuildAsync(user, ct),
+            IsNewAccount = isNewAccount
         };
 }

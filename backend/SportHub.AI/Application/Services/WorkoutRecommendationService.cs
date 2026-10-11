@@ -1,3 +1,4 @@
+using SportHub.AI.Domain.Constants;
 using Microsoft.EntityFrameworkCore;
 using SportHub.AI.Application.Interfaces;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
@@ -23,7 +24,8 @@ public sealed record WorkoutSuggestionInput(
     int SessionsMissed,
     int GymCheckIns,
     IReadOnlyList<string> RecentDisciplines,
-    IReadOnlyList<string> RecentCoachNotes);
+    IReadOnlyList<string> RecentCoachNotes,
+    string Sport = "Gym");
 
 public sealed record WorkoutSuggestionResponse(
     Guid MemberId,
@@ -34,7 +36,9 @@ public sealed record WorkoutSuggestionResponse(
     IReadOnlyList<string> Exercises,
     string Rationale,
     int ResponseTimeMs,
-    DateTime GeneratedAt);
+    DateTime GeneratedAt,
+    IReadOnlyList<WorkoutSuggestedExercise>? Items = null,
+    string Sport = "Gym");
 
 /// <summary>
 /// Gợi ý bài tập cho HLV — BR-26 (bắt buộc đủ ba đầu vào: mục tiêu, trình độ, lịch sử tập
@@ -55,8 +59,11 @@ public sealed class WorkoutRecommendationService(
     public async Task<WorkoutSuggestionResponse> SuggestAsync(
         Guid memberId,
         Guid coachId,
-        CancellationToken ct = default)
+        CancellationToken ct = default, string sport = "Gym")
     {
+        if (sport is not ("Gym" or "Badminton" or "Basketball"))
+            throw new BadRequestException("suggestion_sport_invalid", "Choose Gym, Badminton or Basketball.");
+
         // BR-26 đầu vào (1) và (2). Thiếu hồ sơ thì TỪ CHỐI chứ không đoán mặc định:
         // gợi ý dựa trên mục tiêu bịa ra còn tệ hơn là không có gợi ý.
         var profile = await db.Set<MemberTrainingProfile>()
@@ -77,22 +84,23 @@ public sealed class WorkoutRecommendationService(
 
         // BR-26 đầu vào (3) — lịch sử tập 30 ngày gần nhất, gộp cả lớp có điểm danh lẫn
         // Gym check-in (BR-64): hội viên tập Gym tự do vẫn có lịch sử tập, chỉ là không qua lớp.
-        var attendance = await db.Set<Enrollment>()
+        var attendance = await db.Set<Attendance>()
             .AsNoTracking()
-            .Where(e => e.MemberId == memberId && e.Session!.StartAtUtc >= sinceUtc)
-            .Select(e => new
+            .Where(a => a.Enrollment!.MemberId == memberId && a.Session!.StartAtUtc >= sinceUtc)
+            .Select(a => new
             {
-                Discipline = e.Session!.Class!.Discipline,
-                AttendanceStatus = e.Attendance == null ? (AttendanceStatus?)null : e.Attendance.Status
+                Discipline = a.Session!.Class!.Sport!.Name,
+                AttendanceStatus = (AttendanceStatus?)a.Status
             })
             .ToListAsync(ct);
 
         var gymCheckIns = await db.Set<GymCheckIn>()
             .CountAsync(g => g.MemberId == memberId && g.CheckInTime >= sinceUtc, ct);
 
+        // Đổi 29/09/2026 (BE-4): WorkoutResult gắn PtSession, không còn Enrollment.
         var coachNotes = await db.Set<WorkoutResult>()
             .AsNoTracking()
-            .Where(r => r.Enrollment!.MemberId == memberId && r.RecordedAt >= sinceUtc)
+            .Where(r => r.PtSession!.MemberId == memberId && r.RecordedAt >= sinceUtc)
             .OrderByDescending(r => r.RecordedAt)
             .Take(5)
             .Select(r => r.CoachComment ?? r.ProgressNote ?? string.Empty)
@@ -105,10 +113,10 @@ public sealed class WorkoutRecommendationService(
             profile.ExperienceLevel.ToString(),
             HistoryWindowDays,
             attendance.Count(a => a.AttendanceStatus == AttendanceStatus.Present),
-            attendance.Count(a => a.AttendanceStatus is AttendanceStatus.Absent or AttendanceStatus.NoShow),
+            attendance.Count(a => a.AttendanceStatus == AttendanceStatus.Absent),
             gymCheckIns,
             [.. attendance.Select(a => a.Discipline).Distinct()],
-            [.. coachNotes.Where(n => !string.IsNullOrWhiteSpace(n))]);
+            [.. coachNotes.Where(n => !string.IsNullOrWhiteSpace(n))], sport);
 
         var stopwatch = Stopwatch.StartNew();
         WorkoutSuggestion suggestion;
@@ -117,7 +125,7 @@ public sealed class WorkoutRecommendationService(
         try
         {
             suggestion = await provider.SuggestWorkoutAsync(
-                memberId, coachId, profile.Goal, profile.ExperienceLevel.ToString(), ct);
+                memberId, coachId, profile.Goal, profile.ExperienceLevel.ToString(), ct, sport);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -134,11 +142,12 @@ public sealed class WorkoutRecommendationService(
         {
             LogId = Guid.NewGuid(),
             UserId = coachId, // người YÊU CẦU gợi ý là HLV (BR-26), không phải hội viên
-            QueryType = "WORKOUT_SUGGESTION",
+            QueryType = AiQueryTypes.WorkoutSuggestion,
             InputPayload = JsonSerializer.Serialize(input),
             ResponsePayload = JsonSerializer.Serialize(new
             {
                 exercises = suggestion.Exercises,
+                items = suggestion.Items,
                 rationale = suggestion.Rationale,
                 error = failure
             }),
@@ -163,6 +172,7 @@ public sealed class WorkoutRecommendationService(
             suggestion.Exercises,
             suggestion.Rationale,
             elapsedMs,
-            clock.UtcNow);
+            clock.UtcNow,
+            suggestion.Items, sport);
     }
 }

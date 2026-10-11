@@ -1,46 +1,35 @@
-using SportHub.Identity.Domain.Entities;
-
 namespace SportHub.Scheduling.Domain.Entities;
 
+/// <summary>
+/// Một buổi của khóa. Sĩ số thuộc <see cref="Class"/> nên buổi không có capacity/confirmed. Phòng và coach chiếm chỗ qua
+/// RoomOccupancy/CoachOccupancy (nguồn ClassSession, SourceId = SessionId).
+/// </summary>
 public class ClassSession
 {
-    public Guid SessionId { get; set; } // PK
+    public Guid SessionId { get; set; }
 
-    public int ClassId { get; set; } // FK -> Class
+    public int ClassId { get; set; }
 
     public Class? Class { get; set; }
 
-    public int? RecurrenceId { get; set; } // FK -> ClassRecurrence, null = ad-hoc hoặc đã tách khỏi pattern
+    /// <summary>Thứ tự buổi trong khóa (từ 1); unique với ClassId. Buổi bù đánh số tiếp ở cuối.</summary>
+    public int SessionNo { get; set; }
 
-    public ClassRecurrence? Recurrence { get; set; }
-
-    public int RoomId { get; set; } // FK -> Room, phòng thực tế (có thể khác default)
+    public int RoomId { get; set; }
 
     public Room? Room { get; set; }
 
-    public Guid CoachId { get; set; } // FK -> UserAccount, HLV thực tế (có thể khác default)
+    /// <summary>Coach thực tế của buổi (có thể khác coach mặc định khi Manager đổi, BR-54).</summary>
+    public Guid CoachId { get; set; }
 
-    public UserAccount? Coach { get; set; }
-
-    public DateTime StartAtUtc { get; set; } // mốc tuyệt đối, check trùng lịch/No-show
+    public DateTime StartAtUtc { get; set; }
 
     public DateTime EndAtUtc { get; set; }
 
-    // BR-51: trần sức chứa = MIN(Room.Capacity, Class.Capacity) TẠI THỜI ĐIỂM TẠO buổi,
-    // không bao giờ tính lại. Giữ riêng khỏi Capacity vì sau khi Manager giảm Capacity xuống
-    // thì không còn gì cho biết trần gốc là bao nhiêu; và nếu tính lại MIN sau này, việc
-    // catalog tăng sức chứa sẽ NỚI trần của buổi cũ — đúng điều BR-51 cấm.
-    public int BaselineCapacity { get; set; }
+    public ClassSessionStatus Status { get; set; }
 
-    public int Capacity { get; set; } // sức chứa đang áp dụng, luôn 0 < Capacity <= BaselineCapacity
+    /// <summary>Buổi bù trỏ về buổi bị hủy.</summary>
+    public Guid? RescheduledFromSessionId { get; set; }
 
-    public int ConfirmedCount { get; set; } // denormalized, tăng/giảm nguyên tử theo Enrollment
-
-    public ClassSessionStatus Status { get; set; } // Scheduled/Rescheduled/Cancelled/Completed
-
-    public Guid? RescheduledFromSessionId { get; set; } // FK self, trỏ về buổi gốc nếu do dời lịch
-
-    public ClassSession? RescheduledFromSession { get; set; }
-
-    public ICollection<Enrollment> Enrollments { get; set; } = new List<Enrollment>();
+    public bool IsMakeup { get; set; }
 }

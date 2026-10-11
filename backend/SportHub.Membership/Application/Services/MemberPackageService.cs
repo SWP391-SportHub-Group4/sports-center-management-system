@@ -124,8 +124,7 @@ public sealed class MemberPackageService(
                 mp => mp.MemberId == memberId
                       && mp.Status == MemberPackageStatus.Active
                       && mp.StartDate <= today
-                      && today <= mp.EndDate
-                      && (mp.RemainingSessions == null || mp.RemainingSessions > 0),
+                      && today <= mp.EndDate,
                 ct);
     }
 
@@ -142,7 +141,7 @@ public sealed class MemberPackageService(
     }
 
     private static MemberPackageStatus ParseStatus(string status)
-        => Enum.TryParse<MemberPackageStatus>(status, ignoreCase: true, out var parsed)
+        => SportHub.BuildingBlocks.Api.WireEnum.TryParse<MemberPackageStatus>(status, ignoreCase: true, out var parsed)
             ? parsed
             : throw new BadRequestException("invalid_status", $"Trạng thái gói không hợp lệ: '{status}'.");
 
@@ -164,8 +163,8 @@ public sealed class MemberPackageService(
             mp.Status.ToString(),
             mp.Status == MemberPackageStatus.Active
             && mp.StartDate <= today
-            && today <= mp.EndDate
-            && (mp.RemainingSessions == null || mp.RemainingSessions > 0),
+            && today <= mp.EndDate,
             mp.StackingApprovedByUserId != null,
-            mp.StackingApprovalReason);
+            mp.StackingApprovalReason,
+            mp.InvoiceItemId);
 }

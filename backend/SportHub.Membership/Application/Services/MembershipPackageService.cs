@@ -40,12 +40,13 @@ public sealed class MembershipPackageService(
         Guid actorUserId,
         CancellationToken ct = default)
     {
+        Validate(request);
         var package = new MembershipPackage
         {
             Name = request.Name.Trim(),
             Price = decimal.Truncate(request.Price), // VND nguyên (SSOT §5.2)
             DurationDays = request.DurationDays,
-            SessionLimit = request.SessionLimit,
+            SessionLimit = null,
             Description = request.Description?.Trim(),
             IsActive = true
         };
@@ -74,6 +75,7 @@ public sealed class MembershipPackageService(
         Guid actorUserId,
         CancellationToken ct = default)
     {
+        Validate(request);
         var package = await db.Set<MembershipPackage>().SingleOrDefaultAsync(p => p.PackageId == packageId, ct)
             ?? throw new NotFoundException("membership_package_not_found", "Không tìm thấy gói thành viên.");
 
@@ -85,7 +87,7 @@ public sealed class MembershipPackageService(
         package.Name = request.Name.Trim();
         package.Price = decimal.Truncate(request.Price);
         package.DurationDays = request.DurationDays;
-        package.SessionLimit = request.SessionLimit;
+        package.SessionLimit = null;
         package.Description = request.Description?.Trim();
 
         audit.Write(new AuditEntry(
@@ -135,6 +137,14 @@ public sealed class MembershipPackageService(
         {
             throw new ConflictException("package_name_taken", "Đã có gói thành viên trùng tên (BR-56).");
         }
+    }
+
+    private static void Validate(SaveMembershipPackageRequest request)
+    {
+        if (request.Price <= 0 || request.Price % 1000 != 0)
+            throw new BadRequestException("membership_price_invalid", "Giá Membership phải dương và là bội số 1.000 VND.");
+        if (request.SessionLimit is not null)
+            throw new BadRequestException("membership_session_limit_removed", "Membership không còn giới hạn lượt; quota chỉ áp dụng cho PT.");
     }
 
     private static string Describe(MembershipPackage p)

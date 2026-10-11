@@ -25,7 +25,7 @@ public sealed record ReportExportResponse(
     Guid RequestedByUserId,
     string RequestedByName,
     string ParametersJson,
-    string Status,
+    [property: SportHub.BuildingBlocks.Api.WireEnum] string Status,
     int RowCount,
     long SizeBytes,
     string? FailureReason,
@@ -36,7 +36,6 @@ public sealed record ReportExportResponse(
 
 public sealed class CreateReportExportRequest
 {
-    /// <summary>REVENUE hoặc MEMBER_SUMMARY — xem ReportTypes.</summary>
     [Required]
     public string ReportType { get; set; } = string.Empty;
 
@@ -46,37 +45,33 @@ public sealed class CreateReportExportRequest
     [Required]
     public DateOnly ToDate { get; set; }
 
-    /// <summary>
-    /// BR-44 — tệp xuất CHỈ chứa các trường được chọn rõ ràng trước khi xuất. Bắt buộc,
-    /// không có mặc định "xuất hết": mặc định như vậy là bỏ qua chính điều BR-44 yêu cầu.
-    /// </summary>
     [Required, MinLength(1)]
     public List<string> Columns { get; set; } = [];
 
-    /// <summary>
-    /// Csv hoặc Pdf (SSOT §5.7 whitelist). BR-48: PDF bắt buộc và CSV không thay thế, nên giá
-    /// trị lạ bị TỪ CHỐI chứ không âm thầm rơi về Csv. Bỏ trống thì giữ Csv để không phá
-    /// client cũ.
-    /// </summary>
     public string? Format { get; set; }
+    public int? SportId { get; set; }
+    public string? Source { get; set; }
+    public Guid? MemberId { get; set; }
 }
 
-/// <summary>
-/// Báo cáo/tệp xuất đã tạo — BR-44 (chỉ cột được chọn), BR-45 (ownership), BR-46 (giữ ≥6 tháng),
-/// BR-47 (xoá thì link cũ hết truy cập), BR-48 (trạng thái FAILED + tạo lại).
-///
-/// BR-48 v1.4: hỗ trợ CSV và PDF. PDF là định dạng BẮT BUỘC, CSV không thay thế được.
-/// Ngưỡng "20 trang trong 15 giây" cần đo trên dữ liệu thật — xem implementation-status.md.
-/// </summary>
 public sealed class ReportExportService(
     ISportHubDbContext db,
     IReportStorage storage,
     IReportPdfRenderer pdf,
     IAuditWriter audit,
-    IClock clock) : IReportExportService
+    IClock clock,
+    SportHub.Payment.Application.Interfaces.IRevenueReportService revenue,
+    SportHub.Membership.Application.Interfaces.IMembershipReportService membership,
+    SportHub.BuildingBlocks.Abstractions.Reporting.IClassEnrollmentExportReader classes) : IReportExportService
 {
-    /// <summary>BR-46 — lưu tối thiểu 6 tháng.</summary>
     public const int RetentionMonths = 6;
+
+    private static string DescribeAudit(ReportExport export)
+    {
+        var snapshot = JsonSerializer.Deserialize<Dictionary<string, object?>>(export.ParametersJson) ?? [];
+        snapshot["reportType"] = export.ReportType;
+        return JsonSerializer.Serialize(snapshot);
+    }
 
     public async Task<PagedResult<ReportExportResponse>> SearchAsync(
         Guid actorUserId,
@@ -88,10 +83,8 @@ public sealed class ReportExportService(
         page = page < 1 ? 1 : page;
         pageSize = Math.Clamp(pageSize <= 0 ? 20 : pageSize, 1, 100);
 
-        // BR-47 — bản ghi đã xoá biến khỏi danh sách.
         var query = db.Set<ReportExport>().AsNoTracking().Where(r => !r.IsDeleted);
 
-        // BR-45 — người dùng chỉ thấy báo cáo do chính mình tạo; Center Manager thấy tất cả.
         if (!actorIsCenterManager)
         {
             query = query.Where(r => r.RequestedByUserId == actorUserId);
@@ -132,14 +125,10 @@ public sealed class ReportExportService(
 
         var allowed = ReportTypes.AllowedColumns[reportType];
 
-        // Giữ đúng THỨ TỰ trong whitelist, không theo thứ tự client gửi: cột trong file luôn
-        // ổn định giữa các lần xuất, dễ so sánh hai báo cáo cùng loại.
         var columns = allowed.Where(request.Columns.Contains).ToList();
 
         var unknown = request.Columns.Where(c => !allowed.Contains(c)).ToList();
 
-        // Cột lạ bị TỪ CHỐI chứ không bỏ qua im lặng: bỏ qua sẽ sinh ra file thiếu cột mà
-        // người dùng tưởng là đã có (BR-44).
         if (unknown.Count > 0)
         {
             throw new BadRequestException(
@@ -176,13 +165,14 @@ public sealed class ReportExportService(
                 fromDate = fromDate.ToString("yyyy-MM-dd"),
                 toDate = toDate.ToString("yyyy-MM-dd"),
                 columns,
+                sportId = request.SportId,
+                source = request.Source,
+                memberId = request.MemberId,
                 format
             }),
             Format = format,
             Status = ReportExportStatus.Pending,
             CreatedAt = now,
-
-            // Mốc tạm. BR-46 v1.4 tính từ CompletedAt nên RunAsync đặt lại khi file xong.
             ExpiresAt = now.AddMonths(RetentionMonths)
         };
 
@@ -190,11 +180,11 @@ public sealed class ReportExportService(
 
         audit.Write(new AuditEntry(
             actorUserId, "CREATE_REPORT_EXPORT", nameof(ReportExport), export.ReportExportId.ToString(),
-            NewValue: export.ParametersJson));
+            NewValue: DescribeAudit(export)));
 
         await db.SaveChangesAsync(ct);
 
-        await RunAsync(export, fromDate, toDate, columns, ct);
+        await RunAsync(export, fromDate, toDate, columns, request.SportId, ct, request.Source, request.MemberId);
 
         return await GetOneAsync(export.ReportExportId, ct);
     }
@@ -230,8 +220,6 @@ public sealed class ReportExportService(
     {
         var export = await LoadForActorAsync(reportExportId, actorUserId, actorIsCenterManager, ct);
 
-        // BR-47 — soft delete bản ghi VÀ xoá file: chỉ ẩn bản ghi mà giữ file thì "liên kết
-        // trước đó" vẫn còn dữ liệu ở sau nó.
         export.IsDeleted = true;
         export.DeletedAt = clock.UtcNow;
 
@@ -239,12 +227,11 @@ public sealed class ReportExportService(
 
         audit.Write(new AuditEntry(
             actorUserId, "DELETE_REPORT_EXPORT", nameof(ReportExport), reportExportId.ToString(),
-            OldValue: export.ParametersJson));
+            OldValue: DescribeAudit(export)));
 
         await db.SaveChangesAsync(ct);
     }
 
-    /// <summary>BR-48 — cho người dùng tạo lại báo cáo đã FAILED.</summary>
     public async Task<ReportExportResponse> RetryAsync(
         Guid reportExportId,
         Guid actorUserId,
@@ -264,7 +251,8 @@ public sealed class ReportExportService(
             return await GetOneAsync(reportExportId, ct);
         }
 
-        var parameters = JsonSerializer.Deserialize<ExportParameters>(export.ParametersJson)
+        var parameters = JsonSerializer.Deserialize<ExportParameters>(export.ParametersJson,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
             ?? throw new ConflictException("report_parameters_corrupt", "Tham số báo cáo không đọc được.");
 
         export.Status = ReportExportStatus.Pending;
@@ -276,30 +264,30 @@ public sealed class ReportExportService(
             DateOnly.ParseExact(parameters.FromDate, "yyyy-MM-dd", CultureInfo.InvariantCulture),
             DateOnly.ParseExact(parameters.ToDate, "yyyy-MM-dd", CultureInfo.InvariantCulture),
             parameters.Columns,
-            ct);
+            parameters.SportId,
+            ct, parameters.Source, parameters.MemberId);
 
         return await GetOneAsync(reportExportId, ct);
     }
 
-    /// <summary>
-    /// Sinh file. Chạy ĐỒNG BỘ trong request ở MVP: khối lượng dữ liệu của một trung tâm đủ
-    /// nhỏ để xong trong vài trăm ms, và làm bất đồng bộ sẽ cần thêm hàng đợi + cơ chế theo
-    /// dõi tiến độ mà BR không yêu cầu. Trạng thái Pending/Failed vẫn được lưu đúng để BR-48
-    /// có chỗ bám khi sau này chuyển sang chạy nền.
-    /// </summary>
     private async Task RunAsync(
         ReportExport export,
         DateOnly fromDate,
         DateOnly toDate,
         IReadOnlyList<string> columns,
-        CancellationToken ct)
+        int? sportId,
+        CancellationToken ct, string? source = null, Guid? memberId = null)
     {
         try
         {
-            // Dữ liệu được dựng MỘT lần rồi mới chọn cách serialize: CSV và PDF của cùng một
-            // tham số phải cho cùng nội dung, và hai truy vấn riêng là cách để chúng lệch nhau.
             var rows = export.ReportType switch
             {
+                ReportTypes.RevenueDaily => await BuildRevenueDailyRowsAsync(fromDate, toDate, columns, ct),
+                ReportTypes.RevenueSummary => await BuildRevenueSummaryRowsAsync(fromDate, toDate, columns, ct),
+                ReportTypes.RevenueDimensions or ReportTypes.CourtRentalRevenue => await BuildDimensionRowsAsync(fromDate, toDate, columns, export.ReportType == ReportTypes.CourtRentalRevenue, ct, sportId, source, memberId),
+                ReportTypes.MembershipPeriod => await BuildMembershipPeriodRowsAsync(fromDate, toDate, columns, ct),
+                ReportTypes.ClassEnrollment => (await classes.ReadAsync(fromDate, toDate, sportId, ct))
+                    .Select(row => (IReadOnlyList<string>)columns.Select(c => row[c]).ToList()).ToList(),
                 ReportTypes.Revenue => await BuildRevenueRowsAsync(fromDate, toDate, columns, ct),
                 ReportTypes.MemberSummary => await BuildMemberSummaryRowsAsync(columns, ct),
                 _ => throw new BadRequestException("unknown_report_type", "Loại báo cáo không hợp lệ.")
@@ -318,22 +306,89 @@ public sealed class ReportExportService(
             export.SizeBytes = bytes.LongLength;
             export.CompletedAt = completedAt;
 
-            // BR-46 v1.4 — giữ ít nhất 6 tháng KỂ TỪ KHI HOÀN TẤT. Mốc đặt lúc tạo (bản cũ)
-            // ngắn hơn đúng bằng thời gian sinh file, và với bản retry thì lệch hẳn một lần
-            // chờ.
             export.ExpiresAt = completedAt.AddMonths(RetentionMonths);
             export.FailureReason = null;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            // BR-48 — gián đoạn thì ghi FAILED và cho thử lại, KHÔNG xoá bản ghi đi:
-            // xoá đi thì người dùng không còn gì để bấm "thử lại".
             export.Status = ReportExportStatus.Failed;
             export.FailureReason = ex.Message.Length > 900 ? ex.Message[..900] : ex.Message;
             export.CompletedAt = clock.UtcNow;
         }
 
         await db.SaveChangesAsync(ct);
+    }
+
+    private async Task<IReadOnlyList<IReadOnlyList<string>>> BuildRevenueSummaryRowsAsync(
+        DateOnly from, DateOnly to, IReadOnlyList<string> columns, CancellationToken ct)
+    {
+        var report = await revenue.GetAsync(from, to, ct);
+        return [columns.Select(column => column switch
+        {
+            "fromDate" => report.FromDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+            "toDate" => report.ToDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+            "collectedAmount" => report.TotalCollected.ToString(CultureInfo.InvariantCulture),
+            "refundedAmount" => report.TotalRefunded.ToString(CultureInfo.InvariantCulture),
+            "netCollected" => report.NetRevenue.ToString(CultureInfo.InvariantCulture),
+            "legacyCashCollected" => report.LegacyCashCollected.ToString(CultureInfo.InvariantCulture),
+            "reconciliationCashCollected" => report.ReconciliationCashCollected.ToString(CultureInfo.InvariantCulture),
+            "pointsRedeemed" => report.PointsRedeemed.ToString(CultureInfo.InvariantCulture),
+            "pointsRedeemedVnd" => report.PointsRedeemedVnd.ToString(CultureInfo.InvariantCulture),
+            "pointsIssued" => report.PointsIssued.ToString(CultureInfo.InvariantCulture),
+            "managerPointAdjustment" => report.ManagerPointAdjustment.ToString(CultureInfo.InvariantCulture),
+            "outstandingPoints" => report.OutstandingPoints.ToString(CultureInfo.InvariantCulture),
+            _ => throw new InvalidOperationException($"Unsupported summary column: {column}")
+        }).ToList()];
+    }
+
+    private async Task<IReadOnlyList<IReadOnlyList<string>>> BuildRevenueDailyRowsAsync(
+        DateOnly fromDate, DateOnly toDate, IReadOnlyList<string> columns, CancellationToken ct)
+    {
+        var report = await revenue.GetAsync(fromDate, toDate, ct);
+        return report.Daily.Select(row => (IReadOnlyList<string>)columns.Select(column => column switch
+        {
+            "date" => row.Date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+            "collectedAmount" => row.Collected.ToString(CultureInfo.InvariantCulture),
+            "refundedAmount" => row.Refunded.ToString(CultureInfo.InvariantCulture),
+            "obligationReduction" => row.ObligationReduction.ToString(CultureInfo.InvariantCulture),
+            "netCollected" => row.Net.ToString(CultureInfo.InvariantCulture),
+            "legacyCashCollected" => row.LegacyCashCollected.ToString(CultureInfo.InvariantCulture),
+            "reconciliationCashCollected" => row.ReconciliationCashCollected.ToString(CultureInfo.InvariantCulture),
+            _ => throw new InvalidOperationException($"Unsupported revenue column: {column}")
+        }).ToList()).ToList();
+    }
+
+    private async Task<IReadOnlyList<IReadOnlyList<string>>> BuildDimensionRowsAsync(
+        DateOnly from, DateOnly to, IReadOnlyList<string> columns, bool rentalsOnly, CancellationToken ct, int? sportId, string? source, Guid? memberId)
+    {
+        var report = await revenue.GetAsync(from, to, ct);
+        return SportHub.Payment.Application.Services.RevenueDimensionFilter.Apply(report.BySportAndSource, sportId, source, memberId, rentalsOnly)
+            .Select(row => (IReadOnlyList<string>)columns.Select(column => column switch
+            {
+                "source" => row.Source,
+                "sportId" => row.SportId?.ToString(CultureInfo.InvariantCulture) ?? "",
+                "sportName" => row.SportName ?? "",
+                "memberId" => row.MemberId?.ToString() ?? "",
+                "collectedAmount" => row.CashCollected.ToString(CultureInfo.InvariantCulture),
+                "legacyCashCollected" => row.LegacyCashCollected.ToString(CultureInfo.InvariantCulture),
+                "pointsRedeemed" => row.PointsRedeemed.ToString(CultureInfo.InvariantCulture),
+                "pointsRedeemedVnd" => (row.PointsRedeemed * 1000m).ToString(CultureInfo.InvariantCulture),
+                _ => throw new InvalidOperationException($"Unsupported dimension column: {column}")
+            }).ToList()).ToList();
+    }
+
+    private async Task<IReadOnlyList<IReadOnlyList<string>>> BuildMembershipPeriodRowsAsync(
+        DateOnly from, DateOnly to, IReadOnlyList<string> columns, CancellationToken ct)
+    {
+        var report = await membership.GetPeriodAsync(from, to, ct);
+        return [columns.Select(column => column switch
+        {
+            "fromDate" => report.FromDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+            "toDate" => report.ToDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+            "newMembers" => report.NewMembers.ToString(CultureInfo.InvariantCulture),
+            "activeMembersAtPeriodEnd" => report.ActiveMembersAtPeriodEnd.ToString(CultureInfo.InvariantCulture),
+            _ => throw new InvalidOperationException($"Unsupported membership column: {column}")
+        }).ToList()];
     }
 
     private async Task<IReadOnlyList<IReadOnlyList<string>>> BuildRevenueRowsAsync(
@@ -358,8 +413,6 @@ public sealed class ReportExportService(
                 i.TotalAmount,
                 GrossCollected = i.Payments.Where(p => p.Status == PaymentStatus.Success)
                     .Sum(p => (decimal?)p.Amount) ?? 0m,
-
-                // BR-41 v1.4 — hai loại điều chỉnh tách riêng: giảm nghĩa vụ vs tiền thực hoàn.
                 ObligationReduction = i.Adjustments
                     .Where(a => a.Status == PaymentAdjustmentStatus.Completed
                                 && a.Type != PaymentAdjustmentType.Refund)
@@ -368,8 +421,7 @@ public sealed class ReportExportService(
                     .Where(a => a.Status == PaymentAdjustmentStatus.Completed
                                 && a.Type == PaymentAdjustmentType.Refund)
                     .Sum(a => (decimal?)a.Amount) ?? 0m,
-                i.Status,
-                i.DueDateUtc
+                i.Status
             })
             .ToListAsync(ct);
 
@@ -395,7 +447,6 @@ public sealed class ReportExportService(
                 "outstanding" => balance.Outstanding.ToString("0", CultureInfo.InvariantCulture),
                 "refundDue" => balance.RefundDue.ToString("0", CultureInfo.InvariantCulture),
                 "status" => row.Status.ToString(),
-                "dueDate" => VietnamTime.ToLocal(row.DueDateUtc).ToString("yyyy-MM-dd"),
                 _ => string.Empty
             });
 
@@ -480,14 +531,11 @@ public sealed class ReportExportService(
             .SingleOrDefaultAsync(r => r.ReportExportId == reportExportId, ct)
             ?? throw new NotFoundException("report_not_found", "Không tìm thấy báo cáo.");
 
-        // BR-47 — sau khi xoá, "liên kết trước đó" phải không truy cập lại được. Trả 404 chứ
-        // không phải 403: người gọi không cần biết bản ghi từng tồn tại.
         if (export.IsDeleted)
         {
             throw new NotFoundException("report_not_found", "Không tìm thấy báo cáo.");
         }
 
-        // BR-45 — kiểm ownership Ở API, không dựa vào việc UI giấu link.
         if (!actorIsCenterManager && export.RequestedByUserId != actorUserId)
         {
             throw new ForbiddenException("report_not_owned", "Báo cáo này không thuộc về bạn (BR-45).");
@@ -511,11 +559,9 @@ public sealed class ReportExportService(
             builder.AppendLine(string.Join(',', row.Select(CsvEscape)));
         }
 
-        // BOM UTF-8 để Excel trên Windows không hiển thị sai dấu tiếng Việt.
         return [.. Encoding.UTF8.GetPreamble(), .. Encoding.UTF8.GetBytes(builder.ToString())];
     }
 
-    /// <summary>BR-48 — PDF thuộc scope bắt buộc, CSV không thay thế.</summary>
     private byte[] RenderPdf(
         ReportExport export,
         DateOnly fromDate,
@@ -529,10 +575,10 @@ public sealed class ReportExportService(
             .Select(x => x.index)
             .ToHashSet();
 
-        var subtitle = export.ReportType == ReportTypes.Revenue
-            ? $"Kỳ {fromDate:dd/MM/yyyy} – {toDate:dd/MM/yyyy} · {rows.Count} dòng · "
-              + $"Xuất lúc {VietnamTime.ToLocal(clock.UtcNow):HH:mm dd/MM/yyyy} (giờ Việt Nam)"
-            : $"{rows.Count} hội viên · Xuất lúc {VietnamTime.ToLocal(clock.UtcNow):HH:mm dd/MM/yyyy} (giờ Việt Nam)";
+        var subtitle = export.ReportType != ReportTypes.MemberSummary
+            ? $"Period {fromDate:dd/MM/yyyy} – {toDate:dd/MM/yyyy} · {rows.Count} rows · "
+              + $"Exported at {VietnamTime.ToLocal(clock.UtcNow):HH:mm dd/MM/yyyy} (Vietnam time)"
+            : $"{rows.Count} members · Exported at {VietnamTime.ToLocal(clock.UtcNow):HH:mm dd/MM/yyyy} (Vietnam time)";
 
         return pdf.Render(new ReportTable(
             ReportColumnLabels.ReportTitle(export.ReportType),
@@ -542,7 +588,6 @@ public sealed class ReportExportService(
             numeric));
     }
 
-    // Quy tắc CSV (RFC 4180): bọc nháy kép khi có dấu phẩy/nháy/xuống dòng, và nhân đôi nháy bên trong.
     private static string CsvEscape(string? value)
     {
         value ??= string.Empty;
@@ -568,5 +613,5 @@ public sealed class ReportExportService(
             r.ExpiresAt,
             r.Format);
 
-    private sealed record ExportParameters(string FromDate, string ToDate, List<string> Columns);
+    private sealed record ExportParameters(string FromDate, string ToDate, List<string> Columns, int? SportId = null, string? Source = null, Guid? MemberId = null);
 }

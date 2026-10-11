@@ -10,7 +10,7 @@ using SportHub.Identity.Domain.Enums;
 
 namespace SportHub.Administration.Api;
 
-/// <summary>Tệp xuất báo cáo — BR-44 → BR-48. Chỉ CSV; phần PDF của BR-48 chưa làm.</summary>
+/// <summary>Tệp xuất báo cáo CSV/PDF — BR-44 → BR-48.</summary>
 [ApiController]
 [Authorize(Policy = SportHubPolicies.CenterManager)]
 [Route("api/reports/exports")]

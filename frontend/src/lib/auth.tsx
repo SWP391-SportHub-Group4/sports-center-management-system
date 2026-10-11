@@ -19,12 +19,19 @@ export interface SessionUser {
   userId: string;
   email: string;
   fullName: string;
+  avatarUrl?: string | null;
   role: Role;
+  /** Authoritative specialties from the API. */
+  sportIds: number[];
+  /** Coach có qualification dịch vụ PT (không suy ra từ chuyên môn môn Gym). */
+  isPersonalTrainer?: boolean;
+  approvalStatus?:
+    "PENDING_APPROVAL" | "APPROVED" | "REJECTED" | "SUSPENDED" | null;
 }
 
-interface AuthResponse {
+export interface AuthResponse {
   accessToken: string;
-  user: SessionUser;
+  user: WireSessionUser;
 }
 
 interface AuthContextValue {
@@ -36,6 +43,8 @@ interface AuthContextValue {
   register: (input: RegisterInput) => Promise<SessionUser>;
   logout: () => void;
   refreshUser: () => Promise<void>;
+  updateToken: (token: string) => void;
+  acceptSession: (response: AuthResponse) => SessionUser;
 }
 
 export interface RegisterInput {
@@ -65,27 +74,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
   }, []);
 
-  // Khôi phục phiên from localStorage. Token là JWT so hết deadline kiểm ở phía backend —
-  // frontend not tự giải mã and tự quyết token còn hiệu lực hay không.
   useEffect(() => {
-    // Đọc localStorage must nằm in effect chứ not must initializer of useState:
-    // trang render sẵn on máy chủ, nơi by not have window, and khởi create khác nhau giữa hai
-    // phía will gây lệch hydration. Đây đúng là "read status from a system ngoài when mount".
-    /* eslint-disable react-hooks/set-state-in-effect */
+    const controller = new AbortController();
+    let active = true;
+    let token: string | null = null;
     try {
-      const token = window.localStorage.getItem(TOKEN_STORAGE_KEY);
-      const raw = window.localStorage.getItem(USER_STORAGE_KEY);
-
-      if (token && raw) {
-        setUser(JSON.parse(raw) as SessionUser);
-      }
+      token = window.localStorage.getItem(TOKEN_STORAGE_KEY);
     } catch {
-      // Dữ liệu hỏng thì bỏ qua and coi như not yet đăng nhập.
-    } finally {
+      /* No persisted session. */
+    }
+    if (token) {
+      api
+        .get<WireSessionUser>("/api/users/me", { signal: controller.signal })
+        .then((me) => {
+          if (active) setUser(adaptSessionUser(me));
+        })
+        .catch(() => {
+          if (active) clearSession();
+        })
+        .finally(() => {
+          if (active) setLoading(false);
+        });
+    } else {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLoading(false);
     }
-    /* eslint-enable react-hooks/set-state-in-effect */
-  }, []);
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [clearSession]);
 
   // Bất kỳ 401 nào from API (token hết deadline, or account vừa bị khoá according to BR-6) đều dẫn về
   // trang đăng nhập — register ở a nơi thay because bắt lỗi ở each màn hình.
@@ -108,9 +126,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch {
       // Phiên still used in tab current, only là not sống qua times load again.
     }
-    setUser(response.user);
+    const next = adaptSessionUser(response.user);
+    setUser(next);
 
-    return response.user;
+    return next;
   }, []);
 
   const login = useCallback(
@@ -126,14 +145,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   const loginWithGoogle = useCallback(
-    async (idToken: string) =>
-      persist(
+    async (idToken: string) => {
+      // Máy chủ tự tạo tài khoản mới hoặc tự liên kết theo email Google đã xác minh; luôn trả phiên đăng nhập.
+      return persist(
         await api.post<AuthResponse>(
           "/api/auth/google",
           { idToken },
           { anonymous: true },
         ),
-      ),
+      );
+    },
     [persist],
   );
 
@@ -154,29 +175,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   /** Đọc again profile after user tự edit tên/số điện thoại. */
   const refreshUser = useCallback(async () => {
-    const me = await api.get<{
-      userId: string;
-      email: string;
-      fullName: string;
-      role: Role;
-    }>("/api/users/me");
+    const me = await api.get<WireSessionUser>("/api/users/me");
+    setUser(adaptSessionUser(me));
+  }, []);
 
-    setUser((current) => {
-      const next = {
-        userId: me.userId,
-        email: me.email,
-        fullName: me.fullName,
-        role: me.role,
-      };
-
-      try {
-        window.localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(next));
-      } catch {
-        // Bỏ qua — view ghi chú ở persist().
-      }
-
-      return current ? next : current;
-    });
+  const updateToken = useCallback((token: string) => {
+    window.localStorage.setItem(TOKEN_STORAGE_KEY, token);
   }, []);
 
   const value = useMemo(
@@ -188,8 +192,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       register,
       logout,
       refreshUser,
+      updateToken,
+      acceptSession: persist,
     }),
-    [user, loading, login, loginWithGoogle, register, logout, refreshUser],
+    [
+      user,
+      loading,
+      login,
+      loginWithGoogle,
+      register,
+      logout,
+      refreshUser,
+      updateToken,
+      persist,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -207,7 +223,7 @@ export function useAuth() {
 
 /** Home default of each role after đăng nhập. */
 export const HOME_BY_ROLE: Record<Role, string> = {
-  Member: "/member-dashboard",
+  Member: "/member",
   Receptionist: "/receptionist",
   Coach: "/coach",
   CenterManager: "/manager",
@@ -221,3 +237,57 @@ export const ROLE_LABEL: Record<Role, string> = {
   CenterManager: "Center Manager",
   SystemAdministrator: "System Administrator",
 };
+
+export interface WireSessionUser {
+  userId: string;
+  email: string;
+  fullName: string;
+  avatarUrl?: string | null;
+  role: string;
+  sportIds?: number[];
+  isPersonalTrainer?: boolean;
+  approvalStatus?: SessionUser["approvalStatus"];
+}
+const WIRE_ROLES: Record<string, Role> = {
+  SYSTEM_ADMINISTRATOR: "SystemAdministrator",
+  CENTER_MANAGER: "CenterManager",
+  COACH: "Coach",
+  MEMBER: "Member",
+  RECEPTIONIST: "Receptionist",
+};
+export function adaptSessionUser(me: WireSessionUser): SessionUser {
+  const role =
+    WIRE_ROLES[me.role] ??
+    (Object.values(WIRE_ROLES).includes(me.role as Role)
+      ? (me.role as Role)
+      : null);
+  if (!role) throw new Error("Unknown account role");
+  return {
+    userId: me.userId,
+    email: me.email,
+    fullName: me.fullName,
+    avatarUrl: me.avatarUrl ?? null,
+    role,
+    sportIds: me.sportIds ?? [],
+    isPersonalTrainer: me.isPersonalTrainer ?? false,
+    approvalStatus: me.approvalStatus ?? null,
+  };
+}
+export function safeReturnTo(value: string | null, fallback: string): string {
+  if (!value) return fallback;
+  try {
+    const decoded = decodeURIComponent(value);
+    if (
+      !decoded.startsWith("/") ||
+      decoded.startsWith("//") ||
+      /[\\\s]/.test(decoded)
+    )
+      return fallback;
+    return new URL(value, "https://sporthub.local").origin ===
+      "https://sporthub.local"
+      ? value
+      : fallback;
+  } catch {
+    return fallback;
+  }
+}

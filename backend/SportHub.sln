@@ -33,6 +33,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SportHub.Payment.Tests", "S
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SportHub.Administration.Tests", "SportHub.Administration.Tests\SportHub.Administration.Tests.csproj", "{DA9DAB67-17C2-4D08-94E6-B1C232F12E81}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SportHub.Training.Tests", "SportHub.Training.Tests\SportHub.Training.Tests.csproj", "{D5B5735B-5A8F-4FEA-A772-4DD90C3113E0}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -223,6 +225,18 @@ Global
 		{DA9DAB67-17C2-4D08-94E6-B1C232F12E81}.Release|x64.Build.0 = Release|Any CPU
 		{DA9DAB67-17C2-4D08-94E6-B1C232F12E81}.Release|x86.ActiveCfg = Release|Any CPU
 		{DA9DAB67-17C2-4D08-94E6-B1C232F12E81}.Release|x86.Build.0 = Release|Any CPU
+		{D5B5735B-5A8F-4FEA-A772-4DD90C3113E0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D5B5735B-5A8F-4FEA-A772-4DD90C3113E0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D5B5735B-5A8F-4FEA-A772-4DD90C3113E0}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{D5B5735B-5A8F-4FEA-A772-4DD90C3113E0}.Debug|x64.Build.0 = Debug|Any CPU
+		{D5B5735B-5A8F-4FEA-A772-4DD90C3113E0}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{D5B5735B-5A8F-4FEA-A772-4DD90C3113E0}.Debug|x86.Build.0 = Debug|Any CPU
+		{D5B5735B-5A8F-4FEA-A772-4DD90C3113E0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D5B5735B-5A8F-4FEA-A772-4DD90C3113E0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D5B5735B-5A8F-4FEA-A772-4DD90C3113E0}.Release|x64.ActiveCfg = Release|Any CPU
+		{D5B5735B-5A8F-4FEA-A772-4DD90C3113E0}.Release|x64.Build.0 = Release|Any CPU
+		{D5B5735B-5A8F-4FEA-A772-4DD90C3113E0}.Release|x86.ActiveCfg = Release|Any CPU
+		{D5B5735B-5A8F-4FEA-A772-4DD90C3113E0}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

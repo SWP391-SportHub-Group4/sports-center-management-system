@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
-import { MemberLayout } from "@/application/member/layout";
-export default function Layout({ children }: { children: ReactNode }) {
-  return <MemberLayout>{children}</MemberLayout>;
+import { MemberFrame } from "@/components/MemberShell";
+
+/** Header điều hướng Member dùng chung cho mọi trang /member: chuyển tab không dựng lại thanh điều hướng. */
+export default function MemberLayout({ children }: { children: ReactNode }) {
+  return <MemberFrame>{children}</MemberFrame>;
 }

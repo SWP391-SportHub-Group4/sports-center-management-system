@@ -1,14 +1,60 @@
 namespace SportHub.Scheduling.Application.DTOs;
 
-public sealed record ClassResponse(
+/// <summary>Quy tắc lịch lặp: thứ 0=CN..6=T7 và giờ địa phương HH:mm.</summary>
+public sealed record ClassScheduleRuleResponse(int DayOfWeek, string StartTimeLocal);
+
+/// <summary>
+/// Khóa học cho công chúng/Member: không có chi phí, ngưỡng hoàn vốn hay số liệu nội bộ. Chỉ hiện khóa đã publish
+/// (Draft không bao giờ lộ ra).
+/// </summary>
+public sealed record ClassPublicResponse(
     int ClassId,
+    string Code,
     string Name,
-    string Discipline,
+    int SportId,
+    string SportName,
+    Guid? CoachId,
+    string? CoachName,
     int DefaultRoomId,
-    string DefaultRoomName,
-    int RoomCapacity,
-    Guid? DefaultCoachId,
-    string? DefaultCoachName,
+    string RoomName,
+    DateOnly StartDate,
+    int NumSessions,
     int Capacity,
-    string Status,
-    IReadOnlyList<ClassRecurrenceResponse> Recurrences);
+    int AvailableSeats,
+    decimal Price,
+    [property: SportHub.BuildingBlocks.Api.WireEnum] string Status,
+    bool EnrollmentOpen,
+    DateTime? FirstSessionStartUtc,
+    IReadOnlyList<ClassScheduleRuleResponse> ScheduleRules);
+
+/// <summary>Khóa học cho Manager: đủ trường tài chính/ngưỡng/đồng thời.</summary>
+public sealed record ClassManagerResponse(
+    int ClassId,
+    string Code,
+    string Name,
+    int SportId,
+    string SportName,
+    Guid? CoachId,
+    string? CoachName,
+    int DefaultRoomId,
+    string RoomName,
+    DateOnly StartDate,
+    int NumSessions,
+    int Capacity,
+    decimal Price,
+    decimal CostAmount,
+    int? BreakEvenThreshold,
+    [property: SportHub.BuildingBlocks.Api.WireEnum] string ThresholdStatus,
+    DateTime? ThresholdDeadlineUtc,
+    [property: SportHub.BuildingBlocks.Api.WireEnum] string Status,
+    int ConfirmedCount,
+    int ReservedCount,
+    int ActiveHoldCount,
+    int AvailableSeats,
+    bool CreatedByAi,
+    bool EnrollmentOpen,
+    int Version,
+    DateTime CreatedAt,
+    DateTime? PublishedAt,
+    DateTime? FirstSessionStartUtc,
+    IReadOnlyList<ClassScheduleRuleResponse> ScheduleRules);

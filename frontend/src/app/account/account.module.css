@@ -1,0 +1,17 @@
+.content {
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+  display: grid;
+  gap: var(--space-5);
+}
+
+.content :global(input[aria-invalid="true"]),
+.form :global(input[aria-invalid="true"]) {
+  border-color: var(--danger-solid);
+}
+
+.content :global(input[aria-invalid="true"]:focus),
+.form :global(input[aria-invalid="true"]:focus) {
+  outline-color: var(--danger-solid);
+}

@@ -30,3 +30,17 @@ ai/**/.venv/
 .codex/
 .fk-skills/
 .gemini/
+.impeccable/
+.github/agents/
+.github/hooks/
+.github/skills/
+.claude/worktrees/
+
+# Generated .NET test run evidence (CI uploads TRX artifacts).
+**/TestResults/
+
+# Local task tooling
+.tmp/
+
+# Local persistent runtime data, including Data Protection keys.
+/.sporthub-local/
