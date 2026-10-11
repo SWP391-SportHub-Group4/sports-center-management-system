@@ -125,8 +125,8 @@ public sealed class Br141DemoSeeder(
         // Loại phòng seed: 3 Sân cầu lông, 4 Sân bóng rổ. Mỗi môn hai sân riêng để lớp sáng và chiều không chung sân.
         var wanted = new[]
         {
-            ("badminton", 1, "Badminton court 01", 3, 12), ("badminton", 2, "Badminton court 02", 3, 12),
-            ("basketball", 1, "Basketball court 01", 4, 20), ("basketball", 2, "Basketball court 02", 4, 20),
+            ("badminton", 1, "Badminton Class BC1", 3, 12), ("badminton", 2, "Badminton Class BC2", 3, 12),
+            ("basketball", 1, "Basketball Class KC1", 4, 20), ("basketball", 2, "Basketball Class KC2", 4, 20),
         };
         var result = new Dictionary<(string, int), Room>();
         foreach (var (sport, index, name, roomType, capacity) in wanted)
