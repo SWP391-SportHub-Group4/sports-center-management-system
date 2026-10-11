@@ -156,11 +156,6 @@ for (const points of [0, 50, 200]) {
         await published.text(),
       ).toBeTruthy();
 
-      /*
-       * G13:
-       * Publish does not automatically
-       * open enrollment anymore.
-       */
       const opened = await request.post(
         `${base}/api/manager/classes/${course.classId}/enrollment/open`,
         {
@@ -272,9 +267,6 @@ for (const points of [0, 50, 200]) {
           .toBe(points);
       }
 
-      /*
-       * Verify checkout survives F5.
-       */
       await page.reload();
 
       await page
@@ -294,24 +286,22 @@ for (const points of [0, 50, 200]) {
         points < 200
           ? page.waitForResponse(
               (response) =>
-                response
-                  .request()
-                  .method() === "POST" &&
-                response
-                  .url()
-                  .endsWith("/attempts"),
+                response.request().method() === "POST" &&
+                response.url().endsWith("/attempts"),
             )
           : null;
 
-      await page
-        .getByRole("button", {
-          name:
-            points === 200
-              ? "Confirm payment with points"
-              : "Pay with VNPay",
-          exact: true,
-        })
-        .click();
+      const paymentButton =
+        points === 200
+          ? page.getByRole("button", {
+              name: "Confirm payment with points",
+              exact: true,
+            })
+          : page.getByRole("button", {
+              name: /^Pay(?: .+)? with VNPay$/,
+            });
+
+      await paymentButton.click();
 
       if (points < 200) {
         const attempt =
@@ -330,9 +320,7 @@ for (const points of [0, 50, 200]) {
           200000 - points * 1000,
         );
 
-        expect(data.gatewayMode).toBe(
-          "MOCK",
-        );
+        expect(data.gatewayMode).toBe("MOCK");
 
         const paid = await request.post(
           `${base}/api/dev/payments/${data.transactionReference}/simulate`,
@@ -418,10 +406,6 @@ for (const points of [0, 50, 200]) {
         ),
       ).toBeTruthy();
 
-      /*
-       * Server result remains stable
-       * after another F5.
-       */
       await page.reload();
 
       await page
@@ -478,9 +462,7 @@ test(
       await page.goto(path);
 
       await expect(
-        page.locator(
-          "#main-content h1",
-        ),
+        page.locator("#main-content h1"),
       ).toBeVisible();
 
       await expect(
@@ -490,10 +472,7 @@ test(
       ).toHaveCount(0);
     }
 
-    for (const width of [
-      1440,
-      390,
-    ]) {
+    for (const width of [1440, 390]) {
       await page.setViewportSize({
         width,
         height: 900,
@@ -502,12 +481,9 @@ test(
       await page.goto("/");
 
       await expect(
-        page.getByRole(
-          "heading",
-          {
-            level: 1,
-          },
-        ),
+        page.getByRole("heading", {
+          level: 1,
+        }),
       ).toBeVisible();
 
       expect(
