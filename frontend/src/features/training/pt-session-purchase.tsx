@@ -20,7 +20,7 @@ import {
 import type { MemberPackageDto, PtAvailabilityDto } from "@/lib/types";
 import styles from "./training.module.css";
 import { AvatarImage } from "@/components/AvatarImage";
-import { ReportAvatarButton } from "@/components/ReportAvatarButton";
+import { UserRound } from "lucide-react";
 
 type SessionQuote = {
   totalQuota: number;
@@ -51,14 +51,14 @@ export function PtSessionPurchase({
   );
   const today = todayIso();
   const [packagePick, setPackage] = useState("");
-  const [coachId, setCoach] = useState("");
+  const [coachPick, setCoach] = useState("");
   const [date, setDate] = useState(addDaysIso(today, 1));
   const [start, setStart] = useState("");
   const [roomPick, setRoom] = useState<number | null>(null);
   const [quote, setQuote] = useState<SessionQuote | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { values } = useUrlQuery({ checkout: "" });
+  const { values } = useUrlQuery({ checkout: "", coach: "" });
   const packages = useApi(
     (signal) =>
       api.get<MemberPackageDto[]>("/api/members/me/packages", { signal }),
@@ -84,6 +84,9 @@ export function PtSessionPurchase({
       ),
     [],
   );
+  const coachId =
+    coachPick ||
+    (coaches.data?.some((c) => c.userId === values.coach) ? values.coach : "");
   const availability = useApi(
     (signal) =>
       packageId && coachId
@@ -307,10 +310,17 @@ export function PtSessionPurchase({
                                   {coachId === coach.userId ? "✓" : ""}
                                 </span>
                               </button>
-                              <ReportAvatarButton
-                                targetUserId={coach.userId}
-                                avatarUrl={coach.avatarUrl}
-                              />
+                              <Link
+                                className={styles.coachProfileLink}
+                                href={`/member/pt/coaches/${coach.userId}`}
+                              >
+                                <UserRound size={14} aria-hidden="true" />
+                                {text("Xem hồ sơ", "View profile")}
+                                <span className="sr-only">
+                                  {" "}
+                                  {coach.fullName}
+                                </span>
+                              </Link>
                             </div>
                           ))}
                         </div>
@@ -464,7 +474,7 @@ export function PtSessionPurchase({
                         ],
                       }}
                     />
-                    <Link href={`/coaches#coach-${coachId}`}>
+                    <Link href={`/member/pt/coaches/${coachId}`}>
                       {text("Xem hồ sơ huấn luyện viên", "View PT profile")}
                     </Link>
                   </>

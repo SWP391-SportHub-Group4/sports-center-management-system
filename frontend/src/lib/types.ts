@@ -832,6 +832,10 @@ export interface CoachAdminDto {
   phone: string | null;
   status: string;
   bio: string | null;
+  title?: string | null;
+  yearsExperience?: number | null;
+  studentCount?: number | null;
+  philosophy?: string | null;
   sportIds: number[];
   createdAt: string;
 }

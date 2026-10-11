@@ -1,8 +1,8 @@
 "use client";
 
 import { PublicHeader } from "@/app/public-header";
+import Link from "next/link";
 import { AvatarImage } from "@/components/AvatarImage";
-import { ReportAvatarButton } from "@/components/ReportAvatarButton";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
@@ -53,10 +53,10 @@ export default function PublicCoachesPage() {
               />
               <h2>{coach.fullName}</h2>
               {coach.bio && <p>{coach.bio}</p>}
-              <ReportAvatarButton
-                targetUserId={coach.userId}
-                avatarUrl={coach.avatarUrl}
-              />
+              <Link className="btn btn--ghost btn--sm" href={`/coaches/${coach.userId}`}>
+                {vi ? "Xem hồ sơ" : "View profile"}
+                <span className="sr-only"> {coach.fullName}</span>
+              </Link>
             </article>
           ))}
         </div>

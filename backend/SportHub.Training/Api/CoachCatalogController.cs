@@ -34,6 +34,10 @@ public sealed class CoachCatalogController(ISportHubDbContext db, ISportCatalogR
         return Ok(await query.OrderBy(u => u.Profile!.FullName).Take(500).Select(u => new {
             u.UserId, FullName = u.Profile!.FullName, AvatarUrl = u.Profile.AvatarUrl,
             Bio = u.CoachProfile != null ? u.CoachProfile.Bio : null,
+            Title = u.CoachProfile != null ? u.CoachProfile.Title : null,
+            YearsExperience = u.CoachProfile != null ? u.CoachProfile.YearsExperience : null,
+            StudentCount = u.CoachProfile != null ? u.CoachProfile.StudentCount : null,
+            Philosophy = u.CoachProfile != null ? u.CoachProfile.Philosophy : null,
             SportIds = db.Set<UserSportSpecialty>().Where(s => s.UserId == u.UserId).Select(s => s.SportId).ToArray()
         }).ToListAsync(ct));
     }

@@ -20,6 +20,18 @@ public sealed class CreateCoachRequest
     [MaxLength(1000)]
     public string? Bio { get; set; }
 
+    [MaxLength(100)]
+    public string? Title { get; set; }
+
+    [Range(0, 60)]
+    public int? YearsExperience { get; set; }
+
+    [Range(0, 100000)]
+    public int? StudentCount { get; set; }
+
+    [MaxLength(1000)]
+    public string? Philosophy { get; set; }
+
     /// <summary>1–10 môn đang hoạt động trong catalog.</summary>
     [Required, MinLength(1), MaxLength(10)]
     public List<int> SportIds { get; set; } = [];
@@ -39,4 +51,16 @@ public sealed class UpdateCoachRequest
 
     [MaxLength(1000)]
     public string? Bio { get; set; }
+
+    [MaxLength(100)]
+    public string? Title { get; set; }
+
+    [Range(0, 60)]
+    public int? YearsExperience { get; set; }
+
+    [Range(0, 100000)]
+    public int? StudentCount { get; set; }
+
+    [MaxLength(1000)]
+    public string? Philosophy { get; set; }
 }
