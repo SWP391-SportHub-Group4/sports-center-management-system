@@ -543,6 +543,16 @@ namespace SportHub.API.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("user_id");
 
+                    b.Property<string>("AvatarPublicId")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("avatar_public_id");
+
+                    b.Property<string>("AvatarUrl")
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)")
+                        .HasColumnName("avatar_url");
+
                     b.Property<string>("FullName")
                         .IsRequired()
                         .HasColumnType("text")
@@ -2406,6 +2416,112 @@ namespace SportHub.API.Migrations
                         });
                 });
 
+            modelBuilder.Entity("SportHub.Scheduling.Domain.Entities.ClassSessionChangeRequest", b =>
+                {
+                    b.Property<Guid>("RequestId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("request_id");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<DateTime>("OriginalEndAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("original_end_at_utc");
+
+                    b.Property<int>("OriginalRoomId")
+                        .HasColumnType("integer")
+                        .HasColumnName("original_room_id");
+
+                    b.Property<DateTime>("OriginalStartAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("original_start_at_utc");
+
+                    b.Property<DateTime?>("ProposedEndAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("proposed_end_at_utc");
+
+                    b.Property<DateTime?>("ProposedStartAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("proposed_start_at_utc");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("reason");
+
+                    b.Property<Guid>("RequestedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("requested_by_user_id");
+
+                    b.Property<string>("ResolutionType")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("resolution_type");
+
+                    b.Property<Guid?>("ResultSessionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("result_session_id");
+
+                    b.Property<string>("ReviewNote")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("review_note");
+
+                    b.Property<DateTime?>("ReviewedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("reviewed_at_utc");
+
+                    b.Property<Guid?>("ReviewedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("reviewed_by_user_id");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("session_id");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("status");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("type");
+
+                    b.HasKey("RequestId")
+                        .HasName("pk_class_session_change_requests");
+
+                    b.HasIndex("ResultSessionId")
+                        .HasDatabaseName("ix_class_session_change_requests_result_session_id");
+
+                    b.HasIndex("ReviewedByUserId")
+                        .HasDatabaseName("ix_class_session_change_requests_reviewed_by_user_id");
+
+                    b.HasIndex("SessionId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_class_session_change_requests_session_id")
+                        .HasFilter("status = 'PENDING'");
+
+                    b.HasIndex("RequestedByUserId", "CreatedAtUtc")
+                        .HasDatabaseName("ix_class_session_change_requests_requested_by_user_id_created_");
+
+                    b.HasIndex("Status", "CreatedAtUtc")
+                        .HasDatabaseName("ix_class_session_change_requests_status_created_at_utc");
+
+                    b.ToTable("class_session_change_requests", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_class_change_status", "status IN ('PENDING','RESOLVED','REJECTED','WITHDRAWN')");
+
+                            t.HasCheckConstraint("ck_class_change_type", "type IN ('SUBSTITUTE','RESCHEDULE','CANCEL_WITH_MAKEUP')");
+                        });
+                });
+
             modelBuilder.Entity("SportHub.Scheduling.Domain.Entities.ClassTeachingRecord", b =>
                 {
                     b.Property<Guid>("RecordId")
@@ -4214,6 +4330,39 @@ namespace SportHub.API.Migrations
                     b.Navigation("Class");
 
                     b.Navigation("Room");
+                });
+
+            modelBuilder.Entity("SportHub.Scheduling.Domain.Entities.ClassSessionChangeRequest", b =>
+                {
+                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", "RequestedBy")
+                        .WithMany()
+                        .HasForeignKey("RequestedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_class_session_change_requests_user_accounts_requested_by_us");
+
+                    b.HasOne("SportHub.Scheduling.Domain.Entities.ClassSession", null)
+                        .WithMany()
+                        .HasForeignKey("ResultSessionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_class_session_change_requests_class_sessions_result_session");
+
+                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", null)
+                        .WithMany()
+                        .HasForeignKey("ReviewedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_class_session_change_requests_user_accounts_reviewed_by_use");
+
+                    b.HasOne("SportHub.Scheduling.Domain.Entities.ClassSession", "Session")
+                        .WithMany()
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_class_session_change_requests_class_sessions_session_id");
+
+                    b.Navigation("RequestedBy");
+
+                    b.Navigation("Session");
                 });
 
             modelBuilder.Entity("SportHub.Scheduling.Domain.Entities.ClassTeachingRecord", b =>

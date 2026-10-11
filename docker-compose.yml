@@ -62,6 +62,9 @@ services:
       Gemini__Model: ${Gemini__Model:-gemini-3.5-flash-lite}
       Gemini__BaseUrl: ${Gemini__BaseUrl:-https://generativelanguage.googleapis.com}
       Gemini__TimeoutSeconds: ${Gemini__TimeoutSeconds:-30}
+      Cloudinary__CloudName: ${Cloudinary__CloudName:-}
+      Cloudinary__ApiKey: ${Cloudinary__ApiKey:-}
+      Cloudinary__ApiSecret: ${Cloudinary__ApiSecret:-}
 
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
     ports:

@@ -54,6 +54,10 @@ public sealed class ClassTeachingAiController(ClassTeachingService teaching, ISp
             For session: provide a session goal, warm-up, 3-5 drills with duration/repetitions, adaptations and cool-down.
             Fit the exercises within the supplied session duration. For personal: provide an individual goal, 3-5 focused
             exercises, progression criteria and review guidance; use the selected session if supplied.
+            EVERY exercise, including warm-up and cool-down, MUST specify positive integer sets and reps explicitly.
+            Use 'N hiệp × M lần' in Vietnamese or 'N sets × M reps' in English. Never omit these numbers.
+            For timed exercises use reps as the number of rounds or holds and specify duration separately.
+            Do not count seconds or minutes as reps. Keep non-exercise advice separate from exercise lines.
             OUTPUT FORMAT: concise plain text only, no Markdown, tables, code fences, introduction or closing commentary.
             Each item MUST occupy exactly one line formatted as 'Short heading · Concrete details'.
             Use short headings and at most two sentences per item. For course milestones use headings 'Buổi N'

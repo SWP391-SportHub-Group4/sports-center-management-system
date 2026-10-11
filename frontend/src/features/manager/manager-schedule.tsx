@@ -15,6 +15,8 @@ import {
 import { catalogApi } from "@/features/catalog";
 import { courtScheduleApi } from "@/features/court-schedule";
 import { AiScheduleDrawer } from "./ai-schedule-drawer";
+import { ManagerClassChangeRequests } from "./class-change-requests";
+import { classChangeStyles as changeStyles } from "@/features/pt";
 
 const validDate = (value: string) =>
   /^\d{4}-\d{2}-\d{2}$/.test(value) &&
@@ -31,7 +33,7 @@ export function ManagerSchedule({
   coachId?: string;
   roomId?: number;
 }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const l = t.operations;
   const m = t.managerOperations;
   const { values, setValues } = useUrlQuery(
@@ -42,9 +44,11 @@ export function ManagerSchedule({
       coachId: "",
       classId: "",
       sourceType: "",
+      section: "calendar",
     },
     {
       date: validDate,
+      section: choiceQuery(["calendar", "requests"], "calendar"),
       view: choiceQuery(["day", "week", "list"], "week"),
       sourceType: choiceQuery(
         ["", "CLASS_SESSION", "PT_SESSION", "COURT_RENTAL", "ROOM_BLOCK"],
@@ -108,8 +112,39 @@ export function ManagerSchedule({
     coachName: r.coachName,
     status: r.status,
   }));
+  const sectionNav = !fixedCoach && !fixedRoom && (
+    <nav
+      className={changeStyles.bookmarks}
+      aria-label={language === "vi" ? "Quản lý lịch" : "Schedule management"}
+    >
+      <button
+        type="button"
+        className={`btn btn--sm ${values.section === "calendar" ? "" : "btn--quiet"}`}
+        aria-pressed={values.section === "calendar"}
+        onClick={() => setValues({ section: "calendar" })}
+      >
+        {language === "vi" ? "Lịch hoạt động" : "Activity calendar"}
+      </button>
+      <button
+        type="button"
+        className={`btn btn--sm ${values.section === "requests" ? "" : "btn--quiet"}`}
+        aria-pressed={values.section === "requests"}
+        onClick={() => setValues({ section: "requests" })}
+      >
+        {language === "vi" ? "Yêu cầu đổi lịch lớp" : "Class change requests"}
+      </button>
+    </nav>
+  );
+  if (values.section === "requests" && !fixedCoach && !fixedRoom)
+    return (
+      <>
+        {sectionNav}
+        <ManagerClassChangeRequests onChanged={() => state.reload()} />
+      </>
+    );
   return (
     <>
+      {sectionNav}
       <FilterBar
         values={values}
         onChange={update}

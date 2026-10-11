@@ -8,7 +8,7 @@ import { useLanguage } from "@/lib/language";
 
 import { addDaysIso, todayIso } from "@/lib/format";
 
-import { AsyncSection } from "@/components/ui";
+import { AsyncSection, Field } from "@/components/ui";
 
 import { catalogApi } from "@/features/catalog";
 
@@ -19,6 +19,9 @@ import {
   CalendarEventDrawer,
   type CalendarEvent,
   type CalendarView,
+  PlanningCalendar,
+  planningRange,
+  type PlanningView,
 } from "@/components/scheduling";
 
 import { courtScheduleApi } from "./api";
@@ -30,9 +33,15 @@ import styles from "./court-calendar.module.css";
 export function CourtCalendar({
   classesOnly = false,
   includeCoachPt = false,
+  onSelectPtSession,
+  planningLayout = false,
+  refreshToken = 0,
 }: {
   classesOnly?: boolean;
   includeCoachPt?: boolean;
+  onSelectPtSession?: (sessionId: string) => void;
+  planningLayout?: boolean;
+  refreshToken?: number;
 }) {
   const { user } = useAuth();
   const { t } = useLanguage();
@@ -41,27 +50,43 @@ export function CourtCalendar({
 
   const [date, setDate] = useState(todayIso());
 
-  const [view, setView] = useState<CalendarView>("week");
+  const [view, setView] = useState<PlanningView>(
+    planningLayout ? "month" : "week",
+  );
 
   const [roomId, setRoom] = useState("");
 
   const [selected, setSelected] = useState<CourtScheduleEntryDto | null>(null);
 
-  const days = view === "day" ? 1 : 7;
+  const range = planningLayout
+    ? planningRange(date, view)
+    : { start: date, days: view === "day" ? 1 : 7 };
 
   const rooms = useApi((signal) => catalogApi.rooms(signal), []);
 
   const state = useApi(
-    (signal) =>
-      courtScheduleApi.list(
-        date,
-        addDaysIso(date, days - 1),
-        roomId,
-        user?.role === "Coach",
-        signal,
-        includeCoachPt,
-      ),
-    [date, days, roomId, user?.role, includeCoachPt],
+    async (signal) => {
+      const batches = await Promise.all(
+        Array.from({ length: Math.ceil(range.days / 31) }, (_, index) =>
+          courtScheduleApi.list(
+            addDaysIso(range.start, index * 31),
+            addDaysIso(range.start, Math.min(range.days, (index + 1) * 31) - 1),
+            roomId,
+            user?.role === "Coach",
+            signal,
+            includeCoachPt,
+          ),
+        ),
+      );
+      return [
+        ...new Map(
+          batches
+            .flat()
+            .map((entry) => [`${entry.sourceType}-${entry.sourceId}`, entry]),
+        ).values(),
+      ];
+    },
+    [range.start, range.days, roomId, user?.role, includeCoachPt, refreshToken],
   );
 
   const labels = {
@@ -78,50 +103,82 @@ export function CourtCalendar({
   return (
     <>
       <AsyncSection state={rooms}>
-        {(roomRows) => (
-          <CourtFilters
-            date={date}
-            roomId={roomId}
-            rooms={roomRows}
-            onDate={(value) => {
-              setDate(value);
-              clear();
-            }}
-            onRoom={(value) => {
-              setRoom(value);
-              clear();
-            }}
-          />
-        )}
+        {(roomRows) =>
+          planningLayout ? (
+            <div className="row spread">
+              <Field label={l.room}>
+                <select
+                  value={roomId}
+                  onChange={(e) => {
+                    setRoom(e.target.value);
+                    clear();
+                  }}
+                >
+                  <option value="">{t.common.all}</option>
+                  {roomRows.map((room) => (
+                    <option key={room.roomId} value={room.roomId}>
+                      {room.name}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <button
+                className="btn btn--secondary"
+                onClick={() => {
+                  state.reload();
+                  clear();
+                }}
+              >
+                {l.refresh}
+              </button>
+            </div>
+          ) : (
+            <CourtFilters
+              date={date}
+              roomId={roomId}
+              rooms={roomRows}
+              onDate={(value) => {
+                setDate(value);
+                clear();
+              }}
+              onRoom={(value) => {
+                setRoom(value);
+                clear();
+              }}
+            />
+          )
+        }
       </AsyncSection>
 
-      <div className="btn-row">
-        {Object.entries(labels)
-          .filter(([type]) =>
-            classesOnly
-              ? type === "CLASS_SESSION"
-              : user?.role === "Coach"
-                ? type === "CLASS_SESSION" ||
-                  (includeCoachPt && type === "PT_SESSION")
-                : true,
-          )
-          .map(([, label]) => (
-            <span className={`chip ${styles.legendChip}`} key={label}>
-              {label}
-            </span>
-          ))}
+      {!planningLayout && (
+        <div className="btn-row">
+          {Object.entries(labels)
+            .filter(([type]) =>
+              classesOnly
+                ? type === "CLASS_SESSION"
+                : user?.role === "Coach"
+                  ? type === "CLASS_SESSION" ||
+                    (includeCoachPt && type === "PT_SESSION")
+                  : true,
+            )
+            .map(([, label]) => (
+              <span className={`chip ${styles.legendChip}`} key={label}>
+                {label}
+              </span>
+            ))}
 
-        <button
-          type="button"
-          className="btn btn--ghost"
-          onClick={() => {
-            state.reload();
-            clear();
-          }}
-        >
-          {l.refresh}
-        </button>
-      </div>
+          <button
+            type="button"
+            className="btn btn--ghost"
+            onClick={() => {
+              state.reload();
+              clear();
+            }}
+          >
+            {l.refresh}
+          </button>
+        </div>
+      )}
 
       <AsyncSection state={state}>
         {(rows) => {
@@ -147,11 +204,39 @@ export function CourtCalendar({
             status: entry.status,
           }));
 
+          const selectEvent = (event: CalendarEvent) => {
+            const entry = filteredRows.find(
+              (candidate) =>
+                `${candidate.sourceType}-${candidate.sourceId}` === event.id,
+            );
+            if (entry) {
+              if (entry.sourceType === "PT_SESSION" && onSelectPtSession)
+                onSelectPtSession(entry.sourceId);
+              else setSelected(entry);
+            }
+          };
+          if (planningLayout)
+            return (
+              <PlanningCalendar
+                events={events}
+                date={date}
+                view={view}
+                onDateChange={(value) => {
+                  setDate(value);
+                  clear();
+                }}
+                onViewChange={(value) => {
+                  setView(value);
+                  clear();
+                }}
+                onSelectEvent={selectEvent}
+              />
+            );
           return (
             <Calendar
               events={events}
               date={date}
-              view={view}
+              view={view as CalendarView}
               labels={{
                 day: t.calendar.day,
                 week: t.calendar.week,
@@ -170,17 +255,7 @@ export function CourtCalendar({
                 setView(value);
                 clear();
               }}
-              onSelectEvent={(event) => {
-                const entry = filteredRows.find(
-                  (candidate) =>
-                    `${candidate.sourceType}-${candidate.sourceId}` ===
-                    event.id,
-                );
-
-                if (entry) {
-                  setSelected(entry);
-                }
-              }}
+              onSelectEvent={selectEvent}
             />
           );
         }}

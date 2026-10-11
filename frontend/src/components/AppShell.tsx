@@ -15,6 +15,7 @@ import { canUsePtFeatures } from "@/lib/permissions";
 import { useLanguage } from "@/lib/language";
 import type { Translations } from "@/locales/en";
 import { NotificationBell } from "./NotificationBell";
+import { UserAvatar } from "./UserAvatar";
 import {
   IconKeyboard,
   IconLogout,
@@ -140,23 +141,10 @@ export function getNavForUser(user: {
   approvalStatus?: string | null;
 }): NavItem[] {
   if (user.role !== "Coach") return NAV_BY_ROLE[user.role];
-  const base = [
-    { href: "/coach", labelKey: "overview" as const },
-    { href: "/coach/schedule", labelKey: "teachingSchedule" as const },
-    { href: "/coach/members", labelKey: "assignedMembers" as const },
-    { href: "/coach/attendance", labelKey: "attendance" as const },
-  ];
   return user.isPersonalTrainer === true
     ? [
-        ...base,
-        ...NAV_BY_ROLE.Coach.filter((item) =>
-          [
-            "/coach/pt-sessions",
-            "/coach/training-plans",
-            "/coach/ai-suggestions",
-            "/coach/progress",
-          ].includes(item.href),
-        ),
+        { href: "/coach/schedule", labelKey: "ptSchedule" },
+        { href: "/coach/members", labelKey: "assignedMembers" },
       ]
     : [
         { href: "/coach/schedule", labelKey: "teachingSchedule" },
@@ -454,10 +442,10 @@ export function AppFrame({
   }
 
   const items = getNavForUser(user);
+  const ptNavigation = user.role === "Coach" && canUsePtFeatures(user);
   const root = items[0].href;
   const entries = buildNav(items, user.role, t);
   const roleDisplay = t.navigation.roleLabel[user.role];
-  const initial = (user.fullName || user.email).charAt(0).toUpperCase();
 
   return (
     <div className={shell.shell}>
@@ -467,7 +455,9 @@ export function AppFrame({
           : "Chuyển tới nội dung chính"}
       </a>
       <header className={shell.header} data-scrolled={scrolled || undefined}>
-        <div className={shell.headerInner}>
+        <div
+          className={`${shell.headerInner} ${ptNavigation ? styles.ptHeader : ""}`}
+        >
           <Link href={root} className={shell.brandGroup}>
             <span className={shell.brandLogo}>
               Sport<span className={shell.brandLogoAccent}>Hub</span>
@@ -476,7 +466,7 @@ export function AppFrame({
           </Link>
 
           <nav
-            className={`${styles.staffNav} ${user.role === "SystemAdministrator" ? styles.adminNav : ""}`}
+            className={`${styles.staffNav} ${ptNavigation ? styles.ptNav : ""} ${user.role === "SystemAdministrator" ? styles.adminNav : ""}`}
             aria-label={roleDisplay}
           >
             {entries.map((entry) =>
@@ -531,7 +521,10 @@ export function AppFrame({
               </span>
             </button>
             <NotificationBell />
-            <div className={shell.userMenuWrapper} ref={userRef}>
+            <div
+              className={`${shell.userMenuWrapper} ${user.role === "Coach" ? styles.coachAccount : ""}`}
+              ref={userRef}
+            >
               <button
                 type="button"
                 className={shell.userButton}
@@ -539,7 +532,11 @@ export function AppFrame({
                 aria-expanded={userMenu}
                 aria-label={user.fullName || user.email}
               >
-                <div className={shell.userAvatar}>{initial}</div>
+                <UserAvatar
+                  name={user.fullName || user.email}
+                  src={user.avatarUrl}
+                  className={shell.userAvatar}
+                />
                 <span className={shell.userName}>
                   {user.fullName || user.email}
                 </span>
@@ -589,14 +586,16 @@ export function AppFrame({
                 </div>
               )}
             </div>
-            <button
-              type="button"
-              className={styles.menuButton}
-              onClick={() => setDrawer(true)}
-              aria-label={t.nav.openNav}
-            >
-              <IconMenu size={20} />
-            </button>
+            {!ptNavigation && (
+              <button
+                type="button"
+                className={styles.menuButton}
+                onClick={() => setDrawer(true)}
+                aria-label={t.nav.openNav}
+              >
+                <IconMenu size={20} />
+              </button>
+            )}
           </div>
         </div>
       </header>

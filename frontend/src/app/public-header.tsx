@@ -312,6 +312,7 @@ export function PublicHeader() {
           ) : user ? (
             <AccountMenu
               name={user.fullName}
+              avatarUrl={user.avatarUrl}
               subtitle={copy.subtitle}
               logoutLabel={t.common.logout}
               onSignOut={logout}

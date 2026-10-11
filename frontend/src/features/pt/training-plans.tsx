@@ -1,52 +1,20 @@
 "use client";
 
-import {
-  useState,
-} from "react";
+import { useState } from "react";
 
-import {
-  AsyncSection,
-  Card,
-  Field,
-  StatusChip,
-} from "@/components/ui";
+import { Field } from "@/components/ui";
 
-import {
-  api,
-} from "@/lib/apiClient";
+import { api } from "@/lib/apiClient";
 
-import {
-  useApi,
-} from "@/lib/useApi";
+import { useLanguage } from "@/lib/language";
 
-import {
-  useLanguage,
-} from "@/lib/language";
+import { MutationFeedback, useMutation } from "@/features/operations";
 
-import {
-  MutationFeedback,
-  useMutation,
-} from "@/features/operations";
+import type { WorkoutPlanDto } from "@/lib/types";
 
-import type {
-  WorkoutPlanDto,
-} from "@/lib/types";
+import { IconSparkles } from "@/components/icons";
 
-import {
-  IconSparkles,
-} from "@/components/icons";
-
-import {
-  ptApi,
-} from "./api";
-
-import {
-  ListPager,
-} from "./ui";
-
-import {
-  PtMemberSelect,
-} from "./member-select";
+import { PtMemberSelect } from "./member-select";
 
 import {
   ExerciseEditor,
@@ -54,128 +22,71 @@ import {
   type ExerciseDraft,
 } from "./exercise-editor";
 
-import {
-  CoachAiDrawer,
-} from "./coach-ai-drawer";
+import { CoachAiDrawer } from "./coach-ai-drawer";
 
-function PlanEditor({
+export function PlanEditor({
   plan,
   reload,
   initialMemberId = "",
+  onCancel,
 }: {
   plan?: WorkoutPlanDto;
   reload: () => void;
   initialMemberId?: string;
+  onCancel?: () => void;
 }) {
-  const {
-    t,
-    language,
-  } = useLanguage();
+  const { t, language } = useLanguage();
 
-  const isEn =
-    language === "en";
+  const isEn = language === "en";
 
-  const l =
-    t.staffWork;
+  const l = t.staffWork;
 
-  const mutation =
-    useMutation();
+  const mutation = useMutation();
 
-  const [
-    member,
-    setMember,
-  ] = useState(
-    plan?.memberId ??
-      initialMemberId,
+  const [member, setMember] = useState(plan?.memberId ?? initialMemberId);
+
+  const [goal, setGoal] = useState(plan?.goal ?? "");
+
+  const [level, setLevel] = useState(plan?.level ?? "Beginner");
+
+  const [items, setItems] = useState<ExerciseDraft[]>(
+    plan?.items ?? [emptyExercise()],
   );
 
-  const [
-    goal,
-    setGoal,
-  ] = useState(
-    plan?.goal ?? "",
-  );
-
-  const [
-    level,
-    setLevel,
-  ] = useState(
-    plan?.level ??
-      "Beginner",
-  );
-
-  const [
-    items,
-    setItems,
-  ] =
-    useState<
-      ExerciseDraft[]
-    >(
-      plan?.items ?? [
-        emptyExercise(),
-      ],
-    );
-
-  const [
-    aiOpen,
-    setAiOpen,
-  ] =
-    useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
 
   return (
     <>
       <form
         className="form"
-        onSubmit={async (
-          event,
-        ) => {
+        onSubmit={async (event) => {
           event.preventDefault();
 
           const body = {
-            memberId:
-              member,
+            memberId: member,
 
-            goal:
-              goal.trim(),
+            goal: goal.trim(),
 
             level,
 
-            items:
-              items.map(
-                ({
-                  exercise,
-                  sets,
-                  reps,
-                  notes,
-                }) => ({
-                  exercise:
-                    exercise.trim(),
+            items: items.map(({ exercise, sets, reps, notes }) => ({
+              exercise: exercise.trim(),
 
-                  sets,
+              sets,
 
-                  reps,
+              reps,
 
-                  notes,
-                }),
-              ),
+              notes,
+            })),
 
-            version:
-              plan?.version,
+            version: plan?.version,
           };
 
-          const ok =
-            await mutation.run(
-              () =>
-                plan
-                  ? api.put(
-                      `/api/workout-plans/${plan.planId}`,
-                      body,
-                    )
-                  : api.post(
-                      "/api/workout-plans",
-                      body,
-                    ),
-            );
+          const ok = await mutation.run(() =>
+            plan
+              ? api.put(`/api/workout-plans/${plan.planId}`, body)
+              : api.post("/api/workout-plans", body),
+          );
 
           if (ok) {
             reload();
@@ -183,43 +94,27 @@ function PlanEditor({
         }}
       >
         {plan ? (
-          <p>
-            {
-              plan.memberName
-            }
-          </p>
+          <p>{plan.memberName}</p>
         ) : (
           <>
-            <PtMemberSelect
-              value={
-                member
-              }
-              onChange={
-                setMember
-              }
-            />
+            {initialMemberId ? (
+              <p className="muted">
+                {isEn
+                  ? "This plan is for the selected student."
+                  : "Kế hoạch dành cho học viên đang xem."}
+              </p>
+            ) : (
+              <PtMemberSelect value={member} onChange={setMember} />
+            )}
 
             <button
               type="button"
               className="btn btn--secondary"
-              disabled={
-                !member
-              }
-              onClick={() =>
-                setAiOpen(
-                  true,
-                )
-              }
+              disabled={!member}
+              onClick={() => setAiOpen(true)}
             >
-              <IconSparkles
-                size={
-                  16
-                }
-              />
-              {" "}
-              {isEn
-                ? "AI suggestion"
-                : "AI gợi ý kế hoạch"}
+              <IconSparkles size={16} />{" "}
+              {isEn ? "AI suggestion" : "AI gợi ý kế hoạch"}
             </button>
 
             {!member && (
@@ -232,362 +127,57 @@ function PlanEditor({
           </>
         )}
 
-        <Field
-          label={
-            l.goal
-          }
-        >
+        <Field label={l.goal}>
           <input
             required
-            minLength={
-              3
-            }
-            maxLength={
-              500
-            }
-            value={
-              goal
-            }
-            onChange={(
-              event,
-            ) =>
-              setGoal(
-                event
-                  .target
-                  .value,
-              )
-            }
+            minLength={3}
+            maxLength={500}
+            value={goal}
+            onChange={(event) => setGoal(event.target.value)}
           />
         </Field>
 
-        <Field
-          label={
-            l.level
-          }
-        >
+        <Field label={l.level}>
           <input
             required
-            maxLength={
-              50
-            }
-            value={
-              level
-            }
-            onChange={(
-              event,
-            ) =>
-              setLevel(
-                event
-                  .target
-                  .value,
-              )
-            }
+            maxLength={50}
+            value={level}
+            onChange={(event) => setLevel(event.target.value)}
           />
         </Field>
 
-        <ExerciseEditor
-          items={
-            items
-          }
-          onChange={
-            setItems
-          }
-        />
+        <ExerciseEditor items={items} onChange={setItems} />
 
-        <MutationFeedback
-          mutation={
-            mutation
-          }
-        />
+        <MutationFeedback mutation={mutation} />
 
-        <button
-          type="submit"
-          className="btn"
-          disabled={
-            mutation.busy ||
-            !member
-          }
-        >
-          {l.save}
-        </button>
+        <div className="btn-row">
+          <button
+            type="submit"
+            className="btn"
+            disabled={mutation.busy || !member}
+          >
+            {l.save}
+          </button>
+          {onCancel && (
+            <button
+              type="button"
+              className="btn btn--secondary"
+              disabled={mutation.busy}
+              onClick={onCancel}
+            >
+              {isEn ? "Cancel" : "Hủy"}
+            </button>
+          )}
+        </div>
       </form>
 
-      {aiOpen &&
-        member && (
-          <CoachAiDrawer
-            memberId={
-              member
-            }
-            onClose={() =>
-              setAiOpen(
-                false,
-              )
-            }
-            onSaved={
-              reload
-            }
-          />
-        )}
-    </>
-  );
-}
-
-function PlanCard({
-  plan,
-  reload,
-}: {
-  plan: WorkoutPlanDto;
-  reload: () => void;
-}) {
-  const {
-    t,
-  } = useLanguage();
-
-  const l =
-    t.staffWork;
-
-  const [
-    editing,
-    setEditing,
-  ] =
-    useState(false);
-
-  const mutation =
-    useMutation();
-
-  async function transition(
-    action: string,
-  ) {
-    const ok =
-      await mutation.run(
-        () =>
-          api.post(
-            `/api/workout-plans/${plan.planId}/${action}`,
-          ),
-      );
-
-    if (ok) {
-      reload();
-    }
-  }
-
-  return (
-    <Card
-      title={`${plan.memberName} · ${plan.goal}`}
-    >
-      <p>
-        <StatusChip
-          value={
-            plan.status
-          }
-        />
-        {" · "}
-        {plan.level}
-      </p>
-
-      <ul>
-        {plan.items.map(
-          (item) => (
-            <li
-              key={
-                item.itemId
-              }
-            >
-              {
-                item.exercise
-              }
-              {" · "}
-              {item.sets}
-              {" × "}
-              {item.reps}
-              {" · "}
-              {item.notes ||
-                "—"}
-            </li>
-          ),
-        )}
-      </ul>
-
-      <div className="btn-row">
-        <button
-          type="button"
-          className="btn btn--secondary"
-          onClick={() =>
-            setEditing(
-              !editing,
-            )
-          }
-        >
-          {l.edit}
-        </button>
-
-        <button
-          type="button"
-          className="btn btn--secondary"
-          disabled={
-            mutation.busy ||
-            plan.status ===
-              "ACTIVE"
-          }
-          onClick={() =>
-            transition(
-              "activate",
-            )
-          }
-        >
-          {l.activate}
-        </button>
-
-        <button
-          type="button"
-          className="btn btn--secondary"
-          disabled={
-            mutation.busy ||
-            plan.status ===
-              "ARCHIVED"
-          }
-          onClick={() =>
-            transition(
-              "archive",
-            )
-          }
-        >
-          {l.archive}
-        </button>
-      </div>
-
-      <MutationFeedback
-        mutation={
-          mutation
-        }
-      />
-
-      {editing && (
-        <PlanEditor
-          plan={
-            plan
-          }
-          reload={
-            reload
-          }
+      {aiOpen && member && (
+        <CoachAiDrawer
+          memberId={member}
+          onClose={() => setAiOpen(false)}
+          onSaved={reload}
         />
       )}
-    </Card>
-  );
-}
-
-export function TrainingPlans({
-  initialMemberId = "",
-}: {
-  initialMemberId?: string;
-}) {
-  const {
-    t,
-  } = useLanguage();
-
-  const [
-    page,
-    setPage,
-  ] =
-    useState(1);
-
-  const [
-    revision,
-    setRevision,
-  ] =
-    useState(0);
-
-  const state =
-    useApi(
-      (signal) =>
-        ptApi.plans(
-          page,
-          signal,
-          initialMemberId ||
-            undefined,
-        ),
-      [
-        page,
-        revision,
-        initialMemberId,
-      ],
-    );
-
-  const reload =
-    () =>
-      setRevision(
-        (
-          value,
-        ) =>
-          value +
-          1,
-      );
-
-  return (
-    <>
-      <Card
-        title={
-          t.staffWork
-            .newPlan
-        }
-      >
-        <PlanEditor
-          key={`${revision}-${initialMemberId}`}
-          initialMemberId={
-            initialMemberId
-          }
-          reload={
-            reload
-          }
-        />
-      </Card>
-
-      <AsyncSection
-        state={
-          state
-        }
-        isEmpty={(
-          rows,
-        ) =>
-          !rows.length
-        }
-        emptyMessage={
-          t.common
-            .noData
-        }
-      >
-        {(rows) => (
-          <>
-            {rows.map(
-              (
-                plan,
-              ) => (
-                <PlanCard
-                  key={`${plan.planId}-${plan.version}`}
-                  plan={
-                    plan
-                  }
-                  reload={
-                    reload
-                  }
-                />
-              ),
-            )}
-
-            <ListPager
-              page={
-                page
-              }
-              count={
-                rows.length
-              }
-              onChange={
-                setPage
-              }
-            />
-          </>
-        )}
-      </AsyncSection>
     </>
   );
 }

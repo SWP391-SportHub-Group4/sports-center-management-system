@@ -14,6 +14,8 @@ Mã nguồn/controller/configuration xác định hành vi đã triển khai, kh
 
 Phần mở rộng được chủ sản phẩm xác nhận: [Không gian giảng dạy Coach lớp nhóm](Coach-Teaching-Workspace.md). Coach được phân công có thể soạn giáo án, điểm danh đúng buổi, lưu kết quả/nhận xét, gửi bài tập/thông báo và dùng AI gợi ý; không yêu cầu qualification PT cho các thao tác lớp nhóm này.
 
+Phần mở rộng ngày 11/10/2026: [Coach yêu cầu thay đổi buổi học nhóm](Class-Session-Change-Requests.md), Manager xử lý hoặc từ chối; Coach không tự hủy/đổi lịch. Thay đổi lịch và cập nhật yêu cầu trong cùng transaction.
+
 ## 2. Phạm vi và thuật ngữ
 
 | Thuật ngữ | Nghĩa thống nhất |

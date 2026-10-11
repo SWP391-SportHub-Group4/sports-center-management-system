@@ -127,7 +127,8 @@ async function request<T>(
   if (options.idempotencyKey)
     headers["Idempotency-Key"] = options.idempotencyKey;
 
-  if (body !== undefined) {
+  const multipart = typeof FormData !== "undefined" && body instanceof FormData;
+  if (body !== undefined && !multipart) {
     headers["Content-Type"] = "application/json";
   }
 
@@ -142,7 +143,12 @@ async function request<T>(
     response = await fetch(buildUrl(path, options.query), {
       method,
       headers,
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body:
+        body === undefined
+          ? undefined
+          : multipart
+            ? (body as FormData)
+            : JSON.stringify(body),
       signal: options.signal,
       cache: "no-store",
     });

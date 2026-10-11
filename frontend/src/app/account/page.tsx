@@ -22,6 +22,7 @@ import {
   passwordChecks,
 } from "@/features/identity/password-requirements";
 import type { MyAccountDto } from "@/lib/types";
+import { CoachAvatarUpload } from "@/features/identity/coach-avatar-upload";
 
 export default function AccountPage() {
   const { user, refreshUser, updateToken } = useAuth();
@@ -235,6 +236,12 @@ export default function AccountPage() {
           >
             <Card title={t.account.profileTitle}>
               <div className="stack">
+                {user?.role === "Coach" && (
+                  <CoachAvatarUpload
+                    name={data.fullName || data.email}
+                    avatarUrl={data.avatarUrl}
+                  />
+                )}
                 <div className="row spread">
                   <div>
                     <strong>{data.email}</strong>

@@ -17,7 +17,7 @@ namespace SportHub.Scheduling.Application.Services;
 /// </summary>
 public sealed class AttendanceService(ISportHubDbContext db, IClock clock, IUserAccessReader users, IAuditWriter audit) : IAttendanceService
 {
-    public static readonly TimeSpan CorrectionWindow = TimeSpan.FromHours(24);
+    public static readonly TimeSpan CorrectionWindow = SessionAttendanceWindow.CorrectionWindow;
 
     public async Task<AttendanceResponse> MarkAsync(
         Guid sessionId, Guid enrollmentId, MarkAttendanceRequest request, Guid recorderUserId, CancellationToken ct = default)
@@ -59,9 +59,9 @@ public sealed class AttendanceService(ISportHubDbContext db, IClock clock, IUser
 
         var now = clock.UtcNow;
 
-        if (now < session.StartAtUtc)
+        if (now < SessionAttendanceWindow.OpensAt(session.StartAtUtc))
         {
-            throw new BadRequestException("attendance_not_open", "Chưa đến giờ bắt đầu buổi học.");
+            throw new BadRequestException("attendance_not_open", "Điểm danh mở từ 5 phút trước giờ bắt đầu buổi học.");
         }
 
         if (now > session.EndAtUtc + CorrectionWindow)

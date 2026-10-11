@@ -34,6 +34,10 @@ import { TeachingEditor } from "./teaching-editor";
 import { TeachingRecords } from "./teaching-records";
 import { TrainingPlanView, type PlanScope } from "./training-plan-view";
 import styles from "./coach-workspace.module.css";
+import {
+  CoachClassChanges,
+  CoachClassChangeHistory,
+} from "./coach-class-change";
 
 export type WorkspaceMode = "schedule" | "classes" | "students";
 type Selection = {
@@ -137,6 +141,7 @@ export function CoachWorkspace({
           );
         })}
       </nav>
+      <CoachClassChangeHistory />
       <AsyncSection state={state}>
         {({ classes, sessions }) =>
           !classes.length ? (
@@ -437,6 +442,7 @@ function TeachingDetail({
             label: vi ? "Điểm danh & kết quả" : "Attendance & results",
           },
           { id: "communication", label: vi ? "Sau buổi học" : "After session" },
+          { id: "changes", label: vi ? "Đổi lịch" : "Change requests" },
         ]
       : [
           {
@@ -530,7 +536,12 @@ function TeachingDetail({
               <>
                 <Tabs
                   value={tab}
-                  onChange={setTab}
+                  onChange={(next) => {
+                    if (discard()) {
+                      editorState.current = { dirty: false, busy: false };
+                      setTab(next);
+                    }
+                  }}
                   tabs={tabs}
                   ariaLabel={vi ? "Chi tiết giảng dạy" : "Teaching details"}
                 >
@@ -658,8 +669,8 @@ function TeachingDetail({
                     <>
                       <p className={styles.muted}>
                         {vi
-                          ? "Điểm danh trong buổi học và đến 24 giờ sau khi kết thúc."
-                          : "Attendance opens at session start and closes 24 hours after it ends."}
+                          ? "Điểm danh từ 5 phút trước giờ bắt đầu đến 24 giờ sau khi kết thúc."
+                          : "Attendance opens 5 minutes before the session starts and closes 24 hours after it ends."}
                       </p>
                       <div className={styles.studentList}>
                         {roster.entries
@@ -819,6 +830,16 @@ function TeachingDetail({
                         members={members}
                       />
                     </>
+                  )}
+                  {session && tab === "changes" && (
+                    <CoachClassChanges
+                      key={session.sessionId}
+                      session={session}
+                      onChanged={() => state.reload()}
+                      onStateChange={(value) => {
+                        editorState.current = value;
+                      }}
+                    />
                   )}
                 </Tabs>
                 {!writable && (

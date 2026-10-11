@@ -32,6 +32,7 @@ using SportHub.Identity.Application.Services;
 using SportHub.Identity.Infrastructure.Email;
 using SportHub.Identity.Infrastructure.Repositories;
 using SportHub.Identity.Infrastructure.Security;
+using SportHub.Identity.Infrastructure.Media;
 using SportHub.Identity;
 using SportHub.Membership.Application.Interfaces;
 using SportHub.Membership.Application.Services;
@@ -77,6 +78,15 @@ builder.Services.AddSportHubAuthorizationPolicies();
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("avatar-upload", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+                ?? httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 5, Window = TimeSpan.FromMinutes(1), QueueLimit = 0,
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst
+            }));
 
     options.AddPolicy("auth-register", httpContext =>
         RateLimitPartition.GetFixedWindowLimiter(
@@ -168,6 +178,9 @@ builder.Services.AddScoped<IUserAccountRepository, UserAccountRepository>();
 builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IAccountService, AccountService>();
+builder.Services.Configure<CloudinaryOptions>(builder.Configuration.GetSection("Cloudinary"));
+builder.Services.AddHttpClient<CloudinaryAvatarStore>(client => client.Timeout = TimeSpan.FromSeconds(30));
+builder.Services.AddScoped<CoachAvatarService>();
 builder.Services.AddScoped<IPasswordResetService, PasswordResetService>();
 builder.Services.AddScoped<EmailOtpFlow>();
 builder.Services.AddScoped<CoachSpecialtyService>();
@@ -256,6 +269,7 @@ builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Scheduling.ICour
     sp => sp.GetRequiredService<SportHub.Scheduling.Rental.Application.CourtRentalService>());
 builder.Services.AddScoped<IClassService, ClassService>();
 builder.Services.AddScoped<ClassTeachingService>();
+builder.Services.AddScoped<ClassSessionChangeRequestService>();
 builder.Services.AddScoped<CourseCancellationService>();
 builder.Services.AddScoped<SportHub.Scheduling.Threshold.Application.IClassThresholdService,
     SportHub.Scheduling.Threshold.Application.ClassThresholdService>();
@@ -418,6 +432,20 @@ builder.Services.AddScoped<Br141DemoSeeder>();
 builder.Services.AddScoped<PaymentNoticeService>();
 
 var app = builder.Build();
+
+if (args.Any(a => a == "--seed-pt-calendar=true"))
+{
+    if (!app.Environment.IsDevelopment())
+        throw new InvalidOperationException("PT calendar fixtures are only available in Development.");
+    var target = new Npgsql.NpgsqlConnectionStringBuilder(app.Configuration.GetConnectionString("Default"));
+    if (target.Host is not ("localhost" or "127.0.0.1" or "::1"))
+        throw new InvalidOperationException("PT calendar fixtures must target a local Development database.");
+    Console.WriteLine($"[seed-pt-calendar] database '{target.Database}' on '{target.Host}:{target.Port}'");
+    await using var scope = app.Services.CreateAsyncScope();
+    await scope.ServiceProvider.GetRequiredService<SportHubDbContext>().Database.MigrateAsync();
+    await scope.ServiceProvider.GetRequiredService<DemoDataSeeder>().SeedPtCalendarAsync();
+    return;
+}
 
 if (args.Any(a => a == "--seed-coach-teaching=true"))
 {

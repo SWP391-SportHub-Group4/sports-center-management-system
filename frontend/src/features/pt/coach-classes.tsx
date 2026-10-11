@@ -21,6 +21,8 @@ import { catalogApi } from "@/features/catalog";
 
 import { ptApi } from "./api";
 import { ListPager, Specialty } from "./ui";
+import { PtCoachStudents } from "./pt-coach-workspace";
+import { PtSessions } from "./pt-sessions";
 
 function Roster({ id }: { id: string }) {
   const { t } = useLanguage();
@@ -56,30 +58,18 @@ function Roster({ id }: { id: string }) {
   );
 }
 
-export function CoachClassDetail({
-  classId,
-}: {
-  classId: number;
-}) {
+export function CoachClassDetail({ classId }: { classId: number }) {
   const { t } = useLanguage();
 
-  const [sessionId, setSessionId] =
-    useState("");
+  const [sessionId, setSessionId] = useState("");
 
   const state = useApi(
-    (signal) =>
-      ptApi.classSessions(
-        classId,
-        signal,
-      ),
+    (signal) => ptApi.classSessions(classId, signal),
     [classId],
   );
 
   return (
-    <Card
-      title={t.staffWork.attendance}
-      hint={t.staffWork.readOnly}
-    >
+    <Card title={t.staffWork.attendance} hint={t.staffWork.readOnly}>
       <AsyncSection
         state={state}
         isEmpty={(rows) => !rows.length}
@@ -87,39 +77,20 @@ export function CoachClassDetail({
       >
         {(rows) => {
           const selected =
-            rows.find(
-              (row) =>
-                row.sessionId ===
-                sessionId,
-            ) ?? null;
+            rows.find((row) => row.sessionId === sessionId) ?? null;
 
           return (
             <div className="stack">
-              <Field
-                label={
-                  t.operations.classSession
-                }
-              >
+              <Field label={t.operations.classSession}>
                 <select
                   value={sessionId}
-                  onChange={(e) =>
-                    setSessionId(
-                      e.target.value,
-                    )
-                  }
+                  onChange={(e) => setSessionId(e.target.value)}
                 >
-                  <option value="">
-                    —
-                  </option>
+                  <option value="">—</option>
 
                   {rows.map((row) => (
-                    <option
-                      key={row.sessionId}
-                      value={row.sessionId}
-                    >
-                      {formatDateTime(
-                        row.startAtUtc,
-                      )}
+                    <option key={row.sessionId} value={row.sessionId}>
+                      {formatDateTime(row.startAtUtc)}
                       {" · "}
                       {row.roomName}
                     </option>
@@ -132,58 +103,33 @@ export function CoachClassDetail({
                   <div className="card">
                     <div className="row spread">
                       <div>
-                        <strong>
-                          {formatDateTime(
-                            selected.startAtUtc,
-                          )}
-                        </strong>
+                        <strong>{formatDateTime(selected.startAtUtc)}</strong>
 
                         <p className="muted">
-                          {formatDateTime(
-                            selected.endAtUtc,
-                          )}
+                          {formatDateTime(selected.endAtUtc)}
                         </p>
                       </div>
 
-                      <StatusChip
-                        value={
-                          selected.status
-                        }
-                      />
+                      <StatusChip value={selected.status} />
                     </div>
 
                     <dl className="stack">
                       <div className="row spread">
-                        <dt>
-                          {t.staffWork.room}
-                        </dt>
-                        <dd>
-                          {selected.roomName ||
-                            "—"}
-                        </dd>
+                        <dt>{t.staffWork.room}</dt>
+                        <dd>{selected.roomName || "—"}</dd>
                       </div>
 
                       <div className="row spread">
-                        <dt>
-                          {t.staffWork.coach}
-                        </dt>
-                        <dd>
-                          {selected.coachName ||
-                            "—"}
-                        </dd>
+                        <dt>{t.staffWork.coach}</dt>
+                        <dd>{selected.coachName || "—"}</dd>
                       </div>
                     </dl>
                   </div>
 
-                  <Roster
-                    key={selected.sessionId}
-                    id={selected.sessionId}
-                  />
+                  <Roster key={selected.sessionId} id={selected.sessionId} />
                 </>
               ) : (
-                <p className="muted">
-                  {t.staffWork.readOnly}
-                </p>
+                <p className="muted">{t.staffWork.readOnly}</p>
               )}
             </div>
           );
@@ -330,7 +276,11 @@ function MembersTabs({ hasPt }: { hasPt: boolean }) {
 }
 
 export function CoachMembers() {
-  return <Specialty>{(hasPt) => <MembersTabs hasPt={hasPt} />}</Specialty>;
+  return (
+    <Specialty>
+      {(hasPt) => (hasPt ? <PtCoachStudents /> : <MembersTabs hasPt={hasPt} />)}
+    </Specialty>
+  );
 }
 
 function CoachDashboard({ hasPt }: { hasPt: boolean }) {
@@ -558,7 +508,7 @@ function CoachDashboard({ hasPt }: { hasPt: boolean }) {
                 {t.coach.dashboard.quickWriteResults}
               </Link>
 
-              <Link className="btn btn--secondary" href="/coach/training-plans">
+              <Link className="btn btn--secondary" href="/coach/members">
                 {t.coach.dashboard.quickEditPlans}
               </Link>
 
@@ -574,5 +524,9 @@ function CoachDashboard({ hasPt }: { hasPt: boolean }) {
 }
 
 export function CoachOverview() {
-  return <Specialty>{(hasPt) => <CoachDashboard hasPt={hasPt} />}</Specialty>;
+  return (
+    <Specialty>
+      {(hasPt) => (hasPt ? <PtSessions /> : <CoachDashboard hasPt={hasPt} />)}
+    </Specialty>
+  );
 }
