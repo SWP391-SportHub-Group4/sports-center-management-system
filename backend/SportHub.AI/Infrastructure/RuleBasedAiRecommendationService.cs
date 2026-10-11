@@ -32,29 +32,29 @@ public sealed class RuleBasedAiRecommendationService(ISportHubDbContext db, IClo
         {
             ["Beginner"] =
             [
-                "Khởi động toàn thân 8 phút",
-                "Squat không tạ 3x12",
-                "Chống đẩy quỳ gối 3x10",
-                "Plank 3x30 giây",
-                "Đi bộ nhanh/incline 15 phút"
+                "Full-body warm-up for 8 minutes",
+                "Bodyweight squat 3x12",
+                "Knee push-up 3x10",
+                "Plank 3x30 seconds",
+                "Brisk or incline walk for 15 minutes"
             ],
             ["Intermediate"] =
             [
-                "Khởi động động 10 phút",
+                "Dynamic warm-up for 10 minutes",
                 "Barbell squat 4x8",
-                "Chống đẩy tiêu chuẩn 4x12",
-                "Dumbbell row 4x10 mỗi bên",
-                "Plank nâng cao 3x45 giây",
-                "Interval chạy bộ 6x1 phút"
+                "Standard push-up 4x12",
+                "Dumbbell row 4x10 per side",
+                "Advanced plank 3x45 seconds",
+                "Running intervals 6x1 minute"
             ],
             ["Advanced"] =
             [
-                "Khởi động động 12 phút + cơ lõi kích hoạt",
-                "Barbell squat 5x5 tăng tiến",
+                "Dynamic warm-up for 12 minutes plus core activation",
+                "Progressive barbell squat 5x5",
                 "Deadlift 4x5",
                 "Pull-up 4x8",
                 "Overhead press 4x8",
-                "HIIT 8x40 giây / nghỉ 20 giây"
+                "HIIT 8x40 seconds with 20 seconds rest"
             ]
         };
 
@@ -99,20 +99,20 @@ public sealed class RuleBasedAiRecommendationService(ISportHubDbContext db, IClo
 
         if (GoalKeywordsWeightLoss.Any(goalLower.Contains))
         {
-            exercises.Add("Cardio nền 25 phút, nhịp tim mục tiêu 65–75%");
-            exercises.Add("Circuit toàn thân 3 vòng, nghỉ 45 giây");
+            exercises.Add("Base cardio for 25 minutes at 65–75% target heart rate");
+            exercises.Add("Three full-body circuit rounds with 45 seconds rest");
         }
 
         if (GoalKeywordsMuscle.Any(goalLower.Contains))
         {
-            exercises.Add("Tăng tải 2.5kg mỗi tuần ở bài chính");
-            exercises.Add("Bổ sung hip thrust 3x10 và face pull 3x15");
+            exercises.Add("Increase the main lift by 2.5 kg each week");
+            exercises.Add("Add hip thrust 3x10 and face pull 3x15");
         }
 
         if (GoalKeywordsFlexibility.Any(goalLower.Contains))
         {
-            exercises.Add("Chuỗi yoga giãn cơ 15 phút cuối buổi");
-            exercises.Add("Mobility hông và vai 10 phút");
+            exercises.Add("Finish with 15 minutes of yoga stretching");
+            exercises.Add("Hip and shoulder mobility for 10 minutes");
         }
 
         var totalActivity = present + gymCheckIns;
@@ -122,12 +122,12 @@ public sealed class RuleBasedAiRecommendationService(ISportHubDbContext db, IClo
         // điều chỉnh theo LỊCH SỬ — chính là đầu vào thứ ba mà BR-26 yêu cầu phải dùng tới.
         if (totalActivity < 4)
         {
-            exercises.Add("Ghi chú: bắt đầu lại ở 60% khối lượng trong 2 tuần đầu vì tần suất tập 30 ngày qua còn thấp");
+            exercises.Add("Note: restart at 60% training volume for the first two weeks because recent activity has been low");
         }
 
         if (missed >= 3)
         {
-            exercises.Add("Ghi chú: cân nhắc đổi khung giờ lớp — hội viên vắng nhiều buổi đã đăng ký");
+            exercises.Add("Note: consider a different class time because the member missed several registered sessions");
         }
 
         return new WorkoutSuggestion(exercises, rationale);
@@ -135,9 +135,8 @@ public sealed class RuleBasedAiRecommendationService(ISportHubDbContext db, IClo
 
     private static string BuildRationale(
         string goal, string level, int present, int missed, int gymCheckIns, int remainingSessions)
-        => $"Gợi ý dựa trên 3 đầu vào bắt buộc (BR-26): mục tiêu \"{goal}\", trình độ {level}, "
-           + $"và lịch sử {HistoryWindowDays} ngày gần nhất ({present} buổi lớp có mặt, "
-           + $"{missed} buổi vắng/không đến, {gymCheckIns} lần check-in Gym). "
-           + $"Hội viên còn {remainingSessions} buổi trong các gói đang hoạt động. "
-           + "Đây là gợi ý theo bộ luật của hệ thống để HLV tham khảo, không phải tư vấn y tế.";
+        => $"This suggestion uses the member's goal (\"{goal}\"), level ({level}), and activity over the last {HistoryWindowDays} days: "
+           + $"{present} attended class sessions, {missed} missed sessions, and {gymCheckIns} gym check-ins. "
+           + $"The member has {remainingSessions} sessions remaining in active packages. "
+           + "This rule-based suggestion is for the coach to review and is not medical advice.";
 }

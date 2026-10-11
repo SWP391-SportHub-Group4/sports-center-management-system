@@ -580,7 +580,7 @@ public sealed partial class PtSessionService(
         var recipient = await users.GetAsync(memberId, ct);
         if (recipient is not null)
             notifications.QueueEmail(new EmailNotificationRequest(memberId, recipient.Email, eventType, eventId,
-                "SportHub - Thay đổi lịch PT", "<p>" + System.Net.WebUtility.HtmlEncode(message) + "</p>"));
+                "SportHub - PT schedule changed", "<p>" + System.Net.WebUtility.HtmlEncode(message) + "</p>"));
     }
 
     public async Task<PtSessionResponse> CompleteAsync(Guid sessionId, Guid coachId, CancellationToken ct = default)
