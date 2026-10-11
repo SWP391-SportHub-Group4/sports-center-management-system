@@ -337,10 +337,10 @@ test(
       .selectOption(sessionId);
 
     await expect(
-      page.getByText("Member A", {
-        exact: true,
-      }),
-    ).toBeVisible();
+    page.getByRole("row", {
+      name: /Member A.*Present.*Absent/,
+    }),
+  ).toBeVisible();
 
     await page
       .getByRole("button", {
@@ -510,8 +510,8 @@ test(
     );
 
     await expect(
-      page.getByText("Member A", {
-        exact: true,
+      page.getByRole("row", {
+        name: /Member A.*Present.*Absent/,
       }),
     ).toBeVisible();
 
