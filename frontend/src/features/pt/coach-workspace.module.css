@@ -45,28 +45,6 @@
   font-weight: 700;
   letter-spacing: 0.1em;
 }
-.bookmarks {
-  display: flex;
-  gap: var(--space-2);
-  border-bottom: 1px solid var(--border-subtle);
-  overflow-x: auto;
-}
-.bookmarks a {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-3) var(--space-4);
-  color: var(--text-body);
-  text-decoration: none;
-  white-space: nowrap;
-  border-bottom: 3px solid transparent;
-}
-.bookmarks a[aria-current] {
-  color: var(--color-primary-soft-text);
-  border-color: var(--color-primary);
-  background: var(--color-primary-soft);
-  font-weight: 700;
-}
 .calendar {
   min-width: 0;
 }
@@ -333,9 +311,6 @@ button.student:hover {
   }
   .attendanceRow > :first-child {
     flex-basis: 100%;
-  }
-  .bookmarks a {
-    padding-inline: var(--space-3);
   }
 }
 @media (prefers-reduced-motion: reduce) {
