@@ -13,7 +13,7 @@ public sealed class AvatarReportConfiguration : IEntityTypeConfiguration<AvatarR
         builder.Property(x => x.Reason).HasMaxLength(500);
         builder.Property(x => x.Status).HasMaxLength(20);
         builder.HasIndex(x => new { x.TargetUserId, x.Status });
-        builder.HasIndex(x => new { x.ReporterUserId, x.TargetUserId, x.AvatarUrl, x.Status });
+        builder.HasIndex(x => new { x.ReporterUserId, x.TargetUserId, x.Status });
         builder.HasOne<UserAccount>().WithMany().HasForeignKey(x => x.TargetUserId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<UserAccount>().WithMany().HasForeignKey(x => x.ReporterUserId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<UserAccount>().WithMany().HasForeignKey(x => x.ReviewedById).OnDelete(DeleteBehavior.Restrict);

@@ -12,4 +12,5 @@ public class UserProfile
 
     public string? AvatarUrl { get; set; }
     public string? AvatarPublicId { get; set; }
+    public long AvatarVersion { get; set; }
 }

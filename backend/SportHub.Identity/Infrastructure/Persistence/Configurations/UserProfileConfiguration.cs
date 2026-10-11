@@ -10,6 +10,7 @@ public class UserProfileConfiguration : IEntityTypeConfiguration<UserProfile>
         builder.HasKey(e => e.UserId);
         builder.Property(e => e.AvatarUrl).HasMaxLength(2048);
         builder.Property(e => e.AvatarPublicId).HasMaxLength(255);
+        builder.Property(e => e.AvatarVersion).IsConcurrencyToken();
 
         // Unique nếu có giá trị — partial unique index (BR-54, ràng buộc #11).
         builder.HasIndex(e => e.Phone)
