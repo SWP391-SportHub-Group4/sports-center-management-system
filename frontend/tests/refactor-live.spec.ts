@@ -114,10 +114,10 @@ for (const points of [0, 50, 200])
               r.request().method() === "POST" && r.url().endsWith("/attempts"),
           )
         : null;
-    await page.getByRole("button", {
-      name: points === 200 ? "Confirm payment with points" : "Pay with VNPay",
-      exact: true,
-    }).click();
+    await page.getByRole("dialog", { name: "Register for this course" })
+      .getByRole("button", {
+        name: points === 200 ? "Confirm payment with points" : /with VNPay$/,
+      }).click();
     if (points < 200) {
       const attempt = await attemptPromise;
       if (attempt) {
