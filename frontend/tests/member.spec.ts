@@ -261,7 +261,8 @@ test("Gym and PT purchases are separate", async ({ page }) => {
     page.getByRole("heading", { name: "Your Gym is active" }),
   ).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "Gym monthly" }),
+    page.getByRole("article").filter({ hasText: "Active membership" })
+      .getByRole("heading", { name: "Gym monthly" }),
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Review & checkout" }),
