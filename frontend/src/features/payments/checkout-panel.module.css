@@ -270,22 +270,42 @@
 }
 
 /* ---- Chọn điểm ---- */
+.pointsBox {
+  display: grid;
+  gap: var(--space-3);
+}
+
 .balance {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2) var(--space-5);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
   margin: 0;
   font-size: var(--text-sm);
   color: var(--text-muted);
 }
 
 .balance > div {
-  display: flex;
-  gap: var(--space-2);
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface-sunken);
 }
 
 .balance dd {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--space-2);
   margin: 0;
+}
+
+.balance strong {
+  font-size: var(--text-xl, 22px);
+}
+
+.balance small {
+  font-size: var(--text-xs);
 }
 
 .balance strong {
@@ -295,15 +315,26 @@
 }
 
 .pointsRow {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(120px, 180px) minmax(0, 1fr);
   align-items: end;
   gap: var(--space-3);
 }
 
 .pointsField {
-  flex: 1 1 160px;
   min-width: 0;
+}
+
+.pointsQuick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.pointsHint {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
 }
 
 .worth {
@@ -332,6 +363,12 @@
   padding: var(--space-4);
   background: var(--bg-surface-sunken);
   border-radius: var(--radius-md);
+}
+
+@media (max-width: 480px) {
+  .pointsRow {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 @media (max-width: 880px) {
@@ -382,7 +419,7 @@
 }
 .methods {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: var(--space-2);
 }
 .methods button {

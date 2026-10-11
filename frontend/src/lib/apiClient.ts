@@ -6,28 +6,9 @@
  */
 
 import { en } from "@/locales/en";
-import { vi } from "@/locales/vi";
-import type { Language } from "./language";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5000";
-
-const LANGUAGE_STORAGE_KEY = "sporthub_lang";
-
-/**
- * Đọc ngôn ngữ trực tiếp từ localStorage thay vì import lib/language.tsx: module này
- * không phải React component và không nên kéo theo LanguageProvider/context.
- */
-function currentLanguage(): Language {
-  if (typeof window === "undefined") return "en";
-  if (document.documentElement.dataset.forceLang === "en") return "en";
-  try {
-    const stored = window.localStorage.getItem(LANGUAGE_STORAGE_KEY);
-    return stored === "vi" ? "vi" : "en";
-  } catch {
-    return "en";
-  }
-}
 
 /** Khoá localStorage giữ JWT. Chỉ đọc/ghi ở đây và ở lib/auth.tsx. */
 export const TOKEN_STORAGE_KEY = "sporthub.accessToken";
@@ -127,8 +108,8 @@ async function request<T>(
   if (options.idempotencyKey)
     headers["Idempotency-Key"] = options.idempotencyKey;
 
-  const multipart = typeof FormData !== "undefined" && body instanceof FormData;
-  if (body !== undefined && !multipart) {
+  const isForm = typeof FormData !== "undefined" && body instanceof FormData;
+  if (body !== undefined && !isForm) {
     headers["Content-Type"] = "application/json";
   }
 
@@ -146,7 +127,7 @@ async function request<T>(
       body:
         body === undefined
           ? undefined
-          : multipart
+          : isForm
             ? (body as FormData)
             : JSON.stringify(body),
       signal: options.signal,
@@ -159,7 +140,7 @@ async function request<T>(
     throw new ApiError(
       0,
       "network_error",
-      (currentLanguage() === "vi" ? vi : en).apiErrors.networkError,
+      en.apiErrors.networkError,
     );
   }
 
@@ -234,7 +215,7 @@ function withValidationDetail(message: string, payload: Json): string {
 }
 
 function defaultMessageFor(status: number): string {
-  const t = (currentLanguage() === "vi" ? vi : en).apiErrors;
+  const t = en.apiErrors;
 
   switch (status) {
     case 400:
@@ -258,6 +239,8 @@ export const api = {
   get: <T>(path: string, options?: RequestOptions) =>
     request<T>("GET", path, undefined, options),
   post: <T>(path: string, body?: unknown, options?: RequestOptions) =>
+    request<T>("POST", path, body, options),
+  postForm: <T>(path: string, body: FormData, options?: RequestOptions) =>
     request<T>("POST", path, body, options),
   put: <T>(path: string, body?: unknown, options?: RequestOptions) =>
     request<T>("PUT", path, body, options),

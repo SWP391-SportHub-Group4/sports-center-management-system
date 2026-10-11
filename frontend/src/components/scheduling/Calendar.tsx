@@ -130,6 +130,9 @@ export function Calendar({
                     type="button"
                     className={`${styles.event} ${styles.listEvent}`}
                     key={event.id}
+                    data-cancelled={
+                      /CANCEL/i.test(event.status ?? "") || undefined
+                    }
                     onClick={() => onSelectEvent(event)}
                   >
                     <span className={styles.listTime}>
@@ -188,6 +191,9 @@ export function Calendar({
                       type="button"
                       className={styles.event}
                       key={event.id}
+                      data-cancelled={
+                        /CANCEL/i.test(event.status ?? "") || undefined
+                      }
                       onClick={() => onSelectEvent(event)}
                     >
                       {labels.types && (

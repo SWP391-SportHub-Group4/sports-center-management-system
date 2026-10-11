@@ -22,12 +22,13 @@ function RefundCard({
   r: PaymentAdjustmentDto;
   reload: () => void;
 }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const l = t.staffWork;
   const f = t.finOps;
   const { user } = useAuth();
   const [reason, setReason] = useState("");
   const [centerFault, setCenterFault] = useState(false);
+  const [percent, setPercent] = useState("");
   const mutation = useMutation();
   const canReview =
     r.status === "REQUESTED" && r.requestedByUserId !== user?.userId;
@@ -38,7 +39,12 @@ function RefundCard({
         `/api/refunds/${r.adjustmentId}/${approve ? "approve" : "reject"}`,
         {
           reason: reason.trim(),
-          ...(approve ? { centerFault } : {}),
+          ...(approve
+            ? {
+                centerFault,
+                ...(percent.trim() !== "" ? { percent: Number(percent) } : {}),
+              }
+            : {}),
         },
       ),
     );
@@ -105,6 +111,24 @@ function RefundCard({
             {l.centerFault}
           </label>
           <p className={styles.muted}>{f.centerFaultHelp}</p>
+          <Field
+            label={
+              language === "vi"
+                ? "Hoàn theo % (ngoại lệ, tùy chọn)"
+                : "Refund percent (exception, optional)"
+            }
+          >
+            <input
+              type="number"
+              min={0}
+              max={100}
+              step={5}
+              inputMode="numeric"
+              value={percent}
+              placeholder={language === "vi" ? "Theo quy tắc" : "By policy"}
+              onChange={(e) => setPercent(e.target.value)}
+            />
+          </Field>
           <div className={styles.actions}>
             <button
               className="btn"

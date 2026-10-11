@@ -13,4 +13,6 @@ public sealed record MembershipRefundFacts(
     Guid MemberId,
     DateOnly StartDate,
     DateOnly EndDate,
-    bool IsActive);
+    bool IsActive,
+    /// <summary>Có Membership Active khác của Member bắt đầu sau EndDate này (gia hạn sớm nối tiếp).</summary>
+    bool HasLaterRenewal = false);

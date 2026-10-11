@@ -23,6 +23,7 @@ import { ptApi } from "./api";
 import { ListPager, Specialty } from "./ui";
 import { PtCoachStudents } from "./pt-coach-workspace";
 import { PtSessions } from "./pt-sessions";
+import { UserAvatar } from "@/components/UserAvatar";
 
 function Roster({ id }: { id: string }) {
   const { t } = useLanguage();
@@ -37,7 +38,15 @@ function Roster({ id }: { id: string }) {
         >
           {data.entries.map((row) => (
             <tr key={row.enrollmentId}>
-              <td>{row.memberName}</td>
+              <td>
+                <UserAvatar
+                  userId={row.memberId}
+                  name={row.memberName}
+                  size={28}
+                  report
+                />{" "}
+                {row.memberName}
+              </td>
 
               <td>
                 <StatusChip
@@ -211,7 +220,15 @@ function Relationships() {
             >
               {rows.map((relationship) => (
                 <tr key={relationship.relationshipId}>
-                  <td>{relationship.memberName}</td>
+                  <td>
+                    <UserAvatar
+                      userId={relationship.memberId}
+                      name={relationship.memberName}
+                      size={28}
+                      report
+                    />{" "}
+                    {relationship.memberName}
+                  </td>
 
                   <td>
                     <StatusChip value={relationship.status} />
@@ -466,7 +483,15 @@ function CoachDashboard({ hasPt }: { hasPt: boolean }) {
               >
                 {rows.slice(0, 6).map((relationship) => (
                   <tr key={relationship.relationshipId}>
-                    <td>{relationship.memberName}</td>
+                    <td>
+                      <UserAvatar
+                        userId={relationship.memberId}
+                        name={relationship.memberName}
+                        size={28}
+                        report
+                      />{" "}
+                      {relationship.memberName}
+                    </td>
 
                     <td>{relationship.sourceType}</td>
 

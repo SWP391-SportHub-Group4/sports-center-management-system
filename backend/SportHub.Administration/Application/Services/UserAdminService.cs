@@ -372,5 +372,5 @@ public sealed class UserAdminService(
             u.ExternalLogins.Any(),
 
             // Điền sau truy vấn (SportIds nằm ở bảng chuyên môn).
-            new List<int>());
+            new List<int>()) { AvatarUrl = u.Profile != null ? u.Profile.AvatarUrl : null };
 }

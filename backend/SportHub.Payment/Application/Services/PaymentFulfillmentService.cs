@@ -109,7 +109,7 @@ public sealed class PaymentFulfillmentService(ISportHubDbContext db, IPointWalle
         invoice.ReconciliationRequired = false;
         session.State = "Paid";
         await notices.QueueAsync(invoice.MemberId, SportHub.BuildingBlocks.Abstractions.Notifications.NotificationEvents.PaymentReceived,
-            invoice.InvoiceId, $"Hóa đơn {invoice.InvoiceNumber} đã thanh toán; quyền lợi đã được cấp.", ct);
+            invoice.InvoiceId, $"Invoice {invoice.InvoiceNumber} was paid; the benefit was granted.", ct);
         audit.Write(new AuditEntry(invoice.IssuedByUserId, "FULFILL_CHECKOUT", nameof(Invoice),
             invoice.InvoiceId.ToString(), NewValue: $"{{\"paidVia\":\"{paidVia}\"}}"));
     }
@@ -166,9 +166,9 @@ public sealed class PaymentFulfillmentService(ISportHubDbContext db, IPointWalle
         }
         await wallets.EarnAsync(new WalletOperation(invoice.MemberId, (int)(proof.Amount / 1000),
             "GatewayCompensation", proof.VerifiedGatewayEventId, invoice.IssuedByUserId,
-            "Bồi hoàn khoản thu VNPay không thể cấp quyền lợi"), ct);
+            "Compensation for a VNPay payment that could not grant the benefit"), ct);
         await notices.QueueAsync(invoice.MemberId, SportHub.BuildingBlocks.Abstractions.Notifications.NotificationEvents.RefundCompleted,
-            proof.VerifiedGatewayEventId, $"Đã bồi hoàn {proof.Amount / 1000:N0} điểm từ khoản tiền đã thu cho hóa đơn {invoice.InvoiceNumber}.", ct);
+            proof.VerifiedGatewayEventId, $"Compensated {proof.Amount / 1000:N0} points for the collected payment on invoice {invoice.InvoiceNumber}.", ct);
         proof.ProcessingStatus = "Compensated";
         proof.ProcessedAtUtc = clock.UtcNow;
         invoice.ReconciliationRequired = false;

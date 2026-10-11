@@ -43,9 +43,10 @@ Guest không phải role account. Coach có nhiều chuyên môn, không chia ro
 - Giữ chỗ và điểm có hạn, expiry nhả đúng một lần; payment muộn phải đối soát.
 - `TotalAmount = PointsApplied × 1.000 + CashAmount`; người dùng chọn điểm trước, không tự trừ khi mở trang.
 - Backend xác minh IPN/QueryDR trước khi ghi payment/cấp quyền lợi; return chỉ hiển thị. Thanh toán bằng toàn điểm không tạo attempt VNPay.
-- Hoàn trả chỉ bằng điểm theo item, quyền lợi đã dùng và cap hệ thống; không double credit khi retry.
+- Hoàn trả chỉ bằng điểm theo item, quyền lợi đã dùng và cap hệ thống; không double credit khi retry. Hoàn chuẩn Membership Gym tối đa 50% khi còn từ 2/3 thời hạn; sự cố tạm thời của trung tâm không phải căn cứ hoàn (BR-91, BR-130).
 - Ngưỡng lớp hỗ trợ chuyển/hoàn điểm; yêu cầu “chờ đợt sau” là hoàn 100% điểm + lưu nguyện vọng nhận thông báo, chưa có implementation.
 - Incident preview và resolve recheck lịch; lớp/PT xử lý phương án riêng trước bước cuối, không giả toàn luồng là một transaction.
+- Sự cố ảnh hưởng Gym (BR-130): email cho Member có Membership Active; Membership được gia hạn thêm số ngày Gym đóng cửa sửa chữa; buổi lớp bù vào lịch tiếp theo (BR-54); lượt thuê sân hoàn 100% bằng điểm. Chưa triển khai, xem INC-01 trong thiết kế.
 - AI chỉ hỗ trợ; thao tác ghi qua command có xác nhận, authorization và kiểm nghiệp vụ.
 
 ## 5. Yêu cầu chất lượng và nghiệm thu

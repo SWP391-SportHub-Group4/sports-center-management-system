@@ -62,12 +62,18 @@ Ngoài phạm vi: đa chi nhánh, payroll/hợp đồng, chia doanh thu với ng
 - TotalAmount = PointsApplied × 1.000 + CashAmount; backend quyết định amount, không nhận client làm nguồn giá.
 - Return URL không xác nhận payment. Chỉ callback/query được xác minh cấp quyền lợi; retry không thu/cấp/hoàn trùng.
 - Điểm chỉ giữ/trừ theo xác nhận; dùng điểm hộ cần OTP Member. Hoàn trả bằng điểm theo item và cap hệ thống tính.
+- Hoàn chuẩn Membership Gym tối đa 50% (còn ≥ 2/3 thời hạn). Sự cố tạm thời của trung tâm (hỏng/sửa chữa phòng Gym) không phải căn cứ hoàn: Membership Active được gia hạn thêm số ngày đóng cửa, buổi lớp bù vào lịch tiếp theo, người bị ảnh hưởng được email (BR-130, BR-138). Hoàn do lỗi trung tâm chỉ cho vấn đề khác khiến trung tâm không thể cung cấp dịch vụ, theo phần chưa dùng.
 - Manager duyệt theo quyền; SystemAdministrator không mặc nhiên có quyền nghiệp vụ; Coach chỉ đọc dữ liệu được phân công.
 - Checkout (A15, đã triển khai): hai cột, tóm tắt hiển thị tổng/điểm/tiền còn lại đúng số server; đồng hồ giữ chỗ tính từ `expiresAtUtc − serverNowUtc` và không reset khi reload; hết giờ thì dừng thao tác và tải lại, FE không "release slot"; quay lại tab thì tải lại ví và đơn; return từ cổng thanh toán không chứng minh đã thu. Route `/checkout/[invoiceId]`; tài chính Member ở `/member/finance?tab=wallet|invoices`, chi tiết `/member/invoices/[id]` (route cũ `/member/wallet`, `/member/invoices` chuyển hướng).
 - Quên mật khẩu bằng link email (BR-103): phản hồi trung tính; xem thiết kế v3 mục Danh tính. Trang xác thực luôn tiếng Anh.
 - “Chờ đợt sau” cần hoàn 100% điểm + subscription thông báo, không giữ tiền/chỗ hoặc tự ghi danh.
+- Avatar Member/Coach qua Cloudinary: tự thay/xóa, ảnh Coach công khai, ảnh Member cho tài khoản đăng nhập, báo cáo sau đăng tải do Manager xử lý; chi tiết tại [Avatar-Cloudinary](Avatar-Cloudinary.md).
 
 ## 5. Quy ước kỹ thuật
+
+### Language policy
+
+The product uses English only. Public pages, authenticated screens, validation and API messages, notifications, reports, and other system-generated text must be in English. There is no language switch or saved language preference. Catalog and configuration seed values stored in the database are English. User-entered names, notes, course descriptions, and other free-form content retain the language entered by the user; do not translate or overwrite them. When migrating legacy seed data, update only records whose values still match the original system seed, so manager edits remain intact. Historical invoice snapshots and notices remain as originally issued for audit integrity; new system-generated records use English.
 
 | Chủ đề | Quy ước |
 |---|---|

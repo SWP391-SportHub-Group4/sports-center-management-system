@@ -88,12 +88,12 @@ public sealed class IncidentService(ISportHubDbContext db, IOccupancyService occ
             {
                 var source = rental.CourtRentalId;
                 var text = pendingIds.Contains(rental.CourtRentalId)
-                    ? "Lượt thuê sân đang chờ thanh toán đã hủy do sự cố trung tâm; điểm giữ đã được nhả. Liên hệ Manager để được hỗ trợ ưu tiên đặt lại."
-                    : "Lượt thuê sân đã hủy do sự cố trung tâm; 100% giá trị đã trả được hoàn bằng điểm vào ví. Liên hệ Manager để được hỗ trợ ưu tiên đặt lại.";
+                    ? "The pending court rental was canceled due to a center incident; held points were released. Contact the manager for priority rebooking support."
+                    : "The court rental was canceled due to a center incident; 100% of the paid value was refunded as wallet points. Contact the manager for priority rebooking support.";
                 notifications.Queue(new NotificationRequest(rental.MemberId,
                     NotificationEvents.IncidentResolution, text, source));
                 notifications.QueueEmail(new EmailNotificationRequest(rental.MemberId, access.Email,
-                    NotificationEvents.IncidentResolution, source, "SportHub - Lịch thuê sân bị hủy",
+                    NotificationEvents.IncidentResolution, source, "SportHub - Court rental canceled",
                     "<p>" + text + "</p>"));
             }
         }
@@ -111,7 +111,7 @@ public sealed class IncidentService(ISportHubDbContext db, IOccupancyService occ
             IncidentId = incidentId, Scope = shape.Scope, RoomId = shape.RoomId,
             StartAtUtc = shape.StartUtc, EndAtUtc = shape.EndUtc,
             Reason = request.Reason.Trim(),
-            ResolutionSummary = $"Đã hoàn thuê sân bị ảnh hưởng và khóa {shape.RoomIds.Count} phòng trong khung giờ incident.",
+            ResolutionSummary = $"Affected court rentals were refunded and {shape.RoomIds.Count} rooms were blocked during the incident.",
             CreatedByUserId = managerId, CreatedAtUtc = clock.UtcNow
         };
         db.Set<IncidentNotice>().Add(notice);

@@ -157,6 +157,8 @@ Sĩ số thuộc Class. `ReservedCount` hiện bao gồm chỗ đang giữ và �
 
 ### 5.4 Ngưỡng lớp và chuyển lớp
 
+**Hủy ghi danh lớp:** trước buổi đầu còn ≥ 5 ngày hoàn 100%, dưới 5 ngày hoàn 50% (tự động, chỉ bằng điểm); đã vào buổi đầu không hoàn tự động — Member gửi đơn, Manager quyết định % hoàn kèm căn cứ. Lễ tân và Manager có thể hủy thay Member; lớp bị trung tâm hủy hoàn 100%.
+
 Đánh giá số ghi danh trước buổi đầu theo cấu hình. Lớp dưới ngưỡng gửi lựa chọn chuyển lớp/hoàn điểm cùng deadline; job xử lý quá hạn idempotent. Miễn ngưỡng cần Manager và lý do.
 
 Chuyển lớp kiểm tra chỗ, điều kiện lớp đích và chuỗi giá trị đã trả. Chênh lệch dương qua checkout riêng, chỉ chuyển sau fulfillment. Không cấp quyền lợi lớp đích mà bỏ quên kết thúc lớp nguồn.
@@ -174,6 +176,8 @@ Hủy/hết hạn giải phóng occupancy đúng một lần. Hủy đủ hạn 
 Preview tác động → Manager thực hiện phương án dời/bù/hủy lớp hoặc PT → preview lại → resolve. Resolve recheck lịch, hủy/hoàn rental phù hợp và tạo incident/block trong transaction cuối.
 
 Toàn chuỗi tương tác không phải một transaction duy nhất. Incident history/detail, preview bồi hoàn/người nhận đầy đủ và cơ chế chặn booking trong lúc xử lý còn thiếu.
+
+**Sự cố ảnh hưởng Gym (BR-130, BR-138 — yêu cầu, chưa triển khai):** Incident có phạm vi Gym; resolve gửi email cho Member có Membership Active, rồi gia hạn `EndDate` của các Membership Active thêm số ngày Gym đóng cửa (Manager xác nhận khi đóng sự cố, ghi audit). Buổi lớp bị ảnh hưởng bù vào lịch tiếp theo theo BR-54; lượt thuê sân hoàn 100% bằng điểm. Sự cố tạm thời không tạo refund Membership.
 
 ## 6. Payment, VNPay và ví điểm
 
@@ -322,6 +326,7 @@ G01–G13 trỏ [phân công API theo page/owner](../DESIGN-SKILLS-GUIDE.md#api-
 | G11 | Callback VNPay public | Đã sửa route theo PAY-03; còn test runtime và sandbox thật. Mock endpoint có đăng nhập không thay thế IPN public |
 | G12 | Scoping Member search/detail cho Coach | Đã chặn Coach duyệt users/packages, đưa guard training profile/workout history và PT detail xuống service, giới hạn danh sách workout/PT entitlement/PT session theo quan hệ Active, ép relationship search Active. Negative tests PostgreSQL cho PT list/detail và workout list sau quan hệ Ended đã qua; còn nghiệm thu role E2E trên staging. |
 | G13 | Đóng/mở tuyển sinh độc lập lifecycle lớp | Chốt hold/payment cũ, không dùng cancel thay close enrollment |
+| INC-01 | Sự cố Gym: email Member có Membership Active và gia hạn `EndDate` theo số ngày đóng cửa; Center Fault Membership/PT hiện hoàn 100% (`RefundCalculator`) lệch BR-91 (theo phần chưa dùng) | Thêm phạm vi Gym vào Incident, nhóm người nhận Membership Active (BR-138), extend Membership trong transaction resolve, sửa `RefundCalculator` + test; chưa có page/owner trong DESIGN-SKILLS-GUIDE |
 | UI-01 | Frontend redesign theo contract hiện có | Kế hoạch từng màn phải nối API thật, kiểm E2E trước khi ghi hoàn thành |
 | OPS-01 | Nghiệm thu vận hành | Deploy/migration, backup-restore, giám sát job/outbox/reconciliation có evidence |
 
@@ -972,7 +977,7 @@ Khi `Approved`: đổi `PT_ENTITLEMENTS.CoachId`, kết thúc `COACH_MEMBER_RELA
 | Field | Vai trò |
 |---|---|
 | `RequestedByUserId` / `OnBehalfOfMemberId` | Member tự yêu cầu hoặc Receptionist tạo hộ; trường hợp tạo hộ bắt buộc lý do |
-| `Reason` / `CenterFault` | Lý do audit; lỗi trung tâm mở ngoại lệ theo phần quyền lợi chưa dùng |
+| `Reason` / `CenterFault` | Lý do audit; `CenterFault` chỉ dùng khi trung tâm không thể cung cấp dịch vụ (không phải sự cố tạm thời, vốn được bù bằng gia hạn/bù buổi), hoàn theo phần quyền lợi chưa dùng, không mặc định 100% |
 | `SystemCalculatedPoints` / `ApprovedPoints` | Số điểm (làm tròn xuống): 50% Membership đủ điều kiện, PT chưa dùng, gói lớp trước khai giảng 100% (`RefundCalculator`); Manager không được duyệt vượt mức hệ thống tính |
 | `ApprovedByUserId` / `ApprovedAt` | Chỉ Center Manager approve/reject |
 | `PointLedgerEntryId` (FK, nullable, ) | Dòng ghi điểm `Earn` sinh ra khi `Completed` |

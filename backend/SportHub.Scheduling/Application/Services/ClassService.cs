@@ -40,7 +40,67 @@ public sealed class ClassService(
     private const string TimeFormat = "HH:mm";
 
     // ---------------------------------------------------------------- Truy vấn
+    public async Task<ClassManagerResponse> SetEnrollmentOpenAsync(
+        int classId,
+        bool open,
+        Guid actorUserId,
+        CancellationToken ct = default)
+    {
+        await using var tx =
+            await db.Database.BeginTransactionAsync(ct);
 
+        await db.Database.ExecuteSqlInterpolatedAsync(
+            $"SELECT class_id FROM classes WHERE class_id = {classId} FOR UPDATE",
+            ct);
+
+        var entity = await db.Set<Class>()
+            .SingleOrDefaultAsync(
+                c => c.ClassId == classId,
+                ct)
+            ?? throw new NotFoundException(
+                "class_not_found",
+                "Không tìm thấy khóa học.");
+
+        if (entity.Status != ClassStatus.Published)
+        {
+            throw new ConflictException(
+                "class_not_published",
+                "Chỉ có thể mở hoặc đóng tuyển sinh cho khóa đã publish.");
+        }
+
+        if (entity.EnrollmentOpen == open)
+        {
+            await tx.CommitAsync(ct);
+            return await GetManagerAsync(classId, ct);
+        }
+
+        var before = JsonSerializer.Serialize(new
+        {
+            enrollmentOpen = entity.EnrollmentOpen
+        });
+
+        entity.EnrollmentOpen = open;
+        entity.Version++;
+
+        audit.Write(new AuditEntry(
+            actorUserId,
+            open
+                ? "OPEN_CLASS_ENROLLMENT"
+                : "CLOSE_CLASS_ENROLLMENT",
+            nameof(Class),
+            classId.ToString(),
+            OldValue: before,
+            NewValue: JsonSerializer.Serialize(new
+            {
+                enrollmentOpen = open
+            })));
+
+        await db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
+
+        return await GetManagerAsync(classId, ct);
+    }
+    // ---------------------------------------------------------------- Truy vấn
     public async Task<PagedResult<ClassPublicResponse>> ListPublicAsync(
         int? sportId, int page, int pageSize, CancellationToken ct = default, DateOnly? fromDate = null, DateOnly? toDate = null)
     {
@@ -156,6 +216,7 @@ public sealed class ClassService(
         var entity = new Class
         {
             Status = ClassStatus.Draft,
+            EnrollmentOpen = false,
             ThresholdStatus = ThresholdStatus.NotEvaluated,
             CreatedAt = clock.UtcNow,
             Version = 1
@@ -355,7 +416,7 @@ public sealed class ClassService(
             })));
 
         notifications.Queue(new NotificationRequest(coachId, NotificationEvents.ClassPublished,
-            $"Khóa {entity.Name} đã được mở với {sessions.Count} buổi. Buổi đầu: {VietnamTime.ToLocal(first.StartAtUtc):HH:mm dd/MM/yyyy}."));
+            $"Course {entity.Name} is open with {sessions.Count} sessions. First session: {VietnamTime.ToLocal(first.StartAtUtc):HH:mm dd/MM/yyyy}."));
 
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
@@ -463,12 +524,25 @@ public sealed class ClassService(
         var names = await validator.CoachNamesAsync(rows.Select(r => r.Class.CoachId), ct);
 
         return rows.Select(r => new ClassPublicResponse(
-            r.Class.ClassId, r.Class.Code, r.Class.Name, r.Class.SportId, r.SportName,
-            r.Class.CoachId, r.Class.CoachId is Guid id && names.TryGetValue(id, out var n) ? n : null,
-            r.Class.DefaultRoomId, r.RoomName, r.Class.StartDate, r.Class.NumSessions,
-            r.Class.Capacity, Math.Max(0, r.Class.Capacity - r.Class.ReservedCount), r.Class.Price,
-            r.Class.Status.ToString(), r.FirstStart,
-            rules.TryGetValue(r.Class.ClassId, out var rl) ? rl : [])).ToList();
+            r.Class.ClassId,
+            r.Class.Code,
+            r.Class.Name,
+            r.Class.SportId,
+            r.SportName,
+            r.Class.CoachId,
+            r.Class.CoachId is Guid id && names.TryGetValue(id, out var n) ? n : null,
+            r.Class.DefaultRoomId,
+            r.RoomName,
+            r.Class.StartDate,
+            r.Class.NumSessions,
+            r.Class.Capacity,
+            Math.Max(0, r.Class.Capacity - r.Class.ReservedCount),
+            r.Class.Price,
+            r.Class.Status.ToString(),
+            r.Class.EnrollmentOpen,
+            r.FirstStart,
+            rules.TryGetValue(r.Class.ClassId, out var rl) ? rl : []
+        )).ToList();
     }
 
     private async Task<IReadOnlyList<ClassManagerResponse>> ToManagerAsync(IReadOnlyList<Row> rows, CancellationToken ct)
@@ -477,15 +551,36 @@ public sealed class ClassService(
         var names = await validator.CoachNamesAsync(rows.Select(r => r.Class.CoachId), ct);
 
         return rows.Select(r => new ClassManagerResponse(
-            r.Class.ClassId, r.Class.Code, r.Class.Name, r.Class.SportId, r.SportName,
-            r.Class.CoachId, r.Class.CoachId is Guid id && names.TryGetValue(id, out var n) ? n : null,
-            r.Class.DefaultRoomId, r.RoomName, r.Class.StartDate, r.Class.NumSessions, r.Class.Capacity,
-            r.Class.Price, r.Class.CostAmount, r.Class.BreakEvenThreshold,
-            r.Class.ThresholdStatus.ToString(), r.Class.ThresholdDeadlineUtc, r.Class.Status.ToString(),
-            r.Class.ConfirmedCount, r.Class.ReservedCount, r.ActiveHolds,
+            r.Class.ClassId,
+            r.Class.Code,
+            r.Class.Name,
+            r.Class.SportId,
+            r.SportName,
+            r.Class.CoachId,
+            r.Class.CoachId is Guid id && names.TryGetValue(id, out var n) ? n : null,
+            r.Class.DefaultRoomId,
+            r.RoomName,
+            r.Class.StartDate,
+            r.Class.NumSessions,
+            r.Class.Capacity,
+            r.Class.Price,
+            r.Class.CostAmount,
+            r.Class.BreakEvenThreshold,
+            r.Class.ThresholdStatus.ToString(),
+            r.Class.ThresholdDeadlineUtc,
+            r.Class.Status.ToString(),
+            r.Class.ConfirmedCount,
+            r.Class.ReservedCount,
+            r.ActiveHolds,
             Math.Max(0, r.Class.Capacity - r.Class.ReservedCount),
-            r.Class.CreatedByAi, r.Class.Version, r.Class.CreatedAt, r.Class.PublishedAt, r.FirstStart,
-            rules.TryGetValue(r.Class.ClassId, out var rl) ? rl : [])).ToList();
+            r.Class.CreatedByAi,
+            r.Class.EnrollmentOpen,
+            r.Class.Version,
+            r.Class.CreatedAt,
+            r.Class.PublishedAt,
+            r.FirstStart,
+            rules.TryGetValue(r.Class.ClassId, out var rl) ? rl : []
+        )).ToList();
     }
 
     private static string Describe(Class c)

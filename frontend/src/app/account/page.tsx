@@ -22,7 +22,7 @@ import {
   passwordChecks,
 } from "@/features/identity/password-requirements";
 import type { MyAccountDto } from "@/lib/types";
-import { CoachAvatarUpload } from "@/features/identity/coach-avatar-upload";
+import { AvatarEditor } from "@/features/identity/avatar-editor";
 
 export default function AccountPage() {
   const { user, refreshUser, updateToken } = useAuth();
@@ -236,12 +236,6 @@ export default function AccountPage() {
           >
             <Card title={t.account.profileTitle}>
               <div className="stack">
-                {user?.role === "Coach" && (
-                  <CoachAvatarUpload
-                    name={data.fullName || data.email}
-                    avatarUrl={data.avatarUrl}
-                  />
-                )}
                 <div className="row spread">
                   <div>
                     <strong>{data.email}</strong>
@@ -252,6 +246,17 @@ export default function AccountPage() {
                   </div>
                   <StatusChip value={data.status} />
                 </div>
+
+                {(user?.role === "Member" || user?.role === "Coach") && (
+                  <AvatarEditor
+                    name={data.fullName || data.email}
+                    avatarUrl={data.avatarUrl}
+                    onChanged={async () => {
+                      account.reload();
+                      await refreshUser();
+                    }}
+                  />
+                )}
 
                 <form
                   className={`form ${styles.form}`}

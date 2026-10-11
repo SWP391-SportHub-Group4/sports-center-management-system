@@ -15,7 +15,6 @@ import { canUsePtFeatures } from "@/lib/permissions";
 import { useLanguage } from "@/lib/language";
 import type { Translations } from "@/locales/en";
 import { NotificationBell } from "./NotificationBell";
-import { UserAvatar } from "./UserAvatar";
 import {
   IconKeyboard,
   IconLogout,
@@ -25,6 +24,7 @@ import {
 } from "@/components/icons";
 import shell from "./MemberShell.module.css";
 import styles from "./AppShell.module.css";
+import { AvatarImage } from "./AvatarImage";
 
 type NavLabelKey = keyof Translations["navigation"]["items"];
 
@@ -45,30 +45,24 @@ export const RECEPTIONIST_SHORTCUTS: Record<
     contentKey: keyof Translations["navigation"]["receptionistShortcuts"];
   }
 > = {
-  "/receptionist": { key: "0", label: "Alt + 0", contentKey: "overview" },
+  "/receptionist": {
+    key: "0",
+    label: "Alt + 0",
+    contentKey: "overview",
+  },
   "/receptionist/gym-checkin": {
     key: "1",
     label: "Alt + 1",
     contentKey: "gymCheckin",
   },
-  "/receptionist/sales": {
+  "/receptionist/attendance": {
     key: "2",
     label: "Alt + 2",
-    contentKey: "sellPlans",
-  },
-  "/receptionist/attendance": {
-    key: "3",
-    label: "Alt + 3",
     contentKey: "attendance",
   },
-  "/receptionist/invoices": {
-    key: "4",
-    label: "Alt + 4",
-    contentKey: "invoices",
-  },
   "/receptionist/members": {
-    key: "5",
-    label: "Alt + 5",
+    key: "3",
+    label: "Alt + 3",
     contentKey: "registrations",
   },
 };
@@ -92,10 +86,8 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
   Receptionist: [
     { href: "/receptionist", labelKey: "frontDesk" },
     { href: "/receptionist/members", labelKey: "members" },
-    { href: "/receptionist/sales", labelKey: "sales" },
     { href: "/receptionist/attendance", labelKey: "attendance" },
     { href: "/receptionist/court-schedule", labelKey: "courtSchedule" },
-    { href: "/receptionist/invoices", labelKey: "transactions" },
   ],
   // PT actions are filtered by current specialties in getNavForUser().
   Coach: [
@@ -114,6 +106,7 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { href: "/manager/facilities", labelKey: "trainingRooms" },
     { href: "/manager/court-rates", labelKey: "rates" },
     { href: "/manager/coaches", labelKey: "coaches" },
+    { href: "/manager/avatar-reports", labelKey: "avatarReports" },
     { href: "/manager/schedule", labelKey: "courtSchedule" },
     { href: "/manager/incidents", labelKey: "incidents" },
     { href: "/manager/notices", labelKey: "notices" },
@@ -187,7 +180,10 @@ const GROUP_SPEC: Partial<Record<Role, (string | [GroupKey, string[]])[]>> = {
         "/manager/notices",
       ],
     ],
-    ["people", ["/manager/coaches", "/manager/members"]],
+    [
+      "people",
+      ["/manager/coaches", "/manager/members", "/manager/avatar-reports"],
+    ],
     ["finance", ["/manager/finance", "/manager/points", "/manager/reports"]],
     ["system", ["/manager/settings", "/manager/audit-log"]],
   ],
@@ -343,7 +339,7 @@ export function AppFrame({
   children: ReactNode;
 }) {
   const { user, loading, logout } = useAuth();
-  const { language, toggleLanguage, t } = useLanguage();
+  const { language, t } = useLanguage();
   const router = useRouter();
   const pathname = usePathname();
   const [showShortcuts, setShowShortcuts] = useState(false);
@@ -446,7 +442,6 @@ export function AppFrame({
   const root = items[0].href;
   const entries = buildNav(items, user.role, t);
   const roleDisplay = t.navigation.roleLabel[user.role];
-
   return (
     <div className={shell.shell}>
       <a href="#main-content" className="skip-link">
@@ -506,20 +501,6 @@ export function AppFrame({
                 <span>{t.navigation.shortcutsButton}</span>
               </button>
             )}
-            <button
-              type="button"
-              className={`${shell.langToggleBtn} ${styles.staffLang}`}
-              onClick={toggleLanguage}
-              title={
-                language === "en"
-                  ? t.navigation.languageToggleToVi
-                  : t.navigation.languageToggleToEn
-              }
-            >
-              <span className={shell.langText}>
-                {language === "en" ? "EN" : "VI"}
-              </span>
-            </button>
             <NotificationBell />
             <div
               className={`${shell.userMenuWrapper} ${user.role === "Coach" ? styles.coachAccount : ""}`}
@@ -532,9 +513,10 @@ export function AppFrame({
                 aria-expanded={userMenu}
                 aria-label={user.fullName || user.email}
               >
-                <UserAvatar
+                <AvatarImage
                   name={user.fullName || user.email}
-                  src={user.avatarUrl}
+                  avatarUrl={user.avatarUrl}
+                  size={36}
                   className={shell.userAvatar}
                 />
                 <span className={shell.userName}>
@@ -658,30 +640,6 @@ export function AppFrame({
                   </div>
                 ),
               )}
-              <button
-                type="button"
-                className={shell.langToggleBtn}
-                style={{
-                  marginTop: 12,
-                  width: "100%",
-                  justifyContent: "center",
-                }}
-                onClick={() => {
-                  toggleLanguage();
-                  setDrawer(false);
-                }}
-                title={
-                  language === "en"
-                    ? t.navigation.languageToggleToVi
-                    : t.navigation.languageToggleToEn
-                }
-              >
-                <span className={shell.langText}>
-                  {language === "en"
-                    ? "Language: English (Switch to VI)"
-                    : "Ngôn ngữ: Tiếng Việt (Chuyển EN)"}
-                </span>
-              </button>
               <Link
                 href="/account"
                 className={shell.mobileNavLink}

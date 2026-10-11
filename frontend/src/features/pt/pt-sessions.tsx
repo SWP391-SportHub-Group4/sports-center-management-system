@@ -20,6 +20,7 @@ import { PtStudentPreparation, PtStudentHistory } from "./pt-student-panel";
 import { ResultEditor } from "./workout-result-form";
 import styles from "./pt-coach-workspace.module.css";
 import workspace from "./coach-workspace.module.css";
+import { UserAvatar } from "@/components/UserAvatar";
 
 function SessionActions({
   session: s,
@@ -71,6 +72,7 @@ function SessionActions({
   }
   const content = (
     <>
+      <UserAvatar userId={s.memberId} name={s.memberName} size={40} />
       {manager && (
         <p>
           {formatDateTime(s.startAtUtc)} – {formatDateTime(s.endAtUtc)} ·{" "}

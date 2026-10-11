@@ -1,0 +1,148 @@
+.emblem {
+  display: block;
+  flex: none;
+  overflow: visible;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.emblem * {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.fill {
+  fill: currentColor;
+  fill-opacity: 0.16;
+}
+.accent {
+  stroke: var(--emblem-accent, currentColor);
+  stroke-width: 3;
+}
+.trail {
+  stroke-dasharray: 2 5;
+  opacity: 0.5;
+}
+.shadow {
+  fill: currentColor;
+  fill-opacity: 0.18;
+  stroke: none;
+}
+.pulse {
+  stroke-width: 1.5;
+  opacity: 0;
+}
+.hand {
+  transform-box: view-box;
+  transform-origin: 32px 36px;
+}
+.whistle {
+  transform-origin: 50% 0;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .lift {
+    animation: lift 2.6s var(--ease-in-out) infinite;
+    animation-delay: var(--emblem-delay, 0ms);
+  }
+  .shadow {
+    animation: shadow-lift 2.6s var(--ease-in-out) infinite;
+    animation-delay: var(--emblem-delay, 0ms);
+  }
+  .hand {
+    animation: sweep 9s linear infinite;
+  }
+  .pulse {
+    animation: ring 2.8s var(--ease-out) infinite;
+    animation-delay: var(--emblem-delay, 0ms);
+  }
+  .shuttle {
+    animation: arc 3s var(--ease-in-out) infinite alternate;
+    animation-delay: var(--emblem-delay, 0ms);
+  }
+  .ball {
+    animation: bounce 1.7s infinite;
+    animation-delay: var(--emblem-delay, 0ms);
+  }
+  .rally {
+    animation: rally 2.4s var(--ease-in-out) infinite alternate;
+    animation-delay: var(--emblem-delay, 0ms);
+  }
+  .whistle {
+    animation: swing 3.2s var(--ease-in-out) infinite alternate;
+    animation-delay: var(--emblem-delay, 0ms);
+  }
+}
+
+@keyframes lift {
+  0%,
+  100% {
+    transform: translateY(2px);
+  }
+  45%,
+  60% {
+    transform: translateY(-6px);
+  }
+}
+@keyframes shadow-lift {
+  0%,
+  100% {
+    transform: scaleX(1);
+  }
+  45%,
+  60% {
+    transform: scaleX(0.72);
+  }
+}
+@keyframes sweep {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes ring {
+  0% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  70%,
+  100% {
+    transform: scale(1.22);
+    opacity: 0;
+  }
+}
+@keyframes arc {
+  from {
+    transform: translate(-5px, 5px) rotate(-10deg);
+  }
+  to {
+    transform: translate(5px, -6px) rotate(8deg);
+  }
+}
+@keyframes bounce {
+  0%,
+  100% {
+    transform: translateY(12px) scale(1.08, 0.9);
+    animation-timing-function: cubic-bezier(0.2, 0.7, 0.4, 1);
+  }
+  55% {
+    transform: translateY(-6px) scale(0.98, 1.02);
+    animation-timing-function: cubic-bezier(0.6, 0, 0.8, 0.3);
+  }
+}
+@keyframes rally {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(36px);
+  }
+}
+@keyframes swing {
+  from {
+    transform: rotate(-7deg);
+  }
+  to {
+    transform: rotate(7deg);
+  }
+}

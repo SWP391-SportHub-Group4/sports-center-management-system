@@ -28,19 +28,22 @@ services:
       postgres:
         condition: service_healthy
     environment:
+      AiService__BaseUrl: ${AiService__BaseUrl:-http://host.docker.internal:8001}
       ConnectionStrings__Default: "Host=postgres;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}"
       JwtOptions__SecretKey: ${JwtOptions__SecretKey}
       Cors__AllowedOrigins__0: ${Cors__AllowedOrigins__0:-http://localhost:3000}
       Cors__AllowedOrigins__1: ${Cors__AllowedOrigins__1:-http://127.0.0.1:3000}
       Cors__AllowedOrigins__2: ${Cors__AllowedOrigins__2:-http://localhost:3001}
       Cors__AllowedOrigins__3: ${Cors__AllowedOrigins__3:-http://127.0.0.1:3001}
+      Cors__AllowedOrigins__4: ${Cors__AllowedOrigins__4:-http://127.0.0.1:3100}
+      Cors__AllowedOrigins__5: ${Cors__AllowedOrigins__5:-http://localhost:3100}
       Google__ClientId: ${Google__ClientId}
 
       VnPay__TmnCode: ${VnPay__TmnCode:-}
       VnPay__HashSecret: ${VnPay__HashSecret:-}
-      VnPay__PaymentUrl: ${VnPay__PaymentUrl:-}
+      VnPay__PaymentUrl: ${VnPay__PaymentUrl:-https://sandbox.vnpayment.vn/paymentv2/vpcpay.html}
       VnPay__QueryUrl: ${VnPay__QueryUrl:-https://sandbox.vnpayment.vn/merchant_webapi/api/transaction}
-      VnPay__ReturnUrl: ${VnPay__ReturnUrl:-http://localhost:5000/api/payments/vnpay/return}
+      VnPay__ReturnUrl: ${VnPay__ReturnUrl:-http://localhost:3000/payments/return}
       VnPay__UseMock: ${VnPay__UseMock:-true}
 
       Smtp__Host: ${Email__Smtp__Host:-}
@@ -53,18 +56,17 @@ services:
       Email__DemoLoggingEnabled: ${Email__DemoLoggingEnabled:-true}
       # Gốc URL frontend để dựng link đặt lại mật khẩu trong email.
       Frontend__BaseUrl: ${Frontend__BaseUrl:-http://localhost:3000}
+      CLOUDINARY_URL: ${CLOUDINARY_URL:-}
       # Website hỗ trợ ghi ở cuối email (để trống = chỉ ghi "liên hệ trung tâm"; điền khi đã deploy).
       Frontend__SupportUrl: ${Frontend__SupportUrl:-}
-      DataProtection__KeysPath: ${DataProtection__KeysPath:-/var/lib/sporthub/dataprotection-keys}
+      # Always use the container volume path, not a Windows host path from .env.
+      DataProtection__KeysPath: /var/lib/sporthub/dataprotection-keys
 
 
       Gemini__ApiKey: ${Gemini__ApiKey:-}
       Gemini__Model: ${Gemini__Model:-gemini-3.5-flash-lite}
       Gemini__BaseUrl: ${Gemini__BaseUrl:-https://generativelanguage.googleapis.com}
       Gemini__TimeoutSeconds: ${Gemini__TimeoutSeconds:-30}
-      Cloudinary__CloudName: ${Cloudinary__CloudName:-}
-      Cloudinary__ApiKey: ${Cloudinary__ApiKey:-}
-      Cloudinary__ApiSecret: ${Cloudinary__ApiSecret:-}
 
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
     ports:
@@ -75,6 +77,9 @@ services:
   frontend:
     build:
       context: ./frontend
+      args:
+        # Bật bảng điền nhanh tài khoản demo ở /login; đặt =false khi deploy thật.
+        NEXT_PUBLIC_SHOW_DEMO_ACCOUNTS: ${NEXT_PUBLIC_SHOW_DEMO_ACCOUNTS:-true}
     container_name: sporthub-frontend
     restart: unless-stopped
     depends_on:

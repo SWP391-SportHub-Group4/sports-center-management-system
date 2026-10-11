@@ -7,8 +7,8 @@ using Microsoft.Extensions.Options;
 using SportHub.AI.Application.Interfaces;
 using SportHub.AI.Application.Services;
 using SportHub.AI.Infrastructure;
+using SportHub.AI.Infrastructure.Python;
 using SportHub.AI;
-using SportHub.AI.Infrastructure.Gemini;
 using SportHub.API.Extensions;
 using SportHub.API.Jobs;
 using SportHub.API.Middleware;
@@ -31,8 +31,8 @@ using SportHub.Identity.Application.Interfaces;
 using SportHub.Identity.Application.Services;
 using SportHub.Identity.Infrastructure.Email;
 using SportHub.Identity.Infrastructure.Repositories;
+using SportHub.Identity.Infrastructure;
 using SportHub.Identity.Infrastructure.Security;
-using SportHub.Identity.Infrastructure.Media;
 using SportHub.Identity;
 using SportHub.Membership.Application.Interfaces;
 using SportHub.Membership.Application.Services;
@@ -78,16 +78,6 @@ builder.Services.AddSportHubAuthorizationPolicies();
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-    options.AddPolicy("avatar-upload", httpContext =>
-        RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: httpContext.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
-                ?? httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-            factory: _ => new FixedWindowRateLimiterOptions
-            {
-                PermitLimit = 5, Window = TimeSpan.FromMinutes(1), QueueLimit = 0,
-                QueueProcessingOrder = QueueProcessingOrder.OldestFirst
-            }));
-
     options.AddPolicy("auth-register", httpContext =>
         RateLimitPartition.GetFixedWindowLimiter(
             partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
@@ -146,6 +136,16 @@ builder.Services.AddRateLimiter(options =>
                 QueueProcessingOrder = QueueProcessingOrder.OldestFirst
             }));
 
+    options.AddPolicy("avatar-write", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+                ?? httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10, Window = TimeSpan.FromMinutes(1), QueueLimit = 0,
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst
+            }));
+
     options.AddPolicy("vnp-ipn", httpContext =>
         RateLimitPartition.GetFixedWindowLimiter(
             partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
@@ -178,9 +178,9 @@ builder.Services.AddScoped<IUserAccountRepository, UserAccountRepository>();
 builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IAccountService, AccountService>();
-builder.Services.Configure<CloudinaryOptions>(builder.Configuration.GetSection("Cloudinary"));
-builder.Services.AddHttpClient<CloudinaryAvatarStore>(client => client.Timeout = TimeSpan.FromSeconds(30));
-builder.Services.AddScoped<CoachAvatarService>();
+builder.Services.AddScoped<AvatarService>();
+builder.Services.AddHttpClient<IAvatarStorage, CloudinaryAvatarStorage>(client =>
+    client.Timeout = TimeSpan.FromSeconds(30));
 builder.Services.AddScoped<IPasswordResetService, PasswordResetService>();
 builder.Services.AddScoped<EmailOtpFlow>();
 builder.Services.AddScoped<CoachSpecialtyService>();
@@ -357,9 +357,6 @@ builder.Services.AddScoped<IPtCoachChangeRequestService, PtCoachChangeRequestSer
 builder.Services.AddScoped<IAiRecommendationService, RuleBasedAiRecommendationService>();
 builder.Services.AddScoped<IWorkoutRecommendationService, WorkoutRecommendationService>();
 // AI Flow 6 — Gemini assistant
-builder.Services.Configure<GeminiOptions>(
-    builder.Configuration.GetSection(
-        GeminiOptions.SectionName));
 
 builder.Services.AddScoped<
     IAiContextBuilder,
@@ -369,33 +366,38 @@ builder.Services.AddScoped<
     IAiChatService,
     AiChatService>();
 
-builder.Services.AddHttpClient<
-    IAiChatProvider,
-    GeminiAiChatProvider>(
-    (serviceProvider, client) =>
-    {
-        var options =
-            serviceProvider
-                .GetRequiredService<
-                    IOptions<GeminiOptions>>()
-                .Value;
+builder.Services.AddScoped<
+    IPythonAiClient,
+    PythonAiClient>();
 
+builder.Services.AddScoped<
+    IManagerScheduleContextBuilder,
+    ManagerScheduleContextBuilder>();
+
+builder.Services.AddScoped<
+    IAiChatProvider,
+    PythonAiChatProvider>();
+
+builder.Services.AddScoped<
+    IManagerScheduleSuggestionService,
+    ManagerScheduleSuggestionService>();
+
+builder.Services.AddHttpClient(
+    "SportHubPythonAI",
+    client =>
+    {
         var baseUrl =
-            string.IsNullOrWhiteSpace(
-                options.BaseUrl)
-                ? "https://generativelanguage.googleapis.com"
-                : options.BaseUrl.TrimEnd('/');
+            builder.Configuration[
+                "AiService:BaseUrl"]
+            ?? "http://localhost:8001";
 
         client.BaseAddress =
             new Uri(baseUrl);
 
         client.Timeout =
-            TimeSpan.FromSeconds(
-                Math.Clamp(
-                    options.TimeoutSeconds,
-                    5,
-                    120));
+            TimeSpan.FromSeconds(35);
     });
+
 // Tác vụ nền: BR-11/BR-33 (hạn gói), BR-20/BR-53 (No-show), BR-34 (phát thông báo).
 builder.Services.AddHostedService<MemberPackageExpiryJob>();
 builder.Services.AddHostedService<ClassStatusJob>();
@@ -408,6 +410,7 @@ builder.Services.AddHostedService<CheckoutExpiryJob>();
 builder.Services.AddHostedService<PaymentReconciliationJob>();
 builder.Services.AddHostedService<PointHoldExpiryJob>();
 builder.Services.AddHostedService<NotificationDispatchJob>();
+builder.Services.AddHostedService<AvatarDeletionJob>();
 
 builder.Services.AddControllers()
     .AddApplicationPart(typeof(IdentityModuleMarker).Assembly)
@@ -429,6 +432,8 @@ builder.Services.AddSportHubSwagger();
 
 builder.Services.AddScoped<DemoDataSeeder>();
 builder.Services.AddScoped<Br141DemoSeeder>();
+builder.Services.AddScoped<CoachRosterSeeder>();
+builder.Services.AddScoped<FacilityBaselineSeeder>();
 builder.Services.AddScoped<PaymentNoticeService>();
 
 var app = builder.Build();
@@ -473,6 +478,29 @@ if (args.Any(a => a == "--seed-member-calendar=true"))
     return;
 }
 
+// Đội huấn luyện viên demo (5 PT, 2 cầu lông, 2 bóng rổ; tên người Việt, ảnh minh họa), idempotent, không xóa dữ liệu:
+//   dotnet run --project backend/SportHub.API -- --seed-coaches=true
+if (args.Any(a => a == "--seed-coaches=true"))
+{
+    if (!app.Environment.IsDevelopment())
+        throw new InvalidOperationException("Demo fixtures are only available in Development.");
+    await using var coachScope = app.Services.CreateAsyncScope();
+    await coachScope.ServiceProvider.GetRequiredService<SportHubDbContext>().Database.MigrateAsync();
+    await coachScope.ServiceProvider.GetRequiredService<CoachRosterSeeder>().SeedAsync();
+    return;
+}
+
+// Kế hoạch tập coach.pt giao cho an.member (idempotent), để xem giao diện Member trên DB đã có dữ liệu:
+//   dotnet run --project backend/SportHub.API -- --seed-member-training=true
+if (args.Any(a => a == "--seed-member-training=true"))
+{
+    if (!app.Environment.IsDevelopment())
+        throw new InvalidOperationException("Demo fixtures are only available in Development.");
+    await using var trainingScope = app.Services.CreateAsyncScope();
+    await trainingScope.ServiceProvider.GetRequiredService<DemoDataSeeder>().SeedMemberWorkoutPlanAsync();
+    return;
+}
+
 // Seed demo BR-141 (lớp cố định + giá thuê sân): lệnh riêng, chạy tay khi sẵn sàng, không chạy lúc khởi động bình thường.
 //   dotnet run --project backend/SportHub.API -- --seed-br141=true
 // Viết `--seed-br141=true` (có giá trị): provider dòng lệnh của .NET coi tham số `--khoá` đứng một mình là "khóa + giá trị là
@@ -483,6 +511,7 @@ if (args.Any(a => a.StartsWith("--seed-br141", StringComparison.Ordinal)))
     Console.WriteLine($"[seed-br141] database '{target.Database}' trên '{target.Host}:{target.Port}'");
     await using var seedScope = app.Services.CreateAsyncScope();
     await seedScope.ServiceProvider.GetRequiredService<SportHubDbContext>().Database.MigrateAsync();
+    await seedScope.ServiceProvider.GetRequiredService<FacilityBaselineSeeder>().SeedAsync();
     await seedScope.ServiceProvider.GetRequiredService<Br141DemoSeeder>().SeedAsync();
     return;
 }
@@ -497,6 +526,7 @@ if (app.Environment.IsDevelopment())
 
     await startupScope.ServiceProvider.GetRequiredService<SportHubDbContext>().Database.MigrateAsync();
     await startupScope.ServiceProvider.GetRequiredService<DemoDataSeeder>().SeedAsync();
+    await startupScope.ServiceProvider.GetRequiredService<FacilityBaselineSeeder>().SeedAsync();
 }
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();

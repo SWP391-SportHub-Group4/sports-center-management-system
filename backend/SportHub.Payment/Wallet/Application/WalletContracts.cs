@@ -5,7 +5,8 @@ namespace SportHub.Payment.Wallet.Application;
 
 public sealed record WalletBalanceResponse(Guid OwnerUserId, int AvailablePoints, int HeldPoints, int VndPerPoint);
 public sealed record WalletLedgerResponse(Guid Id, [property: SportHub.BuildingBlocks.Api.WireEnum] string EntryType, int Points, int AvailableDelta, int HeldDelta,
-    int AvailableAfter, int HeldAfter, string ReferenceType, Guid ReferenceId, string? Note, DateTime CreatedAtUtc);
+    int AvailableAfter, int HeldAfter, string ReferenceType, Guid ReferenceId, string? Note, DateTime CreatedAtUtc,
+    string? SourceDescription = null, Guid? SourceInvoiceId = null);
 public sealed record PointConfirmationResponse(Guid ConfirmationId, Guid InvoiceId, Guid MemberId, int Points,
     DateTime ExpiresAtUtc, DateTime HoldExpiresAtUtc, [property: SportHub.BuildingBlocks.Api.WireEnum] string Status, int Revision);
 public sealed record PointSelectionResponse(Guid InvoiceId, Guid MemberId, int PointsApplied, decimal CashAmount,

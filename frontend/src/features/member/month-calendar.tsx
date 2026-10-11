@@ -16,6 +16,7 @@ type MonthEvent = {
   endAtUtc: string;
   status?: string | null;
   preview?: boolean;
+  fading?: boolean;
   sport?: string | null;
 };
 
@@ -37,6 +38,9 @@ export function MemberMonthCalendar<T extends MonthEvent>({
   const { language } = useLanguage();
   const vi = language === "vi";
   const today = todayIso();
+  const todayWeekdayIndex =
+    (new Date(`${today}T12:00:00Z`).getUTCDay() + 6) % 7;
+  const isTodayInView = columns.some(([day]) => day === today);
   const [chosenDay, setChosenDay] = useState(
     today.startsWith(month) ? today : `${month}-01`,
   );
@@ -73,9 +77,19 @@ export function MemberMonthCalendar<T extends MonthEvent>({
       </div>
       <div className={styles.surface}>
         <div className={styles.weekdays} aria-hidden="true">
-          {weekdays.map((day) => (
-            <span key={day}>{day}</span>
-          ))}
+          {weekdays.map((day, index) => {
+            const isToday = isTodayInView && index === todayWeekdayIndex;
+            return (
+              <span
+                key={day}
+                data-today={isToday ? "true" : undefined}
+                className={isToday ? styles.todayWeekday : undefined}
+                title={isToday ? (vi ? "Hôm nay" : "Today") : undefined}
+              >
+                {day}
+              </span>
+            );
+          })}
         </div>
         <div
           className={styles.grid}
@@ -87,6 +101,7 @@ export function MemberMonthCalendar<T extends MonthEvent>({
             <section
               key={day}
               className={styles.day}
+              data-today={day === today ? "true" : undefined}
               data-outside={!day.startsWith(month)}
               data-selected={day === chosenDay}
               aria-label={formatDate(day)}
@@ -112,6 +127,7 @@ export function MemberMonthCalendar<T extends MonthEvent>({
                     data-kind={event.kind}
                     data-preview={!!event.preview}
                     data-cancelled={/CANCEL/i.test(event.status ?? "")}
+                    data-fading={event.fading ? "true" : undefined}
                     title={`${kindLabels[event.kind]} · ${event.sport ?? ""} · ${formatTime(event.startAtUtc)}–${formatTime(event.endAtUtc)} · ${event.title}`}
                     onClick={() => onSelect(event)}
                   >
@@ -120,6 +136,7 @@ export function MemberMonthCalendar<T extends MonthEvent>({
                       {formatTime(event.startAtUtc)}
                     </time>
                     <span>{event.title}</span>
+                    {/CANCEL/i.test(event.status ?? "") && <b>Cancelled</b>}
                   </button>
                 ))}
                 {events.length > 3 && (

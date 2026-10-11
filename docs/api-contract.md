@@ -55,6 +55,8 @@ Các endpoint dưới đây phục vụ frontend API-backed. Không thay schema/
 | GET | `/api/invoices/{invoiceId}/point-confirmations/current` | Receptionist; audited beneficiary, revision, points, failedAttempts, expiry/resendAtUtc và status PENDING/LOCKED/EXPIRED; không trả code/hash/salt. |
 | GET | `/api/invoices/by-item/{itemId}` | Lookup invoice từ own enrollment invoiceItemId; dùng lại quyền đọc invoice. Own invoice list hỗ trợ filter status. |
 | GET | `/api/refunds/quote/{itemId}` | Ownership + paid/benefit eligibility; `{systemCalculatedPoints}` do backend tính. |
+| POST | `/api/refunds/class-cancellations` | Body `{invoiceItemId}`. Member hủy ghi danh của mình, Lễ tân/Manager hủy thay. Chỉ trước buổi đầu: còn ≥ 5 ngày hoàn 100%, dưới 5 ngày hoàn 50% (tự động bằng điểm, ghi `PaymentAdjustment` Completed). Lớp đã bắt đầu → 409 `class_already_started`, dùng `POST /api/refunds` để Manager quyết định. |
+| POST | `/api/refunds/membership-cancellations` | Body `{invoiceItemId}`. Hủy Membership đang hiệu lực (Member, hoặc Lễ tân/Manager thay): còn từ 2/3 thời hạn hoàn 50% bằng điểm, ít hơn 409 `refund_points_zero`; còn gói gia hạn nối tiếp → 409 `membership_has_renewal` (hủy gói nối tiếp trước). |
 | POST | `/api/refunds` | Item lock và tối đa một request REQUESTED chưa xử lý trên item; submit lặp trả request hiện có. Không cho FE tự gửi số điểm duyệt. |
 | GET | `/api/class-threshold-responses/mine`, `/{id}`, `/by-token?token=` | Member owner; course/sport/remaining paid value/deadline/choice/status/additionalInvoiceId/serverNowUtc. Token chỉ hash ở backend, không ghi analytics. |
 | GET | `/api/class-threshold-responses/{id}/transfer-quote?targetClassId=` | Owner, response còn mở; cùng môn, target Published/chưa bắt đầu. Backend tính cashDifference/walletCreditPoints; giá trị chia hết cho 1.000. |
@@ -206,6 +208,10 @@ and cool-down. Group coach suggestions include these values in exercise lines.
 | Verb | Path |
 |---|---|
 | GET | `api/[controller]` |
+
+### Avatar Cloudinary — `api/avatars`
+
+Quy tắc nghiệp vụ, quyền xem, xóa ảnh cũ và Google avatar: [Avatar-Cloudinary](Avatar-Cloudinary.md). `GET /api/users/me`, response đăng nhập và danh sách Coach có `avatarUrl` nullable. Member/Coach tự tải multipart `file` qua `POST /api/avatars/me` (JPG/PNG/WebP, tối đa 5 MiB) và xóa qua `DELETE /api/avatars/me`. `GET /api/avatars/{userId}` chỉ công khai avatar Coach; avatar Member yêu cầu đăng nhập. Người đăng nhập báo cáo ảnh qua `POST /api/avatars/reports` (`targetUserId`, `reason`); Manager dùng `GET /api/manager/avatar-reports` và `POST .../{id}/dismiss|remove`. Manager không thể gỡ phiên bản ảnh mới bằng báo cáo ảnh cũ.
 
 ### AccountController — `api/users/me`
 
@@ -581,7 +587,7 @@ Refund dùng `PaymentAdjustment` hiện có, không thêm bảng Refund; refund 
 |---|---|---|---|
 | GET | `api/refunds?status=&invoiceId=&invoiceItemId=&page=&pageSize=` | Receptionist, Manager | Trả item, điểm tính/duyệt, ledger reference và trạng thái. |
 | POST | `api/refunds` | Item owner (Member), Receptionist, Manager | Body `{invoiceItemId, reason}`; item owner chỉ yêu cầu item của mình. Server tính điểm, không nhận điểm từ client. |
-| POST | `api/refunds/{adjustmentId}/approve` | Manager khác người yêu cầu | Body `{centerFault, reason}`. Khóa invoice/item/refund; tính lại tỷ lệ/cap; Earn + hủy quyền lợi + Completed nguyên tử. |
+| POST | `api/refunds/{adjustmentId}/approve` | Manager khác người yêu cầu | Body `{centerFault, percent?, reason}`. `percent` (0–100) là ngoại lệ do Manager quyết định, cần căn cứ ≥ 10 ký tự; bỏ trống thì theo quy tắc. Khóa invoice/item/refund; tính lại tỷ lệ/cap; Earn + hủy quyền lợi + Completed nguyên tử. |
 | POST | `api/refunds/{adjustmentId}/reject` | Manager khác người yêu cầu | Body `{reason}`; từ chối yêu cầu chưa xử lý. |
 
 Đã có calculator cho Membership (50% khi RemainingDays×3 >= TotalDays×2), PT (50% khi chưa consume; các buổi Scheduled tương lai được hủy/nhả quota cùng approval), Class (trước buổi đầu 100%, center cancellation theo buổi chưa cung cấp, loại buổi hủy đã có buổi bù khỏi tỷ lệ), Rental (>=24h 100%, dưới 24h/no-show 0, center cancel 100%). Quy đổi trên giá trị item đã trả gồm cash + points trừ refund trước, floor VND/1.000. `RefundCreditService` hỗ trợ SystemEvent credit, threshold/incident/rental caller và ghi InvoiceItemId trên ledger.
