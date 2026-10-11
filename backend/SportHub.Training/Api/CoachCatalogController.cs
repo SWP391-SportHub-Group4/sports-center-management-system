@@ -7,6 +7,15 @@ using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.Identity.Domain.Entities;
 using SportHub.Identity.Domain.Enums;
 namespace SportHub.Training.Api;
+
+public sealed class UpdateMyCoachProfileRequest
+{
+    [System.ComponentModel.DataAnnotations.MaxLength(1000)] public string? Bio { get; set; }
+    [System.ComponentModel.DataAnnotations.MaxLength(100)] public string? Title { get; set; }
+    [System.ComponentModel.DataAnnotations.Range(0, 60)] public int? YearsExperience { get; set; }
+    [System.ComponentModel.DataAnnotations.Range(0, 100000)] public int? StudentCount { get; set; }
+    [System.ComponentModel.DataAnnotations.MaxLength(1000)] public string? Philosophy { get; set; }
+}
 [ApiController, Route("api/coaches")]
 public sealed class CoachCatalogController(ISportHubDbContext db, ISportCatalogReader catalog) : ControllerBase
 {
@@ -40,5 +49,33 @@ public sealed class CoachCatalogController(ISportHubDbContext db, ISportCatalogR
             Philosophy = u.CoachProfile != null ? u.CoachProfile.Philosophy : null,
             SportIds = db.Set<UserSportSpecialty>().Where(s => s.UserId == u.UserId).Select(s => s.SportId).ToArray()
         }).ToListAsync(ct));
+    }
+
+    /// <summary>Coach tự xem hồ sơ công khai của mình.</summary>
+    [Authorize(Roles = SportHubRoleNames.Coach)]
+    [HttpGet("me/profile")]
+    public async Task<IActionResult> GetMine(CancellationToken ct)
+    {
+        var id = User.RequireUserId();
+        var p = await db.Set<CoachProfile>().AsNoTracking().SingleOrDefaultAsync(x => x.UserId == id, ct);
+        return Ok(new { Bio = p?.Bio, Title = p?.Title, YearsExperience = p?.YearsExperience, StudentCount = p?.StudentCount, Philosophy = p?.Philosophy });
+    }
+
+    /// <summary>Coach tự sửa hồ sơ công khai (thay toàn bộ các trường; chuỗi rỗng xóa giá trị).</summary>
+    [Authorize(Roles = SportHubRoleNames.Coach)]
+    [HttpPut("me/profile")]
+    public async Task<IActionResult> UpdateMine([FromBody] UpdateMyCoachProfileRequest request, CancellationToken ct)
+    {
+        var id = User.RequireUserId();
+        var p = await db.Set<CoachProfile>().SingleOrDefaultAsync(x => x.UserId == id, ct);
+        if (p is null) { p = new CoachProfile { UserId = id }; db.Set<CoachProfile>().Add(p); }
+        static string? Clean(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();
+        p.Bio = Clean(request.Bio);
+        p.Title = Clean(request.Title);
+        p.Philosophy = Clean(request.Philosophy);
+        p.YearsExperience = request.YearsExperience;
+        p.StudentCount = request.StudentCount;
+        await db.SaveChangesAsync(ct);
+        return NoContent();
     }
 }

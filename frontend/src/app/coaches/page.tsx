@@ -53,7 +53,10 @@ export default function PublicCoachesPage() {
               />
               <h2>{coach.fullName}</h2>
               {coach.bio && <p>{coach.bio}</p>}
-              <Link className="btn btn--ghost btn--sm" href={`/coaches/${coach.userId}`}>
+              <Link
+                className="btn btn--ghost btn--sm"
+                href={`/coaches/${coach.userId}`}
+              >
                 {vi ? "Xem hồ sơ" : "View profile"}
                 <span className="sr-only"> {coach.fullName}</span>
               </Link>

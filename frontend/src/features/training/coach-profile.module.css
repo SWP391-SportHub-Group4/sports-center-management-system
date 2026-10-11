@@ -19,6 +19,9 @@
   gap: var(--space-5);
   align-items: start;
 }
+.layoutSingle {
+  display: block;
+}
 .main {
   display: grid;
   gap: var(--space-4);
@@ -43,7 +46,7 @@
   gap: var(--space-3);
   min-width: 0;
 }
-.heroText h2 {
+.heroText h1 {
   margin: 0;
   font-size: 36px;
   line-height: 1.1;
@@ -228,7 +231,7 @@
     align-items: flex-start;
     padding: var(--space-4);
   }
-  .heroText h2 {
+  .heroText h1 {
     font-size: 28px;
   }
   .week {

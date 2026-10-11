@@ -9,6 +9,10 @@ using SportHub.Identity.Application.Services;
 namespace SportHub.Identity.Api;
 
 public sealed record ReportAvatarRequest(Guid TargetUserId, string Reason);
+public sealed class UploadAvatarRequest
+{
+    public IFormFile? File { get; set; }
+}
 
 [ApiController]
 [Authorize]
@@ -24,8 +28,9 @@ public sealed class AvatarsController(AvatarService avatars) : ControllerBase
     [EnableRateLimiting("avatar-write")]
     [RequestSizeLimit(6 * 1024 * 1024)]
     [Consumes("multipart/form-data")]
-    public async Task<IActionResult> Upload(IFormFile? file, CancellationToken ct)
+    public async Task<IActionResult> Upload([FromForm] UploadAvatarRequest request, CancellationToken ct)
     {
+        var file = request.File;
         if (file is null || file.Length == 0 || file.Length > AvatarService.MaxUploadBytes)
             throw new BadRequestException("avatar_size_invalid", "The image must be no larger than 5 MB.");
         await using var input = file.OpenReadStream();
@@ -40,6 +45,7 @@ public sealed class AvatarsController(AvatarService avatars) : ControllerBase
         => Ok(await avatars.DeleteAsync(User.RequireUserId(), ct));
 
     [HttpPost("reports")]
+    [Authorize(Roles = SportHubRoleNames.SystemAdministrator + "," + SportHubRoleNames.CenterManager + "," + SportHubRoleNames.Coach + "," + SportHubRoleNames.Receptionist)]
     [EnableRateLimiting("avatar-write")]
     public async Task<IActionResult> Report([FromBody] ReportAvatarRequest request, CancellationToken ct)
         => StatusCode(StatusCodes.Status201Created,
