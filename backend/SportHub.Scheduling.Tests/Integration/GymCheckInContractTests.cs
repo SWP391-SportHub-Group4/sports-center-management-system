@@ -174,7 +174,7 @@ public sealed class GymCheckInContractTests(SchedulingApiFactory factory)
         Assert.Equal(HttpStatusCode.Conflict, again.StatusCode);
         var error = await again.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal("gym_already_checked_in", error.GetProperty("error").GetString());
-        Assert.Contains("đã được ghi nhận vào Gym", error.GetProperty("message").GetString());
+        Assert.Equal("Gym already checked in.", error.GetProperty("message").GetString());
         Assert.Equal(1, await factory.QueryAsync(db => db.GymCheckIns.CountAsync(x => x.MemberId == member.UserId)));
         Assert.Equal(id, await factory.QueryAsync(db => db.GymCheckIns.Where(x => x.MemberId == member.UserId)
             .Select(x => x.CheckInId).SingleAsync()));

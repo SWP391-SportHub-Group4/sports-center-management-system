@@ -41,10 +41,10 @@ public sealed class Br141DemoSeeder(
     private static readonly ClassPlan[] Plans =
     [
         // Lớp 120 phút: 07:00-09:00 sáng (T2/4/6) và 14:00-16:00 chiều (T3/5/7), giờ Việt Nam.
-        new("BR141-BONGRO-01", "Bóng rổ 01", "basketball", 1, MonWedFri, "07:00", 1_200_000m, 9_600_000m, "coach.bongro@sporthub.vn"),
-        new("BR141-BONGRO-02", "Bóng rổ 02", "basketball", 2, TueThuSat, "14:00", 1_200_000m, 9_600_000m, "coach.bongro@sporthub.vn"),
-        new("BR141-CAULONG-01", "Cầu lông 01", "badminton", 1, MonWedFri, "07:00", 900_000m, 4_500_000m, "coach.caulong@sporthub.vn"),
-        new("BR141-CAULONG-02", "Cầu lông 02", "badminton", 2, TueThuSat, "14:00", 900_000m, 4_500_000m, "coach.caulong@sporthub.vn"),
+        new("BR141-BONGRO-01", "Basketball 01", "basketball", 1, MonWedFri, "07:00", 1_200_000m, 9_600_000m, "coach.pt@sporthub.vn"),
+        new("BR141-BONGRO-02", "Basketball 02", "basketball", 2, TueThuSat, "14:00", 1_200_000m, 9_600_000m, "coach.pt@sporthub.vn"),
+        new("BR141-CAULONG-01", "Badminton 01", "badminton", 1, MonWedFri, "07:00", 900_000m, 4_500_000m, "coach.caulong@sporthub.vn"),
+        new("BR141-CAULONG-02", "Badminton 02", "badminton", 2, TueThuSat, "14:00", 900_000m, 4_500_000m, "coach.caulong@sporthub.vn"),
     ];
 
     public async Task SeedAsync(CancellationToken ct = default)
@@ -125,8 +125,8 @@ public sealed class Br141DemoSeeder(
         // Loại phòng seed: 3 Sân cầu lông, 4 Sân bóng rổ. Mỗi môn hai sân riêng để lớp sáng và chiều không chung sân.
         var wanted = new[]
         {
-            ("badminton", 1, "Sân cầu lông 01", 3, 12), ("badminton", 2, "Sân cầu lông 02", 3, 12),
-            ("basketball", 1, "Sân bóng rổ 01", 4, 20), ("basketball", 2, "Sân bóng rổ 02", 4, 20),
+            ("badminton", 1, "Badminton court 01", 3, 12), ("badminton", 2, "Badminton court 02", 3, 12),
+            ("basketball", 1, "Basketball court 01", 4, 20), ("basketball", 2, "Basketball court 02", 4, 20),
         };
         var result = new Dictionary<(string, int), Room>();
         foreach (var (sport, index, name, roomType, capacity) in wanted)
@@ -180,7 +180,7 @@ public sealed class Br141DemoSeeder(
         var wanted = new[]
         {
             ("coach.caulong@sporthub.vn", "Phạm Minh Cầu Lông", "0902000001", "badminton"),
-            ("coach.bongro@sporthub.vn", "Vũ Hải Bóng Rổ", "0902000002", "basketball"),
+            ("coach.pt@sporthub.vn", "Đỗ Quang PT", "0902000003", "basketball"),
         };
         var result = new Dictionary<string, Guid>();
         foreach (var (email, name, phone, sportCode) in wanted)
@@ -228,10 +228,10 @@ public sealed class Br141DemoSeeder(
         return d;
     }
 
-    /// <summary>Thứ Hai kế tiếp sau hôm nay, để buổi đầu nằm trong tương lai.</summary>
+    /// <summary>Thứ Hai của tuần kế tiếp (cách ít nhất 8 ngày) để hạn xét ngưỡng, 3 ngày trước buổi đầu, còn ở tương lai.</summary>
     private static DateOnly NextMonday(DateOnly today)
     {
-        var d = today.AddDays(1);
+        var d = today.AddDays(8);
         while (d.DayOfWeek != DayOfWeek.Monday) d = d.AddDays(1);
         return d;
     }

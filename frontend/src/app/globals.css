@@ -2201,3 +2201,9 @@ body:has(.auth--login, .auth--register) {
   gap: var(--space-4, 16px);
   margin-top: var(--space-6, 24px);
 }
+
+/* Ẩn nút con mắt gốc của Edge/IE: các ô mật khẩu đã có nút hiện/ẩn riêng. */
+input::-ms-reveal,
+input::-ms-clear {
+  display: none;
+}

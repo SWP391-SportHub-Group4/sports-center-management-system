@@ -12,6 +12,7 @@ import { ptApi } from "./api";
 import { ListPager, Specialty } from "./ui";
 import { PtQuotaSummary } from "./pt-quota-summary";
 import { PtSessionEditor } from "./pt-session-editor";
+import { UserAvatar } from "@/components/UserAvatar";
 
 function SessionActions({
   session: s,
@@ -40,6 +41,7 @@ function SessionActions({
   }
   return (
     <Card title={`${s.memberName} · ${s.coachName}`}>
+      <UserAvatar userId={s.memberId} name={s.memberName} size={40} />
       <p>
         {formatDateTime(s.startAtUtc)} – {formatDateTime(s.endAtUtc)} ·{" "}
         {s.roomName ?? l.noRoom}

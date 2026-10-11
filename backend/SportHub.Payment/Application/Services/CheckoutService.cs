@@ -210,7 +210,7 @@ public sealed class CheckoutService(ISportHubDbContext db,
         db.Set<InvoiceItem>().Add(new InvoiceItem
         {
             ItemId = Guid.NewGuid(), InvoiceId = invoice.InvoiceId, ItemType = InvoiceItemType.ClassPackage,
-            Description = $"Khóa học {quote.SportName} #{request.ClassId}", UnitPrice = quote.Price,
+            Description = $"Course {quote.SportName} #{request.ClassId}", UnitPrice = quote.Price,
             Quantity = 1, LineAmount = quote.Price, RelatedEntityId = hold.SeatHoldId,
             ClassId = quote.ClassId, SportId = quote.SportId, SportNameSnapshot = quote.SportName
         });
@@ -272,13 +272,18 @@ public sealed class CheckoutService(ISportHubDbContext db,
         db.Set<Invoice>().Add(invoice);
         await db.SaveChangesAsync(ct);
         var rentalId = await rentals.ReserveAsync(invoice.InvoiceId, request, expiry, quote, ct);
+        var sportName = (await catalog.GetSportAsync(request.SportId, ct))?.Name;
+        var roomName = (await catalog.GetRoomAsync(request.RoomId, ct))?.Name;
+        var startLocal = VietnamTime.ToLocal(request.StartUtc.UtcDateTime);
+        var endLocal = VietnamTime.ToLocal(request.EndUtc.UtcDateTime);
+        var rentalLabel = string.Join(" · ", new[] { sportName, roomName }.Where(x => !string.IsNullOrWhiteSpace(x)));
         db.Set<InvoiceItem>().Add(new InvoiceItem
         {
             ItemId = Guid.NewGuid(), InvoiceId = invoice.InvoiceId, ItemType = InvoiceItemType.Rental,
-            Description = $"Thuê sân #{request.RoomId}, môn #{request.SportId}, {quote.Blocks.Count} giờ",
+            Description = $"Court rental {rentalLabel}, {startLocal:dd/MM/yyyy} {startLocal:HH:mm}-{endLocal:HH:mm} ({quote.Blocks.Count} hours)",
             UnitPrice = quote.TotalPrice, Quantity = 1, LineAmount = quote.TotalPrice, RelatedEntityId = rentalId,
             CourtRentalId = rentalId, SportId = request.SportId,
-            SportNameSnapshot = (await catalog.GetSportAsync(request.SportId, ct))?.Name
+            SportNameSnapshot = sportName
         });
         var session = new CheckoutSession
         {

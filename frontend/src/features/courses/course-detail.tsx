@@ -1,4 +1,5 @@
 "use client";
+import { UserAvatar } from "@/components/UserAvatar";
 import { useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/apiClient";
@@ -48,7 +49,15 @@ function Roster({ sessionId }: { sessionId: string }) {
         >
           {data.entries.map((r) => (
             <tr key={r.enrollmentId}>
-              <td>{r.memberName}</td>
+              <td>
+                <UserAvatar
+                  userId={r.memberId}
+                  name={r.memberName}
+                  size={28}
+                  report
+                />{" "}
+                {r.memberName}
+              </td>
               <td>
                 <StatusChip value={r.enrollmentStatus} />
               </td>

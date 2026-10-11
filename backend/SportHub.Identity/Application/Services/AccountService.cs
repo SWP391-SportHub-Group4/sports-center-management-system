@@ -26,6 +26,7 @@ public sealed record MyAccountResponse(
     IReadOnlyList<int> SportIds)
 {
     public bool IsPersonalTrainer { get; init; }
+    public string? AvatarUrl { get; init; }
 }
 
 /// <summary>JWT mới cho phiên vừa đổi mật khẩu; các token cũ đã bị vô hiệu bằng security stamp.</summary>
@@ -70,7 +71,8 @@ public sealed class AccountService(
                    u.CreatedAt,
                    u.Credential != null && u.Credential.PasswordHash != null,
                    u.ExternalLogins.Any(),
-                   db.Set<UserSportSpecialty>().Where(s => s.UserId == u.UserId).Select(s => s.SportId).ToList()))
+                   db.Set<UserSportSpecialty>().Where(s => s.UserId == u.UserId).Select(s => s.SportId).ToList())
+                   { AvatarUrl = u.Profile != null ? u.Profile.AvatarUrl : null })
                .SingleOrDefaultAsync(ct)
            ?? throw new NotFoundException("user_not_found", "Không tìm thấy tài khoản.");
 

@@ -1,247 +1,237 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
-import { Card, Feedback, Field } from "@/components/ui";
-import { api, ApiError } from "@/lib/apiClient";
+import { useRef, useState } from "react";
+import {
+  Activity,
+  CalendarPlus,
+  CalendarDays,
+  LockKeyhole,
+  Ruler,
+  Weight,
+  RefreshCw,
+} from "lucide-react";
+import { AsyncSection, Feedback } from "@/components/ui";
+import { api } from "@/lib/apiClient";
 import { formatDateTime } from "@/lib/format";
-import { useAction } from "@/lib/useApi";
+import { useAction, useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
-import type { MemberTrainingProfileDto } from "@/lib/types";
+import type { MemberBmiProfileDto } from "@/lib/types";
+import styles from "./bmi-profile.module.css";
 
-/**
- * Member Training Profile — Core fitness input for personal coach plans and AI recommendations.
- * Returns 204 when new member has not yet filled out their profile.
- */
+export function BmiResult({ profile }: { profile: MemberBmiProfileDto }) {
+  const { language } = useLanguage();
+  const vi = language === "vi";
+  const number = (value: number | null) =>
+    value === null
+      ? "—"
+      : new Intl.NumberFormat(vi ? "vi-VN" : "en-GB", {
+          maximumFractionDigits: 1,
+        }).format(value);
+  return (
+    <section
+      className={styles.result}
+      aria-label={
+        vi ? "Kết quả đo tại trung tâm" : "Centre measurement results"
+      }
+    >
+      <div className={styles.status}>
+        <LockKeyhole size={16} aria-hidden="true" />
+        {vi ? "Đã đo · Chỉ xem" : "Measured · Read only"}
+      </div>
+      <dl className={styles.metrics}>
+        <div>
+          <dt>
+            <Ruler size={18} aria-hidden="true" />
+            {vi ? "Chiều cao" : "Height"}
+          </dt>
+          <dd>
+            {number(profile.heightCm)} <span>cm</span>
+          </dd>
+        </div>
+        <div>
+          <dt>
+            <Weight size={18} aria-hidden="true" />
+            {vi ? "Cân nặng" : "Weight"}
+          </dt>
+          <dd>
+            {number(profile.weightKg)} <span>kg</span>
+          </dd>
+        </div>
+        <div className={styles.bmi}>
+          <dt>
+            <Activity size={18} aria-hidden="true" />
+            BMI
+          </dt>
+          <dd>
+            {number(profile.bmi)} <span>kg/m²</span>
+          </dd>
+        </div>
+      </dl>
+      <p className={styles.note}>
+        {vi
+          ? "BMI = cân nặng (kg) / chiều cao² (m)."
+          : "BMI = weight (kg) / height² (m)."}
+      </p>
+      {profile.measuredAt && (
+        <p className={styles.measuredAt}>
+          <CalendarDays size={16} aria-hidden="true" />
+          {vi ? "Ngày đo: " : "Measured: "}
+          {formatDateTime(profile.measuredAt)}
+        </p>
+      )}
+      <p className={styles.note}>
+        {vi
+          ? "Kết quả do trung tâm ghi nhận và đã khóa chỉnh sửa."
+          : "Results are recorded by the centre and locked from editing."}
+      </p>
+    </section>
+  );
+}
+
+/** Members request a centre measurement; only authorised centre staff record results. */
 export function TrainingProfile() {
   const { language } = useLanguage();
+  const vi = language === "vi";
   const action = useAction();
-  const [profile, setProfile] = useState<MemberTrainingProfileDto | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [form, setForm] = useState({
-    goal: "",
-    experienceLevel: "Beginner",
-    notes: "",
-  });
-
-  const levelOptions = useMemo(
-    () => [
-      {
-        value: "Beginner",
-        label:
-          language === "en"
-            ? "Beginner (0–6 months training)"
-            : "Mới bắt đầu (0–6 tháng tập)",
-      },
-      {
-        value: "Intermediate",
-        label:
-          language === "en"
-            ? "Intermediate (6 months–2 years)"
-            : "Trung cấp (6 tháng–2 năm)",
-      },
-      {
-        value: "Advanced",
-        label:
-          language === "en"
-            ? "Advanced (2+ years consistent)"
-            : "Nâng cao (Trên 2 năm liên tục)",
-      },
-    ],
-    [language],
+  const submitting = useRef(false);
+  const [registered, setRegistered] = useState<MemberBmiProfileDto | null>(
+    null,
   );
-
-  useEffect(() => {
-    const controller = new AbortController();
-
-    api
-      .get<MemberTrainingProfileDto | null>(
-        "/api/members/me/training-profile",
-        {
-          signal: controller.signal,
-        },
-      )
-      .then((data) => {
-        if (controller.signal.aborted || !data) return;
-
-        setProfile(data);
-        setForm({
-          goal: data.goal,
-          experienceLevel: data.experienceLevel,
-          notes: data.notes ?? "",
-        });
-      })
-      .catch((cause: unknown) => {
-        if (!controller.signal.aborted && cause instanceof ApiError)
-          action.setError(cause.message);
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setLoading(false);
-      });
-
-    return () => controller.abort();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const submit = async (event: React.FormEvent) => {
-    event.preventDefault();
-
-    const successMessage =
-      language === "en"
-        ? "Training profile saved successfully. Your assigned coach will review these details."
-        : "Hồ sơ tập luyện đã được cập nhật thành công. Huấn luyện viên sẽ tham khảo thông tin này.";
-
-    const saved = await action.run(
-      () =>
-        api.put<MemberTrainingProfileDto>("/api/members/me/training-profile", {
-          goal: form.goal.trim(),
-          experienceLevel: form.experienceLevel,
-          notes: form.notes.trim() || null,
-        }),
-      successMessage,
-    );
-
-    if (saved) setProfile(saved);
-  };
-
+  const state = useApi(
+    async (signal) => ({
+      profile: await api.get<MemberBmiProfileDto | null>(
+        "/api/members/me/bmi-profile",
+        { signal },
+      ),
+    }),
+    [],
+  );
+  async function requestMeasurement() {
+    if (submitting.current || registered || state.data?.profile) return;
+    submitting.current = true;
+    try {
+      const saved = await action.run(
+        () =>
+          api.post<MemberBmiProfileDto>(
+            "/api/members/me/bmi-measurement-request",
+          ),
+        vi
+          ? "Đã đăng ký đo tại trung tâm."
+          : "Your centre measurement request has been received.",
+      );
+      if (saved) {
+        setRegistered(saved);
+        state.reload();
+      }
+    } finally {
+      submitting.current = false;
+    }
+  }
   return (
-    <>
-      <div style={{ maxWidth: 760, margin: "0 auto" }}>
-        <Card
-          title={
-            language === "en"
-              ? "Fitness & Health Information"
-              : "Thông tin thể chất & Mục tiêu"
-          }
-          hint={
-            language === "en"
-              ? "Your coach and nutrition advisors will use this information to tailor your personal training program."
-              : "Huấn luyện viên phụ trách sẽ sử dụng hồ sơ này khi lên lịch và cường độ giáo án riêng cho bạn."
-          }
+    <div className={styles.profile}>
+      <header className={styles.header}>
+        <div>
+          <h2>{vi ? "Hồ sơ BMI" : "BMI Profile"}</h2>
+          <p>
+            {vi
+              ? "Chiều cao, cân nặng và chỉ số BMI được đo tại trung tâm."
+              : "Height, weight and BMI measured at the centre."}
+          </p>
+        </div>
+        <button
+          type="button"
+          className="btn btn--quiet btn--sm"
+          disabled={state.loading || action.busy}
+          onClick={() => {
+            setRegistered(null);
+            state.reload();
+          }}
         >
-          {loading ? (
-            <div
-              style={{
-                padding: "32px 16px",
-                textAlign: "center",
-                color: "var(--ink-500, #64748b)",
-              }}
-            >
-              ⏳{" "}
-              {language === "en"
-                ? "Loading your profile..."
-                : "Đang tải hồ sơ của bạn..."}
-            </div>
-          ) : (
-            <form className="form" onSubmit={submit}>
-              <Field
-                label={
-                  language === "en"
-                    ? "Primary Training Goal"
-                    : "Mục tiêu tập luyện chính"
-                }
-                hint={
-                  language === "en"
-                    ? "Specific targets help us recommend suitable classes and intensities."
-                    : "Mục tiêu cụ thể giúp hệ thống và HLV gợi ý lớp tập và bài tập chuẩn xác."
-                }
-              >
-                <input
-                  value={form.goal}
-                  required
-                  minLength={3}
-                  maxLength={200}
-                  placeholder={
-                    language === "en"
-                      ? "e.g. Lose 5kg in 3 months, improve core mobility, prepare for marathon"
-                      : "Ví dụ: Giảm 5kg trong 3 tháng, tăng sức bền cơ bắp, tập luyện chuẩn bị chạy marathon"
-                  }
-                  onChange={(event) =>
-                    setForm({ ...form, goal: event.target.value })
-                  }
-                />
-              </Field>
-
-              <Field
-                label={
-                  language === "en"
-                    ? "Current Experience Level"
-                    : "Trình độ tập luyện hiện tại"
-                }
-              >
-                <select
-                  value={form.experienceLevel}
-                  onChange={(event) =>
-                    setForm({ ...form, experienceLevel: event.target.value })
-                  }
-                >
-                  {levelOptions.map((level) => (
-                    <option key={level.value} value={level.value}>
-                      {level.label}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-
-              <Field
-                label={
-                  language === "en"
-                    ? "Health Notes & Physical Limitations (Optional)"
-                    : "Lưu ý sức khỏe & Tiền sử chấn thương (Không bắt buộc)"
-                }
-                hint={
-                  language === "en"
-                    ? "Past injuries, joint mobility limitations, or cardiovascular notes our coaches should know."
-                    : "Chấn thương cũ, hạn chế khớp hoặc tình trạng tim mạch cần HLV lưu ý để đảm bảo an toàn."
-                }
-              >
-                <textarea
-                  value={form.notes}
-                  rows={4}
-                  maxLength={500}
-                  placeholder={
-                    language === "en"
-                      ? "e.g. Lower back stiffness when lifting heavy, mild asthma during intense HIIT cardio..."
-                      : "Ví dụ: Hay bị mỏi lưng dưới khi gánh tạ, từng phẫu thuật dây chằng gối phải năm 2023..."
-                  }
-                  onChange={(event) =>
-                    setForm({ ...form, notes: event.target.value })
-                  }
-                />
-              </Field>
-
-              <Feedback error={action.error} success={action.success} />
-
-              <div
-                className="row spread"
-                style={{ alignItems: "center", marginTop: 16 }}
-              >
-                <button
-                  type="submit"
-                  className="btn btn--primary"
-                  disabled={action.busy}
-                  style={{ minWidth: 140 }}
-                >
-                  {action.busy
-                    ? language === "en"
-                      ? "Saving..."
-                      : "Đang lưu..."
-                    : language === "en"
-                      ? "Save Profile"
-                      : "Lưu hồ sơ"}
-                </button>
-                {profile && (
-                  <span className="small muted">
-                    {language === "en"
-                      ? "Last updated: "
-                      : "Cập nhật gần nhất: "}
-                    {formatDateTime(profile.updatedAt)}
-                  </span>
+          <RefreshCw size={16} aria-hidden="true" />
+          {vi ? "Cập nhật" : "Refresh"}
+        </button>
+      </header>
+      <AsyncSection state={state}>
+        {(data) => {
+          const profile = data.profile ?? registered;
+          if (profile?.status === "MEASURED")
+            return <BmiResult profile={profile} />;
+          if (profile)
+            return (
+              <section className={styles.appointment}>
+                <CalendarDays size={28} aria-hidden="true" />
+                <h3>
+                  {profile.appointmentAt
+                    ? vi
+                      ? "Lịch đo đã được xác nhận"
+                      : "Your measurement is scheduled"
+                    : vi
+                      ? "Đang chờ trung tâm xếp lịch"
+                      : "Awaiting a measurement appointment"}
+                </h3>
+                {profile.appointmentAt ? (
+                  <p className={styles.appointmentTime}>
+                    {formatDateTime(profile.appointmentAt)}
+                  </p>
+                ) : (
+                  <p>
+                    {vi
+                      ? "Trung tâm đã nhận yêu cầu. Lịch đo sẽ hiển thị tại đây sau khi được xác nhận."
+                      : "The centre has received your request. Your appointment will appear here once confirmed."}
+                  </p>
                 )}
-              </div>
-            </form>
-          )}
-        </Card>
-      </div>
-    </>
+                <dl className={styles.requestFacts}>
+                  <div>
+                    <dt>{vi ? "Địa điểm" : "Location"}</dt>
+                    <dd>
+                      {vi
+                        ? "Quầy tư vấn thể chất · SportHub"
+                        : "Fitness consultation desk · SportHub"}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>{vi ? "Ngày đăng ký" : "Requested"}</dt>
+                    <dd>{formatDateTime(profile.requestedAt)}</dd>
+                  </div>
+                </dl>
+                <p className={styles.note}>
+                  {vi
+                    ? "Kết quả sẽ được cập nhật sau khi bạn đến trung tâm đo."
+                    : "Your results will be available after your centre measurement."}
+                </p>
+              </section>
+            );
+          return (
+            <section className={styles.appointment}>
+              <Activity size={28} aria-hidden="true" />
+              <h3>
+                {vi ? "Bạn chưa có kết quả đo BMI" : "No BMI measurement yet"}
+              </h3>
+              <p>
+                {vi
+                  ? "Đăng ký nhận lịch đo chiều cao và cân nặng tại trung tâm. BMI sẽ được tính tự động từ kết quả đo."
+                  : "Request an appointment to measure your height and weight at the centre. BMI is calculated automatically from your measurements."}
+              </p>
+              <button
+                type="button"
+                className="btn"
+                disabled={action.busy || !!registered}
+                onClick={requestMeasurement}
+              >
+                <CalendarPlus size={18} aria-hidden="true" />
+                {action.busy
+                  ? vi
+                    ? "Đang đăng ký…"
+                    : "Submitting…"
+                  : vi
+                    ? "Đăng ký lịch đo tại trung tâm"
+                    : "Request a centre measurement"}
+              </button>
+            </section>
+          );
+        }}
+      </AsyncSection>
+      <Feedback error={action.error} success={action.success} />
+    </div>
   );
 }

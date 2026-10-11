@@ -15,7 +15,10 @@ import type { Paged, UserAdminDto } from "@/lib/types";
 import { useDeskMember } from "./desk-context";
 import { GymVisits, MemberWallet } from "./front-desk";
 import { SelectedMemberPanel } from "./selected-member";
+import { BmiDesk, BmiRequestQueue } from "@/features/training";
 import styles from "./desk.module.css";
+import { AvatarImage } from "@/components/AvatarImage";
+import { ReportAvatarButton } from "@/components/ReportAvatarButton";
 
 /** Danh sách hội viên (H02): tên/SĐT/email, mở hồ sơ vận hành. */
 export function MemberList() {
@@ -42,67 +45,81 @@ export function MemberList() {
     [search, page],
   );
   return (
-    <Card title={l.membersSearch}>
-      <div className={styles.search}>
-        <Field label={l.findMember}>
-          <input
-            type="search"
-            value={keyword}
-            onChange={(e) => setKeyword(e.target.value)}
-            autoFocus
-          />
-        </Field>
-        <p className={styles.hint}>{l.membersPrompt}</p>
-      </div>
-      <AsyncSection state={state}>
-        {(data) => {
-          const rows = pagedItems(data);
-          if (!rows.length)
-            return <p className={styles.hint}>{l.membersEmpty}</p>;
-          return (
-            <>
-              <Table headers={[l.colName, l.colContact, l.colStatus, ""]}>
-                {rows.map((m) => (
-                  <tr key={m.userId}>
-                    <td>{m.fullName || m.email}</td>
-                    <td>
-                      {m.email}
-                      {m.phone ? ` · ${m.phone}` : ""}
-                    </td>
-                    <td>
-                      <StatusChip value={m.status} />
-                    </td>
-                    <td>
-                      <Link
-                        className="btn btn--secondary btn--sm"
-                        href={`/receptionist/members/${m.userId}`}
-                        onClick={() => setMember(m)}
-                      >
-                        {l.openProfile}
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </Table>
-              <Pagination
-                page={page}
-                count={data.totalCount}
-                onChange={setPage}
-              />
-            </>
-          );
-        }}
-      </AsyncSection>
-    </Card>
+    <div>
+      <BmiRequestQueue basePath="/receptionist/members" />
+      <Card title={l.membersSearch}>
+        <div className={styles.search}>
+          <Field label={l.findMember}>
+            <input
+              type="search"
+              value={keyword}
+              onChange={(e) => setKeyword(e.target.value)}
+              autoFocus
+            />
+          </Field>
+          <p className={styles.hint}>{l.membersPrompt}</p>
+        </div>
+        <AsyncSection state={state}>
+          {(data) => {
+            const rows = pagedItems(data);
+            if (!rows.length)
+              return <p className={styles.hint}>{l.membersEmpty}</p>;
+            return (
+              <>
+                <Table headers={[l.colName, l.colContact, l.colStatus, ""]}>
+                  {rows.map((m) => (
+                    <tr key={m.userId}>
+                      <td>
+                        <AvatarImage
+                          name={m.fullName || m.email}
+                          avatarUrl={m.avatarUrl}
+                          size={32}
+                        />{" "}
+                        {m.fullName || m.email}
+                      </td>
+                      <td>
+                        {m.email}
+                        {m.phone ? ` · ${m.phone}` : ""}
+                      </td>
+                      <td>
+                        <StatusChip value={m.status} />
+                      </td>
+                      <td>
+                        <ReportAvatarButton
+                          targetUserId={m.userId}
+                          avatarUrl={m.avatarUrl}
+                        />
+                        <Link
+                          className="btn btn--secondary btn--sm"
+                          href={`/receptionist/members/${m.userId}`}
+                          onClick={() => setMember(m)}
+                        >
+                          {l.openProfile}
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </Table>
+                <Pagination
+                  page={page}
+                  count={data.totalCount}
+                  onChange={setPage}
+                />
+              </>
+            );
+          }}
+        </AsyncSection>
+      </Card>
+    </div>
   );
 }
 
-type TabId = "overview" | "visits" | "wallet" | "invoices";
-const TABS: TabId[] = ["overview", "visits", "wallet", "invoices"];
+type TabId = "overview" | "visits" | "wallet" | "invoices" | "bmi";
+const TABS: TabId[] = ["overview", "visits", "wallet", "invoices", "bmi"];
 
 /** Hồ sơ vận hành (H02) + ví điểm của hội viên (H11). Chỉ dữ liệu phục vụ quầy. */
 export function MemberProfile({ memberId }: { memberId: string }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const l = t.frontDesk;
   const router = useRouter();
   const pathname = usePathname();
@@ -125,6 +142,7 @@ export function MemberProfile({ memberId }: { memberId: string }) {
     visits: l.tabVisits,
     wallet: l.tabWallet,
     invoices: l.tabInvoices,
+    bmi: language === "vi" ? "Hồ sơ BMI" : "BMI Profile",
   };
 
   if (!current)
@@ -157,6 +175,9 @@ export function MemberProfile({ memberId }: { memberId: string }) {
       >
         <div className={styles.tabsBody}>
           {tab === "overview" && <OverviewHint />}
+          {tab === "bmi" && (
+            <BmiDesk key={current.userId} memberId={current.userId} />
+          )}
           {tab === "visits" && <GymVisits memberId={current.userId} />}
           {tab === "wallet" && (
             <>

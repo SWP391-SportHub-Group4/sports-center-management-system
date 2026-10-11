@@ -416,7 +416,7 @@ public sealed class ClassService(
             })));
 
         notifications.Queue(new NotificationRequest(coachId, NotificationEvents.ClassPublished,
-            $"Khóa {entity.Name} đã được mở với {sessions.Count} buổi. Buổi đầu: {VietnamTime.ToLocal(first.StartAtUtc):HH:mm dd/MM/yyyy}."));
+            $"Course {entity.Name} is open with {sessions.Count} sessions. First session: {VietnamTime.ToLocal(first.StartAtUtc):HH:mm dd/MM/yyyy}."));
 
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);

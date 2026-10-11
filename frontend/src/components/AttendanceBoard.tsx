@@ -1,4 +1,5 @@
 "use client";
+import { UserAvatar } from "./UserAvatar";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/apiClient";
 import { useAuth } from "@/lib/auth";
@@ -220,7 +221,15 @@ export function AttendanceBoard({
                   const key = `${sessionId}-${r.enrollmentId}`;
                   return (
                     <tr key={key}>
-                      <td>{r.memberName}</td>
+                      <td>
+                        <UserAvatar
+                          userId={r.memberId}
+                          name={r.memberName}
+                          size={28}
+                          report
+                        />{" "}
+                        {r.memberName}
+                      </td>
                       <td>
                         <StatusChip value={r.attendanceStatus} />
                       </td>

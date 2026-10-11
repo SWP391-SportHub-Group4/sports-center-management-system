@@ -31,6 +31,7 @@ using SportHub.Identity.Application.Interfaces;
 using SportHub.Identity.Application.Services;
 using SportHub.Identity.Infrastructure.Email;
 using SportHub.Identity.Infrastructure.Repositories;
+using SportHub.Identity.Infrastructure;
 using SportHub.Identity.Infrastructure.Security;
 using SportHub.Identity;
 using SportHub.Membership.Application.Interfaces;
@@ -136,6 +137,16 @@ builder.Services.AddRateLimiter(options =>
                 QueueProcessingOrder = QueueProcessingOrder.OldestFirst
             }));
 
+    options.AddPolicy("avatar-write", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+                ?? httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10, Window = TimeSpan.FromMinutes(1), QueueLimit = 0,
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst
+            }));
+
     options.AddPolicy("vnp-ipn", httpContext =>
         RateLimitPartition.GetFixedWindowLimiter(
             partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
@@ -168,6 +179,9 @@ builder.Services.AddScoped<IUserAccountRepository, UserAccountRepository>();
 builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IAccountService, AccountService>();
+builder.Services.AddScoped<AvatarService>();
+builder.Services.AddHttpClient<IAvatarStorage, CloudinaryAvatarStorage>(client =>
+    client.Timeout = TimeSpan.FromSeconds(30));
 builder.Services.AddScoped<IPasswordResetService, PasswordResetService>();
 builder.Services.AddScoped<EmailOtpFlow>();
 builder.Services.AddScoped<CoachSpecialtyService>();
@@ -229,6 +243,7 @@ builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Membership.IMemb
 builder.Services.AddScoped<IMemberPackageService, MemberPackageService>();
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Membership.IMembershipRefundFulfillment, MembershipRefundFulfillment>();
 builder.Services.AddScoped<IMemberTrainingProfileService, MemberTrainingProfileService>();
+builder.Services.AddScoped<MemberBmiProfileService>();
 builder.Services.AddScoped<IMembershipReportService, MembershipReportService>();
 
 // Notification
@@ -394,6 +409,7 @@ builder.Services.AddHostedService<CheckoutExpiryJob>();
 builder.Services.AddHostedService<PaymentReconciliationJob>();
 builder.Services.AddHostedService<PointHoldExpiryJob>();
 builder.Services.AddHostedService<NotificationDispatchJob>();
+builder.Services.AddHostedService<AvatarDeletionJob>();
 
 builder.Services.AddControllers()
     .AddApplicationPart(typeof(IdentityModuleMarker).Assembly)
@@ -418,6 +434,29 @@ builder.Services.AddScoped<Br141DemoSeeder>();
 builder.Services.AddScoped<PaymentNoticeService>();
 
 var app = builder.Build();
+
+if (args.Any(a => a == "--seed-member-calendar=true"))
+{
+    if (!app.Environment.IsDevelopment())
+        throw new InvalidOperationException("Member calendar fixtures are only available in Development.");
+    var calendarDatabase = new Npgsql.NpgsqlConnectionStringBuilder(app.Configuration.GetConnectionString("Default"));
+    if (calendarDatabase.Host is not ("localhost" or "127.0.0.1" or "::1"))
+        throw new InvalidOperationException("Calendar fixtures must target a local Development database.");
+    await using var calendarScope = app.Services.CreateAsyncScope();
+    await calendarScope.ServiceProvider.GetRequiredService<DemoDataSeeder>().SeedMemberCalendarAsync();
+    return;
+}
+
+// Kế hoạch tập coach.pt giao cho an.member (idempotent), để xem giao diện Member trên DB đã có dữ liệu:
+//   dotnet run --project backend/SportHub.API -- --seed-member-training=true
+if (args.Any(a => a == "--seed-member-training=true"))
+{
+    if (!app.Environment.IsDevelopment())
+        throw new InvalidOperationException("Demo fixtures are only available in Development.");
+    await using var trainingScope = app.Services.CreateAsyncScope();
+    await trainingScope.ServiceProvider.GetRequiredService<DemoDataSeeder>().SeedMemberWorkoutPlanAsync();
+    return;
+}
 
 // Seed demo BR-141 (lớp cố định + giá thuê sân): lệnh riêng, chạy tay khi sẵn sàng, không chạy lúc khởi động bình thường.
 //   dotnet run --project backend/SportHub.API -- --seed-br141=true

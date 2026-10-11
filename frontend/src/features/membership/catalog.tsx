@@ -23,17 +23,21 @@ export function MembershipCatalog({
   compact = false,
   dense = false,
   paymentModal = false,
+  gymActive = true,
 }: {
   purchase?: boolean;
   compact?: boolean;
   dense?: boolean;
   paymentModal?: boolean;
+  /** Gói PT chỉ bán khi Member đã có Membership Gym đang hiệu lực. */
+  gymActive?: boolean;
   /** Gói hội viên đã có: cùng loại gói đang hiệu lực hoặc chờ thanh toán thì chưa mua lại được. */
   owned?: MemberPackageDto[];
 }) {
   const { t, language } = useLanguage();
   const text = (vi: string, en: string) => (language === "vi" ? vi : en);
   const [selected, setSelected] = useState<number | null>(null);
+  const [planId, setPlanId] = useState<number | null>(null);
   const state = useApi(
     async (signal) =>
       purchase
@@ -44,7 +48,67 @@ export function MembershipCatalog({
     [purchase],
   );
   const activePackages =
-    state.data?.filter((packageItem) => packageItem.isActive) ?? [];
+    state.data?.filter(
+      (packageItem) =>
+        packageItem.isActive &&
+        (gymActive || !/^\s*personal\s*training/i.test(packageItem.name)),
+    ) ?? [];
+  // Gói Gym theo thời hạn (1/3/6/12 tháng) gom thành một bộ chọn thay vì 4 thẻ rời.
+  const gymPlans = compact
+    ? activePackages
+        .filter(
+          (item) =>
+            /^\s*gym\b/i.test(item.name) && !/\bPT\b|personal/i.test(item.name),
+        )
+        .sort((a, b) => a.durationDays - b.durationDays)
+    : [];
+  const showPlanPicker = gymPlans.length >= 2;
+  const gridPackages = showPlanPicker
+    ? activePackages.filter((item) => !gymPlans.includes(item))
+    : activePackages;
+  const plan =
+    gymPlans.find((item) => item.packageId === planId) ?? gymPlans[0];
+  const monthsOf = (days: number) => Math.max(1, Math.round(days / 30.4));
+  const renderAction = (p: (typeof activePackages)[number]) => {
+    const have = owned.find(
+      (o) =>
+        o.packageId === p.packageId &&
+        ["ACTIVE", "PENDING_PAYMENT"].includes(o.status.toUpperCase()),
+    );
+    return have ? (
+      <p role="note" className="muted">
+        {t.memberDashboardV2.ownedPackage.replace(
+          "{date}",
+          formatDate(have.endDate),
+        )}
+      </p>
+    ) : paymentModal ? (
+      <CheckoutPanel
+        modal
+        intent={{
+          kind: "membership",
+          body: {
+            packageId: p.packageId,
+            allowStacking: false,
+          },
+        }}
+        review={{
+          title: text("Thanh toán gói Gym", "Gym package payment"),
+          submitLabel: text("Thanh toán", "Payment"),
+          items: [
+            {
+              label: text("Gói tập", "Package"),
+              value: p.name,
+            },
+          ],
+        }}
+      />
+    ) : (
+      <button onClick={() => setSelected(p.packageId)}>
+        {text("Kiểm tra & thanh toán", "Review & checkout")}
+      </button>
+    );
+  };
   const programs = useApi(
     async (signal) => {
       if (purchase)
@@ -144,9 +208,84 @@ export function MembershipCatalog({
         </p>
       ) : (
         <>
-          {purchase ? (
+          {purchase && showPlanPicker && plan && (
+            <section
+              className={styles.planPicker}
+              aria-labelledby="gym-plan-title"
+            >
+              <h3 id="gym-plan-title">
+                {text("Chọn thời hạn Gym", "Choose your Gym duration")}
+              </h3>
+              <div
+                className={styles.planTabs}
+                role="radiogroup"
+                aria-labelledby="gym-plan-title"
+              >
+                {gymPlans.map((item) => {
+                  const months = monthsOf(item.durationDays);
+                  return (
+                    <button
+                      key={item.packageId}
+                      type="button"
+                      role="radio"
+                      aria-checked={item.packageId === plan.packageId}
+                      onClick={() => setPlanId(item.packageId)}
+                    >
+                      <strong>{months}</strong>
+                      <span>
+                        {text("tháng", months === 1 ? "month" : "months")}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              <div className={styles.planBody}>
+                <p className={styles.planPrice}>
+                  <strong>{formatMoney(plan.price)}</strong>
+                  <span>
+                    {" "}
+                    · {plan.durationDays} {t.refactor.days}
+                  </span>
+                </p>
+                <p className={styles.planMeta}>
+                  {"≈ "}
+                  {formatMoney(
+                    Math.round(plan.price / monthsOf(plan.durationDays)),
+                  )}
+                  {text("/tháng", "/month")}
+                  {(() => {
+                    const base = gymPlans[0];
+                    const months = monthsOf(plan.durationDays);
+                    const saving =
+                      months > 1 && monthsOf(base.durationDays) === 1
+                        ? base.price * months - plan.price
+                        : 0;
+                    return saving > 0 ? (
+                      <b className={styles.planSaving}>
+                        {text("Tiết kiệm ", "Save ")}
+                        {formatMoney(saving)}
+                      </b>
+                    ) : null;
+                  })()}
+                </p>
+                {plan.description?.trim() && (
+                  <p
+                    lang={catalogContentLanguage(
+                      plan.description,
+                      plan.descriptionLanguage,
+                    )}
+                    dir="auto"
+                  >
+                    {plan.description}
+                  </p>
+                )}
+                {renderAction(plan)}
+              </div>
+            </section>
+          )}
+          {purchase && gridPackages.length > 0 ? (
             <div className={compact ? styles.packageGrid : "refactor-grid"}>
-              {activePackages.map((p) => (
+              {gridPackages.map((p) => (
                 <Card
                   key={p.packageId}
                   title={
@@ -211,51 +350,7 @@ export function MembershipCatalog({
                       )}
                     </>
                   )}
-                  {(() => {
-                    const have = owned.find(
-                      (o) =>
-                        o.packageId === p.packageId &&
-                        ["ACTIVE", "PENDING_PAYMENT"].includes(
-                          o.status.toUpperCase(),
-                        ),
-                    );
-                    return have ? (
-                      <p role="note" className="muted">
-                        {t.memberDashboardV2.ownedPackage.replace(
-                          "{date}",
-                          formatDate(have.endDate),
-                        )}
-                      </p>
-                    ) : paymentModal ? (
-                      <CheckoutPanel
-                        modal
-                        intent={{
-                          kind: "membership",
-                          body: {
-                            packageId: p.packageId,
-                            allowStacking: false,
-                          },
-                        }}
-                        review={{
-                          title: text(
-                            "Thanh toán gói Gym",
-                            "Gym package payment",
-                          ),
-                          submitLabel: text("Thanh toán", "Payment"),
-                          items: [
-                            {
-                              label: text("Gói tập", "Package"),
-                              value: p.name,
-                            },
-                          ],
-                        }}
-                      />
-                    ) : (
-                      <button onClick={() => setSelected(p.packageId)}>
-                        {text("Kiểm tra & thanh toán", "Review & checkout")}
-                      </button>
-                    );
-                  })()}
+                  {renderAction(p)}
                 </Card>
               ))}
             </div>

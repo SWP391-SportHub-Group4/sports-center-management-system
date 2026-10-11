@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
+const courseStart = new Date(Date.now() + 30 * 86400000).toISOString();
 const course = {
   classId: 1,
   code: "BAD-01",
@@ -10,13 +11,13 @@ const course = {
   coachName: "Coach",
   defaultRoomId: 1,
   roomName: "Court 1",
-  startDate: "2026-10-12",
+  startDate: courseStart.slice(0, 10),
   numSessions: 6,
   capacity: 12,
   availableSeats: 8,
   price: 200000,
   status: "PUBLISHED",
-  firstSessionStartUtc: "2026-10-12T11:00:00Z",
+  firstSessionStartUtc: courseStart,
   scheduleRules: [],
 };
 test.beforeEach(async ({ page }) => {
@@ -26,6 +27,10 @@ test.beforeEach(async ({ page }) => {
   });
   await page.route("**/api/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
+    if (path === "/api/members/me/bmi-profile") {
+      await route.fulfill({ status: 204 });
+      return;
+    }
     let json: unknown = [];
     if (path === "/api/users/me")
       json = {
@@ -142,24 +147,109 @@ test.beforeEach(async ({ page }) => {
   });
 });
 test("course catalog replaces per-session enrollment", async ({ page }) => {
+  const invoiceId = "55555555-5555-4555-8555-555555555555";
+  let checkoutRequest: unknown;
+  await page.route("**/api/checkouts/class", async (route) => {
+    checkoutRequest = route.request().postDataJSON();
+    await route.fulfill({ json: { invoiceId } });
+  });
+  await page.route("**/api/members/me/enrollments?*", (route) =>
+    route.fulfill({
+      json: { items: [], page: 1, pageSize: 100, totalCount: 0 },
+    }),
+  );
   await page.goto("/member/discover");
   await expect(
     page.getByRole("heading", { name: "Badminton course" }),
   ).toBeVisible({ timeout: 15000 });
   await expect(page.getByRole("button", { name: /Book Spot/ })).toHaveCount(0);
-  await page.getByRole("link", { name: "View details", exact: true }).click();
-  await expect(page).toHaveURL(/\/member\/services\/courses\/1$/);
+  await page.getByRole("listitem").filter({ hasText: "Badminton course" })
+    .getByRole("button", { name: "Select" }).click();
+  await expect(page).toHaveURL(new RegExp(`/checkout/${invoiceId}$`));
+  expect(checkoutRequest).toEqual({ classId: 1 });
+});
+test("registered courses cannot be purchased a second time", async ({
+  page,
+}) => {
+  await page.goto("/member/services/courses/1");
+  await expect(
+    page.getByText("You are registered for this class", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "View registered class" }),
+  ).toHaveAttribute("href", "/member/schedule?course=1");
   await expect(
     page.getByRole("button", { name: "Payment", exact: true }),
-  ).toBeVisible();
+  ).toHaveCount(0);
 });
-test("profile validation and training goal edits persist", async ({ page }) => {
+
+test("members request a centre BMI measurement only once", async ({ page }) => {
+  let requested = false;
+  let submissions = 0;
+  const profile = {
+    memberId: "member-1",
+    status: "REQUESTED",
+    requestedAt: new Date().toISOString(),
+    appointmentAt: null,
+    heightCm: null,
+    weightKg: null,
+    bmi: null,
+    measuredAt: null,
+  };
+  await page.route("**/api/members/me/bmi-profile", (route) =>
+    route.fulfill(requested ? { json: profile } : { status: 204 }),
+  );
+  await page.route("**/api/members/me/bmi-measurement-request", (route) => {
+    expect(route.request().method()).toBe("POST");
+    submissions++;
+    requested = true;
+    return route.fulfill({ json: profile });
+  });
   await page.goto("/member/profile");
-  const input = page.locator("input[required]").first();
-  await expect(input).toBeVisible();
-  await input.fill("Run a 10km marathon");
-  await page.getByRole("button", { name: /Save Profile/ }).click();
-  await expect(page.getByRole("status")).toBeVisible();
+  await page
+    .getByRole("button", { name: "Request a centre measurement" })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Awaiting a measurement appointment" }),
+  ).toBeVisible();
+  await page.reload();
+  await expect(
+    page.getByRole("heading", { name: "Awaiting a measurement appointment" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Request a centre measurement" }),
+  ).toHaveCount(0);
+  expect(submissions).toBe(1);
+});
+
+test("measured BMI profiles show locked centre results", async ({ page }) => {
+  await page.route("**/api/members/me/bmi-profile", (route) =>
+    route.fulfill({
+      json: {
+        memberId: "member-1",
+        status: "MEASURED",
+        requestedAt: "2026-10-01T00:00:00Z",
+        appointmentAt: null,
+        heightCm: 175,
+        weightKg: 70,
+        bmi: 22.9,
+        measuredAt: "2026-10-02T00:00:00Z",
+      },
+    }),
+  );
+  await page.goto("/member/profile");
+  const results = page.getByRole("region", {
+    name: "Centre measurement results",
+  });
+  await expect(results).toBeVisible();
+  await expect(results).toContainText("175");
+  await expect(results).toContainText("70");
+  await expect(results).toContainText("22.9");
+  await expect(results).toContainText("Measured · Read only");
+  await expect(page.locator("#main-content input")).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Request a centre measurement" }),
+  ).toHaveCount(0);
 });
 test("dashboard does not issue an entrance pass", async ({ page }) => {
   await page.goto("/member");
@@ -169,19 +259,24 @@ test("dashboard does not issue an entrance pass", async ({ page }) => {
 test("Gym and PT purchases are separate", async ({ page }) => {
   await page.goto("/member/services?section=gym&view=explore");
   await expect(
-    page.getByRole("heading", { name: "Membership", exact: true }),
+    page.getByRole("heading", { name: "Gym Membership", exact: true }),
   ).toBeVisible();
-  // An active membership is shown instead of another purchase action.
-  await expect(page.getByRole("heading", { name: "Your Gym is active" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Gym monthly" })).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Review & checkout" }),
+    page.getByRole("region", { name: "Gym Membership" })
+      .getByRole("button", { name: /Active until/ }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: "Gym Membership" })
+      .getByRole("button", { name: "Select" }),
   ).toHaveCount(0);
+  await page.getByRole("group", { name: "Filter by package type" })
+    .getByRole("button", { name: /PT 1/ }).click();
   await expect(
-    page.getByRole("heading", { name: "Personal training", exact: true }),
+    page.getByRole("heading", { name: "Personal training 1-1", exact: true }),
   ).toBeVisible({ timeout: 15000 });
   await expect(
-    page.getByRole("link", { name: "Book & pay for PT" }),
+    page.getByRole("region", { name: "Personal training 1-1" })
+      .getByRole("link", { name: "Select" }),
   ).toHaveAttribute("href", "/member/training?tab=book");
 });
 test("notification links resolve to real Member views", async ({ page }) => {
@@ -258,7 +353,7 @@ test("the member header stays mounted and pinned while moving between tabs", asy
   await page.evaluate(() => {
     (document.querySelector("header") as HTMLElement).dataset.mounted = "yes";
   });
-  for (const name of ["My schedule", "Services", "Finance", "Overview"]) {
+  for (const name of ["My schedule", "Services", "Billing", "Overview"]) {
     await nav.getByRole("link", { name, exact: true }).click();
     await expect(nav.getByRole("link", { name, exact: true })).toHaveAttribute(
       "aria-current",

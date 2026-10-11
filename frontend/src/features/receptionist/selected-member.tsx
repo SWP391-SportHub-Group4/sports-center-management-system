@@ -15,6 +15,8 @@ import type {
   UserAdminDto,
 } from "@/lib/types";
 import styles from "./desk.module.css";
+import { AvatarImage } from "@/components/AvatarImage";
+import { ReportAvatarButton } from "@/components/ReportAvatarButton";
 
 /**
  * Hội viên đang phục vụ: tên, Membership, đang trong Gym hay không, và các thao tác kế tiếp.
@@ -92,6 +94,11 @@ export function SelectedMemberPanel({
   return (
     <section className={styles.selected} aria-label={l.selectedMember}>
       <div className={styles.selectedTop}>
+        <AvatarImage
+          name={member.fullName || member.email}
+          avatarUrl={member.avatarUrl}
+          size={64}
+        />
         <div>
           <h2 className={styles.selectedName}>
             {member.fullName || member.email}
@@ -100,6 +107,10 @@ export function SelectedMemberPanel({
             {member.email}
             {member.phone ? ` · ${member.phone}` : ""}
           </p>
+          <ReportAvatarButton
+            targetUserId={member.userId}
+            avatarUrl={member.avatarUrl}
+          />
         </div>
         <button
           type="button"

@@ -51,6 +51,19 @@ async function receptionistFixture(page: Page) {
           json: {
             userId:
               receptionistId,
+test("only receptionist UI writes group attendance and uses enrollment+session identity", async ({ page }) => {
+  let payload: unknown = null;
+  await page.route(`**/api/class-sessions/${sessionId}/attendance/${enrollmentId}`, async (route) => {
+    payload = route.request().postDataJSON();
+    await route.fulfill({ json: { ok: true } });
+  });
+  await page.goto("/receptionist/attendance");
+  await page.getByLabel("Course registration").selectOption("7");
+  await page.getByLabel("Sessions").selectOption(sessionId);
+  await expect(page.getByRole("row", { name: /Member A.*Present Absent/ })).toBeVisible();
+  await page.getByRole("button", { name: "Present", exact: true }).click();
+  await expect.poll(() => payload).toEqual({ status: "PRESENT" });
+});
 
             fullName:
               "Receptionist",
@@ -856,3 +869,8 @@ test(
     ).toBeVisible();
   },
 );
+test("attendance deep link opens the right class session and explains a closed window", async ({ page }) => {
+  await page.goto(`/receptionist/attendance?date=2030-10-03&session=${sessionId}`);
+  await expect(page.getByRole("row", { name: /Member A.*Present Absent/ })).toBeVisible();
+  await expect(page.getByText("0 of 1 recorded")).toBeVisible();
+});

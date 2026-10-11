@@ -7,8 +7,8 @@ SportHub là **hệ thống quản lý trung tâm thể thao với ba môn Gym (
 1. Yêu cầu trực tiếp đã xác nhận của chủ sản phẩm, bao gồm phạm vi ba môn và PT thuộc Gym.
 2. [Business Rules](SportManagement_BusinessRules_v2.0_updated.docx): quy tắc nghiệp vụ cụ thể.
 3. [Thiết kế hệ thống](Center-Management-System-Design-v3.md): kiến trúc, dữ liệu, transaction, luồng và khoảng trống triển khai.
-4. [Requirements](Requirements.md), [từ điển dữ liệu](entity-field-purpose.md), [API contract](api-contract.md): yêu cầu, field/mapping và hợp đồng tích hợp.
-5. [PRODUCT](../PRODUCT.md), [DESIGN-SKILLS-GUIDE](../DESIGN-SKILLS-GUIDE.md), [DESIGN-TOKENS](../DESIGN-TOKENS.md): sản phẩm, quy trình thiết kế và nguồn token duy nhất. Page/API được phân vào bốn file giao việc frontend.
+4. [Requirements](Requirements.md), [API contract](api-contract.md), Phụ lục A (từ điển dữ liệu) của [thiết kế hệ thống](Center-Management-System-Design-v3.md): yêu cầu, field/mapping và hợp đồng tích hợp.
+5. [PRODUCT](../PRODUCT.md), [DESIGN-SKILLS-GUIDE](../DESIGN-SKILLS-GUIDE.md), [DESIGN-TOKENS](../DESIGN-TOKENS.md): sản phẩm, quy trình thiết kế và nguồn token duy nhất.
 
 Mã nguồn/controller/configuration xác định hành vi đã triển khai, không tự thay thế yêu cầu nghiệp vụ. Khi thiết kế và mã khác nhau, ghi gap cùng evidence; không tuyên bố hoàn thành chỉ vì đã có trong tài liệu. SRS Word là tài liệu yêu cầu tổng quan; các mô tả chi tiết chưa đồng bộ phải đọc theo phạm vi và thiết kế hiện hành.
 
@@ -62,8 +62,13 @@ Ngoài phạm vi: đa chi nhánh, payroll/hợp đồng, chia doanh thu với ng
 - Checkout (A15, đã triển khai): hai cột, tóm tắt hiển thị tổng/điểm/tiền còn lại đúng số server; đồng hồ giữ chỗ tính từ `expiresAtUtc − serverNowUtc` và không reset khi reload; hết giờ thì dừng thao tác và tải lại, FE không "release slot"; quay lại tab thì tải lại ví và đơn; return từ cổng thanh toán không chứng minh đã thu. Route `/checkout/[invoiceId]`; tài chính Member ở `/member/finance?tab=wallet|invoices`, chi tiết `/member/invoices/[id]` (route cũ `/member/wallet`, `/member/invoices` chuyển hướng).
 - Quên mật khẩu bằng link email (BR-103): phản hồi trung tính; xem thiết kế v3 mục Danh tính. Trang xác thực luôn tiếng Anh.
 - “Chờ đợt sau” cần hoàn 100% điểm + subscription thông báo, không giữ tiền/chỗ hoặc tự ghi danh.
+- Avatar Member/Coach qua Cloudinary: tự thay/xóa, ảnh Coach công khai, ảnh Member cho tài khoản đăng nhập, báo cáo sau đăng tải do Manager xử lý; chi tiết tại [Avatar-Cloudinary](Avatar-Cloudinary.md).
 
 ## 5. Quy ước kỹ thuật
+
+### Language policy
+
+The product uses English only. Public pages, authenticated screens, validation and API messages, notifications, reports, and other system-generated text must be in English. There is no language switch or saved language preference. Catalog and configuration seed values stored in the database are English. User-entered names, notes, course descriptions, and other free-form content retain the language entered by the user; do not translate or overwrite them. When migrating legacy seed data, update only records whose values still match the original system seed, so manager edits remain intact. Historical invoice snapshots and notices remain as originally issued for audit integrity; new system-generated records use English.
 
 | Chủ đề | Quy ước |
 |---|---|
@@ -84,4 +89,4 @@ Ngoài phạm vi: đa chi nhánh, payroll/hợp đồng, chia doanh thu với ng
 
 Danh sách tập trung ở **mục 13 của [thiết kế hệ thống](Center-Management-System-Design-v3.md)**: payment đã có mã nhưng sandbox thật chưa nghiệm thu; callback public cần kiểm tra/sửa; mô hình Gym/PT cần đồng bộ; Manager AI, chờ đợt sau, QR Member, PT self-booking và các API hỗ trợ frontend còn thiếu.
 
-Chi tiết G01–G13 và D01–D08 được phân trực tiếp vào file [An](frontend-redesign/01-AN-MEMBER-SHARED.md), [Khôi](frontend-redesign/02-KHOI-LANDING-PUBLIC.md), [Hào](frontend-redesign/03-HAO-RECEPTION-COACH.md), [Khoa](frontend-redesign/04-KHOA-MANAGER-ADMIN.md), theo ownership trong [guide](../DESIGN-SKILLS-GUIDE.md). Không duy trì API plan riêng hoặc quyết định cũ trái phạm vi.
+Chi tiết G01–G13 và D01–D08 theo ownership trong [guide](../DESIGN-SKILLS-GUIDE.md). Không duy trì API plan riêng hoặc quyết định cũ trái phạm vi.

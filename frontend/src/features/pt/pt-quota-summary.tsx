@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { AsyncSection, Card, StatusChip, Table } from "@/components/ui";
+import { UserAvatar } from "@/components/UserAvatar";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { formatDate } from "@/lib/format";
@@ -38,7 +39,16 @@ export function PtQuotaSummary({
             >
               {rows.map((r) => (
                 <tr key={r.entitlementId}>
-                  <td>{r.memberName}</td>
+                  <td>
+                    <span className="row">
+                      <UserAvatar
+                        userId={r.memberId}
+                        name={r.memberName}
+                        size={32}
+                      />
+                      {r.memberName}
+                    </span>
+                  </td>
                   <td>{r.coachName}</td>
                   <td>
                     {formatDate(r.validityStartDate)} –{" "}
