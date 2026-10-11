@@ -10,24 +10,29 @@ public sealed record PaymentAdjustmentResponse(
     Guid InvoiceId,
     string InvoiceNumber,
     Guid? PaymentId,
-    string Type,
+    [property: SportHub.BuildingBlocks.Api.WireEnum] string Type,
     /// <summary>Số tiền hiện hành (sau override của Manager nếu có).</summary>
     decimal Amount,
     /// <summary>Số tiền Lễ tân đề nghị ban đầu; khác Amount khi Manager đã ghi đè.</summary>
     decimal RequestedAmount,
     string Reason,
-    string Status,
+    [property: SportHub.BuildingBlocks.Api.WireEnum] string Status,
     Guid RequestedByUserId,
     string RequestedByName,
     Guid? ApprovedByUserId,
     string? ApprovedByName,
     Guid? CompletedByUserId,
     string? CompletedByName,
-    string? RefundMethod,
+    [property: SportHub.BuildingBlocks.Api.WireEnum] string? RefundMethod,
     string? RefundReferenceCode,
     DateTime CreatedAt,
     DateTime? ApprovedAtUtc,
     DateTime? CompletedAtUtc,
     /// <summary>Refund đã duyệt nhưng Lễ tân chưa xác nhận thực trả.</summary>
     bool AwaitingPayout,
-    DateTime? ResolvedAt);
+    DateTime? ResolvedAt,
+    Guid? InvoiceItemId,
+    int SystemCalculatedPoints,
+    int ApprovedPoints,
+    Guid? PointLedgerEntryId,
+    bool CenterFault);

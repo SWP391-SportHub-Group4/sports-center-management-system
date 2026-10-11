@@ -5,8 +5,14 @@ public sealed record UserAdminResponse(
     string Email,
     string FullName,
     string? Phone,
-    string Role,
-    string Status,
+    [property: SportHub.BuildingBlocks.Api.WireEnum] string Role,
+    [property: SportHub.BuildingBlocks.Api.WireEnum] string Status,
     DateTime CreatedAt,
     bool HasPassword,
-    bool HasGoogleLink);
+    bool HasGoogleLink,
+
+    /// <summary>Môn chuyên môn của Coach (BR-96, thay CoachCategory); rỗng với role khác.</summary>
+    IReadOnlyList<int> SportIds)
+{
+    public string? AvatarUrl { get; init; }
+}

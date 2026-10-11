@@ -1,10 +1,14 @@
 using System.Collections.Concurrent;
 using System.Text.RegularExpressions;
+using Microsoft.AspNetCore.DataProtection;
 using SportHub.BuildingBlocks.Abstractions.Email;
+using SportHub.BuildingBlocks.Abstractions.Notifications;
+using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.Identity.Application.Services;
 using SportHub.Identity.Application.Interfaces;
 using SportHub.Identity.Domain.Entities;
 using SportHub.Identity.Domain.Enums;
+using SportHub.Notification.Infrastructure;
 
 namespace SportHub.Security.Tests.Integration;
 
@@ -54,6 +58,18 @@ public sealed class CallSpy
 /// </summary>
 public sealed class SpyUserAccountRepository(IUserAccountRepository inner, CallSpy spy) : IUserAccountRepository
 {
+    public Task<UserAuthState?> GetAuthStateAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        spy.RecordIsActive();
+
+        if (spy.ThrowOnIsActive)
+        {
+            throw new InvalidOperationException("Simulated database failure");
+        }
+
+        return inner.GetAuthStateAsync(userId, cancellationToken);
+    }
+
     public Task<bool> IsActiveAsync(Guid userId, CancellationToken cancellationToken = default)
     {
         spy.RecordIsActive();
@@ -89,6 +105,8 @@ public sealed class SpyPasswordHasher(IPasswordHasher inner, CallSpy spy) : IPas
 {
     public string Hash(string password) => inner.Hash(password);
 
+    public bool NeedsRehash(string hash) => inner.NeedsRehash(hash);
+
     public bool Verify(string password, string hash)
     {
         spy.RecordVerify();
@@ -114,17 +132,49 @@ public sealed class CapturingEmailSender : IEmailSender
 
     public Task SendAsync(string toAddress, string subject, string htmlBody, CancellationToken cancellationToken = default)
     {
-        Sent.Enqueue((toAddress, subject, htmlBody));
+        Capture(toAddress, subject, htmlBody);
         return Task.CompletedTask;
     }
 
+    public void Capture(string toAddress, string subject, string htmlBody)
+        => Sent.Enqueue((toAddress, subject, htmlBody));
+
     public int CountFor(string email)
         => Sent.Count(m => string.Equals(m.To, email, StringComparison.OrdinalIgnoreCase));
+
+    private static readonly Regex ResetTokenPattern = new(@"[?&]token=([^""&]+)", RegexOptions.Compiled);
+
+    /// <summary>Token trong link đặt lại mật khẩu của email gần nhất gửi tới địa chỉ này.</summary>
+    public string LatestResetTokenFor(string email)
+    {
+        var body = Sent.Last(m => string.Equals(m.To, email, StringComparison.OrdinalIgnoreCase)).Body;
+        return Uri.UnescapeDataString(ResetTokenPattern.Match(System.Net.WebUtility.HtmlDecode(body)).Groups[1].Value);
+    }
 
     public string LatestOtpFor(string email)
     {
         var body = Sent.Last(m => string.Equals(m.To, email, StringComparison.OrdinalIgnoreCase)).Body;
         return OtpPattern.Match(body).Groups[1].Value;
+    }
+}
+
+/// <summary>
+/// Keeps the real encrypted outbox write in API tests while exposing the queued OTP only
+/// to the test harness. The production sender remains asynchronous and is not called here.
+/// </summary>
+public sealed class CapturingOutboxNotificationWriter(
+    ISportHubDbContext db,
+    IDataProtectionProvider protection,
+    CapturingEmailSender emails) : INotificationWriter
+{
+    private readonly NotificationWriter _inner = new(db, protection);
+
+    public void Queue(NotificationRequest request) => _inner.Queue(request);
+
+    public void QueueEmail(EmailNotificationRequest request)
+    {
+        emails.Capture(request.RecipientAddress, request.Subject, request.HtmlBody);
+        _inner.QueueEmail(request);
     }
 }
 

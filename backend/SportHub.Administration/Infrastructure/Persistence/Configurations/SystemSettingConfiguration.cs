@@ -19,26 +19,80 @@ public class SystemSettingConfiguration : IEntityTypeConfiguration<SystemSetting
             .IsRequired(false)
             .OnDelete(DeleteBehavior.Restrict);
 
-        // Seed hai khoá đang dùng. Giá trị mặc định là CẤU HÌNH KỸ THUẬT ban đầu, không phải
-        // số lấy từ Business Rules: BR-50 không nêu số giờ cụ thể, BR-33 chỉ ghi "ví dụ: 7 ngày".
+        // Chỉ seed chính sách còn được phép cấu hình. Hạn hủy lớp là quy tắc cố định 30 phút,
+        // không phải SystemSetting.
         // UpdatedAt để mốc cố định (không DateTime.UtcNow) vì HasData yêu cầu giá trị hằng —
         // giá trị động sẽ làm mỗi lần chạy `dotnet ef migrations add` lại sinh ra một migration mới.
         builder.HasData(
             new SystemSetting
             {
-                Key = SystemSettingKeys.CancellationDeadlineHours,
-                Value = "12",
-                Description = "BR-50 — Số giờ tối thiểu trước giờ bắt đầu buổi học mà hội viên phải hủy "
-                              + "để được hoàn lượt tập. Giá trị được chụp lại tại thời điểm đăng ký; "
-                              + "thay đổi ở đây không ảnh hưởng các đăng ký đã xác nhận.",
+                Key = SystemSettingKeys.PackageExpiringReminderDays,
+                Value = "7",
+                Description = "BR-33 — Days before membership expiration to remind members.",
                 UpdatedAt = new DateTime(2026, 9, 21, 0, 0, 0, DateTimeKind.Utc)
             },
             new SystemSetting
             {
-                Key = SystemSettingKeys.PackageExpiringReminderDays,
-                Value = "7",
-                Description = "BR-33 — Nhắc hội viên trước bao nhiêu ngày khi gói thành viên sắp hết hạn.",
-                UpdatedAt = new DateTime(2026, 9, 21, 0, 0, 0, DateTimeKind.Utc)
+                Key = SystemSettingKeys.ClassThresholdDaysBeforeStart,
+                Value = "3",
+                Description = "BR-119 — Days before the first session to evaluate the course threshold.",
+                UpdatedAt = new DateTime(2026, 9, 30, 0, 0, 0, DateTimeKind.Utc)
+            },
+            new SystemSetting
+            {
+                Key = SystemSettingKeys.ClassThresholdResponseHours,
+                Value = "48",
+                Description = "BR-120 — Hours for members to respond when a course risks missing its threshold.",
+                UpdatedAt = new DateTime(2026, 9, 30, 0, 0, 0, DateTimeKind.Utc)
+            },
+            new SystemSetting
+            {
+                Key = SystemSettingKeys.HoldMinutes,
+                Value = "15",
+                Description = "BR-115 — Maximum minutes to hold a place and complete checkout.",
+                UpdatedAt = new DateTime(2026, 9, 30, 0, 0, 0, DateTimeKind.Utc)
+            },
+            new SystemSetting
+            {
+                Key = SystemSettingKeys.PtPricePerSessionVnd,
+                Value = "200000",
+                Description = "Demo PT price per session; the center manager must confirm the business price.",
+                UpdatedAt = new DateTime(2026, 9, 30, 0, 0, 0, DateTimeKind.Utc)
+            },
+            new SystemSetting
+            {
+                Key = SystemSettingKeys.PointsConfirmOtpMinutes,
+                Value = "5",
+                Description = "BR-139 — Minutes a points confirmation OTP remains valid at reception.",
+                UpdatedAt = new DateTime(2026, 9, 30, 0, 0, 0, DateTimeKind.Utc)
+            },
+            new SystemSetting
+            {
+                Key = SystemSettingKeys.RentalSlotMinutes,
+                Value = "60",
+                Description = "BR-126 — Court rental slot length (30 or 60 minutes).",
+                UpdatedAt = new DateTime(2026, 10, 1, 0, 0, 0, DateTimeKind.Utc)
+            },
+            new SystemSetting
+            {
+                Key = SystemSettingKeys.RentalMaxHours,
+                Value = "4",
+                Description = "BR-128 — Maximum court rental duration in hours.",
+                UpdatedAt = new DateTime(2026, 10, 1, 0, 0, 0, DateTimeKind.Utc)
+            },
+            new SystemSetting
+            {
+                Key = SystemSettingKeys.RentalAdvanceDays,
+                Value = "30",
+                Description = "BR-128 — Maximum days to book a court in advance.",
+                UpdatedAt = new DateTime(2026, 10, 1, 0, 0, 0, DateTimeKind.Utc)
+            },
+            new SystemSetting
+            {
+                Key = SystemSettingKeys.RentalCancelFreeHours,
+                Value = "24",
+                Description = "BR-129 — Minimum hours before a rental for free cancellation.",
+                UpdatedAt = new DateTime(2026, 10, 1, 0, 0, 0, DateTimeKind.Utc)
             });
     }
 }

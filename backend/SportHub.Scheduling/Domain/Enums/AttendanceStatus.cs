@@ -1,9 +1,9 @@
 namespace SportHub.Scheduling.Domain.Enums;
 
-// Kết quả điểm danh — Present/Absent ghi tay, NoShow do job tự sinh.
+// Điểm danh lớp theo khóa do Lễ tân ghi tay: chỉ Present/Absent. Không còn NoShow cho lớp nhóm (BR-53 cũ đã bỏ);
+// PT có PtSessionStatus riêng với NoShow.
 public enum AttendanceStatus
 {
     Present,
-    Absent,
-    NoShow
+    Absent
 }

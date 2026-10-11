@@ -6,5 +6,22 @@ public enum NotificationSourceEventType
     ClassCancelled,
     ScheduleChanged,
     PackageExpiring,
-    PaymentReceived
+    PaymentReceived,
+    RetiredEvent4,
+    RetiredEvent5,
+    ClassPublished,
+    ClassThresholdAtRisk,
+    RegisterOtpRequested,
+    PasswordResetOtpRequested,
+    // Hai giá trị 10, 11 đã ngừng dùng (ExternalCoach bị gỡ, BR-140). Giữ chỗ để không đổi số enum đã lưu.
+    RetiredEvent10,
+    RetiredEvent11,
+    ManualNotice,
+    IncidentResolution,
+    PointConfirmationOtpRequested,
+    InvoiceCreated = 15,
+    RefundCompleted = 16,
+    ClassTeachingUpdated = 17,
+    ClassSessionChangeRequested = 18,
+    ClassSessionChangeReviewed = 19
 }

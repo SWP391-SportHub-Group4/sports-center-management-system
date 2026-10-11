@@ -1,0 +1,33 @@
+.page {
+  min-height: 100vh;
+  background: var(--bg-page, #f3f7f5);
+}
+.main {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 140px 24px 80px;
+}
+.main h1 {
+  margin-bottom: 0.5rem;
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1rem;
+  margin-top: 2rem;
+}
+.coach {
+  display: grid;
+  justify-items: center;
+  gap: 0.75rem;
+  padding: 1.5rem;
+  border-radius: 1rem;
+  background: var(--bg-surface, white);
+  border: 1px solid var(--border-subtle, #ddd);
+  text-align: center;
+  scroll-margin-top: 8rem;
+}
+.coach h2 {
+  font-size: 1.1rem;
+  margin: 0;
+}

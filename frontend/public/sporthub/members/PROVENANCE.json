@@ -1,0 +1,22 @@
+{
+  "tool": "Built-in image_gen",
+  "date": "2026-10-08",
+  "purpose": "Illustrative member training scenes for the homepage community bookmark.",
+  "assets": [
+    {
+      "file": "gym-community.webp",
+      "prompt": "Photorealistic premium editorial photograph for SportHub sports center website, landscape 3:2. Three Vietnamese adult gym members, two women and one man in modest black and deep teal athletic outfits, training together with dumbbells in a bright modern indoor gym. Natural focused and friendly expressions, realistic correct anatomy, candid coaching-free community training, visible full heads and upper bodies comfortably framed with space around subjects. Deep court teal equipment, off-white walls, soft daylight. No logos, words, watermark, graphics. Realistic skin and gym details.",
+      "processing": "Exported as WebP, maximum 1200px width, quality 85."
+    },
+    {
+      "file": "court-community.webp",
+      "prompt": "Photorealistic premium editorial photograph for SportHub sports center website, landscape 3:2. Four Vietnamese adult members playing friendly doubles badminton on a beautiful teal indoor badminton court, two players in foreground fully visible heads to feet, others across net. Modest black and teal sportswear. Candid dynamic rally, correct anatomy, rackets and net realistic. Airy indoor sports hall with white ceiling and soft natural daylight. All main subjects comfortably inside frame, no cropped heads, no words logos watermark graphics.",
+      "processing": "Exported as WebP, maximum 1200px width, quality 85."
+    },
+    {
+      "file": "group-training.webp",
+      "prompt": "Photorealistic premium editorial photograph for SportHub sports center website, landscape 3:2. Small community of five Vietnamese adult sports center members, men and women in modest black and teal training outfits, doing warm-up mobility stretches together beside a modern indoor court, joyful authentic natural expressions, two people in foreground comfortably framed with full heads and bodies. Airy white and deep court teal sports center interior, soft natural daylight, realistic anatomy and skin. No words, logos, watermark, graphics.",
+      "processing": "Exported as WebP, maximum 1200px width, quality 85."
+    }
+  ]
+}

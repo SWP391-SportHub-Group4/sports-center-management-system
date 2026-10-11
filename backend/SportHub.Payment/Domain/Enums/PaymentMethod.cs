@@ -6,5 +6,6 @@ public enum PaymentMethod
     Cash,
     Card,
     Transfer,
-    EWallet
+    EWallet,
+    VnPay
 }

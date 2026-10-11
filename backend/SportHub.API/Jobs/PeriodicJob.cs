@@ -24,10 +24,15 @@ public abstract class PeriodicJob(IServiceProvider services, ILogger logger, Tim
         // chạy, và job đọc dữ liệu dở dang sẽ ra kết quả sai.
         using var timer = new PeriodicTimer(interval);
 
-        while (!stoppingToken.IsCancellationRequested && await timer.WaitForNextTickAsync(stoppingToken))
+        while (!stoppingToken.IsCancellationRequested)
         {
             try
-            {
+            {               
+                if (!await timer.WaitForNextTickAsync(stoppingToken))
+                {
+                    break;
+                }
+
                 await using var scope = services.CreateAsyncScope();
                 await RunOnceAsync(scope.ServiceProvider, stoppingToken);
             }

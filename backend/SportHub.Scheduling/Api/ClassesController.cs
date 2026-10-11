@@ -1,72 +1,142 @@
+using Microsoft.EntityFrameworkCore;
+using SportHub.BuildingBlocks.Abstractions.Persistence;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using SportHub.BuildingBlocks.Api;
-using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.Scheduling.Application.Commands;
-using SportHub.Scheduling.Application.DTOs;
 using SportHub.Scheduling.Application.Interfaces;
-using SportHub.Scheduling.Application.Services;
+using SportHub.Scheduling.Threshold.Application;
 
 namespace SportHub.Scheduling.Api;
 
-/// <summary>Lớp học và mẫu lịch lặp — BR-12, BR-14, BR-15.</summary>
+/// <summary>
+/// Khóa học theo môn nhóm. Công chúng chỉ thấy khóa đã publish (không có chi phí/ngưỡng). Manager soạn/publish/hủy.
+/// Không có endpoint ghi danh: ghi danh chỉ sinh từ checkout thanh toán thành công.
+/// </summary>
 [ApiController]
-[Authorize]
-[Route("api/classes")]
-public class ClassesController(IClassService classes, IClassSessionService sessions) : ControllerBase
+public class ClassesController(IClassService classes, IClassSessionService sessions,
+    IClassThresholdService thresholds, ISportHubDbContext db) : ControllerBase
 {
-    /// <summary>Hội viên cũng đọc được để chọn lớp; bộ lọc includeArchived chỉ dành cho Manager.</summary>
-    [HttpGet]
-    public async Task<IActionResult> GetAll(
-        [FromQuery] string? discipline,
-        [FromQuery] bool includeArchived = false,
-        CancellationToken ct = default)
-    {
-        var allowArchived = includeArchived && User.IsInRole(SportHubRoleNames.CenterManager);
+    [AllowAnonymous]
+    [HttpGet("api/classes")]
+    public async Task<IActionResult> ListPublic(
+        [FromQuery] int? sportId, [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default, DateOnly? fromDate = null, DateOnly? toDate = null)
+        => Ok(await classes.ListPublicAsync(sportId, page, pageSize, ct, fromDate, toDate));
 
-        return Ok(await classes.GetAllAsync(discipline, allowArchived, ct));
+    [AllowAnonymous]
+    [HttpGet("api/classes/{classId:int}")]
+    public async Task<IActionResult> GetPublic(int classId, CancellationToken ct)
+        => Ok(await classes.GetPublicAsync(classId, ct));
+
+    [AllowAnonymous]
+    [HttpGet("api/classes/{classId:int}/public-sessions")]
+    public async Task<IActionResult> PublicSessions(int classId, CancellationToken ct)
+    {
+        await classes.GetPublicAsync(classId, ct);
+        return Ok(await sessions.ListByClassAsync(classId, null, ct));
     }
 
-    [HttpGet("{classId:int}")]
-    public async Task<IActionResult> Get(int classId, CancellationToken ct) => Ok(await classes.GetAsync(classId, ct));
+    [Authorize(Policy = SportHubPolicies.CenterManager)]
+    [HttpPost("api/manager/classes/{classId:int}/enrollment/open")]
+    public async Task<IActionResult> OpenEnrollment(
+        int classId,
+        CancellationToken ct)
+        => Ok(
+            await classes.SetEnrollmentOpenAsync(
+                classId,
+                true,
+                User.RequireUserId(),
+                ct));
 
     [Authorize(Policy = SportHubPolicies.CenterManager)]
-    [HttpPost]
+    [HttpPost("api/manager/classes/{classId:int}/enrollment/close")]
+    public async Task<IActionResult> CloseEnrollment(
+        int classId,
+        CancellationToken ct)
+        => Ok(
+            await classes.SetEnrollmentOpenAsync(
+                classId,
+                false,
+                User.RequireUserId(),
+                ct));
+
+    [Authorize(Policy = SportHubPolicies.Member)]
+    [HttpGet("api/members/me/classes/{classId:int}/sessions")]
+    public async Task<IActionResult> MemberSessions(int classId, CancellationToken ct)
+    {
+        if (!await db.Set<SportHub.Scheduling.Domain.Entities.Enrollment>().AnyAsync(e => e.ClassId == classId && e.MemberId == User.RequireUserId(), ct)) return NotFound();
+        return Ok(await sessions.ListByClassAsync(classId, null, ct));
+    }
+
+    /// <summary>Lịch buổi của khóa: Manager/Lễ tân xem mọi khóa; Coach chỉ khóa mình phụ trách.</summary>
+    [Authorize(Policy = SportHubPolicies.StaffRead)]
+    [HttpGet("api/classes/{classId:int}/sessions")]
+    public async Task<IActionResult> ListSessions(int classId, CancellationToken ct)
+        => Ok(await sessions.ListByClassAsync(classId, CoachScope(), ct));
+
+    [Authorize(Policy = SportHubPolicies.Coach)]
+    [HttpGet("api/coaches/me/classes")]
+    public async Task<IActionResult> MyClasses(CancellationToken ct)
+        => Ok(await classes.ListForCoachAsync(User.RequireUserId(), ct));
+
+    [Authorize(Policy = SportHubPolicies.CenterManager)]
+    [HttpGet("api/manager/classes")]
+    public async Task<IActionResult> ListManager(
+        [FromQuery] string? status, [FromQuery] int? sportId, [FromQuery] string? keyword,
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default, [FromQuery] string? thresholdStatus = null)
+        => Ok(await classes.ListManagerAsync(status, sportId, keyword, page, pageSize, ct, thresholdStatus));
+
+    [Authorize(Policy = SportHubPolicies.CenterManager)]
+    [HttpGet("api/manager/classes/{classId:int}")]
+    public async Task<IActionResult> GetManager(int classId, CancellationToken ct)
+        => Ok(await classes.GetManagerAsync(classId, ct));
+
+    [Authorize(Policy = SportHubPolicies.CenterManager)]
+    [HttpPost("api/manager/classes")]
     public async Task<IActionResult> Create([FromBody] SaveClassRequest request, CancellationToken ct)
         => StatusCode(StatusCodes.Status201Created, await classes.CreateAsync(request, User.RequireUserId(), ct));
 
-    /// <summary>BR-14 — phân công/phân công lại HLV nằm trong đường này, chỉ Center Manager.</summary>
     [Authorize(Policy = SportHubPolicies.CenterManager)]
-    [HttpPut("{classId:int}")]
+    [HttpPut("api/manager/classes/{classId:int}")]
     public async Task<IActionResult> Update(int classId, [FromBody] SaveClassRequest request, CancellationToken ct)
         => Ok(await classes.UpdateAsync(classId, request, User.RequireUserId(), ct));
 
     [Authorize(Policy = SportHubPolicies.CenterManager)]
-    [HttpPost("{classId:int}/archive")]
-    public async Task<IActionResult> Archive(int classId, CancellationToken ct)
-        => Ok(await classes.SetStatusAsync(classId, ClassStatus.Archived, User.RequireUserId(), ct));
+    [HttpPost("api/manager/classes/{classId:int}/publish")]
+    public async Task<IActionResult> Publish(int classId, [FromBody] PublishClassRequest? request, CancellationToken ct)
+        => Ok(await classes.PublishAsync(classId, request ?? new PublishClassRequest(), User.RequireUserId(), ct));
 
     [Authorize(Policy = SportHubPolicies.CenterManager)]
-    [HttpPost("{classId:int}/reactivate")]
-    public async Task<IActionResult> Reactivate(int classId, CancellationToken ct)
-        => Ok(await classes.SetStatusAsync(classId, ClassStatus.Active, User.RequireUserId(), ct));
+    [HttpPost("api/manager/classes/{classId:int}/cancel")]
+    public async Task<IActionResult> Cancel(int classId, [FromBody] CancelClassRequest request, CancellationToken ct)
+        => Ok(await classes.CancelAsync(classId, request, User.RequireUserId(), ct));
 
     [Authorize(Policy = SportHubPolicies.CenterManager)]
-    [HttpPost("{classId:int}/recurrences")]
-    public async Task<IActionResult> AddRecurrence(
-        int classId, [FromBody] SaveRecurrenceRequest request, CancellationToken ct)
-        => Ok(await classes.AddRecurrenceAsync(classId, request, User.RequireUserId(), ct));
+    [HttpGet("api/manager/classes/{classId:int}/cancellation-preview")]
+    public async Task<IActionResult> CancellationPreview(int classId,
+        [FromServices] SportHub.Scheduling.Application.Services.CourseCancellationService cancellations, CancellationToken ct)
+        => Ok(await cancellations.PreviewAsync(classId, ct));
 
     [Authorize(Policy = SportHubPolicies.CenterManager)]
-    [HttpDelete("{classId:int}/recurrences/{recurrenceId:int}")]
-    public async Task<IActionResult> DeleteRecurrence(int classId, int recurrenceId, CancellationToken ct)
-        => Ok(await classes.DeleteRecurrenceAsync(classId, recurrenceId, User.RequireUserId(), ct));
+    [HttpPost("api/manager/classes/{classId:int}/threshold/waive")]
+    public async Task<IActionResult> WaiveThreshold(int classId, [FromBody] WaiveClassThresholdRequest request,
+        CancellationToken ct)
+    {
+        await thresholds.WaiveAsync(classId, User.RequireUserId(), request.Reason, ct);
+        return NoContent();
+    }
 
-    /// <summary>BR-15 — sinh buổi học từ mẫu lặp. Chạy lại cùng khoảng ngày không nhân đôi lịch.</summary>
     [Authorize(Policy = SportHubPolicies.CenterManager)]
-    [HttpPost("{classId:int}/generate-sessions")]
-    public async Task<IActionResult> GenerateSessions(
-        int classId, [FromBody] GenerateSessionsRequest request, CancellationToken ct)
-        => Ok(await sessions.GenerateAsync(classId, request, User.RequireUserId(), ct));
+    [HttpPut("api/manager/classes/{classId:int}/threshold/pricing")]
+    public async Task<IActionResult> UpdateThresholdPricing(int classId,
+        [FromBody] UpdateClassThresholdPricingRequest request, CancellationToken ct)
+    {
+        await thresholds.UpdatePricingAsync(classId, request.Price, request.CostAmount,
+            User.RequireUserId(), request.Reason, ct);
+        return NoContent();
+    }
+
+    private Guid? CoachScope()
+        => User.IsInRole(SportHubRoleNames.Coach) ? User.RequireUserId() : null;
 }

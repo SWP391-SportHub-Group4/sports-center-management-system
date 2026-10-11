@@ -4,6 +4,7 @@ namespace SportHub.Membership.Domain.Entities;
 
 public class MemberPackage
 {
+    public int? DurationDaysSnapshot { get; set; }
     public Guid MemberPackageId { get; set; } // PK
 
     public Guid MemberId { get; set; } // FK -> UserAccount
@@ -11,6 +12,9 @@ public class MemberPackage
     public UserAccount? Member { get; set; }
 
     public int PackageId { get; set; } // FK -> MembershipPackage
+
+    /// <summary>Source payment item used for item-scoped refund fulfillment.</summary>
+    public Guid? InvoiceItemId { get; set; }
 
     public MembershipPackage? Package { get; set; }
 

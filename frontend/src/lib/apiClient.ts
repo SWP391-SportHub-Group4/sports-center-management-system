@@ -5,6 +5,8 @@
  * hình xử lý theo mã thay vì so chuỗi thông báo — thông báo có thể đổi, mã thì không.
  */
 
+import { en } from "@/locales/en";
+
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5000";
 
@@ -14,12 +16,19 @@ export const TOKEN_STORAGE_KEY = "sporthub.accessToken";
 export class ApiError extends Error {
   readonly status: number;
   readonly code: string;
+  readonly details: Record<string, unknown>;
 
-  constructor(status: number, code: string, message: string) {
+  constructor(
+    status: number,
+    code: string,
+    message: string,
+    details: Record<string, unknown> = {},
+  ) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.code = code;
+    this.details = details;
   }
 
   /** 401 = token thiếu/hết hạn/tài khoản bị khoá — người dùng phải đăng nhập lại. */
@@ -51,6 +60,7 @@ export interface RequestOptions {
   /** Huỷ request khi component unmount hoặc khi người dùng đổi bộ lọc. */
   signal?: AbortSignal;
   query?: Record<string, string | number | boolean | undefined | null>;
+  idempotencyKey?: string;
 }
 
 function readToken(): string | null {
@@ -95,8 +105,11 @@ async function request<T>(
   options: RequestOptions = {},
 ): Promise<T> {
   const headers: Record<string, string> = { Accept: "application/json" };
+  if (options.idempotencyKey)
+    headers["Idempotency-Key"] = options.idempotencyKey;
 
-  if (body !== undefined) {
+  const isForm = typeof FormData !== "undefined" && body instanceof FormData;
+  if (body !== undefined && !isForm) {
     headers["Content-Type"] = "application/json";
   }
 
@@ -111,7 +124,12 @@ async function request<T>(
     response = await fetch(buildUrl(path, options.query), {
       method,
       headers,
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body:
+        body === undefined
+          ? undefined
+          : isForm
+            ? (body as FormData)
+            : JSON.stringify(body),
       signal: options.signal,
       cache: "no-store",
     });
@@ -122,7 +140,7 @@ async function request<T>(
     throw new ApiError(
       0,
       "network_error",
-      "Could not close temporary folder: %s",
+      en.apiErrors.networkError,
     );
   }
 
@@ -148,7 +166,17 @@ async function request<T>(
           ? payload.title
           : defaultMessageFor(response.status);
 
-    if (response.status === 401 && !options.anonymous) {
+    // Compatibility with older APIs: this authenticated form can reject the
+    // current password without invalidating the session. Never suppress other 401s.
+    const legacyPasswordRejection =
+      method === "POST" &&
+      path === "/api/users/me/password" &&
+      code === "invalid_credentials";
+    if (
+      response.status === 401 &&
+      !options.anonymous &&
+      !legacyPasswordRejection
+    ) {
       onUnauthorized?.();
     }
 
@@ -156,6 +184,7 @@ async function request<T>(
       response.status,
       code,
       withValidationDetail(message, payload),
+      { ...payload, retryAfter: response.headers.get("Retry-After") },
     );
   }
 
@@ -186,21 +215,23 @@ function withValidationDetail(message: string, payload: Json): string {
 }
 
 function defaultMessageFor(status: number): string {
+  const t = en.apiErrors;
+
   switch (status) {
     case 400:
-      return "Invalid sendup data.";
+      return t.invalidRequest;
     case 401:
-      return "The login session is expired. Please log in again.";
+      return t.sessionExpired;
     case 403:
-      return "You do not have permission to perform this operation.";
+      return t.forbidden;
     case 404:
-      return "Could not find data.";
+      return t.notFound;
     case 409:
-      return "Conflict with current data.";
+      return t.conflict;
     case 429:
-      return "You operation too fast. Please try again after a minute.";
+      return t.rateLimited;
     default:
-      return "Error occurred, please try again.";
+      return t.generic;
   }
 }
 
@@ -209,8 +240,12 @@ export const api = {
     request<T>("GET", path, undefined, options),
   post: <T>(path: string, body?: unknown, options?: RequestOptions) =>
     request<T>("POST", path, body, options),
+  postForm: <T>(path: string, body: FormData, options?: RequestOptions) =>
+    request<T>("POST", path, body, options),
   put: <T>(path: string, body?: unknown, options?: RequestOptions) =>
     request<T>("PUT", path, body, options),
+  patch: <T>(path: string, body?: unknown, options?: RequestOptions) =>
+    request<T>("PATCH", path, body, options),
   del: <T>(path: string, options?: RequestOptions) =>
     request<T>("DELETE", path, undefined, options),
 };

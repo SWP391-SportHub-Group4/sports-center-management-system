@@ -24,6 +24,24 @@ public static class SportHubPolicies
 
     public const string Receptionist = nameof(Receptionist);
 
+    /// <summary>Ghi catalog môn, loại phòng, giờ mở cửa, block, bảng giá sân: chỉ Manager.</summary>
+    public const string CatalogManage = nameof(CatalogManage);
+
+    /// <summary>Manager tạo và quản lý Coach nội bộ.</summary>
+    public const string CoachManagement = nameof(CoachManagement);
+
+    /// <summary>Đặt/hủy thuê sân: mọi Member (điều kiện tài khoản hoạt động và dịch vụ thuê sân bật kiểm ở service).</summary>
+    public const string CourtRental = nameof(CourtRental);
+
+    /// <summary>Xem ví và thanh toán bằng điểm của chính mình: Member.</summary>
+    public const string WalletOwner = nameof(WalletOwner);
+
+    /// <summary>Duyệt/từ chối yêu cầu hoàn điểm (BR-93): chỉ Manager.</summary>
+    public const string RefundApprove = nameof(RefundApprove);
+
+    /// <summary>Đối soát thanh toán, điều chỉnh điểm thủ công: chỉ Manager.</summary>
+    public const string PaymentReconciliation = nameof(PaymentReconciliation);
+
     /// <summary>
     /// Quầy lễ tân + quản lý: bán gói, ghi nhận thanh toán, hủy đăng ký hộ hội viên
     /// (BR-17, BR-30). Hai vai trò này cùng làm được nên gộp một policy thay vì rải
@@ -31,7 +49,10 @@ public static class SportHubPolicies
     /// </summary>
     public const string FrontDesk = nameof(FrontDesk);
 
-    /// <summary>BR-22 — điểm danh lớp: Coach được gán buổi đó, hoặc Lễ tân tại quầy.</summary>
+    /// <summary>
+    /// BR-98, mới 28/09/2026 — điểm danh lớp Yoga/Group X: chỉ Lễ tân. Coach (kể cả
+    /// ClassInstructor dạy buổi đó) không còn điểm danh được (trước đây theo BR-22).
+    /// </summary>
     public const string AttendanceCheckIn = nameof(AttendanceCheckIn);
 
     /// <summary>

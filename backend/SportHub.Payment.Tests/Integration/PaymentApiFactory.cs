@@ -1,45 +1,40 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using System.Net.Http.Headers;
 using System.Text;
 using SportHub.API.Persistence;
+using SportHub.API.Jobs;
+using SportHub.BuildingBlocks.Abstractions.Email;
+using SportHub.BuildingBlocks.Abstractions.Notifications;
+using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.Infrastructure.Authentication;
 using SportHub.Identity.Domain.Entities;
 using SportHub.Identity.Domain.Enums;
 using SportHub.Identity.Infrastructure.Security;
+using SportHub.Identity.Infrastructure.Email;
 using SportHub.Membership.Domain.Entities;
 using SportHub.Payment.Domain.Entities;
 using SportHub.Payment.Domain.Enums;
+using SportHub.Notification.Infrastructure;
 using Testcontainers.PostgreSql;
 
 namespace SportHub.Payment.Tests.Integration;
 
-/// <summary>
-/// Hạ tầng test module Payment — theo mẫu SportHub.Scheduling.Tests: PostgreSQL thật qua
-/// Testcontainers, schema sinh bằng chính migration của project.
-///
-/// Bắt buộc PostgreSQL thật, không EF InMemory: những thứ đang kiểm chứng ở đây (CHECK
-/// constraint bằng chứng hoàn tiền, SELECT ... FOR UPDATE khi hai request hoàn cùng lúc,
-/// transaction rollback) chỉ tồn tại ở tầng DB. InMemory sẽ cho tất cả pass mà không chứng
-/// minh được gì.
-/// </summary>
 public sealed class PaymentApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
+    public CapturingPaymentEmailSender CapturedEmail { get; } = new();
     public const string TestSecretKey = "sporthub-payment-tests-secret-key-64-bytes-long-enough!!!!!!";
 
-    /// <summary>
-    /// Đường thoát khi máy không chạy được Docker: trỏ thẳng vào một PostgreSQL có sẵn.
-    ///
-    /// Bắt buộc là DB test RIÊNG (xem RUNBOOK) — suite này chạy migration và ghi dữ liệu thật,
-    /// nên trỏ vào DB đang dùng là mất dữ liệu. Không có biến này thì dùng Testcontainers như
-    /// các suite khác.
-    /// </summary>
     private const string ExternalDbEnvVar = "SPORTHUB_TEST_POSTGRES";
 
     private static string? ExternalConnectionString
@@ -98,6 +93,10 @@ public sealed class PaymentApiFactory : WebApplicationFactory<Program>, IAsyncLi
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        // Program validates SMTP before deferred test configuration is applied.
+        // Test delivery is replaced with CapturingPaymentEmailSender below.
+        Environment.SetEnvironmentVariable("Smtp__FromAddress", "integration-tests@example.invalid");
+        Environment.SetEnvironmentVariable("Email__Smtp__FromAddress", "integration-tests@example.invalid");
         builder.UseEnvironment("Development");
 
         builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(
@@ -108,8 +107,48 @@ public sealed class PaymentApiFactory : WebApplicationFactory<Program>, IAsyncLi
                 ["JwtOptions:Audience"] = "SportHub.Client",
                 ["JwtOptions:SecretKey"] = TestSecretKey,
                 ["JwtOptions:AccessTokenExpiryMinutes"] = "60",
-                ["Cors:AllowedOrigins:0"] = "http://localhost:3000"
+                ["Cors:AllowedOrigins:0"] = "http://localhost:3000",
+                ["Logging:LogLevel:Default"] = "Warning",
+                ["Logging:LogLevel:Microsoft.EntityFrameworkCore"] = "Error"
+                , ["VnPay:UseMock"] = "true",
+                ["Smtp:Host"] = "",
+                ["Email:Smtp:Host"] = "",
+                ["Email:DemoLoggingEnabled"] = "true"
             }));
+        builder.ConfigureTestServices(services =>
+        {
+            // Outbox assertions need a stable state: the 30-second dispatcher can
+            // otherwise claim email rows while an API test checks Pending/read-all.
+            // Dispatch behavior is tested explicitly, without the hosted timer.
+            foreach (var dispatcher in services.Where(descriptor =>
+                         descriptor.ServiceType == typeof(IHostedService)
+                         && descriptor.ImplementationType == typeof(NotificationDispatchJob)).ToArray())
+            {
+                services.Remove(dispatcher);
+            }
+
+            services.RemoveAll<INotificationWriter>();
+            services.AddScoped<INotificationWriter>(sp => new CapturingPaymentOutboxWriter(
+                sp.GetRequiredService<ISportHubDbContext>(),
+                sp.GetRequiredService<IDataProtectionProvider>(),
+                CapturedEmail));
+
+            services.RemoveAll<IEmailSender>();
+            services.AddSingleton<IEmailSender, UnavailableEmailSender>();
+        });
+    }
+
+    /// <summary>Security stamp hiện tại của user trong DB test — token phải mang đúng stamp (claim sst).</summary>
+    public Guid StampOf(Guid userId)
+    {
+        using var scope = Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<SportHub.BuildingBlocks.Abstractions.Persistence.ISportHubDbContext>();
+
+        return db.Set<SportHub.Identity.Domain.Entities.UserAccount>()
+            .AsNoTracking()
+            .Where(u => u.UserId == userId)
+            .Select(u => u.SecurityStamp)
+            .SingleOrDefault();
     }
 
     public HttpClient CreateApiClient(Guid? actingUserId = null, UserRole? actingRole = null)
@@ -120,7 +159,7 @@ public sealed class PaymentApiFactory : WebApplicationFactory<Program>, IAsyncLi
         {
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
                 "Bearer",
-                JwtService.GenerateAccessToken(actingUserId.Value, actingRole.Value.ToString(), EffectiveJwtOptions));
+                JwtService.GenerateAccessToken(actingUserId.Value, actingRole.Value.ToString(), EffectiveJwtOptions, StampOf(actingUserId.Value)));
         }
 
         return client;
@@ -150,17 +189,12 @@ public sealed class PaymentApiFactory : WebApplicationFactory<Program>, IAsyncLi
         return user;
     }
 
-    /// <summary>
-    /// Một hoá đơn độc lập cho mỗi test. Mỗi test tự chuẩn bị dữ liệu riêng và không dùng
-    /// chung bản ghi với test khác, nên chạy lặp hoặc chạy song song đều an toàn.
-    /// </summary>
     public async Task<Invoice> SeedInvoiceAsync(
         Guid memberId,
         Guid issuedByUserId,
         decimal totalAmount,
         Guid? memberPackageId = null,
-        DateTime? issuedAt = null,
-        DateTime? dueDateUtc = null)
+        DateTime? issuedAt = null)
     {
         using var scope = Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
@@ -176,17 +210,18 @@ public sealed class PaymentApiFactory : WebApplicationFactory<Program>, IAsyncLi
             MemberPackageId = memberPackageId,
             TotalAmount = totalAmount,
             Status = InvoiceStatus.Issued,
-            IssuedAt = issued,
-            DueDateUtc = dueDateUtc ?? issued.AddMonths(2)
+            IssuedAt = issued
         };
 
         invoice.Items.Add(new InvoiceItem
         {
             ItemId = Guid.NewGuid(),
             InvoiceId = invoice.InvoiceId,
+            ItemType = InvoiceItemType.Membership,
             Description = "Gói tập",
-            Amount = totalAmount,
-            RelatedEntityType = InvoiceItemRelatedEntityType.Package
+            UnitPrice = totalAmount,
+            Quantity = 1,
+            LineAmount = totalAmount
         });
 
         db.Set<Invoice>().Add(invoice);
@@ -232,6 +267,36 @@ public sealed class PaymentApiFactory : WebApplicationFactory<Program>, IAsyncLi
         var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
 
         return await query(db);
+    }
+}
+
+public sealed class CapturingPaymentEmailSender : IEmailSender
+{
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, string> _codes = new();
+    public Task SendAsync(string toAddress, string subject, string htmlBody, CancellationToken cancellationToken = default)
+    {
+        Capture(toAddress, htmlBody);
+        return Task.CompletedTask;
+    }
+    public void Capture(string toAddress, string htmlBody)
+    {
+        var match = System.Text.RegularExpressions.Regex.Match(htmlBody, "<strong>([0-9]{6})</strong>");
+        if (match.Success) _codes[toAddress] = match.Groups[1].Value;
+    }
+    public string CodeFor(string address) => _codes[address];
+}
+
+public sealed class CapturingPaymentOutboxWriter(
+    ISportHubDbContext db,
+    IDataProtectionProvider protection,
+    CapturingPaymentEmailSender emails) : INotificationWriter
+{
+    private readonly NotificationWriter _inner = new(db, protection);
+    public void Queue(NotificationRequest request) => _inner.Queue(request);
+    public void QueueEmail(EmailNotificationRequest request)
+    {
+        emails.Capture(request.RecipientAddress, request.HtmlBody);
+        _inner.QueueEmail(request);
     }
 }
 

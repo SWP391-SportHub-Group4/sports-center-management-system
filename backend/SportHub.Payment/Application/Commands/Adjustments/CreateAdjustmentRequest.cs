@@ -6,7 +6,7 @@ public sealed class CreateAdjustmentRequest
 {
     /// <summary>Tên member của enum PaymentAdjustmentType (SSOT §3): Refund/Correction/Discount.</summary>
     [Required]
-    public string Type { get; set; } = string.Empty;
+    [SportHub.BuildingBlocks.Api.WireEnum] public string Type { get; set; } = string.Empty;
 
     [Range(1, 1_000_000_000)]
     public decimal Amount { get; set; }

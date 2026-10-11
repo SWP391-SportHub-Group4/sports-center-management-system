@@ -15,7 +15,7 @@ public sealed class CreateRelationshipRequest
     /// lớp của HLV đó — không nhận từ API (quyết định C3).
     /// </summary>
     [Required]
-    public string SourceType { get; set; } = string.Empty;
+    [SportHub.BuildingBlocks.Api.WireEnum] public string SourceType { get; set; } = string.Empty;
 
     [MaxLength(500)]
     public string? Note { get; set; }

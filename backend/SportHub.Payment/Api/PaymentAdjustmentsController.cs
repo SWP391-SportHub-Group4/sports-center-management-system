@@ -15,7 +15,7 @@ namespace SportHub.Payment.Api;
 [Route("api/payment-adjustments")]
 public class PaymentAdjustmentsController(IPaymentAdjustmentService adjustments) : ControllerBase
 {
-    [Authorize(Policy = SportHubPolicies.StaffRead)]
+    [Authorize(Policy = SportHubPolicies.FrontDesk)]
     [HttpGet]
     public async Task<IActionResult> Search(
         [FromQuery] string? status,
@@ -33,19 +33,6 @@ public class PaymentAdjustmentsController(IPaymentAdjustmentService adjustments)
         [FromBody] ApproveAdjustmentRequest request,
         CancellationToken ct)
         => Ok(await adjustments.ApproveAsync(adjustmentId, request, User.RequireUserId(), ct));
-
-    /// <summary>
-    /// BR-42 v1.4 — Lễ tân xác nhận đã THỰC TRẢ. Cố ý là policy FrontDesk chứ không phải
-    /// CenterManager: người duyệt và người chi tiền phải tách nhau, gộp lại thì Manager tự
-    /// duyệt rồi tự xác nhận đã trả mà không ai đối chứng.
-    /// </summary>
-    [Authorize(Policy = SportHubPolicies.FrontDesk)]
-    [HttpPost("{adjustmentId:guid}/complete")]
-    public async Task<IActionResult> Complete(
-        Guid adjustmentId,
-        [FromBody] CompleteAdjustmentRequest request,
-        CancellationToken ct)
-        => Ok(await adjustments.CompleteRefundAsync(adjustmentId, request, User.RequireUserId(), ct));
 
     [Authorize(Policy = SportHubPolicies.CenterManager)]
     [HttpPost("{adjustmentId:guid}/reject")]

@@ -1,16 +1,14 @@
 "use client";
-
-import { AppShell } from "@/components/AppShell";
-import { InvoiceWorkbench } from "@/components/InvoiceWorkbench";
-
-export default function ReceptionInvoicesPage() {
+import { OperationsPage } from "@/features/operations/ui";
+import { Suspense } from "react";
+import { Loading } from "@/components/ui";
+import { InvoiceDesk } from "@/features/receptionist/invoice-desk";
+export default function Page() {
   return (
-    <AppShell
-      title="Search the invoices"
-      description="Retrieved and set a request for adjustments for the issued invoice"
-      allow={["Receptionist", "CenterManager"]}
-    >
-      <InvoiceWorkbench />
-    </AppShell>
+    <OperationsPage title="invoices" roles={["Receptionist"]}>
+      <Suspense fallback={<Loading />}>
+        <InvoiceDesk />
+      </Suspense>
+    </OperationsPage>
   );
 }

@@ -4,7 +4,7 @@ using System.Text;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
-using SportHub.BuildingBlocks.Abstractions.Email;
+using SportHub.BuildingBlocks.Abstractions.Notifications;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.Infrastructure.Authentication;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
@@ -21,8 +21,9 @@ public sealed class AuthService(
     IPasswordHasher passwordHasher,
     IOptions<JwtOptions> jwtOptions,
     ISportHubDbContext db,
-    IEmailSender emailSender,
-    IClock clock) : IAuthService
+    INotificationWriter notifications,
+    IClock clock,
+    IUserSummaryFactory summaries) : IAuthService
 {
     // BR-78 — ngưỡng khởi đầu, còn chờ mentor/team xác nhận (SSOT §7).
     public static readonly TimeSpan OtpLifetime = TimeSpan.FromMinutes(10);
@@ -46,8 +47,12 @@ public sealed class AuthService(
             throw new EmailAlreadyExistsException();
         }
 
+        await using var tx = await db.Database.BeginTransactionAsync(cancellationToken);
+        var rows = await db.Set<EmailOtp>().FromSqlInterpolated($"""
+            SELECT * FROM email_otps WHERE email = {email} AND purpose = {(int)EmailOtpPurpose.Register} FOR UPDATE
+            """).ToListAsync(cancellationToken);
+        var otp = rows.SingleOrDefault();
         var now = clock.UtcNow;
-        var otp = await db.Set<EmailOtp>().SingleOrDefaultAsync(o => o.Email == email, cancellationToken);
 
         if (otp is not null && now - otp.CreatedAt < OtpResendCooldown)
         {
@@ -58,7 +63,7 @@ public sealed class AuthService(
 
         if (otp is null)
         {
-            otp = new EmailOtp { EmailOtpId = Guid.NewGuid(), Email = email };
+            otp = new EmailOtp { EmailOtpId = Guid.NewGuid(), Email = email, Purpose = EmailOtpPurpose.Register };
             db.Set<EmailOtp>().Add(otp);
         }
 
@@ -68,10 +73,16 @@ public sealed class AuthService(
         otp.Attempts = 0;
         otp.ConsumedAt = null;
         otp.CreatedAt = now;
+        notifications.QueueEmail(new EmailNotificationRequest(null, email, NotificationEvents.RegisterOtpRequested,
+            Guid.NewGuid(), "SportHub - Registration verification code",
+            $"<p>Your SportHub registration verification code is:</p>"
+            + $"<p style=\"font-size:24px;font-weight:bold;letter-spacing:4px\">{code}</p>"
+            + $"<p>The code is valid for {OtpLifetime.TotalMinutes:0} minutes. If you did not request registration, ignore this email.</p>"));
 
         try
         {
             await db.SaveChangesAsync(cancellationToken);
+            await tx.CommitAsync(cancellationToken);
         }
         catch (DbUpdateException)
         {
@@ -79,29 +90,6 @@ public sealed class AuthService(
             throw OtpResendTooSoon();
         }
 
-        try
-        {
-            await emailSender.SendAsync(
-                email,
-                "SportHub - Mã xác thực đăng ký",
-                $"<p>Mã xác thực đăng ký tài khoản SportHub của bạn là:</p>"
-                + $"<p style=\"font-size:24px;font-weight:bold;letter-spacing:4px\">{code}</p>"
-                + $"<p>Mã có hiệu lực trong {OtpLifetime.TotalMinutes:0} phút. "
-                + "Nếu bạn không yêu cầu đăng ký, hãy bỏ qua email này.</p>",
-                cancellationToken);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            // Gửi hỏng thì bỏ mã vừa lưu — nếu không, cooldown sẽ chặn người dùng gửi lại trong
-            // khi họ chưa hề nhận được mã nào.
-            db.Set<EmailOtp>().Remove(otp);
-            await db.SaveChangesAsync(CancellationToken.None);
-
-            throw new AppException(
-                StatusCodes.Status503ServiceUnavailable,
-                "otp_email_send_failed",
-                "Không gửi được email chứa mã xác thực. Vui lòng thử lại sau.");
-        }
     }
 
     public async Task<AuthResponse> RegisterAsync(
@@ -113,6 +101,8 @@ public sealed class AuthService(
         var phone = string.IsNullOrWhiteSpace(request.Phone)
             ? null
             : request.Phone.Trim();
+
+        PasswordPolicyGuard.Enforce(request.Password, email); // BR-60/103, không tốn lượt OTP
 
         // BR-78 — xác thực OTP TRƯỚC mọi check khác. Mã chỉ bị đánh dấu đã dùng khi tài khoản
         // thực sự được tạo (cùng SaveChanges ở AddAndSaveAsync bên dưới).
@@ -159,7 +149,8 @@ public sealed class AuthService(
         var token = JwtService.GenerateAccessToken(
             user.UserId,
             role.RoleName.ToString(),
-            jwtOptions.Value);
+            jwtOptions.Value,
+            user.SecurityStamp);
 
         return new AuthResponse
         {
@@ -171,8 +162,7 @@ public sealed class AuthService(
                 FullName = fullName,
                 Role = role.RoleName.ToString()
             },
-            IsNewAccount = true,
-            SuggestedPassword = null
+            IsNewAccount = true
         };
     }
 
@@ -199,23 +189,24 @@ public sealed class AuthService(
             throw new AccountBlockedException(user.Status);
         }
 
+        // Hash BCrypt thuần cũ (cắt ở 72 byte) được băm lại sang định dạng v2 ngay khi login đúng.
+        if (passwordHasher.NeedsRehash(user.Credential.PasswordHash))
+        {
+            user.Credential.PasswordHash = passwordHasher.Hash(request.Password);
+            await db.SaveChangesAsync(cancellationToken);
+        }
+
         var token = JwtService.GenerateAccessToken(
             user.UserId,
             user.Role!.RoleName.ToString(),
-            jwtOptions.Value);
+            jwtOptions.Value,
+            user.SecurityStamp);
 
         return new AuthResponse
         {
             AccessToken = token,
-            User = new UserSummaryResponse
-            {
-                UserId = user.UserId,
-                Email = user.Email,
-                FullName = user.Profile?.FullName ?? string.Empty,
-                Role = user.Role!.RoleName.ToString()
-            },
-            IsNewAccount = false,
-            SuggestedPassword = null
+            User = await summaries.BuildAsync(user, cancellationToken),
+            IsNewAccount = false
         };
     }
 
@@ -228,7 +219,7 @@ public sealed class AuthService(
         string code,
         CancellationToken cancellationToken)
     {
-        var otp = await db.Set<EmailOtp>().SingleOrDefaultAsync(o => o.Email == email, cancellationToken)
+        var otp = await db.Set<EmailOtp>().SingleOrDefaultAsync(o => o.Email == email && o.Purpose == EmailOtpPurpose.Register, cancellationToken)
             ?? throw new BadRequestException(
                 "otp_not_found", "Chưa có mã xác thực cho email này. Hãy yêu cầu gửi mã trước.");
 

@@ -3,18 +3,20 @@ using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.BuildingBlocks.SharedKernel.Time;
 using SportHub.Notification.Application.Interfaces;
+using SportHub.Notification.Domain.Enums;
 
 namespace SportHub.Notification.Application.Services;
 
 public sealed record NotificationResponse(
     Guid NotificationId,
-    string SourceEventType,
+    [property: SportHub.BuildingBlocks.Api.WireEnum] string SourceEventType,
     Guid? SourceEntityId,
     string Message,
-    string Status,
-    DateTime? SentAt);
+    [property: SportHub.BuildingBlocks.Api.WireEnum] string Status,
+    DateTime? SentAt,
+    string? ActionUrl = null);
 
-public sealed class NotificationService(ISportHubDbContext db, IClock clock) : INotificationService
+public sealed class NotificationService(ISportHubDbContext db, IClock clock, INotificationActionReader actions) : INotificationService
 {
     public async Task<IReadOnlyList<NotificationResponse>> GetMineAsync(
         Guid userId,
@@ -23,14 +25,14 @@ public sealed class NotificationService(ISportHubDbContext db, IClock clock) : I
     {
         var query = db.Set<Domain.Entities.Notification>()
             .AsNoTracking()
-            .Where(n => n.UserId == userId);
+            .Where(n => n.UserId == userId && n.Channel == NotificationChannel.InApp);
 
         if (unreadOnly)
         {
             query = query.Where(n => n.Status != NotificationStatus.Read);
         }
 
-        return await query
+        var rows = await query
             .OrderByDescending(n => n.SentAt ?? DateTime.MinValue)
             .ThenByDescending(n => n.NotificationId)
             .Take(100)
@@ -40,20 +42,23 @@ public sealed class NotificationService(ISportHubDbContext db, IClock clock) : I
                 n.SourceEntityId,
                 n.Message,
                 n.Status.ToString(),
-                n.SentAt))
+                n.SentAt, null))
             .ToListAsync(ct);
+        var destinations = await actions.GetMemberActionsAsync(userId, rows, ct);
+        return rows.Select(n => n with { ActionUrl = destinations.GetValueOrDefault(n.NotificationId) }).ToList();
     }
 
     // Pending cũng tính là chưa đọc: ở MVP thông báo InApp hiển thị ngay khi có trong DB,
     // job dispatch chỉ đổi nhãn trạng thái (BR-34) chứ không phải điều kiện để hiển thị.
     public Task<int> CountUnreadAsync(Guid userId, CancellationToken ct = default)
         => db.Set<Domain.Entities.Notification>()
-            .CountAsync(n => n.UserId == userId && n.Status != NotificationStatus.Read, ct);
+            .CountAsync(n => n.UserId == userId && n.Channel == NotificationChannel.InApp
+                && n.Status != NotificationStatus.Read, ct);
 
     public async Task MarkReadAsync(Guid userId, Guid notificationId, CancellationToken ct = default)
     {
         var notification = await db.Set<Domain.Entities.Notification>()
-            .SingleOrDefaultAsync(n => n.NotificationId == notificationId, ct)
+            .SingleOrDefaultAsync(n => n.NotificationId == notificationId && n.Channel == NotificationChannel.InApp, ct)
             ?? throw new NotFoundException("notification_not_found", "Không tìm thấy thông báo.");
 
         // Ownership kiểm ở đây, không chỉ ở UI: id là Guid đoán được nếu lộ ra chỗ khác.
@@ -78,7 +83,8 @@ public sealed class NotificationService(ISportHubDbContext db, IClock clock) : I
         var now = clock.UtcNow;
 
         await db.Set<Domain.Entities.Notification>()
-            .Where(n => n.UserId == userId && n.Status != NotificationStatus.Read)
+            .Where(n => n.UserId == userId && n.Channel == NotificationChannel.InApp
+                && n.Status != NotificationStatus.Read)
             .ExecuteUpdateAsync(
                 s => s.SetProperty(n => n.Status, NotificationStatus.Read)
                       .SetProperty(n => n.SentAt, n => n.SentAt ?? now),

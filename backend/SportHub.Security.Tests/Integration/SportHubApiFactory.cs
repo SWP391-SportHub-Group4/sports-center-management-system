@@ -23,6 +23,9 @@ using SportHub.Identity.Domain.Entities;
 using SportHub.Identity.Domain.Enums;
 using SportHub.Identity.Infrastructure.Repositories;
 using SportHub.Identity.Infrastructure.Security;
+using SportHub.Identity.Infrastructure.Email;
+using SportHub.BuildingBlocks.Abstractions.Notifications;
+using SportHub.Notification.Application.Services;
 using Testcontainers.PostgreSql;
 
 namespace SportHub.Security.Tests.Integration;
@@ -42,12 +45,14 @@ public sealed class SportHubApiFactory : WebApplicationFactory<Program>, IAsyncL
 
     public const string TestAudience = "SportHub.Client";
 
-    private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder()
+    private readonly PostgreSqlContainer? _postgres = ExternalConnectionString is null ? new PostgreSqlBuilder()
         .WithImage("postgres:16-alpine")
         .WithDatabase("sporthub_tests")
         .WithUsername("sporthub")
         .WithPassword("sporthub-test-password")
-        .Build();
+        .Build() : null;
+
+    private static string? ExternalConnectionString => Environment.GetEnvironmentVariable("SPORTHUB_TEST_POSTGRES");
 
     public CallSpy Spy { get; } = new();
 
@@ -87,7 +92,7 @@ public sealed class SportHubApiFactory : WebApplicationFactory<Program>, IAsyncL
     // WebApplicationFactory da co ValueTask DisposeAsync() — hai chu ky trung ten.
     async Task IAsyncLifetime.InitializeAsync()
     {
-        await _postgres.StartAsync();
+        if (_postgres is not null) await _postgres.StartAsync();
 
         // Tao schema bang chinh migration cua project (co citext + seed 5 role).
         using var scope = Services.CreateScope();
@@ -98,11 +103,15 @@ public sealed class SportHubApiFactory : WebApplicationFactory<Program>, IAsyncL
     async Task IAsyncLifetime.DisposeAsync()
     {
         await base.DisposeAsync();
-        await _postgres.DisposeAsync();
+        if (_postgres is not null) await _postgres.DisposeAsync();
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        // Program validates SMTP before deferred test configuration is applied.
+        // These process-local placeholders never send mail: services below replace IEmailSender.
+        Environment.SetEnvironmentVariable("Smtp__FromAddress", "integration-tests@example.invalid");
+        Environment.SetEnvironmentVariable("Email__Smtp__FromAddress", "integration-tests@example.invalid");
         builder.UseEnvironment("Development");
 
         // AddInMemoryCollection dat cuoi chuoi provider nen thang ca appsettings lan
@@ -110,12 +119,16 @@ public sealed class SportHubApiFactory : WebApplicationFactory<Program>, IAsyncL
         builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(
             new Dictionary<string, string?>
             {
-                ["ConnectionStrings:Default"] = _postgres.GetConnectionString(),
+                ["ConnectionStrings:Default"] = ExternalConnectionString ?? _postgres!.GetConnectionString(),
                 ["JwtOptions:Issuer"] = TestIssuer,
                 ["JwtOptions:Audience"] = TestAudience,
                 ["JwtOptions:SecretKey"] = TestSecretKey,
                 ["JwtOptions:AccessTokenExpiryMinutes"] = "60",
-                ["Cors:AllowedOrigins:0"] = "http://localhost:3000"
+                ["Cors:AllowedOrigins:0"] = "http://localhost:3000",
+                // Isolate test startup from SMTP credentials in the developer's .env.
+                ["Smtp:Host"] = "",
+                ["Email:Smtp:Host"] = "",
+                ["Email:DemoLoggingEnabled"] = "true"
             }));
 
         builder.ConfigureTestServices(services =>
@@ -138,9 +151,16 @@ public sealed class SportHubApiFactory : WebApplicationFactory<Program>, IAsyncL
                 sp.GetRequiredService<PasswordHasher>(),
                 sp.GetRequiredService<CallSpy>()));
 
-            // BR-78: giu email OTP lai trong bo nho thay vi gui/ghi log.
+            // Keep real encrypted outbox rows, exposing the queued code only to the test harness.
+            services.RemoveAll<INotificationWriter>();
+            services.AddScoped<INotificationWriter>(sp => new CapturingOutboxNotificationWriter(
+                sp.GetRequiredService<SportHub.BuildingBlocks.Abstractions.Persistence.ISportHubDbContext>(),
+                sp.GetRequiredService<Microsoft.AspNetCore.DataProtection.IDataProtectionProvider>(),
+                Emails));
+
+            // Tests assert queued messages; the real sender is intentionally unavailable.
             services.RemoveAll<IEmailSender>();
-            services.AddSingleton<IEmailSender>(Emails);
+            services.AddSingleton<IEmailSender, UnavailableEmailSender>();
 
             services.RemoveAll<IGoogleTokenVerifier>();
             services.AddSingleton<IGoogleTokenVerifier, FakeGoogleTokenVerifier>();
@@ -235,7 +255,15 @@ public sealed class SportHubApiFactory : WebApplicationFactory<Program>, IAsyncL
     }
 
     public string IssueToken(Guid userId, UserRole role)
-        => JwtService.GenerateAccessToken(userId, role.ToString(), EffectiveJwtOptions);
+        => JwtService.GenerateAccessToken(userId, role.ToString(), EffectiveJwtOptions, StampOf(userId));
+
+    public Guid StampOf(Guid userId)
+    {
+        using var scope = Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<SportHub.BuildingBlocks.Abstractions.Persistence.ISportHubDbContext>();
+
+        return db.Set<UserAccount>().AsNoTracking().Where(u => u.UserId == userId).Select(u => u.SecurityStamp).SingleOrDefault();
+    }
 }
 
 /// <summary>Gom moi dong log cua host test vao mot hang doi de assert.</summary>

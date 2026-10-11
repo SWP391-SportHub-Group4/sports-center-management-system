@@ -1,43 +1,58 @@
 namespace SportHub.Administration.Domain.Entities;
 
-/// <summary>
-/// Nhãn tiếng Việt và kiểu canh lề cho từng cột báo cáo.
-///
-/// Chỉ dùng cho PDF. CSV cố tình giữ nguyên tên cột kỹ thuật (camelCase) vì file CSV thường
-/// được máy khác đọc lại, còn PDF là để người đọc.
-///
-/// Nhãn ở đây bám theo các đại lượng BR-41 v1.4: "Đã thu" (gross) khác "Thực thu" (net), và
-/// "Cần hoàn" khác "Đã hoàn". Đặt nhãn mơ hồ ở đây sẽ tái tạo đúng sự nhầm lẫn mà v1.4 sửa.
-/// </summary>
 public static class ReportColumnLabels
 {
     private static readonly IReadOnlyDictionary<string, string> Labels =
         new Dictionary<string, string>(StringComparer.Ordinal)
         {
-            // REVENUE
-            ["invoiceNumber"] = "Số hóa đơn",
-            ["issuedAt"] = "Ngày phát hành",
-            ["memberEmail"] = "Email hội viên",
-            ["memberName"] = "Tên hội viên",
-            ["totalAmount"] = "Tổng tiền",
-            ["collectedAmount"] = "Đã thu",
-            ["obligationReduction"] = "Giảm nghĩa vụ",
-            ["refundedAmount"] = "Đã hoàn",
-            ["netCollected"] = "Thực thu",
-            ["netPayable"] = "Nghĩa vụ",
-            ["outstanding"] = "Còn phải thu",
-            ["refundDue"] = "Cần hoàn",
-            ["status"] = "Trạng thái",
-            ["dueDate"] = "Hạn thanh toán",
+            ["date"] = "Collection date (VN)",
+            ["legacyCashCollected"] = "Legacy cash collected",
+            ["reconciliationCashCollected"] = "Reconciled/compensated cash",
+            ["source"] = "Revenue source",
+            ["sportId"] = "Sport ID",
+            ["sportName"] = "Sport",
+            ["memberId"] = "Member",
+            ["pointsRedeemed"] = "Points redeemed",
+            ["pointsRedeemedVnd"] = "Point value (VND)",
+            ["pointsIssued"] = "Points refunded/compensated",
+            ["managerPointAdjustment"] = "Manager point adjustment",
+            ["outstandingPoints"] = "Available and held points",
+            ["fromDate"] = "From date",
+            ["toDate"] = "To date",
+            ["newMembers"] = "New members",
+            ["activeMembersAtPeriodEnd"] = "Active memberships at period end",
+            ["classId"] = "Course ID",
+            ["code"] = "Course code",
+            ["name"] = "Course name",
+            ["capacity"] = "Capacity",
+            ["confirmedCount"] = "Confirmed",
+            ["activeHoldCount"] = "Active holds",
+            ["availableSeats"] = "Available seats",
+            ["fillRatio"] = "Fill rate",
+            ["breakEvenThreshold"] = "Break-even threshold",
+            ["thresholdStatus"] = "Threshold status",
+            ["firstSessionStartUtc"] = "First session (UTC)",
+            ["invoiceNumber"] = "Invoice number",
+            ["issuedAt"] = "Issued at",
+            ["memberEmail"] = "Member email",
+            ["memberName"] = "Member name",
+            ["totalAmount"] = "Total amount",
+            ["collectedAmount"] = "Collected",
+            ["obligationReduction"] = "Obligation reduction",
+            ["refundedAmount"] = "Refunded",
+            ["netCollected"] = "Net collected",
+            ["netPayable"] = "Net payable",
+            ["outstanding"] = "Outstanding",
+            ["refundDue"] = "Refund due",
+            ["status"] = "Status",
 
-            // MEMBER_SUMMARY
             ["email"] = "Email",
-            ["fullName"] = "Họ tên",
-            ["phone"] = "Điện thoại",
-            ["joinedAt"] = "Ngày tham gia",
-            ["activePackages"] = "Gói đang hoạt động",
-            ["remainingSessions"] = "Buổi còn lại",
-            ["totalSpent"] = "Tổng chi tiêu"
+            ["fullName"] = "Full name",
+            ["phone"] = "Phone",
+            ["joinedAt"] = "Joined at",
+            ["activePackages"] = "Active packages",
+            ["remainingSessions"] = "Remaining sessions",
+            ["totalSpent"] = "Total spent"
         };
 
     private static readonly IReadOnlySet<string> NumericColumns = new HashSet<string>(StringComparer.Ordinal)
@@ -45,17 +60,25 @@ public static class ReportColumnLabels
         "totalAmount", "collectedAmount", "obligationReduction", "refundedAmount",
         "netCollected", "netPayable", "outstanding", "refundDue",
         "activePackages", "remainingSessions", "totalSpent"
+        , "legacyCashCollected", "reconciliationCashCollected", "pointsRedeemed", "pointsRedeemedVnd",
+        "newMembers", "activeMembersAtPeriodEnd", "capacity", "confirmedCount", "activeHoldCount",
+        "availableSeats", "fillRatio", "breakEvenThreshold", "pointsIssued", "managerPointAdjustment", "outstandingPoints"
     };
 
-    /// <summary>Nhãn hiển thị; cột lạ trả về chính tên kỹ thuật thay vì rỗng, để lỗi lộ ra.</summary>
     public static string For(string column) => Labels.GetValueOrDefault(column, column);
 
     public static bool IsNumeric(string column) => NumericColumns.Contains(column);
 
     public static string ReportTitle(string reportType) => reportType switch
     {
-        ReportTypes.Revenue => "Báo cáo doanh thu",
-        ReportTypes.MemberSummary => "Tổng hợp hội viên",
+        ReportTypes.Revenue => "Revenue report",
+        ReportTypes.RevenueDaily => "Revenue by collection date",
+        ReportTypes.RevenueSummary => "Revenue and points summary",
+        ReportTypes.RevenueDimensions => "Revenue by sport and source",
+        ReportTypes.CourtRentalRevenue => "Court rental revenue",
+        ReportTypes.MembershipPeriod => "Membership by period",
+        ReportTypes.ClassEnrollment => "Course enrollment",
+        ReportTypes.MemberSummary => "Member summary",
         _ => reportType
     };
 }

@@ -49,11 +49,13 @@ export function GoogleSignInButton({
   onCredential,
   onError,
   text = "continue_with",
+  locale = "en",
   disabled = false,
 }: {
   onCredential: (idToken: string) => void;
   onError?: (cause: unknown) => void;
   text?: "continue_with" | "signin_with" | "signup_with";
+  locale?: string;
   disabled?: boolean;
 }) {
   const host = useRef<HTMLDivElement>(null);
@@ -61,6 +63,7 @@ export function GoogleSignInButton({
   const onErrorRef = useRef(onError);
   const disabledRef = useRef(disabled);
   const [gsiReady, setGsiReady] = useState(false);
+  const [scriptFailed, setScriptFailed] = useState(false);
   const [internalError, setInternalError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -95,18 +98,22 @@ export function GoogleSignInButton({
       window.google.accounts.id.renderButton(host.current, {
         theme: "outline",
         size: "large",
-        width: host.current.clientWidth,
+        shape: "pill",
+        width: Math.min(host.current.clientWidth, 400),
         text,
+        locale,
       });
+      setScriptFailed(false);
       setGsiReady(true);
     };
 
     const fail = () => {
       setGsiReady(false);
+      setScriptFailed(true);
     };
 
     const existing = document.querySelector<HTMLScriptElement>(
-      'script[src="https://accounts.google.com/gsi/client"]',
+      'script[src^="https://accounts.google.com/gsi/client"]',
     );
     if (existing) {
       existing.addEventListener("load", render);
@@ -120,7 +127,7 @@ export function GoogleSignInButton({
 
     const loadScript = () => {
       script = document.createElement("script");
-      script.src = "https://accounts.google.com/gsi/client";
+      script.src = `https://accounts.google.com/gsi/client?hl=${locale}`;
       script.async = true;
       script.defer = true;
       script.onload = render;
@@ -142,7 +149,7 @@ export function GoogleSignInButton({
         script.onerror = null;
       }
     };
-  }, [clientId, text]);
+  }, [clientId, text, locale]);
 
   const buttonLabel = {
     continue_with: "Continue with Google",
@@ -165,20 +172,39 @@ export function GoogleSignInButton({
           "Google Sign-In is not configured yet. Set NEXT_PUBLIC_GOOGLE_CLIENT_ID in .env.local to enable.",
         );
       }
+    } else if (scriptFailed) {
+      onErrorRef.current?.(
+        new ApiError(
+          0,
+          "google_script_failed",
+          "Google sign-in could not load.",
+        ),
+      );
+    } else {
+      onErrorRef.current?.(
+        new ApiError(0, "google_script_loading", "Google sign-in is loading."),
+      );
     }
   };
 
   return (
-    <div className="google-sign-in-wrap">
+    <div
+      className={`google-sign-in-wrap ${gsiReady ? "google-sign-in-wrap--ready" : ""} ${disabled ? "google-sign-in-wrap--disabled" : ""}`}
+    >
       {/* Official Google GSI container when script initializes */}
       <div
         ref={host}
-        className={`google-sign-in ${disabled ? "google-sign-in--disabled" : ""}`}
-        style={{ display: gsiReady ? "block" : "none" }}
+        className={`google-sign-in ${!gsiReady ? "google-sign-in--pending" : ""} ${disabled ? "google-sign-in--disabled" : ""}`}
       />
 
-      {/* Branded native button shown when GSI is loading or clientId is pending */}
-      {!gsiReady && (
+      {gsiReady ? (
+        <div className="google-sign-in__visual" aria-hidden="true">
+          <span className="google-sign-in__logo">
+            <GoogleLogo />
+          </span>
+          <span>{buttonLabel}</span>
+        </div>
+      ) : (
         <button
           type="button"
           className="btn btn--google"
@@ -186,7 +212,9 @@ export function GoogleSignInButton({
           onClick={handleFallbackClick}
           aria-label={buttonLabel}
         >
-          <GoogleLogo />
+          <span className="google-sign-in__logo">
+            <GoogleLogo />
+          </span>
           <span>{buttonLabel}</span>
         </button>
       )}

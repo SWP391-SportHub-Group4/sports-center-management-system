@@ -2,24 +2,18 @@ using Microsoft.EntityFrameworkCore;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.BuildingBlocks.SharedKernel.Pagination;
-using SportHub.BuildingBlocks.SharedKernel.Time;
-using SportHub.Membership.Domain.Entities;
 using SportHub.Payment.Application.DTOs;
 using SportHub.Payment.Application.Interfaces;
 using SportHub.Payment.Domain.Rules;
 
 namespace SportHub.Payment.Application.Services;
 
-public sealed class InvoiceQueryService(ISportHubDbContext db, IClock clock) : IInvoiceQueryService
+public sealed class InvoiceQueryService(ISportHubDbContext db) : IInvoiceQueryService
 {
-    /// <summary>
-    /// Hàng thô lấy từ SQL: chỉ các TỔNG, chưa suy ra đại lượng nào.
-    ///
-    /// Mọi phép suy ra (NetPayable, Outstanding, RefundedAmount) làm trong C# qua
-    /// <see cref="InvoiceBalance"/>. Viết chúng thành biểu thức LINQ sẽ phải lặp lại cùng
-    /// một tổng con bốn, năm lần trong một Select và đó là nơi định nghĩa BR-41 rất dễ trôi
-    /// khỏi bản gốc ở InvoiceMath.
-    /// </summary>
+    public async Task<Guid> FindInvoiceByItemAsync(Guid itemId, CancellationToken ct)
+        => await db.Set<InvoiceItem>().AsNoTracking().Where(i => i.ItemId == itemId).Select(i => (Guid?)i.InvoiceId).SingleOrDefaultAsync(ct)
+            ?? throw new NotFoundException("invoice_item_not_found", "Không tìm thấy sản phẩm hóa đơn.");
+
     private sealed record InvoiceRow(
         Guid InvoiceId,
         string InvoiceNumber,
@@ -32,24 +26,28 @@ public sealed class InvoiceQueryService(ISportHubDbContext db, IClock clock) : I
         decimal RefundedAmount,
         InvoiceStatus Status,
         DateTime IssuedAt,
-        DateTime DueDateUtc,
-        DateTime? FirstDepositAtUtc,
-        Guid? MemberPackageId);
+        Guid? MemberPackageId,
+        int PointsSpent,
+        decimal CashAmount,
+        [property: SportHub.BuildingBlocks.Api.WireEnum] string? PaidVia,
+        DateTime? PaidAtUtc,
+        DateTime? CheckoutExpiresAtUtc,
+        bool ReconciliationRequired);
 
     public async Task<PagedResult<InvoiceSummaryResponse>> SearchAsync(
         Guid? memberId,
         string? status,
-        bool overdueOnly,
         string? keyword,
         int page,
         int pageSize,
-        CancellationToken ct = default)
+        CancellationToken ct = default, bool rentalOnly = false)
     {
         page = page < 1 ? 1 : page;
         pageSize = Math.Clamp(pageSize <= 0 ? 20 : pageSize, 1, 100);
 
-        var now = clock.UtcNow;
         var query = db.Set<Invoice>().AsNoTracking();
+        if (rentalOnly)
+            query = query.Where(i => i.Items.Any(item => item.ItemType == InvoiceItemType.Rental));
 
         if (memberId is not null)
         {
@@ -60,14 +58,6 @@ public sealed class InvoiceQueryService(ISportHubDbContext db, IClock clock) : I
         {
             var parsed = ParseStatus(status);
             query = query.Where(i => i.Status == parsed);
-        }
-
-        if (overdueOnly)
-        {
-            // BR-55: "quá hạn" là NHÃN tính khi đọc, không phải trạng thái lưu trong DB —
-            // hoá đơn quá hạn không tự chuyển Void (BR-40 cấm sửa/xoá ngoài đường Adjustment).
-            query = query.Where(i =>
-                i.DueDateUtc < now && i.Status != InvoiceStatus.Paid && i.Status != InvoiceStatus.Void);
         }
 
         if (!string.IsNullOrWhiteSpace(keyword))
@@ -90,7 +80,7 @@ public sealed class InvoiceQueryService(ISportHubDbContext db, IClock clock) : I
 
         return new PagedResult<InvoiceSummaryResponse>
         {
-            Items = [.. rows.Select(r => ToSummary(r, now))],
+            Items = [.. rows.Select(ToSummary)],
             Page = page,
             PageSize = pageSize,
             TotalCount = total
@@ -99,8 +89,6 @@ public sealed class InvoiceQueryService(ISportHubDbContext db, IClock clock) : I
 
     public async Task<InvoiceDetailResponse> GetDetailAsync(Guid invoiceId, CancellationToken ct = default)
     {
-        var now = clock.UtcNow;
-
         var row = await db.Set<Invoice>()
                       .AsNoTracking()
                       .Where(i => i.InvoiceId == invoiceId)
@@ -111,7 +99,10 @@ public sealed class InvoiceQueryService(ISportHubDbContext db, IClock clock) : I
         var items = await db.Set<InvoiceItem>()
             .AsNoTracking()
             .Where(it => it.InvoiceId == invoiceId)
-            .Select(it => new InvoiceItemResponse(it.ItemId, it.Description, it.Amount, it.RelatedEntityType.ToString()))
+            .Select(it => new InvoiceItemResponse(
+                it.ItemId, it.ItemType.ToString(), it.Description, it.UnitPrice, it.Quantity, it.LineAmount,
+                it.RelatedEntityId, it.ClassId, it.CourtRentalId, it.PtEntitlementId, it.MemberPackageId,
+                it.SportId, it.SportNameSnapshot, it.PtFrequencyPerWeek, it.SourceInvoiceItemId))
             .ToListAsync(ct);
 
         var payments = await db.Set<Domain.Entities.Payment>()
@@ -132,27 +123,11 @@ public sealed class InvoiceQueryService(ISportHubDbContext db, IClock clock) : I
             .Select(AdjustmentProjection())
             .ToListAsync(ct);
 
-        // Gợi ý hoàn tiền (BR-52) tính sẵn để màn hình duyệt không phải gọi thêm endpoint.
-        // Chỉ là gợi ý — Manager vẫn được ghi đè khi phê duyệt.
-        var suggestedRefund = 0m;
-
-        if (row.MemberPackageId is not null)
-        {
-            var packageInfo = await db.Set<MemberPackage>()
-                .AsNoTracking()
-                .Where(mp => mp.MemberPackageId == row.MemberPackageId)
-                .Select(mp => new { MemberPackage = mp, Catalog = mp.Package })
-                .SingleOrDefaultAsync(ct);
-
-            if (packageInfo is not null)
-            {
-                suggestedRefund = RefundCalculator.SuggestDefault(
-                    row.TotalAmount, packageInfo.MemberPackage, packageInfo.Catalog, VietnamTime.TodayLocal(clock));
-            }
-        }
-
+        // Retained for legacy response compatibility. Refund suggestions now come from the
+        // item-scoped /api/refunds workflow and are expressed in points.
+        const decimal suggestedRefund = 0m;
         return new InvoiceDetailResponse(
-            ToSummary(row, now), row.MemberPackageId, items, payments, adjustments, suggestedRefund);
+            ToSummary(row), row.MemberPackageId, items, payments, adjustments, suggestedRefund);
     }
 
     public async Task<InvoiceBalance> GetBalanceAsync(Guid invoiceId, CancellationToken ct = default)
@@ -164,12 +139,14 @@ public sealed class InvoiceQueryService(ISportHubDbContext db, IClock clock) : I
                       .SingleOrDefaultAsync(ct)
                   ?? throw new NotFoundException("invoice_not_found", "Không tìm thấy hóa đơn.");
 
-        return new InvoiceBalance(row.TotalAmount, row.GrossCollected, row.ObligationReduction, row.RefundedAmount);
+        return new InvoiceBalance(row.TotalAmount, row.GrossCollected + row.PointsSpent * 1000m,
+            row.ObligationReduction, row.RefundedAmount);
     }
 
-    private static InvoiceSummaryResponse ToSummary(InvoiceRow row, DateTime now)
+    private static InvoiceSummaryResponse ToSummary(InvoiceRow row)
     {
-        var balance = new InvoiceBalance(row.TotalAmount, row.GrossCollected, row.ObligationReduction, row.RefundedAmount);
+        var balance = new InvoiceBalance(row.TotalAmount, row.GrossCollected + row.PointsSpent * 1000m,
+            row.ObligationReduction, row.RefundedAmount);
 
         return new InvoiceSummaryResponse(
             row.InvoiceId,
@@ -178,7 +155,7 @@ public sealed class InvoiceQueryService(ISportHubDbContext db, IClock clock) : I
             row.MemberEmail,
             row.MemberName,
             row.TotalAmount,
-            balance.GrossCollected,
+            row.GrossCollected,
             balance.ObligationReduction,
             balance.RefundedAmount,
             balance.NetCollected,
@@ -187,9 +164,8 @@ public sealed class InvoiceQueryService(ISportHubDbContext db, IClock clock) : I
             balance.RefundDue,
             row.Status.ToString(),
             row.IssuedAt,
-            row.DueDateUtc,
-            row.FirstDepositAtUtc,
-            row.DueDateUtc < now && row.Status != InvoiceStatus.Paid && row.Status != InvoiceStatus.Void);
+            row.PointsSpent, row.CashAmount, row.PaidVia, row.PaidAtUtc,
+            row.CheckoutExpiresAtUtc, row.ReconciliationRequired);
     }
 
     private static System.Linq.Expressions.Expression<Func<Invoice, InvoiceRow>> RowProjection()
@@ -201,25 +177,26 @@ public sealed class InvoiceQueryService(ISportHubDbContext db, IClock clock) : I
             i.Member.Profile != null ? i.Member.Profile.FullName : string.Empty,
             i.TotalAmount,
 
-            // BR-41: chỉ Payment SUCCESS mới tính vào tổng đã thu.
             i.Payments.Where(p => p.Status == PaymentStatus.Success).Sum(p => (decimal?)p.Amount) ?? 0m,
 
-            // BR-41 v1.4 — giảm NGHĨA VỤ: chỉ Discount/Correction đã Completed.
             i.Adjustments
                 .Where(a => a.Status == PaymentAdjustmentStatus.Completed
                             && a.Type != PaymentAdjustmentType.Refund)
                 .Sum(a => (decimal?)a.Amount) ?? 0m,
 
-            // BR-41 v1.4 — giảm TIỀN THỰC THU: chỉ Refund đã Completed (đã có xác nhận thực trả).
             i.Adjustments
                 .Where(a => a.Status == PaymentAdjustmentStatus.Completed
                             && a.Type == PaymentAdjustmentType.Refund)
                 .Sum(a => (decimal?)a.Amount) ?? 0m,
             i.Status,
             i.IssuedAt,
-            i.DueDateUtc,
-            i.FirstDepositAtUtc,
-            i.MemberPackageId);
+            i.MemberPackageId,
+            i.Status == InvoiceStatus.Paid && i.CheckoutCycleId != null ? i.PointsApplied : 0,
+            i.CashAmount,
+            i.PaidVia,
+            i.PaidAtUtc,
+            i.HoldExpiresAtUtc,
+            i.ReconciliationRequired);
 
     internal static System.Linq.Expressions.Expression<Func<PaymentAdjustment, PaymentAdjustmentResponse>>
         AdjustmentProjection()
@@ -249,12 +226,16 @@ public sealed class InvoiceQueryService(ISportHubDbContext db, IClock clock) : I
             a.ApprovedAtUtc,
             a.CompletedAtUtc,
 
-            // Cờ cho màn hình quầy: Refund đã duyệt nhưng tiền chưa ra khỏi quầy (BR-42 v1.4).
             a.Type == PaymentAdjustmentType.Refund && a.Status == PaymentAdjustmentStatus.Approved,
-            a.ResolvedAt);
+            a.ResolvedAt,
+            a.InvoiceItemId,
+            a.SystemCalculatedPoints,
+            a.ApprovedPoints,
+            a.PointLedgerEntryId,
+            a.CenterFault);
 
     private static InvoiceStatus ParseStatus(string status)
-        => Enum.TryParse<InvoiceStatus>(status, ignoreCase: true, out var parsed)
+        => SportHub.BuildingBlocks.Api.WireEnum.TryParse<InvoiceStatus>(status, ignoreCase: true, out var parsed)
             ? parsed
             : throw new BadRequestException("invalid_status", $"Trạng thái hóa đơn không hợp lệ: '{status}'.");
 }

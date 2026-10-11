@@ -54,7 +54,7 @@ public sealed class GymCheckInConcurrencyTests(SchedulingApiFactory factory)
     }
 
     [Fact]
-    public async Task Concurrent_check_ins_for_the_same_member_do_not_block_each_other()
+    public async Task Concurrent_check_ins_for_the_same_member_create_only_one_open_visit()
     {
         var member = await factory.SeedUserAsync(UserRole.Member);
         var receptionist = await factory.SeedUserAsync(UserRole.Receptionist);
@@ -62,14 +62,15 @@ public sealed class GymCheckInConcurrencyTests(SchedulingApiFactory factory)
 
         var client = factory.CreateApiClient(receptionist.UserId, UserRole.Receptionist);
 
-        // FOR SHARE la khoa chia se: nhieu check-in cung luc van chay duoc, khong deadlock.
         var responses = await Task.WhenAll(Enumerable.Range(0, 5).Select(_ =>
-            client.PostAsJsonAsync("/api/gym-checkins", new { targetMemberId = member.UserId })));
+            client.PostAsJsonAsync("/api/gym-checkins", new { targetMemberId = member.UserId })))
+            .WaitAsync(TimeSpan.FromSeconds(30));
 
-        Assert.All(responses, r => Assert.Equal(HttpStatusCode.Created, r.StatusCode));
+        Assert.Single(responses, r => r.StatusCode == HttpStatusCode.Created);
+        Assert.Equal(4, responses.Count(r => r.StatusCode == HttpStatusCode.Conflict));
 
         var stored = await factory.QueryAsync(d =>
             d.GymCheckIns.CountAsync(c => c.MemberId == member.UserId));
-        Assert.Equal(5, stored);
+        Assert.Equal(1, stored);
     }
 }

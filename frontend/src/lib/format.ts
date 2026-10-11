@@ -1,13 +1,3 @@
-/**
- * Định dạng hiển thị.
- *
- * Backend lưu và trả mốc thời gian dạng UTC ISO-8601 (SSOT §5.3); toàn bộ việc quy đổi sang
- * Asia/Ho_Chi_Minh nằm ở đây, không rải rác trong từng màn hình.
- *
- * Cố định timeZone "Asia/Ho_Chi_Minh" thay vì dùng múi giờ của máy: trung tâm chỉ có một
- * địa điểm, nên giờ hiển thị phải là giờ trung tâm kể cả khi người xem ở nơi khác.
- */
-
 const TIME_ZONE = "Asia/Ho_Chi_Minh";
 const LOCALE = "en-GB";
 
@@ -47,8 +37,6 @@ export function formatTime(value: string | Date | null | undefined): string {
 
 export function formatDate(value: string | Date | null | undefined): string {
   if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    // DateOnly của backend ("2026-09-21") là NGÀY, không có giờ. Cắt chuỗi thay vì dựng Date:
-    // new Date("2026-09-21") được hiểu là 00:00 UTC và sẽ lùi một ngày khi đổi sang UTC+7.
     const [year, month, day] = value.split("-");
 
     return `${day}/${month}/${year}`;
@@ -65,7 +53,6 @@ export function formatDate(value: string | Date | null | undefined): string {
   }).format(date);
 }
 
-/** VND là số nguyên (SSOT §5.2) — không hiển thị phần thập phân. */
 export function formatMoney(value: number | null | undefined): string {
   if (value === null || value === undefined || Number.isNaN(value)) return "—";
 
@@ -78,7 +65,6 @@ export function formatNumber(value: number | null | undefined): string {
   return new Intl.NumberFormat(LOCALE).format(value);
 }
 
-/** Ngày hôm nay theo giờ VN, dạng yyyy-MM-dd để đưa thẳng vào <input type="date">. */
 export function todayIso(): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: TIME_ZONE }).format(
     new Date(),
@@ -93,11 +79,6 @@ export function addDaysIso(isoDate: string, days: number): string {
   return date.toISOString().slice(0, 10);
 }
 
-/**
- * Ghép ngày (yyyy-MM-dd) và giờ (HH:mm) NGƯỜI DÙNG NHẬP THEO GIỜ VN thành mốc UTC ISO để gửi
- * lên API. Trừ thẳng 7 giờ thay vì để trình duyệt tự suy: máy người dùng có thể đang ở múi
- * giờ khác, và khi đó new Date("...") sẽ hiểu chuỗi theo múi giờ máy.
- */
 export function vietnamLocalToUtcIso(
   dateIso: string,
   timeHhmm: string,
@@ -110,36 +91,36 @@ export function vietnamLocalToUtcIso(
   ).toISOString();
 }
 
-/** Nhãn tiếng Việt cho các giá trị enum trả về từ API (PascalCase). */
 export const LABELS: Record<string, string> = {
-  // MemberPackageStatus
+  PendingApproval: "Pending approval",
+  Suspended: "Suspended",
+  PaidAfterReconciliation: "Paid after reconciliation",
+  Fulfilled: "Fulfilled",
+  Compensated: "Compensated with points",
+  ReconciliationRequired: "Reconciliation required",
+  Published: "Published",
+  Transferred: "Transferred",
   PendingPayment: "Waiting for payment",
   Active: "Active",
   Expired: "Expired",
   Cancelled: "Cancelled",
 
-  // InvoiceStatus
   Issued: "Issued",
-  PartiallyPaid: "Partially paid",
   Paid: "Paid",
   Void: "Void",
 
-  // EnrollmentStatus
   Confirmed: "Confirmed",
   CancelledOnTime: "Cancelled on time",
   CancelledLate: "Cancelled late",
 
-  // AttendanceStatus
   Present: "Present",
   Absent: "Absent",
   NoShow: "No-show",
 
-  // ClassSessionStatus
   Scheduled: "Scheduled",
   Rescheduled: "Rescheduled",
   Completed: "Completed",
 
-  // PaymentAdjustmentStatus / Type
   Requested: "Requested",
   Approved: "Approved",
   Rejected: "Rejected",
@@ -147,43 +128,41 @@ export const LABELS: Record<string, string> = {
   Correction: "Correction",
   Discount: "Discount",
 
-  // PaymentMethod
   Cash: "Cash",
   Card: "Card",
   Transfer: "Bank transfer",
   EWallet: "E-wallet",
 
-  // UserStatus
   Banned: "Locked",
   Deactivated: "Deactivated",
 
-  // ClassStatus
   Archived: "Archived",
 
-  // ExperienceLevel
   Beginner: "Beginner",
   Intermediate: "Intermediate",
   Advanced: "Advanced",
 
-  // ReportExportStatus
   Pending: "Processing",
   Failed: "Failed",
 
-  // Discipline
-  PersonalTraining: "Personal Training",
-  Yoga: "Yoga",
-  GroupX: "Group X",
 };
 
 export function label(value: string | null | undefined): string {
   if (!value) return "—";
 
-  return LABELS[value] ?? value;
+  const key = Object.keys(LABELS).find(
+    (k) =>
+      k.replace(/_/g, "").toLowerCase() ===
+      value.replace(/_/g, "").toLowerCase(),
+  );
+  return LABELS[value] ?? (key ? LABELS[key] : value);
 }
 
-/** Màu chip theo ngữ nghĩa trạng thái — dùng chung để cùng một trạng thái luôn cùng màu. */
 export function chipTone(value: string | null | undefined): string {
-  switch (value) {
+  const normalized = value?.replace(/_/g, "").toLowerCase();
+  const key =
+    Object.keys(LABELS).find((k) => k.toLowerCase() === normalized) ?? value;
+  switch (key) {
     case "Active":
     case "Paid":
     case "Confirmed":
@@ -193,7 +172,6 @@ export function chipTone(value: string | null | undefined): string {
       return "chip--ok";
     case "PendingPayment":
     case "Issued":
-    case "PartiallyPaid":
     case "Requested":
     case "Scheduled":
     case "Pending":
@@ -206,10 +184,17 @@ export function chipTone(value: string | null | undefined): string {
     case "Void":
     case "Rejected":
     case "Banned":
-    case "Deactivated":
     case "Failed":
       return "chip--danger";
+    case "Deactivated":
+      return "chip--neutral";
     default:
       return "chip--info";
   }
+}
+
+export function formatPoints(value: number): string {
+  return new Intl.NumberFormat("en-GB", { maximumFractionDigits: 0 }).format(
+    value,
+  );
 }

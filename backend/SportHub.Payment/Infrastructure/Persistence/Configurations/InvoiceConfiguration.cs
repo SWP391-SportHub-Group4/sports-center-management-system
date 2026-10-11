@@ -8,9 +8,11 @@ public class InvoiceConfiguration : IEntityTypeConfiguration<Invoice>
     public void Configure(EntityTypeBuilder<Invoice> builder)
     {
         builder.HasKey(e => e.InvoiceId);
-        // Unique, sinh từ DB sequence ở service layer, không random ở app (BR-58, ràng buộc #5).
         builder.HasIndex(e => e.InvoiceNumber).IsUnique();
         builder.Property(e => e.TotalAmount).HasPrecision(18, 0);
+        builder.Property(e => e.CashAmount).HasPrecision(18, 0);
+        builder.ToTable("invoices", table => table.HasCheckConstraint("ck_invoice_point_split",
+            "points_applied >= 0 AND cash_amount >= 0 AND (checkout_cycle_id IS NULL OR cash_amount + points_applied::numeric * 1000 = total_amount)"));
 
         builder.HasOne(e => e.Member)
             .WithMany()
@@ -22,9 +24,7 @@ public class InvoiceConfiguration : IEntityTypeConfiguration<Invoice>
             .HasForeignKey(e => e.IssuedByUserId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        // Danh sách hoá đơn của một member và bộ lọc quá hạn (BR-55) là hai truy vấn chính.
         builder.HasIndex(e => new { e.MemberId, e.Status });
-        builder.HasIndex(e => e.DueDateUtc);
 
         builder.HasOne(e => e.MemberPackage)
             .WithMany()
