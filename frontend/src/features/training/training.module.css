@@ -610,13 +610,92 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+.coachPicker,
+.availabilitySection {
+  display: grid;
+  gap: var(--space-3);
+}
+.coachPicker {
+  margin-bottom: var(--space-4);
+}
+.coachPicker h4,
+.availabilitySection h4 {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}
 .coachChoices {
   display: grid;
-  gap: 0.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: var(--space-3);
 }
 .coachChoice {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+}
+.coachCard {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
+  gap: var(--space-3);
+  width: 100%;
+  min-width: 0;
+  min-height: 76px;
+  padding: var(--space-3);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+  color: var(--text-strong);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    box-shadow 160ms ease;
+}
+.coachCard:hover {
+  border-color: var(--color-primary);
+}
+.coachCard[aria-pressed="true"] {
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
+  box-shadow: 0 0 0 1px var(--color-primary);
+}
+.coachCard:focus-visible {
+  outline: 3px solid var(--focus-ring, var(--color-primary));
+  outline-offset: 2px;
+}
+.coachInfo {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  gap: 2px;
+}
+.coachInfo strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.coachInfo small {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+.coachSelected {
+  display: grid;
+  flex: none;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border: 1px solid var(--border-control);
+  border-radius: 50%;
+  color: var(--color-on-primary);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+}
+.coachCard[aria-pressed="true"] .coachSelected {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
 }

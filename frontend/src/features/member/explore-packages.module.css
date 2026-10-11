@@ -356,8 +356,13 @@
 }
 .ptActions {
   display: grid;
-  justify-items: end;
+  grid-template-columns: minmax(11rem, max-content);
+  justify-items: stretch;
   gap: var(--space-1);
+}
+.ptActions > * {
+  width: 100%;
+  text-align: center;
 }
 
 @media (max-width: 720px) {
@@ -377,7 +382,7 @@
     justify-content: space-between;
   }
   .rowBuy .cta,
-  .ptActions .cta {
+  .ptActions > * {
     flex: 1 1 140px;
   }
   .search {

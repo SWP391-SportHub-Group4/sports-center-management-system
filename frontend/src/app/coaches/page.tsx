@@ -8,7 +8,12 @@ import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import styles from "./coaches.module.css";
 
-type Coach = { userId: string; fullName: string; avatarUrl: string | null };
+type Coach = {
+  userId: string;
+  fullName: string;
+  avatarUrl: string | null;
+  bio?: string | null;
+};
 
 export default function PublicCoachesPage() {
   const { language } = useLanguage();
@@ -43,6 +48,7 @@ export default function PublicCoachesPage() {
                 size={112}
               />
               <h2>{coach.fullName}</h2>
+              {coach.bio && <p>{coach.bio}</p>}
               <ReportAvatarButton
                 targetUserId={coach.userId}
                 avatarUrl={coach.avatarUrl}
