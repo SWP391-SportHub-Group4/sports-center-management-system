@@ -1,12 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import {
   CalendarDays,
-  Users,
-  BookOpen,
   Plus,
   Check,
   X,
@@ -84,12 +81,6 @@ export function CoachWorkspace({
     },
     [user?.userId],
   );
-  const labels = {
-    schedule: vi ? "Lịch dạy" : "Teaching schedule",
-    classes: vi ? "Lớp phụ trách" : "Assigned classes",
-    students: vi ? "Học viên" : "Students",
-  };
-  const icons = { schedule: CalendarDays, classes: BookOpen, students: Users };
   const initial = state.data?.classes.find((c) => c.classId === initialClassId);
   const current = selection ?? (initial ? { course: initial } : null);
   return (
@@ -123,24 +114,6 @@ export function CoachWorkspace({
           compact
         />
       </header>
-      <nav
-        className={styles.bookmarks}
-        aria-label={vi ? "Không gian Coach" : "Coach workspace"}
-      >
-        {(["schedule", "classes", "students"] as const).map((id) => {
-          const Icon = icons[id];
-          return (
-            <Link
-              key={id}
-              href={`/coach/${id === "students" ? "members" : id}`}
-              aria-current={mode === id ? "page" : undefined}
-            >
-              <Icon size={18} aria-hidden="true" />
-              {labels[id]}
-            </Link>
-          );
-        })}
-      </nav>
       <CoachClassChangeHistory />
       <AsyncSection state={state}>
         {({ classes, sessions }) =>
