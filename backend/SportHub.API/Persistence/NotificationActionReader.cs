@@ -18,6 +18,15 @@ public sealed class NotificationActionReader(SportHubDbContext db) : INotificati
             var links = new Dictionary<Guid, string>();
             switch (group.Key)
             {
+                case "ClassSessionChangeRequested":
+                    if (await db.UserAccounts.AnyAsync(u => u.UserId == userId && u.Role!.RoleName == SportHub.Identity.Domain.Enums.UserRole.CenterManager, ct))
+                        foreach (var id in await db.Set<SportHub.Scheduling.Domain.Entities.ClassSessionChangeRequest>().Where(r => ids.Contains(r.RequestId)).Select(r => r.RequestId).ToListAsync(ct))
+                            links[id] = "/manager/schedule?section=requests";
+                    break;
+                case "ClassSessionChangeReviewed":
+                    foreach (var id in await db.Set<SportHub.Scheduling.Domain.Entities.ClassSessionChangeRequest>().Where(r => ids.Contains(r.RequestId) && r.RequestedByUserId == userId).Select(r => r.RequestId).ToListAsync(ct))
+                        links[id] = "/coach/schedule?changes=1";
+                    break;
                 case "ClassTeachingUpdated":
                     var teaching = await db.Set<SportHub.Scheduling.Domain.Entities.ClassTeachingRecord>()
                         .Where(x => ids.Contains(x.RecordId) && (x.MemberId == null || x.MemberId == userId))
@@ -53,6 +62,8 @@ public sealed class NotificationActionReader(SportHubDbContext db) : INotificati
                                           select new { s.SessionId, s.ClassId }).ToListAsync(ct);
                     foreach (var s in sessions)
                         links[s.SessionId] = $"/member/courses/{s.ClassId}";
+                    foreach (var id in await db.ClassSessions.Where(s => ids.Contains(s.SessionId) && s.CoachId == userId).Select(s => s.SessionId).ToListAsync(ct))
+                        links[id] = "/coach/schedule";
                     foreach (var e in await db.Enrollments.Where(x => x.MemberId == userId && ids.Contains(x.EnrollmentId))
                                  .Select(x => new { x.EnrollmentId, x.ClassId }).ToListAsync(ct))
                         links[e.EnrollmentId] = $"/member/courses/{e.ClassId}";

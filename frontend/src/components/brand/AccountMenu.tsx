@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
 import { CourtIcon, type CourtIconName } from "./CourtIcon";
 import s from "./brand.module.css";
+import { UserAvatar } from "@/components/UserAvatar";
 
 export function AccountMenu({
   name,
@@ -11,6 +12,7 @@ export function AccountMenu({
   logoutLabel,
   onSignOut,
   tone = "default",
+  avatarUrl,
 }: {
   name: string;
   subtitle: string;
@@ -18,17 +20,12 @@ export function AccountMenu({
   logoutLabel: string;
   onSignOut: () => void;
   tone?: "default" | "inverse";
+  avatarUrl?: string | null;
 }) {
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const id = useId();
-  const initials = name
-    .trim()
-    .split(/\s+/)
-    .slice(-2)
-    .map((part) => part[0])
-    .join("");
   useEffect(() => {
     if (!open) return;
     const dismiss = (event: PointerEvent) => {
@@ -62,9 +59,7 @@ export function AccountMenu({
         aria-controls={id}
         onClick={() => setOpen(!open)}
       >
-        <span className={s.avatar} aria-hidden="true">
-          {initials}
-        </span>
+        <UserAvatar name={name} src={avatarUrl} className={s.avatar} />
         <span className={s.accountName}>{name}</span>
         <CourtIcon name="chevron" size={16} />
       </button>

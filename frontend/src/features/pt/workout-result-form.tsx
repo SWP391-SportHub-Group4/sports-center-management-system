@@ -28,7 +28,9 @@ export function WorkoutResultForm({
   session,
   result,
   onSaved,
+  compact = false,
 }: {
+  compact?: boolean;
   session: PtSessionDto;
   result?: WorkoutResultDto;
   onSaved: () => void;
@@ -64,11 +66,13 @@ export function WorkoutResultForm({
         }
       }}
     >
-      <p>
-        {session.memberName}
-        {" · "}
-        {formatDateTime(session.startAtUtc)}
-      </p>
+      {!compact && (
+        <p>
+          {session.memberName}
+          {" · "}
+          {formatDateTime(session.startAtUtc)}
+        </p>
+      )}
 
       <Field label={l.progressNote}>
         <textarea
@@ -99,12 +103,14 @@ export function WorkoutResultForm({
   );
 }
 
-function ResultEditor({
+export function ResultEditor({
   session,
   reload,
+  compact = false,
 }: {
   session: PtSessionDto;
   reload: () => void;
+  compact?: boolean;
 }) {
   const results = useApi(
     async (signal) => {
@@ -139,6 +145,7 @@ function ResultEditor({
     <AsyncSection state={results}>
       {(data) => (
         <WorkoutResultForm
+          compact={compact}
           session={session}
           result={data.result}
           onSaved={() => {

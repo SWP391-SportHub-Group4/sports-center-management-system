@@ -34,6 +34,8 @@ public sealed record EmailNotificationRequest(Guid? UserId, string RecipientAddr
 /// </summary>
 public static class NotificationEvents
 {
+    public const string ClassSessionChangeRequested = nameof(ClassSessionChangeRequested);
+    public const string ClassSessionChangeReviewed = nameof(ClassSessionChangeReviewed);
     public const string ClassCancelled = nameof(ClassCancelled);
     public const string ScheduleChanged = nameof(ScheduleChanged);
     public const string PackageExpiring = nameof(PackageExpiring);

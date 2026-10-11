@@ -12,9 +12,36 @@ import type {
   ProgressItemDto,
   CourseRosterDto,
   MemberTrainingProfileDto,
+  MemberBmiProfileDto,
 } from "@/lib/types";
 
+export interface AssignedPtStudent {
+  memberId: string;
+  memberName: string;
+  memberEmail: string;
+  startedAt: string;
+  goal: string | null;
+  level: string | null;
+  hasTrainingProfile: boolean;
+  hasHealthNotes: boolean;
+}
+
 export const ptApi = {
+  students: (
+    page: number,
+    search: string,
+    health: string,
+    signal?: AbortSignal,
+  ) =>
+    api.get<Paged<AssignedPtStudent>>("/api/coaches/me/students", {
+      signal,
+      query: { page, search, health },
+    }),
+  healthProfile: (memberId: string, signal?: AbortSignal) =>
+    api.get<{
+      trainingProfile: MemberTrainingProfileDto | null;
+      bmiProfile: MemberBmiProfileDto | null;
+    }>(`/api/coaches/me/students/${memberId}/health-profile`, { signal }),
   sessions: (
     manager: boolean,
     page: number,
