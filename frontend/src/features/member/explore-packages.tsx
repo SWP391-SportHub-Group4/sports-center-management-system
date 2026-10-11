@@ -243,7 +243,6 @@ export function ExplorePackages({
                     baseMonthly={baseMonthly}
                     pending={!!pendingPlan(p.packageId)}
                     start={membershipStart}
-                    renewing={!!latestEnd}
                     busy={checkout.busyId === `gym:${p.packageId}`}
                     error={
                       checkout.error?.id === `gym:${p.packageId}`
@@ -394,7 +393,6 @@ function GymTier({
   baseMonthly,
   pending,
   start,
-  renewing,
   busy,
   error,
   index,
@@ -403,9 +401,8 @@ function GymTier({
   plan: MembershipPackageDto;
   baseMonthly: number | null;
   pending: boolean;
-  /** Ngày bắt đầu của gói này: hôm nay, hoặc ngay sau EndDate Membership đang dùng khi gia hạn sớm. */
+  /** Ngày bắt đầu của gói này: hôm nay, hoặc ngay sau EndDate Membership đang dùng. */
   start: string;
-  renewing: boolean;
   busy: boolean;
   error: string | null;
   index: number;
@@ -456,9 +453,7 @@ function GymTier({
         >
           {busy
             ? tx("Đang chuyển…", "Redirecting…")
-            : renewing
-              ? tx("Gia hạn", "Renew")
-              : tx("Chọn gói", "Select")}
+            : tx("Chọn gói", "Choose plan")}
         </button>
       )}
       {error && (

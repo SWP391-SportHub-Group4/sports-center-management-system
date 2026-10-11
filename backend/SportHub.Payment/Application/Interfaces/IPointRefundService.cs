@@ -15,6 +15,8 @@ public interface IPointRefundService
         bool canRequestForAnotherUser, CancellationToken cancellationToken = default);
     Task<PaymentAdjustmentResponse> CancelClassEnrollmentAsync(Guid invoiceItemId, Guid actorUserId,
         bool canActForAnotherUser, CancellationToken cancellationToken = default);
+    Task<PaymentAdjustmentResponse> CancelMembershipAsync(Guid invoiceItemId, Guid actorUserId,
+        bool canActForAnotherUser, CancellationToken cancellationToken = default);
     Task<PaymentAdjustmentResponse> ApproveAsync(Guid adjustmentId, ApprovePointRefundRequest request,
         Guid managerUserId, CancellationToken cancellationToken = default);
     Task<PaymentAdjustmentResponse> RejectAsync(Guid adjustmentId, string reason, Guid managerUserId,
