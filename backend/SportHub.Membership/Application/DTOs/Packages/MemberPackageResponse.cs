@@ -14,4 +14,5 @@ public sealed record MemberPackageResponse(
     [property: SportHub.BuildingBlocks.Api.WireEnum] string Status,
     bool IsUsable,
     bool StackingApproved,
-    string? StackingApprovalReason);
+    string? StackingApprovalReason,
+    Guid? InvoiceItemId = null);

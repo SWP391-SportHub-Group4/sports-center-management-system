@@ -23,6 +23,7 @@ namespace SportHub.API.Persistence;
 /// </summary>
 public sealed class Br141DemoSeeder(
     SportHubDbContext db,
+    CoachRosterSeeder roster,
     IClassService classes,
     IPasswordHasher passwordHasher,
     IClock clock,
@@ -41,10 +42,10 @@ public sealed class Br141DemoSeeder(
     private static readonly ClassPlan[] Plans =
     [
         // Lớp 120 phút: 07:00-09:00 sáng (T2/4/6) và 14:00-16:00 chiều (T3/5/7), giờ Việt Nam.
-        new("BR141-BONGRO-01", "Basketball 01", "basketball", 1, MonWedFri, "07:00", 1_200_000m, 9_600_000m, "coach.pt@sporthub.vn"),
-        new("BR141-BONGRO-02", "Basketball 02", "basketball", 2, TueThuSat, "14:00", 1_200_000m, 9_600_000m, "coach.pt@sporthub.vn"),
-        new("BR141-CAULONG-01", "Badminton 01", "badminton", 1, MonWedFri, "07:00", 900_000m, 4_500_000m, "coach.caulong@sporthub.vn"),
-        new("BR141-CAULONG-02", "Badminton 02", "badminton", 2, TueThuSat, "14:00", 900_000m, 4_500_000m, "coach.caulong@sporthub.vn"),
+        new("BR141-BONGRO-01", "Bóng rổ 01", "basketball", 1, MonWedFri, "07:00", 1_200_000m, 9_600_000m, "coach.bongro@sporthub.vn"),
+        new("BR141-BONGRO-02", "Bóng rổ 02", "basketball", 2, TueThuSat, "14:00", 1_200_000m, 9_600_000m, "coach.bongro2@sporthub.vn"),
+        new("BR141-CAULONG-01", "Cầu lông 01", "badminton", 1, MonWedFri, "07:00", 900_000m, 4_500_000m, "coach.caulong@sporthub.vn"),
+        new("BR141-CAULONG-02", "Cầu lông 02", "badminton", 2, TueThuSat, "14:00", 900_000m, 4_500_000m, "coach.caulong2@sporthub.vn"),
     ];
 
     public async Task SeedAsync(CancellationToken ct = default)
@@ -66,7 +67,7 @@ public sealed class Br141DemoSeeder(
         await AlignBadmintonSessionLengthAsync(sports["badminton"], ct);
         var rooms = await EnsureRoomsAsync(ct);
         await EnsureCourtRatesAsync(sports, ct);
-        var coaches = await EnsureCoachesAsync(sports, ct);
+        var coaches = await EnsureCoachesAsync(ct);
 
         var monday = NextMonday(VietnamTime.TodayLocal(clock));
         foreach (var plan in Plans)
@@ -125,8 +126,8 @@ public sealed class Br141DemoSeeder(
         // Loại phòng seed: 3 Sân cầu lông, 4 Sân bóng rổ. Mỗi môn hai sân riêng để lớp sáng và chiều không chung sân.
         var wanted = new[]
         {
-            ("badminton", 1, "Badminton court 01", 3, 12), ("badminton", 2, "Badminton court 02", 3, 12),
-            ("basketball", 1, "Basketball court 01", 4, 20), ("basketball", 2, "Basketball court 02", 4, 20),
+            ("badminton", 1, "Badminton Class BC1", 3, 12), ("badminton", 2, "Badminton Class BC2", 3, 12),
+            ("basketball", 1, "Basketball Class KC1", 4, 20), ("basketball", 2, "Basketball Class KC2", 4, 20),
         };
         var result = new Dictionary<(string, int), Room>();
         foreach (var (sport, index, name, roomType, capacity) in wanted)
@@ -173,44 +174,12 @@ public sealed class Br141DemoSeeder(
         }
     }
 
-    /// <summary>Coach nội bộ có chuyên môn đúng môn. Dùng tài khoản demo nếu đã có, ngược lại tạo mới (mật khẩu demo).</summary>
-    private async Task<Dictionary<string, Guid>> EnsureCoachesAsync(Dictionary<string, Sport> sports, CancellationToken ct)
+    /// <summary>Coach của bốn lớp lấy từ đội huấn luyện demo (<see cref="CoachRosterSeeder"/>), đúng môn và đúng chuyên môn.</summary>
+    private async Task<Dictionary<string, Guid>> EnsureCoachesAsync(CancellationToken ct)
     {
-        var role = await db.Roles.SingleAsync(r => r.RoleName == UserRole.Coach, ct);
-        var wanted = new[]
-        {
-            ("coach.caulong@sporthub.vn", "Phạm Minh Cầu Lông", "0902000001", "badminton"),
-            ("coach.pt@sporthub.vn", "Đỗ Quang PT", "0902000003", "basketball"),
-        };
-        var result = new Dictionary<string, Guid>();
-        foreach (var (email, name, phone, sportCode) in wanted)
-        {
-            var user = await db.UserAccounts.SingleOrDefaultAsync(u => u.Email == email, ct);
-            if (user is null)
-            {
-                user = new UserAccount
-                {
-                    UserId = Guid.NewGuid(), Email = email, RoleId = role.RoleId, Status = UserStatus.Active,
-                    CreatedAt = clock.UtcNow,
-                    Credential = new UserCredential { PasswordHash = passwordHasher.Hash(DemoPassword) },
-                    Profile = new UserProfile { FullName = name, Phone = await FreePhoneAsync(phone, ct) },
-                    CoachProfile = new CoachProfile()
-                };
-                db.UserAccounts.Add(user);
-                await db.SaveChangesAsync(ct);
-            }
-
-            var sportId = sports[sportCode].SportId;
-            if (!await db.UserSportSpecialties.AnyAsync(s => s.UserId == user.UserId && s.SportId == sportId, ct))
-            {
-                db.UserSportSpecialties.Add(new UserSportSpecialty { UserId = user.UserId, SportId = sportId });
-                await db.SaveChangesAsync(ct);
-            }
-
-            result[email] = user.UserId;
-        }
-
-        return result;
+        await roster.SeedAsync(ct);
+        var emails = Plans.Select(p => p.CoachEmail).Distinct().ToList();
+        return await db.UserAccounts.Where(u => emails.Contains(u.Email)).ToDictionaryAsync(u => u.Email, u => u.UserId, ct);
     }
 
     private async Task<string> FreePhoneAsync(string phone, CancellationToken ct)

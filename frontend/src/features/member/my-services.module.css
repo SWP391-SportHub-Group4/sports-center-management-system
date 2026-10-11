@@ -131,7 +131,8 @@
   background: var(--bg-surface-sunken);
   color: var(--text-muted);
 }
-.pill[data-tone="pending"] {
+.pill[data-tone="pending"],
+.pill[data-tone="scheduled"] {
   background: var(--blue-100);
   color: var(--blue-700);
 }
@@ -264,7 +265,7 @@
   display: grid;
   justify-items: stretch;
   gap: var(--space-1);
-  min-width: 156px;
+  min-width: 172px;
 }
 .link {
   display: inline-flex;
@@ -285,6 +286,28 @@
 .link:hover,
 .link[aria-expanded="true"] {
   color: var(--text-strong);
+}
+
+.cancel {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  margin-top: var(--space-1);
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--red-50);
+  color: var(--red-700);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: var(--transition-colors);
+}
+.cancel:hover {
+  background: var(--red-100);
 }
 
 .panel {

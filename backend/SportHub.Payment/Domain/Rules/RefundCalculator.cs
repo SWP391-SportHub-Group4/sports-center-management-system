@@ -8,6 +8,10 @@ public static class RefundCalculator
 {
     public const int VndPerPoint = 1_000;
 
+    /// <summary>Hủy ghi danh lớp từ mốc này trở lên trước buổi đầu được hoàn đủ; muộn hơn (vẫn trước buổi đầu) hoàn <see cref="ClassLateRefundPercent"/>%.</summary>
+    public static readonly TimeSpan ClassFullRefundWindow = TimeSpan.FromDays(5);
+    public const int ClassLateRefundPercent = 50;
+
     public static int MembershipPoints(
         decimal itemPaidVnd,
         DateOnly startDate,
@@ -34,14 +38,16 @@ public static class RefundCalculator
         decimal itemPaidVnd,
         int totalProvidedSessions,
         int sessionsNotProvided,
-        bool beforeFirstSession,
+        TimeSpan untilFirstSession,
         bool centerFault = false)
     {
         if (centerFault && totalProvidedSessions <= 0)
             return PointsForRatio(itemPaidVnd, 100);
         if (totalProvidedSessions <= 0 || sessionsNotProvided < 0 || sessionsNotProvided > totalProvidedSessions)
             throw new ArgumentOutOfRangeException(nameof(sessionsNotProvided), "Class session counts are inconsistent.");
-        if (beforeFirstSession) return PointsForRatio(itemPaidVnd, 100);
+        if (untilFirstSession > TimeSpan.Zero)
+            return PointsForRatio(itemPaidVnd,
+                centerFault || untilFirstSession >= ClassFullRefundWindow ? 100 : ClassLateRefundPercent);
         if (!centerFault) return 0;
         return PointsForRatio(itemPaidVnd, 100m * sessionsNotProvided / totalProvidedSessions);
     }
