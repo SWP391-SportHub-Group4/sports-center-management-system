@@ -515,7 +515,7 @@ export function AiScheduleDrawer({
                 được lịch hoàn
                 toàn khả dụng.
                 Bạn có thể bấm
-                "Tạo lại" hoặc
+                Tạo lại hoặc
                 chỉnh lịch thủ
                 công.
               </p>

@@ -427,8 +427,16 @@ public sealed class CheckoutFlowTests(PaymentApiFactory factory)
                     ScheduleRules = [new() { DayOfWeek = (int)start.DayOfWeek,
                         StartTimeLocal = "09:00" }]
                 }, manager.UserId);
-            await scope.ServiceProvider.GetRequiredService<IClassService>()
-                .PublishAsync(created.ClassId, new(), manager.UserId);
+            var classService =
+    scope.ServiceProvider.GetRequiredService<IClassService>();
+            await classService.PublishAsync(
+                created.ClassId,
+                new(),
+                manager.UserId);
+            await classService.SetEnrollmentOpenAsync(
+                created.ClassId,
+                true,
+                manager.UserId);
             classId = created.ClassId;
         }
         using var member = factory.CreateApiClient(context.MemberId, UserRole.Member);
