@@ -1,9 +1,4 @@
-import {
-  test,
-  expect,
-  type APIRequestContext,
-} from "@playwright/test";
-
+import { test, expect, type APIRequestContext } from "@playwright/test";
 import { loginApi } from "./helpers/auth";
 
 import type {
@@ -19,9 +14,7 @@ test.skip(
   "Set P2_LIVE_API only for an isolated, freshly seeded test database.",
 );
 
-test.describe.configure({
-  mode: "serial",
-});
+test.describe.configure({ mode: "serial" });
 
 const login = (
   request: APIRequestContext,
@@ -48,29 +41,23 @@ for (const points of [0, 50, 200]) {
       );
 
       const headers = {
-        Authorization:
-          `Bearer ${manager.accessToken}`,
+        Authorization: `Bearer ${manager.accessToken}`,
       };
 
       const sports = await (
-        await request.get(
-          `${base}/api/sports`,
-        )
+        await request.get(`${base}/api/sports`)
       ).json();
 
       const sport = sports.find(
-        (
-          s: {
-            services: {
-              serviceType: string;
-              isEnabled: boolean;
-            }[];
-          },
-        ) =>
+        (s: {
+          services: {
+            serviceType: string;
+            isEnabled: boolean;
+          }[];
+        }) =>
           s.services.some(
             (x) =>
-              x.serviceType ===
-                "GROUP_COURSE" &&
+              x.serviceType === "GROUP_COURSE" &&
               x.isEnabled,
           ),
       );
@@ -86,9 +73,7 @@ for (const points of [0, 50, 200]) {
         )
       ).json();
 
-      expect(
-        coaches.length,
-      ).toBeGreaterThan(0);
+      expect(coaches.length).toBeGreaterThan(0);
 
       const rooms = await (
         await request.get(
@@ -107,18 +92,11 @@ for (const points of [0, 50, 200]) {
         ).json()
       ).items[0] as CourseDto;
 
-      expect(
-        courseTemplate,
-      ).toBeTruthy();
+      expect(courseTemplate).toBeTruthy();
 
       const room = rooms.find(
-        (
-          r: {
-            roomId: number;
-          },
-        ) =>
-          r.roomId ===
-          courseTemplate.defaultRoomId,
+        (r: { roomId: number }) =>
+          r.roomId === courseTemplate.defaultRoomId,
       );
 
       expect(room).toBeTruthy();
@@ -126,78 +104,52 @@ for (const points of [0, 50, 200]) {
       const date = new Date();
 
       date.setUTCDate(
-        date.getUTCDate() +
-          40 +
-          points,
+        date.getUTCDate() + 40 + points,
       );
 
       const startDate = date
         .toISOString()
         .slice(0, 10);
 
-      const created =
-        await request.post(
-          `${base}/api/manager/classes`,
-          {
-            headers,
-            data: {
-              code:
-                `P2-${points}-${Date.now()}`,
-
-              name:
-                `P2 checkout ${points}`,
-
-              sportId:
-                sport.sportId,
-
-              coachId:
-                coaches[0].userId,
-
-              defaultRoomId:
-                room.roomId,
-
-              startDate,
-
-              numSessions: 1,
-
-              capacity: 8,
-
-              price: 200000,
-
-              costAmount: 100000,
-
-              scheduleRules: [
-                {
-                  dayOfWeek:
-                    date.getUTCDay(),
-
-                  startTimeLocal:
-                    "10:00",
-                },
-              ],
-            },
+      const created = await request.post(
+        `${base}/api/manager/classes`,
+        {
+          headers,
+          data: {
+            code: `P2-${points}-${Date.now()}`,
+            name: `P2 checkout ${points}`,
+            sportId: sport.sportId,
+            coachId: coaches[0].userId,
+            defaultRoomId: room.roomId,
+            startDate,
+            numSessions: 1,
+            capacity: 8,
+            price: 200000,
+            costAmount: 100000,
+            scheduleRules: [
+              {
+                dayOfWeek: date.getUTCDay(),
+                startTimeLocal: "10:00",
+              },
+            ],
           },
-        );
+        },
+      );
 
       expect(
         created.ok(),
         await created.text(),
       ).toBeTruthy();
 
-      const course =
-        await created.json();
+      const course = await created.json();
 
-      /*
-       * Publish class.
-       */
-      const published =
-        await request.post(
-          `${base}/api/manager/classes/${course.classId}/publish`,
-          {
-            headers,
-            data: {},
-          },
-        );
+      const published = await request.post(
+        `${base}/api/manager/classes/${course.classId}/publish`,
+        {
+          headers,
+          data: {},
+        },
+      );
 
       expect(
         published.ok(),
@@ -206,16 +158,15 @@ for (const points of [0, 50, 200]) {
 
       /*
        * G13:
-       * Publish no longer automatically
-       * opens enrollment.
+       * Publish does not automatically
+       * open enrollment anymore.
        */
-      const opened =
-        await request.post(
-          `${base}/api/manager/classes/${course.classId}/enrollment/open`,
-          {
-            headers,
-          },
-        );
+      const opened = await request.post(
+        `${base}/api/manager/classes/${course.classId}/enrollment/open`,
+        {
+          headers,
+        },
+      );
 
       expect(
         opened.ok(),
@@ -239,95 +190,19 @@ for (const points of [0, 50, 200]) {
 
       let attempts = 0;
 
-      page.on(
-        "request",
-        (r) => {
-          if (
-            r.method() === "POST" &&
-            r.url().endsWith(
-              "/attempts",
-            )
-          ) {
-            attempts++;
-          }
-        },
-      );
+      page.on("request", (request) => {
+        if (
+          request.method() === "POST" &&
+          request.url().endsWith("/attempts")
+        ) {
+          attempts++;
+        }
+      });
 
       await page.goto(
         `/member/services/courses/${course.classId}`,
       );
 
-  }) => {
-    const member = await login(request, "an.member@sporthub.vn");
-    const staff = await login(request, "letan@sporthub.vn");
-    const manager = await login(request, "manager@sporthub.vn");
-    const headers = { Authorization: `Bearer ${manager.accessToken}` };
-    const sports = await (await request.get(`${base}/api/sports`)).json();
-    const sport = sports.find(
-      (s: { services: { serviceType: string; isEnabled: boolean }[] }) => s.services.some((x) => x.serviceType === "GROUP_COURSE" && x.isEnabled),
-    );
-    const coaches = await (
-      await request.get(`${base}/api/coaches?sportId=${sport.sportId}`, {
-        headers,
-      })
-    ).json();
-    const rooms = await (
-      await request.get(`${base}/api/rooms`, { headers })
-    ).json();
-    const courseTemplate = (
-      await (
-        await request.get(`${base}/api/classes?sportId=${sport.sportId}`)
-      ).json()
-    ).items[0] as CourseDto;
-    const date = new Date();
-    date.setUTCDate(date.getUTCDate() + 40 + points);
-    const startDate = date.toISOString().slice(0, 10);
-    const created = await request.post(`${base}/api/manager/classes`, {
-      headers,
-      data: {
-        code: `P2-${points}-${Date.now()}`,
-        name: `P2 checkout ${points}`,
-        sportId: sport.sportId,
-        coachId: coaches[0].userId,
-        defaultRoomId: rooms.find(
-          (r: { roomId: number }) => r.roomId === courseTemplate.defaultRoomId,
-        ).roomId,
-        startDate,
-        numSessions: 1,
-        capacity: 8,
-        price: 200000,
-        costAmount: 100000,
-        scheduleRules: [
-          {
-            dayOfWeek: date.getUTCDay(),
-            startTimeLocal: points === 0 ? "15:00" : points === 50 ? "16:00" : "17:00",
-          },
-        ],
-      },
-    });
-    expect(created.ok(), await created.text()).toBeTruthy();
-    const course = await created.json();
-    const published = await request.post(
-      `${base}/api/manager/classes/${course.classId}/publish`,
-      { headers, data: {} },
-    );
-    expect(published.ok(), await published.text()).toBeTruthy();
-    await page.addInitScript((token) => {
-      localStorage.setItem("sporthub.accessToken", token);
-      localStorage.setItem("sporthub_lang", "en");
-    }, member.accessToken);
-    let attempts = 0;
-    page.on("request", (r) => {
-      if (r.method() === "POST" && r.url().endsWith("/attempts")) attempts++;
-    });
-    await page.goto("/member/services?view=explore&type=class");
-    const courseRow = page.getByRole("listitem").filter({ hasText: course.name });
-    await courseRow.getByRole("button", { name: "Select" }).click();
-    await expect(page).toHaveURL(/\/checkout\/[0-9a-f-]{36}$/i);
-    const invoiceId = page.url().split("/").at(-1)!;
-    expect(invoiceId).toBeTruthy();
-    if (points > 0) {
-      await page.getByLabel("Points", { exact: true }).fill(String(points));
       await page
         .getByRole("button", {
           name: "Payment",
@@ -337,27 +212,19 @@ for (const points of [0, 50, 200]) {
 
       await expect(
         page.getByRole("dialog", {
-          name:
-            "Register for this course",
+          name: "Register for this course",
         }),
       ).toBeVisible();
 
-      await expect(
-        page,
-      ).toHaveURL(
+      await expect(page).toHaveURL(
         /checkout=[0-9a-f-]{36}/i,
       );
 
-      const invoiceId =
-        new URL(
-          page.url(),
-        ).searchParams.get(
-          "checkout",
-        );
+      const invoiceId = new URL(
+        page.url(),
+      ).searchParams.get("checkout");
 
-      expect(
-        invoiceId,
-      ).toBeTruthy();
+      expect(invoiceId).toBeTruthy();
 
       if (!invoiceId) {
         throw new Error(
@@ -368,8 +235,7 @@ for (const points of [0, 50, 200]) {
       if (points > 0) {
         await page
           .getByRole("button", {
-            name:
-              /Wallet points/,
+            name: /Wallet points/,
           })
           .click();
 
@@ -377,38 +243,32 @@ for (const points of [0, 50, 200]) {
           .getByLabel("Points", {
             exact: true,
           })
-          .fill(
-            String(points),
-          );
+          .fill(String(points));
 
         await page
           .getByRole("button", {
-            name:
-              "Apply points",
+            name: "Apply points",
             exact: true,
           })
           .click();
 
         await expect
-          .poll(
-            async () => {
-              const response =
-                await request.get(
-                  `${base}/api/checkouts/${invoiceId}`,
-                  {
-                    headers: {
-                      Authorization:
-                        `Bearer ${member.accessToken}`,
-                    },
-                  },
-                );
+          .poll(async () => {
+            const response = await request.get(
+              `${base}/api/checkouts/${invoiceId}`,
+              {
+                headers: {
+                  Authorization:
+                    `Bearer ${member.accessToken}`,
+                },
+              },
+            );
 
-              const snapshot =
-                await response.json();
+            const snapshot =
+              await response.json();
 
-              return snapshot.pointsApplied;
-            },
-          )
+            return snapshot.pointsApplied;
+          })
           .toBe(points);
       }
 
@@ -419,16 +279,14 @@ for (const points of [0, 50, 200]) {
 
       await page
         .getByRole("button", {
-          name:
-            "Resume payment",
+          name: "Resume payment",
           exact: true,
         })
         .click();
 
       await expect(
         page.getByRole("dialog", {
-          name:
-            "Register for this course",
+          name: "Register for this course",
         }),
       ).toBeVisible();
 
@@ -438,13 +296,10 @@ for (const points of [0, 50, 200]) {
               (response) =>
                 response
                   .request()
-                  .method() ===
-                  "POST" &&
+                  .method() === "POST" &&
                 response
                   .url()
-                  .endsWith(
-                    "/attempts",
-                  ),
+                  .endsWith("/attempts"),
             )
           : null;
 
@@ -471,27 +326,23 @@ for (const points of [0, 50, 200]) {
         const data =
           (await attempt.json()) as PaymentAttemptDto;
 
-        expect(
-          data.cashAmount,
-        ).toBe(
-          200000 -
-            points * 1000,
+        expect(data.cashAmount).toBe(
+          200000 - points * 1000,
         );
 
-        expect(
-          data.gatewayMode,
-        ).toBe("MOCK");
+        expect(data.gatewayMode).toBe(
+          "MOCK",
+        );
 
-        const paid =
-          await request.post(
-            `${base}/api/dev/payments/${data.transactionReference}/simulate`,
-            {
-              headers: {
-                Authorization:
-                  `Bearer ${staff.accessToken}`,
-              },
+        const paid = await request.post(
+          `${base}/api/dev/payments/${data.transactionReference}/simulate`,
+          {
+            headers: {
+              Authorization:
+                `Bearer ${staff.accessToken}`,
             },
-          );
+          },
+        );
 
         expect(
           paid.ok(),
@@ -509,47 +360,18 @@ for (const points of [0, 50, 200]) {
       ).toBeVisible();
 
       if (points === 200) {
-        expect(
-          attempts,
-        ).toBe(0);
+        expect(attempts).toBe(0);
       }
 
-      const status =
-        await request.get(
-          `${base}/api/checkouts/${invoiceId}`,
-          {
-            headers: {
-              Authorization:
-                `Bearer ${member.accessToken}`,
-            },
+      const status = await request.get(
+        `${base}/api/checkouts/${invoiceId}`,
+        {
+          headers: {
+            Authorization:
+              `Bearer ${member.accessToken}`,
           },
-          return (await response.json()).pointsApplied;
-        })
-        .toBe(points);
-    }
-    await page.reload();
-    await expect(page.locator("[data-checkout-active='true']")).toBeVisible();
-    const attemptPromise =
-      points < 200
-        ? page.waitForResponse(
-            (r) =>
-              r.request().method() === "POST" && r.url().endsWith("/attempts"),
-          )
-        : null;
-    await page.getByRole("button", {
-      name: points === 200 ? "Confirm payment with points" : "Confirm payment",
-      exact: true,
-    }).click();
-    if (points < 200) {
-      const attempt = await attemptPromise;
-      if (attempt) {
-        const data = (await attempt.json()) as PaymentAttemptDto;
-        expect(data.cashAmount).toBe(200000 - points * 1000);
-        expect(data.gatewayMode).toBe("MOCK");
-        const paid = await request.post(
-          `${base}/api/dev/payments/${data.transactionReference}/simulate`,
-          { headers: { Authorization: `Bearer ${staff.accessToken}` } },
-        );
+        },
+      );
 
       expect(
         status.ok(),
@@ -588,11 +410,9 @@ for (const points of [0, 50, 200]) {
 
       expect(
         enrollments.items.some(
-          (
-            enrollment: {
-              classId: number;
-            },
-          ) =>
+          (enrollment: {
+            classId: number;
+          }) =>
             enrollment.classId ===
             course.classId,
         ),
@@ -606,8 +426,7 @@ for (const points of [0, 50, 200]) {
 
       await page
         .getByRole("button", {
-          name:
-            "Resume payment",
+          name: "Resume payment",
           exact: true,
         })
         .click();
@@ -694,8 +513,7 @@ test(
       expect(
         await page.evaluate(
           () =>
-            document
-              .documentElement
+            document.documentElement
               .scrollWidth <=
             window.innerWidth,
         ),
@@ -709,65 +527,3 @@ test(
     }
   },
 );
-    await expect(
-      page.getByText("Payment verified by server", { exact: true }),
-    ).toBeVisible();
-    if (points === 200) expect(attempts).toBe(0);
-    const status = await request.get(`${base}/api/checkouts/${invoiceId}`, {
-      headers: { Authorization: `Bearer ${member.accessToken}` },
-    });
-    const snapshot = (await status.json()) as CheckoutDto;
-    expect(snapshot.invoiceStatus).toBe("PAID");
-    expect(snapshot.fulfillmentOutcome).toBe("FULFILLED");
-    const enrollments = await (
-      await request.get(`${base}/api/members/me/enrollments?pageSize=100`, {
-        headers: { Authorization: `Bearer ${member.accessToken}` },
-      })
-    ).json();
-    expect(
-      enrollments.items.some(
-        (e: { classId: number }) => e.classId === course.classId,
-      ),
-    ).toBeTruthy();
-    await page.reload();
-    await expect(
-      page.getByText("Payment verified by server", { exact: true }),
-    ).toBeVisible();
-  });
-test("real Member views and responsive public catalog", async ({
-  page,
-  request,
-}) => {
-  const member = await login(request, "an.member@sporthub.vn");
-  await page.addInitScript((token) => {
-    localStorage.setItem("sporthub.accessToken", token);
-    localStorage.setItem("sporthub_lang", "en");
-  }, member.accessToken);
-  for (const path of [
-    "/member",
-    "/member/class-schedule",
-    "/member/my-registrations",
-    "/member/my-plans",
-    "/member/invoices",
-    "/member/training",
-    "/member/wallet",
-  ]) {
-    await page.goto(path);
-    await expect(page.locator("#main-content h1")).toBeVisible();
-    await expect(page.locator("#main-content [role=alert]")).toHaveCount(0);
-  }
-  for (const width of [1440, 390]) {
-    await page.setViewportSize({ width, height: 900 });
-    await page.goto("/");
-    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-    expect(
-      await page.evaluate(
-        () => document.documentElement.scrollWidth <= window.innerWidth,
-      ),
-    ).toBeTruthy();
-    await page.screenshot({
-      path: `test-results/p2-public-live-${width}.png`,
-      fullPage: true,
-    });
-  }
-});
