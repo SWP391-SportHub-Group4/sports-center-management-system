@@ -28,6 +28,7 @@ services:
       postgres:
         condition: service_healthy
     environment:
+      AiService__BaseUrl: ${AiService__BaseUrl:-http://host.docker.internal:8001}
       ConnectionStrings__Default: "Host=postgres;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}"
       JwtOptions__SecretKey: ${JwtOptions__SecretKey}
       Cors__AllowedOrigins__0: ${Cors__AllowedOrigins__0:-http://localhost:3000}

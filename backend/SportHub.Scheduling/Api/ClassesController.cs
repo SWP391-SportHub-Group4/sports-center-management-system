@@ -37,6 +37,30 @@ public class ClassesController(IClassService classes, IClassSessionService sessi
         return Ok(await sessions.ListByClassAsync(classId, null, ct));
     }
 
+    [Authorize(Policy = SportHubPolicies.CenterManager)]
+    [HttpPost("api/manager/classes/{classId:int}/enrollment/open")]
+    public async Task<IActionResult> OpenEnrollment(
+        int classId,
+        CancellationToken ct)
+        => Ok(
+            await classes.SetEnrollmentOpenAsync(
+                classId,
+                true,
+                User.RequireUserId(),
+                ct));
+
+    [Authorize(Policy = SportHubPolicies.CenterManager)]
+    [HttpPost("api/manager/classes/{classId:int}/enrollment/close")]
+    public async Task<IActionResult> CloseEnrollment(
+        int classId,
+        CancellationToken ct)
+        => Ok(
+            await classes.SetEnrollmentOpenAsync(
+                classId,
+                false,
+                User.RequireUserId(),
+                ct));
+                
     [Authorize(Policy = SportHubPolicies.Member)]
     [HttpGet("api/members/me/classes/{classId:int}/sessions")]
     public async Task<IActionResult> MemberSessions(int classId, CancellationToken ct)
