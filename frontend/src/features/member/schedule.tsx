@@ -24,7 +24,8 @@ import { useUrlQuery } from "@/lib/useUrlQuery";
 import { useMediaQuery } from "@/lib/useMediaQuery";
 import { rentalApi } from "../rentals/api";
 import type { CourtRentalDto, SportDto, CourseSessionDto } from "@/lib/types";
-import { memberSchedule, type MemberEvent } from "./api";
+import { memberEnrollments, memberSchedule, type MemberEvent } from "./api";
+import { RefundCancelDialog } from "@/features/payments";
 import { eventKind, sportTone, type EventKind } from "./event-meta";
 import { googleCalendarHref } from "./google-calendar";
 import { RentalCancelConfirm } from "./rental-cancel";
@@ -191,6 +192,10 @@ export function MemberSchedule({
   const [compactRental, setCompactRental] = useState<string | null>(null);
   const calendarScroll = useRef(0);
   const [cancelling, setCancelling] = useState<CourtRentalDto | null>(null);
+  const [cancellingClass, setCancellingClass] = useState<MemberEvent | null>(
+    null,
+  );
+  const enrollments = useApi(memberEnrollments, []);
   const [cancelTransitions, setCancelTransitions] = useState<
     Record<string, Item>
   >({});
@@ -397,6 +402,16 @@ export function MemberSchedule({
         ?.focus({ preventScroll: true });
       window.scrollTo({ top: calendarScroll.current, behavior: "instant" });
     });
+  }
+  function classEnrollment(classId?: number) {
+    return enrollments.data?.find(
+      (e) =>
+        e.classId === classId && e.status === "CONFIRMED" && e.invoiceItemId,
+    );
+  }
+  function classStarted(classId?: number) {
+    const first = classEnrollment(classId)?.firstSessionStartUtc;
+    return !!first && new Date(first).getTime() <= now;
   }
   const activeRental = compact ? compactRental : values.rental;
   const activeCourse = compact ? compactCourse?.classId : Number(values.course);
@@ -820,6 +835,23 @@ export function MemberSchedule({
                       {m.addToCalendar}
                     </a>
                   )}
+                  {selected.kind === "class" &&
+                    classEnrollment(selected.classId) &&
+                    !/CANCEL/i.test(selected.status ?? "") && (
+                      <button
+                        type="button"
+                        className={`btn btn--secondary ${styles.cancel}`}
+                        onClick={() => setCancellingClass(selected)}
+                      >
+                        {classStarted(selected.classId)
+                          ? vi
+                            ? "Gửi đơn hoàn điểm"
+                            : "Request refund"
+                          : vi
+                            ? "Hủy ghi danh"
+                            : "Cancel enrollment"}
+                      </button>
+                    )}
                   {selected.rental?.status === "CONFIRMED" &&
                     new Date(selected.startAtUtc).getTime() > now && (
                       <button
@@ -846,6 +878,23 @@ export function MemberSchedule({
             </div>
           </div>
         </Drawer>
+      )}
+      {cancellingClass && classEnrollment(cancellingClass.classId) && (
+        <RefundCancelDialog
+          target={{
+            kind: "class",
+            name: cancellingClass.title,
+            itemId: classEnrollment(cancellingClass.classId)!.invoiceItemId,
+            firstSessionStartUtc: classEnrollment(cancellingClass.classId)!
+              .firstSessionStartUtc,
+            started: classStarted(cancellingClass.classId),
+          }}
+          onClose={() => setCancellingClass(null)}
+          onDone={() => {
+            enrollments.reload();
+            state.reload();
+          }}
+        />
       )}
       {cancelling && (
         <RentalCancelConfirm

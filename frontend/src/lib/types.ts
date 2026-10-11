@@ -263,6 +263,7 @@ export interface MemberPackageDto {
   isUsable: boolean;
   stackingApproved: boolean;
   stackingApprovalReason: string | null;
+  invoiceItemId?: string | null;
 }
 
 export interface InvoiceSummaryDto {

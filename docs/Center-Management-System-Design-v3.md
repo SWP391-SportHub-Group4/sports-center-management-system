@@ -155,6 +155,8 @@ Sĩ số thuộc Class. `ReservedCount` hiện bao gồm chỗ đang giữ và �
 
 ### 5.4 Ngưỡng lớp và chuyển lớp
 
+**Hủy ghi danh lớp:** trước buổi đầu còn ≥ 5 ngày hoàn 100%, dưới 5 ngày hoàn 50% (tự động, chỉ bằng điểm); đã vào buổi đầu không hoàn tự động — Member gửi đơn, Manager quyết định % hoàn kèm căn cứ. Lễ tân và Manager có thể hủy thay Member; lớp bị trung tâm hủy hoàn 100%.
+
 Đánh giá số ghi danh trước buổi đầu theo cấu hình. Lớp dưới ngưỡng gửi lựa chọn chuyển lớp/hoàn điểm cùng deadline; job xử lý quá hạn idempotent. Miễn ngưỡng cần Manager và lý do.
 
 Chuyển lớp kiểm tra chỗ, điều kiện lớp đích và chuỗi giá trị đã trả. Chênh lệch dương qua checkout riêng, chỉ chuyển sau fulfillment. Không cấp quyền lợi lớp đích mà bỏ quên kết thúc lớp nguồn.

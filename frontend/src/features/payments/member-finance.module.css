@@ -57,7 +57,10 @@
 .invoices li {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) auto minmax(110px, auto) minmax(18px, auto);
+  grid-template-columns: minmax(0, 1.4fr) auto minmax(110px, auto) minmax(
+      18px,
+      auto
+    );
   align-items: center;
   gap: var(--space-4);
   min-height: 72px;
