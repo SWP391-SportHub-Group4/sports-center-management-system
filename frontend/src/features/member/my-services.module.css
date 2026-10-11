@@ -75,9 +75,6 @@
 .endedBox .list {
   margin-top: var(--space-3);
 }
-.endedBox .card {
-  opacity: 0.78;
-}
 
 .card {
   display: grid;
@@ -101,7 +98,6 @@
 }
 @keyframes rise {
   from {
-    opacity: 0;
     transform: translateY(8px);
   }
 }
