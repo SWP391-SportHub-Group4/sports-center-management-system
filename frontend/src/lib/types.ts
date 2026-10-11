@@ -105,6 +105,8 @@ export interface WalletLedgerDto {
   referenceId: string;
   note: string | null;
   createdAtUtc: string;
+  sourceDescription?: string | null;
+  sourceInvoiceId?: string | null;
 }
 
 export interface CheckoutDto {
