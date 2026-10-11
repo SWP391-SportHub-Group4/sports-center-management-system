@@ -185,70 +185,70 @@ namespace SportHub.API.Migrations
                         new
                         {
                             Key = "membership.expiry_notice_days",
-                            Description = "BR-33 — Nhắc hội viên trước bao nhiêu ngày khi gói thành viên sắp hết hạn.",
+                            Description = "BR-33 — Days before membership expiration to remind members.",
                             UpdatedAt = new DateTime(2026, 9, 21, 0, 0, 0, 0, DateTimeKind.Utc),
                             Value = "7"
                         },
                         new
                         {
                             Key = "class.threshold_days_before_start",
-                            Description = "BR-119 — Đánh giá ngưỡng hoàn vốn của khóa trước buổi đầu bao nhiêu ngày.",
+                            Description = "BR-119 — Days before the first session to evaluate the course threshold.",
                             UpdatedAt = new DateTime(2026, 9, 30, 0, 0, 0, 0, DateTimeKind.Utc),
                             Value = "3"
                         },
                         new
                         {
                             Key = "class.threshold_response_hours",
-                            Description = "BR-120 — Số giờ Member được trả lời khi khóa học có nguy cơ không đủ ngưỡng.",
+                            Description = "BR-120 — Hours for members to respond when a course risks missing its threshold.",
                             UpdatedAt = new DateTime(2026, 9, 30, 0, 0, 0, 0, DateTimeKind.Utc),
                             Value = "48"
                         },
                         new
                         {
                             Key = "hold.minutes",
-                            Description = "BR-115 — Số phút giữ chỗ và thanh toán tối đa khi checkout.",
+                            Description = "BR-115 — Maximum minutes to hold a place and complete checkout.",
                             UpdatedAt = new DateTime(2026, 9, 30, 0, 0, 0, 0, DateTimeKind.Utc),
                             Value = "15"
                         },
                         new
                         {
                             Key = "pt.price_per_session_vnd",
-                            Description = "Đơn giá demo PT mỗi buổi; Center Manager cần xác nhận giá kinh doanh.",
+                            Description = "Demo PT price per session; the center manager must confirm the business price.",
                             UpdatedAt = new DateTime(2026, 9, 30, 0, 0, 0, 0, DateTimeKind.Utc),
                             Value = "200000"
                         },
                         new
                         {
                             Key = "points.confirm_otp_minutes",
-                            Description = "BR-139 — Số phút OTP tại quầy xác nhận dùng điểm còn hiệu lực.",
+                            Description = "BR-139 — Minutes a points confirmation OTP remains valid at reception.",
                             UpdatedAt = new DateTime(2026, 9, 30, 0, 0, 0, 0, DateTimeKind.Utc),
                             Value = "5"
                         },
                         new
                         {
                             Key = "rental.slot_minutes",
-                            Description = "BR-126 — Độ dài mỗi khối thuê sân (30 hoặc 60 phút).",
+                            Description = "BR-126 — Court rental slot length (30 or 60 minutes).",
                             UpdatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Value = "60"
                         },
                         new
                         {
                             Key = "rental.max_hours",
-                            Description = "BR-128 — Thời lượng thuê sân tối đa theo giờ.",
+                            Description = "BR-128 — Maximum court rental duration in hours.",
                             UpdatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Value = "4"
                         },
                         new
                         {
                             Key = "rental.advance_days",
-                            Description = "BR-128 — Số ngày tối đa được đặt sân trước.",
+                            Description = "BR-128 — Maximum days to book a court in advance.",
                             UpdatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Value = "30"
                         },
                         new
                         {
                             Key = "rental.cancel_free_hours",
-                            Description = "BR-129 — Hủy miễn phí nếu còn ít nhất số giờ này trước lượt thuê.",
+                            Description = "BR-129 — Minimum hours before a rental for free cancellation.",
                             UpdatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Value = "24"
                         });
@@ -304,6 +304,106 @@ namespace SportHub.API.Migrations
                         .HasDatabaseName("ix_audit_logs_user_id");
 
                     b.ToTable("audit_logs", (string)null);
+                });
+
+            modelBuilder.Entity("SportHub.Identity.Domain.Entities.AvatarDeletion", b =>
+                {
+                    b.Property<Guid>("DeletionId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("deletion_id");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("integer")
+                        .HasColumnName("attempts");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTime?>("LastAttemptAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_attempt_at");
+
+                    b.Property<string>("PublicId")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("public_id");
+
+                    b.HasKey("DeletionId")
+                        .HasName("pk_avatar_deletions");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_avatar_deletions_public_id");
+
+                    b.ToTable("avatar_deletions", (string)null);
+                });
+
+            modelBuilder.Entity("SportHub.Identity.Domain.Entities.AvatarReport", b =>
+                {
+                    b.Property<Guid>("ReportId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("report_id");
+
+                    b.Property<string>("AvatarPublicId")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("avatar_public_id");
+
+                    b.Property<string>("AvatarUrl")
+                        .IsRequired()
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)")
+                        .HasColumnName("avatar_url");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("reason");
+
+                    b.Property<Guid>("ReporterUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("reporter_user_id");
+
+                    b.Property<DateTime?>("ReviewedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("reviewed_at");
+
+                    b.Property<Guid?>("ReviewedById")
+                        .HasColumnType("uuid")
+                        .HasColumnName("reviewed_by_id");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("status");
+
+                    b.Property<Guid>("TargetUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("target_user_id");
+
+                    b.HasKey("ReportId")
+                        .HasName("pk_avatar_reports");
+
+                    b.HasIndex("ReviewedById")
+                        .HasDatabaseName("ix_avatar_reports_reviewed_by_id");
+
+                    b.HasIndex("TargetUserId", "Status")
+                        .HasDatabaseName("ix_avatar_reports_target_user_id_status");
+
+                    b.HasIndex("ReporterUserId", "TargetUserId", "Status")
+                        .HasDatabaseName("ix_avatar_reports_reporter_user_id_target_user_id_status");
+
+                    b.ToTable("avatar_reports", (string)null);
                 });
 
             modelBuilder.Entity("SportHub.Identity.Domain.Entities.CoachProfile", b =>
@@ -543,6 +643,21 @@ namespace SportHub.API.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("user_id");
 
+                    b.Property<string>("AvatarPublicId")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("avatar_public_id");
+
+                    b.Property<string>("AvatarUrl")
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)")
+                        .HasColumnName("avatar_url");
+
+                    b.Property<long>("AvatarVersion")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint")
+                        .HasColumnName("avatar_version");
+
                     b.Property<string>("FullName")
                         .IsRequired()
                         .HasColumnType("text")
@@ -580,6 +695,50 @@ namespace SportHub.API.Migrations
                         .HasDatabaseName("ix_user_sport_specialties_sport_id");
 
                     b.ToTable("user_sport_specialties", (string)null);
+                });
+
+            modelBuilder.Entity("SportHub.Membership.Domain.Entities.MemberBmiProfile", b =>
+                {
+                    b.Property<Guid>("MemberId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("member_id");
+
+                    b.Property<DateTime?>("AppointmentAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("appointment_at");
+
+                    b.Property<decimal?>("HeightCm")
+                        .HasPrecision(5, 1)
+                        .HasColumnType("numeric(5,1)")
+                        .HasColumnName("height_cm");
+
+                    b.Property<DateTime?>("MeasuredAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("measured_at");
+
+                    b.Property<Guid?>("RecordedById")
+                        .HasColumnType("uuid")
+                        .HasColumnName("recorded_by_id");
+
+                    b.Property<DateTime>("RequestedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("requested_at");
+
+                    b.Property<decimal?>("WeightKg")
+                        .HasPrecision(5, 1)
+                        .HasColumnType("numeric(5,1)")
+                        .HasColumnName("weight_kg");
+
+                    b.HasKey("MemberId")
+                        .HasName("pk_member_bmi_profiles");
+
+                    b.HasIndex("RecordedById")
+                        .HasDatabaseName("ix_member_bmi_profiles_recorded_by_id");
+
+                    b.ToTable("member_bmi_profiles", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_bmi_complete_measurement", "(measured_at IS NULL AND height_cm IS NULL AND weight_kg IS NULL AND recorded_by_id IS NULL) OR (measured_at IS NOT NULL AND height_cm IS NOT NULL AND weight_kg IS NOT NULL AND height_cm BETWEEN 50 AND 250 AND weight_kg BETWEEN 10 AND 400 AND recorded_by_id IS NOT NULL)");
+                        });
                 });
 
             modelBuilder.Entity("SportHub.Membership.Domain.Entities.MemberPackage", b =>
@@ -1827,22 +1986,22 @@ namespace SportHub.API.Migrations
                         new
                         {
                             RoomTypeId = 1,
-                            Name = "Phòng Gym"
+                            Name = "Gym room"
                         },
                         new
                         {
                             RoomTypeId = 2,
-                            Name = "Phòng PT"
+                            Name = "PT room"
                         },
                         new
                         {
                             RoomTypeId = 3,
-                            Name = "Sân cầu lông"
+                            Name = "Badminton court"
                         },
                         new
                         {
                             RoomTypeId = 4,
-                            Name = "Sân bóng rổ"
+                            Name = "Basketball court"
                         });
                 });
 
@@ -1934,7 +2093,7 @@ namespace SportHub.API.Migrations
                             SportId = 3,
                             Code = "badminton",
                             IsActive = true,
-                            Name = "Cầu lông",
+                            Name = "Badminton",
                             SortOrder = 2
                         },
                         new
@@ -1942,7 +2101,7 @@ namespace SportHub.API.Migrations
                             SportId = 4,
                             Code = "basketball",
                             IsActive = true,
-                            Name = "Bóng rổ",
+                            Name = "Basketball",
                             SortOrder = 3
                         });
                 });
@@ -3470,6 +3629,29 @@ namespace SportHub.API.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("SportHub.Identity.Domain.Entities.AvatarReport", b =>
+                {
+                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", null)
+                        .WithMany()
+                        .HasForeignKey("ReporterUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_avatar_reports_user_accounts_reporter_user_id");
+
+                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", null)
+                        .WithMany()
+                        .HasForeignKey("ReviewedById")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_avatar_reports_user_accounts_reviewed_by_id");
+
+                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", null)
+                        .WithMany()
+                        .HasForeignKey("TargetUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_avatar_reports_user_accounts_target_user_id");
+                });
+
             modelBuilder.Entity("SportHub.Identity.Domain.Entities.CoachProfile", b =>
                 {
                     b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", "UserAccount")
@@ -3566,6 +3748,24 @@ namespace SportHub.API.Migrations
                         .HasConstraintName("fk_user_sport_specialties_user_accounts_user_id");
 
                     b.Navigation("UserAccount");
+                });
+
+            modelBuilder.Entity("SportHub.Membership.Domain.Entities.MemberBmiProfile", b =>
+                {
+                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", "Member")
+                        .WithMany()
+                        .HasForeignKey("MemberId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_member_bmi_profiles_user_accounts_member_id");
+
+                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", null)
+                        .WithMany()
+                        .HasForeignKey("RecordedById")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_member_bmi_profiles_user_accounts_recorded_by_id");
+
+                    b.Navigation("Member");
                 });
 
             modelBuilder.Entity("SportHub.Membership.Domain.Entities.MemberPackage", b =>

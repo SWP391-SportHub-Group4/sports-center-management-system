@@ -24,6 +24,7 @@ import {
 } from "@/components/icons";
 import shell from "./MemberShell.module.css";
 import styles from "./AppShell.module.css";
+import { AvatarImage } from "./AvatarImage";
 
 type NavLabelKey = keyof Translations["navigation"]["items"];
 
@@ -105,6 +106,7 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { href: "/manager/facilities", labelKey: "trainingRooms" },
     { href: "/manager/court-rates", labelKey: "rates" },
     { href: "/manager/coaches", labelKey: "coaches" },
+    { href: "/manager/avatar-reports", labelKey: "avatarReports" },
     { href: "/manager/schedule", labelKey: "courtSchedule" },
     { href: "/manager/incidents", labelKey: "incidents" },
     { href: "/manager/notices", labelKey: "notices" },
@@ -187,7 +189,10 @@ const GROUP_SPEC: Partial<Record<Role, (string | [GroupKey, string[]])[]>> = {
         "/manager/notices",
       ],
     ],
-    ["people", ["/manager/coaches", "/manager/members"]],
+    [
+      "people",
+      ["/manager/coaches", "/manager/members", "/manager/avatar-reports"],
+    ],
     ["finance", ["/manager/finance", "/manager/points", "/manager/reports"]],
     ["system", ["/manager/settings", "/manager/audit-log"]],
   ],
@@ -342,7 +347,7 @@ export function AppFrame({
   children: ReactNode;
 }) {
   const { user, loading, logout } = useAuth();
-  const { language, toggleLanguage, t } = useLanguage();
+  const { language, t } = useLanguage();
   const router = useRouter();
   const pathname = usePathname();
   const [showShortcuts, setShowShortcuts] = useState(false);
@@ -444,8 +449,6 @@ export function AppFrame({
   const root = items[0].href;
   const entries = buildNav(items, user.role, t);
   const roleDisplay = t.navigation.roleLabel[user.role];
-  const initial = (user.fullName || user.email).charAt(0).toUpperCase();
-
   return (
     <div className={shell.shell}>
       <a href="#main-content" className="skip-link">
@@ -503,20 +506,6 @@ export function AppFrame({
                 <span>{t.navigation.shortcutsButton}</span>
               </button>
             )}
-            <button
-              type="button"
-              className={`${shell.langToggleBtn} ${styles.staffLang}`}
-              onClick={toggleLanguage}
-              title={
-                language === "en"
-                  ? t.navigation.languageToggleToVi
-                  : t.navigation.languageToggleToEn
-              }
-            >
-              <span className={shell.langText}>
-                {language === "en" ? "EN" : "VI"}
-              </span>
-            </button>
             <NotificationBell />
             <div className={shell.userMenuWrapper} ref={userRef}>
               <button
@@ -526,7 +515,12 @@ export function AppFrame({
                 aria-expanded={userMenu}
                 aria-label={user.fullName || user.email}
               >
-                <div className={shell.userAvatar}>{initial}</div>
+                <AvatarImage
+                  name={user.fullName || user.email}
+                  avatarUrl={user.avatarUrl}
+                  size={36}
+                  className={shell.userAvatar}
+                />
                 <span className={shell.userName}>
                   {user.fullName || user.email}
                 </span>
@@ -646,30 +640,6 @@ export function AppFrame({
                   </div>
                 ),
               )}
-              <button
-                type="button"
-                className={shell.langToggleBtn}
-                style={{
-                  marginTop: 12,
-                  width: "100%",
-                  justifyContent: "center",
-                }}
-                onClick={() => {
-                  toggleLanguage();
-                  setDrawer(false);
-                }}
-                title={
-                  language === "en"
-                    ? t.navigation.languageToggleToVi
-                    : t.navigation.languageToggleToEn
-                }
-              >
-                <span className={shell.langText}>
-                  {language === "en"
-                    ? "Language: English (Switch to VI)"
-                    : "Ngôn ngữ: Tiếng Việt (Chuyển EN)"}
-                </span>
-              </button>
               <Link
                 href="/account"
                 className={shell.mobileNavLink}

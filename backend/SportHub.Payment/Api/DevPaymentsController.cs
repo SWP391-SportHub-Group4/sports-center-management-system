@@ -10,7 +10,9 @@ using SportHub.Payment.VnPay;
 
 namespace SportHub.Payment.Api;
 
-[ApiController, Authorize(Policy = SportHubPolicies.FrontDesk), Route("api/dev/payments")]
+// Chỉ chạy được ở Development với MockPaymentGateway (kiểm tra trong Simulate) nên cho mọi user đăng nhập,
+// để Member tự thử luồng mua gói khi chưa tích hợp VNPay sandbox.
+[ApiController, Authorize, Route("api/dev/payments")]
 public sealed class DevPaymentsController(IHostEnvironment environment, IPaymentGateway gateway,
     ISportHubDbContext db, PaymentReconciliationService reconciliation) : ControllerBase
 {

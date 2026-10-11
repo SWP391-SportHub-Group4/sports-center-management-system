@@ -11,9 +11,7 @@ export default async function Page({
   searchParams: MemberSearchParams;
 }) {
   const { rentalId } = await params;
-  return redirectMemberPage(searchParams, "/member/services", {
-    section: "courts",
-    view: "owned",
+  return redirectMemberPage(searchParams, "/member/schedule", {
     rental: rentalId,
   });
 }

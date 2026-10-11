@@ -97,7 +97,7 @@ function RentalRangeList({ initialDate }: { initialDate?: string }) {
                     <td>
                       <Link
                         className="btn btn--secondary"
-                        href={`/member/services?section=courts&view=owned&rental=${r.courtRentalId}`}
+                        href={`/member/schedule?rental=${r.courtRentalId}`}
                       >
                         {l.details}
                       </Link>

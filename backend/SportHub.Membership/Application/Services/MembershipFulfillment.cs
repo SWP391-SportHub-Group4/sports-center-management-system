@@ -81,7 +81,7 @@ public sealed class MembershipFulfillment(ISportHubDbContext db, IAuditWriter au
             OldValue: "{\"status\":\"PendingPayment\"}",
             NewValue: System.Text.Json.JsonSerializer.Serialize(new { status = "Active", startDate = start, endDate = end, invoiceId })));
         notifications.Queue(new NotificationRequest(entity.MemberId, NotificationEvents.PaymentReceived,
-            $"Gói {catalog.Name} đã được kích hoạt, hiệu lực từ {start:dd/MM/yyyy} đến {end:dd/MM/yyyy}.", memberPackageId));
+            $"Package {catalog.Name} is active from {start:dd/MM/yyyy} to {end:dd/MM/yyyy}.", memberPackageId));
     }
 
     public async Task ReleaseAsync(Guid memberPackageId, CancellationToken ct = default)

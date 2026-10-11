@@ -396,6 +396,7 @@ export interface UserAdminDto {
   userId: string;
   email: string;
   fullName: string;
+  avatarUrl?: string | null;
   phone: string | null;
   role: string;
   status: string;
@@ -413,6 +414,17 @@ export interface MemberTrainingProfileDto {
   experienceLevel: string;
   notes: string | null;
   updatedAt: string;
+}
+
+export interface MemberBmiProfileDto {
+  memberId: string;
+  status: "REQUESTED" | "SCHEDULED" | "MEASURED";
+  requestedAt: string;
+  appointmentAt: string | null;
+  heightCm: number | null;
+  weightKg: number | null;
+  bmi: number | null;
+  measuredAt: string | null;
 }
 
 export interface CoachMemberRelationshipDto {
@@ -806,6 +818,7 @@ export interface CourseRosterDto {
   }[];
 }
 export interface CoachAdminDto {
+  avatarUrl?: string | null;
   userId: string;
   email: string;
   fullName: string;

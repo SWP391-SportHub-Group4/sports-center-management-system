@@ -576,9 +576,9 @@ public sealed class ReportExportService(
             .ToHashSet();
 
         var subtitle = export.ReportType != ReportTypes.MemberSummary
-            ? $"Kỳ {fromDate:dd/MM/yyyy} – {toDate:dd/MM/yyyy} · {rows.Count} dòng · "
-              + $"Xuất lúc {VietnamTime.ToLocal(clock.UtcNow):HH:mm dd/MM/yyyy} (giờ Việt Nam)"
-            : $"{rows.Count} hội viên · Xuất lúc {VietnamTime.ToLocal(clock.UtcNow):HH:mm dd/MM/yyyy} (giờ Việt Nam)";
+            ? $"Period {fromDate:dd/MM/yyyy} – {toDate:dd/MM/yyyy} · {rows.Count} rows · "
+              + $"Exported at {VietnamTime.ToLocal(clock.UtcNow):HH:mm dd/MM/yyyy} (Vietnam time)"
+            : $"{rows.Count} members · Exported at {VietnamTime.ToLocal(clock.UtcNow):HH:mm dd/MM/yyyy} (Vietnam time)";
 
         return pdf.Render(new ReportTable(
             ReportColumnLabels.ReportTitle(export.ReportType),

@@ -23,7 +23,7 @@ export function PublicHeader() {
   const [scrolled, setScrolled] = useState(false);
   const homepage = usePathname() === "/";
   const { user, loading, logout } = useAuth();
-  const { language, toggleLanguage, t } = useLanguage();
+  const { language, t } = useLanguage();
   const vi = language === "vi";
   const copy = vi
     ? {
@@ -204,6 +204,7 @@ export function PublicHeader() {
     { id: "sporthub", label: copy.discover },
     { id: "activities", label: copy.arenaTour },
     { id: "book-court", label: copy.bookCourt },
+    { id: "coaches", label: vi ? "HLV" : "Coaches", href: "/coaches" },
     { id: "contact", label: copy.contact },
   ];
 
@@ -258,7 +259,7 @@ export function PublicHeader() {
             <Link
               key={section.id}
               data-section={section.id}
-              href={`/#${section.id}`}
+              href={("href" in section && section.href) || `/#${section.id}`}
               aria-current={
                 homepage && activeSection === section.id
                   ? "location"
@@ -268,7 +269,7 @@ export function PublicHeader() {
               onFocus={() => positionIndicator(section.id)}
               onClick={() => {
                 closeMenu();
-                if (homepage) {
+                if (homepage && section.id !== "coaches") {
                   setActiveSection(section.id);
                   window.dispatchEvent(
                     new CustomEvent("sporthub:section", { detail: section.id }),
@@ -287,22 +288,6 @@ export function PublicHeader() {
         </div>
 
         <div className={styles.headerActions}>
-          <button
-            type="button"
-            className={styles.langToggle}
-            onClick={toggleLanguage}
-            title={t.publicNav.toggleLang}
-            aria-label={t.publicNav.toggleLang}
-          >
-            <span className={language === "en" ? styles.langActive : ""}>
-              EN
-            </span>
-            <span className={styles.langDivider}>/</span>
-            <span className={language === "vi" ? styles.langActive : ""}>
-              VI
-            </span>
-          </button>
-
           {loading ? (
             <span
               className={styles.accountLoading}
@@ -312,6 +297,7 @@ export function PublicHeader() {
           ) : user ? (
             <AccountMenu
               name={user.fullName}
+              avatarUrl={user.avatarUrl}
               subtitle={copy.subtitle}
               logoutLabel={t.common.logout}
               onSignOut={logout}

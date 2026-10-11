@@ -306,7 +306,7 @@ public sealed class PtCoachChangeRequestService(
         notifications.Queue(new NotificationRequest(
             changeRequest.MemberId,
             NotificationEvents.ScheduleChanged,
-            $"Yêu cầu đổi Coach PT đã bị từ chối: {changeRequest.ReviewNote}",
+            $"PT coach change request was rejected: {changeRequest.ReviewNote}",
             requestId));
 
         await db.SaveChangesAsync(ct);
@@ -450,8 +450,8 @@ public sealed class PtCoachChangeRequestService(
         int movedCount,
         int unmovedCount)
     {
-        var message = $"Yêu cầu đổi Coach PT đã được duyệt. {movedCount} buổi được chuyển; "
-                      + $"{unmovedCount} buổi trùng lịch giữ Coach cũ để Manager xử lý.";
+        var message = $"PT coach change request was approved. {movedCount} sessions were transferred; "
+                      + $"{unmovedCount} conflicting sessions keep the previous coach for the manager to resolve.";
 
         foreach (var userId in new[]
                  {

@@ -38,3 +38,6 @@ ai/**/.venv/
 
 # Generated .NET test run evidence (CI uploads TRX artifacts).
 **/TestResults/
+
+# Local task tooling
+.tmp/
