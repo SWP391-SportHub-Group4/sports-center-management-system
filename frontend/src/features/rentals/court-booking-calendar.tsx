@@ -54,12 +54,15 @@ export function CourtBookingCalendar() {
   const { language } = useLanguage();
   const vi = language === "vi";
   const text = (viText: string, enText: string) => (vi ? viText : enText);
-  const [sportId, setSport] = useState<number | null>(null);
+  const { values } = useUrlQuery({ checkout: "", sport: "" });
+  const [sportPick, setSport] = useState<number | null>(null);
+  const sportId =
+    sportPick ??
+    (/^[1-9]\d{0,5}$/.test(values.sport) ? Number(values.sport) : null);
   const [datePick, setDate] = useState<string | null>(null);
   const [monthPick, setMonth] = useState<string | null>(null);
   const [picked, setPicked] = useState<Picked | null>(null);
   const [paid, setPaid] = useState<CheckoutDto | null>(null);
-  const { values } = useUrlQuery({ checkout: "" });
   const policy = useApi((signal) => rentalApi.policy(signal), []);
   const sports = useApi(
     (signal) =>

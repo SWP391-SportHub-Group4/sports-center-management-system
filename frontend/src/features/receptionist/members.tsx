@@ -17,6 +17,8 @@ import { GymVisits, MemberWallet } from "./front-desk";
 import { SelectedMemberPanel } from "./selected-member";
 import { BmiDesk, BmiRequestQueue } from "@/features/training";
 import styles from "./desk.module.css";
+import { AvatarImage } from "@/components/AvatarImage";
+import { ReportAvatarButton } from "@/components/ReportAvatarButton";
 
 /** Danh sách hội viên (H02): tên/SĐT/email, mở hồ sơ vận hành. */
 export function MemberList() {
@@ -67,7 +69,14 @@ export function MemberList() {
                 <Table headers={[l.colName, l.colContact, l.colStatus, ""]}>
                   {rows.map((m) => (
                     <tr key={m.userId}>
-                      <td>{m.fullName || m.email}</td>
+                      <td>
+                        <AvatarImage
+                          name={m.fullName || m.email}
+                          avatarUrl={m.avatarUrl}
+                          size={32}
+                        />{" "}
+                        {m.fullName || m.email}
+                      </td>
                       <td>
                         {m.email}
                         {m.phone ? ` · ${m.phone}` : ""}
@@ -76,6 +85,10 @@ export function MemberList() {
                         <StatusChip value={m.status} />
                       </td>
                       <td>
+                        <ReportAvatarButton
+                          targetUserId={m.userId}
+                          avatarUrl={m.avatarUrl}
+                        />
                         <Link
                           className="btn btn--secondary btn--sm"
                           href={`/receptionist/members/${m.userId}`}

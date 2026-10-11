@@ -1,2 +1,5 @@
 export { PtPurchase, MembershipCatalog } from "./catalog";
-export { isRetiredActivityPackage } from "./catalog-content";
+export {
+  isRetiredActivityPackage,
+  parseMembershipCatalog,
+} from "./catalog-content";

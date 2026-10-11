@@ -51,7 +51,7 @@ public sealed class CoursePublishTests(SchedulingApiFactory factory)
         var ids = sessions.Select(s => s.SessionId).ToArray();
         Assert.Equal(3, await factory.QueryAsync(db => db.RoomOccupancies.CountAsync(o => ids.Contains(o.SourceId) && o.IsActive)));
         Assert.Equal(3, await factory.QueryAsync(db => db.CoachOccupancies.CountAsync(o => ids.Contains(o.SourceId) && o.IsActive)));
-        Assert.Equal(1, await factory.QueryAsync(db => db.Notifications.CountAsync(n => n.UserId == c.CoachId && n.Message.Contains("đã được mở"))));
+        Assert.Equal(1, await factory.QueryAsync(db => db.Notifications.CountAsync(n => n.UserId == c.CoachId && n.Message.Contains("is open"))));
         var body = await publicClient.GetStringAsync($"api/classes/{c.Id}");
         Assert.DoesNotContain("costAmount", body);
         Assert.DoesNotContain("breakEvenThreshold", body);
@@ -78,7 +78,7 @@ public sealed class CoursePublishTests(SchedulingApiFactory factory)
         Assert.Equal(ClassStatus.Draft, await factory.QueryAsync(db => db.Classes.Where(x => x.ClassId == c.Id).Select(x => x.Status).SingleAsync()));
         Assert.Equal(1, await factory.QueryAsync(db => db.RoomOccupancies.CountAsync(o => o.RoomId == c.RoomId && o.IsActive)));
         Assert.Equal(0, await factory.QueryAsync(db => db.CoachOccupancies.CountAsync(o => o.CoachId == c.CoachId && o.IsActive)));
-        Assert.False(await factory.QueryAsync(db => db.Notifications.AnyAsync(n => n.UserId == c.CoachId && n.Message.Contains("đã được mở"))));
+        Assert.False(await factory.QueryAsync(db => db.Notifications.AnyAsync(n => n.UserId == c.CoachId && n.Message.Contains("is open"))));
     }
 
     [Theory]

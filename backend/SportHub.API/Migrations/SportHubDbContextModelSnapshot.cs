@@ -185,70 +185,70 @@ namespace SportHub.API.Migrations
                         new
                         {
                             Key = "membership.expiry_notice_days",
-                            Description = "BR-33 — Nhắc hội viên trước bao nhiêu ngày khi gói thành viên sắp hết hạn.",
+                            Description = "BR-33 — Days before membership expiration to remind members.",
                             UpdatedAt = new DateTime(2026, 9, 21, 0, 0, 0, 0, DateTimeKind.Utc),
                             Value = "7"
                         },
                         new
                         {
                             Key = "class.threshold_days_before_start",
-                            Description = "BR-119 — Đánh giá ngưỡng hoàn vốn của khóa trước buổi đầu bao nhiêu ngày.",
+                            Description = "BR-119 — Days before the first session to evaluate the course threshold.",
                             UpdatedAt = new DateTime(2026, 9, 30, 0, 0, 0, 0, DateTimeKind.Utc),
                             Value = "3"
                         },
                         new
                         {
                             Key = "class.threshold_response_hours",
-                            Description = "BR-120 — Số giờ Member được trả lời khi khóa học có nguy cơ không đủ ngưỡng.",
+                            Description = "BR-120 — Hours for members to respond when a course risks missing its threshold.",
                             UpdatedAt = new DateTime(2026, 9, 30, 0, 0, 0, 0, DateTimeKind.Utc),
                             Value = "48"
                         },
                         new
                         {
                             Key = "hold.minutes",
-                            Description = "BR-115 — Số phút giữ chỗ và thanh toán tối đa khi checkout.",
+                            Description = "BR-115 — Maximum minutes to hold a place and complete checkout.",
                             UpdatedAt = new DateTime(2026, 9, 30, 0, 0, 0, 0, DateTimeKind.Utc),
                             Value = "15"
                         },
                         new
                         {
                             Key = "pt.price_per_session_vnd",
-                            Description = "Đơn giá demo PT mỗi buổi; Center Manager cần xác nhận giá kinh doanh.",
+                            Description = "Demo PT price per session; the center manager must confirm the business price.",
                             UpdatedAt = new DateTime(2026, 9, 30, 0, 0, 0, 0, DateTimeKind.Utc),
                             Value = "200000"
                         },
                         new
                         {
                             Key = "points.confirm_otp_minutes",
-                            Description = "BR-139 — Số phút OTP tại quầy xác nhận dùng điểm còn hiệu lực.",
+                            Description = "BR-139 — Minutes a points confirmation OTP remains valid at reception.",
                             UpdatedAt = new DateTime(2026, 9, 30, 0, 0, 0, 0, DateTimeKind.Utc),
                             Value = "5"
                         },
                         new
                         {
                             Key = "rental.slot_minutes",
-                            Description = "BR-126 — Độ dài mỗi khối thuê sân (30 hoặc 60 phút).",
+                            Description = "BR-126 — Court rental slot length (30 or 60 minutes).",
                             UpdatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Value = "60"
                         },
                         new
                         {
                             Key = "rental.max_hours",
-                            Description = "BR-128 — Thời lượng thuê sân tối đa theo giờ.",
+                            Description = "BR-128 — Maximum court rental duration in hours.",
                             UpdatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Value = "4"
                         },
                         new
                         {
                             Key = "rental.advance_days",
-                            Description = "BR-128 — Số ngày tối đa được đặt sân trước.",
+                            Description = "BR-128 — Maximum days to book a court in advance.",
                             UpdatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Value = "30"
                         },
                         new
                         {
                             Key = "rental.cancel_free_hours",
-                            Description = "BR-129 — Hủy miễn phí nếu còn ít nhất số giờ này trước lượt thuê.",
+                            Description = "BR-129 — Minimum hours before a rental for free cancellation.",
                             UpdatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Value = "24"
                         });
@@ -1986,22 +1986,22 @@ namespace SportHub.API.Migrations
                         new
                         {
                             RoomTypeId = 1,
-                            Name = "Phòng Gym"
+                            Name = "Gym room"
                         },
                         new
                         {
                             RoomTypeId = 2,
-                            Name = "Phòng PT"
+                            Name = "PT room"
                         },
                         new
                         {
                             RoomTypeId = 3,
-                            Name = "Sân cầu lông"
+                            Name = "Badminton court"
                         },
                         new
                         {
                             RoomTypeId = 4,
-                            Name = "Sân bóng rổ"
+                            Name = "Basketball court"
                         });
                 });
 
@@ -2093,7 +2093,7 @@ namespace SportHub.API.Migrations
                             SportId = 3,
                             Code = "badminton",
                             IsActive = true,
-                            Name = "Cầu lông",
+                            Name = "Badminton",
                             SortOrder = 2
                         },
                         new
@@ -2101,7 +2101,7 @@ namespace SportHub.API.Migrations
                             SportId = 4,
                             Code = "basketball",
                             IsActive = true,
-                            Name = "Bóng rổ",
+                            Name = "Basketball",
                             SortOrder = 3
                         });
                 });

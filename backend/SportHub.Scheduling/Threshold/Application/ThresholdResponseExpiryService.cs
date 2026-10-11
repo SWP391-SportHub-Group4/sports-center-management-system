@@ -130,7 +130,7 @@ public sealed class ThresholdResponseExpiryService(ISportHubDbContext db, IRefun
                 response.ResolvedAtUtc = clock.UtcNow;
             }
             notifications.Queue(new NotificationRequest(enrollment.MemberId, NotificationEvents.ClassCancelled,
-                $"Khóa {entity.Name} đã hủy do không đạt ngưỡng hoàn vốn; điểm đã được hoàn vào ví."));
+                $"Course {entity.Name} was canceled because it did not meet the break-even threshold; points were returned to your wallet."));
         }
 
         // Cancellation has acquired the class row lock after the invoice/wallet locks.

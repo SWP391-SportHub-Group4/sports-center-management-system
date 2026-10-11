@@ -191,6 +191,10 @@ Việc bổ sung không thay đổi quyền đọc audit, scope tài khoản c�
 |---|---|
 | GET | `api/[controller]` |
 
+### Avatar Cloudinary — `api/avatars`
+
+Quy tắc nghiệp vụ, quyền xem, xóa ảnh cũ và Google avatar: [Avatar-Cloudinary](Avatar-Cloudinary.md). `GET /api/users/me`, response đăng nhập và danh sách Coach có `avatarUrl` nullable. Member/Coach tự tải multipart `file` qua `POST /api/avatars/me` (JPG/PNG/WebP, tối đa 5 MiB) và xóa qua `DELETE /api/avatars/me`. `GET /api/avatars/{userId}` chỉ công khai avatar Coach; avatar Member yêu cầu đăng nhập. Người đăng nhập báo cáo ảnh qua `POST /api/avatars/reports` (`targetUserId`, `reason`); Manager dùng `GET /api/manager/avatar-reports` và `POST .../{id}/dismiss|remove`. Manager không thể gỡ phiên bản ảnh mới bằng báo cáo ảnh cũ.
+
 ### AccountController — `api/users/me`
 
 | Verb | Path |

@@ -20,8 +20,8 @@ public class SportConfiguration : IEntityTypeConfiguration<Sport>
         // Manager tự thêm/sửa môn sau đó.
         builder.HasData(
             new Sport { SportId = 1, Code = SportCodes.Gym, Name = "Gym", SortOrder = 1, IsActive = true },
-            new Sport { SportId = 3, Code = "badminton", Name = "Cầu lông", SortOrder = 2, IsActive = true },
-            new Sport { SportId = 4, Code = "basketball", Name = "Bóng rổ", SortOrder = 3, IsActive = true });
+            new Sport { SportId = 3, Code = "badminton", Name = "Badminton", SortOrder = 2, IsActive = true },
+            new Sport { SportId = 4, Code = "basketball", Name = "Basketball", SortOrder = 3, IsActive = true });
     }
 }
 

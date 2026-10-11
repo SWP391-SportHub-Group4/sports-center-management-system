@@ -98,10 +98,10 @@ public sealed partial class DemoDataSeeder(
         // Loại phòng seed trong migration catalog: 1 Phòng Gym, 2 Phòng PT, 3 Sân cầu lông, 4 Sân bóng rổ.
         var rooms = new[]
         {
-            new Room { Name = "Sân cầu lông 1", Capacity = 12, RoomTypeId = 3 },
-            new Room { Name = "Sân bóng rổ 1", Capacity = 30, RoomTypeId = 4 },
-            new Room { Name = "Phòng PT 1", Capacity = 2, RoomTypeId = 2 },
-            new Room { Name = "Khu Gym tự do", Capacity = 80, RoomTypeId = 1 }
+            new Room { Name = "Badminton court 1", Capacity = 12, RoomTypeId = 3 },
+            new Room { Name = "Basketball court 1", Capacity = 30, RoomTypeId = 4 },
+            new Room { Name = "PT room 1", Capacity = 2, RoomTypeId = 2 },
+            new Room { Name = "Open gym", Capacity = 80, RoomTypeId = 1 }
         };
 
         db.Rooms.AddRange(rooms);
@@ -117,38 +117,38 @@ public sealed partial class DemoDataSeeder(
         {
             new MembershipPackage
             {
-                Name = "Gym 1 tháng",
+                Name = "Gym 1 month",
                 Price = 600_000m,
                 DurationDays = 30,
                 SessionLimit = null,
-                Description = "Tập Gym tự do trong 30 ngày, không giới hạn check-in. Cần Membership Gym còn hiệu lực để mua PT riêng.",
+                Description = "Unlimited gym check-ins for 30 days. An active Gym membership is required to purchase PT separately.",
                 IsActive = true
             },
             new MembershipPackage
             {
-                Name = "Gym 3 tháng",
+                Name = "Gym 3 months",
                 Price = 1_800_000m,
                 DurationDays = 90,
                 SessionLimit = null,
-                Description = "Tập Gym tự do trong 90 ngày. Cần Membership Gym còn hiệu lực để mua PT riêng.",
+                Description = "Gym access for 90 days. An active Gym membership is required to purchase PT separately.",
                 IsActive = true
             },
             new MembershipPackage
             {
-                Name = "Gym 6 tháng",
+                Name = "Gym 6 months",
                 Price = 2_400_000m,
                 DurationDays = 180,
                 SessionLimit = null,
-                Description = "Tập Gym tự do trong 180 ngày. Cần Membership Gym còn hiệu lực để mua PT riêng.",
+                Description = "Gym access for 180 days. An active Gym membership is required to purchase PT separately.",
                 IsActive = true
             },
             new MembershipPackage
             {
-                Name = "Gym 12 tháng",
+                Name = "Gym 12 months",
                 Price = 6_000_000m,
                 DurationDays = 365,
                 SessionLimit = null,
-                Description = "Tập Gym tự do trong 365 ngày. Cần Membership Gym còn hiệu lực để mua PT riêng.",
+                Description = "Gym access for 365 days. An active Gym membership is required to purchase PT separately.",
                 IsActive = true
             }
         };
@@ -187,7 +187,7 @@ public sealed partial class DemoDataSeeder(
                 "INPROGRESS" => new[] { today.AddDays(-1), today.AddDays(1) },
                 _ => new[] { today.AddDays(-6), today.AddDays(-4) }
             };
-            var course = new Class { Code = "DEMO-" + scenario, Name = "Cầu lông " + scenario,
+            var course = new Class { Code = "DEMO-" + scenario, Name = "Badminton " + scenario,
                 SportId = 3, CoachId = coach.UserId, DefaultRoomId = room.RoomId, StartDate = dates[0],
                 NumSessions = 2, Capacity = 12, Price = 200_000, CostAmount = 400_000, BreakEvenThreshold = 2,
                 Status = scenario == "ATRISK" ? ClassStatus.Published : scenario == "INPROGRESS" ? ClassStatus.InProgress : ClassStatus.Completed,
@@ -233,8 +233,8 @@ public sealed partial class DemoDataSeeder(
             "coach.bongro@sporthub.vn", "Vũ Hải Bóng Rổ", "0902000002", 4, ct);
         await EnsureDemoCoachAsync(
             "coach.pt@sporthub.vn", "Đỗ Quang PT", "0902000003", 1, ct);
-        var badmintonRoom = await EnsureDemoRoomAsync("Sân cầu lông 1", 3, 12, ct);
-        var basketballRoom = await EnsureDemoRoomAsync("Sân bóng rổ 1", 4, 30, ct);
+        var badmintonRoom = await EnsureDemoRoomAsync("Badminton court 1", 3, 12, ct);
+        var basketballRoom = await EnsureDemoRoomAsync("Basketball court 1", 4, 30, ct);
 
         if (badmintonCoach is null || basketballCoach is null
             || badmintonRoom is null || basketballRoom is null) return;
@@ -244,7 +244,7 @@ public sealed partial class DemoDataSeeder(
 
         await SeedPublishedShowcaseCourseAsync(
             code: "DEMO-ARENA-CAULONG",
-            name: "Cầu lông cơ bản · 6 buổi",
+            name: "Badminton basics · 6 sessions",
             sportId: 3,
             coachId: badmintonCoach.UserId,
             roomId: badmintonRoom.RoomId,
@@ -260,7 +260,7 @@ public sealed partial class DemoDataSeeder(
 
         await SeedPublishedShowcaseCourseAsync(
             code: "DEMO-ARENA-BONGRO",
-            name: "Bóng rổ nhập môn · 8 buổi",
+            name: "Basketball introduction · 8 sessions",
             sportId: 4,
             coachId: basketballCoach.UserId,
             roomId: basketballRoom.RoomId,
@@ -311,7 +311,7 @@ public sealed partial class DemoDataSeeder(
             MemberId = member.UserId,
             CoachId = coach.UserId,
             RelationshipId = relationship.RelationshipId,
-            Goal = "Tăng cơ và cải thiện sức bền",
+            Goal = "Build muscle and improve endurance",
             Level = nameof(ExperienceLevel.Intermediate),
             Status = WorkoutPlanStatus.Active,
             CreatedAt = now.AddDays(-7),
@@ -320,12 +320,12 @@ public sealed partial class DemoDataSeeder(
         db.WorkoutPlans.Add(plan);
         var items = new (string Exercise, int Sets, int Reps, string? Notes)[]
         {
-            ("Back squat", 4, 8, "Nghỉ 90 giây giữa hiệp, giữ lưng thẳng"),
-            ("Bench press", 4, 8, "Hạ thanh chậm 3 giây"),
-            ("Barbell row", 3, 10, "Siết bả vai ở cuối động tác"),
+            ("Back squat", 4, 8, "Rest 90 seconds between sets and keep your back straight"),
+            ("Bench press", 4, 8, "Lower the bar slowly over 3 seconds"),
+            ("Barbell row", 3, 10, "Squeeze your shoulder blades at the top"),
             ("Romanian deadlift", 3, 10, null),
-            ("Plank", 3, 45, "45 giây mỗi hiệp"),
-            ("Chạy bộ nhẹ trên máy", 1, 20, "20 phút, nhịp tim vùng 2")
+            ("Plank", 3, 45, "45 seconds per set"),
+            ("Light treadmill run", 1, 20, "20 minutes at zone 2 heart rate")
         };
         db.WorkoutPlanItems.AddRange(items.Select(i => new WorkoutPlanItem
         {
@@ -339,9 +339,9 @@ public sealed partial class DemoDataSeeder(
     {
         var presentation = new (int SportId, string Description, string ImageUrl)[]
         {
-            (1, "Tập Gym tự do để rèn sức mạnh, sức bền và thể lực tổng quát. Huấn luyện cá nhân (PT) là dịch vụ của Gym, mua riêng và yêu cầu Membership Gym còn hiệu lực.", "/sporthub/court-volt/conditioning-speed-track.png"),
-            (3, "Lớp Cầu lông theo khóa, lịch lặp 90 phút mỗi buổi; đăng ký riêng, không cần Membership Gym.", "/sporthub/court-volt/course-badminton.png"),
-            (4, "Lớp Bóng rổ theo khóa, lịch lặp 120 phút mỗi buổi; có thể đặt sân riêng, không cần Membership Gym.", "/sporthub/court-volt/course-basketball.png")
+            (1, "Open gym for strength, endurance, and general fitness. Personal training is a separate Gym service and requires an active Gym membership.", "/sporthub/court-volt/conditioning-speed-track.png"),
+            (3, "Badminton courses have recurring 90-minute sessions and are purchased separately without a Gym membership.", "/sporthub/court-volt/course-badminton.png"),
+            (4, "Basketball courses have recurring 120-minute sessions. Courts can also be rented separately without a Gym membership.", "/sporthub/court-volt/course-basketball.png")
         };
 
         var changed = false;
@@ -561,7 +561,7 @@ public sealed partial class DemoDataSeeder(
         // Only extend the named demo dataset; never infer real accounts as demo owners.
         var manager = await db.UserAccounts.SingleOrDefaultAsync(x => x.Email == "manager@sporthub.vn", ct);
         var member = await db.UserAccounts.SingleOrDefaultAsync(x => x.Email == "an.member@sporthub.vn", ct);
-        var room = await db.Rooms.FirstOrDefaultAsync(x => x.Name == "Sân cầu lông 1", ct);
+        var room = await db.Rooms.FirstOrDefaultAsync(x => x.Name == "Badminton court 1", ct);
         if (manager is null || member is null || room is null) return;
         var reference = Guid.Parse("311aa2a3-764e-4a9f-a8c2-988790e52723");
         await using (var tx = await db.Database.BeginTransactionAsync(ct))
@@ -569,7 +569,7 @@ public sealed partial class DemoDataSeeder(
             foreach (var owner in new[] { member })
                 await wallets.AdjustAsync(new(owner.UserId, 500,
                     SportHub.BuildingBlocks.Abstractions.Wallet.WalletAdjustmentDirection.Credit,
-                    "DemoOpeningBalance", reference, manager.UserId, "Số dư demo P1.12"), ct);
+                    "DemoOpeningBalance", reference, manager.UserId, "Demo opening balance P1.12"), ct);
             if (!await db.Set<CourtRate>().AnyAsync(x => x.RoomTypeId == 3 && x.IsActive, ct))
                 db.Set<CourtRate>().Add(new CourtRate { RoomTypeId = 3, SportId = 3,
                     DaysOfWeek = "MON,TUE,WED,THU,FRI,SAT,SUN", StartTimeLocal = new(6, 0),
@@ -614,7 +614,7 @@ public sealed partial class DemoDataSeeder(
         var badminton = new Class
         {
             Code = "CAULONG-01",
-            Name = "Cầu lông 01",
+            Name = "Badminton 01",
             SportId = 3,
             CoachId = coachBadminton.UserId,
             DefaultRoomId = rooms[0].RoomId,
@@ -634,7 +634,7 @@ public sealed partial class DemoDataSeeder(
         var basketball = new Class
         {
             Code = "BONGRO-01",
-            Name = "Bóng rổ 01",
+            Name = "Basketball 01",
             SportId = 4,
             CoachId = coachBasketball.UserId,
             DefaultRoomId = rooms[1].RoomId,
@@ -783,7 +783,7 @@ public sealed partial class DemoDataSeeder(
                 ItemId = Guid.NewGuid(),
                 InvoiceId = invoice.InvoiceId,
                 ItemType = InvoiceItemType.Membership,
-                Description = $"Gói {plan.Package.Name} ({plan.Package.DurationDays} ngày)",
+                Description = $"Package {plan.Package.Name} ({plan.Package.DurationDays} days)",
                 UnitPrice = plan.Package.Price,
                 Quantity = 1,
                 LineAmount = plan.Package.Price,
@@ -819,7 +819,7 @@ public sealed partial class DemoDataSeeder(
             InvoiceId = firstInvoice.InvoiceId,
             Type = PaymentAdjustmentType.Discount,
             Amount = 200_000m,
-            Reason = "Khuyến mãi giới thiệu bạn bè — chờ Quản lý Trung tâm phê duyệt.",
+            Reason = "Friend referral promotion — awaiting center manager approval.",
             Status = PaymentAdjustmentStatus.Requested,
             RequestedByUserId = reception.UserId,
             CreatedAt = now.AddDays(-1)
@@ -840,11 +840,11 @@ public sealed partial class DemoDataSeeder(
     {
         var goals = new[]
         {
-            ("Giảm cân 5kg trong 3 tháng", ExperienceLevel.Beginner),
-            ("Tăng cơ và cải thiện sức bền", ExperienceLevel.Intermediate),
-            ("Tăng độ dẻo dai, giảm đau lưng", ExperienceLevel.Beginner),
-            ("Chuẩn bị thi đấu bán chuyên", ExperienceLevel.Advanced),
-            ("Duy trì thể lực, tập đều 3 buổi/tuần", ExperienceLevel.Intermediate)
+            ("Lose 5 kg in 3 months", ExperienceLevel.Beginner),
+            ("Build muscle and improve endurance", ExperienceLevel.Intermediate),
+            ("Improve flexibility and reduce back pain", ExperienceLevel.Beginner),
+            ("Prepare for amateur competition", ExperienceLevel.Advanced),
+            ("Maintain fitness with three sessions a week", ExperienceLevel.Intermediate)
         };
 
         for (var i = 0; i < goals.Length && i < members.Length; i++)
@@ -855,7 +855,7 @@ public sealed partial class DemoDataSeeder(
                 MemberId = members[i].UserId,
                 Goal = goals[i].Item1,
                 ExperienceLevel = goals[i].Item2,
-                Notes = i == 2 ? "Từng chấn thương lưng dưới, tránh bài gập bụng nặng." : null,
+                Notes = i == 2 ? "Previous lower back injury; avoid heavy abdominal crunches." : null,
                 UpdatedAt = now.AddDays(-5)
             });
         }
@@ -882,7 +882,7 @@ public sealed partial class DemoDataSeeder(
             MemberId = members[2].UserId,
             CoachId = coachPt.UserId,
             RelationshipId = relationships[0].RelationshipId,
-            Goal = "Tăng độ dẻo dai, giảm đau lưng",
+            Goal = "Improve flexibility and reduce back pain",
             Level = nameof(ExperienceLevel.Beginner),
             CreatedAt = now.AddDays(-14)
         };
@@ -893,12 +893,12 @@ public sealed partial class DemoDataSeeder(
             new WorkoutPlanItem
             {
                 ItemId = Guid.NewGuid(), PlanId = plan.PlanId,
-                Exercise = "Cat-cow stretch", Sets = 3, Reps = 12, Notes = "Thở đều, không gồng cổ"
+                Exercise = "Cat-cow stretch", Sets = 3, Reps = 12, Notes = "Breathe steadily and relax your neck"
             },
             new WorkoutPlanItem
             {
                 ItemId = Guid.NewGuid(), PlanId = plan.PlanId,
-                Exercise = "Bird dog", Sets = 3, Reps = 10, Notes = "Giữ 2 giây mỗi bên"
+                Exercise = "Bird dog", Sets = 3, Reps = 10, Notes = "Hold for 2 seconds on each side"
             },
             new WorkoutPlanItem
             {
@@ -948,7 +948,7 @@ public sealed partial class DemoDataSeeder(
             db.Invoices.Add(ptInvoice);
             db.InvoiceItems.Add(new InvoiceItem { ItemId = entitlement.ActivationReference!.Value,
                 InvoiceId = ptInvoice.InvoiceId, ItemType = InvoiceItemType.PT,
-                Description = "Legacy demo PT: 24 buổi", UnitPrice = 250_000m, Quantity = 24,
+                Description = "Legacy demo PT: 24 sessions", UnitPrice = 250_000m, Quantity = 24,
                 LineAmount = 6_000_000m, RelatedEntityId = entitlement.EntitlementId });
             db.Payments.Add(new Payment.Domain.Entities.Payment { PaymentId = Guid.NewGuid(),
                 InvoiceId = ptInvoice.InvoiceId, Amount = 6_000_000m, Method = PaymentMethod.Cash,
@@ -978,8 +978,8 @@ public sealed partial class DemoDataSeeder(
                 ResultId = Guid.NewGuid(),
                 PtSessionId = session.SessionId,
                 CoachId = coachPt.UserId,
-                ProgressNote = "Giữ được tư thế plank thêm 15 giây so với buổi trước.",
-                CoachComment = "Cần siết cơ bụng nhiều hơn khi vào plank. Buổi sau tăng thời gian giữ.",
+                ProgressNote = "Held the plank for 15 seconds longer than the previous session.",
+                CoachComment = "Engage your core more during the plank. Increase the hold time next session.",
                 RecordedAt = session.EndAtUtc.AddMinutes(10)
             });
         }

@@ -1371,7 +1371,7 @@ export const en = {
   },
 
   finance: {
-    title: "Finance",
+    title: "Billing",
     description: "Your point wallet, invoices and refund requests.",
     tabWallet: "Point wallet",
     tabInvoices: "Invoices",
@@ -1408,7 +1408,7 @@ export const en = {
       "Send a request from the detail page of a paid invoice. A manager reviews it and points return to your wallet, never as cash.",
     refundEmptyAction: "Choose an invoice",
     refundFlow: "Send a request, wait for approval, get points in your wallet",
-    tabs: "Finance sections",
+    tabs: "Billing sections",
     walletValue: "Worth",
     walletValueHint: "Conversion rate set by the center.",
     ledgerSource: "Source",
@@ -1547,6 +1547,7 @@ export const en = {
       roomTypes: "Room types",
       rates: "Court rates",
       coaches: "Coaches",
+      avatarReports: "Avatar reports",
       courtSchedule: "Court schedule",
       incidents: "Incidents",
       notices: "Manual notices",
@@ -1872,7 +1873,7 @@ export const en = {
     linksLabel: "Open",
     linkSchedule: "My schedule",
     linkServices: "Gym & PT",
-    linkFinance: "Finance",
+    linkFinance: "Billing",
   },
   mDiscover: {
     description: "Find and buy courses, Gym membership, PT or a court booking.",

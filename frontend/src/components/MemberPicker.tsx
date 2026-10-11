@@ -14,6 +14,7 @@ import { useLanguage } from "@/lib/language";
 import { parseMemberCode } from "@/lib/member-code";
 import type { Paged, UserAdminDto } from "@/lib/types";
 import { CameraQrScanner } from "@/components/CameraQrScanner";
+import { AvatarImage } from "@/components/AvatarImage";
 
 const MIN_KEYWORD_LENGTH = 2;
 
@@ -129,13 +130,19 @@ export function MemberPicker({
             background: "var(--brand-100, #f0f7fc)",
           }}
         >
-          <div>
-            <strong style={{ color: "var(--brand-900, #0b2d4d)" }}>
-              {value.fullName || value.email}
-            </strong>
-            <div className="small muted">
-              {value.email}
-              {value.phone ? ` · ${value.phone}` : ""}
+          <div className="row">
+            <AvatarImage
+              name={value.fullName || value.email}
+              avatarUrl={value.avatarUrl}
+            />
+            <div>
+              <strong style={{ color: "var(--brand-900, #0b2d4d)" }}>
+                {value.fullName || value.email}
+              </strong>
+              <div className="small muted">
+                {value.email}
+                {value.phone ? ` · ${value.phone}` : ""}
+              </div>
             </div>
           </div>
           <button
@@ -232,9 +239,16 @@ export function MemberPicker({
                   alignItems: "center",
                 }}
               >
-                <strong style={{ color: "var(--brand-900, #0b2d4d)" }}>
-                  {member.fullName || member.email}
-                </strong>
+                <span className="row">
+                  <AvatarImage
+                    name={member.fullName || member.email}
+                    avatarUrl={member.avatarUrl}
+                    size={32}
+                  />
+                  <strong style={{ color: "var(--brand-900, #0b2d4d)" }}>
+                    {member.fullName || member.email}
+                  </strong>
+                </span>
                 {idx === 0 && (
                   <span className="small muted" style={{ fontSize: 11 }}>
                     {language === "en" ? "Press Enter ↵" : "Ấn Enter ↵"}

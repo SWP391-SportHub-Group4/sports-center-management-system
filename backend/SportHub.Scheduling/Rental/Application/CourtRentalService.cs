@@ -105,7 +105,7 @@ public sealed partial class CourtRentalService(ISportHubDbContext db, IUserAcces
         if (rental.Status != CourtRentalStatus.PendingPayment) return;
         rental.Status = CourtRentalStatus.Cancelled;
         rental.CancelledAtUtc = clock.UtcNow;
-        rental.CancelReason = "Checkout hết hạn hoặc bị hủy";
+        rental.CancelReason = "Checkout expired or was canceled";
         await occupancy.ReleaseAsync(OccupancySources.CourtRental, courtRentalId, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
     }

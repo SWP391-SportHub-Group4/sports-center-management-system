@@ -14,6 +14,7 @@ import {
 } from "@/lib/format";
 import { AsyncSection, Card } from "@/components/ui";
 import { MemberPicker } from "@/components/MemberPicker";
+import { UserAvatar } from "@/components/UserAvatar";
 import {
   MutationFeedback,
   Pagination,
@@ -136,7 +137,14 @@ export function ReceptionDashboard() {
                   {rows.map((i) => (
                     <li key={i.invoiceId}>
                       <div>
-                        <strong>{i.memberName}</strong>
+                        <span className="row">
+                          <UserAvatar
+                            userId={i.memberId}
+                            name={i.memberName}
+                            size={32}
+                          />
+                          <strong>{i.memberName}</strong>
+                        </span>
                         <span>
                           {i.invoiceNumber} · {formatMoney(i.totalAmount)}
                         </span>
@@ -193,7 +201,14 @@ function GymInside() {
                   {rows.map((row) => (
                     <li key={row.checkInId}>
                       <div>
-                        <strong>{row.memberName}</strong>
+                        <span className="row">
+                          <UserAvatar
+                            userId={row.memberId}
+                            name={row.memberName}
+                            size={32}
+                          />
+                          <strong>{row.memberName}</strong>
+                        </span>
                         <span>{formatDateTime(row.checkInTime)}</span>
                       </div>
                       <button

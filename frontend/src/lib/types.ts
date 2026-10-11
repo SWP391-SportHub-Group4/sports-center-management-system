@@ -395,6 +395,7 @@ export interface UserAdminDto {
   userId: string;
   email: string;
   fullName: string;
+  avatarUrl?: string | null;
   phone: string | null;
   role: string;
   status: string;
@@ -816,6 +817,7 @@ export interface CourseRosterDto {
   }[];
 }
 export interface CoachAdminDto {
+  avatarUrl?: string | null;
   userId: string;
   email: string;
   fullName: string;

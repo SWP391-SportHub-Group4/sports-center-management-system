@@ -44,6 +44,7 @@ public sealed class UserSummaryFactory(ISportHubDbContext db, ISportCatalogReade
             UserId = user.UserId,
             Email = user.Email,
             FullName = user.Profile?.FullName ?? string.Empty,
+            AvatarUrl = user.Profile?.AvatarUrl,
             Role = role.ToString(),
             SportIds = sportIds,
             IsPersonalTrainer = isPersonalTrainer

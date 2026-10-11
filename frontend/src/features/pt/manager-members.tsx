@@ -21,6 +21,8 @@ import type {
 } from "@/lib/types";
 import { trainingStyles as styles } from "@/features/training";
 import { BmiDesk, BmiRequestQueue } from "@/features/training";
+import { AvatarImage } from "@/components/AvatarImage";
+import { ReportAvatarButton } from "@/components/ReportAvatarButton";
 
 /** Danh sách hội viên của Manager (Q12). Chỉ xem, mở hồ sơ vận hành. */
 export function ManagerMemberList() {
@@ -73,7 +75,14 @@ export function ManagerMemberList() {
                 >
                   {rows.map((m) => (
                     <tr key={m.userId}>
-                      <td>{m.fullName || m.email}</td>
+                      <td>
+                        <AvatarImage
+                          name={m.fullName || m.email}
+                          avatarUrl={m.avatarUrl}
+                          size={32}
+                        />{" "}
+                        {m.fullName || m.email}
+                      </td>
                       <td>
                         {m.email}
                         {m.phone ? ` · ${m.phone}` : ""}
@@ -82,6 +91,10 @@ export function ManagerMemberList() {
                         <StatusChip value={m.status} />
                       </td>
                       <td>
+                        <ReportAvatarButton
+                          targetUserId={m.userId}
+                          avatarUrl={m.avatarUrl}
+                        />
                         <Link
                           className="btn btn--secondary btn--sm"
                           href={`/manager/members/${m.userId}`}
@@ -158,7 +171,16 @@ export function ManagerMemberProfile({ memberId }: { memberId: string }) {
             aria-label={m.fullName || m.email}
           >
             <div>
+              <AvatarImage
+                name={m.fullName || m.email}
+                avatarUrl={m.avatarUrl}
+                size={64}
+              />
               <p className={styles.coachName}>{m.fullName || m.email}</p>
+              <ReportAvatarButton
+                targetUserId={m.userId}
+                avatarUrl={m.avatarUrl}
+              />
               <p className={styles.muted}>
                 {m.email}
                 {m.phone ? ` · ${m.phone}` : ""}

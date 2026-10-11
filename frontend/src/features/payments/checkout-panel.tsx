@@ -795,6 +795,7 @@ function CheckoutFlow({
                   <PaymentAttemptPanel
                     key={attempt.paymentAttemptId}
                     attempt={attempt}
+                    onSimulated={() => void run(refresh)}
                   />
                 </div>
               )}

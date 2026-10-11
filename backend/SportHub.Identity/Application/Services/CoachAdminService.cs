@@ -17,7 +17,10 @@ public sealed record CoachResponse(
     [property: SportHub.BuildingBlocks.Api.WireEnum] string Status,
     string? Bio,
     IReadOnlyList<int> SportIds,
-    DateTime CreatedAt);
+    DateTime CreatedAt)
+{
+    public string? AvatarUrl { get; init; }
+}
 
 /// <summary>
 /// Manager quản lý Coach nội bộ: tạo tài khoản Coach kèm chuyên môn theo môn và đổi chuyên môn (BR-96). Chỉ Coach nội bộ
@@ -64,7 +67,7 @@ public sealed class CoachAdminService(
                 u.Status.ToString(),
                 u.CoachProfile != null ? u.CoachProfile.Bio : null,
                 new List<int>(),
-                u.CreatedAt))
+                u.CreatedAt) { AvatarUrl = u.Profile != null ? u.Profile.AvatarUrl : null })
             .ToListAsync(ct);
 
         var map = await specialties.GetForUsersAsync(rows.Select(r => r.UserId).ToList(), ct);
@@ -90,7 +93,7 @@ public sealed class CoachAdminService(
                           u.Status.ToString(),
                           u.CoachProfile != null ? u.CoachProfile.Bio : null,
                           new List<int>(),
-                          u.CreatedAt))
+                          u.CreatedAt) { AvatarUrl = u.Profile != null ? u.Profile.AvatarUrl : null })
                       .SingleOrDefaultAsync(ct)
                   ?? throw new NotFoundException("coach_not_found", "Không tìm thấy Coach.");
 
