@@ -299,6 +299,13 @@ for (const width of [320, 768, 1024, 1280, 1360, 1440])
       await page.goto(`/member${path}`);
       await expect(page.locator("#main-content h1")).toBeVisible();
       await expect(page.getByRole("banner")).toBeVisible();
+      if (path === "/profile") {
+        await expect(
+          page.getByRole("button", {
+            name: "Request a centre measurement",
+          }),
+        ).toBeVisible();
+      }
       if (width >= 1360) {
         const nav = page.getByRole("navigation", { name: "Member Navigation" });
         await expect(nav).toBeVisible();
@@ -310,6 +317,7 @@ for (const width of [320, 768, 1024, 1280, 1360, 1440])
       }
       expect(
         await page.evaluate(() => document.documentElement.scrollWidth),
+        `Member route /member${path} should fit ${width}px`,
       ).toBeLessThanOrEqual(width + 1);
     }
   });
