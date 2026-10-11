@@ -134,9 +134,17 @@ public sealed class PtOccupancyTests(TrainingApiFactory factory)
             .PostAsJsonAsync("api/manager/pt-sessions", new CreatePtSessionRequest { EntitlementId = entitlement.EntitlementId, StartAtUtc = FutureStart(), RoomId = room });
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var session = await response.Content.ReadApiJsonAsync<PtSessionResponse>();
-        var pastStart = DateTime.UtcNow.AddHours(-2);
-        await factory.QueryAsync(db => db.PtSessions.Where(x => x.SessionId == session!.SessionId).ExecuteUpdateAsync(s => s
-            .SetProperty(x => x.StartAtUtc, pastStart).SetProperty(x => x.EndAtUtc, pastStart.AddMinutes(90))));
+        // An ended session still permits coach attendance/correction for 24 hours.
+        var now = DateTime.UtcNow;
+        await factory.MovePtSessionAsync(session!.SessionId, now.AddHours(-2), now.AddMinutes(-30));
+        using (var scope = factory.Services.CreateScope())
+            await scope.ServiceProvider.GetRequiredService<PtSessionService>().FinalizeNoShowAsync(session.SessionId);
+        Assert.Equal(PtSessionStatus.Scheduled, await factory.QueryAsync(db => db.PtSessions
+            .Where(x => x.SessionId == session.SessionId).Select(x => x.Status).SingleAsync()));
+        Assert.Equal(0, await factory.QueryAsync(db => db.AuditLogs.CountAsync(x => x.TargetId == session.SessionId.ToString()
+            && x.Action == "AUTO_NO_SHOW_PT_SESSION")));
+        var pastStart = now.AddHours(-26);
+        await factory.MovePtSessionAsync(session.SessionId, pastStart, pastStart.AddMinutes(90));
         using (var scope = factory.Services.CreateScope())
             await scope.ServiceProvider.GetRequiredService<PtSessionService>().FinalizeNoShowAsync(session!.SessionId);
         using (var scope = factory.Services.CreateScope())

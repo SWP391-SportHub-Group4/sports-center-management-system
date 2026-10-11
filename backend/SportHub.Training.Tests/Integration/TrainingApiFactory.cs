@@ -252,6 +252,21 @@ public sealed class TrainingApiFactory : WebApplicationFactory<Program>, IAsyncL
         return entitlement;
     }
 
+    /// <summary>Move only this fixture's session and its resource reservations to the same interval.</summary>
+    public async Task MovePtSessionAsync(Guid sessionId, DateTime startAtUtc, DateTime endAtUtc)
+    {
+        using var scope = Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
+        await using var transaction = await db.Database.BeginTransactionAsync();
+        await db.PtSessions.Where(x => x.SessionId == sessionId).ExecuteUpdateAsync(s => s
+            .SetProperty(x => x.StartAtUtc, startAtUtc).SetProperty(x => x.EndAtUtc, endAtUtc));
+        await db.RoomOccupancies.Where(x => x.SourceId == sessionId).ExecuteUpdateAsync(s => s
+            .SetProperty(x => x.StartAtUtc, startAtUtc).SetProperty(x => x.EndAtUtc, endAtUtc));
+        await db.CoachOccupancies.Where(x => x.SourceId == sessionId).ExecuteUpdateAsync(s => s
+            .SetProperty(x => x.StartAtUtc, startAtUtc).SetProperty(x => x.EndAtUtc, endAtUtc));
+        await transaction.CommitAsync();
+    }
+
     public async Task<T> QueryAsync<T>(Func<SportHubDbContext, Task<T>> query)
     {
         using var scope = Services.CreateScope();

@@ -36,6 +36,8 @@ public sealed class CoachAssignmentReadTests(TrainingApiFactory factory)
                     .Where(q => q.UserId == coach.UserId).ExecuteDeleteAsync();
             });
         }
+        var now = DateTime.UtcNow;
+        await factory.MovePtSessionAsync(session.SessionId, now.AddHours(-2), now.AddMinutes(-30));
         using var own = factory.CreateApiClient(coach.UserId, UserRole.Coach);
         Assert.Equal(HttpStatusCode.OK, (await own.GetAsync($"/api/coaches/me/pt-sessions/{session.SessionId}")).StatusCode);
         var sessions = await (await own.GetAsync("/api/coaches/me/pt-sessions")).Content.ReadApiJsonAsync<List<PtSessionResponse>>();

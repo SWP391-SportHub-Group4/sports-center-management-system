@@ -169,6 +169,9 @@ public sealed class PtSessionLifecycleTests(TrainingApiFactory factory)
         var member = await factory.SeedUserAsync(UserRole.Member);
         var entitlement = await factory.SeedPtEntitlementAsync(member.UserId, coach.UserId, totalQuota: 8);
         var session = await CreateSessionAsync(manager, entitlement, NextMondayNoonUtc());
+        // Attendance is open for this recently ended session, until end + 24 hours.
+        var now = DateTime.UtcNow;
+        await factory.MovePtSessionAsync(session.SessionId, now.AddHours(-2), now.AddMinutes(-30));
         var coachClient = factory.CreateApiClient(coach.UserId, UserRole.Coach);
 
         var response = await coachClient.PostAsync($"api/coaches/me/pt-sessions/{session.SessionId}/complete", null);
@@ -196,9 +199,13 @@ public sealed class PtSessionLifecycleTests(TrainingApiFactory factory)
         var member = await factory.SeedUserAsync(UserRole.Member);
         var entitlement = await factory.SeedPtEntitlementAsync(member.UserId, coach.UserId, totalQuota: 1);
         var session = await CreateSessionAsync(manager, entitlement, NextMondayNoonUtc());
+        // Attendance is open for this recently ended session, until end + 24 hours.
+        var now = DateTime.UtcNow;
+        await factory.MovePtSessionAsync(session.SessionId, now.AddHours(-2), now.AddMinutes(-30));
         var coachClient = factory.CreateApiClient(coach.UserId, UserRole.Coach);
 
-        await coachClient.PostAsync($"api/coaches/me/pt-sessions/{session.SessionId}/complete", null);
+        var response = await coachClient.PostAsync($"api/coaches/me/pt-sessions/{session.SessionId}/complete", null);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         var reloaded = await factory.QueryAsync(db => db.PtEntitlements.FindAsync(entitlement.EntitlementId).AsTask());
         Assert.Equal("Exhausted", reloaded!.Status.ToString());
@@ -248,6 +255,9 @@ public sealed class PtSessionLifecycleTests(TrainingApiFactory factory)
         var member = await factory.SeedUserAsync(UserRole.Member);
         var entitlement = await factory.SeedPtEntitlementAsync(member.UserId, coach.UserId, totalQuota: 8);
         var session = await CreateSessionAsync(manager, entitlement, NextMondayNoonUtc());
+        // Attendance is open for this recently ended session, until end + 24 hours.
+        var now = DateTime.UtcNow;
+        await factory.MovePtSessionAsync(session.SessionId, now.AddHours(-2), now.AddMinutes(-30));
         var coachClient = factory.CreateApiClient(coach.UserId, UserRole.Coach);
 
         var response = await coachClient.PostAsJsonAsync(
