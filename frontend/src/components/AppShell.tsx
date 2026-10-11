@@ -44,30 +44,24 @@ export const RECEPTIONIST_SHORTCUTS: Record<
     contentKey: keyof Translations["navigation"]["receptionistShortcuts"];
   }
 > = {
-  "/receptionist": { key: "0", label: "Alt + 0", contentKey: "overview" },
+  "/receptionist": {
+    key: "0",
+    label: "Alt + 0",
+    contentKey: "overview",
+  },
   "/receptionist/gym-checkin": {
     key: "1",
     label: "Alt + 1",
     contentKey: "gymCheckin",
   },
-  "/receptionist/sales": {
+  "/receptionist/attendance": {
     key: "2",
     label: "Alt + 2",
-    contentKey: "sellPlans",
-  },
-  "/receptionist/attendance": {
-    key: "3",
-    label: "Alt + 3",
     contentKey: "attendance",
   },
-  "/receptionist/invoices": {
-    key: "4",
-    label: "Alt + 4",
-    contentKey: "invoices",
-  },
   "/receptionist/members": {
-    key: "5",
-    label: "Alt + 5",
+    key: "3",
+    label: "Alt + 3",
     contentKey: "registrations",
   },
 };
@@ -91,10 +85,8 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
   Receptionist: [
     { href: "/receptionist", labelKey: "frontDesk" },
     { href: "/receptionist/members", labelKey: "members" },
-    { href: "/receptionist/sales", labelKey: "sales" },
     { href: "/receptionist/attendance", labelKey: "attendance" },
     { href: "/receptionist/court-schedule", labelKey: "courtSchedule" },
-    { href: "/receptionist/invoices", labelKey: "transactions" },
   ],
   // PT actions are filtered by current specialties in getNavForUser().
   Coach: [

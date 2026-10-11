@@ -1592,6 +1592,8 @@ export const en = {
     pageMembers: "Members",
     pageProfile: "Member profile",
     pageSales: "Sell a service",
+    attendanceClass: "Class",
+    attendanceSession: "Session",
     findMember: "Find a member",
     findHint: "Phone, name or email. Scan the member's QR if they have it.",
     notRegistered:
@@ -1612,6 +1614,7 @@ export const en = {
     alreadyInside: "This member is already inside. The status was refreshed.",
     attendance: "Class attendance",
     sell: "Sell a service",
+    viewInvoices: "View invoices",
     openProfile: "Open profile",
     nextAction: "What next?",
     sessionsToday: "Classes today",

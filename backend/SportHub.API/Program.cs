@@ -7,8 +7,8 @@ using Microsoft.Extensions.Options;
 using SportHub.AI.Application.Interfaces;
 using SportHub.AI.Application.Services;
 using SportHub.AI.Infrastructure;
+using SportHub.AI.Infrastructure.Python;
 using SportHub.AI;
-using SportHub.AI.Infrastructure.Gemini;
 using SportHub.API.Extensions;
 using SportHub.API.Jobs;
 using SportHub.API.Middleware;
@@ -54,7 +54,7 @@ using SportHub.Training.Application.Services;
 using SportHub.Training;
 using System.Text.Json.Serialization;
 using System.Text.Json;
-using System.Threading.RateLimiting;
+using System.Threading.RateLimiting;   
 
 LoadRootEnvIfPresent();
 
@@ -341,9 +341,6 @@ builder.Services.AddScoped<IPtCoachChangeRequestService, PtCoachChangeRequestSer
 builder.Services.AddScoped<IAiRecommendationService, RuleBasedAiRecommendationService>();
 builder.Services.AddScoped<IWorkoutRecommendationService, WorkoutRecommendationService>();
 // AI Flow 6 — Gemini assistant
-builder.Services.Configure<GeminiOptions>(
-    builder.Configuration.GetSection(
-        GeminiOptions.SectionName));
 
 builder.Services.AddScoped<
     IAiContextBuilder,
@@ -352,34 +349,39 @@ builder.Services.AddScoped<
 builder.Services.AddScoped<
     IAiChatService,
     AiChatService>();
+    
+builder.Services.AddScoped<
+    IPythonAiClient,
+    PythonAiClient>();
+    
+builder.Services.AddScoped<
+    IManagerScheduleContextBuilder,
+    ManagerScheduleContextBuilder>();
 
-builder.Services.AddHttpClient<
+builder.Services.AddScoped<
     IAiChatProvider,
-    GeminiAiChatProvider>(
-    (serviceProvider, client) =>
-    {
-        var options =
-            serviceProvider
-                .GetRequiredService<
-                    IOptions<GeminiOptions>>()
-                .Value;
+    PythonAiChatProvider>();
 
+builder.Services.AddScoped<
+    IManagerScheduleSuggestionService,
+    ManagerScheduleSuggestionService>();
+
+builder.Services.AddHttpClient(
+    "SportHubPythonAI",
+    client =>
+    {
         var baseUrl =
-            string.IsNullOrWhiteSpace(
-                options.BaseUrl)
-                ? "https://generativelanguage.googleapis.com"
-                : options.BaseUrl.TrimEnd('/');
+            builder.Configuration[
+                "AiService:BaseUrl"]
+            ?? "http://localhost:8001";
 
         client.BaseAddress =
             new Uri(baseUrl);
 
         client.Timeout =
-            TimeSpan.FromSeconds(
-                Math.Clamp(
-                    options.TimeoutSeconds,
-                    5,
-                    120));
+            TimeSpan.FromSeconds(35);
     });
+
 // Tác vụ nền: BR-11/BR-33 (hạn gói), BR-20/BR-53 (No-show), BR-34 (phát thông báo).
 builder.Services.AddHostedService<MemberPackageExpiryJob>();
 builder.Services.AddHostedService<ClassStatusJob>();

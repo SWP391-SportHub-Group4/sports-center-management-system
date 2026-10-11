@@ -14,7 +14,6 @@ import {
 } from "@/components/scheduling";
 import { catalogApi } from "@/features/catalog";
 import { courtScheduleApi } from "@/features/court-schedule";
-import { AiScheduleDrawer } from "./ai-schedule-drawer";
 
 const validDate = (value: string) =>
   /^\d{4}-\d{2}-\d{2}$/.test(value) &&
@@ -53,7 +52,6 @@ export function ManagerSchedule({
     },
   );
   const [selectedId, setSelected] = useState("");
-  const [ai, setAi] = useState(false);
   const days = values.view === "day" ? 1 : 7;
   const roomId = fixedRoom ? String(fixedRoom) : values.roomId;
   const rooms = useApi((signal) => catalogApi.rooms(signal), []);
@@ -181,20 +179,15 @@ export function ManagerSchedule({
           update({ roomId: "", coachId: "", classId: "", sourceType: "" })
         }
         actions={
-          <>
-            <button
-              className="btn btn--ghost"
-              onClick={() => {
-                state.reload();
-                setSelected("");
-              }}
-            >
-              {l.refresh}
-            </button>
-            <button className="btn btn--secondary" onClick={() => setAi(true)}>
-              {m.aiTitle}
-            </button>
-          </>
+          <button
+            className="btn btn--ghost"
+            onClick={() => {
+              state.reload();
+              setSelected("");
+            }}
+          >
+            {l.refresh}
+          </button>
         }
       />
       {rooms.error && <p role="alert">{rooms.error.message}</p>}
@@ -229,7 +222,18 @@ export function ManagerSchedule({
           onClose={() => setSelected("")}
         />
       )}
-      {ai && <AiScheduleDrawer onClose={() => setAi(false)} />}
+      {selected && (
+        <CalendarEventDrawer
+          entry={selected}
+          roomName={
+            rooms.data?.find(
+              (r) => r.roomId === selected.roomId,
+            )?.name
+          }
+          manager
+          onClose={() => setSelected("")}
+        />
+      )}
     </>
   );
 }

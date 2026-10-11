@@ -54,6 +54,7 @@ export interface CourseDto {
   availableSeats: number;
   price: number;
   status: "PUBLISHED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
+  enrollmentOpen: boolean;
   firstSessionStartUtc: string | null;
   scheduleRules: { dayOfWeek: number; startTimeLocal: string }[];
 }

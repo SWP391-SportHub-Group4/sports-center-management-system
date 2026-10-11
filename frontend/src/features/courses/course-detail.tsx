@@ -13,7 +13,6 @@ import { SessionEditor } from "./session-editor";
 import { ThresholdPanel } from "./threshold-panel";
 import { CourseOperations, CourseCancellation } from "./course-operations";
 import { CourseHistory } from "./course-history";
-import { ApiGap } from "@/features/manager";
 import { managerWorkspaceStyles as styles } from "@/features/manager";
 import type {
   ManagerCourseDto,
@@ -75,6 +74,8 @@ export function ManagerCourseDetail({ classId }: { classId: number }) {
   const [session, setSession] = useState<CourseSessionDto | null>(null);
   const [roster, setRoster] = useState("");
   const [revision, setRevision] = useState(0);
+  const [enrollmentBusy, setEnrollmentBusy] = useState(false);
+  const [enrollmentError, setEnrollmentError] = useState<string | null>(null);
   const state = useApi(
     (signal) =>
       api.get<ManagerCourseDto>(`/api/manager/classes/${classId}`, { signal }),
@@ -94,6 +95,28 @@ export function ManagerCourseDetail({ classId }: { classId: number }) {
     setRevision((n) => n + 1);
     setPublishing(false);
     setSession(null);
+  }
+  async function setEnrollmentOpen(open: boolean) {
+    setEnrollmentBusy(true);
+    setEnrollmentError(null);
+
+    try {
+      await api.post(
+        `/api/manager/classes/${classId}/enrollment/${
+          open ? "open" : "close"
+        }`,
+      );
+
+      reload();
+    } catch (error) {
+      setEnrollmentError(
+        error instanceof Error
+          ? error.message
+          : "Không thể cập nhật trạng thái tuyển sinh.",
+      );
+    } finally {
+      setEnrollmentBusy(false);
+    }
   }
   return (
     <>
@@ -198,7 +221,50 @@ export function ManagerCourseDetail({ classId }: { classId: number }) {
                       ))}
                     </dl>
                     <p>{m.holdHint}</p>
-                    <ApiGap code="G13" message={m.closeGap} />
+                    <Card title="Tuyển sinh">
+                      <div className="row spread">
+                        <div>
+                          <strong>
+                            {c.enrollmentOpen
+                              ? "Đang mở tuyển sinh"
+                              : "Đã đóng tuyển sinh"}
+                          </strong>
+
+                          <p className="small muted">
+                            {c.enrollmentOpen
+                              ? "Hội viên mới có thể tạo giữ chỗ và đăng ký khóa học."
+                              : "Không nhận đăng ký mới. Học viên đã ghi danh vẫn giữ nguyên."}
+                          </p>
+                        </div>
+
+                        {c.status === "PUBLISHED" && (
+                          <button
+                            type="button"
+                            className={
+                              c.enrollmentOpen
+                                ? "btn btn--danger"
+                                : "btn"
+                            }
+                            disabled={enrollmentBusy}
+                            onClick={() =>
+                              void setEnrollmentOpen(!c.enrollmentOpen)
+                            }
+                          >
+                            {enrollmentBusy
+                              ? "Đang cập nhật..."
+                              : c.enrollmentOpen
+                                ? "Đóng tuyển sinh"
+                                : "Mở lại tuyển sinh"}
+                          </button>
+                        )}
+                      </div>
+
+                      {enrollmentError && (
+                        <p role="alert" className="error">
+                          {enrollmentError}
+                        </p>
+                      )}
+                    </Card>
                   </Card>
                   {!["CANCELLED", "COMPLETED"].includes(c.status) && (
                     <CourseCancellation classId={classId} onSaved={reload} />

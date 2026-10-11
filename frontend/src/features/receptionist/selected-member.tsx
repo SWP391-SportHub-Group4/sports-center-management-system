@@ -137,7 +137,11 @@ export function SelectedMemberPanel({
           </dd>
         </div>
       </dl>
-
+      
+      <p className={styles.hint}>
+        {l.nextAction}
+      </p>
+      
       <div className={styles.actions}>
         <button
           type="button"
@@ -147,12 +151,21 @@ export function SelectedMemberPanel({
         >
           {open ? l.checkOut : l.checkIn}
         </button>
-        <Link className="btn btn--secondary" href="/receptionist/attendance">
-          {l.attendance}
-        </Link>
-        <Link className="btn btn--secondary" href="/receptionist/sales">
+
+        <Link
+          className="btn btn--secondary"
+          href="/receptionist/sales"
+        >
           {l.sell}
         </Link>
+
+        <Link
+          className="btn btn--secondary"
+          href="/receptionist/invoices"
+        >
+          {l.viewInvoices}
+        </Link>
+
         {showProfileLink && (
           <Link
             className="btn btn--ghost"
