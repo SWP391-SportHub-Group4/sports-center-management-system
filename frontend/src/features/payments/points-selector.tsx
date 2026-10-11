@@ -26,7 +26,7 @@ export function PointsSelector({
   pointsApplied: number;
   disabled?: boolean;
 }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const rate = wallet?.vndPerPoint || 1000;
   const max = wallet
     ? Math.min(
@@ -36,14 +36,17 @@ export function PointsSelector({
     : 0;
   const noPoints = !!wallet && max === 0;
   const typed = /^\d+$/.test(value) ? Number(value) : 0;
+  const vi = language === "vi";
+  const remaining = Math.max(0, totalAmount - typed * rate);
   return (
-    <>
+    <div className={styles.pointsBox}>
       {wallet && (
         <dl className={styles.balance}>
           <div>
             <dt>{t.checkout.pointsBalance}</dt>
             <dd>
               <strong>{formatPoints(wallet.availablePoints)}</strong>
+              <small>≈ {formatMoney(wallet.availablePoints * rate)}</small>
             </dd>
           </div>
           <div>
@@ -57,7 +60,7 @@ export function PointsSelector({
       {noPoints && <p className={styles.note}>{t.checkout.pointsNone}</p>}
       <div className={styles.pointsRow}>
         <div className={styles.pointsField}>
-          <Field label={t.refactor.points} hint={t.checkout.pointsHint}>
+          <Field label={vi ? "Số điểm muốn dùng" : t.refactor.points}>
             <Input
               type="number"
               inputMode="numeric"
@@ -70,27 +73,35 @@ export function PointsSelector({
             />
           </Field>
         </div>
-        <Button
-          variant="secondary"
-          disabled={disabled || !wallet || noPoints}
-          onClick={() => onChange(String(max))}
-        >
-          {t.refactor.maxPoints}: {formatPoints(max)}
-        </Button>
-        <Button
-          variant="ghost"
-          disabled={disabled || !wallet || noPoints}
-          onClick={() => onChange("0")}
-        >
-          {t.checkout.noPoints}
-        </Button>
+        <div className={styles.pointsQuick}>
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={disabled || !wallet || noPoints}
+            onClick={() => onChange(String(max))}
+          >
+            {t.refactor.maxPoints}: {formatPoints(max)}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={disabled || !wallet || noPoints}
+            onClick={() => onChange("0")}
+          >
+            {t.checkout.noPoints}
+          </Button>
+        </div>
       </div>
+      <p className={styles.pointsHint}>{t.checkout.pointsHint}</p>
       {typed > 0 && (
         <p className={styles.worth}>
           {formatPoints(typed)} {t.refactor.points.toLowerCase()}{" "}
           {t.checkout.pointsWorth} {formatMoney(typed * rate)}
+          {" · "}
+          {vi ? "Còn phải trả" : "Remaining"}{" "}
+          <strong>{formatMoney(remaining)}</strong>
         </p>
       )}
-    </>
+    </div>
   );
 }

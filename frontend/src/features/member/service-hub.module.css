@@ -3,7 +3,7 @@
 }
 .board {
   display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-5);
   align-items: start;
 }
@@ -276,4 +276,17 @@
   .hub .sticker figure > div {
     transform: scale(0.28);
   }
+}
+
+/* Khối Membership: thẻ gói đang có và danh mục gói cách nhau, cùng lề trong */
+.gymPanel {
+  display: grid;
+  gap: var(--space-3);
+  align-content: start;
+}
+.gymPanel > h2 {
+  margin-bottom: 0;
+}
+.gymPanel .ownedPackage {
+  padding: var(--space-3) var(--space-4);
 }
