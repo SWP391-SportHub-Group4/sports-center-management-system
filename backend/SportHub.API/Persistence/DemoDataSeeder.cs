@@ -27,6 +27,7 @@ public sealed partial class DemoDataSeeder(
     SportHub.BuildingBlocks.Abstractions.Wallet.IPointWalletService wallets,
     SportHub.Payment.Application.Services.CheckoutService checkouts,
     SportHub.Payment.Wallet.Application.PointConfirmationService pointConfirmations,
+    CoachRosterSeeder coachRoster,
     ILogger<DemoDataSeeder> logger)
 {
     public const string DemoPassword = "Sporthub@123";
@@ -95,13 +96,13 @@ public sealed partial class DemoDataSeeder(
         await db.SaveChangesAsync(ct);
 
         members[^1].Status = UserStatus.Deactivated;
-        // Loại phòng seed trong migration catalog: 1 Phòng Gym, 2 Phòng PT, 3 Sân cầu lông, 4 Sân bóng rổ.
+        // Two class courts and two shared Gym/PT rooms. FacilityBaselineSeeder adds the other courts.
         var rooms = new[]
         {
-            new Room { Name = "Badminton court 1", Capacity = 12, RoomTypeId = 3 },
-            new Room { Name = "Basketball court 1", Capacity = 30, RoomTypeId = 4 },
-            new Room { Name = "PT room 1", Capacity = 2, RoomTypeId = 2 },
-            new Room { Name = "Open gym", Capacity = 80, RoomTypeId = 1 }
+            new Room { Name = "Badminton Class BC1", Capacity = 12, RoomTypeId = 3 },
+            new Room { Name = "Basketball Class KC1", Capacity = 20, RoomTypeId = 4 },
+            new Room { Name = "Gym G1", Capacity = 80, RoomTypeId = 1 },
+            new Room { Name = "Gym G2", Capacity = 80, RoomTypeId = 1 }
         };
 
         db.Rooms.AddRange(rooms);
@@ -171,6 +172,7 @@ public sealed partial class DemoDataSeeder(
         await SeedWalletAndRentalAsync(ct);
         await SeedArenaShowcaseCoursesAsync(ct);
         await SeedMemberWorkoutPlanAsync(ct);
+        await coachRoster.SeedAsync(ct);
 
         logger.LogInformation(
             "Đã seed dữ liệu demo: {Users} tài khoản, {Sessions} buổi học. Mật khẩu chung: {Password}",
@@ -233,8 +235,8 @@ public sealed partial class DemoDataSeeder(
             "coach.bongro@sporthub.vn", "Vũ Hải Bóng Rổ", "0902000002", 4, ct);
         await EnsureDemoCoachAsync(
             "coach.pt@sporthub.vn", "Đỗ Quang PT", "0902000003", 1, ct);
-        var badmintonRoom = await EnsureDemoRoomAsync("Badminton court 1", 3, 12, ct);
-        var basketballRoom = await EnsureDemoRoomAsync("Basketball court 1", 4, 30, ct);
+        var badmintonRoom = await EnsureDemoRoomAsync("Badminton Class BC1", 3, 12, ct);
+        var basketballRoom = await EnsureDemoRoomAsync("Basketball Class KC1", 4, 20, ct);
 
         if (badmintonCoach is null || basketballCoach is null
             || badmintonRoom is null || basketballRoom is null) return;
@@ -561,7 +563,7 @@ public sealed partial class DemoDataSeeder(
         // Only extend the named demo dataset; never infer real accounts as demo owners.
         var manager = await db.UserAccounts.SingleOrDefaultAsync(x => x.Email == "manager@sporthub.vn", ct);
         var member = await db.UserAccounts.SingleOrDefaultAsync(x => x.Email == "an.member@sporthub.vn", ct);
-        var room = await db.Rooms.FirstOrDefaultAsync(x => x.Name == "Badminton court 1", ct);
+        var room = await db.Rooms.FirstOrDefaultAsync(x => x.Name == "Badminton Class BC1", ct);
         if (manager is null || member is null || room is null) return;
         var reference = Guid.Parse("311aa2a3-764e-4a9f-a8c2-988790e52723");
         await using (var tx = await db.Database.BeginTransactionAsync(ct))

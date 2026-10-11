@@ -16,6 +16,7 @@ type MonthEvent = {
   endAtUtc: string;
   status?: string | null;
   preview?: boolean;
+  fading?: boolean;
   sport?: string | null;
 };
 
@@ -126,6 +127,7 @@ export function MemberMonthCalendar<T extends MonthEvent>({
                     data-kind={event.kind}
                     data-preview={!!event.preview}
                     data-cancelled={/CANCEL/i.test(event.status ?? "")}
+                    data-fading={event.fading ? "true" : undefined}
                     title={`${kindLabels[event.kind]} · ${event.sport ?? ""} · ${formatTime(event.startAtUtc)}–${formatTime(event.endAtUtc)} · ${event.title}`}
                     onClick={() => onSelect(event)}
                   >
@@ -134,6 +136,7 @@ export function MemberMonthCalendar<T extends MonthEvent>({
                       {formatTime(event.startAtUtc)}
                     </time>
                     <span>{event.title}</span>
+                    {/CANCEL/i.test(event.status ?? "") && <b>Cancelled</b>}
                   </button>
                 ))}
                 {events.length > 3 && (

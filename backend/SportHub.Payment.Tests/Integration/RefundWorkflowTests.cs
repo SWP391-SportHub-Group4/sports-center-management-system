@@ -151,6 +151,49 @@ public sealed class RefundWorkflowTests(PaymentApiFactory factory)
     }
 
     [Fact]
+    public async Task Member_cancelling_membership_with_two_thirds_left_gets_half_back_and_is_blocked_by_a_queued_renewal()
+    {
+        var fixture = await SeedPaidMembershipAsync();
+        using var memberClient = factory.CreateApiClient(fixture.MemberId, UserRole.Member);
+        var renewalId = Guid.NewGuid();
+        await factory.QueryAsync(async db =>
+        {
+            var current = await db.MemberPackages.SingleAsync(x => x.MemberPackageId == fixture.MemberPackageId);
+            db.MemberPackages.Add(new MemberPackage
+            {
+                MemberPackageId = renewalId, MemberId = fixture.MemberId, PackageId = current.PackageId,
+                StartDate = current.EndDate.AddDays(1), EndDate = current.EndDate.AddMonths(3),
+                Status = MemberPackageStatus.Active
+            });
+            await db.SaveChangesAsync();
+            return 0;
+        });
+        var blocked = await memberClient.PostAsJsonAsync("/api/refunds/membership-cancellations",
+            new { invoiceItemId = fixture.InvoiceItemId });
+        Assert.Equal(HttpStatusCode.Conflict, blocked.StatusCode);
+        Assert.Contains("membership_has_renewal", await blocked.Content.ReadAsStringAsync());
+        await factory.QueryAsync(async db =>
+        {
+            await db.MemberPackages.Where(x => x.MemberPackageId == renewalId).ExecuteDeleteAsync();
+            return 0;
+        });
+        var done = await memberClient.PostAsJsonAsync("/api/refunds/membership-cancellations",
+            new { invoiceItemId = fixture.InvoiceItemId });
+        Assert.Equal(HttpStatusCode.OK, done.StatusCode);
+        var state = await factory.QueryAsync(async db => new
+        {
+            Status = await db.MemberPackages.Where(x => x.MemberPackageId == fixture.MemberPackageId)
+                .Select(x => x.Status).SingleAsync(),
+            Points = await db.Set<PointWallet>().Where(x => x.OwnerUserId == fixture.MemberId)
+                .Select(x => x.AvailablePoints).SingleAsync()
+        });
+        Assert.Equal(MemberPackageStatus.Cancelled, state.Status);
+        Assert.Equal(500, state.Points);
+        Assert.Equal(HttpStatusCode.Conflict, (await memberClient.PostAsJsonAsync(
+            "/api/refunds/membership-cancellations", new { invoiceItemId = fixture.InvoiceItemId })).StatusCode);
+    }
+
+    [Fact]
     public async Task Different_member_cannot_request_refund_for_another_members_item()
     {
         var fixture = await SeedPaidMembershipAsync();

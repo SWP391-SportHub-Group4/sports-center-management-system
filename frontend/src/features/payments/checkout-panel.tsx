@@ -388,6 +388,39 @@ function CheckoutFlow({
     ) &&
     checkout?.invoiceStatus === "ISSUED" &&
     !checkout.reconciliationRequired;
+  function forgetRememberedInvoice() {
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has("checkout")) return;
+    url.searchParams.delete("checkout");
+    url.searchParams.delete("checkoutIntent");
+    window.history.replaceState(
+      null,
+      "",
+      `${url.pathname}${url.search}${url.hash}`,
+    );
+  }
+  /** Đóng hộp thanh toán mà chưa trả thì hủy checkout để nhả chỗ giữ, không để treo tới khi hết hạn. */
+  async function closePayment() {
+    setOpen(false);
+    if (
+      !checkout ||
+      checkout.invoiceStatus !== "ISSUED" ||
+      checkout.reconciliationRequired
+    )
+      return;
+    try {
+      await api.post(`/api/checkouts/${checkout.invoiceId}/cancel`);
+    } catch {
+      return;
+    }
+    forgetRememberedInvoice();
+    if (!alive.current) return;
+    setCheckout(null);
+    setAttempt(null);
+    setConfirmation(null);
+    setDraft(null);
+    onChange?.();
+  }
   function openPayment() {
     setOpen(true);
     if (!checkout)
@@ -416,7 +449,7 @@ function CheckoutFlow({
             }
             size="lg"
             className={styles.paymentDialog}
-            onClose={() => setOpen(false)}
+            onClose={() => void closePayment()}
           >
             {content}
           </Dialog>

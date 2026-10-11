@@ -139,9 +139,22 @@ test("manual notice UI uses a real receipt and restores delivery after F5", asyn
   request,
 }) => {
   const manager = await login(request, "manager@sporthub.vn");
+  const headers = { Authorization: `Bearer ${manager.accessToken}` };
+  const usersResponse = await request.get(
+    `${base}/api/users?role=COACH&status=ACTIVE&page=1&pageSize=100`,
+    { headers },
+  );
+  expect(usersResponse.ok(), await usersResponse.text()).toBeTruthy();
+  const users = await usersResponse.json();
+  const coach = users.items.find(
+    (user: { email: string }) =>
+      user.email.toLowerCase() === "coach.caulong@sporthub.vn",
+  );
+  expect(coach, "the seeded badminton coach should be available").toBeTruthy();
+
   await browserAuth(page, manager.accessToken);
   await page.goto("/manager/notices");
-  await page.getByRole("checkbox", { name: "Phạm Minh Cầu Lông" }).check();
+  await page.getByRole("checkbox", { name: coach.fullName, exact: true }).check();
   await page.getByLabel("Subject", { exact: true }).fill("P2 isolated notice");
   await page
     .getByLabel("Message", { exact: true })

@@ -25,6 +25,7 @@
   background: var(--bg-surface, white);
   border: 1px solid var(--border-subtle, #ddd);
   text-align: center;
+  scroll-margin-top: 8rem;
 }
 .coach h2 {
   font-size: 1.1rem;

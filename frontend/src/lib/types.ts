@@ -105,6 +105,8 @@ export interface WalletLedgerDto {
   referenceId: string;
   note: string | null;
   createdAtUtc: string;
+  sourceDescription?: string | null;
+  sourceInvoiceId?: string | null;
 }
 
 export interface CheckoutDto {
@@ -261,6 +263,7 @@ export interface MemberPackageDto {
   isUsable: boolean;
   stackingApproved: boolean;
   stackingApprovalReason: string | null;
+  invoiceItemId?: string | null;
 }
 
 export interface InvoiceSummaryDto {

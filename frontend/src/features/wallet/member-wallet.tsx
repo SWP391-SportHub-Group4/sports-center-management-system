@@ -157,7 +157,30 @@ export function MemberWallet() {
                     <li key={row.id}>
                       <div className={styles.what}>
                         <strong>{label}</strong>
-                        {row.note && <p>{row.note}</p>}
+                        {row.note && (
+                          <p>
+                            {row.referenceType === "SystemEvent" &&
+                            row.entryType === "EARN"
+                              ? `${l.refundReason}: `
+                              : ""}
+                            {row.note}
+                          </p>
+                        )}
+                        {row.sourceDescription && (
+                          <p>
+                            {l.refundSource}: {row.sourceDescription}
+                            {row.sourceInvoiceId && (
+                              <>
+                                {" · "}
+                                <Link
+                                  href={`/member/finance?tab=invoices&invoice=${row.sourceInvoiceId}`}
+                                >
+                                  {l.refundInvoice}
+                                </Link>
+                              </>
+                            )}
+                          </p>
+                        )}
                         <time dateTime={row.createdAtUtc}>
                           {formatDateTime(row.createdAtUtc)}
                         </time>
