@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { AsyncSection, Field, Feedback } from "@/components/ui";
 import { CheckoutPanel } from "@/features/payments";
@@ -45,7 +45,10 @@ export function PtSessionPurchase({
 }) {
   const { language } = useLanguage();
   const vi = language === "vi";
-  const text = (viText: string, enText: string) => (vi ? viText : enText);
+  const text = useCallback(
+    (viText: string, enText: string) => (vi ? viText : enText),
+    [vi],
+  );
   const today = todayIso();
   const [packagePick, setPackage] = useState("");
   const [coachId, setCoach] = useState("");
@@ -103,13 +106,16 @@ export function PtSessionPurchase({
   const room =
     chosen?.rooms.find((r) => r.roomId === roomPick) ?? chosen?.rooms[0];
   const refresh = availability.reload;
+  const requestedQuote = useRef<string | null>(null);
   function resetSelection() {
+    requestedQuote.current = null;
     setStart("");
     setRoom(null);
     setQuote(null);
     setError(null);
   }
-  async function review() {
+  const quoteKey = `${packageId}:${coachId}:${start}:${room?.roomId ?? ""}`;
+  const review = useCallback(async () => {
     if (!chosen || !room || busy) return;
     setBusy(true);
     setError(null);
@@ -142,7 +148,28 @@ export function PtSessionPurchase({
     } finally {
       setBusy(false);
     }
-  }
+  }, [
+    availability.data,
+    busy,
+    chosen,
+    coachId,
+    packageId,
+    room,
+    text,
+  ]);
+  useEffect(() => {
+    if (
+      !chosen ||
+      !room ||
+      quote ||
+      busy ||
+      error ||
+      requestedQuote.current === quoteKey
+    )
+      return;
+    requestedQuote.current = quoteKey;
+    void review();
+  }, [busy, chosen, error, quote, quoteKey, review, room]);
   return (
     <div className="stack">
       {showBackLink && (
@@ -331,6 +358,7 @@ export function PtSessionPurchase({
                                     key={s.startAtUtc}
                                     aria-pressed={start === s.startAtUtc}
                                     onClick={() => {
+                                      requestedQuote.current = null;
                                       setStart(s.startAtUtc);
                                       setRoom(null);
                                       setQuote(null);
@@ -355,6 +383,7 @@ export function PtSessionPurchase({
                               <select
                                 value={room.roomId}
                                 onChange={(e) => {
+                                  requestedQuote.current = null;
                                   setRoom(Number(e.target.value));
                                   setQuote(null);
                                 }}
@@ -377,8 +406,8 @@ export function PtSessionPurchase({
                 <h3>{text("Xác nhận buổi tập", "Session review")}</h3>
                 <p>
                   {text(
-                    "Chọn lịch trống để xem giá và thanh toán cho một buổi PT 90 phút.",
-                    "Choose an available time to review and pay for a 90-minute PT session.",
+                    "Chọn giờ tập để xem giá và thanh toán cho buổi PT 90 phút.",
+                    "Choose a time to see the price and pay for your 90-minute PT session.",
                   )}
                 </p>
                 {quote ? (
@@ -435,28 +464,31 @@ export function PtSessionPurchase({
                         ],
                       }}
                     />
-                    <Link href="/member/training?tab=sessions">
-                      {text("Xem lịch PT của tôi", "View my PT sessions")}
+                    <Link href={`/coaches#coach-${coachId}`}>
+                      {text("Xem hồ sơ huấn luyện viên", "View PT profile")}
                     </Link>
                   </>
                 ) : (
                   <>
                     {chosen && (
-                      <p>
-                        <strong>{formatDateTime(chosen.startAtUtc)}</strong> ·
-                        90 {text("phút", "minutes")}
+                      <p role={busy ? "status" : undefined}>
+                        {busy
+                          ? text("Đang tải giá…", "Getting current price…")
+                          : `${formatDateTime(chosen.startAtUtc)} · 90 ${text("phút", "minutes")}`}
                       </p>
                     )}
-                    <button
-                      type="button"
-                      className="btn"
-                      disabled={!chosen || !room || busy}
-                      onClick={review}
-                    >
-                      {busy
-                        ? text("Đang lấy báo giá…", "Loading quote…")
-                        : text("Xem giá buổi tập", "Review session price")}
-                    </button>
+                    {error && chosen && (
+                      <button
+                        type="button"
+                        className="btn btn--secondary"
+                        onClick={() => {
+                          requestedQuote.current = null;
+                          setError(null);
+                        }}
+                      >
+                        {text("Thử tải giá lại", "Retry price")}
+                      </button>
+                    )}
                   </>
                 )}
                 <Feedback error={error} />

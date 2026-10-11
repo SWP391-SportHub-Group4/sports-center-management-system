@@ -507,6 +507,18 @@ function ClassRow({
           {" · "}
           {tx("khai giảng", "starts")} {formatDate(course.startDate)}
         </p>
+        {course.coachName && (
+          <p className={styles.coachLine}>
+            <span>
+              {tx("Giảng viên", "Coach")}: <strong>{course.coachName}</strong>
+            </span>
+            {course.coachId && (
+              <Link href={`/coaches#coach-${course.coachId}`}>
+                {tx("Xem hồ sơ Coach", "View Coach Profile")}
+              </Link>
+            )}
+          </p>
+        )}
         <p className={styles.slots}>
           {slots.map((s) => (
             <span key={s}>{s}</span>
