@@ -294,29 +294,50 @@ export function MemberSchedule({
     setValues({ date: target.toISOString().slice(0, 10), event: "" });
   }
 
-  function showCancelledThenDismiss(rentalId: string) {
-    const id = `rental:${rentalId}`;
-    const item = timeline.find((entry) => entry.id === id);
-    if (item) {
-      setCancelTransitions((current) => ({
-        ...current,
-        [id]: { ...item, status: "CANCELLED", fading: true },
-      }));
-      const previous = cancelTimers.current.get(id);
-      if (previous) clearTimeout(previous);
-      cancelTimers.current.set(
-        id,
-        setTimeout(() => {
-          setCancelTransitions((current) => {
-            const next = { ...current };
-            delete next[id];
-            return next;
-          });
-          cancelTimers.current.delete(id);
-          state.reload();
-        }, 2600),
-      );
-    } else state.reload();
+  function showCancelledThenDismiss(items: Item[], transitionKey: string) {
+    if (!items.length) {
+      state.reload();
+      return;
+    }
+
+    const ids = items.map((item) => item.id);
+    setCancelTransitions((current) => ({
+      ...current,
+      ...Object.fromEntries(
+        items.map((item) => [
+          item.id,
+          { ...item, status: "CANCELLED", fading: true },
+        ]),
+      ),
+    }));
+    const previous = cancelTimers.current.get(transitionKey);
+    if (previous) clearTimeout(previous);
+    cancelTimers.current.set(
+      transitionKey,
+      setTimeout(() => {
+        setCancelTransitions((current) => {
+          const next = { ...current };
+          for (const id of ids) delete next[id];
+          return next;
+        });
+        cancelTimers.current.delete(transitionKey);
+        state.reload();
+      }, 2600),
+    );
+  }
+
+  function showCancelledRentalThenDismiss(rentalId: string) {
+    showCancelledThenDismiss(
+      timeline.filter((item) => item.id === `rental:${rentalId}`),
+      `rental:${rentalId}`,
+    );
+  }
+
+  function showCancelledClassThenDismiss(classId: number) {
+    showCancelledThenDismiss(
+      timeline.filter((item) => item.kind === "class" && item.classId === classId),
+      `class:${classId}`,
+    );
   }
 
   const renderEvent = (item: Item) => {
@@ -427,7 +448,7 @@ export function MemberSchedule({
         rentalId={activeRental}
         onBack={returnToCalendar}
         onCancelled={(rentalId) => {
-          showCancelledThenDismiss(rentalId);
+          showCancelledRentalThenDismiss(rentalId);
           returnToCalendar();
         }}
       />
@@ -892,7 +913,11 @@ export function MemberSchedule({
           onClose={() => setCancellingClass(null)}
           onDone={() => {
             enrollments.reload();
-            state.reload();
+            if (!classStarted(cancellingClass.classId)) {
+              showCancelledClassThenDismiss(cancellingClass.classId!);
+            } else {
+              state.reload();
+            }
           }}
         />
       )}
@@ -901,7 +926,7 @@ export function MemberSchedule({
           rental={cancelling}
           onClose={() => setCancelling(null)}
           onCancelled={() => {
-            showCancelledThenDismiss(cancelling.courtRentalId);
+            showCancelledRentalThenDismiss(cancelling.courtRentalId);
             setCancelling(null);
             setSelected(null);
           }}

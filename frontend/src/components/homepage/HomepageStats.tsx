@@ -11,10 +11,12 @@ import {
 } from "react";
 import { ArrowRight, Dumbbell, Grid2X2, UsersRound } from "lucide-react";
 import { useAuth } from "@/lib/auth";
+import { api } from "@/lib/apiClient";
 import {
-  homepageCategories,
+  homepageCategories as seedCategories,
   type CategoryId,
   type HomepageLanguage,
+  type ShowcaseItem,
 } from "./homepage-seed";
 import { ScrollReveal } from "./ScrollReveal";
 import styles from "./homepage-stats.module.css";
@@ -71,8 +73,73 @@ function CountUp({
   );
 }
 
+interface CatalogCoach {
+  userId: string;
+  fullName: string;
+  avatarUrl: string | null;
+  bio: string | null;
+  sportIds: number[];
+}
+
+const COACH_GROUPS = [
+  { sportId: 1, vi: "Huấn luyện cá nhân (PT)", en: "Personal training" },
+  { sportId: 3, vi: "Cầu lông", en: "Badminton" },
+  { sportId: 4, vi: "Bóng rổ", en: "Basketball" },
+];
+
+/** Huấn luyện viên thật của trung tâm (hai người mỗi nhóm) thay cho nội dung mẫu khi tải được danh sách. */
+function useCoachShowcase() {
+  const [coaches, setCoaches] = useState<CatalogCoach[] | null>(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    api
+      .get<CatalogCoach[]>("/api/coaches", {
+        anonymous: true,
+        signal: controller.signal,
+      })
+      .then((rows) => {
+        if (!controller.signal.aborted) setCoaches(rows);
+      })
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, []);
+  return coaches;
+}
+
+function coachItems(coaches: CatalogCoach[]): ShowcaseItem[] {
+  return COACH_GROUPS.flatMap((group) =>
+    coaches
+      .filter((coach) => coach.sportIds.includes(group.sportId))
+      .slice(0, 2)
+      .map((coach) => ({
+        name: { en: coach.fullName, vi: coach.fullName },
+        detail: { en: group.en, vi: group.vi },
+        highlight: {
+          en: `${group.en} coach`,
+          vi: coach.bio ?? `Huấn luyện viên ${group.vi.toLowerCase()}`,
+        },
+        image: coach.avatarUrl ?? "/sporthub/coaches/minh-khang.webp",
+        alt: {
+          en: `Illustrated portrait of coach ${coach.fullName}`,
+          vi: `Chân dung minh họa huấn luyện viên ${coach.fullName}`,
+        },
+      })),
+  );
+}
+
 export function HomepageStats({ language }: { language: HomepageLanguage }) {
   const [active, setActive] = useState<CategoryId>("coaches");
+  const liveCoaches = useCoachShowcase();
+  const showcase = liveCoaches ? coachItems(liveCoaches) : [];
+  const homepageCategories = seedCategories.map((category) =>
+    category.id === "coaches" && showcase.length
+      ? {
+          ...category,
+          value: liveCoaches?.length ?? category.value,
+          items: showcase,
+        }
+      : category,
+  );
   const tabs = useRef<Array<HTMLButtonElement | null>>([]);
   const { user, loading } = useAuth();
   const vi = language === "vi";

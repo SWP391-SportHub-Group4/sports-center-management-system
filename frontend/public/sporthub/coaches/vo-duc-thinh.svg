@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1000" role="img" aria-label="Chân dung minh họa huấn luyện viên">
+<rect width="800" height="1000" fill="#d6f6f9"/>
+<g transform="translate(650 150)"><circle r="82" fill="#ffffff" opacity="0.9"/><g transform="scale(0.9)"><path d="M-30 0H30" stroke="#090e0f" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none"/><rect x="-44" y="-22" width="14" height="44" rx="4" fill="#090e0f"/><rect x="30" y="-22" width="14" height="44" rx="4" fill="#090e0f"/><rect x="-58" y="-12" width="10" height="24" rx="3" fill="#090e0f"/><rect x="48" y="-12" width="10" height="24" rx="3" fill="#090e0f"/></g></g>
+
+<path d="M110 1000 C110 810 240 748 400 748 C560 748 690 810 690 1000 Z" fill="#003b40"/>
+<path d="M330 748 L400 842 L470 748 Z" fill="#b57b56"/>
+<path d="M322 748 L400 860 L478 748" stroke="#c8f03a" stroke-width="12" fill="none" stroke-linejoin="round"/>
+<rect x="352" y="590" width="96" height="190" rx="40" fill="#b57b56"/>
+<ellipse cx="266" cy="468" rx="24" ry="40" fill="#cf9570"/>
+<ellipse cx="534" cy="468" rx="24" ry="40" fill="#cf9570"/>
+<ellipse cx="400" cy="452" rx="138" ry="168" fill="#cf9570"/>
+<path d="M266 420 C262 300 330 252 400 252 C472 252 540 300 534 420 C514 366 470 346 400 346 C330 346 288 366 266 420 Z" fill="#120e0c" opacity="0.92"/>
+
+<path d="M312 432 Q344 418 376 428" stroke="#120e0c" stroke-width="11" stroke-linecap="round" fill="none"/><path d="M424 428 Q456 418 488 432" stroke="#120e0c" stroke-width="11" stroke-linecap="round" fill="none"/>
+<ellipse cx="344" cy="462" rx="11" ry="13" fill="#090e0f"/><circle cx="348" cy="457" r="3.5" fill="#fff"/><ellipse cx="456" cy="462" rx="11" ry="13" fill="#090e0f"/><circle cx="460" cy="457" r="3.5" fill="#fff"/>
+
+<path d="M400 478 Q388 520 404 528" stroke="#b57b56" stroke-width="7" stroke-linecap="round" fill="none"/>
+<path d="M352 566 Q400 606 448 566" stroke="#090e0f" stroke-width="9" stroke-linecap="round" fill="none"/>
+
+
+<path d="M338 760 Q400 900 462 760" stroke="#090e0f" stroke-width="7" fill="none" stroke-linecap="round"/>
+<rect x="378" y="868" width="44" height="30" rx="12" fill="#c8f03a" stroke="#090e0f" stroke-width="5"/>
+</svg>

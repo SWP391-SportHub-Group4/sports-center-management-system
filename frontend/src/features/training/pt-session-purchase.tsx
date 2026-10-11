@@ -223,55 +223,6 @@ export function PtSessionPurchase({
                       ))}
                     </select>
                   </Field>
-                  <AsyncSection state={coaches}>
-                    {() => (
-                      <Field label={text("Huấn luyện viên", "Coach")}>
-                        <select
-                          disabled={busy}
-                          value={coachId}
-                          onChange={(e) => {
-                            setCoach(e.target.value);
-                            resetSelection();
-                          }}
-                        >
-                          <option value="">
-                            {text("Chọn coach", "Choose a coach")}
-                          </option>
-                          {coaches.data?.map((c) => (
-                            <option key={c.userId} value={c.userId}>
-                              {c.fullName}
-                            </option>
-                          ))}
-                        </select>
-                      </Field>
-                    )}
-                  </AsyncSection>
-                  <div className={styles.coachChoices}>
-                    {coaches.data?.map((coach) => (
-                      <div key={coach.userId} className={styles.coachChoice}>
-                        <AvatarImage
-                          name={coach.fullName}
-                          avatarUrl={coach.avatarUrl}
-                          size={40}
-                        />
-                        <button
-                          type="button"
-                          className="btn btn--secondary btn--sm"
-                          aria-pressed={coachId === coach.userId}
-                          onClick={() => {
-                            setCoach(coach.userId);
-                            resetSelection();
-                          }}
-                        >
-                          {coach.fullName}
-                        </button>
-                        <ReportAvatarButton
-                          targetUserId={coach.userId}
-                          avatarUrl={coach.avatarUrl}
-                        />
-                      </div>
-                    ))}
-                  </div>
                   <Field label={text("Ngày tập", "Training date")}>
                     <input
                       disabled={busy}
@@ -286,6 +237,67 @@ export function PtSessionPurchase({
                     />
                   </Field>
                 </div>
+                <AsyncSection state={coaches}>
+                  {() => (
+                    <section className={styles.coachPicker}>
+                      <h4>{text("Chọn huấn luyện viên", "Choose a coach")}</h4>
+                      {coaches.data?.length ? (
+                        <div
+                          className={styles.coachChoices}
+                          role="group"
+                          aria-label={text("Huấn luyện viên PT", "PT coaches")}
+                        >
+                          {coaches.data.map((coach) => (
+                            <div
+                              key={coach.userId}
+                              className={styles.coachChoice}
+                            >
+                              <button
+                                type="button"
+                                className={styles.coachCard}
+                                aria-pressed={coachId === coach.userId}
+                                disabled={busy}
+                                onClick={() => {
+                                  setCoach(coach.userId);
+                                  resetSelection();
+                                }}
+                              >
+                                <AvatarImage
+                                  name={coach.fullName}
+                                  avatarUrl={coach.avatarUrl}
+                                  size={48}
+                                />
+                                <span className={styles.coachInfo}>
+                                  <strong>{coach.fullName}</strong>
+                                  <small>
+                                    {text("Huấn luyện viên PT", "Personal trainer")}
+                                  </small>
+                                </span>
+                                <span
+                                  className={styles.coachSelected}
+                                  aria-hidden="true"
+                                >
+                                  {coachId === coach.userId ? "✓" : ""}
+                                </span>
+                              </button>
+                              <ReportAvatarButton
+                                targetUserId={coach.userId}
+                                avatarUrl={coach.avatarUrl}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p role="status">
+                          {text(
+                            "Hiện chưa có huấn luyện viên PT khả dụng.",
+                            "No PT coaches are available right now.",
+                          )}
+                        </p>
+                      )}
+                    </section>
+                  )}
+                </AsyncSection>
                 {coachId && (
                   <AsyncSection state={availability}>
                     {(data) =>
@@ -299,32 +311,37 @@ export function PtSessionPurchase({
                               )}
                             </p>
                           ) : data.slots.length ? (
-                            <div
-                              className={styles.times}
-                              role="group"
-                              aria-label={text(
-                                "Giờ tập còn trống",
-                                "Available training times",
-                              )}
-                            >
-                              {data.slots.map((s) => (
-                                <button
-                                  type="button"
-                                  disabled={busy}
-                                  className={styles.time}
-                                  key={s.startAtUtc}
-                                  aria-pressed={start === s.startAtUtc}
-                                  onClick={() => {
-                                    setStart(s.startAtUtc);
-                                    setRoom(null);
-                                    setQuote(null);
-                                    setError(null);
-                                  }}
-                                >
-                                  {formatTime(s.startAtUtc)}
-                                </button>
-                              ))}
-                            </div>
+                            <section className={styles.availabilitySection}>
+                              <h4>
+                                {text("Giờ còn trống", "Available times")}
+                              </h4>
+                              <div
+                                className={styles.times}
+                                role="group"
+                                aria-label={text(
+                                  "Giờ tập còn trống",
+                                  "Available training times",
+                                )}
+                              >
+                                {data.slots.map((s) => (
+                                  <button
+                                    type="button"
+                                    disabled={busy}
+                                    className={styles.time}
+                                    key={s.startAtUtc}
+                                    aria-pressed={start === s.startAtUtc}
+                                    onClick={() => {
+                                      setStart(s.startAtUtc);
+                                      setRoom(null);
+                                      setQuote(null);
+                                      setError(null);
+                                    }}
+                                  >
+                                    {formatTime(s.startAtUtc)}
+                                  </button>
+                                ))}
+                              </div>
+                            </section>
                           ) : (
                             <p role="status">
                               {text(

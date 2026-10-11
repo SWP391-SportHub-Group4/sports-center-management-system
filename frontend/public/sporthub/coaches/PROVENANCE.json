@@ -18,5 +18,20 @@
       "prompt": "Photorealistic editorial sports coach portrait for SportHub demo website. Vietnamese female mobility and recovery coach age 36, dark shoulder length hair, muted deep green modest sports top, standing relaxed in a modern indoor stretching and recovery studio. Waist up, centered face, calm friendly expression, soft daylight, deep court green studio equipment blurred background, realistic skin texture, no logos no text no watermark. Portrait 4:5 aspect ratio. One person.",
       "processing": "Exported as WebP at 800px width, quality 85."
     }
-  ]
+  ],
+  "vectorAvatars": {
+    "tool": "frontend/scripts/generate-coach-avatars.mjs",
+    "purpose": "Chân dung minh họa dạng vector cho đội huấn luyện viên demo trong CoachRosterSeeder. Nhân vật hư cấu, không phải ảnh người thật.",
+    "files": [
+      "bui-khanh-linh.svg",
+      "dang-quoc-bao.svg",
+      "dinh-hai-nam.svg",
+      "le-hoang-phuc.svg",
+      "nguyen-minh-quan.svg",
+      "pham-ngoc-anh.svg",
+      "tran-thu-ha.svg",
+      "truong-gia-huy.svg",
+      "vo-duc-thinh.svg"
+    ]
+  }
 }
