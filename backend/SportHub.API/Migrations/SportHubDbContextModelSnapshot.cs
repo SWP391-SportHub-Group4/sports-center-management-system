@@ -416,6 +416,24 @@ namespace SportHub.API.Migrations
                         .HasColumnType("text")
                         .HasColumnName("bio");
 
+                    b.Property<string>("Philosophy")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("philosophy");
+
+                    b.Property<int?>("StudentCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("student_count");
+
+                    b.Property<string>("Title")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("title");
+
+                    b.Property<int?>("YearsExperience")
+                        .HasColumnType("integer")
+                        .HasColumnName("years_experience");
+
                     b.HasKey("UserId")
                         .HasName("pk_coach_profiles");
 

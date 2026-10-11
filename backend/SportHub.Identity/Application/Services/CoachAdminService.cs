@@ -20,6 +20,10 @@ public sealed record CoachResponse(
     DateTime CreatedAt)
 {
     public string? AvatarUrl { get; init; }
+    public string? Title { get; init; }
+    public int? YearsExperience { get; init; }
+    public int? StudentCount { get; init; }
+    public string? Philosophy { get; init; }
 }
 
 /// <summary>
@@ -67,7 +71,13 @@ public sealed class CoachAdminService(
                 u.Status.ToString(),
                 u.CoachProfile != null ? u.CoachProfile.Bio : null,
                 new List<int>(),
-                u.CreatedAt) { AvatarUrl = u.Profile != null ? u.Profile.AvatarUrl : null })
+                u.CreatedAt) {
+                    AvatarUrl = u.Profile != null ? u.Profile.AvatarUrl : null,
+                    Title = u.CoachProfile != null ? u.CoachProfile.Title : null,
+                    YearsExperience = u.CoachProfile != null ? u.CoachProfile.YearsExperience : null,
+                    StudentCount = u.CoachProfile != null ? u.CoachProfile.StudentCount : null,
+                    Philosophy = u.CoachProfile != null ? u.CoachProfile.Philosophy : null
+                })
             .ToListAsync(ct);
 
         var map = await specialties.GetForUsersAsync(rows.Select(r => r.UserId).ToList(), ct);
@@ -93,7 +103,13 @@ public sealed class CoachAdminService(
                           u.Status.ToString(),
                           u.CoachProfile != null ? u.CoachProfile.Bio : null,
                           new List<int>(),
-                          u.CreatedAt) { AvatarUrl = u.Profile != null ? u.Profile.AvatarUrl : null })
+                          u.CreatedAt) {
+                    AvatarUrl = u.Profile != null ? u.Profile.AvatarUrl : null,
+                    Title = u.CoachProfile != null ? u.CoachProfile.Title : null,
+                    YearsExperience = u.CoachProfile != null ? u.CoachProfile.YearsExperience : null,
+                    StudentCount = u.CoachProfile != null ? u.CoachProfile.StudentCount : null,
+                    Philosophy = u.CoachProfile != null ? u.CoachProfile.Philosophy : null
+                })
                       .SingleOrDefaultAsync(ct)
                   ?? throw new NotFoundException("coach_not_found", "Không tìm thấy Coach.");
 
@@ -130,7 +146,14 @@ public sealed class CoachAdminService(
             CreatedAt = clock.UtcNow,
             Credential = new UserCredential { PasswordHash = passwordHasher.Hash(request.Password) },
             Profile = new UserProfile { FullName = request.FullName.Trim(), Phone = phone },
-            CoachProfile = new CoachProfile { Bio = Clean(request.Bio) }
+            CoachProfile = new CoachProfile
+            {
+                Bio = Clean(request.Bio),
+                Title = Clean(request.Title),
+                YearsExperience = request.YearsExperience,
+                StudentCount = request.StudentCount,
+                Philosophy = Clean(request.Philosophy)
+            }
         };
 
         db.Set<UserAccount>().Add(user);
@@ -171,6 +194,12 @@ public sealed class CoachAdminService(
         {
             user.CoachProfile.Bio = Clean(request.Bio);
         }
+
+        // Các trường hồ sơ công khai: null giữ nguyên, chuỗi rỗng xóa giá trị.
+        if (request.Title is not null) user.CoachProfile.Title = Clean(request.Title);
+        if (request.Philosophy is not null) user.CoachProfile.Philosophy = Clean(request.Philosophy);
+        if (request.YearsExperience is not null) user.CoachProfile.YearsExperience = request.YearsExperience;
+        if (request.StudentCount is not null) user.CoachProfile.StudentCount = request.StudentCount;
 
         audit.Write(new AuditEntry(
             actorUserId, "UPDATE_COACH_SPECIALTIES", nameof(UserAccount), userId.ToString(),

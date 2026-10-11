@@ -8,6 +8,8 @@ public class CoachProfileConfiguration : IEntityTypeConfiguration<CoachProfile>
     public void Configure(EntityTypeBuilder<CoachProfile> builder)
     {
         builder.HasKey(e => e.UserId);
+        builder.Property(e => e.Title).HasMaxLength(100);
+        builder.Property(e => e.Philosophy).HasMaxLength(1000);
 
         // Ordinal int mặc định của EF Core — khớp convention hiện có của mọi enum khác trong
         // hệ thống (UserStatus, ExternalAuthProvider...), không tự đổi sang lưu string (SSOT §3).
