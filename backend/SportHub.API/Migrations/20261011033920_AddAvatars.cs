@@ -11,19 +11,15 @@ namespace SportHub.API.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AddColumn<string>(
-                name: "avatar_public_id",
-                table: "user_profiles",
-                type: "character varying(255)",
-                maxLength: 255,
-                nullable: true);
-
-            migrationBuilder.AddColumn<string>(
-                name: "avatar_url",
-                table: "user_profiles",
-                type: "character varying(2048)",
-                maxLength: 2048,
-                nullable: true);
+            // Databases from the coach branch may already contain these columns
+            // from 20261011050331_AddCoachAvatars. Preserve their existing values
+            // while applying the rest of the shared avatar schema.
+            migrationBuilder.Sql("""
+                ALTER TABLE user_profiles
+                    ADD COLUMN IF NOT EXISTS avatar_public_id character varying(255) NULL;
+                ALTER TABLE user_profiles
+                    ADD COLUMN IF NOT EXISTS avatar_url character varying(2048) NULL;
+                """);
 
             migrationBuilder.AddColumn<long>(
                 name: "avatar_version",
