@@ -241,6 +241,26 @@
   text-decoration: line-through;
 }
 
+.event[data-fading="true"] {
+  animation: cancelled-event-dismiss 2.6s ease-in forwards;
+}
+
+@keyframes cancelled-event-dismiss {
+  0%,
+  20% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .event[data-fading="true"] {
+    animation: none;
+  }
+}
+
 .done {
   color: var(--success-text);
   font-size: var(--text-xs);

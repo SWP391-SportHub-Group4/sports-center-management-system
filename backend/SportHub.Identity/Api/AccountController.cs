@@ -13,7 +13,7 @@ namespace SportHub.Identity.Api;
 [ApiController]
 [Authorize]
 [Route("api/users/me")]
-public class AccountController(IAccountService accounts, CoachAvatarService avatars) : ControllerBase
+public class AccountController(IAccountService accounts) : ControllerBase
 {
     [HttpGet]
     public async Task<IActionResult> GetMe(CancellationToken ct)
@@ -22,19 +22,6 @@ public class AccountController(IAccountService accounts, CoachAvatarService avat
     [HttpPut("profile")]
     public async Task<IActionResult> UpdateProfile([FromBody] UpdateMyProfileRequest request, CancellationToken ct)
         => Ok(await accounts.UpdateProfileAsync(User.RequireUserId(), request, ct));
-
-    [HttpPost("avatar")]
-    [Authorize(Policy = SportHubPolicies.Coach)]
-    [EnableRateLimiting("avatar-upload")]
-    [Consumes("multipart/form-data")]
-    [RequestSizeLimit(CoachAvatarService.MaxBytes + 65536)]
-    [RequestFormLimits(MultipartBodyLengthLimit = CoachAvatarService.MaxBytes + 65536)]
-    public async Task<IActionResult> UploadAvatar(IFormFile file, CancellationToken ct)
-    {
-        var userId = User.RequireUserId();
-        await avatars.UploadAsync(userId, file, ct);
-        return Ok(await accounts.GetMeAsync(userId, ct));
-    }
 
     /// <summary>Luồng A bước 1: gửi mã 6 số về email để tài khoản chưa có mật khẩu (Google) xác nhận trước khi tạo mật khẩu.</summary>
     [HttpPost("password/otp")]

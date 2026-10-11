@@ -54,6 +54,12 @@
   font-weight: var(--weight-medium);
   color: var(--text-muted);
 }
+.weekdays span[data-today="true"],
+.todayWeekday {
+  background: #006d77;
+  color: #ffffff;
+  font-weight: var(--weight-bold);
+}
 .grid {
   min-height: calc(var(--week-count) * 170px);
   height: max(calc(var(--week-count) * 170px), calc(100dvh - 310px));
@@ -73,6 +79,9 @@
 }
 .day[data-outside="true"] {
   background: var(--bg-surface-sunken);
+}
+.day[data-today="true"]:not([data-outside="true"]) {
+  background: color-mix(in srgb, #006d77 4%, var(--bg-surface));
 }
 .date {
   display: block;
@@ -136,8 +145,32 @@
   border: 1px dashed var(--border-control);
 }
 .event[data-cancelled="true"] {
+  color: var(--text-muted);
+}
+.event[data-cancelled="true"] > span:not([aria-hidden="true"]) {
   text-decoration: line-through;
-  opacity: 0.65;
+}
+.event b {
+  flex-shrink: 0;
+  font-size: 10px;
+  color: var(--danger-700);
+}
+.event[data-fading="true"] {
+  animation: cancelled-event-dismiss 2.6s ease-in forwards;
+}
+@keyframes cancelled-event-dismiss {
+  0%,
+  20% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .event[data-fading="true"] {
+    animation: none;
+  }
 }
 .event time {
   flex-shrink: 0;

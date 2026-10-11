@@ -7,11 +7,13 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using System.Net.Http.Headers;
 using System.Text;
 using SportHub.API.Persistence;
+using SportHub.API.Jobs;
 using SportHub.BuildingBlocks.Abstractions.Email;
 using SportHub.BuildingBlocks.Abstractions.Notifications;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
@@ -115,6 +117,16 @@ public sealed class PaymentApiFactory : WebApplicationFactory<Program>, IAsyncLi
             }));
         builder.ConfigureTestServices(services =>
         {
+            // Outbox assertions need a stable state: the 30-second dispatcher can
+            // otherwise claim email rows while an API test checks Pending/read-all.
+            // Dispatch behavior is tested explicitly, without the hosted timer.
+            foreach (var dispatcher in services.Where(descriptor =>
+                         descriptor.ServiceType == typeof(IHostedService)
+                         && descriptor.ImplementationType == typeof(NotificationDispatchJob)).ToArray())
+            {
+                services.Remove(dispatcher);
+            }
+
             services.RemoveAll<INotificationWriter>();
             services.AddScoped<INotificationWriter>(sp => new CapturingPaymentOutboxWriter(
                 sp.GetRequiredService<ISportHubDbContext>(),

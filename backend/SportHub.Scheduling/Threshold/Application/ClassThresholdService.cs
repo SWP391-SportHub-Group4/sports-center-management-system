@@ -150,16 +150,16 @@ public sealed class ClassThresholdService(ISportHubDbContext db, ISystemSettingP
                 ResolutionStatus = ThresholdResolutionStatus.Pending, CreatedAtUtc = clock.UtcNow
             });
             notifications.Queue(new NotificationRequest(enrollment.MemberId, NotificationEvents.ClassThresholdAtRisk,
-                $"Khóa {entity.Name} chưa đạt ngưỡng đăng ký. Hãy chọn hoàn điểm hoặc chuyển lớp trước "
-                + $"{VietnamTime.ToLocal(deadline):dd/MM/yyyy HH:mm}. Liên kết phản hồi: /class-threshold-response?token={token}",
+                $"Course {entity.Name} has not met its enrollment threshold. Choose a points refund or transfer before "
+                + $"{VietnamTime.ToLocal(deadline):dd/MM/yyyy HH:mm}. Response link: /class-threshold-response?token={token}",
                 responseId));
             var recipient = await users.GetAsync(enrollment.MemberId, ct);
             if (recipient is not null)
                 notifications.QueueEmail(new EmailNotificationRequest(enrollment.MemberId, recipient.Email,
-                    NotificationEvents.ClassThresholdAtRisk, responseId, "SportHub - Khóa học chưa đạt ngưỡng",
-                    "<p>Khóa " + System.Net.WebUtility.HtmlEncode(entity.Name)
-                    + $" chưa đạt ngưỡng. Chọn hoàn điểm hoặc chuyển lớp trước {VietnamTime.ToLocal(deadline):dd/MM/yyyy HH:mm}."
-                    + " Mở liên kết sau trên ứng dụng SportHub: /class-threshold-response?token=" + token + "</p>"));
+                    NotificationEvents.ClassThresholdAtRisk, responseId, "SportHub - Course threshold not met",
+                    "<p>Course " + System.Net.WebUtility.HtmlEncode(entity.Name)
+                    + $" has not met its threshold. Choose a points refund or transfer before {VietnamTime.ToLocal(deadline):dd/MM/yyyy HH:mm}."
+                    + " Open this link in SportHub: /class-threshold-response?token=" + token + "</p>"));
         }
     }
 }

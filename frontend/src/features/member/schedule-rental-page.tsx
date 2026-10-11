@@ -22,11 +22,11 @@ import styles from "./schedule-course-page.module.css";
 export function ScheduleRentalPage({
   rentalId,
   onBack,
-  onChanged,
+  onCancelled,
 }: {
   rentalId: string;
   onBack: () => void;
-  onChanged: () => void;
+  onCancelled: (rentalId: string) => void;
 }) {
   const { language, t } = useLanguage();
   const vi = language === "vi";
@@ -202,8 +202,7 @@ export function ScheduleRentalPage({
                   onClose={() => setCancelling(false)}
                   onCancelled={() => {
                     setCancelling(false);
-                    state.reload();
-                    onChanged();
+                    onCancelled(detail.rental.courtRentalId);
                   }}
                 />
               )}

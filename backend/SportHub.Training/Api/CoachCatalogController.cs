@@ -7,10 +7,10 @@ using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.Identity.Domain.Entities;
 using SportHub.Identity.Domain.Enums;
 namespace SportHub.Training.Api;
-[ApiController, Authorize, Route("api/coaches")]
+[ApiController, Route("api/coaches")]
 public sealed class CoachCatalogController(ISportHubDbContext db, ISportCatalogReader catalog) : ControllerBase
 {
-    [Authorize(Roles = SportHubRoleNames.Member + "," + SportHubRoleNames.Receptionist + "," + SportHubRoleNames.CenterManager)]
+    [AllowAnonymous]
     [HttpGet]
     public async Task<IActionResult> List([FromQuery] int? sportId, [FromQuery] string? service, CancellationToken ct)
     {
@@ -32,7 +32,9 @@ public sealed class CoachCatalogController(ISportHubDbContext db, ISportCatalogR
         if (requiredOfferingId is int offeringId) query = query.Where(u => db.Set<CoachServiceQualification>().Any(q => q.UserId == u.UserId && q.OfferingId == offeringId));
         if (sportId is int id) query = query.Where(u => db.Set<UserSportSpecialty>().Any(s => s.UserId == u.UserId && s.SportId == id));
         return Ok(await query.OrderBy(u => u.Profile!.FullName).Take(500).Select(u => new {
-            u.UserId, FullName = u.Profile!.FullName, SportIds = db.Set<UserSportSpecialty>().Where(s => s.UserId == u.UserId).Select(s => s.SportId).ToArray()
+            u.UserId, FullName = u.Profile!.FullName, AvatarUrl = u.Profile.AvatarUrl,
+            Bio = u.CoachProfile != null ? u.CoachProfile.Bio : null,
+            SportIds = db.Set<UserSportSpecialty>().Where(s => s.UserId == u.UserId).Select(s => s.SportId).ToArray()
         }).ToListAsync(ct));
     }
 }

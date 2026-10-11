@@ -15,6 +15,9 @@ import type {
   UserAdminDto,
 } from "@/lib/types";
 import styles from "./desk.module.css";
+import { AvatarImage } from "@/components/AvatarImage";
+import { ReportAvatarButton } from "@/components/ReportAvatarButton";
+import { MemberCancellations } from "./member-cancellations";
 
 /**
  * Hội viên đang phục vụ: tên, Membership, đang trong Gym hay không, và các thao tác kế tiếp.
@@ -92,6 +95,11 @@ export function SelectedMemberPanel({
   return (
     <section className={styles.selected} aria-label={l.selectedMember}>
       <div className={styles.selectedTop}>
+        <AvatarImage
+          name={member.fullName || member.email}
+          avatarUrl={member.avatarUrl}
+          size={64}
+        />
         <div>
           <h2 className={styles.selectedName}>
             {member.fullName || member.email}
@@ -100,6 +108,10 @@ export function SelectedMemberPanel({
             {member.email}
             {member.phone ? ` · ${member.phone}` : ""}
           </p>
+          <ReportAvatarButton
+            targetUserId={member.userId}
+            avatarUrl={member.avatarUrl}
+          />
         </div>
         <button
           type="button"
@@ -138,6 +150,10 @@ export function SelectedMemberPanel({
         </div>
       </dl>
 
+      <p className={styles.hint}>
+        {l.nextAction}
+      </p>
+
       <div className={styles.actions}>
         <button
           type="button"
@@ -147,12 +163,21 @@ export function SelectedMemberPanel({
         >
           {open ? l.checkOut : l.checkIn}
         </button>
-        <Link className="btn btn--secondary" href="/receptionist/attendance">
-          {l.attendance}
-        </Link>
-        <Link className="btn btn--secondary" href="/receptionist/sales">
+
+        <Link
+          className="btn btn--secondary"
+          href="/receptionist/sales"
+        >
           {l.sell}
         </Link>
+
+        <Link
+          className="btn btn--secondary"
+          href="/receptionist/invoices"
+        >
+          {l.viewInvoices}
+        </Link>
+
         {showProfileLink && (
           <Link
             className="btn btn--ghost"
@@ -163,6 +188,11 @@ export function SelectedMemberPanel({
         )}
       </div>
       {blocked && <p className={styles.block}>{l.needMembership}</p>}
+      <MemberCancellations
+        memberId={memberId}
+        packages={packages.data ?? []}
+        onChanged={packages.reload}
+      />
       {note && (
         <p className={styles.note} role="status">
           {note}

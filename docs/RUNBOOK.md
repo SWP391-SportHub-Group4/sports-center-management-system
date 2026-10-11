@@ -52,6 +52,9 @@ dotnet run --project backend/SportHub.API/SportHub.API.csproj -c Release -- --en
 ```
 
 Lệnh build Release rồi chạy API tại cổng 5000. Thư mục key riêng cho local giải quyết trường hợp `.env` chứa đường dẫn Docker `/var/lib/sporthub/dataprotection-keys`; key nằm trong `.tmp` đã được Git bỏ qua. `Ctrl+C` dừng API. Nếu bản Release cũng bị chặn, cần người quản lý chính sách App Control cấp quyền cho ứng dụng development theo quy trình của máy.
+Mỗi lần khởi động Development, baseline phòng được bổ sung idempotent, kể cả DB đã có tài khoản: `Badminton Class BC1/BC2`, `Badminton Rental BR1/BR2`, `Basketball Class KC1/KC2`, `Basketball Rental KR1/KR2`, `Gym G1/G2`. Tên cũ của các sân demo được đổi sang mã mới nhưng giữ nguyên `room_id`, lịch lớp và booking. Hai sân Class của mỗi môn vẫn có thể cho Member thuê khi không có buổi học hoặc block trùng giờ. PT sử dụng hai phòng Gym cùng Gym membership; giờ mở cửa mặc định là 06:00–22:00 hằng ngày, giờ đã cấu hình trước đó được giữ nguyên.
+
+Trên lịch Member, sau khi hủy thuê sân thành công, thẻ chuyển ngay sang `Cancelled`, mờ dần trong 2,6 giây rồi rời khỏi lịch. Lịch Manager và Receptionist vẫn ghi nhận lượt đã hủy bằng nhãn trạng thái `Cancelled`; bản ghi cũng còn trong lịch sử thuê sân, chi tiết, hóa đơn và dữ liệu hoàn điểm. Với Docker Compose, frontend chạy từ image (không bind mount mã nguồn), nên sau khi sửa UI cần chạy `docker compose up -d --build frontend` và tải lại trang.
 
 ### 3.2.1 Dữ liệu dev: seed lớp BR-141 và reset
 

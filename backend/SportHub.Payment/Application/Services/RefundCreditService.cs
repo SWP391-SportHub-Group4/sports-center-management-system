@@ -67,7 +67,7 @@ public sealed class RefundCreditService(ISportHubDbContext db, IPointWalletServi
             "SystemEvent", request.EventId, null, request.Reason.Trim(), item.ItemId), cancellationToken);
         if (!result.AlreadyApplied)
             await notices.QueueAsync(invoice.MemberId, SportHub.BuildingBlocks.Abstractions.Notifications.NotificationEvents.RefundCompleted,
-                result.LedgerEntryId, $"Đã hoàn {points} điểm cho hóa đơn {invoice.InvoiceNumber}: {request.Reason.Trim()}", cancellationToken);
+                result.LedgerEntryId, $"Refunded {points} points for invoice {invoice.InvoiceNumber}: {request.Reason.Trim()}", cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
         return new RefundCreditResult(points, result.AlreadyApplied);
     }

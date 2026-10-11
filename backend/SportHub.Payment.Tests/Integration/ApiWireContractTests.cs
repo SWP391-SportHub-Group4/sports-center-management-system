@@ -65,7 +65,8 @@ public sealed class ApiWireContractTests(PaymentApiFactory factory, ITestOutputH
             Assert.Equal(100_000m, item.LineAmount);
             var entitlement = await db.MemberPackages.SingleAsync(x => x.MemberPackageId == item.MemberPackageId);
             Assert.Equal(30, entitlement.DurationDaysSnapshot);
-            Assert.Equal(30, entitlement.EndDate.DayNumber - entitlement.StartDate.DayNumber + 1);
+            // BR-9: gói 30 ngày danh nghĩa = 1 tháng lịch, EndDate = StartDate + 1 tháng - 1 ngày.
+            Assert.Equal(entitlement.StartDate.AddMonths(1).AddDays(-1), entitlement.EndDate);
             Assert.Null(entitlement.RemainingSessions);
             Assert.NotNull((await db.Payments.SingleAsync(x => x.InvoiceId == id)).PaymentAttemptId);
             Assert.Equal(2, await db.Notifications.CountAsync(x => x.SourceEntityId == id

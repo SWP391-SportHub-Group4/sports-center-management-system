@@ -9,6 +9,7 @@ import Link from "next/link";
 import { api } from "@/lib/apiClient";
 import { useApi, useNow } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
+import { UserAvatar } from "@/components/UserAvatar";
 import {
   formatMoney,
   formatDate,
@@ -324,7 +325,17 @@ export function CourseCatalog({
                       </summary>
                       <dl className={styles.facts}>
                         <dt>{d.coach}</dt>
-                        <dd>{c.coachName || d.coachTbc}</dd>
+                        <dd>
+                          {c.coachId && c.coachName && (
+                            <UserAvatar
+                              userId={c.coachId}
+                              name={c.coachName}
+                              size={28}
+                              report
+                            />
+                          )}{" "}
+                          {c.coachName || d.coachTbc}
+                        </dd>
                         <dt>{d.room}</dt>
                         <dd>{c.roomName}</dd>
                         <dt>{d.schedule}</dt>
@@ -336,7 +347,17 @@ export function CourseCatalog({
                   ) : (
                     <dl className={styles.facts}>
                       <dt>{d.coach}</dt>
-                      <dd>{c.coachName || d.coachTbc}</dd>
+                      <dd>
+                        {c.coachId && c.coachName && (
+                          <UserAvatar
+                            userId={c.coachId}
+                            name={c.coachName}
+                            size={28}
+                            report
+                          />
+                        )}{" "}
+                        {c.coachName || d.coachTbc}
+                      </dd>
                       <dt>{d.room}</dt>
                       <dd>{c.roomName}</dd>
                       <dt>{d.schedule}</dt>

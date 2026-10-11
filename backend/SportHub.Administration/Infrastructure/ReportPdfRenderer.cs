@@ -115,7 +115,7 @@ public sealed class ReportPdfRenderer : IReportPdfRenderer
                 page.Footer().AlignCenter().Text(text =>
                 {
                     text.DefaultTextStyle(x => x.FontSize(8).FontColor(Colors.Grey.Darken1));
-                    text.Span("Trang ");
+                    text.Span("Page ");
                     text.CurrentPageNumber();
                     text.Span(" / ");
                     text.TotalPages();

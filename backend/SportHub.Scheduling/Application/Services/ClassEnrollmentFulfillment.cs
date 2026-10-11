@@ -56,7 +56,7 @@ public sealed class ClassEnrollmentFulfillment(
         // 2) Chốt chặn overbooking: chỉ tăng khi còn chỗ và khóa đang mở bán. Nếu 0 dòng thì đã hết chỗ hoặc hết mở bán.
         var published = (int)ClassStatus.Published;
         var updated = await db.Database.ExecuteSqlInterpolatedAsync(
-            $"UPDATE classes SET reserved_count = reserved_count + 1, version = version + 1 WHERE class_id = {classId} AND status = {published} AND reserved_count < capacity",
+            $"UPDATE classes SET reserved_count = reserved_count + 1, version = version + 1 WHERE class_id = {classId} AND status = {published} AND enrollment_open = TRUE AND reserved_count < capacity",
             cancellationToken);
 
         if (updated == 0)
@@ -331,7 +331,12 @@ public sealed class ClassEnrollmentFulfillment(
         {
             throw new ConflictException("class_not_open", "Khóa học chưa mở hoặc đã đóng ghi danh.");
         }
-
+        if (!cls.EnrollmentOpen)
+        {
+            throw new ConflictException(
+                "enrollment_closed",
+                "Khóa học hiện đã đóng tuyển sinh.");
+        }
         if (cls.ThresholdStatus == ThresholdStatus.AtRisk
             && cls.ThresholdResponseDeadlineUtc is DateTime responseDeadline
             && responseDeadline <= clock.UtcNow)

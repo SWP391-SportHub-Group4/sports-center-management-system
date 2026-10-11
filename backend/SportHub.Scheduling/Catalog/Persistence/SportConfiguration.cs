@@ -20,8 +20,8 @@ public class SportConfiguration : IEntityTypeConfiguration<Sport>
         // Manager tự thêm/sửa môn sau đó.
         builder.HasData(
             new Sport { SportId = 1, Code = SportCodes.Gym, Name = "Gym", SortOrder = 1, IsActive = true },
-            new Sport { SportId = 3, Code = "badminton", Name = "Cầu lông", SortOrder = 2, IsActive = true },
-            new Sport { SportId = 4, Code = "basketball", Name = "Bóng rổ", SortOrder = 3, IsActive = true });
+            new Sport { SportId = 3, Code = "badminton", Name = "Badminton", SortOrder = 2, IsActive = true },
+            new Sport { SportId = 4, Code = "basketball", Name = "Basketball", SortOrder = 3, IsActive = true });
     }
 }
 
@@ -63,7 +63,9 @@ public class ServiceRoomTypeConfiguration : IEntityTypeConfiguration<ServiceRoom
         builder.HasOne<SportServiceOffering>().WithMany().HasForeignKey(e => e.OfferingId).OnDelete(DeleteBehavior.Cascade);
         builder.HasOne<RoomType>().WithMany().HasForeignKey(e => e.RoomTypeId).OnDelete(DeleteBehavior.Restrict);
 
-        // Phòng PT (loại phòng 2) là phòng hợp lệ của dịch vụ PT; phòng Gym (loại 1) thì không.
-        builder.HasData(new ServiceRoomType { OfferingId = 2, RoomTypeId = 2 });
+        // PT can train in a shared Gym room or a dedicated PT room.
+        builder.HasData(
+            new ServiceRoomType { OfferingId = 2, RoomTypeId = 1 },
+            new ServiceRoomType { OfferingId = 2, RoomTypeId = 2 });
     }
 }

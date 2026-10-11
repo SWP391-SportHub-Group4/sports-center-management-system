@@ -106,8 +106,8 @@ public sealed class PackagePurchaseService(
             ItemId = Guid.NewGuid(),
             InvoiceId = invoice.InvoiceId,
             ItemType = InvoiceItemType.Membership,
-            Description = $"Gói {catalog.Name} ({catalog.DurationDays} ngày"
-                          + (catalog.SessionLimit is null ? ", không giới hạn buổi)" : $", {catalog.SessionLimit} buổi)"),
+            Description = $"Package {catalog.Name} ({catalog.DurationDays} days"
+                          + (catalog.SessionLimit is null ? ", unlimited sessions)" : $", {catalog.SessionLimit} sessions)"),
             UnitPrice = catalog.Price,
             Quantity = 1,
             LineAmount = catalog.Price,

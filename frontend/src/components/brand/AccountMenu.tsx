@@ -3,7 +3,6 @@ import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
 import { CourtIcon, type CourtIconName } from "./CourtIcon";
 import s from "./brand.module.css";
-import { UserAvatar } from "@/components/UserAvatar";
 
 export function AccountMenu({
   name,
@@ -59,7 +58,13 @@ export function AccountMenu({
         aria-controls={id}
         onClick={() => setOpen(!open)}
       >
-        <UserAvatar name={name} src={avatarUrl} className={s.avatar} />
+        <span className={s.avatar} aria-hidden="true">
+          {avatarUrl ? (
+            <img src={avatarUrl} alt="" className={s.avatarPhoto} />
+          ) : (
+            name.trim().charAt(0).toUpperCase() || "?"
+          )}
+        </span>
         <span className={s.accountName}>{name}</span>
         <CourtIcon name="chevron" size={16} />
       </button>

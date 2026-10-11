@@ -14,9 +14,9 @@ public class RoomTypeConfiguration : IEntityTypeConfiguration<RoomType>
         builder.HasIndex(e => e.Name).IsUnique();
 
         builder.HasData(
-            new RoomType { RoomTypeId = 1, Name = "Phòng Gym" },
-            new RoomType { RoomTypeId = 2, Name = "Phòng PT" },
-            new RoomType { RoomTypeId = 3, Name = "Sân cầu lông" },
-            new RoomType { RoomTypeId = 4, Name = "Sân bóng rổ" });
+            new RoomType { RoomTypeId = 1, Name = "Gym room" },
+            new RoomType { RoomTypeId = 2, Name = "PT room" },
+            new RoomType { RoomTypeId = 3, Name = "Badminton court" },
+            new RoomType { RoomTypeId = 4, Name = "Basketball court" });
     }
 }

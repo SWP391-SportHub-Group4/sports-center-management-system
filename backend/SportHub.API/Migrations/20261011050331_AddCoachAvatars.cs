@@ -10,31 +10,20 @@ namespace SportHub.API.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AddColumn<string>(
-                name: "avatar_public_id",
-                table: "user_profiles",
-                type: "character varying(255)",
-                maxLength: 255,
-                nullable: true);
-
-            migrationBuilder.AddColumn<string>(
-                name: "avatar_url",
-                table: "user_profiles",
-                type: "character varying(2048)",
-                maxLength: 2048,
-                nullable: true);
+            // The shared AddAvatars migration may run first on a fresh database.
+            // Keep this branch migration safe for databases that applied it earlier.
+            migrationBuilder.Sql("""
+                ALTER TABLE user_profiles
+                    ADD COLUMN IF NOT EXISTS avatar_public_id character varying(255) NULL;
+                ALTER TABLE user_profiles
+                    ADD COLUMN IF NOT EXISTS avatar_url character varying(2048) NULL;
+                """);
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropColumn(
-                name: "avatar_public_id",
-                table: "user_profiles");
-
-            migrationBuilder.DropColumn(
-                name: "avatar_url",
-                table: "user_profiles");
+            // The shared AddAvatars migration owns these columns after the merge.
         }
     }
 }

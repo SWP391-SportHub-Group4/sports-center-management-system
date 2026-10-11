@@ -22,10 +22,12 @@ import {
   IconSettings,
   IconHeartbeat,
   IconLogout,
+  IconQrCode,
   IconMenu,
   IconClose,
 } from "./icons";
 import styles from "./MemberShell.module.css";
+import { AvatarImage } from "./AvatarImage";
 
 export interface NavItem {
   href: string;
@@ -89,12 +91,13 @@ export function MemberFrame({
   children: ReactNode;
 }) {
   const { user, loading, logout } = useAuth();
-  const { language, toggleLanguage, t } = useLanguage();
+  const { language, t } = useLanguage();
   const router = useRouter();
   const pathname = usePathname();
 
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [codeOpen, setCodeOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const memberNavItems: NavItem[] = [
@@ -159,10 +162,6 @@ export function MemberFrame({
     );
   }
 
-  const userInitial = user.fullName
-    ? user.fullName.charAt(0).toUpperCase()
-    : user.email.charAt(0).toUpperCase();
-
   return (
     <div className={styles.shell}>
       <a href="#main-content" className="skip-link">
@@ -203,25 +202,6 @@ export function MemberFrame({
 
           {/* Header Actions */}
           <div className={styles.headerActions}>
-            <MemberCodeButton />
-
-            {/* Language Switcher */}
-            <button
-              type="button"
-              className={styles.langToggleBtn}
-              onClick={toggleLanguage}
-              title={
-                language === "en"
-                  ? "Chuyển sang Tiếng Việt"
-                  : "Switch to English"
-              }
-              aria-label="Toggle language"
-            >
-              <span className={styles.langText}>
-                {language === "en" ? "EN" : "VI"}
-              </span>
-            </button>
-
             {/* Notification Bell */}
             <MemberWalletHeader />
             <NotificationBell />
@@ -234,7 +214,12 @@ export function MemberFrame({
                 onClick={() => setUserMenuOpen((prev) => !prev)}
                 aria-expanded={userMenuOpen}
               >
-                <div className={styles.userAvatar}>{userInitial}</div>
+                <AvatarImage
+                  name={user.fullName || user.email}
+                  avatarUrl={user.avatarUrl}
+                  size={36}
+                  className={styles.userAvatar}
+                />
                 <span className={styles.userName}>
                   {user.fullName || user.email}
                 </span>
@@ -267,6 +252,19 @@ export function MemberFrame({
                     </div>
                   </div>
 
+                  <button
+                    type="button"
+                    className={styles.dropdownItem}
+                    onClick={() => {
+                      setUserMenuOpen(false);
+                      setCodeOpen(true);
+                    }}
+                  >
+                    <IconQrCode size={15} />
+                    <span>
+                      {language === "en" ? "Member code" : "Mã hội viên"}
+                    </span>
+                  </button>
                   <Link
                     href="/account"
                     className={styles.dropdownItem}
@@ -354,6 +352,17 @@ export function MemberFrame({
                   </Link>
                 );
               })}
+              <button
+                type="button"
+                className={styles.mobileNavLink}
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  setCodeOpen(true);
+                }}
+              >
+                <IconQrCode size={16} style={{ marginRight: 8 }} />
+                <span>{language === "en" ? "Member code" : "Mã hội viên"}</span>
+              </button>
               <Link
                 href="/member/profile"
                 className={styles.mobileNavLink}
@@ -381,22 +390,6 @@ export function MemberFrame({
                 <IconLogout size={16} style={{ marginRight: 8 }} />
                 <span>{t.common.logout}</span>
               </button>
-              <button
-                type="button"
-                className={styles.langToggleBtn}
-                style={{
-                  marginTop: 12,
-                  width: "100%",
-                  justifyContent: "center",
-                }}
-                onClick={toggleLanguage}
-              >
-                <span className={styles.langText}>
-                  {language === "en"
-                    ? "Language: English (Switch to VI)"
-                    : "Ngôn ngữ: Tiếng Việt (Chuyển EN)"}
-                </span>
-              </button>
             </div>
           </div>
         </div>
@@ -409,6 +402,11 @@ export function MemberFrame({
         </MemberFrameContext.Provider>
       </main>
 
+      <MemberCodeButton
+        hideTrigger
+        open={codeOpen}
+        onOpenChange={setCodeOpen}
+      />
       <AssistantButton />
     </div>
   );

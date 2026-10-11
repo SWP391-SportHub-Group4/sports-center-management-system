@@ -21,14 +21,20 @@ public sealed class PointRefundCalculatorTests
     public void Pt_refunds_half_only_when_no_session_is_reserved_or_consumed(bool used, int expected)
         => Assert.Equal(expected, RefundCalculator.PtPoints(1_000_000, used));
 
+    [Theory]
+    [InlineData(10 * 24, 1_000)]
+    [InlineData(5 * 24, 1_000)]
+    [InlineData(5 * 24 - 1, 500)]
+    [InlineData(1, 500)]
+    [InlineData(-1, 0)]
+    public void Class_refund_is_full_five_days_out_half_after_and_none_once_started(int hoursUntilFirst, int expected)
+        => Assert.Equal(expected, RefundCalculator.ClassPoints(1_000_000, 10, 10, TimeSpan.FromHours(hoursUntilFirst)));
+
     [Fact]
-    public void Class_refund_is_full_before_first_session_and_ratio_after_center_cancellation()
+    public void Center_cancellation_refunds_full_before_start_and_the_unprovided_share_after()
     {
-        Assert.Equal(1_000, RefundCalculator.ClassPoints(1_000_000, 10, 0, beforeFirstSession: true));
-        Assert.Equal(300, RefundCalculator.ClassPoints(1_000_000, 10, 3,
-            beforeFirstSession: false, centerFault: true));
-        Assert.Equal(0, RefundCalculator.ClassPoints(1_000_000, 10, 3,
-            beforeFirstSession: false, centerFault: false));
+        Assert.Equal(1_000, RefundCalculator.ClassPoints(1_000_000, 10, 10, TimeSpan.FromHours(2), centerFault: true));
+        Assert.Equal(300, RefundCalculator.ClassPoints(1_000_000, 10, 3, TimeSpan.FromHours(-1), centerFault: true));
     }
 
     [Theory]

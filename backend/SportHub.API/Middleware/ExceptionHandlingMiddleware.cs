@@ -60,7 +60,7 @@ public sealed class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<Ex
                     await context.Response.WriteAsJsonAsync(new
                     {
                         error = conflict.ErrorCode,
-                        message = conflict.Message,
+                        message = EnglishMessage(conflict.ErrorCode, conflict.Message),
                         conflicts = conflict.Conflicts
                     });
                     break;
@@ -125,6 +125,17 @@ public sealed class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<Ex
     private static Task WriteErrorAsync(HttpContext context, int statusCode, string error, string message)
     {
         context.Response.StatusCode = statusCode;
-        return context.Response.WriteAsJsonAsync(new { error, message });
+        return context.Response.WriteAsJsonAsync(new { error, message = EnglishMessage(error, message) });
+    }
+
+    private static string EnglishMessage(string error, string message)
+    {
+        // Legacy modules still carry Vietnamese exception text. Keep the stable error
+        // code and return an English description until each source is translated.
+        if (!message.Any(c => c is >= '\u00C0' and <= '\u1EF9')) return message;
+
+        if (string.IsNullOrWhiteSpace(error)) return "The request could not be completed.";
+        var words = error.Replace('_', ' ');
+        return char.ToUpperInvariant(words[0]) + words[1..] + ".";
     }
 }

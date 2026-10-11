@@ -1,4 +1,5 @@
 "use client";
+import { UserAvatar } from "./UserAvatar";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/apiClient";
 import { useAuth } from "@/lib/auth";
@@ -123,7 +124,7 @@ export function AttendanceBoard({
         <AsyncSection state={sessions}>
           {(data) => (
             <>
-              <Field label={l.registration}>
+              <Field label={t.frontDesk.attendanceClass}>
                 <select
                   disabled={bulk}
                   value={classId}
@@ -141,7 +142,7 @@ export function AttendanceBoard({
                   ))}
                 </select>
               </Field>
-              <Field label={l.sessions}>
+              <Field label={t.frontDesk.attendanceSession}>
                 <select
                   disabled={bulk}
                   value={sessionId}
@@ -220,7 +221,15 @@ export function AttendanceBoard({
                   const key = `${sessionId}-${r.enrollmentId}`;
                   return (
                     <tr key={key}>
-                      <td>{r.memberName}</td>
+                      <td>
+                        <UserAvatar
+                          userId={r.memberId}
+                          name={r.memberName}
+                          size={28}
+                          report
+                        />{" "}
+                        {r.memberName}
+                      </td>
                       <td>
                         <StatusChip value={r.attendanceStatus} />
                       </td>

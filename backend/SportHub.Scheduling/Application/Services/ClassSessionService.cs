@@ -168,7 +168,7 @@ public sealed class ClassSessionService(
             OldValue: before, NewValue: Describe(session), Reason: request.Reason.Trim()));
 
         await NotifyEnrolledAsync(cls, Guid.NewGuid(),
-            $"Buổi {session.SessionNo} của khóa {cls.Name} đổi từ {Local(oldStart)} sang {Local(start)}. Lý do: {request.Reason.Trim()}", ct);
+            $"Session {session.SessionNo} of course {cls.Name} moved from {Local(oldStart)} to {Local(start)}. Reason: {request.Reason.Trim()}", ct);
 
         await db.SaveChangesAsync(ct);
         if (tx != null) await tx.CommitAsync(ct);
@@ -252,7 +252,7 @@ public sealed class ClassSessionService(
             Reason: request.Reason.Trim()));
 
         await NotifyEnrolledAsync(cls, newSession.SessionId,
-            $"Buổi {session.SessionNo} ({Local(session.StartAtUtc)}) của khóa {cls.Name} bị hủy và được bù vào {Local(start)}. Lý do: {request.Reason.Trim()}", ct);
+            $"Session {session.SessionNo} ({Local(session.StartAtUtc)}) of course {cls.Name} was canceled and rescheduled for {Local(start)}. Reason: {request.Reason.Trim()}", ct);
 
         await db.SaveChangesAsync(ct);
         if (tx != null) await tx.CommitAsync(ct);
@@ -345,7 +345,7 @@ public sealed class ClassSessionService(
             var recipient = await users.GetAsync(memberId, ct);
             if (recipient is not null)
                 notifications.QueueEmail(new EmailNotificationRequest(memberId, recipient.Email,
-                    NotificationEvents.ScheduleChanged, sourceId, "SportHub - Thay đổi lịch lớp",
+                    NotificationEvents.ScheduleChanged, sourceId, "SportHub - Course schedule changed",
                     "<p>" + System.Net.WebUtility.HtmlEncode(message) + "</p>"));
         }
     }

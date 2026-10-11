@@ -54,7 +54,7 @@ public sealed class CourtRentalOperationsService(ISportHubDbContext db,
     }
 
     public async Task CancelByOwnerAsync(Guid rentalId, Guid ownerId, CancellationToken ct = default)
-        => await CancelAsync(rentalId, ownerId, false, "Hủy bởi Member", ct);
+        => await CancelAsync(rentalId, ownerId, false, "Canceled by member", ct);
 
     public async Task CancelByCenterAsync(Guid rentalId, Guid managerId, string reason, CancellationToken ct = default)
     {

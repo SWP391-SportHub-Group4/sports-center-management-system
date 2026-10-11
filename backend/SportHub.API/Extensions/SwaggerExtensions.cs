@@ -20,7 +20,7 @@ public static class SwaggerExtensions
                 Type = SecuritySchemeType.Http,
                 Scheme = "bearer",
                 BearerFormat = "JWT",
-                Description = "Dán access token vào đây (không cần gõ chữ \"Bearer \")",
+                Description = "Paste the access token here (without the \"Bearer \" prefix)",
             });
 
             options.AddSecurityRequirement(document => new OpenApiSecurityRequirement

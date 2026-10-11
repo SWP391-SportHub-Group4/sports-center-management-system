@@ -9,6 +9,7 @@ import { useLanguage } from "@/lib/language";
 import { formatDateTime } from "@/lib/format";
 import { ptApi } from "./api";
 import { PtStudentPreparation, PtStudentHistory } from "./pt-student-panel";
+import { UserAvatar } from "@/components/UserAvatar";
 
 export function CoachMemberDetail({
   memberId,
@@ -113,6 +114,7 @@ function MemberContent({
 
   return (
     <div className="stack">
+      <UserAvatar userId={memberId} name={memberName} size={64} report />
       <Tabs
         value={tab}
         onChange={setTab}

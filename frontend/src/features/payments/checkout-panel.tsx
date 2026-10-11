@@ -318,6 +318,9 @@ function CheckoutFlow({
       setTimeout(() => setClockOffset(offset), 0);
     }
   }, [checkout?.serverNowUtc]);
+  // Đã mở phiên VNPay còn hạn: khóa lựa chọn điểm để không đổi số tiền giữa chừng.
+  const vnpayStarted =
+    !!attempt && Date.parse(attempt.expiresAtUtc) > now + clockOffset;
   const expired = checkout
     ? Date.parse(checkout.expiresAtUtc) <= now + clockOffset
     : false;
@@ -385,6 +388,39 @@ function CheckoutFlow({
     ) &&
     checkout?.invoiceStatus === "ISSUED" &&
     !checkout.reconciliationRequired;
+  function forgetRememberedInvoice() {
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has("checkout")) return;
+    url.searchParams.delete("checkout");
+    url.searchParams.delete("checkoutIntent");
+    window.history.replaceState(
+      null,
+      "",
+      `${url.pathname}${url.search}${url.hash}`,
+    );
+  }
+  /** Đóng hộp thanh toán mà chưa trả thì hủy checkout để nhả chỗ giữ, không để treo tới khi hết hạn. */
+  async function closePayment() {
+    setOpen(false);
+    if (
+      !checkout ||
+      checkout.invoiceStatus !== "ISSUED" ||
+      checkout.reconciliationRequired
+    )
+      return;
+    try {
+      await api.post(`/api/checkouts/${checkout.invoiceId}/cancel`);
+    } catch {
+      return;
+    }
+    forgetRememberedInvoice();
+    if (!alive.current) return;
+    setCheckout(null);
+    setAttempt(null);
+    setConfirmation(null);
+    setDraft(null);
+    onChange?.();
+  }
   function openPayment() {
     setOpen(true);
     if (!checkout)
@@ -413,7 +449,7 @@ function CheckoutFlow({
             }
             size="lg"
             className={styles.paymentDialog}
-            onClose={() => setOpen(false)}
+            onClose={() => void closePayment()}
           >
             {content}
           </Dialog>
@@ -530,20 +566,29 @@ function CheckoutFlow({
             <button
               type="button"
               aria-pressed={paymentChoice === "vnpay"}
+              disabled={busy}
               onClick={() => setPaymentChoice("vnpay")}
             >
               <strong>VNPay</strong>
-              <span>{vi ? "Thanh toán trực tuyến" : "Online payment"}</span>
-            </button>
-            <button type="button" disabled>
-              <strong>VietQR</strong>
-              <span>{vi ? "Chưa hỗ trợ" : "Not supported yet"}</span>
+              <span>
+                {checkout.pointsApplied > 0
+                  ? vi
+                    ? "Trả phần còn lại sau khi trừ điểm"
+                    : "Pay the rest after points"
+                  : vi
+                    ? "Thanh toán trực tuyến"
+                    : "Online payment"}
+              </span>
             </button>
             {canSelectPoints && (
               <button
                 type="button"
                 aria-pressed={paymentChoice === "points"}
-                onClick={() => setPaymentChoice("points")}
+                disabled={busy || vnpayStarted}
+                onClick={() => {
+                  setAttempt(null);
+                  setPaymentChoice("points");
+                }}
               >
                 <strong>{vi ? "Điểm ví" : "Wallet points"}</strong>
                 <span>
@@ -581,11 +626,6 @@ function CheckoutFlow({
                 pointsApplied={checkout.pointsApplied}
                 disabled={busy || !!confirmation}
               />
-              {wallet.error && (
-                <p role="alert" className={styles.alert}>
-                  {wallet.error.message}
-                </p>
-              )}
               <div className={styles.actions}>
                 <Button
                   variant="secondary"
@@ -630,6 +670,11 @@ function CheckoutFlow({
                   {memberId ? l.requestOtp : l.apply}
                 </Button>
               </div>
+              {wallet.error && (
+                <p role="alert" className={styles.alert}>
+                  {wallet.error.message}
+                </p>
+              )}
               {confirmation && (
                 <CounterPointConfirmation
                   confirmation={confirmation}
@@ -710,6 +755,16 @@ function CheckoutFlow({
                 t.checkout.nextPoints
               ) : (
                 <>
+                  {checkout.pointsApplied > 0 && (
+                    <>
+                      {vi ? "Giữ " : "Keeping "}
+                      <strong className={styles.money}>
+                        {formatPoints(checkout.pointsApplied)}{" "}
+                        {l.points.toLowerCase()}
+                      </strong>{" "}
+                      (−{formatMoney(pointsValue)}).{" "}
+                    </>
+                  )}
                   {t.checkout.nextGateway}{" "}
                   <strong className={styles.money}>
                     {formatMoney(checkout.cashAmount)}
@@ -740,9 +795,13 @@ function CheckoutFlow({
                     ? "Xác nhận thanh toán bằng điểm"
                     : "Confirm payment with points"
                   : modal
-                    ? vi
-                      ? "Thanh toán qua VNPay"
-                      : "Pay with VNPay"
+                    ? checkout.pointsApplied > 0
+                      ? vi
+                        ? `Thanh toán ${formatMoney(checkout.cashAmount)} qua VNPay`
+                        : `Pay ${formatMoney(checkout.cashAmount)} with VNPay`
+                      : vi
+                        ? "Thanh toán qua VNPay"
+                        : "Pay with VNPay"
                     : l.pay}
               </Button>
               <Button
@@ -769,6 +828,7 @@ function CheckoutFlow({
                   <PaymentAttemptPanel
                     key={attempt.paymentAttemptId}
                     attempt={attempt}
+                    onSimulated={() => void run(refresh)}
                   />
                 </div>
               )}

@@ -11,6 +11,7 @@ import {
   Users,
 } from "lucide-react";
 import { AsyncSection, StatusChip } from "@/components/ui";
+import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { formatDate, formatTime } from "@/lib/format";
@@ -72,6 +73,20 @@ export function ScheduleCoursePage({
     (vi ? "Khóa học đã đăng ký" : "Enrolled course");
   const sport = enrollment?.sportName ?? event?.sport;
   const coach = enrollment?.coachName ?? event?.coachName;
+  const coaches = useApi(
+    (signal) =>
+      api.get<{ fullName: string; avatarUrl: string | null }[]>(
+        "/api/coaches",
+        {
+          anonymous: true,
+          signal,
+        },
+      ),
+    [],
+  );
+  const coachAvatar =
+    coaches.data?.find((row) => row.fullName === coach)?.avatarUrl ??
+    "/sporthub/coaches/minh-khang.webp";
   return (
     <div className={styles.viewport}>
       <article className={styles.page} aria-labelledby="schedule-course-title">
@@ -85,7 +100,7 @@ export function ScheduleCoursePage({
         <div className={styles.overview}>
           <figure className={styles.coach}>
             <Image
-              src="/sporthub/coaches/minh-khang.webp"
+              src={coachAvatar}
               width={800}
               height={1000}
               alt={

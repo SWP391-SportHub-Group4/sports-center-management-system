@@ -31,6 +31,8 @@ public class SportHubDbContext : DbContext, ISportHubDbContext
     public DbSet<UserAccount> UserAccounts => Set<UserAccount>();
     public DbSet<UserCredential> UserCredentials => Set<UserCredential>();
     public DbSet<UserProfile> UserProfiles => Set<UserProfile>();
+    public DbSet<AvatarReport> AvatarReports => Set<AvatarReport>();
+    public DbSet<AvatarDeletion> AvatarDeletions => Set<AvatarDeletion>();
     public DbSet<UserExternalLogin> UserExternalLogins => Set<UserExternalLogin>();
     public DbSet<EmailOtp> EmailOtps => Set<EmailOtp>();
     public DbSet<CoachProfile> CoachProfiles => Set<CoachProfile>();

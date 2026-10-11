@@ -54,6 +54,7 @@ export interface CourseDto {
   availableSeats: number;
   price: number;
   status: "PUBLISHED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
+  enrollmentOpen: boolean;
   firstSessionStartUtc: string | null;
   scheduleRules: { dayOfWeek: number; startTimeLocal: string }[];
 }
@@ -105,6 +106,8 @@ export interface WalletLedgerDto {
   referenceId: string;
   note: string | null;
   createdAtUtc: string;
+  sourceDescription?: string | null;
+  sourceInvoiceId?: string | null;
 }
 
 export interface CheckoutDto {
@@ -261,6 +264,7 @@ export interface MemberPackageDto {
   isUsable: boolean;
   stackingApproved: boolean;
   stackingApprovalReason: string | null;
+  invoiceItemId?: string | null;
 }
 
 export interface InvoiceSummaryDto {
@@ -395,6 +399,7 @@ export interface UserAdminDto {
   userId: string;
   email: string;
   fullName: string;
+  avatarUrl?: string | null;
   phone: string | null;
   role: string;
   status: string;
@@ -820,6 +825,7 @@ export interface CourseRosterDto {
   }[];
 }
 export interface CoachAdminDto {
+  avatarUrl?: string | null;
   userId: string;
   email: string;
   fullName: string;
