@@ -598,6 +598,8 @@ public sealed partial class PtSessionService(
             throw new ForbiddenException("pt_session_not_owned", "Bạn không phải Coach của buổi PT này.");
         }
 
+        EnsureAttendanceWindow(session);
+
         // Idempotent — gọi lại sau khi đã Completed không được tạo double-consume.
         if (session.Status == PtSessionStatus.Completed)
         {
@@ -605,29 +607,35 @@ public sealed partial class PtSessionService(
             return await GetAsync(sessionId, ct);
         }
 
-        if (session.Status != PtSessionStatus.Scheduled)
+        if (session.Status is not (PtSessionStatus.Scheduled or PtSessionStatus.NoShow))
         {
             throw new ConflictException(
                 "pt_session_not_completable", $"Buổi PT đang ở trạng thái {session.Status}, không hoàn thành được.");
         }
 
-        var entitlement = await LockEntitlementAsync(session.EntitlementId, ct);
-
-        entitlement.ReservedSessions -= 1;
-        entitlement.ConsumedSessions += 1;
-        entitlement.Version += 1;
-        RecomputeExhausted(entitlement);
+        var previousStatus = session.Status;
+        if (previousStatus == PtSessionStatus.Scheduled)
+        {
+            var entitlement = await LockEntitlementAsync(session.EntitlementId, ct);
+            entitlement.ReservedSessions -= 1;
+            entitlement.ConsumedSessions += 1;
+            entitlement.Version += 1;
+            RecomputeExhausted(entitlement);
+        }
 
         session.Status = PtSessionStatus.Completed;
         session.QuotaState = PtSessionQuotaState.Consumed;
         session.CompletedAt = clock.UtcNow;
+        session.CancelledAt = null;
+        session.CancellationReason = null;
         session.Version += 1;
 
-        await occupancy.ReleaseAsync(OccupancySources.PtSession, session.SessionId, ct);
+        if (session.EndAtUtc <= clock.UtcNow)
+            await occupancy.ReleaseAsync(OccupancySources.PtSession, session.SessionId, ct);
 
         audit.Write(new AuditEntry(
-            coachId, "COMPLETE_PT_SESSION", nameof(PtSession), sessionId.ToString(),
-            OldValue: "{\"status\":\"Scheduled\"}",
+            coachId, previousStatus == PtSessionStatus.Scheduled ? "COMPLETE_PT_SESSION" : "CORRECT_PT_ATTENDANCE", nameof(PtSession), sessionId.ToString(),
+            OldValue: $"{{\"status\":\"{previousStatus}\"}}",
             NewValue: "{\"status\":\"Completed\"}"));
 
         await db.SaveChangesAsync(ct);
@@ -660,37 +668,44 @@ public sealed partial class PtSessionService(
             throw new ForbiddenException("pt_session_not_owned", "Bạn không phải Coach của buổi PT này.");
         }
 
+        if (coachId.HasValue) EnsureAttendanceWindow(session);
+
         if (session.Status == PtSessionStatus.NoShow
-            || (coachId is null && (session.Status != PtSessionStatus.Scheduled || session.EndAtUtc > clock.UtcNow)))
+            || (coachId is null && (session.Status != PtSessionStatus.Scheduled || SessionAttendanceWindow.ClosesAt(session.EndAtUtc) >= clock.UtcNow)))
         {
             await transaction.CommitAsync(ct);
             return await GetAsync(sessionId, ct);
         }
 
-        if (session.Status != PtSessionStatus.Scheduled)
+        if (session.Status is not (PtSessionStatus.Scheduled or PtSessionStatus.Completed))
         {
             throw new ConflictException(
                 "pt_session_not_completable", $"Buổi PT đang ở trạng thái {session.Status}, không ghi no-show được.");
         }
 
-        var entitlement = await LockEntitlementAsync(session.EntitlementId, ct);
-
-        entitlement.ReservedSessions -= 1;
-        entitlement.ConsumedSessions += 1;
-        entitlement.Version += 1;
-        RecomputeExhausted(entitlement);
+        var previousStatus = session.Status;
+        if (previousStatus == PtSessionStatus.Scheduled)
+        {
+            var entitlement = await LockEntitlementAsync(session.EntitlementId, ct);
+            entitlement.ReservedSessions -= 1;
+            entitlement.ConsumedSessions += 1;
+            entitlement.Version += 1;
+            RecomputeExhausted(entitlement);
+        }
 
         session.Status = PtSessionStatus.NoShow;
         session.QuotaState = PtSessionQuotaState.Consumed;
         session.CancelledAt = clock.UtcNow;
+        session.CompletedAt = null;
         session.CancellationReason = string.IsNullOrWhiteSpace(request.Reason) ? null : request.Reason.Trim();
         session.Version += 1;
 
-        await occupancy.ReleaseAsync(OccupancySources.PtSession, session.SessionId, ct);
+        if (session.EndAtUtc <= clock.UtcNow)
+            await occupancy.ReleaseAsync(OccupancySources.PtSession, session.SessionId, ct);
 
         audit.Write(new AuditEntry(
-            coachId ?? session.CoachId, coachId is null ? "AUTO_NO_SHOW_PT_SESSION" : "NO_SHOW_PT_SESSION", nameof(PtSession), sessionId.ToString(),
-            OldValue: "{\"status\":\"Scheduled\"}",
+            coachId ?? session.CoachId, coachId is null ? "AUTO_NO_SHOW_PT_SESSION" : previousStatus == PtSessionStatus.Scheduled ? "NO_SHOW_PT_SESSION" : "CORRECT_PT_ATTENDANCE", nameof(PtSession), sessionId.ToString(),
+            OldValue: $"{{\"status\":\"{previousStatus}\"}}",
             NewValue: "{\"status\":\"NoShow\"}"));
 
         await db.SaveChangesAsync(ct);
@@ -698,6 +713,15 @@ public sealed partial class PtSessionService(
 
         return await GetAsync(sessionId, ct);
     }
+
+    private void EnsureAttendanceWindow(PtSession session)
+    {
+        if (clock.UtcNow < SessionAttendanceWindow.OpensAt(session.StartAtUtc))
+            throw new BadRequestException("attendance_not_open", "Điểm danh mở từ 5 phút trước giờ bắt đầu buổi PT.");
+        if (clock.UtcNow > SessionAttendanceWindow.ClosesAt(session.EndAtUtc))
+            throw new ConflictException("attendance_closed", "Đã quá 24 giờ sau khi buổi PT kết thúc — không điểm danh được.");
+    }
+
 
     // ---- Chiếm chỗ phòng/coach ----
 

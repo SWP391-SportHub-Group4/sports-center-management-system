@@ -53,7 +53,7 @@ public class Class
 
     public ClassStatus Status { get; set; }
     public bool EnrollmentOpen { get; set; } = true;
-    
+
 
     /// <summary>Số ghi danh Confirmed.</summary>
     public int ConfirmedCount { get; set; }

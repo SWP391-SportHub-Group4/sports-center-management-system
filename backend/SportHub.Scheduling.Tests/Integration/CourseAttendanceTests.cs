@@ -28,8 +28,8 @@ public sealed class CourseAttendanceTests(SchedulingApiFactory factory)
         var receptionist = await factory.SeedUserAsync(UserRole.Receptionist);
         var enrollment = await CourseTestData.EnrollmentAsync(factory, c.Id, member.UserId);
         var session = (await CourseTestData.SessionsAsync(factory, c.Id))[0];
-        Assert.Equal("attendance_not_open", (await Assert.ThrowsAsync<BadRequestException>(() => MarkAsync(session.SessionId, enrollment, receptionist.UserId, session.StartAtUtc.AddTicks(-1)))).ErrorCode);
-        var first = await MarkAsync(session.SessionId, enrollment, receptionist.UserId, session.StartAtUtc);
+        Assert.Equal("attendance_not_open", (await Assert.ThrowsAsync<BadRequestException>(() => MarkAsync(session.SessionId, enrollment, receptionist.UserId, session.StartAtUtc.AddMinutes(-5).AddTicks(-1)))).ErrorCode);
+        var first = await MarkAsync(session.SessionId, enrollment, receptionist.UserId, session.StartAtUtc.AddMinutes(-5));
         // The status job may already have completed the last session/course, but the correction window stays open.
         await factory.QueryAsync(async db => await db.Classes.Where(x => x.ClassId == c.Id).ExecuteUpdateAsync(s => s.SetProperty(x => x.Status, ClassStatus.Completed)));
         var corrected = await MarkAsync(session.SessionId, enrollment, receptionist.UserId, session.EndAtUtc.AddHours(24), "Absent");

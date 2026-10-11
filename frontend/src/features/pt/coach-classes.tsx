@@ -21,6 +21,8 @@ import { catalogApi } from "@/features/catalog";
 
 import { ptApi } from "./api";
 import { ListPager, Specialty } from "./ui";
+import { PtCoachStudents } from "./pt-coach-workspace";
+import { PtSessions } from "./pt-sessions";
 import { UserAvatar } from "@/components/UserAvatar";
 
 function Roster({ id }: { id: string }) {
@@ -291,7 +293,11 @@ function MembersTabs({ hasPt }: { hasPt: boolean }) {
 }
 
 export function CoachMembers() {
-  return <Specialty>{(hasPt) => <MembersTabs hasPt={hasPt} />}</Specialty>;
+  return (
+    <Specialty>
+      {(hasPt) => (hasPt ? <PtCoachStudents /> : <MembersTabs hasPt={hasPt} />)}
+    </Specialty>
+  );
 }
 
 function CoachDashboard({ hasPt }: { hasPt: boolean }) {
@@ -527,7 +533,7 @@ function CoachDashboard({ hasPt }: { hasPt: boolean }) {
                 {t.coach.dashboard.quickWriteResults}
               </Link>
 
-              <Link className="btn btn--secondary" href="/coach/training-plans">
+              <Link className="btn btn--secondary" href="/coach/members">
                 {t.coach.dashboard.quickEditPlans}
               </Link>
 
@@ -543,5 +549,9 @@ function CoachDashboard({ hasPt }: { hasPt: boolean }) {
 }
 
 export function CoachOverview() {
-  return <Specialty>{(hasPt) => <CoachDashboard hasPt={hasPt} />}</Specialty>;
+  return (
+    <Specialty>
+      {(hasPt) => (hasPt ? <PtSessions /> : <CoachDashboard hasPt={hasPt} />)}
+    </Specialty>
+  );
 }

@@ -41,6 +41,17 @@ dotnet run
 
 Ở môi trường `Development`, backend tự áp migration và seed dữ liệu demo khi database chưa có tài khoản nào. API chạy tại [http://localhost:5000](http://localhost:5000), Swagger tại [http://localhost:5000/swagger](http://localhost:5000/swagger)
 
+#### Windows chặn DLL với mã `0x800711C7`
+
+`FileLoadException: An Application Control policy has blocked this file` là lỗi khi Windows nạp DLL, dù `dotnet build` có thể thành công. Kiểm tra event 3077 trong `Microsoft-Windows-CodeIntegrity/Operational`; tham khảo [hướng dẫn App Control của Microsoft](https://learn.microsoft.com/en-us/windows/security/application-security/application-control/app-control-for-business/operations/appcontrol-debugging-and-troubleshooting).
+
+Trên máy local đã xác nhận DLL Debug `SportHub.Notification.dll` bị chặn, còn bản Release chạy được. Từ thư mục gốc dự án, dùng PowerShell:
+
+```powershell
+dotnet run --project backend/SportHub.API/SportHub.API.csproj -c Release -- --environment=Development --urls=http://localhost:5000 --DataProtection:KeysPath="$PWD/.tmp/local-api-keys"
+```
+
+Lệnh build Release rồi chạy API tại cổng 5000. Thư mục key riêng cho local giải quyết trường hợp `.env` chứa đường dẫn Docker `/var/lib/sporthub/dataprotection-keys`; key nằm trong `.tmp` đã được Git bỏ qua. `Ctrl+C` dừng API. Nếu bản Release cũng bị chặn, cần người quản lý chính sách App Control cấp quyền cho ứng dụng development theo quy trình của máy.
 Mỗi lần khởi động Development, baseline phòng được bổ sung idempotent, kể cả DB đã có tài khoản: `Badminton Class BC1/BC2`, `Badminton Rental BR1/BR2`, `Basketball Class KC1/KC2`, `Basketball Rental KR1/KR2`, `Gym G1/G2`. Tên cũ của các sân demo được đổi sang mã mới nhưng giữ nguyên `room_id`, lịch lớp và booking. Hai sân Class của mỗi môn vẫn có thể cho Member thuê khi không có buổi học hoặc block trùng giờ. PT sử dụng hai phòng Gym cùng Gym membership; giờ mở cửa mặc định là 06:00–22:00 hằng ngày, giờ đã cấu hình trước đó được giữ nguyên.
 
 Trên lịch Member, sau khi hủy thuê sân thành công, thẻ chuyển ngay sang `Cancelled`, mờ dần trong 2,6 giây rồi rời khỏi lịch. Lịch Manager và Receptionist vẫn ghi nhận lượt đã hủy bằng nhãn trạng thái `Cancelled`; bản ghi cũng còn trong lịch sử thuê sân, chi tiết, hóa đơn và dữ liệu hoàn điểm. Với Docker Compose, frontend chạy từ image (không bind mount mã nguồn), nên sau khi sửa UI cần chạy `docker compose up -d --build frontend` và tải lại trang.

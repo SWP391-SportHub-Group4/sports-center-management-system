@@ -149,7 +149,9 @@ Coach ghi kết quả/plan cho học viên được giao. Đổi/hủy/đổi Co
 
 **Seed lịch cố định (BR-141):** Bóng rổ 01 Thứ 2-4-6 07:00–09:00, Bóng rổ 02 Thứ 3-5-7 14:00–16:00; Cầu lông 01/02 cùng khung giờ trên sân cầu lông riêng. Khung còn lại mở cho Member thuê (mục 5.5); Manager có thể thêm lớp/sân vào khung khác sau.
 
-Manager tạo lớp, nhiều buổi, phòng và Coach phù hợp → publish → Member mua cả khóa → giữ chỗ TTL → payment thành công tạo Enrollment → Receptionist điểm danh từng buổi.
+Manager tạo lớp, nhiều buổi, phòng và Coach phù hợp → publish → Member mua cả khóa → giữ chỗ TTL → payment thành công tạo Enrollment → Receptionist hoặc Coach được phân công điểm danh từng buổi.
+
+Theo phạm vi mở rộng được chủ sản phẩm xác nhận, Coach lớp nhóm có [không gian giảng dạy](Coach-Teaching-Workspace.md) gồm Lịch dạy, Lớp phụ trách và Học viên. Giáo án, kết quả/nhận xét, bài tập và thông báo lưu trong `class_teaching_records`, tách khỏi mô hình PT. Quyền ghi kiểm theo lớp/buổi được giao; Member chỉ đọc nội dung chung của lớp đã ghi danh hoặc nội dung dành riêng cho mình. AI gọi Gemini để gợi ý, Coach xem lại trước khi lưu.
 
 Sĩ số thuộc Class. `ReservedCount` hiện bao gồm chỗ đang giữ và đã xác nhận: `ConfirmedCount <= ReservedCount <= Capacity`. Tăng/giảm trong transaction với row lock/conditional update, không read-then-write rời rạc. Lớp nhóm dùng Present/Absent; không áp dụng booking restriction do No-show hoặc hạn mức theo ngày của mô hình lớp theo buổi. PT xử lý No-show riêng.
 

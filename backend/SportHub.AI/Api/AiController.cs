@@ -64,7 +64,8 @@ public class AiController(
     [HttpPost("workout-suggestions/{memberId:guid}")]
     public async Task<IActionResult> Suggest(
         Guid memberId,
-        CancellationToken ct)
+        CancellationToken ct,
+        [FromQuery] string sport = "Gym")
     {
         var coachId = User.RequireUserId();
 
@@ -91,7 +92,7 @@ public class AiController(
             await recommendations.SuggestAsync(
                 memberId,
                 coachId,
-                ct));
+                ct, sport));
     }
 
     [Authorize(Policy = SportHubPolicies.Member)]

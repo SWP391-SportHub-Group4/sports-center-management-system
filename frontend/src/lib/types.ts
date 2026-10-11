@@ -409,7 +409,7 @@ export interface UserAdminDto {
   sportIds: number[];
 }
 
-export type MyAccountDto = UserAdminDto;
+export type MyAccountDto = UserAdminDto & { avatarUrl?: string | null };
 
 export interface MemberTrainingProfileDto {
   memberId: string;
@@ -481,6 +481,7 @@ export interface WorkoutResultDto {
 }
 
 export interface WorkoutSuggestionDto {
+  sport?: "Gym" | "Badminton" | "Basketball";
   memberId: string;
   memberName: string;
   goal: string;
@@ -494,6 +495,9 @@ export interface WorkoutSuggestionDto {
     recentCoachNotes: string[];
   };
   exercises: string[];
+  items?:
+    | { exercise: string; sets: number; reps: number; notes?: string | null }[]
+    | null;
   rationale: string;
   responseTimeMs: number;
   generatedAt: string;

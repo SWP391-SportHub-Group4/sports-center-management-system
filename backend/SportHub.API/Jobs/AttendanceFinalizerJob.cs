@@ -17,8 +17,9 @@ public sealed class AttendanceFinalizerJob(IServiceProvider services, ILogger<At
     {
         var db = scopedServices.GetRequiredService<SportHubDbContext>();
         var now = scopedServices.GetRequiredService<IClock>().UtcNow;
+        var cutoff = now - SessionAttendanceWindow.CorrectionWindow;
         var ids = await db.PtSessions.AsNoTracking()
-            .Where(s => s.Status == PtSessionStatus.Scheduled && s.EndAtUtc <= now)
+            .Where(s => s.Status == PtSessionStatus.Scheduled && s.EndAtUtc < cutoff)
             .OrderBy(s => s.EndAtUtc).Select(s => s.SessionId).Take(200).ToListAsync(ct);
         foreach (var id in ids)
         {

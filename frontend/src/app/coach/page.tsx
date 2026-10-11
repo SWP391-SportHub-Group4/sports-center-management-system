@@ -1,4 +1,16 @@
 "use client";
 import { PtPage } from "@/features/pt/ui";
 import { CoachOverview } from "@/features/pt/coach-classes";
-export default function Page() { return <PtPage title="overview"><CoachOverview/></PtPage>; }
+import { CoachWorkspaceRoute } from "@/features/pt/coach-workspace-route";
+export default function Page() {
+  return (
+    <CoachWorkspaceRoute
+      mode="schedule"
+      pt={
+        <PtPage title="overview">
+          <CoachOverview />
+        </PtPage>
+      }
+    />
+  );
+}
