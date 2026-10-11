@@ -41,7 +41,11 @@ export default function PublicCoachesPage() {
         )}
         <div className={styles.grid}>
           {coaches.data?.map((coach) => (
-            <article key={coach.userId} className={styles.coach}>
+            <article
+              key={coach.userId}
+              id={`coach-${coach.userId}`}
+              className={styles.coach}
+            >
               <AvatarImage
                 name={coach.fullName}
                 avatarUrl={coach.avatarUrl}

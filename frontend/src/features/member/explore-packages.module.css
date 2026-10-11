@@ -242,6 +242,23 @@
   font-weight: var(--weight-semibold);
   line-height: var(--leading-snug);
 }
+.coachLine {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-4);
+  margin: var(--space-1) 0 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.coachLine strong {
+  color: var(--text-strong);
+}
+.coachLine a {
+  color: var(--color-primary);
+  font-weight: var(--weight-semibold);
+  text-underline-offset: 3px;
+}
 .slots {
   display: flex;
   flex-wrap: wrap;
