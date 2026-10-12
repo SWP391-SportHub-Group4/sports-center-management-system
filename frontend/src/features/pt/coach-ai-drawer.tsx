@@ -456,6 +456,40 @@ export function CoachAiDrawer({
             <p>{draft.rationale || "—"}</p>
           </section>
 
+          {draft.nutrition && (
+            <section
+              aria-label={isEn ? "Nutrition guidance" : "Gợi ý dinh dưỡng"}
+            >
+              <h3>
+                {isEn
+                  ? "Nutrition guidance (estimate)"
+                  : "Gợi ý dinh dưỡng (ước tính)"}
+              </h3>
+
+              <p>
+                {isEn ? "Maintenance " : "Năng lượng duy trì "}
+                <strong>
+                  {draft.nutrition.maintenanceCalories ?? "—"} kcal
+                </strong>
+                {" · "}
+                {isEn ? "Target " : "Mục tiêu "}
+                <strong>{draft.nutrition.targetCalories ?? "—"} kcal</strong>
+                {" · "}
+                {isEn ? "Protein " : "Đạm "}
+                <strong>
+                  {draft.nutrition.proteinGramsMin ?? "—"}–
+                  {draft.nutrition.proteinGramsMax ?? "—"} g
+                </strong>
+              </p>
+
+              <ul>
+                {draft.nutrition.tips.map((tip) => (
+                  <li key={tip}>{tip}</li>
+                ))}
+              </ul>
+            </section>
+          )}
+
           <section className="stack">
             <h3>{isEn ? "Exercises" : "Bài tập"}</h3>
 

@@ -240,9 +240,9 @@ builder.Services.AddScoped<IMembershipPackageService, MembershipPackageService>(
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Membership.IMembershipFulfillment, MembershipFulfillment>();
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Membership.IMembershipAccessReader, MembershipAccessReader>();
 builder.Services.AddScoped<IMemberPackageService, MemberPackageService>();
+builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Membership.IMembershipClosureExtension, MembershipClosureExtension>();
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Membership.IMembershipRefundFulfillment, MembershipRefundFulfillment>();
 builder.Services.AddScoped<IMemberTrainingProfileService, MemberTrainingProfileService>();
-builder.Services.AddScoped<MemberBmiProfileService>();
 builder.Services.AddScoped<IMembershipReportService, MembershipReportService>();
 builder.Services.AddScoped<IMembershipPurchaseReportReader, MembershipPurchaseReportReader>();
 
@@ -321,7 +321,8 @@ if (!builder.Environment.IsDevelopment())
 builder.Services.Configure<VnPayOptions>(vnPaySection);
 builder.Services.AddHttpClient<VnPayGateway>();
 builder.Services.AddSingleton<IPaymentGateway>(sp =>
-    builder.Environment.IsDevelopment() && vnPayUseMock
+    sp.GetRequiredService<IHostEnvironment>().IsDevelopment()
+    && sp.GetRequiredService<IOptions<VnPayOptions>>().Value.UseMock
         ? new MockPaymentGateway()
         : sp.GetRequiredService<VnPayGateway>());
 builder.Services.AddScoped<CheckoutService>();
@@ -338,6 +339,8 @@ builder.Services.AddScoped<CoachMemberRelationshipService>();
 builder.Services.AddScoped<ICoachMemberRelationshipService>(
     sp => sp.GetRequiredService<CoachMemberRelationshipService>());
 builder.Services.AddScoped<ICoachRelationshipRegistrar>(
+    sp => sp.GetRequiredService<CoachMemberRelationshipService>());
+builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Training.ICoachMemberAccessReader>(
     sp => sp.GetRequiredService<CoachMemberRelationshipService>());
 builder.Services.AddScoped<IWorkoutService, WorkoutService>();
 
@@ -509,7 +512,7 @@ if (args.Any(a => a == "--seed-member-training=true"))
 if (args.Any(a => a.StartsWith("--seed-br141", StringComparison.Ordinal)))
 {
     var target = new Npgsql.NpgsqlConnectionStringBuilder(app.Configuration.GetConnectionString("Default"));
-    Console.WriteLine($"[seed-br141] database '{target.Database}' trên '{target.Host}:{target.Port}'");
+    Console.WriteLine($"[seed-br141] database '{target.Database}' on '{target.Host}:{target.Port}'");
     await using var seedScope = app.Services.CreateAsyncScope();
     await seedScope.ServiceProvider.GetRequiredService<SportHubDbContext>().Database.MigrateAsync();
     await seedScope.ServiceProvider.GetRequiredService<FacilityBaselineSeeder>().SeedAsync();
@@ -518,7 +521,8 @@ if (args.Any(a => a.StartsWith("--seed-br141", StringComparison.Ordinal)))
 }
 
 // Ở Development: áp migration rồi seed dữ liệu demo. Seeder tự bỏ qua nếu DB đã có tài khoản,
-// nên không bao giờ ghi đè dữ liệu người dùng đang có.
+// nên không bao giờ ghi đè dữ liệu người dùng đang có. Roster Coach là cấu hình riêng, cần đồng bộ
+// kể cả khi database đã có các loại tài khoản khác.
 // Ở môi trường khác, migration chạy qua `dotnet ef database update` trong quy trình triển khai —
 // tự migrate khi khởi động nhiều instance sẽ có nhiều tiến trình cùng đổi schema một lúc.
 if (app.Environment.IsDevelopment())
@@ -527,6 +531,7 @@ if (app.Environment.IsDevelopment())
 
     await startupScope.ServiceProvider.GetRequiredService<SportHubDbContext>().Database.MigrateAsync();
     await startupScope.ServiceProvider.GetRequiredService<DemoDataSeeder>().SeedAsync();
+    await startupScope.ServiceProvider.GetRequiredService<CoachRosterSeeder>().SeedAsync();
     await startupScope.ServiceProvider.GetRequiredService<FacilityBaselineSeeder>().SeedAsync();
 }
 

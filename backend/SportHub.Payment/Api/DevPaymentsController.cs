@@ -21,10 +21,10 @@ public sealed class DevPaymentsController(IHostEnvironment environment, IPayment
         CancellationToken ct = default)
     {
         if (!environment.IsDevelopment() || gateway is not MockPaymentGateway mock)
-            throw new NotFoundException("dev_payment_unavailable", "Thanh toán thử không khả dụng.");
+            throw new NotFoundException("dev_payment_unavailable", "Dev payment unavailable.");
         var attempt = await db.Set<PaymentAttempt>().AsNoTracking()
             .SingleOrDefaultAsync(x => x.VnpTxnRef == reference, ct)
-            ?? throw new NotFoundException("payment_attempt_not_found", "Không tìm thấy attempt.");
+            ?? throw new NotFoundException("payment_attempt_not_found", "Payment attempt not found.");
         await reconciliation.ReceiveCallbackAsync(mock.BuildCallback(reference, attempt.Amount, success), ct);
         return Ok(new { attempt.InvoiceId, reference });
     }

@@ -74,7 +74,7 @@ public sealed class OperationsReadController(ISportHubDbContext db) : Controller
     private async Task RequireClassAsync(int id, CancellationToken ct)
     {
         if (!await db.Set<Class>().AnyAsync(x => x.ClassId == id, ct))
-            throw new NotFoundException("class_not_found", "Không tìm thấy khóa học.");
+            throw new NotFoundException("class_not_found", "Class not found.");
     }
 }
 public sealed record GymInsideRow(Guid CheckInId, Guid MemberId, string MemberName, DateTime CheckInTime);

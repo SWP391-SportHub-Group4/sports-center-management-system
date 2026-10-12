@@ -422,8 +422,22 @@
 }
 .times {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: var(--space-2);
+}
+.timeGroup {
+  display: grid;
+  gap: var(--space-2);
+}
+.timeGroup h5 {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+}
+.sessionDurationNote {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
 }
 .time {
   min-height: 44px;
@@ -631,10 +645,40 @@
   gap: var(--space-3);
 }
 .coachChoice {
+  position: relative;
+  min-width: 0;
+}
+.coachProfileButton {
+  position: absolute;
+  z-index: 1;
+  top: 8px;
+  right: 8px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: var(--space-2);
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border: 1px solid var(--border-control);
+  border-radius: 50%;
+  background: var(--bg-surface);
+  color: var(--color-primary);
+  cursor: pointer;
+}
+.coachProfileButton:hover {
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
+}
+.coachProfileButton:focus-visible {
+  outline: 3px solid var(--focus-ring, var(--color-primary));
+  outline-offset: 2px;
+}
+.coachChoice .coachCard {
+  padding-top: 38px;
+}
+.coachChoice .coachCard:focus-visible {
+  outline-offset: 3px;
+}
+.coachChoice .coachSelected {
+  margin-right: 28px;
 }
 .coachCard {
   display: flex;
@@ -675,9 +719,8 @@
   gap: 2px;
 }
 .coachInfo strong {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+  line-height: 1.25;
 }
 .coachInfo small {
   color: var(--text-muted);
@@ -698,4 +741,51 @@
 .coachCard[aria-pressed="true"] .coachSelected {
   border-color: var(--color-primary);
   background: var(--color-primary);
+}
+.coachProfileDialog {
+  position: fixed;
+  inset: 0 0 0 auto;
+  width: min(760px, 100%);
+  height: 100dvh;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-left: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  color: var(--text-strong);
+  box-shadow: var(--shadow-lg, -16px 0 48px rgb(0 0 0 / 0.18));
+}
+.coachProfileDialog::backdrop {
+  background: rgb(10 16 27 / 0.48);
+  backdrop-filter: blur(3px);
+}
+.coachProfileDialogContent {
+  height: 100%;
+  overflow: auto;
+  padding: 60px var(--space-5) var(--space-5);
+}
+.coachProfileDialog .coachProfileDialogContent :global(*) {
+  box-sizing: border-box;
+}
+.closeCoachProfile {
+  position: absolute;
+  z-index: 2;
+  top: var(--space-3);
+  right: var(--space-3);
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border: 1px solid var(--border-control);
+  border-radius: 50%;
+  background: var(--bg-surface);
+  color: var(--text-strong);
+  cursor: pointer;
+}
+.closeCoachProfile:focus-visible {
+  outline: 3px solid var(--focus-ring, var(--color-primary));
+  outline-offset: 2px;
 }

@@ -143,7 +143,9 @@ export function PublicHeader() {
         footerVisible = entry.isIntersecting;
         selectCurrent();
       },
-      { threshold: 0.35 },
+      // A ratio threshold fails when the footer is taller than the viewport
+      // or too short to occupy that fraction at the bottom of the page.
+      { threshold: 0 },
     );
     if (footer) footerObserver.observe(footer);
     return () => {
@@ -204,7 +206,6 @@ export function PublicHeader() {
     { id: "sporthub", label: copy.discover },
     { id: "activities", label: copy.arenaTour },
     { id: "book-court", label: copy.bookCourt },
-    { id: "coaches", label: vi ? "HLV" : "Coaches", href: "/coaches" },
     { id: "contact", label: copy.contact },
   ];
 
@@ -259,7 +260,7 @@ export function PublicHeader() {
             <Link
               key={section.id}
               data-section={section.id}
-              href={("href" in section && section.href) || `/#${section.id}`}
+              href={`/#${section.id}`}
               aria-current={
                 homepage && activeSection === section.id
                   ? "location"
@@ -269,7 +270,7 @@ export function PublicHeader() {
               onFocus={() => positionIndicator(section.id)}
               onClick={() => {
                 closeMenu();
-                if (homepage && section.id !== "coaches") {
+                if (homepage) {
                   setActiveSection(section.id);
                   window.dispatchEvent(
                     new CustomEvent("sporthub:section", { detail: section.id }),

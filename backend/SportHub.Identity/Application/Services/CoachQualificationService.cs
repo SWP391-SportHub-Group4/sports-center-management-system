@@ -27,23 +27,23 @@ public sealed class CoachQualificationService(ISportHubDbContext db, ISportCatal
     {
         var coach = await db.Set<UserAccount>().AsNoTracking()
             .SingleOrDefaultAsync(u => u.UserId == coachId && u.Role!.RoleName == UserRole.Coach, ct)
-            ?? throw new NotFoundException("coach_not_found", "Không tìm thấy Coach.");
+            ?? throw new NotFoundException("coach_not_found", "Coach not found.");
         var ids = offeringIds.Distinct().OrderBy(x => x).ToList();
 
         if (ids.Count > 0)
         {
             var pt = await catalog.GetSportForServiceAsync(SportServiceType.PersonalTraining, ct)
-                     ?? throw new BadRequestException("service_not_enabled", "Dịch vụ PT đang tắt.");
+                     ?? throw new BadRequestException("service_not_enabled", "Service not enabled.");
             var ptOffering = pt.Services.Single(s => s.ServiceType == SportServiceType.PersonalTraining);
 
             if (ids.Any(id => id != ptOffering.OfferingId))
             {
-                throw new BadRequestException("qualification_not_supported", "Hiện chỉ dịch vụ PT cần qualification riêng.");
+                throw new BadRequestException("qualification_not_supported", "Qualification not supported.");
             }
 
             if (!await db.Set<UserSportSpecialty>().AnyAsync(s => s.UserId == coachId && s.SportId == pt.SportId, ct))
             {
-                throw new BadRequestException("coach_missing_sport_specialty", "Coach phải có chuyên môn môn Gym trước khi nhận qualification PT.");
+                throw new BadRequestException("coach_missing_sport_specialty", "Coach missing sport specialty.");
             }
         }
 
@@ -52,7 +52,7 @@ public sealed class CoachQualificationService(ISportHubDbContext db, ISportCatal
         var removed = current.Where(q => !ids.Contains(q.OfferingId)).ToList();
         if (removed.Count > 0 && await ptSchedule.CoachHasFutureSessionsAsync(coachId, clock.UtcNow, ct))
         {
-            throw new ConflictException("qualification_in_use", "Coach còn buổi PT tương lai — hủy hoặc chuyển các buổi đó trước khi gỡ qualification PT.");
+            throw new ConflictException("qualification_in_use", "Qualification in use.");
         }
 
         db.Set<CoachServiceQualification>().RemoveRange(removed);

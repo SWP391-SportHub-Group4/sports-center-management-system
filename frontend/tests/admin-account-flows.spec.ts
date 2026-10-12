@@ -303,6 +303,49 @@ test("role change requires reason and review; backend denial preserves the form"
   );
 });
 
+test("blocked Coach role change shows specific reasons and shareable handoff links", async ({
+  page,
+}) => {
+  const row = await setup(page);
+  row.role = "COACH";
+  await page.route(`**/api/users/${row.userId}/role`, (route) =>
+    route.fulfill({
+      status: 409,
+      json: {
+        error: "role_change_blocked",
+        message: "Role change is blocked.",
+        reasons: [
+          "Main coach of 1 unfinished class. Reassign it first.",
+          "2 upcoming class/PT session(s) are still assigned. Reassign or cancel them first.",
+          "1 active coaching relationship(s). End or transfer them first.",
+        ],
+      },
+    }),
+  );
+  await page.goto("/admin/users");
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Reason", { exact: true }).fill("Hire as receptionist");
+  await dialog.getByLabel("Role", { exact: true }).selectOption("RECEPTIONIST");
+  await dialog.getByRole("button", { name: "Change role", exact: true }).click();
+  await dialog.getByRole("button", { name: "Confirm", exact: true }).click();
+
+  const blockers = dialog.getByRole("region", {
+    name: "Resolve these items before changing the role",
+  });
+  await expect(blockers.getByRole("listitem")).toHaveCount(3);
+  await expect(blockers).toContainText("Main coach of 1 unfinished class");
+  await expect(blockers).toContainText("2 upcoming class/PT session(s)");
+  await expect(blockers).toContainText("1 active coaching relationship(s)");
+  await expect(blockers).toContainText("Contact a Center Manager or Receptionist");
+  await expect(blockers.getByRole("link", { name: "View account details" })).toHaveAttribute(
+    "href",
+    `/admin/users/${row.userId}`,
+  );
+  await expect(blockers.getByRole("button", { name: "Copy Manager member link" })).toBeVisible();
+  await expect(blockers.getByRole("button", { name: "Copy Receptionist member link" })).toBeVisible();
+});
+
 test("lock/unlock require review, refresh the list and display successful outcomes", async ({
   page,
 }) => {
@@ -338,45 +381,43 @@ test("lock/unlock require review, refresh the list and display successful outcom
   expect(writes).toBe(2);
 });
 
-test("staff creation requires review, keeps password private and submits only once", async ({
+test("staff creation sends an activation email and lets Admin assign Coach specialties", async ({
   page,
 }) => {
   await setup(page);
   let writes = 0;
-  await page.route("**/api/users", (route) => {
+  await page.route("**/api/users/admin/staff", (route) => {
     writes++;
     expect(route.request().method()).toBe("POST");
     expect(route.request().postDataJSON()).toMatchObject({
       fullName: "New staff",
-      role: "RECEPTIONIST",
-      sportIds: [],
+      roleId: 2,
+      specialties: [1],
     });
+    expect(route.request().postDataJSON()).not.toHaveProperty("password");
     return route.fulfill({ status: 201, json: account });
   });
   await page.goto("/admin/users?create=1");
   const dialog = page.getByRole("dialog");
   await expect(
     dialog.getByLabel("Role", { exact: true }).locator("option"),
-  ).toHaveText(["Center Manager", "Receptionist", "System Administrator"]);
+  ).toHaveText(["Center Manager", "Coach", "Receptionist", "System Administrator"]);
   await dialog.getByLabel("Full name", { exact: true }).fill("New staff");
   await dialog.getByLabel("Email", { exact: true }).fill("new@example.com");
-  await dialog
-    .getByRole("checkbox", { name: "Use default password", exact: true })
-    .uncheck();
-  await dialog.getByLabel("Password", { exact: true }).fill("StrongPass@123");
-  await dialog
-    .getByLabel("Confirm password", { exact: true })
-    .fill("StrongPass@123");
+  await dialog.getByLabel("Role", { exact: true }).selectOption("COACH");
+  await dialog.getByRole("checkbox", { name: "Gym" }).check();
+  await expect(dialog.getByLabel("Password", { exact: true })).toHaveCount(0);
+  await expect(dialog).toContainText("An activation email with a link to set the first password");
   await dialog
     .getByRole("button", { name: "Review staff account", exact: true })
     .click();
   await expect(dialog).toContainText("new@example.com");
-  await expect(dialog).not.toContainText("StrongPass@123");
+  await expect(dialog).toContainText("Selected specialties: 1");
   expect(writes).toBe(0);
   await dialog.getByRole("button", { name: "Confirm", exact: true }).click();
   await expect(dialog).toHaveCount(0);
   await expect(
-    page.getByText("Staff account created. The list has been refreshed.", {
+    page.getByText("Staff account created. An activation email has been queued.", {
       exact: true,
     }),
   ).toBeVisible();
@@ -544,4 +585,21 @@ test("detail reloads current data after mutation when the API allows access", as
   await expect(page.locator("dl").first()).toContainText("Locked");
   await page.reload();
   await expect(page.locator("dl").first()).toContainText("Locked");
+});
+
+test("Member accounts cannot be converted to staff and show how to create a staff account", async ({
+  page,
+}) => {
+  const row = await setup(page);
+  row.role = "MEMBER";
+  await page.goto("/admin/users");
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toContainText(
+    "Member accounts cannot be converted to staff. Create a staff account with a different email instead.",
+  );
+  await expect(dialog.getByLabel("Role", { exact: true })).toHaveCount(0);
+  await expect(
+    dialog.getByRole("button", { name: "Change role", exact: true }),
+  ).toHaveCount(0);
 });

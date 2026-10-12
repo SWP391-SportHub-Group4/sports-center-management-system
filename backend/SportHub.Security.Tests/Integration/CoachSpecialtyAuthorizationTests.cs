@@ -47,93 +47,51 @@ public class CoachSpecialtyAuthorizationTests(SportHubApiFactory factory)
         return Client(manager.UserId, UserRole.CenterManager);
     }
 
-    private async Task<Guid> CreateCoachAsync(HttpClient manager, params int[] sportIds)
+    private async Task<Guid> CreateCoachAsync(params int[] sportIds)
     {
-        var response = await manager.PostAsJsonAsync("api/manager/coaches", new
-        {
-            email = NewEmail(), password = Password, fullName = "Tran Huan Luyen", sportIds
-        });
-        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-        return (await Json(response)).GetProperty("userId").GetGuid();
+        var coach = await factory.SeedUserAsync(NewEmail(), Password, role: UserRole.Coach, fullName: "Tran Huan Luyen");
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
+        db.CoachProfiles.Add(new CoachProfile { UserId = coach.UserId });
+        db.UserSportSpecialties.AddRange(sportIds.Distinct().Select(id => new UserSportSpecialty { UserId = coach.UserId, SportId = id }));
+        await db.SaveChangesAsync();
+        return coach.UserId;
     }
 
     [Fact]
-    public async Task Manager_creates_a_coach_with_specialties_and_the_coach_can_log_in()
-    {
-        var manager = await ManagerClientAsync();
-        var email = NewEmail();
-
-        var response = await manager.PostAsJsonAsync("api/manager/coaches", new
-        {
-            email, password = Password, fullName = "Le Van Coach", phone = "0912345678", bio = "HLV cầu lông",
-            sportIds = new[] { BadmintonSportId, PersonalTrainingSportId, BadmintonSportId }
-        });
-
-        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-        var json = await Json(response);
-        Assert.Equal(new[] { PersonalTrainingSportId, BadmintonSportId },
-            json.GetProperty("sportIds").EnumerateArray().Select(e => e.GetInt32()).ToArray());
-        Assert.Equal("HLV cầu lông", json.GetProperty("bio").GetString());
-
-        var login = await Client().PostAsJsonAsync("api/auth/login", new { email, password = Password });
-        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
-        var user = (await Json(login)).GetProperty("user");
-        Assert.Equal("COACH", user.GetProperty("role").GetString());
-        Assert.Equal(2, user.GetProperty("sportIds").GetArrayLength());
-        Assert.False(user.TryGetProperty("coachCategory", out _)); // CoachCategory đã gỡ khỏi hợp đồng
-    }
-
-    [Fact]
-    public async Task Coach_creation_validates_sports_password_and_uniqueness()
+    public async Task Manager_cannot_create_a_coach_because_only_the_administrator_creates_staff_accounts()
     {
         var manager = await ManagerClientAsync();
 
-        object Body(string email, string password, int[] sports)
-            => new { email, password, fullName = "Le Van Coach", sportIds = sports };
+        var response = await manager.PostAsJsonAsync("api/manager/coaches", new
+        {
+            email = NewEmail(), fullName = "Le Van Coach", sportIds = new[] { BadmintonSportId }
+        });
 
-        Assert.Equal("invalid_sport",
-            await ErrorOf(await manager.PostAsJsonAsync("api/manager/coaches", Body(NewEmail(), Password, new[] { 9999 }))));
-        Assert.Equal(HttpStatusCode.BadRequest,
-            (await manager.PostAsJsonAsync("api/manager/coaches", Body(NewEmail(), Password, Array.Empty<int>()))).StatusCode);
-        Assert.Equal("password_missing_character_groups",
-            await ErrorOf(await manager.PostAsJsonAsync("api/manager/coaches", Body(NewEmail(), "12345678", new[] { BadmintonSportId }))));
-
-        var email = NewEmail();
-        Assert.Equal(HttpStatusCode.Created,
-            (await manager.PostAsJsonAsync("api/manager/coaches", Body(email, Password, new[] { BadmintonSportId }))).StatusCode);
-        Assert.Equal(HttpStatusCode.Conflict,
-            (await manager.PostAsJsonAsync("api/manager/coaches", Body(email.ToUpperInvariant(), Password, new[] { BadmintonSportId }))).StatusCode);
+        Assert.Equal(HttpStatusCode.MethodNotAllowed, response.StatusCode);
     }
 
     [Fact]
-    public async Task Only_the_manager_manages_coaches_and_the_manager_cannot_create_an_administrator()
+    public async Task Only_the_manager_manages_coaches_and_cannot_create_an_administrator()
     {
         var admin = await factory.SeedUserAsync(NewEmail(), Password, role: UserRole.SystemAdministrator);
         var receptionist = await factory.SeedUserAsync(NewEmail(), Password, role: UserRole.Receptionist);
         var manager = await factory.SeedUserAsync(NewEmail(), Password, role: UserRole.CenterManager);
-        var payload = new { email = NewEmail(), password = Password, fullName = "Le Van Coach", sportIds = new[] { BadmintonSportId } };
+        var coachId = await CreateCoachAsync(BadmintonSportId);
 
         Assert.Equal(HttpStatusCode.Forbidden,
-            (await Client(admin.UserId, UserRole.SystemAdministrator).PostAsJsonAsync("api/manager/coaches", payload)).StatusCode);
+            (await Client(admin.UserId, UserRole.SystemAdministrator).GetAsync($"api/manager/coaches/{coachId}")).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden,
-            (await Client(receptionist.UserId, UserRole.Receptionist).PostAsJsonAsync("api/manager/coaches", payload)).StatusCode);
+            (await Client(receptionist.UserId, UserRole.Receptionist).GetAsync($"api/manager/coaches/{coachId}")).StatusCode);
 
-        // Manager không có đường tạo Admin: body không chọn được role, và POST api/users chỉ dành cho SystemAdministrator.
         var managerClient = Client(manager.UserId, UserRole.CenterManager);
-        var created = await managerClient.PostAsJsonAsync("api/manager/coaches", new
-        {
-            email = NewEmail(), password = Password, fullName = "Le Van Coach", sportIds = new[] { BadmintonSportId }, role = "SystemAdministrator"
-        });
-        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await managerClient.GetAsync($"api/manager/coaches/{coachId}")).StatusCode);
 
-        // GET api/manager/coaches/{id} chỉ trả tài khoản role Coach: 200 chứng minh role trong body bị bỏ qua.
-        var createdId = (await Json(created)).GetProperty("userId").GetGuid();
-        Assert.Equal(HttpStatusCode.OK, (await managerClient.GetAsync($"api/manager/coaches/{createdId}")).StatusCode);
-
+        // Manager không có đường tạo tài khoản staff: POST api/users/admin/staff chỉ dành cho SystemAdministrator.
         Assert.Equal(HttpStatusCode.Forbidden,
-            (await managerClient.PostAsJsonAsync("api/users", new
+            (await managerClient.PostAsJsonAsync("api/users/admin/staff", new
             {
-                email = NewEmail(), password = Password, fullName = "Ad Min", role = "SystemAdministrator"
+                email = NewEmail(), fullName = "Ad Min", roleId = 5
             })).StatusCode);
     }
 
@@ -141,7 +99,7 @@ public class CoachSpecialtyAuthorizationTests(SportHubApiFactory factory)
     public async Task Manager_replaces_specialties_and_the_change_is_audited()
     {
         var manager = await ManagerClientAsync();
-        var coachId = await CreateCoachAsync(manager, BadmintonSportId);
+        var coachId = await CreateCoachAsync(BadmintonSportId);
 
         var update = await manager.PutAsJsonAsync($"api/manager/coaches/{coachId}", new { sportIds = new[] { PersonalTrainingSportId }, bio = "Chuyển sang PT" });
         Assert.Equal(HttpStatusCode.OK, update.StatusCode);
@@ -164,19 +122,23 @@ public class CoachSpecialtyAuthorizationTests(SportHubApiFactory factory)
         var admin = await factory.SeedUserAsync(NewEmail(), Password, role: UserRole.SystemAdministrator);
         var client = Client(admin.UserId, UserRole.SystemAdministrator);
 
-        var missing = await client.PostAsJsonAsync("api/users", new { email = NewEmail(), password = Password, fullName = "Le Van Coach", role = "Coach" });
+        var missing = await client.PostAsJsonAsync("api/users/admin/staff", new { email = NewEmail(), fullName = "Le Van Coach", roleId = 2 });
         Assert.Equal("coach_specialty_required", await ErrorOf(missing));
-
-        var withSports = await client.PostAsJsonAsync("api/users", new
+        Assert.Equal("invalid_sport", await ErrorOf(await client.PostAsJsonAsync("api/users/admin/staff", new
         {
-            email = NewEmail(), password = Password, fullName = "Le Van Coach", role = "Coach", sportIds = new[] { PersonalTrainingSportId }
+            email = NewEmail(), fullName = "Le Van Coach", roleId = 2, specialties = new[] { 9999 }
+        })));
+
+        var withSports = await client.PostAsJsonAsync("api/users/admin/staff", new
+        {
+            email = NewEmail(), fullName = "Le Van Coach", roleId = 2, specialties = new[] { PersonalTrainingSportId }
         });
         Assert.Equal(HttpStatusCode.Created, withSports.StatusCode);
         Assert.Equal(PersonalTrainingSportId, (await Json(withSports)).GetProperty("sportIds")[0].GetInt32());
 
-        var notCoach = await client.PostAsJsonAsync("api/users", new
+        var notCoach = await client.PostAsJsonAsync("api/users/admin/staff", new
         {
-            email = NewEmail(), password = Password, fullName = "Le Tan", role = "Receptionist", sportIds = new[] { BadmintonSportId }
+            email = NewEmail(), fullName = "Le Tan", roleId = 4, specialties = new[] { BadmintonSportId }
         });
         Assert.Equal("sport_ids_not_applicable", await ErrorOf(notCoach));
     }
@@ -185,8 +147,8 @@ public class CoachSpecialtyAuthorizationTests(SportHubApiFactory factory)
     public async Task Personal_trainer_guard_follows_one_on_one_specialty_role_status_and_sport_state()
     {
         var manager = await ManagerClientAsync();
-        var trainerId = await CreateCoachAsync(manager, PersonalTrainingSportId);
-        var instructorId = await CreateCoachAsync(manager, BadmintonSportId);
+        var trainerId = await CreateCoachAsync(PersonalTrainingSportId);
+        var instructorId = await CreateCoachAsync(BadmintonSportId);
 
         using var scope = factory.Services.CreateScope();
         var reader = scope.ServiceProvider.GetRequiredService<ICoachSpecialtyReader>();

@@ -55,7 +55,7 @@ public sealed class SystemSettingService(
         CancellationToken ct = default)
     {
         var setting = await db.Set<SystemSetting>().SingleOrDefaultAsync(s => s.Key == key, ct)
-            ?? throw new NotFoundException("setting_not_found", $"Không có cấu hình '{key}'.");
+            ?? throw new NotFoundException("setting_not_found", "Setting not found.");
 
         if (IntRanges.TryGetValue(key, out var range))
         {
@@ -63,12 +63,12 @@ public sealed class SystemSettingService(
             {
                 throw new BadRequestException(
                     "invalid_setting_value",
-                    $"Giá trị của '{key}' phải là số nguyên trong khoảng {range.Min}–{range.Max}.");
+                    $"Setting '{key}' must be an integer between {range.Min} and {range.Max}.");
             }
             if (key == SystemSettingKeys.PtPricePerSessionVnd && parsed % 1000 != 0)
-                throw new BadRequestException("invalid_setting_value", "Đơn giá PT phải là bội số của 1.000 VND.");
+                throw new BadRequestException("invalid_setting_value", "The PT unit price must be a multiple of 1,000 VND.");
             if (key == SystemSettingKeys.RentalSlotMinutes && parsed is not (30 or 60))
-                throw new BadRequestException("invalid_setting_value", "Khối thuê sân phải là 30 hoặc 60 phút.");
+                throw new BadRequestException("invalid_setting_value", "The rental slot must be 30 or 60 minutes.");
         }
 
         var previous = setting.Value;

@@ -17,7 +17,7 @@ public sealed class LoggingEmailSender(ILogger<LoggingEmailSender> logger) : IEm
         CancellationToken cancellationToken = default)
     {
         logger.LogWarning(
-            "Smtp:Host chưa cấu hình — email KHÔNG được gửi. To: {To} | Subject: {Subject} | Body: {Body}",
+            "Smtp:Host is not configured; email was not sent. To: {To} | Subject: {Subject} | Body: {Body}",
             toAddress,
             subject,
             htmlBody);

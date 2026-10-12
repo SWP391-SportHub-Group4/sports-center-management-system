@@ -77,7 +77,7 @@ public sealed class MembershipPackageService(
     {
         Validate(request);
         var package = await db.Set<MembershipPackage>().SingleOrDefaultAsync(p => p.PackageId == packageId, ct)
-            ?? throw new NotFoundException("membership_package_not_found", "Không tìm thấy gói thành viên.");
+            ?? throw new NotFoundException("membership_package_not_found", "Membership package not found.");
 
         var before = Describe(package);
 
@@ -106,7 +106,7 @@ public sealed class MembershipPackageService(
         CancellationToken ct = default)
     {
         var package = await db.Set<MembershipPackage>().SingleOrDefaultAsync(p => p.PackageId == packageId, ct)
-            ?? throw new NotFoundException("membership_package_not_found", "Không tìm thấy gói thành viên.");
+            ?? throw new NotFoundException("membership_package_not_found", "Membership package not found.");
 
         var before = Describe(package);
         package.IsActive = isActive;
@@ -135,16 +135,16 @@ public sealed class MembershipPackageService(
                   && pg.ConstraintName is not null
                   && pg.ConstraintName.Contains("membership_packages", StringComparison.Ordinal))
         {
-            throw new ConflictException("package_name_taken", "Đã có gói thành viên trùng tên (BR-56).");
+            throw new ConflictException("package_name_taken", "Package name taken.");
         }
     }
 
     private static void Validate(SaveMembershipPackageRequest request)
     {
         if (request.Price <= 0 || request.Price % 1000 != 0)
-            throw new BadRequestException("membership_price_invalid", "Giá Membership phải dương và là bội số 1.000 VND.");
+            throw new BadRequestException("membership_price_invalid", "Membership price invalid.");
         if (request.SessionLimit is not null)
-            throw new BadRequestException("membership_session_limit_removed", "Membership không còn giới hạn lượt; quota chỉ áp dụng cho PT.");
+            throw new BadRequestException("membership_session_limit_removed", "Membership session limit removed.");
     }
 
     private static string Describe(MembershipPackage p)

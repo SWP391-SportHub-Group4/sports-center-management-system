@@ -24,6 +24,11 @@
   flex-wrap: wrap;
   gap: var(--space-2);
 }
+.activationNote {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
 
 .createActions :global(.btn) {
   margin: 0;
@@ -84,6 +89,39 @@
 
 .reason {
   white-space: pre-wrap;
+}
+
+.roleBlockers {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface-sunken);
+}
+
+.roleBlockers h3,
+.roleBlockers p {
+  margin: 0;
+}
+
+.roleBlockers ul {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.roleBlockers li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.roleBlockers li > span:first-child {
+  color: var(--color-danger, #b42318);
+  font-weight: 700;
 }
 
 .target {

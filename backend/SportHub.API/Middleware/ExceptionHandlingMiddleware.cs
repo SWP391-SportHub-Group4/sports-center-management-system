@@ -64,6 +64,15 @@ public sealed class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<Ex
                         conflicts = conflict.Conflicts
                     });
                     break;
+                case RoleChangeBlockedException blocked:
+                    context.Response.StatusCode = StatusCodes.Status409Conflict;
+                    await context.Response.WriteAsJsonAsync(new
+                    {
+                        error = blocked.ErrorCode,
+                        message = blocked.Message,
+                        reasons = blocked.Reasons
+                    });
+                    break;
                 // Lỗi nghiệp vụ của các module mới: status + error code đi kèm chính exception,
                 // nên composition root không phải liệt kê từng kiểu một. Đặt SAU các case cụ
                 // thể ở trên để không đổi hợp đồng lỗi mà test hiện có đang kiểm chứng.
@@ -73,7 +82,7 @@ public sealed class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<Ex
                 // Ràng buộc DB chưa được service bắt riêng: trả mã lỗi ổn định, không lộ SQL/tên ràng buộc.
                 case DbUpdateConcurrencyException:
                     await WriteErrorAsync(context, StatusCodes.Status409Conflict, "concurrency_conflict",
-                        "Dữ liệu vừa được người khác thay đổi. Vui lòng tải lại và thử lại.");
+                        "The data was changed by another user. Reload and try again.");
                     break;
                 case var _ when TryFindPostgresException(ex) is { } pg && MapPostgres(pg) is { } mapped:
                     await WriteErrorAsync(context, mapped.Status, mapped.Code, mapped.Message);
@@ -112,13 +121,13 @@ public sealed class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<Ex
         => pg.SqlState switch
         {
             PostgresErrorCodes.ExclusionViolation => (StatusCodes.Status409Conflict, "occupancy_conflict",
-                "Khung giờ đã có lịch khác chiếm phòng hoặc coach."),
+                "The time slot conflicts with an existing room or coach booking."),
             PostgresErrorCodes.UniqueViolation => (StatusCodes.Status409Conflict, "duplicate_value",
-                "Giá trị đã tồn tại hoặc thao tác đã được thực hiện."),
+                "The value already exists or the action has already been completed."),
             PostgresErrorCodes.ForeignKeyViolation => (StatusCodes.Status409Conflict, "reference_violation",
-                "Dữ liệu đang được tham chiếu hoặc tham chiếu không tồn tại."),
+                "The referenced data is in use or does not exist."),
             PostgresErrorCodes.CheckViolation => (StatusCodes.Status400BadRequest, "constraint_violation",
-                "Dữ liệu không thỏa ràng buộc nghiệp vụ."),
+                "The data does not satisfy a business constraint."),
             _ => null
         };
 

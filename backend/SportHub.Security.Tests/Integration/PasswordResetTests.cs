@@ -67,6 +67,16 @@ public class PasswordResetTests(SportHubApiFactory factory)
             .RootElement.GetProperty("accessToken").GetString()!;
     }
 
+    /// <summary>BR-103/104: sau khi đổi/đặt lại thành công, chủ tài khoản nhận thư báo không chứa mật khẩu hay mã.</summary>
+    private void AssertPasswordChangedEmail(string email)
+    {
+        var mail = Assert.Single(factory.Emails.Sent, m => string.Equals(m.To, email, StringComparison.OrdinalIgnoreCase)
+            && m.Subject == SportHub.Identity.Application.Services.PasswordChangedEmail.Subject);
+        Assert.Contains("password was changed", mail.Body);
+        Assert.DoesNotContain(NewPassword, mail.Body);
+        Assert.DoesNotContain("token=", mail.Body);
+    }
+
     private static async Task<string> ErrorOf(HttpResponseMessage r)
         => JsonDocument.Parse(await r.Content.ReadAsStringAsync()).RootElement.GetProperty("error").GetString()!;
 
@@ -166,6 +176,7 @@ public class PasswordResetTests(SportHubApiFactory factory)
 
         var reset = await Reset(email, otp);
         Assert.Equal(HttpStatusCode.NoContent, reset.StatusCode);
+        AssertPasswordChangedEmail(email);
 
         Assert.Equal(HttpStatusCode.Unauthorized, (await Protected(oldToken)).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized,
@@ -278,6 +289,7 @@ public class PasswordResetTests(SportHubApiFactory factory)
 
         var ok = await Client().SendAsync(Change(OldPassword, NewPassword, NewPassword));
         Assert.Equal(HttpStatusCode.OK, ok.StatusCode);
+        AssertPasswordChangedEmail(email);
         var freshToken = JsonDocument.Parse(await ok.Content.ReadAsStringAsync()).RootElement.GetProperty("accessToken").GetString()!;
 
         Assert.Equal(HttpStatusCode.Unauthorized, (await Protected(oldToken)).StatusCode);

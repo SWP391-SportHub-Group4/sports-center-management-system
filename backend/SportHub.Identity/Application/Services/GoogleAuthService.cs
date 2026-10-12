@@ -30,7 +30,7 @@ public sealed class GoogleTokenVerifier(IConfiguration configuration) : IGoogleT
             throw new AppException(
                 503,
                 "google_login_not_configured",
-                "Đăng nhập Google chưa được cấu hình trên máy chủ (thiếu Google:ClientId).");
+                "Google sign-in is not configured on the server (Google:ClientId is missing).");
         }
 
         GoogleJsonWebSignature.Payload payload;
@@ -41,15 +41,15 @@ public sealed class GoogleTokenVerifier(IConfiguration configuration) : IGoogleT
                 idToken,
                 new GoogleJsonWebSignature.ValidationSettings { Audience = [clientId] });
         }
-        catch (InvalidJwtException ex)
+        catch (InvalidJwtException)
         {
-            throw new AppException(401, "invalid_google_token", $"Google ID token không hợp lệ: {ex.Message}");
+            throw new AppException(401, "invalid_google_token", "Invalid Google ID token.");
         }
 
         if (!payload.EmailVerified)
         {
             throw new AppException(
-                401, "google_email_not_verified", "Email Google chưa được xác minh.");
+                401, "google_email_not_verified", "Google email address has not been verified.");
         }
 
         return new GoogleIdentity(payload.Subject, payload.Email, payload.Name, payload.Picture);
@@ -86,6 +86,7 @@ public sealed class GoogleAuthService(
 
         var owner = await db.Set<UserAccount>()
             .Include(u => u.Role)
+            .Include(u => u.Credential)
             .Include(u => u.Profile)
             .Include(u => u.CoachProfile)
             .SingleOrDefaultAsync(u => u.Email == email, ct);
@@ -100,7 +101,7 @@ public sealed class GoogleAuthService(
                 // Tài khoản này đã gắn với một danh tính Google khác: không ghi đè ngầm.
                 throw new ConflictException(
                     "google_identity_mismatch",
-                    "Tài khoản với email này đã liên kết với một tài khoản Google khác.");
+                    "Google identity mismatch.");
             }
 
             db.Set<UserExternalLogin>().Add(NewLink(owner.UserId, identity.Subject));
@@ -147,6 +148,7 @@ public sealed class GoogleAuthService(
     private Task<UserExternalLogin?> FindByGoogleSubjectAsync(string subject, CancellationToken ct)
         => db.Set<UserExternalLogin>()
             .Include(l => l.UserAccount).ThenInclude(u => u!.Role)
+            .Include(l => l.UserAccount).ThenInclude(u => u!.Credential)
             .Include(l => l.UserAccount).ThenInclude(u => u!.Profile)
             .Include(l => l.UserAccount).ThenInclude(u => u!.CoachProfile)
             .SingleOrDefaultAsync(l => l.Provider == ExternalAuthProvider.Google && l.ProviderUserId == subject, ct);
@@ -178,6 +180,10 @@ public sealed class GoogleAuthService(
         {
             throw new AccountBlockedException(user.Status);
         }
+        if (user.Role?.RoleName != UserRole.Member && string.IsNullOrEmpty(user.Credential?.PasswordHash))
+        {
+            throw new InvalidCredentialsException();
+        }
     }
 
     private async Task<AuthResponse> SignInAsync(UserAccount user, bool isNewAccount, CancellationToken ct)
@@ -201,7 +207,7 @@ public sealed class GoogleAuthService(
         {
             throw new ConflictException(
                 "google_login_conflict",
-                "Đăng nhập Google đang được xử lý ở một yêu cầu khác. Vui lòng thử lại.");
+                "Google login conflict.");
         }
     }
 
@@ -218,7 +224,7 @@ public sealed class GoogleAuthService(
         if (takenByOther)
         {
             throw new ConflictException(
-                "google_identity_already_linked", "Tài khoản Google này đã được liên kết với người dùng khác.");
+                "google_identity_already_linked", "Google identity already linked.");
         }
 
         var alreadyLinked = await db.Set<UserExternalLogin>().AnyAsync(
@@ -227,7 +233,7 @@ public sealed class GoogleAuthService(
         if (alreadyLinked)
         {
             throw new ConflictException(
-                "google_already_linked", "Tài khoản của bạn đã liên kết với một tài khoản Google.");
+                "google_already_linked", "Google already linked.");
         }
 
         db.Set<UserExternalLogin>().Add(new UserExternalLogin
@@ -240,26 +246,6 @@ public sealed class GoogleAuthService(
             CreatedAt = clock.UtcNow
         });
 
-        await db.SaveChangesAsync(ct);
-    }
-
-    public async Task UnlinkAsync(Guid userId, CancellationToken ct = default)
-    {
-        var link = await db.Set<UserExternalLogin>()
-            .SingleOrDefaultAsync(l => l.UserId == userId && l.Provider == ExternalAuthProvider.Google, ct)
-            ?? throw new NotFoundException("google_link_not_found", "Tài khoản chưa liên kết Google.");
-
-        var hasPassword = await db.Set<UserCredential>()
-            .AnyAsync(c => c.UserId == userId && c.PasswordHash != null, ct);
-
-        if (!hasPassword)
-        {
-            throw new ConflictException(
-                "password_required_before_unlink",
-                "Hãy đặt mật khẩu trước khi gỡ liên kết Google, nếu không bạn sẽ không đăng nhập được nữa.");
-        }
-
-        db.Set<UserExternalLogin>().Remove(link);
         await db.SaveChangesAsync(ct);
     }
 

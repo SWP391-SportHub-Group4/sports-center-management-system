@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using SportHub.BuildingBlocks.Abstractions.Audit;
 using SportHub.BuildingBlocks.Abstractions.Identity;
+using SportHub.BuildingBlocks.Abstractions.Membership;
 using SportHub.BuildingBlocks.Abstractions.Notifications;
 using SportHub.BuildingBlocks.Abstractions.Payment;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
@@ -19,7 +20,7 @@ namespace SportHub.Scheduling.Rental.Application;
 public sealed class IncidentService(ISportHubDbContext db, IOccupancyService occupancy,
     ICourtRentalFulfillment rentals, ICheckoutLifecycleService checkouts, IRefundCreditService refunds,
     INotificationWriter notifications, IUserAccessReader users, IAuditWriter audit, IClock clock,
-    INotificationDeliveryReader delivery)
+    INotificationDeliveryReader delivery, IMembershipClosureExtension membershipExtension)
 {
     public async Task<PagedResult<IncidentDetailsResponse>> ListAsync(int page = 1, int pageSize = 20,
         CancellationToken ct = default)
@@ -51,7 +52,7 @@ public sealed class IncidentService(ISportHubDbContext db, IOccupancyService occ
     public async Task<NotificationDelivery> DeliveryAsync(Guid incidentId, CancellationToken ct = default)
     {
         if (!await db.Set<IncidentNotice>().AnyAsync(x => x.IncidentId == incidentId, ct))
-            throw new NotFoundException("incident_not_found", "Không tìm thấy sự cố.");
+            throw new NotFoundException("incident_not_found", "Incident not found.");
         var ids = await db.Set<CourtRental>().Where(x => x.CancellationIncidentId == incidentId)
             .Select(x => x.CourtRentalId).ToListAsync(ct);
         return await delivery.GetManyAsync(NotificationEvents.IncidentResolution, ids, ct);
@@ -63,15 +64,28 @@ public sealed class IncidentService(ISportHubDbContext db, IOccupancyService occ
         var impacts = await FindImpactsAsync(shape, ct);
         var needsManual = impacts.Any(x => x.SourceType is nameof(OccupancySourceType.ClassSession)
             or nameof(OccupancySourceType.PtSession) or nameof(OccupancySourceType.RoomBlock));
+        var gymClosed = await ClosesGymAsync(shape, ct);
+        var startLocal = DateOnly.FromDateTime(VietnamTime.ToLocal(shape.StartUtc));
         return new IncidentPreviewResponse(shape.Scope.ToString(), shape.RoomId, shape.StartUtc, shape.EndUtc,
             impacts, !needsManual, needsManual
-                ? "Khung giờ ảnh hưởng lớp/PT/block; cần phương án dời hoặc bù trước khi khóa phòng."
-                : null);
+                ? "The time slot affects a class, PT session, or room block. Reschedule or arrange a makeup before blocking the room."
+                : null)
+        {
+            ClosesGym = gymClosed,
+            SuggestedMembershipExtensionDays = gymClosed ? FullClosedDays(shape.StartUtc, shape.EndUtc) : 0,
+            AffectedMemberCount = gymClosed ? await membershipExtension.CountAffectedMembersAsync(startLocal, ct) : 0
+        };
     }
 
     public async Task<Guid> ResolveAsync(IncidentRequest request, Guid managerId, CancellationToken ct = default)
     {
         var shape = await ValidateAsync(request, ct);
+        var extensionDays = request.MembershipExtensionDays ?? 0;
+        if (extensionDays is < 0 or > 31)
+            throw new BadRequestException("invalid_membership_extension_days", "Membership extension must be between 0 and 31 days.");
+        if (extensionDays > 0 && !await ClosesGymAsync(shape, ct))
+            throw new BadRequestException("membership_extension_not_applicable",
+                "Membership extension only applies when the incident closes every active Gym room.");
         var incidentId = Guid.NewGuid();
         await using var tx = await db.Database.BeginTransactionAsync(ct);
 
@@ -83,20 +97,20 @@ public sealed class IncidentService(ISportHubDbContext db, IOccupancyService occ
         var rentalRows = await db.Set<CourtRental>().Where(x => rentalIds.Contains(x.CourtRentalId))
             .OrderBy(x => x.InvoiceId).ThenBy(x => x.CourtRentalId).ToListAsync(ct);
         if (rentalRows.Count != rentalIds.Count)
-            throw new ConflictException("incident_rental_reference_missing", "Không tìm thấy một trong các lượt thuê bị ảnh hưởng.");
+            throw new ConflictException("incident_rental_reference_missing", "Incident rental reference missing.");
         var pendingIds = rentalRows.Where(x => x.Status == CourtRentalStatus.PendingPayment)
             .Select(x => x.CourtRentalId).ToHashSet();
 
         foreach (var rental in rentalRows.Where(x => x.Status == CourtRentalStatus.PendingPayment))
         {
             if (rental.InvoiceId is not Guid invoiceId)
-                throw new ConflictException("incident_checkout_reference_missing", "Checkout thuê sân thiếu hóa đơn.");
+                throw new ConflictException("incident_checkout_reference_missing", "Incident checkout reference missing.");
             await checkouts.ReleaseForSystemAsync(invoiceId, "Cancelled", ct);
         }
         foreach (var rental in rentalRows.Where(x => x.Status == CourtRentalStatus.Confirmed).OrderBy(x => x.InvoiceId))
         {
             if (rental.InvoiceItemId is not Guid itemId)
-                throw new ConflictException("incident_rental_item_missing", "Lượt thuê đã trả thiếu InvoiceItem.");
+                throw new ConflictException("incident_rental_item_missing", "Incident rental item missing.");
             await refunds.LockPaidItemAsync(itemId, ct);
         }
 
@@ -132,15 +146,33 @@ public sealed class IncidentService(ISportHubDbContext db, IOccupancyService occ
         var impacts = await FindImpactsAsync(shape, ct);
         EnsureResolvable(impacts);
         if (impacts.Any(x => x.SourceType != nameof(OccupancySourceType.CourtRental)))
-            throw new ConflictException("incident_schedule_changed", "Lịch vừa thay đổi sau preview; hãy tải preview mới.");
+            throw new ConflictException("incident_schedule_changed", "Incident schedule changed.");
+
+        // BR-130/138: Gym đóng cửa không hoàn Membership; cộng đúng số ngày đóng cửa cho Membership Active và báo hội viên.
+        var closureStartLocal = DateOnly.FromDateTime(VietnamTime.ToLocal(shape.StartUtc));
+        var extended = extensionDays > 0
+            ? await membershipExtension.ExtendActiveAsync(extensionDays, closureStartLocal, ct)
+            : [];
+        foreach (var member in extended)
+        {
+            var text = $"The Gym was closed because of a center incident. Your membership has been extended by {extensionDays} "
+                + $"day{(extensionDays == 1 ? string.Empty : "s")} and now ends on {member.NewEndDate:dd/MM/yyyy}.";
+            notifications.Queue(new NotificationRequest(member.MemberId, NotificationEvents.IncidentResolution,
+                text, member.MemberPackageId));
+            notifications.QueueEmail(new EmailNotificationRequest(member.MemberId, member.Email,
+                NotificationEvents.IncidentResolution, member.MemberPackageId, "SportHub - Gym closure: membership extended",
+                "<p>" + text + "</p>"));
+        }
 
         var notice = new IncidentNotice
         {
             IncidentId = incidentId, Scope = shape.Scope, RoomId = shape.RoomId,
             StartAtUtc = shape.StartUtc, EndAtUtc = shape.EndUtc,
             Reason = request.Reason.Trim(),
-            ResolutionSummary = $"Affected court rentals were refunded and {shape.RoomIds.Count} rooms were blocked during the incident.",
-            CreatedByUserId = managerId, CreatedAtUtc = clock.UtcNow
+            ResolutionSummary = $"Affected court rentals were refunded and {shape.RoomIds.Count} rooms were blocked during the incident."
+                + (extensionDays > 0 ? $" {extended.Count} members' active memberships were extended by {extensionDays} days." : string.Empty),
+            CreatedByUserId = managerId, CreatedAtUtc = clock.UtcNow,
+            MembershipExtensionDays = extensionDays, ExtendedMemberCount = extended.Count
         };
         db.Set<IncidentNotice>().Add(notice);
         foreach (var roomId in shape.RoomIds.Order())
@@ -161,29 +193,52 @@ public sealed class IncidentService(ISportHubDbContext db, IOccupancyService occ
             {
                 scope = shape.Scope.ToString(), shape.RoomId, shape.StartUtc, shape.EndUtc,
                 affectedSources = firstImpacts.Select(x => new { x.SourceType, x.SourceId }),
-                cancelledRentals = rentalRows.Count, blockedRooms = shape.RoomIds.Count
+                cancelledRentals = rentalRows.Count, blockedRooms = shape.RoomIds.Count,
+                membershipExtensionDays = extensionDays, extendedMembers = extended.Count
             }), Reason: request.Reason.Trim()));
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
         return incidentId;
     }
 
+    /// <summary>Gym đóng cửa khi mọi phòng Gym đang hoạt động nằm trong phạm vi sự cố (phòng Gym = loại phòng của dịch vụ PT).</summary>
+    private async Task<bool> ClosesGymAsync(IncidentShape shape, CancellationToken ct)
+    {
+        var gymRoomTypeIds = db.Set<ServiceRoomType>()
+            .Join(db.Set<SportServiceOffering>().Where(o => o.ServiceType == SportServiceType.PersonalTraining),
+                link => link.OfferingId, offering => offering.OfferingId, (link, _) => link.RoomTypeId);
+        var gymRoomIds = await db.Set<Room>().AsNoTracking()
+            .Where(r => r.IsActive && r.RoomTypeId != null && gymRoomTypeIds.Contains(r.RoomTypeId.Value))
+            .Select(r => r.RoomId).ToListAsync(ct);
+        return gymRoomIds.Count > 0 && gymRoomIds.All(shape.RoomIds.Contains);
+    }
+
+    /// <summary>Số ngày dương lịch Việt Nam được phủ trọn bởi khoảng đóng cửa; Manager có thể chỉnh trước khi xác nhận.</summary>
+    private static int FullClosedDays(DateTime startUtc, DateTime endUtc)
+    {
+        var day = DateOnly.FromDateTime(VietnamTime.ToLocal(startUtc));
+        if (VietnamTime.StartOfDayUtc(day) < startUtc) day = day.AddDays(1);
+        var count = 0;
+        while (VietnamTime.EndOfDayExclusiveUtc(day) <= endUtc) { count++; day = day.AddDays(1); }
+        return Math.Min(count, 31);
+    }
+
     private async Task<IncidentShape> ValidateAsync(IncidentRequest request, CancellationToken ct)
     {
         if (!SportHub.BuildingBlocks.Api.WireEnum.TryParse<IncidentScope>(request.Scope, true, out var scope) || !Enum.IsDefined(scope))
-            throw new BadRequestException("invalid_incident_scope", "Incident scope phải là Room hoặc Center.");
+            throw new BadRequestException("invalid_incident_scope", "Invalid incident scope.");
         if (string.IsNullOrWhiteSpace(request.Reason) || request.Reason.Trim().Length is < 3 or > 500)
-            throw new BadRequestException("incident_reason_required", "Cần nhập lý do incident (3–500 ký tự).");
+            throw new BadRequestException("incident_reason_required", "Incident reason required.");
         var start = DateTime.SpecifyKind(request.StartAtUtc, DateTimeKind.Utc);
         var end = DateTime.SpecifyKind(request.EndAtUtc, DateTimeKind.Utc);
         if (end <= start || end <= clock.UtcNow || end - start > TimeSpan.FromDays(31))
-            throw new BadRequestException("invalid_incident_range", "Incident phải còn thời gian ở tương lai và dài tối đa 31 ngày.");
+            throw new BadRequestException("invalid_incident_range", "Invalid incident range.");
         List<int> roomIds;
         int? roomId = request.RoomId;
         if (scope == IncidentScope.Room)
         {
             if (roomId is null || !await db.Set<Room>().AnyAsync(x => x.RoomId == roomId, ct))
-                throw new NotFoundException("incident_room_not_found", "Cần chọn phòng tồn tại cho incident Room.");
+                throw new NotFoundException("incident_room_not_found", "Incident room not found.");
             roomIds = [roomId.Value];
         }
         else
@@ -191,7 +246,7 @@ public sealed class IncidentService(ISportHubDbContext db, IOccupancyService occ
             roomId = null;
             roomIds = await db.Set<Room>().AsNoTracking().Where(x => x.IsActive)
                 .OrderBy(x => x.RoomId).Select(x => x.RoomId).ToListAsync(ct);
-            if (roomIds.Count == 0) throw new ConflictException("incident_no_active_rooms", "Trung tâm chưa có phòng hoạt động để khóa.");
+            if (roomIds.Count == 0) throw new ConflictException("incident_no_active_rooms", "Incident no active rooms.");
         }
         return new IncidentShape(scope, roomId, start, end, roomIds);
     }
@@ -217,15 +272,16 @@ public sealed class IncidentService(ISportHubDbContext db, IOccupancyService occ
         if (impacts.Any(x => x.SourceType is nameof(OccupancySourceType.ClassSession)
             or nameof(OccupancySourceType.PtSession) or nameof(OccupancySourceType.RoomBlock)))
             throw new ConflictException("incident_requires_schedule_resolution",
-                "Incident ảnh hưởng lớp/PT/room block. Chọn phương án dời hoặc bù hợp lệ trước; chưa tạo block hoặc hoàn tiền.");
+                "Incident requires schedule resolution.");
         if (impacts.Any(x => x.SourceType != nameof(OccupancySourceType.CourtRental)))
-            throw new ConflictException("incident_source_unsupported", "Có nguồn chiếm lịch chưa hỗ trợ xử lý incident an toàn.");
+            throw new ConflictException("incident_source_unsupported", "Incident source unsupported.");
     }
 
     private sealed record IncidentShape(IncidentScope Scope, int? RoomId, DateTime StartUtc, DateTime EndUtc, List<int> RoomIds);
 }
 
-public sealed record IncidentRequest([property: SportHub.BuildingBlocks.Api.WireEnum] string Scope, int? RoomId, DateTime StartAtUtc, DateTime EndAtUtc, string Reason);
+public sealed record IncidentRequest([property: SportHub.BuildingBlocks.Api.WireEnum] string Scope, int? RoomId, DateTime StartAtUtc, DateTime EndAtUtc, string Reason,
+    int? MembershipExtensionDays = null);
 public sealed record IncidentDetailsResponse(Guid IncidentId,
     [property: SportHub.BuildingBlocks.Api.WireEnum] string Scope, int? RoomId, string? RoomName,
     DateTime StartAtUtc, DateTime EndAtUtc, string Reason, string ResolutionSummary, DateTime CreatedAtUtc);
@@ -244,4 +300,9 @@ public sealed record IncidentImpact([property: SportHub.BuildingBlocks.Api.WireE
 }
 public sealed record IncidentResolutionOption(string Action, string Method, string Path);
 public sealed record IncidentPreviewResponse([property: SportHub.BuildingBlocks.Api.WireEnum] string Scope, int? RoomId, DateTime StartAtUtc, DateTime EndAtUtc,
-    IReadOnlyList<IncidentImpact> Impacts, bool CanResolve, string? BlockReason);
+    IReadOnlyList<IncidentImpact> Impacts, bool CanResolve, string? BlockReason)
+{
+    public bool ClosesGym { get; init; }
+    public int SuggestedMembershipExtensionDays { get; init; }
+    public int AffectedMemberCount { get; init; }
+}

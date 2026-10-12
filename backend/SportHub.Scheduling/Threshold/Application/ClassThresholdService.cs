@@ -22,14 +22,14 @@ public sealed class ClassThresholdService(ISportHubDbContext db, ISystemSettingP
     public async Task WaiveAsync(int classId, Guid managerUserId, string reason, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(reason) || reason.Trim().Length is < 3 or > 500)
-            throw new BadRequestException("threshold_waiver_reason_required", "Cần nhập lý do miễn ngưỡng (3–500 ký tự).");
+            throw new BadRequestException("threshold_waiver_reason_required", "Threshold waiver reason required.");
         await using var tx = await db.Database.BeginTransactionAsync(cancellationToken);
         await db.Database.ExecuteSqlInterpolatedAsync(
             $"SELECT class_id FROM classes WHERE class_id = {classId} FOR UPDATE", cancellationToken);
         var entity = await db.Set<Class>().SingleOrDefaultAsync(x => x.ClassId == classId, cancellationToken)
-            ?? throw new NotFoundException("class_not_found", "Không tìm thấy khóa học.");
+            ?? throw new NotFoundException("class_not_found", "Class not found.");
         if (entity.Status != ClassStatus.Published || entity.ThresholdStatus == ThresholdStatus.WaivedByManager)
-            throw new ConflictException("class_threshold_not_waivable", "Chỉ khóa Published chưa được miễn ngưỡng mới xử lý được.");
+            throw new ConflictException("class_threshold_not_waivable", "Class threshold not waivable.");
         var old = entity.ThresholdStatus;
         entity.ThresholdStatus = ThresholdStatus.WaivedByManager;
         entity.Version++;
@@ -45,20 +45,20 @@ public sealed class ClassThresholdService(ISportHubDbContext db, ISystemSettingP
         string reason, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(reason) || reason.Trim().Length is < 3 or > 500)
-            throw new BadRequestException("threshold_pricing_reason_required", "Cần nhập lý do đổi giá/chi phí.");
+            throw new BadRequestException("threshold_pricing_reason_required", "Threshold pricing reason required.");
         CourseRules.ValidatePrice(price);
         CourseRules.ValidateCost(costAmount);
         await using var tx = await db.Database.BeginTransactionAsync(cancellationToken);
         await db.Database.ExecuteSqlInterpolatedAsync(
             $"SELECT class_id FROM classes WHERE class_id = {classId} FOR UPDATE", cancellationToken);
         var entity = await db.Set<Class>().SingleOrDefaultAsync(x => x.ClassId == classId, cancellationToken)
-            ?? throw new NotFoundException("class_not_found", "Không tìm thấy khóa học.");
+            ?? throw new NotFoundException("class_not_found", "Class not found.");
         if (entity.Status != ClassStatus.Published || entity.ThresholdDeadlineUtc is null
             || entity.ThresholdDeadlineUtc <= clock.UtcNow)
-            throw new ConflictException("threshold_pricing_closed", "Chỉ sửa giá/chi phí lớp Published trước hạn đánh giá ngưỡng.");
+            throw new ConflictException("threshold_pricing_closed", "Threshold pricing closed.");
         var threshold = CourseRules.BreakEvenThreshold(costAmount, price);
         if (threshold > entity.Capacity)
-            throw new BadRequestException("threshold_exceeds_capacity", "Ngưỡng hoàn vốn lớn hơn sức chứa khóa.");
+            throw new BadRequestException("threshold_exceeds_capacity", "Threshold exceeds capacity.");
         var old = System.Text.Json.JsonSerializer.Serialize(new { entity.Price, entity.CostAmount, entity.BreakEvenThreshold });
         entity.Price = price;
         entity.CostAmount = costAmount;
@@ -97,7 +97,7 @@ public sealed class ClassThresholdService(ISportHubDbContext db, ISystemSettingP
             var confirmed = await db.Set<Enrollment>().CountAsync(x => x.ClassId == id
                 && x.Status == EnrollmentStatus.Confirmed, cancellationToken);
             if (entity.BreakEvenThreshold is null)
-                throw new ConflictException("class_threshold_missing", "Khóa đã publish nhưng thiếu snapshot ngưỡng.");
+                throw new ConflictException("class_threshold_missing", "Class threshold missing.");
 
             if (confirmed >= entity.BreakEvenThreshold.Value)
             {
@@ -112,7 +112,7 @@ public sealed class ClassThresholdService(ISportHubDbContext db, ISystemSettingP
             {
                 var responseHours = await settings.GetIntAsync(SystemSettingKeys.ClassThresholdResponseHours, cancellationToken);
                 if (responseHours is < 1 or > 336)
-                    throw new ConflictException("class_threshold_response_setting_invalid", "Thời hạn phản hồi phải từ 1 đến 336 giờ.");
+                    throw new ConflictException("class_threshold_response_setting_invalid", "Class threshold response setting invalid.");
                 entity.ThresholdStatus = ThresholdStatus.AtRisk;
                 entity.ThresholdResponseDeadlineUtc = clock.UtcNow.AddHours(responseHours);
                 entity.Version++;

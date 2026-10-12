@@ -18,9 +18,9 @@ public sealed class CourtScheduleService(ISportHubDbContext db, IUserAccessReade
     {
         var actor = await users.GetAsync(actorId, ct);
         if (actor is null || !actor.IsActive || actor.Role is not ("CenterManager" or "Receptionist" or "Coach"))
-            throw new ForbiddenException("court_schedule_forbidden", "Tài khoản không được xem lịch sân nội bộ.");
+            throw new ForbiddenException("court_schedule_forbidden", "Court schedule forbidden.");
         if (toDate < fromDate || toDate.DayNumber - fromDate.DayNumber > 30)
-            throw new BadRequestException("invalid_range", "Lịch sân tối đa 31 ngày, ngày kết thúc không trước ngày bắt đầu.");
+            throw new BadRequestException("invalid_range", "Invalid range.");
         var from = VietnamTime.StartOfDayUtc(fromDate);
         var to = VietnamTime.EndOfDayExclusiveUtc(toDate);
         var coachScope = actor.Role == "Coach" ? actorId : (Guid?)null;

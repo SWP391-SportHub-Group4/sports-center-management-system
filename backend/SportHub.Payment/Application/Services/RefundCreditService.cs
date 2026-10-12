@@ -25,15 +25,15 @@ public sealed class RefundCreditService(ISportHubDbContext db, IPointWalletServi
             throw new InvalidOperationException("System refund credits require the caller's transaction.");
         if (request.EventId == Guid.Empty || string.IsNullOrWhiteSpace(request.Reason)
             || request.RefundRatioPercent is < 0 or > 100)
-            throw new BadRequestException("invalid_refund_credit", "Refund sự kiện thiếu event, lý do hoặc tỷ lệ hợp lệ.");
+            throw new BadRequestException("invalid_refund_credit", "Invalid refund credit.");
         if ((request.ProratedNumerator is null) != (request.ProratedDenominator is null)
             || (request.ProratedDenominator is int denominator && (denominator <= 0
                 || request.ProratedNumerator < 0 || request.ProratedNumerator > denominator)))
-            throw new BadRequestException("invalid_refund_proration", "Tỷ lệ buổi hoàn không hợp lệ.");
+            throw new BadRequestException("invalid_refund_proration", "Invalid refund proration.");
 
         var itemReference = await db.Set<InvoiceItem>().AsNoTracking()
             .SingleOrDefaultAsync(x => x.ItemId == request.InvoiceItemId, cancellationToken)
-            ?? throw new NotFoundException("invoice_item_not_found", "Không tìm thấy sản phẩm hóa đơn.");
+            ?? throw new NotFoundException("invoice_item_not_found", "Invoice item not found.");
         // Serialize system events with manager refunds for this invoice before reading the cumulative cap.
         // Lock order matches PointRefundService (invoice, then item) to avoid inconsistent concurrent caps.
         await db.Database.ExecuteSqlInterpolatedAsync(
@@ -51,12 +51,12 @@ public sealed class RefundCreditService(ISportHubDbContext db, IPointWalletServi
         if (prior is not null)
         {
             if (prior.Note != request.Reason.Trim())
-                throw new ConflictException("refund_event_reference_conflict", "EventId đã được dùng cho refund khác.");
+                throw new ConflictException("refund_event_reference_conflict", "Refund event reference conflict.");
             return new RefundCreditResult(prior.Points, true);
         }
 
         if (!SportHub.Payment.Domain.Rules.InvoiceFulfillment.HasBenefits(invoice.Status, invoice.PaidVia))
-            throw new ConflictException("refund_invoice_not_paid", "Chỉ item đã Paid được hoàn điểm.");
+            throw new ConflictException("refund_invoice_not_paid", "Refund invoice not paid.");
 
         var value = await RemainingPaidValueVndAsync(invoice, item, cancellationToken);
         var points = request.ProratedNumerator is int numerator && request.ProratedDenominator is int total
@@ -77,10 +77,10 @@ public sealed class RefundCreditService(ISportHubDbContext db, IPointWalletServi
     {
         RequireTransaction();
         if (request.EventId == Guid.Empty || request.Points <= 0 || string.IsNullOrWhiteSpace(request.Reason))
-            throw new BadRequestException("invalid_transfer_credit", "Hoàn chênh lệch cần event, lý do và số điểm dương.");
+            throw new BadRequestException("invalid_transfer_credit", "Invalid transfer credit.");
         var itemReference = await db.Set<InvoiceItem>().AsNoTracking()
             .SingleOrDefaultAsync(x => x.ItemId == request.InvoiceItemId, cancellationToken)
-            ?? throw new NotFoundException("invoice_item_not_found", "Không tìm thấy sản phẩm hóa đơn.");
+            ?? throw new NotFoundException("invoice_item_not_found", "Invoice item not found.");
         await LockItemAsync(itemReference, request.InvoiceItemId, cancellationToken);
         var prior = await db.Set<PointLedgerEntry>().AsNoTracking().SingleOrDefaultAsync(x =>
             x.InvoiceItemId == request.InvoiceItemId && x.ReferenceType == "ClassTransferDifference"
@@ -88,16 +88,16 @@ public sealed class RefundCreditService(ISportHubDbContext db, IPointWalletServi
         if (prior is not null)
         {
             if (prior.Points != request.Points || prior.Note != request.Reason.Trim())
-                throw new ConflictException("transfer_credit_reference_conflict", "EventId đã được dùng cho chênh lệch khác.");
+                throw new ConflictException("transfer_credit_reference_conflict", "Transfer credit reference conflict.");
             return new RefundCreditResult(prior.Points, true);
         }
         var item = await db.Set<InvoiceItem>().AsNoTracking().SingleAsync(x => x.ItemId == request.InvoiceItemId, cancellationToken);
         var invoice = await db.Set<Invoice>().AsNoTracking().SingleAsync(x => x.InvoiceId == item.InvoiceId, cancellationToken);
         if (!SportHub.Payment.Domain.Rules.InvoiceFulfillment.HasBenefits(invoice.Status, invoice.PaidVia))
-            throw new ConflictException("refund_invoice_not_paid", "Chỉ item đã Paid được hoàn điểm.");
+            throw new ConflictException("refund_invoice_not_paid", "Refund invoice not paid.");
         var remaining = await RemainingPaidValueVndAsync(invoice, item, cancellationToken);
         if (request.Points * (decimal)RefundCalculator.VndPerPoint > remaining)
-            throw new ConflictException("transfer_credit_exceeds_item_value", "Hoàn chênh lệch vượt phần giá trị item còn lại.");
+            throw new ConflictException("transfer_credit_exceeds_item_value", "Transfer credit exceeds item value.");
         var result = await wallets.EarnAsync(new WalletOperation(invoice.MemberId, request.Points,
             "ClassTransferDifference", request.EventId, null, request.Reason.Trim(), item.ItemId), cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
@@ -108,11 +108,11 @@ public sealed class RefundCreditService(ISportHubDbContext db, IPointWalletServi
     {
         var item = await db.Set<InvoiceItem>().AsNoTracking()
             .SingleOrDefaultAsync(x => x.ItemId == invoiceItemId, cancellationToken)
-            ?? throw new NotFoundException("invoice_item_not_found", "Không tìm thấy sản phẩm hóa đơn.");
+            ?? throw new NotFoundException("invoice_item_not_found", "Invoice item not found.");
         var invoice = await db.Set<Invoice>().AsNoTracking()
             .SingleAsync(x => x.InvoiceId == item.InvoiceId, cancellationToken);
         if (!SportHub.Payment.Domain.Rules.InvoiceFulfillment.HasBenefits(invoice.Status, invoice.PaidVia))
-            throw new ConflictException("refund_invoice_not_paid", "Chỉ item đã Paid được hoàn điểm.");
+            throw new ConflictException("refund_invoice_not_paid", "Refund invoice not paid.");
         return await RemainingPaidValueVndAsync(invoice, item, cancellationToken);
     }
 
@@ -121,7 +121,7 @@ public sealed class RefundCreditService(ISportHubDbContext db, IPointWalletServi
         RequireTransaction();
         var itemReference = await db.Set<InvoiceItem>().AsNoTracking()
             .SingleOrDefaultAsync(x => x.ItemId == invoiceItemId, cancellationToken)
-            ?? throw new NotFoundException("invoice_item_not_found", "Không tìm thấy sản phẩm hóa đơn.");
+            ?? throw new NotFoundException("invoice_item_not_found", "Invoice item not found.");
         await LockItemAsync(itemReference, invoiceItemId, cancellationToken);
     }
 
@@ -149,7 +149,7 @@ public sealed class RefundCreditService(ISportHubDbContext db, IPointWalletServi
         var totalItemValue = await db.Set<InvoiceItem>().Where(x => x.InvoiceId == invoice.InvoiceId)
             .SumAsync(x => (decimal?)x.LineAmount, ct) ?? 0m;
         if (totalItemValue <= 0 || item.LineAmount <= 0)
-            throw new ConflictException("refund_item_value_invalid", "InvoiceItem không có giá trị dương.");
+            throw new ConflictException("refund_item_value_invalid", "Refund item value invalid.");
         var cash = await db.Set<Domain.Entities.Payment>().Where(x => x.InvoiceId == invoice.InvoiceId
                 && x.Status == PaymentStatus.Success).SumAsync(x => (decimal?)x.Amount, ct) ?? 0m;
         var pointsSpent = invoice.CheckoutCycleId is not null

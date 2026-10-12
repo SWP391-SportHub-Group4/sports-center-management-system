@@ -104,7 +104,7 @@ POST checkout trả 201 `CheckoutResponse`, yêu cầu header `Idempotency-Key` 
 |---|---|---|
 | `/api/checkouts/membership` | `{packageId,targetMemberId?,allowStacking:false,stackingApprovalReason?}` | Member hoặc FrontDesk; stacking cần quyền Manager và lý do. |
 | `/api/checkouts/class` | `{classId,targetMemberId?}` | Member hoặc FrontDesk. |
-| `/api/checkouts/pt` | `{memberPackageId,coachId,frequencyPerWeek:1..3,priceVersion,targetMemberId?,startAtUtc?,roomId?}` | Member hoặc FrontDesk; lấy version từ PT quote. Có `startAtUtc`: mua/giữ đúng một buổi 90 phút, giá bằng đơn giá PT; không có: contract gói cũ. Xem [PT từng buổi](PT-Per-Session.md). |
+| `/api/checkouts/pt` | `{memberPackageId,coachId,frequencyPerWeek:1..3,priceVersion,targetMemberId?,startAtUtc?,roomId?}` | Member hoặc FrontDesk; lấy version từ PT quote. Có `startAtUtc`: mua/giữ đúng một buổi 90 phút, giá bằng đơn giá PT; không có: contract gói cũ. |
 | `/api/checkouts/court-rental` | `{sportId,roomId,startUtc,endUtc}` | Member tự mua. |
 
 FrontDesk là Manager/Lễ tân; staff mua cho Member phải có targetMemberId, Member chỉ mua cho mình. Lỗi chung: 400 `idempotency_key_required`/`target_member_required`, 403 `target_member_forbidden`/`checkout_not_owned`; conflict nghiệp vụ trả 409. GET checkout trả 200; attempts trả 200 `PaymentAttemptResponse` (`paymentAttemptId,invoiceId,transactionReference,cashAmount,pointsApplied,expiresAtUtc,paymentUrl,state`); không gửi giá do client tính.
@@ -179,11 +179,21 @@ Việc bổ sung không thay đổi quyền đọc audit, scope tài khoản c�
 | GET | `api/users` |
 | GET | `api/users/admin` |
 | GET | `api/users/{userId:guid}` |
-| POST | `api/users` |
+| POST | `api/users/admin/staff` |
 | PUT | `api/users/{userId:guid}/role` |
 | POST | `api/users/{userId:guid}/lock` |
 | POST | `api/users/{userId:guid}/unlock` |
 | POST | `api/users/{userId:guid}/deactivate` |
+
+`POST api/users/admin/staff` (SystemAdministrator; `{email, fullName, phone?, roleId, specialties?}`): tạo tài khoản staff **không có mật khẩu**, gửi email kích hoạt (link dùng một lần, 24 giờ). Với Coach (`roleId` 2) bắt buộc `specialties` (1–10 môn đang hoạt động), role khác không được gửi `specialties`. **Manager không tạo được Coach** (không còn `POST api/manager/coaches`): Manager chỉ sửa hồ sơ/chuyên môn và cấp quyền dịch vụ PT (`PUT api/manager/coaches/{id}` và `.../service-qualifications`).
+
+`PUT api/users/{userId}/role` (SystemAdministrator; body `{role, reason, sportIds?}`; `sportIds` bắt buộc khi đổi sang Coach). Chỉ đổi **giữa các role staff** (SystemAdministrator, CenterManager, Receptionist, Coach).
+
+- **Member ↔ Staff không được phép:** đổi từ Member sang bất kỳ role staff nào, hoặc từ staff về Member, trả **409 `member_staff_role_change_not_allowed`**. Người muốn làm staff phải được Admin tạo tài khoản staff bằng **email khác** (`POST api/users/admin/staff`, luồng kích hoạt qua email); tài khoản Member cũ giữ nguyên.
+- **Coach → role staff khác:** trả **409 `role_change_blocked`** kèm `reasons: string[]` khi còn lớp chưa kết thúc do Coach làm chính, buổi lớp/PT tương lai còn chiếm lịch (`CoachOccupancy`), hoặc quan hệ huấn luyện Active.
+- **Last SystemAdministrator:** không được đổi role (409 `last_active_system_administrator`).
+
+Khi đổi thành công: rời Coach thì giữ `CoachProfile` làm lịch sử nhưng xóa chuyên môn (`UserSportSpecialty`) và quyền dịch vụ (`CoachServiceQualification`); đổi sang Coach thì Admin phải chọn chuyên môn (Manager cấp lại quyền dịch vụ PT nếu dạy PT); `SecurityStamp` đổi nên token cũ mất hiệu lực.
 
 ### AiController — `api/ai`
 
@@ -238,7 +248,6 @@ Quy tắc nghiệp vụ, quyền xem, xóa ảnh cũ và Google avatar: [Avatar-
 |---|---|
 | POST | `api/auth/google` |
 | POST | `api/auth/google/link` |
-| DELETE | `api/auth/google/link` |
 
 ### MemberPackagesController — `api`
 
@@ -247,7 +256,6 @@ Quy tắc nghiệp vụ, quyền xem, xóa ảnh cũ và Google avatar: [Avatar-
 | GET | `api/members/me/packages` |
 | GET | `api/members/{memberId:guid}/packages` |
 | GET | `api/member-packages` |
-| POST | `api/member-packages/{memberPackageId:guid}/cancel` |
 
 ### MembershipPackagesController — `api/membership-packages`
 

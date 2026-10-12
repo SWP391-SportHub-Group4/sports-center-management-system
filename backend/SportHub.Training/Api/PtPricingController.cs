@@ -13,6 +13,7 @@ public sealed record PtQuoteRequest(Guid MemberPackageId, Guid CoachId, int Freq
 [ApiController, Authorize, Route("api")]
 public sealed class PtPricingController(PtPricingService pricing) : ControllerBase
 {
+    [AllowAnonymous]
     [HttpGet("pt-pricing")]
     public async Task<IActionResult> Get(CancellationToken ct)
     {
@@ -26,11 +27,11 @@ public sealed class PtPricingController(PtPricingService pricing) : ControllerBa
         var staff = User.IsInRole(SportHubRoleNames.Receptionist)
             || User.IsInRole(SportHubRoleNames.CenterManager);
         if (!staff && !User.IsInRole(SportHubRoleNames.Member))
-            throw new ForbiddenException("pt_quote_forbidden", "Không có quyền báo giá PT.");
+            throw new ForbiddenException("pt_quote_forbidden", "Pt quote forbidden.");
         var member = staff ? request.TargetMemberId ?? throw new BadRequestException(
-                "target_member_required", "Cần chọn hội viên.") : User.RequireUserId();
+                "target_member_required", "Target member required.") : User.RequireUserId();
         if (!staff && request.TargetMemberId is Guid target && target != member)
-            throw new ForbiddenException("target_member_forbidden", "Không thể báo giá cho hội viên khác.");
+            throw new ForbiddenException("target_member_forbidden", "Target member forbidden.");
         return Ok(await pricing.QuoteAsync(new PtPurchaseRequest(member, request.MemberPackageId,
             request.CoachId, request.FrequencyPerWeek, request.StartAtUtc, request.RoomId), ct));
     }

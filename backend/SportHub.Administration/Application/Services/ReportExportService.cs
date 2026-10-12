@@ -119,8 +119,7 @@ public sealed class ReportExportService(
         {
             throw new BadRequestException(
                 "unknown_report_type",
-                $"Loại báo cáo không hợp lệ: '{request.ReportType}'. Hợp lệ: "
-                + string.Join(", ", ReportTypes.AllowedColumns.Keys));
+                $"Invalid report type '{request.ReportType}'. Allowed types: {string.Join(", ", ReportTypes.AllowedColumns.Keys)}.");
         }
 
         var allowed = ReportTypes.AllowedColumns[reportType];
@@ -133,13 +132,12 @@ public sealed class ReportExportService(
         {
             throw new BadRequestException(
                 "unknown_report_column",
-                $"Cột không hợp lệ cho báo cáo {reportType}: {string.Join(", ", unknown)}. "
-                + $"Hợp lệ: {string.Join(", ", allowed)}");
+                $"Invalid columns for {reportType}: {string.Join(", ", unknown)}. Allowed columns: {string.Join(", ", allowed)}.");
         }
 
         if (columns.Count == 0)
         {
-            throw new BadRequestException("no_columns_selected", "Phải chọn ít nhất một cột để xuất (BR-44).");
+            throw new BadRequestException("no_columns_selected", "Select at least one column to export.");
         }
 
         var format = request.Format is null
@@ -147,7 +145,7 @@ public sealed class ReportExportService(
             : ReportFormats.Normalize(request.Format)
               ?? throw new BadRequestException(
                   "unknown_report_format",
-                  $"Định dạng không hợp lệ: '{request.Format}'. Hợp lệ: {string.Join(", ", ReportFormats.All)}.");
+                  $"Invalid report format '{request.Format}'. Allowed formats: {string.Join(", ", ReportFormats.All)}.");
 
         var (fromDate, toDate) = request.ToDate < request.FromDate
             ? (request.ToDate, request.FromDate)
@@ -200,11 +198,11 @@ public sealed class ReportExportService(
         if (export.Status != ReportExportStatus.Completed)
         {
             throw new ConflictException(
-                "report_not_ready", $"Báo cáo đang ở trạng thái {export.Status}, chưa tải về được.");
+                "report_not_ready", "Report not ready.");
         }
 
         var content = await storage.ReadAsync(export.ReportExportId, export.Format, ct)
-            ?? throw new NotFoundException("report_file_missing", "Tệp báo cáo không còn trên hệ thống.");
+            ?? throw new NotFoundException("report_file_missing", "Report file missing.");
 
         var fileName = $"{export.ReportType.ToLowerInvariant()}-{export.CreatedAt:yyyyMMdd-HHmmss}"
                        + $".{ReportFormats.Extension(export.Format)}";
@@ -239,11 +237,11 @@ public sealed class ReportExportService(
     {
         var export = await db.Set<ReportExport>()
             .SingleOrDefaultAsync(r => r.ReportExportId == reportExportId && !r.IsDeleted, ct)
-            ?? throw new NotFoundException("report_not_found", "Không tìm thấy báo cáo.");
+            ?? throw new NotFoundException("report_not_found", "Report not found.");
 
         if (export.RequestedByUserId != actorUserId)
         {
-            throw new ForbiddenException("report_not_owned", "Chỉ người tạo mới được thử lại báo cáo này.");
+            throw new ForbiddenException("report_not_owned", "Report not owned.");
         }
 
         if (export.Status == ReportExportStatus.Completed)
@@ -253,7 +251,7 @@ public sealed class ReportExportService(
 
         var parameters = JsonSerializer.Deserialize<ExportParameters>(export.ParametersJson,
             new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
-            ?? throw new ConflictException("report_parameters_corrupt", "Tham số báo cáo không đọc được.");
+            ?? throw new ConflictException("report_parameters_corrupt", "Report parameters corrupt.");
 
         export.Status = ReportExportStatus.Pending;
         export.FailureReason = null;
@@ -290,7 +288,7 @@ public sealed class ReportExportService(
                     .Select(row => (IReadOnlyList<string>)columns.Select(c => row[c]).ToList()).ToList(),
                 ReportTypes.Revenue => await BuildRevenueRowsAsync(fromDate, toDate, columns, ct),
                 ReportTypes.MemberSummary => await BuildMemberSummaryRowsAsync(columns, ct),
-                _ => throw new BadRequestException("unknown_report_type", "Loại báo cáo không hợp lệ.")
+                _ => throw new BadRequestException("unknown_report_type", "Unknown report type.")
             };
 
             var bytes = export.Format == ReportFormats.Pdf
@@ -552,16 +550,16 @@ public sealed class ReportExportService(
     {
         var export = await db.Set<ReportExport>()
             .SingleOrDefaultAsync(r => r.ReportExportId == reportExportId, ct)
-            ?? throw new NotFoundException("report_not_found", "Không tìm thấy báo cáo.");
+            ?? throw new NotFoundException("report_not_found", "Report not found.");
 
         if (export.IsDeleted)
         {
-            throw new NotFoundException("report_not_found", "Không tìm thấy báo cáo.");
+            throw new NotFoundException("report_not_found", "Report not found.");
         }
 
         if (!actorIsCenterManager && export.RequestedByUserId != actorUserId)
         {
-            throw new ForbiddenException("report_not_owned", "Báo cáo này không thuộc về bạn (BR-45).");
+            throw new ForbiddenException("report_not_owned", "Report not owned.");
         }
 
         return export;
@@ -570,7 +568,7 @@ public sealed class ReportExportService(
     private async Task<ReportExportResponse> GetOneAsync(Guid reportExportId, CancellationToken ct)
         => await db.Set<ReportExport>().AsNoTracking()
                .Where(r => r.ReportExportId == reportExportId).Select(Projection()).SingleOrDefaultAsync(ct)
-           ?? throw new NotFoundException("report_not_found", "Không tìm thấy báo cáo.");
+           ?? throw new NotFoundException("report_not_found", "Report not found.");
 
     private static byte[] RenderCsv(IReadOnlyList<string> columns, IReadOnlyList<IReadOnlyList<string>> rows)
     {

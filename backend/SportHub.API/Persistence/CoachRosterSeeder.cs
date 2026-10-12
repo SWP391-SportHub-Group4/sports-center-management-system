@@ -28,28 +28,38 @@ public sealed class CoachRosterSeeder(
     private const int BadmintonSportId = 3;
     private const int BasketballSportId = 4;
 
-    private sealed record Coach(string Email, string FullName, string Phone, int SportId, bool Pt, string Slug, string Bio);
+    private sealed record Coach(string Email, string FullName, string Phone, int SportId, bool Pt, string Slug, string Bio,
+        string Title, int Years, int Students, string Philosophy);
 
     private static readonly Coach[] Roster =
     [
         new("coach.pt@sporthub.vn", "Nguyễn Minh Quân", "0902100001", GymSportId, true, "nguyen-minh-quan",
-            "8 năm huấn luyện tăng cơ và sức mạnh. Xây giáo án rõ ràng, theo sát kỹ thuật từng buổi."),
+            "8 năm huấn luyện tăng cơ và sức mạnh. Xây giáo án rõ ràng, theo sát kỹ thuật từng buổi.",
+            "Senior Personal Trainer", 8, 180, "Tiến bộ đo được từng tuần: đặt mục tiêu rõ, ghi lại số liệu, điều chỉnh giáo án theo cơ thể bạn."),
         new("coach.pt2@sporthub.vn", "Trần Thu Hà", "0902100002", GymSportId, true, "tran-thu-ha",
-            "6 năm đồng hành cùng hội viên giảm mỡ và cải thiện vóc dáng bằng bài tập và dinh dưỡng thực tế."),
+            "6 năm đồng hành cùng hội viên giảm mỡ và cải thiện vóc dáng bằng bài tập và dinh dưỡng thực tế.",
+            "Body Transformation Coach", 6, 150, "Giảm mỡ bền vững đến từ thói quen nhỏ lặp lại mỗi ngày, không phải ép cân ngắn hạn."),
         new("coach.pt3@sporthub.vn", "Lê Hoàng Phúc", "0902100003", GymSportId, true, "le-hoang-phuc",
-            "10 năm kinh nghiệm, mạnh về phục hồi chấn thương và đưa người mới tập vào nền nếp an toàn."),
+            "10 năm kinh nghiệm, mạnh về phục hồi chấn thương và đưa người mới tập vào nền nếp an toàn.",
+            "Strength & Recovery Coach", 10, 220, "Tập an toàn trước, nặng sau. Kỹ thuật đúng là nền tảng cho mọi tiến bộ lâu dài."),
         new("coach.pt4@sporthub.vn", "Phạm Ngọc Anh", "0902100004", GymSportId, true, "pham-ngoc-anh",
-            "5 năm huấn luyện thể lực tổng quát, dẻo dai và sức bền cho người đi làm bận rộn."),
+            "5 năm huấn luyện thể lực tổng quát, dẻo dai và sức bền cho người đi làm bận rộn.",
+            "Functional Fitness Trainer", 5, 120, "Giáo án gọn, hiệu quả và vừa với lịch làm việc thực tế của bạn."),
         new("coach.pt5@sporthub.vn", "Võ Đức Thịnh", "0902100005", GymSportId, true, "vo-duc-thinh",
-            "7 năm luyện sức mạnh cho vận động viên nghiệp dư, chú trọng tiến bộ đo được qua từng tuần."),
+            "7 năm luyện sức mạnh cho vận động viên nghiệp dư, chú trọng tiến bộ đo được qua từng tuần.",
+            "Strength Performance Coach", 7, 140, "Sức mạnh là kỹ năng: luyện đều, tăng tải có kế hoạch và tôn trọng phục hồi."),
         new("coach.caulong@sporthub.vn", "Đặng Quốc Bảo", "0902100006", BadmintonSportId, false, "dang-quoc-bao",
-            "9 năm dạy cầu lông từ cơ bản đến thi đấu phong trào, mạnh về di chuyển và các cú đập cầu."),
+            "9 năm dạy cầu lông từ cơ bản đến thi đấu phong trào, mạnh về di chuyển và các cú đập cầu.",
+            "Badminton Head Coach", 9, 200, "Di chuyển tốt trước, đập cầu mạnh sau. Mỗi buổi tập một kỹ thuật trọng tâm."),
         new("coach.caulong2@sporthub.vn", "Bùi Khánh Linh", "0902100007", BadmintonSportId, false, "bui-khanh-linh",
-            "6 năm dạy cầu lông cho học viên mới và thiếu niên, kiên nhẫn sửa kỹ thuật từng chi tiết nhỏ."),
+            "6 năm dạy cầu lông cho học viên mới và thiếu niên, kiên nhẫn sửa kỹ thuật từng chi tiết nhỏ.",
+            "Badminton Coach", 6, 130, "Sửa từng chi tiết nhỏ với sự kiên nhẫn để học viên tự tin ra sân."),
         new("coach.bongro@sporthub.vn", "Trương Gia Huy", "0902100008", BasketballSportId, false, "truong-gia-huy",
-            "8 năm huấn luyện bóng rổ, từng thi đấu giải sinh viên, giỏi dạy dẫn bóng và ném rổ."),
+            "8 năm huấn luyện bóng rổ, từng thi đấu giải sinh viên, giỏi dạy dẫn bóng và ném rổ.",
+            "Basketball Head Coach", 8, 160, "Nắm vững cơ bản dẫn bóng và ném rổ rồi mới nghĩ đến chiến thuật."),
         new("coach.bongro2@sporthub.vn", "Đinh Hải Nam", "0902100009", BasketballSportId, false, "dinh-hai-nam",
-            "7 năm dạy bóng rổ đồng đội, chiến thuật phòng ngự và phối hợp cho các nhóm tập cuối tuần."),
+            "7 năm dạy bóng rổ đồng đội, chiến thuật phòng ngự và phối hợp cho các nhóm tập cuối tuần.",
+            "Team Basketball Coach", 7, 110, "Bóng rổ là môn đồng đội: phòng ngự và phối hợp quyết định trận đấu."),
     ];
 
     /// <summary>Lớp demo BR141 → email Coach phụ trách (mỗi môn hai lớp, mỗi lớp một Coach).</summary>
@@ -99,6 +109,10 @@ public sealed class CoachRosterSeeder(
             user.Profile.AvatarPublicId = null;
             user.Profile.AvatarVersion += 1;
             user.CoachProfile.Bio = c.Bio;
+            user.CoachProfile.Title = c.Title;
+            user.CoachProfile.YearsExperience = c.Years;
+            user.CoachProfile.StudentCount = c.Students;
+            user.CoachProfile.Philosophy = c.Philosophy;
             byEmail[c.Email] = user;
         }
 

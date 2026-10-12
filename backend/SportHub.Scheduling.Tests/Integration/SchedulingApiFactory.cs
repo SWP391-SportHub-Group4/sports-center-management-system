@@ -100,7 +100,8 @@ public sealed class SchedulingApiFactory : WebApplicationFactory<Program>, IAsyn
                 ["Cors:AllowedOrigins:0"] = "http://localhost:3000",
                 ["Smtp:Host"] = "",
                 ["Email:Smtp:Host"] = "",
-                ["Email:DemoLoggingEnabled"] = "true"
+                ["Email:DemoLoggingEnabled"] = "true",
+                ["VnPay:UseMock"] = "true"
             }));
     }
 

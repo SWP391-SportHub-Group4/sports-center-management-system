@@ -20,7 +20,8 @@ import { IncidentHistory } from "./incident-history";
 import { useOperationsCopy } from "@/features/manager";
 import type { StepStatus } from "./incident-progress";
 export function IncidentForm() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const vi = language === "vi";
   const l = t.operations;
   const c = useOperationsCopy();
   const params = useSearchParams();
@@ -33,6 +34,8 @@ export function IncidentForm() {
   const [start, setStart] = useState(params.get("start") ?? "");
   const [end, setEnd] = useState(params.get("end") ?? "");
   const [reason, setReason] = useState("");
+  // null = Manager has not edited the value, so the server's suggestion is used.
+  const [extensionDays, setExtensionDays] = useState<string | null>(null);
   const [review, setReview] = useState<{
     body: {
       scope: string;
@@ -71,6 +74,7 @@ export function IncidentForm() {
   }
   function clear() {
     revision.current++;
+    setExtensionDays(null);
     setReview(null);
     setIncidentId("");
     mutation.reset();
@@ -234,6 +238,46 @@ export function IncidentForm() {
             disabled={mutation.busy || uncertain || !!incidentId}
           />
           {!review.preview.canResolve && <p>{l.resolutionRequired}</p>}
+          {review.preview.closesGym && (
+            <Card
+              title={
+                vi
+                  ? "Gia hạn Membership do Gym đóng cửa"
+                  : "Gym closure: extend memberships"
+              }
+            >
+              <p>
+                {vi
+                  ? `Sự cố đóng cửa toàn bộ phòng Gym. ${review.preview.affectedMemberCount ?? 0} hội viên có Membership Active sẽ được cộng thêm số ngày dưới đây và nhận thông báo. Không hoàn tiền Membership vì sự cố tạm thời.`
+                  : `This incident closes every Gym room. ${review.preview.affectedMemberCount ?? 0} members with an active membership get the days below added and are notified. Temporary closures do not trigger membership refunds.`}
+              </p>
+              <Field
+                label={vi ? "Số ngày gia hạn (0–31)" : "Extension days (0–31)"}
+              >
+                <input
+                  type="number"
+                  min={0}
+                  max={31}
+                  step={1}
+                  inputMode="numeric"
+                  value={
+                    extensionDays ??
+                    String(review.preview.suggestedMembershipExtensionDays ?? 0)
+                  }
+                  disabled={mutation.busy || !!incidentId}
+                  onChange={(e) => {
+                    setExtensionDays(e.target.value);
+                    setFinalReview(false);
+                  }}
+                />
+              </Field>
+              <p className="muted">
+                {vi
+                  ? "Gợi ý = số ngày dương lịch (giờ Việt Nam) bị đóng trọn vẹn. Hãy xác nhận trước khi đóng sự cố."
+                  : "The suggestion is the number of full calendar days (Vietnam time) the Gym is closed. Confirm it before resolving."}
+              </p>
+            </Card>
+          )}
           {!finalReview && (
             <button
               type="button"
@@ -269,7 +313,17 @@ export function IncidentForm() {
                     const response = await api
                       .post<{ incidentId: string }>(
                         "/api/manager/incidents/resolve",
-                        review.body,
+                        {
+                          ...review.body,
+                          membershipExtensionDays: review.preview.closesGym
+                            ? Number(
+                                extensionDays ??
+                                  review.preview
+                                    .suggestedMembershipExtensionDays ??
+                                  0,
+                              )
+                            : 0,
+                        },
                       )
                       .then((response) => {
                         if (!validReceiptId(response.incidentId))

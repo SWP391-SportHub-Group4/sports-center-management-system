@@ -21,7 +21,7 @@ public static class PasswordPolicyGuard
         {
             throw new BadRequestException(
                 "password_confirmation_mismatch",
-                "Mật khẩu và xác nhận mật khẩu không khớp.");
+                "Password confirmation mismatch.");
         }
     }
 }
