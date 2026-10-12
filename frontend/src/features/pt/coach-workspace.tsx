@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import {
   CalendarDays,
   Plus,
@@ -13,7 +13,6 @@ import {
 } from "lucide-react";
 import { Drawer, Tabs } from "@/components/primitives";
 import { Calendar } from "@/components/scheduling/Calendar";
-import type { CalendarView } from "@/components/scheduling/calendar.contract";
 import { AsyncSection, Feedback, StatusChip } from "@/components/ui";
 import { CourseSticker } from "@/features/courses";
 import { useApi, useAction, useNow } from "@/lib/useApi";
@@ -31,10 +30,7 @@ import { TeachingEditor } from "./teaching-editor";
 import { TeachingRecords } from "./teaching-records";
 import { TrainingPlanView, type PlanScope } from "./training-plan-view";
 import styles from "./coach-workspace.module.css";
-import {
-  CoachClassChanges,
-  CoachClassChangeHistory,
-} from "./coach-class-change";
+import { CoachClassChanges } from "./coach-class-change";
 
 export type WorkspaceMode = "schedule" | "classes" | "students";
 type Selection = {
@@ -63,9 +59,9 @@ export function CoachWorkspace({
   const { user } = useAuth();
   const vi = language === "vi";
   const [date, setDate] = useState(() => monday());
-  const [view, setView] = useState<CalendarView>("week");
   const [selection, setSelection] = useState<Selection | null>(null);
   const [classFilter, setClassFilter] = useState("");
+  const [sportFilter, setSportFilter] = useState("");
   const [search, setSearch] = useState("");
   const state = useApi(
     async (signal) => {
@@ -114,7 +110,6 @@ export function CoachWorkspace({
           compact
         />
       </header>
-      <CoachClassChangeHistory />
       <AsyncSection state={state}>
         {({ classes, sessions }) =>
           !classes.length ? (
@@ -132,14 +127,10 @@ export function CoachWorkspace({
                 <section className={styles.calendar}>
                   <Calendar
                     date={date}
-                    view={view}
-                    onDateChange={(value) =>
-                      setDate(view === "week" ? monday(value) : value)
-                    }
-                    onViewChange={(value) => {
-                      setView(value);
-                      if (value === "week") setDate(monday(date));
-                    }}
+                    view="week"
+                    showViewSwitcher={false}
+                    iconNavigation
+                    onDateChange={(value) => setDate(monday(value))}
                     events={sessions.map((s) => ({
                       id: s.sessionId,
                       title: s.className,
@@ -210,48 +201,100 @@ export function CoachWorkspace({
                 <section>
                   <div className={styles.filters}>
                     <label>
-                      {vi ? "Lớp phụ trách" : "Assigned class"}
+                      {vi ? "Chọn môn" : "Choose sport"}
                       <select
-                        value={classFilter || String(classes[0].classId)}
+                        value={sportFilter}
+                        onChange={(e) => {
+                          setSportFilter(e.target.value);
+                          setClassFilter("");
+                          setSearch("");
+                          setSelection(null);
+                        }}
+                      >
+                        <option value="">
+                          {vi ? "Chọn bộ môn" : "Select a sport"}
+                        </option>
+                        {Array.from(
+                          new Map(
+                            classes.map((c) => [c.sportId, c.sportName]),
+                          ).entries(),
+                        ).map(([id, name]) => (
+                          <option key={id} value={id}>
+                            {name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      {vi ? "Chọn lớp" : "Choose class"}
+                      <select
+                        value={classFilter}
+                        disabled={!sportFilter}
                         onChange={(e) => {
                           setClassFilter(e.target.value);
                           setSearch("");
+                          setSelection(null);
                         }}
                       >
-                        {classes.map((c) => (
-                          <option key={c.classId} value={c.classId}>
-                            {c.name}
-                          </option>
-                        ))}
+                        <option value="">
+                          {vi ? "Chọn lớp học" : "Select a class"}
+                        </option>
+                        {classes
+                          .filter((c) => String(c.sportId) === sportFilter)
+                          .map((c) => (
+                            <option key={c.classId} value={c.classId}>
+                              {c.name}
+                            </option>
+                          ))}
                       </select>
                     </label>
                     <label>
                       {vi ? "Tìm học viên" : "Find student"}
                       <input
                         type="search"
+                        disabled={!classFilter}
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         placeholder={vi ? "Tên hoặc email" : "Name or email"}
                       />
                     </label>
                   </div>
-                  <Students
-                    key={classFilter || classes[0].classId}
-                    course={
-                      classes.find((c) => String(c.classId) === classFilter) ??
-                      classes[0]
-                    }
-                    search={search}
-                    onSelect={(member) =>
-                      setSelection({
-                        course:
-                          classes.find(
-                            (c) => String(c.classId) === classFilter,
-                          ) ?? classes[0],
-                        member,
-                      })
-                    }
-                  />
+                  {classes.find(
+                    (c) =>
+                      String(c.classId) === classFilter &&
+                      String(c.sportId) === sportFilter,
+                  ) ? (
+                    <Students
+                      key={classFilter || classes[0].classId}
+                      course={
+                        classes.find(
+                          (c) => String(c.classId) === classFilter,
+                        ) ?? classes[0]
+                      }
+                      search={search}
+                      onSelect={(member) =>
+                        setSelection({
+                          course:
+                            classes.find(
+                              (c) => String(c.classId) === classFilter,
+                            ) ?? classes[0],
+                          member,
+                        })
+                      }
+                    />
+                  ) : (
+                    <Empty
+                      sport={
+                        classes.find((c) => String(c.sportId) === sportFilter)
+                          ?.sportName ?? "Badminton"
+                      }
+                      text={
+                        vi
+                          ? "Chọn môn và lớp để xem đúng danh sách học viên."
+                          : "Choose a sport and class to view its students."
+                      }
+                    />
+                  )}
                 </section>
               )}
             </>
@@ -356,12 +399,16 @@ function Students({
   );
 }
 
-function TeachingDetail({
+export function TeachingDetail({
   selection: { course, session, member },
   onClose,
+  fullPage = false,
+  onEditingStateChange,
 }: {
   selection: Selection;
   onClose: () => void;
+  fullPage?: boolean;
+  onEditingStateChange?: (state: { dirty: boolean; busy: boolean }) => void;
 }) {
   const { language } = useLanguage();
   const { user } = useAuth();
@@ -378,6 +425,7 @@ function TeachingDetail({
     scope?: PlanScope;
   } | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
+  const [viewingCoursePlan, setViewingCoursePlan] = useState(false);
   const editorState = useRef({ dirty: false, busy: false });
   const discard = () =>
     !editorState.current.busy &&
@@ -391,8 +439,8 @@ function TeachingDetail({
   const state = useApi(
     async (signal) => {
       const [members, records, sessions, roster] = await Promise.all([
-        teachingApi.members(course.classId, signal),
-        teachingApi.records(course.classId, signal),
+        teachingApi.members(course.classId, signal, member?.memberId),
+        teachingApi.records(course.classId, signal, false, member?.memberId),
         ptApi.classSessions(course.classId, signal),
         session
           ? ptApi.roster(session.sessionId, signal)
@@ -400,7 +448,7 @@ function TeachingDetail({
       ]);
       return { members, records, sessions, roster };
     },
-    [course.classId, session?.sessionId],
+    [course.classId, session?.sessionId, member?.memberId],
   );
   const tabs = member
     ? [
@@ -439,13 +487,15 @@ function TeachingDetail({
     });
   };
   return (
-    <Drawer
-      size="lg"
-      title={member?.memberName ?? course.name}
+    <TeachingDetailFrame
+      fullPage={fullPage}
+      title={fullPage ? course.name : (member?.memberName ?? course.name)}
       description={
         session
           ? `${formatDateTime(session.startAtUtc)}–${formatTime(session.endAtUtc)} · ${session.roomName}`
-          : course.sportName
+          : fullPage
+            ? course.sportName
+            : `${course.sportName} · ${course.name}`
       }
       onClose={() => {
         if (discard()) onClose();
@@ -489,17 +539,21 @@ function TeachingDetail({
                 }
                 planScope={editor.scope}
                 existing={editor.existing}
+                lockedMemberId={member?.memberId}
                 onStateChange={(value) => {
                   editorState.current = value;
+                  onEditingStateChange?.(value);
                 }}
                 onClose={() => {
                   if (discard()) {
                     editorState.current = { dirty: false, busy: false };
+                    onEditingStateChange?.(editorState.current);
                     setEditor(null);
                   }
                 }}
                 onSaved={() => {
                   editorState.current = { dirty: false, busy: false };
+                  onEditingStateChange?.(editorState.current);
                   setEditor(null);
                   setSaved(vi ? "Đã lưu vào hệ thống." : "Saved to SportHub.");
                   state.reload();
@@ -512,6 +566,7 @@ function TeachingDetail({
                   onChange={(next) => {
                     if (discard()) {
                       editorState.current = { dirty: false, busy: false };
+                      setViewingCoursePlan(false);
                       setTab(next);
                     }
                   }}
@@ -602,41 +657,77 @@ function TeachingDetail({
                     </>
                   )}
                   {tab === "plans" && (
-                    <TrainingPlanView
-                      records={records.filter(
-                        (r) =>
-                          r.kind === "PLAN" &&
-                          (!member ||
-                            r.memberId === member.memberId ||
-                            r.memberId === null),
+                    <>
+                      {viewingCoursePlan && (
+                        <div className={styles.sectionHeader}>
+                          <h3>{vi ? "Lộ trình cả khóa" : "Course plan"}</h3>
+                          <button
+                            type="button"
+                            className="btn btn--secondary btn--sm"
+                            onClick={() => setViewingCoursePlan(false)}
+                          >
+                            {vi ? "Quay lại buổi học" : "Back to session plan"}
+                          </button>
+                        </div>
                       )}
-                      members={members}
-                      sessions={sessions}
-                      sessionId={session?.sessionId}
-                      memberId={member?.memberId}
-                      editableCoachId={user?.userId}
-                      onCreate={
-                        writable
-                          ? (scope, selectedSession, selectedMember) => {
-                              setSaved(null);
-                              setEditor({
-                                kind: "PLAN",
-                                scope,
-                                sessionId: selectedSession,
-                                memberId: selectedMember,
-                              });
-                            }
-                          : undefined
-                      }
-                      onEdit={
-                        writable
-                          ? (r) => {
-                              if (r.coachId === user?.userId)
-                                setEditor({ kind: r.kind, existing: r });
-                            }
-                          : undefined
-                      }
-                    />
+                      <TrainingPlanView
+                        records={records.filter(
+                          (r) =>
+                            r.kind === "PLAN" &&
+                            (!member ||
+                              r.memberId === member.memberId ||
+                              r.memberId === null),
+                        )}
+                        members={members}
+                        sessions={sessions}
+                        sessionId={
+                          viewingCoursePlan ? undefined : session?.sessionId
+                        }
+                        viewMode={
+                          session && !member
+                            ? viewingCoursePlan
+                              ? "course"
+                              : "session"
+                            : undefined
+                        }
+                        onViewCoursePlan={
+                          session && !member
+                            ? () => setViewingCoursePlan(true)
+                            : undefined
+                        }
+                        memberId={member?.memberId}
+                        editableCoachId={user?.userId}
+                        onCreate={
+                          writable &&
+                          (!viewingCoursePlan ||
+                            course.coachId === user?.userId)
+                            ? (scope, selectedSession, selectedMember) => {
+                                if (member && scope !== "personal") return;
+                                setSaved(null);
+                                setEditor({
+                                  kind: "PLAN",
+                                  scope,
+                                  sessionId: selectedSession,
+                                  memberId: member?.memberId ?? selectedMember,
+                                });
+                              }
+                            : undefined
+                        }
+                        onEdit={
+                          writable &&
+                          (!viewingCoursePlan ||
+                            course.coachId === user?.userId)
+                            ? (r) => {
+                                if (
+                                  r.coachId === user?.userId &&
+                                  (!member || r.memberId === member.memberId)
+                                )
+                                  setEditor({ kind: r.kind, existing: r });
+                              }
+                            : undefined
+                        }
+                      />
+                    </>
                   )}
                   {tab === "attendance" && roster && (
                     <>
@@ -830,6 +921,43 @@ function TeachingDetail({
           }}
         </AsyncSection>
       </div>
-    </Drawer>
+    </TeachingDetailFrame>
+  );
+}
+
+function TeachingDetailFrame({
+  fullPage,
+  title,
+  description,
+  onClose,
+  children,
+}: {
+  fullPage: boolean;
+  title: string;
+  description: string;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  if (!fullPage)
+    return (
+      <Drawer
+        size="lg"
+        title={title}
+        description={description}
+        onClose={onClose}
+      >
+        {children}
+      </Drawer>
+    );
+  return (
+    <section className={styles.fullStudentDetail}>
+      <header className={styles.sectionHeader}>
+        <div>
+          <h2>{title}</h2>
+          <p className={styles.muted}>{description}</p>
+        </div>
+      </header>
+      {children}
+    </section>
   );
 }

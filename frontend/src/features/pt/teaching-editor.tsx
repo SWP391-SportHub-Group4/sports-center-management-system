@@ -27,6 +27,7 @@ export function TeachingEditor({
   memberId,
   existing,
   planScope,
+  lockedMemberId,
   onSaved,
   onClose,
   onStateChange,
@@ -39,6 +40,7 @@ export function TeachingEditor({
   memberId?: string;
   existing?: TeachingRecord;
   planScope?: PlanScope;
+  lockedMemberId?: string;
   onSaved: () => void;
   onClose: () => void;
   onStateChange: (state: { dirty: boolean; busy: boolean }) => void;
@@ -51,7 +53,9 @@ export function TeachingEditor({
   const [id] = useState(() => existing?.recordId ?? crypto.randomUUID());
   const [title, setTitle] = useState(existing?.title ?? "");
   const [content, setContent] = useState(existing?.content ?? "");
-  const [student, setStudent] = useState(existing?.memberId ?? memberId ?? "");
+  const [student, setStudent] = useState(
+    lockedMemberId ?? existing?.memberId ?? memberId ?? "",
+  );
   const [session, setSession] = useState(
     existing?.sessionId ?? sessionId ?? "",
   );
@@ -67,13 +71,15 @@ export function TeachingEditor({
   );
   const [suggestion, setSuggestion] = useState("");
   const [scope, setScope] = useState<PlanScope>(
-    existing
-      ? existing.memberId
-        ? "personal"
-        : existing.sessionId
-          ? "session"
-          : "course"
-      : (planScope ??
+    lockedMemberId
+      ? "personal"
+      : existing
+        ? existing.memberId
+          ? "personal"
+          : existing.sessionId
+            ? "session"
+            : "course"
+        : (planScope ??
           (memberId ? "personal" : sessionId ? "session" : "course")),
   );
   const labels = {
@@ -96,7 +102,7 @@ export function TeachingEditor({
             title,
             content,
             sessionId: session || null,
-            memberId: student || null,
+            memberId: lockedMemberId ?? (student || null),
             score: score ? Number(score) : null,
             dueAtUtc: due ? vietnamUtc(due) : null,
             version: existing?.version ?? 0,
@@ -149,7 +155,7 @@ export function TeachingEditor({
             {vi ? "1. Phạm vi kế hoạch" : "1. Plan scope"}
             <select
               value={scope}
-              disabled={busy || !!existing}
+              disabled={busy || !!existing || !!lockedMemberId}
               onChange={(e) => {
                 const next = e.target.value as PlanScope;
                 setScope(next);
@@ -194,7 +200,10 @@ export function TeachingEditor({
               <select
                 value={student}
                 disabled={
-                  busy || !!existing || (kind === "RESULT" && !!memberId)
+                  busy ||
+                  !!existing ||
+                  !!lockedMemberId ||
+                  (kind === "RESULT" && !!memberId)
                 }
                 required={
                   kind === "RESULT" || (kind === "PLAN" && scope === "personal")
