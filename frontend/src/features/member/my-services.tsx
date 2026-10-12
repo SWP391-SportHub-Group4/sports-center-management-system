@@ -84,10 +84,7 @@ export function MyServices({
     [],
   );
   const entitlements = useApi(
-    (signal) =>
-      api.get<PtEntitlementDto[]>("/api/members/me/pt-entitlements", {
-        signal,
-      }),
+    () => Promise.resolve([] as PtEntitlementDto[]),
     [],
   );
   const enrollments = useApi(memberEnrollments, []);
@@ -535,6 +532,7 @@ function GymCard({
     ) + 1,
   );
   const pending = tone === "pending";
+  const dayPass = pkg.packageId === 50000;
   const renew = tone === "soon" || tone === "ended";
   return (
     <Shell
@@ -544,8 +542,8 @@ function GymCard({
       index={index}
       title={pkg.packageName}
       subtitle={tx(
-        `Gym Membership · ${months} tháng`,
-        `Gym membership · ${months} ${months === 1 ? "month" : "months"}`,
+        dayPass ? "Vé Gym 1 ngày · chỉ dùng trong ngày thanh toán" : `Gym Membership · ${months} tháng`,
+        dayPass ? "Gym day pass · payment day only" : `Gym membership · ${months} ${months === 1 ? "month" : "months"}`,
       )}
       metric={
         pending ? (
@@ -662,17 +660,6 @@ function GymCard({
                       : tx(
                           `${pkg.remainingSessions ?? 0} lượt còn lại`,
                           `${pkg.remainingSessions ?? 0} visits left`,
-                        )}
-                  </dd>
-                </div>
-                <div>
-                  <dt>{tx("Mua PT", "PT booking")}</dt>
-                  <dd>
-                    {pkg.isUsable
-                      ? tx("Đủ điều kiện", "Eligible")
-                      : tx(
-                          "Cần Membership còn hiệu lực",
-                          "Needs an active membership",
                         )}
                   </dd>
                 </div>

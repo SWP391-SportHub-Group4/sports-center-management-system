@@ -7,7 +7,6 @@ import { useLanguage } from "@/lib/language";
 import { canUsePtFeatures } from "@/lib/permissions";
 import type { Translations } from "@/locales/en";
 import { operationsStyles as styles } from "@/features/operations";
-import { PtCoachWorkspaceHeader } from "./pt-coach-workspace";
 
 export function PtPage({
   title,
@@ -21,7 +20,6 @@ export function PtPage({
   children: ReactNode;
 }) {
   const { t } = useLanguage();
-  const { user } = useAuth();
   return (
     <AppShell
       title={titleText ?? t.staffWork[title]}
@@ -29,7 +27,6 @@ export function PtPage({
       operationalLayout
     >
       <div className={styles.workspace}>
-        {!manager && canUsePtFeatures(user) && <PtCoachWorkspaceHeader />}
         {children}
       </div>
     </AppShell>

@@ -96,10 +96,6 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { href: "/coach/schedule", labelKey: "ptSchedule" },
     { href: "/coach/members", labelKey: "assignedMembers" },
     { href: "/coach/attendance", labelKey: "attendance" },
-    { href: "/coach/pt-sessions", labelKey: "ptSchedule" },
-    { href: "/coach/training-plans", labelKey: "trainingPlans" },
-    { href: "/coach/progress", labelKey: "progress" },
-    { href: "/coach/ai-suggestions", labelKey: "aiSuggestions" },
   ],
   CenterManager: [
     { href: "/manager", labelKey: "overview" },
@@ -116,7 +112,6 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { href: "/manager/classes", labelKey: "classes" },
     { href: "/manager/membership-plans", labelKey: "membershipPlans" },
     { href: "/manager/finance", labelKey: "finance" },
-    { href: "/manager/pt", labelKey: "pt" },
     { href: "/manager/members", labelKey: "members" },
     { href: "/manager/points", labelKey: "wallet" },
     { href: "/manager/reports", labelKey: "revenueReports" },
@@ -136,12 +131,7 @@ export function getNavForUser(user: {
   approvalStatus?: string | null;
 }): NavItem[] {
   if (user.role !== "Coach") return NAV_BY_ROLE[user.role];
-  return user.isPersonalTrainer === true
-    ? [
-        { href: "/coach/schedule", labelKey: "ptSchedule" },
-        { href: "/coach/members", labelKey: "assignedMembers" },
-      ]
-    : [
+  return [
         { href: "/coach/schedule", labelKey: "teachingSchedule" },
         { href: "/coach/classes", labelKey: "assignedClasses" },
         { href: "/coach/members", labelKey: "classStudents" },
@@ -179,7 +169,6 @@ const GROUP_SPEC: Partial<Record<Role, (string | [GroupKey, string[]])[]>> = {
       [
         "/manager/classes",
         "/manager/schedule",
-        "/manager/pt",
         "/manager/incidents",
         "/manager/notices",
       ],
@@ -197,15 +186,6 @@ const GROUP_SPEC: Partial<Record<Role, (string | [GroupKey, string[]])[]>> = {
     "/coach/classes",
     "/coach/members",
     "/coach/attendance",
-    [
-      "training",
-      [
-        "/coach/pt-sessions",
-        "/coach/training-plans",
-        "/coach/progress",
-        "/coach/ai-suggestions",
-      ],
-    ],
   ],
 };
 
@@ -442,7 +422,7 @@ export function AppFrame({
   }
 
   const items = getNavForUser(user);
-  const ptNavigation = user.role === "Coach" && canUsePtFeatures(user);
+  const ptNavigation = false;
   const root = items[0].href;
   const entries = buildNav(items, user.role, t);
   const roleDisplay = t.navigation.roleLabel[user.role];

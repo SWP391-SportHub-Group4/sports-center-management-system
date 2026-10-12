@@ -10,6 +10,7 @@ using SportHub.Training.Application.Services;
 namespace SportHub.Training.Api;
 
 /// <summary>BR-74/75 — Member xin đổi PersonalTrainer; Center Manager duyệt hoặc từ chối.</summary>
+[NonController]
 [ApiController]
 [Authorize]
 [Route("api")]

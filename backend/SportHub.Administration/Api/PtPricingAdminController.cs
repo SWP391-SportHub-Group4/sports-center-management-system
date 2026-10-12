@@ -7,6 +7,7 @@ using SportHub.BuildingBlocks.Api;
 
 namespace SportHub.Administration.Api;
 
+[NonController]
 [ApiController, Authorize(Policy = SportHubPolicies.CenterManager), Route("api/manager/pt-pricing")]
 public sealed class PtPricingAdminController(ISystemSettingService settings) : ControllerBase
 {

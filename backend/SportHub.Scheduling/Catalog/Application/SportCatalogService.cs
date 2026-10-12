@@ -139,6 +139,8 @@ public sealed partial class SportCatalogService(ISportHubDbContext db, IAuditWri
     public async Task<SportResponse> SetServiceEnabledAsync(int sportId, SportServiceType type, bool enabled, Guid actorUserId,
         CancellationToken ct = default)
     {
+        if (type == SportServiceType.PersonalTraining)
+            throw new BadRequestException("pt_removed", "Personal Training is no longer offered.");
         var sport = await FindAsync(sportId, ct);
         var offering = sport.Services.SingleOrDefault(s => s.ServiceType == type)
                        ?? throw new NotFoundException("service_not_configured", "Service not configured.");
@@ -161,6 +163,8 @@ public sealed partial class SportCatalogService(ISportHubDbContext db, IAuditWri
     public async Task<IReadOnlyList<int>> SetServiceRoomTypesAsync(int sportId, SportServiceType type, IEnumerable<int> roomTypeIds,
         Guid actorUserId, CancellationToken ct = default)
     {
+        if (type == SportServiceType.PersonalTraining)
+            throw new BadRequestException("pt_removed", "Personal Training is no longer offered.");
         if (type != SportServiceType.PersonalTraining)
         {
             throw new BadRequestException("service_room_types_not_supported",
@@ -271,6 +275,9 @@ public sealed partial class SportCatalogService(ISportHubDbContext db, IAuditWri
             {
                 throw new BadRequestException("service_type_invalid", "Service type invalid.");
             }
+
+            if (type == SportServiceType.PersonalTraining)
+                throw new BadRequestException("pt_removed", "Personal Training is no longer offered.");
 
             if (type is SportServiceType.MembershipAccess or SportServiceType.PersonalTraining
                 && !string.Equals(sportCode, SportCodes.Gym, StringComparison.OrdinalIgnoreCase))

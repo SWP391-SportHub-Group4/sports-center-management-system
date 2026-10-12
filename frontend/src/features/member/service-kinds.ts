@@ -6,7 +6,6 @@ export const SERVICE_KINDS: readonly ServiceKind[] = [
   "gym",
   "class",
   "court",
-  "pt",
 ];
 
 export const KIND_LABEL: Record<ServiceKind, { vi: string; en: string }> = {

@@ -17,6 +17,7 @@ namespace SportHub.Training.Api;
 /// ở đây chỉ dành cho CoachCategory.PersonalTrainer — ClassInstructor không có nghiệp vụ này,
 /// kiểm tra ở backend chứ không chỉ ẩn menu FE).
 /// </summary>
+[NonController]
 [ApiController]
 [Authorize]
 [Route("api")]

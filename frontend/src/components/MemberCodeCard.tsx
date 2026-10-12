@@ -6,7 +6,10 @@ import { Dialog } from "@/components/ui";
 import { IconQrCode } from "@/components/icons";
 import { useAuth } from "@/lib/auth";
 import { useLanguage } from "@/lib/language";
-import { memberCodePayload } from "@/lib/member-code";
+import { api } from "@/lib/apiClient";
+import { todayIso } from "@/lib/format";
+import type { MemberPackageDto } from "@/lib/types";
+import { dayPassCodePayload, memberCodePayload } from "@/lib/member-code";
 import styles from "./MemberShell.module.css";
 import codeStyles from "./MemberCodeCard.module.css";
 
@@ -35,16 +38,33 @@ export function MemberCodeButton({
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState(false);
   const [dataUrl, setDataUrl] = useState("");
+  const [dayPassDate, setDayPassDate] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const userId = user?.userId;
 
   useEffect(() => {
     if (!open || !userId) return;
     let cancelled = false;
-    QRCode.toDataURL(memberCodePayload(userId), { width: 240, margin: 1 })
-      .then((url) => !cancelled && setDataUrl(url))
-      .catch(() => !cancelled && setDataUrl(""));
+    const refresh = async () => {
+      const today = todayIso();
+      let hasDayPass = false;
+      try {
+        const packages = await api.get<MemberPackageDto[]>("/api/members/me/packages");
+        hasDayPass = packages.some((p) => p.packageId === 50000 && p.status.toUpperCase() === "ACTIVE"
+          && p.isUsable && p.startDate.slice(0, 10) === today && p.endDate.slice(0, 10) === today);
+      } catch { /* Keep the ordinary member ID available if package lookup fails. */ }
+      if (cancelled) return;
+      setDayPassDate(hasDayPass ? today : null);
+      const payload = hasDayPass ? dayPassCodePayload(userId, today) : memberCodePayload(userId);
+      QRCode.toDataURL(payload, { width: 240, margin: 1 })
+        .then((url) => !cancelled && setDataUrl(url))
+        .catch(() => !cancelled && setDataUrl(""));
+    };
+    void refresh();
+    const timer = window.setInterval(refresh, 60_000);
     return () => {
       cancelled = true;
+      window.clearInterval(timer);
     };
   }, [open, userId]);
 
@@ -81,8 +101,8 @@ export function MemberCodeButton({
           className={codeStyles.dialog}
           description={
             en
-              ? "Show this code to the front desk so they can find your account. It does not grant entry by itself."
-              : "Đưa mã này cho lễ tân để tìm tài khoản của bạn. Mã không tự cấp quyền vào cửa."
+              ? "Show this code to reception for check-in. Entry requires an active Gym package. A day pass works only on its payment day (Vietnam time)."
+              : "Đưa mã cho lễ tân để check-in. Cần gói Gym còn hiệu lực. Vé 1 ngày chỉ dùng trong ngày thanh toán (giờ Việt Nam)."
           }
           onClose={() => setOpen(false)}
         >
@@ -99,6 +119,16 @@ export function MemberCodeButton({
             )}
             <strong>{user.fullName}</strong>
             <p>{user.email}</p>
+            {dayPassDate && <p>{en ? "Day-pass check-in code: valid only today" : "Mã check-in vé ngày: chỉ có hiệu lực hôm nay"} ({dayPassDate}, GMT+7).</p>}
+            <button className="btn" onClick={async () => {
+              try {
+                await api.post("/api/gym-checkins/self", {});
+                setNotice(en ? "Checked in successfully." : "Đã check-in thành công.");
+              } catch (error) {
+                setNotice(error instanceof Error ? error.message : (en ? "Check-in failed." : "Check-in thất bại."));
+              }
+            }}>{en ? "Check in now" : "Tự check-in"}</button>
+            {notice && <p role="status">{notice}</p>}
             <p className={`small muted ${codeStyles.memberId}`}>{userId}</p>
             <button
               className="btn btn--secondary"

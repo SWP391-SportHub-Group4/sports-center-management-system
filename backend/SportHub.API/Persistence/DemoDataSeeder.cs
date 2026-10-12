@@ -55,12 +55,10 @@ public sealed partial class DemoDataSeeder(
 
         var coachBadminton = NewUser("coach.caulong@sporthub.vn", "Phạm Minh Cầu Lông", "0902000001", UserRole.Coach);
         var coachBasketball = NewUser("coach.bongro@sporthub.vn", "Vũ Hải Bóng Rổ", "0902000002", UserRole.Coach);
-        var coachPt = NewUser("coach.pt@sporthub.vn", "Đỗ Quang PT", "0902000003", UserRole.Coach);
 
         // BR-96 — mỗi tài khoản Coach demo có CoachProfile ngay khi tạo; chuyên môn theo môn gán ngay sau khi lưu user.
         coachBadminton.CoachProfile = new CoachProfile();
         coachBasketball.CoachProfile = new CoachProfile();
-        coachPt.CoachProfile = new CoachProfile();
 
         var members = new[]
         {
@@ -72,7 +70,7 @@ public sealed partial class DemoDataSeeder(
             NewUser("hoa.member@sporthub.vn", "Bùi Thanh Hoa", "0903000006", UserRole.Member)
         };
 
-        var allUsers = new List<UserAccount> { admin, manager, reception, coachBadminton, coachBasketball, coachPt };
+        var allUsers = new List<UserAccount> { admin, manager, reception, coachBadminton, coachBasketball };
         allUsers.AddRange(members);
 
         foreach (var user in allUsers)
@@ -88,10 +86,7 @@ public sealed partial class DemoDataSeeder(
         // Mapping cụ thể theo user vì CoachCategory cũ không đủ xác định môn.
         db.UserSportSpecialties.AddRange(
             new UserSportSpecialty { UserId = coachBadminton.UserId, SportId = 3 },
-            new UserSportSpecialty { UserId = coachBasketball.UserId, SportId = 4 },
-            new UserSportSpecialty { UserId = coachPt.UserId, SportId = 1 });
-        // PT là dịch vụ của Gym (offering 2 trong seed catalog): chỉ Coach có qualification mới nhận quyền PT.
-        db.Set<CoachServiceQualification>().Add(new CoachServiceQualification { UserId = coachPt.UserId, OfferingId = 2 });
+            new UserSportSpecialty { UserId = coachBasketball.UserId, SportId = 4 });
         await db.SaveChangesAsync(ct);
 
         members[^1].Status = UserStatus.Deactivated;
@@ -121,7 +116,7 @@ public sealed partial class DemoDataSeeder(
                 Price = 600_000m,
                 DurationDays = 30,
                 SessionLimit = null,
-                Description = "Unlimited gym check-ins for 30 days. An active Gym membership is required to purchase PT separately.",
+                Description = "Unlimited gym check-ins for 30 days.",
                 IsActive = true
             },
             new MembershipPackage
@@ -130,7 +125,7 @@ public sealed partial class DemoDataSeeder(
                 Price = 1_800_000m,
                 DurationDays = 90,
                 SessionLimit = null,
-                Description = "Gym access for 90 days. An active Gym membership is required to purchase PT separately.",
+                Description = "Gym access for 90 days.",
                 IsActive = true
             },
             new MembershipPackage
@@ -139,7 +134,7 @@ public sealed partial class DemoDataSeeder(
                 Price = 2_400_000m,
                 DurationDays = 180,
                 SessionLimit = null,
-                Description = "Gym access for 180 days. An active Gym membership is required to purchase PT separately.",
+                Description = "Gym access for 180 days.",
                 IsActive = true
             },
             new MembershipPackage
@@ -148,7 +143,7 @@ public sealed partial class DemoDataSeeder(
                 Price = 6_000_000m,
                 DurationDays = 365,
                 SessionLimit = null,
-                Description = "Gym access for 365 days. An active Gym membership is required to purchase PT separately.",
+                Description = "Gym access for 365 days.",
                 IsActive = true
             }
         };
@@ -162,7 +157,6 @@ public sealed partial class DemoDataSeeder(
         await SeedCourseStatesAsync(rooms[0], coachBadminton, today, now, ct);
 
         await SeedPackagesAndInvoicesAsync(members, manager, reception, packages, today, now, ct);
-        await SeedTrainingAsync(members, manager, coachBadminton, coachBasketball, coachPt, now, ct);
         await SeedGymCheckInsAsync(members, reception, now, ct);
 
         await db.SaveChangesAsync(ct);
@@ -230,8 +224,6 @@ public sealed partial class DemoDataSeeder(
             "coach.caulong@sporthub.vn", "Phạm Minh Cầu Lông", "0902000001", 3, ct);
         var basketballCoach = await EnsureDemoCoachAsync(
             "coach.bongro@sporthub.vn", "Vũ Hải Bóng Rổ", "0902000002", 4, ct);
-        await EnsureDemoCoachAsync(
-            "coach.pt@sporthub.vn", "Đỗ Quang PT", "0902000003", 1, ct);
         var badmintonRoom = await EnsureDemoRoomAsync("Badminton Class BC1", 3, 12, ct);
         var basketballRoom = await EnsureDemoRoomAsync("Basketball Class KC1", 4, 20, ct);
 

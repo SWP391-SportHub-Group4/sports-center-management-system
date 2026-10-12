@@ -101,7 +101,7 @@ async function loadTimeline(
       })
       .catch(() => [] as SportDto[]),
   ]);
-  const items: Item[] = base.map((e) => {
+  const items: Item[] = base.filter((e) => eventKind(e.type) !== "pt").map((e) => {
     const kind = eventKind(e.type);
     return {
       ...e,

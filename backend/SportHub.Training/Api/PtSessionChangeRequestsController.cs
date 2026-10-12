@@ -10,6 +10,7 @@ using SportHub.Training.Application.Services;
 namespace SportHub.Training.Api;
 
 /// <summary>Member xin Cancel/Reschedule buổi PT; Manager duyệt/từ chối.</summary>
+[NonController]
 [ApiController]
 [Authorize]
 [Route("api")]

@@ -100,19 +100,6 @@ export function ExplorePackages({
       api.get<RoomTypeDto[]>("/api/room-types", { signal }).catch(() => []),
     [],
   );
-  const ptPrice = useApi(
-    (signal) =>
-      api
-        .get<{ pricePerSessionVnd: number }>("/api/pt-pricing", { signal })
-        .then((r) => r.pricePerSessionVnd)
-        .catch(() => null),
-    [],
-  );
-
-  const hasGym =
-    owned.data?.some(
-      (p) => p.status.toUpperCase() === "ACTIVE" && p.isUsable,
-    ) ?? false;
   const needle = normalize(query.trim());
   const match = (...parts: (string | null | undefined)[]) =>
     !needle || normalize(parts.filter(Boolean).join(" ")).includes(needle);
@@ -120,10 +107,7 @@ export function ExplorePackages({
   const gymPlans = (catalog.data ?? [])
     .filter((p) => p.isActive)
     .sort((a, b) => a.durationDays - b.durationDays);
-  const baseMonthly =
-    gymPlans.length && monthsOf(gymPlans[0].durationDays) === 1
-      ? gymPlans[0].price
-      : null;
+  const baseMonthly = gymPlans.find((p) => p.durationDays >= 28 && p.durationDays <= 31)?.price ?? null;
   const classRows = (courses.data ?? []).filter(
     (c) =>
       c.status === "PUBLISHED" &&
@@ -132,9 +116,6 @@ export function ExplorePackages({
   );
   const courtSports = (sports.data ?? []).filter(
     (s) => s.isActive && hasService(s, "COURT_RENTAL"),
-  );
-  const ptSport = (sports.data ?? []).find((s) =>
-    hasService(s, "PERSONAL_TRAINING"),
   );
 
   const gymVisible = gymPlans.filter((p) =>
@@ -146,21 +127,14 @@ export function ExplorePackages({
   const courtVisible = courtSports.filter((s) =>
     match(s.name, "thuê sân court"),
   );
-  const ptVisible = match(
-    "personal training pt huấn luyện cá nhân",
-    ptSport?.name,
-  );
-
   const counts: Partial<Record<FilterValue, number>> = {
     all:
       gymVisible.length +
       classVisible.length +
-      courtVisible.length +
-      (ptVisible ? 1 : 0),
+      courtVisible.length,
     gym: gymVisible.length,
     class: classVisible.length,
     court: courtVisible.length,
-    pt: ptVisible ? 1 : 0,
   };
   const show = (kind: ServiceKind) => filter === "all" || filter === kind;
 
@@ -334,20 +308,6 @@ export function ExplorePackages({
         </Section>
       )}
 
-      {show("pt") && ptVisible && (
-        <Section
-          kind="pt"
-          emblem="pt"
-          title={tx("Personal Training 1-1", "Personal training 1-1")}
-        >
-          <PtOffer
-            price={ptPrice.data}
-            hasGym={hasGym}
-            checking={owned.loading && !owned.data}
-            onBuyGym={() => onFilter("gym")}
-          />
-        </Section>
-      )}
     </div>
   );
 }
@@ -418,8 +378,9 @@ function GymTier({
   const { language } = useLanguage();
   const vi = language === "vi";
   const tx = (v: string, e: string) => (vi ? v : e);
+  const dayPass = plan.durationDays === 1;
   const months = monthsOf(plan.durationDays);
-  const original = baseMonthly ? baseMonthly * months : 0;
+  const original = !dayPass && baseMonthly ? baseMonthly * months : 0;
   const saving = original > plan.price ? original - plan.price : 0;
   return (
     <article
@@ -428,9 +389,10 @@ function GymTier({
       style={{ "--i": Math.min(index, 8) } as CSSProperties}
     >
       <div className={styles.tierTop}>
+        <h3>{plan.name}</h3>
         <p className={styles.months}>
-          <strong>{months}</strong>
-          <span>{tx("tháng", months === 1 ? "month" : "months")}</span>
+          <strong>{dayPass ? 1 : months}</strong>
+          <span>{dayPass ? tx("ngày", "day") : tx("tháng", months === 1 ? "month" : "months")}</span>
         </p>
         {saving > 0 && (
           <span className={styles.save}>
@@ -448,9 +410,13 @@ function GymTier({
         {saving > 0 && <s>{formatMoney(original)}</s>}
       </p>
       <p className={styles.meta}>
-        {tx("Đến", "Until")} {formatDate(membershipEnd(start, months))}
-        {" · "}≈ {formatMoney(Math.round(plan.price / months))}
-        {tx("/tháng", "/month")}
+        {dayPass ? (
+          tx("Chỉ dùng trong ngày thanh toán thành công (giờ Việt Nam). Mã check-in hết hiệu lực cuối ngày.",
+             "Valid only on the payment day (Vietnam time). The check-in code expires at day end.")
+        ) : (
+          <>{tx("Đến", "Until")} {formatDate(membershipEnd(start, months))}
+          {" · "}≈ {formatMoney(Math.round(plan.price / months))}{tx("/tháng", "/month")}</>
+        )}
       </p>
       {active && (
         <Link
@@ -535,7 +501,7 @@ function ClassRow({
               {tx("Giảng viên", "Coach")}: <strong>{course.coachName}</strong>
             </span>
             {course.coachId && (
-              <Link href={`/member/pt/coaches/${course.coachId}`}>
+              <Link href={`/coaches/${course.coachId}`}>
                 {tx("Xem hồ sơ Coach", "View Coach Profile")}
               </Link>
             )}

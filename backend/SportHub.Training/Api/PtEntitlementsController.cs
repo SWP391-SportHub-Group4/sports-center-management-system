@@ -10,6 +10,7 @@ namespace SportHub.Training.Api;
 
 /// <summary>Quyền lợi PT — Manager xem toàn bộ, Member chỉ xem của chính mình. Tạo/kích hoạt/hủy
 /// thuộc IPtEntitlementLifecycle (Payment gọi nội bộ), không có endpoint ghi ở đây.</summary>
+[NonController]
 [ApiController]
 [Authorize]
 [Route("api")]

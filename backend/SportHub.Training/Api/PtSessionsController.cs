@@ -16,6 +16,7 @@ namespace SportHub.Training.Api;
 /// complete/no-show; Member chỉ xem lịch của mình (gửi đổi lịch qua
 /// <see cref="PtSessionChangeRequestsController"/>).
 /// </summary>
+[NonController]
 [ApiController]
 [Authorize]
 [Route("api")]

@@ -11,7 +11,7 @@ namespace SportHub.Identity.Api;
 [ApiController]
 [Authorize(Policy = SportHubPolicies.CoachManagement)]
 [Route("api/manager/coaches")]
-public class CoachesController(CoachAdminService coaches, CoachQualificationService qualifications) : ControllerBase
+public class CoachesController(CoachAdminService coaches) : ControllerBase
 {
     [HttpGet]
     public async Task<IActionResult> Search(
@@ -24,15 +24,6 @@ public class CoachesController(CoachAdminService coaches, CoachQualificationServ
 
     [HttpGet("{userId:guid}")]
     public async Task<IActionResult> Get(Guid userId, CancellationToken ct) => Ok(await coaches.GetAsync(userId, ct));
-
-    /// <summary>OfferingId các dịch vụ Coach đủ điều kiện dạy (hiện chỉ PT của Gym).</summary>
-    [HttpGet("{userId:guid}/service-qualifications")]
-    public async Task<IActionResult> GetQualifications(Guid userId, CancellationToken ct)
-        => Ok(new { offeringIds = await qualifications.GetAsync(userId, ct) });
-
-    [HttpPut("{userId:guid}/service-qualifications")]
-    public async Task<IActionResult> SetQualifications(Guid userId, [FromBody] SetCoachQualificationsRequest request, CancellationToken ct)
-        => Ok(new { offeringIds = await qualifications.ReplaceAsync(userId, request.OfferingIds, User.RequireUserId(), ct) });
 
     [HttpPut("{userId:guid}")]
     public async Task<IActionResult> Update(Guid userId, [FromBody] UpdateCoachRequest request, CancellationToken ct)

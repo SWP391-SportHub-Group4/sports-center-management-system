@@ -2,7 +2,6 @@
 
 import type { ReactNode } from "react";
 import { useAuth } from "@/lib/auth";
-import { canUsePtFeatures } from "@/lib/permissions";
 import { useLanguage } from "@/lib/language";
 import { PtPage } from "./ui";
 import { CoachWorkspace, type WorkspaceMode } from "./coach-workspace";
@@ -27,7 +26,6 @@ export function CoachWorkspaceRoute({
           classes: "Assigned classes",
           students: "Students",
         };
-  if (canUsePtFeatures(user)) return <>{pt}</>;
   return (
     <PtPage
       title={

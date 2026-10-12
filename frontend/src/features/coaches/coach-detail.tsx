@@ -123,7 +123,7 @@ export function CoachDetail({ userId }: { userId: string }) {
   const [editing, setEditing] = useState(false);
   const { values, setValues } = useUrlQuery(
     { tab: "overview" },
-    { tab: choiceQuery(["overview", "qualification", "schedule"], "overview") },
+    { tab: choiceQuery(["overview", "schedule"], "overview") },
   );
   const state = useApi(
     (signal) =>
@@ -162,7 +162,6 @@ export function CoachDetail({ userId }: { userId: string }) {
               ariaLabel={m.coachDetail}
               tabs={[
                 { id: "overview", label: m.overviewTab },
-                { id: "qualification", label: m.qualification },
                 { id: "schedule", label: m.assignedSchedule },
               ]}
             >
@@ -172,12 +171,6 @@ export function CoachDetail({ userId }: { userId: string }) {
                   <CoachSpecialties coach={coach} />
                 </Card>
               )}
-              {values.tab === "qualification" && (
-                <Qualifications
-                  key={`${coach.userId}-${coach.sportIds.join(",")}`}
-                  coach={coach}
-                />
-              )}{" "}
               {values.tab === "schedule" && (
                 <ManagerSchedule coachId={coach.userId} />
               )}

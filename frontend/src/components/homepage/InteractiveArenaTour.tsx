@@ -28,7 +28,7 @@ const copy = {
     focus: "TRAINING FOCUS",
     method: "TRAINING METHOD",
     formats: "TRAINING FORMATS",
-    formatsValue: "Gym · Personal training",
+    formatsValue: "Gym · day passes",
     exploreMore: "Explore more",
     exploreDescription: "Explore classes, schedules and member benefits.",
     selectedAnnouncement: "Selected arena zone",

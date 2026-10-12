@@ -82,7 +82,6 @@ interface CatalogCoach {
 }
 
 const COACH_GROUPS = [
-  { sportId: 1, vi: "Huấn luyện cá nhân (PT)", en: "Personal training" },
   { sportId: 3, vi: "Cầu lông", en: "Badminton" },
   { sportId: 4, vi: "Bóng rổ", en: "Basketball" },
 ];

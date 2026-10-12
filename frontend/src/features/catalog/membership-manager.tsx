@@ -24,7 +24,7 @@ const empty: SavePackage = {
   sessionLimit: null,
 };
 export function MembershipManager() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const l = t.operations;
   const c = t.managerCatalog;
   const state = useApi((s) => catalogApi.packages(s), []);
@@ -78,7 +78,9 @@ export function MembershipManager() {
               id: "price",
               header: l.price,
               numeric: true,
-              cell: (p) => formatMoney(p.price),
+              cell: (p) => p.packageId === 50000
+                ? `${formatMoney(p.price)} · ${language === "en" ? "fixed" : "cố định"}`
+                : formatMoney(p.price),
             },
             { id: "durationDays", header: t.refactor.days, numeric: true },
             {
@@ -89,7 +91,7 @@ export function MembershipManager() {
               ),
             },
           ]}
-          actions={(p) => (
+          actions={(p) => p.packageId === 50000 ? null : (
             <>
               <button
                 className="btn btn--secondary btn--sm"
@@ -161,7 +163,7 @@ export function MembershipManager() {
               <input
                 required
                 type="number"
-                min={1}
+                min={2}
                 max={3650}
                 value={form.durationDays}
                 onChange={(e) =>
