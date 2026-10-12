@@ -18,6 +18,7 @@ import styles from "./desk.module.css";
 import { AvatarImage } from "@/components/AvatarImage";
 import { ReportAvatarButton } from "@/components/ReportAvatarButton";
 import { MemberCancellations } from "./member-cancellations";
+import { PendingMemberPanel } from "./register-member";
 
 /**
  * Hội viên đang phục vụ: tên, Membership, đang trong Gym hay không, và các thao tác kế tiếp.
@@ -122,6 +123,10 @@ export function SelectedMemberPanel({
         </button>
       </div>
 
+      {member.activationPending && (
+        <PendingMemberPanel member={member} onChange={onChange} />
+      )}
+
       <dl className={styles.facts}>
         <div
           className={`${styles.fact} ${ready && !activePackage ? styles.factWarn : ""}`}
@@ -150,9 +155,7 @@ export function SelectedMemberPanel({
         </div>
       </dl>
 
-      <p className={styles.hint}>
-        {l.nextAction}
-      </p>
+      <p className={styles.hint}>{l.nextAction}</p>
 
       <div className={styles.actions}>
         <button
@@ -164,17 +167,11 @@ export function SelectedMemberPanel({
           {open ? l.checkOut : l.checkIn}
         </button>
 
-        <Link
-          className="btn btn--secondary"
-          href="/receptionist/sales"
-        >
+        <Link className="btn btn--secondary" href="/receptionist/sales">
           {l.sell}
         </Link>
 
-        <Link
-          className="btn btn--secondary"
-          href="/receptionist/invoices"
-        >
+        <Link className="btn btn--secondary" href="/receptionist/invoices">
           {l.viewInvoices}
         </Link>
 

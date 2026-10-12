@@ -73,6 +73,11 @@ Tài khoản seed gốc dùng làm **dự phòng** nếu email không tới: `ad
    - Admin không đặt mật khẩu hộ; staff tự kích hoạt bằng link dùng một lần (24 giờ).
    - **Coach chỉ do Admin tạo** (kèm chuyên môn). Manager không tạo được Coach, chỉ sửa hồ sơ và cấp **quyền dịch vụ PT** nếu Coach dạy PT.
 
+## 1.3b Lễ tân đăng ký Member mới tại quầy (Hào) — 1 phút
+1. **Hào:** `/receptionist/members` → **Đăng ký hội viên mới**. Nhập họ tên, email thật **hai lần** (nhập lệch thì nút khóa), số điện thoại → **Register and send activation email**.
+2. Member mở email "Activate your SportHub account" → đặt mật khẩu → đăng nhập. Trước đó tài khoản có nhãn **Chờ kích hoạt**; lễ tân vẫn bán dịch vụ được, và có **Gửi lại link** / **Đổi email**.
+3. **Điểm nói:** quầy không đặt mật khẩu hộ và chỉ tạo Member; link kích hoạt chứng minh email đúng người.
+
 ## 1.4 Quản lý tài khoản & chặn đổi role (An – Admin) — 2 phút
 1. Mở một tài khoản **Member** → **Edit**: **không có ô đổi role**, chỉ hiện câu "Member accounts cannot be converted to staff. Create a staff account with a different email instead."
 2. Mở Hào (Receptionist) → đổi sang Center Manager (staff ↔ staff được). Nhập lý do → **Review** → **Confirm**.
