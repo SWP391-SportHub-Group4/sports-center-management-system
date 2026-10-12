@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using SportHub.Administration.Application.Commands;
@@ -148,13 +149,16 @@ public sealed class UserAdminService(
             throw new ConflictException("phone_already_exists", "Phone already exists.");
         }
 
-        // BR-96 — tài khoản role Coach phải có chuyên môn (ít nhất một môn đang hoạt động), chọn ngay lúc tạo. Role khác không
+        // BR-96 — khi Admin tạo Coach phải chọn đúng một môn đang hoạt động. Role khác không
         // được nhận môn chuyên môn để tránh dữ liệu mơ hồ.
         IReadOnlyList<int>? coachSportIds = null;
 
         if (targetRole == UserRole.Coach)
         {
             coachSportIds = await specialties.ValidateAsync(request.Specialties, ct);
+            if (coachSportIds.Count != 1)
+                throw new BadRequestException(
+                    "coach_single_specialty_required", "Select exactly one sport specialty when creating a coach.");
         }
         else if (request.Specialties is { Count: > 0 })
         {
@@ -196,6 +200,18 @@ public sealed class UserAdminService(
                 sportIds = coachSportIds
             })));
 
+        if (!await IssueActivationLinkAsync(email, request.FullName.Trim(), ct))
+            throw new InvalidOperationException("Could not issue a staff activation link.");
+
+        // EmailOtpFlow saves the account, specialties, audit, token hash and encrypted outbox row together.
+        await tx.CommitAsync(ct);
+
+        return await GetAsync(user.UserId, ct);
+    }
+
+    /// <summary>Gửi (hoặc gửi lại) link kích hoạt 24 giờ; mỗi lần phát hành vô hiệu link cũ của cùng email. False nếu còn trong thời gian chờ gửi lại.</summary>
+    private async Task<bool> IssueActivationLinkAsync(string email, string fullName, CancellationToken ct)
+    {
         var frontendBaseUrl = configuration["Frontend:BaseUrl"];
         if (string.IsNullOrWhiteSpace(frontendBaseUrl))
             frontendBaseUrl = configuration.GetSection("Cors:AllowedOrigins").GetChildren()
@@ -207,14 +223,77 @@ public sealed class UserAdminService(
             supportUrl: configuration["Frontend:SupportUrl"],
             lifetime: TimeSpan.FromHours(24),
             resetEmailSubject: StaffActivationEmail.Subject,
-            renderResetEmail: (url, minutes) => StaffActivationEmail.Render(request.FullName.Trim(), url, minutes, configuration["Frontend:SupportUrl"]));
-        if (token is null)
-            throw new InvalidOperationException("Could not issue a staff activation link.");
+            renderResetEmail: (url, minutes) => StaffActivationEmail.Render(fullName, url, minutes, configuration["Frontend:SupportUrl"]));
+        return token is not null;
+    }
 
-        // EmailOtpFlow saves the account, specialties, audit, token hash and encrypted outbox row together.
+    private async Task<UserAccount> LoadPendingStaffAsync(Guid userId, CancellationToken ct)
+    {
+        var user = await db.Set<UserAccount>()
+            .Include(u => u.Role)
+            .Include(u => u.Profile)
+            .Include(u => u.Credential)
+            .Include(u => u.ExternalLogins)
+            .SingleOrDefaultAsync(u => u.UserId == userId, ct)
+            ?? throw new NotFoundException("user_not_found", "User not found.");
+
+        if (user.Role!.RoleName == UserRole.Member
+            || user.Credential?.PasswordHash is not null
+            || user.ExternalLogins.Count > 0)
+        {
+            throw new ConflictException("account_not_pending_activation", "Only staff accounts that are waiting for activation can do this.");
+        }
+
+        return user;
+    }
+
+    public async Task<UserAdminResponse> ResendActivationAsync(Guid userId, Guid actorUserId, CancellationToken ct = default)
+    {
+        var user = await LoadPendingStaffAsync(userId, ct);
+
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        audit.Write(new AuditEntry(actorUserId, "RESEND_STAFF_ACTIVATION", nameof(UserAccount), userId.ToString(),
+            NewValue: System.Text.Json.JsonSerializer.Serialize(new { email = user.Email })));
+
+        if (!await IssueActivationLinkAsync(user.Email, user.Profile?.FullName ?? string.Empty, ct))
+            throw new AppException(StatusCodes.Status429TooManyRequests, "activation_resend_too_soon",
+                $"Wait {AuthService.OtpResendCooldown.TotalSeconds:0} seconds before sending another activation link.");
+
         await tx.CommitAsync(ct);
+        return await GetAsync(userId, ct);
+    }
 
-        return await GetAsync(user.UserId, ct);
+    /// <summary>Sửa email của tài khoản staff chưa kích hoạt (gõ sai/nhầm người nhận): link cũ bị vô hiệu, link mới gửi tới email mới.</summary>
+    public async Task<UserAdminResponse> ChangePendingEmailAsync(
+        Guid userId, ChangePendingStaffEmailRequest request, Guid actorUserId, CancellationToken ct = default)
+    {
+        var user = await LoadPendingStaffAsync(userId, ct);
+        var oldEmail = user.Email;
+        var newEmail = request.Email.Trim();
+
+        if (string.Equals(oldEmail, newEmail, StringComparison.OrdinalIgnoreCase))
+            throw new BadRequestException("email_unchanged", "The new email is the same as the current email.");
+
+        var lowered = newEmail.ToLowerInvariant();
+        if (await db.Set<UserAccount>().AnyAsync(u => u.UserId != userId && u.Email.ToLower() == lowered, ct))
+            throw new ConflictException("email_already_exists", "Email already exists.");
+
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+
+        // Link đã gửi tới email cũ không được dùng nữa, kể cả khi người nhận nhầm đang giữ nó.
+        await otpFlow.DiscardAsync(oldEmail, EmailOtpPurpose.ResetPassword);
+        user.Email = newEmail;
+        audit.Write(new AuditEntry(actorUserId, "CHANGE_PENDING_STAFF_EMAIL", nameof(UserAccount), userId.ToString(),
+            OldValue: System.Text.Json.JsonSerializer.Serialize(new { email = oldEmail }),
+            NewValue: System.Text.Json.JsonSerializer.Serialize(new { email = newEmail }),
+            Reason: request.Reason.Trim()));
+
+        if (!await IssueActivationLinkAsync(newEmail, user.Profile?.FullName ?? string.Empty, ct))
+            throw new AppException(StatusCodes.Status429TooManyRequests, "activation_resend_too_soon",
+                $"Wait {AuthService.OtpResendCooldown.TotalSeconds:0} seconds before sending another activation link.");
+
+        await tx.CommitAsync(ct);
+        return await GetAsync(userId, ct);
     }
 
     public async Task<UserAdminResponse> ChangeRoleAsync(
@@ -434,5 +513,11 @@ public sealed class UserAdminService(
             u.ExternalLogins.Any(),
 
             // Điền sau truy vấn (SportIds nằm ở bảng chuyên môn).
-            new List<int>()) { AvatarUrl = u.Profile != null ? u.Profile.AvatarUrl : null };
+            new List<int>())
+        {
+            AvatarUrl = u.Profile != null ? u.Profile.AvatarUrl : null,
+            ActivationPending = u.Role!.RoleName != UserRole.Member
+                                && (u.Credential == null || u.Credential.PasswordHash == null)
+                                && !u.ExternalLogins.Any()
+        };
 }

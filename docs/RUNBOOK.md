@@ -18,7 +18,7 @@ Tạo `.env` ở thư mục gốc từ file mẫu rồi điền giá trị (file
 cp .env.example .env
 ```
 
-Link trong email đặt lại mật khẩu và **email kích hoạt tài khoản staff** (Admin tạo qua `POST /api/users/admin/staff`; link dùng một lần, hạn 24 giờ, người nhận tự đặt mật khẩu) đều dựng từ `Frontend__BaseUrl` (mặc định `http://localhost:3000`; **phải đổi khi deploy**, nếu không người nhận nhận link localhost). Email kích hoạt cần SMTP hoạt động; thiếu SMTP thì tài khoản staff vẫn được tạo nhưng người nhận không có link để vào, nên ở Development hãy lấy link trong log backend (xem bên dưới). `Frontend__SupportUrl` là website hỗ trợ ghi cuối email; để trống thì email chỉ ghi "liên hệ trung tâm". Thiếu SMTP ở Development thì nội dung email (kèm link) được ghi vào log backend (`Email__DemoLoggingEnabled`).
+Link trong email đặt lại mật khẩu và **email kích hoạt tài khoản staff** (Admin tạo qua `POST /api/users/admin/staff`; link dùng một lần, hạn 24 giờ, người nhận tự đặt mật khẩu) đều dựng từ `Frontend__BaseUrl` (mặc định `http://localhost:3000`; **phải đổi khi deploy**, nếu không người nhận nhận link localhost). Email kích hoạt cần SMTP hoạt động; thiếu SMTP thì tài khoản staff vẫn được tạo nhưng người nhận không có link để vào, nên ở Development hãy lấy link trong log backend (xem bên dưới). `Frontend__SupportUrl` là website hỗ trợ ghi cuối email; để trống thì email chỉ ghi "liên hệ trung tâm". Thiếu SMTP ở Development thì nội dung email (kèm link) được ghi vào log backend (`Email__DemoLoggingEnabled`). Nếu người nhận chưa nhận được (hoặc Admin gõ sai email), dùng **Gửi lại link kích hoạt** / **Đổi email** trong Admin → Users & roles; chỉ khi email kích hoạt tới đúng người thì tài khoản mới dùng được.
 
 Frontend đọc `frontend/.env.local` (tùy chọn). Mặc định gọi API tại `http://localhost:5000`; chỉ cần tạo file khi backend chạy ở địa chỉ khác (xem `frontend/.env.example`).
 
@@ -66,6 +66,15 @@ ASPNETCORE_ENVIRONMENT=Development dotnet run -- --seed-br141=true
 ```
 
 Lệnh in `database '...' trên '...'` trước khi ghi. Viết `--seed-br141=true` (có giá trị): nếu viết `--seed-br141` đứng một mình rồi tới `--ConnectionStrings:Default=...`, .NET dùng tham số kế tiếp làm giá trị của cờ và chuỗi kết nối bị bỏ qua. Biến môi trường `ConnectionStrings__Default` cũng không dùng được để đổi DB vì `.env` ở gốc repo được nạp và ghi đè; với `dotnet ef` dùng `--connection`.
+
+Seed dữ liệu demo Flow 1 + Flow 2 (lệnh riêng, idempotent, gọi luôn seed BR-141): ba Member demo `demo.member1..3@sporthub.vn` (mật khẩu `Sporthub@123`) mỗi người 3.000 điểm, Member 1 có gói Gym đang hoạt động, và lớp `DEMO-SMALL-01` chỉ 2 chỗ để demo không bán vượt sĩ số. Cần đã có Manager, Receptionist, Coach roster và gói Membership (seed dev mặc định).
+
+```bash
+cd backend/SportHub.API
+ASPNETCORE_ENVIRONMENT=Development dotnet run -- --seed-demo-flow12=true
+```
+
+Cùng quy tắc với `--seed-br141`: viết cờ có giá trị, lệnh in tên database trước khi ghi, và dùng `--ConnectionStrings:Default=...` để trỏ vào DB khác (ví dụ DB trong Docker publish ở cổng `POSTGRES_PORT`). Chạy lại không nhân bản dữ liệu và không cộng điểm lần hai. Kịch bản demo: [DEMO-SCRIPT-FLOW-1-2.md](DEMO-SCRIPT-FLOW-1-2.md).
 
 Reset dữ liệu dev (giữ tài khoản và cấu hình, xóa mọi dữ liệu phát sinh): sao lưu rồi chạy [reset-dev-data.sql](../backend/scripts/reset-dev-data.sql); đầu file có lệnh `pg_dump`/`psql` mẫu. Script chỉ chạy trên database tên `sporthub` và tạm tắt trigger chặn TRUNCATE của sổ điểm.
 

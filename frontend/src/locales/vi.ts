@@ -597,6 +597,17 @@ export const vi: Translations = {
     reviewHint: "Kiểm tra tài khoản, thay đổi và lý do trước khi xác nhận.",
     createHint:
       "Nhân sự sẽ dùng được tài khoản sau khi tự đặt mật khẩu qua email kích hoạt.",
+    confirmEmail: "Nhập lại email",
+    emailMismatch: "Hai địa chỉ email không khớp.",
+    pendingActivation: "Chờ kích hoạt",
+    pendingActivationHint:
+      "Nhân sự này chưa kích hoạt tài khoản. Nếu email bị gõ sai, hãy sửa để link kích hoạt đến đúng người.",
+    resendActivation: "Gửi lại link kích hoạt",
+    changeEmail: "Đổi email",
+    newEmail: "Email mới",
+    confirmNewEmail: "Nhập lại email mới",
+    saveNewEmail: "Cập nhật email và gửi link",
+    activationActionFailed: "Không thực hiện được thao tác.",
     activationHint:
       "* Thư hướng dẫn kích hoạt và liên kết đặt mật khẩu lần đầu sẽ được gửi trực tiếp đến email của nhân sự.",
     roleImpact:

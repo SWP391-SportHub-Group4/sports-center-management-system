@@ -9,12 +9,22 @@ Thời lượng: ~20 phút (Flow 1 ~9 phút, Flow 2 ~11 phút).
 
 | Người | Vai trò | Tài khoản |
 |---|---|---|
-| An | Admin **và** Member | Hai email **khác nhau** (quy tắc: Member không chuyển thành staff được). Admin dùng `admin@sporthub.vn` hoặc email thật; Member đăng ký mới bằng email thật |
-| Khoa | Manager | Email thật, do Admin tạo trong buổi demo |
-| Hào | Receptionist | Email thật, do Admin tạo trong buổi demo |
+| An | Admin **và** Member | Hai email **khác nhau** (quy tắc: Member không chuyển thành staff được). Admin: `admin@sporthub.vn` hoặc email thật; Member: đăng ký mới bằng email thật ở bước 1.1 |
+| Khoa | Manager | Email thật, do Admin tạo trong buổi demo (hoặc đã tạo sẵn) |
+| Hào | Receptionist | Email thật, do Admin tạo trong buổi demo (hoặc đã tạo sẵn) |
 | Khôi | Coach bóng rổ | Email thật, do Admin tạo, chuyên môn **Basketball** |
 
-Tài khoản seed (mật khẩu chung `Sporthub@123`) dùng làm **dự phòng** nếu email không tới: `admin@`, `manager@`, `letan@`, `an.member@`, `coach.bongro@sporthub.vn`.
+**Dữ liệu seed cho demo** (mật khẩu chung `Sporthub@123`), tạo bằng lệnh ở mục 1.4:
+
+| Tài khoản | Dùng để |
+|---|---|
+| `demo.member1@sporthub.vn` | Member có **gói Gym đang hoạt động** + 3.000 điểm: Hào check-in ngay, thuê sân |
+| `demo.member2@sporthub.vn` | Member **chưa có gói** + 3.000 điểm: demo mua gói Gym, đăng ký lớp |
+| `demo.member3@sporthub.vn` | Member + 3.000 điểm: cùng member 2 đăng ký lớp 2 chỗ để thấy hết chỗ |
+| Lớp `DEMO-SMALL-01` | Bóng rổ nhỏ, **chỉ 2 chỗ**, 3 buổi Thứ 2-4-6 10:00: demo không bán vượt sĩ số |
+| 4 lớp `BR141-*` | Cầu lông / Bóng rổ cố định (BR-141): Thứ 2-4-6 07:00 và Thứ 3-5-7 14:00, 12 buổi |
+
+Tài khoản seed gốc dùng làm **dự phòng** nếu email không tới: `admin@`, `manager@`, `letan@`, `an.member@`, `coach.bongro@sporthub.vn`.
 
 ## 1. Chuẩn bị (làm trước, không làm trên sân khấu)
 
@@ -28,9 +38,13 @@ Tài khoản seed (mật khẩu chung `Sporthub@123`) dùng làm **dự phòng**
    - `Frontend__BaseUrl=http://localhost:3000` (link trong email kích hoạt/reset trỏ về localhost, nên **người nhận phải mở link trên chính máy demo**).
    - SMTP đã có để email thật gửi được. Nếu thiếu, nội dung email chỉ nằm trong log backend (`docker logs sporthub-backend`).
    - `VnPay__UseMock`: hiện đang `false`. Với demo, **thanh toán bằng ví điểm** (không tạo giao dịch VNPay), hoặc đặt `VnPay__UseMock=true` rồi `docker compose up -d` lại.
-4. Lớp BR141 đã có trong DB local (`BR141-CAULONG-01/02`, `BR141-BONGRO-01/02`). Nếu thiếu: `dotnet run --project backend/SportHub.API -- --seed-br141=true`.
-5. Chuẩn bị Member có sẵn điểm trong ví (an.member hoặc nạp điểm qua Manager) để thanh toán nhanh.
-6. Chuẩn bị một lớp **sĩ số nhỏ** (1–2 chỗ) cho bước chống bán vượt.
+4. **Seed dữ liệu demo** (idempotent, chạy lại không nhân bản dữ liệu, không cộng điểm lần hai). Lệnh dùng cổng Postgres của máy (`POSTGRES_PORT` trong `.env`, mặc định ví dụ `5435`); thay giá trị cho đúng:
+   ```bash
+   dotnet run --project backend/SportHub.API -- --seed-demo-flow12=true "--ConnectionStrings:Default=Host=localhost;Port=<POSTGRES_PORT>;Database=<db>;Username=<user>;Password=<password>"
+   ```
+   Viết `--seed-demo-flow12=true` (có giá trị) và truyền chuỗi kết nối theo dạng trên, nếu không seed có thể chạy vào DB mặc định. Lệnh in ra tên database đích ở dòng đầu; kiểm tra trước khi chạy tiếp. Lệnh này cũng bảo đảm 4 lớp BR141 có sẵn.
+5. Xác nhận: `demo.member1/2/3@sporthub.vn` đăng nhập được; `/member/courses` hiện `DEMO-SMALL-01` (2 chỗ) và 4 lớp BR141.
+6. **Dọn tài khoản test cũ** nếu cần: xóa tài khoản và dữ liệu liên quan là không hoàn tác được, nên `pg_dump` trước và chỉ xóa đúng tài khoản đã xác nhận. Nếu Khoa/Hào/Khôi đã được tạo từ trước thì bỏ bước tạo tương ứng ở 1.3 hoặc dùng email khác.
 7. Mở sẵn 4 cửa sổ/profile trình duyệt riêng (Admin, Member, Receptionist, Coach/Manager) tại `http://localhost:3000`.
 8. Backup nếu cần giữ dữ liệu: `docker exec sporthub-postgres pg_dump -U <user> <db> > backup.sql`.
 
@@ -53,7 +67,9 @@ Tài khoản seed (mật khẩu chung `Sporthub@123`) dùng làm **dự phòng**
 1. Đăng nhập Admin → **Users & roles** (`/admin/users`) → **Create staff account**.
 2. Tạo lần lượt: **Khoa** (Center Manager), **Hào** (Receptionist), **Khôi** (Coach). Với Khôi, chọn chuyên môn **Basketball** (bắt buộc với Coach).
 3. Mỗi người mở email "Activate your staff account" → **SET YOUR PASSWORD** → đặt mật khẩu → đăng nhập.
-4. **Điểm nói:**
+4. Nhập email **hai lần** khi tạo. Tài khoản chưa kích hoạt có nhãn **Pending activation**; mở **Edit** có **Resend activation link** và **Change email** (sửa email gõ sai, link cũ bị vô hiệu).
+5. **Điểm nói:**
+   - Hệ thống không xác minh được email có thật hay đúng người; việc xác minh là link kích hoạt gửi tới email đó, nên có nhập email hai lần, gửi lại link và sửa email khi gõ sai.
    - Admin không đặt mật khẩu hộ; staff tự kích hoạt bằng link dùng một lần (24 giờ).
    - **Coach chỉ do Admin tạo** (kèm chuyên môn). Manager không tạo được Coach, chỉ sửa hồ sơ và cấp **quyền dịch vụ PT** nếu Coach dạy PT.
 
@@ -67,8 +83,8 @@ Tài khoản seed (mật khẩu chung `Sporthub@123`) dùng làm **dự phòng**
 
 ## 1.5 Membership & Gym access (Member + Hào + Khoa) — 1 phút
 1. **Khoa:** `/manager/membership-plans` xem các gói (ngừng/mở lại được).
-2. **An – Member:** mua gói Gym → checkout bằng **điểm** → `/member/my-plans` thấy gói **Active**; nhận thông báo/email.
-3. **Hào:** `/receptionist/gym-checkin` → tìm Member (hoặc quét **mã Member** 5 phút) → **check-in**, rồi **check-out**.
+2. **Member 2 (`demo.member2@`) hoặc Member thật của An:** mua gói Gym → checkout bằng **điểm** → `/member/my-plans` thấy gói **Active**; nhận thông báo/email.
+3. **Hào:** `/receptionist/gym-checkin` → tìm `demo.member1@` (đã có sẵn gói Gym Active) hoặc Member vừa mua gói (hoặc quét **mã Member** 5 phút) → **check-in**, rồi **check-out**.
 4. **Điểm nói:** quyền vào Gym phụ thuộc Membership Active; mã Member chỉ quầy hoặc Manager tra được.
 
 **Kết Flow 1:** đăng ký OTP, quên mật khẩu, tạo staff + kích hoạt email, quản lý trạng thái, đổi role có kiểm soát, mua Membership và Gym check-in, audit.
@@ -86,7 +102,7 @@ Tài khoản seed (mật khẩu chung `Sporthub@123`) dùng làm **dự phòng**
 1. `/member/courses` → mở lớp vừa publish → **đăng ký**. **Điểm nói:** ghi danh gắn **cả lớp**, không chọn từng buổi.
 2. Checkout bằng **ví điểm** (hoặc chia điểm + VNPay nếu đã bật mock). Chỗ được **giữ có thời hạn**, thanh toán xong mới thành ghi danh.
 3. `/member/my-registrations` và `/member/class-schedule` xem lịch cá nhân. Chuông thông báo + email.
-4. **Chống bán vượt:** dùng lớp sĩ số nhỏ, hai Member đăng ký cùng lúc → người thứ hai bị từ chối (hoặc nói: có test `SeatHoldConcurrencyTests`).
+4. **Chống bán vượt:** lớp `DEMO-SMALL-01` chỉ có **2 chỗ**. Member 2 và Member 3 đăng ký xong (thanh toán bằng điểm), rồi Member của An đăng ký lớp đó → bị từ chối vì hết chỗ. Đăng ký đồng thời thì có test `SeatHoldConcurrencyTests`.
 
 ## 2.3 Receptionist và Coach (Hào, Khôi) — 2 phút
 1. **Hào:** `/receptionist/registrations` đăng ký hộ một Member; `/receptionist/attendance` điểm danh một buổi.
