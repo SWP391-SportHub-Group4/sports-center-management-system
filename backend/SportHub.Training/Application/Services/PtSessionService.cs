@@ -53,13 +53,13 @@ public sealed partial class PtSessionService(
     {
         if (fromUtc is not null && toUtc is not null && fromUtc > toUtc)
         {
-            throw new BadRequestException("invalid_pt_session_range", "Thời điểm bắt đầu phải trước thời điểm kết thúc.");
+            throw new BadRequestException("invalid_pt_session_range", "Invalid pt session range.");
         }
         if (fromUtc is not null && toUtc is not null
             && toUtc.Value - fromUtc.Value > TimeSpan.FromDays(MaximumSearchRangeDays))
         {
             throw new BadRequestException(
-                "range_too_large", $"Khoảng lịch PT tối đa {MaximumSearchRangeDays} ngày.");
+                "range_too_large", $"The PT schedule range cannot exceed {MaximumSearchRangeDays} days.");
         }
 
         page = Math.Clamp(page, 1, 100_000);
@@ -80,7 +80,7 @@ public sealed partial class PtSessionService(
         {
             if (!SportHub.BuildingBlocks.Api.WireEnum.TryParse<PtSessionStatus>(status, ignoreCase: true, out var parsed))
             {
-                throw new BadRequestException("pt_session_not_found", $"Trạng thái '{status}' không hợp lệ.");
+                throw new BadRequestException("pt_session_not_found", "Pt session not found.");
             }
 
             query = query.Where(s => s.Status == parsed);
@@ -104,7 +104,7 @@ public sealed partial class PtSessionService(
     public async Task<PtSessionResponse> GetAsync(Guid sessionId, CancellationToken ct = default)
         => await db.Set<PtSession>().AsNoTracking()
                .Where(s => s.SessionId == sessionId).Select(Projection()).SingleOrDefaultAsync(ct)
-           ?? throw new NotFoundException("pt_session_not_found", "Không tìm thấy buổi PT.");
+           ?? throw new NotFoundException("pt_session_not_found", "Pt session not found.");
 
     public async Task<PtSessionResponse> CreateAsync(
         CreatePtSessionRequest request, Guid managerId, CancellationToken ct = default)
@@ -113,7 +113,7 @@ public sealed partial class PtSessionService(
             .Where(e => e.EntitlementId == request.EntitlementId)
             .Select(e => new { e.CoachId, e.MemberId })
             .SingleOrDefaultAsync(ct)
-            ?? throw new NotFoundException("pt_entitlement_not_found", "Không tìm thấy quyền lợi PT.");
+            ?? throw new NotFoundException("pt_entitlement_not_found", "Pt entitlement not found.");
 
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
 
@@ -126,7 +126,7 @@ public sealed partial class PtSessionService(
         {
             throw new ConflictException(
                 "pt_session_assignment_changed",
-                "Phân công PT vừa thay đổi; vui lòng tải lại và thử xếp lịch lại.");
+                "Pt session assignment changed.");
         }
 
         EnsureActiveWithQuota(entitlement);
@@ -197,18 +197,18 @@ public sealed partial class PtSessionService(
     {
         if (toDate < fromDate)
         {
-            throw new BadRequestException("invalid_availability_range", "Ngày kết thúc phải sau hoặc bằng ngày bắt đầu.");
+            throw new BadRequestException("invalid_availability_range", "Invalid availability range.");
         }
 
         if (toDate.DayNumber - fromDate.DayNumber + 1 > PtSessionRules.MaxAvailabilityRangeDays)
         {
             throw new BadRequestException(
-                "range_too_large", $"Mỗi lần xem tối đa {PtSessionRules.MaxAvailabilityRangeDays} ngày.");
+                "range_too_large", $"The availability range cannot exceed {PtSessionRules.MaxAvailabilityRangeDays} days.");
         }
 
         var entitlement = await db.Set<PtEntitlement>().AsNoTracking()
             .SingleOrDefaultAsync(e => e.EntitlementId == entitlementId && e.MemberId == memberId, ct)
-            ?? throw new NotFoundException("pt_entitlement_not_found", "Không tìm thấy quyền lợi PT.");
+            ?? throw new NotFoundException("pt_entitlement_not_found", "Pt entitlement not found.");
 
         var coachName = await db.Set<PtEntitlement>().AsNoTracking()
             .Where(e => e.EntitlementId == entitlementId)
@@ -281,7 +281,7 @@ public sealed partial class PtSessionService(
             .Where(e => e.EntitlementId == request.EntitlementId && e.MemberId == memberId)
             .Select(e => new { e.CoachId, e.MemberId })
             .SingleOrDefaultAsync(ct)
-            ?? throw new NotFoundException("pt_entitlement_not_found", "Không tìm thấy quyền lợi PT.");
+            ?? throw new NotFoundException("pt_entitlement_not_found", "Pt entitlement not found.");
 
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
 
@@ -291,7 +291,7 @@ public sealed partial class PtSessionService(
         if (entitlement.MemberId != memberId || entitlement.CoachId != preview.CoachId)
         {
             throw new ConflictException(
-                "pt_session_assignment_changed", "Phân công PT vừa thay đổi; vui lòng tải lại và thử lại.");
+                "pt_session_assignment_changed", "Pt session assignment changed.");
         }
 
         EnsureActiveWithQuota(entitlement);
@@ -299,7 +299,7 @@ public sealed partial class PtSessionService(
         if (!await HasActiveRelationshipAsync(entitlement.MemberId, entitlement.CoachId, ct))
         {
             throw new ConflictException(
-                "pt_relationship_required", "Chưa có quan hệ Coach–Member đang hoạt động. Liên hệ trung tâm.");
+                "pt_relationship_required", "Pt relationship required.");
         }
 
         EnsureWithinValidity(entitlement, startAtUtc, endAtUtc);
@@ -311,7 +311,7 @@ public sealed partial class PtSessionService(
 
         if (roomId is null || freeRooms.All(r => r.RoomId != roomId))
         {
-            throw new ConflictException("pt_slot_unavailable", "Khung giờ này không còn phòng PT trống. Hãy chọn khung khác.");
+            throw new ConflictException("pt_slot_unavailable", "Pt slot unavailable.");
         }
 
         await PtRoomValidator.RequireAsync(catalog, specialties, roomId.Value, entitlement.CoachId, startAtUtc, endAtUtc, ct);
@@ -474,7 +474,7 @@ public sealed partial class PtSessionService(
         {
             throw new ConflictException(
                 "pt_session_assignment_changed",
-                "Phân công PT vừa thay đổi; vui lòng tải lại và thử đổi lịch lại.");
+                "Pt session assignment changed.");
         }
 
         EnsureCancellable(session);
@@ -494,7 +494,7 @@ public sealed partial class PtSessionService(
             if (remainingAfterConsume <= 0)
             {
                 throw new ConflictException(
-                    "pt_quota_exhausted", "Không còn quota để đổi lịch trễ hạn cho buổi này.");
+                    "pt_quota_exhausted", "Pt quota exhausted.");
             }
         }
 
@@ -595,7 +595,7 @@ public sealed partial class PtSessionService(
 
         if (session.CoachId != coachId)
         {
-            throw new ForbiddenException("pt_session_not_owned", "Bạn không phải Coach của buổi PT này.");
+            throw new ForbiddenException("pt_session_not_owned", "Pt session not owned.");
         }
 
         EnsureAttendanceWindow(session);
@@ -610,7 +610,7 @@ public sealed partial class PtSessionService(
         if (session.Status is not (PtSessionStatus.Scheduled or PtSessionStatus.NoShow))
         {
             throw new ConflictException(
-                "pt_session_not_completable", $"Buổi PT đang ở trạng thái {session.Status}, không hoàn thành được.");
+                "pt_session_not_completable", "Pt session not completable.");
         }
 
         var previousStatus = session.Status;
@@ -665,7 +665,7 @@ public sealed partial class PtSessionService(
 
         if (coachId.HasValue && session.CoachId != coachId)
         {
-            throw new ForbiddenException("pt_session_not_owned", "Bạn không phải Coach của buổi PT này.");
+            throw new ForbiddenException("pt_session_not_owned", "Pt session not owned.");
         }
 
         if (coachId.HasValue) EnsureAttendanceWindow(session);
@@ -680,7 +680,7 @@ public sealed partial class PtSessionService(
         if (session.Status is not (PtSessionStatus.Scheduled or PtSessionStatus.Completed))
         {
             throw new ConflictException(
-                "pt_session_not_completable", $"Buổi PT đang ở trạng thái {session.Status}, không ghi no-show được.");
+                "pt_session_not_completable", "Pt session not completable.");
         }
 
         var previousStatus = session.Status;
@@ -717,9 +717,9 @@ public sealed partial class PtSessionService(
     private void EnsureAttendanceWindow(PtSession session)
     {
         if (clock.UtcNow < SessionAttendanceWindow.OpensAt(session.StartAtUtc))
-            throw new BadRequestException("attendance_not_open", "Điểm danh mở từ 5 phút trước giờ bắt đầu buổi PT.");
+            throw new BadRequestException("attendance_not_open", "Attendance not open.");
         if (clock.UtcNow > SessionAttendanceWindow.ClosesAt(session.EndAtUtc))
-            throw new ConflictException("attendance_closed", "Đã quá 24 giờ sau khi buổi PT kết thúc — không điểm danh được.");
+            throw new ConflictException("attendance_closed", "Attendance closed.");
     }
 
 
@@ -758,21 +758,21 @@ public sealed partial class PtSessionService(
                    s.CoachId,
                    s.Entitlement!.CoachId))
                .SingleOrDefaultAsync(ct)
-           ?? throw new NotFoundException("pt_session_not_found", "Không tìm thấy buổi PT.");
+           ?? throw new NotFoundException("pt_session_not_found", "Pt session not found.");
 
     internal static void EnsureActiveWithQuota(PtEntitlement entitlement)
     {
         if (entitlement.Status != PtEntitlementStatus.Active)
         {
             throw new ConflictException(
-                "pt_entitlement_not_active", $"Quyền lợi PT đang ở trạng thái {entitlement.Status}.");
+                "pt_entitlement_not_active", "Pt entitlement not active.");
         }
 
         var remaining = entitlement.TotalQuota - entitlement.ReservedSessions - entitlement.ConsumedSessions;
 
         if (remaining <= 0)
         {
-            throw new ConflictException("pt_quota_exhausted", "Quyền lợi PT đã hết quota.");
+            throw new ConflictException("pt_quota_exhausted", "Pt quota exhausted.");
         }
     }
 
@@ -785,7 +785,7 @@ public sealed partial class PtSessionService(
         {
             throw new ConflictException(
                 "pt_session_outside_membership_validity",
-                "Buổi PT phải nằm trong hiệu lực Membership hiện hành.");
+                "Pt session outside membership validity.");
         }
     }
 
@@ -794,7 +794,7 @@ public sealed partial class PtSessionService(
         if (session.Status != PtSessionStatus.Scheduled)
         {
             throw new ConflictException(
-                "pt_session_not_completable", $"Buổi PT đang ở trạng thái {session.Status}, không đổi được.");
+                "pt_session_not_completable", "Pt session not completable.");
         }
     }
 
@@ -820,7 +820,7 @@ public sealed partial class PtSessionService(
             .ToListAsync(ct);
 
         return locked.SingleOrDefault()
-            ?? throw new NotFoundException("pt_entitlement_not_found", "Không tìm thấy quyền lợi PT.");
+            ?? throw new NotFoundException("pt_entitlement_not_found", "Pt entitlement not found.");
     }
 
     internal async Task<PtSession> LockSessionAsync(Guid sessionId, CancellationToken ct)
@@ -830,7 +830,7 @@ public sealed partial class PtSessionService(
             .ToListAsync(ct);
 
         return locked.SingleOrDefault()
-            ?? throw new NotFoundException("pt_session_not_found", "Không tìm thấy buổi PT.");
+            ?? throw new NotFoundException("pt_session_not_found", "Pt session not found.");
     }
 
     /// <summary>
@@ -864,7 +864,7 @@ public sealed partial class PtSessionService(
         {
             throw new ConflictException(
                 "pt_session_assignment_changed",
-                "Phân công PT vừa thay đổi; vui lòng tải lại và thử lại.");
+                "Pt session assignment changed.");
         }
     }
 
@@ -880,7 +880,7 @@ public sealed partial class PtSessionService(
 
         if (coachConflict)
         {
-            throw new ConflictException("pt_coach_conflict", "Coach đã có buổi PT khác trùng giờ.");
+            throw new ConflictException("pt_coach_conflict", "Pt coach conflict.");
         }
 
         var memberConflict = await db.Set<PtSession>().AnyAsync(
@@ -892,7 +892,7 @@ public sealed partial class PtSessionService(
 
         if (memberConflict)
         {
-            throw new ConflictException("pt_member_conflict", "Hội viên đã có buổi PT khác trùng giờ.");
+            throw new ConflictException("pt_member_conflict", "Pt member conflict.");
         }
     }
 

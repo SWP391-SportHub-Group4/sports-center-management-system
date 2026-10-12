@@ -715,47 +715,39 @@ namespace SportHub.API.Migrations
                     b.ToTable("user_sport_specialties", (string)null);
                 });
 
-            modelBuilder.Entity("SportHub.Membership.Domain.Entities.MemberBmiProfile", b =>
+            modelBuilder.Entity("SportHub.Membership.Domain.Entities.MemberBodyMeasurement", b =>
                 {
-                    b.Property<Guid>("MemberId")
+                    b.Property<Guid>("MeasurementId")
                         .HasColumnType("uuid")
-                        .HasColumnName("member_id");
+                        .HasColumnName("measurement_id");
 
-                    b.Property<DateTime?>("AppointmentAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("appointment_at");
-
-                    b.Property<decimal?>("HeightCm")
+                    b.Property<decimal>("HeightCm")
                         .HasPrecision(5, 1)
                         .HasColumnType("numeric(5,1)")
                         .HasColumnName("height_cm");
 
-                    b.Property<DateTime?>("MeasuredAt")
+                    b.Property<DateTime>("MeasuredAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("measured_at");
 
-                    b.Property<Guid?>("RecordedById")
+                    b.Property<Guid>("MemberId")
                         .HasColumnType("uuid")
-                        .HasColumnName("recorded_by_id");
+                        .HasColumnName("member_id");
 
-                    b.Property<DateTime>("RequestedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("requested_at");
-
-                    b.Property<decimal?>("WeightKg")
+                    b.Property<decimal>("WeightKg")
                         .HasPrecision(5, 1)
                         .HasColumnType("numeric(5,1)")
                         .HasColumnName("weight_kg");
 
-                    b.HasKey("MemberId")
-                        .HasName("pk_member_bmi_profiles");
+                    b.HasKey("MeasurementId")
+                        .HasName("pk_member_body_measurements");
 
-                    b.HasIndex("RecordedById")
-                        .HasDatabaseName("ix_member_bmi_profiles_recorded_by_id");
+                    b.HasIndex("MemberId", "MeasuredAt")
+                        .HasDatabaseName("ix_member_body_measurements_member_id_measured_at");
 
-                    b.ToTable("member_bmi_profiles", null, t =>
+                    b.ToTable("member_body_measurements", null, t =>
                         {
-                            t.HasCheckConstraint("ck_bmi_complete_measurement", "(measured_at IS NULL AND height_cm IS NULL AND weight_kg IS NULL AND recorded_by_id IS NULL) OR (measured_at IS NOT NULL AND height_cm IS NOT NULL AND weight_kg IS NOT NULL AND height_cm BETWEEN 50 AND 250 AND weight_kg BETWEEN 10 AND 400 AND recorded_by_id IS NOT NULL)");
+                            t.HasCheckConstraint("ck_member_body_measurement_range", "height_cm BETWEEN 100 AND 250 AND weight_kg BETWEEN 30 AND 300");
                         });
                 });
 
@@ -843,14 +835,40 @@ namespace SportHub.API.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("profile_id");
 
+                    b.Property<int?>("ActivityLevel")
+                        .HasColumnType("integer")
+                        .HasColumnName("activity_level");
+
+                    b.Property<DateOnly?>("DateOfBirth")
+                        .HasColumnType("date")
+                        .HasColumnName("date_of_birth");
+
+                    b.Property<int>("DietaryPreference")
+                        .HasColumnType("integer")
+                        .HasColumnName("dietary_preference");
+
                     b.Property<int>("ExperienceLevel")
                         .HasColumnType("integer")
                         .HasColumnName("experience_level");
+
+                    b.Property<string>("FoodAllergies")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("food_allergies");
 
                     b.Property<string>("Goal")
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("goal");
+
+                    b.Property<int?>("GoalType")
+                        .HasColumnType("integer")
+                        .HasColumnName("goal_type");
+
+                    b.Property<decimal?>("HeightCm")
+                        .HasPrecision(5, 1)
+                        .HasColumnType("numeric(5,1)")
+                        .HasColumnName("height_cm");
 
                     b.Property<Guid>("MemberId")
                         .HasColumnType("uuid")
@@ -860,9 +878,31 @@ namespace SportHub.API.Migrations
                         .HasColumnType("text")
                         .HasColumnName("notes");
 
+                    b.Property<int?>("SessionMinutes")
+                        .HasColumnType("integer")
+                        .HasColumnName("session_minutes");
+
+                    b.Property<int?>("Sex")
+                        .HasColumnType("integer")
+                        .HasColumnName("sex");
+
+                    b.Property<decimal?>("TargetWeightKg")
+                        .HasPrecision(5, 1)
+                        .HasColumnType("numeric(5,1)")
+                        .HasColumnName("target_weight_kg");
+
+                    b.Property<int?>("TrainingDaysPerWeek")
+                        .HasColumnType("integer")
+                        .HasColumnName("training_days_per_week");
+
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
+
+                    b.Property<decimal?>("WeightKg")
+                        .HasPrecision(5, 1)
+                        .HasColumnType("numeric(5,1)")
+                        .HasColumnName("weight_kg");
 
                     b.HasKey("ProfileId")
                         .HasName("pk_member_training_profiles");
@@ -3147,6 +3187,14 @@ namespace SportHub.API.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("end_at_utc");
 
+                    b.Property<int>("ExtendedMemberCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("extended_member_count");
+
+                    b.Property<int>("MembershipExtensionDays")
+                        .HasColumnType("integer")
+                        .HasColumnName("membership_extension_days");
+
                     b.Property<string>("Reason")
                         .IsRequired()
                         .HasMaxLength(500)
@@ -3185,6 +3233,8 @@ namespace SportHub.API.Migrations
 
                     b.ToTable("incident_notices", null, t =>
                         {
+                            t.HasCheckConstraint("ck_incident_membership_extension", "membership_extension_days BETWEEN 0 AND 31 AND extended_member_count >= 0");
+
                             t.HasCheckConstraint("ck_incident_notice_range", "end_at_utc > start_at_utc");
                         });
                 });
@@ -3967,20 +4017,14 @@ namespace SportHub.API.Migrations
                     b.Navigation("UserAccount");
                 });
 
-            modelBuilder.Entity("SportHub.Membership.Domain.Entities.MemberBmiProfile", b =>
+            modelBuilder.Entity("SportHub.Membership.Domain.Entities.MemberBodyMeasurement", b =>
                 {
                     b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", "Member")
                         .WithMany()
                         .HasForeignKey("MemberId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
-                        .HasConstraintName("fk_member_bmi_profiles_user_accounts_member_id");
-
-                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", null)
-                        .WithMany()
-                        .HasForeignKey("RecordedById")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .HasConstraintName("fk_member_bmi_profiles_user_accounts_recorded_by_id");
+                        .HasConstraintName("fk_member_body_measurements_user_accounts_member_id");
 
                     b.Navigation("Member");
                 });

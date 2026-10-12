@@ -9,5 +9,4 @@ public interface IGoogleAuthService
 
     Task LinkAsync(Guid userId, string idToken, CancellationToken ct = default);
 
-    Task UnlinkAsync(Guid userId, CancellationToken ct = default);
 }

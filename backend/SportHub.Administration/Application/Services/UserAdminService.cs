@@ -105,7 +105,7 @@ public sealed class UserAdminService(
                       .Where(u => u.UserId == userId)
                       .Select(Projection())
                       .SingleOrDefaultAsync(ct)
-                  ?? throw new NotFoundException("user_not_found", "Không tìm thấy tài khoản.");
+                  ?? throw new NotFoundException("user_not_found", "User not found.");
 
         return (await WithSportsAsync([row], ct))[0];
     }
@@ -123,7 +123,7 @@ public sealed class UserAdminService(
         {
             throw new BadRequestException(
                 "member_must_self_register",
-                "Tài khoản Hội viên phải tự đăng ký (BR-1), không tạo từ màn hình quản trị.");
+                "Member must self register.");
         }
 
         var email = request.Email.Trim();
@@ -132,12 +132,12 @@ public sealed class UserAdminService(
 
         if (await db.Set<UserAccount>().AnyAsync(u => u.Email == email, ct))
         {
-            throw new ConflictException("email_already_exists", "Email đã được sử dụng.");
+            throw new ConflictException("email_already_exists", "Email already exists.");
         }
 
         if (phone is not null && await db.Set<UserProfile>().AnyAsync(p => p.Phone == phone, ct))
         {
-            throw new ConflictException("phone_already_exists", "Số điện thoại đã được sử dụng.");
+            throw new ConflictException("phone_already_exists", "Phone already exists.");
         }
 
         // BR-96 — tài khoản role Coach phải có chuyên môn (ít nhất một môn đang hoạt động), chọn ngay lúc tạo. Role khác không
@@ -151,7 +151,7 @@ public sealed class UserAdminService(
         else if (request.SportIds is { Count: > 0 })
         {
             throw new BadRequestException(
-                "sport_ids_not_applicable", "Chỉ tài khoản role Coach mới nhận môn chuyên môn.");
+                "sport_ids_not_applicable", "Sport ids not applicable.");
         }
 
         var role = await db.Set<Role>().SingleAsync(r => r.RoleName == targetRole, ct);
@@ -207,7 +207,7 @@ public sealed class UserAdminService(
             .Include(u => u.Role)
             .Include(u => u.CoachProfile)
             .SingleOrDefaultAsync(u => u.UserId == userId, ct)
-            ?? throw new NotFoundException("user_not_found", "Không tìm thấy tài khoản.");
+            ?? throw new NotFoundException("user_not_found", "User not found.");
 
         var currentRole = user.Role!.RoleName;
 
@@ -240,7 +240,7 @@ public sealed class UserAdminService(
         else if (request.SportIds is { Count: > 0 })
         {
             throw new BadRequestException(
-                "sport_ids_not_applicable", "Chỉ áp dụng môn chuyên môn khi đổi vai trò sang Coach.");
+                "sport_ids_not_applicable", "Sport ids not applicable.");
         }
 
         var role = await db.Set<Role>().SingleAsync(r => r.RoleName == targetRole, ct);
@@ -276,13 +276,13 @@ public sealed class UserAdminService(
         {
             throw new ForbiddenException(
                 "cannot_lock_self",
-                "Không được tự khóa tài khoản của chính mình (BR-6).");
+                "Cannot lock self.");
         }
 
         var user = await db.Set<UserAccount>()
             .Include(u => u.Role)
             .SingleOrDefaultAsync(u => u.UserId == userId, ct)
-            ?? throw new NotFoundException("user_not_found", "Không tìm thấy tài khoản.");
+            ?? throw new NotFoundException("user_not_found", "User not found.");
 
         if (user.Status == target)
         {
@@ -330,19 +330,19 @@ public sealed class UserAdminService(
         {
             throw new ConflictException(
                 "last_active_system_administrator",
-                "Đây là System Administrator đang hoạt động cuối cùng — không thể khóa hoặc đổi vai trò (BR-6).");
+                "Last active system administrator.");
         }
     }
 
     private static UserRole ParseRole(string role)
         => SportHub.BuildingBlocks.Api.WireEnum.TryParse<UserRole>(role, ignoreCase: true, out var parsed)
             ? parsed
-            : throw new BadRequestException("invalid_role", $"Vai trò không hợp lệ: '{role}'.");
+            : throw new BadRequestException("invalid_role", "Invalid role.");
 
     private static UserStatus ParseStatus(string status)
         => SportHub.BuildingBlocks.Api.WireEnum.TryParse<UserStatus>(status, ignoreCase: true, out var parsed)
             ? parsed
-            : throw new BadRequestException("invalid_status", $"Trạng thái không hợp lệ: '{status}'.");
+            : throw new BadRequestException("invalid_status", "Invalid status.");
 
     private async Task<IReadOnlyList<UserAdminResponse>> WithSportsAsync(IReadOnlyList<UserAdminResponse> rows, CancellationToken ct)
     {

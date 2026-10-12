@@ -131,7 +131,7 @@ Chi tiết tại [Phụ lục A — Từ điển dữ liệu](#phụ-lục-a--t�
 
 Đăng ký Member bằng email dùng OTP. Tài khoản nhân sự được tạo theo policy. Đổi/reset mật khẩu và khóa tài khoản phải vô hiệu phiên không còn hợp lệ.
 
-**Quên mật khẩu (BR-103) — đã triển khai bằng link email, không dùng OTP:** `POST /api/auth/password/forgot` luôn trả 204 trung tính (không lộ email nào đã đăng ký; email không tồn tại, bị khóa hay đang chờ gửi lại đều như nhau). Với tài khoản Active, hệ thống tạo token ngẫu nhiên 256-bit, chỉ lưu SHA-256 trong `EmailOtp` (purpose `ResetPassword`), hạn 10 phút, dùng một lần, chỉ link mới nhất hợp lệ, gửi lại sau 60 giây; email mang nút tới `{Frontend:BaseUrl}/reset-password?email=&token=`. `POST /api/auth/password/reset` nhận `{email, token, newPassword, confirmNewPassword}`, tiêu token và đổi security stamp trong cùng transaction. Giao diện: `/forgot-password` (thông điệp trung tính, cooldown 60 giây gắn theo từng email, đổi email gửi được ngay) và `/reset-password` (ô mật khẩu có con mắt, ba trạng thái form/thành công/link hỏng). Đăng ký Member vẫn dùng OTP 6 số. *Chưa có:* email thông báo "mật khẩu đã thay đổi" mà BR-103/104 mô tả.
+**Quên mật khẩu (BR-103) — đã triển khai bằng link email, không dùng OTP:** `POST /api/auth/password/forgot` luôn trả 204 trung tính (không lộ email nào đã đăng ký; email không tồn tại, bị khóa hay đang chờ gửi lại đều như nhau). Với tài khoản Active, hệ thống tạo token ngẫu nhiên 256-bit, chỉ lưu SHA-256 trong `EmailOtp` (purpose `ResetPassword`), hạn 10 phút, dùng một lần, chỉ link mới nhất hợp lệ, gửi lại sau 60 giây; email mang nút tới `{Frontend:BaseUrl}/reset-password?email=&token=`. `POST /api/auth/password/reset` nhận `{email, token, newPassword, confirmNewPassword}`, tiêu token và đổi security stamp trong cùng transaction. Giao diện: `/forgot-password` (thông điệp trung tính, cooldown 60 giây gắn theo từng email, đổi email gửi được ngay) và `/reset-password` (ô mật khẩu có con mắt, ba trạng thái form/thành công/link hỏng). Đăng ký Member vẫn dùng OTP 6 số. Đổi, đặt lại hoặc tạo mật khẩu lần đầu thành công đều gửi email "mật khẩu đã thay đổi" (sự kiện `PasswordChanged`, cùng transaction với việc đổi; không chứa mật khẩu hay mã; báo đã đăng xuất các thiết bị khác).
 
 **Ngôn ngữ giao diện:** các trang xác thực (`/login`, `/register`, `/forgot-password`, `/reset-password`) luôn tiếng Anh, không đọc ngôn ngữ đã lưu và không có nút đổi ngôn ngữ; phần còn lại giữ EN/VI.
 
@@ -326,7 +326,7 @@ G01–G13 trỏ [phân công API theo page/owner](../DESIGN-SKILLS-GUIDE.md#api-
 | G11 | Callback VNPay public | Đã sửa route theo PAY-03; còn test runtime và sandbox thật. Mock endpoint có đăng nhập không thay thế IPN public |
 | G12 | Scoping Member search/detail cho Coach | Đã chặn Coach duyệt users/packages, đưa guard training profile/workout history và PT detail xuống service, giới hạn danh sách workout/PT entitlement/PT session theo quan hệ Active, ép relationship search Active. Negative tests PostgreSQL cho PT list/detail và workout list sau quan hệ Ended đã qua; còn nghiệm thu role E2E trên staging. |
 | G13 | Đóng/mở tuyển sinh độc lập lifecycle lớp | Chốt hold/payment cũ, không dùng cancel thay close enrollment |
-| INC-01 | Sự cố Gym: email Member có Membership Active và gia hạn `EndDate` theo số ngày đóng cửa; Center Fault Membership/PT hiện hoàn 100% (`RefundCalculator`) lệch BR-91 (theo phần chưa dùng) | Thêm phạm vi Gym vào Incident, nhóm người nhận Membership Active (BR-138), extend Membership trong transaction resolve, sửa `RefundCalculator` + test; chưa có page/owner trong DESIGN-SKILLS-GUIDE |
+| INC-01 | Sự cố Gym: email Member có Membership Active và gia hạn `EndDate` theo số ngày đóng cửa; Center Fault Membership/PT hiện hoàn 100% (`RefundCalculator`) lệch BR-91 (theo phần chưa dùng) | **Đã làm phần gia hạn:** sự cố đóng mọi phòng Gym đang hoạt động (phòng thuộc loại phòng của dịch vụ PT) cho phép Manager nhập `membershipExtensionDays` (0–31, gợi ý = số ngày dương lịch giờ VN bị đóng trọn); resolve cộng ngày vào `EndDate` mọi Membership Active có `EndDate` ≥ ngày bắt đầu sự cố, dời `StartDate` gói nối tiếp chưa bắt đầu, báo từng hội viên (thông báo + email) và ghi audit, `incident_notices` lưu `membership_extension_days`, `extended_member_count`. Còn lại: sửa `RefundCalculator` + test cho Center Fault Membership/PT |
 | UI-01 | Frontend redesign theo contract hiện có | Kế hoạch từng màn phải nối API thật, kiểm E2E trước khi ghi hoàn thành |
 | OPS-01 | Nghiệm thu vận hành | Deploy/migration, backup-restore, giám sát job/outbox/reconciliation có evidence |
 
@@ -1728,7 +1728,7 @@ Module **lớn nhất**, chia thành core + 3 sub-module (Catalog, Occupancy, Th
 |---|---|---|
 | `MembershipPackageService.cs` | 6.2KB | CRUD gói + validate (tên unique, price > 0, duration > 0) |
 | `MemberPackageService.cs` | 7.4KB | List gói member, approve stacking (cho phép member có nhiều gói active), kiểm tra isUsable |
-| `MemberTrainingProfileService.cs` | 2.7KB | Upsert training profile: goal, experienceLevel, notes |
+| `MemberTrainingProfileService.cs` | | Upsert hồ sơ sức khỏe: kiểm tra đầu vào (tuổi 14–90, chiều cao 100–250, cân nặng 30–300, mục tiêu không dưới BMI 18.5), tính BMI ở server, thêm lịch sử số đo; `GET /api/members/{id}/training-profile` chỉ Manager và Coach có quan hệ Active |
 | `MembershipReportService.cs` | 2.4KB | Tổng hợp: active members, packages sold, revenue |
 
 #### Domain/Entities/ (3 files)
@@ -1737,7 +1737,8 @@ Module **lớn nhất**, chia thành core + 3 sub-module (Catalog, Occupancy, Th
 |---|---|---|
 | `MembershipPackage.cs` | 1.0KB | Định nghĩa gói: Name, Price, DurationDays, SessionLimit, IsActive |
 | `MemberPackage.cs` | 1.4KB | Gói member sở hữu: MemberId, PackageId, StartDate, EndDate, RemainingSessions, Status |
-| `MemberTrainingProfile.cs` | 674B | Hồ sơ tập: MemberId, Goal, ExperienceLevel, Notes |
+| `MemberTrainingProfile.cs` | | Hồ sơ sức khỏe và tập luyện hội viên tự khai: Goal/GoalType, ExperienceLevel, ngày sinh, giới tính, chiều cao, cân nặng, cân nặng mục tiêu, mức vận động, ngày tập/tuần, phút/buổi, chế độ ăn, dị ứng, Notes (chấn thương/bệnh lý) |
+| `MemberBodyMeasurement.cs` | | Lịch sử chiều cao/cân nặng tự khai, chỉ ghi thêm khi số đo đổi |
 
 #### Domain/Enums/
 

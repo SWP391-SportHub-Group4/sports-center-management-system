@@ -19,7 +19,7 @@ public static class CourseRules
     {
         if (price <= 0 || price % 1000 != 0)
         {
-            throw new BadRequestException("invalid_price", "Giá khóa phải dương và là bội số của 1.000 VND (BR-113).");
+            throw new BadRequestException("invalid_price", "Invalid price.");
         }
     }
 
@@ -28,7 +28,7 @@ public static class CourseRules
     {
         if (cost < 0)
         {
-            throw new BadRequestException("invalid_cost", "Chi phí khóa không được âm.");
+            throw new BadRequestException("invalid_cost", "Invalid cost.");
         }
     }
 
@@ -36,7 +36,7 @@ public static class CourseRules
     {
         if (numSessions < 1 || numSessions > MaxNumSessions)
         {
-            throw new BadRequestException("invalid_num_sessions", $"Số buổi phải từ 1 đến {MaxNumSessions}.");
+            throw new BadRequestException("invalid_num_sessions", $"The number of sessions must be between 1 and {MaxNumSessions}.");
         }
     }
 
@@ -45,17 +45,17 @@ public static class CourseRules
     {
         if (capacity < 1)
         {
-            throw new BadRequestException("invalid_capacity", "Sức chứa phải lớn hơn 0.");
+            throw new BadRequestException("invalid_capacity", "Invalid capacity.");
         }
 
         if (sportMaxCapacity is int max && capacity > max)
         {
-            throw new BadRequestException("capacity_exceeds_sport_limit", $"Sức chứa vượt mức tối đa của môn ({max}).");
+            throw new BadRequestException("capacity_exceeds_sport_limit", $"Capacity exceeds the sport limit of {max}.");
         }
 
         if (capacity > roomCapacity)
         {
-            throw new BadRequestException("capacity_exceeds_room", $"Sức chứa vượt sức chứa của phòng ({roomCapacity}).");
+            throw new BadRequestException("capacity_exceeds_room", $"Capacity exceeds the room limit of {roomCapacity}.");
         }
     }
 
@@ -64,7 +64,7 @@ public static class CourseRules
     {
         if (price <= 0)
         {
-            throw new ArgumentOutOfRangeException(nameof(price), "Giá phải dương.");
+            throw new ArgumentOutOfRangeException(nameof(price), "Price must be positive.");
         }
 
         return (int)decimal.Ceiling(cost / price);
@@ -84,22 +84,22 @@ public static class CourseRules
 
         if (rules.Any(r => r.DayOfWeek is < 0 or > 6))
         {
-            throw new BadRequestException("invalid_schedule_day", "Thứ trong tuần phải từ 0 đến 6.");
+            throw new BadRequestException("invalid_schedule_day", "Invalid schedule day.");
         }
 
         if (rules.Distinct().Count() != rules.Count)
         {
-            throw new BadRequestException("duplicate_schedule_rule", "Quy tắc lịch lặp bị trùng.");
+            throw new BadRequestException("duplicate_schedule_rule", "Duplicate schedule rule.");
         }
 
         if (rules.Count == 0)
         {
-            throw new BadRequestException("schedule_rules_required", "Khóa phải có ít nhất một quy tắc lịch lặp theo tuần.");
+            throw new BadRequestException("schedule_rules_required", "Schedule rules required.");
         }
 
         if (sessionMinutes <= 0)
         {
-            throw new BadRequestException("sport_session_minutes_missing", "Môn chưa cấu hình thời lượng buổi mặc định.");
+            throw new BadRequestException("sport_session_minutes_missing", "Sport session minutes missing.");
         }
 
         var byDay = rules
@@ -109,7 +109,7 @@ public static class CourseRules
         if (!byDay.ContainsKey((int)startDate.DayOfWeek))
         {
             throw new BadRequestException(
-                "start_date_not_on_schedule", "Ngày bắt đầu phải trùng một thứ có trong lịch lặp của khóa.");
+                "start_date_not_on_schedule", "Start date not on schedule.");
         }
 
         var sessions = new List<GeneratedSession>(numSessions);

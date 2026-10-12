@@ -28,7 +28,7 @@ public sealed class WalletQueryService(ISportHubDbContext db, IUserAccessReader 
         if (!string.IsNullOrWhiteSpace(entryType))
         {
             if (!Enum.TryParse<PointEntryType>(entryType, true, out var filter) || !Enum.IsDefined(filter))
-                throw new BadRequestException("invalid_ledger_filter", "Loại giao dịch điểm không hợp lệ.");
+                throw new BadRequestException("invalid_ledger_filter", "Invalid ledger filter.");
             query = query.Where(x => x.EntryType == filter);
         }
         var rows = await query.OrderByDescending(x => x.CreatedAtUtc).ThenByDescending(x => x.LedgerEntryId)
@@ -51,7 +51,7 @@ public sealed class WalletQueryService(ISportHubDbContext db, IUserAccessReader 
     {
         var owner = await users.GetAsync(ownerId, ct);
         if (owner is null || owner.Role != "Member")
-            throw new NotFoundException("wallet_owner_not_found", "Không tìm thấy chủ ví hợp lệ.");
+            throw new NotFoundException("wallet_owner_not_found", "Wallet owner not found.");
         // Manager wallet views are read-only: audit the committed adjustment instead.
         // Shared /members/{id}/points routes also skip audits for Manager actors.
         // Receptionist retains the access audit required by the counter workflow.

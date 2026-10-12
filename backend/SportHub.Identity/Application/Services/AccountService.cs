@@ -1,7 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using SportHub.BuildingBlocks.Abstractions.Identity;
 using Npgsql;
+using SportHub.BuildingBlocks.Abstractions.Notifications;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
+using SportHub.BuildingBlocks.SharedKernel.Time;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.Identity.Application.Commands;
 using SportHub.Identity.Application.Interfaces;
@@ -54,6 +56,8 @@ public sealed class AccountService(
     IOptions<JwtOptions> jwtOptions,
     ICoachSpecialtyReader specialties,
     EmailOtpFlow otpFlow,
+    INotificationWriter notifications,
+    IClock clock,
     IConfiguration configuration) : IAccountService
 {
     public async Task<MyAccountResponse> GetMeAsync(Guid userId, CancellationToken ct = default)
@@ -74,7 +78,7 @@ public sealed class AccountService(
                    db.Set<UserSportSpecialty>().Where(s => s.UserId == u.UserId).Select(s => s.SportId).ToList())
                    { AvatarUrl = u.Profile != null ? u.Profile.AvatarUrl : null })
                .SingleOrDefaultAsync(ct)
-           ?? throw new NotFoundException("user_not_found", "Không tìm thấy tài khoản.");
+           ?? throw new NotFoundException("user_not_found", "User not found.");
 
         return account with { IsPersonalTrainer = await specialties.IsPersonalTrainerAsync(userId, ct) };
     }
@@ -110,7 +114,7 @@ public sealed class AccountService(
         {
             // BR-62 — partial unique index là nơi chặn thật; kiểm trước bằng SELECT vẫn hở khe
             // cho hai request đồng thời.
-            throw new ConflictException("phone_already_exists", "Số điện thoại đã được tài khoản khác sử dụng.");
+            throw new ConflictException("phone_already_exists", "Phone already exists.");
         }
 
         return await GetMeAsync(userId, ct);
@@ -126,13 +130,13 @@ public sealed class AccountService(
                        .AsNoTracking()
                        .Include(u => u.Credential)
                        .SingleOrDefaultAsync(u => u.UserId == userId, ct)
-                   ?? throw new NotFoundException("user_not_found", "Không tìm thấy tài khoản.");
+                   ?? throw new NotFoundException("user_not_found", "User not found.");
 
         if (user.Credential?.PasswordHash is not null)
         {
             throw new ConflictException(
                 "password_already_set",
-                "Tài khoản đã có mật khẩu. Hãy dùng chức năng đổi mật khẩu.");
+                "Password already set.");
         }
 
         var code = await otpFlow.IssueAsync(
@@ -143,7 +147,7 @@ public sealed class AccountService(
             throw new AppException(
                 429,
                 "otp_resend_too_soon",
-                $"Vui lòng đợi {AuthService.OtpResendCooldown.TotalSeconds:0} giây trước khi yêu cầu mã mới.");
+                $"Wait {AuthService.OtpResendCooldown.TotalSeconds:0} seconds before requesting a new code.");
         }
     }
 
@@ -164,7 +168,7 @@ public sealed class AccountService(
                        .Include(u => u.Credential)
                        .Include(u => u.Role)
                        .SingleOrDefaultAsync(u => u.UserId == userId, ct)
-                   ?? throw new NotFoundException("user_not_found", "Không tìm thấy tài khoản.");
+                   ?? throw new NotFoundException("user_not_found", "User not found.");
 
         PasswordPolicyGuard.Enforce(request.NewPassword, user.Email);
 
@@ -182,18 +186,18 @@ public sealed class AccountService(
             if (string.IsNullOrEmpty(request.CurrentPassword))
             {
                 throw new BadRequestException(
-                    "current_password_required", "Phải nhập mật khẩu hiện tại để đổi mật khẩu.");
+                    "current_password_required", "Current password required.");
             }
 
             if (!passwordHasher.Verify(request.CurrentPassword, credential.PasswordHash))
             {
-                throw new BadRequestException("current_password_incorrect", "Mật khẩu hiện tại không đúng.");
+                throw new BadRequestException("current_password_incorrect", "Current password incorrect.");
             }
 
             if (passwordHasher.Verify(request.NewPassword, credential.PasswordHash))
             {
                 throw new BadRequestException(
-                    "new_password_same_as_current", "Mật khẩu mới phải khác mật khẩu hiện tại.");
+                    "new_password_same_as_current", "New password same as current.");
             }
         }
         else
@@ -202,7 +206,7 @@ public sealed class AccountService(
             {
                 throw new BadRequestException(
                     "otp_required",
-                    "Cần nhập mã xác nhận gửi tới email để tạo mật khẩu cho tài khoản.");
+                    "Otp required.");
             }
 
             otpId = await otpFlow.VerifyAsync(user.Email, EmailOtpPurpose.SetPassword, request.OtpCode.Trim(), ct);
@@ -217,6 +221,11 @@ public sealed class AccountService(
 
         credential.PasswordHash = passwordHasher.Hash(request.NewPassword);
         user.SecurityStamp = Guid.NewGuid();
+
+        // Cùng SaveChanges với đổi mật khẩu: không có trạng thái "đã đổi nhưng chưa có thư báo".
+        notifications.QueueEmail(new EmailNotificationRequest(user.UserId, user.Email, NotificationEvents.PasswordChanged,
+            Guid.NewGuid(), PasswordChangedEmail.Subject,
+            PasswordChangedEmail.Render(PasswordChangedEmail.FormatLocal(clock.UtcNow), configuration["Frontend:SupportUrl"])));
 
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);

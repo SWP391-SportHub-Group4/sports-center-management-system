@@ -5,6 +5,7 @@ using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.BuildingBlocks.SharedKernel.Time;
 using SportHub.Membership.Domain.Entities;
+using SportHub.Membership.Domain.Rules;
 using SportHub.Scheduling.Domain.Entities;
 using SportHub.Scheduling.Domain.Enums;
 using SportHub.Training.Domain.Entities;
@@ -25,7 +26,8 @@ public sealed record WorkoutSuggestionInput(
     int GymCheckIns,
     IReadOnlyList<string> RecentDisciplines,
     IReadOnlyList<string> RecentCoachNotes,
-    string Sport = "Gym");
+    string Sport = "Gym",
+    MemberHealthSnapshot? Health = null);
 
 public sealed record WorkoutSuggestionResponse(
     Guid MemberId,
@@ -38,7 +40,8 @@ public sealed record WorkoutSuggestionResponse(
     int ResponseTimeMs,
     DateTime GeneratedAt,
     IReadOnlyList<WorkoutSuggestedExercise>? Items = null,
-    string Sport = "Gym");
+    string Sport = "Gym",
+    NutritionGuidance? Nutrition = null);
 
 /// <summary>
 /// Gợi ý bài tập cho HLV — BR-26 (bắt buộc đủ ba đầu vào: mục tiêu, trình độ, lịch sử tập
@@ -71,14 +74,14 @@ public sealed class WorkoutRecommendationService(
             .SingleOrDefaultAsync(p => p.MemberId == memberId, ct)
             ?? throw new ConflictException(
                 "insufficient_ai_input",
-                "Hội viên chưa khai hồ sơ tập luyện (mục tiêu, trình độ) — chưa đủ đầu vào cho gợi ý AI (BR-26).");
+                "Insufficient ai input.");
 
         var member = await db.Set<Identity.Domain.Entities.UserAccount>()
             .AsNoTracking()
             .Where(u => u.UserId == memberId)
             .Select(u => new { u.Email, Name = u.Profile != null ? u.Profile.FullName : u.Email })
             .SingleOrDefaultAsync(ct)
-            ?? throw new NotFoundException("member_not_found", "Không tìm thấy hội viên.");
+            ?? throw new NotFoundException("member_not_found", "Member not found.");
 
         var sinceUtc = clock.UtcNow.AddDays(-HistoryWindowDays);
 
@@ -106,6 +109,8 @@ public sealed class WorkoutRecommendationService(
             .Select(r => r.CoachComment ?? r.ProgressNote ?? string.Empty)
             .ToListAsync(ct);
 
+        var health = BuildHealthSnapshot(profile, clock);
+
         var input = new WorkoutSuggestionInput(
             memberId,
             member.Name,
@@ -116,7 +121,7 @@ public sealed class WorkoutRecommendationService(
             attendance.Count(a => a.AttendanceStatus == AttendanceStatus.Absent),
             gymCheckIns,
             [.. attendance.Select(a => a.Discipline).Distinct()],
-            [.. coachNotes.Where(n => !string.IsNullOrWhiteSpace(n))], sport);
+            [.. coachNotes.Where(n => !string.IsNullOrWhiteSpace(n))], sport, health);
 
         var stopwatch = Stopwatch.StartNew();
         WorkoutSuggestion suggestion;
@@ -125,7 +130,7 @@ public sealed class WorkoutRecommendationService(
         try
         {
             suggestion = await provider.SuggestWorkoutAsync(
-                memberId, coachId, profile.Goal, profile.ExperienceLevel.ToString(), ct, sport);
+                memberId, coachId, profile.Goal, profile.ExperienceLevel.ToString(), ct, sport, health);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -148,6 +153,7 @@ public sealed class WorkoutRecommendationService(
             {
                 exercises = suggestion.Exercises,
                 items = suggestion.Items,
+                nutrition = suggestion.Nutrition,
                 rationale = suggestion.Rationale,
                 error = failure
             }),
@@ -160,7 +166,7 @@ public sealed class WorkoutRecommendationService(
         if (failure is not null)
         {
             throw new AppException(
-                502, "ai_provider_failed", $"Không tạo được gợi ý từ AI: {failure}");
+                502, "ai_provider_failed", "Ai provider failed.");
         }
 
         return new WorkoutSuggestionResponse(
@@ -173,6 +179,18 @@ public sealed class WorkoutRecommendationService(
             suggestion.Rationale,
             elapsedMs,
             clock.UtcNow,
-            suggestion.Items, sport);
+            suggestion.Items, sport, suggestion.Nutrition);
+    }
+
+    private static MemberHealthSnapshot BuildHealthSnapshot(MemberTrainingProfile profile, IClock clock)
+    {
+        decimal? bmi = profile.HeightCm is { } h && profile.WeightKg is { } w ? BodyMetrics.Bmi(h, w) : null;
+        int? age = profile.DateOfBirth is { } dob ? BodyMetrics.AgeOn(dob, VietnamTime.TodayLocal(clock)) : null;
+        var complete = profile.GoalType is not null && profile.DateOfBirth is not null && profile.Sex is not null
+            && bmi is not null && profile.ActivityLevel is not null && profile.TrainingDaysPerWeek is not null;
+        return new MemberHealthSnapshot(age, profile.Sex?.ToString(), profile.HeightCm, profile.WeightKg, bmi,
+            bmi is { } b ? BodyMetrics.Category(b) : null, profile.TargetWeightKg, profile.GoalType?.ToString(),
+            profile.ActivityLevel?.ToString(), profile.TrainingDaysPerWeek, profile.SessionMinutes,
+            profile.DietaryPreference.ToString(), profile.FoodAllergies, profile.Notes, complete);
     }
 }

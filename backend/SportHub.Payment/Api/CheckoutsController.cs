@@ -23,11 +23,11 @@ public sealed class CheckoutsController(CheckoutService checkouts, IPackagePurch
         var staff = User.IsInRole(SportHubRoleNames.Receptionist)
             || User.IsInRole(SportHubRoleNames.CenterManager);
         if (string.IsNullOrWhiteSpace(key) || key.Length > 120)
-            throw new BadRequestException("idempotency_key_required", "Cần Idempotency-Key hợp lệ.");
+            throw new BadRequestException("idempotency_key_required", "Idempotency key required.");
         var memberId = staff ? request.TargetMemberId ?? throw new BadRequestException(
-                "target_member_required", "Cần chọn hội viên.") : actorId;
+                "target_member_required", "Target member required.") : actorId;
         if (!staff && request.TargetMemberId is Guid target && target != actorId)
-            throw new ForbiddenException("target_member_forbidden", "Không thể thanh toán cho hội viên khác.");
+            throw new ForbiddenException("target_member_forbidden", "Target member forbidden.");
         var detail = await packages.PurchaseAsync(new PurchasePackageRequest
         {
             MemberId = memberId, PackageId = request.PackageId, AllowStacking = request.AllowStacking,
@@ -66,7 +66,7 @@ public sealed class CheckoutsController(CheckoutService checkouts, IPackagePurch
         [FromHeader(Name = "Idempotency-Key")] string key, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(key) || key.Length > 120)
-            throw new BadRequestException("idempotency_key_required", "Cần Idempotency-Key hợp lệ.");
+            throw new BadRequestException("idempotency_key_required", "Idempotency key required.");
         // Chủ lượt thuê luôn là Member đã xác thực; giá và owner không nhận từ client.
         var memberId = User.RequireUserId();
         var command = new SportHub.BuildingBlocks.Abstractions.Scheduling.CourtRentalRequest(
@@ -143,13 +143,13 @@ public sealed class CheckoutsController(CheckoutService checkouts, IPackagePurch
     private void RequireBuyer()
     {
         if (!User.IsInRole(SportHubRoleNames.Member) && !IsStaff())
-            throw new ForbiddenException("checkout_forbidden", "Tài khoản không được thực hiện checkout.");
+            throw new ForbiddenException("checkout_forbidden", "Checkout forbidden.");
     }
 
     private void RequireMemberBuyer()
     {
         if (!User.IsInRole(SportHubRoleNames.Member) && !IsStaff())
-            throw new ForbiddenException("checkout_forbidden", "Chỉ Member hoặc nhân viên quầy được mua Membership, lớp và PT.");
+            throw new ForbiddenException("checkout_forbidden", "Checkout forbidden.");
     }
 }
 

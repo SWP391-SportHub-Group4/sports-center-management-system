@@ -236,7 +236,6 @@ Quy tắc nghiệp vụ, quyền xem, xóa ảnh cũ và Google avatar: [Avatar-
 |---|---|
 | POST | `api/auth/google` |
 | POST | `api/auth/google/link` |
-| DELETE | `api/auth/google/link` |
 
 ### MemberPackagesController — `api`
 
@@ -245,7 +244,6 @@ Quy tắc nghiệp vụ, quyền xem, xóa ảnh cũ và Google avatar: [Avatar-
 | GET | `api/members/me/packages` |
 | GET | `api/members/{memberId:guid}/packages` |
 | GET | `api/member-packages` |
-| POST | `api/member-packages/{memberPackageId:guid}/cancel` |
 
 ### MembershipPackagesController — `api/membership-packages`
 

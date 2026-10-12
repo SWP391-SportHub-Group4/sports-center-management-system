@@ -6,6 +6,7 @@ using SportHub.Administration.Application.DTOs;
 using SportHub.Administration.Application.Interfaces;
 using SportHub.Administration.Application.Services;
 using SportHub.BuildingBlocks.Api;
+using SportHub.BuildingBlocks.Abstractions.Training;
 using SportHub.Identity.Domain.Enums;
 
 namespace SportHub.Administration.Api;
@@ -17,7 +18,7 @@ namespace SportHub.Administration.Api;
 [ApiController]
 [Authorize]
 [Route("api/users")]
-public class UsersController(IUserAdminService users) : ControllerBase
+public class UsersController(IUserAdminService users, ICoachMemberAccessReader coachAccess) : ControllerBase
 {
 
     /// <summary>
@@ -25,7 +26,7 @@ public class UsersController(IUserAdminService users) : ControllerBase
     /// hội viên khi bán gói hay đăng ký hộ.
     /// </summary>
 
-    [Authorize(Policy = SportHubPolicies.StaffRead)]
+    [Authorize(Policy = SportHubPolicies.FrontDesk)]
     [HttpGet]
     public async Task<IActionResult> Search(
         [FromQuery] string? keyword,
@@ -57,7 +58,14 @@ public class UsersController(IUserAdminService users) : ControllerBase
 
     [Authorize(Policy = SportHubPolicies.StaffRead)]
     [HttpGet("{userId:guid}")]
-    public async Task<IActionResult> Get(Guid userId, CancellationToken ct) => Ok(await users.GetAsync(userId, ct));
+    public async Task<IActionResult> Get(Guid userId, CancellationToken ct)
+    {
+        if (User.IsInRole(nameof(UserRole.Coach)) &&
+            !await coachAccess.HasActiveRelationshipAsync(User.RequireUserId(), userId, ct))
+            return Forbid();
+
+        return Ok(await users.GetAsync(userId, ct));
+    }
 
     /// <summary>BR-2 — chỉ System Administrator tạo tài khoản nhân sự.</summary>
     [Authorize(Policy = SportHubPolicies.SystemAdministrator)]

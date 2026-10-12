@@ -58,11 +58,11 @@ public sealed record WalletAdjustment(
 public sealed record WalletResult(bool AlreadyApplied, int AvailableAfter, int HeldAfter, Guid LedgerEntryId);
 
 public sealed class InsufficientPointsException(int requested, int available)
-    : Exception($"Không đủ điểm: cần {requested}, khả dụng {available}.")
+    : Exception($"Insufficient points: {requested} required, {available} available.")
 {
     public int Requested { get; } = requested;
     public int Available { get; } = available;
 }
 
 public sealed class WalletReferenceConflictException(string referenceType, Guid referenceId)
-    : Exception($"Tham chiếu {referenceType}/{referenceId} đã dùng với nội dung khác.");
+    : Exception($"Reference {referenceType}/{referenceId} was already used with different details.");

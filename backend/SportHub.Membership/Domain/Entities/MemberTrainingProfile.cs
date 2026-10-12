@@ -17,4 +17,28 @@ public class MemberTrainingProfile
     public string? Notes { get; set; } // chấn thương, hạn chế...
 
     public DateTime UpdatedAt { get; set; } // biết hồ sơ có đang cũ/stale không
+
+    // ---- Hồ sơ sức khỏe do hội viên TỰ khai (thay cho lịch đo tại trung tâm). Cột nullable vì hồ sơ cũ chưa có;
+    // lần lưu mới bắt buộc đủ các trường cần cho gợi ý AI (xem MemberTrainingProfileService).
+    public TrainingGoalType? GoalType { get; set; }
+
+    public DateOnly? DateOfBirth { get; set; }
+
+    public BiologicalSex? Sex { get; set; }
+
+    public decimal? HeightCm { get; set; }
+
+    public decimal? WeightKg { get; set; }
+
+    public decimal? TargetWeightKg { get; set; }
+
+    public ActivityLevel? ActivityLevel { get; set; }
+
+    public int? TrainingDaysPerWeek { get; set; }
+
+    public int? SessionMinutes { get; set; }
+
+    public DietaryPreference DietaryPreference { get; set; }
+
+    public string? FoodAllergies { get; set; }
 }

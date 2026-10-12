@@ -4,6 +4,7 @@ using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.SharedKernel.Time;
 using SportHub.Membership.Domain.Entities;
 using SportHub.Membership.Domain.Enums;
+using SportHub.Membership.Domain.Rules;
 using SportHub.Scheduling.Domain.Entities;
 using SportHub.Scheduling.Domain.Enums;
 
@@ -68,7 +69,8 @@ public sealed class RuleBasedAiRecommendationService(ISportHubDbContext db, IClo
         string goal,
         string level,
         CancellationToken cancellationToken = default,
-        string sport = "Gym")
+        string sport = "Gym",
+        MemberHealthSnapshot? health = null)
     {
         var sinceUtc = clock.UtcNow.AddDays(-HistoryWindowDays);
 
@@ -111,24 +113,49 @@ public sealed class RuleBasedAiRecommendationService(ISportHubDbContext db, IClo
                    new("Close-range shot", sets, 10), new("Cool-down stretch", 1, 1, "Continue for 5 minutes.")];
         }
 
-        var goalLower = goal.ToLowerInvariant();
+        // Thời lượng mỗi buổi ngắn: giữ khởi động và các bài đầu của bộ nền; bài theo mục tiêu thêm sau đó.
+        if (sport == "Gym" && health?.SessionMinutes is { } minutes && minutes < 40 && exercises.Count > 4)
+        {
+            exercises = exercises.Take(4).ToList();
+        }
 
-        if (sport == "Gym" && GoalKeywordsWeightLoss.Any(goalLower.Contains))
+        var goalLower = goal.ToLowerInvariant();
+        var goalType = health?.GoalType;
+        var wantsFatLoss = goalType == nameof(TrainingGoalType.FatLoss) || GoalKeywordsWeightLoss.Any(goalLower.Contains);
+        var wantsMuscle = goalType == nameof(TrainingGoalType.MuscleGain) || GoalKeywordsMuscle.Any(goalLower.Contains);
+        var wantsFlexibility = goalType == nameof(TrainingGoalType.Flexibility) || GoalKeywordsFlexibility.Any(goalLower.Contains);
+        var underweight = health?.BmiCategory == BodyMetrics.Underweight;
+        var obese = health?.BmiCategory == BodyMetrics.Obese;
+
+        if (sport == "Gym" && wantsFatLoss && !underweight)
         {
             exercises.Add(new("Base cardio", 1, 1, "Continue for 25 minutes; coach adjusts intensity."));
             exercises.Add(new("Full-body circuit", 3, 1, "One circuit per set; rest 45 seconds between sets."));
         }
 
-        if (sport == "Gym" && GoalKeywordsMuscle.Any(goalLower.Contains))
+        if (sport == "Gym" && wantsMuscle)
         {
             exercises.Add(new("Hip thrust", 3, 10));
             exercises.Add(new("Face pull", 3, 15));
         }
 
-        if (sport == "Gym" && GoalKeywordsFlexibility.Any(goalLower.Contains))
+        if (sport == "Gym" && wantsFlexibility)
         {
             exercises.Add(new("Cool-down stretch", 1, 1, "Continue for 15 minutes."));
             exercises.Add(new("Hip and shoulder mobility", 1, 1, "Continue for 10 minutes."));
+        }
+
+        // BMI cao: thay bài tác động mạnh lên khớp bằng bài tác động thấp để Coach duyệt lại khối lượng.
+        if (obese)
+        {
+            exercises = [.. exercises.Select(e => e.Exercise switch
+            {
+                "Running intervals" => new WorkoutSuggestedExercise("Stationary bike intervals", e.Sets, 1,
+                    "Low impact: ride hard for 1 minute per set."),
+                "HIIT" => new WorkoutSuggestedExercise("Low-impact interval circuit", e.Sets, 1,
+                    "Work for 40 seconds and rest for 20 seconds per set; avoid jumping."),
+                _ => e
+            })];
         }
 
         var totalActivity = present + gymCheckIns;
@@ -146,11 +173,86 @@ public sealed class RuleBasedAiRecommendationService(ISportHubDbContext db, IClo
             rationale += " The member missed several sessions: consider a more suitable schedule.";
         }
 
+        rationale += HealthRationale(health);
+        var nutrition = sport == "Gym" ? BuildNutrition(health) : null;
+
         return new WorkoutSuggestion(
             exercises.Select(item => $"{item.Exercise} {item.Sets}x{item.Reps}"
                 + (string.IsNullOrWhiteSpace(item.Notes) ? string.Empty : $" · {item.Notes}")).ToList(),
             rationale,
-            exercises);
+            exercises,
+            nutrition);
+    }
+
+    private static string HealthRationale(MemberHealthSnapshot? h)
+    {
+        if (h is null || !h.ProfileComplete)
+            return " The member's health profile is incomplete (body measurements, age, activity level or schedule): "
+                   + "ask the member to complete it for a more tailored plan.";
+        var text = $" Body profile: BMI {h.Bmi} ({h.BmiCategory}), {h.ActivityLevel} lifestyle, "
+                   + $"{h.TrainingDaysPerWeek} training day(s) per week"
+                   + (h.SessionMinutes is { } m ? $", about {m} minutes per session." : ".");
+        if (h.BmiCategory == BodyMetrics.Underweight)
+            text += " BMI is below 18.5: avoid extra fat-loss cardio and consider medical advice.";
+        else if (h.BmiCategory == BodyMetrics.Obese)
+            text += " BMI is 30 or above: low-impact options were used; coach should review joint load.";
+        if (!string.IsNullOrWhiteSpace(h.Limitations))
+            text += $" Reported limitations or conditions: \"{h.Limitations}\". Coach must adapt or exclude affected exercises.";
+        return text;
+    }
+
+    /// <summary>Ước tính năng lượng (Mifflin-St Jeor x mức vận động) và protein theo mục tiêu; chỉ chạy khi hồ sơ đủ dữ liệu.</summary>
+    private static NutritionGuidance? BuildNutrition(MemberHealthSnapshot? h)
+    {
+        if (h is null || !h.ProfileComplete || h.Age is not { } age || h.HeightCm is not { } height || h.WeightKg is not { } weight
+            || !Enum.TryParse<BiologicalSex>(h.Sex, out var sex) || !Enum.TryParse<ActivityLevel>(h.ActivityLevel, out var activity))
+            return null;
+
+        var bmr = BodyMetrics.Bmr(sex, age, height, weight);
+        var maintenance = (int)Math.Round(bmr * BodyMetrics.ActivityFactor(activity), MidpointRounding.AwayFromZero);
+        var underweight = h.BmiCategory == BodyMetrics.Underweight;
+        var tips = new List<string>();
+        int target;
+        decimal proteinLow, proteinHigh;
+        switch (h.GoalType)
+        {
+            case nameof(TrainingGoalType.FatLoss) when !underweight:
+                // Thâm hụt vừa phải 15%, không xuống dưới năng lượng nền để tránh ăn quá ít.
+                target = Math.Max((int)Math.Round(maintenance * 0.85m), bmr);
+                (proteinLow, proteinHigh) = (1.6m, 2.0m);
+                tips.Add("A moderate deficit of about 15% supports steady fat loss; aim for roughly 0.25 to 0.5 kg per week.");
+                break;
+            case nameof(TrainingGoalType.MuscleGain):
+                target = (int)Math.Round(maintenance * 1.10m);
+                (proteinLow, proteinHigh) = (1.6m, 2.2m);
+                tips.Add("A small surplus of about 10% with progressive strength training supports muscle gain.");
+                break;
+            default:
+                target = maintenance;
+                (proteinLow, proteinHigh) = (1.2m, 1.6m);
+                tips.Add("Eat near maintenance and keep a consistent daily routine.");
+                break;
+        }
+
+        if (underweight)
+            tips.Add("BMI is below 18.5: do not cut calories. Speak with a doctor or dietitian before changing your diet.");
+        if (h.TargetWeightKg is { } goalWeight)
+            tips.Add($"Target weight is {goalWeight} kg; review progress every 2 to 4 weeks and adjust calories with your coach.");
+        tips.Add(h.DietaryPreference switch
+        {
+            nameof(DietaryPreference.Vegetarian) => "Vegetarian: get protein from eggs, dairy, legumes, tofu and tempeh.",
+            nameof(DietaryPreference.Vegan) => "Vegan: combine legumes, tofu, tempeh, seitan and soy products; consider a vitamin B12 supplement.",
+            nameof(DietaryPreference.Pescatarian) => "Pescatarian: use fish and seafood, eggs, dairy and legumes for protein.",
+            nameof(DietaryPreference.Halal) => "Halal: choose halal-certified meat and check processed foods and gelatin.",
+            _ => "Spread protein across 3 to 4 meals and include vegetables with most meals."
+        });
+        if (!string.IsNullOrWhiteSpace(h.FoodAllergies))
+            tips.Add($"Allergies or intolerances reported: \"{h.FoodAllergies}\". Exclude these foods and verify any meal plan with a dietitian.");
+        tips.Add("This is a general estimate for the coach to review, not medical advice or a meal plan.");
+
+        return new NutritionGuidance(maintenance, target,
+            (int)Math.Round(weight * proteinLow, MidpointRounding.AwayFromZero),
+            (int)Math.Round(weight * proteinHigh, MidpointRounding.AwayFromZero), tips);
     }
 
     private static string BuildRationale(

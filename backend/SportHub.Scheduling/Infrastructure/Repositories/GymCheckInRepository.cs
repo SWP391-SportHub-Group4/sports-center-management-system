@@ -17,6 +17,7 @@ public sealed class GymCheckInRepository(ISportHubDbContext db) : IGymCheckInRep
         SELECT 1 AS "Value"
         FROM member_packages
         WHERE member_id = {0} AND status = {1}
+          AND start_date <= {2} AND end_date >= {2}
         LIMIT 1
         FOR SHARE
         """;
@@ -45,7 +46,7 @@ public sealed class GymCheckInRepository(ISportHubDbContext db) : IGymCheckInRep
                 x => x.MemberId == checkIn.MemberId && x.CheckOutTime == null, cancellationToken))
         {
             throw new ConflictException("gym_already_checked_in",
-                "Member đã được ghi nhận vào Gym, vui lòng ghi nhận ra trước.");
+                "Gym already checked in.");
         }
 
         // BR-64: phải có >= 1 MemberPackage Active TẠI THỜI ĐIỂM check-in.
@@ -57,11 +58,12 @@ public sealed class GymCheckInRepository(ISportHubDbContext db) : IGymCheckInRep
         // Active trong khi nó đã bị hủy xong ngay sau đó, và check-in vẫn lọt.
         // Chỉ mở transaction thôi KHÔNG chặn được khe này.
         //
-        // Cố ý chỉ xét Status: BR-64 không nói tới RemainingSessions > 0 hay end_date;
-        // chuyển Active -> Expired khi hết hạn/hết buổi là việc của BR-11 (Design v2 §2.1),
-        // không nhân bản điều kiện đó vào đây.
+        // Xét cả Status lẫn khoảng ngày (inclusive, giờ VN): gói đã qua EndDate hoặc chưa tới
+        // StartDate không cho vào Gym dù job BR-11 chưa kịp chuyển sang Expired. Không xét
+        // RemainingSessions vì Membership không có hạn mức buổi.
+        var todayLocal = DateOnly.FromDateTime(SportHub.BuildingBlocks.SharedKernel.Time.VietnamTime.ToLocal(checkIn.CheckInTime));
         var activePackages = await db.Database
-            .SqlQueryRaw<int>(LockActivePackageSql, checkIn.MemberId, (int)MemberPackageStatus.Active)
+            .SqlQueryRaw<int>(LockActivePackageSql, checkIn.MemberId, (int)MemberPackageStatus.Active, todayLocal)
             .ToListAsync(cancellationToken);
 
         if (activePackages.Count == 0)
@@ -91,10 +93,10 @@ public sealed class GymCheckInRepository(ISportHubDbContext db) : IGymCheckInRep
                 cancellationToken);
 
         var checkIn = await db.Set<GymCheckIn>().AsNoTracking().SingleOrDefaultAsync(c => c.CheckInId == checkInId, cancellationToken)
-               ?? throw new NotFoundException("gym_checkin_not_found", "Không tìm thấy lượt check-in.");
+               ?? throw new NotFoundException("gym_checkin_not_found", "Gym checkin not found.");
         if (checkIn.CheckOutTime is null)
         {
-            throw new ConflictException("checkout_before_checkin", "Giờ ra không được trước giờ vào.");
+            throw new ConflictException("checkout_before_checkin", "Checkout before checkin.");
         }
         return checkIn;
     }

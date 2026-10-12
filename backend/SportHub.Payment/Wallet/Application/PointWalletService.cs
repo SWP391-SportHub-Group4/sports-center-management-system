@@ -18,7 +18,7 @@ public sealed class PointWalletService(ISportHubDbContext db, IUserAccessReader 
         RequireTransaction();
         var owner = await users.GetAsync(ownerUserId, cancellationToken);
         if (owner is null || owner.Role != "Member")
-            throw new BadRequestException("wallet_owner_invalid", "Ví chỉ thuộc Member.");
+            throw new BadRequestException("wallet_owner_invalid", "Wallet owner invalid.");
 
         // ON CONFLICT serializes concurrent first use without aborting the caller's transaction.
         var walletId = Guid.NewGuid();
@@ -42,7 +42,7 @@ public sealed class PointWalletService(ISportHubDbContext db, IUserAccessReader 
     public Task<WalletResult> AdjustAsync(WalletAdjustment adjustment, CancellationToken cancellationToken = default)
     {
         if (!Enum.IsDefined(adjustment.Direction) || string.IsNullOrWhiteSpace(adjustment.Reason))
-            throw new BadRequestException("invalid_point_adjustment", "Điều chỉnh cần hướng Credit/Debit và lý do.");
+            throw new BadRequestException("invalid_point_adjustment", "Invalid point adjustment.");
         return ApplyAsync(new WalletOperation(adjustment.OwnerUserId, adjustment.Points, adjustment.ReferenceType,
                 adjustment.ReferenceId, adjustment.ActorUserId, adjustment.Reason.Trim()), PointEntryType.Adjustment,
             adjustment.Direction == WalletAdjustmentDirection.Credit ? adjustment.Points : -adjustment.Points, 0, cancellationToken);
@@ -53,7 +53,7 @@ public sealed class PointWalletService(ISportHubDbContext db, IUserAccessReader 
         RequireTransaction();
         if (op.Points <= 0 || op.ReferenceId == Guid.Empty || string.IsNullOrWhiteSpace(op.ReferenceType)
             || op.ReferenceType.Length > 80 || op.Note?.Length > 1000 || op.InvoiceItemId == Guid.Empty)
-            throw new BadRequestException("invalid_wallet_operation", "Số điểm, tham chiếu hoặc ghi chú không hợp lệ.");
+            throw new BadRequestException("invalid_wallet_operation", "Invalid wallet operation.");
 
         await EnsureWalletAsync(op.OwnerUserId, ct);
         // Read a fresh snapshot after acquiring the row lock, even when this context has used the wallet before.
@@ -79,14 +79,14 @@ public sealed class PointWalletService(ISportHubDbContext db, IUserAccessReader 
                 && x.ReferenceType == op.ReferenceType && x.ReferenceId == op.ReferenceId).ToListAsync(ct);
             var hold = entries.SingleOrDefault(x => x.EntryType == PointEntryType.Hold);
             if (hold is null || hold.Points != op.Points || entries.Any(x => x.EntryType is PointEntryType.Spend or PointEntryType.Release))
-                throw new ConflictException("wallet_hold_mismatch", "Giữ điểm không tồn tại, sai số điểm hoặc đã đóng.");
+                throw new ConflictException("wallet_hold_mismatch", "Wallet hold mismatch.");
         }
         if (wallet.AvailablePoints + (long)availableDelta < 0)
             throw new InsufficientPointsException(op.Points, wallet.AvailablePoints);
         if (wallet.HeldPoints + (long)heldDelta < 0)
-            throw new ConflictException("wallet_hold_mismatch", "Không đủ điểm đang giữ cho giao dịch.");
+            throw new ConflictException("wallet_hold_mismatch", "Wallet hold mismatch.");
         if (wallet.AvailablePoints + (long)availableDelta > int.MaxValue || wallet.HeldPoints + (long)heldDelta > int.MaxValue)
-            throw new ConflictException("wallet_balance_limit", "Số dư điểm vượt giới hạn lưu trữ.");
+            throw new ConflictException("wallet_balance_limit", "Wallet balance limit.");
 
         wallet.AvailablePoints += availableDelta;
         wallet.HeldPoints += heldDelta;

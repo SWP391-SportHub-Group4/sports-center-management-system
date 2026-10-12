@@ -13,4 +13,9 @@ public sealed class IncidentNotice
     public string ResolutionSummary { get; set; } = string.Empty;
     public Guid CreatedByUserId { get; set; }
     public DateTime CreatedAtUtc { get; set; }
+
+    /// <summary>Số ngày Membership Active được gia hạn vì Gym đóng cửa (BR-138); 0 = không gia hạn.</summary>
+    public int MembershipExtensionDays { get; set; }
+
+    public int ExtendedMemberCount { get; set; }
 }

@@ -42,7 +42,7 @@ public abstract class PeriodicJob(IServiceProvider services, ILogger logger, Tim
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Job {JobName} thất bại ở một lượt chạy; sẽ thử lại ở lượt sau.", JobName);
+                logger.LogError(ex, "Job {JobName} failed during this run; it will retry on the next run.", JobName);
             }
         }
     }

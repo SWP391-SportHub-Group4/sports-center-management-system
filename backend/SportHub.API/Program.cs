@@ -240,9 +240,9 @@ builder.Services.AddScoped<IMembershipPackageService, MembershipPackageService>(
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Membership.IMembershipFulfillment, MembershipFulfillment>();
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Membership.IMembershipAccessReader, MembershipAccessReader>();
 builder.Services.AddScoped<IMemberPackageService, MemberPackageService>();
+builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Membership.IMembershipClosureExtension, MembershipClosureExtension>();
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Membership.IMembershipRefundFulfillment, MembershipRefundFulfillment>();
 builder.Services.AddScoped<IMemberTrainingProfileService, MemberTrainingProfileService>();
-builder.Services.AddScoped<MemberBmiProfileService>();
 builder.Services.AddScoped<IMembershipReportService, MembershipReportService>();
 
 // Notification
@@ -337,6 +337,8 @@ builder.Services.AddScoped<CoachMemberRelationshipService>();
 builder.Services.AddScoped<ICoachMemberRelationshipService>(
     sp => sp.GetRequiredService<CoachMemberRelationshipService>());
 builder.Services.AddScoped<ICoachRelationshipRegistrar>(
+    sp => sp.GetRequiredService<CoachMemberRelationshipService>());
+builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Training.ICoachMemberAccessReader>(
     sp => sp.GetRequiredService<CoachMemberRelationshipService>());
 builder.Services.AddScoped<IWorkoutService, WorkoutService>();
 
@@ -508,7 +510,7 @@ if (args.Any(a => a == "--seed-member-training=true"))
 if (args.Any(a => a.StartsWith("--seed-br141", StringComparison.Ordinal)))
 {
     var target = new Npgsql.NpgsqlConnectionStringBuilder(app.Configuration.GetConnectionString("Default"));
-    Console.WriteLine($"[seed-br141] database '{target.Database}' trên '{target.Host}:{target.Port}'");
+    Console.WriteLine($"[seed-br141] database '{target.Database}' on '{target.Host}:{target.Port}'");
     await using var seedScope = app.Services.CreateAsyncScope();
     await seedScope.ServiceProvider.GetRequiredService<SportHubDbContext>().Database.MigrateAsync();
     await seedScope.ServiceProvider.GetRequiredService<FacilityBaselineSeeder>().SeedAsync();

@@ -25,9 +25,9 @@ public sealed class ManualNoticeService(ISportHubDbContext db, INotificationWrit
         var safeSubject = request.Subject.Trim();
         var safeMessage = request.Message.Trim();
         if (recipients.Count is < 1 or > 200 || (!request.SendInApp && !request.SendEmail))
-            throw new BadRequestException("invalid_manual_notice", "Cần 1–200 người nhận và chọn ít nhất một kênh.");
+            throw new BadRequestException("invalid_manual_notice", "Invalid manual notice.");
         if (safeSubject.Length is < 3 or > 150 || safeMessage.Length is < 3 or > 3000)
-            throw new BadRequestException("invalid_manual_notice", "Tiêu đề hoặc nội dung có độ dài không hợp lệ.");
+            throw new BadRequestException("invalid_manual_notice", "Invalid manual notice.");
         var fingerprint = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new
             { recipients, safeSubject, safeMessage, request.SendInApp, request.SendEmail }))));
         await using var tx = await db.Database.BeginTransactionAsync(ct);
@@ -38,7 +38,7 @@ public sealed class ManualNoticeService(ISportHubDbContext db, INotificationWrit
         {
             using var receipt = JsonDocument.Parse(previous);
             if (!receipt.RootElement.TryGetProperty("requestFingerprint", out var saved) || saved.GetString() != fingerprint)
-                throw new ConflictException("notice_idempotency_conflict", "Mã yêu cầu đã dùng cho nội dung khác.");
+                throw new ConflictException("notice_idempotency_conflict", "Notice idempotency conflict.");
             await tx.CommitAsync(ct);
             return noticeId;
         }
@@ -46,7 +46,7 @@ public sealed class ManualNoticeService(ISportHubDbContext db, INotificationWrit
             .Where(x => recipients.Contains(x.UserId) && x.Status == UserStatus.Active)
             .Select(x => new { x.UserId, x.Email }).ToListAsync(ct);
         if (users.Count != recipients.Count)
-            throw new BadRequestException("manual_notice_recipient_invalid", "Có người nhận không tồn tại hoặc tài khoản không hoạt động.");
+            throw new BadRequestException("manual_notice_recipient_invalid", "Manual notice recipient invalid.");
 
         var body = "<h2>" + HtmlEncoder.Default.Encode(safeSubject) + "</h2><p>"
             + HtmlEncoder.Default.Encode(safeMessage).Replace("\r\n", "\n").Replace("\n", "<br>") + "</p>";
@@ -72,7 +72,7 @@ public sealed class ManualNoticeService(ISportHubDbContext db, INotificationWrit
     public async Task<ManualNoticeReceipt> GetAsync(Guid noticeId, Guid managerId, CancellationToken ct = default)
     {
         if (await receipts.FindNewValueAsync(managerId, "SEND_MANUAL_NOTICE", "Notification", noticeId.ToString(), ct) is null)
-            throw new NotFoundException("notice_not_found", "Không tìm thấy thông báo của tài khoản này.");
+            throw new NotFoundException("notice_not_found", "Notice not found.");
         return new(noticeId, await delivery.GetAsync(NotificationEvents.ManualNotice, noticeId, ct));
     }
 
@@ -90,7 +90,7 @@ public sealed class ManualNoticeService(ISportHubDbContext db, INotificationWrit
     private static Guid IdForKey(Guid managerId, string key)
     {
         if (!Guid.TryParse(key, out var parsed) || parsed == Guid.Empty)
-            throw new BadRequestException("invalid_idempotency_key", "Idempotency-Key phải là UUID hợp lệ.");
+            throw new BadRequestException("invalid_idempotency_key", "Invalid idempotency key.");
         return new Guid(SHA256.HashData(Encoding.UTF8.GetBytes($"manual-notice:{managerId:D}:{parsed:D}")).AsSpan(0, 16));
     }
 }
