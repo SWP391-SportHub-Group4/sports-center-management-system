@@ -16,6 +16,40 @@ namespace SportHub.Administration.Tests.Unit;
 /// </summary>
 public class ReportPdfRendererTests
 {
+    [Fact]
+    public void Enrollment_shows_readable_counts_and_percentage_without_course_id()
+    {
+        var columns = new[] { "name", "sportName", "capacity", "confirmedCount", "activeHoldCount",
+            "availableSeats", "fillRatio", "breakEvenThreshold", "thresholdStatus" };
+        var table = new ReportTable("Course enrollment", "Period 01/10/2026 - 14/10/2026",
+            columns.Select(ReportColumnLabels.For).ToArray(),
+            [["Badminton Fundamentals", "Badminton", "20", "12", "3", "5", "0.6", "10", "Threshold met"]],
+            columns.Select((c, i) => (c, i)).Where(x => ReportColumnLabels.IsNumeric(x.c)).Select(x => x.i).ToHashSet(),
+            IsEnrollment: true);
+        var text = ExtractText(new ReportPdfRenderer().Render(table));
+        Assert.Contains("60%", text);
+        Assert.Contains("Badminton Fundamentals", text);
+        Assert.DoesNotContain("Course ID", text);
+    }
+
+    [Fact]
+    public void Summary_formats_numbers_and_preserves_refunded_points_label()
+    {
+        var columns = new[] { "collectedAmount", "reconciliationCashCollected", "pointsRedeemed",
+            "pointsIssued", "managerPointAdjustment", "outstandingPoints" };
+        var table = new ReportTable("Revenue and points summary", "Period 01/10/2026 - 14/10/2026",
+            columns.Select(ReportColumnLabels.For).ToArray(),
+            [["1950000", "0", "500", "0", "1000", "500"]],
+            Enumerable.Range(0, columns.Length).ToHashSet(), IsSummary: true);
+        var bytes = new ReportPdfRenderer().Render(table);
+        using var document = PdfDocument.Open(bytes);
+        Assert.Equal(1, document.NumberOfPages);
+        var text = ExtractText(bytes);
+        Assert.Contains("Points refunded", text);
+        Assert.Contains("1,950,000", text);
+        Assert.Contains("1,000", text);
+    }
+
     private static readonly string[] RevenueColumns =
     [
         "invoiceNumber", "issuedAt", "memberName", "totalAmount",

@@ -29,6 +29,7 @@ export function MemberPicker({
   autoFocus = false,
   placeholder,
   emptyHint,
+  scanner = true,
 }: {
   value: UserAdminDto | null;
   onChange: (member: UserAdminDto | null) => void;
@@ -37,6 +38,8 @@ export function MemberPicker({
   placeholder?: string;
   /** Hiện dưới dòng "không tìm thấy" (vd. hướng dẫn hội viên tự đăng ký). */
   emptyHint?: ReactNode;
+  /** Hiện camera quét QR cho các luồng tiếp nhận tại quầy. */
+  scanner?: boolean;
 }) {
   const { language } = useLanguage();
   const [keyword, setKeyword] = useState("");
@@ -83,8 +86,12 @@ export function MemberPicker({
 
   const defaultPlaceholder =
     language === "en"
-      ? "Enter name, phone, or scan member barcode/QR..."
-      : "Nhập tên, SĐT hoặc quét mã QR/Barcode hội viên...";
+      ? scanner
+        ? "Enter name, phone, or scan member barcode/QR..."
+        : "Enter name or phone..."
+      : scanner
+        ? "Nhập tên, SĐT hoặc quét mã QR/Barcode hội viên..."
+        : "Nhập tên hoặc số điện thoại...";
   const placeholderText = placeholder || defaultPlaceholder;
 
   // Trễ 200ms trước khi tìm để hỗ trợ gõ nhanh hoặc máy quét barcode
@@ -173,8 +180,8 @@ export function MemberPicker({
         style={{ height: 44, borderRadius: 8 }}
       />
 
-      <CameraQrScanner onScan={handleScan} />
-      {scanError && (
+      {scanner && <CameraQrScanner onScan={handleScan} />}
+      {scanner && scanError && (
         <span className="field__hint" role="alert">
           {scanError}
         </span>

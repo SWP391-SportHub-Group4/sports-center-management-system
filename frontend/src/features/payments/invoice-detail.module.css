@@ -1,0 +1,330 @@
+.dialog:global(.dialog) {
+  max-height: 88dvh;
+  scrollbar-color: var(--border-strong) var(--bg-surface-sunken);
+}
+
+.dialog :global(.dialog__head) {
+  gap: var(--space-4);
+  background: var(--bg-surface);
+}
+
+.dialog :global(.dialog__head h2) {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: var(--text-xl);
+  letter-spacing: var(--tracking-tight);
+}
+
+.dialog :global(.dialog__head .btn) {
+  flex-shrink: 0;
+  min-height: var(--control-height-lg);
+}
+
+.detail {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--space-5);
+  color: var(--text-body);
+}
+
+.identity {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3) var(--space-4);
+}
+
+.invoiceNumber {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.statuses {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4) var(--space-5);
+  margin: 0;
+  padding: 0;
+}
+
+.contents,
+.payment {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-4);
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  color: var(--text-strong);
+}
+
+.contents {
+  padding: var(--space-5);
+  background: var(--bg-app);
+  border-radius: var(--radius-lg);
+}
+
+.summary dt {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.summary dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-strong);
+}
+
+.total {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.total dt {
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  color: var(--text-strong);
+}
+
+.total dd {
+  font-size: var(--text-xl);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-tight);
+}
+
+.paymentMethods {
+  grid-column: 1 / -1;
+  display: grid;
+  align-content: start;
+  gap: var(--space-2);
+}
+
+.methods {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.methods li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-4);
+  font-size: var(--text-sm);
+}
+
+.items,
+.adjustments {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.items:empty,
+.adjustments:empty {
+  display: none;
+}
+
+.items li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-2) var(--space-5);
+  padding-block: var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.items li:first-child {
+  padding-top: 0;
+}
+
+.items li:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.itemContent {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-2);
+}
+
+.itemType {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: var(--text-xl);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-snug);
+  color: var(--color-primary-soft-text);
+}
+
+.itemDescription {
+  margin: 0;
+  overflow-wrap: anywhere;
+  line-height: var(--leading-relaxed);
+}
+
+.rentalDetails {
+  display: grid;
+  gap: var(--space-3);
+  margin: var(--space-2) 0 0;
+}
+
+.rentalDetails > div {
+  display: grid;
+  grid-template-columns: minmax(0, 160px) minmax(0, 1fr);
+  gap: var(--space-2) var(--space-4);
+  align-items: baseline;
+}
+
+.rentalDetails dt {
+  color: var(--text-muted);
+}
+
+.rentalDetails dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-weight: var(--weight-medium);
+  color: var(--text-strong);
+}
+
+.amount {
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-strong);
+}
+
+.adjustments li {
+  padding-block: var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.adjustments li:first-child {
+  padding-top: 0;
+}
+
+.adjustmentHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+}
+
+.reason {
+  margin: var(--space-2) 0 0;
+  overflow-wrap: anywhere;
+  line-height: var(--leading-relaxed);
+}
+
+.message,
+.notice {
+  margin: 0;
+  overflow-wrap: anywhere;
+  line-height: var(--leading-relaxed);
+}
+
+.notice {
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+
+.notice[role="alert"] {
+  background: var(--danger-bg);
+  color: var(--danger-text);
+}
+
+.refundArea {
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.refundArea > section {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3) var(--space-5);
+}
+
+.refundArea p {
+  flex: 1 1 100%;
+  margin: 0;
+  max-width: 65ch;
+  line-height: var(--leading-relaxed);
+}
+
+.refundArea label {
+  display: grid;
+  flex: 1 1 100%;
+  min-width: 0;
+  margin: 0;
+  gap: var(--space-2);
+  font-weight: var(--weight-medium);
+}
+
+.refundArea select,
+.refundArea textarea {
+  width: 100%;
+  min-width: 0;
+  font-weight: var(--weight-regular);
+}
+
+.refundArea :global(.btn) {
+  margin: 0;
+  min-height: var(--control-height-lg);
+}
+
+@media (max-width: 480px) {
+  .dialog :global(.dialog__head),
+  .dialog :global(.dialog__body) {
+    padding: var(--space-4);
+  }
+
+  .contents {
+    padding: var(--space-4);
+  }
+
+  .summary,
+  .items li {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .rentalDetails > div {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-1);
+  }
+
+  .refundArea :global(.btn) {
+    width: 100%;
+  }
+}

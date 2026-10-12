@@ -207,12 +207,25 @@ export function MemberFrame({
             <NotificationBell />
 
             {/* User Dropdown */}
-            <div className={styles.userMenuWrapper} ref={menuRef}>
+            <div
+              className={styles.userMenuWrapper}
+              ref={menuRef}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") {
+                  setUserMenuOpen(false);
+                  menuRef.current
+                    ?.querySelector<HTMLButtonElement>("button")
+                    ?.focus();
+                }
+              }}
+            >
               <button
                 type="button"
                 className={styles.userButton}
                 onClick={() => setUserMenuOpen((prev) => !prev)}
                 aria-expanded={userMenuOpen}
+                data-testid="user-profile-button"
+                aria-label={user.fullName || user.email}
               >
                 <AvatarImage
                   name={user.fullName || user.email}

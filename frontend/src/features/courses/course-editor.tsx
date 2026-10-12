@@ -1052,15 +1052,11 @@ export function CourseEditor({
 
           <button
             type="button"
-            className="btn btn--ghost"
-            disabled={
-              mutation.busy
-            }
-            onClick={
-              onClose
-            }
+            className="btn btn--secondary"
+            disabled={mutation.busy}
+            onClick={onClose}
           >
-            {l.close}
+            {l.cancel}
           </button>
         </div>
       </form>

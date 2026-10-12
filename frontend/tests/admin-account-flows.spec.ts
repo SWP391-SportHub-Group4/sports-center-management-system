@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { installBrowserSession, loginApi } from "./helpers/auth";
 import { bearer, liveApiBase } from "./helpers/api";
+import { assertEnglishOnlyShell } from "./helpers/english";
 
 const adminId = "11111111-1111-4111-8111-111111111111";
 const account = {
@@ -52,7 +53,7 @@ async function setup(
         },
       });
     }
-    if (url.pathname === `/api/users/${row.userId}`) {
+    if (url.pathname === `/api/users/admin/${row.userId}`) {
       return options.detailStatus
         ? route.fulfill({
             status: options.detailStatus,
@@ -116,9 +117,9 @@ test("live Admin overview uses account APIs and detail exposes the current G10 p
   await expect(
     page.getByRole("link", { name: `Active ${count}`, exact: true }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "EN", exact: true }).click();
+  await assertEnglishOnlyShell(page);
   await expect(
-    page.getByRole("heading", { name: "Tổng quan Admin", exact: true }),
+    page.getByRole("heading", { name: "Admin overview", exact: true }),
   ).toBeVisible();
   await page.screenshot({
     path: "../output/admin-overview-live.png",
@@ -126,11 +127,11 @@ test("live Admin overview uses account APIs and detail exposes the current G10 p
   });
   await page.goto(`/admin/users/${user.userId}`);
   await expect(
-    page.getByText("BLOCKED API — G10", { exact: true }),
+    page.getByRole("heading", { name: "Account details", exact: true }),
   ).toBeVisible();
   await page.reload();
   await expect(
-    page.getByText("BLOCKED API — G10", { exact: true }),
+    page.getByRole("heading", { name: "Account details", exact: true }),
   ).toBeVisible();
   await page.screenshot({
     path: "../output/admin-detail-g10-live.png",
@@ -209,23 +210,29 @@ test("overview shows API failure without inventing zero totals", async ({
   ).toBeVisible();
 });
 
-test("Admin detail reports G10 on direct access and reload without hiding other errors", async ({
+test("Admin detail displays access denial on reload and distinguishes a missing account", async ({
   page,
 }) => {
   await setup(page, { detailStatus: 403 });
   await page.goto(`/admin/users/${account.userId}`);
   await expect(
-    page.getByText("BLOCKED API — G10", { exact: true }),
+    page.getByRole("heading", {
+      name: "You cannot view this account",
+      exact: true,
+    }),
   ).toBeVisible();
   await page.reload();
   await expect(
-    page.getByText("BLOCKED API — G10", { exact: true }),
+    page.getByRole("heading", {
+      name: "You cannot view this account",
+      exact: true,
+    }),
   ).toBeVisible();
   await page.screenshot({
     path: "../output/admin-detail-g10.png",
     fullPage: true,
   });
-  await page.route(`**/api/users/${account.userId}`, (route) =>
+  await page.route(`**/api/users/admin/${account.userId}`, (route) =>
     route.fulfill({
       status: 404,
       json: { error: "user_not_found", message: "Missing user" },
@@ -236,7 +243,10 @@ test("Admin detail reports G10 on direct access and reload without hiding other 
     page.getByRole("heading", { name: "Account not found", exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByText("BLOCKED API — G10", { exact: true }),
+    page.getByRole("heading", {
+      name: "You cannot view this account",
+      exact: true,
+    }),
   ).toHaveCount(0);
 });
 
@@ -350,6 +360,9 @@ test("staff creation requires review, keeps password private and submits only on
   ).toHaveText(["Center Manager", "Receptionist", "System Administrator"]);
   await dialog.getByLabel("Full name", { exact: true }).fill("New staff");
   await dialog.getByLabel("Email", { exact: true }).fill("new@example.com");
+  await dialog
+    .getByRole("checkbox", { name: "Use default password", exact: true })
+    .uncheck();
   await dialog.getByLabel("Password", { exact: true }).fill("StrongPass@123");
   await dialog
     .getByLabel("Confirm password", { exact: true })
@@ -368,6 +381,111 @@ test("staff creation requires review, keeps password private and submits only on
     }),
   ).toBeVisible();
   expect(writes).toBe(1);
+});
+
+test("Admin can create a named staff account with the default password and no phone", async ({
+  page,
+}) => {
+  await setup(page);
+  let writes = 0;
+  await page.route("**/api/users", (route) => {
+    writes++;
+    expect(route.request().postDataJSON()).toEqual({
+      email: "handoff@gmail.com",
+      fullName: "Staff recipient",
+      password: "Sporthub@123",
+      phone: null,
+      role: "CENTER_MANAGER",
+      sportIds: [],
+    });
+    return route.fulfill({ status: 201, json: account });
+  });
+  await page.goto("/admin/users?create=1");
+  const dialog = page.getByRole("dialog");
+  const review = dialog.getByRole("button", {
+    name: "Review staff account",
+    exact: true,
+  });
+  await expect(review).toBeDisabled();
+  await expect(
+    dialog.getByRole("checkbox", { name: "Use default password", exact: true }),
+  ).toBeChecked();
+  await expect(dialog.getByLabel("Password", { exact: true })).toHaveCount(0);
+  await dialog.getByLabel("Full name", { exact: true }).fill("Staff recipient");
+  await dialog.getByLabel("Email", { exact: true }).fill("handoff@gmail.com");
+  await dialog
+    .getByLabel("Role", { exact: true })
+    .selectOption("CENTER_MANAGER");
+  await expect(dialog.getByLabel("Phone", { exact: true })).toHaveValue("");
+  await page.screenshot({
+    path: "test-results/admin-default-password-desktop.png",
+    fullPage: true,
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect
+    .poll(() =>
+      page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+    )
+    .toBeTruthy();
+  await page.screenshot({
+    path: "test-results/admin-default-password-mobile.png",
+    fullPage: true,
+  });
+  await review.click();
+  await expect(dialog).toContainText("handoff@gmail.com");
+  await expect(dialog).toContainText("Default password");
+  expect(writes).toBe(0);
+  await dialog
+    .getByRole("button", { name: "Edit change", exact: true })
+    .click();
+  await expect(dialog.getByLabel("Email", { exact: true })).toHaveValue(
+    "handoff@gmail.com",
+  );
+  await review.click();
+  await dialog.getByRole("button", { name: "Confirm", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  expect(writes).toBe(1);
+});
+
+test("default password still follows the email policy and allows a custom password", async ({
+  page,
+}) => {
+  await setup(page);
+  await page.goto("/admin/users?create=1");
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Full name", { exact: true }).fill("Staff recipient");
+  await dialog.getByLabel("Email", { exact: true }).fill("sporthub@gmail.com");
+  const review = dialog.getByRole("button", {
+    name: "Review staff account",
+    exact: true,
+  });
+  await expect(review).toBeDisabled();
+  await expect(dialog.getByRole("alert")).toContainText(
+    "The default password contains this email's username",
+  );
+  const option = dialog.getByRole("checkbox", {
+    name: "Use default password",
+    exact: true,
+  });
+  await option.uncheck();
+  await dialog.getByLabel("Password", { exact: true }).fill("StrongPass@123");
+  await dialog
+    .getByLabel("Confirm password", { exact: true })
+    .fill("Different@123");
+  await expect(review).toBeDisabled();
+  await dialog
+    .getByLabel("Confirm password", { exact: true })
+    .fill("StrongPass@123");
+  await expect(review).toBeEnabled();
+  await option.check();
+  await expect(review).toBeDisabled();
+  await option.uncheck();
+  await expect(dialog.getByLabel("Password", { exact: true })).toHaveValue(
+    "StrongPass@123",
+  );
+  await review.click();
+  await expect(dialog).toContainText("Custom password");
+  await expect(dialog).not.toContainText("StrongPass@123");
 });
 
 test("own account cannot be locked; Escape restores focus to Edit", async ({
@@ -393,7 +511,9 @@ test("non-Admin cannot mount account detail or make its API request", async ({
   await setup(page, { role: "MEMBER" });
   let detailsRequested = false;
   page.on("request", (request) => {
-    if (new URL(request.url()).pathname === `/api/users/${account.userId}`)
+    if (
+      new URL(request.url()).pathname === `/api/users/admin/${account.userId}`
+    )
       detailsRequested = true;
   });
   await page.goto(`/admin/users/${account.userId}`);

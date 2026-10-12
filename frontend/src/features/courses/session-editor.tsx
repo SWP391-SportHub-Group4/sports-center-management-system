@@ -4,6 +4,7 @@ import { useApi } from "@/lib/useApi";
 import { api, ApiError } from "@/lib/apiClient";
 import { useLanguage } from "@/lib/language";
 import { Card, Field, AsyncSection } from "@/components/ui";
+import { CloseButton } from "@/components/CloseButton";
 import { MutationFeedback, useMutation } from "@/features/operations";
 import { vietnamLocal, vietnamUtc } from "@/lib/vietnam-time";
 import { RoomSelector } from "@/features/catalog";
@@ -260,14 +261,13 @@ export function SessionEditor({
               {t.managerOperations.reviewChange}
             </button>
           )}
-          <button
-            type="button"
-            className="btn btn--secondary"
+          <CloseButton
+            label={l.close}
+            variant="secondary"
+            size="md"
             disabled={mutation.busy}
             onClick={onClose}
-          >
-            {l.close}
-          </button>
+          />
         </div>
       </form>
       <MutationFeedback mutation={mutation} />

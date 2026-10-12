@@ -9,6 +9,7 @@ import { useUrlQuery } from "@/lib/useUrlQuery";
 import { MutationFeedback, useMutation } from "@/features/operations";
 import { SpecialtyEditor } from "@/features/coaches";
 import { catalogApi } from "./api";
+import styles from "./manager-catalog.module.css";
 export function RoomTypesManager() {
   const { t } = useLanguage();
   const l = t.operations;
@@ -28,26 +29,27 @@ export function RoomTypesManager() {
         values={values}
         onChange={setValues}
         onReset={() => setValues({ q: "" })}
-        actions={
-          <button
-            className="btn"
-            onClick={() => {
-              setId(null);
-              setName("");
-              setSports([]);
-              setPartial(false);
-              setEditing(true);
-              mutation.reset();
-            }}
-          >
-            {l.create}
-          </button>
-        }
       />
+      <div className="btn-row">
+        <button
+          className="btn"
+          onClick={() => {
+            setId(null);
+            setName("");
+            setSports([]);
+            setPartial(false);
+            setEditing(true);
+            mutation.reset();
+          }}
+        >
+          {l.create}
+        </button>
+      </div>
       {editing && (
         <Dialog
-          title={id ? l.edit : l.create}
-          size="lg"
+          showCloseButton={false}
+          title={`${id ? l.edit : l.create} ${l.roomType.toLocaleLowerCase()}`}
+          size="md"
           onClose={() => {
             if (!mutation.busy) setEditing(false);
           }}
@@ -86,8 +88,11 @@ export function RoomTypesManager() {
               }
             }}
           >
-            <fieldset disabled={mutation.busy}>
-              <Field label={l.name}>
+            <fieldset
+              className={styles.roomTypeFields}
+              disabled={mutation.busy}
+            >
+              <Field label={l.name} required>
                 <input
                   required
                   maxLength={100}
@@ -99,13 +104,14 @@ export function RoomTypesManager() {
               <AsyncSection state={sports}>
                 {(rows) => (
                   <SpecialtyEditor
+                    legend={l.sports}
                     sports={rows}
                     value={sportIds}
                     onChange={setSports}
                   />
                 )}
               </AsyncSection>
-              <div className="btn-row">
+              <div className={`btn-row ${styles.roomTypeActions}`}>
                 <button className="btn" disabled={mutation.busy}>
                   {id ? l.save : l.create}
                 </button>
@@ -120,7 +126,7 @@ export function RoomTypesManager() {
                     setEditing(false);
                   }}
                 >
-                  {id ? l.cancel : l.resetForm}
+                  {l.cancel}
                 </button>
               </div>
             </fieldset>

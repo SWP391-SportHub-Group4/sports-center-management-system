@@ -67,6 +67,7 @@ public sealed class RevenueReportService(ISportHubDbContext db,
             .Select(e => new { e.EntryType, e.Points, e.AvailableDelta, e.InvoiceItemId })
             .ToListAsync(ct);
 
+        var outstandingPointsAsOfUtc = DateTime.UtcNow;
         var outstandingPoints = await db.Set<PointWallet>()
             .AsNoTracking().SumAsync(w => (long)w.AvailablePoints + w.HeldPoints, ct);
 
@@ -219,6 +220,7 @@ public sealed class RevenueReportService(ISportHubDbContext db,
             PointsIssued = pointsIssued,
             ManagerPointAdjustment = managerPointAdjustment,
             OutstandingPoints = outstandingPoints,
+            OutstandingPointsAsOfUtc = outstandingPointsAsOfUtc,
             BySource = sourceRows,
             BySportAndSource = dimensionRows
         };

@@ -85,6 +85,7 @@ export function InvoiceList({
           invoiceId={selected}
           staff={staff}
           rental={rental}
+          onClose={() => setSelected(null)}
         />
       )}
       <label>

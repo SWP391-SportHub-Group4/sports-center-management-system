@@ -24,6 +24,31 @@ Frontend đọc `frontend/.env.local` (tùy chọn). Mặc định gọi API t�
 
 ## 3. Khởi động
 
+Có thể chạy cả hệ thống bằng Docker, không cần khởi động backend/frontend riêng:
+
+```bash
+docker compose up -d --build
+docker compose ps
+```
+
+Web mặc định ở `http://localhost:3000`. Nếu Windows báo lỗi bind cổng
+`An attempt was made to access a socket in a way forbidden by its access permissions`,
+xem vùng cổng dự trữ bằng `netsh interface ipv4 show excludedportrange protocol=tcp`.
+Chọn cổng ngoài các vùng đó và đặt trong `.env`, ví dụ:
+
+```dotenv
+FRONTEND_PORT=3500
+Cors__AllowedOrigins__0=http://localhost:3500
+Cors__AllowedOrigins__1=http://127.0.0.1:3500
+Frontend__BaseUrl=http://localhost:3500
+VnPay__ReturnUrl=http://localhost:3500/payments/return
+```
+
+Chạy lại `docker compose up -d` rồi mở `http://localhost:3500`.
+`FRONTEND_PORT` chỉ đổi cổng Docker trên máy host; chạy Next trực tiếp dùng
+`npm run dev -- --port 3500`. Sau khi sửa mã frontend, build lại image bằng
+`docker compose up -d --build frontend`.
+
 ### 3.1 Database
 
 ```bash
