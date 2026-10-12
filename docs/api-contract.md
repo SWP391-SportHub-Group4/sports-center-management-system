@@ -178,12 +178,21 @@ Việc bổ sung không thay đổi quyền đọc audit, scope tài khoản c�
 | GET | `api/users/admin` |
 | GET | `api/users/{userId:guid}` |
 | POST | `api/users/admin/staff` |
+| POST | `api/users/{userId:guid}/resend-activation` |
+| PUT | `api/users/{userId:guid}/email` |
 | PUT | `api/users/{userId:guid}/role` |
 | POST | `api/users/{userId:guid}/lock` |
 | POST | `api/users/{userId:guid}/unlock` |
 | POST | `api/users/{userId:guid}/deactivate` |
 
-`POST api/users/admin/staff` (SystemAdministrator; `{email, fullName, phone?, roleId, specialties?}`): tạo tài khoản staff **không có mật khẩu**, gửi email kích hoạt (link dùng một lần, 24 giờ). Với Coach (`roleId` 2) bắt buộc `specialties` (1–10 môn đang hoạt động), role khác không được gửi `specialties`. **Manager không tạo được Coach** (không còn `POST api/manager/coaches`): Manager chỉ sửa hồ sơ/chuyên môn và cấp quyền dịch vụ PT (`PUT api/manager/coaches/{id}` và `.../service-qualifications`).
+`POST api/users/admin/staff` (SystemAdministrator; `{email, fullName, phone?, roleId, specialties?}`): tạo tài khoản staff **không có mật khẩu**, gửi email kích hoạt (link dùng một lần, 24 giờ). Với Coach (`roleId` 2) bắt buộc `specialties` chứa **đúng một môn đang hoạt động** khi tạo, role khác không được gửi `specialties`. **Manager không tạo được Coach** (không còn `POST api/manager/coaches`): Manager chỉ sửa hồ sơ/chuyên môn và cấp quyền dịch vụ PT (`PUT api/manager/coaches/{id}` và `.../service-qualifications`).
+
+`UserAdminResponse.activationPending` (bool): staff chưa đặt mật khẩu và chưa liên kết Google. Hai thao tác dưới đây chỉ dành cho SystemAdministrator và chỉ áp dụng cho tài khoản `activationPending`; Member hoặc staff đã kích hoạt trả **409 `account_not_pending_activation`**.
+
+- `POST api/users/{userId}/resend-activation` (không body): phát hành link kích hoạt mới 24 giờ, vô hiệu link cũ; còn trong 60 giây kể từ lần gửi trước trả **429 `activation_resend_too_soon`**; ghi audit `RESEND_STAFF_ACTIVATION`.
+- `PUT api/users/{userId}/email` (`{email, reason}`, lý do 3–500 ký tự): sửa email gõ sai. Email trùng (không phân biệt hoa thường) trả 409 `email_already_exists`, email không đổi trả 400 `email_unchanged`. Link gửi tới email cũ bị vô hiệu ngay (người nhận nhầm không kích hoạt được), link mới gửi tới email mới; ghi audit `CHANGE_PENDING_STAFF_EMAIL` kèm email cũ/mới và lý do.
+
+Đăng nhập Google với email của staff chưa kích hoạt bị từ chối (401), vì staff chỉ vào được sau khi tự đặt mật khẩu bằng link.
 
 `PUT api/users/{userId}/role` (SystemAdministrator; body `{role, reason, sportIds?}`; `sportIds` bắt buộc khi đổi sang Coach). Chỉ đổi **giữa các role staff** (SystemAdministrator, CenterManager, Receptionist, Coach).
 

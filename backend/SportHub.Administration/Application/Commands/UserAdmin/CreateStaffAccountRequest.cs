@@ -22,7 +22,7 @@ public sealed class CreateStaffAccountRequest
     public int RoleId { get; set; }
 
     /// <summary>
-    /// BR-96 — bắt buộc khi RoleId là Coach; không được gửi kèm cho role khác.
+    /// BR-96 — khi tạo Coach phải chọn đúng một môn; không gửi kèm cho role khác.
     /// Service kiểm tra chéo với RoleId vì DataAnnotations không validate liên field.
     /// </summary>
     public List<int>? Specialties { get; set; }

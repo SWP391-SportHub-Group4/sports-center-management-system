@@ -599,6 +599,17 @@ export const en = {
       "Check the account, requested change and reason before confirming.",
     createHint:
       "The staff account will be ready after the employee sets a password from the email invitation.",
+    confirmEmail: "Confirm email",
+    emailMismatch: "The two email addresses do not match.",
+    pendingActivation: "Pending activation",
+    pendingActivationHint:
+      "This staff member has not activated the account yet. If the email was mistyped, correct it so the activation link goes to the right person.",
+    resendActivation: "Resend activation link",
+    changeEmail: "Change email",
+    newEmail: "New email",
+    confirmNewEmail: "Confirm new email",
+    saveNewEmail: "Update email and send link",
+    activationActionFailed: "The action could not be completed.",
     activationHint:
       "* An activation email with a link to set the first password will be sent directly to the staff member.",
     roleImpact:
