@@ -45,6 +45,11 @@ function loginErrorMessage(
   language: "en" | "vi",
   method: "password" | "google" = "password",
 ) {
+  if (cause instanceof ApiError && cause.code === "api_configuration_error") {
+    return language === "vi"
+      ? "Địa chỉ API chưa được cấu hình đúng. Đặt NEXT_PUBLIC_API_BASE_URL thành URL HTTPS đầy đủ của backend và deploy lại frontend."
+      : cause.message;
+  }
   if (language === "vi")
     return cause instanceof ApiError
       ? cause.message

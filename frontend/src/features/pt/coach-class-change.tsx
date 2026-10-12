@@ -1,13 +1,11 @@
 "use client";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { CalendarClock, RefreshCw, Send, X } from "lucide-react";
-import { Drawer } from "@/components/primitives";
 import { AsyncSection, Feedback } from "@/components/ui";
 import { useApi, useAction, useNow } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { formatDateTime } from "@/lib/format";
 import { vietnamUtc } from "@/lib/vietnam-time";
-import { useUrlQuery } from "@/lib/useUrlQuery";
 import type { CourseSessionDto } from "@/lib/types";
 import {
   classChangeApi,
@@ -29,14 +27,15 @@ export function CoachClassChanges({
   const { language } = useLanguage();
   const vi = language === "vi";
   const [page, setPage] = useState(1);
+  const [status, setStatus] = useState("");
   const state = useApi(
     (signal) =>
       classChangeApi.list(
         false,
-        { page, sessionId: session?.sessionId },
+        { page, sessionId: session?.sessionId, status: status || undefined },
         signal,
       ),
-    [page, session?.sessionId],
+    [page, session?.sessionId, status],
   );
   const action = useAction();
   const lock = useRef(false);
@@ -104,6 +103,7 @@ export function CoachClassChanges({
         resetRetry();
         setPage(1);
         state.reload();
+        onChanged?.();
       }
     } finally {
       lock.current = false;
@@ -142,6 +142,32 @@ export function CoachClassChanges({
           : "Your current schedule remains in effect until reviewed. For urgent changes, contact your Manager directly as well."}
       </p>
       <Feedback error={action.error} success={action.success} />
+      {!session && (
+        <div
+          className={styles.statusFilters}
+          role="group"
+          aria-label={vi ? "Lọc trạng thái yêu cầu" : "Filter request status"}
+        >
+          {["", "PENDING", "RESOLVED", "REJECTED", "WITHDRAWN"].map((value) => (
+            <button
+              key={value}
+              type="button"
+              className="btn btn--quiet btn--sm"
+              aria-pressed={status === value}
+              onClick={() => {
+                setStatus(value);
+                setPage(1);
+              }}
+            >
+              {value
+                ? changeStatusLabel(value, vi)
+                : vi
+                  ? "Tất cả"
+                  : "All requests"}
+            </button>
+          ))}
+        </div>
+      )}
       {form && (
         <form className={styles.form} onSubmit={submit}>
           <label>
@@ -236,9 +262,19 @@ export function CoachClassChanges({
         {(data) => (
           <>
             {!data.items.length && (
-              <p className={styles.hint}>
-                {vi ? "Chưa có yêu cầu thay đổi." : "No change requests yet."}
-              </p>
+              <div className={styles.empty}>
+                <CalendarClock size={36} aria-hidden="true" />
+                <strong>
+                  {vi
+                    ? "Không có yêu cầu trong mục này"
+                    : "No requests in this view"}
+                </strong>
+                <p className={styles.hint}>
+                  {vi
+                    ? "Để tạo yêu cầu, chọn buổi học sắp tới trong Lịch dạy và mở mục yêu cầu đổi lịch."
+                    : "To create a request, select an upcoming session in Teaching schedule and open schedule change requests."}
+                </p>
+              </div>
             )}
             <div className={styles.history}>
               {data.items.map((r) => (
@@ -253,26 +289,38 @@ export function CoachClassChanges({
                       {changeStatusLabel(r.status, vi)}
                     </span>
                   </div>
-                  <p className={styles.hint}>
-                    {formatDateTime(r.originalStartAtUtc)} ·{" "}
-                    {formatDateTime(r.createdAtUtc)}
-                  </p>
-                  <p className={styles.hint}>{r.reason}</p>
-                  {r.proposedStartAtUtc && (
-                    <p className={styles.hint}>
-                      {vi ? "Đề xuất: " : "Suggested: "}
-                      {formatDateTime(r.proposedStartAtUtc)}
-                    </p>
-                  )}
+                  <dl className={styles.requestDates}>
+                    <div>
+                      <dt>{vi ? "Lịch hiện tại" : "Current session"}</dt>
+                      <dd>{formatDateTime(r.originalStartAtUtc)}</dd>
+                    </div>
+                    {r.proposedStartAtUtc && (
+                      <div>
+                        <dt>{vi ? "Lịch đề xuất" : "Suggested session"}</dt>
+                        <dd>{formatDateTime(r.proposedStartAtUtc)}</dd>
+                      </div>
+                    )}
+                    <div>
+                      <dt>{vi ? "Đã gửi" : "Submitted"}</dt>
+                      <dd>{formatDateTime(r.createdAtUtc)}</dd>
+                    </div>
+                  </dl>
+                  <div className={styles.requestReason}>
+                    <strong>
+                      {vi ? "Lý do yêu cầu" : "Reason for request"}
+                    </strong>
+                    <p>{r.reason}</p>
+                  </div>
                   {r.reviewNote && (
-                    <div className={styles.facts}>
+                    <div
+                      className={`${styles.facts} ${styles.managerResponse}`}
+                    >
                       <strong>
-                        {r.resolutionType
-                          ? changeTypeLabel(r.resolutionType, vi)
-                          : vi
-                            ? "Phản hồi từ Manager"
-                            : "Manager response"}
+                        {vi ? "Phản hồi từ Manager" : "Manager response"}
                       </strong>
+                      {r.resolutionType && (
+                        <p>{changeTypeLabel(r.resolutionType, vi)}</p>
+                      )}
                       <p>{r.reviewNote}</p>
                       {r.reviewedAtUtc && (
                         <p>{formatDateTime(r.reviewedAtUtc)}</p>
@@ -344,34 +392,5 @@ export function CoachClassChanges({
         )}
       </AsyncSection>
     </section>
-  );
-}
-
-export function CoachClassChangeHistory() {
-  const { language } = useLanguage();
-  const vi = language === "vi";
-  const { values, setValues } = useUrlQuery({ changes: "" });
-  return (
-    <>
-      <button
-        type="button"
-        className="btn btn--quiet btn--sm"
-        onClick={() => setValues({ changes: "1" })}
-      >
-        <CalendarClock size={16} aria-hidden="true" />
-        {vi ? "Yêu cầu đổi lịch của tôi" : "My schedule change requests"}
-      </button>
-      {values.changes === "1" && (
-        <Drawer
-          size="lg"
-          title={
-            vi ? "Yêu cầu đổi lịch của tôi" : "My schedule change requests"
-          }
-          onClose={() => setValues({ changes: "" })}
-        >
-          <CoachClassChanges />
-        </Drawer>
-      )}
-    </>
   );
 }

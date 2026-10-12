@@ -46,7 +46,11 @@ export function TrainingPlanView({
   );
   const [student, setStudent] = useState(memberId ?? "");
   const [session, setSession] = useState(sessionId ?? "");
-  const plans = records.filter((r) => r.kind === "PLAN");
+  const plans = records.filter(
+    (r) =>
+      r.kind === "PLAN" &&
+      (!memberId || r.memberId === null || r.memberId === memberId),
+  );
   const labels = {
     course: vi ? "Cả khóa" : "Course",
     session: vi ? "Buổi tập" : "Session",
@@ -150,7 +154,7 @@ export function TrainingPlanView({
             </select>
           </label>
         )}
-        {onCreate && (
+        {onCreate && (!memberId || scope === "personal") && (
           <button
             type="button"
             className="btn btn--sm"
@@ -180,7 +184,7 @@ export function TrainingPlanView({
           scope={scope}
           sessions={sessions}
           members={members}
-          onEdit={onEdit}
+          onEdit={!memberId || scope === "personal" ? onEdit : undefined}
           editableCoachId={editableCoachId}
         />
       ) : (
@@ -191,9 +195,13 @@ export function TrainingPlanView({
           </h3>
           <p>
             {onCreate
-              ? vi
-                ? "Tạo kế hoạch mới với phạm vi đã chọn, hoặc chọn học viên / buổi khác."
-                : "Create a plan for this scope, or select another student or session."
+              ? memberId
+                ? vi
+                  ? "Tạo kế hoạch cá nhân cho học viên trong lớp này."
+                  : "Create an individual plan for this student in this class."
+                : vi
+                  ? "Tạo kế hoạch mới với phạm vi đã chọn, hoặc chọn học viên / buổi khác."
+                  : "Create a plan for this scope, or select another student or session."
               : vi
                 ? "Kế hoạch sẽ xuất hiện tại đây khi coach lưu."
                 : "Plans appear here when your coach saves them."}
@@ -204,8 +212,8 @@ export function TrainingPlanView({
         <CourseRoadmap
           sessions={sessions}
           records={plans}
-          onCreate={onCreate}
-          onEdit={onEdit}
+          onCreate={memberId ? undefined : onCreate}
+          onEdit={memberId ? undefined : onEdit}
           editableCoachId={editableCoachId}
         />
       )}

@@ -6,6 +6,7 @@ import { canUsePtFeatures } from "@/lib/permissions";
 import { useLanguage } from "@/lib/language";
 import { PtPage } from "./ui";
 import { CoachWorkspace, type WorkspaceMode } from "./coach-workspace";
+import { CoachStudentDirectory } from "./coach-students";
 
 export function CoachWorkspaceRoute({
   mode,
@@ -38,7 +39,11 @@ export function CoachWorkspaceRoute({
       }
       titleText={labels[mode]}
     >
-      <CoachWorkspace mode={mode} initialClassId={initialClassId} />
+      {mode === "students" ? (
+        <CoachStudentDirectory />
+      ) : (
+        <CoachWorkspace mode={mode} initialClassId={initialClassId} />
+      )}
     </PtPage>
   );
 }
