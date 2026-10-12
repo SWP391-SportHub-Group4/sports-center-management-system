@@ -1,5 +1,5 @@
 "use client";
-import { findSportWithService, hasService } from "@/lib/sports";
+import { hasService } from "@/lib/sports";
 import { useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/apiClient";
@@ -12,7 +12,6 @@ import type { CourseDto, MemberPackageDto, Paged, SportDto } from "@/lib/types";
 import { CheckoutPanel } from "@/features/payments";
 import {
   catalogContentLanguage,
-  isRetiredActivityPackage,
   parseMembershipCatalog,
 } from "./catalog-content";
 import styles from "./catalog.module.css";
@@ -29,7 +28,6 @@ export function MembershipCatalog({
   compact?: boolean;
   dense?: boolean;
   paymentModal?: boolean;
-  /** Gói PT chỉ bán khi Member đã có Membership Gym đang hiệu lực. */
   gymActive?: boolean;
   /** Gói hội viên đã có: cùng loại gói đang hiệu lực hoặc chờ thanh toán thì chưa mua lại được. */
   owned?: MemberPackageDto[];
@@ -378,7 +376,6 @@ export function MembershipCatalog({
               {activeSports.map((sport, index) => {
                 const sportCourses = coursesBySport(sport.sportId);
                 const isCourseSport = hasService(sport, "GROUP_COURSE");
-                const isGym = hasService(sport, "MEMBERSHIP_ACCESS");
                 return (
                   <article
                     className={styles.publicSportCard}
@@ -427,12 +424,7 @@ export function MembershipCatalog({
                       </p>
                     ) : (
                       <p className={styles.noCourseCopy}>
-                        {isGym && hasService(sport, "PERSONAL_TRAINING")
-                          ? text(
-                              "Khu tập Gym tự do để rèn sức mạnh, sức bền và thể lực tổng quát, kèm huấn luyện cá nhân 1 kèm 1 theo lịch hẹn riêng.",
-                              "Open Gym training for strength, endurance, and overall conditioning, plus one-to-one coaching by appointment.",
-                            )
-                          : text(
+                        {text(
                               "Khu tập Gym tự do để rèn sức mạnh, sức bền và thể lực tổng quát.",
                               "Open Gym training for strength, endurance, and overall conditioning.",
                             )}
@@ -454,164 +446,6 @@ export function MembershipCatalog({
           }}
         />
       )}
-      {purchase && (
-        <p className={styles.purchaseNote}>{t.refactor.ptSeparate}</p>
-      )}
     </section>
-  );
-}
-interface PtQuote {
-  memberPackageId: string;
-  coachId: string;
-  frequencyPerWeek: number;
-  totalQuota: number;
-  pricePerSession: number;
-  totalPrice: number;
-  priceVersion: string;
-  validityEndDate: string;
-}
-export function PtPurchase({
-  packages,
-  memberId,
-  compact = false,
-  dense = false,
-  paymentModal = false,
-}: {
-  compact?: boolean;
-  dense?: boolean;
-  paymentModal?: boolean;
-  packages: MemberPackageDto[];
-  memberId?: string;
-}) {
-  const { t, language } = useLanguage();
-  const [packageId, setPackage] = useState("");
-  const [coachId, setCoach] = useState("");
-  const [quote, setQuote] = useState<PtQuote | null>(null);
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
-  const sports = useApi(
-    (signal) => api.get<SportDto[]>("/api/sports", { anonymous: true, signal }),
-    [],
-  );
-  const ptSport = findSportWithService(sports.data, "PERSONAL_TRAINING");
-  const coaches = useApi(
-    (signal) =>
-      ptSport
-        ? api.get<{ userId: string; fullName: string }[]>("/api/coaches", {
-            signal,
-            query: { service: "PERSONAL_TRAINING" },
-          })
-        : Promise.resolve([]),
-    [ptSport?.sportId],
-  );
-  return (
-    <div
-      className={`${compact ? styles.ptCompact : ""} ${dense ? styles.dense : ""}`}
-    >
-      <Card title={t.refactor.pt}>
-        <p>{t.refactor.ptSeparate}</p>
-        <p>
-          {language === "vi"
-            ? "Tự chọn ngày và giờ tập khi đặt buổi PT, trong thời hạn và số buổi của gói."
-            : "Choose your training dates and times when booking PT, within your package validity and session allowance."}
-        </p>
-        <div className={compact ? styles.ptFields : styles.ptFieldsStack}>
-          <label>
-            {t.refactor.gym}
-            <select
-              value={packageId}
-              onChange={(e) => {
-                setPackage(e.target.value);
-                setQuote(null);
-              }}
-            >
-              <option value="">—</option>
-              {packages
-                .filter(
-                  (p) =>
-                    p.isUsable &&
-                    p.status === "ACTIVE" &&
-                    !isRetiredActivityPackage(p.packageName),
-                )
-                .map((p) => (
-                  <option key={p.memberPackageId} value={p.memberPackageId}>
-                    {p.packageName} · {formatDate(p.endDate)}
-                  </option>
-                ))}
-            </select>
-          </label>
-          <label>
-            {t.refactor.coach}
-            <select
-              value={coachId}
-              onChange={(e) => {
-                setCoach(e.target.value);
-                setQuote(null);
-              }}
-            >
-              <option value="">—</option>
-              {coaches.data?.map((c) => (
-                <option key={c.userId} value={c.userId}>
-                  {c.fullName}
-                </option>
-              ))}
-            </select>
-          </label>
-          {coaches.error && <p role="alert">{coaches.error.message}</p>}
-        </div>
-        <button
-          className="btn btn--secondary"
-          disabled={busy || !packageId || !coachId}
-          onClick={async () => {
-            setBusy(true);
-            setError("");
-            try {
-              setQuote(
-                await api.post<PtQuote>("/api/checkouts/pt/quote", {
-                  memberPackageId: packageId,
-                  coachId,
-                  // The API uses this only to price the base session allowance,
-                  // not to create a weekly schedule. Show its quote before checkout.
-                  frequencyPerWeek: 1,
-                  targetMemberId: memberId,
-                }),
-              );
-            } catch (e) {
-              setError((e as Error).message);
-            } finally {
-              setBusy(false);
-            }
-          }}
-        >
-          {t.refactor.quote}
-        </button>
-        {error && <p role="alert">{error}</p>}
-        {quote && (
-          <>
-            <p>
-              {quote.totalQuota} {t.refactor.quota} ×{" "}
-              {formatMoney(quote.pricePerSession)} ={" "}
-              {formatMoney(quote.totalPrice)} ·{" "}
-              {formatDate(quote.validityEndDate)}
-            </p>
-            <CheckoutPanel
-              modal={paymentModal}
-              key={`${packageId}-${coachId}-${quote.frequencyPerWeek}-${quote.priceVersion}`}
-              memberId={memberId}
-              intent={{
-                kind: "pt",
-                body: {
-                  memberPackageId: packageId,
-                  coachId,
-                  frequencyPerWeek: quote.frequencyPerWeek,
-                  priceVersion: quote.priceVersion,
-                  targetMemberId: memberId,
-                },
-              }}
-            />
-          </>
-        )}
-      </Card>
-    </div>
   );
 }

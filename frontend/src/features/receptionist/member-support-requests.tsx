@@ -173,9 +173,6 @@ export function MemberSupportRequests({
             Payment
           </option>
 
-          <option value="PT">
-            Personal training
-          </option>
 
           <option value="OTHER">
             Other

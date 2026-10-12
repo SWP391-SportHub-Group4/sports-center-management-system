@@ -1,4 +1,4 @@
-import { ManagerCatalog } from "@/features/catalog/manager-catalog";
+import { redirect } from "next/navigation";
 export default function Page() {
-  return <ManagerCatalog defaultTab="pt" />;
+  redirect("/manager/membership-plans");
 }
