@@ -625,17 +625,9 @@ export const vi: Translations = {
     reviewCreate: "Xem lại tài khoản nhân sự",
     reviewHint: "Kiểm tra tài khoản, thay đổi và lý do trước khi xác nhận.",
     createHint:
-      "Tài khoản nhân sự mới sẽ hoạt động và có quyền theo vai trò đã chọn.",
-    useDefaultPassword: "Dùng mật khẩu mặc định",
-    defaultPassword: "Mật khẩu mặc định",
-    customPassword: "Mật khẩu riêng",
+      "Nhân sự sẽ dùng được tài khoản sau khi tự đặt mật khẩu qua email kích hoạt.",
     optionalPhoneHint:
       "Không bắt buộc. Người nhận có thể bổ sung sau khi đăng nhập.",
-    accountHandoffHint:
-      "Bàn giao email và mật khẩu cho người nhận. Họ có thể bổ sung số điện thoại và đổi mật khẩu trong Cài đặt tài khoản.",
-    defaultPasswordEmailConflict:
-      "Mật khẩu mặc định chứa phần tên của email này. Bỏ chọn mật khẩu mặc định và nhập mật khẩu khác.",
-      "Nhân sự sẽ dùng được tài khoản sau khi tự đặt mật khẩu qua email kích hoạt.",
     confirmEmail: "Nhập lại email",
     emailMismatch: "Hai địa chỉ email không khớp.",
     pendingActivation: "Chờ kích hoạt",
