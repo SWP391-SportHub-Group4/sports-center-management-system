@@ -5,7 +5,7 @@ import { Drawer, Tabs } from "@/components/primitives";
 import { CourseSticker } from "@/features/courses";
 import { CourtCalendar } from "@/features/court-schedule";
 import Link from "next/link";
-import { AsyncSection, Card, Field, StatusChip } from "@/components/ui";
+import { AsyncSection, Card, Dialog, Field, StatusChip } from "@/components/ui";
 import { useApi, useNow } from "@/lib/useApi";
 import { api } from "@/lib/apiClient";
 import { useLanguage } from "@/lib/language";
@@ -19,6 +19,7 @@ import { PtSessionEditor } from "./pt-session-editor";
 import { PtStudentPreparation, PtStudentHistory } from "./pt-student-panel";
 import { ResultEditor } from "./workout-result-form";
 import styles from "./pt-coach-workspace.module.css";
+import managerStyles from "./pt-sessions.module.css";
 import workspace from "./coach-workspace.module.css";
 import { UserAvatar } from "@/components/UserAvatar";
 
@@ -178,6 +179,169 @@ function SessionActions({
     <div className={styles.section}>{content}</div>
   );
 }
+function ManagerSessionActions({
+  session: s,
+  manager,
+  hasPt,
+  reload,
+}: {
+  session: PtSessionDto;
+  manager: boolean;
+  hasPt: boolean;
+  reload: () => void;
+}) {
+  const { t } = useLanguage();
+  const l = t.staffWork;
+  const mutation = useMutation();
+  const [reason, setReason] = useState("");
+  const [editing, setEditing] = useState(false);
+  async function perform(action: string) {
+    const ok = await mutation.run(() =>
+      api.post(
+        `/api/${manager ? "manager" : "coaches/me"}/pt-sessions/${s.sessionId}/${action}`,
+        action === "complete" ? undefined : { reason: reason.trim() },
+      ),
+    );
+    if (ok) reload();
+    return ok;
+  }
+  const [cancelling, setCancelling] = useState(false);
+  return (
+    <article
+      className={managerStyles.session}
+      aria-label={s.memberName + " · " + s.coachName}
+    >
+      <div className={managerStyles.row}>
+        <strong>{s.memberName}</strong>
+        <div className={managerStyles.schedule}>
+          <time dateTime={s.startAtUtc}>{formatDate(s.startAtUtc)}</time>
+          <span>
+            {formatTime(s.startAtUtc)}–{formatTime(s.endAtUtc)}
+          </span>
+        </div>
+        <div className={managerStyles.location}>
+          <span>{s.coachName}</span>
+          <span className="small muted">{s.roomName ?? l.noRoom}</span>
+        </div>
+        <div className={managerStyles.status}>
+          <StatusChip value={s.status} />
+          {!manager && <StatusChip value={s.quotaState} />}
+        </div>
+        <div className={managerStyles.actions}>
+          {s.status === "SCHEDULED" &&
+            (manager || hasPt) &&
+            (manager ? (
+              <>
+                <button
+                  className="btn btn--secondary"
+                  disabled={mutation.busy}
+                  onClick={() => setEditing(true)}
+                >
+                  {l.reschedule}
+                </button>
+                <button
+                  className="btn btn--danger"
+                  disabled={mutation.busy}
+                  onClick={() => {
+                    setReason("");
+                    mutation.reset();
+                    setCancelling(true);
+                  }}
+                >
+                  {l.cancelSession}
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  className="btn"
+                  disabled={mutation.busy}
+                  onClick={() => perform("complete")}
+                >
+                  {l.complete}
+                </button>
+                <button
+                  className="btn btn--secondary"
+                  disabled={mutation.busy}
+                  onClick={() => perform("no-show")}
+                >
+                  {l.noShow}
+                </button>
+              </>
+            ))}
+          {!manager && hasPt && s.status === "COMPLETED" && (
+            <Link
+              className="btn btn--secondary"
+              href={"/coach/progress?sessionId=" + s.sessionId}
+            >
+              {l.results}
+            </Link>
+          )}
+        </div>
+      </div>
+      {!manager && s.cancellationReason && (
+        <p className="small muted">{s.cancellationReason}</p>
+      )}
+      {!manager && s.status === "SCHEDULED" && hasPt && (
+        <Field label={l.reason}>
+          <textarea
+            maxLength={500}
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+          />
+        </Field>
+      )}
+      {!cancelling && <MutationFeedback mutation={mutation} />}
+      {editing && (
+        <Dialog
+          title={l.reschedule}
+          onClose={() => setEditing(false)}
+          size="lg"
+        >
+          <PtSessionEditor
+            session={s}
+            onSaved={() => {
+              setEditing(false);
+              reload();
+            }}
+          />
+        </Dialog>
+      )}
+      {cancelling && (
+        <Dialog
+          title={l.cancelSession}
+          onClose={() => setCancelling(false)}
+          footer={
+            <button
+              className="btn btn--danger"
+              disabled={mutation.busy || reason.trim().length < 3}
+              onClick={async () => {
+                if (await perform("cancel")) setCancelling(false);
+              }}
+            >
+              {l.cancelSession}
+            </button>
+          }
+        >
+          <p>
+            <strong>{s.memberName}</strong> · {formatDate(s.startAtUtc)} ·{" "}
+            {formatTime(s.startAtUtc)}–{formatTime(s.endAtUtc)}
+          </p>
+          <Field label={l.reason}>
+            <textarea
+              required
+              minLength={3}
+              maxLength={500}
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+            />
+          </Field>
+          <MutationFeedback mutation={mutation} />
+        </Dialog>
+      )}
+    </article>
+  );
+}
 function SessionList({ manager, hasPt }: { manager: boolean; hasPt: boolean }) {
   const { t } = useLanguage();
   const [page, setPage] = useState(1);
@@ -219,16 +383,26 @@ function SessionList({ manager, hasPt }: { manager: boolean; hasPt: boolean }) {
         <AsyncSection state={state}>
           {(rows) => (
             <>
-              <div className="stack">
-                {rows.map((s) => (
-                  <SessionActions
-                    key={`${s.sessionId}-${s.status}`}
-                    session={s}
-                    manager={manager}
-                    hasPt={hasPt}
-                    reload={reload}
-                  />
-                ))}
+              <div className={manager ? managerStyles.list : "stack"}>
+                {rows.map((s) =>
+                  manager ? (
+                    <ManagerSessionActions
+                      key={`${s.sessionId}-${s.status}`}
+                      session={s}
+                      manager
+                      hasPt={hasPt}
+                      reload={reload}
+                    />
+                  ) : (
+                    <SessionActions
+                      key={`${s.sessionId}-${s.status}`}
+                      session={s}
+                      manager={manager}
+                      hasPt={hasPt}
+                      reload={reload}
+                    />
+                  ),
+                )}
               </div>
               {!rows.length && <p>{t.common.noData}</p>}
               <ListPager page={page} count={rows.length} onChange={setPage} />

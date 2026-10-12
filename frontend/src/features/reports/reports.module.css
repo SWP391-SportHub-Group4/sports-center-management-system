@@ -21,15 +21,22 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
   gap: var(--space-4);
-  align-items: end;
+  align-items: start;
 }
 
 .filterGrid > * {
   min-width: 0;
 }
 
-.filterGrid :global(.field > label) {
+.filterForm .filterGrid > :global(.field) {
   margin: 0;
+}
+
+.filterGrid :global(.field > input),
+.filterGrid :global(.field > select) {
+  box-sizing: border-box;
+  height: 44px;
+  min-height: 44px;
 }
 
 .filterForm > button,

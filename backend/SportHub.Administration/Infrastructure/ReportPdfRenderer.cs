@@ -1,6 +1,7 @@
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
+using System.Globalization;
 
 namespace SportHub.Administration.Infrastructure;
 
@@ -15,7 +16,10 @@ public sealed record ReportTable(
     string Subtitle,
     IReadOnlyList<string> Headers,
     IReadOnlyList<IReadOnlyList<string>> Rows,
-    IReadOnlySet<int> NumericColumns);
+    IReadOnlySet<int> NumericColumns,
+    bool IsSummary = false,
+    bool IsEnrollment = false,
+    bool IsMembership = false);
 
 public interface IReportPdfRenderer
 {
@@ -42,8 +46,11 @@ public sealed class ReportPdfRenderer : IReportPdfRenderer
     /// </summary>
     static ReportPdfRenderer() => QuestPDF.Settings.License = LicenseType.Community;
 
-    public byte[] Render(ReportTable table)
+    public byte[] Render(ReportTable table) => BuildDocument(table).GeneratePdf();
+
+    private static IDocument BuildDocument(ReportTable table)
     {
+        var spacious = table.IsSummary || table.IsEnrollment || table.IsMembership;
         return Document.Create(container =>
         {
             container.Page(page =>
@@ -65,9 +72,21 @@ public sealed class ReportPdfRenderer : IReportPdfRenderer
                 {
                     grid.ColumnsDefinition(definition =>
                     {
-                        foreach (var _ in table.Headers)
+                        foreach (var label in table.Headers)
                         {
-                            definition.RelativeColumn();
+                            var weight = table.IsEnrollment ? label switch
+                            {
+                                "Course name" => 2.3f,
+                                "Sport" => 1.2f,
+                                "Capacity" => 0.85f,
+                                "Confirmed enrollments" => 1.35f,
+                                "Seats held for checkout" => 1.45f,
+                                "Available seats" => 1.15f,
+                                "Break-even threshold" => 1.25f,
+                                "Threshold status" => 1.4f,
+                                _ => 1f
+                            } : 1f;
+                            definition.RelativeColumn(weight);
                         }
                     });
 
@@ -79,12 +98,16 @@ public sealed class ReportPdfRenderer : IReportPdfRenderer
                         {
                             var cell = header.Cell()
                                 .Background(Colors.Grey.Lighten3)
-                                .Padding(4)
+                                .PaddingHorizontal(spacious ? 8 : 4)
+                                .PaddingVertical(spacious ? 10 : 4)
+                                .AlignMiddle()
                                 .Text(table.Headers[i])
                                 .SemiBold()
                                 .FontSize(8);
 
-                            if (table.NumericColumns.Contains(i))
+                            if (table.IsSummary || (table.IsEnrollment || table.IsMembership) && table.NumericColumns.Contains(i))
+                                cell.AlignCenter();
+                            else if (table.NumericColumns.Contains(i))
                             {
                                 cell.AlignRight();
                             }
@@ -96,15 +119,25 @@ public sealed class ReportPdfRenderer : IReportPdfRenderer
                         for (var i = 0; i < table.Headers.Count; i++)
                         {
                             var value = i < row.Count ? row[i] : string.Empty;
+                            if (table.IsEnrollment && table.Headers[i] == "Fill rate"
+                                && decimal.TryParse(value, NumberStyles.Number, CultureInfo.InvariantCulture, out var ratio))
+                                value = ratio.ToString("0.#%", CultureInfo.InvariantCulture);
+                            if (table.IsSummary && table.NumericColumns.Contains(i)
+                                && decimal.TryParse(value, NumberStyles.Number, CultureInfo.InvariantCulture, out var number))
+                                value = number.ToString("#,##0.############################", CultureInfo.GetCultureInfo("en-US"));
 
                             var cell = grid.Cell()
                                 .BorderBottom(0.5f)
                                 .BorderColor(Colors.Grey.Lighten2)
-                                .Padding(4)
+                                .PaddingHorizontal(spacious ? 8 : 4)
+                                .PaddingVertical(spacious ? 10 : 4)
+                                .AlignMiddle()
                                 .Text(value)
                                 .FontSize(8);
 
-                            if (table.NumericColumns.Contains(i))
+                            if (table.IsSummary || (table.IsEnrollment || table.IsMembership) && table.NumericColumns.Contains(i))
+                                cell.AlignCenter();
+                            else if (table.NumericColumns.Contains(i))
                             {
                                 cell.AlignRight();
                             }
@@ -121,6 +154,6 @@ public sealed class ReportPdfRenderer : IReportPdfRenderer
                     text.TotalPages();
                 });
             });
-        }).GeneratePdf();
+        });
     }
 }

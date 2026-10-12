@@ -1,6 +1,7 @@
 "use client";
 import { Field } from "@/components/ui";
 import { useLanguage } from "@/lib/language";
+import { managerWorkspaceStyles as styles } from "@/features/manager";
 export type ScheduleRule = { dayOfWeek: number; startTimeLocal: string };
 export function ScheduleRuleEditor({
   value,
@@ -12,10 +13,10 @@ export function ScheduleRuleEditor({
   const { t } = useLanguage();
   const l = t.operations;
   return (
-    <fieldset>
+    <fieldset className={styles.scheduleRules}>
       <legend>{l.scheduleRules}</legend>
       {value.map((r, i) => (
-        <div className="form-grid" key={i}>
+        <div className={styles.scheduleRule} key={i}>
           <Field label={l.day}>
             <select
               value={r.dayOfWeek}

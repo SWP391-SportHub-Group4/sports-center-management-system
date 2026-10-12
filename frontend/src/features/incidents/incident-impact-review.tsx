@@ -5,6 +5,7 @@ import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { formatDateTime } from "@/lib/format";
 import { Card, Table, Field, AsyncSection, Dialog } from "@/components/ui";
+import { CloseButton } from "@/components/CloseButton";
 import { RoomSelector, catalogApi } from "@/features/catalog";
 import { useOperationsCopy } from "@/features/manager";
 import { SessionEditor } from "@/features/courses";
@@ -178,14 +179,12 @@ function PtImpactEditor({
         <button className="btn" disabled={mutation.busy || unknown}>
           {reviewing ? l.confirm : l.review}
         </button>
-        <button
-          type="button"
-          className="btn btn--ghost"
+        <CloseButton
+          label={l.close}
+          size="md"
           disabled={mutation.busy}
           onClick={onClose}
-        >
-          {l.close}
-        </button>
+        />
       </form>
       <MutationFeedback mutation={mutation} />
     </Card>
@@ -389,16 +388,16 @@ export function IncidentImpactReview({
             >
               {l.confirm}
             </button>
-            <button
-              className="btn btn--secondary"
+            <CloseButton
+              label={l.close}
+              variant="secondary"
+              size="md"
               disabled={mutation.busy}
               onClick={() => {
                 setRemoveId("");
                 onEditingChange?.(false);
               }}
-            >
-              {l.close}
-            </button>
+            />
           </div>
           <MutationFeedback mutation={mutation} />
         </Dialog>

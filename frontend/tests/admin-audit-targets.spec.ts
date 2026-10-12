@@ -1,3 +1,4 @@
+import { assertEnglishOnlyShell } from "./helpers/english";
 import { expect, test, type Page } from "@playwright/test";
 import { installBrowserSession, loginApi } from "./helpers/auth";
 import { bearer, liveApiBase } from "./helpers/api";
@@ -73,8 +74,8 @@ test("account audit displays recorded reasons and changes without exposing unkno
   await expect(table).toContainText("Promotion approved by leader");
   await expect(table.locator("del")).toContainText("Receptionist");
   await expect(table).not.toContainText("MUST_NOT_RENDER");
-  await page.getByTitle("Switch to Vietnamese").click();
-  await expect(table).toContainText("Lý do:");
+  await assertEnglishOnlyShell(page);
+  await expect(table).toContainText("Reason:");
   await expect(table).toContainText("Promotion approved by leader");
 });
 
@@ -146,7 +147,7 @@ test("missing account and older API responses retain IDs without falsely claimin
   ).toHaveCount(0);
 });
 
-test("long target identity fits Vietnamese desktop and mobile", async ({
+test("long Vietnamese target names fit the English shell on desktop and mobile", async ({
   page,
 }) => {
   await setup(page, [
@@ -160,9 +161,7 @@ test("long target identity fits Vietnamese desktop and mobile", async ({
   for (const width of [1440, 390, 320]) {
     await page.setViewportSize({ width, height: 900 });
     await page.goto("/admin/audit-log");
-    await expect(page.getByRole("table")).toContainText(
-      "Tài khoản bị tác động",
-    );
+    await expect(page.getByRole("table")).toContainText("Affected account");
     await expect(
       page.getByRole("link", { name: /Nguyễn Văn Tài Khoản/ }),
     ).toBeVisible();
@@ -177,7 +176,7 @@ test("long target identity fits Vietnamese desktop and mobile", async ({
   }
 });
 
-test("live audit API matches target account identity and UI while G10 remains blocked", async ({
+test("live audit matches target identity and preserves separate Admin and staff detail permissions", async ({
   page,
   request,
 }) => {
@@ -225,7 +224,7 @@ test("live audit API matches target account identity and UI while G10 remains bl
       .first(),
   ).toBeVisible();
   await expect(table).toContainText(target!.targetEmail);
-  await page.getByRole("button", { name: "EN", exact: true }).click();
+  await assertEnglishOnlyShell(page);
   await page.screenshot({
     path: "../output/admin-audit-target-live.png",
     fullPage: true,

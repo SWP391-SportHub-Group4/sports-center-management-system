@@ -111,17 +111,13 @@ export function ManagerCourseDetail({ classId }: { classId: number }) {
 
     try {
       await api.post(
-        `/api/manager/classes/${classId}/enrollment/${
-          open ? "open" : "close"
-        }`,
+        `/api/manager/classes/${classId}/enrollment/${open ? "open" : "close"}`,
       );
 
       reload();
     } catch (error) {
       setEnrollmentError(
-        error instanceof Error
-          ? error.message
-          : "Không thể cập nhật trạng thái tuyển sinh.",
+        error instanceof Error ? error.message : m.enrollmentUpdateError,
       );
     } finally {
       setEnrollmentBusy(false);
@@ -230,50 +226,46 @@ export function ManagerCourseDetail({ classId }: { classId: number }) {
                       ))}
                     </dl>
                     <p>{m.holdHint}</p>
-                    <Card title="Tuyển sinh">
-                      <div className="row spread">
-                        <div>
-                          <strong>
-                            {c.enrollmentOpen
-                              ? "Đang mở tuyển sinh"
-                              : "Đã đóng tuyển sinh"}
-                          </strong>
+                    <section className={styles.enrollment}>
+                      <div>
+                        <h3>{m.enrollmentTitle}</h3>
+                        <strong>
+                          {c.enrollmentOpen
+                            ? m.enrollmentOpen
+                            : m.enrollmentClosed}
+                        </strong>
 
-                          <p className="small muted">
-                            {c.enrollmentOpen
-                              ? "Hội viên mới có thể tạo giữ chỗ và đăng ký khóa học."
-                              : "Không nhận đăng ký mới. Học viên đã ghi danh vẫn giữ nguyên."}
-                          </p>
-                        </div>
-
-                        {c.status === "PUBLISHED" && (
-                          <button
-                            type="button"
-                            className={
-                              c.enrollmentOpen
-                                ? "btn btn--danger"
-                                : "btn"
-                            }
-                            disabled={enrollmentBusy}
-                            onClick={() =>
-                              void setEnrollmentOpen(!c.enrollmentOpen)
-                            }
-                          >
-                            {enrollmentBusy
-                              ? "Đang cập nhật..."
-                              : c.enrollmentOpen
-                                ? "Đóng tuyển sinh"
-                                : "Mở lại tuyển sinh"}
-                          </button>
-                        )}
+                        <p className="small muted">
+                          {c.enrollmentOpen
+                            ? m.enrollmentOpenHint
+                            : m.enrollmentClosedHint}
+                        </p>
                       </div>
 
+                      {c.status === "PUBLISHED" && (
+                        <button
+                          type="button"
+                          className={
+                            c.enrollmentOpen ? "btn btn--danger" : "btn"
+                          }
+                          disabled={enrollmentBusy}
+                          onClick={() =>
+                            void setEnrollmentOpen(!c.enrollmentOpen)
+                          }
+                        >
+                          {enrollmentBusy
+                            ? t.common.loading
+                            : c.enrollmentOpen
+                              ? m.closeEnrollment
+                              : m.reopenEnrollment}
+                        </button>
+                      )}
                       {enrollmentError && (
                         <p role="alert" className="error">
                           {enrollmentError}
                         </p>
                       )}
-                    </Card>
+                    </section>
                   </Card>
                   {!["CANCELLED", "COMPLETED"].includes(c.status) && (
                     <CourseCancellation classId={classId} onSaved={reload} />

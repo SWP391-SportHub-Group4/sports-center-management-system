@@ -29,6 +29,41 @@
   margin: 0;
 }
 
+.passwordOption {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+.passwordToggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--control-height);
+  cursor: pointer;
+}
+
+.passwordToggle input[type="checkbox"] {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  padding: 0;
+}
+
+.passwordOption code {
+  font-family: var(--font-mono);
+  overflow-wrap: anywhere;
+}
+
+.handoffHint {
+  margin-block: var(--space-1) var(--space-4);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
 .details {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

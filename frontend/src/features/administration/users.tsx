@@ -28,6 +28,7 @@ const staffRoles = [
   "SYSTEM_ADMINISTRATOR",
 ];
 const creationRoles = staffRoles.filter((role) => role !== "COACH");
+const defaultStaffPassword = "Sporthub@123";
 const accountRoles = [...staffRoles, "MEMBER"];
 const accountStatuses = ["ACTIVE", "BANNED", "DEACTIVATED"];
 const accountStatusTones: Partial<Record<string, StatusTone>> = {
@@ -107,11 +108,19 @@ function CreateStaff({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [useDefaultPassword, setUseDefaultPassword] = useState(true);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [role, setRole] = useState("RECEPTIONIST");
   const [review, setReview] = useState(false);
   const fieldClass = `form-grid__row ${styles.halfField}`;
+  const accountPassword = useDefaultPassword ? defaultStaffPassword : password;
+  const validPassword = passwordChecks(accountPassword, email).every(Boolean);
+  const canSubmit =
+    !!name.trim() &&
+    !!email.trim() &&
+    validPassword &&
+    (useDefaultPassword || password === confirm);
 
   return (
     <Dialog
@@ -126,6 +135,7 @@ function CreateStaff({
         className={`form ${styles.createForm}`}
         onSubmit={async (event) => {
           event.preventDefault();
+          if (mutation.busy || !canSubmit) return;
           if (!review) {
             setReview(true);
             return;
@@ -134,7 +144,7 @@ function CreateStaff({
             await mutation.run(() =>
               api.post("/api/users", {
                 email: email.trim(),
-                password,
+                password: accountPassword,
                 fullName: name.trim(),
                 phone: phone.trim() || null,
                 role,
@@ -173,7 +183,7 @@ function CreateStaff({
               </Field>
             </div>
             <div className={fieldClass}>
-              <Field label={l.phone}>
+              <Field label={l.phone} hint={t.adminWork.optionalPhoneHint}>
                 <input
                   type="tel"
                   autoComplete="tel"
@@ -185,34 +195,61 @@ function CreateStaff({
             <div className={fieldClass}>
               <RoleSelect value={role} onChange={setRole} />
             </div>
-            <div className={fieldClass}>
-              <Field label={l.password} required>
-                <PasswordInput
-                  required
-                  autoComplete="new-password"
-                  maxLength={64}
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                />
-              </Field>
-            </div>
-            <div className={fieldClass}>
-              <Field
-                label={l.confirmPassword}
-                required
-                error={confirm && confirm !== password ? l.mismatch : undefined}
-              >
-                <PasswordInput
-                  required
-                  autoComplete="new-password"
-                  maxLength={64}
-                  value={confirm}
-                  onChange={(event) => setConfirm(event.target.value)}
-                />
-              </Field>
-            </div>
           </div>
-          <PasswordRequirements email={email} password={password} />
+          <div className={styles.passwordOption}>
+            <label className={styles.passwordToggle}>
+              <input
+                type="checkbox"
+                checked={useDefaultPassword}
+                onChange={(event) =>
+                  setUseDefaultPassword(event.target.checked)
+                }
+              />
+              <span>{t.adminWork.useDefaultPassword}</span>
+            </label>
+            {useDefaultPassword && <code>{defaultStaffPassword}</code>}
+          </div>
+          <p className={styles.handoffHint}>{t.adminWork.accountHandoffHint}</p>
+          {useDefaultPassword && email.trim() && !validPassword && (
+            <p className="field__error" role="alert">
+              {t.adminWork.defaultPasswordEmailConflict}
+            </p>
+          )}
+          {!useDefaultPassword && (
+            <div className="form-grid">
+              <div className={fieldClass}>
+                <Field label={l.password} required>
+                  <PasswordInput
+                    required
+                    autoComplete="new-password"
+                    maxLength={64}
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                  />
+                </Field>
+              </div>
+              <div className={fieldClass}>
+                <Field
+                  label={l.confirmPassword}
+                  required
+                  error={
+                    confirm && confirm !== password ? l.mismatch : undefined
+                  }
+                >
+                  <PasswordInput
+                    required
+                    autoComplete="new-password"
+                    maxLength={64}
+                    value={confirm}
+                    onChange={(event) => setConfirm(event.target.value)}
+                  />
+                </Field>
+              </div>
+            </div>
+          )}
+          {!useDefaultPassword && (
+            <PasswordRequirements email={email} password={password} />
+          )}
         </div>
         {review && (
           <dl className={styles.details}>
@@ -232,6 +269,14 @@ function CreateStaff({
               <dt>{l.role}</dt>
               <dd>
                 <StatusChip value={role} />
+              </dd>
+            </div>
+            <div>
+              <dt>{l.password}</dt>
+              <dd>
+                {useDefaultPassword
+                  ? t.adminWork.defaultPassword
+                  : t.adminWork.customPassword}
               </dd>
             </div>
           </dl>
@@ -262,11 +307,7 @@ function CreateStaff({
           <button
             type="submit"
             className="btn"
-            disabled={
-              mutation.busy ||
-              !passwordChecks(password, email).every(Boolean) ||
-              password !== confirm
-            }
+            disabled={mutation.busy || !canSubmit}
           >
             {review ? l.confirm : t.adminWork.reviewCreate}
           </button>

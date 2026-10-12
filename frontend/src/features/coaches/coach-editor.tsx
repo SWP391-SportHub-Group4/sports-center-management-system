@@ -40,7 +40,7 @@ export function CoachEditor({
         form.password === form.confirmPassword));
   return (
     <CatalogFormDialog
-      title={coach ? l.edit : l.create}
+      title={`${coach ? l.edit : l.create} ${l.coach.toLocaleLowerCase()}`}
       busy={mutation.busy}
       canSubmit={valid}
       mutation={mutation}
@@ -74,7 +74,7 @@ export function CoachEditor({
     >
       <div className="form-grid">
         {!coach && (
-          <Field label={l.email}>
+          <Field label={l.email} required>
             <input
               required
               type="email"
@@ -84,7 +84,7 @@ export function CoachEditor({
             />
           </Field>
         )}
-        <Field label={l.fullName}>
+        <Field label={l.fullName} required>
           <input
             required
             minLength={2}
@@ -104,7 +104,7 @@ export function CoachEditor({
         </Field>
         {!coach && (
           <>
-            <Field label={l.password}>
+            <Field label={l.password} required>
               <PasswordInput
                 required
                 autoComplete="new-password"
@@ -113,7 +113,7 @@ export function CoachEditor({
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
               />
             </Field>
-            <Field label={l.confirmPassword}>
+            <Field label={l.confirmPassword} required>
               <PasswordInput
                 required
                 autoComplete="new-password"

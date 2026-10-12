@@ -18,7 +18,7 @@ const copy = {
     ready: "Not processed",
     results: "Step results in this session",
     resultsHint:
-      "Each step is independent. A later failure does not undo earlier confirmed steps. Persistent incident history and refund breakdown are awaiting G06.",
+      "Each step is independent. A later failure does not undo earlier confirmed steps.",
     emptyImpacts:
       "No affected activities were returned for this preview. Recheck before confirming the final operation.",
     impactCount: "Affected activities",
@@ -72,7 +72,7 @@ const copy = {
     ready: "Chưa xử lý",
     results: "Kết quả từng bước trong phiên này",
     resultsHint:
-      "Mỗi bước là thao tác riêng. Bước sau lỗi không hoàn tác bước đã được xác nhận. Lịch sử sự cố và chi tiết hoàn điểm còn chờ G06.",
+      "Mỗi bước là thao tác riêng. Bước sau lỗi không hoàn tác bước đã được xác nhận.",
     emptyImpacts:
       "Preview không trả về hoạt động bị ảnh hưởng. Kiểm tra lại trước khi xác nhận thao tác cuối.",
     impactCount: "Hoạt động bị ảnh hưởng",
