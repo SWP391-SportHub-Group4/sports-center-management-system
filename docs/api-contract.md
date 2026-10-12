@@ -102,7 +102,7 @@ POST checkout trả 201 `CheckoutResponse`, yêu cầu header `Idempotency-Key` 
 |---|---|---|
 | `/api/checkouts/membership` | `{packageId,targetMemberId?,allowStacking:false,stackingApprovalReason?}` | Member hoặc FrontDesk; stacking cần quyền Manager và lý do. |
 | `/api/checkouts/class` | `{classId,targetMemberId?}` | Member hoặc FrontDesk. |
-| `/api/checkouts/pt` | `{memberPackageId,coachId,frequencyPerWeek:1..3,priceVersion,targetMemberId?,startAtUtc?,roomId?}` | Member hoặc FrontDesk; lấy version từ PT quote. Có `startAtUtc`: mua/giữ đúng một buổi 90 phút, giá bằng đơn giá PT; không có: contract gói cũ. Xem [PT từng buổi](PT-Per-Session.md). |
+| `/api/checkouts/pt` | `{memberPackageId,coachId,frequencyPerWeek:1..3,priceVersion,targetMemberId?,startAtUtc?,roomId?}` | Member hoặc FrontDesk; lấy version từ PT quote. Có `startAtUtc`: mua/giữ đúng một buổi 90 phút, giá bằng đơn giá PT; không có: contract gói cũ. |
 | `/api/checkouts/court-rental` | `{sportId,roomId,startUtc,endUtc}` | Member tự mua. |
 
 FrontDesk là Manager/Lễ tân; staff mua cho Member phải có targetMemberId, Member chỉ mua cho mình. Lỗi chung: 400 `idempotency_key_required`/`target_member_required`, 403 `target_member_forbidden`/`checkout_not_owned`; conflict nghiệp vụ trả 409. GET checkout trả 200; attempts trả 200 `PaymentAttemptResponse` (`paymentAttemptId,invoiceId,transactionReference,cashAmount,pointsApplied,expiresAtUtc,paymentUrl,state`); không gửi giá do client tính.
