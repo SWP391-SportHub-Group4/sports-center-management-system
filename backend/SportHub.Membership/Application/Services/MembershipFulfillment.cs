@@ -6,6 +6,7 @@ using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.BuildingBlocks.SharedKernel.Time;
 using SportHub.Membership.Domain.Entities;
+using SportHub.Membership.Domain;
 using SportHub.Membership.Domain.Enums;
 using SportHub.Membership.Domain.Rules;
 
@@ -19,6 +20,9 @@ public sealed class MembershipFulfillment(ISportHubDbContext db, IAuditWriter au
         var catalog = await db.Set<MembershipPackage>().AsNoTracking().SingleOrDefaultAsync(x => x.PackageId == packageId, ct)
             ?? throw new NotFoundException("membership_package_not_found", "Membership package not found.");
         if (!catalog.IsActive) throw new ConflictException("membership_package_discontinued", "Membership package discontinued.");
+        if (packageId == DayPass.PackageId &&
+            (catalog.Price != DayPass.PriceVnd || catalog.DurationDays != DayPass.DurationDays || catalog.SessionLimit is not null))
+            throw new ConflictException("day_pass_invalid", "Gym day pass configuration is invalid.");
         if (catalog.Price <= 0 || catalog.Price % 1000 != 0)
             throw new ConflictException("membership_price_invalid", "Membership price invalid.");
         return new(catalog.PackageId, catalog.Name, catalog.Price, catalog.DurationDays, null);
@@ -40,8 +44,14 @@ public sealed class MembershipFulfillment(ISportHubDbContext db, IAuditWriter au
             throw new ConflictException("duplicate_active_package", "Duplicate active package.");
         var id = Guid.NewGuid();
         var today = VietnamTime.TodayLocal(clock);
-        var (pendingStart, pendingEnd) = MemberPackageRules.ComputePeriod(
-            MemberPackageRules.RenewalStart(today, await LatestActiveEndAsync(memberId, null, today, ct)), quote.DurationDays);
+        if (packageId == DayPass.PackageId && await db.Set<MemberPackage>().AnyAsync(x =>
+            x.MemberId == memberId && x.PackageId == DayPass.PackageId
+            && x.Status == MemberPackageStatus.Active && x.StartDate <= today && x.EndDate >= today, ct))
+            throw new ConflictException("day_pass_already_active", "A Gym day pass is already active today.");
+        var startDate = packageId == DayPass.PackageId
+            ? today
+            : MemberPackageRules.RenewalStart(today, await LatestActiveEndAsync(memberId, null, today, ct));
+        var (pendingStart, pendingEnd) = MemberPackageRules.ComputePeriod(startDate, quote.DurationDays);
         db.Set<MemberPackage>().Add(new MemberPackage
         {
             MemberPackageId = id, MemberId = memberId, PackageId = packageId,
@@ -72,8 +82,10 @@ public sealed class MembershipFulfillment(ISportHubDbContext db, IAuditWriter au
             throw new ConflictException("membership_inactive", "Membership inactive.");
         var catalog = await db.Set<MembershipPackage>().SingleAsync(x => x.PackageId == entity.PackageId, ct);
         var today = VietnamTime.TodayLocal(clock);
-        var (start, end) = MemberPackageRules.ComputePeriod(
-            MemberPackageRules.RenewalStart(today, await LatestActiveEndAsync(entity.MemberId, memberPackageId, today, ct)),
+        var startDate = entity.PackageId == DayPass.PackageId
+            ? today
+            : MemberPackageRules.RenewalStart(today, await LatestActiveEndAsync(entity.MemberId, memberPackageId, today, ct));
+        var (start, end) = MemberPackageRules.ComputePeriod(startDate,
             entity.DurationDaysSnapshot ?? catalog.DurationDays);
         entity.StartDate = start;
         entity.EndDate = end;

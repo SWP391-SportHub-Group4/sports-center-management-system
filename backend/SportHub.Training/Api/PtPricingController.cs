@@ -10,6 +10,7 @@ namespace SportHub.Training.Api;
 public sealed record PtQuoteRequest(Guid MemberPackageId, Guid CoachId, int FrequencyPerWeek,
     Guid? TargetMemberId, DateTime? StartAtUtc = null, int? RoomId = null);
 
+[NonController]
 [ApiController, Authorize, Route("api")]
 public sealed class PtPricingController(PtPricingService pricing) : ControllerBase
 {

@@ -103,6 +103,14 @@ test.beforeEach(async ({ page }) => {
     else if (path.endsWith("/membership-packages"))
       json = [
         {
+          packageId: 50000,
+          name: "Gym day pass",
+          price: 50000,
+          durationDays: 1,
+          isActive: true,
+          description: "Gym access only on the payment day.",
+        },
+        {
           packageId: 1,
           name: "Gym monthly",
           price: 600000,
@@ -233,7 +241,7 @@ test("dashboard does not issue an entrance pass", async ({ page }) => {
   await expect(page.locator("#main-content h1")).toBeVisible();
   await expect(page.getByTestId("show-qr-btn")).toHaveCount(0);
 });
-test("Gym and PT purchases are separate", async ({ page }) => {
+test("Gym day pass clearly warns about same-day use and PT is absent", async ({ page }) => {
   await page.goto("/member/services?section=gym&view=explore");
   await expect(
     page.getByRole("heading", { name: "Gym Membership", exact: true }),
@@ -251,15 +259,9 @@ test("Gym and PT purchases are separate", async ({ page }) => {
   await page
     .getByRole("button", { name: "Explore packages", exact: true })
     .click();
-  await page.getByRole("group", { name: "Filter by package type" })
-    .getByRole("button", { name: /PT 1/ }).click();
-  await expect(
-    page.getByRole("heading", { name: "Personal training 1-1", exact: true }),
-  ).toBeVisible({ timeout: 15000 });
-  await expect(
-    page.getByRole("region", { name: "Personal training 1-1" })
-      .getByRole("link", { name: "Select" }),
-  ).toHaveAttribute("href", "/member/training?tab=book");
+  await expect(page.getByText("Gym day pass", { exact: true })).toBeVisible();
+  await expect(page.getByText(/Valid only on the payment day/)).toBeVisible();
+  await expect(page.getByRole("button", { name: /PT 1/ })).toHaveCount(0);
 });
 test("notification links resolve to real Member views", async ({ page }) => {
   await page.goto("/member");

@@ -88,10 +88,7 @@ export function MemberServices({
     [],
   );
   const entitlements = useApi(
-    (signal) =>
-      api.get<PtEntitlementDto[]>("/api/members/me/pt-entitlements", {
-        signal,
-      }),
+    () => Promise.resolve([] as PtEntitlementDto[]),
     [],
   );
   return (
@@ -121,7 +118,6 @@ export function MemberServices({
                                   String(p.remainingSessions ?? 0),
                                 )}
                           </li>
-                          <li>{t.memberPages.ptSeparatePurchase}</li>
                         </ul>
                       )}
                     </Card>

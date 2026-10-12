@@ -76,12 +76,10 @@ public sealed class CoachRosterSeeder(
     public async Task SeedAsync(CancellationToken ct = default)
     {
         var role = await db.Roles.SingleAsync(r => r.RoleName == UserRole.Coach, ct);
-        var ptOffering = await db.Set<SportServiceOffering>()
-            .Where(o => o.ServiceType == SportServiceType.PersonalTraining)
-            .Select(o => (int?)o.OfferingId).FirstOrDefaultAsync(ct);
+        var roster = Roster.Where(c => !c.Pt).ToArray();
 
         var byEmail = new Dictionary<string, UserAccount>();
-        foreach (var c in Roster)
+        foreach (var c in roster)
         {
             var user = await db.UserAccounts.Include(u => u.Profile).Include(u => u.CoachProfile)
                 .SingleOrDefaultAsync(u => u.Email == c.Email, ct);
@@ -125,16 +123,14 @@ public sealed class CoachRosterSeeder(
         var ids = userIds.Values.ToList();
         await db.UserSportSpecialties.Where(s => ids.Contains(s.UserId)).ExecuteDeleteAsync(ct);
         await db.Set<CoachServiceQualification>().Where(q => ids.Contains(q.UserId)).ExecuteDeleteAsync(ct);
-        foreach (var c in Roster)
+        foreach (var c in roster)
         {
             var userId = userIds[c.Email];
             db.UserSportSpecialties.Add(new UserSportSpecialty { UserId = userId, SportId = c.SportId });
-            if (c.Pt && ptOffering is int offering)
-                db.Set<CoachServiceQualification>().Add(new CoachServiceQualification { UserId = userId, OfferingId = offering });
         }
 
         // Coach cũ ngoài danh sách: khóa tài khoản, giữ lịch sử.
-        var emails = Roster.Select(c => c.Email).ToList();
+        var emails = roster.Select(c => c.Email).ToList();
         var retired = await db.UserAccounts.Where(u => u.RoleId == role.RoleId && !emails.Contains(u.Email)
                 && u.Status == UserStatus.Active).ToListAsync(ct);
         foreach (var user in retired) user.Status = UserStatus.Deactivated;
@@ -153,7 +149,7 @@ public sealed class CoachRosterSeeder(
                 """, ct);
         }
 
-        logger.LogInformation("Đã seed {Count} huấn luyện viên (5 PT, 2 cầu lông, 2 bóng rổ); khóa {Retired} coach cũ.",
-            Roster.Length, retired.Count);
+        logger.LogInformation("Đã seed {Count} huấn luyện viên lớp nhóm; khóa {Retired} coach cũ.",
+            roster.Length, retired.Count);
     }
 }

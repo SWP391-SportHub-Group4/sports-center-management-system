@@ -7,6 +7,7 @@ using SportHub.Training.Application.Services;
 
 namespace SportHub.Training.Api;
 
+[NonController]
 [ApiController, Authorize(Policy = SportHubPolicies.Member)]
 public sealed class PtSessionPurchaseController(PtSessionService sessions, IMembershipAccessReader memberships) : ControllerBase
 {

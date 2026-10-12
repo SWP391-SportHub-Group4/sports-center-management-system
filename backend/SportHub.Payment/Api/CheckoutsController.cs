@@ -49,16 +49,6 @@ public sealed class CheckoutsController(CheckoutService checkouts, IPackagePurch
         return Created($"/api/checkouts/{result.InvoiceId}", result);
     }
 
-    [HttpPost("pt")]
-    [EnableRateLimiting("checkout-write")]
-    public async Task<IActionResult> Pt([FromBody] PtCheckoutRequest request,
-        [FromHeader(Name = "Idempotency-Key")] string key, CancellationToken ct)
-    {
-        RequireMemberBuyer();
-        var result = await checkouts.CreatePtAsync(request, key, User.RequireUserId(), IsStaff(), ct);
-        return Created($"/api/checkouts/{result.InvoiceId}", result);
-    }
-
     [Authorize(Roles = SportHubRoleNames.Member)]
     [HttpPost("court-rental")]
     [EnableRateLimiting("checkout-write")]

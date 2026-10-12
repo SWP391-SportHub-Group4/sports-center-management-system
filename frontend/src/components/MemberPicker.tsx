@@ -52,9 +52,13 @@ export function MemberPicker({
       const en = language === "en";
       if (!id) {
         setScanError(
-          en
-            ? "This QR is not a member code."
-            : "Mã QR này không phải mã hội viên.",
+          text.trim().startsWith("SPORTHUB-DAYPASS:")
+            ? en
+              ? "This day-pass check-in code is expired or invalid. Ask the member to open today's code."
+              : "Mã check-in vé ngày đã hết hiệu lực hoặc không hợp lệ. Hãy yêu cầu Member mở mã hôm nay."
+            : en
+              ? "This QR is not a member code."
+              : "Mã QR này không phải mã hội viên.",
         );
         return;
       }

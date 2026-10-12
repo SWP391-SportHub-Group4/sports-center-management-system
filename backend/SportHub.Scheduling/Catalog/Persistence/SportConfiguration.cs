@@ -45,7 +45,7 @@ public class SportServiceOfferingConfiguration : IEntityTypeConfiguration<SportS
         // OfferingId cố định để seed các bảng liên kết tham chiếu được.
         builder.HasData(
             new SportServiceOffering { OfferingId = 1, SportId = 1, ServiceType = SportServiceType.MembershipAccess, IsEnabled = true },
-            new SportServiceOffering { OfferingId = 2, SportId = 1, ServiceType = SportServiceType.PersonalTraining, IsEnabled = true },
+            new SportServiceOffering { OfferingId = 2, SportId = 1, ServiceType = SportServiceType.PersonalTraining, IsEnabled = false },
             new SportServiceOffering { OfferingId = 3, SportId = 3, ServiceType = SportServiceType.GroupCourse, IsEnabled = true, DefaultSessionMinutes = 90, DefaultMaxCapacity = 12 },
             new SportServiceOffering { OfferingId = 4, SportId = 3, ServiceType = SportServiceType.CourtRental, IsEnabled = true },
             new SportServiceOffering { OfferingId = 5, SportId = 4, ServiceType = SportServiceType.GroupCourse, IsEnabled = true, DefaultSessionMinutes = 120, DefaultMaxCapacity = 20 },

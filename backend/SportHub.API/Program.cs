@@ -410,7 +410,6 @@ builder.Services.AddHostedService<ClassStatusJob>();
 builder.Services.AddHostedService<ClassThresholdEvaluationJob>();
 builder.Services.AddHostedService<ClassThresholdResponseExpiryJob>();
 builder.Services.AddHostedService<RentalStatusJob>();
-builder.Services.AddHostedService<AttendanceFinalizerJob>();
 builder.Services.AddHostedService<SeatHoldExpiryJob>();
 builder.Services.AddHostedService<CheckoutExpiryJob>();
 builder.Services.AddHostedService<PaymentReconciliationJob>();
@@ -444,20 +443,6 @@ builder.Services.AddScoped<FacilityBaselineSeeder>();
 builder.Services.AddScoped<PaymentNoticeService>();
 
 var app = builder.Build();
-
-if (args.Any(a => a == "--seed-pt-calendar=true"))
-{
-    if (!app.Environment.IsDevelopment())
-        throw new InvalidOperationException("PT calendar fixtures are only available in Development.");
-    var target = new Npgsql.NpgsqlConnectionStringBuilder(app.Configuration.GetConnectionString("Default"));
-    if (target.Host is not ("localhost" or "127.0.0.1" or "::1"))
-        throw new InvalidOperationException("PT calendar fixtures must target a local Development database.");
-    Console.WriteLine($"[seed-pt-calendar] database '{target.Database}' on '{target.Host}:{target.Port}'");
-    await using var scope = app.Services.CreateAsyncScope();
-    await scope.ServiceProvider.GetRequiredService<SportHubDbContext>().Database.MigrateAsync();
-    await scope.ServiceProvider.GetRequiredService<DemoDataSeeder>().SeedPtCalendarAsync();
-    return;
-}
 
 if (args.Any(a => a == "--seed-coach-teaching=true"))
 {
@@ -494,17 +479,6 @@ if (args.Any(a => a == "--seed-coaches=true"))
     await using var coachScope = app.Services.CreateAsyncScope();
     await coachScope.ServiceProvider.GetRequiredService<SportHubDbContext>().Database.MigrateAsync();
     await coachScope.ServiceProvider.GetRequiredService<CoachRosterSeeder>().SeedAsync();
-    return;
-}
-
-// Kế hoạch tập coach.pt giao cho an.member (idempotent), để xem giao diện Member trên DB đã có dữ liệu:
-//   dotnet run --project backend/SportHub.API -- --seed-member-training=true
-if (args.Any(a => a == "--seed-member-training=true"))
-{
-    if (!app.Environment.IsDevelopment())
-        throw new InvalidOperationException("Demo fixtures are only available in Development.");
-    await using var trainingScope = app.Services.CreateAsyncScope();
-    await trainingScope.ServiceProvider.GetRequiredService<DemoDataSeeder>().SeedMemberWorkoutPlanAsync();
     return;
 }
 

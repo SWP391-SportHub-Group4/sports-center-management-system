@@ -21,7 +21,6 @@ const SERVICE_TYPES: SportServiceType[] = [
   "MEMBERSHIP_ACCESS",
   "GROUP_COURSE",
   "COURT_RENTAL",
-  "PERSONAL_TRAINING",
 ];
 const GYM_ONLY: SportServiceType[] = ["MEMBERSHIP_ACCESS", "PERSONAL_TRAINING"];
 interface FormState {
@@ -134,7 +133,7 @@ export function SportsManager() {
               header: l.services,
               cell: (s) => (
                 <ul>
-                  {s.services.map((svc) => {
+                  {s.services.filter((svc) => svc.serviceType !== "PERSONAL_TRAINING").map((svc) => {
                     const readiness = s.readiness?.find(
                       (r) => r.serviceType === svc.serviceType,
                     );

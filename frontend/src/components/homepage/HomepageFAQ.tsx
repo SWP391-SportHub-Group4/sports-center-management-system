@@ -12,7 +12,7 @@ const copy = {
       {
         question: "Which sports and training options can I explore?",
         answer:
-          "SportHub offers badminton, basketball, Gym and conditioning, plus personal training with a coach.",
+          "SportHub offers badminton, basketball, Gym and conditioning.",
       },
       {
         question: "Can I see class schedules and prices on the homepage?",
@@ -27,11 +27,11 @@ const copy = {
         href: "/member/services",
       },
       {
-        question: "Can I book a personal training session?",
+        question: "Can I buy a one-day Gym pass?",
         answer:
-          "Yes. Sign in to check your PT options and available sessions, then book through your Member space.",
-        link: "Explore PT booking",
-        href: "/member/training?tab=book",
+          "Yes. The Gym day pass costs 50,000 VND and is valid only on the day payment succeeds (Vietnam time).",
+        link: "See Gym passes",
+        href: "/member/services?view=explore&type=gym",
       },
       {
         question: "Do I need an account to browse SportHub?",
@@ -50,7 +50,7 @@ const copy = {
       {
         question: "SportHub có những môn tập và hình thức huấn luyện nào?",
         answer:
-          "SportHub có cầu lông, bóng rổ, Gym và rèn thể lực, cùng các buổi huấn luyện cá nhân với huấn luyện viên.",
+          "SportHub có cầu lông, bóng rổ, Gym và rèn thể lực.",
       },
       {
         question:
@@ -66,11 +66,11 @@ const copy = {
         href: "/member/services",
       },
       {
-        question: "Tôi có thể đặt buổi huấn luyện cá nhân không?",
+        question: "Tôi có thể mua vé Gym 1 ngày không?",
         answer:
-          "Có. Đăng nhập để xem lựa chọn PT và lịch còn trống, sau đó đặt buổi trong không gian Member.",
-        link: "Khám phá lịch đặt PT",
-        href: "/member/training?tab=book",
+          "Có. Vé Gym 1 ngày giá 50.000đ và chỉ dùng trong ngày thanh toán thành công (giờ Việt Nam).",
+        link: "Xem vé Gym",
+        href: "/member/services?view=explore&type=gym",
       },
       {
         question: "Tôi có cần tài khoản để xem SportHub không?",

@@ -2319,7 +2319,7 @@ namespace SportHub.API.Migrations
                         new
                         {
                             OfferingId = 2,
-                            IsEnabled = true,
+                            IsEnabled = false,
                             ServiceType = 3,
                             SportId = 1
                         },
