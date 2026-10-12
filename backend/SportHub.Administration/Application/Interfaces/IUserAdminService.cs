@@ -22,6 +22,10 @@ public interface IUserAdminService
 
     Task<UserAdminResponse> CreateStaffAsync(CreateStaffAccountRequest request, Guid actorUserId, CancellationToken ct = default);
 
+    Task<UserAdminResponse> ResendActivationAsync(Guid userId, Guid actorUserId, CancellationToken ct = default);
+
+    Task<UserAdminResponse> ChangePendingEmailAsync(Guid userId, ChangePendingStaffEmailRequest request, Guid actorUserId, CancellationToken ct = default);
+
     Task<UserAdminResponse> ChangeRoleAsync(Guid userId, ChangeUserRoleRequest request, Guid actorUserId, CancellationToken ct = default);
 
     Task<UserAdminResponse> SetStatusAsync(Guid userId, UserStatus target, string reason, Guid actorUserId, CancellationToken ct = default);

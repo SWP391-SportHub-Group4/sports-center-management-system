@@ -3,27 +3,11 @@
 import Link from "next/link";
 import { useState } from "react";
 
-import {
-  api,
-  ApiError,
-} from "@/lib/apiClient";
-
-import {
-  useApi,
-} from "@/lib/useApi";
-
-import {
-  useLanguage,
-} from "@/lib/language";
-
-import {
-  pagedItems,
-} from "@/lib/paged";
-
-import {
-  formatDate,
-  formatTime,
-} from "@/lib/format";
+import { api, ApiError } from "@/lib/apiClient";
+import { useApi } from "@/lib/useApi";
+import { useLanguage } from "@/lib/language";
+import { pagedItems } from "@/lib/paged";
+import { formatDate, formatTime } from "@/lib/format";
 
 import {
   MutationFeedback,
@@ -39,101 +23,74 @@ import type {
 
 import styles from "./desk.module.css";
 
-import {
-  AvatarImage,
-} from "@/components/AvatarImage";
+import { AvatarImage } from "@/components/AvatarImage";
+import { ReportAvatarButton } from "@/components/ReportAvatarButton";
 
-import {
-  ReportAvatarButton,
-} from "@/components/ReportAvatarButton";
+import { MemberCancellations } from "./member-cancellations";
+import { MemberSupportRequests } from "./member-support-requests";
+import { PendingMemberPanel } from "./register-member";
 
-import {
-  MemberCancellations,
-} from "./member-cancellations";
-
-import {
-  MemberSupportRequests,
-} from "./member-support-requests";
-
+/**
+ * Hội viên đang phục vụ: tên, Membership, trạng thái Gym
+ * và các thao tác tiếp theo tại quầy.
+ */
 export function SelectedMemberPanel({
   member,
   onChange,
   showProfileLink = true,
 }: {
   member: UserAdminDto;
-
-  onChange: (
-    member: UserAdminDto | null,
-  ) => void;
-
+  onChange: (member: UserAdminDto | null) => void;
   showProfileLink?: boolean;
 }) {
-  const { t } =
-    useLanguage();
+  const { t } = useLanguage();
 
-  const l =
-    t.frontDesk;
+  const l = t.frontDesk;
 
-  const mutation =
-    useMutation();
+  const mutation = useMutation();
 
-  const [
-    note,
-    setNote,
-  ] =
-    useState<string | null>(
-      null,
-    );
+  const [note, setNote] =
+    useState<string | null>(null);
 
   const memberId =
     member.userId;
 
-  const packages =
-    useApi(
-      (signal) =>
-        api.get<
-          MemberPackageDto[]
-        >(
-          `/api/members/${memberId}/packages`,
-          {
-            signal,
-          },
-        ),
-      [memberId],
-    );
+  const packages = useApi(
+    (signal) =>
+      api.get<MemberPackageDto[]>(
+        `/api/members/${memberId}/packages`,
+        {
+          signal,
+        },
+      ),
+    [memberId],
+  );
 
-  const visits =
-    useApi(
-      (signal) =>
-        api.get<
-          Paged<GymCheckInDto>
-        >(
-          `/api/members/${memberId}/gym-checkins`,
-          {
-            signal,
-            query: {
-              page: 1,
-              pageSize: 5,
-            },
+  const visits = useApi(
+    (signal) =>
+      api.get<Paged<GymCheckInDto>>(
+        `/api/members/${memberId}/gym-checkins`,
+        {
+          signal,
+          query: {
+            page: 1,
+            pageSize: 5,
           },
-        ),
-      [memberId],
-    );
+        },
+      ),
+    [memberId],
+  );
 
   const activePackage =
     packages.data?.find(
       (p) =>
-        p.status ===
-          "ACTIVE" &&
+        p.status === "ACTIVE" &&
         p.isUsable,
     );
 
   const open =
-    pagedItems(
-      visits.data,
-    ).find(
-      (v) =>
-        !v.checkOutTime,
+    pagedItems(visits.data).find(
+      (v) => !v.checkOutTime,
     );
 
   const ready =
@@ -167,8 +124,7 @@ export function SelectedMemberPanel({
             }
           } catch (error) {
             if (
-              error instanceof
-                ApiError &&
+              error instanceof ApiError &&
               error.code ===
                 "gym_already_checked_in"
             ) {
@@ -208,17 +164,11 @@ export function SelectedMemberPanel({
 
   return (
     <section
-      className={
-        styles.selected
-      }
-      aria-label={
-        l.selectedMember
-      }
+      className={styles.selected}
+      aria-label={l.selectedMember}
     >
       <div
-        className={
-          styles.selectedTop
-        }
+        className={styles.selectedTop}
       >
         <AvatarImage
           name={
@@ -274,10 +224,15 @@ export function SelectedMemberPanel({
         </button>
       </div>
 
+      {member.activationPending && (
+        <PendingMemberPanel
+          member={member}
+          onChange={onChange}
+        />
+      )}
+
       <dl
-        className={
-          styles.facts
-        }
+        className={styles.facts}
       >
         <div
           className={`${styles.fact} ${
@@ -306,9 +261,7 @@ export function SelectedMemberPanel({
         </div>
 
         <div
-          className={
-            styles.fact
-          }
+          className={styles.fact}
         >
           <dt>
             Gym
@@ -330,17 +283,13 @@ export function SelectedMemberPanel({
       </dl>
 
       <p
-        className={
-          styles.hint
-        }
+        className={styles.hint}
       >
         {l.nextAction}
       </p>
 
       <div
-        className={
-          styles.actions
-        }
+        className={styles.actions}
       >
         <button
           type="button"
@@ -383,37 +332,29 @@ export function SelectedMemberPanel({
 
       {blocked && (
         <p
-          className={
-            styles.block
-          }
+          className={styles.block}
         >
           {l.needMembership}
         </p>
       )}
 
       <MemberCancellations
-        memberId={
-          memberId
-        }
+        memberId={memberId}
         packages={
           packages.data ?? []
         }
-        onChanged={() => {
-          packages.reload();
-        }}
+        onChanged={
+          packages.reload
+        }
       />
 
       <MemberSupportRequests
-        memberId={
-          memberId
-        }
+        memberId={memberId}
       />
 
       {note && (
         <p
-          className={
-            styles.note
-          }
+          className={styles.note}
           role="status"
         >
           {note}
@@ -421,9 +362,7 @@ export function SelectedMemberPanel({
       )}
 
       <MutationFeedback
-        mutation={
-          mutation
-        }
+        mutation={mutation}
       />
     </section>
   );

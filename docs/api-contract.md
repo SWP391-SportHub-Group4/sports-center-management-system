@@ -102,7 +102,7 @@ POST checkout trả 201 `CheckoutResponse`, yêu cầu header `Idempotency-Key` 
 |---|---|---|
 | `/api/checkouts/membership` | `{packageId,targetMemberId?,allowStacking:false,stackingApprovalReason?}` | Member hoặc FrontDesk; stacking cần quyền Manager và lý do. |
 | `/api/checkouts/class` | `{classId,targetMemberId?}` | Member hoặc FrontDesk. |
-| `/api/checkouts/pt` | `{memberPackageId,coachId,frequencyPerWeek:1..3,priceVersion,targetMemberId?,startAtUtc?,roomId?}` | Member hoặc FrontDesk; lấy version từ PT quote. Có `startAtUtc`: mua/giữ đúng một buổi 90 phút, giá bằng đơn giá PT; không có: contract gói cũ. Xem [PT từng buổi](PT-Per-Session.md). |
+| `/api/checkouts/pt` | `{memberPackageId,coachId,frequencyPerWeek:1..3,priceVersion,targetMemberId?,startAtUtc?,roomId?}` | Member hoặc FrontDesk; lấy version từ PT quote. Có `startAtUtc`: mua/giữ đúng một buổi 90 phút, giá bằng đơn giá PT; không có: contract gói cũ. |
 | `/api/checkouts/court-rental` | `{sportId,roomId,startUtc,endUtc}` | Member tự mua. |
 
 FrontDesk là Manager/Lễ tân; staff mua cho Member phải có targetMemberId, Member chỉ mua cho mình. Lỗi chung: 400 `idempotency_key_required`/`target_member_required`, 403 `target_member_forbidden`/`checkout_not_owned`; conflict nghiệp vụ trả 409. GET checkout trả 200; attempts trả 200 `PaymentAttemptResponse` (`paymentAttemptId,invoiceId,transactionReference,cashAmount,pointsApplied,expiresAtUtc,paymentUrl,state`); không gửi giá do client tính.
@@ -177,19 +177,46 @@ Việc bổ sung không thay đổi quyền đọc audit, scope tài khoản c�
 | GET | `api/users` |
 | GET | `api/users/admin` |
 | GET | `api/users/{userId:guid}` |
-| POST | `api/users` |
+| POST | `api/users/admin/staff` |
+| POST | `api/users/{userId:guid}/resend-activation` |
+| PUT | `api/users/{userId:guid}/email` |
 | PUT | `api/users/{userId:guid}/role` |
 | POST | `api/users/{userId:guid}/lock` |
 | POST | `api/users/{userId:guid}/unlock` |
 | POST | `api/users/{userId:guid}/deactivate` |
 
+`POST api/users/admin/staff` (SystemAdministrator; `{email, fullName, phone?, roleId, specialties?}`): tạo tài khoản staff **không có mật khẩu**, gửi email kích hoạt (link dùng một lần, 24 giờ). Với Coach (`roleId` 2) bắt buộc `specialties` chứa **đúng một môn đang hoạt động** khi tạo, role khác không được gửi `specialties`. **Manager không tạo được Coach** (không còn `POST api/manager/coaches`): Manager chỉ sửa hồ sơ/chuyên môn và cấp quyền dịch vụ PT (`PUT api/manager/coaches/{id}` và `.../service-qualifications`).
+
+`UserAdminResponse.activationPending` (bool): tài khoản (staff hoặc Member đăng ký tại quầy) chưa đặt mật khẩu và chưa liên kết Google. Hai thao tác dưới đây chỉ dành cho SystemAdministrator và chỉ áp dụng cho tài khoản `activationPending`; Member hoặc staff đã kích hoạt trả **409 `account_not_pending_activation`**.
+
+- `POST api/users/{userId}/resend-activation` (không body): phát hành link kích hoạt mới 24 giờ, vô hiệu link cũ; còn trong 60 giây kể từ lần gửi trước trả **429 `activation_resend_too_soon`**; ghi audit `RESEND_STAFF_ACTIVATION`.
+- `PUT api/users/{userId}/email` (`{email, reason}`, lý do 3–500 ký tự): sửa email gõ sai. Email trùng (không phân biệt hoa thường) trả 409 `email_already_exists`, email không đổi trả 400 `email_unchanged`. Link gửi tới email cũ bị vô hiệu ngay (người nhận nhầm không kích hoạt được), link mới gửi tới email mới; ghi audit `CHANGE_PENDING_STAFF_EMAIL` kèm email cũ/mới và lý do.
+
+Đăng nhập Google với email của staff chưa kích hoạt bị từ chối (401), vì staff chỉ vào được sau khi tự đặt mật khẩu bằng link.
+
 `PUT api/users/{userId}/role` (SystemAdministrator; body `{role, reason, sportIds?}`; `sportIds` bắt buộc khi đổi sang Coach). Chỉ đổi **giữa các role staff** (SystemAdministrator, CenterManager, Receptionist, Coach).
 
-- **Member ↔ Staff không được phép:** đổi từ Member sang bất kỳ role staff nào, hoặc từ staff về Member, trả **409 `member_staff_role_change_not_allowed`**. Người muốn làm staff phải được Admin tạo tài khoản staff bằng **email khác** (`POST api/users`, luồng kích hoạt qua email); tài khoản Member cũ giữ nguyên.
+- **Member ↔ Staff không được phép:** đổi từ Member sang bất kỳ role staff nào, hoặc từ staff về Member, trả **409 `member_staff_role_change_not_allowed`**. Người muốn làm staff phải được Admin tạo tài khoản staff bằng **email khác** (`POST api/users/admin/staff`, luồng kích hoạt qua email); tài khoản Member cũ giữ nguyên.
 - **Coach → role staff khác:** trả **409 `role_change_blocked`** kèm `reasons: string[]` khi còn lớp chưa kết thúc do Coach làm chính, buổi lớp/PT tương lai còn chiếm lịch (`CoachOccupancy`), hoặc quan hệ huấn luyện Active.
 - **Last SystemAdministrator:** không được đổi role (409 `last_active_system_administrator`).
 
 Khi đổi thành công: rời Coach thì giữ `CoachProfile` làm lịch sử nhưng xóa chuyên môn (`UserSportSpecialty`) và quyền dịch vụ (`CoachServiceQualification`); đổi sang Coach thì Admin phải chọn chuyên môn (Manager cấp lại quyền dịch vụ PT nếu dạy PT); `SecurityStamp` đổi nên token cũ mất hiệu lực.
+
+### FrontDeskMembersController — `api/members/front-desk`
+
+Receptionist và CenterManager (policy `FrontDesk`) đăng ký Member mới tại quầy. Chỉ tạo role **Member** (role không nhận từ body); staff chỉ do SystemAdministrator tạo.
+
+| Verb | Path |
+|---|---|
+| POST | `api/members/front-desk` |
+| POST | `api/members/front-desk/{userId:guid}/resend-activation` |
+| PUT | `api/members/front-desk/{userId:guid}/email` |
+
+- `POST api/members/front-desk` (`{email, confirmEmail, fullName, phone?}`): email nhập hai lần phải khớp (400 `email_confirmation_mismatch`). Tạo Member **không mật khẩu**, tạo ví điểm 0 (BR-134), gửi email kích hoạt (link dùng một lần, 24 giờ, `setup=member`), audit `FRONT_DESK_CREATE_MEMBER`. Trả 201 `UserAdminResponse` với `activationPending=true`. Email trùng (không phân biệt hoa thường) 409 `email_already_exists`; số điện thoại trùng 409 `phone_already_exists`.
+- `POST api/members/front-desk/{userId}/resend-activation`: chỉ Member chờ kích hoạt. Cooldown 60 giây (429 `activation_resend_too_soon`), link cũ bị vô hiệu, audit `RESEND_MEMBER_ACTIVATION`.
+- `PUT api/members/front-desk/{userId}/email` (`{email, confirmEmail, reason}`): sửa email gõ sai khi Member chờ kích hoạt; link cũ bị vô hiệu ngay, link mới gửi tới email mới, audit `CHANGE_PENDING_MEMBER_EMAIL` (email cũ, mới, lý do). 400 `email_unchanged`, 409 `email_already_exists`.
+- Member đã kích hoạt trả 409 `account_not_pending_activation`; tài khoản không phải Member trả 404 `user_not_found`.
+- Trước khi kích hoạt Member chưa đăng nhập được bằng mật khẩu nhưng tài khoản Active, nên quầy vẫn tìm (`GET api/users?role=Member`), ghi nhận thanh toán và bán dịch vụ. Member kích hoạt bằng link (đặt mật khẩu qua `POST api/auth/password/reset`) hoặc đăng nhập Google bằng chính email đó.
 
 ### AiController — `api/ai`
 
