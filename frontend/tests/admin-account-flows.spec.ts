@@ -328,42 +328,43 @@ test("lock/unlock require review, refresh the list and display successful outcom
   expect(writes).toBe(2);
 });
 
-test("staff creation requires review, keeps password private and submits only once", async ({
+test("staff creation sends an activation email and lets Admin assign Coach specialties", async ({
   page,
 }) => {
   await setup(page);
   let writes = 0;
-  await page.route("**/api/users", (route) => {
+  await page.route("**/api/users/admin/staff", (route) => {
     writes++;
     expect(route.request().method()).toBe("POST");
     expect(route.request().postDataJSON()).toMatchObject({
       fullName: "New staff",
-      role: "RECEPTIONIST",
-      sportIds: [],
+      roleId: 2,
+      specialties: [1],
     });
+    expect(route.request().postDataJSON()).not.toHaveProperty("password");
     return route.fulfill({ status: 201, json: account });
   });
   await page.goto("/admin/users?create=1");
   const dialog = page.getByRole("dialog");
   await expect(
     dialog.getByLabel("Role", { exact: true }).locator("option"),
-  ).toHaveText(["Center Manager", "Receptionist", "System Administrator"]);
+  ).toHaveText(["Center Manager", "Coach", "Receptionist", "System Administrator"]);
   await dialog.getByLabel("Full name", { exact: true }).fill("New staff");
   await dialog.getByLabel("Email", { exact: true }).fill("new@example.com");
-  await dialog.getByLabel("Password", { exact: true }).fill("StrongPass@123");
-  await dialog
-    .getByLabel("Confirm password", { exact: true })
-    .fill("StrongPass@123");
+  await dialog.getByLabel("Role", { exact: true }).selectOption("COACH");
+  await dialog.getByRole("checkbox", { name: "Gym" }).check();
+  await expect(dialog.getByLabel("Password", { exact: true })).toHaveCount(0);
+  await expect(dialog).toContainText("An activation email with a link to set the first password");
   await dialog
     .getByRole("button", { name: "Review staff account", exact: true })
     .click();
   await expect(dialog).toContainText("new@example.com");
-  await expect(dialog).not.toContainText("StrongPass@123");
+  await expect(dialog).toContainText("Selected specialties: 1");
   expect(writes).toBe(0);
   await dialog.getByRole("button", { name: "Confirm", exact: true }).click();
   await expect(dialog).toHaveCount(0);
   await expect(
-    page.getByText("Staff account created. The list has been refreshed.", {
+    page.getByText("Staff account created. An activation email has been queued.", {
       exact: true,
     }),
   ).toBeVisible();

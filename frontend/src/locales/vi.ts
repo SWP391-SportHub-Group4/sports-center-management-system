@@ -596,7 +596,9 @@ export const vi: Translations = {
     reviewCreate: "Xem lại tài khoản nhân sự",
     reviewHint: "Kiểm tra tài khoản, thay đổi và lý do trước khi xác nhận.",
     createHint:
-      "Tài khoản nhân sự mới sẽ hoạt động và có quyền theo vai trò đã chọn.",
+      "Nhân sự sẽ dùng được tài khoản sau khi tự đặt mật khẩu qua email kích hoạt.",
+    activationHint:
+      "* Thư hướng dẫn kích hoạt và liên kết đặt mật khẩu lần đầu sẽ được gửi trực tiếp đến email của nhân sự.",
     roleImpact:
       "Đổi vai trò sẽ vô hiệu hóa các phiên đăng nhập hiện tại. Người dùng cần đăng nhập lại.",
     selfRoleImpact:
@@ -618,7 +620,7 @@ export const vi: Translations = {
     newStatus: "Trạng thái mới",
     specialtyCount: "Số môn chuyên môn đã chọn: {count}",
     changeSaved: "Đã cập nhật tài khoản và tải lại danh sách.",
-    staffCreated: "Đã tạo tài khoản nhân sự và tải lại danh sách.",
+    staffCreated: "Đã tạo tài khoản nhân sự và xếp thư kích hoạt để gửi.",
   },
   staffWork: {
     overview: "Tổng quan",
@@ -1268,9 +1270,15 @@ export const vi: Translations = {
     resetStatement: "Khởi đầu mới, vẫn là buổi tập quen.",
     resetStatementDetail: "Chọn mật khẩu mới và tiếp tục từ chỗ bạn dừng lại.",
     resetDoneTitle: "Đã đổi mật khẩu",
+    staffSetupDoneTitle: "Đã kích hoạt tài khoản nhân sự",
+    staffSetupDone: "Bạn đã đặt mật khẩu và có thể đăng nhập tài khoản nhân sự.",
+    staffSetupInvalidTitle: "Liên kết kích hoạt không còn hiệu lực",
+    staffSetupInvalid: "Liên kết kích hoạt không hợp lệ hoặc đã hết hạn. Dùng Quên mật khẩu ở trang đăng nhập để nhận liên kết mới.",
     linkInvalidTitle: "Link không còn dùng được",
     linkSentHint: "Link có hiệu lực trong 10 phút.",
     resetTitle: "Chọn mật khẩu mới",
+    staffSetupTitle: "Đặt mật khẩu tài khoản nhân sự",
+    staffSetupDescription: "Tạo mật khẩu cho",
     resetDescription: "Đặt mật khẩu mới cho",
     linkInvalid: "Link đặt lại này không hợp lệ hoặc đã hết hạn.",
     requestNewLink: "Yêu cầu link mới",
@@ -1284,6 +1292,7 @@ export const vi: Translations = {
     confirmPassword: "Xác nhận mật khẩu",
     passwordInvalid: "Kiểm tra yêu cầu mật khẩu và xác nhận.",
     reset: "Đặt lại mật khẩu",
+    staffSetupAction: "Đặt mật khẩu",
     login: "Đăng nhập",
   },
   wallet: {
@@ -1675,7 +1684,7 @@ export const vi: Translations = {
     tabPlans: "Kế hoạch",
     tabResults: "Kết quả",
     tabProgress: "Tiến độ",
-    tabProfile: "Hồ sơ BMI",
+    tabProfile: "Fitness profile",
     yourCoach: "Huấn luyện viên của bạn",
     sessionsLeft: "buổi còn lại",
     ofTotal: "trên {total}",

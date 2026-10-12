@@ -1,5 +1,4 @@
 "use client";
-import { PasswordInput } from "@/components/primitives";
 import Link from "next/link";
 import { useState } from "react";
 import { Card, Dialog, Feedback, Field } from "@/components/ui";
@@ -17,7 +16,6 @@ import { choiceQuery, pageQuery, useUrlQuery } from "@/lib/useUrlQuery";
 import { useAuth } from "@/lib/auth";
 import { useLanguage } from "@/lib/language";
 import { MutationFeedback, useMutation } from "@/features/operations";
-import { PasswordRequirements, passwordChecks } from "@/features/identity";
 import type { SportDto, Paged, UserAdminDto } from "@/lib/types";
 import { SportOptions } from "./SportOptions";
 import styles from "./users.module.css";
@@ -27,7 +25,13 @@ const staffRoles = [
   "RECEPTIONIST",
   "SYSTEM_ADMINISTRATOR",
 ];
-const creationRoles = staffRoles.filter((role) => role !== "COACH");
+const creationRoles = staffRoles;
+const staffRoleIds: Record<string, number> = {
+  CENTER_MANAGER: 1,
+  COACH: 2,
+  RECEPTIONIST: 4,
+  SYSTEM_ADMINISTRATOR: 5,
+};
 const accountRoles = [...staffRoles, "MEMBER"];
 const accountStatuses = ["ACTIVE", "BANNED", "DEACTIVATED"];
 const accountStatusTones: Partial<Record<string, StatusTone>> = {
@@ -105,11 +109,10 @@ function CreateStaff({
   const l = t.staffWork;
   const mutation = useMutation();
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirm, setConfirm] = useState("");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [role, setRole] = useState("RECEPTIONIST");
+  const [specialties, setSpecialties] = useState<number[]>([]);
   const [review, setReview] = useState(false);
   const fieldClass = `form-grid__row ${styles.halfField}`;
 
@@ -132,18 +135,15 @@ function CreateStaff({
           }
           if (
             await mutation.run(() =>
-              api.post("/api/users", {
+              api.post("/api/users/admin/staff", {
                 email: email.trim(),
-                password,
                 fullName: name.trim(),
                 phone: phone.trim() || null,
-                role,
-                sportIds: [],
+                roleId: staffRoleIds[role],
+                specialties: role === "COACH" ? specialties : [],
               }),
             )
           ) {
-            setPassword("");
-            setConfirm("");
             reload();
           }
         }}
@@ -185,34 +185,13 @@ function CreateStaff({
             <div className={fieldClass}>
               <RoleSelect value={role} onChange={setRole} />
             </div>
-            <div className={fieldClass}>
-              <Field label={l.password} required>
-                <PasswordInput
-                  required
-                  autoComplete="new-password"
-                  maxLength={64}
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                />
-              </Field>
-            </div>
-            <div className={fieldClass}>
-              <Field
-                label={l.confirmPassword}
-                required
-                error={confirm && confirm !== password ? l.mismatch : undefined}
-              >
-                <PasswordInput
-                  required
-                  autoComplete="new-password"
-                  maxLength={64}
-                  value={confirm}
-                  onChange={(event) => setConfirm(event.target.value)}
-                />
-              </Field>
-            </div>
+            {role === "COACH" && (
+              <div className="form-grid__row">
+                <SportSelect value={specialties} onChange={setSpecialties} />
+              </div>
+            )}
           </div>
-          <PasswordRequirements email={email} password={password} />
+          <p className={styles.activationNote}>{t.adminWork.activationHint}</p>
         </div>
         {review && (
           <dl className={styles.details}>
@@ -234,6 +213,12 @@ function CreateStaff({
                 <StatusChip value={role} />
               </dd>
             </div>
+            {role === "COACH" && (
+              <div>
+                <dt>{l.specialties}</dt>
+                <dd>{t.adminWork.specialtyCount.replace("{count}", String(specialties.length))}</dd>
+              </div>
+            )}
           </dl>
         )}
         <MutationFeedback mutation={mutation} />
@@ -263,9 +248,7 @@ function CreateStaff({
             type="submit"
             className="btn"
             disabled={
-              mutation.busy ||
-              !passwordChecks(password, email).every(Boolean) ||
-              password !== confirm
+              mutation.busy || (role === "COACH" && specialties.length === 0)
             }
           >
             {review ? l.confirm : t.adminWork.reviewCreate}

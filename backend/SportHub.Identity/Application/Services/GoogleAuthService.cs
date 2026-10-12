@@ -86,6 +86,7 @@ public sealed class GoogleAuthService(
 
         var owner = await db.Set<UserAccount>()
             .Include(u => u.Role)
+            .Include(u => u.Credential)
             .Include(u => u.Profile)
             .Include(u => u.CoachProfile)
             .SingleOrDefaultAsync(u => u.Email == email, ct);
@@ -147,6 +148,7 @@ public sealed class GoogleAuthService(
     private Task<UserExternalLogin?> FindByGoogleSubjectAsync(string subject, CancellationToken ct)
         => db.Set<UserExternalLogin>()
             .Include(l => l.UserAccount).ThenInclude(u => u!.Role)
+            .Include(l => l.UserAccount).ThenInclude(u => u!.Credential)
             .Include(l => l.UserAccount).ThenInclude(u => u!.Profile)
             .Include(l => l.UserAccount).ThenInclude(u => u!.CoachProfile)
             .SingleOrDefaultAsync(l => l.Provider == ExternalAuthProvider.Google && l.ProviderUserId == subject, ct);
@@ -177,6 +179,10 @@ public sealed class GoogleAuthService(
         if (user.Status != UserStatus.Active)
         {
             throw new AccountBlockedException(user.Status);
+        }
+        if (user.Role?.RoleName != UserRole.Member && string.IsNullOrEmpty(user.Credential?.PasswordHash))
+        {
+            throw new InvalidCredentialsException();
         }
     }
 
