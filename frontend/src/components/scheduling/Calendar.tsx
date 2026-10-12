@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/primitives";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { StatusChip } from "@/components/ui";
 import { addDaysIso, formatDate, formatTime, todayIso } from "@/lib/format";
 import type {
@@ -31,14 +32,18 @@ export function Calendar({
   onDateChange,
   onViewChange,
   onSelectEvent,
+  showViewSwitcher = true,
+  iconNavigation = false,
 }: {
   events: CalendarEvent[];
   date: string;
   view: CalendarView;
   labels: CalendarLabels;
   onDateChange: (date: string) => void;
-  onViewChange: (view: CalendarView) => void;
+  onViewChange?: (view: CalendarView) => void;
   onSelectEvent: (event: CalendarEvent) => void;
+  showViewSwitcher?: boolean;
+  iconNavigation?: boolean;
 }) {
   const rangeDays = daysFor(view);
 
@@ -72,28 +77,40 @@ export function Calendar({
   return (
     <section className={styles.calendar} aria-label={labels.eventDetails}>
       <div className={styles.toolbar}>
-        <div
-          className={styles.viewGroup}
-          role="group"
-          aria-label={labels.eventDetails}
-        >
-          {(["day", "week", "list"] as const).map((item) => (
-            <Button
-              key={item}
-              variant="ghost"
-              size="sm"
-              className={styles.viewButton}
-              aria-pressed={view === item}
-              onClick={() => onViewChange(item)}
-            >
-              {labels[item]}
-            </Button>
-          ))}
-        </div>
+        {showViewSwitcher && (
+          <div
+            className={styles.viewGroup}
+            role="group"
+            aria-label={labels.eventDetails}
+          >
+            {(["day", "week", "list"] as const).map((item) => (
+              <Button
+                key={item}
+                variant="ghost"
+                size="sm"
+                className={styles.viewButton}
+                aria-pressed={view === item}
+                onClick={() => onViewChange?.(item)}
+              >
+                {labels[item]}
+              </Button>
+            ))}
+          </div>
+        )}
 
-        <div className={styles.navGroup}>
-          <Button variant="quiet" size="sm" onClick={() => move(-1)}>
-            {labels.previous}
+        <div className={styles.navGroup} style={{ marginLeft: "auto" }}>
+          <Button
+            variant="quiet"
+            size="sm"
+            onClick={() => move(-1)}
+            aria-label={labels.previous}
+            title={labels.previous}
+          >
+            {iconNavigation ? (
+              <ChevronLeft size={20} aria-hidden="true" />
+            ) : (
+              labels.previous
+            )}
           </Button>
 
           <Button
@@ -104,8 +121,18 @@ export function Calendar({
             {labels.today}
           </Button>
 
-          <Button variant="quiet" size="sm" onClick={() => move(1)}>
-            {labels.next}
+          <Button
+            variant="quiet"
+            size="sm"
+            onClick={() => move(1)}
+            aria-label={labels.next}
+            title={labels.next}
+          >
+            {iconNavigation ? (
+              <ChevronRight size={20} aria-hidden="true" />
+            ) : (
+              labels.next
+            )}
           </Button>
         </div>
       </div>

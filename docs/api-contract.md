@@ -6,6 +6,17 @@ Các bảng mô tả contract; phần route baseline chỉ để tra cứu đư�
 
 ## Contract giao diện nghiệp vụ
 
+### Hồ sơ học viên Coach và lịch sử cùng môn
+
+| Verb | Route | Contract |
+|---|---|---|
+| GET | `/api/coaches/me/teaching/students?page&search&sportId` | Coach; học viên duy nhất từ các lớp đang phân công, 12 mục/trang; `items[{memberId,memberName,email,classes[]}]`, `sports[]`, `page`, `pageSize`, `totalCount`. |
+| GET | `/api/coaches/me/teaching/students/{memberId}` | Coach; thông tin học viên và lớp/môn hiện tại trong phạm vi phân công. |
+| GET | `/api/coaches/me/teaching/students/{memberId}/history?classId&page` | Coach; `RESULT` của chính học viên từ lớp trước cùng môn, mới nhất trước, 20 mục/trang; mỗi mục gồm `record,className,sportName,coachName,sessionNo,sessionStartAtUtc`. Yêu cầu phân công hiện tại và ghi danh Confirmed tại classId; lịch sử chỉ đọc. |
+| GET | `/api/coaches/me/teaching/students/{memberId}/history/classes?classId&page&search` | Coach; lớp có đánh giá trong phạm vi lịch sử hợp lệ, 8 lớp/trang, `classId,className,startDate,assessmentCount,averageScore,lastRecordedAtUtc`. Sắp xếp theo đánh giá gần nhất; điểm trung bình null nếu chưa có điểm. Endpoint `history` nhận thêm `sourceClassId` để tải đánh giá riêng cho lớp đã chọn. |
+
+Các endpoint `teaching/classes/{classId}/members` và `records` hỗ trợ query `memberId` để giới hạn dữ liệu hồ sơ. Không đổi schema/migration. Chi tiết: [Coach Teaching Workspace](Coach-Teaching-Workspace.md).
+
 ### Sắp xếp danh sách Admin
 
 - `GET /api/users/admin`: thêm query tùy chọn `sortBy=fullName|email|role|status`, `sortDirection=asc|desc`; mặc định `email/asc`.

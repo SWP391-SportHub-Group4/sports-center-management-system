@@ -1560,6 +1560,7 @@ export const vi: Translations = {
       trainingResults: "Kết quả buổi tập",
       assignedMembers: "Hội viên phụ trách",
       assignedClasses: "Lớp phụ trách",
+      changeRequests: "Yêu cầu đổi lịch",
       classStudents: "Học viên",
       trainingPlans: "Giáo án bài tập",
       progress: "Kết quả & tiến độ",

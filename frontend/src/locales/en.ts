@@ -1569,6 +1569,7 @@ export const en = {
       trainingResults: "Training results",
       assignedMembers: "Assigned members",
       assignedClasses: "Assigned classes",
+      changeRequests: "Change requests",
       classStudents: "Students",
       trainingPlans: "Training plans",
       progress: "Results & progress",
