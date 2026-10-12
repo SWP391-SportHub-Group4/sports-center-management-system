@@ -12,21 +12,18 @@ public sealed class CreateStaffAccountRequest
     [Required, EmailAddress]
     public string Email { get; set; } = string.Empty;
 
-    [Required, MaxLength(200)] // chính sách mật khẩu kiểm ở PasswordPolicy (service)
-    public string Password { get; set; } = string.Empty;
-
     [FullName]
     public string FullName { get; set; } = string.Empty;
 
     [PhoneNumber]
     public string? Phone { get; set; }
 
-    [Required]
-    [SportHub.BuildingBlocks.Api.WireEnum] public string Role { get; set; } = string.Empty;
+    [Range(1, int.MaxValue)]
+    public int RoleId { get; set; }
 
     /// <summary>
-    /// BR-96 — bắt buộc khi Role = Coach (PersonalTrainer/ClassInstructor), không được gửi kèm
-    /// cho role khác. Service kiểm tra chéo với Role vì DataAnnotations không validate liên field.
+    /// BR-96 — khi tạo Coach phải chọn đúng một môn; không gửi kèm cho role khác.
+    /// Service kiểm tra chéo với RoleId vì DataAnnotations không validate liên field.
     /// </summary>
-    public List<int>? SportIds { get; set; }
+    public List<int>? Specialties { get; set; }
 }

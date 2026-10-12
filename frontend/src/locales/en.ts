@@ -598,9 +598,32 @@ export const en = {
     reviewHint:
       "Check the account, requested change and reason before confirming.",
     createHint:
-      "The new staff account will be active and have access for the selected role.",
+      "The staff account will be ready after the employee sets a password from the email invitation.",
+    confirmEmail: "Confirm email",
+    emailMismatch: "The two email addresses do not match.",
+    pendingActivation: "Pending activation",
+    pendingActivationHint:
+      "This staff member has not activated the account yet. If the email was mistyped, correct it so the activation link goes to the right person.",
+    resendActivation: "Resend activation link",
+    changeEmail: "Change email",
+    newEmail: "New email",
+    confirmNewEmail: "Confirm new email",
+    saveNewEmail: "Update email and send link",
+    activationActionFailed: "The action could not be completed.",
+    activationHint:
+      "* An activation email with a link to set the first password will be sent directly to the staff member.",
     roleImpact:
       "Changing the role invalidates existing sessions. The user will need to sign in again.",
+    roleBlockTitle: "Resolve these items before changing the role",
+    memberRoleLocked:
+      "Member accounts cannot be converted to staff. Create a staff account with a different email instead.",
+    roleBlockGuidance:
+      "This account has service resources that must be settled first. Contact a Center Manager or Receptionist to handle them, then retry the role change. Copy a direct member link to share with the appropriate staff member.",
+    roleBlockAccountLink: "View account details",
+    roleBlockCopyManager: "Copy Manager member link",
+    roleBlockCopyReceptionist: "Copy Receptionist member link",
+    roleBlockCopied: "Member link copied. Share it with the appropriate staff member.",
+    roleBlockCopyFailed: "Could not copy the link. Check browser clipboard access.",
     selfRoleImpact:
       "You are changing your own role. You will be signed out after confirmation.",
     lockImpact:
@@ -620,7 +643,7 @@ export const en = {
     newStatus: "New status",
     specialtyCount: "Selected specialties: {count}",
     changeSaved: "Account updated. The list has been refreshed.",
-    staffCreated: "Staff account created. The list has been refreshed.",
+    staffCreated: "Staff account created. An activation email has been queued.",
   },
   staffWork: {
     overview: "Overview",
@@ -1277,9 +1300,15 @@ export const en = {
     resetStatementDetail:
       "Choose a new password and pick up where you left off.",
     resetDoneTitle: "Password updated",
+    staffSetupDoneTitle: "Staff account activated",
+    staffSetupDone: "Your password is set. You can now sign in to your staff account.",
+    staffSetupInvalidTitle: "Activation link no longer works",
+    staffSetupInvalid: "This activation link is invalid or has expired. Use Forgot password on the sign-in page to request a new link.",
     linkInvalidTitle: "Link no longer works",
     linkSentHint: "The link expires in 10 minutes.",
     resetTitle: "Choose a new password",
+    staffSetupTitle: "Set your staff account password",
+    staffSetupDescription: "Create a password for",
     resetDescription: "Set a new password for",
     linkInvalid: "This reset link is invalid or has expired.",
     requestNewLink: "Request a new link",
@@ -1293,6 +1322,14 @@ export const en = {
     confirmPassword: "Confirm password",
     passwordInvalid: "Check the password requirements and confirmation.",
     reset: "Reset password",
+    staffSetupAction: "Set password",
+    memberSetupDoneTitle: "Account activated",
+    memberSetupDone: "Your password is set. You can now sign in to SportHub.",
+    memberSetupInvalidTitle: "Activation link no longer works",
+    memberSetupInvalid: "This activation link is invalid or has expired. Ask the front desk to send a new one, or use Forgot password on the sign-in page.",
+    memberSetupTitle: "Set your SportHub password",
+    memberSetupDescription: "Create a password for",
+    memberSetupAction: "Set password",
     login: "Sign in",
   },
   wallet: {
@@ -1627,8 +1664,24 @@ export const en = {
     findMember: "Find a member",
     findHint: "Phone, name or email. Scan the member's QR if they have it.",
     notRegistered:
-      "Not registered yet? Ask the member to sign up themselves so the verification code reaches their own email.",
-    openRegistration: "Open the registration page",
+      "Not registered yet? Register them here. They get an activation email and set their own password.",
+    openRegistration: "Register a new member",
+    registerMemberTitle: "Register a new member",
+    registerMemberHint:
+      "Enter the member's own email twice. The activation link goes there, so a mistyped address means the wrong person could activate the account.",
+    registerMemberSubmit: "Register and send activation email",
+    confirmEmail: "Confirm email",
+    emailMismatch: "The two email addresses do not match.",
+    activationNote:
+      "The member cannot sign in until they open the activation email and set a password. You can already sell services and record payments for them at the desk.",
+    pendingActivation: "Pending activation",
+    pendingHint:
+      "This member has not activated the account yet. Resend the link, or correct the email if it was mistyped.",
+    resendActivation: "Resend activation link",
+    changeEmail: "Change email",
+    newEmail: "New email",
+    confirmNewEmail: "Confirm new email",
+    saveNewEmail: "Update email and send link",
     selectedMember: "Selected member",
     changeMember: "Change member",
     membership: "Gym membership",
@@ -1685,7 +1738,7 @@ export const en = {
     tabPlans: "Plans",
     tabResults: "Results",
     tabProgress: "Progress",
-    tabProfile: "BMI Profile",
+    tabProfile: "Fitness profile",
     yourCoach: "Your coach",
     sessionsLeft: "sessions left",
     ofTotal: "of {total}",

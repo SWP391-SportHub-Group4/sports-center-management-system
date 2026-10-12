@@ -164,6 +164,21 @@ test("Khám phá: thẻ lớp đủ thông tin, lọc còn chỗ", async ({ page
   await expect(page.getByText("Cầu lông 02")).toHaveCount(0);
 });
 
+test("Member xem hồ sơ đúng Coach của lớp đang chọn", async ({ page }) => {
+  await base(page);
+  await page.route("**/api/classes?**", (r) =>
+    r.fulfill({
+      json: { items: [courses[0]], page: 1, pageSize: 100, totalCount: 1 },
+    }),
+  );
+  await page.goto("/member/services?section=courses&view=explore");
+
+  const row = page.locator("li").filter({ hasText: "Bóng rổ 01" });
+  await expect(
+    row.getByRole("link", { name: "Xem hồ sơ Coach" }),
+  ).toHaveAttribute("href", "/member/pt/coaches/c");
+});
+
 test("Khám phá có danh mục Gym, PT và lối đặt sân", async ({ page }) => {
   await base(page);
   await page.route("**/api/membership-packages", (route) =>

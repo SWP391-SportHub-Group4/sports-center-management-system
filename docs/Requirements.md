@@ -14,12 +14,26 @@ Ngoài phạm vi: đa chi nhánh, payroll/hợp đồng nhân sự, chia doanh t
 
 | Vai trò | Chức năng yêu cầu |
 |---|---|
-| Guest | Xem trung tâm, ba môn, khóa/gói công khai; đăng ký Member; không đọc dữ liệu cá nhân |
-| Member | Account/profile, Membership/PT/khóa học, thuê/hủy sân còn trống, lịch cá nhân, quyền lợi, invoice/wallet/refund, thông báo, kết quả tập và AI assistant |
-| Receptionist | Tìm Member, hỗ trợ đăng ký/mua dịch vụ, Gym check-in/out, điểm danh lớp, checkout hộ; dùng điểm cần OTP Member |
-| Coach | Xem lịch/lớp được giao; Coach PT lập kế hoạch, ghi kết quả, giao homework và dùng AI workout cho học viên được phân công |
-| CenterManager | Môn/phòng/giá, Coach/chuyên môn, lớp/lịch, threshold, incident, hoàn điểm và báo cáo |
-| SystemAdministrator | Tài khoản nhân sự, role và trạng thái tài khoản; không tự có quyền tài chính hoặc hồ sơ tập luyện |
+| Guest | Xem **landing page** (trang chủ giới thiệu trung tâm, ba môn, đội Coach, không gian) và trang công khai: khóa/gói, sân, Coach; đăng ký Member hoặc đăng nhập; không đọc dữ liệu cá nhân |
+| Member | Đăng ký và cập nhật tài khoản; xem, đăng ký, gia hạn gói thành viên; xem lớp và lịch học, đăng ký/hủy lớp (giữ chỗ, ghi danh); lịch tập cá nhân và thông tin Coach; lịch sử điểm danh và kết quả tập; kế hoạch tập và nhận xét của Coach; hỏi AI về lịch tập, bài tập, dịch vụ; nhận thông báo (lịch học, đổi lịch, hạn gói). Mở rộng của dự án: thuê/hủy sân, PT, ví điểm, invoice, hoàn điểm |
+| Receptionist | Tìm và xem thông tin Member; **đăng ký Member mới tại quầy** (nhập email hai lần; Member nhận email kích hoạt để tự đặt mật khẩu; chờ kích hoạt thì lễ tân gửi lại link hoặc sửa email gõ sai); quản lý đăng ký/gia hạn gói; kiểm tra trạng thái gói và thời hạn; Gym check-in/out và điểm danh; đăng ký lớp hoặc hỗ trợ hủy lớp cho Member; checkout hộ, ghi nhận thanh toán, hóa đơn (*in/xuất hóa đơn chưa thấy trong giao diện*); tiếp nhận và ghi nhận yêu cầu hỗ trợ của Member (*yêu cầu, chưa triển khai*). Dùng điểm của Member cần OTP của Member |
+| Coach | Xem lịch dạy và danh sách học viên lớp phụ trách; xem thông tin cơ bản và mục tiêu tập luyện của học viên được phân công; tạo kế hoạch tập cho cá nhân hoặc cả lớp; ghi kết quả sau buổi; đánh giá tiến độ và nhận xét; điểm danh trong buổi; gửi thông báo cho học viên (*bài tập về nhà đã gỡ khỏi phạm vi triển khai*, không còn homework riêng); dùng AI gợi ý bài tập theo mục tiêu, trình độ, lịch sử. Coach PT cần quyền dịch vụ PT do Manager cấp |
+| CenterManager (*chia việc với Admin, không giống 100% requirement gốc*) | Xem danh sách Member và Coach (tài khoản staff do Admin quản lý); quản lý môn, lớp, phòng, lịch hoạt động; phân công Coach theo chuyên môn, sửa hồ sơ Coach và cấp quyền dịch vụ PT; gói thành viên, học phí, thời hạn; threshold, sự cố, hoàn điểm; báo cáo số lượng thành viên, đăng ký lớp, doanh thu theo thời gian; xem Audit Log đầy đủ của trung tâm |
+| SystemAdministrator (*vai trò bổ sung, nhận một phần việc của Manager*) | Tạo và quản lý tài khoản staff (Manager, Receptionist, Coach, Admin); phân quyền bằng cách đổi role giữa các role staff; khóa, mở khóa, vô hiệu hóa tài khoản; xem Audit Log của thao tác tài khoản. Không tự có quyền tài chính, vận hành lớp hay hồ sơ tập luyện |
+
+### Manager chia việc với Admin
+
+Requirement gốc chỉ có bốn vai trò (Manager, Coach, Member, Receptionist) và giao cho Manager cả việc quản lý nhân sự, phân quyền, lịch sử thao tác. Dự án thêm vai trò **SystemAdministrator** và **chia việc** với Manager: phần quản trị tài khoản chuyển sang Admin, phần vận hành trung tâm ở lại Manager. Vì vậy vai trò Manager **không còn giống 100% requirement gốc**; bảng dưới đây là cách chia hiện hành.
+
+| Việc trong requirement gốc của Manager | Hiện thuộc về |
+|---|---|
+| Quản lý danh sách nhân viên và Coach (tạo tài khoản, kích hoạt, khóa) | **Admin**; Manager chỉ xem Coach, sửa hồ sơ, chuyên môn và cấp quyền dịch vụ PT |
+| Quản lý danh sách thành viên | Manager (xem, báo cáo) và Receptionist (tìm, hỗ trợ) |
+| Phân quyền truy cập cho từng vai trò | **Admin** (đổi role giữa các role staff); quyền theo role cố định trong hệ thống |
+| Xem lịch sử thao tác quan trọng | Manager xem Audit Log đầy đủ của trung tâm; Admin chỉ xem phần thao tác tài khoản |
+| Lớp, môn, phòng, lịch, phân công Coach, báo cáo, gói và học phí | Manager |
+
+Member và staff là hai loại tài khoản tách biệt: không chuyển Member thành staff hay ngược lại. Người muốn làm staff dùng một email khác; SystemAdministrator tạo tài khoản staff, kể cả Coach kèm chuyên môn (nhận email kích hoạt để tự đặt mật khẩu); Manager chỉ sửa hồ sơ Coach và cấp quyền dịch vụ PT. Chỉ đổi role giữa các role staff, và Coach chỉ rời vai trò khi không còn lớp, lịch hay quan hệ huấn luyện đang hoạt động. Email chưa được xác minh là của đúng người khi tạo, nên Admin phải nhập email hai lần; tài khoản chưa kích hoạt hiển thị "Chờ kích hoạt" (`activationPending`), Admin được gửi lại link (cooldown 60 giây, link cũ vô hiệu) hoặc sửa email gõ sai (link cũ vô hiệu, link mới tới email mới, có audit) cho tới khi người nhận đặt mật khẩu.
 
 Guest không phải role account. Coach có nhiều chuyên môn, không chia role cứng thành PersonalTrainer/ClassInstructor. Backend kiểm cả role và ownership/relationship.
 
@@ -30,7 +44,7 @@ Guest không phải role account. Coach có nhiều chuyên môn, không chia ro
 | 1 — User/Membership | Identity, email OTP/Google onboarding, quên mật khẩu bằng link email (không OTP, phản hồi trung tính)/đổi mật khẩu, trang xác thực luôn tiếng Anh, account status, Membership renewal và Gym access |
 | 2 — Class/Schedule | Catalog, nhiều buổi/khóa, seat hold/ghi danh, ngưỡng lớp, chuyển lớp, điểm danh, occupancy, thuê sân và sự cố |
 | 3 — Payment/Report | Invoice/item snapshot, checkout, split điểm + VNPay, gateway verification/reconciliation, hoàn điểm và báo cáo |
-| 4 — Training/Attendance | PT quota/lịch/change request, plan/result/homework; điểm danh lớp nhóm bởi Receptionist |
+| 4 — Training/Attendance | PT quota/lịch/change request, plan/result/nhận xét (homework đã gỡ khỏi phạm vi); điểm danh lớp nhóm bởi Receptionist |
 | 5 — AI workout | Gợi ý tập luyện cho Coach theo dữ liệu học viên được phân công |
 | 6 — AI assistant | Member chat theo context; Manager gợi ý xếp lịch/tạo nháp sau xác nhận là yêu cầu chưa triển khai |
 
@@ -46,7 +60,7 @@ Guest không phải role account. Coach có nhiều chuyên môn, không chia ro
 - Hoàn trả chỉ bằng điểm theo item, quyền lợi đã dùng và cap hệ thống; không double credit khi retry. Hoàn chuẩn Membership Gym tối đa 50% khi còn từ 2/3 thời hạn; sự cố tạm thời của trung tâm không phải căn cứ hoàn (BR-91, BR-130).
 - Ngưỡng lớp hỗ trợ chuyển/hoàn điểm; yêu cầu “chờ đợt sau” là hoàn 100% điểm + lưu nguyện vọng nhận thông báo, chưa có implementation.
 - Incident preview và resolve recheck lịch; lớp/PT xử lý phương án riêng trước bước cuối, không giả toàn luồng là một transaction.
-- Sự cố ảnh hưởng Gym (BR-130): email cho Member có Membership Active; Membership được gia hạn thêm số ngày Gym đóng cửa sửa chữa; buổi lớp bù vào lịch tiếp theo (BR-54); lượt thuê sân hoàn 100% bằng điểm. Chưa triển khai, xem INC-01 trong thiết kế.
+- Sự cố ảnh hưởng Gym (BR-130): email cho Member có Membership Active; Membership được gia hạn thêm số ngày Gym đóng cửa sửa chữa; buổi lớp bù vào lịch tiếp theo (BR-54); lượt thuê sân hoàn 100% bằng điểm. Đã triển khai (INC-01 trong thiết kế).
 - AI chỉ hỗ trợ; thao tác ghi qua command có xác nhận, authorization và kiểm nghiệp vụ.
 
 ## 5. Yêu cầu chất lượng và nghiệm thu
