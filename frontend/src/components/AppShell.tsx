@@ -90,10 +90,9 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { href: "/receptionist/attendance", labelKey: "attendance" },
     { href: "/receptionist/court-schedule", labelKey: "courtSchedule" },
   ],
-  // PT actions are filtered by current specialties in getNavForUser().
   Coach: [
     { href: "/coach", labelKey: "overview" },
-    { href: "/coach/schedule", labelKey: "ptSchedule" },
+    { href: "/coach/schedule", labelKey: "teachingSchedule" },
     { href: "/coach/members", labelKey: "assignedMembers" },
     { href: "/coach/attendance", labelKey: "attendance" },
   ],
@@ -101,7 +100,6 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { href: "/manager", labelKey: "overview" },
     { href: "/manager/sports", labelKey: "sports" },
     { href: "/manager/room-types", labelKey: "roomTypes" },
-    { href: "/manager/pt-pricing", labelKey: "ptPricing" },
     { href: "/manager/facilities", labelKey: "trainingRooms" },
     { href: "/manager/court-rates", labelKey: "rates" },
     { href: "/manager/coaches", labelKey: "coaches" },
@@ -161,7 +159,6 @@ const GROUP_SPEC: Partial<Record<Role, (string | [GroupKey, string[]])[]>> = {
         "/manager/court-rates",
         "/manager/facilities",
         "/manager/membership-plans",
-        "/manager/pt-pricing",
       ],
     ],
     [

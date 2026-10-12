@@ -30,7 +30,6 @@ import type {
   ThresholdResponseDto,
   SportDto,
   MemberPackageDto,
-  PtEntitlementDto,
   InvoiceSummaryDto,
   Paged,
   WorkoutResultDto,
@@ -203,7 +202,6 @@ function DateTile({ value }: { value: string }) {
 function AttentionList({
   invoices,
   packages,
-  pt,
   thresholds,
   now,
   today,
@@ -211,7 +209,6 @@ function AttentionList({
 }: {
   invoices: InvoiceSummaryDto[];
   packages: MemberPackageDto[];
-  pt: PtEntitlementDto[];
   thresholds: ThresholdResponseDto[];
   now: number;
   today: string;
@@ -309,16 +306,6 @@ function AttentionList({
     });
   }
 
-  const ptNow = pt.find((p) => p.status === "ACTIVE");
-  if (ptNow && ptNow.remainingQuota <= 1) {
-    items.push({
-      key: "pt",
-      text: l.ptLow.replace("{n}", String(ptNow.remainingQuota)),
-      href: "/member/services?section=pt&view=explore",
-      action: l.renew,
-    });
-  }
-
   if (!items.length)
     return (
       <section
@@ -399,13 +386,6 @@ export default function MemberDashboardPage() {
       api.get<MemberPackageDto[]>("/api/members/me/packages", { signal }),
     [],
   );
-  const pt = useApi(
-    (signal) =>
-      api.get<PtEntitlementDto[]>("/api/members/me/pt-entitlements", {
-        signal,
-      }),
-    [],
-  );
   const thresholds = useApi(
     (signal) =>
       api.get<ThresholdResponseDto[]>("/api/class-threshold-responses/mine", {
@@ -461,14 +441,13 @@ export default function MemberDashboardPage() {
         <AttentionList
           invoices={invoices.data ? pagedItems(invoices.data) : []}
           packages={packages.data ?? []}
-          pt={pt.data ?? []}
           thresholds={Array.isArray(thresholds.data) ? thresholds.data : []}
           now={now}
           today={date}
           loadState={
-            [invoices, packages, pt, thresholds].some((state) => state.error)
+            [invoices, packages, thresholds].some((state) => state.error)
               ? "error"
-              : [invoices, packages, pt, thresholds].some(
+              : [invoices, packages, thresholds].some(
                     (state) => state.loading || !state.data,
                   )
                 ? "loading"
@@ -788,53 +767,6 @@ export default function MemberDashboardPage() {
                     );
                   }}
                 </AsyncSection>
-              </section>
-              <section
-                className={styles.benefitSection}
-                aria-labelledby="pt-title"
-              >
-                <h3 id="pt-title">{t.memberPages.pt}</h3>
-                <AsyncSection state={pt}>
-                  {(rows) => {
-                    const current = [...rows].sort(
-                      (a, b) =>
-                        Number(b.status === "ACTIVE") -
-                          Number(a.status === "ACTIVE") ||
-                        b.validityEndDate.localeCompare(a.validityEndDate),
-                    )[0];
-                    return current ? (
-                      <>
-                        <div className={styles.inlineHeading}>
-                          <strong>{current.coachName}</strong>
-                          <ExceptionChip value={current.status} />
-                        </div>
-                        <p className={styles.quota}>
-                          <strong>
-                            {current.remainingQuota}
-                            <span> / {current.totalQuota}</span>
-                          </strong>
-                          <span>{l.ptQuota}</span>
-                        </p>
-                        <p className={styles.caption}>
-                          {t.memberPages.held}: {current.reservedSessions} ·{" "}
-                          {t.memberPages.used}: {current.consumedSessions}
-                        </p>
-                      </>
-                    ) : (
-                      <p>{l.emptyPt}</p>
-                    );
-                  }}
-                </AsyncSection>
-                {(pt.data ?? []).some(
-                  (p) => p.status === "ACTIVE" && p.remainingQuota > 0,
-                ) && (
-                  <Link
-                    className={buttonClass({ size: "sm" })}
-                    href="/member/training?tab=book"
-                  >
-                    {t.ptBook.bookCta}
-                  </Link>
-                )}
               </section>
             </section>
             <section

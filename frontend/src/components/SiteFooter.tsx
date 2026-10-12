@@ -26,8 +26,8 @@ export function SiteFooter() {
           </p>
           <p>
             {en
-              ? "A training home for badminton, basketball, gym and personal coaching."
-              : "Không gian tập luyện cho cầu lông, bóng rổ, Gym và huấn luyện cá nhân."}
+              ? "A training home for badminton, basketball and gym."
+              : "Không gian tập luyện cho cầu lông, bóng rổ và Gym."}
           </p>
         </div>
 
@@ -37,7 +37,6 @@ export function SiteFooter() {
             <li>{en ? "Badminton" : "Cầu lông"}</li>
             <li>{en ? "Basketball" : "Bóng rổ"}</li>
             <li>{en ? "Gym & conditioning" : "Gym & thể lực"}</li>
-            <li>{en ? "Personal training" : "Huấn luyện cá nhân"}</li>
           </ul>
         </section>
 

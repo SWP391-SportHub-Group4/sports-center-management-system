@@ -102,7 +102,7 @@ test("coach with an old PT qualification sees only group teaching navigation", a
     .click();
   await expect(page).toHaveURL(/\/coach\/members$/);
   await expect(
-    page.getByRole("heading", { name: "Your PT students", exact: true }),
+    page.getByRole("heading", { name: "Your students", exact: true }),
   ).toBeVisible();
 });
 

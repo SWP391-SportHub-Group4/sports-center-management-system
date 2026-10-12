@@ -208,12 +208,12 @@ public class SportCatalogTests(SchedulingApiFactory factory)
         var badCode = await manager.PostAsJsonAsync("api/manager/sports", new { code = "Bad Code!", name = Unique("Y"), services = Array.Empty<object>() });
         Assert.Equal("sport_code_invalid", await ErrorOf(badCode));
 
-        // Membership/PT chỉ thuộc môn Gym: backend chặn, không chỉ ẩn ở UI.
+        // PT has been retired across the catalog.
         var notGym = await manager.PostAsJsonAsync("api/manager/sports", new
         {
             code = UniqueCode(), name = Unique("Yoga"), services = new[] { new { serviceType = "PERSONAL_TRAINING", isEnabled = true } }
         });
-        Assert.Equal("service_not_allowed_for_sport", await ErrorOf(notGym));
+        Assert.Equal("pt_removed", await ErrorOf(notGym));
 
         var defaultsOnRental = await manager.PostAsJsonAsync("api/manager/sports", new
         {
@@ -266,7 +266,7 @@ public class SportCatalogTests(SchedulingApiFactory factory)
 
         // Dịch vụ chưa cấu hình thì không bật được.
         var missing = await manager.PostAsync($"api/manager/sports/{id}/services/PERSONAL_TRAINING/enable", null);
-        Assert.Equal("service_not_configured", await ErrorOf(missing));
+        Assert.Equal("pt_removed", await ErrorOf(missing));
     }
 
     [Theory]
