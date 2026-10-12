@@ -302,7 +302,7 @@ Không kết luận production-ready khi còn gap nghiệp vụ P0 liên quan.
 | An Q19–Q23 | Hóa đơn; refund queue/review; ví/ledger/adjustment; báo cáo; export/history/download/retry | UX tiền/async → UI bảng/biểu đồ |
 | Khoa Q24–Q27 | Danh mục môn/Gym/PT/rental rates; settings; audit/detail | UX validation → UI theo mẫu đã duyệt |
 | Khoa Q28 | Manager AI xếp lịch → review/edit/draft trong ClassEditor | UX human review → UI shared Drawer |
-| Khoa Q29–Q33 | Admin tổng quan; users list/detail; tạo nhân sự; đổi role/khóa/mở; audit log/detail | UX authorization → UI shared |
+| Khoa Q29–Q33 | Admin tổng quan; users list/detail; tạo nhân sự; đổi role/khóa/mở; audit log/detail. Quy tắc: chỉ Admin tạo staff (kể cả Coach kèm chuyên môn) qua `POST api/users/admin/staff` và email kích hoạt; Member và staff không chuyển đổi qua lại (409 `member_staff_role_change_not_allowed`); đổi role chỉ giữa các role staff, Coach còn lớp/lịch/quan hệ huấn luyện bị chặn; Manager không tạo Coach | UX authorization → UI shared |
 
 Landing K01 gồm **13 section**: Header → Hero → tìm khóa → Bộ môn → khóa đang mở → Gym & PT → sân/lịch trống → cơ sở vật chất → HLV → cách bắt đầu → FAQ → địa điểm/liên hệ → Footer. Khôi chịu trách nhiệm nội dung, nguồn dữ liệu, CTA, ảnh hợp lệ, SEO và responsive từng section; chi tiết ở assignment Khôi. Không thêm testimonial, số hội viên, thành tích hay form gửi thành công giả để lấp section.
 

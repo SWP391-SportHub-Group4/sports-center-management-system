@@ -672,7 +672,7 @@ Phạm vi đã đổi sang trung tâm thể thao đa môn. Để giảm xung đ�
 | Module / khu vực | Giai đoạn | Nội dung chính | Ghi chú xung đột |
 |---|---|---|---|
 | Tài liệu + migration nền | G0, G1 | Đồng bộ tài liệu; migration `RefactorToMultiSport` + seed; xóa `CoachCategory`, mã Yoga/Group X; sửa test để build xanh | **Làm trước và một người làm**; các nhánh khác chờ merge G1 rồi mới rẽ nhánh |
-| `SportHub.Identity` | G2 | Password policy, quên/đổi mật khẩu, `security_stamp`, Manager tạo Coach + chuyên môn | Sở hữu `UserSportSpecialty` |
+| `SportHub.Identity` | G2 | Password policy, quên/đổi mật khẩu, `security_stamp`, Admin tạo Coach + chuyên môn, Manager sửa hồ sơ Coach | Sở hữu `UserSportSpecialty` |
 | `SportHub.Scheduling` (gồm `Catalog/`) | G3, G4, G8 | Sport/Room/giờ hoạt động/giá thuê sân; occupancy + exclusion constraint; tạo/publish lớp, Court Schedule; điểm danh lớp nhóm (Receptionist), Gym check-out | Module thay đổi nhiều nhất — tách PR nhỏ theo G3 / G4 / G8 |
 | `SportHub.Payment` (gồm `Wallet/`, `VnPay/`) | G5a, G5b, G6, G10 | `IPaymentGateway` (VNPay + Mock); ví điểm, split payment, OTP xác nhận, hoàn điểm; ghi danh có giữ chỗ (phần thanh toán); báo cáo mới | Người làm G5a/G5b nên cũng làm G6 để tránh lệch hợp đồng `IClassEnrollmentFulfillment` |
 | Ngưỡng + Rental + Notification | G7, G9 | Ngưỡng hoàn vốn (T5–T8), email, trang phản hồi; Member thuê sân, sự cố, thông báo thủ công | Phụ thuộc G4, G5b, G6 |

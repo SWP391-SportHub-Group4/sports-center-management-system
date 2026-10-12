@@ -11,8 +11,8 @@ Monorepo cho hệ thống quản lý **trung tâm thể thao đa môn**: nhiều
 
 | Vai trò | Làm gì |
 |---|---|
-| System Administrator | Tạo tài khoản nhân sự (Admin/Manager/Receptionist), đổi vai trò, khóa/mở khóa |
-| Center Manager | CRUD môn, phòng/sân, giá thuê sân, Membership; tạo lớp + xếp lịch (AI gợi ý xếp lịch còn là phần chưa triển khai), phân công Coach theo chuyên môn, duyệt hoàn điểm, sự cố/thông báo, báo cáo, Audit Log |
+| System Administrator | Tạo tài khoản nhân sự (Admin/Manager/Receptionist/Coach kèm chuyên môn; nhân sự nhận email kích hoạt), đổi vai trò giữa các role staff (không chuyển Member ↔ staff), khóa/mở khóa |
+| Center Manager | CRUD môn, phòng/sân, giá thuê sân, Membership; tạo lớp + xếp lịch (AI gợi ý xếp lịch còn là phần chưa triển khai), phân công Coach theo chuyên môn, sửa hồ sơ Coach và cấp quyền dịch vụ PT (không tạo Coach), duyệt hoàn điểm, sự cố/thông báo, báo cáo, Audit Log |
 | Coach (của trung tâm) | Chuyên môn theo môn (`CoachSpecialty`); xem lịch dạy và roster lớp mình; Coach có chuyên môn PT: PT session, kế hoạch tập, kết quả, gợi ý AI |
 | Member | Đăng ký Membership Gym, PT; xem lớp/khóa học, ghi danh có giữ chỗ, ví điểm, lịch hôm nay/tuần, thông báo, chatbot |
 | Receptionist | Tìm/đăng ký Member tại quầy, Gym check-in/out, điểm danh lớp nhóm, checkout thay Member (dùng điểm cần OTP email của Member), Court Schedule, hỗ trợ đối soát |
