@@ -277,7 +277,24 @@ export function EditUser({
   const [sports, setSports] = useState(a.sportIds);
   const [reason, setReason] = useState("");
   const [review, setReview] = useState<AccountAction | null>(null);
+  const [copiedLink, setCopiedLink] = useState<"manager" | "receptionist" | "failed" | null>(null);
   const mutation = useMutation();
+  const roleBlockReasons =
+    review === "role" && mutation.error?.code === "role_change_blocked"
+      ? mutation.error.details.reasons
+      : null;
+  const blockedReasons = Array.isArray(roleBlockReasons)
+    ? roleBlockReasons.filter((value): value is string => typeof value === "string")
+    : [];
+  async function copyMemberLink(audience: "manager" | "receptionist") {
+    const path = `/${audience}/members/${a.userId}`;
+    try {
+      await navigator.clipboard.writeText(new URL(path, window.location.origin).toString());
+      setCopiedLink(audience);
+    } catch {
+      setCopiedLink("failed");
+    }
+  }
   const validReason = reason.trim().length >= 3 && reason.trim().length <= 500;
   const statusLabels: Record<string, string> = {
     ACTIVE: l.accountActive,
@@ -470,7 +487,38 @@ export function EditUser({
               </div>
             </dl>
             <p>{impact}</p>
-            <MutationFeedback mutation={mutation} />
+            {blockedReasons.length > 0 ? (
+              <section className={styles.roleBlockers} aria-labelledby="role-blockers-title">
+                <h3 id="role-blockers-title">{d.roleBlockTitle}</h3>
+                <ul>
+                  {blockedReasons.map((blocker, index) => (
+                    <li key={`${index}-${blocker}`}>
+                      <span aria-hidden="true">✕</span>
+                      <span>{blocker}</span>
+                    </li>
+                  ))}
+                </ul>
+                <p>{d.roleBlockGuidance}</p>
+                <div className="btn-row">
+                  <Link className="btn btn--secondary" href={`/admin/users/${a.userId}`}>
+                    {d.roleBlockAccountLink}
+                  </Link>
+                  <button type="button" className="btn btn--secondary" onClick={() => copyMemberLink("manager")}>
+                    {d.roleBlockCopyManager}
+                  </button>
+                  <button type="button" className="btn btn--secondary" onClick={() => copyMemberLink("receptionist")}>
+                    {d.roleBlockCopyReceptionist}
+                  </button>
+                </div>
+                {copiedLink && (
+                  <p role="status">
+                    {copiedLink === "failed" ? d.roleBlockCopyFailed : d.roleBlockCopied}
+                  </p>
+                )}
+              </section>
+            ) : (
+              <MutationFeedback mutation={mutation} />
+            )}
             <div className="btn-row">
               <button
                 type="button"

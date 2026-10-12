@@ -183,6 +183,13 @@ Việc bổ sung không thay đổi quyền đọc audit, scope tài khoản c�
 | POST | `api/users/{userId:guid}/unlock` |
 | POST | `api/users/{userId:guid}/deactivate` |
 
+`PUT api/users/{userId}/role` (SystemAdministrator; body `{role, reason, sportIds?}`; `sportIds` bắt buộc khi đổi sang Coach) trả **409 `role_change_blocked`** kèm `reasons: string[]` khi:
+
+- **Member → vai trò khác:** còn gói Gym/PT Active, lớp nhóm chưa kết thúc, buổi PT hoặc lượt thuê sân trong tương lai, ví điểm còn điểm khả dụng/đang giữ, hóa đơn `Issued` chưa thanh toán hoặc yêu cầu hoàn đang chờ.
+- **Coach → vai trò khác:** còn lớp chưa kết thúc do Coach làm chính, buổi lớp/PT tương lai còn chiếm lịch (`CoachOccupancy`), hoặc quan hệ huấn luyện Active.
+
+Khi đổi thành công: rời Coach thì giữ `CoachProfile` làm lịch sử nhưng xóa chuyên môn (`UserSportSpecialty`) và quyền dịch vụ (`CoachServiceQualification`); về Member thì tự tạo `PointWallet` 0 điểm nếu chưa có; `SecurityStamp` đổi nên token cũ mất hiệu lực. Coach mới phải được Manager cấp lại quyền dịch vụ PT nếu dạy PT.
+
 ### AiController — `api/ai`
 
 | Verb | Path |
