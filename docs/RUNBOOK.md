@@ -18,7 +18,7 @@ Tạo `.env` ở thư mục gốc từ file mẫu rồi điền giá trị (file
 cp .env.example .env
 ```
 
-Link trong email đặt lại mật khẩu dựng từ `Frontend__BaseUrl` (mặc định `http://localhost:3000`; **phải đổi khi deploy**, nếu không người nhận nhận link localhost). `Frontend__SupportUrl` là website hỗ trợ ghi cuối email; để trống thì email chỉ ghi "liên hệ trung tâm". Thiếu SMTP ở Development thì nội dung email (kèm link) được ghi vào log backend (`Email__DemoLoggingEnabled`).
+Link trong email đặt lại mật khẩu và **email kích hoạt tài khoản staff** (Admin tạo qua `POST /api/users/admin/staff`; link dùng một lần, hạn 24 giờ, người nhận tự đặt mật khẩu) đều dựng từ `Frontend__BaseUrl` (mặc định `http://localhost:3000`; **phải đổi khi deploy**, nếu không người nhận nhận link localhost). Email kích hoạt cần SMTP hoạt động; thiếu SMTP thì tài khoản staff vẫn được tạo nhưng người nhận không có link để vào, nên ở Development hãy lấy link trong log backend (xem bên dưới). `Frontend__SupportUrl` là website hỗ trợ ghi cuối email; để trống thì email chỉ ghi "liên hệ trung tâm". Thiếu SMTP ở Development thì nội dung email (kèm link) được ghi vào log backend (`Email__DemoLoggingEnabled`).
 
 Frontend đọc `frontend/.env.local` (tùy chọn). Mặc định gọi API tại `http://localhost:5000`; chỉ cần tạo file khi backend chạy ở địa chỉ khác (xem `frontend/.env.example`).
 
@@ -78,6 +78,21 @@ npm run dev
 ```
 
 Giao diện chạy tại [http://localhost:3000](http://localhost:3000)
+
+### 3.4 Chạy bằng Docker Compose (nhánh `develop`)
+
+Để chạy cả hệ thống bằng container thay cho 3.1–3.3, chuyển sang nhánh `develop`, tạo `.env` như mục 2 rồi chạy từ thư mục gốc:
+
+```bash
+git checkout develop
+docker compose up -d --build
+```
+
+Frontend chạy từ image nên sau khi sửa UI phải build lại (`docker compose up -d --build frontend`). Giữ nguyên named volumes khi nâng cấp; không dùng `docker compose down -v` trên dữ liệu cần giữ.
+
+### 3.5 Tạo tài khoản nhân sự khi demo local
+
+Member và staff là hai loại tài khoản tách biệt: không đổi Member thành staff được (409 `member_staff_role_change_not_allowed`). Muốn thêm Coach/Receptionist/Manager, đăng nhập Admin, tạo tài khoản staff bằng **email khác** với email Member; Coach phải kèm chuyên môn. Ở Development không có SMTP, mở log backend để lấy link kích hoạt (`Email__DemoLoggingEnabled`).
 
 # 4. Bàn giao triển khai và nghiệm thu
 
