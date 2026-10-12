@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using SportHub.Administration.Application.Commands;
 using SportHub.Administration.Application.DTOs;
 using SportHub.Administration.Application.Interfaces;
@@ -11,6 +12,11 @@ using SportHub.Identity.Application.Interfaces;
 using SportHub.Identity.Application.Services;
 using SportHub.Identity.Domain.Entities;
 using SportHub.Identity.Domain.Enums;
+using SportHub.Scheduling.Domain.Entities;
+using SportHub.Scheduling.Domain.Enums;
+using SportHub.Scheduling.Occupancy.Domain;
+using SportHub.Training.Domain.Entities;
+using SportHub.Training.Domain.Enums;
 
 namespace SportHub.Administration.Application.Services;
 
@@ -23,10 +29,11 @@ namespace SportHub.Administration.Application.Services;
 /// </summary>
 public sealed class UserAdminService(
     ISportHubDbContext db,
-    IPasswordHasher passwordHasher,
+    EmailOtpFlow otpFlow,
     CoachSpecialtyService specialties,
     IAuditWriter audit,
-    IClock clock) : IUserAdminService
+    IClock clock,
+    IConfiguration configuration) : IUserAdminService
 {
     public async Task<PagedResult<UserAdminResponse>> SearchAsync(
         string? keyword,
@@ -115,7 +122,9 @@ public sealed class UserAdminService(
         Guid actorUserId,
         CancellationToken ct = default)
     {
-        var targetRole = ParseRole(request.Role);
+        var role = await db.Set<Role>().SingleOrDefaultAsync(r => r.RoleId == request.RoleId, ct)
+            ?? throw new BadRequestException("invalid_role", "Invalid staff role.");
+        var targetRole = role.RoleName;
 
         // BR-1: Hội viên TỰ đăng ký. BR-2 liệt kê đúng 4 vai trò mà SysAdmin được tạo và
         // Member không nằm trong đó — nên endpoint này từ chối tạo Member thay vì lặng lẽ cho qua.
@@ -127,7 +136,6 @@ public sealed class UserAdminService(
         }
 
         var email = request.Email.Trim();
-        SportHub.Identity.Application.Services.PasswordPolicyGuard.Enforce(request.Password, email);
         var phone = string.IsNullOrWhiteSpace(request.Phone) ? null : request.Phone.Trim();
 
         if (await db.Set<UserAccount>().AnyAsync(u => u.Email == email, ct))
@@ -146,15 +154,13 @@ public sealed class UserAdminService(
 
         if (targetRole == UserRole.Coach)
         {
-            coachSportIds = await specialties.ValidateAsync(request.SportIds, ct);
+            coachSportIds = await specialties.ValidateAsync(request.Specialties, ct);
         }
-        else if (request.SportIds is { Count: > 0 })
+        else if (request.Specialties is { Count: > 0 })
         {
             throw new BadRequestException(
                 "sport_ids_not_applicable", "Sport ids not applicable.");
         }
-
-        var role = await db.Set<Role>().SingleAsync(r => r.RoleName == targetRole, ct);
 
         var user = new UserAccount
         {
@@ -163,10 +169,12 @@ public sealed class UserAdminService(
             RoleId = role.RoleId,
             Status = UserStatus.Active,
             CreatedAt = clock.UtcNow,
-            Credential = new UserCredential { PasswordHash = passwordHasher.Hash(request.Password) },
+            Credential = new UserCredential { PasswordHash = null },
             Profile = new UserProfile { FullName = request.FullName.Trim(), Phone = phone },
             CoachProfile = coachSportIds is not null ? new CoachProfile() : null
         };
+
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
 
         db.Set<UserAccount>().Add(user);
 
@@ -188,9 +196,23 @@ public sealed class UserAdminService(
                 sportIds = coachSportIds
             })));
 
-        // Một SaveChanges cho cả tài khoản lẫn audit — EF gói trong một transaction, nên
-        // không có trạng thái "đã tạo tài khoản nhưng thiếu log" (BR-7).
-        await db.SaveChangesAsync(ct);
+        var frontendBaseUrl = configuration["Frontend:BaseUrl"];
+        if (string.IsNullOrWhiteSpace(frontendBaseUrl))
+            frontendBaseUrl = configuration.GetSection("Cors:AllowedOrigins").GetChildren()
+                .Select(c => c.Value).FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
+        frontendBaseUrl = (string.IsNullOrWhiteSpace(frontendBaseUrl) ? "http://localhost:3000" : frontendBaseUrl).TrimEnd('/');
+
+        var token = await otpFlow.IssueAsync(email, EmailOtpPurpose.ResetPassword, ct,
+            resetLink: value => $"{frontendBaseUrl}/reset-password?email={Uri.EscapeDataString(email)}&token={Uri.EscapeDataString(value)}&setup=staff",
+            supportUrl: configuration["Frontend:SupportUrl"],
+            lifetime: TimeSpan.FromHours(24),
+            resetEmailSubject: StaffActivationEmail.Subject,
+            renderResetEmail: (url, minutes) => StaffActivationEmail.Render(request.FullName.Trim(), url, minutes, configuration["Frontend:SupportUrl"]));
+        if (token is null)
+            throw new InvalidOperationException("Could not issue a staff activation link.");
+
+        // EmailOtpFlow saves the account, specialties, audit, token hash and encrypted outbox row together.
+        await tx.CommitAsync(ct);
 
         return await GetAsync(user.UserId, ct);
     }
@@ -216,12 +238,28 @@ public sealed class UserAdminService(
             return await GetAsync(userId, ct);
         }
 
+        // Member và Staff là hai loại tài khoản tách biệt: không đổi qua lại. Người dùng muốn làm
+        // staff phải được tạo tài khoản staff bằng email khác (Admin → Users → Create staff account).
+        if ((currentRole == UserRole.Member) != (targetRole == UserRole.Member))
+        {
+            throw new ConflictException(
+                "member_staff_role_change_not_allowed",
+                "Member and staff accounts cannot be converted. Create a staff account with a different email.");
+        }
+
         // Cùng lý do với BR-6 "không khoá SysAdmin hoạt động cuối cùng": hạ vai trò của
         // SysAdmin Active cuối cùng cũng khiến hệ thống không còn ai tạo được tài khoản
         // hay mở khoá (BR-2/BR-6) — tự khoá chính mình ra ngoài.
         if (currentRole == UserRole.SystemAdministrator)
         {
             await EnsureNotLastActiveSystemAdministratorAsync(userId, ct);
+        }
+
+        // Coach rời vai trò: chặn khi còn lớp/lịch/quan hệ huấn luyện đang hoạt động.
+        if (currentRole == UserRole.Coach)
+        {
+            var blockers = await CoachBlockersAsync(userId, ct);
+            if (blockers.Count > 0) throw new RoleChangeBlockedException(blockers);
         }
 
         // BR-96, chốt 28/09/2026 (2) (SSOT §7): đổi role VÀO Coach luôn bắt buộc chọn category
@@ -246,6 +284,13 @@ public sealed class UserAdminService(
         var role = await db.Set<Role>().SingleAsync(r => r.RoleName == targetRole, ct);
 
         user.RoleId = role.RoleId;
+
+        // Rời Coach: giữ CoachProfile làm lịch sử, nhưng gỡ chuyên môn và quyền dịch vụ để không còn hiệu lực.
+        if (currentRole == UserRole.Coach)
+        {
+            db.Set<UserSportSpecialty>().RemoveRange(await db.Set<UserSportSpecialty>().Where(x => x.UserId == userId).ToListAsync(ct));
+            db.Set<CoachServiceQualification>().RemoveRange(await db.Set<CoachServiceQualification>().Where(x => x.UserId == userId).ToListAsync(ct));
+        }
 
         // BR-103/104: đổi vai trò vô hiệu mọi token đang lưu hành (claim sst + role không còn khớp DB).
         user.SecurityStamp = Guid.NewGuid();
@@ -315,6 +360,23 @@ public sealed class UserAdminService(
         // status trong DB mỗi request, nên tài khoản vừa khoá bị chặn ở request kế tiếp
         // (SSOT §5.6). Request đang chạy dở không bị huỷ; thu hồi token vĩnh viễn là scope riêng.
         return await GetAsync(userId, ct);
+    }
+
+    private async Task<List<string>> CoachBlockersAsync(Guid userId, CancellationToken ct)
+    {
+        var now = clock.UtcNow;
+        var reasons = new List<string>();
+
+        var classes = await db.Set<Class>().CountAsync(x => x.CoachId == userId
+            && x.Status != ClassStatus.Completed && x.Status != ClassStatus.Cancelled, ct);
+        if (classes > 0) reasons.Add($"Still the main coach of {classes} unfinished class(es). Reassign them first.");
+
+        var occupancies = await db.Set<CoachOccupancy>().CountAsync(x => x.CoachId == userId && x.IsActive && x.EndAtUtc > now, ct);
+        if (occupancies > 0) reasons.Add($"{occupancies} upcoming class/PT session(s) are still assigned. Reassign or cancel them first.");
+
+        var relationships = await db.Set<CoachMemberRelationship>().CountAsync(x => x.CoachId == userId && x.Status == RelationshipStatus.Active, ct);
+        if (relationships > 0) reasons.Add($"{relationships} active coaching relationship(s). End or transfer them first.");
+        return reasons;
     }
 
     private async Task EnsureNotLastActiveSystemAdministratorAsync(Guid userId, CancellationToken ct)

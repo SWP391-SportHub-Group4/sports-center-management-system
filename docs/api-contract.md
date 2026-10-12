@@ -183,6 +183,14 @@ Việc bổ sung không thay đổi quyền đọc audit, scope tài khoản c�
 | POST | `api/users/{userId:guid}/unlock` |
 | POST | `api/users/{userId:guid}/deactivate` |
 
+`PUT api/users/{userId}/role` (SystemAdministrator; body `{role, reason, sportIds?}`; `sportIds` bắt buộc khi đổi sang Coach). Chỉ đổi **giữa các role staff** (SystemAdministrator, CenterManager, Receptionist, Coach).
+
+- **Member ↔ Staff không được phép:** đổi từ Member sang bất kỳ role staff nào, hoặc từ staff về Member, trả **409 `member_staff_role_change_not_allowed`**. Người muốn làm staff phải được Admin tạo tài khoản staff bằng **email khác** (`POST api/users`, luồng kích hoạt qua email); tài khoản Member cũ giữ nguyên.
+- **Coach → role staff khác:** trả **409 `role_change_blocked`** kèm `reasons: string[]` khi còn lớp chưa kết thúc do Coach làm chính, buổi lớp/PT tương lai còn chiếm lịch (`CoachOccupancy`), hoặc quan hệ huấn luyện Active.
+- **Last SystemAdministrator:** không được đổi role (409 `last_active_system_administrator`).
+
+Khi đổi thành công: rời Coach thì giữ `CoachProfile` làm lịch sử nhưng xóa chuyên môn (`UserSportSpecialty`) và quyền dịch vụ (`CoachServiceQualification`); đổi sang Coach thì Admin phải chọn chuyên môn (Manager cấp lại quyền dịch vụ PT nếu dạy PT); `SecurityStamp` đổi nên token cũ mất hiệu lực.
+
 ### AiController — `api/ai`
 
 | Verb | Path |

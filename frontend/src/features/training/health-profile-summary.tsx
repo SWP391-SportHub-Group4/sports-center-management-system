@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity, Ruler, Weight } from "lucide-react";
+import { Activity } from "lucide-react";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { useLanguage } from "@/lib/language";
 import type { MemberTrainingProfileDto } from "@/lib/types";
@@ -21,11 +21,6 @@ const num = (value: number | null | undefined, digits = 1) =>
     : new Intl.NumberFormat("en-GB", { maximumFractionDigits: digits }).format(
         value,
       );
-
-/** BMI position on a 15–40 scale; the bar is only a visual aid, the category comes from the server. */
-function scalePosition(bmi: number) {
-  return Math.min(100, Math.max(0, ((bmi - 15) / 25) * 100));
-}
 
 export function BmiCard({ profile }: { profile: MemberTrainingProfileDto }) {
   const { language } = useLanguage();
@@ -56,46 +51,12 @@ export function BmiCard({ profile }: { profile: MemberTrainingProfileDto }) {
               {vi ? category.vi : category.en}
             </span>
           )}
-          <div className={styles.scale} aria-hidden="true">
-            <span style={{ left: `${scalePosition(profile.bmi)}%` }} />
-          </div>
-          <div className={styles.scaleLabels} aria-hidden="true">
-            <span>15</span>
-            <span>18.5</span>
-            <span>25</span>
-            <span>30</span>
-            <span>40</span>
-          </div>
         </>
       )}
-      <dl className={styles.facts}>
-        <div>
-          <dt>
-            <Ruler size={14} aria-hidden="true" /> {vi ? "Chiều cao" : "Height"}
-          </dt>
-          <dd>
-            {profile.heightCm === null ? "—" : `${num(profile.heightCm)} cm`}
-          </dd>
-        </div>
-        <div>
-          <dt>
-            <Weight size={14} aria-hidden="true" /> {vi ? "Cân nặng" : "Weight"}
-          </dt>
-          <dd>
-            {profile.weightKg === null ? "—" : `${num(profile.weightKg)} kg`}
-          </dd>
-        </div>
-        {profile.targetWeightKg !== null && (
-          <div>
-            <dt>{vi ? "Cân nặng mục tiêu" : "Target weight"}</dt>
-            <dd>{num(profile.targetWeightKg)} kg</dd>
-          </div>
-        )}
-      </dl>
       <p className={styles.note}>
         {vi
-          ? "BMI = cân nặng (kg) / chiều cao² (m). Đây là chỉ số tham khảo, không thay thế tư vấn y tế."
-          : "BMI = weight (kg) / height² (m). It is a general indicator, not medical advice."}
+          ? "BMI = cân nặng (kg) / chiều cao² (m)."
+          : "BMI = weight (kg) / height² (m)."}
       </p>
     </section>
   );
@@ -137,6 +98,20 @@ export function HealthProfileSummary({
   const { language } = useLanguage();
   const vi = language === "vi";
   const rows: [string, string][] = [
+    [
+      vi ? "Chiều cao / cân nặng" : "Height / weight",
+      profile.heightCm === null || profile.weightKg === null
+        ? "—"
+        : `${num(profile.heightCm)} cm · ${num(profile.weightKg)} kg`,
+    ],
+    ...(profile.targetWeightKg !== null
+      ? ([
+          [
+            vi ? "Cân nặng mục tiêu" : "Target weight",
+            `${num(profile.targetWeightKg)} kg`,
+          ],
+        ] as [string, string][])
+      : []),
     [
       vi ? "Mục tiêu" : "Goal type",
       optionLabel(GOAL_TYPES, profile.goalType, vi),

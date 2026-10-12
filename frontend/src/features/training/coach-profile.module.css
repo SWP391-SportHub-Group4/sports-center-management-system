@@ -79,6 +79,22 @@
   font-size: var(--text-sm);
   font-weight: var(--weight-semibold);
 }
+.heroRate {
+  display: grid;
+  gap: 2px;
+}
+.heroRate > span {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+.heroRate strong {
+  font-size: var(--text-xl);
+}
+.heroRate small {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-regular);
+}
 .facts {
   display: flex;
   flex-wrap: wrap;
@@ -200,6 +216,12 @@
   justify-content: center;
   text-align: center;
 }
+.bookBarInline {
+  position: static;
+  padding: 0;
+  border: 0;
+  box-shadow: none;
+}
 .empty {
   padding: var(--space-5);
 }
@@ -223,6 +245,11 @@
   }
   .week {
     grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+@media (max-width: 760px) {
+  .week {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 @media (max-width: 640px) {

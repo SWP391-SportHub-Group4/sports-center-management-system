@@ -596,9 +596,21 @@ export const vi: Translations = {
     reviewCreate: "Xem lại tài khoản nhân sự",
     reviewHint: "Kiểm tra tài khoản, thay đổi và lý do trước khi xác nhận.",
     createHint:
-      "Tài khoản nhân sự mới sẽ hoạt động và có quyền theo vai trò đã chọn.",
+      "Nhân sự sẽ dùng được tài khoản sau khi tự đặt mật khẩu qua email kích hoạt.",
+    activationHint:
+      "* Thư hướng dẫn kích hoạt và liên kết đặt mật khẩu lần đầu sẽ được gửi trực tiếp đến email của nhân sự.",
     roleImpact:
       "Đổi vai trò sẽ vô hiệu hóa các phiên đăng nhập hiện tại. Người dùng cần đăng nhập lại.",
+    roleBlockTitle: "Cần xử lý các mục này trước khi đổi vai trò",
+    memberRoleLocked:
+      "Tài khoản Member không thể chuyển thành staff. Hãy tạo tài khoản staff bằng email khác.",
+    roleBlockGuidance:
+      "Tài khoản này cần được dọn dẹp tài nguyên dịch vụ trước khi đổi vai trò. Vui lòng liên hệ Center Manager hoặc Lễ tân để xử lý, sau đó thử lại. Sao chép liên kết hồ sơ hội viên để chuyển đúng người phụ trách.",
+    roleBlockAccountLink: "Xem chi tiết tài khoản",
+    roleBlockCopyManager: "Sao chép liên kết cho Manager",
+    roleBlockCopyReceptionist: "Sao chép liên kết cho Lễ tân",
+    roleBlockCopied: "Đã sao chép liên kết hội viên. Hãy chuyển cho nhân sự phụ trách.",
+    roleBlockCopyFailed: "Không thể sao chép liên kết. Hãy kiểm tra quyền clipboard của trình duyệt.",
     selfRoleImpact:
       "Bạn đang đổi vai trò của chính mình. Bạn sẽ được đăng xuất sau khi xác nhận.",
     lockImpact:
@@ -618,7 +630,7 @@ export const vi: Translations = {
     newStatus: "Trạng thái mới",
     specialtyCount: "Số môn chuyên môn đã chọn: {count}",
     changeSaved: "Đã cập nhật tài khoản và tải lại danh sách.",
-    staffCreated: "Đã tạo tài khoản nhân sự và tải lại danh sách.",
+    staffCreated: "Đã tạo tài khoản nhân sự và xếp thư kích hoạt để gửi.",
   },
   staffWork: {
     overview: "Tổng quan",
@@ -1268,9 +1280,15 @@ export const vi: Translations = {
     resetStatement: "Khởi đầu mới, vẫn là buổi tập quen.",
     resetStatementDetail: "Chọn mật khẩu mới và tiếp tục từ chỗ bạn dừng lại.",
     resetDoneTitle: "Đã đổi mật khẩu",
+    staffSetupDoneTitle: "Đã kích hoạt tài khoản nhân sự",
+    staffSetupDone: "Bạn đã đặt mật khẩu và có thể đăng nhập tài khoản nhân sự.",
+    staffSetupInvalidTitle: "Liên kết kích hoạt không còn hiệu lực",
+    staffSetupInvalid: "Liên kết kích hoạt không hợp lệ hoặc đã hết hạn. Dùng Quên mật khẩu ở trang đăng nhập để nhận liên kết mới.",
     linkInvalidTitle: "Link không còn dùng được",
     linkSentHint: "Link có hiệu lực trong 10 phút.",
     resetTitle: "Chọn mật khẩu mới",
+    staffSetupTitle: "Đặt mật khẩu tài khoản nhân sự",
+    staffSetupDescription: "Tạo mật khẩu cho",
     resetDescription: "Đặt mật khẩu mới cho",
     linkInvalid: "Link đặt lại này không hợp lệ hoặc đã hết hạn.",
     requestNewLink: "Yêu cầu link mới",
@@ -1284,6 +1302,7 @@ export const vi: Translations = {
     confirmPassword: "Xác nhận mật khẩu",
     passwordInvalid: "Kiểm tra yêu cầu mật khẩu và xác nhận.",
     reset: "Đặt lại mật khẩu",
+    staffSetupAction: "Đặt mật khẩu",
     login: "Đăng nhập",
   },
   wallet: {
@@ -1675,7 +1694,7 @@ export const vi: Translations = {
     tabPlans: "Kế hoạch",
     tabResults: "Kết quả",
     tabProgress: "Tiến độ",
-    tabProfile: "Hồ sơ BMI",
+    tabProfile: "Fitness profile",
     yourCoach: "Huấn luyện viên của bạn",
     sessionsLeft: "buổi còn lại",
     ofTotal: "trên {total}",

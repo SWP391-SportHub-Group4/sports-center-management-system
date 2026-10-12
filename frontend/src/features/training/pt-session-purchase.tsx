@@ -1,11 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { AsyncSection, Field, Feedback } from "@/components/ui";
 import { CheckoutPanel } from "@/features/payments";
 import { CourseSticker } from "@/features/courses";
 import { isRetiredActivityPackage } from "@/features/membership";
+import { CoachProfile } from "./coach-profile";
+import { groupPtSlotsByDaypart } from "./pt-availability";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
@@ -20,7 +22,7 @@ import {
 import type { MemberPackageDto, PtAvailabilityDto } from "@/lib/types";
 import styles from "./training.module.css";
 import { AvatarImage } from "@/components/AvatarImage";
-import { UserRound } from "lucide-react";
+import { Info, X } from "lucide-react";
 
 type SessionQuote = {
   totalQuota: number;
@@ -52,6 +54,7 @@ export function PtSessionPurchase({
   const today = todayIso();
   const [packagePick, setPackage] = useState("");
   const [coachPick, setCoach] = useState("");
+  const [profileCoachId, setProfileCoachId] = useState("");
   const [date, setDate] = useState(addDaysIso(today, 1));
   const [start, setStart] = useState("");
   const [roomPick, setRoom] = useState<number | null>(null);
@@ -106,6 +109,10 @@ export function PtSessionPurchase({
     [packageId, coachId, date],
   );
   const chosen = availability.data?.slots.find((s) => s.startAtUtc === start);
+  const timeGroups = useMemo(
+    () => groupPtSlotsByDaypart(availability.data?.slots ?? []),
+    [availability.data],
+  );
   const room =
     chosen?.rooms.find((r) => r.roomId === roomPick) ?? chosen?.rooms[0];
   const refresh = availability.reload;
@@ -151,15 +158,7 @@ export function PtSessionPurchase({
     } finally {
       setBusy(false);
     }
-  }, [
-    availability.data,
-    busy,
-    chosen,
-    coachId,
-    packageId,
-    room,
-    text,
-  ]);
+  }, [availability.data, busy, chosen, coachId, packageId, room, text]);
   useEffect(() => {
     if (
       !chosen ||
@@ -284,6 +283,17 @@ export function PtSessionPurchase({
                             >
                               <button
                                 type="button"
+                                className={styles.coachProfileButton}
+                                aria-label={text(
+                                  `Xem hồ sơ ${coach.fullName}`,
+                                  `View ${coach.fullName}'s profile`,
+                                )}
+                                onClick={() => setProfileCoachId(coach.userId)}
+                              >
+                                <Info size={16} aria-hidden="true" />
+                              </button>
+                              <button
+                                type="button"
                                 className={styles.coachCard}
                                 aria-pressed={coachId === coach.userId}
                                 disabled={busy}
@@ -300,7 +310,10 @@ export function PtSessionPurchase({
                                 <span className={styles.coachInfo}>
                                   <strong>{coach.fullName}</strong>
                                   <small>
-                                    {text("Huấn luyện viên PT", "Personal trainer")}
+                                    {text(
+                                      "Huấn luyện viên PT",
+                                      "Personal trainer",
+                                    )}
                                   </small>
                                 </span>
                                 <span
@@ -310,17 +323,6 @@ export function PtSessionPurchase({
                                   {coachId === coach.userId ? "✓" : ""}
                                 </span>
                               </button>
-                              <Link
-                                className={styles.coachProfileLink}
-                                href={`/member/pt/coaches/${coach.userId}`}
-                              >
-                                <UserRound size={14} aria-hidden="true" />
-                                {text("Xem hồ sơ", "View profile")}
-                                <span className="sr-only">
-                                  {" "}
-                                  {coach.fullName}
-                                </span>
-                              </Link>
                             </div>
                           ))}
                         </div>
@@ -360,25 +362,63 @@ export function PtSessionPurchase({
                                   "Available training times",
                                 )}
                               >
-                                {data.slots.map((s) => (
-                                  <button
-                                    type="button"
-                                    disabled={busy}
-                                    className={styles.time}
-                                    key={s.startAtUtc}
-                                    aria-pressed={start === s.startAtUtc}
-                                    onClick={() => {
-                                      requestedQuote.current = null;
-                                      setStart(s.startAtUtc);
-                                      setRoom(null);
-                                      setQuote(null);
-                                      setError(null);
-                                    }}
+                                {timeGroups.map((group) => (
+                                  <section
+                                    className={styles.timeGroup}
+                                    key={group.key}
+                                    aria-label={text(
+                                      group.key === "morning"
+                                        ? "Buổi sáng"
+                                        : group.key === "afternoon"
+                                          ? "Buổi chiều"
+                                          : "Buổi tối",
+                                      group.key,
+                                    )}
                                   >
-                                    {formatTime(s.startAtUtc)}
-                                  </button>
+                                    <h5>
+                                      {text(
+                                        group.key === "morning"
+                                          ? "Buổi sáng"
+                                          : group.key === "afternoon"
+                                            ? "Buổi chiều"
+                                            : "Buổi tối",
+                                        group.key === "morning"
+                                          ? "Morning"
+                                          : group.key === "afternoon"
+                                            ? "Afternoon"
+                                            : "Evening",
+                                      )}
+                                    </h5>
+                                    <div className={styles.times}>
+                                      {group.slots.map((s) => (
+                                        <button
+                                          type="button"
+                                          disabled={busy}
+                                          className={styles.time}
+                                          key={s.startAtUtc}
+                                          aria-pressed={start === s.startAtUtc}
+                                          onClick={() => {
+                                            requestedQuote.current = null;
+                                            setStart(s.startAtUtc);
+                                            setRoom(null);
+                                            setQuote(null);
+                                            setError(null);
+                                          }}
+                                        >
+                                          {formatTime(s.startAtUtc)} –{" "}
+                                          {formatTime(s.endAtUtc)}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </section>
                                 ))}
                               </div>
+                              <small className={styles.sessionDurationNote}>
+                                {text(
+                                  "* Mỗi buổi PT 1-on-1 có thời lượng cố định 90 phút.",
+                                  "* Each 1-on-1 PT session is fixed at 90 minutes.",
+                                )}
+                              </small>
                             </section>
                           ) : (
                             <p role="status">
@@ -474,9 +514,6 @@ export function PtSessionPurchase({
                         ],
                       }}
                     />
-                    <Link href={`/member/pt/coaches/${coachId}`}>
-                      {text("Xem hồ sơ huấn luyện viên", "View PT profile")}
-                    </Link>
                   </>
                 ) : (
                   <>
@@ -507,6 +544,64 @@ export function PtSessionPurchase({
           )
         }
       </AsyncSection>
+      {profileCoachId && (
+        <CoachProfileDrawer
+          coachId={profileCoachId}
+          onClose={() => setProfileCoachId("")}
+          onSelectCoach={() => {
+            setCoach(profileCoachId);
+            resetSelection();
+            setProfileCoachId("");
+          }}
+          text={text}
+        />
+      )}
     </div>
+  );
+}
+
+function CoachProfileDrawer({
+  coachId,
+  onClose,
+  onSelectCoach,
+  text,
+}: {
+  coachId: string;
+  onClose: () => void;
+  onSelectCoach: () => void;
+  text: (viText: string, enText: string) => string;
+}) {
+  const dialog = useRef<HTMLDialogElement>(null);
+
+  useEffect(() => {
+    const element = dialog.current;
+    if (element && !element.open) element.showModal();
+    return () => {
+      if (element?.open) element.close();
+    };
+  }, []);
+
+  return (
+    <dialog
+      ref={dialog}
+      className={styles.coachProfileDialog}
+      aria-label={text("Hồ sơ huấn luyện viên", "Coach profile")}
+      onClose={onClose}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) dialog.current?.close();
+      }}
+    >
+      <button
+        type="button"
+        className={styles.closeCoachProfile}
+        aria-label={text("Đóng hồ sơ", "Close profile")}
+        onClick={() => dialog.current?.close()}
+      >
+        <X size={18} aria-hidden="true" />
+      </button>
+      <div className={styles.coachProfileDialogContent}>
+        <CoachProfile coachId={coachId} onSelectCoach={onSelectCoach} />
+      </div>
+    </dialog>
   );
 }
