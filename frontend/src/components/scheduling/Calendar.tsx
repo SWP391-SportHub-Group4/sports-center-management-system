@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/primitives";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { StatusChip } from "@/components/ui";
 import { addDaysIso, formatDate, formatTime, todayIso } from "@/lib/format";
 import type {
@@ -10,6 +11,7 @@ import type {
 } from "./calendar.contract";
 
 import styles from "./Calendar.module.css";
+import { useNow } from "@/lib/useApi";
 
 const VIETNAM_OFFSET_MS = 7 * 60 * 60 * 1000;
 
@@ -32,6 +34,8 @@ export function Calendar({
   onViewChange,
   onSelectEvent,
   hideToolbar = false,
+  showViewSwitcher = true,
+  iconNavigation = false,
 }: {
   hideToolbar?: boolean;
   events: CalendarEvent[];
@@ -39,10 +43,14 @@ export function Calendar({
   view: CalendarView;
   labels: CalendarLabels;
   onDateChange: (date: string) => void;
-  onViewChange: (view: CalendarView) => void;
+  onViewChange?: (view: CalendarView) => void;
   onSelectEvent: (event: CalendarEvent) => void;
+  showViewSwitcher?: boolean;
+  iconNavigation?: boolean;
 }) {
   const rangeDays = daysFor(view);
+  const now = useNow();
+  const today = vietnamDateIso(new Date(now).toISOString());
 
   const days = Array.from({ length: rangeDays }, (_, index) =>
     addDaysIso(date, index),
@@ -75,28 +83,40 @@ export function Calendar({
     <section className={styles.calendar} aria-label={labels.eventDetails}>
       {!hideToolbar && (
         <div className={styles.toolbar}>
-          <div
-            className={styles.viewGroup}
-            role="group"
-            aria-label={labels.eventDetails}
-          >
-            {(["day", "week", "list"] as const).map((item) => (
-              <Button
-                key={item}
-                variant="ghost"
-                size="sm"
-                className={styles.viewButton}
-                aria-pressed={view === item}
-                onClick={() => onViewChange(item)}
-              >
-                {labels[item]}
-              </Button>
-            ))}
-          </div>
+          {showViewSwitcher && (
+            <div
+              className={styles.viewGroup}
+              role="group"
+              aria-label={labels.eventDetails}
+            >
+              {(["day", "week", "list"] as const).map((item) => (
+                <Button
+                  key={item}
+                  variant="ghost"
+                  size="sm"
+                  className={styles.viewButton}
+                  aria-pressed={view === item}
+                  onClick={() => onViewChange?.(item)}
+                >
+                  {labels[item]}
+                </Button>
+              ))}
+            </div>
+          )}
 
-          <div className={styles.navGroup}>
-            <Button variant="quiet" size="sm" onClick={() => move(-1)}>
-              {labels.previous}
+          <div className={styles.navGroup} style={{ marginLeft: "auto" }}>
+            <Button
+              variant="quiet"
+              size="sm"
+              onClick={() => move(-1)}
+              aria-label={labels.previous}
+              title={labels.previous}
+            >
+              {iconNavigation ? (
+                <ChevronLeft size={20} aria-hidden="true" />
+              ) : (
+                labels.previous
+              )}
             </Button>
 
             <Button
@@ -107,8 +127,18 @@ export function Calendar({
               {labels.today}
             </Button>
 
-            <Button variant="quiet" size="sm" onClick={() => move(1)}>
-              {labels.next}
+            <Button
+              variant="quiet"
+              size="sm"
+              onClick={() => move(1)}
+              aria-label={labels.next}
+              title={labels.next}
+            >
+              {iconNavigation ? (
+                <ChevronRight size={20} aria-hidden="true" />
+              ) : (
+                labels.next
+              )}
             </Button>
           </div>
         </div>
@@ -120,9 +150,25 @@ export function Calendar({
             const items = byDay.get(day) ?? [];
 
             return (
-              <section className={styles.listDay} key={day}>
+              <section
+                className={styles.listDay}
+                key={day}
+                data-today={day === today || undefined}
+              >
                 <h3 className={styles.listDayTitle}>
-                  <time dateTime={day}>{formatDate(day)}</time>
+                  {!hideToolbar && day === today && (
+                    <span
+                      className={styles.todayDot}
+                      title={labels.today}
+                      aria-label={labels.today}
+                    />
+                  )}
+                  <time
+                    dateTime={day}
+                    aria-current={day === today ? "date" : undefined}
+                  >
+                    {formatDate(day)}
+                  </time>
                 </h3>
 
                 {!items.length && (
@@ -136,6 +182,9 @@ export function Calendar({
                     type="button"
                     className={`${styles.event} ${styles.listEvent}`}
                     key={event.id}
+                    data-cancelled={
+                      /CANCEL/i.test(event.status ?? "") || undefined
+                    }
                     onClick={() => onSelectEvent(event)}
                   >
                     <span className={styles.listTime}>
@@ -175,10 +224,24 @@ export function Calendar({
             const items = byDay.get(day) ?? [];
 
             return (
-              <section className={styles.day} key={day}>
+              <section
+                className={styles.day}
+                key={day}
+                data-today={day === today || undefined}
+              >
                 <header className={styles.dayHeader}>
                   <strong>
-                    <time dateTime={day}>
+                    {!hideToolbar && day === today && (
+                      <span
+                        className={styles.todayDot}
+                        title={labels.today}
+                        aria-label={labels.today}
+                      />
+                    )}
+                    <time
+                      dateTime={day}
+                      aria-current={day === today ? "date" : undefined}
+                    >
                       {labels.weekdays
                         ? labels.weekdays[
                             (new Date(day + "T00:00:00Z").getUTCDay() + 6) % 7
@@ -207,6 +270,9 @@ export function Calendar({
                       type="button"
                       className={styles.event}
                       key={event.id}
+                      data-cancelled={
+                        /CANCEL/i.test(event.status ?? "") || undefined
+                      }
                       onClick={() => onSelectEvent(event)}
                     >
                       {labels.types && (
