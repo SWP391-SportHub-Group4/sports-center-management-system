@@ -183,73 +183,50 @@ test("registered courses cannot be purchased a second time", async ({
   ).toHaveCount(0);
 });
 
-test("members request a centre BMI measurement only once", async ({ page }) => {
-  let requested = false;
-  let submissions = 0;
-  const profile = {
-    memberId: "member-1",
-    status: "REQUESTED",
-    requestedAt: new Date().toISOString(),
-    appointmentAt: null,
-    heightCm: null,
-    weightKg: null,
-    bmi: null,
-    measuredAt: null,
-  };
-  await page.route("**/api/members/me/bmi-profile", (route) =>
-    route.fulfill(requested ? { json: profile } : { status: 204 }),
+test("legacy profile link opens the editable fitness profile", async ({ page }) => {
+  await page.route("**/api/members/me/training-profile", (route) =>
+    route.fulfill({ json: null }),
   );
-  await page.route("**/api/members/me/bmi-measurement-request", (route) => {
-    expect(route.request().method()).toBe("POST");
-    submissions++;
-    requested = true;
-    return route.fulfill({ json: profile });
-  });
   await page.goto("/member/profile");
-  await page
-    .getByRole("button", { name: "Request a centre measurement" })
-    .click();
-  await expect(
-    page.getByRole("heading", { name: "Awaiting a measurement appointment" }),
-  ).toBeVisible();
-  await page.reload();
-  await expect(
-    page.getByRole("heading", { name: "Awaiting a measurement appointment" }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Request a centre measurement" }),
-  ).toHaveCount(0);
-  expect(submissions).toBe(1);
+  await expect(page).toHaveURL(/\/member\/training\?tab=profile$/);
+  await expect(page.getByRole("heading", { name: "Fitness profile" })).toBeVisible();
+  await page.getByRole("spinbutton", { name: "Height (cm)" }).fill("175");
+  await page.getByRole("spinbutton", { name: "Weight (kg)", exact: true }).fill("70");
+  await expect(page.getByRole("region", { name: "BMI" })).toContainText("22.9");
 });
 
-test("measured BMI profiles show locked centre results", async ({ page }) => {
-  await page.route("**/api/members/me/bmi-profile", (route) =>
+test("saved self-reported measurements remain editable", async ({ page }) => {
+  await page.route("**/api/members/me/training-profile", (route) =>
     route.fulfill({
       json: {
         memberId: "member-1",
-        status: "MEASURED",
-        requestedAt: "2026-10-01T00:00:00Z",
-        appointmentAt: null,
+        goal: "Build strength",
+        goalType: "BUILD_MUSCLE",
+        experienceLevel: "BEGINNER",
+        notes: null,
+        updatedAt: "2026-10-02T00:00:00Z",
+        dateOfBirth: "2000-01-01",
+        age: 26,
+        sex: "MALE",
         heightCm: 175,
         weightKg: 70,
+        targetWeightKg: null,
         bmi: 22.9,
-        measuredAt: "2026-10-02T00:00:00Z",
+        bmiCategory: "NORMAL",
+        activityLevel: "MODERATELY_ACTIVE",
+        trainingDaysPerWeek: 3,
+        sessionMinutes: null,
+        dietaryPreference: "NO_PREFERENCE",
+        foodAllergies: null,
+        isComplete: true,
+        recentMeasurements: [],
       },
     }),
   );
   await page.goto("/member/profile");
-  const results = page.getByRole("region", {
-    name: "Centre measurement results",
-  });
-  await expect(results).toBeVisible();
-  await expect(results).toContainText("175");
-  await expect(results).toContainText("70");
-  await expect(results).toContainText("22.9");
-  await expect(results).toContainText("Measured · Read only");
-  await expect(page.locator("#main-content input")).toHaveCount(0);
-  await expect(
-    page.getByRole("button", { name: "Request a centre measurement" }),
-  ).toHaveCount(0);
+  await expect(page.getByRole("spinbutton", { name: "Height (cm)" })).toHaveValue("175");
+  await expect(page.getByRole("spinbutton", { name: "Weight (kg)", exact: true })).toHaveValue("70");
+  await expect(page.getByRole("region", { name: "BMI" })).toContainText("22.9");
 });
 test("dashboard does not issue an entrance pass", async ({ page }) => {
   await page.goto("/member");
@@ -311,11 +288,7 @@ for (const width of [320, 768, 1024, 1280, 1360, 1440])
       await expect(page.locator("#main-content h1")).toBeVisible();
       await expect(page.getByRole("banner")).toBeVisible();
       if (path === "/profile") {
-        await expect(
-          page.getByRole("button", {
-            name: "Request a centre measurement",
-          }),
-        ).toBeVisible();
+        await expect(page.getByRole("heading", { name: "Fitness profile" })).toBeVisible();
       }
       if (width >= 1360) {
         const nav = page.getByRole("navigation", { name: "Member Navigation" });
