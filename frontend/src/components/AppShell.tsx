@@ -145,6 +145,7 @@ export function getNavForUser(user: {
         { href: "/coach/schedule", labelKey: "teachingSchedule" },
         { href: "/coach/classes", labelKey: "assignedClasses" },
         { href: "/coach/members", labelKey: "classStudents" },
+        { href: "/coach/change-requests", labelKey: "changeRequests" },
       ];
 }
 

@@ -6,7 +6,15 @@ Phạm vi được chủ sản phẩm xác nhận: triển khai giao diện **v�
 
 - **Lịch dạy**: mặc định vào lịch tuần, chọn buổi mở ngăn chi tiết ngay trên trang. Các tab: Giáo án, Điểm danh & kết quả, Sau buổi học, Đổi lịch. Tab Đổi lịch cho gửi/rút yêu cầu đến Manager, không tự hủy buổi. Chi tiết: [Yêu cầu thay đổi buổi học](Class-Session-Change-Requests.md).
 - **Lớp phụ trách**: xem học viên, mục tiêu, lịch các buổi; giáo án chung/cá nhân; giao bài tập và gửi thông báo.
-- **Học viên**: chọn lớp, tìm theo tên/email, xem hồ sơ, mục tiêu, điểm danh, lịch sử đánh giá và kế hoạch cá nhân.
+- **Học viên**: danh sách gộp từ các lớp Published/InProgress đang phân công; mỗi học viên xuất hiện một lần. Tìm tên/email, lọc môn, mở hồ sơ toàn màn hình `/coach/members/{memberId}`. Trong hồ sơ chọn môn và lớp; lớp duy nhất được chọn tự động. Kế hoạch cá nhân cố định học viên/lớp; giáo án chung chỉ đọc trong hồ sơ học viên.
+
+### Bàn giao tiến độ cùng môn
+
+- Tab **Đánh giá từ lớp trước** chỉ trả `RESULT` của chính học viên từ các lớp cùng môn có ngày bắt đầu không sau lớp hiện tại; không trộn môn khác, không trả kế hoạch/nhận xét của học viên khác.
+- Quyền đọc yêu cầu coach đang phụ trách một lớp Published/InProgress mà học viên còn ghi danh Confirmed. Coach dạy thay phải còn buổi Scheduled được phân công trong tương lai. Phân công cũ đã kết thúc không cấp quyền đọc xuyên lớp.
+- Mỗi đánh giá giữ tên lớp, số/ngày buổi, coach ghi nhận, điểm kỹ năng, nội dung và thời điểm ghi/cập nhật. Sắp xếp mới nhất trước, 20 mục/trang. Không có thao tác sửa dữ liệu lịch sử; API ghi vẫn kiểm tra tác giả/lớp.
+- Khi có nhiều lớp, lịch sử dùng danh sách lớp riêng có tìm tên, phân trang 8 lớp/trang và sắp xếp theo đánh giá gần nhất. Mỗi lớp có số đánh giá, điểm trung bình (chỉ tính bản ghi có điểm) và ngày ghi nhận gần nhất. Chọn lớp chỉ tải đánh giá của lớp đó; từng nhận xét thu gọn, mở riêng từng buổi. Điểm trung bình là thống kê mô tả, không phải điểm tiến bộ do AI suy diễn.
+- Không thay đổi schema, không cần migration mới cho tính năng này. PT mở hồ sơ toàn màn hình với sức khỏe, kế hoạch cá nhân và lịch sử buổi PT; không dùng dữ liệu lớp nhóm cho PT.
 
 Các trang PT giữ nguyên luồng hiện có. Bookmark `/coach` và `/coach/attendance` của Coach lớp nhóm mở lịch dạy mới.
 
@@ -36,8 +44,12 @@ Migration `AddClassTeachingWorkspace` thêm `class_teaching_records`; không chu
 
 | Method | Route | Phạm vi |
 |---|---|---|
-| GET | `/api/coaches/me/teaching/classes/{classId}/members` | Học viên Confirmed, mục tiêu/trình độ, số lần có mặt/vắng |
-| GET | `/api/coaches/me/teaching/classes/{classId}/records?page=1` | Paged, 100 mục/trang, mới nhất trước |
+| GET | `/api/coaches/me/teaching/students?page=1&search=&sportId=` | Danh sách học viên duy nhất từ phân công hiện tại, 12 mục/trang; gồm lớp/môn tương ứng và danh sách môn để lọc |
+| GET | `/api/coaches/me/teaching/students/{memberId}` | Danh tính và các lớp hiện tại của học viên trong phạm vi coach; 403 nếu không còn phân công |
+| GET | `/api/coaches/me/teaching/students/{memberId}/history?classId=&page=1` | Đánh giá cùng môn từ lớp trước, chỉ đọc, 20 mục/trang; quyền dựa trên lớp hiện tại |
+| GET | `/api/coaches/me/teaching/students/{memberId}/history/classes?classId=&page=1&search=` | Nhóm lớp từ toàn bộ lịch sử hợp lệ; 8 lớp/trang, số đánh giá, điểm trung bình và ngày đánh giá gần nhất |
+| GET | `/api/coaches/me/teaching/classes/{classId}/members?memberId=` | Học viên Confirmed, mục tiêu/trình độ, số lần có mặt/vắng trong lớp; memberId tùy chọn giới hạn một học viên |
+| GET | `/api/coaches/me/teaching/classes/{classId}/records?page=1&memberId=` | Paged, 100 mục/trang, mới nhất trước; memberId tùy chọn trả bản ghi của học viên và PLAN chung đúng lớp |
 | POST | `/api/coaches/me/teaching/classes/{classId}/records` | Tạo nội dung, retry idempotent |
 | PUT | `/api/coaches/me/teaching/classes/{classId}/records/{recordId}` | Sửa PLAN/RESULT của chính coach, kiểm version |
 | PUT | `/api/coaches/me/teaching/sessions/{sessionId}/attendance/{enrollmentId}` | `{status: PRESENT hoặc ABSENT}`, đúng coach của buổi |

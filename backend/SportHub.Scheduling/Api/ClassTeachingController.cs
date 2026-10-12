@@ -12,10 +12,24 @@ namespace SportHub.Scheduling.Api;
 [Route("api/coaches/me/teaching")]
 public sealed class ClassTeachingController(ClassTeachingService teaching, IAttendanceService attendance) : ControllerBase
 {
+    [HttpGet("students")]
+    public async Task<IActionResult> Students([FromQuery] int page = 1, [FromQuery] string? search = null,
+        [FromQuery] int? sportId = null, CancellationToken ct = default)
+        => Ok(await teaching.StudentsAsync(User.RequireUserId(), page, search, sportId, ct));
+    [HttpGet("students/{memberId:guid}")]
+    public async Task<IActionResult> Student(Guid memberId, CancellationToken ct)
+        => Ok(await teaching.StudentContextAsync(User.RequireUserId(), memberId, ct));
+    [HttpGet("students/{memberId:guid}/history")]
+    public async Task<IActionResult> StudentHistory(Guid memberId, [FromQuery] int classId, [FromQuery] int page = 1, CancellationToken ct = default, [FromQuery] int? sourceClassId = null)
+        => Ok(await teaching.StudentHistoryAsync(User.RequireUserId(), memberId, classId, page, ct, sourceClassId));
+    [HttpGet("students/{memberId:guid}/history/classes")]
+    public async Task<IActionResult> StudentHistoryClasses(Guid memberId, [FromQuery] int classId, [FromQuery] int page = 1,
+        [FromQuery] string? search = null, CancellationToken ct = default)
+        => Ok(await teaching.StudentHistoryClassesAsync(User.RequireUserId(), memberId, classId, page, search, ct));
     [HttpGet("classes/{classId:int}/members")]
-    public async Task<IActionResult> Members(int classId, CancellationToken ct) => Ok(await teaching.MembersAsync(classId, User.RequireUserId(), ct));
+    public async Task<IActionResult> Members(int classId, CancellationToken ct, [FromQuery] Guid? memberId = null) => Ok(await teaching.MembersAsync(classId, User.RequireUserId(), ct, memberId));
     [HttpGet("classes/{classId:int}/records")]
-    public async Task<IActionResult> Records(int classId, [FromQuery] int page = 1, CancellationToken ct = default) => Ok(await teaching.RecordsAsync(classId, User.RequireUserId(), false, page, ct));
+    public async Task<IActionResult> Records(int classId, [FromQuery] int page = 1, CancellationToken ct = default, [FromQuery] Guid? memberId = null) => Ok(await teaching.RecordsAsync(classId, User.RequireUserId(), false, page, ct, memberId));
     [HttpPost("classes/{classId:int}/records")]
     public async Task<IActionResult> Create(int classId, TeachingWriteRequest request, CancellationToken ct) => Ok(await teaching.SaveAsync(classId, User.RequireUserId(), request, false, ct));
     [HttpPut("classes/{classId:int}/records/{recordId:guid}")]
