@@ -7,7 +7,7 @@ using SportHub.Identity.Application.Services;
 
 namespace SportHub.Identity.Api;
 
-/// <summary>Manager quản lý Coach nội bộ và chuyên môn theo môn (BR-96). Role luôn là Coach, không nhận từ body.</summary>
+/// <summary>Manager xem/sửa hồ sơ Coach, chuyên môn theo môn (BR-96) và cấp quyền dịch vụ PT. Tạo Coach là việc của SystemAdministrator (POST api/users/admin/staff).</summary>
 [ApiController]
 [Authorize(Policy = SportHubPolicies.CoachManagement)]
 [Route("api/manager/coaches")]
@@ -24,10 +24,6 @@ public class CoachesController(CoachAdminService coaches, CoachQualificationServ
 
     [HttpGet("{userId:guid}")]
     public async Task<IActionResult> Get(Guid userId, CancellationToken ct) => Ok(await coaches.GetAsync(userId, ct));
-
-    [HttpPost]
-    public async Task<IActionResult> Create([FromBody] CreateCoachRequest request, CancellationToken ct)
-        => StatusCode(StatusCodes.Status201Created, await coaches.CreateAsync(request, User.RequireUserId(), ct));
 
     /// <summary>OfferingId các dịch vụ Coach đủ điều kiện dạy (hiện chỉ PT của Gym).</summary>
     [HttpGet("{userId:guid}/service-qualifications")]
