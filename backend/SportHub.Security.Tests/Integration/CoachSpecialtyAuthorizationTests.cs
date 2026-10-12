@@ -164,19 +164,19 @@ public class CoachSpecialtyAuthorizationTests(SportHubApiFactory factory)
         var admin = await factory.SeedUserAsync(NewEmail(), Password, role: UserRole.SystemAdministrator);
         var client = Client(admin.UserId, UserRole.SystemAdministrator);
 
-        var missing = await client.PostAsJsonAsync("api/users", new { email = NewEmail(), password = Password, fullName = "Le Van Coach", role = "Coach" });
+        var missing = await client.PostAsJsonAsync("api/users/admin/staff", new { email = NewEmail(), fullName = "Le Van Coach", roleId = 2 });
         Assert.Equal("coach_specialty_required", await ErrorOf(missing));
 
-        var withSports = await client.PostAsJsonAsync("api/users", new
+        var withSports = await client.PostAsJsonAsync("api/users/admin/staff", new
         {
-            email = NewEmail(), password = Password, fullName = "Le Van Coach", role = "Coach", sportIds = new[] { PersonalTrainingSportId }
+            email = NewEmail(), fullName = "Le Van Coach", roleId = 2, specialties = new[] { PersonalTrainingSportId }
         });
         Assert.Equal(HttpStatusCode.Created, withSports.StatusCode);
         Assert.Equal(PersonalTrainingSportId, (await Json(withSports)).GetProperty("sportIds")[0].GetInt32());
 
-        var notCoach = await client.PostAsJsonAsync("api/users", new
+        var notCoach = await client.PostAsJsonAsync("api/users/admin/staff", new
         {
-            email = NewEmail(), password = Password, fullName = "Le Tan", role = "Receptionist", sportIds = new[] { BadmintonSportId }
+            email = NewEmail(), fullName = "Le Tan", roleId = 4, specialties = new[] { BadmintonSportId }
         });
         Assert.Equal("sport_ids_not_applicable", await ErrorOf(notCoach));
     }

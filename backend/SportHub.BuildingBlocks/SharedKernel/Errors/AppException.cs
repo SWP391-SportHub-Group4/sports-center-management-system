@@ -25,6 +25,13 @@ public sealed class NotFoundException(string errorCode, string message)
 public sealed class ConflictException(string errorCode, string message)
     : AppException(StatusCodes.Status409Conflict, errorCode, message);
 
+/// <summary>409 kèm danh sách lý do cụ thể khiến không thể đổi vai trò (xem UserAdminService.ChangeRoleAsync).</summary>
+public sealed class RoleChangeBlockedException(IReadOnlyList<string> reasons)
+    : AppException(StatusCodes.Status409Conflict, "role_change_blocked", "Role change is blocked.")
+{
+    public IReadOnlyList<string> Reasons { get; } = reasons;
+}
+
 /// <summary>
 /// Chủ thể đã xác thực nhưng không được phép làm hành động này trên đối tượng này
 /// (ownership hoặc quan hệ nghiệp vụ). Khác với thiếu role — thiếu role bị policy chặn trước khi vào service.

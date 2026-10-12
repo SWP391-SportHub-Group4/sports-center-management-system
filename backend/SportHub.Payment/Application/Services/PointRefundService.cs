@@ -321,7 +321,8 @@ public sealed class PointRefundService(
                 var facts = await pt.GetRefundFactsAsync(item.ItemId, item.PtEntitlementId ?? item.RelatedEntityId, ct)
                     ?? throw new ConflictException("refund_entitlement_not_found", "Refund entitlement not found.");
                 if (facts.Status != "Active" && !centerFault) return 0;
-                return RefundCalculator.PtPoints(paidVnd, facts.ConsumedSessions > 0, centerFault);
+                return RefundCalculator.PtPoints(paidVnd, facts.ConsumedSessions > 0, centerFault,
+                    facts.TotalQuota, facts.ConsumedSessions);
             }
             case InvoiceItemType.ClassPackage:
             {

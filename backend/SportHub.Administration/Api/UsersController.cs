@@ -70,6 +70,7 @@ public class UsersController(IUserAdminService users, ICoachMemberAccessReader c
     /// <summary>BR-2 — chỉ System Administrator tạo tài khoản nhân sự.</summary>
     [Authorize(Policy = SportHubPolicies.SystemAdministrator)]
     [HttpPost]
+    [HttpPost("admin/staff")]
     public async Task<IActionResult> CreateStaff(
         [FromBody] CreateStaffAccountRequest request, CancellationToken ct)
         => StatusCode(

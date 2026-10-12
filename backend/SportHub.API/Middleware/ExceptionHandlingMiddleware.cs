@@ -64,6 +64,15 @@ public sealed class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<Ex
                         conflicts = conflict.Conflicts
                     });
                     break;
+                case RoleChangeBlockedException blocked:
+                    context.Response.StatusCode = StatusCodes.Status409Conflict;
+                    await context.Response.WriteAsJsonAsync(new
+                    {
+                        error = blocked.ErrorCode,
+                        message = blocked.Message,
+                        reasons = blocked.Reasons
+                    });
+                    break;
                 // Lỗi nghiệp vụ của các module mới: status + error code đi kèm chính exception,
                 // nên composition root không phải liệt kê từng kiểu một. Đặt SAU các case cụ
                 // thể ở trên để không đổi hợp đồng lỗi mà test hiện có đang kiểm chứng.

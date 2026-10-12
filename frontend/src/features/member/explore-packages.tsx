@@ -513,7 +513,7 @@ function ClassRow({
               {tx("Giảng viên", "Coach")}: <strong>{course.coachName}</strong>
             </span>
             {course.coachId && (
-              <Link href={`/coaches#coach-${course.coachId}`}>
+              <Link href={`/member/pt/coaches/${course.coachId}`}>
                 {tx("Xem hồ sơ Coach", "View Coach Profile")}
               </Link>
             )}
