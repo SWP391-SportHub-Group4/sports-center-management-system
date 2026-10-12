@@ -639,6 +639,7 @@ export const en = {
     confirmNewEmail: "Confirm new email",
     saveNewEmail: "Update email and send link",
     activationActionFailed: "The action could not be completed.",
+    optionalPhoneHint: "Optional. The recipient can add it after signing in.",
     activationHint:
       "* An activation email with a link to set the first password will be sent directly to the staff member.",
     roleImpact:
