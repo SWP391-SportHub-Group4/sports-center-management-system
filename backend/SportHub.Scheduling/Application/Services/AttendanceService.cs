@@ -42,6 +42,16 @@ public sealed class AttendanceService(ISportHubDbContext db, IClock clock, IUser
         var enrollment = await db.Set<Enrollment>().AsNoTracking().SingleOrDefaultAsync(e => e.EnrollmentId == enrollmentId, ct)
                          ?? throw new NotFoundException("enrollment_not_found", "Enrollment not found.");
 
+        // A staff recorded attendance is a service-use event too. Lock the account row so a
+        // concurrent account suspension cannot race this check and consume the enrollment.
+        await db.Database.ExecuteSqlInterpolatedAsync(
+            $"SELECT user_id FROM user_accounts WHERE user_id = {enrollment.MemberId} FOR SHARE", ct);
+        var member = await users.GetAsync(enrollment.MemberId, ct);
+        if (member is null || member.Role != "Member" || !member.IsActive)
+        {
+            throw new ConflictException("member_not_active", "Member not active.");
+        }
+
         if (enrollment.ClassId != session.ClassId)
         {
             throw new BadRequestException("enrollment_not_in_class", "Enrollment not in class.");
