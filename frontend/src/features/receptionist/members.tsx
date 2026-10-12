@@ -14,6 +14,7 @@ import { InvoiceList } from "@/features/payments";
 import type { Paged, UserAdminDto } from "@/lib/types";
 import { useDeskMember } from "./desk-context";
 import { GymVisits, MemberWallet } from "./front-desk";
+import { RegisterMemberDialog } from "./register-member";
 import { SelectedMemberPanel } from "./selected-member";
 import styles from "./desk.module.css";
 import { AvatarImage } from "@/components/AvatarImage";
@@ -24,6 +25,8 @@ export function MemberList() {
   const { t } = useLanguage();
   const l = t.frontDesk;
   const { setMember } = useDeskMember();
+  const router = useRouter();
+  const [registering, setRegistering] = useState(false);
   const [keyword, setKeyword] = useState("");
   const [debounced, setDebounced] = useState("");
   const [page, setPage] = useState(1);
@@ -45,7 +48,18 @@ export function MemberList() {
   );
   return (
     <div>
-      <Card title={l.membersSearch}>
+      <Card
+        title={l.membersSearch}
+        actions={
+          <button
+            type="button"
+            className="btn"
+            onClick={() => setRegistering(true)}
+          >
+            {l.openRegistration}
+          </button>
+        }
+      >
         <div className={styles.search}>
           <Field label={l.findMember}>
             <input
@@ -81,6 +95,16 @@ export function MemberList() {
                       </td>
                       <td>
                         <StatusChip value={m.status} />
+                        {m.activationPending && (
+                          <>
+                            {" "}
+                            <StatusChip
+                              value="PENDING_ACTIVATION"
+                              tone="warning"
+                              label={l.pendingActivation}
+                            />
+                          </>
+                        )}
                       </td>
                       <td>
                         <ReportAvatarButton
@@ -108,6 +132,16 @@ export function MemberList() {
           }}
         </AsyncSection>
       </Card>
+      {registering && (
+        <RegisterMemberDialog
+          onClose={() => setRegistering(false)}
+          onCreated={(member) => {
+            setRegistering(false);
+            setMember(member);
+            router.push(`/receptionist/members/${member.userId}`);
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -229,6 +229,8 @@ builder.Services.AddScoped<IEmailSender>(sp =>
 
 // Administration (BR-2, BR-6, BR-7, BR-39, BR-44..BR-48)
 builder.Services.AddScoped<IUserAdminService, UserAdminService>();
+builder.Services.AddScoped<SportHub.Administration.Application.Services.ActivationLinkService>();
+builder.Services.AddScoped<SportHub.Administration.Application.Services.FrontDeskMemberService>();
 builder.Services.AddScoped<ISystemSettingService, SystemSettingService>();
 builder.Services.AddScoped<IAuditQueryService, AuditQueryService>();
 builder.Services.AddSingleton<IReportStorage, FileSystemReportStorage>();
@@ -435,6 +437,7 @@ builder.Services.AddSportHubSwagger();
 
 builder.Services.AddScoped<DemoDataSeeder>();
 builder.Services.AddScoped<Br141DemoSeeder>();
+builder.Services.AddScoped<DemoFlow12Seeder>();
 builder.Services.AddScoped<CoachRosterSeeder>();
 builder.Services.AddScoped<FacilityBaselineSeeder>();
 builder.Services.AddScoped<PaymentNoticeService>();
@@ -516,6 +519,19 @@ if (args.Any(a => a.StartsWith("--seed-br141", StringComparison.Ordinal)))
     await seedScope.ServiceProvider.GetRequiredService<SportHubDbContext>().Database.MigrateAsync();
     await seedScope.ServiceProvider.GetRequiredService<FacilityBaselineSeeder>().SeedAsync();
     await seedScope.ServiceProvider.GetRequiredService<Br141DemoSeeder>().SeedAsync();
+    return;
+}
+
+// Seed demo Flow 1 + Flow 2 (Member demo có ví điểm, gói Gym, lớp 2 chỗ): lệnh riêng, idempotent.
+//   dotnet run --project backend/SportHub.API -- --seed-demo-flow12=true
+if (args.Any(a => a.StartsWith("--seed-demo-flow12", StringComparison.Ordinal)))
+{
+    var flow12Target = new Npgsql.NpgsqlConnectionStringBuilder(app.Configuration.GetConnectionString("Default"));
+    Console.WriteLine($"[seed-demo-flow12] database '{flow12Target.Database}' on '{flow12Target.Host}:{flow12Target.Port}'");
+    await using var flow12Scope = app.Services.CreateAsyncScope();
+    await flow12Scope.ServiceProvider.GetRequiredService<SportHubDbContext>().Database.MigrateAsync();
+    await flow12Scope.ServiceProvider.GetRequiredService<FacilityBaselineSeeder>().SeedAsync();
+    await flow12Scope.ServiceProvider.GetRequiredService<DemoFlow12Seeder>().SeedAsync();
     return;
 }
 
