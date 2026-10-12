@@ -61,6 +61,10 @@ async function coachFixture(
         json: path.endsWith("unread-count") ? { count: 0 } : [],
       });
     if (path === "/api/coaches/me/classes") return route.fulfill({ json: [] });
+    if (path === "/api/coaches/me/teaching/students")
+      return route.fulfill({
+        json: { items: [], sports: [], totalCount: 0, page: 1, pageSize: 12 },
+      });
     if (path === "/api/coaches/me/students")
       return route.fulfill({
         json: { items: [], totalCount: 0, page: 1, pageSize: 12 },
@@ -100,7 +104,7 @@ test("PT-qualified coach has direct schedule and member navigation", async ({
     .click();
   await expect(page).toHaveURL(/\/coach\/members$/);
   await expect(
-    page.getByRole("heading", { name: "Directory & profiles" }),
+    page.getByRole("heading", { name: "Your PT students", exact: true }),
   ).toBeVisible();
 });
 
@@ -133,4 +137,10 @@ test("group-only coach uses a single navbar for teaching, classes and students",
   await expect(page).toHaveURL(/\/coach\/classes$/);
   await navbar.getByRole("link", { name: "Students", exact: true }).click();
   await expect(page).toHaveURL(/\/coach\/members$/);
+  await expect(
+    page.getByRole("heading", { name: "Your students", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("No matching students", { exact: true }),
+  ).toBeVisible();
 });
