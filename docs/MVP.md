@@ -26,7 +26,7 @@ Tài liệu tổng hợp phạm vi MVP từ `Requirements.md`, `SWP391_Report_SR
 
 ## 4. Tiêu chí hoàn thành theo Flow bắt buộc
 
-**Flow 1.** Đăng ký Member (email OTP hoặc Google), đăng nhập, quên/đổi mật khẩu; quản lý trạng thái tài khoản; mua/gia hạn Membership và quyền vào Gym; phân quyền 5 vai trò, backend kiểm cả role lẫn ownership.
+**Flow 1.** Đăng ký Member (email OTP hoặc Google; hoặc Receptionist đăng ký tại quầy kèm email kích hoạt), đăng nhập, quên/đổi mật khẩu; quản lý trạng thái tài khoản; mua/gia hạn Membership và quyền vào Gym; phân quyền 5 vai trò, backend kiểm cả role lẫn ownership.
 
 **Flow 2.** Catalog lớp/khóa; giữ chỗ và ghi danh theo cả lớp; không bán vượt sĩ số; không xếp trùng phòng/sân/Coach (kiểm ở DB, không chỉ ở frontend); ngưỡng lớp, chuyển lớp; thuê/hủy sân.
 
@@ -41,4 +41,4 @@ Tài liệu tổng hợp phạm vi MVP từ `Requirements.md`, `SWP391_Report_SR
 
 - SRS đã đồng bộ với `Requirements.md`, SSOT và Business Rules: 5 role, Coach theo chuyên môn, UC-07/UC-08/UC-15/UC-16/UC-17 theo mô hình khóa nhiều buổi, hoàn bằng điểm.
 - Quy tắc hoàn và sự cố (BR-91, BR-130, BR-138): hoàn chuẩn Membership Gym tối đa 50%; sự cố Gym bù bằng gia hạn Membership, buổi lớp bù vào lịch tiếp theo. Đã triển khai (INC-01 trong thiết kế): Manager nhập số ngày gia hạn 0–31 khi đóng toàn bộ Gym, hệ thống gia hạn Membership Active, báo từng hội viên và ghi audit; hoàn do lỗi trung tâm chỉ tính theo phần chưa dùng.
-- VNPay mới chạy mock; sandbox thật chưa nghiệm thu (`Requirements.md` §6).
+- VNPay có tích hợp gateway sandbox (không phải production). Demo local chạy được hai cách: `VnPay__UseMock=true` (giả lập, không qua cổng VNPay) hoặc `VnPay__UseMock=false` (gateway sandbox, cần credentials). Demo thường dùng ví điểm hoặc mock; giao dịch sandbox thật trên môi trường deploy vẫn cần bằng chứng nghiệm thu (`Requirements.md` §6).

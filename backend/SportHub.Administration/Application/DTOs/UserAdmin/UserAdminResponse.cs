@@ -15,4 +15,7 @@ public sealed record UserAdminResponse(
     IReadOnlyList<int> SportIds)
 {
     public string? AvatarUrl { get; init; }
+
+    /// <summary>Tài khoản staff chưa đặt mật khẩu và chưa liên kết Google: chờ người nhận email kích hoạt.</summary>
+    public bool ActivationPending { get; init; }
 }
