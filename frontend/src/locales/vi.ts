@@ -602,6 +602,8 @@ export const vi: Translations = {
     roleImpact:
       "Đổi vai trò sẽ vô hiệu hóa các phiên đăng nhập hiện tại. Người dùng cần đăng nhập lại.",
     roleBlockTitle: "Cần xử lý các mục này trước khi đổi vai trò",
+    memberRoleLocked:
+      "Tài khoản Member không thể chuyển thành staff. Hãy tạo tài khoản staff bằng email khác.",
     roleBlockGuidance:
       "Tài khoản này cần được dọn dẹp tài nguyên dịch vụ trước khi đổi vai trò. Vui lòng liên hệ Center Manager hoặc Lễ tân để xử lý, sau đó thử lại. Sao chép liên kết hồ sơ hội viên để chuyển đúng người phụ trách.",
     roleBlockAccountLink: "Xem chi tiết tài khoản",

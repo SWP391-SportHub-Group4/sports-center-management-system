@@ -604,6 +604,8 @@ export const en = {
     roleImpact:
       "Changing the role invalidates existing sessions. The user will need to sign in again.",
     roleBlockTitle: "Resolve these items before changing the role",
+    memberRoleLocked:
+      "Member accounts cannot be converted to staff. Create a staff account with a different email instead.",
     roleBlockGuidance:
       "This account has service resources that must be settled first. Contact a Center Manager or Receptionist to handle them, then retry the role change. Copy a direct member link to share with the appropriate staff member.",
     roleBlockAccountLink: "View account details",

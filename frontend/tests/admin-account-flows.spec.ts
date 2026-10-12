@@ -293,11 +293,11 @@ test("role change requires reason and review; backend denial preserves the form"
   );
 });
 
-test("blocked Member role change shows specific reasons and shareable handoff links", async ({
+test("blocked Coach role change shows specific reasons and shareable handoff links", async ({
   page,
 }) => {
   const row = await setup(page);
-  row.role = "MEMBER";
+  row.role = "COACH";
   await page.route(`**/api/users/${row.userId}/role`, (route) =>
     route.fulfill({
       status: 409,
@@ -305,9 +305,9 @@ test("blocked Member role change shows specific reasons and shareable handoff li
         error: "role_change_blocked",
         message: "Role change is blocked.",
         reasons: [
-          "Active Gym membership: 1-month package (expires 30/10/2026). Ask a Center Manager or Receptionist to cancel/refund it, or wait for expiry.",
-          "Point wallet has 500 available point(s) and 0 held point(s). Ask a Center Manager or Receptionist to settle the balance with an audited reason.",
-          "Confirmed court rental on 15/10/2026 08:00 (Vietnam time). Ask a Center Manager or Receptionist to cancel/refund it first.",
+          "Main coach of 1 unfinished class. Reassign it first.",
+          "2 upcoming class/PT session(s) are still assigned. Reassign or cancel them first.",
+          "1 active coaching relationship(s). End or transfer them first.",
         ],
       },
     }),
@@ -324,9 +324,9 @@ test("blocked Member role change shows specific reasons and shareable handoff li
     name: "Resolve these items before changing the role",
   });
   await expect(blockers.getByRole("listitem")).toHaveCount(3);
-  await expect(blockers).toContainText("1-month package (expires 30/10/2026)");
-  await expect(blockers).toContainText("500 available point(s)");
-  await expect(blockers).toContainText("Confirmed court rental on 15/10/2026");
+  await expect(blockers).toContainText("Main coach of 1 unfinished class");
+  await expect(blockers).toContainText("2 upcoming class/PT session(s)");
+  await expect(blockers).toContainText("1 active coaching relationship(s)");
   await expect(blockers).toContainText("Contact a Center Manager or Receptionist");
   await expect(blockers.getByRole("link", { name: "View account details" })).toHaveAttribute(
     "href",
@@ -468,4 +468,21 @@ test("detail reloads current data after mutation when the API allows access", as
   await expect(page.locator("dl").first()).toContainText("Locked");
   await page.reload();
   await expect(page.locator("dl").first()).toContainText("Locked");
+});
+
+test("Member accounts cannot be converted to staff and show how to create a staff account", async ({
+  page,
+}) => {
+  const row = await setup(page);
+  row.role = "MEMBER";
+  await page.goto("/admin/users");
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toContainText(
+    "Member accounts cannot be converted to staff. Create a staff account with a different email instead.",
+  );
+  await expect(dialog.getByLabel("Role", { exact: true })).toHaveCount(0);
+  await expect(
+    dialog.getByRole("button", { name: "Change role", exact: true }),
+  ).toHaveCount(0);
 });

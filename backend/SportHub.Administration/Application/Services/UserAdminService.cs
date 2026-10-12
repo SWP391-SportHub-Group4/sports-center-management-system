@@ -12,15 +12,9 @@ using SportHub.Identity.Application.Interfaces;
 using SportHub.Identity.Application.Services;
 using SportHub.Identity.Domain.Entities;
 using SportHub.Identity.Domain.Enums;
-using SportHub.Membership.Domain.Entities;
-using SportHub.Membership.Domain.Enums;
-using SportHub.Payment.Domain.Entities;
-using SportHub.Payment.Domain.Enums;
-using SportHub.Payment.Wallet.Domain;
 using SportHub.Scheduling.Domain.Entities;
 using SportHub.Scheduling.Domain.Enums;
 using SportHub.Scheduling.Occupancy.Domain;
-using SportHub.Scheduling.Rental.Domain;
 using SportHub.Training.Domain.Entities;
 using SportHub.Training.Domain.Enums;
 
@@ -244,6 +238,15 @@ public sealed class UserAdminService(
             return await GetAsync(userId, ct);
         }
 
+        // Member và Staff là hai loại tài khoản tách biệt: không đổi qua lại. Người dùng muốn làm
+        // staff phải được tạo tài khoản staff bằng email khác (Admin → Users → Create staff account).
+        if ((currentRole == UserRole.Member) != (targetRole == UserRole.Member))
+        {
+            throw new ConflictException(
+                "member_staff_role_change_not_allowed",
+                "Member and staff accounts cannot be converted. Create a staff account with a different email.");
+        }
+
         // Cùng lý do với BR-6 "không khoá SysAdmin hoạt động cuối cùng": hạ vai trò của
         // SysAdmin Active cuối cùng cũng khiến hệ thống không còn ai tạo được tài khoản
         // hay mở khoá (BR-2/BR-6) — tự khoá chính mình ra ngoài.
@@ -252,11 +255,12 @@ public sealed class UserAdminService(
             await EnsureNotLastActiveSystemAdministratorAsync(userId, ct);
         }
 
-        // Member ↔ Staff: chặn khi Member còn quyền lợi/lịch/điểm/hoá đơn, hoặc Coach còn lớp/lịch/quan hệ huấn luyện.
-        var blockers = new List<string>();
-        if (currentRole == UserRole.Member) blockers.AddRange(await MemberBlockersAsync(userId, ct));
-        if (currentRole == UserRole.Coach) blockers.AddRange(await CoachBlockersAsync(userId, ct));
-        if (blockers.Count > 0) throw new RoleChangeBlockedException(blockers);
+        // Coach rời vai trò: chặn khi còn lớp/lịch/quan hệ huấn luyện đang hoạt động.
+        if (currentRole == UserRole.Coach)
+        {
+            var blockers = await CoachBlockersAsync(userId, ct);
+            if (blockers.Count > 0) throw new RoleChangeBlockedException(blockers);
+        }
 
         // BR-96, chốt 28/09/2026 (2) (SSOT §7): đổi role VÀO Coach luôn bắt buộc chọn category
         // mới tường minh, kể cả khi tài khoản từng có CoachProfile lịch sử — không tự khôi phục
@@ -286,12 +290,6 @@ public sealed class UserAdminService(
         {
             db.Set<UserSportSpecialty>().RemoveRange(await db.Set<UserSportSpecialty>().Where(x => x.UserId == userId).ToListAsync(ct));
             db.Set<CoachServiceQualification>().RemoveRange(await db.Set<CoachServiceQualification>().Where(x => x.UserId == userId).ToListAsync(ct));
-        }
-
-        // BR-134: Member luôn có một ví điểm; tạo ví 0 điểm nếu tài khoản chưa có.
-        if (targetRole == UserRole.Member && !await db.Set<PointWallet>().AnyAsync(w => w.OwnerUserId == userId, ct))
-        {
-            db.Set<PointWallet>().Add(new PointWallet { WalletId = Guid.NewGuid(), OwnerUserId = userId, CreatedAtUtc = clock.UtcNow });
         }
 
         // BR-103/104: đổi vai trò vô hiệu mọi token đang lưu hành (claim sst + role không còn khớp DB).
@@ -362,54 +360,6 @@ public sealed class UserAdminService(
         // status trong DB mỗi request, nên tài khoản vừa khoá bị chặn ở request kế tiếp
         // (SSOT §5.6). Request đang chạy dở không bị huỷ; thu hồi token vĩnh viễn là scope riêng.
         return await GetAsync(userId, ct);
-    }
-
-    private async Task<List<string>> MemberBlockersAsync(Guid userId, CancellationToken ct)
-    {
-        var now = clock.UtcNow;
-        var reasons = new List<string>();
-
-        var packages = await db.Set<MemberPackage>()
-            .Where(x => x.MemberId == userId && x.Status == MemberPackageStatus.Active)
-            .OrderBy(x => x.EndDate)
-            .Select(x => new { Name = x.Package!.Name, x.EndDate })
-            .ToListAsync(ct);
-        foreach (var package in packages)
-            reasons.Add($"Active Gym membership: {package.Name} (expires {package.EndDate:dd/MM/yyyy}). Ask a Center Manager or Receptionist to cancel/refund it, or wait for expiry.");
-
-        var entitlements = await db.Set<PtEntitlement>().CountAsync(x => x.MemberId == userId
-            && (x.Status == PtEntitlementStatus.Active || x.Status == PtEntitlementStatus.AwaitingCarryOver), ct);
-        if (entitlements > 0) reasons.Add($"{entitlements} active PT entitlement(s). Cancel/refund them or wait for expiry.");
-
-        var enrollments = await db.Set<Enrollment>().CountAsync(x => x.MemberId == userId
-            && x.Status == EnrollmentStatus.Confirmed
-            && x.Class!.Status != ClassStatus.Completed && x.Class.Status != ClassStatus.Cancelled, ct);
-        if (enrollments > 0) reasons.Add($"{enrollments} unfinished group class enrollment(s). Cancel or refund them first.");
-
-        var ptSessions = await db.Set<PtSession>().CountAsync(x => x.MemberId == userId
-            && (x.Status == PtSessionStatus.Scheduled || x.Status == PtSessionStatus.PendingPayment) && x.StartAtUtc > now, ct);
-        if (ptSessions > 0) reasons.Add($"{ptSessions} upcoming PT session(s). Cancel or reschedule them first.");
-
-        var rentals = await db.Set<CourtRental>()
-            .Where(x => x.MemberId == userId
-                && (x.Status == CourtRentalStatus.Confirmed || x.Status == CourtRentalStatus.PendingPayment)
-                && x.StartAtUtc > now)
-            .OrderBy(x => x.StartAtUtc)
-            .Select(x => new { x.Status, x.StartAtUtc })
-            .ToListAsync(ct);
-        foreach (var rental in rentals)
-            reasons.Add($"{rental.Status} court rental on {VietnamTime.ToLocal(rental.StartAtUtc):dd/MM/yyyy HH:mm} (Vietnam time). Ask a Center Manager or Receptionist to cancel/refund it first.");
-
-        var wallet = await db.Set<PointWallet>().AsNoTracking().Where(x => x.OwnerUserId == userId)
-            .Select(x => new { x.AvailablePoints, x.HeldPoints }).SingleOrDefaultAsync(ct);
-        if (wallet is not null && (wallet.AvailablePoints > 0 || wallet.HeldPoints > 0))
-            reasons.Add($"Point wallet has {wallet.AvailablePoints} available point(s) and {wallet.HeldPoints} held point(s). Ask a Center Manager or Receptionist to settle the balance with an audited reason.");
-
-        var invoices = await db.Set<Invoice>().CountAsync(x => x.MemberId == userId && x.Status == InvoiceStatus.Issued, ct);
-        if (invoices > 0) reasons.Add($"{invoices} unpaid invoice(s) in progress. Pay or void them first.");
-        var refunds = await db.Set<PaymentAdjustment>().CountAsync(x => x.Invoice!.MemberId == userId && x.Status == PaymentAdjustmentStatus.Requested, ct);
-        if (refunds > 0) reasons.Add($"{refunds} pending refund request(s). Resolve them first.");
-        return reasons;
     }
 
     private async Task<List<string>> CoachBlockersAsync(Guid userId, CancellationToken ct)
