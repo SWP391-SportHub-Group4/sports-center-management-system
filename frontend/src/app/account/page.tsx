@@ -23,6 +23,7 @@ import {
 } from "@/features/identity/password-requirements";
 import type { MyAccountDto } from "@/lib/types";
 import { AvatarEditor } from "@/features/identity/avatar-editor";
+import { CoachPublicProfileCard } from "@/features/identity/coach-public-profile-card";
 
 export default function AccountPage() {
   const { user, refreshUser, updateToken } = useAuth();
@@ -319,6 +320,8 @@ export default function AccountPage() {
                 </form>
               </div>
             </Card>
+
+            {user?.role === "Coach" && <CoachPublicProfileCard />}
 
             <Card
               title={

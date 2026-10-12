@@ -12,7 +12,7 @@ public sealed class InvoiceQueryService(ISportHubDbContext db) : IInvoiceQuerySe
 {
     public async Task<Guid> FindInvoiceByItemAsync(Guid itemId, CancellationToken ct)
         => await db.Set<InvoiceItem>().AsNoTracking().Where(i => i.ItemId == itemId).Select(i => (Guid?)i.InvoiceId).SingleOrDefaultAsync(ct)
-            ?? throw new NotFoundException("invoice_item_not_found", "Không tìm thấy sản phẩm hóa đơn.");
+            ?? throw new NotFoundException("invoice_item_not_found", "Invoice item not found.");
 
     private sealed record InvoiceRow(
         Guid InvoiceId,
@@ -94,7 +94,7 @@ public sealed class InvoiceQueryService(ISportHubDbContext db) : IInvoiceQuerySe
                       .Where(i => i.InvoiceId == invoiceId)
                       .Select(RowProjection())
                       .SingleOrDefaultAsync(ct)
-                  ?? throw new NotFoundException("invoice_not_found", "Không tìm thấy hóa đơn.");
+                  ?? throw new NotFoundException("invoice_not_found", "Invoice not found.");
 
         var items = await db.Set<InvoiceItem>()
             .AsNoTracking()
@@ -137,7 +137,7 @@ public sealed class InvoiceQueryService(ISportHubDbContext db) : IInvoiceQuerySe
                       .Where(i => i.InvoiceId == invoiceId)
                       .Select(RowProjection())
                       .SingleOrDefaultAsync(ct)
-                  ?? throw new NotFoundException("invoice_not_found", "Không tìm thấy hóa đơn.");
+                  ?? throw new NotFoundException("invoice_not_found", "Invoice not found.");
 
         return new InvoiceBalance(row.TotalAmount, row.GrossCollected + row.PointsSpent * 1000m,
             row.ObligationReduction, row.RefundedAmount);
@@ -237,5 +237,5 @@ public sealed class InvoiceQueryService(ISportHubDbContext db) : IInvoiceQuerySe
     private static InvoiceStatus ParseStatus(string status)
         => SportHub.BuildingBlocks.Api.WireEnum.TryParse<InvoiceStatus>(status, ignoreCase: true, out var parsed)
             ? parsed
-            : throw new BadRequestException("invalid_status", $"Trạng thái hóa đơn không hợp lệ: '{status}'.");
+            : throw new BadRequestException("invalid_status", "Invalid status.");
 }

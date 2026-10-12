@@ -37,7 +37,7 @@ public sealed class NotificationDispatchJob(
 
         if (dispatched > 0)
         {
-            logger.LogInformation("BR-34: đã phát {Count} thông báo InApp.", dispatched);
+            logger.LogInformation("BR-34: dispatched {Count} in-app notifications.", dispatched);
         }
 
         var emailCount = await scopedServices.GetRequiredService<EmailDispatchService>().DispatchBatchAsync(ct);

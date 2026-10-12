@@ -40,7 +40,7 @@ public sealed class RoomOpeningHourService(ISportHubDbContext db, IAuditWriter a
 
             if (close <= open)
             {
-                throw new BadRequestException("invalid_opening_hours", "Giờ đóng cửa phải sau giờ mở cửa (trong cùng một ngày).");
+                throw new BadRequestException("invalid_opening_hours", "Invalid opening hours.");
             }
 
             parsed.Add(new RoomOpeningHour { RoomId = roomId, DayOfWeek = input.DayOfWeek, OpenTimeLocal = open, CloseTimeLocal = close });
@@ -48,7 +48,7 @@ public sealed class RoomOpeningHourService(ISportHubDbContext db, IAuditWriter a
 
         if (parsed.Select(p => p.DayOfWeek).Distinct().Count() != parsed.Count)
         {
-            throw new BadRequestException("duplicate_opening_day", "Mỗi ngày trong tuần chỉ được khai báo một khoảng giờ.");
+            throw new BadRequestException("duplicate_opening_day", "Duplicate opening day.");
         }
 
         var current = await db.Set<RoomOpeningHour>().Where(h => h.RoomId == roomId).ToListAsync(ct);
@@ -98,14 +98,14 @@ public sealed class RoomOpeningHourService(ISportHubDbContext db, IAuditWriter a
     {
         if (!await db.Set<Room>().AnyAsync(r => r.RoomId == roomId, ct))
         {
-            throw new NotFoundException("room_not_found", "Không tìm thấy phòng tập.");
+            throw new NotFoundException("room_not_found", "Room not found.");
         }
     }
 
     private static TimeOnly ParseTime(string value)
         => TimeOnly.TryParseExact(value.Trim(), TimeFormat, CultureInfo.InvariantCulture, DateTimeStyles.None, out var t)
             ? t
-            : throw new BadRequestException("invalid_time", "Giờ phải có dạng HH:mm.");
+            : throw new BadRequestException("invalid_time", "Invalid time.");
 
     private static OpeningHourResponse ToResponse(RoomOpeningHour h)
         => new(h.DayOfWeek,

@@ -20,7 +20,7 @@ import type {
   UserAdminDto,
 } from "@/lib/types";
 import { trainingStyles as styles } from "@/features/training";
-import { BmiDesk, BmiRequestQueue } from "@/features/training";
+import { MemberHealthProfile } from "./member-health-profile";
 import { AvatarImage } from "@/components/AvatarImage";
 import { ReportAvatarButton } from "@/components/ReportAvatarButton";
 
@@ -49,7 +49,6 @@ export function ManagerMemberList() {
   );
   return (
     <div>
-      <BmiRequestQueue basePath="/manager/members" />
       <Card title={l.members}>
         <Field label={l.findMember}>
           <input
@@ -119,7 +118,7 @@ export function ManagerMemberList() {
   );
 }
 
-type TabId = "overview" | "invoices" | "bmi";
+type TabId = "overview" | "invoices" | "health";
 
 /** Hồ sơ vận hành của hội viên (Q12): Membership, gói PT, quan hệ Coach, hóa đơn. Không có thao tác sửa kế hoạch tập. */
 export function ManagerMemberProfile({ memberId }: { memberId: string }) {
@@ -130,7 +129,7 @@ export function ManagerMemberProfile({ memberId }: { memberId: string }) {
   const params = useSearchParams();
   const requested = params.get("tab");
   const tab: TabId =
-    requested === "invoices" || requested === "bmi" ? requested : "overview";
+    requested === "invoices" || requested === "health" ? requested : "overview";
   const member = useApi(
     (signal) => api.get<UserAdminDto>(`/api/users/${memberId}`, { signal }),
     [memberId],
@@ -197,15 +196,18 @@ export function ManagerMemberProfile({ memberId }: { memberId: string }) {
         tabs={[
           { id: "overview", label: l.memberOverview },
           { id: "invoices", label: l.memberInvoices },
-          { id: "bmi", label: language === "vi" ? "Hồ sơ BMI" : "BMI Profile" },
+          {
+            id: "health",
+            label: language === "vi" ? "Hồ sơ sức khỏe" : "Health profile",
+          },
         ]}
         value={tab}
         ariaLabel={l.memberTabsLabel}
         onChange={(id) => router.replace(`${pathname}?tab=${id}`)}
       >
         <div className={styles.tabBody}>
-          {tab === "bmi" ? (
-            <BmiDesk key={memberId} memberId={memberId} />
+          {tab === "health" ? (
+            <MemberHealthProfile key={memberId} memberId={memberId} />
           ) : tab === "invoices" ? (
             <InvoiceList staff memberId={memberId} />
           ) : (

@@ -17,17 +17,17 @@ public sealed class MembershipFulfillment(ISportHubDbContext db, IAuditWriter au
     public async Task<MembershipPurchaseQuote> QuoteAsync(int packageId, CancellationToken ct = default)
     {
         var catalog = await db.Set<MembershipPackage>().AsNoTracking().SingleOrDefaultAsync(x => x.PackageId == packageId, ct)
-            ?? throw new NotFoundException("membership_package_not_found", "Không tìm thấy gói thành viên.");
-        if (!catalog.IsActive) throw new ConflictException("membership_package_discontinued", "Gói này đã ngừng áp dụng.");
+            ?? throw new NotFoundException("membership_package_not_found", "Membership package not found.");
+        if (!catalog.IsActive) throw new ConflictException("membership_package_discontinued", "Membership package discontinued.");
         if (catalog.Price <= 0 || catalog.Price % 1000 != 0)
-            throw new ConflictException("membership_price_invalid", "Giá gói phải là bội số 1.000 VND.");
+            throw new ConflictException("membership_price_invalid", "Membership price invalid.");
         return new(catalog.PackageId, catalog.Name, catalog.Price, catalog.DurationDays, null);
     }
 
     public async Task<MembershipPurchaseState> GetAsync(Guid memberPackageId, CancellationToken ct = default)
         => await db.Set<MemberPackage>().AsNoTracking().Where(x => x.MemberPackageId == memberPackageId)
             .Select(x => new MembershipPurchaseState(x.PackageId, x.StackingApprovedByUserId, x.StackingApprovalReason))
-            .SingleOrDefaultAsync(ct) ?? throw new NotFoundException("member_package_not_found", "Không tìm thấy gói hội viên.");
+            .SingleOrDefaultAsync(ct) ?? throw new NotFoundException("member_package_not_found", "Member package not found.");
 
     public async Task<Guid> PrepareAsync(Guid memberId, int packageId, Guid actorId, bool allowStacking,
         string? stackingReason, CancellationToken ct = default)
@@ -37,7 +37,7 @@ public sealed class MembershipFulfillment(ISportHubDbContext db, IAuditWriter au
         // Gói đang Active không chặn mua: đó là gia hạn sớm (BR-65). Chỉ chặn khi còn một lần mua cùng gói chưa thanh toán.
         if (!allowStacking && await db.Set<MemberPackage>().AnyAsync(x => x.MemberId == memberId
             && x.PackageId == packageId && x.Status == MemberPackageStatus.PendingPayment, ct))
-            throw new ConflictException("duplicate_active_package", "Hội viên đã có gói cùng loại đang chờ thanh toán.");
+            throw new ConflictException("duplicate_active_package", "Duplicate active package.");
         var id = Guid.NewGuid();
         var today = VietnamTime.TodayLocal(clock);
         var (pendingStart, pendingEnd) = MemberPackageRules.ComputePeriod(
@@ -59,7 +59,7 @@ public sealed class MembershipFulfillment(ISportHubDbContext db, IAuditWriter au
         RequireTransaction();
         var entity = await db.Set<MemberPackage>().SingleAsync(x => x.MemberPackageId == memberPackageId, ct);
         if (entity.InvoiceItemId is not null && entity.InvoiceItemId != itemId)
-            throw new ConflictException("membership_invoice_conflict", "Gói đã liên kết hóa đơn khác.");
+            throw new ConflictException("membership_invoice_conflict", "Membership invoice conflict.");
         entity.InvoiceItemId = itemId;
     }
 
@@ -69,7 +69,7 @@ public sealed class MembershipFulfillment(ISportHubDbContext db, IAuditWriter au
         var entity = await db.Set<MemberPackage>().SingleAsync(x => x.MemberPackageId == memberPackageId, ct);
         if (entity.Status == MemberPackageStatus.Active) return;
         if (entity.Status != MemberPackageStatus.PendingPayment)
-            throw new ConflictException("membership_inactive", "Gói không còn chờ thanh toán.");
+            throw new ConflictException("membership_inactive", "Membership inactive.");
         var catalog = await db.Set<MembershipPackage>().SingleAsync(x => x.PackageId == entity.PackageId, ct);
         var today = VietnamTime.TodayLocal(clock);
         var (start, end) = MemberPackageRules.ComputePeriod(

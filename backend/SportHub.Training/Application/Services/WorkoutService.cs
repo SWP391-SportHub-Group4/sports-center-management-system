@@ -66,7 +66,7 @@ public sealed class WorkoutService(
             .FirstOrDefaultAsync(ct)
             ?? throw new ForbiddenException(
                 "no_active_relationship",
-                "Bạn chưa có quan hệ huấn luyện đang hoạt động với hội viên này (BR-23).");
+                "No active relationship.");
 
         var now = clock.UtcNow;
         var plan = new WorkoutPlan
@@ -119,19 +119,19 @@ public sealed class WorkoutService(
         var plan = await db.Set<WorkoutPlan>()
             .Include(p => p.Items)
             .SingleOrDefaultAsync(p => p.PlanId == planId, ct)
-            ?? throw new NotFoundException("workout_plan_not_found", "Không tìm thấy kế hoạch tập.");
+            ?? throw new NotFoundException("workout_plan_not_found", "Workout plan not found.");
 
         EnsureOwner(plan, coachId);
         await EnsureActiveRelationshipAsync(plan.RelationshipId, ct);
 
         if (plan.Status == WorkoutPlanStatus.Archived)
         {
-            throw new ConflictException("workout_plan_archived", "Kế hoạch đã lưu trữ nên không thể chỉnh sửa.");
+            throw new ConflictException("workout_plan_archived", "Workout plan archived.");
         }
 
         if (plan.Version != request.Version)
         {
-            throw new ConflictException("workout_plan_version_conflict", "Kế hoạch đã được cập nhật ở nơi khác.");
+            throw new ConflictException("workout_plan_version_conflict", "Workout plan version conflict.");
         }
 
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
@@ -165,7 +165,7 @@ public sealed class WorkoutService(
         }
         catch (DbUpdateConcurrencyException)
         {
-            throw new ConflictException("workout_plan_version_conflict", "Kế hoạch đã được cập nhật ở nơi khác.");
+            throw new ConflictException("workout_plan_version_conflict", "Workout plan version conflict.");
         }
 
         return await GetPlanAsync(plan.PlanId, ct);
@@ -217,13 +217,13 @@ public sealed class WorkoutService(
     {
         var session = await db.Set<PtSession>()
             .SingleOrDefaultAsync(s => s.SessionId == request.PtSessionId, ct)
-            ?? throw new NotFoundException("pt_session_not_found", "Không tìm thấy buổi PT.");
+            ?? throw new NotFoundException("pt_session_not_found", "Pt session not found.");
 
         // BR-24 — chỉ HLV THỰC SỰ DẠY buổi đó mới ghi được kết quả.
         if (session.CoachId != coachId)
         {
             throw new ForbiddenException(
-                "not_session_coach", "Chỉ HLV giảng dạy buổi PT này mới ghi được kết quả tập (BR-24).");
+                "not_session_coach", "Not session coach.");
         }
 
         // Chỉ ghi result khi session đã/đang chuyển Completed (BE-4 §5.5) — Scheduled/cancelled/
@@ -232,7 +232,7 @@ public sealed class WorkoutService(
         {
             throw new ConflictException(
                 "pt_session_not_completable",
-                $"Buổi PT đang ở trạng thái {session.Status} — chỉ ghi được kết quả khi đã hoàn thành.");
+                $"PT session {session.Status} cannot receive a workout result. Complete the session first.");
         }
 
         // 1 result/session (unique PtSessionId) — ghi lại là cập nhật, không tạo bản ghi thứ hai.
@@ -281,13 +281,13 @@ public sealed class WorkoutService(
 
         if (fromUtc is not null && toUtc is not null && fromUtc > toUtc)
         {
-            throw new BadRequestException("invalid_progress_range", "Thời điểm bắt đầu phải trước thời điểm kết thúc.");
+            throw new BadRequestException("invalid_progress_range", "Invalid progress range.");
         }
         if (fromUtc is not null && toUtc is not null
             && toUtc.Value - fromUtc.Value > TimeSpan.FromDays(MaximumProgressRangeDays))
         {
             throw new BadRequestException(
-                "range_too_large", $"Khoảng tiến độ tối đa {MaximumProgressRangeDays} ngày.");
+                "range_too_large", $"The progress range cannot exceed {MaximumProgressRangeDays} days.");
         }
 
         if (coachId is not null)
@@ -296,7 +296,7 @@ public sealed class WorkoutService(
                 r => r.CoachId == coachId && r.MemberId == memberId && r.Status == RelationshipStatus.Active, ct);
             if (!active)
             {
-                throw new ForbiddenException("no_active_relationship", "Bạn không phụ trách hội viên này.");
+                throw new ForbiddenException("no_active_relationship", "No active relationship.");
             }
         }
 
@@ -336,7 +336,7 @@ public sealed class WorkoutService(
         Guid planId, Guid coachId, WorkoutPlanStatus target, CancellationToken ct)
     {
         var plan = await db.Set<WorkoutPlan>().SingleOrDefaultAsync(p => p.PlanId == planId, ct)
-            ?? throw new NotFoundException("workout_plan_not_found", "Không tìm thấy kế hoạch tập.");
+            ?? throw new NotFoundException("workout_plan_not_found", "Workout plan not found.");
         EnsureOwner(plan, coachId);
         await EnsureActiveRelationshipAsync(plan.RelationshipId, ct);
 
@@ -346,7 +346,7 @@ public sealed class WorkoutService(
         }
         if (target == WorkoutPlanStatus.Active && plan.Status != WorkoutPlanStatus.Draft)
         {
-            throw new ConflictException("invalid_workout_plan_transition", "Chỉ kế hoạch nháp mới có thể kích hoạt.");
+            throw new ConflictException("invalid_workout_plan_transition", "Invalid workout plan transition.");
         }
         if (target == WorkoutPlanStatus.Archived && plan.Status == WorkoutPlanStatus.Archived)
         {
@@ -364,7 +364,7 @@ public sealed class WorkoutService(
         }
         catch (DbUpdateConcurrencyException)
         {
-            throw new ConflictException("workout_plan_version_conflict", "Kế hoạch đã được cập nhật ở nơi khác.");
+            throw new ConflictException("workout_plan_version_conflict", "Workout plan version conflict.");
         }
         return await GetPlanAsync(planId, ct);
     }
@@ -373,7 +373,7 @@ public sealed class WorkoutService(
     {
         if (plan.CoachId != coachId)
         {
-            throw new ForbiddenException("workout_plan_not_owned", "Bạn không sở hữu kế hoạch tập này.");
+            throw new ForbiddenException("workout_plan_not_owned", "Workout plan not owned.");
         }
     }
 
@@ -382,7 +382,7 @@ public sealed class WorkoutService(
         if (!await db.Set<CoachMemberRelationship>().AnyAsync(
                 r => r.RelationshipId == relationshipId && r.Status == RelationshipStatus.Active, ct))
         {
-            throw new ForbiddenException("no_active_relationship", "Quan hệ huấn luyện của kế hoạch không còn hoạt động.");
+            throw new ForbiddenException("no_active_relationship", "No active relationship.");
         }
     }
 
@@ -393,12 +393,12 @@ public sealed class WorkoutService(
     private async Task<WorkoutPlanResponse> GetPlanAsync(Guid planId, CancellationToken ct)
         => await db.Set<WorkoutPlan>().AsNoTracking().Where(p => p.PlanId == planId).Select(PlanProjection())
                .SingleOrDefaultAsync(ct)
-           ?? throw new NotFoundException("workout_plan_not_found", "Không tìm thấy kế hoạch tập.");
+           ?? throw new NotFoundException("workout_plan_not_found", "Workout plan not found.");
 
     private async Task<WorkoutResultResponse> GetResultAsync(Guid resultId, CancellationToken ct)
         => await db.Set<WorkoutResult>().AsNoTracking().Where(r => r.ResultId == resultId).Select(ResultProjection())
                .SingleOrDefaultAsync(ct)
-           ?? throw new NotFoundException("workout_result_not_found", "Không tìm thấy kết quả tập.");
+           ?? throw new NotFoundException("workout_result_not_found", "Workout result not found.");
 
     private static System.Linq.Expressions.Expression<Func<WorkoutPlan, WorkoutPlanResponse>> PlanProjection()
         => p => new WorkoutPlanResponse(

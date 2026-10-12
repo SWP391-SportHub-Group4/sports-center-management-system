@@ -23,5 +23,6 @@ public enum NotificationSourceEventType
     RefundCompleted = 16,
     ClassTeachingUpdated = 17,
     ClassSessionChangeRequested = 18,
-    ClassSessionChangeReviewed = 19
+    ClassSessionChangeReviewed = 19,
+    PasswordChanged = 20
 }

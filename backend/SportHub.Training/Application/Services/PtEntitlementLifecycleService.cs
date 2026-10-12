@@ -30,20 +30,20 @@ public sealed class PtEntitlementLifecycleService(
     {
         var member = await users.GetAsync(command.MemberId, ct);
         if (member is null || member.Role != "Member" || !member.IsActive)
-            throw new BadRequestException("member_not_found", "Tài khoản Member không hoạt động.");
+            throw new BadRequestException("member_not_found", "Member not found.");
         if (!await specialties.IsPersonalTrainerAsync(command.CoachId, ct))
         {
             throw new BadRequestException(
                 "coach_must_be_personal_trainer",
-                "Chỉ Coach có chuyên môn huấn luyện cá nhân (PT 1-1) mới nhận được PtEntitlement (BR-99).");
+                "Coach must be personal trainer.");
         }
 
         var originPackage = await memberships.GetByIdAsync(command.OriginMemberPackageId, ct)
-            ?? throw new NotFoundException("pt_entitlement_not_found", "Không tìm thấy Membership gốc.");
+            ?? throw new NotFoundException("pt_entitlement_not_found", "Pt entitlement not found.");
         if (originPackage.MemberId != command.MemberId)
-            throw new NotFoundException("pt_entitlement_not_found", "Không tìm thấy Membership của hội viên này.");
+            throw new NotFoundException("pt_entitlement_not_found", "Pt entitlement not found.");
         if (originPackage.Status != "Active")
-            throw new ConflictException("pt_entitlement_not_active", "Membership gốc phải đang Active mới checkout PT.");
+            throw new ConflictException("pt_entitlement_not_active", "Pt entitlement not active.");
         var totalQuota = command.SingleSession ? 1 : PtEntitlementRules.ComputeTotalQuota(
             command.FrequencyPerWeek, originPackage.StartDate, originPackage.EndDate);
 
@@ -97,12 +97,12 @@ public sealed class PtEntitlementLifecycleService(
         {
             throw new ConflictException(
                 "pt_entitlement_invalid_state",
-                $"Entitlement đang ở trạng thái {entitlement.Status}, không thể activate.");
+                "Pt entitlement invalid state.");
         }
 
         var currentPackage = await memberships.GetByIdAsync(entitlement.CurrentMemberPackageId, ct);
         if (currentPackage?.Status != "Active" || currentPackage.MemberId != entitlement.MemberId)
-            throw new ConflictException("pt_entitlement_not_active", "Membership liên kết không còn Active.");
+            throw new ConflictException("pt_entitlement_not_active", "Pt entitlement not active.");
         entitlement.ActivationReference = activationReference;
         entitlement.Status = PtEntitlementStatus.Active;
         entitlement.ActivatedAt = clock.UtcNow;
@@ -122,7 +122,7 @@ public sealed class PtEntitlementLifecycleService(
             // Unique(ActivationReference) bắt được ca gọi hai lần đồng thời với 2 reference khác
             // nhau cho cùng entitlement — theo hợp đồng, mỗi entitlement chỉ activate một lần.
             throw new ConflictException(
-                "pt_entitlement_invalid_state", "Entitlement đã được activate bằng reference khác.");
+                "pt_entitlement_invalid_state", "Pt entitlement invalid state.");
         }
 
         if (transaction is not null)
@@ -174,13 +174,13 @@ public sealed class PtEntitlementLifecycleService(
         {
             throw new ConflictException(
                 "pt_entitlement_invalid_state",
-                $"Entitlement đang ở trạng thái {entitlement.Status}, không carry-over được.");
+                "Pt entitlement invalid state.");
         }
 
         var renewedPackage = await memberships.GetByIdAsync(renewedMemberPackageId, ct)
-            ?? throw new NotFoundException("pt_entitlement_not_found", "Không tìm thấy Membership gia hạn.");
+            ?? throw new NotFoundException("pt_entitlement_not_found", "Pt entitlement not found.");
         if (renewedPackage.MemberId != entitlement.MemberId || renewedPackage.Status != "Active")
-            throw new ConflictException("pt_entitlement_not_active", "Membership gia hạn phải thuộc hội viên và đang Active.");
+            throw new ConflictException("pt_entitlement_not_active", "Pt entitlement not active.");
         entitlement.CurrentMemberPackageId = renewedPackage.MemberPackageId;
         entitlement.ValidityEndDate = renewedPackage.EndDate;
         entitlement.CarryOverUntilDate = renewedPackage.EndDate.AddDays(30);
@@ -209,7 +209,7 @@ public sealed class PtEntitlementLifecycleService(
             .ToListAsync(ct);
 
         return locked.SingleOrDefault()
-            ?? throw new NotFoundException("pt_entitlement_not_found", "Không tìm thấy quyền lợi PT.");
+            ?? throw new NotFoundException("pt_entitlement_not_found", "Pt entitlement not found.");
     }
 }
 

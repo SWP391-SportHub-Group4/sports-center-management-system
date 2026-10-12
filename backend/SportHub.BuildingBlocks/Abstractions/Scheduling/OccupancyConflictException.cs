@@ -8,7 +8,7 @@ namespace SportHub.BuildingBlocks.Abstractions.Scheduling;
 /// (không lộ SQL). Middleware trả thêm mảng <see cref="Conflicts"/> trong body.
 /// </summary>
 public sealed class OccupancyConflictException(IReadOnlyList<OccupancyConflict> conflicts)
-    : AppException(StatusCodes.Status409Conflict, "occupancy_conflict", "Khung giờ đã có lịch khác chiếm phòng hoặc coach.")
+    : AppException(StatusCodes.Status409Conflict, "occupancy_conflict", "The time slot conflicts with an existing room or coach booking.")
 {
     public IReadOnlyList<OccupancyConflict> Conflicts { get; } = conflicts;
 }

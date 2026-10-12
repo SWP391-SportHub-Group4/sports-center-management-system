@@ -15,7 +15,7 @@ public static class CourtRateCalculator
             || duration.TotalHours > 4 || duration.TotalMinutes % slotMinutes != 0
             || startUtc.Offset != TimeSpan.Zero || startUtc.Second != 0 || startUtc.Millisecond != 0
             || startUtc.Minute % slotMinutes != 0)
-            throw new BadRequestException("invalid_rental_window", "Giờ bắt đầu/thời lượng phải khớp khối 30/60 phút và kéo dài 1–4 giờ.");
+            throw new BadRequestException("invalid_rental_window", "Invalid rental window.");
         var rates = source.ToList();
         var slotCount = checked((int)(duration.TotalMinutes / slotMinutes));
         var blocks = new List<CourtRentalBlockPrice>(slotCount);
@@ -30,13 +30,13 @@ public static class CourtRateCalculator
                 && x.StartTimeLocal <= TimeOnly.FromDateTime(localStart)
                 && x.EndTimeLocal >= TimeOnly.FromDateTime(localEnd));
             if (rate is null)
-                throw new ConflictException("rental_rate_unavailable", $"Chưa có bảng giá áp dụng cho khung {localStart:HH:mm}.");
+                throw new ConflictException("rental_rate_unavailable", "Rental rate unavailable.");
             var amount = rate.PricePerHour * slotMinutes / 60m;
             blocks.Add(new CourtRentalBlockPrice(start, start.AddMinutes(slotMinutes), amount));
             total += amount;
         }
         if (total <= 0 || total % 1_000 != 0)
-            throw new ConflictException("rental_price_invalid", "Tổng giá thuê phải là bội số 1.000 VND.");
+            throw new ConflictException("rental_price_invalid", "Rental price invalid.");
         return new CourtRentalQuote(total, blocks);
     }
 }

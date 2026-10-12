@@ -60,7 +60,7 @@ public sealed class NotificationWriter(ISportHubDbContext db, IDataProtectionPro
             : throw new ArgumentOutOfRangeException(
                 nameof(sourceEventType),
                 sourceEventType,
-                "Không khớp NotificationSourceEventType nào — xem NotificationEvents ở BuildingBlocks.");
+                "No NotificationSourceEventType matches. Check NotificationEvents in BuildingBlocks.");
 }
 
 public sealed record EmailPayload(string Subject, string HtmlBody);

@@ -20,7 +20,8 @@ export function CoachEditor({
   onClose: () => void;
   onSaved: (saved: CoachAdminDto) => void;
 }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const vi = language === "vi";
   const l = t.operations;
   const mutation = useMutation();
   const [form, setForm] = useState({
@@ -28,6 +29,10 @@ export function CoachEditor({
     fullName: coach?.fullName ?? "",
     phone: coach?.phone ?? "",
     bio: coach?.bio ?? "",
+    title: coach?.title ?? "",
+    years: coach?.yearsExperience?.toString() ?? "",
+    students: coach?.studentCount?.toString() ?? "",
+    philosophy: coach?.philosophy ?? "",
     sportIds: coach?.sportIds ?? ([] as number[]),
     password: "",
     confirmPassword: "",
@@ -52,6 +57,10 @@ export function CoachEditor({
           fullName: form.fullName.trim(),
           phone: form.phone.trim() || null,
           bio: form.bio.trim(),
+          title: form.title.trim(),
+          philosophy: form.philosophy.trim(),
+          yearsExperience: form.years === "" ? null : Number(form.years),
+          studentCount: form.students === "" ? null : Number(form.students),
           sportIds: form.sportIds,
         };
         let saved: CoachAdminDto | undefined;
@@ -134,6 +143,40 @@ export function CoachEditor({
           maxLength={1000}
           value={form.bio}
           onChange={(e) => setForm({ ...form, bio: e.target.value })}
+        />
+      </Field>
+      <Field label={vi ? "Chức danh hiển thị" : "Public title"}>
+        <input
+          maxLength={100}
+          value={form.title}
+          onChange={(e) => setForm({ ...form, title: e.target.value })}
+        />
+      </Field>
+      <div className="form-grid">
+        <Field label={vi ? "Số năm kinh nghiệm" : "Years of experience"}>
+          <input
+            type="number"
+            min={0}
+            max={60}
+            value={form.years}
+            onChange={(e) => setForm({ ...form, years: e.target.value })}
+          />
+        </Field>
+        <Field label={vi ? "Số học viên đã đào tạo" : "Students trained"}>
+          <input
+            type="number"
+            min={0}
+            max={100000}
+            value={form.students}
+            onChange={(e) => setForm({ ...form, students: e.target.value })}
+          />
+        </Field>
+      </div>
+      <Field label={vi ? "Triết lý huấn luyện" : "Coaching philosophy"}>
+        <textarea
+          maxLength={1000}
+          value={form.philosophy}
+          onChange={(e) => setForm({ ...form, philosophy: e.target.value })}
         />
       </Field>
       <AsyncSection state={sports}>

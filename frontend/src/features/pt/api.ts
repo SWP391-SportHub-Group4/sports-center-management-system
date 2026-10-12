@@ -12,7 +12,6 @@ import type {
   ProgressItemDto,
   CourseRosterDto,
   MemberTrainingProfileDto,
-  MemberBmiProfileDto,
 } from "@/lib/types";
 
 export interface AssignedPtStudent {
@@ -40,7 +39,6 @@ export const ptApi = {
   healthProfile: (memberId: string, signal?: AbortSignal) =>
     api.get<{
       trainingProfile: MemberTrainingProfileDto | null;
-      bmiProfile: MemberBmiProfileDto | null;
     }>(`/api/coaches/me/students/${memberId}/health-profile`, { signal }),
   sessions: (
     manager: boolean,

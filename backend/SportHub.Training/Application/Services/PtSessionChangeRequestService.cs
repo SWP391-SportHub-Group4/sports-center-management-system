@@ -40,7 +40,7 @@ public sealed class PtSessionChangeRequestService(
             if (!SportHub.BuildingBlocks.Api.WireEnum.TryParse<PtSessionChangeRequestStatus>(status, ignoreCase: true, out var parsed))
             {
                 throw new BadRequestException(
-                    "pt_change_request_invalid_state", $"Trạng thái '{status}' không hợp lệ.");
+                    "pt_change_request_invalid_state", "Pt change request invalid state.");
             }
 
             query = query.Where(r => r.Status == parsed);
@@ -58,29 +58,29 @@ public sealed class PtSessionChangeRequestService(
         if (!SportHub.BuildingBlocks.Api.WireEnum.TryParse<PtSessionChangeRequestType>(request.RequestType, ignoreCase: true, out var requestType))
         {
             throw new BadRequestException(
-                "pt_change_request_invalid_state", "RequestType chỉ nhận Cancel hoặc Reschedule.");
+                "pt_change_request_invalid_state", "Pt change request invalid state.");
         }
 
         if (requestType == PtSessionChangeRequestType.Reschedule && request.RequestedStartAtUtc is null)
         {
             throw new BadRequestException(
-                "pt_change_request_invalid_state", "Reschedule bắt buộc có RequestedStartAtUtc.");
+                "pt_change_request_invalid_state", "Pt change request invalid state.");
         }
 
         var session = await db.Set<PtSession>().AsNoTracking()
             .SingleOrDefaultAsync(s => s.SessionId == sessionId, ct)
-            ?? throw new NotFoundException("pt_session_not_found", "Không tìm thấy buổi PT.");
+            ?? throw new NotFoundException("pt_session_not_found", "Pt session not found.");
 
         if (session.MemberId != memberId)
         {
-            throw new ForbiddenException("pt_session_not_owned", "Bạn không phải hội viên của buổi PT này.");
+            throw new ForbiddenException("pt_session_not_owned", "Pt session not owned.");
         }
 
         if (session.Status != PtSessionStatus.Scheduled)
         {
             throw new ConflictException(
                 "pt_change_request_invalid_state",
-                $"Buổi PT đang ở trạng thái {session.Status}, không gửi yêu cầu đổi lịch được.");
+                "Pt change request invalid state.");
         }
 
         // Partial unique index (SessionId where Pending) là chốt chặn thật; kiểm trước để trả
@@ -91,7 +91,7 @@ public sealed class PtSessionChangeRequestService(
         if (alreadyPending)
         {
             throw new ConflictException(
-                "pt_change_request_already_pending", "Buổi PT này đã có yêu cầu đổi lịch đang chờ duyệt.");
+                "pt_change_request_already_pending", "Pt change request already pending.");
         }
 
         var now = clock.UtcNow;
@@ -128,7 +128,7 @@ public sealed class PtSessionChangeRequestService(
             when (ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
         {
             throw new ConflictException(
-                "pt_change_request_already_pending", "Buổi PT này đã có yêu cầu đổi lịch đang chờ duyệt.");
+                "pt_change_request_already_pending", "Pt change request already pending.");
         }
 
         return await GetOneAsync(changeRequest.RequestId, ct);
@@ -204,7 +204,7 @@ public sealed class PtSessionChangeRequestService(
             .ToListAsync(ct);
 
         return rows.SingleOrDefault()
-            ?? throw new NotFoundException("pt_session_not_found", "Không tìm thấy yêu cầu đổi lịch.");
+            ?? throw new NotFoundException("pt_session_not_found", "Pt session not found.");
     }
 
     private static void EnsurePending(PtSessionChangeRequest changeRequest)
@@ -213,14 +213,14 @@ public sealed class PtSessionChangeRequestService(
         {
             throw new ConflictException(
                 "pt_change_request_invalid_state",
-                $"Yêu cầu đang ở trạng thái {changeRequest.Status}, không xử lý lại được.");
+                "Pt change request invalid state.");
         }
     }
 
     private async Task<PtSessionChangeRequestResponse> GetOneAsync(Guid requestId, CancellationToken ct)
         => await db.Set<PtSessionChangeRequest>().AsNoTracking()
                .Where(r => r.RequestId == requestId).Select(Projection()).SingleOrDefaultAsync(ct)
-           ?? throw new NotFoundException("pt_session_not_found", "Không tìm thấy yêu cầu đổi lịch.");
+           ?? throw new NotFoundException("pt_session_not_found", "Pt session not found.");
 
     private static Expression<Func<PtSessionChangeRequest, PtSessionChangeRequestResponse>> Projection()
         => r => new PtSessionChangeRequestResponse(

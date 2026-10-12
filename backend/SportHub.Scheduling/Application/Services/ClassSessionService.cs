@@ -46,7 +46,7 @@ public sealed class ClassSessionService(
     public async Task<ClassSessionResponse> GetAsync(Guid sessionId, Guid? restrictToCoachId, CancellationToken ct = default)
     {
         var row = await Rows(db.Set<ClassSession>().AsNoTracking().Where(s => s.SessionId == sessionId)).SingleOrDefaultAsync(ct)
-                  ?? throw new NotFoundException("session_not_found", "Không tìm thấy buổi học.");
+                  ?? throw new NotFoundException("session_not_found", "Session not found.");
 
         await EnsureClassAccessAsync(row.Session.ClassId, restrictToCoachId, ct);
         return (await ToResponsesAsync([row], ct))[0];
@@ -55,7 +55,7 @@ public sealed class ClassSessionService(
     public async Task<SessionRosterResponse> GetRosterAsync(Guid sessionId, Guid? restrictToCoachId, CancellationToken ct = default)
     {
         var row = await Rows(db.Set<ClassSession>().AsNoTracking().Where(s => s.SessionId == sessionId)).SingleOrDefaultAsync(ct)
-                  ?? throw new NotFoundException("session_not_found", "Không tìm thấy buổi học.");
+                  ?? throw new NotFoundException("session_not_found", "Session not found.");
 
         await EnsureClassAccessAsync(row.Session.ClassId, restrictToCoachId, ct);
 
@@ -93,7 +93,7 @@ public sealed class ClassSessionService(
     {
         if (toUtc <= fromUtc || toUtc - fromUtc > TimeSpan.FromDays(92))
         {
-            throw new BadRequestException("invalid_range", "Khoảng thời gian phải dương và tối đa 92 ngày.");
+            throw new BadRequestException("invalid_range", "Invalid range.");
         }
 
         var rangeFrom = DateTime.SpecifyKind(fromUtc, DateTimeKind.Utc);
@@ -139,7 +139,7 @@ public sealed class ClassSessionService(
 
         if (start <= clock.UtcNow)
         {
-            throw new BadRequestException("session_time_in_past", "Giờ mới phải ở tương lai.");
+            throw new BadRequestException("session_time_in_past", "Session time in past.");
         }
 
         var roomId = request.RoomId ?? session.RoomId;
@@ -194,7 +194,7 @@ public sealed class ClassSessionService(
 
         if (start <= clock.UtcNow)
         {
-            throw new BadRequestException("session_time_in_past", "Giờ buổi bù phải ở tương lai.");
+            throw new BadRequestException("session_time_in_past", "Session time in past.");
         }
 
         // Buổi bù thêm ở CUỐI lịch: sau buổi cuối còn hiệu lực của khóa (không tính buổi đang hủy).
@@ -205,7 +205,7 @@ public sealed class ClassSessionService(
         if (lastEnd is DateTime last && start < last)
         {
             throw new BadRequestException(
-                "makeup_must_be_after_schedule", "Buổi bù phải nằm sau buổi cuối của lịch hiện tại.");
+                "makeup_must_be_after_schedule", "Makeup must be after schedule.");
         }
 
         var roomId = makeup.RoomId ?? session.RoomId;
@@ -272,24 +272,24 @@ public sealed class ClassSessionService(
             $"SELECT session_id FROM class_sessions WHERE session_id = {sessionId} FOR UPDATE", ct);
 
         return await db.Set<ClassSession>().SingleOrDefaultAsync(s => s.SessionId == sessionId, ct)
-               ?? throw new NotFoundException("session_not_found", "Không tìm thấy buổi học.");
+               ?? throw new NotFoundException("session_not_found", "Session not found.");
     }
 
     private void EnsureEditable(ClassSession session, Class cls)
     {
         if (session.Status != ClassSessionStatus.Scheduled)
         {
-            throw new ConflictException("session_not_editable", "Chỉ đổi/hủy được buổi đang ở trạng thái Scheduled.");
+            throw new ConflictException("session_not_editable", "Session not editable.");
         }
 
         if (cls.Status is not (ClassStatus.Published or ClassStatus.InProgress))
         {
-            throw new ConflictException("class_not_active", "Khóa không ở trạng thái đang diễn ra hoặc đã publish.");
+            throw new ConflictException("class_not_active", "Class not active.");
         }
 
         if (session.StartAtUtc <= clock.UtcNow)
         {
-            throw new ConflictException("session_started", "Buổi đã bắt đầu — không đổi/hủy được.");
+            throw new ConflictException("session_started", "Session started.");
         }
     }
 
@@ -304,7 +304,7 @@ public sealed class ClassSessionService(
 
         if (!await openingHours.IsOpenAsync(roomId, start, end, ct))
         {
-            throw new BadRequestException("session_outside_opening_hours", "Giờ mới nằm ngoài giờ mở cửa của phòng (BR-109).");
+            throw new BadRequestException("session_outside_opening_hours", "Session outside opening hours.");
         }
     }
 
@@ -328,7 +328,7 @@ public sealed class ClassSessionService(
         {
             throw new ConflictException(
                 "member_schedule_conflict",
-                $"{affected} học viên của khóa đã có buổi học khác trùng khung giờ mới — Manager cần xử lý trước.");
+                "Member schedule conflict.");
         }
     }
 
@@ -356,12 +356,12 @@ public sealed class ClassSessionService(
             .Where(c => c.ClassId == classId)
             .Select(c => new { Found = true, c.CoachId })
             .SingleOrDefaultAsync(ct)
-            ?? throw new NotFoundException("class_not_found", "Không tìm thấy khóa học.");
+            ?? throw new NotFoundException("class_not_found", "Class not found.");
 
         if (restrictToCoachId is Guid id && coachId.CoachId != id &&
             !await db.Set<ClassSession>().AnyAsync(s => s.ClassId == classId && s.CoachId == id, ct))
         {
-            throw new ForbiddenException("class_not_owned", "Coach chỉ xem được khóa mình phụ trách.");
+            throw new ForbiddenException("class_not_owned", "Class not owned.");
         }
     }
 

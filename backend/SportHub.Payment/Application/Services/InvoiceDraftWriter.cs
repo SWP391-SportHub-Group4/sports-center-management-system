@@ -18,10 +18,10 @@ public sealed class InvoiceDraftWriter(ISportHubDbContext db, IInvoiceNumberGene
         if (draft.BeneficiaryUserId == Guid.Empty || draft.InitiatedByUserId == Guid.Empty
             || string.IsNullOrWhiteSpace(draft.IdempotencyKey) || draft.IdempotencyKey.Length > 120
             || draft.Items.Count != 1 || draft.HoldExpiresAtUtc <= clock.UtcNow)
-            throw new BadRequestException("invalid_invoice_draft", "Invoice draft phải có một item, actor, key và hạn giữ hợp lệ.");
+            throw new BadRequestException("invalid_invoice_draft", "Invalid invoice draft.");
         var itemDraft = draft.Items[0];
         if (itemDraft.Amount <= 0 || itemDraft.Amount % 1_000 != 0)
-            throw new BadRequestException("invalid_invoice_draft_amount", "Invoice draft phải dương và là bội số 1.000 VND.");
+            throw new BadRequestException("invalid_invoice_draft_amount", "Invalid invoice draft amount.");
         var itemType = itemDraft.ItemType switch
         {
             "Membership" => InvoiceItemType.Membership,
@@ -29,7 +29,7 @@ public sealed class InvoiceDraftWriter(ISportHubDbContext db, IInvoiceNumberGene
             "ClassEnrollment" => InvoiceItemType.ClassPackage,
             "ClassTransferDifference" => InvoiceItemType.ClassTransferDifference,
             "CourtRental" => InvoiceItemType.Rental,
-            _ => throw new BadRequestException("invalid_invoice_draft_type", "Loại InvoiceItem draft không hợp lệ.")
+            _ => throw new BadRequestException("invalid_invoice_draft_type", "Invalid invoice draft type.")
         };
 
         var now = clock.UtcNow;
