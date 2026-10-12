@@ -216,7 +216,12 @@ function CreateStaff({
             {role === "COACH" && (
               <div>
                 <dt>{l.specialties}</dt>
-                <dd>{t.adminWork.specialtyCount.replace("{count}", String(specialties.length))}</dd>
+                <dd>
+                  {t.adminWork.specialtyCount.replace(
+                    "{count}",
+                    String(specialties.length),
+                  )}
+                </dd>
               </div>
             )}
           </dl>
@@ -277,19 +282,25 @@ export function EditUser({
   const [sports, setSports] = useState(a.sportIds);
   const [reason, setReason] = useState("");
   const [review, setReview] = useState<AccountAction | null>(null);
-  const [copiedLink, setCopiedLink] = useState<"manager" | "receptionist" | "failed" | null>(null);
+  const [copiedLink, setCopiedLink] = useState<
+    "manager" | "receptionist" | "failed" | null
+  >(null);
   const mutation = useMutation();
   const roleBlockReasons =
     review === "role" && mutation.error?.code === "role_change_blocked"
       ? mutation.error.details.reasons
       : null;
   const blockedReasons = Array.isArray(roleBlockReasons)
-    ? roleBlockReasons.filter((value): value is string => typeof value === "string")
+    ? roleBlockReasons.filter(
+        (value): value is string => typeof value === "string",
+      )
     : [];
   async function copyMemberLink(audience: "manager" | "receptionist") {
     const path = `/${audience}/members/${a.userId}`;
     try {
-      await navigator.clipboard.writeText(new URL(path, window.location.origin).toString());
+      await navigator.clipboard.writeText(
+        new URL(path, window.location.origin).toString(),
+      );
       setCopiedLink(audience);
     } catch {
       setCopiedLink("failed");
@@ -369,29 +380,34 @@ export function EditUser({
               />
             </Field>
             <>
-              <RoleSelect
-                member
-                value={role}
-                onChange={(r) => {
-                  setRole(r);
-                  setSports([]);
-                }}
-              />
-              {role === "COACH" && (
-                <SportSelect value={sports} onChange={setSports} />
+              {a.role === "MEMBER" ? (
+                <p>{d.memberRoleLocked}</p>
+              ) : (
+                <>
+                  <RoleSelect
+                    value={role}
+                    onChange={(r) => {
+                      setRole(r);
+                      setSports([]);
+                    }}
+                  />
+                  {role === "COACH" && (
+                    <SportSelect value={sports} onChange={setSports} />
+                  )}
+                  <button
+                    type="button"
+                    className="btn"
+                    disabled={
+                      !validReason ||
+                      role === a.role ||
+                      (role === "COACH" && !sports.length)
+                    }
+                    onClick={() => setReview("role")}
+                  >
+                    {l.changeRole}
+                  </button>
+                </>
               )}
-              <button
-                type="button"
-                className="btn"
-                disabled={
-                  !validReason ||
-                  role === a.role ||
-                  (role === "COACH" && !sports.length)
-                }
-                onClick={() => setReview("role")}
-              >
-                {l.changeRole}
-              </button>
             </>
             {a.userId !== user?.userId && (
               <div className="btn-row">
@@ -488,7 +504,10 @@ export function EditUser({
             </dl>
             <p>{impact}</p>
             {blockedReasons.length > 0 ? (
-              <section className={styles.roleBlockers} aria-labelledby="role-blockers-title">
+              <section
+                className={styles.roleBlockers}
+                aria-labelledby="role-blockers-title"
+              >
                 <h3 id="role-blockers-title">{d.roleBlockTitle}</h3>
                 <ul>
                   {blockedReasons.map((blocker, index) => (
@@ -500,19 +519,32 @@ export function EditUser({
                 </ul>
                 <p>{d.roleBlockGuidance}</p>
                 <div className="btn-row">
-                  <Link className="btn btn--secondary" href={`/admin/users/${a.userId}`}>
+                  <Link
+                    className="btn btn--secondary"
+                    href={`/admin/users/${a.userId}`}
+                  >
                     {d.roleBlockAccountLink}
                   </Link>
-                  <button type="button" className="btn btn--secondary" onClick={() => copyMemberLink("manager")}>
+                  <button
+                    type="button"
+                    className="btn btn--secondary"
+                    onClick={() => copyMemberLink("manager")}
+                  >
                     {d.roleBlockCopyManager}
                   </button>
-                  <button type="button" className="btn btn--secondary" onClick={() => copyMemberLink("receptionist")}>
+                  <button
+                    type="button"
+                    className="btn btn--secondary"
+                    onClick={() => copyMemberLink("receptionist")}
+                  >
                     {d.roleBlockCopyReceptionist}
                   </button>
                 </div>
                 {copiedLink && (
                   <p role="status">
-                    {copiedLink === "failed" ? d.roleBlockCopyFailed : d.roleBlockCopied}
+                    {copiedLink === "failed"
+                      ? d.roleBlockCopyFailed
+                      : d.roleBlockCopied}
                   </p>
                 )}
               </section>

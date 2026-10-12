@@ -21,6 +21,8 @@ Ngoài phạm vi: đa chi nhánh, payroll/hợp đồng nhân sự, chia doanh t
 | CenterManager | Môn/phòng/giá, Coach/chuyên môn, lớp/lịch, threshold, incident, hoàn điểm và báo cáo |
 | SystemAdministrator | Tài khoản nhân sự, role và trạng thái tài khoản; không tự có quyền tài chính hoặc hồ sơ tập luyện |
 
+Member và staff là hai loại tài khoản tách biệt: không chuyển Member thành staff hay ngược lại. Người muốn làm staff dùng một email khác; SystemAdministrator tạo tài khoản staff (nhận email kích hoạt để tự đặt mật khẩu). Chỉ đổi role giữa các role staff, và Coach chỉ rời vai trò khi không còn lớp, lịch hay quan hệ huấn luyện đang hoạt động.
+
 Guest không phải role account. Coach có nhiều chuyên môn, không chia role cứng thành PersonalTrainer/ClassInstructor. Backend kiểm cả role và ownership/relationship.
 
 ## 3. Luồng nghiệp vụ

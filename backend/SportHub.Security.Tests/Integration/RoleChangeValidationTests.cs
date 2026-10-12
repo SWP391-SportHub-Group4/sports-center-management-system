@@ -7,11 +7,13 @@ using Microsoft.Extensions.DependencyInjection;
 using SportHub.API.Persistence;
 using SportHub.Identity.Domain.Entities;
 using SportHub.Identity.Domain.Enums;
-using SportHub.Payment.Wallet.Domain;
 
 namespace SportHub.Security.Tests.Integration;
 
-/// <summary>Đổi vai trò Member ↔ Staff: chặn khi còn dữ liệu dở dang (409 kèm lý do), tạo ví 0 điểm khi về Member, gỡ chuyên môn khi rời Coach.</summary>
+/// <summary>
+/// Member và Staff là hai loại tài khoản tách biệt: không đổi qua lại (409). Đổi giữa các role staff vẫn được;
+/// Coach rời vai trò bị chặn khi còn lớp/lịch/quan hệ huấn luyện và được gỡ chuyên môn khi đổi thành công.
+/// </summary>
 [Collection(nameof(SportHubApiCollection))]
 public class RoleChangeValidationTests(SportHubApiFactory factory)
 {
@@ -34,55 +36,6 @@ public class RoleChangeValidationTests(SportHubApiFactory factory)
 
     private static async Task<JsonElement> Json(HttpResponseMessage r) => JsonDocument.Parse(await r.Content.ReadAsStringAsync()).RootElement;
 
-    private async Task SetWalletAsync(Guid userId, int available, int held = 0)
-    {
-        using var scope = factory.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
-        var wallet = await db.Set<PointWallet>().SingleOrDefaultAsync(w => w.OwnerUserId == userId);
-        if (wallet is null)
-            db.Set<PointWallet>().Add(new PointWallet { WalletId = Guid.NewGuid(), OwnerUserId = userId, AvailablePoints = available, HeldPoints = held, CreatedAtUtc = DateTime.UtcNow });
-        else { wallet.AvailablePoints = available; wallet.HeldPoints = held; }
-        await db.SaveChangesAsync();
-    }
-
-    [Fact]
-    public async Task Member_with_points_cannot_become_staff_until_wallet_is_empty()
-    {
-        var admin = await AdminAsync();
-        var member = await factory.SeedUserAsync(NewEmail(), Password);
-        await SetWalletAsync(member.UserId, available: 5);
-
-        var blocked = await admin.PutAsJsonAsync($"api/users/{member.UserId}/role", new { role = "Receptionist", reason = "Hire as receptionist" });
-
-        Assert.Equal(HttpStatusCode.Conflict, blocked.StatusCode);
-        var json = await Json(blocked);
-        Assert.Equal("role_change_blocked", json.GetProperty("error").GetString());
-        Assert.Contains(json.GetProperty("reasons").EnumerateArray(),
-            r => r.GetString()!.Contains("Point wallet has 5 available point(s)"));
-
-        await SetWalletAsync(member.UserId, available: 0);
-        var ok = await admin.PutAsJsonAsync($"api/users/{member.UserId}/role", new { role = "Receptionist", reason = "Hire as receptionist" });
-        Assert.Equal(HttpStatusCode.OK, ok.StatusCode);
-    }
-
-    [Fact]
-    public async Task Coach_becoming_member_loses_specialties_keeps_profile_and_gets_a_zero_wallet()
-    {
-        var admin = await AdminAsync();
-        var coachId = await SeedCoachAsync();
-
-        var changed = await admin.PutAsJsonAsync($"api/users/{coachId}/role", new { role = "Member", reason = "Returned to member" });
-        Assert.Equal(HttpStatusCode.OK, changed.StatusCode);
-
-        using var scope = factory.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
-        Assert.False(await db.Set<UserSportSpecialty>().AnyAsync(x => x.UserId == coachId));
-        Assert.True(await db.Set<CoachProfile>().AnyAsync(x => x.UserId == coachId));
-        var wallet = await db.Set<PointWallet>().SingleAsync(w => w.OwnerUserId == coachId);
-        Assert.Equal(0, wallet.AvailablePoints);
-        Assert.Equal(0, wallet.HeldPoints);
-    }
-
     private async Task<Guid> SeedCoachAsync()
     {
         var coach = await factory.SeedUserAsync(NewEmail(), Password, role: UserRole.Coach);
@@ -94,55 +47,72 @@ public class RoleChangeValidationTests(SportHubApiFactory factory)
         return coach.UserId;
     }
 
-    private async Task<string[]> BlockedReasonsAsync(HttpClient admin, Guid userId, string role)
+    private static async Task AssertNotConvertibleAsync(HttpResponseMessage response)
     {
-        var response = await admin.PutAsJsonAsync($"api/users/{userId}/role", new { role, reason = "Role change check" });
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
-        var json = await Json(response);
-        Assert.Equal("role_change_blocked", json.GetProperty("error").GetString());
-        return json.GetProperty("reasons").EnumerateArray().Select(r => r.GetString()!).ToArray();
+        Assert.Equal("member_staff_role_change_not_allowed", (await Json(response)).GetProperty("error").GetString());
     }
 
-    [Fact]
-    public async Task Member_with_an_active_gym_package_is_blocked()
+    [Theory]
+    [InlineData("Receptionist")]
+    [InlineData("CenterManager")]
+    [InlineData("SystemAdministrator")]
+    public async Task Member_cannot_be_converted_to_any_staff_role(string target)
     {
         var admin = await AdminAsync();
         var member = await factory.SeedUserAsync(NewEmail(), Password);
-        using (var scope = factory.Services.CreateScope())
-        {
-            var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
-            var packageId = await db.Set<SportHub.Membership.Domain.Entities.MembershipPackage>().Select(p => p.PackageId).FirstAsync();
-            db.Set<SportHub.Membership.Domain.Entities.MemberPackage>().Add(new SportHub.Membership.Domain.Entities.MemberPackage
-            {
-                MemberPackageId = Guid.NewGuid(), MemberId = member.UserId, PackageId = packageId,
-                StartDate = DateOnly.FromDateTime(DateTime.UtcNow), EndDate = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(30),
-                Status = SportHub.Membership.Domain.Enums.MemberPackageStatus.Active
-            });
-            await db.SaveChangesAsync();
-        }
 
-        Assert.Contains(await BlockedReasonsAsync(admin, member.UserId, "Receptionist"),
-            r => r.Contains("Gym membership") && r.Contains("expires") && r.Contains("Center Manager or Receptionist"));
+        await AssertNotConvertibleAsync(await admin.PutAsJsonAsync(
+            $"api/users/{member.UserId}/role", new { role = target, reason = "Promote member" }));
     }
 
     [Fact]
-    public async Task Member_with_an_unpaid_invoice_is_blocked()
+    public async Task Member_cannot_be_converted_to_coach()
     {
         var admin = await AdminAsync();
         var member = await factory.SeedUserAsync(NewEmail(), Password);
-        using (var scope = factory.Services.CreateScope())
-        {
-            var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
-            db.Set<SportHub.Payment.Domain.Entities.Invoice>().Add(new SportHub.Payment.Domain.Entities.Invoice
-            {
-                InvoiceId = Guid.NewGuid(), InvoiceNumber = $"INV-{Guid.NewGuid():N}"[..28], MemberId = member.UserId,
-                IssuedByUserId = member.UserId, TotalAmount = 100_000, CashAmount = 100_000, IssuedAt = DateTime.UtcNow,
-                Status = SportHub.Payment.Domain.Enums.InvoiceStatus.Issued
-            });
-            await db.SaveChangesAsync();
-        }
 
-        Assert.Contains(await BlockedReasonsAsync(admin, member.UserId, "Coach"), r => r.Contains("unpaid invoice"));
+        await AssertNotConvertibleAsync(await admin.PutAsJsonAsync(
+            $"api/users/{member.UserId}/role", new { role = "Coach", reason = "Promote member", sportIds = new[] { GymSportId } }));
+    }
+
+    [Theory]
+    [InlineData(UserRole.Receptionist)]
+    [InlineData(UserRole.CenterManager)]
+    [InlineData(UserRole.Coach)]
+    public async Task Staff_cannot_be_converted_to_member(UserRole current)
+    {
+        var admin = await AdminAsync();
+        var staff = await factory.SeedUserAsync(NewEmail(), Password, role: current);
+
+        await AssertNotConvertibleAsync(await admin.PutAsJsonAsync(
+            $"api/users/{staff.UserId}/role", new { role = "Member", reason = "Demote staff" }));
+    }
+
+    [Fact]
+    public async Task Staff_can_change_between_staff_roles()
+    {
+        var admin = await AdminAsync();
+        var staff = await factory.SeedUserAsync(NewEmail(), Password, role: UserRole.Receptionist);
+
+        var response = await admin.PutAsJsonAsync($"api/users/{staff.UserId}/role", new { role = "CenterManager", reason = "Promoted" });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Coach_leaving_for_another_staff_role_loses_specialties_and_keeps_profile()
+    {
+        var admin = await AdminAsync();
+        var coachId = await SeedCoachAsync();
+
+        var changed = await admin.PutAsJsonAsync($"api/users/{coachId}/role", new { role = "Receptionist", reason = "Moved to front desk" });
+        Assert.Equal(HttpStatusCode.OK, changed.StatusCode);
+
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
+        Assert.False(await db.Set<UserSportSpecialty>().AnyAsync(x => x.UserId == coachId));
+        Assert.True(await db.Set<CoachProfile>().AnyAsync(x => x.UserId == coachId));
     }
 
     [Fact]
@@ -168,8 +138,13 @@ public class RoleChangeValidationTests(SportHubApiFactory factory)
             await db.SaveChangesAsync();
         }
 
-        var reasons = await BlockedReasonsAsync(admin, coachId, "Member");
-        Assert.Contains(reasons, r => r.Contains("upcoming class/PT session"));
-        Assert.Contains(reasons, r => r.Contains("coaching relationship"));
+        var response = await admin.PutAsJsonAsync($"api/users/{coachId}/role", new { role = "Receptionist", reason = "Moved to front desk" });
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        var json = await Json(response);
+        Assert.Equal("role_change_blocked", json.GetProperty("error").GetString());
+        var reasons = json.GetProperty("reasons").EnumerateArray().Select(r => r.GetString()!).ToArray();
+        Assert.Contains(reasons, r => r.Contains("session", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(reasons, r => r.Contains("relationship", StringComparison.OrdinalIgnoreCase));
     }
 }
