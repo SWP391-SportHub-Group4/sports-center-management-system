@@ -33,3 +33,5 @@ Backend đọc `CLOUDINARY_URL=cloudinary://<api_key>:<api_secret>@<cloud_name>`
 Migration `AddAvatars` thêm `avatar_url`, `avatar_public_id`, `avatar_version` vào `user_profiles`, cùng `avatar_reports` và `avatar_deletions`. Cần chạy migration trước khi khởi động API với code mới. `avatar_deletions` chỉ chứa public ID đã bỏ tham chiếu; job thử lại mỗi 10 phút. Đã yêu cầu Cloudinary invalidate CDN khi xóa, nhưng cache CDN có thể cần một thời gian để hết hiệu lực.
 
 Không kiểm thử được thao tác Cloudinary thật nếu chưa có key mới trong `.env` và môi trường mạng. Có thể kiểm tra chức năng bằng tài khoản Member/Coach: tải ảnh, kéo crop, xem ở account/danh sách, thay, xóa, báo cáo từ tài khoản khác, Manager gỡ và xác nhận báo cáo ảnh cũ không gỡ ảnh mới.
+
+Migration cũ `AddCoachAvatars` vẫn nằm trong lịch sử để database đã áp dụng có thể nâng cấp; các thao tác thêm cột được thiết kế chạy an toàn cùng `AddAvatars` trên database mới.
