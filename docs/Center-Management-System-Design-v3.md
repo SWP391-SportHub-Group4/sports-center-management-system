@@ -141,7 +141,7 @@ Chọn Membership → snapshot và checkout → payment xác minh → kích ho�
 
 Luồng Member hiện tại: Membership Gym Active → Training → chọn Coach có chuyên môn PT, ngày/giờ/phòng trống → báo giá **một buổi 90 phút** → checkout giữ lịch `PendingPayment` → thanh toán được xác minh → xác nhận buổi `Scheduled`. Services chỉ có nút dẫn đến Training, không bán gói PT theo tuần. Giá mỗi checkout bằng đơn giá PT đang cấu hình; client không gửi giá. Hủy/hết hạn checkout nhả phòng, Coach và quota của buổi chờ thanh toán. Quan hệ Personal Coach–Member được tạo sau khi thanh toán thành công nếu chưa có.
 
-Gói PT đã bán trước đây giữ nguyên quota và quyền đặt lịch. `frequency` 1/2/3 chỉ còn phục vụ hợp đồng gói cũ và luồng tương thích; không tự tạo booking tuần. Xem [PT theo từng buổi](PT-Per-Session.md).
+Gói PT đã bán trước đây giữ nguyên quota và quyền đặt lịch. `frequency` 1/2/3 chỉ còn phục vụ hợp đồng gói cũ và luồng tương thích; không tự tạo booking tuần.
 
 Coach ghi kết quả/plan cho học viên được giao. Đổi/hủy/đổi Coach qua change request. Member có API xem slot, giữ lịch qua checkout và đặt lịch bằng quota đã mua trước đây.
 
@@ -402,7 +402,7 @@ Quan hệ 1–N với `USER_SPORT_SPECIALTIES` (Coach); Member có thêm 1 `POIN
 | Field | Vai trò |
 |---|---|
 | `UserId` (PK, FK → USER_ACCOUNTS) | Cùng giá trị PK với `UserAccount.UserId` — quan hệ 1–1 |
-| `PasswordHash` | Lưu hash, không bao giờ lưu plaintext — dùng để xác thực khi login. **Nullable**: account đăng ký bằng Google được tạo ngay với `PasswordHash = NULL` (chưa có mật khẩu nội bộ); `POST /api/auth/login` chỉ cho phép khi field này khác null. Có mật khẩu sau khi dùng luồng đặt mật khẩu có OTP trong Cài đặt tài khoản hoặc luồng quên mật khẩu (xem [auth-account-rules.md](auth-account-rules.md)) |
+| `PasswordHash` | Lưu hash, không bao giờ lưu plaintext — dùng để xác thực khi login. **Nullable**: account đăng ký bằng Google được tạo ngay với `PasswordHash = NULL` (chưa có mật khẩu nội bộ); `POST /api/auth/login` chỉ cho phép khi field này khác null. Có mật khẩu sau khi dùng luồng đặt mật khẩu có OTP trong Cài đặt tài khoản hoặc luồng quên mật khẩu. |
 
 #### `USER_PROFILES`
 **Mục đích:** thông tin **hiển thị** của user — tách khỏi `USER_ACCOUNTS` vì đây là dữ liệu không liên quan đến cơ chế đăng nhập/phân quyền, thay đổi theo nhu cầu UX (đổi tên, thêm field liên hệ...) độc lập với logic auth. Quan hệ 1–1 với `USER_ACCOUNTS` (chung PK).

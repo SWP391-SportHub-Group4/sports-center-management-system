@@ -41,4 +41,4 @@ Tài liệu tổng hợp phạm vi MVP từ `Requirements.md`, `SWP391_Report_SR
 
 - SRS đã đồng bộ với `Requirements.md`, SSOT và Business Rules: 5 role, Coach theo chuyên môn, UC-07/UC-08/UC-15/UC-16/UC-17 theo mô hình khóa nhiều buổi, hoàn bằng điểm.
 - Quy tắc hoàn và sự cố (BR-91, BR-130, BR-138): hoàn chuẩn Membership Gym tối đa 50%; sự cố Gym bù bằng gia hạn Membership, buổi lớp bù vào lịch tiếp theo. Đã triển khai (INC-01 trong thiết kế): Manager nhập số ngày gia hạn 0–31 khi đóng toàn bộ Gym, hệ thống gia hạn Membership Active, báo từng hội viên và ghi audit; hoàn do lỗi trung tâm chỉ tính theo phần chưa dùng.
-- VNPay mới chạy mock; sandbox thật chưa nghiệm thu (`Requirements.md` §6).
+- VNPay có gateway thật và cấu hình local `VnPay__UseMock=false`; giao dịch sandbox trên môi trường deploy vẫn cần bằng chứng nghiệm thu (`Requirements.md` §6).
