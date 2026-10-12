@@ -85,6 +85,30 @@ public sealed class GymCheckInContractTests(SchedulingApiFactory factory)
     }
 
     [Theory]
+    [InlineData(UserStatus.Banned)]
+    [InlineData(UserStatus.Deactivated)]
+    public async Task Locked_member_cannot_check_in_even_with_an_active_package(UserStatus status)
+    {
+        var member = await factory.SeedUserAsync(UserRole.Member);
+        var receptionist = await factory.SeedUserAsync(UserRole.Receptionist);
+        await factory.SeedMemberPackageAsync(member.UserId);
+        await factory.QueryAsync(db => db.UserAccounts
+            .Where(x => x.UserId == member.UserId)
+            .ExecuteUpdateAsync(s => s.SetProperty(x => x.Status, status)));
+
+        var client = factory.CreateApiClient(receptionist.UserId, UserRole.Receptionist);
+        var response = await client.PostAsJsonAsync(
+            "/api/gym-checkins",
+            new { targetMemberId = member.UserId });
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("member_not_active", body.GetProperty("error").GetString());
+        Assert.Equal(0, await factory.QueryAsync(db => db.GymCheckIns
+            .CountAsync(c => c.MemberId == member.UserId)));
+    }
+
+    [Theory]
     [InlineData(MemberPackageStatus.PendingPayment)]
     [InlineData(MemberPackageStatus.Expired)]
     [InlineData(MemberPackageStatus.Cancelled)]

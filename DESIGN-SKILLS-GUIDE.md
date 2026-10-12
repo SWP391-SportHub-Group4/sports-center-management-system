@@ -2,18 +2,20 @@
 
 **Chuẩn làm việc của An, Khôi, Hào, Khoa · cập nhật 04/10/2026.** Đây là hướng dẫn redesign toàn bộ trải nghiệm và phân công triển khai, không phải xác nhận các màn hình/API đã hoàn thành.
 
-Đọc theo thứ tự: [nguồn nghiệp vụ](docs/00-Source-of-Truth.md) → [PRODUCT](PRODUCT.md) → **[DESIGN-TOKENS.md](DESIGN-TOKENS.md)** → hướng dẫn này → file giao việc của mình. Yêu cầu trực tiếp đã chốt với chủ đề tài được ưu tiên; skill không được tự sửa nghiệp vụ, phân quyền hay token.
+**Lưu ý:** Các file giao việc tuần 05–11/10 đã được gỡ khỏi repo. Phần phân công, route và tiến độ dưới đây là tư liệu lịch sử; đối chiếu code và tài liệu nghiệp vụ hiện hành trước khi áp dụng.
 
-**Để giao việc tuần 05–11/10:** dùng [bảng FE theo tên trang](docs/frontend-redesign/KE-HOACH-FE-1-TUAN.md). Bốn assignment có mục “Bắt đầu tuần 05–11/10” để mỗi bạn biết việc đầu tiên; GUIDE và phần đặc tả dài dùng để tra quy chuẩn. Kế hoạch tuần ghi hạn mục tiêu, không thêm ước lượng giờ/người.
+Đọc theo thứ tự: [nguồn nghiệp vụ](docs/00-Source-of-Truth.md) → [PRODUCT](PRODUCT.md) → **[DESIGN-TOKENS.md](DESIGN-TOKENS.md)** → hướng dẫn này. Yêu cầu trực tiếp đã chốt với chủ đề tài được ưu tiên; skill không được tự sửa nghiệp vụ, phân quyền hay token.
 
-| Người | File giao việc, gồm page/subpage và kế hoạch API tại chỗ | Công cụ chính |
+**Giao việc tuần 05–11/10 (lịch sử):** Bảng FE và bốn assignment của giai đoạn này không còn trong repo. GUIDE và phần đặc tả dài bên dưới chỉ dùng để tra quy chuẩn thiết kế, không dùng làm nguồn tiến độ hiện tại.
+
+| Người | Phạm vi giao việc lịch sử | Công cụ chính |
 |---|---|---|
-| An | [Nền tảng, Member, PT & tài chính Manager](docs/frontend-redesign/01-AN-MEMBER-SHARED.md) | Claude Code; **owner nền tảng kỹ thuật** |
-| Khôi | [Landing, Guest, Auth & thuê sân Member](docs/frontend-redesign/02-KHOI-LANDING-PUBLIC.md) | ChatGPT Plus + Antigravity; **UI/UX Lead, chủ trì landing page** |
-| Hào | [Receptionist & Coach](docs/frontend-redesign/03-HAO-RECEPTION-COACH.md) | ChatGPT Plus + Antigravity |
-| Khoa | [Cấu hình, nhật ký & Admin](docs/frontend-redesign/04-KHOA-MANAGER-ADMIN.md) | ChatGPT Plus + Antigravity; **khối lượng ít nhất**, không điều phối toàn nhóm |
+| An | Nền tảng, Member, PT & tài chính Manager | Claude Code; **owner nền tảng kỹ thuật** |
+| Khôi | Landing, Guest, Auth & thuê sân Member | ChatGPT Plus + Antigravity; **UI/UX Lead, chủ trì landing page** |
+| Hào | Receptionist & Coach | ChatGPT Plus + Antigravity |
+| Khoa | Cấu hình, nhật ký & Admin | ChatGPT Plus + Antigravity; **khối lượng ít nhất**, không điều phối toàn nhóm |
 
-Không còn tài liệu API plan riêng: các mục G01–G13 và D01–D08 được giao trong bốn file trên. `DESIGN.md` và quy chuẩn màu cũ đã được thay thế; **không tái tạo chúng từ giao diện cũ bằng lệnh tự động**. Tài liệu token là nguồn duy nhất cho màu, font, spacing, radius, motion; guide chỉ quy định cách áp dụng.
+Kế hoạch cũ giao các mục G01–G13 và D01–D08 trong bốn assignment nay đã gỡ khỏi repo. `DESIGN.md` và quy chuẩn màu cũ đã được thay thế; **không tái tạo chúng từ giao diện cũ bằng lệnh tự động**. Tài liệu token là nguồn duy nhất cho màu, font, spacing, radius, motion; guide chỉ quy định cách áp dụng.
 
 ## 1. Kết quả rà soát và quyết định thiết kế
 
@@ -300,7 +302,7 @@ Không kết luận production-ready khi còn gap nghiệp vụ P0 liên quan.
 | An Q19–Q23 | Hóa đơn; refund queue/review; ví/ledger/adjustment; báo cáo; export/history/download/retry | UX tiền/async → UI bảng/biểu đồ |
 | Khoa Q24–Q27 | Danh mục môn/Gym/PT/rental rates; settings; audit/detail | UX validation → UI theo mẫu đã duyệt |
 | Khoa Q28 | Manager AI xếp lịch → review/edit/draft trong ClassEditor | UX human review → UI shared Drawer |
-| Khoa Q29–Q33 | Admin tổng quan; users list/detail; tạo nhân sự; đổi role/khóa/mở; audit log/detail | UX authorization → UI shared |
+| Khoa Q29–Q33 | Admin tổng quan; users list/detail; tạo nhân sự; đổi role/khóa/mở; audit log/detail. Quy tắc: chỉ Admin tạo staff (kể cả Coach kèm chuyên môn) qua `POST api/users/admin/staff` và email kích hoạt; Member và staff không chuyển đổi qua lại (409 `member_staff_role_change_not_allowed`); đổi role chỉ giữa các role staff, Coach còn lớp/lịch/quan hệ huấn luyện bị chặn; Manager không tạo Coach | UX authorization → UI shared |
 
 Landing K01 gồm **13 section**: Header → Hero → tìm khóa → Bộ môn → khóa đang mở → Gym & PT → sân/lịch trống → cơ sở vật chất → HLV → cách bắt đầu → FAQ → địa điểm/liên hệ → Footer. Khôi chịu trách nhiệm nội dung, nguồn dữ liệu, CTA, ảnh hợp lệ, SEO và responsive từng section; chi tiết ở assignment Khôi. Không thêm testimonial, số hội viên, thành tích hay form gửi thành công giả để lấp section.
 

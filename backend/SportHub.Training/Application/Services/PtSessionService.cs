@@ -119,6 +119,8 @@ public sealed partial class PtSessionService(
 
         await LockCoachAndMemberAsync(entitlementPreview.CoachId, entitlementPreview.MemberId, ct);
 
+        await RequireActiveMemberAsync(entitlementPreview.MemberId, ct);
+
         var entitlement = await LockEntitlementAsync(request.EntitlementId, ct);
 
         if (entitlement.CoachId != entitlementPreview.CoachId
@@ -286,6 +288,7 @@ public sealed partial class PtSessionService(
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
 
         await LockCoachAndMemberAsync(preview.CoachId, preview.MemberId, ct);
+        await RequireActiveMemberAsync(preview.MemberId, ct);
         var entitlement = await LockEntitlementAsync(request.EntitlementId, ct);
 
         if (entitlement.MemberId != memberId || entitlement.CoachId != preview.CoachId)
@@ -468,6 +471,8 @@ public sealed partial class PtSessionService(
         var session = await LockSessionAsync(sessionId, ct);
 
         EnsureAssignmentUnchanged(session, preview);
+
+        await RequireActiveMemberAsync(session.MemberId, ct);
         var entitlement = await LockEntitlementAsync(session.EntitlementId, ct);
 
         if (entitlement.CoachId != preview.EntitlementCoachId)
@@ -593,6 +598,8 @@ public sealed partial class PtSessionService(
 
         EnsureAssignmentUnchanged(session, preview);
 
+        await RequireActiveMemberAsync(session.MemberId, ct);
+
         if (session.CoachId != coachId)
         {
             throw new ForbiddenException("pt_session_not_owned", "Pt session not owned.");
@@ -663,6 +670,9 @@ public sealed partial class PtSessionService(
 
         EnsureAssignmentUnchanged(session, preview);
 
+        if (coachId.HasValue)
+            await RequireActiveMemberAsync(session.MemberId, ct);
+
         if (coachId.HasValue && session.CoachId != coachId)
         {
             throw new ForbiddenException("pt_session_not_owned", "Pt session not owned.");
@@ -720,6 +730,17 @@ public sealed partial class PtSessionService(
             throw new BadRequestException("attendance_not_open", "Attendance not open.");
         if (clock.UtcNow > SessionAttendanceWindow.ClosesAt(session.EndAtUtc))
             throw new ConflictException("attendance_closed", "Attendance closed.");
+    }
+
+    private async Task RequireActiveMemberAsync(Guid memberId, CancellationToken ct)
+    {
+        // Prevent staff initiated PT service actions for locked accounts. The row lock also
+        // serializes the decision against UserAdminService.SetStatusAsync.
+        await db.Database.ExecuteSqlInterpolatedAsync(
+            $"SELECT user_id FROM user_accounts WHERE user_id = {memberId} FOR SHARE", ct);
+        var member = await users.GetAsync(memberId, ct);
+        if (member is null || member.Role != "Member" || !member.IsActive)
+            throw new ConflictException("member_not_active", "Member not active.");
     }
 
 

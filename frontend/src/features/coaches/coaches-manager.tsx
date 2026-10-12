@@ -1,7 +1,6 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
@@ -14,10 +13,7 @@ import { AvatarImage } from "@/components/AvatarImage";
 export function CoachesManager() {
   const { t } = useLanguage();
   const l = t.operations;
-  const router = useRouter();
-  const [editing, setEditing] = useState<CoachAdminDto | null | undefined>(
-    undefined,
-  );
+  const [editing, setEditing] = useState<CoachAdminDto | undefined>();
   const { values, setValues } = useUrlQuery(
     { keyword: "", sportId: "", page: "1" },
     { page: pageQuery },
@@ -53,11 +49,6 @@ export function CoachesManager() {
         values={values}
         onChange={(next) => setValues({ ...next, page: "1" })}
         onReset={() => setValues({ keyword: "", sportId: "", page: "1" })}
-        actions={
-          <button className="btn" onClick={() => setEditing(null)}>
-            {l.create}
-          </button>
-        }
       />
       {sports.error && <p role="alert">{sports.error.message}</p>}
       <ApiTable
@@ -118,13 +109,11 @@ export function CoachesManager() {
       />
       {editing !== undefined && (
         <CoachEditor
-          coach={editing ?? undefined}
+          coach={editing}
           onClose={() => setEditing(undefined)}
-          onSaved={(saved) => {
+          onSaved={() => {
             setEditing(undefined);
             state.reload();
-            if (editing === null)
-              router.push(`/manager/coaches/${saved.userId}`);
           }}
         />
       )}

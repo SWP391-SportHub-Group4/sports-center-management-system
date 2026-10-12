@@ -48,7 +48,7 @@ public sealed class PtPurchaseFulfillment(PtPricingService pricing, IPtEntitleme
             .SingleOrDefaultAsync(x => x.ActivationReference == invoiceItemId
                 || (relatedEntitlementId != null && x.EntitlementId == relatedEntitlementId), cancellationToken);
         return row is null ? null : new PtRefundFacts(row.MemberId, row.ReservedSessions, row.ConsumedSessions,
-            row.Status.ToString());
+            row.Status.ToString(), row.TotalQuota);
     }
 
     public async Task CancelByInvoiceItemAsync(Guid invoiceItemId, Guid? relatedEntitlementId, string reason, Guid actorUserId,

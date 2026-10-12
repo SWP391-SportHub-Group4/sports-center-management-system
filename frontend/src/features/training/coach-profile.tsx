@@ -16,6 +16,7 @@ import type {
   SportDto,
 } from "@/lib/types";
 import { isRetiredActivityPackage } from "@/features/membership";
+import { nonOverlappingPtSlots } from "./pt-availability";
 import styles from "./coach-profile.module.css";
 
 type CoachDto = {
@@ -36,9 +37,11 @@ const WEEK_DAYS = 7;
 export function CoachProfile({
   coachId,
   publicView = false,
+  onSelectCoach,
 }: {
   coachId: string;
   publicView?: boolean;
+  onSelectCoach?: () => void;
 }) {
   const { language } = useLanguage();
   const { user } = useAuth();
@@ -109,14 +112,19 @@ export function CoachProfile({
     const list = Array.from({ length: WEEK_DAYS }, (_, i) =>
       addDaysIso(from, i),
     );
-    const byDay = new Map<string, string[]>(list.map((d) => [d, []]));
+    const byDay = new Map<string, { startAtUtc: string; endAtUtc: string }[]>(
+      list.map((d) => [d, []]),
+    );
     for (const slot of week.data?.slots ?? []) {
       const key = new Intl.DateTimeFormat("en-CA", {
         timeZone: "Asia/Ho_Chi_Minh",
       }).format(new Date(slot.startAtUtc));
-      byDay.get(key)?.push(slot.startAtUtc);
+      byDay.get(key)?.push(slot);
     }
-    return list.map((date) => ({ date, slots: byDay.get(date) ?? [] }));
+    return list.map((date) => ({
+      date,
+      slots: nonOverlappingPtSlots(byDay.get(date) ?? []),
+    }));
   }, [week.data, from]);
 
   const bookHref = `/member/training?tab=book&coach=${encodeURIComponent(coachId)}`;
@@ -132,15 +140,17 @@ export function CoachProfile({
 
   return (
     <div className={styles.page}>
-      <Link
-        className={styles.back}
-        href={publicView ? "/coaches" : "/member/training?tab=book"}
-      >
-        <ArrowLeft size={16} aria-hidden="true" />
-        {publicView
-          ? text("Quay lại danh sách huấn luyện viên", "Back to coaches")
-          : text("Quay lại đặt lịch PT", "Back to PT booking")}
-      </Link>
+      {!onSelectCoach && (
+        <Link
+          className={styles.back}
+          href={publicView ? "/coaches" : "/member/training?tab=book"}
+        >
+          <ArrowLeft size={16} aria-hidden="true" />
+          {publicView
+            ? text("Quay lại danh sách huấn luyện viên", "Back to coaches")
+            : text("Quay lại đặt lịch PT", "Back to PT booking")}
+        </Link>
+      )}
       <AsyncSection state={coaches}>
         {(list) => {
           const coach = list?.find((c) => c.userId === coachId);
@@ -179,7 +189,13 @@ export function CoachProfile({
             label: string;
           }[];
           return (
-            <div className={isPtCoach ? styles.layout : styles.layoutSingle}>
+            <div
+              className={
+                isPtCoach && !onSelectCoach
+                  ? styles.layout
+                  : styles.layoutSingle
+              }
+            >
               <div className={styles.main}>
                 <header className={styles.hero}>
                   <AvatarImage
@@ -196,7 +212,7 @@ export function CoachProfile({
                           : text("Huấn luyện viên", "Coach"))}
                     </p>
                     <h1>{coach.fullName}</h1>
-                    {specialties.length > 0 && (
+                    {(specialties.length > 0 || isPtCoach) && (
                       <ul
                         className={styles.badges}
                         aria-label={text("Bộ môn", "Specialties")}
@@ -207,7 +223,29 @@ export function CoachProfile({
                             {s.name}
                           </li>
                         ))}
+                        {isPtCoach && (
+                          <li>
+                            <Dumbbell size={13} aria-hidden="true" />
+                            {text("Personal Trainer", "Personal Trainer")}
+                          </li>
+                        )}
                       </ul>
+                    )}
+                    {isPtCoach && (
+                      <div className={styles.heroRate}>
+                        <span>
+                          {text(
+                            "Giá mỗi buổi 90 phút",
+                            "Per 90-minute session",
+                          )}
+                        </span>
+                        <strong>
+                          {price.data
+                            ? formatMoney(price.data.pricePerSessionVnd)
+                            : "—"}
+                          <small> / {text("buổi", "session")}</small>
+                        </strong>
+                      </div>
                     )}
                     <dl className={styles.facts}>
                       {facts.map(({ icon: Icon, value, label }) => (
@@ -288,8 +326,11 @@ export function CoachProfile({
                                 </span>
                                 {d.slots.length ? (
                                   <span className={styles.slots}>
-                                    {d.slots.slice(0, 4).map((s) => (
-                                      <span key={s}>{formatTime(s)}</span>
+                                    {d.slots.slice(0, 4).map((slot) => (
+                                      <span key={slot.startAtUtc}>
+                                        {formatTime(slot.startAtUtc)} –{" "}
+                                        {formatTime(slot.endAtUtc)}
+                                      </span>
                                     ))}
                                     {d.slots.length > 4 && (
                                       <em>
@@ -315,25 +356,25 @@ export function CoachProfile({
 
               {isPtCoach && (
                 <aside
-                  className={styles.bookBar}
+                  className={`${styles.bookBar} ${onSelectCoach ? styles.bookBarInline : ""}`}
                   aria-label={text("Đặt lịch", "Booking")}
                 >
-                  <div className={styles.priceBlock}>
-                    <small>
-                      {text("Giá mỗi buổi 90 phút", "Per 90-minute session")}
-                    </small>
-                    <strong>
-                      {price.data
-                        ? formatMoney(price.data.pricePerSessionVnd)
-                        : "—"}
-                    </strong>
-                  </div>
-                  <Link
-                    className={`btn ${styles.bookButton}`}
-                    href={bookingHref}
-                  >
-                    {text("Đặt lịch PT 1-1", "Book 1-on-1 PT")}
-                  </Link>
+                  {onSelectCoach ? (
+                    <button
+                      type="button"
+                      className={`btn ${styles.bookButton}`}
+                      onClick={onSelectCoach}
+                    >
+                      {text("Chọn HLV này để đặt lịch", "Choose this coach")}
+                    </button>
+                  ) : (
+                    <Link
+                      className={`btn ${styles.bookButton}`}
+                      href={bookingHref}
+                    >
+                      {text("Đặt lịch PT 1-1", "Book 1-on-1 PT")}
+                    </Link>
+                  )}
                 </aside>
               )}
             </div>

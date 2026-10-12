@@ -229,6 +229,8 @@ builder.Services.AddScoped<IEmailSender>(sp =>
 
 // Administration (BR-2, BR-6, BR-7, BR-39, BR-44..BR-48)
 builder.Services.AddScoped<IUserAdminService, UserAdminService>();
+builder.Services.AddScoped<SportHub.Administration.Application.Services.ActivationLinkService>();
+builder.Services.AddScoped<SportHub.Administration.Application.Services.FrontDeskMemberService>();
 builder.Services.AddScoped<ISystemSettingService, SystemSettingService>();
 builder.Services.AddScoped<IAuditQueryService, AuditQueryService>();
 builder.Services.AddSingleton<IReportStorage, FileSystemReportStorage>();
@@ -320,7 +322,8 @@ if (!builder.Environment.IsDevelopment())
 builder.Services.Configure<VnPayOptions>(vnPaySection);
 builder.Services.AddHttpClient<VnPayGateway>();
 builder.Services.AddSingleton<IPaymentGateway>(sp =>
-    builder.Environment.IsDevelopment() && vnPayUseMock
+    sp.GetRequiredService<IHostEnvironment>().IsDevelopment()
+    && sp.GetRequiredService<IOptions<VnPayOptions>>().Value.UseMock
         ? new MockPaymentGateway()
         : sp.GetRequiredService<VnPayGateway>());
 builder.Services.AddScoped<CheckoutService>();
@@ -434,6 +437,7 @@ builder.Services.AddSportHubSwagger();
 
 builder.Services.AddScoped<DemoDataSeeder>();
 builder.Services.AddScoped<Br141DemoSeeder>();
+builder.Services.AddScoped<DemoFlow12Seeder>();
 builder.Services.AddScoped<CoachRosterSeeder>();
 builder.Services.AddScoped<FacilityBaselineSeeder>();
 builder.Services.AddScoped<PaymentNoticeService>();
@@ -518,8 +522,22 @@ if (args.Any(a => a.StartsWith("--seed-br141", StringComparison.Ordinal)))
     return;
 }
 
+// Seed demo Flow 1 + Flow 2 (Member demo có ví điểm, gói Gym, lớp 2 chỗ): lệnh riêng, idempotent.
+//   dotnet run --project backend/SportHub.API -- --seed-demo-flow12=true
+if (args.Any(a => a.StartsWith("--seed-demo-flow12", StringComparison.Ordinal)))
+{
+    var flow12Target = new Npgsql.NpgsqlConnectionStringBuilder(app.Configuration.GetConnectionString("Default"));
+    Console.WriteLine($"[seed-demo-flow12] database '{flow12Target.Database}' on '{flow12Target.Host}:{flow12Target.Port}'");
+    await using var flow12Scope = app.Services.CreateAsyncScope();
+    await flow12Scope.ServiceProvider.GetRequiredService<SportHubDbContext>().Database.MigrateAsync();
+    await flow12Scope.ServiceProvider.GetRequiredService<FacilityBaselineSeeder>().SeedAsync();
+    await flow12Scope.ServiceProvider.GetRequiredService<DemoFlow12Seeder>().SeedAsync();
+    return;
+}
+
 // Ở Development: áp migration rồi seed dữ liệu demo. Seeder tự bỏ qua nếu DB đã có tài khoản,
-// nên không bao giờ ghi đè dữ liệu người dùng đang có.
+// nên không bao giờ ghi đè dữ liệu người dùng đang có. Roster Coach là cấu hình riêng, cần đồng bộ
+// kể cả khi database đã có các loại tài khoản khác.
 // Ở môi trường khác, migration chạy qua `dotnet ef database update` trong quy trình triển khai —
 // tự migrate khi khởi động nhiều instance sẽ có nhiều tiến trình cùng đổi schema một lúc.
 if (app.Environment.IsDevelopment())
@@ -528,6 +546,7 @@ if (app.Environment.IsDevelopment())
 
     await startupScope.ServiceProvider.GetRequiredService<SportHubDbContext>().Database.MigrateAsync();
     await startupScope.ServiceProvider.GetRequiredService<DemoDataSeeder>().SeedAsync();
+    await startupScope.ServiceProvider.GetRequiredService<CoachRosterSeeder>().SeedAsync();
     await startupScope.ServiceProvider.GetRequiredService<FacilityBaselineSeeder>().SeedAsync();
 }
 

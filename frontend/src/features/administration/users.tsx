@@ -1,5 +1,4 @@
 "use client";
-import { PasswordInput } from "@/components/primitives";
 import Link from "next/link";
 import { useState } from "react";
 import { Card, Dialog, Feedback, Field } from "@/components/ui";
@@ -17,7 +16,6 @@ import { choiceQuery, pageQuery, useUrlQuery } from "@/lib/useUrlQuery";
 import { useAuth } from "@/lib/auth";
 import { useLanguage } from "@/lib/language";
 import { MutationFeedback, useMutation } from "@/features/operations";
-import { PasswordRequirements, passwordChecks } from "@/features/identity";
 import type { SportDto, Paged, UserAdminDto } from "@/lib/types";
 import { SportOptions } from "./SportOptions";
 import styles from "./users.module.css";
@@ -27,7 +25,13 @@ const staffRoles = [
   "RECEPTIONIST",
   "SYSTEM_ADMINISTRATOR",
 ];
-const creationRoles = staffRoles.filter((role) => role !== "COACH");
+const creationRoles = staffRoles;
+const staffRoleIds: Record<string, number> = {
+  CENTER_MANAGER: 1,
+  COACH: 2,
+  RECEPTIONIST: 4,
+  SYSTEM_ADMINISTRATOR: 5,
+};
 const accountRoles = [...staffRoles, "MEMBER"];
 const accountStatuses = ["ACTIVE", "BANNED", "DEACTIVATED"];
 const accountStatusTones: Partial<Record<string, StatusTone>> = {
@@ -84,15 +88,24 @@ function RoleSelect({
 function SportSelect({
   value,
   onChange,
+  singleSelect = false,
 }: {
   value: number[];
   onChange: (value: number[]) => void;
+  singleSelect?: boolean;
 }) {
   const state = useApi(
     (signal) => api.get<SportDto[]>("/api/sports", { signal }),
     [],
   );
-  return <SportOptions state={state} value={value} onChange={onChange} />;
+  return (
+    <SportOptions
+      state={state}
+      value={value}
+      onChange={onChange}
+      singleSelect={singleSelect}
+    />
+  );
 }
 function CreateStaff({
   reload,
@@ -105,13 +118,15 @@ function CreateStaff({
   const l = t.staffWork;
   const mutation = useMutation();
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirm, setConfirm] = useState("");
+  const [confirmEmail, setConfirmEmail] = useState("");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [role, setRole] = useState("RECEPTIONIST");
+  const [specialties, setSpecialties] = useState<number[]>([]);
   const [review, setReview] = useState(false);
   const fieldClass = `form-grid__row ${styles.halfField}`;
+  const emailsMatch =
+    email.trim().toLowerCase() === confirmEmail.trim().toLowerCase();
 
   return (
     <Dialog
@@ -132,18 +147,15 @@ function CreateStaff({
           }
           if (
             await mutation.run(() =>
-              api.post("/api/users", {
+              api.post("/api/users/admin/staff", {
                 email: email.trim(),
-                password,
                 fullName: name.trim(),
                 phone: phone.trim() || null,
-                role,
-                sportIds: [],
+                roleId: staffRoleIds[role],
+                specialties: role === "COACH" ? specialties : [],
               }),
             )
           ) {
-            setPassword("");
-            setConfirm("");
             reload();
           }
         }}
@@ -160,6 +172,22 @@ function CreateStaff({
                   onChange={(event) => setEmail(event.target.value)}
                 />
               </Field>
+            </div>
+            <div className={fieldClass}>
+              <Field label={t.adminWork.confirmEmail} required>
+                <input
+                  type="email"
+                  required
+                  autoComplete="off"
+                  value={confirmEmail}
+                  onChange={(event) => setConfirmEmail(event.target.value)}
+                  onPaste={(event) => event.preventDefault()}
+                  aria-invalid={confirmEmail !== "" && !emailsMatch}
+                />
+              </Field>
+              {confirmEmail !== "" && !emailsMatch && (
+                <p role="alert">{t.adminWork.emailMismatch}</p>
+              )}
             </div>
             <div className={fieldClass}>
               <Field label={l.fullName} required>
@@ -185,34 +213,17 @@ function CreateStaff({
             <div className={fieldClass}>
               <RoleSelect value={role} onChange={setRole} />
             </div>
-            <div className={fieldClass}>
-              <Field label={l.password} required>
-                <PasswordInput
-                  required
-                  autoComplete="new-password"
-                  maxLength={64}
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
+            {role === "COACH" && (
+              <div className="form-grid__row">
+                <SportSelect
+                  value={specialties}
+                  onChange={setSpecialties}
+                  singleSelect
                 />
-              </Field>
-            </div>
-            <div className={fieldClass}>
-              <Field
-                label={l.confirmPassword}
-                required
-                error={confirm && confirm !== password ? l.mismatch : undefined}
-              >
-                <PasswordInput
-                  required
-                  autoComplete="new-password"
-                  maxLength={64}
-                  value={confirm}
-                  onChange={(event) => setConfirm(event.target.value)}
-                />
-              </Field>
-            </div>
+              </div>
+            )}
           </div>
-          <PasswordRequirements email={email} password={password} />
+          <p className={styles.activationNote}>{t.adminWork.activationHint}</p>
         </div>
         {review && (
           <dl className={styles.details}>
@@ -234,6 +245,17 @@ function CreateStaff({
                 <StatusChip value={role} />
               </dd>
             </div>
+            {role === "COACH" && (
+              <div>
+                <dt>{l.specialties}</dt>
+                <dd>
+                  {t.adminWork.specialtyCount.replace(
+                    "{count}",
+                    String(specialties.length),
+                  )}
+                </dd>
+              </div>
+            )}
           </dl>
         )}
         <MutationFeedback mutation={mutation} />
@@ -264,8 +286,8 @@ function CreateStaff({
             className="btn"
             disabled={
               mutation.busy ||
-              !passwordChecks(password, email).every(Boolean) ||
-              password !== confirm
+              !emailsMatch ||
+              (role === "COACH" && specialties.length === 0)
             }
           >
             {review ? l.confirm : t.adminWork.reviewCreate}
@@ -273,6 +295,112 @@ function CreateStaff({
         </div>
       </form>
     </Dialog>
+  );
+}
+function PendingActivationPanel({
+  account: a,
+  reload,
+}: {
+  account: UserAdminDto;
+  reload: () => void;
+}) {
+  const { t } = useLanguage();
+  const d = t.adminWork;
+  const l = t.staffWork;
+  const mutation = useMutation();
+  const [changing, setChanging] = useState(false);
+  const [email, setEmail] = useState("");
+  const [confirmEmail, setConfirmEmail] = useState("");
+  const [reason, setReason] = useState("");
+  const matches =
+    email.trim().toLowerCase() === confirmEmail.trim().toLowerCase();
+  const valid =
+    email.trim() !== "" &&
+    matches &&
+    reason.trim().length >= 3 &&
+    reason.trim().length <= 500;
+  return (
+    <section
+      className={styles.roleBlockers}
+      aria-labelledby="pending-activation-title"
+    >
+      <h3 id="pending-activation-title">{d.pendingActivation}</h3>
+      <p>{d.pendingActivationHint}</p>
+      <div className="btn-row">
+        <button
+          type="button"
+          className="btn btn--secondary"
+          disabled={mutation.busy}
+          onClick={() =>
+            void mutation.run(() =>
+              api.post(`/api/users/${a.userId}/resend-activation`),
+            )
+          }
+        >
+          {d.resendActivation}
+        </button>
+        <button
+          type="button"
+          className="btn btn--secondary"
+          disabled={mutation.busy}
+          onClick={() => setChanging((value) => !value)}
+        >
+          {d.changeEmail}
+        </button>
+      </div>
+      {changing && (
+        <div className="stack">
+          <Field label={d.newEmail} required>
+            <input
+              type="email"
+              autoComplete="off"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+            />
+          </Field>
+          <Field label={d.confirmNewEmail} required>
+            <input
+              type="email"
+              autoComplete="off"
+              value={confirmEmail}
+              onChange={(event) => setConfirmEmail(event.target.value)}
+              onPaste={(event) => event.preventDefault()}
+              aria-invalid={confirmEmail !== "" && !matches}
+            />
+          </Field>
+          {confirmEmail !== "" && !matches && (
+            <p role="alert">{d.emailMismatch}</p>
+          )}
+          <Field label={l.reason} required>
+            <textarea
+              minLength={3}
+              maxLength={500}
+              value={reason}
+              onChange={(event) => setReason(event.target.value)}
+            />
+          </Field>
+          <button
+            type="button"
+            className="btn"
+            disabled={mutation.busy || !valid}
+            onClick={async () => {
+              if (
+                await mutation.run(() =>
+                  api.put(`/api/users/${a.userId}/email`, {
+                    email: email.trim(),
+                    reason: reason.trim(),
+                  }),
+                )
+              )
+                reload();
+            }}
+          >
+            {d.saveNewEmail}
+          </button>
+        </div>
+      )}
+      <MutationFeedback mutation={mutation} />
+    </section>
   );
 }
 type AccountAction = "role" | "lock" | "unlock" | "deactivate";
@@ -294,7 +422,30 @@ export function EditUser({
   const [sports, setSports] = useState(a.sportIds);
   const [reason, setReason] = useState("");
   const [review, setReview] = useState<AccountAction | null>(null);
+  const [copiedLink, setCopiedLink] = useState<
+    "manager" | "receptionist" | "failed" | null
+  >(null);
   const mutation = useMutation();
+  const roleBlockReasons =
+    review === "role" && mutation.error?.code === "role_change_blocked"
+      ? mutation.error.details.reasons
+      : null;
+  const blockedReasons = Array.isArray(roleBlockReasons)
+    ? roleBlockReasons.filter(
+        (value): value is string => typeof value === "string",
+      )
+    : [];
+  async function copyMemberLink(audience: "manager" | "receptionist") {
+    const path = `/${audience}/members/${a.userId}`;
+    try {
+      await navigator.clipboard.writeText(
+        new URL(path, window.location.origin).toString(),
+      );
+      setCopiedLink(audience);
+    } catch {
+      setCopiedLink("failed");
+    }
+  }
   const validReason = reason.trim().length >= 3 && reason.trim().length <= 500;
   const statusLabels: Record<string, string> = {
     ACTIVE: l.accountActive,
@@ -357,6 +508,9 @@ export function EditUser({
             />
           </div>
         </div>
+        {!review && a.activationPending && (
+          <PendingActivationPanel account={a} reload={reload} />
+        )}
         {!review ? (
           <>
             <Field label={l.reason} required>
@@ -369,29 +523,34 @@ export function EditUser({
               />
             </Field>
             <>
-              <RoleSelect
-                member
-                value={role}
-                onChange={(r) => {
-                  setRole(r);
-                  setSports([]);
-                }}
-              />
-              {role === "COACH" && (
-                <SportSelect value={sports} onChange={setSports} />
+              {a.role === "MEMBER" ? (
+                <p>{d.memberRoleLocked}</p>
+              ) : (
+                <>
+                  <RoleSelect
+                    value={role}
+                    onChange={(r) => {
+                      setRole(r);
+                      setSports([]);
+                    }}
+                  />
+                  {role === "COACH" && (
+                    <SportSelect value={sports} onChange={setSports} />
+                  )}
+                  <button
+                    type="button"
+                    className="btn"
+                    disabled={
+                      !validReason ||
+                      role === a.role ||
+                      (role === "COACH" && !sports.length)
+                    }
+                    onClick={() => setReview("role")}
+                  >
+                    {l.changeRole}
+                  </button>
+                </>
               )}
-              <button
-                type="button"
-                className="btn"
-                disabled={
-                  !validReason ||
-                  role === a.role ||
-                  (role === "COACH" && !sports.length)
-                }
-                onClick={() => setReview("role")}
-              >
-                {l.changeRole}
-              </button>
             </>
             {a.userId !== user?.userId && (
               <div className="btn-row">
@@ -487,7 +646,54 @@ export function EditUser({
               </div>
             </dl>
             <p>{impact}</p>
-            <MutationFeedback mutation={mutation} />
+            {blockedReasons.length > 0 ? (
+              <section
+                className={styles.roleBlockers}
+                aria-labelledby="role-blockers-title"
+              >
+                <h3 id="role-blockers-title">{d.roleBlockTitle}</h3>
+                <ul>
+                  {blockedReasons.map((blocker, index) => (
+                    <li key={`${index}-${blocker}`}>
+                      <span aria-hidden="true">✕</span>
+                      <span>{blocker}</span>
+                    </li>
+                  ))}
+                </ul>
+                <p>{d.roleBlockGuidance}</p>
+                <div className="btn-row">
+                  <Link
+                    className="btn btn--secondary"
+                    href={`/admin/users/${a.userId}`}
+                  >
+                    {d.roleBlockAccountLink}
+                  </Link>
+                  <button
+                    type="button"
+                    className="btn btn--secondary"
+                    onClick={() => copyMemberLink("manager")}
+                  >
+                    {d.roleBlockCopyManager}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn--secondary"
+                    onClick={() => copyMemberLink("receptionist")}
+                  >
+                    {d.roleBlockCopyReceptionist}
+                  </button>
+                </div>
+                {copiedLink && (
+                  <p role="status">
+                    {copiedLink === "failed"
+                      ? d.roleBlockCopyFailed
+                      : d.roleBlockCopied}
+                  </p>
+                )}
+              </section>
+            ) : (
+              <MutationFeedback mutation={mutation} />
+            )}
             <div className="btn-row">
               <button
                 type="button"
@@ -603,11 +809,23 @@ export function Users() {
       header: l.status,
       sortable: true,
       cell: (account) => (
-        <StatusChip
-          value={account.status}
-          tone={accountStatusTones[account.status]}
-          label={statusLabels[account.status]}
-        />
+        <>
+          <StatusChip
+            value={account.status}
+            tone={accountStatusTones[account.status]}
+            label={statusLabels[account.status]}
+          />
+          {account.activationPending && (
+            <>
+              {" "}
+              <StatusChip
+                value="PENDING_ACTIVATION"
+                tone="warning"
+                label={t.adminWork.pendingActivation}
+              />
+            </>
+          )}
+        </>
       ),
     },
   ];

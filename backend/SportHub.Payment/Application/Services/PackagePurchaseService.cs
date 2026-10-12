@@ -58,6 +58,9 @@ public sealed class PackagePurchaseService(
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         await db.Database.ExecuteSqlInterpolatedAsync(
             $"SELECT user_id FROM user_accounts WHERE user_id = {request.MemberId} FOR UPDATE", ct);
+        var lockedMember = await users.GetAsync(request.MemberId, ct);
+        if (lockedMember is null || lockedMember.Role != "Member" || !lockedMember.IsActive)
+            throw new ConflictException("member_not_active", "Member not active.");
         if (!string.IsNullOrWhiteSpace(idempotencyKey))
         {
             var existing = await db.Set<CheckoutSession>().AsNoTracking()

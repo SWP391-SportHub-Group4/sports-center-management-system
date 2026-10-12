@@ -14,6 +14,7 @@ const account = {
   createdAt: "2026-10-01T02:00:00Z",
   hasPassword: true,
   hasGoogleLink: false,
+  activationPending: false,
 };
 
 async function setup(
@@ -52,7 +53,10 @@ async function setup(
         },
       });
     }
-    if (url.pathname === `/api/users/${row.userId}`) {
+    if (
+      url.pathname === `/api/users/${row.userId}` ||
+      url.pathname === `/api/users/admin/${row.userId}`
+    ) {
       return options.detailStatus
         ? route.fulfill({
             status: options.detailStatus,
@@ -126,11 +130,11 @@ test("live Admin overview uses account APIs and detail exposes the current G10 p
   });
   await page.goto(`/admin/users/${user.userId}`);
   await expect(
-    page.getByText("BLOCKED API — G10", { exact: true }),
+    page.getByText("Account details are temporarily unavailable", { exact: true }),
   ).toBeVisible();
   await page.reload();
   await expect(
-    page.getByText("BLOCKED API — G10", { exact: true }),
+    page.getByText("Account details are temporarily unavailable", { exact: true }),
   ).toBeVisible();
   await page.screenshot({
     path: "../output/admin-detail-g10-live.png",
@@ -215,17 +219,17 @@ test("Admin detail reports G10 on direct access and reload without hiding other 
   await setup(page, { detailStatus: 403 });
   await page.goto(`/admin/users/${account.userId}`);
   await expect(
-    page.getByText("BLOCKED API — G10", { exact: true }),
+    page.getByText("Account details are temporarily unavailable", { exact: true }),
   ).toBeVisible();
   await page.reload();
   await expect(
-    page.getByText("BLOCKED API — G10", { exact: true }),
+    page.getByText("Account details are temporarily unavailable", { exact: true }),
   ).toBeVisible();
   await page.screenshot({
     path: "../output/admin-detail-g10.png",
     fullPage: true,
   });
-  await page.route(`**/api/users/${account.userId}`, (route) =>
+  await page.route(`**/api/users/admin/${account.userId}`, (route) =>
     route.fulfill({
       status: 404,
       json: { error: "user_not_found", message: "Missing user" },
@@ -236,7 +240,7 @@ test("Admin detail reports G10 on direct access and reload without hiding other 
     page.getByRole("heading", { name: "Account not found", exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByText("BLOCKED API — G10", { exact: true }),
+    page.getByText("Account details are temporarily unavailable", { exact: true }),
   ).toHaveCount(0);
 });
 
@@ -293,6 +297,49 @@ test("role change requires reason and review; backend denial preserves the form"
   );
 });
 
+test("blocked Coach role change shows specific reasons and shareable handoff links", async ({
+  page,
+}) => {
+  const row = await setup(page);
+  row.role = "COACH";
+  await page.route(`**/api/users/${row.userId}/role`, (route) =>
+    route.fulfill({
+      status: 409,
+      json: {
+        error: "role_change_blocked",
+        message: "Role change is blocked.",
+        reasons: [
+          "Main coach of 1 unfinished class. Reassign it first.",
+          "2 upcoming class/PT session(s) are still assigned. Reassign or cancel them first.",
+          "1 active coaching relationship(s). End or transfer them first.",
+        ],
+      },
+    }),
+  );
+  await page.goto("/admin/users");
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Reason", { exact: true }).fill("Hire as receptionist");
+  await dialog.getByLabel("Role", { exact: true }).selectOption("RECEPTIONIST");
+  await dialog.getByRole("button", { name: "Change role", exact: true }).click();
+  await dialog.getByRole("button", { name: "Confirm", exact: true }).click();
+
+  const blockers = dialog.getByRole("region", {
+    name: "Resolve these items before changing the role",
+  });
+  await expect(blockers.getByRole("listitem")).toHaveCount(3);
+  await expect(blockers).toContainText("Main coach of 1 unfinished class");
+  await expect(blockers).toContainText("2 upcoming class/PT session(s)");
+  await expect(blockers).toContainText("1 active coaching relationship(s)");
+  await expect(blockers).toContainText("Contact a Center Manager or Receptionist");
+  await expect(blockers.getByRole("link", { name: "View account details" })).toHaveAttribute(
+    "href",
+    `/admin/users/${row.userId}`,
+  );
+  await expect(blockers.getByRole("button", { name: "Copy Manager member link" })).toBeVisible();
+  await expect(blockers.getByRole("button", { name: "Copy Receptionist member link" })).toBeVisible();
+});
+
 test("lock/unlock require review, refresh the list and display successful outcomes", async ({
   page,
 }) => {
@@ -328,42 +375,49 @@ test("lock/unlock require review, refresh the list and display successful outcom
   expect(writes).toBe(2);
 });
 
-test("staff creation requires review, keeps password private and submits only once", async ({
+test("staff creation sends an activation email and lets Admin assign Coach specialties", async ({
   page,
 }) => {
   await setup(page);
   let writes = 0;
-  await page.route("**/api/users", (route) => {
+  await page.route("**/api/users/admin/staff", (route) => {
     writes++;
     expect(route.request().method()).toBe("POST");
     expect(route.request().postDataJSON()).toMatchObject({
       fullName: "New staff",
-      role: "RECEPTIONIST",
-      sportIds: [],
+      roleId: 2,
+      specialties: [1],
     });
+    expect(route.request().postDataJSON()).not.toHaveProperty("password");
     return route.fulfill({ status: 201, json: account });
   });
   await page.goto("/admin/users?create=1");
   const dialog = page.getByRole("dialog");
   await expect(
     dialog.getByLabel("Role", { exact: true }).locator("option"),
-  ).toHaveText(["Center Manager", "Receptionist", "System Administrator"]);
+  ).toHaveText(["Center Manager", "Coach", "Receptionist", "System Administrator"]);
   await dialog.getByLabel("Full name", { exact: true }).fill("New staff");
   await dialog.getByLabel("Email", { exact: true }).fill("new@example.com");
-  await dialog.getByLabel("Password", { exact: true }).fill("StrongPass@123");
-  await dialog
-    .getByLabel("Confirm password", { exact: true })
-    .fill("StrongPass@123");
+  await dialog.getByLabel("Confirm email", { exact: true }).fill("neww@example.com");
+  await expect(dialog.getByText("The two email addresses do not match.")).toBeVisible();
+  await expect(
+    dialog.getByRole("button", { name: "Review staff account", exact: true }),
+  ).toBeDisabled();
+  await dialog.getByLabel("Confirm email", { exact: true }).fill("NEW@example.com");
+  await dialog.getByLabel("Role", { exact: true }).selectOption("COACH");
+  await dialog.getByRole("radio", { name: "Gym" }).check();
+  await expect(dialog.getByLabel("Password", { exact: true })).toHaveCount(0);
+  await expect(dialog).toContainText("An activation email with a link to set the first password");
   await dialog
     .getByRole("button", { name: "Review staff account", exact: true })
     .click();
   await expect(dialog).toContainText("new@example.com");
-  await expect(dialog).not.toContainText("StrongPass@123");
+  await expect(dialog).toContainText("Selected specialties: 1");
   expect(writes).toBe(0);
   await dialog.getByRole("button", { name: "Confirm", exact: true }).click();
   await expect(dialog).toHaveCount(0);
   await expect(
-    page.getByText("Staff account created. The list has been refreshed.", {
+    page.getByText("Staff account created. An activation email has been queued.", {
       exact: true,
     }),
   ).toBeVisible();
@@ -424,4 +478,85 @@ test("detail reloads current data after mutation when the API allows access", as
   await expect(page.locator("dl").first()).toContainText("Locked");
   await page.reload();
   await expect(page.locator("dl").first()).toContainText("Locked");
+});
+
+test("Member accounts cannot be converted to staff and show how to create a staff account", async ({
+  page,
+}) => {
+  const row = await setup(page);
+  row.role = "MEMBER";
+  await page.goto("/admin/users");
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toContainText(
+    "Member accounts cannot be converted to staff. Create a staff account with a different email instead.",
+  );
+  await expect(dialog.getByLabel("Role", { exact: true })).toHaveCount(0);
+  await expect(
+    dialog.getByRole("button", { name: "Change role", exact: true }),
+  ).toHaveCount(0);
+});
+
+test("pending staff show a badge, resend the link and correct a mistyped email", async ({
+  page,
+}) => {
+  const row = await setup(page);
+  row.activationPending = true;
+  row.hasPassword = false;
+  const writes: string[] = [];
+  await page.route(`**/api/users/${row.userId}/resend-activation`, (route) => {
+    writes.push("resend");
+    return route.fulfill({ json: row });
+  });
+  await page.route(`**/api/users/${row.userId}/email`, (route) => {
+    writes.push("email");
+    expect(route.request().method()).toBe("PUT");
+    expect(route.request().postDataJSON()).toMatchObject({
+      email: "right@example.com",
+      reason: "Typo in the invitation",
+    });
+    return route.fulfill({ json: { ...row, email: "right@example.com" } });
+  });
+  await page.goto("/admin/users");
+  await expect(
+    page.getByRole("table", { name: "Users and roles" }),
+  ).toContainText("Pending activation");
+
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog
+    .getByRole("button", { name: "Resend activation link", exact: true })
+    .click();
+  await expect.poll(() => writes).toEqual(["resend"]);
+
+  await dialog.getByRole("button", { name: "Change email", exact: true }).click();
+  await dialog.getByLabel("New email", { exact: true }).fill("right@example.com");
+  await dialog.getByLabel("Confirm new email", { exact: true }).fill("wrong@example.com");
+  await expect(dialog.getByText("The two email addresses do not match.")).toBeVisible();
+  await expect(
+    dialog.getByRole("button", { name: "Update email and send link", exact: true }),
+  ).toBeDisabled();
+  await dialog.getByLabel("Confirm new email", { exact: true }).fill("right@example.com");
+  await dialog
+    .getByLabel("Reason", { exact: true })
+    .first()
+    .fill("Typo in the invitation");
+  await dialog
+    .getByRole("button", { name: "Update email and send link", exact: true })
+    .click();
+  await expect.poll(() => writes).toEqual(["resend", "email"]);
+});
+
+test("activated staff do not show pending-activation actions", async ({
+  page,
+}) => {
+  await setup(page);
+  await page.goto("/admin/users");
+  await expect(
+    page.getByRole("table", { name: "Users and roles" }),
+  ).not.toContainText("Pending activation");
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await expect(
+    page.getByRole("dialog").getByRole("button", { name: "Resend activation link" }),
+  ).toHaveCount(0);
 });
