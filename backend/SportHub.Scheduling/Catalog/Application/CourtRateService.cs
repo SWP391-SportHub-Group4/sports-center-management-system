@@ -50,11 +50,11 @@ public sealed class CourtRateService(ISportHubDbContext db, IAuditWriter audit)
     public async Task<CourtRateResponse> UpdateAsync(int rateId, SaveCourtRateRequest request, Guid actorUserId, CancellationToken ct = default)
     {
         var reference = await db.Set<CourtRate>().AsNoTracking().SingleOrDefaultAsync(r => r.RateId == rateId, ct)
-                   ?? throw new NotFoundException("court_rate_not_found", "Không tìm thấy khung giá.");
+                   ?? throw new NotFoundException("court_rate_not_found", "Court rate not found.");
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         await LockRoomTypesAsync([reference.RoomTypeId, request.RoomTypeId], ct);
         var rate = await db.Set<CourtRate>().SingleOrDefaultAsync(r => r.RateId == rateId, ct)
-                   ?? throw new NotFoundException("court_rate_not_found", "Không tìm thấy khung giá.");
+                   ?? throw new NotFoundException("court_rate_not_found", "Court rate not found.");
 
         var before = await DescribeAsync(rate, ct);
         await ApplyAsync(rate, request, rateId, ct);
@@ -70,11 +70,11 @@ public sealed class CourtRateService(ISportHubDbContext db, IAuditWriter audit)
     public async Task DeleteAsync(int rateId, Guid actorUserId, CancellationToken ct = default)
     {
         var reference = await db.Set<CourtRate>().AsNoTracking().SingleOrDefaultAsync(r => r.RateId == rateId, ct)
-                   ?? throw new NotFoundException("court_rate_not_found", "Không tìm thấy khung giá.");
+                   ?? throw new NotFoundException("court_rate_not_found", "Court rate not found.");
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         await LockRoomTypesAsync([reference.RoomTypeId], ct);
         var rate = await db.Set<CourtRate>().SingleOrDefaultAsync(r => r.RateId == rateId, ct)
-                   ?? throw new NotFoundException("court_rate_not_found", "Không tìm thấy khung giá.");
+                   ?? throw new NotFoundException("court_rate_not_found", "Court rate not found.");
 
         // Giá đã được snapshot vào hóa đơn khi đặt nên xóa khung giá không ảnh hưởng lượt thuê cũ.
         db.Set<CourtRate>().Remove(rate);
@@ -101,17 +101,17 @@ public sealed class CourtRateService(ISportHubDbContext db, IAuditWriter audit)
 
         if (end <= start)
         {
-            throw new BadRequestException("invalid_rate_window", "Giờ kết thúc phải sau giờ bắt đầu.");
+            throw new BadRequestException("invalid_rate_window", "Invalid rate window.");
         }
 
         if (request.PricePerHour <= 0 || request.PricePerHour % 1000 != 0)
         {
-            throw new BadRequestException("invalid_price", "Giá mỗi giờ phải dương và là bội số của 1.000 VND (BR-113).");
+            throw new BadRequestException("invalid_price", "Invalid price.");
         }
 
         if (!await db.Set<RoomType>().AnyAsync(t => t.RoomTypeId == request.RoomTypeId, ct))
         {
-            throw new BadRequestException("invalid_room_type", "Loại phòng không tồn tại.");
+            throw new BadRequestException("invalid_room_type", "Invalid room type.");
         }
 
         if (request.SportId is int sportId)
@@ -119,7 +119,7 @@ public sealed class CourtRateService(ISportHubDbContext db, IAuditWriter audit)
             var linked = await db.Set<SportRoomType>().AnyAsync(l => l.RoomTypeId == request.RoomTypeId && l.SportId == sportId, ct);
             if (!linked)
             {
-                throw new BadRequestException("sport_not_compatible", "Môn này không chơi được ở loại phòng đã chọn (BR-108).");
+                throw new BadRequestException("sport_not_compatible", "Sport not compatible.");
             }
         }
 
@@ -138,7 +138,7 @@ public sealed class CourtRateService(ISportHubDbContext db, IAuditWriter audit)
             {
                 throw new ConflictException(
                     "court_rate_overlap",
-                    "Khung giá chồng lấn với khung giá #" + clash.RateId + " (cùng loại sân, ngày và môn).");
+                    "Court rate overlap.");
             }
         }
 
@@ -157,7 +157,7 @@ public sealed class CourtRateService(ISportHubDbContext db, IAuditWriter audit)
 
         if (days.Count == 0 || days.Any(d => !AllDays.Contains(d)))
         {
-            throw new BadRequestException("invalid_days", "Thứ phải thuộc MON, TUE, WED, THU, FRI, SAT, SUN.");
+            throw new BadRequestException("invalid_days", "Invalid days.");
         }
 
         return days.OrderBy(d => Array.IndexOf(AllDays, d)).ToList();
@@ -166,7 +166,7 @@ public sealed class CourtRateService(ISportHubDbContext db, IAuditWriter audit)
     private static TimeOnly ParseTime(string value)
         => TimeOnly.TryParseExact(value.Trim(), TimeFormat, CultureInfo.InvariantCulture, DateTimeStyles.None, out var t)
             ? t
-            : throw new BadRequestException("invalid_time", "Giờ phải có dạng HH:mm.");
+            : throw new BadRequestException("invalid_time", "Invalid time.");
 
     private async Task<string> DescribeAsync(CourtRate r, CancellationToken ct)
     {

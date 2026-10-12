@@ -41,7 +41,7 @@ public sealed class ClassStatusJob(IServiceProvider services, ILogger<ClassStatu
         if (completedSessions + started + finished > 0)
         {
             logger.LogInformation(
-                "ClassStatusJob: {Sessions} buổi Completed, {Started} khóa InProgress, {Finished} khóa Completed.",
+                "ClassStatusJob: {Sessions} sessions completed, {Started} courses in progress, {Finished} courses completed.",
                 completedSessions, started, finished);
         }
     }

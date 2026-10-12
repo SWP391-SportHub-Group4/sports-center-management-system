@@ -11,5 +11,5 @@ public sealed class PaymentRecordingService : IPaymentRecordingService
     public Task<InvoiceDetailResponse> RecordAsync(Guid invoiceId, RecordPaymentRequest request,
         Guid actorUserId, CancellationToken ct = default)
         => throw new ConflictException("checkout_requires_verified_payment",
-            "Không ghi nhận tiền thủ công, kể cả hóa đơn legacy. Hãy tạo checkout và xác minh qua VNPay.");
+            "Checkout requires verified payment.");
 }

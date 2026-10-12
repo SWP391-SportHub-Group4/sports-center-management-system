@@ -59,13 +59,13 @@ public sealed class ClassService(
                 ct)
             ?? throw new NotFoundException(
                 "class_not_found",
-                "Không tìm thấy khóa học.");
+                "Class not found.");
 
         if (entity.Status != ClassStatus.Published)
         {
             throw new ConflictException(
                 "class_not_published",
-                "Chỉ có thể mở hoặc đóng tuyển sinh cho khóa đã publish.");
+                "Class not published.");
         }
 
         if (entity.EnrollmentOpen == open)
@@ -113,7 +113,7 @@ public sealed class ClassService(
         }
 
         if (fromDate.HasValue && toDate.HasValue && fromDate > toDate)
-            throw new BadRequestException("invalid_range", "Ngày bắt đầu phải trước ngày kết thúc.");
+            throw new BadRequestException("invalid_range", "Invalid range.");
         if (fromDate.HasValue) query = query.Where(c => c.StartDate >= fromDate.Value);
         if (toDate.HasValue) query = query.Where(c => c.StartDate <= toDate.Value);
         var total = await query.CountAsync(ct);
@@ -134,7 +134,7 @@ public sealed class ClassService(
     {
         var row = await Rows(db.Set<Class>().AsNoTracking().Where(c => c.ClassId == classId && c.Status == ClassStatus.Published))
                       .SingleOrDefaultAsync(ct)
-                  ?? throw new NotFoundException("class_not_found", "Không tìm thấy khóa học.");
+                  ?? throw new NotFoundException("class_not_found", "Class not found.");
 
         return (await ToPublicAsync([row], ct))[0];
     }
@@ -149,7 +149,7 @@ public sealed class ClassService(
         if (!string.IsNullOrWhiteSpace(thresholdStatus))
         {
             if (!SportHub.BuildingBlocks.Api.WireEnum.TryParse<ThresholdStatus>(thresholdStatus, true, out var threshold) || !Enum.IsDefined(threshold))
-                throw new BadRequestException("invalid_threshold_status", "Trạng thái ngưỡng không hợp lệ.");
+                throw new BadRequestException("invalid_threshold_status", "Invalid threshold status.");
             query = query.Where(c => c.ThresholdStatus == threshold);
         }
 
@@ -157,7 +157,7 @@ public sealed class ClassService(
         {
             var parsed = SportHub.BuildingBlocks.Api.WireEnum.TryParse<ClassStatus>(status, ignoreCase: true, out var s) && Enum.IsDefined(s)
                 ? s
-                : throw new BadRequestException("invalid_status", "Trạng thái khóa không hợp lệ.");
+                : throw new BadRequestException("invalid_status", "Invalid status.");
             query = query.Where(c => c.Status == parsed);
         }
 
@@ -188,7 +188,7 @@ public sealed class ClassService(
     public async Task<ClassManagerResponse> GetManagerAsync(int classId, CancellationToken ct = default)
     {
         var row = await Rows(db.Set<Class>().AsNoTracking().Where(c => c.ClassId == classId)).SingleOrDefaultAsync(ct)
-                  ?? throw new NotFoundException("class_not_found", "Không tìm thấy khóa học.");
+                  ?? throw new NotFoundException("class_not_found", "Class not found.");
 
         return (await ToManagerAsync([row], ct))[0];
     }
@@ -210,7 +210,7 @@ public sealed class ClassService(
 
         if (await db.Set<Class>().AnyAsync(c => c.Code == code, ct))
         {
-            throw new ConflictException("class_code_taken", "Đã có khóa học trùng mã.");
+            throw new ConflictException("class_code_taken", "Class code taken.");
         }
 
         var entity = new Class
@@ -248,20 +248,20 @@ public sealed class ClassService(
         await db.Database.ExecuteSqlInterpolatedAsync($"SELECT class_id FROM classes WHERE class_id = {classId} FOR UPDATE", ct);
 
         var entity = await db.Set<Class>().Include(c => c.ScheduleRules).SingleOrDefaultAsync(c => c.ClassId == classId, ct)
-                     ?? throw new NotFoundException("class_not_found", "Không tìm thấy khóa học.");
+                     ?? throw new NotFoundException("class_not_found", "Class not found.");
 
         // Sau khi publish lịch, phòng, coach, giá đã có ghi danh/giữ chỗ dựa vào: chỉ sửa khi còn Draft.
         // Sửa giá/chi phí trước hạn ngưỡng của khóa đã publish thuộc chặng ngưỡng hoàn vốn.
         if (entity.Status != ClassStatus.Draft)
         {
-            throw new ConflictException("class_not_editable", "Chỉ sửa được khóa ở trạng thái Draft.");
+            throw new ConflictException("class_not_editable", "Class not editable.");
         }
 
         var code = NormalizeCode(request.Code);
 
         if (await db.Set<Class>().AnyAsync(c => c.Code == code && c.ClassId != classId, ct))
         {
-            throw new ConflictException("class_code_taken", "Đã có khóa học trùng mã.");
+            throw new ConflictException("class_code_taken", "Class code taken.");
         }
 
         var before = Describe(entity);
@@ -295,16 +295,16 @@ public sealed class ClassService(
         await db.Database.ExecuteSqlInterpolatedAsync($"SELECT class_id FROM classes WHERE class_id = {classId} FOR UPDATE", ct);
 
         var entity = await db.Set<Class>().Include(c => c.ScheduleRules).SingleOrDefaultAsync(c => c.ClassId == classId, ct)
-                     ?? throw new NotFoundException("class_not_found", "Không tìm thấy khóa học.");
+                     ?? throw new NotFoundException("class_not_found", "Class not found.");
 
         if (entity.Status != ClassStatus.Draft)
         {
-            throw new ConflictException("class_not_draft", "Chỉ publish được khóa ở trạng thái Draft.");
+            throw new ConflictException("class_not_draft", "Class not draft.");
         }
 
         if (request.ExpectedVersion is int expected && expected != entity.Version)
         {
-            throw new ConflictException("concurrency_conflict", "Khóa học vừa được người khác thay đổi. Vui lòng tải lại.");
+            throw new ConflictException("concurrency_conflict", "Concurrency conflict.");
         }
 
         // Kiểm lại toàn bộ điều kiện (môn/phòng/coach có thể đã đổi từ lúc soạn).
@@ -313,7 +313,7 @@ public sealed class ClassService(
 
         if (entity.CoachId is not Guid coachId)
         {
-            throw new BadRequestException("coach_required", "Phải gán Coach trước khi publish.");
+            throw new BadRequestException("coach_required", "Coach required.");
         }
 
         await validator.RequireCoachForSportAsync(coachId, entity.SportId, ct);
@@ -334,7 +334,7 @@ public sealed class ClassService(
 
         if (first.StartAtUtc <= now)
         {
-            throw new BadRequestException("first_session_in_past", "Buổi đầu đã qua hoặc đang diễn ra — không publish được.");
+            throw new BadRequestException("first_session_in_past", "First session in past.");
         }
 
         var threshold = CourseRules.BreakEvenThreshold(entity.CostAmount, entity.Price);
@@ -343,7 +343,7 @@ public sealed class ClassService(
         {
             throw new BadRequestException(
                 "threshold_exceeds_capacity",
-                $"Ngưỡng hoàn vốn ({threshold}) lớn hơn sức chứa ({entity.Capacity}) — khóa không thể hoàn vốn.");
+                "Threshold exceeds capacity.");
         }
 
         var thresholdDays = await settings.GetIntAsync(SystemSettingKeys.ClassThresholdDaysBeforeStart, ct);
@@ -362,7 +362,7 @@ public sealed class ClassService(
         {
             throw new BadRequestException(
                 "session_outside_opening_hours",
-                "Các buổi " + string.Join(", ", closed) + " nằm ngoài giờ mở cửa của phòng (BR-109).");
+                "Session outside opening hours.");
         }
 
         var sessions = generated.Select(g => new ClassSession
@@ -452,7 +452,7 @@ public sealed class ClassService(
 
         if (request.StartDate < VietnamTime.TodayLocal(clock))
         {
-            throw new BadRequestException("start_date_in_past", "Ngày bắt đầu không được ở quá khứ.");
+            throw new BadRequestException("start_date_in_past", "Start date in past.");
         }
 
         var rules = new List<(int DayOfWeek, TimeOnly StartTimeLocal)>();
@@ -460,7 +460,7 @@ public sealed class ClassService(
         {
             if (!TimeOnly.TryParseExact(r.StartTimeLocal.Trim(), TimeFormat, CultureInfo.InvariantCulture, DateTimeStyles.None, out var time))
             {
-                throw new BadRequestException("invalid_time", "Giờ phải có dạng HH:mm.");
+                throw new BadRequestException("invalid_time", "Invalid time.");
             }
 
             rules.Add((r.DayOfWeek, time));
@@ -468,7 +468,7 @@ public sealed class ClassService(
 
         if (rules.Distinct().Count() != rules.Count)
         {
-            throw new BadRequestException("duplicate_schedule_rule", "Quy tắc lịch lặp bị trùng.");
+            throw new BadRequestException("duplicate_schedule_rule", "Duplicate schedule rule.");
         }
 
         // Chạy thử bộ sinh lịch để báo sớm lỗi ngày bắt đầu lệch lịch lặp.

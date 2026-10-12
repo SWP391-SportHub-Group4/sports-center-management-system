@@ -13,7 +13,7 @@ public sealed class PointAdjustmentService(ISportHubDbContext db, IPointWalletSe
     {
         var actor = await users.GetAsync(actorId, ct);
         if (actor is not { Role: "CenterManager", IsActive: true })
-            throw new ForbiddenException("wallet_adjustment_forbidden", "Chỉ Manager được điều chỉnh điểm.");
+            throw new ForbiddenException("wallet_adjustment_forbidden", "Wallet adjustment forbidden.");
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         var result = await wallets.AdjustAsync(new WalletAdjustment(ownerId, request.Points, request.Direction,
             "ManagerAdjustment", request.IdempotencyKey, actorId, request.Reason), ct);

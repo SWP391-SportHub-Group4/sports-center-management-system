@@ -56,11 +56,11 @@ public static class PasswordPolicy
 
     public static string Message(string code) => code switch
     {
-        TooShort => $"Mật khẩu phải có ít nhất {MinLength} ký tự.",
-        TooLong => $"Mật khẩu không được dài quá {MaxLength} ký tự.",
-        MissingGroups => "Mật khẩu phải có chữ thường, chữ hoa, chữ số và ký tự đặc biệt.",
-        ContainsEmailLocalPart => "Mật khẩu không được chứa phần tên trước @ của email.",
-        _ => "Mật khẩu không hợp lệ."
+        TooShort => $"Password must contain at least {MinLength} characters.",
+        TooLong => $"Password must contain no more than {MaxLength} characters.",
+        MissingGroups => "Password must contain lowercase and uppercase letters, a number, and a special character.",
+        ContainsEmailLocalPart => "Password must not contain the part of your email address before @.",
+        _ => "Invalid password."
     };
 
     private static string LocalPart(string? email)

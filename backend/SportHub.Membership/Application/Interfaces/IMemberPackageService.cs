@@ -16,8 +16,6 @@ public interface IMemberPackageService
     Task<PagedResult<MemberPackageResponse>> SearchAsync(
         string? status, string? keyword, int page, int pageSize, CancellationToken ct = default);
 
-    Task<MemberPackageResponse> CancelAsync(Guid memberPackageId, string reason, Guid actorUserId, CancellationToken ct = default);
-
     /// <summary>Số gói đang dùng được — dùng cho dashboard, không phải điều kiện nghiệp vụ.</summary>
     Task<int> CountUsableAsync(Guid memberId, CancellationToken ct = default);
 }

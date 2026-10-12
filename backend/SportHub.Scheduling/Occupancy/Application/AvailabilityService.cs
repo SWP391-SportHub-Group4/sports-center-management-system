@@ -34,18 +34,18 @@ public sealed class AvailabilityService(ISportHubDbContext db, ICoachSpecialtyRe
         Guid? excludeSessionId = null, CancellationToken ct = default)
     {
         ValidateSlot(startUtc, endUtc);
-        if (capacity < 1) throw new BadRequestException("invalid_capacity", "Sĩ số phải lớn hơn 0.");
+        if (capacity < 1) throw new BadRequestException("invalid_capacity", "Invalid capacity.");
         if (excludeSessionId.HasValue && !await db.Set<ClassSession>().AsNoTracking()
                 .AnyAsync(s => s.SessionId == excludeSessionId && s.Class!.SportId == sportId
                     && s.Status == ClassSessionStatus.Scheduled, ct))
-            throw new BadRequestException("invalid_preview_session", "Buổi được loại trừ không hợp lệ.");
+            throw new BadRequestException("invalid_preview_session", "Invalid preview session.");
 
         var start = DateTime.SpecifyKind(startUtc, DateTimeKind.Utc);
         var end = DateTime.SpecifyKind(endUtc, DateTimeKind.Utc);
         var reasons = new List<string>();
         var active = await db.Set<Sport>().AsNoTracking().Where(s => s.SportId == sportId)
             .Select(s => (bool?)s.IsActive).SingleOrDefaultAsync(ct);
-        if (active is null) throw new NotFoundException("sport_not_found", "Không tìm thấy môn.");
+        if (active is null) throw new NotFoundException("sport_not_found", "Sport not found.");
         if (active == false) reasons.Add("sport_inactive");
         var room = await db.Set<Room>().AsNoTracking().SingleOrDefaultAsync(r => r.RoomId == roomId, ct);
         if (room is null) reasons.Add("room_not_found");
@@ -170,7 +170,7 @@ public sealed class AvailabilityService(ISportHubDbContext db, ICoachSpecialtyRe
     {
         if (toUtc <= fromUtc || toUtc - fromUtc > MaxBusyRange)
         {
-            throw new BadRequestException("invalid_range", "Khoảng thời gian phải dương và tối đa 31 ngày.");
+            throw new BadRequestException("invalid_range", "Invalid range.");
         }
 
         var from = DateTime.SpecifyKind(fromUtc, DateTimeKind.Utc);
@@ -193,12 +193,12 @@ public sealed class AvailabilityService(ISportHubDbContext db, ICoachSpecialtyRe
 
         if (active is null)
         {
-            throw new NotFoundException("sport_not_found", "Không tìm thấy môn.");
+            throw new NotFoundException("sport_not_found", "Sport not found.");
         }
 
         if (active == false)
         {
-            throw new BadRequestException("sport_inactive", "Môn đã ngừng hoạt động.");
+            throw new BadRequestException("sport_inactive", "Sport inactive.");
         }
     }
 
@@ -206,7 +206,7 @@ public sealed class AvailabilityService(ISportHubDbContext db, ICoachSpecialtyRe
     {
         if (endUtc <= startUtc || endUtc - startUtc > MaxSlotLength)
         {
-            throw new BadRequestException("invalid_range", "Khoảng giờ phải dương và tối đa 12 giờ.");
+            throw new BadRequestException("invalid_range", "Invalid range.");
         }
     }
 }

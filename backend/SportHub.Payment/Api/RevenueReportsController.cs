@@ -49,7 +49,7 @@ public class RevenueReportsController(IRevenueReportService revenue) : Controlle
         // Chặn khoảng quá dài: báo cáo trả về từng ngày nên 5 năm sẽ là gần 2000 dòng JSON.
         if (to.DayNumber - from.DayNumber > 366)
         {
-            throw new BadRequestException("range_too_large", "Khoảng báo cáo tối đa 366 ngày.");
+            throw new BadRequestException("range_too_large", "The revenue report range cannot exceed 366 days.");
         }
 
         return Ok(await revenue.GetAsync(from, to, ct));

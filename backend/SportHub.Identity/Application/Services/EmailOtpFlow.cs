@@ -29,13 +29,13 @@ public sealed class EmailOtpFlow(ISportHubDbContext db, IClock clock, INotificat
         // Đặt lại mật khẩu chỉ đi bằng link; không bao giờ gửi mã 6 số cho mục đích này.
         if (purpose == EmailOtpPurpose.ResetPassword && resetLink is null)
         {
-            throw new InvalidOperationException("Đặt lại mật khẩu chỉ gửi bằng link, không gửi mã OTP.");
+            throw new InvalidOperationException("Password reset uses a link, not an OTP code.");
         }
 
         // Đặt mật khẩu lần đầu (tài khoản Google) chỉ đi bằng mã 6 số.
         if (purpose == EmailOtpPurpose.SetPassword && resetLink is not null)
         {
-            throw new InvalidOperationException("Đặt mật khẩu lần đầu chỉ gửi mã OTP, không gửi link.");
+            throw new InvalidOperationException("Initial password setup uses an OTP code, not a link.");
         }
 
         var now = clock.UtcNow;
@@ -76,7 +76,7 @@ public sealed class EmailOtpFlow(ISportHubDbContext db, IClock clock, INotificat
         }
         else
         {
-            throw new ArgumentOutOfRangeException(nameof(purpose), purpose, "EmailOtpFlow chỉ dùng cho đặt lại và đặt mật khẩu.");
+            throw new ArgumentOutOfRangeException(nameof(purpose), purpose, "EmailOtpFlow only supports password reset and initial password setup.");
         }
 
         try
@@ -107,22 +107,22 @@ public sealed class EmailOtpFlow(ISportHubDbContext db, IClock clock, INotificat
         var otp = await db.Set<EmailOtp>()
                       .AsNoTracking()
                       .SingleOrDefaultAsync(o => o.Email == email && o.Purpose == purpose, ct)
-                  ?? throw new BadRequestException("otp_invalid", "Mã xác thực không đúng.");
+                  ?? throw new BadRequestException("otp_invalid", "Otp invalid.");
 
         if (otp.ConsumedAt is not null)
         {
-            throw new BadRequestException("otp_already_used", "Mã xác thực đã được sử dụng. Hãy yêu cầu mã mới.");
+            throw new BadRequestException("otp_already_used", "Otp already used.");
         }
 
         if (clock.UtcNow >= otp.ExpiresAt)
         {
-            throw new BadRequestException("otp_expired", "Mã xác thực đã hết hạn. Hãy yêu cầu mã mới.");
+            throw new BadRequestException("otp_expired", "Otp expired.");
         }
 
         if (otp.Attempts >= AuthService.OtpMaxAttempts)
         {
             throw new BadRequestException(
-                "otp_attempts_exceeded", "Đã nhập sai quá số lần cho phép. Hãy yêu cầu mã mới.");
+                "otp_attempts_exceeded", "Otp attempts exceeded.");
         }
 
         if (!OtpCodes.Matches(code, otp.CodeHash))
@@ -131,7 +131,7 @@ public sealed class EmailOtpFlow(ISportHubDbContext db, IClock clock, INotificat
                 .Where(o => o.EmailOtpId == otp.EmailOtpId)
                 .ExecuteUpdateAsync(s => s.SetProperty(o => o.Attempts, o => o.Attempts + 1), ct);
 
-            throw new BadRequestException("otp_invalid", "Mã xác thực không đúng.");
+            throw new BadRequestException("otp_invalid", "Otp invalid.");
         }
 
         return otp.EmailOtpId;
@@ -146,7 +146,7 @@ public sealed class EmailOtpFlow(ISportHubDbContext db, IClock clock, INotificat
 
         if (consumed == 0)
         {
-            throw new BadRequestException("otp_already_used", "Mã xác thực đã được sử dụng. Hãy yêu cầu mã mới.");
+            throw new BadRequestException("otp_already_used", "Otp already used.");
         }
     }
 }

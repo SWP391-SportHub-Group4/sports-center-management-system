@@ -66,5 +66,5 @@ public class SportsController(SportCatalogService sports) : ControllerBase
     private static SportServiceType RequireService(string value)
         => WireEnum.TryParse<SportServiceType>(WireEnum.ToInternalName(value) ?? value, ignoreCase: true, out var parsed) && Enum.IsDefined(parsed)
             ? parsed
-            : throw new BadRequestException("service_type_invalid", "Loại dịch vụ không hợp lệ.");
+            : throw new BadRequestException("service_type_invalid", "Service type invalid.");
 }

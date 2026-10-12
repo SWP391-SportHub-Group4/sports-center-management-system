@@ -36,7 +36,7 @@ public sealed class ClassEnrollmentFulfillment(
 
         if (holdExpiresAtUtc.UtcDateTime <= now)
         {
-            throw new BadRequestException("hold_expiry_in_past", "Hạn giữ chỗ phải ở tương lai.");
+            throw new BadRequestException("hold_expiry_in_past", "Hold expiry in past.");
         }
 
         // 1) Khóa Member trước: hai checkout song song của cùng Member (kể cả hai lớp trùng giờ) chạy tuần tự.
@@ -49,7 +49,7 @@ public sealed class ClassEnrollmentFulfillment(
             sourceClassToIgnore = await db.Set<Enrollment>().Where(x => x.EnrollmentId == sourceEnrollmentId
                     && x.MemberId == memberId && x.Status == EnrollmentStatus.Confirmed)
                 .Select(x => (int?)x.ClassId).SingleOrDefaultAsync(cancellationToken)
-                ?? throw new ConflictException("transfer_source_inactive", "Ghi danh nguồn không còn hiệu lực.");
+                ?? throw new ConflictException("transfer_source_inactive", "Transfer source inactive.");
         }
         var (quote, _) = await EnsureBookableAsync(classId, memberId, cancellationToken, sourceClassToIgnore);
 
@@ -61,7 +61,7 @@ public sealed class ClassEnrollmentFulfillment(
 
         if (updated == 0)
         {
-            throw new ConflictException("class_full", "Khóa học đã hết chỗ hoặc không còn nhận ghi danh.");
+            throw new ConflictException("class_full", "Class full.");
         }
 
         var hold = new SeatHold
@@ -98,7 +98,7 @@ public sealed class ClassEnrollmentFulfillment(
         }
 
         var hold = await LockHoldAsync(seatHoldId, cancellationToken)
-                   ?? throw new NotFoundException("seat_hold_not_found", "Không tìm thấy giữ chỗ.");
+                   ?? throw new NotFoundException("seat_hold_not_found", "Seat hold not found.");
 
         // A concurrent fulfillment may have committed while this request waited for the hold lock.
         existing = await db.Set<Enrollment>().AsNoTracking()
@@ -111,26 +111,26 @@ public sealed class ClassEnrollmentFulfillment(
 
         if (hold.Status != SeatHoldStatus.Active)
         {
-            throw new ConflictException("seat_hold_not_active", "Giữ chỗ đã hết hạn, đã hủy hoặc đã được dùng.");
+            throw new ConflictException("seat_hold_not_active", "Seat hold not active.");
         }
 
         if (hold.ExpiresAtUtc <= clock.UtcNow)
         {
-            throw new ConflictException("seat_hold_expired", "Giữ chỗ đã hết hạn; cần đối soát thanh toán trước khi cấp quyền lợi.");
+            throw new ConflictException("seat_hold_expired", "Seat hold expired.");
         }
 
         var cls = await db.Set<Class>().AsNoTracking().SingleAsync(c => c.ClassId == hold.ClassId, cancellationToken);
 
         if (cls.Status != ClassStatus.Published)
         {
-            throw new ConflictException("class_not_open", "Khóa không còn nhận ghi danh.");
+            throw new ConflictException("class_not_open", "Class not open.");
         }
 
         // Không nhận ghi danh khi đã đến buổi đầu (dù job chuyển InProgress chưa chạy).
         var firstStart = await FirstSessionStartAsync(hold.ClassId, cancellationToken);
         if (firstStart is null || firstStart <= clock.UtcNow)
         {
-            throw new ConflictException("class_started", "Khóa đã bắt đầu — không còn nhận ghi danh.");
+            throw new ConflictException("class_started", "Class started.");
         }
 
         var enrollment = new Enrollment
@@ -155,7 +155,7 @@ public sealed class ClassEnrollmentFulfillment(
 
         if (updated == 0)
         {
-            throw new InvalidOperationException("Sai lệch bộ đếm chỗ: confirmed_count đã bằng reserved_count khi chuyển giữ chỗ thành ghi danh.");
+            throw new InvalidOperationException("Seat counter mismatch: confirmed_count already equals reserved_count while confirming a hold.");
         }
 
         await db.SaveChangesAsync(cancellationToken);
@@ -174,9 +174,9 @@ public sealed class ClassEnrollmentFulfillment(
     {
         RequireTransaction();
         var hold = await LockHoldAsync(seatHoldId, cancellationToken)
-            ?? throw new NotFoundException("seat_hold_not_found", "Không tìm thấy giữ chỗ.");
+            ?? throw new NotFoundException("seat_hold_not_found", "Seat hold not found.");
         if (hold.Status != SeatHoldStatus.Active || hold.InvoiceId is not null)
-            throw new ConflictException("seat_hold_already_linked", "Giữ chỗ không còn Active hoặc đã gắn hóa đơn.");
+            throw new ConflictException("seat_hold_already_linked", "Seat hold already linked.");
         hold.InvoiceId = invoiceId;
         await db.SaveChangesAsync(cancellationToken);
     }
@@ -190,28 +190,28 @@ public sealed class ClassEnrollmentFulfillment(
             WHERE threshold_response_id = {thresholdResponseId} FOR UPDATE
             """).ToListAsync(cancellationToken);
         var response = responseRows.SingleOrDefault()
-            ?? throw new ConflictException("threshold_response_not_found", "Không tìm thấy phản hồi chuyển lớp.");
+            ?? throw new ConflictException("threshold_response_not_found", "Threshold response not found.");
         if (response.ResolutionStatus == ThresholdResolutionStatus.Completed)
         {
             if (await db.Set<Enrollment>().AnyAsync(x => x.SourceEnrollmentId == response.EnrollmentId
                 && x.TransferDifferenceInvoiceItemId == differenceInvoiceItemId
                 && x.Status == EnrollmentStatus.Confirmed, cancellationToken)) return;
-            throw new ConflictException("threshold_transfer_already_resolved", "Phản hồi chuyển lớp đã được xử lý.");
+            throw new ConflictException("threshold_transfer_already_resolved", "Threshold transfer already resolved.");
         }
         if (response.Choice != ThresholdResponseChoice.Transfer
             || response.ResolutionStatus != ThresholdResolutionStatus.AwaitingPayment
             || response.DeadlineUtc <= clock.UtcNow)
-            throw new ConflictException("threshold_transfer_expired", "Chuyển lớp đã hết hạn hoặc không chờ thanh toán.");
+            throw new ConflictException("threshold_transfer_expired", "Threshold transfer expired.");
         var source = await db.Set<Enrollment>().SingleOrDefaultAsync(x => x.EnrollmentId == response.EnrollmentId
             && x.Status == EnrollmentStatus.Confirmed, cancellationToken)
-            ?? throw new ConflictException("transfer_source_inactive", "Ghi danh nguồn không còn hiệu lực.");
+            ?? throw new ConflictException("transfer_source_inactive", "Transfer source inactive.");
         if (source.ClassId != response.ClassId || source.InvoiceItemId is not Guid rootItemId)
-            throw new ConflictException("transfer_source_mismatch", "Ghi danh nguồn không khớp phản hồi.");
+            throw new ConflictException("transfer_source_mismatch", "Transfer source mismatch.");
         var hold = await LockHoldAsync(seatHoldId, cancellationToken)
-            ?? throw new ConflictException("transfer_hold_missing", "Không tìm thấy giữ chỗ lớp đích.");
+            ?? throw new ConflictException("transfer_hold_missing", "Transfer hold missing.");
         if (hold.ClassId != response.TargetClassId || hold.MemberId != response.MemberId
             || hold.InvoiceId != response.AdditionalInvoiceId)
-            throw new ConflictException("transfer_hold_mismatch", "Giữ chỗ không khớp hóa đơn chuyển lớp.");
+            throw new ConflictException("transfer_hold_mismatch", "Transfer hold mismatch.");
         await db.Database.ExecuteSqlInterpolatedAsync(
             $"SELECT user_id FROM user_accounts WHERE user_id = {response.MemberId} FOR UPDATE", cancellationToken);
         await CourseScheduleLock.AcquireAsync(db, changingSchedule: false, cancellationToken);
@@ -237,7 +237,7 @@ public sealed class ClassEnrollmentFulfillment(
 
         if (hold.Status == SeatHoldStatus.Converted)
         {
-            throw new ConflictException("seat_hold_already_converted", "Giữ chỗ đã chuyển thành ghi danh — không nhả được.");
+            throw new ConflictException("seat_hold_already_converted", "Seat hold already converted.");
         }
 
         hold.Status = SeatHoldStatus.Released;
@@ -276,7 +276,7 @@ public sealed class ClassEnrollmentFulfillment(
 
         if (updated == 0)
         {
-            throw new InvalidOperationException("Sai lệch bộ đếm chỗ khi kết thúc ghi danh.");
+            throw new InvalidOperationException("Seat counter mismatch while ending an enrollment.");
         }
 
         await db.SaveChangesAsync(cancellationToken);
@@ -322,27 +322,27 @@ public sealed class ClassEnrollmentFulfillment(
                       .Where(c => c.ClassId == classId)
                       .Select(c => new { Class = c, SportName = c.Sport!.Name })
                       .SingleOrDefaultAsync(ct)
-                  ?? throw new NotFoundException("class_not_found", "Không tìm thấy khóa học.");
+                  ?? throw new NotFoundException("class_not_found", "Class not found.");
 
         var cls = row.Class;
 
         // Không cần Membership: khóa nhóm mua trọn gói bằng tiền/điểm (BR-110).
         if (cls.Status != ClassStatus.Published)
         {
-            throw new ConflictException("class_not_open", "Khóa học chưa mở hoặc đã đóng ghi danh.");
+            throw new ConflictException("class_not_open", "Class not open.");
         }
         if (!cls.EnrollmentOpen)
         {
             throw new ConflictException(
                 "enrollment_closed",
-                "Khóa học hiện đã đóng tuyển sinh.");
+                "Enrollment closed.");
         }
         if (cls.ThresholdStatus == ThresholdStatus.AtRisk
             && cls.ThresholdResponseDeadlineUtc is DateTime responseDeadline
             && responseDeadline <= clock.UtcNow)
         {
             throw new ConflictException("class_threshold_response_closed",
-                "Khóa đang kết thúc quy trình ngưỡng hoàn vốn và không nhận thêm ghi danh.");
+                "Class threshold response closed.");
         }
 
         var sessions = await db.Set<ClassSession>().AsNoTracking()
@@ -352,29 +352,29 @@ public sealed class ClassEnrollmentFulfillment(
 
         if (sessions.Count == 0)
         {
-            throw new ConflictException("class_not_open", "Khóa học chưa có lịch.");
+            throw new ConflictException("class_not_open", "Class not open.");
         }
 
         var firstStart = await FirstSessionStartAsync(classId, ct);
         if (firstStart is null || firstStart <= clock.UtcNow)
         {
-            throw new ConflictException("class_started", "Khóa đã bắt đầu — không còn nhận ghi danh.");
+            throw new ConflictException("class_started", "Class started.");
         }
 
         var member = await users.GetAsync(memberId, ct);
         if (member is null || member.Role != "Member" || !member.IsActive)
         {
-            throw new BadRequestException("member_not_found", "Người mua phải là Hội viên đang hoạt động.");
+            throw new BadRequestException("member_not_found", "Member not found.");
         }
 
         if (await db.Set<Enrollment>().AnyAsync(e => e.ClassId == classId && e.MemberId == memberId && e.Status == EnrollmentStatus.Confirmed, ct))
         {
-            throw new ConflictException("already_enrolled", "Hội viên đã ghi danh khóa này.");
+            throw new ConflictException("already_enrolled", "Already enrolled.");
         }
 
         if (await db.Set<SeatHold>().AnyAsync(h => h.ClassId == classId && h.MemberId == memberId && h.Status == SeatHoldStatus.Active, ct))
         {
-            throw new ConflictException("seat_hold_exists", "Hội viên đang giữ chỗ khóa này.");
+            throw new ConflictException("seat_hold_exists", "Seat hold exists.");
         }
 
         // Trùng lịch với khóa khác mà Member đã ghi danh hoặc đang giữ chỗ.
@@ -401,7 +401,7 @@ public sealed class ClassEnrollmentFulfillment(
 
             if (others.Any(o => sessions.Any(s => s.StartAtUtc < o.EndAtUtc && s.EndAtUtc > o.StartAtUtc)))
             {
-                throw new ConflictException("member_schedule_conflict", "Lịch khóa này trùng giờ với khóa khác của hội viên.");
+                throw new ConflictException("member_schedule_conflict", "Member schedule conflict.");
             }
         }
 

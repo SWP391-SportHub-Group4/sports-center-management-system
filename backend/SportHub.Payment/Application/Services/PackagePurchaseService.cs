@@ -33,9 +33,9 @@ public sealed class PackagePurchaseService(
         string? idempotencyKey = null)
     {
         var member = await users.GetAsync(request.MemberId, ct)
-            ?? throw new NotFoundException("member_not_found", "Không tìm thấy hội viên.");
-        if (member.Role != "Member") throw new BadRequestException("not_a_member", "Chỉ bán gói cho tài khoản Hội viên.");
-        if (!member.IsActive) throw new ConflictException("member_not_active", "Tài khoản hội viên không hoạt động.");
+            ?? throw new NotFoundException("member_not_found", "Member not found.");
+        if (member.Role != "Member") throw new BadRequestException("not_a_member", "Not a member.");
+        if (!member.IsActive) throw new ConflictException("member_not_active", "Member not active.");
         var catalog = await memberships.QuoteAsync(request.PackageId, ct);
         if (request.AllowStacking)
         {
@@ -43,13 +43,13 @@ public sealed class PackagePurchaseService(
             {
                 throw new ForbiddenException(
                     "stacking_requires_manager",
-                    "Chỉ Quản lý Trung tâm mới được cho phép cộng dồn gói (BR-10).");
+                    "Stacking requires manager.");
             }
 
             if (string.IsNullOrWhiteSpace(request.StackingApprovalReason))
             {
                 throw new BadRequestException(
-                    "stacking_reason_required", "Phải nhập lý do khi cho phép cộng dồn gói (BR-10).");
+                    "stacking_reason_required", "Stacking reason required.");
             }
         }
         var now = clock.UtcNow;
@@ -69,7 +69,7 @@ public sealed class PackagePurchaseService(
             if (existing is not null)
             {
                 if (existing.MemberId != request.MemberId || (await memberships.GetAsync(existing.MemberPackageId!.Value, ct)).PackageId != request.PackageId)
-                    throw new ConflictException("idempotency_key_reused", "Khóa idempotency đã dùng cho giao dịch khác.");
+                    throw new ConflictException("idempotency_key_reused", "Idempotency key reused.");
                 await transaction.CommitAsync(ct);
                 return await invoiceQuery.GetDetailAsync(existing.InvoiceId, ct);
             }

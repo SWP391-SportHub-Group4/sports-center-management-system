@@ -9,7 +9,9 @@ using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.BuildingBlocks.SharedKernel.Time;
 using SportHub.Identity.Domain.Enums;
 using SportHub.Payment.Domain.Entities;
+using SportHub.Payment.Domain.Enums;
 using SportHub.Payment.Wallet.Application;
+using SportHub.Payment.Wallet.Domain;
 using SportHub.Notification.Domain.Enums;
 
 namespace SportHub.Payment.Tests.Integration;
@@ -173,6 +175,45 @@ public sealed class CounterPointOtpTests(PaymentApiFactory factory)
             .Where(x => x.InvoiceId == context.InvoiceId).Select(x => x.PointsApplied).SingleAsync()));
         Assert.Equal(0, await factory.QueryAsync(db => db.PointWallets
             .Where(x => x.OwnerUserId == context.MemberId).Select(x => x.HeldPoints).SingleAsync()));
+    }
+
+    [Fact]
+    public async Task Cancelled_checkout_is_not_released_again_by_point_expiry_worker()
+    {
+        var context = await SetupAsync();
+        using var counter = factory.CreateApiClient(context.ReceptionistId, UserRole.Receptionist);
+        var confirmationId = await RequestAsync(counter, context.InvoiceId, context.MemberId, 50);
+        Assert.Equal(HttpStatusCode.OK, (await VerifyAsync(counter, confirmationId,
+            factory.CapturedEmail.CodeFor(context.Email))).StatusCode);
+
+        var cycleId = await factory.QueryAsync(async db =>
+        {
+            var invoice = await db.Invoices.SingleAsync(x => x.InvoiceId == context.InvoiceId);
+            var id = invoice.CheckoutCycleId!.Value;
+            db.CheckoutSessions.Add(new CheckoutSession
+            {
+                CheckoutSessionId = id, InvoiceId = invoice.InvoiceId,
+                Revision = invoice.CheckoutRevision, Kind = "GymPackage", State = "Active",
+                IdempotencyKey = Guid.NewGuid().ToString("N"),
+                CreatedAtUtc = DateTime.UtcNow, ExpiresAtUtc = invoice.HoldExpiresAtUtc!.Value
+            });
+            await db.SaveChangesAsync();
+            return id;
+        });
+
+        using var member = factory.CreateApiClient(context.MemberId, UserRole.Member);
+        Assert.Equal(HttpStatusCode.NoContent,
+            (await member.PostAsync($"/api/checkouts/{context.InvoiceId}/cancel", null)).StatusCode);
+        using var scope = factory.Services.CreateScope();
+        await scope.ServiceProvider.GetRequiredService<PointConfirmationService>().ReleaseExpiredAsync(default);
+
+        Assert.Equal(InvoiceStatus.Void, await factory.QueryAsync(db => db.Invoices
+            .Where(x => x.InvoiceId == context.InvoiceId).Select(x => x.Status).SingleAsync()));
+        Assert.Equal(0, await factory.QueryAsync(db => db.PointWallets
+            .Where(x => x.OwnerUserId == context.MemberId).Select(x => x.HeldPoints).SingleAsync()));
+        Assert.Equal(1, await factory.QueryAsync(db => db.PointLedgerEntries
+            .CountAsync(x => x.ReferenceType == "CheckoutSession" && x.ReferenceId == cycleId
+                && x.EntryType == PointEntryType.Release)));
     }
 
     [Fact]

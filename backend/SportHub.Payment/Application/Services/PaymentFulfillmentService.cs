@@ -24,7 +24,7 @@ public sealed class PaymentFulfillmentService(ISportHubDbContext db, IPointWalle
         if (invoice.CashAmount != 0 || invoice.PointsApplied <= 0
             || invoice.Status != InvoiceStatus.Issued || session.State != "Active"
             || session.ExpiresAtUtc <= clock.UtcNow)
-            throw new ConflictException("checkout_unavailable", "Checkout 100% điểm không còn hợp lệ.");
+            throw new ConflictException("checkout_unavailable", "Checkout unavailable.");
         await SpendAndFulfillAsync(invoice, session, "Points", ct);
         await db.SaveChangesAsync(ct);
     }
@@ -38,7 +38,7 @@ public sealed class PaymentFulfillmentService(ISportHubDbContext db, IPointWalle
             || session.ExpiresAtUtc <= clock.UtcNow
             || (!lateReacquired && attempt.CheckoutSessionId != session.CheckoutSessionId)
             || attempt.Amount != invoice.CashAmount || attempt.PointsSnapshot != invoice.PointsApplied)
-            throw new ConflictException("checkout_reconciliation_required", "Giữ chỗ hoặc số tiền checkout đã thay đổi.");
+            throw new ConflictException("checkout_reconciliation_required", "Checkout reconciliation required.");
         db.Set<Domain.Entities.Payment>().Add(new Domain.Entities.Payment
         {
             PaymentId = Guid.NewGuid(), InvoiceId = invoice.InvoiceId, Amount = proof.Amount,
@@ -79,29 +79,29 @@ public sealed class PaymentFulfillmentService(ISportHubDbContext db, IPointWalle
                 break;
             case InvoiceItemType.ClassPackage:
                 if (session.ResourceHoldId is not Guid holdId)
-                    throw new ConflictException("checkout_hold_missing", "Checkout không có giữ chỗ.");
+                    throw new ConflictException("checkout_hold_missing", "Checkout hold missing.");
                 await classes.ConfirmAsync(holdId, item.ItemId, ct);
                 break;
             case InvoiceItemType.ClassTransferDifference:
                 if (session.Kind != "ClassTransfer" || session.ResourceHoldId is not Guid transferHoldId
                     || item.RelatedEntityId is not Guid thresholdResponseId || item.SourceInvoiceItemId is not Guid sourceItemId)
-                    throw new ConflictException("class_transfer_checkout_invalid", "Checkout chênh lớp thiếu tham chiếu nguồn/giữ chỗ.");
+                    throw new ConflictException("class_transfer_checkout_invalid", "Class transfer checkout invalid.");
                 await refunds.LockPaidItemAsync(sourceItemId, ct);
                 await classes.CompleteTransferAsync(thresholdResponseId, transferHoldId, item.ItemId, ct);
                 break;
             case InvoiceItemType.PT:
                 if ((item.PtEntitlementId ?? item.RelatedEntityId) is not Guid ptId)
-                    throw new ConflictException("pt_entitlement_missing", "Checkout thiếu quyền lợi PT chờ thanh toán.");
+                    throw new ConflictException("pt_entitlement_missing", "Pt entitlement missing.");
                 await pt.ActivateAsync(ptId, ct);
                 break;
             case InvoiceItemType.Rental:
                 if (session.Kind != "CourtRental" || session.ResourceHoldId is not Guid rentalId
                     || (item.CourtRentalId ?? item.RelatedEntityId) != rentalId)
-                    throw new ConflictException("rental_checkout_invalid", "Checkout thuê sân thiếu tham chiếu lượt thuê.");
+                    throw new ConflictException("rental_checkout_invalid", "Rental checkout invalid.");
                 await rentals.ConfirmAsync(rentalId, item.ItemId, ct);
                 break;
             default:
-                throw new ConflictException("checkout_kind_unsupported", "Loại quyền lợi này chưa được hỗ trợ.");
+                throw new ConflictException("checkout_kind_unsupported", "Checkout kind unsupported.");
         }
         invoice.Status = InvoiceStatus.Paid;
         invoice.PaidVia = paidVia;
@@ -120,7 +120,7 @@ public sealed class PaymentFulfillmentService(ISportHubDbContext db, IPointWalle
         RequireTransaction();
         if (session.State is "Cancelled" or "Expired" || invoice.Status == InvoiceStatus.Void) return;
         if (invoice.Status is InvoiceStatus.Paid or InvoiceStatus.PaidAfterReconciliation)
-            throw new ConflictException("checkout_already_paid", "Checkout đã thanh toán.");
+            throw new ConflictException("checkout_already_paid", "Checkout already paid.");
         if (session.ResourceHoldId is Guid holdId)
         {
             if (session.Kind == "CourtRental") await rentals.ReleaseAsync(holdId, ct);

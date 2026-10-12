@@ -36,10 +36,10 @@ public sealed class MembershipRefundFulfillment(ISportHubDbContext db, IAuditWri
                 ORDER BY (invoice_item_id = {invoiceItemId}) DESC
                 LIMIT 1 FOR UPDATE
                 """).SingleOrDefaultAsync(cancellationToken)
-            ?? throw new NotFoundException("membership_refund_entitlement_not_found", "Không tìm thấy Membership của hóa đơn này.");
+            ?? throw new NotFoundException("membership_refund_entitlement_not_found", "Membership refund entitlement not found.");
         if (package.Status == MemberPackageStatus.Cancelled) return;
         if (package.Status != MemberPackageStatus.Active)
-            throw new ConflictException("membership_refund_not_active", "Chỉ Membership đang hiệu lực mới thể hủy khi hoàn điểm.");
+            throw new ConflictException("membership_refund_not_active", "Membership refund not active.");
 
         package.Status = MemberPackageStatus.Cancelled;
         audit.Write(new AuditEntry(actorUserId, "CANCEL_MEMBERSHIP_FOR_REFUND", nameof(MemberPackage),

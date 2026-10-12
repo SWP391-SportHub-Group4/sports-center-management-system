@@ -85,7 +85,7 @@ public class AiController(
         {
             throw new ForbiddenException(
                 "no_active_relationship",
-                "Bạn chưa có quan hệ huấn luyện đang hoạt động với hội viên này (BR-23).");
+                "No active relationship.");
         }
 
         return Ok(
@@ -127,7 +127,7 @@ public class AiController(
             {
                 throw new ForbiddenException(
                     "ai_logs_forbidden",
-                    "Bạn không có quyền xem nhật ký AI.");
+                    "Ai logs forbidden.");
             }
 
             var coachId = User.RequireUserId();

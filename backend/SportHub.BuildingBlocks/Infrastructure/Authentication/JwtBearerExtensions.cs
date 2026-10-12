@@ -27,17 +27,17 @@ public static class JwtBearerExtensions
             .ValidateOnStart();
 
         var jwtOptions = configuration.GetSection(nameof(JwtOptions)).Get<JwtOptions>()
-            ?? throw new InvalidOperationException($"Thiếu section '{nameof(JwtOptions)}' trong config.");
+            ?? throw new InvalidOperationException($"Configuration section '{nameof(JwtOptions)}' is missing.");
 
         var validationResults = new List<ValidationResult>();
         if (!Validator.TryValidateObject(jwtOptions, new ValidationContext(jwtOptions), validationResults, true))
         {
             var errors = string.Join(" | ", validationResults.Select(r => r.ErrorMessage));
             throw new InvalidOperationException(
-                $"Cấu hình JwtOptions không hợp lệ: {errors}. " +
+                $"Invalid JwtOptions configuration: {errors}. " +
                 "Dev: set trong appsettings.Development.json. " +
-                "Production: set qua biến môi trường JwtOptions__SecretKey (>= 32 ký tự), " +
-                "không để giá trị mặc định trong appsettings.json.");
+                "In production, set JwtOptions__SecretKey through an environment variable (at least 32 characters), " +
+                "and do not leave the default value in appsettings.json.");
         }
 
         var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.SecretKey));

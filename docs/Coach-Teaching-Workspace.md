@@ -24,7 +24,7 @@ Migration `AddClassTeachingWorkspace` thêm `class_teaching_records`; không chu
 ### PT: danh sách học viên và sức khỏe
 
 - `GET /api/coaches/me/students?search=&health=all&page=1`: tìm tên/email trên toàn bộ học viên có relationship Active của PT đang đăng nhập, phân trang 12 học viên. `health=notes` lọc lưu ý sức khỏe, `health=missing` lọc chưa khai hồ sơ tập luyện. Các member được gộp theo ID.
-- `GET /api/coaches/me/students/{memberId}/health-profile`: kiểm tra qualification PT và relationship Active trước khi trả hồ sơ tập luyện cùng kết quả BMI. Không cấp quyền sửa số đo; chỉ số chưa đo không được tự suy đoán.
+- `GET /api/coaches/me/students/{memberId}/health-profile`: kiểm tra qualification PT và relationship Active trước khi trả hồ sơ sức khỏe do hội viên tự khai (mục tiêu, BMI, mức vận động, lịch tập, chế độ ăn, chấn thương). Không cấp quyền sửa; trường hội viên chưa khai không được tự suy đoán. Lịch đo BMI tại trung tâm đã bỏ.
 - Desktop dùng danh sách/hồ sơ song song; mobile dùng Drawer. Hồ sơ có ba tab Sức khỏe, Kế hoạch, Lịch sử; thao tác cập nhật tải lại cả danh sách và hồ sơ đang xem.
 - Điều hướng PT chỉ còn Lịch PT và Hội viên phụ trách, hiển thị trực tiếp cả desktop/mobile. Tab Kế hoạch trong hồ sơ hỗ trợ tạo, AI gợi ý, sửa, áp dụng và lưu trữ; kế hoạch lưu trữ thu gọn, chỉ đọc. Chuẩn bị từng buổi vẫn nằm trong Schedule.
 - `/coach/training-plans` và `/coach/ai-suggestions` chuyển về `/coach/members`; nếu có `memberId`, mở đúng hồ sơ ở tab Kế hoạch. Không cần vào trang Training riêng. Đổi tab/học viên, đóng hồ sơ hoặc cập nhật phải xác nhận nếu form có thay đổi chưa lưu.

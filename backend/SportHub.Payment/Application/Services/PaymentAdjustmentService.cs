@@ -56,25 +56,25 @@ public sealed class PaymentAdjustmentService(ISportHubDbContext db) : IPaymentAd
         Guid actorUserId, CancellationToken ct = default)
     {
         if (!SportHub.BuildingBlocks.Api.WireEnum.TryParse<PaymentAdjustmentType>(request.Type, true, out var type) || !Enum.IsDefined(type))
-            throw new BadRequestException("invalid_adjustment_type", "Loại điều chỉnh không hợp lệ.");
+            throw new BadRequestException("invalid_adjustment_type", "Invalid adjustment type.");
         throw new ConflictException(type == PaymentAdjustmentType.Refund ? "refund_use_point_workflow" : "legacy_adjustment_read_only",
-            "Điều chỉnh legacy chỉ dùng để đọc lịch sử. Hoàn điểm mới phải dùng InvoiceItem qua /api/refunds.");
+            "Legacy adjustments are read-only. Use an invoice item through /api/refunds for point refunds.");
     }
 
     public async Task<PaymentAdjustmentResponse> ApproveAsync(Guid adjustmentId, ApproveAdjustmentRequest request,
         Guid actorUserId, CancellationToken ct = default)
     {
         var adjustment = await db.Set<PaymentAdjustment>().AsNoTracking().SingleOrDefaultAsync(x => x.AdjustmentId == adjustmentId, ct)
-            ?? throw new NotFoundException("adjustment_not_found", "Không tìm thấy yêu cầu điều chỉnh.");
+            ?? throw new NotFoundException("adjustment_not_found", "Adjustment not found.");
         throw new ConflictException(adjustment.Type == PaymentAdjustmentType.Refund ? "legacy_refund_not_approvable" : "legacy_adjustment_read_only",
-            "Điều chỉnh legacy không được dùng để thay đổi nghĩa vụ hoặc kích hoạt quyền lợi mới.");
+            "Legacy adjustments cannot change obligations or activate new benefits.");
     }
 
     public Task<PaymentAdjustmentResponse> RejectAsync(Guid adjustmentId, string reason, Guid actorUserId,
         CancellationToken ct = default)
-        => throw new ConflictException("legacy_adjustment_read_only", "Điều chỉnh legacy chỉ dùng để đọc lịch sử.");
+        => throw new ConflictException("legacy_adjustment_read_only", "Legacy adjustment read only.");
 
     private static PaymentAdjustmentStatus ParseStatus(string status)
         => SportHub.BuildingBlocks.Api.WireEnum.TryParse<PaymentAdjustmentStatus>(status, true, out var parsed) && Enum.IsDefined(parsed)
-            ? parsed : throw new BadRequestException("invalid_status", $"Trạng thái điều chỉnh không hợp lệ: '{status}'.");
+            ? parsed : throw new BadRequestException("invalid_status", "Invalid status.");
 }

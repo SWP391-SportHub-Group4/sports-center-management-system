@@ -24,8 +24,12 @@ public sealed class CoachMemberRelationshipService(
     ISportHubDbContext db,
     IAuditWriter audit,
     ICoachSpecialtyReader specialties,
-    IClock clock) : ICoachMemberRelationshipService
+    IClock clock) : ICoachMemberRelationshipService, ICoachMemberAccessReader
 {
+    public Task<bool> HasActiveRelationshipAsync(Guid coachId, Guid memberId, CancellationToken ct = default)
+        => db.Set<CoachMemberRelationship>().AsNoTracking().AnyAsync(
+            r => r.CoachId == coachId && r.MemberId == memberId && r.Status == RelationshipStatus.Active, ct);
+
     public const int DefaultPageSize = 50;
     public const int MaximumPageSize = 100;
 
@@ -69,7 +73,7 @@ public sealed class CoachMemberRelationshipService(
         {
             throw new BadRequestException(
                 "invalid_source_type",
-                $"Loại quan hệ không hợp lệ: '{request.SourceType}'. Hợp lệ: Personal, AssignedByManager.");
+                "Invalid source type.");
         }
 
         // ClassBased là HỆ QUẢ của việc đăng ký lớp, không phải thao tác tạo tay: nếu nhận qua
@@ -78,7 +82,7 @@ public sealed class CoachMemberRelationshipService(
         {
             throw new BadRequestException(
                 "class_based_is_automatic",
-                "Quan hệ ClassBased do hệ thống tự tạo khi hội viên đăng ký lớp của HLV đó.");
+                "Class based is automatic.");
         }
 
         await EnsureRoleAsync(request.CoachId, UserRole.Coach, "coach_not_found", ct);
@@ -96,7 +100,7 @@ public sealed class CoachMemberRelationshipService(
         if (existing)
         {
             throw new ConflictException(
-                "relationship_already_active", "Cặp HLV–Hội viên này đã có quan hệ huấn luyện đang hoạt động.");
+                "relationship_already_active", "Relationship already active.");
         }
 
         var relationship = new CoachMemberRelationship
@@ -131,11 +135,11 @@ public sealed class CoachMemberRelationshipService(
     {
         var relationship = await db.Set<CoachMemberRelationship>()
             .SingleOrDefaultAsync(r => r.RelationshipId == relationshipId, ct)
-            ?? throw new NotFoundException("relationship_not_found", "Không tìm thấy quan hệ huấn luyện.");
+            ?? throw new NotFoundException("relationship_not_found", "Relationship not found.");
 
         if (relationship.Status == RelationshipStatus.Ended)
         {
-            throw new ConflictException("relationship_already_ended", "Quan hệ huấn luyện đã kết thúc.");
+            throw new ConflictException("relationship_already_ended", "Relationship already ended.");
         }
 
         relationship.Status = RelationshipStatus.Ended;
@@ -203,7 +207,7 @@ public sealed class CoachMemberRelationshipService(
         {
             throw new BadRequestException(
                 "coach_must_be_personal_trainer",
-                "Chỉ Coach có chuyên môn huấn luyện cá nhân (PT 1-1) mới được gán quan hệ huấn luyện cá nhân (BR-99).");
+                "Coach must be personal trainer.");
         }
     }
 
@@ -213,14 +217,14 @@ public sealed class CoachMemberRelationshipService(
 
         if (!ok)
         {
-            throw new BadRequestException(errorCode, $"Tài khoản không tồn tại hoặc không có vai trò {role}.");
+            throw new BadRequestException(errorCode, $"The account does not exist or does not have the {role} role.");
         }
     }
 
     private async Task<CoachMemberRelationshipResponse> GetOneAsync(Guid relationshipId, CancellationToken ct)
         => await db.Set<CoachMemberRelationship>().AsNoTracking()
                .Where(r => r.RelationshipId == relationshipId).Select(Projection()).SingleOrDefaultAsync(ct)
-           ?? throw new NotFoundException("relationship_not_found", "Không tìm thấy quan hệ huấn luyện.");
+           ?? throw new NotFoundException("relationship_not_found", "Relationship not found.");
 
     private static System.Linq.Expressions.Expression<Func<CoachMemberRelationship, CoachMemberRelationshipResponse>>
         Projection()

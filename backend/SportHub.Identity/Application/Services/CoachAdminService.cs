@@ -20,6 +20,10 @@ public sealed record CoachResponse(
     DateTime CreatedAt)
 {
     public string? AvatarUrl { get; init; }
+    public string? Title { get; init; }
+    public int? YearsExperience { get; init; }
+    public int? StudentCount { get; init; }
+    public string? Philosophy { get; init; }
 }
 
 /// <summary>
@@ -67,7 +71,13 @@ public sealed class CoachAdminService(
                 u.Status.ToString(),
                 u.CoachProfile != null ? u.CoachProfile.Bio : null,
                 new List<int>(),
-                u.CreatedAt) { AvatarUrl = u.Profile != null ? u.Profile.AvatarUrl : null })
+                u.CreatedAt) {
+                    AvatarUrl = u.Profile != null ? u.Profile.AvatarUrl : null,
+                    Title = u.CoachProfile != null ? u.CoachProfile.Title : null,
+                    YearsExperience = u.CoachProfile != null ? u.CoachProfile.YearsExperience : null,
+                    StudentCount = u.CoachProfile != null ? u.CoachProfile.StudentCount : null,
+                    Philosophy = u.CoachProfile != null ? u.CoachProfile.Philosophy : null
+                })
             .ToListAsync(ct);
 
         var map = await specialties.GetForUsersAsync(rows.Select(r => r.UserId).ToList(), ct);
@@ -93,9 +103,15 @@ public sealed class CoachAdminService(
                           u.Status.ToString(),
                           u.CoachProfile != null ? u.CoachProfile.Bio : null,
                           new List<int>(),
-                          u.CreatedAt) { AvatarUrl = u.Profile != null ? u.Profile.AvatarUrl : null })
+                          u.CreatedAt) {
+                    AvatarUrl = u.Profile != null ? u.Profile.AvatarUrl : null,
+                    Title = u.CoachProfile != null ? u.CoachProfile.Title : null,
+                    YearsExperience = u.CoachProfile != null ? u.CoachProfile.YearsExperience : null,
+                    StudentCount = u.CoachProfile != null ? u.CoachProfile.StudentCount : null,
+                    Philosophy = u.CoachProfile != null ? u.CoachProfile.Philosophy : null
+                })
                       .SingleOrDefaultAsync(ct)
-                  ?? throw new NotFoundException("coach_not_found", "Không tìm thấy Coach.");
+                  ?? throw new NotFoundException("coach_not_found", "Coach not found.");
 
         var map = await specialties.GetForUsersAsync([userId], ct);
         return map.TryGetValue(userId, out var ids) ? row with { SportIds = ids } : row;
@@ -110,12 +126,12 @@ public sealed class CoachAdminService(
 
         if (await db.Set<UserAccount>().AnyAsync(u => u.Email == email, ct))
         {
-            throw new ConflictException("email_already_exists", "Email đã được sử dụng.");
+            throw new ConflictException("email_already_exists", "Email already exists.");
         }
 
         if (phone is not null && await db.Set<UserProfile>().AnyAsync(p => p.Phone == phone, ct))
         {
-            throw new ConflictException("phone_already_exists", "Số điện thoại đã được sử dụng.");
+            throw new ConflictException("phone_already_exists", "Phone already exists.");
         }
 
         var sportIds = await specialties.ValidateAsync(request.SportIds, ct);
@@ -130,7 +146,14 @@ public sealed class CoachAdminService(
             CreatedAt = clock.UtcNow,
             Credential = new UserCredential { PasswordHash = passwordHasher.Hash(request.Password) },
             Profile = new UserProfile { FullName = request.FullName.Trim(), Phone = phone },
-            CoachProfile = new CoachProfile { Bio = Clean(request.Bio) }
+            CoachProfile = new CoachProfile
+            {
+                Bio = Clean(request.Bio),
+                Title = Clean(request.Title),
+                YearsExperience = request.YearsExperience,
+                StudentCount = request.StudentCount,
+                Philosophy = Clean(request.Philosophy)
+            }
         };
 
         db.Set<UserAccount>().Add(user);
@@ -151,14 +174,14 @@ public sealed class CoachAdminService(
                        .Include(u => u.CoachProfile)
                        .Include(u => u.Profile)
                        .SingleOrDefaultAsync(u => u.UserId == userId && u.Role!.RoleName == UserRole.Coach, ct)
-                   ?? throw new NotFoundException("coach_not_found", "Không tìm thấy Coach.");
+                   ?? throw new NotFoundException("coach_not_found", "Coach not found.");
 
         var sportIds = await specialties.ValidateAsync(request.SportIds, ct);
         var phone = request.Phone is null ? user.Profile?.Phone : Clean(request.Phone);
         if (phone is not null && await db.Set<UserProfile>().AnyAsync(x => x.Phone == phone && x.UserId != userId, ct))
-            throw new ConflictException("phone_already_exists", "Số điện thoại đã được sử dụng.");
+            throw new ConflictException("phone_already_exists", "Phone already exists.");
         if (request.FullName is not null && !new FullNameAttribute().IsValid(request.FullName))
-            throw new BadRequestException("invalid_full_name", "Họ tên cần 2–100 ký tự và đúng định dạng.");
+            throw new BadRequestException("invalid_full_name", "Invalid full name.");
         var oldProfile = new { fullName = user.Profile?.FullName, phone = user.Profile?.Phone };
         var before = await specialties.ReplaceAsync(userId, sportIds, ct);
         user.Profile ??= new UserProfile { UserId = userId };
@@ -171,6 +194,12 @@ public sealed class CoachAdminService(
         {
             user.CoachProfile.Bio = Clean(request.Bio);
         }
+
+        // Các trường hồ sơ công khai: null giữ nguyên, chuỗi rỗng xóa giá trị.
+        if (request.Title is not null) user.CoachProfile.Title = Clean(request.Title);
+        if (request.Philosophy is not null) user.CoachProfile.Philosophy = Clean(request.Philosophy);
+        if (request.YearsExperience is not null) user.CoachProfile.YearsExperience = request.YearsExperience;
+        if (request.StudentCount is not null) user.CoachProfile.StudentCount = request.StudentCount;
 
         audit.Write(new AuditEntry(
             actorUserId, "UPDATE_COACH_SPECIALTIES", nameof(UserAccount), userId.ToString(),

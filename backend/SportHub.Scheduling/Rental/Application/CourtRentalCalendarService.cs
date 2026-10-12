@@ -22,9 +22,9 @@ public sealed partial class CourtRentalService
     {
         var access = await users.GetAsync(memberId, ct);
         if (access is null || !access.IsActive || access.Role != "Member")
-            throw new ForbiddenException("member_inactive", "Chỉ Member đang hoạt động mới được thuê sân.");
+            throw new ForbiddenException("member_inactive", "Member inactive.");
         if (!await catalog.IsServiceEnabledAsync(sportId, SportServiceType.CourtRental, ct))
-            throw new BadRequestException("rental_not_available", "Môn này không có dịch vụ thuê sân.");
+            throw new BadRequestException("rental_not_available", "Rental not available.");
         var step = await settings.GetIntAsync(SystemSettingKeys.RentalSlotMinutes, ct);
         var maxHours = await settings.GetIntAsync(SystemSettingKeys.RentalMaxHours, ct);
         var advanceDays = await settings.GetIntAsync(SystemSettingKeys.RentalAdvanceDays, ct);
@@ -32,7 +32,7 @@ public sealed partial class CourtRentalService
         var now = clock.UtcNow;
         if (step is not (30 or 60) || hours < 1 || hours > maxHours || hours > 4
             || date < VietnamTime.TodayLocal(clock) || date > VietnamTime.TodayLocal(clock).AddDays(advanceDays))
-            throw new BadRequestException("invalid_rental_window", "Ngày hoặc thời lượng thuê không hợp lệ.");
+            throw new BadRequestException("invalid_rental_window", "Invalid rental window.");
 
         var rooms = await (from room in db.Set<Room>().AsNoTracking()
                            join link in db.Set<SportRoomType>().AsNoTracking() on room.RoomTypeId equals link.RoomTypeId

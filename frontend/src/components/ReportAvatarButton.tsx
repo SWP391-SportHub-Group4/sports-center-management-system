@@ -19,7 +19,13 @@ export function ReportAvatarButton({
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
-  if (!user || user.userId === targetUserId || !avatarUrl) return null;
+  if (
+    !user ||
+    user.role === "Member" ||
+    user.userId === targetUserId ||
+    !avatarUrl
+  )
+    return null;
   return (
     <span>
       <button
