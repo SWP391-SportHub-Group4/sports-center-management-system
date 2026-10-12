@@ -27,7 +27,6 @@ public sealed partial class DemoDataSeeder(
     SportHub.BuildingBlocks.Abstractions.Wallet.IPointWalletService wallets,
     SportHub.Payment.Application.Services.CheckoutService checkouts,
     SportHub.Payment.Wallet.Application.PointConfirmationService pointConfirmations,
-    CoachRosterSeeder coachRoster,
     ILogger<DemoDataSeeder> logger)
 {
     public const string DemoPassword = "Sporthub@123";
@@ -172,8 +171,6 @@ public sealed partial class DemoDataSeeder(
         await SeedWalletAndRentalAsync(ct);
         await SeedArenaShowcaseCoursesAsync(ct);
         await SeedMemberWorkoutPlanAsync(ct);
-        await coachRoster.SeedAsync(ct);
-
         logger.LogInformation(
             "Đã seed dữ liệu demo: {Users} tài khoản, {Sessions} buổi học. Mật khẩu chung: {Password}",
             allUsers.Count, sessionCount, DemoPassword);

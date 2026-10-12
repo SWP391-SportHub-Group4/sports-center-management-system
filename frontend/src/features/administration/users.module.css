@@ -24,6 +24,11 @@
   flex-wrap: wrap;
   gap: var(--space-2);
 }
+.activationNote {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
 
 .createActions :global(.btn) {
   margin: 0;

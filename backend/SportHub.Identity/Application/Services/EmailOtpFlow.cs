@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using SportHub.BuildingBlocks.Abstractions.Notifications;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
@@ -8,9 +9,9 @@ using SportHub.Identity.Domain.Enums;
 namespace SportHub.Identity.Application.Services;
 
 /// <summary>
-/// Vòng đời OTP email cho quên mật khẩu bằng link và đặt mật khẩu lần đầu bằng mã 6 số:
-/// mã 6 số, hết hạn 10 phút, tối đa 5 lần sai, gửi lại sau 60 giây, chỉ mã mới nhất còn hiệu lực,
-/// băm SHA-256, dùng một lần.
+/// Vòng đời OTP email cho quên mật khẩu bằng link, kích hoạt Staff bằng link,
+/// và đặt mật khẩu lần đầu bằng mã 6 số. Thời hạn mặc định 10 phút, link Staff 24 giờ;
+/// tối đa 5 lần sai, gửi lại sau 60 giây, chỉ mã mới nhất còn hiệu lực, băm SHA-256, dùng một lần.
 ///
 /// - Lần nhập sai được đếm bằng UPDATE nguyên tử và commit ngay, không nằm trong transaction nào có thể rollback.
 /// - <see cref="ConsumeAsync"/> là UPDATE có điều kiện: hai request cùng mã đúng song song thì đúng một request thắng.
@@ -24,7 +25,8 @@ public sealed class EmailOtpFlow(ISportHubDbContext db, IClock clock, INotificat
     /// </summary>
     public async Task<string?> IssueAsync(
         string email, EmailOtpPurpose purpose, CancellationToken ct, Func<string, string>? resetLink = null,
-        string? supportUrl = null)
+        string? supportUrl = null, TimeSpan? lifetime = null, string? resetEmailSubject = null,
+        Func<string, int, string>? renderResetEmail = null)
     {
         // Đặt lại mật khẩu chỉ đi bằng link; không bao giờ gửi mã 6 số cho mục đích này.
         if (purpose == EmailOtpPurpose.ResetPassword && resetLink is null)
@@ -57,22 +59,25 @@ public sealed class EmailOtpFlow(ISportHubDbContext db, IClock clock, INotificat
         }
 
         otp.CodeHash = OtpCodes.Hash(code);
-        otp.ExpiresAt = now + AuthService.OtpLifetime;
+        var validFor = lifetime ?? AuthService.OtpLifetime;
+        otp.ExpiresAt = now + validFor;
         otp.Attempts = 0;
         otp.ConsumedAt = null;
         otp.CreatedAt = now;
 
         if (purpose == EmailOtpPurpose.ResetPassword)
         {
+            var url = resetLink!(code);
             notifications.QueueEmail(new EmailNotificationRequest(null, email, NotificationEvents.PasswordResetOtpRequested,
-                Guid.NewGuid(), PasswordResetEmail.Subject,
-                PasswordResetEmail.Render(resetLink!(code), (int)AuthService.OtpLifetime.TotalMinutes, supportUrl)));
+                Guid.NewGuid(), resetEmailSubject ?? PasswordResetEmail.Subject,
+                renderResetEmail?.Invoke(url, (int)validFor.TotalMinutes)
+                ?? PasswordResetEmail.Render(url, (int)validFor.TotalMinutes, supportUrl)));
         }
         else if (purpose == EmailOtpPurpose.SetPassword)
         {
             notifications.QueueEmail(new EmailNotificationRequest(null, email, NotificationEvents.PasswordResetOtpRequested,
                 Guid.NewGuid(), SetPasswordEmail.Subject,
-                SetPasswordEmail.Render(code, (int)AuthService.OtpLifetime.TotalMinutes, supportUrl)));
+                SetPasswordEmail.Render(code, (int)validFor.TotalMinutes, supportUrl)));
         }
         else
         {
@@ -83,7 +88,8 @@ public sealed class EmailOtpFlow(ISportHubDbContext db, IClock clock, INotificat
         {
             await db.SaveChangesAsync(ct);
         }
-        catch (DbUpdateException)
+        catch (DbUpdateException ex)
+            when (ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
         {
             // Request song song cùng email: unique (email, purpose) chặn request sau.
             return null;

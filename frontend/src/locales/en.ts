@@ -598,7 +598,9 @@ export const en = {
     reviewHint:
       "Check the account, requested change and reason before confirming.",
     createHint:
-      "The new staff account will be active and have access for the selected role.",
+      "The staff account will be ready after the employee sets a password from the email invitation.",
+    activationHint:
+      "* An activation email with a link to set the first password will be sent directly to the staff member.",
     roleImpact:
       "Changing the role invalidates existing sessions. The user will need to sign in again.",
     selfRoleImpact:
@@ -620,7 +622,7 @@ export const en = {
     newStatus: "New status",
     specialtyCount: "Selected specialties: {count}",
     changeSaved: "Account updated. The list has been refreshed.",
-    staffCreated: "Staff account created. The list has been refreshed.",
+    staffCreated: "Staff account created. An activation email has been queued.",
   },
   staffWork: {
     overview: "Overview",
@@ -1277,9 +1279,15 @@ export const en = {
     resetStatementDetail:
       "Choose a new password and pick up where you left off.",
     resetDoneTitle: "Password updated",
+    staffSetupDoneTitle: "Staff account activated",
+    staffSetupDone: "Your password is set. You can now sign in to your staff account.",
+    staffSetupInvalidTitle: "Activation link no longer works",
+    staffSetupInvalid: "This activation link is invalid or has expired. Use Forgot password on the sign-in page to request a new link.",
     linkInvalidTitle: "Link no longer works",
     linkSentHint: "The link expires in 10 minutes.",
     resetTitle: "Choose a new password",
+    staffSetupTitle: "Set your staff account password",
+    staffSetupDescription: "Create a password for",
     resetDescription: "Set a new password for",
     linkInvalid: "This reset link is invalid or has expired.",
     requestNewLink: "Request a new link",
@@ -1293,6 +1301,7 @@ export const en = {
     confirmPassword: "Confirm password",
     passwordInvalid: "Check the password requirements and confirmation.",
     reset: "Reset password",
+    staffSetupAction: "Set password",
     login: "Sign in",
   },
   wallet: {
@@ -1684,7 +1693,7 @@ export const en = {
     tabPlans: "Plans",
     tabResults: "Results",
     tabProgress: "Progress",
-    tabProfile: "BMI Profile",
+    tabProfile: "Fitness profile",
     yourCoach: "Your coach",
     sessionsLeft: "sessions left",
     ofTotal: "of {total}",
