@@ -18,7 +18,7 @@ Tạo `.env` ở thư mục gốc từ file mẫu rồi điền giá trị (file
 cp .env.example .env
 ```
 
-Link trong email đặt lại mật khẩu dựng từ `Frontend__BaseUrl` (mặc định `http://localhost:3000`; **phải đổi khi deploy**, nếu không người nhận nhận link localhost). `Frontend__SupportUrl` là website hỗ trợ ghi cuối email; để trống thì email chỉ ghi "liên hệ trung tâm". Thiếu SMTP ở Development thì nội dung email (kèm link) được ghi vào log backend (`Email__DemoLoggingEnabled`).
+Link trong email đặt lại mật khẩu và **email kích hoạt tài khoản staff** (Admin tạo qua `POST /api/users/admin/staff`; link dùng một lần, hạn 24 giờ, người nhận tự đặt mật khẩu) đều dựng từ `Frontend__BaseUrl` (mặc định `http://localhost:3000`; **phải đổi khi deploy**, nếu không người nhận nhận link localhost). Email kích hoạt cần SMTP hoạt động; thiếu SMTP thì tài khoản staff vẫn được tạo nhưng người nhận không có link để vào, nên ở Development hãy lấy link trong log backend (xem bên dưới). `Frontend__SupportUrl` là website hỗ trợ ghi cuối email; để trống thì email chỉ ghi "liên hệ trung tâm". Thiếu SMTP ở Development thì nội dung email (kèm link) được ghi vào log backend (`Email__DemoLoggingEnabled`). Nếu người nhận chưa nhận được (hoặc Admin gõ sai email), dùng **Gửi lại link kích hoạt** / **Đổi email** trong Admin → Users & roles; chỉ khi email kích hoạt tới đúng người thì tài khoản mới dùng được.
 
 Frontend đọc `frontend/.env.local` (tùy chọn). Mặc định gọi API tại `http://localhost:5000`; chỉ cần tạo file khi backend chạy ở địa chỉ khác (xem `frontend/.env.example`).
 
@@ -67,6 +67,15 @@ ASPNETCORE_ENVIRONMENT=Development dotnet run -- --seed-br141=true
 
 Lệnh in `database '...' trên '...'` trước khi ghi. Viết `--seed-br141=true` (có giá trị): nếu viết `--seed-br141` đứng một mình rồi tới `--ConnectionStrings:Default=...`, .NET dùng tham số kế tiếp làm giá trị của cờ và chuỗi kết nối bị bỏ qua. Biến môi trường `ConnectionStrings__Default` cũng không dùng được để đổi DB vì `.env` ở gốc repo được nạp và ghi đè; với `dotnet ef` dùng `--connection`.
 
+Seed dữ liệu demo Flow 1 + Flow 2 (lệnh riêng, idempotent, gọi luôn seed BR-141): ba Member demo `demo.member1..3@sporthub.vn` (mật khẩu `Sporthub@123`) mỗi người 3.000 điểm, Member 1 có gói Gym đang hoạt động, và lớp `DEMO-SMALL-01` chỉ 2 chỗ để demo không bán vượt sĩ số. Cần đã có Manager, Receptionist, Coach roster và gói Membership (seed dev mặc định).
+
+```bash
+cd backend/SportHub.API
+ASPNETCORE_ENVIRONMENT=Development dotnet run -- --seed-demo-flow12=true
+```
+
+Cùng quy tắc với `--seed-br141`: viết cờ có giá trị, lệnh in tên database trước khi ghi, và dùng `--ConnectionStrings:Default=...` để trỏ vào DB khác (ví dụ DB trong Docker publish ở cổng `POSTGRES_PORT`). Chạy lại không nhân bản dữ liệu và không cộng điểm lần hai. Kịch bản demo: [DEMO-SCRIPT-FLOW-1-2-3.md](DEMO-SCRIPT-FLOW-1-2-3.md).
+
 Reset dữ liệu dev (giữ tài khoản và cấu hình, xóa mọi dữ liệu phát sinh): sao lưu rồi chạy [reset-dev-data.sql](../backend/scripts/reset-dev-data.sql); đầu file có lệnh `pg_dump`/`psql` mẫu. Script chỉ chạy trên database tên `sporthub` và tạm tắt trigger chặn TRUNCATE của sổ điểm.
 
 ### 3.3 Frontend
@@ -78,6 +87,21 @@ npm run dev
 ```
 
 Giao diện chạy tại [http://localhost:3000](http://localhost:3000)
+
+### 3.4 Chạy bằng Docker Compose (nhánh `develop`)
+
+Để chạy cả hệ thống bằng container thay cho 3.1–3.3, chuyển sang nhánh `develop`, tạo `.env` như mục 2 rồi chạy từ thư mục gốc:
+
+```bash
+git checkout develop
+docker compose up -d --build
+```
+
+Frontend chạy từ image nên sau khi sửa UI phải build lại (`docker compose up -d --build frontend`). Giữ nguyên named volumes khi nâng cấp; không dùng `docker compose down -v` trên dữ liệu cần giữ.
+
+### 3.5 Tạo tài khoản nhân sự khi demo local
+
+Member và staff là hai loại tài khoản tách biệt: không đổi Member thành staff được (409 `member_staff_role_change_not_allowed`). Muốn thêm Coach/Receptionist/Manager, đăng nhập Admin, tạo tài khoản staff bằng **email khác** với email Member; Coach phải kèm chuyên môn. Ở Development không có SMTP, mở log backend để lấy link kích hoạt (`Email__DemoLoggingEnabled`).
 
 # 4. Bàn giao triển khai và nghiệm thu
 
@@ -103,7 +127,7 @@ Phần này dùng cho môi trường nghiệm thu thật; các mục 1–3 ở t
 
 ### Backlog chức năng còn lại
 
-Theo mục 13 của thiết kế: G01 (public sân/Coach/PT và giá), G03 (Manager AI), G06 (incident recovery), G07 (lịch sử/preview thông báo), G09 (filter catalog), G13 (đóng/mở tuyển sinh), và G08 nếu cần màn refund độc lập. G02/G04 và phần code G05/G12 đã bổ sung; test PostgreSQL cho các luồng An/Hào và callback sau khi tắt dịch vụ đã qua trên máy phát triển. Team vẫn phải áp migration, thử nâng cấp trên bản sao dữ liệu, và nghiệm thu staging/sandbox/thiết bị thật trước khi đóng. Xem [bàn giao An và Hào](AN-HAO-HANDOFF.md) và [các bước nghiệm thu thủ công](AN-HAO-MANUAL-STEPS.md).
+Theo mục 13 của thiết kế: G01 (public sân/Coach/PT và giá), G03 (Manager AI), G06 (incident recovery), G07 (lịch sử/preview thông báo), G09 (filter catalog), G13 (đóng/mở tuyển sinh), và G08 nếu cần màn refund độc lập. G02/G04 và phần code G05/G12 đã bổ sung; test PostgreSQL cho các luồng An/Hào và callback sau khi tắt dịch vụ đã qua trên máy phát triển. Team vẫn phải áp migration, thử nâng cấp trên bản sao dữ liệu, và nghiệm thu staging/sandbox/thiết bị thật trước khi đóng.
 
 ### Cổng quyết định go-live
 

@@ -469,7 +469,7 @@ test(
 );
 
 test(
-  "no search result shows how the Member registers themselves instead of a staff-made account",
+  "no search result lets the front desk register a new member with an activation email",
   async ({ page }) => {
     await page.route(
       "**/api/users?**",
@@ -491,14 +491,14 @@ test(
       ),
     ).toBeVisible();
 
-    await expect(
-      page.getByRole("link", {
-        name: "Open the registration page",
-      }),
-    ).toHaveAttribute(
-      "href",
-      "/register",
-    );
+    await page
+      .getByRole("button", { name: "Register a new member", exact: true })
+      .click();
+
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.getByLabel("Confirm email", { exact: true })).toBeVisible();
+    await expect(dialog).toContainText("activation");
+    await expect(dialog.getByLabel("Password")).toHaveCount(0);
   },
 );
 

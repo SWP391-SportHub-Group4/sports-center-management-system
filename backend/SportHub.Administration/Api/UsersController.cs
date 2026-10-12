@@ -76,6 +76,19 @@ public class UsersController(IUserAdminService users, ICoachMemberAccessReader c
         => StatusCode(
             StatusCodes.Status201Created, await users.CreateStaffAsync(request, User.RequireUserId(), ct));
 
+    /// <summary>Gửi lại link kích hoạt cho staff chưa kích hoạt (cooldown 60 giây, link cũ bị vô hiệu).</summary>
+    [Authorize(Policy = SportHubPolicies.SystemAdministrator)]
+    [HttpPost("{userId:guid}/resend-activation")]
+    public async Task<IActionResult> ResendActivation(Guid userId, CancellationToken ct)
+        => Ok(await users.ResendActivationAsync(userId, User.RequireUserId(), ct));
+
+    /// <summary>Sửa email của staff chưa kích hoạt và gửi link mới tới email đó.</summary>
+    [Authorize(Policy = SportHubPolicies.SystemAdministrator)]
+    [HttpPut("{userId:guid}/email")]
+    public async Task<IActionResult> ChangePendingEmail(
+        Guid userId, [FromBody] ChangePendingStaffEmailRequest request, CancellationToken ct)
+        => Ok(await users.ChangePendingEmailAsync(userId, request, User.RequireUserId(), ct));
+
     /// <summary>BR-2 — chỉ System Administrator gán hoặc thay đổi vai trò.</summary>
     [Authorize(Policy = SportHubPolicies.SystemAdministrator)]
     [HttpPut("{userId:guid}/role")]
