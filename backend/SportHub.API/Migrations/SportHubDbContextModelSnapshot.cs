@@ -506,6 +506,61 @@ namespace SportHub.API.Migrations
                     b.ToTable("email_otps", (string)null);
                 });
 
+            modelBuilder.Entity("SportHub.Identity.Domain.Entities.MemberSupportRequest", b =>
+                {
+                    b.Property<Guid>("RequestId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("request_id");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("category");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("description");
+
+                    b.Property<Guid>("MemberId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("member_id");
+
+                    b.Property<Guid>("RecordedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("recorded_by_user_id");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("status");
+
+                    b.Property<string>("Subject")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("subject");
+
+                    b.HasKey("RequestId")
+                        .HasName("pk_member_support_requests");
+
+                    b.HasIndex("RecordedByUserId")
+                        .HasDatabaseName("ix_member_support_requests_recorded_by_user_id");
+
+                    b.HasIndex("MemberId", "CreatedAt")
+                        .HasDatabaseName("ix_member_support_requests_member_id_created_at");
+
+                    b.ToTable("member_support_requests", (string)null);
+                });
+
             modelBuilder.Entity("SportHub.Identity.Domain.Entities.Role", b =>
                 {
                     b.Property<int>("RoleId")
@@ -3948,6 +4003,23 @@ namespace SportHub.API.Migrations
                         .HasConstraintName("fk_coach_service_qualifications_user_accounts_user_id");
 
                     b.Navigation("UserAccount");
+                });
+
+            modelBuilder.Entity("SportHub.Identity.Domain.Entities.MemberSupportRequest", b =>
+                {
+                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", null)
+                        .WithMany()
+                        .HasForeignKey("MemberId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_member_support_requests_user_accounts_member_id");
+
+                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", null)
+                        .WithMany()
+                        .HasForeignKey("RecordedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_member_support_requests_user_accounts_recorded_by_user_id");
                 });
 
             modelBuilder.Entity("SportHub.Identity.Domain.Entities.UserAccount", b =>
