@@ -24,6 +24,22 @@
   color: var(--text-body);
   font-size: var(--text-sm);
 }
+.register button {
+  margin-top: var(--space-2);
+}
+.pending {
+  display: grid;
+  gap: var(--space-2);
+  margin: var(--space-3) 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-warning, var(--border-default));
+  background: var(--bg-surface-sunken);
+}
+.pending h3 {
+  margin: 0;
+  font-size: var(--text-sm);
+}
 .register a {
   display: inline-block;
   margin-top: var(--space-1);

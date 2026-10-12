@@ -26,18 +26,34 @@ import type {
   Paged,
 } from "@/lib/types";
 import { useDeskMember } from "./desk-context";
+import { RegisterMemberDialog } from "./register-member";
 import { SelectedMemberPanel } from "./selected-member";
 import styles from "./desk.module.css";
 
 export function RegistrationHint() {
   const { t } = useLanguage();
+  const { setMember } = useDeskMember();
+  const [open, setOpen] = useState(false);
   return (
     <p className={styles.register}>
       {t.frontDesk.notRegistered}
       <br />
-      <a href="/register" target="_blank" rel="noreferrer">
+      <button
+        type="button"
+        className="btn btn--secondary btn--sm"
+        onClick={() => setOpen(true)}
+      >
         {t.frontDesk.openRegistration}
-      </a>
+      </button>
+      {open && (
+        <RegisterMemberDialog
+          onClose={() => setOpen(false)}
+          onCreated={(member) => {
+            setOpen(false);
+            setMember(member);
+          }}
+        />
+      )}
     </p>
   );
 }

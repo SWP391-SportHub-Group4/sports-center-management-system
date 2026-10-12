@@ -628,6 +628,17 @@ export const en = {
       "Check the account, requested change and reason before confirming.",
     createHint:
       "The staff account will be ready after the employee sets a password from the email invitation.",
+    confirmEmail: "Confirm email",
+    emailMismatch: "The two email addresses do not match.",
+    pendingActivation: "Pending activation",
+    pendingActivationHint:
+      "This staff member has not activated the account yet. If the email was mistyped, correct it so the activation link goes to the right person.",
+    resendActivation: "Resend activation link",
+    changeEmail: "Change email",
+    newEmail: "New email",
+    confirmNewEmail: "Confirm new email",
+    saveNewEmail: "Update email and send link",
+    activationActionFailed: "The action could not be completed.",
     activationHint:
       "* An activation email with a link to set the first password will be sent directly to the staff member.",
     roleImpact:
@@ -1350,6 +1361,13 @@ export const en = {
     passwordInvalid: "Check the password requirements and confirmation.",
     reset: "Reset password",
     staffSetupAction: "Set password",
+    memberSetupDoneTitle: "Account activated",
+    memberSetupDone: "Your password is set. You can now sign in to SportHub.",
+    memberSetupInvalidTitle: "Activation link no longer works",
+    memberSetupInvalid: "This activation link is invalid or has expired. Ask the front desk to send a new one, or use Forgot password on the sign-in page.",
+    memberSetupTitle: "Set your SportHub password",
+    memberSetupDescription: "Create a password for",
+    memberSetupAction: "Set password",
     login: "Sign in",
   },
   wallet: {
@@ -1685,8 +1703,24 @@ export const en = {
     findMember: "Find a member",
     findHint: "Phone, name or email. Scan the member's QR if they have it.",
     notRegistered:
-      "Not registered yet? Ask the member to sign up themselves so the verification code reaches their own email.",
-    openRegistration: "Open the registration page",
+      "Not registered yet? Register them here. They get an activation email and set their own password.",
+    openRegistration: "Register a new member",
+    registerMemberTitle: "Register a new member",
+    registerMemberHint:
+      "Enter the member's own email twice. The activation link goes there, so a mistyped address means the wrong person could activate the account.",
+    registerMemberSubmit: "Register and send activation email",
+    confirmEmail: "Confirm email",
+    emailMismatch: "The two email addresses do not match.",
+    activationNote:
+      "The member cannot sign in until they open the activation email and set a password. You can already sell services and record payments for them at the desk.",
+    pendingActivation: "Pending activation",
+    pendingHint:
+      "This member has not activated the account yet. Resend the link, or correct the email if it was mistyped.",
+    resendActivation: "Resend activation link",
+    changeEmail: "Change email",
+    newEmail: "New email",
+    confirmNewEmail: "Confirm new email",
+    saveNewEmail: "Update email and send link",
     selectedMember: "Selected member",
     changeMember: "Change member",
     membership: "Gym membership",

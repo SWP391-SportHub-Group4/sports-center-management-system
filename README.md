@@ -11,11 +11,13 @@ Monorepo cho hệ thống quản lý **trung tâm thể thao đa môn**: nhiều
 
 | Vai trò | Làm gì |
 |---|---|
-| System Administrator | Tạo tài khoản nhân sự (Admin/Manager/Receptionist/Coach kèm chuyên môn; nhân sự nhận email kích hoạt), đổi vai trò giữa các role staff (không chuyển Member ↔ staff), khóa/mở khóa |
-| Center Manager | CRUD môn, phòng/sân, giá thuê sân, Membership; tạo lớp + xếp lịch (AI gợi ý xếp lịch còn là phần chưa triển khai), phân công Coach theo chuyên môn, sửa hồ sơ Coach và cấp quyền dịch vụ PT (không tạo Coach), duyệt hoàn điểm, sự cố/thông báo, báo cáo, Audit Log |
+| System Administrator (role bổ sung so với requirement gốc, nhận phần quản trị tài khoản từ Manager) | Tạo tài khoản nhân sự (Admin/Manager/Receptionist/Coach kèm chuyên môn; nhân sự nhận email kích hoạt), đổi vai trò giữa các role staff (không chuyển Member ↔ staff), khóa/mở khóa, gửi lại link kích hoạt/sửa email chưa kích hoạt, Audit Log thao tác tài khoản |
+| Center Manager (chia việc với Admin, không giống 100% requirement gốc) | CRUD môn, phòng/sân, giá thuê sân, Membership; tạo lớp + xếp lịch (AI gợi ý xếp lịch còn là phần chưa triển khai), phân công Coach theo chuyên môn, sửa hồ sơ Coach và cấp quyền dịch vụ PT (không tạo Coach), duyệt hoàn điểm, sự cố/thông báo, báo cáo, Audit Log |
 | Coach (của trung tâm) | Chuyên môn theo môn (`CoachSpecialty`); xem lịch dạy và roster lớp mình; Coach có chuyên môn PT: PT session, kế hoạch tập, kết quả, gợi ý AI |
 | Member | Đăng ký Membership Gym, PT; xem lớp/khóa học, ghi danh có giữ chỗ, ví điểm, lịch hôm nay/tuần, thông báo, chatbot |
-| Receptionist | Tìm/đăng ký Member tại quầy, Gym check-in/out, điểm danh lớp nhóm, checkout thay Member (dùng điểm cần OTP email của Member), Court Schedule, hỗ trợ đối soát |
+| Receptionist | Tìm/xem Member, quản lý đăng ký/gia hạn gói, kiểm tra gói và hạn, Gym check-in/out, điểm danh lớp nhóm, đăng ký lớp hoặc hỗ trợ hủy lớp, checkout thay Member (dùng điểm cần OTP email của Member), ghi nhận thanh toán và hóa đơn, Court Schedule, hỗ trợ đối soát. Đăng ký Member mới tại quầy (email nhập hai lần, Member nhận email kích hoạt; gửi lại link/sửa email khi chờ kích hoạt). Yêu cầu chưa triển khai: tiếp nhận yêu cầu hỗ trợ |
+
+Guest (chưa đăng nhập) xem được landing page và nội dung công khai; Guest không phải role lưu trong database.
 
 ### Các Flow
 
