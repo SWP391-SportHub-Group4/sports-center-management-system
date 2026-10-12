@@ -85,6 +85,7 @@ export function MutationFeedback({
 }) {
   const { t } = useLanguage();
   const conflicts = mutation.error?.details.conflicts;
+  const reasons = mutation.error?.details.reasons;
   const message =
     mutation.error?.code === "gym_already_checked_in"
       ? t.operations.gymAlreadyInside
@@ -96,6 +97,15 @@ export function MutationFeedback({
   return (
     <>
       <Feedback error={message} success={mutation.success} />
+      {Array.isArray(reasons) && reasons.length > 0 && (
+        <div className={styles.conflicts}>
+          <ul>
+            {reasons.map((reason, index) => (
+              <li key={index}>{String(reason)}</li>
+            ))}
+          </ul>
+        </div>
+      )}
       {Array.isArray(conflicts) && conflicts.length > 0 && (
         <div className={styles.conflicts}>
           <p>{t.operations.conflict}</p>

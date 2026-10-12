@@ -26,6 +26,7 @@ function ResetPasswordForm() {
   const params = useSearchParams();
   const email = params.get("email") ?? "";
   const token = params.get("token") ?? "";
+  const staffSetup = params.get("setup") === "staff";
   const action = useAction();
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -94,13 +95,13 @@ function ResetPasswordForm() {
 
   if (done)
     return (
-      <AuthCard title={t.identity.resetDoneTitle}>
+      <AuthCard title={staffSetup ? t.identity.staffSetupDoneTitle : t.identity.resetDoneTitle}>
         <div className={styles.outcome}>
           <span className={styles.outcomeIcon} aria-hidden="true">
             <IconCheck size={28} />
           </span>
           <p className={styles.outcomeText} role="status">
-            {t.identity.resetDone}
+            {staffSetup ? t.identity.staffSetupDone : t.identity.resetDone}
           </p>
           <Link
             className={`${buttonClass({ variant: "primary", size: "lg", block: true })} ${styles.link}`}
@@ -114,7 +115,7 @@ function ResetPasswordForm() {
 
   if (badLink)
     return (
-      <AuthCard title={t.identity.linkInvalidTitle}>
+      <AuthCard title={staffSetup ? t.identity.staffSetupInvalidTitle : t.identity.linkInvalidTitle}>
         <div className={styles.outcome}>
           <span
             className={`${styles.outcomeIcon} ${styles.outcomeIconWarn}`}
@@ -123,7 +124,7 @@ function ResetPasswordForm() {
             <IconAlert size={28} />
           </span>
           <p className={styles.outcomeText} role="alert">
-            {t.identity.linkInvalid}
+            {staffSetup ? t.identity.staffSetupInvalid : t.identity.linkInvalid}
           </p>
           <Link
             className={`${buttonClass({ variant: "primary", size: "lg", block: true })} ${styles.link}`}
@@ -137,10 +138,11 @@ function ResetPasswordForm() {
 
   return (
     <AuthCard
-      title={t.identity.resetTitle}
+      title={staffSetup ? t.identity.staffSetupTitle : t.identity.resetTitle}
       subtitle={
         <>
-          {t.identity.resetDescription} <strong>{email}</strong>
+          {staffSetup ? t.identity.staffSetupDescription : t.identity.resetDescription}{" "}
+          <strong>{email}</strong>
         </>
       }
     >
@@ -210,11 +212,11 @@ function ResetPasswordForm() {
         )}
         <Feedback error={action.error} />
         <Button type="submit" className={styles.submit} loading={action.busy}>
-          {t.identity.reset}
+          {staffSetup ? t.identity.staffSetupAction : t.identity.reset}
         </Button>
       </form>
       <p className={styles.footer}>
-        <span>{t.identity.rememberedPassword}</span>
+        {!staffSetup && <span>{t.identity.rememberedPassword}</span>}
         <Link href="/login">{t.identity.login}</Link>
       </p>
     </AuthCard>

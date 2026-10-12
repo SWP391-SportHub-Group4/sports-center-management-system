@@ -21,12 +21,12 @@ public sealed class CoachSpecialtyService(ISportHubDbContext db, ISportCatalogRe
         if (ids.Count == 0)
         {
             throw new BadRequestException(
-                "coach_specialty_required", "Coach phải có ít nhất một môn chuyên môn (BR-96).");
+                "coach_specialty_required", "Coach specialty required.");
         }
 
         if (ids.Count > MaxSports)
         {
-            throw new BadRequestException("too_many_sports", $"Tối đa {MaxSports} môn chuyên môn.");
+            throw new BadRequestException("too_many_sports", $"A coach can have at most {MaxSports} sport specialties.");
         }
 
         foreach (var id in ids)
@@ -35,7 +35,7 @@ public sealed class CoachSpecialtyService(ISportHubDbContext db, ISportCatalogRe
 
             if (sport is null || !sport.IsActive)
             {
-                throw new BadRequestException("invalid_sport", $"Môn không tồn tại hoặc đã ngừng hoạt động: {id}.");
+                throw new BadRequestException("invalid_sport", "Invalid sport.");
             }
         }
 

@@ -56,7 +56,8 @@ public static class SportHubPolicies
     public const string AttendanceCheckIn = nameof(AttendanceCheckIn);
 
     /// <summary>
-    /// Đọc dữ liệu vận hành (lịch lớp, danh sách hội viên, hoá đơn): Manager, Lễ tân, Coach.
+    /// Đọc dữ liệu vận hành: Manager, Lễ tân, Coach. Với dữ liệu cá nhân theo MemberId,
+    /// controller phải kiểm thêm quan hệ Coach–Member Active; danh sách toàn hệ thống dùng FrontDesk.
     /// KHÔNG gồm SystemAdministrator — phạm vi quyền của vai trò này ngoài BR-2/BR-6 chưa được
     /// Business Rules chốt (SSOT §7), nên để ❌ như ma trận RBAC hiện hành thay vì tự nới.
     /// </summary>

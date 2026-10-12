@@ -39,18 +39,18 @@ public sealed partial class SportCatalogService(ISportHubDbContext db, IAuditWri
     public async Task<SportResponse> CreateAsync(SaveSportRequest request, Guid actorUserId, CancellationToken ct = default)
     {
         var code = NormalizeCode(request.Code)
-                   ?? throw new BadRequestException("sport_code_invalid", "Mã môn bắt buộc, gồm a-z, 0-9, _ (2-32 ký tự).");
+                   ?? throw new BadRequestException("sport_code_invalid", "Sport code invalid.");
         var name = request.Name.Trim();
         var services = ValidateServices(code, request.Services);
 
         if (await db.Set<Sport>().AnyAsync(s => s.Code == code, ct))
         {
-            throw new ConflictException("sport_code_taken", "Mã môn đã được dùng.");
+            throw new ConflictException("sport_code_taken", "Sport code taken.");
         }
 
         if (await db.Set<Sport>().AnyAsync(s => s.Name == name, ct))
         {
-            throw new ConflictException("sport_name_taken", "Đã có môn trùng tên.");
+            throw new ConflictException("sport_name_taken", "Sport name taken.");
         }
 
         var sport = new Sport
@@ -86,7 +86,7 @@ public sealed partial class SportCatalogService(ISportHubDbContext db, IAuditWri
         if (!string.IsNullOrWhiteSpace(request.Code)
             && !string.Equals(request.Code.Trim(), sport.Code, StringComparison.OrdinalIgnoreCase))
         {
-            throw new BadRequestException("sport_code_immutable", "Không đổi được mã môn sau khi tạo.");
+            throw new BadRequestException("sport_code_immutable", "Sport code immutable.");
         }
 
         var name = request.Name.Trim();
@@ -94,7 +94,7 @@ public sealed partial class SportCatalogService(ISportHubDbContext db, IAuditWri
 
         if (await db.Set<Sport>().AnyAsync(s => s.Name == name && s.SportId != sportId, ct))
         {
-            throw new ConflictException("sport_name_taken", "Đã có môn trùng tên.");
+            throw new ConflictException("sport_name_taken", "Sport name taken.");
         }
 
         var before = Describe(sport);
@@ -141,7 +141,7 @@ public sealed partial class SportCatalogService(ISportHubDbContext db, IAuditWri
     {
         var sport = await FindAsync(sportId, ct);
         var offering = sport.Services.SingleOrDefault(s => s.ServiceType == type)
-                       ?? throw new NotFoundException("service_not_configured", "Môn chưa cấu hình dịch vụ này.");
+                       ?? throw new NotFoundException("service_not_configured", "Service not configured.");
 
         if (offering.IsEnabled != enabled)
         {
@@ -164,25 +164,25 @@ public sealed partial class SportCatalogService(ISportHubDbContext db, IAuditWri
         if (type != SportServiceType.PersonalTraining)
         {
             throw new BadRequestException("service_room_types_not_supported",
-                "Chỉ dịch vụ PT thu hẹp loại phòng riêng; lớp và thuê sân dùng loại phòng của môn.");
+                "Service room types not supported.");
         }
 
         var sport = await FindAsync(sportId, ct);
         var offering = sport.Services.SingleOrDefault(s => s.ServiceType == type)
-                       ?? throw new NotFoundException("service_not_configured", "Môn chưa cấu hình dịch vụ này.");
+                       ?? throw new NotFoundException("service_not_configured", "Service not configured.");
         var ids = roomTypeIds.Distinct().OrderBy(x => x).ToList();
 
         var known = await db.Set<RoomType>().Where(r => ids.Contains(r.RoomTypeId)).Select(r => r.RoomTypeId).ToListAsync(ct);
         if (known.Count != ids.Count)
         {
-            throw new BadRequestException("invalid_room_type", "Có loại phòng không tồn tại.");
+            throw new BadRequestException("invalid_room_type", "Invalid room type.");
         }
 
         // Loại phòng phải thuộc môn (sport_room_types) để phòng PT vẫn tương thích môn Gym.
         var sportRoomTypes = await db.Set<SportRoomType>().Where(l => l.SportId == sportId).Select(l => l.RoomTypeId).ToListAsync(ct);
         if (ids.Any(id => !sportRoomTypes.Contains(id)))
         {
-            throw new BadRequestException("room_type_not_linked_to_sport", "Loại phòng chưa được gán cho môn này.");
+            throw new BadRequestException("room_type_not_linked_to_sport", "Room type not linked to sport.");
         }
 
         var current = await db.Set<ServiceRoomType>().Where(l => l.OfferingId == offering.OfferingId).ToListAsync(ct);
@@ -251,7 +251,7 @@ public sealed partial class SportCatalogService(ISportHubDbContext db, IAuditWri
 
     private async Task<Sport> FindAsync(int sportId, CancellationToken ct)
         => await db.Set<Sport>().Include(s => s.Services).SingleOrDefaultAsync(s => s.SportId == sportId, ct)
-           ?? throw new NotFoundException("sport_not_found", "Không tìm thấy môn.");
+           ?? throw new NotFoundException("sport_not_found", "Sport not found.");
 
     /// <summary>Kiểm tập dịch vụ: loại hợp lệ, không trùng, mặc định đúng loại, Membership/PT chỉ ở Gym.</summary>
     private static List<SportServiceOffering> ValidateServices(string sportCode, IEnumerable<SaveSportServiceRequest> requested)
@@ -264,19 +264,19 @@ public sealed partial class SportCatalogService(ISportHubDbContext db, IAuditWri
                 || !Enum.IsDefined(type))
             {
                 throw new BadRequestException("service_type_invalid",
-                    "Loại dịch vụ không hợp lệ (MembershipAccess, GroupCourse, CourtRental, PersonalTraining).");
+                    "Service type invalid.");
             }
 
             if (result.Any(r => r.ServiceType == type))
             {
-                throw new BadRequestException("service_type_invalid", "Dịch vụ bị khai báo trùng.");
+                throw new BadRequestException("service_type_invalid", "Service type invalid.");
             }
 
             if (type is SportServiceType.MembershipAccess or SportServiceType.PersonalTraining
                 && !string.Equals(sportCode, SportCodes.Gym, StringComparison.OrdinalIgnoreCase))
             {
                 throw new BadRequestException("service_not_allowed_for_sport",
-                    "Membership và PT chỉ thuộc môn Gym trong phạm vi hiện tại.");
+                    "Service not allowed for sport.");
             }
 
             if (type == SportServiceType.GroupCourse)
@@ -284,13 +284,13 @@ public sealed partial class SportCatalogService(ISportHubDbContext db, IAuditWri
                 if (item.DefaultSessionMinutes is null || item.DefaultMaxCapacity is null)
                 {
                     throw new BadRequestException("sport_group_course_defaults_required",
-                        "Khóa học nhóm bắt buộc có thời lượng buổi và sức chứa mặc định.");
+                        "Sport group course defaults required.");
                 }
             }
             else if (item.DefaultSessionMinutes is not null || item.DefaultMaxCapacity is not null)
             {
                 throw new BadRequestException("service_defaults_not_allowed",
-                    "Chỉ khóa học nhóm có thời lượng và sức chứa mặc định.");
+                    "Service defaults not allowed.");
             }
 
             result.Add(new SportServiceOffering

@@ -40,7 +40,7 @@ public sealed class RevenueReportService(ISportHubDbContext db,
         var fromUtc = VietnamTime.StartOfDayUtc(fromDate);
         if (toDate.DayNumber - fromDate.DayNumber > 366)
             throw new SportHub.BuildingBlocks.SharedKernel.Errors.BadRequestException(
-                "range_too_large", "Khoảng báo cáo tối đa 366 ngày.");
+                "range_too_large", "The revenue report range cannot exceed 366 days.");
         var toUtcExclusive = VietnamTime.EndOfDayExclusiveUtc(toDate);
 
         var payments = await db.Set<Domain.Entities.Payment>()

@@ -27,7 +27,6 @@ public sealed partial class DemoDataSeeder(
     SportHub.BuildingBlocks.Abstractions.Wallet.IPointWalletService wallets,
     SportHub.Payment.Application.Services.CheckoutService checkouts,
     SportHub.Payment.Wallet.Application.PointConfirmationService pointConfirmations,
-    CoachRosterSeeder coachRoster,
     ILogger<DemoDataSeeder> logger)
 {
     public const string DemoPassword = "Sporthub@123";
@@ -172,8 +171,6 @@ public sealed partial class DemoDataSeeder(
         await SeedWalletAndRentalAsync(ct);
         await SeedArenaShowcaseCoursesAsync(ct);
         await SeedMemberWorkoutPlanAsync(ct);
-        await coachRoster.SeedAsync(ct);
-
         logger.LogInformation(
             "Đã seed dữ liệu demo: {Users} tài khoản, {Sessions} buổi học. Mật khẩu chung: {Password}",
             allUsers.Count, sessionCount, DemoPassword);
@@ -842,11 +839,21 @@ public sealed partial class DemoDataSeeder(
     {
         var goals = new[]
         {
-            ("Lose 5 kg in 3 months", ExperienceLevel.Beginner),
-            ("Build muscle and improve endurance", ExperienceLevel.Intermediate),
-            ("Improve flexibility and reduce back pain", ExperienceLevel.Beginner),
-            ("Prepare for amateur competition", ExperienceLevel.Advanced),
-            ("Maintain fitness with three sessions a week", ExperienceLevel.Intermediate)
+            ("Lose 5 kg in 3 months", ExperienceLevel.Beginner, TrainingGoalType.FatLoss),
+            ("Build muscle and improve endurance", ExperienceLevel.Intermediate, TrainingGoalType.MuscleGain),
+            ("Improve flexibility and reduce back pain", ExperienceLevel.Beginner, TrainingGoalType.Flexibility),
+            ("Prepare for amateur competition", ExperienceLevel.Advanced, TrainingGoalType.Endurance),
+            ("Maintain fitness with three sessions a week", ExperienceLevel.Intermediate, TrainingGoalType.Maintain)
+        };
+        // Tự khai: ngày sinh, giới tính, chiều cao, cân nặng, cân nặng mục tiêu, mức vận động, ngày tập/tuần, phút/buổi, chế độ ăn.
+        var body = new (int Year, BiologicalSex Sex, decimal Height, decimal Weight, decimal? Target, ActivityLevel Activity,
+            int Days, int Minutes, DietaryPreference Diet, string? Allergies)[]
+        {
+            (1999, BiologicalSex.Female, 162.0m, 68.0m, 63.0m, ActivityLevel.LightlyActive, 3, 60, DietaryPreference.NoPreference, null),
+            (1996, BiologicalSex.Male, 175.0m, 70.0m, 75.0m, ActivityLevel.ModeratelyActive, 4, 75, DietaryPreference.NoPreference, null),
+            (1988, BiologicalSex.Female, 158.0m, 55.0m, null, ActivityLevel.Sedentary, 3, 45, DietaryPreference.Vegetarian, "Peanuts"),
+            (2001, BiologicalSex.Male, 180.0m, 78.0m, null, ActivityLevel.VeryActive, 5, 90, DietaryPreference.NoPreference, null),
+            (1992, BiologicalSex.Female, 165.0m, 60.0m, null, ActivityLevel.LightlyActive, 3, 60, DietaryPreference.Halal, null)
         };
 
         for (var i = 0; i < goals.Length && i < members.Length; i++)
@@ -857,8 +864,24 @@ public sealed partial class DemoDataSeeder(
                 MemberId = members[i].UserId,
                 Goal = goals[i].Item1,
                 ExperienceLevel = goals[i].Item2,
+                GoalType = goals[i].Item3,
+                DateOfBirth = new DateOnly(body[i].Year, 6, 15),
+                Sex = body[i].Sex,
+                HeightCm = body[i].Height,
+                WeightKg = body[i].Weight,
+                TargetWeightKg = body[i].Target,
+                ActivityLevel = body[i].Activity,
+                TrainingDaysPerWeek = body[i].Days,
+                SessionMinutes = body[i].Minutes,
+                DietaryPreference = body[i].Diet,
+                FoodAllergies = body[i].Allergies,
                 Notes = i == 2 ? "Previous lower back injury; avoid heavy abdominal crunches." : null,
                 UpdatedAt = now.AddDays(-5)
+            });
+            db.Set<MemberBodyMeasurement>().Add(new MemberBodyMeasurement
+            {
+                MeasurementId = Guid.NewGuid(), MemberId = members[i].UserId,
+                HeightCm = body[i].Height, WeightKg = body[i].Weight, MeasuredAt = now.AddDays(-5)
             });
         }
 

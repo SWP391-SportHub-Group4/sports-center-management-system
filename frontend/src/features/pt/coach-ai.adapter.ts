@@ -1,6 +1,10 @@
 import { api } from "@/lib/apiClient";
 
-import type { WorkoutPlanDto, WorkoutSuggestionDto } from "@/lib/types";
+import type {
+  NutritionGuidanceDto,
+  WorkoutPlanDto,
+  WorkoutSuggestionDto,
+} from "@/lib/types";
 
 import type { AiDrawerAdapter } from "@/components/ai/ai-drawer.contract";
 
@@ -23,6 +27,7 @@ export interface CoachAiPlanDraft {
   goal: string;
   level: string;
   rationale: string;
+  nutrition?: NutritionGuidanceDto | null;
   items: CoachAiExerciseDraft[];
 }
 
@@ -108,6 +113,8 @@ export const coachAiAdapter: AiDrawerAdapter<
       level: result.level,
 
       rationale: result.rationale,
+
+      nutrition: result.nutrition ?? null,
 
       items: result.items?.length
         ? result.items.map((item) => ({

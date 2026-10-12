@@ -50,4 +50,5 @@ public static class NotificationEvents
     public const string InvoiceCreated = nameof(InvoiceCreated);
     public const string RefundCompleted = nameof(RefundCompleted);
     public const string ClassTeachingUpdated = nameof(ClassTeachingUpdated);
+    public const string PasswordChanged = nameof(PasswordChanged);
 }

@@ -19,7 +19,7 @@ public sealed class SeatHoldExpiryJob(IServiceProvider services, ILogger<SeatHol
 
         if (expired.Count > 0)
         {
-            logger.LogInformation("SeatHoldExpiryJob: hết hạn {Count} giữ chỗ.", expired.Count);
+            logger.LogInformation("SeatHoldExpiryJob: expired {Count} seat holds.", expired.Count);
         }
     }
 }

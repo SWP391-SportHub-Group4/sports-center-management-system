@@ -39,8 +39,8 @@ Ngoài phạm vi: đa chi nhánh, payroll/hợp đồng nhân sự, gym bên ngo
 | Member | Mua dịch vụ; thuê/hủy sân còn trống; xem lịch, quyền lợi, hóa đơn, ví; yêu cầu hỗ trợ | Chỉ dữ liệu của mình; không tự xác nhận payment |
 | Receptionist | Tiếp đón, Gym check-in/out, điểm danh lớp, checkout hộ | Dùng điểm hộ cần OTP Member; không tự cấp điểm hoặc duyệt refund |
 | Coach | Xem lịch được giao; Coach PT lập plan, ghi result | Chỉ lớp/học viên được phân công; kiểm cả role và quan hệ |
-| CenterManager | Môn/sân, Coach/chuyên môn, lớp/lịch, sự cố, hoàn điểm, báo cáo | Theo mức hệ thống tính; không tự duyệt yêu cầu của mình |
-| SystemAdministrator | Tài khoản nhân sự, role, khóa/mở tài khoản | Không mặc nhiên có quyền tài chính hoặc hồ sơ tập luyện |
+| CenterManager | Môn/sân, hồ sơ/chuyên môn và quyền dịch vụ PT của Coach (không tạo Coach), lớp/lịch, sự cố, hoàn điểm, báo cáo | Theo mức hệ thống tính; không tự duyệt yêu cầu của mình |
+| SystemAdministrator | Tạo tài khoản nhân sự (kể cả Coach), đổi role giữa các role staff, khóa/mở tài khoản | Không mặc nhiên có quyền tài chính hoặc hồ sơ tập luyện |
 
 Backend kiểm policy, ownership, quan hệ và approval; ẩn nút frontend không thay thế authorization. Khoảng trống quyền đọc được ghi tại mục 13.
 
@@ -129,9 +129,9 @@ Chi tiết tại [Phụ lục A — Từ điển dữ liệu](#phụ-lục-a--t�
 
 ### 5.1 Tài khoản và Membership Gym
 
-Đăng ký Member bằng email dùng OTP. Tài khoản nhân sự được tạo theo policy. Đổi/reset mật khẩu và khóa tài khoản phải vô hiệu phiên không còn hợp lệ.
+Đăng ký Member bằng email dùng OTP. Tài khoản nhân sự (kể cả Coach kèm chuyên môn) chỉ do SystemAdministrator tạo qua `POST /api/users/admin/staff`: tài khoản không có mật khẩu, hệ thống gửi email kích hoạt (link dùng một lần, hạn 24 giờ) để người dùng tự đặt mật khẩu; Admin không đặt mật khẩu hộ và Manager không tạo Coach (Manager chỉ sửa hồ sơ/chuyên môn và cấp quyền dịch vụ PT). **Member và staff là hai loại tài khoản tách biệt, không chuyển đổi qua lại (BR-142)** (409 `member_staff_role_change_not_allowed`); người muốn làm staff phải được Admin tạo tài khoản mới bằng email khác, tài khoản Member cũ giữ nguyên. Đổi role chỉ diễn ra giữa các role staff, Coach rời vai trò bị chặn khi còn lớp, lịch hay quan hệ huấn luyện (xem Phụ lục A, vòng đời CoachProfile). Đổi/reset mật khẩu và khóa tài khoản phải vô hiệu phiên không còn hợp lệ.
 
-**Quên mật khẩu (BR-103) — đã triển khai bằng link email, không dùng OTP:** `POST /api/auth/password/forgot` luôn trả 204 trung tính (không lộ email nào đã đăng ký; email không tồn tại, bị khóa hay đang chờ gửi lại đều như nhau). Với tài khoản Active, hệ thống tạo token ngẫu nhiên 256-bit, chỉ lưu SHA-256 trong `EmailOtp` (purpose `ResetPassword`), hạn 10 phút, dùng một lần, chỉ link mới nhất hợp lệ, gửi lại sau 60 giây; email mang nút tới `{Frontend:BaseUrl}/reset-password?email=&token=`. `POST /api/auth/password/reset` nhận `{email, token, newPassword, confirmNewPassword}`, tiêu token và đổi security stamp trong cùng transaction. Giao diện: `/forgot-password` (thông điệp trung tính, cooldown 60 giây gắn theo từng email, đổi email gửi được ngay) và `/reset-password` (ô mật khẩu có con mắt, ba trạng thái form/thành công/link hỏng). Đăng ký Member vẫn dùng OTP 6 số. *Chưa có:* email thông báo "mật khẩu đã thay đổi" mà BR-103/104 mô tả.
+**Quên mật khẩu (BR-103) — đã triển khai bằng link email, không dùng OTP:** `POST /api/auth/password/forgot` luôn trả 204 trung tính (không lộ email nào đã đăng ký; email không tồn tại, bị khóa hay đang chờ gửi lại đều như nhau). Với tài khoản Active, hệ thống tạo token ngẫu nhiên 256-bit, chỉ lưu SHA-256 trong `EmailOtp` (purpose `ResetPassword`), hạn 10 phút, dùng một lần, chỉ link mới nhất hợp lệ, gửi lại sau 60 giây; email mang nút tới `{Frontend:BaseUrl}/reset-password?email=&token=`. `POST /api/auth/password/reset` nhận `{email, token, newPassword, confirmNewPassword}`, tiêu token và đổi security stamp trong cùng transaction. Giao diện: `/forgot-password` (thông điệp trung tính, cooldown 60 giây gắn theo từng email, đổi email gửi được ngay) và `/reset-password` (ô mật khẩu có con mắt, ba trạng thái form/thành công/link hỏng). Đăng ký Member vẫn dùng OTP 6 số. Đổi, đặt lại hoặc tạo mật khẩu lần đầu thành công đều gửi email "mật khẩu đã thay đổi" (sự kiện `PasswordChanged`, cùng transaction với việc đổi; không chứa mật khẩu hay mã; báo đã đăng xuất các thiết bị khác).
 
 **Ngôn ngữ giao diện:** các trang xác thực (`/login`, `/register`, `/forgot-password`, `/reset-password`) luôn tiếng Anh, không đọc ngôn ngữ đã lưu và không có nút đổi ngôn ngữ; phần còn lại giữ EN/VI.
 
@@ -141,7 +141,7 @@ Chọn Membership → snapshot và checkout → payment xác minh → kích ho�
 
 Luồng Member hiện tại: Membership Gym Active → Training → chọn Coach có chuyên môn PT, ngày/giờ/phòng trống → báo giá **một buổi 90 phút** → checkout giữ lịch `PendingPayment` → thanh toán được xác minh → xác nhận buổi `Scheduled`. Services chỉ có nút dẫn đến Training, không bán gói PT theo tuần. Giá mỗi checkout bằng đơn giá PT đang cấu hình; client không gửi giá. Hủy/hết hạn checkout nhả phòng, Coach và quota của buổi chờ thanh toán. Quan hệ Personal Coach–Member được tạo sau khi thanh toán thành công nếu chưa có.
 
-Gói PT đã bán trước đây giữ nguyên quota và quyền đặt lịch. `frequency` 1/2/3 chỉ còn phục vụ hợp đồng gói cũ và luồng tương thích; không tự tạo booking tuần. Xem [PT theo từng buổi](PT-Per-Session.md).
+Gói PT đã bán trước đây giữ nguyên quota và quyền đặt lịch. `frequency` 1/2/3 chỉ còn phục vụ hợp đồng gói cũ và luồng tương thích; không tự tạo booking tuần.
 
 Coach ghi kết quả/plan cho học viên được giao. Đổi/hủy/đổi Coach qua change request. Member có API xem slot, giữ lịch qua checkout và đặt lịch bằng quota đã mua trước đây.
 
@@ -163,7 +163,7 @@ Sĩ số thuộc Class. `ReservedCount` hiện bao gồm chỗ đang giữ và �
 
 Chuyển lớp kiểm tra chỗ, điều kiện lớp đích và chuỗi giá trị đã trả. Chênh lệch dương qua checkout riêng, chỉ chuyển sau fulfillment. Không cấp quyền lợi lớp đích mà bỏ quên kết thúc lớp nguồn.
 
-“Chờ đợt sau” chưa triển khai: hoàn 100% điểm ngay + lưu nguyện vọng nhận thông báo khóa phù hợp; không giữ tiền/chỗ hoặc tự ghi danh.
+“Chờ đợt sau” (G02, đã có mã): hoàn 100% điểm ngay + lưu nguyện vọng nhận thông báo khóa phù hợp theo môn; không giữ tiền/chỗ hoặc tự ghi danh. Còn nghiệm thu trên staging (mục 13.2).
 
 ### 5.5 Thuê sân
 
@@ -177,7 +177,9 @@ Preview tác động → Manager thực hiện phương án dời/bù/hủy lớ
 
 Toàn chuỗi tương tác không phải một transaction duy nhất. Incident history/detail, preview bồi hoàn/người nhận đầy đủ và cơ chế chặn booking trong lúc xử lý còn thiếu.
 
-**Sự cố ảnh hưởng Gym (BR-130, BR-138 — yêu cầu, chưa triển khai):** Incident có phạm vi Gym; resolve gửi email cho Member có Membership Active, rồi gia hạn `EndDate` của các Membership Active thêm số ngày Gym đóng cửa (Manager xác nhận khi đóng sự cố, ghi audit). Buổi lớp bị ảnh hưởng bù vào lịch tiếp theo theo BR-54; lượt thuê sân hoàn 100% bằng điểm. Sự cố tạm thời không tạo refund Membership.
+**Sự cố ảnh hưởng Gym (BR-130, BR-138 — đã triển khai, xem INC-01 ở mục 13.2):** Incident có phạm vi Gym; resolve gửi thông báo và email cho Member có Membership Active, rồi gia hạn `EndDate` của các Membership Active thêm số ngày Gym đóng cửa (Manager xác nhận `membershipExtensionDays` khi đóng sự cố, ghi audit). Buổi lớp bị ảnh hưởng bù vào lịch tiếp theo theo BR-54; lượt thuê sân hoàn 100% bằng điểm. Sự cố tạm thời không tạo refund Membership.
+
+**Hoàn tiền do lỗi trung tâm (Center Fault, BR-91):** Membership và PT hoàn theo **phần chưa dùng**, không hoàn 100%: Membership theo ngày còn lại / tổng ngày; PT theo buổi chưa dùng / `TotalQuota` (chưa dùng buổi nào thì hoàn đủ). Logic nằm ở `RefundCalculator`.
 
 ## 6. Payment, VNPay và ví điểm
 
@@ -326,7 +328,7 @@ G01–G13 trỏ [phân công API theo page/owner](../DESIGN-SKILLS-GUIDE.md#api-
 | G11 | Callback VNPay public | Đã sửa route theo PAY-03; còn test runtime và sandbox thật. Mock endpoint có đăng nhập không thay thế IPN public |
 | G12 | Scoping Member search/detail cho Coach | Đã chặn Coach duyệt users/packages, đưa guard training profile/workout history và PT detail xuống service, giới hạn danh sách workout/PT entitlement/PT session theo quan hệ Active, ép relationship search Active. Negative tests PostgreSQL cho PT list/detail và workout list sau quan hệ Ended đã qua; còn nghiệm thu role E2E trên staging. |
 | G13 | Đóng/mở tuyển sinh độc lập lifecycle lớp | Chốt hold/payment cũ, không dùng cancel thay close enrollment |
-| INC-01 | Sự cố Gym: email Member có Membership Active và gia hạn `EndDate` theo số ngày đóng cửa; Center Fault Membership/PT hiện hoàn 100% (`RefundCalculator`) lệch BR-91 (theo phần chưa dùng) | Thêm phạm vi Gym vào Incident, nhóm người nhận Membership Active (BR-138), extend Membership trong transaction resolve, sửa `RefundCalculator` + test; chưa có page/owner trong DESIGN-SKILLS-GUIDE |
+| INC-01 | Sự cố Gym: email Member có Membership Active và gia hạn `EndDate` theo số ngày đóng cửa; Center Fault Membership/PT hoàn theo phần chưa dùng (BR-91) | **Đã làm phần gia hạn:** sự cố đóng mọi phòng Gym đang hoạt động (phòng thuộc loại phòng của dịch vụ PT) cho phép Manager nhập `membershipExtensionDays` (0–31, gợi ý = số ngày dương lịch giờ VN bị đóng trọn); resolve cộng ngày vào `EndDate` mọi Membership Active có `EndDate` ≥ ngày bắt đầu sự cố, dời `StartDate` gói nối tiếp chưa bắt đầu, báo từng hội viên (thông báo + email) và ghi audit, `incident_notices` lưu `membership_extension_days`, `extended_member_count`. **Đã sửa `RefundCalculator`:** Center Fault Membership hoàn theo ngày còn lại / tổng ngày, PT theo buổi chưa dùng / `TotalQuota` (chưa dùng buổi nào thì hoàn đủ), có unit test. INC-01 hoàn tất |
 | UI-01 | Frontend redesign theo contract hiện có | Kế hoạch từng màn phải nối API thật, kiểm E2E trước khi ghi hoàn thành |
 | OPS-01 | Nghiệm thu vận hành | Deploy/migration, backup-restore, giám sát job/outbox/reconciliation có evidence |
 
@@ -383,7 +385,7 @@ Phần này chốt tên field thực tế sau refactor; các bảng logic cũ b�
 #### `USER_ACCOUNTS`
 **Mục đích:** bảng định danh + vòng đời gốc — mọi vai trò (System Administrator, Center Manager, Coach, Member, Receptionist) đều là 1 row ở đây, phân biệt qua `role_id`. Không tách bảng riêng cho từng vai trò để tránh trùng lặp logic auth/login. Đây là bảng cha duy nhất mà gần như mọi entity khác (member, coach, staff...) trỏ FK vào — cố tình giữ tối giản (chỉ định danh + vòng đời) để hầu như không bao giờ cần đổi schema, tách khỏi phần auth (`USER_CREDENTIALS`/`USER_EXTERNAL_LOGINS`) và phần hiển thị (`USER_PROFILES`) vốn thay đổi thường xuyên hơn.
 
-**Quy tắc:** quan hệ 1–1 **tùy chọn** với `COACH_PROFILES` — được tạo cho Coach; khi đổi role vẫn giữ record lịch sử, role hiện tại quyết định hiệu lực.
+**Quy tắc:** quan hệ 1–1 **tùy chọn** với `COACH_PROFILES` — được tạo cho Coach; khi Coach đổi sang role staff khác vẫn giữ record lịch sử, role hiện tại quyết định hiệu lực. Member và staff không chuyển đổi qua lại (409 `member_staff_role_change_not_allowed`): người muốn làm staff dùng email khác do Admin tạo.
 
 | Field | Vai trò |
 |---|---|
@@ -402,7 +404,7 @@ Quan hệ 1–N với `USER_SPORT_SPECIALTIES` (Coach); Member có thêm 1 `POIN
 | Field | Vai trò |
 |---|---|
 | `UserId` (PK, FK → USER_ACCOUNTS) | Cùng giá trị PK với `UserAccount.UserId` — quan hệ 1–1 |
-| `PasswordHash` | Lưu hash, không bao giờ lưu plaintext — dùng để xác thực khi login. **Nullable**: account đăng ký bằng Google được tạo ngay với `PasswordHash = NULL` (chưa có mật khẩu nội bộ); `POST /api/auth/login` chỉ cho phép khi field này khác null. Có mật khẩu sau khi dùng luồng đặt mật khẩu có OTP trong Cài đặt tài khoản hoặc luồng quên mật khẩu (xem [auth-account-rules.md](auth-account-rules.md)) |
+| `PasswordHash` | Lưu hash, không bao giờ lưu plaintext — dùng để xác thực khi login. **Nullable**: account đăng ký bằng Google được tạo ngay với `PasswordHash = NULL` (chưa có mật khẩu nội bộ); `POST /api/auth/login` chỉ cho phép khi field này khác null. Có mật khẩu sau khi dùng luồng đặt mật khẩu có OTP trong Cài đặt tài khoản hoặc luồng quên mật khẩu. |
 
 #### `USER_PROFILES`
 **Mục đích:** thông tin **hiển thị** của user — tách khỏi `USER_ACCOUNTS` vì đây là dữ liệu không liên quan đến cơ chế đăng nhập/phân quyền, thay đổi theo nhu cầu UX (đổi tên, thêm field liên hệ...) độc lập với logic auth. Quan hệ 1–1 với `USER_ACCOUNTS` (chung PK).
@@ -1119,7 +1121,7 @@ Các field này mô tả yêu cầu BR-59/BR-60/BR-78; trạng thái code/migrat
 |---|---|
 | CoachProfile (entity, module Identity) | 1–1 `UserAccount`, được tạo cho Coach, giữ record lịch sử khi đổi role. Không nhân bản email/họ tên/số điện thoại/mật khẩu. chỉ còn `UserId` + `Bio` |
 | CoachProfile.Salary/HourlyRate/CommissionRate/EmploymentContract | **Không dùng (giữ).** Payroll/hợp đồng nhân sự ngoài phạm vi (BR-101, kể cả chia doanh thu với người thuê sân) |
-| Vòng đời CoachProfile khi đổi role | **Quy tắc:** giữ làm lịch sử, không cascade delete, không soft-disable; role hiện tại trên `UserAccount` quyết định hiệu lực |
+| Vòng đời CoachProfile khi đổi role | **Quy tắc:** chỉ đổi giữa role staff; Coach chỉ rời vai trò khi không còn lớp chưa kết thúc, lịch tương lai (`CoachOccupancy`) hay quan hệ huấn luyện Active (409 `role_change_blocked` kèm lý do). Khi đổi: giữ `CoachProfile` làm lịch sử (không cascade delete), xóa `UserSportSpecialty` và `CoachServiceQualification`; role hiện tại trên `UserAccount` quyết định hiệu lực. Đổi sang Coach luôn phải chọn chuyên môn mới |
 
 ---
 
@@ -1728,7 +1730,7 @@ Module **lớn nhất**, chia thành core + 3 sub-module (Catalog, Occupancy, Th
 |---|---|---|
 | `MembershipPackageService.cs` | 6.2KB | CRUD gói + validate (tên unique, price > 0, duration > 0) |
 | `MemberPackageService.cs` | 7.4KB | List gói member, approve stacking (cho phép member có nhiều gói active), kiểm tra isUsable |
-| `MemberTrainingProfileService.cs` | 2.7KB | Upsert training profile: goal, experienceLevel, notes |
+| `MemberTrainingProfileService.cs` | | Upsert hồ sơ sức khỏe: kiểm tra đầu vào (tuổi 14–90, chiều cao 100–250, cân nặng 30–300, mục tiêu không dưới BMI 18.5), tính BMI ở server, thêm lịch sử số đo; `GET /api/members/{id}/training-profile` chỉ Manager và Coach có quan hệ Active |
 | `MembershipReportService.cs` | 2.4KB | Tổng hợp: active members, packages sold, revenue |
 
 #### Domain/Entities/ (3 files)
@@ -1737,7 +1739,8 @@ Module **lớn nhất**, chia thành core + 3 sub-module (Catalog, Occupancy, Th
 |---|---|---|
 | `MembershipPackage.cs` | 1.0KB | Định nghĩa gói: Name, Price, DurationDays, SessionLimit, IsActive |
 | `MemberPackage.cs` | 1.4KB | Gói member sở hữu: MemberId, PackageId, StartDate, EndDate, RemainingSessions, Status |
-| `MemberTrainingProfile.cs` | 674B | Hồ sơ tập: MemberId, Goal, ExperienceLevel, Notes |
+| `MemberTrainingProfile.cs` | | Hồ sơ sức khỏe và tập luyện hội viên tự khai: Goal/GoalType, ExperienceLevel, ngày sinh, giới tính, chiều cao, cân nặng, cân nặng mục tiêu, mức vận động, ngày tập/tuần, phút/buổi, chế độ ăn, dị ứng, Notes (chấn thương/bệnh lý) |
+| `MemberBodyMeasurement.cs` | | Lịch sử chiều cao/cân nặng tự khai, chỉ ghi thêm khi số đo đổi |
 
 #### Domain/Enums/
 
@@ -1884,14 +1887,14 @@ Audit module **không có controller riêng** — query audit được xử lý 
 
 | File | Size | Chức năng |
 |---|---|---|
-| `UsersController.cs` | 4.1KB | Quản lý users: list (paged), create, lock/unlock, change role, reset password |
+| `UsersController.cs` | 4.1KB | Quản lý users: list (paged), `POST api/users/admin/staff` (tạo staff, email kích hoạt), lock/unlock, change role, reset password |
 | `SystemSettingsController.cs` | 1.1KB | GET/PUT cài đặt hệ thống (key-value) |
 | `AuditLogsController.cs` | 1.4KB | GET audit logs (paged, filtered by actor/action/target) |
 | `ReportExportsController.cs` | 2.5KB | POST tạo report export, GET danh sách, GET download file |
 
 #### Application/Commands/
 
-`UserAdmin/` — commands cho quản lý user (create, lock, unlock, changeRole, resetPassword).
+`UserAdmin/` — commands cho quản lý user (`CreateStaffAccountRequest` thay cho luồng tạo user có mật khẩu và `CreateCoachRequest` cũ; lock, unlock, changeRole, resetPassword).
 
 #### Application/DTOs/
 
@@ -1901,7 +1904,7 @@ Audit module **không có controller riêng** — query audit được xử lý 
 
 | File | Chức năng |
 |---|---|
-| `IUserAdminService.cs` (1.3KB) | CRUD users: List, Create, Lock, Unlock, ChangeRole, ResetPassword |
+| `IUserAdminService.cs` (1.3KB) | Quản lý users: List, `CreateStaffAccount` (tài khoản staff không mật khẩu + email kích hoạt, Coach bắt buộc kèm chuyên môn), Lock, Unlock, ChangeRole (chỉ giữa các role staff), ResetPassword |
 | `ISystemSettingService.cs` (732B) | Get/Update system settings |
 | `IAuditQueryService.cs` (601B) | Query audit logs (paged, filtered) |
 | `IReportExportService.cs` (1.6KB) | Request export, list exports, get download stream |
@@ -1910,7 +1913,7 @@ Audit module **không có controller riêng** — query audit được xử lý 
 
 | File | Size | Chức năng |
 |---|---|---|
-| `UserAdminService.cs` | 15.8KB | **Logic quản lý user**: tạo account + credential + profile, lock/unlock (BR-6 — invalidate JWT), change role (validate constraints), reset password, audit trail |
+| `UserAdminService.cs` | 15.8KB | **Logic quản lý user**: tạo account staff (chưa có credential, gửi email kích hoạt) + profile, lock/unlock (BR-6 — invalidate JWT), change role (validate constraints), reset password, audit trail |
 | `ReportExportService.cs` | 20.1KB | **Logic export báo cáo**: generate CSV/PDF cho revenue, membership, enrollment reports. Background processing, file storage, expiry cleanup |
 | `SystemSettingService.cs` | 3.2KB | CRUD system settings: cancellation deadline hours, late check-in minutes, etc. |
 | `AuditQueryService.cs` | 2.7KB | Query audit logs với filter + pagination |

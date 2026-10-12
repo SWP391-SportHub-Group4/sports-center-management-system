@@ -1,0 +1,132 @@
+# SportHub — Kịch bản demo Flow 1 + Flow 2 (chạy trên localhost)
+
+Chỉ demo trên máy local, bằng `docker compose`. Code mới nhất nằm ở nhánh `develop` (chưa qua `main`), nên **không dùng link Vercel/Railway**.
+Thời lượng: ~20 phút (Flow 1 ~9 phút, Flow 2 ~11 phút).
+
+> Tên nút/nhãn lấy từ code và route, chưa bấm thử toàn bộ. Chạy thử một lượt trước giờ demo và sửa lại cho khớp.
+
+## 0. Phân vai và tài khoản
+
+| Người | Vai trò | Tài khoản |
+|---|---|---|
+| An | Admin **và** Member | Hai email **khác nhau** (quy tắc: Member không chuyển thành staff được). Admin dùng `admin@sporthub.vn` hoặc email thật; Member đăng ký mới bằng email thật |
+| Khoa | Manager | Email thật, do Admin tạo trong buổi demo |
+| Hào | Receptionist | Email thật, do Admin tạo trong buổi demo |
+| Khôi | Coach bóng rổ | Email thật, do Admin tạo, chuyên môn **Basketball** |
+
+Tài khoản seed (mật khẩu chung `Sporthub@123`) dùng làm **dự phòng** nếu email không tới: `admin@`, `manager@`, `letan@`, `an.member@`, `coach.bongro@sporthub.vn`.
+
+## 1. Chuẩn bị (làm trước, không làm trên sân khấu)
+
+1. Lấy code mới nhất từ `develop` và rebuild:
+   ```bash
+   git checkout develop && git pull origin develop
+   docker compose up -d --build
+   ```
+2. Kiểm tra `http://localhost:5000/api/health` trả `{"status":"ok"}` và `http://localhost:3000` mở được.
+3. Trong `.env`:
+   - `Frontend__BaseUrl=http://localhost:3000` (link trong email kích hoạt/reset trỏ về localhost, nên **người nhận phải mở link trên chính máy demo**).
+   - SMTP đã có để email thật gửi được. Nếu thiếu, nội dung email chỉ nằm trong log backend (`docker logs sporthub-backend`).
+   - `VnPay__UseMock`: hiện đang `false`. Với demo, **thanh toán bằng ví điểm** (không tạo giao dịch VNPay), hoặc đặt `VnPay__UseMock=true` rồi `docker compose up -d` lại.
+4. Lớp BR141 đã có trong DB local (`BR141-CAULONG-01/02`, `BR141-BONGRO-01/02`). Nếu thiếu: `dotnet run --project backend/SportHub.API -- --seed-br141=true`.
+5. Chuẩn bị Member có sẵn điểm trong ví (an.member hoặc nạp điểm qua Manager) để thanh toán nhanh.
+6. Chuẩn bị một lớp **sĩ số nhỏ** (1–2 chỗ) cho bước chống bán vượt.
+7. Mở sẵn 4 cửa sổ/profile trình duyệt riêng (Admin, Member, Receptionist, Coach/Manager) tại `http://localhost:3000`.
+8. Backup nếu cần giữ dữ liệu: `docker exec sporthub-postgres pg_dump -U <user> <db> > backup.sql`.
+
+---
+
+# FLOW 1 — User & Membership (~9 phút)
+
+## 1.1 Đăng ký Member bằng OTP (An – Member) — 2 phút
+1. `http://localhost:3000` → **Sign in / Register**. Nhập họ tên, email thật, mật khẩu.
+2. Nhận OTP qua email, nhập mã, hoàn tất đăng ký.
+3. **Điểm nói:** đăng ký bằng OTP email (hoặc Google); Member chỉ tự đăng ký, không ai tạo hộ.
+4. Vào **Profile** (`/member/profile`): sửa họ tên, đổi avatar.
+
+## 1.2 Quên và đặt lại mật khẩu — 1 phút
+1. Đăng xuất → `/forgot-password` → nhập email. Màn hình trả thông báo trung tính.
+2. Mở email → bấm link → đặt mật khẩu mới tại `/reset-password`.
+3. **Điểm nói:** link dùng một lần, có hạn; trang xác thực luôn tiếng Anh.
+
+## 1.3 Admin tạo staff, nhận email kích hoạt (An – Admin) — 3 phút
+1. Đăng nhập Admin → **Users & roles** (`/admin/users`) → **Create staff account**.
+2. Tạo lần lượt: **Khoa** (Center Manager), **Hào** (Receptionist), **Khôi** (Coach). Với Khôi, chọn chuyên môn **Basketball** (bắt buộc với Coach).
+3. Mỗi người mở email "Activate your staff account" → **SET YOUR PASSWORD** → đặt mật khẩu → đăng nhập.
+4. **Điểm nói:**
+   - Admin không đặt mật khẩu hộ; staff tự kích hoạt bằng link dùng một lần (24 giờ).
+   - **Coach chỉ do Admin tạo** (kèm chuyên môn). Manager không tạo được Coach, chỉ sửa hồ sơ và cấp **quyền dịch vụ PT** nếu Coach dạy PT.
+
+## 1.4 Quản lý tài khoản & chặn đổi role (An – Admin) — 2 phút
+1. Mở một tài khoản **Member** → **Edit**: **không có ô đổi role**, chỉ hiện câu "Member accounts cannot be converted to staff. Create a staff account with a different email instead."
+2. Mở Hào (Receptionist) → đổi sang Center Manager (staff ↔ staff được). Nhập lý do → **Review** → **Confirm**.
+3. Mở Khôi (Coach) khi đang có lịch hoặc quan hệ huấn luyện → đổi role → bị chặn kèm danh sách lý do (nếu chưa có dữ liệu thì chỉ nói).
+4. **Lock** một tài khoản (nhập lý do) → người bị khóa bị chặn ở request kế tiếp → **Unlock**.
+5. Mở **Audit log** (`/admin/audit-log`): thấy tạo, đổi role, khóa kèm lý do.
+6. **Điểm nói:** Member và staff là hai loại tài khoản tách biệt; muốn làm staff phải dùng email khác. Admin không tự khóa mình, không khóa Admin cuối cùng.
+
+## 1.5 Membership & Gym access (Member + Hào + Khoa) — 1 phút
+1. **Khoa:** `/manager/membership-plans` xem các gói (ngừng/mở lại được).
+2. **An – Member:** mua gói Gym → checkout bằng **điểm** → `/member/my-plans` thấy gói **Active**; nhận thông báo/email.
+3. **Hào:** `/receptionist/gym-checkin` → tìm Member (hoặc quét **mã Member** 5 phút) → **check-in**, rồi **check-out**.
+4. **Điểm nói:** quyền vào Gym phụ thuộc Membership Active; mã Member chỉ quầy hoặc Manager tra được.
+
+**Kết Flow 1:** đăng ký OTP, quên mật khẩu, tạo staff + kích hoạt email, quản lý trạng thái, đổi role có kiểm soát, mua Membership và Gym check-in, audit.
+
+---
+
+# FLOW 2 — Class booking & schedule (~11 phút)
+
+## 2.1 Manager: lớp & lịch (Khoa) — 3 phút
+1. `/manager/classes`: xem 4 lớp BR141 (Cầu lông, Bóng rổ; Thứ 2-4-6 07:00–09:00 và Thứ 3-5-7 14:00–16:00; 12 buổi). Mở một lớp: môn, Coach, phòng, sĩ số, giá, ngưỡng.
+2. **Tạo lớp mới** (`/manager/classes/new`): môn Bóng rổ, Coach Khôi, một phòng. Cố ý chọn **phòng hoặc khung giờ đã bận** → báo trùng, hiện xung đột. **Điểm nói:** kiểm tra trùng phòng/sân/Coach nằm ở DB (exclusion constraint), không chỉ ở giao diện.
+3. Chọn lịch hợp lệ → **Publish**. `/manager/class-schedule` thấy lịch phòng và Coach cập nhật.
+
+## 2.2 Member đăng ký và thanh toán (An – Member) — 3 phút
+1. `/member/courses` → mở lớp vừa publish → **đăng ký**. **Điểm nói:** ghi danh gắn **cả lớp**, không chọn từng buổi.
+2. Checkout bằng **ví điểm** (hoặc chia điểm + VNPay nếu đã bật mock). Chỗ được **giữ có thời hạn**, thanh toán xong mới thành ghi danh.
+3. `/member/my-registrations` và `/member/class-schedule` xem lịch cá nhân. Chuông thông báo + email.
+4. **Chống bán vượt:** dùng lớp sĩ số nhỏ, hai Member đăng ký cùng lúc → người thứ hai bị từ chối (hoặc nói: có test `SeatHoldConcurrencyTests`).
+
+## 2.3 Receptionist và Coach (Hào, Khôi) — 2 phút
+1. **Hào:** `/receptionist/registrations` đăng ký hộ một Member; `/receptionist/attendance` điểm danh một buổi.
+2. **Khôi:** `/coach/classes` và `/coach/schedule` xem lớp và lịch dạy của mình (UC-09); có thể gửi yêu cầu đổi buổi để Manager duyệt.
+
+## 2.4 Đóng tuyển sinh, dời/hủy buổi — 1,5 phút
+1. **Khoa:** mở chi tiết lớp → **Close enrollment**. Member mới không đăng ký được; Member đã ghi danh vẫn học. **Mở lại**. *Làm lúc chưa ai đang thanh toán dở lớp đó.*
+2. **Khoa:** dời hoặc hủy một buổi (có bù buổi). Member nhận thông báo.
+
+## 2.5 Thuê sân và sự cố — 1,5 phút
+1. **An – Member:** `/member/courts/book` → chọn giờ trống → thanh toán. Hủy trước 24 giờ hoàn 100% điểm; muộn hơn không hoàn.
+2. **Khoa:** `/manager/court-schedule` xem lịch thuê sân.
+3. **Khoa:** `/manager/incidents` → **Preview** sự cố ảnh hưởng sân vừa thuê → **Resolve**. Lượt thuê bị hủy, hoàn 100% điểm; Member nhận thông báo + email.
+4. **(Nếu còn thời gian) Sự cố đóng Gym:** preview sự cố đóng mọi phòng Gym → nhập số ngày gia hạn (0–31) → resolve. Membership Active được cộng ngày, mỗi hội viên nhận thông báo + email, có audit. *Chỉ làm trên dữ liệu demo, vì thao tác khóa các phòng.*
+5. **Điểm nói về hoàn điểm:** sự cố tạm thời của trung tâm không hoàn Membership mà gia hạn; hoàn do lỗi trung tâm chỉ tính theo **phần chưa dùng** (ngày còn lại / buổi PT chưa dùng).
+
+## 2.6 Ngưỡng lớp (chỉ nói, không làm trực tiếp) — 30 giây
+Ngưỡng lớp chạy theo job theo hạn nên khó tái hiện trực tiếp. Mở `/member/threshold-responses` hoặc `/manager/classes/.../interests` nếu có dữ liệu sẵn. Nói rõ Member được chọn: chuyển lớp, chờ đợt sau (hoàn 100% điểm), hoặc hoàn điểm.
+
+---
+
+# Điểm cần nói rõ khi bị hỏi (chưa làm / chưa nghiệm thu)
+
+- Lịch sử và chi tiết sự cố (G06) chưa làm.
+- VNPay sandbox thật chưa nghiệm thu; demo dùng ví điểm hoặc mock.
+- Lịch cố định BR141 chưa có test tự động (chỉ có seeder).
+- Test đóng/mở tuyển sinh (G13) chưa có.
+- Chưa nghiệm thu E2E trên staging cho một số mục (G02, G05, G12). Hiện chỉ chạy local.
+
+# Kế hoạch dự phòng
+
+| Sự cố | Cách xử lý |
+|---|---|
+| Email không tới | Kiểm tra Spam; xem nội dung email trong `docker logs sporthub-backend`; dùng tài khoản seed (`Sporthub@123`) để tiếp tục |
+| Link trong email không mở được | Link trỏ `http://localhost:3000`, chỉ mở được trên máy chạy demo |
+| Thanh toán lỗi | Dùng ví điểm; hoặc `VnPay__UseMock=true` |
+| Lớp BR141 trống | Chạy seed BR141 |
+| Trang vẫn là bản cũ | `docker compose up -d --build` lại sau khi pull `develop` |
+| Hai người cùng đăng ký không tái hiện được | Nói về `SeatHoldConcurrencyTests` |
+
+# Dọn dữ liệu sau demo
+
+Xóa tài khoản/dữ liệu là không hoàn tác được. Backup bằng `pg_dump` trước, và xác nhận danh sách tài khoản cần giữ.

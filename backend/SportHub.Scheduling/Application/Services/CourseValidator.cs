@@ -17,16 +17,16 @@ public sealed class CourseValidator(
     public async Task<SportInfo> RequireGroupCourseSportAsync(int sportId, CancellationToken ct)
     {
         var sport = await catalog.GetSportAsync(sportId, ct)
-                    ?? throw new BadRequestException("sport_not_found", "Môn không tồn tại.");
+                    ?? throw new BadRequestException("sport_not_found", "Sport not found.");
 
         if (!sport.IsActive)
         {
-            throw new BadRequestException("sport_inactive", "Môn đã ngừng hoạt động.");
+            throw new BadRequestException("sport_inactive", "Sport inactive.");
         }
 
         if (!sport.HasEnabledService(SportServiceType.GroupCourse))
         {
-            throw new BadRequestException("sport_not_group_course", "Chỉ môn dạng khóa học nhóm mới mở được lớp.");
+            throw new BadRequestException("sport_not_group_course", "Sport not group course.");
         }
 
         return sport;
@@ -36,16 +36,16 @@ public sealed class CourseValidator(
     public async Task<RoomInfo> RequireRoomForSportAsync(int roomId, int sportId, CancellationToken ct)
     {
         var room = await catalog.GetRoomAsync(roomId, ct)
-                   ?? throw new BadRequestException("room_not_found", "Phòng không tồn tại.");
+                   ?? throw new BadRequestException("room_not_found", "Room not found.");
 
         if (!room.IsActive)
         {
-            throw new BadRequestException("room_inactive", "Phòng đã ngừng hoạt động.");
+            throw new BadRequestException("room_inactive", "Room inactive.");
         }
 
         if (!await catalog.IsRoomCompatibleAsync(roomId, sportId, ct))
         {
-            throw new BadRequestException("room_not_compatible", "Loại phòng không dùng được cho môn này (BR-108).");
+            throw new BadRequestException("room_not_compatible", "Room not compatible.");
         }
 
         return room;
@@ -56,12 +56,12 @@ public sealed class CourseValidator(
     {
         if (!await coaches.IsActiveInternalCoachAsync(coachId, ct))
         {
-            throw new BadRequestException("coach_not_found", "Tài khoản được gán không phải Coach đang hoạt động.");
+            throw new BadRequestException("coach_not_found", "Coach not found.");
         }
 
         if (!await coaches.HasSportAsync(coachId, sportId, ct))
         {
-            throw new BadRequestException("coach_specialty_mismatch", "Coach không có chuyên môn của môn này.");
+            throw new BadRequestException("coach_specialty_mismatch", "Coach specialty mismatch.");
         }
     }
 

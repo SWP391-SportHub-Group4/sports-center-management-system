@@ -18,7 +18,7 @@ namespace SportHub.Training.Api;
 [Authorize(Policy = SportHubPolicies.Coach)]
 [Route("api/coaches/me/students")]
 public sealed class CoachStudentsController(ISportHubDbContext db, PersonalTrainerGuard personalTrainers,
-    IMemberTrainingProfileService trainingProfiles, MemberBmiProfileService bmiProfiles) : ControllerBase
+    IMemberTrainingProfileService trainingProfiles) : ControllerBase
 {
     [HttpGet]
     public async Task<IActionResult> Search([FromQuery] string? search, [FromQuery] string health = "all",
@@ -67,9 +67,8 @@ public sealed class CoachStudentsController(ISportHubDbContext db, PersonalTrain
         await personalTrainers.RequireAsync(coachId, ct);
         if (!await db.Set<CoachMemberRelationship>().AnyAsync(r => r.CoachId == coachId && r.MemberId == memberId
                 && r.Status == RelationshipStatus.Active, ct))
-            throw new ForbiddenException("no_active_relationship", "Bạn không phụ trách hội viên này.");
+            throw new ForbiddenException("no_active_relationship", "No active relationship.");
         var trainingProfile = await trainingProfiles.GetAsync(memberId, ct);
-        var bmiProfile = await bmiProfiles.GetAsync(memberId, ct);
-        return Ok(new { TrainingProfile = trainingProfile, BmiProfile = bmiProfile });
+        return Ok(new { TrainingProfile = trainingProfile });
     }
 }

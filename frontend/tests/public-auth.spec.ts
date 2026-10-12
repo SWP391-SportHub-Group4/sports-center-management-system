@@ -59,6 +59,9 @@ for (const width of [1440, 1280, 390]) {
     await expect(
       navigation.getByRole("link", { name: "Sign up", exact: true }),
     ).toHaveAttribute("href", "/register");
+    await expect(navigation.locator('a[data-section="coaches"]')).toHaveCount(
+      0,
+    );
     await navigation
       .getByRole("link", { name: "Discover SportHub", exact: true })
       .click();
@@ -73,6 +76,36 @@ for (const width of [1440, 1280, 390]) {
       ).toHaveAttribute("aria-expanded", "false");
       await expect(navigation).toBeHidden();
     }
+  });
+}
+
+for (const width of [1440, 390]) {
+  test(`contact stays active while scrolling through the footer (${width}px)`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/");
+    const contact = page.locator('a[data-section="contact"]');
+    const footer = page.locator("#contact");
+    await footer.evaluate((element) => {
+      const top = element.getBoundingClientRect().top + window.scrollY;
+      window.scrollTo({
+        top: top - window.innerHeight / 2,
+        behavior: "instant",
+      });
+    });
+    await expect(contact).toHaveAttribute("aria-current", "location");
+    await footer.evaluate((element) => {
+      const middle =
+        element.getBoundingClientRect().top +
+        window.scrollY +
+        element.clientHeight / 2;
+      window.scrollTo({
+        top: middle - window.innerHeight / 2,
+        behavior: "instant",
+      });
+    });
+    await expect(contact).toHaveAttribute("aria-current", "location");
   });
 }
 

@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using SportHub.BuildingBlocks.Abstractions.Notifications;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
+using SportHub.BuildingBlocks.SharedKernel.Time;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.Identity.Application.Commands;
 using SportHub.Identity.Application.Interfaces;
@@ -11,7 +13,8 @@ namespace SportHub.Identity.Application.Services;
 /// Quên/đặt lại mật khẩu bằng LINK gửi qua email (BR-103/104).
 /// - Forgot luôn trả kết quả trung tính: email không tồn tại, bị khóa hay đang trong thời gian chờ đều như nhau
 ///   (UI: "Nếu có tài khoản gắn với email này, chúng tôi đã gửi link…") để không lộ email nào đã đăng ký.
-/// - Link mang token ngẫu nhiên 256-bit, chỉ lưu bản băm; hết hạn 10 phút, dùng một lần, chỉ link mới nhất hợp lệ.
+/// - Link mang token ngẫu nhiên 256-bit, chỉ lưu bản băm; quên mật khẩu hết hạn sau 10 phút,
+///   link kích hoạt Staff sau 24 giờ, dùng một lần và chỉ link mới nhất hợp lệ.
 /// - Reset không hỏi mật khẩu cũ; token tiêu trong cùng transaction đổi mật khẩu.
 /// - Thành công đổi security stamp: mọi JWT cũ bị từ chối ở request kế tiếp.
 /// </summary>
@@ -19,6 +22,8 @@ public sealed class PasswordResetService(
     ISportHubDbContext db,
     IPasswordHasher passwordHasher,
     EmailOtpFlow otpFlow,
+    INotificationWriter notifications,
+    IClock clock,
     IConfiguration configuration) : IPasswordResetService
 {
     public async Task RequestAsync(ForgotPasswordRequest request, CancellationToken ct = default)
@@ -62,13 +67,16 @@ public sealed class PasswordResetService(
 
         var user = await db.Set<UserAccount>()
             .Include(u => u.Credential)
+            .Include(u => u.Role)
             .SingleOrDefaultAsync(u => u.Email == email, ct);
 
         if (user is null || user.Status != UserStatus.Active)
         {
-            throw new BadRequestException("otp_invalid", "Link đặt lại mật khẩu không hợp lệ.");
+            throw new BadRequestException("otp_invalid", "Otp invalid.");
         }
 
+        var activatingStaff = string.IsNullOrEmpty(user.Credential?.PasswordHash)
+            && user.Role?.RoleName != UserRole.Member;
         var hash = passwordHasher.Hash(request.NewPassword);
 
         if (user.Credential is null)
@@ -81,6 +89,12 @@ public sealed class PasswordResetService(
         }
 
         user.SecurityStamp = Guid.NewGuid();
+
+        notifications.QueueEmail(new EmailNotificationRequest(user.UserId, user.Email, NotificationEvents.PasswordChanged,
+            Guid.NewGuid(), activatingStaff ? StaffActivationCompleteEmail.Subject : PasswordChangedEmail.Subject,
+            activatingStaff
+                ? StaffActivationCompleteEmail.Render(configuration["Frontend:SupportUrl"])
+                : PasswordChangedEmail.Render(PasswordChangedEmail.FormatLocal(clock.UtcNow), configuration["Frontend:SupportUrl"])));
 
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);

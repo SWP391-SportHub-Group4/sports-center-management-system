@@ -8,7 +8,11 @@ public sealed class IncidentNoticeConfiguration : IEntityTypeConfiguration<Incid
 {
     public void Configure(EntityTypeBuilder<IncidentNotice> builder)
     {
-        builder.ToTable("incident_notices", t => t.HasCheckConstraint("ck_incident_notice_range", "end_at_utc > start_at_utc"));
+        builder.ToTable("incident_notices", t =>
+        {
+            t.HasCheckConstraint("ck_incident_notice_range", "end_at_utc > start_at_utc");
+            t.HasCheckConstraint("ck_incident_membership_extension", "membership_extension_days BETWEEN 0 AND 31 AND extended_member_count >= 0");
+        });
         builder.HasKey(x => x.IncidentId);
         builder.Property(x => x.Reason).HasMaxLength(500);
         builder.Property(x => x.ResolutionSummary).HasMaxLength(2000);

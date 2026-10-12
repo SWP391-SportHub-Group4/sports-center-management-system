@@ -17,7 +17,7 @@ public sealed class VnPayGateway(IOptions<VnPayOptions> options, HttpClient http
     {
         RequireConfigured();
         if (amountVnd <= 0 || decimal.Truncate(amountVnd) != amountVnd)
-            throw new BadRequestException("vnp_amount_invalid", "Số tiền VNPay phải là VND nguyên dương.");
+            throw new BadRequestException("vnp_amount_invalid", "Vnp amount invalid.");
         var fields = new Dictionary<string, string>(StringComparer.Ordinal)
         {
             ["vnp_Version"] = "2.1.0", ["vnp_Command"] = "pay", ["vnp_TmnCode"] = _options.TmnCode,
@@ -36,10 +36,10 @@ public sealed class VnPayGateway(IOptions<VnPayOptions> options, HttpClient http
     {
         RequireConfigured();
         if (!VnPaySigner.Verify(values, _options.HashSecret) || Get(values, "vnp_TmnCode") != _options.TmnCode)
-            throw new BadRequestException("vnp_invalid_signature", "Chữ ký hoặc mã merchant VNPay không hợp lệ.");
+            throw new BadRequestException("vnp_invalid_signature", "Vnp invalid signature.");
         if (!long.TryParse(Get(values, "vnp_Amount"), NumberStyles.None, CultureInfo.InvariantCulture, out var minor)
             || minor <= 0 || minor % 100 != 0)
-            throw new BadRequestException("vnp_invalid_amount", "Số tiền VNPay không hợp lệ.");
+            throw new BadRequestException("vnp_invalid_amount", "Vnp invalid amount.");
         var reference = Get(values, "vnp_TxnRef");
         var transactionId = Get(values, "vnp_TransactionNo");
         var response = Get(values, "vnp_ResponseCode");
@@ -49,7 +49,7 @@ public sealed class VnPayGateway(IOptions<VnPayOptions> options, HttpClient http
             || response.Length != 2 || status.Length != 2
             || !DateTime.TryParseExact(payDate, "yyyyMMddHHmmss", CultureInfo.InvariantCulture,
                 DateTimeStyles.None, out var local))
-            throw new BadRequestException("vnp_invalid_payload", "Dữ liệu giao dịch VNPay thiếu hoặc sai định dạng.");
+            throw new BadRequestException("vnp_invalid_payload", "Vnp invalid payload.");
         var paidAtUtc = TimeZoneInfo.ConvertTimeToUtc(DateTime.SpecifyKind(local, DateTimeKind.Unspecified), Vietnam);
         return new VerifiedPaymentResult(reference, transactionId, minor / 100m,
             response == "00" && status == "00", response, status, paidAtUtc);
@@ -91,12 +91,12 @@ public sealed class VnPayGateway(IOptions<VnPayOptions> options, HttpClient http
             || Get(values, "vnp_TmnCode") != _options.TmnCode
             || Get(values, "vnp_TxnRef") != attempt.VnpTxnRef
             || Get(values, "vnp_Command") != "querydr")
-            throw new BadRequestException("vnp_query_invalid", "Phản hồi QueryDR không được xác minh.");
+            throw new BadRequestException("vnp_query_invalid", "Vnp query invalid.");
         if (Get(values, "vnp_ResponseCode") != "00" || Get(values, "vnp_TransactionType") != "01") return null;
         if (!long.TryParse(Get(values, "vnp_Amount"), NumberStyles.None,
                 CultureInfo.InvariantCulture, out var minor)
             || minor <= 0 || minor % 100 != 0)
-            throw new BadRequestException("vnp_query_invalid_amount", "Số tiền QueryDR không hợp lệ.");
+            throw new BadRequestException("vnp_query_invalid_amount", "Vnp query invalid amount.");
         var transactionId = Get(values, "vnp_TransactionNo");
         var date = Get(values, "vnp_PayDate");
         if (string.IsNullOrWhiteSpace(transactionId)

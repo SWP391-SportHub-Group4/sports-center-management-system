@@ -54,12 +54,12 @@ public class InvoicesController(
     {
         var staff = User.IsInRole(SportHubRoleNames.CenterManager) || User.IsInRole(SportHubRoleNames.Receptionist);
         if (!staff && !User.IsInRole(SportHubRoleNames.Member))
-            throw new ForbiddenException("invoice_access_denied", "Vai trò này không được xem hóa đơn.");
+            throw new ForbiddenException("invoice_access_denied", "Invoice access denied.");
         var detail = await invoices.GetDetailAsync(invoiceId, ct);
 
         if (!staff && detail.Summary.MemberId != User.RequireUserId())
         {
-            throw new ForbiddenException("invoice_not_owned", "Hóa đơn này không thuộc về bạn.");
+            throw new ForbiddenException("invoice_not_owned", "Invoice not owned.");
         }
 
         return Ok(detail);

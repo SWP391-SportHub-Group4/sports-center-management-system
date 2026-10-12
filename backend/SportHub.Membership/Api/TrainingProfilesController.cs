@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SportHub.BuildingBlocks.Api;
+using SportHub.BuildingBlocks.Abstractions.Training;
+using SportHub.Identity.Domain.Enums;
 using SportHub.Membership.Application.Commands;
 using SportHub.Membership.Application.DTOs;
 using SportHub.Membership.Application.Interfaces;
@@ -16,7 +18,7 @@ namespace SportHub.Membership.Api;
 [ApiController]
 [Authorize]
 [Route("api")]
-public class TrainingProfilesController(IMemberTrainingProfileService profiles) : ControllerBase
+public class TrainingProfilesController(IMemberTrainingProfileService profiles, ICoachMemberAccessReader coachAccess) : ControllerBase
 {
     [Authorize(Policy = SportHubPolicies.Member)]
     [HttpGet("members/me/training-profile")]
@@ -34,10 +36,18 @@ public class TrainingProfilesController(IMemberTrainingProfileService profiles) 
     public async Task<IActionResult> SaveMine([FromBody] SaveTrainingProfileRequest request, CancellationToken ct)
         => Ok(await profiles.SaveAsync(User.RequireUserId(), request, ct));
 
-    [Authorize(Policy = SportHubPolicies.StaffRead)]
+    /// <summary>
+    /// Hồ sơ có dữ liệu sức khỏe nên chỉ Manager và Coach đang có quan hệ Active với hội viên được đọc;
+    /// Lễ tân không cần nên không có quyền.
+    /// </summary>
+    [Authorize(Roles = SportHubRoleNames.CenterManager + "," + SportHubRoleNames.Coach)]
     [HttpGet("members/{memberId:guid}/training-profile")]
     public async Task<IActionResult> GetByMember(Guid memberId, CancellationToken ct)
     {
+        if (User.IsInRole(nameof(UserRole.Coach)) &&
+            !await coachAccess.HasActiveRelationshipAsync(User.RequireUserId(), memberId, ct))
+            return Forbid();
+
         var profile = await profiles.GetAsync(memberId, ct);
 
         return profile is null ? NoContent() : Ok(profile);

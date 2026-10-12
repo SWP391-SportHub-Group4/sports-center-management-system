@@ -19,9 +19,9 @@ public sealed class SystemSettingProvider(ISportHubDbContext db) : ISystemSettin
         var row = await source
             .Where(s => s.Key == key).Select(s => new { s.Value, s.UpdatedAt })
             .SingleOrDefaultAsync(cancellationToken)
-            ?? throw new InvalidOperationException($"Thiếu system setting '{key}'.");
+            ?? throw new InvalidOperationException($"System setting '{key}' is missing.");
         if (!int.TryParse(row.Value, out var value))
-            throw new InvalidOperationException($"System setting '{key}' không phải số nguyên.");
+            throw new InvalidOperationException($"System setting '{key}' must be an integer.");
         return new VersionedIntSetting(value, row.UpdatedAt.Ticks.ToString(System.Globalization.CultureInfo.InvariantCulture));
     }
 
@@ -36,11 +36,11 @@ public sealed class SystemSettingProvider(ISportHubDbContext db) : ISystemSettin
         // Thiếu khoá hoặc giá trị hỏng là lỗi cấu hình, không phải trường hợp nghiệp vụ hợp lệ.
         if (raw is null)
         {
-            throw new InvalidOperationException($"Thiếu system setting '{key}' — kiểm tra seed data.");
+            throw new InvalidOperationException($"System setting '{key}' is missing. Check the seed data.");
         }
 
         return int.TryParse(raw, out var value)
             ? value
-            : throw new InvalidOperationException($"System setting '{key}' không phải số nguyên: '{raw}'.");
+            : throw new InvalidOperationException($"System setting '{key}' must be an integer: '{raw}'.");
     }
 }

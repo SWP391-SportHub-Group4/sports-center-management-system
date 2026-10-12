@@ -24,7 +24,7 @@ public sealed class RoomTypeService(ISportHubDbContext db, IAuditWriter audit, S
 
         if (await db.Set<RoomType>().AnyAsync(t => t.Name == name, ct))
         {
-            throw new ConflictException("room_type_name_taken", "Đã có loại phòng trùng tên.");
+            throw new ConflictException("room_type_name_taken", "Room type name taken.");
         }
 
         var type = new RoomType { Name = name };
@@ -48,7 +48,7 @@ public sealed class RoomTypeService(ISportHubDbContext db, IAuditWriter audit, S
 
         if (await db.Set<RoomType>().AnyAsync(t => t.Name == name && t.RoomTypeId != roomTypeId, ct))
         {
-            throw new ConflictException("room_type_name_taken", "Đã có loại phòng trùng tên.");
+            throw new ConflictException("room_type_name_taken", "Room type name taken.");
         }
 
         audit.Write(new AuditEntry(actorUserId, "UPDATE_ROOM_TYPE", nameof(RoomType), roomTypeId.ToString(),
@@ -71,7 +71,7 @@ public sealed class RoomTypeService(ISportHubDbContext db, IAuditWriter audit, S
 
         if (missing.Count > 0)
         {
-            throw new BadRequestException("invalid_sport", "Môn không tồn tại: " + string.Join(", ", missing) + ".");
+            throw new BadRequestException("invalid_sport", "Invalid sport.");
         }
 
         var current = await db.Set<SportRoomType>().Where(l => l.RoomTypeId == roomTypeId).ToListAsync(ct);
@@ -105,7 +105,7 @@ public sealed class RoomTypeService(ISportHubDbContext db, IAuditWriter audit, S
 
         if (referenced)
         {
-            throw new ConflictException("room_type_in_use", "Loại phòng đang được phòng hoặc bảng giá sử dụng — không xóa được.");
+            throw new ConflictException("room_type_in_use", "Room type in use.");
         }
 
         await using var tx = await db.Database.BeginTransactionAsync(ct);
@@ -122,7 +122,7 @@ public sealed class RoomTypeService(ISportHubDbContext db, IAuditWriter audit, S
 
     private async Task<RoomType> FindAsync(int roomTypeId, CancellationToken ct)
         => await db.Set<RoomType>().SingleOrDefaultAsync(t => t.RoomTypeId == roomTypeId, ct)
-           ?? throw new NotFoundException("room_type_not_found", "Không tìm thấy loại phòng.");
+           ?? throw new NotFoundException("room_type_not_found", "Room type not found.");
 
     private async Task<RoomTypeResponse> GetAsync(int roomTypeId, CancellationToken ct)
     {

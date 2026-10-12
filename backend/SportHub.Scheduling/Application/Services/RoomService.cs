@@ -37,7 +37,7 @@ public sealed class RoomService(ISportHubDbContext db, IAuditWriter audit) : IRo
         // (hai request đồng thời đều đi qua được kiểm tra này).
         if (await db.Set<Room>().AnyAsync(r => r.Name == name, ct))
         {
-            throw new ConflictException("room_name_taken", "Đã có phòng tập trùng tên (BR-57).");
+            throw new ConflictException("room_name_taken", "Room name taken.");
         }
 
         await EnsureRoomTypeAsync(request.RoomTypeId, ct);
@@ -72,13 +72,13 @@ public sealed class RoomService(ISportHubDbContext db, IAuditWriter audit) : IRo
         CancellationToken ct = default)
     {
         var room = await db.Set<Room>().SingleOrDefaultAsync(r => r.RoomId == roomId, ct)
-            ?? throw new NotFoundException("room_not_found", "Không tìm thấy phòng tập.");
+            ?? throw new NotFoundException("room_not_found", "Room not found.");
 
         var name = request.Name.Trim();
 
         if (await db.Set<Room>().AnyAsync(r => r.Name == name && r.RoomId != roomId, ct))
         {
-            throw new ConflictException("room_name_taken", "Đã có phòng tập trùng tên (BR-57).");
+            throw new ConflictException("room_name_taken", "Room name taken.");
         }
 
         if (request.RoomTypeId is not null)
@@ -117,7 +117,7 @@ public sealed class RoomService(ISportHubDbContext db, IAuditWriter audit) : IRo
     public async Task DeleteAsync(int roomId, Guid actorUserId, CancellationToken ct = default)
     {
         var room = await db.Set<Room>().SingleOrDefaultAsync(r => r.RoomId == roomId, ct)
-            ?? throw new NotFoundException("room_not_found", "Không tìm thấy phòng tập.");
+            ?? throw new NotFoundException("room_not_found", "Room not found.");
 
         // SSOT §5.5: entity thuần cấu hình được xoá cứng CHỈ KHI chưa bị tham chiếu. Kiểm cả
         // Class lẫn ClassSession — buổi học trong quá khứ vẫn cần tên phòng để tra cứu lịch sử —
@@ -131,7 +131,7 @@ public sealed class RoomService(ISportHubDbContext db, IAuditWriter audit) : IRo
         {
             throw new ConflictException(
                 "room_in_use",
-                "Phòng tập đang được lớp học, buổi học hoặc lịch chiếm chỗ tham chiếu — không xóa được; hãy ngừng hoạt động phòng.");
+                "Room in use.");
         }
 
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
@@ -152,7 +152,7 @@ public sealed class RoomService(ISportHubDbContext db, IAuditWriter audit) : IRo
     {
         if (roomTypeId is int id && !await db.Set<RoomType>().AnyAsync(t => t.RoomTypeId == id, ct))
         {
-            throw new BadRequestException("invalid_room_type", "Loại phòng không tồn tại.");
+            throw new BadRequestException("invalid_room_type", "Invalid room type.");
         }
     }
 
@@ -167,5 +167,5 @@ public sealed class RoomService(ISportHubDbContext db, IAuditWriter audit) : IRo
                    r.RoomId, r.Name, r.Capacity, db.Set<Class>().Count(c => c.DefaultRoomId == r.RoomId && (c.Status == ClassStatus.Published || c.Status == ClassStatus.InProgress)),
                    r.RoomTypeId, r.IsActive))
                .SingleOrDefaultAsync(ct)
-           ?? throw new NotFoundException("room_not_found", "Không tìm thấy phòng tập.");
+           ?? throw new NotFoundException("room_not_found", "Room not found.");
 }

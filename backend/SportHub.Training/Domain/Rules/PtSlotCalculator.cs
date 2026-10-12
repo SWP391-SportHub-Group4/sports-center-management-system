@@ -113,20 +113,20 @@ public static class PtSlotCalculator
         {
             throw new BadRequestException(
                 "pt_start_not_aligned",
-                $"Giờ bắt đầu phải rơi vào bội số {PtSessionRules.SlotStepMinutes} phút (giờ Việt Nam).");
+                "Pt start not aligned.");
         }
 
         if (startAtUtc < nowUtc.AddHours(PtSessionRules.SelfBookMinLeadHours))
         {
             throw new BadRequestException(
                 "pt_booking_too_soon",
-                $"Cần đặt trước ít nhất {PtSessionRules.SelfBookMinLeadHours} giờ. Liên hệ lễ tân nếu cần gấp.");
+                "Pt booking too soon.");
         }
 
         if (startAtUtc > nowUtc.AddDays(PtSessionRules.SelfBookMaxAdvanceDays))
         {
             throw new BadRequestException(
-                "pt_booking_too_far", $"Chỉ đặt trước tối đa {PtSessionRules.SelfBookMaxAdvanceDays} ngày.");
+                "pt_booking_too_far", "Pt booking too far.");
         }
     }
 

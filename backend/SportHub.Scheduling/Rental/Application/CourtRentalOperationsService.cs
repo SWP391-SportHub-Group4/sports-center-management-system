@@ -24,7 +24,7 @@ public sealed class CourtRentalOperationsService(ISportHubDbContext db,
     {
         var row = await db.Set<CourtRental>().AsNoTracking()
             .SingleOrDefaultAsync(x => x.CourtRentalId == rentalId && x.MemberId == ownerId, ct)
-            ?? throw new NotFoundException("rental_not_found", "Không tìm thấy lượt thuê sân.");
+            ?? throw new NotFoundException("rental_not_found", "Rental not found.");
         var summary = await db.Set<CourtRental>().AsNoTracking().Where(x => x.CourtRentalId == rentalId)
             .Select(Project()).SingleAsync(ct);
         var roomName = await db.Set<Room>().Where(x => x.RoomId == row.RoomId).Select(x => x.Name).SingleAsync(ct);
@@ -59,7 +59,7 @@ public sealed class CourtRentalOperationsService(ISportHubDbContext db,
     public async Task CancelByCenterAsync(Guid rentalId, Guid managerId, string reason, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(reason) || reason.Trim().Length is < 3 or > 500)
-            throw new BadRequestException("rental_cancel_reason_required", "Cần ghi lý do hủy (3–500 ký tự).");
+            throw new BadRequestException("rental_cancel_reason_required", "Rental cancel reason required.");
         await CancelAsync(rentalId, managerId, true, reason.Trim(), ct);
     }
 
@@ -67,20 +67,20 @@ public sealed class CourtRentalOperationsService(ISportHubDbContext db,
     {
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         var reference = await db.Set<CourtRental>().AsNoTracking().SingleOrDefaultAsync(x => x.CourtRentalId == rentalId, ct)
-            ?? throw new NotFoundException("rental_not_found", "Không tìm thấy lượt thuê sân.");
+            ?? throw new NotFoundException("rental_not_found", "Rental not found.");
         if (!centerFault && reference.MemberId != actorId)
-            throw new ForbiddenException("rental_not_owned", "Lượt thuê không thuộc tài khoản này.");
+            throw new ForbiddenException("rental_not_owned", "Rental not owned.");
         if (reference.Status == CourtRentalStatus.Confirmed && reference.InvoiceItemId is Guid referencedItem)
             await refunds.LockPaidItemAsync(referencedItem, ct);
         var rental = await db.Set<CourtRental>().FromSqlInterpolated(
                 $"SELECT * FROM court_rentals WHERE court_rental_id = {rentalId} FOR UPDATE")
-            .SingleOrDefaultAsync(ct) ?? throw new NotFoundException("rental_not_found", "Không tìm thấy lượt thuê sân.");
+            .SingleOrDefaultAsync(ct) ?? throw new NotFoundException("rental_not_found", "Rental not found.");
         if (reference.InvoiceItemId != rental.InvoiceItemId)
-            throw new ConflictException("rental_item_changed", "Hóa đơn thuê sân vừa thay đổi; hãy thử lại.");
+            throw new ConflictException("rental_item_changed", "Rental item changed.");
         if (rental.Status != CourtRentalStatus.Confirmed || rental.InvoiceItemId is not Guid itemId)
-            throw new ConflictException("rental_not_cancellable", "Chỉ lượt thuê đã thanh toán và còn hiệu lực mới hủy được.");
+            throw new ConflictException("rental_not_cancellable", "Rental not cancellable.");
         if (!centerFault && rental.StartAtUtc <= clock.UtcNow)
-            throw new ConflictException("rental_already_started", "Không thể tự hủy lượt thuê đã bắt đầu.");
+            throw new ConflictException("rental_already_started", "Rental already started.");
 
         var freeCancelHours = await settings.GetIntAsync(SystemSettingKeys.RentalCancelFreeHours, ct);
         if (centerFault || rental.StartAtUtc - clock.UtcNow >= TimeSpan.FromHours(freeCancelHours))
@@ -100,7 +100,7 @@ public sealed class CourtRentalOperationsService(ISportHubDbContext db,
     private static void ValidateRange(DateTime fromUtc, DateTime toUtc)
     {
         if (toUtc <= fromUtc || toUtc - fromUtc > TimeSpan.FromDays(31))
-            throw new BadRequestException("invalid_range", "Khoảng lịch phải dương và tối đa 31 ngày.");
+            throw new BadRequestException("invalid_range", "Invalid range.");
     }
 }
 

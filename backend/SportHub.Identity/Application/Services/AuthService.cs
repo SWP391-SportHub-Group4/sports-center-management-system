@@ -221,22 +221,22 @@ public sealed class AuthService(
     {
         var otp = await db.Set<EmailOtp>().SingleOrDefaultAsync(o => o.Email == email && o.Purpose == EmailOtpPurpose.Register, cancellationToken)
             ?? throw new BadRequestException(
-                "otp_not_found", "Chưa có mã xác thực cho email này. Hãy yêu cầu gửi mã trước.");
+                "otp_not_found", "Otp not found.");
 
         if (otp.ConsumedAt is not null)
         {
-            throw new BadRequestException("otp_already_used", "Mã xác thực đã được sử dụng. Hãy yêu cầu mã mới.");
+            throw new BadRequestException("otp_already_used", "Otp already used.");
         }
 
         if (clock.UtcNow >= otp.ExpiresAt)
         {
-            throw new BadRequestException("otp_expired", "Mã xác thực đã hết hạn. Hãy yêu cầu mã mới.");
+            throw new BadRequestException("otp_expired", "Otp expired.");
         }
 
         if (otp.Attempts >= OtpMaxAttempts)
         {
             throw new BadRequestException(
-                "otp_attempts_exceeded", "Đã nhập sai quá số lần cho phép. Hãy yêu cầu mã mới.");
+                "otp_attempts_exceeded", "Otp attempts exceeded.");
         }
 
         var expected = Encoding.ASCII.GetBytes(otp.CodeHash);
@@ -247,7 +247,7 @@ public sealed class AuthService(
             otp.Attempts++;
             await db.SaveChangesAsync(cancellationToken);
 
-            throw new BadRequestException("otp_invalid", "Mã xác thực không đúng.");
+            throw new BadRequestException("otp_invalid", "Otp invalid.");
         }
 
         return otp;
@@ -264,5 +264,5 @@ public sealed class AuthService(
         => new(
             StatusCodes.Status429TooManyRequests,
             "otp_resend_too_soon",
-            $"Vui lòng đợi {OtpResendCooldown.TotalSeconds:0} giây trước khi yêu cầu mã mới.");
+            $"Wait {OtpResendCooldown.TotalSeconds:0} seconds before requesting a new code.");
 }

@@ -53,12 +53,12 @@ public sealed class OccupancyService(ISportHubDbContext db) : IOccupancyService
 
         if (end <= start)
         {
-            throw new ArgumentException("Khoảng chiếm chỗ phải có giờ kết thúc sau giờ bắt đầu.", nameof(request));
+            throw new ArgumentException("The occupancy end time must be after its start time.", nameof(request));
         }
 
         if (request.RoomId is null && request.CoachId is null)
         {
-            throw new ArgumentException("Phải chiếm ít nhất phòng hoặc coach.", nameof(request));
+            throw new ArgumentException("The occupancy must reserve a room or a coach.", nameof(request));
         }
 
         var roomRow = await db.Set<RoomOccupancy>()
@@ -191,5 +191,5 @@ public sealed class OccupancyService(ISportHubDbContext db) : IOccupancyService
     private static OccupancySourceType ParseSource(string sourceType)
         => SportHub.BuildingBlocks.Api.WireEnum.TryParse<OccupancySourceType>(sourceType, ignoreCase: false, out var parsed)
             ? parsed
-            : throw new ArgumentOutOfRangeException(nameof(sourceType), sourceType, "Không khớp OccupancySourceType — xem OccupancySources ở BuildingBlocks.");
+            : throw new ArgumentOutOfRangeException(nameof(sourceType), sourceType, "Unknown OccupancySourceType. Check OccupancySources in BuildingBlocks.");
 }

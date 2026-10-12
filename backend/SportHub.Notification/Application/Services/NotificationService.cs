@@ -59,12 +59,12 @@ public sealed class NotificationService(ISportHubDbContext db, IClock clock, INo
     {
         var notification = await db.Set<Domain.Entities.Notification>()
             .SingleOrDefaultAsync(n => n.NotificationId == notificationId && n.Channel == NotificationChannel.InApp, ct)
-            ?? throw new NotFoundException("notification_not_found", "Không tìm thấy thông báo.");
+            ?? throw new NotFoundException("notification_not_found", "Notification not found.");
 
         // Ownership kiểm ở đây, không chỉ ở UI: id là Guid đoán được nếu lộ ra chỗ khác.
         if (notification.UserId != userId)
         {
-            throw new ForbiddenException("notification_not_owned", "Thông báo này không thuộc về bạn.");
+            throw new ForbiddenException("notification_not_owned", "Notification not owned.");
         }
 
         if (notification.Status == NotificationStatus.Read)

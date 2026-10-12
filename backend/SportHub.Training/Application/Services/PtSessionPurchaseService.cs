@@ -17,15 +17,15 @@ public sealed partial class PtSessionService
         IMembershipAccessReader memberships, CancellationToken ct)
     {
         if (toDate < fromDate || toDate.DayNumber - fromDate.DayNumber + 1 > PtSessionRules.MaxAvailabilityRangeDays)
-            throw new BadRequestException("invalid_availability_range", "Khoảng ngày PT tối đa 14 ngày.");
+            throw new BadRequestException("invalid_availability_range", "Invalid availability range.");
         var package = await memberships.GetByIdAsync(memberPackageId, ct);
         if (package is null || package.MemberId != memberId)
-            throw new NotFoundException("membership_not_found", "Không tìm thấy Membership.");
+            throw new NotFoundException("membership_not_found", "Membership not found.");
         var today = VietnamTime.TodayLocal(clock);
         if (package.Status != "Active" || package.StartDate > today || package.EndDate < today)
-            throw new ConflictException("membership_not_active", "Cần Membership Gym còn hiệu lực để đặt PT.");
+            throw new ConflictException("membership_not_active", "Membership not active.");
         if (!await specialties.IsPersonalTrainerAsync(coachId, ct))
-            throw new BadRequestException("coach_must_be_personal_trainer", "Coach chưa có chuyên môn PT.");
+            throw new BadRequestException("coach_must_be_personal_trainer", "Coach must be personal trainer.");
         var coachName = await db.Set<UserAccount>().Where(u => u.UserId == coachId)
             .Select(u => u.Profile != null ? u.Profile.FullName : u.Email).SingleAsync(ct);
         var fromUtc = VietnamTime.StartOfDayUtc(fromDate);
@@ -55,7 +55,7 @@ public sealed partial class PtSessionService
         await LockCoachAndMemberAsync(preview.CoachId, memberId, ct);
         var entitlement = await LockEntitlementAsync(entitlementId, ct);
         if (entitlement.MemberId != memberId || entitlement.Status != PtEntitlementStatus.PendingPayment || entitlement.TotalQuota != 1)
-            throw new ConflictException("pt_checkout_invalid", "Không thể giữ lịch PT này.");
+            throw new ConflictException("pt_checkout_invalid", "Pt checkout invalid.");
         var end = PtSessionRules.EndAtUtc(start);
         EnsureWithinValidity(entitlement, start, end);
         await EnsureNoConflictAsync(entitlement.CoachId, memberId, start, end, null, ct);
@@ -63,7 +63,7 @@ public sealed partial class PtSessionService
         var free = PtSlotCalculator.FreeRooms(rooms, start, end);
         var roomId = requestedRoomId ?? free.FirstOrDefault()?.RoomId;
         if (roomId is null || free.All(r => r.RoomId != roomId))
-            throw new ConflictException("pt_slot_unavailable", "Khung giờ này đã hết phòng PT. Chọn lịch khác.");
+            throw new ConflictException("pt_slot_unavailable", "Pt slot unavailable.");
         await PtRoomValidator.RequireAsync(catalog, specialties, roomId.Value, entitlement.CoachId, start, end, ct);
         await PersistNewSessionAsync(entitlement, start, end, roomId, memberId, "HOLD_PT_SESSION_CHECKOUT", ct,
             PtSessionStatus.PendingPayment);
