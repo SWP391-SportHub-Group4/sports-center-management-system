@@ -122,7 +122,7 @@
   padding-inline: var(--space-1);
 }
 
-/* StateView's loading rows follow the checkbox + sport-name layout here. */
+  /* StateView's loading rows follow the selection control + sport-name layout here. */
 .sportSelector :global(.skeleton) {
   display: flex;
   align-items: center;
@@ -159,7 +159,8 @@
   min-height: var(--control-height);
 }
 
-.sportOption input[type="checkbox"] {
+.sportOption input[type="checkbox"],
+.sportOption input[type="radio"] {
   flex: 0 0 auto;
   width: auto;
   margin: 0;
