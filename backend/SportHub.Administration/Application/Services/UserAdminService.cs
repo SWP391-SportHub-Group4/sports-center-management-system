@@ -34,7 +34,7 @@ public sealed class UserAdminService(
     CoachSpecialtyService specialties,
     IAuditWriter audit,
     IClock clock,
-    IConfiguration configuration) : IUserAdminService
+    ActivationLinkService activationLinks) : IUserAdminService
 {
     public async Task<PagedResult<UserAdminResponse>> SearchAsync(
         string? keyword,
@@ -210,22 +210,8 @@ public sealed class UserAdminService(
     }
 
     /// <summary>Gửi (hoặc gửi lại) link kích hoạt 24 giờ; mỗi lần phát hành vô hiệu link cũ của cùng email. False nếu còn trong thời gian chờ gửi lại.</summary>
-    private async Task<bool> IssueActivationLinkAsync(string email, string fullName, CancellationToken ct)
-    {
-        var frontendBaseUrl = configuration["Frontend:BaseUrl"];
-        if (string.IsNullOrWhiteSpace(frontendBaseUrl))
-            frontendBaseUrl = configuration.GetSection("Cors:AllowedOrigins").GetChildren()
-                .Select(c => c.Value).FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
-        frontendBaseUrl = (string.IsNullOrWhiteSpace(frontendBaseUrl) ? "http://localhost:3000" : frontendBaseUrl).TrimEnd('/');
-
-        var token = await otpFlow.IssueAsync(email, EmailOtpPurpose.ResetPassword, ct,
-            resetLink: value => $"{frontendBaseUrl}/reset-password?email={Uri.EscapeDataString(email)}&token={Uri.EscapeDataString(value)}&setup=staff",
-            supportUrl: configuration["Frontend:SupportUrl"],
-            lifetime: TimeSpan.FromHours(24),
-            resetEmailSubject: StaffActivationEmail.Subject,
-            renderResetEmail: (url, minutes) => StaffActivationEmail.Render(fullName, url, minutes, configuration["Frontend:SupportUrl"]));
-        return token is not null;
-    }
+    private Task<bool> IssueActivationLinkAsync(string email, string fullName, CancellationToken ct)
+        => activationLinks.IssueAsync(email, fullName, member: false, ct);
 
     private async Task<UserAccount> LoadPendingStaffAsync(Guid userId, CancellationToken ct)
     {
@@ -516,8 +502,7 @@ public sealed class UserAdminService(
             new List<int>())
         {
             AvatarUrl = u.Profile != null ? u.Profile.AvatarUrl : null,
-            ActivationPending = u.Role!.RoleName != UserRole.Member
-                                && (u.Credential == null || u.Credential.PasswordHash == null)
+            ActivationPending = (u.Credential == null || u.Credential.PasswordHash == null)
                                 && !u.ExternalLogins.Any()
         };
 }

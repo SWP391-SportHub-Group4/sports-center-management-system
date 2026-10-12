@@ -26,7 +26,7 @@ Tài liệu tổng hợp phạm vi MVP từ `Requirements.md`, `SWP391_Report_SR
 
 ## 4. Tiêu chí hoàn thành theo Flow bắt buộc
 
-**Flow 1.** Đăng ký Member (email OTP hoặc Google), đăng nhập, quên/đổi mật khẩu; quản lý trạng thái tài khoản; mua/gia hạn Membership và quyền vào Gym; phân quyền 5 vai trò, backend kiểm cả role lẫn ownership.
+**Flow 1.** Đăng ký Member (email OTP hoặc Google; hoặc Receptionist đăng ký tại quầy kèm email kích hoạt), đăng nhập, quên/đổi mật khẩu; quản lý trạng thái tài khoản; mua/gia hạn Membership và quyền vào Gym; phân quyền 5 vai trò, backend kiểm cả role lẫn ownership.
 
 **Flow 2.** Catalog lớp/khóa; giữ chỗ và ghi danh theo cả lớp; không bán vượt sĩ số; không xếp trùng phòng/sân/Coach (kiểm ở DB, không chỉ ở frontend); ngưỡng lớp, chuyển lớp; thuê/hủy sân.
 
