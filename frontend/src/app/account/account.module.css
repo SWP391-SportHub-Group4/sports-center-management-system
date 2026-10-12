@@ -6,6 +6,95 @@
   gap: var(--space-5);
 }
 
+.passThrough {
+  display: contents;
+}
+.coachWorkspace {
+  width: 100%;
+  min-width: 0;
+  display: grid;
+  gap: var(--space-4);
+  align-content: start;
+}
+.coachTabs {
+  display: flex;
+  gap: var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
+  overflow-x: auto;
+}
+.coachTabs button {
+  flex-shrink: 0;
+  min-height: 44px;
+  padding: var(--space-3) var(--space-4);
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  color: var(--text-body);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.coachTabs button[aria-selected="true"] {
+  border-bottom-color: var(--color-primary);
+  color: var(--color-primary-soft-text);
+  background: var(--color-primary-soft);
+}
+.coachTabs button:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: -3px;
+}
+.coachPanel,
+.accountPanel,
+.securityPanel {
+  min-width: 0;
+}
+.coachWorkspace [hidden] {
+  display: none;
+}
+.accountPanel > :global(.card),
+.securityPanel > :global(.card) {
+  max-width: 100%;
+}
+.accountPanel :global(.card__body) > :global(.stack) {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.8fr) minmax(0, 1.2fr);
+  gap: var(--space-5);
+  align-items: start;
+}
+.accountPanel :global(.card__body) > :global(.stack) > :global(.row) {
+  grid-column: 1 / -1;
+  flex-wrap: wrap;
+  overflow-wrap: anywhere;
+}
+.securityPanel :global(.form) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+.passwordPair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+  min-width: 0;
+}
+.passwordPair > :global(.field) {
+  min-width: 0;
+}
+.securityPanel :global(.form) > :not(:global(.field)) {
+  grid-column: 1 / -1;
+}
+@media (max-width: 760px) {
+  .accountPanel :global(.card__body) > :global(.stack),
+  .securityPanel :global(.form),
+  .passwordPair {
+    grid-template-columns: 1fr;
+  }
+  .coachTabs button {
+    padding-inline: var(--space-3);
+  }
+}
+
 .content :global(input[aria-invalid="true"]),
 .form :global(input[aria-invalid="true"]) {
   border-color: var(--danger-solid);

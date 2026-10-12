@@ -51,6 +51,22 @@
   padding: var(--space-3);
   border-bottom: 1px solid var(--border-subtle);
 }
+.dayHeader strong {
+  display: grid;
+  gap: var(--space-1);
+}
+.todayDot {
+  display: block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--color-primary);
+}
+.listDayTitle {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-1);
+}
 
 .dayHeader strong:has(.todayDot),
 .listDayTitle:has(.todayDot) {

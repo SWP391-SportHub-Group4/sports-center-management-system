@@ -140,7 +140,7 @@ test("successful login routes each role to its dashboard", async ({ page }) => {
   await page.getByLabel("Email").fill("coach@sporthub.test");
   await page.getByLabel("Password").fill("password123");
   await page.locator('form button[type="submit"]').click();
-  await expect(page).toHaveURL(/\/coach$/);
+  await expect(page).toHaveURL(/\/coach\/schedule$/);
 });
 
 test("branded Google button keeps the Google credential flow", async ({
@@ -203,7 +203,7 @@ test("branded Google button keeps the Google credential flow", async ({
   await page.mouse.move(0, 0);
   await expect(visual).toHaveCSS("border-color", "rgba(0, 0, 0, 0)");
   await google.click();
-  await expect(page).toHaveURL(/\/coach$/);
+  await expect(page).toHaveURL(/\/coach\/schedule$/);
 });
 
 test("password visibility and credential errors remain accessible", async ({

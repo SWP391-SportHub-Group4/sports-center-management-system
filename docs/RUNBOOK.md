@@ -99,7 +99,7 @@ cd backend/SportHub.API
 ASPNETCORE_ENVIRONMENT=Development dotnet run -- --seed-demo-flow12=true
 ```
 
-Cùng quy tắc với `--seed-br141`: viết cờ có giá trị, lệnh in tên database trước khi ghi, và dùng `--ConnectionStrings:Default=...` để trỏ vào DB khác (ví dụ DB trong Docker publish ở cổng `POSTGRES_PORT`). Chạy lại không nhân bản dữ liệu và không cộng điểm lần hai. Kịch bản demo: [DEMO-SCRIPT-FLOW-1-2.md](DEMO-SCRIPT-FLOW-1-2.md).
+Cùng quy tắc với `--seed-br141`: viết cờ có giá trị, lệnh in tên database trước khi ghi, và dùng `--ConnectionStrings:Default=...` để trỏ vào DB khác (ví dụ DB trong Docker publish ở cổng `POSTGRES_PORT`). Chạy lại không nhân bản dữ liệu và không cộng điểm lần hai. Kịch bản demo: [DEMO-SCRIPT-FLOW-1-2-3.md](DEMO-SCRIPT-FLOW-1-2-3.md).
 
 Reset dữ liệu dev (giữ tài khoản và cấu hình, xóa mọi dữ liệu phát sinh): sao lưu rồi chạy [reset-dev-data.sql](../backend/scripts/reset-dev-data.sql); đầu file có lệnh `pg_dump`/`psql` mẫu. Script chỉ chạy trên database tên `sporthub` và tạm tắt trigger chặn TRUNCATE của sổ điểm.
 
