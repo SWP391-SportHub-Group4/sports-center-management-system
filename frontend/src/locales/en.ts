@@ -603,6 +603,14 @@ export const en = {
       "* An activation email with a link to set the first password will be sent directly to the staff member.",
     roleImpact:
       "Changing the role invalidates existing sessions. The user will need to sign in again.",
+    roleBlockTitle: "Resolve these items before changing the role",
+    roleBlockGuidance:
+      "This account has service resources that must be settled first. Contact a Center Manager or Receptionist to handle them, then retry the role change. Copy a direct member link to share with the appropriate staff member.",
+    roleBlockAccountLink: "View account details",
+    roleBlockCopyManager: "Copy Manager member link",
+    roleBlockCopyReceptionist: "Copy Receptionist member link",
+    roleBlockCopied: "Member link copied. Share it with the appropriate staff member.",
+    roleBlockCopyFailed: "Could not copy the link. Check browser clipboard access.",
     selfRoleImpact:
       "You are changing your own role. You will be signed out after confirmation.",
     lockImpact:

@@ -369,8 +369,13 @@ public sealed class UserAdminService(
         var now = clock.UtcNow;
         var reasons = new List<string>();
 
-        var packages = await db.Set<MemberPackage>().CountAsync(x => x.MemberId == userId && x.Status == MemberPackageStatus.Active, ct);
-        if (packages > 0) reasons.Add($"{packages} active Gym membership package(s). Cancel/refund them or wait for expiry.");
+        var packages = await db.Set<MemberPackage>()
+            .Where(x => x.MemberId == userId && x.Status == MemberPackageStatus.Active)
+            .OrderBy(x => x.EndDate)
+            .Select(x => new { Name = x.Package!.Name, x.EndDate })
+            .ToListAsync(ct);
+        foreach (var package in packages)
+            reasons.Add($"Active Gym membership: {package.Name} (expires {package.EndDate:dd/MM/yyyy}). Ask a Center Manager or Receptionist to cancel/refund it, or wait for expiry.");
 
         var entitlements = await db.Set<PtEntitlement>().CountAsync(x => x.MemberId == userId
             && (x.Status == PtEntitlementStatus.Active || x.Status == PtEntitlementStatus.AwaitingCarryOver), ct);
@@ -385,14 +390,20 @@ public sealed class UserAdminService(
             && (x.Status == PtSessionStatus.Scheduled || x.Status == PtSessionStatus.PendingPayment) && x.StartAtUtc > now, ct);
         if (ptSessions > 0) reasons.Add($"{ptSessions} upcoming PT session(s). Cancel or reschedule them first.");
 
-        var rentals = await db.Set<CourtRental>().CountAsync(x => x.MemberId == userId
-            && (x.Status == CourtRentalStatus.Confirmed || x.Status == CourtRentalStatus.PendingPayment) && x.StartAtUtc > now, ct);
-        if (rentals > 0) reasons.Add($"{rentals} upcoming court rental(s). Cancel or refund them first.");
+        var rentals = await db.Set<CourtRental>()
+            .Where(x => x.MemberId == userId
+                && (x.Status == CourtRentalStatus.Confirmed || x.Status == CourtRentalStatus.PendingPayment)
+                && x.StartAtUtc > now)
+            .OrderBy(x => x.StartAtUtc)
+            .Select(x => new { x.Status, x.StartAtUtc })
+            .ToListAsync(ct);
+        foreach (var rental in rentals)
+            reasons.Add($"{rental.Status} court rental on {VietnamTime.ToLocal(rental.StartAtUtc):dd/MM/yyyy HH:mm} (Vietnam time). Ask a Center Manager or Receptionist to cancel/refund it first.");
 
         var wallet = await db.Set<PointWallet>().AsNoTracking().Where(x => x.OwnerUserId == userId)
             .Select(x => new { x.AvailablePoints, x.HeldPoints }).SingleOrDefaultAsync(ct);
         if (wallet is not null && (wallet.AvailablePoints > 0 || wallet.HeldPoints > 0))
-            reasons.Add($"Point wallet is not empty ({wallet.AvailablePoints} available, {wallet.HeldPoints} held). Spend the points or adjust them to 0 with a reason.");
+            reasons.Add($"Point wallet has {wallet.AvailablePoints} available point(s) and {wallet.HeldPoints} held point(s). Ask a Center Manager or Receptionist to settle the balance with an audited reason.");
 
         var invoices = await db.Set<Invoice>().CountAsync(x => x.MemberId == userId && x.Status == InvoiceStatus.Issued, ct);
         if (invoices > 0) reasons.Add($"{invoices} unpaid invoice(s) in progress. Pay or void them first.");

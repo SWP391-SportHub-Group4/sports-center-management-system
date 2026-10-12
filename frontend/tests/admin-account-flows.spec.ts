@@ -293,6 +293,49 @@ test("role change requires reason and review; backend denial preserves the form"
   );
 });
 
+test("blocked Member role change shows specific reasons and shareable handoff links", async ({
+  page,
+}) => {
+  const row = await setup(page);
+  row.role = "MEMBER";
+  await page.route(`**/api/users/${row.userId}/role`, (route) =>
+    route.fulfill({
+      status: 409,
+      json: {
+        error: "role_change_blocked",
+        message: "Role change is blocked.",
+        reasons: [
+          "Active Gym membership: 1-month package (expires 30/10/2026). Ask a Center Manager or Receptionist to cancel/refund it, or wait for expiry.",
+          "Point wallet has 500 available point(s) and 0 held point(s). Ask a Center Manager or Receptionist to settle the balance with an audited reason.",
+          "Confirmed court rental on 15/10/2026 08:00 (Vietnam time). Ask a Center Manager or Receptionist to cancel/refund it first.",
+        ],
+      },
+    }),
+  );
+  await page.goto("/admin/users");
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Reason", { exact: true }).fill("Hire as receptionist");
+  await dialog.getByLabel("Role", { exact: true }).selectOption("RECEPTIONIST");
+  await dialog.getByRole("button", { name: "Change role", exact: true }).click();
+  await dialog.getByRole("button", { name: "Confirm", exact: true }).click();
+
+  const blockers = dialog.getByRole("region", {
+    name: "Resolve these items before changing the role",
+  });
+  await expect(blockers.getByRole("listitem")).toHaveCount(3);
+  await expect(blockers).toContainText("1-month package (expires 30/10/2026)");
+  await expect(blockers).toContainText("500 available point(s)");
+  await expect(blockers).toContainText("Confirmed court rental on 15/10/2026");
+  await expect(blockers).toContainText("Contact a Center Manager or Receptionist");
+  await expect(blockers.getByRole("link", { name: "View account details" })).toHaveAttribute(
+    "href",
+    `/admin/users/${row.userId}`,
+  );
+  await expect(blockers.getByRole("button", { name: "Copy Manager member link" })).toBeVisible();
+  await expect(blockers.getByRole("button", { name: "Copy Receptionist member link" })).toBeVisible();
+});
+
 test("lock/unlock require review, refresh the list and display successful outcomes", async ({
   page,
 }) => {

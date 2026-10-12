@@ -601,6 +601,14 @@ export const vi: Translations = {
       "* Thư hướng dẫn kích hoạt và liên kết đặt mật khẩu lần đầu sẽ được gửi trực tiếp đến email của nhân sự.",
     roleImpact:
       "Đổi vai trò sẽ vô hiệu hóa các phiên đăng nhập hiện tại. Người dùng cần đăng nhập lại.",
+    roleBlockTitle: "Cần xử lý các mục này trước khi đổi vai trò",
+    roleBlockGuidance:
+      "Tài khoản này cần được dọn dẹp tài nguyên dịch vụ trước khi đổi vai trò. Vui lòng liên hệ Center Manager hoặc Lễ tân để xử lý, sau đó thử lại. Sao chép liên kết hồ sơ hội viên để chuyển đúng người phụ trách.",
+    roleBlockAccountLink: "Xem chi tiết tài khoản",
+    roleBlockCopyManager: "Sao chép liên kết cho Manager",
+    roleBlockCopyReceptionist: "Sao chép liên kết cho Lễ tân",
+    roleBlockCopied: "Đã sao chép liên kết hội viên. Hãy chuyển cho nhân sự phụ trách.",
+    roleBlockCopyFailed: "Không thể sao chép liên kết. Hãy kiểm tra quyền clipboard của trình duyệt.",
     selfRoleImpact:
       "Bạn đang đổi vai trò của chính mình. Bạn sẽ được đăng xuất sau khi xác nhận.",
     lockImpact:

@@ -320,7 +320,8 @@ if (!builder.Environment.IsDevelopment())
 builder.Services.Configure<VnPayOptions>(vnPaySection);
 builder.Services.AddHttpClient<VnPayGateway>();
 builder.Services.AddSingleton<IPaymentGateway>(sp =>
-    builder.Environment.IsDevelopment() && vnPayUseMock
+    sp.GetRequiredService<IHostEnvironment>().IsDevelopment()
+    && sp.GetRequiredService<IOptions<VnPayOptions>>().Value.UseMock
         ? new MockPaymentGateway()
         : sp.GetRequiredService<VnPayGateway>());
 builder.Services.AddScoped<CheckoutService>();
