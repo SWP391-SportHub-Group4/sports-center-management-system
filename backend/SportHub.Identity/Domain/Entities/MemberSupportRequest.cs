@@ -1,0 +1,20 @@
+namespace SportHub.Identity.Domain.Entities;
+
+public sealed class MemberSupportRequest
+{
+    public Guid RequestId { get; set; }
+
+    public Guid MemberId { get; set; }
+
+    public Guid RecordedByUserId { get; set; }
+
+    public string Category { get; set; } = string.Empty;
+
+    public string Subject { get; set; } = string.Empty;
+
+    public string Description { get; set; } = string.Empty;
+
+    public string Status { get; set; } = "OPEN";
+
+    public DateTime CreatedAt { get; set; }
+}

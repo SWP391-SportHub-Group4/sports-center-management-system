@@ -4,6 +4,22 @@ export interface Paged<T> {
   pageSize: number;
   totalCount: number;
 }
+export interface MemberSupportRequestDto {
+  requestId: string;
+  memberId: string;
+  recordedByUserId: string;
+  category:
+    | "GENERAL"
+    | "MEMBERSHIP"
+    | "CLASS"
+    | "PAYMENT"
+    | "PT"
+    | "OTHER";
+  subject: string;
+  description: string;
+  status: string;
+  createdAt: string;
+}
 
 export type SportServiceType =
   "MEMBERSHIP_ACCESS" | "GROUP_COURSE" | "COURT_RENTAL" | "PERSONAL_TRAINING";
