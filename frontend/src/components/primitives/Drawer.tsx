@@ -1,8 +1,7 @@
 "use client";
 
 import { useId, useRef, useSyncExternalStore, type ReactNode } from "react";
-import { useLanguage } from "@/lib/language";
-import { Button } from "./Button";
+import { CloseButton } from "../CloseButton";
 import { useModalBehavior } from "./useModalBehavior";
 
 export interface DrawerProps {
@@ -42,7 +41,6 @@ export function Drawer({
   children,
   nonModalDesktop = false,
 }: DrawerProps) {
-  const { t } = useLanguage();
   const ref = useRef<HTMLDivElement>(null);
   const titleId = useId();
   const desktop = useSyncExternalStore(
@@ -74,9 +72,7 @@ export function Drawer({
             <h2 id={titleId}>{title}</h2>
             {description && <p className="drawer__desc">{description}</p>}
           </div>
-          <Button variant="quiet" size="sm" onClick={onClose}>
-            {t.common.close}
-          </Button>
+          <CloseButton variant="quiet" onClick={onClose} />
         </header>
         <div className="drawer__body">{children}</div>
         {footer && <footer className="drawer__foot">{footer}</footer>}

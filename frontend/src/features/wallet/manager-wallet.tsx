@@ -1,7 +1,15 @@
 "use client";
+import styles from "./manager-wallet.module.css";
 import { pagedItems } from "@/lib/paged";
 import { useState } from "react";
-import { AsyncSection, Card, Field, Pager, Table } from "@/components/ui";
+import {
+  AsyncSection,
+  Card,
+  Dialog,
+  Field,
+  Pager,
+  Table,
+} from "@/components/ui";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
@@ -24,7 +32,7 @@ function OwnerWallet({ owner }: { owner: UserAdminDto }) {
     [owner.userId, revision],
   );
   return (
-    <>
+    <div className={styles.wallet}>
       <AsyncSection state={state}>
         {(data) => <WalletBalance balance={data} />}
       </AsyncSection>
@@ -40,7 +48,7 @@ function OwnerWallet({ owner }: { owner: UserAdminDto }) {
         key={`${owner.userId}-${revision}`}
         ownerId={owner.userId}
       />
-    </>
+    </div>
   );
 }
 export function ManagerWallet() {
@@ -61,16 +69,18 @@ export function ManagerWallet() {
   return (
     <>
       <Card title={l.owner}>
-        <Field label={l.keyword}>
-          <input
-            value={keyword}
-            onChange={(e) => {
-              setKeyword(e.target.value);
-              setPage(1);
-              setOwner(null);
-            }}
-          />
-        </Field>
+        <div className={styles.search}>
+          <Field label={l.keyword}>
+            <input
+              value={keyword}
+              onChange={(e) => {
+                setKeyword(e.target.value);
+                setPage(1);
+                setOwner(null);
+              }}
+            />
+          </Field>
+        </div>
         <AsyncSection state={users}>
           {(data) => (
             <>
@@ -100,7 +110,16 @@ export function ManagerWallet() {
           )}
         </AsyncSection>
       </Card>
-      {owner && <OwnerWallet key={owner.userId} owner={owner} />}
+      {owner && (
+        <Dialog
+          title={t.staffWork.adjustment}
+          size="lg"
+          className={styles.dialog}
+          onClose={() => setOwner(null)}
+        >
+          <OwnerWallet key={owner.userId} owner={owner} />
+        </Dialog>
+      )}
     </>
   );
 }

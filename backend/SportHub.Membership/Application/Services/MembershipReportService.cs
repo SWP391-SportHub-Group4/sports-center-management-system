@@ -11,7 +11,7 @@ namespace SportHub.Membership.Application.Services;
 /// Tổng quan hội viên theo dữ liệu Membership. Không đọc Payment/Invoice: số tiền đã chi
 /// thuộc báo cáo doanh thu riêng của module Payment.
 /// </summary>
-public sealed class MembershipReportService(ISportHubDbContext db) : IMembershipReportService
+public sealed class MembershipReportService(ISportHubDbContext db, IMembershipPurchaseReportReader purchases) : IMembershipReportService
 {
     public async Task<MembershipPeriodResponse> GetPeriodAsync(DateOnly fromDate, DateOnly toDate, CancellationToken ct = default)
     {
@@ -24,7 +24,8 @@ public sealed class MembershipReportService(ISportHubDbContext db) : IMembership
             .Where(mp => (mp.Status == MemberPackageStatus.Active || mp.Status == MemberPackageStatus.Expired)
                 && mp.StartDate <= toDate && mp.EndDate >= toDate && mp.Member!.Role!.RoleName == UserRole.Member)
             .Select(mp => mp.MemberId).Distinct().CountAsync(ct);
-        return new(fromDate, toDate, newMembers, activeAtEnd);
+        var purchasingMembers = await purchases.CountMembersAsync(fromUtc, toUtc, ct);
+        return new(fromDate, toDate, newMembers, activeAtEnd, purchasingMembers);
     }
 
     public async Task<MembershipSummaryResponse> GetSummaryAsync(

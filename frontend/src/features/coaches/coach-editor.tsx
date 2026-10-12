@@ -36,7 +36,7 @@ export function CoachEditor({
   const valid = form.sportIds.length > 0;
   return (
     <CatalogFormDialog
-      title={l.edit}
+      title={`${l.edit} ${l.coach.toLocaleLowerCase()}`}
       busy={mutation.busy}
       canSubmit={valid}
       mutation={mutation}
@@ -67,7 +67,7 @@ export function CoachEditor({
       }}
     >
       <div className="form-grid">
-        <Field label={l.fullName}>
+        <Field label={l.fullName} required>
           <input
             required
             minLength={2}

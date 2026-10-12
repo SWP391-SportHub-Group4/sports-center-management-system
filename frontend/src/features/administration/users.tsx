@@ -88,24 +88,15 @@ function RoleSelect({
 function SportSelect({
   value,
   onChange,
-  singleSelect = false,
 }: {
   value: number[];
   onChange: (value: number[]) => void;
-  singleSelect?: boolean;
 }) {
   const state = useApi(
     (signal) => api.get<SportDto[]>("/api/sports", { signal }),
     [],
   );
-  return (
-    <SportOptions
-      state={state}
-      value={value}
-      onChange={onChange}
-      singleSelect={singleSelect}
-    />
-  );
+  return <SportOptions state={state} value={value} onChange={onChange} />;
 }
 function CreateStaff({
   reload,
@@ -118,15 +109,16 @@ function CreateStaff({
   const l = t.staffWork;
   const mutation = useMutation();
   const [email, setEmail] = useState("");
-  const [confirmEmail, setConfirmEmail] = useState("");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [role, setRole] = useState("RECEPTIONIST");
   const [specialties, setSpecialties] = useState<number[]>([]);
   const [review, setReview] = useState(false);
   const fieldClass = `form-grid__row ${styles.halfField}`;
-  const emailsMatch =
-    email.trim().toLowerCase() === confirmEmail.trim().toLowerCase();
+  const canSubmit =
+    !!name.trim() &&
+    !!email.trim() &&
+    (role !== "COACH" || specialties.length > 0);
 
   return (
     <Dialog
@@ -141,6 +133,7 @@ function CreateStaff({
         className={`form ${styles.createForm}`}
         onSubmit={async (event) => {
           event.preventDefault();
+          if (mutation.busy || !canSubmit) return;
           if (!review) {
             setReview(true);
             return;
@@ -174,22 +167,6 @@ function CreateStaff({
               </Field>
             </div>
             <div className={fieldClass}>
-              <Field label={t.adminWork.confirmEmail} required>
-                <input
-                  type="email"
-                  required
-                  autoComplete="off"
-                  value={confirmEmail}
-                  onChange={(event) => setConfirmEmail(event.target.value)}
-                  onPaste={(event) => event.preventDefault()}
-                  aria-invalid={confirmEmail !== "" && !emailsMatch}
-                />
-              </Field>
-              {confirmEmail !== "" && !emailsMatch && (
-                <p role="alert">{t.adminWork.emailMismatch}</p>
-              )}
-            </div>
-            <div className={fieldClass}>
               <Field label={l.fullName} required>
                 <input
                   required
@@ -201,7 +178,7 @@ function CreateStaff({
               </Field>
             </div>
             <div className={fieldClass}>
-              <Field label={l.phone}>
+              <Field label={l.phone} hint={t.adminWork.optionalPhoneHint}>
                 <input
                   type="tel"
                   autoComplete="tel"
@@ -215,11 +192,7 @@ function CreateStaff({
             </div>
             {role === "COACH" && (
               <div className="form-grid__row">
-                <SportSelect
-                  value={specialties}
-                  onChange={setSpecialties}
-                  singleSelect
-                />
+                <SportSelect value={specialties} onChange={setSpecialties} />
               </div>
             )}
           </div>
@@ -284,123 +257,13 @@ function CreateStaff({
           <button
             type="submit"
             className="btn"
-            disabled={
-              mutation.busy ||
-              !emailsMatch ||
-              (role === "COACH" && specialties.length === 0)
-            }
+            disabled={mutation.busy || !canSubmit}
           >
             {review ? l.confirm : t.adminWork.reviewCreate}
           </button>
         </div>
       </form>
     </Dialog>
-  );
-}
-function PendingActivationPanel({
-  account: a,
-  reload,
-}: {
-  account: UserAdminDto;
-  reload: () => void;
-}) {
-  const { t } = useLanguage();
-  const d = t.adminWork;
-  const l = t.staffWork;
-  const mutation = useMutation();
-  const [changing, setChanging] = useState(false);
-  const [email, setEmail] = useState("");
-  const [confirmEmail, setConfirmEmail] = useState("");
-  const [reason, setReason] = useState("");
-  const matches =
-    email.trim().toLowerCase() === confirmEmail.trim().toLowerCase();
-  const valid =
-    email.trim() !== "" &&
-    matches &&
-    reason.trim().length >= 3 &&
-    reason.trim().length <= 500;
-  return (
-    <section
-      className={styles.roleBlockers}
-      aria-labelledby="pending-activation-title"
-    >
-      <h3 id="pending-activation-title">{d.pendingActivation}</h3>
-      <p>{d.pendingActivationHint}</p>
-      <div className="btn-row">
-        <button
-          type="button"
-          className="btn btn--secondary"
-          disabled={mutation.busy}
-          onClick={() =>
-            void mutation.run(() =>
-              api.post(`/api/users/${a.userId}/resend-activation`),
-            )
-          }
-        >
-          {d.resendActivation}
-        </button>
-        <button
-          type="button"
-          className="btn btn--secondary"
-          disabled={mutation.busy}
-          onClick={() => setChanging((value) => !value)}
-        >
-          {d.changeEmail}
-        </button>
-      </div>
-      {changing && (
-        <div className="stack">
-          <Field label={d.newEmail} required>
-            <input
-              type="email"
-              autoComplete="off"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-            />
-          </Field>
-          <Field label={d.confirmNewEmail} required>
-            <input
-              type="email"
-              autoComplete="off"
-              value={confirmEmail}
-              onChange={(event) => setConfirmEmail(event.target.value)}
-              onPaste={(event) => event.preventDefault()}
-              aria-invalid={confirmEmail !== "" && !matches}
-            />
-          </Field>
-          {confirmEmail !== "" && !matches && (
-            <p role="alert">{d.emailMismatch}</p>
-          )}
-          <Field label={l.reason} required>
-            <textarea
-              minLength={3}
-              maxLength={500}
-              value={reason}
-              onChange={(event) => setReason(event.target.value)}
-            />
-          </Field>
-          <button
-            type="button"
-            className="btn"
-            disabled={mutation.busy || !valid}
-            onClick={async () => {
-              if (
-                await mutation.run(() =>
-                  api.put(`/api/users/${a.userId}/email`, {
-                    email: email.trim(),
-                    reason: reason.trim(),
-                  }),
-                )
-              )
-                reload();
-            }}
-          >
-            {d.saveNewEmail}
-          </button>
-        </div>
-      )}
-      <MutationFeedback mutation={mutation} />
-    </section>
   );
 }
 type AccountAction = "role" | "lock" | "unlock" | "deactivate";
@@ -508,9 +371,6 @@ export function EditUser({
             />
           </div>
         </div>
-        {!review && a.activationPending && (
-          <PendingActivationPanel account={a} reload={reload} />
-        )}
         {!review ? (
           <>
             <Field label={l.reason} required>
@@ -809,23 +669,11 @@ export function Users() {
       header: l.status,
       sortable: true,
       cell: (account) => (
-        <>
-          <StatusChip
-            value={account.status}
-            tone={accountStatusTones[account.status]}
-            label={statusLabels[account.status]}
-          />
-          {account.activationPending && (
-            <>
-              {" "}
-              <StatusChip
-                value="PENDING_ACTIVATION"
-                tone="warning"
-                label={t.adminWork.pendingActivation}
-              />
-            </>
-          )}
-        </>
+        <StatusChip
+          value={account.status}
+          tone={accountStatusTones[account.status]}
+          label={statusLabels[account.status]}
+        />
       ),
     },
   ];

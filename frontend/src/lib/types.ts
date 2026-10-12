@@ -383,6 +383,7 @@ export interface RevenueReportDto {
   pointsIssued: number;
   managerPointAdjustment: number;
   outstandingPoints: number;
+  outstandingPointsAsOfUtc?: string;
   bySource: { source: string; cashCollected: number; pointsRedeemed: number }[];
   bySportAndSource: {
     source: string;

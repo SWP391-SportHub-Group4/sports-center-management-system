@@ -21,6 +21,7 @@ import {
   IconMenu,
   IconClose,
   IconSettings,
+  IconUser,
 } from "@/components/icons";
 import shell from "./MemberShell.module.css";
 import styles from "./AppShell.module.css";
@@ -103,6 +104,8 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
   CenterManager: [
     { href: "/manager", labelKey: "overview" },
     { href: "/manager/sports", labelKey: "sports" },
+    { href: "/manager/room-types", labelKey: "roomTypes" },
+    { href: "/manager/pt-pricing", labelKey: "ptPricing" },
     { href: "/manager/facilities", labelKey: "trainingRooms" },
     { href: "/manager/court-rates", labelKey: "rates" },
     { href: "/manager/coaches", labelKey: "coaches" },
@@ -117,7 +120,6 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { href: "/manager/members", labelKey: "members" },
     { href: "/manager/points", labelKey: "wallet" },
     { href: "/manager/reports", labelKey: "revenueReports" },
-    { href: "/manager/settings", labelKey: "systemSettings" },
     { href: "/manager/audit-log", labelKey: "auditLog" },
   ],
   SystemAdministrator: [
@@ -169,6 +171,7 @@ const GROUP_SPEC: Partial<Record<Role, (string | [GroupKey, string[]])[]>> = {
         "/manager/court-rates",
         "/manager/facilities",
         "/manager/membership-plans",
+        "/manager/pt-pricing",
       ],
     ],
     [
@@ -186,7 +189,7 @@ const GROUP_SPEC: Partial<Record<Role, (string | [GroupKey, string[]])[]>> = {
       ["/manager/coaches", "/manager/members", "/manager/avatar-reports"],
     ],
     ["finance", ["/manager/finance", "/manager/points", "/manager/reports"]],
-    ["system", ["/manager/settings", "/manager/audit-log"]],
+    "/manager/audit-log",
   ],
   Coach: [
     "/coach",
@@ -444,7 +447,9 @@ export function AppFrame({
   const entries = buildNav(items, user.role, t);
   const roleDisplay = t.navigation.roleLabel[user.role];
   return (
-    <div className={shell.shell}>
+    <div
+      className={`${shell.shell} ${user.role === "CenterManager" ? styles.managerShell : ""}`}
+    >
       <a href="#main-content" className="skip-link">
         {language === "en"
           ? "Skip to main content"
@@ -452,7 +457,7 @@ export function AppFrame({
       </a>
       <header className={shell.header} data-scrolled={scrolled || undefined}>
         <div
-          className={`${shell.headerInner} ${ptNavigation ? styles.ptHeader : ""}`}
+          className={`${shell.headerInner} ${ptNavigation ? styles.ptHeader : ""} ${user.role === "SystemAdministrator" ? styles.adminHeader : ""}`}
         >
           <Link href={root} className={shell.brandGroup}>
             <span className={shell.brandLogo}>
@@ -506,19 +511,28 @@ export function AppFrame({
             <div
               className={`${shell.userMenuWrapper} ${user.role === "Coach" ? styles.coachAccount : ""}`}
               ref={userRef}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") {
+                  setUserMenu(false);
+                  userRef.current
+                    ?.querySelector<HTMLButtonElement>("button")
+                    ?.focus();
+                }
+              }}
             >
               <button
                 type="button"
                 className={shell.userButton}
                 onClick={() => setUserMenu((p) => !p)}
                 aria-expanded={userMenu}
+                data-testid="user-profile-button"
                 aria-label={user.fullName || user.email}
               >
                 <AvatarImage
                   name={user.fullName || user.email}
                   avatarUrl={user.avatarUrl}
                   size={36}
-                  className={shell.userAvatar}
+                  className={`${shell.userAvatar} ${user.role === "CenterManager" ? styles.managerAvatar : ""}`}
                 />
                 <span className={shell.userName}>
                   {user.fullName || user.email}
@@ -548,16 +562,32 @@ export function AppFrame({
                   </div>
                   <Link
                     href="/account"
-                    className={shell.dropdownItem}
+                    className={`${shell.dropdownItem} ${styles.profileItem}`}
+                    aria-current={pathname === "/account" ? "page" : undefined}
                     onClick={() => setUserMenu(false)}
                   >
-                    <IconSettings size={15} />
+                    <IconUser size={15} />
                     <span>{t.navigation.myAccount}</span>
                   </Link>
+                  {user.role === "CenterManager" && (
+                    <Link
+                      href="/manager/settings"
+                      className={`${shell.dropdownItem} ${styles.profileItem}`}
+                      aria-current={
+                        isActiveHref(pathname, "/manager/settings", root)
+                          ? "page"
+                          : undefined
+                      }
+                      onClick={() => setUserMenu(false)}
+                    >
+                      <IconSettings size={15} />
+                      <span>{t.navigation.items.systemSettings}</span>
+                    </Link>
+                  )}
                   <div className={shell.dropdownDivider} />
                   <button
                     type="button"
-                    className={`${shell.dropdownItem} ${shell.logoutItem}`}
+                    className={`${shell.dropdownItem} ${shell.logoutItem} ${styles.profileItem}`}
                     onClick={() => {
                       setUserMenu(false);
                       logout();
@@ -646,7 +676,7 @@ export function AppFrame({
                 className={shell.mobileNavLink}
                 onClick={() => setDrawer(false)}
               >
-                <IconSettings size={16} style={{ marginRight: 8 }} />
+                <IconUser size={16} style={{ marginRight: 8 }} />
                 <span>{t.navigation.myAccount}</span>
               </Link>
               <button

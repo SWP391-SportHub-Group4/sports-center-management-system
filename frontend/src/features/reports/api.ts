@@ -39,7 +39,7 @@ export const reportsApi = {
       },
     }),
   membership: (f: ReportFilters, signal?: AbortSignal) =>
-    api.get<{ newMembers: number; activeMembersAtPeriodEnd: number }>(
+    api.get<{ newMembers: number; activeMembersAtPeriodEnd: number; membersPurchasingMembershipInPeriod: number }>(
       "/api/reports/membership-period",
       { signal, query: { fromDate: f.fromDate, toDate: f.toDate } },
     ),

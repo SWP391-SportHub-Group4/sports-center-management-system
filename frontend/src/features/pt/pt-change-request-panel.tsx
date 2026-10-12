@@ -1,15 +1,26 @@
 "use client";
 import { useState } from "react";
-import { AsyncSection, Card, Field, StatusChip } from "@/components/ui";
+import {
+  AsyncSection,
+  Card,
+  Dialog,
+  Field,
+  StatusChip,
+  Table,
+} from "@/components/ui";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
+import { choiceQuery, useUrlQuery } from "@/lib/useUrlQuery";
 import { formatDateTime } from "@/lib/format";
 import { MutationFeedback, useMutation } from "@/features/operations";
 import type { PtReviewRequestDto } from "@/lib/types";
 import { ptApi } from "./api";
 import { ListPager } from "./ui";
-function RequestCard({
+import { MemberName } from "@/components/RecordName";
+import styles from "./pt-change-requests.module.css";
+
+function RequestReview({
   r,
   coach,
   reload,
@@ -43,7 +54,10 @@ function RequestCard({
       reload();
   }
   return (
-    <Card title={r.memberName ?? r.memberId}>
+    <div className="stack">
+      <strong>
+        <MemberName id={r.memberId} name={r.memberName} />
+      </strong>
       <p>
         <StatusChip value={r.status} /> ·{" "}
         {coach ? (
@@ -58,13 +72,21 @@ function RequestCard({
       <p>{r.reason}</p>
       {r.sessionStartAtUtc && (
         <p>
-          {formatDateTime(r.sessionStartAtUtc)} →{" "}
-          {r.requestedStartAtUtc ? formatDateTime(r.requestedStartAtUtc) : "—"}
+          {formatDateTime(r.sessionStartAtUtc)}
+          {r.requestedStartAtUtc && (
+            <> → {formatDateTime(r.requestedStartAtUtc)}</>
+          )}
         </p>
       )}
       {r.requestsException && <p>{l.exception}</p>}
-      <p>{coach ? l.coachImpact : l.quotaImpact}</p>
-      {r.reviewNote && <p>{r.reviewNote}</p>}
+      {r.status === "PENDING" && (
+        <p className="small muted">{coach ? l.coachImpact : l.quotaImpact}</p>
+      )}
+      {r.reviewNote && (
+        <p>
+          {l.reviewNote}: {r.reviewNote}
+        </p>
+      )}
       {r.status === "PENDING" && (
         <>
           <Field label={l.reviewNote}>
@@ -95,12 +117,13 @@ function RequestCard({
         </>
       )}
       <MutationFeedback mutation={mutation} />
-    </Card>
+    </div>
   );
 }
 function Requests({ coach }: { coach: boolean }) {
   const { t } = useLanguage();
   const [page, setPage] = useState(1);
+  const [selected, setSelected] = useState<PtReviewRequestDto | null>(null);
   const [moved, setMoved] = useState<{
     movedSessionIds: string[];
     unmovedSessionIds: string[];
@@ -117,50 +140,145 @@ function Requests({ coach }: { coach: boolean }) {
             {t.staffWork.moved}: {moved.movedSessionIds.length}
           </p>
           <p>
-            {t.staffWork.unmoved}: {moved.unmovedSessionIds.join(", ") || "0"}
+            {t.staffWork.unmoved}: {moved.unmovedSessionIds.length}
           </p>
         </Card>
       )}
-      <button className="btn btn--secondary" onClick={state.reload}>
-        {t.staffWork.refresh}
-      </button>
-      <AsyncSection state={state}>
-        {(rows) => (
-          <>
-            {rows.map((r) => (
-              <RequestCard
-                key={`${r.requestId}-${r.status}`}
-                r={r}
-                coach={coach}
-                reload={state.reload}
-                onMoved={setMoved}
+      <Card
+        title={t.staffWork.requests}
+        actions={
+          <button className="btn btn--secondary" onClick={state.reload}>
+            {t.staffWork.refresh}
+          </button>
+        }
+      >
+        <AsyncSection state={state}>
+          {(rows) => (
+            <>
+              {rows.length ? (
+                <div className={styles.table}>
+                  <Table
+                    headers={[
+                      t.staffWork.member,
+                      coach
+                        ? t.staffWork.coachChanges
+                        : t.staffWork.sessionChanges,
+                      t.staffWork.reason,
+                      t.staffWork.status,
+                      t.staffWork.actions,
+                    ]}
+                  >
+                    {rows.map((r) => (
+                      <tr key={r.requestId}>
+                        <td>
+                          <strong>
+                            <MemberName id={r.memberId} name={r.memberName} />
+                          </strong>
+                        </td>
+                        <td>
+                          {coach ? (
+                            <>
+                              <span className={styles.line}>
+                                {r.currentCoachName}
+                              </span>
+                              <span className={styles.line}>
+                                → {r.requestedCoachName}
+                              </span>
+                            </>
+                          ) : (
+                            <>
+                              <span className={styles.line}>
+                                <StatusChip value={r.requestType} />
+                              </span>
+                              {r.sessionStartAtUtc && (
+                                <span className={styles.line}>
+                                  {formatDateTime(r.sessionStartAtUtc)}
+                                </span>
+                              )}
+                              {r.requestedStartAtUtc && (
+                                <span className={styles.line}>
+                                  → {formatDateTime(r.requestedStartAtUtc)}
+                                </span>
+                              )}
+                            </>
+                          )}
+                        </td>
+                        <td>{r.reason}</td>
+                        <td>
+                          <StatusChip value={r.status} />
+                        </td>
+                        <td>
+                          <button
+                            className="btn btn--secondary"
+                            onClick={() => setSelected(r)}
+                          >
+                            {r.status === "PENDING"
+                              ? t.operations.review
+                              : t.operations.details}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </Table>
+                </div>
+              ) : (
+                <p>{t.common.noData}</p>
+              )}
+              <ListPager
+                align="left"
+                page={page}
+                count={rows.length}
+                onChange={setPage}
               />
-            ))}
-            {!rows.length && <p>{t.common.noData}</p>}
-            <ListPager page={page} count={rows.length} onChange={setPage} />
-          </>
-        )}
-      </AsyncSection>
+            </>
+          )}
+        </AsyncSection>
+      </Card>
+      {selected && (
+        <Dialog
+          title={
+            selected.status === "PENDING"
+              ? t.operations.review
+              : t.operations.details
+          }
+          onClose={() => setSelected(null)}
+        >
+          <RequestReview
+            key={`${selected.requestId}-${selected.status}`}
+            r={selected}
+            coach={coach}
+            reload={() => {
+              setSelected(null);
+              state.reload();
+            }}
+            onMoved={setMoved}
+          />
+        </Dialog>
+      )}
     </>
   );
 }
 export function PtChangeRequestPanel() {
   const { t } = useLanguage();
-  const [coach, setCoach] = useState(false);
+  const { values, setValues } = useUrlQuery(
+    { type: "session" },
+    { type: choiceQuery(["session", "coach"], "session") },
+  );
+  const coach = values.type === "coach";
   return (
     <>
       <div className="btn-row">
         <button
           className="btn btn--secondary"
           aria-pressed={!coach}
-          onClick={() => setCoach(false)}
+          onClick={() => setValues({ type: "session" })}
         >
           {t.staffWork.sessionChanges}
         </button>
         <button
           className="btn btn--secondary"
           aria-pressed={coach}
-          onClick={() => setCoach(true)}
+          onClick={() => setValues({ type: "coach" })}
         >
           {t.staffWork.coachChanges}
         </button>

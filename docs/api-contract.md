@@ -40,6 +40,8 @@ Các API dưới đây bổ sung đúng dependency của frontend P2.06–P2.10,
 | GET | `/api/manager/notices/{noticeId}` | Manager đã gửi; `{noticeId,delivery}`. Manager khác nhận 404. |
 | GET | `/api/manager/notices/by-key/{key}` | Manager đã gửi; phục hồi receipt sau timeout/F5, chờ transaction gửi cùng key hoàn tất. |
 | GET | `/api/manager/incidents/{incidentId}/notifications` | Manager; delivery tổng các notice IncidentResolution của rental thuộc incident. |
+| GET | `/api/manager/incidents?page=1&pageSize=20` | Manager; danh sách sự cố đã ghi nhận, mới nhất trước, paging (pageSize 1–100). Mọi Manager xem được; trả `{items,page,pageSize,totalCount}`. |
+| GET | `/api/manager/incidents/{incidentId}` | Manager; chi tiết `{incidentId,scope,roomId,roomName,startAtUtc,endAtUtc,reason,resolutionSummary,createdAtUtc}`; 404 `incident_not_found` khi không tồn tại. Trang Incident dùng bảng cuộn để chọn sự cố và mở chi tiết/trạng thái gửi thông báo. |
 | GET | `/api/court-rentals/policy` | Member; `slotMinutes,maxHours,advanceDays,cancelFreeHours,serverNow`; không mở quyền đọc mọi system setting. |
 | GET | `/api/court-rentals/{rentalId}` | Member chủ thuê; `rental,roomName,sportName,blocks,cancelReason,cancelledAtUtc,refundedPoints`. Rental summary thêm nullable invoiceId kể cả PendingPayment. Người khác 404; blocks là snapshot giá, refundedPoints từ ledger SystemEvent. |
 
@@ -683,13 +685,15 @@ Phần này thay thế các ghi chú “chưa có” về báo cáo/export và s
 Các loại export mới:
 
 - `REVENUE_DAILY`: `date,collectedAmount,refundedAmount,obligationReduction,netCollected,legacyCashCollected,reconciliationCashCollected`.
-- `REVENUE_DIMENSIONS` / `COURT_RENTAL_REVENUE`: `source,sportId,sportName,memberId,collectedAmount,legacyCashCollected,pointsRedeemed,pointsRedeemedVnd`.
-- `MEMBERSHIP_PERIOD`: `fromDate,toDate,newMembers,activeMembersAtPeriodEnd`.
+- `REVENUE_DIMENSIONS` / `COURT_RENTAL_REVENUE`: `source,sportId,sportName,memberName,memberId,collectedAmount,legacyCashCollected,pointsRedeemed,pointsRedeemedVnd`. Manager chọn cột `memberName` (Member) để xuất tên hội viên trong CSV/PDF. `memberId` (Member ID) còn được API hỗ trợ để tương thích; bộ lọc vẫn dùng ID. Tên đọc từ hồ sơ tại thời điểm xuất, truy vấn chung cho các hội viên trong kết quả; không thay đổi cách nhóm hay tổng tiền/điểm. Dòng `memberId = null` để trống tên, không gán một hội viên cho dòng tổng hợp. Nếu có ID nhưng thiếu tên, hiện `Name unavailable`. File đã xuất giữ nguyên dữ liệu tại thời điểm tạo.
+- `MEMBERSHIP_PERIOD`: `fromDate,toDate,newMembers,membersPurchasingMembershipInPeriod,activeMembersAtPeriodEnd`. `newMembers` đếm tài khoản Member tạo trong kỳ. `membersPurchasingMembershipInPeriod` đếm MemberId riêng biệt trên hóa đơn có InvoiceItem Membership, đã fulfillment thành công (`Paid` hoặc `PaidAfterReconciliation` với `PaidVia=VnPayAfterReconciliation`), theo `Invoice.PaidAtUtc` trong kỳ theo ngày Việt Nam; bao gồm thanh toán bằng điểm, không tính giao dịch chỉ bù điểm và không dùng ngày dự phòng khi PaidAtUtc null.
 - `CLASS_ENROLLMENT`: `classId,code,name,sportId,sportName,status,capacity,confirmedCount,activeHoldCount,availableSeats,fillRatio,breakEvenThreshold,thresholdStatus,firstSessionStartUtc`.
 
 `REVENUE` cũ vẫn là danh sách hóa đơn theo ngày phát hành; không dùng loại này để so với tổng thu theo ngày thanh toán. `MEMBER_SUMMARY` cũ giữ tương thích. Export mới gọi cùng service API, không nhân bản truy vấn tài chính. Phạm vi doanh thu tối đa 366 ngày, trả `range_too_large`; report export thất bại giữ trạng thái Failed và failure reason theo contract hiện hữu. Điểm không cộng thành cash; outstanding là available+held hiện tại. Membership sport null; PT legacy chưa có sport reference chỉ được phân loại khi có đúng một môn OneOnOne.
 
 - `REVENUE_SUMMARY`: `fromDate,toDate,collectedAmount,refundedAmount,netCollected,legacyCashCollected,reconciliationCashCollected,pointsRedeemed,pointsRedeemedVnd,pointsIssued,managerPointAdjustment,outstandingPoints`.
+
+Report presentation clarification (12/10/2026): `pointsRedeemed` is the number of points spent in the selected period; `pointsRedeemedVnd` is its VND equivalent, never additional cash revenue. `pointsIssued` counts refund/compensation credits in the period; Manager adjustments remain separate. Current wallet balance (`outstandingPoints`, available + held) is shown separately from period movements. `/api/reports/revenue` also returns `outstandingPointsAsOfUtc`, the UTC observation time of that current balance; `REVENUE_SUMMARY` supports this optional export column. It is not a historical closing balance. Membership labels identify members with valid Membership on `toDate`. Legacy `REVENUE` is titled "Invoices by issue date". Legacy `refundedAmount` and `netCollected` retain their existing numeric semantics but PDF labels explicitly identify cash refunds and exclude point refunds; the main Manager export column picker does not present these legacy columns. Existing exported files remain unchanged.
 
 ## Manager operations read contracts — 07/10/2026
 

@@ -11,22 +11,24 @@ public static class ReportColumnLabels
             ["source"] = "Revenue source",
             ["sportId"] = "Sport ID",
             ["sportName"] = "Sport",
-            ["memberId"] = "Member",
-            ["pointsRedeemed"] = "Points redeemed",
-            ["pointsRedeemedVnd"] = "Point value (VND)",
-            ["pointsIssued"] = "Points refunded/compensated",
-            ["managerPointAdjustment"] = "Manager point adjustment",
-            ["outstandingPoints"] = "Available and held points",
+            ["memberId"] = "Member ID",
+            ["pointsRedeemed"] = "Points used by members in period",
+            ["pointsRedeemedVnd"] = "Point value used (VND equivalent, not cash)",
+            ["pointsIssued"] = "Points refunded",
+            ["managerPointAdjustment"] = "Manager point adjustment in period",
+            ["outstandingPoints"] = "Current outstanding points (available + held)",
+            ["outstandingPointsAsOfUtc"] = "Current point balance observed at (UTC)",
             ["fromDate"] = "From date",
             ["toDate"] = "To date",
-            ["newMembers"] = "New members",
-            ["activeMembersAtPeriodEnd"] = "Active memberships at period end",
+            ["newMembers"] = "New member accounts",
+            ["membersPurchasingMembershipInPeriod"] = "Members purchasing Membership in period",
+            ["activeMembersAtPeriodEnd"] = "Members with valid Membership on To date",
             ["classId"] = "Course ID",
             ["code"] = "Course code",
             ["name"] = "Course name",
             ["capacity"] = "Capacity",
-            ["confirmedCount"] = "Confirmed",
-            ["activeHoldCount"] = "Active holds",
+            ["confirmedCount"] = "Confirmed enrollments",
+            ["activeHoldCount"] = "Seats held for checkout",
             ["availableSeats"] = "Available seats",
             ["fillRatio"] = "Fill rate",
             ["breakEvenThreshold"] = "Break-even threshold",
@@ -37,10 +39,10 @@ public static class ReportColumnLabels
             ["memberEmail"] = "Member email",
             ["memberName"] = "Member name",
             ["totalAmount"] = "Total amount",
-            ["collectedAmount"] = "Collected",
+            ["collectedAmount"] = "Cash collected (VND)",
             ["obligationReduction"] = "Obligation reduction",
-            ["refundedAmount"] = "Refunded",
-            ["netCollected"] = "Net collected",
+            ["refundedAmount"] = "Legacy cash refunded (VND, excludes point refunds)",
+            ["netCollected"] = "Cash collected less legacy cash refunds (VND)",
             ["netPayable"] = "Net payable",
             ["outstanding"] = "Outstanding",
             ["refundDue"] = "Refund due",
@@ -61,7 +63,7 @@ public static class ReportColumnLabels
         "netCollected", "netPayable", "outstanding", "refundDue",
         "activePackages", "remainingSessions", "totalSpent"
         , "legacyCashCollected", "reconciliationCashCollected", "pointsRedeemed", "pointsRedeemedVnd",
-        "newMembers", "activeMembersAtPeriodEnd", "capacity", "confirmedCount", "activeHoldCount",
+        "newMembers", "membersPurchasingMembershipInPeriod", "activeMembersAtPeriodEnd", "capacity", "confirmedCount", "activeHoldCount",
         "availableSeats", "fillRatio", "breakEvenThreshold", "pointsIssued", "managerPointAdjustment", "outstandingPoints"
     };
 
@@ -69,9 +71,16 @@ public static class ReportColumnLabels
 
     public static bool IsNumeric(string column) => NumericColumns.Contains(column);
 
+    public static string SourceName(string source) => source switch
+    {
+        "Rental" => "Hourly court rental",
+        "LegacyUnclassified" => "Unclassified revenue",
+        _ => source
+    };
+
     public static string ReportTitle(string reportType) => reportType switch
     {
-        ReportTypes.Revenue => "Revenue report",
+        ReportTypes.Revenue => "Invoices by issue date",
         ReportTypes.RevenueDaily => "Revenue by collection date",
         ReportTypes.RevenueSummary => "Revenue and points summary",
         ReportTypes.RevenueDimensions => "Revenue by sport and source",

@@ -180,3 +180,45 @@
     min-height: var(--control-height-lg);
   }
 }
+
+.viewport[data-management-table] {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+}
+.viewport[data-management-table] :is(th, td) {
+  padding: var(--space-2) var(--space-3);
+  vertical-align: middle;
+}
+.viewport[data-management-table] .cell > :is(p, ul, dl) {
+  margin-block: 0;
+}
+.pager :global(.btn-row) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin: 0;
+}
+.pager :global(.btn) {
+  margin: 0;
+  min-width: 88px;
+}
+@media (min-width: 768px) {
+  .viewport[data-management-table] table {
+    min-width: 800px;
+  }
+  .viewport[data-management-table] table:has(th:nth-child(6)) {
+    min-width: 1080px;
+  }
+  .viewport[data-management-table] .actions {
+    flex-wrap: nowrap;
+    width: max-content;
+  }
+  .viewport[data-management-table] .numeric {
+    white-space: nowrap;
+  }
+  .viewport[data-management-table] :is(th, td):has(> .cell > :global(.chip)) {
+    white-space: nowrap;
+  }
+}
