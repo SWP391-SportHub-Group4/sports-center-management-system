@@ -34,6 +34,58 @@ public sealed class ReportPeriodAndHoldsTests(SchedulingApiFactory factory)
     }
 
     [Fact]
+    public async Task Membership_purchases_use_paid_at_distinct_members_and_fulfilled_invoices()
+    {
+        var day = new DateOnly(2042, 4, 12);
+        var from = VietnamTime.StartOfDayUtc(day);
+        var members = new List<Guid>();
+        for (var i = 0; i < 8; i++)
+            members.Add((await factory.SeedUserAsync(UserRole.Member)).UserId);
+
+        await factory.QueryAsync(async db =>
+        {
+            void Add(int member, DateTime? paidAt, SportHub.Payment.Domain.Enums.InvoiceStatus status,
+                string? paidVia, SportHub.Payment.Domain.Enums.InvoiceItemType kind, int points = 0)
+            {
+                var invoice = new SportHub.Payment.Domain.Entities.Invoice
+                {
+                    InvoiceId = Guid.NewGuid(), InvoiceNumber = "MP-" + Guid.NewGuid().ToString("N"),
+                    MemberId = members[member], IssuedByUserId = members[member],
+                    TotalAmount = 100000, CashAmount = 100000 - points * 1000,
+                    PointsApplied = points, Status = status, PaidVia = paidVia,
+                    IssuedAt = from.AddDays(-10), PaidAtUtc = paidAt
+                };
+                invoice.Items.Add(new SportHub.Payment.Domain.Entities.InvoiceItem
+                {
+                    ItemId = Guid.NewGuid(), ItemType = kind, Description = "Report fixture",
+                    UnitPrice = 100000, Quantity = 1, LineAmount = 100000
+                });
+                db.Invoices.Add(invoice);
+            }
+            var paid = SportHub.Payment.Domain.Enums.InvoiceStatus.Paid;
+            var membership = SportHub.Payment.Domain.Enums.InvoiceItemType.Membership;
+            var reconciled = SportHub.Payment.Domain.Enums.InvoiceStatus.PaidAfterReconciliation;
+            Add(0, from, paid, "VnPay", membership);
+            Add(0, from.AddHours(2), paid, "VnPay", membership);
+            Add(1, from.AddDays(1).AddTicks(-10), paid, "Points", membership, 100);
+            Add(2, from.AddHours(3), reconciled, "VnPayAfterReconciliation", membership);
+            Add(3, from.AddDays(1), paid, "VnPay", membership);
+            Add(4, null, paid, "VnPay", membership);
+            Add(5, from.AddHours(1), SportHub.Payment.Domain.Enums.InvoiceStatus.Issued, null, membership);
+            Add(6, from.AddHours(1), reconciled, "VnPayCompensated", membership);
+            Add(7, from.AddHours(1), paid, "VnPay", SportHub.Payment.Domain.Enums.InvoiceItemType.Rental);
+            Add(7, from.AddTicks(-10), paid, "VnPay", membership);
+            await db.SaveChangesAsync();
+            return 0;
+        });
+        using var scope = factory.Services.CreateScope();
+        var service = scope.ServiceProvider.GetRequiredService<IMembershipReportService>();
+        Assert.Equal(3, (await service.GetPeriodAsync(day, day)).MembersPurchasingMembershipInPeriod);
+        Assert.Equal(0, (await service.GetPeriodAsync(day.AddDays(-2), day.AddDays(-2))).MembersPurchasingMembershipInPeriod);
+        Assert.Equal(4, (await service.GetPeriodAsync(day.AddDays(1), day)).MembersPurchasingMembershipInPeriod);
+    }
+
+    [Fact]
     public async Task Enrollment_report_excludes_expired_holds_before_cleanup_job_runs()
     {
         var course = await CourseTestData.CreateAsync(factory);

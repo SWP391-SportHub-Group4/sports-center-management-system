@@ -436,7 +436,7 @@ export function ManualNoticeForm() {
               <dd>
                 {role === "COACH" ? l.coaches : l.member} · {from} – {to}
                 {classId
-                  ? ` · ${classes.find((row) => String(row.classId) === classId)?.title || classId}`
+                  ? ` · ${classes.find((row) => String(row.classId) === classId)?.title || t.managerAudit.nameUnavailable}`
                   : ""}
               </dd>
             </dl>
@@ -482,7 +482,7 @@ export function ManualNoticeForm() {
           </>
         )}
         <MutationFeedback mutation={mutation} />
-        {sentId && <p role="status">{sentId}</p>}
+        {sentId && <p role="status">{t.wireStatus.SENT}</p>}
         {sentId && (
           <DeliveryStatus path={`/api/manager/notices/${sentId}`} receipt />
         )}

@@ -335,6 +335,7 @@ public sealed class ReportExportService(
             "pointsIssued" => report.PointsIssued.ToString(CultureInfo.InvariantCulture),
             "managerPointAdjustment" => report.ManagerPointAdjustment.ToString(CultureInfo.InvariantCulture),
             "outstandingPoints" => report.OutstandingPoints.ToString(CultureInfo.InvariantCulture),
+            "outstandingPointsAsOfUtc" => report.OutstandingPointsAsOfUtc.ToString("O", CultureInfo.InvariantCulture),
             _ => throw new InvalidOperationException($"Unsupported summary column: {column}")
         }).ToList()];
     }
@@ -360,13 +361,34 @@ public sealed class ReportExportService(
         DateOnly from, DateOnly to, IReadOnlyList<string> columns, bool rentalsOnly, CancellationToken ct, int? sportId, string? source, Guid? memberId)
     {
         var report = await revenue.GetAsync(from, to, ct);
-        return SportHub.Payment.Application.Services.RevenueDimensionFilter.Apply(report.BySportAndSource, sportId, source, memberId, rentalsOnly)
+        var rows = SportHub.Payment.Application.Services.RevenueDimensionFilter.Apply(
+            report.BySportAndSource, sportId, source, memberId, rentalsOnly);
+        var memberNames = new Dictionary<Guid, string>();
+        if (columns.Contains("memberName"))
+        {
+            var memberIds = rows.Where(row => row.MemberId.HasValue)
+                .Select(row => row.MemberId!.Value).Distinct().ToArray();
+            if (memberIds.Length > 0)
+            {
+                memberNames = await db.Set<Identity.Domain.Entities.UserAccount>().AsNoTracking()
+                    .Where(user => memberIds.Contains(user.UserId))
+                    .Select(user => new
+                    {
+                        user.UserId,
+                        FullName = user.Profile != null ? user.Profile.FullName : string.Empty
+                    })
+                    .ToDictionaryAsync(user => user.UserId,
+                        user => string.IsNullOrWhiteSpace(user.FullName) ? "Name unavailable" : user.FullName, ct);
+            }
+        }
+        return rows
             .Select(row => (IReadOnlyList<string>)columns.Select(column => column switch
             {
-                "source" => row.Source,
+                "source" => ReportColumnLabels.SourceName(row.Source),
                 "sportId" => row.SportId?.ToString(CultureInfo.InvariantCulture) ?? "",
                 "sportName" => row.SportName ?? "",
                 "memberId" => row.MemberId?.ToString() ?? "",
+                "memberName" => row.MemberId is Guid id ? memberNames.GetValueOrDefault(id, "Name unavailable") : "",
                 "collectedAmount" => row.CashCollected.ToString(CultureInfo.InvariantCulture),
                 "legacyCashCollected" => row.LegacyCashCollected.ToString(CultureInfo.InvariantCulture),
                 "pointsRedeemed" => row.PointsRedeemed.ToString(CultureInfo.InvariantCulture),
@@ -384,6 +406,7 @@ public sealed class ReportExportService(
             "fromDate" => report.FromDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
             "toDate" => report.ToDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
             "newMembers" => report.NewMembers.ToString(CultureInfo.InvariantCulture),
+            "membersPurchasingMembershipInPeriod" => report.MembersPurchasingMembershipInPeriod.ToString(CultureInfo.InvariantCulture),
             "activeMembersAtPeriodEnd" => report.ActiveMembersAtPeriodEnd.ToString(CultureInfo.InvariantCulture),
             _ => throw new InvalidOperationException($"Unsupported membership column: {column}")
         }).ToList()];
@@ -574,16 +597,19 @@ public sealed class ReportExportService(
             .ToHashSet();
 
         var subtitle = export.ReportType != ReportTypes.MemberSummary
-            ? $"Period {fromDate:dd/MM/yyyy} – {toDate:dd/MM/yyyy} · {rows.Count} rows · "
-              + $"Exported at {VietnamTime.ToLocal(clock.UtcNow):HH:mm dd/MM/yyyy} (Vietnam time)"
-            : $"{rows.Count} members · Exported at {VietnamTime.ToLocal(clock.UtcNow):HH:mm dd/MM/yyyy} (Vietnam time)";
+            ? $"Period {fromDate:dd/MM/yyyy} – {toDate:dd/MM/yyyy} · "
+              + $"Exported at {VietnamTime.ToLocal(clock.UtcNow):HH:mm dd/MM/yyyy}"
+            : $"Exported at {VietnamTime.ToLocal(clock.UtcNow):HH:mm dd/MM/yyyy}";
 
         return pdf.Render(new ReportTable(
             ReportColumnLabels.ReportTitle(export.ReportType),
             subtitle,
             [.. columns.Select(ReportColumnLabels.For)],
             rows,
-            numeric));
+            numeric,
+            IsSummary: export.ReportType == ReportTypes.RevenueSummary,
+            IsEnrollment: export.ReportType == ReportTypes.ClassEnrollment,
+            IsMembership: export.ReportType == ReportTypes.MembershipPeriod));
     }
 
     private static string CsvEscape(string? value)

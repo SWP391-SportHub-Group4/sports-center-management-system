@@ -68,6 +68,31 @@
   gap: var(--space-1);
 }
 
+.dayHeader strong:has(.todayDot),
+.listDayTitle:has(.todayDot) {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-1);
+}
+
+.todayDot {
+  display: block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--color-primary);
+}
+
+.event[data-cancelled="true"] {
+  background: var(--bg-surface-sunken);
+  border-color: var(--border-subtle);
+}
+
+.event[data-cancelled="true"] .eventTitle {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
 .dayBody {
   display: grid;
   align-content: start;
@@ -87,16 +112,6 @@
   display: grid;
   gap: var(--space-2);
   cursor: pointer;
-}
-
-.event[data-cancelled="true"] {
-  background: var(--bg-surface-sunken);
-  border-color: var(--border-subtle);
-}
-
-.event[data-cancelled="true"] .eventTitle {
-  color: var(--text-muted);
-  text-decoration: line-through;
 }
 
 .event:hover {
@@ -126,7 +141,7 @@
   flex-wrap: wrap;
   align-items: center;
   color: var(--text-muted);
-  font-size: var(--font-size-sm);
+  font-size: var(--text-sm);
 }
 
 .empty {
@@ -165,6 +180,16 @@
 }
 
 @media (max-width: 640px) {
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
+    overflow: visible;
+  }
+  .day {
+    min-width: 0;
+  }
+  .dayBody {
+    min-height: 0;
+  }
   .toolbar {
     align-items: stretch;
   }
@@ -176,5 +201,34 @@
 
   .listEvent {
     grid-template-columns: 1fr;
+  }
+}
+
+.weekGrid {
+  gap: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+.weekGrid .day {
+  border: 0;
+  border-right: 1px solid var(--border-subtle);
+  border-radius: 0;
+  min-width: 0;
+}
+.weekGrid .day:last-child {
+  border-right: 0;
+}
+.weekGrid .dayHeader {
+  justify-content: center;
+  text-align: center;
+}
+.weekGrid .event {
+  border: 0;
+  border-radius: 0;
+}
+@media (max-width: 640px) {
+  .weekGrid .day {
+    border-right: 0;
+    border-bottom: 1px solid var(--border-subtle);
   }
 }

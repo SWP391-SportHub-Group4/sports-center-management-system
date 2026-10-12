@@ -615,16 +615,14 @@ test("empty catalog can create; unknown queries keep the default sports tab", as
   await expect(
     page.getByText("No matching items", { exact: true }),
   ).toBeVisible();
-  await expect(
-    page.getByRole("link", { name: "Sports", exact: true }).last(),
-  ).toHaveAttribute("aria-current", "page");
+  await expect(page.locator("main nav")).toHaveCount(0);
   await page.getByRole("button", { name: "Create sport", exact: true }).click();
   await expect(dialog(page)).toBeVisible();
 });
 
-test("mobile tabs, tables and forms fit and English/Vietnamese labels are accessible", async ({
+test("mobile tables and forms fit and English labels are accessible", async ({
   page,
-}) => {
+}, testInfo) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await setup(page);
   for (const width of [320, 390, 1440]) {
@@ -655,7 +653,7 @@ test("mobile tabs, tables and forms fit and English/Vietnamese labels are access
       // Ảnh minh chứng: lỗi ghi tệp không làm hỏng phép kiểm tra.
       await page
         .screenshot({
-          path: "../output/manager-catalog-mobile.png",
+          path: testInfo.outputPath("manager-catalog-mobile.png"),
           fullPage: true,
         })
         .catch(() => undefined);
@@ -676,7 +674,7 @@ test("mobile tabs, tables and forms fit and English/Vietnamese labels are access
     if (width === 390 || width === 1440) {
       await page
         .screenshot({
-          path: `../output/merge-sport-form-${width}.png`,
+          path: testInfo.outputPath(`merge-sport-form-${width}.png`),
           fullPage: true,
           animations: "disabled",
         })
@@ -691,11 +689,13 @@ test("mobile tabs, tables and forms fit and English/Vietnamese labels are access
     }
   }
   await page.goto("/manager/catalog?tab=pt");
-  await page.getByRole("button", { name: "EN", exact: true }).click();
   await expect(
-    page.getByText("Huấn luyện cá nhân · Dịch vụ Gym", { exact: true }),
+    page.getByRole("button", { name: "EN", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByText("Personal training · Gym service", { exact: true }),
   ).toBeVisible();
-  await expect(page.getByText("Phiên bản giá", { exact: true })).toBeVisible();
+  await expect(page.getByText("Price version", { exact: true })).toBeVisible();
 });
 
 test("live Manager API list contracts and aliases match the rendered catalog", async ({
@@ -730,7 +730,7 @@ test("live Manager API list contracts and aliases match the rendered catalog", a
     await page.goto(path);
     if (Array.isArray(body) && !body.length) {
       await expect(
-        page.getByText("Không có mục phù hợp", { exact: true }),
+        page.getByText("No matching items", { exact: true }),
       ).toBeVisible();
     } else {
       await expect(page.getByRole("table")).toBeVisible();
@@ -747,7 +747,7 @@ test("live Manager API list contracts and aliases match the rendered catalog", a
   await page.goto("/manager/catalog?tab=gym");
   await expect(page.getByRole("table")).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Tạo gói Gym", exact: true }),
+    page.getByRole("button", { name: "Create Gym package", exact: true }),
   ).toBeEnabled();
   await page.screenshot({
     path: "../output/manager-catalog-live.png",

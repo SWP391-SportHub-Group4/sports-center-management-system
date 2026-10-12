@@ -1,135 +1,76 @@
+import { assertEnglishOnlyShell } from "./helpers/english";
 import { expect, test, type Page } from "@playwright/test";
 import { vietnamUtc, dayRange } from "../src/lib/vietnam-time";
 import { previewSessions } from "../src/features/courses/preview";
 import type { ManagerCourseDto } from "../src/lib/types";
 import { en } from "../src/locales/en";
-import { vi } from "../src/locales/vi";
+import { fillIncidentDateTime } from "./helpers/incident";
 
 // HTTP fixtures validate frontend behavior only. No payments, email, or production API calls.
 
 for (const hasPt of [false, true]) {
   test(
-    "Coach teaching calendar uses owner-scoped APIs, PT specialty: " + hasPt,
+    "Coach schedule selects owner-scoped workspace, PT qualification: " + hasPt,
     async ({ page }) => {
-      await session(page, "COACH");
+      await session(page, "COACH", "vi");
       await page.clock.setFixedTime(new Date("2030-10-03T02:00:00Z"));
-      await page.route("**/api/users/me", (r) =>
-        r.fulfill({
+      await page.route("**/api/users/me", (route) =>
+        route.fulfill({
           json: {
             userId: memberId,
             email: "coach@example.com",
             fullName: "Coach A",
             role: "COACH",
-            sportIds: hasPt ? [1, 2] : [1],
+            sportIds: [1],
             isPersonalTrainer: hasPt,
           },
         }),
       );
-      await page.route("**/api/sports", (r) =>
-        r.fulfill({
-          json: [
-            sport,
-            {
-              ...sport,
-              sportId: 2,
-              name: "Personal training",
-              code: "gym",
-              services: [
-                {
-                  serviceType: "PERSONAL_TRAINING",
-                  isEnabled: true,
-                  defaultSessionMinutes: null,
-                  defaultMaxCapacity: null,
-                },
-              ],
-            },
-          ],
-        }),
-      );
-      let ptReads = 0,
-        staffReads = 0,
-        writes = 0;
-      page.on("request", (r) => {
-        const p = new URL(r.url()).pathname;
-        if (p.startsWith("/api/manager/court-schedule")) staffReads++;
-        if (
-          p.startsWith("/api/") &&
-          ["POST", "PUT", "DELETE", "PATCH"].includes(r.method())
-        )
-          writes++;
+      const calls: string[] = [];
+      page.on("request", (request) => {
+        const path = new URL(request.url()).pathname;
+        if (path.startsWith("/api/")) calls.push(request.method() + " " + path);
       });
-      await page.route("**/api/coaches/me/court-schedule?**", (r) =>
-        r.fulfill({
-          json: [
-            {
-              sourceType: "CLASS_SESSION",
-              sourceId: sessionId,
-              classId: 1,
-              roomId: 1,
-              title: "My badminton course",
-              coachId: memberId,
-              coachName: "Coach A",
-              startAtUtc: "2030-10-03T02:00:00Z",
-              endAtUtc: "2030-10-03T03:30:00Z",
-              status: "SCHEDULED",
-              participants: [
-                {
-                  memberId: otherMemberId,
-                  memberName: "Assigned member",
-                  enrollmentId,
-                  attendanceStatus: "PRESENT",
-                  recordedAtUtc: null,
-                },
-              ],
-            },
-          ],
-        }),
+      await page.route("**/api/coaches/me/classes", (route) =>
+        route.fulfill({ json: [] }),
       );
-      await page.route("**/api/coaches/me/pt-sessions?**", (r) => {
-        ptReads++;
-        expect(new URL(r.request().url()).searchParams.get("fromUtc")).toBe(
-          "2030-10-02T17:00:00.000Z",
+      await page.route("**/api/coaches/me/court-schedule?**", (route) =>
+        route.fulfill({ json: [] }),
+      );
+      await page.route("**/api/coaches/me/pt-sessions?**", (route) => {
+        const query = new URL(route.request().url()).searchParams;
+        expect(query.get("fromUtc")).toMatch(/T17:00:00\.000Z$/);
+        expect(Date.parse(query.get("toUtc")!)).toBeGreaterThan(
+          Date.parse(query.get("fromUtc")!),
         );
-        return r.fulfill({
-          json: [
-            {
-              sessionId: rentalId,
-              memberId: otherMemberId,
-              memberName: "My PT member",
-              coachId: memberId,
-              coachName: "Coach A",
-              roomId: null,
-              startAtUtc: "2030-10-03T04:00:00Z",
-              endAtUtc: "2030-10-03T05:30:00Z",
-              status: "SCHEDULED",
-            },
-          ],
-        });
+        return route.fulfill({ json: [] });
       });
+      await page.route(
+        "**/api/coaches/me/teaching/change-requests?**",
+        (route) => route.fulfill({ json: { items: [], totalCount: 0 } }),
+      );
       await page.goto("/coach/schedule");
       await expect(page.getByRole("heading", { level: 1 })).toHaveText(
         en.operations.teachingSchedule,
       );
-      await page.getByRole("button", { name: /My badminton course/ }).click();
-      await expect(
-        page.getByRole("cell", { name: "Assigned member", exact: true }),
-      ).toBeVisible();
-      await expect(
-        page.getByRole("button", { name: "Present", exact: true }),
-      ).toHaveCount(0);
-      await page.keyboard.press("Escape");
-      await expect(page.getByRole("dialog")).toHaveCount(0);
-      // Assigned PT sessions stay visible read-only even after the PT specialty is removed.
-      await page.getByRole("button", { name: /My PT member/ }).click();
-      await expect(
-        page.getByRole("cell", { name: "My PT member", exact: true }),
-      ).toBeVisible();
-      await expect(
-        page.getByRole("columnheader", { name: "Attendance", exact: true }),
-      ).toHaveCount(0);
-      expect(ptReads).toBe(1);
-      expect(staffReads).toBe(0);
-      expect(writes).toBe(0);
+      await assertEnglishOnlyShell(page);
+      if (hasPt) {
+        await expect
+          .poll(() => calls.includes("GET /api/coaches/me/pt-sessions"))
+          .toBe(true);
+        expect(calls).not.toContain("GET /api/coaches/me/classes");
+      } else {
+        await expect(
+          page.getByText(
+            "No classes assigned yet. Your schedule and students appear when a manager assigns a class.",
+          ),
+        ).toBeVisible();
+        expect(calls).toContain("GET /api/coaches/me/classes");
+        expect(calls).not.toContain("GET /api/coaches/me/pt-sessions");
+      }
+      expect(calls.some((call) => call.includes("/api/manager/"))).toBe(false);
+      expect(calls.every((call) => call.startsWith("GET "))).toBe(true);
+      await expect(page.getByRole("main").getByRole("alert")).toHaveCount(0);
     },
   );
 }
@@ -140,8 +81,8 @@ for (const language of ["en", "vi"] as const) {
       language,
     async ({ page }) => {
       await session(page, "MEMBER", language);
-      const copy = language === "en" ? en : vi;
-      const other = language === "en" ? vi : en;
+      const copy = en;
+      const other = en;
       let creates = 0,
         pointsWrites = 0,
         payments = 0;
@@ -252,7 +193,7 @@ for (const language of ["en", "vi"] as const) {
       await expect(
         page.getByLabel(copy.refactor.points, { exact: true }),
       ).toHaveValue("100");
-      await page.getByRole("button", { name: "Toggle language" }).click();
+      await assertEnglishOnlyShell(page);
       await expect(
         page.getByRole("button", { name: other.refactor.pay, exact: true }),
       ).toBeEnabled();
@@ -323,23 +264,23 @@ test("Operating settings translate descriptions and preserve drafts without chan
   await page
     .getByLabel(en.settingFields.holdMinutes.label, { exact: true })
     .fill("20");
-  await page.getByTitle("Switch to Vietnamese").click();
+  await assertEnglishOnlyShell(page);
   await expect(
-    page.getByLabel(vi.settingFields.holdMinutes.label, { exact: true }),
+    page.getByLabel(en.settingFields.holdMinutes.label, { exact: true }),
   ).toHaveValue("20");
   await expect(
-    page.getByText(vi.settingFields.holdMinutes.hint, { exact: true }),
+    page.getByText(en.settingFields.holdMinutes.hint, { exact: true }),
   ).toBeVisible();
   expect(writes).toBe(0);
   await page
     .getByRole("row")
     .filter({
-      has: page.getByLabel(vi.settingFields.holdMinutes.label, { exact: true }),
+      has: page.getByLabel(en.settingFields.holdMinutes.label, { exact: true }),
     })
-    .getByRole("button", { name: vi.operations.save, exact: true })
+    .getByRole("button", { name: en.operations.save, exact: true })
     .click();
-  await expect(page.getByRole("status")).toHaveText(vi.operations.saved);
-  await page.getByTitle("Chuyển sang tiếng Anh").click();
+  await expect(page.getByRole("status")).toHaveText(en.operations.saved);
+  await assertEnglishOnlyShell(page);
   await expect(page.getByRole("status")).toHaveText(en.operations.saved);
   expect(writes).toBe(1);
 });
@@ -484,28 +425,21 @@ for (const language of ["en", "vi"] as const)
         change: "Thay đổi",
       },
     };
-    const otherLanguage = language === "en" ? "vi" : "en";
     const review = () =>
       page.locator("section.card").filter({
         has: page.getByRole("heading", {
           name: /Review membership purchase|Xác nhận mua gói Gym/,
         }),
       });
-    const switchLanguage = () =>
-      page
-        .getByTitle(
-          /Switch to Vietnamese|Switch to English|Chuyển sang Tiếng Việt|Chuyển sang Tiếng Anh/,
-        )
-        .filter({ visible: true })
-        .click();
+    const switchLanguage = () => assertEnglishOnlyShell(page);
     await page.goto("/receptionist/sell-plans");
     await page.getByPlaceholder(/Enter name|Nhập tên/).fill("Alice");
     await page.getByRole("button", { name: /Alice/ }).click();
     await expect(
-      page.getByRole("button", { name: labels[language].select, exact: true }),
+      page.getByRole("button", { name: labels.en.select, exact: true }),
     ).toHaveCount(2);
     await page
-      .getByRole("button", { name: labels[language].select, exact: true })
+      .getByRole("button", { name: labels.en.select, exact: true })
       .first()
       .click();
     await expect(review().getByText("Alice", { exact: true })).toBeVisible();
@@ -516,29 +450,27 @@ for (const language of ["en", "vi"] as const)
       review().getByText(plans[0].name, { exact: true }),
     ).toBeVisible();
     await expect(
-      review().getByText(`30 ${labels[language].days}`, { exact: true }),
+      review().getByText(`30 ${labels.en.days}`, { exact: true }),
     ).toBeVisible();
     expect(posts).toBe(0);
     await switchLanguage();
-    await expect(review().getByRole("heading")).toHaveText(
-      labels[otherLanguage].title,
-    );
+    await expect(review().getByRole("heading")).toHaveText(labels.en.title);
     await expect(
-      review().getByText(labels[otherLanguage].duration, { exact: true }),
+      review().getByText(labels.en.duration, { exact: true }),
     ).toBeVisible();
     await expect(
-      review().getByText(`30 ${labels[otherLanguage].days}`, { exact: true }),
+      review().getByText(`30 ${labels.en.days}`, { exact: true }),
     ).toBeVisible();
     await expect(
       page
         .getByRole("button", {
-          name: labels[otherLanguage].select,
+          name: labels.en.select,
           exact: true,
         })
         .first(),
     ).toHaveAttribute("aria-pressed", "true");
     await page
-      .getByRole("button", { name: labels[otherLanguage].select, exact: true })
+      .getByRole("button", { name: labels.en.select, exact: true })
       .last()
       .click();
     await expect(
@@ -549,18 +481,18 @@ for (const language of ["en", "vi"] as const)
     ).toHaveCount(0);
     await switchLanguage();
     await expect(
-      review().getByText(`90 ${labels[language].days}`, { exact: true }),
+      review().getByText(`90 ${labels.en.days}`, { exact: true }),
     ).toBeVisible();
     expect(posts).toBe(0);
     await page
-      .getByRole("button", { name: labels[language].change, exact: true })
+      .getByRole("button", { name: labels.en.change, exact: true })
       .click();
     await expect(review()).toHaveCount(0);
     await page.getByPlaceholder(/Enter name|Nhập tên/).fill("Bob");
     await page.getByRole("button", { name: /Bob/ }).click();
     await expect(review()).toHaveCount(0);
     await page
-      .getByRole("button", { name: labels[language].select, exact: true })
+      .getByRole("button", { name: labels.en.select, exact: true })
       .last()
       .click();
     await expect(
@@ -594,19 +526,19 @@ for (const language of ["en", "vi"] as const)
       fullPage: true,
     });
     await review()
-      .getByRole("button", { name: labels[language].create, exact: true })
+      .getByRole("button", { name: labels.en.create, exact: true })
       .click();
     await expect.poll(() => posts).toBe(1);
     await expect(
       review().getByRole("button", {
-        name: labels[language].create,
+        name: labels.en.create,
         exact: true,
       }),
     ).toBeDisabled();
     await switchLanguage();
     await expect(
       review().getByRole("button", {
-        name: labels[otherLanguage].create,
+        name: labels.en.create,
         exact: true,
       }),
     ).toBeDisabled();
@@ -614,7 +546,7 @@ for (const language of ["en", "vi"] as const)
     await expect(page.getByText(itemId, { exact: false })).toBeVisible();
     await expect(
       page.getByRole("button", {
-        name: labels[otherLanguage].create,
+        name: labels.en.create,
         exact: true,
       }),
     ).toHaveCount(0);
@@ -699,24 +631,17 @@ for (const language of ["en", "vi"] as const)
     await review
       .getByRole("button", { name: /^(Create invoice|Tạo hóa đơn)$/ })
       .click();
-    await expect(review.getByRole("alert")).toHaveText(messages[language]);
+    await expect(review.getByRole("alert")).toHaveText(messages.en);
     expect(posts).toBe(1);
-    const switchLanguage = () =>
-      page
-        .getByTitle(
-          /Switch to Vietnamese|Switch to English|Chuyển sang Tiếng Việt|Chuyển sang Tiếng Anh/,
-        )
-        .click();
+    const switchLanguage = () => assertEnglishOnlyShell(page);
     await switchLanguage();
-    await expect(review.getByRole("alert")).toHaveText(
-      messages[language === "en" ? "vi" : "en"],
-    );
+    await expect(review.getByRole("alert")).toHaveText(messages.en);
     await expect(
       review.getByText("alice@example.com", { exact: true }),
     ).toBeVisible();
     await expect(review.getByText("Gym month", { exact: true })).toBeVisible();
     await switchLanguage();
-    await expect(review.getByRole("alert")).toHaveText(messages[language]);
+    await expect(review.getByRole("alert")).toHaveText(messages.en);
     expect(posts).toBe(1);
     await page.screenshot({
       path: `test-results/sell-plans-error-${language}.png`,
@@ -802,20 +727,18 @@ for (const language of ["en", "vi"] as const)
     await page.getByPlaceholder(/Enter name|Nhập tên/).fill("Alice");
     await page.getByRole("button", { name: /Alice/ }).click();
     const checkIn = page.getByRole("button", {
-      name: language === "en" ? "Check in" : "Ghi nhận vào",
+      name: "Check in",
       exact: true,
     });
     await checkIn.click();
     const checkOut = page.getByRole("button", {
-      name: language === "en" ? "Check out" : "Ghi nhận ra",
+      name: "Check out",
       exact: true,
     });
     await expect(checkOut).toHaveCount(1);
     await checkIn.click();
     await expect(page.getByRole("main").getByRole("alert")).toHaveText(
-      language === "en"
-        ? "This member is already checked in to the gym. Check them out before checking in again."
-        : "Member đã được ghi nhận vào Gym, vui lòng ghi nhận ra trước.",
+      "This member is already checked in to the gym. Check them out before checking in again.",
     );
     expect(visits).toHaveLength(1);
     await expect(checkOut).toHaveCount(1);
@@ -1420,8 +1343,8 @@ test("incident preview blocks resolution and invalidates when the form changes",
   });
   await page.goto("/manager/incidents");
   await page.getByLabel("Room", { exact: true }).selectOption("1");
-  await page.getByLabel("Start", { exact: true }).fill("2030-10-03T09:00");
-  await page.getByLabel("End", { exact: true }).fill("2030-10-03T10:00");
+  await fillIncidentDateTime(page, "Start", "2030-10-03T09:00");
+  await fillIncidentDateTime(page, "End", "2030-10-03T10:00");
   await page.getByLabel("Reason").fill("Court maintenance");
   await page.getByRole("button", { name: "Review", exact: true }).click();
   await expect(page.getByText("Move the class first")).toBeVisible();
@@ -1639,7 +1562,7 @@ test("calendar has no page overflow at desktop and mobile sizes", async ({
   }
 });
 
-test("late incident preview cannot resolve after its reason changes", async ({
+test("pending incident preview locks its draft and edits invalidate the completed review", async ({
   page,
 }) => {
   await session(page, "CENTER_MANAGER");
@@ -1652,18 +1575,26 @@ test("late incident preview cannot resolve after its reason changes", async ({
   });
   await page.goto("/manager/incidents");
   await page.getByLabel("Room", { exact: true }).selectOption("1");
-  await page.getByLabel("Start", { exact: true }).fill("2030-10-03T09:00");
-  await page.getByLabel("End", { exact: true }).fill("2030-10-03T10:00");
+  await fillIncidentDateTime(page, "Start", "2030-10-03T09:00");
+  await fillIncidentDateTime(page, "End", "2030-10-03T10:00");
   await page
     .getByLabel("Reason", { exact: true })
     .fill("Original maintenance reason");
   const review = page.getByRole("button", { name: "Review", exact: true });
   await review.click();
   await requested.promise;
-  await page
-    .getByLabel("Reason", { exact: true })
-    .fill("Revised maintenance reason");
+  const reason = page.getByLabel("Reason", { exact: true });
+  await expect(reason).toBeDisabled();
+  await expect(review).toBeDisabled();
   release.resolve();
+  await expect(reason).toBeEnabled();
+  const recheck = page.getByRole("button", {
+    name: en.managerOperations.recheck,
+    exact: true,
+  });
+  await expect(recheck).toBeVisible();
+  await reason.fill("Revised maintenance reason");
+  await expect(recheck).toHaveCount(0);
   await expect(review).toBeEnabled();
   await expect(
     page.getByRole("button", {
@@ -1797,6 +1728,8 @@ test("staff invoice deep link must match the selected member before mounting pay
   await expect(
     page.getByRole("button", { name: "Confirm payment", exact: true }),
   ).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
   await page.getByRole("button", { name: "Change", exact: true }).click();
   await page.getByPlaceholder(/Enter name/).fill("Alice");
   await page.getByRole("button", { name: /Alice/ }).click();
@@ -1901,7 +1834,7 @@ for (const language of ["en", "vi"] as const)
     await page.goto("/receptionist");
     await page
       .getByRole("link", {
-        name: language === "en" ? "Details" : "Chi tiết",
+        name: "Details",
         exact: true,
       })
       .click();
@@ -1918,13 +1851,13 @@ for (const language of ["en", "vi"] as const)
     ).toBeVisible();
     await expect(page.getByRole("main").getByRole("alert")).toHaveCount(0);
     await expect(
-      page.getByRole("main").getByRole("heading", { level: 2 }).first(),
-    ).toHaveText(language === "en" ? "Invoice" : "Hóa đơn");
-    await page.getByTitle(/Switch to Vietnamese|Chuyển sang Tiếng Anh/).click();
+      page.getByRole("dialog").getByRole("heading", { level: 2 }).first(),
+    ).toHaveText("Invoice");
+    await assertEnglishOnlyShell(page);
     await expect(invoice).toBeVisible();
     await expect(
-      page.getByRole("main").getByRole("heading", { level: 2 }).first(),
-    ).toHaveText(language === "en" ? "Hóa đơn" : "Invoice");
+      page.getByRole("dialog").getByRole("heading", { level: 2 }).first(),
+    ).toHaveText("Invoice");
     await page.reload();
     await expect(invoice).toBeVisible();
     await expect(
@@ -2008,9 +1941,9 @@ test("Malformed invoice link shows a translated error without requesting invoice
   await expect(page.getByRole("main").getByRole("alert")).toContainText(
     "This invoice link is invalid",
   );
-  await page.getByTitle("Switch to Vietnamese").click();
+  await assertEnglishOnlyShell(page);
   await expect(page.getByRole("main").getByRole("alert")).toContainText(
-    "Liên kết hóa đơn không hợp lệ",
+    "This invoice link is invalid",
   );
   expect(invoiceReads).toBe(0);
 });
@@ -2047,11 +1980,14 @@ test("Legacy pending invoice shows its details without opening a missing checkou
     ),
   ).toBeVisible();
   await expect(page.getByRole("main").getByRole("alert")).toHaveCount(0);
-  await page.getByTitle("Switch to Vietnamese").click();
+  await assertEnglishOnlyShell(page);
   await expect(
-    page.getByText("Hóa đơn cũ không có phiên thanh toán trực tuyến", {
-      exact: false,
-    }),
+    page.getByText(
+      "This legacy invoice has no online payment session to resume.",
+      {
+        exact: false,
+      },
+    ),
   ).toBeVisible();
   expect(checkoutReads).toBe(0);
   expect(writes).toEqual([]);

@@ -3,6 +3,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { en } from "../src/locales/en";
 import { vi } from "../src/locales/vi";
 import { previewSessions } from "../src/features/courses/preview";
+import { fillIncidentDateTime } from "./helpers/incident";
 
 const managerId = "11111111-1111-4111-8111-111111111111";
 const coachId = "22222222-2222-4222-8222-222222222222";
@@ -804,12 +805,8 @@ test("facility details reload with opening hours and incident entry", async ({
 });
 async function incidentInputs(page: Page) {
   await page.goto("/manager/incidents?roomId=7");
-  await page
-    .getByLabel(en.operations.start, { exact: true })
-    .fill("2030-10-03T18:00");
-  await page
-    .getByLabel(en.operations.end, { exact: true })
-    .fill("2030-10-03T21:00");
+  await fillIncidentDateTime(page, en.operations.start, "2030-10-03T18:00");
+  await fillIncidentDateTime(page, en.operations.end, "2030-10-03T21:00");
   await page
     .getByLabel(en.operations.reason, { exact: true })
     .fill("Water leak");
@@ -1516,6 +1513,105 @@ for (const width of [390, 960, 1440])
     }
     await page.goto("/manager/classes/1?tab=holds");
   });
+for (const width of [390, 1440])
+  test(`Manager form labels and long dialog actions stay usable at ${width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 600 });
+    for (const path of [
+      "/manager/training-rooms",
+      "/manager/coaches",
+      "/manager/classes/new",
+      "/manager/notices",
+      "/manager/incidents",
+    ]) {
+      await page.goto(path);
+      if (path.endsWith("training-rooms") || path.endsWith("coaches"))
+        await page
+          .getByRole("button", { name: en.operations.create, exact: true })
+          .click();
+      const surface = (await page.getByRole("dialog").count())
+        ? page.getByRole("dialog")
+        : page.locator("main");
+      await expect(surface.locator(".field").first()).toBeVisible();
+      const positions = await surface
+        .locator(
+          ".field input[aria-labelledby], .field select[aria-labelledby], .field textarea[aria-labelledby]",
+        )
+        .evaluateAll((controls) =>
+          controls.map((control) => {
+            const label = document.getElementById(
+              control.getAttribute("aria-labelledby")!,
+            );
+            const input = control.getBoundingClientRect();
+            const caption = label!.getBoundingClientRect();
+            return {
+              offset: Math.abs(input.left - caption.left),
+              labelAbove: caption.bottom <= input.top + 1,
+            };
+          }),
+        );
+      expect(positions.length).toBeGreaterThan(1);
+      for (const position of positions) {
+        expect(position.offset).toBeLessThanOrEqual(1);
+        expect(position.labelAbove).toBe(true);
+      }
+      if (path.endsWith("coaches")) {
+        const modal = page.getByRole("dialog");
+        const close = modal.getByRole("button", {
+          name: en.operations.close,
+          exact: true,
+        });
+        const save = modal.getByRole("button", {
+          name: en.operations.save,
+          exact: true,
+        });
+        await expect(save).toBeInViewport();
+        const before = await close.boundingBox();
+        await modal.locator(".dialog__body").evaluate((el) => {
+          el.scrollTop = el.scrollHeight;
+        });
+        await expect(save).toBeInViewport();
+        await expect(close).toBeInViewport();
+        expect((await close.boundingBox())!.y).toBeCloseTo(before!.y, 0);
+        await close.click();
+        await expect(modal).toHaveCount(0);
+      }
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth),
+      ).toBeLessThanOrEqual(width);
+    }
+  });
+
+test("schedule has one view selector and daily navigation moves one day", async ({
+  page,
+}) => {
+  await page.goto("/manager/schedule?date=2030-10-03&view=day");
+  const day = page.getByRole("button", { name: en.calendar.day, exact: true });
+  await expect(day).toHaveCount(1);
+  await expect(day).toHaveAttribute("aria-pressed", "true");
+  await page
+    .getByRole("button", { name: en.calendar.next, exact: true })
+    .click();
+  await expect(page).toHaveURL(/date=2030-10-04/);
+  await expect(
+    page.getByLabel(en.operations.date, { exact: true }),
+  ).toHaveValue("2030-10-04");
+  await page
+    .getByRole("button", { name: en.calendar.list, exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: en.calendar.list, exact: true }),
+  ).toHaveCount(1);
+  await expect(
+    page.getByRole("button", { name: en.calendar.list, exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await page
+    .getByRole("button", { name: en.mSchedule.nextWeek, exact: true })
+    .click();
+  await expect(page).toHaveURL(/date=2030-10-07/);
+});
+
 test("Vietnamese copy and keyboard tabs preserve selected state", async ({
   page,
 }) => {

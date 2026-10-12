@@ -35,9 +35,13 @@
   font-weight: 600;
   overflow-wrap: anywhere;
 }
-.section {
+.section.section {
   display: grid;
   gap: var(--space-4);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
 }
 .section fieldset {
   min-width: 0;
@@ -56,4 +60,57 @@
 .reason {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+.scheduleRules.scheduleRules {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.scheduleRules legend {
+  margin-bottom: var(--space-3);
+  font-weight: var(--weight-medium);
+}
+.scheduleRule {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+  align-items: end;
+  gap: var(--space-3);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.scheduleRules > :global(.btn) {
+  justify-self: start;
+}
+.enrollment {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+}
+.enrollment > div {
+  flex: 1 1 280px;
+  min-width: 0;
+}
+.enrollment h3 {
+  margin: 0 0 var(--space-2);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+}
+.enrollment :global(.btn) {
+  flex: none;
+}
+@media (max-width: 640px) {
+  .scheduleRule {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .scheduleRule > :global(.btn) {
+    grid-column: 1 / -1;
+    justify-self: end;
+  }
 }

@@ -16,6 +16,40 @@ namespace SportHub.Administration.Tests.Unit;
 /// </summary>
 public class ReportPdfRendererTests
 {
+    [Fact]
+    public void Enrollment_shows_readable_counts_and_percentage_without_course_id()
+    {
+        var columns = new[] { "name", "sportName", "capacity", "confirmedCount", "activeHoldCount",
+            "availableSeats", "fillRatio", "breakEvenThreshold", "thresholdStatus" };
+        var table = new ReportTable("Course enrollment", "Period 01/10/2026 - 14/10/2026",
+            columns.Select(ReportColumnLabels.For).ToArray(),
+            [["Badminton Fundamentals", "Badminton", "20", "12", "3", "5", "0.6", "10", "Threshold met"]],
+            columns.Select((c, i) => (c, i)).Where(x => ReportColumnLabels.IsNumeric(x.c)).Select(x => x.i).ToHashSet(),
+            IsEnrollment: true);
+        var text = ExtractText(new ReportPdfRenderer().Render(table));
+        Assert.Contains("60%", text);
+        Assert.Contains("Badminton Fundamentals", text);
+        Assert.DoesNotContain("Course ID", text);
+    }
+
+    [Fact]
+    public void Summary_formats_numbers_and_preserves_refunded_points_label()
+    {
+        var columns = new[] { "collectedAmount", "reconciliationCashCollected", "pointsRedeemed",
+            "pointsIssued", "managerPointAdjustment", "outstandingPoints" };
+        var table = new ReportTable("Revenue and points summary", "Period 01/10/2026 - 14/10/2026",
+            columns.Select(ReportColumnLabels.For).ToArray(),
+            [["1950000", "0", "500", "0", "1000", "500"]],
+            Enumerable.Range(0, columns.Length).ToHashSet(), IsSummary: true);
+        var bytes = new ReportPdfRenderer().Render(table);
+        using var document = PdfDocument.Open(bytes);
+        Assert.Equal(1, document.NumberOfPages);
+        var text = ExtractText(bytes);
+        Assert.Contains("Points refunded", text);
+        Assert.Contains("1,950,000", text);
+        Assert.Contains("1,000", text);
+    }
+
     private static readonly string[] RevenueColumns =
     [
         "invoiceNumber", "issuedAt", "memberName", "totalAmount",
@@ -47,7 +81,7 @@ public class ReportPdfRendererTests
 
         return new ReportTable(
             ReportColumnLabels.ReportTitle(ReportTypes.Revenue),
-            "Period 01/09/2026 – 30/09/2026 · Exported at 10:30 22/09/2026 (Vietnam time)",
+            "Period 01/09/2026 – 30/09/2026 · Exported at 10:30 22/09/2026",
             headers,
             rows,
             numeric);
@@ -75,27 +109,27 @@ public class ReportPdfRendererTests
     }
 
     /// <summary>
-    /// Yêu cầu cốt lõi của plan §6.3: "PDF tiếng Việt đọc được". Kiểm bằng cách trích text
-    /// ra và so đúng chuỗi có dấu, không chỉ nhìn file.
-    ///
-    /// Chỉ so các nhãn NGẮN: cột hẹp trong bảng 11 cột khiến QuestPDF tự xuống dòng giữa
-    /// chuỗi dài, và khi đó text trích ra bị ngắt quãng — đó là hành vi layout đúng, không
-    /// phải lỗi font. Chuỗi dài được kiểm riêng ở test dưới với bảng ít cột.
+    /// Verify the current invoice report labels in an actual PDF. Ignore whitespace
+    /// introduced when long column headers wrap; preserve every other character.
+    /// Vietnamese glyph coverage is checked separately below.
     /// </summary>
     [Theory]
-    [InlineData("Revenue report")]
+    [InlineData("Invoices by issue date")]
     [InlineData("Invoice number")]
-    [InlineData("Collected")]
-    [InlineData("Refunded")]
-    [InlineData("Net collected")]
+    [InlineData("Cash collected (VND)")]
+    [InlineData("Legacy cash refunded (VND, excludes point refunds)")]
+    [InlineData("Cash collected less legacy cash refunds (VND)")]
     [InlineData("Refund due")]
     [InlineData("Status")]
-    [InlineData("Vietnam time")]
-    public void Chu_tieng_Viet_co_dau_trich_nguoc_ra_dung(string expected)
+    [InlineData("Exported at 10:30 22/09/2026")]
+    public void Invoice_report_labels_are_readable_in_pdf(string expected)
     {
         var text = ExtractText(new ReportPdfRenderer().Render(BuildTable(3)));
 
-        Assert.Contains(expected, text);
+        static string WithoutWhitespace(string value)
+            => new(value.Where(c => !char.IsWhiteSpace(c)).ToArray());
+
+        Assert.Contains(WithoutWhitespace(expected), WithoutWhitespace(text));
     }
 
     /// <summary>

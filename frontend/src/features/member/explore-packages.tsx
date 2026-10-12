@@ -118,7 +118,7 @@ export function ExplorePackages({
     !needle || normalize(parts.filter(Boolean).join(" ")).includes(needle);
 
   const gymPlans = (catalog.data ?? [])
-    .filter((p) => p.isActive && !/\bPT\b|personal/i.test(p.name))
+    .filter((p) => p.isActive)
     .sort((a, b) => a.durationDays - b.durationDays);
   const baseMonthly =
     gymPlans.length && monthsOf(gymPlans[0].durationDays) === 1
@@ -169,6 +169,10 @@ export function ExplorePackages({
       (o) =>
         o.packageId === packageId &&
         o.status.toUpperCase() === "PENDING_PAYMENT",
+    );
+  const activePlan = (packageId: number) =>
+    owned.data?.find(
+      (o) => o.packageId === packageId && o.status.toUpperCase() === "ACTIVE",
     );
   const today = todayIso();
   const latestEnd = (owned.data ?? [])
@@ -242,6 +246,7 @@ export function ExplorePackages({
                     plan={p}
                     baseMonthly={baseMonthly}
                     pending={!!pendingPlan(p.packageId)}
+                    active={activePlan(p.packageId)}
                     start={membershipStart}
                     busy={checkout.busyId === `gym:${p.packageId}`}
                     error={
@@ -392,6 +397,7 @@ function GymTier({
   plan,
   baseMonthly,
   pending,
+  active,
   start,
   busy,
   error,
@@ -401,6 +407,7 @@ function GymTier({
   plan: MembershipPackageDto;
   baseMonthly: number | null;
   pending: boolean;
+  active?: MemberPackageDto;
   /** Ngày bắt đầu của gói này: hôm nay, hoặc ngay sau EndDate Membership đang dùng. */
   start: string;
   busy: boolean;
@@ -431,6 +438,11 @@ function GymTier({
           </span>
         )}
       </div>
+      <h3 className={styles.planName}>{plan.name}</h3>
+      {plan.description && <p className={styles.meta}>{plan.description}</p>}
+      <p className={styles.meta}>
+        {plan.durationDays} {tx("ngày", "days")}
+      </p>
       <p className={styles.price}>
         <strong>{formatMoney(plan.price)}</strong>
         {saving > 0 && <s>{formatMoney(original)}</s>}
@@ -440,6 +452,14 @@ function GymTier({
         {" · "}≈ {formatMoney(Math.round(plan.price / months))}
         {tx("/tháng", "/month")}
       </p>
+      {active && (
+        <Link
+          className={styles.ghost}
+          href="/member/services?view=owned&type=gym"
+        >
+          {active.isUsable ? "Active membership" : "Purchased membership"}
+        </Link>
+      )}
       {pending ? (
         <button type="button" className={styles.cta} disabled>
           {tx("Đang chờ thanh toán", "Awaiting payment")}
@@ -453,7 +473,9 @@ function GymTier({
         >
           {busy
             ? tx("Đang chuyển…", "Redirecting…")
-            : tx("Chọn gói", "Choose plan")}
+            : active
+              ? tx("Gia hạn gói", "Renew plan")
+              : tx("Chọn gói", "Choose plan")}
         </button>
       )}
       {error && (

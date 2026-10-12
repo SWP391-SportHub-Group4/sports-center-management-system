@@ -14,4 +14,5 @@ public sealed record MembershipSummaryResponse(
     MemberPackageStatusCountsResponse PackagesByStatus);
 
 public sealed record MembershipPeriodResponse(
-    DateOnly FromDate, DateOnly ToDate, int NewMembers, int ActiveMembersAtPeriodEnd);
+    DateOnly FromDate, DateOnly ToDate, int NewMembers, int ActiveMembersAtPeriodEnd,
+    int MembersPurchasingMembershipInPeriod = 0);

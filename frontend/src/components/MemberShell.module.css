@@ -162,6 +162,12 @@
   flex-shrink: 0;
 }
 
+.headerActions :global(.bell__btn),
+.userButton {
+  height: 44px;
+  min-height: 44px;
+}
+
 .walletHeader {
   display: inline-flex;
   align-items: baseline;
@@ -356,7 +362,6 @@
   transition:
     background 0.15s ease,
     border-color 0.15s ease;
-  min-height: 38px;
   flex-shrink: 0;
 }
 
@@ -455,6 +460,23 @@
 
 .dropdownItem:hover {
   background: var(--bg-app);
+  color: var(--text-strong);
+}
+
+.profileLanguage {
+  min-height: 44px;
+  font-family: inherit;
+}
+
+.profileLanguage:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
+.languageCode {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 700;
   color: var(--text-strong);
 }
 
@@ -811,10 +833,6 @@
 
   .mobileNavLinks .langToggleBtn {
     display: inline-flex;
-  }
-
-  .userMenuWrapper {
-    display: none;
   }
 
   .main {

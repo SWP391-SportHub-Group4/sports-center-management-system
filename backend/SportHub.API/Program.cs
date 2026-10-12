@@ -246,6 +246,7 @@ builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Membership.IMemb
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Membership.IMembershipRefundFulfillment, MembershipRefundFulfillment>();
 builder.Services.AddScoped<IMemberTrainingProfileService, MemberTrainingProfileService>();
 builder.Services.AddScoped<IMembershipReportService, MembershipReportService>();
+builder.Services.AddScoped<IMembershipPurchaseReportReader, MembershipPurchaseReportReader>();
 
 // Notification
 builder.Services.AddScoped<INotificationService, NotificationService>();

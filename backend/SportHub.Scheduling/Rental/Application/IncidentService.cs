@@ -8,7 +8,7 @@ using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.Abstractions.Scheduling;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.BuildingBlocks.SharedKernel.Time;
-using SportHub.BuildingBlocks.Abstractions.Scheduling;
+using SportHub.BuildingBlocks.SharedKernel.Pagination;
 using SportHub.Scheduling.Catalog.Domain;
 using SportHub.Scheduling.Application.Services;
 using SportHub.Scheduling.Occupancy.Domain;
@@ -22,6 +22,33 @@ public sealed class IncidentService(ISportHubDbContext db, IOccupancyService occ
     INotificationWriter notifications, IUserAccessReader users, IAuditWriter audit, IClock clock,
     INotificationDeliveryReader delivery, IMembershipClosureExtension membershipExtension)
 {
+    public async Task<PagedResult<IncidentDetailsResponse>> ListAsync(int page = 1, int pageSize = 20,
+        CancellationToken ct = default)
+    {
+        page = Math.Clamp(page, 1, 1000000);
+        pageSize = Math.Clamp(pageSize, 1, 100);
+        var query = db.Set<IncidentNotice>().AsNoTracking();
+        var count = await query.CountAsync(ct);
+        var items = await HistoryQuery(query.OrderByDescending(x => x.CreatedAtUtc).ThenByDescending(x => x.IncidentId)
+            .Skip((page - 1) * pageSize).Take(pageSize))
+            .ToListAsync(ct);
+        return new() { Items = items.OrderByDescending(x => x.CreatedAtUtc).ThenByDescending(x => x.IncidentId).ToArray(),
+            Page = page, PageSize = pageSize, TotalCount = count };
+    }
+
+    public async Task<IncidentDetailsResponse> GetAsync(Guid incidentId, CancellationToken ct = default)
+        => await HistoryQuery(db.Set<IncidentNotice>().AsNoTracking().Where(x => x.IncidentId == incidentId))
+            .SingleOrDefaultAsync(ct)
+            ?? throw new NotFoundException("incident_not_found", "Incident not found.");
+
+    private IQueryable<IncidentDetailsResponse> HistoryQuery(IQueryable<IncidentNotice> query)
+        => from incident in query
+           join room in db.Set<Room>().AsNoTracking() on incident.RoomId equals (int?)room.RoomId into rooms
+           from room in rooms.DefaultIfEmpty()
+           select new IncidentDetailsResponse(incident.IncidentId, incident.Scope.ToString(), incident.RoomId,
+               room == null ? null : room.Name, incident.StartAtUtc, incident.EndAtUtc,
+               incident.Reason, incident.ResolutionSummary, incident.CreatedAtUtc);
+
     public async Task<NotificationDelivery> DeliveryAsync(Guid incidentId, CancellationToken ct = default)
     {
         if (!await db.Set<IncidentNotice>().AnyAsync(x => x.IncidentId == incidentId, ct))
@@ -255,6 +282,9 @@ public sealed class IncidentService(ISportHubDbContext db, IOccupancyService occ
 
 public sealed record IncidentRequest([property: SportHub.BuildingBlocks.Api.WireEnum] string Scope, int? RoomId, DateTime StartAtUtc, DateTime EndAtUtc, string Reason,
     int? MembershipExtensionDays = null);
+public sealed record IncidentDetailsResponse(Guid IncidentId,
+    [property: SportHub.BuildingBlocks.Api.WireEnum] string Scope, int? RoomId, string? RoomName,
+    DateTime StartAtUtc, DateTime EndAtUtc, string Reason, string ResolutionSummary, DateTime CreatedAtUtc);
 public sealed record IncidentImpact([property: SportHub.BuildingBlocks.Api.WireEnum] string SourceType, Guid SourceId, DateTime StartAtUtc, DateTime EndAtUtc)
 {
     public IReadOnlyList<IncidentResolutionOption> ResolutionOptions => SourceType switch

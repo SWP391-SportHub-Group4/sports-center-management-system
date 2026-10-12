@@ -136,6 +136,7 @@ export function ManagerRelationships() {
           }}
         >
           <MemberPicker
+            scanner={false}
             value={member}
             onChange={(m) => {
               setMember(m);

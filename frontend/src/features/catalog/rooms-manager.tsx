@@ -158,19 +158,13 @@ function Blocks({ roomId }: { roomId: number }) {
       </Link>
       {removing && (
         <Dialog
+          showCloseButton={false}
           title={l.remove}
           onClose={() => {
             if (!mutation.busy) setRemoving(null);
           }}
           footer={
             <>
-              <button
-                className="btn btn--secondary"
-                disabled={mutation.busy}
-                onClick={() => setRemoving(null)}
-              >
-                {l.cancel}
-              </button>
               <button
                 className="btn"
                 disabled={mutation.busy}
@@ -186,6 +180,13 @@ function Blocks({ roomId }: { roomId: number }) {
                 }}
               >
                 {l.confirm}
+              </button>
+              <button
+                className="btn btn--secondary"
+                disabled={mutation.busy}
+                onClick={() => setRemoving(null)}
+              >
+                {l.cancel}
               </button>
             </>
           }
@@ -218,28 +219,14 @@ export function RoomsManager({ detailId }: { detailId?: number } = {}) {
   const [editing, setEditing] = useState(false);
   return (
     <>
-      <div className="btn-row">
-        {detailId ? (
-          <Link className="btn btn--ghost" href="/manager/facilities">
-            {t.managerOperations.backToList}
-          </Link>
-        ) : (
-          <button
-            className="btn"
-            onClick={() => {
-              setId(null);
-              setForm(empty);
-              setEditing(true);
-              mutation.reset();
-            }}
-          >
-            {l.create}
-          </button>
-        )}
-      </div>
+      {detailId && (
+        <Link className="btn btn--ghost" href="/manager/facilities">
+          {t.managerOperations.backToList}
+        </Link>
+      )}
       {editing && (
         <CatalogFormDialog
-          title={id ? l.edit : l.create}
+          title={`${id ? l.edit : l.create} ${l.room.toLocaleLowerCase()}`}
           busy={mutation.busy}
           mutation={mutation}
           onClose={() => {
@@ -266,7 +253,7 @@ export function RoomsManager({ detailId }: { detailId?: number } = {}) {
           }}
         >
           <div className="form-grid">
-            <Field label={l.name}>
+            <Field label={l.name} required>
               <input
                 required
                 maxLength={100}
@@ -275,7 +262,7 @@ export function RoomsManager({ detailId }: { detailId?: number } = {}) {
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
               />
             </Field>
-            <Field label={l.capacity}>
+            <Field label={l.capacity} required>
               <input
                 required
                 type="number"
@@ -335,6 +322,21 @@ export function RoomsManager({ detailId }: { detailId?: number } = {}) {
           onChange={setValues}
           onReset={() => setValues({ q: "", status: "" })}
         />
+      )}
+      {!detailId && (
+        <div className="btn-row">
+          <button
+            className="btn"
+            onClick={() => {
+              setId(null);
+              setForm(empty);
+              setEditing(true);
+              mutation.reset();
+            }}
+          >
+            {l.create}
+          </button>
+        </div>
       )}
       <AsyncSection state={state}>
         {(rows) => (
