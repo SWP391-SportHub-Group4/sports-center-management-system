@@ -15,6 +15,7 @@ const account = {
   createdAt: "2026-10-01T02:00:00Z",
   hasPassword: true,
   hasGoogleLink: false,
+  activationPending: false,
 };
 
 async function setup(
@@ -404,8 +405,14 @@ test("staff creation sends an activation email and lets Admin assign Coach speci
   ).toHaveText(["Center Manager", "Coach", "Receptionist", "System Administrator"]);
   await dialog.getByLabel("Full name", { exact: true }).fill("New staff");
   await dialog.getByLabel("Email", { exact: true }).fill("new@example.com");
+  await dialog.getByLabel("Confirm email", { exact: true }).fill("neww@example.com");
+  await expect(dialog.getByText("The two email addresses do not match.")).toBeVisible();
+  await expect(
+    dialog.getByRole("button", { name: "Review staff account", exact: true }),
+  ).toBeDisabled();
+  await dialog.getByLabel("Confirm email", { exact: true }).fill("NEW@example.com");
   await dialog.getByLabel("Role", { exact: true }).selectOption("COACH");
-  await dialog.getByRole("checkbox", { name: "Gym" }).check();
+  await dialog.getByRole("radio", { name: "Gym" }).check();
   await expect(dialog.getByLabel("Password", { exact: true })).toHaveCount(0);
   await expect(dialog).toContainText("An activation email with a link to set the first password");
   await dialog
@@ -601,5 +608,69 @@ test("Member accounts cannot be converted to staff and show how to create a staf
   await expect(dialog.getByLabel("Role", { exact: true })).toHaveCount(0);
   await expect(
     dialog.getByRole("button", { name: "Change role", exact: true }),
+  ).toHaveCount(0);
+});
+
+test("pending staff show a badge, resend the link and correct a mistyped email", async ({
+  page,
+}) => {
+  const row = await setup(page);
+  row.activationPending = true;
+  row.hasPassword = false;
+  const writes: string[] = [];
+  await page.route(`**/api/users/${row.userId}/resend-activation`, (route) => {
+    writes.push("resend");
+    return route.fulfill({ json: row });
+  });
+  await page.route(`**/api/users/${row.userId}/email`, (route) => {
+    writes.push("email");
+    expect(route.request().method()).toBe("PUT");
+    expect(route.request().postDataJSON()).toMatchObject({
+      email: "right@example.com",
+      reason: "Typo in the invitation",
+    });
+    return route.fulfill({ json: { ...row, email: "right@example.com" } });
+  });
+  await page.goto("/admin/users");
+  await expect(
+    page.getByRole("table", { name: "Users and roles" }),
+  ).toContainText("Pending activation");
+
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog
+    .getByRole("button", { name: "Resend activation link", exact: true })
+    .click();
+  await expect.poll(() => writes).toEqual(["resend"]);
+
+  await dialog.getByRole("button", { name: "Change email", exact: true }).click();
+  await dialog.getByLabel("New email", { exact: true }).fill("right@example.com");
+  await dialog.getByLabel("Confirm new email", { exact: true }).fill("wrong@example.com");
+  await expect(dialog.getByText("The two email addresses do not match.")).toBeVisible();
+  await expect(
+    dialog.getByRole("button", { name: "Update email and send link", exact: true }),
+  ).toBeDisabled();
+  await dialog.getByLabel("Confirm new email", { exact: true }).fill("right@example.com");
+  await dialog
+    .getByLabel("Reason", { exact: true })
+    .first()
+    .fill("Typo in the invitation");
+  await dialog
+    .getByRole("button", { name: "Update email and send link", exact: true })
+    .click();
+  await expect.poll(() => writes).toEqual(["resend", "email"]);
+});
+
+test("activated staff do not show pending-activation actions", async ({
+  page,
+}) => {
+  await setup(page);
+  await page.goto("/admin/users");
+  await expect(
+    page.getByRole("table", { name: "Users and roles" }),
+  ).not.toContainText("Pending activation");
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await expect(
+    page.getByRole("dialog").getByRole("button", { name: "Resend activation link" }),
   ).toHaveCount(0);
 });

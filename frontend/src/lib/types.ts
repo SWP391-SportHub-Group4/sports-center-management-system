@@ -408,6 +408,8 @@ export interface UserAdminDto {
   hasPassword: boolean;
   hasGoogleLink: boolean;
   sportIds: number[];
+  /** Staff account that has not set a password yet (waiting for the activation email). */
+  activationPending?: boolean;
 }
 
 export type MyAccountDto = UserAdminDto & { avatarUrl?: string | null };

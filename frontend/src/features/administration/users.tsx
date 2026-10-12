@@ -25,10 +25,6 @@ const staffRoles = [
   "RECEPTIONIST",
   "SYSTEM_ADMINISTRATOR",
 ];
-<<<<<<< managerFix
-const creationRoles = staffRoles.filter((role) => role !== "COACH");
-const defaultStaffPassword = "Sporthub@123";
-=======
 const creationRoles = staffRoles;
 const staffRoleIds: Record<string, number> = {
   CENTER_MANAGER: 1,
@@ -36,7 +32,6 @@ const staffRoleIds: Record<string, number> = {
   RECEPTIONIST: 4,
   SYSTEM_ADMINISTRATOR: 5,
 };
->>>>>>> develop
 const accountRoles = [...staffRoles, "MEMBER"];
 const accountStatuses = ["ACTIVE", "BANNED", "DEACTIVATED"];
 const accountStatusTones: Partial<Record<string, StatusTone>> = {
@@ -114,25 +109,16 @@ function CreateStaff({
   const l = t.staffWork;
   const mutation = useMutation();
   const [email, setEmail] = useState("");
-<<<<<<< managerFix
-  const [password, setPassword] = useState("");
-  const [confirm, setConfirm] = useState("");
-  const [useDefaultPassword, setUseDefaultPassword] = useState(true);
-=======
->>>>>>> develop
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [role, setRole] = useState("RECEPTIONIST");
   const [specialties, setSpecialties] = useState<number[]>([]);
   const [review, setReview] = useState(false);
   const fieldClass = `form-grid__row ${styles.halfField}`;
-  const accountPassword = useDefaultPassword ? defaultStaffPassword : password;
-  const validPassword = passwordChecks(accountPassword, email).every(Boolean);
   const canSubmit =
     !!name.trim() &&
     !!email.trim() &&
-    validPassword &&
-    (useDefaultPassword || password === confirm);
+    (role !== "COACH" || specialties.length > 0);
 
   return (
     <Dialog
@@ -156,10 +142,6 @@ function CreateStaff({
             await mutation.run(() =>
               api.post("/api/users/admin/staff", {
                 email: email.trim(),
-<<<<<<< managerFix
-                password: accountPassword,
-=======
->>>>>>> develop
                 fullName: name.trim(),
                 phone: phone.trim() || null,
                 roleId: staffRoleIds[role],
@@ -275,9 +257,7 @@ function CreateStaff({
           <button
             type="submit"
             className="btn"
-            disabled={
-              mutation.busy || (role === "COACH" && specialties.length === 0)
-            }
+            disabled={mutation.busy || !canSubmit}
           >
             {review ? l.confirm : t.adminWork.reviewCreate}
           </button>
