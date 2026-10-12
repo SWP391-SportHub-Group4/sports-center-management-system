@@ -20,12 +20,12 @@ public sealed class ClassEnrollmentReportService(ISportHubDbContext db, IClock c
     {
         if (toDate < fromDate)
         {
-            throw new BadRequestException("invalid_date_range", "Ngày kết thúc phải bằng hoặc sau ngày bắt đầu.");
+            throw new BadRequestException("invalid_date_range", "Invalid date range.");
         }
 
         if (toDate.DayNumber - fromDate.DayNumber > MaximumRangeDays)
         {
-            throw new BadRequestException("range_too_large", $"Khoảng báo cáo tối đa {MaximumRangeDays} ngày.");
+            throw new BadRequestException("range_too_large", $"The class enrollment report range cannot exceed {MaximumRangeDays} days.");
         }
 
         var query = db.Set<Class>().AsNoTracking()

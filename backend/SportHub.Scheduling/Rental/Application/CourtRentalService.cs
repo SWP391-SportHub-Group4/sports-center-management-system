@@ -29,27 +29,27 @@ public sealed partial class CourtRentalService(ISportHubDbContext db, IUserAcces
         // Mọi Member đang hoạt động đều thuê được sân: không cần Membership Gym, chuyên môn hay duyệt.
         var access = await users.GetAsync(request.MemberId, cancellationToken);
         if (access is null || !access.IsActive || access.Role != "Member")
-            throw new ForbiddenException("member_inactive", "Chỉ Member đang hoạt động mới được thuê sân.");
+            throw new ForbiddenException("member_inactive", "Member inactive.");
 
         // Môn phải đang hoạt động và dịch vụ thuê sân đang bật; không whitelist theo tên hay ID môn.
         if (!await catalog.IsServiceEnabledAsync(request.SportId, SportServiceType.CourtRental, cancellationToken))
-            throw new BadRequestException("rental_not_available", "Môn này không cho thuê sân hoặc đã ngừng hoạt động.");
+            throw new BadRequestException("rental_not_available", "Rental not available.");
         var room = await (from r in db.Set<Room>().AsNoTracking()
                           join link in db.Set<SportRoomType>().AsNoTracking() on r.RoomTypeId equals link.RoomTypeId
                           where r.RoomId == request.RoomId && r.IsActive && link.SportId == request.SportId
                           select r).SingleOrDefaultAsync(cancellationToken)
-            ?? throw new ConflictException("rental_room_incompatible", "Sân không hoạt động hoặc không phù hợp môn.");
+            ?? throw new ConflictException("rental_room_incompatible", "Rental room incompatible.");
         if (room.RoomTypeId is not int roomTypeId)
-            throw new ConflictException("rental_room_unclassified", "Sân chưa được phân loại để thuê.");
+            throw new ConflictException("rental_room_unclassified", "Rental room unclassified.");
 
         var startLocal = VietnamTime.ToLocal(request.StartUtc.UtcDateTime);
         var endLocal = VietnamTime.ToLocal(request.EndUtc.UtcDateTime);
         if (startLocal.Date != endLocal.Date)
-            throw new BadRequestException("rental_cross_day", "Một lượt thuê phải nằm trong cùng ngày địa phương.");
+            throw new BadRequestException("rental_cross_day", "Rental cross day.");
         var opening = await db.Set<RoomOpeningHour>().AsNoTracking().SingleOrDefaultAsync(x => x.RoomId == room.RoomId
             && x.DayOfWeek == (int)startLocal.DayOfWeek, cancellationToken);
         if (!RoomOpeningHourService.Covers(opening, startLocal, endLocal))
-            throw new ConflictException("rental_outside_opening_hours", "Thời gian thuê nằm ngoài giờ mở cửa của sân.");
+            throw new ConflictException("rental_outside_opening_hours", "Rental outside opening hours.");
 
         var rates = await db.Set<CourtRate>().AsNoTracking().Where(x => x.IsActive && x.RoomTypeId == roomTypeId
             && (x.SportId == null || x.SportId == request.SportId)).ToListAsync(cancellationToken);
@@ -62,10 +62,10 @@ public sealed partial class CourtRentalService(ISportHubDbContext db, IUserAcces
     {
         RequireTransaction();
         if (holdExpiresAtUtc <= clock.UtcNow || holdExpiresAtUtc > request.StartUtc)
-            throw new ConflictException("rental_hold_window_invalid", "Hạn checkout phải trước giờ thuê.");
+            throw new ConflictException("rental_hold_window_invalid", "Rental hold window invalid.");
         var quote = await QuoteAsync(request, cancellationToken);
         if (quote.TotalPrice != quotedPrice.TotalPrice || !quote.Blocks.SequenceEqual(quotedPrice.Blocks))
-            throw new ConflictException("rental_price_changed", "Bảng giá đã đổi trong lúc đặt sân; hãy xác nhận lại báo giá.");
+            throw new ConflictException("rental_price_changed", "Rental price changed.");
         var id = Guid.NewGuid();
         var result = await occupancy.ReserveAsync(new OccupancyRequest(OccupancySources.CourtRental, id,
             request.RoomId, null, request.StartUtc, request.EndUtc), cancellationToken);
@@ -89,10 +89,10 @@ public sealed partial class CourtRentalService(ISportHubDbContext db, IUserAcces
         if (rental.Status == CourtRentalStatus.Confirmed)
         {
             if (rental.InvoiceItemId == invoiceItemId) return;
-            throw new ConflictException("rental_fulfillment_conflict", "Lượt thuê đã được xác nhận bằng hóa đơn khác.");
+            throw new ConflictException("rental_fulfillment_conflict", "Rental fulfillment conflict.");
         }
         if (rental.Status != CourtRentalStatus.PendingPayment || rental.StartAtUtc <= clock.UtcNow)
-            throw new ConflictException("rental_no_longer_valid", "Lượt thuê đã hủy hoặc đã bắt đầu.");
+            throw new ConflictException("rental_no_longer_valid", "Rental no longer valid.");
         rental.Status = CourtRentalStatus.Confirmed;
         rental.InvoiceItemId = invoiceItemId;
         await db.SaveChangesAsync(cancellationToken);
@@ -117,7 +117,7 @@ public sealed partial class CourtRentalService(ISportHubDbContext db, IUserAcces
         var rental = await LockAsync(courtRentalId, cancellationToken);
         if (rental.Status == CourtRentalStatus.Cancelled) return;
         if (!centerFault && (rental.Status is CourtRentalStatus.Completed || rental.StartAtUtc <= clock.UtcNow))
-            throw new ConflictException("rental_already_started", "Không thể hủy lượt thuê đã bắt đầu.");
+            throw new ConflictException("rental_already_started", "Rental already started.");
         rental.Status = CourtRentalStatus.Cancelled;
         rental.CancelledAtUtc = clock.UtcNow;
         rental.CancellationIncidentId = incidentId;
@@ -131,7 +131,7 @@ public sealed partial class CourtRentalService(ISportHubDbContext db, IUserAcces
     public async Task<CourtRentalRequest> GetForRetryAsync(Guid courtRentalId, CancellationToken cancellationToken = default)
     {
         var row = await db.Set<CourtRental>().AsNoTracking().SingleOrDefaultAsync(x => x.CourtRentalId == courtRentalId, cancellationToken)
-            ?? throw new NotFoundException("rental_not_found", "Không tìm thấy lượt thuê sân.");
+            ?? throw new NotFoundException("rental_not_found", "Rental not found.");
         return new CourtRentalRequest(row.MemberId, row.SportId, row.RoomId,
             new DateTimeOffset(DateTime.SpecifyKind(row.StartAtUtc, DateTimeKind.Utc)),
             new DateTimeOffset(DateTime.SpecifyKind(row.EndAtUtc, DateTimeKind.Utc)));
@@ -195,7 +195,7 @@ public sealed partial class CourtRentalService(ISportHubDbContext db, IUserAcces
 
     private async Task<CourtRental> LockAsync(Guid id, CancellationToken ct)
         => (await db.Set<CourtRental>().FromSqlInterpolated($"SELECT * FROM court_rentals WHERE court_rental_id = {id} FOR UPDATE")
-            .SingleOrDefaultAsync(ct)) ?? throw new NotFoundException("rental_not_found", "Không tìm thấy lượt thuê sân.");
+            .SingleOrDefaultAsync(ct)) ?? throw new NotFoundException("rental_not_found", "Rental not found.");
 
     private void RequireTransaction()
     {
@@ -206,13 +206,13 @@ public sealed partial class CourtRentalService(ISportHubDbContext db, IUserAcces
     {
         if (request.MemberId == Guid.Empty || request.SportId <= 0 || request.RoomId <= 0
             || request.StartUtc.Offset != TimeSpan.Zero || request.EndUtc.Offset != TimeSpan.Zero)
-            throw new BadRequestException("invalid_rental_request", "Thông tin sân thuê không hợp lệ.");
+            throw new BadRequestException("invalid_rental_request", "Invalid rental request.");
         var duration = request.EndUtc - request.StartUtc;
         if (slotMinutes is not (30 or 60) || maxHours is < 1 or > 4 || advanceDays is < 1 or > 30
             || request.StartUtc <= clock.UtcNow || request.StartUtc > clock.UtcNow.AddDays(advanceDays)
             || duration < TimeSpan.FromHours(1) || duration > TimeSpan.FromHours(maxHours)
             || duration.TotalMinutes % slotMinutes != 0 || request.StartUtc.Minute % slotMinutes != 0
             || request.StartUtc.Second != 0 || request.StartUtc.Millisecond != 0)
-            throw new BadRequestException("invalid_rental_window", $"Lượt thuê phải bắt đầu trong {advanceDays} ngày, theo khối {slotMinutes} phút và kéo dài 1–{maxHours} giờ.");
+            throw new BadRequestException("invalid_rental_window", $"Rental must start within {advanceDays} days, use {slotMinutes}-minute slots, and last from 1 to {maxHours} hours.");
     }
 }

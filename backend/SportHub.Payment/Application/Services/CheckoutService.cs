@@ -28,12 +28,12 @@ public sealed class CheckoutService(ISportHubDbContext db,
     public async Task<CheckoutResponse> FindByReferenceAsync(string reference, Guid actorId, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(reference) || reference.Length > 120)
-            throw new BadRequestException("payment_reference_invalid", "Mã giao dịch không hợp lệ.");
+            throw new BadRequestException("payment_reference_invalid", "Payment reference invalid.");
         var invoiceId = await (from attempt in db.Set<PaymentAttempt>().AsNoTracking()
             join invoice in db.Set<Invoice>() on attempt.InvoiceId equals invoice.InvoiceId
             where attempt.VnpTxnRef == reference && (invoice.MemberId == actorId || invoice.IssuedByUserId == actorId)
             select (Guid?)invoice.InvoiceId).SingleOrDefaultAsync(ct)
-            ?? throw new NotFoundException("checkout_not_found", "Không tìm thấy giao dịch của bạn.");
+            ?? throw new NotFoundException("checkout_not_found", "Checkout not found.");
         return await GetAsync(invoiceId, actorId, true, ct);
     }
 
@@ -44,7 +44,7 @@ public sealed class CheckoutService(ISportHubDbContext db,
             join invoice in db.Set<Invoice>() on session.InvoiceId equals invoice.InvoiceId
             where session.IdempotencyKey == key && (invoice.MemberId == actorId || invoice.IssuedByUserId == actorId)
             select (Guid?)invoice.InvoiceId).FirstOrDefaultAsync(ct)
-            ?? throw new NotFoundException("checkout_not_found", "Không tìm thấy checkout của yêu cầu này.");
+            ?? throw new NotFoundException("checkout_not_found", "Checkout not found.");
         return await GetAsync(invoiceId, actorId, true, ct);
     }
 
@@ -54,13 +54,13 @@ public sealed class CheckoutService(ISportHubDbContext db,
         RequireKey(idempotencyKey);
         var invoice = await db.Set<Invoice>().AsNoTracking()
             .SingleOrDefaultAsync(x => x.InvoiceId == oldInvoiceId, ct)
-            ?? throw new NotFoundException("invoice_not_found", "Không tìm thấy hóa đơn.");
+            ?? throw new NotFoundException("invoice_not_found", "Invoice not found.");
         EnsureAccess(invoice, actorId, isFrontDesk);
         var old = await db.Set<CheckoutSession>().AsNoTracking()
             .SingleOrDefaultAsync(x => x.CheckoutSessionId == invoice.CheckoutCycleId, ct)
-            ?? throw new ConflictException("checkout_unavailable", "Không tìm thấy checkout cũ.");
+            ?? throw new ConflictException("checkout_unavailable", "Checkout unavailable.");
         if (invoice.Status is InvoiceStatus.Paid or InvoiceStatus.PaidAfterReconciliation || old.ExpiresAtUtc > clock.UtcNow)
-            throw new ConflictException("checkout_retry_too_early", "Chỉ tạo lại checkout đã hết hạn và chưa trả.");
+            throw new ConflictException("checkout_retry_too_early", "Checkout retry too early.");
         if (invoice.Status == InvoiceStatus.Issued)
             await CancelAsync(oldInvoiceId, actorId, isFrontDesk, ct);
         Guid? target = isFrontDesk ? invoice.MemberId : null;
@@ -69,7 +69,7 @@ public sealed class CheckoutService(ISportHubDbContext db,
             case "Membership":
             {
                 if (invoice.MemberPackageId is not Guid memberPackageId)
-                    throw new ConflictException("checkout_kind_unsupported", "Checkout thiếu gói Membership.");
+                    throw new ConflictException("checkout_kind_unsupported", "Checkout kind unsupported.");
                 var package = await memberships.GetAsync(memberPackageId, ct);
                 var detail = await packages.PurchaseAsync(new PurchasePackageRequest
                 {
@@ -85,13 +85,13 @@ public sealed class CheckoutService(ISportHubDbContext db,
             case "PT" when old.PtMemberPackageId is Guid membershipId
                 && old.PtCoachId is Guid coachId && old.PtFrequency is int frequency:
                 if (string.IsNullOrWhiteSpace(priceVersion))
-                    throw new BadRequestException("pt_price_version_required", "Cần xác nhận báo giá PT mới.");
+                    throw new BadRequestException("pt_price_version_required", "Pt price version required.");
                 return await CreatePtAsync(new PtCheckoutRequest(membershipId, coachId, frequency,
                     priceVersion, target, old.PtStartAtUtc, old.PtRoomId), idempotencyKey, actorId, isFrontDesk, ct);
             case "CourtRental" when old.ResourceHoldId is Guid rentalId:
                 return await CreateCourtRentalAsync(await rentals.GetForRetryAsync(rentalId, ct), idempotencyKey, actorId, ct);
             default:
-                throw new ConflictException("checkout_kind_unsupported", "Chưa hỗ trợ tạo lại loại checkout này.");
+                throw new ConflictException("checkout_kind_unsupported", "Checkout kind unsupported.");
         }
     }
 
@@ -117,7 +117,7 @@ public sealed class CheckoutService(ISportHubDbContext db,
                 || existing.Session.PtFrequency != request.FrequencyPerWeek
                 || existing.Session.PtStartAtUtc != request.StartAtUtc
                 || existing.Session.PtRoomId != request.RoomId)
-                throw new ConflictException("idempotency_key_reused", "Khóa idempotency đã dùng cho giao dịch khác.");
+                throw new ConflictException("idempotency_key_reused", "Idempotency key reused.");
             await tx.CommitAsync(ct);
             return await GetAsync(existing.Invoice.InvoiceId, actorId, isFrontDesk, ct);
         }
@@ -125,7 +125,7 @@ public sealed class CheckoutService(ISportHubDbContext db,
             request.CoachId, request.FrequencyPerWeek, request.StartAtUtc, request.RoomId);
         var quote = await pt.QuoteAsync(ptRequest, ct);
         if (quote.PriceVersion != request.PriceVersion)
-            throw new ConflictException("pt_price_changed", "Giá PT đã đổi; hãy xem báo giá mới và xác nhận lại.");
+            throw new ConflictException("pt_price_changed", "Pt price changed.");
         var invoice = new Invoice
         {
             InvoiceId = Guid.NewGuid(), InvoiceNumber = await invoiceNumbers.NextAsync(now, ct),
@@ -138,7 +138,7 @@ public sealed class CheckoutService(ISportHubDbContext db,
         {
             ItemId = Guid.NewGuid(), InvoiceId = invoice.InvoiceId, ItemType = InvoiceItemType.PT,
             Description = $"PT coach {request.CoachId}; Membership {request.MemberPackageId}; "
-                + (request.StartAtUtc is DateTime start ? $"1 buổi 90 phút; {start:O}; " : $"{quote.FrequencyPerWeek}/tuần; ")
+                + (request.StartAtUtc is DateTime start ? $"one 90-minute session; {start:O}; " : $"{quote.FrequencyPerWeek}/week; ")
                 + $"priceVersion {quote.PriceVersion}",
             UnitPrice = quote.PricePerSession, Quantity = quote.TotalQuota,
             LineAmount = quote.TotalPrice, SportId = quote.SportId, SportNameSnapshot = quote.SportName,
@@ -185,17 +185,17 @@ public sealed class CheckoutService(ISportHubDbContext db,
         {
             if (existing.Invoice.MemberId != memberId || existing.Session.ClassId != request.ClassId
                 || existing.Session.Kind != "Class")
-                throw new ConflictException("idempotency_key_reused", "Khóa idempotency đã dùng cho giao dịch khác.");
+                throw new ConflictException("idempotency_key_reused", "Idempotency key reused.");
             await tx.CommitAsync(ct);
             return await GetAsync(existing.Invoice.InvoiceId, actorId, isFrontDesk, ct);
         }
         var quote = await classes.QuoteAsync(request.ClassId, memberId, ct);
         if (quote.Price <= 0 || quote.Price % 1000 != 0)
-            throw new ConflictException("class_price_invalid", "Giá khóa học phải là bội số 1.000 VND.");
+            throw new ConflictException("class_price_invalid", "Class price invalid.");
         var expiry = now.AddMinutes(minutes);
         if (expiry >= quote.FirstSessionUtc.UtcDateTime)
             expiry = quote.FirstSessionUtc.UtcDateTime.AddSeconds(-1);
-        if (expiry <= now) throw new ConflictException("class_started", "Khóa sắp bắt đầu, không đủ thời gian thanh toán.");
+        if (expiry <= now) throw new ConflictException("class_started", "Class started.");
         var invoice = new Invoice
         {
             InvoiceId = Guid.NewGuid(), InvoiceNumber = await invoiceNumbers.NextAsync(now, ct),
@@ -233,12 +233,12 @@ public sealed class CheckoutService(ISportHubDbContext db,
         Guid actorId, CancellationToken ct)
     {
         if (request.MemberId != actorId)
-            throw new ForbiddenException("rental_owner_mismatch", "Member chỉ được đặt sân cho chính mình.");
+            throw new ForbiddenException("rental_owner_mismatch", "Rental owner mismatch.");
         RequireKey(idempotencyKey);
         var now = clock.UtcNow;
         var minutes = await settings.GetIntAsync(SystemSettingKeys.HoldMinutes, ct);
         if (minutes is < 1 or > 1440)
-            throw new ConflictException("hold_setting_invalid", "Thời hạn checkout không hợp lệ.");
+            throw new ConflictException("hold_setting_invalid", "Hold setting invalid.");
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         await db.Database.ExecuteSqlInterpolatedAsync(
             $"SELECT user_id FROM user_accounts WHERE user_id = {actorId} FOR UPDATE", ct);
@@ -249,11 +249,11 @@ public sealed class CheckoutService(ISportHubDbContext db,
         if (existing is not null)
         {
             if (existing.Invoice.MemberId != actorId || existing.Session.ResourceHoldId is not Guid existingRentalId)
-                throw new ConflictException("idempotency_key_reused", "Khóa idempotency đã dùng cho giao dịch khác.");
+                throw new ConflictException("idempotency_key_reused", "Idempotency key reused.");
             var priorRequest = await rentals.GetForRetryAsync(existingRentalId, ct);
             if (priorRequest.SportId != request.SportId || priorRequest.RoomId != request.RoomId
                 || priorRequest.StartUtc != request.StartUtc || priorRequest.EndUtc != request.EndUtc)
-                throw new ConflictException("idempotency_key_reused", "Khóa idempotency đã dùng cho lượt thuê khác.");
+                throw new ConflictException("idempotency_key_reused", "Idempotency key reused.");
             await tx.CommitAsync(ct);
             return await GetAsync(existing.Invoice.InvoiceId, actorId, false, ct);
         }
@@ -261,7 +261,7 @@ public sealed class CheckoutService(ISportHubDbContext db,
         var expiry = new DateTimeOffset(now.AddMinutes(minutes), TimeSpan.Zero);
         if (expiry >= request.StartUtc) expiry = request.StartUtc.AddSeconds(-1);
         if (expiry <= now)
-            throw new ConflictException("rental_checkout_window_closed", "Không đủ thời gian thanh toán trước giờ thuê.");
+            throw new ConflictException("rental_checkout_window_closed", "Rental checkout window closed.");
         var invoice = new Invoice
         {
             InvoiceId = Guid.NewGuid(), InvoiceNumber = await invoiceNumbers.NextAsync(now, ct),
@@ -302,11 +302,11 @@ public sealed class CheckoutService(ISportHubDbContext db,
     public async Task<CheckoutResponse> GetAsync(Guid invoiceId, Guid actorId, bool isStaff, CancellationToken ct)
     {
         var invoice = await db.Set<Invoice>().AsNoTracking().SingleOrDefaultAsync(x => x.InvoiceId == invoiceId, ct)
-            ?? throw new NotFoundException("invoice_not_found", "Không tìm thấy hóa đơn.");
+            ?? throw new NotFoundException("invoice_not_found", "Invoice not found.");
         EnsureAccess(invoice, actorId, isStaff);
         var session = await db.Set<CheckoutSession>().AsNoTracking().SingleOrDefaultAsync(
             x => x.CheckoutSessionId == invoice.CheckoutCycleId, ct)
-            ?? throw new NotFoundException("checkout_not_found", "Không tìm thấy checkout.");
+            ?? throw new NotFoundException("checkout_not_found", "Checkout not found.");
         return ToResponse(invoice, session);
     }
 
@@ -318,7 +318,7 @@ public sealed class CheckoutService(ISportHubDbContext db,
             EnsureAccess(invoice, actorId, isStaff);
             if (await db.Set<SportHub.Payment.Wallet.Domain.PointConfirmation>().AnyAsync(x => x.InvoiceId == invoiceId
                 && x.ConsumedAtUtc == null && x.RevokedAtUtc == null, ct))
-                throw new ConflictException("point_confirmation_pending", "Cần xác minh hoặc bỏ yêu cầu điểm tại quầy trước khi thanh toán.");
+                throw new ConflictException("point_confirmation_pending", "Point confirmation pending.");
             if (invoice.Status is InvoiceStatus.Paid or InvoiceStatus.PaidAfterReconciliation)
             {
                 await tx.CommitAsync(ct);
@@ -326,14 +326,14 @@ public sealed class CheckoutService(ISportHubDbContext db,
             else
             {
                 var session = await db.Set<CheckoutSession>().SingleOrDefaultAsync(x => x.CheckoutSessionId == invoice.CheckoutCycleId, ct)
-                    ?? throw new ConflictException("checkout_unavailable", "Không tìm thấy checkout.");
+                    ?? throw new ConflictException("checkout_unavailable", "Checkout unavailable.");
                 if (invoice.CashAmount != 0 || invoice.Status != InvoiceStatus.Issued || session.State != "Active"
                     || session.ExpiresAtUtc <= clock.UtcNow || invoice.ReconciliationRequired)
-                    throw new ConflictException("checkout_unavailable", "Checkout không đủ điều kiện thanh toán toàn điểm.");
+                    throw new ConflictException("checkout_unavailable", "Checkout unavailable.");
                 if (await db.Set<VerifiedGatewayEvent>().AnyAsync(e =>
                     (e.ProcessingStatus == "Pending" || e.ProcessingStatus == "ReconciliationRequired")
                     && db.Set<PaymentAttempt>().Any(a => a.PaymentAttemptId == e.PaymentAttemptId && a.InvoiceId == invoiceId), ct))
-                    throw new ConflictException("payment_reconciliation_pending", "Khoản thu đang đối soát.");
+                    throw new ConflictException("payment_reconciliation_pending", "Payment reconciliation pending.");
                 await fulfillment.CompletePointsAsync(invoice, session, ct);
                 await tx.CommitAsync(ct);
             }
@@ -358,18 +358,18 @@ public sealed class CheckoutService(ISportHubDbContext db,
             EnsureAccess(invoice, actorId, isStaff);
             if (await db.Set<SportHub.Payment.Wallet.Domain.PointConfirmation>().AnyAsync(x => x.InvoiceId == invoiceId
                 && x.ConsumedAtUtc == null && x.RevokedAtUtc == null, ct))
-                throw new ConflictException("point_confirmation_pending", "Cần xác minh hoặc bỏ yêu cầu điểm tại quầy trước khi thanh toán.");
+                throw new ConflictException("point_confirmation_pending", "Point confirmation pending.");
             var session = await db.Set<CheckoutSession>().SingleOrDefaultAsync(
                 x => x.CheckoutSessionId == invoice.CheckoutCycleId, ct)
-                ?? throw new ConflictException("checkout_unavailable", "Không tìm thấy chu kỳ checkout.");
+                ?? throw new ConflictException("checkout_unavailable", "Checkout unavailable.");
             if (invoice.Status != InvoiceStatus.Issued || session.State != "Active"
                 || session.ExpiresAtUtc <= clock.UtcNow)
-                throw new ConflictException("checkout_unavailable", "Chu kỳ checkout đã hết hiệu lực.");
+                throw new ConflictException("checkout_unavailable", "Checkout unavailable.");
             if (invoice.ReconciliationRequired || await db.Set<VerifiedGatewayEvent>().AnyAsync(e =>
                     (e.ProcessingStatus == "Pending" || e.ProcessingStatus == "ReconciliationRequired")
                     && db.Set<PaymentAttempt>().Any(a => a.PaymentAttemptId == e.PaymentAttemptId
                         && a.InvoiceId == invoiceId), ct))
-                throw new ConflictException("payment_reconciliation_pending", "Khoản thu đang đối soát; không tạo attempt mới.");
+                throw new ConflictException("payment_reconciliation_pending", "Payment reconciliation pending.");
             if (invoice.CashAmount == 0)
             {
                 await fulfillment.CompletePointsAsync(invoice, session, ct);
@@ -384,7 +384,7 @@ public sealed class CheckoutService(ISportHubDbContext db,
             {
                 if (pending.CheckoutSessionId != session.CheckoutSessionId || pending.Amount != invoice.CashAmount
                     || pending.PointsSnapshot != invoice.PointsApplied || pending.VnpExpireDate <= clock.UtcNow)
-                    throw new ConflictException("payment_attempt_changed", "Attempt cũ cần đối soát hoặc checkout mới.");
+                    throw new ConflictException("payment_attempt_changed", "Payment attempt changed.");
                 attemptId = pending.PaymentAttemptId;
                 reference = pending.VnpTxnRef;
                 amount = pending.Amount;
@@ -423,15 +423,15 @@ public sealed class CheckoutService(ISportHubDbContext db,
         EnsureAccess(invoice, actorId, isStaff);
         if (invoice.Status == InvoiceStatus.Void) return;
         if (invoice.Status != InvoiceStatus.Issued)
-            throw new ConflictException("checkout_already_paid", "Không thể hủy checkout đã thanh toán.");
+            throw new ConflictException("checkout_already_paid", "Checkout already paid.");
         var session = await db.Set<CheckoutSession>().SingleOrDefaultAsync(
             x => x.CheckoutSessionId == invoice.CheckoutCycleId, ct);
-        if (session is null) throw new ConflictException("checkout_unavailable", "Không tìm thấy chu kỳ checkout.");
+        if (session is null) throw new ConflictException("checkout_unavailable", "Checkout unavailable.");
         var attemptIds = await db.Set<PaymentAttempt>().Where(a => a.InvoiceId == invoiceId)
             .Select(a => a.PaymentAttemptId).ToListAsync(ct);
         if (await db.Set<VerifiedGatewayEvent>().AnyAsync(e => attemptIds.Contains(e.PaymentAttemptId)
                 && (e.ProcessingStatus == "Pending" || e.ProcessingStatus == "ReconciliationRequired"), ct))
-            throw new ConflictException("payment_reconciliation_pending", "Thanh toán cần được đối soát trước khi hủy.");
+            throw new ConflictException("payment_reconciliation_pending", "Payment reconciliation pending.");
         await fulfillment.ReleaseAsync(invoice, session, "Cancelled", actorId, ct);
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
@@ -444,15 +444,15 @@ public sealed class CheckoutService(ISportHubDbContext db,
         var invoice = await LockInvoiceAsync(invoiceId, ct);
         if (invoice.Status == InvoiceStatus.Void) return;
         if (invoice.Status != InvoiceStatus.Issued)
-            throw new ConflictException("checkout_system_release_reconciliation", "Checkout đã thanh toán hoặc cần đối soát.");
+            throw new ConflictException("checkout_system_release_reconciliation", "Checkout system release reconciliation.");
         var session = await db.Set<CheckoutSession>().SingleOrDefaultAsync(
             x => x.CheckoutSessionId == invoice.CheckoutCycleId, ct)
-            ?? throw new ConflictException("checkout_unavailable", "Không tìm thấy chu kỳ checkout.");
+            ?? throw new ConflictException("checkout_unavailable", "Checkout unavailable.");
         var attemptIds = await db.Set<PaymentAttempt>().Where(a => a.InvoiceId == invoiceId)
             .Select(a => a.PaymentAttemptId).ToListAsync(ct);
         if (await db.Set<VerifiedGatewayEvent>().AnyAsync(e => attemptIds.Contains(e.PaymentAttemptId)
                 && (e.ProcessingStatus == "Pending" || e.ProcessingStatus == "ReconciliationRequired"), ct))
-            throw new ConflictException("payment_reconciliation_pending", "Thanh toán đang được đối soát.");
+            throw new ConflictException("payment_reconciliation_pending", "Payment reconciliation pending.");
         await fulfillment.ReleaseAsync(invoice, session, reason, null, ct);
         await db.SaveChangesAsync(ct);
     }
@@ -460,31 +460,31 @@ public sealed class CheckoutService(ISportHubDbContext db,
     public async Task<PendingCheckoutState> GetStateAsync(Guid invoiceId, CancellationToken cancellationToken = default)
     {
         var invoice = await db.Set<Invoice>().AsNoTracking().SingleOrDefaultAsync(x => x.InvoiceId == invoiceId, cancellationToken)
-            ?? throw new NotFoundException("invoice_not_found", "Không tìm thấy hóa đơn.");
+            ?? throw new NotFoundException("invoice_not_found", "Invoice not found.");
         var session = await db.Set<CheckoutSession>().AsNoTracking()
             .SingleOrDefaultAsync(x => x.CheckoutSessionId == invoice.CheckoutCycleId, cancellationToken)
-            ?? throw new ConflictException("checkout_unavailable", "Không tìm thấy chu kỳ checkout.");
+            ?? throw new ConflictException("checkout_unavailable", "Checkout unavailable.");
         return new PendingCheckoutState(invoice.Status.ToString(), session.State, session.ExpiresAtUtc);
     }
 
     private static Guid ResolveMember(Guid? target, Guid actorId, bool isFrontDesk)
     {
-        if (isFrontDesk) return target ?? throw new BadRequestException("target_member_required", "Cần chọn hội viên.");
+        if (isFrontDesk) return target ?? throw new BadRequestException("target_member_required", "Target member required.");
         if (target is not null && target != actorId)
-            throw new ForbiddenException("target_member_forbidden", "Không thể thanh toán cho tài khoản khác.");
+            throw new ForbiddenException("target_member_forbidden", "Target member forbidden.");
         return actorId;
     }
 
     private static void EnsureAccess(Invoice invoice, Guid actorId, bool isStaff)
     {
         if (!isStaff && invoice.MemberId != actorId)
-            throw new ForbiddenException("checkout_not_owned", "Checkout không thuộc tài khoản của bạn.");
+            throw new ForbiddenException("checkout_not_owned", "Checkout not owned.");
     }
 
     private static void RequireKey(string key)
     {
         if (string.IsNullOrWhiteSpace(key) || key.Length > 120)
-            throw new BadRequestException("idempotency_key_required", "Cần Idempotency-Key hợp lệ.");
+            throw new BadRequestException("idempotency_key_required", "Idempotency key required.");
     }
 
     private CheckoutResponse ToResponse(Invoice i, CheckoutSession s)
@@ -496,5 +496,5 @@ public sealed class CheckoutService(ISportHubDbContext db,
 
     private async Task<Invoice> LockInvoiceAsync(Guid id, CancellationToken ct)
         => await db.Set<Invoice>().FromSqlInterpolated($"SELECT * FROM invoices WHERE invoice_id = {id} FOR UPDATE")
-            .SingleOrDefaultAsync(ct) ?? throw new NotFoundException("invoice_not_found", "Không tìm thấy hóa đơn.");
+            .SingleOrDefaultAsync(ct) ?? throw new NotFoundException("invoice_not_found", "Invoice not found.");
 }

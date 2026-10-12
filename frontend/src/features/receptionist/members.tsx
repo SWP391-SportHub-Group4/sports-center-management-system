@@ -15,7 +15,6 @@ import type { Paged, UserAdminDto } from "@/lib/types";
 import { useDeskMember } from "./desk-context";
 import { GymVisits, MemberWallet } from "./front-desk";
 import { SelectedMemberPanel } from "./selected-member";
-import { BmiDesk, BmiRequestQueue } from "@/features/training";
 import styles from "./desk.module.css";
 import { AvatarImage } from "@/components/AvatarImage";
 import { ReportAvatarButton } from "@/components/ReportAvatarButton";
@@ -46,7 +45,6 @@ export function MemberList() {
   );
   return (
     <div>
-      <BmiRequestQueue basePath="/receptionist/members" />
       <Card title={l.membersSearch}>
         <div className={styles.search}>
           <Field label={l.findMember}>
@@ -114,12 +112,12 @@ export function MemberList() {
   );
 }
 
-type TabId = "overview" | "visits" | "wallet" | "invoices" | "bmi";
-const TABS: TabId[] = ["overview", "visits", "wallet", "invoices", "bmi"];
+type TabId = "overview" | "visits" | "wallet" | "invoices";
+const TABS: TabId[] = ["overview", "visits", "wallet", "invoices"];
 
 /** Hồ sơ vận hành (H02) + ví điểm của hội viên (H11). Chỉ dữ liệu phục vụ quầy. */
 export function MemberProfile({ memberId }: { memberId: string }) {
-  const { t, language } = useLanguage();
+  const { t } = useLanguage();
   const l = t.frontDesk;
   const router = useRouter();
   const pathname = usePathname();
@@ -142,7 +140,6 @@ export function MemberProfile({ memberId }: { memberId: string }) {
     visits: l.tabVisits,
     wallet: l.tabWallet,
     invoices: l.tabInvoices,
-    bmi: language === "vi" ? "Hồ sơ BMI" : "BMI Profile",
   };
 
   if (!current)
@@ -175,9 +172,6 @@ export function MemberProfile({ memberId }: { memberId: string }) {
       >
         <div className={styles.tabsBody}>
           {tab === "overview" && <OverviewHint />}
-          {tab === "bmi" && (
-            <BmiDesk key={current.userId} memberId={current.userId} />
-          )}
           {tab === "visits" && <GymVisits memberId={current.userId} />}
           {tab === "wallet" && (
             <>

@@ -30,14 +30,14 @@ public sealed class PointConfirmationService(
         var invoice = await LockInvoiceAsync(invoiceId, ct);
         await ValidateCheckoutAsync(invoice, memberId, ct);
         if (invoice.CheckoutRevision != revision)
-            throw new ConflictException("checkout_revision_changed", "Hóa đơn đã thay đổi; hãy tải lại trước khi chọn điểm.");
+            throw new ConflictException("checkout_revision_changed", "Checkout revision changed.");
         ValidatePoints(invoice, points);
 
         var latest = await db.Set<PointConfirmation>().Where(x => x.InvoiceId == invoiceId)
             .OrderByDescending(x => x.CreatedAtUtc).FirstOrDefaultAsync(ct);
         if (latest is { RevokedAtUtc: null, ConsumedAtUtc: null } && latest.Points == points
             && clock.UtcNow - latest.CreatedAtUtc < ResendCooldown)
-            throw new ConflictException("point_confirmation_cooldown", "Hãy đợi 60 giây trước khi gửi lại mã.");
+            throw new ConflictException("point_confirmation_cooldown", "Point confirmation cooldown.");
 
         await ResetSelectionAsync(invoice, receptionistId, ct);
         if (latest is { RevokedAtUtc: null, ConsumedAtUtc: null }) latest.RevokedAtUtc = clock.UtcNow;
@@ -46,7 +46,7 @@ public sealed class PointConfirmationService(
         var salt = RandomNumberGenerator.GetBytes(16);
         var otpMinutes = await settings.GetIntAsync(SystemSettingKeys.PointsConfirmOtpMinutes, ct);
         if (otpMinutes is < 1 or > 15)
-            throw new ConflictException("point_confirmation_setting_invalid", "Thời hạn OTP điểm phải từ 1 đến 15 phút.");
+            throw new ConflictException("point_confirmation_setting_invalid", "Point confirmation setting invalid.");
         var expires = Min(clock.UtcNow.AddMinutes(otpMinutes), invoice.HoldExpiresAtUtc!.Value);
         var confirmation = new PointConfirmation
         {
@@ -75,11 +75,11 @@ public sealed class PointConfirmationService(
         await RequireReceptionistAsync(receptionistId, ct);
         var candidate = await db.Set<PointConfirmation>().AsNoTracking()
             .SingleOrDefaultAsync(x => x.PointConfirmationId == confirmationId, ct)
-            ?? throw new NotFoundException("point_confirmation_not_found", "Không tìm thấy xác nhận điểm.");
+            ?? throw new NotFoundException("point_confirmation_not_found", "Point confirmation not found.");
         if (candidate.RequestedByUserId != receptionistId)
-            throw new ForbiddenException("point_confirmation_actor_mismatch", "Xác nhận thuộc giao dịch của lễ tân khác.");
+            throw new ForbiddenException("point_confirmation_actor_mismatch", "Point confirmation actor mismatch.");
         if (candidate.ConsumedAtUtc is not null && !Matches(code, candidate))
-            throw new BadRequestException("point_confirmation_invalid", "Mã xác nhận không đúng.");
+            throw new BadRequestException("point_confirmation_invalid", "Point confirmation invalid.");
         if (candidate.ConsumedAtUtc is null)
         {
             ValidateCodeState(candidate);
@@ -89,8 +89,8 @@ public sealed class PointConfirmationService(
                         && x.ConsumedAtUtc == null && x.RevokedAtUtc == null && x.ExpiresAtUtc > clock.UtcNow
                         && x.FailedAttempts < 5)
                     .ExecuteUpdateAsync(s => s.SetProperty(x => x.FailedAttempts, x => x.FailedAttempts + 1), ct);
-                if (updated == 0) throw new ConflictException("point_confirmation_unavailable", "Mã xác nhận không còn hiệu lực.");
-                throw new BadRequestException("point_confirmation_invalid", "Mã xác nhận không đúng.");
+                if (updated == 0) throw new ConflictException("point_confirmation_unavailable", "Point confirmation unavailable.");
+                throw new BadRequestException("point_confirmation_invalid", "Point confirmation invalid.");
             }
         }
 
@@ -103,15 +103,15 @@ public sealed class PointConfirmationService(
         {
             if (invoice.CheckoutCycleId == confirmation.CheckoutCycleId && invoice.PointsApplied == confirmation.Points)
                 return ToSelection(invoice);
-            throw new ConflictException("point_confirmation_stale", "Lựa chọn điểm đã thay đổi.");
+            throw new ConflictException("point_confirmation_stale", "Point confirmation stale.");
         }
         ValidateCodeState(confirmation);
         if (!Matches(code, confirmation))
-            throw new ConflictException("point_confirmation_changed", "Mã xác nhận đã thay đổi. Hãy thử lại.");
+            throw new ConflictException("point_confirmation_changed", "Point confirmation changed.");
         if (invoice.CheckoutCycleId != confirmation.CheckoutCycleId
             || invoice.CheckoutRevision != confirmation.CheckoutRevision
             || invoice.MemberId != confirmation.MemberId)
-            throw new ConflictException("point_confirmation_stale", "Hóa đơn hoặc lựa chọn điểm đã thay đổi.");
+            throw new ConflictException("point_confirmation_stale", "Point confirmation stale.");
         await ValidateCheckoutAsync(invoice, confirmation.MemberId, ct);
         await RequireMemberAsync(confirmation.MemberId, ct);
         ValidatePoints(invoice, confirmation.Points);
@@ -131,11 +131,11 @@ public sealed class PointConfirmationService(
     {
         var owner = await users.GetAsync(ownerId, ct);
         if (owner is null || !owner.IsActive || owner.Role != "Member")
-            throw new ForbiddenException("wallet_owner_invalid", "Tài khoản không được dùng ví.");
+            throw new ForbiddenException("wallet_owner_invalid", "Wallet owner invalid.");
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         var invoice = await LockInvoiceAsync(invoiceId, ct);
         await ValidateCheckoutAsync(invoice, ownerId, ct);
-        if (points < 0) throw new BadRequestException("invalid_points", "Số điểm không hợp lệ.");
+        if (points < 0) throw new BadRequestException("invalid_points", "Invalid points.");
         var pendingCounterCode = await db.Set<PointConfirmation>().AnyAsync(x => x.InvoiceId == invoiceId
             && x.ConsumedAtUtc == null && x.RevokedAtUtc == null, ct);
         if (points == invoice.PointsApplied && !pendingCounterCode) return ToSelection(invoice);
@@ -181,11 +181,11 @@ public sealed class PointConfirmationService(
     {
         var actor = await users.GetAsync(actorId, ct);
         if (actor is null || !actor.IsActive || actor.Role is not ("Member" or "Receptionist"))
-            throw new ForbiddenException("point_selection_forbidden", "Không có quyền xem lựa chọn điểm.");
+            throw new ForbiddenException("point_selection_forbidden", "Point selection forbidden.");
         var invoice = await db.Set<Invoice>().AsNoTracking().SingleOrDefaultAsync(x => x.InvoiceId == invoiceId, ct)
-            ?? throw new NotFoundException("invoice_not_found", "Không tìm thấy hóa đơn.");
+            ?? throw new NotFoundException("invoice_not_found", "Invoice not found.");
         if (actor.Role != "Receptionist" && invoice.MemberId != actorId)
-            throw new ForbiddenException("invoice_not_owned", "Hóa đơn không thuộc tài khoản của bạn.");
+            throw new ForbiddenException("invoice_not_owned", "Invoice not owned.");
         if (actor.Role == "Receptionist")
         {
             await RequireMemberAsync(invoice.MemberId, ct);
@@ -216,7 +216,7 @@ public sealed class PointConfirmationService(
         var invoice = await LockInvoiceAsync(invoiceId, ct);
         await ValidateCheckoutAsync(invoice, memberId, ct);
         if (invoice.CheckoutRevision != revision)
-            throw new ConflictException("checkout_revision_changed", "Hóa đơn đã thay đổi; hãy tải lại trước khi bỏ chọn điểm.");
+            throw new ConflictException("checkout_revision_changed", "Checkout revision changed.");
         await ResetSelectionAsync(invoice, actorId, ct);
         audit.Write(new AuditEntry(actorId, "CLEAR_COUNTER_POINTS", nameof(Invoice), invoiceId.ToString()));
         await db.SaveChangesAsync(ct);
@@ -261,43 +261,43 @@ public sealed class PointConfirmationService(
     private async Task ValidateCheckoutAsync(Invoice invoice, Guid memberId, CancellationToken ct)
     {
         if (invoice.MemberId != memberId)
-            throw new ForbiddenException("invoice_not_owned", "Hóa đơn không thuộc tài khoản đã chọn.");
+            throw new ForbiddenException("invoice_not_owned", "Invoice not owned.");
         if (invoice.Status != InvoiceStatus.Issued || invoice.CheckoutCycleId is null
             || invoice.HoldExpiresAtUtc is null || invoice.HoldExpiresAtUtc <= clock.UtcNow)
-            throw new ConflictException("checkout_unavailable", "Chu kỳ thanh toán không còn hiệu lực.");
+            throw new ConflictException("checkout_unavailable", "Checkout unavailable.");
         if (await db.Set<PaymentAttempt>().AnyAsync(x => x.InvoiceId == invoice.InvoiceId, ct)
             || await db.Set<SportHub.Payment.Domain.Entities.Payment>().AnyAsync(x => x.InvoiceId == invoice.InvoiceId, ct)
             || await db.Set<PaymentAdjustment>().AnyAsync(x => x.InvoiceId == invoice.InvoiceId, ct))
-            throw new ConflictException("payment_already_started", "Thanh toán đã bắt đầu; không thể đổi số điểm.");
+            throw new ConflictException("payment_already_started", "Payment already started.");
     }
 
     private static void ValidatePoints(Invoice invoice, int points)
     {
         if (points <= 0 || invoice.TotalAmount <= 0 || points > invoice.TotalAmount / PointWalletService.VndPerPoint)
-            throw new BadRequestException("invalid_points", "Số điểm vượt số tiền của hóa đơn.");
+            throw new BadRequestException("invalid_points", "Invalid points.");
     }
 
     private async Task RequireReceptionistAsync(Guid actorId, CancellationToken ct)
     {
         var actor = await users.GetAsync(actorId, ct);
         if (actor is not { Role: "Receptionist", IsActive: true })
-            throw new ForbiddenException("point_confirmation_forbidden", "Chỉ lễ tân được xác nhận điểm tại quầy.");
+            throw new ForbiddenException("point_confirmation_forbidden", "Point confirmation forbidden.");
     }
 
     private async Task<UserAccessInfo> RequireMemberAsync(Guid memberId, CancellationToken ct)
     {
         var member = await users.GetAsync(memberId, ct);
         if (member is not { Role: "Member", IsActive: true })
-            throw new NotFoundException("member_not_found", "Không tìm thấy hội viên đang hoạt động.");
+            throw new NotFoundException("member_not_found", "Member not found.");
         return member;
     }
 
     private void ValidateCodeState(PointConfirmation confirmation)
     {
         if (confirmation.RevokedAtUtc is not null || confirmation.ExpiresAtUtc <= clock.UtcNow)
-            throw new ConflictException("point_confirmation_expired", "Mã xác nhận đã hết hiệu lực.");
+            throw new ConflictException("point_confirmation_expired", "Point confirmation expired.");
         if (confirmation.FailedAttempts >= 5)
-            throw new ConflictException("point_confirmation_locked", "Đã nhập sai mã 5 lần.");
+            throw new ConflictException("point_confirmation_locked", "Point confirmation locked.");
     }
 
     private static string Hash(string code, byte[] salt)
@@ -325,5 +325,5 @@ public sealed class PointConfirmationService(
     private async Task<Invoice> LockInvoiceAsync(Guid invoiceId, CancellationToken ct)
         => await db.Set<Invoice>().FromSqlInterpolated($"SELECT * FROM invoices WHERE invoice_id = {invoiceId} FOR UPDATE")
                .SingleOrDefaultAsync(ct)
-           ?? throw new NotFoundException("invoice_not_found", "Không tìm thấy hóa đơn.");
+           ?? throw new NotFoundException("invoice_not_found", "Invoice not found.");
 }

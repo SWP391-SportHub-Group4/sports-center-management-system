@@ -411,23 +411,37 @@ export interface UserAdminDto {
 
 export type MyAccountDto = UserAdminDto & { avatarUrl?: string | null };
 
+export interface BodyMeasurementDto {
+  measuredAt: string;
+  heightCm: number;
+  weightKg: number;
+  bmi: number;
+}
+
+/** Self-reported health and training profile. Enum values use the UPPER_SNAKE_CASE wire format. */
 export interface MemberTrainingProfileDto {
   memberId: string;
   goal: string;
+  goalType: string | null;
   experienceLevel: string;
   notes: string | null;
   updatedAt: string;
-}
-
-export interface MemberBmiProfileDto {
-  memberId: string;
-  status: "REQUESTED" | "SCHEDULED" | "MEASURED";
-  requestedAt: string;
-  appointmentAt: string | null;
+  dateOfBirth: string | null;
+  age: number | null;
+  sex: string | null;
   heightCm: number | null;
   weightKg: number | null;
+  targetWeightKg: number | null;
   bmi: number | null;
-  measuredAt: string | null;
+  bmiCategory: string | null;
+  activityLevel: string | null;
+  trainingDaysPerWeek: number | null;
+  sessionMinutes: number | null;
+  dietaryPreference: string;
+  foodAllergies: string | null;
+  /** True when the profile has everything the AI needs (body measurements, age, activity, schedule). */
+  isComplete: boolean;
+  recentMeasurements: BodyMeasurementDto[];
 }
 
 export interface CoachMemberRelationshipDto {
@@ -480,6 +494,14 @@ export interface WorkoutResultDto {
   recordedAt: string;
 }
 
+export interface NutritionGuidanceDto {
+  maintenanceCalories: number | null;
+  targetCalories: number | null;
+  proteinGramsMin: number | null;
+  proteinGramsMax: number | null;
+  tips: string[];
+}
+
 export interface WorkoutSuggestionDto {
   sport?: "Gym" | "Badminton" | "Basketball";
   memberId: string;
@@ -499,6 +521,8 @@ export interface WorkoutSuggestionDto {
     | { exercise: string; sets: number; reps: number; notes?: string | null }[]
     | null;
   rationale: string;
+  /** Formula-based energy and protein estimate; null when the member's health profile is incomplete. */
+  nutrition?: NutritionGuidanceDto | null;
   responseTimeMs: number;
   generatedAt: string;
 }
@@ -873,6 +897,10 @@ export interface IncidentPreviewDto {
   endAtUtc: string;
   canResolve: boolean;
   blockReason: string | null;
+  /** True when the incident closes every active Gym room (BR-130/138). */
+  closesGym?: boolean;
+  suggestedMembershipExtensionDays?: number;
+  affectedMemberCount?: number;
   impacts: {
     sourceType: string;
     sourceId: string;

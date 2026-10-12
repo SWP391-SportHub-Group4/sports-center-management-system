@@ -26,11 +26,11 @@ public sealed class ThresholdResponseService(ISportHubDbContext db, IClassEnroll
         if (id.HasValue) query = query.Where(x => x.ThresholdResponseId == id);
         else
         {
-            if (string.IsNullOrWhiteSpace(token) || token.Length > 128) throw new BadRequestException("invalid_threshold_response", "Liên kết không hợp lệ.");
+            if (string.IsNullOrWhiteSpace(token) || token.Length > 128) throw new BadRequestException("invalid_threshold_response", "Invalid threshold response.");
             var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
             query = query.Where(x => x.TokenHash == hash);
         }
-        var response = await query.SingleOrDefaultAsync(ct) ?? throw new NotFoundException("threshold_response_not_found", "Không tìm thấy phản hồi.");
+        var response = await query.SingleOrDefaultAsync(ct) ?? throw new NotFoundException("threshold_response_not_found", "Threshold response not found.");
         var course = await db.Set<Class>().AsNoTracking().SingleAsync(x => x.ClassId == response.ClassId, ct);
         var itemId = await db.Set<Enrollment>().Where(e => e.EnrollmentId == response.EnrollmentId).Select(e => e.InvoiceItemId).SingleAsync(ct);
         var remaining = itemId.HasValue ? await refunds.GetRemainingItemValueVndAsync(itemId.Value, ct) : 0;
@@ -42,12 +42,12 @@ public sealed class ThresholdResponseService(ISportHubDbContext db, IClassEnroll
     {
         var source = await GetAsync(id, null, memberId, ct);
         if (source.Choice is not null || source.DeadlineUtc <= clock.UtcNow)
-            throw new ConflictException("threshold_response_closed", "Phản hồi đã đóng.");
-        if (targetClassId == source.ClassId) throw new BadRequestException("transfer_same_class", "Khóa đích phải khác.");
+            throw new ConflictException("threshold_response_closed", "Threshold response closed.");
+        if (targetClassId == source.ClassId) throw new BadRequestException("transfer_same_class", "Transfer same class.");
         var target = await GetTargetQuoteAsync(targetClassId, ct);
-        if (target.SportId != source.SportId) throw new ConflictException("transfer_sport_mismatch", "Khóa đích phải cùng môn.");
+        if (target.SportId != source.SportId) throw new ConflictException("transfer_sport_mismatch", "Transfer sport mismatch.");
         var difference = target.Price - source.PaidValueVnd;
-        if (difference % 1000 != 0) throw new ConflictException("transfer_value_not_point_divisible", "Chênh lệch không đổi chính xác sang điểm.");
+        if (difference % 1000 != 0) throw new ConflictException("transfer_value_not_point_divisible", "Transfer value not point divisible.");
         return new { targetClassId, targetPrice = target.Price, sourceValue = source.PaidValueVnd,
             cashDifference = Math.Max(0, difference), walletCreditPoints = difference < 0 ? (int)(-difference / 1000) : 0 };
     }
@@ -63,7 +63,7 @@ public sealed class ThresholdResponseService(ISportHubDbContext db, IClassEnroll
     public async Task<ThresholdResponseResult> RespondByIdAsync(Guid id, ThresholdResponseChoice choice, int? targetClassId, Guid memberId, CancellationToken ct)
     {
         var hash = await db.Set<ThresholdResponse>().Where(x => x.ThresholdResponseId == id && x.MemberId == memberId).Select(x => x.TokenHash).SingleOrDefaultAsync(ct)
-            ?? throw new NotFoundException("threshold_response_not_found", "Không tìm thấy phản hồi.");
+            ?? throw new NotFoundException("threshold_response_not_found", "Threshold response not found.");
         return await RespondHashedAsync(hash, choice, targetClassId, memberId, ct);
     }
 
@@ -71,11 +71,11 @@ public sealed class ThresholdResponseService(ISportHubDbContext db, IClassEnroll
         int? targetClassId, Guid memberId, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(token) || token.Length > 128 || !Enum.IsDefined(choice))
-            throw new BadRequestException("invalid_threshold_response", "Liên kết hoặc lựa chọn phản hồi không hợp lệ.");
+            throw new BadRequestException("invalid_threshold_response", "Invalid threshold response.");
         if (choice == ThresholdResponseChoice.Transfer && targetClassId is null)
-            throw new BadRequestException("target_class_required", "Cần chọn khóa đích khi chuyển lớp.");
+            throw new BadRequestException("target_class_required", "Target class required.");
         if (choice == ThresholdResponseChoice.Refund && targetClassId is not null)
-            throw new BadRequestException("target_class_unexpected", "Không gửi khóa đích khi chọn hoàn điểm.");
+            throw new BadRequestException("target_class_unexpected", "Target class unexpected.");
 
         var tokenHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
         return await RespondHashedAsync(tokenHash, choice, targetClassId, memberId, ct);
@@ -83,20 +83,20 @@ public sealed class ThresholdResponseService(ISportHubDbContext db, IClassEnroll
 
     private async Task<ThresholdResponseResult> RespondHashedAsync(string tokenHash, ThresholdResponseChoice choice, int? targetClassId, Guid memberId, CancellationToken ct)
     {
-        if (!Enum.IsDefined(choice)) throw new BadRequestException("invalid_threshold_response", "Lựa chọn không hợp lệ.");
-        if (choice == ThresholdResponseChoice.Transfer && targetClassId is null) throw new BadRequestException("target_class_required", "Cần khóa đích.");
-        if (choice == ThresholdResponseChoice.Refund && targetClassId is not null) throw new BadRequestException("target_class_unexpected", "Không gửi khóa đích.");
+        if (!Enum.IsDefined(choice)) throw new BadRequestException("invalid_threshold_response", "Invalid threshold response.");
+        if (choice == ThresholdResponseChoice.Transfer && targetClassId is null) throw new BadRequestException("target_class_required", "Target class required.");
+        if (choice == ThresholdResponseChoice.Refund && targetClassId is not null) throw new BadRequestException("target_class_unexpected", "Target class unexpected.");
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         var rows = await db.Set<ThresholdResponse>().FromSqlInterpolated($"""
             SELECT * FROM class_threshold_responses WHERE token_hash = {tokenHash} FOR UPDATE
             """).ToListAsync(ct);
-        var response = rows.SingleOrDefault() ?? throw new NotFoundException("threshold_response_not_found", "Liên kết phản hồi không hợp lệ.");
+        var response = rows.SingleOrDefault() ?? throw new NotFoundException("threshold_response_not_found", "Threshold response not found.");
         if (response.MemberId != memberId)
-            throw new ForbiddenException("threshold_response_not_owned", "Liên kết này không thuộc tài khoản của bạn.");
+            throw new ForbiddenException("threshold_response_not_owned", "Threshold response not owned.");
         if (response.Choice is not null)
         {
             if (response.Choice != choice || response.TargetClassId != targetClassId)
-                throw new ConflictException("threshold_response_already_submitted", "Lựa chọn đã gửi là cuối cùng và không thể đổi.");
+                throw new ConflictException("threshold_response_already_submitted", "Threshold response already submitted.");
             if (response.ResolutionStatus == ThresholdResolutionStatus.AwaitingPayment
                 && response.AdditionalInvoiceId is Guid priorInvoiceId)
             {
@@ -107,17 +107,17 @@ public sealed class ThresholdResponseService(ISportHubDbContext db, IClassEnroll
                     return ToResult(response);
                 }
                 if (response.DeadlineUtc <= clock.UtcNow)
-                    throw new ConflictException("threshold_response_expired", "Hạn chuyển lớp đã qua.");
+                    throw new ConflictException("threshold_response_expired", "Threshold response expired.");
                 if (priorState.InvoiceStatus == "Issued")
                     await checkoutLifecycle.ReleaseForSystemAsync(priorInvoiceId, "Expired", ct);
                 if (priorState.InvoiceStatus is not ("Void" or "Issued"))
                     throw new ConflictException("transfer_payment_reconciliation_pending",
-                        "Checkout cũ đã nhận thanh toán hoặc cần đối soát; chưa thể tạo invoice mới.");
+                        "Transfer payment reconciliation pending.");
                 var source = await db.Set<Enrollment>().SingleOrDefaultAsync(x => x.EnrollmentId == response.EnrollmentId
                     && x.MemberId == memberId && x.Status == EnrollmentStatus.Confirmed, ct)
-                    ?? throw new ConflictException("threshold_enrollment_inactive", "Ghi danh không còn hiệu lực.");
+                    ?? throw new ConflictException("threshold_enrollment_inactive", "Threshold enrollment inactive.");
                 var rootItemId = source.InvoiceItemId
-                    ?? throw new ConflictException("threshold_invoice_item_missing", "Ghi danh thiếu hóa đơn đã thanh toán.");
+                    ?? throw new ConflictException("threshold_invoice_item_missing", "Threshold invoice item missing.");
                 await refunds.LockPaidItemAsync(rootItemId, ct);
                 var invoiceId = await CreateTransferCheckoutAsync(response, source, rootItemId,
                     response.TargetClassId!.Value, memberId, ct);
@@ -131,13 +131,13 @@ public sealed class ThresholdResponseService(ISportHubDbContext db, IClassEnroll
             return ToResult(response);
         }
         if (response.ResolutionStatus != ThresholdResolutionStatus.Pending || response.DeadlineUtc <= clock.UtcNow)
-            throw new ConflictException("threshold_response_expired", "Hạn phản hồi đã qua.");
+            throw new ConflictException("threshold_response_expired", "Threshold response expired.");
 
         var enrollment = await db.Set<Enrollment>().SingleOrDefaultAsync(x => x.EnrollmentId == response.EnrollmentId
             && x.MemberId == memberId && x.Status == EnrollmentStatus.Confirmed, ct)
-            ?? throw new ConflictException("threshold_enrollment_inactive", "Ghi danh không còn hiệu lực.");
+            ?? throw new ConflictException("threshold_enrollment_inactive", "Threshold enrollment inactive.");
         var itemId = enrollment.InvoiceItemId
-            ?? throw new ConflictException("threshold_invoice_item_missing", "Ghi danh thiếu hóa đơn đã thanh toán.");
+            ?? throw new ConflictException("threshold_invoice_item_missing", "Threshold invoice item missing.");
 
         Guid? additionalInvoiceId = null;
         if (choice == ThresholdResponseChoice.Refund)
@@ -172,11 +172,11 @@ public sealed class ThresholdResponseService(ISportHubDbContext db, IClassEnroll
         int targetClassId, Guid memberId, CancellationToken ct)
     {
         if (targetClassId == response.ClassId)
-            throw new BadRequestException("transfer_same_class", "Khóa đích phải khác khóa hiện tại.");
+            throw new BadRequestException("transfer_same_class", "Transfer same class.");
         var sourceClass = await db.Set<Class>().AsNoTracking().SingleAsync(x => x.ClassId == source.ClassId, ct);
         var targetQuote = await GetTargetQuoteAsync(targetClassId, ct);
         if (targetQuote.SportId != sourceClass.SportId)
-            throw new ConflictException("transfer_sport_mismatch", "Khóa đích phải cùng môn với khóa hiện tại.");
+            throw new ConflictException("transfer_sport_mismatch", "Transfer sport mismatch.");
         // Lock the paid item before class rows, matching manager refund order (invoice → item → wallet → class).
         // If later seat or schedule checks fail, the whole transfer and any difference credit roll back.
         await refunds.LockPaidItemAsync(itemId, ct);
@@ -187,7 +187,7 @@ public sealed class ThresholdResponseService(ISportHubDbContext db, IClassEnroll
         if (difference > 0)
         {
             if (difference % 1_000 != 0)
-                throw new ConflictException("transfer_value_not_point_divisible", "Phần chênh lệch không đổi chính xác sang điểm.");
+                throw new ConflictException("transfer_value_not_point_divisible", "Transfer value not point divisible.");
             await refunds.CreditDifferenceAsync(new RefundCreditDifferenceRequest(itemId,
                 checked((int)(difference / 1_000)), "Difference refunded after transfer to a lower-priced course",
                 response.ThresholdResponseId), ct);
@@ -200,7 +200,7 @@ public sealed class ThresholdResponseService(ISportHubDbContext db, IClassEnroll
 
         if (await db.Set<Enrollment>().AnyAsync(x => x.EnrollmentId == source.EnrollmentId
             && x.Status != EnrollmentStatus.Confirmed, ct))
-            throw new ConflictException("transfer_source_inactive", "Ghi danh nguồn không còn hiệu lực.");
+            throw new ConflictException("transfer_source_inactive", "Transfer source inactive.");
 
         // The target hold and source release join this transaction; failure keeps the original enrollment active.
         var hold = await classes.ReserveAsync(targetClassId, memberId, null,
@@ -217,21 +217,21 @@ public sealed class ThresholdResponseService(ISportHubDbContext db, IClassEnroll
         var sourceClass = await db.Set<Class>().AsNoTracking().SingleAsync(x => x.ClassId == source.ClassId, ct);
         var targetQuote = knownQuote ?? await GetTargetQuoteAsync(targetClassId, ct);
         if (targetQuote.SportId != sourceClass.SportId)
-            throw new ConflictException("transfer_sport_mismatch", "Khóa đích phải cùng môn với khóa hiện tại.");
+            throw new ConflictException("transfer_sport_mismatch", "Transfer sport mismatch.");
         var sourceValue = await refunds.GetRemainingItemValueVndAsync(rootItemId, ct);
         var difference = targetQuote.Price - sourceValue;
         if (difference <= 0 || difference % 1_000 != 0)
-            throw new ConflictException("transfer_difference_invalid", "Phần chênh lệch phải dương và đổi được chính xác sang điểm.");
+            throw new ConflictException("transfer_difference_invalid", "Transfer difference invalid.");
         var holdMinutes = await settings.GetIntAsync(SystemSettingKeys.HoldMinutes, ct);
         if (holdMinutes is < 1 or > 1440)
-            throw new ConflictException("hold_setting_invalid", "Thời hạn checkout không hợp lệ.");
+            throw new ConflictException("hold_setting_invalid", "Hold setting invalid.");
         var expires = clock.UtcNow.AddMinutes(holdMinutes);
         var responseDeadline = response.DeadlineUtc;
         if (expires > responseDeadline) expires = responseDeadline;
         var beforeStart = targetQuote.FirstSessionUtc.UtcDateTime.AddSeconds(-1);
         if (expires > beforeStart) expires = beforeStart;
         if (expires <= clock.UtcNow)
-            throw new ConflictException("transfer_checkout_window_closed", "Không đủ thời gian thanh toán trước buổi đầu hoặc hết hạn phản hồi.");
+            throw new ConflictException("transfer_checkout_window_closed", "Transfer checkout window closed.");
         var expiresOffset = new DateTimeOffset(DateTime.SpecifyKind(expires, DateTimeKind.Utc));
         await db.Database.ExecuteSqlInterpolatedAsync(
             $"SELECT user_id FROM user_accounts WHERE user_id = {memberId} FOR UPDATE", ct);
@@ -253,13 +253,13 @@ public sealed class ThresholdResponseService(ISportHubDbContext db, IClassEnroll
     {
         var row = await db.Set<Class>().AsNoTracking().Where(x => x.ClassId == classId)
             .Select(x => new { x.ClassId, x.SportId, SportName = x.Sport!.Name, x.Price, x.Status })
-            .SingleOrDefaultAsync(ct) ?? throw new NotFoundException("class_not_found", "Không tìm thấy khóa đích.");
+            .SingleOrDefaultAsync(ct) ?? throw new NotFoundException("class_not_found", "Class not found.");
         if (row.Status != ClassStatus.Published)
-            throw new ConflictException("transfer_target_not_published", "Khóa đích phải Published.");
+            throw new ConflictException("transfer_target_not_published", "Transfer target not published.");
         var first = await db.Set<ClassSession>().Where(x => x.ClassId == classId && x.Status != ClassSessionStatus.Cancelled)
             .MinAsync(x => (DateTime?)x.StartAtUtc, ct);
         if (first is null || first <= clock.UtcNow)
-            throw new ConflictException("transfer_target_started", "Khóa đích đã bắt đầu hoặc thiếu lịch.");
+            throw new ConflictException("transfer_target_started", "Transfer target started.");
         return new ClassQuote(row.ClassId, row.SportId, row.SportName, row.Price,
             new DateTimeOffset(DateTime.SpecifyKind(first.Value, DateTimeKind.Utc)));
     }

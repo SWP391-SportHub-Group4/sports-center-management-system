@@ -29,7 +29,7 @@ public sealed class CoachCatalogController(ISportHubDbContext db, ISportCatalogR
         {
             if (!WireEnum.TryParse<SportServiceType>(service, ignoreCase: true, out var parsed) || parsed != SportServiceType.PersonalTraining)
             {
-                throw new SportHub.BuildingBlocks.SharedKernel.Errors.BadRequestException("service_type_invalid", "Chỉ hỗ trợ lọc theo PERSONAL_TRAINING.");
+                throw new SportHub.BuildingBlocks.SharedKernel.Errors.BadRequestException("service_type_invalid", "Service type invalid.");
             }
 
             var offering = (await catalog.GetSportForServiceAsync(parsed, ct))?.Services.FirstOrDefault(s => s.ServiceType == parsed);

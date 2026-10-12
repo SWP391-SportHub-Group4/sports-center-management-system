@@ -25,7 +25,7 @@ public sealed class RoomBlockService(ISportHubDbContext db, IOccupancyService oc
 
         if (to <= from || to - from > MaxListRange)
         {
-            throw new BadRequestException("invalid_range", "Khoảng thời gian phải dương và tối đa 62 ngày.");
+            throw new BadRequestException("invalid_range", "Invalid range.");
         }
 
         var query = db.Set<RoomBlock>().AsNoTracking().Where(b => b.StartAtUtc < to && b.EndAtUtc > from);
@@ -48,17 +48,17 @@ public sealed class RoomBlockService(ISportHubDbContext db, IOccupancyService oc
 
         if (end <= start)
         {
-            throw new BadRequestException("invalid_range", "Giờ kết thúc phải sau giờ bắt đầu.");
+            throw new BadRequestException("invalid_range", "Invalid range.");
         }
 
         if (end <= clock.UtcNow)
         {
-            throw new BadRequestException("block_in_the_past", "Không thể khóa phòng cho khung giờ đã qua.");
+            throw new BadRequestException("block_in_the_past", "Block in the past.");
         }
 
         if (!await db.Set<Room>().AnyAsync(r => r.RoomId == request.RoomId, ct))
         {
-            throw new NotFoundException("room_not_found", "Không tìm thấy phòng tập.");
+            throw new NotFoundException("room_not_found", "Room not found.");
         }
 
         var block = new RoomBlock
@@ -102,12 +102,12 @@ public sealed class RoomBlockService(ISportHubDbContext db, IOccupancyService oc
     public async Task DeleteAsync(Guid blockId, Guid actorUserId, CancellationToken ct = default)
     {
         var block = await db.Set<RoomBlock>().SingleOrDefaultAsync(b => b.BlockId == blockId, ct)
-                    ?? throw new NotFoundException("room_block_not_found", "Không tìm thấy khung khóa phòng.");
+                    ?? throw new NotFoundException("room_block_not_found", "Room block not found.");
 
         // Block sinh từ sự cố phải gỡ qua quy trình sự cố (có thông báo/hoàn tiền), không xóa tay ở đây.
         if (block.IncidentId is not null)
         {
-            throw new ConflictException("room_block_from_incident", "Khung khóa do sự cố tạo ra — xử lý qua quy trình sự cố.");
+            throw new ConflictException("room_block_from_incident", "Room block from incident.");
         }
 
         await using var tx = await db.Database.BeginTransactionAsync(ct);

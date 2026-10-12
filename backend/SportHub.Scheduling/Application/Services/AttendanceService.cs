@@ -25,7 +25,7 @@ public sealed class AttendanceService(ISportHubDbContext db, IClock clock, IUser
         var actor = await users.GetAsync(recorderUserId, ct);
         if (actor is not { IsActive: true } || actor.Role is not ("Receptionist" or "Coach"))
         {
-            throw new ForbiddenException("attendance_recorder_required", "Chỉ Lễ tân hoặc coach được phân công đang hoạt động được điểm danh.");
+            throw new ForbiddenException("attendance_recorder_required", "Attendance recorder required.");
         }
         var status = ParseStatus(request.Status);
         await using var tx = await db.Database.BeginTransactionAsync(ct);
@@ -35,44 +35,44 @@ public sealed class AttendanceService(ISportHubDbContext db, IClock clock, IUser
             $"SELECT enrollment_id FROM enrollments WHERE enrollment_id = {enrollmentId} FOR UPDATE", ct);
 
         var session = await db.Set<ClassSession>().AsNoTracking().SingleOrDefaultAsync(s => s.SessionId == sessionId, ct)
-                      ?? throw new NotFoundException("session_not_found", "Không tìm thấy buổi học.");
+                      ?? throw new NotFoundException("session_not_found", "Session not found.");
         if (actor.Role == "Coach" && session.CoachId != recorderUserId)
-            throw new ForbiddenException("session_not_assigned", "Bạn không được phân công dạy buổi này.");
+            throw new ForbiddenException("session_not_assigned", "Session not assigned.");
 
         var enrollment = await db.Set<Enrollment>().AsNoTracking().SingleOrDefaultAsync(e => e.EnrollmentId == enrollmentId, ct)
-                         ?? throw new NotFoundException("enrollment_not_found", "Không tìm thấy ghi danh.");
+                         ?? throw new NotFoundException("enrollment_not_found", "Enrollment not found.");
 
         if (enrollment.ClassId != session.ClassId)
         {
-            throw new BadRequestException("enrollment_not_in_class", "Ghi danh không thuộc lớp của buổi học này.");
+            throw new BadRequestException("enrollment_not_in_class", "Enrollment not in class.");
         }
 
         if (session.Status == ClassSessionStatus.Cancelled)
         {
-            throw new ConflictException("session_cancelled", "Buổi học đã bị hủy — không điểm danh.");
+            throw new ConflictException("session_cancelled", "Session cancelled.");
         }
 
         if (enrollment.Status != EnrollmentStatus.Confirmed)
         {
-            throw new ConflictException("enrollment_not_active", "Ghi danh không còn hiệu lực.");
+            throw new ConflictException("enrollment_not_active", "Enrollment not active.");
         }
 
         var now = clock.UtcNow;
 
         if (now < SessionAttendanceWindow.OpensAt(session.StartAtUtc))
         {
-            throw new BadRequestException("attendance_not_open", "Điểm danh mở từ 5 phút trước giờ bắt đầu buổi học.");
+            throw new BadRequestException("attendance_not_open", "Attendance not open.");
         }
 
         if (now > session.EndAtUtc + CorrectionWindow)
         {
-            throw new ConflictException("attendance_closed", "Đã quá 24 giờ sau khi buổi học kết thúc — không điểm danh/sửa được.");
+            throw new ConflictException("attendance_closed", "Attendance closed.");
         }
 
         var clsStatus = await db.Set<Class>().Where(c => c.ClassId == session.ClassId).Select(c => c.Status).SingleAsync(ct);
         if (clsStatus is ClassStatus.Draft or ClassStatus.Cancelled)
         {
-            throw new ConflictException("class_not_active", "Khóa chưa bắt đầu hoặc đã bị hủy.");
+            throw new ConflictException("class_not_active", "Class not active.");
         }
 
         var existing = await db.Set<Attendance>()
@@ -107,7 +107,7 @@ public sealed class AttendanceService(ISportHubDbContext db, IClock clock, IUser
         {
             string s when s.Equals(nameof(AttendanceStatus.Present), StringComparison.OrdinalIgnoreCase) => AttendanceStatus.Present,
             string s when s.Equals(nameof(AttendanceStatus.Absent), StringComparison.OrdinalIgnoreCase) => AttendanceStatus.Absent,
-            _ => throw new BadRequestException("invalid_attendance_status", "Trạng thái điểm danh chỉ nhận Present hoặc Absent.")
+            _ => throw new BadRequestException("invalid_attendance_status", "Invalid attendance status.")
         };
 
     private static AttendanceResponse ToResponse(Attendance a)

@@ -51,7 +51,7 @@ public sealed class PtCoachChangeRequestService(
             if (!SportHub.BuildingBlocks.Api.WireEnum.TryParse<PtCoachChangeRequestStatus>(status, ignoreCase: true, out var parsed))
             {
                 throw new BadRequestException(
-                    "pt_change_request_invalid_state", $"Trạng thái '{status}' không hợp lệ.");
+                    "pt_change_request_invalid_state", "Pt change request invalid state.");
             }
 
             query = query.Where(r => r.Status == parsed);
@@ -71,23 +71,23 @@ public sealed class PtCoachChangeRequestService(
     {
         if (request.RequestedCoachId == Guid.Empty)
         {
-            throw new BadRequestException("coach_must_be_personal_trainer", "Phải chọn Coach mới.");
+            throw new BadRequestException("coach_must_be_personal_trainer", "Coach must be personal trainer.");
         }
 
         if (string.IsNullOrWhiteSpace(request.Reason))
         {
             throw new BadRequestException(
-                "pt_change_request_invalid_state", "Yêu cầu đổi Coach phải có lý do.");
+                "pt_change_request_invalid_state", "Pt change request invalid state.");
         }
 
         var entitlement = await db.Set<PtEntitlement>().AsNoTracking()
             .SingleOrDefaultAsync(e => e.EntitlementId == entitlementId, ct)
-            ?? throw new NotFoundException("pt_entitlement_not_found", "Không tìm thấy quyền lợi PT.");
+            ?? throw new NotFoundException("pt_entitlement_not_found", "Pt entitlement not found.");
 
         if (entitlement.MemberId != memberId)
         {
             throw new ForbiddenException(
-                "pt_entitlement_not_owned", "Bạn không phải hội viên của quyền lợi PT này.");
+                "pt_entitlement_not_owned", "Pt entitlement not owned.");
         }
 
         EnsureChangeable(entitlement);
@@ -95,7 +95,7 @@ public sealed class PtCoachChangeRequestService(
         if (entitlement.CoachId == request.RequestedCoachId)
         {
             throw new ConflictException(
-                "pt_coach_change_same_coach", "Coach được yêu cầu đang là Coach hiện tại của quyền lợi PT.");
+                "pt_coach_change_same_coach", "Pt coach change same coach.");
         }
 
         await EnsurePersonalTrainerAsync(request.RequestedCoachId, ct);
@@ -107,7 +107,7 @@ public sealed class PtCoachChangeRequestService(
         if (alreadyPending)
         {
             throw new ConflictException(
-                "pt_coach_change_already_pending", "Quyền lợi PT này đã có yêu cầu đổi Coach đang chờ duyệt.");
+                "pt_coach_change_already_pending", "Pt coach change already pending.");
         }
 
         var changeRequest = new PtCoachChangeRequest
@@ -144,7 +144,7 @@ public sealed class PtCoachChangeRequestService(
             when (ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
         {
             throw new ConflictException(
-                "pt_coach_change_already_pending", "Quyền lợi PT này đã có yêu cầu đổi Coach đang chờ duyệt.");
+                "pt_coach_change_already_pending", "Pt coach change already pending.");
         }
 
         return await GetOneAsync(changeRequest.RequestId, ct);
@@ -172,7 +172,7 @@ public sealed class PtCoachChangeRequestService(
         {
             throw new ConflictException(
                 "pt_change_request_invalid_state",
-                "Coach hoặc hội viên của quyền lợi PT đã thay đổi sau khi gửi yêu cầu.");
+                "Pt change request invalid state.");
         }
 
         await EnsurePersonalTrainerAsync(changeRequest.RequestedCoachId, ct);
@@ -283,7 +283,7 @@ public sealed class PtCoachChangeRequestService(
         if (string.IsNullOrWhiteSpace(request.ReviewNote))
         {
             throw new BadRequestException(
-                "pt_change_request_invalid_state", "Từ chối yêu cầu đổi Coach phải có lý do.");
+                "pt_change_request_invalid_state", "Pt change request invalid state.");
         }
 
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
@@ -374,7 +374,7 @@ public sealed class PtCoachChangeRequestService(
         {
             throw new BadRequestException(
                 "coach_must_be_personal_trainer",
-                "Coach mới phải có chuyên môn huấn luyện cá nhân (PT 1-1) và tài khoản đang hoạt động.");
+                "Coach must be personal trainer.");
         }
     }
 
@@ -386,7 +386,7 @@ public sealed class PtCoachChangeRequestService(
         {
             throw new ConflictException(
                 "pt_entitlement_not_active",
-                $"Quyền lợi PT đang ở trạng thái {entitlement.Status}, không đổi Coach được.");
+                "Pt entitlement not active.");
         }
     }
 
@@ -396,7 +396,7 @@ public sealed class PtCoachChangeRequestService(
         {
             throw new ConflictException(
                 "pt_change_request_invalid_state",
-                $"Yêu cầu đang ở trạng thái {changeRequest.Status}, không xử lý lại được.");
+                "Pt change request invalid state.");
         }
     }
 
@@ -409,7 +409,7 @@ public sealed class PtCoachChangeRequestService(
 
         return rows.SingleOrDefault()
             ?? throw new NotFoundException(
-                "pt_coach_change_request_not_found", "Không tìm thấy yêu cầu đổi Coach.");
+                "pt_coach_change_request_not_found", "Pt coach change request not found.");
     }
 
     private async Task<PtEntitlement> LockEntitlementAsync(Guid entitlementId, CancellationToken ct)
@@ -420,7 +420,7 @@ public sealed class PtCoachChangeRequestService(
             .ToListAsync(ct);
 
         return rows.SingleOrDefault()
-            ?? throw new NotFoundException("pt_entitlement_not_found", "Không tìm thấy quyền lợi PT.");
+            ?? throw new NotFoundException("pt_entitlement_not_found", "Pt entitlement not found.");
     }
 
     private async Task LockScheduleParticipantsAsync(
@@ -471,7 +471,7 @@ public sealed class PtCoachChangeRequestService(
                .Select(Projection())
                .SingleOrDefaultAsync(ct)
            ?? throw new NotFoundException(
-               "pt_coach_change_request_not_found", "Không tìm thấy yêu cầu đổi Coach.");
+               "pt_coach_change_request_not_found", "Pt coach change request not found.");
 
     private static Expression<Func<PtCoachChangeRequest, PtCoachChangeRequestResponse>> Projection()
         => r => new PtCoachChangeRequestResponse(

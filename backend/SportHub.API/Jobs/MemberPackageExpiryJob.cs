@@ -34,7 +34,7 @@ public sealed class MemberPackageExpiryJob(
 
         if (expired > 0)
         {
-            logger.LogInformation("BR-11: đã chuyển {Count} gói sang Expired.", expired);
+            logger.LogInformation("BR-11: marked {Count} packages as expired.", expired);
         }
 
         var reminderDays = await settings.GetIntAsync(SystemSettingKeys.PackageExpiringReminderDays, ct);
@@ -78,7 +78,7 @@ public sealed class MemberPackageExpiryJob(
         if (pending.Count > 0)
         {
             await db.SaveChangesAsync(ct);
-            logger.LogInformation("BR-33: đã tạo {Count} thông báo gói sắp hết hạn.", pending.Count);
+            logger.LogInformation("BR-33: created {Count} package expiry notices.", pending.Count);
         }
     }
 }

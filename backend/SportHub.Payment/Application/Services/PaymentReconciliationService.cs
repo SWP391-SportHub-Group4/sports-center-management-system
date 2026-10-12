@@ -25,7 +25,7 @@ public sealed class PaymentReconciliationService(ISportHubDbContext db, IPayment
     {
         var attempt = await db.Set<PaymentAttempt>().AsNoTracking()
             .SingleOrDefaultAsync(x => x.PaymentAttemptId == attemptId, ct)
-            ?? throw new NotFoundException("payment_attempt_not_found", "Không tìm thấy attempt.");
+            ?? throw new NotFoundException("payment_attempt_not_found", "Payment attempt not found.");
         var result = await gateway.QueryAsync(attempt, ct);
         if (result is null) return false;
         await AcceptVerifiedAsync(result, verifiedByQuery: true, ct);
@@ -36,12 +36,12 @@ public sealed class PaymentReconciliationService(ISportHubDbContext db, IPayment
     {
         var attempt = await db.Set<PaymentAttempt>().AsNoTracking()
             .SingleOrDefaultAsync(x => x.VnpTxnRef == result.TransactionReference, ct)
-            ?? throw new NotFoundException("payment_attempt_not_found", "Không tìm thấy mã giao dịch.");
+            ?? throw new NotFoundException("payment_attempt_not_found", "Payment attempt not found.");
         if (result.ProviderPaidAtUtc < attempt.CreatedAt.AddMinutes(-5)
             || result.ProviderPaidAtUtc > clock.UtcNow.AddMinutes(5))
-            throw new ConflictException("vnp_payment_time_invalid", "Thời gian giao dịch VNPay không hợp lệ.");
+            throw new ConflictException("vnp_payment_time_invalid", "Vnp payment time invalid.");
         if (!verifiedByQuery && attempt.Amount != result.AmountVnd)
-            throw new ConflictException("vnp_amount_mismatch", "Số tiền VNPay không khớp attempt.");
+            throw new ConflictException("vnp_amount_mismatch", "Vnp amount mismatch.");
         var eventId = Guid.NewGuid();
         var verifiedAt = clock.UtcNow;
         const string provider = "VNPay";
@@ -62,7 +62,7 @@ public sealed class PaymentReconciliationService(ISportHubDbContext db, IPayment
             .SingleAsync(x => x.Provider == "VNPay" && x.ProviderTransactionId == result.ProviderTransactionId, ct);
         if (proof.PaymentAttemptId != attempt.PaymentAttemptId || proof.Amount != result.AmountVnd
             || proof.ResponseCode != result.ResponseCode || proof.TransactionStatus != result.TransactionStatus)
-            throw new ConflictException("provider_transaction_conflict", "Mã giao dịch VNPay trùng với dữ liệu khác.");
+            throw new ConflictException("provider_transaction_conflict", "Provider transaction conflict.");
         await ProcessAsync(proof.VerifiedGatewayEventId, ct);
     }
 
@@ -91,7 +91,7 @@ public sealed class PaymentReconciliationService(ISportHubDbContext db, IPayment
     {
         var candidate = await db.Set<VerifiedGatewayEvent>().AsNoTracking()
             .SingleOrDefaultAsync(x => x.VerifiedGatewayEventId == eventId, ct)
-            ?? throw new NotFoundException("verified_event_not_found", "Không tìm thấy chứng cứ giao dịch.");
+            ?? throw new NotFoundException("verified_event_not_found", "Verified event not found.");
         var attemptId = candidate.PaymentAttemptId;
         var invoiceId = await db.Set<PaymentAttempt>().AsNoTracking().Where(x => x.PaymentAttemptId == attemptId)
             .Select(x => x.InvoiceId).SingleAsync(ct);
@@ -174,7 +174,7 @@ public sealed class PaymentReconciliationService(ISportHubDbContext db, IPayment
         if (invoice.Status == InvoiceStatus.Issued)
         {
             if (session is null)
-                throw new ConflictException("checkout_reconciliation_required", "Thiếu chu kỳ để nhả chỗ/điểm.");
+                throw new ConflictException("checkout_reconciliation_required", "Checkout reconciliation required.");
             await fulfillment.ReleaseAsync(invoice, session, "Expired", null, ct);
         }
         await fulfillment.CompensateCashAsync(invoice, proof, ct);

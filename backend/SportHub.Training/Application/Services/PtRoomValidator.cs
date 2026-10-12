@@ -10,11 +10,11 @@ internal static class PtRoomValidator
     public static async Task RequireAsync(ISportCatalogReader catalog, ICoachSpecialtyReader specialties, int roomId, Guid coachId, DateTime startAtUtc, DateTime endAtUtc, CancellationToken ct)
     {
         var room = await catalog.GetRoomAsync(roomId, ct)
-                   ?? throw new BadRequestException("room_not_found", "Phòng không tồn tại.");
+                   ?? throw new BadRequestException("room_not_found", "Room not found.");
 
         if (!room.IsActive)
         {
-            throw new BadRequestException("room_inactive", "Phòng đã ngừng hoạt động.");
+            throw new BadRequestException("room_inactive", "Room inactive.");
         }
 
         // Phòng Gym không tự thành phòng PT chỉ vì cùng môn: phải thuộc tập loại phòng của dịch vụ PT.
@@ -23,12 +23,12 @@ internal static class PtRoomValidator
 
         if (!compatible)
         {
-            throw new BadRequestException("room_not_compatible", "Loại phòng không dùng được cho buổi PT 1-1 của Coach này (BR-108).");
+            throw new BadRequestException("room_not_compatible", "Room not compatible.");
         }
 
         if (!await catalog.IsRoomOpenAsync(roomId, startAtUtc, endAtUtc, ct))
         {
-            throw new BadRequestException("session_outside_opening_hours", "Buổi PT nằm ngoài giờ mở cửa của phòng (BR-109).");
+            throw new BadRequestException("session_outside_opening_hours", "Session outside opening hours.");
         }
     }
 

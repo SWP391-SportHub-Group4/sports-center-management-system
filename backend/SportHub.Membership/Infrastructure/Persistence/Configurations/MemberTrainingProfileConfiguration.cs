@@ -11,6 +11,11 @@ public class MemberTrainingProfileConfiguration : IEntityTypeConfiguration<Membe
         // Unique — 1 Member chỉ có 1 hồ sơ (ràng buộc 1–1 với UserAccount).
         builder.HasIndex(e => e.MemberId).IsUnique();
 
+        builder.Property(e => e.HeightCm).HasPrecision(5, 1);
+        builder.Property(e => e.WeightKg).HasPrecision(5, 1);
+        builder.Property(e => e.TargetWeightKg).HasPrecision(5, 1);
+        builder.Property(e => e.FoodAllergies).HasMaxLength(500);
+
         builder.HasOne(e => e.Member)
             .WithMany()
             .HasForeignKey(e => e.MemberId)

@@ -104,6 +104,23 @@ public sealed class GymCheckInContractTests(SchedulingApiFactory factory)
     }
 
     [Fact]
+    public async Task Active_package_past_its_end_date_does_not_allow_check_in()
+    {
+        var member = await factory.SeedUserAsync(UserRole.Member);
+        var receptionist = await factory.SeedUserAsync(UserRole.Receptionist);
+        await factory.SeedMemberPackageAsync(
+            member.UserId, endDate: DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-3));
+
+        var client = factory.CreateApiClient(receptionist.UserId, UserRole.Receptionist);
+
+        var response = await client.PostAsJsonAsync(
+            "/api/gym-checkins",
+            new { targetMemberId = member.UserId });
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Any_one_active_package_is_enough_even_next_to_inactive_ones()
     {
         var member = await factory.SeedUserAsync(UserRole.Member);

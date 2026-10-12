@@ -194,7 +194,7 @@ public class WorkoutController(IWorkoutService workouts, PersonalTrainerGuard pe
         if (active.Count == 0)
         {
             throw new ForbiddenException(
-                "no_active_relationship", "Bạn không phụ trách hội viên này (BR-23).");
+                "no_active_relationship", "No active relationship.");
         }
 
         return Ok(await workouts.GetResultsAsync(memberId, null, null, page, pageSize, ct));

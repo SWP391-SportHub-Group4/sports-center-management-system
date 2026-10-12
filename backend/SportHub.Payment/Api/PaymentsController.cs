@@ -25,13 +25,13 @@ public sealed class PaymentsController(PaymentReconciliationService reconciliati
         var attemptId = await db.Set<PaymentAttempt>().AsNoTracking()
             .Where(x => x.InvoiceId == invoiceId).OrderByDescending(x => x.CreatedAt)
             .Select(x => (Guid?)x.PaymentAttemptId).FirstOrDefaultAsync(ct)
-            ?? throw new NotFoundException("payment_attempt_not_found", "Không tìm thấy attempt.");
+            ?? throw new NotFoundException("payment_attempt_not_found", "Payment attempt not found.");
         return Ok(new { verified = await reconciliation.ReconcileAttemptAsync(attemptId, ct) });
     }
     [AllowAnonymous]
     [HttpGet("return")]
     public IActionResult Return()
-        => Ok(new { message = "Kết quả đang được xác nhận qua IPN. Hãy tải lại trạng thái checkout." });
+        => Ok(new { message = "The payment result is being confirmed through IPN. Refresh the checkout status." });
 
     [AllowAnonymous]
     [HttpGet("ipn")]

@@ -22,7 +22,7 @@ public sealed class MockPaymentGateway : IPaymentGateway
             || !values.TryGetValue("vnp_Amount", out var minorText)
             || !long.TryParse(minorText, NumberStyles.None, CultureInfo.InvariantCulture, out var minor)
             || minor <= 0 || minor % 100 != 0)
-            throw new BadRequestException("mock_payment_invalid", "Giao dịch thử không hợp lệ.");
+            throw new BadRequestException("mock_payment_invalid", "Mock payment invalid.");
         var local = DateTime.ParseExact(values["vnp_PayDate"], "yyyyMMddHHmmss",
             CultureInfo.InvariantCulture);
         var vn = TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time");

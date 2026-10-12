@@ -27,11 +27,4 @@ public class GoogleAuthController(IGoogleAuthService google) : ControllerBase
         return NoContent();
     }
 
-    [Authorize]
-    [HttpDelete("google/link")]
-    public async Task<IActionResult> Unlink(CancellationToken ct)
-    {
-        await google.UnlinkAsync(User.RequireUserId(), ct);
-        return NoContent();
-    }
 }

@@ -23,7 +23,7 @@ public static class PtEntitlementRules
 
         throw new BadRequestException(
             "pt_entitlement_invalid_membership_duration",
-            "Membership gốc phải có thời hạn 1, 3, 6 hoặc 12 tháng để tính quota PT (BR-71).");
+            "Pt entitlement invalid membership duration.");
     }
 
     public static int SessionsPerMonth(int frequencyPerWeek) => frequencyPerWeek switch
@@ -32,7 +32,7 @@ public static class PtEntitlementRules
         2 => 8,
         3 => 12,
         _ => throw new BadRequestException(
-            "pt_entitlement_invalid_frequency", "FrequencyPerWeek chỉ nhận 1, 2 hoặc 3.")
+            "pt_entitlement_invalid_frequency", "Pt entitlement invalid frequency.")
     };
 
     public static int ComputeTotalQuota(int frequencyPerWeek, DateOnly startDate, DateOnly endDate)

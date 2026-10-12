@@ -111,7 +111,7 @@ public sealed class CoachAdminService(
                     Philosophy = u.CoachProfile != null ? u.CoachProfile.Philosophy : null
                 })
                       .SingleOrDefaultAsync(ct)
-                  ?? throw new NotFoundException("coach_not_found", "Không tìm thấy Coach.");
+                  ?? throw new NotFoundException("coach_not_found", "Coach not found.");
 
         var map = await specialties.GetForUsersAsync([userId], ct);
         return map.TryGetValue(userId, out var ids) ? row with { SportIds = ids } : row;
@@ -126,12 +126,12 @@ public sealed class CoachAdminService(
 
         if (await db.Set<UserAccount>().AnyAsync(u => u.Email == email, ct))
         {
-            throw new ConflictException("email_already_exists", "Email đã được sử dụng.");
+            throw new ConflictException("email_already_exists", "Email already exists.");
         }
 
         if (phone is not null && await db.Set<UserProfile>().AnyAsync(p => p.Phone == phone, ct))
         {
-            throw new ConflictException("phone_already_exists", "Số điện thoại đã được sử dụng.");
+            throw new ConflictException("phone_already_exists", "Phone already exists.");
         }
 
         var sportIds = await specialties.ValidateAsync(request.SportIds, ct);
@@ -174,14 +174,14 @@ public sealed class CoachAdminService(
                        .Include(u => u.CoachProfile)
                        .Include(u => u.Profile)
                        .SingleOrDefaultAsync(u => u.UserId == userId && u.Role!.RoleName == UserRole.Coach, ct)
-                   ?? throw new NotFoundException("coach_not_found", "Không tìm thấy Coach.");
+                   ?? throw new NotFoundException("coach_not_found", "Coach not found.");
 
         var sportIds = await specialties.ValidateAsync(request.SportIds, ct);
         var phone = request.Phone is null ? user.Profile?.Phone : Clean(request.Phone);
         if (phone is not null && await db.Set<UserProfile>().AnyAsync(x => x.Phone == phone && x.UserId != userId, ct))
-            throw new ConflictException("phone_already_exists", "Số điện thoại đã được sử dụng.");
+            throw new ConflictException("phone_already_exists", "Phone already exists.");
         if (request.FullName is not null && !new FullNameAttribute().IsValid(request.FullName))
-            throw new BadRequestException("invalid_full_name", "Họ tên cần 2–100 ký tự và đúng định dạng.");
+            throw new BadRequestException("invalid_full_name", "Invalid full name.");
         var oldProfile = new { fullName = user.Profile?.FullName, phone = user.Profile?.Phone };
         var before = await specialties.ReplaceAsync(userId, sportIds, ct);
         user.Profile ??= new UserProfile { UserId = userId };

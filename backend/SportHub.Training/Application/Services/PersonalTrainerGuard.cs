@@ -16,7 +16,7 @@ public sealed class PersonalTrainerGuard(ICoachSpecialtyReader specialties)
         {
             throw new ForbiddenException(
                 "personal_trainer_required",
-                "Chức năng này chỉ dành cho Coach có chuyên môn huấn luyện cá nhân (PT 1-1).");
+                "Personal trainer required.");
         }
     }
 }

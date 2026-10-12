@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using SportHub.BuildingBlocks.Abstractions.Notifications;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
+using SportHub.BuildingBlocks.SharedKernel.Time;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.Identity.Application.Commands;
 using SportHub.Identity.Application.Interfaces;
@@ -19,6 +21,8 @@ public sealed class PasswordResetService(
     ISportHubDbContext db,
     IPasswordHasher passwordHasher,
     EmailOtpFlow otpFlow,
+    INotificationWriter notifications,
+    IClock clock,
     IConfiguration configuration) : IPasswordResetService
 {
     public async Task RequestAsync(ForgotPasswordRequest request, CancellationToken ct = default)
@@ -66,7 +70,7 @@ public sealed class PasswordResetService(
 
         if (user is null || user.Status != UserStatus.Active)
         {
-            throw new BadRequestException("otp_invalid", "Link đặt lại mật khẩu không hợp lệ.");
+            throw new BadRequestException("otp_invalid", "Otp invalid.");
         }
 
         var hash = passwordHasher.Hash(request.NewPassword);
@@ -81,6 +85,10 @@ public sealed class PasswordResetService(
         }
 
         user.SecurityStamp = Guid.NewGuid();
+
+        notifications.QueueEmail(new EmailNotificationRequest(user.UserId, user.Email, NotificationEvents.PasswordChanged,
+            Guid.NewGuid(), PasswordChangedEmail.Subject,
+            PasswordChangedEmail.Render(PasswordChangedEmail.FormatLocal(clock.UtcNow), configuration["Frontend:SupportUrl"])));
 
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);

@@ -19,7 +19,7 @@ public sealed class ServiceUsageGuard(ISportHubDbContext db, IPersonalTrainingSc
         if (await pt.AnyFutureSessionInRoomsAsync(roomIds, clock.UtcNow, ct))
         {
             throw new ConflictException("service_in_use_by_future_schedule",
-                "Còn buổi PT tương lai trong phòng thuộc loại phòng này — hủy hoặc dời các buổi đó trước khi gỡ.");
+                "Service in use by future schedule.");
         }
     }
 }
