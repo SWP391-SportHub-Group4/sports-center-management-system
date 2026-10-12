@@ -29,6 +29,8 @@ export function TrainingPlanView({
   onCreate,
   onEdit,
   editableCoachId,
+  viewMode,
+  onViewCoursePlan,
 }: {
   records: TeachingRecord[];
   members?: TeachingMember[];
@@ -38,12 +40,15 @@ export function TrainingPlanView({
   onCreate?: (scope: PlanScope, sessionId?: string, memberId?: string) => void;
   onEdit?: (record: TeachingRecord) => void;
   editableCoachId?: string;
+  viewMode?: "session" | "course";
+  onViewCoursePlan?: () => void;
 }) {
   const { language } = useLanguage();
   const vi = language === "vi";
-  const [scope, setScope] = useState<PlanScope>(
+  const [selectedScope, setScope] = useState<PlanScope>(
     memberId ? "personal" : sessionId ? "session" : "course",
   );
+  const scope = viewMode ?? selectedScope;
   const [student, setStudent] = useState(memberId ?? "");
   const [session, setSession] = useState(sessionId ?? "");
   const plans = records.filter(
@@ -72,7 +77,11 @@ export function TrainingPlanView({
     session: CalendarDays,
     personal: UserRound,
   };
-  const scoped = plans.filter((r) => planScopeOf(r) === scope);
+  const scoped = plans.filter((r) =>
+    viewMode === "session"
+      ? r.sessionId === sessionId
+      : planScopeOf(r) === scope,
+  );
   const visible = scoped.filter((r) =>
     scope === "personal"
       ? (!student || r.memberId === student) &&
@@ -91,32 +100,50 @@ export function TrainingPlanView({
         vi ? "Kế hoạch tập luyện theo phạm vi" : "Training plans by scope"
       }
     >
-      <div
-        className={styles.scopeTabs}
-        role="group"
-        aria-label={vi ? "Phạm vi kế hoạch" : "Plan scope"}
-      >
-        {(["course", "session", "personal"] as const).map((id) => {
-          const Icon = icons[id];
-          return (
-            <button
-              type="button"
-              key={id}
-              data-scope={id}
-              aria-pressed={scope === id}
-              onClick={() => setScope(id)}
-            >
-              <Icon size={18} aria-hidden="true" />
-              <span>{labels[id]}</span>
-              <strong>
-                {plans.filter((r) => planScopeOf(r) === id).length}
-              </strong>
-            </button>
-          );
-        })}
-      </div>
-      <p className={styles.scopeDescription}>{descriptions[scope]}</p>
+      {!viewMode && (
+        <div
+          className={styles.scopeTabs}
+          role="group"
+          aria-label={vi ? "Phạm vi kế hoạch" : "Plan scope"}
+        >
+          {(["course", "session", "personal"] as const).map((id) => {
+            const Icon = icons[id];
+            return (
+              <button
+                type="button"
+                key={id}
+                data-scope={id}
+                aria-pressed={scope === id}
+                onClick={() => setScope(id)}
+              >
+                <Icon size={18} aria-hidden="true" />
+                <span>{labels[id]}</span>
+                <strong>
+                  {plans.filter((r) => planScopeOf(r) === id).length}
+                </strong>
+              </button>
+            );
+          })}
+        </div>
+      )}
+      <p className={styles.scopeDescription}>
+        {viewMode === "session"
+          ? vi
+            ? "Bài tập và kế hoạch của buổi đang chọn."
+            : "Exercises and plans for the selected session."
+          : descriptions[scope]}
+      </p>
       <div className={styles.toolbar}>
+        {viewMode === "session" && onViewCoursePlan && (
+          <button
+            type="button"
+            className="btn btn--secondary btn--sm"
+            onClick={onViewCoursePlan}
+          >
+            <BookOpen size={16} aria-hidden="true" />
+            {vi ? "Xem lộ trình cả khóa" : "View course plan"}
+          </button>
+        )}
         {scope === "session" && !sessionId && usedSessions.length > 0 && (
           <label>
             {vi ? "Buổi học" : "Session"}

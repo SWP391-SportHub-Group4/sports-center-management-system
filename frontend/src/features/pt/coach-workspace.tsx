@@ -425,6 +425,7 @@ export function TeachingDetail({
     scope?: PlanScope;
   } | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
+  const [viewingCoursePlan, setViewingCoursePlan] = useState(false);
   const editorState = useRef({ dirty: false, busy: false });
   const discard = () =>
     !editorState.current.busy &&
@@ -565,6 +566,7 @@ export function TeachingDetail({
                   onChange={(next) => {
                     if (discard()) {
                       editorState.current = { dirty: false, busy: false };
+                      setViewingCoursePlan(false);
                       setTab(next);
                     }
                   }}
@@ -655,45 +657,77 @@ export function TeachingDetail({
                     </>
                   )}
                   {tab === "plans" && (
-                    <TrainingPlanView
-                      records={records.filter(
-                        (r) =>
-                          r.kind === "PLAN" &&
-                          (!member ||
-                            r.memberId === member.memberId ||
-                            r.memberId === null),
+                    <>
+                      {viewingCoursePlan && (
+                        <div className={styles.sectionHeader}>
+                          <h3>{vi ? "Lộ trình cả khóa" : "Course plan"}</h3>
+                          <button
+                            type="button"
+                            className="btn btn--secondary btn--sm"
+                            onClick={() => setViewingCoursePlan(false)}
+                          >
+                            {vi ? "Quay lại buổi học" : "Back to session plan"}
+                          </button>
+                        </div>
                       )}
-                      members={members}
-                      sessions={sessions}
-                      sessionId={session?.sessionId}
-                      memberId={member?.memberId}
-                      editableCoachId={user?.userId}
-                      onCreate={
-                        writable
-                          ? (scope, selectedSession, selectedMember) => {
-                              if (member && scope !== "personal") return;
-                              setSaved(null);
-                              setEditor({
-                                kind: "PLAN",
-                                scope,
-                                sessionId: selectedSession,
-                                memberId: member?.memberId ?? selectedMember,
-                              });
-                            }
-                          : undefined
-                      }
-                      onEdit={
-                        writable
-                          ? (r) => {
-                              if (
-                                r.coachId === user?.userId &&
-                                (!member || r.memberId === member.memberId)
-                              )
-                                setEditor({ kind: r.kind, existing: r });
-                            }
-                          : undefined
-                      }
-                    />
+                      <TrainingPlanView
+                        records={records.filter(
+                          (r) =>
+                            r.kind === "PLAN" &&
+                            (!member ||
+                              r.memberId === member.memberId ||
+                              r.memberId === null),
+                        )}
+                        members={members}
+                        sessions={sessions}
+                        sessionId={
+                          viewingCoursePlan ? undefined : session?.sessionId
+                        }
+                        viewMode={
+                          session && !member
+                            ? viewingCoursePlan
+                              ? "course"
+                              : "session"
+                            : undefined
+                        }
+                        onViewCoursePlan={
+                          session && !member
+                            ? () => setViewingCoursePlan(true)
+                            : undefined
+                        }
+                        memberId={member?.memberId}
+                        editableCoachId={user?.userId}
+                        onCreate={
+                          writable &&
+                          (!viewingCoursePlan ||
+                            course.coachId === user?.userId)
+                            ? (scope, selectedSession, selectedMember) => {
+                                if (member && scope !== "personal") return;
+                                setSaved(null);
+                                setEditor({
+                                  kind: "PLAN",
+                                  scope,
+                                  sessionId: selectedSession,
+                                  memberId: member?.memberId ?? selectedMember,
+                                });
+                              }
+                            : undefined
+                        }
+                        onEdit={
+                          writable &&
+                          (!viewingCoursePlan ||
+                            course.coachId === user?.userId)
+                            ? (r) => {
+                                if (
+                                  r.coachId === user?.userId &&
+                                  (!member || r.memberId === member.memberId)
+                                )
+                                  setEditor({ kind: r.kind, existing: r });
+                              }
+                            : undefined
+                        }
+                      />
+                    </>
                   )}
                   {tab === "attendance" && roster && (
                     <>

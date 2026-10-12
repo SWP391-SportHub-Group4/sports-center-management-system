@@ -11,6 +11,7 @@ import type {
 } from "./calendar.contract";
 
 import styles from "./Calendar.module.css";
+import { useNow } from "@/lib/useApi";
 
 const VIETNAM_OFFSET_MS = 7 * 60 * 60 * 1000;
 
@@ -46,6 +47,8 @@ export function Calendar({
   iconNavigation?: boolean;
 }) {
   const rangeDays = daysFor(view);
+  const now = useNow();
+  const today = vietnamDateIso(new Date(now).toISOString());
 
   const days = Array.from({ length: rangeDays }, (_, index) =>
     addDaysIso(date, index),
@@ -143,9 +146,25 @@ export function Calendar({
             const items = byDay.get(day) ?? [];
 
             return (
-              <section className={styles.listDay} key={day}>
+              <section
+                className={styles.listDay}
+                key={day}
+                data-today={day === today || undefined}
+              >
                 <h3 className={styles.listDayTitle}>
-                  <time dateTime={day}>{formatDate(day)}</time>
+                  {day === today && (
+                    <span
+                      className={styles.todayDot}
+                      title={labels.today}
+                      aria-label={labels.today}
+                    />
+                  )}
+                  <time
+                    dateTime={day}
+                    aria-current={day === today ? "date" : undefined}
+                  >
+                    {formatDate(day)}
+                  </time>
                 </h3>
 
                 {!items.length && (
@@ -199,10 +218,26 @@ export function Calendar({
             const items = byDay.get(day) ?? [];
 
             return (
-              <section className={styles.day} key={day}>
+              <section
+                className={styles.day}
+                key={day}
+                data-today={day === today || undefined}
+              >
                 <header className={styles.dayHeader}>
                   <strong>
-                    <time dateTime={day}>{formatDate(day)}</time>
+                    {day === today && (
+                      <span
+                        className={styles.todayDot}
+                        title={labels.today}
+                        aria-label={labels.today}
+                      />
+                    )}
+                    <time
+                      dateTime={day}
+                      aria-current={day === today ? "date" : undefined}
+                    >
+                      {formatDate(day)}
+                    </time>
                   </strong>
 
                   <span className="small muted">{items.length}</span>
