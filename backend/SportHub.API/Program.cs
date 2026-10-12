@@ -519,7 +519,8 @@ if (args.Any(a => a.StartsWith("--seed-br141", StringComparison.Ordinal)))
 }
 
 // Ở Development: áp migration rồi seed dữ liệu demo. Seeder tự bỏ qua nếu DB đã có tài khoản,
-// nên không bao giờ ghi đè dữ liệu người dùng đang có.
+// nên không bao giờ ghi đè dữ liệu người dùng đang có. Roster Coach là cấu hình riêng, cần đồng bộ
+// kể cả khi database đã có các loại tài khoản khác.
 // Ở môi trường khác, migration chạy qua `dotnet ef database update` trong quy trình triển khai —
 // tự migrate khi khởi động nhiều instance sẽ có nhiều tiến trình cùng đổi schema một lúc.
 if (app.Environment.IsDevelopment())
@@ -528,6 +529,7 @@ if (app.Environment.IsDevelopment())
 
     await startupScope.ServiceProvider.GetRequiredService<SportHubDbContext>().Database.MigrateAsync();
     await startupScope.ServiceProvider.GetRequiredService<DemoDataSeeder>().SeedAsync();
+    await startupScope.ServiceProvider.GetRequiredService<CoachRosterSeeder>().SeedAsync();
     await startupScope.ServiceProvider.GetRequiredService<FacilityBaselineSeeder>().SeedAsync();
 }
 

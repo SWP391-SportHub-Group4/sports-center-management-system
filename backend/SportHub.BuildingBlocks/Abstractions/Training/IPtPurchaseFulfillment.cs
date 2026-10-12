@@ -23,7 +23,7 @@ public interface IPtPurchaseFulfillment
         CancellationToken cancellationToken = default);
 }
 
-public sealed record PtRefundFacts(Guid MemberId, int ReservedSessions, int ConsumedSessions, string Status);
+public sealed record PtRefundFacts(Guid MemberId, int ReservedSessions, int ConsumedSessions, string Status, int TotalQuota = 0);
 
 public sealed record PtPurchaseRequest(Guid MemberId, Guid MemberPackageId, Guid CoachId, int FrequencyPerWeek,
     DateTime? StartAtUtc = null, int? RoomId = null);
