@@ -56,6 +56,8 @@ using SportHub.Training;
 using System.Text.Json.Serialization;
 using System.Text.Json;
 using System.Threading.RateLimiting;
+using SportHub.Payment.Application.Interfaces;
+using SportHub.Payment.Application.Services;
 
 LoadRootEnvIfPresent();
 
@@ -303,6 +305,7 @@ builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Wallet.IPointWal
 builder.Services.AddScoped<SportHub.Payment.Wallet.Application.WalletQueryService>();
 builder.Services.AddScoped<SportHub.Payment.Wallet.Application.PointAdjustmentService>();
 builder.Services.AddScoped<SportHub.Payment.Wallet.Application.PointConfirmationService>();
+builder.Services.AddScoped<IInvoiceReceiptService,InvoiceReceiptService>();
 var vnPaySection = builder.Configuration.GetSection(VnPayOptions.SectionName);
 var vnPayUseMock = vnPaySection.GetValue<bool>(nameof(VnPayOptions.UseMock));
 if (vnPayUseMock && !builder.Environment.IsDevelopment())

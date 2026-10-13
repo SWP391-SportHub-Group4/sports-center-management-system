@@ -5,62 +5,159 @@ using SportHub.BuildingBlocks.Abstractions.Persistence;
 
 namespace SportHub.Notification.Infrastructure;
 
-/// <summary>
-/// Bản cài đặt <see cref="INotificationWriter"/> (BR-33, BR-34).
-///
-/// Chỉ Add với Status = Pending trong change tracker của caller: đúng mô hình outbox mà
-/// BR-34 mô tả cho quy mô MVP. Việc "gửi" là của NotificationDispatchJob, nên không có
-/// đường nào để lỗi gửi làm hỏng hành động gốc.
-/// </summary>
-public sealed class NotificationWriter(ISportHubDbContext db, IDataProtectionProvider protection) : INotificationWriter
+public sealed class NotificationWriter(
+    ISportHubDbContext db,
+    IDataProtectionProvider protection)
+    : INotificationWriter
 {
-    private readonly IDataProtector _protector = protection.CreateProtector("SportHub.Notification.EmailPayload.v1");
+    private const int MaxAttachmentBytes =
+        2 * 1024 * 1024;
 
-    public void Queue(NotificationRequest request)
+    private readonly IDataProtector _protector =
+        protection.CreateProtector(
+            "SportHub.Notification.EmailPayload.v1");
+
+    public void Queue(
+        NotificationRequest request)
     {
-        db.Set<Domain.Entities.Notification>().Add(new Domain.Entities.Notification
-        {
-            NotificationId = Guid.NewGuid(),
-            UserId = request.UserId,
-
-            // MVP chỉ InApp hoạt động thật (SSOT §1.3/§3).
-            Channel = NotificationChannel.InApp,
-            SourceEventType = MapEventType(request.SourceEventType),
-            SourceEntityId = request.SourceEntityId,
-            Message = request.Message,
-            Status = NotificationStatus.Pending,
-            RetryCount = 0
-        });
+        db.Set<Domain.Entities.Notification>()
+            .Add(
+                new Domain.Entities.Notification
+                {
+                    NotificationId = Guid.NewGuid(),
+                    UserId = request.UserId,
+                    Channel =
+                        NotificationChannel.InApp,
+                    SourceEventType =
+                        MapEventType(
+                            request.SourceEventType),
+                    SourceEntityId =
+                        request.SourceEntityId,
+                    Message = request.Message,
+                    Status =
+                        NotificationStatus.Pending,
+                    RetryCount = 0
+                });
     }
 
-    public void QueueEmail(EmailNotificationRequest request)
+    public void QueueEmail(
+        EmailNotificationRequest request)
     {
-        if (string.IsNullOrWhiteSpace(request.RecipientAddress) || request.RecipientAddress.Length > 320
-            || string.IsNullOrWhiteSpace(request.Subject) || request.Subject.Length > 300
-            || string.IsNullOrWhiteSpace(request.HtmlBody) || request.HtmlBody.Length > 24_000
-            || request.SourceEntityId == Guid.Empty)
-            throw new ArgumentException("Email outbox message has invalid address, subject, body, or event id.", nameof(request));
-        var eventType = MapEventType(request.SourceEventType);
-        var payload = JsonSerializer.Serialize(new EmailPayload(request.Subject, request.HtmlBody));
-        db.Set<Domain.Entities.Notification>().Add(new Domain.Entities.Notification
+        if (
+            string.IsNullOrWhiteSpace(
+                request.RecipientAddress) ||
+            request.RecipientAddress.Length > 320 ||
+            string.IsNullOrWhiteSpace(
+                request.Subject) ||
+            request.Subject.Length > 300 ||
+            string.IsNullOrWhiteSpace(
+                request.HtmlBody) ||
+            request.HtmlBody.Length > 50_000 ||
+            request.SourceEntityId == Guid.Empty)
         {
-            NotificationId = Guid.NewGuid(), UserId = request.UserId,
-            Channel = NotificationChannel.Email, SourceEventType = eventType,
-            SourceEntityId = request.SourceEntityId, RecipientAddress = request.RecipientAddress.Trim(),
-            ProtectedEmailPayload = _protector.Protect(payload), Message = string.Empty,
-            Status = NotificationStatus.Pending, RetryCount = 0
-        });
+            throw new ArgumentException(
+                "Email outbox message has invalid address, subject, body, or event id.",
+                nameof(request));
+        }
+
+        var attachments =
+            request.Attachments ?? [];
+
+        var totalAttachmentBytes =
+            attachments.Sum(
+                x => x.Content?.Length ?? 0);
+
+        if (totalAttachmentBytes >
+            MaxAttachmentBytes)
+        {
+            throw new ArgumentException(
+                "Email attachments exceed the 2 MB outbox limit.",
+                nameof(request));
+        }
+
+        foreach (var attachment in attachments)
+        {
+            if (
+                string.IsNullOrWhiteSpace(
+                    attachment.FileName) ||
+                string.IsNullOrWhiteSpace(
+                    attachment.ContentType) ||
+                attachment.Content is null ||
+                attachment.Content.Length == 0)
+            {
+                throw new ArgumentException(
+                    "Email attachment is invalid.",
+                    nameof(request));
+            }
+        }
+
+        var eventType =
+            MapEventType(
+                request.SourceEventType);
+
+        var payload =
+            JsonSerializer.Serialize(
+                new EmailPayload(
+                    request.Subject,
+                    request.HtmlBody,
+                    attachments
+                        .Select(
+                            x =>
+                                new EmailAttachmentPayload(
+                                    x.FileName,
+                                    x.ContentType,
+                                    Convert.ToBase64String(
+                                        x.Content)))
+                        .ToArray()));
+
+        db.Set<Domain.Entities.Notification>()
+            .Add(
+                new Domain.Entities.Notification
+                {
+                    NotificationId =
+                        Guid.NewGuid(),
+                    UserId = request.UserId,
+                    Channel =
+                        NotificationChannel.Email,
+                    SourceEventType =
+                        eventType,
+                    SourceEntityId =
+                        request.SourceEntityId,
+                    RecipientAddress =
+                        request.RecipientAddress
+                            .Trim(),
+                    ProtectedEmailPayload =
+                        _protector.Protect(payload),
+                    Message = string.Empty,
+                    Status =
+                        NotificationStatus.Pending,
+                    RetryCount = 0
+                });
     }
 
-    // Ném thay vì fallback im lặng: hằng chuỗi ở BuildingBlocks là bản mirror của enum này,
-    // lệch nhau thì phải vỡ ngay ở test chứ không ghi nhầm loại sự kiện vào DB.
-    private static NotificationSourceEventType MapEventType(string sourceEventType)
-        => Enum.TryParse<NotificationSourceEventType>(sourceEventType, ignoreCase: false, out var parsed)
-            ? parsed
-            : throw new ArgumentOutOfRangeException(
-                nameof(sourceEventType),
+    private static NotificationSourceEventType
+        MapEventType(
+            string sourceEventType)
+        =>
+            Enum.TryParse<
+                NotificationSourceEventType>(
                 sourceEventType,
-                "No NotificationSourceEventType matches. Check NotificationEvents in BuildingBlocks.");
+                ignoreCase: false,
+                out var parsed)
+                ? parsed
+                : throw new
+                    ArgumentOutOfRangeException(
+                        nameof(sourceEventType),
+                        sourceEventType,
+                        "No NotificationSourceEventType matches. Check NotificationEvents in BuildingBlocks.");
 }
 
-public sealed record EmailPayload(string Subject, string HtmlBody);
+public sealed record EmailAttachmentPayload(
+    string FileName,
+    string ContentType,
+    string Base64Content);
+
+public sealed record EmailPayload(
+    string Subject,
+    string HtmlBody,
+    IReadOnlyList<EmailAttachmentPayload>? Attachments = null);

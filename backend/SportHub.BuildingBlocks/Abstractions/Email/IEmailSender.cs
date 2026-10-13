@@ -1,10 +1,31 @@
 namespace SportHub.BuildingBlocks.Abstractions.Email;
 
-/// <summary>
-/// Gửi email ra ngoài. Hiện chỉ Identity dùng (OTP Register — BR-78); NotificationChannel.Email
-/// vẫn chưa hoạt động và KHÔNG đi qua interface này.
-/// </summary>
+public sealed record EmailAttachment(
+    string FileName,
+    string ContentType,
+    byte[] Content);
+
 public interface IEmailSender
 {
-    Task SendAsync(string toAddress, string subject, string htmlBody, CancellationToken cancellationToken = default);
+    Task SendAsync(
+        string toAddress,
+        string subject,
+        string htmlBody,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Attachment-aware overload.
+    /// Default implementation keeps existing test doubles and senders compatible.
+    /// </summary>
+    Task SendAsync(
+        string toAddress,
+        string subject,
+        string htmlBody,
+        IReadOnlyList<EmailAttachment> attachments,
+        CancellationToken cancellationToken = default)
+        => SendAsync(
+            toAddress,
+            subject,
+            htmlBody,
+            cancellationToken);
 }
