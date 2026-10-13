@@ -630,7 +630,7 @@ export const vi: Translations = {
       "Không bắt buộc. Người nhận có thể bổ sung sau khi đăng nhập.",
     confirmEmail: "Nhập lại email",
     emailMismatch: "Hai địa chỉ email không khớp.",
-    pendingActivation: "Chờ kích hoạt",
+    pendingActivation: "Cần kích hoạt",
     pendingActivationHint:
       "Nhân sự này chưa kích hoạt tài khoản. Nếu email bị gõ sai, hãy sửa để link kích hoạt đến đúng người.",
     resendActivation: "Gửi lại link kích hoạt",
@@ -1556,6 +1556,12 @@ export const vi: Translations = {
       "Tải lại các lựa chọn mới nhất và kiểm tra bộ môn đã chọn trước khi tiếp tục.",
   },
   filterBar: {
+    actionPlaceholder: "Tìm hoặc chọn hành động",
+    allActions: "Tất cả hành động",
+    noMatchingActions: "Không có hành động phù hợp.",
+    noActions: "Chưa có hành động được ghi nhận.",
+    actionsUnavailable: "Không tải được danh sách hành động.",
+    selectAction: "Chọn hành động trong danh sách hoặc để trống ô này.",
     from: "Từ ngày",
     to: "Đến ngày",
     invalidActor: "Nhập ID người thực hiện đúng định dạng UUID, hoặc để trống.",

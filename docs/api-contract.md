@@ -158,6 +158,13 @@ Invoice checkout giữ phòng bằng cùng occupancy constraints với class/PT/
 | Verb | Path |
 |---|---|
 | GET | `api/audit-logs` |
+| GET | `api/audit-logs/actions` |
+
+`GET api/audit-logs/actions` trả mảng mã Action khác nhau, bỏ mã rỗng/chỉ khoảng trắng và sắp xếp tăng dần, không phụ thuộc phân trang của bảng. Chỉ CenterManager/SystemAdministrator được gọi. Admin nhận đầy đủ danh mục `AccountAuditActions` dùng chung với các nơi ghi log cho `UserAccount`, kể cả mã chưa phát sinh log, cộng các mã cũ đã ghi nhận cho `UserAccount`. Manager nhận các mã đã ghi nhận trong phạm vi Audit hiện có. Chọn Action chưa có log trả bảng rỗng hợp lệ; không tạo log giả và không mở rộng quyền đọc.
+
+Danh mục Admin hiện có: `CREATE_STAFF_ACCOUNT`, `CHANGE_USER_ROLE`, `LOCK_USER_ACCOUNT`, `UNLOCK_USER_ACCOUNT`, `RESEND_STAFF_ACTIVATION`, `CHANGE_PENDING_STAFF_EMAIL`, `FRONT_DESK_CREATE_MEMBER`, `RESEND_MEMBER_ACTIVATION`, `CHANGE_PENDING_MEMBER_EMAIL`, `EXPIRE_UNACTIVATED_STAFF_ACCOUNT`, `UPDATE_COACH_SPECIALTIES`.
+
+Ô Action mở danh sách cuộn khi focus/click, hỗ trợ gõ để thu hẹp gợi ý không phân biệt hoa/thường (nhiều từ có thể nhập khác thứ tự), chọn bằng chuột hoặc ArrowUp/ArrowDown + Enter, Escape/Tab đóng danh sách. Chọn mã rồi Apply filters gửi nguyên mã đó; backend vẫn lọc Action bằng so sánh chính xác. All actions/ô trống không lọc Action. Danh sách có trạng thái tải, lỗi/thử lại và rỗng; quyền đọc audit không được mở rộng.
 
 Với sự kiện `targetEntity = UserAccount`, mỗi item bổ sung `targetFullName`,
 `targetEmail` (thông tin hiện tại của tài khoản đích) và `targetAccountExists`.
@@ -211,7 +218,7 @@ Việc bổ sung không thay đổi quyền đọc audit, scope tài khoản c�
 
 - **Member ↔ Staff không được phép:** đổi từ Member sang bất kỳ role staff nào, hoặc từ staff về Member, trả **409 `member_staff_role_change_not_allowed`**. Người muốn làm staff phải được Admin tạo tài khoản staff bằng **email khác** (`POST api/users/admin/staff`, luồng kích hoạt qua email); tài khoản Member cũ giữ nguyên.
 - **Coach → role staff khác:** trả **409 `role_change_blocked`** kèm `reasons: string[]` khi còn lớp chưa kết thúc do Coach làm chính, buổi lớp/PT tương lai còn chiếm lịch (`CoachOccupancy`), hoặc quan hệ huấn luyện Active.
-- **Last SystemAdministrator:** không được đổi role (409 `last_active_system_administrator`).
+- **Mọi tài khoản hiện là SystemAdministrator:** không được đổi sang role khác, gồm chính Admin đang thao tác và Admin khác, không phụ thuộc số lượng Admin hoặc trạng thái tài khoản (409 `administrator_role_change_not_allowed`). Chỉ gửi lại role hiện tại thì không thay đổi dữ liệu. Quy tắc khóa/vô hiệu hóa Admin cuối cùng vẫn giữ riêng như cũ.
 
 Khi đổi thành công: rời Coach thì giữ `CoachProfile` làm lịch sử nhưng xóa chuyên môn (`UserSportSpecialty`) và quyền dịch vụ (`CoachServiceQualification`); đổi sang Coach thì Admin phải chọn chuyên môn (Manager cấp lại quyền dịch vụ PT nếu dạy PT); `SecurityStamp` đổi nên token cũ mất hiệu lực.
 

@@ -326,9 +326,13 @@ test("blocked Coach role change shows specific reasons and shareable handoff lin
   await page.goto("/admin/users");
   await page.getByRole("button", { name: "Edit", exact: true }).click();
   const dialog = page.getByRole("dialog");
-  await dialog.getByLabel("Reason", { exact: true }).fill("Hire as receptionist");
+  await dialog
+    .getByLabel("Reason", { exact: true })
+    .fill("Hire as receptionist");
   await dialog.getByLabel("Role", { exact: true }).selectOption("RECEPTIONIST");
-  await dialog.getByRole("button", { name: "Change role", exact: true }).click();
+  await dialog
+    .getByRole("button", { name: "Change role", exact: true })
+    .click();
   await dialog.getByRole("button", { name: "Confirm", exact: true }).click();
 
   const blockers = dialog.getByRole("region", {
@@ -338,13 +342,18 @@ test("blocked Coach role change shows specific reasons and shareable handoff lin
   await expect(blockers).toContainText("Main coach of 1 unfinished class");
   await expect(blockers).toContainText("2 upcoming class/PT session(s)");
   await expect(blockers).toContainText("1 active coaching relationship(s)");
-  await expect(blockers).toContainText("Contact a Center Manager or Receptionist");
-  await expect(blockers.getByRole("link", { name: "View account details" })).toHaveAttribute(
-    "href",
-    `/admin/users/${row.userId}`,
+  await expect(blockers).toContainText(
+    "Contact a Center Manager or Receptionist",
   );
-  await expect(blockers.getByRole("button", { name: "Copy Manager member link" })).toBeVisible();
-  await expect(blockers.getByRole("button", { name: "Copy Receptionist member link" })).toBeVisible();
+  await expect(
+    blockers.getByRole("link", { name: "View account details" }),
+  ).toHaveAttribute("href", `/admin/users/${row.userId}`);
+  await expect(
+    blockers.getByRole("button", { name: "Copy Manager member link" }),
+  ).toBeVisible();
+  await expect(
+    blockers.getByRole("button", { name: "Copy Receptionist member link" }),
+  ).toBeVisible();
 });
 
 test("lock/unlock require review, refresh the list and display successful outcomes", async ({
@@ -402,19 +411,32 @@ test("staff creation sends an activation email and lets Admin assign Coach speci
   const dialog = page.getByRole("dialog");
   await expect(
     dialog.getByLabel("Role", { exact: true }).locator("option"),
-  ).toHaveText(["Center Manager", "Coach", "Receptionist", "System Administrator"]);
+  ).toHaveText([
+    "Center Manager",
+    "Coach",
+    "Receptionist",
+    "System Administrator",
+  ]);
   await dialog.getByLabel("Full name", { exact: true }).fill("New staff");
   await dialog.getByLabel("Email", { exact: true }).fill("new@example.com");
-  await dialog.getByLabel("Confirm email", { exact: true }).fill("neww@example.com");
-  await expect(dialog.getByText("The two email addresses do not match.")).toBeVisible();
+  await dialog
+    .getByLabel("Confirm email", { exact: true })
+    .fill("neww@example.com");
+  await expect(
+    dialog.getByText("The two email addresses do not match."),
+  ).toBeVisible();
   await expect(
     dialog.getByRole("button", { name: "Review staff account", exact: true }),
   ).toBeDisabled();
-  await dialog.getByLabel("Confirm email", { exact: true }).fill("NEW@example.com");
+  await dialog
+    .getByLabel("Confirm email", { exact: true })
+    .fill("NEW@example.com");
   await dialog.getByLabel("Role", { exact: true }).selectOption("COACH");
   await dialog.getByRole("radio", { name: "Gym" }).check();
   await expect(dialog.getByLabel("Password", { exact: true })).toHaveCount(0);
-  await expect(dialog).toContainText("An activation email with a link to set the first password");
+  await expect(dialog).toContainText(
+    "An activation email with a link to set the first password",
+  );
   await dialog
     .getByRole("button", { name: "Review staff account", exact: true })
     .click();
@@ -424,9 +446,12 @@ test("staff creation sends an activation email and lets Admin assign Coach speci
   await dialog.getByRole("button", { name: "Confirm", exact: true }).click();
   await expect(dialog).toHaveCount(0);
   await expect(
-    page.getByText("Staff account created. An activation email has been queued.", {
-      exact: true,
-    }),
+    page.getByText(
+      "Staff account created. An activation email has been queued.",
+      {
+        exact: true,
+      },
+    ),
   ).toBeVisible();
   expect(writes).toBe(1);
 });
@@ -536,14 +561,25 @@ test("default password still follows the email policy and allows a custom passwo
   await expect(dialog).not.toContainText("StrongPass@123");
 });
 
-test("own account cannot be locked; Escape restores focus to Edit", async ({
+test("own Administrator row hides Edit; details keep role and lock protections", async ({
   page,
 }) => {
   await setup(page, { self: true });
   await page.goto("/admin/users");
+  await expect(
+    page.getByRole("button", { name: "Edit", exact: true }),
+  ).toHaveCount(0);
+  await page.getByRole("link", { name: "View details", exact: true }).click();
   const trigger = page.getByRole("button", { name: "Edit", exact: true });
   await trigger.click();
   const dialog = page.getByRole("dialog");
+  await expect(dialog.getByLabel("Role", { exact: true })).toHaveCount(0);
+  await expect(
+    dialog.getByRole("button", { name: "Change role", exact: true }),
+  ).toHaveCount(0);
+  await expect(dialog).not.toContainText(
+    "Administrator roles cannot be changed",
+  );
   for (const action of ["Lock", "Unlock", "Deactivate"])
     await expect(
       dialog.getByRole("button", { name: action, exact: true }),
@@ -551,6 +587,35 @@ test("own account cannot be locked; Escape restores focus to Edit", async ({
   await page.keyboard.press("Escape");
   await expect(dialog).toHaveCount(0);
   await expect(trigger).toBeFocused();
+});
+
+test("another Administrator has no role-change controls in the list or account details", async ({
+  page,
+}) => {
+  const row = await setup(page);
+  row.role = "SYSTEM_ADMINISTRATOR";
+  let roleWrites = 0;
+  await page.route(`**/api/users/${row.userId}/role`, (route) => {
+    roleWrites++;
+    return route.fulfill({ json: row });
+  });
+  for (const path of ["/admin/users", `/admin/users/${row.userId}`]) {
+    await page.goto(path);
+    await page.getByRole("button", { name: "Edit", exact: true }).click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.getByLabel("Role", { exact: true })).toHaveCount(0);
+    await expect(
+      dialog.getByRole("button", { name: "Change role", exact: true }),
+    ).toHaveCount(0);
+    await expect(dialog).not.toContainText(
+      "Administrator roles cannot be changed",
+    );
+    await expect(
+      dialog.getByRole("button", { name: "Lock", exact: true }),
+    ).toBeVisible();
+    await page.keyboard.press("Escape");
+  }
+  expect(roleWrites).toBe(0);
 });
 
 test("non-Admin cannot mount account detail or make its API request", async ({
@@ -634,7 +699,7 @@ test("pending staff show a badge, resend the link and correct a mistyped email",
   await page.goto("/admin/users");
   await expect(
     page.getByRole("table", { name: "Users and roles" }),
-  ).toContainText("Pending activation");
+  ).toContainText("Activation required");
 
   await page.getByRole("button", { name: "Edit", exact: true }).click();
   const dialog = page.getByRole("dialog");
@@ -643,14 +708,27 @@ test("pending staff show a badge, resend the link and correct a mistyped email",
     .click();
   await expect.poll(() => writes).toEqual(["resend"]);
 
-  await dialog.getByRole("button", { name: "Change email", exact: true }).click();
-  await dialog.getByLabel("New email", { exact: true }).fill("right@example.com");
-  await dialog.getByLabel("Confirm new email", { exact: true }).fill("wrong@example.com");
-  await expect(dialog.getByText("The two email addresses do not match.")).toBeVisible();
+  await dialog
+    .getByRole("button", { name: "Change email", exact: true })
+    .click();
+  await dialog
+    .getByLabel("New email", { exact: true })
+    .fill("right@example.com");
+  await dialog
+    .getByLabel("Confirm new email", { exact: true })
+    .fill("wrong@example.com");
   await expect(
-    dialog.getByRole("button", { name: "Update email and send link", exact: true }),
+    dialog.getByText("The two email addresses do not match."),
+  ).toBeVisible();
+  await expect(
+    dialog.getByRole("button", {
+      name: "Update email and send link",
+      exact: true,
+    }),
   ).toBeDisabled();
-  await dialog.getByLabel("Confirm new email", { exact: true }).fill("right@example.com");
+  await dialog
+    .getByLabel("Confirm new email", { exact: true })
+    .fill("right@example.com");
   await dialog
     .getByLabel("Reason", { exact: true })
     .first()
@@ -668,9 +746,11 @@ test("activated staff do not show pending-activation actions", async ({
   await page.goto("/admin/users");
   await expect(
     page.getByRole("table", { name: "Users and roles" }),
-  ).not.toContainText("Pending activation");
+  ).not.toContainText("Activation required");
   await page.getByRole("button", { name: "Edit", exact: true }).click();
   await expect(
-    page.getByRole("dialog").getByRole("button", { name: "Resend activation link" }),
+    page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Resend activation link" }),
   ).toHaveCount(0);
 });

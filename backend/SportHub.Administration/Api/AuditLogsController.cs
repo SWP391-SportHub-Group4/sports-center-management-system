@@ -20,6 +20,11 @@ namespace SportHub.Administration.Api;
 [Route("api/audit-logs")]
 public class AuditLogsController(IAuditQueryService auditLogs) : ControllerBase
 {
+    [HttpGet("actions")]
+    public async Task<IActionResult> ListActions(CancellationToken ct = default)
+        => Ok(await auditLogs.ListActionsAsync(
+            accountsOnly: User.IsInRole(nameof(UserRole.SystemAdministrator)), ct));
+
     [HttpGet]
     public async Task<IActionResult> Search(
         [FromQuery] string? action,

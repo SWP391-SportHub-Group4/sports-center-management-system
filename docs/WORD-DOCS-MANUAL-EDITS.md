@@ -125,3 +125,11 @@ Thêm vào mục yêu cầu chức năng hoặc phụ lục "Chưa triển khai"
 1. Nếu thêm BR-143 và BR-144, cập nhật mục lục và bảng tham chiếu chéo (BR-2, BR-7, UC-03, UC-04).
 2. Đối chiếu lại số BR với `docs/00-Source-of-Truth.md` §4 (hiện dùng tên quy tắc, chưa dùng mã BR-143/144).
 3. Báo tôi số BR bạn chốt để cập nhật các file Markdown cho đồng bộ.
+
+## D. Quy tắc đã chốt ngày 13/10/2026 — bảo vệ role Admin
+
+Khi cập nhật BR-2 và UC quản trị tài khoản trong Word, bổ sung:
+
+> Không được thay đổi vai trò của tài khoản đang là System Administrator, bao gồm tài khoản của chính người thao tác và System Administrator khác, không phụ thuộc số lượng Admin hoặc trạng thái tài khoản. Tài khoản nhân sự khác vẫn được phép nâng lên System Administrator; sau đó vai trò được bảo vệ. Quy tắc này không thay đổi quyền khóa/mở khóa hoặc việc tạo tài khoản Admin.
+
+Đã cập nhật quy tắc trong `00-Source-of-Truth.md`, `Requirements.md` và `api-contract.md`; yêu cầu đã xác nhận này được ưu tiên so với mô tả cũ trong Word.
