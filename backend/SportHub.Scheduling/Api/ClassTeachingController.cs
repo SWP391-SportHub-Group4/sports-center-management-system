@@ -10,8 +10,16 @@ namespace SportHub.Scheduling.Api;
 [ApiController]
 [Authorize(Policy = SportHubPolicies.Coach)]
 [Route("api/coaches/me/teaching")]
-public sealed class ClassTeachingController(ClassTeachingService teaching, IAttendanceService attendance) : ControllerBase
+public sealed class ClassTeachingController(ClassTeachingService teaching, IAttendanceService attendance,
+    SportHub.Membership.Application.Interfaces.IMemberTrainingProfileService profiles) : ControllerBase
 {
+    [HttpGet("students/{memberId:guid}/health-profile")]
+    public async Task<IActionResult> StudentHealthProfile(Guid memberId, CancellationToken ct)
+    {
+        // Reuse the student directory's assignment checks before exposing physical information.
+        await teaching.StudentContextAsync(User.RequireUserId(), memberId, ct);
+        return Ok(new { Profile = await profiles.GetAsync(memberId, ct) });
+    }
     [HttpGet("students")]
     public async Task<IActionResult> Students([FromQuery] int page = 1, [FromQuery] string? search = null,
         [FromQuery] int? sportId = null, CancellationToken ct = default)

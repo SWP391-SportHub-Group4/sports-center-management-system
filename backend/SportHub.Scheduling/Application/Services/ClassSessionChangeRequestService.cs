@@ -85,6 +85,17 @@ public sealed class ClassSessionChangeRequestService(ISportHubDbContext db, ICla
             throw new ConflictException("session_not_editable", "Session not editable.");
     }
 
+    private void ValidateProposal(ClassSession s, CreateClassChangeRequest input)
+    {
+        if (input.Type == "CANCEL_WITH_MAKEUP" && s.StartAtUtc - clock.UtcNow < TimeSpan.FromHours(6))
+            throw new ConflictException("class_cancel_deadline", "Cancellation requests must be submitted at least 6 hours before the session starts.");
+        if ((input.ProposedStartAtUtc.HasValue != input.ProposedEndAtUtc.HasValue)
+            || (input.ProposedStartAtUtc.HasValue && (input.Type == "SUBSTITUTE" || input.ProposedStartAtUtc.Value.Kind != DateTimeKind.Utc
+                || input.ProposedEndAtUtc!.Value.Kind != DateTimeKind.Utc || input.ProposedStartAtUtc <= clock.UtcNow
+                || input.ProposedEndAtUtc - input.ProposedStartAtUtc != s.EndAtUtc - s.StartAtUtc)))
+            throw new BadRequestException("proposed_time_invalid", "Proposed time invalid.");
+    }
+
     public async Task<ClassChangeResponse> CreateAsync(Guid sessionId, Guid coachId, CreateClassChangeRequest input, CancellationToken ct)
     {
         var reason = Reason(input.Reason);
@@ -102,11 +113,7 @@ public sealed class ClassSessionChangeRequestService(ISportHubDbContext db, ICla
             await tx.CommitAsync(ct); return await GetAsync(existing.RequestId, coachId, ct);
         }
         EnsureEditable(s);
-        if ((input.ProposedStartAtUtc.HasValue != input.ProposedEndAtUtc.HasValue)
-            || (input.ProposedStartAtUtc.HasValue && (input.Type == "SUBSTITUTE" || input.ProposedStartAtUtc.Value.Kind != DateTimeKind.Utc
-                || input.ProposedEndAtUtc!.Value.Kind != DateTimeKind.Utc || input.ProposedStartAtUtc <= clock.UtcNow
-                || input.ProposedEndAtUtc - input.ProposedStartAtUtc != s.EndAtUtc - s.StartAtUtc)))
-            throw new BadRequestException("proposed_time_invalid", "Proposed time invalid.");
+        ValidateProposal(s, input);
         if (await db.Set<ClassSessionChangeRequest>().AnyAsync(r => r.SessionId == sessionId && r.Status == "PENDING", ct))
             throw new ConflictException("class_change_pending", "Class change pending.");
         var record = new ClassSessionChangeRequest { RequestId = input.RequestId, SessionId = sessionId,
@@ -140,6 +147,32 @@ public sealed class ClassSessionChangeRequestService(ISportHubDbContext db, ICla
         var (r, _) = await LockRequestAsync(id, coachId, ct);
         r.Status = "WITHDRAWN"; r.ReviewedAtUtc = clock.UtcNow;
         WriteAudit(coachId, "WITHDRAW", r);
+        await db.SaveChangesAsync(ct); await tx.CommitAsync(ct);
+        return await GetAsync(id, coachId, ct);
+    }
+
+    public async Task<ClassChangeResponse> UpdateAsync(Guid id, Guid coachId, CreateClassChangeRequest input, CancellationToken ct)
+    {
+        var reason = Reason(input.Reason);
+        if (input.RequestId != id || !ValidType(input.Type))
+            throw new BadRequestException("class_change_invalid", "Class change invalid.");
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        var (r, s) = await LockRequestAsync(id, coachId, ct);
+        var actor = await users.GetAsync(coachId, ct);
+        if (s.CoachId != coachId || actor is not { IsActive: true, Role: "Coach" })
+            throw new ForbiddenException("session_not_assigned", "Session not assigned.");
+        EnsureEditable(s);
+        if (s.StartAtUtc != r.OriginalStartAtUtc || s.EndAtUtc != r.OriginalEndAtUtc || s.RoomId != r.OriginalRoomId)
+            throw new ConflictException("class_change_stale", "Class change stale.");
+        ValidateProposal(s, input);
+        r.Type = input.Type; r.Reason = reason;
+        r.ProposedStartAtUtc = input.ProposedStartAtUtc; r.ProposedEndAtUtc = input.ProposedEndAtUtc;
+        var managers = await db.Set<UserAccount>().Where(u => u.Status == UserStatus.Active && u.Role!.RoleName == UserRole.CenterManager)
+            .Select(u => u.UserId).ToListAsync(ct);
+        foreach (var manager in managers)
+            notifications.Queue(new(manager, NotificationEvents.ClassSessionChangeRequested,
+                $"{actor.FullName} updated the change request for session {s.SessionNo} · {s.Class!.Name}. Reason: {reason}", r.RequestId));
+        WriteAudit(coachId, "UPDATE", r);
         await db.SaveChangesAsync(ct); await tx.CommitAsync(ct);
         return await GetAsync(id, coachId, ct);
     }

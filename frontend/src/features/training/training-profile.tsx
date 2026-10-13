@@ -19,8 +19,10 @@ import {
   type Option,
 } from "./health-profile-options";
 import styles from "./health-profile.module.css";
+import { BodyBuildSelector } from "./body-build-selector";
 
 type FormState = {
+  bodyBuild: string;
   goal: string;
   goalType: string;
   experienceLevel: string;
@@ -42,6 +44,7 @@ const defaultGoalText = (goalType: string) =>
   GOAL_TYPES.find((o) => o.value === goalType)?.en ?? "General fitness";
 
 const fromProfile = (p: MemberTrainingProfileDto | null): FormState => ({
+  bodyBuild: p?.bodyBuild ?? "",
   goal: p && p.goal !== defaultGoalText(p.goalType ?? "") ? p.goal : "",
   goalType: p?.goalType ?? "",
   experienceLevel: p?.experienceLevel ?? "",
@@ -257,6 +260,7 @@ function ProfileForm({
           sex: form.sex,
           heightCm: height,
           weightKg: weight,
+          bodyBuild: form.bodyBuild || null,
           targetWeightKg: target,
           activityLevel: form.activityLevel,
           trainingDaysPerWeek: days,
@@ -325,6 +329,10 @@ function ProfileForm({
 
         <fieldset className={styles.section}>
           <legend>{vi ? "2. Thông tin cơ thể" : "2. Your body"}</legend>
+          <BodyBuildSelector
+            value={form.bodyBuild}
+            onChange={(value) => set("bodyBuild", value)}
+          />
           <p className={styles.sectionHint}>
             {vi
               ? "Bạn tự nhập số đo. Dùng số liệu gần đây nhất để kế hoạch sát thực tế; có thể cập nhật bất cứ lúc nào."

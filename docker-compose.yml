@@ -44,7 +44,7 @@ services:
       VnPay__PaymentUrl: ${VnPay__PaymentUrl:-https://sandbox.vnpayment.vn/paymentv2/vpcpay.html}
       VnPay__QueryUrl: ${VnPay__QueryUrl:-https://sandbox.vnpayment.vn/merchant_webapi/api/transaction}
       VnPay__ReturnUrl: ${VnPay__ReturnUrl:-http://localhost:3000/payments/return}
-      VnPay__UseMock: ${VnPay__UseMock:-true}
+      VnPay__UseMock: "false"
 
       Smtp__Host: ${Email__Smtp__Host:-}
       Smtp__Port: ${Email__Smtp__Port:-587}
@@ -53,15 +53,18 @@ services:
       Smtp__FromAddress: ${Email__Smtp__FromAddress:-}
       Smtp__FromName: ${Email__Smtp__FromName:-SportHub}
       Smtp__UseSsl: ${Email__Smtp__UseSsl:-false}
-      Email__DemoLoggingEnabled: ${Email__DemoLoggingEnabled:-true}
+      Email__DemoLoggingEnabled: "false"
       # Gốc URL frontend để dựng link đặt lại mật khẩu trong email.
       Frontend__BaseUrl: ${Frontend__BaseUrl:-http://localhost:3000}
       CLOUDINARY_URL: ${CLOUDINARY_URL:-}
       # Website hỗ trợ ghi ở cuối email (để trống = chỉ ghi "liên hệ trung tâm"; điền khi đã deploy).
       Frontend__SupportUrl: ${Frontend__SupportUrl:-}
+      PublicContact__Phone: ${PublicContact__Phone:-}
+      PublicContact__Email: ${PublicContact__Email:-}
+      PublicContact__Address: ${PublicContact__Address:-}
+      PublicContact__Hours: ${PublicContact__Hours:-}
       # Always use the container volume path, not a Windows host path from .env.
       DataProtection__KeysPath: /var/lib/sporthub/dataprotection-keys
-
 
       Gemini__ApiKey: ${Gemini__ApiKey:-}
       Gemini__Model: ${Gemini__Model:-gemini-3.5-flash-lite}
@@ -80,8 +83,6 @@ services:
       args:
         NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:5000}
         NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${NEXT_PUBLIC_GOOGLE_CLIENT_ID:-${Google__ClientId:-}}
-        # Bật bảng điền nhanh tài khoản demo ở /login; đặt =false khi deploy thật.
-        NEXT_PUBLIC_SHOW_DEMO_ACCOUNTS: ${NEXT_PUBLIC_SHOW_DEMO_ACCOUNTS:-true}
     container_name: sporthub-frontend
     restart: unless-stopped
     depends_on:

@@ -5,7 +5,7 @@ import { AsyncSection, Feedback } from "@/components/ui";
 import { useApi, useAction, useNow } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { formatDateTime } from "@/lib/format";
-import { vietnamUtc } from "@/lib/vietnam-time";
+import { vietnamLocal, vietnamUtc } from "@/lib/vietnam-time";
 import type { CourseSessionDto } from "@/lib/types";
 import {
   classChangeApi,
@@ -59,7 +59,23 @@ export function CoachClassChanges({
     return () => window.removeEventListener("beforeunload", warn);
   }, [dirty]);
   const requestId = useRef<string | null>(null);
-  const pending = state.data?.items.some((r) => r.status === "PENDING");
+  const pending = state.data?.items.find((r) => r.status === "PENDING");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const cancellationOpen =
+    !!session && Date.parse(session.startAtUtc) - now >= 6 * 3600000;
+  const allowed = type !== "CANCEL_WITH_MAKEUP" || cancellationOpen;
+  function openForm() {
+    setEditingId(pending?.requestId ?? null);
+    setType(pending?.type ?? "SUBSTITUTE");
+    setReason(pending?.reason ?? "");
+    setStart(
+      pending?.proposedStartAtUtc
+        ? vietnamLocal(pending.proposedStartAtUtc)
+        : "",
+    );
+    requestId.current = null;
+    setForm(true);
+  }
   const eligible =
     session &&
     session.status === "SCHEDULED" &&
@@ -69,7 +85,7 @@ export function CoachClassChanges({
   };
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (!session || lock.current) return;
+    if (!session || !eligible || !allowed || lock.current) return;
     lock.current = true;
     try {
       const saved = await action.run(
@@ -84,13 +100,16 @@ export function CoachClassChanges({
               ).toISOString()
             : null;
           requestId.current ??= crypto.randomUUID();
-          return classChangeApi.create(session.sessionId, {
-            requestId: requestId.current,
+          const body = {
+            requestId: editingId ?? requestId.current,
             type,
             reason: reason.trim(),
             proposedStartAtUtc: proposed,
             proposedEndAtUtc: end,
-          });
+          };
+          return editingId
+            ? classChangeApi.update(editingId, body)
+            : classChangeApi.create(session.sessionId, body);
         },
         vi
           ? "Đã gửi yêu cầu đến Center Manager."
@@ -112,10 +131,10 @@ export function CoachClassChanges({
   return (
     <section
       className={styles.panel}
-      aria-label={vi ? "Yêu cầu đổi buổi học" : "Session change requests"}
+      aria-label={vi ? "Điều chỉnh lịch" : "Schedule adjustment"}
     >
       <div className={styles.heading}>
-        <h3>{vi ? "Yêu cầu đổi lịch" : "Schedule change requests"}</h3>
+        <h3>{vi ? "Điều chỉnh lịch" : "Schedule adjustment"}</h3>
         <button
           type="button"
           className="btn btn--quiet btn--sm"
@@ -125,16 +144,6 @@ export function CoachClassChanges({
           <RefreshCw size={15} aria-hidden="true" />
           {vi ? "Cập nhật" : "Refresh"}
         </button>
-        {eligible && !pending && !state.loading && !state.error && !form && (
-          <button
-            type="button"
-            className="btn btn--secondary btn--sm"
-            onClick={() => setForm(true)}
-          >
-            <CalendarClock size={16} aria-hidden="true" />
-            {vi ? "Yêu cầu thay đổi" : "Request a change"}
-          </button>
-        )}
       </div>
       <p className={styles.hint}>
         {vi
@@ -168,7 +177,31 @@ export function CoachClassChanges({
           ))}
         </div>
       )}
-      {form && (
+      {eligible &&
+        !state.loading &&
+        !state.error &&
+        !form &&
+        !!state.data?.totalCount && (
+          <div className={styles.changeAction}>
+            <button
+              type="button"
+              className="btn btn--secondary"
+              onClick={openForm}
+              disabled={action.busy}
+            >
+              <CalendarClock size={18} aria-hidden="true" />
+              Change
+            </button>
+          </div>
+        )}
+      {session && eligible && !cancellationOpen && (
+        <p className={styles.hint}>
+          {vi
+            ? "Đã qua hạn hủy: cần gửi trước giờ học ít nhất 6 tiếng. Bạn vẫn có thể đề nghị đổi lịch hoặc dạy thay."
+            : "Cancellation requires at least 6 hours’ notice. You can still request a reschedule or substitute."}
+        </p>
+      )}
+      {form && eligible && (
         <form className={styles.form} onSubmit={submit}>
           <label>
             {vi ? "Phương án đề xuất" : "Requested change"}
@@ -184,7 +217,11 @@ export function CoachClassChanges({
               {(
                 ["SUBSTITUTE", "RESCHEDULE", "CANCEL_WITH_MAKEUP"] as const
               ).map((id) => (
-                <option key={id} value={id}>
+                <option
+                  key={id}
+                  value={id}
+                  disabled={id === "CANCEL_WITH_MAKEUP" && !cancellationOpen}
+                >
                   {changeTypeLabel(id, vi)}
                 </option>
               ))}
@@ -226,8 +263,15 @@ export function CoachClassChanges({
               </small>
             </label>
           )}
+          {!allowed && (
+            <p className={styles.hint} role="status">
+              {vi
+                ? "Không thể gửi hoặc sửa yêu cầu hủy khi còn dưới 6 tiếng trước giờ học."
+                : "Cancellation requests cannot be submitted or edited less than 6 hours before the session starts."}
+            </p>
+          )}
           <div className={styles.actions}>
-            <button className="btn" disabled={action.busy}>
+            <button className="btn" disabled={action.busy || !allowed}>
               <Send size={16} aria-hidden="true" />
               {action.busy
                 ? vi
@@ -269,11 +313,23 @@ export function CoachClassChanges({
                     ? "Không có yêu cầu trong mục này"
                     : "No requests in this view"}
                 </strong>
-                <p className={styles.hint}>
-                  {vi
-                    ? "Để tạo yêu cầu, chọn buổi học sắp tới trong Lịch dạy và mở mục yêu cầu đổi lịch."
-                    : "To create a request, select an upcoming session in Teaching schedule and open schedule change requests."}
-                </p>
+                {eligible && !form ? (
+                  <button
+                    type="button"
+                    className="btn"
+                    onClick={openForm}
+                    disabled={action.busy}
+                  >
+                    <CalendarClock size={18} aria-hidden="true" />
+                    Create
+                  </button>
+                ) : !session ? (
+                  <p className={styles.hint}>
+                    {vi
+                      ? "Chọn buổi học sắp tới trong Lịch dạy để tạo yêu cầu."
+                      : "Select an upcoming session in Teaching schedule to create a request."}
+                  </p>
+                ) : null}
               </div>
             )}
             <div className={styles.history}>
@@ -327,7 +383,7 @@ export function CoachClassChanges({
                       )}
                     </div>
                   )}
-                  {r.status === "PENDING" && (
+                  {r.status === "PENDING" && (!session || eligible) && (
                     <button
                       type="button"
                       className="btn btn--quiet btn--sm"

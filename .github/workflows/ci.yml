@@ -24,7 +24,7 @@ jobs:
 
       - uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: "10.0.x"
 
       - name: Restore dependencies
         run: dotnet restore backend/SportHub.sln
@@ -79,7 +79,7 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: '24'
+          node-version: "24"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
@@ -112,7 +112,10 @@ jobs:
       POSTGRES_PORT: 5435
       JwtOptions__SecretKey: ci-only-sporthub-jwt-secret-key-at-least-32-characters
       Google__ClientId: ""
-      VnPay__UseMock: "true"
+      VnPay__UseMock: "false"
+      VnPay__TmnCode: ci-vnpay-merchant
+      VnPay__HashSecret: ci-only-vnpay-signing-secret
+      P2_TEST_VNPAY_SECRET: ci-only-vnpay-signing-secret
       Email__DemoLoggingEnabled: "false"
       ASPNETCORE_ENVIRONMENT: Development
       NEXT_PUBLIC_API_BASE_URL: http://127.0.0.1:5000
@@ -127,7 +130,7 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: '24'
+          node-version: "24"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
@@ -148,6 +151,10 @@ jobs:
           done
           exit 1
 
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "10.0.x"
+
       - name: Start isolated PostgreSQL and API
         run: docker compose up -d --build postgres backend
 
@@ -167,6 +174,26 @@ jobs:
           echo "---- postgres logs (last 50 lines) ----"
           docker compose logs --tail=50 postgres
           exit 1
+
+      - name: Seed isolated E2E fixtures from test project
+        shell: bash
+        env:
+          SPORTHUB_TEST_POSTGRES: Host=127.0.0.1;Port=5435;Database=sporthub_e2e;Username=sporthub;Password=ci-sporthub-password
+        run: |
+          # Fixtures are confined to the isolated CI database, never deployed.
+          task_seed_dir="$GITHUB_WORKSPACE/backend/.ci-fixture-seed"
+          dotnet new console --framework net10.0 --output "$task_seed_dir"
+          dotnet add "$task_seed_dir" reference "$GITHUB_WORKSPACE/backend/SportHub.Payment.Tests/SportHub.Payment.Tests.csproj"
+          cat > "$task_seed_dir/Program.cs" <<'CS'
+          using Npgsql;
+          using SportHub.Payment.Tests.Integration;
+          var target = new NpgsqlConnectionStringBuilder(Environment.GetEnvironmentVariable("SPORTHUB_TEST_POSTGRES"));
+          if (target.Host != "127.0.0.1" || target.Database != "sporthub_e2e")
+              throw new InvalidOperationException("CI fixtures require the isolated local sporthub_e2e database.");
+          await using var factory = new PaymentApiFactory();
+          await ((Xunit.IAsyncLifetime)factory).InitializeAsync();
+          CS
+          dotnet run --project "$task_seed_dir"
 
       - name: Install frontend dependencies
         working-directory: frontend

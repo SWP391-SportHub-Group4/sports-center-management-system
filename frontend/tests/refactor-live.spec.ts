@@ -1,3 +1,4 @@
+import { createHmac } from "node:crypto";
 import { test, expect, type APIRequestContext } from "@playwright/test";
 import { loginApi } from "./helpers/auth";
 
@@ -25,8 +26,6 @@ for (const points of [0, 50, 200]) {
     request,
   }) => {
     const member = await login(request, "an.member@sporthub.vn");
-
-    const staff = await login(request, "letan@sporthub.vn");
 
     const manager = await login(request, "manager@sporthub.vn");
 
@@ -251,18 +250,36 @@ for (const points of [0, 50, 200]) {
 
       expect(data.cashAmount).toBe(200000 - points * 1000);
 
-      expect(data.gatewayMode).toBe("MOCK");
-
-      const paid = await request.post(
-        `${base}/api/dev/payments/${data.transactionReference}/simulate`,
-        {
-          headers: {
-            Authorization: `Bearer ${staff.accessToken}`,
-          },
-        },
+      expect(data.gatewayMode).toBe("VNPAY");
+      // The isolated test merchant uses the actual gateway's signed IPN validation.
+      const secret = process.env.P2_TEST_VNPAY_SECRET;
+      if (!secret || !data.paymentUrl)
+        throw new Error(
+          "Configure the isolated test merchant before this scenario.",
+        );
+      const fields: Record<string, string> = {
+        vnp_TmnCode: new URL(data.paymentUrl).searchParams.get("vnp_TmnCode")!,
+        vnp_TxnRef: data.transactionReference,
+        vnp_Amount: String(data.cashAmount * 100),
+        vnp_TransactionNo: `ci${Date.now()}`,
+        vnp_ResponseCode: "00",
+        vnp_TransactionStatus: "00",
+        vnp_PayDate: new Date(Date.now() + 7 * 60 * 60 * 1000)
+          .toISOString()
+          .replace(/\D/g, "")
+          .slice(0, 14),
+      };
+      const canonical = new URLSearchParams(
+        Object.entries(fields).sort(([a], [b]) => a.localeCompare(b)),
+      ).toString();
+      const signature = createHmac("sha512", secret)
+        .update(canonical)
+        .digest("hex");
+      const paid = await request.get(
+        `${base}/api/payments/vnpay/ipn?${canonical}&vnp_SecureHash=${signature}`,
       );
-
       expect(paid.ok(), await paid.text()).toBeTruthy();
+      expect((await paid.json()).RspCode).toBe("00");
     }
 
     await expect(

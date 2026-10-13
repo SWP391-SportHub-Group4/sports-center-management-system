@@ -29,6 +29,7 @@ public class MemberTrainingProfile
     public decimal? HeightCm { get; set; }
 
     public decimal? WeightKg { get; set; }
+    public string? BodyBuild { get; set; }
 
     public decimal? TargetWeightKg { get; set; }
 

@@ -107,11 +107,6 @@ export function ManagerCourses() {
   ];
   return (
     <>
-      <p>
-        <Link href="/manager/classes/interests">
-          {language === "vi" ? "Nguyện vọng khóa sau" : "Course interests"}
-        </Link>
-      </p>
       <div className="btn-row" role="group" aria-label={m.savedFilters}>
         {[
           [m.all, "", ""],

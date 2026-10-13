@@ -117,11 +117,6 @@ export function MemberCourses() {
             id,
             label: `${names[id]}${state.data ? ` (${counts[id]})` : ""}`,
           })),
-          {
-            id: "interests",
-            label:
-              language === "vi" ? "Nguyện vọng khóa sau" : "Course interests",
-          },
         ]}
       >
         {values.tab === "interests" ? (

@@ -24,4 +24,5 @@ public sealed record MemberTrainingProfileResponse(
     string? FoodAllergies,
     /// <summary>Đủ các trường bắt buộc để AI tính BMI, năng lượng và lịch tập; hồ sơ cũ có thể false.</summary>
     bool IsComplete,
-    IReadOnlyList<BodyMeasurementResponse> RecentMeasurements);
+    IReadOnlyList<BodyMeasurementResponse> RecentMeasurements,
+    string? BodyBuild = null);

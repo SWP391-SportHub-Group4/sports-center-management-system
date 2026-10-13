@@ -30,6 +30,8 @@ public sealed class SaveTrainingProfileRequest
 
     [Required, Range(30d, 300d)]
     public decimal? WeightKg { get; set; }
+    [MaxLength(20)]
+    public string? BodyBuild { get; set; }
 
     [Range(30d, 300d)]
     public decimal? TargetWeightKg { get; set; }
