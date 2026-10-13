@@ -65,6 +65,12 @@ export interface FilterField {
   kind: "search" | "select" | "date" | "dateRange" | "toggle";
   options?: { value: string; label: string }[];
   placeholder?: string;
+  /** Custom control inside the shared Field, keeping its label and filter layout. */
+  render?: (props: {
+    id: string;
+    value: string;
+    onChange: (value: string) => void;
+  }) => ReactNode;
 }
 
 export interface FilterBarProps {

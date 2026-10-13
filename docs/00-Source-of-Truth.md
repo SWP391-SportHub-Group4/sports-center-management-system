@@ -54,6 +54,7 @@ Ngoài phạm vi: đa chi nhánh, payroll/hợp đồng, chia doanh thu với ng
 
 ## 4. Bất biến nghiệp vụ
 
+- Quy tắc xác nhận 13/10/2026: không đổi role của bất kỳ tài khoản đang là SystemAdministrator nào, kể cả chính mình và Admin khác. Việc tạo Admin hoặc nâng một tài khoản staff khác lên Admin vẫn được phép. Quy tắc khóa/mở khóa không thay đổi.
 - Membership Gym và gói lớp độc lập; PT là gói trả phí riêng khi Membership Active.
 - Giá/thời hạn/quyền lợi đã mua dùng snapshot, không tính lại khi sửa catalog.
 - Enrollment theo khóa; attendance theo enrollment/session; lớp nhóm Present/Absent, PT xử lý No-show riêng.

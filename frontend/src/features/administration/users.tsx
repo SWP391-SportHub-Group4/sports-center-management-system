@@ -9,7 +9,7 @@ import {
   type FilterField,
   type TableColumn,
 } from "@/components/data";
-import type { SortDirection, StatusTone } from "@/components/contracts/table";
+import type { SortDirection } from "@/components/contracts/table";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { choiceQuery, pageQuery, useUrlQuery } from "@/lib/useUrlQuery";
@@ -18,6 +18,7 @@ import { useLanguage } from "@/lib/language";
 import { MutationFeedback, useMutation } from "@/features/operations";
 import type { SportDto, Paged, UserAdminDto } from "@/lib/types";
 import { SportOptions } from "./SportOptions";
+import { AccountStatusChip } from "./AccountStatusChip";
 import styles from "./users.module.css";
 const staffRoles = [
   "CENTER_MANAGER",
@@ -34,11 +35,6 @@ const staffRoleIds: Record<string, number> = {
 };
 const accountRoles = [...staffRoles, "MEMBER"];
 const accountStatuses = ["ACTIVE", "BANNED", "DEACTIVATED"];
-const accountStatusTones: Partial<Record<string, StatusTone>> = {
-  ACTIVE: "success",
-  BANNED: "danger",
-  DEACTIVATED: "neutral",
-};
 const userQueryDefaults = {
   keyword: "",
   role: "",
@@ -280,7 +276,7 @@ export function EditUser({
   const { t } = useLanguage();
   const l = t.staffWork;
   const d = t.adminWork;
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const [role, setRole] = useState(a.role);
   const [sports, setSports] = useState(a.sportIds);
   const [reason, setReason] = useState("");
@@ -323,9 +319,7 @@ export function EditUser({
         : "DEACTIVATED";
   const impact =
     review === "role"
-      ? a.userId === user?.userId
-        ? d.selfRoleImpact
-        : d.roleImpact
+      ? d.roleImpact
       : review === "lock"
         ? d.lockImpact
         : review === "unlock"
@@ -333,6 +327,7 @@ export function EditUser({
           : d.deactivateImpact;
   async function confirmAction() {
     if (!review || !validReason) return;
+    if (review === "role" && a.role === "SYSTEM_ADMINISTRATOR") return;
     const ok = await mutation.run(() =>
       review === "role"
         ? api.put(`/api/users/${a.userId}/role`, {
@@ -345,7 +340,6 @@ export function EditUser({
           }),
     );
     if (ok) {
-      if (review === "role" && a.userId === user?.userId) logout();
       reload();
     }
   }
@@ -364,11 +358,7 @@ export function EditUser({
           <span>{a.email}</span>
           <div className="btn-row">
             <StatusChip value={a.role} />
-            <StatusChip
-              value={a.status}
-              tone={accountStatusTones[a.status]}
-              label={statusLabels[a.status]}
-            />
+            <AccountStatusChip account={a} />
           </div>
         </div>
         {!review ? (
@@ -385,7 +375,7 @@ export function EditUser({
             <>
               {a.role === "MEMBER" ? (
                 <p>{d.memberRoleLocked}</p>
-              ) : (
+              ) : a.role === "SYSTEM_ADMINISTRATOR" ? null : (
                 <>
                   <RoleSelect
                     value={role}
@@ -587,6 +577,7 @@ export function EditUser({
 }
 export function Users() {
   const { t } = useLanguage();
+  const { user: currentUser } = useAuth();
   const l = t.staffWork;
   const query = useUrlQuery(userQueryDefaults, userQueryValidators);
   const { keyword, role, status } = query.values;
@@ -668,13 +659,7 @@ export function Users() {
       id: "status",
       header: l.status,
       sortable: true,
-      cell: (account) => (
-        <StatusChip
-          value={account.status}
-          tone={accountStatusTones[account.status]}
-          label={statusLabels[account.status]}
-        />
-      ),
+      cell: (account) => <AccountStatusChip account={account} />,
     },
   ];
   const reload = () => {
@@ -747,16 +732,18 @@ export function Users() {
               >
                 {t.adminWork.viewDetail}
               </Link>
-              <button
-                type="button"
-                className="btn btn--secondary"
-                onClick={() => {
-                  setNotice(null);
-                  setSelected(account);
-                }}
-              >
-                {l.edit}
-              </button>
+              {currentUser && account.userId !== currentUser.userId && (
+                <button
+                  type="button"
+                  className="btn btn--secondary"
+                  onClick={() => {
+                    setNotice(null);
+                    setSelected(account);
+                  }}
+                >
+                  {l.edit}
+                </button>
+              )}
             </>
           )}
           empty={{

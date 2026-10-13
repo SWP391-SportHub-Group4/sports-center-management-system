@@ -35,6 +35,10 @@ Requirement gốc chỉ có bốn vai trò (Manager, Coach, Member, Receptionist
 
 Member và staff là hai loại tài khoản tách biệt: không chuyển Member thành staff hay ngược lại. Người muốn làm staff dùng một email khác; SystemAdministrator tạo tài khoản staff, kể cả Coach kèm chuyên môn (nhận email kích hoạt để tự đặt mật khẩu); Manager chỉ sửa hồ sơ Coach và cấp quyền dịch vụ PT. Chỉ đổi role giữa các role staff, và Coach chỉ rời vai trò khi không còn lớp, lịch hay quan hệ huấn luyện đang hoạt động. Email chưa được xác minh là của đúng người khi tạo, nên Admin phải nhập email hai lần; tài khoản chưa kích hoạt hiển thị "Chờ kích hoạt" (`activationPending`), Admin được gửi lại link (cooldown 60 giây, link cũ vô hiệu) hoặc sửa email gõ sai (link cũ vô hiệu, link mới tới email mới, có audit) cho tới khi người nhận đặt mật khẩu.
 
+Tài khoản staff do Admin tạo mà chưa kích hoạt sau 168 giờ được tự xóa để giải phóng email. Gửi lại link hoặc sửa email không kéo dài hạn này; Member và tài khoản seed/hệ thống không bị xóa. Xem [chi tiết xử lý và kiểm tra](Staff-Invitation-Expiry.md).
+
+Theo yêu cầu xác nhận 13/10/2026, không được đổi role của tài khoản đang là SystemAdministrator, bao gồm chính mình và Admin khác. Các tài khoản nhân sự khác vẫn được đổi role theo quy tắc hiện có, kể cả nâng lên Admin; sau khi trở thành Admin thì không được hạ role. Quy tắc khóa/mở khóa tài khoản không thay đổi.
+
 Guest không phải role account. Coach có nhiều chuyên môn, không chia role cứng thành PersonalTrainer/ClassInstructor. Backend kiểm cả role và ownership/relationship.
 
 ## 3. Luồng nghiệp vụ

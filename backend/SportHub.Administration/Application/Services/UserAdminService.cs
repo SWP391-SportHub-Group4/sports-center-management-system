@@ -5,6 +5,7 @@ using SportHub.Administration.Application.Commands;
 using SportHub.Administration.Application.DTOs;
 using SportHub.Administration.Application.Interfaces;
 using SportHub.BuildingBlocks.Abstractions.Audit;
+using SportHub.BuildingBlocks.Abstractions.Identity;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.BuildingBlocks.SharedKernel.Pagination;
@@ -34,7 +35,8 @@ public sealed class UserAdminService(
     CoachSpecialtyService specialties,
     IAuditWriter audit,
     IClock clock,
-    ActivationLinkService activationLinks) : IUserAdminService
+    ActivationLinkService activationLinks,
+    IStaffInvitationExpiryReader invitationExpiry) : IUserAdminService
 {
     public async Task<PagedResult<UserAdminResponse>> SearchAsync(
         string? keyword,
@@ -189,7 +191,7 @@ public sealed class UserAdminService(
 
         audit.Write(new AuditEntry(
             actorUserId,
-            "CREATE_STAFF_ACCOUNT",
+            AccountAuditActions.CreateStaffAccount,
             nameof(UserAccount),
             user.UserId.ToString(),
             OldValue: null,
@@ -215,6 +217,10 @@ public sealed class UserAdminService(
 
     private async Task<UserAccount> LoadPendingStaffAsync(Guid userId, CancellationToken ct)
     {
+        _ = await db.Set<UserAccount>()
+            .FromSqlInterpolated($"SELECT * FROM user_accounts WHERE user_id = {userId} FOR UPDATE")
+            .SingleOrDefaultAsync(ct)
+            ?? throw new NotFoundException("user_not_found", "User not found.");
         var user = await db.Set<UserAccount>()
             .Include(u => u.Role)
             .Include(u => u.Profile)
@@ -224,21 +230,24 @@ public sealed class UserAdminService(
             ?? throw new NotFoundException("user_not_found", "User not found.");
 
         if (user.Role!.RoleName == UserRole.Member
-            || user.Credential?.PasswordHash is not null
+            || !string.IsNullOrEmpty(user.Credential?.PasswordHash)
             || user.ExternalLogins.Count > 0)
         {
             throw new ConflictException("account_not_pending_activation", "Only staff accounts that are waiting for activation can do this.");
         }
+
+        if (await invitationExpiry.IsExpiredAsync(user.UserId, user.CreatedAt, clock.UtcNow, ct))
+            throw new ConflictException("staff_invitation_expired", "The staff activation invitation has expired.");
 
         return user;
     }
 
     public async Task<UserAdminResponse> ResendActivationAsync(Guid userId, Guid actorUserId, CancellationToken ct = default)
     {
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
         var user = await LoadPendingStaffAsync(userId, ct);
 
-        await using var tx = await db.Database.BeginTransactionAsync(ct);
-        audit.Write(new AuditEntry(actorUserId, "RESEND_STAFF_ACTIVATION", nameof(UserAccount), userId.ToString(),
+        audit.Write(new AuditEntry(actorUserId, AccountAuditActions.ResendStaffActivation, nameof(UserAccount), userId.ToString(),
             NewValue: System.Text.Json.JsonSerializer.Serialize(new { email = user.Email })));
 
         if (!await IssueActivationLinkAsync(user.Email, user.Profile?.FullName ?? string.Empty, ct))
@@ -253,6 +262,7 @@ public sealed class UserAdminService(
     public async Task<UserAdminResponse> ChangePendingEmailAsync(
         Guid userId, ChangePendingStaffEmailRequest request, Guid actorUserId, CancellationToken ct = default)
     {
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
         var user = await LoadPendingStaffAsync(userId, ct);
         var oldEmail = user.Email;
         var newEmail = request.Email.Trim();
@@ -264,12 +274,10 @@ public sealed class UserAdminService(
         if (await db.Set<UserAccount>().AnyAsync(u => u.UserId != userId && u.Email.ToLower() == lowered, ct))
             throw new ConflictException("email_already_exists", "Email already exists.");
 
-        await using var tx = await db.Database.BeginTransactionAsync(ct);
-
         // Link đã gửi tới email cũ không được dùng nữa, kể cả khi người nhận nhầm đang giữ nó.
         await otpFlow.DiscardAsync(oldEmail, EmailOtpPurpose.ResetPassword);
         user.Email = newEmail;
-        audit.Write(new AuditEntry(actorUserId, "CHANGE_PENDING_STAFF_EMAIL", nameof(UserAccount), userId.ToString(),
+        audit.Write(new AuditEntry(actorUserId, AccountAuditActions.ChangePendingStaffEmail, nameof(UserAccount), userId.ToString(),
             OldValue: System.Text.Json.JsonSerializer.Serialize(new { email = oldEmail }),
             NewValue: System.Text.Json.JsonSerializer.Serialize(new { email = newEmail }),
             Reason: request.Reason.Trim()));
@@ -290,6 +298,13 @@ public sealed class UserAdminService(
     {
         var targetRole = ParseRole(request.Role);
 
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        // Serialize role changes so an account promoted to Administrator cannot be demoted by a stale request.
+        _ = await db.Set<UserAccount>()
+            .FromSqlInterpolated($"SELECT * FROM user_accounts WHERE user_id = {userId} FOR UPDATE")
+            .SingleOrDefaultAsync(ct)
+            ?? throw new NotFoundException("user_not_found", "User not found.");
+
         var user = await db.Set<UserAccount>()
             .Include(u => u.Role)
             .Include(u => u.CoachProfile)
@@ -303,6 +318,13 @@ public sealed class UserAdminService(
             return await GetAsync(userId, ct);
         }
 
+        if (currentRole == UserRole.SystemAdministrator)
+        {
+            throw new ConflictException(
+                "administrator_role_change_not_allowed",
+                "Administrator roles cannot be changed, including your own account and other Administrators.");
+        }
+
         // Member và Staff là hai loại tài khoản tách biệt: không đổi qua lại. Người dùng muốn làm
         // staff phải được tạo tài khoản staff bằng email khác (Admin → Users → Create staff account).
         if ((currentRole == UserRole.Member) != (targetRole == UserRole.Member))
@@ -310,14 +332,6 @@ public sealed class UserAdminService(
             throw new ConflictException(
                 "member_staff_role_change_not_allowed",
                 "Member and staff accounts cannot be converted. Create a staff account with a different email.");
-        }
-
-        // Cùng lý do với BR-6 "không khoá SysAdmin hoạt động cuối cùng": hạ vai trò của
-        // SysAdmin Active cuối cùng cũng khiến hệ thống không còn ai tạo được tài khoản
-        // hay mở khoá (BR-2/BR-6) — tự khoá chính mình ra ngoài.
-        if (currentRole == UserRole.SystemAdministrator)
-        {
-            await EnsureNotLastActiveSystemAdministratorAsync(userId, ct);
         }
 
         // Coach rời vai trò: chặn khi còn lớp/lịch/quan hệ huấn luyện đang hoạt động.
@@ -362,7 +376,7 @@ public sealed class UserAdminService(
 
         audit.Write(new AuditEntry(
             actorUserId,
-            "CHANGE_USER_ROLE",
+            AccountAuditActions.ChangeUserRole,
             nameof(UserAccount),
             userId.ToString(),
             OldValue: $"{{\"role\":\"{currentRole}\"}}",
@@ -370,6 +384,7 @@ public sealed class UserAdminService(
             Reason: request.Reason.Trim()));
 
         await db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
 
         return await GetAsync(userId, ct);
     }
@@ -410,7 +425,7 @@ public sealed class UserAdminService(
 
         audit.Write(new AuditEntry(
             actorUserId,
-            target == UserStatus.Active ? "UNLOCK_USER_ACCOUNT" : "LOCK_USER_ACCOUNT",
+            target == UserStatus.Active ? AccountAuditActions.UnlockUserAccount : AccountAuditActions.LockUserAccount,
             nameof(UserAccount),
             userId.ToString(),
             OldValue: $"{{\"status\":\"{previous}\"}}",

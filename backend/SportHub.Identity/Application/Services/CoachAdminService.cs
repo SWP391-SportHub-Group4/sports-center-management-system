@@ -149,7 +149,7 @@ public sealed class CoachAdminService(
         if (request.StudentCount is not null) user.CoachProfile.StudentCount = request.StudentCount;
 
         audit.Write(new AuditEntry(
-            actorUserId, "UPDATE_COACH_SPECIALTIES", nameof(UserAccount), userId.ToString(),
+            actorUserId, AccountAuditActions.UpdateCoachSpecialties, nameof(UserAccount), userId.ToString(),
             OldValue: System.Text.Json.JsonSerializer.Serialize(new { sportIds = before, profile = oldProfile }),
             NewValue: System.Text.Json.JsonSerializer.Serialize(new { sportIds, fullName = user.Profile.FullName, phone })));
 
