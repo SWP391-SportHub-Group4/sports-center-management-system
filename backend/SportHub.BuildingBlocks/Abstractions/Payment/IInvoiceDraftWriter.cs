@@ -17,7 +17,7 @@ public sealed record InvoiceDraft(
     DateTimeOffset HoldExpiresAtUtc,
     string IdempotencyKey);
 
-/// <param name="ItemType">Membership / PtPackage / ClassEnrollment / ClassTransferDifference / CourtRental.</param>
+/// <param name="ItemType">Membership / ClassEnrollment / ClassTransferDifference / CourtRental.</param>
 public sealed record InvoiceDraftItem(
     string ItemType,
     string Description,
@@ -25,7 +25,6 @@ public sealed record InvoiceDraftItem(
     int? SportId = null,
     int? ClassId = null,
     Guid? CourtRentalId = null,
-    Guid? PtEntitlementId = null,
     Guid? MemberPackageId = null,
     Guid? SourceEnrollmentId = null,
     Guid? SourceInvoiceItemId = null,

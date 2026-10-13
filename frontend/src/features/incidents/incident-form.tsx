@@ -59,11 +59,7 @@ export function IncidentForm() {
   const [editing, setEditing] = useState(false);
   const validRange =
     validIncidentDateTime(start) && validIncidentDateTime(end) && end > start;
-  function record(
-    _type: string,
-    _id: string,
-    status: StepStatus,
-  ) {
+  function record(_type: string, _id: string, status: StepStatus) {
     setFinalReview(false);
     if (status === "unknown") {
       setUncertain(true);

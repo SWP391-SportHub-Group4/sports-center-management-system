@@ -1,18 +1,20 @@
 import { expect, test } from "@playwright/test";
-import { memberCodePayload, parseMemberCode } from "../src/lib/member-code";
+import { isMemberCode } from "../src/lib/member-code";
 
 const id = "22222222-2222-4222-8222-222222222222";
 
-test("member code payload round-trips and rejects other text", () => {
-  expect(parseMemberCode(memberCodePayload(id))).toBe(id);
-  expect(parseMemberCode(` ${id.toUpperCase()} `)).toBe(id);
-  expect(parseMemberCode("https://example.com")).toBeNull();
-  expect(parseMemberCode("SPORTHUB-MEMBER:not-a-guid")).toBeNull();
+test("only server-issued check-in codes are recognised by the desk", () => {
+  expect(isMemberCode(" SPORTHUB-CODE:abc.123.sig ")).toBe(true);
+  expect(isMemberCode("SPORTHUB-MEMBER:" + id)).toBe(false);
+  expect(isMemberCode("SPORTHUB-DAYPASS:2026-10-13:" + id)).toBe(false);
+  expect(isMemberCode(id)).toBe(false);
+  expect(isMemberCode("https://example.com")).toBe(false);
 });
 
-test("member card shows the server identity with a scannable QR", async ({
-  page,
-}) => {
+async function openCode(
+  page: import("@playwright/test").Page,
+  packages: unknown[],
+) {
   await page.addInitScript(() => {
     localStorage.setItem("sporthub.accessToken", "member-fixture-token");
     localStorage.setItem("sporthub_lang", "en");
@@ -29,6 +31,15 @@ test("member card shows the server identity with a scannable QR", async ({
           sportIds: [],
         },
       });
+    if (path === "/api/members/me/packages")
+      return route.fulfill({ json: packages });
+    if (path === "/api/members/me/checkin-code")
+      return route.fulfill({
+        json: {
+          code: "SPORTHUB-CODE:fixture.9999999999.signature",
+          expiresAtUtc: "2026-10-13T17:00:00Z",
+        },
+      });
     if (path.includes("notifications"))
       return route.fulfill({
         json: path.endsWith("unread-count") ? { count: 0 } : [],
@@ -39,11 +50,34 @@ test("member card shows the server identity with a scannable QR", async ({
     });
   });
   await page.goto("/member");
-  // Mã nằm sau nút tròn trên thanh header, mở thành popup khi cần.
+  await page.getByRole("button", { name: "Member A" }).click();
   await page.getByRole("button", { name: "Member code" }).click();
+}
+
+test("member with an active Gym plan sees a scannable QR", async ({ page }) => {
+  await openCode(page, [
+    {
+      status: "ACTIVE",
+      isUsable: true,
+      startDate: "2020-01-01",
+      endDate: "2099-01-01",
+    },
+  ]);
   await expect(page.getByRole("img", { name: "Member code QR" })).toBeVisible();
-  await expect(page.getByText("does not grant entry by itself")).toBeVisible();
-  await expect(page.getByText(id)).toBeVisible();
+  await expect(page.getByText("Valid today only")).toBeVisible();
+});
+
+test("member without a Gym plan is told why there is no code and where to buy", async ({
+  page,
+}) => {
+  await openCode(page, []);
+  await expect(page.getByText(/No check-in code yet/)).toBeVisible();
+  await expect(page.getByRole("img", { name: "Member code QR" })).toHaveCount(
+    0,
+  );
+  await expect(
+    page.getByRole("link", { name: "Buy a Gym plan" }),
+  ).toHaveAttribute("href", "/member/services?section=gym&view=explore");
 });
 
 test("receptionist sees the camera scanner ready in the member picker", async ({

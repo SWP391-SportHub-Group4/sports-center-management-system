@@ -53,9 +53,6 @@ public sealed class NotificationActionReader(SportHubDbContext db) : INotificati
                     break;
                 case "ScheduleChanged":
                 case "ClassCancelled":
-                    foreach (var id in await db.PtSessions.Where(x => x.MemberId == userId && ids.Contains(x.SessionId))
-                                 .Select(x => x.SessionId).ToListAsync(ct))
-                        links[id] = $"/member/pt/sessions/{id}";
                     var sessions = await (from s in db.ClassSessions
                                           where ids.Contains(s.SessionId)
                                           where db.Enrollments.Any(e => e.ClassId == s.ClassId && e.MemberId == userId)
@@ -67,9 +64,6 @@ public sealed class NotificationActionReader(SportHubDbContext db) : INotificati
                     foreach (var e in await db.Enrollments.Where(x => x.MemberId == userId && ids.Contains(x.EnrollmentId))
                                  .Select(x => new { x.EnrollmentId, x.ClassId }).ToListAsync(ct))
                         links[e.EnrollmentId] = $"/member/courses/{e.ClassId}";
-                    foreach (var id in await db.PtCoachChangeRequests.Where(x => x.MemberId == userId && ids.Contains(x.RequestId))
-                                 .Select(x => x.RequestId).ToListAsync(ct))
-                        links[id] = "/member/services?tab=pt";
                     break;
                 case "PackageExpiring":
                     foreach (var id in await db.MemberPackages.Where(x => x.MemberId == userId && ids.Contains(x.MemberPackageId))

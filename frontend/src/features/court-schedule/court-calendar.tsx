@@ -32,14 +32,10 @@ import styles from "./court-calendar.module.css";
 
 export function CourtCalendar({
   classesOnly = false,
-  includeCoachPt = false,
-  onSelectPtSession,
   planningLayout = false,
   refreshToken = 0,
 }: {
   classesOnly?: boolean;
-  includeCoachPt?: boolean;
-  onSelectPtSession?: (sessionId: string) => void;
   planningLayout?: boolean;
   refreshToken?: number;
 }) {
@@ -74,7 +70,6 @@ export function CourtCalendar({
             roomId,
             user?.role === "Coach",
             signal,
-            includeCoachPt,
           ),
         ),
       );
@@ -86,12 +81,11 @@ export function CourtCalendar({
         ).values(),
       ];
     },
-    [range.start, range.days, roomId, user?.role, includeCoachPt, refreshToken],
+    [range.start, range.days, roomId, user?.role, refreshToken],
   );
 
   const labels = {
     CLASS_SESSION: l.classSession,
-    PT_SESSION: l.ptSession,
     COURT_RENTAL: l.rental,
     ROOM_BLOCK: l.roomBlock,
   };
@@ -157,8 +151,7 @@ export function CourtCalendar({
               classesOnly
                 ? type === "CLASS_SESSION"
                 : user?.role === "Coach"
-                  ? type === "CLASS_SESSION" ||
-                    (includeCoachPt && type === "PT_SESSION")
+                  ? type === "CLASS_SESSION"
                   : true,
             )
             .map(([, label]) => (
@@ -186,8 +179,7 @@ export function CourtCalendar({
             classesOnly
               ? entry.sourceType === "CLASS_SESSION"
               : user?.role === "Coach"
-                ? entry.sourceType === "CLASS_SESSION" ||
-                  (includeCoachPt && entry.sourceType === "PT_SESSION")
+                ? entry.sourceType === "CLASS_SESSION"
                 : true,
           );
 
@@ -209,11 +201,7 @@ export function CourtCalendar({
               (candidate) =>
                 `${candidate.sourceType}-${candidate.sourceId}` === event.id,
             );
-            if (entry) {
-              if (entry.sourceType === "PT_SESSION" && onSelectPtSession)
-                onSelectPtSession(entry.sourceId);
-              else setSelected(entry);
-            }
+            if (entry) setSelected(entry);
           };
           if (planningLayout)
             return (

@@ -6,7 +6,7 @@ import { formatDate, formatTime, todayIso } from "@/lib/format";
 import type { EventKind } from "./event-meta";
 import styles from "./month-calendar.module.css";
 import { CalendarSticker } from "./calendar-sticker";
-import { BookOpen, MapPin, UserRound } from "lucide-react";
+import { BookOpen, MapPin } from "lucide-react";
 
 type MonthEvent = {
   id: string;
@@ -56,13 +56,8 @@ export function MemberMonthCalendar<T extends MonthEvent>({
         className={styles.legend}
         aria-label={vi ? "Loại hoạt động" : "Event types"}
       >
-        {(["class", "pt", "rental"] as const).map((kind) => {
-          const Icon =
-            kind === "class"
-              ? BookOpen
-              : kind === "rental"
-                ? MapPin
-                : UserRound;
+        {(["class", "rental"] as const).map((kind) => {
+          const Icon = kind === "rental" ? MapPin : BookOpen;
           return (
             <span key={kind} data-kind={kind}>
               <i aria-hidden="true" />

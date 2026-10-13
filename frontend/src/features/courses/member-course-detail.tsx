@@ -263,8 +263,8 @@ export function CourseDetail({
         </div>
         <p className={styles.scheduleHint}>
           {vi
-            ? "So sánh buổi dự kiến của khóa học với lớp đã đăng ký, lịch PT và sân đã đặt trong cùng một lịch tuần."
-            : "Compare proposed course sessions with your registered classes, PT sessions and court bookings in one weekly calendar."}
+            ? "So sánh buổi dự kiến của khóa học với lớp đã đăng ký, và sân đã đặt trong cùng một lịch tuần."
+            : "Compare proposed course sessions with your registered classes and court bookings in one weekly calendar."}
         </p>
         {sessions.loading && <p role="status">{t.refactor.loading}</p>}
         {sessions.error && (

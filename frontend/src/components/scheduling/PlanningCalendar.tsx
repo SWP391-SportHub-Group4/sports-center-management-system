@@ -70,8 +70,7 @@ export function PlanningCalendar({
           minuteAt(e.endAtUtc, day) > 0 && minuteAt(e.startAtUtc, day) < 1440,
       )
       .sort((a, b) => a.startAtUtc.localeCompare(b.startAtUtc));
-  const typeName = (e: CalendarEvent) =>
-    e.type === "PT_SESSION" ? "PT" : vi ? "Lớp nhóm" : "Group class";
+  const typeName = () => (vi ? "Lớp nhóm" : "Group class");
   const eventState = (e: CalendarEvent) => {
     if (/CANCELLED|RESCHEDULED/.test(e.status ?? "")) return "cancelled";
     if (e.status === "COMPLETED") return "completed";
@@ -124,12 +123,12 @@ export function PlanningCalendar({
         data-cancelled={/CANCELLED|RESCHEDULED/.test(e.status ?? "")}
         style={style}
         onClick={() => onSelectEvent(e)}
-        title={`${label} · ${typeName(e)} · ${e.title} · ${formatTime(e.startAtUtc)}–${formatTime(e.endAtUtc)}${e.roomName ? ` · ${e.roomName}` : ""}`}
-        aria-label={`${label} · ${typeName(e)} · ${e.title} · ${formatTime(e.startAtUtc)}–${formatTime(e.endAtUtc)}`}
+        title={`${label} · ${typeName()} · ${e.title} · ${formatTime(e.startAtUtc)}–${formatTime(e.endAtUtc)}${e.roomName ? ` · ${e.roomName}` : ""}`}
+        aria-label={`${label} · ${typeName()} · ${e.title} · ${formatTime(e.startAtUtc)}–${formatTime(e.endAtUtc)}`}
       >
         <span className={styles.eventState}>
           {state === "completed" ? "✓ " : state === "absent" ? "× " : ""}
-          {label} · {typeName(e)}
+          {label} · {typeName()}
         </span>
         <strong>
           {compact ? `${formatTime(e.startAtUtc)} ` : ""}
@@ -138,8 +137,7 @@ export function PlanningCalendar({
         {!compact && (
           <>
             <span>
-              {formatTime(e.startAtUtc)}–{formatTime(e.endAtUtc)} ·{" "}
-              {typeName(e)}
+              {formatTime(e.startAtUtc)}–{formatTime(e.endAtUtc)} · {typeName()}
             </span>
             {e.roomName && <span>{e.roomName}</span>}
           </>

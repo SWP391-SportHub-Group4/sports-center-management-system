@@ -15,7 +15,6 @@ import type {
   GymCheckInDto,
   MemberPackageDto,
   Paged,
-  PtEntitlementDto,
   SportDto,
   ThresholdResponseDto,
 } from "@/lib/types";
@@ -51,7 +50,6 @@ interface Owned {
 }
 
 const SOON_GYM_DAYS = 14;
-const SOON_PT_SESSIONS = 2;
 const SOON_CLASS_SESSIONS = 2;
 
 function exploreHref(kind: ServiceKind, extra = "") {
@@ -83,13 +81,6 @@ export function MyServices({
       ).filter((row) => !isRetiredActivityPackage(row.packageName)),
     [],
   );
-  const entitlements = useApi(
-    (signal) =>
-      api.get<PtEntitlementDto[]>("/api/members/me/pt-entitlements", {
-        signal,
-      }),
-    [],
-  );
   const enrollments = useApi(memberEnrollments, []);
   const thresholds = useApi(
     (signal) =>
@@ -114,7 +105,7 @@ export function MyServices({
     [],
   );
 
-  const sources = [packages, entitlements, enrollments, rentals];
+  const sources = [packages, enrollments, rentals];
   const loading = sources.some((s) => s.loading && s.data === null);
   const failed = sources.find((s) => s.error);
 
@@ -151,7 +142,8 @@ export function MyServices({
         tone === "ended"
           ? 9e6
           : scheduled
-            ? 1e6 + new Date(`${p.startDate.slice(0, 10)}T00:00:00+07:00`).getTime()
+            ? 1e6 +
+              new Date(`${p.startDate.slice(0, 10)}T00:00:00+07:00`).getTime()
             : left,
       node: (i) => (
         <GymCard
@@ -162,31 +154,6 @@ export function MyServices({
           onChanged={packages.reload}
           index={i}
         />
-      ),
-    });
-  });
-
-  (entitlements.data ?? []).forEach((e) => {
-    const status = e.status.toUpperCase();
-    if (status === "CANCELLED") return;
-    const ended = ["EXHAUSTED", "EXPIRED"].includes(status);
-    const tone: Tone =
-      status === "PENDING_PAYMENT"
-        ? "pending"
-        : ended
-          ? "ended"
-          : e.remainingQuota <= SOON_PT_SESSIONS ||
-              daysUntil(e.validityEndDate, now) <= SOON_GYM_DAYS
-            ? "soon"
-            : "active";
-    items.push({
-      id: `pt:${e.entitlementId}`,
-      kind: "pt",
-      emblem: "pt",
-      tone,
-      rank: tone === "ended" ? 9e6 : e.remainingQuota,
-      node: (i) => (
-        <PtCard key={e.entitlementId} row={e} tone={tone} index={i} />
       ),
     });
   });
@@ -535,6 +502,7 @@ function GymCard({
     ) + 1,
   );
   const pending = tone === "pending";
+  const dayPass = pkg.packageId === 50000;
   const renew = tone === "soon" || tone === "ended";
   return (
     <Shell
@@ -544,8 +512,12 @@ function GymCard({
       index={index}
       title={pkg.packageName}
       subtitle={tx(
-        `Gym Membership · ${months} tháng`,
-        `Gym membership · ${months} ${months === 1 ? "month" : "months"}`,
+        dayPass
+          ? "Vé Gym 1 ngày · chỉ dùng trong ngày thanh toán"
+          : `Gym Membership · ${months} tháng`,
+        dayPass
+          ? "Gym day pass · payment day only"
+          : `Gym membership · ${months} ${months === 1 ? "month" : "months"}`,
       )}
       metric={
         pending ? (
@@ -665,17 +637,6 @@ function GymCard({
                         )}
                   </dd>
                 </div>
-                <div>
-                  <dt>{tx("Mua PT", "PT booking")}</dt>
-                  <dd>
-                    {pkg.isUsable
-                      ? tx("Đủ điều kiện", "Eligible")
-                      : tx(
-                          "Cần Membership còn hiệu lực",
-                          "Needs an active membership",
-                        )}
-                  </dd>
-                </div>
               </dl>
             ) : (
               <GymHistory />
@@ -728,112 +689,6 @@ function GymHistory() {
         </li>
       ))}
     </ul>
-  );
-}
-
-function PtCard({
-  row,
-  tone,
-  index,
-}: {
-  row: PtEntitlementDto;
-  tone: Tone;
-  index: number;
-}) {
-  const { language } = useLanguage();
-  const vi = language === "vi";
-  const tx = (v: string, e: string) => (vi ? v : e);
-  const [open, setOpen] = useState(false);
-  const renew = tone === "soon" || tone === "ended";
-  return (
-    <Shell
-      kind="pt"
-      emblem="pt"
-      tone={tone}
-      index={index}
-      title={tx(`PT cùng ${row.coachName}`, `PT with ${row.coachName}`)}
-      subtitle={tx(
-        `Huấn luyện 1-1 · ${row.frequencyPerWeek} buổi/tuần`,
-        `One-to-one · ${row.frequencyPerWeek} sessions/week`,
-      )}
-      metric={
-        <>
-          <p className={styles.big}>
-            <strong>{row.remainingQuota}</strong>
-            <span>
-              / {row.totalQuota} {tx("buổi còn lại", "sessions left")}
-            </span>
-          </p>
-          <Pips
-            done={row.remainingQuota}
-            total={row.totalQuota}
-            label={tx(
-              `Còn ${row.remainingQuota} trên ${row.totalQuota} buổi`,
-              `${row.remainingQuota} of ${row.totalQuota} sessions left`,
-            )}
-          />
-          <p className={styles.fine}>
-            {tx("Hết hạn", "Expires")} <b>{formatDate(row.validityEndDate)}</b>
-          </p>
-        </>
-      }
-      actions={
-        <>
-          {renew ? (
-            <Link className="btn" href={exploreHref("pt")}>
-              {tx("Gia hạn", "Renew")}
-            </Link>
-          ) : (
-            <button
-              type="button"
-              className="btn"
-              aria-expanded={open}
-              onClick={() => setOpen(!open)}
-            >
-              {tx("Xem chi tiết", "View details")}
-            </button>
-          )}
-          <Link className={styles.link} href="/member/training?tab=sessions">
-            {tx("Lịch sử sử dụng", "Usage history")}
-          </Link>
-        </>
-      }
-      panel={
-        open && (
-          <div className={styles.panel}>
-            <dl className={styles.facts}>
-              <div>
-                <dt>{tx("Đã dùng", "Used")}</dt>
-                <dd>{row.consumedSessions}</dd>
-              </div>
-              <div>
-                <dt>{tx("Đang giữ chỗ", "Held")}</dt>
-                <dd>{row.reservedSessions}</dd>
-              </div>
-              <div>
-                <dt>{tx("Hiệu lực", "Valid")}</dt>
-                <dd>
-                  {formatDate(row.validityStartDate)} –{" "}
-                  {formatDate(row.validityEndDate)}
-                </dd>
-              </div>
-              {row.carryOverUntilDate && (
-                <div>
-                  <dt>{tx("Bảo lưu đến", "Carry-over until")}</dt>
-                  <dd>{formatDate(row.carryOverUntilDate)}</dd>
-                </div>
-              )}
-            </dl>
-            <Link
-              className="btn btn--secondary"
-              href="/member/training?tab=book"
-            >
-              {tx("Đặt buổi tập", "Book a session")}
-            </Link>
-          </div>
-        )
-      }
-    />
   );
 }
 

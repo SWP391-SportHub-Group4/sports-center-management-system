@@ -80,34 +80,6 @@ async function coachFixture(
   });
 }
 
-test("PT-qualified coach has direct schedule and member navigation", async ({
-  page,
-}) => {
-  await coachFixture(page, [1, 3], true);
-  await page.goto("/coach");
-  const navbar = page.getByRole("navigation");
-  await expect(
-    navbar.getByRole("link", { name: "PT schedule", exact: true }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Training", exact: true }),
-  ).toHaveCount(0);
-
-  await navbar.getByRole("link", { name: "PT schedule", exact: true }).click();
-  await expect(page).toHaveURL(/\/coach\/schedule$/);
-  await expect(
-    page.getByRole("heading", { name: "Ready for your next PT session" }),
-  ).toBeVisible();
-
-  await navbar
-    .getByRole("link", { name: "Assigned members", exact: true })
-    .click();
-  await expect(page).toHaveURL(/\/coach\/members$/);
-  await expect(
-    page.getByRole("heading", { name: "Your PT students", exact: true }),
-  ).toBeVisible();
-});
-
 test("group-only coach uses a single navbar for teaching, classes and students", async ({
   page,
 }) => {

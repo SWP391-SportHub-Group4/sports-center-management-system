@@ -103,32 +103,21 @@ public sealed class StaffInvitationExpiryTests(SportHubApiFactory factory)
     }
 
     [Fact]
-    public async Task Coach_profile_specialties_and_service_qualifications_are_removed()
+    public async Task Coach_profile_and_specialties_are_removed()
     {
         int sportId;
-        int offeringId;
         using (var scope = factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
             var sport = await db.Sports.SingleAsync(s => s.Code == SportCodes.Gym);
-            var offering = await db.Set<SportServiceOffering>().SingleAsync(o => o.SportId == sport.SportId
-                && o.ServiceType == SportServiceType.PersonalTraining);
             sportId = sport.SportId;
-            offeringId = offering.OfferingId;
         }
         var coach = await CreateAsync(roleId: 2, sportId: sportId);
-        using (var scope = factory.Services.CreateScope())
-        {
-            var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
-            db.CoachServiceQualifications.Add(new CoachServiceQualification { UserId = coach.Id, OfferingId = offeringId });
-            await db.SaveChangesAsync();
-        }
         Assert.True(await ExpireAsync(coach.Id, (await CreatedAtAsync(coach.Id)).Add(StaffInvitationExpiryService.InvitationLifetime)));
         using var verification = factory.Services.CreateScope();
         var verifyDb = verification.ServiceProvider.GetRequiredService<SportHubDbContext>();
         Assert.False(await verifyDb.CoachProfiles.AnyAsync(c => c.UserId == coach.Id));
         Assert.False(await verifyDb.UserSportSpecialties.AnyAsync(s => s.UserId == coach.Id));
-        Assert.False(await verifyDb.CoachServiceQualifications.AnyAsync(q => q.UserId == coach.Id));
     }
 
     [Fact]

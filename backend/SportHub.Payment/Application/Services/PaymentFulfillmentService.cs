@@ -15,7 +15,7 @@ namespace SportHub.Payment.Application.Services;
 
 /// <summary>Mutations here belong to the caller's transaction; a failed benefit rolls back cash and points.</summary>
 public sealed class PaymentFulfillmentService(ISportHubDbContext db, IPointWalletService wallets,
-    IClassEnrollmentFulfillment classes, IPtPurchaseFulfillment pt, ICourtRentalFulfillment rentals, IPackageActivationService packages,
+    IClassEnrollmentFulfillment classes, ICourtRentalFulfillment rentals, IPackageActivationService packages,
     IRefundCreditService refunds, IMembershipFulfillment memberships, IAuditWriter audit, IClock clock, PaymentNoticeService notices)
 {
     public async Task CompletePointsAsync(Invoice invoice, CheckoutSession session, CancellationToken ct)
@@ -89,11 +89,6 @@ public sealed class PaymentFulfillmentService(ISportHubDbContext db, IPointWalle
                 await refunds.LockPaidItemAsync(sourceItemId, ct);
                 await classes.CompleteTransferAsync(thresholdResponseId, transferHoldId, item.ItemId, ct);
                 break;
-            case InvoiceItemType.PT:
-                if ((item.PtEntitlementId ?? item.RelatedEntityId) is not Guid ptId)
-                    throw new ConflictException("pt_entitlement_missing", "Pt entitlement missing.");
-                await pt.ActivateAsync(ptId, ct);
-                break;
             case InvoiceItemType.Rental:
                 if (session.Kind != "CourtRental" || session.ResourceHoldId is not Guid rentalId
                     || (item.CourtRentalId ?? item.RelatedEntityId) != rentalId)
@@ -131,10 +126,6 @@ public sealed class PaymentFulfillmentService(ISportHubDbContext db, IPointWalle
                 "CheckoutSession", session.CheckoutSessionId, actorId), ct);
         if (invoice.MemberPackageId is Guid packageId)
             await memberships.ReleaseAsync(packageId, ct);
-        var ptItem = await db.Set<InvoiceItem>().SingleOrDefaultAsync(x => x.InvoiceId == invoice.InvoiceId
-            && x.ItemType == InvoiceItemType.PT, ct);
-        if (ptItem?.RelatedEntityId is Guid entitlementId)
-            await pt.CancelAsync(entitlementId, reason, ct);
         invoice.Status = InvoiceStatus.Void;
         session.State = reason;
         await db.Set<PaymentAttempt>().Where(x => x.CheckoutSessionId == session.CheckoutSessionId

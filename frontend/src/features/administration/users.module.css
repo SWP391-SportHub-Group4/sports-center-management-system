@@ -157,7 +157,7 @@
   padding-inline: var(--space-1);
 }
 
-  /* StateView's loading rows follow the selection control + sport-name layout here. */
+/* StateView's loading rows follow the selection control + sport-name layout here. */
 .sportSelector :global(.skeleton) {
   display: flex;
   align-items: center;

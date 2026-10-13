@@ -3,22 +3,27 @@ using SportHub.BuildingBlocks.Abstractions.Audit;
 using SportHub.BuildingBlocks.Abstractions.Membership;
 using SportHub.BuildingBlocks.Abstractions.Notifications;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
+using SportHub.BuildingBlocks.Abstractions.Scheduling;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.BuildingBlocks.SharedKernel.Time;
 using SportHub.Membership.Domain.Entities;
+using SportHub.Membership.Domain;
 using SportHub.Membership.Domain.Enums;
 using SportHub.Membership.Domain.Rules;
 
 namespace SportHub.Membership.Application.Services;
 
 public sealed class MembershipFulfillment(ISportHubDbContext db, IAuditWriter audit,
-    INotificationWriter notifications, IClock clock) : IMembershipFulfillment
+    INotificationWriter notifications, IClock clock, IGymClosureReader gymClosure) : IMembershipFulfillment
 {
     public async Task<MembershipPurchaseQuote> QuoteAsync(int packageId, CancellationToken ct = default)
     {
         var catalog = await db.Set<MembershipPackage>().AsNoTracking().SingleOrDefaultAsync(x => x.PackageId == packageId, ct)
             ?? throw new NotFoundException("membership_package_not_found", "Membership package not found.");
         if (!catalog.IsActive) throw new ConflictException("membership_package_discontinued", "Membership package discontinued.");
+        if (packageId == DayPass.PackageId &&
+            (catalog.Price != DayPass.PriceVnd || catalog.DurationDays != DayPass.DurationDays || catalog.SessionLimit is not null))
+            throw new ConflictException("day_pass_invalid", "Gym day pass configuration is invalid.");
         if (catalog.Price <= 0 || catalog.Price % 1000 != 0)
             throw new ConflictException("membership_price_invalid", "Membership price invalid.");
         return new(catalog.PackageId, catalog.Name, catalog.Price, catalog.DurationDays, null);
@@ -40,8 +45,17 @@ public sealed class MembershipFulfillment(ISportHubDbContext db, IAuditWriter au
             throw new ConflictException("duplicate_active_package", "Duplicate active package.");
         var id = Guid.NewGuid();
         var today = VietnamTime.TodayLocal(clock);
-        var (pendingStart, pendingEnd) = MemberPackageRules.ComputePeriod(
-            MemberPackageRules.RenewalStart(today, await LatestActiveEndAsync(memberId, null, today, ct)), quote.DurationDays);
+        // Vé Gym 1 ngày chỉ có giá trị trong ngày mua: không bán khi Gym đang đóng cửa vì sự cố.
+        if (packageId == DayPass.PackageId && await gymClosure.IsGymClosedAtAsync(clock.UtcNow, ct))
+            throw new ConflictException("gym_closed_today", "The Gym is closed right now, so the day pass cannot be sold.");
+        if (packageId == DayPass.PackageId && await db.Set<MemberPackage>().AnyAsync(x =>
+            x.MemberId == memberId && x.PackageId == DayPass.PackageId
+            && x.Status == MemberPackageStatus.Active && x.StartDate <= today && x.EndDate >= today, ct))
+            throw new ConflictException("day_pass_already_active", "A Gym day pass is already active today.");
+        var startDate = packageId == DayPass.PackageId
+            ? today
+            : MemberPackageRules.RenewalStart(today, await LatestActiveEndAsync(memberId, null, today, ct));
+        var (pendingStart, pendingEnd) = MemberPackageRules.ComputePeriod(startDate, quote.DurationDays);
         db.Set<MemberPackage>().Add(new MemberPackage
         {
             MemberPackageId = id, MemberId = memberId, PackageId = packageId,
@@ -72,8 +86,10 @@ public sealed class MembershipFulfillment(ISportHubDbContext db, IAuditWriter au
             throw new ConflictException("membership_inactive", "Membership inactive.");
         var catalog = await db.Set<MembershipPackage>().SingleAsync(x => x.PackageId == entity.PackageId, ct);
         var today = VietnamTime.TodayLocal(clock);
-        var (start, end) = MemberPackageRules.ComputePeriod(
-            MemberPackageRules.RenewalStart(today, await LatestActiveEndAsync(entity.MemberId, memberPackageId, today, ct)),
+        var startDate = entity.PackageId == DayPass.PackageId
+            ? today
+            : MemberPackageRules.RenewalStart(today, await LatestActiveEndAsync(entity.MemberId, memberPackageId, today, ct));
+        var (start, end) = MemberPackageRules.ComputePeriod(startDate,
             entity.DurationDaysSnapshot ?? catalog.DurationDays);
         entity.StartDate = start;
         entity.EndDate = end;
@@ -81,6 +97,20 @@ public sealed class MembershipFulfillment(ISportHubDbContext db, IAuditWriter au
         audit.Write(new AuditEntry(actorId, "ACTIVATE_MEMBER_PACKAGE", nameof(MemberPackage), memberPackageId.ToString(),
             OldValue: "{\"status\":\"PendingPayment\"}",
             NewValue: System.Text.Json.JsonSerializer.Serialize(new { status = "Active", startDate = start, endDate = end, invoiceId })));
+        if (entity.PackageId == DayPass.PackageId)
+        {
+            // Vé Gym 1 ngày: nhắc rõ mã check-in và vé chỉ có hiệu lực trong ngày thanh toán (giờ Việt Nam).
+            var text = $"Your Gym day pass is active today ({start:dd/MM/yyyy}). The pass and your check-in code are valid only today (Vietnam time): "
+                + "show your member code at reception, or check in yourself on the website.";
+            notifications.Queue(new NotificationRequest(entity.MemberId, NotificationEvents.PaymentReceived, text, memberPackageId));
+            var email = await db.Set<SportHub.Identity.Domain.Entities.UserAccount>().AsNoTracking()
+                .Where(u => u.UserId == entity.MemberId).Select(u => u.Email).SingleOrDefaultAsync(ct);
+            if (email is not null)
+                notifications.QueueEmail(new EmailNotificationRequest(entity.MemberId, email, NotificationEvents.PaymentReceived,
+                    memberPackageId, "SportHub - Your Gym day pass", "<p>" + System.Net.WebUtility.HtmlEncode(text) + "</p>"));
+            return;
+        }
+
         notifications.Queue(new NotificationRequest(entity.MemberId, NotificationEvents.PaymentReceived,
             $"Package {catalog.Name} is active from {start:dd/MM/yyyy} to {end:dd/MM/yyyy}.", memberPackageId));
     }

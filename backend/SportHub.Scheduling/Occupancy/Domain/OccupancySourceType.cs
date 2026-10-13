@@ -4,7 +4,7 @@ namespace SportHub.Scheduling.Occupancy.Domain;
 public enum OccupancySourceType
 {
     ClassSession,
-    PtSession,
+    PtSession, // ngừng dùng; giữ để không đổi số lưu của các nguồn sau
     CourtRental,
     RoomBlock
 }

@@ -55,12 +55,10 @@ public sealed partial class DemoDataSeeder(
 
         var coachBadminton = NewUser("coach.caulong@sporthub.vn", "Phạm Minh Cầu Lông", "0902000001", UserRole.Coach);
         var coachBasketball = NewUser("coach.bongro@sporthub.vn", "Vũ Hải Bóng Rổ", "0902000002", UserRole.Coach);
-        var coachPt = NewUser("coach.pt@sporthub.vn", "Đỗ Quang PT", "0902000003", UserRole.Coach);
 
         // BR-96 — mỗi tài khoản Coach demo có CoachProfile ngay khi tạo; chuyên môn theo môn gán ngay sau khi lưu user.
         coachBadminton.CoachProfile = new CoachProfile();
         coachBasketball.CoachProfile = new CoachProfile();
-        coachPt.CoachProfile = new CoachProfile();
 
         var members = new[]
         {
@@ -72,7 +70,7 @@ public sealed partial class DemoDataSeeder(
             NewUser("hoa.member@sporthub.vn", "Bùi Thanh Hoa", "0903000006", UserRole.Member)
         };
 
-        var allUsers = new List<UserAccount> { admin, manager, reception, coachBadminton, coachBasketball, coachPt };
+        var allUsers = new List<UserAccount> { admin, manager, reception, coachBadminton, coachBasketball };
         allUsers.AddRange(members);
 
         foreach (var user in allUsers)
@@ -88,10 +86,7 @@ public sealed partial class DemoDataSeeder(
         // Mapping cụ thể theo user vì CoachCategory cũ không đủ xác định môn.
         db.UserSportSpecialties.AddRange(
             new UserSportSpecialty { UserId = coachBadminton.UserId, SportId = 3 },
-            new UserSportSpecialty { UserId = coachBasketball.UserId, SportId = 4 },
-            new UserSportSpecialty { UserId = coachPt.UserId, SportId = 1 });
-        // PT là dịch vụ của Gym (offering 2 trong seed catalog): chỉ Coach có qualification mới nhận quyền PT.
-        db.Set<CoachServiceQualification>().Add(new CoachServiceQualification { UserId = coachPt.UserId, OfferingId = 2 });
+            new UserSportSpecialty { UserId = coachBasketball.UserId, SportId = 4 });
         await db.SaveChangesAsync(ct);
 
         members[^1].Status = UserStatus.Deactivated;
@@ -121,7 +116,7 @@ public sealed partial class DemoDataSeeder(
                 Price = 600_000m,
                 DurationDays = 30,
                 SessionLimit = null,
-                Description = "Unlimited gym check-ins for 30 days. An active Gym membership is required to purchase PT separately.",
+                Description = "Unlimited gym check-ins for 30 days.",
                 IsActive = true
             },
             new MembershipPackage
@@ -130,7 +125,7 @@ public sealed partial class DemoDataSeeder(
                 Price = 1_800_000m,
                 DurationDays = 90,
                 SessionLimit = null,
-                Description = "Gym access for 90 days. An active Gym membership is required to purchase PT separately.",
+                Description = "Gym access for 90 days.",
                 IsActive = true
             },
             new MembershipPackage
@@ -139,7 +134,7 @@ public sealed partial class DemoDataSeeder(
                 Price = 2_400_000m,
                 DurationDays = 180,
                 SessionLimit = null,
-                Description = "Gym access for 180 days. An active Gym membership is required to purchase PT separately.",
+                Description = "Gym access for 180 days.",
                 IsActive = true
             },
             new MembershipPackage
@@ -148,7 +143,7 @@ public sealed partial class DemoDataSeeder(
                 Price = 6_000_000m,
                 DurationDays = 365,
                 SessionLimit = null,
-                Description = "Gym access for 365 days. An active Gym membership is required to purchase PT separately.",
+                Description = "Gym access for 365 days.",
                 IsActive = true
             }
         };
@@ -162,7 +157,6 @@ public sealed partial class DemoDataSeeder(
         await SeedCourseStatesAsync(rooms[0], coachBadminton, today, now, ct);
 
         await SeedPackagesAndInvoicesAsync(members, manager, reception, packages, today, now, ct);
-        await SeedTrainingAsync(members, manager, coachBadminton, coachBasketball, coachPt, now, ct);
         await SeedGymCheckInsAsync(members, reception, now, ct);
 
         await db.SaveChangesAsync(ct);
@@ -230,8 +224,6 @@ public sealed partial class DemoDataSeeder(
             "coach.caulong@sporthub.vn", "Phạm Minh Cầu Lông", "0902000001", 3, ct);
         var basketballCoach = await EnsureDemoCoachAsync(
             "coach.bongro@sporthub.vn", "Vũ Hải Bóng Rổ", "0902000002", 4, ct);
-        await EnsureDemoCoachAsync(
-            "coach.pt@sporthub.vn", "Đỗ Quang PT", "0902000003", 1, ct);
         var badmintonRoom = await EnsureDemoRoomAsync("Badminton Class BC1", 3, 12, ct);
         var basketballRoom = await EnsureDemoRoomAsync("Basketball Class KC1", 4, 20, ct);
 
@@ -275,13 +267,13 @@ public sealed partial class DemoDataSeeder(
     }
 
     /// <summary>
-    /// Idempotent demo data: coach.pt giao một kế hoạch tập Active cho an.member để xem giao diện Member.
+    /// Idempotent demo data: coach.caulong giao một kế hoạch tập Active cho an.member để xem giao diện Member.
     /// Chỉ thêm khi chưa có kế hoạch nào của cặp Coach–Member này, không đụng dữ liệu do người dùng tạo.
     /// </summary>
     public async Task SeedMemberWorkoutPlanAsync(CancellationToken ct = default)
     {
         var member = await db.UserAccounts.SingleOrDefaultAsync(x => x.Email == "an.member@sporthub.vn", ct);
-        var coach = await db.UserAccounts.SingleOrDefaultAsync(x => x.Email == "coach.pt@sporthub.vn", ct);
+        var coach = await db.UserAccounts.SingleOrDefaultAsync(x => x.Email == "coach.caulong@sporthub.vn", ct);
         if (member is null || coach is null
             || member.Status != UserStatus.Active || coach.Status != UserStatus.Active) return;
         if (await db.WorkoutPlans.AnyAsync(x => x.MemberId == member.UserId && x.CoachId == coach.UserId, ct)) return;
@@ -930,84 +922,6 @@ public sealed partial class DemoDataSeeder(
                 ItemId = Guid.NewGuid(), PlanId = plan.PlanId,
                 Exercise = "Glute bridge", Sets = 3, Reps = 15, Notes = null
             });
-
-        // Đổi 29/09/2026 (BE-4): PT dùng PtEntitlement/PtSession riêng, không còn ép
-        // WorkoutResult vào Enrollment khóa nhóm. Entitlement mượn validity của MemberPackage
-        // "Gym 12 tháng" đã seed cho members[2] ở SeedPackagesAndInvoicesAsync —
-        // đây là dữ liệu demo, Payment thật sẽ tạo PtEntitlement qua IPtEntitlementLifecycle.
-        var ptMemberPackage = await db.MemberPackages
-            .Where(mp => mp.MemberId == members[2].UserId && mp.Status == MemberPackageStatus.Active)
-            .OrderByDescending(mp => mp.StartDate)
-            .FirstOrDefaultAsync(ct);
-
-        if (ptMemberPackage is not null)
-        {
-            var entitlement = new PtEntitlement
-            {
-                EntitlementId = Guid.NewGuid(),
-                ActivationReference = Guid.NewGuid(),
-                MemberId = members[2].UserId,
-                OriginMemberPackageId = ptMemberPackage.MemberPackageId,
-                CurrentMemberPackageId = ptMemberPackage.MemberPackageId,
-                CoachId = coachPt.UserId,
-                FrequencyPerWeek = 2,
-                TotalQuota = 24,
-                ReservedSessions = 0,
-                ConsumedSessions = 1,
-                ValidityStartDate = ptMemberPackage.StartDate,
-                ValidityEndDate = ptMemberPackage.EndDate,
-                CarryOverUntilDate = ptMemberPackage.EndDate.AddDays(30),
-                Status = PtEntitlementStatus.Active,
-                // DateOnly.ToDateTime() luôn trả Kind=Unspecified — cột là timestamptz nên phải
-                // ép rõ Utc, nếu không Npgsql ném ArgumentException lúc ghi (phát hiện qua test).
-                ActivatedAt = DateTime.SpecifyKind(ptMemberPackage.StartDate.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc),
-                Version = 0
-            };
-
-            db.PtEntitlements.Add(entitlement);
-            var ptInvoice = new Invoice { InvoiceId = Guid.NewGuid(),
-                InvoiceNumber = await invoiceNumbers.NextAsync(now.AddDays(-10), ct),
-                MemberId = members[2].UserId, IssuedByUserId = manager.UserId,
-                TotalAmount = 6_000_000m, CashAmount = 6_000_000m,
-                Status = InvoiceStatus.Paid, IssuedAt = now.AddDays(-10) };
-            db.Invoices.Add(ptInvoice);
-            db.InvoiceItems.Add(new InvoiceItem { ItemId = entitlement.ActivationReference!.Value,
-                InvoiceId = ptInvoice.InvoiceId, ItemType = InvoiceItemType.PT,
-                Description = "Legacy demo PT: 24 sessions", UnitPrice = 250_000m, Quantity = 24,
-                LineAmount = 6_000_000m, RelatedEntityId = entitlement.EntitlementId });
-            db.Payments.Add(new Payment.Domain.Entities.Payment { PaymentId = Guid.NewGuid(),
-                InvoiceId = ptInvoice.InvoiceId, Amount = 6_000_000m, Method = PaymentMethod.Cash,
-                Status = PaymentStatus.Success, ReceivedByUserId = manager.UserId, PaidAt = now.AddDays(-10) });
-
-            var sessionStartUtc = now.AddDays(-7);
-
-            var session = new PtSession
-            {
-                SessionId = Guid.NewGuid(),
-                EntitlementId = entitlement.EntitlementId,
-                MemberId = members[2].UserId,
-                CoachId = coachPt.UserId,
-                StartAtUtc = sessionStartUtc,
-                EndAtUtc = sessionStartUtc.AddMinutes(90),
-                Status = PtSessionStatus.Completed,
-                QuotaState = PtSessionQuotaState.Consumed,
-                CreatedByUserId = manager.UserId,
-                CompletedAt = sessionStartUtc.AddMinutes(90),
-                Version = 0
-            };
-
-            db.PtSessions.Add(session);
-
-            db.WorkoutResults.Add(new WorkoutResult
-            {
-                ResultId = Guid.NewGuid(),
-                PtSessionId = session.SessionId,
-                CoachId = coachPt.UserId,
-                ProgressNote = "Held the plank for 15 seconds longer than the previous session.",
-                CoachComment = "Engage your core more during the plank. Increase the hold time next session.",
-                RecordedAt = session.EndAtUtc.AddMinutes(10)
-            });
-        }
     }
 
     private async Task SeedGymCheckInsAsync(

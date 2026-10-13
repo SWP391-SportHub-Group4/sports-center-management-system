@@ -13,6 +13,37 @@ namespace SportHub.Scheduling.Tests.Integration;
 [Collection(nameof(SchedulingApiCollection))]
 public sealed class GymCheckInRbacTests(SchedulingApiFactory factory)
 {
+    [Fact]
+    public async Task Member_can_check_in_only_their_own_account()
+    {
+        var member = await factory.SeedUserAsync(UserRole.Member);
+        await factory.SeedMemberPackageAsync(member.UserId);
+        var client = factory.CreateApiClient(member.UserId, UserRole.Member);
+
+        var response = await client.PostAsJsonAsync("/api/gym-checkins/self", new { });
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(member.UserId, body.GetProperty("memberId").GetGuid());
+        Assert.Equal(member.UserId, body.GetProperty("checkedInByUserId").GetGuid());
+
+        var receptionist = await factory.SeedUserAsync(UserRole.Receptionist);
+        var staffClient = factory.CreateApiClient(receptionist.UserId, UserRole.Receptionist);
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await staffClient.PostAsJsonAsync("/api/gym-checkins/self", new { })).StatusCode);
+    }
+
+    [Fact]
+    public async Task Self_check_in_requires_an_active_membership_today()
+    {
+        var member = await factory.SeedUserAsync(UserRole.Member);
+        await factory.SeedMemberPackageAsync(member.UserId,
+            endDate: DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-1));
+        var client = factory.CreateApiClient(member.UserId, UserRole.Member);
+
+        Assert.Equal(HttpStatusCode.Conflict,
+            (await client.PostAsJsonAsync("/api/gym-checkins/self", new { })).StatusCode);
+    }
+
     [Theory]
     [InlineData(UserRole.Member)]
     [InlineData(UserRole.Coach)]

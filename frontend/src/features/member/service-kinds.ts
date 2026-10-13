@@ -1,19 +1,13 @@
-export type ServiceKind = "gym" | "class" | "court" | "pt";
+export type ServiceKind = "gym" | "class" | "court";
 export type EmblemKind =
-  "gym" | "pt" | "court" | "badminton" | "basketball" | "whistle";
+  "gym" | "court" | "badminton" | "basketball" | "whistle";
 
-export const SERVICE_KINDS: readonly ServiceKind[] = [
-  "gym",
-  "class",
-  "court",
-  "pt",
-];
+export const SERVICE_KINDS: readonly ServiceKind[] = ["gym", "class", "court"];
 
 export const KIND_LABEL: Record<ServiceKind, { vi: string; en: string }> = {
   gym: { vi: "Gym", en: "Gym" },
   class: { vi: "Lớp nhóm", en: "Group class" },
   court: { vi: "Thuê sân", en: "Court rental" },
-  pt: { vi: "PT 1-1", en: "PT 1-1" },
 };
 
 export const FILTER_LABEL: Record<
@@ -24,7 +18,6 @@ export const FILTER_LABEL: Record<
   gym: { vi: "Gym", en: "Gym" },
   class: { vi: "Lớp", en: "Class" },
   court: { vi: "Sân", en: "Court" },
-  pt: { vi: "PT", en: "PT" },
 };
 
 export function emblemForSport(

@@ -3,13 +3,8 @@ import type {
   CoachMemberRelationshipDto,
   CourseDto,
   CourseSessionDto,
-  PtSessionDto,
-  PtEntitlementDto,
   WorkoutPlanDto,
-  WorkoutResultDto,
-  PtReviewRequestDto,
   Paged,
-  ProgressItemDto,
   CourseRosterDto,
   MemberTrainingProfileDto,
 } from "@/lib/types";
@@ -40,36 +35,6 @@ export const ptApi = {
     api.get<{
       trainingProfile: MemberTrainingProfileDto | null;
     }>(`/api/coaches/me/students/${memberId}/health-profile`, { signal }),
-  sessions: (
-    manager: boolean,
-    page: number,
-    signal?: AbortSignal,
-    status?: string,
-  ) =>
-    api.get<PtSessionDto[]>(
-      `/api/${manager ? "manager" : "coaches/me"}/pt-sessions`,
-      {
-        signal,
-        query: {
-          page,
-          pageSize: 20,
-          status,
-        },
-      },
-    ),
-
-  entitlements: (manager: boolean, page: number, signal?: AbortSignal) =>
-    api.get<PtEntitlementDto[]>(
-      `/api/${manager ? "manager" : "coaches/me"}/pt-entitlements`,
-      {
-        signal,
-        query: {
-          page,
-          pageSize: 20,
-        },
-      },
-    ),
-
   relationships: (
     page: number,
     signal?: AbortSignal,
@@ -101,25 +66,6 @@ export const ptApi = {
   roster: (id: string, signal?: AbortSignal) =>
     api.get<CourseRosterDto>(`/api/class-sessions/${id}/roster`, { signal }),
 
-  results: (page: number, signal?: AbortSignal) =>
-    api.get<WorkoutResultDto[]>("/api/coaches/me/workout-results", {
-      signal,
-      query: {
-        page,
-        pageSize: 20,
-      },
-    }),
-
-  progress: (memberId: string, page: number, signal?: AbortSignal) =>
-    api.get<Paged<ProgressItemDto>>("/api/coaches/me/progress", {
-      signal,
-      query: {
-        memberId,
-        page,
-        pageSize: 20,
-      },
-    }),
-
   plans: (page: number, signal?: AbortSignal, memberId?: string) =>
     api.get<WorkoutPlanDto[]>("/api/coaches/me/workout-plans", {
       signal,
@@ -129,16 +75,4 @@ export const ptApi = {
         memberId,
       },
     }),
-
-  requests: (coach: boolean, page: number, signal?: AbortSignal) =>
-    api.get<PtReviewRequestDto[]>(
-      `/api/manager/pt-${coach ? "coach" : "session"}-change-requests`,
-      {
-        signal,
-        query: {
-          page,
-          pageSize: 20,
-        },
-      },
-    ),
 };

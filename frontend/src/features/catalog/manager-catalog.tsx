@@ -6,9 +6,8 @@ import { Loading } from "@/components/ui";
 import { useLanguage } from "@/lib/language";
 import { SportsManager } from "./sports-manager";
 import { MembershipManager } from "./membership-manager";
-import { PtPricingManager } from "./pt-pricing-manager";
 import { CourtRateEditor } from "./court-rate-editor";
-type Tab = "sports" | "gym" | "pt" | "court-rates";
+type Tab = "sports" | "gym" | "court-rates";
 function CatalogContent({ defaultTab }: { defaultTab: Tab }) {
   const params = useSearchParams();
   const requested = params.get("tab");
@@ -19,7 +18,6 @@ function CatalogContent({ defaultTab }: { defaultTab: Tab }) {
         ? "court-rates"
         : requested === "sports" ||
             requested === "gym" ||
-            requested === "pt" ||
             requested === "court-rates"
           ? requested
           : defaultTab;
@@ -29,8 +27,6 @@ function CatalogContent({ defaultTab }: { defaultTab: Tab }) {
         <SportsManager />
       ) : tab === "gym" ? (
         <MembershipManager />
-      ) : tab === "pt" ? (
-        <PtPricingManager />
       ) : (
         <CourtRateEditor />
       )}

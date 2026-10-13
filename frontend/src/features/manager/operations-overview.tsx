@@ -11,20 +11,14 @@ import {
 } from "@/lib/format";
 import { pagedItems } from "@/lib/paged";
 import { AsyncSection, Card, StatusChip, Table } from "@/components/ui";
-import { MemberName } from "@/components/RecordName";
 import { courtScheduleApi } from "@/features/court-schedule";
 import styles from "./operations-overview.module.css";
 import type {
   ManagerCourseDto,
   Paged,
   PaymentAdjustmentDto,
-  PtReviewRequestDto,
 } from "@/lib/types";
 const PREVIEW_SIZE = 5;
-type PendingPtRequest = PtReviewRequestDto & {
-  kind: "coach" | "session";
-  requestedAt: string;
-};
 export function OperationsOverview() {
   const { t } = useLanguage();
   const m = t.managerOperations;
@@ -50,24 +44,6 @@ export function OperationsOverview() {
       }),
     [],
   );
-  const requests = useApi(async (signal) => {
-    const endpoints = ["coach", "session"] as const;
-    return (
-      await Promise.all(
-        endpoints.map(async (kind) => {
-          const rows = await api.get<
-            (PtReviewRequestDto & { requestedAt: string })[]
-          >(`/api/manager/pt-${kind}-change-requests`, {
-            signal,
-            query: { status: "PENDING", page: 1, pageSize: PREVIEW_SIZE + 1 },
-          });
-          return rows.map((r): PendingPtRequest => ({ ...r, kind }));
-        }),
-      )
-    )
-      .flat()
-      .sort((a, b) => (b.requestedAt ?? "").localeCompare(a.requestedAt ?? ""));
-  }, []);
   const schedule = useApi(
     (signal) => courtScheduleApi.list(date, date, "", false, signal),
     [date],
@@ -83,7 +59,6 @@ export function OperationsOverview() {
             onClick={() => {
               classes.reload();
               refunds.reload();
-              requests.reload();
               schedule.reload();
             }}
           >
@@ -214,93 +189,6 @@ export function OperationsOverview() {
                               <dd>{formatPoints(r.systemCalculatedPoints)}</dd>
                             </div>
                           </dl>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </>
-              )}
-            </AsyncSection>
-          </section>
-          <section className={styles.queue} aria-labelledby="attention-pt">
-            <div className={styles.queueHead}>
-              <h3 id="attention-pt">{m.requests}</h3>
-              {!requests.loading && !requests.error && requests.data && (
-                <span className={styles.count}>
-                  {requests.data.length > PREVIEW_SIZE
-                    ? `${PREVIEW_SIZE}+`
-                    : requests.data.length}
-                </span>
-              )}
-              <Link
-                className={styles.queueLink}
-                href="/manager/pt?tab=requests"
-              >
-                {m.reviewPtRequests}
-              </Link>
-            </div>
-            <AsyncSection state={requests}>
-              {(rows) => (
-                <>
-                  {rows.length === 0 ? (
-                    <p className={styles.empty}>{m.noPtRequests}</p>
-                  ) : (
-                    <ul
-                      className={styles.queueList}
-                      tabIndex={0}
-                      aria-labelledby="attention-pt"
-                    >
-                      {rows.slice(0, PREVIEW_SIZE).map((r) => (
-                        <li
-                          key={`${r.kind}-${r.requestId}`}
-                          className={`${styles.queueItem} ${styles.ptItem}`}
-                        >
-                          <Link
-                            className={styles.itemTitle}
-                            href={`/manager/pt?tab=requests&type=${r.kind}`}
-                          >
-                            <MemberName id={r.memberId} name={r.memberName} />
-                          </Link>
-                          <p className={styles.requestType}>
-                            {r.kind === "coach"
-                              ? m.changeCoach
-                              : r.requestType === "CANCEL"
-                                ? m.cancelPtSession
-                                : m.reschedulePtSession}
-                          </p>
-                          <div className={styles.identity}>
-                            {r.kind === "coach" ? (
-                              <p className={styles.meta}>
-                                {r.currentCoachName ??
-                                  t.managerAudit.nameUnavailable}{" "}
-                                →{" "}
-                                {r.requestedCoachName ??
-                                  t.managerAudit.nameUnavailable}
-                              </p>
-                            ) : (
-                              r.sessionStartAtUtc && (
-                                <p className={styles.meta}>
-                                  {formatDateTime(r.sessionStartAtUtc)}
-                                  {r.requestedStartAtUtc && (
-                                    <>
-                                      {" "}
-                                      → {formatDateTime(r.requestedStartAtUtc)}
-                                    </>
-                                  )}
-                                </p>
-                              )
-                            )}
-                            {r.reason && (
-                              <p className={styles.meta}>
-                                {t.staffWork.reason}: {r.reason}
-                              </p>
-                            )}
-                          </div>
-                          {r.requestsException && (
-                            <p className={styles.exception}>
-                              {t.staffWork.exception}
-                            </p>
-                          )}
                         </li>
                       ))}
                     </ul>

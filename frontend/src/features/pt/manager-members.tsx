@@ -17,7 +17,6 @@ import type {
   CoachMemberRelationshipDto,
   MemberPackageDto,
   Paged,
-  PtEntitlementDto,
   UserAdminDto,
 } from "@/lib/types";
 import { trainingStyles as styles } from "@/features/training";
@@ -127,7 +126,7 @@ export function ManagerMemberList() {
 
 type TabId = "overview" | "invoices" | "health";
 
-/** Hồ sơ vận hành của hội viên (Q12): Membership, gói PT, quan hệ Coach, hóa đơn. Không có thao tác sửa kế hoạch tập. */
+/** Hồ sơ vận hành của hội viên (Q12): Membership, quan hệ Coach, hóa đơn. Không có thao tác sửa kế hoạch tập. */
 export function ManagerMemberProfile({ memberId }: { memberId: string }) {
   const { t, language } = useLanguage();
   const l = t.ptOps;
@@ -145,14 +144,6 @@ export function ManagerMemberProfile({ memberId }: { memberId: string }) {
     (signal) =>
       api.get<MemberPackageDto[]>(`/api/members/${memberId}/packages`, {
         signal,
-      }),
-    [memberId],
-  );
-  const entitlements = useApi(
-    (signal) =>
-      api.get<PtEntitlementDto[]>("/api/manager/pt-entitlements", {
-        signal,
-        query: { memberId, page: 1, pageSize: 20 },
       }),
     [memberId],
   );
@@ -238,32 +229,6 @@ export function ManagerMemberProfile({ memberId }: { memberId: string }) {
                             </span>
                           </div>
                           <StatusChip value={p.status} />
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </AsyncSection>
-              </section>
-              <section className={styles.section}>
-                <h2>{l.ptPackages}</h2>
-                <AsyncSection
-                  state={entitlements}
-                  isEmpty={(rows) => !pagedItems(rows).length}
-                  emptyMessage={l.noPtPackages}
-                >
-                  {(rows) => (
-                    <ul className={styles.list}>
-                      {pagedItems(rows).map((e) => (
-                        <li key={e.entitlementId}>
-                          <div>
-                            <strong>{e.coachName}</strong>
-                            <span>
-                              {e.remainingQuota} / {e.totalQuota} ·{" "}
-                              {formatDate(e.validityStartDate)} –{" "}
-                              {formatDate(e.validityEndDate)}
-                            </span>
-                          </div>
-                          <StatusChip value={e.status} />
                         </li>
                       ))}
                     </ul>

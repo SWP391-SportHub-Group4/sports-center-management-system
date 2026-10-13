@@ -130,11 +130,9 @@ test("manager overview uses server cash/points metrics and no profit claim", asy
   const cash = page
     .locator(".stat")
     .filter({ has: page.getByText("Cash collected (VND)", { exact: true }) });
-  const usedPoints = page
-    .locator(".stat")
-    .filter({
-      has: page.getByText("Points used by members in period", { exact: true }),
-    });
+  const usedPoints = page.locator(".stat").filter({
+    has: page.getByText("Points used by members in period", { exact: true }),
+  });
   await expect(cash.locator(".stat__value")).toContainText("100,000");
   await expect(usedPoints.locator(".stat__value")).toContainText("200");
   await expect(usedPoints.locator(".stat__value")).not.toContainText("₫");
@@ -155,13 +153,11 @@ test("manager reports keep VND and point units distinct", async ({ page }) => {
   const refundedPoints = page
     .locator(".stat")
     .filter({ has: page.getByText("Points refunded", { exact: true }) });
-  const outstandingPoints = page
-    .locator(".stat")
-    .filter({
-      has: page.getByText("Current outstanding points (available + held)", {
-        exact: true,
-      }),
-    });
+  const outstandingPoints = page.locator(".stat").filter({
+    has: page.getByText("Current outstanding points (available + held)", {
+      exact: true,
+    }),
+  });
   await expect(refundedPoints.locator(".stat__value")).toContainText("25");
   await expect(outstandingPoints.locator(".stat__value")).toContainText("525");
   await expect(refundedPoints.locator(".stat__value")).not.toContainText("₫");

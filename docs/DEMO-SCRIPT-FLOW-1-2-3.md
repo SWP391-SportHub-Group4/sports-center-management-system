@@ -71,12 +71,20 @@ Tài khoản seed gốc dùng làm **dự phòng** nếu email không tới: `ad
 5. **Điểm nói:**
    - Hệ thống không xác minh được email có thật hay đúng người; việc xác minh là link kích hoạt gửi tới email đó, nên có nhập email hai lần, gửi lại link và sửa email khi gõ sai.
    - Admin không đặt mật khẩu hộ; staff tự kích hoạt bằng link dùng một lần (24 giờ).
-   - **Coach chỉ do Admin tạo** (kèm chuyên môn). Manager không tạo được Coach, chỉ sửa hồ sơ và cấp **quyền dịch vụ PT** nếu Coach dạy PT.
+   - **Coach chỉ do Admin tạo** (kèm chuyên môn). Manager không tạo được Coach, chỉ sửa hồ sơ và chuyên môn.
 
 ## 1.3b Lễ tân đăng ký Member mới tại quầy (Hào) — 1 phút
 1. **Hào:** `/receptionist/members` → **Đăng ký hội viên mới**. Nhập họ tên, email thật **hai lần** (nhập lệch thì nút khóa), số điện thoại → **Register and send activation email**.
 2. Member mở email "Activate your SportHub account" → đặt mật khẩu → đăng nhập. Trước đó tài khoản có nhãn **Chờ kích hoạt**; lễ tân vẫn bán dịch vụ được, và có **Gửi lại link** / **Đổi email**.
 3. **Điểm nói:** quầy không đặt mật khẩu hộ và chỉ tạo Member; link kích hoạt chứng minh email đúng người.
+
+## 1.3c Khách lạ mua vé Gym 1 ngày (Hào + Member) — 2 phút
+1. **Tình huống:** một khách chưa có tài khoản tới Gym. **Hào** đăng ký Member cho khách (1.3b) hoặc khách tự đăng ký.
+2. **Nhắc khách trước khi trả tiền:** vé 50.000đ và mã check-in **chỉ dùng trong ngày**. Thẻ gói **Gym day pass** và màn bán của lễ tân cũng ghi rõ điều này.
+3. Hào bán vé tại `/receptionist/sales` (hoặc khách tự mua ở `/member/services?section=gym&view=explore`) → thanh toán (điểm hoặc mock).
+4. Nhận thông báo + email "Your Gym day pass". Mở nút **Mã hội viên** trên header: QR do server ký, chỉ có hiệu lực hết hôm nay (giờ Việt Nam).
+5. **Hào check-in hộ** (`/receptionist/gym-checkin`) hoặc Member bấm tự check-in. Sang ngày sau mã và vé hết hiệu lực.
+6. **Điểm nói:** vé cố định 50.000đ (Manager không sửa được), không hoàn, không gia hạn khi đóng Gym, không nhắc hết hạn; khi Gym đóng cửa vì sự cố thì không mua được vé.
 
 ## 1.4 Quản lý tài khoản & chặn đổi role (An – Admin) — 2 phút
 1. Mở một tài khoản **Member** → **Edit**: **không có ô đổi role**, chỉ hiện câu "Member accounts cannot be converted to staff. Create a staff account with a different email instead."
@@ -89,8 +97,8 @@ Tài khoản seed gốc dùng làm **dự phòng** nếu email không tới: `ad
 ## 1.5 Membership & Gym access (Member + Hào + Khoa) — 1 phút
 1. **Khoa:** `/manager/membership-plans` xem các gói (ngừng/mở lại được).
 2. **Member 2 (`demo.member2@`) hoặc Member thật của An:** mua gói Gym → checkout bằng **điểm** → **My services** (`/member/services?view=owned&type=gym`) thấy gói **Active**; nhận thông báo/email.
-3. **Hào:** `/receptionist/gym-checkin` → tìm `demo.member1@` (đã có sẵn gói Gym Active) hoặc Member vừa mua gói (hoặc quét **mã Member** 5 phút) → **check-in**, rồi **check-out**.
-4. **Điểm nói:** quyền vào Gym phụ thuộc Membership Active; mã Member chỉ quầy hoặc Manager tra được.
+3. **Hào:** `/receptionist/gym-checkin` → tìm `demo.member1@` (đã có sẵn gói Gym Active) hoặc Member vừa mua gói (hoặc quét **mã QR hội viên** do server cấp) → **check-in**, rồi **check-out**.
+4. **Điểm nói:** quyền vào Gym phụ thuộc Membership Active; mã QR do server ký, hết hạn cuối ngày và client không tự dựng được; lễ tân/Manager quét để server đổi ra Member (`POST /api/members/checkin-code/resolve`).
 
 **Kết Flow 1:** đăng ký OTP, quên mật khẩu, tạo staff + kích hoạt email, quản lý trạng thái, đổi role có kiểm soát, mua Membership và Gym check-in, audit.
 
@@ -122,7 +130,7 @@ Tài khoản seed gốc dùng làm **dự phòng** nếu email không tới: `ad
 2. **Khoa:** `/manager/court-schedule` xem lịch thuê sân.
 3. **Khoa:** `/manager/incidents` → **Preview** sự cố ảnh hưởng lượt sân thứ hai còn hiệu lực → **Resolve**. Lượt này bị hủy, hoàn 100% điểm; Member nhận thông báo + email.
 4. **(Nếu còn thời gian) Sự cố đóng Gym:** preview sự cố đóng mọi phòng Gym → nhập số ngày gia hạn (0–31) → resolve. Membership Active được cộng ngày, mỗi hội viên nhận thông báo + email, có audit. *Chỉ làm trên dữ liệu demo, vì thao tác khóa các phòng.*
-5. **Điểm nói về hoàn điểm:** sự cố tạm thời của trung tâm không hoàn Membership mà gia hạn; hoàn do lỗi trung tâm chỉ tính theo **phần chưa dùng** (ngày còn lại / buổi PT chưa dùng).
+5. **Điểm nói về hoàn điểm:** sự cố tạm thời của trung tâm không hoàn Membership mà gia hạn; hoàn do lỗi trung tâm chỉ tính theo **phần chưa dùng** (ngày còn lại / tổng ngày).
 
 ## 2.6 Ngưỡng lớp (chỉ nói, không làm trực tiếp) — 30 giây
 Ngưỡng lớp chạy theo job theo hạn nên khó tái hiện trực tiếp. Mở `/member/threshold` hoặc trang **Interests** trong chi tiết lớp của Manager nếu có dữ liệu sẵn. Nói rõ Member được chọn: chuyển lớp, chờ đợt sau (hoàn 100% điểm), hoặc hoàn điểm.
@@ -154,7 +162,7 @@ Dùng dữ liệu tạo ở Flow 1–2. Cần `VnPay__UseMock=true` (bước 3 p
 1. **Member 2:** yêu cầu hoàn gói Gym vừa mua (`/api/refunds/membership-cancellations`, qua màn hóa đơn/gói). Hệ thống hiện **báo giá hoàn** (`quote`): hoàn chuẩn **tối đa 50%** khi còn từ 2/3 thời hạn; sau đó không hoàn. Hoàn **chỉ bằng điểm**, không hoàn tiền mặt/VNPay.
 2. **Hào (hộ Member):** cũng tạo được yêu cầu hoàn hộ, bắt buộc nhập lý do.
 3. **Khoa:** `/manager/payment-adjustments` → xem yêu cầu → **Approve**. Số điểm do hệ thống tính (Manager không nhập số, không vượt cap); điểm vào ví đúng một lần, bấm lại không cộng trùng (idempotent).
-4. Lỗi do trung tâm (**Center Fault**): Manager chọn lỗi trung tâm kèm lý do ≥ 10 ký tự → hoàn theo **phần chưa dùng** (Membership theo ngày còn lại / tổng ngày; PT theo buổi chưa dùng / tổng buổi), không hoàn 100%. Sự cố đóng Gym thì **gia hạn Membership** thay vì hoàn (Flow 2.5).
+4. Lỗi do trung tâm (**Center Fault**): Manager chọn lỗi trung tâm kèm lý do ≥ 10 ký tự → hoàn theo **phần chưa dùng** (Membership theo ngày còn lại / tổng ngày; vé Gym 1 ngày không hoàn), không hoàn 100%. Sự cố đóng Gym thì **gia hạn Membership** thay vì hoàn (Flow 2.5).
 5. Quay lại `/member/finance?tab=wallet`: điểm hoàn xuất hiện trong sổ, gói chuyển Cancelled.
 6. Mở `/manager/audit-log`: có bản ghi duyệt hoàn kèm lý do.
 

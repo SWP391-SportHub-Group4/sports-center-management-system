@@ -67,7 +67,6 @@ public sealed class StaffInvitationExpiryService(ISportHubDbContext db, IClock c
                 && n.RecipientAddress != null && n.RecipientAddress.ToLower() == user.Email.ToLower()))
             .ExecuteDeleteAsync(ct);
         await db.Set<UserSportSpecialty>().Where(s => s.UserId == userId).ExecuteDeleteAsync(ct);
-        await db.Set<CoachServiceQualification>().Where(q => q.UserId == userId).ExecuteDeleteAsync(ct);
         // Profile, credential and coach profile have database ON DELETE CASCADE.
         // Operational references deliberately retain their FK protection: never erase classes/bookings.
         await db.Set<UserAccount>().Where(u => u.UserId == userId).ExecuteDeleteAsync(ct);

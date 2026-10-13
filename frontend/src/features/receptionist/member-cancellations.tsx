@@ -13,11 +13,7 @@ import { useLanguage } from "@/lib/language";
 import { pagedItems } from "@/lib/paged";
 import { useApi, useNow } from "@/lib/useApi";
 
-import type {
-  CourseEnrollmentDto,
-  MemberPackageDto,
-  Paged,
-} from "@/lib/types";
+import type { CourseEnrollmentDto, MemberPackageDto, Paged } from "@/lib/types";
 
 import styles from "./member-cancellations.module.css";
 
@@ -43,22 +39,17 @@ export function MemberCancellations({
 
   const vi = language === "vi";
 
-  const tx = (
-    vietnamese: string,
-    english: string,
-  ) => (vi ? vietnamese : english);
+  const tx = (vietnamese: string, english: string) =>
+    vi ? vietnamese : english;
 
   const now = useNow();
 
-  const [picked, setPicked] =
-    useState<Row | null>(null);
+  const [picked, setPicked] = useState<Row | null>(null);
 
   const enrollments = useApi(
     async (signal) =>
       pagedItems(
-        await api.get<
-          Paged<CourseEnrollmentDto>
-        >(
+        await api.get<Paged<CourseEnrollmentDto>>(
           `/api/members/${memberId}/enrollments`,
           {
             signal,
@@ -72,94 +63,66 @@ export function MemberCancellations({
     [memberId],
   );
 
-  const membershipRows: Row[] =
-    packages
-      .filter(
-        (p) =>
-          p.status === "ACTIVE" &&
-          !!p.invoiceItemId,
-      )
-      .map((p) => ({
-        id: `gym:${p.memberPackageId}`,
+  const membershipRows: Row[] = packages
+    .filter((p) => p.status === "ACTIVE" && !!p.invoiceItemId)
+    .map((p) => ({
+      id: `gym:${p.memberPackageId}`,
 
-        type: "membership" as const,
+      type: "membership" as const,
 
-        title: p.packageName,
+      title: p.packageName,
 
-        detail:
-          `${formatDate(p.startDate)} – ${formatDate(p.endDate)}`,
+      detail: `${formatDate(p.startDate)} – ${formatDate(p.endDate)}`,
 
-        label: tx(
-          "Hủy gói & hoàn điểm",
-          "Cancel membership & refund points",
+      label: tx("Hủy gói & hoàn điểm", "Cancel membership & refund points"),
+
+      target: {
+        kind: "gym" as const,
+        name: p.packageName,
+        itemId: p.invoiceItemId ?? null,
+        endDate: p.endDate,
+      },
+    }));
+
+  const classRows: Row[] = (enrollments.data ?? [])
+    .filter(
+      (e) =>
+        e.status === "CONFIRMED" &&
+        !!e.invoiceItemId &&
+        !["COMPLETED", "CANCELLED"].includes(e.classStatus),
+    )
+    .map((e) => {
+      const started =
+        !!e.firstSessionStartUtc &&
+        new Date(e.firstSessionStartUtc).getTime() <= now;
+
+      return {
+        id: `class:${e.enrollmentId}`,
+
+        type: "class" as const,
+
+        title: e.className,
+
+        detail: tx(
+          `Buổi đầu ${formatDate(e.firstSessionStartUtc)}`,
+          `First session ${formatDate(e.firstSessionStartUtc)}`,
         ),
 
+        label: started
+          ? tx("Gửi yêu cầu hoàn", "Send refund request")
+          : tx("Hủy lớp & hoàn điểm", "Cancel class & refund points"),
+
         target: {
-          kind: "gym" as const,
-          name: p.packageName,
-          itemId:
-            p.invoiceItemId ?? null,
-          endDate: p.endDate,
+          kind: "class" as const,
+          name: e.className,
+          itemId: e.invoiceItemId,
+          firstSessionStartUtc: e.firstSessionStartUtc,
+          started,
         },
-      }));
+      };
+    });
 
-  const classRows: Row[] =
-    (enrollments.data ?? [])
-      .filter(
-        (e) =>
-          e.status === "CONFIRMED" &&
-          !!e.invoiceItemId &&
-          ![
-            "COMPLETED",
-            "CANCELLED",
-          ].includes(e.classStatus),
-      )
-      .map((e) => {
-        const started =
-          !!e.firstSessionStartUtc &&
-          new Date(
-            e.firstSessionStartUtc,
-          ).getTime() <= now;
-
-        return {
-          id:
-            `class:${e.enrollmentId}`,
-
-          type: "class" as const,
-
-          title: e.className,
-
-          detail: tx(
-            `Buổi đầu ${formatDate(e.firstSessionStartUtc)}`,
-            `First session ${formatDate(e.firstSessionStartUtc)}`,
-          ),
-
-          label: started
-            ? tx(
-                "Gửi yêu cầu hoàn",
-                "Send refund request",
-              )
-            : tx(
-                "Hủy lớp & hoàn điểm",
-                "Cancel class & refund points",
-              ),
-
-          target: {
-            kind: "class" as const,
-            name: e.className,
-            itemId:
-              e.invoiceItemId,
-            firstSessionStartUtc:
-              e.firstSessionStartUtc,
-            started,
-          },
-        };
-      });
-
-  if (
-    !membershipRows.length &&
-    !classRows.length
-  ) {
+  if (!membershipRows.length && !classRows.length) {
     return null;
   }
 
@@ -168,17 +131,9 @@ export function MemberCancellations({
       {membershipRows.length > 0 && (
         <section
           className={styles.panel}
-          aria-label={tx(
-            "Quản lý Membership",
-            "Membership management",
-          )}
+          aria-label={tx("Quản lý Membership", "Membership management")}
         >
-          <h3>
-            {tx(
-              "Quản lý Membership",
-              "Membership management",
-            )}
-          </h3>
+          <h3>{tx("Quản lý Membership", "Membership management")}</h3>
 
           <p className="small muted">
             {tx(
@@ -188,31 +143,23 @@ export function MemberCancellations({
           </p>
 
           <ul>
-            {membershipRows.map(
-              (row) => (
-                <li key={row.id}>
-                  <div>
-                    <strong>
-                      {row.title}
-                    </strong>
+            {membershipRows.map((row) => (
+              <li key={row.id}>
+                <div>
+                  <strong>{row.title}</strong>
 
-                    <span>
-                      {row.detail}
-                    </span>
-                  </div>
+                  <span>{row.detail}</span>
+                </div>
 
-                  <button
-                    type="button"
-                    className="btn btn--danger btn--sm"
-                    onClick={() =>
-                      setPicked(row)
-                    }
-                  >
-                    {row.label}
-                  </button>
-                </li>
-              ),
-            )}
+                <button
+                  type="button"
+                  className="btn btn--danger btn--sm"
+                  onClick={() => setPicked(row)}
+                >
+                  {row.label}
+                </button>
+              </li>
+            ))}
           </ul>
         </section>
       )}
@@ -220,44 +167,28 @@ export function MemberCancellations({
       {classRows.length > 0 && (
         <section
           className={styles.panel}
-          aria-label={tx(
-            "Quản lý lớp đã đăng ký",
-            "Class cancellation",
-          )}
+          aria-label={tx("Quản lý lớp đã đăng ký", "Class cancellation")}
         >
-          <h3>
-            {tx(
-              "Lớp đã đăng ký",
-              "Registered classes",
-            )}
-          </h3>
+          <h3>{tx("Lớp đã đăng ký", "Registered classes")}</h3>
 
           <ul>
-            {classRows.map(
-              (row) => (
-                <li key={row.id}>
-                  <div>
-                    <strong>
-                      {row.title}
-                    </strong>
+            {classRows.map((row) => (
+              <li key={row.id}>
+                <div>
+                  <strong>{row.title}</strong>
 
-                    <span>
-                      {row.detail}
-                    </span>
-                  </div>
+                  <span>{row.detail}</span>
+                </div>
 
-                  <button
-                    type="button"
-                    className="btn btn--secondary btn--sm"
-                    onClick={() =>
-                      setPicked(row)
-                    }
-                  >
-                    {row.label}
-                  </button>
-                </li>
-              ),
-            )}
+                <button
+                  type="button"
+                  className="btn btn--secondary btn--sm"
+                  onClick={() => setPicked(row)}
+                >
+                  {row.label}
+                </button>
+              </li>
+            ))}
           </ul>
         </section>
       )}
@@ -266,9 +197,7 @@ export function MemberCancellations({
         <RefundCancelDialog
           target={picked.target}
           onBehalf
-          onClose={() =>
-            setPicked(null)
-          }
+          onClose={() => setPicked(null)}
           onDone={() => {
             enrollments.reload();
             onChanged();

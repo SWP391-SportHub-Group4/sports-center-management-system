@@ -24,9 +24,7 @@ public class InvoiceItem
     public Guid? SourceInvoiceItemId { get; set; }
     public int? ClassId { get; set; }
     public Guid? CourtRentalId { get; set; }
-    public Guid? PtEntitlementId { get; set; }
     public Guid? MemberPackageId { get; set; }
     public int? SportId { get; set; }
     public string? SportNameSnapshot { get; set; }
-    public int? PtFrequencyPerWeek { get; set; }
 }

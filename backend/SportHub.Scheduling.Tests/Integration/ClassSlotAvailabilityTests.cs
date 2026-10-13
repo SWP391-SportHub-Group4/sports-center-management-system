@@ -49,7 +49,7 @@ public sealed class ClassSlotAvailabilityTests(SchedulingApiFactory factory)
             var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
             await using var tx = await db.Database.BeginTransactionAsync();
             Assert.True((await scope.ServiceProvider.GetRequiredService<IOccupancyService>().ReserveAsync(
-                new(OccupancySources.PtSession, Guid.NewGuid(), c.RoomId, c.CoachId, start, end))).Succeeded);
+                new(OccupancySources.ClassSession, Guid.NewGuid(), c.RoomId, c.CoachId, start, end))).Succeeded);
             await tx.CommitAsync();
         }
         var occupied = await CourseTestData.RunAsync<AvailabilityService, ClassSlotAvailabilityResponse>(factory,

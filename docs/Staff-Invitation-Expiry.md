@@ -10,7 +10,7 @@ Tài khoản Member và tài khoản seed/hệ thống không thuộc phạm vi 
 - Job khóa dòng tài khoản rồi kiểm tra lại trước khi xóa. Kích hoạt, gửi lại link và sửa email sử dụng cùng khóa; tài khoản vừa kích hoạt sẽ không bị xóa.
 - Đủ 168 giờ thì API từ chối kích hoạt, gửi lại link hoặc sửa email ngay cả khi job chưa kịp quét. Quên mật khẩu vẫn trả kết quả trung tính và không cấp thêm link cho tài khoản đã hết hạn.
 
-Trong một transaction, hệ thống xóa OTP/link cũ, thông báo của tài khoản và email reset/kích hoạt theo địa chỉ email, chuyên môn Coach, quyền dịch vụ Coach và tài khoản. Profile, credential và Coach profile được xóa theo quan hệ cascade có sẵn. Sau commit, email và số điện thoại được giải phóng; tạo lại tài khoản sẽ có UserId và token mới.
+Trong một transaction, hệ thống xóa OTP/link cũ, thông báo của tài khoản và email reset/kích hoạt theo địa chỉ email, chuyên môn Coach và tài khoản. Profile, credential và Coach profile được xóa theo quan hệ cascade có sẵn. Sau commit, email và số điện thoại được giải phóng; tạo lại tài khoản sẽ có UserId và token mới.
 
 Audit tạo tài khoản được giữ lại; job ghi thêm `EXPIRE_UNACTIVATED_STAFF_ACCOUNT`. Vì schema audit bắt buộc có UserId của người dùng thật, bản ghi giữ người mời ban đầu và ghi rõ `executedBy = StaffInvitationExpiryJob` trong NewValue để xác định đây là thao tác hệ thống.
 

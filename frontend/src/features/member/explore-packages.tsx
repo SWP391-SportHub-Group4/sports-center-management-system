@@ -100,19 +100,6 @@ export function ExplorePackages({
       api.get<RoomTypeDto[]>("/api/room-types", { signal }).catch(() => []),
     [],
   );
-  const ptPrice = useApi(
-    (signal) =>
-      api
-        .get<{ pricePerSessionVnd: number }>("/api/pt-pricing", { signal })
-        .then((r) => r.pricePerSessionVnd)
-        .catch(() => null),
-    [],
-  );
-
-  const hasGym =
-    owned.data?.some(
-      (p) => p.status.toUpperCase() === "ACTIVE" && p.isUsable,
-    ) ?? false;
   const needle = normalize(query.trim());
   const match = (...parts: (string | null | undefined)[]) =>
     !needle || normalize(parts.filter(Boolean).join(" ")).includes(needle);
@@ -121,9 +108,8 @@ export function ExplorePackages({
     .filter((p) => p.isActive)
     .sort((a, b) => a.durationDays - b.durationDays);
   const baseMonthly =
-    gymPlans.length && monthsOf(gymPlans[0].durationDays) === 1
-      ? gymPlans[0].price
-      : null;
+    gymPlans.find((p) => p.durationDays >= 28 && p.durationDays <= 31)?.price ??
+    null;
   const classRows = (courses.data ?? []).filter(
     (c) =>
       c.status === "PUBLISHED" &&
@@ -133,34 +119,26 @@ export function ExplorePackages({
   const courtSports = (sports.data ?? []).filter(
     (s) => s.isActive && hasService(s, "COURT_RENTAL"),
   );
-  const ptSport = (sports.data ?? []).find((s) =>
-    hasService(s, "PERSONAL_TRAINING"),
-  );
 
-  const gymVisible = gymPlans.filter((p) =>
-    match(p.name, p.description, "gym"),
-  );
+  // Gói dài hạn xếp tăng dần theo thời hạn; vé 1 ngày luôn đứng cuối nên gói mới thêm vào trước nó.
+  const gymVisible = gymPlans
+    .filter((p) => match(p.name, p.description, "gym"))
+    .sort(
+      (a, b) =>
+        Number(a.durationDays === 1) - Number(b.durationDays === 1) ||
+        a.durationDays - b.durationDays,
+    );
   const classVisible = classRows.filter((c) =>
     match(c.name, c.sportName, c.coachName, c.roomName),
   );
   const courtVisible = courtSports.filter((s) =>
     match(s.name, "thuê sân court"),
   );
-  const ptVisible = match(
-    "personal training pt huấn luyện cá nhân",
-    ptSport?.name,
-  );
-
   const counts: Partial<Record<FilterValue, number>> = {
-    all:
-      gymVisible.length +
-      classVisible.length +
-      courtVisible.length +
-      (ptVisible ? 1 : 0),
+    all: gymVisible.length + classVisible.length + courtVisible.length,
     gym: gymVisible.length,
     class: classVisible.length,
     court: courtVisible.length,
-    pt: ptVisible ? 1 : 0,
   };
   const show = (kind: ServiceKind) => filter === "all" || filter === kind;
 
@@ -239,7 +217,12 @@ export function ExplorePackages({
                 label={tx("Tải lại", "Reload")}
               />
             ) : (
-              <div className={styles.tiers}>
+              <div
+                className={styles.tiers}
+                role="region"
+                aria-label={tx("Các gói Gym", "Gym plans")}
+                tabIndex={0}
+              >
                 {gymVisible.map((p) => (
                   <GymTier
                     key={p.packageId}
@@ -333,21 +316,6 @@ export function ExplorePackages({
           </div>
         </Section>
       )}
-
-      {show("pt") && ptVisible && (
-        <Section
-          kind="pt"
-          emblem="pt"
-          title={tx("Personal Training 1-1", "Personal training 1-1")}
-        >
-          <PtOffer
-            price={ptPrice.data}
-            hasGym={hasGym}
-            checking={owned.loading && !owned.data}
-            onBuyGym={() => onFilter("gym")}
-          />
-        </Section>
-      )}
     </div>
   );
 }
@@ -418,48 +386,55 @@ function GymTier({
   const { language } = useLanguage();
   const vi = language === "vi";
   const tx = (v: string, e: string) => (vi ? v : e);
+  const dayPass = plan.durationDays === 1;
   const months = monthsOf(plan.durationDays);
-  const original = baseMonthly ? baseMonthly * months : 0;
+  const original = !dayPass && baseMonthly ? baseMonthly * months : 0;
   const saving = original > plan.price ? original - plan.price : 0;
   return (
     <article
       className={styles.tier}
-      data-featured={saving > 0 && months === 12 ? "" : undefined}
       style={{ "--i": Math.min(index, 8) } as CSSProperties}
     >
-      <div className={styles.tierTop}>
-        <p className={styles.months}>
-          <strong>{months}</strong>
-          <span>{tx("tháng", months === 1 ? "month" : "months")}</span>
-        </p>
-        {saving > 0 && (
-          <span className={styles.save}>
-            {tx("Tiết kiệm", "Save")} {formatMoney(saving)}
-          </span>
-        )}
-      </div>
       <h3 className={styles.planName}>{plan.name}</h3>
-      {plan.description && <p className={styles.meta}>{plan.description}</p>}
-      <p className={styles.meta}>
-        {plan.durationDays} {tx("ngày", "days")}
+      <p className={styles.months}>
+        <strong>{dayPass ? 1 : months}</strong>
+        <span>
+          {dayPass
+            ? tx("ngày", "day")
+            : tx("tháng", months === 1 ? "month" : "months")}
+        </span>
       </p>
       <p className={styles.price}>
         <strong>{formatMoney(plan.price)}</strong>
         {saving > 0 && <s>{formatMoney(original)}</s>}
       </p>
       <p className={styles.meta}>
-        {tx("Đến", "Until")} {formatDate(membershipEnd(start, months))}
-        {" · "}≈ {formatMoney(Math.round(plan.price / months))}
-        {tx("/tháng", "/month")}
+        {dayPass ? (
+          tx("Chỉ dùng trong hôm nay", "Valid today only")
+        ) : (
+          <>
+            {tx("Đến", "Until")} {formatDate(membershipEnd(start, months))}
+            {" · "}≈ {formatMoney(Math.round(plan.price / months))}
+            {tx("/tháng", "/month")}
+          </>
+        )}
       </p>
-      {active && (
-        <Link
-          className={styles.ghost}
-          href="/member/services?view=owned&type=gym"
-        >
-          {active.isUsable ? "Active membership" : "Purchased membership"}
-        </Link>
-      )}
+      <p className={styles.tags}>
+        {saving > 0 && (
+          <span className={styles.save}>
+            {tx("Tiết kiệm", "Save")} {formatMoney(saving)}
+          </span>
+        )}
+        {active && (
+          <span className={styles.current}>
+            {active.isUsable
+              ? tx("Đang dùng", "In use")
+              : tx("Đã mua", "Purchased")}
+            {" · "}
+            {tx("đến", "until")} {formatDate(active.endDate)}
+          </span>
+        )}
+      </p>
       {pending ? (
         <button type="button" className={styles.cta} disabled>
           {tx("Đang chờ thanh toán", "Awaiting payment")}
@@ -535,7 +510,7 @@ function ClassRow({
               {tx("Giảng viên", "Coach")}: <strong>{course.coachName}</strong>
             </span>
             {course.coachId && (
-              <Link href={`/member/pt/coaches/${course.coachId}`}>
+              <Link href={`/coaches/${course.coachId}`}>
                 {tx("Xem hồ sơ Coach", "View Coach Profile")}
               </Link>
             )}
@@ -641,74 +616,6 @@ function CourtOffer({
       >
         {tx("Chọn gói", "Select")}
       </Link>
-    </article>
-  );
-}
-
-function PtOffer({
-  price,
-  hasGym,
-  checking,
-  onBuyGym,
-}: {
-  price: number | null | undefined;
-  hasGym: boolean;
-  checking: boolean;
-  onBuyGym: () => void;
-}) {
-  const { language } = useLanguage();
-  const vi = language === "vi";
-  const tx = (v: string, e: string) => (vi ? v : e);
-  const locked = !checking && !hasGym;
-  return (
-    <article className={styles.pt} data-locked={locked ? "" : undefined}>
-      <KindTile kind="pt" emblem="pt" size={56} />
-      <div className={styles.ptMain}>
-        <h3>{tx("Buổi PT 1-1", "PT 1-1 session")}</h3>
-        <p className={styles.meta}>
-          {tx(
-            "90 phút · chọn coach và giờ tập",
-            "90 minutes · choose coach and time",
-          )}
-        </p>
-        {locked && (
-          <span className={styles.need}>
-            {tx("Yêu cầu Membership", "Membership required")}
-          </span>
-        )}
-      </div>
-      <div className={styles.rowBuy}>
-        <p className={styles.price}>
-          {price ? (
-            <>
-              <strong>{formatMoney(price)}</strong>
-              <small>/{tx("buổi", "session")}</small>
-            </>
-          ) : (
-            <span className={styles.meta}>
-              {tx("Giá theo buổi", "Per-session price")}
-            </span>
-          )}
-        </p>
-        {locked ? (
-          <div className={styles.ptActions}>
-            <button type="button" className={styles.cta} disabled>
-              {tx("Chọn gói", "Select")}
-            </button>
-            <button type="button" className={styles.ghost} onClick={onBuyGym}>
-              {tx("Mua Membership trước", "Buy a membership first")}
-            </button>
-          </div>
-        ) : (
-          <Link
-            className={styles.cta}
-            href="/member/training?tab=book"
-            aria-disabled={checking}
-          >
-            {tx("Chọn gói", "Select")}
-          </Link>
-        )}
-      </div>
     </article>
   );
 }
