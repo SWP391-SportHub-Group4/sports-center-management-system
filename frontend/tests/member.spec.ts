@@ -277,7 +277,7 @@ test("Gym day pass clearly warns about same-day use and PT is absent", async ({
   await expect(
     page.getByRole("heading", { name: "Gym day pass" }).first(),
   ).toBeVisible();
-  await expect(page.getByText(/Valid only on the payment day/)).toBeVisible();
+  await expect(page.getByText(/Valid today only/)).toBeVisible();
   await expect(page.getByRole("button", { name: /PT 1/ })).toHaveCount(0);
 });
 test("notification links resolve to real Member views", async ({ page }) => {

@@ -123,10 +123,9 @@ for (const status of ["ACTIVE", "PENDING_PAYMENT", "NONE"]) {
     }
     if (status !== "NONE") {
       await expect(
-        page.getByText(
-          status === "ACTIVE" ? "Active membership" : "Awaiting payment",
-          { exact: true },
-        ),
+        status === "ACTIVE"
+          ? page.getByText(/^In use · until/)
+          : page.getByText("Awaiting payment", { exact: true }),
       ).toBeVisible();
     }
     await page.screenshot({

@@ -120,9 +120,14 @@ export function ExplorePackages({
     (s) => s.isActive && hasService(s, "COURT_RENTAL"),
   );
 
-  const gymVisible = gymPlans.filter((p) =>
-    match(p.name, p.description, "gym"),
-  );
+  // Gói dài hạn xếp tăng dần theo thời hạn; vé 1 ngày luôn đứng cuối nên gói mới thêm vào trước nó.
+  const gymVisible = gymPlans
+    .filter((p) => match(p.name, p.description, "gym"))
+    .sort(
+      (a, b) =>
+        Number(a.durationDays === 1) - Number(b.durationDays === 1) ||
+        a.durationDays - b.durationDays,
+    );
   const classVisible = classRows.filter((c) =>
     match(c.name, c.sportName, c.coachName, c.roomName),
   );
@@ -212,7 +217,12 @@ export function ExplorePackages({
                 label={tx("Tải lại", "Reload")}
               />
             ) : (
-              <div className={styles.tiers}>
+              <div
+                className={styles.tiers}
+                role="region"
+                aria-label={tx("Các gói Gym", "Gym plans")}
+                tabIndex={0}
+              >
                 {gymVisible.map((p) => (
                   <GymTier
                     key={p.packageId}
@@ -383,29 +393,16 @@ function GymTier({
   return (
     <article
       className={styles.tier}
-      data-featured={saving > 0 && months === 12 ? "" : undefined}
       style={{ "--i": Math.min(index, 8) } as CSSProperties}
     >
-      <div className={styles.tierTop}>
-        <h3>{plan.name}</h3>
-        <p className={styles.months}>
-          <strong>{dayPass ? 1 : months}</strong>
-          <span>
-            {dayPass
-              ? tx("ngày", "day")
-              : tx("tháng", months === 1 ? "month" : "months")}
-          </span>
-        </p>
-        {saving > 0 && (
-          <span className={styles.save}>
-            {tx("Tiết kiệm", "Save")} {formatMoney(saving)}
-          </span>
-        )}
-      </div>
       <h3 className={styles.planName}>{plan.name}</h3>
-      {plan.description && <p className={styles.meta}>{plan.description}</p>}
-      <p className={styles.meta}>
-        {plan.durationDays} {tx("ngày", "days")}
+      <p className={styles.months}>
+        <strong>{dayPass ? 1 : months}</strong>
+        <span>
+          {dayPass
+            ? tx("ngày", "day")
+            : tx("tháng", months === 1 ? "month" : "months")}
+        </span>
       </p>
       <p className={styles.price}>
         <strong>{formatMoney(plan.price)}</strong>
@@ -413,10 +410,7 @@ function GymTier({
       </p>
       <p className={styles.meta}>
         {dayPass ? (
-          tx(
-            "Chỉ dùng trong ngày thanh toán thành công (giờ Việt Nam). Mã check-in hết hiệu lực cuối ngày.",
-            "Valid only on the payment day (Vietnam time). The check-in code expires at day end.",
-          )
+          tx("Chỉ dùng trong hôm nay", "Valid today only")
         ) : (
           <>
             {tx("Đến", "Until")} {formatDate(membershipEnd(start, months))}
@@ -425,14 +419,22 @@ function GymTier({
           </>
         )}
       </p>
-      {active && (
-        <Link
-          className={styles.ghost}
-          href="/member/services?view=owned&type=gym"
-        >
-          {active.isUsable ? "Active membership" : "Purchased membership"}
-        </Link>
-      )}
+      <p className={styles.tags}>
+        {saving > 0 && (
+          <span className={styles.save}>
+            {tx("Tiết kiệm", "Save")} {formatMoney(saving)}
+          </span>
+        )}
+        {active && (
+          <span className={styles.current}>
+            {active.isUsable
+              ? tx("Đang dùng", "In use")
+              : tx("Đã mua", "Purchased")}
+            {" · "}
+            {tx("đến", "until")} {formatDate(active.endDate)}
+          </span>
+        )}
+      </p>
       {pending ? (
         <button type="button" className={styles.cta} disabled>
           {tx("Đang chờ thanh toán", "Awaiting payment")}
