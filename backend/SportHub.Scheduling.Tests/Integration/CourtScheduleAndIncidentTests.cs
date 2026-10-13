@@ -10,6 +10,7 @@ using SportHub.Scheduling.Application.Interfaces;
 using SportHub.Scheduling.Catalog.Domain;
 using SportHub.Scheduling.Domain.Enums;
 using SportHub.Scheduling.Rental.Application;
+using SportHub.Scheduling.Rental.Domain;
 
 namespace SportHub.Scheduling.Tests.Integration;
 
@@ -75,26 +76,42 @@ public sealed class CourtScheduleAndIncidentTests(SchedulingApiFactory factory)
     public async Task Staff_calendar_includes_class_rental_and_block(UserRole role)
     {
         var staff = await factory.SeedUserAsync(role);
+        var member = await factory.SeedUserAsync(UserRole.Member);
+        var course = await CourseTestData.CreateAsync(factory);
+        var session = (await CourseTestData.SessionsAsync(factory, course.Id))[0];
         var room = await CourseTestData.RoomAsync(factory);
-        var today = DateOnly.FromDateTime(VietnamTime.ToLocal(DateTime.UtcNow));
+        var fromDate = CourseTestData.StartDate;
+        var rentalId = Guid.NewGuid();
+        var blockId = Guid.NewGuid();
         await factory.QueryAsync(async db =>
         {
-            db.Set<RoomBlock>().Add(new() { BlockId = Guid.NewGuid(), RoomId = room,
-                StartAtUtc = VietnamTime.StartOfDayUtc(today.AddDays(1)),
-                EndAtUtc = VietnamTime.StartOfDayUtc(today.AddDays(2)), Reason = "Calendar fixture", CreatedByUserId = staff.UserId });
+            db.Set<CourtRental>().Add(new()
+            {
+                CourtRentalId = rentalId, MemberId = member.UserId, SportId = 3, RoomId = room,
+                StartAtUtc = VietnamTime.StartOfDayUtc(fromDate).AddHours(2),
+                EndAtUtc = VietnamTime.StartOfDayUtc(fromDate).AddHours(3),
+                TotalPrice = 100_000m, Status = CourtRentalStatus.Confirmed, CreatedAtUtc = DateTime.UtcNow
+            });
+            db.Set<RoomBlock>().Add(new() { BlockId = blockId, RoomId = room,
+                StartAtUtc = VietnamTime.StartOfDayUtc(fromDate.AddDays(1)),
+                EndAtUtc = VietnamTime.StartOfDayUtc(fromDate.AddDays(2)), Reason = "Calendar fixture", CreatedByUserId = staff.UserId });
             await db.SaveChangesAsync();
             return 0;
         });
         using var client = factory.CreateApiClient(staff.UserId, role);
-        var response = await client.GetAsync($"/api/manager/court-schedule?fromDate={today.AddDays(-10):yyyy-MM-dd}&toDate={today.AddDays(20):yyyy-MM-dd}");
+        var response = await client.GetAsync($"/api/manager/court-schedule?fromDate={fromDate:yyyy-MM-dd}&toDate={fromDate.AddDays(20):yyyy-MM-dd}");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var entries = (await response.Content.ReadFromJsonAsync<List<CourtScheduleEntry>>())!;
-        foreach (var type in new[] { "ClassSession", "CourtRental", "RoomBlock" })
-            Assert.Contains(entries, x => x.SourceType == type);
+        Assert.Contains(entries, x => x.SourceType == "ClassSession" && x.SourceId == session.SessionId);
+        Assert.Contains(entries, x => x.SourceType == "CourtRental" && x.SourceId == rentalId);
+        Assert.Contains(entries, x => x.SourceType == "RoomBlock" && x.SourceId == blockId);
         // Personal Training đã ngừng cung cấp: lịch nhân viên không còn buổi PT.
         Assert.DoesNotContain(entries, x => x.SourceType == "PtSession");
         Assert.All(entries.Where(x => x.SourceType == "CourtRental"), x => Assert.Empty(x.Participants));
-        var filtered = await client.GetFromJsonAsync<List<CourtScheduleEntry>>($"/api/manager/court-schedule?fromDate={today:yyyy-MM-dd}&toDate={today.AddDays(3):yyyy-MM-dd}&roomId={room}");
+        var filtered = await client.GetFromJsonAsync<List<CourtScheduleEntry>>($"/api/manager/court-schedule?fromDate={fromDate:yyyy-MM-dd}&toDate={fromDate.AddDays(3):yyyy-MM-dd}&roomId={room}");
+        Assert.Contains(filtered!, x => x.SourceType == "CourtRental" && x.SourceId == rentalId);
+        Assert.Contains(filtered!, x => x.SourceType == "RoomBlock" && x.SourceId == blockId);
+        Assert.DoesNotContain(filtered!, x => x.SourceId == session.SessionId);
         Assert.All(filtered!, x => Assert.Equal(room, x.RoomId));
     }
 
