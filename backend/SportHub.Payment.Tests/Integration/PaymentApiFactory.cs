@@ -80,6 +80,8 @@ public sealed class PaymentApiFactory : WebApplicationFactory<Program>, IAsyncLi
         using var scope = Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
         await db.Database.MigrateAsync();
+        // Legacy scenarios belong exclusively to the isolated integration-test database.
+        await scope.ServiceProvider.GetRequiredService<SportHub.API.Persistence.DemoDataSeeder>().SeedAsync();
     }
 
     async Task IAsyncLifetime.DisposeAsync()
@@ -117,6 +119,13 @@ public sealed class PaymentApiFactory : WebApplicationFactory<Program>, IAsyncLi
             }));
         builder.ConfigureTestServices(services =>
         {
+            services.AddScoped<SportHub.API.Persistence.DemoDataSeeder>();
+            services.AddScoped<SportHub.API.Persistence.CoachRosterSeeder>();
+            services.AddScoped<SportHub.API.Persistence.Br141DemoSeeder>();
+            services.AddScoped<SportHub.API.Persistence.DemoFlow12Seeder>();
+            services.AddScoped<SportHub.API.Persistence.FacilityBaselineSeeder>();
+            services.AddSingleton<SportHub.Payment.VnPay.IPaymentGateway, SportHub.Payment.VnPay.MockPaymentGateway>();
+            services.AddControllers().AddApplicationPart(typeof(SportHub.Payment.Api.DevPaymentsController).Assembly);
             // Outbox assertions need a stable state: the 30-second dispatcher can
             // otherwise claim email rows while an API test checks Pending/read-all.
             // Dispatch behavior is tested explicitly, without the hosted timer.

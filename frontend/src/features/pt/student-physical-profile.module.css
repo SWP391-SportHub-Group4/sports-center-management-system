@@ -1,0 +1,64 @@
+.profile {
+  min-width: 0;
+}
+.profile header h3 {
+  margin: 0;
+  color: var(--text-strong);
+}
+.profile header p,
+.empty p {
+  color: var(--text-body);
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  background: #102c3b;
+  color: #fff;
+  border-radius: var(--radius-md);
+  margin: var(--space-4) 0;
+}
+.metrics > div {
+  padding: var(--space-4);
+  min-width: 0;
+}
+.metrics dt {
+  font-size: 0.8rem;
+  color: #d2e2e8;
+}
+.metrics dd {
+  margin: var(--space-2) 0 0;
+  font-weight: 700;
+  font-size: 1.6rem;
+  color: #c8f03a;
+}
+.metrics dd small {
+  font-size: 0.8rem;
+  font-weight: 400;
+}
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+.build {
+  min-width: 0;
+}
+.empty {
+  padding: var(--space-4);
+  background: var(--surface-raised);
+  border-radius: var(--radius-md);
+}
+@media (max-width: 700px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .metrics > div {
+    padding: var(--space-3) var(--space-2);
+  }
+  .metrics dd {
+    font-size: 1.25rem;
+  }
+}

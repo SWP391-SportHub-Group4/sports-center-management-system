@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using Microsoft.EntityFrameworkCore;
 using SportHub.BuildingBlocks.Abstractions.Scheduling;
 using SportHub.BuildingBlocks.SharedKernel.Time;

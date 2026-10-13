@@ -336,7 +336,7 @@ public sealed class CheckoutService(ISportHubDbContext db,
             await db.SaveChangesAsync(ct);
             await tx.CommitAsync(ct);
         }
-        return new PaymentAttemptResponse(attemptId, invoiceId, reference!, amount, points, expiry, url, "Pending", gateway is MockPaymentGateway ? "MOCK" : "VNPAY");
+        return new PaymentAttemptResponse(attemptId, invoiceId, reference!, amount, points, expiry, url, "Pending", gateway.Mode);
     }
 
     public async Task CancelAsync(Guid invoiceId, Guid actorId, bool isStaff, CancellationToken ct)

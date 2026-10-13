@@ -7,7 +7,6 @@ import {
   Plus,
   Check,
   X,
-  Target,
   ArrowRight,
   Bell,
   ClipboardPen,
@@ -34,6 +33,7 @@ import { TrainingPlanView, type PlanScope } from "./training-plan-view";
 import styles from "./coach-workspace.module.css";
 import { CoachClassChanges } from "./coach-class-change";
 import { ClassStudents } from "./class-students";
+import { StudentPhysicalProfile } from "./student-physical-profile";
 import { ClassDirectory } from "./class-directory";
 
 export type WorkspaceMode = "schedule" | "classes" | "students";
@@ -451,6 +451,7 @@ export function TeachingDetail({
     ? [
         { id: "profile", label: vi ? "Hồ sơ" : "Profile" },
         { id: "plans", label: vi ? "Kế hoạch" : "Plans" },
+        { id: "feedback", label: "Progress" },
       ]
     : session
       ? [
@@ -586,33 +587,10 @@ export function TeachingDetail({
                     />
                   )}
                   {tab === "profile" && profile && (
+                    <StudentPhysicalProfile memberId={profile.memberId} />
+                  )}
+                  {tab === "feedback" && member && (
                     <>
-                      <div className={styles.profile}>
-                        <Target aria-hidden="true" size={24} />
-                        <div>
-                          <h3>{vi ? "Mục tiêu tập luyện" : "Training goal"}</h3>
-                          <p>
-                            {profile.goal ||
-                              (vi
-                                ? "Học viên chưa cung cấp mục tiêu."
-                                : "No goal provided yet.")}
-                          </p>
-                          <small>
-                            {profile.email} ·{" "}
-                            {profile.experienceLevel ||
-                              (vi
-                                ? "Chưa có trình độ"
-                                : "Experience not provided")}
-                          </small>
-                          {profile.notes && <p>{profile.notes}</p>}
-                          <p>
-                            {vi ? "Có mặt" : "Present"}{" "}
-                            <strong>{profile.present}</strong> ·{" "}
-                            {vi ? "Vắng" : "Absent"}{" "}
-                            <strong>{profile.absent}</strong>
-                          </p>
-                        </div>
-                      </div>
                       <h3>
                         {vi
                           ? "Lịch sử kết quả & nhận xét"

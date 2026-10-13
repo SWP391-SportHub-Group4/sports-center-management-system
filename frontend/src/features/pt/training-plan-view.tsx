@@ -10,6 +10,7 @@ import {
   Plus,
 } from "lucide-react";
 import { useLanguage } from "@/lib/language";
+import { useNow } from "@/lib/useApi";
 import { StatusChip } from "@/components/ui";
 import { formatDateTime } from "@/lib/format";
 import type { CourseSessionDto } from "@/lib/types";
@@ -53,9 +54,7 @@ export function TrainingPlanView({
 }) {
   const { language } = useLanguage();
   const vi = language === "vi";
-  const [selectedScope, setScope] = useState<PlanScope>(
-    memberId ? "personal" : sessionId ? "session" : "course",
-  );
+  const [selectedScope, setScope] = useState<PlanScope>("course");
   const scope = viewMode ?? selectedScope;
   const [student, setStudent] = useState(memberId ?? "");
   const [session, setSession] = useState(sessionId ?? "");
@@ -115,7 +114,7 @@ export function TrainingPlanView({
           role="group"
           aria-label={vi ? "Phạm vi kế hoạch" : "Plan scope"}
         >
-          {(["course", "session", "personal"] as const).map((id) => {
+          {(["course", "personal"] as const).map((id) => {
             const Icon = icons[id];
             return (
               <button
@@ -126,9 +125,15 @@ export function TrainingPlanView({
                 onClick={() => setScope(id)}
               >
                 <Icon size={18} aria-hidden="true" />
-                <span>{labels[id]}</span>
+                <span>
+                  {id === "course" ? "Course & sessions" : labels[id]}
+                </span>
                 <strong>
-                  {plans.filter((r) => planScopeOf(r) === id).length}
+                  {
+                    plans.filter((r) =>
+                      id === "course" ? !r.memberId : planScopeOf(r) === id,
+                    ).length
+                  }
                 </strong>
               </button>
             );
@@ -234,7 +239,7 @@ export function TrainingPlanView({
           onEdit={!memberId || scope === "personal" ? onEdit : undefined}
           editableCoachId={editableCoachId}
         />
-      ) : (
+      ) : scope !== "course" || sessions.length === 0 ? (
         <div className={styles.empty}>
           <BookOpen size={28} aria-hidden="true" />
           <h3>
@@ -254,7 +259,7 @@ export function TrainingPlanView({
                 : "Plans appear here when your coach saves them."}
           </p>
         </div>
-      )}
+      ) : null}
       {scope === "course" && (
         <CourseRoadmap
           sessions={sessions}
@@ -481,6 +486,11 @@ function CourseRoadmap({
     .filter((s) => !/cancel/i.test(s.status))
     .slice()
     .sort(sessionOrder);
+  const now = useNow();
+  const next = ordered
+    .filter((s) => !/complet/i.test(s.status) && Date.parse(s.startAtUtc) > now)
+    .sort((a, b) => a.startAtUtc.localeCompare(b.startAtUtc))[0];
+  const completed = ordered.filter((s) => /complet/i.test(s.status)).length;
   const courseTopics = new Map<number, string[]>();
   for (const plan of records.filter((r) => !r.sessionId && !r.memberId)) {
     for (const line of formatPlanContent(plan.content).split("\n")) {
@@ -513,7 +523,7 @@ function CourseRoadmap({
         <p>
           {vi
             ? `${ordered.length} buổi học · ${planned} buổi đã có nội dung`
-            : `${ordered.length} sessions · ${planned} with published plans`}
+            : `${ordered.length} sessions · ${completed} completed · ${planned} with published plans`}
         </p>
       </header>
       {!ordered.length && (
@@ -525,11 +535,27 @@ function CourseRoadmap({
       )}
       <ol className={styles.roadmapList}>
         {ordered.map((s) => {
+          const phase = /complet/i.test(s.status)
+            ? "completed"
+            : Date.parse(s.endAtUtc) < now
+              ? "past"
+              : Date.parse(s.startAtUtc) <= now
+                ? "live"
+                : s.sessionId === next?.sessionId
+                  ? "next"
+                  : "upcoming";
+          const phaseLabel = {
+            completed: "Completed",
+            past: "Past",
+            live: "In progress",
+            next: "Next session",
+            upcoming: "Upcoming",
+          }[phase];
           const lessonPlans = records
             .filter((r) => r.sessionId === s.sessionId && !r.memberId)
             .sort(planOrder);
           return (
-            <li key={s.sessionId}>
+            <li key={s.sessionId} data-phase={phase}>
               <span className={styles.roadmapNumber} aria-hidden="true">
                 {String(s.sessionNo).padStart(2, "0")}
               </span>
@@ -540,23 +566,21 @@ function CourseRoadmap({
                     {s.isMakeup ? (vi ? " · Học bù" : " · Makeup") : ""}
                   </strong>
                   <small>{formatDateTime(s.startAtUtc)}</small>
+                  <span className={styles.phaseBadge} data-phase={phase}>
+                    {phaseLabel}
+                  </span>
                 </header>
-                {courseTopics.get(s.sessionNo)?.map((topic, index) => (
-                  <p key={index} className={styles.scopeDescription}>
-                    {topic}
-                  </p>
-                ))}
+                {!lessonPlans.length &&
+                  courseTopics.get(s.sessionNo)?.map((topic, index) => (
+                    <p key={index} className={styles.scopeDescription}>
+                      {topic}
+                    </p>
+                  ))}
                 {lessonPlans.length ? (
                   lessonPlans.map((plan) => (
                     <div key={plan.recordId} className={styles.roadmapLesson}>
                       <h4>{plan.title}</h4>
-                      <p className={styles.roadmapTopics}>
-                        {plan.content
-                          .split(/\r?\n/)
-                          .filter((line) => line.trim())
-                          .join(" · ")}
-                      </p>
-                      <details className={styles.roadmapDetails}>
+                      <details className={styles.roadmapDetails} open={phase === "next" || phase === "live"}>
                         <summary>
                           {vi
                             ? "Xem nội dung buổi học"

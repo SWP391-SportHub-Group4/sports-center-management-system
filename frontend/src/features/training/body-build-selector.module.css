@@ -1,0 +1,71 @@
+.selector {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.selector legend {
+  font-weight: 700;
+  color: var(--text-strong);
+}
+.selector legend small {
+  display: block;
+  font-weight: 400;
+  color: var(--text-body);
+  margin-top: var(--space-1);
+}
+.selector p {
+  color: var(--text-body);
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+.options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+.option {
+  min-width: 0;
+  text-align: center;
+  background: var(--surface-raised, #f4f6f7);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-2);
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  gap: var(--space-1);
+  position: relative;
+}
+.option:has(input) {
+  cursor: pointer;
+}
+.option[data-selected="true"] {
+  border-color: var(--text-link);
+  background: var(--info-bg);
+}
+.option:focus-within {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 3px;
+}
+.option input {
+  align-self: flex-start;
+  accent-color: var(--text-link);
+}
+.figure {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1 / 2;
+  background-image: url("/images/health/body-builds.png");
+  background-size: 300% 100%;
+  background-repeat: no-repeat;
+  border-radius: var(--radius-sm);
+}
+.option strong {
+  font-size: 0.85rem;
+  color: var(--text-strong);
+}
+.option small {
+  color: var(--text-body);
+  font-size: 0.7rem;
+}

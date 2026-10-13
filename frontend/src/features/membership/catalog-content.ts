@@ -11,7 +11,7 @@ export function isRetiredActivityPackage(
   );
 }
 
-// Exact Vietnamese labels/descriptions verified in the demo seed and catalog.
+// Exact Vietnamese labels/descriptions mapped to the membership catalog.
 // Historical labels stay here so sold/discontinued packages keep their language metadata.
 // This is a provenance fallback, not language detection by name/script.
 const verifiedVietnameseContent = new Set([

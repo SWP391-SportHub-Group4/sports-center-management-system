@@ -264,7 +264,7 @@ function ClassAssessments({
               {source.completedSessions} / {source.totalSessions} sessions
               completed
             </strong>
-            <span>
+            <span className={styles.progressPercent}>
               {source.totalSessions > 0
                 ? Math.round(
                     (source.completedSessions / source.totalSessions) * 100,

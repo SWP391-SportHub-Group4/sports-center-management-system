@@ -298,3 +298,11 @@
     transform: none;
   }
 }
+
+.placeholderPhoto {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  color: var(--color-primary-soft-text);
+  background: var(--color-primary-soft);
+}

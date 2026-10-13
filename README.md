@@ -161,12 +161,12 @@ Backend đọc cấu hình qua biến môi trường (`__` = cấp lồng nhau, 
 | `POSTGRES_*`, `ConnectionStrings__Default` | Có | Không chạy được |
 | `JwtOptions__SecretKey` (≥ 32 ký tự) | Có | API không khởi động |
 | `Google__ClientId` | Không | `/api/auth/google` trả `503 google_login_not_configured` |
-| `VnPay__TmnCode`, `VnPay__HashSecret`, `VnPay__PaymentUrl`, `VnPay__ReturnUrl`, `VnPay__QueryUrl` | Có khi dùng gateway thật | Mock chỉ khi Development và `VnPay__UseMock=true`; thiếu credential không tự fallback. Ngoài Development, startup yêu cầu credential và URL HTTPS. |
+| `VnPay__TmnCode`, `VnPay__HashSecret`, `VnPay__PaymentUrl`, `VnPay__ReturnUrl`, `VnPay__QueryUrl` | Có khi dùng gateway thật | Ứng dụng luôn dùng VNPay thật (sandbox hoặc production); thiếu credential không tự fallback. Ngoài Development, startup yêu cầu credential và URL HTTPS. |
 | `Email__Smtp__Host/Username/Password` (Gmail App Password) | Không | Dùng `LoggingEmailSender`: nội dung email (kể cả **OTP**) ghi vào log backend |
 | `Gemini__ApiKey` (+ `Gemini__Model`, `Gemini__BaseUrl`, `Gemini__TimeoutSeconds`) | Không | Endpoint Gemini trả `503 gemini_not_configured`; gợi ý workout rule-based vẫn độc lập |
 | `Reports__StorageRoot` | Không | `<thư mục chạy>/App_Data/reports` |
 
-> `docker-compose.yml` hiện map `ConnectionStrings__Default`, JWT, Google, `VnPay__*`, SMTP/DataProtection và `Gemini__*` vào backend. Development có thể dùng `VnPay__UseMock=true` và `Email__DemoLoggingEnabled=true`; không dùng các chế độ demo đó để chứng nhận sandbox VNPay hoặc SMTP thật.
+> `docker-compose.yml` hiện map `ConnectionStrings__Default`, JWT, Google, `VnPay__*`, SMTP/DataProtection và `Gemini__*` vào backend. Ứng dụng dùng VNPay thật và SMTP thật ở cả local lẫn deploy. Dữ liệu mô phỏng chỉ thuộc project test, không được đăng ký trong ứng dụng.
 
 ## Ghi chú kỹ thuật
 
@@ -178,9 +178,7 @@ Backend đọc cấu hình qua biến môi trường (`__` = cấp lồng nhau, 
 
 ## Chạy local
 
-Ở môi trường `Development`, backend tự áp migration và seed dữ liệu demo khi khởi động —
-nhưng **chỉ khi database chưa có tài khoản nào**, nên không bao giờ ghi đè dữ liệu đang có.
-Cách khởi động: [`docs/RUNBOOK.md`](docs/RUNBOOK.md). Tài khoản demo do `DemoDataSeeder.cs` tạo.
+Ở môi trường `Development`, backend tự áp migration khi khởi động nhưng không tự seed dữ liệu. Để chuẩn bị dữ liệu kiểm tra tối thiểu, dùng `--seed-validation=true` sau khi áp migration. Xem [Local Validation Data](docs/Local-Validation-Data.md).
 
 ### Cách 1: Docker Compose (cả 3 service)
 

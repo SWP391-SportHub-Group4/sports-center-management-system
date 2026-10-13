@@ -1,12 +1,14 @@
 using System.Globalization;
 using System.Security.Cryptography;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
+using SportHub.Payment.Domain.Entities;
 
 namespace SportHub.Payment.VnPay;
 
-/// <summary>Development-only signer; simulated callbacks still pass the verified-event pipeline.</summary>
+/// <summary>Test fixture signer; callbacks still pass the verified-event pipeline.</summary>
 public sealed class MockPaymentGateway : IPaymentGateway
 {
+    public string Mode => "MOCK";
     public Task<VerifiedPaymentResult?> QueryAsync(PaymentAttempt attempt, CancellationToken ct)
         => Task.FromResult<VerifiedPaymentResult?>(null);
     private readonly string _secret = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));

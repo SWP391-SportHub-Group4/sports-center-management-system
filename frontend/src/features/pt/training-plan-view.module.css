@@ -38,7 +38,7 @@
 }
 .scopeTabs {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-2);
 }
 .scopeTabs button {
@@ -284,6 +284,70 @@
   gap: var(--space-3);
   position: relative;
   padding-bottom: var(--space-5);
+}
+.roadmapList > li[data-phase="next"],
+.roadmapList > li[data-phase="live"] {
+  padding: var(--space-4);
+  margin-bottom: var(--space-4);
+  border-radius: var(--radius-md);
+  background: #102c3b;
+  color: #fff;
+}
+.roadmapList
+  > li:is([data-phase="next"], [data-phase="live"])
+  :is(
+    h4,
+    .roadmapContent > header strong,
+    .roadmapContent > header small,
+    .scopeDescription,
+    .steps,
+    .roadmapDetails summary
+  ) {
+  color: #e7f0f3;
+}
+.roadmapList > li:is([data-phase="next"], [data-phase="live"]) .roadmapNumber {
+  background: #c8f03a;
+  color: #102c3b;
+  border-color: #c8f03a;
+}
+.phaseBadge {
+  display: inline-flex;
+  width: fit-content;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-body);
+  background: var(--surface-raised);
+}
+.phaseBadge:is([data-phase="next"], [data-phase="live"]) {
+  color: #102c3b;
+  background: #c8f03a;
+}
+.phaseBadge[data-phase="completed"] {
+  color: #166345;
+  background: #e1f5eb;
+}
+.roadmapList
+  > li:is([data-phase="next"], [data-phase="live"])
+  .steps
+  :is(strong, p) {
+  color: #e7f0f3;
+}
+.roadmapList
+  > li:is([data-phase="next"], [data-phase="live"])
+  :global(.btn--quiet) {
+  color: #c8f03a;
+}
+.roadmapList
+  > li:is([data-phase="next"], [data-phase="live"])
+  :global(.btn--quiet:hover) {
+  background: #244454;
+}
+.roadmapList > li[data-phase="completed"] .roadmapNumber {
+  color: #166345;
+  background: #e1f5eb;
+  border-color: #9bc9b2;
 }
 .roadmapList > li:not(:last-child)::before {
   content: "";

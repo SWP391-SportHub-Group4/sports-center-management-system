@@ -171,9 +171,9 @@
   cursor: pointer;
 }
 .bookmarks button[aria-pressed="true"] {
-  background: var(--color-primary-soft);
-  color: var(--color-primary-soft-text);
-  border-color: var(--color-primary);
+  background: var(--bg-brand-deep);
+  color: var(--text-on-inverse);
+  border-color: var(--bg-brand-deep);
 }
 .bookmarks button:focus-visible,
 .student:focus-visible {
