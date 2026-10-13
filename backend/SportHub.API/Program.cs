@@ -296,6 +296,7 @@ builder.Services.AddScoped<IPackageActivationService, PackageActivationService>(
 builder.Services.AddScoped<IPaymentAdjustmentService, PaymentAdjustmentService>();
 builder.Services.AddScoped<IPointRefundService, PointRefundService>();
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Payment.IRefundCreditService, RefundCreditService>();
+builder.Services.AddScoped<IInvoiceReceiptService, InvoiceReceiptService>();
 builder.Services.AddScoped<IRevenueReportService, RevenueReportService>();
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Reporting.IRevenueDimensionReader, RevenueDimensionReader>();
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Wallet.IPointWalletService, SportHub.Payment.Wallet.Application.PointWalletService>();
