@@ -4,9 +4,9 @@ import { RefreshCw } from "lucide-react";
 import { AsyncSection } from "@/components/ui";
 import { useApi } from "@/lib/useApi";
 import { formatDate, formatDateTime } from "@/lib/format";
-import { BodyBuildSelector } from "@/features/training/body-build-selector";
-import { MeasurementHistory } from "@/features/training/health-profile-summary";
 import {
+  BodyBuildSelector,
+  MeasurementHistory,
   ACTIVITY_LEVELS,
   BMI_CATEGORIES,
   DIETARY_PREFERENCES,
@@ -14,7 +14,7 @@ import {
   GOAL_TYPES,
   SEXES,
   optionLabel,
-} from "@/features/training/health-profile-options";
+} from "@/features/training";
 import { teachingApi } from "./teaching-api";
 import styles from "./student-physical-profile.module.css";
 
