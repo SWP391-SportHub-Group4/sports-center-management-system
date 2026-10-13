@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using SportHub.BuildingBlocks.Abstractions.Identity;
 using SportHub.BuildingBlocks.Abstractions.Notifications;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.SharedKernel.Time;
@@ -24,14 +25,16 @@ public sealed class PasswordResetService(
     EmailOtpFlow otpFlow,
     INotificationWriter notifications,
     IClock clock,
-    IConfiguration configuration) : IPasswordResetService
+    IConfiguration configuration,
+    IStaffInvitationExpiryReader invitationExpiry) : IPasswordResetService
 {
     public async Task RequestAsync(ForgotPasswordRequest request, CancellationToken ct = default)
     {
         var email = request.Email.Trim();
 
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
         var user = await db.Set<UserAccount>()
-            .AsNoTracking()
+            .FromSqlInterpolated($"SELECT * FROM user_accounts WHERE email = {email} FOR UPDATE")
             .SingleOrDefaultAsync(u => u.Email == email, ct);
 
         if (user is null || user.Status != UserStatus.Active)
@@ -40,6 +43,10 @@ public sealed class PasswordResetService(
         }
 
         var baseUrl = FrontendBaseUrl();
+        await db.Entry(user).Reference(u => u.Credential).LoadAsync(ct);
+        if (string.IsNullOrEmpty(user.Credential?.PasswordHash)
+            && await invitationExpiry.IsExpiredAsync(user.UserId, user.CreatedAt, clock.UtcNow, ct))
+            return;
         var token = await otpFlow.IssueAsync(email, EmailOtpPurpose.ResetPassword, ct,
             resetLink: t => $"{baseUrl}/reset-password?email={Uri.EscapeDataString(email)}&token={Uri.EscapeDataString(t)}",
             supportUrl: configuration["Frontend:SupportUrl"]);
@@ -50,6 +57,7 @@ public sealed class PasswordResetService(
         }
 
         // EmailOtpFlow writes the token hash and its encrypted email outbox row in one SaveChanges.
+        await tx.CommitAsync(ct);
     }
 
     public async Task ResetAsync(ResetPasswordRequest request, CancellationToken ct = default)
@@ -63,7 +71,11 @@ public sealed class PasswordResetService(
 
         await using var tx = await db.Database.BeginTransactionAsync(ct);
 
-        await otpFlow.ConsumeAsync(otpId, ct);
+        var lockedUser = await db.Set<UserAccount>()
+            .FromSqlInterpolated($"SELECT * FROM user_accounts WHERE email = {email} FOR UPDATE")
+            .SingleOrDefaultAsync(ct);
+        if (lockedUser is null)
+            throw new BadRequestException("otp_invalid", "Otp invalid.");
 
         var user = await db.Set<UserAccount>()
             .Include(u => u.Credential)
@@ -78,6 +90,12 @@ public sealed class PasswordResetService(
 
         var noPassword = string.IsNullOrEmpty(user.Credential?.PasswordHash);
         var activatingStaff = noPassword && user.Role?.RoleName != UserRole.Member;
+        if (activatingStaff && await invitationExpiry.IsExpiredAsync(user.UserId, user.CreatedAt, clock.UtcNow, ct))
+            throw new BadRequestException("staff_invitation_expired", "The staff activation invitation has expired.");
+
+        // Recheck under the lock: resend/deletion may have changed the OTP while we waited.
+        otpId = await otpFlow.VerifyAsync(email, EmailOtpPurpose.ResetPassword, request.Token, ct);
+        await otpFlow.ConsumeAsync(otpId, ct);
         // Member đăng ký tại quầy: chưa có mật khẩu và chưa liên kết Google (Member Google-only đặt mật khẩu theo luồng khác).
         var activatingMember = noPassword && user.Role?.RoleName == UserRole.Member && user.ExternalLogins.Count == 0;
         var hash = passwordHasher.Hash(request.NewPassword);

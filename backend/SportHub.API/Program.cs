@@ -225,6 +225,9 @@ builder.Services.AddScoped<IEmailSender>(sp =>
 
 // Administration (BR-2, BR-6, BR-7, BR-39, BR-44..BR-48)
 builder.Services.AddScoped<IUserAdminService, UserAdminService>();
+builder.Services.AddScoped<StaffInvitationExpiryService>();
+builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Identity.IStaffInvitationExpiryReader>(
+    sp => sp.GetRequiredService<StaffInvitationExpiryService>());
 builder.Services.AddScoped<SportHub.Administration.Application.Services.ActivationLinkService>();
 builder.Services.AddScoped<SportHub.Administration.Application.Services.FrontDeskMemberService>();
 builder.Services.AddScoped<ISystemSettingService, SystemSettingService>();
@@ -381,6 +384,7 @@ builder.Services.AddHttpClient(
 
 // Tác vụ nền: BR-11/BR-33 (hạn gói), BR-20/BR-53 (No-show), BR-34 (phát thông báo).
 builder.Services.AddHostedService<MemberPackageExpiryJob>();
+builder.Services.AddHostedService<StaffInvitationExpiryJob>();
 builder.Services.AddHostedService<ClassStatusJob>();
 builder.Services.AddHostedService<ClassThresholdEvaluationJob>();
 builder.Services.AddHostedService<ClassThresholdResponseExpiryJob>();

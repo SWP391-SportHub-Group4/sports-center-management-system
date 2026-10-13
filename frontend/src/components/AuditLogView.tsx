@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Card } from "@/components/ui";
 import {
   ApiTable,
@@ -9,7 +9,8 @@ import {
 } from "@/components/data";
 import type { SortDirection } from "@/components/contracts/table";
 import { api } from "@/lib/apiClient";
-import { useApi } from "@/lib/useApi";
+import { useApi, type AsyncState } from "@/lib/useApi";
+import { AuditActionPicker } from "./AuditActionPicker";
 import { choiceQuery, pageQuery, useUrlQuery } from "@/lib/useUrlQuery";
 import { useLanguage } from "@/lib/language";
 import { formatDateTime } from "@/lib/format";
@@ -45,11 +46,13 @@ type AuditFilters = { action: string; targetEntity: string; actorId: string };
 function AuditFilterForm({
   values,
   accountsOnly,
+  actions,
   onApply,
   onReset,
 }: {
   values: AuditFilters;
   accountsOnly: boolean;
+  actions: AsyncState<string[]>;
   onApply: (values: AuditFilters) => void;
   onReset: () => void;
 }) {
@@ -57,8 +60,21 @@ function AuditFilterForm({
   const l = t.staffWork;
   const [draft, setDraft] = useState<Record<string, string>>(values);
   const [invalidActor, setInvalidActor] = useState(false);
+  const [invalidAction, setInvalidAction] = useState(false);
+  const actionErrorId = useId();
   const fields: FilterField[] = [
-    { id: "action", label: l.action, kind: "search" },
+    {
+      id: "action",
+      label: l.action,
+      kind: "search",
+      render: (props) => (
+        <AuditActionPicker
+          {...props}
+          actions={actions}
+          errorId={invalidAction ? actionErrorId : undefined}
+        />
+      ),
+    },
     ...(!accountsOnly
       ? [{ id: "targetEntity", label: l.entity, kind: "search" as const }]
       : []),
@@ -68,6 +84,19 @@ function AuditFilterForm({
     <form
       onSubmit={(event) => {
         event.preventDefault();
+        const actionText = (draft.action ?? "").trim();
+        const available = Array.isArray(actions.data) ? actions.data : [];
+        const action = actionText
+          ? (available.find((value) => value === actionText) ??
+            available.find(
+              (value) => value.toLowerCase() === actionText.toLowerCase(),
+            ))
+          : "";
+        if (action === undefined) {
+          setInvalidAction(true);
+          return;
+        }
+        setInvalidAction(false);
         const actorId = (draft.actorId ?? "").trim();
         if (
           actorId &&
@@ -80,7 +109,7 @@ function AuditFilterForm({
         }
         setInvalidActor(false);
         onApply({
-          action: (draft.action ?? "").trim(),
+          action,
           targetEntity: accountsOnly ? "" : (draft.targetEntity ?? "").trim(),
           actorId,
         });
@@ -92,6 +121,7 @@ function AuditFilterForm({
         onChange={(next) => {
           setDraft(next);
           setInvalidActor(false);
+          setInvalidAction(false);
         }}
         activeCount={
           [
@@ -103,6 +133,7 @@ function AuditFilterForm({
         onReset={() => {
           setDraft({ action: "", targetEntity: "", actorId: "" });
           setInvalidActor(false);
+          setInvalidAction(false);
           onReset();
         }}
         actions={
@@ -111,6 +142,11 @@ function AuditFilterForm({
           </button>
         }
       />
+      {invalidAction && (
+        <p id={actionErrorId} className="field-error" role="alert">
+          {t.filterBar.selectAction}
+        </p>
+      )}
       {invalidActor && (
         <p className="field-error" role="alert">
           {t.filterBar.invalidActor}
@@ -138,6 +174,10 @@ export function AuditLogView({
     targetEntity: accountsOnly ? "" : query.values.targetEntity,
     actorId: query.values.actorId,
   };
+  const actions = useApi(
+    (signal) => api.get<string[]>("/api/audit-logs/actions", { signal }),
+    [accountsOnly],
+  );
   const state = useApi(
     (signal) =>
       api.get<Paged<AuditLogDto>>("/api/audit-logs", {
@@ -235,6 +275,7 @@ export function AuditLogView({
           key={JSON.stringify(filters)}
           values={filters}
           accountsOnly={accountsOnly}
+          actions={actions}
           onApply={(next) => {
             query.setValues({ ...next, page: "1" });
             state.reload();

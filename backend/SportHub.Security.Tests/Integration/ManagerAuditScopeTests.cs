@@ -1,10 +1,12 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using SportHub.API.Persistence;
 using SportHub.Administration.Application.Services;
 using SportHub.Audit.Domain.Entities;
+using SportHub.BuildingBlocks.Abstractions.Audit;
 using SportHub.BuildingBlocks.SharedKernel.Pagination;
 using SportHub.Identity.Domain.Enums;
 
@@ -13,6 +15,84 @@ namespace SportHub.Security.Tests.Integration;
 [Collection(nameof(SportHubApiCollection))]
 public class ManagerAuditScopeTests(SportHubApiFactory factory)
 {
+    [Fact]
+    public async Task Admin_action_choices_include_unrecorded_account_actions()
+    {
+        var isolated = new SportHubApiFactory();
+        await ((IAsyncLifetime)isolated).InitializeAsync();
+        try
+        {
+            var user = await isolated.SeedUserAsync($"audit-catalogue-{Guid.NewGuid():N}@example.com", null,
+                role: UserRole.SystemAdministrator);
+            string[] unrecorded;
+            using (var scope = isolated.Services.CreateScope())
+            {
+                var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
+                var recorded = await db.AuditLogs.Select(a => a.Action).Distinct().ToListAsync();
+                unrecorded = AccountAuditActions.All.Except(recorded).ToArray();
+            }
+            Assert.NotEmpty(unrecorded);
+            using var client = isolated.CreateApiClient();
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer",
+                isolated.IssueToken(user.UserId, UserRole.SystemAdministrator));
+            var actions = (await client.GetFromJsonAsync<List<string>>("api/audit-logs/actions"))!;
+            foreach (var action in AccountAuditActions.All) Assert.Contains(action, actions);
+            Assert.Equal(actions.Distinct(StringComparer.Ordinal).OrderBy(a => a, StringComparer.Ordinal), actions);
+            foreach (var action in unrecorded)
+            {
+                var result = (await client.GetFromJsonAsync<PagedResult<AuditLogResponse>>(
+                    $"api/audit-logs?action={action}"))!;
+                Assert.Empty(result.Items);
+                Assert.Equal(0, result.TotalCount);
+            }
+        }
+        finally
+        {
+            await ((IAsyncLifetime)isolated).DisposeAsync();
+        }
+    }
+
+    [Fact]
+    public async Task Action_choices_are_distinct_and_enforce_the_callers_audit_scope()
+    {
+        var managerUser = await factory.SeedUserAsync($"audit-actions-{Guid.NewGuid():N}@example.com", null,
+            role: UserRole.CenterManager);
+        var accountAction = $"ACCOUNT_ACTION_{Guid.NewGuid():N}";
+        var classAction = $"CLASS_ACTION_{Guid.NewGuid():N}";
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
+            foreach (var (action, entity) in new[]
+                { (accountAction, "UserAccount"), (accountAction, "UserAccount"), (classAction, "Class"), ("", "UserAccount"), ("   ", "Class") })
+                db.AuditLogs.Add(new AuditLog
+                {
+                    AuditId = Guid.NewGuid(), UserId = managerUser.UserId, Action = action,
+                    TargetEntity = entity, TargetId = Guid.NewGuid().ToString(), Timestamp = DateTime.UtcNow
+                });
+            await db.SaveChangesAsync();
+        }
+        using var manager = factory.CreateApiClient();
+        manager.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer",
+            factory.IssueToken(managerUser.UserId, UserRole.CenterManager));
+        var managerActions = (await manager.GetFromJsonAsync<List<string>>("api/audit-logs/actions"))!;
+        Assert.Contains(accountAction, managerActions);
+        Assert.Contains(classAction, managerActions);
+        Assert.Equal(1, managerActions.Count(a => a == accountAction));
+        Assert.DoesNotContain(managerActions, string.IsNullOrWhiteSpace);
+
+        var adminUser = await factory.SeedUserAsync($"audit-actions-admin-{Guid.NewGuid():N}@example.com", null,
+            role: UserRole.SystemAdministrator);
+        using var admin = factory.CreateApiClient();
+        admin.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer",
+            factory.IssueToken(adminUser.UserId, UserRole.SystemAdministrator));
+        var adminActions = (await admin.GetFromJsonAsync<List<string>>(
+            "api/audit-logs/actions?accountsOnly=false&targetEntity=Class"))!;
+        Assert.Contains(accountAction, adminActions);
+        Assert.DoesNotContain(classAction, adminActions);
+        Assert.Equal(1, adminActions.Count(a => a == accountAction));
+        Assert.DoesNotContain(adminActions, string.IsNullOrWhiteSpace);
+    }
+
     [Fact]
     public async Task Target_filter_scopes_history_before_pagination_and_preserves_Admin_account_scope()
     {
@@ -52,5 +132,6 @@ public class ManagerAuditScopeTests(SportHubApiFactory factory)
         using var client = factory.CreateApiClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", factory.IssueToken(user.UserId, role));
         Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync("api/audit-logs?targetEntity=Class&targetId=123")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync("api/audit-logs/actions")).StatusCode);
     }
 }

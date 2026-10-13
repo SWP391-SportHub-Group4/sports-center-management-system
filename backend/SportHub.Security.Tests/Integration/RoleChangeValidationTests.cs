@@ -100,6 +100,68 @@ public class RoleChangeValidationTests(SportHubApiFactory factory)
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
+    [Theory]
+    [InlineData(true, "Receptionist")]
+    [InlineData(true, "CenterManager")]
+    [InlineData(true, "Coach")]
+    [InlineData(true, "Member")]
+    [InlineData(false, "Receptionist")]
+    [InlineData(false, "CenterManager")]
+    [InlineData(false, "Coach")]
+    [InlineData(false, "Member")]
+    public async Task Administrator_cannot_change_own_or_another_administrators_role(bool self, string targetRole)
+    {
+        var actor = await factory.SeedUserAsync(NewEmail(), Password, role: UserRole.SystemAdministrator);
+        // Another active Admin exists even when testing self-demotion: this is not the old last-Admin guard.
+        var other = await factory.SeedUserAsync(NewEmail(), Password, role: UserRole.SystemAdministrator);
+        var target = self ? actor : other;
+        using var client = factory.CreateApiClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer",
+            factory.IssueToken(actor.UserId, UserRole.SystemAdministrator));
+
+        var response = await client.PutAsJsonAsync($"api/users/{target.UserId}/role", new
+        {
+            role = targetRole, reason = "Attempt to change Administrator role",
+            sportIds = targetRole == "Coach" ? new[] { GymSportId } : Array.Empty<int>()
+        });
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Equal("administrator_role_change_not_allowed", (await Json(response)).GetProperty("error").GetString());
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
+        var persisted = await db.UserAccounts.Include(u => u.Role).SingleAsync(u => u.UserId == target.UserId);
+        Assert.Equal(UserRole.SystemAdministrator, persisted.Role!.RoleName);
+        Assert.Equal(target.SecurityStamp, persisted.SecurityStamp);
+        Assert.False(await db.AuditLogs.AnyAsync(a => a.Action == "CHANGE_USER_ROLE" && a.TargetId == target.UserId.ToString()));
+    }
+
+    [Theory]
+    [InlineData(UserStatus.Banned)]
+    [InlineData(UserStatus.Deactivated)]
+    public async Task Inactive_administrators_roles_are_also_protected(UserStatus status)
+    {
+        using var admin = await AdminAsync();
+        var target = await factory.SeedUserAsync(NewEmail(), Password, status: status, role: UserRole.SystemAdministrator);
+        var response = await admin.PutAsJsonAsync($"api/users/{target.UserId}/role",
+            new { role = "Receptionist", reason = "Change inactive Administrator" });
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Equal("administrator_role_change_not_allowed", (await Json(response)).GetProperty("error").GetString());
+    }
+
+    [Fact]
+    public async Task Staff_can_be_promoted_to_administrator_and_is_then_protected()
+    {
+        using var admin = await AdminAsync();
+        var staff = await factory.SeedUserAsync(NewEmail(), Password, role: UserRole.Receptionist);
+        var promoted = await admin.PutAsJsonAsync($"api/users/{staff.UserId}/role",
+            new { role = "SystemAdministrator", reason = "Promote staff to Administrator" });
+        Assert.Equal(HttpStatusCode.OK, promoted.StatusCode);
+        var demoted = await admin.PutAsJsonAsync($"api/users/{staff.UserId}/role",
+            new { role = "Receptionist", reason = "Try to undo Administrator promotion" });
+        Assert.Equal(HttpStatusCode.Conflict, demoted.StatusCode);
+        Assert.Equal("administrator_role_change_not_allowed", (await Json(demoted)).GetProperty("error").GetString());
+    }
+
     [Fact]
     public async Task Coach_leaving_for_another_staff_role_loses_specialties_and_keeps_profile()
     {

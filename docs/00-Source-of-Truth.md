@@ -52,6 +52,8 @@ Ngoài phạm vi: đa chi nhánh, payroll/hợp đồng, chia doanh thu với ng
 
 ## 4. Bất biến nghiệp vụ
 
+- Quy tắc xác nhận 13/10/2026 (BR-96): một Coach có thể dạy nhiều môn, có ít nhất một chuyên môn và được chọn nhiều môn ngay khi Admin tạo tài khoản hoặc đổi role sang Coach. Manager chỉnh sửa chuyên môn; phân công lớp phải khớp chuyên môn. Giới hạn đúng một môn trong luồng tạo Coach hiện tại là khoảng trống triển khai, không phải quy tắc nghiệp vụ.
+- Quy tắc xác nhận 13/10/2026: không đổi role của bất kỳ tài khoản đang là SystemAdministrator nào, kể cả chính mình và Admin khác. Việc tạo Admin hoặc nâng một tài khoản staff khác lên Admin vẫn được phép. Quy tắc khóa/mở khóa không thay đổi.
 - Membership Gym và gói lớp độc lập.
 - Vé Gym 1 ngày (day pass): giá cố định 50.000đ (seed cố định, Manager không sửa hay ngừng được), chỉ dùng trong ngày thanh toán thành công theo giờ Việt Nam, kèm mã check-in do server ký và cấp, chỉ có hiệu lực trong ngày; Member được báo rõ điều này trước khi trả tiền. Không bán khi Gym đang đóng cửa vì sự cố, không gia hạn khi đóng Gym, không hoàn trả.
 - Giá/thời hạn/quyền lợi đã mua dùng snapshot, không tính lại khi sửa catalog.
