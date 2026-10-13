@@ -18,10 +18,7 @@ async function receptionistFixture(page: Page) {
   });
 
   await page.addInitScript(() => {
-    localStorage.setItem(
-      "sporthub.accessToken",
-      "receptionist-fixture-token",
-    );
+    localStorage.setItem("sporthub.accessToken", "receptionist-fixture-token");
 
     localStorage.setItem("sporthub_lang", "en");
   });
@@ -45,9 +42,7 @@ async function receptionistFixture(page: Page) {
 
     if (path.includes("notifications")) {
       return route.fulfill({
-        json: path.endsWith("unread-count")
-          ? { count: 0 }
-          : [],
+        json: path.endsWith("unread-count") ? { count: 0 } : [],
       });
     }
 
@@ -112,8 +107,7 @@ async function receptionistFixture(page: Page) {
       return route.fulfill({
         json: [
           {
-            memberPackageId:
-              "55555555-5555-4555-8555-555555555555",
+            memberPackageId: "55555555-5555-4555-8555-555555555555",
             packageId: 1,
             packageName: "Gym monthly",
             startDate: "2030-10-01",
@@ -137,14 +131,10 @@ async function receptionistFixture(page: Page) {
       });
     }
 
-    if (
-      path === "/api/gym-checkins" &&
-      request.method() === "POST"
-    ) {
+    if (path === "/api/gym-checkins" && request.method() === "POST") {
       return route.fulfill({
         json: {
-          checkInId:
-            "66666666-6666-4666-8666-666666666666",
+          checkInId: "66666666-6666-4666-8666-666666666666",
           memberId,
           checkInTime: "2030-10-03T03:00:00Z",
           checkOutTime: null,
@@ -167,8 +157,7 @@ async function receptionistFixture(page: Page) {
             classId: 7,
             title: "Badminton group",
             roomId: 3,
-            coachId:
-              "77777777-7777-4777-8777-777777777777",
+            coachId: "77777777-7777-4777-8777-777777777777",
             coachName: "Coach A",
             startAtUtc: "2030-10-03T02:30:00Z",
             endAtUtc: "2030-10-03T04:00:00Z",
@@ -187,8 +176,7 @@ async function receptionistFixture(page: Page) {
             sessionNo: 1,
             roomId: 3,
             roomName: "Court 3",
-            coachId:
-              "77777777-7777-4777-8777-777777777777",
+            coachId: "77777777-7777-4777-8777-777777777777",
             coachName: "Coach A",
             startAtUtc: "2030-10-03T02:30:00Z",
             endAtUtc: "2030-10-03T04:00:00Z",
@@ -196,10 +184,8 @@ async function receptionistFixture(page: Page) {
             isMakeup: false,
             rescheduledFromSessionId: null,
           },
-          attendanceOpensAtUtc:
-            "2030-10-03T02:30:00Z",
-          attendanceClosesAtUtc:
-            "2030-10-04T04:00:00Z",
+          attendanceOpensAtUtc: "2030-10-03T02:30:00Z",
+          attendanceClosesAtUtc: "2030-10-04T04:00:00Z",
           entries: [
             {
               enrollmentId,
@@ -215,8 +201,7 @@ async function receptionistFixture(page: Page) {
     }
 
     if (
-      path ===
-        `/api/class-sessions/${sessionId}/attendance/${enrollmentId}` &&
+      path === `/api/class-sessions/${sessionId}/attendance/${enrollmentId}` &&
       request.method() === "PUT"
     ) {
       return route.fulfill({
@@ -240,283 +225,247 @@ test.beforeEach(async ({ page }) => {
   await receptionistFixture(page);
 });
 
-test(
-  "receptionist dashboard uses real operational links and no manual-paid workflow",
-  async ({ page }) => {
-    await page.goto("/receptionist");
+test("receptionist dashboard uses real operational links and no manual-paid workflow", async ({
+  page,
+}) => {
+  await page.goto("/receptionist");
 
-    await expect(
-      page.getByRole("heading", {
-        name: "Today's desk",
-        exact: true,
-      }),
-    ).toBeVisible();
+  await expect(
+    page.getByRole("heading", {
+      name: "Today's desk",
+      exact: true,
+    }),
+  ).toBeVisible();
 
-    await expect(
-      page.locator(
-        "a[href*='/receptionist/attendance?date=2030-10-03&session=']",
-      ),
-    ).toHaveCount(1);
+  await expect(
+    page.locator(
+      "a[href*='/receptionist/attendance?date=2030-10-03&session=']",
+    ),
+  ).toHaveCount(1);
 
-    await expect(
-      page.getByText(/manual paid/i),
-    ).toHaveCount(0);
+  await expect(page.getByText(/manual paid/i)).toHaveCount(0);
 
-    await expect(
-      page.getByText(/cash payout/i),
-    ).toHaveCount(0);
-  },
-);
+  await expect(page.getByText(/cash payout/i)).toHaveCount(0);
+});
 
-test(
-  "receptionist selects a Member and performs server-authorized Gym check-in",
-  async ({ page }) => {
-    let checkIns = 0;
+test("receptionist selects a Member and performs server-authorized Gym check-in", async ({
+  page,
+}) => {
+  let checkIns = 0;
 
-    page.on("request", (request) => {
-      if (
-        request.method() === "POST" &&
-        new URL(request.url()).pathname ===
-          "/api/gym-checkins"
-      ) {
-        checkIns++;
-      }
-    });
+  page.on("request", (request) => {
+    if (
+      request.method() === "POST" &&
+      new URL(request.url()).pathname === "/api/gym-checkins"
+    ) {
+      checkIns++;
+    }
+  });
 
-    await page.goto("/receptionist/gym-checkin");
+  await page.goto("/receptionist/gym-checkin");
 
-    await page
-      .getByLabel("Select Member")
-      .fill("Member A");
+  await page.getByLabel("Select Member").fill("Member A");
 
-    await page.waitForTimeout(250);
+  await page.waitForTimeout(250);
 
-    await page
-      .getByRole("button", {
-        name: /Member A/,
-      })
-      .click();
+  await page
+    .getByRole("button", {
+      name: /Member A/,
+    })
+    .click();
 
-    await page
-      .getByRole("button", {
-        name: "Check in",
-        exact: true,
-      })
-      .click();
+  await page
+    .getByRole("button", {
+      name: "Check in",
+      exact: true,
+    })
+    .click();
 
-    await expect.poll(() => checkIns).toBe(1);
-  },
-);
+  await expect.poll(() => checkIns).toBe(1);
+});
 
-test(
-  "only receptionist UI writes group attendance and uses enrollment+session identity",
-  async ({ page }) => {
-    let payload: unknown = null;
+test("only receptionist UI writes group attendance and uses enrollment+session identity", async ({
+  page,
+}) => {
+  let payload: unknown = null;
 
-    await page.route(
-      `**/api/class-sessions/${sessionId}/attendance/${enrollmentId}`,
-      async (route) => {
-        payload = route.request().postDataJSON();
+  await page.route(
+    `**/api/class-sessions/${sessionId}/attendance/${enrollmentId}`,
+    async (route) => {
+      payload = route.request().postDataJSON();
 
-        await route.fulfill({
-          json: {
-            ok: true,
-          },
-        });
-      },
-    );
+      await route.fulfill({
+        json: {
+          ok: true,
+        },
+      });
+    },
+  );
 
-    await page.goto("/receptionist/attendance");
+  await page.goto("/receptionist/attendance");
 
-    await page
-      .getByLabel("Class")
-      .selectOption("7");
+  await page.getByLabel("Class").selectOption("7");
 
-    await page
-      .getByLabel("Session")
-      .selectOption(sessionId);
+  await page.getByLabel("Session").selectOption(sessionId);
 
-    await expect(
+  await expect(
     page.getByRole("row", {
       name: /Member A.*Present.*Absent/,
     }),
   ).toBeVisible();
 
-    await page
-      .getByRole("button", {
-        name: "Present",
-        exact: true,
-      })
-      .click();
+  await page
+    .getByRole("button", {
+      name: "Present",
+      exact: true,
+    })
+    .click();
 
-    await expect
-      .poll(() => payload)
-      .toEqual({
-        status: "PRESENT",
-      });
-  },
-);
-
-test(
-  "the selected Member follows the desk from check-in to sales and profile",
-  async ({ page }) => {
-    let checkIns = 0;
-
-    page.on("request", (request) => {
-      if (
-        request.method() === "POST" &&
-        new URL(request.url()).pathname ===
-          "/api/gym-checkins"
-      ) {
-        checkIns++;
-      }
+  await expect
+    .poll(() => payload)
+    .toEqual({
+      status: "PRESENT",
     });
+});
 
-    await page.goto("/receptionist");
+test("the selected Member follows the desk from check-in to sales and profile", async ({
+  page,
+}) => {
+  let checkIns = 0;
 
-    await page
-      .getByLabel("Find a member")
-      .fill("Member A");
+  page.on("request", (request) => {
+    if (
+      request.method() === "POST" &&
+      new URL(request.url()).pathname === "/api/gym-checkins"
+    ) {
+      checkIns++;
+    }
+  });
 
-    await page.waitForTimeout(300);
+  await page.goto("/receptionist");
 
-    await page
-      .getByRole("button", {
-        name: /Member A/,
-      })
-      .click();
+  await page.getByLabel("Find a member").fill("Member A");
 
-    await expect(
-      page.getByRole("heading", {
-        name: "Member A",
-      }),
-    ).toBeVisible();
+  await page.waitForTimeout(300);
 
-    await expect(
-      page.getByText("Active until"),
-    ).toBeVisible();
+  await page
+    .getByRole("button", {
+      name: /Member A/,
+    })
+    .click();
 
-    await page
-      .getByRole("button", {
-        name: "Check in",
-        exact: true,
-      })
-      .click();
+  await expect(
+    page.getByRole("heading", {
+      name: "Member A",
+    }),
+  ).toBeVisible();
 
-    await expect.poll(() => checkIns).toBe(1);
+  await expect(page.getByText("Active until")).toBeVisible();
 
-    await expect(
-      page
-        .getByRole("status")
-        .filter({
-          hasText: "Checked in at",
-        }),
-    ).toBeVisible();
+  await page
+    .getByRole("button", {
+      name: "Check in",
+      exact: true,
+    })
+    .click();
 
-    /*
-     * Sales is no longer a top-level navigation item.
-     * Use the selected-member action.
-     */
-    await page
-      .getByRole("link", {
-        name: "Sell a service",
-        exact: true,
-      })
-      .click();
+  await expect.poll(() => checkIns).toBe(1);
 
-    await expect(
-      page.getByText("Selling for Member A"),
-    ).toBeVisible();
+  await expect(
+    page.getByRole("status").filter({
+      hasText: "Checked in at",
+    }),
+  ).toBeVisible();
 
-    await page
-      .getByRole("link", {
-        name: "Today's desk",
-        exact: true,
-      })
-      .first()
-      .click();
+  /*
+   * Sales is no longer a top-level navigation item.
+   * Use the selected-member action.
+   */
+  await page
+    .getByRole("link", {
+      name: "Sell a service",
+      exact: true,
+    })
+    .click();
 
-    await expect(
-      page.getByRole("heading", {
-        name: "Member A",
-      }),
-    ).toBeVisible();
+  await expect(page.getByText("Selling for Member A")).toBeVisible();
 
-    await page
-      .getByRole("link", {
-        name: "Open profile",
-        exact: true,
-      })
-      .click();
+  await page
+    .getByRole("link", {
+      name: "Today's desk",
+      exact: true,
+    })
+    .first()
+    .click();
 
-    await page
-      .getByRole("tab", {
-        name: "Wallet",
-        exact: true,
-      })
-      .click();
+  await expect(
+    page.getByRole("heading", {
+      name: "Member A",
+    }),
+  ).toBeVisible();
 
-    await expect(
-      page.getByText(/never added or removed/),
-    ).toBeVisible();
+  await page
+    .getByRole("link", {
+      name: "Open profile",
+      exact: true,
+    })
+    .click();
 
-    await expect(
-      page.getByRole("button", {
-        name: /adjust/i,
-      }),
-    ).toHaveCount(0);
-  },
-);
+  await page
+    .getByRole("tab", {
+      name: "Wallet",
+      exact: true,
+    })
+    .click();
 
-test(
-  "no search result shows how the Member registers themselves instead of a staff-made account",
-  async ({ page }) => {
-    await page.route(
-      "**/api/users?**",
-      (route) =>
-        route.fulfill({
-          json: paged([]),
-        }),
-    );
+  await expect(page.getByText(/never added or removed/)).toBeVisible();
 
-    await page.goto("/receptionist");
+  await expect(
+    page.getByRole("button", {
+      name: /adjust/i,
+    }),
+  ).toHaveCount(0);
+});
 
-    await page
-      .getByLabel("Find a member")
-      .fill("Nobody");
+test("no search result lets the front desk register a new member with an activation email", async ({
+  page,
+}) => {
+  await page.route("**/api/users?**", (route) =>
+    route.fulfill({
+      json: paged([]),
+    }),
+  );
 
-    await expect(
-      page.getByText(
-        "No matching members found.",
-      ),
-    ).toBeVisible();
+  await page.goto("/receptionist");
 
-    await expect(
-      page.getByRole("link", {
-        name: "Open the registration page",
-      }),
-    ).toHaveAttribute(
-      "href",
-      "/register",
-    );
-  },
-);
+  await page.getByLabel("Find a member").fill("Nobody");
 
-test(
-  "attendance deep link opens the right class session and explains a closed window",
-  async ({ page }) => {
-    await page.goto(
-      `/receptionist/attendance?date=2030-10-03&session=${sessionId}`,
-    );
+  await expect(page.getByText("No matching members found.")).toBeVisible();
 
-    await expect(
-      page.getByRole("row", {
-        name: /Member A.*Present.*Absent/,
-      }),
-    ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Register a new member", exact: true })
+    .click();
 
-    await expect(
-      page.getByText("0 of 1 recorded"),
-    ).toBeVisible();
-  },
-);
+  const dialog = page.getByRole("dialog");
+  await expect(
+    dialog.getByLabel("Confirm email", { exact: true }),
+  ).toBeVisible();
+  await expect(dialog).toContainText("activation");
+  await expect(dialog.getByLabel("Password")).toHaveCount(0);
+});
+
+test("attendance deep link opens the right class session and explains a closed window", async ({
+  page,
+}) => {
+  await page.goto(
+    `/receptionist/attendance?date=2030-10-03&session=${sessionId}`,
+  );
+
+  await expect(
+    page.getByRole("row", {
+      name: /Member A.*Present.*Absent/,
+    }),
+  ).toBeVisible();
+
+  await expect(page.getByText("0 of 1 recorded")).toBeVisible();
+});

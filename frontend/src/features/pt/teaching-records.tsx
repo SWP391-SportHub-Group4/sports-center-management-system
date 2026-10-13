@@ -98,7 +98,15 @@ export function TeachingRecords({
                 /5
               </strong>
             )}
-            {record.dueAtUtc && (
+            {record.kind === "HOMEWORK" && (
+              <p className={styles.recordLabel}>
+                <CalendarClock size={16} aria-hidden="true" />
+                {vi
+                  ? "Nên hoàn thành trước buổi tiếp theo · Không bắt buộc"
+                  : "Aim to complete before the next lesson · Optional"}
+              </p>
+            )}
+            {record.kind !== "HOMEWORK" && record.dueAtUtc && (
               <p className={styles.recordLabel}>
                 <CalendarClock size={16} aria-hidden="true" />
                 {vi ? "Hoàn thành trước" : "Due"}{" "}

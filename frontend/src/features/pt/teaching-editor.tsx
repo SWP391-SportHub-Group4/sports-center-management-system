@@ -3,9 +3,8 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Save, Send, Sparkles, X } from "lucide-react";
 import { Feedback } from "@/components/ui";
-import { useAction } from "@/lib/useApi";
+import { useAction, useNow } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
-import { vietnamUtc, vietnamLocal } from "@/lib/vietnam-time";
 import type { CourseSessionDto } from "@/lib/types";
 import { formatDateTime } from "@/lib/format";
 import {
@@ -27,6 +26,7 @@ export function TeachingEditor({
   memberId,
   existing,
   planScope,
+  lockedMemberId,
   onSaved,
   onClose,
   onStateChange,
@@ -39,6 +39,7 @@ export function TeachingEditor({
   memberId?: string;
   existing?: TeachingRecord;
   planScope?: PlanScope;
+  lockedMemberId?: string;
   onSaved: () => void;
   onClose: () => void;
   onStateChange: (state: { dirty: boolean; busy: boolean }) => void;
@@ -47,18 +48,24 @@ export function TeachingEditor({
   const vi = language === "vi";
   const action = useAction();
   const ai = useAction();
+  const now = useNow();
   const lock = useRef(false);
   const [id] = useState(() => existing?.recordId ?? crypto.randomUUID());
   const [title, setTitle] = useState(existing?.title ?? "");
   const [content, setContent] = useState(existing?.content ?? "");
-  const [student, setStudent] = useState(existing?.memberId ?? memberId ?? "");
+  const [student, setStudent] = useState(
+    lockedMemberId ?? existing?.memberId ?? memberId ?? "",
+  );
   const [session, setSession] = useState(
     existing?.sessionId ?? sessionId ?? "",
   );
   const [score, setScore] = useState(String(existing?.score ?? ""));
-  const [due, setDue] = useState(
-    existing?.dueAtUtc ? vietnamLocal(existing.dueAtUtc) : "",
-  );
+  const homeworkSession = sessions.find((item) => item.sessionId === session);
+  const homeworkAllowed =
+    kind !== "HOMEWORK" ||
+    (!!homeworkSession &&
+      !/cancel/i.test(homeworkSession.status) &&
+      now >= Date.parse(homeworkSession.endAtUtc));
   const [goal, setGoal] = useState(
     members.find((m) => m.memberId === student)?.goal ?? "",
   );
@@ -67,13 +74,15 @@ export function TeachingEditor({
   );
   const [suggestion, setSuggestion] = useState("");
   const [scope, setScope] = useState<PlanScope>(
-    existing
-      ? existing.memberId
-        ? "personal"
-        : existing.sessionId
-          ? "session"
-          : "course"
-      : (planScope ??
+    lockedMemberId
+      ? "personal"
+      : existing
+        ? existing.memberId
+          ? "personal"
+          : existing.sessionId
+            ? "session"
+            : "course"
+        : (planScope ??
           (memberId ? "personal" : sessionId ? "session" : "course")),
   );
   const labels = {
@@ -84,7 +93,7 @@ export function TeachingEditor({
   };
   async function save(e: FormEvent) {
     e.preventDefault();
-    if (lock.current) return;
+    if (lock.current || !homeworkAllowed) return;
     lock.current = true;
     try {
       const saved = await action.run(() =>
@@ -96,9 +105,9 @@ export function TeachingEditor({
             title,
             content,
             sessionId: session || null,
-            memberId: student || null,
+            memberId: lockedMemberId ?? (student || null),
             score: score ? Number(score) : null,
-            dueAtUtc: due ? vietnamUtc(due) : null,
+            dueAtUtc: null,
             version: existing?.version ?? 0,
           },
           !!existing,
@@ -114,7 +123,6 @@ export function TeachingEditor({
     title !== (existing?.title ?? "") ||
     content !== (existing?.content ?? "") ||
     score !== String(existing?.score ?? "") ||
-    due !== (existing?.dueAtUtc ? vietnamLocal(existing.dueAtUtc) : "") ||
     student !== (existing?.memberId ?? memberId ?? "") ||
     session !== (existing?.sessionId ?? sessionId ?? "");
   useEffect(() => {
@@ -149,7 +157,7 @@ export function TeachingEditor({
             {vi ? "1. Phạm vi kế hoạch" : "1. Plan scope"}
             <select
               value={scope}
-              disabled={busy || !!existing}
+              disabled={busy || !!existing || !!lockedMemberId}
               onChange={(e) => {
                 const next = e.target.value as PlanScope;
                 setScope(next);
@@ -187,6 +195,17 @@ export function TeachingEditor({
             </small>
           </label>
         )}
+        {kind === "HOMEWORK" && (
+          <p className={styles.muted} role="status">
+            {homeworkAllowed
+              ? vi
+                ? "Bài tập ôn luyện thuộc buổi vừa học. Nên hoàn thành trước buổi tiếp theo — không bắt buộc."
+                : "Practice belongs to the lesson that ended. Aim to complete it before the next lesson — optional."
+              : vi
+                ? "Chọn một buổi đã kết thúc để giao bài tập."
+                : "Select a session that has ended to assign homework."}
+          </p>
+        )}
         <div className={styles.formRow}>
           {(kind !== "PLAN" || scope === "personal") && (
             <label>
@@ -194,7 +213,10 @@ export function TeachingEditor({
               <select
                 value={student}
                 disabled={
-                  busy || !!existing || (kind === "RESULT" && !!memberId)
+                  busy ||
+                  !!existing ||
+                  !!lockedMemberId ||
+                  (kind === "RESULT" && !!memberId)
                 }
                 required={
                   kind === "RESULT" || (kind === "PLAN" && scope === "personal")
@@ -231,7 +253,9 @@ export function TeachingEditor({
                 value={session}
                 disabled={busy || !!sessionId || !!existing}
                 required={
-                  kind === "RESULT" || (kind === "PLAN" && scope === "session")
+                  kind === "RESULT" ||
+                  kind === "HOMEWORK" ||
+                  (kind === "PLAN" && scope === "session")
                 }
                 onChange={(e) => {
                   setSession(e.target.value);
@@ -239,7 +263,8 @@ export function TeachingEditor({
                 }}
               >
                 <option value="">
-                  {kind === "PLAN" && scope === "session"
+                  {(kind === "PLAN" && scope === "session") ||
+                  kind === "HOMEWORK"
                     ? vi
                       ? "Chọn buổi học"
                       : "Select a session"
@@ -248,7 +273,11 @@ export function TeachingEditor({
                       : "Throughout the course"}
                 </option>
                 {sessions
-                  .filter((s) => !/cancel/i.test(s.status))
+                  .filter(
+                    (s) =>
+                      !/cancel/i.test(s.status) &&
+                      (kind !== "HOMEWORK" || now >= Date.parse(s.endAtUtc)),
+                  )
                   .map((s) => (
                     <option key={s.sessionId} value={s.sessionId}>
                       {vi ? "Buổi" : "Session"} {s.sessionNo} ·{" "}
@@ -401,7 +430,11 @@ export function TeachingEditor({
                 ? vi
                   ? "Mục tiêu cuối khóa · Học viên sẽ đạt được gì?\nBuổi 1–2 · Nền tảng kỹ thuật\nBuổi 3–4 · Thực hành và phối hợp\nBuổi cuối · Ôn tập và đánh giá"
                   : "Course outcome · What will students achieve?\nSessions 1–2 · Technique foundations\nSessions 3–4 · Practice and teamwork\nFinal session · Review and assessment"
-                : undefined
+                : kind === "RESULT"
+                  ? vi
+                    ? "Kết quả: Kỹ năng đã thực hiện trong buổi học\nĐiểm mạnh: Điều học viên làm tốt\nCần cải thiện: Kỹ năng cần luyện thêm\nBuổi tiếp theo: Nội dung nên tập trung"
+                    : "Result: Skills demonstrated in this lesson\nStrengths: What the student did well\nNeeds work: A specific skill to practice\nNext lesson: What to focus on"
+                  : undefined
             }
           />
           {kind === "PLAN" && (
@@ -438,26 +471,30 @@ export function TeachingEditor({
             </small>
           </label>
         )}
-        {kind === "HOMEWORK" && (
-          <label>
-            {vi ? "Hạn hoàn thành · Giờ Việt Nam" : "Due date · Vietnam time"}
-            <input
-              type="datetime-local"
-              value={due}
-              onChange={(e) => setDue(e.target.value)}
-              disabled={busy}
-            />
-          </label>
-        )}
         {(kind === "NOTICE" || kind === "HOMEWORK") && (
           <p className={styles.muted}>
             {vi
-              ? "Học viên được chọn sẽ nhận thông báo trong hệ thống sau khi gửi."
-              : "Selected students receive an in-app notification when you send."}
+              ? kind === "HOMEWORK"
+                ? "Học viên được chọn sẽ nhận bài tập qua email và thông báo qua chuông."
+                : "Học viên được chọn sẽ nhận thông báo trong hệ thống sau khi gửi."
+              : kind === "HOMEWORK"
+                ? "Selected students receive the homework by email and a bell notification."
+                : "Selected students receive an in-app notification when you send."}
+          </p>
+        )}
+        {kind === "RESULT" && !existing && (
+          <p className={styles.muted}>
+            {vi
+              ? "Học viên được đánh giá sẽ nhận thông báo qua chuông khi bạn lưu."
+              : "This student receives a bell notification when you save the assessment."}
           </p>
         )}
         <Feedback error={action.error} />
-        <button type="submit" className="btn" disabled={busy}>
+        <button
+          type="submit"
+          className="btn"
+          disabled={busy || !homeworkAllowed}
+        >
           {kind === "NOTICE" || kind === "HOMEWORK" ? (
             <Send size={17} aria-hidden="true" />
           ) : (

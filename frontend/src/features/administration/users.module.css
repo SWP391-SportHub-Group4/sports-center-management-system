@@ -24,9 +24,49 @@
   flex-wrap: wrap;
   gap: var(--space-2);
 }
+.activationNote {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
 
 .createActions :global(.btn) {
   margin: 0;
+}
+
+.passwordOption {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+.passwordToggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--control-height);
+  cursor: pointer;
+}
+
+.passwordToggle input[type="checkbox"] {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  padding: 0;
+}
+
+.passwordOption code {
+  font-family: var(--font-mono);
+  overflow-wrap: anywhere;
+}
+
+.handoffHint {
+  margin-block: var(--space-1) var(--space-4);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
 }
 
 .details {
@@ -49,6 +89,39 @@
 
 .reason {
   white-space: pre-wrap;
+}
+
+.roleBlockers {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface-sunken);
+}
+
+.roleBlockers h3,
+.roleBlockers p {
+  margin: 0;
+}
+
+.roleBlockers ul {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.roleBlockers li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.roleBlockers li > span:first-child {
+  color: var(--color-danger, #b42318);
+  font-weight: 700;
 }
 
 .target {
@@ -84,7 +157,7 @@
   padding-inline: var(--space-1);
 }
 
-/* StateView's loading rows follow the checkbox + sport-name layout here. */
+/* StateView's loading rows follow the selection control + sport-name layout here. */
 .sportSelector :global(.skeleton) {
   display: flex;
   align-items: center;
@@ -121,7 +194,8 @@
   min-height: var(--control-height);
 }
 
-.sportOption input[type="checkbox"] {
+.sportOption input[type="checkbox"],
+.sportOption input[type="radio"] {
   flex: 0 0 auto;
   width: auto;
   margin: 0;

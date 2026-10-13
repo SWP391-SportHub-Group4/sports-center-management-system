@@ -4,12 +4,22 @@ export interface Paged<T> {
   pageSize: number;
   totalCount: number;
 }
+export interface MemberSupportRequestDto {
+  requestId: string;
+  memberId: string;
+  recordedByUserId: string;
+  category: "GENERAL" | "MEMBERSHIP" | "CLASS" | "PAYMENT" | "OTHER";
+  subject: string;
+  description: string;
+  status: string;
+  createdAt: string;
+}
 
 export type SportServiceType =
-  "MEMBERSHIP_ACCESS" | "GROUP_COURSE" | "COURT_RENTAL" | "PERSONAL_TRAINING";
+  "MEMBERSHIP_ACCESS" | "GROUP_COURSE" | "COURT_RENTAL";
 
 export interface SportServiceDto {
-  /** Server-owned ID, returned only by the Manager catalog for service qualification mapping. */
+  /** Server-owned ID, returned only by the Manager catalog. */
   offeringId?: number;
   serviceType: SportServiceType;
   isEnabled: boolean;
@@ -114,15 +124,10 @@ export interface CheckoutDto {
   beneficiaryUserId: string;
   initiatorUserId: string;
   serverNowUtc: string;
-  ptMemberPackageId: string | null;
-  ptCoachId: string | null;
-  ptFrequency: number | null;
-  ptStartAtUtc?: string | null;
-  ptRoomId?: number | null;
   invoiceId: string;
   checkoutSessionId: string;
   revision: number;
-  kind: "MEMBERSHIP" | "CLASS" | "PT" | "COURT_RENTAL";
+  kind: "MEMBERSHIP" | "CLASS" | "COURT_RENTAL";
   state: string;
   totalAmount: number;
   pointsApplied: number;
@@ -367,6 +372,7 @@ export interface RevenueReportDto {
   pointsIssued: number;
   managerPointAdjustment: number;
   outstandingPoints: number;
+  outstandingPointsAsOfUtc?: string;
   bySource: { source: string; cashCollected: number; pointsRedeemed: number }[];
   bySportAndSource: {
     source: string;
@@ -407,6 +413,8 @@ export interface UserAdminDto {
   hasPassword: boolean;
   hasGoogleLink: boolean;
   sportIds: number[];
+  /** Staff account that has not set a password yet (waiting for the activation email). */
+  activationPending?: boolean;
 }
 
 export type MyAccountDto = UserAdminDto & { avatarUrl?: string | null };
@@ -420,6 +428,7 @@ export interface BodyMeasurementDto {
 
 /** Self-reported health and training profile. Enum values use the UPPER_SNAKE_CASE wire format. */
 export interface MemberTrainingProfileDto {
+  bodyBuild?: string | null;
   memberId: string;
   goal: string;
   goalType: string | null;
@@ -479,19 +488,6 @@ export interface WorkoutPlanDto {
     reps: number;
     notes: string | null;
   }[];
-}
-
-export interface WorkoutResultDto {
-  resultId: string;
-  ptSessionId: string;
-  sessionStartAtUtc: string;
-  memberId: string;
-  memberName: string;
-  coachId: string;
-  coachName: string;
-  progressNote: string | null;
-  coachComment: string | null;
-  recordedAt: string;
 }
 
 export interface NutritionGuidanceDto {
@@ -655,74 +651,6 @@ export interface PointConfirmationDto {
   status: string;
   revision: number;
 }
-export interface PtEntitlementDto {
-  entitlementId: string;
-  memberId: string;
-  memberName: string;
-  coachId: string;
-  coachName: string;
-  frequencyPerWeek: number;
-  totalQuota: number;
-  reservedSessions: number;
-  consumedSessions: number;
-  remainingQuota: number;
-  validityStartDate: string;
-  validityEndDate: string;
-  carryOverUntilDate: string | null;
-  status: string;
-}
-export interface PtSessionDto {
-  sessionId: string;
-  entitlementId: string;
-  memberId: string;
-  memberName: string;
-  coachId: string;
-  coachName: string;
-  startAtUtc: string;
-  endAtUtc: string;
-  status: string;
-  quotaState: string;
-  rescheduledFromSessionId: string | null;
-  completedAt: string | null;
-  cancelledAt: string | null;
-  cancellationReason: string | null;
-  roomId: number | null;
-  roomName: string | null;
-}
-
-/** Khung PT trống của Coach được giao (Member tự đặt lịch). */
-export interface PtAvailabilityDto {
-  entitlementId: string;
-  coachId: string;
-  coachName: string;
-  sessionMinutes: number;
-  remainingQuota: number;
-  /** Null khi đặt được; ngược lại là mã lý do ổn định. */
-  bookableReason: string | null;
-  policy: {
-    minLeadHours: number;
-    advanceDays: number;
-    stepMinutes: number;
-    changeDeadlineHours: number;
-  };
-  slots: {
-    startAtUtc: string;
-    endAtUtc: string;
-    rooms: { roomId: number; name: string }[];
-  }[];
-}
-
-export interface PtChangeRequestDto {
-  requestId: string;
-  sessionId?: string;
-  requestType?: string;
-  status: string;
-  reason: string | null;
-  reviewNote: string | null;
-  timingClassification?: string;
-  requestedStartAtUtc?: string | null;
-  requestedCoachName?: string;
-}
 export interface RevenueDimensionsDto {
   fromDate: string;
   toDate: string;
@@ -754,27 +682,6 @@ export interface ClassEnrollmentReportDto {
     thresholdStatus: string;
     firstSessionStartUtc: string | null;
   }[];
-}
-export interface PtReviewRequestDto extends PtChangeRequestDto {
-  memberId: string;
-  memberName?: string;
-  entitlementId?: string;
-  sessionStartAtUtc?: string;
-  currentCoachName?: string;
-  requestsException?: boolean;
-}
-export interface ProgressItemDto {
-  ptSessionId: string;
-  startAtUtc: string;
-  endAtUtc: string;
-  sessionStatus: string;
-  memberId: string;
-  memberName: string;
-  coachName: string;
-  resultId: string | null;
-  progressNote: string | null;
-  coachComment: string | null;
-  recordedAt: string | null;
 }
 export interface ThresholdResponseDto {
   responseId: string;
@@ -864,7 +771,7 @@ export interface CoachAdminDto {
   createdAt: string;
 }
 export interface CourtScheduleEntryDto {
-  sourceType: "CLASS_SESSION" | "PT_SESSION" | "COURT_RENTAL" | "ROOM_BLOCK";
+  sourceType: "CLASS_SESSION" | "COURT_RENTAL" | "ROOM_BLOCK";
   sourceId: string;
   roomId: number | null;
   startAtUtc: string;

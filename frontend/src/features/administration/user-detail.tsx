@@ -10,6 +10,7 @@ import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import type { SportDto, UserAdminDto } from "@/lib/types";
 import { EditUser } from "./users";
+import { AccountStatusChip } from "./AccountStatusChip";
 import styles from "./users.module.css";
 
 function CoachSpecialties({ ids }: { ids: number[] }) {
@@ -69,11 +70,6 @@ export function UserDetail({ userId }: { userId: string }) {
     </Link>
   );
   const account = state.data;
-  const statusLabels: Record<string, string> = {
-    ACTIVE: t.staffWork.accountActive,
-    BANNED: t.staffWork.accountLocked,
-    DEACTIVATED: t.staffWork.accountDeactivated,
-  };
   return (
     <div className="stack">
       <div className="btn-row">
@@ -146,17 +142,7 @@ export function UserDetail({ userId }: { userId: string }) {
                 <div>
                   <dt>{t.staffWork.accountState}</dt>
                   <dd>
-                    <StatusChip
-                      value={account.status}
-                      tone={
-                        account.status === "BANNED"
-                          ? "danger"
-                          : account.status === "ACTIVE"
-                            ? "success"
-                            : "neutral"
-                      }
-                      label={statusLabels[account.status]}
-                    />
+                    <AccountStatusChip account={account} />
                   </dd>
                 </div>
                 <div>

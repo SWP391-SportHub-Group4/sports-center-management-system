@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { en } from "../src/locales/en";
 
 const memberId = "11111111-1111-4111-8111-111111111111";
 const managerId = "22222222-2222-4222-8222-222222222222";
@@ -59,9 +60,11 @@ async function managerFixture(page: Page, exportsRows: unknown[] = []) {
         fromDate: "2030-10-01",
         toDate: "2030-10-31",
         totalCollected: 100000,
+        pointsRedeemed: 200,
         pointsRedeemedVnd: 200000,
         pointsIssued: 50,
         outstandingPoints: 70,
+        outstandingPointsAsOfUtc: "2030-11-12T03:00:00Z",
         managerPointAdjustment: 0,
         legacyCashCollected: 0,
         reconciliationCashCollected: 0,
@@ -128,15 +131,47 @@ test("reports use one period filter with tabs, and exports live on their own pag
   await managerFixture(page);
   await page.goto("/manager/reports");
   await expect(page.getByText("Cash collected (VND)").first()).toBeVisible();
+  await expect(page.getByText(en.staffWork.cashBasisHint)).toBeVisible();
+  await expect(
+    page.getByRole("columnheader", {
+      name: en.staffWork.redeemedPoints,
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(page.getByText(en.staffWork.currentPointHint)).toBeVisible();
+  await expect(
+    page.getByText("Balance observed at", { exact: false }),
+  ).toHaveCount(0);
   await page.getByRole("tab", { name: "Members" }).click();
   await expect(page).toHaveURL(/tab=members/);
   await expect(page.getByText("New members")).toBeVisible();
+  await expect(
+    page.getByText("Members with valid Membership on", { exact: false }),
+  ).toBeVisible();
   await page.getByRole("link", { name: "Exports and downloads" }).click();
   await expect(page).toHaveURL(/\/manager\/reports\/exports$/);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
     "Report exports",
   );
   await expect(page.getByText("No exports yet.")).toBeVisible();
+  await page
+    .getByLabel("Report type", { exact: true })
+    .selectOption("REVENUE_SUMMARY");
+  await expect(
+    page.getByRole("option", {
+      name: "Revenue and points summary",
+      exact: true,
+    }),
+  ).toHaveCount(1);
+  await expect(
+    page.getByRole("checkbox", {
+      name: "Points used by members in period",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Current point balance observed at (UTC)", { exact: true }),
+  ).toHaveCount(0);
 });
 
 test("export history shows progress for a queued file and download for a finished one", async ({
@@ -168,6 +203,46 @@ test("export history shows progress for a queued file and download for a finishe
   await expect(page.getByText("Preparing the file…")).toHaveCount(1);
   await expect(page.getByText("12 rows")).toBeVisible();
   await expect(page.getByRole("button", { name: "Download" })).toHaveCount(1);
+});
+
+test("Manager exports identify members by name for revenue and rental reports", async ({
+  page,
+}) => {
+  const calls = await managerFixture(page);
+  await page.goto("/manager/reports/exports");
+  for (const type of ["REVENUE_DIMENSIONS", "COURT_RENTAL_REVENUE"]) {
+    await page
+      .getByLabel(en.staffWork.exportType, { exact: true })
+      .selectOption(type);
+    const columns = page.getByRole("group", {
+      name: en.staffWork.columns,
+      exact: true,
+    });
+    await expect(
+      columns.getByRole("checkbox", {
+        name: en.staffWork.memberId,
+        exact: true,
+      }),
+    ).toHaveCount(0);
+    await columns
+      .getByRole("checkbox", { name: en.staffWork.member, exact: true })
+      .check();
+    await page
+      .getByRole("button", { name: en.staffWork.export, exact: true })
+      .click();
+    await expect
+      .poll(
+        () =>
+          calls.filter((call) => call.path === "/api/reports/exports").length,
+      )
+      .toBe(type === "REVENUE_DIMENSIONS" ? 1 : 2);
+    const body = calls.at(-1)!.body as {
+      reportType: string;
+      columns: string[];
+    };
+    expect(body.reportType).toBe(type);
+    expect(body.columns).toEqual(["memberName"]);
+  }
 });
 
 test("a member asks for a refund only after opening the form and is told nothing is returned yet", async ({

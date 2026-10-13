@@ -4,6 +4,7 @@ using SportHub.Identity.Domain.Entities;
 using SportHub.Identity.Domain.Enums;
 using SportHub.Membership.Application.DTOs;
 using SportHub.Membership.Application.Interfaces;
+using SportHub.Membership.Domain;
 
 namespace SportHub.Membership.Application.Services;
 
@@ -11,7 +12,7 @@ namespace SportHub.Membership.Application.Services;
 /// Tổng quan hội viên theo dữ liệu Membership. Không đọc Payment/Invoice: số tiền đã chi
 /// thuộc báo cáo doanh thu riêng của module Payment.
 /// </summary>
-public sealed class MembershipReportService(ISportHubDbContext db) : IMembershipReportService
+public sealed class MembershipReportService(ISportHubDbContext db, IMembershipPurchaseReportReader purchases) : IMembershipReportService
 {
     public async Task<MembershipPeriodResponse> GetPeriodAsync(DateOnly fromDate, DateOnly toDate, CancellationToken ct = default)
     {
@@ -22,9 +23,16 @@ public sealed class MembershipReportService(ISportHubDbContext db) : IMembership
             .CountAsync(u => u.Role!.RoleName == UserRole.Member && u.CreatedAt >= fromUtc && u.CreatedAt < toUtc, ct);
         var activeAtEnd = await db.Set<MemberPackage>().AsNoTracking()
             .Where(mp => (mp.Status == MemberPackageStatus.Active || mp.Status == MemberPackageStatus.Expired)
+                && mp.PackageId != DayPass.PackageId
                 && mp.StartDate <= toDate && mp.EndDate >= toDate && mp.Member!.Role!.RoleName == UserRole.Member)
             .Select(mp => mp.MemberId).Distinct().CountAsync(ct);
-        return new(fromDate, toDate, newMembers, activeAtEnd);
+        var purchasingMembers = await purchases.CountMembersAsync(fromUtc, toUtc, ct);
+        // Vé Gym 1 ngày là khách lẻ, không tính là hội viên: báo cáo riêng số vé đã bán trong kỳ.
+        var dayPassesSold = await db.Set<MemberPackage>().AsNoTracking()
+            .CountAsync(mp => mp.PackageId == DayPass.PackageId
+                && (mp.Status == MemberPackageStatus.Active || mp.Status == MemberPackageStatus.Expired)
+                && mp.StartDate >= fromDate && mp.StartDate <= toDate, ct);
+        return new(fromDate, toDate, newMembers, activeAtEnd, purchasingMembers, dayPassesSold);
     }
 
     public async Task<MembershipSummaryResponse> GetSummaryAsync(
@@ -40,6 +48,7 @@ public sealed class MembershipReportService(ISportHubDbContext db) : IMembership
         var membersWithActiveMembership = await db.Set<MemberPackage>()
             .AsNoTracking()
             .Where(mp => mp.Status == MemberPackageStatus.Active
+                         && mp.PackageId != DayPass.PackageId
                          && mp.StartDate <= asOfDate
                          && mp.EndDate >= asOfDate
                          && mp.Member!.Role!.RoleName == UserRole.Member)
@@ -47,8 +56,14 @@ public sealed class MembershipReportService(ISportHubDbContext db) : IMembership
             .Distinct()
             .CountAsync(ct);
 
+        var membersWithDayPass = await db.Set<MemberPackage>().AsNoTracking()
+            .Where(mp => mp.PackageId == DayPass.PackageId && mp.Status == MemberPackageStatus.Active
+                         && mp.StartDate <= asOfDate && mp.EndDate >= asOfDate)
+            .Select(mp => mp.MemberId).Distinct().CountAsync(ct);
+
         var counts = await db.Set<MemberPackage>()
             .AsNoTracking()
+            .Where(mp => mp.PackageId != DayPass.PackageId)
             .GroupBy(mp => mp.Status)
             .Select(group => new { Status = group.Key, Count = group.Count() })
             .ToDictionaryAsync(item => item.Status, item => item.Count, ct);
@@ -62,6 +77,7 @@ public sealed class MembershipReportService(ISportHubDbContext db) : IMembership
                 counts.GetValueOrDefault(MemberPackageStatus.PendingPayment),
                 counts.GetValueOrDefault(MemberPackageStatus.Active),
                 counts.GetValueOrDefault(MemberPackageStatus.Expired),
-                counts.GetValueOrDefault(MemberPackageStatus.Cancelled)));
+                counts.GetValueOrDefault(MemberPackageStatus.Cancelled)),
+            membersWithDayPass);
     }
 }

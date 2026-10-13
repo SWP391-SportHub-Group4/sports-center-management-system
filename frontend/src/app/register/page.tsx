@@ -60,6 +60,7 @@ export default function RegisterPage() {
 
   const emailInputRef = useRef<HTMLInputElement>(null);
   const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const otpFocusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fullNameInputRef = useRef<HTMLInputElement>(null);
   const phoneInputRef = useRef<HTMLInputElement>(null);
   const passwordInputRef = useRef<HTMLInputElement>(null);
@@ -169,8 +170,12 @@ export default function RegisterPage() {
       setFieldErrors((current) => ({ ...current, otp: undefined }));
       setOtpSecondsLeft(OTP_EXPIRY_SECONDS);
       setResendCooldown(RESEND_COOLDOWN_SECONDS);
-      setTimeout(() => {
-        otpInputRefs.current[0]?.focus();
+      if (otpFocusTimer.current) clearTimeout(otpFocusTimer.current);
+      otpFocusTimer.current = setTimeout(() => {
+        // Chỉ đưa focus vào ô đầu khi chưa có ô mã nào đang được dùng, để không giật focus khỏi người đang gõ.
+        const active = document.activeElement;
+        if (!otpInputRefs.current.some((node) => node === active))
+          otpInputRefs.current[0]?.focus();
       }, 100);
     } catch (cause) {
       setError(message(cause));
@@ -220,8 +225,8 @@ export default function RegisterPage() {
         : nextErrors.phone
           ? phoneInputRef
           : nextErrors.password
-          ? passwordInputRef
-          : confirmInputRef
+            ? passwordInputRef
+            : confirmInputRef
       ).current?.focus();
       return;
     }
@@ -274,6 +279,7 @@ export default function RegisterPage() {
   };
 
   const handleResetEmail = () => {
+    if (otpFocusTimer.current) clearTimeout(otpFocusTimer.current);
     setOtpSent(false);
     setOtpSecondsLeft(0);
     setResendCooldown(0);

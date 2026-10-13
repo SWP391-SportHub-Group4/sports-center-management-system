@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/primitives";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { StatusChip } from "@/components/ui";
 import { addDaysIso, formatDate, formatTime, todayIso } from "@/lib/format";
 import type {
@@ -10,6 +11,7 @@ import type {
 } from "./calendar.contract";
 
 import styles from "./Calendar.module.css";
+import { useNow } from "@/lib/useApi";
 
 const VIETNAM_OFFSET_MS = 7 * 60 * 60 * 1000;
 
@@ -31,16 +33,24 @@ export function Calendar({
   onDateChange,
   onViewChange,
   onSelectEvent,
+  hideToolbar = false,
+  showViewSwitcher = true,
+  iconNavigation = false,
 }: {
+  hideToolbar?: boolean;
   events: CalendarEvent[];
   date: string;
   view: CalendarView;
   labels: CalendarLabels;
   onDateChange: (date: string) => void;
-  onViewChange: (view: CalendarView) => void;
+  onViewChange?: (view: CalendarView) => void;
   onSelectEvent: (event: CalendarEvent) => void;
+  showViewSwitcher?: boolean;
+  iconNavigation?: boolean;
 }) {
   const rangeDays = daysFor(view);
+  const now = useNow();
+  const today = vietnamDateIso(new Date(now).toISOString());
 
   const days = Array.from({ length: rangeDays }, (_, index) =>
     addDaysIso(date, index),
@@ -71,44 +81,68 @@ export function Calendar({
 
   return (
     <section className={styles.calendar} aria-label={labels.eventDetails}>
-      <div className={styles.toolbar}>
-        <div
-          className={styles.viewGroup}
-          role="group"
-          aria-label={labels.eventDetails}
-        >
-          {(["day", "week", "list"] as const).map((item) => (
-            <Button
-              key={item}
-              variant="ghost"
-              size="sm"
-              className={styles.viewButton}
-              aria-pressed={view === item}
-              onClick={() => onViewChange(item)}
+      {!hideToolbar && (
+        <div className={styles.toolbar}>
+          {showViewSwitcher && (
+            <div
+              className={styles.viewGroup}
+              role="group"
+              aria-label={labels.eventDetails}
             >
-              {labels[item]}
+              {(["day", "week", "list"] as const).map((item) => (
+                <Button
+                  key={item}
+                  variant="ghost"
+                  size="sm"
+                  className={styles.viewButton}
+                  aria-pressed={view === item}
+                  onClick={() => onViewChange?.(item)}
+                >
+                  {labels[item]}
+                </Button>
+              ))}
+            </div>
+          )}
+
+          <div className={styles.navGroup} style={{ marginLeft: "auto" }}>
+            <Button
+              variant="quiet"
+              size="sm"
+              onClick={() => move(-1)}
+              aria-label={labels.previous}
+              title={labels.previous}
+            >
+              {iconNavigation ? (
+                <ChevronLeft size={20} aria-hidden="true" />
+              ) : (
+                labels.previous
+              )}
             </Button>
-          ))}
+
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => onDateChange(todayIso())}
+            >
+              {labels.today}
+            </Button>
+
+            <Button
+              variant="quiet"
+              size="sm"
+              onClick={() => move(1)}
+              aria-label={labels.next}
+              title={labels.next}
+            >
+              {iconNavigation ? (
+                <ChevronRight size={20} aria-hidden="true" />
+              ) : (
+                labels.next
+              )}
+            </Button>
+          </div>
         </div>
-
-        <div className={styles.navGroup}>
-          <Button variant="quiet" size="sm" onClick={() => move(-1)}>
-            {labels.previous}
-          </Button>
-
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => onDateChange(todayIso())}
-          >
-            {labels.today}
-          </Button>
-
-          <Button variant="quiet" size="sm" onClick={() => move(1)}>
-            {labels.next}
-          </Button>
-        </div>
-      </div>
+      )}
 
       {view === "list" ? (
         <div className={styles.list}>
@@ -116,13 +150,31 @@ export function Calendar({
             const items = byDay.get(day) ?? [];
 
             return (
-              <section className={styles.listDay} key={day}>
+              <section
+                className={styles.listDay}
+                key={day}
+                data-today={day === today || undefined}
+              >
                 <h3 className={styles.listDayTitle}>
-                  <time dateTime={day}>{formatDate(day)}</time>
+                  {!hideToolbar && day === today && (
+                    <span
+                      className={styles.todayDot}
+                      title={labels.today}
+                      aria-label={labels.today}
+                    />
+                  )}
+                  <time
+                    dateTime={day}
+                    aria-current={day === today ? "date" : undefined}
+                  >
+                    {formatDate(day)}
+                  </time>
                 </h3>
 
                 {!items.length && (
-                  <p className={styles.empty}>{labels.empty}</p>
+                  <p className={styles.empty}>
+                    {hideToolbar ? "–" : labels.empty}
+                  </p>
                 )}
 
                 {items.map((event) => (
@@ -164,7 +216,7 @@ export function Calendar({
         </div>
       ) : (
         <div
-          className={`${styles.grid} ${view === "day" ? styles.gridDay : ""}`}
+          className={`${styles.grid} ${view === "day" ? styles.gridDay : ""} ${hideToolbar ? styles.weekGrid : ""}`}
           tabIndex={0}
           aria-label={labels.eventDetails}
         >
@@ -172,13 +224,40 @@ export function Calendar({
             const items = byDay.get(day) ?? [];
 
             return (
-              <section className={styles.day} key={day}>
+              <section
+                className={styles.day}
+                key={day}
+                data-today={day === today || undefined}
+              >
                 <header className={styles.dayHeader}>
                   <strong>
-                    <time dateTime={day}>{formatDate(day)}</time>
+                    {!hideToolbar && day === today && (
+                      <span
+                        className={styles.todayDot}
+                        title={labels.today}
+                        aria-label={labels.today}
+                      />
+                    )}
+                    <time
+                      dateTime={day}
+                      aria-current={day === today ? "date" : undefined}
+                    >
+                      {labels.weekdays
+                        ? labels.weekdays[
+                            (new Date(day + "T00:00:00Z").getUTCDay() + 6) % 7
+                          ] +
+                          " (" +
+                          day.slice(8) +
+                          "-" +
+                          day.slice(5, 7) +
+                          ")"
+                        : formatDate(day)}
+                    </time>
                   </strong>
 
-                  <span className="small muted">{items.length}</span>
+                  {!hideToolbar && (
+                    <span className="small muted">{items.length}</span>
+                  )}
                 </header>
 
                 <div className={styles.dayBody}>

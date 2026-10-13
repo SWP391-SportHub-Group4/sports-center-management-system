@@ -3,6 +3,99 @@
   gap: var(--space-4);
   min-width: 0;
 }
+.changeAction {
+  display: flex;
+  justify-content: flex-end;
+}
+.requestPage {
+  display: grid;
+  gap: var(--space-6);
+  min-width: 0;
+}
+.pageIntro {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+.pageIntro > div {
+  flex: 1 1 320px;
+  min-width: 0;
+}
+.pageIntro h2 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-xl);
+}
+.pageIntro p {
+  margin: 0;
+  max-width: 65ch;
+  color: var(--text-body);
+  line-height: 1.7;
+}
+.pageIntro a {
+  max-width: 100%;
+  white-space: normal;
+}
+.statusFilters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.statusFilters button {
+  min-height: 44px;
+}
+.statusFilters button[aria-pressed="true"] {
+  color: var(--color-primary-soft-text);
+  background: var(--color-primary-soft);
+  border-color: var(--color-primary);
+}
+.requestDates {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr));
+  gap: var(--space-4);
+  margin: 0;
+  padding: var(--space-3) 0;
+}
+.requestDates dt {
+  color: var(--text-body);
+  font-size: var(--text-xs);
+  margin-bottom: var(--space-1);
+}
+.requestDates dd {
+  color: var(--text-strong);
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.requestReason {
+  font-size: var(--text-sm);
+  line-height: 1.7;
+}
+.requestReason strong {
+  color: var(--text-strong);
+}
+.requestReason p {
+  margin: var(--space-1) 0 0;
+  color: var(--text-body);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.facts.managerResponse {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+}
+.requestPage .history article {
+  gap: var(--space-3);
+  padding: var(--space-5) 0;
+}
+.requestPage .history article > button {
+  justify-self: start;
+  min-height: 44px;
+}
 .heading {
   display: flex;
   align-items: center;
@@ -99,6 +192,10 @@
 .status[data-status="REJECTED"] {
   background: var(--danger-bg);
   color: var(--danger-text);
+}
+.status[data-status="WITHDRAWN"] {
+  background: var(--info-bg);
+  color: var(--info-text);
 }
 .history {
   display: grid;

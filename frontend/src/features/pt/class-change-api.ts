@@ -60,6 +60,16 @@ export const classChangeApi = {
     ),
   withdraw: (id: string) =>
     api.post<ClassChangeRequest>(`${coachRoot}/change-requests/${id}/withdraw`),
+  update: (
+    id: string,
+    body: {
+      requestId: string;
+      type: ClassChangeType;
+      reason: string;
+      proposedStartAtUtc: string | null;
+      proposedEndAtUtc: string | null;
+    },
+  ) => api.put<ClassChangeRequest>(`${coachRoot}/change-requests/${id}`, body),
   resolve: (
     id: string,
     body: {
@@ -81,8 +91,8 @@ export const changeTypeLabel = (type: string, vi: boolean) =>
   })[type] ?? type;
 export const changeStatusLabel = (status: string, vi: boolean) =>
   ({
-    PENDING: vi ? "Chờ xử lý" : "Pending review",
-    RESOLVED: vi ? "Đã xử lý" : "Resolved",
+    PENDING: vi ? "Chờ duyệt" : "Pending",
+    RESOLVED: vi ? "Đã duyệt" : "Approved",
     REJECTED: vi ? "Từ chối" : "Rejected",
-    WITHDRAWN: vi ? "Đã rút" : "Withdrawn",
+    WITHDRAWN: vi ? "Đã hủy" : "Cancel",
   })[status] ?? status;

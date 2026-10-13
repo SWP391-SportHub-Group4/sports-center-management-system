@@ -23,7 +23,6 @@ namespace SportHub.Training.Application.Services;
 public sealed class CoachMemberRelationshipService(
     ISportHubDbContext db,
     IAuditWriter audit,
-    ICoachSpecialtyReader specialties,
     IClock clock) : ICoachMemberRelationshipService, ICoachMemberAccessReader
 {
     public Task<bool> HasActiveRelationshipAsync(Guid coachId, Guid memberId, CancellationToken ct = default)
@@ -86,7 +85,6 @@ public sealed class CoachMemberRelationshipService(
         }
 
         await EnsureRoleAsync(request.CoachId, UserRole.Coach, "coach_not_found", ct);
-        await EnsurePersonalTrainerAsync(request.CoachId, ct);
         await EnsureRoleAsync(request.MemberId, UserRole.Member, "member_not_found", ct);
 
         // Ràng buộc #7 / BR-23: tối đa một quan hệ Active cho mỗi cặp. Partial unique index
@@ -169,14 +167,6 @@ public sealed class CoachMemberRelationshipService(
         int classId,
         CancellationToken ct = default)
     {
-        // BR-99/BR-100, mới 28/09/2026: Class chỉ có Coach loại ClassInstructor (BR-97) —
-        // booking lớp Yoga/Group X không được dùng làm nguồn cấp quyền Training. Bỏ qua nếu
-        // coachId không phải PersonalTrainer (trường hợp bình thường cho mọi Class hiện nay).
-        if (!await specialties.IsPersonalTrainerAsync(coachId, ct))
-        {
-            return;
-        }
-
         var exists = await db.Set<CoachMemberRelationship>().AnyAsync(
             r => r.CoachId == coachId && r.MemberId == memberId && r.Status == RelationshipStatus.Active, ct);
 
@@ -195,20 +185,6 @@ public sealed class CoachMemberRelationshipService(
             Status = RelationshipStatus.Active,
             StartedAt = clock.UtcNow
         });
-    }
-
-    /// <summary>
-    /// BR-99/BR-100, mới 28/09/2026 — chỉ Coach loại PersonalTrainer được gán quan hệ huấn luyện
-    /// cá nhân; ClassInstructor không có nghiệp vụ plan/result/AI (SSOT §2).
-    /// </summary>
-    private async Task EnsurePersonalTrainerAsync(Guid coachId, CancellationToken ct)
-    {
-        if (!await specialties.IsPersonalTrainerAsync(coachId, ct))
-        {
-            throw new BadRequestException(
-                "coach_must_be_personal_trainer",
-                "Coach must be personal trainer.");
-        }
     }
 
     private async Task EnsureRoleAsync(Guid userId, UserRole role, string errorCode, CancellationToken ct)

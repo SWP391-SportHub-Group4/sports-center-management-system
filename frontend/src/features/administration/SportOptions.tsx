@@ -13,10 +13,12 @@ export function SportOptions({
   state,
   value,
   onChange,
+  singleSelect = false,
 }: {
   state: AsyncState<SportDto[]>;
   value: number[];
   onChange: (value: number[]) => void;
+  singleSelect?: boolean;
 }) {
   const { t } = useLanguage();
   const rows = (state.data ?? []).filter((sport) => sport.isActive);
@@ -34,13 +36,16 @@ export function SportOptions({
         rows.map((sport) => (
           <label key={sport.sportId} className={styles.sportOption}>
             <input
-              type="checkbox"
+              type={singleSelect ? "radio" : "checkbox"}
+              name={singleSelect ? "coach-create-specialty" : undefined}
               checked={value.includes(sport.sportId)}
               onChange={(event) =>
                 onChange(
-                  event.target.checked
-                    ? [...value, sport.sportId]
-                    : value.filter((id) => id !== sport.sportId),
+                  singleSelect
+                    ? [sport.sportId]
+                    : event.target.checked
+                      ? [...value, sport.sportId]
+                      : value.filter((id) => id !== sport.sportId),
                 )
               }
             />

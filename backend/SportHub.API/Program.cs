@@ -184,10 +184,8 @@ builder.Services.AddHttpClient<IAvatarStorage, CloudinaryAvatarStorage>(client =
 builder.Services.AddScoped<IPasswordResetService, PasswordResetService>();
 builder.Services.AddScoped<EmailOtpFlow>();
 builder.Services.AddScoped<CoachSpecialtyService>();
-builder.Services.AddScoped<CoachQualificationService>();
 builder.Services.AddScoped<CoachAdminService>();
 builder.Services.AddScoped<IUserSummaryFactory, UserSummaryFactory>();
-builder.Services.AddScoped<SportHub.Training.Application.Services.PersonalTrainerGuard>();
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Identity.IUserAccessReader, UserAccessReader>();
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Identity.ICoachSpecialtyReader, CoachSpecialtyReader>();
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Scheduling.ISportCatalogReader, SportHub.Scheduling.Catalog.Application.SportCatalogReader>();
@@ -195,7 +193,7 @@ builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Scheduling.ISche
 builder.Services.AddScoped<IGoogleTokenVerifier, GoogleTokenVerifier>();
 builder.Services.AddScoped<IGoogleAuthService, GoogleAuthService>();
 
-// OTP: log email chỉ khi Development và Email:DemoLoggingEnabled được bật rõ ràng.
+// Email delivery requires SMTP; missing configuration never reports successful delivery.
 var smtpSection = builder.Configuration.GetSection("Smtp");
 if (string.IsNullOrWhiteSpace(smtpSection["Host"]))
 {
@@ -222,13 +220,16 @@ if ((!builder.Environment.IsDevelopment() && string.IsNullOrWhiteSpace(configure
     throw new InvalidOperationException("SMTP Host and FromAddress must be configured outside explicit Development logging mode.");
 builder.Services.AddScoped<IEmailSender>(sp =>
     string.IsNullOrWhiteSpace(sp.GetRequiredService<IOptions<EmailOptions>>().Value.Host)
-        ? builder.Environment.IsDevelopment() && builder.Configuration.GetValue<bool>("Email:DemoLoggingEnabled")
-            ? new LoggingEmailSender(sp.GetRequiredService<ILogger<LoggingEmailSender>>())
-            : new UnavailableEmailSender()
+        ? new UnavailableEmailSender()
         : new SmtpEmailSender(sp.GetRequiredService<IOptions<EmailOptions>>()));
 
 // Administration (BR-2, BR-6, BR-7, BR-39, BR-44..BR-48)
 builder.Services.AddScoped<IUserAdminService, UserAdminService>();
+builder.Services.AddScoped<StaffInvitationExpiryService>();
+builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Identity.IStaffInvitationExpiryReader>(
+    sp => sp.GetRequiredService<StaffInvitationExpiryService>());
+builder.Services.AddScoped<SportHub.Administration.Application.Services.ActivationLinkService>();
+builder.Services.AddScoped<SportHub.Administration.Application.Services.FrontDeskMemberService>();
 builder.Services.AddScoped<ISystemSettingService, SystemSettingService>();
 builder.Services.AddScoped<IAuditQueryService, AuditQueryService>();
 builder.Services.AddSingleton<IReportStorage, FileSystemReportStorage>();
@@ -241,9 +242,11 @@ builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Membership.IMemb
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Membership.IMembershipAccessReader, MembershipAccessReader>();
 builder.Services.AddScoped<IMemberPackageService, MemberPackageService>();
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Membership.IMembershipClosureExtension, MembershipClosureExtension>();
+builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Scheduling.IGymClosureReader, SportHub.Scheduling.Rental.Application.GymClosureReader>();
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Membership.IMembershipRefundFulfillment, MembershipRefundFulfillment>();
 builder.Services.AddScoped<IMemberTrainingProfileService, MemberTrainingProfileService>();
 builder.Services.AddScoped<IMembershipReportService, MembershipReportService>();
+builder.Services.AddScoped<IMembershipPurchaseReportReader, MembershipPurchaseReportReader>();
 
 // Notification
 builder.Services.AddScoped<INotificationService, NotificationService>();
@@ -252,11 +255,10 @@ builder.Services.AddScoped<INotificationActionReader, SportHub.API.Persistence.N
 // Scheduling
 builder.Services.AddScoped<IGymCheckInRepository, GymCheckInRepository>();
 builder.Services.AddScoped<IGymCheckInService, GymCheckInService>();
+builder.Services.AddSingleton<SportHub.Scheduling.Application.Services.MemberCheckInCodeService>();
 builder.Services.AddScoped<IRoomService, RoomService>();
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Scheduling.IOccupancyService, SportHub.Scheduling.Occupancy.Application.OccupancyService>();
 builder.Services.AddScoped<SportHub.Scheduling.Occupancy.Application.AvailabilityService>();
-builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Training.IPersonalTrainingScheduleReader, SportHub.Training.Application.Services.PersonalTrainingScheduleReader>();
-builder.Services.AddScoped<SportHub.Scheduling.Catalog.Application.ServiceUsageGuard>();
 builder.Services.AddScoped<SportHub.Scheduling.Catalog.Application.SportCatalogService>();
 builder.Services.AddScoped<SportHub.Scheduling.Catalog.Application.RoomTypeService>();
 builder.Services.AddScoped<SportHub.Scheduling.Catalog.Application.RoomOpeningHourService>();
@@ -278,7 +280,6 @@ builder.Services.AddScoped<SportHub.Scheduling.Threshold.Application.ThresholdRe
 builder.Services.AddScoped<IClassSessionService, ClassSessionService>();
 builder.Services.AddScoped<IClassEnrollmentReportService, ClassEnrollmentReportService>();
 builder.Services.AddScoped<SportHub.Scheduling.Rental.Application.CourtScheduleService>();
-builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Scheduling.IPtCourtScheduleReader, SportHub.Training.Application.Services.PtCourtScheduleReader>();
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Reporting.IClassEnrollmentExportReader, ClassEnrollmentExportReader>();
 builder.Services.AddScoped<CourseValidator>();
 builder.Services.AddScoped<SeatHoldService>();
@@ -302,9 +303,6 @@ builder.Services.AddScoped<SportHub.Payment.Wallet.Application.WalletQueryServic
 builder.Services.AddScoped<SportHub.Payment.Wallet.Application.PointAdjustmentService>();
 builder.Services.AddScoped<SportHub.Payment.Wallet.Application.PointConfirmationService>();
 var vnPaySection = builder.Configuration.GetSection(VnPayOptions.SectionName);
-var vnPayUseMock = vnPaySection.GetValue<bool>(nameof(VnPayOptions.UseMock));
-if (vnPayUseMock && !builder.Environment.IsDevelopment())
-    throw new InvalidOperationException("VnPay:UseMock is supported only in explicit Development.");
 if (!builder.Environment.IsDevelopment())
 {
     var paymentUrl = vnPaySection[nameof(VnPayOptions.PaymentUrl)] ?? "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html";
@@ -319,10 +317,7 @@ if (!builder.Environment.IsDevelopment())
 }
 builder.Services.Configure<VnPayOptions>(vnPaySection);
 builder.Services.AddHttpClient<VnPayGateway>();
-builder.Services.AddSingleton<IPaymentGateway>(sp =>
-    builder.Environment.IsDevelopment() && vnPayUseMock
-        ? new MockPaymentGateway()
-        : sp.GetRequiredService<VnPayGateway>());
+builder.Services.AddSingleton<IPaymentGateway>(sp => sp.GetRequiredService<VnPayGateway>());
 builder.Services.AddScoped<CheckoutService>();
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Payment.ICheckoutLifecycleService>(
     sp => sp.GetRequiredService<CheckoutService>());
@@ -340,20 +335,7 @@ builder.Services.AddScoped<ICoachRelationshipRegistrar>(
     sp => sp.GetRequiredService<CoachMemberRelationshipService>());
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Training.ICoachMemberAccessReader>(
     sp => sp.GetRequiredService<CoachMemberRelationshipService>());
-builder.Services.AddScoped<IWorkoutService, WorkoutService>();
 
-// PT (BE-4) — entitlement/session lifecycle. PtSessionService đăng ký cụ thể vì
-// PtSessionChangeRequestService inject thẳng lớp này để dùng lại ApplyCancelAsync/
-// ApplyRescheduleAsync (duyệt request phải tái dùng đúng logic quota với Manager cancel/reschedule
-// trực tiếp, không viết lại lần hai).
-builder.Services.AddScoped<IPtEntitlementLifecycle, PtEntitlementLifecycleService>();
-builder.Services.AddScoped<PtPricingService>();
-builder.Services.AddScoped<IPtPurchaseFulfillment, PtPurchaseFulfillment>();
-builder.Services.AddScoped<IPtEntitlementQueryService, PtEntitlementQueryService>();
-builder.Services.AddScoped<PtSessionService>();
-builder.Services.AddScoped<IPtSessionService>(sp => sp.GetRequiredService<PtSessionService>());
-builder.Services.AddScoped<IPtSessionChangeRequestService, PtSessionChangeRequestService>();
-builder.Services.AddScoped<IPtCoachChangeRequestService, PtCoachChangeRequestService>();
 
 // AI — bản cài đặt theo luật, chạy cục bộ (xem RuleBasedAiRecommendationService).
 builder.Services.AddScoped<IAiRecommendationService, RuleBasedAiRecommendationService>();
@@ -402,11 +384,11 @@ builder.Services.AddHttpClient(
 
 // Tác vụ nền: BR-11/BR-33 (hạn gói), BR-20/BR-53 (No-show), BR-34 (phát thông báo).
 builder.Services.AddHostedService<MemberPackageExpiryJob>();
+builder.Services.AddHostedService<StaffInvitationExpiryJob>();
 builder.Services.AddHostedService<ClassStatusJob>();
 builder.Services.AddHostedService<ClassThresholdEvaluationJob>();
 builder.Services.AddHostedService<ClassThresholdResponseExpiryJob>();
 builder.Services.AddHostedService<RentalStatusJob>();
-builder.Services.AddHostedService<AttendanceFinalizerJob>();
 builder.Services.AddHostedService<SeatHoldExpiryJob>();
 builder.Services.AddHostedService<CheckoutExpiryJob>();
 builder.Services.AddHostedService<PaymentReconciliationJob>();
@@ -432,103 +414,39 @@ builder.Services.AddControllers()
     });
 builder.Services.AddSportHubSwagger();
 
-builder.Services.AddScoped<DemoDataSeeder>();
-builder.Services.AddScoped<Br141DemoSeeder>();
-builder.Services.AddScoped<CoachRosterSeeder>();
-builder.Services.AddScoped<FacilityBaselineSeeder>();
+builder.Services.AddScoped<SystemValidationSeeder>();
 builder.Services.AddScoped<PaymentNoticeService>();
 
 var app = builder.Build();
 
-if (args.Any(a => a == "--seed-pt-calendar=true"))
+if (args.Any(a => a.StartsWith("--seed-", StringComparison.Ordinal)))
 {
+    if (!args.Contains("--seed-validation=true") || args.Any(a => a.StartsWith("--seed-", StringComparison.Ordinal) && a != "--seed-validation=true"))
+        throw new InvalidOperationException("Use --seed-validation=true for explicit local setup. Legacy demo seed commands have been removed.");
     if (!app.Environment.IsDevelopment())
-        throw new InvalidOperationException("PT calendar fixtures are only available in Development.");
+        throw new InvalidOperationException("Validation seeding is only available in Development.");
     var target = new Npgsql.NpgsqlConnectionStringBuilder(app.Configuration.GetConnectionString("Default"));
     if (target.Host is not ("localhost" or "127.0.0.1" or "::1"))
-        throw new InvalidOperationException("PT calendar fixtures must target a local Development database.");
-    Console.WriteLine($"[seed-pt-calendar] database '{target.Database}' on '{target.Host}:{target.Port}'");
+        throw new InvalidOperationException("Validation seeding must target a local database.");
     await using var scope = app.Services.CreateAsyncScope();
-    await scope.ServiceProvider.GetRequiredService<SportHubDbContext>().Database.MigrateAsync();
-    await scope.ServiceProvider.GetRequiredService<DemoDataSeeder>().SeedPtCalendarAsync();
+    var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
+    if ((await db.Database.GetPendingMigrationsAsync()).Any())
+        throw new InvalidOperationException("Apply pending migrations before seeding. The seed command never changes the database schema.");
+    await db.Database.OpenConnectionAsync();
+    await db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_lock(2026101301)");
+    try { await scope.ServiceProvider.GetRequiredService<SystemValidationSeeder>().SeedAsync(); }
+    finally {
+        await db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_unlock(2026101301)");
+        await db.Database.CloseConnectionAsync();
+    }
     return;
 }
 
-if (args.Any(a => a == "--seed-coach-teaching=true"))
-{
-    if (!app.Environment.IsDevelopment())
-        throw new InvalidOperationException("Coach teaching fixtures are only available in Development.");
-    var target = new Npgsql.NpgsqlConnectionStringBuilder(app.Configuration.GetConnectionString("Default"));
-    if (target.Host is not ("localhost" or "127.0.0.1" or "::1"))
-        throw new InvalidOperationException("Coach teaching fixtures must target a local Development database.");
-    Console.WriteLine($"[seed-coach-teaching] database '{target.Database}' on '{target.Host}:{target.Port}'");
-    await using var scope = app.Services.CreateAsyncScope();
-    await scope.ServiceProvider.GetRequiredService<SportHubDbContext>().Database.MigrateAsync();
-    await scope.ServiceProvider.GetRequiredService<DemoDataSeeder>().SeedCoachTeachingAsync();
-    return;
-}
-
-if (args.Any(a => a == "--seed-member-calendar=true"))
-{
-    if (!app.Environment.IsDevelopment())
-        throw new InvalidOperationException("Member calendar fixtures are only available in Development.");
-    var calendarDatabase = new Npgsql.NpgsqlConnectionStringBuilder(app.Configuration.GetConnectionString("Default"));
-    if (calendarDatabase.Host is not ("localhost" or "127.0.0.1" or "::1"))
-        throw new InvalidOperationException("Calendar fixtures must target a local Development database.");
-    await using var calendarScope = app.Services.CreateAsyncScope();
-    await calendarScope.ServiceProvider.GetRequiredService<DemoDataSeeder>().SeedMemberCalendarAsync();
-    return;
-}
-
-// Đội huấn luyện viên demo (5 PT, 2 cầu lông, 2 bóng rổ; tên người Việt, ảnh minh họa), idempotent, không xóa dữ liệu:
-//   dotnet run --project backend/SportHub.API -- --seed-coaches=true
-if (args.Any(a => a == "--seed-coaches=true"))
-{
-    if (!app.Environment.IsDevelopment())
-        throw new InvalidOperationException("Demo fixtures are only available in Development.");
-    await using var coachScope = app.Services.CreateAsyncScope();
-    await coachScope.ServiceProvider.GetRequiredService<SportHubDbContext>().Database.MigrateAsync();
-    await coachScope.ServiceProvider.GetRequiredService<CoachRosterSeeder>().SeedAsync();
-    return;
-}
-
-// Kế hoạch tập coach.pt giao cho an.member (idempotent), để xem giao diện Member trên DB đã có dữ liệu:
-//   dotnet run --project backend/SportHub.API -- --seed-member-training=true
-if (args.Any(a => a == "--seed-member-training=true"))
-{
-    if (!app.Environment.IsDevelopment())
-        throw new InvalidOperationException("Demo fixtures are only available in Development.");
-    await using var trainingScope = app.Services.CreateAsyncScope();
-    await trainingScope.ServiceProvider.GetRequiredService<DemoDataSeeder>().SeedMemberWorkoutPlanAsync();
-    return;
-}
-
-// Seed demo BR-141 (lớp cố định + giá thuê sân): lệnh riêng, chạy tay khi sẵn sàng, không chạy lúc khởi động bình thường.
-//   dotnet run --project backend/SportHub.API -- --seed-br141=true
-// Viết `--seed-br141=true` (có giá trị): provider dòng lệnh của .NET coi tham số `--khoá` đứng một mình là "khóa + giá trị là
-// tham số kế tiếp", nên `--seed-br141 --ConnectionStrings:Default=...` nuốt mất chuỗi kết nối và seed chạy vào DB mặc định.
-if (args.Any(a => a.StartsWith("--seed-br141", StringComparison.Ordinal)))
-{
-    var target = new Npgsql.NpgsqlConnectionStringBuilder(app.Configuration.GetConnectionString("Default"));
-    Console.WriteLine($"[seed-br141] database '{target.Database}' on '{target.Host}:{target.Port}'");
-    await using var seedScope = app.Services.CreateAsyncScope();
-    await seedScope.ServiceProvider.GetRequiredService<SportHubDbContext>().Database.MigrateAsync();
-    await seedScope.ServiceProvider.GetRequiredService<FacilityBaselineSeeder>().SeedAsync();
-    await seedScope.ServiceProvider.GetRequiredService<Br141DemoSeeder>().SeedAsync();
-    return;
-}
-
-// Ở Development: áp migration rồi seed dữ liệu demo. Seeder tự bỏ qua nếu DB đã có tài khoản,
-// nên không bao giờ ghi đè dữ liệu người dùng đang có.
-// Ở môi trường khác, migration chạy qua `dotnet ef database update` trong quy trình triển khai —
-// tự migrate khi khởi động nhiều instance sẽ có nhiều tiến trình cùng đổi schema một lúc.
+// Development migrates the schema, but never inserts or rewrites operational data on startup.
 if (app.Environment.IsDevelopment())
 {
     await using var startupScope = app.Services.CreateAsyncScope();
-
     await startupScope.ServiceProvider.GetRequiredService<SportHubDbContext>().Database.MigrateAsync();
-    await startupScope.ServiceProvider.GetRequiredService<DemoDataSeeder>().SeedAsync();
-    await startupScope.ServiceProvider.GetRequiredService<FacilityBaselineSeeder>().SeedAsync();
 }
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();

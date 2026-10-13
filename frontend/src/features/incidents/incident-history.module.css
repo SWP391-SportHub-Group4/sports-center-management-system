@@ -1,0 +1,38 @@
+.history {
+  min-width: 0;
+}
+.history :global([role="region"]) {
+  max-height: 26rem;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.history table {
+  min-width: 760px;
+}
+.history thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--bg-surface-sunken);
+}
+.reason {
+  display: block;
+  min-width: 12rem;
+  max-width: 24rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
+  gap: var(--space-4);
+  margin: 0;
+}
+.details dt {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.details dd {
+  margin: var(--space-1) 0 0;
+  overflow-wrap: anywhere;
+}

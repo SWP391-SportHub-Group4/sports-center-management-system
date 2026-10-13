@@ -84,9 +84,35 @@ export function setUnauthorizedHandler(handler: (() => void) | null) {
 }
 
 function buildUrl(path: string, query?: RequestOptions["query"]) {
-  const url = new URL(
-    path.startsWith("http") ? path : `${API_BASE_URL}${path}`,
-  );
+  const configurationError = () =>
+    new ApiError(
+      0,
+      "api_configuration_error",
+      "SportHub's API address is invalid. Set NEXT_PUBLIC_API_BASE_URL to the full HTTPS backend URL and redeploy the frontend.",
+    );
+  let url: URL;
+  try {
+    url = new URL(
+      path.startsWith("http")
+        ? path
+        : `${API_BASE_URL.trim().replace(/\/+$/, "")}${path}`,
+    );
+  } catch {
+    throw configurationError();
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw configurationError();
+  }
+  if (typeof window !== "undefined") {
+    const loopbackHosts = ["localhost", "127.0.0.1", "[::1]"];
+    if (
+      (window.location.protocol === "https:" && url.protocol === "http:") ||
+      (!loopbackHosts.includes(window.location.hostname) &&
+        loopbackHosts.includes(url.hostname))
+    ) {
+      throw configurationError();
+    }
+  }
 
   if (query) {
     for (const [key, value] of Object.entries(query)) {
@@ -119,9 +145,12 @@ async function request<T>(
   }
 
   let response: Response;
+  // Resolve configuration errors before the fetch catch; an invalid URL never
+  // sends a request and must not be reported as a network failure.
+  const requestUrl = buildUrl(path, options.query);
 
   try {
-    response = await fetch(buildUrl(path, options.query), {
+    response = await fetch(requestUrl, {
       method,
       headers,
       body:
@@ -137,11 +166,7 @@ async function request<T>(
     // AbortError là chủ ý của caller, không phải sự cố mạng — ném nguyên để useApi bỏ qua.
     if (error instanceof DOMException && error.name === "AbortError")
       throw error;
-    throw new ApiError(
-      0,
-      "network_error",
-      en.apiErrors.networkError,
-    );
+    throw new ApiError(0, "network_error", en.apiErrors.networkError);
   }
 
   if (response.status === 204) {

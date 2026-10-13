@@ -7,7 +7,7 @@
 
 ## 0. Ghi chú về skill
 
-Đã đối chiếu Impeccable local tại `.claude/skills/impeccable` và Taste tại `.agents/skills/design-taste-frontend`. Cả nhóm dùng Impeccable cho UX, Taste cho UI trong phạm vi phù hợp theo [DESIGN-SKILLS-GUIDE](DESIGN-SKILLS-GUIDE.md). **File này là nguồn token duy nhất**, không lấy mặc định màu/font của skill ghi đè Court & Volt. **An giữ nền tảng và tích hợp token vào code; Khôi là UI/UX Lead review trải nghiệm/visual**; cả nhóm tiêu thụ chung. Thay đổi token cần cả review thiết kế và kỹ thuật, không đổi palette theo từng người.
+Đã đối chiếu Impeccable local tại `.claude/skills/impeccable` và Taste tại `.agents/skills/design-taste-frontend`. Cả nhóm dùng Impeccable cho UX, Taste cho UI trong phạm vi phù hợp. **File này là nguồn token duy nhất**, không lấy mặc định màu/font của skill ghi đè Court & Volt. **An giữ nền tảng và tích hợp token vào code; Khôi là UI/UX Lead review trải nghiệm/visual**; cả nhóm tiêu thụ chung. Thay đổi token cần cả review thiết kế và kỹ thuật, không đổi palette theo từng người.
 
 ---
 
@@ -280,12 +280,12 @@ Frontend dùng token trong frontend/src/styles/tokens.css và DESIGN-TOKENS.md. 
 
 | Công cụ | Cách gắn |
 |---|---|
-| **Claude Code** | Chỉ rõ `DESIGN-SKILLS-GUIDE.md` và `DESIGN-TOKENS.md` trong prompt/rules. Không mặc định Impeccable tự đọc file tên tùy ý; không chạy document để dựng lại màu cũ. |
+| **Claude Code** | Chỉ rõ `DESIGN-TOKENS.md` trong prompt/rules. Không mặc định Impeccable tự đọc file tên tùy ý; không chạy document để dựng lại màu cũ. |
 | **Codex** | Dán vào `AGENTS.md` ở root repo. |
 | **ChatGPT** | Dán khối trên vào Custom Instructions của Project, đính kèm `tokens.css` làm file tham chiếu. |
 | **Antigravity** | Đặt vào file rules/workspace rules của dự án; trỏ tới `tokens.css`. |
 
-Nguồn quy trình/prompt chung là [DESIGN-SKILLS-GUIDE.md](DESIGN-SKILLS-GUIDE.md). Rules theo tool chỉ trỏ về GUIDE + file này; không tạo thêm AI-RULES hay bảng màu song song. ChatGPT cần nhận nội dung qua upload/paste, không chỉ tên đường dẫn.
+Rules theo tool chỉ trỏ về file này; không tạo thêm AI-RULES hay bảng màu song song. ChatGPT cần nhận nội dung qua upload/paste, không chỉ tên đường dẫn.
 
 ### Checklist review PR giao diện
 - [ ] Rà raw colors và spacing ngoài `tokens.css` bằng `rg`; không có màu/spacing tự phát. Border 1px, breakpoint, media dimensions và asset là ngoại lệ kỹ thuật cần phân biệt, không cấm mọi `px` máy móc.

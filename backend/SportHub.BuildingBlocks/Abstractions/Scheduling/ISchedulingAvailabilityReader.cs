@@ -10,12 +10,6 @@ public interface ISchedulingAvailabilityReader
     Task<IReadOnlyList<TimeWindow>> GetCoachBusyAsync(
         Guid coachId, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Phòng active dùng được cho dịch vụ (loại phòng nằm trong tập của dịch vụ), kèm giờ mở cửa theo thứ và
-    /// các khoảng đã bị chiếm giao với [fromUtc, toUtc).
-    /// </summary>
-    Task<IReadOnlyList<RoomAvailability>> GetServiceRoomsAsync(
-        SportServiceType serviceType, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken = default);
 }
 
 /// <summary>Khoảng nửa-mở [StartUtc, EndUtc).</summary>

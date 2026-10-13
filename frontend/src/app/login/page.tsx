@@ -14,37 +14,16 @@ import { ForgotPasswordModal } from "@/components/auth/ForgotPasswordModal";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 import styles from "./login.module.css";
 
-/**
- * Demo accounts for development environment (see SportHub.API/Persistence/DemoDataSeeder.cs).
- *
- * Clicking autofills the form; authentication still proceeds through POST /api/auth/login
- * with BCrypt hashed passwords in DB (BR-5). No shortcuts bypass authentication.
- */
-const DEMO_ACCOUNTS = [
-  { label: "System Administrator", email: "admin@sporthub.vn" },
-  { label: "Center Manager", email: "manager@sporthub.vn" },
-  { label: "Receptionist", email: "letan@sporthub.vn" },
-  {
-    label: "Coach · PT",
-    email: "coach.pt@sporthub.vn",
-  },
-  {
-    label: "Coach · Cầu lông",
-    email: "coach.caulong@sporthub.vn",
-  },
-  { label: "Member", email: "an.member@sporthub.vn" },
-];
-
-const DEMO_PASSWORD = "Sporthub@123";
-const SHOW_DEMO_ACCOUNTS =
-  process.env.NODE_ENV === "development" ||
-  process.env.NEXT_PUBLIC_SHOW_DEMO_ACCOUNTS === "true";
-
 function loginErrorMessage(
   cause: unknown,
   language: "en" | "vi",
   method: "password" | "google" = "password",
 ) {
+  if (cause instanceof ApiError && cause.code === "api_configuration_error") {
+    return language === "vi"
+      ? "Địa chỉ API chưa được cấu hình đúng. Đặt NEXT_PUBLIC_API_BASE_URL thành URL HTTPS đầy đủ của backend và deploy lại frontend."
+      : cause.message;
+  }
   if (language === "vi")
     return cause instanceof ApiError
       ? cause.message
@@ -106,9 +85,7 @@ function LoginForm() {
     null,
   );
   const [busy, setBusy] = useState(false);
-  const [forgotOpen, setForgotOpen] = useState(
-    params.get("forgot") === "1",
-  );
+  const [forgotOpen, setForgotOpen] = useState(params.get("forgot") === "1");
 
   const expired = params.get("reason") === "session-expired";
   const next = params.get("next");
@@ -344,39 +321,6 @@ function LoginForm() {
           <p className={styles.signup}>
             {t.auth.noAccount} <Link href="/register">{t.auth.createOne}</Link>
           </p>
-
-          {SHOW_DEMO_ACCOUNTS && (
-            <details className="demo-accounts">
-              <summary className="demo-accounts__summary">
-                <span className="demo-accounts__badge">DEV</span>
-                <span>Quick Fill Demo Accounts</span>
-                <span className="demo-accounts__hint">Click to toggle</span>
-              </summary>
-              <p className="small muted" style={{ margin: "8px 0 6px" }}>
-                Select a role to autofill credentials (password:{" "}
-                <code>{DEMO_PASSWORD}</code>). Authentication uses the real API.
-              </p>
-              <div className="demo-accounts__grid">
-                {DEMO_ACCOUNTS.map((account) => (
-                  <button
-                    key={account.email}
-                    type="button"
-                    className="btn btn--ghost btn--sm"
-                    disabled={busy}
-                    onClick={() => {
-                      setEmail(account.email);
-                      setPassword(DEMO_PASSWORD);
-                      setFieldErrors({});
-                      setError(null);
-                      setErrorSource(null);
-                    }}
-                  >
-                    {account.label}
-                  </button>
-                ))}
-              </div>
-            </details>
-          )}
         </section>
       </main>
       {forgotOpen && (

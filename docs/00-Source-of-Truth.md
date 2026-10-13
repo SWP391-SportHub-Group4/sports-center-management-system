@@ -1,28 +1,28 @@
 # SportHub — Nguồn thống nhất về phạm vi và quy ước
 
-SportHub là **hệ thống quản lý trung tâm thể thao với ba môn Gym (bao gồm PT), cầu lông và bóng rổ; có thể mở rộng thêm môn trong tương lai**. PT là dịch vụ thuộc Gym, không phải môn thứ tư.
+SportHub là **hệ thống quản lý trung tâm thể thao với ba môn Gym, cầu lông và bóng rổ; có thể mở rộng thêm môn trong tương lai**. Gym chỉ bán Membership có thời hạn và vé Gym 1 ngày.
 
 ## 1. Thứ tự nguồn và cách giải quyết mâu thuẫn
 
-1. Yêu cầu trực tiếp đã xác nhận của chủ sản phẩm, bao gồm phạm vi ba môn và PT thuộc Gym.
+1. Yêu cầu trực tiếp đã xác nhận của chủ sản phẩm, bao gồm phạm vi ba môn (Gym, cầu lông, bóng rổ) và vé Gym 1 ngày.
 2. [Business Rules](SportManagement_BusinessRules_v2.0_updated.docx): quy tắc nghiệp vụ cụ thể.
 3. [Thiết kế hệ thống](Center-Management-System-Design-v3.md): kiến trúc, dữ liệu, transaction, luồng và khoảng trống triển khai.
 4. [Requirements](Requirements.md), [API contract](api-contract.md), Phụ lục A (từ điển dữ liệu) của [thiết kế hệ thống](Center-Management-System-Design-v3.md): yêu cầu, field/mapping và hợp đồng tích hợp.
-5. [PRODUCT](../PRODUCT.md), [DESIGN-SKILLS-GUIDE](../DESIGN-SKILLS-GUIDE.md), [DESIGN-TOKENS](../DESIGN-TOKENS.md): sản phẩm, quy trình thiết kế và nguồn token duy nhất.
+5. [PRODUCT](../PRODUCT.md), [DESIGN-TOKENS](../DESIGN-TOKENS.md): sản phẩm và nguồn token duy nhất.
 
 Mã nguồn/controller/configuration xác định hành vi đã triển khai, không tự thay thế yêu cầu nghiệp vụ. Khi thiết kế và mã khác nhau, ghi gap cùng evidence; không tuyên bố hoàn thành chỉ vì đã có trong tài liệu. SRS Word là tài liệu yêu cầu tổng quan; các mô tả chi tiết chưa đồng bộ phải đọc theo phạm vi và thiết kế hiện hành.
 
-Phần mở rộng được chủ sản phẩm xác nhận: [Không gian giảng dạy Coach lớp nhóm](Coach-Teaching-Workspace.md). Coach được phân công có thể soạn giáo án, điểm danh đúng buổi, lưu kết quả/nhận xét, gửi bài tập/thông báo và dùng AI gợi ý; không yêu cầu qualification PT cho các thao tác lớp nhóm này.
+Phần mở rộng được chủ sản phẩm xác nhận: [Không gian giảng dạy Coach lớp nhóm](Coach-Teaching-Workspace.md). Coach được phân công có thể soạn giáo án, điểm danh đúng buổi, lưu kết quả/nhận xét, gửi bài tập/thông báo và dùng AI gợi ý.
 
-Phần mở rộng ngày 11/10/2026: [Coach yêu cầu thay đổi buổi học nhóm](Class-Session-Change-Requests.md), Manager xử lý hoặc từ chối; Coach không tự hủy/đổi lịch. Thay đổi lịch và cập nhật yêu cầu trong cùng transaction.
+Phần mở rộng: [Coach yêu cầu thay đổi buổi học nhóm](Class-Session-Change-Requests.md), Manager xử lý hoặc từ chối; Coach không tự hủy/đổi lịch. Thay đổi lịch và cập nhật yêu cầu trong cùng transaction.
 
 ## 2. Phạm vi và thuật ngữ
 
 | Thuật ngữ | Nghĩa thống nhất |
 |---|---|
 | Sport | Môn cấu hình: Gym, cầu lông, bóng rổ; mở rộng được |
-| PT | Huấn luyện cá nhân thuộc Gym, một Coach — một Member |
-| Membership | Quyền vào Gym có thời hạn, điều kiện mua PT; không phải vé lớp nhóm |
+| Vé Gym 1 ngày | Gói Gym cố định 50.000đ, dùng trong ngày thanh toán thành công (giờ Việt Nam), mã check-in do server cấp, chỉ có hiệu lực trong ngày |
+| Membership | Quyền vào Gym có thời hạn; không phải vé lớp nhóm |
 | Class | Khóa học cố định gồm nhiều buổi, mua cả khóa |
 | ClassSession | Một buổi của khóa học |
 | Enrollment | Ghi danh vào Class sau thanh toán, không phải booking từng buổi |
@@ -35,18 +35,16 @@ Phần mở rộng ngày 11/10/2026: [Coach yêu cầu thay đổi buổi học 
 | PointWallet/PointLedgerEntry | Ví và lịch sử điểm; 1 điểm = 1.000 VND, hoàn bằng điểm |
 | PaymentAdjustment | Persistence hoàn điểm theo invoice item; không có bảng Refund độc lập |
 
-Seed kỹ thuật còn bản ghi Personal Training riêng. Việc gộp danh tính môn về Gym cần migration, không đổi/xóa ID tùy tiện. Xem CAT-01 trong thiết kế.
-
 ## 3. Vai trò và luồng
 
-Năm role: SystemAdministrator, CenterManager, Receptionist, Coach, Member. Guest là người chưa đăng nhập, không phải role lưu trong database. Mọi Member đều có chức năng thuê sân (BR-140). Một Coach có thể có nhiều chuyên môn; quyền truy cập dựa cả role và quan hệ được phân công.
+Năm role: SystemAdministrator, CenterManager, Receptionist, Coach, Member. Requirement gốc chỉ có bốn role (Manager, Coach, Member, Receptionist); SystemAdministrator là role bổ sung, chia việc với Manager: Admin nhận quản lý tài khoản staff, phân quyền (đổi role) và Audit Log thao tác tài khoản; Manager giữ vận hành trung tâm và Audit Log đầy đủ, nên Manager không còn giống 100% requirement gốc, xem bảng đối chiếu trong [Requirements](Requirements.md) §2. Guest là người chưa đăng nhập (xem được landing page và nội dung công khai), không phải role lưu trong database. Mọi Member đều có chức năng thuê sân (BR-140). Một Coach có thể có nhiều chuyên môn; quyền truy cập dựa cả role và quan hệ được phân công.
 
 | Luồng | Phạm vi |
 |---|---|
 | User/Membership | Identity, OTP, account/profile, Membership Gym, renewal/check-in |
 | Class/Schedule | Môn/phòng/giá, lớp nhiều buổi, hold/enrollment, threshold, occupancy, rental, incident |
 | Payment/Report | Invoice snapshot, checkout, VNPay/điểm, reconciliation, refund điểm, báo cáo |
-| Training/Attendance | PT entitlement/session, plan/result, điểm danh lớp bởi Receptionist |
+| Training/Attendance | Plan/result/đánh giá theo lớp, điểm danh lớp bởi Receptionist |
 | AI workout | Gợi ý cho Coach trong phạm vi học viên được giao |
 | AI assistant | Member context chat; Manager xếp lịch/tạo nháp là phần chưa triển khai |
 
@@ -54,15 +52,21 @@ Ngoài phạm vi: đa chi nhánh, payroll/hợp đồng, chia doanh thu với ng
 
 ## 4. Bất biến nghiệp vụ
 
-- Membership Gym và gói lớp độc lập; PT là gói trả phí riêng khi Membership Active.
+- Quy tắc xác nhận 13/10/2026 (BR-96): một Coach có thể dạy nhiều môn, có ít nhất một chuyên môn và được chọn nhiều môn ngay khi Admin tạo tài khoản hoặc đổi role sang Coach. Manager chỉnh sửa chuyên môn; phân công lớp phải khớp chuyên môn. Giới hạn đúng một môn trong luồng tạo Coach hiện tại là khoảng trống triển khai, không phải quy tắc nghiệp vụ.
+- Quy tắc xác nhận 13/10/2026: không đổi role của bất kỳ tài khoản đang là SystemAdministrator nào, kể cả chính mình và Admin khác. Việc tạo Admin hoặc nâng một tài khoản staff khác lên Admin vẫn được phép. Quy tắc khóa/mở khóa không thay đổi.
+- Membership Gym và gói lớp độc lập.
+- Vé Gym 1 ngày (day pass): giá cố định 50.000đ (seed cố định, Manager không sửa hay ngừng được), chỉ dùng trong ngày thanh toán thành công theo giờ Việt Nam, kèm mã check-in do server ký và cấp, chỉ có hiệu lực trong ngày; Member được báo rõ điều này trước khi trả tiền. Không bán khi Gym đang đóng cửa vì sự cố, không gia hạn khi đóng Gym, không hoàn trả.
 - Giá/thời hạn/quyền lợi đã mua dùng snapshot, không tính lại khi sửa catalog.
-- Enrollment theo khóa; attendance theo enrollment/session; lớp nhóm Present/Absent, PT xử lý No-show riêng.
+- Enrollment theo khóa; attendance theo enrollment/session; lớp nhóm Present/Absent.
 - ReservedCount bao gồm chỗ giữ và đã xác nhận; ConfirmedCount <= ReservedCount <= Capacity.
 - Ghi lịch phải đi qua occupancy trong transaction, không chỉ kiểm availability ở UI.
 - TotalAmount = PointsApplied × 1.000 + CashAmount; backend quyết định amount, không nhận client làm nguồn giá.
 - Return URL không xác nhận payment. Chỉ callback/query được xác minh cấp quyền lợi; retry không thu/cấp/hoàn trùng.
 - Điểm chỉ giữ/trừ theo xác nhận; dùng điểm hộ cần OTP Member. Hoàn trả bằng điểm theo item và cap hệ thống tính.
 - Hoàn chuẩn Membership Gym tối đa 50% (còn ≥ 2/3 thời hạn). Sự cố tạm thời của trung tâm (hỏng/sửa chữa phòng Gym) không phải căn cứ hoàn: Membership Active được gia hạn thêm số ngày đóng cửa, buổi lớp bù vào lịch tiếp theo, người bị ảnh hưởng được email (BR-130, BR-138). Hoàn do lỗi trung tâm chỉ cho vấn đề khác khiến trung tâm không thể cung cấp dịch vụ, theo phần chưa dùng.
+- Tài khoản Banned/Deactivated bị chặn sử dụng dịch vụ và mua mới tại backend, kể cả thao tác do nhân viên ghi nhận như check-in/điểm danh. Khóa tài khoản không tự hủy quyền lợi đã mua, lịch đã đặt hay số dư ví; hủy và hoàn phải qua luồng nghiệp vụ riêng, có audit.
+- Tài khoản Member được tạo bằng hai cách: Member tự đăng ký (OTP email hoặc Google), hoặc Receptionist/Manager đăng ký tại quầy (`POST /api/members/front-desk`): email nhập hai lần, tài khoản chưa có mật khẩu, Member nhận email kích hoạt (24 giờ, một lần) và tự đặt mật khẩu; chờ kích hoạt thì gửi lại link hoặc sửa email gõ sai (link cũ vô hiệu, có audit). Quầy không đặt mật khẩu hộ và chỉ tạo role Member.
+- Member và staff là hai loại tài khoản tách biệt (BR-142): không chuyển Member thành staff hay ngược lại (409 `member_staff_role_change_not_allowed`); muốn làm staff phải dùng email khác. Chỉ SystemAdministrator tạo tài khoản staff (kể cả Coach kèm chuyên môn, BR-96) và đó là bước duy nhất tạo Coach; staff nhận email kích hoạt để tự đặt mật khẩu. Manager chỉ sửa hồ sơ Coach. Đổi role chỉ giữa các role staff; Coach chỉ rời vai trò khi không còn lớp, lịch tương lai hay quan hệ huấn luyện Active. Email chưa được xác minh là của đúng người khi tạo, nên Admin phải nhập email hai lần; tài khoản chưa kích hoạt hiển thị "Chờ kích hoạt" (`activationPending`), Admin được gửi lại link (cooldown 60 giây, link cũ vô hiệu) hoặc sửa email gõ sai (link cũ vô hiệu, link mới tới email mới, có audit) cho tới khi người nhận đặt mật khẩu.
 - Manager duyệt theo quyền; SystemAdministrator không mặc nhiên có quyền nghiệp vụ; Coach chỉ đọc dữ liệu được phân công.
 - Checkout (A15, đã triển khai): hai cột, tóm tắt hiển thị tổng/điểm/tiền còn lại đúng số server; đồng hồ giữ chỗ tính từ `expiresAtUtc − serverNowUtc` và không reset khi reload; hết giờ thì dừng thao tác và tải lại, FE không "release slot"; quay lại tab thì tải lại ví và đơn; return từ cổng thanh toán không chứng minh đã thu. Route `/checkout/[invoiceId]`; tài chính Member ở `/member/finance?tab=wallet|invoices`, chi tiết `/member/invoices/[id]` (route cũ `/member/wallet`, `/member/invoices` chuyển hướng).
 - Quên mật khẩu bằng link email (BR-103): phản hồi trung tính; xem thiết kế v3 mục Danh tính. Trang xác thực luôn tiếng Anh.
@@ -92,6 +96,5 @@ The product uses English only. Public pages, authenticated screens, validation a
 
 ## 6. Theo dõi phần chưa hoàn thành
 
-Danh sách tập trung ở **mục 13 của [thiết kế hệ thống](Center-Management-System-Design-v3.md)**: payment đã có mã nhưng sandbox thật chưa nghiệm thu; callback public cần kiểm tra/sửa; mô hình Gym/PT cần đồng bộ; Manager AI, chờ đợt sau, QR Member, PT self-booking và các API hỗ trợ frontend còn thiếu.
+Danh sách tập trung ở **mục 13 của [thiết kế hệ thống](Center-Management-System-Design-v3.md)**: payment đã có mã nhưng sandbox thật chưa nghiệm thu; callback public cần kiểm tra/sửa; Manager AI, chờ đợt sau và các API hỗ trợ frontend còn thiếu.
 
-Chi tiết G01–G13 và D01–D08 theo ownership trong [guide](../DESIGN-SKILLS-GUIDE.md). Không duy trì API plan riêng hoặc quyết định cũ trái phạm vi.

@@ -2,6 +2,7 @@ namespace SportHub.Payment.VnPay;
 
 public interface IPaymentGateway
 {
+    string Mode => "VNPAY";
     string CreatePaymentUrl(string transactionReference, decimal amountVnd, DateTime createdAtUtc,
         DateTime expiresAtUtc, string clientIp);
     VerifiedPaymentResult VerifyCallback(IReadOnlyDictionary<string, string> values);

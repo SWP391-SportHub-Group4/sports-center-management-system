@@ -70,6 +70,12 @@
   gap: var(--space-2);
   margin: 0;
 }
+.planName {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: var(--text-lg);
+  overflow-wrap: anywhere;
+}
 .price strong {
   font-family: var(--font-mono);
   font-size: var(--text-xl);
@@ -148,12 +154,22 @@
 }
 
 .tiers {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  display: flex;
   align-items: stretch;
   gap: var(--space-3);
+  overflow-x: auto;
+  padding-bottom: var(--space-2);
+  scroll-snap-type: x proximity;
+  scrollbar-width: thin;
+  scrollbar-color: var(--chalk-300) transparent;
+}
+.tiers:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
 }
 .tier {
+  flex: 0 0 min(260px, 78vw);
+  scroll-snap-align: start;
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -165,14 +181,6 @@
 }
 .tier:hover {
   box-shadow: var(--shadow-sm);
-}
-.tier[data-featured] {
-  background: var(--court-100);
-}
-.tierTop {
-  display: grid;
-  justify-items: start;
-  gap: var(--space-2);
 }
 .months {
   display: flex;
@@ -202,8 +210,20 @@
   font-size: var(--text-xs);
   font-weight: 500;
 }
-.tier .meta {
-  margin-bottom: var(--space-2);
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  min-height: 24px;
+  margin: 0;
+}
+.current {
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--court-100);
+  color: var(--chalk-950);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
 }
 .tier .cta {
   margin-top: auto;

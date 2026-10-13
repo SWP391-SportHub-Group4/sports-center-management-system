@@ -26,6 +26,11 @@ public sealed class GymCheckInRepository(ISportHubDbContext db) : IGymCheckInRep
     {
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
 
+        // Serialize check-in against account lock/deactivation. SetStatusAsync updates this row,
+        // so FOR SHARE makes the access decision and check-in atomic with respect to that change.
+        await db.Database.ExecuteSqlInterpolatedAsync(
+            $"SELECT user_id FROM user_accounts WHERE user_id = {checkIn.MemberId} FOR SHARE", cancellationToken);
+
         // Xác minh target đúng là Member — không cho Lễ tân ghi check-in cho Coach/Manager
         // hay cho một user id bất kỳ. Gộp "không tồn tại" và "không phải Member" vào cùng
         // một lỗi 404 để không lộ sự tồn tại của tài khoản khác.
@@ -37,6 +42,13 @@ public sealed class GymCheckInRepository(ISportHubDbContext db) : IGymCheckInRep
         if (!isMember)
         {
             throw new MemberNotFoundException(checkIn.MemberId);
+        }
+
+        var isActive = await db.Set<UserAccount>()
+            .AnyAsync(u => u.UserId == checkIn.MemberId && u.Status == UserStatus.Active, cancellationToken);
+        if (!isActive)
+        {
+            throw new ConflictException("member_not_active", "Member not active.");
         }
 
         // Serialize the open-visit check and insert for this Member, including concurrent requests.

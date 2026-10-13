@@ -1,0 +1,47 @@
+.search {
+  margin-bottom: var(--space-4);
+}
+.pagination {
+  margin-top: var(--space-4);
+}
+.pagination > :global(.btn-row) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin: 0;
+}
+.pagination :global(.btn) {
+  margin: 0;
+  min-width: 88px;
+}
+.pagination span {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+@media (min-width: 768px) {
+  .memberTable table {
+    table-layout: fixed;
+    min-width: 1050px;
+  }
+  .memberTable table :is(th, td):nth-child(1) {
+    width: 23%;
+  }
+  .memberTable table :is(th, td):nth-child(2) {
+    width: 47%;
+  }
+  .memberTable table :is(th, td):nth-child(3) {
+    width: 17%;
+  }
+  .memberTable table :is(th, td):nth-child(4) {
+    width: 13%;
+  }
+  .memberTable table :is(th, td) {
+    white-space: nowrap;
+  }
+  .memberTable table td > div {
+    max-width: none;
+    overflow-wrap: normal;
+  }
+}

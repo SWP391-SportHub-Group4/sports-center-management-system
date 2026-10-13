@@ -8,7 +8,7 @@ export function hasService(
   return !!sport?.services.some((s) => s.serviceType === type && s.isEnabled);
 }
 
-/** Môn đầu tiên có dịch vụ này đang bật (PT và Membership luôn là môn Gym). */
+/** Môn đầu tiên có dịch vụ này đang bật (Membership luôn là môn Gym). */
 export function findSportWithService(
   sports: SportDto[] | null | undefined,
   type: SportServiceType,

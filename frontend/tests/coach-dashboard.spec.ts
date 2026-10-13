@@ -96,7 +96,11 @@ async function fixture(
       }
       return route.fulfill({
         json: classes.map((item, index) => {
-          const course = item as { classId: number; name: string; status: string };
+          const course = item as {
+            classId: number;
+            name: string;
+            status: string;
+          };
           return {
             sourceType: "CLASS_SESSION",
             sourceId: `session-${index}`,

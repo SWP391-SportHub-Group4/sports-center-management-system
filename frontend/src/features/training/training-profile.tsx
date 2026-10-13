@@ -1,16 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { RefreshCw } from "lucide-react";
+import { useId, useMemo, useState } from "react";
+import { ChevronDown } from "lucide-react";
 import { AsyncSection, Feedback, Field } from "@/components/ui";
 import { api } from "@/lib/apiClient";
 import { useAction, useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import type { MemberTrainingProfileDto } from "@/lib/types";
-import { BmiCard, MeasurementHistory } from "./health-profile-summary";
+import { BmiCard } from "./health-profile-summary";
 import {
   ACTIVITY_LEVELS,
-  BMI_CATEGORIES,
   DIETARY_PREFERENCES,
   EXPERIENCE_LEVELS,
   GOAL_TYPES,
@@ -20,8 +19,10 @@ import {
   type Option,
 } from "./health-profile-options";
 import styles from "./health-profile.module.css";
+import { BodyBuildSelector } from "./body-build-selector";
 
 type FormState = {
+  bodyBuild: string;
   goal: string;
   goalType: string;
   experienceLevel: string;
@@ -38,8 +39,13 @@ type FormState = {
   notes: string;
 };
 
+/** Label that stands in for the free-text goal when the member leaves it empty. */
+const defaultGoalText = (goalType: string) =>
+  GOAL_TYPES.find((o) => o.value === goalType)?.en ?? "General fitness";
+
 const fromProfile = (p: MemberTrainingProfileDto | null): FormState => ({
-  goal: p?.goal ?? "",
+  bodyBuild: p?.bodyBuild ?? "",
+  goal: p && p.goal !== defaultGoalText(p.goalType ?? "") ? p.goal : "",
   goalType: p?.goalType ?? "",
   experienceLevel: p?.experienceLevel ?? "",
   dateOfBirth: p?.dateOfBirth ?? "",
@@ -74,12 +80,22 @@ function ChoiceGroup({
   vi: boolean;
   error?: string;
 }) {
+  const legendId = useId();
+  const errorId = useId();
   return (
-    <div role="radiogroup" aria-label={legend} aria-invalid={!!error}>
-      <p className={styles.sectionHint}>
+    <fieldset className={styles.choiceGroup}>
+      <legend id={legendId} className={styles.choiceLegend}>
         <strong>{legend}</strong> *
-      </p>
-      <div className={styles.choices}>
+      </legend>
+      <div
+        role="radiogroup"
+        aria-labelledby={legendId}
+        aria-required="true"
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? errorId : undefined}
+        className={styles.choices}
+        data-count={options.length}
+      >
         {options.map((option) => (
           <label key={option.value} className={styles.choice}>
             <input
@@ -97,11 +113,11 @@ function ChoiceGroup({
         ))}
       </div>
       {error && (
-        <p className="field__error" role="alert">
+        <p id={errorId} className="field__error" role="alert">
           {error}
         </p>
       )}
-    </div>
+    </fieldset>
   );
 }
 
@@ -157,6 +173,15 @@ function ProfileForm({
   const [form, setForm] = useState<FormState>(() => fromProfile(profile));
   const [ack, setAck] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  // Optional extras stay collapsed unless the member already filled one in.
+  const [detailsOpen, setDetailsOpen] = useState(
+    () =>
+      !!profile &&
+      (profile.targetWeightKg !== null ||
+        profile.sessionMinutes !== null ||
+        profile.dietaryPreference !== "NO_PREFERENCE" ||
+        form.goal !== ""),
+  );
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((current) => ({ ...current, [key]: value }));
 
@@ -175,7 +200,7 @@ function ProfileForm({
 
   const required = vi ? "Bắt buộc" : "Required";
   const errors: Partial<Record<keyof FormState | "ack", string>> = {};
-  if (form.goal.trim().length < 3)
+  if (form.goal.trim() !== "" && form.goal.trim().length < 3)
     errors.goal = vi
       ? "Mô tả mục tiêu (tối thiểu 3 ký tự)."
       : "Describe your goal (at least 3 characters).";
@@ -221,17 +246,21 @@ function ProfileForm({
 
   async function save() {
     setSubmitted(true);
+    // Errors inside the collapsed extras must be visible, not hidden behind the toggle.
+    if (errors.targetWeightKg || errors.sessionMinutes || errors.goal)
+      setDetailsOpen(true);
     if (!valid || action.busy) return;
     const saved = await action.run(
       () =>
         api.put<MemberTrainingProfileDto>("/api/members/me/training-profile", {
-          goal: form.goal.trim(),
+          goal: form.goal.trim() || defaultGoalText(form.goalType),
           goalType: form.goalType,
           experienceLevel: form.experienceLevel,
           dateOfBirth: form.dateOfBirth,
           sex: form.sex,
           heightCm: height,
           weightKg: weight,
+          bodyBuild: form.bodyBuild || null,
           targetWeightKg: target,
           activityLevel: form.activityLevel,
           trainingDaysPerWeek: days,
@@ -241,7 +270,7 @@ function ProfileForm({
           foodAllergies: form.foodAllergies.trim() || null,
           notes: form.notes.trim() || null,
         }),
-      vi ? "Đã lưu hồ sơ sức khỏe." : "Health profile saved.",
+      vi ? "Đã lưu hồ sơ." : "Fitness profile saved.",
     );
     if (saved) onSaved();
   }
@@ -287,27 +316,6 @@ function ProfileForm({
             vi={vi}
             error={show("goalType")}
           />
-          <Field
-            label={
-              vi
-                ? "Mô tả mục tiêu bằng lời của bạn"
-                : "Describe your goal in your own words"
-            }
-            required
-            error={show("goal")}
-            hint={
-              vi
-                ? "Ví dụ: giảm 5 kg trong 3 tháng để thi đấu cầu lông."
-                : "Example: lose 5 kg in 3 months for badminton season."
-            }
-          >
-            <textarea
-              rows={3}
-              maxLength={500}
-              value={form.goal}
-              onChange={(e) => set("goal", e.target.value)}
-            />
-          </Field>
           <ChoiceGroup
             name="experienceLevel"
             legend={vi ? "Kinh nghiệm tập luyện" : "Training experience"}
@@ -321,6 +329,10 @@ function ProfileForm({
 
         <fieldset className={styles.section}>
           <legend>{vi ? "2. Thông tin cơ thể" : "2. Your body"}</legend>
+          <BodyBuildSelector
+            value={form.bodyBuild}
+            onChange={(value) => set("bodyBuild", value)}
+          />
           <p className={styles.sectionHint}>
             {vi
               ? "Bạn tự nhập số đo. Dùng số liệu gần đây nhất để kế hoạch sát thực tế; có thể cập nhật bất cứ lúc nào."
@@ -341,10 +353,9 @@ function ProfileForm({
               />
             </Field>
             <SelectField
-              label={
-                vi
-                  ? "Giới tính (để ước tính năng lượng)"
-                  : "Sex (used for energy estimates)"
+              label={vi ? "Giới tính" : "Sex"}
+              hint={
+                vi ? "Dùng để ước tính năng lượng" : "Used for energy estimates"
               }
               options={SEXES}
               value={form.sex}
@@ -383,48 +394,28 @@ function ProfileForm({
                 onChange={(e) => set("weightKg", e.target.value)}
               />
             </Field>
-            <Field
-              label={
-                vi
-                  ? "Cân nặng mục tiêu (kg, tùy chọn)"
-                  : "Target weight (kg, optional)"
-              }
-              error={show("targetWeightKg")}
-            >
-              <input
-                type="number"
-                inputMode="decimal"
-                step="0.1"
-                min={30}
-                max={300}
-                value={form.targetWeightKg}
-                onChange={(e) => set("targetWeightKg", e.target.value)}
-              />
-            </Field>
           </div>
         </fieldset>
 
         <fieldset className={styles.section}>
           <legend>{vi ? "3. Thói quen vận động" : "3. Your routine"}</legend>
           <div className={styles.grid}>
-            <SelectField
-              label={
-                vi
-                  ? "Mức vận động hằng ngày (ngoài giờ tập)"
-                  : "Daily activity (outside workouts)"
-              }
-              options={ACTIVITY_LEVELS}
-              value={form.activityLevel}
-              onChange={(v) => set("activityLevel", v)}
-              vi={vi}
-              required
-              error={show("activityLevel")}
-              hint={
-                ACTIVITY_LEVELS.find((o) => o.value === form.activityLevel)?.[
-                  vi ? "hintVi" : "hintEn"
-                ]
-              }
-            />
+            <div className={styles.span2}>
+              <SelectField
+                label={vi ? "Mức vận động hằng ngày" : "Daily activity"}
+                options={ACTIVITY_LEVELS}
+                value={form.activityLevel}
+                onChange={(v) => set("activityLevel", v)}
+                vi={vi}
+                required
+                error={show("activityLevel")}
+                hint={
+                  ACTIVITY_LEVELS.find((o) => o.value === form.activityLevel)?.[
+                    vi ? "hintVi" : "hintEn"
+                  ] ?? (vi ? "Ngoài giờ tập" : "Outside your workouts")
+                }
+              />
+            </div>
             <Field
               label={vi ? "Số ngày tập mỗi tuần" : "Training days per week"}
               required
@@ -442,24 +433,6 @@ function ProfileForm({
                 ))}
               </select>
             </Field>
-            <Field
-              label={
-                vi
-                  ? "Thời lượng mỗi buổi (phút, tùy chọn)"
-                  : "Minutes per session (optional)"
-              }
-              error={show("sessionMinutes")}
-            >
-              <input
-                type="number"
-                inputMode="numeric"
-                step={5}
-                min={15}
-                max={240}
-                value={form.sessionMinutes}
-                onChange={(e) => set("sessionMinutes", e.target.value)}
-              />
-            </Field>
           </div>
         </fieldset>
 
@@ -468,13 +441,6 @@ function ProfileForm({
             {vi ? "4. Ăn uống và sức khỏe" : "4. Nutrition and health"}
           </legend>
           <div className={styles.grid}>
-            <SelectField
-              label={vi ? "Chế độ ăn" : "Diet"}
-              options={DIETARY_PREFERENCES}
-              value={form.dietaryPreference}
-              onChange={(v) => set("dietaryPreference", v)}
-              vi={vi}
-            />
             <Field
               label={
                 vi
@@ -501,8 +467,8 @@ function ProfileForm({
             }
             hint={
               vi
-                ? "Coach sẽ dựa vào đây để tránh bài tập không phù hợp. Nếu có bệnh lý, hãy hỏi bác sĩ trước khi tập cường độ cao."
-                : "Your coach uses this to avoid unsuitable exercises. If you have a medical condition, check with your doctor before intense training."
+                ? "Coach sẽ dựa vào đây để tránh bài tập không phù hợp."
+                : "Your coach uses this to avoid unsuitable exercises."
             }
           >
             <textarea
@@ -514,12 +480,93 @@ function ProfileForm({
           </Field>
         </fieldset>
 
+        <details
+          className={styles.details}
+          open={detailsOpen}
+          onToggle={(e) => setDetailsOpen(e.currentTarget.open)}
+        >
+          <summary>
+            <span>
+              {vi ? "Thêm chi tiết (tùy chọn)" : "Add details (optional)"}
+            </span>
+            <small>
+              {vi
+                ? "Cân nặng mục tiêu, thời lượng buổi tập, chế độ ăn, mô tả mục tiêu"
+                : "Target weight, session length, diet, your goal in words"}
+            </small>
+            <ChevronDown size={18} aria-hidden="true" />
+          </summary>
+          <div className={styles.detailsBody}>
+            <div className={styles.grid3}>
+              <Field
+                label={vi ? "Cân nặng mục tiêu (kg)" : "Target weight (kg)"}
+                error={show("targetWeightKg")}
+              >
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  step="0.1"
+                  min={30}
+                  max={300}
+                  value={form.targetWeightKg}
+                  onChange={(e) => set("targetWeightKg", e.target.value)}
+                />
+              </Field>
+              <Field
+                label={
+                  vi ? "Thời lượng mỗi buổi (phút)" : "Minutes per session"
+                }
+                error={show("sessionMinutes")}
+              >
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  step={5}
+                  min={15}
+                  max={240}
+                  value={form.sessionMinutes}
+                  onChange={(e) => set("sessionMinutes", e.target.value)}
+                />
+              </Field>
+              <SelectField
+                label={vi ? "Chế độ ăn" : "Diet"}
+                options={DIETARY_PREFERENCES}
+                value={form.dietaryPreference}
+                onChange={(v) => set("dietaryPreference", v)}
+                vi={vi}
+              />
+            </div>
+            <Field
+              label={
+                vi
+                  ? "Mô tả mục tiêu bằng lời của bạn"
+                  : "Describe your goal in your own words"
+              }
+              error={show("goal")}
+              hint={
+                vi
+                  ? "Ví dụ: giảm 5 kg trong 3 tháng để thi đấu cầu lông. Bỏ trống thì dùng mục tiêu chính ở trên."
+                  : "Example: lose 5 kg in 3 months for badminton season. Leave empty to use your main goal."
+              }
+            >
+              <textarea
+                rows={3}
+                maxLength={500}
+                value={form.goal}
+                onChange={(e) => set("goal", e.target.value)}
+              />
+            </Field>
+          </div>
+        </details>
+
         <label className={styles.consent}>
           <input
             type="checkbox"
             checked={ack}
             onChange={(e) => setAck(e.target.checked)}
-            aria-invalid={!!show("ack")}
+            aria-required="true"
+            aria-invalid={show("ack") ? true : undefined}
+            aria-describedby={show("ack") ? "profile-consent-error" : undefined}
           />
           <span>
             {vi
@@ -528,7 +575,7 @@ function ProfileForm({
           </span>
         </label>
         {show("ack") && (
-          <p className="field__error" role="alert">
+          <p id="profile-consent-error" className="field__error" role="alert">
             {vi
               ? "Vui lòng xác nhận trước khi lưu."
               : "Please confirm before saving."}
@@ -571,16 +618,6 @@ function ProfileForm({
             </p>
           </section>
         )}
-        {profile && <MeasurementHistory profile={profile} />}
-        {bmi !== null && (
-          <p className={styles.note}>
-            {vi ? "Xem trước: " : "Preview: "}
-            {BMI_CATEGORIES[bmiCategoryOf(bmi)][vi ? "vi" : "en"]}.{" "}
-            {vi
-              ? "Giá trị chính thức được tính khi lưu."
-              : "The official value is calculated when you save."}
-          </p>
-        )}
       </aside>
     </div>
   );
@@ -602,9 +639,7 @@ export function TrainingProfile() {
   return (
     <div className={styles.profile}>
       <header className={styles.header}>
-        <h2>
-          {vi ? "Hồ sơ sức khỏe và mục tiêu" : "Health and goals profile"}
-        </h2>
+        <h2>Fitness profile</h2>
         <p>
           {vi
             ? "Bạn tự khai chiều cao, cân nặng, mục tiêu, thói quen và chế độ ăn. Coach và trợ lý AI dùng hồ sơ này để gợi ý bài tập và dinh dưỡng phù hợp. Chỉ bạn, Quản lý và Coach đang phụ trách bạn xem được."
@@ -626,15 +661,6 @@ export function TrainingProfile() {
               </p>
             )}
             <ProfileForm profile={profile} onSaved={() => state.reload()} />
-            <button
-              type="button"
-              className="btn btn--quiet btn--sm"
-              onClick={() => state.reload()}
-              disabled={state.loading}
-            >
-              <RefreshCw size={16} aria-hidden="true" />
-              {vi ? "Tải lại" : "Reload"}
-            </button>
           </>
         )}
       </AsyncSection>

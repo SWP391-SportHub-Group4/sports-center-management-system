@@ -140,27 +140,42 @@ export function CourtRateEditor() {
             {
               id: "sportId",
               header: l.sport,
-              cell: (r) => sportName(r.sportId),
+              cell: (r) => (
+                <span className={styles.shortValue}>
+                  {sportName(r.sportId)}
+                </span>
+              ),
             },
             {
               id: "daysOfWeek",
               header: l.day,
-              cell: (r) =>
-                r.daysOfWeek
-                  .split(",")
-                  .map((day) => l.weekdays[codes.indexOf(day.trim())] ?? day)
-                  .join(", "),
+              cell: (r) => (
+                <span className={styles.rateDays}>
+                  {r.daysOfWeek
+                    .split(",")
+                    .map((day) => l.weekdays[codes.indexOf(day.trim())] ?? day)
+                    .join(", ")}
+                </span>
+              ),
             },
             {
               id: "window",
               header: c.timeWindow,
-              cell: (r) => r.startTimeLocal + " – " + r.endTimeLocal,
+              cell: (r) => (
+                <span className={styles.shortValue}>
+                  {r.startTimeLocal + " – " + r.endTimeLocal}
+                </span>
+              ),
             },
             {
               id: "pricePerHour",
               header: l.priceHour,
               numeric: true,
-              cell: (r) => formatMoney(r.pricePerHour),
+              cell: (r) => (
+                <span className={styles.shortValue}>
+                  {formatMoney(r.pricePerHour)}
+                </span>
+              ),
             },
             {
               id: "isActive",

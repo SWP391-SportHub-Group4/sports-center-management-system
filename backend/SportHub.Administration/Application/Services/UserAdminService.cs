@@ -1,8 +1,11 @@
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using SportHub.Administration.Application.Commands;
 using SportHub.Administration.Application.DTOs;
 using SportHub.Administration.Application.Interfaces;
 using SportHub.BuildingBlocks.Abstractions.Audit;
+using SportHub.BuildingBlocks.Abstractions.Identity;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.BuildingBlocks.SharedKernel.Pagination;
@@ -11,6 +14,11 @@ using SportHub.Identity.Application.Interfaces;
 using SportHub.Identity.Application.Services;
 using SportHub.Identity.Domain.Entities;
 using SportHub.Identity.Domain.Enums;
+using SportHub.Scheduling.Domain.Entities;
+using SportHub.Scheduling.Domain.Enums;
+using SportHub.Scheduling.Occupancy.Domain;
+using SportHub.Training.Domain.Entities;
+using SportHub.Training.Domain.Enums;
 
 namespace SportHub.Administration.Application.Services;
 
@@ -23,10 +31,12 @@ namespace SportHub.Administration.Application.Services;
 /// </summary>
 public sealed class UserAdminService(
     ISportHubDbContext db,
-    IPasswordHasher passwordHasher,
+    EmailOtpFlow otpFlow,
     CoachSpecialtyService specialties,
     IAuditWriter audit,
-    IClock clock) : IUserAdminService
+    IClock clock,
+    ActivationLinkService activationLinks,
+    IStaffInvitationExpiryReader invitationExpiry) : IUserAdminService
 {
     public async Task<PagedResult<UserAdminResponse>> SearchAsync(
         string? keyword,
@@ -115,7 +125,9 @@ public sealed class UserAdminService(
         Guid actorUserId,
         CancellationToken ct = default)
     {
-        var targetRole = ParseRole(request.Role);
+        var role = await db.Set<Role>().SingleOrDefaultAsync(r => r.RoleId == request.RoleId, ct)
+            ?? throw new BadRequestException("invalid_role", "Invalid staff role.");
+        var targetRole = role.RoleName;
 
         // BR-1: Hội viên TỰ đăng ký. BR-2 liệt kê đúng 4 vai trò mà SysAdmin được tạo và
         // Member không nằm trong đó — nên endpoint này từ chối tạo Member thay vì lặng lẽ cho qua.
@@ -127,7 +139,6 @@ public sealed class UserAdminService(
         }
 
         var email = request.Email.Trim();
-        SportHub.Identity.Application.Services.PasswordPolicyGuard.Enforce(request.Password, email);
         var phone = string.IsNullOrWhiteSpace(request.Phone) ? null : request.Phone.Trim();
 
         if (await db.Set<UserAccount>().AnyAsync(u => u.Email == email, ct))
@@ -140,21 +151,22 @@ public sealed class UserAdminService(
             throw new ConflictException("phone_already_exists", "Phone already exists.");
         }
 
-        // BR-96 — tài khoản role Coach phải có chuyên môn (ít nhất một môn đang hoạt động), chọn ngay lúc tạo. Role khác không
+        // BR-96 — khi Admin tạo Coach phải chọn đúng một môn đang hoạt động. Role khác không
         // được nhận môn chuyên môn để tránh dữ liệu mơ hồ.
         IReadOnlyList<int>? coachSportIds = null;
 
         if (targetRole == UserRole.Coach)
         {
-            coachSportIds = await specialties.ValidateAsync(request.SportIds, ct);
+            coachSportIds = await specialties.ValidateAsync(request.Specialties, ct);
+            if (coachSportIds.Count != 1)
+                throw new BadRequestException(
+                    "coach_single_specialty_required", "Select exactly one sport specialty when creating a coach.");
         }
-        else if (request.SportIds is { Count: > 0 })
+        else if (request.Specialties is { Count: > 0 })
         {
             throw new BadRequestException(
                 "sport_ids_not_applicable", "Sport ids not applicable.");
         }
-
-        var role = await db.Set<Role>().SingleAsync(r => r.RoleName == targetRole, ct);
 
         var user = new UserAccount
         {
@@ -163,10 +175,12 @@ public sealed class UserAdminService(
             RoleId = role.RoleId,
             Status = UserStatus.Active,
             CreatedAt = clock.UtcNow,
-            Credential = new UserCredential { PasswordHash = passwordHasher.Hash(request.Password) },
+            Credential = new UserCredential { PasswordHash = null },
             Profile = new UserProfile { FullName = request.FullName.Trim(), Phone = phone },
             CoachProfile = coachSportIds is not null ? new CoachProfile() : null
         };
+
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
 
         db.Set<UserAccount>().Add(user);
 
@@ -177,7 +191,7 @@ public sealed class UserAdminService(
 
         audit.Write(new AuditEntry(
             actorUserId,
-            "CREATE_STAFF_ACCOUNT",
+            AccountAuditActions.CreateStaffAccount,
             nameof(UserAccount),
             user.UserId.ToString(),
             OldValue: null,
@@ -188,11 +202,92 @@ public sealed class UserAdminService(
                 sportIds = coachSportIds
             })));
 
-        // Một SaveChanges cho cả tài khoản lẫn audit — EF gói trong một transaction, nên
-        // không có trạng thái "đã tạo tài khoản nhưng thiếu log" (BR-7).
-        await db.SaveChangesAsync(ct);
+        if (!await IssueActivationLinkAsync(email, request.FullName.Trim(), ct))
+            throw new InvalidOperationException("Could not issue a staff activation link.");
+
+        // EmailOtpFlow saves the account, specialties, audit, token hash and encrypted outbox row together.
+        await tx.CommitAsync(ct);
 
         return await GetAsync(user.UserId, ct);
+    }
+
+    /// <summary>Gửi (hoặc gửi lại) link kích hoạt 24 giờ; mỗi lần phát hành vô hiệu link cũ của cùng email. False nếu còn trong thời gian chờ gửi lại.</summary>
+    private Task<bool> IssueActivationLinkAsync(string email, string fullName, CancellationToken ct)
+        => activationLinks.IssueAsync(email, fullName, member: false, ct);
+
+    private async Task<UserAccount> LoadPendingStaffAsync(Guid userId, CancellationToken ct)
+    {
+        _ = await db.Set<UserAccount>()
+            .FromSqlInterpolated($"SELECT * FROM user_accounts WHERE user_id = {userId} FOR UPDATE")
+            .SingleOrDefaultAsync(ct)
+            ?? throw new NotFoundException("user_not_found", "User not found.");
+        var user = await db.Set<UserAccount>()
+            .Include(u => u.Role)
+            .Include(u => u.Profile)
+            .Include(u => u.Credential)
+            .Include(u => u.ExternalLogins)
+            .SingleOrDefaultAsync(u => u.UserId == userId, ct)
+            ?? throw new NotFoundException("user_not_found", "User not found.");
+
+        if (user.Role!.RoleName == UserRole.Member
+            || !string.IsNullOrEmpty(user.Credential?.PasswordHash)
+            || user.ExternalLogins.Count > 0)
+        {
+            throw new ConflictException("account_not_pending_activation", "Only staff accounts that are waiting for activation can do this.");
+        }
+
+        if (await invitationExpiry.IsExpiredAsync(user.UserId, user.CreatedAt, clock.UtcNow, ct))
+            throw new ConflictException("staff_invitation_expired", "The staff activation invitation has expired.");
+
+        return user;
+    }
+
+    public async Task<UserAdminResponse> ResendActivationAsync(Guid userId, Guid actorUserId, CancellationToken ct = default)
+    {
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        var user = await LoadPendingStaffAsync(userId, ct);
+
+        audit.Write(new AuditEntry(actorUserId, AccountAuditActions.ResendStaffActivation, nameof(UserAccount), userId.ToString(),
+            NewValue: System.Text.Json.JsonSerializer.Serialize(new { email = user.Email })));
+
+        if (!await IssueActivationLinkAsync(user.Email, user.Profile?.FullName ?? string.Empty, ct))
+            throw new AppException(StatusCodes.Status429TooManyRequests, "activation_resend_too_soon",
+                $"Wait {AuthService.OtpResendCooldown.TotalSeconds:0} seconds before sending another activation link.");
+
+        await tx.CommitAsync(ct);
+        return await GetAsync(userId, ct);
+    }
+
+    /// <summary>Sửa email của tài khoản staff chưa kích hoạt (gõ sai/nhầm người nhận): link cũ bị vô hiệu, link mới gửi tới email mới.</summary>
+    public async Task<UserAdminResponse> ChangePendingEmailAsync(
+        Guid userId, ChangePendingStaffEmailRequest request, Guid actorUserId, CancellationToken ct = default)
+    {
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        var user = await LoadPendingStaffAsync(userId, ct);
+        var oldEmail = user.Email;
+        var newEmail = request.Email.Trim();
+
+        if (string.Equals(oldEmail, newEmail, StringComparison.OrdinalIgnoreCase))
+            throw new BadRequestException("email_unchanged", "The new email is the same as the current email.");
+
+        var lowered = newEmail.ToLowerInvariant();
+        if (await db.Set<UserAccount>().AnyAsync(u => u.UserId != userId && u.Email.ToLower() == lowered, ct))
+            throw new ConflictException("email_already_exists", "Email already exists.");
+
+        // Link đã gửi tới email cũ không được dùng nữa, kể cả khi người nhận nhầm đang giữ nó.
+        await otpFlow.DiscardAsync(oldEmail, EmailOtpPurpose.ResetPassword);
+        user.Email = newEmail;
+        audit.Write(new AuditEntry(actorUserId, AccountAuditActions.ChangePendingStaffEmail, nameof(UserAccount), userId.ToString(),
+            OldValue: System.Text.Json.JsonSerializer.Serialize(new { email = oldEmail }),
+            NewValue: System.Text.Json.JsonSerializer.Serialize(new { email = newEmail }),
+            Reason: request.Reason.Trim()));
+
+        if (!await IssueActivationLinkAsync(newEmail, user.Profile?.FullName ?? string.Empty, ct))
+            throw new AppException(StatusCodes.Status429TooManyRequests, "activation_resend_too_soon",
+                $"Wait {AuthService.OtpResendCooldown.TotalSeconds:0} seconds before sending another activation link.");
+
+        await tx.CommitAsync(ct);
+        return await GetAsync(userId, ct);
     }
 
     public async Task<UserAdminResponse> ChangeRoleAsync(
@@ -202,6 +297,13 @@ public sealed class UserAdminService(
         CancellationToken ct = default)
     {
         var targetRole = ParseRole(request.Role);
+
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        // Serialize role changes so an account promoted to Administrator cannot be demoted by a stale request.
+        _ = await db.Set<UserAccount>()
+            .FromSqlInterpolated($"SELECT * FROM user_accounts WHERE user_id = {userId} FOR UPDATE")
+            .SingleOrDefaultAsync(ct)
+            ?? throw new NotFoundException("user_not_found", "User not found.");
 
         var user = await db.Set<UserAccount>()
             .Include(u => u.Role)
@@ -216,12 +318,27 @@ public sealed class UserAdminService(
             return await GetAsync(userId, ct);
         }
 
-        // Cùng lý do với BR-6 "không khoá SysAdmin hoạt động cuối cùng": hạ vai trò của
-        // SysAdmin Active cuối cùng cũng khiến hệ thống không còn ai tạo được tài khoản
-        // hay mở khoá (BR-2/BR-6) — tự khoá chính mình ra ngoài.
         if (currentRole == UserRole.SystemAdministrator)
         {
-            await EnsureNotLastActiveSystemAdministratorAsync(userId, ct);
+            throw new ConflictException(
+                "administrator_role_change_not_allowed",
+                "Administrator roles cannot be changed, including your own account and other Administrators.");
+        }
+
+        // Member và Staff là hai loại tài khoản tách biệt: không đổi qua lại. Người dùng muốn làm
+        // staff phải được tạo tài khoản staff bằng email khác (Admin → Users → Create staff account).
+        if ((currentRole == UserRole.Member) != (targetRole == UserRole.Member))
+        {
+            throw new ConflictException(
+                "member_staff_role_change_not_allowed",
+                "Member and staff accounts cannot be converted. Create a staff account with a different email.");
+        }
+
+        // Coach rời vai trò: chặn khi còn lớp/lịch/quan hệ huấn luyện đang hoạt động.
+        if (currentRole == UserRole.Coach)
+        {
+            var blockers = await CoachBlockersAsync(userId, ct);
+            if (blockers.Count > 0) throw new RoleChangeBlockedException(blockers);
         }
 
         // BR-96, chốt 28/09/2026 (2) (SSOT §7): đổi role VÀO Coach luôn bắt buộc chọn category
@@ -247,12 +364,18 @@ public sealed class UserAdminService(
 
         user.RoleId = role.RoleId;
 
+        // Rời Coach: giữ CoachProfile làm lịch sử, nhưng gỡ chuyên môn để không còn hiệu lực.
+        if (currentRole == UserRole.Coach)
+        {
+            db.Set<UserSportSpecialty>().RemoveRange(await db.Set<UserSportSpecialty>().Where(x => x.UserId == userId).ToListAsync(ct));
+        }
+
         // BR-103/104: đổi vai trò vô hiệu mọi token đang lưu hành (claim sst + role không còn khớp DB).
         user.SecurityStamp = Guid.NewGuid();
 
         audit.Write(new AuditEntry(
             actorUserId,
-            "CHANGE_USER_ROLE",
+            AccountAuditActions.ChangeUserRole,
             nameof(UserAccount),
             userId.ToString(),
             OldValue: $"{{\"role\":\"{currentRole}\"}}",
@@ -260,6 +383,7 @@ public sealed class UserAdminService(
             Reason: request.Reason.Trim()));
 
         await db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
 
         return await GetAsync(userId, ct);
     }
@@ -300,7 +424,7 @@ public sealed class UserAdminService(
 
         audit.Write(new AuditEntry(
             actorUserId,
-            target == UserStatus.Active ? "UNLOCK_USER_ACCOUNT" : "LOCK_USER_ACCOUNT",
+            target == UserStatus.Active ? AccountAuditActions.UnlockUserAccount : AccountAuditActions.LockUserAccount,
             nameof(UserAccount),
             userId.ToString(),
             OldValue: $"{{\"status\":\"{previous}\"}}",
@@ -315,6 +439,23 @@ public sealed class UserAdminService(
         // status trong DB mỗi request, nên tài khoản vừa khoá bị chặn ở request kế tiếp
         // (SSOT §5.6). Request đang chạy dở không bị huỷ; thu hồi token vĩnh viễn là scope riêng.
         return await GetAsync(userId, ct);
+    }
+
+    private async Task<List<string>> CoachBlockersAsync(Guid userId, CancellationToken ct)
+    {
+        var now = clock.UtcNow;
+        var reasons = new List<string>();
+
+        var classes = await db.Set<Class>().CountAsync(x => x.CoachId == userId
+            && x.Status != ClassStatus.Completed && x.Status != ClassStatus.Cancelled, ct);
+        if (classes > 0) reasons.Add($"Still the main coach of {classes} unfinished class(es). Reassign them first.");
+
+        var occupancies = await db.Set<CoachOccupancy>().CountAsync(x => x.CoachId == userId && x.IsActive && x.EndAtUtc > now, ct);
+        if (occupancies > 0) reasons.Add($"{occupancies} upcoming class session(s) are still assigned. Reassign or cancel them first.");
+
+        var relationships = await db.Set<CoachMemberRelationship>().CountAsync(x => x.CoachId == userId && x.Status == RelationshipStatus.Active, ct);
+        if (relationships > 0) reasons.Add($"{relationships} active coaching relationship(s). End or transfer them first.");
+        return reasons;
     }
 
     private async Task EnsureNotLastActiveSystemAdministratorAsync(Guid userId, CancellationToken ct)
@@ -372,5 +513,10 @@ public sealed class UserAdminService(
             u.ExternalLogins.Any(),
 
             // Điền sau truy vấn (SportIds nằm ở bảng chuyên môn).
-            new List<int>()) { AvatarUrl = u.Profile != null ? u.Profile.AvatarUrl : null };
+            new List<int>())
+        {
+            AvatarUrl = u.Profile != null ? u.Profile.AvatarUrl : null,
+            ActivationPending = (u.Credential == null || u.Credential.PasswordHash == null)
+                                && !u.ExternalLogins.Any()
+        };
 }

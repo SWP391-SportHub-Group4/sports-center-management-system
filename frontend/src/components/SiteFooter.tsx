@@ -1,5 +1,8 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { api } from "@/lib/apiClient";
+import { Phone, Mail, MapPin, Clock } from "lucide-react";
 import { useLanguage } from "@/lib/language";
 import { usePathname } from "next/navigation";
 import styles from "./SiteFooter.module.css";
@@ -8,6 +11,25 @@ export function SiteFooter() {
   const { language } = useLanguage();
   const en = language === "en";
   const pathname = usePathname();
+  const [contact, setContact] = useState<{
+    phone: string | null;
+    email: string | null;
+    address: string | null;
+    hours: string | null;
+  } | null>(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    api
+      .get<{ contact: NonNullable<typeof contact> }>("/api/public/overview", {
+        anonymous: true,
+        signal: controller.signal,
+      })
+      .then((data) => {
+        if (!controller.signal.aborted) setContact(data.contact);
+      })
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, []);
   const cinematic = ["/", "/login", "/register"].includes(pathname);
 
   if (pathname === "/login" || pathname === "/register") return null;
@@ -26,8 +48,8 @@ export function SiteFooter() {
           </p>
           <p>
             {en
-              ? "A training home for badminton, basketball, gym and personal coaching."
-              : "Không gian tập luyện cho cầu lông, bóng rổ, Gym và huấn luyện cá nhân."}
+              ? "A training home for badminton, basketball and gym."
+              : "Không gian tập luyện cho cầu lông, bóng rổ và Gym."}
           </p>
         </div>
 
@@ -37,27 +59,39 @@ export function SiteFooter() {
             <li>{en ? "Badminton" : "Cầu lông"}</li>
             <li>{en ? "Basketball" : "Bóng rổ"}</li>
             <li>{en ? "Gym & conditioning" : "Gym & thể lực"}</li>
-            <li>{en ? "Personal training" : "Huấn luyện cá nhân"}</li>
           </ul>
         </section>
 
         <section aria-labelledby="site-footer-contact">
           <h2 id="site-footer-contact">{en ? "Contact" : "Liên hệ"}</h2>
           <ul>
-            <li>
-              <a href="tel:+842873002026">(+84) 28 7300 2026</a>
-            </li>
-            <li>
-              <a href="mailto:hello@sporthub.vn">hello@sporthub.vn</a>
-            </li>
-            <li>
-              {en
-                ? "123 Sports Avenue, District 1, Ho Chi Minh City"
-                : "123 Đường Thể Thao, Quận 1, TP. Hồ Chí Minh"}
-            </li>
-            <li>
-              {en ? "Daily 6:00 AM - 10:00 PM" : "Hằng ngày 06:00 - 22:00"}
-            </li>
+            {contact?.phone && (
+              <li>
+                <Phone size={16} aria-hidden="true" />{" "}
+                <a href={`tel:${contact.phone.replace(/[^+0-9]/g, "")}`}>
+                  {contact.phone}
+                </a>
+              </li>
+            )}
+            {contact?.email && (
+              <li>
+                <Mail size={16} aria-hidden="true" />{" "}
+                <a href={`mailto:${contact.email}`}>{contact.email}</a>
+              </li>
+            )}
+            {contact?.address && (
+              <li>
+                <MapPin size={16} aria-hidden="true" /> {contact.address}
+              </li>
+            )}
+            {contact?.hours && (
+              <li>
+                <Clock size={16} aria-hidden="true" /> {contact.hours}
+              </li>
+            )}
+            {!contact || !Object.values(contact).some(Boolean) ? (
+              <li>Contact details are currently unavailable.</li>
+            ) : null}
           </ul>
         </section>
       </div>

@@ -1,22 +1,17 @@
-"use client";
+import { CoachClassPage } from "@/features/pt/coach-class-page";
 
-import { useParams } from "next/navigation";
-import { PtPage } from "@/features/pt/ui";
-import { CoachClassDetail } from "@/features/pt/coach-classes";
-import { CoachWorkspaceRoute } from "@/features/pt/coach-workspace-route";
-
-export default function Page() {
-  const { classId } = useParams<{ classId: string }>();
-
+export default async function Page({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ classId: string }>;
+  searchParams: Promise<{ tab?: string }>;
+}) {
+  const [{ classId }, query] = await Promise.all([params, searchParams]);
   return (
-    <CoachWorkspaceRoute
-      mode="classes"
-      initialClassId={Number(classId)}
-      pt={
-        <PtPage title="classes">
-          <CoachClassDetail key={classId} classId={Number(classId)} />
-        </PtPage>
-      }
+    <CoachClassPage
+      classId={Number(classId)}
+      initialTab={query.tab === "plans" ? "plans" : "students"}
     />
   );
 }

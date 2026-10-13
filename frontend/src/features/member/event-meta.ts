@@ -13,14 +13,10 @@ export function sportTone(label: string | null | undefined) {
   return "other";
 }
 
-export type EventKind = "class" | "pt" | "rental";
+export type EventKind = "class" | "rental";
 
 export function eventKind(type: string): EventKind {
-  return type === "PT_SESSION"
-    ? "pt"
-    : type === "COURT_RENTAL"
-      ? "rental"
-      : "class";
+  return type === "COURT_RENTAL" ? "rental" : "class";
 }
 
 /** Thời lượng buổi lớp mặc định của môn (dịch vụ khóa học nhóm), dùng để suy ra giờ kết thúc từ giờ bắt đầu. */

@@ -61,6 +61,10 @@ async function coachFixture(
         json: path.endsWith("unread-count") ? { count: 0 } : [],
       });
     if (path === "/api/coaches/me/classes") return route.fulfill({ json: [] });
+    if (path === "/api/coaches/me/teaching/students")
+      return route.fulfill({
+        json: { items: [], sports: [], totalCount: 0, page: 1, pageSize: 12 },
+      });
     if (path === "/api/coaches/me/students")
       return route.fulfill({
         json: { items: [], totalCount: 0, page: 1, pageSize: 12 },
@@ -76,34 +80,6 @@ async function coachFixture(
   });
 }
 
-test("PT-qualified coach has direct schedule and member navigation", async ({
-  page,
-}) => {
-  await coachFixture(page, [1, 3], true);
-  await page.goto("/coach");
-  const navbar = page.getByRole("navigation");
-  await expect(
-    navbar.getByRole("link", { name: "PT schedule", exact: true }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Training", exact: true }),
-  ).toHaveCount(0);
-
-  await navbar.getByRole("link", { name: "PT schedule", exact: true }).click();
-  await expect(page).toHaveURL(/\/coach\/schedule$/);
-  await expect(
-    page.getByRole("heading", { name: "Ready for your next PT session" }),
-  ).toBeVisible();
-
-  await navbar
-    .getByRole("link", { name: "Assigned members", exact: true })
-    .click();
-  await expect(page).toHaveURL(/\/coach\/members$/);
-  await expect(
-    page.getByRole("heading", { name: "Directory & profiles" }),
-  ).toBeVisible();
-});
-
 test("group-only coach uses a single navbar for teaching, classes and students", async ({
   page,
 }) => {
@@ -117,7 +93,7 @@ test("group-only coach uses a single navbar for teaching, classes and students",
     page.getByRole("link", { name: "Teaching schedule", exact: true }),
   ).toHaveCount(1);
   await expect(
-    page.getByRole("link", { name: "Assigned classes", exact: true }),
+    page.getByRole("link", { name: "Classes", exact: true }),
   ).toHaveCount(1);
   await expect(
     page.getByRole("link", { name: "Students", exact: true }),
@@ -127,10 +103,14 @@ test("group-only coach uses a single navbar for teaching, classes and students",
     .getByRole("link", { name: "Teaching schedule", exact: true })
     .click();
   await expect(page).toHaveURL(/\/coach\/schedule$/);
-  await navbar
-    .getByRole("link", { name: "Assigned classes", exact: true })
-    .click();
+  await navbar.getByRole("link", { name: "Classes", exact: true }).click();
   await expect(page).toHaveURL(/\/coach\/classes$/);
   await navbar.getByRole("link", { name: "Students", exact: true }).click();
   await expect(page).toHaveURL(/\/coach\/members$/);
+  await expect(
+    page.getByRole("heading", { name: "Your students", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("No matching students", { exact: true }),
+  ).toBeVisible();
 });

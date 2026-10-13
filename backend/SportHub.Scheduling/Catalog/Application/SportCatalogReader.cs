@@ -37,16 +37,6 @@ public sealed class SportCatalogReader(ISportHubDbContext db) : ISportCatalogRea
         return sport is null ? null : ToInfo(sport);
     }
 
-    public async Task<bool> IsRoomAllowedForServiceAsync(int roomId, SportServiceType serviceType, CancellationToken cancellationToken = default)
-        => await (from room in db.Set<Room>().AsNoTracking()
-                  join link in db.Set<ServiceRoomType>().AsNoTracking() on room.RoomTypeId equals link.RoomTypeId
-                  join offering in db.Set<SportServiceOffering>().AsNoTracking() on link.OfferingId equals offering.OfferingId
-                  join sport in db.Set<Sport>().AsNoTracking() on offering.SportId equals sport.SportId
-                  where room.RoomId == roomId && room.IsActive
-                        && offering.ServiceType == serviceType && offering.IsEnabled && sport.IsActive
-                  select 1)
-            .AnyAsync(cancellationToken);
-
     private static SportInfo ToInfo(Sport s)
     {
         var group = s.Services.FirstOrDefault(o => o.ServiceType == SportServiceType.GroupCourse);

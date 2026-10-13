@@ -40,6 +40,8 @@ public sealed record RevenueReportResponse(
 
     /// <summary>Current available + held points, regardless of holds.</summary>
     public long OutstandingPoints { get; init; }
+    /// <summary>UTC observation time of the current wallet balance; not the selected period end.</summary>
+    public DateTime OutstandingPointsAsOfUtc { get; init; }
 
     public IReadOnlyList<RevenueReportSourceRowResponse> BySource { get; init; } = [];
     public IReadOnlyList<RevenueReportDimensionRowResponse> BySportAndSource { get; init; } = [];

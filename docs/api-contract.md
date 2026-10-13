@@ -1,10 +1,21 @@
 # Hợp đồng API refactor đa môn (backend)
 
-SportHub là **hệ thống quản lý trung tâm thể thao với ba môn Gym (bao gồm PT), cầu lông và bóng rổ; có thể mở rộng thêm môn trong tương lai**. PT là dịch vụ thuộc Gym, không phải môn thứ tư.
+SportHub là **hệ thống quản lý trung tâm thể thao với ba môn Gym, cầu lông và bóng rổ; có thể mở rộng thêm môn trong tương lai**.
 
 Các bảng mô tả contract; phần route baseline chỉ để tra cứu đường đọc tương thích. Không dùng baseline để khôi phục luồng ghi legacy. Trạng thái triển khai và nghiệm thu xem mục 13 của thiết kế hệ thống.
 
 ## Contract giao diện nghiệp vụ
+
+### Hồ sơ học viên Coach và lịch sử cùng môn
+
+| Verb | Route | Contract |
+|---|---|---|
+| GET | `/api/coaches/me/teaching/students?page&search&sportId` | Coach; học viên duy nhất từ các lớp đang phân công, 12 mục/trang; `items[{memberId,memberName,email,classes[]}]`, `sports[]`, `page`, `pageSize`, `totalCount`. |
+| GET | `/api/coaches/me/teaching/students/{memberId}` | Coach; thông tin học viên và lớp/môn hiện tại trong phạm vi phân công. |
+| GET | `/api/coaches/me/teaching/students/{memberId}/history?classId&page` | Coach; `RESULT` của chính học viên từ lớp trước cùng môn, mới nhất trước, 20 mục/trang; mỗi mục gồm `record,className,sportName,coachName,sessionNo,sessionStartAtUtc`. Yêu cầu phân công hiện tại và ghi danh Confirmed tại classId; lịch sử chỉ đọc. |
+| GET | `/api/coaches/me/teaching/students/{memberId}/history/classes?classId&page&search` | Coach; lớp có đánh giá trong phạm vi lịch sử hợp lệ, 8 lớp/trang, `classId,className,startDate,assessmentCount,averageScore,lastRecordedAtUtc`. Sắp xếp theo đánh giá gần nhất; điểm trung bình null nếu chưa có điểm. Endpoint `history` nhận thêm `sourceClassId` để tải đánh giá riêng cho lớp đã chọn. |
+
+Các endpoint `teaching/classes/{classId}/members` và `records` hỗ trợ query `memberId` để giới hạn dữ liệu hồ sơ. Không đổi schema/migration. Chi tiết: [Coach Teaching Workspace](Coach-Teaching-Workspace.md).
 
 ### Sắp xếp danh sách Admin
 
@@ -29,6 +40,8 @@ Các API dưới đây bổ sung đúng dependency của frontend P2.06–P2.10,
 | GET | `/api/manager/notices/{noticeId}` | Manager đã gửi; `{noticeId,delivery}`. Manager khác nhận 404. |
 | GET | `/api/manager/notices/by-key/{key}` | Manager đã gửi; phục hồi receipt sau timeout/F5, chờ transaction gửi cùng key hoàn tất. |
 | GET | `/api/manager/incidents/{incidentId}/notifications` | Manager; delivery tổng các notice IncidentResolution của rental thuộc incident. |
+| GET | `/api/manager/incidents?page=1&pageSize=20` | Manager; danh sách sự cố đã ghi nhận, mới nhất trước, paging (pageSize 1–100). Mọi Manager xem được; trả `{items,page,pageSize,totalCount}`. |
+| GET | `/api/manager/incidents/{incidentId}` | Manager; chi tiết `{incidentId,scope,roomId,roomName,startAtUtc,endAtUtc,reason,resolutionSummary,createdAtUtc}`; 404 `incident_not_found` khi không tồn tại. Trang Incident dùng bảng cuộn để chọn sự cố và mở chi tiết/trạng thái gửi thông báo. |
 | GET | `/api/court-rentals/policy` | Member; `slotMinutes,maxHours,advanceDays,cancelFreeHours,serverNow`; không mở quyền đọc mọi system setting. |
 | GET | `/api/court-rentals/{rentalId}` | Member chủ thuê; `rental,roomName,sportName,blocks,cancelReason,cancelledAtUtc,refundedPoints`. Rental summary thêm nullable invoiceId kể cả PendingPayment. Người khác 404; blocks là snapshot giá, refundedPoints từ ledger SystemEvent. |
 
@@ -38,16 +51,16 @@ Delivery có `total,pending,sending,sent,failed,read`; đây là trạng thái o
 
 ## Contract tích hợp frontend
 
-Các endpoint dưới đây phục vụ frontend API-backed. Không thay schema/migration. ID lớp/package/room/sport là int; ID invoice/enrollment/PT/request là UUID. Backend tiếp tục kiểm role, ownership, trạng thái và đồng thời.
+Các endpoint dưới đây phục vụ frontend API-backed. Không thay schema/migration. ID lớp/package/room/sport là int; ID invoice/enrollment/request là UUID. Backend tiếp tục kiểm role, ownership, trạng thái và đồng thời.
 
 | Verb | Route | Hợp đồng / authority |
 |---|---|---|
-| GET / PUT | `/api/users/me`, `/api/users/me/profile` | Thêm `sportIds: number[]`, `isPersonalTrainer: boolean` (Coach có qualification dịch vụ PT, không suy ra từ chuyên môn Gym), nullable `approvalStatus`. Role UPPER_SNAKE_CASE. F5 refresh profile trước cấp quyền trên UI; regression Security đã pass. |
+| GET / PUT | `/api/users/me`, `/api/users/me/profile` | Thêm `sportIds: number[]`, nullable `approvalStatus`. Role UPPER_SNAKE_CASE. F5 refresh profile trước cấp quyền trên UI; regression Security đã pass. |
 | GET | `/api/membership-packages/public` | Anonymous, chỉ catalog active; endpoint quản trị/auth cũ giữ chính sách riêng. |
 | GET | `/api/classes?fromDate=&toDate=&sportId=&page=&pageSize=` | DateOnly YYYY-MM-DD theo startDate khóa; validate khoảng ngày; danh sách public chỉ Published. |
 | GET | `/api/classes/{classId}/public-sessions` | Anonymous, chỉ khóa Published, lịch buổi/room/coach không có roster/attendance. |
 | GET | `/api/members/me/classes/{classId}/sessions` | Member đã có enrollment của chính mình, kể cả lịch sử; không trả roster. Own enrollment thêm `invoiceItemId`. |
-| GET | `/api/coaches?sportId=&service=PERSONAL_TRAINING` | Member/Receptionist/Manager: Coach active cùng specialty (`sportId`) hoặc có qualification PT (`service`), chỉ userId/fullName/sportIds. Không trả email hoặc credential. |
+| GET | `/api/coaches?sportId=` | Member/Receptionist/Manager: Coach active cùng specialty (`sportId`), chỉ userId/fullName/sportIds. Không trả email hoặc credential. |
 | GET | `/api/checkouts/by-key?key=`, `/api/checkouts/by-reference?reference=` | Recovery timeout/return theo invoice của beneficiary hoặc initiator; kiểm scope lại. Query VNPay không là chứng cứ Paid. |
 | POST | `/api/checkouts/{invoiceId}/confirm-points` | Xác nhận cash=0, invoice lock, ownership, hold còn hạn, không reconciliation/verified pending; idempotent Paid, không tạo gateway attempt. |
 | GET | `/api/checkouts/{invoiceId}` | Thêm beneficiaryUserId/initiatorUserId/serverNowUtc và ptMemberPackageId/ptCoachId/ptFrequency để resume/re-quote khi retry. |
@@ -61,7 +74,6 @@ Các endpoint dưới đây phục vụ frontend API-backed. Không thay schema/
 | GET | `/api/class-threshold-responses/mine`, `/{id}`, `/by-token?token=` | Member owner; course/sport/remaining paid value/deadline/choice/status/additionalInvoiceId/serverNowUtc. Token chỉ hash ở backend, không ghi analytics. |
 | GET | `/api/class-threshold-responses/{id}/transfer-quote?targetClassId=` | Owner, response còn mở; cùng môn, target Published/chưa bắt đầu. Backend tính cashDifference/walletCreditPoints; giá trị chia hết cho 1.000. |
 | POST | `/api/class-threshold-responses/{id}` | `{choice:REFUND|TRANSFER,targetClassId}`; dùng cùng transaction/lock/idempotent-final-choice như token route. Retry AwaitingPayment giữ nguyên đích. |
-| GET | `/api/members/me/pt-session-change-requests`, `/api/members/me/pt-coach-change-requests` | Chỉ owner, 100 request gần nhất với trạng thái/reviewNote. |
 | GET | `/api/coach-member-relationships` | Member/Coach/Manager; Member/Coach bị clamp theo owner. Không có endpoint members/me/relationships giả. |
 | GET | `/api/wallet/me/ledger?page=&pageSize=&entryType=` | Array WalletLedgerResponse, không Paged; timestamp createdAtUtc. Filter HOLD/RELEASE/SPEND/EARN/ADJUSTMENT áp trước pagination; filter sai 400. Ledger staff cũng hỗ trợ filter; chỉ Receptionist ghi audit lần xem. |
 
@@ -79,20 +91,19 @@ Xem [Coach Teaching Workspace](Coach-Teaching-Workspace.md#hợp-đồng-api): e
 
 ## Bản chốt API — lịch sân, incident, payment và snapshot
 
-[api-examples.json](api-examples.json) chứa response thật từ HTTP integration test: POST membership checkout (201), GET invoice (200), GET checkout của người khác (403 `checkout_not_owned`). Fixture đã kiểm thanh toán mock và snapshot; ID/email trong ví dụ chỉ thuộc database test.
 
 ### Lịch sân và xử lý sự cố
 
 | Verb | Route / request | Actor | Response / lỗi |
 |---|---|---|---|
 | GET | `/api/manager/court-schedule?fromDate=YYYY-MM-DD&toDate=YYYY-MM-DD&roomId=` | Manager, Receptionist | 200 `CourtScheduleEntry[]`; hai ngày inclusive, tối đa 31 ngày; 400 `invalid_range`, 403 `court_schedule_forbidden`. |
-| GET | `/api/coaches/me/court-schedule?fromDate=&toDate=&roomId=` | Coach | 200 cùng DTO nhưng chỉ lớp được giao; PT dùng lịch PT owner-scoped hiện hữu. |
+| GET | `/api/coaches/me/court-schedule?fromDate=&toDate=&roomId=` | Coach | 200 cùng DTO nhưng chỉ lớp được giao. |
 | POST | `/api/manager/incidents/preview` body `{scope:"ROOM"|"CENTER",roomId?,startAtUtc,endAtUtc,reason}` | Manager | 200 `{scope,roomId,startAtUtc,endAtUtc,impacts[],canResolve,blockReason}`. Mỗi impact có `{sourceType,sourceId,startAtUtc,endAtUtc,resolutionOptions[]}`. |
-| POST | `/api/manager/incidents/resolve` body như preview | Manager | 200 `{incidentId}`; 409 `incident_requires_schedule_resolution` nếu còn lớp/PT/block, `incident_schedule_changed` hoặc `occupancy_conflict` nếu lịch đổi; lỗi 400 `invalid_incident_scope`, `incident_reason_required`, `invalid_incident_range`; 404 `incident_room_not_found`. |
+| POST | `/api/manager/incidents/resolve` body như preview | Manager | 200 `{incidentId}`; 409 `incident_requires_schedule_resolution` nếu còn lớp/block, `incident_schedule_changed` hoặc `occupancy_conflict` nếu lịch đổi; lỗi 400 `invalid_incident_scope`, `incident_reason_required`, `invalid_incident_range`; 404 `incident_room_not_found`. |
 
-`CourtScheduleEntry`: `{sourceType,sourceId,roomId,startAtUtc,endAtUtc,coachId,coachName,title,status,classId,participants[]}`. Source type: `CLASS_SESSION`, `PT_SESSION`, `COURT_RENTAL`, `ROOM_BLOCK`. Participant: `{memberId,memberName,enrollmentId,attendanceStatus,recordedAtUtc}`. Rental/block không có roster; Member chỉ gọi availability và lịch thuê của mình, không gọi hai endpoint lịch nội bộ.
+`CourtScheduleEntry`: `{sourceType,sourceId,roomId,startAtUtc,endAtUtc,coachId,coachName,title,status,classId,participants[]}`. Source type: `CLASS_SESSION`, `COURT_RENTAL`, `ROOM_BLOCK`. Participant: `{memberId,memberName,enrollmentId,attendanceStatus,recordedAtUtc}`. Rental/block không có roster; Member chỉ gọi availability và lịch thuê của mình, không gọi hai endpoint lịch nội bộ.
 
-`resolutionOptions` trả `{action,method,path}`. Action identifiers: `Reschedule`, `CancelWithMakeup`, `CancelByCenter`, `RemoveExistingBlock`, `AutoCancelAndRefundOnResolve`; đây là identifier thao tác, giữ đúng chuỗi API trả, không phải enum. Frontend mở form tương ứng và gọi route được trả: class reschedule/cancel kèm makeup, Manager PT reschedule/cancel hoặc xóa block không gắn incident. Sau khi xử lý, gọi preview lại rồi resolve. Resolve không tự chọn lịch thay người dùng; chỉ hủy/hoàn rental và tạo incident/block khi kiểm lại không còn conflict. Email và audit cùng transaction với bước nghiệp vụ tương ứng.
+`resolutionOptions` trả `{action,method,path}`. Action identifiers: `Reschedule`, `CancelWithMakeup`, `CancelByCenter`, `RemoveExistingBlock`, `AutoCancelAndRefundOnResolve`; đây là identifier thao tác, giữ đúng chuỗi API trả, không phải enum. Frontend mở form tương ứng và gọi route được trả: class reschedule/cancel kèm makeup, xóa block không gắn incident. Sau khi xử lý, gọi preview lại rồi resolve. Resolve không tự chọn lịch thay người dùng; chỉ hủy/hoàn rental và tạo incident/block khi kiểm lại không còn conflict. Email và audit cùng transaction với bước nghiệp vụ tương ứng.
 
 ### Checkout và invoice
 
@@ -102,7 +113,6 @@ POST checkout trả 201 `CheckoutResponse`, yêu cầu header `Idempotency-Key` 
 |---|---|---|
 | `/api/checkouts/membership` | `{packageId,targetMemberId?,allowStacking:false,stackingApprovalReason?}` | Member hoặc FrontDesk; stacking cần quyền Manager và lý do. |
 | `/api/checkouts/class` | `{classId,targetMemberId?}` | Member hoặc FrontDesk. |
-| `/api/checkouts/pt` | `{memberPackageId,coachId,frequencyPerWeek:1..3,priceVersion,targetMemberId?,startAtUtc?,roomId?}` | Member hoặc FrontDesk; lấy version từ PT quote. Có `startAtUtc`: mua/giữ đúng một buổi 90 phút, giá bằng đơn giá PT; không có: contract gói cũ. Xem [PT từng buổi](PT-Per-Session.md). |
 | `/api/checkouts/court-rental` | `{sportId,roomId,startUtc,endUtc}` | Member tự mua. |
 
 FrontDesk là Manager/Lễ tân; staff mua cho Member phải có targetMemberId, Member chỉ mua cho mình. Lỗi chung: 400 `idempotency_key_required`/`target_member_required`, 403 `target_member_forbidden`/`checkout_not_owned`; conflict nghiệp vụ trả 409. GET checkout trả 200; attempts trả 200 `PaymentAttemptResponse` (`paymentAttemptId,invoiceId,transactionReference,cashAmount,pointsApplied,expiresAtUtc,paymentUrl,state`); không gửi giá do client tính.
@@ -118,7 +128,7 @@ FrontDesk là Manager/Lễ tân; staff mua cho Member phải có targetMemberId,
 
 `InvoiceSummaryResponse` có `beneficiaryUserId` (Member), alias cũ `memberId`, `fulfillmentOutcome` cùng các field tiền/trạng thái hiện có. `paidVia` canonical: `POINTS`, `VN_PAY`, `VN_PAY_AND_POINTS`, `VN_PAY_AFTER_RECONCILIATION`, `VN_PAY_COMPENSATED`, `VN_PAY_MANUAL_COMPENSATION`. Không suy quyền lợi chỉ từ `PAID_AFTER_RECONCILIATION`.
 
-`InvoiceItemResponse` bổ sung nullable `classId`, `courtRentalId`, `ptEntitlementId`, `memberPackageId`, `sportId`, `sportName`, `ptFrequencyPerWeek`, `sourceInvoiceItemId`. `relatedEntityId` vẫn đọc được cho lịch sử. Giá/item, sport name và thời hạn Membership được snapshot khi tạo checkout; sửa catalog không đổi hợp đồng đã mua. Không có sport riêng cho Membership; PT chưa xác định được môn giữ null.
+`InvoiceItemResponse` bổ sung nullable `classId`, `courtRentalId`, `memberPackageId`, `sportId`, `sportName`, `sourceInvoiceItemId`. `relatedEntityId` vẫn đọc được cho lịch sử. Giá/item, sport name và thời hạn Membership được snapshot khi tạo checkout; sửa catalog không đổi hợp đồng đã mua. Membership không có sport riêng.
 
 Membership catalog mới từ chối `sessionLimit != null` bằng 400 `membership_session_limit_removed`; giá phải dương, bội số 1.000 VND (400 `membership_price_invalid`). Những field quota legacy còn đọc được nhưng không ảnh hưởng access/expiry.
 
@@ -136,7 +146,7 @@ Invoice lịch sử vẫn đọc theo ownership/FrontDesk. Discount/correction k
 | GET | `/api/manager/court-schedule/rentals?roomId&fromUtc&toUtc` | Manager/Receptionist qua `FrontDesk`; chỉ metadata thuê cần cho lịch, không roster Member. |
 | POST | `/api/manager/court-rentals/{rentalId}/cancel` | CenterManager; body `{reason}`; center fault hoàn 100% bằng điểm và release occupancy nguyên tử. |
 
-Invoice checkout giữ phòng bằng cùng occupancy constraints với class/PT/block. Hết hạn/hủy nhả đúng một lần; IPN muộn không Spend lại điểm đã release, chỉ reacquire khi slot còn hợp lệ; nếu không thì theo cơ chế bồi hoàn khoản cash đã xác minh. Migration và PostgreSQL concurrency/ownership đã qua gate; chưa áp migration trên DB phát triển/chia sẻ.
+Invoice checkout giữ phòng bằng cùng occupancy constraints với class/block. Hết hạn/hủy nhả đúng một lần; IPN muộn không Spend lại điểm đã release, chỉ reacquire khi slot còn hợp lệ; nếu không thì theo cơ chế bồi hoàn khoản cash đã xác minh. Migration và PostgreSQL concurrency/ownership đã qua gate; chưa áp migration trên DB phát triển/chia sẻ.
 
 ## Phần A — Route baseline (trước refactor)
 
@@ -145,6 +155,13 @@ Invoice checkout giữ phòng bằng cùng occupancy constraints với class/PT/
 | Verb | Path |
 |---|---|
 | GET | `api/audit-logs` |
+| GET | `api/audit-logs/actions` |
+
+`GET api/audit-logs/actions` trả mảng mã Action khác nhau, bỏ mã rỗng/chỉ khoảng trắng và sắp xếp tăng dần, không phụ thuộc phân trang của bảng. Chỉ CenterManager/SystemAdministrator được gọi. Admin nhận đầy đủ danh mục `AccountAuditActions` dùng chung với các nơi ghi log cho `UserAccount`, kể cả mã chưa phát sinh log, cộng các mã cũ đã ghi nhận cho `UserAccount`. Manager nhận các mã đã ghi nhận trong phạm vi Audit hiện có. Chọn Action chưa có log trả bảng rỗng hợp lệ; không tạo log giả và không mở rộng quyền đọc.
+
+Danh mục Admin hiện có: `CREATE_STAFF_ACCOUNT`, `CHANGE_USER_ROLE`, `LOCK_USER_ACCOUNT`, `UNLOCK_USER_ACCOUNT`, `RESEND_STAFF_ACTIVATION`, `CHANGE_PENDING_STAFF_EMAIL`, `FRONT_DESK_CREATE_MEMBER`, `RESEND_MEMBER_ACTIVATION`, `CHANGE_PENDING_MEMBER_EMAIL`, `EXPIRE_UNACTIVATED_STAFF_ACCOUNT`, `UPDATE_COACH_SPECIALTIES`.
+
+Ô Action mở danh sách cuộn khi focus/click, hỗ trợ gõ để thu hẹp gợi ý không phân biệt hoa/thường (nhiều từ có thể nhập khác thứ tự), chọn bằng chuột hoặc ArrowUp/ArrowDown + Enter, Escape/Tab đóng danh sách. Chọn mã rồi Apply filters gửi nguyên mã đó; backend vẫn lọc Action bằng so sánh chính xác. All actions/ô trống không lọc Action. Danh sách có trạng thái tải, lỗi/thử lại và rỗng; quyền đọc audit không được mở rộng.
 
 Với sự kiện `targetEntity = UserAccount`, mỗi item bổ sung `targetFullName`,
 `targetEmail` (thông tin hiện tại của tài khoản đích) và `targetAccountExists`.
@@ -177,11 +194,57 @@ Việc bổ sung không thay đổi quyền đọc audit, scope tài khoản c�
 | GET | `api/users` |
 | GET | `api/users/admin` |
 | GET | `api/users/{userId:guid}` |
-| POST | `api/users` |
+| POST | `api/users/admin/staff` |
+| POST | `api/users/{userId:guid}/resend-activation` |
+| PUT | `api/users/{userId:guid}/email` |
 | PUT | `api/users/{userId:guid}/role` |
 | POST | `api/users/{userId:guid}/lock` |
 | POST | `api/users/{userId:guid}/unlock` |
 | POST | `api/users/{userId:guid}/deactivate` |
+
+`POST api/users/admin/staff` (SystemAdministrator; `{email, fullName, phone?, roleId, specialties?}`): tạo tài khoản staff **không có mật khẩu**, gửi email kích hoạt (link dùng một lần, 24 giờ). Với Coach (`roleId` 2) bắt buộc `specialties` chứa **ít nhất một môn đang hoạt động**; **một Coach có thể được gán nhiều môn ngay khi tạo tài khoản**. Role khác không được gửi `specialties`. **Manager không tạo được Coach** (không còn `POST api/manager/coaches`): Manager chỉ sửa hồ sơ/chuyên môn (`PUT api/manager/coaches/{id}`).
+
+**Khoảng trống triển khai:** quy tắc nhiều môn được xác nhận ngày 13/10/2026 và phù hợp BR-96. Backend hiện tại trong `UserAdminService.CreateStaffAsync` vẫn kiểm tra đúng một môn và trả `coach_single_specialty_required` khi chọn nhiều môn lúc tạo; cần đồng bộ mã nguồn riêng để đáp ứng contract này.
+
+`UserAdminResponse.activationPending` (bool): tài khoản (staff hoặc Member đăng ký tại quầy) chưa đặt mật khẩu và chưa liên kết Google. Hai thao tác dưới đây chỉ dành cho SystemAdministrator và chỉ áp dụng cho tài khoản `activationPending`; Member hoặc staff đã kích hoạt trả **409 `account_not_pending_activation`**.
+
+- `POST api/users/{userId}/resend-activation` (không body): phát hành link kích hoạt mới 24 giờ, vô hiệu link cũ; còn trong 60 giây kể từ lần gửi trước trả **429 `activation_resend_too_soon`**; ghi audit `RESEND_STAFF_ACTIVATION`.
+- `PUT api/users/{userId}/email` (`{email, reason}`, lý do 3–500 ký tự): sửa email gõ sai. Email trùng (không phân biệt hoa thường) trả 409 `email_already_exists`, email không đổi trả 400 `email_unchanged`. Link gửi tới email cũ bị vô hiệu ngay (người nhận nhầm không kích hoạt được), link mới gửi tới email mới; ghi audit `CHANGE_PENDING_STAFF_EMAIL` kèm email cũ/mới và lý do.
+
+Đăng nhập Google với email của staff chưa kích hoạt bị từ chối (401), vì staff chỉ vào được sau khi tự đặt mật khẩu bằng link.
+
+`PUT api/users/{userId}/role` (SystemAdministrator; body `{role, reason, sportIds?}`; `sportIds` bắt buộc khi đổi sang Coach). Chỉ đổi **giữa các role staff** (SystemAdministrator, CenterManager, Receptionist, Coach).
+
+- **Member ↔ Staff không được phép:** đổi từ Member sang bất kỳ role staff nào, hoặc từ staff về Member, trả **409 `member_staff_role_change_not_allowed`**. Người muốn làm staff phải được Admin tạo tài khoản staff bằng **email khác** (`POST api/users/admin/staff`, luồng kích hoạt qua email); tài khoản Member cũ giữ nguyên.
+- **Coach → role staff khác:** trả **409 `role_change_blocked`** kèm `reasons: string[]` khi còn lớp chưa kết thúc do Coach làm chính, buổi lớp tương lai còn chiếm lịch (`CoachOccupancy`), hoặc quan hệ huấn luyện Active.
+- **Mọi tài khoản hiện là SystemAdministrator:** không được đổi sang role khác, gồm chính Admin đang thao tác và Admin khác, không phụ thuộc số lượng Admin hoặc trạng thái tài khoản (409 `administrator_role_change_not_allowed`). Chỉ gửi lại role hiện tại thì không thay đổi dữ liệu. Quy tắc khóa/vô hiệu hóa Admin cuối cùng vẫn giữ riêng như cũ.
+
+Khi đổi thành công: rời Coach thì giữ `CoachProfile` làm lịch sử nhưng xóa chuyên môn (`UserSportSpecialty`); đổi sang Coach thì Admin phải chọn chuyên môn; `SecurityStamp` đổi nên token cũ mất hiệu lực.
+
+### FrontDeskMembersController — `api/members/front-desk`
+
+Receptionist và CenterManager (policy `FrontDesk`) đăng ký Member mới tại quầy. Chỉ tạo role **Member** (role không nhận từ body); staff chỉ do SystemAdministrator tạo.
+
+| Verb | Path |
+|---|---|
+| POST | `api/members/front-desk` |
+| POST | `api/members/front-desk/{userId:guid}/resend-activation` |
+| PUT | `api/members/front-desk/{userId:guid}/email` |
+
+- `POST api/members/front-desk` (`{email, confirmEmail, fullName, phone?}`): email nhập hai lần phải khớp (400 `email_confirmation_mismatch`). Tạo Member **không mật khẩu**, tạo ví điểm 0 (BR-134), gửi email kích hoạt (link dùng một lần, 24 giờ, `setup=member`), audit `FRONT_DESK_CREATE_MEMBER`. Trả 201 `UserAdminResponse` với `activationPending=true`. Email trùng (không phân biệt hoa thường) 409 `email_already_exists`; số điện thoại trùng 409 `phone_already_exists`.
+- `POST api/members/front-desk/{userId}/resend-activation`: chỉ Member chờ kích hoạt. Cooldown 60 giây (429 `activation_resend_too_soon`), link cũ bị vô hiệu, audit `RESEND_MEMBER_ACTIVATION`.
+- `PUT api/members/front-desk/{userId}/email` (`{email, confirmEmail, reason}`): sửa email gõ sai khi Member chờ kích hoạt; link cũ bị vô hiệu ngay, link mới gửi tới email mới, audit `CHANGE_PENDING_MEMBER_EMAIL` (email cũ, mới, lý do). 400 `email_unchanged`, 409 `email_already_exists`.
+- Member đã kích hoạt trả 409 `account_not_pending_activation`; tài khoản không phải Member trả 404 `user_not_found`.
+- Trước khi kích hoạt Member chưa đăng nhập được bằng mật khẩu nhưng tài khoản Active, nên quầy vẫn tìm (`GET api/users?role=Member`), ghi nhận thanh toán và bán dịch vụ. Member kích hoạt bằng link (đặt mật khẩu qua `POST api/auth/password/reset`) hoặc đăng nhập Google bằng chính email đó.
+
+### Vé Gym 1 ngày (day pass) và mã check-in
+
+- Vé ngày là gói Membership cố định `packageId = 50000`, 50.000đ, 1 ngày, seed bằng migration `GymDayPass`. Mua qua `POST api/checkouts/membership` như gói thường. Manager sửa hoặc ngừng gói trả 409 `day_pass_fixed`.
+- Hiệu lực: bắt đầu và kết thúc đúng ngày thanh toán thành công theo giờ Việt Nam (không cộng dồn với gói dài). Đã có vé hôm nay mà mua thêm trả 409 `day_pass_already_active`. Gym đang đóng cửa vì sự cố (mọi phòng Gym bị block) trả 409 `gym_closed_today`.
+- Thanh toán xong: thông báo và email "SportHub - Your Gym day pass" nhắc vé và mã check-in chỉ dùng trong ngày.
+- Check-in: `POST api/gym-checkins/self` (Member tự check-in, cùng điều kiện có gói Active) hoặc `POST api/gym-checkins` (lễ tân check-in hộ). Mã QR do server cấp và ký: Member gọi `GET api/members/me/checkin-code` (`{code, expiresAtUtc}`, mã dạng `SPORTHUB-CODE:{memberId}.{exp}.{chữ ký}`, hết hạn 00:00 giờ Việt Nam hôm sau, client không tự dựng được); lễ tân/Manager (policy `FrontDesk`) quét mã rồi gọi `POST api/members/checkin-code/resolve` (`{code}`) nhận `{memberId}`; mã giả/sai chữ ký trả 400 `checkin_code_invalid`, mã hết hạn 409 `checkin_code_expired`. Mã chỉ định danh Member; quyền vào Gym vẫn do check-in kiểm gói Active hôm nay.
+- Không nhắc hết hạn (`PackageExpiring`), không gia hạn khi sự cố đóng Gym, không hoàn trả (`RefundCalculator` trả 0).
+- Báo cáo: `GET api/reports/membership-summary` và `membership-period` không tính vé ngày vào hội viên Membership; thêm `membersWithDayPassToday` và `dayPassesSold`.
 
 ### AiController — `api/ai`
 
@@ -196,10 +259,10 @@ sets/reps for each exercise. The existing `exercises: string[]` remains availabl
 for older clients. Timed exercises use reps as the number of holds/rounds;
 duration belongs in `notes` (e.g. plank: 3 sets × 1 hold, 30 seconds per hold).
 General coaching advice belongs in `rationale`, rather than becoming an exercise.
-The PT editor reads `items` directly and lets the coach adjust values before saving.
+The editor reads `items` directly and lets the coach adjust values before saving.
 The optional `sport` query parameter selects `Gym` (default), `Badminton`, or
 `Basketball`; unsupported values return 400. The selected sport is included in
-the response and AI log input. Existing PT ownership/qualification guards remain
+the response and AI log input. Coach ownership (an Active relationship with the member) remains
 required. Every generated item includes positive sets/reps, including warm-up
 and cool-down. Group coach suggestions include these values in exercise lines.
 
@@ -368,6 +431,13 @@ Refund mới không còn tạo/duyệt qua route adjustment chung; refund legacy
 | GET | `api/members/me/gym-checkins` |
 | GET | `api/members/{memberId:guid}/gym-checkins` |
 
+### MemberCheckInCodesController — `api/members`
+
+| Verb | Path |
+|---|---|
+| GET | `api/members/me/checkin-code` |
+| POST | `api/members/checkin-code/resolve` |
+
 ### RoomsController — `api/rooms`
 
 | Verb | Path |
@@ -385,73 +455,13 @@ Refund mới không còn tạo/duyệt qua route adjustment chung; refund legacy
 | POST | `api/coach-member-relationships` |
 | POST | `api/coach-member-relationships/{relationshipId:guid}/end` |
 
-### PtCoachChangeRequestsController — `api`
-
-| Verb | Path |
-|---|---|
-| GET | `api/manager/pt-coach-change-requests` |
-| POST | `api/manager/pt-coach-change-requests/{requestId:guid}/approve` |
-| POST | `api/manager/pt-coach-change-requests/{requestId:guid}/reject` |
-| POST | `api/members/me/pt-entitlements/{entitlementId:guid}/coach-change-requests` |
-
-### PtEntitlementsController — `api`
-
-| Verb | Path |
-|---|---|
-| GET | `api/manager/pt-entitlements` |
-| GET | `api/members/me/pt-entitlements` |
-
-### PtSessionChangeRequestsController — `api`
-
-| Verb | Path |
-|---|---|
-| GET | `api/manager/pt-session-change-requests` |
-| POST | `api/manager/pt-session-change-requests/{requestId:guid}/approve` |
-| POST | `api/manager/pt-session-change-requests/{requestId:guid}/reject` |
-| POST | `api/members/me/pt-sessions/{sessionId:guid}/change-requests` |
-
-### PtSessionsController — `api`
-
-| Verb | Path |
-|---|---|
-| GET | `api/manager/pt-sessions` |
-| POST | `api/manager/pt-sessions` |
-| POST | `api/manager/pt-sessions/{sessionId:guid}/cancel` |
-| POST | `api/manager/pt-sessions/{sessionId:guid}/reschedule` |
-| GET | `api/coaches/me/pt-sessions` |
-| GET | `api/coaches/me/pt-sessions/{sessionId:guid}` |
-| POST | `api/coaches/me/pt-sessions/{sessionId:guid}/complete` |
-| POST | `api/coaches/me/pt-sessions/{sessionId:guid}/no-show` |
-| GET | `api/members/me/pt-sessions` |
-| GET | `api/members/me/pt-entitlements/{entitlementId:guid}/availability?fromDate&toDate` |
-| POST | `api/members/me/pt-sessions` |
-
-Tự đặt lịch PT (G05). `availability` (Member, ngày giờ Việt Nam, mặc định 7 ngày, tối đa 14) trả `{entitlementId, coachId, coachName, sessionMinutes: 90, remainingQuota, bookableReason, policy{minLeadHours:12, advanceDays:30, stepMinutes:30, changeDeadlineHours:24}, slots[{startAtUtc, endAtUtc, rooms[{roomId,name}]}]}`. `bookableReason` null khi đặt được, hoặc `pt_entitlement_not_active`, `pt_quota_exhausted`, `pt_relationship_required`, `pt_no_room_configured` (khi đó `slots` rỗng). Khung trống = lưới 30 phút trong giờ mở cửa của ít nhất một phòng PT còn trống, Coach và Member đều không bận, trong hiệu lực gói, cách hiện tại ≥12 giờ và ≤30 ngày. `POST` nhận `{entitlementId, startAtUtc, roomId?}` (bỏ trống phòng thì hệ thống gán phòng trống đầu tiên theo tên) và trả 201 `PtSessionResponse`. Lỗi: 400 `pt_start_not_aligned` `pt_booking_too_soon` `pt_booking_too_far`; 404 `pt_entitlement_not_found` (kể cả quyền lợi của người khác); 409 `pt_entitlement_not_active` `pt_quota_exhausted` `pt_relationship_required` `pt_session_outside_membership_validity` `pt_coach_conflict` `pt_member_conflict` `pt_slot_unavailable`. Không có Idempotency-Key: đặt lại cùng giờ trả 409 `pt_member_conflict`, không giữ quota hai lần. Cùng khoá advisory Coach/Member, quota và occupancy với Manager xếp lịch.
-
-### WorkoutController — `api`
-
-| Verb | Path |
-|---|---|
-| GET | `api/members/me/workout-plans` |
-| GET | `api/members/me/workout-results` |
-| GET | `api/coaches/me/workout-plans` |
-| POST | `api/workout-plans` |
-| PUT | `api/workout-plans/{planId:guid}` |
-| POST | `api/workout-plans/{planId:guid}/activate` |
-| POST | `api/workout-plans/{planId:guid}/archive` |
-| GET | `api/coaches/me/workout-results` |
-| POST | `api/workout-results` |
-| PUT | `api/workout-results/{ptSessionId:guid}` |
-| GET | `api/coaches/me/progress` |
-| GET | `api/members/me/progress` |
-| GET | `api/members/{memberId:guid}/workout-results` |
 
 ## Phần B — Contract đích theo chặng
 
 | Chặng | Trạng thái | Ghi chú |
 |---|---|---|
 | P1.01–P1.02 Ports/model/migration | Hoàn tất backend | Typed FK và snapshots; giữ lịch sử, nâng cấp và DB trắng qua gate. |
-| P1.03–P1.05 Identity/catalog/course/Gym/PT | Hoàn tất backend | Phần C/D/F; JSON enum theo quy ước chốt ở đầu tài liệu. |
+| P1.03–P1.05 Identity/catalog/course/Gym | Hoàn tất backend | Phần C/D/F; JSON enum theo quy ước chốt ở đầu tài liệu. |
 | P1.06–P1.08 Wallet/checkout/refund | Hoàn tất backend | Phần E/G/H; sandbox VNPay thật do người dùng phụ trách. |
 | P1.09 Threshold/transfer | Hoàn tất backend | Phần I, expiry/transfer/late payment integration đã chạy. |
 | P1.10–P1.11 Rental/calendar/incident/outbox | Hoàn tất backend | Bản chốt ở đầu tài liệu và Phần J. |
@@ -477,14 +487,12 @@ Actor viết tắt: **M** = CenterManager (policy `CatalogManage`), **FD** = Man
 
 | Verb | Path | Actor | Request | Response / lỗi chính |
 |---|---|---|---|---|
-| GET | `api/sports?service=` | ẩn danh | — | `SportResponse[]` chỉ môn active, mỗi môn chỉ gồm service đang bật, không có `readiness`. `service` lọc theo `MEMBERSHIP_ACCESS`, `GROUP_COURSE`, `COURT_RENTAL` hoặc `PERSONAL_TRAINING`. `SportResponse`: `{sportId, code, name, description, imageUrl, sortOrder, isActive, services[{serviceType,isEnabled,defaultSessionMinutes?,defaultMaxCapacity?}], readiness?[{serviceType,ready,missing[]}]}` với `missing` gồm `room_type`, `room`, `opening_hours`, `court_rate`. CAT-01: không còn `operationType`; Personal Training không còn là môn riêng, PT là dịch vụ của Gym. |
+| GET | `api/sports?service=` | ẩn danh | — | `SportResponse[]` chỉ môn active, mỗi môn chỉ gồm service đang bật, không có `readiness`. `service` lọc theo `MEMBERSHIP_ACCESS`, `GROUP_COURSE`, `COURT_RENTAL`. `SportResponse`: `{sportId, code, name, description, imageUrl, sortOrder, isActive, services[{serviceType,isEnabled,defaultSessionMinutes?,defaultMaxCapacity?}], readiness?[{serviceType,ready,missing[]}]}` với `missing` gồm `room_type`, `room`, `opening_hours`, `court_rate`. CAT-01: không còn `operationType`. |
 | GET | `api/manager/sports?service=` | M | — | mọi môn, đủ service và `readiness` (chỉ GROUP_COURSE và COURT_RENTAL) |
-| POST | `api/manager/sports` | M | `{code, name, description?, imageUrl?, services[{serviceType,isEnabled,defaultSessionMinutes?,defaultMaxCapacity?}]}` | 201; 400 `sport_code_invalid` `service_type_invalid` `service_not_allowed_for_sport` (Membership/PT ngoài môn Gym) `sport_group_course_defaults_required` `service_defaults_not_allowed`; 409 `sport_code_taken` `sport_name_taken` |
+| POST | `api/manager/sports` | M | `{code, name, description?, imageUrl?, services[{serviceType,isEnabled,defaultSessionMinutes?,defaultMaxCapacity?}]}` | 201; 400 `sport_code_invalid` `service_type_invalid` `service_not_allowed_for_sport` (Membership ngoài môn Gym) `sport_group_course_defaults_required` `service_defaults_not_allowed`; 409 `sport_code_taken` `sport_name_taken` |
 | PUT | `api/manager/sports/{id}` | M | như trên, không nhận đổi `code`. Service không liệt kê bị TẮT, không bị xóa | 200; 400 `sport_code_immutable` và các lỗi như trên; 404 `sport_not_found` |
 | POST | `api/manager/sports/{id}/deactivate`, `/activate` | M | — | `SportResponse` |
 | POST | `api/manager/sports/{id}/services/{serviceType}/enable`, `/disable` | M | — | `SportResponse`; 404 `service_not_configured`. Tắt chỉ chặn giao dịch mới |
-| PUT | `api/manager/sports/{id}/services/PERSONAL_TRAINING/room-types` | M | `{roomTypeIds[]}` (thay toàn bộ; rỗng nghĩa là PT không gắn phòng) | 200 `{roomTypeIds}`; 400 `service_room_types_not_supported` `invalid_room_type` `room_type_not_linked_to_sport`; 409 `service_in_use_by_future_schedule` (còn buổi PT tương lai trong phòng thuộc loại bị gỡ) |
-| GET / PUT | `api/manager/coaches/{userId}/service-qualifications` | M | PUT `{offeringIds[]}` (thay toàn bộ; hiện chỉ offering PT của Gym) | 200 `{offeringIds}`; 400 `qualification_not_supported` `service_not_enabled` `coach_missing_sport_specialty`; 404 `coach_not_found`; 409 `qualification_in_use` (còn buổi PT tương lai) |
 | GET | `api/room-types` | Auth | — | `[{roomTypeId, name, sportIds[]}]` |
 | POST | `api/manager/room-types` | M | `{name}` | 201; 409 `room_type_name_taken` |
 | PUT | `api/manager/room-types/{id}` | M | `{name}` | 200 |
@@ -532,7 +540,7 @@ Ledger trả `id, entryType, points, availableDelta, heldDelta, availableAfter, 
 
 Cột **Tham chiếu** trên lịch sử điểm hiển thị `referenceType · referenceId`: loại và mã nguồn của giao dịch, không phải mã chủ ví hay ID dòng ledger. Với `ManagerAdjustment`, `referenceId` là `idempotencyKey` của yêu cầu điều chỉnh; retry cùng key/payload dùng lại kết quả, không cộng/trừ hay ghi audit lần nữa. `id`/`ledgerEntryId` là ID bút toán riêng. Ví dụ nguồn khác: `RefundRequest` (yêu cầu hoàn), `SystemEvent` (hoàn do sự kiện hệ thống), `Invoice`/`CheckoutSession` (hóa đơn/chu kỳ checkout tùy luồng).
 
-Theo yêu cầu cập nhật 07/10/2026, Manager mở/xem ví không ghi `VIEW_OWNER_WALLET` hoặc `VIEW_MEMBER_WALLET`. Điều chỉnh lưu thành công ghi `ADJUST_POINTS` cùng transaction; validation/thất bại/retry đã áp dụng không sinh thêm log điều chỉnh. Các log xem ví đã ghi trước thay đổi vẫn giữ nguyên lịch sử. Quyền truy cập và audit xem ví của Receptionist không đổi.
+Manager mở/xem ví không ghi `VIEW_OWNER_WALLET` hoặc `VIEW_MEMBER_WALLET`. Điều chỉnh lưu thành công ghi `ADJUST_POINTS` cùng transaction; validation/thất bại/retry đã áp dụng không sinh thêm log điều chỉnh. Các log xem ví đã ghi trước thay đổi vẫn giữ nguyên lịch sử. Quyền truy cập và audit xem ví của Receptionist không đổi.
 
 **Luồng và lỗi:**
 - Đọc point-selection lấy revision trước khi yêu cầu OTP. Stale revision → 409 `checkout_revision_changed`. Hóa đơn legacy không có cycle, đã Paid/Void hoặc quá hạn → 409 `checkout_unavailable`; khác Member → 403 `invoice_not_owned`.
@@ -547,7 +555,7 @@ Chu kỳ có snapshot trên Invoice (`CheckoutCycleId/CheckoutRevision/HoldExpir
 
 **Email:** dùng SMTP; chỉ Development có `Email:DemoLoggingEnabled=true` mới được log nội dung demo. Gửi thất bại thì revoke mã vừa tạo; không tự giữ điểm hoặc báo xác nhận thành công. Outbox email/retry bền vững thuộc P1.11.
 
-## Phần F — P1.05 Lớp theo khóa, điểm danh, Gym và PT
+## Phần F — P1.05 Lớp theo khóa, điểm danh và Gym
 
 | Verb | Path | Actor | Hành vi chính |
 |---|---|---|---|
@@ -559,7 +567,7 @@ Chu kỳ có snapshot trên Invoice (`CheckoutCycleId/CheckoutRevision/HoldExpir
 | GET | `api/members/me/enrollments`, `.../schedule` | Member | Ghi danh và lịch cá nhân; không có endpoint tự ghi danh từng buổi. |
 | POST | `api/gym-checkins/{checkInId}/checkout` | Receptionist | Giờ server, idempotent; checkin chưa tồn tại/giờ vào tương lai bị từ chối. |
 
-`IClassEnrollmentFulfillment` cung cấp quote, giữ chỗ, confirm, release và cancel trong transaction của checkout/fulfillment caller. PT giữ các endpoint lịch/workout, thêm `roomId` tùy chọn và chống trùng occupancy. Job NoShow chỉ xử lý buổi PT đã kết thúc; lớp nhóm không tự tạo Present/Absent.
+`IClassEnrollmentFulfillment` cung cấp quote, giữ chỗ, confirm, release và cancel trong transaction của checkout/fulfillment caller. Lớp nhóm không tự tạo Present/Absent; điểm danh do Receptionist hoặc Coach được phân công ghi.
 
 ## Phần G — P1.07 Checkout hiện hành
 
@@ -568,9 +576,7 @@ Chu kỳ có snapshot trên Invoice (`CheckoutCycleId/CheckoutRevision/HoldExpir
 | POST | `api/checkouts/membership`, `api/checkouts/class`, `api/checkouts/pt` | Member, Receptionist, Manager | Bắt buộc `Idempotency-Key`; staff chỉ định `targetMemberId`, Member chỉ mua cho mình. Trả CheckoutResponse với invoice/cycle/hạn/số tiền. |
 | GET | `api/checkouts/{invoiceId}` | Chủ invoice hoặc staff | Trạng thái chu kỳ checkout hiện tại. |
 | POST | `api/checkouts/{invoiceId}/attempts` | Chủ invoice hoặc staff | Tạo/đọc PaymentAttempt snapshot tiền/điểm và URL VNPay; 100% điểm hoàn tất ngay, không tạo attempt VNPay 0đ. |
-| POST | `api/checkouts/{invoiceId}/cancel`, `.../retry` | Chủ invoice hoặc staff | Hủy nhả hold; retry sau hết hạn cấp invoice/cycle mới và `Idempotency-Key` mới. PT retry cần `priceVersion` mới. |
-| GET/POST | `api/pt-pricing`, `api/checkouts/pt/quote` | Người dùng đã xác thực / Member hoặc staff | Giá PT và quote có version; checkout PT từ chối version cũ. |
-| PUT | `api/manager/pt-pricing` | Manager | Đổi đơn giá PT hợp lệ. |
+| POST | `api/checkouts/{invoiceId}/cancel`, `.../retry` | Chủ invoice hoặc staff | Hủy nhả hold; retry sau hết hạn cấp invoice/cycle mới và `Idempotency-Key` mới. |
 | GET | `api/payments/vnpay/return`, `api/payments/vnpay/ipn` | Public (VNPay) | Return chỉ đọc; IPN xác minh chữ ký/tham chiếu/số tiền rồi lưu event và thực hiện fulfillment. |
 | POST | `api/invoices/{invoiceId}/reconcile` | FrontDesk | QueryDR xác minh giao dịch theo attempt mới nhất. |
 | POST | `api/dev/payments/{reference}/simulate` | FrontDesk, Development | Mock callback qua cùng pipeline IPN; không có ở môi trường khác. |
@@ -588,7 +594,7 @@ Refund dùng `PaymentAdjustment` hiện có, không thêm bảng Refund; refund 
 | POST | `api/refunds/{adjustmentId}/approve` | Manager khác người yêu cầu | Body `{centerFault, percent?, reason}`. `percent` (0–100) là ngoại lệ do Manager quyết định, cần căn cứ ≥ 10 ký tự; bỏ trống thì theo quy tắc. Khóa invoice/item/refund; tính lại tỷ lệ/cap; Earn + hủy quyền lợi + Completed nguyên tử. |
 | POST | `api/refunds/{adjustmentId}/reject` | Manager khác người yêu cầu | Body `{reason}`; từ chối yêu cầu chưa xử lý. |
 
-Đã có calculator cho Membership (50% khi RemainingDays×3 >= TotalDays×2), PT (50% khi chưa consume; các buổi Scheduled tương lai được hủy/nhả quota cùng approval), Class (trước buổi đầu 100%, center cancellation theo buổi chưa cung cấp, loại buổi hủy đã có buổi bù khỏi tỷ lệ), Rental (>=24h 100%, dưới 24h/no-show 0, center cancel 100%). Quy đổi trên giá trị item đã trả gồm cash + points trừ refund trước, floor VND/1.000. `RefundCreditService` hỗ trợ SystemEvent credit, threshold/incident/rental caller và ghi InvoiceItemId trên ledger.
+Đã có calculator cho Membership (50% khi RemainingDays×3 >= TotalDays×2; lỗi trung tâm theo phần ngày chưa dùng; vé Gym 1 ngày không hoàn), Class (trước buổi đầu 100%, center cancellation theo buổi chưa cung cấp, loại buổi hủy đã có buổi bù khỏi tỷ lệ), Rental (>=24h 100%, dưới 24h/no-show 0, center cancel 100%). Quy đổi trên giá trị item đã trả gồm cash + points trừ refund trước, floor VND/1.000. `RefundCreditService` hỗ trợ SystemEvent credit, threshold/incident/rental caller và ghi InvoiceItemId trên ledger.
 
 Manager không nhập số điểm tùy ý, chỉ chọn center-fault có lý do rồi server tính lại. PostgreSQL gate cho refund/cap/concurrency/rollback và migration upgrade đã qua; xem evidence.
 
@@ -609,22 +615,21 @@ Invoice `CLASS_TRANSFER_DIFFERENCE` giữ chỗ lớp đích, release/retry khi 
 | Verb | Path | Actor | Contract |
 |---|---|---|---|
 | POST | `api/checkouts/court-rental` | Member | `Idempotency-Key`, body gồm môn/phòng/start/end; invoice/item giữ snapshot giá và occupancy cho tới fulfill/cancel/expiry. |
-| GET | `api/court-rentals/availability` | Member | `sportId,startUtc,endUtc`; chỉ phòng trống + giá, không trả lịch Member/lớp/PT. |
+| GET | `api/court-rentals/availability` | Member | `sportId,startUtc,endUtc`; chỉ phòng trống + giá, không trả lịch Member/lớp. |
 | GET | `api/court-rentals/mine` | Member | Rental của chính người gọi, lọc `fromUtc/toUtc`. |
 | POST | `api/court-rentals/{rentalId}/cancel` | Chủ rental | Self-cancel theo ngưỡng setting 24 giờ; trả 204. |
 | GET | `api/manager/court-schedule/rentals` | FrontDesk | Rental theo khoảng thời gian/phòng; lịch tổng hợp dùng `/api/manager/court-schedule`. |
 | POST | `api/manager/court-rentals/{rentalId}/cancel` | Manager | `{reason}`; center-fault cancel/refund 100% điểm. |
-| POST | `api/manager/incidents/preview`, `api/manager/incidents/resolve` | Manager | `IncidentRequest` gồm scope, room/time, lý do; resolve kiểm tra tác động lại, rental cancel/refund + block nguyên tử; class/PT chồng thời gian trả conflict để xử lý lịch trước. |
+| POST | `api/manager/incidents/preview`, `api/manager/incidents/resolve` | Manager | `IncidentRequest` gồm scope, room/time, lý do; resolve kiểm tra tác động lại, rental cancel/refund + block nguyên tử; lớp chồng thời gian trả conflict để xử lý lịch trước. |
 | POST | `api/manager/notices` | Manager | `{subject,message,recipientUserIds,sendInApp,sendEmail}`; in-app/email vào outbox theo người nhận, giới hạn 1–200 người. |
 
 Email không xuất hiện trong danh sách/read-all InApp. OTP email được mã hóa ở outbox và gửi bởi dispatcher; status email Sent chỉ sau sender thành công, retry có backoff/lease và gửi at-least-once.
 
 `GET /api/reports/revenue` giữ các field legacy, đồng thời thêm `legacyCashCollected`, `reconciliationCashCollected`, `reconciliationCashCount`, `pointsRedeemed`, `pointsRedeemedVnd` (điểm×1.000 VND), `pointsIssued`, `managerPointAdjustment`, `outstandingPoints` (available+held tại lúc chạy), và `bySource[{source,cashCollected,pointsRedeemed}]`. Daily rows thêm `legacyCashCollected` và `reconciliationCashCollected`; `totalCollected` cộng cả cash reconciliation đã xác minh để đối soát. Group-by-Sport và export dùng cùng tổng hợp theo phần P1.12/P1.13 bên dưới.
 
-Lịch phòng tổng hợp và incident workflow hiện hành được mô tả ở bản chốt đầu tài liệu; PostgreSQL concurrency/privacy đã qua gate. Manager cần chọn phương án dời/hủy/bù hợp lệ trước khi resolve incident có lớp/PT.
+Lịch phòng tổng hợp và incident workflow hiện hành được mô tả ở bản chốt đầu tài liệu; PostgreSQL concurrency/privacy đã qua gate. Manager cần chọn phương án dời/hủy/bù hợp lệ trước khi resolve incident có lớp.
 # Contract báo cáo và tích hợp
 
-Phần này thay thế các ghi chú “chưa có” về báo cáo/export và seed trong checkpoint lịch sử bên dưới.
 
 | Verb | Route | Actor | Hợp đồng |
 |---|---|---|---|
@@ -637,18 +642,20 @@ Phần này thay thế các ghi chú “chưa có” về báo cáo/export và s
 Các loại export mới:
 
 - `REVENUE_DAILY`: `date,collectedAmount,refundedAmount,obligationReduction,netCollected,legacyCashCollected,reconciliationCashCollected`.
-- `REVENUE_DIMENSIONS` / `COURT_RENTAL_REVENUE`: `source,sportId,sportName,memberId,collectedAmount,legacyCashCollected,pointsRedeemed,pointsRedeemedVnd`.
-- `MEMBERSHIP_PERIOD`: `fromDate,toDate,newMembers,activeMembersAtPeriodEnd`.
+- `REVENUE_DIMENSIONS` / `COURT_RENTAL_REVENUE`: `source,sportId,sportName,memberName,memberId,collectedAmount,legacyCashCollected,pointsRedeemed,pointsRedeemedVnd`. Manager chọn cột `memberName` (Member) để xuất tên hội viên trong CSV/PDF. `memberId` (Member ID) còn được API hỗ trợ để tương thích; bộ lọc vẫn dùng ID. Tên đọc từ hồ sơ tại thời điểm xuất, truy vấn chung cho các hội viên trong kết quả; không thay đổi cách nhóm hay tổng tiền/điểm. Dòng `memberId = null` để trống tên, không gán một hội viên cho dòng tổng hợp. Nếu có ID nhưng thiếu tên, hiện `Name unavailable`. File đã xuất giữ nguyên dữ liệu tại thời điểm tạo.
+- `MEMBERSHIP_PERIOD`: `fromDate,toDate,newMembers,membersPurchasingMembershipInPeriod,activeMembersAtPeriodEnd`. `newMembers` đếm tài khoản Member tạo trong kỳ. `membersPurchasingMembershipInPeriod` đếm MemberId riêng biệt trên hóa đơn có InvoiceItem Membership, đã fulfillment thành công (`Paid` hoặc `PaidAfterReconciliation` với `PaidVia=VnPayAfterReconciliation`), theo `Invoice.PaidAtUtc` trong kỳ theo ngày Việt Nam; bao gồm thanh toán bằng điểm, không tính giao dịch chỉ bù điểm và không dùng ngày dự phòng khi PaidAtUtc null.
 - `CLASS_ENROLLMENT`: `classId,code,name,sportId,sportName,status,capacity,confirmedCount,activeHoldCount,availableSeats,fillRatio,breakEvenThreshold,thresholdStatus,firstSessionStartUtc`.
 
-`REVENUE` cũ vẫn là danh sách hóa đơn theo ngày phát hành; không dùng loại này để so với tổng thu theo ngày thanh toán. `MEMBER_SUMMARY` cũ giữ tương thích. Export mới gọi cùng service API, không nhân bản truy vấn tài chính. Phạm vi doanh thu tối đa 366 ngày, trả `range_too_large`; report export thất bại giữ trạng thái Failed và failure reason theo contract hiện hữu. Điểm không cộng thành cash; outstanding là available+held hiện tại. Membership sport null; PT legacy chưa có sport reference chỉ được phân loại khi có đúng một môn OneOnOne.
+`REVENUE` cũ vẫn là danh sách hóa đơn theo ngày phát hành; không dùng loại này để so với tổng thu theo ngày thanh toán. `MEMBER_SUMMARY` cũ giữ tương thích. Export mới gọi cùng service API, không nhân bản truy vấn tài chính. Phạm vi doanh thu tối đa 366 ngày, trả `range_too_large`; report export thất bại giữ trạng thái Failed và failure reason theo contract hiện hữu. Điểm không cộng thành cash; outstanding là available+held hiện tại. Membership sport null; item chưa có sport reference chỉ được phân loại khi có đúng một môn OneOnOne.
 
 - `REVENUE_SUMMARY`: `fromDate,toDate,collectedAmount,refundedAmount,netCollected,legacyCashCollected,reconciliationCashCollected,pointsRedeemed,pointsRedeemedVnd,pointsIssued,managerPointAdjustment,outstandingPoints`.
 
-## Manager operations read contracts — 07/10/2026
+Report presentation: `pointsRedeemed` is the number of points spent in the selected period; `pointsRedeemedVnd` is its VND equivalent, never additional cash revenue. `pointsIssued` counts refund/compensation credits in the period; Manager adjustments remain separate. Current wallet balance (`outstandingPoints`, available + held) is shown separately from period movements. `/api/reports/revenue` also returns `outstandingPointsAsOfUtc`, the UTC observation time of that current balance; `REVENUE_SUMMARY` supports this optional export column. It is not a historical closing balance. Membership labels identify members with valid Membership on `toDate`. Legacy `REVENUE` is titled "Invoices by issue date". Legacy `refundedAmount` and `netCollected` retain their existing numeric semantics but PDF labels explicitly identify cash refunds and exclude point refunds; the main Manager export column picker does not present these legacy columns. Existing exported files remain unchanged.
+
+## Manager operations read contracts
 
 - `GET /api/audit-logs` accepts optional `targetId` together with existing `targetEntity` filters. Exact target filtering happens before pagination/count. Existing role restrictions remain: Manager can read operational audit; Admin remains restricted to account events; Member/Coach/Receptionist cannot gain audit access through this parameter.
-- `GET /api/manager/sports` service rows include the actual `offeringId`. The Manager PT qualification editor sends these IDs to `/api/manager/coaches/{id}/service-qualifications`; it must not derive an offering ID from a sport ID. Public `GET /api/sports` omits `offeringId`.
+- `GET /api/manager/sports` service rows include the actual `offeringId`. The client must not derive an offering ID from a sport ID. Public `GET /api/sports` omits `offeringId`.
 - This adds no migration and implements no new G03/G06/G07/G13 command. Current incident preview/action/recheck/resolve remains a sequence of separate operations; timeout resolve requires reconciliation before a fresh attempt.
 
 ## Audit target display context
@@ -668,7 +675,7 @@ New sport snapshots include name/code, description/image URL, activity/order and
 
 Migration `20261007110000_AutomaticSportOrder` normalizes negative, duplicate and sparse legacy ranks while preserving prior relative order within each activity group (`sortOrder`, name, ID). Historical audit snapshots are unchanged.
 
-## Manager class-slot preview — 07/10/2026
+## Manager class-slot preview
 
 `GET /api/manager/class-schedule/availability` is Manager-only. Query: `sportId`, `roomId`, `coachId` (optional), positive `capacity`, UTC `startUtc`/`endUtc`, optional `excludeSessionId`. The slot must have positive duration and be at most 12 hours. Response:
 
@@ -686,9 +693,7 @@ This endpoint does not reserve resources, change sessions, write audit events or
 
 Contract, payload, trạng thái, quyền và transaction cho các API `/api/coaches/me/teaching/.../change-requests` và `/api/manager/class-session-change-requests` được mô tả tại [Yêu cầu thay đổi buổi học](Class-Session-Change-Requests.md). Coach gửi/rút yêu cầu, Manager quyết định phương án và áp dụng đổi lịch/học bù nguyên tử; không cấp quyền tự hủy buổi cho Coach. Migration: `20261011025932_AddClassSessionChangeRequests`.
 
-## An/Hào handoff contracts — 10/10/2026
+## Hợp đồng bàn giao An/Hào
 
-- `GET /api/member-codes/me` (Member Active) returns `{code, expiresAtUtc}`. The code is opaque and expires after five minutes. QR payload is `SPORTHUB-MEMBER-V1:` followed by `code`; it contains no user ID. `POST /api/member-codes/lookup` (Receptionist/CenterManager) receives `{code}` and returns the existing `UserAdminResponse` for an active Member. Invalid/expired/locked/non-Member codes return `400 member_code_invalid`. The QR is identity lookup only and does not grant check-in, points usage or payment.
 - Threshold response accepts `WAIT_NEXT_COURSE` with `targetClassId: null` in `POST /api/class-threshold-responses/{id}` or the token route. It credits the remaining refundable value 100% as points, cancels source enrollment and creates one course-interest subscription in the same transaction. A repeated identical response returns the stored result; a different choice returns 409. A published class in the same sport queues a notice but never enrolls or reserves a seat.
 - `GET /api/members/me/course-interests` and `GET /api/manager/course-interests` return `PagedResult<CourseInterestRow>` with optional `sportId`, `active`, `page`, `pageSize`. Member route is owner scoped. `POST /api/members/me/course-interests/{id}/unsubscribe` is owner scoped and idempotent, returns 204. `CourseInterestRow` includes `subscriptionId`, `memberId`, `memberName`, source class and sport IDs/names, `refundedPoints`, `isActive`, timestamps.
-- PT self-booking policy `minLeadHours` and `advanceDays` comes from `pt.self_book_min_lead_hours` and `pt.self_book_max_advance_days`. Both availability and booking recheck an Active current Membership. `membership_not_active` is returned as `bookableReason` in availability and 409 on booking. Slot step 30 minutes and change deadline 24 hours remain fixed.

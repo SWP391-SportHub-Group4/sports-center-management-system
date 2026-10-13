@@ -12,6 +12,7 @@ import {
   useMutation,
 } from "@/features/operations";
 import { InvoiceDetail } from "@/features/payments";
+import { CourseName } from "@/components/RecordName";
 import type { Paged, InvoiceDetailDto } from "@/lib/types";
 type Row = {
   holdId?: string;
@@ -105,7 +106,12 @@ function OperationsRows({
                   </td>
                   <td>
                     {row.choice ? <StatusChip value={row.choice} /> : "—"}
-                    {row.targetClassId && ` · #${row.targetClassId}`}
+                    {row.targetClassId && (
+                      <>
+                        {" "}
+                        · <CourseName id={row.targetClassId} />
+                      </>
+                    )}
                   </td>
                   <td>
                     {(row.invoiceId ||

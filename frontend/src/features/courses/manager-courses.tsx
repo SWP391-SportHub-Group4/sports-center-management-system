@@ -1,4 +1,5 @@
 "use client";
+import styles from "./manager-courses.module.css";
 import Link from "next/link";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
@@ -67,7 +68,6 @@ export function ManagerCourses() {
       cell: (c) => (
         <>
           <strong>{c.name}</strong>
-          <div className="small muted">{c.code}</div>
         </>
       ),
     },
@@ -81,18 +81,22 @@ export function ManagerCourses() {
       id: "confirmedCount",
       header: l.confirmed,
       numeric: true,
-      cell: (c) => `${c.confirmedCount}/${c.capacity}`,
+      cell: (c) => (
+        <span className={styles.count}>
+          {c.confirmedCount}/{c.capacity}
+        </span>
+      ),
     },
-    { id: "activeHoldCount", header: l.held, numeric: true },
+    {
+      id: "activeHoldCount",
+      header: l.held,
+      numeric: true,
+      cell: (c) => <span className={styles.count}>{c.activeHoldCount}</span>,
+    },
     {
       id: "threshold",
       header: l.threshold,
-      cell: (c) => (
-        <>
-          <StatusChip value={c.thresholdStatus} /> ·{" "}
-          {c.breakEvenThreshold ?? "—"}
-        </>
-      ),
+      cell: (c) => <StatusChip value={c.thresholdStatus} />,
     },
     {
       id: "price",
@@ -103,11 +107,6 @@ export function ManagerCourses() {
   ];
   return (
     <>
-      <p>
-        <Link href="/manager/classes/interests">
-          {language === "vi" ? "Nguyện vọng khóa sau" : "Course interests"}
-        </Link>
-      </p>
       <div className="btn-row" role="group" aria-label={m.savedFilters}>
         {[
           [m.all, "", ""],

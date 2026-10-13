@@ -1,6 +1,6 @@
 # SportHub — Module AI
 
-SportHub là **hệ thống quản lý trung tâm thể thao với ba môn Gym (bao gồm PT), cầu lông và bóng rổ; có thể mở rộng thêm môn trong tương lai**. PT là dịch vụ thuộc Gym.
+SportHub là **hệ thống quản lý trung tâm thể thao với ba môn Gym, cầu lông và bóng rổ; có thể mở rộng thêm môn trong tương lai**.
 
 AI nằm trong [SportHub.AI](../backend/SportHub.AI), chạy cùng ASP.NET Core backend. Thư mục gốc này chỉ giữ chỗ, không có Python microservice đang chạy.
 

@@ -3,18 +3,20 @@ import { useState } from "react";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { useUrlQuery, choiceQuery } from "@/lib/useUrlQuery";
-import { todayIso, addDaysIso } from "@/lib/format";
-import { AsyncSection } from "@/components/ui";
+import { todayIso, addDaysIso, formatDate } from "@/lib/format";
+import styles from "./manager-schedule.module.css";
+import { Button } from "@/components/primitives";
+import { mondayOf, isoWeek, weekMonday } from "./schedule-week";
+import { AsyncSection, Card, Field } from "@/components/ui";
 import { FilterBar } from "@/components/data";
 import {
   Calendar,
   CalendarEventDrawer,
   type CalendarEvent,
-  type CalendarView,
 } from "@/components/scheduling";
 import { catalogApi } from "@/features/catalog";
 import { courtScheduleApi } from "@/features/court-schedule";
-import { AiScheduleDrawer } from "./ai-schedule-drawer";
+
 import { ManagerClassChangeRequests } from "./class-change-requests";
 import { classChangeStyles as changeStyles } from "@/features/pt";
 
@@ -38,7 +40,7 @@ export function ManagerSchedule({
   const m = t.managerOperations;
   const { values, setValues } = useUrlQuery(
     {
-      date: todayIso(),
+      date: mondayOf(todayIso()),
       view: "week",
       roomId: "",
       coachId: "",
@@ -51,25 +53,27 @@ export function ManagerSchedule({
       section: choiceQuery(["calendar", "requests"], "calendar"),
       view: choiceQuery(["day", "week", "list"], "week"),
       sourceType: choiceQuery(
-        ["", "CLASS_SESSION", "PT_SESSION", "COURT_RENTAL", "ROOM_BLOCK"],
+        ["", "CLASS_SESSION", "COURT_RENTAL", "ROOM_BLOCK"],
         "",
       ),
     },
   );
   const [selectedId, setSelected] = useState("");
+  const calendarDate =
+    values.view === "week" ? mondayOf(values.date) : values.date;
   const days = values.view === "day" ? 1 : 7;
   const roomId = fixedRoom ? String(fixedRoom) : values.roomId;
   const rooms = useApi((signal) => catalogApi.rooms(signal), []);
   const state = useApi(
     (signal) =>
       courtScheduleApi.list(
-        values.date,
-        addDaysIso(values.date, days - 1),
+        calendarDate,
+        addDaysIso(calendarDate, days - 1),
         roomId,
         false,
         signal,
       ),
-    [values.date, days, roomId],
+    [calendarDate, days, roomId],
   );
   const rows = (state.data ?? []).filter(
     (r) =>
@@ -86,7 +90,8 @@ export function ManagerSchedule({
     ...new Map(
       (state.data ?? [])
         .filter((r) => r.coachId)
-        .map((r) => [r.coachId!, r.coachName ?? r.coachId!]),
+        .filter((r) => r.coachName?.trim())
+        .map((r) => [r.coachId!, r.coachName!]),
     ).entries(),
   ];
   const classes = [
@@ -144,128 +149,219 @@ export function ManagerSchedule({
   return (
     <>
       {sectionNav}
-      <FilterBar
-        values={values}
-        onChange={update}
-        activeCount={
-          [
-            !fixedRoom && values.roomId,
-            !fixedCoach && values.coachId,
-            values.classId,
-            !classesOnly && values.sourceType,
-          ].filter(Boolean).length
-        }
-        fields={[
-          { id: "date", label: l.date, kind: "date" },
-          ...(!fixedRoom
-            ? [
-                {
-                  id: "roomId",
-                  label: l.room,
-                  kind: "select" as const,
-                  options: [
-                    { value: "", label: l.all },
-                    ...(rooms.data ?? []).map((r) => ({
-                      value: String(r.roomId),
-                      label: r.name,
-                    })),
-                  ],
-                },
-              ]
-            : []),
-          ...(!fixedCoach
-            ? [
-                {
-                  id: "coachId",
-                  label: l.coach,
-                  kind: "select" as const,
-                  options: [
-                    { value: "", label: l.all },
-                    ...coaches.map(([value, label]) => ({ value, label })),
-                  ],
-                },
-              ]
-            : []),
-          {
-            id: "classId",
-            label: l.courses,
-            kind: "select",
-            options: [
-              { value: "", label: l.all },
-              ...classes.map(([id, label]) => ({ value: String(id), label })),
-            ],
-          },
-          ...(!classesOnly
-            ? [
-                {
-                  id: "sourceType",
-                  label: m.source,
-                  kind: "select" as const,
-                  options: [
-                    { value: "", label: l.all },
-                    ...Object.entries(t.calendar.types).map(
-                      ([value, label]) => ({ value, label }),
-                    ),
-                  ],
-                },
-              ]
-            : []),
-        ]}
-        onReset={() =>
-          update({ roomId: "", coachId: "", classId: "", sourceType: "" })
-        }
-        actions={
-          <button
-            className="btn btn--ghost"
-            onClick={() => {
-              state.reload();
-              setSelected("");
-            }}
+      <Card>
+        <div className={styles.weekToolbar}>
+          <Field
+            label={values.view === "day" ? l.date : t.mSchedule.chooseWeek}
           >
-            {l.refresh}
-          </button>
-        }
-      />
+            <input
+              type={values.view === "day" ? "date" : "week"}
+              value={values.view === "day" ? values.date : isoWeek(values.date)}
+              onChange={(e) => {
+                if (e.target.value)
+                  update(
+                    values.view === "day"
+                      ? { date: e.target.value }
+                      : { date: weekMonday(e.target.value), view: "week" },
+                  );
+              }}
+            />
+          </Field>
+          <div className={styles.weekNavigation}>
+            <div
+              className={styles.viewNavigation}
+              role="group"
+              aria-label={t.mSchedule.viewLabel}
+            >
+              {(["day", "week", "list"] as const).map((view) => (
+                <Button
+                  key={view}
+                  variant="secondary"
+                  size="sm"
+                  aria-pressed={values.view === view}
+                  onClick={() =>
+                    update({
+                      view,
+                      date:
+                        view === "day" ? values.date : mondayOf(values.date),
+                    })
+                  }
+                >
+                  {t.calendar[view]}
+                </Button>
+              ))}
+            </div>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() =>
+                update({
+                  date: addDaysIso(
+                    values.date,
+                    values.view === "day" ? -1 : -7,
+                  ),
+                })
+              }
+            >
+              {values.view === "day"
+                ? t.calendar.previous
+                : t.mSchedule.prevWeek}
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() =>
+                update({
+                  date:
+                    values.view === "day" ? todayIso() : mondayOf(todayIso()),
+                })
+              }
+            >
+              {values.view === "day"
+                ? t.calendar.today
+                : t.mSchedule.currentWeek}
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() =>
+                update({
+                  date: addDaysIso(values.date, values.view === "day" ? 1 : 7),
+                })
+              }
+            >
+              {values.view === "day" ? t.calendar.next : t.mSchedule.nextWeek}
+            </Button>
+          </div>
+        </div>
+        <details className={styles.filters}>
+          <summary>{t.common.filter}</summary>
+          <FilterBar
+            values={values}
+            onChange={update}
+            activeCount={
+              [
+                !fixedRoom && values.roomId,
+                !fixedCoach && values.coachId,
+                values.classId,
+                !classesOnly && values.sourceType,
+              ].filter(Boolean).length
+            }
+            fields={[
+              ...(!fixedRoom
+                ? [
+                    {
+                      id: "roomId",
+                      label: l.room,
+                      kind: "select" as const,
+                      options: [
+                        { value: "", label: l.all },
+                        ...(rooms.data ?? []).map((r) => ({
+                          value: String(r.roomId),
+                          label: r.name,
+                        })),
+                      ],
+                    },
+                  ]
+                : []),
+              ...(!fixedCoach
+                ? [
+                    {
+                      id: "coachId",
+                      label: l.coach,
+                      kind: "select" as const,
+                      options: [
+                        { value: "", label: l.all },
+                        ...coaches.map(([value, label]) => ({ value, label })),
+                      ],
+                    },
+                  ]
+                : []),
+              {
+                id: "classId",
+                label: l.courses,
+                kind: "select",
+                options: [
+                  { value: "", label: l.all },
+                  ...classes.map(([id, label]) => ({
+                    value: String(id),
+                    label,
+                  })),
+                ],
+              },
+              ...(!classesOnly
+                ? [
+                    {
+                      id: "sourceType",
+                      label: m.source,
+                      kind: "select" as const,
+                      options: [
+                        { value: "", label: l.all },
+                        ...Object.entries(t.calendar.types).map(
+                          ([value, label]) => ({ value, label }),
+                        ),
+                      ],
+                    },
+                  ]
+                : []),
+            ]}
+            onReset={() =>
+              update({ roomId: "", coachId: "", classId: "", sourceType: "" })
+            }
+            actions={
+              <>
+                <button
+                  className="btn btn--ghost"
+                  onClick={() => {
+                    state.reload();
+                    setSelected("");
+                  }}
+                >
+                  {l.refresh}
+                </button>
+              </>
+            }
+          />
+        </details>
+      </Card>
       {rooms.error && <p role="alert">{rooms.error.message}</p>}
       <AsyncSection state={state}>
         {() => (
-          <Calendar
-            events={events}
-            date={values.date}
-            view={values.view as CalendarView}
-            labels={{
-              types: t.calendar.types,
-              day: t.calendar.day,
-              week: t.calendar.week,
-              list: t.calendar.list,
-              previous: t.calendar.previous,
-              today: t.calendar.today,
-              next: t.calendar.next,
-              empty: t.calendar.empty,
-              eventDetails: t.calendar.eventDetails,
-            }}
-            onDateChange={(date) => update({ date })}
-            onViewChange={(view) => update({ view })}
-            onSelectEvent={(event) => setSelected(event.id)}
-          />
+          <Card
+            title={
+              formatDate(calendarDate) +
+              " – " +
+              formatDate(addDaysIso(calendarDate, days - 1))
+            }
+          >
+            <Calendar
+              events={events}
+              date={calendarDate}
+              view={values.view as "day" | "week" | "list"}
+              hideToolbar
+              labels={{
+                types: t.calendar.types,
+                weekdays: t.mSchedule.weekdays,
+                day: t.calendar.day,
+                week: t.calendar.week,
+                list: t.calendar.list,
+                previous: t.calendar.previous,
+                today: t.calendar.today,
+                next: t.calendar.next,
+                empty: t.calendar.empty,
+                eventDetails: t.calendar.eventDetails,
+              }}
+              onDateChange={(date) => update({ date })}
+              onViewChange={(view) => update({ view })}
+              onSelectEvent={(event) => setSelected(event.id)}
+            />
+          </Card>
         )}
       </AsyncSection>
       {selected && (
         <CalendarEventDrawer
           entry={selected}
           roomName={rooms.data?.find((r) => r.roomId === selected.roomId)?.name}
-          manager
-          onClose={() => setSelected("")}
-        />
-      )}
-      {selected && (
-        <CalendarEventDrawer
-          entry={selected}
-          roomName={
-            rooms.data?.find(
-              (r) => r.roomId === selected.roomId,
-            )?.name
-          }
           manager
           onClose={() => setSelected("")}
         />

@@ -3,48 +3,113 @@
   gap: var(--space-3);
   min-width: 0;
 }
+.sessionPlans {
+  display: grid;
+  gap: var(--space-5);
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.sessionPlans > li {
+  min-width: 0;
+  padding-block: var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.sessionPlanHeader {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+.sessionPlanHeader > div:first-child {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+.sessionPlanHeader h3 {
+  margin: 0;
+  font-size: var(--text-lg);
+}
+.sessionPlanHeader p {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-sm);
+  color: var(--text-body);
+  overflow-wrap: anywhere;
+}
 .scopeTabs {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-2);
+  padding-top: var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
 }
 .scopeTabs button {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  padding: var(--space-3);
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  background: var(--bg-surface);
+  border-bottom: 3px solid transparent;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  background: var(--bg-surface-sunken);
   color: var(--text-body);
   font: inherit;
   font-size: 0.85rem;
   cursor: pointer;
-  min-height: 52px;
+  min-height: 72px;
+  min-width: 0;
+  text-align: left;
+  transition: background-color 180ms ease-out, color 180ms ease-out;
+}
+.scopeIcon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-primary-soft-text);
+}
+.scopeTitle {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-weight: 700;
+}
+.scopeTitle small {
+  font-size: var(--text-xs);
+  font-weight: 400;
+  line-height: 1.4;
+  color: var(--text-muted);
 }
 .scopeTabs button strong {
   margin-left: auto;
-  font-size: 0.75rem;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  font-size: var(--text-xs);
   font-variant-numeric: tabular-nums;
 }
-.scopeTabs button[data-scope="course"][aria-pressed="true"] {
-  background: var(--info-bg);
-  color: var(--info-text);
-  border-color: var(--info-solid);
+.scopeTabs button[aria-pressed="true"] {
+  background: var(--bg-inverse-raised);
+  border-color: var(--bg-inverse-raised);
+  border-bottom-color: var(--color-accent);
+  color: var(--text-on-inverse);
 }
-.scopeTabs button[data-scope="session"][aria-pressed="true"] {
+.scopeTabs button[aria-pressed="true"] .scopeIcon {
+  color: var(--color-accent);
+}
+.scopeTabs button[aria-pressed="true"] .scopeTitle small {
+  color: var(--text-on-inverse-muted);
+}
+.scopeTabs button[aria-pressed="true"] strong {
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+.scopeTabs button:hover:not([aria-pressed="true"]) {
   background: var(--color-primary-soft);
   color: var(--color-primary-soft-text);
-  border-color: var(--color-primary);
-}
-.scopeTabs button[data-scope="personal"][aria-pressed="true"] {
-  background: var(--warning-bg);
-  color: var(--warning-text);
-  border-color: var(--warning-solid);
-}
-.scopeTabs button:hover {
-  border-color: var(--border-strong);
 }
 .scopeDescription {
   margin: 0;
@@ -252,6 +317,70 @@
   position: relative;
   padding-bottom: var(--space-5);
 }
+.roadmapList > li[data-phase="next"],
+.roadmapList > li[data-phase="live"] {
+  padding: var(--space-4);
+  margin-bottom: var(--space-4);
+  border-radius: var(--radius-md);
+  background: #102c3b;
+  color: #fff;
+}
+.roadmapList
+  > li:is([data-phase="next"], [data-phase="live"])
+  :is(
+    h4,
+    .roadmapContent > header strong,
+    .roadmapContent > header small,
+    .scopeDescription,
+    .steps,
+    .roadmapDetails summary
+  ) {
+  color: #e7f0f3;
+}
+.roadmapList > li:is([data-phase="next"], [data-phase="live"]) .roadmapNumber {
+  background: #c8f03a;
+  color: #102c3b;
+  border-color: #c8f03a;
+}
+.phaseBadge {
+  display: inline-flex;
+  width: fit-content;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-body);
+  background: var(--surface-raised);
+}
+.phaseBadge:is([data-phase="next"], [data-phase="live"]) {
+  color: #102c3b;
+  background: #c8f03a;
+}
+.phaseBadge[data-phase="completed"] {
+  color: #166345;
+  background: #e1f5eb;
+}
+.roadmapList
+  > li:is([data-phase="next"], [data-phase="live"])
+  .steps
+  :is(strong, p) {
+  color: #e7f0f3;
+}
+.roadmapList
+  > li:is([data-phase="next"], [data-phase="live"])
+  :global(.btn--quiet) {
+  color: #c8f03a;
+}
+.roadmapList
+  > li:is([data-phase="next"], [data-phase="live"])
+  :global(.btn--quiet:hover) {
+  background: #244454;
+}
+.roadmapList > li[data-phase="completed"] .roadmapNumber {
+  color: #166345;
+  background: #e1f5eb;
+  border-color: #9bc9b2;
+}
 .roadmapList > li:not(:last-child)::before {
   content: "";
   position: absolute;
@@ -346,17 +475,19 @@
   .scopeTabs button svg {
     width: 16px;
   }
+  .scopeIcon {
+    display: none;
+  }
   .scopeTabs button strong {
-    width: 100%;
-    margin: 0;
-    font-weight: 500;
+    flex-shrink: 0;
   }
   .toolbar > button {
     width: 100%;
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .chevron {
+  .chevron,
+  .scopeTabs button {
     transition: none;
   }
 }

@@ -78,7 +78,13 @@ export function FilterBar({
               </fieldset>
             ) : (
               <Field label={field.label}>
-                {field.kind === "select" ? (
+                {field.render ? (
+                  field.render({
+                    id: `${id}-${field.id}`,
+                    value: values[field.id] ?? "",
+                    onChange: (value) => setValue(field.id, value),
+                  })
+                ) : field.kind === "select" ? (
                   <Select
                     id={`${id}-${field.id}`}
                     name={field.id}

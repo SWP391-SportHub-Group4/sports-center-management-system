@@ -92,7 +92,16 @@ async function install(page: Page) {
       ]);
     if (path === "/api/members/me/packages")
       return json(world.paid ? [pkg()] : []);
-    if (path === "/api/checkouts/membership") return json(checkout());
+    if (path === "/api/checkouts/membership")
+      return world.paid
+        ? json(
+            {
+              error: "duplicate_active_package",
+              message: "You already have this package.",
+            },
+            409,
+          )
+        : json(checkout());
     if (path === `/api/checkouts/${invoiceId}`) return json(checkout());
     if (path === `/api/invoices/${invoiceId}`)
       return json({
@@ -161,8 +170,8 @@ test("a new member registers, buys a Gym membership, returns from payment and ca
   await page.goto("/register");
   await page.getByLabel("Email").fill("new.member@example.com");
   await page.getByRole("button", { name: "Send code" }).click();
-  await page.getByLabel(/verification code|6-digit/i).fill("123456");
-  await page.getByRole("button", { name: /Continue to Step 2/ }).click();
+  await page.getByRole("textbox", { name: "Digit 1 of 6" }).fill("123456");
+  await page.getByRole("button", { name: "Step 2 →" }).click();
   await page.getByLabel("Full name").fill("New Member");
   await page.getByLabel("Password", { exact: true }).fill("Strong-Pass-1!");
   await page.getByLabel("Confirm password").fill("Strong-Pass-1!");
@@ -179,15 +188,13 @@ test("a new member registers, buys a Gym membership, returns from payment and ca
   // 2. Hội viên mới chưa có gói: dashboard chỉ lối mua Membership, không giả vờ có quyền lợi.
   await expect(page.getByText("No Gym membership yet.")).toBeVisible();
   await page.getByRole("link", { name: "Choose a Gym membership" }).click();
-  await expect(page).toHaveURL(/\/member\/services\?tab=gym$/);
+  await expect(page).toHaveURL(/\/member\/services\?section=gym&view=explore$/);
 
-  // 3. Chọn gói và tạo checkout.
-  const monthly = page
-    .locator("article, section, div")
-    .filter({ hasText: "Gym monthly" });
-  await expect(monthly.first()).toBeVisible();
-  await page.getByRole("button", { name: "Review & checkout" }).first().click();
-  await page.getByRole("button", { name: "Checkout", exact: true }).click();
+  // 3. Chọn gói Gym một tháng và chuyển sang checkout.
+  const gym = page.getByRole("region", { name: "Gym Membership" });
+  await expect(gym.getByRole("button", { name: "Choose plan" })).toHaveCount(2);
+  await gym.getByRole("button", { name: "Choose plan" }).first().click();
+  await expect(page).toHaveURL(new RegExp(`/checkout/${invoiceId}$`));
   await expect
     .poll(() => posts.some((p) => p.path === "/api/checkouts/membership"))
     .toBe(true);
@@ -208,14 +215,14 @@ test("a new member registers, buys a Gym membership, returns from payment and ca
     page.getByRole("link", { name: "Go to my Gym membership" }),
   ).toBeVisible();
   await page.getByRole("link", { name: "Go to my Gym membership" }).click();
-  await expect(page).toHaveURL(/\/member\/services\?tab=gym$/);
+  await expect(page).toHaveURL(/\/member\/services/);
+  await page.getByRole("button", { name: "Explore packages" }).click();
 
-  // 5. Gói đã hiệu lực; mua lại đúng gói đó bị chặn kèm lý do, gói khác vẫn mua được.
-  await expect(page.getByText("Gym monthly").first()).toBeVisible();
-  await expect(page.getByText(/You already have this package/)).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Review & checkout" }),
-  ).toHaveCount(1);
+  // 5. API từ chối mua lại đúng gói đang hiệu lực, giao diện hiện lý do.
+  await gym.getByRole("button", { name: "Choose plan" }).first().click();
+  await expect(gym.getByRole("alert")).toContainText(
+    /already has a package of the same type/i,
+  );
 
   // 6. Lễ tân check-in: Member thấy lượt vào của mình.
   world.checkedIn = true;

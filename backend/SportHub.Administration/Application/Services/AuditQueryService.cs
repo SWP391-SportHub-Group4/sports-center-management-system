@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using SportHub.Administration.Application.DTOs;
 using SportHub.Administration.Application.Interfaces;
 using SportHub.Audit.Domain.Entities;
+using SportHub.BuildingBlocks.Abstractions.Audit;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.SharedKernel.Pagination;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
@@ -32,6 +33,17 @@ public sealed record AuditLogResponse(
 /// </summary>
 public sealed class AuditQueryService(ISportHubDbContext db) : IAuditQueryService
 {
+    public async Task<IReadOnlyList<string>> ListActionsAsync(bool accountsOnly = false, CancellationToken ct = default)
+    {
+        var query = db.Set<AuditLog>().AsNoTracking();
+        if (accountsOnly) query = query.Where(a => a.TargetEntity == nameof(UserAccount));
+        var recorded = await query.Where(a => a.Action.Trim() != "")
+            .Select(a => a.Action).Distinct().ToListAsync(ct);
+        var actions = accountsOnly ? recorded.Concat(AccountAuditActions.All) : recorded;
+        return actions.Where(a => !string.IsNullOrWhiteSpace(a))
+            .Distinct(StringComparer.Ordinal).OrderBy(a => a, StringComparer.Ordinal).ToArray();
+    }
+
     public async Task<PagedResult<AuditLogResponse>> SearchAsync(
         string? action,
         string? targetEntity,

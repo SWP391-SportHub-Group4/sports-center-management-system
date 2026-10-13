@@ -10,8 +10,8 @@ export function CourtRentalReport({
 }) {
   const { t } = useLanguage();
   return (
-    <Card title={t.staffWork.rentals}>
-      <RevenueRows rows={report.rows} />
+    <Card title={t.staffWork.rentals} hint={t.staffWork.cashBasisHint}>
+      <RevenueRows rows={report.rows} showSource={false} />
       {!report.rows.length && <p>{t.common.noData}</p>}
     </Card>
   );

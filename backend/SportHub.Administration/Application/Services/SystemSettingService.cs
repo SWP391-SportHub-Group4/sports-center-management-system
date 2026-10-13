@@ -37,8 +37,7 @@ public sealed class SystemSettingService(
             [SystemSettingKeys.RentalSlotMinutes] = (30, 60),
             [SystemSettingKeys.RentalMaxHours] = (1, 4),
             [SystemSettingKeys.RentalAdvanceDays] = (1, 30),
-            [SystemSettingKeys.RentalCancelFreeHours] = (0, 168),
-            [SystemSettingKeys.PtPricePerSessionVnd] = (1_000, 100_000_000)
+            [SystemSettingKeys.RentalCancelFreeHours] = (0, 168)
         };
 
     public async Task<IReadOnlyList<SystemSettingResponse>> GetAllAsync(CancellationToken ct = default)
@@ -65,8 +64,6 @@ public sealed class SystemSettingService(
                     "invalid_setting_value",
                     $"Setting '{key}' must be an integer between {range.Min} and {range.Max}.");
             }
-            if (key == SystemSettingKeys.PtPricePerSessionVnd && parsed % 1000 != 0)
-                throw new BadRequestException("invalid_setting_value", "The PT unit price must be a multiple of 1,000 VND.");
             if (key == SystemSettingKeys.RentalSlotMinutes && parsed is not (30 or 60))
                 throw new BadRequestException("invalid_setting_value", "The rental slot must be 30 or 60 minutes.");
         }

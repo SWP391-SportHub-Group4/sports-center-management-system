@@ -39,10 +39,15 @@ export const reportsApi = {
       },
     }),
   membership: (f: ReportFilters, signal?: AbortSignal) =>
-    api.get<{ newMembers: number; activeMembersAtPeriodEnd: number }>(
-      "/api/reports/membership-period",
-      { signal, query: { fromDate: f.fromDate, toDate: f.toDate } },
-    ),
+    api.get<{
+      newMembers: number;
+      activeMembersAtPeriodEnd: number;
+      membersPurchasingMembershipInPeriod: number;
+      dayPassesSold?: number;
+    }>("/api/reports/membership-period", {
+      signal,
+      query: { fromDate: f.fromDate, toDate: f.toDate },
+    }),
   exports: (page: number, signal?: AbortSignal) =>
     api.get<Paged<ReportExportDto>>("/api/reports/exports", {
       signal,

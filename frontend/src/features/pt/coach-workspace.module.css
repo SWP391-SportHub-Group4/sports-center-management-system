@@ -3,6 +3,15 @@
   gap: var(--space-5);
   min-width: 0;
 }
+.fullStudentDetail {
+  display: grid;
+  gap: var(--space-5);
+  min-width: 0;
+}
+.fullStudentDetail h2 {
+  margin: 0;
+  font-size: var(--text-xl);
+}
 .intro {
   display: flex;
   align-items: center;
@@ -40,6 +49,22 @@
 .detail :global([role="tabpanel"]) {
   overflow-wrap: anywhere;
 }
+.detail :global([role="tablist"]) {
+  flex-wrap: wrap;
+  overflow: visible;
+}
+.detail :global([role="tab"]) {
+  flex: 1 1 100px;
+  min-width: 0;
+  min-height: 44px;
+  padding-inline: var(--space-2);
+  white-space: normal;
+  overflow-wrap: anywhere;
+  color: var(--text-body);
+}
+.detail :global([role="tab"][aria-selected="true"]) {
+  color: var(--color-primary);
+}
 .eyebrow {
   font-size: 0.72rem;
   font-weight: 700;
@@ -66,6 +91,11 @@
     transform 0.2s ease,
     border-color 0.2s ease;
   min-width: 0;
+  text-decoration: none;
+}
+.classCard:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 3px;
 }
 .classCard:hover {
   transform: translateY(-3px);
@@ -201,10 +231,64 @@ button.student:hover {
   border-color: var(--color-primary);
   color: var(--color-primary-soft-text);
 }
+.rowActions .recordButton {
+  min-height: 44px;
+  padding-inline: var(--space-4);
+  background: var(--color-primary-soft);
+  border-color: var(--color-primary-soft-text);
+  color: var(--color-primary-soft-text);
+  font-weight: 600;
+}
+.rowActions .recordButton:hover:not(:disabled) {
+  background: var(--color-primary-soft-text);
+  color: var(--bg-surface);
+}
+.rowActions .recordButton:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 3px;
+}
+.rowActions .recordButton:disabled {
+  background: var(--bg-surface-sunken);
+  border-color: var(--border-subtle);
+  color: var(--text-body);
+  opacity: 1;
+}
+.recordSaved {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+  color: var(--color-primary-soft-text);
+  background: var(--color-primary-soft);
+  border-radius: var(--radius-sm);
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
 .records {
   display: grid;
   gap: var(--space-5);
   margin-block: var(--space-4);
+}
+.noticeIntro {
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.noticeTitle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-strong);
+}
+.noticeTitle h3 {
+  margin: 0;
+  font-size: var(--text-lg);
+}
+.noticeIntro p {
+  margin: var(--space-2) 0 0;
+  max-width: 65ch;
+  color: var(--text-body);
+  font-size: var(--text-sm);
 }
 .record {
   padding-left: var(--space-4);
@@ -293,6 +377,49 @@ button.student:hover {
 .feed {
   padding: var(--space-5);
   border-top: 1px solid var(--border-subtle);
+}
+.classPage {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+.classPage > :global(.btn) {
+  justify-self: start;
+}
+.classOverview {
+  padding: var(--space-4);
+  background: var(--bg-surface-sunken);
+  border-radius: var(--radius-md);
+  min-width: 0;
+}
+.classFacts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-4);
+  margin: var(--space-4) 0 0;
+}
+.classFacts > div {
+  min-width: 0;
+}
+.classFacts dt {
+  color: var(--text-body);
+  font-size: var(--text-sm);
+}
+.classFacts dd {
+  margin: var(--space-1) 0 0;
+  color: var(--text-strong);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 900px) {
+  .classFacts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 400px) {
+  .classFacts {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 @media (max-width: 700px) {
   .intro {

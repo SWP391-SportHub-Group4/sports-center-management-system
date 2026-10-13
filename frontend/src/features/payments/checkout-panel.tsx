@@ -9,6 +9,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { PaymentAttemptPanel } from "./payment-attempt-panel";
 import { PointsSelector } from "./points-selector";
 import { InvoiceStatus } from "./invoice-status";
+import { DAY_PASS_PACKAGE_ID } from "@/lib/day-pass";
 import { HoldCountdown } from "./hold-countdown";
 import { api, ApiError } from "@/lib/apiClient";
 import { useApi, useNow } from "@/lib/useApi";
@@ -118,12 +119,6 @@ function CheckoutFlow({
   const [confirmation, setConfirmation] = useState<CounterConfirmation | null>(
     null,
   );
-  const [retryQuote, setRetryQuote] = useState<{
-    priceVersion: string;
-    totalPrice: number;
-    totalQuota: number;
-    pricePerSession: number;
-  } | null>(null);
   const [paymentChoice, setPaymentChoice] = useState<"vnpay" | "points">(
     "vnpay",
   );
@@ -383,9 +378,7 @@ function CheckoutFlow({
   const pointsValue = checkout ? checkout.totalAmount - checkout.cashAmount : 0;
   const showExpiredRetry =
     expired &&
-    ["MEMBERSHIP", "CLASS", "PT", "COURT_RENTAL"].includes(
-      checkout?.kind ?? "",
-    ) &&
+    ["MEMBERSHIP", "CLASS", "COURT_RENTAL"].includes(checkout?.kind ?? "") &&
     checkout?.invoiceStatus === "ISSUED" &&
     !checkout.reconciliationRequired;
   function forgetRememberedInvoice() {
@@ -457,11 +450,19 @@ function CheckoutFlow({
       </>
     );
   }
+  const dayPassNotice =
+    intent?.kind === "membership" &&
+    Number(intent.body.packageId) === DAY_PASS_PACKAGE_ID ? (
+      <p role="note" className={styles.alert}>
+        {t.checkout.dayPassNotice}
+      </p>
+    ) : null;
   if (!checkout || !vm)
     return present(
       <Card title={review ? review.title : l.buy}>
         <div aria-live="polite">
           {errorMessage && <p role="alert">{errorMessage}</p>}
+          {dayPassNotice}
           {review && review.items.length > 0 && (
             <dl className={styles.review}>
               {review.items.map((item) => (
@@ -500,6 +501,7 @@ function CheckoutFlow({
             {errorMessage}
           </p>
         )}
+        {dayPassNotice}
         <InvoiceStatus checkout={checkout} />
         {vm.phase === "FULFILLED" && user?.role === "Member" && (
           <div className={styles.actions}>
@@ -510,9 +512,7 @@ function CheckoutFlow({
                   ? "/member/services?section=courses&view=owned"
                   : checkout.kind === "COURT_RENTAL"
                     ? "/member/schedule"
-                    : checkout.kind === "PT"
-                      ? "/member/services?tab=pt"
-                      : "/member/services?tab=gym"
+                    : "/member/services?tab=gym"
               }
             >
               {checkout.kind === "CLASS"
@@ -521,9 +521,7 @@ function CheckoutFlow({
                   ? vi
                     ? "Xem lịch của tôi"
                     : "View my schedule"
-                  : checkout.kind === "PT"
-                    ? t.checkout.nextPt
-                    : t.checkout.nextMembership}
+                  : t.checkout.nextMembership}
             </Link>
             <Link
               className={buttonClass({ variant: "secondary" })}
@@ -828,62 +826,21 @@ function CheckoutFlow({
                   <PaymentAttemptPanel
                     key={attempt.paymentAttemptId}
                     attempt={attempt}
-                    onSimulated={() => void run(refresh)}
                   />
                 </div>
               )}
           </section>
         )}
-        {expired && checkout.kind === "PT" && checkout.ptMemberPackageId && (
-          <div className={styles.actions}>
-            <Button
-              variant="secondary"
-              disabled={busy}
-              onClick={() =>
-                run(async () => {
-                  setRetryQuote(
-                    await api.post("/api/checkouts/pt/quote", {
-                      memberPackageId: checkout.ptMemberPackageId,
-                      coachId: checkout.ptCoachId,
-                      frequencyPerWeek: checkout.ptFrequency,
-                      startAtUtc: checkout.ptStartAtUtc,
-                      roomId: checkout.ptRoomId,
-                      targetMemberId: memberId,
-                    }),
-                  );
-                  retryKey.current = null;
-                })
-              }
-            >
-              {l.quote}
-            </Button>
-            {retryQuote && (
-              <p className={styles.money}>
-                {retryQuote.totalQuota} ×{" "}
-                {formatMoney(retryQuote.pricePerSession)} ={" "}
-                {formatMoney(retryQuote.totalPrice)}
-              </p>
-            )}
-          </div>
-        )}
         {showExpiredRetry && (
           <div className={styles.actions}>
             <Button
               variant="primary"
-              disabled={
-                busy ||
-                (checkout.kind === "PT" &&
-                  !retryQuote?.priceVersion &&
-                  !intent?.body.priceVersion)
-              }
+              disabled={busy}
               onClick={() =>
                 run(async () => {
                   const next = await api.post<CheckoutDto>(
                     `/api/checkouts/${id}/retry`,
-                    {
-                      priceVersion:
-                        retryQuote?.priceVersion ?? intent?.body.priceVersion,
-                    },
+                    undefined,
                     {
                       idempotencyKey: (retryKey.current ??=
                         crypto.randomUUID()),

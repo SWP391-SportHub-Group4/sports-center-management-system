@@ -8,6 +8,15 @@ namespace SportHub.Scheduling.Rental.Api;
 [ApiController, Authorize(Policy = SportHubPolicies.CenterManager), Route("api/manager/incidents")]
 public sealed class IncidentsController(IncidentService incidents) : ControllerBase
 {
+    [HttpGet]
+    public async Task<IActionResult> List([FromQuery] int page = 1, [FromQuery] int pageSize = 20,
+        CancellationToken ct = default)
+        => Ok(await incidents.ListAsync(page, pageSize, ct));
+
+    [HttpGet("{incidentId:guid}")]
+    public async Task<IActionResult> Get(Guid incidentId, CancellationToken ct)
+        => Ok(await incidents.GetAsync(incidentId, ct));
+
     [HttpGet("{incidentId:guid}/notifications")]
     public async Task<IActionResult> Notifications(Guid incidentId, CancellationToken ct)
         => Ok(await incidents.DeliveryAsync(incidentId, ct));

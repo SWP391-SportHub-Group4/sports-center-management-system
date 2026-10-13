@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { AsyncSection, Card, Field, Stat } from "@/components/ui";
 import { Tabs } from "@/components/primitives";
@@ -8,15 +8,16 @@ import { choiceQuery, useUrlQuery } from "@/lib/useUrlQuery";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
-import { formatMoney, formatPoints } from "@/lib/format";
+import { formatDate, formatMoney, formatPoints } from "@/lib/format";
 import { vietnamLocal } from "@/lib/vietnam-time";
-import type { SportDto } from "@/lib/types";
+import type { SportDto, UserAdminDto } from "@/lib/types";
+import { MemberPicker } from "@/components/MemberPicker";
 import { reportsApi, type ReportFilters } from "./api";
 import { RevenueSummary } from "./revenue-summary";
 import { PointsReport } from "./points-report";
 import { ClassEnrollmentReport } from "./class-enrollment-report";
 import { CourtRentalReport } from "./court-rental-report";
-import { ReportExportPanel } from "./report-export-panel";
+import { ReportExportPanel, ReportTypeSelect } from "./report-export-panel";
 import styles from "./reports.module.css";
 
 function initialFilters(): ReportFilters {
@@ -34,13 +35,18 @@ function initialFilters(): ReportFilters {
 export function ReportFilterForm({
   initial,
   onApply,
+  scope = "dimensions",
+  children,
 }: {
   initial: ReportFilters;
   onApply: (filters: ReportFilters) => void;
+  scope?: "dimensions" | "rentals" | "classes" | "period";
+  children?: ReactNode;
 }) {
   const { t } = useLanguage();
   const l = t.staffWork;
   const [draft, setDraft] = useState(initial);
+  const [member, setMember] = useState<UserAdminDto | null>(null);
   const [error, setError] = useState(false);
   const sports = useApi(
     (signal) => api.get<SportDto[]>("/api/manager/sports", { signal }),
@@ -59,9 +65,17 @@ export function ReportFilterForm({
             return;
           }
           setError(false);
-          onApply({ ...draft });
+          onApply({
+            ...draft,
+            sportId: scope === "period" ? "" : draft.sportId,
+            source: scope === "dimensions" ? draft.source : "",
+            memberId: ["dimensions", "rentals"].includes(scope)
+              ? draft.memberId
+              : "",
+          });
         }}
       >
+        {children}
         <div className={styles.filterGrid}>
           <Field label={l.from}>
             <input
@@ -83,56 +97,62 @@ export function ReportFilterForm({
               }
             />
           </Field>
-          <AsyncSection state={sports}>
-            {(rows) => (
-              <Field label={l.sport}>
-                <select
-                  value={draft.sportId}
-                  onChange={(event) =>
-                    setDraft({ ...draft, sportId: event.target.value })
-                  }
-                >
-                  <option value="">{l.all}</option>
-                  {rows.map((sport) => (
-                    <option key={sport.sportId} value={sport.sportId}>
-                      {sport.name}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-            )}
-          </AsyncSection>
-          <Field label={l.source}>
-            <select
-              value={draft.source}
-              onChange={(event) =>
-                setDraft({ ...draft, source: event.target.value })
-              }
-            >
-              <option value="">{l.all}</option>
-              {[
-                ["MEMBERSHIP", l.sourceMembership],
-                ["PT", l.sourcePt],
-                ["CLASS_PACKAGE", l.sourceClass],
-                ["RENTAL", l.sourceRental],
-                ["RECONCILIATION", l.sourceReconciliation],
-                ["LEGACY_UNCLASSIFIED", l.sourceLegacy],
-              ].map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label={l.memberId}>
-            <input
-              value={draft.memberId}
-              pattern="[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
-              onChange={(event) =>
-                setDraft({ ...draft, memberId: event.target.value })
-              }
+          {scope !== "period" && (
+            <AsyncSection state={sports}>
+              {(rows) => (
+                <Field label={l.sport}>
+                  <select
+                    value={draft.sportId}
+                    onChange={(event) =>
+                      setDraft({ ...draft, sportId: event.target.value })
+                    }
+                  >
+                    <option value="">{l.all}</option>
+                    {rows.map((sport) => (
+                      <option key={sport.sportId} value={sport.sportId}>
+                        {sport.name}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              )}
+            </AsyncSection>
+          )}
+          {scope === "dimensions" && (
+            <Field label={l.source}>
+              <select
+                value={draft.source}
+                onChange={(event) =>
+                  setDraft({ ...draft, source: event.target.value })
+                }
+              >
+                <option value="">{l.all}</option>
+                {[
+                  ["MEMBERSHIP", l.sourceMembership],
+                  ["CLASS_PACKAGE", l.sourceClass],
+                  ["RENTAL", l.sourceRental],
+                  ["RECONCILIATION", l.sourceReconciliation],
+                  ["LEGACY_UNCLASSIFIED", l.sourceLegacy],
+                ].map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          )}
+          {["dimensions", "rentals"].includes(scope) && (
+            <MemberPicker
+              scanner={false}
+              placeholder={l.member}
+              label={l.member}
+              value={member}
+              onChange={(next) => {
+                setMember(next);
+                setDraft({ ...draft, memberId: next?.userId ?? "" });
+              }}
             />
-          </Field>
+          )}
         </div>
         {error && <p role="alert">{l.dateRange}</p>}
         <button className="btn">{l.apply}</button>
@@ -187,7 +207,18 @@ function MembersTab({ filters: f }: { filters: ReportFilters }) {
           <div className="stats-grid">
             <Stat label={t.staffWork.newMembers} value={report.newMembers} />
             <Stat
-              label={t.staffWork.activeMembers}
+              label={t.staffWork.purchasingMembers}
+              value={report.membersPurchasingMembershipInPeriod}
+            />
+            <Stat
+              label={t.staffWork.dayPassesSold}
+              value={report.dayPassesSold ?? 0}
+            />
+            <Stat
+              label={t.staffWork.activeMembers.replace(
+                "{date}",
+                formatDate(f.toDate),
+              )}
               value={report.activeMembersAtPeriodEnd}
             />
           </div>
@@ -215,7 +246,13 @@ export function Reports() {
   };
   return (
     <>
-      <ReportFilterForm initial={filters} onApply={setFilters} />
+      <ReportFilterForm
+        initial={filters}
+        onApply={setFilters}
+        scope={
+          tab === "revenue" ? "dimensions" : tab === "members" ? "period" : tab
+        }
+      />
       <div className="btn-row">
         <Link className="btn btn--secondary" href="/manager/reports/exports">
           {f.exportsLink}
@@ -243,13 +280,24 @@ export function ReportExports() {
   const { t } = useLanguage();
   const f = t.finOps;
   const [filters, setFilters] = useState(initialFilters);
+  const [type, setType] = useState("REVENUE_DIMENSIONS");
+  const scope =
+    type === "REVENUE_DIMENSIONS"
+      ? "dimensions"
+      : type === "COURT_RENTAL_REVENUE"
+        ? "rentals"
+        : type === "CLASS_ENROLLMENT"
+          ? "classes"
+          : "period";
   return (
     <div className={styles.page}>
       <Link className={`btn btn--ghost ${styles.back}`} href="/manager/reports">
         ← {f.backToReports}
       </Link>
-      <ReportFilterForm initial={filters} onApply={setFilters} />
-      <ReportExportPanel filters={filters} />
+      <ReportFilterForm initial={filters} onApply={setFilters} scope={scope}>
+        <ReportTypeSelect value={type} onChange={setType} />
+      </ReportFilterForm>
+      <ReportExportPanel filters={filters} type={type} />
     </div>
   );
 }
@@ -282,8 +330,8 @@ export function ManagerOverview() {
             <div className="stats-grid">
               <Stat label={l.cash} value={formatMoney(report.totalCollected)} />
               <Stat
-                label={l.redeemed}
-                value={formatMoney(report.pointsRedeemedVnd)}
+                label={l.redeemedPoints}
+                value={formatPoints(report.pointsRedeemed)}
               />
               <Stat
                 label={l.issued}
@@ -301,7 +349,14 @@ export function ManagerOverview() {
             <div className="stats-grid">
               <Stat label={l.newMembers} value={report.newMembers} />
               <Stat
-                label={l.activeMembers}
+                label={l.purchasingMembers}
+                value={report.membersPurchasingMembershipInPeriod}
+              />
+              <Stat
+                label={l.activeMembers.replace(
+                  "{date}",
+                  formatDate(filters.toDate),
+                )}
                 value={report.activeMembersAtPeriodEnd}
               />
             </div>
@@ -315,29 +370,38 @@ export function ManagerOverview() {
           )}
         </AsyncSection>
       </Card>
-
-      <Card title={l.quickLinks}>
-        <div className="btn-row">
-          <Link className="btn btn--secondary" href="/manager/classes">
-            {t.navigation.items.classes}
-          </Link>
-          <Link className="btn btn--secondary" href="/manager/points">
-            {l.wallet}
-          </Link>
-          <Link
-            className="btn btn--secondary"
-            href="/manager/finance?tab=refunds"
-          >
-            {l.refunds}
-          </Link>
-          <Link className="btn btn--secondary" href="/manager/reports">
-            {l.reports}
-          </Link>
-          <Link className="btn btn--secondary" href="/manager/audit-log">
-            {l.audit}
-          </Link>
-        </div>
-      </Card>
     </>
+  );
+}
+
+export function ManagementShortcuts() {
+  const { t } = useLanguage();
+  const l = t.staffWork;
+  return (
+    <Card title={l.quickLinks}>
+      <div className="btn-row">
+        <Link className="btn btn--secondary" href="/manager/classes">
+          {t.navigation.items.classes}
+        </Link>
+        <Link className="btn btn--secondary" href="/manager/points">
+          {l.wallet}
+        </Link>
+        <Link
+          className="btn btn--secondary"
+          href="/manager/finance?tab=refunds"
+        >
+          {l.refunds}
+        </Link>
+        <Link className="btn btn--secondary" href="/manager/reports">
+          {l.reports}
+        </Link>
+        <Link className="btn btn--secondary" href="/manager/audit-log">
+          {l.audit}
+        </Link>
+        <Link className="btn btn--secondary" href="/manager/incidents">
+          {t.operations.incidents}
+        </Link>
+      </div>
+    </Card>
   );
 }

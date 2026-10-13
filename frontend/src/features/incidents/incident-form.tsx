@@ -9,17 +9,16 @@ import { Card, Field } from "@/components/ui";
 import { RoomSelector } from "@/features/catalog";
 import { MutationFeedback, useMutation } from "@/features/operations";
 import { vietnamUtc } from "@/lib/vietnam-time";
+import { IncidentDateTime, validIncidentDateTime } from "./incident-date-time";
+import formStyles from "./incident-date-time.module.css";
+import { formatDateTime } from "@/lib/format";
 import type { IncidentPreviewDto } from "@/lib/types";
 import { IncidentImpactReview } from "./incident-impact-review";
 import { ApiGap } from "@/features/manager";
-import { ReceiptLookup, validReceiptId } from "@/features/manager";
-import { managerWorkspaceStyles as styles } from "@/features/manager";
+import { validReceiptId } from "@/features/manager";
+import { IncidentHistory } from "./incident-history";
 import { useOperationsCopy } from "@/features/manager";
-import {
-  IncidentProgress,
-  type IncidentStep,
-  type StepStatus,
-} from "./incident-progress";
+import type { StepStatus } from "./incident-progress";
 export function IncidentForm() {
   const { t, language } = useLanguage();
   const vi = language === "vi";
@@ -57,31 +56,10 @@ export function IncidentForm() {
     params.get("incidentUncertain") === "1",
   );
   const [resolving, setResolving] = useState(false);
-  const [steps, setSteps] = useState<IncidentStep[]>([]);
   const [editing, setEditing] = useState(false);
-  function record(
-    type: string,
-    id: string,
-    status: StepStatus,
-    message?: string,
-  ) {
-    setSteps((rows) => {
-      const next = { type, id, status, message, at: new Date().toISOString() };
-      // Keep earlier attempts; only complete the current in-flight attempt.
-      if (status !== "pending") {
-        for (let index = rows.length - 1; index >= 0; index--) {
-          const row = rows[index];
-          if (
-            row.type === type &&
-            (row.id === id || type === "FINAL") &&
-            row.status === "pending"
-          ) {
-            return rows.map((item, i) => (i === index ? next : item));
-          }
-        }
-      }
-      return [...rows, next];
-    });
+  const validRange =
+    validIncidentDateTime(start) && validIncidentDateTime(end) && end > start;
+  function record(_type: string, _id: string, status: StepStatus) {
     setFinalReview(false);
     if (status === "unknown") {
       setUncertain(true);
@@ -99,6 +77,7 @@ export function IncidentForm() {
     setFinalReview(false);
   }
   async function preview(final = false) {
+    if (!validRange) return;
     const expectedRevision = revision.current;
     const body = {
       scope,
@@ -133,11 +112,12 @@ export function IncidentForm() {
           }}
         >
           <fieldset
+            className={formStyles.formFields}
             disabled={
               mutation.busy || resolving || editing || uncertain || !!incidentId
             }
           >
-            <div className="form-grid">
+            <div className={formStyles.formGrid}>
               <Field label={l.scope}>
                 <select
                   value={scope}
@@ -159,30 +139,33 @@ export function IncidentForm() {
                   }}
                 />
               )}
-              <Field label={l.start}>
-                <input
-                  required
-                  type="datetime-local"
-                  value={start}
-                  onChange={(e) => {
-                    setStart(e.target.value);
-                    clear();
-                  }}
-                />
-              </Field>
-              <Field label={l.end}>
-                <input
-                  required
-                  type="datetime-local"
-                  min={start}
-                  value={end}
-                  onChange={(e) => {
-                    setEnd(e.target.value);
-                    clear();
-                  }}
-                />
-              </Field>
             </div>
+            <div className={formStyles.formGrid}>
+              <IncidentDateTime
+                label={l.start}
+                value={start}
+                onChange={(value) => {
+                  setStart(value);
+                  clear();
+                }}
+              />
+              <IncidentDateTime
+                label={l.end}
+                value={end}
+                minDate={start.split("T")[0]}
+                onChange={(value) => {
+                  setEnd(value);
+                  clear();
+                }}
+              />
+            </div>
+            {validIncidentDateTime(start) &&
+              validIncidentDateTime(end) &&
+              end <= start && (
+                <p role="alert" className="field__error">
+                  {t.incidentHistory.invalidRange}
+                </p>
+              )}
             <Field label={l.reason}>
               <textarea
                 required
@@ -198,10 +181,7 @@ export function IncidentForm() {
             <button
               className="btn"
               disabled={
-                mutation.busy ||
-                !start ||
-                end <= start ||
-                (scope === "ROOM" && !roomId)
+                mutation.busy || !validRange || (scope === "ROOM" && !roomId)
               }
             >
               {l.review}
@@ -209,11 +189,7 @@ export function IncidentForm() {
           </fieldset>
         </form>
         <MutationFeedback mutation={mutation} />
-        {incidentId && (
-          <p role="status">
-            {l.resolved} · {incidentId}
-          </p>
-        )}
+        {incidentId && <p role="status">{l.resolved}</p>}
         {incidentId && (
           <>
             <p>{t.managerOperations.resolvedHint}</p>
@@ -229,7 +205,6 @@ export function IncidentForm() {
                 setIncidentId("");
                 setReview(null);
                 setFinalReview(false);
-                setSteps([]);
                 setReason("");
                 mutation.reset();
                 window.history.replaceState(null, "", window.location.pathname);
@@ -245,9 +220,6 @@ export function IncidentForm() {
           />
         )}
       </Card>
-      <div className={styles.checkpoint}>
-        <IncidentProgress steps={steps} />
-      </div>
       {review && (
         <section className="stack">
           <h2>{l.impact}</h2>
@@ -316,8 +288,8 @@ export function IncidentForm() {
             <>
               <h3>{t.managerOperations.resolveReview}</h3>
               <p>
-                {review.body.startAtUtc} – {review.body.endAtUtc} ·{" "}
-                {review.body.reason}
+                {formatDateTime(review.body.startAtUtc)} –{" "}
+                {formatDateTime(review.body.endAtUtc)} · {review.body.reason}
               </p>
               <p>{t.managerOperations.partialHint}</p>
               <button
@@ -400,7 +372,7 @@ export function IncidentForm() {
           </Link>
         </div>
       )}
-      <ReceiptLookup kind="incidents" />
+      <IncidentHistory refreshKey={incidentId} />
     </>
   );
 }

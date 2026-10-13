@@ -7,44 +7,34 @@ import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { MutationFeedback, useMutation } from "@/features/operations";
 import { reportsApi, type ReportFilters } from "./api";
-import { formatDateTime } from "@/lib/format";
+import { formatDate, formatDateTime } from "@/lib/format";
 import { financeStyles as fin } from "@/features/finance";
 import { useEffect } from "react";
 import styles from "./reports.module.css";
 const columnsByType: Record<string, string[]> = {
   REVENUE_DIMENSIONS: [
     "source",
-    "sportId",
     "sportName",
-    "memberId",
+    "memberName",
     "collectedAmount",
-    "legacyCashCollected",
     "pointsRedeemed",
-    "pointsRedeemedVnd",
   ],
   COURT_RENTAL_REVENUE: [
     "source",
-    "sportId",
     "sportName",
-    "memberId",
+    "memberName",
     "collectedAmount",
-    "legacyCashCollected",
     "pointsRedeemed",
-    "pointsRedeemedVnd",
   ],
   REVENUE_SUMMARY: [
-    "fromDate",
-    "toDate",
     "collectedAmount",
-    "legacyCashCollected",
     "reconciliationCashCollected",
-    "pointsRedeemedVnd",
+    "pointsRedeemed",
     "pointsIssued",
     "managerPointAdjustment",
     "outstandingPoints",
   ],
   CLASS_ENROLLMENT: [
-    "classId",
     "name",
     "sportName",
     "capacity",
@@ -56,17 +46,57 @@ const columnsByType: Record<string, string[]> = {
     "thresholdStatus",
   ],
   MEMBERSHIP_PERIOD: [
-    "fromDate",
-    "toDate",
     "newMembers",
+    "membersPurchasingMembershipInPeriod",
     "activeMembersAtPeriodEnd",
   ],
 };
-export function ReportExportPanel({ filters }: { filters: ReportFilters }) {
+export function ReportTypeSelect({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
   const { t } = useLanguage();
   const l = t.staffWork;
-  const [type, setType] = useState("REVENUE_DIMENSIONS");
-  const [columns, setColumns] = useState<string[]>([]);
+  const labels: Record<string, string> = {
+    REVENUE_DIMENSIONS: l.dimensions,
+    COURT_RENTAL_REVENUE: l.rentals,
+    REVENUE_SUMMARY: l.revenuePointsSummary,
+    CLASS_ENROLLMENT: l.enrollment,
+    MEMBERSHIP_PERIOD: l.membership,
+    REVENUE: "Invoices by issue date",
+    REVENUE_DAILY: "Cash collected by payment date",
+  };
+  return (
+    <Field label={l.exportType}>
+      <select value={value} onChange={(event) => onChange(event.target.value)}>
+        {Object.keys(columnsByType).map((key) => (
+          <option key={key} value={key}>
+            {labels[key]}
+          </option>
+        ))}
+      </select>
+    </Field>
+  );
+}
+
+export function ReportExportPanel({
+  filters,
+  type,
+}: {
+  filters: ReportFilters;
+  type: string;
+}) {
+  const { t } = useLanguage();
+  const l = t.staffWork;
+  const [selectedColumns, setSelectedColumns] = useState<
+    Record<string, string[]>
+  >({});
+  const columns = selectedColumns[type] ?? [];
+  const setColumns = (next: string[]) =>
+    setSelectedColumns((current) => ({ ...current, [type]: next }));
   const [format, setFormat] = useState("Csv");
   const [page, setPage] = useState(1);
   const mutation = useMutation();
@@ -88,26 +118,22 @@ export function ReportExportPanel({ filters }: { filters: ReportFilters }) {
   const labels: Record<string, string> = {
     REVENUE_DIMENSIONS: l.dimensions,
     COURT_RENTAL_REVENUE: l.rentals,
-    REVENUE_SUMMARY: l.points,
+    REVENUE_SUMMARY: l.revenuePointsSummary,
     CLASS_ENROLLMENT: l.enrollment,
     MEMBERSHIP_PERIOD: l.membership,
+    REVENUE: "Invoices by issue date",
+    REVENUE_DAILY: "Cash collected by payment date",
   };
   const columnLabels: Record<string, string> = {
     source: l.source,
-    sportId: `${l.sport} ID`,
     sportName: l.sport,
-    memberId: l.memberId,
+    memberName: l.member,
     collectedAmount: l.cash,
-    legacyCashCollected: l.legacyCash,
     reconciliationCashCollected: l.reconciliationCash,
-    pointsRedeemed: l.points,
-    pointsRedeemedVnd: l.redeemed,
+    pointsRedeemed: l.redeemedPoints,
     pointsIssued: l.issued,
     managerPointAdjustment: l.adjusted,
     outstandingPoints: l.outstanding,
-    fromDate: l.from,
-    toDate: l.to,
-    classId: "ID",
     name: l.title,
     capacity: l.capacity,
     confirmedCount: l.confirmed,
@@ -117,7 +143,11 @@ export function ReportExportPanel({ filters }: { filters: ReportFilters }) {
     breakEvenThreshold: l.threshold,
     thresholdStatus: l.status,
     newMembers: l.newMembers,
-    activeMembersAtPeriodEnd: l.activeMembers,
+    membersPurchasingMembershipInPeriod: l.purchasingMembers,
+    activeMembersAtPeriodEnd: l.activeMembers.replace(
+      "{date}",
+      formatDate(filters.toDate),
+    ),
   };
   return (
     <Card title={l.export}>
@@ -151,29 +181,21 @@ export function ReportExportPanel({ filters }: { filters: ReportFilters }) {
             state.reload();
         }}
       >
-        <Field label={l.exportType}>
-          <select
-            value={type}
-            onChange={(e) => {
-              setType(e.target.value);
-              setColumns([]);
-            }}
-          >
-            {Object.keys(columnsByType).map((key) => (
-              <option key={key} value={key}>
-                {labels[key]}
-              </option>
-            ))}
-          </select>
-        </Field>
         <p>
-          {filters.fromDate} – {filters.toDate}
-          {(dimensional || type === "CLASS_ENROLLMENT") &&
-            ` · ${l.sport}: ${filters.sportId || l.all}`}
-          {dimensional &&
-            ` · ${l.source}: ${type === "COURT_RENTAL_REVENUE" ? l.rentals : filters.source || l.all} · ${l.memberId}: ${filters.memberId || l.all}`}
+          {labels[type]} · {formatDate(filters.fromDate)} –{" "}
+          {formatDate(filters.toDate)}
         </p>
-        {type === "REVENUE_SUMMARY" && <p>{l.globalPoints}</p>}
+        {[
+          "REVENUE_SUMMARY",
+          "REVENUE_DIMENSIONS",
+          "COURT_RENTAL_REVENUE",
+        ].includes(type) && <p>{l.cashBasisHint}</p>}
+        {type === "REVENUE_SUMMARY" && (
+          <>
+            <p>{l.globalPoints}</p>
+            <p>{l.currentPointHint}</p>
+          </>
+        )}
         <fieldset className={styles.columns}>
           <legend>{l.columns}</legend>
           <div className={styles.columnList}>

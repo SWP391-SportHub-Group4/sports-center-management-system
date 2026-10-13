@@ -1,0 +1,106 @@
+.viewport {
+  max-width: 100%;
+  min-width: 0;
+}
+.viewport table {
+  min-width: 640px;
+}
+.viewport table:has(th:nth-child(6)) {
+  min-width: 960px;
+}
+.cell {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.viewport[data-management-table] th,
+.viewport[data-management-table] td {
+  padding: var(--space-2) var(--space-3);
+  vertical-align: middle;
+}
+.viewport[data-management-table] {
+  width: 100%;
+  max-width: none;
+}
+.viewport[data-management-table] .cell > p,
+.viewport[data-management-table] .cell > ul,
+.viewport[data-management-table] .cell > dl {
+  margin-block: 0;
+}
+@media (min-width: 768px) {
+  .viewport[data-management-table] .cell {
+    max-width: 52ch;
+  }
+}
+.cell:has(> button, > a:global(.btn)) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+@media (min-width: 768px) {
+  .viewport td:has(> .cell > :global(.chip)),
+  .viewport
+    td:has(
+      > .cell > button,
+      > .cell > a:global(.btn),
+      > .cell > :global(.btn-row)
+    ) {
+    width: 1%;
+    white-space: nowrap;
+  }
+  .cell:has(> button, > a:global(.btn)),
+  .cell > :global(.btn-row) {
+    flex-wrap: nowrap;
+    width: max-content;
+  }
+}
+@media (max-width: 767px) {
+  .cards table,
+  .cards tbody {
+    display: block;
+    min-width: 0;
+    width: 100%;
+  }
+  .cards thead {
+    display: none;
+  }
+  .cards tbody tr {
+    display: block;
+    padding: var(--space-4) 0;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .cards tbody tr:first-child {
+    padding-top: 0;
+  }
+  .cards tbody tr:hover {
+    background: transparent;
+  }
+  .cards.cards tbody td,
+  .cards.cards tbody th {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+    gap: var(--space-2) var(--space-4);
+    min-width: 0;
+    width: auto;
+    padding: var(--space-2) 0;
+    border: 0;
+    text-align: left;
+    background: transparent;
+  }
+  .cards [data-label]::before {
+    content: attr(data-label);
+    color: var(--text-muted);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-medium);
+  }
+  .cards tbody td[colspan] {
+    display: block;
+  }
+}
+@media (max-width: 480px) {
+  .cards.cards tbody td,
+  .cards.cards tbody th {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-1);
+  }
+}

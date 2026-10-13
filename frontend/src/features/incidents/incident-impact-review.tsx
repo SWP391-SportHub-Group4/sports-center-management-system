@@ -4,12 +4,13 @@ import { api, ApiError } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { formatDateTime } from "@/lib/format";
-import { Card, Table, Field, AsyncSection, Dialog } from "@/components/ui";
-import { RoomSelector, catalogApi } from "@/features/catalog";
+import { Table, AsyncSection, Dialog } from "@/components/ui";
+import { CloseButton } from "@/components/CloseButton";
+import { catalogApi } from "@/features/catalog";
 import { useOperationsCopy } from "@/features/manager";
 import { SessionEditor } from "@/features/courses";
 import { MutationFeedback, useMutation } from "@/features/operations";
-import { vietnamUtc, vietnamLocal } from "@/lib/vietnam-time";
+import { vietnamLocal } from "@/lib/vietnam-time";
 import type { StepStatus } from "./incident-progress";
 import type {
   IncidentPreviewDto,
@@ -55,140 +56,6 @@ function ClassImpactEditor({
         />
       )}
     </AsyncSection>
-  );
-}
-function PtImpactEditor({
-  id,
-  onSaved,
-  onOutcome,
-  onClose,
-}: {
-  id: string;
-  onSaved: () => void;
-  onOutcome: (status: StepStatus, message?: string) => void;
-  onClose: () => void;
-}) {
-  const { t } = useLanguage();
-  const l = t.operations;
-  const [cancel, setCancel] = useState(false);
-  const [start, setStart] = useState("");
-  const [roomId, setRoom] = useState("");
-  const [reason, setReason] = useState("");
-  const [reviewing, setReviewing] = useState(false);
-  const mutation = useMutation();
-  const [unknown, setUnknown] = useState(false);
-  return (
-    <Card title={l.ptSession}>
-      <form
-        onSubmit={async (e) => {
-          e.preventDefault();
-          if (reason.trim().length < 3) return;
-          if (!reviewing) {
-            setReviewing(true);
-            return;
-          }
-          if (unknown || mutation.busy) return;
-          onOutcome("pending");
-          if (
-            await mutation.run(async () => {
-              try {
-                await api.post(
-                  `/api/manager/pt-sessions/${id}/${cancel ? "cancel" : "reschedule"}`,
-                  cancel
-                    ? { reason }
-                    : {
-                        reason,
-                        newStartAtUtc: vietnamUtc(start),
-                        roomId: roomId ? Number(roomId) : null,
-                      },
-                );
-              } catch (error) {
-                const uncertain =
-                  !(error instanceof ApiError) ||
-                  error.status === 0 ||
-                  error.status >= 500;
-                setUnknown(uncertain);
-                onOutcome(
-                  uncertain ? "unknown" : "failed",
-                  error instanceof Error ? error.message : undefined,
-                );
-                throw error;
-              }
-            })
-          ) {
-            onOutcome("succeeded");
-            onSaved();
-          }
-        }}
-      >
-        <fieldset disabled={mutation.busy || unknown} hidden={reviewing}>
-          <Field label={l.edit}>
-            <select
-              value={cancel ? "cancel" : "reschedule"}
-              onChange={(e) => setCancel(e.target.value === "cancel")}
-            >
-              <option value="reschedule">{l.reschedule}</option>
-              <option value="cancel">{l.cancel}</option>
-            </select>
-          </Field>
-          {!cancel && (
-            <>
-              <Field label={l.start}>
-                <input
-                  required
-                  type="datetime-local"
-                  value={start}
-                  onChange={(e) => setStart(e.target.value)}
-                />
-              </Field>
-              <RoomSelector value={roomId} onChange={setRoom} />
-            </>
-          )}
-          <Field label={l.reason}>
-            <textarea
-              required
-              minLength={3}
-              maxLength={500}
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-            />
-          </Field>
-        </fieldset>
-        {reviewing && (
-          <div className="stack">
-            <p>
-              {cancel ? l.cancel : l.reschedule} · <code>{id}</code>
-            </p>
-            {!cancel && (
-              <p>
-                {formatDateTime(vietnamUtc(start))} · {l.room}: {roomId || "—"}
-              </p>
-            )}
-            <p>{reason}</p>
-            <button
-              type="button"
-              className="btn btn--secondary"
-              disabled={mutation.busy || unknown}
-              onClick={() => setReviewing(false)}
-            >
-              {l.previous}
-            </button>
-          </div>
-        )}
-        <button className="btn" disabled={mutation.busy || unknown}>
-          {reviewing ? l.confirm : l.review}
-        </button>
-        <button
-          type="button"
-          className="btn btn--ghost"
-          disabled={mutation.busy}
-          onClick={onClose}
-        >
-          {l.close}
-        </button>
-      </form>
-      <MutationFeedback mutation={mutation} />
-    </Card>
   );
 }
 export function IncidentImpactReview({
@@ -246,7 +113,6 @@ export function IncidentImpactReview({
   }
   const labels: Record<string, string> = {
     CLASS_SESSION: l.classSession,
-    PT_SESSION: l.ptSession,
     COURT_RENTAL: l.rental,
     ROOM_BLOCK: l.roomBlock,
   };
@@ -298,8 +164,7 @@ export function IncidentImpactReview({
               <td>{formatDateTime(r.startAtUtc)}</td>
               <td>{formatDateTime(r.endAtUtc)}</td>
               <td>
-                {r.sourceType === "CLASS_SESSION" ||
-                r.sourceType === "PT_SESSION" ? (
+                {r.sourceType === "CLASS_SESSION" ? (
                   <button
                     className="btn btn--secondary"
                     disabled={disabled || !!editing || !!removeId}
@@ -389,16 +254,16 @@ export function IncidentImpactReview({
             >
               {l.confirm}
             </button>
-            <button
-              className="btn btn--secondary"
+            <CloseButton
+              label={l.close}
+              variant="secondary"
+              size="md"
               disabled={mutation.busy}
               onClick={() => {
                 setRemoveId("");
                 onEditingChange?.(false);
               }}
-            >
-              {l.close}
-            </button>
+            />
           </div>
           <MutationFeedback mutation={mutation} />
         </Dialog>
@@ -416,21 +281,6 @@ export function IncidentImpactReview({
             onRefresh();
           }}
           onClose={closeEditor}
-        />
-      )}
-      {editing?.type === "PT_SESSION" && (
-        <PtImpactEditor
-          key={editing.id}
-          id={editing.id}
-          onOutcome={(status, message) =>
-            onResult?.("PT_SESSION", editing.id, status, message)
-          }
-          onClose={closeEditor}
-          onSaved={() => {
-            onCompleted?.("PT_SESSION", editing.id);
-            closeEditor();
-            onRefresh();
-          }}
         />
       )}
       <MutationFeedback mutation={mutation} />

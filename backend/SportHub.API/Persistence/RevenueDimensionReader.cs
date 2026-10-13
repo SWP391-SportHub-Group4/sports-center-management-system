@@ -33,16 +33,6 @@ public sealed class RevenueDimensionReader(SportHubDbContext db) : IRevenueDimen
             .ToListAsync(ct);
         foreach (var rental in rentals)
             result[rental.ItemId] = new(rental.SportId, rental.Name, rental.MemberId);
-        // PT là dịch vụ của Gym: doanh thu PT cũ chưa có tham chiếu môn được gán cho môn có dịch vụ PT đang bật.
-        var ptSports = await db.Set<SportHub.Scheduling.Catalog.Domain.Sport>().AsNoTracking()
-            .Where(x => x.IsActive && x.Services.Any(o => o.ServiceType == SportHub.BuildingBlocks.Abstractions.Scheduling.SportServiceType.PersonalTraining && o.IsEnabled))
-            .Select(x => new { x.SportId, x.Name }).Take(2).ToListAsync(ct);
-        if (ptSports.Count == 1)
-        {
-            var ptItems = await db.Set<InvoiceItem>().AsNoTracking().Where(x => invoiceItemIds.Contains(x.ItemId)
-                && x.ItemType == SportHub.Payment.Domain.Enums.InvoiceItemType.PT).Select(x => x.ItemId).ToListAsync(ct);
-            foreach (var itemId in ptItems) result.TryAdd(itemId, new(ptSports[0].SportId, ptSports[0].Name));
-        }
         // New invoices carry their purchased sport/name snapshot, independent of later catalog edits.
         var snapshots = await db.Set<InvoiceItem>().AsNoTracking().Where(x => invoiceItemIds.Contains(x.ItemId)
             && x.SportId != null).Select(x => new { x.ItemId, x.SportId, x.SportNameSnapshot }).ToListAsync(ct);

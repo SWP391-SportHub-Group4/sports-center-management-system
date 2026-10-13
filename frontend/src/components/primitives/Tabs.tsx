@@ -19,7 +19,7 @@ export interface TabsProps {
 }
 
 /**
- * Tab điều khiển bằng state/URL của trang (An dùng cho `?tab=` ở Tài chính, Gym & PT, Tập luyện…).
+ * Tab điều khiển bằng state/URL của trang (An dùng cho `?tab=` ở Tài chính, Gym, Tập luyện…).
  * Roving tabindex + phím mũi tên/Home/End theo mẫu WAI-ARIA; tab không tự đổi URL — nơi gọi quyết định.
  */
 export function Tabs({

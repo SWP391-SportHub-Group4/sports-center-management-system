@@ -89,6 +89,8 @@ public sealed class SchedulingApiFactory : WebApplicationFactory<Program>, IAsyn
             services.AddSingleton<IEmailSender, UnavailableEmailSender>();
         });
 
+        builder.ConfigureServices(services =>
+            services.AddSingleton<SportHub.Payment.VnPay.IPaymentGateway, SportHub.Payment.VnPay.MockPaymentGateway>());
         builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(
             new Dictionary<string, string?>
             {
@@ -100,7 +102,8 @@ public sealed class SchedulingApiFactory : WebApplicationFactory<Program>, IAsyn
                 ["Cors:AllowedOrigins:0"] = "http://localhost:3000",
                 ["Smtp:Host"] = "",
                 ["Email:Smtp:Host"] = "",
-                ["Email:DemoLoggingEnabled"] = "true"
+                ["Email:DemoLoggingEnabled"] = "true",
+                ["VnPay:UseMock"] = "true"
             }));
     }
 

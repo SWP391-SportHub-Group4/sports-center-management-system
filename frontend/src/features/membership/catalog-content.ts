@@ -11,7 +11,7 @@ export function isRetiredActivityPackage(
   );
 }
 
-// Exact Vietnamese labels/descriptions verified in the demo seed and catalog.
+// Exact Vietnamese labels/descriptions mapped to the membership catalog.
 // Historical labels stay here so sold/discontinued packages keep their language metadata.
 // This is a provenance fallback, not language detection by name/script.
 const verifiedVietnameseContent = new Set([
@@ -27,18 +27,16 @@ const verifiedVietnameseContent = new Set([
   "Membership 120 ngày",
   "Membership 90 ngày nâng cao",
   "Membership thử 14 ngày (ngừng bán)",
-  "Tập Gym tự do trong 30 ngày, không giới hạn check-in. Cần Membership Gym còn hiệu lực để mua PT riêng.",
-  "Tập Gym tự do trong 90 ngày. Cần Membership Gym còn hiệu lực để mua PT riêng.",
-  "Tập Gym tự do trong 180 ngày. Cần Membership Gym còn hiệu lực để mua PT riêng.",
-  "Tập Gym tự do trong 365 ngày. Cần Membership Gym còn hiệu lực để mua PT riêng.",
+  "Tập Gym tự do trong 30 ngày, không giới hạn check-in.",
+  "Tập Gym tự do trong 90 ngày.",
+  "Tập Gym tự do trong 180 ngày.",
+  "Tập Gym tự do trong 365 ngày.",
   "Gói Gym dùng thử cũ — giữ lại để minh hoạ gói đã ngừng áp dụng (BR-8).",
   "Ra vào Gym/Fitness tự do trong 30 ngày, không giới hạn số lần check-in.",
   "12 buổi Yoga nhóm, dùng trong 90 ngày.",
   "20 buổi Group X / Aerobic / HIIT, dùng trong 120 ngày.",
-  "10 buổi tập 1 kèm 1 với huấn luyện viên cá nhân.",
   "Quyền sử dụng trung tâm trong 90 ngày.",
   "Quyền sử dụng trung tâm trong 120 ngày.",
-  "Membership nền để mua PT riêng.",
   "Gói dùng thử cũ — giữ lại để minh hoạ gói đã ngừng áp dụng (BR-8).",
 ]);
 

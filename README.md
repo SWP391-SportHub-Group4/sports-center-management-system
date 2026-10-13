@@ -1,8 +1,8 @@
 # SportHub — Hệ thống quản lý trung tâm thể thao đa môn (SWP391)
 
-SportHub là **hệ thống quản lý trung tâm thể thao với ba môn Gym (bao gồm PT), cầu lông và bóng rổ; có thể mở rộng thêm môn trong tương lai**. PT là dịch vụ thuộc Gym, không phải môn thứ tư.
+SportHub là **hệ thống quản lý trung tâm thể thao với ba môn Gym, cầu lông và bóng rổ; có thể mở rộng thêm môn trong tương lai**. Gym chỉ bán Membership có thời hạn và vé Gym 1 ngày.
 
-Monorepo cho hệ thống quản lý **trung tâm thể thao đa môn**: nhiều bộ môn (phạm vi: Gym (bao gồm PT), Cầu lông, Bóng rổ — Manager quản lý danh mục; mỗi môn có nhiều dịch vụ cấu hình được, xem CAT-01 trong thiết kế), nhiều sân/phòng, **khóa học cố định theo lớp** (ví dụ Cầu lông 01, 02), huấn luyện viên của trung tâm; mọi Member thuê sân theo giờ. Thanh toán bằng tiền (VNPay-QR) kết hợp **ví điểm** (1 điểm = 1.000 VND). Thiết kế đầy đủ: [`docs/Center-Management-System-Design-v3.md`](docs/Center-Management-System-Design-v3.md).
+Monorepo cho hệ thống quản lý **trung tâm thể thao đa môn**: nhiều bộ môn (phạm vi: Gym, Cầu lông, Bóng rổ — Manager quản lý danh mục; mỗi môn có nhiều dịch vụ cấu hình được, xem CAT-01 trong thiết kế), nhiều sân/phòng, **khóa học cố định theo lớp** (ví dụ Cầu lông 01, 02), huấn luyện viên của trung tâm; mọi Member thuê sân theo giờ. Thanh toán bằng tiền (VNPay-QR) kết hợp **ví điểm** (1 điểm = 1.000 VND). Thiết kế đầy đủ: [`docs/Center-Management-System-Design-v3.md`](docs/Center-Management-System-Design-v3.md).
 
 > **Trước khi code:** đọc [SSOT](docs/00-Source-of-Truth.md) và [thiết kế hệ thống](docs/Center-Management-System-Design-v3.md). 
 ## Sản phẩm
@@ -11,11 +11,13 @@ Monorepo cho hệ thống quản lý **trung tâm thể thao đa môn**: nhiều
 
 | Vai trò | Làm gì |
 |---|---|
-| System Administrator | Tạo tài khoản nhân sự (Admin/Manager/Receptionist), đổi vai trò, khóa/mở khóa |
-| Center Manager | CRUD môn, phòng/sân, giá thuê sân, Membership; tạo lớp + xếp lịch (AI gợi ý xếp lịch còn là phần chưa triển khai), phân công Coach theo chuyên môn, duyệt hoàn điểm, sự cố/thông báo, báo cáo, Audit Log |
-| Coach (của trung tâm) | Chuyên môn theo môn (`CoachSpecialty`); xem lịch dạy và roster lớp mình; Coach có chuyên môn PT: PT session, kế hoạch tập, kết quả, gợi ý AI |
-| Member | Đăng ký Membership Gym, PT; xem lớp/khóa học, ghi danh có giữ chỗ, ví điểm, lịch hôm nay/tuần, thông báo, chatbot |
-| Receptionist | Tìm/đăng ký Member tại quầy, Gym check-in/out, điểm danh lớp nhóm, checkout thay Member (dùng điểm cần OTP email của Member), Court Schedule, hỗ trợ đối soát |
+| System Administrator (role bổ sung so với requirement gốc, nhận phần quản trị tài khoản từ Manager) | Tạo tài khoản nhân sự (Admin/Manager/Receptionist/Coach kèm chuyên môn; nhân sự nhận email kích hoạt), đổi vai trò giữa các role staff (không chuyển Member ↔ staff), khóa/mở khóa, gửi lại link kích hoạt/sửa email chưa kích hoạt, Audit Log thao tác tài khoản |
+| Center Manager (chia việc với Admin, không giống 100% requirement gốc) | CRUD môn, phòng/sân, giá thuê sân, Membership; tạo lớp + xếp lịch (AI gợi ý xếp lịch còn là phần chưa triển khai), phân công Coach theo chuyên môn, sửa hồ sơ Coach (không tạo Coach), duyệt hoàn điểm, sự cố/thông báo, báo cáo, Audit Log |
+| Coach (của trung tâm) | Chuyên môn theo môn (`CoachSpecialty`); xem lịch dạy và roster lớp mình; Coach cầu lông/bóng rổ lập kế hoạch tập, ghi kết quả, đánh giá từng học viên của lớp (phần Training đang được làm lại theo lớp) |
+| Member | Đăng ký Membership Gym hoặc mua vé Gym 1 ngày (50.000đ, chỉ trong ngày, mã check-in chỉ trong ngày); xem lớp/khóa học, ghi danh có giữ chỗ, ví điểm, lịch hôm nay/tuần, thông báo, chatbot |
+| Receptionist | Tìm/xem Member, quản lý đăng ký/gia hạn gói, kiểm tra gói và hạn, Gym check-in/out, điểm danh lớp nhóm, đăng ký lớp hoặc hỗ trợ hủy lớp, checkout thay Member (dùng điểm cần OTP email của Member), ghi nhận thanh toán và hóa đơn, Court Schedule, hỗ trợ đối soát. Đăng ký Member mới tại quầy (email nhập hai lần, Member nhận email kích hoạt; gửi lại link/sửa email khi chờ kích hoạt). Bán vé Gym 1 ngày và check-in hộ. Yêu cầu chưa triển khai: tiếp nhận yêu cầu hỗ trợ |
+
+Guest (chưa đăng nhập) xem được landing page và nội dung công khai; Guest không phải role lưu trong database.
 
 ### Các Flow
 
@@ -24,8 +26,8 @@ Monorepo cho hệ thống quản lý **trung tâm thể thao đa môn**: nhiều
 | 1 — User & Membership | Bắt buộc | 5 vai trò, Coach + chuyên môn, Membership Gym, Gym check-in, mật khẩu mạnh, quên mật khẩu bằng link email (không hỏi mật khẩu cũ, phản hồi trung tính) |
 | 2 — Class booking & schedule | Bắt buộc | Môn/Phòng/Sân, lớp theo khóa, ghi danh + giữ chỗ chống bán vượt sĩ số, ngưỡng hoàn vốn, Court Schedule, thuê sân, điểm danh lớp nhóm |
 | 3 — Payment & report | Bắt buộc | Invoice nhiều loại item, VNPay-QR, ví điểm + split payment, hoàn trả **chỉ bằng điểm**, báo cáo theo môn/nguồn |
-| 4 — Training & attendance | Optional (nhóm vẫn làm) | PT: kế hoạch, kết quả, điểm danh |
-| 5 — AI workout recommendation | Optional (nhóm vẫn làm) | Gợi ý bài tập cho Coach có chuyên môn PT |
+| 4 — Training & attendance | Optional (nhóm vẫn làm) | Kế hoạch, kết quả, đánh giá theo lớp; điểm danh |
+| 5 — AI workout recommendation | Optional (nhóm vẫn làm) | Gợi ý bài tập cho Coach theo học viên của lớp |
 | 6 — AI assistant | Nhóm làm | Member assistant theo context đã có mã; Manager AI xếp lịch/function calling chưa triển khai |
 
 ### Quy tắc chính cần nhớ
@@ -59,7 +61,7 @@ sports-center-management-system/
 | [`docs/Requirements.md`](docs/Requirements.md), [`docs/SWP391_Report_SRS.docx`](docs/SWP391_Report_SRS.docx) | Yêu cầu và báo cáo SRS |
 | [`docs/RUNBOOK.md`](docs/RUNBOOK.md) | Khởi động local (PostgreSQL, backend, frontend) và bàn giao triển khai |
 | [`docs/GIT_WORKFLOW.md`](docs/GIT_WORKFLOW.md) | Quy trình Git, phân module theo giai đoạn G0–G12 |
-| [`PRODUCT.md`](PRODUCT.md), [`DESIGN-SKILLS-GUIDE.md`](DESIGN-SKILLS-GUIDE.md), [`DESIGN-TOKENS.md`](DESIGN-TOKENS.md) | Sản phẩm, quy trình UX/UI hai skill, phân công page/API và bộ token duy nhất |
+| [`PRODUCT.md`](PRODUCT.md), [`DESIGN-TOKENS.md`](DESIGN-TOKENS.md) | Sản phẩm và bộ token duy nhất |
 
 ## Chạy thử nhanh
 
@@ -159,26 +161,24 @@ Backend đọc cấu hình qua biến môi trường (`__` = cấp lồng nhau, 
 | `POSTGRES_*`, `ConnectionStrings__Default` | Có | Không chạy được |
 | `JwtOptions__SecretKey` (≥ 32 ký tự) | Có | API không khởi động |
 | `Google__ClientId` | Không | `/api/auth/google` trả `503 google_login_not_configured` |
-| `VnPay__TmnCode`, `VnPay__HashSecret`, `VnPay__PaymentUrl`, `VnPay__ReturnUrl`, `VnPay__QueryUrl` | Có khi dùng gateway thật | Mock chỉ khi Development và `VnPay__UseMock=true`; thiếu credential không tự fallback. Ngoài Development, startup yêu cầu credential và URL HTTPS. |
+| `VnPay__TmnCode`, `VnPay__HashSecret`, `VnPay__PaymentUrl`, `VnPay__ReturnUrl`, `VnPay__QueryUrl` | Có khi dùng gateway thật | Ứng dụng luôn dùng VNPay thật (sandbox hoặc production); thiếu credential không tự fallback. Ngoài Development, startup yêu cầu credential và URL HTTPS. |
 | `Email__Smtp__Host/Username/Password` (Gmail App Password) | Không | Dùng `LoggingEmailSender`: nội dung email (kể cả **OTP**) ghi vào log backend |
 | `Gemini__ApiKey` (+ `Gemini__Model`, `Gemini__BaseUrl`, `Gemini__TimeoutSeconds`) | Không | Endpoint Gemini trả `503 gemini_not_configured`; gợi ý workout rule-based vẫn độc lập |
 | `Reports__StorageRoot` | Không | `<thư mục chạy>/App_Data/reports` |
 
-> `docker-compose.yml` hiện map `ConnectionStrings__Default`, JWT, Google, `VnPay__*`, SMTP/DataProtection và `Gemini__*` vào backend. Development có thể dùng `VnPay__UseMock=true` và `Email__DemoLoggingEnabled=true`; không dùng các chế độ demo đó để chứng nhận sandbox VNPay hoặc SMTP thật.
+> `docker-compose.yml` hiện map `ConnectionStrings__Default`, JWT, Google, `VnPay__*`, SMTP/DataProtection và `Gemini__*` vào backend. Ứng dụng dùng VNPay thật và SMTP thật ở cả local lẫn deploy. Dữ liệu mô phỏng chỉ thuộc project test, không được đăng ký trong ứng dụng.
 
 ## Ghi chú kỹ thuật
 
 - **Stack:** ASP.NET Core (net10.0, modular monolith) + PostgreSQL 16 (bật `btree_gist`) + Next.js; không Redis/RabbitMQ.
 - **Chống trùng lịch/bán vượt:** `room_occupancies`, `coach_occupancies` với exclusion constraint; `classes.reserved_count` cập nhật có điều kiện trong transaction.
-- **Job nền** chạy trong tiến trình API: giữ chỗ, thuê sân, ngưỡng hoàn vốn, trạng thái lớp, điểm danh PT, hạn Membership, gửi outbox.
+- **Job nền** chạy trong tiến trình API: giữ chỗ, thuê sân, ngưỡng hoàn vốn, trạng thái lớp, điểm danh, hạn Membership (không nhắc hết hạn vé Gym 1 ngày), gửi outbox.
 - **AI assistant:** endpoint backend lấy `userId` từ JWT, build context chỉ-đọc từ dữ liệu SportHub rồi gọi provider Gemini; API key chỉ ở backend. Các action nghiệp vụ vẫn đi qua API/authorization riêng, không để model tự ghi DB.
 - **Múi giờ:** `Asia/Ho_Chi_Minh` cho mọi hiển thị lịch.
 
 ## Chạy local
 
-Ở môi trường `Development`, backend tự áp migration và seed dữ liệu demo khi khởi động —
-nhưng **chỉ khi database chưa có tài khoản nào**, nên không bao giờ ghi đè dữ liệu đang có.
-Cách khởi động: [`docs/RUNBOOK.md`](docs/RUNBOOK.md). Tài khoản demo do `DemoDataSeeder.cs` tạo.
+Ở môi trường `Development`, backend tự áp migration khi khởi động nhưng không tự seed dữ liệu. Để chuẩn bị dữ liệu kiểm tra tối thiểu, dùng `--seed-validation=true` sau khi áp migration. Xem [Local Validation Data](docs/Local-Validation-Data.md).
 
 ### Cách 1: Docker Compose (cả 3 service)
 

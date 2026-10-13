@@ -1,6 +1,6 @@
 # Avatar Member và Coach qua Cloudinary
 
-## Quyết định nghiệp vụ (11/10/2026)
+## Quyết định nghiệp vụ
 
 - Chỉ Member và Coach đang đăng nhập được tự tải lên, thay hoặc xóa avatar của chính mình. Manager, Receptionist và System Administrator không được đổi ảnh hộ. Manager chỉ được gỡ ảnh khi xử lý báo cáo vi phạm.
 - Avatar Member hiển thị tại các màn hình có danh tính Member. `GET /api/avatars/{userId}` cho phép tài khoản đã đăng nhập đọc avatar Member theo ID; Guest không đọc được. Avatar Coach được công khai cùng tên Coach; `GET /api/coaches` chỉ trả Coach đang hoạt động và không trả email/số điện thoại.
@@ -33,3 +33,5 @@ Backend đọc `CLOUDINARY_URL=cloudinary://<api_key>:<api_secret>@<cloud_name>`
 Migration `AddAvatars` thêm `avatar_url`, `avatar_public_id`, `avatar_version` vào `user_profiles`, cùng `avatar_reports` và `avatar_deletions`. Cần chạy migration trước khi khởi động API với code mới. `avatar_deletions` chỉ chứa public ID đã bỏ tham chiếu; job thử lại mỗi 10 phút. Đã yêu cầu Cloudinary invalidate CDN khi xóa, nhưng cache CDN có thể cần một thời gian để hết hiệu lực.
 
 Không kiểm thử được thao tác Cloudinary thật nếu chưa có key mới trong `.env` và môi trường mạng. Có thể kiểm tra chức năng bằng tài khoản Member/Coach: tải ảnh, kéo crop, xem ở account/danh sách, thay, xóa, báo cáo từ tài khoản khác, Manager gỡ và xác nhận báo cáo ảnh cũ không gỡ ảnh mới.
+
+Migration cũ `AddCoachAvatars` vẫn nằm trong lịch sử để database đã áp dụng có thể nâng cấp; các thao tác thêm cột được thiết kế chạy an toàn cùng `AddAvatars` trên database mới.

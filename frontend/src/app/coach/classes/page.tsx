@@ -1,18 +1,12 @@
 "use client";
 
 import { PtPage } from "@/features/pt/ui";
-import { CoachClasses } from "@/features/pt/coach-classes";
-import { CoachWorkspaceRoute } from "@/features/pt/coach-workspace-route";
+import { CoachWorkspace } from "@/features/pt/coach-workspace";
 
 export default function CoachClassesPage() {
   return (
-    <CoachWorkspaceRoute
-      mode="classes"
-      pt={
-        <PtPage title="classes">
-          <CoachClasses />
-        </PtPage>
-      }
-    />
+    <PtPage title="classes">
+      <CoachWorkspace mode="classes" />
+    </PtPage>
   );
 }

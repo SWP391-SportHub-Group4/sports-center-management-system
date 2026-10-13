@@ -1,4 +1,5 @@
 "use client";
+import listStyles from "./manager-members.module.css";
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -16,7 +17,6 @@ import type {
   CoachMemberRelationshipDto,
   MemberPackageDto,
   Paged,
-  PtEntitlementDto,
   UserAdminDto,
 } from "@/lib/types";
 import { trainingStyles as styles } from "@/features/training";
@@ -50,13 +50,15 @@ export function ManagerMemberList() {
   return (
     <div>
       <Card title={l.members}>
-        <Field label={l.findMember}>
-          <input
-            type="search"
-            value={keyword}
-            onChange={(e) => setKeyword(e.target.value)}
-          />
-        </Field>
+        <div className={listStyles.search}>
+          <Field label={l.findMember}>
+            <input
+              type="search"
+              value={keyword}
+              onChange={(e) => setKeyword(e.target.value)}
+            />
+          </Field>
+        </div>
         <AsyncSection state={state}>
           {(data) => {
             const rows = pagedItems(data);
@@ -64,51 +66,55 @@ export function ManagerMemberList() {
               return <p className={styles.muted}>{l.noMembers}</p>;
             return (
               <>
-                <Table
-                  headers={[
-                    t.frontDesk.colName,
-                    t.frontDesk.colContact,
-                    t.frontDesk.colStatus,
-                    "",
-                  ]}
-                >
-                  {rows.map((m) => (
-                    <tr key={m.userId}>
-                      <td>
-                        <AvatarImage
-                          name={m.fullName || m.email}
-                          avatarUrl={m.avatarUrl}
-                          size={32}
-                        />{" "}
-                        {m.fullName || m.email}
-                      </td>
-                      <td>
-                        {m.email}
-                        {m.phone ? ` · ${m.phone}` : ""}
-                      </td>
-                      <td>
-                        <StatusChip value={m.status} />
-                      </td>
-                      <td>
-                        <ReportAvatarButton
-                          targetUserId={m.userId}
-                          avatarUrl={m.avatarUrl}
-                        />
-                        <Link
-                          className="btn btn--secondary btn--sm"
-                          href={`/manager/members/${m.userId}`}
-                        >
-                          {l.openMember}
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
-                </Table>
-                <Pagination
-                  page={page}
-                  count={data.totalCount}
-                  onChange={setPage}
-                />
+                <div className={listStyles.memberTable}>
+                  <Table
+                    headers={[
+                      t.frontDesk.colName,
+                      t.frontDesk.colContact,
+                      t.frontDesk.colStatus,
+                      "",
+                    ]}
+                  >
+                    {rows.map((m) => (
+                      <tr key={m.userId}>
+                        <td>
+                          <AvatarImage
+                            name={m.fullName || m.email}
+                            avatarUrl={m.avatarUrl}
+                            size={32}
+                          />{" "}
+                          {m.fullName || m.email}
+                        </td>
+                        <td>
+                          {m.email}
+                          {m.phone ? ` · ${m.phone}` : ""}
+                        </td>
+                        <td>
+                          <StatusChip value={m.status} />
+                        </td>
+                        <td>
+                          <ReportAvatarButton
+                            targetUserId={m.userId}
+                            avatarUrl={m.avatarUrl}
+                          />
+                          <Link
+                            className="btn btn--secondary btn--sm"
+                            href={`/manager/members/${m.userId}`}
+                          >
+                            {l.openMember}
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
+                  </Table>
+                </div>
+                <div className={listStyles.pagination}>
+                  <Pagination
+                    page={page}
+                    count={data.totalCount}
+                    onChange={setPage}
+                  />
+                </div>
               </>
             );
           }}
@@ -120,7 +126,7 @@ export function ManagerMemberList() {
 
 type TabId = "overview" | "invoices" | "health";
 
-/** Hồ sơ vận hành của hội viên (Q12): Membership, gói PT, quan hệ Coach, hóa đơn. Không có thao tác sửa kế hoạch tập. */
+/** Hồ sơ vận hành của hội viên (Q12): Membership, quan hệ Coach, hóa đơn. Không có thao tác sửa kế hoạch tập. */
 export function ManagerMemberProfile({ memberId }: { memberId: string }) {
   const { t, language } = useLanguage();
   const l = t.ptOps;
@@ -138,14 +144,6 @@ export function ManagerMemberProfile({ memberId }: { memberId: string }) {
     (signal) =>
       api.get<MemberPackageDto[]>(`/api/members/${memberId}/packages`, {
         signal,
-      }),
-    [memberId],
-  );
-  const entitlements = useApi(
-    (signal) =>
-      api.get<PtEntitlementDto[]>("/api/manager/pt-entitlements", {
-        signal,
-        query: { memberId, page: 1, pageSize: 20 },
       }),
     [memberId],
   );
@@ -231,32 +229,6 @@ export function ManagerMemberProfile({ memberId }: { memberId: string }) {
                             </span>
                           </div>
                           <StatusChip value={p.status} />
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </AsyncSection>
-              </section>
-              <section className={styles.section}>
-                <h2>{l.ptPackages}</h2>
-                <AsyncSection
-                  state={entitlements}
-                  isEmpty={(rows) => !pagedItems(rows).length}
-                  emptyMessage={l.noPtPackages}
-                >
-                  {(rows) => (
-                    <ul className={styles.list}>
-                      {pagedItems(rows).map((e) => (
-                        <li key={e.entitlementId}>
-                          <div>
-                            <strong>{e.coachName}</strong>
-                            <span>
-                              {e.remainingQuota} / {e.totalQuota} ·{" "}
-                              {formatDate(e.validityStartDate)} –{" "}
-                              {formatDate(e.validityEndDate)}
-                            </span>
-                          </div>
-                          <StatusChip value={e.status} />
                         </li>
                       ))}
                     </ul>

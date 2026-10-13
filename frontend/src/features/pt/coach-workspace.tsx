@@ -1,20 +1,19 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useRef, useState, type ComponentProps, type ReactNode } from "react";
 import {
-  CalendarDays,
   Plus,
   Check,
   X,
-  Target,
-  MapPin,
   ArrowRight,
+  Bell,
+  ClipboardPen,
+  ClipboardCheck,
 } from "lucide-react";
 import { Drawer, Tabs } from "@/components/primitives";
 import { Calendar } from "@/components/scheduling/Calendar";
-import type { CalendarView } from "@/components/scheduling/calendar.contract";
-import { AsyncSection, Feedback, StatusChip } from "@/components/ui";
+import { AsyncSection, Feedback } from "@/components/ui";
 import { CourseSticker } from "@/features/courses";
 import { useApi, useAction, useNow } from "@/lib/useApi";
 import { useAuth } from "@/lib/auth";
@@ -29,12 +28,13 @@ import {
 } from "./teaching-api";
 import { TeachingEditor } from "./teaching-editor";
 import { TeachingRecords } from "./teaching-records";
+import { StudentCurrentAssessments } from "./student-current-assessments";
 import { TrainingPlanView, type PlanScope } from "./training-plan-view";
 import styles from "./coach-workspace.module.css";
-import {
-  CoachClassChanges,
-  CoachClassChangeHistory,
-} from "./coach-class-change";
+import { CoachClassChanges } from "./coach-class-change";
+import { ClassStudents } from "./class-students";
+import { StudentPhysicalProfile } from "./student-physical-profile";
+import { ClassDirectory } from "./class-directory";
 
 export type WorkspaceMode = "schedule" | "classes" | "students";
 type Selection = {
@@ -63,9 +63,9 @@ export function CoachWorkspace({
   const { user } = useAuth();
   const vi = language === "vi";
   const [date, setDate] = useState(() => monday());
-  const [view, setView] = useState<CalendarView>("week");
   const [selection, setSelection] = useState<Selection | null>(null);
   const [classFilter, setClassFilter] = useState("");
+  const [sportFilter, setSportFilter] = useState("");
   const [search, setSearch] = useState("");
   const state = useApi(
     async (signal) => {
@@ -87,9 +87,11 @@ export function CoachWorkspace({
     <div className={styles.workspace}>
       <header className={styles.intro}>
         <div>
-          <span className={styles.eyebrow}>
-            {vi ? "KHÔNG GIAN HUẤN LUYỆN" : "COACH WORKSPACE"}
-          </span>
+          {mode !== "classes" && (
+            <span className={styles.eyebrow}>
+              {vi ? "KHÔNG GIAN HUẤN LUYỆN" : "COACH WORKSPACE"}
+            </span>
+          )}
           <h2>
             {mode === "schedule"
               ? vi
@@ -97,24 +99,27 @@ export function CoachWorkspace({
                 : "Ready for your next session"
               : mode === "classes"
                 ? vi
-                  ? "Quản lý các lớp được giao"
-                  : "Manage your assigned classes"
+                  ? "Lớp học của bạn"
+                  : "Your classes"
                 : vi
                   ? "Theo dõi tiến bộ học viên"
                   : "Follow your students’ progress"}
           </h2>
           <p>
-            {vi
-              ? "Từ buổi học đến tiến bộ của từng học viên. Mọi thao tác trong cùng một không gian."
-              : "From each session to each student’s progress. Your teaching tools in one place."}
+            {mode === "classes"
+              ? "Choose a class to manage students, plans and notices. See your next lesson at a glance."
+              : vi
+                ? "Từ buổi học đến tiến bộ của từng học viên. Mọi thao tác trong cùng một không gian."
+                : "From each session to each student’s progress. Your teaching tools in one place."}
           </p>
         </div>
-        <CourseSticker
-          sport={state.data?.classes[0]?.sportName ?? "Badminton"}
-          compact
-        />
+        {mode !== "classes" && (
+          <CourseSticker
+            sport={state.data?.classes[0]?.sportName ?? "Badminton"}
+            compact
+          />
+        )}
       </header>
-      <CoachClassChangeHistory />
       <AsyncSection state={state}>
         {({ classes, sessions }) =>
           !classes.length ? (
@@ -132,14 +137,10 @@ export function CoachWorkspace({
                 <section className={styles.calendar}>
                   <Calendar
                     date={date}
-                    view={view}
-                    onDateChange={(value) =>
-                      setDate(view === "week" ? monday(value) : value)
-                    }
-                    onViewChange={(value) => {
-                      setView(value);
-                      if (value === "week") setDate(monday(date));
-                    }}
+                    view="week"
+                    showViewSwitcher={false}
+                    iconNavigation
+                    onDateChange={(value) => setDate(monday(value))}
                     events={sessions.map((s) => ({
                       id: s.sessionId,
                       title: s.className,
@@ -178,80 +179,106 @@ export function CoachWorkspace({
                 </section>
               )}
               {mode === "classes" && (
-                <div className={styles.classGrid}>
-                  {classes.map((course) => (
-                    <button
-                      className={styles.classCard}
-                      type="button"
-                      key={course.classId}
-                      onClick={() => setSelection({ course })}
-                    >
-                      <div className={styles.cardTop}>
-                        <span className={styles.badge}>{course.sportName}</span>
-                        <StatusChip value={course.status} />
-                      </div>
-                      <CourseSticker sport={course.sportName} compact />
-                      <h3>{course.name}</h3>
-                      <p>
-                        <MapPin size={16} aria-hidden="true" />
-                        {course.roomName}
-                      </p>
-                      <span className={styles.cardBottom}>
-                        {vi
-                          ? "Học viên · giáo án · trao đổi"
-                          : "Students · plans · communication"}
-                        <ArrowRight size={18} aria-hidden="true" />
-                      </span>
-                    </button>
-                  ))}
-                </div>
+                <ClassDirectory classes={classes} sessions={sessions} />
               )}
               {mode === "students" && (
                 <section>
                   <div className={styles.filters}>
                     <label>
-                      {vi ? "Lớp phụ trách" : "Assigned class"}
+                      {vi ? "Chọn môn" : "Choose sport"}
                       <select
-                        value={classFilter || String(classes[0].classId)}
+                        value={sportFilter}
+                        onChange={(e) => {
+                          setSportFilter(e.target.value);
+                          setClassFilter("");
+                          setSearch("");
+                          setSelection(null);
+                        }}
+                      >
+                        <option value="">
+                          {vi ? "Chọn bộ môn" : "Select a sport"}
+                        </option>
+                        {Array.from(
+                          new Map(
+                            classes.map((c) => [c.sportId, c.sportName]),
+                          ).entries(),
+                        ).map(([id, name]) => (
+                          <option key={id} value={id}>
+                            {name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      {vi ? "Chọn lớp" : "Choose class"}
+                      <select
+                        value={classFilter}
+                        disabled={!sportFilter}
                         onChange={(e) => {
                           setClassFilter(e.target.value);
                           setSearch("");
+                          setSelection(null);
                         }}
                       >
-                        {classes.map((c) => (
-                          <option key={c.classId} value={c.classId}>
-                            {c.name}
-                          </option>
-                        ))}
+                        <option value="">
+                          {vi ? "Chọn lớp học" : "Select a class"}
+                        </option>
+                        {classes
+                          .filter((c) => String(c.sportId) === sportFilter)
+                          .map((c) => (
+                            <option key={c.classId} value={c.classId}>
+                              {c.name}
+                            </option>
+                          ))}
                       </select>
                     </label>
                     <label>
                       {vi ? "Tìm học viên" : "Find student"}
                       <input
                         type="search"
+                        disabled={!classFilter}
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         placeholder={vi ? "Tên hoặc email" : "Name or email"}
                       />
                     </label>
                   </div>
-                  <Students
-                    key={classFilter || classes[0].classId}
-                    course={
-                      classes.find((c) => String(c.classId) === classFilter) ??
-                      classes[0]
-                    }
-                    search={search}
-                    onSelect={(member) =>
-                      setSelection({
-                        course:
-                          classes.find(
-                            (c) => String(c.classId) === classFilter,
-                          ) ?? classes[0],
-                        member,
-                      })
-                    }
-                  />
+                  {classes.find(
+                    (c) =>
+                      String(c.classId) === classFilter &&
+                      String(c.sportId) === sportFilter,
+                  ) ? (
+                    <Students
+                      key={classFilter || classes[0].classId}
+                      course={
+                        classes.find(
+                          (c) => String(c.classId) === classFilter,
+                        ) ?? classes[0]
+                      }
+                      search={search}
+                      onSelect={(member) =>
+                        setSelection({
+                          course:
+                            classes.find(
+                              (c) => String(c.classId) === classFilter,
+                            ) ?? classes[0],
+                          member,
+                        })
+                      }
+                    />
+                  ) : (
+                    <Empty
+                      sport={
+                        classes.find((c) => String(c.sportId) === sportFilter)
+                          ?.sportName ?? "Badminton"
+                      }
+                      text={
+                        vi
+                          ? "Chọn môn và lớp để xem đúng danh sách học viên."
+                          : "Choose a sport and class to view its students."
+                      }
+                    />
+                  )}
                 </section>
               )}
             </>
@@ -356,19 +383,41 @@ function Students({
   );
 }
 
-function TeachingDetail({
+function TeachingDetailSections({
+  hideNavigation,
+  ...props
+}: ComponentProps<typeof Tabs> & { hideNavigation: boolean }) {
+  return hideNavigation ? (
+    <section aria-label={props.ariaLabel}>{props.children}</section>
+  ) : (
+    <Tabs {...props} />
+  );
+}
+
+export function TeachingDetail({
   selection: { course, session, member },
   onClose,
+  fullPage = false,
+  onEditingStateChange,
+  initialTab,
+  hideHeading = false,
+  hideNavigation = false,
 }: {
   selection: Selection;
   onClose: () => void;
+  fullPage?: boolean;
+  onEditingStateChange?: (state: { dirty: boolean; busy: boolean }) => void;
+  initialTab?: "students" | "plans" | "feedback";
+  hideHeading?: boolean;
+  hideNavigation?: boolean;
 }) {
   const { language } = useLanguage();
   const { user } = useAuth();
+  const router = useRouter();
   const vi = language === "vi";
   const now = useNow();
   const [tab, setTab] = useState(
-    member ? "profile" : session ? "plans" : "students",
+    initialTab ?? (member ? "profile" : session ? "plans" : "students"),
   );
   const [editor, setEditor] = useState<{
     kind: TeachingRecord["kind"];
@@ -391,39 +440,52 @@ function TeachingDetail({
   const state = useApi(
     async (signal) => {
       const [members, records, sessions, roster] = await Promise.all([
-        teachingApi.members(course.classId, signal),
-        teachingApi.records(course.classId, signal),
+        teachingApi.members(course.classId, signal, member?.memberId),
+        teachingApi.records(course.classId, signal, false, member?.memberId),
         ptApi.classSessions(course.classId, signal),
         session
           ? ptApi.roster(session.sessionId, signal)
           : Promise.resolve(null),
       ]);
-      return { members, records, sessions, roster };
+      return {
+        members,
+        records,
+        sessions: [...sessions].sort(
+          (a, b) =>
+            a.sessionNo - b.sessionNo ||
+            a.startAtUtc.localeCompare(b.startAtUtc),
+        ),
+        roster,
+      };
     },
-    [course.classId, session?.sessionId],
+    [course.classId, session?.sessionId, member?.memberId],
   );
   const tabs = member
     ? [
-        { id: "profile", label: vi ? "Hồ sơ & tiến độ" : "Profile & progress" },
-        { id: "plans", label: vi ? "Kế hoạch tập luyện" : "Training plans" },
+        { id: "profile", label: vi ? "Hồ sơ" : "Profile" },
+        { id: "plans", label: vi ? "Kế hoạch" : "Plans" },
+        { id: "feedback", label: "Progress" },
       ]
     : session
       ? [
-          { id: "plans", label: vi ? "Giáo án" : "Lesson plan" },
+          { id: "plans", label: vi ? "Giáo án" : "Plan" },
           {
             id: "attendance",
-            label: vi ? "Điểm danh & kết quả" : "Attendance & results",
+            label: vi ? "Điểm danh" : "Attendance",
           },
-          { id: "communication", label: vi ? "Sau buổi học" : "After session" },
-          { id: "changes", label: vi ? "Đổi lịch" : "Change requests" },
+          { id: "communication", label: vi ? "Bài tập" : "Homework" },
+          {
+            id: "changes",
+            label: vi ? "Đổi lịch" : "Changes",
+          },
         ]
       : [
           {
             id: "students",
-            label: vi ? "Học viên & lịch" : "Students & sessions",
+            label: vi ? "Học viên" : "Students",
           },
-          { id: "plans", label: vi ? "Giáo án" : "Lesson plans" },
-          { id: "communication", label: vi ? "Trao đổi" : "Communication" },
+          { id: "plans", label: vi ? "Giáo án" : "Plans" },
+          { id: "communication", label: vi ? "Thông báo" : "Notices" },
         ];
   const writable =
     !/cancel|draft/i.test(course.status) &&
@@ -439,13 +501,16 @@ function TeachingDetail({
     });
   };
   return (
-    <Drawer
-      size="lg"
-      title={member?.memberName ?? course.name}
+    <TeachingDetailFrame
+      fullPage={fullPage}
+      hideHeading={hideHeading}
+      title={fullPage ? course.name : (member?.memberName ?? course.name)}
       description={
         session
           ? `${formatDateTime(session.startAtUtc)}–${formatTime(session.endAtUtc)} · ${session.roomName}`
-          : course.sportName
+          : fullPage
+            ? course.sportName
+            : `${course.sportName} · ${course.name}`
       }
       onClose={() => {
         if (discard()) onClose();
@@ -469,6 +534,8 @@ function TeachingDetail({
               writable &&
               now >= Date.parse(roster.attendanceOpensAtUtc) &&
               now <= Date.parse(roster.attendanceClosesAtUtc);
+            const homeworkOpen =
+              !!session && writable && now >= Date.parse(session.endAtUtc);
             return editor ? (
               <TeachingEditor
                 classId={course.classId}
@@ -489,17 +556,21 @@ function TeachingDetail({
                 }
                 planScope={editor.scope}
                 existing={editor.existing}
+                lockedMemberId={member?.memberId}
                 onStateChange={(value) => {
                   editorState.current = value;
+                  onEditingStateChange?.(value);
                 }}
                 onClose={() => {
                   if (discard()) {
                     editorState.current = { dirty: false, busy: false };
+                    onEditingStateChange?.(editorState.current);
                     setEditor(null);
                   }
                 }}
                 onSaved={() => {
                   editorState.current = { dirty: false, busy: false };
+                  onEditingStateChange?.(editorState.current);
                   setEditor(null);
                   setSaved(vi ? "Đã lưu vào hệ thống." : "Saved to SportHub.");
                   state.reload();
@@ -507,7 +578,8 @@ function TeachingDetail({
               />
             ) : (
               <>
-                <Tabs
+                <TeachingDetailSections
+                  hideNavigation={hideNavigation}
                   value={tab}
                   onChange={(next) => {
                     if (discard()) {
@@ -519,124 +591,90 @@ function TeachingDetail({
                   ariaLabel={vi ? "Chi tiết giảng dạy" : "Teaching details"}
                 >
                   {tab === "students" && (
-                    <>
-                      <div className={styles.studentList}>
-                        {members.map((m) => (
-                          <div className={styles.student} key={m.memberId}>
-                            <span className={styles.avatar} aria-hidden="true">
-                              {m.memberName.slice(0, 1)}
-                            </span>
-                            <div>
-                              <strong>{m.memberName}</strong>
-                              <small>{m.email}</small>
-                              <p>
-                                {m.goal ||
-                                  (vi ? "Chưa có mục tiêu" : "No goal yet")}
-                              </p>
-                              <small>
-                                {m.experienceLevel} ·{" "}
-                                {vi ? "Có mặt" : "Present"} {m.present} ·{" "}
-                                {vi ? "Vắng" : "Absent"} {m.absent}
-                              </small>
-                            </div>
-                            {writable && (
-                              <button
-                                className="btn btn--secondary btn--sm"
-                                type="button"
-                                onClick={() => begin("PLAN", m.memberId)}
-                              >
-                                {vi ? "Lập kế hoạch" : "Plan"}
-                              </button>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                      <h3>{vi ? "Lịch các buổi học" : "Sessions"}</h3>
-                      {sessions.map((s) => (
-                        <p className={styles.sessionLine} key={s.sessionId}>
-                          <CalendarDays size={16} aria-hidden="true" />
-                          {formatDateTime(s.startAtUtc)} · {s.roomName}
-                          <StatusChip value={s.status} />
-                        </p>
-                      ))}
-                    </>
-                  )}
-                  {tab === "profile" && profile && (
-                    <>
-                      <div className={styles.profile}>
-                        <Target aria-hidden="true" size={24} />
-                        <div>
-                          <h3>{vi ? "Mục tiêu tập luyện" : "Training goal"}</h3>
-                          <p>
-                            {profile.goal ||
-                              (vi
-                                ? "Học viên chưa cung cấp mục tiêu."
-                                : "No goal provided yet.")}
-                          </p>
-                          <small>
-                            {profile.email} ·{" "}
-                            {profile.experienceLevel ||
-                              (vi
-                                ? "Chưa có trình độ"
-                                : "Experience not provided")}
-                          </small>
-                          {profile.notes && <p>{profile.notes}</p>}
-                          <p>
-                            {vi ? "Có mặt" : "Present"}{" "}
-                            <strong>{profile.present}</strong> ·{" "}
-                            {vi ? "Vắng" : "Absent"}{" "}
-                            <strong>{profile.absent}</strong>
-                          </p>
-                        </div>
-                      </div>
-                      <h3>
-                        {vi
-                          ? "Lịch sử kết quả & nhận xét"
-                          : "Results & feedback history"}
-                      </h3>
-                      <TeachingRecords
-                        records={scoped.filter((r) => r.kind === "RESULT")}
-                        members={members}
-                        editableCoachId={user?.userId}
-                      />
-                    </>
-                  )}
-                  {tab === "plans" && (
-                    <TrainingPlanView
-                      records={records.filter(
-                        (r) =>
-                          r.kind === "PLAN" &&
-                          (!member ||
-                            r.memberId === member.memberId ||
-                            r.memberId === null),
-                      )}
+                    <ClassStudents
                       members={members}
-                      sessions={sessions}
-                      sessionId={session?.sessionId}
-                      memberId={member?.memberId}
-                      editableCoachId={user?.userId}
-                      onCreate={
+                      onPlan={
                         writable
-                          ? (scope, selectedSession, selectedMember) => {
-                              setSaved(null);
-                              setEditor({
-                                kind: "PLAN",
-                                scope,
-                                sessionId: selectedSession,
-                                memberId: selectedMember,
-                              });
-                            }
-                          : undefined
-                      }
-                      onEdit={
-                        writable
-                          ? (r) => {
-                              if (r.coachId === user?.userId)
-                                setEditor({ kind: r.kind, existing: r });
-                            }
+                          ? (memberId) => begin("PLAN", memberId)
                           : undefined
                       }
                     />
+                  )}
+                  {tab === "profile" && profile && (
+                    <StudentPhysicalProfile memberId={profile.memberId} />
+                  )}
+                  {tab === "feedback" &&
+                    member &&
+                    (hideNavigation ? (
+                      <StudentCurrentAssessments
+                        records={scoped}
+                        sessions={sessions}
+                      />
+                    ) : (
+                      <>
+                        <h3>
+                          {vi
+                            ? "Lịch sử kết quả & nhận xét"
+                            : "Results & feedback history"}
+                        </h3>
+                        <TeachingRecords
+                          records={scoped.filter((r) => r.kind === "RESULT")}
+                          members={members}
+                          editableCoachId={user?.userId}
+                        />
+                      </>
+                    ))}
+                  {tab === "plans" && (
+                    <>
+                      <TrainingPlanView
+                        records={records.filter(
+                          (r) =>
+                            r.kind === "PLAN" &&
+                            (!member ||
+                              r.memberId === member.memberId ||
+                              r.memberId === null),
+                        )}
+                        members={members}
+                        sessions={sessions}
+                        sessionId={session?.sessionId}
+                        viewMode={session && !member ? "session" : undefined}
+                        onViewCoursePlan={
+                          session && !member
+                            ? () =>
+                                router.push(
+                                  `/coach/classes/${course.classId}?tab=plans`,
+                                )
+                            : undefined
+                        }
+                        memberId={member?.memberId}
+                        editableCoachId={user?.userId}
+                        onCreate={
+                          writable
+                            ? (scope, selectedSession, selectedMember) => {
+                                if (member && scope !== "personal") return;
+                                setSaved(null);
+                                setEditor({
+                                  kind: "PLAN",
+                                  scope,
+                                  sessionId: selectedSession,
+                                  memberId: member?.memberId ?? selectedMember,
+                                });
+                              }
+                            : undefined
+                        }
+                        onEdit={
+                          writable
+                            ? (r) => {
+                                if (
+                                  r.coachId === user?.userId &&
+                                  (!member || r.memberId === member.memberId)
+                                )
+                                  setEditor({ kind: r.kind, existing: r });
+                              }
+                            : undefined
+                        }
+                      />
+                    </>
                   )}
                   {tab === "attendance" && roster && (
                     <>
@@ -678,6 +716,12 @@ function TeachingDetail({
                                       ? ` · ${result.title}${result.score ? ` · ${result.score}/5` : ""}`
                                       : ""}
                                   </small>
+                                  {result && (
+                                    <span className={styles.recordSaved}>
+                                      <Check size={14} aria-hidden="true" />
+                                      {vi ? "Đã ghi kết quả" : "Recorded"}
+                                    </span>
+                                  )}
                                 </div>
                                 <div className={styles.rowActions}>
                                   <button
@@ -732,7 +776,16 @@ function TeachingDetail({
                                   </button>
                                   <button
                                     type="button"
-                                    className="btn btn--quiet btn--sm"
+                                    className={`btn btn--secondary ${styles.recordButton}`}
+                                    title={
+                                      result
+                                        ? vi
+                                          ? "Xem và chỉnh sửa kết quả đã ghi"
+                                          : "View and edit the saved result"
+                                        : vi
+                                          ? "Ghi kết quả buổi học"
+                                          : "Record this session’s result"
+                                    }
                                     disabled={
                                       !writable ||
                                       now < Date.parse(session!.startAtUtc) ||
@@ -748,13 +801,18 @@ function TeachingDetail({
                                         : begin("RESULT", entry.memberId)
                                     }
                                   >
-                                    {result
-                                      ? vi
-                                        ? "Sửa nhận xét"
-                                        : "Edit assessment"
-                                      : vi
-                                        ? "Ghi kết quả"
-                                        : "Record result"}
+                                    {result ? (
+                                      <ClipboardCheck
+                                        size={18}
+                                        aria-hidden="true"
+                                      />
+                                    ) : (
+                                      <ClipboardPen
+                                        size={18}
+                                        aria-hidden="true"
+                                      />
+                                    )}
+                                    Record
                                   </button>
                                 </div>
                               </div>
@@ -775,30 +833,58 @@ function TeachingDetail({
                   )}
                   {tab === "communication" && (
                     <>
+                      {!session && (
+                        <header className={styles.noticeIntro}>
+                          <div className={styles.noticeTitle}>
+                            <Bell size={20} aria-hidden="true" />
+                            <h3>Class notices</h3>
+                          </div>
+                          <p>
+                            Send reminders or announcements to the whole class
+                            or a specific student. Recipients receive a bell
+                            notification.
+                          </p>
+                        </header>
+                      )}
+                      {session && (
+                        <p className={styles.muted}>
+                          {homeworkOpen
+                            ? vi
+                              ? "Giao bài tập ôn luyện cho buổi vừa kết thúc. Nên hoàn thành trước buổi tiếp theo — không bắt buộc."
+                              : "Assign practice for the lesson that just ended. Aim to complete it before the next lesson — optional."
+                            : vi
+                              ? "Chỉ có thể giao bài tập sau khi buổi học kết thúc."
+                              : "Homework can be assigned once this session ends."}
+                        </p>
+                      )}
                       <div className={styles.rowActions}>
                         {writable && (
                           <>
-                            <button
-                              className="btn btn--sm"
-                              type="button"
-                              onClick={() => begin("HOMEWORK")}
-                            >
-                              <Plus size={16} aria-hidden="true" />
-                              {vi ? "Giao bài tập" : "Assign homework"}
-                            </button>
-                            <button
-                              className="btn btn--secondary btn--sm"
-                              type="button"
-                              onClick={() => begin("NOTICE")}
-                            >
-                              {vi ? "Gửi thông báo" : "Send notice"}
-                            </button>
+                            {session ? (
+                              <button
+                                className="btn btn--sm"
+                                type="button"
+                                onClick={() => begin("HOMEWORK")}
+                                disabled={!homeworkOpen}
+                              >
+                                <Plus size={16} aria-hidden="true" />
+                                {vi ? "Giao bài tập" : "Assign homework"}
+                              </button>
+                            ) : (
+                              <button
+                                className="btn btn--secondary btn--sm"
+                                type="button"
+                                onClick={() => begin("NOTICE")}
+                              >
+                                {vi ? "Gửi thông báo" : "Send notice"}
+                              </button>
+                            )}
                           </>
                         )}
                       </div>
                       <TeachingRecords
                         records={scoped.filter(
-                          (r) => r.kind === "HOMEWORK" || r.kind === "NOTICE",
+                          (r) => r.kind === (session ? "HOMEWORK" : "NOTICE"),
                         )}
                         members={members}
                       />
@@ -814,7 +900,7 @@ function TeachingDetail({
                       }}
                     />
                   )}
-                </Tabs>
+                </TeachingDetailSections>
                 {!writable && (
                   <p className={styles.muted}>
                     {vi
@@ -822,14 +908,57 @@ function TeachingDetail({
                       : "Read only. Only the assigned coach can update this content."}
                   </p>
                 )}
-                <div className={styles.detailSticker} aria-hidden="true">
-                  <CourseSticker sport={course.sportName} compact />
-                </div>
+                {!fullPage && (
+                  <div className={styles.detailSticker} aria-hidden="true">
+                    <CourseSticker sport={course.sportName} compact />
+                  </div>
+                )}
               </>
             );
           }}
         </AsyncSection>
       </div>
-    </Drawer>
+    </TeachingDetailFrame>
+  );
+}
+
+function TeachingDetailFrame({
+  fullPage,
+  hideHeading,
+  title,
+  description,
+  onClose,
+  children,
+}: {
+  fullPage: boolean;
+  hideHeading: boolean;
+  title: string;
+  description: string;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  if (!fullPage)
+    return (
+      <Drawer
+        size="xl"
+        title={title}
+        description={description}
+        onClose={onClose}
+      >
+        {children}
+      </Drawer>
+    );
+  return (
+    <section className={styles.fullStudentDetail}>
+      {!hideHeading && (
+        <header className={styles.sectionHeader}>
+          <div>
+            <h2>{title}</h2>
+            <p className={styles.muted}>{description}</p>
+          </div>
+        </header>
+      )}
+      {children}
+    </section>
   );
 }

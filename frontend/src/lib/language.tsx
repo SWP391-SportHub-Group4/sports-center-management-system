@@ -9,15 +9,11 @@ export type Language = "en" | "vi";
 
 interface LanguageContextType {
   language: Language;
-  setLanguage: (lang: Language) => void;
-  toggleLanguage: () => void;
   t: Translations;
 }
 
 const englishContext: LanguageContextType = {
   language: "en",
-  setLanguage: () => {},
-  toggleLanguage: () => {},
   t: en,
 };
 

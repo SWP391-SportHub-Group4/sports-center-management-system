@@ -27,15 +27,13 @@ public sealed record CoachResponse(
 }
 
 /// <summary>
-/// Manager quản lý Coach nội bộ: tạo tài khoản Coach kèm chuyên môn theo môn và đổi chuyên môn (BR-96). Chỉ Coach nội bộ
-/// (có quy trình đăng ký/duyệt riêng) và không tạo được role nào khác Coach.
+/// Manager quản lý hồ sơ Coach nội bộ và đổi chuyên môn theo môn (BR-96); tạo tài khoản Coach do SystemAdministrator làm. Chỉ Coach nội bộ
+/// (có quy trình đăng ký/duyệt riêng).
 /// </summary>
 public sealed class CoachAdminService(
     ISportHubDbContext db,
-    IPasswordHasher passwordHasher,
     CoachSpecialtyService specialties,
-    IAuditWriter audit,
-    IClock clock)
+    IAuditWriter audit)
 {
     public async Task<PagedResult<CoachResponse>> SearchAsync(
         string? keyword, int? sportId, int page, int pageSize, CancellationToken ct = default)
@@ -117,57 +115,6 @@ public sealed class CoachAdminService(
         return map.TryGetValue(userId, out var ids) ? row with { SportIds = ids } : row;
     }
 
-    public async Task<CoachResponse> CreateAsync(CreateCoachRequest request, Guid actorUserId, CancellationToken ct = default)
-    {
-        var email = request.Email.Trim();
-        var phone = string.IsNullOrWhiteSpace(request.Phone) ? null : request.Phone.Trim();
-
-        PasswordPolicyGuard.Enforce(request.Password, email);
-
-        if (await db.Set<UserAccount>().AnyAsync(u => u.Email == email, ct))
-        {
-            throw new ConflictException("email_already_exists", "Email already exists.");
-        }
-
-        if (phone is not null && await db.Set<UserProfile>().AnyAsync(p => p.Phone == phone, ct))
-        {
-            throw new ConflictException("phone_already_exists", "Phone already exists.");
-        }
-
-        var sportIds = await specialties.ValidateAsync(request.SportIds, ct);
-        var role = await db.Set<Role>().SingleAsync(r => r.RoleName == UserRole.Coach, ct);
-
-        var user = new UserAccount
-        {
-            UserId = Guid.NewGuid(),
-            Email = email,
-            RoleId = role.RoleId,
-            Status = UserStatus.Active,
-            CreatedAt = clock.UtcNow,
-            Credential = new UserCredential { PasswordHash = passwordHasher.Hash(request.Password) },
-            Profile = new UserProfile { FullName = request.FullName.Trim(), Phone = phone },
-            CoachProfile = new CoachProfile
-            {
-                Bio = Clean(request.Bio),
-                Title = Clean(request.Title),
-                YearsExperience = request.YearsExperience,
-                StudentCount = request.StudentCount,
-                Philosophy = Clean(request.Philosophy)
-            }
-        };
-
-        db.Set<UserAccount>().Add(user);
-        await specialties.ReplaceAsync(user.UserId, sportIds, ct);
-
-        audit.Write(new AuditEntry(
-            actorUserId, "CREATE_COACH", nameof(UserAccount), user.UserId.ToString(),
-            NewValue: System.Text.Json.JsonSerializer.Serialize(new { email, sportIds })));
-
-        await db.SaveChangesAsync(ct);
-
-        return await GetAsync(user.UserId, ct);
-    }
-
     public async Task<CoachResponse> UpdateAsync(Guid userId, UpdateCoachRequest request, Guid actorUserId, CancellationToken ct = default)
     {
         var user = await db.Set<UserAccount>()
@@ -202,7 +149,7 @@ public sealed class CoachAdminService(
         if (request.StudentCount is not null) user.CoachProfile.StudentCount = request.StudentCount;
 
         audit.Write(new AuditEntry(
-            actorUserId, "UPDATE_COACH_SPECIALTIES", nameof(UserAccount), userId.ToString(),
+            actorUserId, AccountAuditActions.UpdateCoachSpecialties, nameof(UserAccount), userId.ToString(),
             OldValue: System.Text.Json.JsonSerializer.Serialize(new { sportIds = before, profile = oldProfile }),
             NewValue: System.Text.Json.JsonSerializer.Serialize(new { sportIds, fullName = user.Profile.FullName, phone })));
 

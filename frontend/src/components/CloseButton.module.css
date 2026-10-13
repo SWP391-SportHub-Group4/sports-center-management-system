@@ -1,0 +1,10 @@
+.icon:global(.btn) {
+  flex-shrink: 0;
+  width: var(--control-height-lg);
+  height: var(--control-height-lg);
+  min-width: var(--control-height-lg);
+  min-height: var(--control-height-lg);
+  padding: 0;
+  border: 0;
+  box-shadow: none;
+}

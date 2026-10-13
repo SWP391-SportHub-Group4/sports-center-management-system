@@ -1,5 +1,5 @@
 import { api } from "@/lib/apiClient";
-import type { Paged } from "@/lib/types";
+import type { Paged, MemberTrainingProfileDto } from "@/lib/types";
 
 export interface TeachingRecord {
   recordId: string;
@@ -26,6 +26,39 @@ export interface TeachingMember {
   present: number;
   absent: number;
 }
+export interface StudentClassContext {
+  classId: number;
+  className: string;
+  sportId: number;
+  sportName: string;
+}
+export interface TeachingStudent {
+  memberId: string;
+  memberName: string;
+  email: string;
+  classes: StudentClassContext[];
+}
+export interface StudentAssessmentHistory {
+  record: TeachingRecord;
+  className: string;
+  sportName: string;
+  coachName: string;
+  sessionNo: number | null;
+  sessionStartAtUtc: string | null;
+}
+export interface StudentHistoryClass {
+  classId: number;
+  className: string;
+  startDate: string;
+  assessmentCount: number;
+  averageScore: number | null;
+  lastRecordedAtUtc: string | null;
+  status: string;
+  totalSessions: number;
+  completedSessions: number;
+  presentSessions: number;
+  absentSessions: number;
+}
 export type TeachingWrite = Pick<
   TeachingRecord,
   | "recordId"
@@ -40,9 +73,57 @@ export type TeachingWrite = Pick<
 >;
 const root = "/api/coaches/me/teaching";
 export const teachingApi = {
-  members: (classId: number, signal?: AbortSignal) =>
-    api.get<TeachingMember[]>(`${root}/classes/${classId}/members`, { signal }),
-  records: async (classId: number, signal?: AbortSignal, member = false) => {
+  healthProfile: (memberId: string, signal?: AbortSignal) =>
+    api.get<{ profile: MemberTrainingProfileDto | null }>(
+      `${root}/students/${memberId}/health-profile`,
+      { signal },
+    ),
+  students: (
+    page: number,
+    search: string,
+    sportId?: number,
+    signal?: AbortSignal,
+  ) =>
+    api.get<
+      Paged<TeachingStudent> & {
+        sports: { sportId: number; sportName: string }[];
+      }
+    >(`${root}/students`, { query: { page, search, sportId }, signal }),
+  student: (memberId: string, signal?: AbortSignal) =>
+    api.get<TeachingStudent>(`${root}/students/${memberId}`, { signal }),
+  studentHistory: (
+    memberId: string,
+    classId: number,
+    page: number,
+    signal?: AbortSignal,
+    sourceClassId?: number,
+  ) =>
+    api.get<Paged<StudentAssessmentHistory>>(
+      `${root}/students/${memberId}/history`,
+      { query: { classId, page, sourceClassId }, signal },
+    ),
+  studentHistoryClasses: (
+    memberId: string,
+    classId: number,
+    page: number,
+    search: string,
+    signal?: AbortSignal,
+  ) =>
+    api.get<Paged<StudentHistoryClass>>(
+      `${root}/students/${memberId}/history/classes`,
+      { query: { classId, page, search }, signal },
+    ),
+  members: (classId: number, signal?: AbortSignal, memberId?: string) =>
+    api.get<TeachingMember[]>(`${root}/classes/${classId}/members`, {
+      signal,
+      query: { memberId },
+    }),
+  records: async (
+    classId: number,
+    signal?: AbortSignal,
+    member = false,
+    memberId?: string,
+  ) => {
     const path = member
       ? `/api/members/me/classes/${classId}/teaching-records`
       : `${root}/classes/${classId}/records`;
@@ -50,7 +131,7 @@ export const teachingApi = {
     for (let page = 1; ; page++) {
       const data = await api.get<Paged<TeachingRecord>>(path, {
         signal,
-        query: { page },
+        query: { page, ...(member ? {} : { memberId }) },
       });
       result.push(...data.items);
       if (result.length >= data.totalCount || data.items.length === 0)

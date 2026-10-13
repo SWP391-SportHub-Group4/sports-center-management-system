@@ -8,7 +8,7 @@ using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.Abstractions.Scheduling;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.BuildingBlocks.SharedKernel.Time;
-using SportHub.BuildingBlocks.Abstractions.Scheduling;
+using SportHub.BuildingBlocks.SharedKernel.Pagination;
 using SportHub.Scheduling.Catalog.Domain;
 using SportHub.Scheduling.Application.Services;
 using SportHub.Scheduling.Occupancy.Domain;
@@ -22,6 +22,33 @@ public sealed class IncidentService(ISportHubDbContext db, IOccupancyService occ
     INotificationWriter notifications, IUserAccessReader users, IAuditWriter audit, IClock clock,
     INotificationDeliveryReader delivery, IMembershipClosureExtension membershipExtension)
 {
+    public async Task<PagedResult<IncidentDetailsResponse>> ListAsync(int page = 1, int pageSize = 20,
+        CancellationToken ct = default)
+    {
+        page = Math.Clamp(page, 1, 1000000);
+        pageSize = Math.Clamp(pageSize, 1, 100);
+        var query = db.Set<IncidentNotice>().AsNoTracking();
+        var count = await query.CountAsync(ct);
+        var items = await HistoryQuery(query.OrderByDescending(x => x.CreatedAtUtc).ThenByDescending(x => x.IncidentId)
+            .Skip((page - 1) * pageSize).Take(pageSize))
+            .ToListAsync(ct);
+        return new() { Items = items.OrderByDescending(x => x.CreatedAtUtc).ThenByDescending(x => x.IncidentId).ToArray(),
+            Page = page, PageSize = pageSize, TotalCount = count };
+    }
+
+    public async Task<IncidentDetailsResponse> GetAsync(Guid incidentId, CancellationToken ct = default)
+        => await HistoryQuery(db.Set<IncidentNotice>().AsNoTracking().Where(x => x.IncidentId == incidentId))
+            .SingleOrDefaultAsync(ct)
+            ?? throw new NotFoundException("incident_not_found", "Incident not found.");
+
+    private IQueryable<IncidentDetailsResponse> HistoryQuery(IQueryable<IncidentNotice> query)
+        => from incident in query
+           join room in db.Set<Room>().AsNoTracking() on incident.RoomId equals (int?)room.RoomId into rooms
+           from room in rooms.DefaultIfEmpty()
+           select new IncidentDetailsResponse(incident.IncidentId, incident.Scope.ToString(), incident.RoomId,
+               room == null ? null : room.Name, incident.StartAtUtc, incident.EndAtUtc,
+               incident.Reason, incident.ResolutionSummary, incident.CreatedAtUtc);
+
     public async Task<NotificationDelivery> DeliveryAsync(Guid incidentId, CancellationToken ct = default)
     {
         if (!await db.Set<IncidentNotice>().AnyAsync(x => x.IncidentId == incidentId, ct))
@@ -36,12 +63,12 @@ public sealed class IncidentService(ISportHubDbContext db, IOccupancyService occ
         var shape = await ValidateAsync(request, ct);
         var impacts = await FindImpactsAsync(shape, ct);
         var needsManual = impacts.Any(x => x.SourceType is nameof(OccupancySourceType.ClassSession)
-            or nameof(OccupancySourceType.PtSession) or nameof(OccupancySourceType.RoomBlock));
+            or nameof(OccupancySourceType.RoomBlock));
         var gymClosed = await ClosesGymAsync(shape, ct);
         var startLocal = DateOnly.FromDateTime(VietnamTime.ToLocal(shape.StartUtc));
         return new IncidentPreviewResponse(shape.Scope.ToString(), shape.RoomId, shape.StartUtc, shape.EndUtc,
             impacts, !needsManual, needsManual
-                ? "The time slot affects a class, PT session, or room block. Reschedule or arrange a makeup before blocking the room."
+                ? "The time slot affects a class or room block. Reschedule or arrange a makeup before blocking the room."
                 : null)
         {
             ClosesGym = gymClosed,
@@ -174,15 +201,10 @@ public sealed class IncidentService(ISportHubDbContext db, IOccupancyService occ
         return incidentId;
     }
 
-    /// <summary>Gym đóng cửa khi mọi phòng Gym đang hoạt động nằm trong phạm vi sự cố (phòng Gym = loại phòng của dịch vụ PT).</summary>
+    /// <summary>Gym đóng cửa khi mọi phòng Gym đang hoạt động nằm trong phạm vi sự cố (phòng Gym = phòng có loại phòng thuộc môn Gym).</summary>
     private async Task<bool> ClosesGymAsync(IncidentShape shape, CancellationToken ct)
     {
-        var gymRoomTypeIds = db.Set<ServiceRoomType>()
-            .Join(db.Set<SportServiceOffering>().Where(o => o.ServiceType == SportServiceType.PersonalTraining),
-                link => link.OfferingId, offering => offering.OfferingId, (link, _) => link.RoomTypeId);
-        var gymRoomIds = await db.Set<Room>().AsNoTracking()
-            .Where(r => r.IsActive && r.RoomTypeId != null && gymRoomTypeIds.Contains(r.RoomTypeId.Value))
-            .Select(r => r.RoomId).ToListAsync(ct);
+        var gymRoomIds = await GymRooms.ActiveRoomIds(db).ToListAsync(ct);
         return gymRoomIds.Count > 0 && gymRoomIds.All(shape.RoomIds.Contains);
     }
 
@@ -243,7 +265,7 @@ public sealed class IncidentService(ISportHubDbContext db, IOccupancyService occ
     private static void EnsureResolvable(IReadOnlyCollection<IncidentImpact> impacts)
     {
         if (impacts.Any(x => x.SourceType is nameof(OccupancySourceType.ClassSession)
-            or nameof(OccupancySourceType.PtSession) or nameof(OccupancySourceType.RoomBlock)))
+            or nameof(OccupancySourceType.RoomBlock)))
             throw new ConflictException("incident_requires_schedule_resolution",
                 "Incident requires schedule resolution.");
         if (impacts.Any(x => x.SourceType != nameof(OccupancySourceType.CourtRental)))
@@ -255,14 +277,15 @@ public sealed class IncidentService(ISportHubDbContext db, IOccupancyService occ
 
 public sealed record IncidentRequest([property: SportHub.BuildingBlocks.Api.WireEnum] string Scope, int? RoomId, DateTime StartAtUtc, DateTime EndAtUtc, string Reason,
     int? MembershipExtensionDays = null);
+public sealed record IncidentDetailsResponse(Guid IncidentId,
+    [property: SportHub.BuildingBlocks.Api.WireEnum] string Scope, int? RoomId, string? RoomName,
+    DateTime StartAtUtc, DateTime EndAtUtc, string Reason, string ResolutionSummary, DateTime CreatedAtUtc);
 public sealed record IncidentImpact([property: SportHub.BuildingBlocks.Api.WireEnum] string SourceType, Guid SourceId, DateTime StartAtUtc, DateTime EndAtUtc)
 {
     public IReadOnlyList<IncidentResolutionOption> ResolutionOptions => SourceType switch
     {
         "ClassSession" => [new("Reschedule", "POST", $"/api/class-sessions/{SourceId}/reschedule"),
             new("CancelWithMakeup", "POST", $"/api/class-sessions/{SourceId}/cancel")],
-        "PtSession" => [new("Reschedule", "POST", $"/api/manager/pt-sessions/{SourceId}/reschedule"),
-            new("CancelByCenter", "POST", $"/api/manager/pt-sessions/{SourceId}/cancel")],
         "RoomBlock" => [new("RemoveExistingBlock", "DELETE", $"/api/manager/room-blocks/{SourceId}")],
         "CourtRental" => [new("AutoCancelAndRefundOnResolve", "POST", "/api/manager/incidents/resolve")],
         _ => []

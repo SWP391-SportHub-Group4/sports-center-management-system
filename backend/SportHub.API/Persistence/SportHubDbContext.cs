@@ -32,12 +32,13 @@ public class SportHubDbContext : DbContext, ISportHubDbContext
     public DbSet<UserCredential> UserCredentials => Set<UserCredential>();
     public DbSet<UserProfile> UserProfiles => Set<UserProfile>();
     public DbSet<AvatarReport> AvatarReports => Set<AvatarReport>();
+    public DbSet<MemberSupportRequest> MemberSupportRequests
+    => Set<MemberSupportRequest>();
     public DbSet<AvatarDeletion> AvatarDeletions => Set<AvatarDeletion>();
     public DbSet<UserExternalLogin> UserExternalLogins => Set<UserExternalLogin>();
     public DbSet<EmailOtp> EmailOtps => Set<EmailOtp>();
     public DbSet<CoachProfile> CoachProfiles => Set<CoachProfile>();
     public DbSet<UserSportSpecialty> UserSportSpecialties => Set<UserSportSpecialty>();
-    public DbSet<CoachServiceQualification> CoachServiceQualifications => Set<CoachServiceQualification>();
 
     public DbSet<MembershipPackage> MembershipPackages => Set<MembershipPackage>();
     public DbSet<MemberPackage> MemberPackages => Set<MemberPackage>();
@@ -67,13 +68,8 @@ public class SportHubDbContext : DbContext, ISportHubDbContext
 
     public DbSet<WorkoutPlan> WorkoutPlans => Set<WorkoutPlan>();
     public DbSet<WorkoutPlanItem> WorkoutPlanItems => Set<WorkoutPlanItem>();
-    public DbSet<WorkoutResult> WorkoutResults => Set<WorkoutResult>();
 
     // Mới 29/09/2026 (BE-4).
-    public DbSet<PtEntitlement> PtEntitlements => Set<PtEntitlement>();
-    public DbSet<PtSession> PtSessions => Set<PtSession>();
-    public DbSet<PtSessionChangeRequest> PtSessionChangeRequests => Set<PtSessionChangeRequest>();
-    public DbSet<PtCoachChangeRequest> PtCoachChangeRequests => Set<PtCoachChangeRequest>();
 
     public DbSet<Invoice> Invoices => Set<Invoice>();
     public DbSet<InvoiceItem> InvoiceItems => Set<InvoiceItem>();

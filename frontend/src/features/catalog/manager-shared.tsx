@@ -162,7 +162,7 @@ export function CatalogFeedback({
     sport_not_compatible: c.invalidReference,
     sport_name_taken: c.duplicateName,
     package_name_taken: c.duplicateName,
-    invalid_setting_value: c.ptInvalid,
+    invalid_setting_value: c.invalidReference,
   };
   const error = mutation.error;
   const message = error
@@ -205,6 +205,7 @@ export function CatalogFormDialog({
   const formId = useId();
   return (
     <Dialog
+      showCloseButton={false}
       title={title}
       size="lg"
       onClose={() => {
@@ -213,19 +214,19 @@ export function CatalogFormDialog({
       footer={
         <>
           <button
-            className="btn btn--secondary"
-            disabled={busy}
-            onClick={onClose}
-          >
-            {t.operations.cancel}
-          </button>
-          <button
             className="btn"
             type="submit"
             form={formId}
             disabled={busy || !canSubmit}
           >
             {busy ? t.common.loading : t.operations.save}
+          </button>
+          <button
+            className="btn btn--secondary"
+            disabled={busy}
+            onClick={onClose}
+          >
+            {t.operations.cancel}
           </button>
         </>
       }
@@ -256,21 +257,22 @@ export function ActivityDialog({
   const { t } = useLanguage();
   return (
     <Dialog
+      showCloseButton={false}
       title={active ? t.operations.deactivate : t.operations.activate}
       onClose={() => {
         if (!mutation.busy) onClose();
       }}
       footer={
         <>
+          <button className="btn" disabled={mutation.busy} onClick={onConfirm}>
+            {t.managerCatalog.confirm}
+          </button>
           <button
             className="btn btn--secondary"
             disabled={mutation.busy}
             onClick={onClose}
           >
             {t.operations.cancel}
-          </button>
-          <button className="btn" disabled={mutation.busy} onClick={onConfirm}>
-            {t.managerCatalog.confirm}
           </button>
         </>
       }

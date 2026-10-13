@@ -1,10 +1,14 @@
 "use client";
 import { PtPage } from "@/features/pt/ui";
-import { ManagerOverview } from "@/features/reports/reports";
+import {
+  ManagementShortcuts,
+  ManagerOverview,
+} from "@/features/reports/reports";
 import { OperationsOverview } from "@/features/manager/operations-overview";
 export default function Page() {
   return (
     <PtPage title="overview" manager>
+      <ManagementShortcuts />
       <OperationsOverview />
       <ManagerOverview />
     </PtPage>
