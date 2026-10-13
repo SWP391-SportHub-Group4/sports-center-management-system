@@ -4,6 +4,26 @@
   margin: 0;
   min-width: 0;
 }
+.selector h4 {
+  margin: 0 0 var(--space-3);
+  color: var(--text-strong);
+  font-size: 0.95rem;
+}
+.selectedBuild {
+  width: min(100%, 192px);
+  margin: 0 auto;
+}
+.selectedBuild figcaption {
+  display: grid;
+  gap: var(--space-1);
+  padding-top: var(--space-2);
+  text-align: center;
+  color: var(--text-strong);
+}
+.selectedBuild figcaption small {
+  color: var(--text-body);
+  font-size: 0.75rem;
+}
 .selector legend {
   font-weight: 700;
   color: var(--text-strong);

@@ -64,9 +64,18 @@ export function TrainingPlanView({
       (!memberId || r.memberId === null || r.memberId === memberId),
   );
   const labels = {
-    course: vi ? "Cả khóa" : "Course",
-    session: vi ? "Buổi tập" : "Session",
-    personal: vi ? "Cá nhân" : "Individual",
+    course: vi ? "Lộ trình lớp" : "Class roadmap",
+    session: vi ? "Kế hoạch buổi học" : "Lesson plan",
+    personal: vi ? "Kế hoạch cá nhân" : "Personal plan",
+  };
+  const bookmarkDescriptions = {
+    course: vi ? "Toàn khóa và từng buổi" : "Course goals & lessons",
+    personal: vi ? "Theo từng học viên" : "Tailored to each student",
+  };
+  const createLabels = {
+    course: vi ? "Tạo lộ trình lớp" : "New class roadmap",
+    session: vi ? "Tạo kế hoạch buổi học" : "New lesson plan",
+    personal: vi ? "Tạo kế hoạch cá nhân" : "New personal plan",
   };
   const descriptions = {
     course: vi
@@ -124,11 +133,14 @@ export function TrainingPlanView({
                 aria-pressed={scope === id}
                 onClick={() => setScope(id)}
               >
-                <Icon size={18} aria-hidden="true" />
-                <span>
-                  {id === "course" ? "Course & sessions" : labels[id]}
+                <span className={styles.scopeIcon} aria-hidden="true">
+                  <Icon size={20} />
                 </span>
-                <strong>
+                <span className={styles.scopeTitle}>
+                  <span>{labels[id]}</span>
+                  <small>{bookmarkDescriptions[id]}</small>
+                </span>
+                <strong aria-label={vi ? "Số kế hoạch" : "Plan count"}>
                   {
                     plans.filter((r) =>
                       id === "course" ? !r.memberId : planScopeOf(r) === id,
@@ -155,7 +167,7 @@ export function TrainingPlanView({
             onClick={onViewCoursePlan}
           >
             <BookOpen size={16} aria-hidden="true" />
-            {vi ? "Xem lộ trình cả khóa" : "View course plan"}
+            {vi ? "Xem lộ trình lớp" : "View class roadmap"}
           </button>
         )}
         {scope === "session" && !sessionId && usedSessions.length > 0 && (
@@ -214,9 +226,7 @@ export function TrainingPlanView({
               }
             >
               <Plus size={16} aria-hidden="true" />
-              {vi
-                ? `Tạo kế hoạch ${labels[scope].toLowerCase()}`
-                : `New ${labels[scope].toLowerCase()} plan`}
+              {createLabels[scope]}
             </button>
           )}
       </div>

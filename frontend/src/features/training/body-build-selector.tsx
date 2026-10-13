@@ -17,6 +17,29 @@ export function BodyBuildSelector({
   onChange?: (value: string) => void;
 }) {
   const name = useId();
+  if (!onChange) {
+    const selected = BODY_BUILDS.find((build) => build.value === value);
+    return (
+      <section className={styles.selector} aria-label="Current body build">
+        <h4>Current body build</h4>
+        {selected ? (
+          <figure className={styles.selectedBuild}>
+            <span
+              className={styles.figure}
+              aria-hidden="true"
+              style={{ backgroundPosition: `${selected.position} center` }}
+            />
+            <figcaption>
+              <strong>{selected.label}</strong>
+              <small>Selected by member</small>
+            </figcaption>
+          </figure>
+        ) : (
+          <p>Body build not specified by the member.</p>
+        )}
+      </section>
+    );
+  }
   return (
     <fieldset className={styles.selector}>
       <legend>

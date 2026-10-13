@@ -7,6 +7,7 @@ import {
   ArrowLeft,
   ArrowRight,
   BookOpen,
+  HeartPulse,
   History,
   Search,
   Users,
@@ -19,6 +20,7 @@ import { teachingApi, type TeachingStudent } from "./teaching-api";
 import { ptApi } from "./api";
 import { TeachingDetail } from "./coach-workspace";
 import { StudentLearningHistory } from "./student-assessment-history";
+import { StudentPhysicalProfile } from "./student-physical-profile";
 import styles from "./coach-students.module.css";
 
 export function CoachStudentDirectory() {
@@ -49,8 +51,8 @@ export function CoachStudentDirectory() {
           <h2>{vi ? "Học viên bạn đang phụ trách" : "Your students"}</h2>
           <p>
             {vi
-              ? "Một hồ sơ cho mỗi học viên. Chọn môn và lớp trong hồ sơ để xem tiến độ và kế hoạch phù hợp."
-              : "One profile per student. Choose their sport and class to review progress and plan their training."}
+              ? "Xem hồ sơ sức khỏe trước, sau đó chọn môn và lớp để xem kế hoạch và đánh giá."
+              : "Review their health profile first, then choose a sport and class to view plans and assessments."}
           </p>
         </div>
         <Users size={32} aria-hidden="true" />
@@ -191,7 +193,7 @@ function StudentProfileContent({ student }: { student: TeachingStudent }) {
     sports.length === 1 ? String(sports[0][0]) : "",
   );
   const [classId, setClassId] = useState("");
-  const [tab, setTab] = useState("current");
+  const [tab, setTab] = useState("profile");
   const editing = useRef({ dirty: false, busy: false });
   const classes = student.classes.filter((c) => String(c.sportId) === sport);
   const selected =
@@ -232,112 +234,141 @@ function StudentProfileContent({ student }: { student: TeachingStudent }) {
           <p>{student.email}</p>
           <small>
             {vi
-              ? "Hồ sơ tiến độ theo môn và lớp"
-              : "Progress profile by sport and class"}
+              ? "Hồ sơ sức khỏe, kế hoạch và đánh giá theo lớp"
+              : "Health profile, class plans and assessments"}
           </small>
         </div>
       </header>
-      <div className={styles.filters}>
-        <label>
-          {vi ? "Bộ môn" : "Sport"}
-          <select
-            value={sport}
-            onChange={(e) => {
-              if (!canLeave()) return;
-              setSport(e.target.value);
-              setClassId("");
-              setTab("current");
+      <div
+        className={styles.bookmarks}
+        role="group"
+        aria-label={vi ? "Nội dung hồ sơ" : "Profile sections"}
+      >
+        {[
+          {
+            id: "profile",
+            label: vi ? "Hồ sơ sức khỏe" : "Health profile",
+            icon: HeartPulse,
+          },
+          {
+            id: "current",
+            label: vi ? "Kế hoạch học" : "Plans",
+            icon: BookOpen,
+          },
+          {
+            id: "history",
+            label: vi ? "Đánh giá" : "Assessments",
+            icon: History,
+          },
+        ].map(({ id, label, icon: Icon }) => (
+          <button
+            key={id}
+            type="button"
+            aria-pressed={tab === id}
+            onClick={() => {
+              if (tab !== id && canLeave()) setTab(id);
             }}
           >
-            <option value="">{vi ? "Chọn bộ môn" : "Choose sport"}</option>
-            {sports.map(([id, name]) => (
-              <option key={id} value={id}>
-                {name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          {vi ? "Lớp hiện tại" : "Current class"}
-          <select
-            disabled={!sport}
-            value={selected ? String(selected.classId) : ""}
-            onChange={(e) => {
-              if (canLeave()) setClassId(e.target.value);
-            }}
-          >
-            <option value="">{vi ? "Chọn lớp học" : "Choose class"}</option>
-            {classes.map((c) => (
-              <option key={c.classId} value={c.classId}>
-                {c.className}
-              </option>
-            ))}
-          </select>
-        </label>
+            <Icon size={18} aria-hidden="true" />
+            {label}
+          </button>
+        ))}
       </div>
-      {selected ? (
+      {tab === "profile" ? (
+        <StudentPhysicalProfile memberId={student.memberId} />
+      ) : (
         <>
-          <div
-            className={styles.bookmarks}
-            role="group"
-            aria-label={vi ? "Nội dung hồ sơ" : "Profile sections"}
-          >
-            <button
-              type="button"
-              aria-pressed={tab === "current"}
-              onClick={() => {
-                if (canLeave()) setTab("current");
-              }}
-            >
-              <BookOpen size={18} aria-hidden="true" />
-              {vi ? "Lớp hiện tại & kế hoạch" : "Current class & plans"}
-            </button>
-            <button
-              type="button"
-              aria-pressed={tab === "history"}
-              onClick={() => {
-                if (canLeave()) setTab("history");
-              }}
-            >
-              <History size={18} aria-hidden="true" />
-              {vi ? "Đánh giá từ lớp trước" : "Learning history"}
-            </button>
+          <div className={styles.filters}>
+            <label>
+              {vi ? "Bộ môn" : "Sport"}
+              <select
+                value={sport}
+                onChange={(e) => {
+                  if (!canLeave()) return;
+                  setSport(e.target.value);
+                  setClassId("");
+                }}
+              >
+                <option value="">{vi ? "Chọn bộ môn" : "Choose sport"}</option>
+                {sports.map(([id, name]) => (
+                  <option key={id} value={id}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              {vi ? "Lớp hiện tại" : "Current class"}
+              <select
+                disabled={!sport}
+                value={selected ? String(selected.classId) : ""}
+                onChange={(e) => {
+                  if (canLeave()) setClassId(e.target.value);
+                }}
+              >
+                <option value="">{vi ? "Chọn lớp học" : "Choose class"}</option>
+                {classes.map((c) => (
+                  <option key={c.classId} value={c.classId}>
+                    {c.className}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
-          {tab === "current" ? (
-            <CurrentStudentClass
-              key={selected.classId}
-              student={student}
-              classId={selected.classId}
-              onClose={() => {
-                if (canLeave()) router.push("/coach/members");
-              }}
-              onEditingStateChange={(value) => {
-                editing.current = value;
-              }}
-            />
+          {selected ? (
+            <>
+              {tab === "current" ? (
+                <CurrentStudentClass
+                  key={selected.classId}
+                  student={student}
+                  classId={selected.classId}
+                  onClose={() => {
+                    if (canLeave()) router.push("/coach/members");
+                  }}
+                  onEditingStateChange={(value) => {
+                    editing.current = value;
+                  }}
+                />
+              ) : (
+                <div className={styles.assessmentColumns}>
+                  <CurrentStudentClass
+                    key={`${selected.classId}-feedback`}
+                    student={student}
+                    classId={selected.classId}
+                    view="feedback"
+                    onClose={() => {
+                      if (canLeave()) router.push("/coach/members");
+                    }}
+                    onEditingStateChange={(value) => {
+                      editing.current = value;
+                    }}
+                  />
+                  <StudentLearningHistory
+                    compact
+                    key={selected.classId}
+                    memberId={student.memberId}
+                    classId={selected.classId}
+                    sportName={selected.sportName}
+                  />
+                </div>
+              )}
+            </>
           ) : (
-            <StudentLearningHistory
-              key={selected.classId}
-              memberId={student.memberId}
-              classId={selected.classId}
-              sportName={selected.sportName}
-            />
+            <div className={styles.empty}>
+              <BookOpen size={32} aria-hidden="true" />
+              <h3>
+                {vi
+                  ? "Chọn môn và lớp của học viên"
+                  : "Choose the student’s sport and class"}
+              </h3>
+              <p>
+                {vi
+                  ? "Mỗi lớp có kế hoạch, kết quả và điểm danh riêng."
+                  : "Each class has its own plans, assessments and attendance."}
+              </p>
+            </div>
           )}
         </>
-      ) : (
-        <div className={styles.empty}>
-          <BookOpen size={32} aria-hidden="true" />
-          <h3>
-            {vi
-              ? "Chọn môn và lớp của học viên"
-              : "Choose the student’s sport and class"}
-          </h3>
-          <p>
-            {vi
-              ? "Mỗi lớp có kế hoạch, kết quả và điểm danh riêng."
-              : "Each class has its own plans, assessments and attendance."}
-          </p>
-        </div>
       )}
     </div>
   );
@@ -346,11 +377,13 @@ function StudentProfileContent({ student }: { student: TeachingStudent }) {
 function CurrentStudentClass({
   student,
   classId,
+  view = "plans",
   onClose,
   onEditingStateChange,
 }: {
   student: TeachingStudent;
   classId: number;
+  view?: "plans" | "feedback";
   onClose: () => void;
   onEditingStateChange: (value: { dirty: boolean; busy: boolean }) => void;
 }) {
@@ -374,6 +407,8 @@ function CurrentStudentClass({
         course && member ? (
           <TeachingDetail
             fullPage
+            initialTab={view}
+            hideNavigation
             selection={{ course, member }}
             onClose={onClose}
             onEditingStateChange={onEditingStateChange}

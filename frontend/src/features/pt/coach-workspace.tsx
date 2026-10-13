@@ -1,9 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useRef, useState, type ReactNode } from "react";
+import { useRef, useState, type ComponentProps, type ReactNode } from "react";
 import {
-  CalendarDays,
   Plus,
   Check,
   X,
@@ -14,7 +13,7 @@ import {
 } from "lucide-react";
 import { Drawer, Tabs } from "@/components/primitives";
 import { Calendar } from "@/components/scheduling/Calendar";
-import { AsyncSection, Feedback, StatusChip } from "@/components/ui";
+import { AsyncSection, Feedback } from "@/components/ui";
 import { CourseSticker } from "@/features/courses";
 import { useApi, useAction, useNow } from "@/lib/useApi";
 import { useAuth } from "@/lib/auth";
@@ -29,6 +28,7 @@ import {
 } from "./teaching-api";
 import { TeachingEditor } from "./teaching-editor";
 import { TeachingRecords } from "./teaching-records";
+import { StudentCurrentAssessments } from "./student-current-assessments";
 import { TrainingPlanView, type PlanScope } from "./training-plan-view";
 import styles from "./coach-workspace.module.css";
 import { CoachClassChanges } from "./coach-class-change";
@@ -383,6 +383,17 @@ function Students({
   );
 }
 
+function TeachingDetailSections({
+  hideNavigation,
+  ...props
+}: ComponentProps<typeof Tabs> & { hideNavigation: boolean }) {
+  return hideNavigation ? (
+    <section aria-label={props.ariaLabel}>{props.children}</section>
+  ) : (
+    <Tabs {...props} />
+  );
+}
+
 export function TeachingDetail({
   selection: { course, session, member },
   onClose,
@@ -390,13 +401,15 @@ export function TeachingDetail({
   onEditingStateChange,
   initialTab,
   hideHeading = false,
+  hideNavigation = false,
 }: {
   selection: Selection;
   onClose: () => void;
   fullPage?: boolean;
   onEditingStateChange?: (state: { dirty: boolean; busy: boolean }) => void;
-  initialTab?: "students" | "plans";
+  initialTab?: "students" | "plans" | "feedback";
   hideHeading?: boolean;
+  hideNavigation?: boolean;
 }) {
   const { language } = useLanguage();
   const { user } = useAuth();
@@ -404,7 +417,7 @@ export function TeachingDetail({
   const vi = language === "vi";
   const now = useNow();
   const [tab, setTab] = useState(
-    member ? "profile" : session ? "plans" : (initialTab ?? "students"),
+    initialTab ?? (member ? "profile" : session ? "plans" : "students"),
   );
   const [editor, setEditor] = useState<{
     kind: TeachingRecord["kind"];
@@ -565,7 +578,8 @@ export function TeachingDetail({
               />
             ) : (
               <>
-                <Tabs
+                <TeachingDetailSections
+                  hideNavigation={hideNavigation}
                   value={tab}
                   onChange={(next) => {
                     if (discard()) {
@@ -589,20 +603,27 @@ export function TeachingDetail({
                   {tab === "profile" && profile && (
                     <StudentPhysicalProfile memberId={profile.memberId} />
                   )}
-                  {tab === "feedback" && member && (
-                    <>
-                      <h3>
-                        {vi
-                          ? "Lịch sử kết quả & nhận xét"
-                          : "Results & feedback history"}
-                      </h3>
-                      <TeachingRecords
-                        records={scoped.filter((r) => r.kind === "RESULT")}
-                        members={members}
-                        editableCoachId={user?.userId}
+                  {tab === "feedback" &&
+                    member &&
+                    (hideNavigation ? (
+                      <StudentCurrentAssessments
+                        records={scoped}
+                        sessions={sessions}
                       />
-                    </>
-                  )}
+                    ) : (
+                      <>
+                        <h3>
+                          {vi
+                            ? "Lịch sử kết quả & nhận xét"
+                            : "Results & feedback history"}
+                        </h3>
+                        <TeachingRecords
+                          records={scoped.filter((r) => r.kind === "RESULT")}
+                          members={members}
+                          editableCoachId={user?.userId}
+                        />
+                      </>
+                    ))}
                   {tab === "plans" && (
                     <>
                       <TrainingPlanView
@@ -879,7 +900,7 @@ export function TeachingDetail({
                       }}
                     />
                   )}
-                </Tabs>
+                </TeachingDetailSections>
                 {!writable && (
                   <p className={styles.muted}>
                     {vi

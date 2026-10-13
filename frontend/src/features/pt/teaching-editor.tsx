@@ -430,7 +430,11 @@ export function TeachingEditor({
                 ? vi
                   ? "Mục tiêu cuối khóa · Học viên sẽ đạt được gì?\nBuổi 1–2 · Nền tảng kỹ thuật\nBuổi 3–4 · Thực hành và phối hợp\nBuổi cuối · Ôn tập và đánh giá"
                   : "Course outcome · What will students achieve?\nSessions 1–2 · Technique foundations\nSessions 3–4 · Practice and teamwork\nFinal session · Review and assessment"
-                : undefined
+                : kind === "RESULT"
+                  ? vi
+                    ? "Kết quả: Kỹ năng đã thực hiện trong buổi học\nĐiểm mạnh: Điều học viên làm tốt\nCần cải thiện: Kỹ năng cần luyện thêm\nBuổi tiếp theo: Nội dung nên tập trung"
+                    : "Result: Skills demonstrated in this lesson\nStrengths: What the student did well\nNeeds work: A specific skill to practice\nNext lesson: What to focus on"
+                  : undefined
             }
           />
           {kind === "PLAN" && (
