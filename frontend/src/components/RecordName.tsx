@@ -4,8 +4,7 @@ import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { useAuth } from "@/lib/auth";
 import { useLanguage } from "@/lib/language";
-import { formatDateTime } from "@/lib/format";
-import type { ManagerCourseDto, PtSessionDto, UserAdminDto } from "@/lib/types";
+import type { ManagerCourseDto, UserAdminDto } from "@/lib/types";
 
 export function CourseName({ id }: { id: number }) {
   const { user } = useAuth();
@@ -65,47 +64,6 @@ export function MemberName({ id, name }: { id: string; name?: string | null }) {
     <span aria-busy={state.loading || undefined}>
       {state.data ||
         (state.loading ? t.common.loading : t.managerAudit.nameUnavailable)}
-    </span>
-  );
-}
-
-export function PtSessionName({
-  id,
-  memberId,
-}: {
-  id: string;
-  memberId?: string;
-}) {
-  const { user } = useAuth();
-  const { t } = useLanguage();
-  const state = useApi(async () => {
-    const sessions = await reference(
-      user?.userId ?? "",
-      `pt-sessions:${memberId ?? "all"}`,
-      async () => {
-        const rows: PtSessionDto[] = [];
-        let page = 1;
-        while (page <= 20) {
-          const next = await api.get<PtSessionDto[]>(
-            "/api/manager/pt-sessions",
-            { query: { memberId, page, pageSize: 100 } },
-          );
-          rows.push(...next);
-          if (next.length < 100) break;
-          page++;
-        }
-        return rows;
-      },
-    );
-    return sessions.find((session) => session.sessionId === id) ?? null;
-  }, [id, memberId, user?.userId]);
-  return (
-    <span aria-busy={state.loading || undefined}>
-      {state.data
-        ? `${formatDateTime(state.data.startAtUtc)} · ${state.data.coachName}`
-        : state.loading
-          ? t.common.loading
-          : t.managerAudit.nameUnavailable}
     </span>
   );
 }

@@ -8,6 +8,6 @@ public sealed record InvoiceItemResponse(
     int Quantity,
     decimal LineAmount,
     Guid? RelatedEntityId,
-    int? ClassId = null, Guid? CourtRentalId = null, Guid? PtEntitlementId = null,
+    int? ClassId = null, Guid? CourtRentalId = null,
     Guid? MemberPackageId = null, int? SportId = null, string? SportName = null,
-    int? PtFrequencyPerWeek = null, Guid? SourceInvoiceItemId = null);
+    Guid? SourceInvoiceItemId = null);

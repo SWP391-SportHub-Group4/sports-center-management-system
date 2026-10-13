@@ -14,15 +14,12 @@ import {
 
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
-import { addDaysIso, formatDate, formatDateTime, todayIso } from "@/lib/format";
+import { addDaysIso, formatDateTime, todayIso } from "@/lib/format";
 
 import { courtScheduleApi } from "@/features/court-schedule";
 import { catalogApi } from "@/features/catalog";
 
 import { ptApi } from "./api";
-import { ListPager, Specialty } from "./ui";
-import { PtCoachStudents } from "./pt-coach-workspace";
-import { PtSessions } from "./pt-sessions";
 import { UserAvatar } from "@/components/UserAvatar";
 
 function Roster({ id }: { id: string }) {
@@ -196,134 +193,22 @@ export function CoachClasses() {
   );
 }
 
-function Relationships() {
-  const { t } = useLanguage();
-
-  const [page, setPage] = useState(1);
-
-  const state = useApi(
-    (signal) => ptApi.relationships(page, signal, true),
-    [page],
-  );
-
-  return (
-    <Card title={t.staffWork.relationships}>
-      <AsyncSection state={state} emptyMessage={t.common.noData}>
-        {(rows) => (
-          <>
-            <Table
-              headers={[
-                t.staffWork.member,
-                t.staffWork.status,
-                t.staffWork.actions,
-              ]}
-            >
-              {rows.map((relationship) => (
-                <tr key={relationship.relationshipId}>
-                  <td>
-                    <UserAvatar
-                      userId={relationship.memberId}
-                      name={relationship.memberName}
-                      size={28}
-                      report
-                    />{" "}
-                    {relationship.memberName}
-                  </td>
-
-                  <td>
-                    <StatusChip value={relationship.status} />
-                  </td>
-
-                  <td>
-                    {relationship.status === "ACTIVE" && (
-                      <Link
-                        className="btn btn--secondary"
-                        href={`/coach/members/${relationship.memberId}`}
-                      >
-                        {t.coach.members.viewProfileBtn}
-                      </Link>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </Table>
-
-            {!rows.length && <p>{t.common.noData}</p>}
-
-            <ListPager page={page} count={rows.length} onChange={setPage} />
-          </>
-        )}
-      </AsyncSection>
-    </Card>
-  );
-}
-
-function MembersTabs({ hasPt }: { hasPt: boolean }) {
-  const { t } = useLanguage();
-
-  const [tab, setTab] = useState(false);
-
-  return (
-    <>
-      <div className="btn-row">
-        <button
-          type="button"
-          className="btn btn--secondary"
-          aria-pressed={!tab}
-          onClick={() => setTab(false)}
-        >
-          {t.staffWork.classes}
-        </button>
-
-        {hasPt && (
-          <button
-            type="button"
-            className="btn btn--secondary"
-            aria-pressed={tab}
-            onClick={() => setTab(true)}
-          >
-            {t.staffWork.relationships}
-          </button>
-        )}
-      </div>
-
-      {tab && hasPt ? <Relationships /> : <CoachClasses />}
-    </>
-  );
-}
-
 export function CoachMembers() {
-  return (
-    <Specialty>
-      {(hasPt) => (hasPt ? <PtCoachStudents /> : <MembersTabs hasPt={hasPt} />)}
-    </Specialty>
-  );
+  return <CoachClasses />;
 }
 
-function CoachDashboard({ hasPt }: { hasPt: boolean }) {
+function CoachDashboard() {
   const { t } = useLanguage();
 
   const today = todayIso();
   const until = addDaysIso(today, 6);
 
   const schedule = useApi(
-    (signal) => courtScheduleApi.list(today, until, "", true, signal, hasPt),
-    [today, until, hasPt],
+    (signal) => courtScheduleApi.list(today, until, "", true, signal),
+    [today, until],
   );
 
   const rooms = useApi((signal) => catalogApi.rooms(signal), []);
-
-  const relationships = useApi(
-    (signal) =>
-      hasPt ? ptApi.relationships(1, signal, true) : Promise.resolve([]),
-    [hasPt],
-  );
-
-  const ptSessions = useApi(
-    (signal) =>
-      hasPt ? ptApi.sessions(false, 1, signal) : Promise.resolve([]),
-    [hasPt],
-  );
 
   function vietnamDate(value: string) {
     return new Intl.DateTimeFormat("en-CA", {
@@ -350,38 +235,6 @@ function CoachDashboard({ hasPt }: { hasPt: boolean }) {
                 label={t.coach.dashboard.statUpcomingLessons}
                 value={rows.length}
               />
-
-              {hasPt && (
-                <AsyncSection state={relationships}>
-                  {(members) => (
-                    <Stat
-                      label={t.coach.dashboard.statAssignedMembers}
-                      value={members.length}
-                      hint={t.coach.dashboard.statAssignedMembersHint}
-                    />
-                  )}
-                </AsyncSection>
-              )}
-
-              {hasPt && (
-                <AsyncSection state={ptSessions}>
-                  {(sessions) => {
-                    const pending = sessions.filter(
-                      (session) =>
-                        ["SCHEDULED", "RESCHEDULED"].includes(session.status) &&
-                        new Date(session.endAtUtc).getTime() < Date.now(),
-                    );
-
-                    return (
-                      <Stat
-                        label={t.staffWork.results}
-                        value={pending.length}
-                        hint={t.staffWork.complete}
-                      />
-                    );
-                  }}
-                </AsyncSection>
-              )}
             </div>
           );
         }}
@@ -438,13 +291,6 @@ function CoachDashboard({ hasPt }: { hasPt: boolean }) {
                             >
                               {t.staffWork.attendance}
                             </Link>
-                          ) : entry.sourceType === "PT_SESSION" ? (
-                            <Link
-                              className="btn btn--secondary"
-                              href="/coach/pt-sessions"
-                            >
-                              {t.staffWork.sessions}
-                            </Link>
                           ) : null}
                         </td>
                       </tr>
@@ -457,62 +303,6 @@ function CoachDashboard({ hasPt }: { hasPt: boolean }) {
         </AsyncSection>
       </Card>
 
-      {hasPt && (
-        <Card
-          title={t.coach.dashboard.membersTableTitle}
-          hint={t.coach.dashboard.membersTableHint}
-          actions={
-            <Link className="btn btn--secondary" href="/coach/members">
-              {t.navigation.items.assignedMembers}
-            </Link>
-          }
-        >
-          <AsyncSection
-            state={relationships}
-            isEmpty={(rows) => !rows.length}
-            emptyMessage={t.coach.dashboard.membersTableEmpty}
-          >
-            {(rows) => (
-              <Table
-                headers={[
-                  t.coach.dashboard.columnMember,
-                  t.coach.dashboard.columnSource,
-                  t.coach.dashboard.columnStart,
-                  t.staffWork.actions,
-                ]}
-              >
-                {rows.slice(0, 6).map((relationship) => (
-                  <tr key={relationship.relationshipId}>
-                    <td>
-                      <UserAvatar
-                        userId={relationship.memberId}
-                        name={relationship.memberName}
-                        size={28}
-                        report
-                      />{" "}
-                      {relationship.memberName}
-                    </td>
-
-                    <td>{relationship.sourceType}</td>
-
-                    <td>{formatDate(relationship.startedAt)}</td>
-
-                    <td>
-                      <Link
-                        className="btn btn--secondary"
-                        href={`/coach/members/${relationship.memberId}`}
-                      >
-                        {t.coach.members.viewProfileBtn}
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </Table>
-            )}
-          </AsyncSection>
-        </Card>
-      )}
-
       <Card title={t.staffWork.actions}>
         <div className="btn-row">
           <Link className="btn btn--secondary" href="/coach/schedule">
@@ -522,26 +312,6 @@ function CoachDashboard({ hasPt }: { hasPt: boolean }) {
           <Link className="btn btn--secondary" href="/coach/classes">
             {t.staffWork.classes}
           </Link>
-
-          {hasPt && (
-            <>
-              <Link className="btn btn--secondary" href="/coach/members">
-                {t.navigation.items.assignedMembers}
-              </Link>
-
-              <Link className="btn btn--secondary" href="/coach/progress">
-                {t.coach.dashboard.quickWriteResults}
-              </Link>
-
-              <Link className="btn btn--secondary" href="/coach/members">
-                {t.coach.dashboard.quickEditPlans}
-              </Link>
-
-              <Link className="btn btn--secondary" href="/coach/pt-sessions">
-                {t.staffWork.sessions}
-              </Link>
-            </>
-          )}
         </div>
       </Card>
     </div>
@@ -549,9 +319,5 @@ function CoachDashboard({ hasPt }: { hasPt: boolean }) {
 }
 
 export function CoachOverview() {
-  return (
-    <Specialty>
-      {(hasPt) => (hasPt ? <PtSessions /> : <CoachDashboard hasPt={hasPt} />)}
-    </Specialty>
-  );
+  return <CoachDashboard />;
 }

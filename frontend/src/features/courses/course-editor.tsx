@@ -8,11 +8,7 @@ import { useLanguage } from "@/lib/language";
 import { todayIso, formatMoney } from "@/lib/format";
 import { Card, Field, AsyncSection } from "@/components/ui";
 import { MutationFeedback, useMutation } from "@/features/operations";
-import {
-  SportSelector,
-  RoomSelector,
-  catalogApi,
-} from "@/features/catalog";
+import { SportSelector, RoomSelector, catalogApi } from "@/features/catalog";
 import { CoachSelector } from "@/features/coaches";
 import { ScheduleRuleEditor } from "./schedule-rule-editor";
 import { ScheduleReview } from "./schedule-review";
@@ -39,113 +35,64 @@ export function CourseEditor({
 
   const mutation = useMutation();
 
-  const formRef =
-    useRef<HTMLFormElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
 
-  const saved =
-    useRef(false);
+  const saved = useRef(false);
 
-  const [step, setStep] =
-    useState(0);
+  const [step, setStep] = useState(0);
 
-  const [ai, setAi] =
-    useState(false);
+  const [ai, setAi] = useState(false);
 
-  const [
-    hydrated,
-    setHydrated,
-  ] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
 
-  const [
-    recovered,
-    setRecovered,
-  ] = useState(false);
+  const [recovered, setRecovered] = useState(false);
 
-  const [form, setForm] =
-    useState({
-      code:
-        course?.code ?? "",
+  const [form, setForm] = useState({
+    code: course?.code ?? "",
 
-      name:
-        course?.name ?? "",
+    name: course?.name ?? "",
 
-      sportId:
-        String(
-          course?.sportId ?? "",
-        ),
+    sportId: String(course?.sportId ?? ""),
 
-      coachId:
-        course?.coachId ?? "",
+    coachId: course?.coachId ?? "",
 
-      defaultRoomId:
-        String(
-          course?.defaultRoomId ??
-            "",
-        ),
+    defaultRoomId: String(course?.defaultRoomId ?? ""),
 
-      startDate:
-        course?.startDate ??
-        todayIso(),
+    startDate: course?.startDate ?? todayIso(),
 
-      numSessions:
-        course?.numSessions ??
-        12,
+    numSessions: course?.numSessions ?? 12,
 
-      capacity:
-      course?.capacity && course.capacity > 0
-        ? course.capacity
-        : 12,
+    capacity: course?.capacity && course.capacity > 0 ? course.capacity : 12,
 
-      price:
-        course?.price ??
-        300000,
+    price: course?.price ?? 300000,
 
-      costAmount:
-        course?.costAmount ??
-        0,
+    costAmount: course?.costAmount ?? 0,
 
-      scheduleRules:
-        course?.scheduleRules ??
-        [
-          {
-            dayOfWeek:
-              new Date(
-                `${todayIso()}T12:00:00Z`,
-              ).getUTCDay(),
+    scheduleRules: course?.scheduleRules ?? [
+      {
+        dayOfWeek: new Date(`${todayIso()}T12:00:00Z`).getUTCDay(),
 
-            startTimeLocal:
-              "18:00",
-          },
-        ],
-    });
+        startTimeLocal: "18:00",
+      },
+    ],
+  });
 
-  const storageKey =
-    `sporthub.class-draft.${user?.userId}.${course?.classId ?? "new"}.${course?.version ?? 0}`;
+  const storageKey = `sporthub.class-draft.${user?.userId}.${course?.classId ?? "new"}.${course?.version ?? 0}`;
 
   /*
    * Restore browser draft.
    */
   useEffect(() => {
     try {
-      const raw =
-        sessionStorage.getItem(
-          storageKey,
-        );
+      const raw = sessionStorage.getItem(storageKey);
 
       if (raw) {
-        const draft: unknown =
-          JSON.parse(raw);
+        const draft: unknown = JSON.parse(raw);
 
         if (
           draft &&
-          typeof draft ===
-            "object" &&
-          Object.keys(
-            form,
-          ).every(
-            (key) =>
-              key in draft,
-          ) &&
+          typeof draft === "object" &&
+          Object.keys(form).every((key) => key in draft) &&
           [
             "code",
             "name",
@@ -155,44 +102,17 @@ export function CourseEditor({
             "startDate",
           ].every(
             (key) =>
-              typeof (
-                draft as Record<
-                  string,
-                  unknown
-                >
-              )[key] === "string",
+              typeof (draft as Record<string, unknown>)[key] === "string",
           ) &&
-          [
-            "numSessions",
-            "capacity",
-            "price",
-            "costAmount",
-          ].every(
-            (key) =>
-              Number.isFinite(
-                (
-                  draft as Record<
-                    string,
-                    unknown
-                  >
-                )[key],
-              ),
+          ["numSessions", "capacity", "price", "costAmount"].every((key) =>
+            Number.isFinite((draft as Record<string, unknown>)[key]),
           ) &&
-          Array.isArray(
-            (
-              draft as typeof form
-            ).scheduleRules,
-          ) &&
-          (
-            draft as typeof form
-          ).scheduleRules.every(
+          Array.isArray((draft as typeof form).scheduleRules) &&
+          (draft as typeof form).scheduleRules.every(
             (rule) =>
               rule &&
-              Number.isInteger(
-                rule.dayOfWeek,
-              ) &&
-              typeof rule.startTimeLocal ===
-                "string",
+              Number.isInteger(rule.dayOfWeek) &&
+              typeof rule.startTimeLocal === "string",
           )
         ) {
           /*
@@ -203,9 +123,7 @@ export function CourseEditor({
 
           /* eslint-disable react-hooks/set-state-in-effect */
 
-          setForm(
-            draft as typeof form,
-          );
+          setForm(draft as typeof form);
 
           setRecovered(true);
 
@@ -233,101 +151,52 @@ export function CourseEditor({
    * Persist unsaved browser draft.
    */
   useEffect(() => {
-    if (
-      hydrated &&
-      !saved.current
-    ) {
+    if (hydrated && !saved.current) {
       try {
-        sessionStorage.setItem(
-          storageKey,
-          JSON.stringify(form),
-        );
+        sessionStorage.setItem(storageKey, JSON.stringify(form));
       } catch {
         /*
          * Optional recovery only.
          */
       }
     }
-  }, [
-    form,
-    hydrated,
-    storageKey,
-  ]);
+  }, [form, hydrated, storageKey]);
 
   /*
    * Catalog context.
    */
-  const catalog =
-    useApi(
-      async (signal) => {
-        const [
-          sports,
-          rooms,
-        ] =
-          await Promise.all([
-            catalogApi.sports(
-              signal,
-              true,
-            ),
+  const catalog = useApi(async (signal) => {
+    const [sports, rooms] = await Promise.all([
+      catalogApi.sports(signal, true),
 
-            catalogApi.rooms(
-              signal,
-            ),
-          ]);
+      catalogApi.rooms(signal),
+    ]);
 
-        return {
-          sports,
-          rooms,
-        };
-      },
-      [],
+    return {
+      sports,
+      rooms,
+    };
+  }, []);
+
+  const service = catalog.data?.sports
+    .find((sport) => sport.sportId === Number(form.sportId))
+    ?.services.find(
+      (service) => service.serviceType === "GROUP_COURSE" && service.isEnabled,
     );
 
-  const service =
-    catalog.data?.sports
-      .find(
-        (sport) =>
-          sport.sportId ===
-          Number(
-            form.sportId,
-          ),
-      )
-      ?.services.find(
-        (service) =>
-          service.serviceType ===
-            "GROUP_COURSE" &&
-          service.isEnabled,
-      );
+  const room = catalog.data?.rooms.find(
+    (room) => room.roomId === Number(form.defaultRoomId),
+  );
 
-  const room =
-    catalog.data?.rooms.find(
-      (room) =>
-        room.roomId ===
-        Number(
-          form.defaultRoomId,
-        ),
-    );
-
-  const minutes =
-    service
-      ?.defaultSessionMinutes ??
-    0;
+  const minutes = service?.defaultSessionMinutes ?? 0;
 
   const threshold =
-    form.price > 0
-      ? Math.ceil(
-          form.costAmount /
-            form.price,
-        )
-      : 0;
+    form.price > 0 ? Math.ceil(form.costAmount / form.price) : 0;
 
   const capacityInvalid =
-    (!!room &&
-      form.capacity >
-        room.capacity) ||
+    (!!room && form.capacity > room.capacity) ||
     (!!service?.defaultMaxCapacity &&
-      form.capacity >
-        service.defaultMaxCapacity);
+      form.capacity > service.defaultMaxCapacity);
 
   /*
    * Current form converted into
@@ -336,131 +205,67 @@ export function CourseEditor({
   const schedule = {
     ...form,
 
-    sportId:
-      Number(form.sportId),
+    sportId: Number(form.sportId),
 
-    defaultRoomId:
-      Number(
-        form.defaultRoomId,
-      ),
+    defaultRoomId: Number(form.defaultRoomId),
 
-    coachId:
-      form.coachId ||
-      null,
+    coachId: form.coachId || null,
   };
 
   /*
    * Local preview is still useful
    * for validating the form itself.
    */
-  const slots =
-    previewSessions(
-      schedule,
-      minutes,
-    );
+  const slots = previewSessions(schedule, minutes);
 
   const valid =
-    form.code.trim()
-      .length >= 2 &&
-    form.name.trim()
-      .length > 0 &&
+    form.code.trim().length >= 2 &&
+    form.name.trim().length > 0 &&
     !!form.sportId &&
     !!form.defaultRoomId &&
     form.price >= 1000 &&
-    form.price % 1000 ===
-      0 &&
+    form.price % 1000 === 0 &&
     form.costAmount >= 0 &&
-    Number.isInteger(
-      form.capacity,
-    ) &&
+    Number.isInteger(form.capacity) &&
     form.capacity >= 1 &&
     !capacityInvalid &&
-    threshold <=
-      form.capacity &&
-    slots.length ===
-      form.numSessions;
+    threshold <= form.capacity &&
+    slots.length === form.numSessions;
 
   function next() {
-    if (
-      !formRef.current
-        ?.reportValidity()
-    ) {
+    if (!formRef.current?.reportValidity()) {
       return;
     }
 
-    if (
-      step === 1 &&
-      (!minutes ||
-        slots.length !==
-          form.numSessions)
-    ) {
+    if (step === 1 && (!minutes || slots.length !== form.numSessions)) {
       return;
     }
 
-    if (
-      step === 2 &&
-      !valid
-    ) {
+    if (step === 2 && !valid) {
       return;
     }
 
-    setStep(
-      step + 1,
-    );
+    setStep(step + 1);
   }
 
   return (
-    <Card
-      title={
-        course
-          ? l.edit
-          : l.create
-      }
-    >
-      <ol
-        className={
-          styles.steps
-        }
-      >
-        {[
-          m.contentStep,
-          m.scheduleStep,
-          m.pricingStep,
-          m.reviewStep,
-        ].map(
-          (
-            label,
-            index,
-          ) => (
-            <li
-              key={label}
-              aria-current={
-                step === index
-                  ? "step"
-                  : undefined
-              }
-            >
-              {index + 1}.{" "}
-              {label}
+    <Card title={course ? l.edit : l.create}>
+      <ol className={styles.steps}>
+        {[m.contentStep, m.scheduleStep, m.pricingStep, m.reviewStep].map(
+          (label, index) => (
+            <li key={label} aria-current={step === index ? "step" : undefined}>
+              {index + 1}. {label}
             </li>
           ),
         )}
       </ol>
 
-      {recovered && (
-        <p role="status">
-          {
-            m.draftRecovered
-          }
-        </p>
-      )}
+      {recovered && <p role="status">{m.draftRecovered}</p>}
 
       <form
         ref={formRef}
         className="stack"
-        onSubmit={async (
-          event,
-        ) => {
+        onSubmit={async (event) => {
           event.preventDefault();
 
           /*
@@ -487,46 +292,27 @@ export function CourseEditor({
           const body = {
             ...schedule,
 
-            code:
-              form.code.trim(),
+            code: form.code.trim(),
 
-            name:
-              form.name.trim(),
+            name: form.name.trim(),
           };
 
-          let result:
-            | ManagerCourseDto
-            | undefined;
+          let result: ManagerCourseDto | undefined;
 
           if (
-            await mutation.run(
-              async () => {
-                result =
-                  await (
-                    course
-                      ? api.put<
-                          ManagerCourseDto
-                        >(
-                          `/api/manager/classes/${course.classId}`,
-                          body,
-                        )
-                      : api.post<
-                          ManagerCourseDto
-                        >(
-                          "/api/manager/classes",
-                          body,
-                        )
-                  );
-              },
-            )
+            await mutation.run(async () => {
+              result = await (course
+                ? api.put<ManagerCourseDto>(
+                    `/api/manager/classes/${course.classId}`,
+                    body,
+                  )
+                : api.post<ManagerCourseDto>("/api/manager/classes", body));
+            })
           ) {
-            saved.current =
-              true;
+            saved.current = true;
 
             try {
-              sessionStorage.removeItem(
-                storageKey,
-              );
+              sessionStorage.removeItem(storageKey);
             } catch {
               /*
                * Ignore storage
@@ -534,73 +320,44 @@ export function CourseEditor({
                */
             }
 
-            onSaved(
-              result,
-            );
+            onSaved(result);
           }
         }}
       >
-        <fieldset
-          disabled={
-            mutation.busy
-          }
-          className={
-            styles.section
-          }
-        >
+        <fieldset disabled={mutation.busy} className={styles.section}>
           {/* -------------------------------------------
               STEP 1 - CLASS INFORMATION
           ------------------------------------------- */}
 
           {step === 0 && (
             <div className="form-grid">
-              <Field
-                label={l.code}
-              >
+              <Field label={l.code}>
                 <input
                   required
                   minLength={2}
                   maxLength={50}
-                  value={
-                    form.code
-                  }
-                  onChange={(
-                    event,
-                  ) =>
+                  value={form.code}
+                  onChange={(event) =>
                     setForm({
                       ...form,
 
-                      code:
-                        event
-                          .target
-                          .value,
+                      code: event.target.value,
                     })
                   }
                 />
               </Field>
 
-              <Field
-                label={l.name}
-              >
+              <Field label={l.name}>
                 <input
                   required
-                  maxLength={
-                    150
-                  }
+                  maxLength={150}
                   pattern=".*\S.*"
-                  value={
-                    form.name
-                  }
-                  onChange={(
-                    event,
-                  ) =>
+                  value={form.name}
+                  onChange={(event) =>
                     setForm({
                       ...form,
 
-                      name:
-                        event
-                          .target
-                          .value,
+                      name: event.target.value,
                     })
                   }
                 />
@@ -608,12 +365,8 @@ export function CourseEditor({
 
               <SportSelector
                 groupOnly
-                value={
-                  form.sportId
-                }
-                onChange={(
-                  sportId,
-                ) =>
+                value={form.sportId}
+                onChange={(sportId) =>
                   setForm({
                     ...form,
 
@@ -625,11 +378,9 @@ export function CourseEditor({
                      * coach/room
                      * selection.
                      */
-                    coachId:
-                      "",
+                    coachId: "",
 
-                    defaultRoomId:
-                      "",
+                    defaultRoomId: "",
                   })
                 }
               />
@@ -644,15 +395,9 @@ export function CourseEditor({
             <>
               <div className="form-grid">
                 <CoachSelector
-                  sportId={Number(
-                    form.sportId,
-                  )}
-                  value={
-                    form.coachId
-                  }
-                  onChange={(
-                    coachId,
-                  ) =>
+                  sportId={Number(form.sportId)}
+                  value={form.coachId}
+                  onChange={(coachId) =>
                     setForm({
                       ...form,
 
@@ -662,15 +407,9 @@ export function CourseEditor({
                 />
 
                 <RoomSelector
-                  sportId={Number(
-                    form.sportId,
-                  )}
-                  value={
-                    form.defaultRoomId
-                  }
-                  onChange={(
-                    defaultRoomId,
-                  ) =>
+                  sportId={Number(form.sportId)}
+                  value={form.defaultRoomId}
+                  onChange={(defaultRoomId) =>
                     setForm({
                       ...form,
 
@@ -679,58 +418,34 @@ export function CourseEditor({
                   }
                 />
 
-                <Field
-                  label={
-                    l.startDate
-                  }
-                >
+                <Field label={l.startDate}>
                   <input
                     required
                     type="date"
-                    value={
-                      form.startDate
-                    }
-                    onChange={(
-                      event,
-                    ) =>
+                    value={form.startDate}
+                    onChange={(event) =>
                       setForm({
                         ...form,
 
-                        startDate:
-                          event
-                            .target
-                            .value,
+                        startDate: event.target.value,
                       })
                     }
                   />
                 </Field>
 
-                <Field
-                  label={
-                    l.numSessions
-                  }
-                >
+                <Field label={l.numSessions}>
                   <input
                     required
                     type="number"
                     min={1}
                     max={100}
                     step={1}
-                    value={
-                      form.numSessions
-                    }
-                    onChange={(
-                      event,
-                    ) =>
+                    value={form.numSessions}
+                    onChange={(event) =>
                       setForm({
                         ...form,
 
-                        numSessions:
-                          Number(
-                            event
-                              .target
-                              .value,
-                          ),
+                        numSessions: Number(event.target.value),
                       })
                     }
                   />
@@ -738,12 +453,8 @@ export function CourseEditor({
               </div>
 
               <ScheduleRuleEditor
-                value={
-                  form.scheduleRules
-                }
-                onChange={(
-                  scheduleRules,
-                ) =>
+                value={form.scheduleRules}
+                onChange={(scheduleRules) =>
                   setForm({
                     ...form,
 
@@ -752,29 +463,14 @@ export function CourseEditor({
                 }
               />
 
-              <AsyncSection
-                state={catalog}
-              >
+              <AsyncSection state={catalog}>
                 {() => (
                   <>
-                    {!minutes && (
-                      <p role="alert">
-                        {
-                          m.missingDuration
-                        }
-                      </p>
-                    )}
+                    {!minutes && <p role="alert">{m.missingDuration}</p>}
 
-                    {minutes >
-                      0 &&
-                      slots.length !==
-                        form.numSessions && (
-                        <p role="alert">
-                          {
-                            l.invalidSchedule
-                          }
-                        </p>
-                      )}
+                    {minutes > 0 && slots.length !== form.numSessions && (
+                      <p role="alert">{l.invalidSchedule}</p>
+                    )}
                   </>
                 )}
               </AsyncSection>
@@ -786,12 +482,9 @@ export function CourseEditor({
                   !form.sportId ||
                   !form.coachId ||
                   !form.defaultRoomId ||
-                  form.capacity <
-                    1
+                  form.capacity < 1
                 }
-                onClick={() =>
-                  setAi(true)
-                }
+                onClick={() => setAi(true)}
               >
                 {m.aiTitle}
               </button>
@@ -807,96 +500,41 @@ export function CourseEditor({
               <div className="form-grid">
                 {(
                   [
-                    [
-                      "capacity",
-                      l.capacity,
-                      1,
-                      1,
-                    ],
+                    ["capacity", l.capacity, 1, 1],
 
-                    [
-                      "price",
-                      l.price,
-                      1000,
-                      1000,
-                    ],
+                    ["price", l.price, 1000, 1000],
 
-                    [
-                      "costAmount",
-                      l.cost,
-                      0,
-                      1,
-                    ],
+                    ["costAmount", l.cost, 0, 1],
                   ] as const
-                ).map(
-                  ([
-                    key,
-                    label,
-                    min,
-                    increment,
-                  ]) => (
-                    <Field
-                      key={key}
-                      label={
-                        label
-                      }
-                    >
-                      <input
-                        required
-                        type="number"
-                        min={min}
-                        step={
-                          increment
-                        }
-                        value={
-                          form[
-                            key
-                          ]
-                        }
-                        onChange={(
-                          event,
-                        ) =>
-                          setForm({
-                            ...form,
+                ).map(([key, label, min, increment]) => (
+                  <Field key={key} label={label}>
+                    <input
+                      required
+                      type="number"
+                      min={min}
+                      step={increment}
+                      value={form[key]}
+                      onChange={(event) =>
+                        setForm({
+                          ...form,
 
-                            [key]:
-                              Number(
-                                event
-                                  .target
-                                  .value,
-                              ),
-                          })
-                        }
-                      />
-                    </Field>
-                  ),
-                )}
+                          [key]: Number(event.target.value),
+                        })
+                      }
+                    />
+                  </Field>
+                ))}
               </div>
 
               <p>
-                {l.threshold}:{" "}
-                {threshold} /{" "}
-                {
-                  form.capacity
-                }
+                {l.threshold}: {threshold} / {form.capacity}
               </p>
 
-              {threshold >
-                form.capacity && (
-                <p role="alert">
-                  {
-                    m.thresholdExceeded
-                  }
-                </p>
+              {threshold > form.capacity && (
+                <p role="alert">{m.thresholdExceeded}</p>
               )}
 
-              {capacityInvalid && (
-                <p role="alert">
-                  {
-                    m.capacityExceeded
-                  }
-                </p>
-              )}
+              {capacityInvalid && <p role="alert">{m.capacityExceeded}</p>}
             </>
           )}
 
@@ -906,66 +544,32 @@ export function CourseEditor({
 
           {step === 3 && (
             <>
-              <dl
-                className={
-                  styles.summary
-                }
-              >
+              <dl className={styles.summary}>
                 <div>
-                  <dt>
-                    {l.name}
-                  </dt>
+                  <dt>{l.name}</dt>
 
                   <dd>
-                    {
-                      form.code
-                    }{" "}
-                    ·{" "}
-                    {
-                      form.name
-                    }
+                    {form.code} · {form.name}
                   </dd>
                 </div>
 
                 <div>
-                  <dt>
-                    {l.price}
-                  </dt>
+                  <dt>{l.price}</dt>
 
-                  <dd>
-                    {formatMoney(
-                      form.price,
-                    )}
-                  </dd>
+                  <dd>{formatMoney(form.price)}</dd>
                 </div>
 
                 <div>
-                  <dt>
-                    {l.cost}
-                  </dt>
+                  <dt>{l.cost}</dt>
 
-                  <dd>
-                    {formatMoney(
-                      form.costAmount,
-                    )}
-                  </dd>
+                  <dd>{formatMoney(form.costAmount)}</dd>
                 </div>
 
                 <div>
-                  <dt>
-                    {
-                      l.threshold
-                    }
-                  </dt>
+                  <dt>{l.threshold}</dt>
 
                   <dd>
-                    {
-                      threshold
-                    }{" "}
-                    /{" "}
-                    {
-                      form.capacity
-                    }
+                    {threshold} / {form.capacity}
                   </dd>
                 </div>
               </dl>
@@ -983,43 +587,25 @@ export function CourseEditor({
                * Apply.
                */}
               <ScheduleReview
-                course={
-                  schedule
-                }
-                minutes={
-                  minutes
-                }
-                roomName={
-                  room?.name
-                }
+                course={schedule}
+                minutes={minutes}
+                roomName={room?.name}
               />
 
-              <p>
-                {
-                  m.draftHint
-                }
-              </p>
+              <p>{m.draftHint}</p>
             </>
           )}
         </fieldset>
 
-        <MutationFeedback
-          mutation={mutation}
-        />
+        <MutationFeedback mutation={mutation} />
 
         <div className="btn-row">
           {step > 0 && (
             <button
               type="button"
               className="btn btn--secondary"
-              disabled={
-                mutation.busy
-              }
-              onClick={() =>
-                setStep(
-                  step - 1,
-                )
-              }
+              disabled={mutation.busy}
+              onClick={() => setStep(step - 1)}
             >
               {l.previous}
             </button>
@@ -1035,19 +621,14 @@ export function CourseEditor({
               (step === 1 &&
                 (!form.defaultRoomId ||
                   !minutes ||
-                  slots.length !==
-                    form.numSessions)) ||
+                  slots.length !== form.numSessions)) ||
               /*
                * Pricing/review.
                */
-              (step >= 2 &&
-                (!valid ||
-                  catalog.loading))
+              (step >= 2 && (!valid || catalog.loading))
             }
           >
-            {step === 3
-              ? m.saveDraft
-              : l.next}
+            {step === 3 ? m.saveDraft : l.next}
           </button>
 
           <button
@@ -1066,36 +647,34 @@ export function CourseEditor({
       --------------------------------------------- */}
 
       {ai && (
-      <AiScheduleDrawer
-        onClose={() => setAi(false)}
-        value={{
-          sportId: Number(form.sportId),
-          coachId: form.coachId || null,
-          defaultRoomId: Number(form.defaultRoomId),
+        <AiScheduleDrawer
+          onClose={() => setAi(false)}
+          value={{
+            sportId: Number(form.sportId),
+            coachId: form.coachId || null,
+            defaultRoomId: Number(form.defaultRoomId),
 
-          capacity: form.capacity,
+            capacity: form.capacity,
 
-          startDate: form.startDate,
-          numSessions: form.numSessions,
-          scheduleRules: form.scheduleRules,
+            startDate: form.startDate,
+            numSessions: form.numSessions,
+            scheduleRules: form.scheduleRules,
 
-          operation: course
-            ? "UPDATE"
-            : "CREATE",
+            operation: course ? "UPDATE" : "CREATE",
 
-          classId: course?.classId ?? null,
-          version: course?.version ?? null,
-        }}
-        onApply={(suggestion) => {
-          setForm((current) => ({
-            ...current,
-            startDate: suggestion.startDate,
-            numSessions: suggestion.numSessions,
-            scheduleRules: suggestion.scheduleRules,
-          }));
-        }}
-      />
-    )}
+            classId: course?.classId ?? null,
+            version: course?.version ?? null,
+          }}
+          onApply={(suggestion) => {
+            setForm((current) => ({
+              ...current,
+              startDate: suggestion.startDate,
+              numSessions: suggestion.numSessions,
+              scheduleRules: suggestion.scheduleRules,
+            }));
+          }}
+        />
+      )}
     </Card>
   );
 }

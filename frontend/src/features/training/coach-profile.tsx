@@ -20,7 +20,10 @@ type CoachDto = {
   philosophy?: string | null;
 };
 
-export function CoachProfile({ coachId, publicView = false }: {
+export function CoachProfile({
+  coachId,
+  publicView = false,
+}: {
   coachId: string;
   publicView?: boolean;
   onSelectCoach?: () => void;
@@ -28,7 +31,8 @@ export function CoachProfile({ coachId, publicView = false }: {
   const { language } = useLanguage();
   const vi = language === "vi";
   const coaches = useApi(
-    (signal) => api.get<CoachDto[]>("/api/coaches", { signal, anonymous: true }),
+    (signal) =>
+      api.get<CoachDto[]>("/api/coaches", { signal, anonymous: true }),
     [],
   );
   const sports = useApi(
@@ -38,13 +42,21 @@ export function CoachProfile({ coachId, publicView = false }: {
 
   return (
     <div className={styles.page}>
-      <Link className={styles.back} href={publicView ? "/coaches" : "/member/training"}>
+      <Link
+        className={styles.back}
+        href={publicView ? "/coaches" : "/member/training"}
+      >
         {vi ? "← Quay lại danh sách huấn luyện viên" : "← Back to coaches"}
       </Link>
       <AsyncSection state={coaches}>
         {(list) => {
           const coach = list?.find((item) => item.userId === coachId);
-          if (!coach) return <p role="status">{vi ? "Không tìm thấy huấn luyện viên." : "Coach not found."}</p>;
+          if (!coach)
+            return (
+              <p role="status">
+                {vi ? "Không tìm thấy huấn luyện viên." : "Coach not found."}
+              </p>
+            );
           const specialties = (sports.data ?? []).filter((sport) =>
             coach.sportIds?.includes(sport.sportId),
           );
@@ -52,23 +64,41 @@ export function CoachProfile({ coachId, publicView = false }: {
             <div className={styles.layoutSingle}>
               <div className={styles.main}>
                 <header className={styles.hero}>
-                  <AvatarImage name={coach.fullName} avatarUrl={coach.avatarUrl} size={144} className={styles.avatar} />
+                  <AvatarImage
+                    name={coach.fullName}
+                    avatarUrl={coach.avatarUrl}
+                    size={144}
+                    className={styles.avatar}
+                  />
                   <div className={styles.heroText}>
-                    <p className={styles.eyebrow}>{coach.title ?? (vi ? "Huấn luyện viên" : "Coach")}</p>
+                    <p className={styles.eyebrow}>
+                      {coach.title ?? (vi ? "Huấn luyện viên" : "Coach")}
+                    </p>
                     <h1>{coach.fullName}</h1>
                     {specialties.length > 0 && (
-                      <ul className={styles.badges} aria-label={vi ? "Bộ môn" : "Sports"}>
-                        {specialties.map((sport) => <li key={sport.sportId}>{sport.name}</li>)}
+                      <ul
+                        className={styles.badges}
+                        aria-label={vi ? "Bộ môn" : "Sports"}
+                      >
+                        {specialties.map((sport) => (
+                          <li key={sport.sportId}>{sport.name}</li>
+                        ))}
                       </ul>
                     )}
                   </div>
                 </header>
                 <section className={styles.card}>
                   <h2>{vi ? "Giới thiệu" : "About"}</h2>
-                  <p>{coach.bio || (vi ? "Chưa có giới thiệu." : "No biography yet.")}</p>
+                  <p>
+                    {coach.bio ||
+                      (vi ? "Chưa có giới thiệu." : "No biography yet.")}
+                  </p>
                   {coach.philosophy && <p>{coach.philosophy}</p>}
                   {coach.yearsExperience != null && (
-                    <p>{coach.yearsExperience} {vi ? "năm kinh nghiệm" : "years of experience"}</p>
+                    <p>
+                      {coach.yearsExperience}{" "}
+                      {vi ? "năm kinh nghiệm" : "years of experience"}
+                    </p>
                   )}
                 </section>
               </div>

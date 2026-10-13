@@ -15,8 +15,6 @@ public static class CrossModuleRelationships
     {
         modelBuilder.Entity<InvoiceItem>().HasOne<Class>().WithMany().HasForeignKey(x => x.ClassId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<InvoiceItem>().HasOne<CourtRental>().WithMany().HasForeignKey(x => x.CourtRentalId).OnDelete(DeleteBehavior.Restrict);
-        modelBuilder.Entity<InvoiceItem>().HasOne<SportHub.Training.Domain.Entities.PtEntitlement>().WithMany()
-            .HasForeignKey(x => x.PtEntitlementId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<InvoiceItem>().HasOne<SportHub.Membership.Domain.Entities.MemberPackage>().WithMany()
             .HasForeignKey(x => x.MemberPackageId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<InvoiceItem>().HasOne<Sport>().WithMany().HasForeignKey(x => x.SportId).OnDelete(DeleteBehavior.Restrict);
@@ -41,13 +39,6 @@ public static class CrossModuleRelationships
             .HasForeignKey(e => e.SportId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        // Qualification dịch vụ của Coach trỏ tới offering trong catalog (CAT-01).
-        modelBuilder.Entity<CoachServiceQualification>()
-            .HasOne<SportServiceOffering>()
-            .WithMany()
-            .HasForeignKey(e => e.OfferingId)
-            .OnDelete(DeleteBehavior.Restrict);
-
         // Coach bị chiếm lịch là user_accounts (Coach nội bộ).
         modelBuilder.Entity<CoachOccupancy>()
             .HasOne<UserAccount>()
@@ -70,10 +61,6 @@ public static class CrossModuleRelationships
         modelBuilder.Entity<SeatHold>().HasOne<UserAccount>().WithMany().HasForeignKey(e => e.MemberId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<SeatHold>().HasOne<Invoice>().WithMany().HasForeignKey(e => e.InvoiceId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<GymCheckIn>().HasOne<UserAccount>().WithMany().HasForeignKey(e => e.CheckedOutByUserId).OnDelete(DeleteBehavior.Restrict);
-
-        // Buổi PT có thể gắn phòng (tùy chọn) — chiếm room occupancy khi có phòng.
-        modelBuilder.Entity<SportHub.Training.Domain.Entities.PtSession>()
-            .HasOne<Room>().WithMany().HasForeignKey(e => e.RoomId).OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<CourtRental>().HasOne<UserAccount>().WithMany()
             .HasForeignKey(e => e.MemberId).OnDelete(DeleteBehavior.Restrict);

@@ -1,16 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { ScheduleCoursePage } from "./schedule-course-page";
 import { ScheduleRentalPage } from "./schedule-rental-page";
-import {
-  BookOpen,
-  MapPin,
-  UserRound,
-  ChevronLeft,
-  ChevronRight,
-} from "lucide-react";
+import { BookOpen, MapPin, ChevronLeft, ChevronRight } from "lucide-react";
 import { MemberMonthCalendar } from "./month-calendar";
 import { CalendarSticker } from "./calendar-sticker";
 import { CourseSticker } from "@/features/courses";
@@ -64,13 +57,11 @@ const vnDay = (utc: string) =>
     new Date(utc),
   );
 
-/** Lớp nhóm + PT (API sẵn có) hợp với lượt thuê sân thành một dòng thời gian của Member. */
+/** Lớp nhóm hợp với lượt thuê sân thành một dòng thời gian của Member. */
 async function loadTimeline(
   date: string,
   days: number,
   signal: AbortSignal,
-  ptSport: string,
-  ptTitle: string,
   rentalTitle: string,
 ): Promise<Item[]> {
   // Rental reads allow at most 31 days; a month grid includes 35 or 42 days.
@@ -101,14 +92,14 @@ async function loadTimeline(
       })
       .catch(() => [] as SportDto[]),
   ]);
-  const items: Item[] = base.filter((e) => eventKind(e.type) !== "pt").map((e) => {
+  const items: Item[] = base.map((e) => {
     const kind = eventKind(e.type);
     return {
       ...e,
       kind,
       refId: e.id.split(":")[1] ?? e.id,
-      sport: kind === "pt" ? ptSport : (e.sportName ?? null),
-      title: kind === "pt" ? ptTitle : e.title,
+      sport: e.sportName ?? null,
+      title: e.title,
     };
   });
   for (const r of rentals.filter((x) => x.status !== "PENDING_PAYMENT")) {
@@ -217,13 +208,11 @@ export function MemberSchedule({
   }
   const kindLabel: Record<EventKind, string> = {
     class: m.kindClass,
-    pt: m.kindPt,
     rental: m.kindRental,
   };
   const state = useApi(
-    (signal) =>
-      loadTimeline(monday, days, signal, "Gym", m.kindPt, m.rentalTitle),
-    [monday, days, m.kindPt, m.rentalTitle],
+    (signal) => loadTimeline(monday, days, signal, m.rentalTitle),
+    [monday, days, m.rentalTitle],
   );
 
   // Preview rows are local only; they never become registrations or exportable events.
@@ -335,7 +324,9 @@ export function MemberSchedule({
 
   function showCancelledClassThenDismiss(classId: number) {
     showCancelledThenDismiss(
-      timeline.filter((item) => item.kind === "class" && item.classId === classId),
+      timeline.filter(
+        (item) => item.kind === "class" && item.classId === classId,
+      ),
       `class:${classId}`,
     );
   }
@@ -343,7 +334,7 @@ export function MemberSchedule({
   const renderEvent = (item: Item) => {
     const cancelled = /CANCEL/i.test(item.status ?? "");
     const absent = item.attendanceStatus?.toUpperCase() === "ABSENT";
-    // Một nhãn duy nhất cho buổi đã diễn ra: buổi lớp có mặt, buổi PT hoặc lượt thuê đã xong đều là "Hoàn thành".
+    // Một nhãn duy nhất cho buổi đã diễn ra: buổi lớp có mặt hoặc lượt thuê đã xong đều là "Hoàn thành".
     const done =
       !absent &&
       (item.attendanceStatus?.toUpperCase() === "PRESENT" ||
@@ -379,13 +370,9 @@ export function MemberSchedule({
                     ? vi
                       ? "Sân đã đặt"
                       : "Booked court"
-                    : item.kind === "pt"
-                      ? vi
-                        ? "PT đã đặt"
-                        : "Booked PT"
-                      : vi
-                        ? "Đã đăng ký"
-                        : "Registered"}
+                    : vi
+                      ? "Đã đăng ký"
+                      : "Registered"}
             </span>
           )}
         </span>
@@ -580,10 +567,6 @@ export function MemberSchedule({
           <span>
             <MapPin size={14} aria-hidden="true" />
             {vi ? "Sân đã đặt" : "Booked courts"}
-          </span>
-          <span>
-            <UserRound size={14} aria-hidden="true" />
-            {vi ? "Lịch PT" : "PT sessions"}
           </span>
           {previewCourse && (
             <span>
@@ -827,14 +810,7 @@ export function MemberSchedule({
                     >
                       {m.openRental}
                     </button>
-                  ) : (
-                    <Link
-                      className="btn"
-                      href={`/member/training?session=${selected.refId}`}
-                    >
-                      {m.openPt}
-                    </Link>
-                  )}
+                  ) : null}
                   {!/CANCEL/i.test(selected.status ?? "") && (
                     <a
                       className="btn btn--secondary"
@@ -886,15 +862,9 @@ export function MemberSchedule({
                 </>
               )}
             </div>
-            {selected.kind === "pt" && (
-              <p className={styles.hint}>{m.ptHint}</p>
-            )}
             <div className={styles.drawerSticker} aria-hidden="true">
               <CourseSticker
-                sport={
-                  selected.sport ||
-                  (selected.kind === "pt" ? "Gym" : kindLabel[selected.kind])
-                }
+                sport={selected.sport || kindLabel[selected.kind]}
               />
             </div>
           </div>

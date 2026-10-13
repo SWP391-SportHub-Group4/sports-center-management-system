@@ -11,7 +11,7 @@ using SportHub.Scheduling.Rental.Domain;
 namespace SportHub.Scheduling.Rental.Application;
 
 public sealed class CourtScheduleService(ISportHubDbContext db, IUserAccessReader users,
-    IClassSessionService sessions, IPtCourtScheduleReader pt)
+    IClassSessionService sessions)
 {
     public async Task<IReadOnlyList<CourtScheduleEntry>> GetAsync(DateOnly fromDate, DateOnly toDate,
         int? roomId, Guid actorId, CancellationToken ct = default)
@@ -46,7 +46,6 @@ public sealed class CourtScheduleService(ISportHubDbContext db, IUserAccessReade
         }
         // Coaches receive only their classes. Their PT calendar has its existing owner-scoped endpoint.
         if (coachScope is not null) return result.OrderBy(x => x.StartAtUtc).ThenBy(x => x.SourceId).ToList();
-        result.AddRange(await pt.ReadAsync(from, to, roomId, ct));
         var rentals = await db.Set<CourtRental>().AsNoTracking().Where(x => x.StartAtUtc < to && x.EndAtUtc > from
             && (roomId == null || x.RoomId == roomId)).ToListAsync(ct);
         foreach (var rental in rentals)

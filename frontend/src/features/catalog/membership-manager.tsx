@@ -78,9 +78,10 @@ export function MembershipManager() {
               id: "price",
               header: l.price,
               numeric: true,
-              cell: (p) => p.packageId === 50000
-                ? `${formatMoney(p.price)} · ${language === "en" ? "fixed" : "cố định"}`
-                : formatMoney(p.price),
+              cell: (p) =>
+                p.packageId === 50000
+                  ? `${formatMoney(p.price)} · ${language === "en" ? "fixed" : "cố định"}`
+                  : formatMoney(p.price),
             },
             { id: "durationDays", header: t.refactor.days, numeric: true },
             {
@@ -91,27 +92,29 @@ export function MembershipManager() {
               ),
             },
           ]}
-          actions={(p) => p.packageId === 50000 ? null : (
-            <>
-              <button
-                className="btn btn--secondary btn--sm"
-                disabled={mutation.busy}
-                onClick={() => edit(p)}
-              >
-                {l.edit}
-              </button>
-              <button
-                className="btn btn--ghost btn--sm"
-                disabled={mutation.busy}
-                onClick={() => {
-                  mutation.reset();
-                  setActivity(p);
-                }}
-              >
-                {p.isActive ? l.deactivate : l.activate}
-              </button>
-            </>
-          )}
+          actions={(p) =>
+            p.packageId === 50000 ? null : (
+              <>
+                <button
+                  className="btn btn--secondary btn--sm"
+                  disabled={mutation.busy}
+                  onClick={() => edit(p)}
+                >
+                  {l.edit}
+                </button>
+                <button
+                  className="btn btn--ghost btn--sm"
+                  disabled={mutation.busy}
+                  onClick={() => {
+                    mutation.reset();
+                    setActivity(p);
+                  }}
+                >
+                  {p.isActive ? l.deactivate : l.activate}
+                </button>
+              </>
+            )
+          }
         />
         {!editor && !activity && <CatalogFeedback mutation={mutation} />}
       </Card>

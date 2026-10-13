@@ -43,7 +43,9 @@ public sealed class MemberPackageExpiryJob(
         var expiring = await db.MemberPackages
             .Where(mp => mp.Status == MemberPackageStatus.Active
                          && mp.EndDate >= today
-                         && mp.EndDate <= threshold)
+                         && mp.EndDate <= threshold
+                         // Vé Gym 1 ngày hết hạn ngay trong ngày mua: không nhắc gia hạn.
+                         && mp.PackageId != SportHub.Membership.Domain.DayPass.PackageId)
             .Select(mp => new { mp.MemberPackageId, mp.MemberId, mp.EndDate, PackageName = mp.Package!.Name })
             .ToListAsync(ct);
 

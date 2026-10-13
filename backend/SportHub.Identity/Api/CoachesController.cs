@@ -7,7 +7,7 @@ using SportHub.Identity.Application.Services;
 
 namespace SportHub.Identity.Api;
 
-/// <summary>Manager xem/sửa hồ sơ Coach, chuyên môn theo môn (BR-96) và cấp quyền dịch vụ PT. Tạo Coach là việc của SystemAdministrator (POST api/users/admin/staff).</summary>
+/// <summary>Manager xem/sửa hồ sơ Coach, chuyên môn theo môn (BR-96). Tạo Coach là việc của SystemAdministrator (POST api/users/admin/staff).</summary>
 [ApiController]
 [Authorize(Policy = SportHubPolicies.CoachManagement)]
 [Route("api/manager/coaches")]

@@ -270,10 +270,15 @@ export function PlanSales({ member }: { member: UserAdminDto }) {
                 label: l.membershipDuration,
                 value: `${selectedPlan.durationDays} ${t.refactor.days}`,
               },
-              ...(selectedPlan.durationDays === 1 ? [{
-                label: "Lưu ý trước khi thanh toán",
-                value: "Vé Gym 1 ngày và mã check-in chỉ dùng trong ngày thanh toán thành công (giờ Việt Nam). Hãy thông báo điều này cho Member trước khi thu tiền.",
-              }] : []),
+              ...(selectedPlan.durationDays === 1
+                ? [
+                    {
+                      label: "Lưu ý trước khi thanh toán",
+                      value:
+                        "Vé Gym 1 ngày và mã check-in chỉ dùng trong ngày thanh toán thành công (giờ Việt Nam). Hãy thông báo điều này cho Member trước khi thu tiền.",
+                    },
+                  ]
+                : []),
             ],
           }}
           intent={{

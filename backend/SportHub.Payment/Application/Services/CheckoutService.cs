@@ -21,7 +21,7 @@ namespace SportHub.Payment.Application.Services;
 public sealed class CheckoutService(ISportHubDbContext db,
     IClassEnrollmentFulfillment classes, IInvoiceNumberGenerator invoiceNumbers, ISportCatalogReader catalog,
     PaymentNoticeService notices,
-    ISystemSettingProvider settings, IPtPurchaseFulfillment pt, ICourtRentalFulfillment rentals, IPaymentGateway gateway,
+    ISystemSettingProvider settings, ICourtRentalFulfillment rentals, IPaymentGateway gateway,
     IPackagePurchaseService packages, IMembershipFulfillment memberships, PaymentFulfillmentService fulfillment, IAuditWriter audit, IClock clock)
     : ICheckoutLifecycleService
 {
@@ -49,7 +49,7 @@ public sealed class CheckoutService(ISportHubDbContext db,
     }
 
     public async Task<CheckoutResponse> RetryAsync(Guid oldInvoiceId, string idempotencyKey,
-        string? priceVersion, Guid actorId, bool isFrontDesk, bool isManager, CancellationToken ct)
+        Guid actorId, bool isFrontDesk, bool isManager, CancellationToken ct)
     {
         RequireKey(idempotencyKey);
         var invoice = await db.Set<Invoice>().AsNoTracking()
@@ -82,88 +82,11 @@ public sealed class CheckoutService(ISportHubDbContext db,
             case "Class" when old.ClassId is int classId:
                 return await CreateClassAsync(new ClassCheckoutRequest(classId, target),
                     idempotencyKey, actorId, isFrontDesk, ct);
-            case "PT" when old.PtMemberPackageId is Guid membershipId
-                && old.PtCoachId is Guid coachId && old.PtFrequency is int frequency:
-                if (string.IsNullOrWhiteSpace(priceVersion))
-                    throw new BadRequestException("pt_price_version_required", "Pt price version required.");
-                return await CreatePtAsync(new PtCheckoutRequest(membershipId, coachId, frequency,
-                    priceVersion, target, old.PtStartAtUtc, old.PtRoomId), idempotencyKey, actorId, isFrontDesk, ct);
             case "CourtRental" when old.ResourceHoldId is Guid rentalId:
                 return await CreateCourtRentalAsync(await rentals.GetForRetryAsync(rentalId, ct), idempotencyKey, actorId, ct);
             default:
                 throw new ConflictException("checkout_kind_unsupported", "Checkout kind unsupported.");
         }
-    }
-
-    public async Task<CheckoutResponse> CreatePtAsync(PtCheckoutRequest request, string idempotencyKey,
-        Guid actorId, bool isFrontDesk, CancellationToken ct)
-    {
-        var memberId = ResolveMember(request.TargetMemberId, actorId, isFrontDesk);
-        RequireKey(idempotencyKey);
-        var now = clock.UtcNow;
-        var minutes = await settings.GetIntAsync(SystemSettingKeys.HoldMinutes, ct);
-        await using var tx = await db.Database.BeginTransactionAsync(ct);
-        await db.Database.ExecuteSqlInterpolatedAsync(
-            $"SELECT user_id FROM user_accounts WHERE user_id = {memberId} FOR UPDATE", ct);
-        var existing = await db.Set<CheckoutSession>().AsNoTracking()
-            .Where(x => x.IdempotencyKey == idempotencyKey && x.Kind == "PT")
-            .Join(db.Set<Invoice>().AsNoTracking(), s => s.InvoiceId, i => i.InvoiceId,
-                (s, i) => new { Session = s, Invoice = i }).SingleOrDefaultAsync(ct);
-        if (existing is not null)
-        {
-            if (existing.Invoice.MemberId != memberId
-                || existing.Session.PtMemberPackageId != request.MemberPackageId
-                || existing.Session.PtCoachId != request.CoachId
-                || existing.Session.PtFrequency != request.FrequencyPerWeek
-                || existing.Session.PtStartAtUtc != request.StartAtUtc
-                || existing.Session.PtRoomId != request.RoomId)
-                throw new ConflictException("idempotency_key_reused", "Idempotency key reused.");
-            await tx.CommitAsync(ct);
-            return await GetAsync(existing.Invoice.InvoiceId, actorId, isFrontDesk, ct);
-        }
-        var ptRequest = new PtPurchaseRequest(memberId, request.MemberPackageId,
-            request.CoachId, request.FrequencyPerWeek, request.StartAtUtc, request.RoomId);
-        var quote = await pt.QuoteAsync(ptRequest, ct);
-        if (quote.PriceVersion != request.PriceVersion)
-            throw new ConflictException("pt_price_changed", "Pt price changed.");
-        var invoice = new Invoice
-        {
-            InvoiceId = Guid.NewGuid(), InvoiceNumber = await invoiceNumbers.NextAsync(now, ct),
-            MemberId = memberId, IssuedByUserId = actorId, TotalAmount = quote.TotalPrice,
-            CashAmount = quote.TotalPrice, CheckoutCycleId = Guid.NewGuid(), CheckoutRevision = 1,
-            HoldExpiresAtUtc = now.AddMinutes(minutes), Status = InvoiceStatus.Issued, IssuedAt = now
-        };
-        db.Set<Invoice>().Add(invoice);
-        var item = new InvoiceItem
-        {
-            ItemId = Guid.NewGuid(), InvoiceId = invoice.InvoiceId, ItemType = InvoiceItemType.PT,
-            Description = $"PT coach {request.CoachId}; Membership {request.MemberPackageId}; "
-                + (request.StartAtUtc is DateTime start ? $"one 90-minute session; {start:O}; " : $"{quote.FrequencyPerWeek}/week; ")
-                + $"priceVersion {quote.PriceVersion}",
-            UnitPrice = quote.PricePerSession, Quantity = quote.TotalQuota,
-            LineAmount = quote.TotalPrice, SportId = quote.SportId, SportNameSnapshot = quote.SportName,
-            PtFrequencyPerWeek = request.StartAtUtc.HasValue ? null : quote.FrequencyPerWeek
-        };
-        db.Set<InvoiceItem>().Add(item);
-        await db.SaveChangesAsync(ct);
-        item.RelatedEntityId = await pt.CreatePendingAsync(ptRequest, item.ItemId, ct);
-        item.PtEntitlementId = item.RelatedEntityId;
-        var session = new CheckoutSession
-        {
-            CheckoutSessionId = invoice.CheckoutCycleId.Value, InvoiceId = invoice.InvoiceId,
-            Revision = 1, IdempotencyKey = idempotencyKey, Kind = "PT", State = "Active",
-            CreatedAtUtc = now, ExpiresAtUtc = invoice.HoldExpiresAtUtc.Value,
-            PtMemberPackageId = request.MemberPackageId, PtCoachId = request.CoachId,
-            PtFrequency = request.FrequencyPerWeek,
-            PtStartAtUtc = request.StartAtUtc,
-            PtRoomId = request.RoomId
-        };
-        db.Set<CheckoutSession>().Add(session);
-        audit.Write(new AuditEntry(actorId, "CREATE_PT_CHECKOUT", nameof(Invoice), invoice.InvoiceId.ToString()));
-        await notices.CreatedAsync(invoice, ct);
-        await db.SaveChangesAsync(ct);
-        await tx.CommitAsync(ct);
-        return ToResponse(invoice, session);
     }
 
     public async Task<CheckoutResponse> CreateClassAsync(ClassCheckoutRequest request, string idempotencyKey,
@@ -491,8 +414,7 @@ public sealed class CheckoutService(ISportHubDbContext db,
         => new(i.InvoiceId, s.CheckoutSessionId, s.Revision, s.Kind, s.State,
             i.TotalAmount, i.PointsApplied, i.CashAmount, s.ExpiresAtUtc, s.ResourceHoldId,
             i.Status.ToString(), Domain.Rules.InvoiceFulfillment.Outcome(i.Status, i.PaidVia, i.ReconciliationRequired),
-            i.ReconciliationRequired, i.MemberId, i.IssuedByUserId, clock.UtcNow, s.PtMemberPackageId, s.PtCoachId, s.PtFrequency,
-            s.PtStartAtUtc, s.PtRoomId);
+            i.ReconciliationRequired, i.MemberId, i.IssuedByUserId, clock.UtcNow);
 
     private async Task<Invoice> LockInvoiceAsync(Guid id, CancellationToken ct)
         => await db.Set<Invoice>().FromSqlInterpolated($"SELECT * FROM invoices WHERE invoice_id = {id} FOR UPDATE")

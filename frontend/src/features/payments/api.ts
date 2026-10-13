@@ -1,7 +1,7 @@
 import { api } from "@/lib/apiClient";
 import type { CheckoutDto, PaymentAttemptDto } from "@/lib/types";
 export interface PurchaseIntent {
-  kind: "membership" | "class" | "pt" | "court-rental";
+  kind: "membership" | "class" | "court-rental";
   body: Record<string, unknown>;
 }
 export const paymentApi = {
@@ -19,12 +19,10 @@ export const paymentApi = {
     api.post<CheckoutDto>(`/api/checkouts/${invoiceId}/confirm-points`),
   cancel: (invoiceId: string) =>
     api.post<void>(`/api/checkouts/${invoiceId}/cancel`),
-  retry: (invoiceId: string, key: string, priceVersion?: string) =>
-    api.post<CheckoutDto>(
-      `/api/checkouts/${invoiceId}/retry`,
-      { priceVersion },
-      { idempotencyKey: key },
-    ),
+  retry: (invoiceId: string, key: string) =>
+    api.post<CheckoutDto>(`/api/checkouts/${invoiceId}/retry`, undefined, {
+      idempotencyKey: key,
+    }),
   reconcile: (invoiceId: string) =>
     api.post<{ verified: boolean }>(`/api/invoices/${invoiceId}/reconcile`),
   refundQuote: (itemId: string, signal?: AbortSignal) =>

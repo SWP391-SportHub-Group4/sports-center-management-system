@@ -1,7 +1,11 @@
 /* Coach Workspace Design Tokens & Specialized Styles */
 
 .coachHero {
-  background: linear-gradient(135deg, rgba(26, 43, 76, 0.04) 0%, rgba(56, 189, 248, 0.08) 100%);
+  background: linear-gradient(
+    135deg,
+    rgba(26, 43, 76, 0.04) 0%,
+    rgba(56, 189, 248, 0.08) 100%
+  );
   border: 1px solid var(--line);
   border-radius: var(--radius);
   padding: 20px 24px;
@@ -396,7 +400,10 @@
   flex-direction: column;
   gap: 6px;
   box-shadow: 0 1px 3px rgba(26, 43, 76, 0.04);
-  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    transform 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 .calendarCard:hover {
@@ -484,7 +491,11 @@
 }
 
 .guideCard {
-  background: linear-gradient(135deg, rgba(233, 247, 252, 0.6) 0%, rgba(255, 255, 255, 0.9) 100%);
+  background: linear-gradient(
+    135deg,
+    rgba(233, 247, 252, 0.6) 0%,
+    rgba(255, 255, 255, 0.9) 100%
+  );
   border: 1px solid rgba(56, 189, 248, 0.35);
   border-radius: var(--radius);
   padding: 20px 24px;
@@ -548,7 +559,9 @@
   border-radius: var(--radius-sm);
   background: var(--surface);
   color: var(--navy);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 .searchBarInput:focus {
@@ -573,7 +586,9 @@
   overflow: hidden;
   margin-bottom: 16px;
   box-shadow: 0 1px 3px rgba(26, 43, 76, 0.03);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 .planCard:hover {
@@ -667,7 +682,11 @@
 
 .planBuilderHead {
   padding: 16px 20px;
-  background: linear-gradient(135deg, rgba(26, 43, 76, 0.03) 0%, rgba(56, 189, 248, 0.05) 100%);
+  background: linear-gradient(
+    135deg,
+    rgba(26, 43, 76, 0.03) 0%,
+    rgba(56, 189, 248, 0.05) 100%
+  );
   border-bottom: 1px solid var(--line);
   display: flex;
   justify-content: space-between;
@@ -701,7 +720,10 @@
 
 .planFormInline {
   display: grid;
-  grid-template-columns: minmax(180px, 1.25fr) minmax(130px, 0.85fr) minmax(220px, 1.9fr);
+  grid-template-columns: minmax(180px, 1.25fr) minmax(130px, 0.85fr) minmax(
+      220px,
+      1.9fr
+    );
   gap: 12px;
   align-items: end;
 }
@@ -726,7 +748,9 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 .exerciseDraftItem:hover {
@@ -837,4 +861,3 @@
     grid-template-columns: 1fr;
   }
 }
-

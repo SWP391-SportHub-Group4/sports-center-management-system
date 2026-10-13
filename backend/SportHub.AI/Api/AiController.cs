@@ -32,8 +32,7 @@ public class AiController(
     IWorkoutRecommendationService recommendations,
     IAiChatService chatService,
     IManagerScheduleSuggestionService managerSchedules,
-    ISportHubDbContext db,
-    PersonalTrainerGuard personalTrainers) : ControllerBase
+    ISportHubDbContext db) : ControllerBase
 {
     [Authorize(
         Policy = SportHubPolicies.CenterManager)]
@@ -69,9 +68,6 @@ public class AiController(
     {
         var coachId = User.RequireUserId();
 
-        // ClassInstructor phải bị chặn trước khi hệ thống kiểm tra
-        // quan hệ hoặc đọc dữ liệu của Member.
-        await personalTrainers.RequireAsync(coachId, ct);
         var hasRelationship =
             await db.Set<CoachMemberRelationship>()
                 .AnyAsync(
@@ -132,7 +128,6 @@ public class AiController(
 
             var coachId = User.RequireUserId();
 
-            await personalTrainers.RequireAsync(coachId, ct);
             query = query.Where(log => log.UserId == coachId);
         }
 

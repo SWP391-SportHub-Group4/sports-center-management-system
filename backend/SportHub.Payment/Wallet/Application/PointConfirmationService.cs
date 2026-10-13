@@ -247,9 +247,7 @@ public sealed class PointConfirmationService(
                     Revision = invoice.CheckoutRevision, Kind = previous.Kind, State = "Active",
                     IdempotencyKey = Guid.NewGuid().ToString("N"), CreatedAtUtc = clock.UtcNow,
                     ExpiresAtUtc = invoice.HoldExpiresAtUtc ?? clock.UtcNow,
-                    ResourceHoldId = previous.ResourceHoldId, ClassId = previous.ClassId,
-                    PtMemberPackageId = previous.PtMemberPackageId,
-                    PtCoachId = previous.PtCoachId, PtFrequency = previous.PtFrequency
+                    ResourceHoldId = previous.ResourceHoldId, ClassId = previous.ClassId
                 });
             }
         }

@@ -11,8 +11,7 @@ const copy = {
     questions: [
       {
         question: "Which sports and training options can I explore?",
-        answer:
-          "SportHub offers badminton, basketball, Gym and conditioning.",
+        answer: "SportHub offers badminton, basketball, Gym and conditioning.",
       },
       {
         question: "Can I see class schedules and prices on the homepage?",
@@ -49,8 +48,7 @@ const copy = {
     questions: [
       {
         question: "SportHub có những môn tập và hình thức huấn luyện nào?",
-        answer:
-          "SportHub có cầu lông, bóng rổ, Gym và rèn thể lực.",
+        answer: "SportHub có cầu lông, bóng rổ, Gym và rèn thể lực.",
       },
       {
         question:

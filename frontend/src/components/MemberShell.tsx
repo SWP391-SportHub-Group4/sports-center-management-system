@@ -116,7 +116,7 @@ export function MemberFrame({
     {
       href: "/member/training",
       label: language === "vi" ? "Tập luyện" : "Training",
-      also: ["/member/pt", "/member/profile"],
+      also: ["/member/profile"],
     },
     {
       href: "/member/finance",

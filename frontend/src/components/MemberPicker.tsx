@@ -8,10 +8,10 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from "react";
-import { api } from "@/lib/apiClient";
+import { api, ApiError } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
-import { parseMemberCode } from "@/lib/member-code";
+import { isMemberCode } from "@/lib/member-code";
 import type { Paged, UserAdminDto } from "@/lib/types";
 import { CameraQrScanner } from "@/components/CameraQrScanner";
 import { AvatarImage } from "@/components/AvatarImage";
@@ -48,22 +48,22 @@ export function MemberPicker({
 
   const handleScan = useCallback(
     async (text: string) => {
-      const id = parseMemberCode(text);
       const en = language === "en";
-      if (!id) {
+      if (!isMemberCode(text)) {
         setScanError(
-          text.trim().startsWith("SPORTHUB-DAYPASS:")
-            ? en
-              ? "This day-pass check-in code is expired or invalid. Ask the member to open today's code."
-              : "Mã check-in vé ngày đã hết hiệu lực hoặc không hợp lệ. Hãy yêu cầu Member mở mã hôm nay."
-            : en
-              ? "This QR is not a member code."
-              : "Mã QR này không phải mã hội viên.",
+          en
+            ? "This QR is not a member code. Ask the member to open their code in SportHub."
+            : "Mã QR này không phải mã hội viên. Hãy yêu cầu Member mở mã trong SportHub.",
         );
         return;
       }
       try {
-        const found = await api.get<UserAdminDto>(`/api/users/${id}`);
+        // Server xác thực chữ ký và hạn của mã rồi mới trả về memberId.
+        const { memberId } = await api.post<{ memberId: string }>(
+          "/api/members/checkin-code/resolve",
+          { code: text.trim() },
+        );
+        const found = await api.get<UserAdminDto>(`/api/users/${memberId}`);
         if (found.role !== "MEMBER") {
           setScanError(
             en
@@ -74,7 +74,18 @@ export function MemberPicker({
         }
         setScanError(null);
         onChange(found);
-      } catch {
+      } catch (error) {
+        if (
+          error instanceof ApiError &&
+          error.code === "checkin_code_expired"
+        ) {
+          setScanError(
+            en
+              ? "This check-in code has expired. Ask the member to open today's code."
+              : "Mã check-in đã hết hạn. Hãy yêu cầu Member mở mã hôm nay.",
+          );
+          return;
+        }
         setScanError(
           en
             ? "Member not found or lookup failed."

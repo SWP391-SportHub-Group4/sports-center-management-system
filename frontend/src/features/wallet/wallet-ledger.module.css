@@ -21,7 +21,8 @@
   display: grid;
   gap: var(--space-1);
 }
-.entry time, .entry small {
+.entry time,
+.entry small {
   color: var(--text-muted);
   font-size: var(--text-sm);
 }
@@ -32,9 +33,14 @@
 .entry p {
   margin: var(--space-2) 0;
 }
-.inflow, .outflow {
+.inflow,
+.outflow {
   font-weight: var(--weight-semibold);
   font-variant-numeric: tabular-nums;
 }
-.inflow { color: var(--success-text); }
-.outflow { color: var(--danger-text); }
+.inflow {
+  color: var(--success-text);
+}
+.outflow {
+  color: var(--danger-text);
+}

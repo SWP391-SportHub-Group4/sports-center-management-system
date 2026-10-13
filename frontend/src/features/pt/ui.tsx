@@ -2,9 +2,7 @@
 import pagerStyles from "./list-pager.module.css";
 import { type ReactNode } from "react";
 import { AppShell } from "@/components/AppShell";
-import { useAuth } from "@/lib/auth";
 import { useLanguage } from "@/lib/language";
-import { canUsePtFeatures } from "@/lib/permissions";
 import type { Translations } from "@/locales/en";
 import { operationsStyles as styles } from "@/features/operations";
 
@@ -26,19 +24,9 @@ export function PtPage({
       allow={[manager ? "CenterManager" : "Coach"]}
       operationalLayout
     >
-      <div className={styles.workspace}>
-        {children}
-      </div>
+      <div className={styles.workspace}>{children}</div>
     </AppShell>
   );
-}
-export function Specialty({
-  children,
-}: {
-  children: (hasPt: boolean) => ReactNode;
-}) {
-  const { user } = useAuth();
-  return <>{children(canUsePtFeatures(user))}</>;
 }
 export function ListPager({
   page,

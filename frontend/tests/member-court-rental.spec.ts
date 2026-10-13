@@ -68,21 +68,25 @@ async function setup(page: Page) {
           sportId: 3,
           date: url.searchParams.get("date"),
           serverNowUtc: "2030-10-02T00:00:00Z",
-          rooms: [{
-            roomId: 7,
-            name: "Court A",
-            slots: Array.from({ length: 2 }, (_, i) => ({
-              startUtc: new Date(start + i * 3600000).toISOString(),
-              endUtc: new Date(start + (i + 1) * 3600000).toISOString(),
-              status: "AVAILABLE",
-              totalPrice: 100000,
-              blocks: [{
+          rooms: [
+            {
+              roomId: 7,
+              name: "Court A",
+              slots: Array.from({ length: 2 }, (_, i) => ({
                 startUtc: new Date(start + i * 3600000).toISOString(),
                 endUtc: new Date(start + (i + 1) * 3600000).toISOString(),
-                price: 100000,
-              }],
-            })),
-          }],
+                status: "AVAILABLE",
+                totalPrice: 100000,
+                blocks: [
+                  {
+                    startUtc: new Date(start + i * 3600000).toISOString(),
+                    endUtc: new Date(start + (i + 1) * 3600000).toISOString(),
+                    price: 100000,
+                  },
+                ],
+              })),
+            },
+          ],
         },
       });
     }
@@ -113,7 +117,10 @@ test("any active member prices a 2-hour rental from the server and sends no owne
   await expect(page.getByLabel(/attendees/i)).toHaveCount(0);
   await expect(page.getByText(/approved/i)).toHaveCount(0);
 
-  await page.getByRole("group", { name: "Sport" }).getByRole("button", { name: "Badminton" }).click();
+  await page
+    .getByRole("group", { name: "Sport" })
+    .getByRole("button", { name: "Badminton" })
+    .click();
   await page.getByRole("button", { name: "03/10/2030" }).click();
   await page.getByRole("button", { name: /10:00.*11:00.*Available/ }).click();
   await page.getByRole("button", { name: /11:00.*12:00.*Available/ }).click();
@@ -132,9 +139,7 @@ test("any active member prices a 2-hour rental from the server and sends no owne
   expect(requests[0].body).toMatchObject({ sportId: 3, roomId: 7 });
 });
 
-test("legacy portal bookmarks land on the member routes", async ({
-  page,
-}) => {
+test("legacy portal bookmarks land on the member routes", async ({ page }) => {
   await setup(page);
   await page.goto("/external-coach/book");
   await expect(page).toHaveURL(/\/member\/courts\/book$/);

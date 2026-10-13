@@ -171,8 +171,11 @@ test("course catalog replaces per-session enrollment", async ({ page }) => {
     page.getByRole("heading", { name: "Badminton course" }),
   ).toBeVisible({ timeout: 15000 });
   await expect(page.getByRole("button", { name: /Book Spot/ })).toHaveCount(0);
-  await page.getByRole("listitem").filter({ hasText: "Badminton course" })
-    .getByRole("button", { name: "Select" }).click();
+  await page
+    .getByRole("listitem")
+    .filter({ hasText: "Badminton course" })
+    .getByRole("button", { name: "Select" })
+    .click();
   await expect(page).toHaveURL(new RegExp(`/checkout/${invoiceId}$`));
   expect(checkoutRequest).toEqual({ classId: 1 });
 });
@@ -191,15 +194,21 @@ test("registered courses cannot be purchased a second time", async ({
   ).toHaveCount(0);
 });
 
-test("legacy profile link opens the editable fitness profile", async ({ page }) => {
+test("legacy profile link opens the editable fitness profile", async ({
+  page,
+}) => {
   await page.route("**/api/members/me/training-profile", (route) =>
     route.fulfill({ json: null }),
   );
   await page.goto("/member/profile");
   await expect(page).toHaveURL(/\/member\/training\?tab=profile$/);
-  await expect(page.getByRole("heading", { name: "Fitness profile" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Fitness profile" }),
+  ).toBeVisible();
   await page.getByRole("spinbutton", { name: "Height (cm)" }).fill("175");
-  await page.getByRole("spinbutton", { name: "Weight (kg)", exact: true }).fill("70");
+  await page
+    .getByRole("spinbutton", { name: "Weight (kg)", exact: true })
+    .fill("70");
   await expect(page.getByRole("region", { name: "BMI" })).toContainText("22.9");
 });
 
@@ -232,8 +241,12 @@ test("saved self-reported measurements remain editable", async ({ page }) => {
     }),
   );
   await page.goto("/member/profile");
-  await expect(page.getByRole("spinbutton", { name: "Height (cm)" })).toHaveValue("175");
-  await expect(page.getByRole("spinbutton", { name: "Weight (kg)", exact: true })).toHaveValue("70");
+  await expect(
+    page.getByRole("spinbutton", { name: "Height (cm)" }),
+  ).toHaveValue("175");
+  await expect(
+    page.getByRole("spinbutton", { name: "Weight (kg)", exact: true }),
+  ).toHaveValue("70");
   await expect(page.getByRole("region", { name: "BMI" })).toContainText("22.9");
 });
 test("dashboard does not issue an entrance pass", async ({ page }) => {
@@ -241,7 +254,9 @@ test("dashboard does not issue an entrance pass", async ({ page }) => {
   await expect(page.locator("#main-content h1")).toBeVisible();
   await expect(page.getByTestId("show-qr-btn")).toHaveCount(0);
 });
-test("Gym day pass clearly warns about same-day use and PT is absent", async ({ page }) => {
+test("Gym day pass clearly warns about same-day use and PT is absent", async ({
+  page,
+}) => {
   await page.goto("/member/services?section=gym&view=explore");
   await expect(
     page.getByRole("heading", { name: "Gym Membership", exact: true }),
@@ -259,7 +274,9 @@ test("Gym day pass clearly warns about same-day use and PT is absent", async ({ 
   await page
     .getByRole("button", { name: "Explore packages", exact: true })
     .click();
-  await expect(page.getByRole("heading", { name: "Gym day pass" }).first()).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Gym day pass" }).first(),
+  ).toBeVisible();
   await expect(page.getByText(/Valid only on the payment day/)).toBeVisible();
   await expect(page.getByRole("button", { name: /PT 1/ })).toHaveCount(0);
 });
@@ -290,7 +307,9 @@ for (const width of [320, 768, 1024, 1280, 1360, 1440])
       await expect(page.locator("#main-content h1")).toBeVisible();
       await expect(page.getByRole("banner")).toBeVisible();
       if (path === "/profile") {
-        await expect(page.getByRole("heading", { name: "Fitness profile" })).toBeVisible();
+        await expect(
+          page.getByRole("heading", { name: "Fitness profile" }),
+        ).toBeVisible();
       }
       if (width >= 1360) {
         const nav = page.getByRole("navigation", { name: "Member Navigation" });

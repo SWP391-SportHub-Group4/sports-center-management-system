@@ -1,13 +1,14 @@
 import { expect, test } from "@playwright/test";
-import { memberCodePayload, parseMemberCode } from "../src/lib/member-code";
+import { isMemberCode } from "../src/lib/member-code";
 
 const id = "22222222-2222-4222-8222-222222222222";
 
-test("member code payload round-trips and rejects other text", () => {
-  expect(parseMemberCode(memberCodePayload(id))).toBe(id);
-  expect(parseMemberCode(` ${id.toUpperCase()} `)).toBe(id);
-  expect(parseMemberCode("https://example.com")).toBeNull();
-  expect(parseMemberCode("SPORTHUB-MEMBER:not-a-guid")).toBeNull();
+test("only server-issued check-in codes are recognised by the desk", () => {
+  expect(isMemberCode(" SPORTHUB-CODE:abc.123.sig ")).toBe(true);
+  expect(isMemberCode("SPORTHUB-MEMBER:" + id)).toBe(false);
+  expect(isMemberCode("SPORTHUB-DAYPASS:2026-10-13:" + id)).toBe(false);
+  expect(isMemberCode(id)).toBe(false);
+  expect(isMemberCode("https://example.com")).toBe(false);
 });
 
 test("member card shows the server identity with a scannable QR", async ({
@@ -29,6 +30,13 @@ test("member card shows the server identity with a scannable QR", async ({
           sportIds: [],
         },
       });
+    if (path === "/api/members/me/checkin-code")
+      return route.fulfill({
+        json: {
+          code: "SPORTHUB-CODE:fixture.9999999999.signature",
+          expiresAtUtc: "2026-10-13T17:00:00Z",
+        },
+      });
     if (path.includes("notifications"))
       return route.fulfill({
         json: path.endsWith("unread-count") ? { count: 0 } : [],
@@ -39,10 +47,11 @@ test("member card shows the server identity with a scannable QR", async ({
     });
   });
   await page.goto("/member");
-  // Mã nằm sau nút tròn trên thanh header, mở thành popup khi cần.
+  // Mã nằm trong menu tài khoản, mở thành popup khi cần.
+  await page.getByRole("button", { name: "Member A" }).click();
   await page.getByRole("button", { name: "Member code" }).click();
   await expect(page.getByRole("img", { name: "Member code QR" })).toBeVisible();
-  await expect(page.getByText("does not grant entry by itself")).toBeVisible();
+  await expect(page.getByText(/valid only today/)).toBeVisible();
   await expect(page.getByText(id)).toBeVisible();
 });
 

@@ -248,7 +248,7 @@ export function CourseCatalog({
                 className="btn btn--secondary"
                 href="/member/services?section=gym&view=explore"
               >
-                {d.gymPt}
+                {d.chooseGym}
               </Link>
             </div>
           )}

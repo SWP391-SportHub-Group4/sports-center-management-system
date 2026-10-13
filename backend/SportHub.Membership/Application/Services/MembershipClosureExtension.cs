@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using SportHub.BuildingBlocks.Abstractions.Membership;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
+using SportHub.Membership.Domain;
 using SportHub.Membership.Domain.Entities;
 using SportHub.Membership.Domain.Enums;
 
@@ -10,7 +11,8 @@ public sealed class MembershipClosureExtension(ISportHubDbContext db) : IMembers
 {
     public Task<int> CountAffectedMembersAsync(DateOnly closureStartLocal, CancellationToken cancellationToken = default)
         => db.Set<MemberPackage>().AsNoTracking()
-            .Where(x => x.Status == MemberPackageStatus.Active && x.EndDate >= closureStartLocal)
+            .Where(x => x.Status == MemberPackageStatus.Active && x.EndDate >= closureStartLocal
+                        && x.PackageId != DayPass.PackageId)
             .Select(x => x.MemberId).Distinct().CountAsync(cancellationToken);
 
     public async Task<IReadOnlyList<ExtendedMembership>> ExtendActiveAsync(int days, DateOnly closureStartLocal,
@@ -22,7 +24,8 @@ public sealed class MembershipClosureExtension(ISportHubDbContext db) : IMembers
 
         var packages = await db.Set<MemberPackage>()
             .Include(x => x.Member)
-            .Where(x => x.Status == MemberPackageStatus.Active && x.EndDate >= closureStartLocal)
+            .Where(x => x.Status == MemberPackageStatus.Active && x.EndDate >= closureStartLocal
+                        && x.PackageId != DayPass.PackageId)
             .OrderBy(x => x.MemberId).ThenBy(x => x.StartDate)
             .ToListAsync(cancellationToken);
         foreach (var package in packages)

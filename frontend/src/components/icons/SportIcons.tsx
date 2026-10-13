@@ -427,7 +427,15 @@ export function IconCreditCard({
     >
       <rect x="2" y="5" width="20" height="14" rx="3" />
       <path d="M2 10h20" />
-      <rect x="5" y="14" width="4" height="2.5" rx="0.5" fill="currentColor" stroke="none" />
+      <rect
+        x="5"
+        y="14"
+        width="4"
+        height="2.5"
+        rx="0.5"
+        fill="currentColor"
+        stroke="none"
+      />
       <circle cx="17.5" cy="15.25" r="1.5" />
     </svg>
   );
@@ -1250,7 +1258,6 @@ export function IconPlus({
     </svg>
   );
 }
-
 
 /**
  * Envelope (email field, inbox)

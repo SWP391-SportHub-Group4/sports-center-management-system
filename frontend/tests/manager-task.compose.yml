@@ -8,7 +8,8 @@ services:
       POSTGRES_USER: sporthub_test
       POSTGRES_PASSWORD: local-acceptance-only
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U sporthub_test -d manager_task_acceptance"]
+      test:
+        ["CMD-SHELL", "pg_isready -U sporthub_test -d manager_task_acceptance"]
       interval: 2s
       timeout: 5s
       retries: 30

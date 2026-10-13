@@ -77,13 +77,7 @@ export function ManagerAuditChanges({ row }: { row: AuditLogDto }) {
         `#${item}`
       );
     if (key === "sessionId")
-      return (
-        currentReference(
-          row,
-          row.targetEntity === "Attendance" ? "ClassSession" : "PtSession",
-          String(item),
-        ) ?? `#${item}`
-      );
+      return currentReference(row, "ClassSession", String(item)) ?? `#${item}`;
     if (key.startsWith("affected."))
       return (
         currentReference(row, key.split(".")[1], String(item)) ?? `#${item}`

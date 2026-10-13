@@ -36,22 +36,6 @@ public sealed class CoachSpecialtyReader(ISportHubDbContext db, ISportCatalogRea
             .AsNoTracking()
             .AnyAsync(s => s.UserId == coachId && s.SportId == sportId, cancellationToken);
 
-    public async Task<bool> IsPersonalTrainerAsync(Guid coachId, CancellationToken cancellationToken = default)
-    {
-        if (!await IsActiveInternalCoachAsync(coachId, cancellationToken))
-        {
-            return false;
-        }
-
-        // Quyền PT đến từ qualification dịch vụ PT đang bật, không suy ra từ chuyên môn môn Gym.
-        var pt = await catalog.GetSportForServiceAsync(SportServiceType.PersonalTraining, cancellationToken);
-        var offering = pt?.Services.FirstOrDefault(s => s.ServiceType == SportServiceType.PersonalTraining);
-
-        return offering is not null
-               && await db.Set<CoachServiceQualification>().AsNoTracking()
-                   .AnyAsync(q => q.UserId == coachId && q.OfferingId == offering.OfferingId, cancellationToken);
-    }
-
     public async Task<IReadOnlyList<Guid>> GetCoachIdsForSportAsync(int sportId, CancellationToken cancellationToken = default)
         => await db.Set<UserSportSpecialty>()
             .AsNoTracking()

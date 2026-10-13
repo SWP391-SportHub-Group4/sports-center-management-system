@@ -13,7 +13,6 @@ using SportHub.Payment.Domain.Enums;
 using SportHub.Payment.Domain.Entities;
 using SportHub.Payment.Application.Services;
 using SportHub.Payment.VnPay;
-using SportHub.Training.Application.DTOs.PtEntitlements;
 using SportHub.Training.Domain.Entities;
 using SportHub.Training.Domain.Enums;
 using SportHub.Scheduling.Application.Commands;
@@ -884,275 +883,6 @@ public sealed class CheckoutFlowTests(PaymentApiFactory factory)
     }
 
     [Fact]
-    public async Task Pt_price_change_requires_new_quote_and_verified_payment_activates_entitlement()
-    {
-        var context = await SeedAsync();
-
-        var coach =
-            await factory.SeedUserAsync(
-                UserRole.Coach);
-
-        var manager =
-            await factory.SeedUserAsync(
-                UserRole.CenterManager);
-
-        Guid membershipId;
-
-        using (var scope =
-               factory.Services.CreateScope())
-        {
-            var db =
-                scope.ServiceProvider
-                    .GetRequiredService<SportHubDbContext>();
-
-            db.CoachProfiles.Add(
-                new CoachProfile
-                {
-                    UserId =
-                        coach.UserId
-                });
-
-            db.UserSportSpecialties.Add(
-                new UserSportSpecialty
-                {
-                    UserId =
-                        coach.UserId,
-
-                    SportId =
-                        1
-                });
-
-            db.Set<CoachServiceQualification>()
-                .Add(
-                    new CoachServiceQualification
-                    {
-                        UserId =
-                            coach.UserId,
-
-                        OfferingId =
-                            2
-                    });
-
-            var start =
-                DateOnly
-                    .FromDateTime(
-                        DateTime.UtcNow)
-                    .AddDays(-1);
-
-            var membership =
-                new MemberPackage
-                {
-                    MemberPackageId =
-                        Guid.NewGuid(),
-
-                    MemberId =
-                        context.MemberId,
-
-                    PackageId =
-                        context.PackageId,
-
-                    StartDate =
-                        start,
-
-                    EndDate =
-                        start
-                            .AddMonths(1)
-                            .AddDays(-1),
-
-                    Status =
-                        MemberPackageStatus.Active
-                };
-
-            db.MemberPackages.Add(
-                membership);
-
-            await db.SaveChangesAsync();
-
-            membershipId =
-                membership.MemberPackageId;
-        }
-
-        using var member =
-            factory.CreateApiClient(
-                context.MemberId,
-                UserRole.Member);
-
-        using var managerClient =
-            factory.CreateApiClient(
-                manager.UserId,
-                UserRole.CenterManager);
-
-        using var counter =
-            factory.CreateApiClient(
-                context.ReceptionistId,
-                UserRole.Receptionist);
-
-        var quoteRequest =
-            new
-            {
-                memberPackageId =
-                    membershipId,
-
-                coachId =
-                    coach.UserId,
-
-                frequencyPerWeek =
-                    1
-            };
-
-        var quoteResponse =
-            await member.PostAsJsonAsync(
-                "/api/checkouts/pt/quote",
-                quoteRequest);
-
-        Assert.Equal(
-            HttpStatusCode.OK,
-            quoteResponse.StatusCode);
-
-        var quote =
-            (await quoteResponse.Content
-                .ReadFromJsonAsync<PtPurchaseQuoteResponse>())!;
-
-        Assert.Equal(
-            4,
-            quote.TotalQuota);
-
-        Assert.Equal(
-            800_000m,
-            quote.TotalPrice);
-
-        var update =
-            await managerClient.PutAsJsonAsync(
-                "/api/manager/pt-pricing",
-                new
-                {
-                    value =
-                        "300000"
-                });
-
-        Assert.Equal(
-            HttpStatusCode.OK,
-            update.StatusCode);
-
-        async Task<HttpResponseMessage> Checkout(
-            string version)
-        {
-            using var request =
-                new HttpRequestMessage(
-                    HttpMethod.Post,
-                    "/api/checkouts/pt")
-                {
-                    Content =
-                        JsonContent.Create(
-                            new
-                            {
-                                memberPackageId =
-                                    membershipId,
-
-                                coachId =
-                                    coach.UserId,
-
-                                frequencyPerWeek =
-                                    1,
-
-                                priceVersion =
-                                    version
-                            })
-                };
-
-            request.Headers.Add(
-                "Idempotency-Key",
-                Guid.NewGuid()
-                    .ToString("N"));
-
-            return await member.SendAsync(
-                request);
-        }
-
-        Assert.Equal(
-            HttpStatusCode.Conflict,
-            (
-                await Checkout(
-                    quote.PriceVersion)
-            ).StatusCode);
-
-        var current =
-            (await (
-                    await member.PostAsJsonAsync(
-                        "/api/checkouts/pt/quote",
-                        quoteRequest)
-                )
-                .Content
-                .ReadFromJsonAsync<PtPurchaseQuoteResponse>())!;
-
-        Assert.Equal(
-            1_200_000m,
-            current.TotalPrice);
-
-        var created =
-            await Checkout(
-                current.PriceVersion);
-
-        Assert.Equal(
-            HttpStatusCode.Created,
-            created.StatusCode);
-
-        var checkout =
-            (await created.Content
-                .ReadFromJsonAsync<CheckoutResponse>())!;
-
-        var attempt =
-            (await (
-                    await member.PostAsync(
-                        $"/api/checkouts/{checkout.InvoiceId}/attempts",
-                        null)
-                )
-                .Content
-                .ReadFromJsonAsync<PaymentAttemptResponse>())!;
-
-        Assert.Equal(
-            HttpStatusCode.OK,
-            (
-                await counter.PostAsync(
-                    $"/api/dev/payments/{attempt.TransactionReference}/simulate",
-                    null)
-            ).StatusCode);
-
-        await factory.QueryAsync(
-            async db =>
-            {
-                var item =
-                    await db.InvoiceItems
-                        .SingleAsync(
-                            x =>
-                                x.InvoiceId ==
-                                checkout.InvoiceId);
-
-                Assert.Equal(
-                    300_000m,
-                    item.UnitPrice);
-
-                Assert.Equal(
-                    4,
-                    item.Quantity);
-
-                Assert.Equal(
-                    PtEntitlementStatus.Active,
-                    await db.PtEntitlements
-                        .Where(
-                            x =>
-                                x.EntitlementId ==
-                                item.RelatedEntityId)
-                        .Select(
-                            x =>
-                                x.Status)
-                        .SingleAsync());
-
-                return 0;
-            });
-    }
-
-    [Fact]
     public async Task Fulfillment_failure_keeps_verified_event_and_retries_without_partial_payment()
     {
         var context = await SeedAsync();
@@ -1684,6 +1414,17 @@ public sealed class CheckoutFlowTests(PaymentApiFactory factory)
                             x =>
                                 x.ReservedCount)
                         .SingleAsync());
+
+                // Học viên đã ghi danh thành quan hệ huấn luyện ClassBased với Coach của lớp.
+                Assert.True(
+                    await db.Set<SportHub.Training.Domain.Entities.CoachMemberRelationship>()
+                        .AnyAsync(
+                            r =>
+                                r.CoachId == coach.UserId &&
+                                r.MemberId == context.MemberId &&
+                                r.ClassId == classId &&
+                                r.Status == SportHub.Training.Domain.Enums.RelationshipStatus.Active &&
+                                r.SourceType == SportHub.Training.Domain.Enums.RelationshipSourceType.ClassBased));
 
                 return 0;
             });

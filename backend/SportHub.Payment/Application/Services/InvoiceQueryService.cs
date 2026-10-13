@@ -101,8 +101,8 @@ public sealed class InvoiceQueryService(ISportHubDbContext db) : IInvoiceQuerySe
             .Where(it => it.InvoiceId == invoiceId)
             .Select(it => new InvoiceItemResponse(
                 it.ItemId, it.ItemType.ToString(), it.Description, it.UnitPrice, it.Quantity, it.LineAmount,
-                it.RelatedEntityId, it.ClassId, it.CourtRentalId, it.PtEntitlementId, it.MemberPackageId,
-                it.SportId, it.SportNameSnapshot, it.PtFrequencyPerWeek, it.SourceInvoiceItemId))
+                it.RelatedEntityId, it.ClassId, it.CourtRentalId, it.MemberPackageId,
+                it.SportId, it.SportNameSnapshot, it.SourceInvoiceItemId))
             .ToListAsync(ct);
 
         var payments = await db.Set<Domain.Entities.Payment>()
