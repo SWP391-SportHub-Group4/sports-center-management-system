@@ -596,7 +596,7 @@ export const en = {
       "The staff account will be ready after the employee sets a password from the email invitation.",
     confirmEmail: "Confirm email",
     emailMismatch: "The two email addresses do not match.",
-    pendingActivation: "Pending activation",
+    pendingActivation: "Activation required",
     pendingActivationHint:
       "This staff member has not activated the account yet. If the email was mistyped, correct it so the activation link goes to the right person.",
     resendActivation: "Resend activation link",
@@ -1513,6 +1513,12 @@ export const en = {
       "Reload the latest options and check your selection before continuing.",
   },
   filterBar: {
+    actionPlaceholder: "Search or select an action",
+    allActions: "All actions",
+    noMatchingActions: "No actions match your search.",
+    noActions: "No actions recorded yet.",
+    actionsUnavailable: "Unable to load actions.",
+    selectAction: "Select an action from the list, or leave the field empty.",
     from: "From date",
     to: "To date",
     invalidActor: "Enter a valid actor ID (UUID), or leave it empty.",

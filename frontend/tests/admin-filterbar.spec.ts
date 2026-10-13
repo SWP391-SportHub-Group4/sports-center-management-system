@@ -41,6 +41,8 @@ async function setup(page: Page) {
       });
     if (url.pathname.includes("notifications"))
       return route.fulfill({ json: [] });
+    if (url.pathname === "/api/audit-logs/actions")
+      return route.fulfill({ json: ["LOCK_USER", "UNLOCK_USER"] });
     if (
       url.pathname === "/api/users/admin" ||
       url.pathname === "/api/audit-logs"
@@ -212,7 +214,7 @@ test("Audit FilterBar applies drafts only on submit, validates actor, and preser
     .toBe("UserAccount");
 });
 
-test("FilterBar fits both Admin pages in Vietnamese and mobile", async ({
+test("FilterBar stays English with legacy language preferences and fits both Admin pages on mobile", async ({
   page,
 }) => {
   await setup(page);
@@ -223,7 +225,7 @@ test("FilterBar fits both Admin pages in Vietnamese and mobile", async ({
       await page.goto(`/admin/${path}`);
       await expect(page.getByRole("table")).toBeVisible();
       await expect(
-        page.getByRole("button", { name: /Xóa bộ lọc/ }),
+        page.getByRole("button", { name: /Clear filters/ }),
       ).toBeVisible();
       expect(
         await page.evaluate(() => document.documentElement.scrollWidth),

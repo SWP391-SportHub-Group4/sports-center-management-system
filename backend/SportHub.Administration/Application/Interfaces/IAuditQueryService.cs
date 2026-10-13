@@ -9,6 +9,8 @@ namespace SportHub.Administration.Application.Interfaces;
 
 public interface IAuditQueryService
 {
+    Task<IReadOnlyList<string>> ListActionsAsync(bool accountsOnly = false, CancellationToken ct = default);
+
     Task<PagedResult<AuditLogResponse>> SearchAsync(
         string? action, string? targetEntity, DateTime? fromUtc, DateTime? toUtc,
         int page, int pageSize, CancellationToken ct = default, Guid? actorId = null, bool accountsOnly = false,

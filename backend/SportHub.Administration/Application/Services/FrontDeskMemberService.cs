@@ -58,7 +58,7 @@ public sealed class FrontDeskMemberService(
         // BR-134: Member có đúng một ví điểm; tạo ví 0 điểm ngay (ví tạo lười ở lần dùng đầu vẫn an toàn vì khóa theo owner).
         db.Set<PointWallet>().Add(new PointWallet { WalletId = Guid.NewGuid(), OwnerUserId = user.UserId, CreatedAtUtc = clock.UtcNow });
 
-        audit.Write(new AuditEntry(actorUserId, "FRONT_DESK_CREATE_MEMBER", nameof(UserAccount), user.UserId.ToString(),
+        audit.Write(new AuditEntry(actorUserId, AccountAuditActions.FrontDeskCreateMember, nameof(UserAccount), user.UserId.ToString(),
             NewValue: System.Text.Json.JsonSerializer.Serialize(new { email, role = nameof(UserRole.Member) })));
 
         if (!await activationLinks.IssueAsync(email, request.FullName.Trim(), member: true, ct))
@@ -73,7 +73,7 @@ public sealed class FrontDeskMemberService(
         var user = await LoadPendingMemberAsync(userId, ct);
 
         await using var tx = await db.Database.BeginTransactionAsync(ct);
-        audit.Write(new AuditEntry(actorUserId, "RESEND_MEMBER_ACTIVATION", nameof(UserAccount), userId.ToString(),
+        audit.Write(new AuditEntry(actorUserId, AccountAuditActions.ResendMemberActivation, nameof(UserAccount), userId.ToString(),
             NewValue: System.Text.Json.JsonSerializer.Serialize(new { email = user.Email })));
 
         if (!await activationLinks.IssueAsync(user.Email, user.Profile?.FullName ?? string.Empty, member: true, ct))
@@ -105,7 +105,7 @@ public sealed class FrontDeskMemberService(
         // Link đã gửi tới email cũ không được dùng nữa, kể cả khi người nhận nhầm đang giữ nó.
         await otpFlow.DiscardAsync(oldEmail, EmailOtpPurpose.ResetPassword);
         user.Email = newEmail;
-        audit.Write(new AuditEntry(actorUserId, "CHANGE_PENDING_MEMBER_EMAIL", nameof(UserAccount), userId.ToString(),
+        audit.Write(new AuditEntry(actorUserId, AccountAuditActions.ChangePendingMemberEmail, nameof(UserAccount), userId.ToString(),
             OldValue: System.Text.Json.JsonSerializer.Serialize(new { email = oldEmail }),
             NewValue: System.Text.Json.JsonSerializer.Serialize(new { email = newEmail }),
             Reason: request.Reason.Trim()));

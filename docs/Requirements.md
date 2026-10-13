@@ -2,6 +2,8 @@
 
 SportHub quản lý trung tâm thể thao với **ba môn Gym, cầu lông và bóng rổ**, đồng thời hỗ trợ mở rộng thêm môn trong tương lai. Danh mục môn, chuyên môn HLV và loại sân/phòng phải cấu hình được.
 
+**Chuyên môn Coach (xác nhận 13/10/2026, BR-96):** một Coach có thể dạy nhiều môn và phải được gán ít nhất một môn. Admin được chọn nhiều môn đang hoạt động khi tạo tài khoản Coach hoặc đổi một tài khoản staff sang Coach; Manager chỉnh sửa chuyên môn sau đó. Phân công lớp yêu cầu Coach đang hoạt động và có chuyên môn khớp môn của lớp.
+
 ## 1. Mục tiêu và phạm vi
 
 Số hóa hoạt động từ tiếp đón, mua dịch vụ, xếp lịch, điểm danh và tập luyện đến thuê sân, thanh toán, hoàn điểm, thông báo và báo cáo. Dữ liệu phải nhất quán giữa năm vai trò và không bán vượt sĩ số hoặc xếp trùng sân/Coach.
@@ -33,7 +35,11 @@ Requirement gốc chỉ có bốn vai trò (Manager, Coach, Member, Receptionist
 | Xem lịch sử thao tác quan trọng | Manager xem Audit Log đầy đủ của trung tâm; Admin chỉ xem phần thao tác tài khoản |
 | Lớp, môn, phòng, lịch, phân công Coach, báo cáo, gói và học phí | Manager |
 
-Member và staff là hai loại tài khoản tách biệt: không chuyển Member thành staff hay ngược lại. Người muốn làm staff dùng một email khác; SystemAdministrator tạo tài khoản staff, kể cả Coach kèm chuyên môn (nhận email kích hoạt để tự đặt mật khẩu); Manager chỉ sửa hồ sơ Coach và cấp quyền dịch vụ PT. Chỉ đổi role giữa các role staff, và Coach chỉ rời vai trò khi không còn lớp, lịch hay quan hệ huấn luyện đang hoạt động. Email chưa được xác minh là của đúng người khi tạo, nên Admin phải nhập email hai lần; tài khoản chưa kích hoạt hiển thị "Chờ kích hoạt" (`activationPending`), Admin được gửi lại link (cooldown 60 giây, link cũ vô hiệu) hoặc sửa email gõ sai (link cũ vô hiệu, link mới tới email mới, có audit) cho tới khi người nhận đặt mật khẩu.
+Member và staff là hai loại tài khoản tách biệt: không chuyển Member thành staff hay ngược lại. Người muốn làm staff dùng một email khác; SystemAdministrator tạo tài khoản staff, kể cả Coach kèm chuyên môn (nhận email kích hoạt để tự đặt mật khẩu); Manager chỉ sửa hồ sơ Coach. Chỉ đổi role giữa các role staff, và Coach chỉ rời vai trò khi không còn lớp, lịch hay quan hệ huấn luyện đang hoạt động. Email chưa được xác minh là của đúng người khi tạo, nên Admin phải nhập email hai lần; tài khoản chưa kích hoạt hiển thị "Chờ kích hoạt" (`activationPending`), Admin được gửi lại link (cooldown 60 giây, link cũ vô hiệu) hoặc sửa email gõ sai (link cũ vô hiệu, link mới tới email mới, có audit) cho tới khi người nhận đặt mật khẩu.
+
+Tài khoản staff do Admin tạo mà chưa kích hoạt sau 168 giờ được tự xóa để giải phóng email. Gửi lại link hoặc sửa email không kéo dài hạn này; Member và tài khoản seed/hệ thống không bị xóa. Xem [chi tiết xử lý và kiểm tra](Staff-Invitation-Expiry.md).
+
+Theo yêu cầu xác nhận 13/10/2026, không được đổi role của tài khoản đang là SystemAdministrator, bao gồm chính mình và Admin khác. Các tài khoản nhân sự khác vẫn được đổi role theo quy tắc hiện có, kể cả nâng lên Admin; sau khi trở thành Admin thì không được hạ role. Quy tắc khóa/mở khóa tài khoản không thay đổi.
 
 Guest không phải role account. Coach có nhiều chuyên môn, không chia role cứng thành PersonalTrainer/ClassInstructor. Backend kiểm cả role và ownership/relationship.
 
