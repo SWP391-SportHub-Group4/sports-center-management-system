@@ -8,8 +8,10 @@ import {
   Check,
   X,
   Target,
-  MapPin,
   ArrowRight,
+  Bell,
+  ClipboardPen,
+  ClipboardCheck,
 } from "lucide-react";
 import { Drawer, Tabs } from "@/components/primitives";
 import { Calendar } from "@/components/scheduling/Calendar";
@@ -31,6 +33,8 @@ import { TeachingRecords } from "./teaching-records";
 import { TrainingPlanView, type PlanScope } from "./training-plan-view";
 import styles from "./coach-workspace.module.css";
 import { CoachClassChanges } from "./coach-class-change";
+import { ClassStudents } from "./class-students";
+import { ClassDirectory } from "./class-directory";
 
 export type WorkspaceMode = "schedule" | "classes" | "students";
 type Selection = {
@@ -83,9 +87,11 @@ export function CoachWorkspace({
     <div className={styles.workspace}>
       <header className={styles.intro}>
         <div>
-          <span className={styles.eyebrow}>
-            {vi ? "KHÔNG GIAN HUẤN LUYỆN" : "COACH WORKSPACE"}
-          </span>
+          {mode !== "classes" && (
+            <span className={styles.eyebrow}>
+              {vi ? "KHÔNG GIAN HUẤN LUYỆN" : "COACH WORKSPACE"}
+            </span>
+          )}
           <h2>
             {mode === "schedule"
               ? vi
@@ -93,22 +99,26 @@ export function CoachWorkspace({
                 : "Ready for your next session"
               : mode === "classes"
                 ? vi
-                  ? "Quản lý các lớp được giao"
-                  : "Manage your assigned classes"
+                  ? "Lớp học của bạn"
+                  : "Your classes"
                 : vi
                   ? "Theo dõi tiến bộ học viên"
                   : "Follow your students’ progress"}
           </h2>
           <p>
-            {vi
-              ? "Từ buổi học đến tiến bộ của từng học viên. Mọi thao tác trong cùng một không gian."
-              : "From each session to each student’s progress. Your teaching tools in one place."}
+            {mode === "classes"
+              ? "Choose a class to manage students, plans and notices. See your next lesson at a glance."
+              : vi
+                ? "Từ buổi học đến tiến bộ của từng học viên. Mọi thao tác trong cùng một không gian."
+                : "From each session to each student’s progress. Your teaching tools in one place."}
           </p>
         </div>
-        <CourseSticker
-          sport={state.data?.classes[0]?.sportName ?? "Badminton"}
-          compact
-        />
+        {mode !== "classes" && (
+          <CourseSticker
+            sport={state.data?.classes[0]?.sportName ?? "Badminton"}
+            compact
+          />
+        )}
       </header>
       <AsyncSection state={state}>
         {({ classes, sessions }) =>
@@ -169,33 +179,7 @@ export function CoachWorkspace({
                 </section>
               )}
               {mode === "classes" && (
-                <div className={styles.classGrid}>
-                  {classes.map((course) => (
-                    <button
-                      className={styles.classCard}
-                      type="button"
-                      key={course.classId}
-                      onClick={() => setSelection({ course })}
-                    >
-                      <div className={styles.cardTop}>
-                        <span className={styles.badge}>{course.sportName}</span>
-                        <StatusChip value={course.status} />
-                      </div>
-                      <CourseSticker sport={course.sportName} compact />
-                      <h3>{course.name}</h3>
-                      <p>
-                        <MapPin size={16} aria-hidden="true" />
-                        {course.roomName}
-                      </p>
-                      <span className={styles.cardBottom}>
-                        {vi
-                          ? "Học viên · giáo án · trao đổi"
-                          : "Students · plans · communication"}
-                        <ArrowRight size={18} aria-hidden="true" />
-                      </span>
-                    </button>
-                  ))}
-                </div>
+                <ClassDirectory classes={classes} sessions={sessions} />
               )}
               {mode === "students" && (
                 <section>
@@ -404,18 +388,23 @@ export function TeachingDetail({
   onClose,
   fullPage = false,
   onEditingStateChange,
+  initialTab,
+  hideHeading = false,
 }: {
   selection: Selection;
   onClose: () => void;
   fullPage?: boolean;
   onEditingStateChange?: (state: { dirty: boolean; busy: boolean }) => void;
+  initialTab?: "students" | "plans";
+  hideHeading?: boolean;
 }) {
   const { language } = useLanguage();
   const { user } = useAuth();
+  const router = useRouter();
   const vi = language === "vi";
   const now = useNow();
   const [tab, setTab] = useState(
-    member ? "profile" : session ? "plans" : "students",
+    member ? "profile" : session ? "plans" : (initialTab ?? "students"),
   );
   const [editor, setEditor] = useState<{
     kind: TeachingRecord["kind"];
@@ -425,7 +414,6 @@ export function TeachingDetail({
     scope?: PlanScope;
   } | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
-  const [viewingCoursePlan, setViewingCoursePlan] = useState(false);
   const editorState = useRef({ dirty: false, busy: false });
   const discard = () =>
     !editorState.current.busy &&
@@ -446,32 +434,44 @@ export function TeachingDetail({
           ? ptApi.roster(session.sessionId, signal)
           : Promise.resolve(null),
       ]);
-      return { members, records, sessions, roster };
+      return {
+        members,
+        records,
+        sessions: [...sessions].sort(
+          (a, b) =>
+            a.sessionNo - b.sessionNo ||
+            a.startAtUtc.localeCompare(b.startAtUtc),
+        ),
+        roster,
+      };
     },
     [course.classId, session?.sessionId, member?.memberId],
   );
   const tabs = member
     ? [
-        { id: "profile", label: vi ? "Hồ sơ & tiến độ" : "Profile & progress" },
-        { id: "plans", label: vi ? "Kế hoạch tập luyện" : "Training plans" },
+        { id: "profile", label: vi ? "Hồ sơ" : "Profile" },
+        { id: "plans", label: vi ? "Kế hoạch" : "Plans" },
       ]
     : session
       ? [
-          { id: "plans", label: vi ? "Giáo án" : "Lesson plan" },
+          { id: "plans", label: vi ? "Giáo án" : "Plan" },
           {
             id: "attendance",
-            label: vi ? "Điểm danh & kết quả" : "Attendance & results",
+            label: vi ? "Điểm danh" : "Attendance",
           },
-          { id: "communication", label: vi ? "Sau buổi học" : "After session" },
-          { id: "changes", label: vi ? "Đổi lịch" : "Change requests" },
+          { id: "communication", label: vi ? "Bài tập" : "Homework" },
+          {
+            id: "changes",
+            label: vi ? "Đổi lịch" : "Changes",
+          },
         ]
       : [
           {
             id: "students",
-            label: vi ? "Học viên & lịch" : "Students & sessions",
+            label: vi ? "Học viên" : "Students",
           },
-          { id: "plans", label: vi ? "Giáo án" : "Lesson plans" },
-          { id: "communication", label: vi ? "Trao đổi" : "Communication" },
+          { id: "plans", label: vi ? "Giáo án" : "Plans" },
+          { id: "communication", label: vi ? "Thông báo" : "Notices" },
         ];
   const writable =
     !/cancel|draft/i.test(course.status) &&
@@ -489,6 +489,7 @@ export function TeachingDetail({
   return (
     <TeachingDetailFrame
       fullPage={fullPage}
+      hideHeading={hideHeading}
       title={fullPage ? course.name : (member?.memberName ?? course.name)}
       description={
         session
@@ -519,6 +520,8 @@ export function TeachingDetail({
               writable &&
               now >= Date.parse(roster.attendanceOpensAtUtc) &&
               now <= Date.parse(roster.attendanceClosesAtUtc);
+            const homeworkOpen =
+              !!session && writable && now >= Date.parse(session.endAtUtc);
             return editor ? (
               <TeachingEditor
                 classId={course.classId}
@@ -566,7 +569,6 @@ export function TeachingDetail({
                   onChange={(next) => {
                     if (discard()) {
                       editorState.current = { dirty: false, busy: false };
-                      setViewingCoursePlan(false);
                       setTab(next);
                     }
                   }}
@@ -574,47 +576,14 @@ export function TeachingDetail({
                   ariaLabel={vi ? "Chi tiết giảng dạy" : "Teaching details"}
                 >
                   {tab === "students" && (
-                    <>
-                      <div className={styles.studentList}>
-                        {members.map((m) => (
-                          <div className={styles.student} key={m.memberId}>
-                            <span className={styles.avatar} aria-hidden="true">
-                              {m.memberName.slice(0, 1)}
-                            </span>
-                            <div>
-                              <strong>{m.memberName}</strong>
-                              <small>{m.email}</small>
-                              <p>
-                                {m.goal ||
-                                  (vi ? "Chưa có mục tiêu" : "No goal yet")}
-                              </p>
-                              <small>
-                                {m.experienceLevel} ·{" "}
-                                {vi ? "Có mặt" : "Present"} {m.present} ·{" "}
-                                {vi ? "Vắng" : "Absent"} {m.absent}
-                              </small>
-                            </div>
-                            {writable && (
-                              <button
-                                className="btn btn--secondary btn--sm"
-                                type="button"
-                                onClick={() => begin("PLAN", m.memberId)}
-                              >
-                                {vi ? "Lập kế hoạch" : "Plan"}
-                              </button>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                      <h3>{vi ? "Lịch các buổi học" : "Sessions"}</h3>
-                      {sessions.map((s) => (
-                        <p className={styles.sessionLine} key={s.sessionId}>
-                          <CalendarDays size={16} aria-hidden="true" />
-                          {formatDateTime(s.startAtUtc)} · {s.roomName}
-                          <StatusChip value={s.status} />
-                        </p>
-                      ))}
-                    </>
+                    <ClassStudents
+                      members={members}
+                      onPlan={
+                        writable
+                          ? (memberId) => begin("PLAN", memberId)
+                          : undefined
+                      }
+                    />
                   )}
                   {tab === "profile" && profile && (
                     <>
@@ -658,18 +627,6 @@ export function TeachingDetail({
                   )}
                   {tab === "plans" && (
                     <>
-                      {viewingCoursePlan && (
-                        <div className={styles.sectionHeader}>
-                          <h3>{vi ? "Lộ trình cả khóa" : "Course plan"}</h3>
-                          <button
-                            type="button"
-                            className="btn btn--secondary btn--sm"
-                            onClick={() => setViewingCoursePlan(false)}
-                          >
-                            {vi ? "Quay lại buổi học" : "Back to session plan"}
-                          </button>
-                        </div>
-                      )}
                       <TrainingPlanView
                         records={records.filter(
                           (r) =>
@@ -680,27 +637,20 @@ export function TeachingDetail({
                         )}
                         members={members}
                         sessions={sessions}
-                        sessionId={
-                          viewingCoursePlan ? undefined : session?.sessionId
-                        }
-                        viewMode={
-                          session && !member
-                            ? viewingCoursePlan
-                              ? "course"
-                              : "session"
-                            : undefined
-                        }
+                        sessionId={session?.sessionId}
+                        viewMode={session && !member ? "session" : undefined}
                         onViewCoursePlan={
                           session && !member
-                            ? () => setViewingCoursePlan(true)
+                            ? () =>
+                                router.push(
+                                  `/coach/classes/${course.classId}?tab=plans`,
+                                )
                             : undefined
                         }
                         memberId={member?.memberId}
                         editableCoachId={user?.userId}
                         onCreate={
-                          writable &&
-                          (!viewingCoursePlan ||
-                            course.coachId === user?.userId)
+                          writable
                             ? (scope, selectedSession, selectedMember) => {
                                 if (member && scope !== "personal") return;
                                 setSaved(null);
@@ -714,9 +664,7 @@ export function TeachingDetail({
                             : undefined
                         }
                         onEdit={
-                          writable &&
-                          (!viewingCoursePlan ||
-                            course.coachId === user?.userId)
+                          writable
                             ? (r) => {
                                 if (
                                   r.coachId === user?.userId &&
@@ -769,6 +717,12 @@ export function TeachingDetail({
                                       ? ` · ${result.title}${result.score ? ` · ${result.score}/5` : ""}`
                                       : ""}
                                   </small>
+                                  {result && (
+                                    <span className={styles.recordSaved}>
+                                      <Check size={14} aria-hidden="true" />
+                                      {vi ? "Đã ghi kết quả" : "Recorded"}
+                                    </span>
+                                  )}
                                 </div>
                                 <div className={styles.rowActions}>
                                   <button
@@ -823,7 +777,16 @@ export function TeachingDetail({
                                   </button>
                                   <button
                                     type="button"
-                                    className="btn btn--quiet btn--sm"
+                                    className={`btn btn--secondary ${styles.recordButton}`}
+                                    title={
+                                      result
+                                        ? vi
+                                          ? "Xem và chỉnh sửa kết quả đã ghi"
+                                          : "View and edit the saved result"
+                                        : vi
+                                          ? "Ghi kết quả buổi học"
+                                          : "Record this session’s result"
+                                    }
                                     disabled={
                                       !writable ||
                                       now < Date.parse(session!.startAtUtc) ||
@@ -839,13 +802,18 @@ export function TeachingDetail({
                                         : begin("RESULT", entry.memberId)
                                     }
                                   >
-                                    {result
-                                      ? vi
-                                        ? "Sửa nhận xét"
-                                        : "Edit assessment"
-                                      : vi
-                                        ? "Ghi kết quả"
-                                        : "Record result"}
+                                    {result ? (
+                                      <ClipboardCheck
+                                        size={18}
+                                        aria-hidden="true"
+                                      />
+                                    ) : (
+                                      <ClipboardPen
+                                        size={18}
+                                        aria-hidden="true"
+                                      />
+                                    )}
+                                    Record
                                   </button>
                                 </div>
                               </div>
@@ -866,30 +834,58 @@ export function TeachingDetail({
                   )}
                   {tab === "communication" && (
                     <>
+                      {!session && (
+                        <header className={styles.noticeIntro}>
+                          <div className={styles.noticeTitle}>
+                            <Bell size={20} aria-hidden="true" />
+                            <h3>Class notices</h3>
+                          </div>
+                          <p>
+                            Send reminders or announcements to the whole class
+                            or a specific student. Recipients receive a bell
+                            notification.
+                          </p>
+                        </header>
+                      )}
+                      {session && (
+                        <p className={styles.muted}>
+                          {homeworkOpen
+                            ? vi
+                              ? "Giao bài tập ôn luyện cho buổi vừa kết thúc. Nên hoàn thành trước buổi tiếp theo — không bắt buộc."
+                              : "Assign practice for the lesson that just ended. Aim to complete it before the next lesson — optional."
+                            : vi
+                              ? "Chỉ có thể giao bài tập sau khi buổi học kết thúc."
+                              : "Homework can be assigned once this session ends."}
+                        </p>
+                      )}
                       <div className={styles.rowActions}>
                         {writable && (
                           <>
-                            <button
-                              className="btn btn--sm"
-                              type="button"
-                              onClick={() => begin("HOMEWORK")}
-                            >
-                              <Plus size={16} aria-hidden="true" />
-                              {vi ? "Giao bài tập" : "Assign homework"}
-                            </button>
-                            <button
-                              className="btn btn--secondary btn--sm"
-                              type="button"
-                              onClick={() => begin("NOTICE")}
-                            >
-                              {vi ? "Gửi thông báo" : "Send notice"}
-                            </button>
+                            {session ? (
+                              <button
+                                className="btn btn--sm"
+                                type="button"
+                                onClick={() => begin("HOMEWORK")}
+                                disabled={!homeworkOpen}
+                              >
+                                <Plus size={16} aria-hidden="true" />
+                                {vi ? "Giao bài tập" : "Assign homework"}
+                              </button>
+                            ) : (
+                              <button
+                                className="btn btn--secondary btn--sm"
+                                type="button"
+                                onClick={() => begin("NOTICE")}
+                              >
+                                {vi ? "Gửi thông báo" : "Send notice"}
+                              </button>
+                            )}
                           </>
                         )}
                       </div>
                       <TeachingRecords
                         records={scoped.filter(
-                          (r) => r.kind === "HOMEWORK" || r.kind === "NOTICE",
+                          (r) => r.kind === (session ? "HOMEWORK" : "NOTICE"),
                         )}
                         members={members}
                       />
@@ -913,9 +909,11 @@ export function TeachingDetail({
                       : "Read only. Only the assigned coach can update this content."}
                   </p>
                 )}
-                <div className={styles.detailSticker} aria-hidden="true">
-                  <CourseSticker sport={course.sportName} compact />
-                </div>
+                {!fullPage && (
+                  <div className={styles.detailSticker} aria-hidden="true">
+                    <CourseSticker sport={course.sportName} compact />
+                  </div>
+                )}
               </>
             );
           }}
@@ -927,12 +925,14 @@ export function TeachingDetail({
 
 function TeachingDetailFrame({
   fullPage,
+  hideHeading,
   title,
   description,
   onClose,
   children,
 }: {
   fullPage: boolean;
+  hideHeading: boolean;
   title: string;
   description: string;
   onClose: () => void;
@@ -941,7 +941,7 @@ function TeachingDetailFrame({
   if (!fullPage)
     return (
       <Drawer
-        size="lg"
+        size="xl"
         title={title}
         description={description}
         onClose={onClose}
@@ -951,12 +951,14 @@ function TeachingDetailFrame({
     );
   return (
     <section className={styles.fullStudentDetail}>
-      <header className={styles.sectionHeader}>
-        <div>
-          <h2>{title}</h2>
-          <p className={styles.muted}>{description}</p>
-        </div>
-      </header>
+      {!hideHeading && (
+        <header className={styles.sectionHeader}>
+          <div>
+            <h2>{title}</h2>
+            <p className={styles.muted}>{description}</p>
+          </div>
+        </header>
+      )}
       {children}
     </section>
   );

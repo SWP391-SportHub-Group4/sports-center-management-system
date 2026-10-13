@@ -52,7 +52,12 @@ export interface StudentHistoryClass {
   startDate: string;
   assessmentCount: number;
   averageScore: number | null;
-  lastRecordedAtUtc: string;
+  lastRecordedAtUtc: string | null;
+  status: string;
+  totalSessions: number;
+  completedSessions: number;
+  presentSessions: number;
+  absentSessions: number;
 }
 export type TeachingWrite = Pick<
   TeachingRecord,

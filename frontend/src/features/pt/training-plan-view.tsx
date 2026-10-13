@@ -10,6 +10,7 @@ import {
   Plus,
 } from "lucide-react";
 import { useLanguage } from "@/lib/language";
+import { StatusChip } from "@/components/ui";
 import { formatDateTime } from "@/lib/format";
 import type { CourseSessionDto } from "@/lib/types";
 import type { TeachingRecord, TeachingMember } from "./teaching-api";
@@ -19,6 +20,13 @@ import { formatPlanContent } from "./plan-content";
 export type PlanScope = "course" | "session" | "personal";
 export const planScopeOf = (record: TeachingRecord): PlanScope =>
   record.memberId ? "personal" : record.sessionId ? "session" : "course";
+const sessionOrder = (a: CourseSessionDto, b: CourseSessionDto) =>
+  a.sessionNo - b.sessionNo ||
+  a.startAtUtc.localeCompare(b.startAtUtc) ||
+  a.sessionId.localeCompare(b.sessionId);
+const planOrder = (a: TeachingRecord, b: TeachingRecord) =>
+  a.createdAtUtc.localeCompare(b.createdAtUtc) ||
+  a.recordId.localeCompare(b.recordId);
 
 export function TrainingPlanView({
   records,
@@ -90,9 +98,10 @@ export function TrainingPlanView({
         ? !session || r.sessionId === session
         : true,
   );
-  const usedSessions = sessions
-    .filter((s) => scoped.some((r) => r.sessionId === s.sessionId))
-    .sort((a, b) => a.startAtUtc.localeCompare(b.startAtUtc));
+  const usedSessions = [...sessions].sort(sessionOrder);
+  const shownSessions = usedSessions.filter(
+    (s) => !(sessionId || session) || s.sessionId === (sessionId || session),
+  );
   return (
     <section
       className={styles.workspace}
@@ -181,30 +190,41 @@ export function TrainingPlanView({
             </select>
           </label>
         )}
-        {onCreate && (!memberId || scope === "personal") && (
-          <button
-            type="button"
-            className="btn btn--sm"
-            onClick={() =>
-              onCreate(
-                scope,
-                scope === "course"
-                  ? undefined
-                  : sessionId || session || undefined,
-                scope === "personal"
-                  ? memberId || student || undefined
-                  : undefined,
-              )
-            }
-          >
-            <Plus size={16} aria-hidden="true" />
-            {vi
-              ? `Tạo kế hoạch ${labels[scope].toLowerCase()}`
-              : `New ${labels[scope].toLowerCase()} plan`}
-          </button>
-        )}
+        {onCreate &&
+          (!memberId || scope === "personal") &&
+          !(scope === "session" && shownSessions.length) && (
+            <button
+              type="button"
+              className="btn btn--sm"
+              onClick={() =>
+                onCreate(
+                  scope,
+                  scope === "course"
+                    ? undefined
+                    : sessionId || session || undefined,
+                  scope === "personal"
+                    ? memberId || student || undefined
+                    : undefined,
+                )
+              }
+            >
+              <Plus size={16} aria-hidden="true" />
+              {vi
+                ? `Tạo kế hoạch ${labels[scope].toLowerCase()}`
+                : `New ${labels[scope].toLowerCase()} plan`}
+            </button>
+          )}
       </div>
-      {visible.length ? (
+      {scope === "session" && shownSessions.length ? (
+        <SessionPlans
+          sessions={shownSessions}
+          records={visible}
+          members={members}
+          onCreate={memberId ? undefined : onCreate}
+          onEdit={memberId ? undefined : onEdit}
+          editableCoachId={editableCoachId}
+        />
+      ) : visible.length ? (
         <PlanList
           key={`${scope}-${student}-${session}`}
           records={visible}
@@ -248,6 +268,79 @@ export function TrainingPlanView({
   );
 }
 
+function SessionPlans({
+  sessions,
+  records,
+  members,
+  onCreate,
+  onEdit,
+  editableCoachId,
+}: {
+  sessions: CourseSessionDto[];
+  records: TeachingRecord[];
+  members: TeachingMember[];
+  onCreate?: (scope: PlanScope, sessionId?: string, memberId?: string) => void;
+  onEdit?: (record: TeachingRecord) => void;
+  editableCoachId?: string;
+}) {
+  const { language } = useLanguage();
+  const vi = language === "vi";
+  return (
+    <ol className={styles.sessionPlans}>
+      {sessions.map((session) => {
+        const plans = records
+          .filter((record) => record.sessionId === session.sessionId)
+          .sort(planOrder);
+        return (
+          <li key={session.sessionId}>
+            <header className={styles.sessionPlanHeader}>
+              <div>
+                <h3>
+                  {vi ? "Buổi" : "Session"} {session.sessionNo}
+                  {session.isMakeup ? (vi ? " · Học bù" : " · Makeup") : ""}
+                </h3>
+                <p>
+                  {formatDateTime(session.startAtUtc)} · {session.roomName}
+                </p>
+              </div>
+              <StatusChip value={session.status} />
+              {onCreate &&
+                session.coachId === editableCoachId &&
+                !/cancel/i.test(session.status) && (
+                  <button
+                    type="button"
+                    className="btn btn--secondary btn--sm"
+                    onClick={() => onCreate("session", session.sessionId)}
+                  >
+                    <Plus size={16} aria-hidden="true" />
+                    {vi ? "Thêm kế hoạch" : "Add plan"}
+                  </button>
+                )}
+            </header>
+            {plans.length ? (
+              <PlanList
+                records={plans}
+                scope="session"
+                sessions={[session]}
+                members={members}
+                onEdit={onEdit}
+                editableCoachId={editableCoachId}
+                groupedBySession
+              />
+            ) : (
+              <p className={styles.scopeDescription}>
+                {vi
+                  ? "Buổi này chưa có kế hoạch. Kế hoạch mới sẽ hiển thị tại đây."
+                  : "No plan for this session yet. New plans will appear here."}
+              </p>
+            )}
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
 function PlanList({
   records,
   scope,
@@ -256,6 +349,7 @@ function PlanList({
   onEdit,
   editableCoachId,
   initiallyExpanded = false,
+  groupedBySession = false,
 }: {
   records: TeachingRecord[];
   scope: PlanScope;
@@ -264,6 +358,7 @@ function PlanList({
   onEdit?: (record: TeachingRecord) => void;
   editableCoachId?: string;
   initiallyExpanded?: boolean;
+  groupedBySession?: boolean;
 }) {
   const { language } = useLanguage();
   const vi = language === "vi";
@@ -277,8 +372,13 @@ function PlanList({
         const session = sessions.find((s) => s.sessionId === record.sessionId);
         const member = members.find((m) => m.memberId === record.memberId);
         const open = expanded === record.recordId;
-        const scopeLabel =
-          scope === "personal"
+        const scopeLabel = groupedBySession
+          ? record.memberId
+            ? (member?.memberName ?? (vi ? "Cá nhân" : "Individual"))
+            : vi
+              ? "Kế hoạch cả lớp"
+              : "Class plan"
+          : scope === "personal"
             ? (member?.memberName ??
               (vi ? "Kế hoạch cá nhân" : "Personal plan"))
             : scope === "session"
@@ -313,17 +413,19 @@ function PlanList({
                     ` · ${session ? `${vi ? "Buổi" : "Session"} ${session.sessionNo}` : vi ? "Theo buổi" : "Session plan"}`}
                 </span>
                 <strong>{record.title}</strong>
-                <small>
-                  {record.sessionId
-                    ? session
-                      ? formatDateTime(session.startAtUtc)
+                {!groupedBySession && (
+                  <small>
+                    {record.sessionId
+                      ? session
+                        ? formatDateTime(session.startAtUtc)
+                        : vi
+                          ? "Buổi học chưa có thông tin thời gian"
+                          : "Session time unavailable"
                       : vi
-                        ? "Buổi học chưa có thông tin thời gian"
-                        : "Session time unavailable"
-                    : vi
-                      ? "Áp dụng trong toàn khóa"
-                      : "Applies throughout the course"}
-                </small>
+                        ? "Áp dụng trong toàn khóa"
+                        : "Applies throughout the course"}
+                  </small>
+                )}
                 {!open && (
                   <span className={styles.preview}>{record.content}</span>
                 )}
@@ -378,10 +480,7 @@ function CourseRoadmap({
   const ordered = sessions
     .filter((s) => !/cancel/i.test(s.status))
     .slice()
-    .sort(
-      (a, b) =>
-        a.sessionNo - b.sessionNo || a.startAtUtc.localeCompare(b.startAtUtc),
-    );
+    .sort(sessionOrder);
   const courseTopics = new Map<number, string[]>();
   for (const plan of records.filter((r) => !r.sessionId && !r.memberId)) {
     for (const line of formatPlanContent(plan.content).split("\n")) {
@@ -426,9 +525,9 @@ function CourseRoadmap({
       )}
       <ol className={styles.roadmapList}>
         {ordered.map((s) => {
-          const lessonPlans = records.filter(
-            (r) => r.sessionId === s.sessionId && !r.memberId,
-          );
+          const lessonPlans = records
+            .filter((r) => r.sessionId === s.sessionId && !r.memberId)
+            .sort(planOrder);
           return (
             <li key={s.sessionId}>
               <span className={styles.roadmapNumber} aria-hidden="true">

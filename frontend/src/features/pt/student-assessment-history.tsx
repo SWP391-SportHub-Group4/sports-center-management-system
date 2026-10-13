@@ -8,14 +8,14 @@ import {
   History,
   Search,
 } from "lucide-react";
-import { AsyncSection, Pager } from "@/components/ui";
+import { AsyncSection, Pager, StatusChip } from "@/components/ui";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { teachingApi, type StudentHistoryClass } from "./teaching-api";
 import styles from "./student-assessment-history.module.css";
 
-export function PreviousClassAssessments({
+export function StudentLearningHistory({
   memberId,
   classId,
   sportName,
@@ -53,7 +53,7 @@ export function PreviousClassAssessments({
   return (
     <section
       className={styles.workspace}
-      aria-label={vi ? "Đánh giá từ lớp trước" : "Previous class assessments"}
+      aria-label={vi ? "Đánh giá từ lớp trước" : "Learning history"}
     >
       <header className={styles.intro}>
         <div>
@@ -65,7 +65,7 @@ export function PreviousClassAssessments({
           <p>
             {vi
               ? "Chọn một lớp để xem đánh giá theo từng buổi. Lịch sử này chỉ dùng để tham khảo khi lập kế hoạch mới."
-              : "Choose a class to review its session assessments. Use this read-only history to inform the student’s next plan."}
+              : "Review class progress, attendance and session assessments in the same sport. Use this history to inform the student’s next plan."}
           </p>
         </div>
         <span className={styles.readOnly}>
@@ -74,7 +74,7 @@ export function PreviousClassAssessments({
         </span>
       </header>
       <label className={styles.searchLabel}>
-        {vi ? "Tìm lớp đã học" : "Find a previous class"}
+        {vi ? "Tìm lớp đã học" : "Find a class"}
         <span className={styles.search}>
           <Search size={18} aria-hidden="true" />
           <input
@@ -106,7 +106,7 @@ export function PreviousClassAssessments({
                       : "No matching classes"
                     : vi
                       ? "Chưa có đánh giá từ lớp trước"
-                      : "No previous class assessments"}
+                      : "No other classes yet"}
                 </h4>
                 <p>
                   {search
@@ -115,7 +115,7 @@ export function PreviousClassAssessments({
                       : "Try another class name or clear your search."
                     : vi
                       ? "Chỉ hiển thị lớp có đánh giá đã lưu cho học viên trong cùng bộ môn."
-                      : "Only classes with saved assessments for this student in the same sport appear here."}
+                      : "Other enrolled classes in the same sport appear here, including those without assessments."}
                 </p>
                 {search && (
                   <button
@@ -135,16 +135,14 @@ export function PreviousClassAssessments({
             <div className={styles.layout}>
               <section
                 className={styles.classes}
-                aria-label={vi ? "Các lớp đã học" : "Previous classes"}
+                aria-label={vi ? "Các lớp đã học" : "Other classes"}
               >
                 <header className={styles.listHeading}>
                   <strong>
                     {data.totalCount} {vi ? "lớp" : "classes"}
                   </strong>
                   <small>
-                    {vi
-                      ? "Đánh giá gần nhất trước"
-                      : "Most recently assessed first"}
+                    {vi ? "Đánh giá gần nhất trước" : "Latest activity first"}
                   </small>
                 </header>
                 <div className={styles.classRows}>
@@ -161,6 +159,19 @@ export function PreviousClassAssessments({
                         <strong>{item.className}</strong>
                         <ChevronRight size={17} aria-hidden="true" />
                       </span>
+                      <span className={styles.progressRow}>
+                        <StatusChip value={item.status} />
+                        <span>
+                          {item.completedSessions} / {item.totalSessions}{" "}
+                          sessions completed
+                        </span>
+                      </span>
+                      <progress
+                        className={styles.progress}
+                        value={item.completedSessions}
+                        max={Math.max(1, item.totalSessions)}
+                        aria-label={`${item.className}: sessions completed`}
+                      />
                       <span>
                         {item.assessmentCount} {vi ? "đánh giá" : "assessments"}
                         {item.averageScore !== null &&
@@ -168,7 +179,9 @@ export function PreviousClassAssessments({
                       </span>
                       <small>
                         {vi ? "Ghi nhận gần nhất: " : "Last assessed: "}
-                        {formatDate(item.lastRecordedAtUtc)}
+                        {item.lastRecordedAtUtc
+                          ? formatDate(item.lastRecordedAtUtc)
+                          : "Not recorded yet"}
                       </small>
                     </button>
                   ))}
@@ -237,12 +250,49 @@ function ClassAssessments({
   return (
     <>
       <header className={styles.detailHeading}>
-        <h4>{source.className}</h4>
+        <div className={styles.progressRow}>
+          <h4>{source.className}</h4>
+          <StatusChip value={source.status} />
+        </div>
         <p>
           {vi ? "Khai giảng " : "Started "}
           {formatDate(source.startDate)}
         </p>
+        <div className={styles.classProgress}>
+          <div className={styles.progressRow}>
+            <strong>
+              {source.completedSessions} / {source.totalSessions} sessions
+              completed
+            </strong>
+            <span>
+              {source.totalSessions > 0
+                ? Math.round(
+                    (source.completedSessions / source.totalSessions) * 100,
+                  )
+                : 0}
+              %
+            </span>
+          </div>
+          <progress
+            className={styles.progress}
+            value={source.completedSessions}
+            max={Math.max(1, source.totalSessions)}
+            aria-label="Class sessions completed"
+          />
+          <p>
+            Class progress reflects completed lessons. Attendance below belongs
+            to this student.
+          </p>
+        </div>
         <dl className={styles.summary}>
+          <div>
+            <dt>Present</dt>
+            <dd>{source.presentSessions}</dd>
+          </div>
+          <div>
+            <dt>Absent</dt>
+            <dd>{source.absentSessions}</dd>
+          </div>
           <div>
             <dt>{vi ? "Đánh giá đã ghi" : "Recorded assessments"}</dt>
             <dd>{source.assessmentCount}</dd>

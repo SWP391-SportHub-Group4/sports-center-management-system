@@ -15,10 +15,10 @@ export function CoachWorkspaceRoute({
   const { language } = useLanguage();
   const labels =
     language === "vi"
-      ? { schedule: "Lịch dạy", classes: "Lớp phụ trách", students: "Học viên" }
+      ? { schedule: "Lịch dạy", classes: "Lớp học", students: "Học viên" }
       : {
           schedule: "Teaching schedule",
-          classes: "Assigned classes",
+          classes: "Classes",
           students: "Students",
         };
   return (

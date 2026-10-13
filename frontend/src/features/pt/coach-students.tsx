@@ -18,7 +18,7 @@ import { useApi } from "@/lib/useApi";
 import { teachingApi, type TeachingStudent } from "./teaching-api";
 import { ptApi } from "./api";
 import { TeachingDetail } from "./coach-workspace";
-import { PreviousClassAssessments } from "./student-assessment-history";
+import { StudentLearningHistory } from "./student-assessment-history";
 import styles from "./coach-students.module.css";
 
 export function CoachStudentDirectory() {
@@ -300,7 +300,7 @@ function StudentProfileContent({ student }: { student: TeachingStudent }) {
               }}
             >
               <History size={18} aria-hidden="true" />
-              {vi ? "Đánh giá từ lớp trước" : "Previous class assessments"}
+              {vi ? "Đánh giá từ lớp trước" : "Learning history"}
             </button>
           </div>
           {tab === "current" ? (
@@ -316,7 +316,7 @@ function StudentProfileContent({ student }: { student: TeachingStudent }) {
               }}
             />
           ) : (
-            <PreviousClassAssessments
+            <StudentLearningHistory
               key={selected.classId}
               memberId={student.memberId}
               classId={selected.classId}

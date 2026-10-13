@@ -3,6 +3,39 @@
   gap: var(--space-3);
   min-width: 0;
 }
+.sessionPlans {
+  display: grid;
+  gap: var(--space-5);
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.sessionPlans > li {
+  min-width: 0;
+  padding-block: var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.sessionPlanHeader {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+.sessionPlanHeader > div:first-child {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+.sessionPlanHeader h3 {
+  margin: 0;
+  font-size: var(--text-lg);
+}
+.sessionPlanHeader p {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-sm);
+  color: var(--text-body);
+  overflow-wrap: anywhere;
+}
 .scopeTabs {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

@@ -343,3 +343,43 @@
     transition: none;
   }
 }
+
+.progressRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+}
+.progress {
+  display: block;
+  width: 100%;
+  height: 6px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  appearance: none;
+  background: var(--border-subtle);
+  color: var(--success-text);
+}
+.progress::-webkit-progress-bar {
+  background: var(--border-subtle);
+}
+.progress::-webkit-progress-value {
+  background: var(--success-text);
+}
+.progress::-moz-progress-bar {
+  background: var(--success-text);
+}
+.classProgress {
+  display: grid;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+.classProgress p {
+  margin: 0;
+  color: var(--text-body);
+  font-size: var(--text-xs);
+  line-height: 1.6;
+}

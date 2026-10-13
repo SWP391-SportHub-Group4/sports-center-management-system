@@ -1,11 +1,17 @@
-"use client";
-import { useParams } from "next/navigation";
-import { CoachWorkspaceRoute } from "@/features/pt/coach-workspace-route";
+import { CoachClassPage } from "@/features/pt/coach-class-page";
 
-export default function Page() {
-  const { classId } = useParams<{ classId: string }>();
-
+export default async function Page({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ classId: string }>;
+  searchParams: Promise<{ tab?: string }>;
+}) {
+  const [{ classId }, query] = await Promise.all([params, searchParams]);
   return (
-    <CoachWorkspaceRoute mode="classes" initialClassId={Number(classId)} />
+    <CoachClassPage
+      classId={Number(classId)}
+      initialTab={query.tab === "plans" ? "plans" : "students"}
+    />
   );
 }

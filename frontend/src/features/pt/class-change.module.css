@@ -3,6 +3,10 @@
   gap: var(--space-4);
   min-width: 0;
 }
+.changeAction {
+  display: flex;
+  justify-content: flex-end;
+}
 .requestPage {
   display: grid;
   gap: var(--space-6);

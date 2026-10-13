@@ -11,7 +11,7 @@ export interface DrawerProps {
   onClose: () => void;
   /** Vùng nút cố định ở đáy. */
   footer?: ReactNode;
-  size?: "sm" | "md" | "lg";
+  size?: "sm" | "md" | "lg" | "xl";
   children: ReactNode;
   /** AI can leave the calendar interactive on desktop; mobile keeps modal behavior. */
   nonModalDesktop?: boolean;

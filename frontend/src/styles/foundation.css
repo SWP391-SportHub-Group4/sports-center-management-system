@@ -837,6 +837,10 @@ select {
   --drawer-width: 640px;
 }
 
+.drawer--xl {
+  --drawer-width: 760px;
+}
+
 .drawer__head {
   display: flex;
   align-items: flex-start;

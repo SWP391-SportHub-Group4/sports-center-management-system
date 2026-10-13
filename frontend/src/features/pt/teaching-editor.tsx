@@ -3,9 +3,8 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Save, Send, Sparkles, X } from "lucide-react";
 import { Feedback } from "@/components/ui";
-import { useAction } from "@/lib/useApi";
+import { useAction, useNow } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
-import { vietnamUtc, vietnamLocal } from "@/lib/vietnam-time";
 import type { CourseSessionDto } from "@/lib/types";
 import { formatDateTime } from "@/lib/format";
 import {
@@ -49,6 +48,7 @@ export function TeachingEditor({
   const vi = language === "vi";
   const action = useAction();
   const ai = useAction();
+  const now = useNow();
   const lock = useRef(false);
   const [id] = useState(() => existing?.recordId ?? crypto.randomUUID());
   const [title, setTitle] = useState(existing?.title ?? "");
@@ -60,9 +60,12 @@ export function TeachingEditor({
     existing?.sessionId ?? sessionId ?? "",
   );
   const [score, setScore] = useState(String(existing?.score ?? ""));
-  const [due, setDue] = useState(
-    existing?.dueAtUtc ? vietnamLocal(existing.dueAtUtc) : "",
-  );
+  const homeworkSession = sessions.find((item) => item.sessionId === session);
+  const homeworkAllowed =
+    kind !== "HOMEWORK" ||
+    (!!homeworkSession &&
+      !/cancel/i.test(homeworkSession.status) &&
+      now >= Date.parse(homeworkSession.endAtUtc));
   const [goal, setGoal] = useState(
     members.find((m) => m.memberId === student)?.goal ?? "",
   );
@@ -90,7 +93,7 @@ export function TeachingEditor({
   };
   async function save(e: FormEvent) {
     e.preventDefault();
-    if (lock.current) return;
+    if (lock.current || !homeworkAllowed) return;
     lock.current = true;
     try {
       const saved = await action.run(() =>
@@ -104,7 +107,7 @@ export function TeachingEditor({
             sessionId: session || null,
             memberId: lockedMemberId ?? (student || null),
             score: score ? Number(score) : null,
-            dueAtUtc: due ? vietnamUtc(due) : null,
+            dueAtUtc: null,
             version: existing?.version ?? 0,
           },
           !!existing,
@@ -120,7 +123,6 @@ export function TeachingEditor({
     title !== (existing?.title ?? "") ||
     content !== (existing?.content ?? "") ||
     score !== String(existing?.score ?? "") ||
-    due !== (existing?.dueAtUtc ? vietnamLocal(existing.dueAtUtc) : "") ||
     student !== (existing?.memberId ?? memberId ?? "") ||
     session !== (existing?.sessionId ?? sessionId ?? "");
   useEffect(() => {
@@ -193,6 +195,17 @@ export function TeachingEditor({
             </small>
           </label>
         )}
+        {kind === "HOMEWORK" && (
+          <p className={styles.muted} role="status">
+            {homeworkAllowed
+              ? vi
+                ? "Bài tập ôn luyện thuộc buổi vừa học. Nên hoàn thành trước buổi tiếp theo — không bắt buộc."
+                : "Practice belongs to the lesson that ended. Aim to complete it before the next lesson — optional."
+              : vi
+                ? "Chọn một buổi đã kết thúc để giao bài tập."
+                : "Select a session that has ended to assign homework."}
+          </p>
+        )}
         <div className={styles.formRow}>
           {(kind !== "PLAN" || scope === "personal") && (
             <label>
@@ -240,7 +253,9 @@ export function TeachingEditor({
                 value={session}
                 disabled={busy || !!sessionId || !!existing}
                 required={
-                  kind === "RESULT" || (kind === "PLAN" && scope === "session")
+                  kind === "RESULT" ||
+                  kind === "HOMEWORK" ||
+                  (kind === "PLAN" && scope === "session")
                 }
                 onChange={(e) => {
                   setSession(e.target.value);
@@ -248,7 +263,8 @@ export function TeachingEditor({
                 }}
               >
                 <option value="">
-                  {kind === "PLAN" && scope === "session"
+                  {(kind === "PLAN" && scope === "session") ||
+                  kind === "HOMEWORK"
                     ? vi
                       ? "Chọn buổi học"
                       : "Select a session"
@@ -257,7 +273,11 @@ export function TeachingEditor({
                       : "Throughout the course"}
                 </option>
                 {sessions
-                  .filter((s) => !/cancel/i.test(s.status))
+                  .filter(
+                    (s) =>
+                      !/cancel/i.test(s.status) &&
+                      (kind !== "HOMEWORK" || now >= Date.parse(s.endAtUtc)),
+                  )
                   .map((s) => (
                     <option key={s.sessionId} value={s.sessionId}>
                       {vi ? "Buổi" : "Session"} {s.sessionNo} ·{" "}
@@ -447,26 +467,30 @@ export function TeachingEditor({
             </small>
           </label>
         )}
-        {kind === "HOMEWORK" && (
-          <label>
-            {vi ? "Hạn hoàn thành · Giờ Việt Nam" : "Due date · Vietnam time"}
-            <input
-              type="datetime-local"
-              value={due}
-              onChange={(e) => setDue(e.target.value)}
-              disabled={busy}
-            />
-          </label>
-        )}
         {(kind === "NOTICE" || kind === "HOMEWORK") && (
           <p className={styles.muted}>
             {vi
-              ? "Học viên được chọn sẽ nhận thông báo trong hệ thống sau khi gửi."
-              : "Selected students receive an in-app notification when you send."}
+              ? kind === "HOMEWORK"
+                ? "Học viên được chọn sẽ nhận bài tập qua email và thông báo qua chuông."
+                : "Học viên được chọn sẽ nhận thông báo trong hệ thống sau khi gửi."
+              : kind === "HOMEWORK"
+                ? "Selected students receive the homework by email and a bell notification."
+                : "Selected students receive an in-app notification when you send."}
+          </p>
+        )}
+        {kind === "RESULT" && !existing && (
+          <p className={styles.muted}>
+            {vi
+              ? "Học viên được đánh giá sẽ nhận thông báo qua chuông khi bạn lưu."
+              : "This student receives a bell notification when you save the assessment."}
           </p>
         )}
         <Feedback error={action.error} />
-        <button type="submit" className="btn" disabled={busy}>
+        <button
+          type="submit"
+          className="btn"
+          disabled={busy || !homeworkAllowed}
+        >
           {kind === "NOTICE" || kind === "HOMEWORK" ? (
             <Send size={17} aria-hidden="true" />
           ) : (
