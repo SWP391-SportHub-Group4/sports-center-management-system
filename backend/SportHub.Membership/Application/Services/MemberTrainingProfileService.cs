@@ -50,6 +50,8 @@ public sealed class MemberTrainingProfileService(ISportHubDbContext db, IClock c
             throw new BadRequestException("invalid_date_of_birth", $"Age must be between {MinAge} and {MaxAge}.");
 
         var height = request.HeightCm!.Value;
+        if (request.BodyBuild is not (null or "" or "SLENDER" or "ATHLETIC" or "FULLER"))
+            throw new BadRequestException("invalid_body_build", "Choose a supported body build.");
         var weight = request.WeightKg!.Value;
         RequireOneDecimal(height, "invalid_height");
         RequireOneDecimal(weight, "invalid_weight");
@@ -76,6 +78,7 @@ public sealed class MemberTrainingProfileService(ISportHubDbContext db, IClock c
         profile.Sex = sex;
         profile.HeightCm = height;
         profile.WeightKg = weight;
+        profile.BodyBuild = string.IsNullOrWhiteSpace(request.BodyBuild) ? null : request.BodyBuild;
         profile.TargetWeightKg = request.TargetWeightKg;
         profile.ActivityLevel = activity;
         profile.TrainingDaysPerWeek = request.TrainingDaysPerWeek;
@@ -118,7 +121,7 @@ public sealed class MemberTrainingProfileService(ISportHubDbContext db, IClock c
             bmi, bmi is { } b ? BodyMetrics.Category(b) : null, p.ActivityLevel?.ToString(),
             p.TrainingDaysPerWeek, p.SessionMinutes, p.DietaryPreference.ToString(), p.FoodAllergies, complete,
             [.. history.Select(x => new BodyMeasurementResponse(x.MeasuredAt, x.HeightCm, x.WeightKg,
-                BodyMetrics.Bmi(x.HeightCm, x.WeightKg)))]);
+                BodyMetrics.Bmi(x.HeightCm, x.WeightKg)))], p.BodyBuild);
     }
 
     private static T Parse<T>(string? value, string code) where T : struct, Enum

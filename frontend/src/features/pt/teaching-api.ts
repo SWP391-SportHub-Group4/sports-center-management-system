@@ -1,5 +1,5 @@
 import { api } from "@/lib/apiClient";
-import type { Paged } from "@/lib/types";
+import type { Paged, MemberTrainingProfileDto } from "@/lib/types";
 
 export interface TeachingRecord {
   recordId: string;
@@ -52,7 +52,12 @@ export interface StudentHistoryClass {
   startDate: string;
   assessmentCount: number;
   averageScore: number | null;
-  lastRecordedAtUtc: string;
+  lastRecordedAtUtc: string | null;
+  status: string;
+  totalSessions: number;
+  completedSessions: number;
+  presentSessions: number;
+  absentSessions: number;
 }
 export type TeachingWrite = Pick<
   TeachingRecord,
@@ -68,6 +73,11 @@ export type TeachingWrite = Pick<
 >;
 const root = "/api/coaches/me/teaching";
 export const teachingApi = {
+  healthProfile: (memberId: string, signal?: AbortSignal) =>
+    api.get<{ profile: MemberTrainingProfileDto | null }>(
+      `${root}/students/${memberId}/health-profile`,
+      { signal },
+    ),
   students: (
     page: number,
     search: string,

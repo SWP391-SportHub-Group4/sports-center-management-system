@@ -60,6 +60,16 @@ export const classChangeApi = {
     ),
   withdraw: (id: string) =>
     api.post<ClassChangeRequest>(`${coachRoot}/change-requests/${id}/withdraw`),
+  update: (
+    id: string,
+    body: {
+      requestId: string;
+      type: ClassChangeType;
+      reason: string;
+      proposedStartAtUtc: string | null;
+      proposedEndAtUtc: string | null;
+    },
+  ) => api.put<ClassChangeRequest>(`${coachRoot}/change-requests/${id}`, body),
   resolve: (
     id: string,
     body: {

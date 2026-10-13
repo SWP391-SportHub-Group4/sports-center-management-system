@@ -15,6 +15,7 @@ public class MemberTrainingProfileConfiguration : IEntityTypeConfiguration<Membe
         builder.Property(e => e.WeightKg).HasPrecision(5, 1);
         builder.Property(e => e.TargetWeightKg).HasPrecision(5, 1);
         builder.Property(e => e.FoodAllergies).HasMaxLength(500);
+        builder.Property(e => e.BodyBuild).HasMaxLength(20);
 
         builder.HasOne(e => e.Member)
             .WithMany()

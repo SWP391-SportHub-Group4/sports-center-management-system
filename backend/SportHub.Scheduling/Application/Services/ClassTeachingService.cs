@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
+using System.Net;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.Abstractions.Identity;
 using SportHub.BuildingBlocks.Abstractions.Notifications;
@@ -69,7 +70,7 @@ public sealed class ClassTeachingService(ISportHubDbContext db, IUserAccessReade
         return new { MemberId = memberId, MemberName = student.FullName, student.Email, Classes = contexts };
     }
 
-    private async Task<IQueryable<ClassTeachingRecord>> StudentHistoryRecordsAsync(Guid coachId, Guid memberId, int classId, CancellationToken ct)
+    private async Task<IQueryable<Class>> StudentHistoryClassesQueryAsync(Guid coachId, Guid memberId, int classId, CancellationToken ct)
     {
         await RequireCoachAsync(coachId, ct);
         var current = await CurrentClasses(coachId).SingleOrDefaultAsync(c => c.ClassId == classId, ct)
@@ -78,28 +79,49 @@ public sealed class ClassTeachingService(ISportHubDbContext db, IUserAccessReade
             throw new ForbiddenException("member_not_in_class", "Student is not registered in this class.");
         var previousClasses = db.Set<Enrollment>().Where(e => e.MemberId == memberId && e.ClassId != classId
             && e.Class!.SportId == current.SportId && e.Class.StartDate <= current.StartDate).Select(e => e.ClassId);
+        return db.Set<Class>().AsNoTracking().Where(c => previousClasses.Contains(c.ClassId));
+    }
+
+    private async Task<IQueryable<ClassTeachingRecord>> StudentHistoryRecordsAsync(Guid coachId, Guid memberId, int classId, CancellationToken ct)
+    {
+        var classes = await StudentHistoryClassesQueryAsync(coachId, memberId, classId, ct);
         return db.Set<ClassTeachingRecord>().AsNoTracking().Where(r => r.MemberId == memberId && r.Kind == "RESULT"
-            && previousClasses.Contains(r.ClassId) && r.CreatedAtUtc <= clock.UtcNow);
+            && classes.Any(c => c.ClassId == r.ClassId) && r.CreatedAtUtc <= clock.UtcNow);
     }
 
     public async Task<object> StudentHistoryClassesAsync(Guid coachId, Guid memberId, int classId, int page, string? search, CancellationToken ct)
     {
-        var records = await StudentHistoryRecordsAsync(coachId, memberId, classId, ct);
+        var classes = await StudentHistoryClassesQueryAsync(coachId, memberId, classId, ct);
         if (page < 1 || page > 10000 || search?.Length > 150)
             throw new BadRequestException("invalid_history_query", "Invalid class search or page.");
-        var grouped = records.GroupBy(r => r.ClassId).Select(g => new {
-            ClassId = g.Key, AssessmentCount = g.Count(), AverageScore = g.Average(r => (double?)r.Score),
-            LastRecordedAtUtc = g.Max(r => r.CreatedAtUtc)
-        });
-        var query = from g in grouped join c in db.Set<Class>().AsNoTracking() on g.ClassId equals c.ClassId
-            select new { g.ClassId, ClassName = c.Name, c.StartDate, g.AssessmentCount, g.AverageScore, g.LastRecordedAtUtc };
         if (!string.IsNullOrWhiteSpace(search)) {
             var term = search.Trim().ToLowerInvariant();
-            query = query.Where(c => c.ClassName.ToLower().Contains(term));
+            classes = classes.Where(c => c.Name.ToLower().Contains(term));
         }
+        var records = db.Set<ClassTeachingRecord>().AsNoTracking()
+            .Where(r => r.MemberId == memberId && r.Kind == "RESULT" && r.CreatedAtUtc <= clock.UtcNow);
+        var sessions = db.Set<ClassSession>().AsNoTracking().Where(s => s.Status != ClassSessionStatus.Cancelled);
+        var attendance = db.Set<Attendance>().AsNoTracking()
+            .Where(a => a.Enrollment!.MemberId == memberId && a.Session!.Status != ClassSessionStatus.Cancelled);
+        var query = classes.Select(c => new {
+            c.ClassId, ClassName = c.Name, c.StartDate, c.Status, c.NumSessions, c.CreatedAt,
+            AssessmentCount = records.Count(r => r.ClassId == c.ClassId),
+            AverageScore = records.Where(r => r.ClassId == c.ClassId).Average(r => (double?)r.Score),
+            LastRecordedAtUtc = records.Where(r => r.ClassId == c.ClassId).Max(r => (DateTime?)r.CreatedAtUtc),
+            TotalSessions = sessions.Count(s => s.ClassId == c.ClassId),
+            CompletedSessions = sessions.Count(s => s.ClassId == c.ClassId && s.Status == ClassSessionStatus.Completed),
+            PresentSessions = attendance.Count(a => a.Session!.ClassId == c.ClassId && a.Status == AttendanceStatus.Present),
+            AbsentSessions = attendance.Count(a => a.Session!.ClassId == c.ClassId && a.Status == AttendanceStatus.Absent)
+        });
         var totalCount = await query.CountAsync(ct);
-        var items = await query.OrderByDescending(c => c.LastRecordedAtUtc).ThenBy(c => c.ClassId)
+        var rows = await query.OrderByDescending(c => c.LastRecordedAtUtc ?? c.CreatedAt).ThenBy(c => c.ClassId)
             .Skip((page - 1) * 8).Take(8).ToListAsync(ct);
+        var items = rows.Select(c => new {
+            c.ClassId, c.ClassName, c.StartDate, c.AssessmentCount, c.AverageScore, c.LastRecordedAtUtc,
+            Status = c.Status == ClassStatus.InProgress ? "IN_PROGRESS" : c.Status.ToString().ToUpperInvariant(),
+            TotalSessions = c.TotalSessions > 0 ? c.TotalSessions : c.NumSessions,
+            c.CompletedSessions, c.PresentSessions, c.AbsentSessions
+        });
         return new { Items = items, TotalCount = totalCount, Page = page, PageSize = 8 };
     }
 
@@ -184,16 +206,21 @@ public sealed class ClassTeachingService(ISportHubDbContext db, IUserAccessReade
         if (cls.Status is ClassStatus.Draft or ClassStatus.Cancelled)
             throw new ConflictException("class_not_active", "This class is not active.");
         var kind = request.Kind?.Trim().ToUpperInvariant();
+        // Homework is optional practice before the next lesson, without a fixed due date.
+        if (kind == "HOMEWORK") request = request with { DueAtUtc = null };
         var title = request.Title?.Trim() ?? "";
         var content = request.Content?.Trim() ?? "";
         if (request.RecordId == Guid.Empty || kind is not ("PLAN" or "RESULT" or "NOTICE" or "HOMEWORK") || title.Length is < 1 or > 160 || content.Length is < 1 or > 8000 || request.Score is < 1 or > 5)
             throw new BadRequestException("teaching_invalid", "Enter a title, content and a valid assessment.");
         if (kind == "RESULT" && (!request.SessionId.HasValue || !request.MemberId.HasValue))
             throw new BadRequestException("result_scope_required", "Select a session and student.");
+        if (kind == "HOMEWORK" && !request.SessionId.HasValue)
+            throw new BadRequestException("homework_session_required", "Homework must belong to the lesson that has ended.");
         if (kind != "RESULT" && request.Score.HasValue)
             throw new BadRequestException("score_result_only", "Assessment belongs to a session result.");
         if (request.MemberId.HasValue && !await db.Set<Enrollment>().AnyAsync(x => x.ClassId == classId && x.MemberId == request.MemberId && x.Status == EnrollmentStatus.Confirmed, ct))
             throw new ForbiddenException("member_not_in_class", "Student is not registered in this class.");
+        int? homeworkSessionNo = null;
         if (request.SessionId.HasValue) {
             await db.Database.ExecuteSqlInterpolatedAsync($"SELECT session_id FROM class_sessions WHERE session_id = {request.SessionId.Value} FOR UPDATE", ct);
             var session = await db.Set<ClassSession>().AsNoTracking().SingleOrDefaultAsync(x => x.SessionId == request.SessionId && x.ClassId == classId, ct)
@@ -201,6 +228,9 @@ public sealed class ClassTeachingService(ISportHubDbContext db, IUserAccessReade
             if (session.CoachId != coachId) throw new ForbiddenException("session_not_assigned", "You are not assigned to this session.");
             if (session.Status == ClassSessionStatus.Cancelled) throw new ConflictException("session_cancelled", "Session is cancelled.");
             if (kind == "RESULT" && clock.UtcNow < session.StartAtUtc) throw new ConflictException("result_not_open", "Results can be recorded after the session starts.");
+            if (kind == "HOMEWORK" && clock.UtcNow < session.EndAtUtc)
+                throw new ConflictException("homework_not_open", "Homework can only be assigned after the session ends.");
+            if (kind == "HOMEWORK") homeworkSessionNo = session.SessionNo;
         } else if (cls.CoachId != coachId) throw new ForbiddenException("class_plan_not_assigned", "Only the assigned class coach can publish class content.");
         if (request.DueAtUtc.HasValue && (kind != "HOMEWORK" || request.DueAtUtc.Value.Kind != DateTimeKind.Utc || request.DueAtUtc <= clock.UtcNow))
             throw new BadRequestException("homework_due_invalid", "Homework deadline must be in the future (UTC).");
@@ -224,12 +254,53 @@ public sealed class ClassTeachingService(ISportHubDbContext db, IUserAccessReade
         record.UpdatedAtUtc = clock.UtcNow; record.Version++;
         if (existing == null) db.Set<ClassTeachingRecord>().Add(record);
         if (existing == null && kind is "NOTICE" or "HOMEWORK") {
-            var recipients = await db.Set<Enrollment>().Where(x => x.ClassId == classId && x.Status == EnrollmentStatus.Confirmed && (request.MemberId == null || x.MemberId == request.MemberId)).Select(x => x.MemberId).Distinct().ToListAsync(ct);
-            foreach (var recipient in recipients)
-                notifications.Queue(new NotificationRequest(recipient, NotificationEvents.ClassTeachingUpdated, $"{cls.Name} · {title}\n{content}", record.RecordId));
+            var recipients = await (from enrollment in db.Set<Enrollment>()
+                join account in db.Set<UserAccount>() on enrollment.MemberId equals account.UserId
+                where enrollment.ClassId == classId && enrollment.Status == EnrollmentStatus.Confirmed
+                    && (request.MemberId == null || enrollment.MemberId == request.MemberId)
+                select new { account.UserId, account.Email }).Distinct().ToListAsync(ct);
+            var emailBody = kind == "HOMEWORK"
+                ? HomeworkEmailBody(cls.Name, homeworkSessionNo!.Value, title, content)
+                : null;
+            foreach (var recipient in recipients) {
+                notifications.Queue(new NotificationRequest(recipient.UserId, NotificationEvents.ClassTeachingUpdated, $"{cls.Name} · {title}\n{content}", record.RecordId));
+                if (emailBody != null)
+                    notifications.QueueEmail(new EmailNotificationRequest(recipient.UserId, recipient.Email,
+                        NotificationEvents.ClassTeachingUpdated, record.RecordId,
+                        "SportHub · Homework · " + title.Replace('\r', ' ').Replace('\n', ' '), emailBody));
+            }
         }
+        if (existing == null && kind == "RESULT" && request.MemberId is Guid assessedMemberId)
+            notifications.Queue(new NotificationRequest(assessedMemberId, NotificationEvents.ClassTeachingUpdated,
+                $"New assessment · {cls.Name} · {title}", record.RecordId));
         audit.Write(new AuditEntry(coachId, update ? "EDIT_CLASS_TEACHING" : "CREATE_CLASS_TEACHING", nameof(ClassTeachingRecord), record.RecordId.ToString(), NewValue: JsonSerializer.Serialize(new { classId, kind, request.SessionId, request.MemberId })));
         await db.SaveChangesAsync(ct); await tx.CommitAsync(ct);
         return record;
+    }
+
+    private static string HomeworkEmailBody(string className, int sessionNo, string title, string content)
+    {
+        var header = "<h2>Homework</h2><p><strong>Class:</strong> "
+            + WebUtility.HtmlEncode(className) + "<br><strong>Session:</strong> " + sessionNo
+            + "<br>Aim to complete before the next lesson — optional."
+            + "</p><h3>" + WebUtility.HtmlEncode(title) + "</h3><p>";
+        const string footer = "</p><p>Open SportHub → My Schedule → your class → From your coach to view the full homework.</p>";
+        static string Encode(string text) => WebUtility.HtmlEncode(text).Replace("\r\n", "\n").Replace("\n", "<br>");
+        var encoded = Encode(content);
+        // Keep the encrypted outbox payload within its existing 24,000-character limit.
+        if (header.Length + encoded.Length + footer.Length > 24_000) {
+            const string more = "<br>… (View the full homework in SportHub)";
+            var budget = 24_000 - header.Length - footer.Length - more.Length;
+            var low = 0;
+            var high = content.Length;
+            while (low < high) {
+                var mid = (low + high + 1) / 2;
+                if (Encode(content[..mid]).Length <= budget) low = mid;
+                else high = mid - 1;
+            }
+            if (low > 0 && char.IsHighSurrogate(content[low - 1])) low--;
+            encoded = Encode(content[..low]) + more;
+        }
+        return header + encoded + footer;
     }
 }

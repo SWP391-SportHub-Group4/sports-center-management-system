@@ -143,6 +143,12 @@
 .compact figcaption {
   display: none;
 }
+.small {
+  height: 80px;
+}
+.small .scene {
+  transform: scale(0.26);
+}
 @media (prefers-reduced-motion: no-preference) {
   .character {
     animation: rally 3.6s cubic-bezier(0.45, 0, 0.25, 1) infinite;

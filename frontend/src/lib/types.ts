@@ -428,6 +428,7 @@ export interface BodyMeasurementDto {
 
 /** Self-reported health and training profile. Enum values use the UPPER_SNAKE_CASE wire format. */
 export interface MemberTrainingProfileDto {
+  bodyBuild?: string | null;
   memberId: string;
   goal: string;
   goalType: string | null;

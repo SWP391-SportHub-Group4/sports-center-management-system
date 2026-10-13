@@ -13,11 +13,11 @@ import { ArrowRight, Dumbbell, Grid2X2, UsersRound } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/apiClient";
 import {
-  homepageCategories as seedCategories,
+  homepageCategories as categoryLabels,
   type CategoryId,
   type HomepageLanguage,
   type ShowcaseItem,
-} from "./homepage-seed";
+} from "./homepage-content";
 import { ScrollReveal } from "./ScrollReveal";
 import styles from "./homepage-stats.module.css";
 
@@ -89,6 +89,7 @@ const COACH_GROUPS = [
 /** Huấn luyện viên thật của trung tâm (hai người mỗi nhóm) thay cho nội dung mẫu khi tải được danh sách. */
 function useCoachShowcase() {
   const [coaches, setCoaches] = useState<CatalogCoach[] | null>(null);
+  const [error, setError] = useState(false);
   useEffect(() => {
     const controller = new AbortController();
     api
@@ -99,10 +100,12 @@ function useCoachShowcase() {
       .then((rows) => {
         if (!controller.signal.aborted) setCoaches(rows);
       })
-      .catch(() => undefined);
+      .catch(() => {
+        if (!controller.signal.aborted) setError(true);
+      });
     return () => controller.abort();
   }, []);
-  return coaches;
+  return { coaches, error };
 }
 
 function coachItems(coaches: CatalogCoach[]): ShowcaseItem[] {
@@ -117,9 +120,9 @@ function coachItems(coaches: CatalogCoach[]): ShowcaseItem[] {
           en: `${group.en} coach`,
           vi: coach.bio ?? `Huấn luyện viên ${group.vi.toLowerCase()}`,
         },
-        image: coach.avatarUrl ?? "/sporthub/coaches/minh-khang.webp",
+        image: coach.avatarUrl ?? "",
         alt: {
-          en: `Illustrated portrait of coach ${coach.fullName}`,
+          en: `Portrait of coach ${coach.fullName}`,
           vi: `Chân dung minh họa huấn luyện viên ${coach.fullName}`,
         },
       })),
@@ -128,17 +131,68 @@ function coachItems(coaches: CatalogCoach[]): ShowcaseItem[] {
 
 export function HomepageStats({ language }: { language: HomepageLanguage }) {
   const [active, setActive] = useState<CategoryId>("coaches");
-  const liveCoaches = useCoachShowcase();
+  const { coaches: liveCoaches, error: coachesError } = useCoachShowcase();
   const showcase = liveCoaches ? coachItems(liveCoaches) : [];
-  const homepageCategories = seedCategories.map((category) =>
-    category.id === "coaches" && showcase.length
-      ? {
-          ...category,
-          value: liveCoaches?.length ?? category.value,
-          items: showcase,
-        }
-      : category,
-  );
+  const [overview, setOverview] = useState<{
+    coachCount: number;
+    memberCount: number;
+    facilityCount: number;
+    facilities: {
+      roomId: number;
+      name: string;
+      roomTypeId: number | null;
+      capacity: number;
+    }[];
+  } | null>(null);
+  const [overviewError, setOverviewError] = useState(false);
+  useEffect(() => {
+    const controller = new AbortController();
+    api
+      .get<NonNullable<typeof overview>>("/api/public/overview", {
+        anonymous: true,
+        signal: controller.signal,
+      })
+      .then((data) => {
+        if (!controller.signal.aborted) setOverview(data);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setOverviewError(true);
+      });
+    return () => controller.abort();
+  }, []);
+  const homepageCategories = categoryLabels.map((category) => ({
+    ...category,
+    value: overview
+      ? category.id === "coaches"
+        ? overview.coachCount
+        : category.id === "facilities"
+          ? overview.facilityCount
+          : overview.memberCount
+      : null,
+    items:
+      category.id === "coaches"
+        ? showcase
+        : category.id === "facilities"
+          ? (overview?.facilities ?? []).slice(0, 3).map((room) => ({
+              name: { en: room.name, vi: room.name },
+              detail: {
+                en:
+                  room.roomTypeId === 3
+                    ? "Badminton court"
+                    : room.roomTypeId === 4
+                      ? "Basketball court"
+                      : "Training room",
+                vi: "Training room",
+              },
+              highlight: {
+                en: `Capacity: ${room.capacity}`,
+                vi: `Capacity: ${room.capacity}`,
+              },
+              image: "",
+              alt: { en: room.name, vi: room.name },
+            }))
+          : category.items,
+  }));
   const tabs = useRef<Array<HTMLButtonElement | null>>([]);
   const { user, loading } = useAuth();
   const vi = language === "vi";
@@ -146,7 +200,7 @@ export function HomepageStats({ language }: { language: HomepageLanguage }) {
     active === "facilities"
       ? "/member/services?section=courts&view=explore"
       : active === "coaches"
-        ? "/member/training?tab=book"
+        ? "/member/services?section=classes"
         : "/member";
   const href =
     user?.role === "Member"
@@ -255,11 +309,23 @@ export function HomepageStats({ language }: { language: HomepageLanguage }) {
                 <span className={styles.bookmarkTop}>
                   <Icon size={20} strokeWidth={1.8} aria-hidden="true" />
                   <span className={styles.value}>
-                    <CountUp
-                      value={item.value}
-                      suffix={item.suffix}
-                      language={language}
-                    />
+                    {item.value === null ? (
+                      <span
+                        aria-label={
+                          overviewError
+                            ? "Statistics unavailable"
+                            : "Loading statistics"
+                        }
+                      >
+                        —
+                      </span>
+                    ) : (
+                      <CountUp
+                        value={item.value}
+                        suffix={item.suffix}
+                        language={language}
+                      />
+                    )}
                   </span>
                   <ArrowRight
                     className={styles.tabArrow}
@@ -289,6 +355,17 @@ export function HomepageStats({ language }: { language: HomepageLanguage }) {
                 tabIndex={active === item.id ? 0 : -1}
               >
                 <p className={styles.panelLead}>{item.lead[language]}</p>
+                {!item.items.length && (
+                  <p role="status">
+                    {(item.id === "coaches" && coachesError) ||
+                    (item.id === "facilities" && overviewError)
+                      ? "Unable to load this information. Please try again later."
+                      : (item.id === "coaches" && liveCoaches === null) ||
+                          (item.id === "facilities" && overview === null)
+                        ? "Loading information…"
+                        : "No information available yet."}
+                  </p>
+                )}
                 <div className={styles.detailGrid}>
                   {item.items.map((detail, index) => (
                     <article
@@ -299,12 +376,25 @@ export function HomepageStats({ language }: { language: HomepageLanguage }) {
                       }
                     >
                       <div className={styles.photo}>
-                        <Image
-                          src={detail.image}
-                          alt={detail.alt[language]}
-                          fill
-                          sizes="(max-width: 767px) 90vw, (max-width: 1199px) 30vw, 400px"
-                        />
+                        {detail.image ? (
+                          <Image
+                            src={detail.image}
+                            alt={detail.alt[language]}
+                            fill
+                            sizes="(max-width: 767px) 90vw, (max-width: 1199px) 30vw, 400px"
+                          />
+                        ) : (
+                          <div
+                            className={styles.placeholderPhoto}
+                            aria-hidden="true"
+                          >
+                            {item.id === "facilities" ? (
+                              <Grid2X2 size={40} />
+                            ) : (
+                              <UsersRound size={40} />
+                            )}
+                          </div>
+                        )}
                       </div>
                       <div className={styles.itemCopy}>
                         <h3>{detail.name[language]}</h3>

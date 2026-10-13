@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using Microsoft.EntityFrameworkCore;
 using SportHub.Identity.Application.Interfaces;
 using SportHub.Identity.Domain.Entities;

@@ -8,9 +8,11 @@ import styles from "./course-sticker.module.css";
 export function CourseSticker({
   sport,
   compact = false,
+  small = false,
 }: {
   sport: string;
   compact?: boolean;
+  small?: boolean;
 }) {
   const { language } = useLanguage();
   const normalized = sport
@@ -27,7 +29,7 @@ export function CourseSticker({
 
   return (
     <figure
-      className={`${styles.stage} ${compact ? styles.compact : ""}`}
+      className={`${styles.stage} ${compact || small ? styles.compact : ""} ${small ? styles.small : ""}`}
       aria-label={language === "vi" ? `Sticker ${sport}` : `${sport} sticker`}
     >
       <div className={styles.scene} aria-hidden="true">

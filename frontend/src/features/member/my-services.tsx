@@ -325,13 +325,6 @@ export function MyServices({
           vi={vi}
           label={tx("Lọc theo loại dịch vụ", "Filter by service type")}
         />
-        <button
-          type="button"
-          className={styles.interests}
-          onClick={() => onTab("interests")}
-        >
-          {tx("Nguyện vọng khóa sau", "Course interests")}
-        </button>
       </div>
 
       {!visible.length ? (
