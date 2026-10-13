@@ -16,12 +16,6 @@ public sealed class PointRefundCalculatorTests
     }
 
     [Theory]
-    [InlineData(false, 500)]
-    [InlineData(true, 0)]
-    public void Pt_refunds_half_only_when_no_session_is_reserved_or_consumed(bool used, int expected)
-        => Assert.Equal(expected, RefundCalculator.PtPoints(1_000_000, used));
-
-    [Theory]
     [InlineData(10 * 24, 1_000)]
     [InlineData(5 * 24, 1_000)]
     [InlineData(5 * 24 - 1, 500)]
@@ -56,8 +50,6 @@ public sealed class PointRefundCalculatorTests
             new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 11), new DateOnly(2026, 1, 6), centerFault: true));
         Assert.Equal(0, RefundCalculator.MembershipPoints(1_000_000,
             new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 11), new DateOnly(2026, 2, 1), centerFault: true));
-        Assert.Equal(600, RefundCalculator.PtPoints(1_000_000, true, centerFault: true, totalQuota: 10, consumedSessions: 4));
-        Assert.Equal(1_000, RefundCalculator.PtPoints(1_000_000, false, centerFault: true, totalQuota: 10));
         Assert.Equal(499, RefundCalculator.PointsForRatio(999_999, 50));
     }
 }

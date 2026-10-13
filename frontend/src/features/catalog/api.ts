@@ -20,10 +20,6 @@ export type SavePackage = Pick<
 export type SaveRate = Omit<CourtRateDto, "rateId" | "daysOfWeek"> & {
   daysOfWeek: string[];
 };
-export interface PtPricing {
-  pricePerSessionVnd: number;
-  priceVersion: string;
-}
 export const catalogApi = {
   saveSport: (id: number | null, body: SaveSport) =>
     id === null
@@ -46,9 +42,6 @@ export const catalogApi = {
     api.post(
       `/api/membership-packages/${row.packageId}/${row.isActive ? "discontinue" : "reactivate"}`,
     ),
-  ptPricing: (signal?: AbortSignal) =>
-    api.get<PtPricing>("/api/pt-pricing", { signal }),
-  savePtPrice: (value: string) => api.put("/api/manager/pt-pricing", { value }),
   saveRate: (id: number | null, body: SaveRate) =>
     id === null
       ? api.post("/api/manager/court-rates", body)

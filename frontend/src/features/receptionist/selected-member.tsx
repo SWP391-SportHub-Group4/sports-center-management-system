@@ -9,10 +9,7 @@ import { useLanguage } from "@/lib/language";
 import { pagedItems } from "@/lib/paged";
 import { formatDate, formatTime } from "@/lib/format";
 
-import {
-  MutationFeedback,
-  useMutation,
-} from "@/features/operations";
+import { MutationFeedback, useMutation } from "@/features/operations";
 
 import type {
   GymCheckInDto,
@@ -49,113 +46,76 @@ export function SelectedMemberPanel({
 
   const mutation = useMutation();
 
-  const [note, setNote] =
-    useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(null);
 
-  const memberId =
-    member.userId;
+  const memberId = member.userId;
 
   const packages = useApi(
     (signal) =>
-      api.get<MemberPackageDto[]>(
-        `/api/members/${memberId}/packages`,
-        {
-          signal,
-        },
-      ),
+      api.get<MemberPackageDto[]>(`/api/members/${memberId}/packages`, {
+        signal,
+      }),
     [memberId],
   );
 
   const visits = useApi(
     (signal) =>
-      api.get<Paged<GymCheckInDto>>(
-        `/api/members/${memberId}/gym-checkins`,
-        {
-          signal,
-          query: {
-            page: 1,
-            pageSize: 5,
-          },
+      api.get<Paged<GymCheckInDto>>(`/api/members/${memberId}/gym-checkins`, {
+        signal,
+        query: {
+          page: 1,
+          pageSize: 5,
         },
-      ),
+      }),
     [memberId],
   );
 
-  const activePackage =
-    packages.data?.find(
-      (p) =>
-        p.status === "ACTIVE" &&
-        p.isUsable,
-    );
+  const activePackage = packages.data?.find(
+    (p) => p.status === "ACTIVE" && p.isUsable,
+  );
 
-  const open =
-    pagedItems(visits.data).find(
-      (v) => !v.checkOutTime,
-    );
+  const open = pagedItems(visits.data).find((v) => !v.checkOutTime);
 
-  const ready =
-    !packages.loading &&
-    !visits.loading;
+  const ready = !packages.loading && !visits.loading;
 
-  const blocked =
-    ready &&
-    !open &&
-    !activePackage;
+  const blocked = ready && !open && !activePackage;
 
   async function toggle() {
     setNote(null);
 
-    const ok =
-      await mutation.run(
-        async () => {
-          try {
-            if (open) {
-              await api.post(
-                `/api/gym-checkins/${open.checkInId}/checkout`,
-              );
-            } else {
-              await api.post(
-                "/api/gym-checkins",
-                {
-                  targetMemberId:
-                    memberId,
-                },
-              );
-            }
-          } catch (error) {
-            if (
-              error instanceof ApiError &&
-              error.code ===
-                "gym_already_checked_in"
-            ) {
-              visits.reload();
+    const ok = await mutation.run(async () => {
+      try {
+        if (open) {
+          await api.post(`/api/gym-checkins/${open.checkInId}/checkout`);
+        } else {
+          await api.post("/api/gym-checkins", {
+            targetMemberId: memberId,
+          });
+        }
+      } catch (error) {
+        if (
+          error instanceof ApiError &&
+          error.code === "gym_already_checked_in"
+        ) {
+          visits.reload();
 
-              throw new ApiError(
-                error.status,
-                error.code,
-                l.alreadyInside,
-                error.details,
-              );
-            }
+          throw new ApiError(
+            error.status,
+            error.code,
+            l.alreadyInside,
+            error.details,
+          );
+        }
 
-            throw error;
-          }
-        },
-      );
+        throw error;
+      }
+    });
 
     if (ok) {
-      const now =
-        new Date().toISOString();
+      const now = new Date().toISOString();
 
       setNote(
-        (
-          open
-            ? l.checkedOut
-            : l.checkedIn
-        ).replace(
-          "{time}",
-          formatTime(now),
-        ),
+        (open ? l.checkedOut : l.checkedIn).replace("{time}", formatTime(now)),
       );
 
       visits.reload();
@@ -163,88 +123,51 @@ export function SelectedMemberPanel({
   }
 
   return (
-    <section
-      className={styles.selected}
-      aria-label={l.selectedMember}
-    >
-      <div
-        className={styles.selectedTop}
-      >
+    <section className={styles.selected} aria-label={l.selectedMember}>
+      <div className={styles.selectedTop}>
         <AvatarImage
-          name={
-            member.fullName ||
-            member.email
-          }
-          avatarUrl={
-            member.avatarUrl
-          }
+          name={member.fullName || member.email}
+          avatarUrl={member.avatarUrl}
           size={64}
         />
 
         <div>
-          <h2
-            className={
-              styles.selectedName
-            }
-          >
-            {member.fullName ||
-              member.email}
+          <h2 className={styles.selectedName}>
+            {member.fullName || member.email}
           </h2>
 
-          <p
-            className={
-              styles.selectedMeta
-            }
-          >
+          <p className={styles.selectedMeta}>
             {member.email}
 
-            {member.phone
-              ? ` · ${member.phone}`
-              : ""}
+            {member.phone ? ` · ${member.phone}` : ""}
           </p>
 
           <ReportAvatarButton
-            targetUserId={
-              member.userId
-            }
-            avatarUrl={
-              member.avatarUrl
-            }
+            targetUserId={member.userId}
+            avatarUrl={member.avatarUrl}
           />
         </div>
 
         <button
           type="button"
           className="btn btn--secondary btn--sm"
-          onClick={() =>
-            onChange(null)
-          }
+          onClick={() => onChange(null)}
         >
           {l.changeMember}
         </button>
       </div>
 
       {member.activationPending && (
-        <PendingMemberPanel
-          member={member}
-          onChange={onChange}
-        />
+        <PendingMemberPanel member={member} onChange={onChange} />
       )}
 
-      <dl
-        className={styles.facts}
-      >
+      <dl className={styles.facts}>
         <div
           className={`${styles.fact} ${
-            ready &&
-            !activePackage
-              ? styles.factWarn
-              : ""
+            ready && !activePackage ? styles.factWarn : ""
           }`}
         >
-          <dt>
-            {l.membership}
-          </dt>
+          <dt>{l.membership}</dt>
 
           <dd>
             {!ready
@@ -252,71 +175,42 @@ export function SelectedMemberPanel({
               : activePackage
                 ? l.membershipUntil.replace(
                     "{date}",
-                    formatDate(
-                      activePackage.endDate,
-                    ),
+                    formatDate(activePackage.endDate),
                   )
                 : l.noMembership}
           </dd>
         </div>
 
-        <div
-          className={styles.fact}
-        >
-          <dt>
-            Gym
-          </dt>
+        <div className={styles.fact}>
+          <dt>Gym</dt>
 
           <dd>
             {!ready
               ? "…"
               : open
-                ? l.insideSince.replace(
-                    "{time}",
-                    formatTime(
-                      open.checkInTime,
-                    ),
-                  )
+                ? l.insideSince.replace("{time}", formatTime(open.checkInTime))
                 : l.notInside}
           </dd>
         </div>
       </dl>
 
-      <p
-        className={styles.hint}
-      >
-        {l.nextAction}
-      </p>
+      <p className={styles.hint}>{l.nextAction}</p>
 
-      <div
-        className={styles.actions}
-      >
+      <div className={styles.actions}>
         <button
           type="button"
           className="btn"
-          disabled={
-            !ready ||
-            mutation.busy ||
-            blocked
-          }
+          disabled={!ready || mutation.busy || blocked}
           onClick={toggle}
         >
-          {open
-            ? l.checkOut
-            : l.checkIn}
+          {open ? l.checkOut : l.checkIn}
         </button>
 
-        <Link
-          className="btn btn--secondary"
-          href="/receptionist/sales"
-        >
+        <Link className="btn btn--secondary" href="/receptionist/sales">
           {l.sell}
         </Link>
 
-        <Link
-          className="btn btn--secondary"
-          href="/receptionist/invoices"
-        >
+        <Link className="btn btn--secondary" href="/receptionist/invoices">
           {l.viewInvoices}
         </Link>
 
@@ -330,40 +224,23 @@ export function SelectedMemberPanel({
         )}
       </div>
 
-      {blocked && (
-        <p
-          className={styles.block}
-        >
-          {l.needMembership}
-        </p>
-      )}
+      {blocked && <p className={styles.block}>{l.needMembership}</p>}
 
       <MemberCancellations
         memberId={memberId}
-        packages={
-          packages.data ?? []
-        }
-        onChanged={
-          packages.reload
-        }
+        packages={packages.data ?? []}
+        onChanged={packages.reload}
       />
 
-      <MemberSupportRequests
-        memberId={memberId}
-      />
+      <MemberSupportRequests memberId={memberId} />
 
       {note && (
-        <p
-          className={styles.note}
-          role="status"
-        >
+        <p className={styles.note} role="status">
           {note}
         </p>
       )}
 
-      <MutationFeedback
-        mutation={mutation}
-      />
+      <MutationFeedback mutation={mutation} />
     </section>
   );
 }

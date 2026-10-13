@@ -54,13 +54,6 @@ public class SystemSettingConfiguration : IEntityTypeConfiguration<SystemSetting
             },
             new SystemSetting
             {
-                Key = SystemSettingKeys.PtPricePerSessionVnd,
-                Value = "200000",
-                Description = "Demo PT price per session; the center manager must confirm the business price.",
-                UpdatedAt = new DateTime(2026, 9, 30, 0, 0, 0, DateTimeKind.Utc)
-            },
-            new SystemSetting
-            {
                 Key = SystemSettingKeys.PointsConfirmOtpMinutes,
                 Value = "5",
                 Description = "BR-139 — Minutes a points confirmation OTP remains valid at reception.",

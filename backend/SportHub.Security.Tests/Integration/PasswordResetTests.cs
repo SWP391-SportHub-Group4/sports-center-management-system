@@ -105,7 +105,6 @@ public class PasswordResetTests(SportHubApiFactory factory)
         Assert.Equal("COACH", body.GetProperty("role").GetString());
         Assert.False(body.TryGetProperty("approvalStatus", out _)); // BR-140: không có trạng thái duyệt hồ sơ
         Assert.Single(body.GetProperty("sportIds").EnumerateArray());
-        Assert.False(body.GetProperty("isPersonalTrainer").GetBoolean());
     }
 
     [Fact]

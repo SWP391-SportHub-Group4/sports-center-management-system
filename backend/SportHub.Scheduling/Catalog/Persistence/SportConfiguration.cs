@@ -45,27 +45,9 @@ public class SportServiceOfferingConfiguration : IEntityTypeConfiguration<SportS
         // OfferingId cố định để seed các bảng liên kết tham chiếu được.
         builder.HasData(
             new SportServiceOffering { OfferingId = 1, SportId = 1, ServiceType = SportServiceType.MembershipAccess, IsEnabled = true },
-            new SportServiceOffering { OfferingId = 2, SportId = 1, ServiceType = SportServiceType.PersonalTraining, IsEnabled = false },
             new SportServiceOffering { OfferingId = 3, SportId = 3, ServiceType = SportServiceType.GroupCourse, IsEnabled = true, DefaultSessionMinutes = 90, DefaultMaxCapacity = 12 },
             new SportServiceOffering { OfferingId = 4, SportId = 3, ServiceType = SportServiceType.CourtRental, IsEnabled = true },
             new SportServiceOffering { OfferingId = 5, SportId = 4, ServiceType = SportServiceType.GroupCourse, IsEnabled = true, DefaultSessionMinutes = 120, DefaultMaxCapacity = 20 },
             new SportServiceOffering { OfferingId = 6, SportId = 4, ServiceType = SportServiceType.CourtRental, IsEnabled = true });
-    }
-}
-
-public class ServiceRoomTypeConfiguration : IEntityTypeConfiguration<ServiceRoomType>
-{
-    public void Configure(EntityTypeBuilder<ServiceRoomType> builder)
-    {
-        builder.ToTable("service_room_types");
-        builder.HasKey(e => new { e.OfferingId, e.RoomTypeId });
-
-        builder.HasOne<SportServiceOffering>().WithMany().HasForeignKey(e => e.OfferingId).OnDelete(DeleteBehavior.Cascade);
-        builder.HasOne<RoomType>().WithMany().HasForeignKey(e => e.RoomTypeId).OnDelete(DeleteBehavior.Restrict);
-
-        // PT can train in a shared Gym room or a dedicated PT room.
-        builder.HasData(
-            new ServiceRoomType { OfferingId = 2, RoomTypeId = 1 },
-            new ServiceRoomType { OfferingId = 2, RoomTypeId = 2 });
     }
 }

@@ -107,7 +107,9 @@ export function ExplorePackages({
   const gymPlans = (catalog.data ?? [])
     .filter((p) => p.isActive)
     .sort((a, b) => a.durationDays - b.durationDays);
-  const baseMonthly = gymPlans.find((p) => p.durationDays >= 28 && p.durationDays <= 31)?.price ?? null;
+  const baseMonthly =
+    gymPlans.find((p) => p.durationDays >= 28 && p.durationDays <= 31)?.price ??
+    null;
   const classRows = (courses.data ?? []).filter(
     (c) =>
       c.status === "PUBLISHED" &&
@@ -128,10 +130,7 @@ export function ExplorePackages({
     match(s.name, "thuê sân court"),
   );
   const counts: Partial<Record<FilterValue, number>> = {
-    all:
-      gymVisible.length +
-      classVisible.length +
-      courtVisible.length,
+    all: gymVisible.length + classVisible.length + courtVisible.length,
     gym: gymVisible.length,
     class: classVisible.length,
     court: courtVisible.length,
@@ -307,7 +306,6 @@ export function ExplorePackages({
           </div>
         </Section>
       )}
-
     </div>
   );
 }
@@ -392,7 +390,11 @@ function GymTier({
         <h3>{plan.name}</h3>
         <p className={styles.months}>
           <strong>{dayPass ? 1 : months}</strong>
-          <span>{dayPass ? tx("ngày", "day") : tx("tháng", months === 1 ? "month" : "months")}</span>
+          <span>
+            {dayPass
+              ? tx("ngày", "day")
+              : tx("tháng", months === 1 ? "month" : "months")}
+          </span>
         </p>
         {saving > 0 && (
           <span className={styles.save}>
@@ -411,11 +413,16 @@ function GymTier({
       </p>
       <p className={styles.meta}>
         {dayPass ? (
-          tx("Chỉ dùng trong ngày thanh toán thành công (giờ Việt Nam). Mã check-in hết hiệu lực cuối ngày.",
-             "Valid only on the payment day (Vietnam time). The check-in code expires at day end.")
+          tx(
+            "Chỉ dùng trong ngày thanh toán thành công (giờ Việt Nam). Mã check-in hết hiệu lực cuối ngày.",
+            "Valid only on the payment day (Vietnam time). The check-in code expires at day end.",
+          )
         ) : (
-          <>{tx("Đến", "Until")} {formatDate(membershipEnd(start, months))}
-          {" · "}≈ {formatMoney(Math.round(plan.price / months))}{tx("/tháng", "/month")}</>
+          <>
+            {tx("Đến", "Until")} {formatDate(membershipEnd(start, months))}
+            {" · "}≈ {formatMoney(Math.round(plan.price / months))}
+            {tx("/tháng", "/month")}
+          </>
         )}
       </p>
       {active && (

@@ -190,7 +190,6 @@ public sealed partial class DemoDataSeeder
             if (await db.RoomOccupancies.AnyAsync(x => x.IsActive && x.RoomId == roomId && x.StartAtUtc < end && x.EndAtUtc > start, ct)
                 || await db.CoachOccupancies.AnyAsync(x => x.IsActive && x.CoachId == coachId && x.StartAtUtc < end && x.EndAtUtc > start, ct)
                 || await db.ClassSessions.AnyAsync(s => s.Status != ClassSessionStatus.Cancelled && s.StartAtUtc < end && s.EndAtUtc > start && db.Enrollments.Any(e => e.ClassId == s.ClassId && members.Contains(e.MemberId) && e.Status == EnrollmentStatus.Confirmed), ct)
-                || await db.PtSessions.AnyAsync(s => members.Contains(s.MemberId) && (s.Status == PtSessionStatus.Scheduled || s.Status == PtSessionStatus.PendingPayment || s.Status == PtSessionStatus.Completed) && s.StartAtUtc < end && s.EndAtUtc > start, ct)
                 || await db.Set<CourtRental>().AnyAsync(r => members.Contains(r.MemberId) && (r.Status == CourtRentalStatus.Confirmed || r.Status == CourtRentalStatus.PendingPayment) && r.StartAtUtc < end && r.EndAtUtc > start, ct)) continue;
             return (start, end);
         }

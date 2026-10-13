@@ -154,10 +154,24 @@ test("reports use one period filter with tabs, and exports live on their own pag
     "Report exports",
   );
   await expect(page.getByText("No exports yet.")).toBeVisible();
-  await page.getByLabel("Report type", { exact: true }).selectOption("REVENUE_SUMMARY");
-  await expect(page.getByRole("option", { name: "Revenue and points summary", exact: true })).toHaveCount(1);
-  await expect(page.getByRole("checkbox", { name: "Points used by members in period", exact: true })).toBeVisible();
-  await expect(page.getByText("Current point balance observed at (UTC)", { exact: true })).toHaveCount(0);
+  await page
+    .getByLabel("Report type", { exact: true })
+    .selectOption("REVENUE_SUMMARY");
+  await expect(
+    page.getByRole("option", {
+      name: "Revenue and points summary",
+      exact: true,
+    }),
+  ).toHaveCount(1);
+  await expect(
+    page.getByRole("checkbox", {
+      name: "Points used by members in period",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Current point balance observed at (UTC)", { exact: true }),
+  ).toHaveCount(0);
 });
 
 test("export history shows progress for a queued file and download for a finished one", async ({

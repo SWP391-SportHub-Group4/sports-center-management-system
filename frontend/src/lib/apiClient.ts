@@ -166,11 +166,7 @@ async function request<T>(
     // AbortError là chủ ý của caller, không phải sự cố mạng — ném nguyên để useApi bỏ qua.
     if (error instanceof DOMException && error.name === "AbortError")
       throw error;
-    throw new ApiError(
-      0,
-      "network_error",
-      en.apiErrors.networkError,
-    );
+    throw new ApiError(0, "network_error", en.apiErrors.networkError);
   }
 
   if (response.status === 204) {

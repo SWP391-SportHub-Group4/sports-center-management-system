@@ -158,10 +158,6 @@ public sealed class TrainingApiFactory : WebApplicationFactory<Program>, IAsyncL
             UserId = coach.UserId,
             SportId = kind == CoachKind.PersonalTrainer ? 1 : 3
         });
-        if (kind == CoachKind.PersonalTrainer)
-        {
-            db.Set<CoachServiceQualification>().Add(new CoachServiceQualification { UserId = coach.UserId, OfferingId = 2 });
-        }
         await db.SaveChangesAsync();
 
         return coach;
@@ -204,67 +200,6 @@ public sealed class TrainingApiFactory : WebApplicationFactory<Program>, IAsyncL
         await db.SaveChangesAsync();
 
         return memberPackage;
-    }
-
-    /// <summary>PtEntitlement Active sẵn sàng để test booking/quota — validity mặc định rộng
-    /// (hôm nay ± 60 ngày) để test tự chọn StartAtUtc mà không lo rơi ngoài hiệu lực.</summary>
-    public async Task<PtEntitlement> SeedPtEntitlementAsync(
-        Guid memberId,
-        Guid coachId,
-        int totalQuota = 8,
-        int reservedSessions = 0,
-        int consumedSessions = 0,
-        DateOnly? validityStartDate = null,
-        DateOnly? validityEndDate = null,
-        PtEntitlementStatus status = PtEntitlementStatus.Active)
-    {
-        var memberPackage = await SeedMemberPackageAsync(
-            memberId,
-            startDate: validityStartDate ?? DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-60),
-            endDate: validityEndDate ?? DateOnly.FromDateTime(DateTime.UtcNow).AddDays(60));
-
-        using var scope = Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
-
-        var entitlement = new PtEntitlement
-        {
-            EntitlementId = Guid.NewGuid(),
-            ActivationReference = Guid.NewGuid(),
-            MemberId = memberId,
-            CoachId = coachId,
-            OriginMemberPackageId = memberPackage.MemberPackageId,
-            CurrentMemberPackageId = memberPackage.MemberPackageId,
-            FrequencyPerWeek = 2,
-            TotalQuota = totalQuota,
-            ReservedSessions = reservedSessions,
-            ConsumedSessions = consumedSessions,
-            ValidityStartDate = memberPackage.StartDate,
-            ValidityEndDate = memberPackage.EndDate,
-            CarryOverUntilDate = memberPackage.EndDate.AddDays(30),
-            Status = status,
-            ActivatedAt = status == PtEntitlementStatus.Active ? DateTime.UtcNow : null,
-            Version = 0
-        };
-
-        db.PtEntitlements.Add(entitlement);
-        await db.SaveChangesAsync();
-
-        return entitlement;
-    }
-
-    /// <summary>Move only this fixture's session and its resource reservations to the same interval.</summary>
-    public async Task MovePtSessionAsync(Guid sessionId, DateTime startAtUtc, DateTime endAtUtc)
-    {
-        using var scope = Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
-        await using var transaction = await db.Database.BeginTransactionAsync();
-        await db.PtSessions.Where(x => x.SessionId == sessionId).ExecuteUpdateAsync(s => s
-            .SetProperty(x => x.StartAtUtc, startAtUtc).SetProperty(x => x.EndAtUtc, endAtUtc));
-        await db.RoomOccupancies.Where(x => x.SourceId == sessionId).ExecuteUpdateAsync(s => s
-            .SetProperty(x => x.StartAtUtc, startAtUtc).SetProperty(x => x.EndAtUtc, endAtUtc));
-        await db.CoachOccupancies.Where(x => x.SourceId == sessionId).ExecuteUpdateAsync(s => s
-            .SetProperty(x => x.StartAtUtc, startAtUtc).SetProperty(x => x.EndAtUtc, endAtUtc));
-        await transaction.CommitAsync();
     }
 
     public async Task<T> QueryAsync<T>(Func<SportHubDbContext, Task<T>> query)

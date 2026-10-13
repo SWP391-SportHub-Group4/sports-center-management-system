@@ -1,6 +1,6 @@
 # Avatar Member và Coach qua Cloudinary
 
-## Quyết định nghiệp vụ (11/10/2026)
+## Quyết định nghiệp vụ
 
 - Chỉ Member và Coach đang đăng nhập được tự tải lên, thay hoặc xóa avatar của chính mình. Manager, Receptionist và System Administrator không được đổi ảnh hộ. Manager chỉ được gỡ ảnh khi xử lý báo cáo vi phạm.
 - Avatar Member hiển thị tại các màn hình có danh tính Member. `GET /api/avatars/{userId}` cho phép tài khoản đã đăng nhập đọc avatar Member theo ID; Guest không đọc được. Avatar Coach được công khai cùng tên Coach; `GET /api/coaches` chỉ trả Coach đang hoạt động và không trả email/số điện thoại.

@@ -15,7 +15,6 @@ export function RevenueRows({
   const l = t.staffWork;
   const names: Record<string, string> = {
     MEMBERSHIP: l.sourceMembership,
-    PT: l.sourcePt,
     CLASS_PACKAGE: l.sourceClass,
     RENTAL: l.sourceRental,
     RECONCILIATION: l.sourceReconciliation,

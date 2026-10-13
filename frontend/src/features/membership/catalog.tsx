@@ -138,8 +138,6 @@ export function MembershipCatalog({
       return text("Cầu lông", "Badminton");
     if (/basketball|bóng\s*rổ/i.test(sport.name))
       return text("Bóng rổ", "Basketball");
-    if (/pt|personal training/i.test(sport.name))
-      return text("Huấn luyện cá nhân", "Personal training");
     if (/gym|fitness|conditioning|thể lực/i.test(sport.name))
       return text("Gym & thể lực", "Gym & conditioning");
     return sport.name;
@@ -425,9 +423,9 @@ export function MembershipCatalog({
                     ) : (
                       <p className={styles.noCourseCopy}>
                         {text(
-                              "Khu tập Gym tự do để rèn sức mạnh, sức bền và thể lực tổng quát.",
-                              "Open Gym training for strength, endurance, and overall conditioning.",
-                            )}
+                          "Khu tập Gym tự do để rèn sức mạnh, sức bền và thể lực tổng quát.",
+                          "Open Gym training for strength, endurance, and overall conditioning.",
+                        )}
                       </p>
                     )}
                   </article>

@@ -72,7 +72,7 @@ public sealed class CourtScheduleAndIncidentTests(SchedulingApiFactory factory)
     [Theory]
     [InlineData(UserRole.CenterManager)]
     [InlineData(UserRole.Receptionist)]
-    public async Task Staff_calendar_includes_class_pt_rental_and_block(UserRole role)
+    public async Task Staff_calendar_includes_class_rental_and_block(UserRole role)
     {
         var staff = await factory.SeedUserAsync(role);
         var room = await CourseTestData.RoomAsync(factory);
@@ -89,9 +89,10 @@ public sealed class CourtScheduleAndIncidentTests(SchedulingApiFactory factory)
         var response = await client.GetAsync($"/api/manager/court-schedule?fromDate={today.AddDays(-10):yyyy-MM-dd}&toDate={today.AddDays(20):yyyy-MM-dd}");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var entries = (await response.Content.ReadFromJsonAsync<List<CourtScheduleEntry>>())!;
-        foreach (var type in new[] { "ClassSession", "PtSession", "CourtRental", "RoomBlock" })
+        foreach (var type in new[] { "ClassSession", "CourtRental", "RoomBlock" })
             Assert.Contains(entries, x => x.SourceType == type);
-        Assert.Contains(entries, x => x.SourceType == "PtSession" && x.Participants.Count == 1);
+        // Personal Training đã ngừng cung cấp: lịch nhân viên không còn buổi PT.
+        Assert.DoesNotContain(entries, x => x.SourceType == "PtSession");
         Assert.All(entries.Where(x => x.SourceType == "CourtRental"), x => Assert.Empty(x.Participants));
         var filtered = await client.GetFromJsonAsync<List<CourtScheduleEntry>>($"/api/manager/court-schedule?fromDate={today:yyyy-MM-dd}&toDate={today.AddDays(3):yyyy-MM-dd}&roomId={room}");
         Assert.All(filtered!, x => Assert.Equal(room, x.RoomId));

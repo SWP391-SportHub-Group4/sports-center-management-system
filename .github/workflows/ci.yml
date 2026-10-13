@@ -55,12 +55,7 @@ jobs:
         env:
           # Ryuk là image Docker Hub thứ hai của Testcontainers; CI runner dùng một lần nên không cần dọn nền.
           TESTCONTAINERS_RYUK_DISABLED: "true"
-        # Legacy PT tests describe endpoints that were retired with the PT product.
-        # Keep running the remaining backend suite, including Gym check-in and day-pass tests.
-        run: >-
-          dotnet test backend/SportHub.sln --configuration Release --no-build
-          --filter "FullyQualifiedName!~SportHub.Training.Tests&FullyQualifiedName!~CheckoutFlowTests.Pt_price_change_requires_new_quote_and_verified_payment_activates_entitlement"
-          --logger "trx;LogFilePrefix=ci"
+        run: dotnet test backend/SportHub.sln --configuration Release --no-build --logger "trx;LogFilePrefix=ci"
 
       - name: Upload backend test evidence
         if: always()

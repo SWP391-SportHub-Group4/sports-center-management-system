@@ -53,7 +53,7 @@ export function ManagerSchedule({
       section: choiceQuery(["calendar", "requests"], "calendar"),
       view: choiceQuery(["day", "week", "list"], "week"),
       sourceType: choiceQuery(
-        ["", "CLASS_SESSION", "PT_SESSION", "COURT_RENTAL", "ROOM_BLOCK"],
+        ["", "CLASS_SESSION", "COURT_RENTAL", "ROOM_BLOCK"],
         "",
       ),
     },

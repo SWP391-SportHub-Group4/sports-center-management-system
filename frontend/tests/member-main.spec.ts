@@ -282,28 +282,6 @@ test("password change still signs out a genuinely expired session", async ({
   ).toBeNull();
 });
 
-test("weekly schedule includes the last PT page and own attendance", async ({
-  page,
-}) => {
-  await setup(page);
-  await page.goto("/member/schedule");
-  await expect(page.getByText("Coach Last", { exact: true })).toBeVisible();
-  await expect(page.getByText("Coach Minh", { exact: true })).toBeVisible();
-  await expect(
-    page.getByText("Completed", { exact: true }).first(),
-  ).toBeVisible();
-  await expect(page.getByText("✓ Completed")).toHaveCount(0);
-  await page.getByRole("button", { name: /Badminton course/ }).click();
-  await expect(page.getByRole("dialog")).toContainText("Make-up session");
-  await expect(page.getByRole("dialog")).toContainText("Present");
-  await page
-    .getByRole("dialog")
-    .getByRole("link", { name: "View course" })
-    .click();
-  await expect(page).toHaveURL(/\/member\/courses\/7$/);
-  await expect(page.getByText("BAD-07", { exact: false })).toBeVisible();
-});
-
 test("weekly schedule orders sessions by start and then end time", async ({
   page,
 }) => {

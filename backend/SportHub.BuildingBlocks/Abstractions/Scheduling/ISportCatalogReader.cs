@@ -14,16 +14,10 @@ public interface ISportCatalogReader
     Task<bool> IsServiceEnabledAsync(int sportId, SportServiceType serviceType, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Môn đang hoạt động có dịch vụ này bật. Với MembershipAccess/PersonalTraining luôn là môn Gym
-    /// (backend chỉ cho bật hai dịch vụ này ở môn có mã <see cref="SportCodes.Gym"/>).
+    /// Môn đang hoạt động có dịch vụ này bật. Với MembershipAccess luôn là môn Gym
+    /// (backend chỉ cho bật dịch vụ này ở môn có mã <see cref="SportCodes.Gym"/>).
     /// </summary>
     Task<SportInfo?> GetSportForServiceAsync(SportServiceType serviceType, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Phòng được dùng cho dịch vụ này: phòng active và loại phòng nằm trong tập loại phòng của dịch vụ
-    /// (<c>service_room_types</c>). Dùng cho PT để phòng Gym không tự thành phòng PT.
-    /// </summary>
-    Task<bool> IsRoomAllowedForServiceAsync(int roomId, SportServiceType serviceType, CancellationToken cancellationToken = default);
 
     /// <summary>Cả khoảng [startUtc, endUtc) nằm trong giờ mở cửa (giờ VN) của phòng, trong cùng một ngày.</summary>
     Task<bool> IsRoomOpenAsync(int roomId, DateTimeOffset startUtc, DateTimeOffset endUtc, CancellationToken cancellationToken = default);

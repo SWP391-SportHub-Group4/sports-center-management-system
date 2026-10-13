@@ -24,7 +24,6 @@ public sealed class PointRefundService(
     ISportHubDbContext db,
     IPointWalletService wallets,
     IMembershipRefundFulfillment memberships,
-    IPtPurchaseFulfillment pt,
     IClassEnrollmentFulfillment classes,
     ICourtRentalFulfillment rentals,
     ISystemSettingProvider settings,
@@ -316,14 +315,6 @@ public sealed class PointRefundService(
                 return RefundCalculator.MembershipPoints(paidVnd, facts.StartDate, facts.EndDate,
                     requestDate, centerFault);
             }
-            case InvoiceItemType.PT:
-            {
-                var facts = await pt.GetRefundFactsAsync(item.ItemId, item.PtEntitlementId ?? item.RelatedEntityId, ct)
-                    ?? throw new ConflictException("refund_entitlement_not_found", "Refund entitlement not found.");
-                if (facts.Status != "Active" && !centerFault) return 0;
-                return RefundCalculator.PtPoints(paidVnd, facts.ConsumedSessions > 0, centerFault,
-                    facts.TotalQuota, facts.ConsumedSessions);
-            }
             case InvoiceItemType.ClassPackage:
             {
                 var facts = await classes.GetRefundFactsAsync(item.ItemId, ct)
@@ -354,9 +345,6 @@ public sealed class PointRefundService(
         {
             case InvoiceItemType.Membership:
                 await memberships.CancelAsync(item.ItemId, item.MemberPackageId ?? item.RelatedEntityId, reason, actorId, ct);
-                break;
-            case InvoiceItemType.PT:
-                await pt.CancelByInvoiceItemAsync(item.ItemId, item.PtEntitlementId ?? item.RelatedEntityId, reason, actorId, ct);
                 break;
             case InvoiceItemType.ClassPackage:
                 await classes.CancelAsync(item.ItemId, EnrollmentEndReason.Refunded, ct);

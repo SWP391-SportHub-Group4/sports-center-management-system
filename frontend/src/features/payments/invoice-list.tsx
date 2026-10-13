@@ -1,48 +1,24 @@
 "use client";
 
-import {
-  pagedItems,
-} from "@/lib/paged";
+import { pagedItems } from "@/lib/paged";
 
-import {
-  useEffect,
-  useState,
-} from "react";
+import { useEffect, useState } from "react";
 
-import {
-  api,
-} from "@/lib/apiClient";
+import { api } from "@/lib/apiClient";
 
-import {
-  useApi,
-} from "@/lib/useApi";
+import { useApi } from "@/lib/useApi";
 
-import {
-  useLanguage,
-} from "@/lib/language";
+import { useLanguage } from "@/lib/language";
 
-import {
-  formatMoney,
-} from "@/lib/format";
+import { formatMoney } from "@/lib/format";
 
-import type {
-  InvoiceSummaryDto,
-  InvoiceDetailDto,
-  Paged,
-} from "@/lib/types";
+import type { InvoiceSummaryDto, InvoiceDetailDto, Paged } from "@/lib/types";
 
-import {
-  Card,
-  StatusChip,
-} from "@/components/ui";
+import { Card, StatusChip } from "@/components/ui";
 
-import {
-  InvoiceDetail,
-} from "./invoice-detail";
+import { InvoiceDetail } from "./invoice-detail";
 
-function escapeHtml(
-  value: unknown,
-) {
+function escapeHtml(value: unknown) {
   return String(value ?? "")
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
@@ -51,71 +27,45 @@ function escapeHtml(
     .replaceAll("'", "&#039;");
 }
 
-function csvValue(
-  value: unknown,
-) {
-  return `"${String(value ?? "")
-    .replaceAll('"', '""')}"`;
+function csvValue(value: unknown) {
+  return `"${String(value ?? "").replaceAll('"', '""')}"`;
 }
 
-async function printInvoice(
-  invoiceId: string,
-) {
-  const printWindow =
-    window.open(
-      "",
-      "_blank",
-      "width=900,height=700",
-    );
+async function printInvoice(invoiceId: string) {
+  const printWindow = window.open("", "_blank", "width=900,height=700");
 
   if (!printWindow) {
-    throw new Error(
-      "The browser blocked the print window.",
-    );
+    throw new Error("The browser blocked the print window.");
   }
 
   printWindow.opener = null;
 
   try {
-    const invoice =
-      await api.get<InvoiceDetailDto>(
-        `/api/invoices/${invoiceId}`,
-      );
+    const invoice = await api.get<InvoiceDetailDto>(
+      `/api/invoices/${invoiceId}`,
+    );
 
-    const rows =
-      invoice.items
-        .map(
-          (item) => `
+    const rows = invoice.items
+      .map(
+        (item) => `
             <tr>
-              <td>${escapeHtml(
-                item.description,
-              )}</td>
+              <td>${escapeHtml(item.description)}</td>
 
               <td style="text-align:right">
-                ${escapeHtml(
-                  item.quantity,
-                )}
+                ${escapeHtml(item.quantity)}
               </td>
 
               <td style="text-align:right">
-                ${escapeHtml(
-                  formatMoney(
-                    item.unitPrice,
-                  ),
-                )}
+                ${escapeHtml(formatMoney(item.unitPrice))}
               </td>
 
               <td style="text-align:right">
-                ${escapeHtml(
-                  formatMoney(
-                    item.lineAmount,
-                  ),
-                )}
+                ${escapeHtml(formatMoney(item.lineAmount))}
               </td>
             </tr>
           `,
-        )
-        .join("");
+      )
+      .join("");
 
     printWindow.document.write(`
       <!doctype html>
@@ -125,10 +75,7 @@ async function printInvoice(
           <meta charset="utf-8" />
 
           <title>
-            ${escapeHtml(
-              invoice.summary
-                .invoiceNumber,
-            )}
+            ${escapeHtml(invoice.summary.invoiceNumber)}
           </title>
 
           <style>
@@ -215,44 +162,30 @@ async function printInvoice(
 
           <h2>
             Invoice
-            ${escapeHtml(
-              invoice.summary
-                .invoiceNumber,
-            )}
+            ${escapeHtml(invoice.summary.invoiceNumber)}
           </h2>
 
           <div class="meta">
             <div>
               Member:
               <strong>
-                ${escapeHtml(
-                  invoice.summary
-                    .memberName,
-                )}
+                ${escapeHtml(invoice.summary.memberName)}
               </strong>
             </div>
 
             <div>
               Email:
-              ${escapeHtml(
-                invoice.summary
-                  .memberEmail,
-              )}
+              ${escapeHtml(invoice.summary.memberEmail)}
             </div>
 
             <div>
               Status:
-              ${escapeHtml(
-                invoice.summary.status,
-              )}
+              ${escapeHtml(invoice.summary.status)}
             </div>
 
             <div>
               Issued:
-              ${escapeHtml(
-                invoice.summary
-                  .issuedAt,
-              )}
+              ${escapeHtml(invoice.summary.issuedAt)}
             </div>
           </div>
 
@@ -293,12 +226,7 @@ async function printInvoice(
               <span>Total</span>
 
               <strong>
-                ${escapeHtml(
-                  formatMoney(
-                    invoice.summary
-                      .totalAmount,
-                  ),
-                )}
+                ${escapeHtml(formatMoney(invoice.summary.totalAmount))}
               </strong>
             </div>
 
@@ -308,10 +236,7 @@ async function printInvoice(
               </span>
 
               <span>
-                ${escapeHtml(
-                  invoice.summary
-                    .pointsSpent,
-                )}
+                ${escapeHtml(invoice.summary.pointsSpent)}
               </span>
             </div>
 
@@ -321,12 +246,7 @@ async function printInvoice(
               </span>
 
               <span>
-                ${escapeHtml(
-                  formatMoney(
-                    invoice.summary
-                      .cashAmount,
-                  ),
-                )}
+                ${escapeHtml(formatMoney(invoice.summary.cashAmount))}
               </span>
             </div>
 
@@ -334,10 +254,7 @@ async function printInvoice(
               <span>Status</span>
 
               <span>
-                ${escapeHtml(
-                  invoice.summary
-                    .status,
-                )}
+                ${escapeHtml(invoice.summary.status)}
               </span>
             </div>
           </div>
@@ -355,98 +272,45 @@ async function printInvoice(
   }
 }
 
-async function exportInvoiceCsv(
-  invoiceId: string,
-) {
-  const invoice =
-    await api.get<InvoiceDetailDto>(
-      `/api/invoices/${invoiceId}`,
-    );
+async function exportInvoiceCsv(invoiceId: string) {
+  const invoice = await api.get<InvoiceDetailDto>(`/api/invoices/${invoiceId}`);
 
   const rows = [
-    [
-      "Invoice number",
-      invoice.summary.invoiceNumber,
-    ],
-    [
-      "Member",
-      invoice.summary.memberName,
-    ],
-    [
-      "Email",
-      invoice.summary.memberEmail,
-    ],
-    [
-      "Status",
-      invoice.summary.status,
-    ],
-    [
-      "Issued at",
-      invoice.summary.issuedAt,
-    ],
+    ["Invoice number", invoice.summary.invoiceNumber],
+    ["Member", invoice.summary.memberName],
+    ["Email", invoice.summary.memberEmail],
+    ["Status", invoice.summary.status],
+    ["Issued at", invoice.summary.issuedAt],
     [],
-    [
-      "Description",
-      "Quantity",
-      "Unit price",
-      "Line amount",
-    ],
-    ...invoice.items.map(
-      (item) => [
-        item.description,
-        item.quantity,
-        item.unitPrice,
-        item.lineAmount,
-      ],
-    ),
+    ["Description", "Quantity", "Unit price", "Line amount"],
+    ...invoice.items.map((item) => [
+      item.description,
+      item.quantity,
+      item.unitPrice,
+      item.lineAmount,
+    ]),
     [],
-    [
-      "Total",
-      invoice.summary.totalAmount,
-    ],
-    [
-      "Points spent",
-      invoice.summary.pointsSpent,
-    ],
-    [
-      "Cash amount",
-      invoice.summary.cashAmount,
-    ],
+    ["Total", invoice.summary.totalAmount],
+    ["Points spent", invoice.summary.pointsSpent],
+    ["Cash amount", invoice.summary.cashAmount],
   ];
 
   const csv =
-    "\uFEFF" +
-    rows
-      .map((row) =>
-        row
-          .map(csvValue)
-          .join(","),
-      )
-      .join("\r\n");
+    "\uFEFF" + rows.map((row) => row.map(csvValue).join(",")).join("\r\n");
 
-  const blob =
-    new Blob(
-      [csv],
-      {
-        type:
-          "text/csv;charset=utf-8",
-      },
-    );
+  const blob = new Blob([csv], {
+    type: "text/csv;charset=utf-8",
+  });
 
-  const url =
-    URL.createObjectURL(blob);
+  const url = URL.createObjectURL(blob);
 
-  const anchor =
-    document.createElement("a");
+  const anchor = document.createElement("a");
 
   anchor.href = url;
 
-  anchor.download =
-    `${invoice.summary.invoiceNumber}.csv`;
+  anchor.download = `${invoice.summary.invoiceNumber}.csv`;
 
-  document.body.appendChild(
-    anchor,
-  );
+  document.body.appendChild(anchor);
 
   anchor.click();
 
@@ -464,236 +328,115 @@ export function InvoiceList({
   memberId?: string;
   rental?: boolean;
 }) {
-  const { t } =
-    useLanguage();
+  const { t } = useLanguage();
 
-  const [page, setPage] =
-    useState(1);
+  const [page, setPage] = useState(1);
 
-  const [
-    selected,
-    setSelected,
-  ] =
-    useState<string | null>(
-      null,
-    );
+  const [selected, setSelected] = useState<string | null>(null);
 
-  const [
-    linkError,
-    setLinkError,
-  ] =
-    useState("");
+  const [linkError, setLinkError] = useState("");
 
-  const [
-    status,
-    setStatus,
-  ] =
-    useState("");
+  const [status, setStatus] = useState("");
 
-  const [
-    actionError,
-    setActionError,
-  ] =
-    useState("");
+  const [actionError, setActionError] = useState("");
 
-  const [
-    exporting,
-    setExporting,
-  ] =
-    useState<string | null>(
-      null,
-    );
+  const [exporting, setExporting] = useState<string | null>(null);
 
   useEffect(() => {
-    const item =
-      new URLSearchParams(
-        window.location.search,
-      ).get(
-        "invoiceItemId",
-      );
+    const item = new URLSearchParams(window.location.search).get(
+      "invoiceItemId",
+    );
 
-    const controller =
-      new AbortController();
+    const controller = new AbortController();
 
-    const accept = (
-      d: InvoiceDetailDto,
-    ) => {
-      if (
-        controller.signal.aborted
-      ) {
+    const accept = (d: InvoiceDetailDto) => {
+      if (controller.signal.aborted) {
         return;
       }
 
-      if (
-        staff &&
-        memberId &&
-        d.summary.memberId !==
-          memberId
-      ) {
-        setLinkError(
-          t.operations
-            .invoiceMemberMismatch,
-        );
+      if (staff && memberId && d.summary.memberId !== memberId) {
+        setLinkError(t.operations.invoiceMemberMismatch);
 
         return;
       }
 
-      setSelected(
-        d.summary.invoiceId,
-      );
+      setSelected(d.summary.invoiceId);
     };
 
-    if (
-      item &&
-      /^[0-9a-f-]{36}$/i.test(
-        item,
-      )
-    ) {
+    if (item && /^[0-9a-f-]{36}$/i.test(item)) {
       api
-        .get<InvoiceDetailDto>(
-          `/api/invoices/by-item/${item}`,
-          {
-            signal:
-              controller.signal,
-          },
-        )
+        .get<InvoiceDetailDto>(`/api/invoices/by-item/${item}`, {
+          signal: controller.signal,
+        })
         .then(accept)
         .catch((error) => {
-          if (
-            !controller.signal
-              .aborted
-          ) {
-            setLinkError(
-              error.message,
-            );
+          if (!controller.signal.aborted) {
+            setLinkError(error.message);
           }
         });
     }
 
-    const id =
-      new URLSearchParams(
-        window.location.search,
-      ).get("invoiceId");
+    const id = new URLSearchParams(window.location.search).get("invoiceId");
 
-    if (
-      id &&
-      /^[0-9a-f-]{36}$/i.test(
-        id,
-      )
-    ) {
-      if (
-        staff &&
-        memberId
-      ) {
+    if (id && /^[0-9a-f-]{36}$/i.test(id)) {
+      if (staff && memberId) {
         api
-          .get<InvoiceDetailDto>(
-            `/api/invoices/${id}`,
-            {
-              signal:
-                controller.signal,
-            },
-          )
+          .get<InvoiceDetailDto>(`/api/invoices/${id}`, {
+            signal: controller.signal,
+          })
           .then(accept)
           .catch((error) => {
-            if (
-              !controller.signal
-                .aborted
-            ) {
-              setLinkError(
-                error.message,
-              );
+            if (!controller.signal.aborted) {
+              setLinkError(error.message);
             }
           });
       } else {
-        const timer =
-          setTimeout(
-            () =>
-              setSelected(id),
-            0,
-          );
+        const timer = setTimeout(() => setSelected(id), 0);
 
-        controller.signal
-          .addEventListener(
-            "abort",
-            () =>
-              clearTimeout(
-                timer,
-              ),
-            {
-              once: true,
-            },
-          );
+        controller.signal.addEventListener("abort", () => clearTimeout(timer), {
+          once: true,
+        });
       }
     }
 
-    return () =>
-      controller.abort();
-  }, [
-    staff,
-    memberId,
-    t.operations
-      .invoiceMemberMismatch,
-  ]);
+    return () => controller.abort();
+  }, [staff, memberId, t.operations.invoiceMemberMismatch]);
 
-  const state =
-    useApi(
-      (signal) =>
-        api.get<
-          Paged<InvoiceSummaryDto>
-        >(
-          staff
-            ? "/api/invoices"
-            : rental
-              ? "/api/members/me/rental-invoices"
-              : "/api/members/me/invoices",
-          {
-            signal,
-            query: {
-              page,
-              pageSize: 10,
-              status,
-              memberId,
-            },
+  const state = useApi(
+    (signal) =>
+      api.get<Paged<InvoiceSummaryDto>>(
+        staff
+          ? "/api/invoices"
+          : rental
+            ? "/api/members/me/rental-invoices"
+            : "/api/members/me/invoices",
+        {
+          signal,
+          query: {
+            page,
+            pageSize: 10,
+            status,
+            memberId,
           },
-        ),
-      [
-        staff,
-        rental,
-        page,
-        status,
-        memberId,
-      ],
-    );
+        },
+      ),
+    [staff, rental, page, status, memberId],
+  );
 
-  async function runInvoiceAction(
-    invoiceId: string,
-    action:
-      | "print"
-      | "csv",
-  ) {
+  async function runInvoiceAction(invoiceId: string, action: "print" | "csv") {
     setActionError("");
 
-    setExporting(
-      `${action}:${invoiceId}`,
-    );
+    setExporting(`${action}:${invoiceId}`);
 
     try {
-      if (
-        action === "print"
-      ) {
-        await printInvoice(
-          invoiceId,
-        );
+      if (action === "print") {
+        await printInvoice(invoiceId);
       } else {
-        await exportInvoiceCsv(
-          invoiceId,
-        );
+        await exportInvoiceCsv(invoiceId);
       }
     } catch (error) {
       setActionError(
-        error instanceof Error
-          ? error.message
-          : "Unable to export invoice.",
+        error instanceof Error ? error.message : "Unable to export invoice.",
       );
     } finally {
       setExporting(null);
@@ -702,17 +445,9 @@ export function InvoiceList({
 
   return (
     <>
-      {linkError && (
-        <p role="alert">
-          {linkError}
-        </p>
-      )}
+      {linkError && <p role="alert">{linkError}</p>}
 
-      {actionError && (
-        <p role="alert">
-          {actionError}
-        </p>
-      )}
+      {actionError && <p role="alert">{actionError}</p>}
 
       {selected && (
         <InvoiceDetail
@@ -730,90 +465,45 @@ export function InvoiceList({
         <select
           value={status}
           onChange={(e) => {
-            setStatus(
-              e.target.value,
-            );
+            setStatus(e.target.value);
 
             setPage(1);
           }}
         >
-          <option value="">
-            —
-          </option>
+          <option value="">—</option>
 
-          {[
-            "ISSUED",
-            "PAID",
-            "VOID",
-            "PAID_AFTER_RECONCILIATION",
-          ].map((s) => (
-            <option
-              key={s}
-              value={s}
-            >
-              {
-                t.wireStatus[
-                  s as keyof typeof t.wireStatus
-                ]
-              }
+          {["ISSUED", "PAID", "VOID", "PAID_AFTER_RECONCILIATION"].map((s) => (
+            <option key={s} value={s}>
+              {t.wireStatus[s as keyof typeof t.wireStatus]}
             </option>
           ))}
         </select>
       </label>
 
       {state.loading ? (
-        <p>
-          {t.refactor.loading}
-        </p>
+        <p>{t.refactor.loading}</p>
       ) : state.error ? (
-        <p role="alert">
-          {state.error.message}
-        </p>
-      ) : !pagedItems(
-          state.data,
-        ).length ? (
-        <p>
-          {t.refactor.empty}
-        </p>
+        <p role="alert">{state.error.message}</p>
+      ) : !pagedItems(state.data).length ? (
+        <p>{t.refactor.empty}</p>
       ) : (
-        pagedItems(
-          state.data,
-        ).map((i) => (
-          <Card
-            key={i.invoiceId}
-            title={i.invoiceNumber}
-          >
+        pagedItems(state.data).map((i) => (
+          <Card key={i.invoiceId} title={i.invoiceNumber}>
             <p>
-              <StatusChip
-                value={i.status}
-              />
+              <StatusChip value={i.status} />
             </p>
 
             <p>
-              {t.refactor.total}:{" "}
-              {formatMoney(
-                i.totalAmount,
-              )}
+              {t.refactor.total}: {formatMoney(i.totalAmount)}
               {" · "}
-              {
-                t.refactor
-                  .remaining
-              }
-              :{" "}
-              {formatMoney(
-                i.outstanding,
-              )}
+              {t.refactor.remaining}: {formatMoney(i.outstanding)}
             </p>
 
             <div className="btn-row">
               <button
                 type="button"
                 className="btn btn--secondary"
-                onClick={() =>
-                  setSelected(
-                    i.invoiceId,
-                  )
-                }
+                onClick={() => setSelected(i.invoiceId)}
               >
                 {t.refactor.details}
               </button>
@@ -823,19 +513,10 @@ export function InvoiceList({
                   <button
                     type="button"
                     className="btn btn--secondary"
-                    disabled={
-                      exporting !==
-                        null
-                    }
-                    onClick={() =>
-                      void runInvoiceAction(
-                        i.invoiceId,
-                        "print",
-                      )
-                    }
+                    disabled={exporting !== null}
+                    onClick={() => void runInvoiceAction(i.invoiceId, "print")}
                   >
-                    {exporting ===
-                    `print:${i.invoiceId}`
+                    {exporting === `print:${i.invoiceId}`
                       ? "Preparing..."
                       : "Print"}
                   </button>
@@ -843,19 +524,10 @@ export function InvoiceList({
                   <button
                     type="button"
                     className="btn btn--secondary"
-                    disabled={
-                      exporting !==
-                        null
-                    }
-                    onClick={() =>
-                      void runInvoiceAction(
-                        i.invoiceId,
-                        "csv",
-                      )
-                    }
+                    disabled={exporting !== null}
+                    onClick={() => void runInvoiceAction(i.invoiceId, "csv")}
                   >
-                    {exporting ===
-                    `csv:${i.invoiceId}`
+                    {exporting === `csv:${i.invoiceId}`
                       ? "Exporting..."
                       : "Export CSV"}
                   </button>
@@ -870,27 +542,15 @@ export function InvoiceList({
         <button
           className="btn btn--secondary"
           disabled={page === 1}
-          onClick={() =>
-            setPage(
-              page - 1,
-            )
-          }
+          onClick={() => setPage(page - 1)}
         >
           {t.refactor.previous}
         </button>
 
         <button
           className="btn btn--secondary"
-          disabled={
-            !state.data ||
-            page * 10 >=
-              state.data.totalCount
-          }
-          onClick={() =>
-            setPage(
-              page + 1,
-            )
-          }
+          disabled={!state.data || page * 10 >= state.data.totalCount}
+          onClick={() => setPage(page + 1)}
         >
           {t.refactor.more}
         </button>

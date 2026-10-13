@@ -350,11 +350,10 @@ public sealed class UserAdminService(
 
         user.RoleId = role.RoleId;
 
-        // Rời Coach: giữ CoachProfile làm lịch sử, nhưng gỡ chuyên môn và quyền dịch vụ để không còn hiệu lực.
+        // Rời Coach: giữ CoachProfile làm lịch sử, nhưng gỡ chuyên môn để không còn hiệu lực.
         if (currentRole == UserRole.Coach)
         {
             db.Set<UserSportSpecialty>().RemoveRange(await db.Set<UserSportSpecialty>().Where(x => x.UserId == userId).ToListAsync(ct));
-            db.Set<CoachServiceQualification>().RemoveRange(await db.Set<CoachServiceQualification>().Where(x => x.UserId == userId).ToListAsync(ct));
         }
 
         // BR-103/104: đổi vai trò vô hiệu mọi token đang lưu hành (claim sst + role không còn khớp DB).
@@ -437,7 +436,7 @@ public sealed class UserAdminService(
         if (classes > 0) reasons.Add($"Still the main coach of {classes} unfinished class(es). Reassign them first.");
 
         var occupancies = await db.Set<CoachOccupancy>().CountAsync(x => x.CoachId == userId && x.IsActive && x.EndAtUtc > now, ct);
-        if (occupancies > 0) reasons.Add($"{occupancies} upcoming class/PT session(s) are still assigned. Reassign or cancel them first.");
+        if (occupancies > 0) reasons.Add($"{occupancies} upcoming class session(s) are still assigned. Reassign or cancel them first.");
 
         var relationships = await db.Set<CoachMemberRelationship>().CountAsync(x => x.CoachId == userId && x.Status == RelationshipStatus.Active, ct);
         if (relationships > 0) reasons.Add($"{relationships} active coaching relationship(s). End or transfer them first.");

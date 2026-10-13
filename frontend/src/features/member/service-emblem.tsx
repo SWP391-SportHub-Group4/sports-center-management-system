@@ -32,19 +32,6 @@ function Art({ kind }: { kind: EmblemKind }) {
           </g>
         </>
       );
-    case "pt":
-      return (
-        <>
-          <path d="M28 9h8M32 9v5M47 18l3-3" />
-          <circle cx="32" cy="36" r="18" />
-          <circle className={styles.pulse} cx="32" cy="36" r="18" />
-          <path d="M32 21v3M47 36h-3M32 51v-3M17 36h3" />
-          <g className={styles.hand}>
-            <path d="M32 36V25" className={styles.accent} />
-          </g>
-          <circle cx="32" cy="36" r="2.2" className={styles.fill} />
-        </>
-      );
     case "badminton":
       return (
         <>

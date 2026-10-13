@@ -11,7 +11,6 @@ import {
   type ReactNode,
 } from "react";
 import { HOME_BY_ROLE, useAuth, type Role } from "@/lib/auth";
-import { canUsePtFeatures } from "@/lib/permissions";
 import { useLanguage } from "@/lib/language";
 import type { Translations } from "@/locales/en";
 import { NotificationBell } from "./NotificationBell";
@@ -125,16 +124,15 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
 export function getNavForUser(user: {
   role: Role;
   sportIds: number[];
-  isPersonalTrainer?: boolean;
   approvalStatus?: string | null;
 }): NavItem[] {
   if (user.role !== "Coach") return NAV_BY_ROLE[user.role];
   return [
-        { href: "/coach/schedule", labelKey: "teachingSchedule" },
-        { href: "/coach/classes", labelKey: "assignedClasses" },
-        { href: "/coach/members", labelKey: "classStudents" },
-        { href: "/coach/change-requests", labelKey: "changeRequests" },
-      ];
+    { href: "/coach/schedule", labelKey: "teachingSchedule" },
+    { href: "/coach/classes", labelKey: "assignedClasses" },
+    { href: "/coach/members", labelKey: "classStudents" },
+    { href: "/coach/change-requests", labelKey: "changeRequests" },
+  ];
 }
 
 type GroupKey = keyof Translations["navigation"]["groups"];
@@ -733,27 +731,16 @@ export function AppFrame({
   );
 }
 
-/** Tiêu đề trang + kiểm tra quyền PT; chạy bên trong khung. */
+/** Tiêu đề trang; chạy bên trong khung. */
 function PageBody({
   title,
   description,
-  requirePtSpecialty,
   children,
 }: {
   title: string;
   description?: string;
-  requirePtSpecialty?: boolean;
   children: ReactNode;
 }) {
-  const { user } = useAuth();
-  const router = useRouter();
-  // Specialty checks are for display; the API enforces authorization.
-  const mismatch =
-    !!requirePtSpecialty && user?.role === "Coach" && !canUsePtFeatures(user);
-  useEffect(() => {
-    if (mismatch && user) router.replace(HOME_BY_ROLE[user.role]);
-  }, [mismatch, user, router]);
-  if (mismatch) return null;
   return (
     <>
       <div className={styles.pageHeader}>
@@ -769,26 +756,19 @@ export function AppShell({
   title,
   description,
   allow,
-  requirePtSpecialty,
   children,
 }: {
   title: string;
   description?: string;
   /** Vai trò được phép xem nhánh này. Bảo vệ route ở client, không thay cho RBAC ở API. */
   allow: Role[];
-  /** Show PT tools only for a coach with a current PT specialty. */
-  requirePtSpecialty?: boolean;
   /** Giữ để không phải sửa nơi gọi; thanh điều hướng trên cùng không còn cần chế độ này. */
   operationalLayout?: boolean;
   children: ReactNode;
 }) {
   const inFrame = useContext(FrameContext);
   const page = (
-    <PageBody
-      title={title}
-      description={description}
-      requirePtSpecialty={requirePtSpecialty}
-    >
+    <PageBody title={title} description={description}>
       {children}
     </PageBody>
   );

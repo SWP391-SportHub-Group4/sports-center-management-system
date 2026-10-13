@@ -162,7 +162,7 @@ export function CatalogFeedback({
     sport_not_compatible: c.invalidReference,
     sport_name_taken: c.duplicateName,
     package_name_taken: c.duplicateName,
-    invalid_setting_value: c.ptInvalid,
+    invalid_setting_value: c.invalidReference,
   };
   const error = mutation.error;
   const message = error

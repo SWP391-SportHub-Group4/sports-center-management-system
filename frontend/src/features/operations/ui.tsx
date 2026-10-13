@@ -118,11 +118,9 @@ export function MutationFeedback({
                   t.operations[
                     conflict.conflictSourceType === "CLASS_SESSION"
                       ? "classSession"
-                      : conflict.conflictSourceType === "PT_SESSION"
-                        ? "ptSession"
-                        : conflict.conflictSourceType === "COURT_RENTAL"
-                          ? "rental"
-                          : "roomBlock"
+                      : conflict.conflictSourceType === "COURT_RENTAL"
+                        ? "rental"
+                        : "roomBlock"
                   ]
                 }
                 {" · "}

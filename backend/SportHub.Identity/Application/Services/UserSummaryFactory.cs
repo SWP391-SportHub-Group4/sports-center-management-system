@@ -29,16 +29,6 @@ public sealed class UserSummaryFactory(ISportHubDbContext db, ISportCatalogReade
                 .ToListAsync(ct);
         }
 
-        var isPersonalTrainer = false;
-        if (role == UserRole.Coach)
-        {
-            var offering = (await catalog.GetSportForServiceAsync(SportServiceType.PersonalTraining, ct))
-                ?.Services.FirstOrDefault(s => s.ServiceType == SportServiceType.PersonalTraining);
-            isPersonalTrainer = offering is not null
-                && await db.Set<CoachServiceQualification>().AsNoTracking()
-                    .AnyAsync(q => q.UserId == user.UserId && q.OfferingId == offering.OfferingId, ct);
-        }
-
         return new UserSummaryResponse
         {
             UserId = user.UserId,
@@ -46,8 +36,7 @@ public sealed class UserSummaryFactory(ISportHubDbContext db, ISportCatalogReade
             FullName = user.Profile?.FullName ?? string.Empty,
             AvatarUrl = user.Profile?.AvatarUrl,
             Role = role.ToString(),
-            SportIds = sportIds,
-            IsPersonalTrainer = isPersonalTrainer
+            SportIds = sportIds
         };
     }
 }

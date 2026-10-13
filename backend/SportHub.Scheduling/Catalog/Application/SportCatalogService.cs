@@ -14,7 +14,7 @@ namespace SportHub.Scheduling.Catalog.Application;
 /// chỉ chặn giao dịch mới, không đụng thứ đã bán. <c>code</c> không đổi được sau khi tạo.
 /// Membership/PT chỉ bật được ở môn tham chiếu Gym (<see cref="SportCodes.Gym"/>), kiểm ở backend.
 /// </summary>
-public sealed partial class SportCatalogService(ISportHubDbContext db, IAuditWriter audit, ServiceUsageGuard usage)
+public sealed partial class SportCatalogService(ISportHubDbContext db, IAuditWriter audit)
 {
     /// <summary>Danh sách công khai chỉ gồm môn đang hoạt động và dịch vụ đang bật; Manager xem tất cả kèm readiness.</summary>
     public async Task<IReadOnlyList<SportResponse>> ListAsync(bool includeInactive, CancellationToken ct = default,
@@ -139,8 +139,6 @@ public sealed partial class SportCatalogService(ISportHubDbContext db, IAuditWri
     public async Task<SportResponse> SetServiceEnabledAsync(int sportId, SportServiceType type, bool enabled, Guid actorUserId,
         CancellationToken ct = default)
     {
-        if (type == SportServiceType.PersonalTraining)
-            throw new BadRequestException("pt_removed", "Personal Training is no longer offered.");
         var sport = await FindAsync(sportId, ct);
         var offering = sport.Services.SingleOrDefault(s => s.ServiceType == type)
                        ?? throw new NotFoundException("service_not_configured", "Service not configured.");
@@ -157,50 +155,6 @@ public sealed partial class SportCatalogService(ISportHubDbContext db, IAuditWri
         }
 
         return ToResponse(sport, publicView: false, null);
-    }
-
-    /// <summary>Tập loại phòng cho dịch vụ PT. Tập rỗng nghĩa là PT không gắn phòng.</summary>
-    public async Task<IReadOnlyList<int>> SetServiceRoomTypesAsync(int sportId, SportServiceType type, IEnumerable<int> roomTypeIds,
-        Guid actorUserId, CancellationToken ct = default)
-    {
-        if (type == SportServiceType.PersonalTraining)
-            throw new BadRequestException("pt_removed", "Personal Training is no longer offered.");
-        if (type != SportServiceType.PersonalTraining)
-        {
-            throw new BadRequestException("service_room_types_not_supported",
-                "Service room types not supported.");
-        }
-
-        var sport = await FindAsync(sportId, ct);
-        var offering = sport.Services.SingleOrDefault(s => s.ServiceType == type)
-                       ?? throw new NotFoundException("service_not_configured", "Service not configured.");
-        var ids = roomTypeIds.Distinct().OrderBy(x => x).ToList();
-
-        var known = await db.Set<RoomType>().Where(r => ids.Contains(r.RoomTypeId)).Select(r => r.RoomTypeId).ToListAsync(ct);
-        if (known.Count != ids.Count)
-        {
-            throw new BadRequestException("invalid_room_type", "Invalid room type.");
-        }
-
-        // Loại phòng phải thuộc môn (sport_room_types) để phòng PT vẫn tương thích môn Gym.
-        var sportRoomTypes = await db.Set<SportRoomType>().Where(l => l.SportId == sportId).Select(l => l.RoomTypeId).ToListAsync(ct);
-        if (ids.Any(id => !sportRoomTypes.Contains(id)))
-        {
-            throw new BadRequestException("room_type_not_linked_to_sport", "Room type not linked to sport.");
-        }
-
-        var current = await db.Set<ServiceRoomType>().Where(l => l.OfferingId == offering.OfferingId).ToListAsync(ct);
-        var removed = current.Where(l => !ids.Contains(l.RoomTypeId)).ToList();
-        await usage.RequireNoFuturePtInRoomTypesAsync(removed.Select(l => l.RoomTypeId).ToList(), ct);
-        db.Set<ServiceRoomType>().RemoveRange(removed);
-        db.Set<ServiceRoomType>().AddRange(ids.Where(id => current.All(l => l.RoomTypeId != id))
-            .Select(id => new ServiceRoomType { OfferingId = offering.OfferingId, RoomTypeId = id }));
-
-        audit.Write(new AuditEntry(actorUserId, "SET_SERVICE_ROOM_TYPES", nameof(SportServiceOffering), offering.OfferingId.ToString(),
-            OldValue: System.Text.Json.JsonSerializer.Serialize(new { targetName = sport.Name, sportId, serviceType = type.ToString(), roomTypeIds = current.Select(x => x.RoomTypeId).OrderBy(x => x) }),
-            NewValue: System.Text.Json.JsonSerializer.Serialize(new { targetName = sport.Name, sportId, serviceType = type.ToString(), roomTypeIds = ids })));
-        await db.SaveChangesAsync(ct);
-        return ids;
     }
 
     private async Task<SportResponse> SetActiveAsync(int sportId, bool active, string action, Guid actorUserId, CancellationToken ct)
@@ -276,10 +230,7 @@ public sealed partial class SportCatalogService(ISportHubDbContext db, IAuditWri
                 throw new BadRequestException("service_type_invalid", "Service type invalid.");
             }
 
-            if (type == SportServiceType.PersonalTraining)
-                throw new BadRequestException("pt_removed", "Personal Training is no longer offered.");
-
-            if (type is SportServiceType.MembershipAccess or SportServiceType.PersonalTraining
+            if (type == SportServiceType.MembershipAccess
                 && !string.Equals(sportCode, SportCodes.Gym, StringComparison.OrdinalIgnoreCase))
             {
                 throw new BadRequestException("service_not_allowed_for_sport",

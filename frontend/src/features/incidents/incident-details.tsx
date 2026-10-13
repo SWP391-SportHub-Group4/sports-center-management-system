@@ -17,10 +17,26 @@ export function IncidentDetailsView({ id }: { id: string }) {
         <>
           <Card title={incident.reason}>
             <dl className={styles.details}>
-              <div><dt>{l.incidentScope}</dt><dd>{incident.scope === "CENTER" ? t.operations.center : incident.roomName ?? t.operations.room}</dd></div>
-              <div><dt>{t.operations.start}</dt><dd>{formatDateTime(incident.startAtUtc)}</dd></div>
-              <div><dt>{t.operations.end}</dt><dd>{formatDateTime(incident.endAtUtc)}</dd></div>
-              <div><dt>{l.incidentRecordedAt}</dt><dd>{formatDateTime(incident.createdAtUtc)}</dd></div>
+              <div>
+                <dt>{l.incidentScope}</dt>
+                <dd>
+                  {incident.scope === "CENTER"
+                    ? t.operations.center
+                    : (incident.roomName ?? t.operations.room)}
+                </dd>
+              </div>
+              <div>
+                <dt>{t.operations.start}</dt>
+                <dd>{formatDateTime(incident.startAtUtc)}</dd>
+              </div>
+              <div>
+                <dt>{t.operations.end}</dt>
+                <dd>{formatDateTime(incident.endAtUtc)}</dd>
+              </div>
+              <div>
+                <dt>{l.incidentRecordedAt}</dt>
+                <dd>{formatDateTime(incident.createdAtUtc)}</dd>
+              </div>
             </dl>
             <p>{incident.resolutionSummary}</p>
           </Card>

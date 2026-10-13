@@ -118,11 +118,10 @@ public sealed class CheckoutsController(CheckoutService checkouts, IPackagePurch
     [HttpPost("{invoiceId:guid}/retry")]
     [EnableRateLimiting("checkout-write")]
     public async Task<IActionResult> Retry(Guid invoiceId,
-        [FromHeader(Name = "Idempotency-Key")] string key,
-        [FromBody] RetryCheckoutRequest request, CancellationToken ct)
+        [FromHeader(Name = "Idempotency-Key")] string key, CancellationToken ct)
     {
         RequireBuyer();
-        var result = await checkouts.RetryAsync(invoiceId, key, request.PriceVersion,
+        var result = await checkouts.RetryAsync(invoiceId, key,
             User.RequireUserId(), IsStaff(), User.IsInRole(SportHubRoleNames.CenterManager), ct);
         return Created($"/api/checkouts/{result.InvoiceId}", result);
     }
@@ -142,8 +141,6 @@ public sealed class CheckoutsController(CheckoutService checkouts, IPackagePurch
             throw new ForbiddenException("checkout_forbidden", "Checkout forbidden.");
     }
 }
-
-public sealed record RetryCheckoutRequest(string? PriceVersion = null);
 
 public sealed record CourtRentalCheckoutRequest(int SportId, int RoomId,
     DateTimeOffset StartUtc, DateTimeOffset EndUtc);

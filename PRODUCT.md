@@ -1,6 +1,6 @@
 # Product
 
-SportHub là **hệ thống quản lý trung tâm thể thao với ba môn Gym (bao gồm PT), cầu lông và bóng rổ; có thể mở rộng thêm môn trong tương lai**. PT là dịch vụ thuộc Gym, không phải môn thứ tư.
+SportHub là **hệ thống quản lý trung tâm thể thao với ba môn Gym, cầu lông và bóng rổ; có thể mở rộng thêm môn trong tương lai**. Gym chỉ bán Membership có thời hạn và vé Gym 1 ngày.
 
 <!-- impeccable:product-schema 1 -->
 
@@ -10,8 +10,8 @@ web
 
 ## Users
 
-- **Hội viên (Member)**: Xem lớp/khóa học đa môn (Cầu lông, Bóng rổ...) và ghi danh có giữ chỗ; mua Membership Gym và gói PT; quản lý ví điểm và lịch sử điểm; xem lịch hôm nay/tuần, hóa đơn, thông báo; hỏi chatbot lịch tập; chuyển đổi ngôn ngữ EN / VI.
-- **Huấn luyện viên của trung tâm (Coach)**: Có chuyên môn theo môn; xem lịch dạy và roster lớp mình phụ trách. Coach có chuyên môn Personal Training còn lập kế hoạch tập, ghi kết quả, dùng gợi ý AI cho học viên được phân công.
+- **Hội viên (Member)**: Xem lớp/khóa học đa môn (Cầu lông, Bóng rổ...) và ghi danh có giữ chỗ; mua Membership Gym hoặc vé Gym 1 ngày (50.000đ, chỉ trong ngày); quản lý ví điểm và lịch sử điểm; xem lịch hôm nay/tuần, hóa đơn, thông báo; hỏi chatbot lịch tập; chuyển đổi ngôn ngữ EN / VI.
+- **Huấn luyện viên của trung tâm (Coach)**: Có chuyên môn theo môn; xem lịch dạy và roster lớp mình phụ trách. Coach cầu lông/bóng rổ lập kế hoạch tập, ghi kết quả, đánh giá học viên của lớp.
 - **Nhân viên lễ tân (Receptionist)**: Tìm và đăng ký Member tại quầy; Gym check-in/out; điểm danh lớp nhóm; checkout thay Member (dùng điểm phải có mã OTP gửi email Member); xem Court Schedule; hỗ trợ đối soát thanh toán.
 - **Quản lý trung tâm (Center Manager)**: Cấu hình môn, phòng/sân, giá thuê sân, Membership; tạo lớp và xếp lịch, phân công Coach theo chuyên môn, duyệt hoàn điểm, xử lý lớp dưới ngưỡng hoàn vốn, sự cố, báo cáo doanh thu, audit log.
 - **Quản trị hệ thống (System Administrator)**: Quản trị tài khoản nhân sự, phân quyền vai trò (RBAC), khóa/mở khóa tài khoản.
@@ -33,7 +33,7 @@ Nền tảng đa môn khép kín cho trung tâm thể thao: khác với phần m
 
 ## Capabilities and Constraints
 
-- **Danh mục môn và cơ sở vật chất**: Manager tự thêm/sửa môn (phạm vi sản phẩm: Gym (bao gồm PT), Cầu lông, Bóng rổ; seed kỹ thuật còn PT riêng, cần migration theo CAT-01), phòng/sân, giờ hoạt động, khóa sân và giá thuê theo khung giờ.
+- **Danh mục môn và cơ sở vật chất**: Manager tự thêm/sửa môn (phạm vi sản phẩm: Gym, Cầu lông, Bóng rổ), phòng/sân, giờ hoạt động, khóa sân và giá thuê theo khung giờ.
 - **Ghi danh khóa học có giữ chỗ**: Checkout lớp giữ chỗ 15 phút; sĩ số không bao giờ vượt trần dù nhiều người đặt đồng thời.
 - **Ngưỡng hoàn vốn**: Lớp chốt trước khai giảng N ngày; nếu dưới ngưỡng, học viên nhận email chọn chuyển lớp hoặc hoàn điểm trong thời hạn; Manager có thể miễn ngưỡng có lý do.
 - **Ví điểm và split payment**: Một hóa đơn có thể trả bằng điểm + VNPay-QR (ví dụ 300.000đ = 200 điểm + 100.000đ). Receptionist thanh toán thay Member bắt buộc có OTP email của Member (5 phút, tối đa 5 lần sai).
@@ -48,11 +48,11 @@ Nền tảng đa môn khép kín cho trung tâm thể thao: khác với phần m
 - Tên thương hiệu: **SportHub** (với điểm nhấn thương hiệu `Sport` + `Hub`).
 - Bản sắc & Giọng điệu: Vững chãi, năng động, chuẩn xác và truyền cảm hứng thể thao. Không dùng thuật ngữ cường điệu, hứa hẹn sai thực tế.
 - Nhận diện đã chốt: **Court & Volt**, dùng duy nhất [DESIGN-TOKENS.md](DESIGN-TOKENS.md) cho màu, typography, spacing, radius và motion; không tạo palette riêng theo role.
-- Typography: Barlow Condensed cho tiêu đề/display, Be Vietnam Pro cho body/UI, JetBrains Mono cho mã theo token. Runtime còn cần migration từ Roboto; quy trình và owner ở [DESIGN-SKILLS-GUIDE.md](DESIGN-SKILLS-GUIDE.md).
+- Typography: Barlow Condensed cho tiêu đề/display, Be Vietnam Pro cho body/UI, JetBrains Mono cho mã theo token. Runtime còn cần migration từ Roboto.
 
 ## Implementation và phần còn thiếu
 
-Payment/checkout/wallet và VNPay adapter đã có mã; sandbox thật cần nghiệm thu riêng. Member assistant/workout AI đã có nền tảng, Manager AI chưa triển khai. Seed kỹ thuật còn bản ghi PT riêng, chưa khớp mô hình ba môn sản phẩm. Danh sách evidence, khoảng trống và tiêu chí nghiệm thu nằm ở mục 13 của [thiết kế hệ thống](docs/Center-Management-System-Design-v3.md).
+Payment/checkout/wallet và VNPay adapter đã có mã; sandbox thật cần nghiệm thu riêng. Member assistant/workout AI đã có nền tảng, Manager AI chưa triển khai. Danh sách evidence, khoảng trống và tiêu chí nghiệm thu nằm ở mục 13 của [thiết kế hệ thống](docs/Center-Management-System-Design-v3.md).
 
 ## Product Principles
 

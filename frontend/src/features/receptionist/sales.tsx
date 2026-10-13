@@ -9,7 +9,7 @@ import { CoursePurchase, PlanSales } from "./front-desk";
 import { RegistrationHint } from "./dashboard";
 import styles from "./desk.module.css";
 
-/** Bán dịch vụ (H05/H06): giữ hội viên đang chọn; Membership/PT và khóa học dùng checkout dùng chung (OTP khi dùng điểm). */
+/** Bán dịch vụ (H05/H06): giữ hội viên đang chọn; Membership, vé ngày và khóa học dùng checkout dùng chung (OTP khi dùng điểm). */
 export function SalesDesk() {
   const { t } = useLanguage();
   const l = t.frontDesk;
@@ -33,7 +33,7 @@ export function SalesDesk() {
           </p>
           <Tabs
             tabs={[
-              { id: "membership", label: l.tabMembershipPt },
+              { id: "membership", label: l.membership },
               { id: "courses", label: l.tabCourses },
             ]}
             value={tab}

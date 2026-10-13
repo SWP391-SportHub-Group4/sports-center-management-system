@@ -1,6 +1,6 @@
 # Git Workflow - SportHub
 
-SportHub là **hệ thống quản lý trung tâm thể thao với ba môn Gym (bao gồm PT), cầu lông và bóng rổ; có thể mở rộng thêm môn trong tương lai**. PT là dịch vụ thuộc Gym, không phải môn thứ tư.
+SportHub là **hệ thống quản lý trung tâm thể thao với ba môn Gym, cầu lông và bóng rổ; có thể mở rộng thêm môn trong tương lai**.
 
 ## 1. Cấu trúc Branch
 
@@ -677,7 +677,7 @@ Phạm vi đã đổi sang trung tâm thể thao đa môn. Để giảm xung đ�
 | `SportHub.Payment` (gồm `Wallet/`, `VnPay/`) | G5a, G5b, G6, G10 | `IPaymentGateway` (VNPay + Mock); ví điểm, split payment, OTP xác nhận, hoàn điểm; ghi danh có giữ chỗ (phần thanh toán); báo cáo mới | Người làm G5a/G5b nên cũng làm G6 để tránh lệch hợp đồng `IClassEnrollmentFulfillment` |
 | Ngưỡng + Rental + Notification | G7, G9 | Ngưỡng hoàn vốn (T5–T8), email, trang phản hồi; Member thuê sân, sự cố, thông báo thủ công | Phụ thuộc G4, G5b, G6 |
 | `SportHub.AI` | G11 | Chatbot function calling (`ChatToolRegistry`) + fallback khi thiếu `Gemini__ApiKey` | Sau G4 |
-| `SportHub.Training` | G8 (nhỏ) | Đổi kiểm tra `CoachCategory=PersonalTrainer` sang `CoachSpecialty` chứa môn PT | Chạm cùng G8 |
+| `SportHub.Training` | G8 (nhỏ) | Kế hoạch/kết quả/đánh giá theo lớp, kiểm tra theo `CoachSpecialty` | Chạm cùng G8 |
 | `frontend` | G12 (song song từ G3) | Landing đa môn, lớp/khóa học, Court Schedule, thuê sân, ví điểm, dashboard theo vai trò (thiết kế hệ thống) | Chia theo vai trò/khu vực trang, không chia theo file dùng chung |
 | `SportHub.BuildingBlocks` | mọi giai đoạn | Chỉ thêm interface dùng chung (`IPointWalletService`, `IOccupancyService`, `ISportCatalogReader`, `IClassEnrollmentFulfillment`) | Sửa file này phải báo cả nhóm; PR riêng, nhỏ, merge nhanh |
 

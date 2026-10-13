@@ -2,22 +2,14 @@
 
 import Link from "next/link";
 
-import {
-  Drawer,
-  buttonClass,
-} from "@/components/primitives";
+import { Drawer, buttonClass } from "@/components/primitives";
 
-import {
-  StatusChip,
-  Table,
-} from "@/components/ui";
+import { StatusChip, Table } from "@/components/ui";
 
 import { formatDateTime } from "@/lib/format";
 import { useLanguage } from "@/lib/language";
 
-import type {
-  CourtScheduleEntryDto,
-} from "@/lib/types";
+import type { CourtScheduleEntryDto } from "@/lib/types";
 
 export function CalendarEventDrawer({
   entry,
@@ -37,15 +29,11 @@ export function CalendarEventDrawer({
   const l = t.operations;
   const shared = t.calendar;
 
-  const participants =
-    entry.participants ?? [];
+  const participants = entry.participants ?? [];
 
   let footer = undefined;
 
-  if (
-    manager &&
-    entry.classId
-  ) {
+  if (manager && entry.classId) {
     footer = (
       <Link
         className={buttonClass({
@@ -58,12 +46,7 @@ export function CalendarEventDrawer({
     );
   }
 
-  if (
-    coach &&
-    entry.sourceType ===
-      "CLASS_SESSION" &&
-    entry.classId
-  ) {
+  if (coach && entry.sourceType === "CLASS_SESSION" && entry.classId) {
     footer = (
       <Link
         className={buttonClass({
@@ -76,29 +59,10 @@ export function CalendarEventDrawer({
     );
   }
 
-  if (
-    coach &&
-    entry.sourceType ===
-      "PT_SESSION"
-  ) {
-    footer = (
-      <Link
-        className={buttonClass({
-          variant: "secondary",
-        })}
-        href="/coach/pt-sessions"
-      >
-        {t.staffWork.sessions}
-      </Link>
-    );
-  }
-
   return (
     <Drawer
       title={entry.title}
-      description={`${formatDateTime(
-        entry.startAtUtc,
-      )} – ${formatDateTime(
+      description={`${formatDateTime(entry.startAtUtc)} – ${formatDateTime(
         entry.endAtUtc,
       )}`}
       onClose={onClose}
@@ -112,20 +76,14 @@ export function CalendarEventDrawer({
         }}
       >
         <div className="row spread">
-          <dt>
-            {shared.type}
-          </dt>
+          <dt>{shared.type}</dt>
 
           <dd
             style={{
               margin: 0,
             }}
           >
-            {
-              shared.types[
-                entry.sourceType
-              ]
-            }
+            {shared.types[entry.sourceType]}
           </dd>
         </div>
 
@@ -149,8 +107,7 @@ export function CalendarEventDrawer({
               margin: 0,
             }}
           >
-            {entry.coachName ||
-              "—"}
+            {entry.coachName || "—"}
           </dd>
         </div>
 
@@ -162,75 +119,37 @@ export function CalendarEventDrawer({
               margin: 0,
             }}
           >
-            <StatusChip
-              value={
-                entry.status
-              }
-            />
+            <StatusChip value={entry.status} />
           </dd>
         </div>
       </dl>
 
-      {[
-        "CLASS_SESSION",
-        "PT_SESSION",
-      ].includes(
-        entry.sourceType,
-      ) && (
+      {entry.sourceType === "CLASS_SESSION" && (
         <div>
-          <h3>
-            {
-              shared.participants
-            }
-          </h3>
+          <h3>{shared.participants}</h3>
 
           {participants.length ? (
             <Table
               headers={
-                entry.sourceType ===
-                "CLASS_SESSION"
-                  ? [
-                      l.member,
-                      l.attendance,
-                    ]
+                entry.sourceType === "CLASS_SESSION"
+                  ? [l.member, l.attendance]
                   : [l.member]
               }
             >
-              {participants.map(
-                (
-                  participant,
-                ) => (
-                  <tr
-                    key={
-                      participant.memberId
-                    }
-                  >
-                    <td>
-                      {
-                        participant.memberName
-                      }
-                    </td>
+              {participants.map((participant) => (
+                <tr key={participant.memberId}>
+                  <td>{participant.memberName}</td>
 
-                    {entry.sourceType ===
-                      "CLASS_SESSION" && (
-                      <td>
-                        <StatusChip
-                          value={
-                            participant.attendanceStatus
-                          }
-                        />
-                      </td>
-                    )}
-                  </tr>
-                ),
-              )}
+                  {entry.sourceType === "CLASS_SESSION" && (
+                    <td>
+                      <StatusChip value={participant.attendanceStatus} />
+                    </td>
+                  )}
+                </tr>
+              ))}
             </Table>
           ) : (
-            <p className="muted">
-              {
-                shared.noParticipants
-              }
-            </p>
+            <p className="muted">{shared.noParticipants}</p>
           )}
         </div>
       )}

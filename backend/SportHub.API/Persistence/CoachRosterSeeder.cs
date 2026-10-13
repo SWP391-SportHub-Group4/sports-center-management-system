@@ -119,10 +119,9 @@ public sealed class CoachRosterSeeder(
         // Dọn các thực thể đang theo dõi (khi chạy sau DemoDataSeeder) để xóa/ghi lại chuyên môn không đụng khóa trùng.
         db.ChangeTracker.Clear();
 
-        // Chuyên môn và quyền dạy PT đặt lại theo đúng môn.
+        // Chuyên môn đặt lại theo đúng môn.
         var ids = userIds.Values.ToList();
         await db.UserSportSpecialties.Where(s => ids.Contains(s.UserId)).ExecuteDeleteAsync(ct);
-        await db.Set<CoachServiceQualification>().Where(q => ids.Contains(q.UserId)).ExecuteDeleteAsync(ct);
         foreach (var c in roster)
         {
             var userId = userIds[c.Email];
