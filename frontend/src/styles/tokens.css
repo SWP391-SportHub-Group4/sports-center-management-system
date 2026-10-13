@@ -92,7 +92,9 @@
   --color-primary-soft-text: var(--court-700); /* 8.1:1 trên primary-50 */
   --color-on-primary: var(--white);
 
-  --color-accent: var(--volt-400); /* điểm nhấn: badge "Mới", trạng thái active trên nền tối, progress */
+  --color-accent: var(
+    --volt-400
+  ); /* điểm nhấn: badge "Mới", trạng thái active trên nền tối, progress */
   --color-accent-hover: var(--volt-300);
   --color-on-accent: var(--chalk-950);
 
@@ -103,10 +105,14 @@
   /* --- Background / surface --- */
   --bg-app: var(--chalk-50); /* nền toàn trang */
   --bg-surface: var(--white); /* card, panel, header */
-  --bg-surface-sunken: var(--chalk-100); /* input nền, hàng thead, khu vực lõm */
+  --bg-surface-sunken: var(
+    --chalk-100
+  ); /* input nền, hàng thead, khu vực lõm */
   --bg-inverse: var(--chalk-950); /* sidebar, hero tối */
   --bg-inverse-raised: var(--chalk-900);
-  --bg-brand-deep: var(--court-900); /* nền thương hiệu đậm (hero trang public) */
+  --bg-brand-deep: var(
+    --court-900
+  ); /* nền thương hiệu đậm (hero trang public) */
   --bg-overlay: rgb(9 14 15 / 56%); /* backdrop modal */
 
   /* --- Text --- */
@@ -121,7 +127,9 @@
   /* --- Border --- */
   --border-subtle: var(--chalk-200); /* chia khu vực, card, bảng (trang trí) */
   --border-strong: var(--chalk-300);
-  --border-control: var(--chalk-500); /* input/checkbox/select — đạt 3:1 (WCAG 1.4.11) */
+  --border-control: var(
+    --chalk-500
+  ); /* input/checkbox/select — đạt 3:1 (WCAG 1.4.11) */
   --border-inverse: rgb(255 255 255 / 12%);
   --focus-ring: var(--court-500);
 
@@ -131,7 +139,9 @@
   --success-solid: var(--green-600);
   --warning-bg: var(--amber-50);
   --warning-text: var(--amber-700);
-  --warning-solid: var(--amber-400); /* chỉ làm viền/icon/thanh; chữ dùng warning-text */
+  --warning-solid: var(
+    --amber-400
+  ); /* chỉ làm viền/icon/thanh; chữ dùng warning-text */
   --danger-bg: var(--red-50);
   --danger-text: var(--red-700);
   --danger-solid: var(--red-600);
@@ -177,8 +187,10 @@
    ========================================================= */
 :root {
   --font-display: "Barlow Condensed", "Arial Narrow", sans-serif;
-  --font-body: "Be Vietnam Pro", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+  --font-body:
+    "Be Vietnam Pro", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono:
+    "JetBrains Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
 
   /* Thang cỡ chữ — số chẵn, tỉ lệ ~1.2. App dùng 14 làm body (dày thông tin), public dùng 16 */
   --text-xs: 12px; /* caption, nhãn bảng — KHÔNG nhỏ hơn */
@@ -224,9 +236,12 @@
    ========================================================= */
 :root {
   --shadow-xs: 0 1px 1px rgb(9 14 15 / 5%);
-  --shadow-sm: 0 1px 2px rgb(9 14 15 / 6%), 0 2px 6px rgb(9 14 15 / 4%); /* card nổi nhẹ */
-  --shadow-md: 0 4px 8px rgb(9 14 15 / 6%), 0 8px 24px rgb(9 14 15 / 6%); /* dropdown, popover */
-  --shadow-lg: 0 8px 16px rgb(9 14 15 / 8%), 0 24px 48px rgb(9 14 15 / 10%); /* modal */
+  --shadow-sm:
+    0 1px 2px rgb(9 14 15 / 6%), 0 2px 6px rgb(9 14 15 / 4%); /* card nổi nhẹ */
+  --shadow-md:
+    0 4px 8px rgb(9 14 15 / 6%), 0 8px 24px rgb(9 14 15 / 6%); /* dropdown, popover */
+  --shadow-lg:
+    0 8px 16px rgb(9 14 15 / 8%), 0 24px 48px rgb(9 14 15 / 10%); /* modal */
   --shadow-focus: 0 0 0 3px rgb(8 148 160 / 35%); /* thay outline cho control */
 }
 
@@ -239,13 +254,20 @@
   --duration-base: 200ms; /* dropdown, tab, tooltip */
   --duration-slow: 320ms; /* modal, drawer, hero reveal */
 
-  --ease-out: cubic-bezier(0.25, 1, 0.5, 1); /* mặc định: vào nhanh, dừng mượt */
+  --ease-out: cubic-bezier(
+    0.25,
+    1,
+    0.5,
+    1
+  ); /* mặc định: vào nhanh, dừng mượt */
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
 
-  --transition-colors: color var(--duration-fast) var(--ease-out),
+  --transition-colors:
+    color var(--duration-fast) var(--ease-out),
     background-color var(--duration-fast) var(--ease-out),
     border-color var(--duration-fast) var(--ease-out);
-  --transition-lift: transform var(--duration-base) var(--ease-out),
+  --transition-lift:
+    transform var(--duration-base) var(--ease-out),
     box-shadow var(--duration-base) var(--ease-out);
 }
 
@@ -320,13 +342,17 @@
   --ink-300: var(--chalk-400);
   --surface: var(--bg-surface);
   --surface-alt: var(--bg-app);
-  --surface-muted: var(--bg-surface-sunken); /* cũ dùng nhưng KHÔNG hề được định nghĩa */
+  --surface-muted: var(
+    --bg-surface-sunken
+  ); /* cũ dùng nhưng KHÔNG hề được định nghĩa */
   --surface-subtle: var(--court-50);
   --line: var(--border-subtle);
   --line-soft: var(--border-subtle);
   --line-strong: var(--border-strong);
   --border: var(--border-subtle);
-  --border-color: var(--border-subtle); /* cũ dùng nhưng KHÔNG hề được định nghĩa */
+  --border-color: var(
+    --border-subtle
+  ); /* cũ dùng nhưng KHÔNG hề được định nghĩa */
   --radius: var(--radius-lg);
   --shadow: var(--shadow-sm);
 
@@ -344,7 +370,9 @@
 
   /* home.module.css cũ (đang định nghĩa cục bộ bằng oklch/hex riêng) */
   --brand-navy: var(--court-900);
-  --brand-sky: var(--volt-400); /* "sky" trên nền tối → volt: điểm nhấn thay cho xanh da trời */
+  --brand-sky: var(
+    --volt-400
+  ); /* "sky" trên nền tối → volt: điểm nhấn thay cho xanh da trời */
   --brand-ice: var(--court-100);
   --surface-ink: var(--chalk-950);
   --surface-blue: var(--court-800);

@@ -160,7 +160,7 @@ public sealed class ClassEnrollmentFulfillment(
 
         await db.SaveChangesAsync(cancellationToken);
 
-        // Quan hệ huấn luyện ClassBased chỉ cấp cho Coach có chuyên môn PT (BR-99/100) — Training tự quyết định.
+        // Học viên đã ghi danh thành quan hệ huấn luyện ClassBased với Coach của lớp để Coach xem và lập kế hoạch cho từng học viên.
         if (cls.CoachId is Guid coachId)
         {
             await coachRelationships.EnsureClassBasedAsync(coachId, hold.MemberId, hold.ClassId, cancellationToken);

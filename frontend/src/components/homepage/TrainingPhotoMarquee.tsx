@@ -28,11 +28,7 @@ const photos = [
   },
 ];
 
-export function TrainingPhotoMarquee({
-  language,
-}: {
-  language: Language;
-}) {
+export function TrainingPhotoMarquee({ language }: { language: Language }) {
   const vi = language === "vi";
 
   return (

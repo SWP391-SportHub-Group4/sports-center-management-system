@@ -51,7 +51,7 @@ public sealed class SaveSportRequest
 
 public sealed class SaveSportServiceRequest
 {
-    /// <summary>MembershipAccess | GroupCourse | CourtRental | PersonalTraining.</summary>
+    /// <summary>MembershipAccess | GroupCourse | CourtRental.</summary>
     [Required]
     [SportHub.BuildingBlocks.Api.WireEnum] public string ServiceType { get; set; } = string.Empty;
 
@@ -64,11 +64,6 @@ public sealed class SaveSportServiceRequest
     public int? DefaultMaxCapacity { get; set; }
 }
 
-public sealed class SetServiceRoomTypesRequest
-{
-    [Required, MaxLength(50)]
-    public List<int> RoomTypeIds { get; set; } = [];
-}
 
 // --- Room type ---
 

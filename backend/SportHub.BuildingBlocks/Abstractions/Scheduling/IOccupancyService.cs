@@ -20,12 +20,11 @@ public interface IOccupancyService
 public static class OccupancySources
 {
     public const string ClassSession = nameof(ClassSession);
-    public const string PtSession = nameof(PtSession);
     public const string CourtRental = nameof(CourtRental);
     public const string RoomBlock = nameof(RoomBlock);
 }
 
-/// <param name="RoomId">Null khi chỉ chiếm coach (PT chưa gắn phòng).</param>
+/// <param name="RoomId">Null khi chỉ chiếm coach.</param>
 /// <param name="CoachId">Null khi chỉ chiếm phòng (block).</param>
 public sealed record OccupancyRequest(
     string SourceType,

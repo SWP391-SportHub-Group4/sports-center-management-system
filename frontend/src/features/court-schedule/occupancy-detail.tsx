@@ -24,22 +24,14 @@ export function OccupancyDetail({
         <p>
           {l.member}: {entry.memberName ?? "-"}
         </p>
-      ) : ["CLASS_SESSION", "PT_SESSION"].includes(entry.sourceType) ? (
-        <Table
-          headers={
-            entry.sourceType === "PT_SESSION"
-              ? [l.member]
-              : [l.member, l.attendance]
-          }
-        >
+      ) : entry.sourceType === "CLASS_SESSION" ? (
+        <Table headers={[l.member, l.attendance]}>
           {entry.participants.map((p) => (
             <tr key={p.memberId}>
               <td>{p.memberName}</td>
-              {entry.sourceType === "CLASS_SESSION" && (
-                <td>
-                  <StatusChip value={p.attendanceStatus} />
-                </td>
-              )}
+              <td>
+                <StatusChip value={p.attendanceStatus} />
+              </td>
             </tr>
           ))}
         </Table>

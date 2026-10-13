@@ -26,9 +26,9 @@ public sealed class GymClosureIncidentTests(SchedulingApiFactory factory)
     {
         await factory.QueryAsync(async db =>
         {
-            var gymRoomTypeIds = await db.Set<ServiceRoomType>()
-                .Join(db.Set<SportServiceOffering>().Where(o => o.ServiceType == SportServiceType.PersonalTraining),
-                    link => link.OfferingId, offering => offering.OfferingId, (link, _) => link.RoomTypeId)
+            var gymRoomTypeIds = await db.Set<SportRoomType>()
+                .Join(db.Set<Sport>().Where(sport => sport.Code == "gym"),
+                    link => link.SportId, sport => sport.SportId, (link, _) => link.RoomTypeId)
                 .ToListAsync();
             Assert.NotEmpty(gymRoomTypeIds);
             if (!await db.Set<Room>().AnyAsync(r => r.IsActive && r.RoomTypeId != null && gymRoomTypeIds.Contains(r.RoomTypeId.Value)))

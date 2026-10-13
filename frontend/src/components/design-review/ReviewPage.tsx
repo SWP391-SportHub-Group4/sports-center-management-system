@@ -652,7 +652,7 @@ export default function ReviewPage() {
             >
               <figure>
                 <SportSticker sport="gym" size={104} />
-                <figcaption>Gym · Tập tự do & PT</figcaption>
+                <figcaption>Gym · Tập tự do</figcaption>
               </figure>
               <figure>
                 <SportSticker sport="badminton" size={104} />

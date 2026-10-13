@@ -15,7 +15,6 @@ public class RoomTypeConfiguration : IEntityTypeConfiguration<RoomType>
 
         builder.HasData(
             new RoomType { RoomTypeId = 1, Name = "Gym room" },
-            new RoomType { RoomTypeId = 2, Name = "PT room" },
             new RoomType { RoomTypeId = 3, Name = "Badminton court" },
             new RoomType { RoomTypeId = 4, Name = "Basketball court" });
     }

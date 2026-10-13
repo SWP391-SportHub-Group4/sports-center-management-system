@@ -15,27 +15,6 @@ namespace SportHub.Training.Tests.Integration;
 public sealed class CoachMemberRelationshipCharacterizationTests(TrainingApiFactory factory)
 {
     [Fact]
-    public async Task Manager_creates_personal_relationship_between_pt_and_member()
-    {
-        var manager = await factory.SeedUserAsync(UserRole.CenterManager);
-        var coach = await factory.SeedCoachAsync(CoachKind.PersonalTrainer);
-        var member = await factory.SeedUserAsync(UserRole.Member);
-        var client = factory.CreateApiClient(manager.UserId, UserRole.CenterManager);
-
-        var response = await client.PostAsJsonAsync(
-            "api/coach-member-relationships",
-            new CreateRelationshipRequest { CoachId = coach.UserId, MemberId = member.UserId, SourceType = "Personal" });
-
-        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-
-        var body = await response.Content.ReadApiJsonAsync<CoachMemberRelationshipResponse>();
-        Assert.NotNull(body);
-        Assert.Equal(coach.UserId, body!.CoachId);
-        Assert.Equal(member.UserId, body.MemberId);
-        Assert.Equal("Active", body.Status);
-    }
-
-    [Fact]
     public async Task Creating_relationship_with_class_based_source_type_is_rejected()
     {
         var manager = await factory.SeedUserAsync(UserRole.CenterManager);
@@ -48,61 +27,6 @@ public sealed class CoachMemberRelationshipCharacterizationTests(TrainingApiFact
             new CreateRelationshipRequest { CoachId = coach.UserId, MemberId = member.UserId, SourceType = "ClassBased" });
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-    }
-
-    [Fact]
-    public async Task Creating_relationship_for_a_class_instructor_coach_is_rejected()
-    {
-        var manager = await factory.SeedUserAsync(UserRole.CenterManager);
-        var coach = await factory.SeedCoachAsync(CoachKind.ClassInstructor);
-        var member = await factory.SeedUserAsync(UserRole.Member);
-        var client = factory.CreateApiClient(manager.UserId, UserRole.CenterManager);
-
-        var response = await client.PostAsJsonAsync(
-            "api/coach-member-relationships",
-            new CreateRelationshipRequest { CoachId = coach.UserId, MemberId = member.UserId, SourceType = "Personal" });
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-    }
-
-    [Fact]
-    public async Task Second_active_relationship_for_the_same_pair_is_rejected()
-    {
-        var manager = await factory.SeedUserAsync(UserRole.CenterManager);
-        var coach = await factory.SeedCoachAsync(CoachKind.PersonalTrainer);
-        var member = await factory.SeedUserAsync(UserRole.Member);
-        var client = factory.CreateApiClient(manager.UserId, UserRole.CenterManager);
-        var request = new CreateRelationshipRequest { CoachId = coach.UserId, MemberId = member.UserId, SourceType = "Personal" };
-
-        var first = await client.PostAsJsonAsync("api/coach-member-relationships", request);
-        Assert.Equal(HttpStatusCode.Created, first.StatusCode);
-
-        var second = await client.PostAsJsonAsync("api/coach-member-relationships", request);
-        Assert.Equal(HttpStatusCode.Conflict, second.StatusCode);
-    }
-
-    [Fact]
-    public async Task Manager_ends_an_active_relationship_with_a_reason()
-    {
-        var manager = await factory.SeedUserAsync(UserRole.CenterManager);
-        var coach = await factory.SeedCoachAsync(CoachKind.PersonalTrainer);
-        var member = await factory.SeedUserAsync(UserRole.Member);
-        var client = factory.CreateApiClient(manager.UserId, UserRole.CenterManager);
-
-        var created = await (await client.PostAsJsonAsync(
-                "api/coach-member-relationships",
-                new CreateRelationshipRequest { CoachId = coach.UserId, MemberId = member.UserId, SourceType = "Personal" }))
-            .Content.ReadApiJsonAsync<CoachMemberRelationshipResponse>();
-
-        var response = await client.PostAsJsonAsync(
-            $"api/coach-member-relationships/{created!.RelationshipId}/end",
-            new EndRelationshipRequest { Reason = "Member requested a different coach." });
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-
-        var ended = await response.Content.ReadApiJsonAsync<CoachMemberRelationshipResponse>();
-        Assert.Equal("Ended", ended!.Status);
-        Assert.NotNull(ended.EndedAt);
     }
 
     [Fact]

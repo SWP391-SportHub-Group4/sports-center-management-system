@@ -9,530 +9,322 @@ import { loginApi } from "./helpers/auth";
 
 const base = process.env.P2_LIVE_API;
 
-test.skip(
-  !base,
-  "Set P2_LIVE_API for an isolated test API.",
-);
+test.skip(!base, "Set P2_LIVE_API for an isolated test API.");
 
 test.describe.configure({
   mode: "serial",
 });
 
-const login = (
-  request: APIRequestContext,
-  email: string,
-) => loginApi(request, email);
+const login = (request: APIRequestContext, email: string) =>
+  loginApi(request, email);
 
-async function browserAuth(
-  page: Page,
-  token: string,
-) {
-  await page.addInitScript(
-    (accessToken) => {
-      localStorage.setItem(
-        "sporthub.accessToken",
-        accessToken,
-      );
+async function browserAuth(page: Page, token: string) {
+  await page.addInitScript((accessToken) => {
+    localStorage.setItem("sporthub.accessToken", accessToken);
 
-      localStorage.setItem(
-        "sporthub_lang",
-        "en",
-      );
-    },
-    token,
-  );
+    localStorage.setItem("sporthub_lang", "en");
+  }, token);
 }
 
-test(
-  "paid course cancellation from Manager UI refunds the real wallet once",
-  async ({ page, request }) => {
-    const manager = await login(
-      request,
-      "manager@sporthub.vn",
-    );
+test("paid course cancellation from Manager UI refunds the real wallet once", async ({
+  page,
+  request,
+}) => {
+  const manager = await login(request, "manager@sporthub.vn");
 
-    const member = await login(
-      request,
-      "an.member@sporthub.vn",
-    );
+  const member = await login(request, "an.member@sporthub.vn");
 
-    const headers = {
-      Authorization:
-        `Bearer ${manager.accessToken}`,
-    };
+  const headers = {
+    Authorization: `Bearer ${manager.accessToken}`,
+  };
 
-    const memberHeaders = {
-      Authorization:
-        `Bearer ${member.accessToken}`,
-    };
+  const memberHeaders = {
+    Authorization: `Bearer ${member.accessToken}`,
+  };
 
-    const sports = await (
-      await request.get(
-        `${base}/api/sports`,
-      )
-    ).json();
+  const sports = await (await request.get(`${base}/api/sports`)).json();
 
-    const sport = sports.find(
-      (
-        s: {
-          services: {
-            serviceType: string;
-            isEnabled: boolean;
-          }[];
+  const sport = sports.find(
+    (s: {
+      services: {
+        serviceType: string;
+        isEnabled: boolean;
+      }[];
+    }) =>
+      s.services.some((x) => x.serviceType === "GROUP_COURSE" && x.isEnabled),
+  );
+
+  expect(sport).toBeTruthy();
+
+  const coaches = await (
+    await request.get(`${base}/api/coaches?sportId=${sport.sportId}`, {
+      headers,
+    })
+  ).json();
+
+  expect(coaches.length).toBeGreaterThan(0);
+
+  const template = (
+    await (
+      await request.get(`${base}/api/classes?sportId=${sport.sportId}`)
+    ).json()
+  ).items[0];
+
+  expect(template).toBeTruthy();
+
+  const date = new Date();
+
+  date.setUTCDate(date.getUTCDate() + 360);
+
+  const created = await request.post(`${base}/api/manager/classes`, {
+    headers,
+    data: {
+      code: `P2-cancel-${Date.now()}`,
+
+      name: "P2 live cancellation",
+
+      sportId: sport.sportId,
+
+      coachId: coaches[0].userId,
+
+      defaultRoomId: template.defaultRoomId,
+
+      startDate: date.toISOString().slice(0, 10),
+
+      numSessions: 3,
+
+      capacity: 8,
+
+      price: 100000,
+
+      costAmount: 0,
+
+      scheduleRules: [
+        {
+          dayOfWeek: date.getUTCDay(),
+
+          startTimeLocal: "10:00",
         },
-      ) =>
-        s.services.some(
-          (x) =>
-            x.serviceType ===
-              "GROUP_COURSE" &&
-            x.isEnabled,
-        ),
-    );
+      ],
+    },
+  });
 
-    expect(sport).toBeTruthy();
+  expect(created.ok(), await created.text()).toBeTruthy();
 
-    const coaches = await (
-      await request.get(
-        `${base}/api/coaches?sportId=${sport.sportId}`,
+  const course = await created.json();
+
+  const publish = await request.post(
+    `${base}/api/manager/classes/${course.classId}/publish`,
+    {
+      headers,
+      data: {},
+    },
+  );
+
+  expect(publish.ok(), await publish.text()).toBeTruthy();
+
+  const opened = await request.post(
+    `${base}/api/manager/classes/${course.classId}/enrollment/open`,
+    {
+      headers,
+    },
+  );
+
+  expect(opened.ok(), await opened.text()).toBeTruthy();
+
+  const before = await (
+    await request.get(`${base}/api/wallet/me`, {
+      headers: memberHeaders,
+    })
+  ).json();
+
+  const checkout = await request.post(`${base}/api/checkouts/class`, {
+    headers: {
+      ...memberHeaders,
+      "Idempotency-Key": crypto.randomUUID(),
+    },
+
+    data: {
+      classId: course.classId,
+    },
+  });
+
+  expect(checkout.ok(), await checkout.text()).toBeTruthy();
+
+  const { invoiceId } = await checkout.json();
+
+  const selection = await request.post(
+    `${base}/api/wallet/me/checkouts/${invoiceId}/points`,
+    {
+      headers: memberHeaders,
+
+      data: {
+        points: 100,
+      },
+    },
+  );
+
+  expect(selection.ok(), await selection.text()).toBeTruthy();
+
+  const paid = await request.post(
+    `${base}/api/checkouts/${invoiceId}/confirm-points`,
+    {
+      headers: memberHeaders,
+    },
+  );
+
+  expect(paid.ok(), await paid.text()).toBeTruthy();
+
+  await browserAuth(page, manager.accessToken);
+
+  await page.goto(`/manager/classes/${course.classId}`);
+
+  const cancellation = page.locator(".card").filter({
+    has: page.getByRole("heading", {
+      name: "Cancel",
+      exact: true,
+    }),
+  });
+
+  await expect(cancellation).toBeVisible();
+
+  await cancellation
+    .getByLabel("Reason", {
+      exact: true,
+    })
+    .fill("Center cancels this course");
+
+  await cancellation
+    .getByRole("button", {
+      name: "Preview course cancellation",
+    })
+    .click();
+
+  await expect(cancellation).toContainText(
+    "Estimated total refund points: 100",
+  );
+
+  await cancellation
+    .getByRole("button", {
+      name: "Confirm",
+      exact: true,
+    })
+    .click();
+
+  await expect
+    .poll(async () => {
+      const response = await request.get(
+        `${base}/api/manager/classes/${course.classId}`,
         {
           headers,
         },
-      )
-    ).json();
-
-    expect(
-      coaches.length,
-    ).toBeGreaterThan(0);
-
-    const template = (
-      await (
-        await request.get(
-          `${base}/api/classes?sportId=${sport.sportId}`,
-        )
-      ).json()
-    ).items[0];
-
-    expect(template).toBeTruthy();
-
-    const date = new Date();
-
-    date.setUTCDate(
-      date.getUTCDate() + 360,
-    );
-
-    const created = await request.post(
-      `${base}/api/manager/classes`,
-      {
-        headers,
-        data: {
-          code:
-            `P2-cancel-${Date.now()}`,
-
-          name:
-            "P2 live cancellation",
-
-          sportId:
-            sport.sportId,
-
-          coachId:
-            coaches[0].userId,
-
-          defaultRoomId:
-            template.defaultRoomId,
-
-          startDate:
-            date
-              .toISOString()
-              .slice(0, 10),
-
-          numSessions: 3,
-
-          capacity: 8,
-
-          price: 100000,
-
-          costAmount: 0,
-
-          scheduleRules: [
-            {
-              dayOfWeek:
-                date.getUTCDay(),
-
-              startTimeLocal:
-                "10:00",
-            },
-          ],
-        },
-      },
-    );
-
-    expect(
-      created.ok(),
-      await created.text(),
-    ).toBeTruthy();
-
-    const course =
-      await created.json();
-
-    const publish = await request.post(
-      `${base}/api/manager/classes/${course.classId}/publish`,
-      {
-        headers,
-        data: {},
-      },
-    );
-
-    expect(
-      publish.ok(),
-      await publish.text(),
-    ).toBeTruthy();
-
-    const opened = await request.post(
-      `${base}/api/manager/classes/${course.classId}/enrollment/open`,
-      {
-        headers,
-      },
-    );
-
-    expect(
-      opened.ok(),
-      await opened.text(),
-    ).toBeTruthy();
-
-    const before = await (
-      await request.get(
-        `${base}/api/wallet/me`,
-        {
-          headers: memberHeaders,
-        },
-      )
-    ).json();
-
-    const checkout = await request.post(
-      `${base}/api/checkouts/class`,
-      {
-        headers: {
-          ...memberHeaders,
-          "Idempotency-Key":
-            crypto.randomUUID(),
-        },
-
-        data: {
-          classId:
-            course.classId,
-        },
-      },
-    );
-
-    expect(
-      checkout.ok(),
-      await checkout.text(),
-    ).toBeTruthy();
-
-    const { invoiceId } =
-      await checkout.json();
-
-    const selection = await request.post(
-      `${base}/api/wallet/me/checkouts/${invoiceId}/points`,
-      {
-        headers:
-          memberHeaders,
-
-        data: {
-          points: 100,
-        },
-      },
-    );
-
-    expect(
-      selection.ok(),
-      await selection.text(),
-    ).toBeTruthy();
-
-    const paid = await request.post(
-      `${base}/api/checkouts/${invoiceId}/confirm-points`,
-      {
-        headers:
-          memberHeaders,
-      },
-    );
-
-    expect(
-      paid.ok(),
-      await paid.text(),
-    ).toBeTruthy();
-
-    await browserAuth(
-      page,
-      manager.accessToken,
-    );
-
-    await page.goto(
-      `/manager/classes/${course.classId}`,
-    );
-
-    const cancellation =
-      page
-        .locator(".card")
-        .filter({
-          has:
-            page.getByRole(
-              "heading",
-              {
-                name: "Cancel",
-                exact: true,
-              },
-            ),
-        });
-
-    await expect(
-      cancellation,
-    ).toBeVisible();
-
-    await cancellation
-      .getByLabel(
-        "Reason",
-        {
-          exact: true,
-        },
-      )
-      .fill(
-        "Center cancels this course",
       );
 
-    await cancellation
-      .getByRole(
-        "button",
-        {
-          name:
-            "Preview course cancellation",
-        },
-      )
-      .click();
+      expect(response.ok(), await response.text()).toBeTruthy();
 
-    await expect(
-      cancellation,
-    ).toContainText(
-      "Estimated total refund points: 100",
-    );
+      return (await response.json()).status;
+    })
+    .toBe("CANCELLED");
 
-    await cancellation
-      .getByRole(
-        "button",
-        {
-          name: "Confirm",
-          exact: true,
-        },
-      )
-      .click();
+  const after = await (
+    await request.get(`${base}/api/wallet/me`, {
+      headers: memberHeaders,
+    })
+  ).json();
 
-    await expect
-      .poll(
-        async () => {
-          const response =
-            await request.get(
-              `${base}/api/manager/classes/${course.classId}`,
-              {
-                headers,
-              },
-            );
+  expect(after.availablePoints).toBe(before.availablePoints);
 
-          expect(
-            response.ok(),
-            await response.text(),
-          ).toBeTruthy();
+  expect(after.heldPoints).toBe(before.heldPoints);
 
-          return (
-            await response.json()
-          ).status;
-        },
-      )
-      .toBe("CANCELLED");
+  await page.reload();
 
-    const after = await (
-      await request.get(
-        `${base}/api/wallet/me`,
-        {
-          headers:
-            memberHeaders,
-        },
-      )
-    ).json();
+  await expect(page.getByRole("main").getByRole("alert")).toHaveCount(0);
+});
 
-    expect(
-      after.availablePoints,
-    ).toBe(
-      before.availablePoints,
-    );
+test.skip("manual notice UI uses a real receipt and restores delivery after F5", async ({
+  page,
+  request,
+}) => {
+  const manager = await login(request, "manager@sporthub.vn");
 
-    expect(
-      after.heldPoints,
-    ).toBe(
-      before.heldPoints,
-    );
+  await browserAuth(page, manager.accessToken);
 
-    await page.reload();
+  await page.goto("/manager/notices");
 
-    await expect(
-      page
-        .getByRole("main")
-        .getByRole("alert"),
-    ).toHaveCount(0);
-  },
-);
+  await page
+    .getByRole("checkbox", {
+      name: "Phạm Minh Cầu Lông",
+    })
+    .check();
 
-test.skip(
-  "manual notice UI uses a real receipt and restores delivery after F5",
-  async ({ page, request }) => {
-    const manager = await login(
-      request,
-      "manager@sporthub.vn",
-    );
+  await page
+    .getByLabel("Subject", {
+      exact: true,
+    })
+    .fill("P2 isolated notice");
 
-    await browserAuth(
-      page,
-      manager.accessToken,
-    );
+  await page
+    .getByLabel("Message", {
+      exact: true,
+    })
+    .fill("Test the real in-app notification receipt.");
 
-    await page.goto(
-      "/manager/notices",
-    );
+  await page
+    .getByRole("checkbox", {
+      name: "Send email",
+      exact: true,
+    })
+    .uncheck();
 
-    await page
-      .getByRole(
-        "checkbox",
-        {
-          name:
-            "Phạm Minh Cầu Lông",
-        },
-      )
-      .check();
+  await page
+    .getByRole("button", {
+      name: "Review",
+      exact: true,
+    })
+    .click();
 
-    await page
-      .getByLabel(
-        "Subject",
-        {
-          exact: true,
-        },
-      )
-      .fill(
-        "P2 isolated notice",
-      );
+  await page
+    .getByRole("button", {
+      name: "Send notice",
+      exact: true,
+    })
+    .click();
 
-    await page
-      .getByLabel(
-        "Message",
-        {
-          exact: true,
-        },
-      )
-      .fill(
-        "Test the real in-app notification receipt.",
-      );
+  await expect(page).toHaveURL(/noticeId=/);
 
-    await page
-      .getByRole(
-        "checkbox",
-        {
-          name:
-            "Send email",
-          exact: true,
-        },
-      )
-      .uncheck();
+  const noticeId = new URL(page.url()).searchParams.get("noticeId");
 
-    await page
-      .getByRole(
-        "button",
-        {
-          name: "Review",
-          exact: true,
-        },
-      )
-      .click();
+  expect(noticeId).toBeTruthy();
 
-    await page
-      .getByRole(
-        "button",
-        {
-          name: "Send notice",
-          exact: true,
-        },
-      )
-      .click();
+  if (!noticeId) {
+    throw new Error("Notice id missing");
+  }
 
-    await expect(
-      page,
-    ).toHaveURL(
-      /noticeId=/,
-    );
+  const receipt = await request.get(`${base}/api/manager/notices/${noticeId}`, {
+    headers: {
+      Authorization: `Bearer ${manager.accessToken}`,
+    },
+  });
 
-    const noticeId =
-      new URL(
-        page.url(),
-      ).searchParams.get(
-        "noticeId",
-      );
+  expect(receipt.ok(), await receipt.text()).toBeTruthy();
 
-    expect(
-      noticeId,
-    ).toBeTruthy();
+  expect((await receipt.json()).delivery.total).toBe(1);
 
-    if (!noticeId) {
-      throw new Error(
-        "Notice id missing",
-      );
-    }
+  await page.reload();
 
-    const receipt =
-      await request.get(
-        `${base}/api/manager/notices/${noticeId}`,
-        {
-          headers: {
-            Authorization:
-              `Bearer ${manager.accessToken}`,
-          },
-        },
-      );
+  await expect(
+    page.getByRole("heading", {
+      name: "Notification delivery",
+      exact: true,
+    }),
+  ).toBeVisible();
 
-    expect(
-      receipt.ok(),
-      await receipt.text(),
-    ).toBeTruthy();
+  await expect(
+    page.getByRole("columnheader", {
+      name: "Failed",
+      exact: true,
+    }),
+  ).toBeVisible();
 
-    expect(
-      (
-        await receipt.json()
-      ).delivery.total,
-    ).toBe(1);
-
-    await page.reload();
-
-    await expect(
-      page.getByRole(
-        "heading",
-        {
-          name:
-            "Notification delivery",
-          exact: true,
-        },
-      ),
-    ).toBeVisible();
-
-    await expect(
-      page.getByRole(
-        "columnheader",
-        {
-          name: "Failed",
-          exact: true,
-        },
-      ),
-    ).toBeVisible();
-
-    await expect(
-      page
-        .getByRole("main")
-        .getByRole("alert"),
-    ).toHaveCount(0);
-  },
-);
+  await expect(page.getByRole("main").getByRole("alert")).toHaveCount(0);
+});

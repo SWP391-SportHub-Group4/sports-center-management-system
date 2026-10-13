@@ -322,27 +322,6 @@ test("Gym creates, edits without changing active state, and reactivates via the 
   await expect(row(page, "Gym 60 days")).toBeVisible();
 });
 
-test("PT displays and reloads current price/version and only uses the supported PUT", async ({
-  page,
-}) => {
-  const fixture = await setup(page);
-  await page.goto("/manager/catalog?tab=pt");
-  await expect(page.getByText("v-original", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Edit", exact: true }).click();
-  await dialog(page)
-    .getByLabel("PT price per session (VND)", { exact: true })
-    .fill("280000");
-  await dialog(page).getByRole("button", { name: "Save", exact: true }).click();
-  await expect(page.getByText("v-updated", { exact: true })).toBeVisible();
-  expect(fixture.writes).toEqual([
-    {
-      path: "/api/manager/pt-pricing",
-      method: "PUT",
-      body: { value: "280000" },
-    },
-  ]);
-});
-
 test("court-rate creation validates days/window and uses actual compatible IDs", async ({
   page,
 }) => {

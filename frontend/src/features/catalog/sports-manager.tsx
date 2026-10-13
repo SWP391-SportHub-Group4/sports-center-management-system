@@ -21,9 +21,8 @@ const SERVICE_TYPES: SportServiceType[] = [
   "MEMBERSHIP_ACCESS",
   "GROUP_COURSE",
   "COURT_RENTAL",
-  "PERSONAL_TRAINING",
 ];
-const GYM_ONLY: SportServiceType[] = ["MEMBERSHIP_ACCESS", "PERSONAL_TRAINING"];
+const GYM_ONLY: SportServiceType[] = ["MEMBERSHIP_ACCESS"];
 interface FormState {
   code: string;
   name: string;
@@ -40,7 +39,6 @@ const empty: FormState = {
     MEMBERSHIP_ACCESS: false,
     GROUP_COURSE: true,
     COURT_RENTAL: false,
-    PERSONAL_TRAINING: false,
   },
   defaultSessionMinutes: 90,
   defaultMaxCapacity: 12,
@@ -62,7 +60,6 @@ export function SportsManager() {
     MEMBERSHIP_ACCESS: l.serviceMembershipAccess,
     GROUP_COURSE: l.serviceGroupCourse,
     COURT_RENTAL: l.serviceCourtRental,
-    PERSONAL_TRAINING: l.servicePersonalTraining,
   };
   const missingLabel: Record<string, string> = {
     room_type: l.missingRoomType,

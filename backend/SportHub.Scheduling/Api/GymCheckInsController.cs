@@ -25,6 +25,16 @@ public class GymCheckInsController(IGymCheckInService gymCheckInService) : Contr
         return StatusCode(StatusCodes.Status201Created, result);
     }
 
+    /// <summary>Member may check in only their own account; the same active Gym package guard applies.</summary>
+    [Authorize(Roles = "Member")]
+    [HttpPost("self")]
+    public async Task<IActionResult> CreateSelf(CancellationToken cancellationToken)
+    {
+        var memberId = User.RequireUserId();
+        var result = await gymCheckInService.CreateAsync(memberId, memberId, cancellationToken);
+        return StatusCode(StatusCodes.Status201Created, result);
+    }
+
     /// <summary>Lễ tân ghi giờ ra (giờ server). Idempotent: check-out lần hai trả bản ghi cũ, không ghi đè.</summary>
     [Authorize(Policy = GymCheckInPolicies.Create)]
     [HttpPost("{checkInId:guid}/checkout")]

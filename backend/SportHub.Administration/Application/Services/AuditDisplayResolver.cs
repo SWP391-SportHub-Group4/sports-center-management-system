@@ -25,8 +25,7 @@ internal static class AuditDisplayResolver
         ["coachId"] = "UserAccount", ["currentCoachId"] = "UserAccount", ["requestedCoachId"] = "UserAccount",
         ["memberId"] = "UserAccount", ["ownerId"] = "UserAccount", ["ownerUserId"] = "UserAccount",
         ["invoiceId"] = "Invoice", ["invoiceItemId"] = "InvoiceItem", ["packageId"] = "MembershipPackage",
-        ["entitlementId"] = "PtEntitlement", ["renewedMemberPackageId"] = "MemberPackage",
-        ["makeupSessionId"] = "ClassSession", ["movedSessionIds"] = "PtSession", ["unmovedSessionIds"] = "PtSession", ["replacementSessionId"] = "PtSession"
+        ["renewedMemberPackageId"] = "MemberPackage", ["makeupSessionId"] = "ClassSession"
     };
 
     internal static async Task<List<AuditLogResponse>> ResolveAsync(ISportHubDbContext db, List<AuditLogResponse> rows, CancellationToken ct)
@@ -95,18 +94,6 @@ internal static class AuditDisplayResolver
         gids = Guids("MemberPackage");
         await Load(gids.Length > 0, db.Set<MemberPackage>().AsNoTracking().Where(s => gids.Contains(s.MemberPackageId))
             .Select(s => new Named("MemberPackage", s.MemberPackageId.ToString(), s.Package!.Name + " · " + (s.Member!.Profile != null ? s.Member.Profile.FullName : s.Member.Email))));
-        gids = Guids("PtEntitlement");
-        await Load(gids.Length > 0, db.Set<PtEntitlement>().AsNoTracking().Where(s => gids.Contains(s.EntitlementId))
-            .Select(s => new Named("PtEntitlement", s.EntitlementId.ToString(), (s.Member!.Profile != null ? s.Member.Profile.FullName : s.Member.Email) + " · " + (s.Coach!.Profile != null ? s.Coach.Profile.FullName : s.Coach.Email))));
-        gids = Guids("PtSession");
-        await Load(gids.Length > 0, db.Set<PtSession>().AsNoTracking().Where(s => gids.Contains(s.SessionId))
-            .Select(s => new Named("PtSession", s.SessionId.ToString(), (s.Member!.Profile != null ? s.Member.Profile.FullName : s.Member.Email) + " · " + (s.Coach!.Profile != null ? s.Coach.Profile.FullName : s.Coach.Email))));
-        gids = Guids("PtCoachChangeRequest");
-        await Load(gids.Length > 0, db.Set<PtCoachChangeRequest>().AsNoTracking().Where(s => gids.Contains(s.RequestId))
-            .Select(s => new Named("PtCoachChangeRequest", s.RequestId.ToString(), s.Member!.Profile != null ? s.Member.Profile.FullName : s.Member.Email)));
-        gids = Guids("PtSessionChangeRequest");
-        await Load(gids.Length > 0, db.Set<PtSessionChangeRequest>().AsNoTracking().Where(s => gids.Contains(s.RequestId))
-            .Select(s => new Named("PtSessionChangeRequest", s.RequestId.ToString(), s.RequestedByUser!.Profile != null ? s.RequestedByUser.Profile.FullName : s.RequestedByUser.Email)));
         gids = Guids("CoachMemberRelationship");
         await Load(gids.Length > 0, db.Set<CoachMemberRelationship>().AsNoTracking().Where(s => gids.Contains(s.RelationshipId))
             .Select(s => new Named("CoachMemberRelationship", s.RelationshipId.ToString(), (s.Coach!.Profile != null ? s.Coach.Profile.FullName : s.Coach.Email) + " · " + (s.Member!.Profile != null ? s.Member.Profile.FullName : s.Member.Email))));
@@ -121,7 +108,7 @@ internal static class AuditDisplayResolver
         }).ToList();
     }
 
-    private static string TargetKind(string entity) => entity is "PointWallet" or "CoachServiceQualification" ? "UserAccount" : entity;
+    private static string TargetKind(string entity) => entity is "PointWallet" ? "UserAccount" : entity;
     private static string Key(string entity, string id) => entity + ":" + (Guid.TryParse(id, out var guid) ? guid.ToString() : int.TryParse(id, out var number) ? number.ToString() : id);
     private static void Read(string? raw, string action, HashSet<string> keys)
     {
@@ -137,7 +124,7 @@ internal static class AuditDisplayResolver
                 {
                     if (References.TryGetValue(property.Name, out var kind)) Add(kind, property.Value);
                     else if (property.Name.Equals("sessionId", StringComparison.OrdinalIgnoreCase))
-                        Add(action.Contains("COURSE_ATTENDANCE") ? "ClassSession" : "PtSession", property.Value);
+                        Add("ClassSession", property.Value);
                     else if (property.Name.Equals("affectedSources", StringComparison.OrdinalIgnoreCase) && property.Value.ValueKind == JsonValueKind.Array)
                         foreach (var source in property.Value.EnumerateArray())
                         {
@@ -145,7 +132,7 @@ internal static class AuditDisplayResolver
                             var fields = new Dictionary<string, JsonElement>(StringComparer.OrdinalIgnoreCase);
                             foreach (var field in source.EnumerateObject()) fields[field.Name] = field.Value;
                             if (fields.TryGetValue("sourceType", out var type) && type.ValueKind == JsonValueKind.String
-                                && type.GetString() is "ClassSession" or "PtSession" or "CourtRental" or "RoomBlock"
+                                && type.GetString() is "ClassSession" or "CourtRental" or "RoomBlock"
                                 && fields.TryGetValue("sourceId", out var id)) Add(type.GetString()!, id);
                         }
                 }

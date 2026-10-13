@@ -1,4 +1,4 @@
-export { PtPurchase, MembershipCatalog } from "./catalog";
+export { MembershipCatalog } from "./catalog";
 export {
   isRetiredActivityPackage,
   parseMembershipCatalog,

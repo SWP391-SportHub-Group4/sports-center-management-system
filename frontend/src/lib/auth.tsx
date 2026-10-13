@@ -23,8 +23,6 @@ export interface SessionUser {
   role: Role;
   /** Authoritative specialties from the API. */
   sportIds: number[];
-  /** Coach có qualification dịch vụ PT (không suy ra từ chuyên môn môn Gym). */
-  isPersonalTrainer?: boolean;
   approvalStatus?:
     "PENDING_APPROVAL" | "APPROVED" | "REJECTED" | "SUSPENDED" | null;
 }
@@ -245,7 +243,6 @@ export interface WireSessionUser {
   avatarUrl?: string | null;
   role: string;
   sportIds?: number[];
-  isPersonalTrainer?: boolean;
   approvalStatus?: SessionUser["approvalStatus"];
 }
 const WIRE_ROLES: Record<string, Role> = {
@@ -269,7 +266,6 @@ export function adaptSessionUser(me: WireSessionUser): SessionUser {
     avatarUrl: me.avatarUrl ?? null,
     role,
     sportIds: me.sportIds ?? [],
-    isPersonalTrainer: me.isPersonalTrainer ?? false,
     approvalStatus: me.approvalStatus ?? null,
   };
 }

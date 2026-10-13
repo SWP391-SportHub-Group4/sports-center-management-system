@@ -142,7 +142,9 @@ export function ForgotPasswordModal({
           </div>
         ) : (
           <>
-            <p className={styles.description}>Enter your email to recover your password.</p>
+            <p className={styles.description}>
+              Enter your email to recover your password.
+            </p>
             <form
               className={styles.form}
               noValidate
@@ -166,7 +168,8 @@ export function ForgotPasswordModal({
                 value={email}
                 onChange={(event) => {
                   setEmail(event.target.value);
-                  if (emailError) setEmailError(validateEmail(event.target.value));
+                  if (emailError)
+                    setEmailError(validateEmail(event.target.value));
                   action.reset();
                 }}
                 onBlur={(event) =>

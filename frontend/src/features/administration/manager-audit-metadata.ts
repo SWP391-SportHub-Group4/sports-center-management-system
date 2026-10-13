@@ -225,12 +225,7 @@ export function managerAuditSnapshot(
               const id = item.sourceId ?? item.SourceId;
               if (
                 typeof type === "string" &&
-                [
-                  "ClassSession",
-                  "PtSession",
-                  "CourtRental",
-                  "RoomBlock",
-                ].includes(type) &&
+                ["ClassSession", "CourtRental", "RoomBlock"].includes(type) &&
                 typeof id === "string"
               )
                 result[`affected.${type}.${id}`] = id;
@@ -306,12 +301,8 @@ export const auditReferenceKinds: Record<string, string> = {
   invoiceId: "Invoice",
   invoiceItemId: "InvoiceItem",
   packageId: "MembershipPackage",
-  entitlementId: "PtEntitlement",
   makeupSessionId: "ClassSession",
-  movedSessionIds: "PtSession",
-  unmovedSessionIds: "PtSession",
   renewedMemberPackageId: "MemberPackage",
-  replacementSessionId: "PtSession",
 };
 
 export function currentReference(

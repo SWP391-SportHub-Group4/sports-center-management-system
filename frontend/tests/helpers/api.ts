@@ -1,4 +1,8 @@
-import { expect, type APIRequestContext, type APIResponse } from "@playwright/test";
+import {
+  expect,
+  type APIRequestContext,
+  type APIResponse,
+} from "@playwright/test";
 
 export const liveApiBase = process.env.P2_LIVE_API?.replace(/\/$/, "");
 

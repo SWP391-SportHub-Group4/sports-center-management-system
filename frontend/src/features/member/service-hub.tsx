@@ -17,7 +17,6 @@ const TYPES = ["", "all", ...SERVICE_KINDS] as const;
 const LEGACY_TYPE: Record<string, FilterValue> = {
   courses: "class",
   gym: "gym",
-  pt: "pt",
 };
 const RESET = {
   type: "",
@@ -56,17 +55,13 @@ export function MemberServiceHub() {
   );
   const view: HubView = raw.view
     ? (values.view as HubView)
-    : ["gym", "pt", "visits"].includes(legacy)
+    : ["gym", "visits"].includes(legacy)
       ? "owned"
       : "explore";
   const filter: FilterValue =
     (values.type as FilterValue) ||
     LEGACY_TYPE[raw.section] ||
-    (legacy === "pt"
-      ? "pt"
-      : legacy === "gym" || legacy === "visits"
-        ? "gym"
-        : "all");
+    (legacy === "gym" || legacy === "visits" ? "gym" : "all");
   const sportId = /^[1-9]\d{0,5}$/.test(values.sport)
     ? Number(values.sport)
     : null;

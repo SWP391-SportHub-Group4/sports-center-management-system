@@ -11,16 +11,6 @@ const paged = (items: unknown[]) => ({
 });
 const memberId = "33333333-3333-4333-8333-333333333333";
 const sessionId = "44444444-4444-4444-8444-444444444444";
-const ptRequest = {
-  requestId: "55555555-5555-4555-8555-555555555555",
-  memberId,
-  memberName: "Mai Anh",
-  status: "PENDING",
-  requestType: "CANCEL",
-  reason: "Unable to attend",
-  requestedAt: "2026-10-06T01:00:00Z",
-  sessionStartAtUtc: "2026-10-07T02:00:00Z",
-};
 async function fixture(page: Page) {
   await page.addInitScript(() =>
     localStorage.setItem("sporthub.accessToken", "fixture-token"),
@@ -70,21 +60,6 @@ async function fixture(page: Page) {
           requestedByName: "Mai Anh",
         },
       ]),
-      "/api/manager/pt-coach-change-requests": [],
-      "/api/manager/pt-session-change-requests": [ptRequest],
-      "/api/manager/pt-sessions": [
-        {
-          sessionId,
-          memberId,
-          memberName: "Mai Anh",
-          coachName: "Coach Linh",
-          roomName: "Court A",
-          status: "SCHEDULED",
-          quotaState: "RESERVED",
-          startAtUtc: "2026-10-07T02:00:00Z",
-          endAtUtc: "2026-10-07T03:00:00Z",
-        },
-      ],
       "/api/manager/court-schedule": [
         {
           sourceType: "CLASS_SESSION",
@@ -137,23 +112,15 @@ test("overview restores shortcut order, readable queues and the correct review l
   ).toHaveAttribute("href", "/manager/incidents");
   await expect(page.locator("#attention-classes")).toBeVisible();
   await expect(page.locator("#attention-refunds")).toBeVisible();
-  await expect(page.locator("#attention-pt")).toBeVisible();
   const classGroup = await page.locator("#attention-classes").boundingBox();
   const refundGroup = await page.locator("#attention-refunds").boundingBox();
-  const ptGroup = await page.locator("#attention-pt").boundingBox();
   expect(refundGroup!.y).toBeCloseTo(classGroup!.y, 0);
-  expect(ptGroup!.y).toBeCloseTo(classGroup!.y, 0);
   expect(refundGroup!.x).toBeGreaterThan(classGroup!.x);
-  expect(ptGroup!.x).toBeGreaterThan(refundGroup!.x);
   await expect(main.getByText("Mai Anh", { exact: true }).last()).toBeVisible();
   await expect(main.getByText("Reason: Court unavailable")).toBeVisible();
   await expect(
     main.getByRole("link", { name: en.managerOperations.reviewRefunds }),
   ).toHaveAttribute("href", "/manager/finance?tab=refunds");
-  await expect(
-    main.getByRole("link", { name: en.managerOperations.reviewPtRequests }),
-  ).toHaveAttribute("href", "/manager/pt?tab=requests");
-  await expect(main).not.toContainText(ptRequest.requestId);
 });
 
 test("busy attention queues scroll independently and stay usable on mobile", async ({
@@ -181,18 +148,16 @@ test("busy attention queues scroll independently and stay usable on mobile", asy
           systemCalculatedPoints: 120,
           reason,
         };
-      return { ...ptRequest, requestId: `request-${index}`, reason };
+      return { requestId: `request-${index}`, reason };
     });
     if (p === "/api/manager/classes" || p === "/api/refunds")
       return route.fulfill({ json: paged(rows) });
-    if (p === "/api/manager/pt-session-change-requests")
-      return route.fulfill({ json: rows });
     return route.fallback();
   });
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/manager");
   const queues = page.locator("main ul[aria-labelledby^='attention-']");
-  await expect(queues).toHaveCount(3);
+  await expect(queues).toHaveCount(2);
   for (const queue of await queues.all()) {
     await expect(queue.getByRole("listitem")).toHaveCount(5);
     expect(await queue.evaluate((el) => el.scrollHeight)).toBeGreaterThan(
@@ -205,7 +170,6 @@ test("busy attention queues scroll independently and stay usable on mobile", asy
     .poll(() => queues.first().evaluate((el) => el.scrollTop))
     .toBeGreaterThan(0);
   expect(await queues.nth(1).evaluate((el) => el.scrollTop)).toBe(0);
-  expect(await queues.nth(2).evaluate((el) => el.scrollTop)).toBe(0);
   for (const width of [1440, 960, 390]) {
     await page.setViewportSize({ width, height: 900 });
     expect(
@@ -269,65 +233,6 @@ test("week schedule queries Monday to Sunday, opens one drawer and retains team 
   await expect(
     page.getByRole("button", { name: "Activity calendar", exact: true }),
   ).toBeVisible();
-});
-
-test("PT cancellation reviews a reason and keeps a rejected draft", async ({
-  page,
-}) => {
-  let writes = 0;
-  await page.route(
-    `**/api/manager/pt-sessions/${sessionId}/cancel`,
-    (route) => {
-      writes++;
-      return route.fulfill({
-        status: 409,
-        json: { message: "Session changed; review again" },
-      });
-    },
-  );
-  await page.goto("/manager/pt?tab=sessions");
-  await page
-    .getByRole("button", { name: en.staffWork.cancelSession, exact: true })
-    .click();
-  const dialog = page.getByRole("dialog");
-  await expect(dialog).toBeVisible();
-  expect(writes).toBe(0);
-  await expect(
-    dialog.getByRole("button", {
-      name: en.staffWork.cancelSession,
-      exact: true,
-    }),
-  ).toBeDisabled();
-  await dialog
-    .getByLabel(en.staffWork.reason, { exact: true })
-    .fill("Center maintenance");
-  await dialog
-    .getByRole("button", { name: en.staffWork.cancelSession, exact: true })
-    .click();
-  await expect(dialog.getByRole("alert")).toContainText(
-    "Session changed; review again",
-  );
-  await expect(
-    dialog.getByLabel(en.staffWork.reason, { exact: true }),
-  ).toHaveValue("Center maintenance");
-  expect(writes).toBe(1);
-});
-
-test("PT request deep links restore readable rows and review dialogs", async ({
-  page,
-}) => {
-  await page.goto("/manager/pt?tab=requests&type=session");
-  await expect(
-    page.getByRole("cell", { name: "Mai Anh", exact: true }),
-  ).toBeVisible();
-  await expect(page.locator("main")).not.toContainText(memberId);
-  await page.getByRole("button", { name: "Review", exact: true }).click();
-  await expect(page.getByRole("dialog")).toBeVisible();
-  await expect(
-    page.getByRole("dialog").getByLabel(en.staffWork.reviewNote),
-  ).toBeVisible();
-  await page.keyboard.press("Escape");
-  await expect(page.getByRole("dialog")).toHaveCount(0);
 });
 
 test("incident date fields reject reversed ranges and keep preview errors", async ({

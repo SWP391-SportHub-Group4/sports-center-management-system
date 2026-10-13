@@ -22,42 +22,4 @@ public sealed class SchedulingAvailabilityReader(ISportHubDbContext db) : ISched
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<IReadOnlyList<RoomAvailability>> GetServiceRoomsAsync(
-        SportServiceType serviceType, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken = default)
-    {
-        var from = DateTime.SpecifyKind(fromUtc, DateTimeKind.Utc);
-        var to = DateTime.SpecifyKind(toUtc, DateTimeKind.Utc);
-
-        var rooms = await (from room in db.Set<Room>().AsNoTracking()
-                           join link in db.Set<ServiceRoomType>().AsNoTracking() on room.RoomTypeId equals link.RoomTypeId
-                           join offering in db.Set<SportServiceOffering>().AsNoTracking() on link.OfferingId equals offering.OfferingId
-                           join sport in db.Set<Sport>().AsNoTracking() on offering.SportId equals sport.SportId
-                           where room.IsActive && offering.ServiceType == serviceType && offering.IsEnabled && sport.IsActive
-                           select new { room.RoomId, room.Name })
-            .Distinct()
-            .OrderBy(r => r.Name)
-            .ToListAsync(cancellationToken);
-
-        if (rooms.Count == 0)
-        {
-            return [];
-        }
-
-        var ids = rooms.Select(r => r.RoomId).ToList();
-        var hours = await db.Set<RoomOpeningHour>().AsNoTracking()
-            .Where(h => ids.Contains(h.RoomId))
-            .ToListAsync(cancellationToken);
-        var busy = await db.Set<RoomOccupancy>().AsNoTracking()
-            .Where(o => o.IsActive && ids.Contains(o.RoomId) && o.StartAtUtc < to && o.EndAtUtc > from)
-            .Select(o => new { o.RoomId, o.StartAtUtc, o.EndAtUtc })
-            .ToListAsync(cancellationToken);
-
-        return rooms.Select(r => new RoomAvailability(
-            r.RoomId,
-            r.Name,
-            hours.Where(h => h.RoomId == r.RoomId)
-                .Select(h => new RoomOpeningDay(h.DayOfWeek, h.OpenTimeLocal, h.CloseTimeLocal)).ToList(),
-            busy.Where(b => b.RoomId == r.RoomId).Select(b => new TimeWindow(b.StartAtUtc, b.EndAtUtc)).ToList()))
-            .ToList();
-    }
 }

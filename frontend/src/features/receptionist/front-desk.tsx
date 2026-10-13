@@ -11,7 +11,6 @@ import { MemberPicker } from "@/components/MemberPicker";
 import { useDeskMember } from "./desk-context";
 import { RegistrationHint } from "./dashboard";
 import { CheckoutPanel } from "@/features/payments";
-import { PtPurchase } from "@/features/membership";
 import { WalletBalance } from "@/features/wallet";
 import { WalletLedger } from "@/features/wallet";
 import { InvoiceList } from "@/features/payments";
@@ -271,6 +270,15 @@ export function PlanSales({ member }: { member: UserAdminDto }) {
                 label: l.membershipDuration,
                 value: `${selectedPlan.durationDays} ${t.refactor.days}`,
               },
+              ...(selectedPlan.durationDays === 1
+                ? [
+                    {
+                      label: "Lưu ý trước khi thanh toán",
+                      value:
+                        "Vé Gym 1 ngày và mã check-in chỉ dùng trong ngày thanh toán thành công (giờ Việt Nam). Hãy thông báo điều này cho Member trước khi thu tiền.",
+                    },
+                  ]
+                : []),
             ],
           }}
           intent={{
@@ -284,9 +292,6 @@ export function PlanSales({ member }: { member: UserAdminDto }) {
           onChange={packages.reload}
         />
       )}
-      <AsyncSection state={packages}>
-        {(rows) => <PtPurchase packages={rows} memberId={memberId} />}
-      </AsyncSection>
     </>
   );
 }

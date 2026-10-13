@@ -29,23 +29,6 @@ public static class RefundCalculator
             : 0;
     }
 
-    public static int PtPoints(
-        decimal itemPaidVnd,
-        bool hasConsumedSession,
-        bool centerFault = false,
-        int totalQuota = 0,
-        int consumedSessions = 0)
-    {
-        if (centerFault)
-        {
-            // Lỗi trung tâm hoàn theo số buổi chưa dùng; chưa dùng buổi nào (hoặc thiếu hạn mức) thì hoàn đủ.
-            if (consumedSessions <= 0 || totalQuota <= 0) return PointsForRatio(itemPaidVnd, 100);
-            var unused = Math.Max(0, totalQuota - consumedSessions);
-            return PointsForRatio(itemPaidVnd, 100m * unused / totalQuota);
-        }
-        return hasConsumedSession ? 0 : PointsForRatio(itemPaidVnd, 50);
-    }
-
     public static int ClassPoints(
         decimal itemPaidVnd,
         int totalProvidedSessions,

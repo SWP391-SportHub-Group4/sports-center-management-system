@@ -11,7 +11,6 @@ import {
   type ReactNode,
 } from "react";
 import { HOME_BY_ROLE, useAuth, type Role } from "@/lib/auth";
-import { canUsePtFeatures } from "@/lib/permissions";
 import { useLanguage } from "@/lib/language";
 import type { Translations } from "@/locales/en";
 import { NotificationBell } from "./NotificationBell";
@@ -90,22 +89,16 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { href: "/receptionist/attendance", labelKey: "attendance" },
     { href: "/receptionist/court-schedule", labelKey: "courtSchedule" },
   ],
-  // PT actions are filtered by current specialties in getNavForUser().
   Coach: [
     { href: "/coach", labelKey: "overview" },
-    { href: "/coach/schedule", labelKey: "ptSchedule" },
+    { href: "/coach/schedule", labelKey: "teachingSchedule" },
     { href: "/coach/members", labelKey: "assignedMembers" },
     { href: "/coach/attendance", labelKey: "attendance" },
-    { href: "/coach/pt-sessions", labelKey: "ptSchedule" },
-    { href: "/coach/training-plans", labelKey: "trainingPlans" },
-    { href: "/coach/progress", labelKey: "progress" },
-    { href: "/coach/ai-suggestions", labelKey: "aiSuggestions" },
   ],
   CenterManager: [
     { href: "/manager", labelKey: "overview" },
     { href: "/manager/sports", labelKey: "sports" },
     { href: "/manager/room-types", labelKey: "roomTypes" },
-    { href: "/manager/pt-pricing", labelKey: "ptPricing" },
     { href: "/manager/facilities", labelKey: "trainingRooms" },
     { href: "/manager/court-rates", labelKey: "rates" },
     { href: "/manager/coaches", labelKey: "coaches" },
@@ -116,7 +109,6 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { href: "/manager/classes", labelKey: "classes" },
     { href: "/manager/membership-plans", labelKey: "membershipPlans" },
     { href: "/manager/finance", labelKey: "finance" },
-    { href: "/manager/pt", labelKey: "pt" },
     { href: "/manager/members", labelKey: "members" },
     { href: "/manager/points", labelKey: "wallet" },
     { href: "/manager/reports", labelKey: "revenueReports" },
@@ -132,21 +124,15 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
 export function getNavForUser(user: {
   role: Role;
   sportIds: number[];
-  isPersonalTrainer?: boolean;
   approvalStatus?: string | null;
 }): NavItem[] {
   if (user.role !== "Coach") return NAV_BY_ROLE[user.role];
-  return user.isPersonalTrainer === true
-    ? [
-        { href: "/coach/schedule", labelKey: "ptSchedule" },
-        { href: "/coach/members", labelKey: "assignedMembers" },
-      ]
-    : [
-        { href: "/coach/schedule", labelKey: "teachingSchedule" },
-        { href: "/coach/classes", labelKey: "assignedClasses" },
-        { href: "/coach/members", labelKey: "classStudents" },
-        { href: "/coach/change-requests", labelKey: "changeRequests" },
-      ];
+  return [
+    { href: "/coach/schedule", labelKey: "teachingSchedule" },
+    { href: "/coach/classes", labelKey: "assignedClasses" },
+    { href: "/coach/members", labelKey: "classStudents" },
+    { href: "/coach/change-requests", labelKey: "changeRequests" },
+  ];
 }
 
 type GroupKey = keyof Translations["navigation"]["groups"];
@@ -171,7 +157,6 @@ const GROUP_SPEC: Partial<Record<Role, (string | [GroupKey, string[]])[]>> = {
         "/manager/court-rates",
         "/manager/facilities",
         "/manager/membership-plans",
-        "/manager/pt-pricing",
       ],
     ],
     [
@@ -179,7 +164,6 @@ const GROUP_SPEC: Partial<Record<Role, (string | [GroupKey, string[]])[]>> = {
       [
         "/manager/classes",
         "/manager/schedule",
-        "/manager/pt",
         "/manager/incidents",
         "/manager/notices",
       ],
@@ -197,15 +181,6 @@ const GROUP_SPEC: Partial<Record<Role, (string | [GroupKey, string[]])[]>> = {
     "/coach/classes",
     "/coach/members",
     "/coach/attendance",
-    [
-      "training",
-      [
-        "/coach/pt-sessions",
-        "/coach/training-plans",
-        "/coach/progress",
-        "/coach/ai-suggestions",
-      ],
-    ],
   ],
 };
 
@@ -442,7 +417,7 @@ export function AppFrame({
   }
 
   const items = getNavForUser(user);
-  const ptNavigation = user.role === "Coach" && canUsePtFeatures(user);
+  const ptNavigation = false;
   const root = items[0].href;
   const entries = buildNav(items, user.role, t);
   const roleDisplay = t.navigation.roleLabel[user.role];
@@ -756,27 +731,16 @@ export function AppFrame({
   );
 }
 
-/** Tiêu đề trang + kiểm tra quyền PT; chạy bên trong khung. */
+/** Tiêu đề trang; chạy bên trong khung. */
 function PageBody({
   title,
   description,
-  requirePtSpecialty,
   children,
 }: {
   title: string;
   description?: string;
-  requirePtSpecialty?: boolean;
   children: ReactNode;
 }) {
-  const { user } = useAuth();
-  const router = useRouter();
-  // Specialty checks are for display; the API enforces authorization.
-  const mismatch =
-    !!requirePtSpecialty && user?.role === "Coach" && !canUsePtFeatures(user);
-  useEffect(() => {
-    if (mismatch && user) router.replace(HOME_BY_ROLE[user.role]);
-  }, [mismatch, user, router]);
-  if (mismatch) return null;
   return (
     <>
       <div className={styles.pageHeader}>
@@ -792,26 +756,19 @@ export function AppShell({
   title,
   description,
   allow,
-  requirePtSpecialty,
   children,
 }: {
   title: string;
   description?: string;
   /** Vai trò được phép xem nhánh này. Bảo vệ route ở client, không thay cho RBAC ở API. */
   allow: Role[];
-  /** Show PT tools only for a coach with a current PT specialty. */
-  requirePtSpecialty?: boolean;
   /** Giữ để không phải sửa nơi gọi; thanh điều hướng trên cùng không còn cần chế độ này. */
   operationalLayout?: boolean;
   children: ReactNode;
 }) {
   const inFrame = useContext(FrameContext);
   const page = (
-    <PageBody
-      title={title}
-      description={description}
-      requirePtSpecialty={requirePtSpecialty}
-    >
+    <PageBody title={title} description={description}>
       {children}
     </PageBody>
   );

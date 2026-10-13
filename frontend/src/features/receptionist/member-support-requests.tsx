@@ -2,72 +2,45 @@
 
 import { useState } from "react";
 
-import {
-  api,
-  ApiError,
-} from "@/lib/apiClient";
+import { api, ApiError } from "@/lib/apiClient";
 
 import { useApi } from "@/lib/useApi";
 
-import type {
-  MemberSupportRequestDto,
-} from "@/lib/types";
+import type { MemberSupportRequestDto } from "@/lib/types";
 
-import {
-  formatDateTime,
-} from "@/lib/format";
+import { formatDateTime } from "@/lib/format";
 
-export function MemberSupportRequests({
-  memberId,
-}: {
-  memberId: string;
-}) {
+export function MemberSupportRequests({ memberId }: { memberId: string }) {
   const requests = useApi(
     (signal) =>
-      api.get<MemberSupportRequestDto[]>(
-        "/api/member-support-requests",
-        {
-          signal,
-          query: {
-            memberId,
-          },
+      api.get<MemberSupportRequestDto[]>("/api/member-support-requests", {
+        signal,
+        query: {
+          memberId,
         },
-      ),
+      }),
     [memberId],
   );
 
-  const [category, setCategory] =
-    useState("GENERAL");
+  const [category, setCategory] = useState("GENERAL");
 
-  const [subject, setSubject] =
-    useState("");
+  const [subject, setSubject] = useState("");
 
-  const [description, setDescription] =
-    useState("");
+  const [description, setDescription] = useState("");
 
-  const [busy, setBusy] =
-    useState(false);
+  const [busy, setBusy] = useState(false);
 
-  const [error, setError] =
-    useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const [success, setSuccess] =
-    useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   async function submit() {
-    const trimmedSubject =
-      subject.trim();
+    const trimmedSubject = subject.trim();
 
-    const trimmedDescription =
-      description.trim();
+    const trimmedDescription = description.trim();
 
-    if (
-      trimmedSubject.length < 3 ||
-      trimmedDescription.length < 3
-    ) {
-      setError(
-        "Subject and description must contain at least 3 characters.",
-      );
+    if (trimmedSubject.length < 3 || trimmedDescription.length < 3) {
+      setError("Subject and description must contain at least 3 characters.");
 
       return;
     }
@@ -77,24 +50,18 @@ export function MemberSupportRequests({
     setSuccess(null);
 
     try {
-      await api.post(
-        "/api/member-support-requests",
-        {
-          memberId,
-          category,
-          subject: trimmedSubject,
-          description:
-            trimmedDescription,
-        },
-      );
+      await api.post("/api/member-support-requests", {
+        memberId,
+        category,
+        subject: trimmedSubject,
+        description: trimmedDescription,
+      });
 
       setSubject("");
       setDescription("");
       setCategory("GENERAL");
 
-      setSuccess(
-        "Support request recorded successfully.",
-      );
+      setSuccess("Support request recorded successfully.");
 
       requests.reload();
     } catch (e) {
@@ -103,9 +70,7 @@ export function MemberSupportRequests({
       } else if (e instanceof Error) {
         setError(e.message);
       } else {
-        setError(
-          "Unable to record support request.",
-        );
+        setError("Unable to record support request.");
       }
     } finally {
       setBusy(false);
@@ -134,9 +99,7 @@ export function MemberSupportRequests({
         </h3>
 
         <p className="small muted">
-          Record a request reported by
-          the selected member at the
-          front desk.
+          Record a request reported by the selected member at the front desk.
         </p>
       </div>
 
@@ -151,35 +114,17 @@ export function MemberSupportRequests({
         <select
           value={category}
           disabled={busy}
-          onChange={(e) =>
-            setCategory(
-              e.target.value,
-            )
-          }
+          onChange={(e) => setCategory(e.target.value)}
         >
-          <option value="GENERAL">
-            General
-          </option>
+          <option value="GENERAL">General</option>
 
-          <option value="MEMBERSHIP">
-            Membership
-          </option>
+          <option value="MEMBERSHIP">Membership</option>
 
-          <option value="CLASS">
-            Class
-          </option>
+          <option value="CLASS">Class</option>
 
-          <option value="PAYMENT">
-            Payment
-          </option>
+          <option value="PAYMENT">Payment</option>
 
-          <option value="PT">
-            Personal training
-          </option>
-
-          <option value="OTHER">
-            Other
-          </option>
+          <option value="OTHER">Other</option>
         </select>
       </label>
 
@@ -196,11 +141,7 @@ export function MemberSupportRequests({
           maxLength={200}
           disabled={busy}
           placeholder="Short summary"
-          onChange={(e) =>
-            setSubject(
-              e.target.value,
-            )
-          }
+          onChange={(e) => setSubject(e.target.value)}
         />
       </label>
 
@@ -218,60 +159,36 @@ export function MemberSupportRequests({
           value={description}
           disabled={busy}
           placeholder="Describe the member's request"
-          onChange={(e) =>
-            setDescription(
-              e.target.value,
-            )
-          }
+          onChange={(e) => setDescription(e.target.value)}
         />
       </label>
 
-      {error && (
-        <p role="alert">
-          {error}
-        </p>
-      )}
+      {error && <p role="alert">{error}</p>}
 
-      {success && (
-        <p role="status">
-          {success}
-        </p>
-      )}
+      {success && <p role="status">{success}</p>}
 
       <div>
         <button
           type="button"
           className="btn"
           disabled={
-            busy ||
-            subject.trim().length < 3 ||
-            description.trim().length < 3
+            busy || subject.trim().length < 3 || description.trim().length < 3
           }
           onClick={submit}
         >
-          {busy
-            ? "Recording..."
-            : "Record support request"}
+          {busy ? "Recording..." : "Record support request"}
         </button>
       </div>
 
       <div>
-        <h4>
-          Recent requests
-        </h4>
+        <h4>Recent requests</h4>
 
         {requests.loading ? (
-          <p className="small muted">
-            Loading…
-          </p>
+          <p className="small muted">Loading…</p>
         ) : requests.error ? (
-          <p role="alert">
-            {requests.error.message}
-          </p>
+          <p role="alert">{requests.error.message}</p>
         ) : !requests.data?.length ? (
-          <p className="small muted">
-            No support requests recorded.
-          </p>
+          <p className="small muted">No support requests recorded.</p>
         ) : (
           <div
             style={{
@@ -279,53 +196,36 @@ export function MemberSupportRequests({
               gap: "8px",
             }}
           >
-            {requests.data.map(
-              (request) => (
-                <article
-                  key={
-                    request.requestId
-                  }
+            {requests.data.map((request) => (
+              <article
+                key={request.requestId}
+                style={{
+                  padding: "12px",
+                  border: "1px solid var(--border-subtle)",
+                  borderRadius: "var(--radius-md)",
+                }}
+              >
+                <div
                   style={{
-                    padding: "12px",
-                    border:
-                      "1px solid var(--border-subtle)",
-                    borderRadius:
-                      "var(--radius-md)",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    gap: "12px",
                   }}
                 >
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent:
-                        "space-between",
-                      gap: "12px",
-                    }}
-                  >
-                    <strong>
-                      {request.subject}
-                    </strong>
+                  <strong>{request.subject}</strong>
 
-                    <span className="small">
-                      {request.status}
-                    </span>
-                  </div>
+                  <span className="small">{request.status}</span>
+                </div>
 
-                  <p className="small muted">
-                    {request.category}
-                    {" · "}
-                    {formatDateTime(
-                      request.createdAt,
-                    )}
-                  </p>
+                <p className="small muted">
+                  {request.category}
+                  {" · "}
+                  {formatDateTime(request.createdAt)}
+                </p>
 
-                  <p>
-                    {
-                      request.description
-                    }
-                  </p>
-                </article>
-              ),
-            )}
+                <p>{request.description}</p>
+              </article>
+            ))}
           </div>
         )}
       </div>
