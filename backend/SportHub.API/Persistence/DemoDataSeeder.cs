@@ -267,13 +267,13 @@ public sealed partial class DemoDataSeeder(
     }
 
     /// <summary>
-    /// Idempotent demo data: coach.pt giao một kế hoạch tập Active cho an.member để xem giao diện Member.
+    /// Idempotent demo data: coach.caulong giao một kế hoạch tập Active cho an.member để xem giao diện Member.
     /// Chỉ thêm khi chưa có kế hoạch nào của cặp Coach–Member này, không đụng dữ liệu do người dùng tạo.
     /// </summary>
     public async Task SeedMemberWorkoutPlanAsync(CancellationToken ct = default)
     {
         var member = await db.UserAccounts.SingleOrDefaultAsync(x => x.Email == "an.member@sporthub.vn", ct);
-        var coach = await db.UserAccounts.SingleOrDefaultAsync(x => x.Email == "coach.pt@sporthub.vn", ct);
+        var coach = await db.UserAccounts.SingleOrDefaultAsync(x => x.Email == "coach.caulong@sporthub.vn", ct);
         if (member is null || coach is null
             || member.Status != UserStatus.Active || coach.Status != UserStatus.Active) return;
         if (await db.WorkoutPlans.AnyAsync(x => x.MemberId == member.UserId && x.CoachId == coach.UserId, ct)) return;

@@ -25,10 +25,6 @@ const DEMO_ACCOUNTS = [
   { label: "Center Manager", email: "manager@sporthub.vn" },
   { label: "Receptionist", email: "letan@sporthub.vn" },
   {
-    label: "Coach",
-    email: "coach.pt@sporthub.vn",
-  },
-  {
     label: "Coach · Cầu lông",
     email: "coach.caulong@sporthub.vn",
   },
