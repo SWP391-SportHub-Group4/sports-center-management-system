@@ -1,19 +1,22 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import QRCode from "qrcode";
 import { Dialog } from "@/components/ui";
 import { IconQrCode } from "@/components/icons";
 import { useAuth } from "@/lib/auth";
 import { useLanguage } from "@/lib/language";
 import { api } from "@/lib/apiClient";
+import { todayIso } from "@/lib/format";
+import type { MemberPackageDto } from "@/lib/types";
 import type { MemberCheckInCode } from "@/lib/member-code";
 import styles from "./MemberShell.module.css";
 import codeStyles from "./MemberCodeCard.module.css";
 
 /**
- * Nút mã hội viên trên thanh đầu dashboard. Bấm vào mở popup nhỏ chứa QR để lễ tân quét.
- * Mã chỉ định danh hội viên, không phải vé vào cửa.
+ * Nút mã hội viên. Mã QR do server cấp chỉ để lễ tân nhận ra hội viên; chỉ hiện khi Member
+ * đang có gói Gym còn hiệu lực (Membership hoặc vé ngày hôm nay), còn không thì gợi ý mua gói.
  */
 export function MemberCodeButton({
   open: controlledOpen,
@@ -33,10 +36,8 @@ export function MemberCodeButton({
     setOwnOpen(next);
     onOpenChange?.(next);
   };
-  const [copied, setCopied] = useState(false);
-  const [copyError, setCopyError] = useState(false);
   const [dataUrl, setDataUrl] = useState("");
-  const [validUntil, setValidUntil] = useState<string | null>(null);
+  const [eligible, setEligible] = useState<boolean | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const userId = user?.userId;
 
@@ -45,14 +46,28 @@ export function MemberCodeButton({
     let cancelled = false;
     const refresh = async () => {
       try {
+        const today = todayIso();
+        const packages = await api.get<MemberPackageDto[]>(
+          "/api/members/me/packages",
+        );
+        const ok = packages.some(
+          (p) =>
+            p.status.toUpperCase() === "ACTIVE" &&
+            p.isUsable &&
+            p.startDate.slice(0, 10) <= today &&
+            p.endDate.slice(0, 10) >= today,
+        );
+        if (cancelled) return;
+        setEligible(ok);
+        if (!ok) return setDataUrl("");
         const issued = await api.get<MemberCheckInCode>(
           "/api/members/me/checkin-code",
         );
-        if (cancelled) return;
-        setValidUntil(issued.expiresAtUtc);
-        setDataUrl(
-          await QRCode.toDataURL(issued.code, { width: 240, margin: 1 }),
-        );
+        const url = await QRCode.toDataURL(issued.code, {
+          width: 240,
+          margin: 1,
+        });
+        if (!cancelled) setDataUrl(url);
       } catch {
         if (!cancelled) setDataUrl("");
       }
@@ -76,11 +91,7 @@ export function MemberCodeButton({
         <button
           type="button"
           className={styles.qrButton}
-          onClick={() => {
-            setOpen(true);
-            setCopied(false);
-            setCopyError(false);
-          }}
+          onClick={() => setOpen(true)}
           aria-expanded={open}
           aria-haspopup="dialog"
           aria-label={label}
@@ -97,82 +108,65 @@ export function MemberCodeButton({
           title={label}
           size="sm"
           className={codeStyles.dialog}
-          description={
-            en
-              ? "Show this code to reception for check-in. Entry requires an active Gym package or a day pass bought today."
-              : "Đưa mã cho lễ tân để check-in. Cần gói Gym còn hiệu lực hoặc vé 1 ngày mua trong hôm nay."
-          }
           onClose={() => setOpen(false)}
         >
           <div className={codeStyles.content}>
-            {dataUrl && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                className={codeStyles.qr}
-                src={dataUrl}
-                width={240}
-                height={240}
-                alt={en ? "Member code QR" : "Mã QR hội viên"}
-              />
-            )}
-            <strong>{user.fullName}</strong>
-            <p>{user.email}</p>
-            {validUntil && (
-              <p>
-                {en
-                  ? "This check-in code is valid only today (Vietnam time, GMT+7)."
-                  : "Mã check-in chỉ có hiệu lực trong hôm nay (giờ Việt Nam, GMT+7)."}
-              </p>
-            )}
-            <button
-              className="btn"
-              onClick={async () => {
-                try {
-                  await api.post("/api/gym-checkins/self", {});
-                  setNotice(
-                    en ? "Checked in successfully." : "Đã check-in thành công.",
-                  );
-                } catch (error) {
-                  setNotice(
-                    error instanceof Error
-                      ? error.message
-                      : en
-                        ? "Check-in failed."
-                        : "Check-in thất bại.",
-                  );
-                }
-              }}
-            >
-              {en ? "Check in now" : "Tự check-in"}
-            </button>
-            {notice && <p role="status">{notice}</p>}
-            <p className={`small muted ${codeStyles.memberId}`}>{userId}</p>
-            <button
-              className="btn btn--secondary"
-              onClick={async () => {
-                try {
-                  await navigator.clipboard.writeText(userId);
-                  setCopied(true);
-                  setCopyError(false);
-                } catch {
-                  setCopyError(true);
-                }
-              }}
-            >
-              {copied
-                ? en
-                  ? "Copied"
-                  : "Đã sao chép"
-                : en
-                  ? "Copy member code"
-                  : "Sao chép mã hội viên"}
-            </button>
-            {copyError && (
-              <p role="alert">
-                {en
-                  ? "Copy is unavailable. Select the code above to copy it manually."
-                  : "Chưa sao chép được. Bạn có thể chọn mã ở trên để sao chép thủ công."}
-              </p>
+            {eligible === false ? (
+              <>
+                <p>
+                  {en
+                    ? "No check-in code yet: you don't have an active Gym membership or day pass."
+                    : "Chưa có mã check-in vì bạn chưa có gói Membership Gym hoặc vé ngày còn hiệu lực."}
+                </p>
+                <Link
+                  className="btn"
+                  href="/member/services?section=gym&view=explore"
+                  onClick={() => setOpen(false)}
+                >
+                  {en ? "Buy a Gym plan" : "Mua gói Gym"}
+                </Link>
+              </>
+            ) : (
+              <>
+                {dataUrl && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    className={codeStyles.qr}
+                    src={dataUrl}
+                    width={240}
+                    height={240}
+                    alt={en ? "Member code QR" : "Mã QR hội viên"}
+                  />
+                )}
+                <strong>{user.fullName}</strong>
+                <p className="small muted">
+                  {en ? "Valid today only" : "Chỉ có hiệu lực hôm nay"}
+                </p>
+                <button
+                  className="btn"
+                  onClick={async () => {
+                    try {
+                      await api.post("/api/gym-checkins/self", {});
+                      setNotice(
+                        en
+                          ? "Checked in successfully."
+                          : "Đã check-in thành công.",
+                      );
+                    } catch (error) {
+                      setNotice(
+                        error instanceof Error
+                          ? error.message
+                          : en
+                            ? "Check-in failed."
+                            : "Check-in thất bại.",
+                      );
+                    }
+                  }}
+                >
+                  {en ? "Check in now" : "Tự check-in"}
+                </button>
+                {notice && <p role="status">{notice}</p>}
+              </>
             )}
           </div>
         </Dialog>
