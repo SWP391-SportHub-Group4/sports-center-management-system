@@ -2,6 +2,8 @@
 
 SportHub quản lý trung tâm thể thao với **ba môn Gym (bao gồm PT), cầu lông và bóng rổ**, đồng thời hỗ trợ mở rộng thêm môn trong tương lai. PT là dịch vụ huấn luyện cá nhân thuộc Gym. Danh mục môn, chuyên môn HLV và loại sân/phòng phải cấu hình được.
 
+**Chuyên môn Coach (xác nhận 13/10/2026, BR-96):** một Coach có thể dạy nhiều môn và phải được gán ít nhất một môn. Admin được chọn nhiều môn đang hoạt động khi tạo tài khoản Coach hoặc đổi một tài khoản staff sang Coach; Manager chỉnh sửa chuyên môn sau đó. Phân công lớp yêu cầu Coach đang hoạt động và có chuyên môn khớp môn của lớp. Chuyên môn Gym không tự cấp quyền dạy PT; quyền dịch vụ PT do Manager cấp riêng.
+
 ## 1. Mục tiêu và phạm vi
 
 Số hóa hoạt động từ tiếp đón, mua dịch vụ, xếp lịch, điểm danh và tập luyện đến thuê sân, thanh toán, hoàn điểm, thông báo và báo cáo. Dữ liệu phải nhất quán giữa năm vai trò và không bán vượt sĩ số hoặc xếp trùng sân/Coach.

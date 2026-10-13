@@ -205,7 +205,9 @@ Việc bổ sung không thay đổi quyền đọc audit, scope tài khoản c�
 | POST | `api/users/{userId:guid}/unlock` |
 | POST | `api/users/{userId:guid}/deactivate` |
 
-`POST api/users/admin/staff` (SystemAdministrator; `{email, fullName, phone?, roleId, specialties?}`): tạo tài khoản staff **không có mật khẩu**, gửi email kích hoạt (link dùng một lần, 24 giờ). Với Coach (`roleId` 2) bắt buộc `specialties` chứa **đúng một môn đang hoạt động** khi tạo, role khác không được gửi `specialties`. **Manager không tạo được Coach** (không còn `POST api/manager/coaches`): Manager chỉ sửa hồ sơ/chuyên môn và cấp quyền dịch vụ PT (`PUT api/manager/coaches/{id}` và `.../service-qualifications`).
+`POST api/users/admin/staff` (SystemAdministrator; `{email, fullName, phone?, roleId, specialties?}`): tạo tài khoản staff **không có mật khẩu**, gửi email kích hoạt (link dùng một lần, 24 giờ). Với Coach (`roleId` 2) bắt buộc `specialties` chứa **ít nhất một môn đang hoạt động**; **một Coach có thể được gán nhiều môn ngay khi tạo tài khoản**. Role khác không được gửi `specialties`. **Manager không tạo được Coach** (không còn `POST api/manager/coaches`): Manager chỉ sửa hồ sơ/chuyên môn và cấp quyền dịch vụ PT (`PUT api/manager/coaches/{id}` và `.../service-qualifications`).
+
+**Khoảng trống triển khai:** quy tắc nhiều môn được xác nhận ngày 13/10/2026 và phù hợp BR-96. Backend hiện tại trong `UserAdminService.CreateStaffAsync` vẫn kiểm tra đúng một môn và trả `coach_single_specialty_required` khi chọn nhiều môn lúc tạo; cần đồng bộ mã nguồn riêng để đáp ứng contract này.
 
 `UserAdminResponse.activationPending` (bool): tài khoản (staff hoặc Member đăng ký tại quầy) chưa đặt mật khẩu và chưa liên kết Google. Hai thao tác dưới đây chỉ dành cho SystemAdministrator và chỉ áp dụng cho tài khoản `activationPending`; Member hoặc staff đã kích hoạt trả **409 `account_not_pending_activation`**.
 
