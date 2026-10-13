@@ -1,4 +1,4 @@
-import { BookOpen, MapPin, UserRound } from "lucide-react";
+import { BookOpen, MapPin } from "lucide-react";
 import { CourtIcon } from "@/components/brand/CourtIcon";
 import type { EventKind } from "./event-meta";
 import styles from "./calendar-sticker.module.css";
@@ -18,11 +18,10 @@ export function CalendarSticker({
     ? "badminton"
     : /bong ro|basketball/.test(name)
       ? "basketball"
-      : /gym|fitness/.test(name) || kind === "pt"
+      : /gym|fitness/.test(name)
         ? "gym"
         : "calendar";
-  const KindIcon =
-    kind === "class" ? BookOpen : kind === "rental" ? MapPin : UserRound;
+  const KindIcon = kind === "rental" ? MapPin : BookOpen;
   return (
     <span
       className={styles.sticker}

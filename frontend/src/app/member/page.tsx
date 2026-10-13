@@ -30,10 +30,8 @@ import type {
   ThresholdResponseDto,
   SportDto,
   MemberPackageDto,
-  PtEntitlementDto,
   InvoiceSummaryDto,
   Paged,
-  WorkoutResultDto,
 } from "@/lib/types";
 import { memberSchedule, type MemberEvent } from "@/features/member/api";
 import { walletApi } from "@/features/wallet/api";
@@ -52,12 +50,9 @@ function vietnamDate(value: string) {
   }).format(new Date(value));
 }
 
-/** Môn của buổi: lớp có sportName; PT thuộc Gym nên dùng nhãn Gym. */
-function sportOf(session: MemberEvent, gymLabel: string) {
-  return (
-    session.sportName?.trim() ||
-    (session.type === "PT_SESSION" ? gymLabel : null)
-  );
+/** Môn của buổi: chỉ lớp có sportName. */
+function sportOf(session: MemberEvent) {
+  return session.sportName?.trim() || null;
 }
 
 /** Nhãn đếm ngược chỉ khi buổi diễn ra trong 24 giờ tới; xa hơn thì ô ngày đã đủ. */
@@ -90,32 +85,23 @@ function sportTone(label: string | null) {
     .replace(/[̀-ͯ]/g, "")
     .replace(/đ/gi, "d")
     .toLowerCase();
-  if (/gym|fitness|\bpt\b/.test(key)) return "gym";
+  if (/gym|fitness/.test(key)) return "gym";
   if (/cau long|badminton/.test(key)) return "badminton";
   if (/bong ro|basketball/.test(key)) return "basketball";
   return "other";
 }
 
-/** Loại buổi: lớp nhóm, PT hay thuê sân (khác với môn thể thao). */
+/** Loại buổi: lớp nhóm hay thuê sân (khác với môn thể thao). */
 function kindLabel(
   session: MemberEvent,
-  l: { kindClass: string; kindPt: string; kindRental: string },
+  l: { kindClass: string; kindRental: string },
 ) {
-  return session.type === "PT_SESSION"
-    ? l.kindPt
-    : session.type === "COURT_RENTAL"
-      ? l.kindRental
-      : l.kindClass;
+  return session.type === "COURT_RENTAL" ? l.kindRental : l.kindClass;
 }
 
 function KindTag({ session }: { session: MemberEvent }) {
   const { t } = useLanguage();
-  const kind =
-    session.type === "PT_SESSION"
-      ? "pt"
-      : session.type === "COURT_RENTAL"
-        ? "rental"
-        : "class";
+  const kind = session.type === "COURT_RENTAL" ? "rental" : "class";
   return (
     <span className={styles.kindTag} data-kind={kind}>
       {kindLabel(session, t.memberDashboardV2)}
@@ -203,7 +189,6 @@ function DateTile({ value }: { value: string }) {
 function AttentionList({
   invoices,
   packages,
-  pt,
   thresholds,
   now,
   today,
@@ -211,7 +196,6 @@ function AttentionList({
 }: {
   invoices: InvoiceSummaryDto[];
   packages: MemberPackageDto[];
-  pt: PtEntitlementDto[];
   thresholds: ThresholdResponseDto[];
   now: number;
   today: string;
@@ -309,16 +293,6 @@ function AttentionList({
     });
   }
 
-  const ptNow = pt.find((p) => p.status === "ACTIVE");
-  if (ptNow && ptNow.remainingQuota <= 1) {
-    items.push({
-      key: "pt",
-      text: l.ptLow.replace("{n}", String(ptNow.remainingQuota)),
-      href: "/member/services?section=pt&view=explore",
-      action: l.renew,
-    });
-  }
-
   if (!items.length)
     return (
       <section
@@ -383,27 +357,12 @@ export default function MemberDashboardPage() {
   const wallet = useApi((signal) => walletApi.balance(signal), []);
   const schedule = useApi((signal) => memberSchedule(date, 30, signal), [date]);
   const training = useApi(
-    async (signal) => {
-      const [sessions, results] = await Promise.all([
-        memberSchedule(monthStart, monthDays, signal),
-        api.get<WorkoutResultDto[]>("/api/members/me/workout-results", {
-          signal,
-        }),
-      ]);
-      return { sessions, results };
-    },
+    (signal) => memberSchedule(monthStart, monthDays, signal),
     [monthStart, monthDays],
   );
   const packages = useApi(
     (signal) =>
       api.get<MemberPackageDto[]>("/api/members/me/packages", { signal }),
-    [],
-  );
-  const pt = useApi(
-    (signal) =>
-      api.get<PtEntitlementDto[]>("/api/members/me/pt-entitlements", {
-        signal,
-      }),
     [],
   );
   const thresholds = useApi(
@@ -461,14 +420,13 @@ export default function MemberDashboardPage() {
         <AttentionList
           invoices={invoices.data ? pagedItems(invoices.data) : []}
           packages={packages.data ?? []}
-          pt={pt.data ?? []}
           thresholds={Array.isArray(thresholds.data) ? thresholds.data : []}
           now={now}
           today={date}
           loadState={
-            [invoices, packages, pt, thresholds].some((state) => state.error)
+            [invoices, packages, thresholds].some((state) => state.error)
               ? "error"
-              : [invoices, packages, pt, thresholds].some(
+              : [invoices, packages, thresholds].some(
                     (state) => state.loading || !state.data,
                   )
                 ? "loading"
@@ -604,14 +562,11 @@ export default function MemberDashboardPage() {
                         <div
                           className={styles.nextSession}
                           data-surface="inverse"
-                          data-sport={sportTone(sportOf(next, l.sportGym))}
+                          data-sport={sportTone(sportOf(next))}
                         >
                           <div className={styles.nextTop}>
                             <span className={styles.activity}>
-                              {sportOf(next, l.sportGym) ??
-                                (next.type === "PT_SESSION"
-                                  ? t.memberPages.pt
-                                  : t.refactor.courses)}
+                              {sportOf(next) ?? t.refactor.courses}
                             </span>
                             <KindTag session={next} />
                             <CheckInTag session={next} now={now} />
@@ -652,7 +607,7 @@ export default function MemberDashboardPage() {
                             <h3>{l.upNext}</h3>
                             <ul className={styles.agenda}>
                               {upcoming.slice(1, 4).map((s) => {
-                                const sport = sportOf(s, l.sportGym);
+                                const sport = sportOf(s);
                                 return (
                                   <li key={s.id} data-sport={sportTone(sport)}>
                                     <DateTile value={s.startAtUtc} />
@@ -702,7 +657,7 @@ export default function MemberDashboardPage() {
                             className={buttonClass({ variant: "secondary" })}
                             href="/member/services?section=gym&view=explore"
                           >
-                            {l.gymPtServices}
+                            {l.gymServices}
                           </Link>
                         </div>
                       </div>
@@ -789,53 +744,6 @@ export default function MemberDashboardPage() {
                   }}
                 </AsyncSection>
               </section>
-              <section
-                className={styles.benefitSection}
-                aria-labelledby="pt-title"
-              >
-                <h3 id="pt-title">{t.memberPages.pt}</h3>
-                <AsyncSection state={pt}>
-                  {(rows) => {
-                    const current = [...rows].sort(
-                      (a, b) =>
-                        Number(b.status === "ACTIVE") -
-                          Number(a.status === "ACTIVE") ||
-                        b.validityEndDate.localeCompare(a.validityEndDate),
-                    )[0];
-                    return current ? (
-                      <>
-                        <div className={styles.inlineHeading}>
-                          <strong>{current.coachName}</strong>
-                          <ExceptionChip value={current.status} />
-                        </div>
-                        <p className={styles.quota}>
-                          <strong>
-                            {current.remainingQuota}
-                            <span> / {current.totalQuota}</span>
-                          </strong>
-                          <span>{l.ptQuota}</span>
-                        </p>
-                        <p className={styles.caption}>
-                          {t.memberPages.held}: {current.reservedSessions} ·{" "}
-                          {t.memberPages.used}: {current.consumedSessions}
-                        </p>
-                      </>
-                    ) : (
-                      <p>{l.emptyPt}</p>
-                    );
-                  }}
-                </AsyncSection>
-                {(pt.data ?? []).some(
-                  (p) => p.status === "ACTIVE" && p.remainingQuota > 0,
-                ) && (
-                  <Link
-                    className={buttonClass({ size: "sm" })}
-                    href="/member/training?tab=book"
-                  >
-                    {t.ptBook.bookCta}
-                  </Link>
-                )}
-              </section>
             </section>
             <section
               className={styles.walletCard}
@@ -888,7 +796,7 @@ export default function MemberDashboardPage() {
                   <div className={styles.trainingMetric}>
                     <strong>
                       {
-                        training.data.sessions.filter((session) =>
+                        training.data.filter((session) =>
                           session.type === "CLASS_SESSION"
                             ? session.attendanceStatus?.toUpperCase() ===
                               "PRESENT"
@@ -897,17 +805,6 @@ export default function MemberDashboardPage() {
                       }
                     </strong>
                     <span>{l.sessionsThisMonth}</span>
-                  </div>
-                  <div className={styles.coachNote}>
-                    <h3>{l.coachNote}</h3>
-                    <p>
-                      {[...training.data.results]
-                        .filter((result) => result.coachComment?.trim())
-                        .sort((a, b) =>
-                          b.recordedAt.localeCompare(a.recordedAt),
-                        )[0]
-                        ?.coachComment?.trim() ?? l.noCoachNote}
-                    </p>
                   </div>
                 </>
               ) : (

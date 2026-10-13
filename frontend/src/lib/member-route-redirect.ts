@@ -18,7 +18,7 @@ export async function redirectMemberPage(
   }
   if (mapTabToSection) {
     const tab = query.get("tab");
-    if (tab && ["courses", "gym", "pt", "courts"].includes(tab))
+    if (tab && ["courses", "gym", "courts"].includes(tab))
       defaults.section = tab;
     query.delete("tab");
   }

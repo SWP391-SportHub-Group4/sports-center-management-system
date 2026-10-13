@@ -25,10 +25,6 @@ const DEMO_ACCOUNTS = [
   { label: "Center Manager", email: "manager@sporthub.vn" },
   { label: "Receptionist", email: "letan@sporthub.vn" },
   {
-    label: "Coach · PT",
-    email: "coach.pt@sporthub.vn",
-  },
-  {
     label: "Coach · Cầu lông",
     email: "coach.caulong@sporthub.vn",
   },
@@ -111,9 +107,7 @@ function LoginForm() {
     null,
   );
   const [busy, setBusy] = useState(false);
-  const [forgotOpen, setForgotOpen] = useState(
-    params.get("forgot") === "1",
-  );
+  const [forgotOpen, setForgotOpen] = useState(params.get("forgot") === "1");
 
   const expired = params.get("reason") === "session-expired";
   const next = params.get("next");

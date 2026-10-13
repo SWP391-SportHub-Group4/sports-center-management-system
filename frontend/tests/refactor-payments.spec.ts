@@ -349,14 +349,30 @@ test("public landing and catalog fit mobile and desktop and pass WCAG", async ({
           sportId: 3,
           name: "Badminton",
           description: "Group courses",
-          code: "course", services: [{ serviceType: "GROUP_COURSE", isEnabled: true, defaultSessionMinutes: 90, defaultMaxCapacity: 12 }],
+          code: "course",
+          services: [
+            {
+              serviceType: "GROUP_COURSE",
+              isEnabled: true,
+              defaultSessionMinutes: 90,
+              defaultMaxCapacity: 12,
+            },
+          ],
           isActive: true,
         },
         {
           sportId: 2,
           name: "Personal training",
           description: "One-on-one training",
-          code: "gym", services: [{ serviceType: "PERSONAL_TRAINING", isEnabled: true, defaultSessionMinutes: null, defaultMaxCapacity: null }],
+          code: "gym",
+          services: [
+            {
+              serviceType: "PERSONAL_TRAINING",
+              isEnabled: true,
+              defaultSessionMinutes: null,
+              defaultMaxCapacity: null,
+            },
+          ],
           isActive: true,
         },
       ],

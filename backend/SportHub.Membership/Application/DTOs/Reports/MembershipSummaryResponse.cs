@@ -11,8 +11,10 @@ public sealed record MembershipSummaryResponse(
     int TotalMembers,
     int MembersWithActiveMembership,
     int MembersWithoutActiveMembership,
-    MemberPackageStatusCountsResponse PackagesByStatus);
+    MemberPackageStatusCountsResponse PackagesByStatus,
+    int MembersWithDayPassToday = 0);
 
 public sealed record MembershipPeriodResponse(
     DateOnly FromDate, DateOnly ToDate, int NewMembers, int ActiveMembersAtPeriodEnd,
-    int MembersPurchasingMembershipInPeriod = 0);
+    int MembersPurchasingMembershipInPeriod = 0,
+    int DayPassesSold = 0);

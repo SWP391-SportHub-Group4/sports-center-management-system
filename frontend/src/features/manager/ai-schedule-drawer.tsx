@@ -61,17 +61,11 @@ type ManagerAiResponse = {
   generatedAt: string;
 };
 
-function formatDateTime(
-  value: string,
-): string {
-  return new Date(
-    value,
-  ).toLocaleString();
+function formatDateTime(value: string): string {
+  return new Date(value).toLocaleString();
 }
 
-function reasonLabel(
-  reason: string,
-): string {
+function reasonLabel(reason: string): string {
   switch (reason) {
     case "sport_inactive":
       return "Bộ môn đã ngừng hoạt động.";
@@ -123,41 +117,21 @@ export function AiScheduleDrawer({
 
   value: ManagerAiRequest;
 
-  onApply: (
-    suggestion: {
-      startDate: string;
-      numSessions: number;
-      scheduleRules: ScheduleRule[];
-    },
-  ) => void;
+  onApply: (suggestion: {
+    startDate: string;
+    numSessions: number;
+    scheduleRules: ScheduleRule[];
+  }) => void;
 }) {
-  const { t } =
-    useLanguage();
+  const { t } = useLanguage();
 
-  const l =
-    t.managerOperations;
+  const l = t.managerOperations;
 
-  const [
-    loading,
-    setLoading,
-  ] =
-    useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const [
-    error,
-    setError,
-  ] =
-    useState<string | null>(
-      null,
-    );
+  const [error, setError] = useState<string | null>(null);
 
-  const [
-    suggestion,
-    setSuggestion,
-  ] =
-    useState<
-      ManagerAiResponse | null
-    >(null);
+  const [suggestion, setSuggestion] = useState<ManagerAiResponse | null>(null);
 
   async function generate() {
     setLoading(true);
@@ -171,17 +145,12 @@ export function AiScheduleDrawer({
     setSuggestion(null);
 
     try {
-      const result =
-        await api.post<
-          ManagerAiResponse
-        >(
-          "/api/ai/manager/schedule-suggestions",
-          value,
-        );
-
-      setSuggestion(
-        result,
+      const result = await api.post<ManagerAiResponse>(
+        "/api/ai/manager/schedule-suggestions",
+        value,
       );
+
+      setSuggestion(result);
     } catch (error) {
       setError(
         error instanceof Error
@@ -200,355 +169,177 @@ export function AiScheduleDrawer({
     value.capacity > 0 &&
     !!value.coachId;
 
-  const hasConflict =
-    !!suggestion &&
-    !suggestion.validation
-      .allAvailable;
+  const hasConflict = !!suggestion && !suggestion.validation.allAvailable;
 
   return (
-    <Drawer
-      title={
-        l.aiTitle
-      }
-      description={
-        l.aiWorkflow
-      }
-      onClose={
-        onClose
-      }
-    >
+    <Drawer title={l.aiTitle} description={l.aiWorkflow} onClose={onClose}>
       <div className="stack">
         <p>
-          AI đề xuất lịch.
-          SportHub backend sẽ
-          tự kiểm tra toàn bộ
-          các buổi và có thể
-          yêu cầu AI tạo lại
-          lịch khi phát hiện
-          xung đột.
+          AI đề xuất lịch. SportHub backend sẽ tự kiểm tra toàn bộ các buổi và
+          có thể yêu cầu AI tạo lại lịch khi phát hiện xung đột.
         </p>
 
         <dl>
           <div>
-            <dt>
-              Sport ID
-            </dt>
+            <dt>Sport ID</dt>
 
-            <dd>
-              {
-                value.sportId
-              }
-            </dd>
+            <dd>{value.sportId}</dd>
           </div>
 
           <div>
-            <dt>
-              Coach
-            </dt>
+            <dt>Coach</dt>
 
-            <dd>
-              {
-                value.coachId ??
-                "Chưa chọn"
-              }
-            </dd>
+            <dd>{value.coachId ?? "Chưa chọn"}</dd>
           </div>
 
           <div>
-            <dt>
-              Room ID
-            </dt>
+            <dt>Room ID</dt>
 
-            <dd>
-              {
-                value.defaultRoomId
-              }
-            </dd>
+            <dd>{value.defaultRoomId}</dd>
           </div>
 
           <div>
-            <dt>
-              Capacity
-            </dt>
+            <dt>Capacity</dt>
 
-            <dd>
-              {
-                value.capacity
-              }
-            </dd>
+            <dd>{value.capacity}</dd>
           </div>
 
           <div>
-            <dt>
-              Start date
-            </dt>
+            <dt>Start date</dt>
 
-            <dd>
-              {
-                value.startDate
-              }
-            </dd>
+            <dd>{value.startDate}</dd>
           </div>
 
           <div>
-            <dt>
-              Sessions
-            </dt>
+            <dt>Sessions</dt>
 
-            <dd>
-              {
-                value.numSessions
-              }
-            </dd>
+            <dd>{value.numSessions}</dd>
           </div>
         </dl>
 
         <button
           type="button"
           className="btn"
-          disabled={
-            !canGenerate
-          }
-          onClick={() =>
-            void generate()
-          }
+          disabled={!canGenerate}
+          onClick={() => void generate()}
         >
-          {loading
-            ? "AI đang tìm lịch phù hợp..."
-            : "Tạo gợi ý AI"}
+          {loading ? "AI đang tìm lịch phù hợp..." : "Tạo gợi ý AI"}
         </button>
 
-        {!value.coachId && (
-          <p role="alert">
-            Hãy chọn HLV
-            trước khi dùng AI.
-          </p>
-        )}
+        {!value.coachId && <p role="alert">Hãy chọn HLV trước khi dùng AI.</p>}
 
-        {value.capacity <=
-          0 && (
-          <p role="alert">
-            Sĩ số phải lớn
-            hơn 0.
-          </p>
-        )}
+        {value.capacity <= 0 && <p role="alert">Sĩ số phải lớn hơn 0.</p>}
 
-        {error && (
-          <p role="alert">
-            {error}
-          </p>
-        )}
+        {error && <p role="alert">{error}</p>}
 
         {suggestion && (
           <>
             <hr />
 
-            <h3>
-              Gợi ý của AI
-            </h3>
+            <h3>Gợi ý của AI</h3>
 
             <p>
-              <strong>
-                Ngày bắt đầu:
-              </strong>{" "}
-              {
-                suggestion.startDate
-              }
+              <strong>Ngày bắt đầu:</strong> {suggestion.startDate}
             </p>
 
             <p>
-              <strong>
-                Số buổi:
-              </strong>{" "}
-              {
-                suggestion.numSessions
-              }
+              <strong>Số buổi:</strong> {suggestion.numSessions}
             </p>
 
             <p>
-              <strong>
-                Lý do:
-              </strong>{" "}
-              {
-                suggestion.rationale
-              }
+              <strong>Lý do:</strong> {suggestion.rationale}
             </p>
 
             <ul>
-              {suggestion
-                .scheduleRules
-                .map(
-                  (
-                    rule,
-                    index,
-                  ) => (
-                    <li
-                      key={
-                        `${rule.dayOfWeek}-${rule.startTimeLocal}-${index}`
-                      }
-                    >
-                      Day{" "}
-                      {
-                        rule.dayOfWeek
-                      }{" "}
-                      ·{" "}
-                      {
-                        rule.startTimeLocal
-                      }
-                    </li>
-                  ),
-                )}
+              {suggestion.scheduleRules.map((rule, index) => (
+                <li key={`${rule.dayOfWeek}-${rule.startTimeLocal}-${index}`}>
+                  Day {rule.dayOfWeek} · {rule.startTimeLocal}
+                </li>
+              ))}
             </ul>
 
             <hr />
 
-            <h3>
-              Backend validation
-            </h3>
+            <h3>Backend validation</h3>
 
             <p>
-              {suggestion
-                .validation
-                .allAvailable
+              {suggestion.validation.allAvailable
                 ? "Tất cả buổi hiện đều khả dụng."
                 : "Sau các lần thử, lịch hiện tại vẫn còn xung đột."}
             </p>
 
             <div
               style={{
-                overflowX:
-                  "auto",
+                overflowX: "auto",
               }}
             >
               <table>
                 <thead>
                   <tr>
-                    <th>
-                      #
-                    </th>
+                    <th>#</th>
 
-                    <th>
-                      Bắt đầu
-                    </th>
+                    <th>Bắt đầu</th>
 
-                    <th>
-                      Kết thúc
-                    </th>
+                    <th>Kết thúc</th>
 
-                    <th>
-                      Trạng thái
-                    </th>
+                    <th>Trạng thái</th>
                   </tr>
                 </thead>
 
                 <tbody>
-                  {suggestion
-                    .validation
-                    .sessions
-                    .map(
-                      (
-                        session,
-                      ) => (
-                        <tr
-                          key={
-                            session.sessionNo
-                          }
-                        >
-                          <td>
-                            {
-                              session.sessionNo
-                            }
-                          </td>
+                  {suggestion.validation.sessions.map((session) => (
+                    <tr key={session.sessionNo}>
+                      <td>{session.sessionNo}</td>
 
-                          <td>
-                            {formatDateTime(
-                              session.startAtUtc,
-                            )}
-                          </td>
+                      <td>{formatDateTime(session.startAtUtc)}</td>
 
-                          <td>
-                            {formatDateTime(
-                              session.endAtUtc,
-                            )}
-                          </td>
+                      <td>{formatDateTime(session.endAtUtc)}</td>
 
-                          <td>
-                            {session.available ? (
-                              "Available"
-                            ) : (
-                              <>
-                                <strong>
-                                  Conflict
-                                </strong>
+                      <td>
+                        {session.available ? (
+                          "Available"
+                        ) : (
+                          <>
+                            <strong>Conflict</strong>
 
-                                {session
-                                  .reasons
-                                  .map(
-                                    (
-                                      reason,
-                                    ) => (
-                                      <p
-                                        key={
-                                          reason
-                                        }
-                                        className="small"
-                                      >
-                                        {reasonLabel(
-                                          reason,
-                                        )}
-                                      </p>
-                                    ),
-                                  )}
-                              </>
-                            )}
-                          </td>
-                        </tr>
-                      ),
-                    )}
+                            {session.reasons.map((reason) => (
+                              <p key={reason} className="small">
+                                {reasonLabel(reason)}
+                              </p>
+                            ))}
+                          </>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
 
             {hasConflict && (
               <p role="alert">
-                AI chưa tìm
-                được lịch hoàn
-                toàn khả dụng.
-                Bạn có thể bấm
-                Tạo lại hoặc
-                chỉnh lịch thủ
-                công.
+                AI chưa tìm được lịch hoàn toàn khả dụng. Bạn có thể bấm Tạo lại
+                hoặc chỉnh lịch thủ công.
               </p>
             )}
 
             <p className="small">
-              Backend validation
-              là kiểm tra tại
-              thời điểm hiện tại.
-              Khi publish, server
-              vẫn kiểm tra lại để
-              tránh race condition.
+              Backend validation là kiểm tra tại thời điểm hiện tại. Khi
+              publish, server vẫn kiểm tra lại để tránh race condition.
             </p>
 
             <div className="btn-row">
               <button
                 type="button"
                 className="btn"
-                disabled={
-                  !suggestion
-                    .validation
-                    .allAvailable
-                }
+                disabled={!suggestion.validation.allAvailable}
                 onClick={() => {
                   onApply({
-                    startDate:
-                      suggestion.startDate,
+                    startDate: suggestion.startDate,
 
-                    numSessions:
-                      suggestion.numSessions,
+                    numSessions: suggestion.numSessions,
 
-                    scheduleRules:
-                      suggestion.scheduleRules,
+                    scheduleRules: suggestion.scheduleRules,
                   });
 
                   onClose();
@@ -560,39 +351,21 @@ export function AiScheduleDrawer({
               <button
                 type="button"
                 className="btn btn--secondary"
-                disabled={
-                  loading
-                }
-                onClick={() =>
-                  void generate()
-                }
+                disabled={loading}
+                onClick={() => void generate()}
               >
                 Tạo lại
               </button>
             </div>
 
             <p className="small muted">
-              {
-                suggestion.provider
-              }{" "}
-              ·{" "}
-              {
-                suggestion.model
-              }{" "}
-              ·{" "}
-              {
-                suggestion.responseTimeMs
-              }{" "}
-              ms
+              {suggestion.provider} · {suggestion.model} ·{" "}
+              {suggestion.responseTimeMs} ms
             </p>
           </>
         )}
 
-        <p>
-          {
-            l.draftHint
-          }
-        </p>
+        <p>{l.draftHint}</p>
       </div>
     </Drawer>
   );

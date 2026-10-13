@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-/** Tuyến cũ: nay là tab của Huấn luyện cá nhân. Giữ bookmark. */
+/** Giữ bookmark cũ. */
 export default function Page() {
-  redirect("/manager/pt?tab=relationships");
+  redirect("/manager/coaches");
 }

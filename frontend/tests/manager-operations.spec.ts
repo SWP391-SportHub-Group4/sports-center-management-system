@@ -761,35 +761,6 @@ test("AI gap uses a drawer, preserves schedule context and never writes", async 
   await expect(page).toHaveURL(/roomId=7/);
   expect(writes).toBe(0);
 });
-test("qualification maps the server offering ID and keeps rejected draft", async ({
-  page,
-}) => {
-  let ids: unknown;
-  await page.route(
-    `**/api/manager/coaches/${coachId}/service-qualifications`,
-    (route) => {
-      if (route.request().method() === "PUT") {
-        ids = route.request().postDataJSON();
-        return route.fulfill({
-          status: 409,
-          json: {
-            code: "qualification_in_use",
-            message: "PT qualification is in use",
-          },
-        });
-      }
-      return route.fulfill({ json: { offeringIds: [] } });
-    },
-  );
-  await page.goto(`/manager/coaches/${coachId}?tab=qualification`);
-  await page.getByRole("checkbox", { name: "Gym · PT" }).check();
-  await page
-    .getByRole("button", { name: en.operations.save, exact: true })
-    .click();
-  await expect(page.getByText("PT qualification is in use")).toBeVisible();
-  expect(ids).toEqual({ offeringIds: [42] });
-  await expect(page.getByRole("checkbox", { name: "Gym · PT" })).toBeChecked();
-});
 test("facility details reload with opening hours and incident entry", async ({
   page,
 }) => {
@@ -871,78 +842,6 @@ test("incident block removal requires review and records only the successful ste
   expect(deletes).toBe(1);
 });
 
-test("incident PT review preserves input and does not record a rejected step", async ({
-  page,
-}) => {
-  let writes = 0;
-  await page.route("**/api/manager/incidents/preview", (route) =>
-    route.fulfill({
-      json: {
-        canResolve: false,
-        impacts: [
-          {
-            sourceType: "PT_SESSION",
-            sourceId: sessionId,
-            startAtUtc: session.startAtUtc,
-            endAtUtc: session.endAtUtc,
-            resolutionOptions: [],
-          },
-        ],
-      },
-    }),
-  );
-  await page.route(
-    `**/api/manager/pt-sessions/${sessionId}/cancel`,
-    (route) => {
-      writes++;
-      expect(route.request().postDataJSON()).toEqual({
-        reason: "Cancel affected PT session",
-      });
-      return route.fulfill({
-        status: 409,
-        json: {
-          code: "session_conflict",
-          message: "Session state has changed",
-        },
-      });
-    },
-  );
-  await incidentInputs(page);
-  await page
-    .getByRole("button", { name: en.operations.review, exact: true })
-    .click();
-  await page
-    .getByRole("button", { name: en.operations.edit, exact: true })
-    .click();
-  await page
-    .getByLabel(en.operations.edit, { exact: true })
-    .selectOption("cancel");
-  await page
-    .getByLabel(en.operations.reason, { exact: true })
-    .last()
-    .fill("Cancel affected PT session");
-  await page
-    .getByRole("button", { name: en.operations.review, exact: true })
-    .last()
-    .click();
-  expect(writes).toBe(0);
-  await page
-    .getByRole("button", { name: en.operations.confirm, exact: true })
-    .click();
-  await expect(
-    page.getByRole("alert").filter({ hasText: "Session state has changed" }),
-  ).toBeVisible();
-  await expect(
-    page.getByText(en.managerOperations.noSteps, { exact: true }),
-  ).toBeVisible();
-  await page
-    .getByRole("button", { name: en.operations.previous, exact: true })
-    .click();
-  await expect(
-    page.getByLabel(en.operations.reason, { exact: true }).last(),
-  ).toHaveValue("Cancel affected PT session");
-  expect(writes).toBe(1);
-});
 test("incident final confirmation rechecks server impacts", async ({
   page,
 }) => {
@@ -1422,76 +1321,6 @@ test("generated preview rejects duplicates, wrong start day and invalid session 
     ),
   ).toEqual([]);
 });
-test("incident keeps the rejected attempt when the same PT action is retried successfully", async ({
-  page,
-}) => {
-  let attempts = 0;
-  await page.route("**/api/manager/incidents/preview", (route) =>
-    route.fulfill({
-      json: {
-        canResolve: false,
-        impacts: [
-          {
-            sourceType: "PT_SESSION",
-            sourceId: sessionId,
-            startAtUtc: session.startAtUtc,
-            endAtUtc: session.endAtUtc,
-            resolutionOptions: [],
-          },
-        ],
-      },
-    }),
-  );
-  await page.route(
-    `**/api/manager/pt-sessions/${sessionId}/cancel`,
-    (route) => {
-      attempts++;
-      return route.fulfill(
-        attempts === 1
-          ? {
-              status: 409,
-              json: { code: "conflict", message: "Refresh this session" },
-            }
-          : { status: 204 },
-      );
-    },
-  );
-  await incidentInputs(page);
-  await page
-    .getByRole("button", { name: en.operations.review, exact: true })
-    .click();
-  await page
-    .getByRole("button", { name: en.operations.edit, exact: true })
-    .click();
-  await page
-    .getByLabel(en.operations.edit, { exact: true })
-    .selectOption("cancel");
-  await page
-    .getByLabel(en.operations.reason, { exact: true })
-    .last()
-    .fill("Cancel affected PT");
-  await page
-    .getByRole("button", { name: en.operations.review, exact: true })
-    .last()
-    .click();
-  await page
-    .getByRole("button", { name: en.operations.confirm, exact: true })
-    .click();
-  await expect(
-    page.getByText("Rejected by server", { exact: true }),
-  ).toBeVisible();
-  await page
-    .getByRole("button", { name: en.operations.confirm, exact: true })
-    .click();
-  await expect(
-    page.getByText("Confirmed by server", { exact: true }),
-  ).toBeVisible();
-  await expect(
-    page.getByText("Rejected by server", { exact: true }),
-  ).toBeVisible();
-  expect(attempts).toBe(2);
-});
-
 for (const width of [390, 960, 1440])
   test(`Manager operational pages fit ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 1000 });

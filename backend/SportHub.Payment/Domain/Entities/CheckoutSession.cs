@@ -12,9 +12,4 @@ public sealed class CheckoutSession
     public DateTime ExpiresAtUtc { get; set; }
     public Guid? ResourceHoldId { get; set; }
     public int? ClassId { get; set; }
-    public Guid? PtMemberPackageId { get; set; }
-    public Guid? PtCoachId { get; set; }
-    public int? PtFrequency { get; set; }
-    public DateTime? PtStartAtUtc { get; set; }
-    public int? PtRoomId { get; set; }
 }

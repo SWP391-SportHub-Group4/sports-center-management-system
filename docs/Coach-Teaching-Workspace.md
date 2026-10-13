@@ -1,6 +1,6 @@
 # Không gian giảng dạy Coach lớp nhóm
 
-Phạm vi được chủ sản phẩm xác nhận: triển khai giao diện **và API lưu thật** cho Coach cầu lông/bóng rổ. Đây là phần mở rộng của thiết kế trước đây chỉ cho Coach xem lớp; quyền PT vẫn dựa trên qualification PT.
+Phạm vi được chủ sản phẩm xác nhận: triển khai giao diện **và API lưu thật** cho Coach cầu lông/bóng rổ. Đây là phần mở rộng của thiết kế trước đây chỉ cho Coach xem lớp.
 
 ## Điều hướng
 
@@ -14,28 +14,25 @@ Phạm vi được chủ sản phẩm xác nhận: triển khai giao diện **v�
 - Quyền đọc yêu cầu coach đang phụ trách một lớp Published/InProgress mà học viên còn ghi danh Confirmed. Coach dạy thay phải còn buổi Scheduled được phân công trong tương lai. Phân công cũ đã kết thúc không cấp quyền đọc xuyên lớp.
 - Mỗi đánh giá giữ tên lớp, số/ngày buổi, coach ghi nhận, điểm kỹ năng, nội dung và thời điểm ghi/cập nhật. Sắp xếp mới nhất trước, 20 mục/trang. Không có thao tác sửa dữ liệu lịch sử; API ghi vẫn kiểm tra tác giả/lớp.
 - Khi có nhiều lớp, lịch sử dùng danh sách lớp riêng có tìm tên, phân trang 8 lớp/trang và sắp xếp theo đánh giá gần nhất. Mỗi lớp có số đánh giá, điểm trung bình (chỉ tính bản ghi có điểm) và ngày ghi nhận gần nhất. Chọn lớp chỉ tải đánh giá của lớp đó; từng nhận xét thu gọn, mở riêng từng buổi. Điểm trung bình là thống kê mô tả, không phải điểm tiến bộ do AI suy diễn.
-- Không thay đổi schema, không cần migration mới cho tính năng này. PT mở hồ sơ toàn màn hình với sức khỏe, kế hoạch cá nhân và lịch sử buổi PT; không dùng dữ liệu lớp nhóm cho PT.
+- Không thay đổi schema, không cần migration mới cho tính năng này.
 
-Các trang PT giữ nguyên luồng hiện có. Bookmark `/coach` và `/coach/attendance` của Coach lớp nhóm mở lịch dạy mới.
+Bookmark `/coach` và `/coach/attendance` mở lịch dạy.
 
 ## Dữ liệu và quyền
 
-Migration `AddClassTeachingWorkspace` thêm `class_teaching_records`; không chuyển giáo án lớp nhóm sang bảng WorkoutPlan của PT. Có bốn loại: `PLAN`, `RESULT`, `NOTICE`, `HOMEWORK`.
+Migration `AddClassTeachingWorkspace` thêm `class_teaching_records`; giáo án lớp nhóm không dùng bảng WorkoutPlan. Có bốn loại: `PLAN`, `RESULT`, `NOTICE`, `HOMEWORK`.
 
 - Mỗi nội dung có lớp, coach tạo, buổi học/học viên tùy chọn, tiêu đề, nội dung, timestamps và version.
 - Coach chỉ đọc lớp được giao; nội dung toàn khóa chỉ coach phụ trách lớp được ghi. Nội dung một buổi chỉ coach được phân công buổi đó được ghi.
 - Kết quả yêu cầu học viên đang ghi danh và buổi thuộc lớp; chỉ ghi từ giờ bắt đầu buổi. Đánh giá kỹ năng 1–5 là tùy chọn, một kết quả cho mỗi cặp buổi/học viên; chỉnh sửa dùng version.
 - Điểm danh chỉ cho học viên Confirmed trong buổi được giao, từ 5 phút trước giờ bắt đầu đến 24 giờ sau khi kết thúc. Receptionist vẫn sử dụng endpoint hiện hữu; Coach sử dụng endpoint mới có kiểm tra assignment ở service.
-- PT dùng cùng cửa sổ thời gian cho Present/Absent. Tự chốt NoShow chỉ chạy sau hạn 24 giờ. Điểm danh sớm giữ occupancy phòng/coach tới hết khung giờ đặt, tránh mở lại chỗ đang sử dụng.
-- Coach được sửa PT Present ↔ Absent trong cửa sổ này; chỉ lần điểm danh đầu tiên chuyển quota từ reserved sang consumed. Chỉnh sửa ghi audit `CORRECT_PT_ATTENDANCE`, không trừ thêm lượt; lịch và hồ sơ kết quả vẫn được giữ lại.
 
-### PT: danh sách học viên và sức khỏe
+### Danh sách học viên và sức khỏe
 
-- `GET /api/coaches/me/students?search=&health=all&page=1`: tìm tên/email trên toàn bộ học viên có relationship Active của PT đang đăng nhập, phân trang 12 học viên. `health=notes` lọc lưu ý sức khỏe, `health=missing` lọc chưa khai hồ sơ tập luyện. Các member được gộp theo ID.
-- `GET /api/coaches/me/students/{memberId}/health-profile`: kiểm tra qualification PT và relationship Active trước khi trả hồ sơ sức khỏe do hội viên tự khai (mục tiêu, BMI, mức vận động, lịch tập, chế độ ăn, chấn thương). Không cấp quyền sửa; trường hội viên chưa khai không được tự suy đoán. Lịch đo BMI tại trung tâm đã bỏ.
+- `GET /api/coaches/me/students?search=&health=all&page=1`: tìm tên/email trên toàn bộ học viên có relationship Active của Coach đang đăng nhập, phân trang 12 học viên. `health=notes` lọc lưu ý sức khỏe, `health=missing` lọc chưa khai hồ sơ tập luyện. Các member được gộp theo ID.
+- `GET /api/coaches/me/students/{memberId}/health-profile`: kiểm tra relationship Active trước khi trả hồ sơ sức khỏe do hội viên tự khai (mục tiêu, BMI, mức vận động, lịch tập, chế độ ăn, chấn thương). Không cấp quyền sửa; trường hội viên chưa khai không được tự suy đoán. Lịch đo BMI tại trung tâm đã bỏ.
 - Desktop dùng danh sách/hồ sơ song song; mobile dùng Drawer. Hồ sơ có ba tab Sức khỏe, Kế hoạch, Lịch sử; thao tác cập nhật tải lại cả danh sách và hồ sơ đang xem.
-- Điều hướng PT chỉ còn Lịch PT và Hội viên phụ trách, hiển thị trực tiếp cả desktop/mobile. Tab Kế hoạch trong hồ sơ hỗ trợ tạo, AI gợi ý, sửa, áp dụng và lưu trữ; kế hoạch lưu trữ thu gọn, chỉ đọc. Chuẩn bị từng buổi vẫn nằm trong Schedule.
-- `/coach/training-plans` và `/coach/ai-suggestions` chuyển về `/coach/members`; nếu có `memberId`, mở đúng hồ sơ ở tab Kế hoạch. Không cần vào trang Training riêng. Đổi tab/học viên, đóng hồ sơ hoặc cập nhật phải xác nhận nếu form có thay đổi chưa lưu.
+- Điều hướng Coach gồm Lịch dạy, Lớp phụ trách và Học viên. Tab Kế hoạch trong hồ sơ hỗ trợ tạo, AI gợi ý, sửa, áp dụng và lưu trữ; kế hoạch lưu trữ thu gọn, chỉ đọc. Đổi tab/học viên, đóng hồ sơ hoặc cập nhật phải xác nhận nếu form có thay đổi chưa lưu.
 - Thông báo/bài tập đã gửi không sửa; gửi mới tạo thông báo trong hệ thống cho học viên Confirmed, trong cùng transaction. Không tự gửi email.
 - UUID do client tạo giúp POST retry không tạo trùng nội dung/thông báo; PUT khác version trả 409. API ghi audit cho thao tác tạo/sửa.
 - Member chỉ xem nội dung chung và nội dung cá nhân của mình trong lớp đã ghi danh, tại Schedule → chi tiết lớp. Thông báo liên kết tới trang này.

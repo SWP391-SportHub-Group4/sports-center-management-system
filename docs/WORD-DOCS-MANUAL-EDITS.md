@@ -99,7 +99,7 @@ Bảng UC-03 đã liệt Receptionist ở mục Tác nhân nhưng luồng chỉ 
 
 > Gửi lại trong 60 giây → 429 activation_resend_too_soon. Gửi lại hoặc sửa email cho Member hoặc nhân sự đã kích hoạt → 409 account_not_pending_activation. Email mới trùng email đang có → 409 email_already_exists. Đăng nhập Google khi chưa kích hoạt → từ chối.
 
-**Sửa "Tác nhân":** giữ "System Administrator; Center Manager (chỉ sửa hồ sơ/chuyên môn Coach, cấp quyền dịch vụ PT)".
+**Sửa "Tác nhân":** giữ "System Administrator; Center Manager (chỉ sửa hồ sơ, chuyên môn Coach)".
 
 ### B6. Dòng khoảng 87: xóa "homework"
 **Chỗ sửa:** "Coach (PT) quản lý PT entitlement/session, training profile được phép, workout plan, result, homework và progress."
@@ -118,6 +118,26 @@ Thêm vào mục yêu cầu chức năng hoặc phụ lục "Chưa triển khai"
 
 > - Receptionist: tiếp nhận và ghi nhận yêu cầu hỗ trợ từ Member (chưa triển khai); in hoặc xuất hóa đơn (chưa thấy trong giao diện lễ tân).
 > - Coach: gửi bài tập về nhà cho học viên (đã gỡ khỏi phạm vi; thay bằng thông báo và nhận xét).
+
+---
+
+## C0. Vé Gym 1 ngày và việc gỡ PT — phải sửa cả hai file Word
+
+### BR (Business Rules)
+- **BR mới (đề xuất BR-145), vé Gym 1 ngày:**
+
+> Gym có thêm một gói cố định "Vé Gym 1 ngày" giá 50.000 VND (dữ liệu seed cố định, Center Manager không được sửa giá, thời hạn hoặc ngừng bán). Vé chỉ có hiệu lực trong ngày thanh toán thành công theo giờ Việt Nam; mã check-in do server cấp và ký, chỉ dùng trong ngày đó. Trước khi thanh toán, Member (hoặc Receptionist hỗ trợ tại quầy) phải được thông báo rõ vé và mã chỉ dùng trong ngày. Mỗi Member chỉ có một vé ngày còn hiệu lực trong cùng ngày. Vé không bán khi Gym đóng cửa vì sự cố (mọi phòng Gym bị khóa), không được gia hạn theo BR-130/BR-138, không được hoàn trả theo BR-91, và không phát sinh nhắc hết hạn gói. Báo cáo thành viên không tính vé ngày là hội viên Membership mà thống kê riêng số vé đã bán.
+
+- **Tình huống khách lạ (thêm vào BR-1 hoặc BR mới):** Receptionist đăng ký Member cho khách tại quầy (BR-1 cách 2) hoặc khách tự đăng ký; sau đó Receptionist hỗ trợ mua vé 1 ngày hoặc khách tự mua trên web; Member tự check-in hoặc Receptionist check-in hộ.
+- **BR-91 (hoàn Membership):** thêm câu "Vé Gym 1 ngày không được hoàn trả."
+- **BR-130/BR-138 (sự cố Gym):** thêm câu "Vé Gym 1 ngày không được gia hạn; khi Gym đóng cửa thì không bán vé."
+- **Mọi BR nhắc PT** (BR về PT entitlement, PT session, giá PT, đổi lịch/đổi Coach PT, Specialty Personal Training, quyền dịch vụ PT, hoàn PT): xóa hoặc chuyển sang mục "Ngoài phạm vi"; BR-96 bỏ phần quyền dịch vụ PT; thuật ngữ "Gym (bao gồm dịch vụ PT)" đổi thành "Gym".
+
+### SRS
+- Mọi UC/đoạn về **PT** (đặt lịch PT, PT entitlement, đổi Coach PT, Coach (PT)) xóa hoặc chuyển sang mục "Ngoài phạm vi".
+- **UC-05/UC-06 (gói thành viên, mua/gia hạn):** thêm vé Gym 1 ngày: cố định 50.000đ, chỉ trong ngày, mã check-in chỉ trong ngày, nhắc trước khi trả tiền, không hoàn, không gia hạn khi đóng Gym.
+- **Mục Receptionist:** thêm "bán vé Gym 1 ngày và check-in hộ".
+- **Mục Training/AI (Flow 4, 5):** ghi kế hoạch tập, kết quả, đánh giá và AI gợi ý làm theo lớp cho Coach cầu lông/bóng rổ, không theo PT.
 
 ---
 

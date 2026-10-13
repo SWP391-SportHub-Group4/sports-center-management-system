@@ -27,7 +27,6 @@ public sealed record MyAccountResponse(
     bool HasGoogleLink,
     IReadOnlyList<int> SportIds)
 {
-    public bool IsPersonalTrainer { get; init; }
     public string? AvatarUrl { get; init; }
 }
 
@@ -80,7 +79,7 @@ public sealed class AccountService(
                .SingleOrDefaultAsync(ct)
            ?? throw new NotFoundException("user_not_found", "User not found.");
 
-        return account with { IsPersonalTrainer = await specialties.IsPersonalTrainerAsync(userId, ct) };
+        return account;
     }
 
     public async Task<MyAccountResponse> UpdateProfileAsync(

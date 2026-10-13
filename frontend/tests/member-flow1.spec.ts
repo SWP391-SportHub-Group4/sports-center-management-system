@@ -188,9 +188,7 @@ test("a new member registers, buys a Gym membership, returns from payment and ca
   // 2. Hội viên mới chưa có gói: dashboard chỉ lối mua Membership, không giả vờ có quyền lợi.
   await expect(page.getByText("No Gym membership yet.")).toBeVisible();
   await page.getByRole("link", { name: "Choose a Gym membership" }).click();
-  await expect(page).toHaveURL(
-    /\/member\/services\?section=gym&view=explore$/,
-  );
+  await expect(page).toHaveURL(/\/member\/services\?section=gym&view=explore$/);
 
   // 3. Chọn gói Gym một tháng và chuyển sang checkout.
   const gym = page.getByRole("region", { name: "Gym Membership" });

@@ -6,7 +6,8 @@ import { Dialog } from "@/components/ui";
 import { IconQrCode } from "@/components/icons";
 import { useAuth } from "@/lib/auth";
 import { useLanguage } from "@/lib/language";
-import { memberCodePayload } from "@/lib/member-code";
+import { api } from "@/lib/apiClient";
+import type { MemberCheckInCode } from "@/lib/member-code";
 import styles from "./MemberShell.module.css";
 import codeStyles from "./MemberCodeCard.module.css";
 
@@ -35,16 +36,33 @@ export function MemberCodeButton({
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState(false);
   const [dataUrl, setDataUrl] = useState("");
+  const [validUntil, setValidUntil] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const userId = user?.userId;
 
   useEffect(() => {
     if (!open || !userId) return;
     let cancelled = false;
-    QRCode.toDataURL(memberCodePayload(userId), { width: 240, margin: 1 })
-      .then((url) => !cancelled && setDataUrl(url))
-      .catch(() => !cancelled && setDataUrl(""));
+    const refresh = async () => {
+      try {
+        const issued = await api.get<MemberCheckInCode>(
+          "/api/members/me/checkin-code",
+        );
+        if (cancelled) return;
+        setValidUntil(issued.expiresAtUtc);
+        setDataUrl(
+          await QRCode.toDataURL(issued.code, { width: 240, margin: 1 }),
+        );
+      } catch {
+        if (!cancelled) setDataUrl("");
+      }
+    };
+    void refresh();
+    // Mã hết hạn cuối ngày giờ VN; lấy lại mỗi 5 phút để qua nửa đêm vẫn có mã mới.
+    const timer = window.setInterval(refresh, 300_000);
     return () => {
       cancelled = true;
+      window.clearInterval(timer);
     };
   }, [open, userId]);
 
@@ -81,8 +99,8 @@ export function MemberCodeButton({
           className={codeStyles.dialog}
           description={
             en
-              ? "Show this code to the front desk so they can find your account. It does not grant entry by itself."
-              : "Đưa mã này cho lễ tân để tìm tài khoản của bạn. Mã không tự cấp quyền vào cửa."
+              ? "Show this code to reception for check-in. Entry requires an active Gym package or a day pass bought today."
+              : "Đưa mã cho lễ tân để check-in. Cần gói Gym còn hiệu lực hoặc vé 1 ngày mua trong hôm nay."
           }
           onClose={() => setOpen(false)}
         >
@@ -99,6 +117,35 @@ export function MemberCodeButton({
             )}
             <strong>{user.fullName}</strong>
             <p>{user.email}</p>
+            {validUntil && (
+              <p>
+                {en
+                  ? "This check-in code is valid only today (Vietnam time, GMT+7)."
+                  : "Mã check-in chỉ có hiệu lực trong hôm nay (giờ Việt Nam, GMT+7)."}
+              </p>
+            )}
+            <button
+              className="btn"
+              onClick={async () => {
+                try {
+                  await api.post("/api/gym-checkins/self", {});
+                  setNotice(
+                    en ? "Checked in successfully." : "Đã check-in thành công.",
+                  );
+                } catch (error) {
+                  setNotice(
+                    error instanceof Error
+                      ? error.message
+                      : en
+                        ? "Check-in failed."
+                        : "Check-in thất bại.",
+                  );
+                }
+              }}
+            >
+              {en ? "Check in now" : "Tự check-in"}
+            </button>
+            {notice && <p role="status">{notice}</p>}
             <p className={`small muted ${codeStyles.memberId}`}>{userId}</p>
             <button
               className="btn btn--secondary"

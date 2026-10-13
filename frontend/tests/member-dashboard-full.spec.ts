@@ -117,33 +117,9 @@ async function install(page: Page, opts: { aiFailsFirst?: boolean } = {}) {
   return chats;
 }
 
-test("dashboard surfaces what needs a reply, the Gym and PT status and a way to book", async ({
+test("dashboard separates today's sessions from the next day", async ({
   page,
 }) => {
-  await install(page);
-  await page.goto("/member");
-
-  // Việc cần phản hồi có hạn: lớp dưới ngưỡng dẫn tới đúng trang chọn phương án.
-  const attention = page.getByRole("region", { name: "Needs your attention" });
-  await expect(attention).toContainText(
-    "Badminton foundations is below its minimum",
-  );
-  await expect(attention.getByRole("link", { name: /Choose/ })).toHaveAttribute(
-    "href",
-    "/member/threshold-responses/r1",
-  );
-
-  // Membership: còn bao nhiêu ngày và đang ở trong Gym.
-  await expect(page.getByText(/\d+ days left/)).toBeVisible();
-  await expect(page.getByText(/Checked in at the Gym since/)).toBeVisible();
-
-  // PT: quota và lối đặt buổi.
-  await expect(
-    page.getByRole("link", { name: "Book a session" }),
-  ).toHaveAttribute("href", "/member/pt/book");
-});
-
-test("dashboard separates today's sessions from the next day", async ({ page }) => {
   await install(page);
   const today = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Ho_Chi_Minh",

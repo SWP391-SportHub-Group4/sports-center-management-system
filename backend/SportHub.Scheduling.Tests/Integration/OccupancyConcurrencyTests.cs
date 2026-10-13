@@ -58,7 +58,7 @@ public class OccupancyConcurrencyTests(SchedulingApiFactory factory)
         var roomId = await SeedRoomAsync();
 
         var first = await ReserveInOwnTransactionAsync(Req(OccupancySources.ClassSession, roomId, null, At(8), At(9)));
-        var second = await ReserveInOwnTransactionAsync(Req(OccupancySources.PtSession, roomId, null, At(8, 30), At(9, 30)));
+        var second = await ReserveInOwnTransactionAsync(Req(OccupancySources.ClassSession, roomId, null, At(8, 30), At(9, 30)));
 
         Assert.True(first.Succeeded);
         Assert.False(second.Succeeded);
@@ -86,20 +86,18 @@ public class OccupancyConcurrencyTests(SchedulingApiFactory factory)
 
         Assert.True((await ReserveInOwnTransactionAsync(Req(OccupancySources.ClassSession, roomA, coach, At(10), At(11)))).Succeeded);
 
-        var clash = await ReserveInOwnTransactionAsync(Req(OccupancySources.PtSession, roomB, coach, At(10, 30), At(11, 30)));
+        var clash = await ReserveInOwnTransactionAsync(Req(OccupancySources.ClassSession, roomB, coach, At(10, 30), At(11, 30)));
 
         Assert.False(clash.Succeeded);
         Assert.Contains(clash.Conflicts, c => c.Resource == "Coach");
 
         // Phòng B không bị chiếm dở dang bởi lần thất bại: cùng giờ vẫn đặt được khi dùng coach khác.
         var otherCoach = (await factory.SeedUserAsync(UserRole.Coach)).UserId;
-        Assert.True((await ReserveInOwnTransactionAsync(Req(OccupancySources.PtSession, roomB, otherCoach, At(10, 30), At(11, 30)))).Succeeded);
+        Assert.True((await ReserveInOwnTransactionAsync(Req(OccupancySources.ClassSession, roomB, otherCoach, At(10, 30), At(11, 30)))).Succeeded);
     }
 
     [Theory]
-    [InlineData(OccupancySources.ClassSession, OccupancySources.PtSession)]
     [InlineData(OccupancySources.CourtRental, OccupancySources.ClassSession)]
-    [InlineData(OccupancySources.CourtRental, OccupancySources.PtSession)]
     [InlineData(OccupancySources.CourtRental, OccupancySources.RoomBlock)]
     public async Task Two_concurrent_transactions_racing_for_the_same_slot_one_gets_a_clean_conflict(string firstSource, string secondSource)
     {
@@ -151,11 +149,11 @@ public class OccupancyConcurrencyTests(SchedulingApiFactory factory)
         var roomId = await SeedRoomAsync();
         var sourceId = Guid.NewGuid();
 
-        Assert.True((await ReserveInOwnTransactionAsync(Req(OccupancySources.PtSession, roomId, null, At(8), At(9), sourceId))).Succeeded);
+        Assert.True((await ReserveInOwnTransactionAsync(Req(OccupancySources.ClassSession, roomId, null, At(8), At(9), sourceId))).Succeeded);
         Assert.True((await ReserveInOwnTransactionAsync(Req(OccupancySources.ClassSession, roomId, null, At(11), At(12)))).Succeeded);
 
         // Dời buổi sang 11:30 đụng lịch lớp -> thất bại, lịch 8:00–9:00 còn nguyên.
-        var moved = await ReserveInOwnTransactionAsync(Req(OccupancySources.PtSession, roomId, null, At(11, 30), At(12, 30), sourceId));
+        var moved = await ReserveInOwnTransactionAsync(Req(OccupancySources.ClassSession, roomId, null, At(11, 30), At(12, 30), sourceId));
         Assert.False(moved.Succeeded);
 
         using var scope = factory.Services.CreateScope();
@@ -165,7 +163,7 @@ public class OccupancyConcurrencyTests(SchedulingApiFactory factory)
         Assert.Equal(At(8).UtcDateTime, DateTime.SpecifyKind(row.StartAtUtc, DateTimeKind.Utc));
 
         // Dời sang giờ trống thì đổi cùng một dòng (không nhân đôi).
-        Assert.True((await ReserveInOwnTransactionAsync(Req(OccupancySources.PtSession, roomId, null, At(15), At(16), sourceId))).Succeeded);
+        Assert.True((await ReserveInOwnTransactionAsync(Req(OccupancySources.ClassSession, roomId, null, At(15), At(16), sourceId))).Succeeded);
         Assert.Equal(1, await db.RoomOccupancies.CountAsync(o => o.SourceId == sourceId));
     }
 

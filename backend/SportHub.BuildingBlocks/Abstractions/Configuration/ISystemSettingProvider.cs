@@ -31,7 +31,6 @@ public static class SystemSettingKeys
     /// <summary>BR-115 — giữ chỗ/checkout tối đa bao nhiêu phút.</summary>
     public const string HoldMinutes = "hold.minutes";
 
-    public const string PtPricePerSessionVnd = "pt.price_per_session_vnd";
     public const string PointsConfirmOtpMinutes = "points.confirm_otp_minutes";
     public const string RentalSlotMinutes = "rental.slot_minutes";
     public const string RentalMaxHours = "rental.max_hours";

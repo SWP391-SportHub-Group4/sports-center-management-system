@@ -17,12 +17,12 @@ namespace SportHub.Scheduling.Tests.Integration;
 public class SportCatalogTests(SchedulingApiFactory factory)
 {
     [Fact]
-    public async Task Manager_service_offering_ids_map_qualifications_without_exposing_staff_fields_publicly()
+    public async Task Manager_service_offering_ids_are_exposed_to_the_manager_but_not_publicly()
     {
         using var manager = await ManagerAsync();
         var staff = await Json(await manager.GetAsync("api/manager/sports"));
         var gym = staff.EnumerateArray().Single(x => x.GetProperty("code").GetString() == "gym");
-        var pt = gym.GetProperty("services").EnumerateArray().Single(x => x.GetProperty("serviceType").GetString() == "PERSONAL_TRAINING");
+        var pt = gym.GetProperty("services").EnumerateArray().Single(x => x.GetProperty("serviceType").GetString() == "MEMBERSHIP_ACCESS");
         var offeringId = pt.GetProperty("offeringId").GetInt32();
         var gymId = gym.GetProperty("sportId").GetInt32();
         Assert.True(offeringId > 0);
@@ -36,7 +36,7 @@ public class SportCatalogTests(SchedulingApiFactory factory)
         Assert.All(publicSports.EnumerateArray(), sport => Assert.All(sport.GetProperty("services").EnumerateArray(), service => Assert.False(service.TryGetProperty("offeringId", out _))));
     }
     private const int BadmintonSportId = 3;   // seed: GroupCourse + CourtRental
-    private const int GymSportId = 1;         // seed: MembershipAccess + PersonalTraining
+    private const int GymSportId = 1;         // seed: MembershipAccess
     private const int BadmintonRoomTypeId = 3;
     private const int BasketballRoomTypeId = 4;
 
@@ -208,12 +208,12 @@ public class SportCatalogTests(SchedulingApiFactory factory)
         var badCode = await manager.PostAsJsonAsync("api/manager/sports", new { code = "Bad Code!", name = Unique("Y"), services = Array.Empty<object>() });
         Assert.Equal("sport_code_invalid", await ErrorOf(badCode));
 
-        // Membership/PT chỉ thuộc môn Gym: backend chặn, không chỉ ẩn ở UI.
-        var notGym = await manager.PostAsJsonAsync("api/manager/sports", new
+        // PT is no longer a service type anywhere in the catalog.
+        var retiredPt = await manager.PostAsJsonAsync("api/manager/sports", new
         {
             code = UniqueCode(), name = Unique("Yoga"), services = new[] { new { serviceType = "PERSONAL_TRAINING", isEnabled = true } }
         });
-        Assert.Equal("service_not_allowed_for_sport", await ErrorOf(notGym));
+        Assert.Equal("service_type_invalid", await ErrorOf(retiredPt));
 
         var defaultsOnRental = await manager.PostAsJsonAsync("api/manager/sports", new
         {
@@ -265,7 +265,7 @@ public class SportCatalogTests(SchedulingApiFactory factory)
         Assert.Equal(2, (await Json(put)).GetProperty("services").GetArrayLength());
 
         // Dịch vụ chưa cấu hình thì không bật được.
-        var missing = await manager.PostAsync($"api/manager/sports/{id}/services/PERSONAL_TRAINING/enable", null);
+        var missing = await manager.PostAsync($"api/manager/sports/{id}/services/MEMBERSHIP_ACCESS/enable", null);
         Assert.Equal("service_not_configured", await ErrorOf(missing));
     }
 
@@ -551,7 +551,7 @@ public class SportCatalogTests(SchedulingApiFactory factory)
 
             var occupancy = scope.ServiceProvider.GetRequiredService<IOccupancyService>();
             var reserved = await occupancy.ReserveAsync(new OccupancyRequest(
-                OccupancySources.PtSession, Guid.NewGuid(), room.RoomId, coachBusy.UserId, start.AddMinutes(10), end));
+                OccupancySources.ClassSession, Guid.NewGuid(), room.RoomId, coachBusy.UserId, start.AddMinutes(10), end));
             Assert.True(reserved.Succeeded);
             await db.SaveChangesAsync();
         }

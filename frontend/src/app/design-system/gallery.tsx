@@ -27,9 +27,6 @@ const FIXTURE: CheckoutDto = {
   beneficiaryUserId: "member-demo",
   initiatorUserId: "member-demo",
   serverNowUtc: "2026-10-05T03:00:00Z",
-  ptMemberPackageId: null,
-  ptCoachId: null,
-  ptFrequency: null,
   invoiceId: "inv-demo",
   checkoutSessionId: "cs-demo",
   revision: 3,
@@ -156,7 +153,7 @@ export function DesignSystemGallery() {
           </tr>
           <tr>
             <td className="mono">INV-0002</td>
-            <td>Gói PT 12 buổi</td>
+            <td>Gói Gym 1 tháng</td>
             <td className="num">{formatMoney(2400000)}</td>
             <td>
               <StatusChip value="ISSUED" />

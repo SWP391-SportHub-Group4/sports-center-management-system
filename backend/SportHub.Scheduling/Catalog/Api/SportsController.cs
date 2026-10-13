@@ -53,13 +53,6 @@ public class SportsController(SportCatalogService sports) : ControllerBase
     public async Task<IActionResult> DisableService(int sportId, string serviceType, CancellationToken ct)
         => Ok(await sports.SetServiceEnabledAsync(sportId, RequireService(serviceType), false, User.RequireUserId(), ct));
 
-    /// <summary>Thu hẹp loại phòng cho dịch vụ PT (chỉ PT hỗ trợ). Tập rỗng nghĩa là PT không gắn phòng.</summary>
-    [Authorize(Policy = SportHubPolicies.CatalogManage)]
-    [HttpPut("api/manager/sports/{sportId:int}/services/{serviceType}/room-types")]
-    public async Task<IActionResult> SetServiceRoomTypes(int sportId, string serviceType,
-        [FromBody] SetServiceRoomTypesRequest request, CancellationToken ct)
-        => Ok(new { roomTypeIds = await sports.SetServiceRoomTypesAsync(sportId, RequireService(serviceType), request.RoomTypeIds, User.RequireUserId(), ct) });
-
     private static SportServiceType? ParseService(string? value)
         => string.IsNullOrWhiteSpace(value) ? null : RequireService(value);
 

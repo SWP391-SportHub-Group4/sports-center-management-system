@@ -17,15 +17,13 @@ namespace SportHub.Training.Api;
 [ApiController]
 [Authorize(Policy = SportHubPolicies.Coach)]
 [Route("api/coaches/me/students")]
-public sealed class CoachStudentsController(ISportHubDbContext db, PersonalTrainerGuard personalTrainers,
-    IMemberTrainingProfileService trainingProfiles) : ControllerBase
+public sealed class CoachStudentsController(ISportHubDbContext db, IMemberTrainingProfileService trainingProfiles) : ControllerBase
 {
     [HttpGet]
     public async Task<IActionResult> Search([FromQuery] string? search, [FromQuery] string health = "all",
         [FromQuery] int page = 1, CancellationToken ct = default)
     {
         var coachId = User.RequireUserId();
-        await personalTrainers.RequireAsync(coachId, ct);
         if (search?.Length > 150)
             throw new BadRequestException("student_search_too_long", "Search must not exceed 150 characters.");
         if (health is not ("all" or "notes" or "missing"))
@@ -64,7 +62,6 @@ public sealed class CoachStudentsController(ISportHubDbContext db, PersonalTrain
     public async Task<IActionResult> HealthProfile(Guid memberId, CancellationToken ct)
     {
         var coachId = User.RequireUserId();
-        await personalTrainers.RequireAsync(coachId, ct);
         if (!await db.Set<CoachMemberRelationship>().AnyAsync(r => r.CoachId == coachId && r.MemberId == memberId
                 && r.Status == RelationshipStatus.Active, ct))
             throw new ForbiddenException("no_active_relationship", "No active relationship.");

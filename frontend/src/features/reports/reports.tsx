@@ -129,7 +129,6 @@ export function ReportFilterForm({
                 <option value="">{l.all}</option>
                 {[
                   ["MEMBERSHIP", l.sourceMembership],
-                  ["PT", l.sourcePt],
                   ["CLASS_PACKAGE", l.sourceClass],
                   ["RENTAL", l.sourceRental],
                   ["RECONCILIATION", l.sourceReconciliation],
@@ -207,7 +206,14 @@ function MembersTab({ filters: f }: { filters: ReportFilters }) {
         {(report) => (
           <div className="stats-grid">
             <Stat label={t.staffWork.newMembers} value={report.newMembers} />
-            <Stat label={t.staffWork.purchasingMembers} value={report.membersPurchasingMembershipInPeriod} />
+            <Stat
+              label={t.staffWork.purchasingMembers}
+              value={report.membersPurchasingMembershipInPeriod}
+            />
+            <Stat
+              label={t.staffWork.dayPassesSold}
+              value={report.dayPassesSold ?? 0}
+            />
             <Stat
               label={t.staffWork.activeMembers.replace(
                 "{date}",
@@ -342,7 +348,10 @@ export function ManagerOverview() {
           {(report) => (
             <div className="stats-grid">
               <Stat label={l.newMembers} value={report.newMembers} />
-              <Stat label={l.purchasingMembers} value={report.membersPurchasingMembershipInPeriod} />
+              <Stat
+                label={l.purchasingMembers}
+                value={report.membersPurchasingMembershipInPeriod}
+              />
               <Stat
                 label={l.activeMembers.replace(
                   "{date}",

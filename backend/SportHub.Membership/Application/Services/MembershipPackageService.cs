@@ -6,6 +6,7 @@ using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.Membership.Application.Commands;
 using SportHub.Membership.Application.DTOs;
 using SportHub.Membership.Application.Interfaces;
+using SportHub.Membership.Domain;
 
 namespace SportHub.Membership.Application.Services;
 
@@ -75,9 +76,13 @@ public sealed class MembershipPackageService(
         Guid actorUserId,
         CancellationToken ct = default)
     {
-        Validate(request);
         var package = await db.Set<MembershipPackage>().SingleOrDefaultAsync(p => p.PackageId == packageId, ct)
             ?? throw new NotFoundException("membership_package_not_found", "Membership package not found.");
+
+        if (packageId == DayPass.PackageId)
+            throw new ConflictException("day_pass_fixed", "The Gym day pass price and duration are fixed.");
+
+        Validate(request);
 
         var before = Describe(package);
 
@@ -107,6 +112,9 @@ public sealed class MembershipPackageService(
     {
         var package = await db.Set<MembershipPackage>().SingleOrDefaultAsync(p => p.PackageId == packageId, ct)
             ?? throw new NotFoundException("membership_package_not_found", "Membership package not found.");
+
+        if (packageId == DayPass.PackageId)
+            throw new ConflictException("day_pass_fixed", "The Gym day pass must remain available at its fixed price.");
 
         var before = Describe(package);
         package.IsActive = isActive;
@@ -141,6 +149,8 @@ public sealed class MembershipPackageService(
 
     private static void Validate(SaveMembershipPackageRequest request)
     {
+        if (request.DurationDays == DayPass.DurationDays)
+            throw new BadRequestException("day_pass_fixed", "The one-day Gym pass is a fixed 50,000 VND product.");
         if (request.Price <= 0 || request.Price % 1000 != 0)
             throw new BadRequestException("membership_price_invalid", "Membership price invalid.");
         if (request.SessionLimit is not null)

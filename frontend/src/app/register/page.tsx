@@ -225,8 +225,8 @@ export default function RegisterPage() {
         : nextErrors.phone
           ? phoneInputRef
           : nextErrors.password
-          ? passwordInputRef
-          : confirmInputRef
+            ? passwordInputRef
+            : confirmInputRef
       ).current?.focus();
       return;
     }

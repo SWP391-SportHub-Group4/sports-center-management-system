@@ -1,0 +1,234 @@
+using System.Net;
+using System.Net.Http.Json;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
+using SportHub.BuildingBlocks.Abstractions.Membership;
+using SportHub.BuildingBlocks.Abstractions.Persistence;
+using SportHub.BuildingBlocks.Abstractions.Scheduling;
+using SportHub.Scheduling.Catalog.Domain;
+using SportHub.Scheduling.Domain.Entities;
+using SportHub.Identity.Domain.Enums;
+using SportHub.Membership.Domain;
+using SportHub.Membership.Domain.Entities;
+using SportHub.Membership.Domain.Enums;
+using SportHub.Payment.Application.DTOs.Checkouts;
+
+namespace SportHub.Payment.Tests.Integration;
+
+[Collection(nameof(PaymentApiCollection))]
+public sealed class GymDayPassTests(PaymentApiFactory factory)
+{
+    [Fact]
+    public async Task Paid_day_pass_starts_today_even_when_member_has_a_long_membership()
+    {
+        var member = await factory.SeedUserAsync(UserRole.Member);
+        var receptionist = await factory.SeedUserAsync(UserRole.Receptionist);
+        var today = DateOnly.FromDateTime(DateTime.UtcNow.AddHours(7));
+
+        await factory.QueryAsync(async db =>
+        {
+            var longPlan = new MembershipPackage
+            {
+                Name = "Long Gym " + Guid.NewGuid().ToString("N"), Price = 600_000m,
+                DurationDays = 30, IsActive = true
+            };
+            db.MembershipPackages.Add(longPlan);
+            await db.SaveChangesAsync();
+            db.MemberPackages.Add(new MemberPackage
+            {
+                MemberPackageId = Guid.NewGuid(), MemberId = member.UserId,
+                PackageId = longPlan.PackageId, Status = MemberPackageStatus.Active,
+                StartDate = today, EndDate = today.AddDays(29)
+            });
+            await db.SaveChangesAsync();
+            return 0;
+        });
+
+        using var buyer = factory.CreateApiClient(member.UserId, UserRole.Member);
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/checkouts/membership")
+        {
+            Content = JsonContent.Create(new { packageId = DayPass.PackageId })
+        };
+        request.Headers.Add("Idempotency-Key", Guid.NewGuid().ToString("N"));
+        var created = await buyer.SendAsync(request);
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var checkout = (await created.Content.ReadFromJsonAsync<CheckoutResponse>())!;
+        Assert.Equal(DayPass.PriceVnd, checkout.TotalAmount);
+
+        using var staff = factory.CreateApiClient(receptionist.UserId, UserRole.Receptionist);
+        var attemptResponse = await buyer.PostAsync($"/api/checkouts/{checkout.InvoiceId}/attempts", null);
+        Assert.Equal(HttpStatusCode.OK, attemptResponse.StatusCode);
+        var attempt = (await attemptResponse.Content.ReadFromJsonAsync<PaymentAttemptResponse>())!;
+        Assert.Equal(HttpStatusCode.OK,
+            (await staff.PostAsync($"/api/dev/payments/{attempt.TransactionReference}/simulate", null)).StatusCode);
+
+        await factory.QueryAsync(async db =>
+        {
+            var pass = await db.MemberPackages.SingleAsync(x => x.MemberId == member.UserId
+                && x.PackageId == DayPass.PackageId);
+            Assert.Equal(MemberPackageStatus.Active, pass.Status);
+            Assert.Equal(today, pass.StartDate);
+            Assert.Equal(today, pass.EndDate);
+            // Member được báo rõ vé và mã check-in chỉ dùng trong ngày (thông báo trong app và email).
+            var notices = await db.Notifications.Where(n => n.UserId == member.UserId && n.SourceEntityId == pass.MemberPackageId).ToListAsync();
+            Assert.True(notices.Count >= 2);
+            Assert.Contains(notices, n => n.Message.Contains("valid only today"));
+            return 0;
+        });
+    }
+
+    [Fact]
+    public async Task Manager_cannot_change_or_discontinue_the_fixed_day_pass()
+    {
+        var manager = await factory.SeedUserAsync(UserRole.CenterManager);
+        using var client = factory.CreateApiClient(manager.UserId, UserRole.CenterManager);
+        var update = await client.PutAsJsonAsync($"/api/membership-packages/{DayPass.PackageId}", new
+        {
+            name = DayPass.Name, price = 60_000, durationDays = 1
+        });
+        Assert.Equal(HttpStatusCode.Conflict, update.StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict,
+            (await client.PostAsync($"/api/membership-packages/{DayPass.PackageId}/discontinue", null)).StatusCode);
+    }
+
+    private static async Task<MemberPackage> SeedActiveDayPassAsync(PaymentApiFactory factory, Guid memberId, DateOnly today)
+        => await factory.QueryAsync(async db =>
+        {
+            var pass = new MemberPackage
+            {
+                MemberPackageId = Guid.NewGuid(), MemberId = memberId, PackageId = DayPass.PackageId,
+                Status = MemberPackageStatus.Active, StartDate = today, EndDate = today
+            };
+            db.MemberPackages.Add(pass);
+            await db.SaveChangesAsync();
+            return pass;
+        });
+
+    [Fact]
+    public async Task Gym_closure_extension_does_not_stretch_a_one_day_pass()
+    {
+        var member = await factory.SeedUserAsync(UserRole.Member);
+        var today = DateOnly.FromDateTime(DateTime.UtcNow.AddHours(7));
+        var pass = await SeedActiveDayPassAsync(factory, member.UserId, today);
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ISportHubDbContext>();
+            var extension = scope.ServiceProvider.GetRequiredService<IMembershipClosureExtension>();
+            await using var tx = await db.Database.BeginTransactionAsync();
+            var extended = await extension.ExtendActiveAsync(3, today);
+            Assert.DoesNotContain(extended, e => e.MemberId == member.UserId);
+            await tx.RollbackAsync();
+        }
+
+        await factory.QueryAsync(async db =>
+        {
+            Assert.Equal(today, (await db.MemberPackages.SingleAsync(x => x.MemberPackageId == pass.MemberPackageId)).EndDate);
+            return 0;
+        });
+    }
+
+    [Fact]
+    public async Task Day_pass_expiry_job_does_not_send_a_renewal_reminder()
+    {
+        var member = await factory.SeedUserAsync(UserRole.Member);
+        var today = DateOnly.FromDateTime(DateTime.UtcNow.AddHours(7));
+        var pass = await SeedActiveDayPassAsync(factory, member.UserId, today);
+
+        var job = new SportHub.API.Jobs.MemberPackageExpiryJob(factory.Services, NullLogger<SportHub.API.Jobs.MemberPackageExpiryJob>.Instance);
+        var run = typeof(SportHub.API.Jobs.MemberPackageExpiryJob)
+            .GetMethod("RunOnceAsync", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
+        using (var scope = factory.Services.CreateScope())
+            await (Task)run.Invoke(job, [scope.ServiceProvider, CancellationToken.None])!;
+
+        await factory.QueryAsync(async db =>
+        {
+            Assert.False(await db.Notifications.AnyAsync(n => n.UserId == member.UserId && n.SourceEntityId == pass.MemberPackageId));
+            return 0;
+        });
+    }
+
+    [Fact]
+    public async Task Day_pass_cannot_be_bought_while_the_whole_gym_is_closed()
+    {
+        var member = await factory.SeedUserAsync(UserRole.Member);
+        var manager = await factory.SeedUserAsync(UserRole.CenterManager);
+        var blockIds = new List<Guid>();
+        try
+        {
+            await factory.QueryAsync(async db =>
+            {
+                var gymRoomTypeIds = await db.Set<SportRoomType>()
+                    .Join(db.Set<Sport>().Where(sport => sport.Code == "gym"),
+                        link => link.SportId, sport => sport.SportId, (link, _) => link.RoomTypeId).ToListAsync();
+                Assert.NotEmpty(gymRoomTypeIds);
+                var gymRooms = await db.Set<Room>().Where(r => r.IsActive && r.RoomTypeId != null
+                    && gymRoomTypeIds.Contains(r.RoomTypeId.Value)).ToListAsync();
+                if (gymRooms.Count == 0)
+                {
+                    var room = new Room { Name = $"Gym floor {Guid.NewGuid():N}", Capacity = 30, RoomTypeId = gymRoomTypeIds[0] };
+                    db.Set<Room>().Add(room);
+                    await db.SaveChangesAsync();
+                    gymRooms.Add(room);
+                }
+                foreach (var room in gymRooms)
+                {
+                    var block = new RoomBlock
+                    {
+                        BlockId = Guid.NewGuid(), RoomId = room.RoomId, Reason = "Day pass closure test",
+                        StartAtUtc = DateTime.UtcNow.AddHours(-1), EndAtUtc = DateTime.UtcNow.AddHours(1),
+                        CreatedByUserId = manager.UserId
+                    };
+                    db.Set<RoomBlock>().Add(block);
+                    blockIds.Add(block.BlockId);
+                }
+                await db.SaveChangesAsync();
+                return 0;
+            });
+
+            using var buyer = factory.CreateApiClient(member.UserId, UserRole.Member);
+            using var request = new HttpRequestMessage(HttpMethod.Post, "/api/checkouts/membership")
+            {
+                Content = JsonContent.Create(new { packageId = DayPass.PackageId })
+            };
+            request.Headers.Add("Idempotency-Key", Guid.NewGuid().ToString("N"));
+            var response = await buyer.SendAsync(request);
+
+            Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+            Assert.Contains("gym_closed_today", await response.Content.ReadAsStringAsync());
+        }
+        finally
+        {
+            await factory.QueryAsync(async db =>
+            {
+                db.Set<RoomBlock>().RemoveRange(db.Set<RoomBlock>().Where(b => blockIds.Contains(b.BlockId)));
+                await db.SaveChangesAsync();
+                return 0;
+            });
+        }
+    }
+
+    [Fact]
+    public async Task Day_pass_buyers_are_reported_separately_from_members_with_a_membership()
+    {
+        var today = DateOnly.FromDateTime(DateTime.UtcNow.AddHours(7));
+        async Task<(int Members, int DayPass, int Sold)> Snapshot()
+        {
+            using var scope = factory.Services.CreateScope();
+            var reports = scope.ServiceProvider.GetRequiredService<SportHub.Membership.Application.Interfaces.IMembershipReportService>();
+            var summary = await reports.GetSummaryAsync(today);
+            var period = await reports.GetPeriodAsync(today, today);
+            return (summary.MembersWithActiveMembership, summary.MembersWithDayPassToday, period.DayPassesSold);
+        }
+
+        var before = await Snapshot();
+        var member = await factory.SeedUserAsync(UserRole.Member);
+        await SeedActiveDayPassAsync(factory, member.UserId, today);
+        var after = await Snapshot();
+
+        Assert.Equal(before.Members, after.Members);
+        Assert.Equal(before.DayPass + 1, after.DayPass);
+        Assert.Equal(before.Sold + 1, after.Sold);
+    }
+}

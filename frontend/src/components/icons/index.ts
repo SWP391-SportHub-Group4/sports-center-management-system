@@ -6,4 +6,3 @@ export {
   IconSwitchCamera,
   IconUpload,
 } from "./SportIcons";
-

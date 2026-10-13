@@ -23,7 +23,13 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { IconClose, IconHeartbeat, IconLogout, IconMenu, IconSettings } from "../icons";
+import {
+  IconClose,
+  IconHeartbeat,
+  IconLogout,
+  IconMenu,
+  IconSettings,
+} from "../icons";
 
 export interface MemberNavItem {
   href: string;
@@ -87,7 +93,8 @@ export function MemberHeader({
     const onPointer = (e: PointerEvent) => {
       if (!menuRef.current?.contains(e.target as Node)) setMenuOpen(false);
     };
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setMenuOpen(false);
+    const onKey = (e: KeyboardEvent) =>
+      e.key === "Escape" && setMenuOpen(false);
     document.addEventListener("pointerdown", onPointer);
     document.addEventListener("keydown", onKey);
     return () => {
@@ -99,7 +106,8 @@ export function MemberHeader({
   // Drawer: Escape, body scroll lock, focus the close button on open.
   useEffect(() => {
     if (!drawerOpen) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setDrawerOpen(false);
+    const onKey = (e: KeyboardEvent) =>
+      e.key === "Escape" && setDrawerOpen(false);
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     drawerCloseRef.current?.focus();
@@ -194,7 +202,9 @@ export function MemberHeader({
                     <p className="truncate text-sm font-semibold text-ink">
                       {user.name || user.email}
                     </p>
-                    <p className="mt-0.5 text-xs text-muted">{labels.roleLine}</p>
+                    <p className="mt-0.5 text-xs text-muted">
+                      {labels.roleLine}
+                    </p>
                   </div>
                   <Link
                     role="menuitem"

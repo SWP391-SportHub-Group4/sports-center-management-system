@@ -388,7 +388,7 @@ export function CoachAiDrawer({
             setSuccess(null);
           }}
         >
-          <option value="Gym">Gym / PT</option>
+          <option value="Gym">Gym</option>
           <option value="Badminton">{isEn ? "Badminton" : "Cầu lông"}</option>
           <option value="Basketball">{isEn ? "Basketball" : "Bóng rổ"}</option>
         </select>

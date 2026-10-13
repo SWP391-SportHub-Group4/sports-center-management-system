@@ -184,10 +184,8 @@ builder.Services.AddHttpClient<IAvatarStorage, CloudinaryAvatarStorage>(client =
 builder.Services.AddScoped<IPasswordResetService, PasswordResetService>();
 builder.Services.AddScoped<EmailOtpFlow>();
 builder.Services.AddScoped<CoachSpecialtyService>();
-builder.Services.AddScoped<CoachQualificationService>();
 builder.Services.AddScoped<CoachAdminService>();
 builder.Services.AddScoped<IUserSummaryFactory, UserSummaryFactory>();
-builder.Services.AddScoped<SportHub.Training.Application.Services.PersonalTrainerGuard>();
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Identity.IUserAccessReader, UserAccessReader>();
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Identity.ICoachSpecialtyReader, CoachSpecialtyReader>();
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Scheduling.ISportCatalogReader, SportHub.Scheduling.Catalog.Application.SportCatalogReader>();
@@ -243,6 +241,7 @@ builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Membership.IMemb
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Membership.IMembershipAccessReader, MembershipAccessReader>();
 builder.Services.AddScoped<IMemberPackageService, MemberPackageService>();
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Membership.IMembershipClosureExtension, MembershipClosureExtension>();
+builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Scheduling.IGymClosureReader, SportHub.Scheduling.Rental.Application.GymClosureReader>();
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Membership.IMembershipRefundFulfillment, MembershipRefundFulfillment>();
 builder.Services.AddScoped<IMemberTrainingProfileService, MemberTrainingProfileService>();
 builder.Services.AddScoped<IMembershipReportService, MembershipReportService>();
@@ -255,11 +254,10 @@ builder.Services.AddScoped<INotificationActionReader, SportHub.API.Persistence.N
 // Scheduling
 builder.Services.AddScoped<IGymCheckInRepository, GymCheckInRepository>();
 builder.Services.AddScoped<IGymCheckInService, GymCheckInService>();
+builder.Services.AddSingleton<SportHub.Scheduling.Application.Services.MemberCheckInCodeService>();
 builder.Services.AddScoped<IRoomService, RoomService>();
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Scheduling.IOccupancyService, SportHub.Scheduling.Occupancy.Application.OccupancyService>();
 builder.Services.AddScoped<SportHub.Scheduling.Occupancy.Application.AvailabilityService>();
-builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Training.IPersonalTrainingScheduleReader, SportHub.Training.Application.Services.PersonalTrainingScheduleReader>();
-builder.Services.AddScoped<SportHub.Scheduling.Catalog.Application.ServiceUsageGuard>();
 builder.Services.AddScoped<SportHub.Scheduling.Catalog.Application.SportCatalogService>();
 builder.Services.AddScoped<SportHub.Scheduling.Catalog.Application.RoomTypeService>();
 builder.Services.AddScoped<SportHub.Scheduling.Catalog.Application.RoomOpeningHourService>();
@@ -281,7 +279,6 @@ builder.Services.AddScoped<SportHub.Scheduling.Threshold.Application.ThresholdRe
 builder.Services.AddScoped<IClassSessionService, ClassSessionService>();
 builder.Services.AddScoped<IClassEnrollmentReportService, ClassEnrollmentReportService>();
 builder.Services.AddScoped<SportHub.Scheduling.Rental.Application.CourtScheduleService>();
-builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Scheduling.IPtCourtScheduleReader, SportHub.Training.Application.Services.PtCourtScheduleReader>();
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Reporting.IClassEnrollmentExportReader, ClassEnrollmentExportReader>();
 builder.Services.AddScoped<CourseValidator>();
 builder.Services.AddScoped<SeatHoldService>();
@@ -344,20 +341,7 @@ builder.Services.AddScoped<ICoachRelationshipRegistrar>(
     sp => sp.GetRequiredService<CoachMemberRelationshipService>());
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Training.ICoachMemberAccessReader>(
     sp => sp.GetRequiredService<CoachMemberRelationshipService>());
-builder.Services.AddScoped<IWorkoutService, WorkoutService>();
 
-// PT (BE-4) — entitlement/session lifecycle. PtSessionService đăng ký cụ thể vì
-// PtSessionChangeRequestService inject thẳng lớp này để dùng lại ApplyCancelAsync/
-// ApplyRescheduleAsync (duyệt request phải tái dùng đúng logic quota với Manager cancel/reschedule
-// trực tiếp, không viết lại lần hai).
-builder.Services.AddScoped<IPtEntitlementLifecycle, PtEntitlementLifecycleService>();
-builder.Services.AddScoped<PtPricingService>();
-builder.Services.AddScoped<IPtPurchaseFulfillment, PtPurchaseFulfillment>();
-builder.Services.AddScoped<IPtEntitlementQueryService, PtEntitlementQueryService>();
-builder.Services.AddScoped<PtSessionService>();
-builder.Services.AddScoped<IPtSessionService>(sp => sp.GetRequiredService<PtSessionService>());
-builder.Services.AddScoped<IPtSessionChangeRequestService, PtSessionChangeRequestService>();
-builder.Services.AddScoped<IPtCoachChangeRequestService, PtCoachChangeRequestService>();
 
 // AI — bản cài đặt theo luật, chạy cục bộ (xem RuleBasedAiRecommendationService).
 builder.Services.AddScoped<IAiRecommendationService, RuleBasedAiRecommendationService>();
@@ -410,7 +394,6 @@ builder.Services.AddHostedService<ClassStatusJob>();
 builder.Services.AddHostedService<ClassThresholdEvaluationJob>();
 builder.Services.AddHostedService<ClassThresholdResponseExpiryJob>();
 builder.Services.AddHostedService<RentalStatusJob>();
-builder.Services.AddHostedService<AttendanceFinalizerJob>();
 builder.Services.AddHostedService<SeatHoldExpiryJob>();
 builder.Services.AddHostedService<CheckoutExpiryJob>();
 builder.Services.AddHostedService<PaymentReconciliationJob>();
@@ -444,20 +427,6 @@ builder.Services.AddScoped<FacilityBaselineSeeder>();
 builder.Services.AddScoped<PaymentNoticeService>();
 
 var app = builder.Build();
-
-if (args.Any(a => a == "--seed-pt-calendar=true"))
-{
-    if (!app.Environment.IsDevelopment())
-        throw new InvalidOperationException("PT calendar fixtures are only available in Development.");
-    var target = new Npgsql.NpgsqlConnectionStringBuilder(app.Configuration.GetConnectionString("Default"));
-    if (target.Host is not ("localhost" or "127.0.0.1" or "::1"))
-        throw new InvalidOperationException("PT calendar fixtures must target a local Development database.");
-    Console.WriteLine($"[seed-pt-calendar] database '{target.Database}' on '{target.Host}:{target.Port}'");
-    await using var scope = app.Services.CreateAsyncScope();
-    await scope.ServiceProvider.GetRequiredService<SportHubDbContext>().Database.MigrateAsync();
-    await scope.ServiceProvider.GetRequiredService<DemoDataSeeder>().SeedPtCalendarAsync();
-    return;
-}
 
 if (args.Any(a => a == "--seed-coach-teaching=true"))
 {
@@ -494,17 +463,6 @@ if (args.Any(a => a == "--seed-coaches=true"))
     await using var coachScope = app.Services.CreateAsyncScope();
     await coachScope.ServiceProvider.GetRequiredService<SportHubDbContext>().Database.MigrateAsync();
     await coachScope.ServiceProvider.GetRequiredService<CoachRosterSeeder>().SeedAsync();
-    return;
-}
-
-// Kế hoạch tập coach.pt giao cho an.member (idempotent), để xem giao diện Member trên DB đã có dữ liệu:
-//   dotnet run --project backend/SportHub.API -- --seed-member-training=true
-if (args.Any(a => a == "--seed-member-training=true"))
-{
-    if (!app.Environment.IsDevelopment())
-        throw new InvalidOperationException("Demo fixtures are only available in Development.");
-    await using var trainingScope = app.Services.CreateAsyncScope();
-    await trainingScope.ServiceProvider.GetRequiredService<DemoDataSeeder>().SeedMemberWorkoutPlanAsync();
     return;
 }
 
