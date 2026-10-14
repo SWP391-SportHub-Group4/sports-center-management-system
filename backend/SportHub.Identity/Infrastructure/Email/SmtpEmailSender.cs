@@ -8,48 +8,146 @@ using SportHub.BuildingBlocks.Abstractions.Email;
 
 namespace SportHub.Identity.Infrastructure.Email;
 
-public sealed class SmtpEmailSender(IOptions<EmailOptions> options) : IEmailSender
+public sealed class SmtpEmailSender(
+    IOptions<EmailOptions> options)
+    : IEmailSender
 {
-    public async Task SendAsync(
+    public Task SendAsync(
         string toAddress,
         string subject,
         string htmlBody,
         CancellationToken cancellationToken = default)
+        =>
+            SendInternalAsync(
+                toAddress,
+                subject,
+                htmlBody,
+                Array.Empty<EmailAttachment>(),
+                cancellationToken);
+
+    public Task SendAsync(
+        string toAddress,
+        string subject,
+        string htmlBody,
+        IReadOnlyList<EmailAttachment> attachments,
+        CancellationToken cancellationToken = default)
+        =>
+            SendInternalAsync(
+                toAddress,
+                subject,
+                htmlBody,
+                attachments,
+                cancellationToken);
+
+    private async Task SendInternalAsync(
+        string toAddress,
+        string subject,
+        string htmlBody,
+        IReadOnlyList<EmailAttachment> attachments,
+        CancellationToken cancellationToken)
     {
-        var smtp = options.Value;
+        var smtp =
+            options.Value;
 
-        var message = new MimeMessage();
-        message.From.Add(new MailboxAddress(smtp.FromName, smtp.FromAddress));
-        message.To.Add(MailboxAddress.Parse(toAddress));
-        message.Subject = subject;
-        // Thư chỉ có phần HTML dễ bị Gmail xếp vào rác; kèm bản văn bản thuần (link vẫn bấm được).
-        message.Body = new BodyBuilder { HtmlBody = htmlBody, TextBody = ToPlainText(htmlBody) }.ToMessageBody();
+        var message =
+            new MimeMessage();
 
-        using var client = new SmtpClient();
+        message.From.Add(
+            new MailboxAddress(
+                smtp.FromName,
+                smtp.FromAddress));
+
+        message.To.Add(
+            MailboxAddress.Parse(
+                toAddress));
+
+        message.Subject =
+            subject;
+
+        var body =
+            new BodyBuilder
+            {
+                HtmlBody = htmlBody,
+                TextBody =
+                    ToPlainText(htmlBody)
+            };
+
+        foreach (var attachment in attachments)
+        {
+            body.Attachments.Add(
+                attachment.FileName,
+                attachment.Content,
+                ContentType.Parse(
+                    attachment.ContentType));
+        }
+
+        message.Body =
+            body.ToMessageBody();
+
+        using var client =
+            new SmtpClient();
 
         await client.ConnectAsync(
             smtp.Host,
             smtp.Port,
-            smtp.UseSsl ? SecureSocketOptions.SslOnConnect : SecureSocketOptions.StartTlsWhenAvailable,
+            smtp.UseSsl
+                ? SecureSocketOptions.SslOnConnect
+                : SecureSocketOptions.StartTlsWhenAvailable,
             cancellationToken);
 
-        if (!string.IsNullOrEmpty(smtp.Username))
+        if (
+            !string.IsNullOrEmpty(
+                smtp.Username))
         {
-            await client.AuthenticateAsync(smtp.Username, smtp.Password, cancellationToken);
+            await client.AuthenticateAsync(
+                smtp.Username,
+                smtp.Password,
+                cancellationToken);
         }
 
-        await client.SendAsync(message, cancellationToken);
-        await client.DisconnectAsync(true, cancellationToken);
+        await client.SendAsync(
+            message,
+            cancellationToken);
+
+        await client.DisconnectAsync(
+            true,
+            cancellationToken);
     }
 
-
-    private static string ToPlainText(string html)
+    private static string ToPlainText(
+        string html)
     {
-        var text = Regex.Replace(html, @"(?is)<(head|style|script).*?</\1>", string.Empty);
-        text = Regex.Replace(text, @"(?is)<a\s[^>]*href=""([^""]+)""[^>]*>(.*?)</a>", "$2: $1");
-        text = Regex.Replace(text, @"(?i)<(br|/p|/h1|/tr|/div)[^>]*>", "\n");
-        text = Regex.Replace(text, "<[^>]+>", string.Empty);
-        text = WebUtility.HtmlDecode(text);
-        return Regex.Replace(text, @"\n\s*\n+", "\n\n").Trim();
+        var text =
+            Regex.Replace(
+                html,
+                @"(?is)<(head|style|script).*?</\1>",
+                string.Empty);
+
+        text =
+            Regex.Replace(
+                text,
+                @"(?is)<a\s[^>]*href=""([^""]+)""[^>]*>(.*?)</a>",
+                "$2: $1");
+
+        text =
+            Regex.Replace(
+                text,
+                @"(?i)<(br|/p|/h1|/h2|/tr|/div)[^>]*>",
+                "\n");
+
+        text =
+            Regex.Replace(
+                text,
+                "<[^>]+>",
+                string.Empty);
+
+        text =
+            WebUtility.HtmlDecode(text);
+
+        return Regex.Replace(
+                text,
+                @"\n\s*\n+",
+                "\n\n")
+            .Trim();
     }
 }

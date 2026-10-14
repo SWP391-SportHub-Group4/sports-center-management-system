@@ -15,10 +15,61 @@ namespace SportHub.Payment.Api;
 [Route("api")]
 public class InvoicesController(
     IInvoiceQueryService invoices,
+    IInvoiceReceiptService receipts,
     IPackagePurchaseService purchases,
     IPaymentRecordingService payments,
     IPaymentAdjustmentService adjustments) : ControllerBase
 {
+    [HttpGet("invoices/{invoiceId:guid}/receipt.pdf")]
+    public async Task<IActionResult> ReceiptPdf(
+        Guid invoiceId,
+        CancellationToken ct)
+    {
+        var staff =
+            User.IsInRole(
+                SportHubRoleNames.CenterManager) ||
+            User.IsInRole(
+                SportHubRoleNames.Receptionist);
+
+        if (
+            !staff &&
+            !User.IsInRole(
+                SportHubRoleNames.Member))
+        {
+            throw new ForbiddenException(
+                "invoice_access_denied",
+                "Invoice access denied.");
+        }
+
+        var detail =
+            await invoices.GetDetailAsync(
+                invoiceId,
+                ct);
+
+        if (
+            !staff &&
+            detail.Summary.MemberId !=
+                User.RequireUserId())
+        {
+            throw new ForbiddenException(
+                "invoice_not_owned",
+                "Invoice not owned.");
+        }
+
+        var model =
+            await receipts.BuildAsync(
+                invoiceId,
+                ct);
+
+        var pdf =
+            receipts.RenderPdf(model);
+
+        return File(
+            pdf,
+            "application/pdf",
+            $"{model.InvoiceNumber}.pdf");
+    }
+
     [Authorize(Policy = SportHubPolicies.FrontDesk)]
     [HttpGet("invoices")]
     public async Task<IActionResult> Search(
