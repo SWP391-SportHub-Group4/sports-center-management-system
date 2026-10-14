@@ -27,7 +27,12 @@ public sealed class PaymentReconciliationService(ISportHubDbContext db, IPayment
             .SingleOrDefaultAsync(x => x.PaymentAttemptId == attemptId, ct)
             ?? throw new NotFoundException("payment_attempt_not_found", "Payment attempt not found.");
         var result = await gateway.QueryAsync(attempt, ct);
-        if (result is null) return false;
+        if (result is null)
+        {
+            logger.LogWarning("VNPay QueryDR returned no verified result for attempt {AttemptId}, invoice {InvoiceId}",
+                attempt.PaymentAttemptId, attempt.InvoiceId);
+            return false;
+        }
         await AcceptVerifiedAsync(result, verifiedByQuery: true, ct);
         return true;
     }
@@ -76,9 +81,15 @@ public sealed class PaymentReconciliationService(ISportHubDbContext db, IPayment
             .Where(a => a.Status == PaymentAttemptStatus.Pending && a.CheckoutSessionId != null
                 && a.CreatedAt < clock.UtcNow.AddMinutes(-2))
             .OrderBy(a => a.CreatedAt).Take(25).Select(a => a.PaymentAttemptId).ToListAsync(ct);
+        logger.LogInformation("Payment reconciliation scan: {EventCount} events to retry, {AttemptCount} pending attempts eligible for QueryDR",
+            ids.Count, dueAttempts.Count);
         foreach (var attemptId in dueAttempts)
         {
-            try { await ReconcileAttemptAsync(attemptId, ct); }
+            try
+            {
+                logger.LogInformation("Starting VNPay QueryDR for attempt {AttemptId}", attemptId);
+                await ReconcileAttemptAsync(attemptId, ct);
+            }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 logger.LogWarning(ex, "QueryDR failed for attempt {AttemptId}", attemptId);
@@ -153,6 +164,8 @@ public sealed class PaymentReconciliationService(ISportHubDbContext db, IPayment
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
+            logger.LogError(ex, "Verified VNPay event {EventId} could not complete fulfillment for invoice {InvoiceId}; reconciliation is required",
+                eventId, invoiceId);
             // A separate transaction records the durable failure after the business transaction rolls back.
             await db.Set<VerifiedGatewayEvent>().Where(x => x.VerifiedGatewayEventId == eventId
                     && x.ProcessingStatus != "Fulfilled" && x.ProcessingStatus != "Compensated"

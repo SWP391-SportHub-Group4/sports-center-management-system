@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using System.Text.Json.Serialization;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.Api;
@@ -16,7 +17,7 @@ public sealed record VnPayIpnResponse(
 
 [ApiController, Route("api/payments/vnpay")]
 public sealed class PaymentsController(PaymentReconciliationService reconciliation,
-    ISportHubDbContext db) : ControllerBase
+    ISportHubDbContext db, ILogger<PaymentsController> logger) : ControllerBase
 {
     [Authorize(Policy = SportHubPolicies.FrontDesk)]
     [HttpPost("/api/invoices/{invoiceId:guid}/reconcile")]
@@ -39,21 +40,27 @@ public sealed class PaymentsController(PaymentReconciliationService reconciliati
     public async Task<IActionResult> Ipn(CancellationToken ct)
     {
         var fields = Request.Query.ToDictionary(x => x.Key, x => x.Value.ToString(), StringComparer.Ordinal);
+        var reference = fields.GetValueOrDefault("vnp_TxnRef");
+        logger.LogInformation("VNPay IPN received for reference {Reference}", reference);
         try
         {
             await reconciliation.ReceiveCallbackAsync(fields, ct);
+            logger.LogInformation("VNPay IPN accepted for reference {Reference}", reference);
             return Ok(new VnPayIpnResponse("00", "Confirm Success"));
         }
         catch (BadRequestException)
         {
+            logger.LogWarning("VNPay IPN rejected: invalid signature or payload for reference {Reference}", reference);
             return Ok(new VnPayIpnResponse("97", "Invalid signature or payload"));
         }
         catch (NotFoundException)
         {
+            logger.LogWarning("VNPay IPN rejected: reference {Reference} not found", reference);
             return Ok(new VnPayIpnResponse("01", "Order not found"));
         }
         catch (ConflictException)
         {
+            logger.LogWarning("VNPay IPN rejected: transaction conflict for reference {Reference}", reference);
             return Ok(new VnPayIpnResponse("04", "Invalid transaction"));
         }
     }
