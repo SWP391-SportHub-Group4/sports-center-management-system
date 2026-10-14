@@ -1,5 +1,10 @@
 # Hợp đồng API refactor đa môn (backend)
 
+## Staff activation and audit policy update — 14 October 2026
+
+The current policy is documented in [Admin-Activation-and-Audit.md](Admin-Activation-and-Audit.md). It supersedes account-only Admin audit restrictions and the 24-hour staff activation lifetime below. Staff links expire at account creation + 168 hours. Admin reads Manager/Admin/Coach/System events; Manager reads Manager/Receptionist/Coach/Member events, using immutable event-time roles. `GET /api/audit-logs` accepts an optional canonical `actorRole`; all filters and the action catalogue are scoped server-side. Responses add `actorRole` and user invitation metadata (`activationExpiresAtUtc`, `activationResendAvailableAtUtc`). Member activation stays 24 hours.
+
+
 SportHub là **hệ thống quản lý trung tâm thể thao với ba môn Gym, cầu lông và bóng rổ; có thể mở rộng thêm môn trong tương lai**.
 
 Các bảng mô tả contract; phần route baseline chỉ để tra cứu đường đọc tương thích. Không dùng baseline để khôi phục luồng ghi legacy. Trạng thái triển khai và nghiệm thu xem mục 13 của thiết kế hệ thống.
@@ -655,13 +660,13 @@ Report presentation: `pointsRedeemed` is the number of points spent in the selec
 
 ## Manager operations read contracts
 
-- `GET /api/audit-logs` accepts optional `targetId` together with existing `targetEntity` filters. Exact target filtering happens before pagination/count. Existing role restrictions remain: Manager can read operational audit; Admin remains restricted to account events; Member/Coach/Receptionist cannot gain audit access through this parameter.
+- `GET /api/audit-logs` accepts optional `targetId` together with existing `targetEntity` filters. Exact target filtering happens before pagination/count. Visibility uses event-time actor roles: Admin reads Manager/Admin/Coach/System events, Manager reads Manager/Receptionist/Coach/Member events. Member/Coach/Receptionist cannot gain audit access through this parameter.
 - `GET /api/manager/sports` service rows include the actual `offeringId`. The client must not derive an offering ID from a sport ID. Public `GET /api/sports` omits `offeringId`.
 - This adds no migration and implements no new G03/G06/G07/G13 command. Current incident preview/action/recheck/resolve remains a sequence of separate operations; timeout resolve requires reconciliation before a fresh attempt.
 
 ## Audit target display context
 
-`GET /api/audit-logs` adds optional `currentTargetLabel` and `referenceNames` (`Entity:ID` → current display name) for Manager results. Names are resolved only for targets and allowed references on the filtered, paginated page, with one bounded query per relevant entity type. Administrator results remain limited to account events and keep the existing target-account fields. This change does not grant access to any additional audit records or account/detail endpoints.
+`GET /api/audit-logs` adds optional `currentTargetLabel` and `referenceNames` (`Entity:ID` → current display name) for visible Admin and Manager results. Names are resolved only for targets and allowed references on the filtered, paginated page, with one bounded query per relevant entity type. Both readers keep the existing target-account fields. Display resolution does not bypass event-role visibility or grant access to operational detail endpoints.
 
 The Manager UI prefers recorded identity (`name`, `targetName`, court-rate room-type name, notification subject or report type). If no identity was captured, it displays the current label and marks it as current. Missing/deleted/invalid targets retain their type and ID with an unavailable-name message. Reference names are also current display context, not historical evidence. Neither `oldValue` nor `newValue` is rewritten or backfilled. Changed prices, statuses, times, capacities and other operation values come exclusively from the event.
 

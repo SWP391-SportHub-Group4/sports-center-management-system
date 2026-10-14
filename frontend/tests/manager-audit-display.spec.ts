@@ -73,6 +73,10 @@ test("only resolved targets link to supported Manager detail pages", async ({
     entry("99", "Class", "DELETE_CLASS", { name: "Deleted class" }, null),
   ]);
   const table = page.getByRole("table");
+  await expect(table).not.toContainText("ID:");
+  await expect(
+    page.getByLabel("Role at event time").locator('option[value=""]'),
+  ).toHaveText("All");
   await expect(
     table.getByRole("link", { name: "Class · Current class", exact: true }),
   ).toHaveAttribute("href", "/manager/classes/1");
@@ -104,7 +108,7 @@ test("legacy activity logs identify the sport and show localized before/after st
   const table = page.getByRole("table");
   await expect(table).toContainText("Môn thể thao · Bóng rổ");
   await expect(table).toContainText("Tên hiện tại");
-  await expect(table).toContainText("ID: 4");
+  await expect(table).not.toContainText("ID: 4");
   await expect(table).toContainText("Trạng thái:");
   await expect(table.locator("del")).toHaveText("Đang hoạt động");
   await expect(table).toContainText("Ngừng hoạt động");

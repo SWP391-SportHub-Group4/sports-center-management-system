@@ -17,8 +17,9 @@
   gap: var(--space-2);
   margin-left: auto;
 }
-.weekNavigation :global(.btn) {
+.weekToolbar :global(.btn) {
   margin: 0;
+  min-height: var(--control-height);
 }
 .viewNavigation {
   display: flex;
@@ -34,6 +35,11 @@
 }
 .filters[open] summary {
   margin-bottom: var(--space-4);
+}
+@media (pointer: coarse) {
+  .weekToolbar :global(.btn) {
+    min-height: var(--control-height-lg);
+  }
 }
 @media (max-width: 640px) {
   .weekNavigation {

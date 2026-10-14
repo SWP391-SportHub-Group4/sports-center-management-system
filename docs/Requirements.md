@@ -14,14 +14,16 @@ Ngoài phạm vi: đa chi nhánh, payroll/hợp đồng nhân sự, chia doanh t
 
 ## 2. Yêu cầu theo vai trò
 
+**Cập nhật quyền audit và link staff 14/10/2026:** Admin xem mọi loại thao tác được ghi audit do Manager/Admin/Coach thực hiện và log hệ thống; Manager xem log do Manager/Receptionist/Coach/Member thực hiện, không xem log Admin hoặc hệ thống. Phạm vi dựa role tại thời điểm ghi log. Link kích hoạt staff có hiệu lực đến `CreatedAt + 7 ngày`; sửa email/gửi lại giữ nguyên mốc này. Xem [quy tắc hiện hành và API](Admin-Activation-and-Audit.md).
+
 | Vai trò | Chức năng yêu cầu |
 |---|---|
 | Guest | Xem **landing page** (trang chủ giới thiệu trung tâm, ba môn, đội Coach, không gian) và trang công khai: khóa/gói, sân, Coach; đăng ký Member hoặc đăng nhập; không đọc dữ liệu cá nhân |
 | Member | Đăng ký và cập nhật tài khoản; xem, đăng ký, gia hạn gói thành viên; xem lớp và lịch học, đăng ký/hủy lớp (giữ chỗ, ghi danh); lịch tập cá nhân và thông tin Coach; lịch sử điểm danh và kết quả tập; kế hoạch tập và nhận xét của Coach; hỏi AI về lịch tập, bài tập, dịch vụ; nhận thông báo (lịch học, đổi lịch, hạn gói). Mở rộng của dự án: mua vé Gym 1 ngày (tự mua trên web), thuê/hủy sân, ví điểm, invoice, hoàn điểm |
 | Receptionist | Tìm và xem thông tin Member; **đăng ký Member mới tại quầy** (nhập email hai lần; Member nhận email kích hoạt để tự đặt mật khẩu; chờ kích hoạt thì lễ tân gửi lại link hoặc sửa email gõ sai); quản lý đăng ký/gia hạn gói; kiểm tra trạng thái gói và thời hạn; Gym check-in/out và điểm danh; đăng ký lớp hoặc hỗ trợ hủy lớp cho Member; checkout hộ, ghi nhận thanh toán, hóa đơn (*in/xuất hóa đơn chưa thấy trong giao diện*); tiếp nhận và ghi nhận yêu cầu hỗ trợ của Member (*yêu cầu, chưa triển khai*). Dùng điểm của Member cần OTP của Member |
 | Coach | Xem lịch dạy và danh sách học viên lớp phụ trách; xem thông tin cơ bản và mục tiêu tập luyện của học viên được phân công; tạo kế hoạch tập cho cá nhân hoặc cả lớp; ghi kết quả sau buổi; đánh giá tiến độ và nhận xét; điểm danh trong buổi; gửi thông báo cho học viên (*bài tập về nhà đã gỡ khỏi phạm vi triển khai*, không còn homework riêng); dùng AI gợi ý bài tập theo mục tiêu, trình độ, lịch sử. Kế hoạch tập, kết quả, đánh giá và AI gợi ý làm theo lớp cho Coach cầu lông và bóng rổ |
-| CenterManager (*chia việc với Admin, không giống 100% requirement gốc*) | Xem danh sách Member và Coach (tài khoản staff do Admin quản lý); quản lý môn, lớp, phòng, lịch hoạt động; phân công Coach theo chuyên môn, sửa hồ sơ và chuyên môn Coach; gói thành viên, học phí, thời hạn; threshold, sự cố, hoàn điểm; báo cáo số lượng thành viên, đăng ký lớp, doanh thu theo thời gian; xem Audit Log đầy đủ của trung tâm |
-| SystemAdministrator (*vai trò bổ sung, nhận một phần việc của Manager*) | Tạo và quản lý tài khoản staff (Manager, Receptionist, Coach, Admin); phân quyền bằng cách đổi role giữa các role staff; khóa, mở khóa, vô hiệu hóa tài khoản; xem Audit Log của thao tác tài khoản. Không tự có quyền tài chính, vận hành lớp hay hồ sơ tập luyện |
+| CenterManager (*chia việc với Admin, không giống 100% requirement gốc*) | Xem danh sách Member và Coach (tài khoản staff do Admin quản lý); quản lý môn, lớp, phòng, lịch hoạt động; phân công Coach theo chuyên môn, sửa hồ sơ và chuyên môn Coach; gói thành viên, học phí, thời hạn; threshold, sự cố, hoàn điểm; báo cáo số lượng thành viên, đăng ký lớp, doanh thu theo thời gian; xem Audit Log do Manager/Receptionist/Coach/Member thực hiện |
+| SystemAdministrator (*vai trò bổ sung, nhận một phần việc của Manager*) | Tạo và quản lý tài khoản staff (Manager, Receptionist, Coach, Admin); phân quyền bằng cách đổi role giữa các role staff; khóa, mở khóa, vô hiệu hóa tài khoản; xem Audit Log do Manager/Admin/Coach thực hiện và log hệ thống. Không tự có quyền tài chính, vận hành lớp hay hồ sơ tập luyện |
 
 ### Manager chia việc với Admin
 
@@ -32,7 +34,7 @@ Requirement gốc chỉ có bốn vai trò (Manager, Coach, Member, Receptionist
 | Quản lý danh sách nhân viên và Coach (tạo tài khoản, kích hoạt, khóa) | **Admin**; Manager chỉ xem Coach, sửa hồ sơ và chuyên môn |
 | Quản lý danh sách thành viên | Manager (xem, báo cáo) và Receptionist (tìm, hỗ trợ) |
 | Phân quyền truy cập cho từng vai trò | **Admin** (đổi role giữa các role staff); quyền theo role cố định trong hệ thống |
-| Xem lịch sử thao tác quan trọng | Manager xem Audit Log đầy đủ của trung tâm; Admin chỉ xem phần thao tác tài khoản |
+| Xem lịch sử thao tác quan trọng | Manager xem log do Manager/Receptionist/Coach/Member thực hiện; Admin xem log do Manager/Admin/Coach thực hiện và log hệ thống |
 | Lớp, môn, phòng, lịch, phân công Coach, báo cáo, gói và học phí | Manager |
 
 Member và staff là hai loại tài khoản tách biệt: không chuyển Member thành staff hay ngược lại. Người muốn làm staff dùng một email khác; SystemAdministrator tạo tài khoản staff, kể cả Coach kèm chuyên môn (nhận email kích hoạt để tự đặt mật khẩu); Manager chỉ sửa hồ sơ Coach. Chỉ đổi role giữa các role staff, và Coach chỉ rời vai trò khi không còn lớp, lịch hay quan hệ huấn luyện đang hoạt động. Email chưa được xác minh là của đúng người khi tạo, nên Admin phải nhập email hai lần; tài khoản chưa kích hoạt hiển thị "Chờ kích hoạt" (`activationPending`), Admin được gửi lại link (cooldown 60 giây, link cũ vô hiệu) hoặc sửa email gõ sai (link cũ vô hiệu, link mới tới email mới, có audit) cho tới khi người nhận đặt mật khẩu.

@@ -13,11 +13,7 @@ const statusTones: Partial<Record<string, StatusTone>> = {
 
 export function AccountStatusChip({ account }: { account: UserAdminDto }) {
   const { t } = useLanguage();
-  const activationRequired =
-    account.status === "ACTIVE" &&
-    account.role !== "MEMBER" &&
-    (account.activationPending ??
-      (account.hasPassword === false && account.hasGoogleLink === false));
+  const activationRequired = requiresStaffActivation(account);
   const labels: Record<string, string> = {
     ACTIVE: t.staffWork.accountActive,
     BANNED: t.staffWork.accountLocked,
@@ -34,5 +30,14 @@ export function AccountStatusChip({ account }: { account: UserAdminDto }) {
           : labels[account.status]
       }
     />
+  );
+}
+
+export function requiresStaffActivation(account: UserAdminDto): boolean {
+  return (
+    account.status === "ACTIVE" &&
+    account.role !== "MEMBER" &&
+    (account.activationPending ??
+      (account.hasPassword === false && account.hasGoogleLink === false))
   );
 }

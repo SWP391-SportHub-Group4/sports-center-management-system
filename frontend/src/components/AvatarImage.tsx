@@ -1,4 +1,27 @@
+"use client";
+
+import { useState } from "react";
 import styles from "./avatar.module.css";
+
+function AvatarContent({
+  avatarUrl,
+  initial,
+}: {
+  avatarUrl?: string | null;
+  initial: string;
+}) {
+  const [failed, setFailed] = useState(false);
+  return avatarUrl && !failed ? (
+    <img
+      src={avatarUrl}
+      alt=""
+      loading="lazy"
+      onError={() => setFailed(true)}
+    />
+  ) : (
+    initial
+  );
+}
 
 export function AvatarImage({
   name,
@@ -18,7 +41,7 @@ export function AvatarImage({
       style={{ width: size, height: size }}
       aria-label={name}
     >
-      {avatarUrl ? <img src={avatarUrl} alt="" loading="lazy" /> : initial}
+      <AvatarContent key={avatarUrl} avatarUrl={avatarUrl} initial={initial} />
     </span>
   );
 }

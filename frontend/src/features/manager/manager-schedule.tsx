@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { useUrlQuery, choiceQuery } from "@/lib/useUrlQuery";
@@ -167,33 +168,33 @@ export function ManagerSchedule({
               }}
             />
           </Field>
+          <div
+            className={styles.viewNavigation}
+            role="group"
+            aria-label={t.mSchedule.viewLabel}
+          >
+            {(["day", "week", "list"] as const).map((view) => (
+              <Button
+                key={view}
+                variant="secondary"
+                size="sm"
+                aria-pressed={values.view === view}
+                onClick={() =>
+                  update({
+                    view,
+                    date: view === "day" ? values.date : mondayOf(values.date),
+                  })
+                }
+              >
+                {t.calendar[view]}
+              </Button>
+            ))}
+          </div>
           <div className={styles.weekNavigation}>
-            <div
-              className={styles.viewNavigation}
-              role="group"
-              aria-label={t.mSchedule.viewLabel}
-            >
-              {(["day", "week", "list"] as const).map((view) => (
-                <Button
-                  key={view}
-                  variant="secondary"
-                  size="sm"
-                  aria-pressed={values.view === view}
-                  onClick={() =>
-                    update({
-                      view,
-                      date:
-                        view === "day" ? values.date : mondayOf(values.date),
-                    })
-                  }
-                >
-                  {t.calendar[view]}
-                </Button>
-              ))}
-            </div>
             <Button
               variant="secondary"
               size="sm"
+              icon={<ChevronLeft size={16} aria-hidden="true" />}
               onClick={() =>
                 update({
                   date: addDaysIso(
@@ -231,6 +232,7 @@ export function ManagerSchedule({
               }
             >
               {values.view === "day" ? t.calendar.next : t.mSchedule.nextWeek}
+              <ChevronRight size={16} aria-hidden="true" />
             </Button>
           </div>
         </div>

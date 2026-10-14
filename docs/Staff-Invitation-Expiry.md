@@ -4,7 +4,7 @@
 Tài khoản Member và tài khoản seed/hệ thống không thuộc phạm vi này.
 
 - Hạn kích hoạt là `UserAccount.CreatedAt + 168 giờ`, tính theo UTC. Gửi lại link hoặc sửa email không đổi mốc này.
-- Một link kích hoạt vẫn có hạn 24 giờ và chỉ dùng một lần. Link mới thay thế link cũ, nhưng không kéo dài hạn của tài khoản.
+- Link staff dùng một lần và hết hạn đúng `UserAccount.CreatedAt + 168 giờ`. Link mới thay thế link cũ, nhưng không kéo dài hạn của tài khoản. Quyết định xác nhận 14/10/2026 thay thế hạn link staff 24 giờ trước đây; link Member vẫn giữ 24 giờ.
 - `StaffInvitationExpiryJob` chạy mỗi phút khi API đang chạy. API khởi động lại sẽ xử lý các tài khoản đã quá hạn ở lượt quét tiếp theo.
 - Job kiểm tra role không phải Member, chưa có mật khẩu, chưa liên kết Google và có audit `CREATE_STAFF_ACCOUNT` đúng UserId. Audit này là bằng chứng nguồn tạo, nên không cần thêm cột hay migration.
 - Job khóa dòng tài khoản rồi kiểm tra lại trước khi xóa. Kích hoạt, gửi lại link và sửa email sử dụng cùng khóa; tài khoản vừa kích hoạt sẽ không bị xóa.
@@ -12,7 +12,7 @@ Tài khoản Member và tài khoản seed/hệ thống không thuộc phạm vi 
 
 Trong một transaction, hệ thống xóa OTP/link cũ, thông báo của tài khoản và email reset/kích hoạt theo địa chỉ email, chuyên môn Coach và tài khoản. Profile, credential và Coach profile được xóa theo quan hệ cascade có sẵn. Sau commit, email và số điện thoại được giải phóng; tạo lại tài khoản sẽ có UserId và token mới.
 
-Audit tạo tài khoản được giữ lại; job ghi thêm `EXPIRE_UNACTIVATED_STAFF_ACCOUNT`. Vì schema audit bắt buộc có UserId của người dùng thật, bản ghi giữ người mời ban đầu và ghi rõ `executedBy = StaffInvitationExpiryJob` trong NewValue để xác định đây là thao tác hệ thống.
+Audit tạo tài khoản được giữ lại; job ghi thêm `EXPIRE_UNACTIVATED_STAFF_ACCOUNT` với `ActorRole = SYSTEM`, chỉ Admin được xem. Vì schema audit bắt buộc có UserId của người dùng thật, bản ghi giữ người mời ban đầu và ghi rõ `executedBy = StaffInvitationExpiryJob` trong NewValue để xác định đây là thao tác hệ thống.
 
 Các khóa ngoại tới dữ liệu vận hành (lớp, lịch, giao dịch hoặc audit do chính tài khoản thực hiện) vẫn được bảo vệ. Nếu dữ liệu bất thường khiến database từ chối xóa, toàn bộ transaction rollback, job ghi lỗi và tiếp tục xử lý tài khoản khác; không xóa lịch/giao dịch để ép xóa tài khoản.
 

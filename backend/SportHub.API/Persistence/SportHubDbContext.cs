@@ -91,6 +91,46 @@ public class SportHubDbContext : DbContext, ISportHubDbContext
     public DbSet<SystemSetting> SystemSettings => Set<SystemSetting>();
     public DbSet<ReportExport> ReportExports => Set<ReportExport>();
 
+    // Direct audit insertions (fixtures/imports) also receive a fixed snapshot.
+    // The request writer supplies the authenticated role before any role mutation.
+    private List<AuditLog> AuditsNeedingRole() => ChangeTracker.Entries<AuditLog>()
+        .Where(e => e.State == EntityState.Added && string.IsNullOrWhiteSpace(e.Entity.ActorRole))
+        .Select(e => e.Entity).ToList();
+
+    private void SetAuditRoles(List<AuditLog> audits, Dictionary<Guid, string> roles)
+    {
+        foreach (var audit in audits)
+            audit.ActorRole = System.Text.Json.JsonNamingPolicy.SnakeCaseUpper.ConvertName(
+                roles.GetValueOrDefault(audit.UserId) ?? "UNKNOWN");
+    }
+
+    public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    {
+        var audits = AuditsNeedingRole();
+        if (audits.Count > 0)
+        {
+            var ids = audits.Select(a => a.UserId).Distinct().ToArray();
+            var roles = await UserAccounts.AsNoTracking().Where(u => ids.Contains(u.UserId))
+                .Select(u => new { u.UserId, Role = u.Role!.RoleName })
+                .ToDictionaryAsync(u => u.UserId, u => u.Role.ToString(), cancellationToken);
+            SetAuditRoles(audits, roles);
+        }
+        return await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+    }
+
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        var audits = AuditsNeedingRole();
+        if (audits.Count > 0)
+        {
+            var ids = audits.Select(a => a.UserId).Distinct().ToArray();
+            SetAuditRoles(audits, UserAccounts.AsNoTracking().Where(u => ids.Contains(u.UserId))
+                .Select(u => new { u.UserId, Role = u.Role!.RoleName })
+                .ToDictionary(u => u.UserId, u => u.Role.ToString()));
+        }
+        return base.SaveChanges(acceptAllChangesOnSuccess);
+    }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);

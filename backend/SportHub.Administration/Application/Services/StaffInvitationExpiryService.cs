@@ -74,6 +74,7 @@ public sealed class StaffInvitationExpiryService(ISportHubDbContext db, IClock c
         db.Set<AuditLog>().Add(new AuditLog
         {
             AuditId = Guid.NewGuid(), UserId = creation.UserId,
+            ActorRole = "SYSTEM",
             Action = ExpiryAction, TargetEntity = nameof(UserAccount), TargetId = userId.ToString(),
             Timestamp = now,
             OldValue = JsonSerializer.Serialize(new { email = user.Email, user.CreatedAt, user.RoleId }),

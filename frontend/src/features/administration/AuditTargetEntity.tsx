@@ -9,8 +9,15 @@ import {
   auditReferenceKinds,
 } from "./manager-audit-metadata";
 import styles from "./AuditTargetAccount.module.css";
+import { auditDisplayText } from "./audit-display";
 
-export function AuditTargetEntity({ row }: { row: AuditLogDto }) {
+export function AuditTargetEntity({
+  row,
+  linkToManager = true,
+}: {
+  row: AuditLogDto;
+  linkToManager?: boolean;
+}) {
   const { t } = useLanguage();
   const l = t.managerAudit;
   const recorded = recordedAuditTarget(row);
@@ -42,26 +49,26 @@ export function AuditTargetEntity({ row }: { row: AuditLogDto }) {
   // Only link targets the API resolved from existing records, and only to
   // supported Manager detail routes. A recorded historical name alone is not proof.
   const numericId = /^[1-9]\d*$/.test(row.targetId);
-  const href = row.currentTargetLabel
-    ? row.targetEntity === "Class" && numericId
-      ? `/manager/classes/${row.targetId}`
-      : row.targetEntity === "Room" && numericId
-        ? `/manager/facilities/${row.targetId}`
-        : row.targetEntity === "ClassSession" &&
-            /^[1-9]\d*$/.test(String(snapshot.classId))
-          ? `/manager/classes/${snapshot.classId}?tab=sessions`
-          : undefined
-    : undefined;
+  const href =
+    linkToManager && row.currentTargetLabel
+      ? row.targetEntity === "Class" && numericId
+        ? `/manager/classes/${row.targetId}`
+        : row.targetEntity === "Room" && numericId
+          ? `/manager/facilities/${row.targetId}`
+          : row.targetEntity === "ClassSession" &&
+              /^[1-9]\d*$/.test(String(snapshot.classId))
+            ? `/manager/classes/${snapshot.classId}?tab=sessions`
+            : undefined
+      : undefined;
   const title = (
     <>
-      {label}
-      {display ? ` · ${display}` : ""}
+      {auditDisplayText(label)}
+      {display ? ` · ${auditDisplayText(display)}` : ""}
     </>
   );
   return (
     <div className={styles.root}>
       <strong>{href ? <Link href={href}>{title}</Link> : title}</strong>
-      <span className="small muted">ID: {row.targetId}</span>
       {name && !recorded && (
         <span className="small muted">{l.currentName}</span>
       )}

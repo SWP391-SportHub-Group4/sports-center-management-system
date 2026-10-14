@@ -31,13 +31,14 @@ export function SiteFooter() {
     return () => controller.abort();
   }, []);
   const cinematic = ["/", "/login", "/register"].includes(pathname);
+  const manager = pathname === "/manager" || pathname.startsWith("/manager/");
 
   if (pathname === "/login" || pathname === "/register") return null;
 
   return (
     <footer
       id="contact"
-      className={`${styles.footer} ${cinematic ? styles.cinema : ""}`}
+      className={`${styles.footer} ${cinematic ? styles.cinema : ""} ${manager ? styles.flush : ""}`}
       style={{ scrollMarginTop: 96 }}
       aria-label={en ? "Footer" : "Chân trang"}
     >

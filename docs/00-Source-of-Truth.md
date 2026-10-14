@@ -4,6 +4,8 @@ SportHub là **hệ thống quản lý trung tâm thể thao với ba môn Gym, 
 
 ## 1. Thứ tự nguồn và cách giải quyết mâu thuẫn
 
+**Quyết định đã xác nhận 14/10/2026:** [Kích hoạt staff và quyền Audit log](Admin-Activation-and-Audit.md) thay thế mô tả cũ về hạn link staff và phạm vi xem audit. Link staff hết hạn đúng `CreatedAt + 168 giờ`; gửi lại hoặc sửa email không đổi mốc này. Admin xem mọi log do Manager/Admin/Coach thực hiện và log hệ thống; Manager xem mọi log do Manager/Receptionist/Coach/Member thực hiện. Phạm vi dựa trên role được ghi tại thời điểm thao tác, không dựa role hiện tại của tài khoản.
+
 1. Yêu cầu trực tiếp đã xác nhận của chủ sản phẩm, bao gồm phạm vi ba môn (Gym, cầu lông, bóng rổ) và vé Gym 1 ngày.
 2. [Business Rules](SportManagement_BusinessRules_v2.0_updated.docx): quy tắc nghiệp vụ cụ thể.
 3. [Thiết kế hệ thống](Center-Management-System-Design-v3.md): kiến trúc, dữ liệu, transaction, luồng và khoảng trống triển khai.
@@ -37,7 +39,7 @@ Phần mở rộng: [Coach yêu cầu thay đổi buổi học nhóm](Class-Sess
 
 ## 3. Vai trò và luồng
 
-Năm role: SystemAdministrator, CenterManager, Receptionist, Coach, Member. Requirement gốc chỉ có bốn role (Manager, Coach, Member, Receptionist); SystemAdministrator là role bổ sung, chia việc với Manager: Admin nhận quản lý tài khoản staff, phân quyền (đổi role) và Audit Log thao tác tài khoản; Manager giữ vận hành trung tâm và Audit Log đầy đủ, nên Manager không còn giống 100% requirement gốc, xem bảng đối chiếu trong [Requirements](Requirements.md) §2. Guest là người chưa đăng nhập (xem được landing page và nội dung công khai), không phải role lưu trong database. Mọi Member đều có chức năng thuê sân (BR-140). Một Coach có thể có nhiều chuyên môn; quyền truy cập dựa cả role và quan hệ được phân công.
+Năm role: SystemAdministrator, CenterManager, Receptionist, Coach, Member. Requirement gốc chỉ có bốn role (Manager, Coach, Member, Receptionist); SystemAdministrator là role bổ sung, chia việc với Manager: Admin nhận quản lý tài khoản staff, phân quyền (đổi role) và đọc log do Manager/Admin/Coach thực hiện cùng log hệ thống; Manager giữ vận hành trung tâm và đọc log do Manager/Receptionist/Coach/Member thực hiện, nên Manager không còn giống 100% requirement gốc, xem bảng đối chiếu trong [Requirements](Requirements.md) §2. Guest là người chưa đăng nhập (xem được landing page và nội dung công khai), không phải role lưu trong database. Mọi Member đều có chức năng thuê sân (BR-140). Một Coach có thể có nhiều chuyên môn; quyền truy cập dựa cả role và quan hệ được phân công.
 
 | Luồng | Phạm vi |
 |---|---|

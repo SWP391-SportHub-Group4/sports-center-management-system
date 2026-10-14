@@ -1,18 +1,23 @@
 using Microsoft.Extensions.Configuration;
 using SportHub.Identity.Application.Services;
 using SportHub.Identity.Domain.Enums;
+using SportHub.BuildingBlocks.SharedKernel.Time;
+using SportHub.BuildingBlocks.SharedKernel.Errors;
 
 namespace SportHub.Administration.Application.Services;
 
 /// <summary>
-/// Phát hành link kích hoạt (24 giờ, dùng một lần) cho tài khoản do người khác tạo hộ: staff do Admin tạo, Member do Receptionist
+/// Phát hành link kích hoạt dùng một lần: staff hết hạn ở mốc CreatedAt + 7 ngày, Member 24 giờ. Staff do Admin tạo, Member do Receptionist
 /// đăng ký tại quầy. Mỗi lần phát hành vô hiệu link cũ của cùng email; trả false nếu còn trong thời gian chờ gửi lại (60 giây).
 /// Caller giữ transaction: <see cref="EmailOtpFlow"/> lưu cùng lúc mọi thay đổi đang chờ.
 /// </summary>
-public sealed class ActivationLinkService(EmailOtpFlow otpFlow, IConfiguration configuration)
+public sealed class ActivationLinkService(EmailOtpFlow otpFlow, IConfiguration configuration, IClock clock)
 {
-    public async Task<bool> IssueAsync(string email, string fullName, bool member, CancellationToken ct)
+    public async Task<bool> IssueAsync(string email, string fullName, bool member, CancellationToken ct,
+        DateTime? expiresAtUtc = null)
     {
+        if (!member && expiresAtUtc <= clock.UtcNow)
+            throw new ConflictException("staff_invitation_expired", "The staff activation invitation has expired.");
         var frontendBaseUrl = configuration["Frontend:BaseUrl"];
         if (string.IsNullOrWhiteSpace(frontendBaseUrl))
             frontendBaseUrl = configuration.GetSection("Cors:AllowedOrigins").GetChildren()
@@ -24,11 +29,12 @@ public sealed class ActivationLinkService(EmailOtpFlow otpFlow, IConfiguration c
         var token = await otpFlow.IssueAsync(email, EmailOtpPurpose.ResetPassword, ct,
             resetLink: value => $"{frontendBaseUrl}/reset-password?email={Uri.EscapeDataString(email)}&token={Uri.EscapeDataString(value)}&setup={setup}",
             supportUrl: support,
-            lifetime: TimeSpan.FromHours(24),
+            lifetime: member ? TimeSpan.FromHours(24) : TimeSpan.FromDays(7),
+            expiresAtUtc: member ? null : expiresAtUtc,
             resetEmailSubject: member ? MemberActivationEmail.Subject : StaffActivationEmail.Subject,
             renderResetEmail: (url, minutes) => member
                 ? MemberActivationEmail.Render(fullName, url, minutes, support)
-                : StaffActivationEmail.Render(fullName, url, minutes, support));
+                : StaffActivationEmail.Render(fullName, url, minutes, support, expiresAtUtc));
         return token is not null;
     }
 }

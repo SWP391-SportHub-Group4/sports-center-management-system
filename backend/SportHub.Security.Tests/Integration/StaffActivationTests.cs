@@ -70,7 +70,7 @@ public sealed class StaffActivationTests(SportHubApiFactory factory)
             var otp = await db.EmailOtps.SingleAsync(x => x.Email == email && x.Purpose == EmailOtpPurpose.ResetPassword);
             Assert.Equal(OtpCodes.Hash(token), otp.CodeHash);
             Assert.Null(otp.ConsumedAt);
-            Assert.InRange((otp.ExpiresAt - otp.CreatedAt).TotalHours, 23.99, 24.01);
+            Assert.Equal(user.CreatedAt.AddDays(7), otp.ExpiresAt);
 
             var outbox = await db.Notifications.SingleAsync(x => x.RecipientAddress == email
                 && x.SourceEventType == NotificationSourceEventType.PasswordResetOtpRequested);

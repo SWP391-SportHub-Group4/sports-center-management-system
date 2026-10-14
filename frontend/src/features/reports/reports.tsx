@@ -395,9 +395,6 @@ export function ManagementShortcuts() {
         <Link className="btn btn--secondary" href="/manager/reports">
           {l.reports}
         </Link>
-        <Link className="btn btn--secondary" href="/manager/audit-log">
-          {l.audit}
-        </Link>
         <Link className="btn btn--secondary" href="/manager/incidents">
           {t.operations.incidents}
         </Link>

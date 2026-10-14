@@ -47,6 +47,11 @@ public class AuditTargetAccountTests(SportHubApiFactory factory)
         var result = await client.GetFromJsonAsync<PagedResult<AuditLogResponse>>($"api/audit-logs?action={action}");
         var row = Assert.Single(result!.Items);
         Assert.Equal(actor.Email, row.ActorEmail);
+        Assert.Equal("Admin thực hiện", row.ActorFullName);
+        var named = await client.GetFromJsonAsync<PagedResult<AuditLogResponse>>($"api/audit-logs?action={action}&actor=Admin");
+        Assert.Single(named!.Items);
+        var absent = await client.GetFromJsonAsync<PagedResult<AuditLogResponse>>($"api/audit-logs?action={action}&actor=unmatched-name");
+        Assert.Empty(absent!.Items);
         Assert.Equal(target.Email, row.TargetEmail);
         Assert.Equal("Nguyễn Văn Đích", row.TargetFullName);
         Assert.True(row.TargetAccountExists);
@@ -90,7 +95,7 @@ public class AuditTargetAccountTests(SportHubApiFactory factory)
         }
         using var admin = await ClientAsync(UserRole.SystemAdministrator);
         var first = (await admin.GetFromJsonAsync<PagedResult<AuditLogResponse>>($"api/audit-logs?action={action}&sortDirection=asc&pageSize=2"))!;
-        Assert.Equal(3, first.TotalCount);
+        Assert.Equal(4, first.TotalCount);
         Assert.Equal(2, first.Items.Count);
         Assert.True(first.Items[0].TargetAccountExists);
         Assert.Equal(missingId, first.Items[1].TargetId);
@@ -98,18 +103,19 @@ public class AuditTargetAccountTests(SportHubApiFactory factory)
         Assert.Null(first.Items[1].TargetFullName);
         Assert.Null(first.Items[1].TargetEmail);
         var second = (await admin.GetFromJsonAsync<PagedResult<AuditLogResponse>>($"api/audit-logs?action={action}&sortDirection=asc&pageSize=2&page=2"))!;
-        var invalid = Assert.Single(second.Items);
+        var invalid = Assert.Single(second.Items, row => row.TargetId == "invalid-id");
         Assert.Equal("invalid-id", invalid.TargetId);
         Assert.False(invalid.TargetAccountExists);
-        Assert.Equal(3, second.TotalCount);
-
-        using var manager = await ClientAsync(UserRole.CenterManager);
-        var mixed = (await manager.GetFromJsonAsync<PagedResult<AuditLogResponse>>($"api/audit-logs?action={action}&sortDirection=asc"))!;
-        Assert.Equal(4, mixed.TotalCount);
-        var room = Assert.Single(mixed.Items, row => row.TargetEntity == "Room");
+        Assert.Equal(4, second.TotalCount);
+        var room = Assert.Single(second.Items, row => row.TargetEntity == "Room");
         Assert.Null(room.TargetAccountExists);
         Assert.Null(room.TargetFullName);
         Assert.Null(room.TargetEmail);
+
+        using var manager = await ClientAsync(UserRole.CenterManager);
+        var mixed = (await manager.GetFromJsonAsync<PagedResult<AuditLogResponse>>($"api/audit-logs?action={action}&sortDirection=asc"))!;
+        Assert.Empty(mixed.Items);
+        Assert.Equal(0, mixed.TotalCount);
     }
 
     [Theory]

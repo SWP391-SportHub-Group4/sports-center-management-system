@@ -415,6 +415,8 @@ export interface UserAdminDto {
   sportIds: number[];
   /** Staff account that has not set a password yet (waiting for the activation email). */
   activationPending?: boolean;
+  activationExpiresAtUtc?: string | null;
+  activationResendAvailableAtUtc?: string | null;
 }
 
 export type MyAccountDto = UserAdminDto & { avatarUrl?: string | null };
@@ -534,6 +536,9 @@ export interface AuditLogDto {
   auditId: string;
   userId: string;
   actorEmail: string;
+  /** Current actor name, resolved from their profile. */
+  actorFullName?: string | null;
+  actorRole?: string | null;
   action: string;
   targetEntity: string;
   targetId: string;
