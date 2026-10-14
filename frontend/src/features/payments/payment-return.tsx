@@ -15,6 +15,7 @@ export function PaymentReturn({
   const { user, loading } = useAuth();
   const [id, setId] = useState<string | null>(invoiceId ?? null);
   const [error, setError] = useState("");
+  const [verificationRevision, setVerificationRevision] = useState(0);
   const [next, setNext] = useState("/payments/return");
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
@@ -38,8 +39,25 @@ export function PaymentReturn({
           signal: controller.signal,
           query: { reference },
         })
-        .then((c) => {
-          if (!controller.signal.aborted) setId(c.invoiceId);
+        .then(async (c) => {
+          if (controller.signal.aborted) return;
+          setId(c.invoiceId);
+          // The return URL only identifies the attempt. Ask the backend to query VNPay
+          // directly; the signed gateway response, not these browser parameters, decides payment.
+          try {
+            await api.post<CheckoutDto>(
+              "/api/checkouts/verify-reference",
+              { reference },
+              { signal: controller.signal },
+            );
+            if (!controller.signal.aborted)
+              setVerificationRevision((revision) => revision + 1);
+          } catch {
+            if (!controller.signal.aborted)
+              setError(
+                "Payment verification is still pending. Refresh this page shortly before starting another checkout.",
+              );
+          }
         })
         .catch((e) => {
           if (!controller.signal.aborted) setError(e.message);
@@ -57,7 +75,10 @@ export function PaymentReturn({
           {t.refactor.login}
         </Link>
       ) : id ? (
-        <CheckoutPanel key={`${user.userId}-${id}`} invoiceId={id} />
+        <CheckoutPanel
+          key={`${user.userId}-${id}-${verificationRevision}`}
+          invoiceId={id}
+        />
       ) : (
         <p>{t.refactor.uncertain}</p>
       )}

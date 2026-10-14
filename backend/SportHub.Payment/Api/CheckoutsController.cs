@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.EntityFrameworkCore;
+using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.Api;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.Payment.Application.Commands;
@@ -11,7 +13,8 @@ using SportHub.Payment.Application.Services;
 namespace SportHub.Payment.Api;
 
 [ApiController, Authorize, Route("api/checkouts")]
-public sealed class CheckoutsController(CheckoutService checkouts, IPackagePurchaseService packages) : ControllerBase
+public sealed class CheckoutsController(CheckoutService checkouts, IPackagePurchaseService packages,
+    PaymentReconciliationService reconciliation, ISportHubDbContext db) : ControllerBase
 {
     [HttpPost("membership")]
     [EnableRateLimiting("checkout-write")]
@@ -70,6 +73,23 @@ public sealed class CheckoutsController(CheckoutService checkouts, IPackagePurch
     {
         RequireBuyer();
         return Ok(await checkouts.FindByReferenceAsync(reference, User.RequireUserId(), ct));
+    }
+
+    [HttpPost("verify-reference")]
+    [EnableRateLimiting("checkout-write")]
+    public async Task<IActionResult> VerifyReference([FromBody] VerifyPaymentReferenceRequest request,
+        CancellationToken ct)
+    {
+        RequireBuyer();
+        var actorId = User.RequireUserId();
+        // Ownership is checked before calling VNPay. The browser's return parameters are never
+        // accepted as proof of payment; only a signed QueryDR response can change the invoice.
+        var checkout = await checkouts.FindByReferenceAsync(request.Reference, actorId, ct);
+        var attempt = await db.Set<PaymentAttempt>().AsNoTracking()
+            .SingleAsync(x => x.VnpTxnRef == request.Reference && x.InvoiceId == checkout.InvoiceId, ct);
+        if (attempt.Status == PaymentAttemptStatus.Pending)
+            await reconciliation.ReconcileAttemptAsync(attempt.PaymentAttemptId, ct);
+        return Ok(await checkouts.GetAsync(checkout.InvoiceId, actorId, IsStaff(), ct));
     }
 
     [HttpGet("by-key")]
@@ -144,3 +164,5 @@ public sealed class CheckoutsController(CheckoutService checkouts, IPackagePurch
 
 public sealed record CourtRentalCheckoutRequest(int SportId, int RoomId,
     DateTimeOffset StartUtc, DateTimeOffset EndUtc);
+
+public sealed record VerifyPaymentReferenceRequest(string Reference);

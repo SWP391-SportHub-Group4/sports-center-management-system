@@ -3,11 +3,13 @@ using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text.Json;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Logging;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
 
 namespace SportHub.Payment.VnPay;
 
-public sealed class VnPayGateway(IOptions<VnPayOptions> options, HttpClient http) : IPaymentGateway
+public sealed class VnPayGateway(IOptions<VnPayOptions> options, HttpClient http,
+    ILogger<VnPayGateway>? logger = null) : IPaymentGateway
 {
     private static readonly TimeZoneInfo Vietnam = TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time");
     private readonly VnPayOptions _options = options.Value;
@@ -78,6 +80,11 @@ public sealed class VnPayGateway(IOptions<VnPayOptions> options, HttpClient http
             cancellationToken: ct);
         var values = json.RootElement.EnumerateObject().ToDictionary(x => x.Name,
             x => x.Value.ToString(), StringComparer.Ordinal);
+        // Log only diagnostic codes; never log the signed request/response or merchant secrets.
+        logger?.LogInformation(
+            "VNPay QueryDR response for attempt {AttemptId}: HTTP {HttpStatus}, code {ResponseCode}, transaction status {TransactionStatus}, type {TransactionType}",
+            attempt.PaymentAttemptId, (int)response.StatusCode, Get(values, "vnp_ResponseCode"),
+            Get(values, "vnp_TransactionStatus"), Get(values, "vnp_TransactionType"));
         var responseOrder = new[] { "vnp_ResponseId", "vnp_Command", "vnp_ResponseCode", "vnp_Message",
             "vnp_TmnCode", "vnp_TxnRef", "vnp_Amount", "vnp_BankCode", "vnp_PayDate",
             "vnp_TransactionNo", "vnp_TransactionType", "vnp_TransactionStatus",
@@ -92,7 +99,12 @@ public sealed class VnPayGateway(IOptions<VnPayOptions> options, HttpClient http
             || Get(values, "vnp_TxnRef") != attempt.VnpTxnRef
             || Get(values, "vnp_Command") != "querydr")
             throw new BadRequestException("vnp_query_invalid", "Vnp query invalid.");
-        if (Get(values, "vnp_ResponseCode") != "00" || Get(values, "vnp_TransactionType") != "01") return null;
+        if (Get(values, "vnp_ResponseCode") != "00" || Get(values, "vnp_TransactionType") != "01")
+        {
+            logger?.LogWarning("VNPay QueryDR did not verify attempt {AttemptId}: code {ResponseCode}, type {TransactionType}",
+                attempt.PaymentAttemptId, Get(values, "vnp_ResponseCode"), Get(values, "vnp_TransactionType"));
+            return null;
+        }
         if (!long.TryParse(Get(values, "vnp_Amount"), NumberStyles.None,
                 CultureInfo.InvariantCulture, out var minor)
             || minor <= 0 || minor % 100 != 0)
@@ -101,7 +113,12 @@ public sealed class VnPayGateway(IOptions<VnPayOptions> options, HttpClient http
         var date = Get(values, "vnp_PayDate");
         if (string.IsNullOrWhiteSpace(transactionId)
             || !DateTime.TryParseExact(date, "yyyyMMddHHmmss", CultureInfo.InvariantCulture,
-                DateTimeStyles.None, out var local)) return null;
+                DateTimeStyles.None, out var local))
+        {
+            logger?.LogWarning("VNPay QueryDR has no usable transaction ID or payment date for attempt {AttemptId}",
+                attempt.PaymentAttemptId);
+            return null;
+        }
         var paidAtUtc = TimeZoneInfo.ConvertTimeToUtc(DateTime.SpecifyKind(local, DateTimeKind.Unspecified), Vietnam);
         var status = Get(values, "vnp_TransactionStatus");
         return new VerifiedPaymentResult(attempt.VnpTxnRef, transactionId, minor / 100m,
