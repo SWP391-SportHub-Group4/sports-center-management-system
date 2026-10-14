@@ -87,8 +87,14 @@ public sealed class CheckoutsController(CheckoutService checkouts, IPackagePurch
         var checkout = await checkouts.FindByReferenceAsync(request.Reference, actorId, ct);
         var attempt = await db.Set<PaymentAttempt>().AsNoTracking()
             .SingleAsync(x => x.VnpTxnRef == request.Reference && x.InvoiceId == checkout.InvoiceId, ct);
-        if (attempt.Status == PaymentAttemptStatus.Pending)
-            await reconciliation.ReconcileAttemptAsync(attempt.PaymentAttemptId, ct);
+        // Expiry releases the resource hold; it does not prove that VNPay did not collect money.
+        // Query the expired attempt too so the existing late-payment pipeline can resolve it.
+        if (attempt.Status is PaymentAttemptStatus.Pending or PaymentAttemptStatus.Expired)
+        {
+            if (!await reconciliation.ReconcileAttemptAsync(attempt.PaymentAttemptId, ct))
+                throw new ConflictException("payment_verification_pending",
+                    "VNPay has not returned a verified payment result yet.");
+        }
         return Ok(await checkouts.GetAsync(checkout.InvoiceId, actorId, IsStaff(), ct));
     }
 
