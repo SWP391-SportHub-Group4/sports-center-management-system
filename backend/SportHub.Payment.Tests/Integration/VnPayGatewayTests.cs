@@ -169,6 +169,9 @@ public sealed class VnPayGatewayTests
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             Assert.Equal(HttpMethod.Post, request.Method);
+            Assert.Contains(request.Headers.UserAgent, x => x.Product?.Name == "SportHub"
+                && x.Product.Version == "1.0");
+            Assert.Contains(request.Headers.Accept, x => x.MediaType == "application/json");
             Assert.Equal("application/json", request.Content!.Headers.ContentType!.MediaType);
             var fields = (await request.Content.ReadFromJsonAsync<Dictionary<string, string>>(cancellationToken))!;
             Assert.Equal("20260930080000", fields["vnp_TransactionDate"]);
