@@ -200,8 +200,8 @@ test("legacy profile link opens the editable fitness profile", async ({
   await page.route("**/api/members/me/training-profile", (route) =>
     route.fulfill({ json: null }),
   );
-  await page.goto("/member/profile");
-  await expect(page).toHaveURL(/\/member\/training\?tab=profile$/);
+  await page.goto("/member/training?tab=profile");
+  await expect(page).toHaveURL(/\/member\/profile$/);
   await expect(
     page.getByRole("heading", { name: "Fitness profile" }),
   ).toBeVisible();
@@ -311,10 +311,10 @@ for (const width of [320, 768, 1024, 1280, 1360, 1440])
           page.getByRole("heading", { name: "Fitness profile" }),
         ).toBeVisible();
       }
-      if (width >= 1360) {
+      if (width >= 960) {
         const nav = page.getByRole("navigation", { name: "Member Navigation" });
         await expect(nav).toBeVisible();
-        await expect(nav.getByRole("link")).toHaveCount(5);
+        await expect(nav.getByRole("link")).toHaveText(["Overview", "Services", "My schedule"]);
       } else {
         await expect(
           page.getByRole("button", { name: "Open navigation menu" }),
@@ -360,7 +360,7 @@ test("the member header stays mounted and pinned while moving between tabs", asy
   await page.evaluate(() => {
     (document.querySelector("header") as HTMLElement).dataset.mounted = "yes";
   });
-  for (const name of ["My schedule", "Services", "Billing", "Overview"]) {
+  for (const name of ["My schedule", "Services", "Overview"]) {
     await nav.getByRole("link", { name, exact: true }).click();
     await expect(nav.getByRole("link", { name, exact: true })).toHaveAttribute(
       "aria-current",
@@ -368,10 +368,20 @@ test("the member header stays mounted and pinned while moving between tabs", asy
     );
     await expect(page.locator("header[data-mounted='yes']")).toHaveCount(1);
   }
+  await page.getByTestId("user-profile-button").click();
+  const billing = page.getByRole("link", { name: "Billing", exact: true });
+  await expect(billing).toBeVisible();
+  await billing.click();
+  await expect(page).toHaveURL(/\/member\/finance$/);
+  await expect(page.locator("header[data-mounted='yes']")).toHaveCount(1);
+  await expect(nav.getByRole("link", { name: "Billing", exact: true })).toHaveCount(0);
+  await page.getByTestId("user-profile-button").click();
+  await expect(page.getByRole("link", { name: "Billing", exact: true })).toHaveAttribute("aria-current", "page");
+  await page.keyboard.press("Escape");
   await page.mouse.wheel(0, 2000);
   await page.waitForTimeout(300);
   const top = await page
-    .locator("header")
+    .getByRole("banner")
     .evaluate((el) => el.getBoundingClientRect().top);
   expect(top).toBe(0);
 });
