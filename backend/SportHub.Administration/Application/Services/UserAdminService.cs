@@ -6,6 +6,7 @@ using SportHub.Administration.Application.DTOs;
 using SportHub.Administration.Application.Interfaces;
 using SportHub.BuildingBlocks.Abstractions.Audit;
 using SportHub.BuildingBlocks.Abstractions.Identity;
+using SportHub.BuildingBlocks.Abstractions.Notifications;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.BuildingBlocks.SharedKernel.Pagination;
@@ -34,6 +35,7 @@ public sealed class UserAdminService(
     EmailOtpFlow otpFlow,
     CoachSpecialtyService specialties,
     IAuditWriter audit,
+    INotificationWriter notifications,
     IClock clock,
     ActivationLinkService activationLinks,
     IStaffInvitationExpiryReader invitationExpiry) : IUserAdminService
@@ -418,6 +420,7 @@ public sealed class UserAdminService(
 
         var user = await db.Set<UserAccount>()
             .Include(u => u.Role)
+            .Include(u => u.Profile)
             .SingleOrDefaultAsync(u => u.UserId == userId, ct)
             ?? throw new NotFoundException("user_not_found", "User not found.");
 
@@ -434,6 +437,35 @@ public sealed class UserAdminService(
 
         var previous = user.Status;
         user.Status = target;
+        // A restored account must not revive a token issued before the lock.
+        user.SecurityStamp = Guid.NewGuid();
+
+        if (target != UserStatus.Active && user.Role!.RoleName == UserRole.Coach)
+        {
+            var classCount = await db.Set<Class>().CountAsync(x => x.CoachId == userId
+                && x.Status != ClassStatus.Completed && x.Status != ClassStatus.Cancelled, ct);
+            var futureSessions = await db.Set<ClassSession>().CountAsync(x => x.CoachId == userId
+                && x.Status == ClassSessionStatus.Scheduled && x.StartAtUtc > clock.UtcNow, ct);
+            var relationshipCount = await db.Set<CoachMemberRelationship>().CountAsync(x => x.CoachId == userId
+                && x.Status == RelationshipStatus.Active, ct);
+            if (classCount > 0 || futureSessions > 0 || relationshipCount > 0)
+            {
+                var managers = await db.Set<UserAccount>().AsNoTracking()
+                    .Where(x => x.Status == UserStatus.Active && x.Role!.RoleName == UserRole.CenterManager)
+                    .Select(x => new { x.UserId, x.Email }).ToListAsync(ct);
+                var message = $"Coach {user.Profile?.FullName ?? user.Email} was locked. {classCount} unfinished classes, "
+                    + $"{futureSessions} future sessions and {relationshipCount} active coaching relationships need review. "
+                    + "Assign an eligible replacement or reschedule the affected sessions. Open /manager/coach-coverage.";
+                foreach (var manager in managers)
+                {
+                    notifications.Queue(new NotificationRequest(manager.UserId, NotificationEvents.CoachCoverageRequired,
+                        message, userId));
+                    notifications.QueueEmail(new EmailNotificationRequest(manager.UserId, manager.Email,
+                        NotificationEvents.CoachCoverageRequired, userId, "SportHub - Coach coverage required",
+                        "<p>" + System.Net.WebUtility.HtmlEncode(message) + "</p>"));
+                }
+            }
+        }
 
         audit.Write(new AuditEntry(
             actorUserId,

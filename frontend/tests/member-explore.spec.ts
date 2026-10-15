@@ -345,23 +345,20 @@ test("Khóa học của tôi: buổi kế tiếp, nhắc chọn phương án khi
   await page.goto("/member/courses?tab=all");
 
   const going = page.locator("article").filter({ hasText: "Bóng rổ 01" });
-  await expect(going).toContainText("Buổi kế tiếp");
+  await expect(going).toContainText("Next");
   await expect(
-    going.getByRole("link", { name: "Xem khóa Bóng rổ tiếp theo" }),
-  ).toHaveAttribute("href", "/member/discover?sport=4");
+    going.getByRole("link", { name: "Renew" }),
+  ).toHaveAttribute("href", "/member/services?view=explore&type=class&sport=4");
 
   const short = page.locator("article").filter({ hasText: "Cầu lông 01" });
-  await expect(short.getByRole("status")).toContainText(
-    "Lớp chưa đủ học viên để mở",
-  );
+  await expect(short).toContainText("keep your place, transfer, or take a points refund");
   await expect(
-    short.getByRole("link", { name: "Chọn phương án" }),
-  ).toHaveAttribute("href", "/member/threshold-responses/th1");
-  await expect(going.getByRole("status")).toHaveCount(0);
+    short.getByRole("link", { name: /Class is under minimum/ }),
+  ).toHaveAttribute("href", "/member/services?view=owned&responseId=th1");
+  await expect(going.getByRole("link", { name: /Class is under minimum/ })).toHaveCount(0);
 
   const moved = page.locator("article").filter({ hasText: "Cầu lông cơ bản" });
-  await expect(moved).toContainText("Đã chuyển lớp");
-  await expect(moved).not.toContainText("Buổi kế tiếp");
+  await expect(moved).toHaveCount(0);
 });
 
 test("Khám phá: mở từ liên kết gia hạn thì đã lọc sẵn theo môn", async ({

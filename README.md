@@ -184,10 +184,12 @@ Backend đọc cấu hình qua biến môi trường (`__` = cấp lồng nhau, 
 
 ```bash
 cp .env.example .env          # lần đầu — xem giá trị mẫu trong .env.example
-docker compose up -d
+docker compose up -d --build
 ```
 
 Chạy xong sẽ có 3 container: `sporthub-postgres`, `sporthub-backend`, `sporthub-frontend`. Kiểm tra bằng `docker ps` hoặc Docker Desktop.
+
+Frontend Docker chạy bản build đóng trong image; sửa mã nguồn xong cần build và tạo lại container. Dừng `npm run dev` đang dùng cổng 3000, rồi từ thư mục gốc chạy `bash scripts/start-docker-frontend.sh` trong Git Bash hoặc `.\scripts\start-docker-frontend.ps1` trong PowerShell. Nếu sửa cả backend, chạy `docker compose up -d --build`. Khởi động lại container mà không build sẽ tiếp tục hiện giao diện cũ.
 
 | Thành phần | Link |
 |---|---|

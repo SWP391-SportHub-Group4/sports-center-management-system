@@ -7,6 +7,8 @@ using SportHub.BuildingBlocks.Abstractions.Notifications;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.BuildingBlocks.SharedKernel.Time;
+using SportHub.Identity.Domain.Entities;
+using SportHub.Identity.Domain.Enums;
 using SportHub.Scheduling.Domain.Entities;
 using SportHub.Scheduling.Domain.Enums;
 using SportHub.Scheduling.Domain.Rules;
@@ -19,6 +21,21 @@ public sealed class ClassThresholdService(ISportHubDbContext db, ISystemSettingP
     SportHub.BuildingBlocks.Abstractions.Identity.IUserAccessReader users,
     INotificationWriter notifications, IAuditWriter audit, IClock clock) : IClassThresholdService
 {
+    public async Task ConfirmIfMetAsync(int classId, CancellationToken cancellationToken = default)
+    {
+        // Called inside paid-enrollment fulfillment's transaction. Its class UPDATE already owns the row lock.
+        var entity = await db.Set<Class>().SingleAsync(x => x.ClassId == classId, cancellationToken);
+        if (entity.Status != ClassStatus.Published || entity.ThresholdStatus != ThresholdStatus.AtRisk
+            || entity.BreakEvenThreshold is not int minimum) return;
+        var count = await db.Set<Enrollment>().CountAsync(x => x.ClassId == classId
+            && x.Status == EnrollmentStatus.Confirmed, cancellationToken);
+        if (count < minimum) return;
+        entity.ThresholdStatus = ThresholdStatus.Met;
+        entity.Version++;
+        await NotifyConfirmedAsync(entity, cancellationToken);
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task WaiveAsync(int classId, Guid managerUserId, string reason, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(reason) || reason.Trim().Length is < 3 or > 500)
@@ -28,7 +45,8 @@ public sealed class ClassThresholdService(ISportHubDbContext db, ISystemSettingP
             $"SELECT class_id FROM classes WHERE class_id = {classId} FOR UPDATE", cancellationToken);
         var entity = await db.Set<Class>().SingleOrDefaultAsync(x => x.ClassId == classId, cancellationToken)
             ?? throw new NotFoundException("class_not_found", "Class not found.");
-        if (entity.Status != ClassStatus.Published || entity.ThresholdStatus == ThresholdStatus.WaivedByManager)
+        if (entity.Status != ClassStatus.Published
+            || entity.ThresholdStatus is ThresholdStatus.WaivedByManager or ThresholdStatus.Met)
             throw new ConflictException("class_threshold_not_waivable", "Class threshold not waivable.");
         var old = entity.ThresholdStatus;
         entity.ThresholdStatus = ThresholdStatus.WaivedByManager;
@@ -37,6 +55,7 @@ public sealed class ClassThresholdService(ISportHubDbContext db, ISystemSettingP
             OldValue: System.Text.Json.JsonSerializer.Serialize(new { thresholdStatus = old.ToString() }),
             NewValue: System.Text.Json.JsonSerializer.Serialize(new { thresholdStatus = ThresholdStatus.WaivedByManager.ToString() }),
             Reason: reason.Trim()));
+        await NotifyConfirmedAsync(entity, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
         await tx.CommitAsync(cancellationToken);
     }
@@ -106,17 +125,45 @@ public sealed class ClassThresholdService(ISportHubDbContext db, ISystemSettingP
                     entity.ThresholdStatus = ThresholdStatus.Met;
                     entity.Version++;
                     changed++;
+                    await NotifyConfirmedAsync(entity, cancellationToken);
                 }
             }
-            else if (entity.ThresholdStatus == ThresholdStatus.NotEvaluated)
+            else if (entity.ThresholdStatus == ThresholdStatus.NotEvaluated
+                || (entity.ThresholdStatus == ThresholdStatus.AtRisk && entity.ThresholdResponseDeadlineUtc is null))
             {
                 var responseHours = await settings.GetIntAsync(SystemSettingKeys.ClassThresholdResponseHours, cancellationToken);
                 if (responseHours is < 1 or > 336)
                     throw new ConflictException("class_threshold_response_setting_invalid", "Class threshold response setting invalid.");
+                var firstStart = await db.Set<ClassSession>().Where(x => x.ClassId == id && x.Status == ClassSessionStatus.Scheduled)
+                    .MinAsync(x => (DateTime?)x.StartAtUtc, cancellationToken);
+                // Give members the full response period from the moment they are notified.
+                // Publish schedules evaluation ten minutes early to absorb the five-minute job cadence.
+                var plannedResponseDeadline = clock.UtcNow.AddHours(responseHours);
+                var canOpenResponseWindow = firstStart is not null
+                    && firstStart.Value.AddHours(-24) >= plannedResponseDeadline
+                    && plannedResponseDeadline > clock.UtcNow;
+                if (!canOpenResponseWindow && entity.ThresholdStatus == ThresholdStatus.NotEvaluated)
+                {
+                    entity.ThresholdStatus = ThresholdStatus.AtRisk;
+                    entity.Version++;
+                    changed++;
+                    await NotifyStaffAsync(entity,
+                        $"Course {entity.Name} is below its enrollment threshold, and a full {responseHours}-hour response window cannot end 24 hours before the first session. Decide now whether to waive the threshold, cancel the course, or move its start date. Members have not been offered a shortened response window.",
+                        NotificationEvents.ClassThresholdAtRisk, cancellationToken);
+                }
+                if (!canOpenResponseWindow)
+                {
+                    await db.SaveChangesAsync(cancellationToken);
+                    await tx.CommitAsync(cancellationToken);
+                    continue;
+                }
                 entity.ThresholdStatus = ThresholdStatus.AtRisk;
-                entity.ThresholdResponseDeadlineUtc = clock.UtcNow.AddHours(responseHours);
+                entity.ThresholdResponseDeadlineUtc = plannedResponseDeadline;
                 entity.Version++;
                 changed++;
+                await NotifyStaffAsync(entity,
+                    $"Course {entity.Name} has {confirmed}/{entity.BreakEvenThreshold} confirmed enrollments. Review the class before {VietnamTime.ToLocal(entity.ThresholdResponseDeadlineUtc.Value):dd/MM/yyyy HH:mm} Vietnam time.",
+                    NotificationEvents.ClassThresholdAtRisk, cancellationToken);
             }
 
             if (entity.ThresholdStatus == ThresholdStatus.AtRisk && entity.ThresholdResponseDeadlineUtc is DateTime deadline
@@ -128,6 +175,56 @@ public sealed class ClassThresholdService(ISportHubDbContext db, ISystemSettingP
             await tx.CommitAsync(cancellationToken);
         }
         return changed;
+    }
+
+    private async Task NotifyConfirmedAsync(Class entity, CancellationToken ct)
+    {
+        var active = await db.Set<Enrollment>().AsNoTracking()
+            .Where(x => x.ClassId == entity.ClassId && x.Status == EnrollmentStatus.Confirmed)
+            .Select(x => x.MemberId).Distinct().ToListAsync(ct);
+        foreach (var memberId in active)
+        {
+            var recipient = await users.GetAsync(memberId, ct);
+            if (recipient is null) continue;
+            var message = $"Course {entity.Name} is confirmed to run. Your enrollment remains active. Check your class schedule for the first session.";
+            notifications.Queue(new NotificationRequest(memberId, NotificationEvents.ClassThresholdConfirmed, message));
+            notifications.QueueEmail(new EmailNotificationRequest(memberId, recipient.Email,
+                NotificationEvents.ClassThresholdConfirmed, Guid.NewGuid(), "SportHub - Course confirmed",
+                "<p>" + System.Net.WebUtility.HtmlEncode(message) + "</p>"));
+        }
+        if (entity.CoachId is Guid coachId)
+        {
+            var coach = await users.GetAsync(coachId, ct);
+            if (coach is not null)
+            {
+                var message = $"Course {entity.Name} is confirmed to run with {active.Count} enrolled members. Review your teaching schedule.";
+                notifications.Queue(new NotificationRequest(coachId, NotificationEvents.ClassThresholdConfirmed, message));
+                notifications.QueueEmail(new EmailNotificationRequest(coachId, coach.Email,
+                    NotificationEvents.ClassThresholdConfirmed, Guid.NewGuid(), "SportHub - Teaching schedule confirmed",
+                    "<p>" + System.Net.WebUtility.HtmlEncode(message) + "</p>"));
+            }
+        }
+        await NotifyStaffAsync(entity,
+            $"Course {entity.Name} has met its enrollment threshold and is confirmed to run.",
+            NotificationEvents.ClassThresholdConfirmed, ct, includeCoach: false);
+    }
+
+    private async Task NotifyStaffAsync(Class entity, string message, string eventType, CancellationToken ct,
+        bool includeCoach = true)
+    {
+        var managerIds = await db.Set<UserAccount>().AsNoTracking()
+            .Where(x => x.Status == UserStatus.Active && x.Role!.RoleName == UserRole.CenterManager)
+            .Select(x => x.UserId).ToListAsync(ct);
+        if (includeCoach && entity.CoachId is Guid coachId) managerIds.Add(coachId);
+        foreach (var userId in managerIds.Distinct())
+        {
+            var recipient = await users.GetAsync(userId, ct);
+            if (recipient is null || !recipient.IsActive) continue;
+            notifications.Queue(new NotificationRequest(userId, eventType, message));
+            notifications.QueueEmail(new EmailNotificationRequest(userId, recipient.Email, eventType,
+                Guid.NewGuid(), "SportHub - Course threshold update",
+                "<p>" + System.Net.WebUtility.HtmlEncode(message) + "</p>"));
+        }
     }
 
     private async Task QueueMissingResponsesAsync(Class entity, DateTime deadline, CancellationToken ct)
@@ -150,15 +247,15 @@ public sealed class ClassThresholdService(ISportHubDbContext db, ISystemSettingP
                 ResolutionStatus = ThresholdResolutionStatus.Pending, CreatedAtUtc = clock.UtcNow
             });
             notifications.Queue(new NotificationRequest(enrollment.MemberId, NotificationEvents.ClassThresholdAtRisk,
-                $"Course {entity.Name} has not met its enrollment threshold. Choose a points refund or transfer before "
-                + $"{VietnamTime.ToLocal(deadline):dd/MM/yyyy HH:mm}. Response link: /class-threshold-response?token={token}",
+                $"Course {entity.Name} has not met its enrollment threshold. Choose to keep your place, receive a points refund, or transfer before "
+                + $"{VietnamTime.ToLocal(deadline):dd/MM/yyyy HH:mm} Vietnam time. Response link: /class-threshold-response?token={token}",
                 responseId));
             var recipient = await users.GetAsync(enrollment.MemberId, ct);
             if (recipient is not null)
                 notifications.QueueEmail(new EmailNotificationRequest(enrollment.MemberId, recipient.Email,
                     NotificationEvents.ClassThresholdAtRisk, responseId, "SportHub - Course threshold not met",
                     "<p>Course " + System.Net.WebUtility.HtmlEncode(entity.Name)
-                    + $" has not met its threshold. Choose a points refund or transfer before {VietnamTime.ToLocal(deadline):dd/MM/yyyy HH:mm}."
+                    + $" has not met its threshold. Choose to keep your place, receive a points refund, or transfer before {VietnamTime.ToLocal(deadline):dd/MM/yyyy HH:mm} Vietnam time."
                     + " Open this link in SportHub: /class-threshold-response?token=" + token + "</p>"));
         }
     }

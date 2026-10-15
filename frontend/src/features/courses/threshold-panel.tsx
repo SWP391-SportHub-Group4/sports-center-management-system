@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import Link from "next/link";
 import { api } from "@/lib/apiClient";
 import { useNow } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
@@ -35,6 +36,17 @@ export function ThresholdPanel({
         {course.breakEvenThreshold ?? "—"} · {l.held}: {course.activeHoldCount}{" "}
         · {l.deadline}: {formatDateTime(course.thresholdDeadlineUtc)}
       </p>
+      {course.thresholdStatus === "AT_RISK" && course.thresholdResponseDeadlineUtc && (
+        <p>Member response deadline: {formatDateTime(course.thresholdResponseDeadlineUtc)}. If the class remains below threshold, decide whether to run it or cancel it before the first session.</p>
+      )}
+      {course.thresholdStatus === "AT_RISK" && !course.thresholdResponseDeadlineUtc && (
+        <div role="alert">
+          <p>There is not enough time for a full member response window. Decide now whether to run the class below threshold, cancel it, or move its first session. Members have not been asked to respond.</p>
+          <Link href={`/manager/classes/${course.classId}?tab=sessions`}>Move the first session</Link>
+          {" · "}
+          <Link href={`/manager/classes/${course.classId}?tab=overview#course-cancellation`}>Cancel the course</Link>
+        </div>
+      )}
       <form
         onSubmit={async (e) => {
           e.preventDefault();
@@ -108,7 +120,7 @@ export function ThresholdPanel({
                 mutation.busy ||
                 reason.trim().length < 3 ||
                 course.status !== "PUBLISHED" ||
-                course.thresholdStatus === "WAIVED_BY_MANAGER"
+                ["WAIVED_BY_MANAGER", "MET"].includes(course.thresholdStatus)
               }
               onClick={async () => {
                 if (

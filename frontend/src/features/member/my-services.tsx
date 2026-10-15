@@ -762,8 +762,8 @@ function ClassCard({
               href={`/member/services?view=owned&responseId=${pendingResponseId}`}
             >
               {tx(
-                "Lớp chưa đủ sĩ số — chọn chuyển lớp hoặc hoàn điểm →",
-                "Class is under minimum — choose transfer or refund →",
+                "Lớp chưa đủ sĩ số — chọn giữ chỗ, chuyển lớp hoặc hoàn điểm →",
+                "Class is under minimum — keep your place, transfer, or take a points refund →",
               )}
             </Link>
           )}

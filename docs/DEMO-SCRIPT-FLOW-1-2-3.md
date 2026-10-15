@@ -133,13 +133,13 @@ Tài khoản seed gốc dùng làm **dự phòng** nếu email không tới: `ad
 5. **Điểm nói về hoàn điểm:** sự cố tạm thời của trung tâm không hoàn Membership mà gia hạn; hoàn do lỗi trung tâm chỉ tính theo **phần chưa dùng** (ngày còn lại / tổng ngày).
 
 ## 2.6 Ngưỡng lớp (chỉ nói, không làm trực tiếp) — 30 giây
-Ngưỡng lớp chạy theo job theo hạn nên khó tái hiện trực tiếp. Mở `/member/threshold` hoặc trang **Interests** trong chi tiết lớp của Manager nếu có dữ liệu sẵn. Nói rõ Member được chọn: chuyển lớp, chờ đợt sau (hoàn 100% điểm), hoặc hoàn điểm.
+Ngưỡng lớp chạy theo job theo hạn nên khó tái hiện trực tiếp. Mở `/member/threshold` hoặc tab **Threshold** trong chi tiết lớp của Manager nếu có dữ liệu sẵn. Hệ thống kiểm tra sớm hơn mốc 3 ngày 10 phút để job 5 phút vẫn cho Member đủ 48 giờ phản hồi và còn ít nhất 24 giờ trước buổi đầu. Nếu thiếu ngưỡng, Member có thể **giữ ghi danh và chờ**, chuyển lớp, hoặc hoàn điểm. Phương án “chờ đợt sau” hiện **chưa khả dụng**; đừng demo như tính năng đã xong. Người chọn chuyển/hoàn rời lớp ngay; chỉ đếm người còn ghi danh. Nếu đủ ngưỡng trong lúc chờ, xác nhận lớp ngay và không tự hoàn người chưa phản hồi. Nếu hết hạn vẫn thiếu, Manager có thể miễn ngưỡng với lý do/audit; nếu không lớp bị hủy và người còn ghi danh được hoàn điểm. Khi job chạy quá muộn để mở đủ 48 giờ, Manager nhận cảnh báo quyết định miễn ngưỡng, hủy hoặc dời buổi đầu; hệ thống không tự rút ngắn hạn phản hồi.
 
 ---
 
 # FLOW 3 — Payment & Report (~11 phút)
 
-Dùng dữ liệu tạo ở Flow 1–2. Cần `VnPay__UseMock=true` (bước 3 phần Chuẩn bị). Member demo: `demo.member2@` và `demo.member3@` (mỗi người 3.000 điểm, 1 điểm = 1.000 VND).
+Dùng dữ liệu tạo ở Flow 1–2 trên **cùng môi trường deploy**. Member demo: `demo.member2@` và `demo.member3@` nếu các tài khoản này có trên database demo (mỗi người dự kiến 3.000 điểm, 1 điểm = 1.000 VND). Dùng ví điểm cho 3.1 và giao dịch VNPay thật đã diễn tập sau merge cho 3.2.
 
 ## 3.1 Invoice snapshot và thanh toán bằng điểm (Member) — 2 phút
 1. Đăng nhập Member 2 → `/member/finance?tab=invoices` → mở hóa đơn của gói Gym hoặc lớp đã mua ở Flow 1–2. Đường dẫn `/member/invoices` cũ chỉ chuyển hướng về tab này.

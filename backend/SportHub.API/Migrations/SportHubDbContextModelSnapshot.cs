@@ -3293,7 +3293,7 @@ namespace SportHub.API.Migrations
 
                     b.ToTable("class_threshold_responses", null, t =>
                         {
-                            t.HasCheckConstraint("ck_class_threshold_response_choice_target", "(choice IS NULL AND target_class_id IS NULL) OR (choice = 0 AND target_class_id IS NULL) OR (choice = 1 AND target_class_id IS NOT NULL)");
+                            t.HasCheckConstraint("ck_class_threshold_response_choice_target", "(choice IS NULL AND target_class_id IS NULL) OR (choice IN (0, 2) AND target_class_id IS NULL) OR (choice = 1 AND target_class_id IS NOT NULL)");
                         });
                 });
 

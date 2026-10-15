@@ -50,6 +50,10 @@ export function OperationsOverview() {
     [date],
   );
   const incidents = useApi((signal) => incidentApi.list(1, signal), []);
+  const coachCoverage = useApi(
+    (signal) => api.get<Array<{ coachId: string }>>("/api/manager/coach-coverage", { signal }),
+    [],
+  );
   return (
     <>
       <Card
@@ -63,6 +67,7 @@ export function OperationsOverview() {
               refunds.reload();
               schedule.reload();
               incidents.reload();
+              coachCoverage.reload();
             }}
           >
             {t.operations.refresh}
@@ -70,6 +75,28 @@ export function OperationsOverview() {
         }
       >
         <div className={styles.priorities}>
+          <section className={styles.queue} aria-labelledby="attention-coach-coverage">
+            <div className={styles.queueHead}>
+              <h3 id="attention-coach-coverage">Coach coverage required</h3>
+              {!coachCoverage.loading && !coachCoverage.error && coachCoverage.data && (
+                <span className={styles.count}>{coachCoverage.data.length}</span>
+              )}
+              <Link className={styles.queueLink} href="/manager/coach-coverage">
+                Review assignments
+              </Link>
+            </div>
+            <AsyncSection state={coachCoverage}>
+              {(items) =>
+                items.length === 0 ? (
+                  <p className={styles.empty}>All future sessions have available coaches.</p>
+                ) : (
+                  <p className={styles.queueItem}>
+                    {items.length} locked coach account{items.length === 1 ? "" : "s"} need schedule review.
+                  </p>
+                )
+              }
+            </AsyncSection>
+          </section>
           <section className={styles.queue} aria-labelledby="attention-classes">
             <div className={styles.queueHead}>
               <h3 id="attention-classes">{m.atRisk}</h3>

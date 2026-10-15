@@ -212,9 +212,9 @@ test("a new member registers, buys a Gym membership, returns from payment and ca
   const nav = page.getByRole("navigation", { name: "Member Navigation" });
   await expect(nav).toBeVisible();
   await expect(
-    page.getByRole("link", { name: "Go to my Gym membership" }),
+    page.getByRole("link", { name: "View membership" }),
   ).toBeVisible();
-  await page.getByRole("link", { name: "Go to my Gym membership" }).click();
+  await page.getByRole("link", { name: "View membership" }).click();
   await expect(page).toHaveURL(/\/member\/services/);
   await page.getByRole("button", { name: "Explore packages" }).click();
 

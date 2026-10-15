@@ -11,7 +11,7 @@ public sealed class ThresholdResponseConfiguration : IEntityTypeConfiguration<Th
         builder.ToTable("class_threshold_responses", table =>
         {
             table.HasCheckConstraint("ck_class_threshold_response_choice_target",
-                "(choice IS NULL AND target_class_id IS NULL) OR (choice = 0 AND target_class_id IS NULL) OR (choice = 1 AND target_class_id IS NOT NULL)");
+                "(choice IS NULL AND target_class_id IS NULL) OR (choice IN (0, 2) AND target_class_id IS NULL) OR (choice = 1 AND target_class_id IS NOT NULL)");
         });
         builder.HasKey(x => x.ThresholdResponseId);
         builder.Property(x => x.TokenHash).HasMaxLength(64).IsRequired();

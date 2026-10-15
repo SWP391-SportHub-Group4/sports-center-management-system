@@ -6,6 +6,8 @@ export const thresholdCopy = {
     transfer: "Transfer to another class",
     wait: "Wait for the next course",
     refund: "Refund 100% as points",
+    keepPlace: "Keep my place and wait",
+    keepPlaceBody: "Stay enrolled while the center confirms this class. If it still cannot run by the decision deadline, your points will be refunded automatically.",
     transferBody:
       "Choose an eligible class in the same sport. A higher price requires payment of the difference; the transfer completes only after payment is confirmed.",
     waitBody:
@@ -62,6 +64,8 @@ export const thresholdCopy = {
     transfer: "Chuyển sang lớp khác",
     wait: "Chờ đợt sau",
     refund: "Hoàn 100% bằng điểm",
+    keepPlace: "Giữ chỗ và tiếp tục chờ",
+    keepPlaceBody: "Tiếp tục ghi danh trong khi trung tâm chốt lớp. Nếu lớp vẫn không thể mở trước hạn quyết định, hệ thống sẽ tự hoàn điểm.",
     transferBody:
       "Chọn lớp hợp lệ cùng môn. Nếu giá cao hơn, bạn cần thanh toán phần chênh lệch; việc chuyển lớp chỉ hoàn tất sau khi thanh toán được xác nhận.",
     waitBody:
