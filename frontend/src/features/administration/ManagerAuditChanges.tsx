@@ -15,7 +15,6 @@ import {
   type AuditValue,
 } from "./manager-audit-metadata";
 import styles from "./MembershipAuditChanges.module.css";
-import { auditDisplayText } from "./audit-display";
 
 export function ManagerAuditChanges({ row }: { row: AuditLogDto }) {
   const { t } = useLanguage();
@@ -44,7 +43,7 @@ export function ManagerAuditChanges({ row }: { row: AuditLogDto }) {
       return `${l.fields.affectedSources} · ${l.entities[key.split(".")[1] as keyof typeof l.entities] ?? key.split(".")[1]}`;
     return l.fields[key as keyof typeof l.fields] ?? key;
   };
-  const rawValue = (key: string, item: AuditValue | undefined): string => {
+  const value = (key: string, item: AuditValue | undefined): string => {
     if (item === undefined) return t.auditChanges.notRecorded;
     if (item === null)
       return key.startsWith("hours.")
@@ -123,8 +122,6 @@ export function ManagerAuditChanges({ row }: { row: AuditLogDto }) {
       ? code(item)
       : item;
   };
-  const value = (key: string, item: AuditValue | undefined) =>
-    auditDisplayText(rawValue(key, item));
   if (!Object.keys(before).length && !Object.keys(after).length)
     return <p className="small muted">{t.auditChanges.unavailable}</p>;
   if (!keys.length)

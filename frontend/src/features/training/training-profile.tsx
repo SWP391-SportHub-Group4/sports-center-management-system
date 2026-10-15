@@ -639,6 +639,7 @@ export function TrainingProfile() {
   return (
     <div className={styles.profile}>
       <header className={styles.header}>
+        <h2>Fitness profile</h2>
         <p>
           {vi
             ? "Bạn tự khai chiều cao, cân nặng, mục tiêu, thói quen và chế độ ăn. Coach và trợ lý AI dùng hồ sơ này để gợi ý bài tập và dinh dưỡng phù hợp. Chỉ bạn, Quản lý và Coach đang phụ trách bạn xem được."

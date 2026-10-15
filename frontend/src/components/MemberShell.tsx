@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { ReceiptText } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import {
   createContext,
@@ -114,12 +113,17 @@ export function MemberFrame({
       ],
     },
     { href: "/member/schedule", label: t.memberPages.schedule },
+    {
+      href: "/member/training",
+      label: language === "vi" ? "Tập luyện" : "Training",
+      also: ["/member/profile"],
+    },
+    {
+      href: "/member/finance",
+      label: t.finance.title,
+      also: ["/member/invoices", "/member/wallet"],
+    },
   ];
-  const billingActive = isActive(pathname, {
-    href: "/member/finance",
-    label: t.finance.title,
-    also: ["/member/invoices", "/member/wallet"],
-  });
 
   // Authentication & Role check
   useEffect(() => {
@@ -166,7 +170,7 @@ export function MemberFrame({
           : "Chuyển tới nội dung chính"}
       </a>
       {/* Top Header */}
-      <header className={`${styles.header} ${styles.memberHeader}`}>
+      <header className={styles.header}>
         <div className={styles.headerInner}>
           {/* Logo & Portal Badge */}
           <Link href="/member" className={styles.brandGroup}>
@@ -291,16 +295,6 @@ export function MemberFrame({
                     <span>{t.common.fitnessProfile}</span>
                   </Link>
 
-                  <Link
-                    href="/member/finance"
-                    className={styles.dropdownItem}
-                    aria-current={billingActive ? "page" : undefined}
-                    onClick={() => setUserMenuOpen(false)}
-                  >
-                    <ReceiptText size={15} aria-hidden="true" />
-                    <span>{t.finance.title}</span>
-                  </Link>
-
                   <div className={styles.dropdownDivider} />
 
                   <button
@@ -397,15 +391,6 @@ export function MemberFrame({
               >
                 <IconSettings size={16} style={{ marginRight: 8 }} />
                 <span>{t.common.myAccount}</span>
-              </Link>
-              <Link
-                href="/member/finance"
-                className={`${styles.mobileNavLink} ${billingActive ? styles.mobileNavLinkActive : ""}`}
-                aria-current={billingActive ? "page" : undefined}
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                <ReceiptText size={16} style={{ marginRight: 8 }} aria-hidden="true" />
-                <span>{t.finance.title}</span>
               </Link>
               <button
                 type="button"

@@ -133,28 +133,6 @@ for (const points of [0, 50, 200]) {
     }, member.accessToken);
 
     let attempts = 0;
-    const capturedAttempts: PaymentAttemptDto[] = [];
-
-    // Capture the real API body before the app navigates away. Browser response
-    // bodies are not guaranteed to survive a full-document gateway redirect.
-    await page.route("**/api/checkouts/*/attempts", async (route) => {
-      const response = await route.fetch();
-      expect(response.ok(), await response.text()).toBeTruthy();
-      const data = (await response.json()) as PaymentAttemptDto;
-      capturedAttempts.push(data);
-      if (data.paymentUrl) {
-        const gatewayUrl = new URL(data.paymentUrl).href;
-        await page.route(
-          (url) => url.href === gatewayUrl,
-          (gateway) =>
-            gateway.fulfill({
-              contentType: "text/html",
-              body: "<main><h1>VNPay test gateway</h1></main>",
-            }),
-        );
-      }
-      await route.fulfill({ response });
-    });
 
     page.on("request", (request) => {
       if (request.method() === "POST" && request.url().endsWith("/attempts")) {
@@ -240,6 +218,15 @@ for (const points of [0, 50, 200]) {
       }),
     ).toBeVisible();
 
+    const attemptPromise =
+      points < 200
+        ? page.waitForResponse(
+            (response) =>
+              response.request().method() === "POST" &&
+              response.url().endsWith("/attempts"),
+          )
+        : null;
+
     const paymentButton =
       points === 200
         ? page.getByRole("button", {
@@ -253,13 +240,13 @@ for (const points of [0, 50, 200]) {
     await paymentButton.click();
 
     if (points < 200) {
-      await expect(
-        page.getByRole("heading", { name: "VNPay test gateway" }),
-      ).toBeVisible();
-      expect(capturedAttempts).toHaveLength(1);
-      const data = capturedAttempts[0];
-      await expect(page).toHaveURL(data.paymentUrl!);
-      expect(page.context().pages()).toHaveLength(1);
+      const attempt = await attemptPromise;
+
+      if (!attempt) {
+        throw new Error("Payment attempt response missing");
+      }
+
+      const data = (await attempt.json()) as PaymentAttemptDto;
 
       expect(data.cashAmount).toBe(200000 - points * 1000);
 
@@ -293,13 +280,12 @@ for (const points of [0, 50, 200]) {
       );
       expect(paid.ok(), await paid.text()).toBeTruthy();
       expect((await paid.json()).RspCode).toBe("00");
-      await page.goto(
-        `/payments/return?vnp_TxnRef=${encodeURIComponent(data.transactionReference)}`,
-      );
     }
 
     await expect(
-      page.getByRole("heading", { name: "Payment successful", exact: true }),
+      page.getByText("Payment verified by server", {
+        exact: true,
+      }),
     ).toBeVisible();
 
     if (points === 200) {
@@ -345,14 +331,17 @@ for (const points of [0, 50, 200]) {
 
     await page.reload();
 
-    if (points === 200) {
-      await page
-        .getByRole("button", { name: "Resume payment", exact: true })
-        .click();
-    }
+    await page
+      .getByRole("button", {
+        name: "Resume payment",
+        exact: true,
+      })
+      .click();
 
     await expect(
-      page.getByRole("heading", { name: "Payment successful", exact: true }),
+      page.getByText("Payment verified by server", {
+        exact: true,
+      }),
     ).toBeVisible();
   });
 }

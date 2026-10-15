@@ -10,7 +10,7 @@ export default function Page() {
       allow={["SystemAdministrator"]}
       operationalLayout
     >
-      <AuditLogView administrator />
+      <AuditLogView accountsOnly />
     </AppShell>
   );
 }

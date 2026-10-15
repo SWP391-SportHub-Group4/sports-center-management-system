@@ -76,10 +76,11 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
   // Member dùng MemberShell, không dùng AppShell — nhánh này giữ lại chỉ để Record đủ key.
   Member: [
     { href: "/member", labelKey: "overview" },
-    { href: "/member/schedule", labelKey: "classSchedule" },
+    { href: "/member/class-schedule", labelKey: "classSchedule" },
     { href: "/member/my-registrations", labelKey: "myRegistrations" },
     { href: "/member/my-plans", labelKey: "myMembershipPlans" },
     { href: "/member/invoices", labelKey: "invoices" },
+    { href: "/member/training", labelKey: "plansAndResults" },
     { href: "/member/profile", labelKey: "trainingProfile" },
   ],
   Receptionist: [

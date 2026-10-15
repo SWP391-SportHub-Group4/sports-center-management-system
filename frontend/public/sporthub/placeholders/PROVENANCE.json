@@ -1,9 +1,0 @@
-{
-  "asset": "sports-equipment.webp",
-  "kind": "AI-generated illustration",
-  "tool": "image_gen.imagegen (built-in)",
-  "purpose": "Neutral loading and error placeholder for SportHub homepage images; does not depict a real coach or facility.",
-  "prompt": "Use case: stylized-concept. Create one production website image placeholder asset for SportHub sports centre, landscape 3:2 composition, no text. Premium softly lit 3D still life: a badminton racket with shuttlecock, a basketball, and a small dumbbell arranged with clear breathing room in the middle of a dark forest-green indoor sports floor. Brand colors deep forest #13251e, near black #001113, small restrained lime #c8f03a accents on equipment and court line. Matte realistic materials, gentle shadows and ambient daylight, tasteful athletic art direction. Simple calm recognisable silhouettes readable when reduced to a small image; uncluttered low-contrast background, central objects safe in both square and wide crops. This is a neutral loading/error placeholder for sports photographs, not a poster or UI screenshot. No people, faces, lettering, logos, watermarks, borders, panels, or diagram. Opaque background.",
-  "export": { "format": "WebP", "width": 900, "height": 600, "quality": 78 },
-  "inlinePreview": { "format": "WebP", "width": 48, "height": 32, "quality": 45 }
-}

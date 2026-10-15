@@ -15,21 +15,20 @@ import { choiceQuery, pageQuery, useUrlQuery } from "@/lib/useUrlQuery";
 import { useLanguage } from "@/lib/language";
 import { formatDateTime } from "@/lib/format";
 import type { AuditLogDto, Paged, RoomTypeDto } from "@/lib/types";
-import { AuditEventDetails } from "@/features/administration/AuditEventDetails";
+import { AuditTargetAccount } from "@/features/administration/AuditTargetAccount";
+import { AuditTargetEntity } from "@/features/administration/AuditTargetEntity";
+import { ManagerAuditChanges } from "@/features/administration/ManagerAuditChanges";
+import { MembershipAuditChanges } from "@/features/administration/MembershipAuditChanges";
 import {
-  auditRecordType,
-  readableAuditLabel,
-} from "@/features/administration/audit-event-model";
-import { auditDisplayText } from "@/features/administration/audit-display";
-import { needsCourtRateRoomNames } from "@/features/administration/CourtRateAuditChanges";
+  CourtRateAuditChanges,
+  needsCourtRateRoomNames,
+} from "@/features/administration/CourtRateAuditChanges";
 import styles from "./AuditLogView.module.css";
 
 const auditQueryDefaults = {
   action: "",
   targetEntity: "",
   actorId: "",
-  actor: "",
-  actorRole: "",
   page: "1",
   sortBy: "timestamp",
   sortDirection: "desc",
@@ -42,23 +41,17 @@ const auditQueryValidators = {
   ),
   sortDirection: choiceQuery(["asc", "desc"], "desc"),
 };
-type AuditFilters = {
-  action: string;
-  targetEntity: string;
-  actorId: string;
-  actor: string;
-  actorRole: string;
-};
+type AuditFilters = { action: string; targetEntity: string; actorId: string };
 
 function AuditFilterForm({
   values,
-  administrator,
+  accountsOnly,
   actions,
   onApply,
   onReset,
 }: {
   values: AuditFilters;
-  administrator: boolean;
+  accountsOnly: boolean;
   actions: AsyncState<string[]>;
   onApply: (values: AuditFilters) => void;
   onReset: () => void;
@@ -66,6 +59,7 @@ function AuditFilterForm({
   const { t } = useLanguage();
   const l = t.staffWork;
   const [draft, setDraft] = useState<Record<string, string>>(values);
+  const [invalidActor, setInvalidActor] = useState(false);
   const [invalidAction, setInvalidAction] = useState(false);
   const actionErrorId = useId();
   const fields: FilterField[] = [
@@ -81,36 +75,10 @@ function AuditFilterForm({
         />
       ),
     },
-    { id: "targetEntity", label: l.entity, kind: "search" },
-    {
-      id: "actorRole",
-      label: "Role at event time",
-      kind: "select",
-      options: [
-        { value: "", label: "All" },
-        {
-          value: "CENTER_MANAGER",
-          label: t.navigation.roleLabel.CenterManager,
-        },
-        { value: "COACH", label: t.navigation.roleLabel.Coach },
-        ...(administrator
-          ? [
-              {
-                value: "SYSTEM_ADMINISTRATOR",
-                label: t.navigation.roleLabel.SystemAdministrator,
-              },
-              { value: "SYSTEM", label: "System" },
-            ]
-          : [
-              {
-                value: "RECEPTIONIST",
-                label: t.navigation.roleLabel.Receptionist,
-              },
-              { value: "MEMBER", label: t.navigation.roleLabel.Member },
-            ]),
-      ],
-    },
-    { id: "actor", label: "Actor name or email", kind: "search" },
+    ...(!accountsOnly
+      ? [{ id: "targetEntity", label: l.entity, kind: "search" as const }]
+      : []),
+    { id: "actorId", label: l.actor, kind: "search" },
   ];
   return (
     <form
@@ -129,12 +97,21 @@ function AuditFilterForm({
           return;
         }
         setInvalidAction(false);
+        const actorId = (draft.actorId ?? "").trim();
+        if (
+          actorId &&
+          !/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(
+            actorId,
+          )
+        ) {
+          setInvalidActor(true);
+          return;
+        }
+        setInvalidActor(false);
         onApply({
           action,
-          targetEntity: (draft.targetEntity ?? "").trim(),
-          actorRole: draft.actorRole ?? "",
-          actorId: draft.actor !== values.actor ? "" : values.actorId,
-          actor: (draft.actor ?? "").trim(),
+          targetEntity: accountsOnly ? "" : (draft.targetEntity ?? "").trim(),
+          actorId,
         });
       }}
     >
@@ -143,25 +120,19 @@ function AuditFilterForm({
         values={draft}
         onChange={(next) => {
           setDraft(next);
+          setInvalidActor(false);
           setInvalidAction(false);
         }}
         activeCount={
           [
             values.action,
-            values.targetEntity,
-            values.actorRole,
+            !accountsOnly && values.targetEntity,
             values.actorId,
-            values.actor,
           ].filter(Boolean).length
         }
         onReset={() => {
-          setDraft({
-            action: "",
-            targetEntity: "",
-            actorId: "",
-            actor: "",
-            actorRole: "",
-          });
+          setDraft({ action: "", targetEntity: "", actorId: "" });
+          setInvalidActor(false);
           setInvalidAction(false);
           onReset();
         }}
@@ -176,14 +147,19 @@ function AuditFilterForm({
           {t.filterBar.selectAction}
         </p>
       )}
+      {invalidActor && (
+        <p className="field-error" role="alert">
+          {t.filterBar.invalidActor}
+        </p>
+      )}
     </form>
   );
 }
 
 export function AuditLogView({
-  administrator = false,
+  accountsOnly = false,
 }: {
-  administrator?: boolean;
+  accountsOnly?: boolean;
 }) {
   const { t } = useLanguage();
   const l = t.staffWork;
@@ -195,14 +171,12 @@ export function AuditLogView({
   };
   const filters = {
     action: query.values.action,
-    targetEntity: query.values.targetEntity,
-    actorRole: query.values.actorRole,
+    targetEntity: accountsOnly ? "" : query.values.targetEntity,
     actorId: query.values.actorId,
-    actor: query.values.actor,
   };
   const actions = useApi(
     (signal) => api.get<string[]>("/api/audit-logs/actions", { signal }),
-    [administrator],
+    [accountsOnly],
   );
   const state = useApi(
     (signal) =>
@@ -212,10 +186,10 @@ export function AuditLogView({
           page,
           pageSize: 25,
           action: filters.action || undefined,
-          targetEntity: filters.targetEntity || undefined,
-          actorRole: filters.actorRole || undefined,
+          targetEntity: accountsOnly
+            ? "UserAccount"
+            : filters.targetEntity || undefined,
           actorId: filters.actorId || undefined,
-          actor: filters.actor || undefined,
           sortBy: sort.columnId,
           sortDirection: sort.direction,
         },
@@ -225,14 +199,13 @@ export function AuditLogView({
       filters.action,
       filters.targetEntity,
       filters.actorId,
-      filters.actor,
-      filters.actorRole,
-      administrator,
+      accountsOnly,
       sort.columnId,
       sort.direction,
     ],
   );
-  const needsRoomNames = !!state.data?.items.some(needsCourtRateRoomNames);
+  const needsRoomNames =
+    !accountsOnly && !!state.data?.items.some(needsCourtRateRoomNames);
   // One shared reference request for the page, never one request per audit row.
   const roomTypes = useApi(
     (signal) =>
@@ -255,91 +228,53 @@ export function AuditLogView({
       rowHeader: true,
       cell: (row) => (
         <>
-          <strong>
-            {row.actorRole === "SYSTEM"
-              ? "System"
-              : auditDisplayText(
-                  row.actorFullName?.trim() || row.actorEmail || "Unavailable",
-                )}
-          </strong>
-          {row.actorEmail &&
-            (row.actorRole === "SYSTEM" || row.actorFullName?.trim()) && (
-              <>
-                <br />
-                <span className="small muted">
-                  {auditDisplayText(
-                    row.actorRole === "SYSTEM"
-                      ? `Origin account: ${row.actorEmail}`
-                      : row.actorEmail,
-                  )}
-                </span>
-              </>
-            )}
+          {row.actorEmail}
+          <br />
+          <span className="small muted">{row.userId}</span>
         </>
       ),
     },
-    {
-      id: "actorRole",
-      header: "Role at event time",
-      cell: (row) => (
-        <span>
-          {(
-            {
-              CENTER_MANAGER: t.navigation.roleLabel.CenterManager,
-              SYSTEM_ADMINISTRATOR: t.navigation.roleLabel.SystemAdministrator,
-              COACH: t.navigation.roleLabel.Coach,
-              RECEPTIONIST: t.navigation.roleLabel.Receptionist,
-              MEMBER: t.navigation.roleLabel.Member,
-              SYSTEM: "System",
-              UNKNOWN: "Unclassified historical event",
-            } as Record<string, string>
-          )[row.actorRole ?? ""] ?? "—"}
-        </span>
-      ),
-    },
-    {
-      id: "action",
-      header: l.action,
-      sortable: true,
-      cell: (row) => readableAuditLabel(row.action),
-    },
+    { id: "action", header: l.action, sortable: true },
     {
       id: "targetEntity",
-      header: t.adminWork.target,
-      sortable: true,
-      cell: (row) => auditRecordType(row, t),
+      header: accountsOnly ? t.adminWork.target : l.entity,
+      sortable: !accountsOnly,
+      cell: (row) =>
+        row.targetEntity === "UserAccount" ? (
+          <AuditTargetAccount row={row} linkToAccount={accountsOnly} />
+        ) : (
+          <AuditTargetEntity row={row} />
+        ),
     },
     {
       id: "metadata",
-      header: "",
-      cell: (row) => (
-        <AuditEventDetails row={row} roomTypes={roomTypes.data ?? []} />
-      ),
+      header: l.metadata,
+      cell: (row) =>
+        row.targetEntity === "MembershipPackage" ? (
+          <MembershipAuditChanges row={row} />
+        ) : row.targetEntity === "CourtRate" ? (
+          <CourtRateAuditChanges row={row} roomTypes={roomTypes.data ?? []} />
+        ) : (
+          <ManagerAuditChanges row={row} />
+        ),
     },
   ];
   const clearFilters = () =>
-    query.setValues({
-      action: "",
-      targetEntity: "",
-      actorId: "",
-      actor: "",
-      actorRole: "",
-      page: "1",
-    });
+    query.setValues({ action: "", targetEntity: "", actorId: "", page: "1" });
   return (
-    <div className={`${styles.root} ${styles.compact}`}>
+    <div className={styles.root}>
       <Card
         title={l.audit}
         hint={
-          administrator
-            ? "Events by Managers, Administrators and Coaches, plus automatic system events. Visibility uses the role recorded at event time."
-            : "Events by Managers, Receptionists, Coaches and Members. Administrator and system events are excluded. Open an event to see its recorded values."
+          accountsOnly
+            ? `${l.accountScope} ${t.adminWork.targetAccountHint}`
+            : `${l.auditHint} ${t.managerAudit.currentNamesHint}${needsRoomNames ? ` ${t.courtRateAudit.currentNameHint}` : ""}`
         }
       >
         <AuditFilterForm
           key={JSON.stringify(filters)}
           values={filters}
-          administrator={administrator}
+          accountsOnly={accountsOnly}
           actions={actions}
           onApply={(next) => {
             query.setValues({ ...next, page: "1" });

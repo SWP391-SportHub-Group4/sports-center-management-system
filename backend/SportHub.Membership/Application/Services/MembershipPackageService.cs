@@ -32,8 +32,7 @@ public sealed class MembershipPackageService(
         return await query
             .OrderBy(p => p.Price)
             .Select(p => new MembershipPackageResponse(
-                p.PackageId, p.Name, p.Price, p.DurationDays, p.SessionLimit, p.Description, p.IsActive)
-                { OriginalPrice = p.OriginalPrice })
+                p.PackageId, p.Name, p.Price, p.DurationDays, p.SessionLimit, p.Description, p.IsActive))
             .ToListAsync(ct);
     }
 
@@ -164,6 +163,5 @@ public sealed class MembershipPackageService(
            + $"\"isActive\":{p.IsActive.ToString().ToLowerInvariant()}}}";
 
     private static MembershipPackageResponse Map(MembershipPackage p)
-        => new(p.PackageId, p.Name, p.Price, p.DurationDays, p.SessionLimit, p.Description, p.IsActive)
-        { OriginalPrice = p.OriginalPrice };
+        => new(p.PackageId, p.Name, p.Price, p.DurationDays, p.SessionLimit, p.Description, p.IsActive);
 }

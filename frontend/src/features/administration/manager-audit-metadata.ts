@@ -103,11 +103,6 @@ const scalarFields = new Set([
   "newStartAtUtc",
   "replacementSessionId",
   "timing",
-  "days",
-  "startTimeLocal",
-  "endTimeLocal",
-  "roomTypeName",
-  "sportName",
 ]);
 const arrayFields = new Set([
   "sportIds",

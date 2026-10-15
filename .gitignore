@@ -41,7 +41,6 @@ ai/**/.venv/
 
 # Local task tooling
 .tmp/
-.tools/
 
 # Local persistent runtime data, including Data Protection keys.
 /.sporthub-local/

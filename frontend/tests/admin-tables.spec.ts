@@ -224,21 +224,17 @@ test("Audit log keeps scope, metadata redaction, filtering and server pagination
   });
   await page.goto("/admin/audit-log");
   await expect(page.getByRole("table", { name: "Audit log" })).toBeVisible();
-  await expect(page.getByRole("table")).toContainText("After: Locked");
-  expect(query.searchParams.get("targetEntity")).toBeNull();
+  await expect(page.getByText("status: BANNED", { exact: true })).toBeVisible();
+  expect(query.searchParams.get("targetEntity")).toBe("UserAccount");
   await expect(page.getByText(/SECRET_OTP|SECRET_BODY/)).toHaveCount(0);
   await page.getByRole("button", { name: "Next page", exact: true }).click();
   await expect.poll(() => query.searchParams.get("page")).toBe("2");
   await page.getByRole("button", { name: /^Time/ }).click();
   await expect.poll(() => query.searchParams.get("sortDirection")).toBe("asc");
   expect(query.searchParams.get("page")).toBe("1");
-  await page
-    .getByLabel("Actor name or email", { exact: true })
-    .fill("admin@example.com");
+  await page.getByLabel("Actor ID", { exact: true }).fill(adminId);
   await page.getByRole("button", { name: "Apply filters" }).click();
-  await expect
-    .poll(() => query.searchParams.get("actor"))
-    .toBe("admin@example.com");
+  await expect.poll(() => query.searchParams.get("actorId")).toBe(adminId);
 });
 
 test("both Admin tables fit desktop and mobile with working mobile sort", async ({

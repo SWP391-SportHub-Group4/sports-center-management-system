@@ -13,16 +13,16 @@ namespace SportHub.Payment.Tests.Integration;
 public sealed class ManagerWorkspaceTests(PaymentApiFactory factory)
 {
     [Fact]
-    public async Task Audit_actor_filter_applies_before_pagination_and_admin_receives_manager_operational_events()
+    public async Task Audit_actor_filter_applies_before_pagination_and_admin_only_receives_account_events()
     {
         var manager = await factory.SeedUserAsync(UserRole.CenterManager);
         var admin = await factory.SeedUserAsync(UserRole.SystemAdministrator);
-        var classAuditId = Guid.NewGuid();
+        var accountId = Guid.NewGuid();
         var walletId = Guid.NewGuid();
         await factory.QueryAsync(async db =>
         {
             db.AuditLogs.AddRange(
-                new SportHub.Audit.Domain.Entities.AuditLog { AuditId = classAuditId, UserId = manager.UserId, Action = "PUBLISH_CLASS", TargetEntity = "Class", TargetId = "1", Timestamp = DateTime.UtcNow },
+                new SportHub.Audit.Domain.Entities.AuditLog { AuditId = accountId, UserId = manager.UserId, Action = "LOCK_USER", TargetEntity = "UserAccount", TargetId = admin.UserId.ToString(), Timestamp = DateTime.UtcNow },
                 new SportHub.Audit.Domain.Entities.AuditLog { AuditId = walletId, UserId = manager.UserId, Action = "ADJUST_POINTS", TargetEntity = "PointWallet", TargetId = admin.UserId.ToString(), Timestamp = DateTime.UtcNow });
             return await db.SaveChangesAsync();
         });
@@ -30,16 +30,11 @@ public sealed class ManagerWorkspaceTests(PaymentApiFactory factory)
         var all = JsonDocument.Parse(await (await staff.GetAsync($"/api/audit-logs?actorId={manager.UserId}")).Content.ReadAsStringAsync()).RootElement;
         Assert.Equal(2, all.GetProperty("totalCount").GetInt32());
         using var limited = factory.CreateApiClient(admin.UserId, UserRole.SystemAdministrator);
-        var visible = JsonDocument.Parse(await (await limited.GetAsync($"/api/audit-logs?actorId={manager.UserId}")).Content.ReadAsStringAsync()).RootElement;
-        Assert.Equal(2, visible.GetProperty("totalCount").GetInt32());
-        Assert.Contains(visible.GetProperty("items").EnumerateArray(), item => item.GetProperty("auditId").GetGuid() == classAuditId);
-        Assert.Contains(visible.GetProperty("items").EnumerateArray(), item => item.GetProperty("auditId").GetGuid() == walletId);
-        var walletEvents = JsonDocument.Parse(await (await limited.GetAsync($"/api/audit-logs?actorId={manager.UserId}&targetEntity=PointWallet")).Content.ReadAsStringAsync()).RootElement;
-        Assert.Equal(1, walletEvents.GetProperty("totalCount").GetInt32());
-        Assert.Equal(walletId, walletEvents.GetProperty("items")[0].GetProperty("auditId").GetGuid());
-        var paged = JsonDocument.Parse(await (await limited.GetAsync($"/api/audit-logs?actorId={manager.UserId}&pageSize=1")).Content.ReadAsStringAsync()).RootElement;
-        Assert.Equal(2, paged.GetProperty("totalCount").GetInt32());
-        Assert.Single(paged.GetProperty("items").EnumerateArray());
+        var accounts = JsonDocument.Parse(await (await limited.GetAsync($"/api/audit-logs?actorId={manager.UserId}")).Content.ReadAsStringAsync()).RootElement;
+        Assert.Equal(1, accounts.GetProperty("totalCount").GetInt32());
+        Assert.Equal(accountId, accounts.GetProperty("items")[0].GetProperty("auditId").GetGuid());
+        var deniedScope = JsonDocument.Parse(await (await limited.GetAsync($"/api/audit-logs?actorId={manager.UserId}&targetEntity=PointWallet")).Content.ReadAsStringAsync()).RootElement;
+        Assert.Equal(0, deniedScope.GetProperty("totalCount").GetInt32());
     }
 
     [Fact]

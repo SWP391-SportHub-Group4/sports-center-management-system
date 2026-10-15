@@ -88,13 +88,13 @@ public class ManagerAuditScopeTests(SportHubApiFactory factory)
         var adminActions = (await admin.GetFromJsonAsync<List<string>>(
             "api/audit-logs/actions?accountsOnly=false&targetEntity=Class"))!;
         Assert.Contains(accountAction, adminActions);
-        Assert.Contains(classAction, adminActions);
+        Assert.DoesNotContain(classAction, adminActions);
         Assert.Equal(1, adminActions.Count(a => a == accountAction));
         Assert.DoesNotContain(adminActions, string.IsNullOrWhiteSpace);
     }
 
     [Fact]
-    public async Task Target_filter_scopes_history_before_pagination_and_Admin_reads_Manager_operations()
+    public async Task Target_filter_scopes_history_before_pagination_and_preserves_Admin_account_scope()
     {
         var actor = await factory.SeedUserAsync($"manager-history-{Guid.NewGuid():N}@example.com", null, role: UserRole.CenterManager);
         var action = $"HISTORY_{Guid.NewGuid():N}";
@@ -118,8 +118,8 @@ public class ManagerAuditScopeTests(SportHubApiFactory factory)
         using var admin = factory.CreateApiClient();
         admin.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", factory.IssueToken(adminUser.UserId, UserRole.SystemAdministrator));
         var adminResult = (await admin.GetFromJsonAsync<PagedResult<AuditLogResponse>>(query))!;
-        Assert.Single(adminResult.Items);
-        Assert.Equal(2, adminResult.TotalCount);
+        Assert.Empty(adminResult.Items);
+        Assert.Equal(0, adminResult.TotalCount);
     }
 
     [Theory]

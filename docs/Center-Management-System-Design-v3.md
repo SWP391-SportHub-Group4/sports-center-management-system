@@ -1,10 +1,5 @@
 # SportHub — Thiết kế hệ thống quản lý trung tâm thể thao
 
-## Activation and audit policy update — 14 October 2026
-
-The product owner confirmed [Admin-Activation-and-Audit.md](Admin-Activation-and-Audit.md). It replaces account-only Administrator audit scope in this design. Each staff token expires at `CreatedAt + 24 hours`, including resends/corrections. `AuditLog.ActorRole` is an event-time snapshot; Admin sees Manager/Admin/Coach/System, Manager sees Manager/Receptionist/Coach/Member. Migration `AuditActorRoleSnapshot` preserves historical event payloads while reconstructing role metadata. Other role permissions remain independent of audit-read access.
-
-
 SportHub là **hệ thống quản lý trung tâm thể thao với ba môn: Gym, cầu lông và bóng rổ; có khả năng mở rộng thêm môn trong tương lai**.
 
 Tài liệu này mô tả độc lập phạm vi, kiến trúc, dữ liệu, luồng nghiệp vụ và tiêu chí nghiệm thu. Tên file được giữ để bảo toàn liên kết; nội dung không phụ thuộc bản thiết kế đã xóa.

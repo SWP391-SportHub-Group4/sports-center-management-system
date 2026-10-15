@@ -356,22 +356,6 @@
 .planBody > p {
   margin: 0;
 }
-.planPrice {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 8px;
-}
-.planPrice s,
-.originalPrice {
-  color: var(--text-muted);
-  font-size: var(--text-sm);
-  text-decoration-thickness: 1px;
-  white-space: nowrap;
-}
-.originalPrice {
-  margin-left: 8px;
-}
 .planPrice strong {
   font-family: var(--font-display);
   font-size: 28px;

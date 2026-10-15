@@ -44,113 +44,6 @@
   border-bottom-color: var(--border-strong);
 }
 
-/* Match the forest navbar used by the Coach and Manager workspaces. */
-.memberHeader {
-  --bg-app: #20382b;
-  --bg-surface: #13251e;
-  --bg-surface-sunken: #20382b;
-  --text-strong: #f0f2e8;
-  --text-body: #e5eada;
-  --text-muted: #c4d0c0;
-  --text-link: var(--volt-400);
-  --color-primary: var(--volt-400);
-  --color-primary-hover: var(--volt-300);
-  --color-primary-soft: #2d4321;
-  --color-on-primary: #13251e;
-  --border-subtle: #425247;
-  --border-strong: #718275;
-  --border-control: #718275;
-  --focus-ring: var(--volt-400);
-  --danger-text: #ff8585;
-  --danger-solid: #ffaaaa;
-  --danger-bg: #3c2424;
-  box-shadow: none;
-}
-
-.memberHeader .brandLogoAccent,
-.memberHeader .navLinkActive {
-  color: var(--volt-400);
-}
-
-.memberHeader .userAvatar {
-  background: var(--volt-400);
-  color: #13251e;
-}
-
-.memberHeader .qrButton {
-  background: var(--bg-surface-sunken);
-  color: var(--text-strong);
-}
-
-.memberHeader .qrButton:hover {
-  background: var(--color-primary-soft);
-}
-
-.memberHeader .headerActions {
-  justify-content: flex-end;
-}
-
-.memberHeader .navLink {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 44px;
-  padding-inline: 16px;
-}
-
-@media (min-width: 960px) {
-  .memberHeader .headerInner {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-    gap: 24px;
-  }
-
-  .memberHeader .brandGroup {
-    justify-self: start;
-  }
-
-  .memberHeader .desktopNav {
-    display: flex;
-    gap: 4px;
-  }
-
-  .memberHeader .headerActions {
-    justify-self: end;
-  }
-
-  .memberHeader .mobileMenuBtn {
-    display: none;
-  }
-}
-
-@media (max-width: 560px) {
-  .memberHeader .headerInner {
-    padding-inline: 12px;
-    gap: 8px;
-  }
-
-  .memberHeader .headerActions {
-    gap: 4px;
-  }
-
-  .memberHeader .userButton {
-    padding-inline: 0;
-  }
-
-  .memberHeader .dropdownArrow {
-    display: none;
-  }
-
-  .memberHeader .walletHeader {
-    gap: 0;
-    padding-inline: 8px;
-  }
-
-  .memberHeader .walletHeaderLabel {
-    display: none;
-  }
-}
-
 .headerInner {
   max-width: 1440px;
   width: 100%;
@@ -518,8 +411,7 @@
   position: absolute;
   right: 0;
   top: calc(100% + 8px);
-  width: 264px;
-  max-width: calc(100vw - 80px);
+  width: 220px;
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
   border-radius: 10px;
@@ -539,7 +431,6 @@
   font-size: 14px;
   font-weight: 700;
   color: var(--text-strong);
-  overflow-wrap: anywhere;
 }
 
 .dropdownRole {
@@ -560,10 +451,6 @@
   background: transparent;
   border: none;
   width: 100%;
-  box-sizing: border-box;
-  min-height: 44px;
-  font-family: inherit;
-  line-height: 1.4;
   text-align: left;
   cursor: pointer;
   transition:
@@ -571,26 +458,9 @@
     color 0.15s ease;
 }
 
-.dropdownItem > svg {
-  flex: 0 0 18px;
-  width: 18px;
-  height: 18px;
-}
-
-.dropdownItem > span {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
 .dropdownItem:hover {
   background: var(--bg-app);
   color: var(--text-strong);
-}
-
-.dropdownItem[aria-current="page"] {
-  background: var(--color-primary-soft);
-  color: var(--color-primary);
-  font-weight: 700;
 }
 
 .profileLanguage {
@@ -758,8 +628,6 @@
 /* Main Area */
 .main {
   flex: 1;
-  min-width: 0;
-  box-sizing: border-box;
   width: 100%;
   max-width: 1280px;
   margin: 0 auto;

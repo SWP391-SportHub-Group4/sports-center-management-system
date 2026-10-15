@@ -11,7 +11,6 @@ import { useLanguage } from "@/lib/language";
 import type { SportDto, UserAdminDto } from "@/lib/types";
 import { EditUser } from "./users";
 import { AccountStatusChip } from "./AccountStatusChip";
-import { StaffActivationActions } from "./StaffActivationActions";
 import styles from "./users.module.css";
 
 function CoachSpecialties({ ids }: { ids: number[] }) {
@@ -153,10 +152,6 @@ export function UserDetail({ userId }: { userId: string }) {
               </dl>
             </Card>
             <Card title={l.signInTitle}>
-              <StaffActivationActions
-                account={account}
-                onChanged={state.reload}
-              />
               <dl className={styles.details}>
                 <div>
                   <dt>{l.passwordSet}</dt>

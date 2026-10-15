@@ -72,10 +72,6 @@ export function parseMembershipCatalog(value: unknown): MembershipPackageDto[] {
         typeof p.price === "number" &&
         Number.isSafeInteger(p.price) &&
         p.price > 0 &&
-        (p.originalPrice == null ||
-          (typeof p.originalPrice === "number" &&
-            Number.isSafeInteger(p.originalPrice) &&
-            p.originalPrice > 0)) &&
         typeof p.durationDays === "number" &&
         Number.isSafeInteger(p.durationDays) &&
         p.durationDays > 0 &&
