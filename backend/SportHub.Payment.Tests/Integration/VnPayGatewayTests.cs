@@ -115,6 +115,55 @@ public sealed class VnPayGatewayTests
         }
     }
 
+    [Theory]
+    [InlineData("http-403", 502, "vnp_query_http_error")]
+    [InlineData("http-500", 502, "vnp_query_http_error")]
+    [InlineData("network", 502, "vnp_query_connection_failed")]
+    [InlineData("timeout", 504, "vnp_query_timeout")]
+    [InlineData("html", 502, "vnp_query_invalid_response")]
+    [InlineData("array", 502, "vnp_query_invalid_response")]
+    public async Task QueryDR_transport_failures_return_safe_specific_errors(
+        string scenario, int status, string code)
+    {
+        var gateway = NewGateway(new HttpClient(new TransportFailureHandler(scenario)));
+        var error = await Assert.ThrowsAsync<AppException>(() => gateway.QueryAsync(new PaymentAttempt
+        {
+            PaymentAttemptId = Guid.NewGuid(), VnpTxnRef = "attempt-1",
+            CreatedAt = DateTime.UtcNow
+        }, default));
+        Assert.Equal(status, error.StatusCode);
+        Assert.Equal(code, error.ErrorCode);
+        Assert.DoesNotContain("secret-response-do-not-expose", error.Message);
+        if (scenario.StartsWith("http-")) Assert.Contains(scenario[5..], error.Message);
+    }
+
+    [Fact]
+    public async Task QueryDR_preserves_request_cancellation()
+    {
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        var gateway = NewGateway(new HttpClient(new NoNetworkHandler()));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => gateway.QueryAsync(new PaymentAttempt
+        {
+            VnpTxnRef = "attempt-1", CreatedAt = DateTime.UtcNow
+        }, cancellation.Token));
+    }
+
+    private sealed class TransportFailureHandler(string scenario) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+        {
+            if (scenario == "network") throw new HttpRequestException("secret-response-do-not-expose");
+            if (scenario == "timeout") throw new TaskCanceledException("secret-response-do-not-expose");
+            var status = scenario == "http-403" ? HttpStatusCode.Forbidden
+                : scenario == "http-500" ? HttpStatusCode.InternalServerError : HttpStatusCode.OK;
+            return Task.FromResult(new HttpResponseMessage(status)
+            {
+                Content = new StringContent(scenario == "array" ? "[]" : "<html>secret-response-do-not-expose</html>")
+            });
+        }
+    }
+
     private sealed class QueryHandler(Dictionary<string, string> response) : HttpMessageHandler
     {
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
