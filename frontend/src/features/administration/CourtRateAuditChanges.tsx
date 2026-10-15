@@ -4,6 +4,7 @@ import { useLanguage } from "@/lib/language";
 import { formatMoney } from "@/lib/format";
 import type { AuditLogDto, RoomTypeDto } from "@/lib/types";
 import styles from "./MembershipAuditChanges.module.css";
+import { auditDisplayText } from "./audit-display";
 
 type Snapshot = Partial<{
   roomTypeId: number;
@@ -129,7 +130,7 @@ export function CourtRateAuditChanges({
   const roomName = (data: Snapshot) =>
     data.roomTypeName ??
     roomTypes.find((type) => type.roomTypeId === data.roomTypeId)?.name;
-  const value = (key: Key, data: Snapshot): string => {
+  const rawValue = (key: Key, data: Snapshot): string => {
     if (!recorded(key, data)) return l.notRecorded;
     switch (key) {
       case "roomTypeId":
@@ -153,6 +154,8 @@ export function CourtRateAuditChanges({
         return data.active ? t.wireStatus.ACTIVE : t.wireStatus.INACTIVE;
     }
   };
+  const value = (key: Key, data: Snapshot) =>
+    auditDisplayText(rawValue(key, data));
   if (!Object.keys(before).length && !hasAfter)
     return <p className="small muted">{l.unavailable}</p>;
   const subject = after.roomTypeId !== undefined ? after : before;
@@ -160,7 +163,7 @@ export function CourtRateAuditChanges({
     <div className={styles.root}>
       <p className={styles.subject}>
         <strong>
-          {c.rate}: {roomName(subject) ?? `#${row.targetId}`}
+          {c.rate}: {auditDisplayText(roomName(subject) ?? `#${row.targetId}`)}
         </strong>
       </p>
       {(["roomTypeId", "sportId"] as const)

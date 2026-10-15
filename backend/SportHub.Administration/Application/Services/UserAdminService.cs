@@ -72,8 +72,18 @@ public sealed class UserAdminService(
 
         if (!string.IsNullOrWhiteSpace(status))
         {
-            var parsedStatus = ParseStatus(status);
-            query = query.Where(u => u.Status == parsedStatus);
+            if (status == "ACTIVATION_REQUIRED")
+            {
+                query = query.Where(u => u.Status == UserStatus.Active
+                    && u.Role!.RoleName != UserRole.Member
+                    && (u.Credential == null || u.Credential.PasswordHash == null)
+                    && !u.ExternalLogins.Any());
+            }
+            else
+            {
+                var parsedStatus = ParseStatus(status);
+                query = query.Where(u => u.Status == parsedStatus);
+            }
         }
 
         var column = string.IsNullOrWhiteSpace(sortBy) ? "email" : sortBy;
@@ -202,7 +212,7 @@ public sealed class UserAdminService(
                 sportIds = coachSportIds
             })));
 
-        if (!await IssueActivationLinkAsync(email, request.FullName.Trim(), ct))
+        if (!await IssueActivationLinkAsync(email, request.FullName.Trim(), user.CreatedAt, ct))
             throw new InvalidOperationException("Could not issue a staff activation link.");
 
         // EmailOtpFlow saves the account, specialties, audit, token hash and encrypted outbox row together.
@@ -211,9 +221,10 @@ public sealed class UserAdminService(
         return await GetAsync(user.UserId, ct);
     }
 
-    /// <summary>Gửi (hoặc gửi lại) link kích hoạt 24 giờ; mỗi lần phát hành vô hiệu link cũ của cùng email. False nếu còn trong thời gian chờ gửi lại.</summary>
-    private Task<bool> IssueActivationLinkAsync(string email, string fullName, CancellationToken ct)
-        => activationLinks.IssueAsync(email, fullName, member: false, ct);
+    /// <summary>Gửi link hết hạn đúng CreatedAt + 24 giờ; link mới vô hiệu link cũ. False nếu còn trong thời gian chờ gửi lại.</summary>
+    private Task<bool> IssueActivationLinkAsync(string email, string fullName, DateTime createdAtUtc, CancellationToken ct)
+        => activationLinks.IssueAsync(email, fullName, member: false, ct,
+            expiresAtUtc: createdAtUtc + StaffInvitationExpiryService.InvitationLifetime);
 
     private async Task<UserAccount> LoadPendingStaffAsync(Guid userId, CancellationToken ct)
     {
@@ -250,7 +261,7 @@ public sealed class UserAdminService(
         audit.Write(new AuditEntry(actorUserId, AccountAuditActions.ResendStaffActivation, nameof(UserAccount), userId.ToString(),
             NewValue: System.Text.Json.JsonSerializer.Serialize(new { email = user.Email })));
 
-        if (!await IssueActivationLinkAsync(user.Email, user.Profile?.FullName ?? string.Empty, ct))
+        if (!await IssueActivationLinkAsync(user.Email, user.Profile?.FullName ?? string.Empty, user.CreatedAt, ct))
             throw new AppException(StatusCodes.Status429TooManyRequests, "activation_resend_too_soon",
                 $"Wait {AuthService.OtpResendCooldown.TotalSeconds:0} seconds before sending another activation link.");
 
@@ -266,6 +277,8 @@ public sealed class UserAdminService(
         var user = await LoadPendingStaffAsync(userId, ct);
         var oldEmail = user.Email;
         var newEmail = request.Email.Trim();
+        if (request.Reason.Trim().Length < 3)
+            throw new BadRequestException("invalid_reason", "Enter a reason with at least 3 characters.");
 
         if (string.Equals(oldEmail, newEmail, StringComparison.OrdinalIgnoreCase))
             throw new BadRequestException("email_unchanged", "The new email is the same as the current email.");
@@ -282,7 +295,7 @@ public sealed class UserAdminService(
             NewValue: System.Text.Json.JsonSerializer.Serialize(new { email = newEmail }),
             Reason: request.Reason.Trim()));
 
-        if (!await IssueActivationLinkAsync(newEmail, user.Profile?.FullName ?? string.Empty, ct))
+        if (!await IssueActivationLinkAsync(newEmail, user.Profile?.FullName ?? string.Empty, user.CreatedAt, ct))
             throw new AppException(StatusCodes.Status429TooManyRequests, "activation_resend_too_soon",
                 $"Wait {AuthService.OtpResendCooldown.TotalSeconds:0} seconds before sending another activation link.");
 
@@ -488,14 +501,24 @@ public sealed class UserAdminService(
     private async Task<IReadOnlyList<UserAdminResponse>> WithSportsAsync(IReadOnlyList<UserAdminResponse> rows, CancellationToken ct)
     {
         var coachIds = rows.Where(r => r.Role == nameof(UserRole.Coach)).Select(r => r.UserId).ToList();
-        if (coachIds.Count == 0)
-        {
-            return rows;
-        }
-
         var map = await specialties.GetForUsersAsync(coachIds, ct);
-
-        return rows.Select(r => map.TryGetValue(r.UserId, out var ids) ? r with { SportIds = ids } : r).ToList();
+        var pendingIds = rows.Where(r => r.ActivationPending && r.Role != nameof(UserRole.Member))
+            .Select(r => r.UserId.ToString()).ToArray();
+        var invited = await db.Set<SportHub.Audit.Domain.Entities.AuditLog>().AsNoTracking()
+            .Where(a => a.Action == AccountAuditActions.CreateStaffAccount && a.TargetEntity == nameof(UserAccount)
+                && pendingIds.Contains(a.TargetId)).Select(a => a.TargetId).Distinct().ToListAsync(ct);
+        var emails = rows.Where(r => invited.Contains(r.UserId.ToString())).Select(r => r.Email).ToArray();
+        var links = await db.Set<EmailOtp>().AsNoTracking()
+            .Where(o => emails.Contains(o.Email) && o.Purpose == EmailOtpPurpose.ResetPassword)
+            .ToDictionaryAsync(o => o.Email, ct);
+        return rows.Select(r => r with
+        {
+            SportIds = map.GetValueOrDefault(r.UserId) ?? r.SportIds,
+            ActivationExpiresAtUtc = invited.Contains(r.UserId.ToString())
+                ? r.CreatedAt + StaffInvitationExpiryService.InvitationLifetime : null,
+            ActivationResendAvailableAtUtc = links.TryGetValue(r.Email, out var link)
+                ? link.CreatedAt + AuthService.OtpResendCooldown : null
+        }).ToList();
     }
 
     private static System.Linq.Expressions.Expression<Func<UserAccount, UserAdminResponse>> Projection()

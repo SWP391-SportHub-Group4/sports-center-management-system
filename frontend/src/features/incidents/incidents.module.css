@@ -1,0 +1,124 @@
+.page {
+  display: grid;
+  gap: var(--space-6);
+  min-width: 0;
+}
+.intro {
+  margin: 0;
+  max-width: 72ch;
+  color: var(--text-muted);
+}
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-top: var(--space-5);
+}
+.actions :global(.btn) {
+  width: auto;
+  margin: 0;
+}
+.recheck:global(.btn),
+.confirm:global(.btn:not(:disabled)) {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-on-accent);
+}
+.recheck:global(.btn:hover:not(:disabled)),
+.confirm:global(.btn:hover:not(:disabled)) {
+  background: var(--color-accent-hover);
+  border-color: var(--color-accent-hover);
+}
+.back:global(.btn:not(:disabled)) {
+  background: var(--bg-surface);
+  border-color: var(--border-control);
+  color: var(--text-strong);
+}
+.back:global(.btn:hover:not(:disabled)) {
+  background: var(--bg-surface-sunken);
+}
+.summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+  margin: 0 0 var(--space-5);
+}
+.summary dt {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.summary dd {
+  margin: var(--space-1) 0 0;
+  overflow-wrap: anywhere;
+}
+.wide {
+  grid-column: 1 / -1;
+}
+.impactSummary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-4);
+}
+.impactSummary p {
+  margin: 0;
+}
+.notice {
+  padding: var(--space-4);
+  background: var(--bg-surface-sunken);
+  border-radius: var(--radius-md);
+  margin: 0 0 var(--space-4);
+}
+.dialog :global(.btn-row) {
+  justify-content: flex-end;
+}
+.dialog :global(.btn-row .btn),
+.dialog :global(.stack > .btn) {
+  width: auto;
+}
+.dialog :global(.dialog__foot) {
+  display: flex;
+  gap: var(--space-3);
+  justify-content: flex-end;
+}
+.dialog :global(.dialog__foot .btn) {
+  margin: 0;
+  width: auto;
+}
+.dialog :global(fieldset:not([hidden])) {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: var(--space-3);
+}
+.dialog :global(.dialog__foot) {
+  position: sticky;
+  bottom: 0;
+  background: var(--bg-surface);
+}
+.result {
+  display: grid;
+  gap: var(--space-3);
+}
+@media (max-width: 680px) {
+  .summary {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .actions {
+    align-items: stretch;
+  }
+  .actions :global(.btn) {
+    flex: 1 1 auto;
+  }
+  .dialog :global(.dialog__foot) {
+    flex-wrap: wrap;
+  }
+  .dialog :global(.dialog__foot .btn) {
+    flex: 1 1 auto;
+  }
+}

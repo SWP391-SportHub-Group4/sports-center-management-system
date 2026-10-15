@@ -25,7 +25,9 @@ public sealed record AuditLogResponse(
     string? TargetEmail = null,
     bool? TargetAccountExists = null,
     string? CurrentTargetLabel = null,
-    IReadOnlyDictionary<string, string>? ReferenceNames = null);
+    IReadOnlyDictionary<string, string>? ReferenceNames = null,
+    string? ActorRole = null,
+    string? ActorFullName = null);
 
 /// <summary>
 /// Đọc Audit Log (BR-7 — "Center Manager xem lịch sử thao tác").
@@ -33,13 +35,19 @@ public sealed record AuditLogResponse(
 /// </summary>
 public sealed class AuditQueryService(ISportHubDbContext db) : IAuditQueryService
 {
-    public async Task<IReadOnlyList<string>> ListActionsAsync(bool accountsOnly = false, CancellationToken ct = default)
+    private static IQueryable<AuditLog> Visible(IQueryable<AuditLog> query, bool administrator)
+        => administrator
+            ? query.Where(a => a.ActorRole == "SYSTEM_ADMINISTRATOR" || a.ActorRole == "CENTER_MANAGER"
+                || a.ActorRole == "COACH" || a.ActorRole == "SYSTEM")
+            : query.Where(a => a.ActorRole == "CENTER_MANAGER" || a.ActorRole == "RECEPTIONIST"
+                || a.ActorRole == "COACH" || a.ActorRole == "MEMBER");
+
+    public async Task<IReadOnlyList<string>> ListActionsAsync(bool administrator = false, CancellationToken ct = default)
     {
-        var query = db.Set<AuditLog>().AsNoTracking();
-        if (accountsOnly) query = query.Where(a => a.TargetEntity == nameof(UserAccount));
+        var query = Visible(db.Set<AuditLog>().AsNoTracking(), administrator);
         var recorded = await query.Where(a => a.Action.Trim() != "")
             .Select(a => a.Action).Distinct().ToListAsync(ct);
-        var actions = accountsOnly ? recorded.Concat(AccountAuditActions.All) : recorded;
+        var actions = administrator ? recorded.Concat(AccountAuditActions.All) : recorded;
         return actions.Where(a => !string.IsNullOrWhiteSpace(a))
             .Distinct(StringComparer.Ordinal).OrderBy(a => a, StringComparer.Ordinal).ToArray();
     }
@@ -51,15 +59,28 @@ public sealed class AuditQueryService(ISportHubDbContext db) : IAuditQueryServic
         DateTime? toUtc,
         int page,
         int pageSize,
-        CancellationToken ct = default, Guid? actorId = null, bool accountsOnly = false,
-        string? sortBy = null, string? sortDirection = null, string? targetId = null)
+        CancellationToken ct = default, Guid? actorId = null, bool administrator = false,
+        string? sortBy = null, string? sortDirection = null, string? targetId = null, string? actorRole = null,
+        string? actor = null)
     {
         page = page < 1 ? 1 : page;
         pageSize = Math.Clamp(pageSize <= 0 ? 25 : pageSize, 1, 200);
 
-        var query = db.Set<AuditLog>().AsNoTracking();
+        var query = Visible(db.Set<AuditLog>().AsNoTracking(), administrator);
         if (actorId.HasValue) query = query.Where(a => a.UserId == actorId);
-        if (accountsOnly) query = query.Where(a => a.TargetEntity == "UserAccount");
+        if (!string.IsNullOrWhiteSpace(actor))
+        {
+            var term = actor.Trim().ToLowerInvariant();
+            query = query.Where(a => a.User != null && (a.User.Email.ToLower().Contains(term)
+                || (a.User.Profile != null && a.User.Profile.FullName.ToLower().Contains(term))));
+        }
+        if (!string.IsNullOrWhiteSpace(actorRole))
+        {
+            var roles = new[] { "SYSTEM_ADMINISTRATOR", "CENTER_MANAGER", "COACH", "MEMBER", "RECEPTIONIST", "SYSTEM", "UNKNOWN" };
+            if (!roles.Contains(actorRole))
+                throw new BadRequestException("invalid_actor_role", "Unsupported actor role.");
+            query = query.Where(a => a.ActorRole == actorRole);
+        }
         if (!string.IsNullOrWhiteSpace(targetId)) query = query.Where(a => a.TargetId == targetId);
 
         if (!string.IsNullOrWhiteSpace(action))
@@ -114,7 +135,11 @@ public sealed class AuditQueryService(ISportHubDbContext db) : IAuditQueryServic
                 a.Timestamp,
                 null,
                 null,
-                null))
+                null,
+                null,
+                null,
+                a.ActorRole,
+                a.User.Profile != null ? a.User.Profile.FullName : null))
             .ToListAsync(ct);
 
         // Resolve only account targets on this page in one bounded query. TargetId is
@@ -154,8 +179,7 @@ public sealed class AuditQueryService(ISportHubDbContext db) : IAuditQueryServic
             }).ToList();
         }
 
-        if (!accountsOnly)
-            items = await AuditDisplayResolver.ResolveAsync(db, items, ct);
+        items = await AuditDisplayResolver.ResolveAsync(db, items, ct);
 
         return new PagedResult<AuditLogResponse>
         {

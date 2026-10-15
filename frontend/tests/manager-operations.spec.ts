@@ -736,6 +736,66 @@ test("schedule URL keeps day, room and activity filter through reload", async ({
     "COURT_RENTAL",
   );
 });
+test("center incident appears once in schedule and shows all affected rooms", async ({
+  page,
+}) => {
+  const centerId = "66666666-6666-4666-8666-666666666666";
+  await page.route("**/api/rooms", (route) =>
+    route.fulfill({
+      json: [...rooms, { roomId: 8, name: "Court B", isActive: true }],
+    }),
+  );
+  await page.route("**/api/manager/court-schedule?**", (route) =>
+    route.fulfill({
+      json: [
+        ...[7, 8].map((roomId, index) => ({
+          sourceType: "ROOM_BLOCK",
+          sourceId: `${index}1111111-1111-4111-8111-111111111111`,
+          roomId,
+          startAtUtc: "2030-10-03T02:00:00Z",
+          endAtUtc: "2030-10-03T04:00:00Z",
+          title: "Center maintenance",
+          status: "BLOCKED",
+          participants: [],
+          incidentId: centerId,
+          incidentScope: "CENTER",
+          affectedRoomIds: [7, 8],
+        })),
+        // Same title and time do not imply the same incident.
+        {
+          sourceType: "ROOM_BLOCK",
+          sourceId: noticeId,
+          roomId: 7,
+          startAtUtc: "2030-10-03T02:00:00Z",
+          endAtUtc: "2030-10-03T04:00:00Z",
+          title: "Separate room repair",
+          status: "BLOCKED",
+          participants: [],
+          incidentId: noticeId,
+          incidentScope: "ROOM",
+          affectedRoomIds: [7],
+        },
+      ],
+    }),
+  );
+  await page.goto("/manager/schedule?date=2030-10-03&view=day");
+  await expect(
+    page.getByText("Center maintenance", { exact: true }),
+  ).toHaveCount(1);
+  await expect(
+    page.getByText("Separate room repair", { exact: true }),
+  ).toHaveCount(1);
+  await page.getByText("Center maintenance", { exact: true }).click();
+  const drawer = page.getByRole("dialog");
+  await expect(
+    drawer.getByText(en.incidentHistory.entireCenter, { exact: true }),
+  ).toBeVisible();
+  await expect(drawer.getByRole("listitem")).toHaveText(["Court A", "Court B"]);
+  await expect(
+    drawer.getByRole("link", { name: en.incidentHistory.details }),
+  ).toHaveAttribute("href", `/manager/incidents/${centerId}`);
+});
+
 test("AI gap uses a drawer, preserves schedule context and never writes", async ({
   page,
 }) => {
@@ -782,6 +842,187 @@ async function incidentInputs(page: Page) {
     .getByLabel(en.operations.reason, { exact: true })
     .fill("Water leak");
 }
+
+test("incident confirmation popup returns to the draft without resolving", async ({
+  page,
+}) => {
+  let resolves = 0;
+  await page.route("**/api/manager/incidents/preview", (route) =>
+    route.fulfill({
+      json: {
+        ...route.request().postDataJSON(),
+        canResolve: true,
+        impacts: [],
+        blockReason: null,
+      },
+    }),
+  );
+  await page.route("**/api/manager/incidents/resolve", (route) => {
+    resolves++;
+    return route.fulfill({ json: { incidentId: noticeId } });
+  });
+  await incidentInputs(page);
+  await page
+    .getByRole("button", { name: en.operations.review, exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: en.managerOperations.recheck })
+    .click();
+  const dialog = page.getByRole("dialog", {
+    name: en.managerOperations.resolveReview,
+  });
+  await expect(dialog.getByText("Court A", { exact: true })).toBeVisible();
+  await dialog
+    .getByRole("button", { name: en.incidentHistory.backToImpacts })
+    .click();
+  await expect(dialog).toHaveCount(0);
+  await expect(
+    page.getByLabel(en.operations.reason, { exact: true }),
+  ).toHaveValue("Water leak");
+  await page
+    .getByRole("button", { name: en.managerOperations.recheck })
+    .click();
+  await expect(dialog).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  expect(resolves).toBe(0);
+});
+
+test("incident APIs complete the gym closure flow and retain the chosen extension", async ({
+  page,
+}) => {
+  const requests: Record<string, unknown>[] = [];
+  let resolved = false;
+  let listReads = 0;
+  let deliveryReads = 0;
+  const incident = {
+    incidentId: noticeId,
+    scope: "CENTER",
+    roomId: null,
+    roomName: null,
+    startAtUtc: "2030-10-03T11:00:00Z",
+    endAtUtc: "2030-10-03T14:00:00Z",
+    reason: "Water leak",
+    resolutionSummary: "Memberships extended by 2 days.",
+    createdAtUtc: "2030-10-01T00:00:00Z",
+  };
+  await page.route("**/api/manager/incidents?*", (route) => {
+    listReads++;
+    return route.fulfill({ json: paged(resolved ? [incident] : []) });
+  });
+  await page.route("**/api/manager/incidents/preview", (route) => {
+    requests.push(route.request().postDataJSON());
+    return route.fulfill({
+      json: {
+        ...incident,
+        impacts: [],
+        canResolve: true,
+        blockReason: null,
+        closesGym: true,
+        suggestedMembershipExtensionDays: 1,
+        affectedMemberCount: 4,
+      },
+    });
+  });
+  await page.route("**/api/manager/incidents/resolve", (route) => {
+    requests.push(route.request().postDataJSON());
+    resolved = true;
+    return route.fulfill({ json: { incidentId: noticeId } });
+  });
+  await page.route(`**/api/manager/incidents/${noticeId}`, (route) =>
+    route.fulfill({ json: incident }),
+  );
+  await page.route(
+    `**/api/manager/incidents/${noticeId}/notifications`,
+    (route) => {
+      deliveryReads++;
+      return route.fulfill({ json: delivery });
+    },
+  );
+  await incidentInputs(page);
+  await page
+    .getByLabel(en.operations.scope, { exact: true })
+    .selectOption("CENTER");
+  await page
+    .getByRole("button", { name: en.operations.review, exact: true })
+    .click();
+  const extension = page.getByRole("spinbutton");
+  await expect(extension).toHaveValue("1");
+  for (const invalid of ["", "-1", "32", "1.5"]) {
+    await extension.fill(invalid);
+    await expect(
+      page.getByText(en.incidentHistory.invalidExtension),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: en.managerOperations.recheck }),
+    ).toBeDisabled();
+  }
+  await extension.fill("2");
+  await page
+    .getByRole("button", { name: en.managerOperations.recheck })
+    .click();
+  await expect(page.getByText("Membership extension: 2 days.")).toBeVisible();
+  await expect(
+    page.getByRole("dialog", { name: en.managerOperations.resolveReview }),
+  ).toBeVisible();
+  expect(resolved).toBe(false);
+  await page
+    .getByRole("button", { name: en.managerOperations.finalResolve })
+    .click();
+  await expect(page).toHaveURL(new RegExp(`incidentId=${noticeId}`));
+  expect(requests).toHaveLength(3);
+  expect(requests[0]).toEqual({
+    scope: "CENTER",
+    roomId: null,
+    startAtUtc: new Date(incident.startAtUtc).toISOString(),
+    endAtUtc: new Date(incident.endAtUtc).toISOString(),
+    reason: incident.reason,
+  });
+  expect(requests[2]).toEqual({ ...requests[0], membershipExtensionDays: 2 });
+  await expect(
+    page.getByRole("region", {
+      name: en.managerOperations.incidentHistory,
+      exact: true,
+    }),
+  ).toContainText("Water leak");
+  expect(listReads).toBeGreaterThanOrEqual(2);
+  await page
+    .getByRole("link", { name: en.operations.details, exact: true })
+    .first()
+    .click();
+  await expect(page.getByText(incident.resolutionSummary)).toBeVisible();
+  await expect(
+    page.getByRole("columnheader", { name: "Sent", exact: true }),
+  ).toBeVisible();
+  expect(deliveryReads).toBeGreaterThanOrEqual(2);
+});
+
+test("incident invalid periods and whitespace reasons never reach preview", async ({
+  page,
+}) => {
+  let previews = 0;
+  await page.route("**/api/manager/incidents/preview", (route) => {
+    previews++;
+    return route.fulfill({ json: { impacts: [], canResolve: true } });
+  });
+  await incidentInputs(page);
+  await fillIncidentDateTime(page, en.operations.end, "2030-11-04T21:00");
+  await expect(page.getByText(en.incidentHistory.rangeTooLong)).toBeVisible();
+  const review = page.getByRole("button", {
+    name: en.operations.review,
+    exact: true,
+  });
+  await expect(review).toBeDisabled();
+  await fillIncidentDateTime(page, en.operations.start, "2020-10-03T18:00");
+  await fillIncidentDateTime(page, en.operations.end, "2020-10-03T21:00");
+  await expect(page.getByText(en.incidentHistory.endInPast)).toBeVisible();
+  await expect(review).toBeDisabled();
+  await fillIncidentDateTime(page, en.operations.start, "2030-10-03T18:00");
+  await fillIncidentDateTime(page, en.operations.end, "2030-10-03T21:00");
+  await page.getByLabel(en.operations.reason, { exact: true }).fill("   ");
+  await expect(review).toBeDisabled();
+  expect(previews).toBe(0);
+});
 
 test("incident block removal requires review and records only the successful step", async ({
   page,
@@ -837,7 +1078,7 @@ test("incident block removal requires review and records only the successful ste
     page.getByText(en.managerOperations.noSteps, { exact: true }),
   ).toHaveCount(0);
   await expect(
-    page.getByRole("row").filter({ hasText: noticeId }),
+    page.getByRole("row").filter({ hasText: "Confirmed by server" }),
   ).toContainText(en.operations.roomBlock);
   expect(deletes).toBe(1);
 });
@@ -1156,9 +1397,9 @@ test("incident confirmed steps remain visible when the next preview fails", asyn
     .click();
   await expect(page.getByText("Recheck unavailable")).toBeVisible();
   await expect(
-    page.getByRole("row").filter({ hasText: noticeId }),
+    page.getByRole("row").filter({ hasText: en.operations.roomBlock }),
   ).toContainText("Confirmed by server");
-  await expect(page.getByText(en.managerOperations.incidentGap)).toBeVisible();
+  await expect(page.getByText(en.managerOperations.incidentGap)).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: en.managerOperations.finalResolve }),
   ).toHaveCount(0);
@@ -1190,10 +1431,10 @@ test("incident uses read-only display names and retains core impacts when displa
     .getByRole("button", { name: en.operations.review, exact: true })
     .click();
   await expect(
-    page.getByRole("row").filter({ hasText: sessionId }),
+    page.getByRole("row").filter({ hasText: en.operations.classSession }),
   ).toContainText("Badminton autumn");
   await expect(
-    page.getByRole("row").filter({ hasText: sessionId }),
+    page.getByRole("row").filter({ hasText: en.operations.classSession }),
   ).toContainText("Coach Linh");
   await page.route("**/api/manager/court-schedule?**", (route) =>
     route.fulfill({
@@ -1206,11 +1447,70 @@ test("incident uses read-only display names and retains core impacts when displa
     .click();
   await expect(page.getByText(/Display details are unavailable/)).toBeVisible();
   await expect(
-    page.getByRole("row").filter({ hasText: sessionId }),
+    page.getByRole("row").filter({ hasText: en.operations.classSession }),
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: en.managerOperations.finalResolve }),
   ).toHaveCount(0);
+});
+
+test("incident session edits open in a popup and return to the impacts", async ({
+  page,
+}) => {
+  await page.route("**/api/manager/incidents/preview", (route) =>
+    route.fulfill({
+      json: {
+        startAtUtc: session.startAtUtc,
+        endAtUtc: session.endAtUtc,
+        canResolve: false,
+        impacts: [
+          {
+            sourceType: "CLASS_SESSION",
+            sourceId: sessionId,
+            startAtUtc: session.startAtUtc,
+            endAtUtc: session.endAtUtc,
+            resolutionOptions: [],
+          },
+        ],
+      },
+    }),
+  );
+  await incidentInputs(page);
+  await page
+    .getByRole("button", { name: en.operations.review, exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: en.operations.edit, exact: true })
+    .click();
+  const dialog = page.getByRole("dialog", {
+    name: en.incidentHistory.editSession,
+  });
+  await expect(
+    dialog.getByLabel(en.operations.reason, { exact: true }),
+  ).toBeVisible();
+  await dialog.getByLabel(en.operations.reason, { exact: true }).fill("Test");
+  await dialog
+    .getByRole("button", { name: en.managerOperations.reviewChange })
+    .click();
+  await expect(
+    dialog.getByText(en.managerOperations.newSchedule, { exact: false }),
+  ).toBeVisible();
+  await expect(
+    dialog.getByText("Reschedule · Test", { exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    dialog.getByText(en.managerOperations.previewConfirmationHint),
+  ).toHaveCount(0);
+  await expect(
+    dialog.getByRole("button", { name: en.operations.refresh, exact: true }),
+  ).toHaveCount(0);
+  await dialog
+    .getByRole("button", { name: en.common.close, exact: true })
+    .click();
+  await expect(dialog).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: en.managerOperations.recheck }),
+  ).toBeEnabled();
 });
 
 test("incident does not report success for a final response without a receipt", async ({

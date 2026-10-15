@@ -25,7 +25,6 @@ export function IncidentProgress({ steps }: { steps: IncidentStep[] }) {
         <Table
           headers={[
             t.operations.impact,
-            t.managerOperations.receiptId,
             t.operations.status,
             c.recorded,
             t.operations.reason,
@@ -39,9 +38,6 @@ export function IncidentProgress({ steps }: { steps: IncidentStep[] }) {
                   : t.calendar.types[
                       step.type as keyof typeof t.calendar.types
                     ] || step.type}
-              </td>
-              <td>
-                <code>{step.id}</code>
               </td>
               <td>{c[step.status]}</td>
               <td>{formatDateTime(step.at)}</td>

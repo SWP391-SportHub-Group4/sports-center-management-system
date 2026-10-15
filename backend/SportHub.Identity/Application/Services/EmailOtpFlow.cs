@@ -10,7 +10,7 @@ namespace SportHub.Identity.Application.Services;
 
 /// <summary>
 /// Vòng đời OTP email cho quên mật khẩu bằng link, kích hoạt Staff bằng link,
-/// và đặt mật khẩu lần đầu bằng mã 6 số. Thời hạn mặc định 10 phút, link Staff 24 giờ;
+/// và đặt mật khẩu lần đầu bằng mã 6 số. Thời hạn mặc định 10 phút; link staff dùng hạn tuyệt đối từ lúc tạo tài khoản;
 /// tối đa 5 lần sai, gửi lại sau 60 giây, chỉ mã mới nhất còn hiệu lực, băm SHA-256, dùng một lần.
 ///
 /// - Lần nhập sai được đếm bằng UPDATE nguyên tử và commit ngay, không nằm trong transaction nào có thể rollback.
@@ -26,7 +26,7 @@ public sealed class EmailOtpFlow(ISportHubDbContext db, IClock clock, INotificat
     public async Task<string?> IssueAsync(
         string email, EmailOtpPurpose purpose, CancellationToken ct, Func<string, string>? resetLink = null,
         string? supportUrl = null, TimeSpan? lifetime = null, string? resetEmailSubject = null,
-        Func<string, int, string>? renderResetEmail = null)
+        Func<string, int, string>? renderResetEmail = null, DateTime? expiresAtUtc = null)
     {
         // Đặt lại mật khẩu chỉ đi bằng link; không bao giờ gửi mã 6 số cho mục đích này.
         if (purpose == EmailOtpPurpose.ResetPassword && resetLink is null)
@@ -59,8 +59,10 @@ public sealed class EmailOtpFlow(ISportHubDbContext db, IClock clock, INotificat
         }
 
         otp.CodeHash = OtpCodes.Hash(code);
-        var validFor = lifetime ?? AuthService.OtpLifetime;
-        otp.ExpiresAt = now + validFor;
+        var validFor = expiresAtUtc.HasValue ? expiresAtUtc.Value - now : lifetime ?? AuthService.OtpLifetime;
+        if (validFor <= TimeSpan.Zero)
+            throw new BadRequestException("otp_expired", "The activation deadline has passed.");
+        otp.ExpiresAt = expiresAtUtc ?? now + validFor;
         otp.Attempts = 0;
         otp.ConsumedAt = null;
         otp.CreatedAt = now;

@@ -4,25 +4,23 @@ import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { AsyncSection, Card, Table } from "@/components/ui";
 import { useOperationsCopy } from "@/features/manager";
-export interface DeliveryCounts {
-  total: number;
-  pending: number;
-  sending: number;
-  sent: number;
-  failed: number;
-  read: number;
-}
+import { incidentApi, type IncidentDelivery } from "./incident-api";
+export type DeliveryCounts = IncidentDelivery;
 export function DeliveryStatus({
   path,
+  incidentId,
   receipt = false,
 }: {
-  path: string;
+  path?: string;
+  incidentId?: string;
   receipt?: boolean;
 }) {
   const { t } = useLanguage();
   const c = useOperationsCopy();
   const state = useApi(
     async (signal) => {
+      if (incidentId) return incidentApi.notifications(incidentId, signal);
+      if (!path) throw new Error("A notification source is required.");
       const result = await api.get<
         DeliveryCounts | { delivery: DeliveryCounts }
       >(path, { signal });
@@ -30,7 +28,7 @@ export function DeliveryStatus({
         ? (result as { delivery: DeliveryCounts }).delivery
         : (result as DeliveryCounts);
     },
-    [path, receipt],
+    [path, receipt, incidentId],
   );
   return (
     <Card title={t.operations.delivery}>
