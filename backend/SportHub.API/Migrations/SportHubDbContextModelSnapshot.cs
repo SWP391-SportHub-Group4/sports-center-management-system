@@ -983,6 +983,11 @@ namespace SportHub.API.Migrations
                         .HasColumnType("text")
                         .HasColumnName("name");
 
+                    b.Property<decimal?>("OriginalPrice")
+                        .HasPrecision(18)
+                        .HasColumnType("numeric(18,0)")
+                        .HasColumnName("original_price");
+
                     b.Property<decimal>("Price")
                         .HasPrecision(18)
                         .HasColumnType("numeric(18,0)")

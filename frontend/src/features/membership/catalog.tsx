@@ -238,6 +238,14 @@ export function MembershipCatalog({
               <div className={styles.planBody}>
                 <p className={styles.planPrice}>
                   <strong>{formatMoney(plan.price)}</strong>
+                  {plan.originalPrice != null &&
+                    plan.originalPrice > plan.price && (
+                      <s
+                        aria-label={`Original price: ${formatMoney(plan.originalPrice)}`}
+                      >
+                        {formatMoney(plan.originalPrice)}
+                      </s>
+                    )}
                   <span>
                     {" "}
                     · {plan.durationDays} {t.refactor.days}
@@ -295,6 +303,14 @@ export function MembershipCatalog({
                 >
                   <p className={compact ? styles.packagePrice : undefined}>
                     <strong>{formatMoney(p.price)}</strong>
+                    {p.originalPrice != null && p.originalPrice > p.price && (
+                      <s
+                        className={styles.originalPrice}
+                        aria-label={`Original price: ${formatMoney(p.originalPrice)}`}
+                      >
+                        {formatMoney(p.originalPrice)}
+                      </s>
+                    )}
                     <span>
                       {" "}
                       · {p.durationDays} {t.refactor.days}

@@ -245,6 +245,7 @@ export interface MembershipPackageDto {
   packageId: number;
   name: string;
   price: number;
+  originalPrice?: number | null;
   durationDays: number;
   sessionLimit: number | null;
   description: string | null;

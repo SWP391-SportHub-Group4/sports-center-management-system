@@ -7,4 +7,7 @@ public sealed record MembershipPackageResponse(
     int DurationDays,
     int? SessionLimit,
     string? Description,
-    bool IsActive);
+    bool IsActive)
+{
+    public decimal? OriginalPrice { get; init; }
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "next/image";
+import Image from "./HomepageImage";
 import Link from "next/link";
 import { Activity, ArrowRight, MapPin } from "lucide-react";
 import { useRef, useState, type KeyboardEvent } from "react";

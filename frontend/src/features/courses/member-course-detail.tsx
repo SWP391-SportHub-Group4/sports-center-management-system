@@ -6,6 +6,7 @@ import { MemberSchedule } from "@/features/member";
 import { CourseSticker } from "./course-sticker";
 import { CheckoutPanel } from "@/features/payments";
 import { StatusChip } from "@/components/ui";
+import { CoachProfilePreview } from "@/components/CoachProfilePreview";
 import { useAuth } from "@/lib/auth";
 import { useApi, useNow } from "@/lib/useApi";
 import { LockKeyhole } from "lucide-react";
@@ -130,7 +131,19 @@ export function CourseDetail({
           {facts.map(([label, value]) => (
             <div key={label}>
               <dt>{label}</dt>
-              <dd>{value}</dd>
+              <dd>
+                {label === (vi ? "Huấn luyện viên" : "Coach") &&
+                course.coachId &&
+                course.coachName ? (
+                  <CoachProfilePreview
+                    coachId={course.coachId}
+                    name={course.coachName}
+                    sport={course.sportName}
+                  />
+                ) : (
+                  value
+                )}
+              </dd>
             </div>
           ))}
         </dl>

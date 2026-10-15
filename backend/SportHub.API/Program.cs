@@ -422,8 +422,9 @@ var app = builder.Build();
 
 if (args.Any(a => a.StartsWith("--seed-", StringComparison.Ordinal)))
 {
-    if (!args.Contains("--seed-validation=true") || args.Any(a => a.StartsWith("--seed-", StringComparison.Ordinal) && a != "--seed-validation=true"))
-        throw new InvalidOperationException("Use --seed-validation=true for explicit local setup. Legacy demo seed commands have been removed.");
+    var seedCommands = args.Where(a => a.StartsWith("--seed-", StringComparison.Ordinal)).ToArray();
+    if (seedCommands.Length != 1 || seedCommands[0] is not ("--seed-validation=true" or "--seed-gym-six-months=true"))
+        throw new InvalidOperationException("Use --seed-validation=true or --seed-gym-six-months=true for explicit local setup.");
     if (!app.Environment.IsDevelopment())
         throw new InvalidOperationException("Validation seeding is only available in Development.");
     var target = new Npgsql.NpgsqlConnectionStringBuilder(app.Configuration.GetConnectionString("Default"));
@@ -435,7 +436,11 @@ if (args.Any(a => a.StartsWith("--seed-", StringComparison.Ordinal)))
         throw new InvalidOperationException("Apply pending migrations before seeding. The seed command never changes the database schema.");
     await db.Database.OpenConnectionAsync();
     await db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_lock(2026101301)");
-    try { await scope.ServiceProvider.GetRequiredService<SystemValidationSeeder>().SeedAsync(); }
+    try {
+        var seeder = scope.ServiceProvider.GetRequiredService<SystemValidationSeeder>();
+        if (seedCommands[0] == "--seed-gym-six-months=true") await seeder.SeedGymSixMonthsAsync();
+        else await seeder.SeedAsync();
+    }
     finally {
         await db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_unlock(2026101301)");
         await db.Database.CloseConnectionAsync();

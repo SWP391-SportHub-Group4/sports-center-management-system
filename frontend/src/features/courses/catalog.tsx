@@ -9,6 +9,7 @@ import Link from "next/link";
 import { api } from "@/lib/apiClient";
 import { useApi, useNow } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
+import { CoachProfilePreview } from "@/components/CoachProfilePreview";
 import { UserAvatar } from "@/components/UserAvatar";
 import {
   formatMoney,
@@ -334,7 +335,15 @@ export function CourseCatalog({
                               report
                             />
                           )}{" "}
-                          {c.coachName || d.coachTbc}
+                          {c.coachId && c.coachName ? (
+                            <CoachProfilePreview
+                              coachId={c.coachId}
+                              name={c.coachName}
+                              sport={c.sportName}
+                            />
+                          ) : (
+                            c.coachName || d.coachTbc
+                          )}
                         </dd>
                         <dt>{d.room}</dt>
                         <dd>{c.roomName}</dd>
@@ -356,7 +365,15 @@ export function CourseCatalog({
                             report
                           />
                         )}{" "}
-                        {c.coachName || d.coachTbc}
+                        {c.coachId && c.coachName ? (
+                          <CoachProfilePreview
+                            coachId={c.coachId}
+                            name={c.coachName}
+                            sport={c.sportName}
+                          />
+                        ) : (
+                          c.coachName || d.coachTbc
+                        )}
                       </dd>
                       <dt>{d.room}</dt>
                       <dd>{c.roomName}</dd>
