@@ -6,10 +6,14 @@ public static class StaffActivationEmail
 {
     public const string Subject = "SportHub - Activate your staff account";
 
-    public static string Render(string fullName, string setupUrl, int validMinutes, string? supportUrl = null)
+    public static string Render(string fullName, string setupUrl, int validMinutes, string? supportUrl = null,
+        DateTime? expiresAtUtc = null)
     {
         var name = WebUtility.HtmlEncode(fullName);
         var url = WebUtility.HtmlEncode(setupUrl);
+        var expiry = expiresAtUtc.HasValue
+            ? $"Your activation deadline is {expiresAtUtc.Value.AddHours(7):dd/MM/yyyy HH:mm} (Vietnam time, UTC+7)."
+            : $"This link expires in {validMinutes} minutes.";
         var support = string.IsNullOrWhiteSpace(supportUrl)
             ? "Contact the center if you need help."
             : $"Contact the center if you need help: <a href=\"{WebUtility.HtmlEncode(supportUrl)}\">{WebUtility.HtmlEncode(supportUrl)}</a>.";
@@ -26,7 +30,7 @@ public static class StaffActivationEmail
       <p>Hello {{name}},</p>
       <p>An administrator created a SportHub staff account for this email address. Set your own password to activate access.</p>
       <p style="margin:28px 0;"><a href="{{url}}" style="display:inline-block;padding:14px 24px;background:#02717a;color:#fff;text-decoration:none;border-radius:8px;font-weight:700;">SET YOUR PASSWORD</a></p>
-      <p>This link expires in {{validMinutes / 60}} hours and can be used once.</p>
+      <p>{{expiry}} The link can be used once. Resending the email or correcting its address does not extend the activation deadline.</p>
       <p>If the button does not work, copy this link: <a href="{{url}}">{{url}}</a></p>
       <p>{{support}}</p>
       <p>If you were not expecting this invitation, you can ignore it. No password has been set for this account.</p>

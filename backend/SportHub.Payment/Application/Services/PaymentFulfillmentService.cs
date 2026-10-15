@@ -311,7 +311,8 @@ public sealed class PaymentFulfillmentService(
                 nameof(Invoice),
                 invoice.InvoiceId.ToString(),
                 NewValue:
-                    $"{{\"paidVia\":\"{paidVia}\"}}"));
+                    $"{{\"paidVia\":\"{paidVia}\"}}",
+                IsSystem: true));
     }
 
     public async Task ReleaseAsync(
@@ -414,7 +415,8 @@ public sealed class PaymentFulfillmentService(
                 "RELEASE_CHECKOUT",
                 nameof(Invoice),
                 invoice.InvoiceId.ToString(),
-                Reason: reason));
+                Reason: reason,
+                IsSystem: actorId is null));
     }
 
     public async Task CompensateCashAsync(
@@ -463,7 +465,8 @@ public sealed class PaymentFulfillmentService(
                     nameof(Invoice),
                     invoice.InvoiceId.ToString(),
                     Reason:
-                        proof.ProviderTransactionId));
+                        proof.ProviderTransactionId,
+                    IsSystem: true));
 
             return;
         }
@@ -524,7 +527,8 @@ public sealed class PaymentFulfillmentService(
                 nameof(Invoice),
                 invoice.InvoiceId.ToString(),
                 Reason:
-                    proof.ProviderTransactionId));
+                    proof.ProviderTransactionId,
+                IsSystem: true));
     }
 
     private void RequireTransaction()

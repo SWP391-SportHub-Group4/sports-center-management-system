@@ -158,7 +158,7 @@ test("invalid list sort/page/select URL values use safe defaults", async ({
   expect(params.has("status")).toBeFalsy();
 });
 
-test("Audit FilterBar applies drafts only on submit, validates actor, and preserves account scope", async ({
+test("Audit FilterBar applies name/email drafts only on submit and preserves legacy actor scope", async ({
   page,
 }) => {
   const requests = await setup(page);
@@ -168,24 +168,19 @@ test("Audit FilterBar applies drafts only on submit, validates actor, and preser
   await expect(page.getByLabel("Action", { exact: true })).toHaveValue(
     "LOCK_USER",
   );
-  await expect(page.getByLabel("Actor ID", { exact: true })).toHaveValue(
-    actorId,
-  );
+  await expect(
+    page.getByLabel("Actor name or email", { exact: true }),
+  ).toHaveValue("");
   await expect.poll(() => requests.at(-1)?.searchParams.get("page")).toBe("2");
-  expect(requests.at(-1)?.searchParams.get("targetEntity")).toBe("UserAccount");
-  await expect(page.getByLabel("Entity", { exact: true })).toHaveCount(0);
+  expect(requests.at(-1)?.searchParams.get("targetEntity")).toBe("PointWallet");
+  expect(requests.at(-1)?.searchParams.get("actorId")).toBe(actorId);
   const count = requests.length;
   await page.getByLabel("Action", { exact: true }).fill("UNLOCK_USER");
-  await page.getByLabel("Actor ID", { exact: true }).fill("incomplete");
   await page
-    .getByRole("button", { name: "Apply filters", exact: true })
-    .click();
-  await expect(
-    page.getByRole("alert").filter({ hasText: "Enter a valid actor ID" }),
-  ).toHaveText("Enter a valid actor ID (UUID), or leave it empty.");
+    .getByLabel("Actor name or email", { exact: true })
+    .fill("admin@example.com");
   expect(requests.length).toBe(count);
   expect(new URL(page.url()).searchParams.get("action")).toBe("LOCK_USER");
-  await page.getByLabel("Actor ID", { exact: true }).fill(actorId);
   await page
     .getByRole("button", { name: "Apply filters", exact: true })
     .click();
@@ -193,6 +188,8 @@ test("Audit FilterBar applies drafts only on submit, validates actor, and preser
     .poll(() => requests.at(-1)?.searchParams.get("action"))
     .toBe("UNLOCK_USER");
   expect(requests.at(-1)?.searchParams.get("page")).toBe("1");
+  expect(requests.at(-1)?.searchParams.get("actor")).toBe("admin@example.com");
+  expect(requests.at(-1)?.searchParams.has("actorId")).toBeFalsy();
   expect(new URL(page.url()).searchParams.get("keep")).toBe("1");
   await page.reload();
   await expect(page.getByLabel("Action", { exact: true })).toHaveValue(
@@ -204,14 +201,16 @@ test("Audit FilterBar applies drafts only on submit, validates actor, and preser
   );
   await page.getByRole("button", { name: /Clear filters/ }).click();
   await expect(page.getByLabel("Action", { exact: true })).toHaveValue("");
-  await expect(page.getByLabel("Actor ID", { exact: true })).toHaveValue("");
+  await expect(
+    page.getByLabel("Actor name or email", { exact: true }),
+  ).toHaveValue("");
   const url = new URL(page.url());
-  for (const key of ["action", "targetEntity", "actorId", "page"])
+  for (const key of ["action", "targetEntity", "actorId", "actor", "page"])
     expect(url.searchParams.has(key)).toBeFalsy();
   expect(url.searchParams.get("sortBy")).toBe("action");
   await expect
     .poll(() => requests.at(-1)?.searchParams.get("targetEntity"))
-    .toBe("UserAccount");
+    .toBeNull();
 });
 
 test("FilterBar stays English with legacy language preferences and fits both Admin pages on mobile", async ({

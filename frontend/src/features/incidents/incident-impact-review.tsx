@@ -1,5 +1,7 @@
 "use client";
 import { useState } from "react";
+import { createPortal } from "react-dom";
+import styles from "./incidents.module.css";
 import { api, ApiError } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
@@ -52,6 +54,8 @@ function ClassImpactEditor({
           capacity={data.capacity}
           onSaved={onSaved}
           onClose={onClose}
+          showCloseButton={false}
+          embedded
           onOutcome={onOutcome}
         />
       )}
@@ -85,6 +89,7 @@ export function IncidentImpactReview({
     null,
   );
   const mutation = useMutation();
+  const [editorBusy, setEditorBusy] = useState(false);
   const [removeId, setRemoveId] = useState("");
   const details = useApi(
     async (signal) => {
@@ -118,10 +123,19 @@ export function IncidentImpactReview({
   };
   return (
     <>
-      <p>{preview.blockReason}</p>
-      <p>
-        {c.impactCount}: {preview.impacts.length}
-      </p>
+      <div className={styles.impactSummary}>
+        <p>
+          {c.impactCount}: <strong>{preview.impacts.length}</strong>
+        </p>
+        <p>
+          {preview.canResolve
+            ? t.incidentHistory.ready
+            : t.incidentHistory.changesNeeded}
+        </p>
+      </div>
+      {preview.blockReason && (
+        <p className={styles.notice}>{preview.blockReason}</p>
+      )}
       {details.error && (
         <p role="status">
           {c.detailsUnavailable}{" "}
@@ -130,81 +144,70 @@ export function IncidentImpactReview({
           </button>
         </p>
       )}
-      {!preview.impacts.length && <p>{c.emptyImpacts}</p>}
-      <Table
-        headers={[
-          l.impact,
-          t.managerOperations.receiptId,
-          l.room,
-          l.coach,
-          l.start,
-          l.end,
-          "",
-        ]}
-      >
-        {preview.impacts.map((r) => {
-          const entry = details.data?.entries.find(
-            (e) => e.sourceType === r.sourceType && e.sourceId === r.sourceId,
-          );
-          return (
-            <tr key={`${r.sourceType}-${r.sourceId}`}>
-              <td>
-                {labels[r.sourceType] ?? r.sourceType}
-                {entry && <p>{entry.title}</p>}
-              </td>
-              <td>
-                <code>{r.sourceId}</code>
-              </td>
-              <td>
-                {details.data?.rooms.find(
-                  (room) => room.roomId === entry?.roomId,
-                )?.name || "—"}
-              </td>
-              <td>{entry?.coachName || "—"}</td>
-              <td>{formatDateTime(r.startAtUtc)}</td>
-              <td>{formatDateTime(r.endAtUtc)}</td>
-              <td>
-                {r.sourceType === "CLASS_SESSION" ? (
-                  <button
-                    className="btn btn--secondary"
-                    disabled={disabled || !!editing || !!removeId}
-                    onClick={() => {
-                      setEditing({ type: r.sourceType, id: r.sourceId });
-                      onEditingChange?.(true);
-                    }}
-                  >
-                    {l.edit}
-                  </button>
-                ) : r.sourceType === "ROOM_BLOCK" &&
-                  r.resolutionOptions.some(
-                    (o) => o.action === "RemoveExistingBlock",
-                  ) ? (
-                  <button
-                    className="btn btn--secondary"
-                    disabled={
-                      disabled || mutation.busy || !!editing || !!removeId
-                    }
-                    onClick={() => {
-                      setRemoveId(r.sourceId);
-                      onEditingChange?.(true);
-                    }}
-                  >
-                    {l.remove}
-                  </button>
-                ) : (
-                  <span>
-                    {r.sourceType === "COURT_RENTAL"
-                      ? entry?.status === "PENDING_PAYMENT"
-                        ? c.rentalPending
-                        : c.rentalConfirmed
-                      : c.blockUnsupported}
-                  </span>
-                )}
-              </td>
-            </tr>
-          );
-        })}
-      </Table>
+      {!preview.impacts.length && <p>{t.incidentHistory.noImpacts}</p>}
+      {!!preview.impacts.length && (
+        <Table headers={[l.impact, l.room, l.coach, l.start, l.end, ""]}>
+          {preview.impacts.map((r) => {
+            const entry = details.data?.entries.find(
+              (e) => e.sourceType === r.sourceType && e.sourceId === r.sourceId,
+            );
+            return (
+              <tr key={`${r.sourceType}-${r.sourceId}`}>
+                <td>
+                  {labels[r.sourceType] ?? r.sourceType}
+                  {entry && <p>{entry.title}</p>}
+                </td>
+                <td>
+                  {details.data?.rooms.find(
+                    (room) => room.roomId === entry?.roomId,
+                  )?.name || "—"}
+                </td>
+                <td>{entry?.coachName || "—"}</td>
+                <td>{formatDateTime(r.startAtUtc)}</td>
+                <td>{formatDateTime(r.endAtUtc)}</td>
+                <td>
+                  {r.sourceType === "CLASS_SESSION" ? (
+                    <button
+                      className="btn btn--secondary"
+                      disabled={disabled || !!editing || !!removeId}
+                      onClick={() => {
+                        setEditing({ type: r.sourceType, id: r.sourceId });
+                        onEditingChange?.(true);
+                      }}
+                    >
+                      {l.edit}
+                    </button>
+                  ) : r.sourceType === "ROOM_BLOCK" &&
+                    r.resolutionOptions.some(
+                      (o) => o.action === "RemoveExistingBlock",
+                    ) ? (
+                    <button
+                      className="btn btn--secondary"
+                      disabled={
+                        disabled || mutation.busy || !!editing || !!removeId
+                      }
+                      onClick={() => {
+                        setRemoveId(r.sourceId);
+                        onEditingChange?.(true);
+                      }}
+                    >
+                      {l.remove}
+                    </button>
+                  ) : (
+                    <span>
+                      {r.sourceType === "COURT_RENTAL"
+                        ? entry?.status === "PENDING_PAYMENT"
+                          ? c.rentalPending
+                          : c.rentalConfirmed
+                        : c.blockUnsupported}
+                    </span>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </Table>
+      )}
       {removeId && (
         <Dialog
           title={l.remove}
@@ -216,9 +219,10 @@ export function IncidentImpactReview({
           }}
         >
           <p>
-            {l.roomBlock} · <code>{removeId}</code>
+            {details.data?.entries.find((entry) => entry.sourceId === removeId)
+              ?.title || l.roomBlock}
           </p>
-          <p>{t.managerOperations.partialHint}</p>
+          <p>{t.incidentHistory.removeBlockHint}</p>
           <div className="btn-row">
             <button
               className="btn"
@@ -268,21 +272,33 @@ export function IncidentImpactReview({
           <MutationFeedback mutation={mutation} />
         </Dialog>
       )}
-      {editing?.type === "CLASS_SESSION" && (
-        <ClassImpactEditor
-          key={editing.id}
-          id={editing.id}
-          onOutcome={(status, message) =>
-            onResult?.("CLASS_SESSION", editing.id, status, message)
-          }
-          onSaved={() => {
-            onCompleted?.("CLASS_SESSION", editing.id);
-            closeEditor();
-            onRefresh();
-          }}
-          onClose={closeEditor}
-        />
-      )}
+      {editing?.type === "CLASS_SESSION" &&
+        createPortal(
+          <Dialog
+            title={t.incidentHistory.editSession}
+            size="lg"
+            className={styles.dialog}
+            onClose={() => {
+              if (!editorBusy) closeEditor();
+            }}
+          >
+            <ClassImpactEditor
+              key={editing.id}
+              id={editing.id}
+              onOutcome={(status, message) => {
+                setEditorBusy(status === "pending");
+                onResult?.("CLASS_SESSION", editing.id, status, message);
+              }}
+              onSaved={() => {
+                onCompleted?.("CLASS_SESSION", editing.id);
+                closeEditor();
+                onRefresh();
+              }}
+              onClose={closeEditor}
+            />
+          </Dialog>,
+          document.body,
+        )}
       <MutationFeedback mutation={mutation} />
     </>
   );

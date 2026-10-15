@@ -4,10 +4,46 @@
   gap: var(--space-5);
   min-width: 0;
 }
+
+.compact :global(.card) :global(table) :global(tbody) :global(td),
+.compact :global(.card) :global(table) :global(tbody) :global(th) {
+  vertical-align: top;
+  padding-block: var(--space-3);
+}
+
+@media (min-width: 768px) {
+  .compact :global(table) {
+    table-layout: fixed;
+  }
+  .compact :global(thead) :global(th):nth-child(1) {
+    width: 14%;
+  }
+  .compact :global(thead) :global(th):nth-child(2) {
+    width: 20%;
+  }
+  .compact :global(thead) :global(th):nth-child(3) {
+    width: 16%;
+  }
+  .compact :global(thead) :global(th):nth-child(4) {
+    width: 22%;
+  }
+  .compact :global(thead) :global(th):nth-child(5) {
+    width: 16%;
+  }
+  .compact :global(thead) :global(th):nth-child(6) {
+    width: 12%;
+  }
+}
 @media (max-width: 767px) {
   /* The operations workspace sets a desktop minimum on legacy tables.
      This view uses the shared responsive Table, whose mobile cards must fit. */
   .root :global(.card) :global(table) {
     min-width: 0;
+  }
+  .root :global(td[data-label=""]) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .root :global(td[data-label=""])::before {
+    display: none;
   }
 }

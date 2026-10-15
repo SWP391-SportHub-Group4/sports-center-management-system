@@ -40,7 +40,7 @@ export function IncidentDetailsView({ id }: { id: string }) {
             </dl>
             <p>{incident.resolutionSummary}</p>
           </Card>
-          <DeliveryStatus path={`/api/manager/incidents/${id}/notifications`} />
+          <DeliveryStatus incidentId={id} />
         </>
       )}
     </AsyncSection>

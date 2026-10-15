@@ -23,7 +23,7 @@ public class AuditLogsController(IAuditQueryService auditLogs) : ControllerBase
     [HttpGet("actions")]
     public async Task<IActionResult> ListActions(CancellationToken ct = default)
         => Ok(await auditLogs.ListActionsAsync(
-            accountsOnly: User.IsInRole(nameof(UserRole.SystemAdministrator)), ct));
+            administrator: User.IsInRole(nameof(UserRole.SystemAdministrator)), ct));
 
     [HttpGet]
     public async Task<IActionResult> Search(
@@ -35,7 +35,8 @@ public class AuditLogsController(IAuditQueryService auditLogs) : ControllerBase
         [FromQuery] int pageSize = 25,
         CancellationToken ct = default, [FromQuery] Guid? actorId = null,
         [FromQuery] string? sortBy = null, [FromQuery] string? sortDirection = null,
-        [FromQuery] string? targetId = null)
+        [FromQuery] string? targetId = null, [FromQuery] string? actorRole = null,
+        [FromQuery] string? actor = null)
         => Ok(await auditLogs.SearchAsync(action, targetEntity, fromUtc, toUtc, page, pageSize, ct,
-            actorId, accountsOnly: User.IsInRole(nameof(UserRole.SystemAdministrator)), sortBy, sortDirection, targetId));
+            actorId, administrator: User.IsInRole(nameof(UserRole.SystemAdministrator)), sortBy, sortDirection, targetId, actorRole, actor));
 }

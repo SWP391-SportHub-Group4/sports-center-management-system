@@ -4,6 +4,7 @@ import { useLanguage } from "@/lib/language";
 import { formatMoney, formatNumber } from "@/lib/format";
 import type { AuditLogDto } from "@/lib/types";
 import styles from "./MembershipAuditChanges.module.css";
+import { auditDisplayText } from "./audit-display";
 
 type Snapshot = Partial<{
   name: string;
@@ -95,7 +96,7 @@ export function MembershipAuditChanges({ row }: { row: AuditLogDto }) {
       return item === null ? l.unlimited : formatNumber(item as number);
     if (key === "isActive")
       return item ? t.wireStatus.ACTIVE : t.wireStatus.INACTIVE;
-    return String(item);
+    return auditDisplayText(String(item));
   };
   if (!hasBefore && !hasAfter)
     return <p className="small muted">{l.unavailable}</p>;
@@ -104,7 +105,7 @@ export function MembershipAuditChanges({ row }: { row: AuditLogDto }) {
       {showName && (
         <p className={styles.subject}>
           <strong>
-            {l.package}: {name}
+            {l.package}: {auditDisplayText(name ?? "Unavailable")}
           </strong>
         </p>
       )}
