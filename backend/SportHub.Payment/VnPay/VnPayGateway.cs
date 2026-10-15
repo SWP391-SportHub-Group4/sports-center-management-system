@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Net.Http.Json;
+using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text.Json;
 using Microsoft.Extensions.Options;
@@ -126,7 +127,14 @@ public sealed class VnPayGateway(IOptions<VnPayOptions> options, HttpClient http
     {
         try
         {
-            using var response = await http.PostAsJsonAsync(_options.QueryUrl, fields, ct);
+            using var request = new HttpRequestMessage(HttpMethod.Post, _options.QueryUrl)
+            {
+                Content = JsonContent.Create(fields)
+            };
+            // The sandbox gateway rejects HttpClient requests without a User-Agent with HTTP 403.
+            request.Headers.UserAgent.Add(new ProductInfoHeaderValue("SportHub", "1.0"));
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            using var response = await http.SendAsync(request, ct);
             if (!response.IsSuccessStatusCode)
             {
                 var status = (int)response.StatusCode;
