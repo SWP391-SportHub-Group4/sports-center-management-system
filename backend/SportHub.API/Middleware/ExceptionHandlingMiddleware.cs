@@ -88,7 +88,12 @@ public sealed class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<Ex
                     await WriteErrorAsync(context, mapped.Status, mapped.Code, mapped.Message);
                     break;
                 default:
-                    logger.LogError(ex, "Unhandled exception while processing {Method} {Path}", context.Request.Method, context.Request.Path);
+                    // Keep diagnostic types on the same line as the route: console collectors may
+                    // split stack traces into separate entries that disappear under a path filter.
+                    logger.LogError(ex,
+                        "Unhandled exception while processing {Method} {Path}; exception={ExceptionType}; root={RootExceptionType}; sqlState={SqlState}",
+                        context.Request.Method, context.Request.Path, ex.GetType().FullName,
+                        ex.GetBaseException().GetType().FullName, TryFindPostgresException(ex)?.SqlState);
                     await WriteErrorAsync(
                         context,
                         StatusCodes.Status500InternalServerError,
