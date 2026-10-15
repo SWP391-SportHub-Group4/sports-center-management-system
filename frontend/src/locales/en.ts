@@ -451,7 +451,7 @@ export const en = {
     morePackages: "View all packages",
     sessionType: "Activity",
     walletHint: "Available for your next booking",
-    manageTraining: "Open training",
+    manageTraining: "View my schedule",
     moreSchedule: "View full schedule",
     attentionTitle: "Needs your attention",
     noAttention: "Nothing needs your attention right now.",

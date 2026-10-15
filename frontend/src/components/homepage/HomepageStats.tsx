@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "next/image";
+import Image from "./HomepageImage";
 import Link from "next/link";
 import {
   useEffect,
@@ -188,8 +188,16 @@ export function HomepageStats({ language }: { language: HomepageLanguage }) {
                 en: `Capacity: ${room.capacity}`,
                 vi: `Capacity: ${room.capacity}`,
               },
-              image: "",
-              alt: { en: room.name, vi: room.name },
+              image:
+                room.roomTypeId === 3
+                  ? "/sporthub/court-volt/course-badminton.png"
+                  : room.roomTypeId === 4
+                    ? "/sporthub/court-volt/course-basketball.png"
+                    : "/sporthub/court-volt/program-gym.png",
+              alt: {
+                en: `Training space illustration for ${room.name}`,
+                vi: `Hình minh họa không gian tập luyện cho ${room.name}`,
+              },
             }))
           : category.items,
   }));
@@ -215,12 +223,12 @@ export function HomepageStats({ language }: { language: HomepageLanguage }) {
   useEffect(() => {
     const selectHash = () => {
       const id = window.location.hash.slice(1);
-      if (homepageCategories.some((item) => item.id === id))
+      if (categoryLabels.some((item) => item.id === id))
         setActive(id as CategoryId);
     };
     const selectNavigation = (event: Event) => {
       const id = (event as CustomEvent<string>).detail;
-      if (homepageCategories.some((item) => item.id === id))
+      if (categoryLabels.some((item) => item.id === id))
         setActive(id as CategoryId);
     };
     const frame = requestAnimationFrame(selectHash);
@@ -376,25 +384,12 @@ export function HomepageStats({ language }: { language: HomepageLanguage }) {
                       }
                     >
                       <div className={styles.photo}>
-                        {detail.image ? (
-                          <Image
-                            src={detail.image}
-                            alt={detail.alt[language]}
-                            fill
-                            sizes="(max-width: 767px) 90vw, (max-width: 1199px) 30vw, 400px"
-                          />
-                        ) : (
-                          <div
-                            className={styles.placeholderPhoto}
-                            aria-hidden="true"
-                          >
-                            {item.id === "facilities" ? (
-                              <Grid2X2 size={40} />
-                            ) : (
-                              <UsersRound size={40} />
-                            )}
-                          </div>
-                        )}
+                        <Image
+                          src={detail.image}
+                          alt={detail.alt[language]}
+                          fill
+                          sizes="(max-width: 767px) 90vw, (max-width: 1199px) 30vw, 400px"
+                        />
                       </div>
                       <div className={styles.itemCopy}>
                         <h3>{detail.name[language]}</h3>
