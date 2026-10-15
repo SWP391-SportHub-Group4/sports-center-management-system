@@ -10,6 +10,8 @@ public class AuditLogConfiguration : IEntityTypeConfiguration<AuditLog>
         builder.HasKey(e => e.AuditId);
         builder.Property(e => e.OldValue).HasColumnType("jsonb");
         builder.Property(e => e.NewValue).HasColumnType("jsonb");
+        builder.Property(e => e.ActorRole).HasMaxLength(32).IsRequired();
+        builder.HasIndex(e => new { e.ActorRole, e.Timestamp });
 
         builder.HasOne(e => e.User)
             .WithMany()

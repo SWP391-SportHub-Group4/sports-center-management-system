@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Http;
+using System.Security.Claims;
+using System.Text.Json;
 using SportHub.BuildingBlocks.Abstractions.Audit;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.SharedKernel.Time;
@@ -19,10 +21,17 @@ public sealed class AuditWriter(
 {
     public void Write(AuditEntry entry)
     {
+        var principal = httpContextAccessor.HttpContext?.User;
+        var actorRole = entry.IsSystem || principal?.Identity?.IsAuthenticated != true
+            ? "SYSTEM"
+            : principal.FindFirst(ClaimTypes.Role)?.Value;
+        if (string.IsNullOrWhiteSpace(actorRole))
+            throw new InvalidOperationException("An authenticated audit event requires an actor role.");
         db.Set<AuditLog>().Add(new AuditLog
         {
             AuditId = Guid.NewGuid(),
             UserId = entry.ActorUserId,
+            ActorRole = JsonNamingPolicy.SnakeCaseUpper.ConvertName(actorRole),
             Action = entry.Action,
             TargetEntity = entry.TargetEntity,
             TargetId = entry.TargetId,

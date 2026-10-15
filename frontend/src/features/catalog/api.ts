@@ -21,6 +21,9 @@ export type SaveRate = Omit<CourtRateDto, "rateId" | "daysOfWeek"> & {
   daysOfWeek: string[];
 };
 export const catalogApi = {
+  deleteRoom: (id: number) => api.del(`/api/rooms/${id}`),
+  deleteRoomType: (id: number) => api.del(`/api/manager/room-types/${id}`),
+  deleteRate: (id: number) => api.del(`/api/manager/court-rates/${id}`),
   saveSport: (id: number | null, body: SaveSport) =>
     id === null
       ? api.post("/api/manager/sports", body)

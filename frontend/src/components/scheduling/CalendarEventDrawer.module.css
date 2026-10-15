@@ -1,0 +1,51 @@
+.summary,
+.participants {
+  min-width: 0;
+}
+
+.summary {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.summaryRow {
+  display: grid;
+  grid-template-columns: minmax(0, 0.7fr) minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-3);
+}
+
+.summaryRow dt,
+.summaryRow dd {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.summaryRow dd {
+  text-align: right;
+}
+
+.participants h3 {
+  margin: 0 0 var(--space-3);
+}
+
+.participantTable {
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
+}
+
+.participantTable th:first-child {
+  width: 60%;
+}
+
+.participantTable th,
+.participantTable td {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.participantTable :global(.chip) {
+  max-width: 100%;
+  white-space: normal;
+}

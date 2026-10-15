@@ -60,6 +60,7 @@ async function fixture(page: Page) {
           requestedByName: "Mai Anh",
         },
       ]),
+      "/api/manager/incidents": paged([]),
       "/api/manager/court-schedule": [
         {
           sourceType: "CLASS_SESSION",
@@ -77,6 +78,7 @@ async function fixture(page: Page) {
       "/api/reports/revenue": {
         totalCollected: 100000,
         pointsRedeemedVnd: 0,
+        pointsRedeemed: 0,
         pointsIssued: 0,
         outstandingPoints: 0,
       },
@@ -112,11 +114,16 @@ test("overview restores shortcut order, readable queues and the correct review l
   ).toHaveAttribute("href", "/manager/incidents");
   await expect(page.locator("#attention-classes")).toBeVisible();
   await expect(page.locator("#attention-refunds")).toBeVisible();
+  await expect(page.locator("#attention-incidents")).toBeVisible();
   const classGroup = await page.locator("#attention-classes").boundingBox();
   const refundGroup = await page.locator("#attention-refunds").boundingBox();
   expect(refundGroup!.y).toBeCloseTo(classGroup!.y, 0);
   expect(refundGroup!.x).toBeGreaterThan(classGroup!.x);
-  await expect(main.getByText("Mai Anh", { exact: true }).last()).toBeVisible();
+  await expect(
+    main.getByText(en.finOps.requestedBy.replace("{name}", "Mai Anh"), {
+      exact: true,
+    }),
+  ).toBeVisible();
   await expect(main.getByText("Reason: Court unavailable")).toBeVisible();
   await expect(
     main.getByRole("link", { name: en.managerOperations.reviewRefunds }),
@@ -148,16 +155,38 @@ test("busy attention queues scroll independently and stay usable on mobile", asy
           systemCalculatedPoints: 120,
           reason,
         };
+      if (p === "/api/manager/incidents")
+        return {
+          incidentId: `11111111-1111-4111-8111-${String(index + 1).padStart(12, "0")}`,
+          reason: `Court maintenance ${index + 1}`,
+          scope: index % 2 ? "CENTER" : "ROOM",
+          roomName: "Court A",
+          startAtUtc: "2030-10-22T02:00:00Z",
+          endAtUtc: "2030-10-22T08:00:00Z",
+        };
       return { requestId: `request-${index}`, reason };
     });
-    if (p === "/api/manager/classes" || p === "/api/refunds")
+    if (
+      p === "/api/manager/classes" ||
+      p === "/api/refunds" ||
+      p === "/api/manager/incidents"
+    )
       return route.fulfill({ json: paged(rows) });
     return route.fallback();
   });
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/manager");
   const queues = page.locator("main ul[aria-labelledby^='attention-']");
-  await expect(queues).toHaveCount(2);
+  await expect(queues).toHaveCount(3);
+  await expect(
+    queues
+      .nth(2)
+      .getByRole("link", { name: "Court maintenance 1", exact: true }),
+  ).toHaveAttribute(
+    "href",
+    "/manager/incidents/11111111-1111-4111-8111-000000000001",
+  );
+  await expect(queues.nth(2)).toContainText(en.incidentHistory.entireCenter);
   for (const queue of await queues.all()) {
     await expect(queue.getByRole("listitem")).toHaveCount(5);
     expect(await queue.evaluate((el) => el.scrollHeight)).toBeGreaterThan(

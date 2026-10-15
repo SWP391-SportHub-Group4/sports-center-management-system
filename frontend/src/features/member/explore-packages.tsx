@@ -2,6 +2,7 @@
 
 import { useState, type CSSProperties, type ReactNode } from "react";
 import Link from "next/link";
+import { CoachProfilePreview } from "@/components/CoachProfilePreview";
 import {
   isRetiredActivityPackage,
   parseMembershipCatalog,
@@ -388,7 +389,8 @@ function GymTier({
   const tx = (v: string, e: string) => (vi ? v : e);
   const dayPass = plan.durationDays === 1;
   const months = monthsOf(plan.durationDays);
-  const original = !dayPass && baseMonthly ? baseMonthly * months : 0;
+  const original =
+    plan.originalPrice ?? (!dayPass && baseMonthly ? baseMonthly * months : 0);
   const saving = original > plan.price ? original - plan.price : 0;
   return (
     <article
@@ -406,7 +408,13 @@ function GymTier({
       </p>
       <p className={styles.price}>
         <strong>{formatMoney(plan.price)}</strong>
-        {saving > 0 && <s>{formatMoney(original)}</s>}
+        {saving > 0 && (
+          <s
+            aria-label={`${tx("Giá gốc", "Original price")}: ${formatMoney(original)}`}
+          >
+            {formatMoney(original)}
+          </s>
+        )}
       </p>
       <p className={styles.meta}>
         {dayPass ? (
@@ -507,13 +515,17 @@ function ClassRow({
         {course.coachName && (
           <p className={styles.coachLine}>
             <span>
-              {tx("Giảng viên", "Coach")}: <strong>{course.coachName}</strong>
+              {tx("Giảng viên", "Coach")}:{" "}
+              {course.coachId ? (
+                <CoachProfilePreview
+                  coachId={course.coachId}
+                  name={course.coachName}
+                  sport={course.sportName}
+                />
+              ) : (
+                <strong>{course.coachName}</strong>
+              )}
             </span>
-            {course.coachId && (
-              <Link href={`/coaches/${course.coachId}`}>
-                {tx("Xem hồ sơ Coach", "View Coach Profile")}
-              </Link>
-            )}
           </p>
         )}
         <p className={styles.slots}>

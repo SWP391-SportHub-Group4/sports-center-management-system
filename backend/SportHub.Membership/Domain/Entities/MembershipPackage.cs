@@ -8,6 +8,8 @@ public class MembershipPackage
 
     public decimal Price { get; set; }
 
+    public decimal? OriginalPrice { get; set; }
+
     public int DurationDays { get; set; } // thời hạn sử dụng gói
 
     public int? SessionLimit { get; set; } // null = không giới hạn số buổi

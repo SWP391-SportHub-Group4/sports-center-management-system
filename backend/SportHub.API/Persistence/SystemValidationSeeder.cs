@@ -18,6 +18,40 @@ namespace SportHub.API.Persistence;
 public sealed class SystemValidationSeeder(SportHubDbContext db, IPasswordHasher passwords,
     IClassService classes, IClock clock, IConfiguration configuration, ILogger<SystemValidationSeeder> logger)
 {
+    public async Task SeedGymSixMonthsAsync(CancellationToken ct = default)
+    {
+        const string name = "Gym 6 months";
+        const string description = "Unlimited Gym access for 180 days. Save 1,200,000 VND.";
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        await db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(2026101301)", ct);
+        var package = await db.MembershipPackages.SingleOrDefaultAsync(p => p.Name == name, ct);
+        if (package is null)
+        {
+            package = new MembershipPackage
+            {
+                Name = name, Price = 2_400_000, OriginalPrice = 3_600_000, DurationDays = 180,
+                SessionLimit = null, IsActive = true, Description = description
+            };
+            db.MembershipPackages.Add(package);
+            await db.SaveChangesAsync(ct);
+        }
+        else if (package.Price == 2_400_000 && package.DurationDays == 180
+            && package.SessionLimit is null && package.IsActive
+            && package.OriginalPrice is null
+            && package.Description == "Unlimited Gym access for 180 days. Regular price: 3,600,000 VND. Promotional price: 2,400,000 VND. Save 1,200,000 VND.")
+        {
+            package.OriginalPrice = 3_600_000;
+            package.Description = description;
+            await db.SaveChangesAsync(ct);
+        }
+        else if (package.Price != 2_400_000 || package.OriginalPrice != 3_600_000 || package.DurationDays != 180
+            || package.SessionLimit is not null || !package.IsActive || package.Description != description)
+            throw new InvalidOperationException("Gym 6 months already exists with different settings. Update it through package management.");
+        await tx.CommitAsync(ct);
+        logger.LogInformation("Gym package ready: ID {PackageId}, {Name}, {Days} days, {Price} VND. Regular price: 3600000 VND.",
+            package.PackageId, package.Name, package.DurationDays, package.Price);
+    }
+
     public async Task SeedAsync(CancellationToken ct = default)
     {
         var accounts = new[] {

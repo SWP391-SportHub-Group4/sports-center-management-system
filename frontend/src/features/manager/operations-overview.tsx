@@ -12,6 +12,7 @@ import {
 import { pagedItems } from "@/lib/paged";
 import { AsyncSection, Card, StatusChip, Table } from "@/components/ui";
 import { courtScheduleApi } from "@/features/court-schedule";
+import { incidentApi } from "@/features/incidents";
 import styles from "./operations-overview.module.css";
 import type {
   ManagerCourseDto,
@@ -48,6 +49,7 @@ export function OperationsOverview() {
     (signal) => courtScheduleApi.list(date, date, "", false, signal),
     [date],
   );
+  const incidents = useApi((signal) => incidentApi.list(1, signal), []);
   return (
     <>
       <Card
@@ -60,6 +62,7 @@ export function OperationsOverview() {
               classes.reload();
               refunds.reload();
               schedule.reload();
+              incidents.reload();
             }}
           >
             {t.operations.refresh}
@@ -195,6 +198,67 @@ export function OperationsOverview() {
                   )}
                 </>
               )}
+            </AsyncSection>
+          </section>
+          <section
+            className={styles.queue}
+            aria-labelledby="attention-incidents"
+          >
+            <div className={styles.queueHead}>
+              <h3 id="attention-incidents">{m.recentIncidents}</h3>
+              {!incidents.loading && !incidents.error && incidents.data && (
+                <span className={styles.count}>
+                  {incidents.data.totalCount}
+                </span>
+              )}
+              <Link className={styles.queueLink} href="/manager/incidents">
+                {m.viewIncidents}
+              </Link>
+            </div>
+            <AsyncSection state={incidents}>
+              {(data) =>
+                data.totalCount === 0 ? (
+                  <p className={styles.empty}>{t.incidentHistory.empty}</p>
+                ) : (
+                  <ul
+                    className={styles.queueList}
+                    tabIndex={0}
+                    aria-labelledby="attention-incidents"
+                  >
+                    {pagedItems(data).map((incident) => (
+                      <li
+                        key={incident.incidentId}
+                        className={styles.queueItem}
+                      >
+                        <Link
+                          className={styles.itemTitle}
+                          href={`/manager/incidents/${incident.incidentId}`}
+                        >
+                          {incident.reason}
+                        </Link>
+                        <dl className={styles.facts}>
+                          <div>
+                            <dt>{m.affectedArea}</dt>
+                            <dd>
+                              {incident.scope === "CENTER"
+                                ? t.incidentHistory.entireCenter
+                                : (incident.roomName ?? t.operations.room)}
+                            </dd>
+                          </div>
+                          <div>
+                            <dt>{t.operations.start}</dt>
+                            <dd>{formatDateTime(incident.startAtUtc)}</dd>
+                          </div>
+                          <div>
+                            <dt>{t.operations.end}</dt>
+                            <dd>{formatDateTime(incident.endAtUtc)}</dd>
+                          </div>
+                        </dl>
+                      </li>
+                    ))}
+                  </ul>
+                )
+              }
             </AsyncSection>
           </section>
         </div>
