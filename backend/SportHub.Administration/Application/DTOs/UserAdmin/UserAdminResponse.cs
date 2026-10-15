@@ -18,6 +18,4 @@ public sealed record UserAdminResponse(
 
     /// <summary>Tài khoản staff chưa đặt mật khẩu và chưa liên kết Google: chờ người nhận email kích hoạt.</summary>
     public bool ActivationPending { get; init; }
-    public DateTime? ActivationExpiresAtUtc { get; init; }
-    public DateTime? ActivationResendAvailableAtUtc { get; init; }
 }

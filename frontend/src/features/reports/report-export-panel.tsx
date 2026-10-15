@@ -1,6 +1,4 @@
 "use client";
-import { ConfirmRecordAction } from "@/components/ConfirmRecordAction";
-import { Trash2 } from "lucide-react";
 import { pagedItems } from "@/lib/paged";
 import { useState } from "react";
 import { AsyncSection, Card, Field, Pager, StatusChip } from "@/components/ui";
@@ -282,7 +280,6 @@ export function ReportExportPanel({
                     </div>
                     <div className="btn-row">
                       <StatusChip value={r.status} />
-
                       {r.status === "COMPLETED" && (
                         <button
                           className="btn btn--secondary"
@@ -317,20 +314,6 @@ export function ReportExportPanel({
                           {t.common.retry}
                         </button>
                       )}
-                      <ConfirmRecordAction
-                        triggerIcon={<Trash2 size={18} aria-hidden="true" />}
-                        label={t.recordActions.delete}
-                        title={t.recordActions.deleteExport}
-                        description={t.recordActions.exportDescription}
-                        recordName={`${labels[r.reportType] ?? r.reportType} / ${r.format.toUpperCase()} / ${formatDateTime(r.createdAt)}`}
-                        onConfirm={() =>
-                          reportsApi.deleteExport(r.reportExportId)
-                        }
-                        onCompleted={() => {
-                          if (page !== 1) setPage(1);
-                          else state.reload();
-                        }}
-                      />
                     </div>
                   </article>
                 );

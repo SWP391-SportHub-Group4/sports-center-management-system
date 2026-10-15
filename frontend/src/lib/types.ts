@@ -245,7 +245,6 @@ export interface MembershipPackageDto {
   packageId: number;
   name: string;
   price: number;
-  originalPrice?: number | null;
   durationDays: number;
   sessionLimit: number | null;
   description: string | null;
@@ -416,8 +415,6 @@ export interface UserAdminDto {
   sportIds: number[];
   /** Staff account that has not set a password yet (waiting for the activation email). */
   activationPending?: boolean;
-  activationExpiresAtUtc?: string | null;
-  activationResendAvailableAtUtc?: string | null;
 }
 
 export type MyAccountDto = UserAdminDto & { avatarUrl?: string | null };
@@ -537,9 +534,6 @@ export interface AuditLogDto {
   auditId: string;
   userId: string;
   actorEmail: string;
-  /** Current actor name, resolved from their profile. */
-  actorFullName?: string | null;
-  actorRole?: string | null;
   action: string;
   targetEntity: string;
   targetId: string;
@@ -777,9 +771,6 @@ export interface CoachAdminDto {
   createdAt: string;
 }
 export interface CourtScheduleEntryDto {
-  incidentId?: string | null;
-  incidentScope?: "ROOM" | "CENTER" | null;
-  affectedRoomIds?: number[];
   sourceType: "CLASS_SESSION" | "COURT_RENTAL" | "ROOM_BLOCK";
   sourceId: string;
   roomId: number | null;

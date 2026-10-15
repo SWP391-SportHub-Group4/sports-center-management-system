@@ -10,10 +10,6 @@ public class AuditLog
 
     public UserAccount? User { get; set; }
 
-    // Immutable role at event time. SYSTEM identifies automatic execution;
-    // UNKNOWN is retained only for legacy events without reliable role evidence.
-    public string ActorRole { get; set; } = string.Empty;
-
     public string Action { get; set; } = string.Empty; // vd "UPDATE_PACKAGE_STATUS" — chuỗi tự do
 
     public string TargetEntity { get; set; } = string.Empty;

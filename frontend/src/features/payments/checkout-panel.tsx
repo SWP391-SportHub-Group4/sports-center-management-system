@@ -7,8 +7,6 @@ import { paymentApi, type PurchaseIntent } from "./api";
 export type { PurchaseIntent } from "./api";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { PaymentAttemptPanel } from "./payment-attempt-panel";
-import { PaymentResult } from "./payment-result";
-import { openPaymentGateway } from "./gateway-navigation";
 import { PointsSelector } from "./points-selector";
 import { InvoiceStatus } from "./invoice-status";
 import { DAY_PASS_PACKAGE_ID } from "@/lib/day-pass";
@@ -25,7 +23,8 @@ import type {
 } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
 import { Card, Dialog } from "@/components/ui";
-import { Button } from "@/components/primitives";
+import { Button, buttonClass } from "@/components/primitives";
+import Link from "next/link";
 import { toCheckoutViewModel } from "./checkout.contract";
 import styles from "./checkout-panel.module.css";
 
@@ -491,19 +490,6 @@ function CheckoutFlow({
         </div>
       </Card>,
     );
-  if (
-    user?.role === "Member" &&
-    !["AWAITING_PAYMENT", "VOID"].includes(vm.phase)
-  )
-    return present(
-      <PaymentResult
-        checkout={checkout}
-        detail={detail.data}
-        checking={busy}
-        error={errorMessage}
-        onRefresh={() => void run(refresh)}
-      />,
-    );
   return present(
     <div
       className={`${styles.layout} ${compact && !modal ? styles.compact : ""}`}
@@ -517,6 +503,37 @@ function CheckoutFlow({
         )}
         {dayPassNotice}
         <InvoiceStatus checkout={checkout} />
+        {vm.phase === "FULFILLED" && user?.role === "Member" && (
+          <div className={styles.actions}>
+            <Link
+              className={buttonClass()}
+              href={
+                checkout.kind === "CLASS"
+                  ? "/member/services?section=courses&view=owned"
+                  : checkout.kind === "COURT_RENTAL"
+                    ? "/member/schedule"
+                    : "/member/services?tab=gym"
+              }
+            >
+              {checkout.kind === "CLASS"
+                ? t.checkout.nextCourse
+                : checkout.kind === "COURT_RENTAL"
+                  ? vi
+                    ? "Xem lịch của tôi"
+                    : "View my schedule"
+                  : t.checkout.nextMembership}
+            </Link>
+            <Link
+              className={buttonClass({ variant: "secondary" })}
+              href={`/member/finance?tab=invoices&invoice=${checkout.invoiceId}`}
+            >
+              {t.checkout.viewInvoice}
+            </Link>
+            <Link className={buttonClass({ variant: "ghost" })} href="/member">
+              {t.checkout.nextDashboard}
+            </Link>
+          </div>
+        )}
         <section className={styles.step} aria-labelledby="checkout-step-order">
           <h2 className={styles.stepTitle} id="checkout-step-order">
             <span className={styles.stepNo} aria-hidden="true">
@@ -767,12 +784,7 @@ function CheckoutFlow({
                     if (checkout.cashAmount === 0) {
                       setCheckout(await paymentApi.confirmPoints(id!));
                       onChange?.();
-                    } else {
-                      const nextAttempt = await paymentApi.attempt(id!);
-                      setAttempt(nextAttempt);
-                      if (user?.role === "Member")
-                        openPaymentGateway(nextAttempt);
-                    }
+                    } else setAttempt(await paymentApi.attempt(id!));
                   })
                 }
               >
@@ -780,13 +792,15 @@ function CheckoutFlow({
                   ? vi
                     ? "Xác nhận thanh toán bằng điểm"
                     : "Confirm payment with points"
-                  : checkout.pointsApplied > 0
-                    ? vi
-                      ? `Thanh toán ${formatMoney(checkout.cashAmount)} qua VNPay`
-                      : `Pay ${formatMoney(checkout.cashAmount)} with VNPay`
-                    : vi
-                      ? "Thanh toán qua VNPay"
-                      : "Pay with VNPay"}
+                  : modal
+                    ? checkout.pointsApplied > 0
+                      ? vi
+                        ? `Thanh toán ${formatMoney(checkout.cashAmount)} qua VNPay`
+                        : `Pay ${formatMoney(checkout.cashAmount)} with VNPay`
+                      : vi
+                        ? "Thanh toán qua VNPay"
+                        : "Pay with VNPay"
+                    : l.pay}
               </Button>
               <Button
                 variant="ghost"
@@ -803,8 +817,7 @@ function CheckoutFlow({
                 {l.cancel}
               </Button>
             </div>
-            {user?.role !== "Member" &&
-              attempt &&
+            {attempt &&
               checkout.cashAmount > 0 &&
               attempt.cashAmount === checkout.cashAmount &&
               attempt.pointsApplied === checkout.pointsApplied &&

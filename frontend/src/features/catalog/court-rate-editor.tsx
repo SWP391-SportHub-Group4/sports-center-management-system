@@ -1,5 +1,4 @@
 "use client";
-import { ConfirmRecordAction } from "@/components/ConfirmRecordAction";
 import { useState } from "react";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
@@ -187,7 +186,7 @@ export function CourtRateEditor() {
             },
           ]}
           actions={(r) => (
-            <div className="btn-row">
+            <>
               <button
                 className="btn btn--secondary btn--sm"
                 disabled={!ready || mutation.busy}
@@ -205,16 +204,7 @@ export function CourtRateEditor() {
               >
                 {r.isActive ? l.deactivate : l.activate}
               </button>
-              <ConfirmRecordAction
-                disabled={!ready || mutation.busy}
-                label={t.recordActions.delete}
-                title={t.recordActions.deleteRate}
-                description={t.recordActions.rateDescription}
-                recordName={`${roomName(r.roomTypeId)} / ${sportName(r.sportId)} / ${r.daysOfWeek} / ${r.startTimeLocal.slice(0, 5)}-${r.endTimeLocal.slice(0, 5)}`}
-                onConfirm={() => catalogApi.deleteRate(r.rateId)}
-                onCompleted={state.reload}
-              />
-            </div>
+            </>
           )}
         />
         {!editor && !activity && <CatalogFeedback mutation={mutation} />}

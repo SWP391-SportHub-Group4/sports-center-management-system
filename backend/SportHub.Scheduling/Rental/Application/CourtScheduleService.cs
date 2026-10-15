@@ -54,21 +54,8 @@ public sealed class CourtScheduleService(ISportHubDbContext db, IUserAccessReade
                 null, [], rental.MemberId, await Name(rental.MemberId)));
         var blocks = await db.Set<RoomBlock>().AsNoTracking().Where(x => x.StartAtUtc < to && x.EndAtUtc > from
             && (roomId == null || x.RoomId == roomId)).ToListAsync(ct);
-        var incidentIds = blocks.Where(x => x.IncidentId != null).Select(x => x.IncidentId!.Value).Distinct().ToList();
-        var incidents = await db.Set<IncidentNotice>().AsNoTracking()
-            .Where(x => incidentIds.Contains(x.IncidentId)).ToDictionaryAsync(x => x.IncidentId, ct);
-        var incidentRooms = await db.Set<RoomBlock>().AsNoTracking()
-            .Where(x => x.IncidentId != null && incidentIds.Contains(x.IncidentId.Value))
-            .Select(x => new { x.IncidentId, x.RoomId }).ToListAsync(ct);
         result.AddRange(blocks.Select(x => new CourtScheduleEntry("RoomBlock", x.BlockId, x.RoomId,
-            x.StartAtUtc, x.EndAtUtc, null, null, x.Reason, "Blocked", null, [])
-        {
-            IncidentId = x.IncidentId,
-            IncidentScope = x.IncidentId is Guid id && incidents.TryGetValue(id, out var incident)
-                ? incident.Scope.ToString() : null,
-            AffectedRoomIds = incidentRooms.Where(r => r.IncidentId == x.IncidentId)
-                .Select(r => r.RoomId).Distinct().Order().ToList()
-        }));
+            x.StartAtUtc, x.EndAtUtc, null, null, x.Reason, "Blocked", null, [])));
         return result.OrderBy(x => x.StartAtUtc).ThenBy(x => x.SourceType).ThenBy(x => x.SourceId).ToList();
     }
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "./HomepageImage";
+import Image from "next/image";
 import styles from "./training-photo-marquee.module.css";
 
 type Language = "en" | "vi";

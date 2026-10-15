@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useLanguage } from "@/lib/language";
 import type { AuditLogDto } from "@/lib/types";
 import styles from "./AuditTargetAccount.module.css";
-import { auditDisplayText } from "./audit-display";
 
 /** Use the audit response directly; no per-row detail requests or G10 workaround. */
 export function AuditTargetAccount({
@@ -16,12 +15,8 @@ export function AuditTargetAccount({
 }) {
   const { t } = useLanguage();
   const l = t.adminWork;
-  const name = row.targetFullName?.trim()
-    ? auditDisplayText(row.targetFullName.trim())
-    : undefined;
-  const email = row.targetEmail?.trim()
-    ? auditDisplayText(row.targetEmail.trim())
-    : undefined;
+  const name = row.targetFullName?.trim();
+  const email = row.targetEmail?.trim();
   if (row.targetAccountExists === false || (!name && !email)) {
     return (
       <div className={styles.root}>
@@ -30,11 +25,14 @@ export function AuditTargetAccount({
             ? l.targetAccountDeleted
             : l.targetAccountUnavailable}
         </span>
+        <span className={`small muted ${styles.identifier}`}>
+          {row.targetId}
+        </span>
       </div>
     );
   }
   return (
-    <div className={styles.root}>
+    <div className={styles.root} title={`${l.accountId}: ${row.targetId}`}>
       <strong>
         {linkToAccount ? (
           <Link href={`/admin/users/${row.targetId}`}>{name || email}</Link>

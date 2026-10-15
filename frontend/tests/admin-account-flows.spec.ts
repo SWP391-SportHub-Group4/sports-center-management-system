@@ -154,7 +154,7 @@ test("overview uses server totals and preserves status filters and create shortc
     page.getByRole("link", { name: "Locked 8", exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByRole("table", { name: "Recent activity" }),
+    page.getByRole("table", { name: "Recent account activity" }),
   ).toContainText("Role changed");
   // Ảnh minh chứng: lỗi ghi tệp (bị khóa bởi trình xem ảnh) không làm hỏng phép kiểm tra.
   await page
@@ -207,7 +207,7 @@ test("overview shows API failure without inventing zero totals", async ({
   ).toBeVisible();
   await expect(page.getByRole("link", { name: /^Active \d/ })).toHaveCount(0);
   await expect(
-    page.getByRole("table", { name: "Recent activity" }),
+    page.getByRole("table", { name: "Recent account activity" }),
   ).toBeVisible();
 });
 

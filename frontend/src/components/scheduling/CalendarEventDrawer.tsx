@@ -1,34 +1,27 @@
 "use client";
-import { ConfirmRecordAction } from "@/components/ConfirmRecordAction";
 
 import Link from "next/link";
-import { api } from "@/lib/apiClient";
 
 import { Drawer, buttonClass } from "@/components/primitives";
 
-import { StatusChip } from "@/components/ui";
+import { StatusChip, Table } from "@/components/ui";
 
 import { formatDateTime } from "@/lib/format";
 import { useLanguage } from "@/lib/language";
 
 import type { CourtScheduleEntryDto } from "@/lib/types";
-import styles from "./CalendarEventDrawer.module.css";
 
 export function CalendarEventDrawer({
   entry,
   roomName,
-  affectedRoomNames,
   manager = false,
   coach = false,
-  onChanged,
   onClose,
 }: {
   entry: CourtScheduleEntryDto;
   roomName?: string | null;
-  affectedRoomNames?: string[];
   manager?: boolean;
   coach?: boolean;
-  onChanged?: () => void;
   onClose: () => void;
 }) {
   const { t } = useLanguage();
@@ -73,16 +66,16 @@ export function CalendarEventDrawer({
         entry.endAtUtc,
       )}`}
       onClose={onClose}
-      size="lg"
+      size="md"
       footer={footer}
     >
       <dl
-        className={styles.summary}
+        className="stack"
         style={{
           margin: 0,
         }}
       >
-        <div className={styles.summaryRow}>
+        <div className="row spread">
           <dt>{shared.type}</dt>
 
           <dd
@@ -94,21 +87,19 @@ export function CalendarEventDrawer({
           </dd>
         </div>
 
-        <div className={styles.summaryRow}>
-          <dt>{entry.incidentScope === "CENTER" ? l.scope : l.room}</dt>
+        <div className="row spread">
+          <dt>{l.room}</dt>
 
           <dd
             style={{
               margin: 0,
             }}
           >
-            {entry.incidentScope === "CENTER"
-              ? t.incidentHistory.entireCenter
-              : roomName || "—"}
+            {roomName || "—"}
           </dd>
         </div>
 
-        <div className={styles.summaryRow}>
+        <div className="row spread">
           <dt>{l.coach}</dt>
 
           <dd
@@ -120,7 +111,7 @@ export function CalendarEventDrawer({
           </dd>
         </div>
 
-        <div className={styles.summaryRow}>
+        <div className="row spread">
           <dt>{l.status}</dt>
 
           <dd
@@ -132,76 +123,35 @@ export function CalendarEventDrawer({
           </dd>
         </div>
       </dl>
-      {entry.incidentScope === "CENTER" && !!affectedRoomNames?.length && (
-        <section>
-          <h3>{t.incidentHistory.affectedRooms}</h3>
-          <ul>
-            {affectedRoomNames.map((name, index) => (
-              <li key={index}>{name}</li>
-            ))}
-          </ul>
-        </section>
-      )}
-      {manager &&
-        entry.sourceType === "COURT_RENTAL" &&
-        entry.status === "CONFIRMED" &&
-        onChanged && (
-          <ConfirmRecordAction
-            label={t.recordActions.cancelRental}
-            title={t.recordActions.cancelRentalTitle}
-            description={t.recordActions.cancelRentalDescription}
-            recordName={`${entry.memberName || entry.title} / ${roomName || t.operations.room} / ${formatDateTime(entry.startAtUtc)}`}
-            requireReason
-            onConfirm={(reason) =>
-              api.post(`/api/manager/court-rentals/${entry.sourceId}/cancel`, {
-                reason,
-              })
-            }
-            onCompleted={() => {
-              onChanged();
-              onClose();
-            }}
-          />
-        )}
-      {manager && entry.incidentId && (
-        <Link
-          className={buttonClass({ variant: "secondary" })}
-          href={`/manager/incidents/${entry.incidentId}`}
-        >
-          {t.incidentHistory.details}
-        </Link>
-      )}
 
       {entry.sourceType === "CLASS_SESSION" && (
-        <section className={styles.participants}>
+        <div>
           <h3>{shared.participants}</h3>
 
           {participants.length ? (
-            <table
-              className={styles.participantTable}
-              aria-label={shared.participants}
+            <Table
+              headers={
+                entry.sourceType === "CLASS_SESSION"
+                  ? [l.member, l.attendance]
+                  : [l.member]
+              }
             >
-              <thead>
-                <tr>
-                  <th scope="col">{l.member}</th>
-                  <th scope="col">{l.attendance}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {participants.map((participant) => (
-                  <tr key={participant.memberId}>
-                    <td>{participant.memberName}</td>
+              {participants.map((participant) => (
+                <tr key={participant.memberId}>
+                  <td>{participant.memberName}</td>
+
+                  {entry.sourceType === "CLASS_SESSION" && (
                     <td>
                       <StatusChip value={participant.attendanceStatus} />
                     </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                  )}
+                </tr>
+              ))}
+            </Table>
           ) : (
             <p className="muted">{shared.noParticipants}</p>
           )}
-        </section>
+        </div>
       )}
     </Drawer>
   );

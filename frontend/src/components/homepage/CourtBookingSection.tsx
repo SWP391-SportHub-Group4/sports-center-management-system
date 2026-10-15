@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "./HomepageImage";
+import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { useAuth } from "@/lib/auth";

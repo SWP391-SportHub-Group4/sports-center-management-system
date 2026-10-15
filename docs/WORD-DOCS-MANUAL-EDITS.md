@@ -1,14 +1,5 @@
 # Các mục cần chỉnh tay trong file Word
 
-## Quyết định mới ngày 14/10/2026 — link staff và quyền audit
-
-Áp dụng [Admin-Activation-and-Audit.md](Admin-Activation-and-Audit.md) khi cập nhật hai file Word:
-
-- BR-143 và FR-16/17: link kích hoạt staff hết hạn đúng `CreatedAt + 24 giờ`, dùng một lần; sửa email/gửi lại vô hiệu link cũ và không làm mới hạn tài khoản. Cả link staff và link Member đều có thời hạn 24 giờ.
-- BR-7, FR-21 và SRS UC-19: Admin xem mọi loại thao tác được ghi audit do Manager/Admin/Coach thực hiện và log hệ thống. Manager xem log do Manager/Receptionist/Coach/Member thực hiện. Không giới hạn Admin vào target tài khoản; Manager không xem log Admin/hệ thống.
-- Role để phân phạm vi là `ActorRole` tại thời điểm thao tác. Thay đổi role hiện tại không đổi phạm vi log cũ. Chỉ Admin đọc log tự động của hệ thống.
-
-
 Hai file Word không sửa tự động được: `SportManagement_BusinessRules_v2.0_updated.docx` (BR) và `SWP391_Report_SRS.docx` (SRS). Dưới đây là **vị trí cần sửa và đoạn văn dán sẵn**. Tôi đã đối chiếu với nội dung hiện có trong hai file (đã có BR-2, BR-96, BR-142, BR-91, UC-04 theo quy tắc mới), nên chỉ liệt kê phần **còn thiếu hoặc còn lệch**.
 
 Quy ước: đoạn trong khối trích dẫn (`>`) là văn bản để dán. Phần *yêu cầu, chưa triển khai* nên ghi rõ trạng thái để khớp tài liệu thiết kế.

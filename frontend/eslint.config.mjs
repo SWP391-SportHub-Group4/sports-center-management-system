@@ -38,10 +38,8 @@ const eslintConfig = [
   },
   {
     ignores: [
-      "**/.next/**",
-      "**/node_modules/**",
-      ".impeccable/**",
-      ".tmp*/**",
+      ".next/**",
+      "node_modules/**",
       "next-env.d.ts",
       "test-results/**",
       "playwright-report/**",

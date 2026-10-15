@@ -1,5 +1,4 @@
 "use client";
-import { StaffActivationActions } from "./StaffActivationActions";
 import Link from "next/link";
 import { useState } from "react";
 import { Card, Dialog, Feedback, Field } from "@/components/ui";
@@ -19,10 +18,7 @@ import { useLanguage } from "@/lib/language";
 import { MutationFeedback, useMutation } from "@/features/operations";
 import type { SportDto, Paged, UserAdminDto } from "@/lib/types";
 import { SportOptions } from "./SportOptions";
-import {
-  AccountStatusChip,
-  requiresStaffActivation,
-} from "./AccountStatusChip";
+import { AccountStatusChip } from "./AccountStatusChip";
 import styles from "./users.module.css";
 const staffRoles = [
   "CENTER_MANAGER",
@@ -38,12 +34,7 @@ const staffRoleIds: Record<string, number> = {
   SYSTEM_ADMINISTRATOR: 5,
 };
 const accountRoles = [...staffRoles, "MEMBER"];
-const accountStatuses = [
-  "ACTIVE",
-  "ACTIVATION_REQUIRED",
-  "BANNED",
-  "DEACTIVATED",
-];
+const accountStatuses = ["ACTIVE", "BANNED", "DEACTIVATED"];
 const userQueryDefaults = {
   keyword: "",
   role: "",
@@ -596,21 +587,6 @@ export function Users() {
     direction: query.values.sortDirection as SortDirection,
   };
   const [selected, setSelected] = useState<UserAdminDto | null>(null);
-  const [activationAccount, setActivationAccount] =
-    useState<UserAdminDto | null>(null);
-  const [activationBusy, setActivationBusy] = useState(false);
-  const closeActivation = () => {
-    if (activationBusy) return;
-    const accountId = activationAccount?.userId;
-    setActivationAccount(null);
-    requestAnimationFrame(() =>
-      document
-        .querySelector<HTMLButtonElement>(
-          `button[data-activation-account-id="${accountId}"]`,
-        )
-        ?.focus(),
-    );
-  };
   const create = query.values.create === "1";
   const [notice, setNotice] = useState<"created" | "changed" | null>(null);
   const state = useApi(
@@ -660,10 +636,7 @@ export function Users() {
         { value: "", label: l.all },
         ...accountStatuses.map((value) => ({
           value,
-          label:
-            value === "ACTIVATION_REQUIRED"
-              ? t.adminWork.pendingActivation
-              : statusLabels[value],
+          label: statusLabels[value],
         })),
       ],
     },
@@ -752,7 +725,7 @@ export function Users() {
             setSelected(null);
           }}
           rowActions={(account) => (
-            <div className={styles.accountActions}>
+            <>
               <Link
                 className="btn btn--secondary"
                 href={`/admin/users/${account.userId}`}
@@ -771,23 +744,7 @@ export function Users() {
                   {l.edit}
                 </button>
               )}
-              {requiresStaffActivation(account) && (
-                <button
-                  type="button"
-                  className={`btn btn--secondary ${styles.moreButton}`}
-                  aria-label={`More activation actions for ${account.fullName || account.email}`}
-                  aria-haspopup="dialog"
-                  aria-expanded={activationAccount?.userId === account.userId}
-                  data-activation-account-id={account.userId}
-                  onClick={() => {
-                    setActivationBusy(false);
-                    setActivationAccount(account);
-                  }}
-                >
-                  More
-                </button>
-              )}
-            </div>
+            </>
           )}
           empty={{
             title: t.common.noData,
@@ -795,41 +752,6 @@ export function Users() {
           }}
         />
       </Card>
-      {activationAccount && (
-        <Dialog
-          title="Staff account activation"
-          size="md"
-          description="Resend the activation link or correct the recipient's email."
-          className={styles.activationDialog}
-          onClose={closeActivation}
-        >
-          <div className={styles.activationIdentity}>
-            <div>
-              <strong>
-                {activationAccount.fullName || activationAccount.email}
-              </strong>
-              <p>{activationAccount.email}</p>
-            </div>
-            <AccountStatusChip account={activationAccount} />
-          </div>
-          {activationAccount.activationExpiresAtUtc ? (
-            <StaffActivationActions
-              account={activationAccount}
-              embedded
-              onBusyChange={setActivationBusy}
-              onChanged={(updated) => {
-                setActivationAccount(updated);
-                state.reload();
-              }}
-            />
-          ) : (
-            <p>
-              This account has no active staff invitation. Refresh the account
-              details to check its activation status.
-            </p>
-          )}
-        </Dialog>
-      )}
       {create && (
         <CreateStaff
           onClose={() => query.setValues({ create: "" })}

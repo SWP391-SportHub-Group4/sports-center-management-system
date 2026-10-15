@@ -1,5 +1,4 @@
 ﻿"use client";
-import { ConfirmRecordAction } from "@/components/ConfirmRecordAction";
 import { useState } from "react";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
@@ -163,31 +162,19 @@ export function RoomTypesManager() {
                       .join(", ")}
                   </td>
                   <td>
-                    <div className="btn-row">
-                      <button
-                        className="btn btn--secondary"
-                        onClick={() => {
-                          setId(r.roomTypeId);
-                          setName(r.name);
-                          setSports(r.sportIds);
-                          setEditing(true);
-                          setPartial(false);
-                          mutation.reset();
-                        }}
-                      >
-                        {l.edit}
-                      </button>
-                      <ConfirmRecordAction
-                        label={t.recordActions.delete}
-                        title={t.recordActions.deleteRoomType}
-                        description={t.recordActions.roomTypeDescription}
-                        recordName={r.name}
-                        onConfirm={() =>
-                          catalogApi.deleteRoomType(r.roomTypeId)
-                        }
-                        onCompleted={state.reload}
-                      />
-                    </div>
+                    <button
+                      className="btn btn--secondary"
+                      onClick={() => {
+                        setId(r.roomTypeId);
+                        setName(r.name);
+                        setSports(r.sportIds);
+                        setEditing(true);
+                        setPartial(false);
+                        mutation.reset();
+                      }}
+                    >
+                      {l.edit}
+                    </button>
                   </td>
                 </tr>
               ))}

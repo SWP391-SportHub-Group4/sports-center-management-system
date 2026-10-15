@@ -50,17 +50,7 @@ async function setup(page: Page, rows: object[], language = "en") {
   await page.goto("/manager/audit-log");
 }
 
-const auditTable = (page: Page) =>
-  page.getByRole("table", { name: "Audit log", exact: true });
-async function openEvent(page: Page, index = 0) {
-  await auditTable(page)
-    .getByRole("button", { name: /View details:/ })
-    .nth(index)
-    .click();
-  return page.getByRole("dialog");
-}
-
-test("affected records show types and each event opens its own details", async ({
+test("only resolved targets link to supported Manager detail pages", async ({
   page,
 }) => {
   await setup(page, [
@@ -70,29 +60,31 @@ test("affected records show types and each event opens its own details", async (
       "UPDATE_CLASS",
       { name: "Old class" },
       { name: "Current class" },
+      { currentTargetLabel: "Current class" },
     ),
-    entry("7", "Room", "UPDATE_ROOM", null, { name: "Court A" }),
+    entry(
+      "7",
+      "Room",
+      "UPDATE_ROOM",
+      null,
+      { name: "Court A" },
+      { currentTargetLabel: "Court A" },
+    ),
     entry("99", "Class", "DELETE_CLASS", { name: "Deleted class" }, null),
   ]);
-  const table = auditTable(page);
+  const table = page.getByRole("table");
   await expect(
-    table.getByRole("button", { name: /View details:/ }),
-  ).toHaveCount(3);
-  await expect(table.locator('[data-label="Affected record"]')).toHaveText([
-    "Class",
-    "Room/court",
-    "Class",
-  ]);
-  await expect(table.getByRole("link")).toHaveCount(0);
+    table.getByRole("link", { name: "Class · Current class", exact: true }),
+  ).toHaveAttribute("href", "/manager/classes/1");
   await expect(
-    page.getByLabel("Role at event time").locator('option[value=""]'),
-  ).toHaveText("All");
-  const dialog = await openEvent(page);
-  await expect(dialog).toContainText("Old class");
-  await expect(dialog).toContainText("Current class");
+    table.getByRole("link", { name: "Room/court · Court A", exact: true }),
+  ).toHaveAttribute("href", "/manager/facilities/7");
+  await expect(table.getByRole("link", { name: /Deleted class/ })).toHaveCount(
+    0,
+  );
 });
 
-test("legacy status changes appear in the popup in English", async ({
+test("legacy activity logs identify the sport and show localized before/after status", async ({
   page,
 }) => {
   await setup(
@@ -104,22 +96,25 @@ test("legacy status changes appear in the popup in English", async ({
         "DEACTIVATE_SPORT",
         { isActive: true },
         { isActive: false },
-        { currentTargetLabel: "Basketball" },
+        { currentTargetLabel: "Bóng rổ" },
       ),
     ],
     "vi",
   );
-  await expect(auditTable(page)).not.toContainText("Current name");
-  const dialog = await openEvent(page);
-  await expect(dialog).toContainText("Active");
-  await expect(dialog).toContainText("Inactive");
-  await expect(dialog).not.toContainText("isActive");
+  const table = page.getByRole("table");
+  await expect(table).toContainText("Môn thể thao · Bóng rổ");
+  await expect(table).toContainText("Tên hiện tại");
+  await expect(table).toContainText("ID: 4");
+  await expect(table).toContainText("Trạng thái:");
+  await expect(table.locator("del")).toHaveText("Đang hoạt động");
+  await expect(table).toContainText("Ngừng hoạt động");
+  await expect(table).not.toContainText("isActive");
 });
 
-test("historical identities remain readable and malformed snapshots expose no raw payload", async ({
+test("recorded identity wins over current names; deleted and malformed snapshots keep honest fallbacks", async ({
   page,
 }) => {
-  await setup(page, [
+  const rows = [
     entry(
       "rename",
       "Sport",
@@ -129,6 +124,13 @@ test("historical identities remain readable and malformed snapshots expose no ra
       { currentTargetLabel: "Today's name" },
     ),
     entry(
+      "deleted",
+      "RoomType",
+      "DELETE_ROOM_TYPE",
+      { name: "Deleted court type" },
+      null,
+    ),
+    entry(
       "broken",
       "Sport",
       "UPDATE_SPORT",
@@ -136,24 +138,26 @@ test("historical identities remain readable and malformed snapshots expose no ra
       null,
       { newValue: "broken-json" },
     ),
+    entry("missing", "Sport", "DEACTIVATE_SPORT", null, { isActive: false }),
     entry("future", "UnknownType", "UNKNOWN", null, {
       password: "SECRET",
       token: "TOKEN",
     }),
-  ]);
-  let dialog = await openEvent(page);
-  await expect(dialog).toContainText("Event name");
-  await expect(dialog).not.toContainText("Today's name");
-  await page.keyboard.press("Escape");
-  dialog = await openEvent(page, 1);
-  await expect(dialog).toContainText("Surviving old name");
-  await expect(dialog).not.toContainText("broken-json");
-  await page.keyboard.press("Escape");
-  dialog = await openEvent(page, 2);
-  await expect(dialog).not.toContainText(/SECRET|TOKEN/);
+  ];
+  await setup(page, rows);
+  const table = page.getByRole("table");
+  await expect(table).toContainText("Sport · Event name");
+  await expect(table).not.toContainText("Today's name");
+  await expect(table).toContainText("Room type · Deleted court type");
+  await expect(table).toContainText("Sport · Surviving old name");
+  await expect(table).toContainText("Name not recorded or no longer available");
+  await expect(table).toContainText("No operation details were recorded.");
+  await expect(table).not.toContainText("SECRET");
+  await expect(table).not.toContainText("TOKEN");
+  await expect(table).not.toContainText("broken-json");
 });
 
-test("sport service changes preserve legacy duration and capacity values", async ({
+test("sport service changes include previously hidden duration/capacity with legacy PascalCase support", async ({
   page,
 }) => {
   await setup(page, [
@@ -182,18 +186,20 @@ test("sport service changes preserve legacy duration and capacity values", async
       },
     ),
   ]);
-  const dialog = await openEvent(page);
-  await expect(dialog).toContainText("Session duration");
-  await expect(dialog).toContainText("Default capacity");
-  await expect(dialog).toContainText("90");
-  await expect(dialog).toContainText("60");
-  await expect(dialog).not.toContainText(/SECRET|HIDDEN/);
+  const table = page.getByRole("table");
+  await expect(table).toContainText(
+    "Group course · Session duration (minutes):",
+  );
+  await expect(table).toContainText("Group course · Default capacity:");
+  await expect(table.locator("del")).toHaveText(["90", "Not recorded"]);
+  await expect(table).not.toContainText("Service status:");
+  await expect(table).not.toContainText("SECRET");
+  await expect(table).not.toContainText("HIDDEN");
 });
 
-test("opening hours and sport references are available in mobile event details", async ({
+test("legacy array payloads show hours and named sport links and fit mobile", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
   await setup(page, [
     entry(
       "hours",
@@ -201,18 +207,20 @@ test("opening hours and sport references are available in mobile event details",
       "SET_ROOM_OPENING_HOURS",
       ["1:06:00-22:00", "2:06:00-22:00"],
       ["1:08:00-20:00"],
+      { currentTargetLabel: "Court A" },
     ),
     entry("links", "RoomType", "SET_ROOM_TYPE_SPORTS", [1, 2], [2], {
+      currentTargetLabel: "Court type",
       referenceNames: { "Sport:1": "Gym", "Sport:2": "Badminton" },
     }),
   ]);
-  let dialog = await openEvent(page);
-  await expect(dialog).toContainText("08:00");
-  await expect(dialog).toContainText("Monday");
-  await page.keyboard.press("Escape");
-  dialog = await openEvent(page, 1);
-  await expect(dialog).toContainText("Gym");
-  await expect(dialog).toContainText("Badminton");
+  const table = page.getByRole("table");
+  await expect(table).toContainText("Opening hours · Monday:");
+  await expect(table).toContainText("08:00-20:00");
+  await expect(table).toContainText("Closed");
+  await expect(table).toContainText("Gym, Badminton");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(table).toContainText("Room/court · Court A");
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= window.innerWidth,
@@ -220,17 +228,28 @@ test("opening hours and sport references are available in mobile event details",
   ).toBe(true);
 });
 
-test("class changes, reasons and notification details are retained behind View details", async ({
+test("class and manager workflows show referenced names, monetary changes, wrapped reasons and notification subjects", async ({
   page,
 }) => {
+  const coach = "22222222-2222-4222-8222-222222222222";
   await setup(page, [
     entry(
       "class",
       "Class",
       "UPDATE_CLASS",
-      { price: 300000, roomId: 1 },
-      { value: { price: 400000, roomId: 2 }, reason: "Move to larger court" },
-      { referenceNames: { "Room:1": "Court A", "Room:2": "Court B" } },
+      { price: 300000, coachId: coach, roomId: 1 },
+      {
+        value: { price: 400000, coachId: coach, roomId: 2 },
+        reason: "Move to larger court",
+      },
+      {
+        currentTargetLabel: "C01 · Beginner class",
+        referenceNames: {
+          [`UserAccount:${coach}`]: "Coach An",
+          "Room:1": "Court A",
+          "Room:2": "Court B",
+        },
+      },
     ),
     entry("notice", "Notification", "SEND_MANUAL_NOTICE", null, {
       subject: "New opening hours",
@@ -239,20 +258,32 @@ test("class changes, reasons and notification details are retained behind View d
       SendEmail: false,
       requestFingerprint: "PRIVATE",
     }),
+    entry(
+      "settings",
+      "SystemSetting",
+      "UPDATE_SYSTEM_SETTING",
+      { value: "3" },
+      { value: "5" },
+      { targetId: "class.threshold_days_before_start" },
+    ),
   ]);
-  let dialog = await openEvent(page);
-  await expect(dialog).toContainText("Court A");
-  await expect(dialog).toContainText("Court B");
-  await expect(dialog).toContainText("400,000");
-  await expect(dialog).toContainText("Move to larger court");
-  await page.keyboard.press("Escape");
-  dialog = await openEvent(page, 1);
-  await expect(dialog).toContainText("New opening hours");
-  await expect(dialog).toContainText("12");
-  await expect(dialog).not.toContainText("PRIVATE");
+  const table = page.getByRole("table");
+  await expect(table).toContainText("Class · C01 · Beginner class");
+  await expect(table).toContainText("Court A");
+  await expect(table).toContainText("Court B");
+  await expect(table).toContainText("400,000 ₫");
+  await expect(table).toContainText("Reason:");
+  await expect(table).toContainText("Move to larger court");
+  await expect(table).toContainText("Notification · New opening hours");
+  await expect(table).toContainText("Recipients: 12");
+  await expect(table).not.toContainText("PRIVATE");
+  await expect(table).toContainText("Setting value:");
+  await expect(table).toContainText(
+    "System setting · class.threshold_days_before_start",
+  );
 });
 
-test("reference changes show names without exposing UUIDs", async ({
+test("reference changes resolve both coaches and retain missing IDs without inventing a name", async ({
   page,
 }) => {
   const old = "22222222-2222-4222-8222-222222222222",
@@ -265,16 +296,25 @@ test("reference changes show names without exposing UUIDs", async ({
       { coachId: old },
       { coachId: next, movedSessionIds: [], unmovedSessionIds: [] },
       {
+        currentTargetLabel: "Member Nguyen",
         referenceNames: {
           [`UserAccount:${old}`]: "Coach An",
           [`UserAccount:${next}`]: "Coach Binh",
         },
       },
     ),
+    entry("block", "RoomBlock", "DELETE_ROOM_BLOCK", { roomId: 9 }, null, {
+      referenceNames: { "Room:9": "Legacy court" },
+    }),
   ]);
-  const dialog = await openEvent(page);
-  await expect(dialog).toContainText("Coach An");
-  await expect(dialog).toContainText("Coach Binh");
-  await expect(dialog).not.toContainText(old);
-  await expect(dialog).not.toContainText(next);
+  const table = page.getByRole("table");
+  await expect(table).toContainText("PT coach change request · Member Nguyen");
+  await expect(table).toContainText("Coach An");
+  await expect(table).toContainText("Coach Binh");
+  await expect(table).not.toContainText(old);
+  await expect(table).not.toContainText(next);
+  await expect(table).toContainText("Room block · Legacy court");
+  await expect(
+    table.locator("p").filter({ hasText: "Sessions moved:" }),
+  ).toContainText("None");
 });
