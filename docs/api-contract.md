@@ -582,6 +582,8 @@ Chu kỳ có snapshot trên Invoice (`CheckoutCycleId/CheckoutRevision/HoldExpir
 | POST | `api/invoices/{invoiceId}/reconcile` | FrontDesk | QueryDR xác minh giao dịch theo attempt mới nhất. |
 | POST | `api/dev/payments/{reference}/simulate` | FrontDesk, Development | Mock callback qua cùng pipeline IPN; không có ở môi trường khác. |
 
+Lỗi truyền tải QueryDR trả `502 vnp_query_http_error` (message chứa HTTP status upstream), `502 vnp_query_connection_failed`, `502 vnp_query_invalid_response` hoặc `504 vnp_query_timeout`. Đây là lỗi xác minh, không phải kết luận giao dịch thất bại. Không trả raw response, chữ ký hoặc secret của gateway; chữ ký, merchant, reference và số tiền vẫn phải được xác minh trước khi ghi payment.
+
 Route ghi payment thủ công không còn tạo khoản thu mới. `PAID_AFTER_RECONCILIATION` biểu thị khoản thu muộn, cần đọc `fulfillmentOutcome`: `FULFILLED` khi reacquire/cấp quyền lợi được; `COMPENSATED` khi bồi hoàn điểm; `RECONCILIATION_REQUIRED` khi không thể đổi chính xác tiền thực thu sang điểm. `CheckoutSession` và `VerifiedGatewayEvent` giữ lịch sử/idempotency. CourtRental dùng `/api/checkouts/court-rental`.
 
 ## Phần H — P1.08 Refund bằng điểm

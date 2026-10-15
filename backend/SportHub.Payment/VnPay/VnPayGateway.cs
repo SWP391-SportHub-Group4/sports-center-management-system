@@ -59,6 +59,7 @@ public sealed class VnPayGateway(IOptions<VnPayOptions> options, HttpClient http
 
     public async Task<VerifiedPaymentResult?> QueryAsync(PaymentAttempt attempt, CancellationToken ct)
     {
+        ct.ThrowIfCancellationRequested();
         RequireConfigured();
         var now = DateTime.UtcNow;
         var fields = new Dictionary<string, string>(StringComparer.Ordinal)
@@ -74,16 +75,11 @@ public sealed class VnPayGateway(IOptions<VnPayOptions> options, HttpClient http
             "vnp_TxnRef", "vnp_TransactionDate", "vnp_CreateDate", "vnp_IpAddr", "vnp_OrderInfo" };
         fields["vnp_SecureHash"] = VnPaySigner.Sign(
             string.Join('|', requestOrder.Select(x => fields[x])), _options.HashSecret);
-        using var response = await http.PostAsJsonAsync(_options.QueryUrl, fields, ct);
-        response.EnsureSuccessStatusCode();
-        using var json = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync(ct),
-            cancellationToken: ct);
-        var values = json.RootElement.EnumerateObject().ToDictionary(x => x.Name,
-            x => x.Value.ToString(), StringComparer.Ordinal);
+        var values = await ReadQueryResponseAsync(fields, attempt.PaymentAttemptId, ct);
         // Log only diagnostic codes; never log the signed request/response or merchant secrets.
         logger?.LogInformation(
-            "VNPay QueryDR response for attempt {AttemptId}: HTTP {HttpStatus}, code {ResponseCode}, transaction status {TransactionStatus}, type {TransactionType}",
-            attempt.PaymentAttemptId, (int)response.StatusCode, Get(values, "vnp_ResponseCode"),
+            "VNPay QueryDR response for attempt {AttemptId}: code {ResponseCode}, transaction status {TransactionStatus}, type {TransactionType}",
+            attempt.PaymentAttemptId, Get(values, "vnp_ResponseCode"),
             Get(values, "vnp_TransactionStatus"), Get(values, "vnp_TransactionType"));
         var responseOrder = new[] { "vnp_ResponseId", "vnp_Command", "vnp_ResponseCode", "vnp_Message",
             "vnp_TmnCode", "vnp_TxnRef", "vnp_Amount", "vnp_BankCode", "vnp_PayDate",
@@ -123,6 +119,48 @@ public sealed class VnPayGateway(IOptions<VnPayOptions> options, HttpClient http
         var status = Get(values, "vnp_TransactionStatus");
         return new VerifiedPaymentResult(attempt.VnpTxnRef, transactionId, minor / 100m,
             status == "00", "00", status, paidAtUtc);
+    }
+
+    private async Task<Dictionary<string, string>> ReadQueryResponseAsync(
+        Dictionary<string, string> fields, Guid attemptId, CancellationToken ct)
+    {
+        try
+        {
+            using var response = await http.PostAsJsonAsync(_options.QueryUrl, fields, ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                var status = (int)response.StatusCode;
+                logger?.LogWarning("VNPay QueryDR HTTP failure for attempt {AttemptId}: upstream HTTP {Status}",
+                    attemptId, status);
+                throw new AppException(502, "vnp_query_http_error",
+                    $"VNPay transaction query returned HTTP {status}. Payment has not been confirmed.");
+            }
+            using var json = await JsonDocument.ParseAsync(
+                await response.Content.ReadAsStreamAsync(ct), cancellationToken: ct);
+            if (json.RootElement.ValueKind != JsonValueKind.Object)
+                throw new JsonException("Expected a QueryDR JSON object.");
+            return json.RootElement.EnumerateObject().ToDictionary(x => x.Name,
+                x => x.Value.ToString(), StringComparer.Ordinal);
+        }
+        catch (HttpRequestException ex)
+        {
+            logger?.LogWarning("VNPay QueryDR connection failed for attempt {AttemptId}: {ErrorType}, {NetworkError}",
+                attemptId, ex.GetType().Name, ex.HttpRequestError);
+            throw new AppException(502, "vnp_query_connection_failed",
+                "The backend could not connect to VNPay's transaction query service. Payment has not been confirmed.");
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            logger?.LogWarning("VNPay QueryDR timed out for attempt {AttemptId}", attemptId);
+            throw new AppException(504, "vnp_query_timeout",
+                "VNPay's transaction query service timed out. Payment has not been confirmed.");
+        }
+        catch (JsonException)
+        {
+            logger?.LogWarning("VNPay QueryDR returned invalid JSON for attempt {AttemptId}", attemptId);
+            throw new AppException(502, "vnp_query_invalid_response",
+                "VNPay's transaction query service returned an invalid response. Payment has not been confirmed.");
+        }
     }
 
     private void RequireConfigured()
