@@ -12,7 +12,7 @@ namespace SportHub.Security.Tests.Integration;
 public sealed class CoachMemberReadScopeTests(SportHubApiFactory factory)
 {
     [Fact]
-    public async Task Coach_can_read_only_members_with_an_active_relationship()
+    public async Task Coach_can_read_only_members_in_an_active_assigned_class()
     {
         var coach = await factory.SeedUserAsync($"coach-scope-{Guid.NewGuid():N}@example.com", null, role: UserRole.Coach);
         var assigned = await factory.SeedUserAsync($"member-assigned-{Guid.NewGuid():N}@example.com", null);
@@ -39,6 +39,8 @@ public sealed class CoachMemberReadScopeTests(SportHubApiFactory factory)
 
         using var client = factory.CreateApiClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", factory.IssueToken(coach.UserId, UserRole.Coach));
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync($"api/members/{assigned.UserId}/training-profile")).StatusCode);
+        await CoachClassScopeData.AssignAsync(factory, coach.UserId, assigned.UserId);
 
         Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync("api/users")).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync("api/member-packages")).StatusCode);

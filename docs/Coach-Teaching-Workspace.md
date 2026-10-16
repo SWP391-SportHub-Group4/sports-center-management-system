@@ -11,7 +11,7 @@ Phạm vi được chủ sản phẩm xác nhận: triển khai giao diện **v�
 ### Bàn giao tiến độ cùng môn
 
 - Tab **Đánh giá từ lớp trước** chỉ trả `RESULT` của chính học viên từ các lớp cùng môn có ngày bắt đầu không sau lớp hiện tại; không trộn môn khác, không trả kế hoạch/nhận xét của học viên khác.
-- Quyền đọc yêu cầu coach đang phụ trách một lớp Published/InProgress mà học viên còn ghi danh Confirmed. Coach dạy thay phải còn buổi Scheduled được phân công trong tương lai. Phân công cũ đã kết thúc không cấp quyền đọc xuyên lớp.
+- Quyền đọc yêu cầu coach chính đang phụ trách một lớp Published/InProgress mà học viên còn ghi danh Confirmed. Coach dạy thay chỉ được xem buổi được giao, không được mở hồ sơ sức khỏe hoặc lịch sử lớp trước. Phân công cũ hoặc quan hệ Coach–Member còn Active không tự cấp quyền đọc.
 - Mỗi đánh giá giữ tên lớp, số/ngày buổi, coach ghi nhận, điểm kỹ năng, nội dung và thời điểm ghi/cập nhật. Sắp xếp mới nhất trước, 20 mục/trang. Không có thao tác sửa dữ liệu lịch sử; API ghi vẫn kiểm tra tác giả/lớp.
 - Khi có nhiều lớp, lịch sử dùng danh sách lớp riêng có tìm tên, phân trang 8 lớp/trang và sắp xếp theo đánh giá gần nhất. Mỗi lớp có số đánh giá, điểm trung bình (chỉ tính bản ghi có điểm) và ngày ghi nhận gần nhất. Chọn lớp chỉ tải đánh giá của lớp đó; từng nhận xét thu gọn, mở riêng từng buổi. Điểm trung bình là thống kê mô tả, không phải điểm tiến bộ do AI suy diễn.
 - Không thay đổi schema, không cần migration mới cho tính năng này.
@@ -49,7 +49,7 @@ Migration `AddClassTeachingWorkspace` thêm `class_teaching_records`; giáo án 
 | GET | `/api/coaches/me/teaching/students/{memberId}` | Danh tính và các lớp hiện tại của học viên trong phạm vi coach; 403 nếu không còn phân công |
 | GET | `/api/coaches/me/teaching/students/{memberId}/history?classId=&page=1` | Đánh giá cùng môn từ lớp trước, chỉ đọc, 20 mục/trang; quyền dựa trên lớp hiện tại |
 | GET | `/api/coaches/me/teaching/students/{memberId}/history/classes?classId=&page=1&search=` | Nhóm lớp từ toàn bộ lịch sử hợp lệ; 8 lớp/trang, số đánh giá, điểm trung bình và ngày đánh giá gần nhất |
-| GET | `/api/coaches/me/teaching/classes/{classId}/members?memberId=` | Học viên Confirmed, mục tiêu/trình độ, số lần có mặt/vắng trong lớp; memberId tùy chọn giới hạn một học viên |
+| GET | `/api/coaches/me/teaching/classes/{classId}/members?memberId=&sessionId=` | Coach chính: học viên Confirmed và hồ sơ tóm tắt. Coach dạy thay: bắt buộc sessionId được giao, không trả mục tiêu/trình độ/ghi chú sức khỏe; điểm danh chỉ của buổi đó |
 | GET | `/api/coaches/me/teaching/classes/{classId}/records?page=1&memberId=` | Paged, 100 mục/trang, mới nhất trước; memberId tùy chọn trả bản ghi của học viên và PLAN chung đúng lớp |
 | POST | `/api/coaches/me/teaching/classes/{classId}/records` | Tạo nội dung, retry idempotent |
 | PUT | `/api/coaches/me/teaching/classes/{classId}/records/{recordId}` | Sửa PLAN/RESULT của chính coach, kiểm version |

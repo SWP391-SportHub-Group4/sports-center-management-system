@@ -12,5 +12,6 @@ public class MembershipPackageConfiguration : IEntityTypeConfiguration<Membershi
         builder.HasIndex(e => e.Name).IsUnique();
         // Tiền VND, số nguyên, không phần thập phân (SSOT §5.2).
         builder.Property(e => e.Price).HasPrecision(18, 0);
+        builder.Property(e => e.OriginalPrice).HasPrecision(18, 0);
     }
 }

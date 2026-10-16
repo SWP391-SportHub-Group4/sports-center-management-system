@@ -76,11 +76,10 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
   // Member dùng MemberShell, không dùng AppShell — nhánh này giữ lại chỉ để Record đủ key.
   Member: [
     { href: "/member", labelKey: "overview" },
-    { href: "/member/class-schedule", labelKey: "classSchedule" },
+    { href: "/member/schedule", labelKey: "classSchedule" },
     { href: "/member/my-registrations", labelKey: "myRegistrations" },
     { href: "/member/my-plans", labelKey: "myMembershipPlans" },
     { href: "/member/invoices", labelKey: "invoices" },
-    { href: "/member/training", labelKey: "plansAndResults" },
     { href: "/member/profile", labelKey: "trainingProfile" },
   ],
   Receptionist: [
@@ -421,9 +420,17 @@ export function AppFrame({
   const root = items[0].href;
   const entries = buildNav(items, user.role, t);
   const roleDisplay = t.navigation.roleLabel[user.role];
+  const usesStaffPalette =
+    user.role === "CenterManager" || user.role === "Coach";
+  const roleShell =
+    user.role === "CenterManager"
+      ? styles.managerShell
+      : user.role === "Coach"
+        ? styles.coachShell
+        : "";
   return (
     <div
-      className={`${shell.shell} ${user.role === "CenterManager" ? styles.managerShell : ""}`}
+      className={`${shell.shell} ${usesStaffPalette ? styles.staffPalette : ""} ${roleShell}`}
     >
       <a href="#main-content" className="skip-link">
         {language === "en"
@@ -507,7 +514,7 @@ export function AppFrame({
                   name={user.fullName || user.email}
                   avatarUrl={user.avatarUrl}
                   size={36}
-                  className={`${shell.userAvatar} ${user.role === "CenterManager" ? styles.managerAvatar : ""}`}
+                  className={`${shell.userAvatar} ${usesStaffPalette ? styles.managerAvatar : ""}`}
                 />
                 <span className={shell.userName}>
                   {user.fullName || user.email}

@@ -11,13 +11,14 @@ import {
   ChevronRight,
   Clock3,
   MessageSquare,
+  Pencil,
   RefreshCw,
   Send,
   Users,
   X,
 } from "lucide-react";
 import { AsyncSection, Feedback } from "@/components/ui";
-import { useApi, useAction } from "@/lib/useApi";
+import { useApi, useAction, useNow } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { formatDateTime, formatTime } from "@/lib/format";
 import {
@@ -27,6 +28,7 @@ import {
   type ClassChangeRequest,
   type ClassChangeType,
 } from "./class-change-api";
+import { PendingRequestEditor } from "./pending-request-editor";
 import styles from "./coach-change-requests.module.css";
 
 const changeIcons = {
@@ -41,6 +43,9 @@ export function CoachChangeRequests() {
   const [page, setPage] = useState(1);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [confirmWithdraw, setConfirmWithdraw] = useState(false);
+  const [editing, setEditing] = useState<ClassChangeRequest | null>(null);
+  const [editMessage, setEditMessage] = useState("");
+  const now = useNow(1000);
   const detailRef = useRef<HTMLElement>(null);
   const lock = useRef(false);
   const action = useAction();
@@ -95,7 +100,7 @@ export function CoachChangeRequests() {
           <p>
             {vi
               ? "Gửi yêu cầu từ buổi dạy. Theo dõi quyết định của quản lý tại đây."
-              : "Request changes from your teaching schedule. Follow your Manager’s decisions here."}
+              : "Edit pending requests and follow your Manager’s decisions. Select a session to send a new request."}
           </p>
         </div>
         <Link href="/coach/schedule" className="btn">
@@ -122,6 +127,7 @@ export function CoachChangeRequests() {
         </button>
       </div>
       <Feedback error={action.error} success={action.success} />
+      {editMessage && <p role="status">{editMessage}</p>}
       <AsyncSection state={state}>
         {(data) => {
           const selected =
@@ -308,9 +314,12 @@ export function CoachChangeRequests() {
                     </div>
                   ) : selected.status === "WITHDRAWN" ? (
                     <p>
-                      {vi
-                        ? "Bạn đã rút yêu cầu này. Lịch dạy không thay đổi."
-                        : "You withdrew this request. Your teaching schedule is unchanged."}
+                      {selected.resolutionType === "SCHEDULE_UPDATED"
+                        ? (selected.reviewNote ??
+                          "Closed automatically — schedule updated by Manager.")
+                        : vi
+                          ? "Bạn đã rút yêu cầu này. Lịch dạy không thay đổi."
+                          : "You withdrew this request. Your teaching schedule is unchanged."}
                     </p>
                   ) : (
                     <div
@@ -366,6 +375,21 @@ export function CoachChangeRequests() {
                 )}
                 {selected.status === "PENDING" && (
                   <footer className={styles.detailFooter}>
+                    {!confirmWithdraw &&
+                      Date.parse(selected.originalStartAtUtc) > now && (
+                        <button
+                          type="button"
+                          className="btn"
+                          disabled={action.busy}
+                          onClick={() => {
+                            setEditMessage("");
+                            setEditing(selected);
+                          }}
+                        >
+                          <Pencil size={17} aria-hidden="true" />
+                          Edit pending request
+                        </button>
+                      )}
                     {confirmWithdraw ? (
                       <div className={styles.confirmation}>
                         <p>
@@ -416,6 +440,25 @@ export function CoachChangeRequests() {
           );
         }}
       </AsyncSection>
+      {editing && (
+        <PendingRequestEditor
+          key={editing.requestId}
+          request={editing}
+          onClose={() => setEditing(null)}
+          onSaved={() => {
+            setEditing(null);
+            setEditMessage(
+              "Changes saved. Your request is still pending Manager review.",
+            );
+            state.reload();
+          }}
+          onUnavailable={(message) => {
+            setEditing(null);
+            setEditMessage(message);
+            state.reload();
+          }}
+        />
+      )}
     </div>
   );
 }

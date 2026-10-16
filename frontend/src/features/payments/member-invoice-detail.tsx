@@ -9,6 +9,7 @@ import type { InvoiceDetailDto } from "@/lib/types";
 import { AsyncSection, Card, StatusChip, Table } from "@/components/ui";
 import { PageHeader, buttonClass } from "@/components/primitives";
 import { RefundRequestForm } from "./refund-request-form";
+import { DownloadInvoiceButton } from "./download-invoice-button";
 import styles from "./checkout-panel.module.css";
 
 /**
@@ -66,14 +67,17 @@ export function MemberInvoiceDetail({ invoiceId }: { invoiceId: string }) {
                   </>
                 }
                 actions={
-                  resumable && (
-                    <Link
-                      className={buttonClass({ variant: "primary" })}
-                      href={`/checkout/${s.invoiceId}`}
-                    >
-                      {f.continuePayment}
-                    </Link>
-                  )
+                  <>
+                    <DownloadInvoiceButton invoiceId={s.invoiceId} />
+                    {resumable && (
+                      <Link
+                        className={buttonClass({ variant: "primary" })}
+                        href={`/checkout/${s.invoiceId}`}
+                      >
+                        {f.continuePayment}
+                      </Link>
+                    )}
+                  </>
                 }
               />
               {s.reconciliationRequired && (

@@ -24,6 +24,8 @@ public sealed class ClassTeachingAiController(ClassTeachingService teaching, ISp
     public async Task<IActionResult> Suggest(int classId, ClassSuggestionRequest request, CancellationToken ct)
     {
         var cls = await teaching.RequireClassAsync(classId, User.RequireUserId(), ct);
+        if (cls.CoachId != User.RequireUserId())
+            throw new ForbiddenException("class_plan_not_assigned", "Only the assigned class coach can access student profiles for AI suggestions.");
         if (string.IsNullOrWhiteSpace(request.Goal) || request.Goal.Length > 1000 || request.Level is not ("Beginner" or "Intermediate" or "Advanced") || request.Language is not ("vi" or "en")
             || request.Scope is not ("course" or "session" or "personal")
             || (request.Scope == "personal" && !request.MemberId.HasValue)
@@ -39,7 +41,8 @@ public sealed class ClassTeachingAiController(ClassTeachingService teaching, ISp
             throw new BadRequestException("session_not_in_class", "Session is not in this class.");
         var cohort = members.Where(x => request.MemberId == null || x.MemberId == request.MemberId).ToList();
         var history = await db.Set<ClassTeachingRecord>().AsNoTracking()
-            .Where(x => x.ClassId == classId && x.Kind == "RESULT" && (request.MemberId == null || x.MemberId == request.MemberId))
+            .Where(x => x.ClassId == classId && x.Kind == "RESULT" && (request.MemberId == null || x.MemberId == request.MemberId)
+                && db.Set<Enrollment>().Any(e => e.ClassId == classId && e.MemberId == x.MemberId && e.Status == EnrollmentStatus.Confirmed))
             .OrderByDescending(x => x.CreatedAtUtc).Take(12).Select(x => new { x.Content, x.Score }).ToListAsync(ct);
         var context = JsonSerializer.Serialize(new { sport = cls.Sport!.Name, request.Goal, request.Level, request.Scope,
             sessions = sessions.Where(x => request.Scope == "course" || request.SessionId == null || x.SessionId == request.SessionId),

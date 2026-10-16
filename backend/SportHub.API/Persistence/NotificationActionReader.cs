@@ -6,11 +6,12 @@ namespace SportHub.API.Persistence;
 
 // Resolve polymorphic source IDs in the host, where all business modules are available.
 // Only return destinations backed by records owned by this notification's recipient.
-public sealed class NotificationActionReader(SportHubDbContext db) : INotificationActionReader
+public sealed class NotificationActionReader(SportHubDbContext db, SportHub.BuildingBlocks.SharedKernel.Time.IClock clock) : INotificationActionReader
 {
     public async Task<IReadOnlyDictionary<Guid, string>> GetMemberActionsAsync(
         Guid userId, IReadOnlyList<NotificationResponse> notifications, CancellationToken ct)
     {
+        var currentEnrollments = SportHub.Scheduling.Application.Services.MemberClassAccess.Current(db, userId, clock.UtcNow);
         var result = new Dictionary<Guid, string>();
         foreach (var group in notifications.Where(n => n.SourceEntityId.HasValue).GroupBy(n => n.SourceEventType))
         {
@@ -20,17 +21,31 @@ public sealed class NotificationActionReader(SportHubDbContext db) : INotificati
             {
                 case "ClassSessionChangeRequested":
                     if (await db.UserAccounts.AnyAsync(u => u.UserId == userId && u.Role!.RoleName == SportHub.Identity.Domain.Enums.UserRole.CenterManager, ct))
-                        foreach (var id in await db.Set<SportHub.Scheduling.Domain.Entities.ClassSessionChangeRequest>().Where(r => ids.Contains(r.RequestId)).Select(r => r.RequestId).ToListAsync(ct))
+                        foreach (var id in ids)
                             links[id] = "/manager/schedule?section=requests";
                     break;
                 case "ClassSessionChangeReviewed":
                     foreach (var id in await db.Set<SportHub.Scheduling.Domain.Entities.ClassSessionChangeRequest>().Where(r => ids.Contains(r.RequestId) && r.RequestedByUserId == userId).Select(r => r.RequestId).ToListAsync(ct))
-                        links[id] = "/coach/schedule?changes=1";
+                        links[id] = "/coach/change-requests";
+                    break;
+                case "ClassSessionReminder":
+                    var reminders = await db.Set<SportHub.Scheduling.Domain.Entities.ClassSessionReminder>()
+                        .Where(r => ids.Contains(r.ReminderId) && r.MemberId == userId)
+                        .Join(db.ClassSessions, r => r.SessionId, s => s.SessionId, (r, s) => new { r.ReminderId, s.ClassId })
+                        .ToListAsync(ct);
+                    foreach (var r in reminders) links[r.ReminderId] = $"/member/schedule?course={r.ClassId}";
+                    break;
+                case "NextCourseAvailable":
+                    var deliveries = await (from d in db.Set<SportHub.Scheduling.Threshold.Domain.CourseInterestDelivery>()
+                                            join i in db.Set<SportHub.Scheduling.Threshold.Domain.CourseInterest>() on d.InterestId equals i.InterestId
+                                            where ids.Contains(d.DeliveryId) && i.MemberId == userId
+                                            select new { d.DeliveryId, d.ClassId }).ToListAsync(ct);
+                    foreach (var d in deliveries) links[d.DeliveryId] = $"/member/services?view=explore&course={d.ClassId}";
                     break;
                 case "ClassTeachingUpdated":
                     var teaching = await db.Set<SportHub.Scheduling.Domain.Entities.ClassTeachingRecord>()
                         .Where(x => ids.Contains(x.RecordId) && (x.MemberId == null || x.MemberId == userId))
-                        .Where(x => db.Enrollments.Any(e => e.ClassId == x.ClassId && e.MemberId == userId))
+                        .Where(x => currentEnrollments.Any(e => e.ClassId == x.ClassId))
                         .Select(x => new { x.RecordId, x.ClassId }).ToListAsync(ct);
                     foreach (var record in teaching)
                         links[record.RecordId] = $"/member/schedule?course={record.ClassId}";
@@ -53,6 +68,8 @@ public sealed class NotificationActionReader(SportHubDbContext db) : INotificati
                     break;
                 case "ScheduleChanged":
                 case "ClassCancelled":
+                    if (await db.UserAccounts.AnyAsync(u => u.UserId == userId && u.Role!.RoleName == SportHub.Identity.Domain.Enums.UserRole.Coach, ct))
+                        foreach (var id in ids) links[id] = "/coach/schedule";
                     var sessions = await (from s in db.ClassSessions
                                           where ids.Contains(s.SessionId)
                                           where db.Enrollments.Any(e => e.ClassId == s.ClassId && e.MemberId == userId)

@@ -28,10 +28,9 @@ public sealed class CoachStudentsController(ISportHubDbContext db, IMemberTraini
             throw new BadRequestException("student_search_too_long", "Search must not exceed 150 characters.");
         if (health is not ("all" or "notes" or "missing"))
             throw new BadRequestException("student_filter_invalid", "Choose all, notes or missing.");
-        var relationships = db.Set<CoachMemberRelationship>().AsNoTracking()
-            .Where(r => r.CoachId == coachId && r.Status == RelationshipStatus.Active);
+        var enrollments = SportHub.Scheduling.Application.Services.CoachDataScope.Enrollments(db, coachId);
         var profiles = db.Set<MemberTrainingProfile>().AsNoTracking();
-        var query = db.Set<UserAccount>().AsNoTracking().Where(u => relationships.Any(r => r.MemberId == u.UserId));
+        var query = db.Set<UserAccount>().AsNoTracking().Where(u => enrollments.Any(r => r.MemberId == u.UserId));
         if (!string.IsNullOrWhiteSpace(search))
         {
             var term = search.Trim().ToLowerInvariant();
@@ -46,7 +45,7 @@ public sealed class CoachStudentsController(ISportHubDbContext db, IMemberTraini
         var members = await query.OrderBy(u => u.Profile != null ? u.Profile.FullName : u.Email).ThenBy(u => u.UserId)
             .Skip((page - 1) * pageSize).Take(pageSize)
             .Select(u => new { MemberId = u.UserId, MemberName = u.Profile != null ? u.Profile.FullName : u.Email, MemberEmail = u.Email,
-                StartedAt = relationships.Where(r => r.MemberId == u.UserId).Min(r => r.StartedAt) }).ToListAsync(ct);
+                StartedAt = enrollments.Where(r => r.MemberId == u.UserId).Min(r => r.EnrolledAt) }).ToListAsync(ct);
         var ids = members.Select(m => m.MemberId).ToList();
         var pageProfiles = await profiles.Where(p => ids.Contains(p.MemberId)).ToDictionaryAsync(p => p.MemberId, ct);
         var items = members.Select(m => {
@@ -62,8 +61,7 @@ public sealed class CoachStudentsController(ISportHubDbContext db, IMemberTraini
     public async Task<IActionResult> HealthProfile(Guid memberId, CancellationToken ct)
     {
         var coachId = User.RequireUserId();
-        if (!await db.Set<CoachMemberRelationship>().AnyAsync(r => r.CoachId == coachId && r.MemberId == memberId
-                && r.Status == RelationshipStatus.Active, ct))
+        if (!await SportHub.Scheduling.Application.Services.CoachDataScope.CanReadMemberAsync(db, coachId, memberId, ct))
             throw new ForbiddenException("no_active_relationship", "No active relationship.");
         var trainingProfile = await trainingProfiles.GetAsync(memberId, ct);
         return Ok(new { TrainingProfile = trainingProfile });

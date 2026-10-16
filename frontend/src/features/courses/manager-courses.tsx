@@ -38,7 +38,7 @@ const validators = {
   thresholdStatus: choiceQuery(["", ...thresholds], ""),
 };
 export function ManagerCourses() {
-  const { t, language } = useLanguage();
+  const { t } = useLanguage();
   const l = t.operations;
   const m = t.managerOperations;
   const { values, setValues } = useUrlQuery(defaults, validators);
@@ -167,9 +167,17 @@ export function ManagerCourses() {
           },
         ]}
         actions={
-          <Link className="btn" href="/manager/classes/new">
-            {l.create}
-          </Link>
+          <>
+            <Link
+              className="btn btn--secondary"
+              href="/manager/classes/interests"
+            >
+              Course interests
+            </Link>
+            <Link className="btn" href="/manager/classes/new">
+              {l.create}
+            </Link>
+          </>
         }
       />
       {sports.error && <p role="alert">{sports.error.message}</p>}

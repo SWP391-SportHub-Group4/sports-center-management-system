@@ -113,10 +113,15 @@ export const teachingApi = {
       `${root}/students/${memberId}/history/classes`,
       { query: { classId, page, search }, signal },
     ),
-  members: (classId: number, signal?: AbortSignal, memberId?: string) =>
+  members: (
+    classId: number,
+    signal?: AbortSignal,
+    memberId?: string,
+    sessionId?: string,
+  ) =>
     api.get<TeachingMember[]>(`${root}/classes/${classId}/members`, {
       signal,
-      query: { memberId },
+      query: { memberId, sessionId },
     }),
   records: async (
     classId: number,

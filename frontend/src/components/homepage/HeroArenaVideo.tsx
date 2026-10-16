@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "next/image";
+import Image from "./HomepageImage";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
 import styles from "./hero-arena-video.module.css";

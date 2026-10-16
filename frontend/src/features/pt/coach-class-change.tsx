@@ -4,6 +4,7 @@ import { CalendarClock, RefreshCw, Send, X } from "lucide-react";
 import { AsyncSection, Feedback } from "@/components/ui";
 import { useApi, useAction, useNow } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
+import { ApiError } from "@/lib/apiClient";
 import { formatDateTime } from "@/lib/format";
 import { vietnamLocal, vietnamUtc } from "@/lib/vietnam-time";
 import type { CourseSessionDto } from "@/lib/types";
@@ -107,13 +108,32 @@ export function CoachClassChanges({
             proposedStartAtUtc: proposed,
             proposedEndAtUtc: end,
           };
-          return editingId
-            ? classChangeApi.update(editingId, body)
-            : classChangeApi.create(session.sessionId, body);
+          try {
+            return await (editingId
+              ? classChangeApi.update(editingId, body)
+              : classChangeApi.create(session.sessionId, body));
+          } catch (error) {
+            if (
+              error instanceof ApiError &&
+              [
+                "class_change_not_pending",
+                "class_change_stale",
+                "session_not_assigned",
+                "session_not_editable",
+              ].includes(error.code)
+            ) {
+              setForm(false);
+              state.reload();
+              onChanged?.();
+            }
+            throw error;
+          }
         },
         vi
           ? "Đã gửi yêu cầu đến Center Manager."
-          : "Request sent to your Center Manager.",
+          : editingId
+            ? "Changes saved. Your request is still pending Manager review."
+            : "Request sent to your Center Manager.",
       );
       if (saved) {
         setForm(false);
@@ -190,7 +210,7 @@ export function CoachClassChanges({
               disabled={action.busy}
             >
               <CalendarClock size={18} aria-hidden="true" />
-              Change
+              {pending ? "Edit pending request" : "Create request"}
             </button>
           </div>
         )}
@@ -279,7 +299,9 @@ export function CoachClassChanges({
                   : "Sending…"
                 : vi
                   ? "Gửi yêu cầu"
-                  : "Send request"}
+                  : editingId
+                    ? "Save changes"
+                    : "Send request"}
             </button>
             <button
               type="button"

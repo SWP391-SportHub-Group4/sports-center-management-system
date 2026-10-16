@@ -26,8 +26,7 @@ public sealed class CoachMemberRelationshipService(
     IClock clock) : ICoachMemberRelationshipService, ICoachMemberAccessReader
 {
     public Task<bool> HasActiveRelationshipAsync(Guid coachId, Guid memberId, CancellationToken ct = default)
-        => db.Set<CoachMemberRelationship>().AsNoTracking().AnyAsync(
-            r => r.CoachId == coachId && r.MemberId == memberId && r.Status == RelationshipStatus.Active, ct);
+        => SportHub.Scheduling.Application.Services.CoachDataScope.CanReadMemberAsync(db, coachId, memberId, ct);
 
     public const int DefaultPageSize = 50;
     public const int MaximumPageSize = 100;
@@ -38,9 +37,13 @@ public sealed class CoachMemberRelationshipService(
         bool activeOnly,
         int page,
         int pageSize,
-        CancellationToken ct = default)
+        CancellationToken ct = default, bool currentClassesOnly = false)
     {
         var query = db.Set<CoachMemberRelationship>().AsNoTracking();
+        if (currentClassesOnly && coachId.HasValue) {
+            var enrollments = SportHub.Scheduling.Application.Services.CoachDataScope.Enrollments(db, coachId.Value);
+            query = query.Where(r => enrollments.Any(e => e.MemberId == r.MemberId));
+        }
 
         if (coachId is not null)
         {

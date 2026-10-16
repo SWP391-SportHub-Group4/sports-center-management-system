@@ -15,7 +15,8 @@ import { ScheduleReview } from "./schedule-review";
 import { previewSessions } from "./preview";
 import { AiScheduleDrawer } from "@/features/manager";
 import { managerWorkspaceStyles as styles } from "@/features/manager";
-import type { ManagerCourseDto } from "@/lib/types";
+import { pagedItems } from "@/lib/paged";
+import type { Paged, ManagerCourseDto } from "@/lib/types";
 
 export function CourseEditor({
   course,
@@ -53,6 +54,7 @@ export function CourseEditor({
     name: course?.name ?? "",
 
     sportId: String(course?.sportId ?? ""),
+    continuationOfClassId: String(course?.continuationOfClassId ?? ""),
 
     coachId: course?.coachId ?? "",
 
@@ -178,6 +180,25 @@ export function CourseEditor({
     };
   }, []);
 
+  const previousClasses = useApi(
+    async (signal) => {
+      if (!form.sportId) return [];
+      const rows: ManagerCourseDto[] = [];
+      for (let page = 1; ; page++) {
+        const response = await api.get<Paged<ManagerCourseDto>>(
+          "/api/manager/classes",
+          {
+            signal,
+            query: { sportId: form.sportId, page, pageSize: 100 },
+          },
+        );
+        const batch = pagedItems(response);
+        rows.push(...batch);
+        if (!batch.length || rows.length >= response.totalCount) return rows;
+      }
+    },
+    [form.sportId],
+  );
   const service = catalog.data?.sports
     .find((sport) => sport.sportId === Number(form.sportId))
     ?.services.find(
@@ -208,6 +229,9 @@ export function CourseEditor({
     sportId: Number(form.sportId),
 
     defaultRoomId: Number(form.defaultRoomId),
+    continuationOfClassId: form.continuationOfClassId
+      ? Number(form.continuationOfClassId)
+      : null,
 
     coachId: form.coachId || null,
   };
@@ -378,12 +402,45 @@ export function CourseEditor({
                      * coach/room
                      * selection.
                      */
+                    continuationOfClassId: "",
                     coachId: "",
 
                     defaultRoomId: "",
                   })
                 }
               />
+              <Field label="Next cohort of (optional)">
+                <select
+                  value={form.continuationOfClassId}
+                  disabled={!form.sportId || previousClasses.loading}
+                  onChange={(event) =>
+                    setForm({
+                      ...form,
+                      continuationOfClassId: event.target.value,
+                    })
+                  }
+                >
+                  <option value="">New program / no previous cohort</option>
+                  {(previousClasses.data ?? [])
+                    .filter(
+                      (c) =>
+                        c.classId !== course?.classId &&
+                        c.startDate <= form.startDate,
+                    )
+                    .map((c) => (
+                      <option key={c.classId} value={c.classId}>
+                        {c.code} · {c.name}
+                      </option>
+                    ))}
+                </select>
+                <small>
+                  Members waiting for the selected class will be notified when
+                  this cohort opens for registration.
+                </small>
+                {previousClasses.error && (
+                  <p role="alert">{previousClasses.error.message}</p>
+                )}
+              </Field>
             </div>
           )}
 

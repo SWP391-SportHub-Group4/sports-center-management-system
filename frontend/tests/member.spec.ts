@@ -1,6 +1,252 @@
 import { expect, test } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 const courseStart = new Date(Date.now() + 30 * 86400000).toISOString();
+
+const experienceInvoice = "a5555555-5555-4555-8555-555555555555";
+const experienceCheckout = (paid = false) => ({
+  invoiceId: experienceInvoice,
+  checkoutSessionId: "b5555555-5555-4555-8555-555555555555",
+  revision: 1,
+  kind: "MEMBERSHIP",
+  state: paid ? "COMPLETED" : "ACTIVE",
+  totalAmount: 50000,
+  pointsApplied: 0,
+  cashAmount: 50000,
+  expiresAtUtc: new Date(Date.now() + 900000).toISOString(),
+  resourceHoldId: null,
+  invoiceStatus: paid ? "PAID" : "ISSUED",
+  fulfillmentOutcome: paid ? "FULFILLED" : "PENDING",
+  reconciliationRequired: false,
+  beneficiaryUserId: "member-1",
+  initiatorUserId: "member-1",
+  serverNowUtc: new Date().toISOString(),
+  isDayPass: true,
+});
+
+test("Member experience: resumed day-pass checkout shows its terms before payment", async ({
+  page,
+}) => {
+  await page.route(`**/api/checkouts/${experienceInvoice}`, (r) =>
+    r.fulfill({ json: experienceCheckout() }),
+  );
+  await page.route(`**/api/invoices/${experienceInvoice}`, (r) =>
+    r.fulfill({
+      json: {
+        summary: {
+          invoiceId: experienceInvoice,
+          invoiceNumber: "SH-TEST",
+          status: "ISSUED",
+          totalAmount: 50000,
+        },
+        items: [
+          { itemId: "item", description: "Gym day pass", lineAmount: 50000 },
+        ],
+        payments: [],
+        adjustments: [],
+      },
+    }),
+  );
+  await page.goto(`/checkout/${experienceInvoice}`);
+  await expect(page.getByRole("note")).toContainText("valid only today");
+  await expect(page.getByRole("note")).toContainText("not refundable");
+  await page.reload();
+  await expect(page.getByRole("note")).toContainText("not refundable");
+});
+
+test("Member experience: waiting for a cohort submits the refund choice and can stop notifications", async ({
+  page,
+}) => {
+  const responseId = "c5555555-5555-4555-8555-555555555555";
+  let choice: string | null = null;
+  let active = true;
+  await page.route(
+    `**/api/class-threshold-responses/${responseId}`,
+    async (route) => {
+      if (route.request().method() === "POST")
+        choice = route.request().postDataJSON().choice;
+      await route.fulfill({
+        json: {
+          responseId,
+          classId: 1,
+          className: "Badminton course",
+          sportId: 3,
+          paidValueVnd: 100000,
+          deadlineUtc: new Date(Date.now() + 86400000).toISOString(),
+          choice,
+          targetClassId: null,
+          resolutionStatus: choice ? "COMPLETED" : "PENDING",
+          additionalInvoiceId: null,
+          serverNowUtc: new Date().toISOString(),
+        },
+      });
+    },
+  );
+  await page.route("**/api/members/me/course-interests**", async (route) => {
+    if (route.request().method() === "DELETE") {
+      active = false;
+      return route.fulfill({ status: 204 });
+    }
+    await route.fulfill({
+      json: [
+        {
+          interestId: responseId,
+          sourceClassName: "Badminton course",
+          sportName: "Badminton",
+          active,
+          refundedPoints: 100,
+          createdAtUtc: new Date().toISOString(),
+          notifications: [
+            {
+              classId: 1,
+              className: "Next Badminton class",
+              queuedAtUtc: new Date().toISOString(),
+            },
+          ],
+        },
+      ],
+    });
+  });
+  await page.goto(`/member/services?view=owned&responseId=${responseId}`);
+  await page.getByRole("radio", { name: /Wait for the next course/ }).check();
+  await page
+    .getByRole("button", { name: "Review response", exact: true })
+    .click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Confirm response", exact: true })
+    .click();
+  await expect(
+    page.getByRole("link", { name: "Manage course interests", exact: true }),
+  ).toBeVisible();
+  expect(choice).toBe("WAIT_NEXT_COURSE");
+  await page
+    .getByRole("link", { name: "Manage course interests", exact: true })
+    .click();
+  await expect(
+    page.getByText("Following next cohort", { exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole("link", { name: "Next Badminton class", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Badminton course", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Following next cohort", { exact: true }),
+  ).toHaveCount(0);
+  await page.goBack();
+  await expect(
+    page.getByText("Following next cohort", { exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Stop notifications", exact: true })
+    .click();
+  await expect(
+    page.getByText("Notifications stopped", { exact: true }),
+  ).toBeVisible();
+});
+
+test("Member experience: successful payment downloads the authenticated invoice PDF", async ({
+  page,
+}) => {
+  await page.route(`**/api/checkouts/${experienceInvoice}`, (r) =>
+    r.fulfill({ json: experienceCheckout(true) }),
+  );
+  await page.route(`**/api/invoices/${experienceInvoice}`, (r) =>
+    r.fulfill({
+      json: {
+        summary: {
+          invoiceId: experienceInvoice,
+          invoiceNumber: "SH-PAID",
+          status: "PAID",
+          totalAmount: 50000,
+        },
+        items: [],
+        payments: [],
+        adjustments: [],
+      },
+    }),
+  );
+  let authorized = false;
+  await page.route(
+    `**/api/invoices/${experienceInvoice}/receipt.pdf`,
+    (route) => {
+      authorized =
+        route.request().headers().authorization === "Bearer test-token";
+      return route.fulfill({
+        contentType: "application/pdf",
+        body: "%PDF-1.4\n%%EOF",
+      });
+    },
+  );
+  await page.goto(`/checkout/${experienceInvoice}`);
+  await expect(
+    page.getByRole("heading", { name: "Payment successful", exact: true }),
+  ).toBeVisible();
+  const download = page.waitForEvent("download");
+  await page
+    .getByRole("button", { name: "Download invoice", exact: true })
+    .click();
+  expect((await download).suggestedFilename()).toContain(".pdf");
+  expect(authorized).toBe(true);
+});
+
+test("Member experience: an open class view clears its content when access is revoked", async ({
+  page,
+}) => {
+  let revoked = false;
+  await page.route("**/api/members/me/classes/1/sessions", (route) =>
+    revoked
+      ? route.fulfill({
+          status: 403,
+          json: {
+            error: "class_access_ended",
+            message: "Class access has ended",
+          },
+        })
+      : route.fulfill({ json: [] }),
+  );
+  await page.route("**/api/members/me/classes/1/teaching-records**", (route) =>
+    revoked
+      ? route.fulfill({
+          status: 403,
+          json: {
+            error: "class_access_ended",
+            message: "Class access has ended",
+          },
+        })
+      : route.fulfill({
+          json: {
+            items: [
+              {
+                recordId: "notice",
+                classId: 1,
+                kind: "NOTICE",
+                title: "Private class material",
+                content: "Instructions for enrolled students",
+                updatedAtUtc: new Date().toISOString(),
+                memberId: null,
+              },
+            ],
+            totalCount: 1,
+            page: 1,
+            pageSize: 100,
+          },
+        }),
+  );
+  await page.goto("/member/schedule?course=1");
+  await expect(
+    page.getByRole("heading", { name: "Private class material", exact: true }),
+  ).toBeVisible();
+  revoked = true;
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await expect(
+    page.getByRole("heading", { name: "Class access has ended", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Instructions for enrolled students", { exact: true }),
+  ).toHaveCount(0);
+});
 const course = {
   classId: 1,
   code: "BAD-01",
@@ -20,6 +266,186 @@ const course = {
   firstSessionStartUtc: courseStart,
   scheduleRules: [],
 };
+
+const gymPurchase = (packageId: number, status: string, endDate: string) => ({
+  memberPackageId: `${packageId}-${status}-${endDate}`,
+  packageId,
+  packageName: packageId === 50000 ? "Gym day pass" : "Gym monthly",
+  startDate: "2026-10-01",
+  endDate,
+  status,
+  isUsable: status === "ACTIVE",
+});
+
+test("Gym purchase: active day pass is locked and long plans can renew using the latest paid expiry", async ({
+  page,
+}) => {
+  await page.clock.install({ time: new Date("2026-10-15T10:00:00Z") });
+  await page.route("**/api/members/me/packages", (route) =>
+    route.fulfill({
+      json: [
+        gymPurchase(50000, "Active", "2026-10-15"),
+        gymPurchase(1, "ACTIVE", "2026-10-30"),
+        {
+          ...gymPurchase(1, "Active", "2026-11-30"),
+          startDate: "2026-10-31",
+          isUsable: false,
+        },
+      ],
+    }),
+  );
+  await page.goto("/member/services?type=gym");
+  const plans = page.getByRole("region", { name: "Gym plans", exact: true });
+  const day = plans.getByRole("article").filter({ hasText: "Gym day pass" });
+  const monthly = plans.getByRole("article").filter({ hasText: "Gym monthly" });
+  await expect(
+    day.getByRole("button", { name: "Purchased", exact: true }),
+  ).toBeDisabled();
+  await expect(
+    day.getByText("Purchased · Until 15/10/2026", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    monthly.getByRole("button", { name: "Renew plan", exact: true }),
+  ).toBeEnabled();
+  await expect(
+    monthly.getByText("Purchased · Until 30/11/2026", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    monthly.getByText("Purchased · Until 30/10/2026", { exact: true }),
+  ).toHaveCount(0);
+});
+
+test("Gym purchase: expired plans hide ownership and the day pass can be bought again", async ({
+  page,
+}) => {
+  await page.clock.install({ time: new Date("2026-10-15T10:00:00Z") });
+  await page.route("**/api/members/me/packages", (route) =>
+    route.fulfill({
+      json: [
+        gymPurchase(50000, "ACTIVE", "2026-10-14"),
+        gymPurchase(1, "Expired", "2026-09-30"),
+      ],
+    }),
+  );
+  const invoiceId = "55555555-5555-4555-8555-555555555555";
+  let requestBody: unknown;
+  await page.route("**/api/checkouts/membership", async (route) => {
+    requestBody = route.request().postDataJSON();
+    await route.fulfill({ json: { invoiceId } });
+  });
+  await page.goto("/member/services?type=gym");
+  const plans = page.getByRole("region", { name: "Gym plans", exact: true });
+  await expect(
+    plans.getByRole("button", { name: "Renew plan", exact: true }),
+  ).toHaveCount(2);
+  await expect(plans.getByText(/^Purchased · Until/)).toHaveCount(0);
+  await plans
+    .getByRole("article")
+    .filter({ hasText: "Gym day pass" })
+    .getByRole("button", { name: "Renew plan", exact: true })
+    .click();
+  await expect(page).toHaveURL(new RegExp(`/checkout/${invoiceId}$`));
+  expect(requestBody).toEqual({ packageId: 50000, allowStacking: false });
+});
+
+test("Gym purchase: unpaid and cancelled purchases do not count as paid history", async ({
+  page,
+}) => {
+  await page.route("**/api/members/me/packages", (route) =>
+    route.fulfill({
+      json: [
+        gymPurchase(50000, "Cancelled", "2026-10-15"),
+        gymPurchase(1, "PendingPayment", "2026-10-30"),
+      ],
+    }),
+  );
+  await page.goto("/member/services?type=gym");
+  const plans = page.getByRole("region", { name: "Gym plans", exact: true });
+  await expect(
+    plans
+      .getByRole("article")
+      .filter({ hasText: "Gym day pass" })
+      .getByRole("button", { name: "Choose plan", exact: true }),
+  ).toBeEnabled();
+  await expect(
+    plans.getByRole("button", { name: "Awaiting payment", exact: true }),
+  ).toBeDisabled();
+  await expect(plans.getByText(/^Purchased · Until/)).toHaveCount(0);
+});
+
+test("Gym purchase: day pass expires at Vietnam midnight while the page stays open", async ({
+  page,
+}) => {
+  await page.clock.install({ time: new Date("2026-10-15T16:59:50Z") });
+  await page.route("**/api/members/me/packages", (route) =>
+    route.fulfill({ json: [gymPurchase(50000, "ACTIVE", "2026-10-15")] }),
+  );
+  await page.goto("/member/services?type=gym");
+  const day = page
+    .getByRole("region", { name: "Gym plans", exact: true })
+    .getByRole("article")
+    .filter({ hasText: "Gym day pass" });
+  await expect(
+    day.getByRole("button", { name: "Purchased", exact: true }),
+  ).toBeDisabled();
+  await page.clock.fastForward(11_000);
+  await expect(
+    day.getByRole("button", { name: "Renew plan", exact: true }),
+  ).toBeEnabled();
+  await expect(day.getByText(/^Purchased · Until/)).toHaveCount(0);
+});
+
+test("Gym purchase: returning from payment refreshes ownership", async ({
+  page,
+}) => {
+  await page.clock.install({ time: new Date("2026-10-15T10:00:00Z") });
+  let paid = false;
+  await page.route("**/api/members/me/packages", (route) =>
+    route.fulfill({
+      json: paid ? [gymPurchase(50000, "ACTIVE", "2026-10-15")] : [],
+    }),
+  );
+  await page.goto("/member/services?type=gym");
+  const day = page
+    .getByRole("region", { name: "Gym plans", exact: true })
+    .getByRole("article")
+    .filter({ hasText: "Gym day pass" });
+  await expect(
+    day.getByRole("button", { name: "Choose plan", exact: true }),
+  ).toBeEnabled();
+  paid = true;
+  await page.evaluate(() => window.dispatchEvent(new Event("pageshow")));
+  await expect(
+    day.getByRole("button", { name: "Purchased", exact: true }),
+  ).toBeDisabled();
+});
+
+test("Gym purchase: an ownership API failure offers retry instead of a duplicate purchase", async ({
+  page,
+}) => {
+  let failed = true;
+  await page.route("**/api/members/me/packages", (route) =>
+    failed
+      ? route.fulfill({
+          status: 503,
+          json: { error: "unavailable", message: "Unavailable" },
+        })
+      : route.fulfill({ json: [] }),
+  );
+  await page.goto("/member/services?type=gym");
+  const gym = page.getByRole("region", { name: "Gym Membership", exact: true });
+  await expect(
+    gym.getByText("Could not load your purchased plans."),
+  ).toBeVisible();
+  await expect(
+    gym.getByRole("button", { name: "Choose plan", exact: true }),
+  ).toHaveCount(0);
+  failed = false;
+  await gym.getByRole("button", { name: "Reload", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Choose plan", exact: true }),
+  ).toHaveCount(2);
+});
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("sporthub.accessToken", "test-token");
@@ -200,7 +626,7 @@ test("legacy profile link opens the editable fitness profile", async ({
   await page.route("**/api/members/me/training-profile", (route) =>
     route.fulfill({ json: null }),
   );
-  await page.goto("/member/profile");
+  await page.goto("/member/training?tab=profile");
   await expect(page).toHaveURL(/\/member\/training\?tab=profile$/);
   await expect(
     page.getByRole("heading", { name: "Fitness profile" }),
@@ -311,10 +737,14 @@ for (const width of [320, 768, 1024, 1280, 1360, 1440])
           page.getByRole("heading", { name: "Fitness profile" }),
         ).toBeVisible();
       }
-      if (width >= 1360) {
+      if (width >= 960) {
         const nav = page.getByRole("navigation", { name: "Member Navigation" });
         await expect(nav).toBeVisible();
-        await expect(nav.getByRole("link")).toHaveCount(5);
+        await expect(nav.getByRole("link")).toHaveText([
+          "Overview",
+          "Services",
+          "My schedule",
+        ]);
       } else {
         await expect(
           page.getByRole("button", { name: "Open navigation menu" }),
@@ -360,7 +790,7 @@ test("the member header stays mounted and pinned while moving between tabs", asy
   await page.evaluate(() => {
     (document.querySelector("header") as HTMLElement).dataset.mounted = "yes";
   });
-  for (const name of ["My schedule", "Services", "Billing", "Overview"]) {
+  for (const name of ["My schedule", "Services", "Overview"]) {
     await nav.getByRole("link", { name, exact: true }).click();
     await expect(nav.getByRole("link", { name, exact: true })).toHaveAttribute(
       "aria-current",
@@ -368,10 +798,24 @@ test("the member header stays mounted and pinned while moving between tabs", asy
     );
     await expect(page.locator("header[data-mounted='yes']")).toHaveCount(1);
   }
+  await page.getByTestId("user-profile-button").click();
+  const billing = page.getByRole("link", { name: "Billing", exact: true });
+  await expect(billing).toBeVisible();
+  await billing.click();
+  await expect(page).toHaveURL(/\/member\/finance$/);
+  await expect(page.locator("header[data-mounted='yes']")).toHaveCount(1);
+  await expect(
+    nav.getByRole("link", { name: "Billing", exact: true }),
+  ).toHaveCount(0);
+  await page.getByTestId("user-profile-button").click();
+  await expect(
+    page.getByRole("link", { name: "Billing", exact: true }),
+  ).toHaveAttribute("aria-current", "page");
+  await page.keyboard.press("Escape");
   await page.mouse.wheel(0, 2000);
   await page.waitForTimeout(300);
   const top = await page
-    .locator("header")
+    .getByRole("banner")
     .evaluate((el) => el.getBoundingClientRect().top);
   expect(top).toBe(0);
 });

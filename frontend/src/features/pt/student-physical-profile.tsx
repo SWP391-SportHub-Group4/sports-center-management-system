@@ -210,9 +210,9 @@ export function StudentPhysicalProfile({ memberId }: { memberId: string }) {
             <div className={styles.empty}>
               <h4>No Fitness profile yet</h4>
               <p>
-                The member can complete their profile in Training → Fitness
-                profile. Measurements, goals and health information will appear
-                here after saving.
+                The member can complete their profile in the account menu →
+                Fitness profile. Measurements, goals and health information will
+                appear here after saving.
               </p>
             </div>
           )

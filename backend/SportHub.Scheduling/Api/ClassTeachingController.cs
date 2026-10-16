@@ -35,7 +35,7 @@ public sealed class ClassTeachingController(ClassTeachingService teaching, IAtte
         [FromQuery] string? search = null, CancellationToken ct = default)
         => Ok(await teaching.StudentHistoryClassesAsync(User.RequireUserId(), memberId, classId, page, search, ct));
     [HttpGet("classes/{classId:int}/members")]
-    public async Task<IActionResult> Members(int classId, CancellationToken ct, [FromQuery] Guid? memberId = null) => Ok(await teaching.MembersAsync(classId, User.RequireUserId(), ct, memberId));
+    public async Task<IActionResult> Members(int classId, CancellationToken ct, [FromQuery] Guid? memberId = null, [FromQuery] Guid? sessionId = null) => Ok(await teaching.MembersAsync(classId, User.RequireUserId(), ct, memberId, sessionId));
     [HttpGet("classes/{classId:int}/records")]
     public async Task<IActionResult> Records(int classId, [FromQuery] int page = 1, CancellationToken ct = default, [FromQuery] Guid? memberId = null) => Ok(await teaching.RecordsAsync(classId, User.RequireUserId(), false, page, ct, memberId));
     [HttpPost("classes/{classId:int}/records")]

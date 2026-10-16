@@ -113,6 +113,15 @@ export function MemberServiceHub() {
                   )}
           </p>
         </div>
+        <button
+          type="button"
+          className="btn btn--quiet"
+          onClick={() =>
+            setValues({ ...RESET, view: "owned", tab: "interests" })
+          }
+        >
+          Course interests
+        </button>
         <SubNav
           view={view}
           onChange={goView}

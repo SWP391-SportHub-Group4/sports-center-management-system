@@ -196,7 +196,8 @@ public sealed class ClassService(
     public async Task<IReadOnlyList<ClassPublicResponse>> ListForCoachAsync(Guid coachId, CancellationToken ct = default)
     {
         var rows = await Rows(db.Set<Class>().AsNoTracking()
-            .Where(c => (c.CoachId == coachId || db.Set<ClassSession>().Any(s => s.ClassId == c.ClassId && s.CoachId == coachId)) && c.Status != ClassStatus.Draft && c.Status != ClassStatus.Cancelled)
+            .Where(c => (c.CoachId == coachId || db.Set<ClassSession>().Any(s => s.ClassId == c.ClassId && s.CoachId == coachId && s.Status != ClassSessionStatus.Cancelled))
+                && (c.Status == ClassStatus.Published || c.Status == ClassStatus.InProgress))
             .OrderBy(c => c.StartDate).Take(200)).ToListAsync(ct);
 
         return await ToPublicAsync(rows, ct);
@@ -474,6 +475,13 @@ public sealed class ClassService(
         // Chạy thử bộ sinh lịch để báo sớm lỗi ngày bắt đầu lệch lịch lặp.
         CourseRules.GenerateSessions(request.StartDate, request.NumSessions, rules, Math.Max(sport.DefaultDurationMinutes, 1));
 
+        if (request.ContinuationOfClassId is int previous)
+        {
+            if (previous == entity.ClassId || !await db.Set<Class>().AnyAsync(c => c.ClassId == previous
+                && c.SportId == request.SportId && c.StartDate <= request.StartDate, ct))
+                throw new BadRequestException("invalid_previous_cohort", "Choose an earlier class in the same sport for the next cohort.");
+        }
+        entity.ContinuationOfClassId = request.ContinuationOfClassId;
         entity.Code = code;
         entity.Name = request.Name.Trim();
         entity.SportId = request.SportId;
@@ -579,7 +587,7 @@ public sealed class ClassService(
             r.Class.CreatedAt,
             r.Class.PublishedAt,
             r.FirstStart,
-            rules.TryGetValue(r.Class.ClassId, out var rl) ? rl : []
+            rules.TryGetValue(r.Class.ClassId, out var rl) ? rl : [], r.Class.ContinuationOfClassId
         )).ToList();
     }
 

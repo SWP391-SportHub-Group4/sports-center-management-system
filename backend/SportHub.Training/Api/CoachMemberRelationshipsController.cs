@@ -49,7 +49,8 @@ public class CoachMemberRelationshipsController(ICoachMemberRelationshipService 
             memberId = actorId;
         }
 
-        return Ok(await relationships.SearchAsync(coachId, memberId, activeOnly, page, pageSize, ct));
+        return Ok(await relationships.SearchAsync(coachId, memberId, activeOnly, page, pageSize, ct,
+            currentClassesOnly: User.IsInRole(SportHubRoleNames.Coach)));
     }
 
     [Authorize(Policy = SportHubPolicies.CenterManager)]

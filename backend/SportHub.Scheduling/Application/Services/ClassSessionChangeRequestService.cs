@@ -169,9 +169,11 @@ public sealed class ClassSessionChangeRequestService(ISportHubDbContext db, ICla
         r.ProposedStartAtUtc = input.ProposedStartAtUtc; r.ProposedEndAtUtc = input.ProposedEndAtUtc;
         var managers = await db.Set<UserAccount>().Where(u => u.Status == UserStatus.Active && u.Role!.RoleName == UserRole.CenterManager)
             .Select(u => u.UserId).ToListAsync(ct);
+        // Each edit is a new notification event; requestId is already used by the creation event's unique outbox key.
+        var updateEventId = Guid.NewGuid();
         foreach (var manager in managers)
             notifications.Queue(new(manager, NotificationEvents.ClassSessionChangeRequested,
-                $"{actor.FullName} updated the change request for session {s.SessionNo} · {s.Class!.Name}. Reason: {reason}", r.RequestId));
+                $"{actor.FullName} updated the change request for session {s.SessionNo} · {s.Class!.Name}. Reason: {reason}", updateEventId));
         WriteAudit(coachId, "UPDATE", r);
         await db.SaveChangesAsync(ct); await tx.CommitAsync(ct);
         return await GetAsync(id, coachId, ct);
@@ -192,6 +194,7 @@ public sealed class ClassSessionChangeRequestService(ISportHubDbContext db, ICla
             if (!ValidType(input.Type) || (input.Type != "SUBSTITUTE" && (!input.StartAtUtc.HasValue || input.StartAtUtc.Value.Kind != DateTimeKind.Utc))
                 || (input.Type == "SUBSTITUTE" && (!input.CoachId.HasValue || input.CoachId == s.CoachId)))
                 throw new BadRequestException("class_resolution_invalid", "Class resolution invalid.");
+            r.Status = "RESOLVED"; r.ResolutionType = input.Type;
             if (input.Type == "CANCEL_WITH_MAKEUP") {
                 var result = await sessions.CancelWithMakeupAsync(s.SessionId, new CancelSessionRequest { Reason = note,
                     Makeup = new() { StartAtUtc = input.StartAtUtc!.Value, RoomId = input.RoomId, CoachId = input.CoachId } }, managerId, ct);
@@ -202,9 +205,6 @@ public sealed class ClassSessionChangeRequestService(ISportHubDbContext db, ICla
                     CoachId = input.CoachId, RoomId = input.Type == "SUBSTITUTE" ? s.RoomId : input.RoomId, Reason = note }, managerId, ct);
                 r.ResultSessionId = s.SessionId;
             }
-            r.Status = "RESOLVED"; r.ResolutionType = input.Type;
-            if (input.CoachId is Guid nextCoach && nextCoach != r.RequestedByUserId)
-                await NotifyCoachAsync(nextCoach, NotificationEvents.ScheduleChanged, r.ResultSessionId!.Value, $"You have been assigned to a class session · {s.Class!.Name}. {note}", ct);
         } else r.Status = "REJECTED";
         r.ReviewedByUserId = managerId; r.ReviewedAtUtc = clock.UtcNow; r.ReviewNote = note;
         await NotifyCoachAsync(r.RequestedByUserId, NotificationEvents.ClassSessionChangeReviewed, r.RequestId,

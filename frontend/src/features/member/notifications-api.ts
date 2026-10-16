@@ -53,6 +53,10 @@ export function notificationActionLabel(
       return vi ? "Xử lý yêu cầu đổi lịch" : "Review change request";
     case "CLASS_SESSION_CHANGE_REVIEWED":
       return vi ? "Xem kết quả yêu cầu" : "View request outcome";
+    case "CLASS_SESSION_REMINDER":
+      return "View session";
+    case "NEXT_COURSE_AVAILABLE":
+      return "View class";
     case "CLASS_TEACHING_UPDATED":
       return vi ? "Xem nội dung từ coach" : "View your coach’s update";
     case "INVOICE_CREATED":

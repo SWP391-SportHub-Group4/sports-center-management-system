@@ -9,7 +9,7 @@ export const thresholdCopy = {
     transferBody:
       "Choose an eligible class in the same sport. A higher price requires payment of the difference; the transfer completes only after payment is confirmed.",
     waitBody:
-      "Receive a 100% points refund now and subscribe to new courses in the same sport. This does not reserve a seat, enroll you, or preserve the old price. A start date is not yet guaranteed.",
+      "Receive a 100% points refund now and hear when the next cohort of this program opens. This does not reserve a seat, enroll you, or preserve the old price. A start date is not yet guaranteed.",
     refundBody:
       "The remaining refundable value returns to your points wallet and your current enrollment ends. No cash or bank refund.",
     unavailable: "Not available yet",

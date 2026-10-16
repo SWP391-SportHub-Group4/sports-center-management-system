@@ -55,6 +55,10 @@ public sealed class GymDayPassTests(PaymentApiFactory factory)
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
         var checkout = (await created.Content.ReadFromJsonAsync<CheckoutResponse>())!;
         Assert.Equal(DayPass.PriceVnd, checkout.TotalAmount);
+        Assert.True(checkout.IsDayPass);
+        var restored = await buyer.GetFromJsonAsync<CheckoutResponse>($"/api/checkouts/{checkout.InvoiceId}");
+        Assert.True(restored!.IsDayPass);
+
 
         using var staff = factory.CreateApiClient(receptionist.UserId, UserRole.Receptionist);
         var attemptResponse = await buyer.PostAsync($"/api/checkouts/{checkout.InvoiceId}/attempts", null);

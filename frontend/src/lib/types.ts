@@ -121,6 +121,7 @@ export interface WalletLedgerDto {
 }
 
 export interface CheckoutDto {
+  isDayPass?: boolean;
   beneficiaryUserId: string;
   initiatorUserId: string;
   serverNowUtc: string;
@@ -245,6 +246,7 @@ export interface MembershipPackageDto {
   packageId: number;
   name: string;
   price: number;
+  originalPrice?: number | null;
   durationDays: number;
   sessionLimit: number | null;
   description: string | null;
@@ -690,7 +692,7 @@ export interface ThresholdResponseDto {
   sportId: number;
   paidValueVnd: number;
   deadlineUtc: string;
-  choice: "REFUND" | "TRANSFER" | null;
+  choice: "REFUND" | "TRANSFER" | "WAIT_NEXT_COURSE" | null;
   targetClassId: number | null;
   resolutionStatus: string;
   additionalInvoiceId: string | null;
@@ -730,6 +732,7 @@ export interface CourtRentalDetailDto {
 }
 
 export interface ManagerCourseDto extends Omit<CourseDto, "status"> {
+  continuationOfClassId?: number | null;
   status: "DRAFT" | CourseDto["status"];
   costAmount: number;
   breakEvenThreshold: number | null;

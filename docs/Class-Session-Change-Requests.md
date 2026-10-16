@@ -4,9 +4,10 @@ Phần mở rộng được chủ sản phẩm xác nhận ngày 11/10/2026, dù
 
 ## Giao diện
 
-- Coach: Lịch dạy → chọn buổi → tab **Điều chỉnh lịch / Schedule adjustment**. Chưa có yêu cầu thì hiện **Create** giữa khung; có lịch sử thì hiện **Change**. Change chỉnh sửa yêu cầu Pending hiện có, hoặc tạo yêu cầu mới khi yêu cầu trước đã kết thúc. Chọn dạy thay, dời lịch hoặc hủy và học bù; nhập lý do, có thể đề xuất thời gian. Giờ nhập theo Việt Nam, API dùng UTC.
-- Buổi đã bắt đầu hoặc không còn Scheduled chỉ hiển thị lịch sử, không có nút Create/Change. Gửi hoặc sửa yêu cầu hủy kèm học bù cần thực hiện trước giờ bắt đầu ít nhất **6 tiếng**, kể cả buổi diễn ra hôm nay. Đúng mốc 6 tiếng vẫn được phép; dưới mốc này frontend khóa phương án hủy và backend trả 409 `class_cancel_deadline`. Dạy thay và dời lịch vẫn theo quy tắc buổi chưa bắt đầu; Manager tiếp tục quyết định phương án xử lý.
-- **Yêu cầu đổi lịch của tôi** mở lịch sử ngay trong drawer; có thể rút yêu cầu Pending. Thông báo kết quả dẫn đến `/coach/schedule?changes=1`.
+- Coach: **Teaching schedule** → chọn buổi → mục điều chỉnh. Chưa có lịch sử thì hiện **Create** giữa khung; có Pending thì hiện **Edit pending request**; chỉ có yêu cầu đã kết thúc thì hiện **Create request**. Chọn dạy thay, dời lịch hoặc hủy và học bù; nhập lý do, có thể đề xuất thời gian. Giờ nhập theo Việt Nam, API dùng UTC.
+- Coach cũng sửa ngay tại **Requests** → chọn yêu cầu Pending → **Edit pending request**. Hộp chỉnh sửa điền sẵn loại, lý do và giờ đề xuất; nhấn **Save changes** cập nhật cùng requestId, giữ Pending và lịch gốc. Khi Manager đã đổi lịch hoặc đóng request trong lúc form mở, lần lưu tiếp theo bị chặn, hộp đóng và tải trạng thái mới; không tạo yêu cầu thay thế tự động.
+- Buổi đã bắt đầu hoặc không còn Scheduled chỉ hiển thị lịch sử, không có thao tác tạo/sửa. Gửi hoặc sửa yêu cầu hủy kèm học bù cần thực hiện trước giờ bắt đầu ít nhất **6 tiếng**, kể cả buổi diễn ra hôm nay. Đúng mốc 6 tiếng vẫn được phép; dưới mốc này frontend khóa phương án hủy và backend trả 409 `class_cancel_deadline`. Dạy thay và dời lịch vẫn theo quy tắc buổi chưa bắt đầu; Manager tiếp tục quyết định phương án xử lý.
+- **Yêu cầu đổi lịch của tôi** mở lịch sử ngay trong drawer; có thể rút yêu cầu Pending. Thông báo kết quả dẫn đến `/coach/change-requests`.
 - Manager: **Lịch hoạt động → Yêu cầu đổi lịch lớp**. Lọc trạng thái/khóa/Coach, mở yêu cầu và chọn phương án thực tế hoặc từ chối. Coach dạy thay phải đang hoạt động và đúng chuyên môn.
 - Gửi yêu cầu không thay đổi lịch. Nếu sát giờ dạy, Coach liên hệ Manager trực tiếp để báo gấp. Chỉ buổi Scheduled chưa bắt đầu của khóa đang hoạt động được gửi và xử lý đổi lịch; yêu cầu cũ vẫn có thể rút/từ chối.
 
@@ -39,9 +40,10 @@ Migration `20261011025932_AddClassSessionChangeRequests` tạo `class_session_ch
 
 - Partial unique index bảo đảm một Pending cho mỗi buổi.
 - Mọi mutation khóa theo thứ tự schedule → class → session → request. Manager không xử lý hai lần; thao tác trên yêu cầu đã kết thúc trả 409.
-- Nếu giờ/phòng/Coach đã thay đổi độc lập sau khi gửi, resolve trả `class_change_stale`; Manager từ chối yêu cầu cũ rồi xem lại lịch.
+- Khi Manager đổi giờ/phòng/Coach trực tiếp, hủy kèm bù hoặc hủy toàn khóa thành công, các Pending liên quan tự đóng: `WITHDRAWN` (UI: Cancel), `resolutionType=SCHEDULE_UPDATED`, lưu Manager/thời điểm/buổi kết quả và lý do “Closed automatically — schedule updated by Manager.” Không xem đây là Approved. Trạng thái đóng, audit và outbox cùng transaction với lịch. Yêu cầu đang được duyệt trong luồng Resolve giữ `RESOLVED`; lịch xung đột rollback và giữ Pending. Snapshot stale vẫn là chốt chặn cho dữ liệu cũ.
 - Resolve gọi lại `ClassSessionService.RescheduleAsync` hoặc `CancelWithMakeupAsync` trong transaction hiện có. Trạng thái yêu cầu, lịch, occupancy, audit và outbox cùng commit. Xung đột rollback toàn bộ; yêu cầu vẫn Pending.
 - Ghi danh không đổi, không phát sinh hoàn tiền khi chỉ dời/hủy một buổi có bù. Hủy toàn khóa vẫn dùng quy trình riêng.
-- Manager nhận thông báo khi gửi; Coach nhận thông báo/email kết quả; Coach dạy thay nhận phân công. Học viên nhận thông báo/email lịch từ command lịch hiện có. Không gửi email trực tiếp trong HTTP transaction.
+- Manager nhận thông báo khi gửi và mỗi lần sửa Pending; mỗi lần sửa là một event riêng để không vi phạm unique key outbox. Coach nhận thông báo/email kết quả hoặc tự đóng yêu cầu. Mọi thay đổi lịch từ command chung gửi chuông và email cho Coach chính, Coach cũ và Coach mới (khử trùng người nhận), gồm lịch trước/sau, lý do, thay đổi HLV/phòng khi có. Chuông dẫn tới Teaching schedule. Học viên Confirmed tiếp tục nhận thông báo/email lịch. Không gửi email trực tiếp trong HTTP transaction.
+- Sự cố có ảnh hưởng lớp vẫn yêu cầu Manager dời/hủy kèm bù trước khi chặn phòng theo flow Incident hiện tại; các thao tác đó đi qua cùng command và gửi đầy đủ thông báo, không tự ý hủy lớp trong IncidentService.
 
 Lỗi chính: 403 `session_not_assigned`, 404 `class_change_not_found`, 409 `class_change_pending`, `class_change_not_pending`, `class_change_stale`, `session_not_editable`; lỗi chuyên môn/giờ mở cửa/xung đột kế thừa từ command lịch.

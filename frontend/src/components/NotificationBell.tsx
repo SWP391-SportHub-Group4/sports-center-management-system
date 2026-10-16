@@ -127,7 +127,7 @@ export function NotificationBell() {
     <div className="bell" ref={containerRef}>
       <button
         type="button"
-        className="btn btn--ghost btn--sm bell__btn"
+        className={`${styles.trigger} bell__btn`}
         ref={triggerRef}
         aria-expanded={open}
         aria-controls={panelId}

@@ -23,7 +23,7 @@ export interface ClassChangeRequest {
   createdAtUtc: string;
   reviewedAtUtc: string | null;
   reviewNote: string | null;
-  resolutionType: ClassChangeType | null;
+  resolutionType: ClassChangeType | "SCHEDULE_UPDATED" | null;
   resultSessionId: string | null;
 }
 const coachRoot = "/api/coaches/me/teaching";
@@ -88,6 +88,7 @@ export const changeTypeLabel = (type: string, vi: boolean) =>
     SUBSTITUTE: vi ? "Coach dạy thay" : "Substitute coach",
     RESCHEDULE: vi ? "Dời lịch" : "Reschedule",
     CANCEL_WITH_MAKEUP: vi ? "Hủy & học bù" : "Cancel & makeup",
+    SCHEDULE_UPDATED: vi ? "Lịch đã được cập nhật" : "Schedule updated",
   })[type] ?? type;
 export const changeStatusLabel = (status: string, vi: boolean) =>
   ({

@@ -87,6 +87,11 @@
   font-family: var(--font-mono);
   font-size: var(--text-sm);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  text-decoration-thickness: 1px;
+}
+.price strong {
+  white-space: nowrap;
 }
 .price small {
   color: var(--text-muted);
@@ -181,6 +186,20 @@
 }
 .tier:hover {
   box-shadow: var(--shadow-sm);
+}
+.tier .price {
+  flex-wrap: nowrap;
+  gap: 8px;
+}
+.tier .price strong {
+  font-family: var(--font-body);
+  font-size: 20px;
+  font-weight: var(--weight-semibold);
+}
+.tier .price s {
+  flex-shrink: 0;
+  font-family: var(--font-body);
+  font-size: 12px;
 }
 .months {
   display: flex;

@@ -117,7 +117,9 @@ export function ThresholdPanel({
     !state.loading &&
     !state.error &&
     !action.busy &&
-    (choice === "REFUND" || (choice === "TRANSFER" && validQuote));
+    (choice === "REFUND" ||
+      choice === "WAIT_NEXT_COURSE" ||
+      (choice === "TRANSFER" && validQuote));
   const labels = {
     TRANSFER: l.transfer,
     WAIT_NEXT_COURSE: l.wait,
@@ -137,7 +139,7 @@ export function ThresholdPanel({
     )
       return;
     const submittedChoice = retry ? d.choice : choice;
-    if (submittedChoice !== "TRANSFER" && submittedChoice !== "REFUND") return;
+    if (!submittedChoice) return;
     sending.current = true;
     await action.run(async () => {
       try {
@@ -172,7 +174,9 @@ export function ThresholdPanel({
                 {formatDateTime(data.deadlineUtc)}
               </p>
               <StatusChip value={data.resolutionStatus} />{" "}
-              {data.choice && <StatusChip value={data.choice} />}
+              {data.choice && (
+                <StatusChip value={data.choice} label={labels[data.choice]} />
+              )}
             </header>
             {!data.choice && (
               <p className={styles.value}>
@@ -190,6 +194,14 @@ export function ThresholdPanel({
                   ? l.pendingPayment
                   : l.recorded}
               </p>
+            )}
+            {data.choice === "WAIT_NEXT_COURSE" && (
+              <Link
+                className="btn btn--secondary"
+                href="/member/services?view=owned&tab=interests"
+              >
+                Manage course interests
+              </Link>
             )}
             {!closed && (
               <>
@@ -216,9 +228,6 @@ export function ThresholdPanel({
                         <span>
                           <strong>{labels[option]}</strong>
                           <span>{bodies[option]}</span>
-                          {option === "WAIT_NEXT_COURSE" && (
-                            <em>{l.unavailable}</em>
-                          )}
                         </span>
                       </label>
                     ),
@@ -226,8 +235,12 @@ export function ThresholdPanel({
                 </fieldset>
                 {choice === "WAIT_NEXT_COURSE" && (
                   <div className={styles.notice} role="status">
-                    <p>{l.waitBlocked}</p>
-                    <Link href="/member/services?section=courses&view=owned&tab=interests">
+                    <p>
+                      Your refundable balance returns as points. We will notify
+                      you when the next cohort of this program opens. No seat is
+                      reserved.
+                    </p>
+                    <Link href="/member/services?view=owned&tab=interests">
                       {l.interests}
                     </Link>
                   </div>
@@ -340,7 +353,7 @@ export function ThresholdPanel({
       >
         {t.refactor.refresh}
       </button>
-      {review && !closed && choice && choice !== "WAIT_NEXT_COURSE" && (
+      {review && !closed && choice && (
         <Dialog
           title={l.confirmation}
           description={l.final}

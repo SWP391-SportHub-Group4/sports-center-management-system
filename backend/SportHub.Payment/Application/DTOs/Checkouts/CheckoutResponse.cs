@@ -5,7 +5,7 @@ public sealed record CheckoutResponse(Guid InvoiceId, Guid CheckoutSessionId, in
     DateTime ExpiresAtUtc, Guid? ResourceHoldId,
     [property: SportHub.BuildingBlocks.Api.WireEnum] string InvoiceStatus = "Issued",
     [property: SportHub.BuildingBlocks.Api.WireEnum] string FulfillmentOutcome = "Pending",
-    bool ReconciliationRequired = false, Guid? BeneficiaryUserId = null, Guid? InitiatorUserId = null, DateTime? ServerNowUtc = null);
+    bool ReconciliationRequired = false, Guid? BeneficiaryUserId = null, Guid? InitiatorUserId = null, DateTime? ServerNowUtc = null, bool IsDayPass = false);
 
 public sealed record PaymentAttemptResponse(Guid PaymentAttemptId, Guid InvoiceId,
     string TransactionReference, decimal CashAmount, int PointsApplied,

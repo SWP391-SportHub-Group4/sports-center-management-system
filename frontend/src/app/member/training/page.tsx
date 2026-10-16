@@ -1,12 +1,11 @@
-"use client";
-import { MemberShell } from "@/components/MemberShell";
-import { MemberTrainingLite } from "@/features/training/member-training-lite";
-import { useLanguage } from "@/lib/language";
-export default function Page() {
-  const { t } = useLanguage();
-  return (
-    <MemberShell title={t.refactor.training}>
-      <MemberTrainingLite />
-    </MemberShell>
-  );
+import { redirect } from "next/navigation";
+
+/** Preserve old bookmarks after removing the Training workspace. */
+export default async function Page({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>;
+}) {
+  const { tab } = await searchParams;
+  redirect(tab === "profile" ? "/member/profile" : "/member/schedule");
 }
