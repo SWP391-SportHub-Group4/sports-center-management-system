@@ -11,6 +11,8 @@ using SportHub.Membership.Application.Interfaces;
 using SportHub.Training.Domain.Entities;
 using SportHub.Training.Domain.Enums;
 using SportHub.Training.Application.Services;
+using SportHub.Scheduling.Domain.Entities;
+using SportHub.Scheduling.Domain.Enums;
 
 namespace SportHub.Training.Api;
 
@@ -29,7 +31,12 @@ public sealed class CoachStudentsController(ISportHubDbContext db, IMemberTraini
         if (health is not ("all" or "notes" or "missing"))
             throw new BadRequestException("student_filter_invalid", "Choose all, notes or missing.");
         var relationships = db.Set<CoachMemberRelationship>().AsNoTracking()
-            .Where(r => r.CoachId == coachId && r.Status == RelationshipStatus.Active);
+            .Where(r => r.CoachId == coachId && r.Status == RelationshipStatus.Active
+                && (r.SourceType != RelationshipSourceType.ClassBased
+                    || (r.ClassId != null && db.Set<Enrollment>().Any(e => e.MemberId == r.MemberId
+                        && e.Status == EnrollmentStatus.Confirmed && e.Class != null
+                        && e.Class.CoachId == coachId
+                        && (e.Class.Status == ClassStatus.Published || e.Class.Status == ClassStatus.InProgress)))));
         var profiles = db.Set<MemberTrainingProfile>().AsNoTracking();
         var query = db.Set<UserAccount>().AsNoTracking().Where(u => relationships.Any(r => r.MemberId == u.UserId));
         if (!string.IsNullOrWhiteSpace(search))
@@ -63,7 +70,12 @@ public sealed class CoachStudentsController(ISportHubDbContext db, IMemberTraini
     {
         var coachId = User.RequireUserId();
         if (!await db.Set<CoachMemberRelationship>().AnyAsync(r => r.CoachId == coachId && r.MemberId == memberId
-                && r.Status == RelationshipStatus.Active, ct))
+                && r.Status == RelationshipStatus.Active
+                && (r.SourceType != RelationshipSourceType.ClassBased
+                    || (r.ClassId != null && db.Set<Enrollment>().Any(e => e.MemberId == memberId
+                        && e.Status == EnrollmentStatus.Confirmed && e.Class != null
+                        && e.Class.CoachId == coachId
+                        && (e.Class.Status == ClassStatus.Published || e.Class.Status == ClassStatus.InProgress)))), ct))
             throw new ForbiddenException("no_active_relationship", "No active relationship.");
         var trainingProfile = await trainingProfiles.GetAsync(memberId, ct);
         return Ok(new { TrainingProfile = trainingProfile });

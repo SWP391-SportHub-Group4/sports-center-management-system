@@ -4,6 +4,8 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using SportHub.Identity.Domain.Enums;
 using SportHub.Membership.Domain.Enums;
+using SportHub.Scheduling.Catalog.Domain;
+using SportHub.Scheduling.Domain.Entities;
 
 namespace SportHub.Scheduling.Tests.Integration;
 
@@ -11,6 +13,66 @@ namespace SportHub.Scheduling.Tests.Integration;
 [Collection(nameof(SchedulingApiCollection))]
 public sealed class GymCheckInContractTests(SchedulingApiFactory factory)
 {
+    [Fact]
+    public async Task Closed_gym_rejects_both_receptionist_and_member_check_in()
+    {
+        var member = await factory.SeedUserAsync(UserRole.Member);
+        var receptionist = await factory.SeedUserAsync(UserRole.Receptionist);
+        await factory.SeedMemberPackageAsync(member.UserId);
+        var closure = await factory.QueryAsync(async db =>
+        {
+            var typeIds = await db.Set<SportRoomType>()
+                .Join(db.Set<Sport>().Where(s => s.Code == "gym"),
+                    link => link.SportId, sport => sport.SportId, (link, _) => link.RoomTypeId)
+                .ToListAsync();
+            var rooms = await db.Set<Room>().Where(r => r.IsActive && r.RoomTypeId != null
+                && typeIds.Contains(r.RoomTypeId.Value)).ToListAsync();
+            var createdRoomId = 0;
+            if (rooms.Count == 0)
+            {
+                var room = new Room { Name = $"Test Gym {Guid.NewGuid():N}", RoomTypeId = typeIds.Single(), Capacity = 30 };
+                db.Set<Room>().Add(room);
+                await db.SaveChangesAsync();
+                rooms.Add(room);
+                createdRoomId = room.RoomId;
+            }
+            var blocks = rooms.Select(room => new RoomBlock
+            {
+                BlockId = Guid.NewGuid(), RoomId = room.RoomId, Reason = "Gym closure check-in test",
+                StartAtUtc = DateTime.UtcNow.AddHours(-1), EndAtUtc = DateTime.UtcNow.AddHours(1),
+                CreatedByUserId = receptionist.UserId
+            }).ToList();
+            db.Set<RoomBlock>().AddRange(blocks);
+            await db.SaveChangesAsync();
+            return (BlockIds: blocks.Select(b => b.BlockId).ToList(), CreatedRoomId: createdRoomId);
+        });
+        try
+        {
+            using var desk = factory.CreateApiClient(receptionist.UserId, UserRole.Receptionist);
+            using var self = factory.CreateApiClient(member.UserId, UserRole.Member);
+            foreach (var response in new[]
+            {
+                await desk.PostAsJsonAsync("/api/gym-checkins", new { targetMemberId = member.UserId }),
+                await self.PostAsync("/api/gym-checkins/self", null)
+            })
+            {
+                Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+                Assert.Contains("gym_closed", await response.Content.ReadAsStringAsync());
+            }
+            Assert.Equal(0, await factory.QueryAsync(db => db.GymCheckIns.CountAsync(c => c.MemberId == member.UserId)));
+        }
+        finally
+        {
+            await factory.QueryAsync(async db =>
+            {
+                await db.Set<RoomBlock>().Where(b => closure.BlockIds.Contains(b.BlockId)).ExecuteDeleteAsync();
+                if (closure.CreatedRoomId != 0)
+                    await db.Set<Room>().Where(r => r.RoomId == closure.CreatedRoomId).ExecuteDeleteAsync();
+                return 0;
+            });
+        }
+    }
+
     [Fact]
     public async Task Receptionist_can_check_in_a_member_holding_an_active_package()
     {

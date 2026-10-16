@@ -65,7 +65,9 @@ public class ClassesController(IClassService classes, IClassSessionService sessi
     [HttpGet("api/members/me/classes/{classId:int}/sessions")]
     public async Task<IActionResult> MemberSessions(int classId, CancellationToken ct)
     {
-        if (!await db.Set<SportHub.Scheduling.Domain.Entities.Enrollment>().AnyAsync(e => e.ClassId == classId && e.MemberId == User.RequireUserId(), ct)) return NotFound();
+        if (!await db.Set<SportHub.Scheduling.Domain.Entities.Enrollment>().AnyAsync(e => e.ClassId == classId
+                && e.MemberId == User.RequireUserId()
+                && e.Status == SportHub.Scheduling.Domain.Enums.EnrollmentStatus.Confirmed, ct)) return NotFound();
         return Ok(await sessions.ListByClassAsync(classId, null, ct));
     }
 

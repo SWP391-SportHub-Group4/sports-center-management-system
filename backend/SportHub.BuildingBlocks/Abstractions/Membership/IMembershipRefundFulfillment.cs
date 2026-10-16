@@ -11,6 +11,7 @@ public interface IMembershipRefundFulfillment
 
 public sealed record MembershipRefundFacts(
     Guid MemberId,
+    int PackageId,
     DateOnly StartDate,
     DateOnly EndDate,
     bool IsActive,

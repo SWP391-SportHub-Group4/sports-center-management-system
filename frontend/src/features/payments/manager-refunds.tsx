@@ -114,8 +114,8 @@ function RefundCard({
           <Field
             label={
               language === "vi"
-                ? "Hoàn theo % (ngoại lệ, tùy chọn)"
-                : "Refund percent (exception, optional)"
+                ? "Hoàn theo % thấp hơn mức hệ thống (tùy chọn)"
+                : "Lower refund percent (optional; cannot exceed the system cap)"
             }
           >
             <input

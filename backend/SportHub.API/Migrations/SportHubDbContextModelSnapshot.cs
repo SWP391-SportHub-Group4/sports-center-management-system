@@ -1774,6 +1774,84 @@ namespace SportHub.API.Migrations
                         });
                 });
 
+            modelBuilder.Entity("SportHub.Payment.Wallet.Domain.PointCreditRequest", b =>
+                {
+                    b.Property<Guid>("RequestId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("request_id");
+
+                    b.Property<Guid?>("DecidedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("decided_by_user_id");
+
+                    b.Property<DateTime?>("DecidedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("decided_at_utc");
+
+                    b.Property<string>("DecisionReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("decision_reason");
+
+                    b.Property<Guid?>("LedgerEntryId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("ledger_entry_id");
+
+                    b.Property<Guid>("OwnerUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("owner_user_id");
+
+                    b.Property<int>("Points")
+                        .HasColumnType("integer")
+                        .HasColumnName("points");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("reason");
+
+                    b.Property<DateTime>("RequestedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("requested_at_utc");
+
+                    b.Property<Guid>("RequestedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("requested_by_user_id");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer")
+                        .HasColumnName("status");
+
+                    b.HasKey("RequestId")
+                        .HasName("pk_point_credit_requests");
+
+                    b.HasIndex("DecidedByUserId")
+                        .HasDatabaseName("ix_point_credit_requests_decided_by_user_id");
+
+                    b.HasIndex("LedgerEntryId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_point_credit_requests_ledger_entry_id");
+
+                    b.HasIndex("RequestedByUserId")
+                        .HasDatabaseName("ix_point_credit_requests_requested_by_user_id");
+
+                    b.HasIndex("OwnerUserId", "RequestedAtUtc")
+                        .HasDatabaseName("ix_point_credit_requests_owner_user_id_requested_at_utc");
+
+                    b.HasIndex("Status", "RequestedAtUtc")
+                        .HasDatabaseName("ix_point_credit_requests_status_requested_at_utc");
+
+                    b.ToTable("point_credit_requests", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_point_credit_positive", "points > 0");
+                            t.HasCheckConstraint("ck_point_credit_status", "status IN (0, 1, 2)");
+                            t.HasCheckConstraint("ck_point_credit_separate_approver", "decided_by_user_id IS NULL OR decided_by_user_id <> requested_by_user_id");
+                            t.HasCheckConstraint("ck_point_credit_resolution", "(status = 0 AND decided_by_user_id IS NULL AND decided_at_utc IS NULL AND ledger_entry_id IS NULL AND decision_reason IS NULL) OR\n(status = 1 AND decided_by_user_id IS NOT NULL AND decided_at_utc IS NOT NULL AND ledger_entry_id IS NOT NULL AND decision_reason IS NULL) OR\n(status = 2 AND decided_by_user_id IS NOT NULL AND decided_at_utc IS NOT NULL AND ledger_entry_id IS NULL AND decision_reason IS NOT NULL)");
+                        });
+                });
+
             modelBuilder.Entity("SportHub.Payment.Wallet.Domain.PointLedgerEntry", b =>
                 {
                     b.Property<Guid>("LedgerEntryId")
@@ -3900,6 +3978,35 @@ namespace SportHub.API.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_point_confirmations_user_accounts_requested_by_user_id");
+                });
+
+            modelBuilder.Entity("SportHub.Payment.Wallet.Domain.PointCreditRequest", b =>
+                {
+                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", null)
+                        .WithMany()
+                        .HasForeignKey("OwnerUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_point_credit_requests_user_accounts_owner_user_id");
+
+                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", null)
+                        .WithMany()
+                        .HasForeignKey("RequestedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_point_credit_requests_user_accounts_requested_by_user_id");
+
+                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", null)
+                        .WithMany()
+                        .HasForeignKey("DecidedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_point_credit_requests_user_accounts_decided_by_user_id");
+
+                    b.HasOne("SportHub.Payment.Wallet.Domain.PointLedgerEntry", null)
+                        .WithMany()
+                        .HasForeignKey("LedgerEntryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_point_credit_requests_point_ledger_entries_ledger_entry_id");
                 });
 
             modelBuilder.Entity("SportHub.Payment.Wallet.Domain.PointLedgerEntry", b =>

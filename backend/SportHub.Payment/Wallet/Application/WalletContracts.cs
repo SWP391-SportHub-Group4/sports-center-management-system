@@ -37,3 +37,11 @@ public sealed class AdjustPointsRequest
     public WalletAdjustmentDirection Direction { get; set; }
     [Required, MaxLength(1000)] public string Reason { get; set; } = string.Empty;
 }
+public sealed record PointCreditRequestResponse(Guid RequestId, Guid OwnerUserId, Guid RequestedByUserId,
+    int Points, string Reason, [property: SportHub.BuildingBlocks.Api.WireEnum] string Status, DateTime RequestedAtUtc,
+    Guid? DecidedByUserId, DateTime? DecidedAtUtc, string? DecisionReason, Guid? LedgerEntryId,
+    string? OwnerName = null, string? OwnerEmail = null, string? RequestedByName = null);
+public sealed class RejectPointCreditRequest
+{
+    [Required, MinLength(3), MaxLength(500)] public string Reason { get; set; } = string.Empty;
+}
