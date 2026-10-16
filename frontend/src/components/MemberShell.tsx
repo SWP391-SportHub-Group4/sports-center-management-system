@@ -407,7 +407,11 @@ export function MemberFrame({
                 aria-current={billingActive ? "page" : undefined}
                 onClick={() => setMobileMenuOpen(false)}
               >
-                <ReceiptText size={16} style={{ marginRight: 8 }} aria-hidden="true" />
+                <ReceiptText
+                  size={16}
+                  style={{ marginRight: 8 }}
+                  aria-hidden="true"
+                />
                 <span>{t.finance.title}</span>
               </Link>
               <button

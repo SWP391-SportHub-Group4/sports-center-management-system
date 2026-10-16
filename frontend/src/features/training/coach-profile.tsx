@@ -46,7 +46,13 @@ export function CoachProfile({
         className={styles.back}
         href={publicView ? "/coaches" : "/member/services"}
       >
-        {vi ? "← Quay lại danh sách huấn luyện viên" : "← Back to coaches"}
+        {publicView
+          ? vi
+            ? "← Quay lại danh sách huấn luyện viên"
+            : "← Back to coaches"
+          : vi
+            ? "← Trở về lịch của tôi"
+            : "← Back to my schedule"}
       </Link>
       <AsyncSection state={coaches}>
         {(list) => {

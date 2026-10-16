@@ -6,6 +6,7 @@ using System.Text.Json;
 using SportHub.Identity.Domain.Enums;
 using SportHub.Membership.Domain.Entities;
 using SportHub.Membership.Domain.Enums;
+using SportHub.Membership.Domain;
 using SportHub.Payment.Domain.Entities;
 using SportHub.Payment.Domain.Enums;
 using SportHub.Payment.Wallet.Domain;
@@ -148,6 +149,54 @@ public sealed class RefundWorkflowTests(PaymentApiFactory factory)
         var ledgerCount = await factory.QueryAsync(db => db.Set<PointLedgerEntry>()
             .CountAsync(x => x.ReferenceType == "PaymentAdjustment" && x.ReferenceId == requested.AdjustmentId));
         Assert.Equal(1, ledgerCount);
+    }
+
+    [Fact]
+    public async Task Manager_cannot_approve_more_than_the_membership_rule_allows()
+    {
+        var fixture = await SeedPaidMembershipAsync();
+        using var member = factory.CreateApiClient(fixture.MemberId, UserRole.Member);
+        using var manager = factory.CreateApiClient(fixture.ManagerId, UserRole.CenterManager);
+        var created = await member.PostAsJsonAsync("/api/refunds",
+            new { invoiceItemId = fixture.InvoiceItemId, reason = "Membership refund review" });
+        Assert.Equal(HttpStatusCode.OK, created.StatusCode);
+        var request = (await created.Content.ReadFromJsonAsync<RefundResponse>())!;
+
+        var excessive = await manager.PostAsJsonAsync($"/api/refunds/{request.AdjustmentId}/approve",
+            new { reason = "Try to exceed the system-calculated amount", percent = 100 });
+        Assert.Equal(HttpStatusCode.Conflict, excessive.StatusCode);
+        Assert.Contains("refund_exceeds_system_limit", await excessive.Content.ReadAsStringAsync());
+        Assert.Equal(MemberPackageStatus.Active, await factory.QueryAsync(db => db.MemberPackages
+            .Where(x => x.MemberPackageId == fixture.MemberPackageId).Select(x => x.Status).SingleAsync()));
+        Assert.Equal(0, await factory.QueryAsync(db => db.Set<PointLedgerEntry>()
+            .CountAsync(x => x.ReferenceType == "PaymentAdjustment" && x.ReferenceId == request.AdjustmentId)));
+    }
+
+    [Fact]
+    public async Task Day_pass_cannot_enter_any_point_refund_path()
+    {
+        var fixture = await SeedPaidMembershipAsync();
+        var today = DateOnly.FromDateTime(DateTime.UtcNow.AddHours(7));
+        await factory.QueryAsync(async db =>
+        {
+            await db.MemberPackages.Where(x => x.MemberPackageId == fixture.MemberPackageId)
+                .ExecuteUpdateAsync(s => s.SetProperty(x => x.PackageId, DayPass.PackageId)
+                    .SetProperty(x => x.StartDate, today).SetProperty(x => x.EndDate, today));
+            return 0;
+        });
+        using var member = factory.CreateApiClient(fixture.MemberId, UserRole.Member);
+        foreach (var response in new[]
+        {
+            await member.GetAsync($"/api/refunds/quote/{fixture.InvoiceItemId}"),
+            await member.PostAsJsonAsync("/api/refunds",
+                new { invoiceItemId = fixture.InvoiceItemId, reason = "Request day-pass points" }),
+            await member.PostAsJsonAsync("/api/refunds/membership-cancellations",
+                new { invoiceItemId = fixture.InvoiceItemId })
+        })
+        {
+            Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+            Assert.Contains("day_pass_non_refundable", await response.Content.ReadAsStringAsync());
+        }
     }
 
     [Fact]

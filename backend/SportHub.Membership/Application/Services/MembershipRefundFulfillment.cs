@@ -21,7 +21,7 @@ public sealed class MembershipRefundFulfillment(ISportHubDbContext db, IAuditWri
         var hasLaterRenewal = await db.Set<MemberPackage>().AsNoTracking().AnyAsync(x =>
             x.MemberId == package.MemberId && x.MemberPackageId != package.MemberPackageId
             && x.Status == MemberPackageStatus.Active && x.StartDate > package.EndDate, cancellationToken);
-        return new MembershipRefundFacts(package.MemberId, package.StartDate, package.EndDate,
+        return new MembershipRefundFacts(package.MemberId, package.PackageId, package.StartDate, package.EndDate,
             package.Status == MemberPackageStatus.Active, hasLaterRenewal);
     }
 

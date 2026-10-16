@@ -59,17 +59,21 @@ export function ManagerAdjustmentForm({
     readIntent(storageKey),
   );
   const [done, setDone] = useState(false);
+  const [pendingApproval, setPendingApproval] = useState(false);
   const [uncertain, setUncertain] = useState(() => !!readIntent(storageKey));
   async function confirm() {
     if (!review) return;
     setUncertain(true);
     storeIntent(storageKey, review);
+    let responseStatus: string | undefined;
     const ok = await mutation.run(async () => {
       try {
-        return await api.post(
+        const result = await api.post<{ status?: string }>(
           `/api/wallets/${balance.ownerUserId}/adjustments`,
           review,
         );
+        responseStatus = result?.status;
+        return result;
       } catch (e) {
         if (
           e instanceof ApiError &&
@@ -87,6 +91,10 @@ export function ManagerAdjustmentForm({
       setUncertain(false);
       storeIntent(storageKey, null);
       setDone(true);
+      setPendingApproval(
+        review.direction === "CREDIT" &&
+          responseStatus?.toUpperCase() !== "APPROVED",
+      );
       onSaved();
     }
   }
@@ -156,18 +164,22 @@ export function ManagerAdjustmentForm({
             {formatPoints(review.points)}
           </p>
           <p>{review.reason}</p>
-          <p>
-            {t.finOps.balanceAfter}:{" "}
-            {formatPoints(
-              Math.max(
-                0,
-                balance.availablePoints +
-                  (review.direction === "CREDIT"
-                    ? review.points
-                    : -review.points),
-              ),
-            )}
-          </p>
+          {review.direction === "CREDIT" ? (
+            <p>
+              {done
+                ? pendingApproval
+                  ? l.creditPending
+                  : l.creditApproved
+                : l.creditApprovalRequired}
+            </p>
+          ) : (
+            <p>
+              {t.finOps.balanceAfter}:{" "}
+              {formatPoints(
+                Math.max(0, balance.availablePoints - review.points),
+              )}
+            </p>
+          )}
           <div className="btn-row">
             {!done && (
               <button
@@ -185,6 +197,7 @@ export function ManagerAdjustmentForm({
                 onClick={() => {
                   setReview(null);
                   setDone(false);
+                  setPendingApproval(false);
                   mutation.reset();
                 }}
               >

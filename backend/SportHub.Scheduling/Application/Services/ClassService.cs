@@ -348,6 +348,10 @@ public sealed class ClassService(
         }
 
         var thresholdDays = await settings.GetIntAsync(SystemSettingKeys.ClassThresholdDaysBeforeStart, ct);
+        var responseHours = await settings.GetIntAsync(SystemSettingKeys.ClassThresholdResponseHours, ct);
+        if (thresholdDays < 3 || thresholdDays * 24 < responseHours + 24)
+            throw new ConflictException("class_threshold_window_setting_invalid",
+                "The threshold review must start at least three days before class and allow the full member response period plus 24 hours for the final decision.");
 
         // Giờ mở cửa: kiểm mọi buổi trước khi chiếm chỗ để báo lỗi đọc được.
         var closed = new List<int>();
@@ -403,7 +407,9 @@ public sealed class ClassService(
         entity.PublishedAt = now;
         entity.BreakEvenThreshold = threshold;
         entity.ThresholdStatus = ThresholdStatus.NotEvaluated;
-        entity.ThresholdDeadlineUtc = first.StartAtUtc.AddDays(-thresholdDays);
+        // The evaluator runs every five minutes. Start its window ten minutes early so
+        // the full response period still ends at least 24 hours before the first session.
+        entity.ThresholdDeadlineUtc = first.StartAtUtc.AddDays(-thresholdDays).AddMinutes(-10);
         entity.Version++;
 
         audit.Write(new AuditEntry(actorUserId, "PUBLISH_CLASS", nameof(Class), classId.ToString(),
@@ -576,6 +582,7 @@ public sealed class ClassService(
             r.Class.BreakEvenThreshold,
             r.Class.ThresholdStatus.ToString(),
             r.Class.ThresholdDeadlineUtc,
+            r.Class.ThresholdResponseDeadlineUtc,
             r.Class.Status.ToString(),
             r.Class.ConfirmedCount,
             r.Class.ReservedCount,

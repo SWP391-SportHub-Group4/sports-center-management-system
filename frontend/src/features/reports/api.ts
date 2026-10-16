@@ -14,6 +14,7 @@ export interface ReportFilters {
   memberId: string;
 }
 export const reportsApi = {
+  deleteExport: (id: string) => api.del(`/api/reports/exports/${id}`),
   summary: (f: ReportFilters, signal?: AbortSignal) =>
     api.get<RevenueReportDto>("/api/reports/revenue", {
       signal,

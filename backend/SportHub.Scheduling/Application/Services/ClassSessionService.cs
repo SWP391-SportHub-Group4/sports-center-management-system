@@ -66,7 +66,7 @@ public sealed class ClassSessionService(
 
         var session = (await ToResponsesAsync([row], ct))[0];
 
-        // Roster = ghi danh Confirmed + ghi danh đã kết thúc nhưng đã có điểm danh ở buổi này (giữ lịch sử đọc được).
+        // Ended enrollments no longer grant access to the coach's roster.
         var entries = await (from e in db.Set<Enrollment>().AsNoTracking()
                              where e.ClassId == row.Session.ClassId
                              join a in db.Set<Attendance>().AsNoTracking().Where(x => x.SessionId == sessionId)

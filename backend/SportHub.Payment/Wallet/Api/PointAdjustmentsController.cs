@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SportHub.BuildingBlocks.Api;
 using SportHub.Payment.Wallet.Application;
+using SportHub.BuildingBlocks.Abstractions.Wallet;
 
 namespace SportHub.Payment.Wallet.Api;
 
@@ -13,5 +14,10 @@ public sealed class PointAdjustmentsController(PointAdjustmentService adjustment
 {
     [HttpPost]
     public async Task<IActionResult> Adjust(Guid ownerId, AdjustPointsRequest request, CancellationToken ct)
-        => Ok(await adjustments.AdjustAsync(ownerId, request, Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!), ct));
+    {
+        var actorId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        if (request.Direction == WalletAdjustmentDirection.Credit)
+            return Accepted(await adjustments.RequestCreditAsync(ownerId, request, actorId, ct));
+        return Ok(await adjustments.AdjustDebitAsync(ownerId, request, actorId, ct));
+    }
 }

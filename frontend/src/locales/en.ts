@@ -1,4 +1,35 @@
 export const en = {
+  recordActions: {
+    delete: "Delete",
+    deleteRoom: "Delete room",
+    deleteRoomType: "Delete room type",
+    deleteRate: "Delete court rate",
+    deleteExport: "Delete exported report",
+    roomDescription:
+      "Permanently delete this room. Rooms referenced by classes, bookings or blocks cannot be deleted; deactivate them instead.",
+    roomTypeDescription:
+      "Permanently delete this room type. Remove its room and court rate references first.",
+    rateDescription:
+      "Delete this court rate? Existing bookings retain their original prices.",
+    exportDescription:
+      "Delete this exported file and its export history entry? The underlying report data will remain available.",
+    cancelRental: "Cancel rental",
+    cancelRentalTitle: "Cancel court rental",
+    cancelRentalDescription:
+      "Cancel this confirmed booking on behalf of the center. The member will receive a full refund as points. This cannot be undone.",
+    reason: "Reason",
+    processing: "Processing...",
+    roomInUse:
+      "This room is referenced by classes, bookings or blocks. Deactivate it instead of deleting it.",
+    roomTypeInUse:
+      "This room type is used by rooms or court rates. Remove those references before deleting it.",
+    rentalNotCancellable:
+      "This booking can no longer be cancelled. Close and refresh the schedule to check its current status.",
+    unknownResult:
+      "The result could not be confirmed. Close and refresh to check the current status before trying again.",
+    closeAndRefresh: "Close and refresh",
+    failed: "The action could not be completed.",
+  },
   managerAudit: {
     currentNamesHint:
       "Names marked “current name” come from today's records; changes always use the values recorded in the log.",
@@ -192,6 +223,9 @@ export const en = {
   managerOperations: {
     overview: "Operations overview",
     priorities: "Needs attention",
+    recentIncidents: "Recent incidents",
+    affectedArea: "Affected area",
+    viewIncidents: "View all incidents",
     incidentOverviewUnavailable:
       "An incident summary is not available here yet. Open incident handling to review affected activities before making changes.",
     todaySchedule: "Today's schedule",
@@ -451,7 +485,7 @@ export const en = {
     morePackages: "View all packages",
     sessionType: "Activity",
     walletHint: "Available for your next booking",
-    manageTraining: "Open training",
+    manageTraining: "View my schedule",
     moreSchedule: "View full schedule",
     attentionTitle: "Needs your attention",
     noAttention: "Nothing needs your attention right now.",
@@ -556,11 +590,12 @@ export const en = {
     statusTitle: "Accounts by status",
     statusHint:
       "Current totals across all accounts. Select a status to open its filtered list.",
-    recentTitle: "Recent account activity",
-    recentHint: "The five latest account administration events.",
-    recentEmpty: "No account administration activity yet.",
+    recentTitle: "Recent activity",
+    recentHint:
+      "The five latest visible Manager, Administrator, Coach or system events.",
+    recentEmpty: "No activity in your audit scope yet.",
     actor: "Performed by",
-    target: "Affected account",
+    target: "Affected record",
     targetAccountHint:
       "Account names and emails reflect their current information.",
     targetAccountDeleted: "Account no longer exists",
@@ -743,6 +778,19 @@ export const en = {
     balanceAsOf: "Balance observed at {date}",
     cashBasisHint:
       "Cash is recorded on the successful payment date in Vietnam. Unpaid invoices and point refunds do not add cash revenue. Point value is shown separately and is not cash collected.",
+    creditApprovalRequired:
+      "A different manager must approve this credit before points enter the wallet.",
+    creditPending:
+      "Credit request submitted. The wallet will update after another manager approves it.",
+    creditApproved:
+      "This credit request was already approved. The wallet has been refreshed.",
+    pendingCredits: "Point credits awaiting approval",
+    noPendingCredits: "No point credits awaiting approval.",
+    requestedBy: "Requested by",
+    approveCredit: "Approve credit",
+    rejectCredit: "Reject credit",
+    rejectionReason: "Reason for rejection",
+    ownCreditRequest: "Another manager must decide this request.",
     issued: "Points refunded",
     outstanding: "Current outstanding points (available + held)",
     adjusted: "Manager point adjustments in period",
@@ -772,14 +820,14 @@ export const en = {
     exportHistory: "Export history",
     refresh: "Refresh",
     audit: "Audit log",
-    actor: "Actor ID",
+    actor: "Actor",
     action: "Action",
     entity: "Entity",
     time: "Time",
-    metadata: "Metadata",
+    metadata: "Details",
     auditHint:
       "Only operational metadata is displayed; secrets and email payloads are omitted.",
-    adminAudit: "Account audit",
+    adminAudit: "Audit log",
     admin: "Account administration",
     users: "Users and roles",
     staffCreate: "Create staff account",
@@ -1569,6 +1617,9 @@ export const en = {
     },
     items: {
       finance: "Finance",
+      invoicesRefunds: "Invoices & refunds",
+      scheduleRequests: "Schedule & requests",
+      reports: "Reports",
       frontDesk: "Today's desk",
       members: "Members",
       sales: "Sales",
@@ -1608,7 +1659,7 @@ export const en = {
       revenueReports: "Revenue reports",
       systemSettings: "System settings",
       auditLog: "Audit log",
-      usersRoles: "Users & roles",
+      usersRoles: "Account management",
       myRegistrations: "My registrations",
       myMembershipPlans: "My membership plans",
       invoices: "Invoices",
@@ -2036,7 +2087,7 @@ export const en = {
     nextSession: "Next session",
     thresholdTitle: "This class has not reached its minimum size",
     thresholdBody:
-      "Choose to transfer to another class or take a points refund before {deadline}.",
+      "Choose to keep your place, transfer to another class, or take a points refund before {deadline}.",
     thresholdCta: "Choose an option",
     renew: "See the next {sport} course",
   },
@@ -2412,9 +2463,31 @@ export const en = {
     },
   },
   incidentHistory: {
+    noImpacts: "No activities are affected during this period.",
+    editSession: "Edit affected session",
+    removeBlockHint:
+      "Remove this existing room block, then review the incident impacts again before confirming the closure.",
+    intro:
+      "Review affected activities, arrange any schedule changes, then confirm the closure.",
+    formTitle: "Incident details",
+    formHint:
+      "Choose the affected area and period. Times are shown in Vietnam time (UTC+7).",
+    reviewHint:
+      "Check the affected activities before confirming. No rooms are blocked at this step.",
+    backToImpacts: "Back to affected activities",
+    ready: "Ready for final review",
+    changesNeeded: "Schedule changes required",
+    confirmHint:
+      "Confirming blocks the affected rooms, cancels affected rentals and refunds eligible payments as points.",
+    entireCenter: "Entire center",
+    affectedRooms: "Affected rooms",
     time24: "Time (24h)",
     invalidTime: "Enter a time from 00:00 to 23:59.",
     invalidRange: "The end must be after the start.",
+    rangeTooLong: "An incident can cover at most 31 days.",
+    endInPast: "The incident must end in the future.",
+    invalidExtension: "Enter a whole number of extension days from 0 to 31.",
+    extensionSummary: "Membership extension: {days} days.",
     history: "Incident history",
     create: "Handle an incident",
     details: "Incident details",

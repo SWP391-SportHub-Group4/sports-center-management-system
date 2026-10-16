@@ -29,4 +29,5 @@ public sealed record AuditEntry(
     string TargetId,
     string? OldValue = null,
     string? NewValue = null,
-    string? Reason = null);
+    string? Reason = null,
+    bool IsSystem = false);

@@ -627,7 +627,7 @@ test("legacy profile link opens the editable fitness profile", async ({
     route.fulfill({ json: null }),
   );
   await page.goto("/member/training?tab=profile");
-  await expect(page).toHaveURL(/\/member\/training\?tab=profile$/);
+  await expect(page).toHaveURL(/\/member\/profile$/);
   await expect(
     page.getByRole("heading", { name: "Fitness profile" }),
   ).toBeVisible();

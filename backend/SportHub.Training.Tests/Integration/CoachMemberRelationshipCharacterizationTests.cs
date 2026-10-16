@@ -1,6 +1,11 @@
 using System.Net;
 using System.Net.Http.Json;
+using Microsoft.EntityFrameworkCore;
 using SportHub.Identity.Domain.Enums;
+using SportHub.Scheduling.Domain.Entities;
+using SportHub.Scheduling.Domain.Enums;
+using SportHub.Training.Domain.Entities;
+using SportHub.Training.Domain.Enums;
 using SportHub.Training.Application.Commands;
 using SportHub.Training.Application.DTOs;
 
@@ -14,6 +19,69 @@ namespace SportHub.Training.Tests.Integration;
 [Collection(nameof(TrainingApiCollection))]
 public sealed class CoachMemberRelationshipCharacterizationTests(TrainingApiFactory factory)
 {
+    [Fact]
+    public async Task Class_relationship_stops_granting_health_access_when_enrollment_or_assignment_ends()
+    {
+        var coach = await factory.SeedCoachAsync(CoachKind.ClassInstructor);
+        var replacement = await factory.SeedCoachAsync(CoachKind.ClassInstructor);
+        var member = await factory.SeedUserAsync(UserRole.Member);
+        var ids = await factory.QueryAsync(async db =>
+        {
+            var room = new Room { Name = $"Training room {Guid.NewGuid():N}", RoomTypeId = 3, Capacity = 12 };
+            db.Rooms.Add(room);
+            await db.SaveChangesAsync();
+            var cls = new Class
+            {
+                Code = $"ACCESS-{Guid.NewGuid():N}", Name = "Access test", SportId = 3,
+                DefaultRoomId = room.RoomId, CoachId = coach.UserId,
+                StartDate = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(7),
+                NumSessions = 4, Capacity = 12, ConfirmedCount = 1, ReservedCount = 1,
+                Price = 100_000m, Status = ClassStatus.Published
+            };
+            db.Classes.Add(cls);
+            await db.SaveChangesAsync();
+            var enrollment = new Enrollment
+            {
+                EnrollmentId = Guid.NewGuid(), ClassId = cls.ClassId, MemberId = member.UserId,
+                Status = EnrollmentStatus.Confirmed, EnrolledAt = DateTime.UtcNow
+            };
+            db.Enrollments.Add(enrollment);
+            db.CoachMemberRelationships.Add(new CoachMemberRelationship
+            {
+                RelationshipId = Guid.NewGuid(), CoachId = coach.UserId, MemberId = member.UserId,
+                ClassId = cls.ClassId, SourceType = RelationshipSourceType.ClassBased,
+                Status = RelationshipStatus.Active, StartedAt = DateTime.UtcNow
+            });
+            await db.SaveChangesAsync();
+            return (cls.ClassId, enrollment.EnrollmentId);
+        });
+        using var client = factory.CreateApiClient(coach.UserId, UserRole.Coach);
+        using var memberClient = factory.CreateApiClient(member.UserId, UserRole.Member);
+        var path = $"api/coaches/me/students/{member.UserId}/health-profile";
+        var contentPath = $"api/members/me/classes/{ids.ClassId}/teaching-records";
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync(path)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await memberClient.GetAsync(contentPath)).StatusCode);
+
+        await factory.QueryAsync(db => db.Enrollments.Where(e => e.EnrollmentId == ids.EnrollmentId)
+            .ExecuteUpdateAsync(s => s.SetProperty(e => e.Status, EnrollmentStatus.Refunded)));
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync(path)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await memberClient.GetAsync(contentPath)).StatusCode);
+
+        await factory.QueryAsync(db => db.Enrollments.Where(e => e.EnrollmentId == ids.EnrollmentId)
+            .ExecuteUpdateAsync(s => s.SetProperty(e => e.Status, EnrollmentStatus.Confirmed)));
+        await factory.QueryAsync(db => db.Classes.Where(c => c.ClassId == ids.ClassId)
+            .ExecuteUpdateAsync(s => s.SetProperty(c => c.CoachId, replacement.UserId)));
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync(path)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK,
+            (await factory.CreateApiClient(replacement.UserId, UserRole.Coach)
+                .GetAsync($"api/coaches/me/students")).StatusCode);
+
+        await factory.QueryAsync(db => db.Classes.Where(c => c.ClassId == ids.ClassId)
+            .ExecuteUpdateAsync(s => s.SetProperty(c => c.CoachId, coach.UserId)
+                .SetProperty(c => c.Status, ClassStatus.Completed)));
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync(path)).StatusCode);
+    }
+
     [Fact]
     public async Task Creating_relationship_with_class_based_source_type_is_rejected()
     {

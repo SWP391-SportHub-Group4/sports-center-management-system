@@ -12,6 +12,7 @@ import { useLanguage } from "@/lib/language";
 import type { AuditLogDto, Paged, UserAdminDto } from "@/lib/types";
 import styles from "./overview.module.css";
 import { AuditTargetAccount } from "./AuditTargetAccount";
+import { AuditTargetEntity } from "./AuditTargetEntity";
 
 const statuses = ["ACTIVE", "BANNED", "DEACTIVATED"] as const;
 
@@ -37,7 +38,6 @@ export function AdminOverview() {
         query: {
           page: 1,
           pageSize: 5,
-          targetEntity: "UserAccount",
           sortBy: "timestamp",
           sortDirection: "desc",
         },
@@ -70,7 +70,12 @@ export function AdminOverview() {
     {
       id: "targetId",
       header: l.target,
-      cell: (row) => <AuditTargetAccount row={row} linkToAccount />,
+      cell: (row) =>
+        row.targetEntity === "UserAccount" ? (
+          <AuditTargetAccount row={row} linkToAccount />
+        ) : (
+          <AuditTargetEntity row={row} linkToManager={false} />
+        ),
     },
   ];
   function errorView(state: typeof activity | typeof totals) {
@@ -149,7 +154,7 @@ export function AdminOverview() {
       </Card>
       <Card
         title={l.recentTitle}
-        hint={`${l.recentHint} ${l.targetAccountHint}`}
+        hint={l.recentHint}
         actions={
           <Link className="btn btn--secondary btn--sm" href="/admin/audit-log">
             {t.staffWork.adminAudit}

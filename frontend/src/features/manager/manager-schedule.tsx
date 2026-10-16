@@ -16,6 +16,7 @@ import {
 } from "@/components/scheduling";
 import { catalogApi } from "@/features/catalog";
 import { courtScheduleApi } from "@/features/court-schedule";
+import { groupCenterIncidents } from "./schedule-incidents";
 
 import { ManagerClassChangeRequests } from "./class-change-requests";
 import { classChangeStyles as changeStyles } from "@/features/pt";
@@ -75,13 +76,15 @@ export function ManagerSchedule({
       ),
     [calendarDate, days, roomId],
   );
-  const rows = (state.data ?? []).filter(
-    (r) =>
-      (!classesOnly || r.sourceType === "CLASS_SESSION") &&
-      (!(fixedCoach || values.coachId) ||
-        r.coachId === (fixedCoach || values.coachId)) &&
-      (!values.classId || String(r.classId) === values.classId) &&
-      (!values.sourceType || r.sourceType === values.sourceType),
+  const rows = groupCenterIncidents(
+    (state.data ?? []).filter(
+      (r) =>
+        (!classesOnly || r.sourceType === "CLASS_SESSION") &&
+        (!(fixedCoach || values.coachId) ||
+          r.coachId === (fixedCoach || values.coachId)) &&
+        (!values.classId || String(r.classId) === values.classId) &&
+        (!values.sourceType || r.sourceType === values.sourceType),
+    ),
   );
   const selected = rows.find(
     (r) => `${r.sourceType}-${r.sourceId}` === selectedId,
@@ -112,7 +115,9 @@ export function ManagerSchedule({
     startAtUtc: r.startAtUtc,
     endAtUtc: r.endAtUtc,
     roomName:
-      rooms.data?.find((room) => room.roomId === r.roomId)?.name ?? null,
+      r.incidentScope === "CENTER"
+        ? t.incidentHistory.entireCenter
+        : (rooms.data?.find((room) => room.roomId === r.roomId)?.name ?? null),
     coachName: r.coachName,
     status: r.status,
   }));
@@ -362,7 +367,11 @@ export function ManagerSchedule({
         <CalendarEventDrawer
           entry={selected}
           roomName={rooms.data?.find((r) => r.roomId === selected.roomId)?.name}
+          affectedRoomNames={selected.affectedRoomIds
+            ?.map((id) => rooms.data?.find((r) => r.roomId === id)?.name)
+            .filter((name): name is string => !!name)}
           manager
+          onChanged={state.reload}
           onClose={() => setSelected("")}
         />
       )}

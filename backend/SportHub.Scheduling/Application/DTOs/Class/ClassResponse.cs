@@ -46,6 +46,7 @@ public sealed record ClassManagerResponse(
     int? BreakEvenThreshold,
     [property: SportHub.BuildingBlocks.Api.WireEnum] string ThresholdStatus,
     DateTime? ThresholdDeadlineUtc,
+    DateTime? ThresholdResponseDeadlineUtc,
     [property: SportHub.BuildingBlocks.Api.WireEnum] string Status,
     int ConfirmedCount,
     int ReservedCount,

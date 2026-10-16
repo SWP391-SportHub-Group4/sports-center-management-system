@@ -13,7 +13,7 @@ import { thresholdCopy } from "./threshold-copy";
 import styles from "./threshold.module.css";
 
 export type ThresholdView = ThresholdResponseDto;
-type Choice = "TRANSFER" | "WAIT_NEXT_COURSE" | "REFUND";
+type Choice = "TRANSFER" | "WAIT_NEXT_COURSE" | "REFUND" | "KEEP_PLACE";
 interface Quote {
   targetClassId: number;
   cashDifference: number;
@@ -119,16 +119,19 @@ export function ThresholdPanel({
     !action.busy &&
     (choice === "REFUND" ||
       choice === "WAIT_NEXT_COURSE" ||
+      choice === "KEEP_PLACE" ||
       (choice === "TRANSFER" && validQuote));
   const labels = {
     TRANSFER: l.transfer,
     WAIT_NEXT_COURSE: l.wait,
     REFUND: l.refund,
+    KEEP_PLACE: l.keepPlace,
   };
   const bodies = {
     TRANSFER: l.transferBody,
     WAIT_NEXT_COURSE: l.waitBody,
     REFUND: l.refundBody,
+    KEEP_PLACE: l.keepPlaceBody,
   };
 
   async function respond(retry = false) {
@@ -207,31 +210,36 @@ export function ThresholdPanel({
               <>
                 <fieldset className={styles.choices} disabled={action.busy}>
                   <legend>{l.choose}</legend>
-                  {(["TRANSFER", "WAIT_NEXT_COURSE", "REFUND"] as const).map(
-                    (option) => (
-                      <label
-                        className={styles.choice}
-                        key={option}
-                        data-selected={choice === option}
-                      >
-                        <input
-                          type="radio"
-                          name={groupId}
-                          value={option}
-                          checked={choice === option}
-                          onChange={() => {
-                            setChoice(option);
-                            setReview(false);
-                            action.reset();
-                          }}
-                        />
-                        <span>
-                          <strong>{labels[option]}</strong>
-                          <span>{bodies[option]}</span>
-                        </span>
-                      </label>
-                    ),
-                  )}
+                  {(
+                    [
+                      "KEEP_PLACE",
+                      "TRANSFER",
+                      "WAIT_NEXT_COURSE",
+                      "REFUND",
+                    ] as const
+                  ).map((option) => (
+                    <label
+                      className={styles.choice}
+                      key={option}
+                      data-selected={choice === option}
+                    >
+                      <input
+                        type="radio"
+                        name={groupId}
+                        value={option}
+                        checked={choice === option}
+                        onChange={() => {
+                          setChoice(option);
+                          setReview(false);
+                          action.reset();
+                        }}
+                      />
+                      <span>
+                        <strong>{labels[option]}</strong>
+                        <span>{bodies[option]}</span>
+                      </span>
+                    </label>
+                  ))}
                 </fieldset>
                 {choice === "WAIT_NEXT_COURSE" && (
                   <div className={styles.notice} role="status">

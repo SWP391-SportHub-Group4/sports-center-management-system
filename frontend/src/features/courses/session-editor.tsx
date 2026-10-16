@@ -5,6 +5,7 @@ import { api, ApiError } from "@/lib/apiClient";
 import { useLanguage } from "@/lib/language";
 import { Card, Field, AsyncSection } from "@/components/ui";
 import { CloseButton } from "@/components/CloseButton";
+import { IconCheck, IconAlert } from "@/components/icons";
 import { MutationFeedback, useMutation } from "@/features/operations";
 import { vietnamLocal, vietnamUtc } from "@/lib/vietnam-time";
 import { RoomSelector } from "@/features/catalog";
@@ -12,6 +13,7 @@ import { CoachSelector } from "@/features/coaches";
 import type { CourseSessionDto } from "@/lib/types";
 import { formatDateTime } from "@/lib/format";
 import { checkClassSlot, availabilityReason } from "./slot-availability";
+import styles from "./session-editor.module.css";
 
 function SessionChangeReview({
   session,
@@ -25,6 +27,7 @@ function SessionChangeReview({
   busy,
   onConfirm,
   onEdit,
+  compact = false,
 }: {
   session: CourseSessionDto;
   sportId: number;
@@ -37,6 +40,7 @@ function SessionChangeReview({
   busy: boolean;
   onConfirm: () => Promise<boolean>;
   onEdit: () => void;
+  compact?: boolean;
 }) {
   const { t } = useLanguage();
   const l = t.operations;
@@ -63,7 +67,7 @@ function SessionChangeReview({
     [session.sessionId, sportId, roomId, coachId, capacity, startUtc, endUtc],
   );
   return (
-    <div className="stack">
+    <div className={compact ? styles.compactReview : "stack"}>
       <p>
         <strong>{t.managerOperations.oldSchedule}</strong>:{" "}
         {formatDateTime(session.startAtUtc)} –{" "}
@@ -79,23 +83,62 @@ function SessionChangeReview({
               {result.roomName || `#${roomId}`} ·{" "}
               {result.coachName || `#${coachId}`}
             </p>
-            <p>
-              {mode === "reschedule" ? l.reschedule : l.makeup} · {reason}
-            </p>
-            <p role="status">{result.available ? l.available : l.conflict}</p>
-            {result.reasons.length > 0 && (
-              <ul>
-                {result.reasons.map((code) => (
-                  <li key={code}>{availabilityReason(code, t)}</li>
-                ))}
-              </ul>
+            {!compact && (
+              <p>
+                {mode === "reschedule" ? l.reschedule : l.makeup} · {reason}
+              </p>
             )}
-            <p className="small muted">
-              {t.managerOperations.previewConfirmationHint}
-            </p>
+            <div
+              role="status"
+              className={
+                compact
+                  ? `${styles.availability} ${result.available ? styles.available : styles.conflict}`
+                  : undefined
+              }
+            >
+              <p className={compact ? styles.statusTitle : undefined}>
+                {compact &&
+                  (result.available ? (
+                    <IconCheck size={20} strokeWidth={2} />
+                  ) : (
+                    <IconAlert size={20} strokeWidth={2} />
+                  ))}
+                {compact ? (
+                  <strong>{result.available ? l.available : l.conflict}</strong>
+                ) : result.available ? (
+                  l.available
+                ) : (
+                  l.conflict
+                )}
+              </p>
+              {result.reasons.length > 0 && (
+                <ul>
+                  {result.reasons.map((code) => (
+                    <li key={code}>{availabilityReason(code, t)}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            {!compact && (
+              <p className="small muted">
+                {t.managerOperations.previewConfirmationHint}
+              </p>
+            )}
+            {compact && (
+              <div className="btn-row">
+                <button
+                  type="button"
+                  className={`btn ${styles.managerSecondary}`}
+                  disabled={busy}
+                  onClick={onEdit}
+                >
+                  {t.managerOperations.editReview}
+                </button>
+              </div>
+            )}
             <button
               type="button"
-              className="btn"
+              className={compact ? `btn ${styles.managerPrimary}` : "btn"}
               disabled={busy || !result.available}
               onClick={async () => {
                 if (!(await onConfirm())) state.reload();
@@ -106,24 +149,28 @@ function SessionChangeReview({
           </>
         )}
       </AsyncSection>
-      <div className="btn-row">
-        <button
-          type="button"
-          className="btn btn--secondary"
-          disabled={busy}
-          onClick={onEdit}
-        >
-          {t.managerOperations.editReview}
-        </button>
-        <button
-          type="button"
-          className="btn btn--ghost"
-          disabled={busy || state.loading}
-          onClick={state.reload}
-        >
-          {l.refresh}
-        </button>
-      </div>
+      {!compact && (
+        <div className="btn-row">
+          <button
+            type="button"
+            className="btn btn--secondary"
+            disabled={busy}
+            onClick={onEdit}
+          >
+            {t.managerOperations.editReview}
+          </button>
+          {!compact && (
+            <button
+              type="button"
+              className="btn btn--ghost"
+              disabled={busy || state.loading}
+              onClick={state.reload}
+            >
+              {l.refresh}
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -134,12 +181,16 @@ export function SessionEditor({
   onSaved,
   onClose,
   onOutcome,
+  showCloseButton = true,
+  embedded = false,
 }: {
   session: CourseSessionDto;
   sportId: number;
   capacity: number;
   onSaved: () => void;
   onClose: () => void;
+  showCloseButton?: boolean;
+  embedded?: boolean;
   onOutcome?: (
     status: "pending" | "succeeded" | "failed" | "unknown",
     message?: string,
@@ -156,9 +207,9 @@ export function SessionEditor({
   const [review, setReview] = useState(false);
   const [unknown, setUnknown] = useState(false);
   const busy = mutation.busy || (unknown && !!onOutcome);
-  return (
-    <Card title={l.sessions}>
-      <p>{l.notifyHint}</p>
+  const content = (
+    <>
+      {!embedded && <p>{l.notifyHint}</p>}
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -200,6 +251,7 @@ export function SessionEditor({
         </fieldset>
         {review && (
           <SessionChangeReview
+            compact={embedded}
             session={session}
             sportId={sportId}
             capacity={capacity}
@@ -246,31 +298,36 @@ export function SessionEditor({
             }}
           />
         )}
-        <div className="btn-row">
-          {!review && (
-            <button
-              className="btn"
-              disabled={
-                busy ||
-                !roomId ||
-                !coachId ||
-                !start ||
-                reason.trim().length < 3
-              }
-            >
-              {t.managerOperations.reviewChange}
-            </button>
-          )}
-          <CloseButton
-            label={l.close}
-            variant="secondary"
-            size="md"
-            disabled={mutation.busy}
-            onClick={onClose}
-          />
-        </div>
+        {(!review || showCloseButton) && (
+          <div className={embedded ? `btn-row ${styles.actions}` : "btn-row"}>
+            {!review && (
+              <button
+                className={embedded ? `btn ${styles.managerPrimary}` : "btn"}
+                disabled={
+                  busy ||
+                  !roomId ||
+                  !coachId ||
+                  !start ||
+                  reason.trim().length < 3
+                }
+              >
+                {t.managerOperations.reviewChange}
+              </button>
+            )}
+            {showCloseButton && (
+              <CloseButton
+                label={l.close}
+                variant="secondary"
+                size="md"
+                disabled={mutation.busy}
+                onClick={onClose}
+              />
+            )}
+          </div>
+        )}
       </form>
       <MutationFeedback mutation={mutation} />
-    </Card>
+    </>
   );
+  return embedded ? content : <Card title={l.sessions}>{content}</Card>;
 }

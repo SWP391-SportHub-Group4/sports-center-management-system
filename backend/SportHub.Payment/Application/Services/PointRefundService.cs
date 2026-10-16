@@ -16,6 +16,7 @@ using SportHub.Payment.Domain.Entities;
 using SportHub.Payment.Domain.Enums;
 using SportHub.Payment.Domain.Rules;
 using SportHub.Payment.Wallet.Domain;
+using SportHub.Membership.Domain;
 
 namespace SportHub.Payment.Application.Services;
 
@@ -74,6 +75,7 @@ public sealed class PointRefundService(
             throw new ForbiddenException("refund_item_not_owned", "Refund item not owned.");
         if (!SportHub.Payment.Domain.Rules.InvoiceFulfillment.HasBenefits(invoice.Status, invoice.PaidVia))
             throw new ConflictException("refund_invoice_not_paid", "Refund invoice not paid.");
+        await EnsureNotDayPassAsync(item, ct);
         await EnsureNoUnmappedLegacyRefundAsync(invoice.InvoiceId, ct);
         var itemPaidVnd = await GetRemainingItemPaidVndAsync(invoice, item, ct);
         var calculated = await CalculatePointsAsync(item, itemPaidVnd, VietnamTime.TodayLocal(clock), false, ct, clock.UtcNow);
@@ -96,6 +98,7 @@ public sealed class PointRefundService(
             throw new ForbiddenException("refund_item_not_owned", "Refund item not owned.");
         if (!SportHub.Payment.Domain.Rules.InvoiceFulfillment.HasBenefits(invoice.Status, invoice.PaidVia))
             throw new ConflictException("refund_invoice_not_paid", "Refund invoice not paid.");
+        await EnsureNotDayPassAsync(item, cancellationToken);
         await EnsureNoUnmappedLegacyRefundAsync(invoice.InvoiceId, cancellationToken);
         var itemPaidVnd = await GetRemainingItemPaidVndAsync(invoice, item, cancellationToken);
         var calculated = await CalculatePointsAsync(item, itemPaidVnd, VietnamTime.TodayLocal(clock), false, cancellationToken, clock.UtcNow);
@@ -151,6 +154,7 @@ public sealed class PointRefundService(
             throw new ForbiddenException("refund_item_not_owned", "Refund item not owned.");
         if (!SportHub.Payment.Domain.Rules.InvoiceFulfillment.HasBenefits(invoice.Status, invoice.PaidVia))
             throw new ConflictException("refund_invoice_not_paid", "Refund invoice not paid.");
+        await EnsureNotDayPassAsync(item, cancellationToken);
         await EnsureNoUnmappedLegacyRefundAsync(invoice.InvoiceId, cancellationToken);
         var now = clock.UtcNow;
         if (isClass)
@@ -228,6 +232,7 @@ public sealed class PointRefundService(
         var item = await db.Set<InvoiceItem>().FromSqlInterpolated($"""
             SELECT * FROM invoice_items WHERE item_id = {adjustment.InvoiceItemId.Value} FOR UPDATE
             """).SingleAsync(cancellationToken);
+        await EnsureNotDayPassAsync(item, cancellationToken);
         await EnsureNoUnmappedLegacyRefundAsync(invoice.InvoiceId, cancellationToken);
 
         var requestDate = DateOnly.FromDateTime(VietnamTime.ToLocal(adjustment.CreatedAt));
@@ -244,6 +249,9 @@ public sealed class PointRefundService(
         }
         if (points <= 0)
             throw new ConflictException("refund_points_zero", "Refund points zero.");
+        if (points > allowedByRule)
+            throw new ConflictException("refund_exceeds_system_limit",
+                $"Refund points exceed the system-calculated limit of {allowedByRule} for this service.");
         if (points > absoluteCap)
             throw new ConflictException("refund_exceeds_item_paid", $"Refund points exceed the remaining limit of {absoluteCap} for this invoice item.");
         if (request.CenterFault && request.Reason.Trim().Length < 10)
@@ -311,6 +319,7 @@ public sealed class PointRefundService(
             {
                 var facts = await memberships.GetFactsAsync(item.ItemId, item.MemberPackageId ?? item.RelatedEntityId, ct)
                     ?? throw new ConflictException("refund_entitlement_not_found", "Refund entitlement not found.");
+                if (facts.PackageId == DayPass.PackageId) return 0;
                 if (!facts.IsActive && !centerFault) return 0;
                 return RefundCalculator.MembershipPoints(paidVnd, facts.StartDate, facts.EndDate,
                     requestDate, centerFault);
@@ -337,6 +346,14 @@ public sealed class PointRefundService(
             default:
                 throw new ConflictException("refund_item_type_unsupported", "Refund item type unsupported.");
         }
+    }
+
+    private async Task EnsureNotDayPassAsync(InvoiceItem item, CancellationToken ct)
+    {
+        if (item.ItemType != InvoiceItemType.Membership) return;
+        var facts = await memberships.GetFactsAsync(item.ItemId, item.MemberPackageId ?? item.RelatedEntityId, ct);
+        if (facts?.PackageId == DayPass.PackageId)
+            throw new ConflictException("day_pass_non_refundable", "Gym day pass is not refundable.");
     }
 
     private async Task CancelEntitlementAsync(InvoiceItem item, string reason, bool centerFault, Guid actorId, CancellationToken ct)

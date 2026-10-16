@@ -1,4 +1,5 @@
 "use client";
+import { ConfirmRecordAction } from "@/components/ConfirmRecordAction";
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -382,6 +383,17 @@ export function RoomsManager({ detailId }: { detailId?: number } = {}) {
                       >
                         {l.edit}
                       </button>
+                      <ConfirmRecordAction
+                        label={t.recordActions.delete}
+                        title={t.recordActions.deleteRoom}
+                        description={t.recordActions.roomDescription}
+                        recordName={r.name}
+                        onConfirm={() => catalogApi.deleteRoom(r.roomId)}
+                        onCompleted={() => {
+                          state.reload();
+                          if (detailId) router.push("/manager/training-rooms");
+                        }}
+                      />
                       <button
                         className="btn btn--ghost"
                         onClick={() =>

@@ -11,6 +11,8 @@ using SportHub.Membership.Application.Interfaces;
 using SportHub.Training.Domain.Entities;
 using SportHub.Training.Domain.Enums;
 using SportHub.Training.Application.Services;
+using SportHub.Scheduling.Domain.Entities;
+using SportHub.Scheduling.Domain.Enums;
 
 namespace SportHub.Training.Api;
 

@@ -417,6 +417,8 @@ export interface UserAdminDto {
   sportIds: number[];
   /** Staff account that has not set a password yet (waiting for the activation email). */
   activationPending?: boolean;
+  activationExpiresAtUtc?: string | null;
+  activationResendAvailableAtUtc?: string | null;
 }
 
 export type MyAccountDto = UserAdminDto & { avatarUrl?: string | null };
@@ -536,6 +538,9 @@ export interface AuditLogDto {
   auditId: string;
   userId: string;
   actorEmail: string;
+  /** Current actor name, resolved from their profile. */
+  actorFullName?: string | null;
+  actorRole?: string | null;
   action: string;
   targetEntity: string;
   targetId: string;
@@ -692,7 +697,7 @@ export interface ThresholdResponseDto {
   sportId: number;
   paidValueVnd: number;
   deadlineUtc: string;
-  choice: "REFUND" | "TRANSFER" | "WAIT_NEXT_COURSE" | null;
+  choice: "REFUND" | "TRANSFER" | "WAIT_NEXT_COURSE" | "KEEP_PLACE" | null;
   targetClassId: number | null;
   resolutionStatus: string;
   additionalInvoiceId: string | null;
@@ -738,6 +743,7 @@ export interface ManagerCourseDto extends Omit<CourseDto, "status"> {
   breakEvenThreshold: number | null;
   thresholdStatus: string;
   thresholdDeadlineUtc: string | null;
+  thresholdResponseDeadlineUtc: string | null;
   confirmedCount: number;
   reservedCount: number;
   activeHoldCount: number;
@@ -774,6 +780,9 @@ export interface CoachAdminDto {
   createdAt: string;
 }
 export interface CourtScheduleEntryDto {
+  incidentId?: string | null;
+  incidentScope?: "ROOM" | "CENTER" | null;
+  affectedRoomIds?: number[];
   sourceType: "CLASS_SESSION" | "COURT_RENTAL" | "ROOM_BLOCK";
   sourceId: string;
   roomId: number | null;

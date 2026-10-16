@@ -81,4 +81,16 @@ public static class NotificationEvents
 
     public const string PasswordChanged =
         nameof(PasswordChanged);
+
+    public const string ClassEnrollmentClosed =
+        nameof(ClassEnrollmentClosed);
+
+    public const string ClassEnrollmentReopened =
+        nameof(ClassEnrollmentReopened);
+
+    public const string ClassThresholdConfirmed =
+        nameof(ClassThresholdConfirmed);
+
+    public const string CoachCoverageRequired =
+        nameof(CoachCoverageRequired);
 }

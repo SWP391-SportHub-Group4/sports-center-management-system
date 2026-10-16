@@ -13,16 +13,16 @@ namespace SportHub.Payment.Tests.Integration;
 public sealed class ManagerWorkspaceTests(PaymentApiFactory factory)
 {
     [Fact]
-    public async Task Audit_actor_filter_applies_before_pagination_and_admin_only_receives_account_events()
+    public async Task Audit_actor_filter_applies_before_pagination_and_admin_receives_manager_operational_events()
     {
         var manager = await factory.SeedUserAsync(UserRole.CenterManager);
         var admin = await factory.SeedUserAsync(UserRole.SystemAdministrator);
-        var accountId = Guid.NewGuid();
+        var classAuditId = Guid.NewGuid();
         var walletId = Guid.NewGuid();
         await factory.QueryAsync(async db =>
         {
             db.AuditLogs.AddRange(
-                new SportHub.Audit.Domain.Entities.AuditLog { AuditId = accountId, UserId = manager.UserId, Action = "LOCK_USER", TargetEntity = "UserAccount", TargetId = admin.UserId.ToString(), Timestamp = DateTime.UtcNow },
+                new SportHub.Audit.Domain.Entities.AuditLog { AuditId = classAuditId, UserId = manager.UserId, Action = "PUBLISH_CLASS", TargetEntity = "Class", TargetId = "1", Timestamp = DateTime.UtcNow },
                 new SportHub.Audit.Domain.Entities.AuditLog { AuditId = walletId, UserId = manager.UserId, Action = "ADJUST_POINTS", TargetEntity = "PointWallet", TargetId = admin.UserId.ToString(), Timestamp = DateTime.UtcNow });
             return await db.SaveChangesAsync();
         });
@@ -30,17 +30,23 @@ public sealed class ManagerWorkspaceTests(PaymentApiFactory factory)
         var all = JsonDocument.Parse(await (await staff.GetAsync($"/api/audit-logs?actorId={manager.UserId}")).Content.ReadAsStringAsync()).RootElement;
         Assert.Equal(2, all.GetProperty("totalCount").GetInt32());
         using var limited = factory.CreateApiClient(admin.UserId, UserRole.SystemAdministrator);
-        var accounts = JsonDocument.Parse(await (await limited.GetAsync($"/api/audit-logs?actorId={manager.UserId}")).Content.ReadAsStringAsync()).RootElement;
-        Assert.Equal(1, accounts.GetProperty("totalCount").GetInt32());
-        Assert.Equal(accountId, accounts.GetProperty("items")[0].GetProperty("auditId").GetGuid());
-        var deniedScope = JsonDocument.Parse(await (await limited.GetAsync($"/api/audit-logs?actorId={manager.UserId}&targetEntity=PointWallet")).Content.ReadAsStringAsync()).RootElement;
-        Assert.Equal(0, deniedScope.GetProperty("totalCount").GetInt32());
+        var visible = JsonDocument.Parse(await (await limited.GetAsync($"/api/audit-logs?actorId={manager.UserId}")).Content.ReadAsStringAsync()).RootElement;
+        Assert.Equal(2, visible.GetProperty("totalCount").GetInt32());
+        Assert.Contains(visible.GetProperty("items").EnumerateArray(), item => item.GetProperty("auditId").GetGuid() == classAuditId);
+        Assert.Contains(visible.GetProperty("items").EnumerateArray(), item => item.GetProperty("auditId").GetGuid() == walletId);
+        var walletEvents = JsonDocument.Parse(await (await limited.GetAsync($"/api/audit-logs?actorId={manager.UserId}&targetEntity=PointWallet")).Content.ReadAsStringAsync()).RootElement;
+        Assert.Equal(1, walletEvents.GetProperty("totalCount").GetInt32());
+        Assert.Equal(walletId, walletEvents.GetProperty("items")[0].GetProperty("auditId").GetGuid());
+        var paged = JsonDocument.Parse(await (await limited.GetAsync($"/api/audit-logs?actorId={manager.UserId}&pageSize=1")).Content.ReadAsStringAsync()).RootElement;
+        Assert.Equal(2, paged.GetProperty("totalCount").GetInt32());
+        Assert.Single(paged.GetProperty("items").EnumerateArray());
     }
 
     [Fact]
     public async Task Manager_wallet_reads_do_not_audit_and_only_committed_adjustments_are_logged_once()
     {
         var manager = await factory.SeedUserAsync(UserRole.CenterManager);
+        var approver = await factory.SeedUserAsync(UserRole.CenterManager);
         var owner = await factory.SeedUserAsync(UserRole.Member);
         using var client = factory.CreateApiClient(manager.UserId, UserRole.CenterManager);
         var reads = new[] {
@@ -56,28 +62,80 @@ public sealed class ManagerWorkspaceTests(PaymentApiFactory factory)
             && a.TargetId == owner.UserId.ToString())));
         Assert.False(await factory.QueryAsync(db => db.PointWallets.AnyAsync(w => w.OwnerUserId == owner.UserId)));
         var body = new { idempotencyKey = Guid.NewGuid(), points = 37, direction = "CREDIT", reason = "Approved correction" };
-        Assert.Equal(HttpStatusCode.OK, (await client.PostAsJsonAsync($"/api/wallets/{owner.UserId}/adjustments", body)).StatusCode);
-        Assert.Equal(HttpStatusCode.OK, (await client.PostAsJsonAsync($"/api/wallets/{owner.UserId}/adjustments", body)).StatusCode);
+        Assert.Equal(HttpStatusCode.Accepted, (await client.PostAsJsonAsync($"/api/wallets/{owner.UserId}/adjustments", body)).StatusCode);
+        Assert.Equal(HttpStatusCode.Accepted, (await client.PostAsJsonAsync($"/api/wallets/{owner.UserId}/adjustments", body)).StatusCode);
+        var pending = JsonDocument.Parse(await client.GetStringAsync("/api/point-credit-requests?status=Pending&page=1&pageSize=20")).RootElement;
+        Assert.Contains(pending.GetProperty("items").EnumerateArray(), item =>
+            item.GetProperty("requestId").GetGuid() == body.idempotencyKey
+            && item.GetProperty("ownerName").GetString() == owner.Profile!.FullName);
+        Assert.False(await factory.QueryAsync(db => db.PointWallets.AnyAsync(w => w.OwnerUserId == owner.UserId)));
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await client.PostAsync($"/api/point-credit-requests/{body.idempotencyKey}/approve", null)).StatusCode);
+        using var secondManager = factory.CreateApiClient(approver.UserId, UserRole.CenterManager);
+        Assert.Equal(HttpStatusCode.OK,
+            (await secondManager.PostAsync($"/api/point-credit-requests/{body.idempotencyKey}/approve", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK,
+            (await secondManager.PostAsync($"/api/point-credit-requests/{body.idempotencyKey}/approve", null)).StatusCode);
         var balance = JsonDocument.Parse(await (await client.GetAsync($"/api/manager/wallets/{owner.UserId}")).Content.ReadAsStringAsync());
         Assert.Equal(37, balance.RootElement.GetProperty("availablePoints").GetInt32());
         Assert.Equal(HttpStatusCode.OK, (await client.GetAsync($"/api/manager/wallets/{owner.UserId}/ledger")).StatusCode);
         var logs = await factory.QueryAsync(db => db.AuditLogs.AsNoTracking()
-            .Where(a => a.UserId == manager.UserId && a.TargetId == owner.UserId.ToString()).ToListAsync());
-        var log = Assert.Single(logs);
-        Assert.Equal("ADJUST_POINTS", log.Action);
-        Assert.Contains("Approved correction", log.NewValue!);
+            .Where(a => a.UserId == manager.UserId && a.TargetId == body.idempotencyKey.ToString()).ToListAsync());
+        var requestLog = Assert.Single(logs);
+        Assert.Equal("REQUEST_POINT_CREDIT", requestLog.Action);
+        Assert.Equal(1, await factory.QueryAsync(db => db.AuditLogs.CountAsync(a => a.UserId == approver.UserId
+            && a.Action == "APPROVE_POINT_CREDIT" && a.TargetId == body.idempotencyKey.ToString())));
         Assert.Single(await factory.QueryAsync(db => db.PointLedgerEntries.AsNoTracking()
             .Where(e => e.ReferenceType == "ManagerAdjustment" && e.ReferenceId == body.idempotencyKey).ToListAsync()));
         Assert.Equal(HttpStatusCode.Conflict, (await client.PostAsJsonAsync($"/api/wallets/{owner.UserId}/adjustments",
             new { body.idempotencyKey, points = 38, direction = "CREDIT", body.reason })).StatusCode);
         Assert.Equal(1, await factory.QueryAsync(db => db.AuditLogs.CountAsync(a => a.UserId == manager.UserId
-            && a.TargetId == owner.UserId.ToString())));
+            && a.TargetId == body.idempotencyKey.ToString())));
         foreach (var role in new[] { UserRole.Receptionist, UserRole.SystemAdministrator, UserRole.Member, UserRole.Coach })
         {
             var user = await factory.SeedUserAsync(role);
             using var denied = factory.CreateApiClient(user.UserId, role);
             Assert.Equal(HttpStatusCode.Forbidden, (await denied.GetAsync($"/api/manager/wallets/{owner.UserId}")).StatusCode);
         }
+    }
+
+    [Fact]
+    public async Task Another_manager_can_reject_credit_without_minting_points()
+    {
+        var requester = await factory.SeedUserAsync(UserRole.CenterManager);
+        var reviewer = await factory.SeedUserAsync(UserRole.CenterManager);
+        var owner = await factory.SeedUserAsync(UserRole.Member);
+        using var first = factory.CreateApiClient(requester.UserId, UserRole.CenterManager);
+        using var second = factory.CreateApiClient(reviewer.UserId, UserRole.CenterManager);
+        var id = Guid.NewGuid();
+        Assert.Equal(HttpStatusCode.Accepted, (await first.PostAsJsonAsync($"/api/wallets/{owner.UserId}/adjustments",
+            new { idempotencyKey = id, points = 200, direction = "CREDIT", reason = "Correction request" })).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await first.PostAsJsonAsync($"/api/point-credit-requests/{id}/reject",
+            new { reason = "Not justified" })).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await second.PostAsJsonAsync($"/api/point-credit-requests/{id}/reject",
+            new { reason = "Not justified" })).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict,
+            (await second.PostAsync($"/api/point-credit-requests/{id}/approve", null)).StatusCode);
+        Assert.False(await factory.QueryAsync(db => db.PointWallets.AnyAsync(w => w.OwnerUserId == owner.UserId)));
+    }
+
+    [Fact]
+    public async Task Credit_request_from_a_deactivated_manager_cannot_be_approved()
+    {
+        var requester = await factory.SeedUserAsync(UserRole.CenterManager);
+        var reviewer = await factory.SeedUserAsync(UserRole.CenterManager);
+        var owner = await factory.SeedUserAsync(UserRole.Member);
+        using var first = factory.CreateApiClient(requester.UserId, UserRole.CenterManager);
+        using var second = factory.CreateApiClient(reviewer.UserId, UserRole.CenterManager);
+        var id = Guid.NewGuid();
+        Assert.Equal(HttpStatusCode.Accepted, (await first.PostAsJsonAsync($"/api/wallets/{owner.UserId}/adjustments",
+            new { idempotencyKey = id, points = 200, direction = "CREDIT", reason = "Correction request" })).StatusCode);
+        await factory.QueryAsync(db => db.UserAccounts.Where(u => u.UserId == requester.UserId)
+            .ExecuteUpdateAsync(s => s.SetProperty(u => u.Status, UserStatus.Deactivated)));
+        var response = await second.PostAsync($"/api/point-credit-requests/{id}/approve", null);
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Contains("point_credit_requester_inactive", await response.Content.ReadAsStringAsync());
+        Assert.False(await factory.QueryAsync(db => db.PointWallets.AnyAsync(w => w.OwnerUserId == owner.UserId)));
     }
 
     [Fact]
