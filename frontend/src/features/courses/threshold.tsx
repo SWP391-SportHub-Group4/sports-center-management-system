@@ -13,7 +13,7 @@ import { thresholdCopy } from "./threshold-copy";
 import styles from "./threshold.module.css";
 
 export type ThresholdView = ThresholdResponseDto;
-type Choice = "TRANSFER" | "WAIT_NEXT_COURSE" | "REFUND";
+type Choice = "TRANSFER" | "WAIT_NEXT_COURSE" | "REFUND" | "KEEP_PLACE";
 interface Quote {
   targetClassId: number;
   cashDifference: number;
@@ -117,16 +117,18 @@ export function ThresholdPanel({
     !state.loading &&
     !state.error &&
     !action.busy &&
-    (choice === "REFUND" || (choice === "TRANSFER" && validQuote));
+    (choice === "REFUND" || choice === "KEEP_PLACE" || (choice === "TRANSFER" && validQuote));
   const labels = {
     TRANSFER: l.transfer,
     WAIT_NEXT_COURSE: l.wait,
     REFUND: l.refund,
+    KEEP_PLACE: l.keepPlace,
   };
   const bodies = {
     TRANSFER: l.transferBody,
     WAIT_NEXT_COURSE: l.waitBody,
     REFUND: l.refundBody,
+    KEEP_PLACE: l.keepPlaceBody,
   };
 
   async function respond(retry = false) {
@@ -137,7 +139,7 @@ export function ThresholdPanel({
     )
       return;
     const submittedChoice = retry ? d.choice : choice;
-    if (submittedChoice !== "TRANSFER" && submittedChoice !== "REFUND") return;
+    if (submittedChoice !== "TRANSFER" && submittedChoice !== "REFUND" && submittedChoice !== "KEEP_PLACE") return;
     sending.current = true;
     await action.run(async () => {
       try {
@@ -195,7 +197,7 @@ export function ThresholdPanel({
               <>
                 <fieldset className={styles.choices} disabled={action.busy}>
                   <legend>{l.choose}</legend>
-                  {(["TRANSFER", "WAIT_NEXT_COURSE", "REFUND"] as const).map(
+                  {(["KEEP_PLACE", "TRANSFER", "WAIT_NEXT_COURSE", "REFUND"] as const).map(
                     (option) => (
                       <label
                         className={styles.choice}

@@ -2074,7 +2074,7 @@ export const en = {
     nextSession: "Next session",
     thresholdTitle: "This class has not reached its minimum size",
     thresholdBody:
-      "Choose to transfer to another class or take a points refund before {deadline}.",
+      "Choose to keep your place, transfer to another class, or take a points refund before {deadline}.",
     thresholdCta: "Choose an option",
     renew: "See the next {sport} course",
   },

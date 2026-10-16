@@ -30,7 +30,7 @@ public sealed class SystemSettingService(
         new Dictionary<string, (int, int)>
         {
             [SystemSettingKeys.MembershipExpiryNoticeDays] = (1, 90),
-            [SystemSettingKeys.ClassThresholdDaysBeforeStart] = (1, 30),
+            [SystemSettingKeys.ClassThresholdDaysBeforeStart] = (3, 30),
             [SystemSettingKeys.ClassThresholdResponseHours] = (1, 336),
             [SystemSettingKeys.HoldMinutes] = (1, 1440),
             [SystemSettingKeys.PointsConfirmOtpMinutes] = (1, 15),
@@ -66,6 +66,20 @@ public sealed class SystemSettingService(
             }
             if (key == SystemSettingKeys.RentalSlotMinutes && parsed is not (30 or 60))
                 throw new BadRequestException("invalid_setting_value", "The rental slot must be 30 or 60 minutes.");
+            if (key is SystemSettingKeys.ClassThresholdDaysBeforeStart or SystemSettingKeys.ClassThresholdResponseHours)
+            {
+                var otherKey = key == SystemSettingKeys.ClassThresholdDaysBeforeStart
+                    ? SystemSettingKeys.ClassThresholdResponseHours : SystemSettingKeys.ClassThresholdDaysBeforeStart;
+                var otherValue = await db.Set<SystemSetting>().AsNoTracking()
+                    .Where(x => x.Key == otherKey).Select(x => x.Value).SingleAsync(ct);
+                if (!int.TryParse(otherValue, out var other))
+                    throw new ConflictException("class_threshold_window_setting_invalid", "The related threshold setting is invalid.");
+                var days = key == SystemSettingKeys.ClassThresholdDaysBeforeStart ? parsed : other;
+                var hours = key == SystemSettingKeys.ClassThresholdResponseHours ? parsed : other;
+                if (days < 3 || days * 24 < hours + 24)
+                    throw new BadRequestException("class_threshold_window_setting_invalid",
+                        "Review at least three days before class and leave the full response window plus 24 hours to finalize it.");
+            }
         }
 
         var previous = setting.Value;

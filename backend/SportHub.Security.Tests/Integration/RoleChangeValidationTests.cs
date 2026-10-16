@@ -209,4 +209,40 @@ public class RoleChangeValidationTests(SportHubApiFactory factory)
         Assert.Contains(reasons, r => r.Contains("session", StringComparison.OrdinalIgnoreCase));
         Assert.Contains(reasons, r => r.Contains("relationship", StringComparison.OrdinalIgnoreCase));
     }
+
+    [Fact]
+    public async Task Locking_coach_is_immediate_and_creates_a_manager_coverage_task()
+    {
+        using var admin = await AdminAsync();
+        var manager = await factory.SeedUserAsync(NewEmail(), Password, role: UserRole.CenterManager);
+        var coachId = await SeedCoachAsync();
+        var member = await factory.SeedUserAsync(NewEmail(), Password);
+        var originalStamp = factory.StampOf(coachId);
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
+            db.Set<SportHub.Training.Domain.Entities.CoachMemberRelationship>().Add(new()
+            {
+                RelationshipId = Guid.NewGuid(), CoachId = coachId, MemberId = member.UserId,
+                SourceType = SportHub.Training.Domain.Enums.RelationshipSourceType.Personal,
+                Status = SportHub.Training.Domain.Enums.RelationshipStatus.Active, StartedAt = DateTime.UtcNow
+            });
+            await db.SaveChangesAsync();
+        }
+
+        var result = await admin.PostAsJsonAsync($"api/users/{coachId}/lock", new { reason = "Emergency suspension" });
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        Assert.NotEqual(originalStamp, factory.StampOf(coachId));
+
+        using var managerClient = factory.CreateApiClient();
+        managerClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer",
+            factory.IssueToken(manager.UserId, UserRole.CenterManager));
+        var coverage = await Json(await managerClient.GetAsync("api/manager/coach-coverage"));
+        Assert.Contains(coverage.EnumerateArray(), item => item.GetProperty("coachId").GetGuid() == coachId
+            && item.GetProperty("activeRelationships").GetInt32() == 1);
+        using var verify = factory.Services.CreateScope();
+        var dbCheck = verify.ServiceProvider.GetRequiredService<SportHubDbContext>();
+        Assert.True(await dbCheck.Notifications.AnyAsync(x => x.UserId == manager.UserId
+            && x.SourceEntityId == coachId));
+    }
 }

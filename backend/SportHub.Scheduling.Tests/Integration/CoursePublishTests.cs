@@ -48,6 +48,9 @@ public sealed class CoursePublishTests(SchedulingApiFactory factory)
         Assert.Single(responses, r => r.StatusCode == HttpStatusCode.Conflict);
         var sessions = await CourseTestData.SessionsAsync(factory, c.Id);
         Assert.Equal(3, sessions.Count);
+        var thresholdCheck = await factory.QueryAsync(db => db.Classes.Where(x => x.ClassId == c.Id)
+            .Select(x => x.ThresholdDeadlineUtc).SingleAsync());
+        Assert.Equal(sessions.Min(x => x.StartAtUtc).AddDays(-3).AddMinutes(-10), thresholdCheck);
         var ids = sessions.Select(s => s.SessionId).ToArray();
         Assert.Equal(3, await factory.QueryAsync(db => db.RoomOccupancies.CountAsync(o => ids.Contains(o.SourceId) && o.IsActive)));
         Assert.Equal(3, await factory.QueryAsync(db => db.CoachOccupancies.CountAsync(o => ids.Contains(o.SourceId) && o.IsActive)));

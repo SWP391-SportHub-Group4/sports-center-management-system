@@ -6,6 +6,7 @@ using SportHub.BuildingBlocks.Abstractions.Training;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.BuildingBlocks.SharedKernel.Time;
 using SportHub.Scheduling.Threshold.Domain;
+using SportHub.Scheduling.Threshold.Application;
 
 namespace SportHub.Scheduling.Application.Services;
 
@@ -21,6 +22,7 @@ public sealed class ClassEnrollmentFulfillment(
     ISportHubDbContext db,
     IUserAccessReader users,
     ICoachRelationshipRegistrar coachRelationships,
+    IClassThresholdService thresholds,
     IClock clock) : IClassEnrollmentFulfillment
 {
     public async Task<ClassQuote> QuoteAsync(int classId, Guid memberId, CancellationToken cancellationToken = default)
@@ -166,6 +168,8 @@ public sealed class ClassEnrollmentFulfillment(
             await coachRelationships.EnsureClassBasedAsync(coachId, hold.MemberId, hold.ClassId, cancellationToken);
             await db.SaveChangesAsync(cancellationToken);
         }
+
+        await thresholds.ConfirmIfMetAsync(hold.ClassId, cancellationToken);
 
         return enrollment.EnrollmentId;
     }

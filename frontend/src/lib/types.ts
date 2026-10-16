@@ -696,7 +696,7 @@ export interface ThresholdResponseDto {
   sportId: number;
   paidValueVnd: number;
   deadlineUtc: string;
-  choice: "REFUND" | "TRANSFER" | null;
+  choice: "REFUND" | "TRANSFER" | "KEEP_PLACE" | null;
   targetClassId: number | null;
   resolutionStatus: string;
   additionalInvoiceId: string | null;
@@ -741,6 +741,7 @@ export interface ManagerCourseDto extends Omit<CourseDto, "status"> {
   breakEvenThreshold: number | null;
   thresholdStatus: string;
   thresholdDeadlineUtc: string | null;
+  thresholdResponseDeadlineUtc: string | null;
   confirmedCount: number;
   reservedCount: number;
   activeHoldCount: number;
