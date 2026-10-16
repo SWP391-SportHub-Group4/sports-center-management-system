@@ -17,7 +17,16 @@ import type { WalletBalanceDto, UserAdminDto, Paged } from "@/lib/types";
 import { WalletBalance } from "./wallet-balance";
 import { WalletLedger } from "./wallet-ledger";
 import { ManagerAdjustmentForm } from "./manager-adjustment-form";
-function OwnerWallet({ owner }: { owner: UserAdminDto }) {
+import { PointCreditApprovals } from "./point-credit-approvals";
+function OwnerWallet({
+  owner,
+  approvalRevision,
+  onChanged,
+}: {
+  owner: UserAdminDto;
+  approvalRevision: number;
+  onChanged: () => void;
+}) {
   const [revision, setRevision] = useState(0);
   const [balance, setBalance] = useState<WalletBalanceDto | null>(null);
   const state = useApi(
@@ -29,7 +38,7 @@ function OwnerWallet({ owner }: { owner: UserAdminDto }) {
       if (!signal.aborted) setBalance(data);
       return data;
     },
-    [owner.userId, revision],
+    [owner.userId, revision, approvalRevision],
   );
   return (
     <div className={styles.wallet}>
@@ -41,7 +50,10 @@ function OwnerWallet({ owner }: { owner: UserAdminDto }) {
           balance={balance}
           disabled={state.loading || !!state.error}
           ownerName={`${owner.fullName} · ${owner.email}`}
-          onSaved={() => setRevision((v) => v + 1)}
+          onSaved={() => {
+            setRevision((v) => v + 1);
+            onChanged();
+          }}
         />
       )}
       <WalletLedger
@@ -58,6 +70,7 @@ export function ManagerWallet() {
   const [keyword, setKeyword] = useState("");
   const [page, setPage] = useState(1);
   const [owner, setOwner] = useState<UserAdminDto | null>(null);
+  const [approvalRevision, setApprovalRevision] = useState(0);
   const users = useApi(
     (signal) =>
       api.get<Paged<UserAdminDto>>("/api/users", {
@@ -68,6 +81,10 @@ export function ManagerWallet() {
   );
   return (
     <>
+      <PointCreditApprovals
+        revision={approvalRevision}
+        onChanged={() => setApprovalRevision((value) => value + 1)}
+      />
       <Card title={l.owner}>
         <div className={styles.search}>
           <Field label={l.keyword}>
@@ -117,7 +134,12 @@ export function ManagerWallet() {
           className={styles.dialog}
           onClose={() => setOwner(null)}
         >
-          <OwnerWallet key={owner.userId} owner={owner} />
+          <OwnerWallet
+            key={owner.userId}
+            owner={owner}
+            approvalRevision={approvalRevision}
+            onChanged={() => setApprovalRevision((value) => value + 1)}
+          />
         </Dialog>
       )}
     </>

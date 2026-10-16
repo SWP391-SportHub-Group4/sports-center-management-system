@@ -7,9 +7,12 @@ using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.BuildingBlocks.SharedKernel.Time;
 using SportHub.Identity.Domain.Entities;
 using SportHub.Identity.Domain.Enums;
+using SportHub.Scheduling.Domain.Entities;
+using SportHub.Scheduling.Domain.Enums;
 using SportHub.Training.Application.Commands;
 using SportHub.Training.Application.DTOs;
 using SportHub.Training.Application.Interfaces;
+using SportHub.Training.Domain.Enums;
 
 namespace SportHub.Training.Application.Services;
 
@@ -27,7 +30,12 @@ public sealed class CoachMemberRelationshipService(
 {
     public Task<bool> HasActiveRelationshipAsync(Guid coachId, Guid memberId, CancellationToken ct = default)
         => db.Set<CoachMemberRelationship>().AsNoTracking().AnyAsync(
-            r => r.CoachId == coachId && r.MemberId == memberId && r.Status == RelationshipStatus.Active, ct);
+            r => r.CoachId == coachId && r.MemberId == memberId && r.Status == RelationshipStatus.Active
+                && (r.SourceType != RelationshipSourceType.ClassBased
+                    || (r.ClassId != null && db.Set<Enrollment>().Any(e => e.MemberId == memberId
+                        && e.Status == EnrollmentStatus.Confirmed && e.Class != null
+                        && e.Class.CoachId == coachId
+                        && (e.Class.Status == ClassStatus.Published || e.Class.Status == ClassStatus.InProgress)))), ct);
 
     public const int DefaultPageSize = 50;
     public const int MaximumPageSize = 100;
@@ -54,7 +62,12 @@ public sealed class CoachMemberRelationshipService(
 
         if (activeOnly)
         {
-            query = query.Where(r => r.Status == RelationshipStatus.Active);
+            query = query.Where(r => r.Status == RelationshipStatus.Active
+                && (r.SourceType != RelationshipSourceType.ClassBased
+                    || (r.ClassId != null && db.Set<Enrollment>().Any(e => e.MemberId == r.MemberId
+                        && e.Status == EnrollmentStatus.Confirmed && e.Class != null
+                        && e.Class.CoachId == r.CoachId
+                        && (e.Class.Status == ClassStatus.Published || e.Class.Status == ClassStatus.InProgress)))));
         }
 
         page = Math.Clamp(page, 1, 100_000);
@@ -158,8 +171,8 @@ public sealed class CoachMemberRelationshipService(
     /// <summary>
     /// Quan hệ ClassBased do hệ thống tự tạo khi hội viên có đăng ký xác nhận vào lớp của HLV
     /// đó. Không có endpoint tương ứng — đây là hệ quả của việc đăng ký, không phải thao tác
-    /// người dùng. Không tự kết thúc quan hệ khi hội viên thôi học lớp: không BR nào nói khi nào
-    /// quan hệ ClassBased chấm dứt (quyết định C3).
+    /// người dùng. Quyền đọc của quan hệ này luôn xét lại ghi danh và phân công lớp đang hiệu lực;
+    /// dòng quan hệ còn lưu để đối soát nhưng không cấp quyền sau khi lớp/ghi danh kết thúc.
     /// </summary>
     public async Task EnsureClassBasedAsync(
         Guid coachId,

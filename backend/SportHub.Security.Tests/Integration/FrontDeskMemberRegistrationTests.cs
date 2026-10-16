@@ -61,6 +61,22 @@ public sealed class FrontDeskMemberRegistrationTests(SportHubApiFactory factory)
     }
 
     [Fact]
+    public async Task Receptionist_account_search_and_detail_never_expose_staff()
+    {
+        var desk = await ReceptionistAsync();
+        var coach = await factory.SeedUserAsync($"private-coach-{Guid.NewGuid():N}@example.com", null, role: UserRole.Coach);
+        var member = await factory.SeedUserAsync($"visible-member-{Guid.NewGuid():N}@example.com", null, role: UserRole.Member);
+
+        var list = await Json(await desk.GetAsync("api/users?role=Coach&pageSize=100"));
+        Assert.All(list.GetProperty("items").EnumerateArray(), account =>
+            Assert.Equal("MEMBER", account.GetProperty("role").GetString()));
+        var staffSearch = await Json(await desk.GetAsync($"api/users?keyword={Uri.EscapeDataString(coach.Email)}"));
+        Assert.Equal(0, staffSearch.GetProperty("totalCount").GetInt32());
+        Assert.Equal(HttpStatusCode.NotFound, (await desk.GetAsync($"api/users/{coach.UserId}")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await desk.GetAsync($"api/users/{member.UserId}")).StatusCode);
+    }
+
+    [Fact]
     public async Task Receptionist_registers_a_member_who_activates_through_the_email_link()
     {
         var desk = await ReceptionistAsync();

@@ -35,7 +35,9 @@ public class UsersController(IUserAdminService users, ICoachMemberAccessReader c
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
         CancellationToken ct = default)
-        => Ok(await users.SearchAsync(keyword, role, status, page, pageSize, ct));
+        => Ok(await users.SearchAsync(keyword,
+            User.IsInRole(nameof(UserRole.Receptionist)) ? nameof(UserRole.Member) : role,
+            status, page, pageSize, ct));
 
     [Authorize(Policy = SportHubPolicies.SystemAdministrator)]
     [HttpGet("admin")]
@@ -60,11 +62,14 @@ public class UsersController(IUserAdminService users, ICoachMemberAccessReader c
     [HttpGet("{userId:guid}")]
     public async Task<IActionResult> Get(Guid userId, CancellationToken ct)
     {
+        var account = await users.GetAsync(userId, ct);
+        if (User.IsInRole(nameof(UserRole.Receptionist)) && account.Role != nameof(UserRole.Member))
+            return NotFound();
         if (User.IsInRole(nameof(UserRole.Coach)) &&
             !await coachAccess.HasActiveRelationshipAsync(User.RequireUserId(), userId, ct))
             return Forbid();
 
-        return Ok(await users.GetAsync(userId, ct));
+        return Ok(account);
     }
 
     /// <summary>BR-2 — chỉ System Administrator tạo tài khoản nhân sự.</summary>

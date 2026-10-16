@@ -29,8 +29,7 @@ public sealed class ClassTeachingService(ISportHubDbContext db, IUserAccessReade
 
     private IQueryable<Class> CurrentClasses(Guid coachId) => db.Set<Class>().AsNoTracking()
         .Where(c => (c.Status == ClassStatus.Published || c.Status == ClassStatus.InProgress)
-            && (c.CoachId == coachId || db.Set<ClassSession>().Any(s => s.ClassId == c.ClassId && s.CoachId == coachId
-                && s.Status == ClassSessionStatus.Scheduled && s.StartAtUtc >= clock.UtcNow)));
+            && c.CoachId == coachId);
 
     public async Task<object> StudentsAsync(Guid coachId, int page, string? search, int? sportId, CancellationToken ct)
     {
@@ -153,7 +152,7 @@ public sealed class ClassTeachingService(ISportHubDbContext db, IUserAccessReade
             throw new ForbiddenException("coach_required", "Coach account is not active.");
         var cls = await db.Set<Class>().AsNoTracking().Include(x => x.Sport).SingleOrDefaultAsync(x => x.ClassId == classId, ct)
             ?? throw new NotFoundException("class_not_found", "Class not found.");
-        if (cls.CoachId != coachId && !await db.Set<ClassSession>().AnyAsync(x => x.ClassId == classId && x.CoachId == coachId, ct))
+        if (cls.Status is not (ClassStatus.Published or ClassStatus.InProgress) || cls.CoachId != coachId)
             throw new ForbiddenException("class_not_assigned", "You are not assigned to this class.");
         return cls;
     }
@@ -161,7 +160,8 @@ public sealed class ClassTeachingService(ISportHubDbContext db, IUserAccessReade
     public async Task<object> RecordsAsync(int classId, Guid actorId, bool member, int page, CancellationToken ct, Guid? memberId = null)
     {
         if (member) {
-            if (!await db.Set<Enrollment>().AnyAsync(x => x.ClassId == classId && x.MemberId == actorId, ct))
+            if (!await db.Set<Enrollment>().AnyAsync(x => x.ClassId == classId && x.MemberId == actorId
+                    && x.Status == EnrollmentStatus.Confirmed, ct))
                 throw new ForbiddenException("class_not_enrolled", "You are not enrolled in this class.");
         } else await RequireClassAsync(classId, actorId, ct);
         if (!member && memberId.HasValue && !await db.Set<Enrollment>().AnyAsync(x => x.ClassId == classId && x.MemberId == memberId && x.Status == EnrollmentStatus.Confirmed, ct))

@@ -39,7 +39,10 @@ public sealed class ClassSessionService(
     {
         await EnsureClassAccessAsync(classId, restrictToCoachId, ct);
 
-        var rows = await Rows(db.Set<ClassSession>().AsNoTracking().Where(s => s.ClassId == classId).OrderBy(s => s.SessionNo)).ToListAsync(ct);
+        var sessions = db.Set<ClassSession>().AsNoTracking().Where(s => s.ClassId == classId);
+        if (restrictToCoachId is Guid coachId && !await db.Set<Class>().AnyAsync(c => c.ClassId == classId && c.CoachId == coachId, ct))
+            sessions = sessions.Where(s => s.CoachId == coachId);
+        var rows = await Rows(sessions.OrderBy(s => s.SessionNo)).ToListAsync(ct);
         return await ToResponsesAsync(rows, ct);
     }
 
@@ -49,6 +52,7 @@ public sealed class ClassSessionService(
                   ?? throw new NotFoundException("session_not_found", "Session not found.");
 
         await EnsureClassAccessAsync(row.Session.ClassId, restrictToCoachId, ct);
+        await EnsureSessionAccessAsync(row.Session, restrictToCoachId, ct);
         return (await ToResponsesAsync([row], ct))[0];
     }
 
@@ -59,15 +63,16 @@ public sealed class ClassSessionService(
 
         await EnsureClassAccessAsync(row.Session.ClassId, restrictToCoachId, ct);
 
+        await EnsureSessionAccessAsync(row.Session, restrictToCoachId, ct);
         var session = (await ToResponsesAsync([row], ct))[0];
 
-        // Roster = ghi danh Confirmed + ghi danh đã kết thúc nhưng đã có điểm danh ở buổi này (giữ lịch sử đọc được).
+        // Ended enrollments no longer grant access to the coach's roster.
         var entries = await (from e in db.Set<Enrollment>().AsNoTracking()
                              where e.ClassId == row.Session.ClassId
                              join a in db.Set<Attendance>().AsNoTracking().Where(x => x.SessionId == sessionId)
                                  on e.EnrollmentId equals a.EnrollmentId into att
                              from a in att.DefaultIfEmpty()
-                             where e.Status == EnrollmentStatus.Confirmed || a != null
+                             where e.Status == EnrollmentStatus.Confirmed
                              orderby e.EnrolledAt
                              select new { e.EnrollmentId, e.MemberId, e.Status, AttStatus = (AttendanceStatus?)a!.Status, AttAt = (DateTime?)a.RecordedAt })
             .ToListAsync(ct);
@@ -354,15 +359,23 @@ public sealed class ClassSessionService(
     {
         var coachId = await db.Set<Class>().AsNoTracking()
             .Where(c => c.ClassId == classId)
-            .Select(c => new { Found = true, c.CoachId })
+            .Select(c => new { c.CoachId, c.Status })
             .SingleOrDefaultAsync(ct)
             ?? throw new NotFoundException("class_not_found", "Class not found.");
 
-        if (restrictToCoachId is Guid id && coachId.CoachId != id &&
-            !await db.Set<ClassSession>().AnyAsync(s => s.ClassId == classId && s.CoachId == id, ct))
+        if (restrictToCoachId is Guid id && (coachId.Status is not (ClassStatus.Published or ClassStatus.InProgress)
+            || (coachId.CoachId != id &&
+                !await db.Set<ClassSession>().AnyAsync(s => s.ClassId == classId && s.CoachId == id, ct))))
         {
             throw new ForbiddenException("class_not_owned", "Class not owned.");
         }
+    }
+
+    private async Task EnsureSessionAccessAsync(ClassSession session, Guid? restrictToCoachId, CancellationToken ct)
+    {
+        if (restrictToCoachId is Guid id && session.CoachId != id
+            && !await db.Set<Class>().AnyAsync(c => c.ClassId == session.ClassId && c.CoachId == id, ct))
+            throw new ForbiddenException("session_not_assigned", "Session not assigned.");
     }
 
     private sealed record Row(ClassSession Session, string ClassName, string RoomName);

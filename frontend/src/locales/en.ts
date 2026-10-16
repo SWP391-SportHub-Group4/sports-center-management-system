@@ -778,6 +778,19 @@ export const en = {
     balanceAsOf: "Balance observed at {date}",
     cashBasisHint:
       "Cash is recorded on the successful payment date in Vietnam. Unpaid invoices and point refunds do not add cash revenue. Point value is shown separately and is not cash collected.",
+    creditApprovalRequired:
+      "A different manager must approve this credit before points enter the wallet.",
+    creditPending:
+      "Credit request submitted. The wallet will update after another manager approves it.",
+    creditApproved:
+      "This credit request was already approved. The wallet has been refreshed.",
+    pendingCredits: "Point credits awaiting approval",
+    noPendingCredits: "No point credits awaiting approval.",
+    requestedBy: "Requested by",
+    approveCredit: "Approve credit",
+    rejectCredit: "Reject credit",
+    rejectionReason: "Reason for rejection",
+    ownCreditRequest: "Another manager must decide this request.",
     issued: "Points refunded",
     outstanding: "Current outstanding points (available + held)",
     adjusted: "Manager point adjustments in period",

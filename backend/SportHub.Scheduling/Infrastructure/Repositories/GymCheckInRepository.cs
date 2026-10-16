@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
+using SportHub.BuildingBlocks.Abstractions.Scheduling;
 using SportHub.Identity.Domain.Entities;
 using SportHub.Identity.Domain.Enums;
 using SportHub.Membership.Domain.Enums;
@@ -9,7 +10,7 @@ using SportHub.Scheduling.Domain.Exceptions;
 
 namespace SportHub.Scheduling.Infrastructure.Repositories;
 
-public sealed class GymCheckInRepository(ISportHubDbContext db) : IGymCheckInRepository
+public sealed class GymCheckInRepository(ISportHubDbContext db, IGymClosureReader gymClosure) : IGymCheckInRepository
 {
     // Đọc member_packages bằng SQL thô vì cần mệnh đề khóa FOR SHARE — LINQ không diễn đạt được.
     // Cột alias "Value": SqlQueryRaw<int> yêu cầu đúng tên đó cho kiểu vô hướng.
@@ -50,6 +51,9 @@ public sealed class GymCheckInRepository(ISportHubDbContext db) : IGymCheckInRep
         {
             throw new ConflictException("member_not_active", "Member not active.");
         }
+
+        if (await gymClosure.IsGymClosedAtAsync(checkIn.CheckInTime, cancellationToken))
+            throw new ConflictException("gym_closed", "The Gym is closed due to an incident.");
 
         // Serialize the open-visit check and insert for this Member, including concurrent requests.
         await db.Database.ExecuteSqlInterpolatedAsync(
