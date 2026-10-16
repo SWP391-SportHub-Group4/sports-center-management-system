@@ -496,6 +496,10 @@ namespace SportHub.API.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("request_id");
 
+                    b.Property<Guid?>("AssignedToUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("assigned_to_user_id");
+
                     b.Property<string>("Category")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -505,6 +509,10 @@ namespace SportHub.API.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
+
+                    b.Property<DateTime?>("ClosedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("closed_at");
 
                     b.Property<string>("Description")
                         .IsRequired()
@@ -520,6 +528,11 @@ namespace SportHub.API.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("recorded_by_user_id");
 
+                    b.Property<string>("ProgressNote")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("progress_note");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -532,14 +545,24 @@ namespace SportHub.API.Migrations
                         .HasColumnType("character varying(200)")
                         .HasColumnName("subject");
 
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
                     b.HasKey("RequestId")
                         .HasName("pk_member_support_requests");
 
                     b.HasIndex("RecordedByUserId")
                         .HasDatabaseName("ix_member_support_requests_recorded_by_user_id");
 
+                    b.HasIndex("AssignedToUserId")
+                        .HasDatabaseName("ix_member_support_requests_assigned_to_user_id");
+
                     b.HasIndex("MemberId", "CreatedAt")
                         .HasDatabaseName("ix_member_support_requests_member_id_created_at");
+
+                    b.HasIndex("Status", "UpdatedAt")
+                        .HasDatabaseName("ix_member_support_requests_status_updated_at");
 
                     b.ToTable("member_support_requests", (string)null);
                 });
@@ -3609,6 +3632,12 @@ namespace SportHub.API.Migrations
 
             modelBuilder.Entity("SportHub.Identity.Domain.Entities.MemberSupportRequest", b =>
                 {
+                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", null)
+                        .WithMany()
+                        .HasForeignKey("AssignedToUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_member_support_requests_user_accounts_assigned_to_user_id");
+
                     b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", null)
                         .WithMany()
                         .HasForeignKey("MemberId")

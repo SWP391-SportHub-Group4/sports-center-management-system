@@ -13,6 +13,10 @@ export interface MemberSupportRequestDto {
   description: string;
   status: string;
   createdAt: string;
+  assignedToUserId: string | null;
+  progressNote: string | null;
+  updatedAt: string | null;
+  closedAt: string | null;
 }
 
 export type SportServiceType =
