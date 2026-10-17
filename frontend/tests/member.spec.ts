@@ -17,6 +17,7 @@ const course = {
   availableSeats: 8,
   price: 200000,
   status: "PUBLISHED",
+  enrollmentOpen: true,
   firstSessionStartUtc: courseStart,
   scheduleRules: [],
 };
@@ -257,6 +258,8 @@ test("dashboard does not issue an entrance pass", async ({ page }) => {
 test("Gym day pass clearly warns about same-day use and PT is absent", async ({
   page,
 }) => {
+  // Align the browser clock with this test's fixed October membership dates.
+  await page.clock.install({ time: new Date("2026-10-02T03:00:00Z") });
   await page.goto("/member/services?section=gym&view=explore");
   await expect(
     page.getByRole("heading", { name: "Gym Membership", exact: true }),
