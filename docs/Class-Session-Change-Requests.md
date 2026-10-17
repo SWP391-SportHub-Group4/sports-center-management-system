@@ -1,12 +1,12 @@
-# Yêu cầu thay đổi buổi học lớp nhóm
+# Yêu cầu vắng buổi học của Coach
 
 Phần mở rộng được chủ sản phẩm xác nhận ngày 11/10/2026, dùng chung cho lớp cầu lông và bóng rổ. Coach gửi đề xuất, Center Manager quyết định. Giữ nguyên quyền thay đổi lịch của Manager theo BR-14 và hủy kèm học bù theo BR-54.
 
 ## Giao diện
 
-- Coach: **Teaching schedule** → chọn buổi → mục điều chỉnh. Chưa có lịch sử thì hiện **Create** giữa khung; có Pending thì hiện **Edit pending request**; chỉ có yêu cầu đã kết thúc thì hiện **Create request**. Chọn dạy thay, dời lịch hoặc hủy và học bù; nhập lý do, có thể đề xuất thời gian. Giờ nhập theo Việt Nam, API dùng UTC.
-- Coach cũng sửa ngay tại **Requests** → chọn yêu cầu Pending → **Edit pending request**. Hộp chỉnh sửa điền sẵn loại, lý do và giờ đề xuất; nhấn **Save changes** cập nhật cùng requestId, giữ Pending và lịch gốc. Khi Manager đã đổi lịch hoặc đóng request trong lúc form mở, lần lưu tiếp theo bị chặn, hộp đóng và tải trạng thái mới; không tạo yêu cầu thay thế tự động.
-- Buổi đã bắt đầu hoặc không còn Scheduled chỉ hiển thị lịch sử, không có thao tác tạo/sửa. Gửi hoặc sửa yêu cầu hủy kèm học bù cần thực hiện trước giờ bắt đầu ít nhất **6 tiếng**, kể cả buổi diễn ra hôm nay. Đúng mốc 6 tiếng vẫn được phép; dưới mốc này frontend khóa phương án hủy và backend trả 409 `class_cancel_deadline`. Dạy thay và dời lịch vẫn theo quy tắc buổi chưa bắt đầu; Manager tiếp tục quyết định phương án xử lý.
+- Coach: **Schedule** → chọn buổi → **Request** → **Request absence**. Form chỉ có **Reason** (3–500 ký tự); Coach không chọn dạy thay, ngày dời hoặc lịch học bù. Manager quyết định phương án thực tế.
+- Coach sửa tại menu avatar/tên → **Requests** → chọn Pending → **Edit pending request**, hoặc ngay trong buổi học. Nhấn **Save changes** cập nhật cùng requestId, giữ Pending và snapshot buổi gốc. Yêu cầu cũ vẫn hiển thị đúng loại và đề xuất đã lưu; nếu sửa bằng giao diện mới, form báo rõ sẽ chuyển thành Absence, chỉ gửi lý do và xóa đề xuất giờ. Các yêu cầu đã xử lý không bị chuyển đổi. Khi Manager đã đổi lịch hoặc đóng request trong lúc form mở, lần lưu tiếp theo bị chặn và tải trạng thái mới.
+- Yêu cầu Absence chỉ được gửi/sửa khi buổi còn Scheduled, chưa bắt đầu, và trước giờ học ít nhất **6 tiếng**. Đúng mốc 6 tiếng được phép; dưới mốc frontend vô hiệu thao tác và API trả 409 `class_absence_deadline`. Coach vẫn được rút Pending; trường hợp khẩn cấp liên hệ Manager trực tiếp. Yêu cầu đã gửi đúng hạn vẫn được Manager xử lý sau mốc 6 tiếng nếu buổi chưa bắt đầu.
 - **Yêu cầu đổi lịch của tôi** mở lịch sử ngay trong drawer; có thể rút yêu cầu Pending. Thông báo kết quả dẫn đến `/coach/change-requests`.
 - Manager: **Lịch hoạt động → Yêu cầu đổi lịch lớp**. Lọc trạng thái/khóa/Coach, mở yêu cầu và chọn phương án thực tế hoặc từ chối. Coach dạy thay phải đang hoạt động và đúng chuyên môn.
 - Gửi yêu cầu không thay đổi lịch. Nếu sát giờ dạy, Coach liên hệ Manager trực tiếp để báo gấp. Chỉ buổi Scheduled chưa bắt đầu của khóa đang hoạt động được gửi và xử lý đổi lịch; yêu cầu cũ vẫn có thể rút/từ chối.
@@ -28,15 +28,24 @@ Phần mở rộng được chủ sản phẩm xác nhận ngày 11/10/2026, dù
 
 Danh sách trả `{items,page,pageSize:50,totalCount}`. Trạng thái wire: `PENDING`, `RESOLVED`, `REJECTED`, `WITHDRAWN`.
 
-Create body: `{requestId,type,reason,proposedStartAtUtc?,proposedEndAtUtc?}`. `requestId` là UUID do client tạo và giữ khi retry; cùng UUID/nội dung trả bản cũ, nội dung khác trả 409. `type` là `SUBSTITUTE`, `RESCHEDULE` hoặc `CANCEL_WITH_MAKEUP`. Lý do 3–500 ký tự. Giờ đề xuất tùy chọn; nếu có phải cung cấp cả start/end ở tương lai và giữ nguyên thời lượng. Dạy thay không đề xuất đổi giờ.
+Create body của giao diện mới: `{requestId,type:"ABSENCE",reason,proposedStartAtUtc:null,proposedEndAtUtc:null}`. `requestId` là UUID do client tạo và giữ khi retry; cùng UUID/nội dung trả bản cũ, nội dung khác trả 409. Absence không chấp nhận đề xuất giờ (`absence_proposal_not_allowed`). Lý do 3–500 ký tự. Các loại cũ `SUBSTITUTE`, `RESCHEDULE`, `CANCEL_WITH_MAKEUP` vẫn được API hỗ trợ để tương thích client cũ, với validation cũ (hủy phải trước 6 giờ); giao diện Coach mới không tạo các loại này.
 
-Update dùng cùng body, `requestId` phải khớp URL. Chỉ sửa loại yêu cầu, lý do và thời gian đề xuất; giữ nguyên trạng thái Pending, người gửi, thời điểm tạo và snapshot buổi học. Cập nhật khóa cùng thứ tự với duyệt, ghi audit và thông báo cho Manager trong transaction; yêu cầu đã được duyệt/từ chối/rút trả 409.
+Update dùng cùng body, `requestId` phải khớp URL. Giao diện mới gửi Absence và lý do, không đề xuất giờ; giữ nguyên trạng thái Pending, người gửi, thời điểm tạo và snapshot buổi học. Cập nhật khóa cùng thứ tự với duyệt, ghi audit và thông báo cho Manager trong transaction; yêu cầu đã được duyệt/từ chối/rút trả 409.
 
-Resolve body: `{type,reviewNote,startAtUtc?,roomId?,coachId?}`. Manager có thể chọn phương án khác đề xuất. Dạy thay bắt buộc Coach mới và giữ giờ/sân; dời/học bù bắt buộc giờ mới. Thời lượng giữ nguyên; buổi bù nằm sau buổi cuối còn hiệu lực theo command lịch hiện tại. Reject body: `{reviewNote}`. ReviewNote 3–500 ký tự.
+Resolve body: `{type,reviewNote,startAtUtc?,roomId?,coachId?}`. Manager bắt buộc chọn `SUBSTITUTE`, `RESCHEDULE` hoặc `CANCEL_WITH_MAKEUP` (không chấp nhận Absence làm phương án xử lý). Yêu cầu Absence mở với **Select a resolution**, không tự chọn thay Manager. Dạy thay bắt buộc Coach mới và giữ giờ/sân; dời/học bù bắt buộc giờ mới. Thời lượng giữ nguyên; buổi bù nằm sau buổi cuối còn hiệu lực theo command lịch hiện tại. Reject body: `{reviewNote}`. ReviewNote 3–500 ký tự.
 
 ## Dữ liệu và transaction
 
 Migration `20261011025932_AddClassSessionChangeRequests` tạo `class_session_change_requests`. Lưu lý do, đề xuất, snapshot thời gian/phòng ban đầu, Coach gửi, người xử lý, phản hồi, phương án thực tế và ID buổi kết quả.
+
+Migration `20261017090000_AddCoachAbsenceRequests` mở rộng constraint loại yêu cầu cho Absence, chặn giờ đề xuất đối với Absence; không sửa hoặc xóa lịch sử. Down bị chặn nếu đã có yêu cầu Absence để tránh biến yêu cầu vắng thành một đề xuất nghiệp vụ khác.
+
+### Kết quả xử lý hiển thị cho Coach và Manager
+
+- Trang Requests và mục Request trong buổi học dùng chung **Request outcome**: Pending hiển thị Awaiting Manager review; Approved nêu Substitute assigned / Session rescheduled / Cancelled · makeup scheduled; Rejected và Coach rút yêu cầu có nội dung riêng, không hiển thị như đã duyệt.
+- Manager đổi lịch trực tiếp: request vẫn là WITHDRAWN/SCHEDULE_UPDATED trong API nhưng nhãn UI là **Closed**. Phần kết quả nêu cụ thể thao tác đã thực hiện, không gọi đây là Coach tự rút hoặc Manager approve request.
+- Migration `20261017100000_AddClassRequestOutcomeSnapshots` thêm `outcome_snapshot_json`. Lưu phương án, lịch sau xử lý, Coach, sân/phòng, người xử lý và lý do trong cùng transaction với lịch/request. Các lần thay đổi lịch sau không viết lại kết quả này. Hủy toàn khóa có phương án `COURSE_CANCELLED`; đổi riêng phòng có `ROOM_CHANGED`.
+- API trả object `outcome` đã giải mã, không trả chuỗi snapshot nội bộ. `source=DECISION` là kết quả tại thời điểm xử lý. Yêu cầu cũ chưa có snapshot trả thông tin buổi được liên kết hiện tại với `source=CURRENT_SCHEDULE`, có cảnh báo có thể đã đổi sau đó; không suy đoán hay ghi đè lịch sử cũ. Chỉ lộ thông tin lịch/Coach/phòng trong yêu cầu được phép xem, không cấp thêm quyền xem roster/hồ sơ học viên.
 
 - Partial unique index bảo đảm một Pending cho mỗi buổi.
 - Mọi mutation khóa theo thứ tự schedule → class → session → request. Manager không xử lý hai lần; thao tác trên yêu cầu đã kết thúc trả 409.

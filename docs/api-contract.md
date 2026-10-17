@@ -703,6 +703,10 @@ This endpoint does not reserve resources, change sessions, write audit events or
 
 Contract, payload, trạng thái, quyền và transaction cho các API `/api/coaches/me/teaching/.../change-requests` và `/api/manager/class-session-change-requests` được mô tả tại [Yêu cầu thay đổi buổi học](Class-Session-Change-Requests.md). Coach gửi/rút yêu cầu, Manager quyết định phương án và áp dụng đổi lịch/học bù nguyên tử; không cấp quyền tự hủy buổi cho Coach. Migration: `20261011025932_AddClassSessionChangeRequests`.
 
+Coach UI now submits `{requestId,type:"ABSENCE",reason,proposedStartAtUtc:null,proposedEndAtUtc:null}`. Create/edit requires at least 6 hours before the assigned Scheduled session (`409 class_absence_deadline`); absence proposals containing times return `400 absence_proposal_not_allowed`. Withdraw remains available while Pending. Existing proposal types remain accepted for old clients with their former validation; request history is not rewritten. Manager resolve accepts only `SUBSTITUTE`, `RESCHEDULE`, `CANCEL_WITH_MAKEUP`, or uses the separate reject endpoint. Migration `20261017090000_AddCoachAbsenceRequests` extends request-type constraints; Absence is not a resolution type.
+
+Request responses additionally return nullable `outcome: {action,sessionId,sessionNo,startAtUtc,endAtUtc,coachId,coachName,roomId,roomName,handledBy,reason,source,sessionStatus}`. Migration `20261017100000_AddClassRequestOutcomeSnapshots` preserves the schedule and decision details transactionally for reviews and direct Manager changes (`source: DECISION`), including `ROOM_CHANGED` and `COURSE_CANCELLED`. Later schedule changes do not overwrite these snapshots. Earlier requests without a snapshot may return only their referenced current schedule (`source: CURRENT_SCHEDULE`), explicitly labeled by the UI; no historical dates/names are invented. Automatic closure remains WITHDRAWN/SCHEDULE_UPDATED (UI: Closed), and is distinguished from Coach withdrawal and approval.
+
 ## Hợp đồng bàn giao An/Hào
 
 ### Coach assignment access and schedule updates (2026-10-15)

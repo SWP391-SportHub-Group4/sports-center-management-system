@@ -6,15 +6,15 @@ import { useApi, useAction, useNow } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { ApiError } from "@/lib/apiClient";
 import { formatDateTime } from "@/lib/format";
-import { vietnamLocal, vietnamUtc } from "@/lib/vietnam-time";
 import type { CourseSessionDto } from "@/lib/types";
 import {
   classChangeApi,
-  changeTypeLabel,
+  coachChangeTypeLabel,
   changeStatusLabel,
-  type ClassChangeType,
+  changeRequestStatusLabel,
 } from "./class-change-api";
 import styles from "./class-change.module.css";
+import { RequestOutcome } from "./request-outcome";
 
 export function CoachClassChanges({
   session,
@@ -40,12 +40,11 @@ export function CoachClassChanges({
   );
   const action = useAction();
   const lock = useRef(false);
-  const now = useNow();
+  const now = useNow(1000);
   const [form, setForm] = useState(false);
-  const [type, setType] = useState<ClassChangeType>("SUBSTITUTE");
   const [reason, setReason] = useState("");
-  const [start, setStart] = useState("");
-  const dirty = form && !!(reason.trim() || start);
+  const [initialReason, setInitialReason] = useState("");
+  const dirty = form && reason !== initialReason;
   useEffect(() => {
     onStateChange?.({ dirty, busy: action.busy });
     return () => onStateChange?.({ dirty: false, busy: false });
@@ -62,18 +61,12 @@ export function CoachClassChanges({
   const requestId = useRef<string | null>(null);
   const pending = state.data?.items.find((r) => r.status === "PENDING");
   const [editingId, setEditingId] = useState<string | null>(null);
-  const cancellationOpen =
+  const absenceOpen =
     !!session && Date.parse(session.startAtUtc) - now >= 6 * 3600000;
-  const allowed = type !== "CANCEL_WITH_MAKEUP" || cancellationOpen;
   function openForm() {
     setEditingId(pending?.requestId ?? null);
-    setType(pending?.type ?? "SUBSTITUTE");
     setReason(pending?.reason ?? "");
-    setStart(
-      pending?.proposedStartAtUtc
-        ? vietnamLocal(pending.proposedStartAtUtc)
-        : "",
-    );
+    setInitialReason(pending?.reason ?? "");
     requestId.current = null;
     setForm(true);
   }
@@ -86,27 +79,18 @@ export function CoachClassChanges({
   };
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (!session || !eligible || !allowed || lock.current) return;
+    if (!session || !eligible || !absenceOpen || lock.current) return;
     lock.current = true;
     try {
       const saved = await action.run(
         async () => {
-          const proposed =
-            type !== "SUBSTITUTE" && start ? vietnamUtc(start) : null;
-          const end = proposed
-            ? new Date(
-                Date.parse(proposed) +
-                  Date.parse(session.endAtUtc) -
-                  Date.parse(session.startAtUtc),
-              ).toISOString()
-            : null;
           requestId.current ??= crypto.randomUUID();
           const body = {
             requestId: editingId ?? requestId.current,
-            type,
+            type: "ABSENCE" as const,
             reason: reason.trim(),
-            proposedStartAtUtc: proposed,
-            proposedEndAtUtc: end,
+            proposedStartAtUtc: null,
+            proposedEndAtUtc: null,
           };
           try {
             return await (editingId
@@ -138,7 +122,6 @@ export function CoachClassChanges({
       if (saved) {
         setForm(false);
         setReason("");
-        setStart("");
         resetRetry();
         setPage(1);
         state.reload();
@@ -151,10 +134,10 @@ export function CoachClassChanges({
   return (
     <section
       className={styles.panel}
-      aria-label={vi ? "Điều chỉnh lịch" : "Schedule adjustment"}
+      aria-label={vi ? "Yêu cầu vắng" : "Absence request"}
     >
       <div className={styles.heading}>
-        <h3>{vi ? "Điều chỉnh lịch" : "Schedule adjustment"}</h3>
+        <h3>{vi ? "Yêu cầu vắng" : "Absence request"}</h3>
         <button
           type="button"
           className="btn btn--quiet btn--sm"
@@ -167,8 +150,8 @@ export function CoachClassChanges({
       </div>
       <p className={styles.hint}>
         {vi
-          ? "Lịch vẫn có hiệu lực khi chờ xử lý. Nếu sát giờ dạy, hãy gọi trực tiếp cho Manager để báo gấp."
-          : "Your current schedule remains in effect until reviewed. For urgent changes, contact your Manager directly as well."}
+          ? "Báo vắng trước giờ học ít nhất 6 tiếng. Manager quyết định dạy thay, dời buổi hoặc hủy kèm học bù. Lịch hiện tại vẫn có hiệu lực khi chờ duyệt."
+          : "Request absence at least 6 hours before class. Your Manager will arrange a substitute, reschedule or makeup. Your current schedule stays in effect until reviewed."}
       </p>
       <Feedback error={action.error} success={action.success} />
       {!session && (
@@ -205,48 +188,23 @@ export function CoachClassChanges({
           <div className={styles.changeAction}>
             <button
               type="button"
-              className="btn btn--secondary"
+              className={pending ? "btn" : "btn btn--secondary"}
               onClick={openForm}
-              disabled={action.busy}
+              disabled={action.busy || !absenceOpen}
             >
               <CalendarClock size={18} aria-hidden="true" />
-              {pending ? "Edit pending request" : "Create request"}
+              {pending ? "Edit pending request" : "Request absence"}
             </button>
           </div>
         )}
-      {session && eligible && !cancellationOpen && (
-        <p className={styles.hint}>
-          {vi
-            ? "Đã qua hạn hủy: cần gửi trước giờ học ít nhất 6 tiếng. Bạn vẫn có thể đề nghị đổi lịch hoặc dạy thay."
-            : "Cancellation requires at least 6 hours’ notice. You can still request a reschedule or substitute."}
-        </p>
-      )}
       {form && eligible && (
         <form className={styles.form} onSubmit={submit}>
-          <label>
-            {vi ? "Phương án đề xuất" : "Requested change"}
-            <select
-              value={type}
-              disabled={action.busy}
-              onChange={(e) => {
-                setType(e.target.value as ClassChangeType);
-                setStart("");
-                resetRetry();
-              }}
-            >
-              {(
-                ["SUBSTITUTE", "RESCHEDULE", "CANCEL_WITH_MAKEUP"] as const
-              ).map((id) => (
-                <option
-                  key={id}
-                  value={id}
-                  disabled={id === "CANCEL_WITH_MAKEUP" && !cancellationOpen}
-                >
-                  {changeTypeLabel(id, vi)}
-                </option>
-              ))}
-            </select>
-          </label>
+          {pending && pending.type !== "ABSENCE" && (
+            <p className={styles.hint}>
+              Saving converts this earlier request to an absence request. Your
+              Manager will choose the resolution.
+            </p>
+          )}
           <label>
             {vi ? "Lý do" : "Reason"}
             <textarea
@@ -254,7 +212,7 @@ export function CoachClassChanges({
               minLength={3}
               maxLength={500}
               rows={3}
-              disabled={action.busy}
+              disabled={action.busy || !absenceOpen}
               value={reason}
               onChange={(e) => {
                 setReason(e.target.value);
@@ -262,36 +220,11 @@ export function CoachClassChanges({
               }}
             />
           </label>
-          {type !== "SUBSTITUTE" && (
-            <label>
-              {vi
-                ? "Giờ bắt đầu đề xuất (không bắt buộc)"
-                : "Suggested start (optional)"}
-              <input
-                type="datetime-local"
-                value={start}
-                disabled={action.busy}
-                onChange={(e) => {
-                  setStart(e.target.value);
-                  resetRetry();
-                }}
-              />
-              <small>
-                {vi
-                  ? "Giờ Việt Nam. Manager xác nhận giờ cuối cùng; thời lượng buổi học được giữ nguyên."
-                  : "Vietnam time. The Manager confirms the final time; session duration stays unchanged."}
-              </small>
-            </label>
-          )}
-          {!allowed && (
-            <p className={styles.hint} role="status">
-              {vi
-                ? "Không thể gửi hoặc sửa yêu cầu hủy khi còn dưới 6 tiếng trước giờ học."
-                : "Cancellation requests cannot be submitted or edited less than 6 hours before the session starts."}
-            </p>
-          )}
           <div className={styles.actions}>
-            <button className="btn" disabled={action.busy || !allowed}>
+            <button
+              className="btn"
+              disabled={action.busy || !absenceOpen || reason.trim().length < 3}
+            >
               <Send size={16} aria-hidden="true" />
               {action.busy
                 ? vi
@@ -309,7 +242,7 @@ export function CoachClassChanges({
               disabled={action.busy}
               onClick={() => {
                 if (
-                  !reason.trim() ||
+                  !dirty ||
                   window.confirm(
                     vi
                       ? "Bỏ nội dung yêu cầu chưa gửi?"
@@ -323,6 +256,13 @@ export function CoachClassChanges({
             </button>
           </div>
         </form>
+      )}
+      {eligible && !absenceOpen && (
+        <p className={styles.hint} role="status">
+          Absence requests close 6 hours before class. Contact your Manager
+          directly for urgent absences. You can still withdraw a pending
+          request.
+        </p>
       )}
       <AsyncSection state={state}>
         {(data) => (
@@ -340,16 +280,16 @@ export function CoachClassChanges({
                     type="button"
                     className="btn"
                     onClick={openForm}
-                    disabled={action.busy}
+                    disabled={action.busy || !absenceOpen}
                   >
                     <CalendarClock size={18} aria-hidden="true" />
-                    Create
+                    Request absence
                   </button>
                 ) : !session ? (
                   <p className={styles.hint}>
                     {vi
                       ? "Chọn buổi học sắp tới trong Lịch dạy để tạo yêu cầu."
-                      : "Select an upcoming session in Teaching schedule to create a request."}
+                      : "Select an upcoming session in Schedule to create a request."}
                   </p>
                 ) : null}
               </div>
@@ -361,15 +301,15 @@ export function CoachClassChanges({
                     <h3>
                       {!session && `${r.className} · `}
                       {vi ? "Buổi" : "Session"} {r.sessionNo} ·{" "}
-                      {changeTypeLabel(r.type, vi)}
+                      {coachChangeTypeLabel(r.type, vi)}
                     </h3>
                     <span className={styles.status} data-status={r.status}>
-                      {changeStatusLabel(r.status, vi)}
+                      {changeRequestStatusLabel(r, vi)}
                     </span>
                   </div>
                   <dl className={styles.requestDates}>
                     <div>
-                      <dt>{vi ? "Lịch hiện tại" : "Current session"}</dt>
+                      <dt>{vi ? "Lịch ban đầu" : "Original session"}</dt>
                       <dd>{formatDateTime(r.originalStartAtUtc)}</dd>
                     </div>
                     {r.proposedStartAtUtc && (
@@ -385,26 +325,17 @@ export function CoachClassChanges({
                   </dl>
                   <div className={styles.requestReason}>
                     <strong>
-                      {vi ? "Lý do yêu cầu" : "Reason for request"}
+                      {r.type === "ABSENCE"
+                        ? vi
+                          ? "Lý do vắng"
+                          : "Reason for absence"
+                        : vi
+                          ? "Lý do thay đổi"
+                          : "Reason for change"}
                     </strong>
                     <p>{r.reason}</p>
                   </div>
-                  {r.reviewNote && (
-                    <div
-                      className={`${styles.facts} ${styles.managerResponse}`}
-                    >
-                      <strong>
-                        {vi ? "Phản hồi từ Manager" : "Manager response"}
-                      </strong>
-                      {r.resolutionType && (
-                        <p>{changeTypeLabel(r.resolutionType, vi)}</p>
-                      )}
-                      <p>{r.reviewNote}</p>
-                      {r.reviewedAtUtc && (
-                        <p>{formatDateTime(r.reviewedAtUtc)}</p>
-                      )}
-                    </div>
-                  )}
+                  <RequestOutcome request={r} />
                   {r.status === "PENDING" && (!session || eligible) && (
                     <button
                       type="button"

@@ -489,7 +489,7 @@ export function TeachingDetail({
           { id: "communication", label: vi ? "Bài tập" : "Homework" },
           {
             id: "changes",
-            label: vi ? "Đổi lịch" : "Changes",
+            label: vi ? "Yêu cầu" : "Request",
           },
         ]
       : [
@@ -582,6 +582,10 @@ export function TeachingDetail({
             );
             const profile =
               members.find((m) => m.memberId === member?.memberId) ?? member;
+            const hasAttendanceEntries =
+              roster?.entries.some(
+                (entry) => entry.enrollmentStatus === "CONFIRMED",
+              ) ?? false;
             const attendanceOpen =
               roster &&
               writable &&
@@ -876,7 +880,7 @@ export function TeachingDetail({
                             );
                           })}
                       </div>
-                      {!roster.entries.length && (
+                      {!hasAttendanceEntries && (
                         <Empty
                           sport={course.sportName}
                           text={
@@ -965,11 +969,16 @@ export function TeachingDetail({
                       : "Read only. Only the assigned coach can update this content."}
                   </p>
                 )}
-                {!fullPage && (
-                  <div className={styles.detailSticker} aria-hidden="true">
-                    <CourseSticker sport={course.sportName} compact />
-                  </div>
-                )}
+                {!fullPage &&
+                  !(
+                    tab === "attendance" &&
+                    roster &&
+                    !hasAttendanceEntries
+                  ) && (
+                    <div className={styles.detailSticker} aria-hidden="true">
+                      <CourseSticker sport={course.sportName} compact />
+                    </div>
+                  )}
               </>
             );
           }}

@@ -9,7 +9,8 @@ public sealed class ClassSessionChangeRequestConfiguration : IEntityTypeConfigur
     public void Configure(EntityTypeBuilder<ClassSessionChangeRequest> b)
     {
         b.ToTable("class_session_change_requests", t => {
-            t.HasCheckConstraint("ck_class_change_type", "type IN ('SUBSTITUTE','RESCHEDULE','CANCEL_WITH_MAKEUP')");
+            t.HasCheckConstraint("ck_class_change_type", "type IN ('ABSENCE','SUBSTITUTE','RESCHEDULE','CANCEL_WITH_MAKEUP')");
+            t.HasCheckConstraint("ck_class_absence_no_proposal", "type <> 'ABSENCE' OR (proposed_start_at_utc IS NULL AND proposed_end_at_utc IS NULL)");
             t.HasCheckConstraint("ck_class_change_status", "status IN ('PENDING','RESOLVED','REJECTED','WITHDRAWN')");
         });
         b.HasKey(x => x.RequestId);
@@ -19,6 +20,7 @@ public sealed class ClassSessionChangeRequestConfiguration : IEntityTypeConfigur
         b.Property(x => x.Reason).HasMaxLength(500);
         b.Property(x => x.ReviewNote).HasMaxLength(500);
         b.Property(x => x.ResolutionType).HasMaxLength(32);
+        b.Property(x => x.OutcomeSnapshotJson).HasColumnType("text");
         b.HasOne(x => x.Session).WithMany().HasForeignKey(x => x.SessionId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne(x => x.RequestedBy).WithMany().HasForeignKey(x => x.RequestedByUserId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne<UserAccount>().WithMany().HasForeignKey(x => x.ReviewedByUserId).OnDelete(DeleteBehavior.Restrict);

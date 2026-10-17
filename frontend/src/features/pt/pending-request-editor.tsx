@@ -5,13 +5,7 @@ import { Dialog, Feedback } from "@/components/ui";
 import { useAction, useNow } from "@/lib/useApi";
 import { ApiError } from "@/lib/apiClient";
 import { formatDateTime } from "@/lib/format";
-import { vietnamLocal, vietnamUtc } from "@/lib/vietnam-time";
-import {
-  classChangeApi,
-  changeTypeLabel,
-  type ClassChangeRequest,
-  type ClassChangeType,
-} from "./class-change-api";
+import { classChangeApi, type ClassChangeRequest } from "./class-change-api";
 import styles from "./class-change.module.css";
 
 export function PendingRequestEditor({
@@ -25,25 +19,18 @@ export function PendingRequestEditor({
   onSaved: () => void;
   onUnavailable: (message: string) => void;
 }) {
-  const [type, setType] = useState(request.type);
   const [reason, setReason] = useState(request.reason);
-  const initialStart = request.proposedStartAtUtc
-    ? vietnamLocal(request.proposedStartAtUtc)
-    : "";
-  const [start, setStart] = useState(initialStart);
   const action = useAction();
   const lock = useRef(false);
   const now = useNow(1000);
   const future =
     request.status === "PENDING" &&
     Date.parse(request.originalStartAtUtc) > now;
-  const cancellationOpen =
+  const absenceOpen =
     Date.parse(request.originalStartAtUtc) - now >= 6 * 3600000;
-  const allowed = future && (type !== "CANCEL_WITH_MAKEUP" || cancellationOpen);
-  const dirty =
-    type !== request.type ||
-    reason !== request.reason ||
-    start !== initialStart;
+  const allowed = future && absenceOpen;
+  const dirty = reason !== request.reason;
+  const changed = dirty || request.type !== "ABSENCE";
 
   function close() {
     if (action.busy) return;
@@ -56,22 +43,13 @@ export function PendingRequestEditor({
     lock.current = true;
     try {
       const saved = await action.run(async () => {
-        const proposedStartAtUtc =
-          type !== "SUBSTITUTE" && start ? vietnamUtc(start) : null;
-        const proposedEndAtUtc = proposedStartAtUtc
-          ? new Date(
-              Date.parse(proposedStartAtUtc) +
-                Date.parse(request.originalEndAtUtc) -
-                Date.parse(request.originalStartAtUtc),
-            ).toISOString()
-          : null;
         try {
           return await classChangeApi.update(request.requestId, {
             requestId: request.requestId,
-            type,
+            type: "ABSENCE",
             reason: reason.trim(),
-            proposedStartAtUtc,
-            proposedEndAtUtc,
+            proposedStartAtUtc: null,
+            proposedEndAtUtc: null,
           });
         } catch (error) {
           if (
@@ -99,7 +77,7 @@ export function PendingRequestEditor({
   return (
     <Dialog
       title="Edit pending request"
-      description="Update the request sent to your Manager. Your teaching schedule changes only after approval."
+      description="Update your reason for absence. Your Manager decides on a substitute, reschedule or makeup."
       onClose={close}
       footer={
         <div className={styles.actions}>
@@ -115,7 +93,9 @@ export function PendingRequestEditor({
             className="btn"
             type="submit"
             form="pending-request-edit"
-            disabled={action.busy || !allowed || !dirty}
+            disabled={
+              action.busy || !allowed || !changed || reason.trim().length < 3
+            }
           >
             {action.busy ? "Saving changes…" : "Save changes"}
           </button>
@@ -130,28 +110,12 @@ export function PendingRequestEditor({
         {formatDateTime(request.originalStartAtUtc)}
       </p>
       <form id="pending-request-edit" className={styles.form} onSubmit={save}>
-        <label>
-          Requested change
-          <select
-            value={type}
-            disabled={action.busy || !future}
-            onChange={(e) => setType(e.target.value as ClassChangeType)}
-          >
-            {(["SUBSTITUTE", "RESCHEDULE", "CANCEL_WITH_MAKEUP"] as const).map(
-              (option) => (
-                <option
-                  key={option}
-                  value={option}
-                  disabled={
-                    option === "CANCEL_WITH_MAKEUP" && !cancellationOpen
-                  }
-                >
-                  {changeTypeLabel(option, false)}
-                </option>
-              ),
-            )}
-          </select>
-        </label>
+        {request.type !== "ABSENCE" && (
+          <p className={styles.hint}>
+            Saving converts this earlier request to an absence request. Your
+            Manager will choose the resolution.
+          </p>
+        )}
         <label>
           Reason
           <textarea
@@ -160,31 +124,20 @@ export function PendingRequestEditor({
             maxLength={500}
             rows={4}
             value={reason}
-            disabled={action.busy || !future}
+            disabled={action.busy || !allowed}
             onChange={(e) => setReason(e.target.value)}
           />
         </label>
-        {type !== "SUBSTITUTE" && (
-          <label>
-            Suggested start (optional)
-            <input
-              type="datetime-local"
-              value={start}
-              disabled={action.busy || !future}
-              onChange={(e) => setStart(e.target.value)}
-            />
-            <small>Vietnam time. Session duration stays unchanged.</small>
-          </label>
-        )}
         {!future && (
           <p role="status">
-            This session has started. Its request can no longer be edited.
+            This request is no longer pending or its session has started. It can
+            no longer be edited.
           </p>
         )}
         {future && !allowed && (
           <p role="status">
-            Cancellation requires at least 6 hours’ notice. You can request a
-            reschedule or substitute.
+            Absence requests must be sent or edited at least 6 hours before
+            class. Contact your Manager directly for urgent absences.
           </p>
         )}
         <Feedback error={action.error} />

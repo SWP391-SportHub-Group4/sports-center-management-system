@@ -14,7 +14,8 @@ public sealed class ClassScheduleEffects(ISportHubDbContext db, IUserAccessReade
     INotificationWriter notifications, IAuditWriter audit, IClock clock)
 {
     public async Task ApplyAsync(Class cls, ClassSession session, Guid actorId, Guid oldCoachId,
-        Guid resultSessionId, Guid nextCoachId, string message, CancellationToken ct)
+        Guid resultSessionId, Guid nextCoachId, string message, CancellationToken ct,
+        string outcomeAction = "SCHEDULE_UPDATED", string? outcomeReason = null)
     {
         var requests = await db.Set<ClassSessionChangeRequest>()
             .Where(r => r.SessionId == session.SessionId && r.Status == "PENDING")
@@ -28,6 +29,8 @@ public sealed class ClassScheduleEffects(ISportHubDbContext db, IUserAccessReade
             request.ReviewedAtUtc = clock.UtcNow;
             request.ReviewNote = "Closed automatically — schedule updated by Manager.";
             request.ResultSessionId = resultSessionId;
+            request.OutcomeSnapshotJson = await ClassChangeOutcomeSnapshot.CaptureAsync(db, users,
+                resultSessionId, actorId, outcomeAction, outcomeReason ?? message, ct);
             audit.Write(new(actorId, "AUTO_CLOSE_CLASS_SESSION_CHANGE_REQUEST", nameof(ClassSessionChangeRequest), request.RequestId.ToString(),
                 OldValue: "{\"status\":\"PENDING\"}", NewValue: JsonSerializer.Serialize(new { request.Status, request.ResolutionType, resultSessionId }),
                 Reason: request.ReviewNote));

@@ -205,14 +205,18 @@ export function PaymentResult({
             <dd>{formatMoney(checkout.totalAmount)}</dd>
           </div>
         </dl>
-        <Link
-          href={invoiceHref}
-          className={buttonClass({ variant: "secondary", block: true })}
-        >
-          View invoice
-          <ArrowRight size={16} aria-hidden="true" />
-        </Link>
-        {paid && <DownloadInvoiceButton invoiceId={checkout.invoiceId} />}
+        <div className={styles.invoiceActions}>
+          <Link
+            href={invoiceHref}
+            className={buttonClass({ variant: "secondary", block: true })}
+          >
+            View invoice
+            <ArrowRight size={16} aria-hidden="true" />
+          </Link>
+          {paid && (
+            <DownloadInvoiceButton invoiceId={checkout.invoiceId} block />
+          )}
+        </div>
         {complete ? (
           <p className={styles.assurance}>
             <ShieldCheck size={16} aria-hidden="true" />

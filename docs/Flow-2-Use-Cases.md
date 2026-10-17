@@ -464,15 +464,15 @@ Hướng dẫn từng bước: [Flow-2-Manual-Test-Guide.md](Flow-2-Manual-Test-
 
 ## F. Yêu cầu điều chỉnh lịch của coach
 
-### UC-F2-41 — Tạo yêu cầu điều chỉnh lịch
+### UC-F2-41 — Gửi yêu cầu vắng buổi học
 
 | Mục | Nội dung |
 |---|---|
 | Tác nhân | Coach được phân công |
 | Mức ưu tiên | Required |
-| Tiền điều kiện | Buổi Scheduled ở tương lai; khóa hoạt động; chưa có yêu cầu PENDING cho buổi. |
-| Luồng chính | 1. Mở buổi và chọn Create request.<br>2. Chọn SUBSTITUTE, RESCHEDULE hoặc CANCEL_WITH_MAKEUP.<br>3. Nhập lý do 3–500 ký tự và phương án thời gian/coach nếu có.<br>4. Hệ thống kiểm tra quyền, thời hạn và phương án.<br>5. Lưu PENDING, khóa yêu cầu trùng và thông báo Center Manager. |
-| Luồng thay thế / ngoại lệ | a. Hủy kèm học bù phải gửi ít nhất 6 giờ trước giờ bắt đầu.<br>b. Các loại còn lại phải gửi trước buổi; lịch đề xuất giữ thời lượng và ở tương lai.<br>c. Yêu cầu trùng cùng buổi hoặc UUID có payload khác: từ chối; gửi lặp hợp lệ không tạo bản sao. |
+| Tiền điều kiện | Buổi Scheduled của khóa hoạt động, bắt đầu sau ít nhất 6 giờ; Coach đang được phân công; chưa có PENDING cho buổi. |
+| Luồng chính | 1. Mở Schedule → buổi → Request → Request absence.<br>2. Nhập Reason, 3–500 ký tự; không chọn phương án xử lý hay giờ mới.<br>3. Chọn Send request.<br>4. Hệ thống kiểm tra quyền, mốc 6 giờ và chống trùng.<br>5. Lưu ABSENCE/PENDING, snapshot buổi gốc và thông báo Center Manager. |
+| Luồng thay thế / ngoại lệ | a. Dưới 6 giờ: khóa gửi, hướng dẫn liên hệ Manager trực tiếp; API trả class_absence_deadline.<br>b. Absence chứa giờ đề xuất: từ chối.<br>c. Yêu cầu trùng cùng buổi hoặc UUID có payload khác: từ chối; retry hợp lệ không tạo bản sao. |
 | Hậu điều kiện | Có yêu cầu chờ xử lý; lịch gốc chưa bị thay đổi. |
 
 ### UC-F2-42 — Sửa yêu cầu đang chờ
@@ -482,8 +482,8 @@ Hướng dẫn từng bước: [Flow-2-Manual-Test-Guide.md](Flow-2-Manual-Test-
 | Tác nhân | Coach gửi yêu cầu |
 | Mức ưu tiên | Required |
 | Tiền điều kiện | Yêu cầu của coach ở PENDING và còn đủ điều kiện thời gian. |
-| Luồng chính | 1. Coach mở Requests → chọn yêu cầu Pending → Edit pending request; hoặc Teaching schedule → buổi → Schedule adjustment → Edit pending request.<br>2. Hộp sửa điền sẵn Requested change, Reason và Suggested start (optional).<br>3. Coach sửa nội dung rồi chọn Save changes.<br>4. Backend kiểm tra owner, buổi tương lai, phân công hiện tại, mốc 6 giờ cho Cancel & makeup và snapshot lịch.<br>5. Cập nhật cùng requestId, giữ người gửi/ngày tạo, thông báo lại cho Manager và tải trạng thái mới. |
-| Luồng thay thế / ngoại lệ | a. Approved/Rejected/Cancel hoặc buổi đã bắt đầu: không có thao tác sửa; API vẫn kiểm quyền.<br>b. Cancel & makeup dưới 6 giờ: không lưu phương án đó; vẫn có thể đề nghị Reschedule/Substitute trước buổi.<br>c. Manager xử lý/đổi lịch khi form đang mở: API từ chối, form đóng và hiển thị trạng thái mới.<br>d. Lỗi mạng/validation: giữ nội dung form để sửa hoặc thử lại; không đổi lịch trực tiếp. |
+| Luồng chính | 1. Coach mở menu thông tin cá nhân → Requests → Pending → Edit pending request; hoặc Schedule → buổi → Request → Edit pending request.<br>2. Form điền sẵn Reason.<br>3. Coach sửa lý do rồi chọn Save changes.<br>4. Backend kiểm tra owner, phân công hiện tại, mốc trước buổi ít nhất 6 giờ và snapshot lịch.<br>5. Cập nhật ABSENCE cùng requestId, giữ người gửi/ngày tạo, thông báo lại Manager và tải trạng thái mới. |
+| Luồng thay thế / ngoại lệ | a. Approved/Rejected/Cancel hoặc buổi đã bắt đầu: không sửa được.<br>b. Dưới 6 giờ: không lưu, liên hệ Manager; vẫn có thể rút Pending.<br>c. Manager xử lý/đổi lịch khi form đang mở: API từ chối, form đóng và hiển thị trạng thái mới.<br>d. Lỗi mạng/validation: giữ nội dung.<br>e. Pending loại cũ: form báo rõ khi lưu sẽ chuyển sang Absence và xóa đề xuất giờ; lịch sử đã xử lý giữ nguyên. |
 | Hậu điều kiện | Yêu cầu vẫn Pending, nội dung mới được lưu vào cùng bản ghi; lịch dạy chỉ đổi sau quyết định hợp lệ của Manager. |
 
 ### UC-F2-43 — Rút yêu cầu điều chỉnh
@@ -504,9 +504,9 @@ Hướng dẫn từng bước: [Flow-2-Manual-Test-Guide.md](Flow-2-Manual-Test-
 | Tác nhân | Coach, Center Manager |
 | Mức ưu tiên | Required |
 | Tiền điều kiện | Đã đăng nhập; coach xem yêu cầu của mình, Manager xem trong quyền quản lý. |
-| Luồng chính | 1. Mở mục yêu cầu trên navbar; Manager vào Lịch hoạt động → Yêu cầu đổi lịch lớp.<br>2. Xem toàn bộ yêu cầu, mới nhất trước.<br>3. Phân biệt trạng thái bằng nhãn/màu.<br>4. Mở chi tiết để xem lý do, phương án và lịch sử quyết định.<br>Với Pending tương lai, Edit pending request mở hộp sửa ngay trong Requests. Với request tự đóng, hiển thị Closed automatically — schedule updated by Manager., không mô tả là Coach chủ động rút. |
+| Luồng chính | 1. Coach mở menu avatar/tên → Requests; Manager vào Activity calendar → Class change requests.<br>2. Xem yêu cầu, mới nhất trước.<br>3. Phân biệt trạng thái bằng nhãn/màu.<br>4. Xem lý do và phương án Manager quyết định; yêu cầu loại cũ vẫn hiển thị lịch sử.<br>Pending còn trước buổi ít nhất 6 giờ có Edit pending request. Request tự đóng hiển thị Closed automatically — schedule updated by Manager., không mô tả là Coach chủ động rút. |
 | Luồng thay thế / ngoại lệ | a. Nhãn UI Pending/Approved/Rejected/Cancel tương ứng PENDING/RESOLVED/REJECTED/WITHDRAWN.<br>b. Không có yêu cầu: hiển thị trạng thái trống.<br>c. Không có quyền xem: từ chối; màu không thay thế nhãn chữ. |
-| Hậu điều kiện | Người dùng biết tình trạng xử lý; thao tác xem không thay lịch. |
+| Hậu điều kiện | Người dùng biết tình trạng xử lý; thao tác xem không thay lịch. Request outcome dùng chung cho Requests và chi tiết buổi: đã xử lý hiển thị phương án thực tế, lịch sau xử lý, Coach, sân/phòng, người xử lý, thời điểm và lý do. Kết quả mới là snapshot tại thời điểm xử lý; yêu cầu cũ thiếu snapshot hiển thị lịch hiện tại với cảnh báo rõ. WITHDRAWN/SCHEDULE_UPDATED mang nhãn Closed để phân biệt Coach rút yêu cầu. |
 
 ### UC-F2-45 — Phê duyệt và thực hiện điều chỉnh
 

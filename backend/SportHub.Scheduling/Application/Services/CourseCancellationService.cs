@@ -115,7 +115,8 @@ public sealed class CourseCancellationService(ISportHubDbContext db, IRefundCred
             await occupancy.ReleaseAsync(OccupancySources.ClassSession, session.SessionId, ct);
             await new ClassScheduleEffects(db, users, notifications, audit, clock).ApplyAsync(course, session, actorId,
                 session.CoachId, session.SessionId, session.CoachId,
-                $"Session {session.SessionNo} · {course.Name} was cancelled because the course was cancelled. Reason: {request.Reason.Trim()}", ct);
+                $"Session {session.SessionNo} · {course.Name} was cancelled because the course was cancelled. Reason: {request.Reason.Trim()}", ct,
+                "COURSE_CANCELLED", request.Reason.Trim());
         }
         var pendingResponses = await db.Set<ThresholdResponse>().Where(x => x.ClassId == classId
             && (x.ResolutionStatus == ThresholdResolutionStatus.Pending || x.ResolutionStatus == ThresholdResolutionStatus.AwaitingPayment)).ToListAsync(ct);

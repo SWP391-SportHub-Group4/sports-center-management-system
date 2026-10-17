@@ -21,6 +21,7 @@ import {
   IconClose,
   IconSettings,
   IconUser,
+  IconClipboard,
 } from "@/components/icons";
 import shell from "./MemberShell.module.css";
 import styles from "./AppShell.module.css";
@@ -130,7 +131,6 @@ export function getNavForUser(user: {
     { href: "/coach/schedule", labelKey: "teachingSchedule" },
     { href: "/coach/classes", labelKey: "assignedClasses" },
     { href: "/coach/members", labelKey: "classStudents" },
-    { href: "/coach/change-requests", labelKey: "changeRequests" },
   ];
 }
 
@@ -551,6 +551,25 @@ export function AppFrame({
                     <IconUser size={15} />
                     <span>{t.navigation.myAccount}</span>
                   </Link>
+                  {user.role === "Coach" && (
+                    <Link
+                      href="/coach/change-requests"
+                      className={`${shell.dropdownItem} ${styles.profileItem}`}
+                      aria-current={
+                        isActiveHref(
+                          pathname,
+                          "/coach/change-requests",
+                          "/coach",
+                        )
+                          ? "page"
+                          : undefined
+                      }
+                      onClick={() => setUserMenu(false)}
+                    >
+                      <IconClipboard size={15} aria-hidden="true" />
+                      <span>{t.navigation.items.changeRequests}</span>
+                    </Link>
+                  )}
                   {user.role === "CenterManager" && (
                     <Link
                       href="/manager/settings"

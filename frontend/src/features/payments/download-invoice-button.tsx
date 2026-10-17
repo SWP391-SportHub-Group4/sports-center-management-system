@@ -5,13 +5,20 @@ import { Download } from "lucide-react";
 import { Button } from "@/components/primitives";
 import { downloadFile } from "@/lib/apiClient";
 
-export function DownloadInvoiceButton({ invoiceId }: { invoiceId: string }) {
+export function DownloadInvoiceButton({
+  invoiceId,
+  block = false,
+}: {
+  invoiceId: string;
+  block?: boolean;
+}) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   return (
     <div>
       <Button
         variant="secondary"
+        block={block}
         loading={busy}
         loadingLabel="Downloading invoice"
         onClick={async () => {

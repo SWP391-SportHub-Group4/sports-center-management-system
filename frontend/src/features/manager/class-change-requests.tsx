@@ -15,8 +15,10 @@ import {
   classChangeApi,
   changeTypeLabel,
   changeStatusLabel,
+  changeRequestStatusLabel,
+  RequestOutcome,
   type ClassChangeRequest,
-  type ClassChangeType,
+  type ClassChangeResolutionType,
   classChangeStyles as styles,
 } from "@/features/pt";
 
@@ -78,7 +80,7 @@ export function ManagerClassChangeRequests({
       <p className={styles.hint}>
         {vi
           ? "Xem lý do từ Coach và xác nhận phương án phù hợp. Học viên chỉ nhận thay đổi lịch sau khi xử lý thành công."
-          : "Review the Coach’s reason and confirm a suitable resolution. Students receive schedule changes only after the operation succeeds."}
+          : "Review the Coach’s absence request and choose a substitute, reschedule or makeup, or reject it. Students receive schedule changes only after the operation succeeds."}
       </p>
       <div className={styles.filters}>
         <label>
@@ -168,7 +170,7 @@ export function ManagerClassChangeRequests({
                       </small>
                     </span>
                     <span className={styles.status} data-status={r.status}>
-                      {changeStatusLabel(r.status, vi)}{" "}
+                      {changeRequestStatusLabel(r, vi)}{" "}
                       <ArrowRight size={14} aria-hidden="true" />
                     </span>
                   </button>
@@ -230,7 +232,9 @@ function ReviewDrawer({
   const vi = language === "vi";
   const action = useAction();
   const lock = useRef(false);
-  const [type, setType] = useState<ClassChangeType | "REJECT">(r.type);
+  const [type, setType] = useState<ClassChangeResolutionType | "REJECT" | "">(
+    r.type === "ABSENCE" ? "" : r.type,
+  );
   const [note, setNote] = useState("");
   const [start, setStart] = useState(
     r.proposedStartAtUtc ? vietnamLocal(r.proposedStartAtUtc) : "",
@@ -273,7 +277,7 @@ function ReviewDrawer({
   };
   async function submit(e: FormEvent) {
     e.preventDefault();
-    if (lock.current) return;
+    if (!type || lock.current) return;
     lock.current = true;
     try {
       const saved = await action.run(() =>
@@ -295,13 +299,13 @@ function ReviewDrawer({
   return (
     <Drawer
       size="lg"
-      title={vi ? "Xử lý yêu cầu đổi lịch" : "Review schedule change"}
+      title={vi ? "Xử lý yêu cầu" : "Review request"}
       description={`${r.className} · ${vi ? "Buổi" : "Session"} ${r.sessionNo}`}
       onClose={cancel}
     >
       <div className={styles.panel}>
         <span className={styles.status} data-status={r.status}>
-          {changeStatusLabel(r.status, vi)}
+          {changeRequestStatusLabel(r, vi)}
         </span>
         <div className={styles.facts}>
           <strong>
@@ -329,13 +333,19 @@ function ReviewDrawer({
             <label>
               {vi ? "Quyết định" : "Decision"}
               <select
+                required
                 value={type}
                 disabled={action.busy}
                 onChange={(e) => {
-                  setType(e.target.value as ClassChangeType | "REJECT");
+                  setType(
+                    e.target.value as ClassChangeResolutionType | "REJECT" | "",
+                  );
                   setCoach("");
                 }}
               >
+                <option value="" disabled>
+                  Select a resolution
+                </option>
                 {(
                   ["SUBSTITUTE", "RESCHEDULE", "CANCEL_WITH_MAKEUP"] as const
                 ).map((id) => (
@@ -348,7 +358,7 @@ function ReviewDrawer({
                 </option>
               </select>
             </label>
-            {type !== "REJECT" && (
+            {type && type !== "REJECT" && (
               <>
                 {type !== "SUBSTITUTE" && (
                   <label>
@@ -453,6 +463,7 @@ function ReviewDrawer({
                 className="btn"
                 disabled={
                   action.busy ||
+                  !type ||
                   note.trim().length < 3 ||
                   (type === "SUBSTITUTE" &&
                     (coaches.loading || !!coaches.error)) ||
@@ -481,15 +492,7 @@ function ReviewDrawer({
             </div>
           </form>
         ) : (
-          <div className={styles.facts}>
-            <strong>
-              {r.resolutionType
-                ? changeTypeLabel(r.resolutionType, vi)
-                : changeStatusLabel(r.status, vi)}
-            </strong>
-            <p>{r.reviewNote ?? r.reason}</p>
-            {r.reviewedAtUtc && <p>{formatDateTime(r.reviewedAtUtc)}</p>}
-          </div>
+          <RequestOutcome request={r} />
         )}
       </div>
     </Drawer>

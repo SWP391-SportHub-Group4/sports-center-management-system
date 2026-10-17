@@ -144,6 +144,8 @@ export const LABELS: Record<string, string> = {
 
   Pending: "Processing",
   Failed: "Failed",
+  Success: "Success",
+  Succeeded: "Success",
 };
 
 export function label(value: string | null | undefined): string {
@@ -164,6 +166,8 @@ export function chipTone(value: string | null | undefined): string {
   switch (key) {
     case "Active":
     case "Paid":
+    case "Success":
+    case "Succeeded":
     case "Confirmed":
     case "Present":
     case "Completed":

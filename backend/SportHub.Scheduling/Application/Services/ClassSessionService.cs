@@ -178,7 +178,8 @@ public sealed class ClassSessionService(
         var nextCoachName = (await users.GetAsync(coachId, ct))?.FullName ?? coachId.ToString();
         var message = $"Session {session.SessionNo} · {cls.Name}: {Local(oldStart)} → {Local(start)}. Coach: {oldCoachName} → {nextCoachName}. Room: {oldRoom} → {roomId}. Reason: {request.Reason.Trim()}";
         await NotifyEnrolledAsync(cls, Guid.NewGuid(), message, ct);
-        await scheduleEffects.ApplyAsync(cls, session, actorUserId, oldCoach, sessionId, coachId, message, ct);
+        await scheduleEffects.ApplyAsync(cls, session, actorUserId, oldCoach, sessionId, coachId, message, ct,
+            start != oldStart ? "RESCHEDULE" : coachId != oldCoach ? "SUBSTITUTE" : roomId != oldRoom ? "ROOM_CHANGED" : "SCHEDULE_UPDATED", request.Reason.Trim());
 
         await db.SaveChangesAsync(ct);
         if (tx != null) await tx.CommitAsync(ct);
@@ -264,7 +265,8 @@ public sealed class ClassSessionService(
         await NotifyEnrolledAsync(cls, newSession.SessionId,
             $"Session {session.SessionNo} ({Local(session.StartAtUtc)}) of course {cls.Name} was canceled and rescheduled for {Local(start)}. Reason: {request.Reason.Trim()}", ct);
         await scheduleEffects.ApplyAsync(cls, session, actorUserId, session.CoachId, newSession.SessionId, coachId,
-            $"Session {session.SessionNo} · {cls.Name} at {Local(session.StartAtUtc)} was cancelled. Makeup: {Local(start)}. Coach: {(await users.GetAsync(coachId, ct))?.FullName}. Reason: {request.Reason.Trim()}", ct);
+            $"Session {session.SessionNo} · {cls.Name} at {Local(session.StartAtUtc)} was cancelled. Makeup: {Local(start)}. Coach: {(await users.GetAsync(coachId, ct))?.FullName}. Reason: {request.Reason.Trim()}", ct,
+            "CANCEL_WITH_MAKEUP", request.Reason.Trim());
 
         await db.SaveChangesAsync(ct);
         if (tx != null) await tx.CommitAsync(ct);

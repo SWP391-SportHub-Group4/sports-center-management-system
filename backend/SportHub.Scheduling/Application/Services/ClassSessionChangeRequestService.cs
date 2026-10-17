@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using System.Linq.Expressions;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.Abstractions.Identity;
 using SportHub.BuildingBlocks.Abstractions.Audit;
@@ -23,12 +24,20 @@ public sealed record ClassChangeResponse(Guid RequestId, Guid SessionId, int Cla
     int SessionNo, Guid CoachId, string CoachName, string Type, string Reason, string Status,
     DateTime OriginalStartAtUtc, DateTime OriginalEndAtUtc, int OriginalRoomId,
     DateTime? ProposedStartAtUtc, DateTime? ProposedEndAtUtc, DateTime CreatedAtUtc,
-    DateTime? ReviewedAtUtc, string? ReviewNote, string? ResolutionType, Guid? ResultSessionId);
+    DateTime? ReviewedAtUtc, string? ReviewNote, string? ResolutionType, Guid? ResultSessionId,
+    [property: JsonIgnore] string? OutcomeSnapshotJson = null)
+{
+    public ClassChangeOutcome? Outcome => OutcomeSnapshotJson == null
+        ? null : JsonSerializer.Deserialize<ClassChangeOutcome>(OutcomeSnapshotJson);
+}
 
 public sealed class ClassSessionChangeRequestService(ISportHubDbContext db, IClassSessionService sessions,
     IUserAccessReader users, INotificationWriter notifications, IAuditWriter audit, IClock clock)
 {
-    private static bool ValidType(string type) => type is "SUBSTITUTE" or "RESCHEDULE" or "CANCEL_WITH_MAKEUP";
+    private static bool ValidResolutionType(string type) => type is "SUBSTITUTE" or "RESCHEDULE" or "CANCEL_WITH_MAKEUP";
+    // Older clients may still submit the former proposal types. New Coach requests
+    // use ABSENCE; only the Manager chooses a concrete schedule resolution.
+    private static bool ValidRequestType(string type) => type == "ABSENCE" || ValidResolutionType(type);
     private static string Reason(string? value) => value?.Trim() is { Length: >= 3 and <= 500 } text ? text
         : throw new BadRequestException("change_reason_required", "Change reason required.");
 
@@ -36,7 +45,7 @@ public sealed class ClassSessionChangeRequestService(ISportHubDbContext db, ICla
         r.RequestId, r.SessionId, r.Session.ClassId, r.Session.Class!.Name, r.Session.Class.SportId,
         r.Session.SessionNo, r.RequestedByUserId, r.RequestedBy.Profile == null ? r.RequestedBy.Email : r.RequestedBy.Profile.FullName,
         r.Type, r.Reason, r.Status, r.OriginalStartAtUtc, r.OriginalEndAtUtc, r.OriginalRoomId,
-        r.ProposedStartAtUtc, r.ProposedEndAtUtc, r.CreatedAtUtc, r.ReviewedAtUtc, r.ReviewNote, r.ResolutionType, r.ResultSessionId);
+        r.ProposedStartAtUtc, r.ProposedEndAtUtc, r.CreatedAtUtc, r.ReviewedAtUtc, r.ReviewNote, r.ResolutionType, r.ResultSessionId, r.OutcomeSnapshotJson);
 
     public async Task<object> ListAsync(Guid? coachId, string? status, int? classId, Guid? filterCoachId, Guid? sessionId,
         int page, CancellationToken ct)
@@ -52,14 +61,44 @@ public sealed class ClassSessionChangeRequestService(ISportHubDbContext db, ICla
         var totalCount = await query.CountAsync(ct);
         var items = await query.OrderByDescending(r => r.CreatedAtUtc).ThenBy(r => r.RequestId)
             .Skip((page - 1) * 50).Take(50).Select(Projection()).ToListAsync(ct);
-        return new { items, page, pageSize = 50, totalCount };
+        return new { items = await WithLegacyOutcomesAsync(items, ct), page, pageSize = 50, totalCount };
     }
 
-    public async Task<ClassChangeResponse> GetAsync(Guid id, Guid? coachId, CancellationToken ct) =>
-        await db.Set<ClassSessionChangeRequest>().AsNoTracking()
+    public async Task<ClassChangeResponse> GetAsync(Guid id, Guid? coachId, CancellationToken ct)
+    {
+        var item = await db.Set<ClassSessionChangeRequest>().AsNoTracking()
             .Where(r => r.RequestId == id && (coachId == null || r.RequestedByUserId == coachId))
             .Select(Projection()).SingleOrDefaultAsync(ct)
         ?? throw new NotFoundException("class_change_not_found", "Class change not found.");
+        return (await WithLegacyOutcomesAsync([item], ct))[0];
+    }
+
+    private async Task<IReadOnlyList<ClassChangeResponse>> WithLegacyOutcomesAsync(
+        IReadOnlyList<ClassChangeResponse> items, CancellationToken ct)
+    {
+        // Older records have the resolution type but no historical schedule snapshot.
+        // Return only the referenced session's current public schedule, explicitly
+        // marked CURRENT_SCHEDULE; do not pretend these are details from review time.
+        var ids = items.Where(r => r.OutcomeSnapshotJson == null && r.ResultSessionId != null
+                && (r.Status == "RESOLVED" || r.ResolutionType == "SCHEDULE_UPDATED"))
+            .Select(r => r.ResultSessionId!.Value).Distinct().ToArray();
+        if (ids.Length == 0) return items;
+        var sessions = await db.Set<ClassSession>().AsNoTracking().Where(s => ids.Contains(s.SessionId))
+            .Select(s => new {
+                s.SessionId, s.ClassId, s.SessionNo, s.StartAtUtc, s.EndAtUtc, s.CoachId, s.RoomId, s.Status,
+                RoomName = s.Room == null ? null : s.Room.Name,
+                CoachName = db.Set<UserAccount>().Where(u => u.UserId == s.CoachId)
+                    .Select(u => u.Profile == null ? null : u.Profile.FullName).FirstOrDefault()
+            }).ToDictionaryAsync(s => s.SessionId, ct);
+        return items.Select(r => {
+            if (r.OutcomeSnapshotJson != null || r.ResultSessionId is not Guid resultId
+                || (r.Status != "RESOLVED" && r.ResolutionType != "SCHEDULE_UPDATED")
+                || !sessions.TryGetValue(resultId, out var s) || s.ClassId != r.ClassId) return r;
+            return r with { OutcomeSnapshotJson = JsonSerializer.Serialize(new ClassChangeOutcome(
+                r.ResolutionType ?? "SCHEDULE_UPDATED", s.SessionId, s.SessionNo, s.StartAtUtc, s.EndAtUtc,
+                s.CoachId, s.CoachName, s.RoomId, s.RoomName, null, r.ReviewNote ?? "", "CURRENT_SCHEDULE", s.Status.ToString())) };
+        }).ToArray();
+    }
 
     public async Task<object> FiltersAsync(CancellationToken ct)
     {
@@ -87,6 +126,13 @@ public sealed class ClassSessionChangeRequestService(ISportHubDbContext db, ICla
 
     private void ValidateProposal(ClassSession s, CreateClassChangeRequest input)
     {
+        if (input.Type == "ABSENCE") {
+            if (s.StartAtUtc - clock.UtcNow < TimeSpan.FromHours(6))
+                throw new ConflictException("class_absence_deadline", "Absence requests must be submitted or edited at least 6 hours before the session starts. Contact your Manager directly for urgent absences.");
+            if (input.ProposedStartAtUtc.HasValue || input.ProposedEndAtUtc.HasValue)
+                throw new BadRequestException("absence_proposal_not_allowed", "The Manager chooses the replacement coach or new session time for an absence request.");
+            return;
+        }
         if (input.Type == "CANCEL_WITH_MAKEUP" && s.StartAtUtc - clock.UtcNow < TimeSpan.FromHours(6))
             throw new ConflictException("class_cancel_deadline", "Cancellation requests must be submitted at least 6 hours before the session starts.");
         if ((input.ProposedStartAtUtc.HasValue != input.ProposedEndAtUtc.HasValue)
@@ -99,7 +145,7 @@ public sealed class ClassSessionChangeRequestService(ISportHubDbContext db, ICla
     public async Task<ClassChangeResponse> CreateAsync(Guid sessionId, Guid coachId, CreateClassChangeRequest input, CancellationToken ct)
     {
         var reason = Reason(input.Reason);
-        if (input.RequestId == Guid.Empty || !ValidType(input.Type))
+        if (input.RequestId == Guid.Empty || !ValidRequestType(input.Type))
             throw new BadRequestException("class_change_invalid", "Class change invalid.");
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         var s = await LockSessionAsync(sessionId, ct);
@@ -123,7 +169,7 @@ public sealed class ClassSessionChangeRequestService(ISportHubDbContext db, ICla
         db.Set<ClassSessionChangeRequest>().Add(record);
         var managers = await db.Set<UserAccount>().Where(u => u.Status == UserStatus.Active && u.Role!.RoleName == UserRole.CenterManager).Select(u => u.UserId).ToListAsync(ct);
         foreach (var id in managers) notifications.Queue(new(id, NotificationEvents.ClassSessionChangeRequested,
-            $"{actor.FullName} requested a change to session {s.SessionNo} · {s.Class!.Name}. Reason: {reason}", record.RequestId));
+            $"{actor.FullName} {(input.Type == "ABSENCE" ? "requested an absence for" : "requested a change to")} session {s.SessionNo} · {s.Class!.Name}. Reason: {reason}", record.RequestId));
         WriteAudit(coachId, "CREATE", record);
         await db.SaveChangesAsync(ct); await tx.CommitAsync(ct);
         return await GetAsync(record.RequestId, coachId, ct);
@@ -154,7 +200,7 @@ public sealed class ClassSessionChangeRequestService(ISportHubDbContext db, ICla
     public async Task<ClassChangeResponse> UpdateAsync(Guid id, Guid coachId, CreateClassChangeRequest input, CancellationToken ct)
     {
         var reason = Reason(input.Reason);
-        if (input.RequestId != id || !ValidType(input.Type))
+        if (input.RequestId != id || !ValidRequestType(input.Type))
             throw new BadRequestException("class_change_invalid", "Class change invalid.");
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         var (r, s) = await LockRequestAsync(id, coachId, ct);
@@ -173,7 +219,7 @@ public sealed class ClassSessionChangeRequestService(ISportHubDbContext db, ICla
         var updateEventId = Guid.NewGuid();
         foreach (var manager in managers)
             notifications.Queue(new(manager, NotificationEvents.ClassSessionChangeRequested,
-                $"{actor.FullName} updated the change request for session {s.SessionNo} · {s.Class!.Name}. Reason: {reason}", updateEventId));
+                $"{actor.FullName} updated the {(input.Type == "ABSENCE" ? "absence" : "change")} request for session {s.SessionNo} · {s.Class!.Name}. Reason: {reason}", updateEventId));
         WriteAudit(coachId, "UPDATE", r);
         await db.SaveChangesAsync(ct); await tx.CommitAsync(ct);
         return await GetAsync(id, coachId, ct);
@@ -191,7 +237,7 @@ public sealed class ClassSessionChangeRequestService(ISportHubDbContext db, ICla
             EnsureEditable(s);
             if (s.CoachId != r.RequestedByUserId || s.StartAtUtc != r.OriginalStartAtUtc || s.EndAtUtc != r.OriginalEndAtUtc || s.RoomId != r.OriginalRoomId)
                 throw new ConflictException("class_change_stale", "Class change stale.");
-            if (!ValidType(input.Type) || (input.Type != "SUBSTITUTE" && (!input.StartAtUtc.HasValue || input.StartAtUtc.Value.Kind != DateTimeKind.Utc))
+            if (!ValidResolutionType(input.Type) || (input.Type != "SUBSTITUTE" && (!input.StartAtUtc.HasValue || input.StartAtUtc.Value.Kind != DateTimeKind.Utc))
                 || (input.Type == "SUBSTITUTE" && (!input.CoachId.HasValue || input.CoachId == s.CoachId)))
                 throw new BadRequestException("class_resolution_invalid", "Class resolution invalid.");
             r.Status = "RESOLVED"; r.ResolutionType = input.Type;
@@ -205,6 +251,8 @@ public sealed class ClassSessionChangeRequestService(ISportHubDbContext db, ICla
                     CoachId = input.CoachId, RoomId = input.Type == "SUBSTITUTE" ? s.RoomId : input.RoomId, Reason = note }, managerId, ct);
                 r.ResultSessionId = s.SessionId;
             }
+            r.OutcomeSnapshotJson = await ClassChangeOutcomeSnapshot.CaptureAsync(db, users,
+                r.ResultSessionId!.Value, managerId, input.Type, note, ct);
         } else r.Status = "REJECTED";
         r.ReviewedByUserId = managerId; r.ReviewedAtUtc = clock.UtcNow; r.ReviewNote = note;
         await NotifyCoachAsync(r.RequestedByUserId, NotificationEvents.ClassSessionChangeReviewed, r.RequestId,

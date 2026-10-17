@@ -2664,6 +2664,10 @@ namespace SportHub.API.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("original_start_at_utc");
 
+                    b.Property<string>("OutcomeSnapshotJson")
+                        .HasColumnType("text")
+                        .HasColumnName("outcome_snapshot_json");
+
                     b.Property<DateTime?>("ProposedEndAtUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("proposed_end_at_utc");
@@ -2744,7 +2748,9 @@ namespace SportHub.API.Migrations
                         {
                             t.HasCheckConstraint("ck_class_change_status", "status IN ('PENDING','RESOLVED','REJECTED','WITHDRAWN')");
 
-                            t.HasCheckConstraint("ck_class_change_type", "type IN ('SUBSTITUTE','RESCHEDULE','CANCEL_WITH_MAKEUP')");
+                            t.HasCheckConstraint("ck_class_absence_no_proposal", "type <> 'ABSENCE' OR (proposed_start_at_utc IS NULL AND proposed_end_at_utc IS NULL)");
+
+                            t.HasCheckConstraint("ck_class_change_type", "type IN ('ABSENCE','SUBSTITUTE','RESCHEDULE','CANCEL_WITH_MAKEUP')");
                         });
                 });
 
