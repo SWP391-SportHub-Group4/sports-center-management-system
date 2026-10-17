@@ -6,6 +6,7 @@ using SportHub.Identity.Domain.Enums;
 using SportHub.Payment.Application.Services;
 using SportHub.Payment.Wallet.Application;
 using SportHub.Scheduling.Domain.Enums;
+using SportHub.Scheduling.Application.Interfaces;
 using SportHub.Scheduling.Threshold.Application;
 using SportHub.Scheduling.Threshold.Domain;
 
@@ -70,6 +71,23 @@ public sealed class ThresholdExpiryTests(SchedulingApiFactory factory)
             Assert.Equal(response.DeadlineUtc, stored.ThresholdResponseDeadlineUtc);
             return 0;
         });
+    }
+
+    [Fact]
+    public async Task Public_course_closes_new_registration_after_threshold_response_deadline()
+    {
+        var course = await CourseTestData.CreateAsync(factory);
+        await factory.QueryAsync(async db =>
+        {
+            await db.Classes.Where(x => x.ClassId == course.Id).ExecuteUpdateAsync(s => s
+                .SetProperty(x => x.ThresholdStatus, ThresholdStatus.AtRisk)
+                .SetProperty(x => x.ThresholdResponseDeadlineUtc, DateTime.UtcNow.AddMinutes(-1)));
+            return 0;
+        });
+        using var scope = factory.Services.CreateScope();
+        var publicCourse = await scope.ServiceProvider.GetRequiredService<IClassService>().GetPublicAsync(course.Id);
+        Assert.True(publicCourse.ThresholdResponseClosed);
+        Assert.False(publicCourse.EnrollmentOpen);
     }
 
     [Fact]

@@ -47,6 +47,8 @@ public sealed class MemberCourseNotificationService(SportHubDbContext db, INotif
                                   && course.Status == ClassStatus.Published && course.EnrollmentOpen
                                   && course.PublishedAt > interest.CreatedAtUtc && course.PublishedAt <= now
                                   && course.ReservedCount < course.Capacity
+                                  && !db.Enrollments.Any(e => e.ClassId == course.ClassId && e.MemberId == interest.MemberId
+                                      && e.Status == EnrollmentStatus.Confirmed && e.EndedAt == null)
                                   && course.Sessions.Any(s => s.Status == ClassSessionStatus.Scheduled)
                                   && !course.Sessions.Any(s => s.Status != ClassSessionStatus.Cancelled && s.StartAtUtc <= now)
                               select new { interest.MemberId, course.ClassId, course.Name }).Distinct().ToListAsync(ct);

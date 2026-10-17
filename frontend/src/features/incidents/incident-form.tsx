@@ -2,7 +2,7 @@
 import { DeliveryStatus } from "./delivery-status";
 import { createPortal } from "react-dom";
 import styles from "./incidents.module.css";
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ApiError } from "@/lib/apiClient";
@@ -26,7 +26,14 @@ import {
   type IncidentStep,
   type StepStatus,
 } from "./incident-progress";
-export function IncidentForm() {
+export function IncidentForm({
+  onFencesChanged,
+  aboveForm,
+}: {
+  onFencesChanged?: () => void;
+  /** Shown under the intro and above the form (the incidents already in progress). */
+  aboveForm?: ReactNode;
+}) {
   const { t, language } = useLanguage();
   const vi = language === "vi";
   const l = t.operations;
@@ -39,13 +46,16 @@ export function IncidentForm() {
   const impactsRef = useRef<HTMLElement>(null);
   const [now, setNow] = useState(Date.now);
   const [steps, setSteps] = useState<IncidentStep[]>([]);
-  const [scope, setScope] = useState("ROOM");
+  const [scope, setScope] = useState(
+    params.get("scope") === "CENTER" ? "CENTER" : "ROOM",
+  );
   const [roomId, setRoom] = useState(
     /^\d+$/.test(params.get("roomId") ?? "") ? params.get("roomId")! : "",
   );
   const [start, setStart] = useState(params.get("start") ?? "");
   const [end, setEnd] = useState(params.get("end") ?? "");
-  const [reason, setReason] = useState("");
+  const [reason, setReason] = useState(params.get("reason") ?? "");
+  const [held, setHeld] = useState(false);
   // null = Manager has not edited the value, so the server's suggestion is used.
   const [extensionDays, setExtensionDays] = useState<string | null>(null);
   const [review, setReview] = useState<{
@@ -119,8 +129,17 @@ export function IncidentForm() {
     setExtensionDays(null);
     setReview(null);
     setIncidentId("");
+    setHeld(false);
     mutation.reset();
     setFinalReview(false);
+  }
+  async function holdWindow() {
+    if (!review) return;
+    await mutation.run(async () => {
+      await incidentApi.openFence(review.body);
+      setHeld(true);
+      onFencesChanged?.();
+    }, "");
   }
   async function preview(final = false) {
     const currentTime = Date.now();
@@ -155,6 +174,7 @@ export function IncidentForm() {
   return (
     <div className={styles.page}>
       <p className={styles.intro}>{t.incidentHistory.intro}</p>
+      {aboveForm}
       <Card
         title={incidentId ? l.resolved : t.incidentHistory.formTitle}
         hint={!incidentId ? t.incidentHistory.formHint : undefined}
@@ -292,6 +312,23 @@ export function IncidentForm() {
               }}
               disabled={mutation.busy || uncertain || !!incidentId}
             />
+            {!review.preview.canResolve && (
+              <div className={styles.hold}>
+                <p className="small muted">
+                  {held ? c.holdWindowDone : c.holdWindowHint}
+                </p>
+                {!held && (
+                  <button
+                    type="button"
+                    className="btn btn--secondary"
+                    disabled={mutation.busy || uncertain}
+                    onClick={() => void holdWindow()}
+                  >
+                    {c.holdWindow}
+                  </button>
+                )}
+              </div>
+            )}
             {!finalReview && (
               <div className={styles.actions}>
                 <button
@@ -426,6 +463,7 @@ export function IncidentForm() {
                               throw error;
                             });
                           setIncidentId(response.incidentId);
+                          onFencesChanged?.();
                           setFinalReview(false);
                           record("FINAL", response.incidentId, "succeeded");
                           window.history.replaceState(

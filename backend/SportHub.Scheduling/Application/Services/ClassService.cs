@@ -3,6 +3,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using SportHub.BuildingBlocks.Abstractions.Audit;
 using SportHub.BuildingBlocks.Abstractions.Configuration;
+using SportHub.BuildingBlocks.Abstractions.Identity;
 using SportHub.BuildingBlocks.Abstractions.Notifications;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.Abstractions.Scheduling;
@@ -32,6 +33,7 @@ public sealed class ClassService(
     RoomOpeningHourService openingHours,
     ISystemSettingProvider settings,
     INotificationWriter notifications,
+    IUserAccessReader users,
     IAuditWriter audit,
     CourseCancellationService cancellations,
     IClock clock) : IClassService
@@ -44,8 +46,18 @@ public sealed class ClassService(
         int classId,
         bool open,
         Guid actorUserId,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        string? reason = null)
     {
+        var trimmedReason = reason?.Trim();
+        // Closing always notifies the enrolled members, so the manager must say why.
+        if (!open && trimmedReason is not { Length: >= 3 and <= 500 })
+        {
+            throw new BadRequestException(
+                "enrollment_close_reason_required",
+                "Enrollment close reason is required (3-500 characters).");
+        }
+
         await using var tx =
             await db.Database.BeginTransactionAsync(ct);
 
@@ -76,10 +88,14 @@ public sealed class ClassService(
 
         var before = JsonSerializer.Serialize(new
         {
-            enrollmentOpen = entity.EnrollmentOpen
+            enrollmentOpen = entity.EnrollmentOpen,
+            reason = entity.EnrollmentClosedReason
         });
 
+        var hadClosureReason = entity.EnrollmentClosedReason;
         entity.EnrollmentOpen = open;
+        entity.EnrollmentClosedReason = open ? null : trimmedReason;
+        entity.EnrollmentClosedAtUtc = open ? null : clock.UtcNow;
         entity.Version++;
 
         audit.Write(new AuditEntry(
@@ -92,14 +108,47 @@ public sealed class ClassService(
             OldValue: before,
             NewValue: JsonSerializer.Serialize(new
             {
-                enrollmentOpen = open
-            })));
+                enrollmentOpen = open,
+                reason = trimmedReason
+            }),
+            Reason: open ? null : trimmedReason));
+
+        // Closing only stops NEW seat holds. Active holds and enrolled members are untouched; tell the enrolled
+        // members why, and tell them again when it is resolved.
+        if (!open)
+            await NotifyEnrolledAsync(entity, NotificationEvents.ClassEnrollmentClosed,
+                $"Enrollment for \"{entity.Name}\" is temporarily closed because of an issue at the center: {trimmedReason} "
+                + "Your place and your sessions are unchanged. You can wait for the center to resolve it, or submit a refund request "
+                + "from your invoice and the manager will review it as a center-side issue.",
+                "SportHub - Course enrollment paused", ct);
+        else if (open && !string.IsNullOrEmpty(hadClosureReason))
+            await NotifyEnrolledAsync(entity, NotificationEvents.ClassEnrollmentReopened,
+                $"The issue affecting \"{entity.Name}\" has been resolved and enrollment is open again. Your course continues as normal.",
+                "SportHub - Course enrollment reopened", ct);
 
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
 
         return await GetManagerAsync(classId, ct);
     }
+
+    private async Task NotifyEnrolledAsync(Class course, string eventType, string message, string subject, CancellationToken ct)
+    {
+        var memberIds = await db.Set<Enrollment>().AsNoTracking()
+            .Where(e => e.ClassId == course.ClassId && e.Status == EnrollmentStatus.Confirmed)
+            .Select(e => e.MemberId).Distinct().ToListAsync(ct);
+        // The inbox keeps one row per (event, recipient, source id), so each close/reopen needs its own id.
+        var eventId = Guid.NewGuid();
+        foreach (var memberId in memberIds)
+        {
+            notifications.Queue(new NotificationRequest(memberId, eventType, message, eventId));
+            var recipient = await users.GetAsync(memberId, ct);
+            if (recipient is not null)
+                notifications.QueueEmail(new EmailNotificationRequest(memberId, recipient.Email, eventType, eventId,
+                    subject, "<p>" + System.Net.WebUtility.HtmlEncode(message) + "</p>"));
+        }
+    }
+
     // ---------------------------------------------------------------- Truy vấn
     public async Task<PagedResult<ClassPublicResponse>> ListPublicAsync(
         int? sportId, int page, int pageSize, CancellationToken ct = default, DateOnly? fromDate = null, DateOnly? toDate = null)
@@ -528,6 +577,7 @@ public sealed class ClassService(
     {
         var rules = await RulesAsync(rows.Select(r => r.Class.ClassId).ToList(), ct);
         var names = await validator.CoachNamesAsync(rows.Select(r => r.Class.CoachId), ct);
+        var now = clock.UtcNow;
 
         return rows.Select(r => new ClassPublicResponse(
             r.Class.ClassId,
@@ -545,7 +595,10 @@ public sealed class ClassService(
             Math.Max(0, r.Class.Capacity - r.Class.ReservedCount),
             r.Class.Price,
             r.Class.Status.ToString(),
-            r.Class.EnrollmentOpen,
+            r.Class.EnrollmentOpen && !(r.Class.ThresholdStatus == ThresholdStatus.AtRisk
+                && r.Class.ThresholdResponseDeadlineUtc <= now),
+            r.Class.ThresholdStatus == ThresholdStatus.AtRisk
+                && r.Class.ThresholdResponseDeadlineUtc <= now,
             r.FirstStart,
             rules.TryGetValue(r.Class.ClassId, out var rl) ? rl : []
         )).ToList();
@@ -582,6 +635,8 @@ public sealed class ClassService(
             Math.Max(0, r.Class.Capacity - r.Class.ReservedCount),
             r.Class.CreatedByAi,
             r.Class.EnrollmentOpen,
+            r.Class.EnrollmentClosedReason,
+            r.Class.EnrollmentClosedAtUtc,
             r.Class.Version,
             r.Class.CreatedAt,
             r.Class.PublishedAt,

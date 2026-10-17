@@ -5,7 +5,7 @@ import styles from "./incidents.module.css";
 import { api, ApiError } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
-import { formatDateTime } from "@/lib/format";
+import { formatDateTime, formatPoints } from "@/lib/format";
 import { Table, AsyncSection, Dialog } from "@/components/ui";
 import { CloseButton } from "@/components/CloseButton";
 import { catalogApi } from "@/features/catalog";
@@ -62,6 +62,39 @@ function ClassImpactEditor({
     </AsyncSection>
   );
 }
+type AffectedMember = NonNullable<IncidentPreviewDto["members"]>[number];
+
+/** A class with many affected sessions would otherwise list the same member once per session. */
+function groupMembers(members: AffectedMember[]) {
+  const rows = new Map<
+    string,
+    {
+      memberId: string;
+      memberName: string | null;
+      outcome: string;
+      count: number;
+      points: number | null;
+    }
+  >();
+  for (const m of members) {
+    const key = `${m.memberId}|${m.outcome}`;
+    const row = rows.get(key);
+    if (row) {
+      row.count += 1;
+      if (m.expectedRefundPoints != null)
+        row.points = (row.points ?? 0) + m.expectedRefundPoints;
+    } else
+      rows.set(key, {
+        memberId: m.memberId,
+        memberName: m.memberName,
+        outcome: m.outcome,
+        count: 1,
+        points: m.expectedRefundPoints,
+      });
+  }
+  return [...rows.values()];
+}
+
 export function IncidentImpactReview({
   preview,
   onRefresh,
@@ -207,6 +240,43 @@ export function IncidentImpactReview({
             );
           })}
         </Table>
+      )}
+      {!!preview.members?.length && (
+        <section aria-labelledby="incident-members">
+          <h3 id="incident-members">{c.membersAffected}</h3>
+          <Table
+            headers={[
+              c.member,
+              c.outcome,
+              { text: c.expectedPoints, numeric: true },
+            ]}
+          >
+            {groupMembers(preview.members).map((m) => (
+              <tr key={`${m.memberId}-${m.outcome}`}>
+                <td>
+                  {m.memberName ??
+                    `${c.unnamedMember} ${m.memberId.slice(0, 8)}`}
+                  {m.count > 1 && (
+                    <p className="small muted">
+                      {c.affectedSessions.replace("{n}", String(m.count))}
+                    </p>
+                  )}
+                </td>
+                <td>{c.outcomes[m.outcome] ?? m.outcome}</td>
+                <td className="num">
+                  {m.points == null ? "—" : formatPoints(m.points)}
+                </td>
+              </tr>
+            ))}
+          </Table>
+          <p>
+            {c.expectedTotal}:{" "}
+            <strong>
+              {formatPoints(preview.expectedRefundPointsTotal ?? 0)}
+            </strong>
+          </p>
+          <p className="small muted">{c.quoteNote}</p>
+        </section>
       )}
       {removeId && (
         <Dialog

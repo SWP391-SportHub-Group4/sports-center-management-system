@@ -13,7 +13,67 @@ export interface ReportFilters {
   source: string;
   memberId: string;
 }
+export interface ReconciliationCheck {
+  name: string;
+  reported: number;
+  actual: number;
+  delta: number;
+  ok: boolean;
+}
+export interface ReportReconciliation {
+  fromDate: string;
+  toDate: string;
+  generatedAtUtc: string;
+  ok: boolean;
+  durationMs: number;
+  checks: ReconciliationCheck[];
+  paidInvoicesChecked: number;
+  invoiceMismatchCount: number;
+  invoiceMismatches: {
+    invoiceId: string;
+    invoiceNumber: string;
+    totalAmount: number;
+    cashAmount: number;
+    pointsApplied: number;
+    paymentsTotal: number;
+  }[];
+}
+export interface OperationsHealth {
+  status: "Healthy" | "Degraded" | "Unhealthy";
+  generatedAtUtc: string;
+  jobHistorySinceUtc: string;
+  jobs: {
+    name: string;
+    intervalSeconds: number;
+    lastSuccessUtc: string | null;
+    lastFailureUtc: string | null;
+    lastError: string | null;
+    consecutiveFailures: number;
+    unhealthy: boolean;
+  }[];
+  outbox: {
+    pending: number;
+    stuckSending: number;
+    failed: number;
+    failedNeedingAttention: number;
+  };
+  payments: {
+    gatewayEventsUnprocessed: number;
+    gatewayEventsFailed: number;
+    manualCompensationRequired: number;
+    attemptsAwaitingReconciliation: number;
+    invoicesFlaggedForReconciliation: number;
+    expiredSeatHoldsNotReleased: number;
+  };
+}
+
 export const reportsApi = {
+  reconciliation: (f: ReportFilters) =>
+    api.get<ReportReconciliation>("/api/reports/revenue/reconciliation", {
+      query: { fromDate: f.fromDate, toDate: f.toDate },
+    }),
+  health: (signal?: AbortSignal) =>
+    api.get<OperationsHealth>("/api/manager/operations/health", { signal }),
   deleteExport: (id: string) => api.del(`/api/reports/exports/${id}`),
   summary: (f: ReportFilters, signal?: AbortSignal) =>
     api.get<RevenueReportDto>("/api/reports/revenue", {

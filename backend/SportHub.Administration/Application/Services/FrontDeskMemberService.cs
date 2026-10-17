@@ -30,9 +30,6 @@ public sealed class FrontDeskMemberService(
     public async Task<UserAdminResponse> CreateAsync(CreateFrontDeskMemberRequest request, Guid actorUserId, CancellationToken ct = default)
     {
         var email = request.Email.Trim();
-        if (!string.Equals(email, request.ConfirmEmail.Trim(), StringComparison.OrdinalIgnoreCase))
-            throw new BadRequestException("email_confirmation_mismatch", "The two email addresses do not match.");
-
         var phone = string.IsNullOrWhiteSpace(request.Phone) ? null : request.Phone.Trim();
         var lowered = email.ToLowerInvariant();
         if (await db.Set<UserAccount>().AnyAsync(u => u.Email.ToLower() == lowered, ct))
@@ -83,14 +80,14 @@ public sealed class FrontDeskMemberService(
         return await users.GetAsync(userId, ct);
     }
 
-    /// <summary>Sửa email gõ sai khi Member chưa kích hoạt: link cũ bị vô hiệu ngay, link mới gửi tới email mới.</summary>
+    /// <summary>
+    /// Sửa email gõ sai khi Member chưa kích hoạt: link cũ bị vô hiệu ngay, link mới gửi tới email mới. Thời hạn chờ kích hoạt (7 ngày
+    /// kể từ lúc đăng ký) không được kéo dài bằng cách sửa email — hết hạn thì tài khoản trống bị gỡ khỏi hệ thống.
+    /// </summary>
     public async Task<UserAdminResponse> ChangePendingEmailAsync(
         Guid userId, ChangePendingMemberEmailRequest request, Guid actorUserId, CancellationToken ct = default)
     {
         var newEmail = request.Email.Trim();
-        if (!string.Equals(newEmail, request.ConfirmEmail.Trim(), StringComparison.OrdinalIgnoreCase))
-            throw new BadRequestException("email_confirmation_mismatch", "The two email addresses do not match.");
-
         var user = await LoadPendingMemberAsync(userId, ct);
         var oldEmail = user.Email;
         if (string.Equals(oldEmail, newEmail, StringComparison.OrdinalIgnoreCase))

@@ -20,7 +20,8 @@ namespace SportHub.Scheduling.Rental.Application;
 public sealed class IncidentService(ISportHubDbContext db, IOccupancyService occupancy,
     ICourtRentalFulfillment rentals, ICheckoutLifecycleService checkouts, IRefundCreditService refunds,
     INotificationWriter notifications, IUserAccessReader users, IAuditWriter audit, IClock clock,
-    INotificationDeliveryReader delivery, IMembershipClosureExtension membershipExtension)
+    INotificationDeliveryReader delivery, IMembershipClosureExtension membershipExtension,
+    SportHub.Scheduling.Application.Interfaces.IClassSessionService sessions)
 {
     public async Task<PagedResult<IncidentDetailsResponse>> ListAsync(int page = 1, int pageSize = 20,
         CancellationToken ct = default)
@@ -65,6 +66,7 @@ public sealed class IncidentService(ISportHubDbContext db, IOccupancyService occ
         var needsManual = impacts.Any(x => x.SourceType is nameof(OccupancySourceType.ClassSession)
             or nameof(OccupancySourceType.RoomBlock));
         var gymClosed = await ClosesGymAsync(shape, ct);
+        var members = await AffectedMembersAsync(impacts, ct);
         var startLocal = DateOnly.FromDateTime(VietnamTime.ToLocal(shape.StartUtc));
         return new IncidentPreviewResponse(shape.Scope.ToString(), shape.RoomId, shape.StartUtc, shape.EndUtc,
             impacts, !needsManual, needsManual
@@ -73,8 +75,56 @@ public sealed class IncidentService(ISportHubDbContext db, IOccupancyService occ
         {
             ClosesGym = gymClosed,
             SuggestedMembershipExtensionDays = gymClosed ? FullClosedDays(shape.StartUtc, shape.EndUtc) : 0,
-            AffectedMemberCount = gymClosed ? await membershipExtension.CountAffectedMembersAsync(startLocal, ct) : 0
+            AffectedMemberCount = gymClosed ? await membershipExtension.CountAffectedMembersAsync(startLocal, ct) : 0,
+            Members = members,
+            ExpectedRefundPointsTotal = members.Sum(x => x.ExpectedRefundPoints ?? 0)
         };
+    }
+
+    /// <summary>
+    /// Every member the incident touches, with what will happen to them and the points the server expects to credit.
+    /// Rentals are refunded 100% as points on resolve (same formula as <c>RefundCreditService</c>); class sessions need a
+    /// schedule decision first, so they carry no refund quote.
+    /// </summary>
+    private async Task<IReadOnlyList<IncidentAffectedMember>> AffectedMembersAsync(
+        IReadOnlyList<IncidentImpact> impacts, CancellationToken ct)
+    {
+        var result = new List<IncidentAffectedMember>();
+        var rentalIds = impacts.Where(x => x.SourceType == nameof(OccupancySourceType.CourtRental))
+            .Select(x => x.SourceId).Distinct().ToList();
+        var rentals = rentalIds.Count == 0 ? [] : await db.Set<CourtRental>().AsNoTracking()
+            .Where(x => rentalIds.Contains(x.CourtRentalId))
+            .Select(x => new { x.CourtRentalId, x.MemberId, x.Status, x.InvoiceItemId }).ToListAsync(ct);
+        foreach (var rental in rentals.OrderBy(x => x.CourtRentalId))
+        {
+            var confirmed = rental.Status == CourtRentalStatus.Confirmed && rental.InvoiceItemId is not null;
+            int? points = null;
+            if (confirmed)
+            {
+                var value = await refunds.GetRemainingItemValueVndAsync(rental.InvoiceItemId!.Value, ct);
+                points = checked((int)decimal.Floor(value / 1000m));
+            }
+            result.Add(new IncidentAffectedMember(rental.MemberId, (await users.GetAsync(rental.MemberId, ct))?.FullName,
+                nameof(OccupancySourceType.CourtRental), rental.CourtRentalId,
+                confirmed ? "RefundedAsPoints" : "CheckoutReleased", points));
+        }
+
+        var sessionIds = impacts.Where(x => x.SourceType == nameof(OccupancySourceType.ClassSession))
+            .Select(x => x.SourceId).Distinct().ToList();
+        if (sessionIds.Count > 0)
+        {
+            var enrolled = await (from session in db.Set<SportHub.Scheduling.Domain.Entities.ClassSession>().AsNoTracking()
+                                  join enrollment in db.Set<SportHub.Scheduling.Domain.Entities.Enrollment>().AsNoTracking()
+                                      on session.ClassId equals enrollment.ClassId
+                                  where sessionIds.Contains(session.SessionId)
+                                        && enrollment.Status == SportHub.Scheduling.Domain.Enums.EnrollmentStatus.Confirmed
+                                  select new { session.SessionId, enrollment.MemberId }).ToListAsync(ct);
+            foreach (var row in enrolled.OrderBy(x => x.SessionId).ThenBy(x => x.MemberId))
+                result.Add(new IncidentAffectedMember(row.MemberId, (await users.GetAsync(row.MemberId, ct))?.FullName,
+                    nameof(OccupancySourceType.ClassSession), row.SessionId, "AwaitsScheduleDecision", null));
+        }
+
+        return result;
     }
 
     public async Task<Guid> ResolveAsync(IncidentRequest request, Guid managerId, CancellationToken ct = default)
@@ -119,8 +169,10 @@ public sealed class IncidentService(ISportHubDbContext db, IOccupancyService occ
             var itemId = rental.InvoiceItemId!.Value;
             await refunds.CreditAsync(new RefundCreditRequest(itemId, 100,
                 "CenterFault:" + request.Reason.Trim(), incidentId), ct);
+            // CancelAsync saves immediately, before the IncidentNotice row exists, so linking the incident here would
+            // violate the foreign key. The link is set below and saved together with the notice.
             await rentals.CancelAsync(rental.CourtRentalId, request.Reason.Trim(), centerFault: true,
-                incidentId: incidentId, cancellationToken: ct);
+                incidentId: null, cancellationToken: ct);
         }
         foreach (var rental in rentalRows)
         {
@@ -188,6 +240,15 @@ public sealed class IncidentService(ISportHubDbContext db, IOccupancyService occ
             if (!result.Succeeded) throw new OccupancyConflictException(result.Conflicts);
             db.Set<RoomBlock>().Add(block);
         }
+        // The incident is now applied as room blocks, so any fence held for this window has done its job.
+        foreach (var fence in await db.Set<IncidentFence>().Where(f => f.Status == IncidentFenceStatus.Open
+                     && f.Scope == shape.Scope && f.RoomId == shape.RoomId
+                     && f.StartAtUtc >= shape.StartUtc && f.EndAtUtc <= shape.EndUtc).ToListAsync(ct))
+        {
+            fence.Status = IncidentFenceStatus.Resolved;
+            fence.ClosedAtUtc = clock.UtcNow;
+            fence.ResolvedIncidentId = incidentId;
+        }
         audit.Write(new AuditEntry(managerId, "RESOLVE_CENTER_INCIDENT", nameof(IncidentNotice), incidentId.ToString(),
             NewValue: System.Text.Json.JsonSerializer.Serialize(new
             {
@@ -199,6 +260,151 @@ public sealed class IncidentService(ISportHubDbContext db, IOccupancyService occ
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
         return incidentId;
+    }
+
+    public static readonly TimeSpan FenceLifetime = TimeSpan.FromHours(2);
+
+    /// <summary>
+    /// Start handling an incident: hold the window so nobody books into it while the manager reschedules or arranges makeups.
+    /// Idempotent for the same window (it renews the existing fence). The fence survives a closed browser tab and expires by itself.
+    /// </summary>
+    public async Task<IncidentFenceResponse> OpenFenceAsync(IncidentRequest request, Guid managerId, CancellationToken ct = default)
+    {
+        var shape = await ValidateAsync(request, ct);
+        var now = clock.UtcNow;
+        var fence = await db.Set<IncidentFence>().FirstOrDefaultAsync(f => f.Status == IncidentFenceStatus.Open
+            && f.Scope == shape.Scope && f.RoomId == shape.RoomId
+            && f.StartAtUtc == shape.StartUtc && f.EndAtUtc == shape.EndUtc, ct);
+        if (fence is null)
+        {
+            fence = new IncidentFence
+            {
+                FenceId = Guid.NewGuid(), Scope = shape.Scope, RoomId = shape.RoomId,
+                StartAtUtc = shape.StartUtc, EndAtUtc = shape.EndUtc, Reason = request.Reason.Trim(),
+                Status = IncidentFenceStatus.Open, CreatedByUserId = managerId, CreatedAtUtc = now
+            };
+            db.Set<IncidentFence>().Add(fence);
+        }
+        fence.ExpiresAtUtc = now + FenceLifetime;
+        audit.Write(new AuditEntry(managerId, "OPEN_INCIDENT_FENCE", nameof(IncidentFence), fence.FenceId.ToString(),
+            NewValue: System.Text.Json.JsonSerializer.Serialize(new
+                { scope = shape.Scope.ToString(), shape.RoomId, shape.StartUtc, shape.EndUtc, fence.ExpiresAtUtc }),
+            Reason: fence.Reason));
+        await db.SaveChangesAsync(ct);
+        return await ToFenceResponseAsync(fence, ct);
+    }
+
+    /// <summary>Incidents still being handled, with what is left to do, so abandoned work can be picked up again.</summary>
+    public async Task<IReadOnlyList<IncidentFenceResponse>> ListOpenFencesAsync(CancellationToken ct = default)
+    {
+        var fences = await db.Set<IncidentFence>().AsNoTracking().Where(f => f.Status == IncidentFenceStatus.Open)
+            .OrderBy(f => f.StartAtUtc).ThenBy(f => f.FenceId).Take(100).ToListAsync(ct);
+        var result = new List<IncidentFenceResponse>();
+        foreach (var fence in fences) result.Add(await ToFenceResponseAsync(fence, ct));
+        return result;
+    }
+
+    public async Task<IncidentFenceResponse> ExtendFenceAsync(Guid fenceId, Guid managerId, CancellationToken ct = default)
+    {
+        var fence = await db.Set<IncidentFence>().SingleOrDefaultAsync(f => f.FenceId == fenceId, ct)
+            ?? throw new NotFoundException("incident_fence_not_found", "Incident fence not found.");
+        if (fence.Status != IncidentFenceStatus.Open || fence.EndAtUtc <= clock.UtcNow)
+            throw new ConflictException("incident_fence_closed", "This incident is no longer being handled.");
+        fence.ExpiresAtUtc = clock.UtcNow + FenceLifetime;
+        audit.Write(new AuditEntry(managerId, "EXTEND_INCIDENT_FENCE", nameof(IncidentFence), fenceId.ToString(),
+            NewValue: System.Text.Json.JsonSerializer.Serialize(new { fence.ExpiresAtUtc })));
+        await db.SaveChangesAsync(ct);
+        return await ToFenceResponseAsync(fence, ct);
+    }
+
+    /// <summary>Give the window back without resolving (the incident was a false alarm or is handled elsewhere).</summary>
+    public async Task ReleaseFenceAsync(Guid fenceId, Guid managerId, CancellationToken ct = default)
+    {
+        var fence = await db.Set<IncidentFence>().SingleOrDefaultAsync(f => f.FenceId == fenceId, ct)
+            ?? throw new NotFoundException("incident_fence_not_found", "Incident fence not found.");
+        if (fence.Status == IncidentFenceStatus.Released) return;
+        if (fence.Status == IncidentFenceStatus.Resolved)
+            throw new ConflictException("incident_fence_closed", "This incident was already resolved.");
+        fence.Status = IncidentFenceStatus.Released;
+        fence.ClosedAtUtc = clock.UtcNow;
+        audit.Write(new AuditEntry(managerId, "RELEASE_INCIDENT_FENCE", nameof(IncidentFence), fenceId.ToString()));
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>The schedule changes made while this window was held: what abandoning would put back, and what it could not.</summary>
+    public async Task<IReadOnlyList<IncidentFenceStepResponse>> ListFenceStepsAsync(Guid fenceId, CancellationToken ct = default)
+    {
+        if (!await db.Set<IncidentFence>().AnyAsync(f => f.FenceId == fenceId, ct))
+            throw new NotFoundException("incident_fence_not_found", "Incident fence not found.");
+        var now = clock.UtcNow;
+        var rows = await (from step in db.Set<IncidentFenceStep>().AsNoTracking()
+                          join session in db.Set<SportHub.Scheduling.Domain.Entities.ClassSession>().AsNoTracking()
+                              on step.SessionId equals session.SessionId
+                          join course in db.Set<SportHub.Scheduling.Domain.Entities.Class>().AsNoTracking()
+                              on session.ClassId equals course.ClassId
+                          where step.FenceId == fenceId
+                          orderby step.CreatedAtUtc
+                          select new { step, session.SessionNo, course.Name }).ToListAsync(ct);
+        return rows.Select(x => new IncidentFenceStepResponse(x.step.StepId, x.step.Kind.ToString(), x.Name, x.SessionNo,
+            x.step.BeforeStartUtc, x.step.AfterStartUtc, x.step.State.ToString(), x.step.UndoNote,
+            x.step.State == IncidentFenceStepState.Applied && x.step.BeforeStartUtc > now)).ToList();
+    }
+
+    /// <summary>
+    /// Give up on the incident: release the held window and put every session moved or cancelled during it back where it was.
+    /// Each step is reverted only if the session is still exactly as the step left it and the original slot is still free;
+    /// the rest are reported, never forced. One transaction, so the release and the reverts commit together.
+    /// </summary>
+    public async Task<IncidentAbandonResult> AbandonFenceAsync(Guid fenceId, Guid managerId, CancellationToken ct = default)
+    {
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        var fence = await db.Set<IncidentFence>().SingleOrDefaultAsync(f => f.FenceId == fenceId, ct)
+            ?? throw new NotFoundException("incident_fence_not_found", "Incident fence not found.");
+        if (fence.Status != IncidentFenceStatus.Open)
+            throw new ConflictException("incident_fence_closed", "This incident is no longer being handled.");
+
+        // Release first: the hold would otherwise block sessions from moving back into the window.
+        fence.Status = IncidentFenceStatus.Released;
+        fence.ClosedAtUtc = clock.UtcNow;
+        await db.SaveChangesAsync(ct);
+
+        var applied = await db.Set<IncidentFenceStep>().AsNoTracking()
+            .Where(s => s.FenceId == fenceId && s.State == IncidentFenceStepState.Applied)
+            .OrderByDescending(s => s.CreatedAtUtc).Select(s => s.StepId).ToListAsync(ct);
+        var undone = 0;
+        foreach (var stepId in applied)
+            if ((await sessions.UndoIncidentStepAsync(stepId, managerId, ct)).Undone) undone++;
+
+        audit.Write(new AuditEntry(managerId, "ABANDON_INCIDENT_FENCE", nameof(IncidentFence), fenceId.ToString(),
+            NewValue: System.Text.Json.JsonSerializer.Serialize(new { steps = applied.Count, undone })));
+        await db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
+
+        var left = (await ListFenceStepsAsync(fenceId, ct)).Where(s => s.State != nameof(IncidentFenceStepState.Undone)).ToList();
+        return new IncidentAbandonResult(fenceId, undone, left);
+    }
+
+    private async Task<IncidentFenceResponse> ToFenceResponseAsync(IncidentFence fence, CancellationToken ct)
+    {
+        var roomIds = fence.Scope == IncidentScope.Room && fence.RoomId is int roomId
+            ? [roomId]
+            : await db.Set<Room>().AsNoTracking().Where(x => x.IsActive).OrderBy(x => x.RoomId)
+                .Select(x => x.RoomId).ToListAsync(ct);
+        var shape = new IncidentShape(fence.Scope, fence.RoomId, fence.StartAtUtc, fence.EndAtUtc, roomIds);
+        var impacts = await FindImpactsAsync(shape, ct);
+        var members = await AffectedMembersAsync(impacts, ct);
+        var roomName = fence.RoomId is int id
+            ? await db.Set<Room>().AsNoTracking().Where(x => x.RoomId == id).Select(x => x.Name).SingleOrDefaultAsync(ct)
+            : null;
+        var expired = fence.Status == IncidentFenceStatus.Open
+            && (fence.ExpiresAtUtc <= clock.UtcNow || fence.EndAtUtc <= clock.UtcNow);
+        var needsManual = impacts.Any(x => x.SourceType is nameof(OccupancySourceType.ClassSession)
+            or nameof(OccupancySourceType.RoomBlock));
+        return new IncidentFenceResponse(fence.FenceId, fence.Scope.ToString(), fence.RoomId, roomName, fence.StartAtUtc,
+            fence.EndAtUtc, fence.Reason, fence.CreatedAtUtc, fence.ExpiresAtUtc, expired, impacts.Count,
+            members.Select(x => x.MemberId).Distinct().Count(), !needsManual,
+            await db.Set<IncidentFenceStep>().AsNoTracking().CountAsync(s => s.FenceId == fence.FenceId
+                && s.State == IncidentFenceStepState.Applied, ct));
     }
 
     /// <summary>Gym đóng cửa khi mọi phòng Gym đang hoạt động nằm trong phạm vi sự cố (phòng Gym = phòng có loại phòng thuộc môn Gym).</summary>
@@ -291,6 +497,20 @@ public sealed record IncidentImpact([property: SportHub.BuildingBlocks.Api.WireE
         _ => []
     };
 }
+/// <param name="IsExpired">The hold lapsed (or the window passed): bookings are allowed again until it is extended.</param>
+/// <param name="RemainingImpacts">Activities still inside the window, re-read now.</param>
+public sealed record IncidentFenceResponse(Guid FenceId,
+    [property: SportHub.BuildingBlocks.Api.WireEnum] string Scope, int? RoomId, string? RoomName,
+    DateTime StartAtUtc, DateTime EndAtUtc, string Reason, DateTime CreatedAtUtc, DateTime ExpiresAtUtc,
+    bool IsExpired, int RemainingImpacts, int AffectedMemberCount, bool CanResolve, int AppliedSteps);
+
+/// <param name="CanUndo">Applied and the original time is still ahead; undo still checks the session was not changed again.</param>
+public sealed record IncidentFenceStepResponse(Guid StepId,
+    [property: SportHub.BuildingBlocks.Api.WireEnum] string Kind,
+    string ClassName, int SessionNo, DateTime BeforeStartUtc, DateTime AfterStartUtc,
+    [property: SportHub.BuildingBlocks.Api.WireEnum] string State, string? UndoNote, bool CanUndo);
+
+public sealed record IncidentAbandonResult(Guid FenceId, int Undone, IReadOnlyList<IncidentFenceStepResponse> NotUndone);
 public sealed record IncidentResolutionOption(string Action, string Method, string Path);
 public sealed record IncidentPreviewResponse([property: SportHub.BuildingBlocks.Api.WireEnum] string Scope, int? RoomId, DateTime StartAtUtc, DateTime EndAtUtc,
     IReadOnlyList<IncidentImpact> Impacts, bool CanResolve, string? BlockReason)
@@ -298,4 +518,14 @@ public sealed record IncidentPreviewResponse([property: SportHub.BuildingBlocks.
     public bool ClosesGym { get; init; }
     public int SuggestedMembershipExtensionDays { get; init; }
     public int AffectedMemberCount { get; init; }
+
+    /// <summary>Per-member outcome and expected refund, so the manager sees who is affected before confirming.</summary>
+    public IReadOnlyList<IncidentAffectedMember> Members { get; init; } = [];
+    public int ExpectedRefundPointsTotal { get; init; }
 }
+
+/// <param name="Outcome">RefundedAsPoints | CheckoutReleased | AwaitsScheduleDecision.</param>
+/// <param name="ExpectedRefundPoints">Null when no refund is decided yet (schedule decision pending).</param>
+public sealed record IncidentAffectedMember(Guid MemberId, string? MemberName,
+    [property: SportHub.BuildingBlocks.Api.WireEnum] string SourceType, Guid SourceId,
+    [property: SportHub.BuildingBlocks.Api.WireEnum] string Outcome, int? ExpectedRefundPoints);

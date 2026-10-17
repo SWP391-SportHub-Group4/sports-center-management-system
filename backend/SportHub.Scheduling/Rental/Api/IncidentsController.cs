@@ -25,6 +25,35 @@ public sealed class IncidentsController(IncidentService incidents) : ControllerB
     public async Task<IActionResult> Preview([FromBody] IncidentRequest request, CancellationToken ct)
         => Ok(await incidents.PreviewAsync(request, ct));
 
+    /// <summary>Start handling: holds the window so no one books into it while schedule work is done.</summary>
+    [HttpPost("fences")]
+    public async Task<IActionResult> OpenFence([FromBody] IncidentRequest request, CancellationToken ct)
+        => Ok(await incidents.OpenFenceAsync(request, User.RequireUserId(), ct));
+
+    [HttpGet("fences")]
+    public async Task<IActionResult> OpenFences(CancellationToken ct)
+        => Ok(await incidents.ListOpenFencesAsync(ct));
+
+    [HttpPost("fences/{fenceId:guid}/extend")]
+    public async Task<IActionResult> ExtendFence(Guid fenceId, CancellationToken ct)
+        => Ok(await incidents.ExtendFenceAsync(fenceId, User.RequireUserId(), ct));
+
+    [HttpGet("fences/{fenceId:guid}/steps")]
+    public async Task<IActionResult> FenceSteps(Guid fenceId, CancellationToken ct)
+        => Ok(await incidents.ListFenceStepsAsync(fenceId, ct));
+
+    /// <summary>Give up on the incident and put back every class session moved or cancelled while it was held.</summary>
+    [HttpPost("fences/{fenceId:guid}/abandon")]
+    public async Task<IActionResult> AbandonFence(Guid fenceId, CancellationToken ct)
+        => Ok(await incidents.AbandonFenceAsync(fenceId, User.RequireUserId(), ct));
+
+    [HttpPost("fences/{fenceId:guid}/release")]
+    public async Task<IActionResult> ReleaseFence(Guid fenceId, CancellationToken ct)
+    {
+        await incidents.ReleaseFenceAsync(fenceId, User.RequireUserId(), ct);
+        return NoContent();
+    }
+
     [HttpPost("resolve")]
     public async Task<IActionResult> Resolve([FromBody] IncidentRequest request, CancellationToken ct)
         => Ok(new { incidentId = await incidents.ResolveAsync(request, User.RequireUserId(), ct) });

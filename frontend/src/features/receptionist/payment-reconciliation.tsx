@@ -6,6 +6,7 @@ import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { formatDateTime, formatMoney } from "@/lib/format";
 import type { Paged } from "@/lib/types";
+import styles from "./ops.module.css";
 
 type Case = {
   invoiceId: string; invoiceNumber: string; memberId: string; memberName: string;
@@ -36,27 +37,26 @@ export function FrontDeskPaymentReconciliation() {
     }
   }
 
-  return <section className="card" style={{ padding: 20, display: "grid", gap: 16 }}>
+  return <section className={`card ${styles.panel}`}>
     <h2>Payment and service reconciliation</h2>
     <p className="small muted">Verified payments still awaiting service or compensation appear first. Pending and expired attempts can be checked with the gateway, including after the original hold has expired.</p>
     <button type="button" className="btn btn--secondary btn--sm" onClick={cases.reload}>Refresh</button>
     {cases.loading && <p>Loading…</p>}
     {cases.error && <p role="alert">{cases.error.message}</p>}
     {cases.data?.totalCount === 0 && <p>No cases need follow-up.</p>}
-    {cases.data?.items.map(row => <article key={row.paymentAttemptId}
-      style={{ border: "1px solid var(--border-subtle)", borderRadius: 8, padding: 16 }}>
-      <h3>{row.invoiceNumber} · {row.state}</h3>
+    {cases.data?.items.map(row => <article key={row.paymentAttemptId} className={styles.item}>
+      <h3>{row.invoiceNumber} <span className={styles.status}>{row.state.replace(/_/g, " ")}</span></h3>
       <p>{row.memberName} · {formatMoney(row.amount)}</p>
       <p className="small muted">{row.paidAtUtc ? `Paid ${formatDateTime(row.paidAtUtc)}` : "Payment not yet independently verified"}
         {row.holdExpiresAtUtc && ` · Hold expires ${formatDateTime(row.holdExpiresAtUtc)}`}</p>
       {row.lastError && <p role="alert">Last processing error: {row.lastError}</p>}
-      <div style={{ display: "flex", gap: 8 }}>
+      <div className={styles.row}>
         <button type="button" className="btn btn--secondary btn--sm" disabled={busy !== null}
           onClick={() => retry(row)}>Verify / retry fulfillment</button>
         <Link className="btn btn--secondary btn--sm" href={`/receptionist/invoices?invoiceId=${row.invoiceId}`}>Invoice</Link>
       </div>
     </article>)}
-    {cases.data && <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+    {cases.data && <div className={styles.row}>
       <button type="button" className="btn btn--secondary btn--sm" disabled={page <= 1}
         onClick={() => setPage(page - 1)}>Previous</button>
       <span>Page {page} · {cases.data.totalCount} cases</span>

@@ -44,7 +44,7 @@ public sealed class StaffActivationTests(SportHubApiFactory factory)
             fullName = "New Staff Member",
             phone = (string?)null,
             roleId,
-            specialties = role == UserRole.Coach ? new[] { 1 } : Array.Empty<int>()
+            specialties = role == UserRole.Coach ? new[] { 3 } : Array.Empty<int>()
         });
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
 
@@ -83,7 +83,7 @@ public sealed class StaffActivationTests(SportHubApiFactory factory)
             Assert.Equal(admin.UserId, audit.UserId);
 
             if (role == UserRole.Coach)
-                Assert.Equal(1, await db.UserSportSpecialties.CountAsync(x => x.UserId == userId && x.SportId == 1));
+                Assert.Equal(1, await db.UserSportSpecialties.CountAsync(x => x.UserId == userId && x.SportId == 3));
         }
 
         var before = await PostAnonymousAsync("api/auth/login", new { email, password = NewPassword });

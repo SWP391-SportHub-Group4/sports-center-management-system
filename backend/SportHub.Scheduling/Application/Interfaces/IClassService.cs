@@ -32,5 +32,6 @@ public interface IClassService
         int classId,
         bool open,
         Guid actorUserId,
-        CancellationToken ct = default);
+        CancellationToken ct = default,
+        string? reason = null);
 }

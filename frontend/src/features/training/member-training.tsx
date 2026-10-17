@@ -8,7 +8,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { Tabs } from "@/components/primitives";
-import { MemberSchedule, memberEnrollments } from "@/features/member";
+import { memberEnrollments } from "@/features/member";
 import {
   TeachingRecords,
   teachingApi,
@@ -22,7 +22,7 @@ import type { CourseEnrollmentDto } from "@/lib/types";
 import { TrainingProfile } from "./training-profile";
 import styles from "./training.module.css";
 
-const TABS = ["sessions", "plans", "results", "profile"] as const;
+const TABS = ["plans", "results", "profile"] as const;
 type Tab = (typeof TABS)[number];
 type ClassRecord = { enrollment: CourseEnrollmentDto; record: TeachingRecord };
 
@@ -110,21 +110,23 @@ function CoachingTab({ kind }: { kind: "plans" | "results" }) {
 export function MemberTraining() {
   const { language, t } = useLanguage();
   const { values, setValues } = useUrlQuery(
-    { tab: "sessions" },
+    { tab: "plans" },
     {
+      // Legacy links: the weekly calendar now lives only in My schedule.
       tab: (value) =>
-        choiceQuery(TABS, "sessions")(value === "progress" ? "results" : value),
+        choiceQuery(
+          TABS,
+          "plans",
+        )(value === "progress" ? "results" : value === "sessions" ? "plans" : value),
     },
   );
   const tab = values.tab as Tab;
   const labels = {
-    sessions: t.ptOps.tabSessions,
     plans: t.ptOps.tabPlans,
     results: language === "vi" ? "Kết quả & tiến độ" : "Results & progress",
     profile: t.ptOps.tabProfile,
   };
   const icons = {
-    sessions: CalendarDays,
     plans: ClipboardList,
     results: TrendingUp,
     profile: UserRound,
@@ -132,6 +134,14 @@ export function MemberTraining() {
 
   return (
     <div className={styles.page}>
+      <p className={styles.scheduleLink}>
+        <CalendarDays size={16} aria-hidden="true" />
+        <Link href="/member/schedule">
+          {language === "vi"
+            ? "Xem lịch lớp và sân của tôi →"
+            : "View my class and court schedule →"}
+        </Link>
+      </p>
       <Tabs
         tabs={TABS.map((id) => {
           const Icon = icons[id];
@@ -150,7 +160,6 @@ export function MemberTraining() {
         onChange={(id) => setValues({ tab: id })}
       >
         <div className={styles.tabBody}>
-          {tab === "sessions" && <MemberSchedule compact />}
           {tab === "plans" && <CoachingTab kind="plans" />}
           {tab === "results" && <CoachingTab kind="results" />}
           {tab === "profile" && <TrainingProfile />}

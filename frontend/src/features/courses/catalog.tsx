@@ -15,6 +15,7 @@ import {
   formatMoney,
   formatDate,
   formatDateTime,
+  formatTime,
   todayIso,
 } from "@/lib/format";
 import { Card, StatusChip } from "@/components/ui";
@@ -27,6 +28,7 @@ import {
 } from "../member/event-meta";
 import styles from "./catalog.module.css";
 import { useCourseEnrollments } from "./use-course-enrollments";
+import { useClassHolds } from "./use-class-holds";
 import {
   courseRegistrationState,
   registrationReason,
@@ -46,6 +48,7 @@ export function CourseCatalog({
   const d = t.mDiscover;
   const vi = language === "vi";
   const enrollments = useCourseEnrollments();
+  const holds = useClassHolds();
   const now = useNow(30000);
   // Liên kết từ trang khác (ví dụ gợi ý gia hạn) có thể mang sẵn ?sport=; chọn tay thì ưu tiên lựa chọn đó.
   const preset = useUrlQuery(
@@ -265,7 +268,8 @@ export function CourseCatalog({
             {shown.map((c) => {
               const enrolled = enrollments.isEnrolled(c.classId);
               const registration = courseRegistrationState(c, enrolled, now);
-              const closed = registration !== "open" && !enrolled;
+              const hold = enrolled ? undefined : holds.holdFor(c.classId);
+              const closed = registration !== "open" && !enrolled && !hold;
               const schedule = scheduleSummary(
                 c.scheduleRules,
                 sessionMinutes(sports.data, c.sportId),
@@ -395,15 +399,19 @@ export function CourseCatalog({
                           ? vi
                             ? "Bạn đã đăng ký lớp này"
                             : "You are registered for this class"
-                          : closed
+                          : hold
                             ? vi
-                              ? "Không nhận đăng ký"
-                              : "Not accepting registrations"
-                            : state === "full"
-                              ? d.full
-                              : (state === "few" ? d.fewSeats : d.seatsLeft)
-                                  .replace("{left}", String(c.availableSeats))
-                                  .replace("{cap}", String(c.capacity))}
+                              ? `Chỗ của bạn được giữ đến ${formatTime(hold.expiresAtUtc)}`
+                              : `Your seat is held until ${formatTime(hold.expiresAtUtc)}`
+                            : closed
+                              ? vi
+                                ? "Không nhận đăng ký"
+                                : "Not accepting registrations"
+                              : state === "full"
+                                ? d.full
+                                : (state === "few" ? d.fewSeats : d.seatsLeft)
+                                    .replace("{left}", String(c.availableSeats))
+                                    .replace("{cap}", String(c.capacity))}
                       </p>
                     </div>
                     <div className={styles.courseActions}>
@@ -429,20 +437,26 @@ export function CourseCatalog({
                         href={
                           enrolled && detailBasePath.startsWith("/member")
                             ? `/member/schedule?course=${c.classId}`
-                            : detailBasePath === "/member/services"
-                              ? `/member/services/courses/${c.classId}`
-                              : `${detailBasePath}/${c.classId}`
+                            : `${
+                                detailBasePath === "/member/services"
+                                  ? `/member/services/courses/${c.classId}`
+                                  : `${detailBasePath}/${c.classId}`
+                              }${hold ? `?checkout=${hold.invoiceId}` : ""}`
                         }
                       >
                         {enrolled
                           ? vi
                             ? "Xem lớp đã đăng ký"
                             : "View registered class"
-                          : closed
+                          : hold
                             ? vi
-                              ? "Xem thông tin"
-                              : "View information"
-                            : d.view}
+                              ? "Hoàn tất thanh toán"
+                              : "Complete payment"
+                            : closed
+                              ? vi
+                                ? "Xem thông tin"
+                                : "View information"
+                              : d.view}
                       </Link>
                     </div>
                   </div>

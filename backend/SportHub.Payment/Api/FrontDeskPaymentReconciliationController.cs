@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using SportHub.BuildingBlocks.Abstractions.Audit;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.Api;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
@@ -20,7 +21,7 @@ public sealed record FrontDeskReconciliationRow(Guid InvoiceId, string InvoiceNu
 [Authorize(Policy = SportHubPolicies.FrontDesk)]
 [Route("api/front-desk/payment-reconciliation")]
 public sealed class FrontDeskPaymentReconciliationController(ISportHubDbContext db,
-    PaymentReconciliationService reconciliation) : ControllerBase
+    PaymentReconciliationService reconciliation, IAuditWriter audit) : ControllerBase
 {
     [HttpGet]
     public async Task<IActionResult> Queue([FromQuery] Guid? memberId,
@@ -96,6 +97,7 @@ public sealed class FrontDeskPaymentReconciliationController(ISportHubDbContext 
             var status = await db.Set<VerifiedGatewayEvent>().AsNoTracking()
                 .Where(x => x.VerifiedGatewayEventId == proof)
                 .Select(x => x.ProcessingStatus).SingleAsync(ct);
+            await WriteAuditAsync(invoiceId, status, ct);
             return Ok(new { state = status });
         }
         var attemptId = await db.Set<PaymentAttempt>().AsNoTracking()
@@ -106,6 +108,15 @@ public sealed class FrontDeskPaymentReconciliationController(ISportHubDbContext 
             .FirstOrDefaultAsync(ct)
             ?? throw new NotFoundException("reconciliation_case_not_found", "No payment requiring reconciliation was found.");
         var verified = await reconciliation.ReconcileAttemptAsync(attemptId, ct);
-        return Ok(new { state = verified ? "VERIFIED" : "AWAITING_VERIFICATION" });
+        var outcome = verified ? "VERIFIED" : "AWAITING_VERIFICATION";
+        await WriteAuditAsync(invoiceId, outcome, ct);
+        return Ok(new { state = outcome });
+    }
+
+    private async Task WriteAuditAsync(Guid invoiceId, string outcome, CancellationToken ct)
+    {
+        audit.Write(new AuditEntry(User.RequireUserId(), "FRONT_DESK_PAYMENT_RECONCILIATION_RETRY",
+            nameof(Invoice), invoiceId.ToString(), NewValue: System.Text.Json.JsonSerializer.Serialize(outcome)));
+        await db.SaveChangesAsync(ct);
     }
 }

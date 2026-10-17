@@ -39,8 +39,8 @@ public sealed class FrontDeskMemberRegistrationTests(SportHubApiFactory factory)
         return Client(staff.UserId, UserRole.Receptionist);
     }
 
-    private static object Body(string email, string? confirm = null, string name = "Walk In Member", string? phone = null)
-        => new { email, confirmEmail = confirm ?? email, fullName = name, phone };
+    private static object Body(string email, string name = "Walk In Member", string? phone = null)
+        => new { email, fullName = name, phone };
 
     private async Task<(HttpClient Desk, Guid MemberId, string Email)> RegisterAsync()
     {
@@ -137,20 +137,15 @@ public sealed class FrontDeskMemberRegistrationTests(SportHubApiFactory factory)
     }
 
     [Fact]
-    public async Task Registration_validates_confirmation_duplicates_and_cannot_create_staff()
+    public async Task Registration_takes_the_email_once_rejects_duplicates_and_cannot_create_staff()
     {
         var desk = await ReceptionistAsync();
         var email = $"walkin-{Guid.NewGuid():N}@example.com";
 
-        var mismatch = await desk.PostAsJsonAsync("api/members/front-desk", Body(email, "other@example.com"));
-        Assert.Equal(HttpStatusCode.BadRequest, mismatch.StatusCode);
-        Assert.Equal("email_confirmation_mismatch", (await Json(mismatch)).GetProperty("error").GetString());
-        Assert.DoesNotContain(factory.Emails.Sent, x => x.To == email);
-
         // Role không nhận từ body: dù gửi role staff vẫn chỉ tạo Member.
         var created = await desk.PostAsJsonAsync("api/members/front-desk", new
         {
-            email, confirmEmail = email, fullName = "Walk In Member", role = "SystemAdministrator", roleId = 5
+            email, fullName = "Walk In Member", role = "SystemAdministrator", roleId = 5
         });
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
         Assert.Equal("MEMBER", (await Json(created)).GetProperty("role").GetString());
@@ -191,12 +186,8 @@ public sealed class FrontDeskMemberRegistrationTests(SportHubApiFactory factory)
         var wrongToken = factory.Emails.LatestResetTokenFor(wrongEmail);
         var rightEmail = $"right-{Guid.NewGuid():N}@example.com";
 
-        var mismatch = await desk.PutAsJsonAsync($"api/members/front-desk/{memberId}/email",
-            new { email = rightEmail, confirmEmail = "x@example.com", reason = "Typo in the email" });
-        Assert.Equal(HttpStatusCode.BadRequest, mismatch.StatusCode);
-
         var changed = await desk.PutAsJsonAsync($"api/members/front-desk/{memberId}/email",
-            new { email = rightEmail, confirmEmail = rightEmail, reason = "Typo in the email" });
+            new { email = rightEmail, reason = "Typo in the email" });
         Assert.Equal(HttpStatusCode.OK, changed.StatusCode);
         Assert.Equal(rightEmail, (await Json(changed)).GetProperty("email").GetString());
 
@@ -232,7 +223,7 @@ public sealed class FrontDeskMemberRegistrationTests(SportHubApiFactory factory)
         Assert.Equal("account_not_pending_activation", (await Json(activated)).GetProperty("error").GetString());
         var newEmail = $"x-{Guid.NewGuid():N}@example.com";
         Assert.Equal(HttpStatusCode.Conflict, (await desk.PutAsJsonAsync($"api/members/front-desk/{memberId}/email",
-            new { email = newEmail, confirmEmail = newEmail, reason = "Typo fix" })).StatusCode);
+            new { email = newEmail, reason = "Typo fix" })).StatusCode);
 
         // Endpoint của quầy không áp dụng cho staff: không tìm thấy như một Member.
         var staff = await factory.SeedUserAsync($"staff-{Guid.NewGuid():N}@example.com", null, role: UserRole.Receptionist);

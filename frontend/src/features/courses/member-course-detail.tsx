@@ -15,6 +15,7 @@ import { formatDate, formatMoney } from "@/lib/format";
 import { courseApi } from "./api";
 import styles from "./member-course-detail.module.css";
 import { useCourseEnrollments } from "./use-course-enrollments";
+import { useClassHolds } from "./use-class-holds";
 import {
   courseRegistrationState,
   registrationReason,
@@ -44,6 +45,7 @@ export function CourseDetail({
   const vi = language === "vi";
   const { user } = useAuth();
   const enrollments = useCourseEnrollments();
+  const holds = useClassHolds();
   const reloadEnrollments = enrollments.reload;
   const handlePaid = useCallback(() => {
     // Keep the receipt mounted when fulfillment refreshes the enrollment list.
@@ -95,6 +97,10 @@ export function CourseDetail({
   const hasSeats = course.availableSeats > 0;
   const registration = courseRegistrationState(course, enrolled, now);
   const canRegister = registration === "open";
+  // A hold taken before enrollment closed can still be paid, so keep offering the checkout for it.
+  const heldInvoiceId =
+    !canRegister && !enrolled ? holds.holdFor(classId)?.invoiceId : undefined;
+  const resumeId = resumeInvoiceId ?? heldInvoiceId;
   const facts = [
     [
       vi ? "Huấn luyện viên" : "Coach",
@@ -166,17 +172,21 @@ export function CourseDetail({
                 ? vi
                   ? "Bạn đã đăng ký lớp này"
                   : "You are registered for this class"
-                : !canRegister
+                : heldInvoiceId
                   ? vi
-                    ? "Không nhận đăng ký"
-                    : "Not accepting registrations"
-                  : hasSeats
+                    ? "Chỗ của bạn đang được giữ"
+                    : "Your seat is being held"
+                  : !canRegister
                     ? vi
-                      ? `Còn ${course.availableSeats} chỗ`
-                      : `${course.availableSeats} spots left`
-                    : vi
-                      ? "Lớp đã đủ người"
-                      : "Class is full"}
+                      ? "Không nhận đăng ký"
+                      : "Not accepting registrations"
+                    : hasSeats
+                      ? vi
+                        ? `Còn ${course.availableSeats} chỗ`
+                        : `${course.availableSeats} spots left`
+                      : vi
+                        ? "Lớp đã đủ người"
+                        : "Class is full"}
             </strong>
             <span>
               {vi ? `Sĩ số ${course.capacity}` : `Capacity ${course.capacity}`}
@@ -184,7 +194,7 @@ export function CourseDetail({
           </div>
         </div>
         {user?.role === "Member" &&
-        (resumeInvoiceId ||
+        (resumeId ||
           checkoutCompleted ||
           (canRegister && !enrollments.loading && !enrollments.error)) ? (
           <div className={styles.payment}>
@@ -192,7 +202,7 @@ export function CourseDetail({
               modal
               onChange={handleCheckoutChange}
               onPaid={handlePaid}
-              invoiceId={resumeInvoiceId}
+              invoiceId={resumeId}
               intent={{ kind: "class", body: { classId } }}
               review={{
                 title: vi ? "Đăng ký khóa học" : "Register for this course",

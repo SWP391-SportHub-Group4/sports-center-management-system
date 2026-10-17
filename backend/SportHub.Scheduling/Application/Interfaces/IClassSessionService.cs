@@ -19,4 +19,13 @@ public interface IClassSessionService
 
     /// <summary>Hủy một buổi và tạo buổi bù ở cuối lịch trong cùng transaction. Trả buổi bù.</summary>
     Task<ClassSessionResponse> CancelWithMakeupAsync(Guid sessionId, CancelSessionRequest request, Guid actorUserId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Put a session back the way it was before an incident step moved it (or cancelled it for a makeup). Never throws for
+    /// "cannot revert": it returns why, so abandoning an incident can revert what is safe and report the rest.
+    /// Must run inside the caller's transaction.
+    /// </summary>
+    Task<SessionStepUndoOutcome> UndoIncidentStepAsync(Guid stepId, Guid actorUserId, CancellationToken ct = default);
 }
+
+public sealed record SessionStepUndoOutcome(bool Undone, string? Reason);

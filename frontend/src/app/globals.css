@@ -1022,7 +1022,7 @@ textarea {
   height: 17px;
   padding: 0 4px;
   border-radius: 999px;
-  background: var(--danger-700);
+  background: var(--red-600);
   color: #fff;
   font-size: 0.68rem;
   font-weight: 700;

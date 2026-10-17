@@ -166,13 +166,16 @@ interface CancellationPreview {
 export function CourseCancellation({
   classId,
   onSaved,
+  initialReason = "",
 }: {
   classId: number;
   onSaved: () => void;
+  /** Pre-fills the reason, e.g. the incident the manager just described while closing enrollment. */
+  initialReason?: string;
 }) {
   const { t } = useLanguage();
   const l = t.operations;
-  const [reason, setReason] = useState("");
+  const [reason, setReason] = useState(initialReason);
   const [review, setReview] = useState<CancellationPreview | null>(null);
   const revision = useRef(0);
   const mutation = useMutation();

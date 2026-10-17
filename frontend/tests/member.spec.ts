@@ -340,7 +340,7 @@ test("saved self-reported measurements remain editable", async ({ page }) => {
       },
     }),
   );
-  await page.goto("/member/profile");
+  await page.goto("/member/training?tab=profile");
   await expect(
     page.getByRole("spinbutton", { name: "Height (cm)" }),
   ).toHaveValue("175");

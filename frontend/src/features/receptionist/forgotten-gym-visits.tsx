@@ -5,6 +5,7 @@ import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { formatDateTime } from "@/lib/format";
 import type { Paged } from "@/lib/types";
+import styles from "./ops.module.css";
 
 type Visit = { checkInId: string; memberId: string; memberName: string; checkInTime: string };
 
@@ -26,6 +27,8 @@ export function ForgottenGymVisits() {
       await api.post(`/api/gym-checkins/${id}/forgotten-checkout`, {
         departedAtUtc: utc.toISOString(), reason: reason[id]?.trim(),
       });
+      setDeparture(({ [id]: _departure, ...rest }) => rest);
+      setReason(({ [id]: _reason, ...rest }) => rest);
       visits.reload();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not correct this visit.");
@@ -34,18 +37,18 @@ export function ForgottenGymVisits() {
     }
   }
 
-  return <div style={{ display: "grid", gap: 12 }}>
+  return <div className={styles.stack}>
     <p className="small muted">Open visits from before today. Record the actual departure time; the correction is audited.</p>
     {visits.loading && <p>Loading…</p>}
     {visits.error && <p role="alert">{visits.error.message}</p>}
     {visits.data?.totalCount === 0 && <p>No forgotten check-outs.</p>}
-    {visits.data?.items.map(v => <div key={v.checkInId} style={{ borderTop: "1px solid var(--border-subtle)", paddingTop: 10, display: "grid", gap: 8 }}>
+    {visits.data?.items.map(v => <div key={v.checkInId} className={styles.divided}>
       <strong>{v.memberName}</strong><span>Checked in {formatDateTime(v.checkInTime)}</span>
-      <label>Actual departure (Vietnam time)
+      <label className={styles.field}>Actual departure (Vietnam time)
         <input type="datetime-local" value={departure[v.checkInId] ?? ""}
           onChange={e => setDeparture({ ...departure, [v.checkInId]: e.target.value })} />
       </label>
-      <label>Reason for correction
+      <label className={styles.field}>Reason for correction
         <input maxLength={500} value={reason[v.checkInId] ?? ""}
           onChange={e => setReason({ ...reason, [v.checkInId]: e.target.value })} />
       </label>

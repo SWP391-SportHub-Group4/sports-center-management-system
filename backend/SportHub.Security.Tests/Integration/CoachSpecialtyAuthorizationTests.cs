@@ -16,9 +16,10 @@ namespace SportHub.Security.Tests.Integration;
 public class CoachSpecialtyAuthorizationTests(SportHubApiFactory factory)
 {
     private const string Password = "Coach-Strong-Pass-1!";
-    private const int PersonalTrainingSportId = 1; // Gym: PT là dịch vụ của Gym (offering 2 trong seed)
+    private const int GymSportId = 1;             // Gym: chỉ có Membership, không có Coach
     private const int PersonalTrainingOfferingId = 2;
     private const int BadmintonSportId = 3;        // GroupCourse
+    private const int BasketballSportId = 4;       // GroupCourse
 
     private static int _ip = 40;
 
@@ -101,9 +102,9 @@ public class CoachSpecialtyAuthorizationTests(SportHubApiFactory factory)
         var manager = await ManagerClientAsync();
         var coachId = await CreateCoachAsync(BadmintonSportId);
 
-        var update = await manager.PutAsJsonAsync($"api/manager/coaches/{coachId}", new { sportIds = new[] { PersonalTrainingSportId }, bio = "Chuyển sang PT" });
+        var update = await manager.PutAsJsonAsync($"api/manager/coaches/{coachId}", new { sportIds = new[] { BasketballSportId }, bio = "Chuyển sang bóng rổ" });
         Assert.Equal(HttpStatusCode.OK, update.StatusCode);
-        Assert.Equal(new[] { PersonalTrainingSportId },
+        Assert.Equal(new[] { BasketballSportId },
             (await Json(update)).GetProperty("sportIds").EnumerateArray().Select(e => e.GetInt32()).ToArray());
 
         using var scope = factory.Services.CreateScope();
@@ -129,12 +130,24 @@ public class CoachSpecialtyAuthorizationTests(SportHubApiFactory factory)
             email = NewEmail(), fullName = "Le Van Coach", roleId = 2, specialties = new[] { 9999 }
         })));
 
+        // Gym has no coach, so it can never be a specialty; this is data-driven (GroupCourse), not a hard-coded list.
+        Assert.Equal("sport_not_coachable", await ErrorOf(await client.PostAsJsonAsync("api/users/admin/staff", new
+        {
+            email = NewEmail(), fullName = "Le Van Coach", roleId = 2, specialties = new[] { GymSportId }
+        })));
+        Assert.Equal("sport_not_coachable", await ErrorOf(await client.PostAsJsonAsync("api/users/admin/staff", new
+        {
+            email = NewEmail(), fullName = "Le Van Coach", roleId = 2, specialties = new[] { BadmintonSportId, GymSportId }
+        })));
+
+        // One coach may teach several sports from the moment the account is created.
         var withSports = await client.PostAsJsonAsync("api/users/admin/staff", new
         {
-            email = NewEmail(), fullName = "Le Van Coach", roleId = 2, specialties = new[] { PersonalTrainingSportId }
+            email = NewEmail(), fullName = "Le Van Coach", roleId = 2, specialties = new[] { BadmintonSportId, BasketballSportId }
         });
         Assert.Equal(HttpStatusCode.Created, withSports.StatusCode);
-        Assert.Equal(PersonalTrainingSportId, (await Json(withSports)).GetProperty("sportIds")[0].GetInt32());
+        Assert.Equal(new[] { BadmintonSportId, BasketballSportId },
+            (await Json(withSports)).GetProperty("sportIds").EnumerateArray().Select(e => e.GetInt32()).OrderBy(x => x).ToArray());
 
         var notCoach = await client.PostAsJsonAsync("api/users/admin/staff", new
         {

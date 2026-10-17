@@ -18,7 +18,7 @@ namespace SportHub.Scheduling.Api;
 [ApiController]
 [Route("api/gym-checkins")]
 public class GymCheckInsController(IGymCheckInService gymCheckInService,
-    ISportHubDbContext db, IAuditWriter audit) : ControllerBase
+    ISportHubDbContext db, IAuditWriter audit, IClock clock) : ControllerBase
 {
     [Authorize(Policy = GymCheckInPolicies.Create)]
     [HttpPost]
@@ -60,7 +60,7 @@ public class GymCheckInsController(IGymCheckInService gymCheckInService,
         var reason = request.Reason?.Trim();
         if (reason?.Length is not >= 3 or > 500)
             throw new BadRequestException("gym_checkout_reason_required", "A reason of 3 to 500 characters is required.");
-        var now = DateTime.UtcNow;
+        var now = clock.UtcNow;
         var departure = request.DepartedAtUtc.UtcDateTime;
         var todayStart = VietnamTime.StartOfDayUtc(DateOnly.FromDateTime(VietnamTime.ToLocal(now)));
         await using var tx = await db.Database.BeginTransactionAsync(ct);

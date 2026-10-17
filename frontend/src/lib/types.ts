@@ -69,6 +69,7 @@ export interface CourseDto {
   price: number;
   status: "PUBLISHED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
   enrollmentOpen: boolean;
+  thresholdResponseClosed?: boolean;
   firstSessionStartUtc: string | null;
   scheduleRules: { dayOfWeek: number; startTimeLocal: string }[];
 }
@@ -376,6 +377,8 @@ export interface RevenueReportDto {
   pointsRedeemed: number;
   pointsRedeemedVnd: number;
   pointsIssued: number;
+  /** Refund credits only; a subset of pointsIssued. */
+  pointsRefunded: number;
   managerPointAdjustment: number;
   outstandingPoints: number;
   outstandingPointsAsOfUtc?: string;
@@ -750,6 +753,9 @@ export interface ManagerCourseDto extends Omit<CourseDto, "status"> {
   confirmedCount: number;
   reservedCount: number;
   activeHoldCount: number;
+  /** Why the manager closed enrollment; null when open or closed without an incident reason. */
+  enrollmentClosedReason: string | null;
+  enrollmentClosedAtUtc: string | null;
   version: number;
   createdAt: string;
   publishedAt: string | null;
@@ -823,6 +829,17 @@ export interface IncidentPreviewDto {
   closesGym?: boolean;
   suggestedMembershipExtensionDays?: number;
   affectedMemberCount?: number;
+  /** Each affected member with the outcome and the server's expected refund (null until a schedule decision). */
+  members?: {
+    memberId: string;
+    memberName: string | null;
+    sourceType: string;
+    sourceId: string;
+    outcome:
+      "REFUNDED_AS_POINTS" | "CHECKOUT_RELEASED" | "AWAITS_SCHEDULE_DECISION";
+    expectedRefundPoints: number | null;
+  }[];
+  expectedRefundPointsTotal?: number;
   impacts: {
     sourceType: string;
     sourceId: string;

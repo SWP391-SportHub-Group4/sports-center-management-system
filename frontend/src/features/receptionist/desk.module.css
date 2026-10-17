@@ -171,3 +171,8 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* Inside a dialog the form fills the dialog body so its inputs line up with the header and description. */
+.dialogForm:global(.form) {
+  max-width: none;
+}

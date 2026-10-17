@@ -14,6 +14,8 @@ namespace SportHub.API.Jobs;
 public abstract class PeriodicJob(IServiceProvider services, ILogger logger, TimeSpan interval)
     : BackgroundService
 {
+    private readonly JobHealthRegistry? health = services.GetService<JobHealthRegistry>();
+
     protected abstract string JobName { get; }
 
     protected abstract Task RunOnceAsync(IServiceProvider scopedServices, CancellationToken ct);
@@ -23,6 +25,7 @@ public abstract class PeriodicJob(IServiceProvider services, ILogger logger, Tim
         // Chờ một nhịp trước lượt đầu: lúc khởi động, migration và seed dữ liệu demo còn đang
         // chạy, và job đọc dữ liệu dở dang sẽ ra kết quả sai.
         using var timer = new PeriodicTimer(interval);
+        health?.Register(JobName, interval);
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -33,8 +36,10 @@ public abstract class PeriodicJob(IServiceProvider services, ILogger logger, Tim
                     break;
                 }
 
+                health?.RunStarted(JobName);
                 await using var scope = services.CreateAsyncScope();
                 await RunOnceAsync(scope.ServiceProvider, stoppingToken);
+                health?.RunSucceeded(JobName);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -42,6 +47,7 @@ public abstract class PeriodicJob(IServiceProvider services, ILogger logger, Tim
             }
             catch (Exception ex)
             {
+                health?.RunFailed(JobName, ex);
                 logger.LogError(ex, "Job {JobName} failed during this run; it will retry on the next run.", JobName);
             }
         }
