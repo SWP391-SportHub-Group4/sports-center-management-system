@@ -164,6 +164,7 @@ test("the member menu keeps Services on one row at 1360px", async ({
     "Overview",
     "Services",
     "My schedule",
+    "Training",
   ]);
   await expect(
     nav.getByRole("link", { name: "Billing", exact: true }),
