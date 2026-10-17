@@ -6,30 +6,33 @@ import {
   ArrowRight,
   CalendarClock,
   CalendarDays,
-  CheckCircle2,
   ChevronLeft,
   ChevronRight,
   Clock3,
-  MessageSquare,
+  Pencil,
   RefreshCw,
   Send,
   Users,
+  UserRoundMinus,
   X,
 } from "lucide-react";
 import { AsyncSection, Feedback } from "@/components/ui";
-import { useApi, useAction } from "@/lib/useApi";
+import { useApi, useAction, useNow } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { formatDateTime, formatTime } from "@/lib/format";
 import {
   classChangeApi,
-  changeStatusLabel,
-  changeTypeLabel,
+  changeRequestStatusLabel,
+  coachChangeTypeLabel,
   type ClassChangeRequest,
   type ClassChangeType,
 } from "./class-change-api";
+import { PendingRequestEditor } from "./pending-request-editor";
+import { RequestOutcome } from "./request-outcome";
 import styles from "./coach-change-requests.module.css";
 
 const changeIcons = {
+  ABSENCE: UserRoundMinus,
   SUBSTITUTE: Users,
   RESCHEDULE: CalendarClock,
   CANCEL_WITH_MAKEUP: CalendarDays,
@@ -41,6 +44,9 @@ export function CoachChangeRequests() {
   const [page, setPage] = useState(1);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [confirmWithdraw, setConfirmWithdraw] = useState(false);
+  const [editing, setEditing] = useState<ClassChangeRequest | null>(null);
+  const [editMessage, setEditMessage] = useState("");
+  const now = useNow(1000);
   const detailRef = useRef<HTMLElement>(null);
   const lock = useRef(false);
   const action = useAction();
@@ -87,15 +93,11 @@ export function CoachChangeRequests() {
     <div className={styles.workspace}>
       <header className={styles.intro}>
         <div>
-          <h2>
-            {vi
-              ? "Theo dõi thay đổi lịch dạy"
-              : "Keep track of schedule changes"}
-          </h2>
+          <h2>{vi ? "Theo dõi yêu cầu vắng" : "Absence requests"}</h2>
           <p>
             {vi
               ? "Gửi yêu cầu từ buổi dạy. Theo dõi quyết định của quản lý tại đây."
-              : "Request changes from your teaching schedule. Follow your Manager’s decisions here."}
+              : "Request absence from a session at least 6 hours in advance. Your Manager decides the resolution; follow the outcome here."}
           </p>
         </div>
         <Link href="/coach/schedule" className="btn">
@@ -122,6 +124,7 @@ export function CoachChangeRequests() {
         </button>
       </div>
       <Feedback error={action.error} success={action.success} />
+      {editMessage && <p role="status">{editMessage}</p>}
       <AsyncSection state={state}>
         {(data) => {
           const selected =
@@ -132,15 +135,15 @@ export function CoachChangeRequests() {
               <div className={styles.empty}>
                 <CalendarClock size={40} aria-hidden="true" />
                 <h3>
-                  {vi ? "Chưa có yêu cầu đổi lịch" : "No change requests yet"}
+                  {vi ? "Chưa có yêu cầu vắng" : "No absence requests yet"}
                 </h3>
                 <p>
                   {vi
-                    ? "Cần đổi lịch? Chọn một buổi dạy sắp tới, sau đó gửi yêu cầu dạy thay, dời lịch hoặc học bù."
-                    : "Need a change? Select an upcoming session to request a substitute, reschedule or makeup session."}
+                    ? "Không thể dạy buổi sắp tới? Chọn buổi học và nhập lý do vắng để Manager xử lý."
+                    : "Unable to teach an upcoming session? Select it and send your reason for absence. Your Manager will arrange the schedule."}
                 </p>
                 <Link href="/coach/schedule" className="btn btn--secondary">
-                  {vi ? "Mở lịch dạy" : "Open teaching schedule"}
+                  {vi ? "Mở lịch" : "Open schedule"}
                   <ArrowRight size={18} aria-hidden="true" />
                 </Link>
               </div>
@@ -179,13 +182,13 @@ export function CoachChangeRequests() {
                             className={styles.badge}
                             data-status={request.status}
                           >
-                            {changeStatusLabel(request.status, vi)}
+                            {changeRequestStatusLabel(request, vi)}
                           </span>
                         </span>
                         <strong>{request.className}</strong>
                         <span>
                           {vi ? "Buổi" : "Session"} {request.sessionNo} ·{" "}
-                          {changeTypeLabel(request.type, vi)}
+                          {coachChangeTypeLabel(request.type, vi)}
                         </span>
                         <span className={styles.rowDate}>
                           {vi ? "Đã gửi: " : "Submitted: "}
@@ -240,10 +243,10 @@ export function CoachChangeRequests() {
                 <header className={styles.detailHeader}>
                   <span className={styles.detailType}>
                     <Icon size={20} aria-hidden="true" />
-                    {changeTypeLabel(selected.type, vi)}
+                    {coachChangeTypeLabel(selected.type, vi)}
                   </span>
                   <span className={styles.badge} data-status={selected.status}>
-                    {changeStatusLabel(selected.status, vi)}
+                    {changeRequestStatusLabel(selected, vi)}
                   </span>
                   <h3>{selected.className}</h3>
                   <p>
@@ -264,80 +267,42 @@ export function CoachChangeRequests() {
                       {formatTime(selected.originalEndAtUtc)}
                     </small>
                   </div>
-                  <ArrowRight
-                    size={20}
-                    className={styles.comparisonArrow}
-                    aria-hidden="true"
-                  />
-                  <div>
-                    <span>
-                      <CalendarClock size={17} aria-hidden="true" />
-                      {vi ? "Đề xuất của bạn" : "Your proposal"}
-                    </span>
-                    <strong>
-                      {selected.proposedStartAtUtc
-                        ? formatDateTime(selected.proposedStartAtUtc)
-                        : changeTypeLabel(selected.type, vi)}
-                    </strong>
-                    <small>
-                      {selected.proposedStartAtUtc && selected.proposedEndAtUtc
-                        ? `${formatTime(selected.proposedStartAtUtc)} – ${formatTime(selected.proposedEndAtUtc)}`
-                        : vi
-                          ? "Quản lý xác nhận phương án cuối cùng"
-                          : "Final arrangement confirmed by your Manager"}
-                    </small>
-                  </div>
-                </div>
-                <div className={styles.detailSection}>
-                  <h4>{vi ? "Lý do thay đổi" : "Reason for change"}</h4>
-                  <p>{selected.reason}</p>
+                  {selected.type !== "ABSENCE" &&
+                    selected.status === "PENDING" && (
+                      <div>
+                        <span>
+                          <CalendarClock size={17} aria-hidden="true" />
+                          {vi ? "Đề xuất trước đây" : "Earlier proposal"}
+                        </span>
+                        <strong>
+                          {selected.proposedStartAtUtc
+                            ? formatDateTime(selected.proposedStartAtUtc)
+                            : coachChangeTypeLabel(selected.type, vi)}
+                        </strong>
+                        <small>
+                          {selected.proposedStartAtUtc &&
+                          selected.proposedEndAtUtc
+                            ? `${formatTime(selected.proposedStartAtUtc)} – ${formatTime(selected.proposedEndAtUtc)}`
+                            : vi
+                              ? "Đang chờ Manager quyết định"
+                              : "Awaiting your Manager’s decision"}
+                        </small>
+                      </div>
+                    )}
                 </div>
                 <div className={styles.detailSection}>
                   <h4>
-                    <MessageSquare size={18} aria-hidden="true" />
-                    {vi ? "Phản hồi của quản lý" : "Manager response"}
+                    {selected.type === "ABSENCE"
+                      ? vi
+                        ? "Lý do vắng"
+                        : "Reason for absence"
+                      : vi
+                        ? "Lý do thay đổi"
+                        : "Reason for change"}
                   </h4>
-                  {selected.status === "PENDING" ? (
-                    <div className={styles.reviewMessage} data-status="PENDING">
-                      <Clock3 size={20} aria-hidden="true" />
-                      <p>
-                        {vi
-                          ? "Đang chờ duyệt. Lịch dạy hiện tại vẫn có hiệu lực; hãy liên hệ trực tiếp với quản lý nếu cần xử lý gấp."
-                          : "Awaiting review. Your current schedule remains in effect; contact your Manager directly for urgent changes."}
-                      </p>
-                    </div>
-                  ) : selected.status === "WITHDRAWN" ? (
-                    <p>
-                      {vi
-                        ? "Bạn đã rút yêu cầu này. Lịch dạy không thay đổi."
-                        : "You withdrew this request. Your teaching schedule is unchanged."}
-                    </p>
-                  ) : (
-                    <div
-                      className={styles.reviewMessage}
-                      data-status={selected.status}
-                    >
-                      {selected.status === "RESOLVED" ? (
-                        <CheckCircle2 size={20} aria-hidden="true" />
-                      ) : (
-                        <X size={20} aria-hidden="true" />
-                      )}
-                      <div>
-                        {selected.resolutionType && (
-                          <strong>
-                            {changeTypeLabel(selected.resolutionType, vi)}
-                          </strong>
-                        )}
-                        <p>
-                          {selected.reviewNote ||
-                            (vi
-                              ? "Quản lý đã cập nhật trạng thái yêu cầu."
-                              : "Your Manager updated this request’s status.")}
-                        </p>
-                      </div>
-                    </div>
-                  )}
+                  <p>{selected.reason}</p>
                 </div>
+                <RequestOutcome request={selected} />
                 <div className={styles.activity}>
                   <span>
                     <Send size={15} aria-hidden="true" />
@@ -346,17 +311,9 @@ export function CoachChangeRequests() {
                       {formatDateTime(selected.createdAtUtc)}
                     </time>
                   </span>
-                  {selected.reviewedAtUtc && (
-                    <span>
-                      <CheckCircle2 size={15} aria-hidden="true" />
-                      {vi ? "Đã xem xét" : "Reviewed"}
-                      <time dateTime={selected.reviewedAtUtc}>
-                        {formatDateTime(selected.reviewedAtUtc)}
-                      </time>
-                    </span>
-                  )}
                 </div>
-                {selected.status === "RESOLVED" && (
+                {(selected.status === "RESOLVED" ||
+                  selected.resolutionType === "SCHEDULE_UPDATED") && (
                   <footer className={styles.detailFooter}>
                     <Link href="/coach/schedule" className="btn btn--secondary">
                       {vi ? "Xem lịch đã cập nhật" : "View updated schedule"}
@@ -366,6 +323,31 @@ export function CoachChangeRequests() {
                 )}
                 {selected.status === "PENDING" && (
                   <footer className={styles.detailFooter}>
+                    {!confirmWithdraw &&
+                      Date.parse(selected.originalStartAtUtc) - now >=
+                        6 * 3600000 && (
+                        <button
+                          type="button"
+                          className="btn"
+                          disabled={action.busy}
+                          onClick={() => {
+                            setEditMessage("");
+                            setEditing(selected);
+                          }}
+                        >
+                          <Pencil size={17} aria-hidden="true" />
+                          Edit pending request
+                        </button>
+                      )}
+                    {!confirmWithdraw &&
+                      Date.parse(selected.originalStartAtUtc) > now &&
+                      Date.parse(selected.originalStartAtUtc) - now <
+                        6 * 3600000 && (
+                        <p className={styles.hint} role="status">
+                          Editing closes 6 hours before class. Contact your
+                          Manager directly for urgent changes.
+                        </p>
+                      )}
                     {confirmWithdraw ? (
                       <div className={styles.confirmation}>
                         <p>
@@ -416,6 +398,25 @@ export function CoachChangeRequests() {
           );
         }}
       </AsyncSection>
+      {editing && (
+        <PendingRequestEditor
+          key={editing.requestId}
+          request={editing}
+          onClose={() => setEditing(null)}
+          onSaved={() => {
+            setEditing(null);
+            setEditMessage(
+              "Changes saved. Your request is still pending Manager review.",
+            );
+            state.reload();
+          }}
+          onUnavailable={(message) => {
+            setEditing(null);
+            setEditMessage(message);
+            state.reload();
+          }}
+        />
+      )}
     </div>
   );
 }

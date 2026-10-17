@@ -15,6 +15,7 @@ import { Button, buttonClass } from "@/components/primitives";
 import { formatDateTime, formatMoney, formatPoints } from "@/lib/format";
 import type { CheckoutDto, InvoiceDetailDto } from "@/lib/types";
 import { derivePhase } from "./checkout.contract";
+import { DownloadInvoiceButton } from "./download-invoice-button";
 import styles from "./payment-result.module.css";
 
 export function PaymentResult({
@@ -204,13 +205,18 @@ export function PaymentResult({
             <dd>{formatMoney(checkout.totalAmount)}</dd>
           </div>
         </dl>
-        <Link
-          href={invoiceHref}
-          className={buttonClass({ variant: "secondary", block: true })}
-        >
-          View invoice
-          <ArrowRight size={16} aria-hidden="true" />
-        </Link>
+        <div className={styles.invoiceActions}>
+          <Link
+            href={invoiceHref}
+            className={buttonClass({ variant: "secondary", block: true })}
+          >
+            View invoice
+            <ArrowRight size={16} aria-hidden="true" />
+          </Link>
+          {paid && (
+            <DownloadInvoiceButton invoiceId={checkout.invoiceId} block />
+          )}
+        </div>
         {complete ? (
           <p className={styles.assurance}>
             <ShieldCheck size={16} aria-hidden="true" />

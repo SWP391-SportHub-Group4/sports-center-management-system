@@ -7,6 +7,7 @@ import {
   Pencil,
   CalendarClock,
 } from "lucide-react";
+import { useAccessGuard } from "@/lib/use-access-guard";
 import { useLanguage } from "@/lib/language";
 import { useApi } from "@/lib/useApi";
 import { formatDateTime } from "@/lib/format";
@@ -128,10 +129,19 @@ export function MemberTeachingFeed({
   sessions?: CourseSessionDto[];
 }) {
   const { language } = useLanguage();
+  const revoked = useAccessGuard(`member-teaching-${classId}`, (signal) =>
+    teachingApi.records(classId, signal, true),
+  );
   const state = useApi(
     (signal) => teachingApi.records(classId, signal, true),
     [classId],
   );
+  if (revoked)
+    return (
+      <p role="status">
+        Class access has ended. Your invoices remain available in Billing.
+      </p>
+    );
   return (
     <section className={styles.feed}>
       <h2>{language === "vi" ? "Từ huấn luyện viên" : "From your coach"}</h2>

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 using SportHub.AI.Application.DTOs.Chat;
 using SportHub.AI.Application.Interfaces;
 using SportHub.AI.Application.Services;
@@ -68,14 +69,7 @@ public class AiController(
     {
         var coachId = User.RequireUserId();
 
-        var hasRelationship =
-            await db.Set<CoachMemberRelationship>()
-                .AnyAsync(
-                    r =>
-                        r.CoachId == coachId &&
-                        r.MemberId == memberId &&
-                        r.Status == RelationshipStatus.Active,
-                    ct);
+        var hasRelationship = await SportHub.Scheduling.Application.Services.CoachDataScope.CanReadMemberAsync(db, coachId, memberId, ct);
 
         if (!hasRelationship)
         {
@@ -144,6 +138,18 @@ public class AiController(
                 log.CreatedAt))
             .ToListAsync(ct);
 
+        if (User.IsInRole(SportHubRoleNames.Coach)) {
+            var allowed = (await SportHub.Scheduling.Application.Services.CoachDataScope.Enrollments(db, User.RequireUserId())
+                .Select(e => e.MemberId).Distinct().ToListAsync(ct)).ToHashSet();
+            logs = logs.Where(log => {
+                try {
+                    using var input = JsonDocument.Parse(log.InputPayload);
+                    return input.RootElement.ValueKind == JsonValueKind.Object
+                        && (input.RootElement.TryGetProperty("MemberId", out var id) || input.RootElement.TryGetProperty("memberId", out id))
+                        && id.ValueKind == JsonValueKind.String && id.TryGetGuid(out var memberId) && allowed.Contains(memberId);
+                } catch (JsonException) { return false; }
+            }).ToList();
+        }
         return Ok(logs);
     }
 }

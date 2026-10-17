@@ -75,9 +75,15 @@ public sealed class MemberCourseNotificationsTests(SchedulingApiFactory factory)
         Assert.Equal(HttpStatusCode.NotFound,
             (await outsider.PostAsJsonAsync($"/api/course-interests/{interest.CourseInterestId}/cancel", new { })).StatusCode);
         var next = await CourseTestData.CreateAsync(factory, time: "14:00");
+        // Only a cohort explicitly linked to this program fulfils the subscription.
+        await factory.QueryAsync(db => db.Classes.Where(c => c.ClassId == next.Id)
+            .ExecuteUpdateAsync(s => s.SetProperty(c => c.ContinuationOfClassId, source.Id)));
         await QueueAsync();
         await QueueAsync();
         Assert.Equal(1, await OpeningCountAsync(member.UserId));
+        Assert.Equal(1, await factory.QueryAsync(db => db.Notifications.CountAsync(x =>
+            x.UserId == member.UserId && x.SourceEventType == NotificationSourceEventType.CourseInterestOpened
+                && x.Channel == NotificationChannel.Email)));
         Assert.Equal(HttpStatusCode.NoContent,
             (await client.PostAsJsonAsync($"/api/course-interests/{interest.CourseInterestId}/cancel", new { })).StatusCode);
         await CourseTestData.CreateAsync(factory, time: "16:00");
@@ -121,5 +127,6 @@ public sealed class MemberCourseNotificationsTests(SchedulingApiFactory factory)
     }
 
     private Task<int> OpeningCountAsync(Guid memberId) => factory.QueryAsync(db => db.Notifications.CountAsync(x =>
-        x.UserId == memberId && x.SourceEventType == NotificationSourceEventType.CourseInterestOpened));
+        x.UserId == memberId && x.SourceEventType == NotificationSourceEventType.CourseInterestOpened
+            && x.Channel == NotificationChannel.InApp));
 }

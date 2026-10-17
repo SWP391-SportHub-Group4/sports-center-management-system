@@ -17,7 +17,7 @@ namespace SportHub.Scheduling.Api;
 /// </summary>
 [ApiController]
 public class ClassesController(IClassService classes, IClassSessionService sessions,
-    IClassThresholdService thresholds, ISportHubDbContext db) : ControllerBase
+    IClassThresholdService thresholds, ISportHubDbContext db, SportHub.BuildingBlocks.SharedKernel.Time.IClock clock) : ControllerBase
 {
     [AllowAnonymous]
     [HttpGet("api/classes")]
@@ -89,13 +89,7 @@ public class ClassesController(IClassService classes, IClassSessionService sessi
     [HttpGet("api/members/me/classes/{classId:int}/sessions")]
     public async Task<IActionResult> MemberSessions(int classId, CancellationToken ct)
     {
-        if (!await db.Set<SportHub.Scheduling.Domain.Entities.Enrollment>().AnyAsync(e => e.ClassId == classId
-                && e.MemberId == User.RequireUserId()
-                && e.Status == SportHub.Scheduling.Domain.Enums.EnrollmentStatus.Confirmed
-                && e.EndedAt == null
-                && (e.Class!.Status == SportHub.Scheduling.Domain.Enums.ClassStatus.Published
-                    || e.Class.Status == SportHub.Scheduling.Domain.Enums.ClassStatus.InProgress), ct))
-            throw new ForbiddenException("class_not_enrolled", "You do not have an active enrollment in this class.");
+        await SportHub.Scheduling.Application.Services.MemberClassAccess.RequireAsync(db, User.RequireUserId(), classId, clock.UtcNow, ct);
         return Ok(await sessions.ListByClassAsync(classId, null, ct));
     }
 

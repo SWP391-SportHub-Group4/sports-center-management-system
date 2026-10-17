@@ -207,6 +207,27 @@
   color: var(--success-text);
   font-size: var(--text-xs);
 }
+.invoiceActions {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.invoiceActions > * {
+  min-width: 0;
+}
+.invoiceActions :is(a, button) {
+  min-height: 44px;
+  white-space: normal;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+.invoiceActions svg {
+  flex-shrink: 0;
+}
+.invoiceActions p {
+  margin: var(--space-2) 0 0;
+  overflow-wrap: anywhere;
+}
 .caution {
   margin: 16px 0 0;
   color: var(--text-muted);

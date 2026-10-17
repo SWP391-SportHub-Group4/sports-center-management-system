@@ -1,125 +1,142 @@
 "use client";
 import Link from "next/link";
-import { useState } from "react";
+import { Bell, BellOff, ArrowUpRight } from "lucide-react";
 import { api } from "@/lib/apiClient";
-import { useAction, useApi } from "@/lib/useApi";
-import type { Paged } from "@/lib/types";
-import { AsyncSection, Field } from "@/components/ui";
-import { useLanguage } from "@/lib/language";
-import { thresholdCopy } from "./threshold-copy";
+import { useApi, useAction } from "@/lib/useApi";
+import { formatDateTime, formatPoints } from "@/lib/format";
+import { AsyncSection } from "@/components/ui";
 import styles from "./threshold.module.css";
 
 interface Interest {
-  courseInterestId: string;
-  memberId: string;
+  interestId: string;
   memberName: string;
-  sportId: number;
-  sportName: string;
   sourceClassName: string;
+  sportName: string;
+  active: boolean;
   refundedPoints: number;
-  cancelledAtUtc: string | null;
+  createdAtUtc: string;
+  notifications: { classId: number; className: string; queuedAtUtc: string }[];
 }
 
 export function CourseInterests({ manager = false }: { manager?: boolean }) {
-  const { language } = useLanguage();
-  const copy = thresholdCopy[language];
-  const [page, setPage] = useState(1);
-  const [sportId, setSportId] = useState("");
-  const action = useAction();
-  const sports = useApi(
-    (signal) =>
-      api.get<{ sportId: number; name: string }[]>("/api/sports", { signal }),
-    [],
-  );
   const state = useApi(
     (signal) =>
-      api.get<Paged<Interest>>("/api/course-interests", {
-        signal,
-        query: { page, pageSize: 20, sportId: sportId || undefined },
-      }),
-    [page, sportId],
+      api.get<Interest[]>(
+        manager
+          ? "/api/manager/course-interests"
+          : "/api/members/me/course-interests",
+        { signal },
+      ),
+    [manager],
   );
+  const action = useAction();
   return (
     <section className={styles.page}>
-      <header>
-        <h2>{copy.interests}</h2>
-        <p>{manager ? copy.managerIntro : copy.interestsIntro}</p>
+      <header className={styles.header}>
+        <h2>Course interests</h2>
+        <p>
+          {manager
+            ? "Members waiting for the next cohort. Link a new draft to its previous class to notify them when registration opens."
+            : "Track the next cohorts you asked to hear about. Notifications do not reserve a seat or enroll you."}
+        </p>
       </header>
-      <Field label="Sport">
-        <select
-          value={sportId}
-          onChange={(e) => {
-            setSportId(e.target.value);
-            setPage(1);
-          }}
-        >
-          <option value="">All sports</option>
-          {sports.data?.map((s) => (
-            <option key={s.sportId} value={s.sportId}>
-              {s.name}
-            </option>
-          ))}
-        </select>
-      </Field>
-      {action.error && <p role="alert">{action.error}</p>}
       <AsyncSection state={state}>
-        {(data) => (
-          <>
-            {!data.items.length && <p>No course interests found.</p>}
-            {data.items.map((item) => (
-              <article key={item.courseInterestId} className={styles.notice}>
-                <h3>{item.sportName}</h3>
-                <p>
-                  {copy.source}: {item.sourceClassName}
-                </p>
-                {manager && <p>Member: {item.memberName}</p>}
-                <p>
-                  {copy.refunded}: {item.refundedPoints}
-                </p>
-                <p>
-                  {copy.notifications}:{" "}
-                  {item.cancelledAtUtc ? "Cancelled" : "Active"}
-                </p>
-                {!manager && !item.cancelledAtUtc && (
-                  <button
-                    className="btn btn--secondary"
-                    disabled={action.busy}
-                    onClick={() =>
-                      void action.run(async () => {
-                        await api.post(
-                          `/api/course-interests/${item.courseInterestId}/cancel`,
-                          {},
-                        );
-                        state.reload();
-                      })
-                    }
-                  >
-                    Stop notifications
-                  </button>
-                )}
-              </article>
-            ))}
-            <nav aria-label="Course interest pages">
-              <button
-                disabled={page === 1}
-                onClick={() => setPage((p) => p - 1)}
-              >
-                Previous
-              </button>
-              <span> {page} </span>
-              <button
-                disabled={page * 20 >= data.totalCount}
-                onClick={() => setPage((p) => p + 1)}
-              >
-                Next
-              </button>
-            </nav>
-          </>
-        )}
+        {(rows) =>
+          rows.length ? (
+            <ul className={styles.interests}>
+              {rows.map((row) => (
+                <li key={row.interestId} className={styles.interest}>
+                  <div className={styles.interestHeading}>
+                    <div>
+                      <span>{row.sportName}</span>
+                      <h3>{row.sourceClassName}</h3>
+                    </div>
+                    <span
+                      className={styles.interestStatus}
+                      data-active={row.active}
+                    >
+                      {row.active ? (
+                        <Bell size={15} aria-hidden="true" />
+                      ) : (
+                        <BellOff size={15} aria-hidden="true" />
+                      )}
+                      {row.active
+                        ? "Following next cohort"
+                        : "Notifications stopped"}
+                    </span>
+                  </div>
+                  {manager && (
+                    <p>
+                      Member: <strong>{row.memberName}</strong>
+                    </p>
+                  )}
+                  <p>
+                    {formatPoints(row.refundedPoints)} points refunded ·
+                    Requested {formatDateTime(row.createdAtUtc)}
+                  </p>
+                  {row.notifications.length ? (
+                    <ul className={styles.deliveries}>
+                      {row.notifications.map((n) => (
+                        <li key={n.classId}>
+                          <Link
+                            href={
+                              manager
+                                ? `/manager/classes/${n.classId}`
+                                : `/member/services?view=explore&course=${n.classId}`
+                            }
+                          >
+                            {n.className}
+                            <ArrowUpRight size={16} aria-hidden="true" />
+                          </Link>
+                          <small>
+                            Notified {formatDateTime(n.queuedAtUtc)}
+                          </small>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p>Waiting for the next cohort to open.</p>
+                  )}
+                  {!manager && row.active && (
+                    <button
+                      type="button"
+                      className="btn btn--quiet"
+                      disabled={action.busy}
+                      onClick={() =>
+                        void action.run(async () => {
+                          await api.del(
+                            `/api/members/me/course-interests/${row.interestId}`,
+                          );
+                          state.reload();
+                        })
+                      }
+                    >
+                      Stop notifications
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p>
+              No course interests yet. They appear here after you choose “Wait
+              for the next course”.
+            </p>
+          )
+        }
       </AsyncSection>
-      <Link href={manager ? "/manager/classes" : "/member/services"}>
-        {manager ? copy.back : copy.explore}
-      </Link>
+      {action.error && <p role="alert">{action.error}</p>}
+      <div className="btn-row">
+        <Link
+          className="btn btn--secondary"
+          href={manager ? "/manager/classes" : "/member/services"}
+        >
+          {manager ? "Back to classes" : "Browse classes"}
+        </Link>
+        <button type="button" className="btn btn--quiet" onClick={state.reload}>
+          Refresh
+        </button>
+      </div>
     </section>
   );
 }

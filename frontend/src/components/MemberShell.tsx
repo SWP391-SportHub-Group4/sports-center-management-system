@@ -124,6 +124,7 @@ export function MemberFrame({
     label: t.finance.title,
     also: ["/member/invoices", "/member/wallet"],
   });
+  const fitnessProfileActive = pathname === "/member/profile";
 
   // Authentication & Role check
   useEffect(() => {
@@ -289,6 +290,7 @@ export function MemberFrame({
                   <Link
                     href="/member/training?tab=profile"
                     className={styles.dropdownItem}
+                    aria-current={fitnessProfileActive ? "page" : undefined}
                     onClick={() => setUserMenuOpen(false)}
                   >
                     <IconHeartbeat size={15} />
@@ -387,8 +389,9 @@ export function MemberFrame({
                 <span>{language === "en" ? "Member code" : "Mã hội viên"}</span>
               </button>
               <Link
-                href="/member/training?tab=profile"
-                className={styles.mobileNavLink}
+                href="/member/profile"
+                className={`${styles.mobileNavLink} ${fitnessProfileActive ? styles.mobileNavLinkActive : ""}`}
+                aria-current={fitnessProfileActive ? "page" : undefined}
                 onClick={() => setMobileMenuOpen(false)}
               >
                 <IconHeartbeat size={16} style={{ marginRight: 8 }} />
@@ -408,7 +411,11 @@ export function MemberFrame({
                 aria-current={billingActive ? "page" : undefined}
                 onClick={() => setMobileMenuOpen(false)}
               >
-                <ReceiptText size={16} style={{ marginRight: 8 }} aria-hidden="true" />
+                <ReceiptText
+                  size={16}
+                  style={{ marginRight: 8 }}
+                  aria-hidden="true"
+                />
                 <span>{t.finance.title}</span>
               </Link>
               <button

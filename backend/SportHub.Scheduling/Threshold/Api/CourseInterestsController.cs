@@ -6,13 +6,14 @@ using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.SharedKernel.Time;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.Scheduling.Threshold.Domain;
+using SportHub.Scheduling.Threshold.Application;
 
 namespace SportHub.Scheduling.Threshold.Api;
 
 [ApiController]
 [Authorize(Roles = "Member,CenterManager")]
 [Route("api/course-interests")]
-public sealed class CourseInterestsController(ISportHubDbContext db, IClock clock) : ControllerBase
+public sealed class CourseInterestsController(ISportHubDbContext db, CourseInterestService interests) : ControllerBase
 {
     [HttpGet]
     public async Task<IActionResult> Search([FromQuery] int? sportId, [FromQuery] int page = 1,
@@ -27,8 +28,8 @@ public sealed class CourseInterestsController(ISportHubDbContext db, IClock cloc
         var items = await (from interest in query
                            join source in db.Set<Class>() on interest.SourceClassId equals source.ClassId
                            join member in db.Set<SportHub.Identity.Domain.Entities.UserAccount>() on interest.MemberId equals member.UserId
-                           orderby interest.CreatedAtUtc descending, interest.CourseInterestId
-                           select new { interest.CourseInterestId, interest.MemberId, interest.SportId,
+                           orderby interest.CreatedAtUtc descending, interest.InterestId
+                           select new { CourseInterestId = interest.InterestId, interest.MemberId, interest.SportId,
                                MemberName = member.Profile != null ? member.Profile.FullName : member.Email,
                                SportName = source.Sport!.Name, interest.SourceClassId, SourceClassName = source.Name,
                                interest.RefundedPoints, interest.CreatedAtUtc, interest.CancelledAtUtc })
@@ -41,10 +42,25 @@ public sealed class CourseInterestsController(ISportHubDbContext db, IClock cloc
     public async Task<IActionResult> Cancel(Guid id, CancellationToken ct)
     {
         var memberId = User.RequireUserId();
-        if (!await db.Set<CourseInterest>().AnyAsync(x => x.CourseInterestId == id && x.MemberId == memberId, ct))
-            throw new NotFoundException("course_interest_not_found", "Course interest not found.");
-        await db.Set<CourseInterest>().Where(x => x.CourseInterestId == id && x.MemberId == memberId && x.CancelledAtUtc == null)
-            .ExecuteUpdateAsync(s => s.SetProperty(x => x.CancelledAtUtc, clock.UtcNow), ct);
+        await interests.CancelAsync(id, memberId, ct);
         return NoContent();
     }
+}
+
+// Retain the published member/manager contracts used by the cohort history UI.
+[ApiController]
+public sealed class MemberCourseInterestsController(CourseInterestService interests) : ControllerBase
+{
+    [Authorize(Policy = SportHubPolicies.Member)]
+    [HttpGet("api/members/me/course-interests")]
+    public async Task<IActionResult> Mine(CancellationToken ct) => Ok(await interests.ListAsync(User.RequireUserId(), ct));
+
+    [Authorize(Policy = SportHubPolicies.Member)]
+    [HttpDelete("api/members/me/course-interests/{id:guid}")]
+    public async Task<IActionResult> Cancel(Guid id, CancellationToken ct)
+    { await interests.CancelAsync(id, User.RequireUserId(), ct); return NoContent(); }
+
+    [Authorize(Policy = SportHubPolicies.CenterManager)]
+    [HttpGet("api/manager/course-interests")]
+    public async Task<IActionResult> List(CancellationToken ct) => Ok(await interests.ListAsync(null, ct));
 }

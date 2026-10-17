@@ -1,8 +1,9 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { BookOpen, ChevronDown, History, Search } from "lucide-react";
-import { AsyncSection, Pager, StatusChip } from "@/components/ui";
+import { AsyncSection, Dialog, Pager, StatusChip } from "@/components/ui";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { formatDate, formatDateTime } from "@/lib/format";
@@ -201,6 +202,7 @@ function ClassAssessments({
   const vi = language === "vi";
   const [page, setPage] = useState(1);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
   const state = useApi(
     (signal) =>
       teachingApi.studentHistory(
@@ -215,6 +217,7 @@ function ClassAssessments({
   return (
     <>
       <header className={styles.detailHeading}>
+        <h4>{source.className}</h4>
         <div className={styles.progressRow}>
           <StatusChip value={source.status} />
           <span className={styles.started}>
@@ -270,127 +273,154 @@ function ClassAssessments({
             </dd>
           </div>
         </dl>
+        <button
+          type="button"
+          className={`btn btn--secondary ${styles.viewDetail}`}
+          aria-haspopup="dialog"
+          onClick={() => setDetailOpen(true)}
+        >
+          View detail
+        </button>
       </header>
-      <AsyncSection state={state}>
-        {(data) => (
-          <>
-            <p className={styles.listHint}>
-              {vi
-                ? "Mới nhất trước · Nhấn vào buổi học để đọc nhận xét"
-                : "Newest first · Select a session to read the assessment"}
-            </p>
-            <div className={styles.assessments}>
-              {[...data.items]
-                .sort((a, b) =>
-                  b.record.updatedAtUtc.localeCompare(a.record.updatedAtUtc),
-                )
-                .map((item, index) => (
-                  <details
-                    key={item.record.recordId}
-                    name="student-history-assessments"
-                    className={styles.assessment}
-                    open={
-                      expandedId === item.record.recordId ||
-                      (expandedId === null && page === 1 && index === 0)
-                    }
-                  >
-                    <summary
-                      onClick={(event) => {
-                        event.preventDefault();
-                        setExpandedId((current) =>
-                          current === item.record.recordId ||
-                          (current === null && page === 1 && index === 0)
-                            ? ""
-                            : item.record.recordId,
-                        );
-                      }}
-                    >
-                      <span className={styles.assessmentInfo}>
-                        <span className={styles.sessionHeading}>
-                          <strong>
-                            {item.sessionNo === null
-                              ? vi
-                                ? "Đánh giá cả khóa"
-                                : "Course assessment"
-                              : `${vi ? "Đánh giá buổi" : "Lesson"} ${item.sessionNo}${vi ? "" : " assessment"}`}
-                          </strong>
-                          <time
-                            dateTime={
-                              item.sessionStartAtUtc ?? item.record.createdAtUtc
-                            }
+      {detailOpen &&
+        createPortal(
+          <Dialog
+            title={`${source.className} · Assessments`}
+            description="Read-only feedback for this student in this class, newest first."
+            size="lg"
+            onClose={() => setDetailOpen(false)}
+          >
+            <AsyncSection state={state}>
+              {(data) => (
+                <>
+                  <p className={styles.listHint}>
+                    {vi
+                      ? "Mới nhất trước · Nhấn vào buổi học để đọc nhận xét"
+                      : "Newest first · Select a session to read the assessment"}
+                  </p>
+                  <div className={styles.assessments}>
+                    {[...data.items]
+                      .sort((a, b) =>
+                        b.record.updatedAtUtc.localeCompare(
+                          a.record.updatedAtUtc,
+                        ),
+                      )
+                      .map((item, index) => (
+                        <details
+                          key={item.record.recordId}
+                          name="student-history-assessments"
+                          className={styles.assessment}
+                          open={
+                            expandedId === item.record.recordId ||
+                            (expandedId === null && page === 1 && index === 0)
+                          }
+                        >
+                          <summary
+                            onClick={(event) => {
+                              event.preventDefault();
+                              setExpandedId((current) =>
+                                current === item.record.recordId ||
+                                (current === null && page === 1 && index === 0)
+                                  ? ""
+                                  : item.record.recordId,
+                              );
+                            }}
                           >
-                            {formatDateTime(
-                              item.sessionStartAtUtc ??
-                                item.record.createdAtUtc,
-                            )}
-                          </time>
-                        </span>
-                        <span className={styles.assessmentTitle}>
-                          {item.record.title}
-                        </span>
-                        {page === 1 && index === 0 && (
-                          <span className={styles.latest}>
-                            {vi ? "Mới nhất" : "Latest"}
-                          </span>
-                        )}
-                        <span className={styles.author}>
-                          {"Coach: "}
-                          {item.coachName ||
-                            (vi ? "Chưa có tên" : "Name unavailable")}
-                        </span>
-                        <span className={styles.preview}>
-                          {item.record.content
-                            .replace(/\s+/g, " ")
-                            .slice(0, 180)}
-                          {item.record.content.replace(/\s+/g, " ").length > 180
-                            ? "…"
-                            : ""}
-                        </span>
-                      </span>
-                      <span className={styles.assessmentActions}>
-                        {item.record.score !== null && (
-                          <span className={styles.score}>
-                            {item.record.score}/5
-                          </span>
-                        )}
-                        <ChevronDown
-                          size={18}
-                          className={styles.chevron}
-                          aria-hidden="true"
-                        />
-                      </span>
-                    </summary>
-                    <div className={styles.fullAssessment}>
-                      <h5>{vi ? "Nhận xét đầy đủ" : "Full assessment"}</h5>
-                      <AssessmentNarrative content={item.record.content} />
-                      <small>
-                        {vi ? "Ghi nhận " : "Recorded "}
-                        {formatDateTime(item.record.createdAtUtc)} ·{" "}
-                        {vi ? "Cập nhật " : "Updated "}
-                        {formatDateTime(item.record.updatedAtUtc)}
-                      </small>
-                    </div>
-                  </details>
-                ))}
-            </div>
-            {!data.items.length && (
-              <p className={styles.listHint}>
-                {vi
-                  ? "Lớp này chưa có đánh giá để hiển thị."
-                  : "No assessments available for this class."}
-              </p>
-            )}
-            {data.totalCount > data.pageSize && (
-              <Pager
-                page={data.page}
-                pageSize={data.pageSize}
-                totalCount={data.totalCount}
-                onChange={setPage}
-              />
-            )}
-          </>
+                            <span className={styles.assessmentInfo}>
+                              <span className={styles.sessionHeading}>
+                                <strong>
+                                  {item.sessionNo === null
+                                    ? vi
+                                      ? "Đánh giá cả khóa"
+                                      : "Course assessment"
+                                    : `${vi ? "Đánh giá buổi" : "Lesson"} ${item.sessionNo}${vi ? "" : " assessment"}`}
+                                </strong>
+                                <time
+                                  dateTime={
+                                    item.sessionStartAtUtc ??
+                                    item.record.createdAtUtc
+                                  }
+                                >
+                                  {formatDateTime(
+                                    item.sessionStartAtUtc ??
+                                      item.record.createdAtUtc,
+                                  )}
+                                </time>
+                              </span>
+                              <span className={styles.assessmentTitle}>
+                                {item.record.title}
+                              </span>
+                              {page === 1 && index === 0 && (
+                                <span className={styles.latest}>
+                                  {vi ? "Mới nhất" : "Latest"}
+                                </span>
+                              )}
+                              <span className={styles.author}>
+                                {"Coach: "}
+                                {item.coachName ||
+                                  (vi ? "Chưa có tên" : "Name unavailable")}
+                              </span>
+                              <span className={styles.preview}>
+                                {item.record.content
+                                  .replace(/\s+/g, " ")
+                                  .slice(0, 180)}
+                                {item.record.content.replace(/\s+/g, " ")
+                                  .length > 180
+                                  ? "…"
+                                  : ""}
+                              </span>
+                            </span>
+                            <span className={styles.assessmentActions}>
+                              {item.record.score !== null && (
+                                <span className={styles.score}>
+                                  {item.record.score}/5
+                                </span>
+                              )}
+                              <ChevronDown
+                                size={18}
+                                className={styles.chevron}
+                                aria-hidden="true"
+                              />
+                            </span>
+                          </summary>
+                          <div className={styles.fullAssessment}>
+                            <h5>
+                              {vi ? "Nhận xét đầy đủ" : "Full assessment"}
+                            </h5>
+                            <AssessmentNarrative
+                              content={item.record.content}
+                            />
+                            <small>
+                              {vi ? "Ghi nhận " : "Recorded "}
+                              {formatDateTime(item.record.createdAtUtc)} ·{" "}
+                              {vi ? "Cập nhật " : "Updated "}
+                              {formatDateTime(item.record.updatedAtUtc)}
+                            </small>
+                          </div>
+                        </details>
+                      ))}
+                  </div>
+                  {!data.items.length && (
+                    <p className={styles.listHint}>
+                      {vi
+                        ? "Lớp này chưa có đánh giá để hiển thị."
+                        : "No assessments available for this class."}
+                    </p>
+                  )}
+                  {data.totalCount > data.pageSize && (
+                    <Pager
+                      page={data.page}
+                      pageSize={data.pageSize}
+                      totalCount={data.totalCount}
+                      onChange={setPage}
+                    />
+                  )}
+                </>
+              )}
+            </AsyncSection>
+          </Dialog>,
+          document.body,
         )}
-      </AsyncSection>
     </>
   );
 }

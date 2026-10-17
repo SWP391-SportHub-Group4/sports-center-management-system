@@ -38,6 +38,9 @@ public sealed class AttendanceService(ISportHubDbContext db, IClock clock, IUser
                       ?? throw new NotFoundException("session_not_found", "Session not found.");
         if (actor.Role == "Coach" && session.CoachId != recorderUserId)
             throw new ForbiddenException("session_not_assigned", "Session not assigned.");
+        if (actor.Role == "Coach" && !await db.Set<Class>().AnyAsync(c => c.ClassId == session.ClassId
+                && (c.Status == ClassStatus.Published || c.Status == ClassStatus.InProgress), ct))
+            throw new ForbiddenException("class_access_ended", "Access is no longer available for this class.");
 
         var enrollment = await db.Set<Enrollment>().AsNoTracking().SingleOrDefaultAsync(e => e.EnrollmentId == enrollmentId, ct)
                          ?? throw new NotFoundException("enrollment_not_found", "Enrollment not found.");

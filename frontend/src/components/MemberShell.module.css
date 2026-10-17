@@ -310,9 +310,14 @@
   background: transparent;
   color: var(--text-strong);
 }
-.headerActions :global(.bell__btn):hover:not(:disabled) {
-  background: var(--bg-surface-sunken);
-  color: var(--text-strong);
+.headerActions :global(.bell__btn):hover,
+.headerActions :global(.bell__btn)[aria-expanded="true"] {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+.headerActions :global(.bell__btn):focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 3px;
 }
 
 /* Prevent notification bell text from blowing up navbar width */

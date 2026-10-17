@@ -188,9 +188,14 @@
 .assessmentColumns {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  align-items: start;
-  gap: var(--space-6);
+  grid-template-rows: minmax(108px, auto) minmax(80px, auto) minmax(380px, auto);
+  align-items: stretch;
+  gap: var(--space-5);
   min-width: 0;
+}
+.assessmentColumns > section {
+  grid-row: span 3;
+  grid-template-rows: subgrid;
 }
 .assessmentColumns > * {
   min-width: 0;
@@ -199,6 +204,11 @@
 @media (max-width: 900px) {
   .assessmentColumns {
     grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+  }
+  .assessmentColumns > section {
+    grid-row: auto;
+    grid-template-rows: auto auto auto;
   }
 }
 .history h3 {

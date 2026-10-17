@@ -37,7 +37,7 @@ public class TrainingProfilesController(IMemberTrainingProfileService profiles, 
         => Ok(await profiles.SaveAsync(User.RequireUserId(), request, ct));
 
     /// <summary>
-    /// Hồ sơ có dữ liệu sức khỏe nên chỉ Manager và Coach đang có quan hệ Active với hội viên được đọc;
+    /// Hồ sơ có dữ liệu sức khỏe nên chỉ Manager và Coach chính của lớp Published/InProgress có học viên Confirmed được đọc;
     /// Lễ tân không cần nên không có quyền.
     /// </summary>
     [Authorize(Roles = SportHubRoleNames.CenterManager + "," + SportHubRoleNames.Coach)]

@@ -17,7 +17,7 @@ export function CoachWorkspaceRoute({
     language === "vi"
       ? { schedule: "Lịch dạy", classes: "Lớp học", students: "Học viên" }
       : {
-          schedule: "Teaching schedule",
+          schedule: "Schedule",
           classes: "Classes",
           students: "Students",
         };

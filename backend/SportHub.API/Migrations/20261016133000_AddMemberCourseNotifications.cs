@@ -11,94 +11,35 @@ namespace SportHub.API.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropCheckConstraint(
-                name: "ck_class_threshold_response_choice_target",
-                table: "class_threshold_responses");
-
-            migrationBuilder.CreateTable(
-                name: "course_interests",
-                columns: table => new
-                {
-                    course_interest_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    member_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    sport_id = table.Column<int>(type: "integer", nullable: false),
-                    source_class_id = table.Column<int>(type: "integer", nullable: false),
-                    threshold_response_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    refunded_points = table.Column<int>(type: "integer", nullable: false),
-                    created_at_utc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    cancelled_at_utc = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("pk_course_interests", x => x.course_interest_id);
-                    table.ForeignKey(
-                        name: "fk_course_interests_classes_source_class_id",
-                        column: x => x.source_class_id,
-                        principalTable: "classes",
-                        principalColumn: "class_id",
-                        onDelete: ReferentialAction.Restrict);
-                    table.ForeignKey(
-                        name: "fk_course_interests_sports_sport_id",
-                        column: x => x.sport_id,
-                        principalTable: "sports",
-                        principalColumn: "sport_id",
-                        onDelete: ReferentialAction.Restrict);
-                    table.ForeignKey(
-                        name: "fk_course_interests_threshold_responses_threshold_response_id",
-                        column: x => x.threshold_response_id,
-                        principalTable: "class_threshold_responses",
-                        principalColumn: "threshold_response_id",
-                        onDelete: ReferentialAction.Restrict);
-                    table.ForeignKey(
-                        name: "fk_course_interests_user_accounts_member_id",
-                        column: x => x.member_id,
-                        principalTable: "user_accounts",
-                        principalColumn: "user_id",
-                        onDelete: ReferentialAction.Restrict);
-                });
-
-            migrationBuilder.AddCheckConstraint(
-                name: "ck_class_threshold_response_choice_target",
-                table: "class_threshold_responses",
-                sql: "(choice IS NULL AND target_class_id IS NULL) OR (choice IN (0, 2, 3) AND target_class_id IS NULL) OR (choice = 1 AND target_class_id IS NOT NULL)");
-
-            migrationBuilder.CreateIndex(
-                name: "ix_course_interests_member_id",
-                table: "course_interests",
-                column: "member_id");
-
-            migrationBuilder.CreateIndex(
-                name: "ix_course_interests_source_class_id",
-                table: "course_interests",
-                column: "source_class_id");
-
-            migrationBuilder.CreateIndex(
-                name: "ix_course_interests_sport_id_cancelled_at_utc",
-                table: "course_interests",
-                columns: new[] { "sport_id", "cancelled_at_utc" });
-
-            migrationBuilder.CreateIndex(
-                name: "ix_course_interests_threshold_response_id",
-                table: "course_interests",
-                column: "threshold_response_id",
-                unique: true);
+            // The earlier communication migration may already own the shared table.
+            migrationBuilder.Sql("""
+                ALTER TABLE course_interests ADD COLUMN IF NOT EXISTS sport_id integer;
+                UPDATE course_interests i SET sport_id = c.sport_id FROM classes c WHERE c.class_id = i.source_class_id AND i.sport_id IS NULL;
+                ALTER TABLE course_interests ALTER COLUMN sport_id SET NOT NULL;
+                DO $$ BEGIN
+                    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_course_interests_sports_sport_id') THEN
+                        ALTER TABLE course_interests ADD CONSTRAINT fk_course_interests_sports_sport_id FOREIGN KEY (sport_id) REFERENCES sports(sport_id) ON DELETE RESTRICT;
+                    END IF;
+                    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_course_interests_user_accounts_member_id') THEN
+                        ALTER TABLE course_interests ADD CONSTRAINT fk_course_interests_user_accounts_member_id FOREIGN KEY (member_id) REFERENCES user_accounts(user_id) ON DELETE RESTRICT;
+                    END IF;
+                END $$;
+                CREATE INDEX IF NOT EXISTS ix_course_interests_member_id ON course_interests (member_id);
+                CREATE INDEX IF NOT EXISTS ix_course_interests_sport_id_cancelled_at_utc ON course_interests (sport_id, cancelled_at_utc);
+                ALTER TABLE class_threshold_responses DROP CONSTRAINT IF EXISTS ck_class_threshold_response_choice_target;
+                ALTER TABLE class_threshold_responses ADD CONSTRAINT ck_class_threshold_response_choice_target CHECK ((choice IS NULL AND target_class_id IS NULL) OR (choice IN (0, 2, 3) AND target_class_id IS NULL) OR (choice = 1 AND target_class_id IS NOT NULL));
+                """);
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.Sql("UPDATE class_threshold_responses SET choice = 0 WHERE choice = 3;");
-            migrationBuilder.DropTable(
-                name: "course_interests");
-
-            migrationBuilder.DropCheckConstraint(
-                name: "ck_class_threshold_response_choice_target",
-                table: "class_threshold_responses");
-
-            migrationBuilder.AddCheckConstraint(
-                name: "ck_class_threshold_response_choice_target",
-                table: "class_threshold_responses",
-                sql: "(choice IS NULL AND target_class_id IS NULL) OR (choice IN (0, 2) AND target_class_id IS NULL) OR (choice = 1 AND target_class_id IS NOT NULL)");
+            // The earlier communication migration owns the shared table and its rows.
+            migrationBuilder.Sql("""
+                ALTER TABLE course_interests DROP CONSTRAINT IF EXISTS fk_course_interests_user_accounts_member_id;
+                DROP INDEX IF EXISTS ix_course_interests_member_id;
+                ALTER TABLE course_interests DROP COLUMN IF EXISTS sport_id;
+                """);
         }
     }
 }

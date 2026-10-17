@@ -15,7 +15,7 @@ public interface ICoachMemberRelationshipService : ICoachRelationshipRegistrar
 {
     Task<IReadOnlyList<CoachMemberRelationshipResponse>> SearchAsync(
         Guid? coachId, Guid? memberId, bool activeOnly,
-        int page, int pageSize, CancellationToken ct = default);
+        int page, int pageSize, CancellationToken ct = default, bool currentClassesOnly = false);
 
     Task<CoachMemberRelationshipResponse> CreateAsync(
         CreateRelationshipRequest request, Guid actorUserId, CancellationToken ct = default);

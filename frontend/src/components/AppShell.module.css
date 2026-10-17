@@ -207,7 +207,7 @@
 .coachAccount.coachAccount {
   display: block;
 }
-.managerShell {
+.staffPalette {
   --bg-app: #f2f4ed;
   --bg-surface: #ffffff;
   --bg-surface-sunken: #edf1e7;
@@ -241,6 +241,31 @@
   scrollbar-color: var(--border-strong) var(--bg-surface);
 }
 
+/* Coach panels use the same forest ink as the manager's selected controls. */
+.coachShell {
+  --bg-brand-deep: var(--brand-900);
+  --bg-inverse: var(--brand-900);
+  --bg-inverse-raised: var(--color-primary-active);
+}
+
+.staffPalette > header {
+  --bg-surface: #13251e;
+  --bg-surface-sunken: #20382b;
+  --text-strong: #f0f2e8;
+  --text-body: #e5eada;
+  --text-muted: #c4d0c0;
+  --color-primary: var(--color-accent);
+  --color-primary-soft: #2d4321;
+  --border-subtle: #425247;
+  --border-control: #718275;
+  --focus-ring: var(--color-accent);
+  --danger-text: #ff8585;
+  --danger-solid: #ffaaaa;
+  --danger-bg: #3c2424;
+  box-shadow: none;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
 .managerShell > header > div {
   height: 76px;
   max-width: 1560px;
@@ -248,11 +273,11 @@
   gap: 20px;
 }
 
-.managerShell > header a > span:first-child > span {
+.staffPalette > header a > span:first-child > span {
   color: var(--color-accent);
 }
 
-.managerShell > header :global(.bell__btn) {
+.staffPalette > header :global(.bell__btn) {
   --control-height-sm: 44px;
   border-color: var(--border-subtle);
   color: var(--text-strong);
@@ -268,7 +293,7 @@
   min-height: 44px;
 }
 
-.managerShell .managerAvatar {
+.staffPalette .managerAvatar {
   background: var(--color-accent);
   color: #13251e;
 }
@@ -313,7 +338,7 @@
   border-radius: var(--radius-sm);
 }
 
-.managerShell
+.staffPalette
   .main
   :global(
     .btn:not(.btn--secondary):not(.btn--ghost):not(.btn--quiet):not(
@@ -326,7 +351,7 @@
   --color-on-primary: var(--color-on-accent);
 }
 
-.managerShell
+.staffPalette
   .main
   :global(.btn--secondary:not(:disabled):not([aria-disabled="true"])) {
   background: var(--bg-surface);
@@ -334,15 +359,15 @@
   color: var(--text-strong);
 }
 
-.managerShell
+.staffPalette
   .main
   :global(.btn--secondary:hover:not(:disabled):not([aria-disabled="true"])) {
   background: var(--bg-surface-sunken);
   border-color: var(--border-strong);
 }
 
-.managerShell .main :global(.btn[aria-pressed="true"]),
-.managerShell .main :global([role="tab"][aria-selected="true"]) {
+.staffPalette .main :global(.btn[aria-pressed="true"]),
+.staffPalette .main :global([role="tab"][aria-selected="true"]) {
   background: var(--brand-900);
   color: #f0f2e8;
   border-color: var(--brand-900);
@@ -531,13 +556,13 @@
   line-height: 1.4;
 }
 
-.managerShell :global(input),
-.managerShell :global(select),
-.managerShell :global(textarea) {
+.staffPalette :global(input),
+.staffPalette :global(select),
+.staffPalette :global(textarea) {
   caret-color: var(--color-primary);
 }
 
-.managerShell ::selection {
+.staffPalette ::selection {
   background: var(--color-accent);
   color: var(--color-on-accent);
 }

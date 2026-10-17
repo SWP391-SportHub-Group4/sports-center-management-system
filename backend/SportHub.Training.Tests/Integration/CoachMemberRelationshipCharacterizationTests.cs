@@ -12,9 +12,8 @@ using SportHub.Training.Application.DTOs;
 namespace SportHub.Training.Tests.Integration;
 
 /// <summary>
-/// Characterization tests cho hanh vi CoachMemberRelationship HIEN HANH, chup lai TRUOC khi
-/// BE-4 Phase 2 dong cham vao module Training (PT session/entitlement moi). CoachMemberRelationship
-/// khong doi trong BE-4 — cac test nay phai tiep tuc pass sau refactor de dam bao khong regression.
+/// Class-based access follows the current assignment, enrollment and remaining lessons,
+/// even when an older CoachMemberRelationship row is still active.
 /// </summary>
 [Collection(nameof(TrainingApiCollection))]
 public sealed class CoachMemberRelationshipCharacterizationTests(TrainingApiFactory factory)
@@ -40,6 +39,19 @@ public sealed class CoachMemberRelationshipCharacterizationTests(TrainingApiFact
             };
             db.Classes.Add(cls);
             await db.SaveChangesAsync();
+            // Member access requires a real remaining lesson as well as Published status.
+            var firstLesson = DateTime.UtcNow.Date.AddDays(7).AddHours(3);
+            for (var number = 1; number <= cls.NumSessions; number++)
+            {
+                var start = firstLesson.AddDays((number - 1) * 2);
+                db.ClassSessions.Add(new ClassSession
+                {
+                    SessionId = Guid.NewGuid(), ClassId = cls.ClassId, SessionNo = number,
+                    CoachId = coach.UserId, RoomId = room.RoomId,
+                    StartAtUtc = start, EndAtUtc = start.AddMinutes(90),
+                    Status = ClassSessionStatus.Scheduled
+                });
+            }
             var enrollment = new Enrollment
             {
                 EnrollmentId = Guid.NewGuid(), ClassId = cls.ClassId, MemberId = member.UserId,

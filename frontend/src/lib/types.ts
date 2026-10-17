@@ -704,7 +704,7 @@ export interface ThresholdResponseDto {
   sportId: number;
   paidValueVnd: number;
   deadlineUtc: string;
-  choice: "REFUND" | "TRANSFER" | "KEEP_PLACE" | "WAIT_NEXT_COURSE" | null;
+  choice: "REFUND" | "TRANSFER" | "WAIT_NEXT_COURSE" | "KEEP_PLACE" | null;
   targetClassId: number | null;
   resolutionStatus: string;
   additionalInvoiceId: string | null;
@@ -744,6 +744,7 @@ export interface CourtRentalDetailDto {
 }
 
 export interface ManagerCourseDto extends Omit<CourseDto, "status"> {
+  continuationOfClassId?: number | null;
   status: "DRAFT" | CourseDto["status"];
   costAmount: number;
   breakEvenThreshold: number | null;

@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using SportHub.BuildingBlocks.Abstractions.Audit;
+using SportHub.BuildingBlocks.Abstractions.Identity;
 using SportHub.BuildingBlocks.Abstractions.Notifications;
 using SportHub.BuildingBlocks.Abstractions.Payment;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
@@ -17,7 +18,7 @@ namespace SportHub.Scheduling.Application.Services;
 /// <summary>Cancel paid courses using the same invoice, wallet and entitlement authorities as refunds.</summary>
 public sealed class CourseCancellationService(ISportHubDbContext db, IRefundCreditService refunds,
     ICheckoutLifecycleService checkouts, IClassEnrollmentFulfillment enrollments, IOccupancyService occupancy,
-    IAuditWriter audit, INotificationWriter notifications, IClock clock)
+    IAuditWriter audit, INotificationWriter notifications, IClock clock, IUserAccessReader users)
 {
     public async Task<CourseCancellationPreview> PreviewAsync(int classId, CancellationToken ct = default)
     {
@@ -112,6 +113,10 @@ public sealed class CourseCancellationService(ISportHubDbContext db, IRefundCred
         {
             session.Status = ClassSessionStatus.Cancelled;
             await occupancy.ReleaseAsync(OccupancySources.ClassSession, session.SessionId, ct);
+            await new ClassScheduleEffects(db, users, notifications, audit, clock).ApplyAsync(course, session, actorId,
+                session.CoachId, session.SessionId, session.CoachId,
+                $"Session {session.SessionNo} · {course.Name} was cancelled because the course was cancelled. Reason: {request.Reason.Trim()}", ct,
+                "COURSE_CANCELLED", request.Reason.Trim());
         }
         var pendingResponses = await db.Set<ThresholdResponse>().Where(x => x.ClassId == classId
             && (x.ResolutionStatus == ThresholdResolutionStatus.Pending || x.ResolutionStatus == ThresholdResolutionStatus.AwaitingPayment)).ToListAsync(ct);

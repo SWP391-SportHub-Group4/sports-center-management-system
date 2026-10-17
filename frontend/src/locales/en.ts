@@ -978,7 +978,7 @@ export const en = {
   },
   operations: {
     courses: "Course management",
-    teachingSchedule: "Teaching schedule",
+    teachingSchedule: "Schedule",
     resetForm: "Reset form",
     memberScheduleConflict:
       "Some enrolled members already have another session during this time. Resolve their schedule conflicts before moving this session.",
@@ -1235,6 +1235,8 @@ export const en = {
     EXPIRED: "Expired",
     ISSUED: "Awaiting payment",
     PAID: "Paid",
+    SUCCESS: "Success",
+    SUCCEEDED: "Success",
     VOID: "Void",
     PAID_AFTER_RECONCILIATION: "Paid after reconciliation",
     PENDING: "Pending",
@@ -1714,7 +1716,7 @@ export const en = {
       attendance: "Attendance",
       invoiceLookup: "Invoice lookup",
       classRegistration: "Class registration",
-      teachingSchedule: "Teaching schedule",
+      teachingSchedule: "Schedule",
       assignedMembers: "Assigned members",
       assignedClasses: "Classes",
       changeRequests: "Requests",

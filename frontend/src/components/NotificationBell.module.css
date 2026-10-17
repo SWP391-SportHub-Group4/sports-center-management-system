@@ -1,4 +1,33 @@
+.trigger {
+  position: relative;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-strong);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.trigger:hover,
+.trigger[aria-expanded="true"] {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  border-color: transparent;
+}
+
+.trigger > svg {
+  color: inherit;
+  flex-shrink: 0;
+}
+
+.trigger:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 3px;
+}
+
 .panel {
+  --notification-hover: color-mix(in srgb, var(--color-primary) 14%, var(--bg-surface));
   position: absolute;
   right: 0;
   top: calc(100% + 12px);
@@ -34,8 +63,8 @@
   cursor: pointer;
   border-radius: var(--radius-sm);
 }
-.readAll:hover:not(:disabled) {
-  background: var(--color-primary-soft);
+.readAll:hover {
+  background: var(--notification-hover);
 }
 .readAll:disabled {
   color: var(--text-muted);
@@ -57,11 +86,11 @@
   text-decoration: none;
 }
 .item[data-unread="true"] {
-  background: color-mix(in srgb, var(--color-primary-soft) 55%, var(--bg-surface));
-  box-shadow: inset 3px 0 0 var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 7%, var(--bg-surface));
 }
-a.item:hover {
-  background: var(--bg-surface-sunken);
+a.item:hover,
+a.item:focus-visible {
+  background: var(--notification-hover);
   color: var(--text-strong);
   text-decoration: none;
 }
@@ -122,7 +151,7 @@ a.item:hover .action {
   font-weight: 600;
 }
 .footer:hover {
-  background: var(--bg-surface-sunken);
+  background: var(--notification-hover);
   text-decoration: none;
 }
 @media (max-width: 600px) {

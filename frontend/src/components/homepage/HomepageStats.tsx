@@ -21,6 +21,8 @@ import {
 import { ScrollReveal } from "./ScrollReveal";
 import styles from "./homepage-stats.module.css";
 
+const SHOWCASE_IMAGE_LIMIT = 3;
+
 function CountUp({
   value,
   suffix,
@@ -173,32 +175,44 @@ export function HomepageStats({ language }: { language: HomepageLanguage }) {
       category.id === "coaches"
         ? showcase
         : category.id === "facilities"
-          ? (overview?.facilities ?? []).slice(0, 3).map((room) => ({
-              name: { en: room.name, vi: room.name },
-              detail: {
-                en:
+          ? [1, 3, 4]
+              .flatMap((roomTypeId) => {
+                const room = overview?.facilities.find(
+                  (facility) => facility.roomTypeId === roomTypeId,
+                );
+                return room ? [room] : [];
+              })
+              .map((room) => ({
+                name: {
+                  en:
+                    room.roomTypeId === 1
+                      ? "Gym"
+                      : room.roomTypeId === 3
+                        ? "Badminton"
+                        : "Basketball",
+                  vi:
+                    room.roomTypeId === 1
+                      ? "Gym"
+                      : room.roomTypeId === 3
+                        ? "Cầu lông"
+                        : "Bóng rổ",
+                },
+                detail: { en: room.name, vi: room.name },
+                highlight: {
+                  en: `Capacity: ${room.capacity}`,
+                  vi: `Capacity: ${room.capacity}`,
+                },
+                image:
                   room.roomTypeId === 3
-                    ? "Badminton court"
+                    ? "/sporthub/court-volt/course-badminton.png"
                     : room.roomTypeId === 4
-                      ? "Basketball court"
-                      : "Training room",
-                vi: "Training room",
-              },
-              highlight: {
-                en: `Capacity: ${room.capacity}`,
-                vi: `Capacity: ${room.capacity}`,
-              },
-              image:
-                room.roomTypeId === 3
-                  ? "/sporthub/court-volt/course-badminton.png"
-                  : room.roomTypeId === 4
-                    ? "/sporthub/court-volt/course-basketball.png"
-                    : "/sporthub/court-volt/program-gym.png",
-              alt: {
-                en: `Training space illustration for ${room.name}`,
-                vi: `Hình minh họa không gian tập luyện cho ${room.name}`,
-              },
-            }))
+                      ? "/sporthub/court-volt/course-basketball.png"
+                      : "/sporthub/court-volt/program-gym.png",
+                alt: {
+                  en: `Training space illustration for ${room.name}`,
+                  vi: `Hình minh họa không gian tập luyện cho ${room.name}`,
+                },
+              }))
           : category.items,
   }));
   const tabs = useRef<Array<HTMLButtonElement | null>>([]);
@@ -375,31 +389,35 @@ export function HomepageStats({ language }: { language: HomepageLanguage }) {
                   </p>
                 )}
                 <div className={styles.detailGrid}>
-                  {item.items.map((detail, index) => (
-                    <article
-                      key={detail.name.en}
-                      className={styles.detailCard}
-                      style={
-                        { "--reveal-delay": `${index * 70}ms` } as CSSProperties
-                      }
-                    >
-                      <div className={styles.photo}>
-                        <Image
-                          src={detail.image}
-                          alt={detail.alt[language]}
-                          fill
-                          sizes="(max-width: 767px) 90vw, (max-width: 1199px) 30vw, 400px"
-                        />
-                      </div>
-                      <div className={styles.itemCopy}>
-                        <h3>{detail.name[language]}</h3>
-                        <p>{detail.detail[language]}</p>
-                        <span className={styles.highlight}>
-                          {detail.highlight[language]}
-                        </span>
-                      </div>
-                    </article>
-                  ))}
+                  {item.items
+                    .slice(0, SHOWCASE_IMAGE_LIMIT)
+                    .map((detail, index) => (
+                      <article
+                        key={detail.name.en}
+                        className={styles.detailCard}
+                        style={
+                          {
+                            "--reveal-delay": `${index * 70}ms`,
+                          } as CSSProperties
+                        }
+                      >
+                        <div className={styles.photo}>
+                          <Image
+                            src={detail.image}
+                            alt={detail.alt[language]}
+                            fill
+                            sizes="(max-width: 767px) 90vw, (max-width: 1199px) 30vw, 400px"
+                          />
+                        </div>
+                        <div className={styles.itemCopy}>
+                          <h3>{detail.name[language]}</h3>
+                          <p>{detail.detail[language]}</p>
+                          <span className={styles.highlight}>
+                            {detail.highlight[language]}
+                          </span>
+                        </div>
+                      </article>
+                    ))}
                 </div>
               </div>
             ))}
