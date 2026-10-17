@@ -31,6 +31,7 @@ async function install(
   });
   const writes: unknown[] = [];
   let choice: string | null = null;
+  let cancelled = false;
   await page.route("**/api/**", async (route) => {
     const request = route.request();
     const url = new URL(request.url());
@@ -94,6 +95,34 @@ async function install(
         serverNowUtc: "2030-06-10T00:00:00Z",
       });
     }
+    if (url.pathname === "/api/sports")
+      return json([{ sportId: 3, name: "Badminton" }]);
+    if (
+      url.pathname.endsWith("/cancel") &&
+      url.pathname.startsWith("/api/course-interests/")
+    ) {
+      cancelled = true;
+      writes.push({ cancel: url.pathname });
+      return route.fulfill({ status: 204 });
+    }
+    if (url.pathname === "/api/course-interests")
+      return json({
+        items: [
+          {
+            courseInterestId: responseId,
+            memberId: "member-1",
+            memberName: "Alex Nguyen",
+            sportId: 3,
+            sportName: "Badminton",
+            sourceClassName: "Badminton basics",
+            refundedPoints: 600,
+            cancelledAtUtc: cancelled ? "2030-06-10T00:00:00Z" : null,
+          },
+        ],
+        page: 1,
+        pageSize: 20,
+        totalCount: 1,
+      });
     if (url.pathname === "/api/classes")
       return json({
         items: [
@@ -144,23 +173,20 @@ async function install(
   return writes;
 }
 
-test("threshold requires a conscious choice and confirmation; wait remains blocked", async ({
+test("threshold wait choice requires confirmation before refund and subscription", async ({
   page,
 }, info) => {
   const writes = await install(page);
   await page.goto(`/member/threshold-responses/${responseId}`);
-  await expect(page.getByRole("radio")).toHaveCount(3);
+  await expect(page.getByRole("radio")).toHaveCount(4);
   await expect(page.getByRole("radio", { checked: true })).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "Review response" }),
   ).toBeDisabled();
   await page.getByRole("radio", { name: /^Wait for/ }).check();
   await expect(
-    page.getByText("No response has been sent", { exact: false }),
-  ).toBeVisible();
-  await expect(
     page.getByRole("button", { name: "Review response" }),
-  ).toBeDisabled();
+  ).toBeEnabled();
   expect(writes).toHaveLength(0);
   expect(
     (
@@ -174,7 +200,6 @@ test("threshold requires a conscious choice and confirmation; wait remains block
     path: info.outputPath("threshold-desktop.png"),
     fullPage: true,
   });
-  await page.getByRole("radio", { name: /^Refund 100/ }).check();
   await page.getByRole("button", { name: "Review response" }).click();
   expect(writes).toHaveLength(0);
   await page
@@ -183,7 +208,7 @@ test("threshold requires a conscious choice and confirmation; wait remains block
   await expect(
     page.getByText("Your response has been recorded", { exact: false }),
   ).toBeVisible();
-  expect(writes).toEqual([{ choice: "REFUND", targetClassId: null }]);
+  expect(writes).toEqual([{ choice: "WAIT_NEXT_COURSE", targetClassId: null }]);
   await expect(page.getByRole("radio")).toHaveCount(0);
 });
 
@@ -300,65 +325,31 @@ test("AI retains modal keyboard behavior on mobile", async ({ page }, info) => {
   await expect(launcher).toBeFocused();
 });
 
-test("member interests has a truthful blocked state and a labeled isolated demo", async ({
+test("member can stop course notifications without changing refunded points", async ({
   page,
-}, info) => {
+}) => {
   const writes = await install(page);
   await page.goto("/member/courses?tab=interests");
-  await expect(
-    page.getByText("Course-interest subscriptions are not available yet.", {
-      exact: false,
-    }),
-  ).toBeVisible();
-  // Production intentionally exposes only the unavailable state, never fixture controls.
-  if (
-    !(await page
-      .getByRole("button", { name: "Preview demo (sample data)" })
-      .count())
-  )
-    return;
-  await page
-    .getByRole("button", { name: "Preview demo (sample data)" })
-    .click();
-  await expect(page.getByText("DEMO · Sample data")).toBeVisible();
-  await page.getByRole("button", { name: "Unsubscribe (sample)" }).click();
-  await page.getByRole("button", { name: "Confirm (sample)" }).click();
-  await expect(
-    page.getByRole("button", { name: "Unsubscribe (sample)" }),
-  ).toHaveCount(0);
-  await expect(
-    page.getByRole("cell", { name: "600", exact: true }),
-  ).toBeVisible();
-  expect(writes).toHaveLength(0);
-  await page.screenshot({
-    path: info.outputPath("interests-demo-desktop.png"),
-    fullPage: true,
-  });
+  await expect(page.getByText("Points refunded: 600")).toBeVisible();
+  await page.getByRole("button", { name: "Stop notifications" }).click();
+  await expect(page.getByText("Notifications: Cancelled")).toBeVisible();
+  await expect(page.getByText("Points refunded: 600")).toBeVisible();
+  expect(writes).toEqual([
+    { cancel: `/api/course-interests/${responseId}/cancel` },
+  ]);
 });
 
-test("manager interests filters fixture data without financial mutations", async ({
+test("manager can review interests by sport without financial mutations", async ({
   page,
 }) => {
   const writes = await install(page, { manager: true });
   await page.goto("/manager/classes/interests");
-  await expect(
-    page.getByText("Course-interest subscriptions are not available yet.", {
-      exact: false,
-    }),
-  ).toBeVisible();
-  if (
-    !(await page
-      .getByRole("button", { name: "Preview demo (sample data)" })
-      .count())
-  )
-    return;
   await page
-    .getByRole("button", { name: "Preview demo (sample data)" })
-    .click();
-  await page.getByLabel("Sport", { exact: true }).selectOption("Badminton");
-  await page.getByLabel("Notifications", { exact: true }).selectOption("false");
+    .getByRole("combobox", { name: "Sport", exact: true })
+    .selectOption("3");
+  await expect(page.getByText("Source class: Badminton basics")).toBeVisible();
   await expect(
-    page.getByText("No interests match these filters."),
-  ).toBeVisible();
+    page.getByRole("button", { name: "Stop notifications" }),
+  ).toHaveCount(0);
   expect(writes).toHaveLength(0);
 });

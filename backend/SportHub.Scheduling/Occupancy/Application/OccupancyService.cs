@@ -2,6 +2,9 @@ using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.Abstractions.Scheduling;
+using SportHub.BuildingBlocks.SharedKernel.Errors;
+using SportHub.BuildingBlocks.SharedKernel.Time;
+using SportHub.Scheduling.Rental.Domain;
 using SportHub.Scheduling.Occupancy.Domain;
 
 namespace SportHub.Scheduling.Occupancy.Application;
@@ -16,7 +19,7 @@ namespace SportHub.Scheduling.Occupancy.Application;
 ///
 /// Nhả chỗ = IsActive=false (dòng còn lại làm lịch sử); đặt lại cùng nguồn thì dùng lại dòng đó.
 /// </summary>
-public sealed class OccupancyService(ISportHubDbContext db) : IOccupancyService
+public sealed class OccupancyService(ISportHubDbContext db, IClock clock) : IOccupancyService
 {
     public Task<OccupancyResult> ReserveAsync(OccupancyRequest request, CancellationToken cancellationToken = default)
         => UpsertAsync(request, cancellationToken);
@@ -59,6 +62,20 @@ public sealed class OccupancyService(ISportHubDbContext db) : IOccupancyService
         if (request.RoomId is null && request.CoachId is null)
         {
             throw new ArgumentException("The occupancy must reserve a room or a coach.", nameof(request));
+        }
+
+        // A room under incident review accepts no new booking in the affected window. Blocks are how the incident
+        // itself is applied, so they are exempt.
+        if (request.RoomId is int fencedRoomId && type != OccupancySourceType.RoomBlock)
+        {
+            var now = clock.UtcNow;
+            if (await db.Set<IncidentFence>().AsNoTracking().AnyAsync(f => f.Status == IncidentFenceStatus.Open
+                    && f.ExpiresAtUtc > now && f.StartAtUtc < end && f.EndAtUtc > start
+                    && (f.Scope == IncidentScope.Center || f.RoomId == fencedRoomId), ct))
+            {
+                throw new ConflictException("room_under_incident_review",
+                    "This room is under incident review for that time. Choose another room or time.");
+            }
         }
 
         var roomRow = await db.Set<RoomOccupancy>()

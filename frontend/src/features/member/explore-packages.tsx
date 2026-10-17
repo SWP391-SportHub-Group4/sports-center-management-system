@@ -117,6 +117,7 @@ export function ExplorePackages({
   const classRows = (courses.data ?? []).filter(
     (c) =>
       c.status === "PUBLISHED" &&
+      c.enrollmentOpen &&
       c.availableSeats > 0 &&
       (!sportId || c.sportId === sportId),
   );
@@ -408,6 +409,22 @@ function GymTier({
       className={styles.tier}
       style={{ "--i": Math.min(index, 8) } as CSSProperties}
     >
+      <p className={styles.tags}>
+        {saving > 0 && (
+          <span className={styles.save}>
+            {tx("Tiết kiệm", "Save")} {formatMoney(saving)}
+          </span>
+        )}
+        {active && (
+          <span className={styles.current}>
+            {active.isUsable
+              ? tx("Đang dùng", "In use")
+              : tx("Đã mua", "Purchased")}
+            {" · "}
+            {tx("đến", "until")} {formatDate(active.endDate)}
+          </span>
+        )}
+      </p>
       <h3 className={styles.planName}>{plan.name}</h3>
       <p className={styles.months}>
         <strong>{dayPass ? 1 : months}</strong>
@@ -436,20 +453,6 @@ function GymTier({
             {" · "}≈ {formatMoney(Math.round(plan.price / months))}
             {tx("/tháng", "/month")}
           </>
-        )}
-      </p>
-      <p className={styles.tags}>
-        {saving > 0 && (
-          <span className={styles.save}>
-            {tx("Tiết kiệm", "Save")} {formatMoney(saving)}
-          </span>
-        )}
-        {active && (
-          <span className={styles.current}>
-            {tx("Đã mua", "Purchased")}
-            {" · "}
-            {tx("đến", "Until")} {formatDate(active.endDate)}
-          </span>
         )}
       </p>
       {pending ? (

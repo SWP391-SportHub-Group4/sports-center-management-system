@@ -1,14 +1,6 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import { MemberShell } from "@/components/MemberShell";
-import { TrainingProfile } from "@/features/training/training-profile";
-import { useLanguage } from "@/lib/language";
-
+// The fitness profile lives in the Training workspace; keep the old URL working.
 export default function Page() {
-  const { t } = useLanguage();
-  return (
-    <MemberShell title={t.common.fitnessProfile}>
-      <TrainingProfile />
-    </MemberShell>
-  );
+  redirect("/member/training?tab=profile");
 }

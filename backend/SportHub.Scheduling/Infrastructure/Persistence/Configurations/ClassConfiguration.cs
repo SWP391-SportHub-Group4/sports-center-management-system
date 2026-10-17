@@ -27,6 +27,7 @@ public class ClassConfiguration : IEntityTypeConfiguration<Class>
         builder.Property(e => e.Price).HasPrecision(18, 0);
         builder.Property(e => e.CostAmount).HasPrecision(18, 0);
         builder.Property(e => e.Version).IsConcurrencyToken();
+        builder.Property(e => e.EnrollmentClosedReason).HasMaxLength(500);
 
         builder.HasOne(e => e.Sport).WithMany().HasForeignKey(e => e.SportId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne(e => e.DefaultRoom).WithMany().HasForeignKey(e => e.DefaultRoomId).OnDelete(DeleteBehavior.Restrict);

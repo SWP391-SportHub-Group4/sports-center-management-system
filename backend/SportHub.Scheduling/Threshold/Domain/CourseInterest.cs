@@ -4,11 +4,15 @@ namespace SportHub.Scheduling.Threshold.Domain;
 public sealed class CourseInterest
 {
     public Guid InterestId { get; set; }
+    // Compatibility with the shared course-interest API; InterestId remains the stored key.
+    [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+    public Guid CourseInterestId { get => InterestId; set => InterestId = value; }
     public Guid MemberId { get; set; }
+    public int SportId { get; set; }
     public int SourceClassId { get; set; }
     public Guid ThresholdResponseId { get; set; }
     public int RefundedPoints { get; set; }
-    public bool Active { get; set; }
+    public bool Active { get; set; } = true;
     public DateTime CreatedAtUtc { get; set; }
     public DateTime? CancelledAtUtc { get; set; }
 }

@@ -49,6 +49,10 @@ export function notificationActionLabel(
 ) {
   const vi = language === "vi";
   switch (item.sourceEventType) {
+    case "CLASS_SESSION_REMINDER":
+      return "View upcoming session";
+    case "COURSE_INTEREST_OPENED":
+      return "Browse new courses";
     case "CLASS_SESSION_CHANGE_REQUESTED":
       return vi ? "Xử lý yêu cầu đổi lịch" : "Review change request";
     case "CLASS_SESSION_CHANGE_REVIEWED":

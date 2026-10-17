@@ -11,6 +11,20 @@ namespace SportHub.API.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            // The other branch already deployed this table under course_interest_id.
+            // Adopt it in place so both upgrade orders preserve subscriptions.
+            migrationBuilder.Sql("""
+                DO $$ BEGIN
+                    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'course_interests' AND column_name = 'course_interest_id')
+                       AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'course_interests' AND column_name = 'interest_id') THEN
+                        ALTER TABLE course_interests RENAME COLUMN course_interest_id TO interest_id;
+                    END IF;
+                    IF to_regclass('course_interests') IS NOT NULL THEN
+                        ALTER TABLE course_interests ADD COLUMN IF NOT EXISTS active boolean NOT NULL DEFAULT true;
+                        UPDATE course_interests SET active = false WHERE cancelled_at_utc IS NOT NULL;
+                    END IF;
+                END $$;
+                """);
             migrationBuilder.DropCheckConstraint(
                 name: "ck_class_threshold_response_choice_target",
                 table: "class_threshold_responses");
@@ -43,35 +57,18 @@ namespace SportHub.API.Migrations
                         onDelete: ReferentialAction.Restrict);
                 });
 
-            migrationBuilder.CreateTable(
-                name: "course_interests",
-                columns: table => new
-                {
-                    interest_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    member_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    source_class_id = table.Column<int>(type: "integer", nullable: false),
-                    threshold_response_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    refunded_points = table.Column<int>(type: "integer", nullable: false),
-                    active = table.Column<bool>(type: "boolean", nullable: false),
-                    created_at_utc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    cancelled_at_utc = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("pk_course_interests", x => x.interest_id);
-                    table.ForeignKey(
-                        name: "fk_course_interests_classes_source_class_id",
-                        column: x => x.source_class_id,
-                        principalTable: "classes",
-                        principalColumn: "class_id",
-                        onDelete: ReferentialAction.Restrict);
-                    table.ForeignKey(
-                        name: "fk_course_interests_threshold_responses_threshold_response_id",
-                        column: x => x.threshold_response_id,
-                        principalTable: "class_threshold_responses",
-                        principalColumn: "threshold_response_id",
-                        onDelete: ReferentialAction.Restrict);
-                });
+            migrationBuilder.Sql("""
+                CREATE TABLE IF NOT EXISTS course_interests (
+                    interest_id uuid CONSTRAINT pk_course_interests PRIMARY KEY,
+                    member_id uuid NOT NULL,
+                    source_class_id integer NOT NULL CONSTRAINT fk_course_interests_classes_source_class_id REFERENCES classes(class_id) ON DELETE RESTRICT,
+                    threshold_response_id uuid NOT NULL CONSTRAINT fk_course_interests_threshold_responses_threshold_response_id REFERENCES class_threshold_responses(threshold_response_id) ON DELETE RESTRICT,
+                    refunded_points integer NOT NULL,
+                    active boolean NOT NULL,
+                    created_at_utc timestamptz NOT NULL,
+                    cancelled_at_utc timestamptz NULL
+                );
+                """);
 
             migrationBuilder.CreateTable(
                 name: "course_interest_deliveries",
@@ -107,7 +104,7 @@ namespace SportHub.API.Migrations
             migrationBuilder.AddCheckConstraint(
                 name: "ck_class_threshold_response_choice_target",
                 table: "class_threshold_responses",
-                sql: "(choice IS NULL AND target_class_id IS NULL) OR (choice IN (0, 2) AND target_class_id IS NULL) OR (choice = 1 AND target_class_id IS NOT NULL)");
+                sql: "(choice IS NULL AND target_class_id IS NULL) OR (choice IN (0, 2, 3) AND target_class_id IS NULL) OR (choice = 1 AND target_class_id IS NOT NULL)");
 
             migrationBuilder.CreateIndex(
                 name: "ix_class_session_reminders_session_id_member_id_start_at_utc_h",
@@ -131,16 +128,9 @@ namespace SportHub.API.Migrations
                 table: "course_interests",
                 columns: new[] { "member_id", "active" });
 
-            migrationBuilder.CreateIndex(
-                name: "ix_course_interests_source_class_id",
-                table: "course_interests",
-                column: "source_class_id");
+            migrationBuilder.Sql("CREATE INDEX IF NOT EXISTS ix_course_interests_source_class_id ON course_interests (source_class_id);");
 
-            migrationBuilder.CreateIndex(
-                name: "ix_course_interests_threshold_response_id",
-                table: "course_interests",
-                column: "threshold_response_id",
-                unique: true);
+            migrationBuilder.Sql("CREATE UNIQUE INDEX IF NOT EXISTS ix_course_interests_threshold_response_id ON course_interests (threshold_response_id);");
 
             migrationBuilder.AddForeignKey(
                 name: "fk_classes_classes_continuation_of_class_id",

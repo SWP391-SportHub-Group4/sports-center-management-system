@@ -163,16 +163,14 @@ public sealed class UserAdminService(
             throw new ConflictException("phone_already_exists", "Phone already exists.");
         }
 
-        // BR-96 — khi Admin tạo Coach phải chọn đúng một môn đang hoạt động. Role khác không
+        // BR-96 — khi Admin tạo Coach phải chọn ít nhất một môn dạy được (có lớp nhóm đang bật). Role khác không
         // được nhận môn chuyên môn để tránh dữ liệu mơ hồ.
         IReadOnlyList<int>? coachSportIds = null;
 
         if (targetRole == UserRole.Coach)
         {
+            // A coach may teach several sports; ValidateAsync enforces 1..MaxSports coachable sports.
             coachSportIds = await specialties.ValidateAsync(request.Specialties, ct);
-            if (coachSportIds.Count != 1)
-                throw new BadRequestException(
-                    "coach_single_specialty_required", "Select exactly one sport specialty when creating a coach.");
         }
         else if (request.Specialties is { Count: > 0 })
         {

@@ -57,6 +57,10 @@ public class Class
     public ClassStatus Status { get; set; }
     public bool EnrollmentOpen { get; set; } = true;
 
+    /// <summary>Why the manager closed enrollment (set on close, cleared on reopen). Not exposed publicly.</summary>
+    public string? EnrollmentClosedReason { get; set; }
+
+    public DateTime? EnrollmentClosedAtUtc { get; set; }
 
     /// <summary>Số ghi danh Confirmed.</summary>
     public int ConfirmedCount { get; set; }

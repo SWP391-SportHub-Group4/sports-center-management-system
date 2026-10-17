@@ -114,6 +114,10 @@ export function MemberFrame({
       ],
     },
     { href: "/member/schedule", label: t.memberPages.schedule },
+    {
+      href: "/member/training",
+      label: language === "vi" ? "Tập luyện" : "Training",
+    },
   ];
   const billingActive = isActive(pathname, {
     href: "/member/finance",
@@ -284,7 +288,7 @@ export function MemberFrame({
                     <span>{t.common.myAccount}</span>
                   </Link>
                   <Link
-                    href="/member/profile"
+                    href="/member/training?tab=profile"
                     className={styles.dropdownItem}
                     aria-current={fitnessProfileActive ? "page" : undefined}
                     onClick={() => setUserMenuOpen(false)}

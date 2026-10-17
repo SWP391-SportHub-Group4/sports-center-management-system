@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -53,13 +54,36 @@ public class ClassesController(IClassService classes, IClassSessionService sessi
     [HttpPost("api/manager/classes/{classId:int}/enrollment/close")]
     public async Task<IActionResult> CloseEnrollment(
         int classId,
+        [FromBody] CloseEnrollmentRequest? request,
         CancellationToken ct)
         => Ok(
             await classes.SetEnrollmentOpenAsync(
                 classId,
                 false,
                 User.RequireUserId(),
-                ct));
+                ct,
+                request?.Reason));
+
+    /// <summary>
+    /// Seats the member currently holds while a checkout is pending. Lets the UI offer "complete payment" even when
+    /// enrollment has been closed since the hold was taken (a valid hold may still finish).
+    /// </summary>
+    [Authorize(Policy = SportHubPolicies.Member)]
+    [HttpGet("api/members/me/class-holds")]
+    public async Task<IActionResult> MyClassHolds(CancellationToken ct)
+    {
+        var memberId = User.RequireUserId();
+        var now = DateTime.UtcNow;
+        var holds = await db.Set<SportHub.Scheduling.Domain.Entities.SeatHold>().AsNoTracking()
+            .Where(h => h.MemberId == memberId
+                && h.Status == SportHub.Scheduling.Domain.Enums.SeatHoldStatus.Active
+                && h.ExpiresAtUtc > now
+                && h.InvoiceId != null)
+            .OrderBy(h => h.ExpiresAtUtc)
+            .Select(h => new MemberClassHoldResponse(h.ClassId, h.InvoiceId!.Value, h.ExpiresAtUtc))
+            .ToListAsync(ct);
+        return Ok(holds);
+    }
 
     [Authorize(Policy = SportHubPolicies.Member)]
     [HttpGet("api/members/me/classes/{classId:int}/sessions")]
@@ -140,3 +164,8 @@ public class ClassesController(IClassService classes, IClassSessionService sessi
     private Guid? CoachScope()
         => User.IsInRole(SportHubRoleNames.Coach) ? User.RequireUserId() : null;
 }
+
+/// <summary>Optional reason; when present the enrolled members are told about the incident.</summary>
+public sealed record CloseEnrollmentRequest(string? Reason);
+
+public sealed record MemberClassHoldResponse(int ClassId, Guid InvoiceId, DateTime ExpiresAtUtc);

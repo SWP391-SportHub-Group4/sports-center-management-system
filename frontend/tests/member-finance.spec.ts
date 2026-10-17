@@ -171,3 +171,36 @@ test("member can review their point refund and open its invoice", async ({
   await page.getByRole("link", { name: "View invoice" }).click();
   await expect(page).toHaveURL(`/member/invoices/${id}`);
 });
+
+test("reloaded day-pass checkout explains validity and no refunds before payment", async ({
+  page,
+}) => {
+  await setup(page, { kind: "MEMBERSHIP", isDayPass: true });
+  await page.goto(`/checkout/${id}`);
+  await expect(page.getByRole("note")).toContainText(
+    "valid only today (Vietnam time)",
+  );
+  await expect(page.getByRole("note")).toContainText("not refundable");
+});
+
+test("member downloads the invoice PDF through the authenticated endpoint", async ({
+  page,
+}) => {
+  await setup(page);
+  await page.route(`**/api/invoices/${id}/receipt.pdf`, (route) => {
+    expect(route.request().headers()["authorization"]).toBe(
+      "Bearer test-token",
+    );
+    return route.fulfill({
+      contentType: "application/pdf",
+      headers: {
+        "content-disposition": 'attachment; filename="INV-0001.pdf"',
+      },
+      body: "%PDF-1.4\n%%EOF",
+    });
+  });
+  await page.goto(`/member/finance?tab=invoices&invoice=${id}`);
+  const downloaded = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download PDF" }).click();
+  expect((await downloaded).suggestedFilename()).toBe("INV-0001.pdf");
+});

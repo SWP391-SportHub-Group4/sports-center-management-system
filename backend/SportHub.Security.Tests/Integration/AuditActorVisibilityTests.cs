@@ -69,7 +69,7 @@ public sealed class AuditActorVisibilityTests(SportHubApiFactory factory)
         using var client = factory.CreateApiClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", factory.IssueToken(actor.UserId, UserRole.Receptionist));
         var email = $"invited-member-{Guid.NewGuid():N}@example.com";
-        var created = await client.PostAsJsonAsync("api/members/front-desk", new { email, confirmEmail = email, fullName = "Test Member" });
+        var created = await client.PostAsJsonAsync("api/members/front-desk", new { email, fullName = "Test Member" });
         Assert.True(created.IsSuccessStatusCode, await created.Content.ReadAsStringAsync());
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();

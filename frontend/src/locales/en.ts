@@ -265,7 +265,7 @@ export const en = {
     all: "All",
     waitingApi: "Waiting for API",
     closeGap:
-      "Manual enrollment closure needs G13. Cancelling a class is a different action.",
+      "Closing enrollment only stops new registrations. Cancelling a class is a different action.",
     interestGap:
       "Next-course interest is not available yet. Members can currently choose a refund or transfer. The refund + notification option will appear here when supported.",
     previewConfirmationHint:
@@ -279,6 +279,8 @@ export const en = {
       outside_opening_hours:
         "The room is closed during part or all of this session.",
       room_busy: "The room has an overlapping activity or block.",
+      room_under_incident_review:
+        "The room is under incident review for this time. Choose another room or time.",
       coach_inactive: "This coach is no longer active.",
       coach_specialty_mismatch: "This coach does not specialize in this sport.",
       coach_busy: "The coach has an overlapping session.",
@@ -298,7 +300,30 @@ export const en = {
     enrollmentClosed: "Enrollment is closed",
     enrollmentOpenHint: "Members can reserve a seat and enroll in this course.",
     enrollmentClosedHint:
-      "New registrations are closed. Existing enrollments are retained.",
+      "New members cannot reserve a seat. Checkouts that already hold a seat can still finish, and enrolled members keep their place.",
+    enrollmentClosedReason: "Reason given",
+    enrollmentClosedSince: "Closed {when}",
+    reopenNotifiesHint:
+      "Enrolled members were told about this closure. Reopening tells them it is resolved.",
+    reopenDialogTitle: "Reopen enrollment?",
+    closeDialogTitle: "Close enrollment?",
+    closeDialogLead:
+      "New members will not be able to reserve a seat in this course.",
+    closeStatHolds: "Seats on hold",
+    closeStatEnrolled: "Enrolled members",
+    closeHoldsExplain:
+      "Checkouts that already hold a seat can still finish paying before their hold expires, and those seats are kept.",
+    closeReasonLabel: "Reason for closing",
+    closeReasonHint:
+      "Shown to enrolled members in the notification and email, so say what happened and what you are doing about it.",
+    closeNotifiesSome:
+      "Enrolled members are notified by email and in the app now, and again when you reopen enrollment.",
+    closeNotifiesNone:
+      "Nobody is enrolled yet, so no notification will be sent.",
+    closeRefundTitle: "Is this a problem on the center's side?",
+    closeRefundBody:
+      "Closing enrollment does not refund anyone. To refund members for the sessions not delivered, cancel the course instead.",
+    closeGoToCancel: "Go to Cancel course",
     closeEnrollment: "Close enrollment",
     reopenEnrollment: "Reopen enrollment",
     enrollmentUpdateError:
@@ -629,15 +654,12 @@ export const en = {
       "Check the account, requested change and reason before confirming.",
     createHint:
       "The staff account will be ready after the employee sets a password from the email invitation.",
-    confirmEmail: "Confirm email",
-    emailMismatch: "The two email addresses do not match.",
     pendingActivation: "Activation required",
     pendingActivationHint:
       "This staff member has not activated the account yet. If the email was mistyped, correct it so the activation link goes to the right person.",
     resendActivation: "Resend activation link",
     changeEmail: "Change email",
     newEmail: "New email",
-    confirmNewEmail: "Confirm new email",
     saveNewEmail: "Update email and send link",
     activationActionFailed: "The action could not be completed.",
     optionalPhoneHint: "Optional. The recipient can add it after signing in.",
@@ -756,6 +778,19 @@ export const en = {
     points: "Points",
     adjustment: "Adjust points",
     adjustmentReview: "Review adjustment",
+    creditApprovalRequired:
+      "A different manager must approve this credit before points enter the wallet.",
+    creditPending:
+      "Credit request submitted. The wallet will update after another manager approves it.",
+    creditApproved:
+      "This credit request was already approved. The wallet has been refreshed.",
+    pendingCredits: "Point credits awaiting approval",
+    noPendingCredits: "No point credits awaiting approval.",
+    requestedBy: "Requested by",
+    approveCredit: "Approve credit",
+    rejectCredit: "Reject credit",
+    rejectionReason: "Reason for rejection",
+    ownCreditRequest: "Another manager must decide this request.",
     confirm: "Confirm",
     newIntent: "Start another adjustment",
     uncertain:
@@ -778,20 +813,57 @@ export const en = {
     balanceAsOf: "Balance observed at {date}",
     cashBasisHint:
       "Cash is recorded on the successful payment date in Vietnam. Unpaid invoices and point refunds do not add cash revenue. Point value is shown separately and is not cash collected.",
-    creditApprovalRequired:
-      "A different manager must approve this credit before points enter the wallet.",
-    creditPending:
-      "Credit request submitted. The wallet will update after another manager approves it.",
-    creditApproved:
-      "This credit request was already approved. The wallet has been refreshed.",
-    pendingCredits: "Point credits awaiting approval",
-    noPendingCredits: "No point credits awaiting approval.",
-    requestedBy: "Requested by",
-    approveCredit: "Approve credit",
-    rejectCredit: "Reject credit",
-    rejectionReason: "Reason for rejection",
-    ownCreditRequest: "Another manager must decide this request.",
-    issued: "Points refunded",
+    issued: "Points credited to wallets (refunds and compensation)",
+    pointsRefunded: "Points refunded to members",
+    netRevenue: "Net revenue (VND)",
+    reconcileTitle: "Check these numbers",
+    reconcileFigure: "Figure",
+    reconcileHint:
+      "Recomputes every figure above straight from invoices, payments, the points ledger and refunds, and lists any invoice whose cash and points do not add up. Run it before you export.",
+    reconcileRun: "Run the check",
+    reconcileRunning: "Checking…",
+    reconcileOk: "All figures match their source records.",
+    reconcileProblem:
+      "Some figures do not match. Do not export until this is explained.",
+    reconcileChecked: "{n} paid invoices checked in {ms} ms",
+    reconcileReported: "In the report",
+    reconcileActual: "From the records",
+    reconcileDelta: "Difference",
+    reconcileInvoices: "Invoices that do not add up",
+    reconcileInvoiceMore: "Showing the first {n} of {total}.",
+    reconcileInvoice: "Invoice",
+    reconcileTotal: "Total",
+    reconcileCash: "Cash on invoice",
+    reconcilePoints: "Points",
+    reconcilePayments: "Payments received",
+    healthTitle: "Operations health",
+    healthDetails: "Details",
+    healthJob: "Job",
+    healthJobRun: "Last run",
+    healthJobs: "Background jobs",
+    healthJobsSince:
+      "Job history starts at {time} and resets when the service restarts.",
+    healthOutbox: "Messages waiting to send",
+    healthPayments: "Payments to reconcile",
+    healthJobLastOk: "Last success {time}",
+    healthJobNever: "No run finished yet",
+    healthJobStale: "Not keeping up",
+    healthJobFailing: "{n} failures in a row: {error}",
+    healthPending: "Pending",
+    healthStuck: "Stuck while sending",
+    healthFailed: "Failed",
+    healthFailedAttention: "Failed repeatedly",
+    healthGatewayWaiting: "Gateway results not processed",
+    healthGatewayFailed: "Gateway results failed",
+    healthManualComp: "Need manual compensation",
+    healthAwaitingRecon: "Attempts awaiting reconciliation",
+    healthFlagged: "Invoices flagged",
+    healthSeatLag: "Expired seat holds not released",
+    healthStatusHealthy: "Everything is keeping up",
+    healthStatusDegraded: "Something needs attention",
+    healthStatusUnhealthy: "Something has stopped keeping up",
+    revenueDefinitions:
+      "Cash collected is money received in the period. Points used are spent from wallets and are not cash. Points refunded go back to wallets and are not subtracted from cash. Net revenue is cash collected minus cash refunds; it is not total revenue.",
     outstanding: "Current outstanding points (available + held)",
     adjusted: "Manager point adjustments in period",
     globalPoints:
@@ -1709,15 +1781,13 @@ export const en = {
     openRegistration: "Register a new member",
     registerMemberTitle: "Register a new member",
     registerMemberHint:
-      "Enter the member's own email twice. The activation link goes there, so a mistyped address means the wrong person could activate the account.",
+      "Check the email with the member before you register. The activation link goes there, so a mistyped address means the wrong person could activate the account.",
     registerMemberSubmit: "Register and send activation email",
-    confirmEmail: "Confirm email",
-    emailMismatch: "The two email addresses do not match.",
     activationNote:
-      "The member cannot sign in until they open the activation email and set a password. You can already sell services and record payments for them at the desk.",
+      "The member cannot sign in until they open the activation email and set a password. You can already sell services and record payments for them at the desk. If they have not activated within 7 days and nothing has been recorded for them, the account is removed.",
     pendingActivation: "Pending activation",
     pendingHint:
-      "This member has not activated the account yet. Resend the link, or correct the email if it was mistyped.",
+      "This member has not activated the account yet. Resend the link, or correct the email if it was mistyped. The account is removed 7 days after registration if it is still not activated and nothing has been recorded for it; correcting the email does not extend that.",
     resendActivation: "Resend activation link",
     changeEmail: "Change email",
     newEmail: "New email",
@@ -1774,7 +1844,6 @@ export const en = {
   },
   ptOps: {
     tabsLabel: "Training sections",
-    tabSessions: "Sessions",
     tabPlans: "Plans",
     tabResults: "Results",
     tabProgress: "Progress",

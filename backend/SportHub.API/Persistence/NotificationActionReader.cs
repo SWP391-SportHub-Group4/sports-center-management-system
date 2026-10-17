@@ -19,6 +19,22 @@ public sealed class NotificationActionReader(SportHubDbContext db, SportHub.Buil
             var links = new Dictionary<Guid, string>();
             switch (group.Key)
             {
+                case "CourseInterestOpened":
+                    foreach (var n in group) result[n.NotificationId] = "/member/services?section=courses";
+                    break;
+                case "ClassSessionReminder":
+                    foreach (var id in await db.ClassSessions.Where(s => ids.Contains(s.SessionId)
+                        && s.Status == SportHub.Scheduling.Domain.Enums.ClassSessionStatus.Scheduled
+                        && db.Enrollments.Any(e => e.ClassId == s.ClassId && e.MemberId == userId
+                            && e.Status == SportHub.Scheduling.Domain.Enums.EnrollmentStatus.Confirmed && e.EndedAt == null))
+                        .Select(s => s.SessionId).ToListAsync(ct))
+                        links[id] = $"/member/schedule?event=class%3A{id}";
+                    var reminders = await db.Set<SportHub.Scheduling.Domain.Entities.ClassSessionReminder>()
+                        .Where(r => ids.Contains(r.ReminderId) && r.MemberId == userId)
+                        .Join(db.ClassSessions, r => r.SessionId, s => s.SessionId, (r, s) => new { r.ReminderId, s.ClassId })
+                        .ToListAsync(ct);
+                    foreach (var r in reminders) links[r.ReminderId] = $"/member/schedule?course={r.ClassId}";
+                    break;
                 case "ClassSessionChangeRequested":
                     if (await db.UserAccounts.AnyAsync(u => u.UserId == userId && u.Role!.RoleName == SportHub.Identity.Domain.Enums.UserRole.CenterManager, ct))
                         foreach (var id in ids)
@@ -27,13 +43,6 @@ public sealed class NotificationActionReader(SportHubDbContext db, SportHub.Buil
                 case "ClassSessionChangeReviewed":
                     foreach (var id in await db.Set<SportHub.Scheduling.Domain.Entities.ClassSessionChangeRequest>().Where(r => ids.Contains(r.RequestId) && r.RequestedByUserId == userId).Select(r => r.RequestId).ToListAsync(ct))
                         links[id] = "/coach/change-requests";
-                    break;
-                case "ClassSessionReminder":
-                    var reminders = await db.Set<SportHub.Scheduling.Domain.Entities.ClassSessionReminder>()
-                        .Where(r => ids.Contains(r.ReminderId) && r.MemberId == userId)
-                        .Join(db.ClassSessions, r => r.SessionId, s => s.SessionId, (r, s) => new { r.ReminderId, s.ClassId })
-                        .ToListAsync(ct);
-                    foreach (var r in reminders) links[r.ReminderId] = $"/member/schedule?course={r.ClassId}";
                     break;
                 case "NextCourseAvailable":
                     var deliveries = await (from d in db.Set<SportHub.Scheduling.Threshold.Domain.CourseInterestDelivery>()

@@ -57,6 +57,43 @@ public sealed class CourtRentalTests(PaymentApiFactory factory)
         });
     }
 
+    [Fact]
+    public async Task Incident_preview_quotes_the_refund_points_the_resolve_actually_credits()
+    {
+        var request = await SetupAsync();
+        var manager = await factory.SeedUserAsync(UserRole.CenterManager);
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
+        await using (var tx = await db.Database.BeginTransactionAsync())
+        {
+            await scope.ServiceProvider.GetRequiredService<SportHub.BuildingBlocks.Abstractions.Wallet.IPointWalletService>()
+                .EarnAsync(new(request.MemberId, 100, "TestCredit", Guid.NewGuid()));
+            await tx.CommitAsync();
+        }
+        var checkouts = scope.ServiceProvider.GetRequiredService<CheckoutService>();
+        var checkout = await checkouts.CreateCourtRentalAsync(request, Guid.NewGuid().ToString(), request.MemberId, default);
+        await scope.ServiceProvider.GetRequiredService<SportHub.Payment.Wallet.Application.PointConfirmationService>()
+            .SelectSelfAsync(checkout.InvoiceId, 100, request.MemberId, default);
+        await checkouts.StartPaymentAsync(checkout.InvoiceId, request.MemberId, false, "127.0.0.1", default);
+
+        var incidents = scope.ServiceProvider.GetRequiredService<IncidentService>();
+        var incident = new IncidentRequest("Room", request.RoomId, request.StartUtc.UtcDateTime,
+            request.EndUtc.UtcDateTime, "Court floor repair");
+
+        var preview = await incidents.PreviewAsync(incident);
+        var affected = Assert.Single(preview.Members);
+        Assert.Equal(request.MemberId, affected.MemberId);
+        Assert.Equal("CourtRental", affected.SourceType);
+        Assert.Equal("RefundedAsPoints", affected.Outcome);
+        Assert.Equal(100, affected.ExpectedRefundPoints);
+        Assert.Equal(100, preview.ExpectedRefundPointsTotal);
+
+        // The wallet was fully spent on the rental, so the credited points are exactly the quoted refund.
+        await incidents.ResolveAsync(incident, manager.UserId);
+        Assert.Equal(100, await factory.QueryAsync(state => state.PointWallets
+            .Where(x => x.OwnerUserId == request.MemberId).Select(x => x.AvailablePoints).SingleAsync()));
+    }
+
     /// <summary>Member không có Membership Gym, chuyên môn hay hồ sơ nào: chỉ cần tài khoản hoạt động.</summary>
     private async Task<CourtRentalRequest> SetupAsync(bool active = true)
     {
@@ -148,7 +185,14 @@ public sealed class CourtRentalTests(PaymentApiFactory factory)
         var incidents = scope.ServiceProvider.GetRequiredService<IncidentService>();
         var incident = new IncidentRequest("Room", request.RoomId, request.StartUtc.UtcDateTime,
             request.EndUtc.UtcDateTime, "Court floor repair");
-        Assert.True((await incidents.PreviewAsync(incident)).CanResolve);
+        var preview = await incidents.PreviewAsync(incident);
+        Assert.True(preview.CanResolve);
+        // The manager sees who is affected and what happens to them before confirming.
+        var affected = Assert.Single(preview.Members);
+        Assert.Equal(request.MemberId, affected.MemberId);
+        Assert.Equal("CheckoutReleased", affected.Outcome);
+        Assert.Null(affected.ExpectedRefundPoints);
+        Assert.Equal(0, preview.ExpectedRefundPointsTotal);
         var incidentId = await incidents.ResolveAsync(incident, manager.UserId);
         var delivery = await incidents.DeliveryAsync(incidentId);
         Assert.Equal(2, delivery.Total);

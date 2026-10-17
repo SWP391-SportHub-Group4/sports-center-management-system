@@ -67,6 +67,12 @@ public sealed class AvailabilityService(ISportHubDbContext db, ICoachSpecialtyRe
                     && !(excludeSessionId.HasValue && o.SourceType == OccupancySourceType.ClassSession
                         && o.SourceId == excludeSessionId), ct))
                 reasons.Add("room_busy");
+            var checkedAt = DateTime.UtcNow;
+            if (await db.Set<SportHub.Scheduling.Rental.Domain.IncidentFence>().AsNoTracking().AnyAsync(f =>
+                    f.Status == SportHub.Scheduling.Rental.Domain.IncidentFenceStatus.Open && f.ExpiresAtUtc > checkedAt
+                    && f.StartAtUtc < end && f.EndAtUtc > start
+                    && (f.Scope == SportHub.Scheduling.Rental.Domain.IncidentScope.Center || f.RoomId == roomId), ct))
+                reasons.Add("room_under_incident_review");
         }
         string? coachName = null;
         if (coachId is Guid id)

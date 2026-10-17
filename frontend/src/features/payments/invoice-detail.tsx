@@ -1,5 +1,6 @@
 "use client";
-import { api } from "@/lib/apiClient";
+import { api, downloadFile } from "@/lib/apiClient";
+import { useAction } from "@/lib/useApi";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { useAuth } from "@/lib/auth";
@@ -44,6 +45,7 @@ export function InvoiceDetail({
 }) {
   const { t } = useLanguage();
   const { user } = useAuth();
+  const download = useAction();
   const l = t.refactor;
   const f = t.finOps;
   const state = useApi(
@@ -64,6 +66,21 @@ export function InvoiceDetail({
         d && (
           <>
             <div className={styles.identity}>
+              <button
+                className="btn btn--secondary"
+                disabled={download.busy}
+                onClick={() =>
+                  void download.run(() =>
+                    downloadFile(
+                      `/api/invoices/${invoiceId}/receipt.pdf`,
+                      `${d.summary.invoiceNumber}.pdf`,
+                    ),
+                  )
+                }
+              >
+                {download.busy ? "Downloading…" : "Download PDF"}
+              </button>
+              {download.error && <p role="alert">{download.error}</p>}
               <p className={styles.invoiceNumber}>{d.summary.invoiceNumber}</p>
               <div className={styles.statuses}>
                 <StatusChip value={d.summary.status} />

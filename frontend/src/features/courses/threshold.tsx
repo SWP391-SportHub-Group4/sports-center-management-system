@@ -142,7 +142,13 @@ export function ThresholdPanel({
     )
       return;
     const submittedChoice = retry ? d.choice : choice;
-    if (!submittedChoice) return;
+    if (
+      submittedChoice !== "TRANSFER" &&
+      submittedChoice !== "REFUND" &&
+      submittedChoice !== "WAIT_NEXT_COURSE" &&
+      submittedChoice !== "KEEP_PLACE"
+    )
+      return;
     sending.current = true;
     await action.run(async () => {
       try {
@@ -196,6 +202,14 @@ export function ThresholdPanel({
                 {data.resolutionStatus === "AWAITING_PAYMENT"
                   ? l.pendingPayment
                   : l.recorded}
+                {data.choice === "WAIT_NEXT_COURSE" && (
+                  <>
+                    {" "}
+                    <Link href="/member/services?section=courses&view=owned&tab=interests">
+                      {l.interests}
+                    </Link>
+                  </>
+                )}
               </p>
             )}
             {data.choice === "WAIT_NEXT_COURSE" && (

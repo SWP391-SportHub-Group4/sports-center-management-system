@@ -497,6 +497,12 @@ public sealed class CheckoutFlowTests(PaymentApiFactory factory)
             after.PointsIssued -
             before.PointsIssued);
 
+        // Gateway compensation is credited as points but is not a refund.
+        Assert.Equal(
+            0,
+            after.PointsRefunded -
+            before.PointsRefunded);
+
         Assert.Equal(
             after.TotalCollected,
             after.BySource.Sum(
@@ -1694,6 +1700,23 @@ public sealed class CheckoutFlowTests(PaymentApiFactory factory)
                                 x.AvailablePoints)
                         .SingleAsync());
 
+        using var refundReportScope =
+            factory.Services.CreateScope();
+
+        var refundReports =
+            refundReportScope.ServiceProvider
+                .GetRequiredService<
+                    SportHub.Payment.Application.Interfaces.IRevenueReportService>();
+
+        var refundDay =
+            DateOnly.FromDateTime(
+                DateTime.UtcNow.AddHours(7));
+
+        var refundedBefore =
+            (await refundReports.GetAsync(
+                refundDay,
+                refundDay)).PointsRefunded;
+
         var cancelled =
             await member.PostAsJsonAsync(
                 "/api/refunds/class-cancellations",
@@ -1706,6 +1729,14 @@ public sealed class CheckoutFlowTests(PaymentApiFactory factory)
         Assert.Equal(
             HttpStatusCode.OK,
             cancelled.StatusCode);
+
+        // A member refund is a points credit and must be counted as "points refunded".
+        Assert.Equal(
+            100,
+            (await refundReports.GetAsync(
+                refundDay,
+                refundDay)).PointsRefunded -
+            refundedBefore);
 
         Assert.Equal(
             HttpStatusCode.Conflict,

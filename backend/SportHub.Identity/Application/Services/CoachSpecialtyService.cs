@@ -13,7 +13,7 @@ public sealed class CoachSpecialtyService(ISportHubDbContext db, ISportCatalogRe
 {
     public const int MaxSports = 10;
 
-    /// <summary>Bắt buộc 1–10 môn, không trùng, và mọi môn phải tồn tại và đang hoạt động.</summary>
+    /// <summary>Bắt buộc 1–10 môn, không trùng; mọi môn phải tồn tại, đang hoạt động và có lớp nhóm (GroupCourse) đang bật.</summary>
     public async Task<IReadOnlyList<int>> ValidateAsync(IEnumerable<int>? sportIds, CancellationToken ct)
     {
         var ids = (sportIds ?? []).Distinct().OrderBy(x => x).ToList();
@@ -36,6 +36,13 @@ public sealed class CoachSpecialtyService(ISportHubDbContext db, ISportCatalogRe
             if (sport is null || !sport.IsActive)
             {
                 throw new BadRequestException("invalid_sport", "Invalid sport.");
+            }
+
+            // Coaches only teach group courses. Gym (membership access) and rental-only sports have no coach, and a
+            // sport added later becomes coachable as soon as its GroupCourse service is enabled.
+            if (!sport.HasEnabledService(SportServiceType.GroupCourse))
+            {
+                throw new BadRequestException("sport_not_coachable", "This sport has no coached courses.");
             }
         }
 

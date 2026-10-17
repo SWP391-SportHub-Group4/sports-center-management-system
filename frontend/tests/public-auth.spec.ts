@@ -434,6 +434,15 @@ for (const width of [1440, 1280, 390]) {
         return route.fulfill({
           json: path.endsWith("unread-count") ? { count: 0 } : [],
         });
+      if (path === "/api/public/overview")
+        return route.fulfill({
+          json: {
+            coachCount: 0,
+            memberCount: 1,
+            facilityCount: 0,
+            facilities: [],
+          },
+        });
       return route.fulfill({ json: [] });
     });
     await page.goto("/");

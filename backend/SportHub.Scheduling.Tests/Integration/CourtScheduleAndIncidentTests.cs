@@ -127,6 +127,9 @@ public sealed class CourtScheduleAndIncidentTests(SchedulingApiFactory factory)
             var preview = await incidents.PreviewAsync(request);
             Assert.False(preview.CanResolve);
             Assert.Contains(preview.Impacts.SelectMany(x => x.ResolutionOptions), x => x.Action == "Reschedule");
+            // Class members are listed but get no refund quote until the manager picks a schedule option.
+            Assert.All(preview.Members, m => Assert.Equal("AwaitsScheduleDecision", m.Outcome));
+            Assert.All(preview.Members, m => Assert.Null(m.ExpectedRefundPoints));
             await Assert.ThrowsAsync<ConflictException>(() => incidents.ResolveAsync(request, course.ManagerId));
         }
         Assert.False(await factory.QueryAsync(db => db.Set<RoomBlock>().AnyAsync(x => x.RoomId == course.RoomId)));

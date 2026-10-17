@@ -13,13 +13,14 @@ public static class AccountAuditActions
     public const string ResendMemberActivation = "RESEND_MEMBER_ACTIVATION";
     public const string ChangePendingMemberEmail = "CHANGE_PENDING_MEMBER_EMAIL";
     public const string ExpireUnactivatedStaffAccount = "EXPIRE_UNACTIVATED_STAFF_ACCOUNT";
+    public const string ExpireUnactivatedMemberAccount = "EXPIRE_UNACTIVATED_MEMBER_ACCOUNT";
     public const string UpdateCoachSpecialties = "UPDATE_COACH_SPECIALTIES";
 
     public static IReadOnlyList<string> All { get; } = Array.AsReadOnly(new[]
     {
         CreateStaffAccount, ChangeUserRole, LockUserAccount, UnlockUserAccount,
         ResendStaffActivation, ChangePendingStaffEmail, FrontDeskCreateMember,
-        ResendMemberActivation, ChangePendingMemberEmail, ExpireUnactivatedStaffAccount,
+        ResendMemberActivation, ChangePendingMemberEmail, ExpireUnactivatedStaffAccount, ExpireUnactivatedMemberAccount,
         UpdateCoachSpecialties
     });
 }

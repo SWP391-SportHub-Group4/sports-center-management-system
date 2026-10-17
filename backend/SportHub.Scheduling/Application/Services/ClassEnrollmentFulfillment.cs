@@ -63,6 +63,17 @@ public sealed class ClassEnrollmentFulfillment(
 
         if (updated == 0)
         {
+            // The manager may have closed enrollment between EnsureBookableAsync and the UPDATE; report that
+            // instead of a misleading "class full".
+            var stillOpen = await db.Set<Class>().AsNoTracking()
+                .Where(c => c.ClassId == classId)
+                .Select(c => c.EnrollmentOpen)
+                .SingleAsync(cancellationToken);
+            if (!stillOpen)
+            {
+                throw new ConflictException("enrollment_closed", "Enrollment closed.");
+            }
+
             throw new ConflictException("class_full", "Class full.");
         }
 

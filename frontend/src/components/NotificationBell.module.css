@@ -40,7 +40,7 @@
   color: var(--text-strong);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow);
+  box-shadow: 0 16px 40px rgb(0 0 0 / 0.28);
   z-index: 40;
 }
 .header {
@@ -93,6 +93,16 @@ a.item:focus-visible {
   background: var(--notification-hover);
   color: var(--text-strong);
   text-decoration: none;
+}
+a.item:hover .message {
+  color: var(--text-strong);
+}
+a.item:hover time {
+  color: var(--text-body);
+}
+a.item:hover .action {
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 .action {
   display: block;

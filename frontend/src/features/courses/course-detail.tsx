@@ -7,7 +7,14 @@ import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { choiceQuery, useUrlQuery } from "@/lib/useUrlQuery";
 import { formatMoney, formatDateTime } from "@/lib/format";
-import { Card, AsyncSection, Table, StatusChip, Dialog } from "@/components/ui";
+import {
+  Card,
+  AsyncSection,
+  Table,
+  StatusChip,
+  Dialog,
+  Field,
+} from "@/components/ui";
 import { Tabs } from "@/components/primitives";
 import { CoursePublishReview } from "./course-publish-review";
 import { SessionEditor } from "./session-editor";
@@ -85,6 +92,10 @@ export function ManagerCourseDetail({ classId }: { classId: number }) {
   const [revision, setRevision] = useState(0);
   const [enrollmentBusy, setEnrollmentBusy] = useState(false);
   const [enrollmentError, setEnrollmentError] = useState<string | null>(null);
+  const [closing, setClosing] = useState(false);
+  const [reopening, setReopening] = useState(false);
+  const [closeReason, setCloseReason] = useState("");
+  const [cancelReasonSeed, setCancelReasonSeed] = useState("");
   const state = useApi(
     (signal) =>
       api.get<ManagerCourseDto>(`/api/manager/classes/${classId}`, { signal }),
@@ -112,8 +123,11 @@ export function ManagerCourseDetail({ classId }: { classId: number }) {
     try {
       await api.post(
         `/api/manager/classes/${classId}/enrollment/${open ? "open" : "close"}`,
+        open ? undefined : { reason: closeReason.trim() || null },
       );
 
+      setClosing(false);
+      setCloseReason("");
       reload();
     } catch (error) {
       setEnrollmentError(
@@ -122,6 +136,21 @@ export function ManagerCourseDetail({ classId }: { classId: number }) {
     } finally {
       setEnrollmentBusy(false);
     }
+  }
+  function goToCancellation() {
+    setCancelReasonSeed(closeReason.trim());
+    setClosing(false);
+    requestAnimationFrame(() => {
+      const target = document.getElementById("course-cancellation");
+      target?.scrollIntoView({
+        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+          ? "auto"
+          : "smooth",
+        block: "start",
+      });
+      // The dialog that held focus is gone; hand focus to the section the manager asked for.
+      target?.focus({ preventScroll: true });
+    });
   }
   return (
     <>
@@ -240,17 +269,34 @@ export function ManagerCourseDetail({ classId }: { classId: number }) {
                             ? m.enrollmentOpenHint
                             : m.enrollmentClosedHint}
                         </p>
+                        {!c.enrollmentOpen && c.enrollmentClosedAtUtc && (
+                          <p className="small muted">
+                            {m.enrollmentClosedSince.replace(
+                              "{when}",
+                              formatDateTime(c.enrollmentClosedAtUtc),
+                            )}
+                            {c.enrollmentClosedReason &&
+                              ` · ${m.enrollmentClosedReason}: ${c.enrollmentClosedReason}`}
+                          </p>
+                        )}
+                        {!c.enrollmentOpen && c.enrollmentClosedReason && (
+                          <p className="small muted">{m.reopenNotifiesHint}</p>
+                        )}
                       </div>
 
                       {c.status === "PUBLISHED" && (
                         <button
                           type="button"
                           className={
-                            c.enrollmentOpen ? "btn btn--danger" : "btn"
+                            c.enrollmentOpen ? "btn btn--secondary" : "btn"
                           }
                           disabled={enrollmentBusy}
                           onClick={() =>
-                            void setEnrollmentOpen(!c.enrollmentOpen)
+                            c.enrollmentOpen
+                              ? setClosing(true)
+                              : c.enrollmentClosedReason && c.confirmedCount > 0
+                                ? setReopening(true)
+                                : void setEnrollmentOpen(true)
                           }
                         >
                           {enrollmentBusy
@@ -268,7 +314,14 @@ export function ManagerCourseDetail({ classId }: { classId: number }) {
                     </section>
                   </Card>
                   {!["CANCELLED", "COMPLETED"].includes(c.status) && (
-                    <CourseCancellation classId={classId} onSaved={reload} />
+                    <div id="course-cancellation" tabIndex={-1}>
+                      <CourseCancellation
+                        key={cancelReasonSeed}
+                        classId={classId}
+                        initialReason={cancelReasonSeed}
+                        onSaved={reload}
+                      />
+                    </div>
                   )}
                 </div>
               )}
@@ -391,6 +444,127 @@ export function ManagerCourseDetail({ classId }: { classId: number }) {
                   onSaved={reload}
                   onClose={() => setSession(null)}
                 />
+              </Dialog>
+            )}
+            {closing && (
+              <Dialog
+                title={m.closeDialogTitle}
+                description={m.closeDialogLead}
+                onClose={() => !enrollmentBusy && setClosing(false)}
+                footer={
+                  <>
+                    <button
+                      type="button"
+                      className="btn btn--ghost"
+                      disabled={enrollmentBusy}
+                      onClick={() => setClosing(false)}
+                    >
+                      {t.common.cancel}
+                    </button>
+                    <button
+                      type="submit"
+                      form="close-enrollment-form"
+                      className="btn"
+                      disabled={enrollmentBusy}
+                    >
+                      {enrollmentBusy ? t.common.loading : m.closeEnrollment}
+                    </button>
+                  </>
+                }
+              >
+                <form
+                  id="close-enrollment-form"
+                  className="stack"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    void setEnrollmentOpen(false);
+                  }}
+                >
+                  <dl className={styles.summary}>
+                    <div>
+                      <dt>{m.closeStatHolds}</dt>
+                      <dd>{c.activeHoldCount}</dd>
+                    </div>
+                    <div>
+                      <dt>{m.closeStatEnrolled}</dt>
+                      <dd>{c.confirmedCount}</dd>
+                    </div>
+                  </dl>
+                  <p>{m.closeHoldsExplain}</p>
+                  <Field
+                    label={m.closeReasonLabel}
+                    hint={m.closeReasonHint}
+                    required
+                  >
+                    <textarea
+                      required
+                      minLength={3}
+                      maxLength={500}
+                      rows={3}
+                      value={closeReason}
+                      onChange={(e) => setCloseReason(e.target.value)}
+                    />
+                  </Field>
+                  <p role="status">
+                    {c.confirmedCount > 0
+                      ? m.closeNotifiesSome
+                      : m.closeNotifiesNone}
+                  </p>
+                  {enrollmentError && (
+                    <p role="alert" className="error">
+                      {enrollmentError}
+                    </p>
+                  )}
+                  {!["CANCELLED", "COMPLETED"].includes(c.status) && (
+                    <div>
+                      <h3>{m.closeRefundTitle}</h3>
+                      <p className="small muted">{m.closeRefundBody}</p>
+                      <button
+                        type="button"
+                        className="btn btn--quiet"
+                        onClick={goToCancellation}
+                      >
+                        {m.closeGoToCancel}
+                      </button>
+                    </div>
+                  )}
+                </form>
+              </Dialog>
+            )}
+            {reopening && (
+              <Dialog
+                title={m.reopenDialogTitle}
+                description={m.reopenNotifiesHint}
+                onClose={() => !enrollmentBusy && setReopening(false)}
+                footer={
+                  <>
+                    <button
+                      type="button"
+                      className="btn btn--ghost"
+                      disabled={enrollmentBusy}
+                      onClick={() => setReopening(false)}
+                    >
+                      {t.common.cancel}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn"
+                      disabled={enrollmentBusy}
+                      onClick={async () => {
+                        await setEnrollmentOpen(true);
+                        setReopening(false);
+                      }}
+                    >
+                      {enrollmentBusy ? t.common.loading : m.reopenEnrollment}
+                    </button>
+                  </>
+                }
+              >
+                {enrollmentError && (
+                  <p role="alert" className="error">
+                    {enrollmentError}
+                  </p>
+                )}
               </Dialog>
             )}
             {roster && (

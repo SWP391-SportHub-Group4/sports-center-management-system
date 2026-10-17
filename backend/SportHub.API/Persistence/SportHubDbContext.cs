@@ -65,6 +65,8 @@ public class SportHubDbContext : DbContext, ISportHubDbContext
     public DbSet<GymCheckIn> GymCheckIns => Set<GymCheckIn>();
     public DbSet<CourtRental> CourtRentals => Set<CourtRental>();
     public DbSet<SportHub.Scheduling.Rental.Domain.IncidentNotice> IncidentNotices => Set<SportHub.Scheduling.Rental.Domain.IncidentNotice>();
+    public DbSet<SportHub.Scheduling.Rental.Domain.IncidentFence> IncidentFences => Set<SportHub.Scheduling.Rental.Domain.IncidentFence>();
+    public DbSet<SportHub.Scheduling.Rental.Domain.IncidentFenceStep> IncidentFenceSteps => Set<SportHub.Scheduling.Rental.Domain.IncidentFenceStep>();
 
     public DbSet<WorkoutPlan> WorkoutPlans => Set<WorkoutPlan>();
     public DbSet<WorkoutPlanItem> WorkoutPlanItems => Set<WorkoutPlanItem>();
@@ -81,7 +83,6 @@ public class SportHubDbContext : DbContext, ISportHubDbContext
     public DbSet<SportHub.Payment.Wallet.Domain.PointWallet> PointWallets => Set<SportHub.Payment.Wallet.Domain.PointWallet>();
     public DbSet<SportHub.Payment.Wallet.Domain.PointLedgerEntry> PointLedgerEntries => Set<SportHub.Payment.Wallet.Domain.PointLedgerEntry>();
     public DbSet<SportHub.Payment.Wallet.Domain.PointConfirmation> PointConfirmations => Set<SportHub.Payment.Wallet.Domain.PointConfirmation>();
-
     public DbSet<SportHub.Payment.Wallet.Domain.PointCreditRequest> PointCreditRequests => Set<SportHub.Payment.Wallet.Domain.PointCreditRequest>();
 
     public DbSet<AiLog> AiLogs => Set<AiLog>();

@@ -7,7 +7,7 @@ namespace SportHub.Scheduling.Application.Services;
 
 public sealed class ClassSessionReminderService(ISportHubDbContext db, INotificationWriter notices, IClock clock)
 {
-    public async Task RunAsync(CancellationToken ct = default)
+    public async Task RunAsync(CancellationToken ct = default, bool includeLateEnrollment = false)
     {
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         await db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(105, 21)", ct);
@@ -24,14 +24,15 @@ public sealed class ClassSessionReminderService(ISportHubDbContext db, INotifica
         {
             // A late enrollment gets only its next applicable reminder, never two catch-up notices.
             var hours = r.StartAtUtc <= now.AddHours(1) ? 1 : 24;
-            if (r.EnrolledAt > r.StartAtUtc.AddHours(-hours)) continue;
+            if (!includeLateEnrollment && r.EnrolledAt > r.StartAtUtc.AddHours(-hours)) continue;
             if (await db.Set<ClassSessionReminder>().AnyAsync(x => x.SessionId == r.SessionId && x.MemberId == r.MemberId
                     && x.StartAtUtc == r.StartAtUtc && x.HoursBefore == hours, ct)) continue;
             var reminder = new ClassSessionReminder { ReminderId = Guid.NewGuid(), SessionId = r.SessionId,
                 MemberId = r.MemberId, StartAtUtc = r.StartAtUtc, HoursBefore = hours, QueuedAtUtc = now };
+            var firstReminder = !await db.Set<ClassSessionReminder>().AnyAsync(x => x.SessionId == r.SessionId && x.MemberId == r.MemberId, ct);
             db.Set<ClassSessionReminder>().Add(reminder);
             notices.Queue(new NotificationRequest(r.MemberId, NotificationEvents.ClassSessionReminder,
-                $"Upcoming lesson: {r.ClassName}, {VietnamTime.ToLocal(r.StartAtUtc):dd/MM/yyyy HH:mm}–{VietnamTime.ToLocal(r.EndAtUtc):HH:mm} (Vietnam time), {r.RoomName}.", reminder.ReminderId));
+                $"Upcoming lesson: {r.ClassName}, {VietnamTime.ToLocal(r.StartAtUtc):dd/MM/yyyy HH:mm}–{VietnamTime.ToLocal(r.EndAtUtc):HH:mm} (Vietnam time), {r.RoomName}.", firstReminder ? r.SessionId : reminder.ReminderId));
         }
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);

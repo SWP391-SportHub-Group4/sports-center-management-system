@@ -64,7 +64,7 @@ public sealed class RevenueReportService(ISportHubDbContext db,
             .Where(e => e.CreatedAtUtc >= fromUtc && e.CreatedAtUtc < toUtcExclusive
                         && (e.EntryType == PointEntryType.Spend || e.EntryType == PointEntryType.Earn
                             || e.EntryType == PointEntryType.Adjustment))
-            .Select(e => new { e.EntryType, e.Points, e.AvailableDelta, e.InvoiceItemId })
+            .Select(e => new { e.EntryType, e.Points, e.AvailableDelta, e.InvoiceItemId, e.ReferenceType })
             .ToListAsync(ct);
 
         var outstandingPointsAsOfUtc = DateTime.UtcNow;
@@ -116,6 +116,11 @@ public sealed class RevenueReportService(ISportHubDbContext db,
             .ToDictionary(g => g.Key, g => g.Sum(e => e.Amount));
         var pointsRedeemed = pointEntries.Where(e => e.EntryType == PointEntryType.Spend).Sum(e => (long)e.Points);
         var pointsIssued = pointEntries.Where(e => e.EntryType == PointEntryType.Earn).Sum(e => (long)e.Points);
+        // Refund credits only: gateway compensation is cash that could not buy its benefit, reported on its own line.
+        var pointsRefunded = pointEntries
+            .Where(e => e.EntryType == PointEntryType.Earn
+                        && e.ReferenceType is "PaymentAdjustment" or "SystemEvent" or "ClassTransferDifference")
+            .Sum(e => (long)e.Points);
         var managerPointAdjustment = pointEntries.Where(e => e.EntryType == PointEntryType.Adjustment)
             .Sum(e => (long)e.AvailableDelta);
 
@@ -218,6 +223,7 @@ public sealed class RevenueReportService(ISportHubDbContext db,
             ReconciliationCashCount = reconciliationCash.Count,
             PointsRedeemed = pointsRedeemed,
             PointsIssued = pointsIssued,
+            PointsRefunded = pointsRefunded,
             ManagerPointAdjustment = managerPointAdjustment,
             OutstandingPoints = outstandingPoints,
             OutstandingPointsAsOfUtc = outstandingPointsAsOfUtc,
