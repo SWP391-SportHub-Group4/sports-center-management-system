@@ -247,7 +247,7 @@ test("group-only coach uses a single navbar for teaching, classes and students",
     page.getByRole("link", { name: "PT schedule", exact: true }),
   ).toHaveCount(0);
   await expect(
-    page.getByRole("link", { name: "Teaching schedule", exact: true }),
+    page.getByRole("link", { name: "Schedule", exact: true }),
   ).toHaveCount(1);
   await expect(
     page.getByRole("link", { name: "Classes", exact: true }),
@@ -256,9 +256,7 @@ test("group-only coach uses a single navbar for teaching, classes and students",
     page.getByRole("link", { name: "Students", exact: true }),
   ).toHaveCount(1);
 
-  await navbar
-    .getByRole("link", { name: "Teaching schedule", exact: true })
-    .click();
+  await navbar.getByRole("link", { name: "Schedule", exact: true }).click();
   await expect(page).toHaveURL(/\/coach\/schedule$/);
   await navbar.getByRole("link", { name: "Classes", exact: true }).click();
   await expect(page).toHaveURL(/\/coach\/classes$/);
