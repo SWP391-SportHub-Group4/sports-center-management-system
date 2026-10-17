@@ -33,7 +33,9 @@ async function loadCoachingFeed(signal: AbortSignal): Promise<ClassRecord[]> {
     (row) =>
       row.status === "CONFIRMED" &&
       !row.endedAt &&
-      ["PUBLISHED", "IN_PROGRESS"].includes(row.classStatus.toUpperCase()),
+      ["PUBLISHED", "IN_PROGRESS", "COMPLETED"].includes(
+        row.classStatus.toUpperCase(),
+      ),
   );
   const results = await Promise.all(
     active.map(async (enrollment) => {

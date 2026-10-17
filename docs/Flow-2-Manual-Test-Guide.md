@@ -556,27 +556,25 @@ Các ca ghi **API / job** không hoàn thành chỉ bằng click UI. Các ca **C
 
 ### F. Yêu cầu điều chỉnh lịch
 
-#### UC-F2-41 — Coach tạo yêu cầu
+#### UC-F2-41 — Coach gửi báo vắng
 
 **Vai trò:** Coach phụ trách. **Chuẩn bị:** buổi tương lai trên 6 giờ nữa, chưa có yêu cầu Pending.
 
-1. `Teaching schedule` → ngày → buổi → mục điều chỉnh → `Create`.
-2. Chọn `Requested change`: `Substitute coach`, `Reschedule` hoặc `Cancel & makeup`.
-3. Điền `Reason = TEST-F2 schedule request`; với đổi giờ nhập `Suggested start (optional)` hợp lệ; nhấn `Send request`.
+1. `Teaching schedule` → ngày → buổi → `Request absence`.
+2. Điền `Reason = TEST-F2 coach absence`; không có trường chọn HLV thay hoặc đề xuất lịch mới; nhấn `Send request`.
 4. Mở `Requests` của Coach và chuông Manager.
 
-**Pass khi:** Pending, lý do đúng, lịch gốc chưa đổi. Chạy riêng cả 3 loại. **Test lỗi:** lý do dưới 3/trên 500 ký tự, Coach khác, buổi quá khứ, yêu cầu trùng; Cancel & makeup dưới 6 giờ trước start phải bị chặn. Các loại khác cũng phải trước buổi.
+**Pass khi:** request loại `ABSENCE` ở trạng thái Pending, lý do đúng, lịch gốc chưa đổi. **Test lỗi:** lý do dưới 3/trên 500 ký tự, Coach khác, buổi quá khứ, yêu cầu trùng hoặc gửi dưới 6 giờ trước start; API tạo mới từ chối `SUBSTITUTE`, `RESCHEDULE`, `CANCEL_WITH_MAKEUP` dù client tự gửi body.
 
-#### UC-F2-42 — Sửa yêu cầu Pending
+#### UC-F2-42 — Không cho Coach sửa yêu cầu Pending
 
-**Vai trò:** Coach gửi yêu cầu. **Chuẩn bị:** request Pending cho buổi tương lai, ghi requestId và thời điểm tạo.
+**Vai trò:** Coach gửi yêu cầu. **Chuẩn bị:** request Pending cho buổi tương lai và một request loại cũ còn trong lịch sử.
 
-1. Mở `Requests` → chọn request → `Edit pending request`; hộp giữa màn hình phải điền sẵn loại, lý do và giờ đề xuất.
-2. Đổi `Reason` hoặc `Suggested start (optional)`; nhấn `Save changes`.
-3. Reload `Requests`; đối chiếu requestId, người gửi, thời điểm tạo và nội dung mới; Manager mở yêu cầu tương ứng.
-4. Lặp từ `Teaching schedule` → buổi → `Edit pending request` → `Save changes`.
+1. Mở `Requests` → chọn báo vắng Pending và request loại cũ; kiểm không có nút `Edit pending request`.
+2. Mở buổi tương ứng trong `Teaching schedule`; kiểm không có form sửa.
+3. Gọi trực tiếp `PUT /api/coaches/me/teaching/change-requests/{requestId}` với JWT của Coach; API không cho sửa. Reload và so nội dung, trạng thái, audit/thông báo.
 
-**Pass khi:** cùng request, vẫn Pending, không tự đổi lịch; Manager nhận thông báo cập nhật. **Test lỗi:** Approved/Rejected/Cancel hoặc buổi quá khứ không có nút sửa; hủy kèm bù dưới 6 giờ bị chặn. Để form mở rồi Manager đổi lịch trực tiếp: lưu bị từ chối, hộp đóng và tải trạng thái tự đóng mới, không báo lưu thành công.
+**Pass khi:** không sửa được báo vắng mới hoặc request lịch sử qua FE/API; lý do và lịch không đổi, không có audit/thông báo sửa. Coach vẫn xem lịch sử và rút request Pending của mình.
 
 #### UC-F2-43 — Rút yêu cầu
 
@@ -598,7 +596,7 @@ Các ca ghi **API / job** không hoàn thành chỉ bằng click UI. Các ca **C
 
 **Pass khi:** hiển thị đúng trạng thái/chi tiết và phạm vi. **Test lỗi:** danh sách trống vẫn có hướng dẫn; màu không được là dấu hiệu duy nhất. Approved là RESOLVED, Cancel là WITHDRAWN, không nhầm Cancelled của buổi học.
 
-**Kiểm tra bổ sung:** Request tự đóng phải có lý do Closed automatically — schedule updated by Manager.; Pending tương lai có Edit pending request, request đóng không có nút sửa.
+**Kiểm tra bổ sung:** Request tự đóng phải có lý do Closed automatically — schedule updated by Manager.; Pending chỉ có thao tác rút, request đóng không có thao tác sửa/rút.
 
 #### UC-F2-45 — Manager duyệt request
 
@@ -609,7 +607,7 @@ Các ca ghi **API / job** không hoàn thành chỉ bằng click UI. Các ca **C
 3. Nhập `Decision reason / feedback to Coach`, nhấn `Confirm decision`.
 4. Reload request, lịch Manager/Coach/Member và chuông.
 
-**Pass khi:** Approved chỉ sau khi đổi lịch thành công; buổi/occupancy/thông báo đúng. **Test lỗi:** stale snapshot, sân/coach/học viên trùng, sai môn, thiếu lịch bù → lịch giữ nguyên, request vẫn Pending; không approve một phần.
+**Pass khi:** Approved chỉ sau khi đổi lịch thành công; buổi/occupancy/thông báo đúng. Khi chọn dạy thay, danh sách chỉ có Coach Active, đúng môn và rảnh toàn bộ buổi; backend kiểm tra lại lúc xác nhận. **Test lỗi:** stale snapshot, sân/coach/học viên trùng, sai môn, thiếu lịch bù → lịch giữ nguyên, request vẫn Pending; không approve một phần.
 
 **Kiểm tra bổ sung:** Nếu approve hợp lệ: request giữ Approved/RESOLVED. Nếu Manager đổi buổi trực tiếp trước: request tự đóng, không approve lại được.
 
@@ -765,11 +763,11 @@ Các ca ghi **API / job** không hoàn thành chỉ bằng click UI. Các ca **C
 
 **Chuẩn bị:** Có request Pending trên buổi; Manager thực hiện reschedule, đổi HLV, cancel-with-makeup hoặc hủy khóa bằng lệnh nghiệp vụ hợp lệ.
 
-**Thao tác:** Coach tạo request Pending; Manager mở lịch buổi và đổi giờ trực tiếp. Coach refresh Requests: Cancel + lý do tự đóng, không có Edit pending request. Thử cùng thao tác với slot trùng: request vẫn Pending. Lặp đổi HLV/hủy kèm bù/hủy cả khóa và kiểm thông báo HLV cũ/mới.
+**Thao tác:** Coach tạo báo vắng Pending; Manager mở lịch buổi và đổi giờ trực tiếp. Coach refresh Requests: Closed + lý do tự đóng, không còn nút rút. Thử cùng thao tác với slot trùng: request vẫn Pending. Lặp đổi HLV/hủy kèm bù/hủy cả khóa và kiểm thông báo HLV cũ/mới.
 
 **Pass khi:** Lịch, trạng thái request, audit và thông báo commit đồng thời. Request đã đóng không được sửa/duyệt lại.
 
-**Test lỗi:** a. Xung đột lịch hoặc lỗi transaction: giữ lịch và request Pending; không tạo thông báo thành công. b. Phê duyệt từ chính request: giữ RESOLVED, không bị tự đóng ghi đè. c. Form sửa đang mở: lần lưu tiếp theo bị từ chối và UI tải trạng thái mới.
+**Test lỗi:** a. Xung đột lịch hoặc lỗi transaction: giữ lịch và request Pending; không tạo thông báo thành công. b. Phê duyệt từ chính request: giữ RESOLVED, không bị tự đóng ghi đè. c. Coach gọi rút sau khi Manager đã đổi lịch: trả xung đột, không đổi trạng thái hoặc lịch.
 
 ## 5. Kiểm tra bổ sung cho mỗi nhóm
 

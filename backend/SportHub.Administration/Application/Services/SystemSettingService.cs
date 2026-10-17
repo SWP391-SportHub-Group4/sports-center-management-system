@@ -32,7 +32,7 @@ public sealed class SystemSettingService(
             [SystemSettingKeys.MembershipExpiryNoticeDays] = (1, 90),
             [SystemSettingKeys.ClassThresholdDaysBeforeStart] = (3, 30),
             [SystemSettingKeys.ClassThresholdResponseHours] = (1, 336),
-            [SystemSettingKeys.HoldMinutes] = (1, 1440),
+            [SystemSettingKeys.HoldMinutes] = (CheckoutHoldPolicy.MinMinutes, CheckoutHoldPolicy.MaxMinutes),
             [SystemSettingKeys.PointsConfirmOtpMinutes] = (1, 15),
             [SystemSettingKeys.RentalSlotMinutes] = (30, 60),
             [SystemSettingKeys.RentalMaxHours] = (1, 4),

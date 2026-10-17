@@ -696,7 +696,7 @@ Ràng buộc: unique một phần `(ClassId, MemberId) WHERE Status = 'Confirmed
 |---|---|
 | `HoldId` (PK) | Định danh |
 | `ClassId` (FK) / `MemberId` (FK) / `InvoiceId` (FK) | Giữ chỗ cho ai, ở lớp nào, thuộc checkout nào |
-| `ExpiresAt` | Bằng hạn `PAYMENT_ATTEMPTS`, tối đa `hold.minutes` (mặc định 15) — job nền hết hạn giữ chỗ |
+| `ExpiresAt` | Bằng hạn checkout/payment attempt, tối đa `hold.minutes` (Manager chỉnh 10–30 phút, mặc định 15); có thể sớm hơn trước buổi đầu — job nền hết hạn giữ chỗ |
 | `Status` | `SeatHoldStatus`: `Active`, `Converted`, `Expired`, `Released` |
 
 Ràng buộc: unique một phần `(ClassId, MemberId) WHERE Status = 'Active'`.
@@ -716,7 +716,7 @@ Ràng buộc: unique một phần `(ClassId, MemberId) WHERE Status = 'Active'`.
 | `ResolvedAt` (nullable) | Khi đã xử lý xong |
 
 #### `ATTENDANCE`
-**Mục đích:** kết quả điểm danh của một học viên ở **một buổi của lớp**. Do **Receptionist** điểm danh lớp nhóm (Coach chỉ xem).
+**Mục đích:** kết quả điểm danh của một học viên ở **một buổi của lớp**. Receptionist hoặc Coach được phân công đúng buổi ghi Present/Absent; backend xác thực Coach qua JWT và đối chiếu `sessionId` với phân công hiện hành.
 
 | Field | Vai trò |
 |---|---|
@@ -835,7 +835,7 @@ Ràng buộc: `EXCLUDE USING gist (CoachId WITH =, Period WITH &&) WHERE (IsActi
 | `PointsApplied` (int, mặc định 0, ) | Số điểm dùng thanh toán (BR-136). Điểm được **giữ** (`Hold`) lúc checkout và **trừ** (`Spend`) khi Invoice Paid |
 | `CashAmount` () | Phần phải thu tiền = `TotalAmount − PointsApplied × 1000`. Khi `= 0` **không tạo `PAYMENT_ATTEMPTS`** và Invoice chuyển `Paid` ngay trong transaction fulfillment (BR-85) |
 | `PaidVia` (nullable, ) | Chuỗi persistence; wire `POINTS`, `VN_PAY`, `VN_PAY_AND_POINTS` và các giá trị đối soát theo API contract; null khi chưa Paid |
-| `HoldExpiresAtUtc` | Hạn giữ chỗ/giữ điểm của checkout (`hold.minutes`, mặc định 15) |
+| `HoldExpiresAtUtc` | Hạn giữ chỗ/giữ điểm của checkout mới (`hold.minutes`, Manager chỉnh 10–30 phút, mặc định 15); là snapshot, không đổi khi sửa setting |
 | `Status` | `ISSUED`, `PAID`, `VOID`, `PAID_AFTER_RECONCILIATION`; expiry thuộc checkout/attempt; Paid không sửa/xóa/void |
 | `IssuedAt` | Mốc tạo Invoice tại checkout; gửi email qua outbox |
 
@@ -988,7 +988,7 @@ Cột **Tham chiếu** của lịch sử điểm trình bày cặp `ReferenceTyp
 |---|---|---|---|
 | `class.threshold_days_before_start` | 3 | 119 | Chốt ngưỡng hoàn vốn trước giờ buổi đầu N ngày |
 | `class.threshold_response_hours` | 48 | 120 | Hạn Member phản hồi chuyển lớp/hoàn điểm khi lớp AtRisk |
-| `hold.minutes` | 15 | 115 | Thời gian giữ chỗ/giữ điểm/giữ sân lúc checkout |
+| `hold.minutes` | 15 | 115 | Manager chỉnh 10–30 phút cho checkout mới; giữ chỗ/giữ điểm/giữ sân. Hạn thực tế có thể ngắn hơn trước giờ bắt đầu hoặc deadline chuyển lớp |
 | `points.vnd_per_point` | 1000 | 134 | Quy đổi 1 điểm = 1.000 VND |
 | `points.confirm_otp_minutes` | 5 | 139 | Hiệu lực OTP xác nhận dùng điểm tại quầy |
 | `rental.slot_minutes` | 60 | 126 | Đơn vị thuê sân |

@@ -150,9 +150,11 @@ public sealed class MemberExperienceTests(SchedulingApiFactory factory)
 
     [Theory]
     [InlineData("withdrawn")]
+    [InlineData("ended_enrollment")]
+    [InlineData("cancelled")]
     [InlineData("completed")]
     [InlineData("last_lesson_ended")]
-    public async Task Class_content_is_revoked_when_enrollment_or_delivery_ends(string reason)
+    public async Task Class_content_follows_current_enrollment_and_allows_completed_history(string reason)
     {
         var c = await CourseTestData.CreateAsync(factory);
         var member = await factory.SeedUserAsync(UserRole.Member);
@@ -163,14 +165,18 @@ public sealed class MemberExperienceTests(SchedulingApiFactory factory)
         Assert.Equal(HttpStatusCode.OK, (await client.GetAsync(records)).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await client.GetAsync(sessions)).StatusCode);
         await factory.QueryAsync(async db => {
-            if (reason == "withdrawn") await db.Enrollments.Where(e => e.EnrollmentId == enrollment).ExecuteUpdateAsync(u => u.SetProperty(e => e.Status, EnrollmentStatus.Refunded));
+            if (reason == "withdrawn") await db.Enrollments.Where(e => e.EnrollmentId == enrollment).ExecuteUpdateAsync(u => u
+                .SetProperty(e => e.Status, EnrollmentStatus.Refunded).SetProperty(e => e.EndedAt, DateTime.UtcNow));
+            else if (reason == "ended_enrollment") await db.Enrollments.Where(e => e.EnrollmentId == enrollment).ExecuteUpdateAsync(u => u.SetProperty(e => e.EndedAt, DateTime.UtcNow));
+            else if (reason == "cancelled") await db.Classes.Where(x => x.ClassId == c.Id).ExecuteUpdateAsync(u => u.SetProperty(x => x.Status, ClassStatus.Cancelled));
             else if (reason == "completed") await db.Classes.Where(x => x.ClassId == c.Id).ExecuteUpdateAsync(u => u.SetProperty(x => x.Status, ClassStatus.Completed));
             else await db.ClassSessions.Where(s => s.ClassId == c.Id).ExecuteUpdateAsync(u => u
                 .SetProperty(s => s.StartAtUtc, DateTime.UtcNow.AddDays(-2)).SetProperty(s => s.EndAtUtc, DateTime.UtcNow.AddDays(-1)));
             return 0;
         });
-        Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync(records)).StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync(sessions)).StatusCode);
+        var expected = reason is "completed" or "last_lesson_ended" ? HttpStatusCode.OK : HttpStatusCode.Forbidden;
+        Assert.Equal(expected, (await client.GetAsync(records)).StatusCode);
+        Assert.Equal(expected, (await client.GetAsync(sessions)).StatusCode);
     }
 
     [Fact]

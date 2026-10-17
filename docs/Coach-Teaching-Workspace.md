@@ -4,7 +4,7 @@ Phạm vi được chủ sản phẩm xác nhận: triển khai giao diện **v�
 
 ## Điều hướng
 
-- **Lịch dạy**: chọn buổi mở ngăn chi tiết rộng 760px trên desktop; mobile vừa màn hình. Các tab ngắn: Giáo án / Plan, Điểm danh / Attendance, Bài tập / Homework, Đổi lịch / Changes. Tab xuống hàng khi cần, không phải kéo ngang. Record nằm trong Điểm danh. Tab Đổi lịch cho gửi/sửa/rút yêu cầu đến Manager, không tự hủy buổi. Chi tiết: [Yêu cầu thay đổi buổi học](Class-Session-Change-Requests.md).
+- **Lịch dạy**: chọn buổi mở ngăn chi tiết rộng 760px trên desktop; mobile vừa màn hình. Các tab ngắn: Giáo án / Plan, Điểm danh / Attendance, Bài tập / Homework, Yêu cầu / Request. Tab xuống hàng khi cần, không phải kéo ngang. Record nằm trong Điểm danh. Tab Request chỉ cho Coach gửi báo vắng kèm lý do hoặc rút báo vắng Pending; Manager quyết định phương án, Coach không tự hủy buổi. Chi tiết: [Yêu cầu vắng buổi học](Class-Session-Change-Requests.md).
 - **Lớp học**: trang chi tiết toàn màn hình gồm Học viên / Students, Giáo án / Plans, Thông báo / Notices; gửi thông báo chung tại đây. Giao bài tập được thực hiện trong chi tiết buổi học đã kết thúc.
 - **Học viên**: danh sách gộp từ các lớp Published/InProgress đang phân công; mỗi học viên xuất hiện một lần. Tìm tên/email, lọc môn, mở hồ sơ toàn màn hình `/coach/members/{memberId}`. Trong hồ sơ chọn môn và lớp; lớp duy nhất được chọn tự động. Kế hoạch cá nhân cố định học viên/lớp; giáo án chung chỉ đọc trong hồ sơ học viên.
 
@@ -31,15 +31,15 @@ Migration `AddClassTeachingWorkspace` thêm `class_teaching_records`; giáo án 
 
 ### Danh sách học viên và sức khỏe
 
-- `GET /api/coaches/me/students?search=&health=all&page=1`: tìm tên/email trên toàn bộ học viên có relationship Active của Coach đang đăng nhập, phân trang 12 học viên. `health=notes` lọc lưu ý sức khỏe, `health=missing` lọc chưa khai hồ sơ tập luyện. Các member được gộp theo ID.
-- `GET /api/coaches/me/students/{memberId}/health-profile`: kiểm tra relationship Active trước khi trả hồ sơ sức khỏe do hội viên tự khai (mục tiêu, BMI, mức vận động, lịch tập, chế độ ăn, chấn thương). Không cấp quyền sửa; trường hội viên chưa khai không được tự suy đoán. Lịch đo BMI tại trung tâm đã bỏ.
+- `GET /api/coaches/me/students?search=&health=all&page=1`: tìm tên/email trên học viên Confirmed của lớp Published/InProgress mà Coach đang làm chủ nhiệm, phân trang 12 học viên. `health=notes` lọc lưu ý sức khỏe, `health=missing` lọc chưa khai hồ sơ tập luyện. Các Member được gộp theo ID; quan hệ Active cũ không tự cấp quyền.
+- `GET /api/coaches/me/students/{memberId}/health-profile`: kiểm tra phân công chủ nhiệm và ghi danh hiện tại trước khi trả hồ sơ sức khỏe do hội viên tự khai (mục tiêu, BMI, mức vận động, lịch tập, chế độ ăn, chấn thương). HLV dạy thay không được mở hồ sơ đầy đủ. Không cấp quyền sửa; trường hội viên chưa khai không được tự suy đoán. Lịch đo BMI tại trung tâm đã bỏ.
 - Desktop dùng danh sách/hồ sơ song song; mobile dùng Drawer. Hồ sơ có ba tab Sức khỏe, Kế hoạch, Lịch sử; thao tác cập nhật tải lại cả danh sách và hồ sơ đang xem.
 - Điều hướng Coach gồm Lịch dạy, Lớp phụ trách và Học viên. Tab Kế hoạch trong hồ sơ hỗ trợ tạo, AI gợi ý, sửa, áp dụng và lưu trữ; kế hoạch lưu trữ thu gọn, chỉ đọc. Đổi tab/học viên, đóng hồ sơ hoặc cập nhật phải xác nhận nếu form có thay đổi chưa lưu.
 - Thông báo/bài tập đã gửi không sửa; gửi mới tạo thông báo trong hệ thống cho học viên Confirmed, trong cùng transaction. Riêng `HOMEWORK` còn tạo email cho đúng học viên được chọn hoặc cả lớp, dùng email tài khoản đã đăng ký; không gửi CC chung. Email gồm lớp, số buổi, tiêu đề, nội dung, ghi chú “Aim to complete before the next lesson — optional” và hướng dẫn mở My Schedule. Nội dung quá dài sau HTML encoding được rút gọn trong email để đáp ứng giới hạn outbox; bản đầy đủ vẫn nằm trong hệ thống. `NOTICE` và `RESULT` chỉ thông báo qua chuông.
 - Email homework dùng `ClassTeachingUpdated` và `recordId` làm nguồn, payload được mã hóa, lưu cùng transaction và gửi bằng EmailDispatchService hiện có. POST retry không thêm email; SMTP lỗi được thử lại theo cơ chế outbox. Cần cấu hình SMTP thật để email đến hộp thư; chế độ demo chỉ ghi log.
 
 - UUID do client tạo giúp POST retry không tạo trùng nội dung/thông báo; PUT khác version trả 409. API ghi audit cho thao tác tạo/sửa.
-- Member chỉ xem nội dung chung và nội dung cá nhân của mình trong lớp đã ghi danh, tại Schedule → chi tiết lớp. Thông báo liên kết tới trang này.
+- Member chỉ xem nội dung chung và nội dung cá nhân của mình khi ghi danh Confirmed, `EndedAt` rỗng và lớp Published/InProgress/Completed, tại Schedule → chi tiết lớp. Lớp Completed vẫn đọc được lịch sử; ghi danh kết thúc hoặc lớp Cancelled/Draft thì bị chặn. Thông báo liên kết tới trang này.
 
 ## Hợp đồng API
 

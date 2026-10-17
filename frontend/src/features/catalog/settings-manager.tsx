@@ -22,9 +22,9 @@ const settingLabels: Record<string, keyof Translations["settingFields"]> = {
 };
 const ranges: Record<string, [number, number]> = {
   "membership.expiry_notice_days": [1, 90],
-  "class.threshold_days_before_start": [1, 30],
+  "class.threshold_days_before_start": [3, 30],
   "class.threshold_response_hours": [1, 336],
-  "hold.minutes": [1, 1440],
+  "hold.minutes": [10, 30],
   "points.confirm_otp_minutes": [1, 15],
   "rental.max_hours": [1, 4],
   "rental.advance_days": [1, 30],

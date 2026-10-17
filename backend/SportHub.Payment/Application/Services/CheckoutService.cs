@@ -95,7 +95,7 @@ public sealed class CheckoutService(ISportHubDbContext db,
         var memberId = ResolveMember(request.TargetMemberId, actorId, isFrontDesk);
         RequireKey(idempotencyKey);
         var now = clock.UtcNow;
-        var minutes = await settings.GetIntAsync(SystemSettingKeys.HoldMinutes, ct);
+        var minutes = await CheckoutHoldPolicy.ReadMinutesAsync(settings, ct);
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         // The member lock serializes idempotent double-clicks and schedule conflict checks.
         await db.Database.ExecuteSqlInterpolatedAsync(
@@ -159,9 +159,7 @@ public sealed class CheckoutService(ISportHubDbContext db,
             throw new ForbiddenException("rental_owner_mismatch", "Rental owner mismatch.");
         RequireKey(idempotencyKey);
         var now = clock.UtcNow;
-        var minutes = await settings.GetIntAsync(SystemSettingKeys.HoldMinutes, ct);
-        if (minutes is < 1 or > 1440)
-            throw new ConflictException("hold_setting_invalid", "Hold setting invalid.");
+        var minutes = await CheckoutHoldPolicy.ReadMinutesAsync(settings, ct);
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         await db.Database.ExecuteSqlInterpolatedAsync(
             $"SELECT user_id FROM user_accounts WHERE user_id = {actorId} FOR UPDATE", ct);

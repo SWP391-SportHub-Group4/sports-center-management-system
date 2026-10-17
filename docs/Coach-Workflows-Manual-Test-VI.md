@@ -1,12 +1,12 @@
 # Hướng dẫn kiểm thử luồng Coach: yêu cầu đổi buổi, thông báo và quyền học viên
 
-Ngày đối chiếu: **17/10/2026**. Nhánh **`feat/member-coach-workflows`**, gồm thay đổi Absence chưa commit sau `851ee5c8`.
+Ngày đối chiếu quy tắc: **18/10/2026**. Khi chạy test, ghi commit FE/BE thực tế của môi trường; tài liệu này không xác nhận code hiện tại đã đạt.
 
 Tài liệu hướng dẫn cách kiểm thử thủ công, **không phải báo cáo các ca đã chạy hoặc đã Pass**. Tên trang, nút và trường nhập được giữ bằng tiếng Anh theo giao diện.
 
 ## 1. Phạm vi
 
-- Sửa yêu cầu đổi buổi đang chờ duyệt ngay tại trang `Requests`.
+- Coach chỉ gửi báo vắng hoặc rút báo vắng Pending; chặn sửa và chặn tạo loại request đề xuất phương án.
 - Tự đóng yêu cầu Pending khi Manager thay đổi lịch trực tiếp.
 - Thông báo dời buổi, hủy kèm bù, đổi HLV và thay đổi do sự cố.
 - Chỉ cho Coach xem học viên thuộc lớp đang được phân công.
@@ -43,7 +43,7 @@ Các nhận xét cũ như “chưa có/chưa đạt” không phải kết quả
 | Ký hiệu | Dữ liệu chuẩn bị |
 |---|---|
 | C1 | Lớp `Published` hoặc `In progress`, có ít nhất ba buổi S1–S3 trong tương lai, cách hiện tại hơn 24 giờ |
-| S1 | Dùng cho sửa Pending; sau đó có thể dùng để thử dạy thay |
+| S1 | Dùng cho báo vắng/rút Pending; sau đó có thể dùng để thử dạy thay |
 | S2 | Dùng cho Manager dời lịch trực tiếp và tự đóng Pending |
 | S3 | Dùng cho kiểm tra hủy kèm bù hoặc các ca đối chứng |
 | Slot trống | Đúng giờ mở cửa, sân và Coach cùng môn, không trùng lịch học viên |
@@ -76,10 +76,10 @@ Thay `<FE>` bằng URL frontend thực tế, ví dụ `http://localhost:3000`.
 
 | Mã | Nội dung | Kết quả thực tế |
 |---|---|---|
-| TC-C01 | Sửa Pending tại Requests và Teaching schedule | Not run |
-| TC-C02 | Chặn sửa yêu cầu đã đóng, buổi quá khứ và hủy sát giờ | Not run |
+| TC-C01 | Gửi báo vắng và chặn sửa Pending trên FE/API | Not run |
+| TC-C02 | Chặn gửi sát giờ, chặn loại request cũ; vẫn rút được Pending | Not run |
 | TC-C03 | Manager dời lịch trực tiếp tự đóng Pending | Not run |
-| TC-C04 | Manager đổi lịch khi Coach đang mở form sửa | Not run |
+| TC-C04 | Manager đổi lịch khi Coach chuẩn bị rút Pending | Not run |
 | TC-C05 | Thay đổi xung đột không đổi lịch/đóng request | Not run |
 | TC-C06 | Thông báo dời buổi, đổi HLV, hủy kèm bù, hủy khóa | Not run |
 | TC-C07 | Thông báo và tự đóng Pending khi xử lý sự cố | Not run |
@@ -92,7 +92,7 @@ Thay `<FE>` bằng URL frontend thực tế, ví dụ `http://localhost:3000`.
 
 ## 4. Các bước kiểm thử
 
-### TC-C01 — Sửa yêu cầu Pending
+### TC-C01 — Gửi báo vắng và chặn sửa Pending
 
 **Vai trò:** Coach A; Manager đối chiếu. **Chuẩn bị:** S1 chưa có Pending.
 
@@ -101,34 +101,33 @@ Thay `<FE>` bằng URL frontend thực tế, ví dụ `http://localhost:3000`.
 3. Kiểm tra chỉ có `Reason`, không có chọn dạy thay/dời lịch/học bù hoặc giờ đề xuất.
 4. Nhập `Reason = TEST — Unable to teach this session`.
 5. Nhấn `Send request`; ghi lại `requestId` và thời điểm tạo.
-6. Mở menu avatar/tên → `Requests` → chọn yêu cầu → `Edit pending request`.
-7. Kiểm tra form đã nạp đúng `Reason`, loại yêu cầu là Absence.
-8. Đổi lý do thành `TEST — Updated availability` → `Save changes`.
-9. Refresh Requests; Manager mở cùng yêu cầu để đối chiếu.
-10. Lặp thao tác sửa từ `Schedule` → S1 → `Request` → `Edit pending request` → `Save changes`.
+6. Mở menu avatar/tên → `Requests` → chọn yêu cầu; kiểm không có `Edit pending request`.
+7. Trở lại `Schedule` → S1 → `Request`; kiểm không có form sửa.
+8. Gọi trực tiếp `PUT /api/coaches/me/teaching/change-requests/{requestId}` bằng JWT của Coach; API không cho sửa.
+9. Refresh Requests; Manager mở cùng yêu cầu để đối chiếu lý do và trạng thái.
 
 **Đạt khi:**
 
-- Vẫn chỉ có một request, cùng ID/người gửi/thời điểm tạo.
-- Nội dung mới giữ nguyên sau refresh; request vẫn `Pending`.
+- Vẫn chỉ có một request, cùng ID/người gửi/thời điểm tạo và lý do ban đầu.
+- Request vẫn `Pending` sau lần thử sửa bị chặn; không có audit/thông báo cập nhật.
 - Lịch S1 chưa thay đổi vì Manager chưa quyết định.
-- Manager nhận thông báo cập nhật, không có lỗi duplicate-value.
-- Nếu chưa sửa gì, `Save changes` chưa hoạt động; sửa nội dung hợp lệ thì có thể lưu.
+- Manager chỉ nhận thông báo gửi báo vắng ban đầu.
 
-### TC-C02 — Khóa sửa khi không đủ điều kiện
+### TC-C02 — Chặn gửi không hợp lệ, vẫn cho rút Pending
 
 1. Dùng các request riêng, để Manager duyệt hoặc từ chối; tạo thêm một request được Coach rút.
 2. Coach mở từng request `Approved`, `Rejected`, `Cancel`.
-3. Kiểm tra không có `Edit pending request`.
-4. Với buổi đã bắt đầu, kiểm tra không còn thao tác sửa Pending.
-5. Với buổi tương lai dưới 6 giờ, kiểm tra không gửi/sửa Absence được và có hướng dẫn liên hệ Manager trực tiếp; vẫn có thể rút Pending.
+3. Kiểm tra không có `Edit pending request` ở mọi trạng thái.
+4. Với buổi đã bắt đầu, kiểm tra không còn thao tác gửi báo vắng mới.
+5. Với buổi tương lai dưới 6 giờ, kiểm tra không gửi Absence được và có hướng dẫn liên hệ Manager trực tiếp; vẫn có thể rút Pending đã gửi đúng hạn.
+6. Gọi POST tạo mới với `SUBSTITUTE`, `RESCHEDULE`, `CANCEL_WITH_MAKEUP`; backend từ chối, bản ghi cũ các loại này vẫn đọc được.
 
 **Đạt khi:**
 
-- Không sửa được request đã kết thúc; gọi lại API update với phiên hợp lệ nhận lỗi nghiệp vụ, thường `409 class_change_not_pending`.
+- Không sửa được request ở bất kỳ trạng thái nào qua API hoặc giao diện.
 - Buổi đã bắt đầu bị chặn; Absence dưới 6 giờ bị chặn (`class_absence_deadline`). Đúng mốc 6 giờ được phép theo giờ server.
 - Manager vẫn có thể chọn dạy thay/dời lịch/học bù cho yêu cầu đã gửi đúng hạn khi buổi chưa bắt đầu.
-- Không coi nút `Request absence` cho một yêu cầu mới hợp lệ là lỗi khóa sửa request cũ.
+- Rút Pending hợp lệ không đổi lịch; yêu cầu đã đóng không rút lại được.
 
 ### TC-C03 — Manager dời lịch trực tiếp tự đóng Pending
 
@@ -141,8 +140,8 @@ Thay `<FE>` bằng URL frontend thực tế, ví dụ `http://localhost:3000`.
 **Đạt khi:**
 
 - Lịch S2 thay đổi đúng.
-- Request chuyển `Pending` → `Cancel`, không phải `Approved`.
-- Hiện `Closed automatically — schedule updated by Manager.`; không còn nút sửa.
+- Request chuyển `Pending` → `Closed` (wire `WITHDRAWN`/`SCHEDULE_UPDATED`), không phải `Approved`.
+- Hiện `Closed automatically — schedule updated by Manager.`; không còn nút rút.
 - Coach nhận kết quả tự đóng và thông tin lịch mới.
 
 Response request cần có các trường tương ứng:
@@ -155,15 +154,15 @@ Response request cần có các trường tương ứng:
 }
 ```
 
-Manager/thời điểm xử lý và buổi kết quả phải được lưu đúng. `Cancel` là trạng thái của **request**, không có nghĩa S2 bị hủy.
+Manager/thời điểm xử lý và buổi kết quả phải được lưu đúng. `WITHDRAWN` là trạng thái của **request**, không có nghĩa S2 bị hủy.
 
-### TC-C04 — Manager xử lý khi Coach còn mở form
+### TC-C04 — Manager xử lý khi Coach chuẩn bị rút Pending
 
-1. Coach tạo Pending mới, mở `Edit pending request` và giữ hộp sửa.
+1. Coach tạo Pending mới và mở chi tiết request, chuẩn bị thao tác rút.
 2. Manager đổi lịch trực tiếp cho đúng buổi đó, hoàn tất `Confirm`.
-3. Coach sửa Reason trong hộp đang mở → `Save changes`.
+3. Coach nhấn rút từ màn hình cũ; sau đó tải lại Requests.
 
-**Đạt khi:** backend từ chối sửa request đã đóng; hộp sửa đóng và trang tải trạng thái mới. Không hiện thông báo lưu thành công, không tạo request khác và không ghi đè lịch Manager.
+**Đạt khi:** backend từ chối rút request đã tự đóng; trang tải trạng thái Closed mới. Không hiện thông báo rút thành công, không tạo request khác và không ghi đè lịch Manager.
 
 ### TC-C05 — Xung đột lịch phải giữ nguyên Pending
 

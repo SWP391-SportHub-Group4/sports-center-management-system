@@ -4,18 +4,18 @@
 
 Use a Manager, a primary Coach A, substitute Coach B, and two Members. Publish a class with at least three future sessions, assign A, and register one Member through a successful payment. Leave the other Member outside the class. Configure SMTP to check actual email delivery; integration tests check the encrypted email outbox.
 
-## Pending request editing
+## Coach absence request and withdrawal
 
-1. Sign in as A. Open **Teaching schedule**, select a future session and open **Changes**.
-2. Click **Create**, select **Substitute coach**, enter a reason and submit.
-3. Open **Requests**, select the request and click **Edit pending request**. Confirm the dialog prefills the requested change, reason and proposed time. Edit and click **Save changes**. The same request stays **Pending**; Manager receives a new notification. No duplicate-value error occurs. Repeat from **Teaching schedule** using **Edit pending request** → **Save changes**.
-4. Approved, Rejected, Cancel and past-session requests must not offer editing. Leave the dialog open while Manager changes the session directly, then save: the stale update is rejected, the dialog closes and the latest automatic-closure status is shown. At 320px, fields and actions remain within the viewport.
-4. Resolve or reject the request as Manager. Editing the closed request through the API must return 409. Cancellation requests still require at least six hours before the original session.
+1. Sign in as A. Open **Teaching schedule**, select an assigned Scheduled session at least six hours away and open **Request**.
+2. Click **Request absence**, enter a reason and submit. The request stays **Pending**; the session schedule does not change and Manager receives a notification.
+3. Open **Requests** and the session detail. Pending requests offer **Withdraw request**, but no **Edit pending request**. The Coach cannot choose a substitute, reschedule or makeup time. At 320px, fields and actions remain within the viewport.
+4. Try `PUT /api/coaches/me/teaching/change-requests/{id}` and a new POST with `SUBSTITUTE`, `RESCHEDULE` or `CANCEL_WITH_MAKEUP`: neither may create or edit a request. Existing requests of those types remain readable as history.
+5. Withdraw the Pending absence; its status changes without altering the teaching schedule. Resolve or reject a separate Pending request as Manager; Coach cannot withdraw a closed request. A new absence less than six hours before the session is rejected.
 
 ## Manager changes and automatic closure
 
 1. Create another Pending request. As Manager, reschedule that session directly, using a free time slot.
-2. The request becomes **Cancel**, with **Closed automatically — schedule updated by Manager.** The schedule updates and A receives bell/email notifications.
+2. The request becomes **Closed** in the UI (`WITHDRAWN`/`SCHEDULE_UPDATED` on the wire), with **Closed automatically — schedule updated by Manager.** The schedule updates and A receives bell/email notifications.
 3. Repeat with a substitute assignment and with cancel plus makeup. Both outgoing and incoming coaches receive the change; each receives one schedule notice per channel. Cancelling a whole course also closes Pending requests on its remaining sessions.
 4. Try a conflicting target slot. The schedule and Pending request must stay unchanged and no change notification may be committed.
 5. Approve a request through the normal review flow. It must stay **Approved**, rather than being automatically cancelled.

@@ -43,14 +43,14 @@ test("live isolated settings save/reload and Admin audit reason", async ({
   const row = page.getByRole("row").filter({
     has: page.getByLabel(en.settingFields.holdMinutes.label, { exact: true }),
   });
-  await row.getByRole("spinbutton").fill(oldValue === "20" ? "21" : "20");
+  await row.getByRole("spinbutton").fill(oldValue === "25" ? "26" : "25");
   await row
     .getByRole("button", { name: en.operations.save, exact: true })
     .click();
   await expect(page.getByRole("status")).toHaveText(en.operations.saved);
   await page.reload();
   await expect(row.getByRole("spinbutton")).toHaveValue(
-    oldValue === "20" ? "21" : "20",
+    oldValue === "25" ? "26" : "25",
   );
   await row.getByRole("spinbutton").fill(oldValue);
   await row
