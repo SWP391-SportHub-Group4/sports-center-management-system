@@ -385,6 +385,8 @@ builder.Services.AddHttpClient(
 
 // Tác vụ nền: BR-11/BR-33 (hạn gói), BR-20/BR-53 (No-show), BR-34 (phát thông báo).
 builder.Services.AddHostedService<MemberPackageExpiryJob>();
+builder.Services.AddScoped<MemberCourseNotificationService>();
+builder.Services.AddHostedService<MemberCourseNotificationsJob>();
 builder.Services.AddHostedService<StaffInvitationExpiryJob>();
 builder.Services.AddHostedService<ClassStatusJob>();
 builder.Services.AddHostedService<ClassThresholdEvaluationJob>();

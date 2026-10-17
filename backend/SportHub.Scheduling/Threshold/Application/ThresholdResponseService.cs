@@ -78,7 +78,7 @@ public sealed class ThresholdResponseService(ISportHubDbContext db, IClassEnroll
             throw new BadRequestException("invalid_threshold_response", "Invalid threshold response.");
         if (choice == ThresholdResponseChoice.Transfer && targetClassId is null)
             throw new BadRequestException("target_class_required", "Target class required.");
-        if (choice == ThresholdResponseChoice.Refund && targetClassId is not null)
+        if (choice is ThresholdResponseChoice.Refund or ThresholdResponseChoice.WaitNextCourse && targetClassId is not null)
             throw new BadRequestException("target_class_unexpected", "Target class unexpected.");
         if (choice == ThresholdResponseChoice.KeepPlace && targetClassId is not null)
             throw new BadRequestException("target_class_unexpected", "Target class unexpected.");
@@ -91,7 +91,7 @@ public sealed class ThresholdResponseService(ISportHubDbContext db, IClassEnroll
     {
         if (!Enum.IsDefined(choice)) throw new BadRequestException("invalid_threshold_response", "Invalid threshold response.");
         if (choice == ThresholdResponseChoice.Transfer && targetClassId is null) throw new BadRequestException("target_class_required", "Target class required.");
-        if (choice == ThresholdResponseChoice.Refund && targetClassId is not null) throw new BadRequestException("target_class_unexpected", "Target class unexpected.");
+        if (choice is ThresholdResponseChoice.Refund or ThresholdResponseChoice.WaitNextCourse && targetClassId is not null) throw new BadRequestException("target_class_unexpected", "Target class unexpected.");
         if (choice == ThresholdResponseChoice.KeepPlace && targetClassId is not null) throw new BadRequestException("target_class_unexpected", "Target class unexpected.");
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         var rows = await db.Set<ThresholdResponse>().FromSqlInterpolated($"""
@@ -151,11 +151,20 @@ public sealed class ThresholdResponseService(ISportHubDbContext db, IClassEnroll
             ?? throw new ConflictException("threshold_invoice_item_missing", "Threshold invoice item missing.");
 
         Guid? additionalInvoiceId = null;
-        if (choice == ThresholdResponseChoice.Refund)
+        if (choice is ThresholdResponseChoice.Refund or ThresholdResponseChoice.WaitNextCourse)
         {
+            await refunds.LockPaidItemAsync(itemId, ct);
+            var refundValue = await refunds.GetRemainingItemValueVndAsync(itemId, ct);
             await refunds.CreditAsync(new RefundCreditRequest(itemId, 100,
                 "Points refunded by member choice after the course missed its break-even threshold", response.ThresholdResponseId), ct);
             await classes.CancelAsync(itemId, EnrollmentEndReason.Refunded, ct);
+            if (choice == ThresholdResponseChoice.WaitNextCourse)
+                db.Set<CourseInterest>().Add(new CourseInterest
+                {
+                    CourseInterestId = Guid.NewGuid(), MemberId = memberId, SportId = course.SportId,
+                    SourceClassId = course.ClassId, ThresholdResponseId = response.ThresholdResponseId,
+                    RefundedPoints = checked((int)(refundValue / 1000)), CreatedAtUtc = clock.UtcNow
+                });
         }
         else if (choice == ThresholdResponseChoice.Transfer)
         {

@@ -117,7 +117,10 @@ export function ThresholdPanel({
     !state.loading &&
     !state.error &&
     !action.busy &&
-    (choice === "REFUND" || choice === "KEEP_PLACE" || (choice === "TRANSFER" && validQuote));
+    (choice === "REFUND" ||
+      choice === "WAIT_NEXT_COURSE" ||
+      choice === "KEEP_PLACE" ||
+      (choice === "TRANSFER" && validQuote));
   const labels = {
     TRANSFER: l.transfer,
     WAIT_NEXT_COURSE: l.wait,
@@ -139,7 +142,13 @@ export function ThresholdPanel({
     )
       return;
     const submittedChoice = retry ? d.choice : choice;
-    if (submittedChoice !== "TRANSFER" && submittedChoice !== "REFUND" && submittedChoice !== "KEEP_PLACE") return;
+    if (
+      submittedChoice !== "TRANSFER" &&
+      submittedChoice !== "REFUND" &&
+      submittedChoice !== "WAIT_NEXT_COURSE" &&
+      submittedChoice !== "KEEP_PLACE"
+    )
+      return;
     sending.current = true;
     await action.run(async () => {
       try {
@@ -191,49 +200,51 @@ export function ThresholdPanel({
                 {data.resolutionStatus === "AWAITING_PAYMENT"
                   ? l.pendingPayment
                   : l.recorded}
+                {data.choice === "WAIT_NEXT_COURSE" && (
+                  <>
+                    {" "}
+                    <Link href="/member/services?section=courses&view=owned&tab=interests">
+                      {l.interests}
+                    </Link>
+                  </>
+                )}
               </p>
             )}
             {!closed && (
               <>
                 <fieldset className={styles.choices} disabled={action.busy}>
                   <legend>{l.choose}</legend>
-                  {(["KEEP_PLACE", "TRANSFER", "WAIT_NEXT_COURSE", "REFUND"] as const).map(
-                    (option) => (
-                      <label
-                        className={styles.choice}
-                        key={option}
-                        data-selected={choice === option}
-                      >
-                        <input
-                          type="radio"
-                          name={groupId}
-                          value={option}
-                          checked={choice === option}
-                          onChange={() => {
-                            setChoice(option);
-                            setReview(false);
-                            action.reset();
-                          }}
-                        />
-                        <span>
-                          <strong>{labels[option]}</strong>
-                          <span>{bodies[option]}</span>
-                          {option === "WAIT_NEXT_COURSE" && (
-                            <em>{l.unavailable}</em>
-                          )}
-                        </span>
-                      </label>
-                    ),
-                  )}
+                  {(
+                    [
+                      "KEEP_PLACE",
+                      "TRANSFER",
+                      "WAIT_NEXT_COURSE",
+                      "REFUND",
+                    ] as const
+                  ).map((option) => (
+                    <label
+                      className={styles.choice}
+                      key={option}
+                      data-selected={choice === option}
+                    >
+                      <input
+                        type="radio"
+                        name={groupId}
+                        value={option}
+                        checked={choice === option}
+                        onChange={() => {
+                          setChoice(option);
+                          setReview(false);
+                          action.reset();
+                        }}
+                      />
+                      <span>
+                        <strong>{labels[option]}</strong>
+                        <span>{bodies[option]}</span>
+                      </span>
+                    </label>
+                  ))}
                 </fieldset>
-                {choice === "WAIT_NEXT_COURSE" && (
-                  <div className={styles.notice} role="status">
-                    <p>{l.waitBlocked}</p>
-                    <Link href="/member/services?section=courses&view=owned&tab=interests">
-                      {l.interests}
-                    </Link>
-                  </div>
-                )}
                 {choice === "TRANSFER" && (
                   <div className={styles.details}>
                     <p>{l.targetHint}</p>
@@ -342,7 +353,7 @@ export function ThresholdPanel({
       >
         {t.refactor.refresh}
       </button>
-      {review && !closed && choice && choice !== "WAIT_NEXT_COURSE" && (
+      {review && !closed && choice && (
         <Dialog
           title={l.confirmation}
           description={l.final}

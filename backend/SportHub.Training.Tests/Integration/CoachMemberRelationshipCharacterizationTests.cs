@@ -80,6 +80,7 @@ public sealed class CoachMemberRelationshipCharacterizationTests(TrainingApiFact
             .ExecuteUpdateAsync(s => s.SetProperty(c => c.CoachId, coach.UserId)
                 .SetProperty(c => c.Status, ClassStatus.Completed)));
         Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync(path)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await memberClient.GetAsync(contentPath)).StatusCode);
     }
 
     [Fact]

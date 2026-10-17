@@ -125,6 +125,7 @@ export interface WalletLedgerDto {
 }
 
 export interface CheckoutDto {
+  isDayPass?: boolean;
   beneficiaryUserId: string;
   initiatorUserId: string;
   serverNowUtc: string;
@@ -700,7 +701,7 @@ export interface ThresholdResponseDto {
   sportId: number;
   paidValueVnd: number;
   deadlineUtc: string;
-  choice: "REFUND" | "TRANSFER" | "KEEP_PLACE" | null;
+  choice: "REFUND" | "TRANSFER" | "KEEP_PLACE" | "WAIT_NEXT_COURSE" | null;
   targetClassId: number | null;
   resolutionStatus: string;
   additionalInvoiceId: string | null;

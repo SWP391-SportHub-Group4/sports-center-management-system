@@ -230,7 +230,9 @@ public sealed class CheckoutService(ISportHubDbContext db,
         var session = await db.Set<CheckoutSession>().AsNoTracking().SingleOrDefaultAsync(
             x => x.CheckoutSessionId == invoice.CheckoutCycleId, ct)
             ?? throw new NotFoundException("checkout_not_found", "Checkout not found.");
-        return ToResponse(invoice, session);
+        var isDayPass = invoice.MemberPackageId is Guid packageId
+            && (await memberships.GetAsync(packageId, ct)).PackageId == SportHub.Membership.Domain.DayPass.PackageId;
+        return ToResponse(invoice, session) with { IsDayPass = isDayPass };
     }
 
     public async Task<CheckoutResponse> ConfirmPointsAsync(Guid invoiceId, Guid actorId, bool isStaff, CancellationToken ct)

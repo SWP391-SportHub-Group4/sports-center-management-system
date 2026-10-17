@@ -1,8 +1,8 @@
 "use client";
 import Link from "next/link";
 import { useState } from "react";
-import { api, ApiError } from "@/lib/apiClient";
-import { useApi } from "@/lib/useApi";
+import { api, ApiError, downloadFile } from "@/lib/apiClient";
+import { useAction, useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { formatDateTime, formatMoney, formatPoints } from "@/lib/format";
 import type { InvoiceDetailDto } from "@/lib/types";
@@ -19,6 +19,7 @@ import styles from "./checkout-panel.module.css";
 export function MemberInvoiceDetail({ invoiceId }: { invoiceId: string }) {
   const { t } = useLanguage();
   const f = t.finance;
+  const download = useAction();
   const [refundSent, setRefundSent] = useState(false);
   const state = useApi(
     (signal) =>
@@ -66,16 +67,33 @@ export function MemberInvoiceDetail({ invoiceId }: { invoiceId: string }) {
                   </>
                 }
                 actions={
-                  resumable && (
-                    <Link
-                      className={buttonClass({ variant: "primary" })}
-                      href={`/checkout/${s.invoiceId}`}
+                  <>
+                    <button
+                      className={buttonClass({ variant: "secondary" })}
+                      disabled={download.busy}
+                      onClick={() =>
+                        void download.run(() =>
+                          downloadFile(
+                            `/api/invoices/${invoiceId}/receipt.pdf`,
+                            `${s.invoiceNumber}.pdf`,
+                          ),
+                        )
+                      }
                     >
-                      {f.continuePayment}
-                    </Link>
-                  )
+                      {download.busy ? "Downloading…" : "Download PDF"}
+                    </button>
+                    {resumable && (
+                      <Link
+                        className={buttonClass({ variant: "primary" })}
+                        href={`/checkout/${s.invoiceId}`}
+                      >
+                        {f.continuePayment}
+                      </Link>
+                    )}
+                  </>
                 }
               />
+              {download.error && <p role="alert">{download.error}</p>}
               {s.reconciliationRequired && (
                 <p
                   className={styles.banner + " " + styles.bannerWarning}
