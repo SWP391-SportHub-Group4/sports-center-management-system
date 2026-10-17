@@ -241,24 +241,6 @@
   scrollbar-color: var(--border-strong) var(--bg-surface);
 }
 
-.managerShell > header {
-  --bg-surface: #13251e;
-  --bg-surface-sunken: #20382b;
-  --text-strong: #f0f2e8;
-  --text-body: #e5eada;
-  --text-muted: #c4d0c0;
-  --color-primary: var(--color-accent);
-  --color-primary-soft: #2d4321;
-  --border-subtle: #425247;
-  --border-control: #718275;
-  --focus-ring: var(--color-accent);
-  --danger-text: #ff8585;
-  --danger-solid: #ffaaaa;
-  --danger-bg: #3c2424;
-  box-shadow: none;
-  border-bottom: 1px solid var(--border-subtle);
-}
-
 .managerShell > header > div {
   height: 76px;
   max-width: 1560px;

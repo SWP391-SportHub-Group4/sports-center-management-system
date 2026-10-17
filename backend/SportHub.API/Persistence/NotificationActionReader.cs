@@ -18,6 +18,17 @@ public sealed class NotificationActionReader(SportHubDbContext db) : INotificati
             var links = new Dictionary<Guid, string>();
             switch (group.Key)
             {
+                case "CourseInterestOpened":
+                    foreach (var n in group) result[n.NotificationId] = "/member/services?section=courses";
+                    break;
+                case "ClassSessionReminder":
+                    foreach (var id in await db.ClassSessions.Where(s => ids.Contains(s.SessionId)
+                        && s.Status == SportHub.Scheduling.Domain.Enums.ClassSessionStatus.Scheduled
+                        && db.Enrollments.Any(e => e.ClassId == s.ClassId && e.MemberId == userId
+                            && e.Status == SportHub.Scheduling.Domain.Enums.EnrollmentStatus.Confirmed && e.EndedAt == null))
+                        .Select(s => s.SessionId).ToListAsync(ct))
+                        links[id] = $"/member/schedule?event=class%3A{id}";
+                    break;
                 case "ClassSessionChangeRequested":
                     if (await db.UserAccounts.AnyAsync(u => u.UserId == userId && u.Role!.RoleName == SportHub.Identity.Domain.Enums.UserRole.CenterManager, ct))
                         foreach (var id in await db.Set<SportHub.Scheduling.Domain.Entities.ClassSessionChangeRequest>().Where(r => ids.Contains(r.RequestId)).Select(r => r.RequestId).ToListAsync(ct))

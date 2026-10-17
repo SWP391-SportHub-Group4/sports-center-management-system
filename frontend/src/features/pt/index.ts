@@ -1,4 +1,6 @@
 export { MemberTeachingFeed } from "./teaching-records";
+export { TeachingRecords } from "./teaching-records";
+export { teachingApi, type TeachingRecord } from "./teaching-api";
 export { ListPager } from "./ui";
 export {
   classChangeApi,

@@ -28,5 +28,7 @@ public enum NotificationSourceEventType
     ClassEnrollmentClosed = 21,
     ClassEnrollmentReopened = 22,
     ClassThresholdConfirmed = 23,
-    CoachCoverageRequired = 24
+    CoachCoverageRequired = 24,
+    ClassSessionReminder = 25,
+    CourseInterestOpened = 26
 }

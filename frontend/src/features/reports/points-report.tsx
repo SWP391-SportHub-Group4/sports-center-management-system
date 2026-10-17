@@ -13,6 +13,7 @@ export function PointsReport({ report: r }: { report: RevenueReportDto }) {
     >
       <div className="stats-grid">
         <Stat label={l.redeemedPoints} value={formatPoints(r.pointsRedeemed)} />
+        <Stat label={l.pointsRefunded} value={formatPoints(r.pointsRefunded)} />
         <Stat label={l.issued} value={formatPoints(r.pointsIssued)} />
         <Stat
           label={l.adjusted}

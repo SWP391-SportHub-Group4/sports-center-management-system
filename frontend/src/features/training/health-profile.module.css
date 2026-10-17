@@ -15,7 +15,6 @@
 
 .header p {
   margin: var(--space-2) 0 0;
-  max-width: 62ch;
   color: var(--text-muted);
 }
 
@@ -28,7 +27,7 @@
 
 @media (min-width: 960px) {
   .layout {
-    grid-template-columns: minmax(0, 1fr) 320px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .aside {

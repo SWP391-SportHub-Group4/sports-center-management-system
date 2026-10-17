@@ -109,7 +109,7 @@ public sealed class StaffInvitationExpiryTests(SportHubApiFactory factory)
         using (var scope = factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
-            var sport = await db.Sports.SingleAsync(s => s.Code == SportCodes.Gym);
+            var sport = await db.Sports.SingleAsync(s => s.Code == "badminton"); // a coachable sport; Gym has no coach
             sportId = sport.SportId;
         }
         var coach = await CreateAsync(roleId: 2, sportId: sportId);

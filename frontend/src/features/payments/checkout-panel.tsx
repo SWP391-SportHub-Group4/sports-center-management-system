@@ -452,8 +452,9 @@ function CheckoutFlow({
     );
   }
   const dayPassNotice =
-    intent?.kind === "membership" &&
-    Number(intent.body.packageId) === DAY_PASS_PACKAGE_ID ? (
+    checkout?.isDayPass ||
+    (intent?.kind === "membership" &&
+      Number(intent.body.packageId) === DAY_PASS_PACKAGE_ID) ? (
       <p role="note" className={styles.alert}>
         {t.checkout.dayPassNotice}
       </p>

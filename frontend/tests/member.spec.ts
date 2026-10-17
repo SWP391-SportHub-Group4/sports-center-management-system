@@ -17,6 +17,7 @@ const course = {
   availableSeats: 8,
   price: 200000,
   status: "PUBLISHED",
+  enrollmentOpen: true,
   firstSessionStartUtc: courseStart,
   scheduleRules: [],
 };
@@ -194,22 +195,121 @@ test("registered courses cannot be purchased a second time", async ({
   ).toHaveCount(0);
 });
 
-test("legacy profile link opens the editable fitness profile", async ({
+test("Training page keeps the editable fitness profile tab", async ({
   page,
 }) => {
   await page.route("**/api/members/me/training-profile", (route) =>
     route.fulfill({ json: null }),
   );
   await page.goto("/member/training?tab=profile");
-  await expect(page).toHaveURL(/\/member\/profile$/);
+  await expect(page).toHaveURL(/\/member\/training\?tab=profile$/);
   await expect(
-    page.getByRole("heading", { name: "Fitness profile" }),
-  ).toBeVisible();
+    page.getByRole("tab", { name: "Fitness profile" }),
+  ).toHaveAttribute("aria-selected", "true");
   await page.getByRole("spinbutton", { name: "Height (cm)" }).fill("175");
   await page
     .getByRole("spinbutton", { name: "Weight (kg)", exact: true })
     .fill("70");
   await expect(page.getByRole("region", { name: "BMI" })).toContainText("22.9");
+});
+
+test("Training restores plans and results for active classes", async ({
+  page,
+}) => {
+  await page.route("**/api/members/me/classes/1/teaching-records?**", (route) =>
+    route.fulfill({
+      json: {
+        items: [
+          {
+            recordId: "plan-1",
+            classId: 1,
+            sessionId: null,
+            memberId: null,
+            coachId: "coach-1",
+            kind: "PLAN",
+            title: "Weekly plan",
+            content: "Practice footwork",
+            score: null,
+            dueAtUtc: null,
+            createdAtUtc: "2026-10-01T00:00:00Z",
+            updatedAtUtc: "2026-10-01T00:00:00Z",
+            version: 1,
+          },
+          {
+            recordId: "result-1",
+            classId: 1,
+            sessionId: "session-1",
+            memberId: "member-1",
+            coachId: "coach-1",
+            kind: "RESULT",
+            title: "First assessment",
+            content: "Good progress",
+            score: 4,
+            dueAtUtc: null,
+            createdAtUtc: "2026-10-02T00:00:00Z",
+            updatedAtUtc: "2026-10-02T00:00:00Z",
+            version: 1,
+          },
+        ],
+        page: 1,
+        pageSize: 100,
+        totalCount: 2,
+      },
+    }),
+  );
+  await page.goto("/member/training?tab=plans");
+  await expect(
+    page.getByRole("heading", { name: "Weekly plan" }),
+  ).toBeVisible();
+  await page.getByRole("tab", { name: "Results & progress" }).click();
+  await expect(
+    page.getByRole("heading", { name: "First assessment" }),
+  ).toBeVisible();
+  await expect(page.getByText("Good progress")).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Badminton course" }),
+  ).toHaveAttribute("href", "/member/schedule?course=1");
+});
+
+test("Training does not request coach content after enrollment ends", async ({
+  page,
+}) => {
+  let recordRequests = 0;
+  await page.route("**/api/members/me/enrollments?**", (route) =>
+    route.fulfill({
+      json: {
+        items: [
+          {
+            enrollmentId: "enrollment-1",
+            classId: 1,
+            className: "Badminton course",
+            sportName: "Badminton",
+            status: "CONFIRMED",
+            classStatus: "PUBLISHED",
+            endedAt: "2026-10-15T00:00:00Z",
+            invoiceItemId: null,
+          },
+        ],
+        page: 1,
+        pageSize: 50,
+        totalCount: 1,
+      },
+    }),
+  );
+  await page.route(
+    "**/api/members/me/classes/1/teaching-records?**",
+    (route) => {
+      recordRequests++;
+      return route.fulfill({ status: 403 });
+    },
+  );
+  await page.goto("/member/training?tab=plans");
+  await expect(
+    page.getByText(
+      "No coach content is available in your current classes yet.",
+    ),
+  ).toBeVisible();
+  expect(recordRequests).toBe(0);
 });
 
 test("saved self-reported measurements remain editable", async ({ page }) => {
@@ -240,7 +340,7 @@ test("saved self-reported measurements remain editable", async ({ page }) => {
       },
     }),
   );
-  await page.goto("/member/profile");
+  await page.goto("/member/training?tab=profile");
   await expect(
     page.getByRole("spinbutton", { name: "Height (cm)" }),
   ).toHaveValue("175");
@@ -257,6 +357,8 @@ test("dashboard does not issue an entrance pass", async ({ page }) => {
 test("Gym day pass clearly warns about same-day use and PT is absent", async ({
   page,
 }) => {
+  // Align the browser clock with this test's fixed October membership dates.
+  await page.clock.install({ time: new Date("2026-10-02T03:00:00Z") });
   await page.goto("/member/services?section=gym&view=explore");
   await expect(
     page.getByRole("heading", { name: "Gym Membership", exact: true }),
@@ -307,14 +409,20 @@ for (const width of [320, 768, 1024, 1280, 1360, 1440])
       await expect(page.locator("#main-content h1")).toBeVisible();
       await expect(page.getByRole("banner")).toBeVisible();
       if (path === "/profile") {
+        await expect(page).toHaveURL(/\/member\/training\?tab=profile$/);
         await expect(
-          page.getByRole("heading", { name: "Fitness profile" }),
-        ).toBeVisible();
+          page.getByRole("tab", { name: "Fitness profile" }),
+        ).toHaveAttribute("aria-selected", "true");
       }
       if (width >= 960) {
         const nav = page.getByRole("navigation", { name: "Member Navigation" });
         await expect(nav).toBeVisible();
-        await expect(nav.getByRole("link")).toHaveText(["Overview", "Services", "My schedule"]);
+        await expect(nav.getByRole("link")).toHaveText([
+          "Overview",
+          "Services",
+          "My schedule",
+          "Training",
+        ]);
       } else {
         await expect(
           page.getByRole("button", { name: "Open navigation menu" }),
@@ -374,9 +482,13 @@ test("the member header stays mounted and pinned while moving between tabs", asy
   await billing.click();
   await expect(page).toHaveURL(/\/member\/finance$/);
   await expect(page.locator("header[data-mounted='yes']")).toHaveCount(1);
-  await expect(nav.getByRole("link", { name: "Billing", exact: true })).toHaveCount(0);
+  await expect(
+    nav.getByRole("link", { name: "Billing", exact: true }),
+  ).toHaveCount(0);
   await page.getByTestId("user-profile-button").click();
-  await expect(page.getByRole("link", { name: "Billing", exact: true })).toHaveAttribute("aria-current", "page");
+  await expect(
+    page.getByRole("link", { name: "Billing", exact: true }),
+  ).toHaveAttribute("aria-current", "page");
   await page.keyboard.press("Escape");
   await page.mouse.wheel(0, 2000);
   await page.waitForTimeout(300);

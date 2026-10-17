@@ -9,8 +9,11 @@ import { useApi } from "@/lib/useApi";
 import type { MemberSupportRequestDto } from "@/lib/types";
 
 import { formatDateTime } from "@/lib/format";
+import { SupportRequestActions, type SupportAssignee } from "./support-request-actions";
 
 export function MemberSupportRequests({ memberId }: { memberId: string }) {
+  const assignees = useApi((signal) =>
+    api.get<SupportAssignee[]>("/api/member-support-requests/assignees", { signal }), []);
   const requests = useApi(
     (signal) =>
       api.get<MemberSupportRequestDto[]>("/api/member-support-requests", {
@@ -224,6 +227,8 @@ export function MemberSupportRequests({ memberId }: { memberId: string }) {
                 </p>
 
                 <p>{request.description}</p>
+                <SupportRequestActions request={request} assignees={assignees.data ?? []}
+                  onChanged={requests.reload} />
               </article>
             ))}
           </div>

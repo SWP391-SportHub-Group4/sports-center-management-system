@@ -47,6 +47,7 @@ async function managerFixture(page: Page) {
           reconciliationCashCount: 0,
           pointsRedeemed: 200,
           pointsRedeemedVnd: 200000,
+          pointsRefunded: 25,
           pointsIssued: 25,
           managerPointAdjustment: 5,
           outstandingPoints: 525,
@@ -152,7 +153,7 @@ test("manager reports keep VND and point units distinct", async ({ page }) => {
   ).toBeVisible();
   const refundedPoints = page
     .locator(".stat")
-    .filter({ has: page.getByText("Points refunded", { exact: true }) });
+    .filter({ has: page.getByText("Points refunded to members", { exact: true }) });
   const outstandingPoints = page.locator(".stat").filter({
     has: page.getByText("Current outstanding points (available + held)", {
       exact: true,

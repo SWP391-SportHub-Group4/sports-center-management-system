@@ -5,10 +5,15 @@ import { StateView } from "@/components/data";
 import { stateKindFromStatus } from "@/components/contracts/state";
 import type { AsyncState } from "@/lib/useApi";
 import type { SportDto } from "@/lib/types";
+import { hasService } from "@/lib/sports";
 import { useLanguage } from "@/lib/language";
 import styles from "./users.module.css";
 
-/** Active sports and standardized loading, empty and error states for Admin forms. */
+/**
+ * Sports a coach can be assigned to, with standardized loading, empty and error states for Admin forms.
+ * Only active sports with group courses qualify: Gym has no coach, and a new sport appears here once its
+ * group-course service is enabled.
+ */
 export function SportOptions({
   state,
   value,
@@ -21,7 +26,9 @@ export function SportOptions({
   singleSelect?: boolean;
 }) {
   const { t } = useLanguage();
-  const rows = (state.data ?? []).filter((sport) => sport.isActive);
+  const rows = (state.data ?? []).filter(
+    (sport) => sport.isActive && hasService(sport, "GROUP_COURSE"),
+  );
   const kind = state.loading
     ? "loading"
     : state.error

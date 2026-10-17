@@ -8,12 +8,9 @@ import { MutationFeedback, useMutation } from "@/features/operations";
 import type { UserAdminDto } from "@/lib/types";
 import styles from "./desk.module.css";
 
-const sameEmail = (a: string, b: string) =>
-  a.trim().toLowerCase() === b.trim().toLowerCase();
-
 /**
- * Đăng ký Member mới tại quầy: email nhập hai lần (không dán lại được), tài khoản chưa có mật khẩu và
- * Member nhận email kích hoạt để tự đặt mật khẩu. Email thuộc đúng người chỉ được chứng minh bằng link đó.
+ * Đăng ký Member mới tại quầy: email nhập một lần, tài khoản chưa có mật khẩu và Member nhận email kích hoạt
+ * để tự đặt mật khẩu. Gõ sai thì sửa email (Member chờ kích hoạt); sau 7 ngày không kích hoạt tài khoản trống bị gỡ.
  */
 export function RegisterMemberDialog({
   onClose,
@@ -29,12 +26,9 @@ export function RegisterMemberDialog({
   const [form, setForm] = useState({
     fullName: "",
     email: "",
-    confirmEmail: "",
     phone: "",
   });
-  const matches = sameEmail(form.email, form.confirmEmail);
-  const valid =
-    form.fullName.trim().length >= 2 && form.email.trim() !== "" && matches;
+  const valid = form.fullName.trim().length >= 2 && form.email.trim() !== "";
 
   return (
     <Dialog
@@ -46,7 +40,7 @@ export function RegisterMemberDialog({
       }}
     >
       <form
-        className="form"
+        className={`form ${styles.dialogForm}`}
         onSubmit={async (event) => {
           event.preventDefault();
           if (!valid) return;
@@ -58,7 +52,6 @@ export function RegisterMemberDialog({
                 {
                   fullName: form.fullName.trim(),
                   email: form.email.trim(),
-                  confirmEmail: form.confirmEmail.trim(),
                   phone: form.phone.trim() || null,
                 },
               );
@@ -68,49 +61,48 @@ export function RegisterMemberDialog({
         }}
       >
         <div className="form-grid">
-          <Field label={s.fullName} required>
-            <input
-              required
-              pattern=".*\S.*"
-              autoComplete="off"
-              value={form.fullName}
-              onChange={(e) => setForm({ ...form, fullName: e.target.value })}
-            />
-          </Field>
-          <Field label={s.phone}>
-            <input
-              type="tel"
-              autoComplete="off"
-              value={form.phone}
-              onChange={(e) => setForm({ ...form, phone: e.target.value })}
-            />
-          </Field>
-          <Field label={s.email} required>
-            <input
-              type="email"
-              required
-              autoComplete="off"
-              value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
-            />
-          </Field>
-          <Field label={l.confirmEmail} required>
-            <input
-              type="email"
-              required
-              autoComplete="off"
-              value={form.confirmEmail}
-              onChange={(e) =>
-                setForm({ ...form, confirmEmail: e.target.value })
-              }
-              onPaste={(e) => e.preventDefault()}
-              aria-invalid={form.confirmEmail !== "" && !matches}
-            />
-          </Field>
+          <div
+            className="form-grid__row"
+            style={{ "--span": 6 } as React.CSSProperties}
+          >
+            <Field label={s.fullName} required>
+              <input
+                required
+                pattern=".*\S.*"
+                autoComplete="off"
+                value={form.fullName}
+                onChange={(e) => setForm({ ...form, fullName: e.target.value })}
+              />
+            </Field>
+          </div>
+          <div
+            className="form-grid__row"
+            style={{ "--span": 6 } as React.CSSProperties}
+          >
+            <Field label={s.phone}>
+              <input
+                type="tel"
+                autoComplete="off"
+                value={form.phone}
+                onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              />
+            </Field>
+          </div>
+          <div
+            className="form-grid__row"
+            style={{ "--span": 12 } as React.CSSProperties}
+          >
+            <Field label={s.email} required>
+              <input
+                type="email"
+                required
+                autoComplete="off"
+                value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
+              />
+            </Field>
+          </div>
         </div>
-        {form.confirmEmail !== "" && !matches && (
-          <p role="alert">{l.emailMismatch}</p>
-        )}
         <p className={styles.hint}>{l.activationNote}</p>
         <MutationFeedback mutation={mutation} />
         <div className="btn-row">
@@ -152,12 +144,9 @@ export function PendingMemberPanel({
   const mutation = useMutation();
   const [changing, setChanging] = useState(false);
   const [email, setEmail] = useState("");
-  const [confirmEmail, setConfirmEmail] = useState("");
   const [reason, setReason] = useState("");
-  const matches = sameEmail(email, confirmEmail);
   const valid =
     email.trim() !== "" &&
-    matches &&
     reason.trim().length >= 3 &&
     reason.trim().length <= 500;
 
@@ -201,19 +190,6 @@ export function PendingMemberPanel({
               onChange={(e) => setEmail(e.target.value)}
             />
           </Field>
-          <Field label={l.confirmNewEmail} required>
-            <input
-              type="email"
-              autoComplete="off"
-              value={confirmEmail}
-              onChange={(e) => setConfirmEmail(e.target.value)}
-              onPaste={(e) => e.preventDefault()}
-              aria-invalid={confirmEmail !== "" && !matches}
-            />
-          </Field>
-          {confirmEmail !== "" && !matches && (
-            <p role="alert">{l.emailMismatch}</p>
-          )}
           <Field label={s.reason} required>
             <textarea
               minLength={3}
@@ -232,13 +208,11 @@ export function PendingMemberPanel({
                   `/api/members/front-desk/${member.userId}/email`,
                   {
                     email: email.trim(),
-                    confirmEmail: confirmEmail.trim(),
                     reason: reason.trim(),
                   },
                 );
                 setChanging(false);
                 setEmail("");
-                setConfirmEmail("");
                 setReason("");
                 onChange(updated);
               })

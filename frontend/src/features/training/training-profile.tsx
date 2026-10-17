@@ -641,8 +641,8 @@ export function TrainingProfile() {
       <header className={styles.header}>
         <p>
           {vi
-            ? "Bạn tự khai chiều cao, cân nặng, mục tiêu, thói quen và chế độ ăn. Coach và trợ lý AI dùng hồ sơ này để gợi ý bài tập và dinh dưỡng phù hợp. Chỉ bạn, Quản lý và Coach đang phụ trách bạn xem được."
-            : "Tell us your measurements, goals, routine and diet. Your coach and the AI assistant use this to suggest workouts and nutrition. Only you, the manager and your assigned coach can see it."}
+            ? "Coach và trợ lý AI dùng hồ sơ này để gợi ý bài tập và dinh dưỡng. Chỉ bạn, Quản lý và Coach phụ trách bạn xem được."
+            : "Your coach and the AI assistant use this to suggest workouts and nutrition. Only you, the manager and your coach can see it."}
         </p>
       </header>
       <AsyncSection state={state}>

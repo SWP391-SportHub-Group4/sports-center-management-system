@@ -29,6 +29,7 @@ import { useDeskMember } from "./desk-context";
 import { RegisterMemberDialog } from "./register-member";
 import { SelectedMemberPanel } from "./selected-member";
 import styles from "./desk.module.css";
+import { ForgottenGymVisits } from "./forgotten-gym-visits";
 
 export function RegistrationHint() {
   const { t } = useLanguage();
@@ -140,6 +141,15 @@ export function ReceptionDashboard() {
 
         <Card title={l.insideNow}>
           <GymInside />
+        </Card>
+
+        <Card title="Forgotten Gym check-outs">
+          <ForgottenGymVisits />
+        </Card>
+
+        <Card title="Desk follow-up">
+          <p><Link href="/receptionist/support">Support request queue</Link></p>
+          <p><Link href="/receptionist/payment-reconciliation">Paid but not fulfilled payments</Link></p>
         </Card>
 
         <Card title={l.openInvoices}>

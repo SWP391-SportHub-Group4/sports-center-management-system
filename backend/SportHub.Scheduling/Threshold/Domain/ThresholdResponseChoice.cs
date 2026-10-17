@@ -4,5 +4,6 @@ public enum ThresholdResponseChoice
 {
     Refund,
     Transfer,
-    KeepPlace
+    KeepPlace,
+    WaitNextCourse
 }

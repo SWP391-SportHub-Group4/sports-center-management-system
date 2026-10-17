@@ -35,6 +35,13 @@ public sealed record RevenueReportResponse(
     /// <summary>Points credited to wallets during the period, including refund/compensation credits.</summary>
     public long PointsIssued { get; init; }
 
+    /// <summary>
+    /// Points returned to members as refunds in the period (member/manager refunds, center-fault cancellations,
+    /// class-transfer differences). A subset of <see cref="PointsIssued"/>; excludes gateway compensation.
+    /// Points are not cash, so this is never subtracted from <see cref="NetRevenue"/>.
+    /// </summary>
+    public long PointsRefunded { get; init; }
+
     /// <summary>Net points changed by explicit Manager adjustments during the period.</summary>
     public long ManagerPointAdjustment { get; init; }
 

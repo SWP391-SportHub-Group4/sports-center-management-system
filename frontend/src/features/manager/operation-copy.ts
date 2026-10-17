@@ -32,7 +32,57 @@ const copy = {
     rentalPending:
       "Cancellation and release will be requested with the final operation; not completed yet.",
     rentalConfirmed:
-      "Cancellation and refund will be requested with the final operation; no refund quote is available here.",
+      "Cancellation and refund will be requested with the final operation; the expected points are listed under Members affected.",
+    holdWindow: "Hold this window while I fix it",
+    holdWindowHint:
+      "Nobody can book into this room and time until you resolve the incident, release it, or the hold runs out (2 hours). You can leave and come back.",
+    holdWindowDone: "Window held. New bookings in it are blocked.",
+    fencesTitle: "Incidents in progress",
+    fencesHint:
+      "Windows you are holding. Pick one up where you left it, keep it held, or give it back.",
+    fencesNone: "No incident is being held.",
+    fenceCenter: "Whole center",
+    fenceLeft: "{n} activities still in the window",
+    fenceClear: "Nothing left in the window: ready to resolve",
+    fenceMembers: "{n} members affected",
+    fenceHeldUntil: "Held until {time}",
+    fenceExpired: "Hold lapsed, bookings allowed",
+    fenceContinue: "Continue",
+    fenceExtend: "Hold again",
+    fenceRelease: "Release",
+    fenceChanges: "{n} schedule changes made while held",
+    fenceAbandon: "Abandon and undo",
+    abandonTitle: "Abandon this incident?",
+    abandonLead:
+      "The window is released and the changes below are put back where they were. Members are told when a session returns to its original time.",
+    abandonNone:
+      "No schedule change was made while this window was held, so only the hold is released.",
+    abandonKeep:
+      "Each change is only undone if the session is still exactly as that change left it and its old slot is still free. Anything else is left as it is and listed afterwards.",
+    abandonConfirm: "Abandon and undo",
+    abandonPast: "The original time has passed, so this cannot be undone.",
+    abandonDone: "{n} changes undone.",
+    abandonLeft: "These were left as they are:",
+    abandonMoved: "{from} to {to}",
+    abandonKinds: {
+      RESCHEDULE: "Session moved",
+      CANCEL_WITH_MAKEUP: "Session cancelled for a makeup",
+    } as Record<string, string>,
+    membersAffected: "Members affected",
+    unnamedMember: "Member",
+    affectedSessions: "{n} sessions affected",
+    member: "Member",
+    outcome: "What happens",
+    expectedPoints: "Expected points",
+    expectedTotal: "Expected refund in total",
+    quoteNote:
+      "Quoted by the server now. Final amounts are calculated again when you confirm.",
+    outcomes: {
+      REFUNDED_AS_POINTS: "Rental cancelled, 100% refunded as points",
+      CHECKOUT_RELEASED: "Unpaid checkout released, held points returned",
+      AWAITS_SCHEDULE_DECISION:
+        "Needs a schedule decision first (reschedule or makeup); no refund yet",
+    } as Record<string, string>,
     recipientCount: "Selected recipients",
     channels: "Delivery channels",
     localReview:
@@ -86,7 +136,57 @@ const copy = {
     rentalPending:
       "Sẽ yêu cầu hủy và nhả phần giữ khi xác nhận thao tác cuối; chưa xử lý.",
     rentalConfirmed:
-      "Sẽ yêu cầu hủy và hoàn điểm khi xác nhận thao tác cuối; chưa có quote hoàn tại đây.",
+      "Sẽ yêu cầu hủy và hoàn điểm khi xác nhận thao tác cuối; số điểm dự kiến nằm ở mục Hội viên bị ảnh hưởng.",
+    holdWindow: "Giữ khung giờ này trong lúc xử lý",
+    holdWindowHint:
+      "Không ai đặt được phòng và giờ này cho đến khi bạn xử lý xong, nhả giữ, hoặc hết 2 giờ. Bạn có thể rời đi và quay lại.",
+    holdWindowDone: "Đã giữ khung giờ. Đặt mới trong khung này bị chặn.",
+    fencesTitle: "Sự cố đang xử lý",
+    fencesHint:
+      "Các khung giờ bạn đang giữ. Tiếp tục từ chỗ dở, giữ thêm, hoặc nhả.",
+    fencesNone: "Không có sự cố nào đang được giữ.",
+    fenceCenter: "Toàn trung tâm",
+    fenceLeft: "Còn {n} hoạt động trong khung giờ",
+    fenceClear: "Không còn gì trong khung giờ: sẵn sàng xác nhận",
+    fenceMembers: "{n} hội viên bị ảnh hưởng",
+    fenceHeldUntil: "Giữ đến {time}",
+    fenceExpired: "Hết giữ, cho phép đặt",
+    fenceContinue: "Tiếp tục",
+    fenceExtend: "Giữ lại",
+    fenceRelease: "Nhả",
+    fenceChanges: "{n} thay đổi lịch đã làm trong lúc giữ",
+    fenceAbandon: "Bỏ và hoàn tác",
+    abandonTitle: "Bỏ sự cố này?",
+    abandonLead:
+      "Khung giờ được nhả và các thay đổi dưới đây được trả về như cũ. Hội viên được báo khi buổi quay lại giờ ban đầu.",
+    abandonNone:
+      "Chưa có thay đổi lịch nào trong lúc giữ, nên chỉ nhả khung giờ.",
+    abandonKeep:
+      "Mỗi thay đổi chỉ được hoàn tác khi buổi vẫn đúng như thay đổi đó để lại và chỗ cũ còn trống. Phần còn lại giữ nguyên và được liệt kê sau đó.",
+    abandonConfirm: "Bỏ và hoàn tác",
+    abandonPast: "Giờ ban đầu đã qua nên không thể hoàn tác.",
+    abandonDone: "Đã hoàn tác {n} thay đổi.",
+    abandonLeft: "Các thay đổi sau được giữ nguyên:",
+    abandonMoved: "{from} sang {to}",
+    abandonKinds: {
+      RESCHEDULE: "Buổi bị dời",
+      CANCEL_WITH_MAKEUP: "Buổi bị hủy để học bù",
+    } as Record<string, string>,
+    membersAffected: "Hội viên bị ảnh hưởng",
+    unnamedMember: "Hội viên",
+    affectedSessions: "{n} buổi bị ảnh hưởng",
+    member: "Hội viên",
+    outcome: "Phương án xử lý",
+    expectedPoints: "Điểm dự kiến",
+    expectedTotal: "Tổng điểm hoàn dự kiến",
+    quoteNote:
+      "Server báo giá ngay lúc này. Số điểm cuối được tính lại khi bạn xác nhận.",
+    outcomes: {
+      REFUNDED_AS_POINTS: "Hủy lượt thuê, hoàn 100% bằng điểm",
+      CHECKOUT_RELEASED: "Nhả đơn chưa thanh toán, trả lại điểm đang giữ",
+      AWAITS_SCHEDULE_DECISION:
+        "Cần quyết định lịch trước (dời buổi hoặc buổi bù); chưa hoàn điểm",
+    } as Record<string, string>,
     recipientCount: "Người nhận đã chọn",
     channels: "Kênh gửi",
     localReview:

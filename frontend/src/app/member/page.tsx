@@ -787,7 +787,7 @@ export default function MemberDashboardPage() {
             >
               <div className={styles.sectionHeading}>
                 <h2 id="training-title">{l.trainingTitle}</h2>
-                <Link href="/member/schedule">{l.manageTraining}</Link>
+                <Link href="/member/training">{l.manageTraining}</Link>
               </div>
               {training.data ? (
                 <>

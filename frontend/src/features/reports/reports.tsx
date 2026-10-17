@@ -15,6 +15,7 @@ import { MemberPicker } from "@/components/MemberPicker";
 import { reportsApi, type ReportFilters } from "./api";
 import { RevenueSummary } from "./revenue-summary";
 import { PointsReport } from "./points-report";
+import { ReconciliationPanel } from "./reconciliation-panel";
 import { ClassEnrollmentReport } from "./class-enrollment-report";
 import { CourtRentalReport } from "./court-rental-report";
 import { ReportExportPanel, ReportTypeSelect } from "./report-export-panel";
@@ -175,6 +176,7 @@ function RevenueTab({ filters: f }: { filters: ReportFilters }) {
       <AsyncSection state={summary}>
         {(report) => <PointsReport report={report} />}
       </AsyncSection>
+      <ReconciliationPanel filters={f} />
     </>
   );
 }
@@ -334,8 +336,12 @@ export function ManagerOverview() {
                 value={formatPoints(report.pointsRedeemed)}
               />
               <Stat
-                label={l.issued}
-                value={formatPoints(report.pointsIssued)}
+                label={l.pointsRefunded}
+                value={formatPoints(report.pointsRefunded)}
+              />
+              <Stat
+                label={l.netRevenue}
+                value={formatMoney(report.netRevenue)}
               />
               <Stat
                 label={l.outstanding}
@@ -344,6 +350,7 @@ export function ManagerOverview() {
             </div>
           )}
         </AsyncSection>
+        <p className="small muted">{l.revenueDefinitions}</p>
         <AsyncSection state={membership}>
           {(report) => (
             <div className="stats-grid">

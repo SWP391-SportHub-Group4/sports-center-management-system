@@ -80,7 +80,7 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { href: "/member/my-registrations", labelKey: "myRegistrations" },
     { href: "/member/my-plans", labelKey: "myMembershipPlans" },
     { href: "/member/invoices", labelKey: "invoices" },
-    { href: "/member/profile", labelKey: "trainingProfile" },
+    { href: "/member/training?tab=profile", labelKey: "trainingProfile" },
   ],
   Receptionist: [
     { href: "/receptionist", labelKey: "frontDesk" },

@@ -12,6 +12,7 @@ using SportHub.Scheduling.Application.DTOs;
 using SportHub.Scheduling.Application.Interfaces;
 using SportHub.Scheduling.Catalog.Application;
 using SportHub.Scheduling.Domain.Rules;
+using SportHub.Scheduling.Rental.Domain;
 
 namespace SportHub.Scheduling.Application.Services;
 
@@ -62,8 +63,8 @@ public sealed class ClassSessionService(
                   ?? throw new NotFoundException("session_not_found", "Session not found.");
 
         await EnsureClassAccessAsync(row.Session.ClassId, restrictToCoachId, ct);
-
         await EnsureSessionAccessAsync(row.Session, restrictToCoachId, ct);
+
         var session = (await ToResponsesAsync([row], ct))[0];
 
         // Ended enrollments no longer grant access to the coach's roster.
@@ -164,6 +165,9 @@ public sealed class ClassSessionService(
         }
 
         var oldStart = session.StartAtUtc;
+        var oldEnd = session.EndAtUtc;
+        var oldRoomId = session.RoomId;
+        var oldCoachId = session.CoachId;
         session.StartAtUtc = start;
         session.EndAtUtc = end;
         session.RoomId = roomId;
@@ -171,9 +175,25 @@ public sealed class ClassSessionService(
 
         audit.Write(new AuditEntry(actorUserId, "RESCHEDULE_CLASS_SESSION", nameof(ClassSession), sessionId.ToString(),
             OldValue: before, NewValue: Describe(session), Reason: request.Reason.Trim()));
+        await RecordFenceStepAsync(IncidentFenceStepKind.Reschedule, session, oldStart, oldEnd, oldRoomId, oldCoachId,
+            null, start, roomId, coachId, actorUserId, ct);
 
-        await NotifyEnrolledAsync(cls, Guid.NewGuid(),
-            $"Session {session.SessionNo} of course {cls.Name} moved from {Local(oldStart)} to {Local(start)}. Reason: {request.Reason.Trim()}", ct);
+        var memberMessage = oldStart == start && oldCoachId != coachId
+            ? $"The coach for session {session.SessionNo} of course {cls.Name} has changed. The session remains at {Local(start)}. Reason: {request.Reason.Trim()}"
+            : $"Session {session.SessionNo} of course {cls.Name} moved from {Local(oldStart)} to {Local(start)}. Reason: {request.Reason.Trim()}";
+        await NotifyEnrolledAsync(cls, Guid.NewGuid(), memberMessage, ct);
+        if (oldCoachId != coachId)
+        {
+            var replacement = await users.GetAsync(coachId, ct);
+            if (replacement is not null)
+            {
+                var message = $"You have been assigned to session {session.SessionNo} of course {cls.Name} at {Local(start)}. Review your teaching schedule.";
+                notifications.Queue(new NotificationRequest(coachId, NotificationEvents.ScheduleChanged, message));
+                notifications.QueueEmail(new EmailNotificationRequest(coachId, replacement.Email,
+                    NotificationEvents.ScheduleChanged, Guid.NewGuid(), "SportHub - Teaching assignment changed",
+                    "<p>" + System.Net.WebUtility.HtmlEncode(message) + "</p>"));
+            }
+        }
 
         await db.SaveChangesAsync(ct);
         if (tx != null) await tx.CommitAsync(ct);
@@ -251,6 +271,8 @@ public sealed class ClassSessionService(
             throw new OccupancyConflictException(result.Conflicts);
         }
 
+        await RecordFenceStepAsync(IncidentFenceStepKind.CancelWithMakeup, session, session.StartAtUtc, session.EndAtUtc,
+            session.RoomId, session.CoachId, newSession.SessionId, start, roomId, coachId, actorUserId, ct);
         audit.Write(new AuditEntry(actorUserId, "CANCEL_CLASS_SESSION", nameof(ClassSession), sessionId.ToString(),
             OldValue: JsonSerializer.Serialize(new { status = ClassSessionStatus.Scheduled.ToString() }),
             NewValue: JsonSerializer.Serialize(new { status = ClassSessionStatus.Cancelled.ToString(), makeupSessionId = newSession.SessionId }),
@@ -263,6 +285,101 @@ public sealed class ClassSessionService(
         if (tx != null) await tx.CommitAsync(ct);
 
         return await GetAsync(newSession.SessionId, null, ct);
+    }
+
+    // ---------------------------------------------------------------- Sự cố: ghi bước và hoàn tác
+
+    /// <summary>
+    /// If the session's ORIGINAL slot lies inside an incident window the manager is holding, remember how to put it back.
+    /// Without a held window nothing is recorded: the manager chose to change the schedule outside incident handling.
+    /// </summary>
+    private async Task RecordFenceStepAsync(IncidentFenceStepKind kind, ClassSession session, DateTime beforeStart,
+        DateTime beforeEnd, int beforeRoom, Guid beforeCoach, Guid? makeupSessionId, DateTime afterStart, int afterRoom,
+        Guid afterCoach, Guid actorUserId, CancellationToken ct)
+    {
+        var fenceId = await db.Set<IncidentFence>().AsNoTracking()
+            .Where(f => f.Status == IncidentFenceStatus.Open && f.StartAtUtc < beforeEnd && f.EndAtUtc > beforeStart
+                        && (f.Scope == IncidentScope.Center || f.RoomId == beforeRoom))
+            .OrderBy(f => f.CreatedAtUtc).Select(f => (Guid?)f.FenceId).FirstOrDefaultAsync(ct);
+        if (fenceId is null) return;
+        db.Set<IncidentFenceStep>().Add(new IncidentFenceStep
+        {
+            StepId = Guid.NewGuid(), FenceId = fenceId.Value, Kind = kind, SessionId = session.SessionId,
+            MakeupSessionId = makeupSessionId, BeforeStartUtc = beforeStart, BeforeEndUtc = beforeEnd,
+            BeforeRoomId = beforeRoom, BeforeCoachId = beforeCoach, AfterStartUtc = afterStart, AfterRoomId = afterRoom,
+            AfterCoachId = afterCoach, ActorUserId = actorUserId, CreatedAtUtc = clock.UtcNow,
+            State = IncidentFenceStepState.Applied
+        });
+    }
+
+    public async Task<SessionStepUndoOutcome> UndoIncidentStepAsync(Guid stepId, Guid actorUserId, CancellationToken ct = default)
+    {
+        var step = await db.Set<IncidentFenceStep>().SingleOrDefaultAsync(s => s.StepId == stepId, ct)
+            ?? throw new NotFoundException("incident_step_not_found", "Incident step not found.");
+        if (step.State == IncidentFenceStepState.Undone) return new(true, null);
+
+        async Task<SessionStepUndoOutcome> Fail(string note)
+        {
+            step.State = IncidentFenceStepState.UndoFailed;
+            step.UndoNote = note;
+            await db.SaveChangesAsync(ct);
+            return new(false, note);
+        }
+
+        var session = await LockAndLoadAsync(step.SessionId, ct);
+        var cls = await db.Set<Class>().SingleAsync(c => c.ClassId == session.ClassId, ct);
+        if (cls.Status is not (ClassStatus.Published or ClassStatus.InProgress))
+            return await Fail("The course is no longer running.");
+        if (step.BeforeStartUtc <= clock.UtcNow)
+            return await Fail("The original time has already passed.");
+
+        if (step.Kind == IncidentFenceStepKind.Reschedule)
+        {
+            if (session.Status != ClassSessionStatus.Scheduled || session.StartAtUtc != step.AfterStartUtc
+                || session.RoomId != step.AfterRoomId || session.CoachId != step.AfterCoachId)
+                return await Fail("The session was changed again after this step, so it was left as it is.");
+
+            var moved = await occupancy.ReplaceAsync(new OccupancyRequest(OccupancySources.ClassSession, session.SessionId,
+                step.BeforeRoomId, step.BeforeCoachId, step.BeforeStartUtc, step.BeforeEndUtc), ct);
+            if (!moved.Succeeded) return await Fail("The original room or coach is no longer free at that time.");
+
+            var movedFrom = session.StartAtUtc;
+            session.StartAtUtc = step.BeforeStartUtc;
+            session.EndAtUtc = step.BeforeEndUtc;
+            session.RoomId = step.BeforeRoomId;
+            session.CoachId = step.BeforeCoachId;
+            audit.Write(new AuditEntry(actorUserId, "UNDO_RESCHEDULE_CLASS_SESSION", nameof(ClassSession),
+                session.SessionId.ToString(), NewValue: Describe(session), Reason: "Incident abandoned"));
+            await NotifyEnrolledAsync(cls, Guid.NewGuid(),
+                $"Session {session.SessionNo} of course {cls.Name} is back at {Local(session.StartAtUtc)} (it had been moved to {Local(movedFrom)}). The earlier change was cancelled.", ct);
+        }
+        else
+        {
+            var makeup = step.MakeupSessionId is Guid makeupId
+                ? await db.Set<ClassSession>().SingleOrDefaultAsync(s => s.SessionId == makeupId, ct) : null;
+            if (session.Status != ClassSessionStatus.Cancelled || makeup is null
+                || makeup.Status != ClassSessionStatus.Scheduled || makeup.StartAtUtc != step.AfterStartUtc)
+                return await Fail("The makeup session was changed after this step, so it was left as it is.");
+
+            // Take the original slot back first; if that fails nothing has changed.
+            var back = await occupancy.ReserveAsync(new OccupancyRequest(OccupancySources.ClassSession, session.SessionId,
+                step.BeforeRoomId, step.BeforeCoachId, step.BeforeStartUtc, step.BeforeEndUtc), ct);
+            if (!back.Succeeded) return await Fail("The original room or coach is no longer free at that time.");
+
+            await occupancy.ReleaseAsync(OccupancySources.ClassSession, makeup.SessionId, ct);
+            makeup.Status = ClassSessionStatus.Cancelled;
+            session.Status = ClassSessionStatus.Scheduled;
+            audit.Write(new AuditEntry(actorUserId, "UNDO_CANCEL_CLASS_SESSION", nameof(ClassSession),
+                session.SessionId.ToString(), NewValue: Describe(session), Reason: "Incident abandoned"));
+            await NotifyEnrolledAsync(cls, Guid.NewGuid(),
+                $"Session {session.SessionNo} of course {cls.Name} will go ahead as originally planned at {Local(session.StartAtUtc)}. The makeup on {Local(makeup.StartAtUtc)} was cancelled.", ct);
+        }
+
+        step.State = IncidentFenceStepState.Undone;
+        step.UndoneAtUtc = clock.UtcNow;
+        step.UndoNote = null;
+        await db.SaveChangesAsync(ct);
+        return new(true, null);
     }
 
     // ---------------------------------------------------------------- Nội bộ

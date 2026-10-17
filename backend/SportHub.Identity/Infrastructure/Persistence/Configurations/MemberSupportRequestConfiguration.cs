@@ -30,6 +30,11 @@ public sealed class MemberSupportRequestConfiguration
             .HasMaxLength(20)
             .IsRequired();
 
+        builder.Property(x => x.ProgressNote).HasMaxLength(1000);
+        builder.HasIndex(x => new { x.Status, x.UpdatedAt });
+        builder.HasOne<UserAccount>().WithMany().HasForeignKey(x => x.AssignedToUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         builder.HasIndex(x => new
         {
             x.MemberId,

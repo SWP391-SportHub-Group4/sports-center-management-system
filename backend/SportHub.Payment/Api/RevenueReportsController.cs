@@ -13,7 +13,7 @@ namespace SportHub.Payment.Api;
 [ApiController]
 [Authorize(Policy = SportHubPolicies.CenterManager)]
 [Route("api/reports")]
-public class RevenueReportsController(IRevenueReportService revenue) : ControllerBase
+public class RevenueReportsController(IRevenueReportService revenue, ReportReconciliationService reconciliation) : ControllerBase
 {
     [HttpGet("revenue-dimensions")]
     public async Task<IActionResult> Dimensions(
@@ -34,6 +34,18 @@ public class RevenueReportsController(IRevenueReportService revenue) : Controlle
         var report = await revenue.GetAsync(fromDate, toDate, ct);
         return Ok(new { report.FromDate, report.ToDate,
             Rows = report.BySportAndSource.Where(x => x.Source == "Rental").ToList() });
+    }
+
+    /// <summary>
+    /// Recomputes every headline figure straight from invoices, payments, the point ledger and refunds and reports any
+    /// delta, plus paid invoices whose cash/points disagree with their payments. Run before trusting an export.
+    /// </summary>
+    [HttpGet("revenue/reconciliation")]
+    public async Task<IActionResult> Reconcile(
+        [FromQuery] DateOnly? fromDate, [FromQuery] DateOnly? toDate, CancellationToken ct = default)
+    {
+        var to = toDate ?? DateOnly.FromDateTime(DateTime.UtcNow.AddHours(7));
+        return Ok(await reconciliation.ReconcileAsync(fromDate ?? to.AddDays(-29), to, ct));
     }
 
     /// <summary>BR-32/BR-43 — chỉ Center Manager; số liệu đã trừ điều chỉnh hoàn thành trong kỳ.</summary>

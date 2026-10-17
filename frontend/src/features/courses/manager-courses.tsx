@@ -167,9 +167,17 @@ export function ManagerCourses() {
           },
         ]}
         actions={
-          <Link className="btn" href="/manager/classes/new">
-            {l.create}
-          </Link>
+          <>
+            <Link
+              className="btn btn--secondary"
+              href="/manager/classes/interests"
+            >
+              Course interests
+            </Link>
+            <Link className="btn" href="/manager/classes/new">
+              {l.create}
+            </Link>
+          </>
         }
       />
       {sports.error && <p role="alert">{sports.error.message}</p>}

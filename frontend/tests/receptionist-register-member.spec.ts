@@ -61,7 +61,7 @@ async function setup(page: Page, member: typeof pendingMember | null) {
   });
 }
 
-test("front desk registers a member with a confirmed email and opens the new member", async ({
+test("front desk registers a member with a single email and opens the new member", async ({
   page,
 }) => {
   await setup(page, null);
@@ -77,21 +77,12 @@ test("front desk registers a member with a confirmed email and opens the new mem
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel("Full name", { exact: true }).fill("Walk In Member");
   await dialog.getByLabel("Email", { exact: true }).fill("walkin@example.com");
-  await dialog
-    .getByLabel("Confirm email", { exact: true })
-    .fill("walkin@exmaple.com");
-  await expect(
-    dialog.getByText("The two email addresses do not match."),
-  ).toBeVisible();
+  // The email is entered once: there is no confirmation field to retype it into.
+  await expect(dialog.getByLabel("Confirm email")).toHaveCount(0);
   const submit = dialog.getByRole("button", {
     name: "Register and send activation email",
     exact: true,
   });
-  await expect(submit).toBeDisabled();
-
-  await dialog
-    .getByLabel("Confirm email", { exact: true })
-    .fill("WALKIN@example.com");
   await expect(submit).toBeEnabled();
   await submit.click();
 
@@ -102,8 +93,8 @@ test("front desk registers a member with a confirmed email and opens the new mem
   expect(writes[0]).toMatchObject({
     fullName: "Walk In Member",
     email: "walkin@example.com",
-    confirmEmail: "WALKIN@example.com",
   });
+  expect(writes[0]).not.toHaveProperty("confirmEmail");
   expect(writes[0]).not.toHaveProperty("password");
   expect(writes[0]).not.toHaveProperty("role");
 });
@@ -125,9 +116,9 @@ test("members awaiting activation are flagged and the desk can resend the link o
     expect(route.request().method()).toBe("PUT");
     expect(route.request().postDataJSON()).toMatchObject({
       email: "right@example.com",
-      confirmEmail: "right@example.com",
       reason: "Typo at the desk",
     });
+    expect(route.request().postDataJSON()).not.toHaveProperty("confirmEmail");
     return route.fulfill({
       json: { ...pendingMember, email: "right@example.com" },
     });
@@ -150,21 +141,14 @@ test("members awaiting activation are flagged and the desk can resend the link o
   await panel
     .getByLabel("New email", { exact: true })
     .fill("right@example.com");
-  await panel
-    .getByLabel("Confirm new email", { exact: true })
-    .fill("other@example.com");
-  await expect(
-    panel.getByText("The two email addresses do not match."),
-  ).toBeVisible();
   const save = panel.getByRole("button", {
     name: "Update email and send link",
     exact: true,
   });
+  // A reason is still required for the audit trail.
   await expect(save).toBeDisabled();
-  await panel
-    .getByLabel("Confirm new email", { exact: true })
-    .fill("right@example.com");
   await panel.getByLabel("Reason", { exact: true }).fill("Typo at the desk");
+  await expect(save).toBeEnabled();
   await save.click();
   await expect.poll(() => calls).toEqual(["resend", "email"]);
 });
