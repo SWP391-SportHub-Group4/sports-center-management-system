@@ -38,7 +38,7 @@ const validators = {
   thresholdStatus: choiceQuery(["", ...thresholds], ""),
 };
 export function ManagerCourses() {
-  const { t, language } = useLanguage();
+  const { t } = useLanguage();
   const l = t.operations;
   const m = t.managerOperations;
   const { values, setValues } = useUrlQuery(defaults, validators);

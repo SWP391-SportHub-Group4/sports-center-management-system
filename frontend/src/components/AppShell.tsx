@@ -21,6 +21,7 @@ import {
   IconClose,
   IconSettings,
   IconUser,
+  IconClipboard,
 } from "@/components/icons";
 import shell from "./MemberShell.module.css";
 import styles from "./AppShell.module.css";
@@ -130,7 +131,6 @@ export function getNavForUser(user: {
     { href: "/coach/schedule", labelKey: "teachingSchedule" },
     { href: "/coach/classes", labelKey: "assignedClasses" },
     { href: "/coach/members", labelKey: "classStudents" },
-    { href: "/coach/change-requests", labelKey: "changeRequests" },
   ];
 }
 
@@ -420,9 +420,17 @@ export function AppFrame({
   const root = items[0].href;
   const entries = buildNav(items, user.role, t);
   const roleDisplay = t.navigation.roleLabel[user.role];
+  const usesStaffPalette =
+    user.role === "CenterManager" || user.role === "Coach";
+  const roleShell =
+    user.role === "CenterManager"
+      ? styles.managerShell
+      : user.role === "Coach"
+        ? styles.coachShell
+        : "";
   return (
     <div
-      className={`${shell.shell} ${user.role === "CenterManager" ? styles.managerShell : ""}`}
+      className={`${shell.shell} ${usesStaffPalette ? styles.staffPalette : ""} ${roleShell}`}
     >
       <a href="#main-content" className="skip-link">
         {language === "en"
@@ -506,7 +514,7 @@ export function AppFrame({
                   name={user.fullName || user.email}
                   avatarUrl={user.avatarUrl}
                   size={36}
-                  className={`${shell.userAvatar} ${user.role === "CenterManager" ? styles.managerAvatar : ""}`}
+                  className={`${shell.userAvatar} ${usesStaffPalette ? styles.managerAvatar : ""}`}
                 />
                 <span className={shell.userName}>
                   {user.fullName || user.email}
@@ -543,6 +551,25 @@ export function AppFrame({
                     <IconUser size={15} />
                     <span>{t.navigation.myAccount}</span>
                   </Link>
+                  {user.role === "Coach" && (
+                    <Link
+                      href="/coach/change-requests"
+                      className={`${shell.dropdownItem} ${styles.profileItem}`}
+                      aria-current={
+                        isActiveHref(
+                          pathname,
+                          "/coach/change-requests",
+                          "/coach",
+                        )
+                          ? "page"
+                          : undefined
+                      }
+                      onClick={() => setUserMenu(false)}
+                    >
+                      <IconClipboard size={15} aria-hidden="true" />
+                      <span>{t.navigation.items.changeRequests}</span>
+                    </Link>
+                  )}
                   {user.role === "CenterManager" && (
                     <Link
                       href="/manager/settings"

@@ -27,9 +27,7 @@ public sealed class ClassTeachingService(ISportHubDbContext db, IUserAccessReade
             throw new ForbiddenException("coach_required", "Coach account is not active.");
     }
 
-    private IQueryable<Class> CurrentClasses(Guid coachId) => db.Set<Class>().AsNoTracking()
-        .Where(c => (c.Status == ClassStatus.Published || c.Status == ClassStatus.InProgress)
-            && c.CoachId == coachId);
+    private IQueryable<Class> CurrentClasses(Guid coachId) => CoachDataScope.Classes(db, coachId);
 
     public async Task<object> StudentsAsync(Guid coachId, int page, string? search, int? sportId, CancellationToken ct)
     {
@@ -152,7 +150,9 @@ public sealed class ClassTeachingService(ISportHubDbContext db, IUserAccessReade
             throw new ForbiddenException("coach_required", "Coach account is not active.");
         var cls = await db.Set<Class>().AsNoTracking().Include(x => x.Sport).SingleOrDefaultAsync(x => x.ClassId == classId, ct)
             ?? throw new NotFoundException("class_not_found", "Class not found.");
-        if (cls.Status is not (ClassStatus.Published or ClassStatus.InProgress) || cls.CoachId != coachId)
+        if (cls.Status is not (ClassStatus.Published or ClassStatus.InProgress))
+            throw new ForbiddenException("class_access_ended", "Access is no longer available for this class.");
+        if (cls.CoachId != coachId && !await db.Set<ClassSession>().AnyAsync(x => x.ClassId == classId && x.CoachId == coachId && x.Status != ClassSessionStatus.Cancelled, ct))
             throw new ForbiddenException("class_not_assigned", "You are not assigned to this class.");
         return cls;
     }
@@ -160,16 +160,19 @@ public sealed class ClassTeachingService(ISportHubDbContext db, IUserAccessReade
     public async Task<object> RecordsAsync(int classId, Guid actorId, bool member, int page, CancellationToken ct, Guid? memberId = null)
     {
         if (member) {
-            if (!await db.Set<Enrollment>().AnyAsync(x => x.ClassId == classId && x.MemberId == actorId
-                    && x.Status == EnrollmentStatus.Confirmed && x.EndedAt == null
-                    && (x.Class!.Status == ClassStatus.Published || x.Class.Status == ClassStatus.InProgress
-                        || x.Class.Status == ClassStatus.Completed), ct))
-                throw new ForbiddenException("class_not_enrolled", "You do not have an active enrollment in this class.");
+            await MemberClassAccess.RequireAsync(db, actorId, classId, clock.UtcNow, ct);
         } else await RequireClassAsync(classId, actorId, ct);
         if (!member && memberId.HasValue && !await db.Set<Enrollment>().AnyAsync(x => x.ClassId == classId && x.MemberId == memberId && x.Status == EnrollmentStatus.Confirmed, ct))
             throw new ForbiddenException("member_not_in_class", "Student is not registered in this class.");
         if (page < 1 || page > 10000) throw new BadRequestException("invalid_page", "Invalid page.");
         var query = db.Set<ClassTeachingRecord>().AsNoTracking().Where(x => x.ClassId == classId);
+        if (!member) {
+            var primary = await CoachDataScope.Classes(db, actorId).AnyAsync(c => c.ClassId == classId, ct);
+            query = query.Where(r => r.MemberId == null || db.Set<Enrollment>().Any(e => e.ClassId == classId
+                && e.MemberId == r.MemberId && e.Status == EnrollmentStatus.Confirmed));
+            if (!primary) query = query.Where(r => r.SessionId != null && db.Set<ClassSession>().Any(s => s.SessionId == r.SessionId
+                && s.CoachId == actorId && s.Status != ClassSessionStatus.Cancelled));
+        }
         if (member) query = query.Where(x => x.MemberId == null || x.MemberId == actorId);
         else if (memberId.HasValue) query = query.Where(x => x.MemberId == memberId || (x.MemberId == null && x.Kind == "PLAN"));
         var total = await query.CountAsync(ct);
@@ -178,21 +181,26 @@ public sealed class ClassTeachingService(ISportHubDbContext db, IUserAccessReade
         return new { items, page, pageSize = 100, totalCount = total };
     }
 
-    public async Task<IReadOnlyList<TeachingMember>> MembersAsync(int classId, Guid coachId, CancellationToken ct, Guid? memberId = null)
+    public async Task<IReadOnlyList<TeachingMember>> MembersAsync(int classId, Guid coachId, CancellationToken ct, Guid? memberId = null, Guid? sessionId = null)
     {
-        await RequireClassAsync(classId, coachId, ct);
+        var cls = await RequireClassAsync(classId, coachId, ct);
+        var substitute = cls.CoachId != coachId;
+        if (substitute && (!sessionId.HasValue || !await db.Set<ClassSession>().AnyAsync(s => s.SessionId == sessionId
+                && s.ClassId == classId && s.CoachId == coachId && s.Status != ClassSessionStatus.Cancelled, ct)))
+            throw new ForbiddenException("session_scope_required", "Substitute coaches must open students from their assigned session.");
         var ids = await db.Set<Enrollment>().Where(x => x.ClassId == classId && x.Status == EnrollmentStatus.Confirmed && (!memberId.HasValue || x.MemberId == memberId))
             .Select(x => x.MemberId).Distinct().ToListAsync(ct);
         if (memberId.HasValue && ids.Count == 0)
             throw new ForbiddenException("member_not_in_class", "Student is not registered in this class.");
         var profiles = await db.Set<MemberTrainingProfile>().AsNoTracking().Where(x => ids.Contains(x.MemberId)).ToDictionaryAsync(x => x.MemberId, ct);
-        var attendance = await db.Set<Attendance>().AsNoTracking().Where(x => x.Enrollment!.ClassId == classId && ids.Contains(x.Enrollment.MemberId))
+        var attendance = await db.Set<Attendance>().AsNoTracking().Where(x => x.Enrollment!.ClassId == classId && ids.Contains(x.Enrollment.MemberId)
+            && (!substitute || x.SessionId == sessionId))
             .Select(x => new { x.Enrollment!.MemberId, x.Status }).ToListAsync(ct);
         var members = new List<TeachingMember>();
         foreach (var id in ids) {
             var user = await users.GetAsync(id, ct);
             profiles.TryGetValue(id, out var p);
-            members.Add(new(id, user?.FullName ?? "", user?.Email ?? "", p?.Goal, p?.ExperienceLevel.ToString(), p?.Notes,
+            members.Add(new(id, user?.FullName ?? "", user?.Email ?? "", substitute ? null : p?.Goal, substitute ? null : p?.ExperienceLevel.ToString(), substitute ? null : p?.Notes,
                 attendance.Count(x => x.MemberId == id && x.Status == AttendanceStatus.Present),
                 attendance.Count(x => x.MemberId == id && x.Status == AttendanceStatus.Absent)));
         }

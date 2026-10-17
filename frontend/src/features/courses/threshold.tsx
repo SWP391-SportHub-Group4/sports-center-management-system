@@ -183,7 +183,9 @@ export function ThresholdPanel({
                 {formatDateTime(data.deadlineUtc)}
               </p>
               <StatusChip value={data.resolutionStatus} />{" "}
-              {data.choice && <StatusChip value={data.choice} />}
+              {data.choice && (
+                <StatusChip value={data.choice} label={labels[data.choice]} />
+              )}
             </header>
             {!data.choice && (
               <p className={styles.value}>
@@ -209,6 +211,14 @@ export function ThresholdPanel({
                   </>
                 )}
               </p>
+            )}
+            {data.choice === "WAIT_NEXT_COURSE" && (
+              <Link
+                className="btn btn--secondary"
+                href="/member/services?view=owned&tab=interests"
+              >
+                Manage course interests
+              </Link>
             )}
             {!closed && (
               <>
@@ -245,6 +255,18 @@ export function ThresholdPanel({
                     </label>
                   ))}
                 </fieldset>
+                {choice === "WAIT_NEXT_COURSE" && (
+                  <div className={styles.notice} role="status">
+                    <p>
+                      Your refundable balance returns as points. We will notify
+                      you when the next cohort of this program opens. No seat is
+                      reserved.
+                    </p>
+                    <Link href="/member/services?view=owned&tab=interests">
+                      {l.interests}
+                    </Link>
+                  </div>
+                )}
                 {choice === "TRANSFER" && (
                   <div className={styles.details}>
                     <p>{l.targetHint}</p>

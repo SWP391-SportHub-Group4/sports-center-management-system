@@ -2,6 +2,9 @@
   display: grid;
   gap: var(--space-4);
   min-width: 0;
+  height: 100%;
+  grid-template-rows: minmax(108px, auto) minmax(80px, auto) 1fr;
+  gap: var(--space-5);
 }
 .header {
   display: flex;
@@ -9,6 +12,43 @@
   justify-content: space-between;
   flex-wrap: wrap;
   gap: var(--space-3);
+}
+.selection {
+  display: grid;
+  align-content: start;
+  gap: var(--space-2);
+  min-width: 0;
+  font-size: var(--text-sm);
+}
+.selection strong {
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface-sunken);
+  overflow-wrap: anywhere;
+}
+.summaryCard {
+  display: flex;
+  flex-direction: column;
+  min-height: 380px;
+}
+.summaryCard > button {
+  margin-top: auto;
+}
+.summaryCard dl {
+  margin-bottom: var(--space-5);
+}
+.summaryCard .lastUpdated {
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+.header > div {
+  flex: 1 1 200px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.header > button {
+  flex-basis: 100%;
 }
 .header h3 {
   margin: 0;

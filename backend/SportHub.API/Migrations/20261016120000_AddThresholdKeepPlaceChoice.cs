@@ -11,7 +11,7 @@ public sealed class AddThresholdKeepPlaceChoice : Migration
     protected override void Up(MigrationBuilder migrationBuilder)
     {
         migrationBuilder.Sql("ALTER TABLE class_threshold_responses DROP CONSTRAINT ck_class_threshold_response_choice_target;");
-        migrationBuilder.Sql("ALTER TABLE class_threshold_responses ADD CONSTRAINT ck_class_threshold_response_choice_target CHECK ((choice IS NULL AND target_class_id IS NULL) OR (choice IN (0, 2) AND target_class_id IS NULL) OR (choice = 1 AND target_class_id IS NOT NULL));");
+        migrationBuilder.Sql("ALTER TABLE class_threshold_responses ADD CONSTRAINT ck_class_threshold_response_choice_target CHECK ((choice IS NULL AND target_class_id IS NULL) OR (choice IN (0, 2, 3) AND target_class_id IS NULL) OR (choice = 1 AND target_class_id IS NOT NULL));");
     }
 
     protected override void Down(MigrationBuilder migrationBuilder)

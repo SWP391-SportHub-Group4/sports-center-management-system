@@ -88,7 +88,7 @@ public sealed class TrainingProfileTests(SportHubApiFactory factory)
     }
 
     [Fact]
-    public async Task Health_profile_is_readable_only_by_manager_and_a_coach_with_an_active_relationship()
+    public async Task Health_profile_is_readable_only_by_manager_and_a_coach_of_an_active_class()
     {
         var member = await factory.SeedUserAsync($"profile-scope-{Guid.NewGuid():N}@example.com", null);
         var assignedCoach = await factory.SeedUserAsync($"coach-yes-{Guid.NewGuid():N}@example.com", null, role: UserRole.Coach);
@@ -109,6 +109,7 @@ public sealed class TrainingProfileTests(SportHubApiFactory factory)
         }
 
         await As(member.UserId, UserRole.Member).PutAsJsonAsync("api/members/me/training-profile", ValidProfile());
+        await CoachClassScopeData.AssignAsync(factory, assignedCoach.UserId, member.UserId);
         var path = $"api/members/{member.UserId}/training-profile";
 
         Assert.Equal(HttpStatusCode.OK, (await As(manager.UserId, UserRole.CenterManager).GetAsync(path)).StatusCode);

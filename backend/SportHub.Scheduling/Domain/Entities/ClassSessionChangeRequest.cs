@@ -23,4 +23,5 @@ public sealed class ClassSessionChangeRequest
     public string? ReviewNote { get; set; }
     public string? ResolutionType { get; set; }
     public Guid? ResultSessionId { get; set; }
+    public string? OutcomeSnapshotJson { get; set; }
 }

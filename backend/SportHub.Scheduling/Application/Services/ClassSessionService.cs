@@ -32,6 +32,7 @@ public sealed class ClassSessionService(
     IClock clock) : IClassSessionService
 {
     private static readonly TimeSpan AttendanceGrace = SessionAttendanceWindow.CorrectionWindow;
+    private readonly ClassScheduleEffects scheduleEffects = new(db, users, notifications, audit, clock);
 
     // ---------------------------------------------------------------- Truy vấn
 
@@ -40,10 +41,9 @@ public sealed class ClassSessionService(
     {
         await EnsureClassAccessAsync(classId, restrictToCoachId, ct);
 
-        var sessions = db.Set<ClassSession>().AsNoTracking().Where(s => s.ClassId == classId);
-        if (restrictToCoachId is Guid coachId && !await db.Set<Class>().AnyAsync(c => c.ClassId == classId && c.CoachId == coachId, ct))
-            sessions = sessions.Where(s => s.CoachId == coachId);
-        var rows = await Rows(sessions.OrderBy(s => s.SessionNo)).ToListAsync(ct);
+        var primary = restrictToCoachId == null || await CoachDataScope.Classes(db, restrictToCoachId.Value).AnyAsync(c => c.ClassId == classId, ct);
+        var rows = await Rows(db.Set<ClassSession>().AsNoTracking().Where(s => s.ClassId == classId
+            && (primary || s.CoachId == restrictToCoachId && s.Status != ClassSessionStatus.Cancelled)).OrderBy(s => s.SessionNo)).ToListAsync(ct);
         return await ToResponsesAsync(rows, ct);
     }
 
@@ -73,7 +73,7 @@ public sealed class ClassSessionService(
                              join a in db.Set<Attendance>().AsNoTracking().Where(x => x.SessionId == sessionId)
                                  on e.EnrollmentId equals a.EnrollmentId into att
                              from a in att.DefaultIfEmpty()
-                             where e.Status == EnrollmentStatus.Confirmed
+                             where e.Status == EnrollmentStatus.Confirmed || (restrictToCoachId == null && a != null)
                              orderby e.EnrolledAt
                              select new { e.EnrollmentId, e.MemberId, e.Status, AttStatus = (AttendanceStatus?)a!.Status, AttAt = (DateTime?)a.RecordedAt })
             .ToListAsync(ct);
@@ -166,8 +166,8 @@ public sealed class ClassSessionService(
 
         var oldStart = session.StartAtUtc;
         var oldEnd = session.EndAtUtc;
-        var oldRoomId = session.RoomId;
-        var oldCoachId = session.CoachId;
+        var oldCoach = session.CoachId;
+        var oldRoom = session.RoomId;
         session.StartAtUtc = start;
         session.EndAtUtc = end;
         session.RoomId = roomId;
@@ -175,25 +175,15 @@ public sealed class ClassSessionService(
 
         audit.Write(new AuditEntry(actorUserId, "RESCHEDULE_CLASS_SESSION", nameof(ClassSession), sessionId.ToString(),
             OldValue: before, NewValue: Describe(session), Reason: request.Reason.Trim()));
-        await RecordFenceStepAsync(IncidentFenceStepKind.Reschedule, session, oldStart, oldEnd, oldRoomId, oldCoachId,
+        await RecordFenceStepAsync(IncidentFenceStepKind.Reschedule, session, oldStart, oldEnd, oldRoom, oldCoach,
             null, start, roomId, coachId, actorUserId, ct);
 
-        var memberMessage = oldStart == start && oldCoachId != coachId
-            ? $"The coach for session {session.SessionNo} of course {cls.Name} has changed. The session remains at {Local(start)}. Reason: {request.Reason.Trim()}"
-            : $"Session {session.SessionNo} of course {cls.Name} moved from {Local(oldStart)} to {Local(start)}. Reason: {request.Reason.Trim()}";
-        await NotifyEnrolledAsync(cls, Guid.NewGuid(), memberMessage, ct);
-        if (oldCoachId != coachId)
-        {
-            var replacement = await users.GetAsync(coachId, ct);
-            if (replacement is not null)
-            {
-                var message = $"You have been assigned to session {session.SessionNo} of course {cls.Name} at {Local(start)}. Review your teaching schedule.";
-                notifications.Queue(new NotificationRequest(coachId, NotificationEvents.ScheduleChanged, message));
-                notifications.QueueEmail(new EmailNotificationRequest(coachId, replacement.Email,
-                    NotificationEvents.ScheduleChanged, Guid.NewGuid(), "SportHub - Teaching assignment changed",
-                    "<p>" + System.Net.WebUtility.HtmlEncode(message) + "</p>"));
-            }
-        }
+        var oldCoachName = (await users.GetAsync(oldCoach, ct))?.FullName ?? oldCoach.ToString();
+        var nextCoachName = (await users.GetAsync(coachId, ct))?.FullName ?? coachId.ToString();
+        var message = $"Session {session.SessionNo} · {cls.Name}: {Local(oldStart)} → {Local(start)}. Coach: {oldCoachName} → {nextCoachName}. Room: {oldRoom} → {roomId}. Reason: {request.Reason.Trim()}";
+        await NotifyEnrolledAsync(cls, Guid.NewGuid(), message, ct);
+        await scheduleEffects.ApplyAsync(cls, session, actorUserId, oldCoach, sessionId, coachId, message, ct,
+            start != oldStart ? "RESCHEDULE" : coachId != oldCoach ? "SUBSTITUTE" : roomId != oldRoom ? "ROOM_CHANGED" : "SCHEDULE_UPDATED", request.Reason.Trim());
 
         await db.SaveChangesAsync(ct);
         if (tx != null) await tx.CommitAsync(ct);
@@ -280,6 +270,9 @@ public sealed class ClassSessionService(
 
         await NotifyEnrolledAsync(cls, newSession.SessionId,
             $"Session {session.SessionNo} ({Local(session.StartAtUtc)}) of course {cls.Name} was canceled and rescheduled for {Local(start)}. Reason: {request.Reason.Trim()}", ct);
+        await scheduleEffects.ApplyAsync(cls, session, actorUserId, session.CoachId, newSession.SessionId, coachId,
+            $"Session {session.SessionNo} · {cls.Name} at {Local(session.StartAtUtc)} was cancelled. Makeup: {Local(start)}. Coach: {(await users.GetAsync(coachId, ct))?.FullName}. Reason: {request.Reason.Trim()}", ct,
+            "CANCEL_WITH_MAKEUP", request.Reason.Trim());
 
         await db.SaveChangesAsync(ct);
         if (tx != null) await tx.CommitAsync(ct);
@@ -476,26 +469,27 @@ public sealed class ClassSessionService(
     {
         var coachId = await db.Set<Class>().AsNoTracking()
             .Where(c => c.ClassId == classId)
-            .Select(c => new { c.CoachId, c.Status })
+            .Select(c => new { Found = true, c.CoachId, c.Status })
             .SingleOrDefaultAsync(ct)
             ?? throw new NotFoundException("class_not_found", "Class not found.");
 
-        if (restrictToCoachId is Guid id && (coachId.Status is not (ClassStatus.Published or ClassStatus.InProgress)
-            || (coachId.CoachId != id &&
-                !await db.Set<ClassSession>().AnyAsync(s => s.ClassId == classId && s.CoachId == id, ct))))
+        if (restrictToCoachId != null && coachId.Status is not (ClassStatus.Published or ClassStatus.InProgress))
+            throw new ForbiddenException("class_access_ended", "Access is no longer available for this class.");
+        if (restrictToCoachId is Guid id && coachId.CoachId != id &&
+            !await db.Set<ClassSession>().AnyAsync(s => s.ClassId == classId && s.CoachId == id && s.Status != ClassSessionStatus.Cancelled, ct))
         {
             throw new ForbiddenException("class_not_owned", "Class not owned.");
         }
     }
 
-    private async Task EnsureSessionAccessAsync(ClassSession session, Guid? restrictToCoachId, CancellationToken ct)
-    {
-        if (restrictToCoachId is Guid id && session.CoachId != id
-            && !await db.Set<Class>().AnyAsync(c => c.ClassId == session.ClassId && c.CoachId == id, ct))
-            throw new ForbiddenException("session_not_assigned", "Session not assigned.");
-    }
-
     private sealed record Row(ClassSession Session, string ClassName, string RoomName);
+
+    private async Task EnsureSessionAccessAsync(ClassSession session, Guid? coachId, CancellationToken ct)
+    {
+        if (coachId.HasValue && (session.CoachId != coachId || session.Status == ClassSessionStatus.Cancelled) &&
+            !await CoachDataScope.Classes(db, coachId.Value).AnyAsync(c => c.ClassId == session.ClassId, ct))
+            throw new ForbiddenException("session_not_assigned", "You are not assigned to this session.");
+    }
 
     private static IQueryable<Row> Rows(IQueryable<ClassSession> sessions)
         => sessions.Select(s => new Row(s, s.Class!.Name, s.Room!.Name));

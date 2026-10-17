@@ -20,7 +20,9 @@ import { teachingApi, type TeachingStudent } from "./teaching-api";
 import { ptApi } from "./api";
 import { TeachingDetail } from "./coach-workspace";
 import { StudentLearningHistory } from "./student-assessment-history";
+import { StudentCurrentAssessments } from "./student-current-assessments";
 import { StudentPhysicalProfile } from "./student-physical-profile";
+import { useCoachAccess } from "./use-coach-access";
 import styles from "./coach-students.module.css";
 
 export function CoachStudentDirectory() {
@@ -171,10 +173,21 @@ export function CoachStudentDirectory() {
 }
 
 export function CoachStudentProfile({ memberId }: { memberId: string }) {
+  const revoked = useCoachAccess(
+    (signal) => teachingApi.student(memberId, signal),
+    memberId,
+  );
   const state = useApi(
     (signal) => teachingApi.student(memberId, signal),
     [memberId],
   );
+  if (revoked)
+    return (
+      <p role="status">
+        Access is no longer available.{" "}
+        <Link href="/coach/members">Back to students</Link>
+      </p>
+    );
   return (
     <AsyncSection state={state}>
       {(student) => <StudentProfileContent key={memberId} student={student} />}
@@ -388,31 +401,60 @@ function CurrentStudentClass({
   onEditingStateChange: (value: { dirty: boolean; busy: boolean }) => void;
 }) {
   const { language } = useLanguage();
+  const revoked = useCoachAccess(
+    (signal) => teachingApi.members(classId, signal, student.memberId),
+    `${classId}:${student.memberId}`,
+  );
   const state = useApi(
     async (signal) => {
-      const [courses, members] = await Promise.all([
+      const [courses, members, records, sessions] = await Promise.all([
         ptApi.classes(signal),
         teachingApi.members(classId, signal, student.memberId),
+        view === "feedback"
+          ? teachingApi.records(classId, signal, false, student.memberId)
+          : Promise.resolve([]),
+        view === "feedback"
+          ? ptApi.classSessions(classId, signal)
+          : Promise.resolve([]),
       ]);
       return {
         course: courses.find((c) => c.classId === classId),
         member: members[0],
+        records,
+        sessions,
       };
     },
-    [classId, student.memberId],
+    [classId, student.memberId, view],
   );
+  if (revoked)
+    return (
+      <p role="status">
+        Access is no longer available.{" "}
+        <Link href="/coach/members">Back to students</Link>
+      </p>
+    );
   return (
     <AsyncSection state={state}>
-      {({ course, member }) =>
+      {({ course, member, records, sessions }) =>
         course && member ? (
-          <TeachingDetail
-            fullPage
-            initialTab={view}
-            hideNavigation
-            selection={{ course, member }}
-            onClose={onClose}
-            onEditingStateChange={onEditingStateChange}
-          />
+          view === "feedback" ? (
+            <StudentCurrentAssessments
+              className={course.name}
+              records={records.filter(
+                (record) => record.memberId === student.memberId,
+              )}
+              sessions={sessions}
+            />
+          ) : (
+            <TeachingDetail
+              fullPage
+              initialTab={view}
+              hideNavigation
+              selection={{ course, member }}
+              onClose={onClose}
+              onEditingStateChange={onEditingStateChange}
+            />
+          )
         ) : (
           <p role="status">
             {language === "vi"

@@ -44,7 +44,7 @@ export function CoachProfile({
     <div className={styles.page}>
       <Link
         className={styles.back}
-        href={publicView ? "/coaches" : "/member/schedule"}
+        href={publicView ? "/coaches" : "/member/services"}
       >
         {publicView
           ? vi

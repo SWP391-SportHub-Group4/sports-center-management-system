@@ -6,9 +6,11 @@ import { CoachProfilePreview } from "@/components/CoachProfilePreview";
 import {
   isRetiredActivityPackage,
   parseMembershipCatalog,
+  membershipPurchaseState,
+  useMembershipDay,
 } from "@/features/membership";
 import { api } from "@/lib/apiClient";
-import { addDaysIso, formatDate, formatMoney, todayIso } from "@/lib/format";
+import { addDaysIso, formatDate, formatMoney } from "@/lib/format";
 import { useLanguage } from "@/lib/language";
 import { hasService } from "@/lib/sports";
 import { useApi } from "@/lib/useApi";
@@ -69,6 +71,7 @@ export function ExplorePackages({
       ).filter((row) => !isRetiredActivityPackage(row.packageName)),
     [],
   );
+  const today = useMembershipDay(owned.reload);
   const catalog = useApi(
     async (signal) =>
       parseMembershipCatalog(
@@ -144,17 +147,6 @@ export function ExplorePackages({
   };
   const show = (kind: ServiceKind) => filter === "all" || filter === kind;
 
-  const pendingPlan = (packageId: number) =>
-    owned.data?.find(
-      (o) =>
-        o.packageId === packageId &&
-        o.status.toUpperCase() === "PENDING_PAYMENT",
-    );
-  const activePlan = (packageId: number) =>
-    owned.data?.find(
-      (o) => o.packageId === packageId && o.status.toUpperCase() === "ACTIVE",
-    );
-  const today = todayIso();
   const latestEnd = (owned.data ?? [])
     .filter(
       (o) =>
@@ -218,6 +210,15 @@ export function ExplorePackages({
                 onRetry={catalog.reload}
                 label={tx("Tải lại", "Reload")}
               />
+            ) : owned.error ? (
+              <Retry
+                message={tx(
+                  "Chưa tải được các gói đã mua.",
+                  "Could not load your purchased plans.",
+                )}
+                onRetry={owned.reload}
+                label={tx("Tải lại", "Reload")}
+              />
             ) : (
               <div
                 className={styles.tiers}
@@ -230,8 +231,13 @@ export function ExplorePackages({
                     key={p.packageId}
                     plan={p}
                     baseMonthly={baseMonthly}
-                    pending={!!pendingPlan(p.packageId)}
-                    active={activePlan(p.packageId)}
+                    ownership={membershipPurchaseState(
+                      owned.data ?? [],
+                      p.packageId,
+                      today,
+                    )}
+                    ownershipLoading={owned.loading}
+                    today={today}
                     start={membershipStart}
                     busy={checkout.busyId === `gym:${p.packageId}`}
                     error={
@@ -366,8 +372,9 @@ function Retry({
 function GymTier({
   plan,
   baseMonthly,
-  pending,
-  active,
+  ownership,
+  ownershipLoading,
+  today,
   start,
   busy,
   error,
@@ -376,8 +383,9 @@ function GymTier({
 }: {
   plan: MembershipPackageDto;
   baseMonthly: number | null;
-  pending: boolean;
-  active?: MemberPackageDto;
+  ownership: ReturnType<typeof membershipPurchaseState>;
+  ownershipLoading: boolean;
+  today: string;
   /** Ngày bắt đầu của gói này: hôm nay, hoặc ngay sau EndDate Membership đang dùng. */
   start: string;
   busy: boolean;
@@ -389,6 +397,9 @@ function GymTier({
   const vi = language === "vi";
   const tx = (v: string, e: string) => (vi ? v : e);
   const dayPass = plan.durationDays === 1;
+  const { active, pending, previouslyPurchased } = ownership;
+  const dayPassOwned =
+    dayPass && !!active && active.startDate.slice(0, 10) <= today;
   const months = monthsOf(plan.durationDays);
   const original =
     plan.originalPrice ?? (!dayPass && baseMonthly ? baseMonthly * months : 0);
@@ -452,14 +463,18 @@ function GymTier({
         <button
           type="button"
           className={styles.cta}
-          disabled={busy}
+          disabled={busy || ownershipLoading || dayPassOwned}
           onClick={onChoose}
         >
-          {busy
-            ? tx("Đang chuyển…", "Redirecting…")
-            : active
-              ? tx("Gia hạn gói", "Renew plan")
-              : tx("Chọn gói", "Choose plan")}
+          {ownershipLoading
+            ? tx("Đang tải…", "Loading…")
+            : dayPassOwned
+              ? tx("Đã mua", "Purchased")
+              : busy
+                ? tx("Đang chuyển…", "Redirecting…")
+                : previouslyPurchased
+                  ? tx("Gia hạn gói", "Renew plan")
+                  : tx("Chọn gói", "Choose plan")}
         </button>
       )}
       {error && (

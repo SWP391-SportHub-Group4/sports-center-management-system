@@ -1,6 +1,14 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type CSSProperties } from "react";
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type CSSProperties,
+} from "react";
+import { createPortal } from "react-dom";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { AvatarImage } from "./AvatarImage";
@@ -16,6 +24,10 @@ type Coach = {
   philosophy?: string | null;
 };
 
+const subscribeToClient = () => () => {};
+const clientSnapshot = () => true;
+const serverSnapshot = () => false;
+
 /** Native popover uses the top layer, including inside clipped class cards. */
 export function CoachProfilePreview({
   coachId,
@@ -27,6 +39,11 @@ export function CoachProfilePreview({
   sport?: string | null;
 }) {
   const id = useId();
+  const mounted = useSyncExternalStore(
+    subscribeToClient,
+    clientSnapshot,
+    serverSnapshot,
+  );
   const panel = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -120,72 +137,79 @@ export function CoachProfilePreview({
       >
         {name}
       </button>
-      <div
-        id={id}
-        ref={panel}
-        popover="auto"
-        className={styles.panel}
-        style={position}
-        role="region"
-        aria-label={`Coach profile: ${name}`}
-        onToggle={(event) => {
-          clearTimer();
-          setOpen(event.newState === "open");
-        }}
-        onPointerEnter={clearTimer}
-        onPointerLeave={(event) => {
-          if (event.pointerType !== "touch") hideLater();
-        }}
-        onBlur={(event) => {
-          if (
-            !event.currentTarget.contains(event.relatedTarget) &&
-            event.relatedTarget !== trigger.current
-          )
-            hideLater();
-        }}
-      >
-        <div className={styles.identity}>
-          <AvatarImage
-            name={coach?.fullName || name}
-            avatarUrl={coach?.avatarUrl}
-            size={64}
-          />
-          <div>
-            <p className={styles.title}>{coach?.title || "Coach"}</p>
-            <h3>{coach?.fullName || name}</h3>
-            {sport && <p className={styles.sport}>{sport}</p>}
-          </div>
-        </div>
-        {details.loading ? (
-          <p className={styles.note} role="status">
-            Loading coach profile…
-          </p>
-        ) : details.error ? (
-          <div className={styles.note} role="alert">
-            <p>Could not load this profile.</p>
-            <button type="button" onClick={details.reload}>
-              Try again
-            </button>
-          </div>
-        ) : coach ? (
-          <>
-            {coach.yearsExperience != null && (
-              <p className={styles.experience}>
-                {coach.yearsExperience}{" "}
-                {coach.yearsExperience === 1 ? "year" : "years"} of experience
+      {mounted &&
+        createPortal(
+          <div
+            id={id}
+            ref={panel}
+            popover="auto"
+            className={styles.panel}
+            style={position}
+            role="region"
+            aria-label={`Coach profile: ${name}`}
+            onToggle={(event) => {
+              clearTimer();
+              setOpen(event.newState === "open");
+            }}
+            onPointerEnter={clearTimer}
+            onPointerLeave={(event) => {
+              if (event.pointerType !== "touch") hideLater();
+            }}
+            onBlur={(event) => {
+              if (
+                !event.currentTarget.contains(event.relatedTarget) &&
+                event.relatedTarget !== trigger.current
+              )
+                hideLater();
+            }}
+          >
+            <div className={styles.identity}>
+              <AvatarImage
+                name={coach?.fullName || name}
+                avatarUrl={coach?.avatarUrl}
+                size={64}
+              />
+              <div>
+                <p className={styles.title}>{coach?.title || "Coach"}</p>
+                <h3>{coach?.fullName || name}</h3>
+                {sport && <p className={styles.sport}>{sport}</p>}
+              </div>
+            </div>
+            {details.loading ? (
+              <p className={styles.note} role="status">
+                Loading coach profile…
+              </p>
+            ) : details.error ? (
+              <div className={styles.note} role="alert">
+                <p>Could not load this profile.</p>
+                <button type="button" onClick={details.reload}>
+                  Try again
+                </button>
+              </div>
+            ) : coach ? (
+              <>
+                {coach.yearsExperience != null && (
+                  <p className={styles.experience}>
+                    {coach.yearsExperience}{" "}
+                    {coach.yearsExperience === 1 ? "year" : "years"} of
+                    experience
+                  </p>
+                )}
+                <p className={styles.bio}>
+                  {coach.bio || "This coach has not added a biography yet."}
+                </p>
+                {coach.philosophy && (
+                  <p className={styles.philosophy}>{coach.philosophy}</p>
+                )}
+              </>
+            ) : (
+              <p className={styles.note}>
+                Coach profile is currently unavailable.
               </p>
             )}
-            <p className={styles.bio}>
-              {coach.bio || "This coach has not added a biography yet."}
-            </p>
-            {coach.philosophy && (
-              <p className={styles.philosophy}>{coach.philosophy}</p>
-            )}
-          </>
-        ) : (
-          <p className={styles.note}>Coach profile is currently unavailable.</p>
+          </div>,
+          document.body,
         )}
-      </div>
     </>
   );
 }

@@ -17,6 +17,7 @@ import { AsyncSection, Feedback } from "@/components/ui";
 import { CourseSticker } from "@/features/courses";
 import { useApi, useAction, useNow } from "@/lib/useApi";
 import { useAuth } from "@/lib/auth";
+import { ApiError } from "@/lib/apiClient";
 import { useLanguage } from "@/lib/language";
 import { addDaysIso, todayIso, formatDateTime, formatTime } from "@/lib/format";
 import type { CourseDto, CourseSessionDto } from "@/lib/types";
@@ -35,6 +36,7 @@ import { CoachClassChanges } from "./coach-class-change";
 import { ClassStudents } from "./class-students";
 import { StudentPhysicalProfile } from "./student-physical-profile";
 import { ClassDirectory } from "./class-directory";
+import { useCoachAccess } from "./use-coach-access";
 
 export type WorkspaceMode = "schedule" | "classes" | "students";
 type Selection = {
@@ -77,9 +79,15 @@ export function CoachWorkspace({
       )
         .flat()
         .filter((s) => s.coachId === user?.userId);
-      return { classes, sessions };
+      return {
+        classes:
+          mode === "schedule"
+            ? classes
+            : classes.filter((c) => c.coachId === user?.userId),
+        sessions,
+      };
     },
-    [user?.userId],
+    [user?.userId, mode],
   );
   const initial = state.data?.classes.find((c) => c.classId === initialClassId);
   const current = selection ?? (initial ? { course: initial } : null);
@@ -440,7 +448,12 @@ export function TeachingDetail({
   const state = useApi(
     async (signal) => {
       const [members, records, sessions, roster] = await Promise.all([
-        teachingApi.members(course.classId, signal, member?.memberId),
+        teachingApi.members(
+          course.classId,
+          signal,
+          member?.memberId,
+          session?.sessionId,
+        ),
         teachingApi.records(course.classId, signal, false, member?.memberId),
         ptApi.classSessions(course.classId, signal),
         session
@@ -476,7 +489,7 @@ export function TeachingDetail({
           { id: "communication", label: vi ? "Bài tập" : "Homework" },
           {
             id: "changes",
-            label: vi ? "Đổi lịch" : "Changes",
+            label: vi ? "Yêu cầu" : "Request",
           },
         ]
       : [
@@ -488,10 +501,36 @@ export function TeachingDetail({
           { id: "communication", label: vi ? "Thông báo" : "Notices" },
         ];
   const writable =
-    !/cancel|draft/i.test(course.status) &&
+    !/cancel|draft|completed/i.test(course.status) &&
     (session
       ? session.coachId === user?.userId && !/cancel/i.test(session.status)
       : course.coachId === user?.userId);
+  const substitute = !!user && course.coachId !== user.userId;
+  const revoked = useCoachAccess(
+    async (signal) => {
+      const currentMembers = await teachingApi.members(
+        course.classId,
+        signal,
+        member?.memberId,
+        session?.sessionId,
+      );
+      if (
+        state.data?.members.some(
+          (previous) =>
+            !currentMembers.some(
+              (current) => current.memberId === previous.memberId,
+            ),
+        )
+      )
+        throw new ApiError(
+          403,
+          "student_access_changed",
+          "Student access has changed. Reopen the session to refresh its students.",
+        );
+      return currentMembers;
+    },
+    `${course.classId}:${session?.sessionId ?? ""}:${member?.memberId ?? ""}`,
+  );
   const begin = (kind: TeachingRecord["kind"], memberId?: string) => {
     setSaved(null);
     setEditor({
@@ -500,6 +539,15 @@ export function TeachingDetail({
       scope: kind === "PLAN" && memberId ? "personal" : undefined,
     });
   };
+  if (revoked)
+    return (
+      <p role="status">
+        Access is no longer available.{" "}
+        <button type="button" className="btn btn--quiet" onClick={onClose}>
+          Close
+        </button>
+      </p>
+    );
   return (
     <TeachingDetailFrame
       fullPage={fullPage}
@@ -517,6 +565,11 @@ export function TeachingDetail({
       }}
     >
       <div className={styles.detail}>
+        {substitute && (
+          <p className={styles.muted}>
+            Substitute · Access is limited to this session.
+          </p>
+        )}
         <Feedback error={action.error} success={saved ?? action.success} />
         <AsyncSection state={state}>
           {({ members, records, sessions, roster }) => {
@@ -529,6 +582,10 @@ export function TeachingDetail({
             );
             const profile =
               members.find((m) => m.memberId === member?.memberId) ?? member;
+            const hasAttendanceEntries =
+              roster?.entries.some(
+                (entry) => entry.enrollmentStatus === "CONFIRMED",
+              ) ?? false;
             const attendanceOpen =
               roster &&
               writable &&
@@ -538,6 +595,7 @@ export function TeachingDetail({
               !!session && writable && now >= Date.parse(session.endAtUtc);
             return editor ? (
               <TeachingEditor
+                sessionOnly={substitute}
                 classId={course.classId}
                 kind={editor.kind}
                 members={members}
@@ -607,6 +665,7 @@ export function TeachingDetail({
                     member &&
                     (hideNavigation ? (
                       <StudentCurrentAssessments
+                        className={course.name}
                         records={scoped}
                         sessions={sessions}
                       />
@@ -639,7 +698,7 @@ export function TeachingDetail({
                         sessionId={session?.sessionId}
                         viewMode={session && !member ? "session" : undefined}
                         onViewCoursePlan={
-                          session && !member
+                          session && !member && !substitute
                             ? () =>
                                 router.push(
                                   `/coach/classes/${course.classId}?tab=plans`,
@@ -656,7 +715,9 @@ export function TeachingDetail({
                                 setEditor({
                                   kind: "PLAN",
                                   scope,
-                                  sessionId: selectedSession,
+                                  sessionId: substitute
+                                    ? session?.sessionId
+                                    : selectedSession,
                                   memberId: member?.memberId ?? selectedMember,
                                 });
                               }
@@ -819,7 +880,7 @@ export function TeachingDetail({
                             );
                           })}
                       </div>
-                      {!roster.entries.length && (
+                      {!hasAttendanceEntries && (
                         <Empty
                           sport={course.sportName}
                           text={
@@ -908,11 +969,16 @@ export function TeachingDetail({
                       : "Read only. Only the assigned coach can update this content."}
                   </p>
                 )}
-                {!fullPage && (
-                  <div className={styles.detailSticker} aria-hidden="true">
-                    <CourseSticker sport={course.sportName} compact />
-                  </div>
-                )}
+                {!fullPage &&
+                  !(
+                    tab === "attendance" &&
+                    roster &&
+                    !hasAttendanceEntries
+                  ) && (
+                    <div className={styles.detailSticker} aria-hidden="true">
+                      <CourseSticker sport={course.sportName} compact />
+                    </div>
+                  )}
               </>
             );
           }}

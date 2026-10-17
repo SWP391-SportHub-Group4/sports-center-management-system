@@ -1,3 +1,6 @@
+using Microsoft.EntityFrameworkCore;
+using System.Security.Cryptography;
+using System.Text;
 using Microsoft.AspNetCore.Http;
 using SportHub.AI.Application.DTOs.Chat;
 using SportHub.AI.Application.Interfaces;
@@ -66,6 +69,17 @@ public sealed class AiChatService(
                 question,
                 cancellationToken);
 
+        using var contextDocument = JsonDocument.Parse(context);
+        var scopeFingerprint = contextDocument.RootElement.TryGetProperty("accessScope", out var accessScope)
+            ? Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(accessScope.GetRawText()))) : null;
+        if (previousInteractionId is not null)
+        {
+            var history = await db.Set<AiLog>().AsNoTracking().Where(l => l.UserId == userId && l.QueryType == AiQueryTypes.Chat)
+                .OrderByDescending(l => l.CreatedAt).Take(30)
+                .Select(l => new { l.InputPayload, l.ResponsePayload }).ToListAsync(cancellationToken);
+            var allowed = history.Any(l => MatchesContext(l.InputPayload, l.ResponsePayload, previousInteractionId, scopeFingerprint));
+            if (!allowed) previousInteractionId = null;
+        }
         var stopwatch =
             Stopwatch.StartNew();
 
@@ -116,6 +130,7 @@ public sealed class AiChatService(
                         {
                             question,
                             previousInteractionId,
+                            scopeFingerprint,
 
                             promptVersion =
                                 SportHubAssistantSystemPrompt.Version
@@ -184,4 +199,17 @@ public sealed class AiChatService(
             elapsedMs,
             createdAt);
     }
+    private static bool MatchesContext(string input, string output, string interactionId, string? fingerprint)
+    {
+        if (fingerprint is null) return false;
+        try {
+            using var request = JsonDocument.Parse(input);
+            using var response = JsonDocument.Parse(output);
+            return request.RootElement.ValueKind == JsonValueKind.Object && response.RootElement.ValueKind == JsonValueKind.Object
+                && request.RootElement.TryGetProperty("scopeFingerprint", out var scope) && scope.ValueKind == JsonValueKind.String
+                && scope.GetString() == fingerprint && response.RootElement.TryGetProperty("interactionId", out var id)
+                && id.ValueKind == JsonValueKind.String && id.GetString() == interactionId;
+        } catch (JsonException) { return false; }
+    }
+
 }

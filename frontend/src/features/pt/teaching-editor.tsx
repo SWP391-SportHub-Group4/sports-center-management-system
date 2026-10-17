@@ -27,6 +27,7 @@ export function TeachingEditor({
   existing,
   planScope,
   lockedMemberId,
+  sessionOnly = false,
   onSaved,
   onClose,
   onStateChange,
@@ -40,6 +41,7 @@ export function TeachingEditor({
   existing?: TeachingRecord;
   planScope?: PlanScope;
   lockedMemberId?: string;
+  sessionOnly?: boolean;
   onSaved: () => void;
   onClose: () => void;
   onStateChange: (state: { dirty: boolean; busy: boolean }) => void;
@@ -172,7 +174,7 @@ export function TeachingEditor({
                 setSuggestion("");
               }}
             >
-              <option value="course">
+              <option value="course" disabled={sessionOnly}>
                 {vi
                   ? "Cả khóa · dành cho toàn bộ học viên"
                   : "Course · for all students"}
@@ -305,7 +307,7 @@ export function TeachingEditor({
             disabled={busy}
           />
         </label>
-        {kind === "PLAN" && (
+        {kind === "PLAN" && !sessionOnly && (
           <details className={styles.aiTools}>
             <summary>
               <Sparkles size={16} aria-hidden="true" />

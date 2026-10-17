@@ -78,11 +78,8 @@ public sealed class ThresholdResponseService(ISportHubDbContext db, IClassEnroll
             throw new BadRequestException("invalid_threshold_response", "Invalid threshold response.");
         if (choice == ThresholdResponseChoice.Transfer && targetClassId is null)
             throw new BadRequestException("target_class_required", "Target class required.");
-        if (choice is ThresholdResponseChoice.Refund or ThresholdResponseChoice.WaitNextCourse && targetClassId is not null)
+        if (choice != ThresholdResponseChoice.Transfer && targetClassId is not null)
             throw new BadRequestException("target_class_unexpected", "Target class unexpected.");
-        if (choice == ThresholdResponseChoice.KeepPlace && targetClassId is not null)
-            throw new BadRequestException("target_class_unexpected", "Target class unexpected.");
-
         var tokenHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
         return await RespondHashedAsync(tokenHash, choice, targetClassId, memberId, ct);
     }
@@ -91,8 +88,7 @@ public sealed class ThresholdResponseService(ISportHubDbContext db, IClassEnroll
     {
         if (!Enum.IsDefined(choice)) throw new BadRequestException("invalid_threshold_response", "Invalid threshold response.");
         if (choice == ThresholdResponseChoice.Transfer && targetClassId is null) throw new BadRequestException("target_class_required", "Target class required.");
-        if (choice is ThresholdResponseChoice.Refund or ThresholdResponseChoice.WaitNextCourse && targetClassId is not null) throw new BadRequestException("target_class_unexpected", "Target class unexpected.");
-        if (choice == ThresholdResponseChoice.KeepPlace && targetClassId is not null) throw new BadRequestException("target_class_unexpected", "Target class unexpected.");
+        if (choice != ThresholdResponseChoice.Transfer && targetClassId is not null) throw new BadRequestException("target_class_unexpected", "Target class unexpected.");
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         var rows = await db.Set<ThresholdResponse>().FromSqlInterpolated($"""
             SELECT * FROM class_threshold_responses WHERE token_hash = {tokenHash} FOR UPDATE

@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { AsyncSection, StatusChip } from "@/components/ui";
 import { api } from "@/lib/apiClient";
+import { useAccessGuard } from "@/lib/use-access-guard";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { formatDate, formatTime } from "@/lib/format";
@@ -66,6 +67,9 @@ export function ScheduleCoursePage({
     },
     [classId],
   );
+  const revoked = useAccessGuard(`member-class-${classId}`, (signal) =>
+    courseApi.sessions(classId, true, signal),
+  );
   const enrollment = state.data?.enrollment;
   const name =
     enrollment?.className ??
@@ -87,6 +91,22 @@ export function ScheduleCoursePage({
   const coachAvatar =
     coaches.data?.find((row) => row.fullName === coach)?.avatarUrl ??
     "/sporthub/coaches/minh-khang.webp";
+  if (
+    revoked ||
+    (state.error && "status" in state.error && state.error.status === 403)
+  )
+    return (
+      <section className={styles.page}>
+        <h2>Class access has ended</h2>
+        <p>
+          Your invoices and registration history remain available in Billing and
+          My schedule.
+        </p>
+        <button className="btn btn--secondary" onClick={onBack}>
+          Back to my schedule
+        </button>
+      </section>
+    );
   return (
     <div className={styles.viewport}>
       <article className={styles.page} aria-labelledby="schedule-course-title">
