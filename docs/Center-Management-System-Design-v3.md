@@ -716,7 +716,7 @@ Ràng buộc: unique một phần `(ClassId, MemberId) WHERE Status = 'Active'`.
 | `ResolvedAt` (nullable) | Khi đã xử lý xong |
 
 #### `ATTENDANCE`
-**Mục đích:** kết quả điểm danh của một học viên ở **một buổi của lớp**. Do **Receptionist** điểm danh lớp nhóm (Coach chỉ xem).
+**Mục đích:** kết quả điểm danh của một học viên ở **một buổi của lớp**. Receptionist hoặc Coach được phân công đúng buổi ghi Present/Absent; backend xác thực Coach qua JWT và đối chiếu `sessionId` với phân công hiện hành.
 
 | Field | Vai trò |
 |---|---|

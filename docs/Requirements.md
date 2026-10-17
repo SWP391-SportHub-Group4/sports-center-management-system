@@ -8,7 +8,7 @@ SportHub quản lý trung tâm thể thao với **ba môn Gym, cầu lông và b
 
 Số hóa hoạt động từ tiếp đón, mua dịch vụ, xếp lịch, điểm danh và tập luyện đến thuê sân, thanh toán, hoàn điểm, thông báo và báo cáo. Dữ liệu phải nhất quán giữa năm vai trò và không bán vượt sĩ số hoặc xếp trùng sân/Coach.
 
-Gym dùng Membership có thời hạn và vé Gym 1 ngày (mục 4). Cầu lông/bóng rổ bán khóa học nhiều buổi, độc lập Membership. Mọi Member đều được thuê sân theo giờ; lớp cố định seed sẵn: Bóng rổ và Cầu lông, Thứ 2-4-6 07:00–09:00 và Thứ 3-5-7 14:00–16:00 (BR-141).
+Gym dùng Membership có thời hạn và vé Gym 1 ngày (mục 4); không quản lý dịch vụ PT 1:1. Cầu lông/bóng rổ bán khóa học nhiều buổi, độc lập Membership. Mọi Member đều được thuê sân theo giờ; lớp cố định seed sẵn: Bóng rổ và Cầu lông, Thứ 2-4-6 07:00–09:00 và Thứ 3-5-7 14:00–16:00 (BR-141).
 
 Ngoài phạm vi: đa chi nhánh, payroll/hợp đồng nhân sự, chia doanh thu với người thuê sân, quản lý người đi cùng khi Member thuê sân, mobile native, payment production, hoàn tiền mặt/chuyển khoản và VNPay Refund API.
 
@@ -19,7 +19,7 @@ Ngoài phạm vi: đa chi nhánh, payroll/hợp đồng nhân sự, chia doanh t
 | Guest | Xem **landing page** (trang chủ giới thiệu trung tâm, ba môn, đội Coach, không gian) và trang công khai: khóa/gói, sân, Coach; đăng ký Member hoặc đăng nhập; không đọc dữ liệu cá nhân |
 | Member | Đăng ký và cập nhật tài khoản; xem, đăng ký, gia hạn gói thành viên; xem lớp và lịch học, đăng ký/hủy lớp (giữ chỗ, ghi danh); lịch tập cá nhân và thông tin Coach; lịch sử điểm danh và kết quả tập; kế hoạch tập và nhận xét của Coach; hỏi AI về lịch tập, bài tập, dịch vụ; nhận thông báo (lịch học, đổi lịch, hạn gói). Mở rộng của dự án: mua vé Gym 1 ngày (tự mua trên web), thuê/hủy sân, ví điểm, invoice, hoàn điểm |
 | Receptionist | Tìm và xem thông tin Member; **đăng ký Member mới tại quầy** (nhập email một lần; Member nhận email kích hoạt để tự đặt mật khẩu; chờ kích hoạt thì lễ tân gửi lại link hoặc sửa email gõ sai; quá 7 ngày chưa kích hoạt và chưa có dữ liệu nào thì tài khoản bị gỡ); quản lý đăng ký/gia hạn gói; kiểm tra trạng thái gói và thời hạn; Gym check-in/out và điểm danh; đăng ký lớp hoặc hỗ trợ hủy lớp cho Member; checkout hộ, ghi nhận thanh toán, hóa đơn (*in/xuất hóa đơn chưa thấy trong giao diện*); tiếp nhận và ghi nhận yêu cầu hỗ trợ của Member (*yêu cầu, chưa triển khai*). Dùng điểm của Member cần OTP của Member |
-| Coach | Xem lịch dạy và danh sách học viên lớp phụ trách; xem thông tin cơ bản và mục tiêu tập luyện của học viên được phân công; tạo kế hoạch tập cho cá nhân hoặc cả lớp; ghi kết quả sau buổi; đánh giá tiến độ và nhận xét; điểm danh trong buổi; gửi thông báo cho học viên (*bài tập về nhà đã gỡ khỏi phạm vi triển khai*, không còn homework riêng); dùng AI gợi ý bài tập theo mục tiêu, trình độ, lịch sử. Kế hoạch tập, kết quả, đánh giá và AI gợi ý làm theo lớp cho Coach cầu lông và bóng rổ |
+| Coach | Xem lịch dạy và danh sách học viên lớp phụ trách; xem thông tin cơ bản và mục tiêu tập luyện của học viên được phân công; tạo workout plan cho cá nhân hoặc cả lớp; ghi workout result, đánh giá tiến độ và nhận xét sau buổi; giao homework, gửi thông báo và điểm danh đúng buổi được phân công. Coach có thể dùng AI gợi ý (Flow 5), kiểm tra và chỉnh sửa trước khi lưu. Khi bận, Coach chỉ gửi báo vắng kèm lý do hoặc rút báo vắng Pending; Manager quyết định dạy thay/dời lịch/học bù. Các chức năng này áp dụng cho lớp cầu lông và bóng rổ, không phụ thuộc dịch vụ PT 1:1 |
 | CenterManager (*chia việc với Admin, không giống 100% requirement gốc*) | Xem danh sách Member và Coach (tài khoản staff do Admin quản lý); quản lý môn, lớp, phòng, lịch hoạt động; phân công Coach theo chuyên môn, sửa hồ sơ và chuyên môn Coach; gói thành viên, học phí, thời hạn; threshold, sự cố, hoàn điểm; báo cáo số lượng thành viên, đăng ký lớp, doanh thu theo thời gian; xem Audit Log đầy đủ của trung tâm |
 | SystemAdministrator (*vai trò bổ sung, nhận một phần việc của Manager*) | Tạo và quản lý tài khoản staff (Manager, Receptionist, Coach, Admin); phân quyền bằng cách đổi role giữa các role staff; khóa, mở khóa, vô hiệu hóa tài khoản; xem Audit Log của thao tác tài khoản. Không tự có quyền tài chính, vận hành lớp hay hồ sơ tập luyện |
 
@@ -50,7 +50,7 @@ Guest không phải role account. Coach có nhiều chuyên môn, không chia ro
 | 1 — User/Membership | Identity, email OTP/Google onboarding, quên mật khẩu bằng link email (không OTP, phản hồi trung tính)/đổi mật khẩu, trang xác thực luôn tiếng Anh, account status, Membership renewal và Gym access |
 | 2 — Class/Schedule | Catalog, nhiều buổi/khóa, seat hold/ghi danh, ngưỡng lớp, chuyển lớp, điểm danh, occupancy, thuê sân và sự cố |
 | 3 — Payment/Report | Invoice/item snapshot, checkout, split điểm + VNPay, gateway verification/reconciliation, hoàn điểm và báo cáo |
-| 4 — Training/Attendance | Kế hoạch tập, kết quả, đánh giá theo lớp cho Coach cầu lông/bóng rổ (homework đã gỡ); điểm danh lớp nhóm bởi Receptionist |
+| 4 — Training/Attendance | Workout plan, workout result, đánh giá/nhận xét và homework theo lớp cầu lông/bóng rổ; Receptionist hoặc Coach được phân công điểm danh đúng buổi |
 | 5 — AI workout | Gợi ý tập luyện cho Coach theo dữ liệu học viên được phân công |
 | 6 — AI assistant | Member chat theo context; Manager gợi ý xếp lịch/tạo nháp sau xác nhận là yêu cầu chưa triển khai |
 
@@ -58,6 +58,7 @@ Guest không phải role account. Coach có nhiều chuyên môn, không chia ro
 
 - Giá và thời hạn được snapshot khi checkout; sửa catalog không thay giao dịch đã mua.
 - Enrollment gắn cả lớp. Sĩ số và giữ chỗ thuộc Class, không đặt từng buổi theo hạn mức ngày.
+- Coach được xác thực bằng JWT; backend dùng `classId`/`sessionId` của tài nguyên để kiểm tra phân công lớp/buổi. Coach dạy thay chỉ thao tác trong buổi được giao, không tự có quyền với toàn bộ lớp hoặc hồ sơ học viên.
 - Vé Gym 1 ngày (day pass): giá cố định 50.000đ (seed cố định, Manager không sửa hay ngừng được), chỉ dùng trong ngày thanh toán thành công theo giờ Việt Nam, kèm mã check-in do server ký và cấp, chỉ có hiệu lực trong ngày; Member được báo rõ điều này trước khi trả tiền. Không bán khi Gym đang đóng cửa vì sự cố, không gia hạn khi đóng Gym, không hoàn trả.
 - Khách lạ tới Gym: Receptionist đăng ký Member cho khách (email kích hoạt) hoặc khách tự đăng ký; sau đó Receptionist hỗ trợ mua vé 1 ngày hoặc khách tự mua trên web. Vé ngày có mã check-in: Member tự check-in, hoặc Receptionist check-in hộ. Receptionist nhắc khách trước khi trả tiền rằng mã chỉ dùng trong ngày.
 - Xếp lịch lớp/rental/block dùng cùng cơ chế occupancy; frontend availability không thay thế kiểm tra DB.

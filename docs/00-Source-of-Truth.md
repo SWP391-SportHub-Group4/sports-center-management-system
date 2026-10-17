@@ -14,9 +14,9 @@ SportHub là **hệ thống quản lý trung tâm thể thao với ba môn Gym, 
 
 Mã nguồn/controller/configuration xác định hành vi đã triển khai, không tự thay thế yêu cầu nghiệp vụ. Khi thiết kế và mã khác nhau, ghi gap cùng evidence; không tuyên bố hoàn thành chỉ vì đã có trong tài liệu. SRS Word là tài liệu yêu cầu tổng quan; các mô tả chi tiết chưa đồng bộ phải đọc theo phạm vi và thiết kế hiện hành.
 
-Phần mở rộng được chủ sản phẩm xác nhận: [Không gian giảng dạy Coach lớp nhóm](Coach-Teaching-Workspace.md). Coach được phân công có thể soạn giáo án, điểm danh đúng buổi, lưu kết quả/nhận xét, gửi bài tập/thông báo và dùng AI gợi ý.
+Phạm vi Flow 4 được chủ sản phẩm xác nhận ngày 18/10/2026: không quản lý dịch vụ PT 1:1. Coach của lớp cầu lông/bóng rổ được phân công có thể tạo workout plan, ghi workout result/nhận xét, giao homework, gửi thông báo và điểm danh đúng buổi. AI gợi ý cho Coach thuộc Flow 5; Coach kiểm tra trước khi lưu nội dung. Các quy tắc PT cũ trong Business Rules và SRS chỉ còn giá trị tham khảo lịch sử, không áp dụng cho phạm vi hiện hành. Xem [Không gian giảng dạy Coach lớp nhóm](Coach-Teaching-Workspace.md).
 
-Phần mở rộng: [Coach yêu cầu thay đổi buổi học nhóm](Class-Session-Change-Requests.md), Manager xử lý hoặc từ chối; Coach không tự hủy/đổi lịch. Thay đổi lịch và cập nhật yêu cầu trong cùng transaction.
+Quyết định Flow 2/4 ngày 18/10/2026: Coach chỉ gửi báo vắng kèm lý do cho buổi được phân công và có thể rút báo vắng khi còn Pending; Coach không sửa báo vắng hoặc tự chọn dạy thay/dời lịch/học bù. Center Manager liên hệ Coach khác khi cần, rồi quyết định phương án và kiểm tra lại chuyên môn/lịch trống trước khi lưu. Thay đổi lịch và cập nhật yêu cầu trong cùng transaction. Xem [yêu cầu vắng buổi học](Class-Session-Change-Requests.md).
 
 ## 2. Phạm vi và thuật ngữ
 
@@ -46,7 +46,7 @@ Năm role: SystemAdministrator, CenterManager, Receptionist, Coach, Member. Requ
 | User/Membership | Identity, OTP, account/profile, Membership Gym, renewal/check-in |
 | Class/Schedule | Môn/phòng/giá, lớp nhiều buổi, hold/enrollment, threshold, occupancy, rental, incident |
 | Payment/Report | Invoice snapshot, checkout, VNPay/điểm, reconciliation, refund điểm, báo cáo |
-| Training/Attendance | Plan/result/đánh giá theo lớp, điểm danh lớp bởi Receptionist |
+| Training/Attendance | Plan/result/đánh giá và homework theo lớp; Receptionist hoặc Coach được phân công điểm danh đúng buổi |
 | AI workout | Gợi ý cho Coach trong phạm vi học viên được giao |
 | AI assistant | Member context chat; Manager xếp lịch/tạo nháp là phần chưa triển khai |
 
@@ -60,6 +60,7 @@ Ngoài phạm vi: đa chi nhánh, payroll/hợp đồng, chia doanh thu với ng
 - Vé Gym 1 ngày (day pass): giá cố định 50.000đ (seed cố định, Manager không sửa hay ngừng được), chỉ dùng trong ngày thanh toán thành công theo giờ Việt Nam, kèm mã check-in do server ký và cấp, chỉ có hiệu lực trong ngày; Member được báo rõ điều này trước khi trả tiền. Không bán khi Gym đang đóng cửa vì sự cố, không gia hạn khi đóng Gym, không hoàn trả.
 - Giá/thời hạn/quyền lợi đã mua dùng snapshot, không tính lại khi sửa catalog.
 - Enrollment theo khóa; attendance theo enrollment/session; lớp nhóm Present/Absent.
+- JWT xác định danh tính và role của Coach; `classId`/`sessionId` xác định tài nguyên được yêu cầu. Backend đối chiếu Coach từ JWT với Coach được phân công cho lớp/buổi trước khi cấp quyền. `sessionId` không phải mã xác thực hay giá trị thay thế JWT.
 - ReservedCount bao gồm chỗ giữ và đã xác nhận; ConfirmedCount <= ReservedCount <= Capacity.
 - Ghi lịch phải đi qua occupancy trong transaction, không chỉ kiểm availability ở UI.
 - TotalAmount = PointsApplied × 1.000 + CashAmount; backend quyết định amount, không nhận client làm nguồn giá.

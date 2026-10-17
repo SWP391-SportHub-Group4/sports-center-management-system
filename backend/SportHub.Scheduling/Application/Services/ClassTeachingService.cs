@@ -162,7 +162,8 @@ public sealed class ClassTeachingService(ISportHubDbContext db, IUserAccessReade
         if (member) {
             if (!await db.Set<Enrollment>().AnyAsync(x => x.ClassId == classId && x.MemberId == actorId
                     && x.Status == EnrollmentStatus.Confirmed && x.EndedAt == null
-                    && (x.Class!.Status == ClassStatus.Published || x.Class.Status == ClassStatus.InProgress), ct))
+                    && (x.Class!.Status == ClassStatus.Published || x.Class.Status == ClassStatus.InProgress
+                        || x.Class.Status == ClassStatus.Completed), ct))
                 throw new ForbiddenException("class_not_enrolled", "You do not have an active enrollment in this class.");
         } else await RequireClassAsync(classId, actorId, ct);
         if (!member && memberId.HasValue && !await db.Set<Enrollment>().AnyAsync(x => x.ClassId == classId && x.MemberId == memberId && x.Status == EnrollmentStatus.Confirmed, ct))

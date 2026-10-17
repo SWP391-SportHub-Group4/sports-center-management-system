@@ -94,7 +94,8 @@ public class ClassesController(IClassService classes, IClassSessionService sessi
                 && e.Status == SportHub.Scheduling.Domain.Enums.EnrollmentStatus.Confirmed
                 && e.EndedAt == null
                 && (e.Class!.Status == SportHub.Scheduling.Domain.Enums.ClassStatus.Published
-                    || e.Class.Status == SportHub.Scheduling.Domain.Enums.ClassStatus.InProgress), ct))
+                    || e.Class.Status == SportHub.Scheduling.Domain.Enums.ClassStatus.InProgress
+                    || e.Class.Status == SportHub.Scheduling.Domain.Enums.ClassStatus.Completed), ct))
             throw new ForbiddenException("class_not_enrolled", "You do not have an active enrollment in this class.");
         return Ok(await sessions.ListByClassAsync(classId, null, ct));
     }

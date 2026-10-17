@@ -68,7 +68,7 @@ Các endpoint dưới đây phục vụ frontend API-backed. Không thay schema/
 | GET | `/api/membership-packages/public` | Anonymous, chỉ catalog active; endpoint quản trị/auth cũ giữ chính sách riêng. |
 | GET | `/api/classes?fromDate=&toDate=&sportId=&page=&pageSize=` | DateOnly YYYY-MM-DD theo startDate khóa; validate khoảng ngày; danh sách public chỉ Published. |
 | GET | `/api/classes/{classId}/public-sessions` | Anonymous, chỉ khóa Published, lịch buổi/room/coach không có roster/attendance. |
-| GET | `/api/members/me/classes/{classId}/sessions` | Member có ghi danh còn hiệu lực (`Confirmed`, chưa `EndedAt`) trong khóa Published/InProgress; ngược lại 403 `class_not_enrolled`. Không trả roster. |
+| GET | `/api/members/me/classes/{classId}/sessions` | Member có ghi danh còn hiệu lực (`Confirmed`, chưa `EndedAt`) trong khóa Published/InProgress/Completed (xem lại lịch sử sau khi lớp kết thúc); khóa Cancelled/Draft hoặc ghi danh đã kết thúc trả 403 `class_not_enrolled`. Không trả roster. |
 | GET | `/api/coaches?sportId=` | Member/Receptionist/Manager: Coach active cùng specialty (`sportId`), chỉ userId/fullName/sportIds. Không trả email hoặc credential. |
 | GET | `/api/checkouts/by-key?key=`, `/api/checkouts/by-reference?reference=` | Recovery timeout/return theo invoice của beneficiary hoặc initiator; kiểm scope lại. Query VNPay không là chứng cứ Paid. |
 | POST | `/api/checkouts/{invoiceId}/confirm-points` | Xác nhận cash=0, invoice lock, ownership, hold còn hạn, không reconciliation/verified pending; idempotent Paid, không tạo gateway attempt. |
@@ -594,7 +594,7 @@ Chu kỳ có snapshot trên Invoice (`CheckoutCycleId/CheckoutRevision/HoldExpir
 
 | Verb | Path | Actor | Hành vi |
 |---|---|---|---|
-| POST | `api/checkouts/membership`, `api/checkouts/class`, `api/checkouts/pt` | Member, Receptionist, Manager | Bắt buộc `Idempotency-Key`; staff chỉ định `targetMemberId`, Member chỉ mua cho mình. Trả CheckoutResponse với invoice/cycle/hạn/số tiền. |
+| POST | `api/checkouts/membership`, `api/checkouts/class` | Member, Receptionist, Manager | Bắt buộc `Idempotency-Key`; staff chỉ định `targetMemberId`, Member chỉ mua cho mình. Trả CheckoutResponse với invoice/cycle/hạn/số tiền. PT 1:1 không thuộc phạm vi hiện hành. |
 | GET | `api/checkouts/{invoiceId}` | Chủ invoice hoặc staff | Trạng thái chu kỳ checkout hiện tại. |
 | POST | `api/checkouts/verify-reference` | Chủ checkout hoặc staff | Body `{reference}` lấy từ `vnp_TxnRef` trên Return URL. Backend kiểm ownership rồi gọi QueryDR cho đúng attempt; chỉ phản hồi VNPay đã xác minh mới cập nhật payment. Trả CheckoutResponse mới nhất. Rate limited. |
 | POST | `api/checkouts/{invoiceId}/attempts` | Chủ invoice hoặc staff | Tạo/đọc PaymentAttempt snapshot tiền/điểm và URL VNPay; 100% điểm hoàn tất ngay, không tạo attempt VNPay 0đ. |
@@ -717,7 +717,7 @@ This endpoint does not reserve resources, change sessions, write audit events or
 
 ## Coach yêu cầu thay đổi buổi học lớp nhóm
 
-Contract, payload, trạng thái, quyền và transaction cho các API `/api/coaches/me/teaching/.../change-requests` và `/api/manager/class-session-change-requests` được mô tả tại [Yêu cầu thay đổi buổi học](Class-Session-Change-Requests.md). Coach gửi/rút yêu cầu, Manager quyết định phương án và áp dụng đổi lịch/học bù nguyên tử; không cấp quyền tự hủy buổi cho Coach. Migration: `20261011025932_AddClassSessionChangeRequests`.
+Phạm vi đã chốt: Coach chỉ gửi báo vắng `{type:"ABSENCE",reason}` và rút báo vắng `PENDING`; không có thao tác sửa báo vắng hoặc đề xuất phương án từ Coach. Center Manager chọn dạy thay, dời lịch hoặc hủy kèm học bù, kiểm tra lại Coach thay đang Active, đúng chuyên môn và còn trống trong toàn bộ buổi trước khi lưu. JWT xác định Coach thao tác; `sessionId` là ID buổi để kiểm tra phân công. Lịch và trạng thái yêu cầu cập nhật nguyên tử. Các API yêu cầu hiện có và dữ liệu lịch sử loại cũ được mô tả tại [Yêu cầu vắng buổi học](Class-Session-Change-Requests.md); `PUT` sửa yêu cầu và các loại đề xuất cũ còn trong code là khoảng trống cần loại khỏi quyền ghi mới của Coach. Migration nền: `20261011025932_AddClassSessionChangeRequests`.
 
 ## Hợp đồng bàn giao An/Hào
 

@@ -79,7 +79,12 @@ public sealed class CoachMemberRelationshipCharacterizationTests(TrainingApiFact
         await factory.QueryAsync(db => db.Classes.Where(c => c.ClassId == ids.ClassId)
             .ExecuteUpdateAsync(s => s.SetProperty(c => c.CoachId, coach.UserId)
                 .SetProperty(c => c.Status, ClassStatus.Completed)));
+        // Coach health access ends with the class, but the member keeps reading their own class history.
         Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync(path)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await memberClient.GetAsync(contentPath)).StatusCode);
+
+        await factory.QueryAsync(db => db.Classes.Where(c => c.ClassId == ids.ClassId)
+            .ExecuteUpdateAsync(s => s.SetProperty(c => c.Status, ClassStatus.Cancelled)));
         Assert.Equal(HttpStatusCode.Forbidden, (await memberClient.GetAsync(contentPath)).StatusCode);
     }
 
