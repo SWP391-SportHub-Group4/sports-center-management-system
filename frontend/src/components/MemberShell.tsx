@@ -114,6 +114,10 @@ export function MemberFrame({
       ],
     },
     { href: "/member/schedule", label: t.memberPages.schedule },
+    {
+      href: "/member/training",
+      label: language === "vi" ? "Tập luyện" : "Training",
+    },
   ];
   const billingActive = isActive(pathname, {
     href: "/member/finance",
