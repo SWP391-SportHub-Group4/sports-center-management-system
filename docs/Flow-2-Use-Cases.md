@@ -6,7 +6,7 @@ Phạm vi: danh mục tài nguyên, khóa học, ghi danh, ngưỡng mở lớp,
 Mã UC-F2 là mã phân rã trong Flow 2, đối chiếu UC-07, UC-08, UC-09 và UC-10 của SRS. Thanh toán gọi UC-15, hoàn theo yêu cầu gọi UC-16 của Flow 3. Kế hoạch tập luyện, đánh giá và hồ sơ sức khỏe thuộc Flow 4/5; PT, Yoga và GroupX không thuộc phạm vi hiện tại.
 Quy ước chung: thời gian lưu UTC, hiển thị UTC+7; backend kiểm tra quyền và dữ liệu tại thời điểm ghi. 1 điểm = 1.000 VND; hoàn trả bằng điểm, không trả tiền mặt. Giao dịch lặp phải idempotent. Thông báo qua outbox không làm rollback nghiệp vụ khi gửi email lỗi.
 Nguồn đối chiếu: SportManagement_BusinessRules_v2.0_updated.docx; SWP391_Report_SRS.docx (UC-07 đến UC-10); Center-Management-System-Design-v3.md; api-contract.md; Class-Session-Change-Requests.md. Khi khác nhau, ưu tiên phạm vi đã xác nhận và Business Rules theo 00-Source-of-Truth.md. BR-122 quy định hoàn trước khai giảng 100% nếu còn ít nhất 5 ngày, 50% nếu dưới 5 ngày; không dùng mô tả 100% chung trong SRS cũ.
-Cập nhật 16/10/2026: đã có UI chờ đợt lớp sau, quản lý Course interests, sửa Pending trong Requests, nhắc lịch và tự đóng yêu cầu khi Manager đổi buổi trực tiếp. Email cần SMTP để kiểm chứng delivery. Các use case tự động dùng tác vụ hệ thống làm tác nhân khởi phát.
+Cập nhật quy tắc 18/10/2026: UI chờ đợt lớp sau, quản lý Course interests, nhắc lịch và tự đóng yêu cầu khi Manager đổi buổi trực tiếp. Coach chỉ gửi/rút báo vắng; thao tác sửa Pending còn trong code phải gỡ trước nghiệm thu. Email cần SMTP để kiểm chứng delivery. Các use case tự động dùng tác vụ hệ thống làm tác nhân khởi phát.
 
 
 
@@ -475,16 +475,16 @@ Hướng dẫn từng bước: [Flow-2-Manual-Test-Guide.md](Flow-2-Manual-Test-
 | Luồng thay thế / ngoại lệ | a. Dưới 6 giờ: khóa gửi, hướng dẫn liên hệ Manager trực tiếp; API trả class_absence_deadline.<br>b. Absence chứa giờ đề xuất: từ chối.<br>c. Yêu cầu trùng cùng buổi hoặc UUID có payload khác: từ chối; retry hợp lệ không tạo bản sao. |
 | Hậu điều kiện | Có yêu cầu chờ xử lý; lịch gốc chưa bị thay đổi. |
 
-### UC-F2-42 — Sửa yêu cầu đang chờ
+### UC-F2-42 — Chặn sửa yêu cầu đang chờ
 
 | Mục | Nội dung |
 |---|---|
 | Tác nhân | Coach gửi yêu cầu |
 | Mức ưu tiên | Required |
-| Tiền điều kiện | Yêu cầu của coach ở PENDING và còn đủ điều kiện thời gian. |
-| Luồng chính | 1. Coach mở menu thông tin cá nhân → Requests → Pending → Edit pending request; hoặc Schedule → buổi → Request → Edit pending request.<br>2. Form điền sẵn Reason.<br>3. Coach sửa lý do rồi chọn Save changes.<br>4. Backend kiểm tra owner, phân công hiện tại, mốc trước buổi ít nhất 6 giờ và snapshot lịch.<br>5. Cập nhật ABSENCE cùng requestId, giữ người gửi/ngày tạo, thông báo lại Manager và tải trạng thái mới. |
-| Luồng thay thế / ngoại lệ | a. Approved/Rejected/Cancel hoặc buổi đã bắt đầu: không sửa được.<br>b. Dưới 6 giờ: không lưu, liên hệ Manager; vẫn có thể rút Pending.<br>c. Manager xử lý/đổi lịch khi form đang mở: API từ chối, form đóng và hiển thị trạng thái mới.<br>d. Lỗi mạng/validation: giữ nội dung.<br>e. Pending loại cũ: form báo rõ khi lưu sẽ chuyển sang Absence và xóa đề xuất giờ; lịch sử đã xử lý giữ nguyên. |
-| Hậu điều kiện | Yêu cầu vẫn Pending, nội dung mới được lưu vào cùng bản ghi; lịch dạy chỉ đổi sau quyết định hợp lệ của Manager. |
+| Tiền điều kiện | Yêu cầu của Coach ở PENDING; có thể có yêu cầu loại cũ cần giữ để đọc lịch sử. |
+| Luồng chính | 1. Coach mở Requests hoặc mục Request của buổi.<br>2. Xem lý do và trạng thái; không có thao tác Edit pending request.<br>3. Gọi trực tiếp API PUT cũ cũng không được sửa request.<br>4. Coach có thể rút Pending; nếu cần bổ sung lý do thì liên hệ Manager trực tiếp. |
+| Luồng thay thế / ngoại lệ | a. Yêu cầu đã xử lý: không sửa hoặc rút.<br>b. Pending loại cũ vẫn đọc được, không đổi loại hoặc giờ đề xuất.<br>c. Manager xử lý/đổi lịch đồng thời: rút sau đó bị từ chối và tải trạng thái mới. |
+| Hậu điều kiện | Nội dung đã gửi không bị sửa qua FE/API; lịch dạy chỉ đổi sau quyết định hợp lệ của Manager. |
 
 ### UC-F2-43 — Rút yêu cầu điều chỉnh
 
@@ -504,7 +504,7 @@ Hướng dẫn từng bước: [Flow-2-Manual-Test-Guide.md](Flow-2-Manual-Test-
 | Tác nhân | Coach, Center Manager |
 | Mức ưu tiên | Required |
 | Tiền điều kiện | Đã đăng nhập; coach xem yêu cầu của mình, Manager xem trong quyền quản lý. |
-| Luồng chính | 1. Coach mở menu avatar/tên → Requests; Manager vào Activity calendar → Class change requests.<br>2. Xem yêu cầu, mới nhất trước.<br>3. Phân biệt trạng thái bằng nhãn/màu.<br>4. Xem lý do và phương án Manager quyết định; yêu cầu loại cũ vẫn hiển thị lịch sử.<br>Pending còn trước buổi ít nhất 6 giờ có Edit pending request. Request tự đóng hiển thị Closed automatically — schedule updated by Manager., không mô tả là Coach chủ động rút. |
+| Luồng chính | 1. Coach mở menu avatar/tên → Requests; Manager vào Activity calendar → Class change requests.<br>2. Xem yêu cầu, mới nhất trước.<br>3. Phân biệt trạng thái bằng nhãn/màu.<br>4. Xem lý do và phương án Manager quyết định; yêu cầu loại cũ vẫn hiển thị lịch sử.<br>Pending cho Coach thao tác rút, không có sửa. Request tự đóng hiển thị Closed automatically — schedule updated by Manager., không mô tả là Coach chủ động rút. |
 | Luồng thay thế / ngoại lệ | a. Nhãn UI Pending/Approved/Rejected/Cancel tương ứng PENDING/RESOLVED/REJECTED/WITHDRAWN.<br>b. Không có yêu cầu: hiển thị trạng thái trống.<br>c. Không có quyền xem: từ chối; màu không thay thế nhãn chữ. |
 | Hậu điều kiện | Người dùng biết tình trạng xử lý; thao tác xem không thay lịch. Request outcome dùng chung cho Requests và chi tiết buổi: đã xử lý hiển thị phương án thực tế, lịch sau xử lý, Coach, sân/phòng, người xử lý, thời điểm và lý do. Kết quả mới là snapshot tại thời điểm xử lý; yêu cầu cũ thiếu snapshot hiển thị lịch hiện tại với cảnh báo rõ. WITHDRAWN/SCHEDULE_UPDATED mang nhãn Closed để phân biệt Coach rút yêu cầu. |
 
@@ -515,7 +515,7 @@ Hướng dẫn từng bước: [Flow-2-Manual-Test-Guide.md](Flow-2-Manual-Test-
 | Tác nhân | Center Manager |
 | Mức ưu tiên | Required |
 | Tiền điều kiện | Yêu cầu PENDING; buổi tương lai Scheduled; snapshot còn khớp. |
-| Luồng chính | 1. Mở yêu cầu và kiểm tra ảnh hưởng.<br>2. Chọn phương án cuối cùng và ghi nhận xét 3–500 ký tự.<br>3. Kiểm tra coach đúng bộ môn, giờ hoạt động, phòng và lịch học viên.<br>4. Thực hiện thay coach, dời lịch hoặc hủy kèm học bù.<br>5. Cập nhật yêu cầu RESOLVED cùng lịch tài nguyên, audit và thông báo trong một giao dịch. |
+| Luồng chính | 1. Mở yêu cầu và kiểm tra ảnh hưởng.<br>2. Chọn phương án cuối cùng và ghi nhận xét 3–500 ký tự.<br>3. Nếu dạy thay, chỉ hiển thị Coach Active, đúng môn, rảnh toàn bộ buổi; kiểm tra lại khi xác nhận. Đồng thời kiểm tra giờ hoạt động, phòng và lịch học viên.<br>4. Thực hiện thay coach, dời lịch hoặc hủy kèm học bù.<br>5. Cập nhật yêu cầu RESOLVED cùng lịch tài nguyên, audit và thông báo trong một giao dịch. |
 | Luồng thay thế / ngoại lệ | a. Snapshot cũ: báo class_change_stale, không xử lý dựa trên lịch cũ.<br>b. Trùng lịch hoặc không có lịch bù hợp lệ: rollback, giữ PENDING.<br>c. Buổi đã diễn ra hoặc yêu cầu đã kết thúc: không phê duyệt.<br>Nếu Manager đã đổi buổi trực tiếp, request cũ đã tự đóng và không thể approve lại. Nếu approve hợp lệ từ request, trạng thái vẫn Approved/RESOLVED, không bị cơ chế tự đóng ghi đè. |
 | Hậu điều kiện | Lịch thay đổi thành công; yêu cầu hiển thị Approved; các bên được thông báo. |
 
@@ -676,5 +676,5 @@ Hướng dẫn từng bước: [Flow-2-Manual-Test-Guide.md](Flow-2-Manual-Test-
 | Mức ưu tiên | Required |
 | Tiền điều kiện | Có request Pending trên buổi; Manager thực hiện reschedule, đổi HLV, cancel-with-makeup hoặc hủy khóa bằng lệnh nghiệp vụ hợp lệ. |
 | Luồng chính | 1. Manager thay đổi lịch trực tiếp, có thể để xử lý sự cố.<br>2. Hệ thống kiểm tra xung đột và giữ các khóa transaction cần thiết.<br>3. Sau khi thay đổi hợp lệ, tự đóng request Pending thành WITHDRAWN, resolutionType SCHEDULE_UPDATED; ghi Manager, thời gian, lý do và buổi kết quả.<br>4. Queue thông báo kết quả cho người gửi và thông báo lịch cho HLV chủ nhiệm/cũ/mới.<br>5. Coach mở Requests, đọc Closed automatically — schedule updated by Manager. và xem lịch cập nhật. |
-| Luồng thay thế / ngoại lệ | a. Xung đột lịch hoặc lỗi transaction: giữ lịch và request Pending; không tạo thông báo thành công.<br>b. Phê duyệt từ chính request: giữ RESOLVED, không bị tự đóng ghi đè.<br>c. Form sửa đang mở: lần lưu tiếp theo bị từ chối và UI tải trạng thái mới. |
+| Luồng thay thế / ngoại lệ | a. Xung đột lịch hoặc lỗi transaction: giữ lịch và request Pending; không tạo thông báo thành công.<br>b. Phê duyệt từ chính request: giữ RESOLVED, không bị tự đóng ghi đè.<br>c. Coach rút sau khi Manager đã đổi lịch: trả xung đột và UI tải trạng thái mới. |
 | Hậu điều kiện | Lịch, trạng thái request, audit và thông báo commit đồng thời. Request đã đóng không được sửa/duyệt lại. |

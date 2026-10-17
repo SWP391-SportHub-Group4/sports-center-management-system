@@ -58,7 +58,9 @@ Guest không phải role account. Coach có nhiều chuyên môn, không chia ro
 
 - Giá và thời hạn được snapshot khi checkout; sửa catalog không thay giao dịch đã mua.
 - Enrollment gắn cả lớp. Sĩ số và giữ chỗ thuộc Class, không đặt từng buổi theo hạn mức ngày.
+- Manager cấu hình thời gian giữ checkout `hold.minutes` từ 10 đến 30 phút, mặc định 15. Thay đổi chỉ áp dụng cho đơn mới; hạn của đơn hiện có không đổi. Hạn thực tế có thể sớm hơn trước giờ học/thuê sân hoặc deadline chuyển lớp; Member xem hạn cụ thể trên đơn.
 - Coach được xác thực bằng JWT; backend dùng `classId`/`sessionId` của tài nguyên để kiểm tra phân công lớp/buổi. Coach dạy thay chỉ thao tác trong buổi được giao, không tự có quyền với toàn bộ lớp hoặc hồ sơ học viên.
+- Member còn Enrollment Confirmed, chưa có `EndedAt` được xem lại lịch sử buổi, giáo án, homework và kết quả của mình khi lớp Completed. Khi ghi danh kết thúc hoặc lớp Cancelled/Draft, API thu hồi quyền nội dung; Coach mất quyền hồ sơ khi hết phân công/lớp Completed.
 - Vé Gym 1 ngày (day pass): giá cố định 50.000đ (seed cố định, Manager không sửa hay ngừng được), chỉ dùng trong ngày thanh toán thành công theo giờ Việt Nam, kèm mã check-in do server ký và cấp, chỉ có hiệu lực trong ngày; Member được báo rõ điều này trước khi trả tiền. Không bán khi Gym đang đóng cửa vì sự cố, không gia hạn khi đóng Gym, không hoàn trả.
 - Khách lạ tới Gym: Receptionist đăng ký Member cho khách (email kích hoạt) hoặc khách tự đăng ký; sau đó Receptionist hỗ trợ mua vé 1 ngày hoặc khách tự mua trên web. Vé ngày có mã check-in: Member tự check-in, hoặc Receptionist check-in hộ. Receptionist nhắc khách trước khi trả tiền rằng mã chỉ dùng trong ngày.
 - Xếp lịch lớp/rental/block dùng cùng cơ chế occupancy; frontend availability không thay thế kiểm tra DB.

@@ -1,6 +1,6 @@
 # Flow 4 — Training & Attendance: Use Case Specifications and Manual Test Guide
 
-Đối chiếu ngày 16/10/2026. Tài liệu này mô tả **cách kiểm thử**, không xác nhận các ca đã Pass. Phần diễn giải dùng tiếng Việt; tên trang, nút và trường nhập dùng tiếng Anh theo giao diện hiện hành.
+Đối chiếu ngày 18/10/2026. Tài liệu này mô tả **cách kiểm thử**, không xác nhận các ca đã Pass. Phần diễn giải dùng tiếng Việt; tên trang, nút và trường nhập dùng tiếng Anh theo giao diện hiện hành.
 
 ## 1. Phạm vi và quy tắc ưu tiên
 
@@ -8,7 +8,7 @@ Flow 4 hiện áp dụng cho **lớp cầu lông/bóng rổ nhiều buổi** và
 
 SRS gốc mô tả UC-11–14 theo PT. [Requirements.md](Requirements.md) và code hiện hành đã thay PT bằng Coach lớp nhóm; tài liệu này phân rã UC-11–14 theo luồng thực tế. Điểm danh trong UC-10 của SRS cũng đã được mô tả ở Flow 2; các ca F4-18–20 ở đây kiểm tra góc nhìn tập luyện và quyền của Flow 4, không tạo nghiệp vụ điểm danh thứ hai.
 
-**Ngoài phạm vi Flow 4:** AI suggestion (Flow 5); checkout/hoàn điểm và PDF hóa đơn (Flow 3); thay đổi lịch/ghi danh/nhắc lịch (Flow 2); PT. Bản đối chiếu gồm 25 UC. UC-F4-25 ghi nhận Homework đang hoạt động trong code: tùy chọn sau buổi, gửi chuông/email, không Due date. Đây là đặc tả as-built; không tự sửa Requirements đã ghi loại bỏ homework.
+**Ngoài phạm vi Flow 4:** AI suggestion (Flow 5); checkout/hoàn điểm và PDF hóa đơn (Flow 3); thay đổi lịch/ghi danh/nhắc lịch (Flow 2); PT 1:1. Bản đối chiếu gồm 25 UC. Homework là một phần Flow 4 đã được xác nhận: bài luyện tập tùy chọn sau buổi, gửi chuông/email, không có hạn nộp cố định. Coach có thể dùng bản nháp AI từ Flow 5 nhưng phải kiểm tra trước khi lưu.
 
 Nguồn ưu tiên: [00-Source-of-Truth.md](00-Source-of-Truth.md) → [Requirements.md](Requirements.md) → [Coach-Teaching-Workspace.md](Coach-Teaching-Workspace.md) phần còn phù hợp → API và UI hiện tại. SRS gốc dùng để đối chiếu mục tiêu nghiệp vụ. Dữ liệu hệ thống dùng tiếng Anh; nội dung Coach/Member tự nhập được giữ nguyên ngôn ngữ họ nhập.
 
@@ -191,12 +191,12 @@ Mở từng role trong browser profile riêng. Với ca dữ liệu thời gian,
 |---|---|
 | Tác nhân | Member đã ghi danh |
 | Ưu tiên | Optional — Flow 4 |
-| Tiền điều kiện | M-A còn Enrollment Confirmed, EndedAt rỗng; lớp Published/InProgress và còn ít nhất một buổi không Cancelled chưa kết thúc. |
+| Tiền điều kiện | M-A còn Enrollment Confirmed, EndedAt rỗng; lớp Published/InProgress/Completed. |
 | Luồng chính | M-A mở `My schedule` → chọn buổi/lớp C-BAD → `View course plan` hoặc `From your coach`; xem lộ trình cả khóa, lesson plan và Personal plan của mình. |
-| Luồng thay thế | a. Không có plan: empty state; Member chỉ thấy plan chung và plan của mình.<br>b. Ghi danh kết thúc hoặc lớp hoàn thành/hủy: API Member sessions và teaching-records trả 403 class_access_ended, kể cả URL cũ.<br>c. Trang đang mở recheck khi focus/mỗi 30 giây, ẩn nội dung nếu quyền bị thu hồi; lịch sử tài chính không bị xóa. |
+| Luồng thay thế | a. Không có plan: empty state; Member chỉ thấy plan chung và plan của mình.<br>b. Lớp Completed nhưng ghi danh còn hiệu lực: Member vẫn xem lịch sử buổi, plan và kết quả của mình, kể cả khi không còn buổi tương lai.<br>c. Ghi danh kết thúc hoặc lớp Cancelled/Draft: API Member sessions và teaching-records trả 403 class_access_ended, kể cả URL cũ.<br>d. Trang đang mở recheck khi focus/mỗi 30 giây, ẩn nội dung nếu quyền bị thu hồi; lịch sử tài chính không bị xóa. |
 | Hậu điều kiện | Chỉ đọc, không tự sửa dữ liệu Coach. |
 
-**Test:** M-A còn lớp đang hoạt động, so sánh plan chung, plan đúng buổi và Personal plan với bản Coach lưu; M-B không thấy Personal plan M-A. Cho enrollment/lớp kết thúc rồi mở lại tab và URL/API cũ: class_access_ended, nội dung cache bị bỏ. Không dùng lớp đã kết thúc để chứng nhận quyền xem.
+**Test:** M-A còn lớp đang hoạt động, so sánh plan chung, plan đúng buổi và Personal plan với bản Coach lưu; M-B không thấy Personal plan M-A. Chuyển lớp sang Completed nhưng giữ ghi danh: M-A vẫn đọc được nội dung cũ. Sau đó kết thúc enrollment hoặc hủy lớp rồi mở lại tab và URL/API cũ: class_access_ended, nội dung cache bị bỏ.
 
 ### Nhóm C — Kết quả và tiến độ (SRS UC-13/14)
 
@@ -239,18 +239,18 @@ Mở từng role trong browser profile riêng. Với ca dữ liệu thời gian,
 
 **Test:** so completed/total với trạng thái session; so Present/Absent với roster của M-A; đổi lớp trong `Learning history`. **Pass:** màu/trạng thái buổi quá khứ, hiện tại, tương lai và số liệu đúng từng lớp; popup đúng Coach tác giả/nội dung/điểm; không cộng gộp sai giữa hai lớp.
 
-#### UC-F4-16 — Member xem kết quả trong lớp còn hiệu lực
+#### UC-F4-16 — Member xem kết quả của lớp đã ghi danh
 
 | Mục | Nội dung |
 |---|---|
 | Tác nhân | Member |
 | Ưu tiên | Optional — Flow 4 |
-| Tiền điều kiện | M-A có RESULT trong lớp hiện còn quyền truy cập; buổi được đánh giá đã diễn ra nhưng khóa chưa kết thúc. |
+| Tiền điều kiện | M-A có RESULT trong lớp Published/InProgress/Completed, Enrollment Confirmed và EndedAt rỗng. |
 | Luồng chính | 1. Member mở My schedule → lớp hiện còn quyền → From your coach.<br>2. Đọc RESULT/điểm/nhận xét cá nhân và nội dung chung trong khóa đó.<br>3. Chuyển buổi để xem đúng bản ghi của buổi, không ghép kết quả học viên khác. |
-| Luồng thay thế | a. Không có đánh giá: empty state.<br>b. RESULT của M-B không lộ; lớp không có quyền hoặc đã kết thúc trả 403/404.<br>c. Lịch sử ghi danh/tài chính không tự cấp lại quyền đọc nội dung lớp đã kết thúc. |
+| Luồng thay thế | a. Không có đánh giá: empty state.<br>b. RESULT của M-B không lộ; ghi danh đã kết thúc hoặc lớp Cancelled/Draft trả 403/404.<br>c. Lớp Completed vẫn đọc được nội dung khi ghi danh còn hiệu lực; lịch sử tài chính tự nó không cấp quyền. |
 | Hậu điều kiện | Chỉ đọc. |
 
-**Test:** Trong lớp còn buổi tương lai, Coach ghi RESULT cho buổi đã diễn ra của M-A. Member mở My schedule → lớp → From your coach: đúng kết quả/điểm/nhận xét, không có dữ liệu M-B. Cho lớp/enrollment kết thúc: API và trang đã mở chặn nội dung; Billing vẫn giữ lịch sử tài chính.
+**Test:** Coach ghi RESULT cho buổi đã diễn ra của M-A. Member mở My schedule → lớp → From your coach: đúng kết quả/điểm/nhận xét, không có dữ liệu M-B. Chuyển lớp sang Completed: kết quả vẫn mở được. Khi ghi danh kết thúc hoặc lớp bị hủy: API và trang đã mở chặn nội dung; Billing vẫn giữ lịch sử tài chính.
 
 #### UC-F4-17 — Member nhận thông báo đánh giá mới
 
@@ -351,15 +351,15 @@ Mở từng role trong browser profile riêng. Với ca dữ liệu thời gian,
 
 **Pass:** Dữ liệu tạo/đọc nằm trong đúng buổi; không mở rộng sang toàn lớp/toàn bộ Member.
 
-#### UC-F4-24 — Thu hồi quyền nội dung lớp của Member khi hết ghi danh
+#### UC-F4-24 — Thu hồi quyền nội dung lớp khi ghi danh kết thúc hoặc lớp bị hủy
 
 | Mục | Nội dung |
 |---|---|
 | Tác nhân | Member; hệ thống kiểm quyền |
 | Mức ưu tiên | Required |
-| Tiền điều kiện | Member đang xem lớp có Enrollment Confirmed, EndedAt rỗng, lớp Published/InProgress và còn buổi chưa kết thúc. |
-| Luồng chính | 1. Ghi danh kết thúc do hoàn/chuyển/hủy hoặc lớp kết thúc/hủy.<br>2. API sessions/teaching-records kiểm quyền lại theo trạng thái và giờ kết thúc buổi cuối, không chỉ kiểm Member từng ghi danh.<br>3. Trang đang mở recheck khi focus/mỗi 30 giây, hiện Class access has ended và bỏ giáo án/nhận xét cũ khỏi khung.<br>4. Member vẫn xem lịch sử đăng ký, Billing và tải hóa đơn thuộc mình. |
-| Luồng thay thế / ngoại lệ | a. Job trạng thái chưa cập nhật nhưng mọi buổi không Cancelled đã kết thúc: nội dung vẫn bị chặn.<br>b. Chuông/URL cũ không cấp quyền mới; dữ liệu công khai chỉ tuân theo catalog công khai.<br>c. Member khác và tài khoản không đăng nhập không được đọc nội dung. |
+| Tiền điều kiện | Member đang xem lớp có Enrollment Confirmed, EndedAt rỗng, lớp Published/InProgress/Completed. |
+| Luồng chính | 1. Ghi danh kết thúc do hoàn/chuyển/hủy hoặc lớp bị Cancelled.<br>2. API sessions/teaching-records kiểm lại ghi danh và trạng thái lớp, không chỉ kiểm Member từng ghi danh.<br>3. Trang đang mở recheck khi focus/mỗi 30 giây, hiện Class access has ended và bỏ giáo án/nhận xét cũ khỏi khung.<br>4. Member vẫn xem lịch sử đăng ký, Billing và tải hóa đơn thuộc mình. |
+| Luồng thay thế / ngoại lệ | a. Lớp Completed hoặc mọi buổi đã kết thúc nhưng ghi danh vẫn Confirmed, EndedAt rỗng: tiếp tục cho Member xem nội dung lịch sử.<br>b. Chuông/URL cũ không cấp quyền mới; dữ liệu công khai chỉ tuân theo catalog công khai.<br>c. Member khác và tài khoản không đăng nhập không được đọc nội dung. |
 | Hậu điều kiện | Nội dung lớp không còn truy cập được bằng UI/API; hồ sơ tài chính và lịch sử giao dịch được giữ. |
 
 **Test:** M-A mở lớp và đọc From your coach. Kết thúc enrollment bằng luồng hợp lệ, quay lại tab rồi thử URL/API cũ: 403 class_access_ended, không còn nội dung cache. Billing → Download invoice của chính mình vẫn được; lớp khác còn hiệu lực vẫn mở được.
@@ -371,15 +371,15 @@ Mở từng role trong browser profile riêng. Với ca dữ liệu thời gian,
 | Mục | Nội dung |
 |---|---|
 | Tác nhân | Coach được giao buổi; Member nhận |
-| Mức ưu tiên | Optional — Flow 4 (as-built) |
+| Mức ưu tiên | Optional — Flow 4 |
 | Tiền điều kiện | Buổi không Cancelled đã kết thúc; lớp còn Published/InProgress; Member Confirmed. Có cấu hình SMTP để chứng minh inbox delivery. |
 | Luồng chính | 1. Coach mở Teaching schedule → buổi vừa kết thúc → Homework → Assign homework.<br>2. Chọn cả lớp hoặc đúng học viên, nhập Title và Content; không yêu cầu Due date.<br>3. Nhấn Send to students; backend lưu HOMEWORK gắn với buổi vừa học, xóa DueAtUtc, queue chuông và email cho đúng Member.<br>4. Member đọc email hoặc From your coach; nội dung là luyện thêm tùy chọn trước buổi tiếp theo. |
 | Luồng thay thế / ngoại lệ | a. Buổi chưa kết thúc, thiếu/sai session, sai Coach hoặc Member không Confirmed: từ chối.<br>b. Retry cùng recordId/nội dung không gửi lại; HOMEWORK đã gửi không sửa qua endpoint update.<br>c. Lỗi SMTP không rollback bản HOMEWORK; kiểm trạng thái delivery riêng. |
-| Hậu điều kiện | Bài tập tồn tại, không bắt buộc nộp/không hạn cố định; thông báo đúng người nhận. Đây là UC theo code, không tự sửa nội dung Requirements về phạm vi homework. |
+| Hậu điều kiện | Bài tập tồn tại, không bắt buộc nộp/không hạn cố định; thông báo đúng người nhận. |
 
 **Test:** Dùng S1 đã kết thúc trong khóa còn buổi S2 tương lai. Giao cho M-A, kiểm HOMEWORK có SessionId=S1 và DueAtUtc=null; M-A nhận chuông/email, M-B không nhận. Thử buổi tương lai và retry cùng recordId; không tạo bài/gửi email lần hai.
 
-**Pass:** Bài tập tồn tại, không bắt buộc nộp/không hạn cố định; thông báo đúng người nhận. Đây là UC theo code, không tự sửa nội dung Requirements về phạm vi homework.
+**Pass:** Bài tập tồn tại, không bắt buộc nộp/không hạn cố định; thông báo đúng người nhận.
 
 ## 4. Thứ tự chạy và chứng cứ
 
@@ -415,6 +415,6 @@ Các case dùng profile sức khỏe phải che dữ liệu nhận dạng và th
 | UC-14 Member view | F4-12, F4-16 | `My schedule` → `From your coach`; Member teaching records API |
 | Scope bổ sung Coach | F4-21–23 | `Notices`; phạm vi primary/substitute, API health/history/AI/session |
 | Thu hồi quyền Member | F4-24 | Member class sessions/teaching-records, UI recheck |
-| Homework as-built | F4-25 | `Assign homework` → `Send to students`, in-app/email outbox |
+| Homework | F4-25 | `Assign homework` → `Send to students`, in-app/email outbox |
 
-**Điểm lệch cần theo dõi:** UC-F4-25 mô tả chức năng `HOMEWORK`/email thực có trong code; [Requirements.md](Requirements.md) vẫn ghi đã bỏ homework. Đánh giá test theo hành vi code và ghi riêng khác biệt phạm vi tài liệu, không coi đó là cập nhật Requirements. AI `Generate suggestion` là Flow 5 và chỉ được dùng làm bản nháp để Coach duyệt trước khi lưu plan.
+AI `Generate suggestion` thuộc Flow 5 và chỉ được dùng làm bản nháp để Coach duyệt trước khi lưu plan. `classId` và `sessionId` là định danh lớp/buổi để kiểm phạm vi phân công; JWT xác thực Coach.

@@ -1,7 +1,7 @@
 # Proposal cải tiến quy trình yêu cầu vắng của Coach
 
 **Ngày:** 17/10/2026
-**Trạng thái:** Dự thảo để nhóm review
+**Trạng thái:** Phạm vi đã chốt ngày 18/10/2026; xem [Source of Truth](00-Source-of-Truth.md). Các mục còn thiếu trong code thuộc phần Khôi đang xử lý.
 **Phạm vi:** Coach cầu lông, Coach bóng rổ và Center Manager.
 
 ## 1. Đề xuất của tôi
@@ -17,13 +17,13 @@ Hiện trạng dưới đây đối chiếu với code local ngày 17/10/2026, g
 | Nội dung | Hiện trạng |
 |---|---|
 | Coach gửi Request absence, chỉ nhập Reason | Đã có trong code local |
-| Gửi/sửa Absence trước buổi ít nhất 6 giờ; rút Pending | Đã có trong code local |
+| Gửi Absence trước buổi ít nhất 6 giờ; rút Pending | Đã có trong code local; thao tác sửa Pending còn tồn tại và cần gỡ |
 | Manager chọn cách xử lý và xác nhận | Đã có trong code local |
 | Hiển thị Request outcome và lưu kết quả tại thời điểm xử lý | Đã có trong code local; cần migration tương ứng |
 | Coach selector tại màn xử lý request lọc đúng môn, Active, khác Coach xin vắng | Đã có |
 | Coach selector lọc thêm lịch trống trước khi lựa chọn | **Chưa tích hợp tại màn xử lý request**; hiện kiểm tra xung đột khi lưu |
 | Khóa transaction và kiểm tra Pending khi ghi | Đã có |
-| Kiểm tra Version để Manager không xác nhận nội dung Coach vừa sửa | **Chưa có; đề xuất bổ sung** |
+| Không cho Coach sửa Pending hoặc tạo request đề xuất phương án | **Chưa hoàn tất trong code**; phải bỏ nút sửa, PUT và chặn loại tạo mới cũ ở backend |
 
 ## 3. Luồng của Coach
 
@@ -34,14 +34,14 @@ Hiện trạng dưới đây đối chiếu với code local ngày 17/10/2026, g
 5. Yêu cầu có trạng thái **Pending**; lịch được phân công vẫn có hiệu lực khi chưa có quyết định.
 6. Theo dõi tại menu avatar/tên → **Requests** hoặc trong chi tiết buổi học.
 
-Coach không phải chọn người dạy thay hoặc đề xuất lịch bù. Coach được **Edit pending request** khi còn đủ hạn và được **Withdraw request** khi yêu cầu còn Pending.
+Coach không phải chọn người dạy thay hoặc đề xuất lịch bù. Coach chỉ được **Withdraw request** khi yêu cầu còn Pending; không được sửa lý do đã gửi. Nếu cần bổ sung thông tin, Coach liên hệ Manager trực tiếp.
 
-Gửi hoặc sửa Absence phải trước giờ bắt đầu ít nhất **6 giờ**, tính theo thời gian server. Đúng mốc 6 giờ được phép. Trường hợp dưới 6 giờ, giao diện hướng dẫn liên hệ Manager trực tiếp; Manager xử lý lịch theo quyền hiện có. Mốc này không buộc Manager phải quyết định trước 6 giờ: yêu cầu đã gửi đúng hạn vẫn có thể được xử lý khi buổi chưa bắt đầu và còn hợp lệ.
+Gửi Absence phải trước giờ bắt đầu ít nhất **6 giờ**, tính theo thời gian server. Đúng mốc 6 giờ được phép. Trường hợp dưới 6 giờ, giao diện hướng dẫn liên hệ Manager trực tiếp; Manager xử lý lịch theo quyền hiện có. Mốc này không buộc Manager phải quyết định trước 6 giờ: yêu cầu đã gửi đúng hạn vẫn có thể được xử lý khi buổi chưa bắt đầu và còn hợp lệ.
 
 ## 4. Luồng của Center Manager
 
 1. Vào **Activity calendar → Class change requests**.
-2. Mở yêu cầu Pending, xem buổi học, Coach, lý do và phiên bản mới nhất.
+2. Mở yêu cầu Pending, xem buổi học, Coach và lý do đã gửi.
 3. Chọn **Decision**:
 
 | Lựa chọn | Kết quả |
@@ -53,7 +53,7 @@ Gửi hoặc sửa Absence phải trước giờ bắt đầu ít nhất **6 gi�
 
 4. Nhập các thông tin cần thiết và **Decision reason / feedback to Coach**.
 5. Nhấn **Confirm decision**.
-6. Hệ thống kiểm tra lại phiên bản, trạng thái, quyền và tài nguyên; cập nhật lịch, request, audit và hàng đợi thông báo trong cùng transaction.
+6. Hệ thống kiểm tra lại trạng thái Pending, quyền và tài nguyên; cập nhật lịch, request, audit và hàng đợi thông báo trong cùng transaction.
 
 ## 5. Bổ sung lọc Coach dạy thay theo lịch trống
 
@@ -97,21 +97,15 @@ Danh sách Coach còn trống là gợi ý tại thời điểm tải. Khi xác 
 
 ## 6. Xử lý thao tác đồng thời
 
-Tôi đề xuất bổ sung **Version** cho request, bên cạnh khóa dữ liệu và kiểm tra Pending đã có.
-
-- Mỗi lần sửa hoặc thay đổi trạng thái thành công tăng Version.
-- Form gửi kèm phiên bản mà người dùng đã xem.
-- Sau khi khóa dữ liệu trong transaction, backend kiểm tra Version trước khi cập nhật.
-- Khác phiên bản: trả **409 Conflict**, không thực hiện thay đổi lịch hoặc ghi đè nội dung.
+Coach không sửa nội dung request sau khi gửi. Backend khóa request và buổi học trong transaction, kiểm tra lại trạng thái Pending và snapshot lịch trước khi Manager xử lý hoặc Coach rút. Thao tác đến sau trên yêu cầu đã đóng trả 409; không ghi đè lịch hoặc kết quả trước đó.
 
 | Thao tác hoàn tất trước | Thao tác đến sau được xử lý thế nào |
 |---|---|
-| Manager duyệt/từ chối | Coach không sửa/rút được; tải lại Request outcome |
+| Manager duyệt/từ chối | Coach không rút được; tải lại Request outcome |
 | Coach rút | Manager không xử lý được; hiện This request has been withdrawn. |
-| Coach sửa lý do | Manager phải xem bản mới rồi xác nhận lại; hiện This request has changed. Review the latest details. |
-| Manager đổi lịch trực tiếp | Pending tự đóng; form cũ không được tiếp tục ghi |
+| Manager đổi lịch trực tiếp | Pending tự đóng; Coach không rút được nữa |
 
-Giao diện giữ phần nhập chưa gửi để người dùng đối chiếu khi phù hợp, nhưng không tự gửi lại quyết định trên phiên bản mới. Chỉ khóa dữ liệu trong lúc lưu, không khóa request suốt thời gian người dùng mở form.
+Giao diện tải lại trạng thái khi xác nhận thất bại vì request đã được xử lý. Chỉ khóa dữ liệu trong lúc lưu, không khóa request suốt thời gian người dùng mở trang.
 
 ## 7. Nội dung kết quả xử lý
 

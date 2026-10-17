@@ -28,7 +28,7 @@ public sealed partial class CourtRentalService
         var step = await settings.GetIntAsync(SystemSettingKeys.RentalSlotMinutes, ct);
         var maxHours = await settings.GetIntAsync(SystemSettingKeys.RentalMaxHours, ct);
         var advanceDays = await settings.GetIntAsync(SystemSettingKeys.RentalAdvanceDays, ct);
-        var holdMinutes = await settings.GetIntAsync(SystemSettingKeys.HoldMinutes, ct);
+        var holdMinutes = await CheckoutHoldPolicy.ReadMinutesAsync(settings, ct);
         var now = clock.UtcNow;
         if (step is not (30 or 60) || hours < 1 || hours > maxHours || hours > 4
             || date < VietnamTime.TodayLocal(clock) || date > VietnamTime.TodayLocal(clock).AddDays(advanceDays))
