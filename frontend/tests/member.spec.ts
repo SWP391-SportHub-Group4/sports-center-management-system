@@ -409,9 +409,10 @@ for (const width of [320, 768, 1024, 1280, 1360, 1440])
       await expect(page.locator("#main-content h1")).toBeVisible();
       await expect(page.getByRole("banner")).toBeVisible();
       if (path === "/profile") {
+        await expect(page).toHaveURL(/\/member\/training\?tab=profile$/);
         await expect(
-          page.getByRole("heading", { name: "Fitness profile" }),
-        ).toBeVisible();
+          page.getByRole("tab", { name: "Fitness profile" }),
+        ).toHaveAttribute("aria-selected", "true");
       }
       if (width >= 960) {
         const nav = page.getByRole("navigation", { name: "Member Navigation" });

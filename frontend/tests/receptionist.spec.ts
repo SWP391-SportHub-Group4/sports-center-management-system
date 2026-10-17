@@ -447,9 +447,8 @@ test("no search result lets the front desk register a new member with an activat
     .click();
 
   const dialog = page.getByRole("dialog");
-  await expect(
-    dialog.getByLabel("Confirm email", { exact: true }),
-  ).toBeVisible();
+  await expect(dialog.getByLabel("Email", { exact: true })).toBeVisible();
+  await expect(dialog.getByLabel("Confirm email")).toHaveCount(0);
   await expect(dialog).toContainText("activation");
   await expect(dialog.getByLabel("Password")).toHaveCount(0);
 });
