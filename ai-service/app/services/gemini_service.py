@@ -20,7 +20,6 @@ class GeminiService:
             contents=user_prompt,
             config=types.GenerateContentConfig(
                 system_instruction=system_prompt,
-                response_mime_type="application/json",
                 temperature=0.2,
             ),
         )
