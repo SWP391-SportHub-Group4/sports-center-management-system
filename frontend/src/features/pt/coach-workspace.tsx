@@ -18,7 +18,6 @@ import { CourseSticker } from "@/features/courses";
 import { useApi, useAction, useNow } from "@/lib/useApi";
 import { useAuth } from "@/lib/auth";
 import { ApiError } from "@/lib/apiClient";
-import { useLanguage } from "@/lib/language";
 import { addDaysIso, todayIso, formatDateTime, formatTime } from "@/lib/format";
 import type { CourseDto, CourseSessionDto } from "@/lib/types";
 import { ptApi } from "./api";
@@ -60,10 +59,9 @@ export function CoachWorkspace({
   mode: WorkspaceMode;
   initialClassId?: number;
 }) {
-  const { language } = useLanguage();
   const router = useRouter();
   const { user } = useAuth();
-  const vi = language === "vi";
+  const vi = false; // English-only presentation
   const [date, setDate] = useState(() => monday());
   const [selection, setSelection] = useState<Selection | null>(null);
   const [classFilter, setClassFilter] = useState("");
@@ -329,8 +327,7 @@ function Students({
     (signal) => teachingApi.members(course.classId, signal),
     [course.classId],
   );
-  const { language } = useLanguage();
-  const vi = language === "vi";
+  const vi = false; // English-only presentation
   return (
     <AsyncSection state={state}>
       {(members) => (
@@ -419,10 +416,9 @@ export function TeachingDetail({
   hideHeading?: boolean;
   hideNavigation?: boolean;
 }) {
-  const { language } = useLanguage();
   const { user } = useAuth();
   const router = useRouter();
-  const vi = language === "vi";
+  const vi = false; // English-only presentation
   const now = useNow();
   const [tab, setTab] = useState(
     initialTab ?? (member ? "profile" : session ? "plans" : "students"),

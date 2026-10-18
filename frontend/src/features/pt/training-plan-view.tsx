@@ -9,7 +9,6 @@ import {
   Pencil,
   Plus,
 } from "lucide-react";
-import { useLanguage } from "@/lib/language";
 import { useNow } from "@/lib/useApi";
 import { StatusChip } from "@/components/ui";
 import { formatDateTime } from "@/lib/format";
@@ -52,8 +51,7 @@ export function TrainingPlanView({
   viewMode?: "session" | "course";
   onViewCoursePlan?: () => void;
 }) {
-  const { language } = useLanguage();
-  const vi = language === "vi";
+  const vi = false; // English-only presentation
   const [selectedScope, setScope] = useState<PlanScope>("course");
   const scope = viewMode ?? selectedScope;
   const [student, setStudent] = useState(memberId ?? "");
@@ -160,14 +158,14 @@ export function TrainingPlanView({
           : descriptions[scope]}
       </p>
       <div className={styles.toolbar}>
-        {onViewCoursePlan && (viewMode === "session" || !!memberId) && (
+        {onViewCoursePlan && (
           <button
             type="button"
             className="btn btn--secondary btn--sm"
             onClick={onViewCoursePlan}
           >
             <BookOpen size={16} aria-hidden="true" />
-            {vi ? "Xem lộ trình lớp" : "View class roadmap"}
+            {viewMode === "session" ? "View class roadmap" : "Manage / Edit class plans"}
           </button>
         )}
         {scope === "session" && !sessionId && usedSessions.length > 0 && (
@@ -298,8 +296,7 @@ function SessionPlans({
   onEdit?: (record: TeachingRecord) => void;
   editableCoachId?: string;
 }) {
-  const { language } = useLanguage();
-  const vi = language === "vi";
+  const vi = false; // English-only presentation
   return (
     <ol className={styles.sessionPlans}>
       {sessions.map((session) => {
@@ -375,8 +372,7 @@ function PlanList({
   initiallyExpanded?: boolean;
   groupedBySession?: boolean;
 }) {
-  const { language } = useLanguage();
-  const vi = language === "vi";
+  const vi = false; // English-only presentation
   const [expanded, setExpanded] = useState<string | null>(
     initiallyExpanded ? (records[0]?.recordId ?? null) : null,
   );
@@ -490,8 +486,7 @@ function CourseRoadmap({
   onEdit?: (record: TeachingRecord) => void;
   editableCoachId?: string;
 }) {
-  const { language } = useLanguage();
-  const vi = language === "vi";
+  const vi = false; // English-only presentation
   const ordered = sessions
     .filter((s) => !/cancel/i.test(s.status))
     .slice()
@@ -614,13 +609,9 @@ function CourseRoadmap({
                   <>
                     {!courseTopics.has(s.sessionNo) && (
                       <p className={styles.scopeDescription}>
-                        {editableCoachId
-                          ? vi
-                            ? "Buổi này chưa có nội dung. Mở kế hoạch lớp để tạo giáo án."
-                            : "No session content yet. Open class plans to create a lesson plan."
-                          : vi
-                            ? "Coach chưa cập nhật nội dung buổi này."
-                            : "Your coach has not added this session’s content yet."}
+                        {vi
+                          ? "Coach chưa cập nhật nội dung buổi này."
+                          : "Your coach has not added this session’s content yet."}
                       </p>
                     )}
                     {onCreate && s.coachId === editableCoachId && (
@@ -645,7 +636,6 @@ function CourseRoadmap({
 }
 
 export function PlanContent({ content }: { content: string }) {
-  const { language } = useLanguage();
   const lines = formatPlanContent(content)
     .split(/\r?\n/)
     .map((line) => line.trim())
@@ -653,7 +643,7 @@ export function PlanContent({ content }: { content: string }) {
   return (
     <ol
       className={styles.steps}
-      aria-label={language === "vi" ? "Nội dung kế hoạch" : "Plan content"}
+      aria-label="Plan content"
     >
       {lines.map((raw, index) => {
         const line = raw.replace(/^\s*(?:[-*•]\s+|\d+[.)]\s+)/, "");
@@ -672,10 +662,10 @@ export function PlanContent({ content }: { content: string }) {
                   <summary>
                     <span>{text.slice(0, 200)}…</span>
                     <small className={styles.readMore}>
-                      {language === "vi" ? "Đọc đầy đủ" : "Read full text"}
+                      Read full text
                     </small>
                     <small className={styles.readLess}>
-                      {language === "vi" ? "Thu gọn" : "Collapse"}
+                      Collapse
                     </small>
                   </summary>
                   <p>{text}</p>
