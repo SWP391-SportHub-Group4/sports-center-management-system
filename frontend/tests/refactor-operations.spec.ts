@@ -805,7 +805,12 @@ for (const recovery of ["retry", "reload"] as const)
         .getByRole("button", { name: "Check and retry the same request" })
         .click();
     else await page.reload();
-    await expect(page.getByText(rentalId, { exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("link", {
+        name: "View notice and recipients",
+        exact: true,
+      }),
+    ).toHaveAttribute("href", `/manager/notices/${rentalId}`);
     await expect(
       page.getByRole("columnheader", { name: "Failed", exact: true }),
     ).toBeVisible();
@@ -1449,7 +1454,7 @@ test("manual notice reviews explicit recipients and sends only once", async ({
       sendEmail: true,
       sendInApp: true,
     });
-    await r.fulfill({ json: { noticeId: "notice-1" } });
+    await r.fulfill({ json: { noticeId: rentalId } });
   });
   await page.goto("/manager/notices");
   await page.getByRole("checkbox", { name: "Coach A" }).check();

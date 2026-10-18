@@ -2,7 +2,7 @@
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { OperationsPage } from "@/features/operations/ui";
-import { DeliveryStatus } from "@/features/incidents/delivery-status";
+import { NoticeDetailsView } from "@/features/incidents/notice-history";
 import { useLanguage } from "@/lib/language";
 import { validReceiptId } from "@/features/manager/receipt-lookup";
 export default function Page() {
@@ -10,14 +10,11 @@ export default function Page() {
   const { t } = useLanguage();
   return (
     <OperationsPage title="notices">
-      <Link className="btn btn--ghost" href="/manager/notices">
+      <Link className="btn btn--ghost" href="/manager/notices?view=history">
         {t.managerOperations.backToList}
       </Link>
-      <p>
-        {t.managerOperations.receiptId}: {id}
-      </p>
       {validReceiptId(id) ? (
-        <DeliveryStatus path={`/api/manager/notices/${id}`} receipt />
+        <NoticeDetailsView id={id} />
       ) : (
         <p role="alert">{t.managerOperations.invalidId}</p>
       )}

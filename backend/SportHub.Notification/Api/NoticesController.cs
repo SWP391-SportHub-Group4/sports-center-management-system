@@ -9,6 +9,16 @@ namespace SportHub.Notification.Api;
 [ApiController, Authorize(Policy = SportHubPolicies.CenterManager), Route("api/manager/notices")]
 public sealed class NoticesController(ManualNoticeService notices) : ControllerBase
 {
+    [HttpGet]
+    public async Task<IActionResult> History([FromQuery] string? search, [FromQuery] DateOnly? fromDate,
+        [FromQuery] DateOnly? toDate, [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default)
+        => Ok(await notices.ListAsync(User.RequireUserId(), search, fromDate, toDate, page, pageSize, ct));
+
+    [HttpGet("{noticeId:guid}/recipients")]
+    public async Task<IActionResult> Recipients(Guid noticeId, [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20, CancellationToken ct = default)
+        => Ok(await notices.RecipientsAsync(noticeId, User.RequireUserId(), page, pageSize, ct));
+
     [HttpPost]
     public async Task<IActionResult> Send([FromBody] ManualNoticeRequest request, CancellationToken ct)
         => Ok(new { noticeId = await notices.SendAsync(request, User.RequireUserId(), ct,

@@ -1483,7 +1483,12 @@ test("notice supports rental members and sends once after review", async ({
     .click();
   await expect(page).toHaveURL(/noticeId=/);
   expect(sends).toBe(1);
-  await expect(page.getByText(en.managerOperations.noticeGap)).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: en.manualNotices.history, exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: en.manualNotices.openDetails, exact: true }),
+  ).toBeVisible();
 });
 test("notice receipt distinguishes failed delivery from business outcome", async ({
   page,
@@ -1563,8 +1568,11 @@ test("notice audience changes clear selection and invalidate review", async ({
     .getByRole("button", { name: en.operations.review, exact: true })
     .click();
   await expect(
-    page.getByText(/Server-side recipient preview.*awaiting G07/),
+    page.getByText(
+      "Review the selected recipients and delivery channels before sending.",
+    ),
   ).toBeVisible();
+  await expect(page.getByText(/G07|Waiting for API/i)).toHaveCount(0);
   await page
     .getByLabel(en.operations.recipients, { exact: true })
     .selectOption("MEMBER");
