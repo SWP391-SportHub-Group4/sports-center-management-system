@@ -27,6 +27,20 @@ interface Turn {
 
 const MAX = 2000;
 
+function ChatFormattedText({ text }: { text: string }) {
+  return (
+    <span className={styles.formattedAnswer}>
+      {text.split(/(\*\*[^*\n]+\*\*)/g).map((part, index) =>
+        part.startsWith("**") && part.endsWith("**") ? (
+          <strong key={index}>{part.slice(2, -2)}</strong>
+        ) : (
+          <span key={index}>{part}</span>
+        ),
+      )}
+    </span>
+  );
+}
+
 /**
  * Trợ lý hỏi đáp của Member (A18): chỉ đọc dữ liệu SportHub của chính mình, không thực hiện nghiệp vụ.
  * Câu trả lời là văn bản thuần (không render HTML). Có thể dừng khi đang chờ, thử lại khi lỗi, và mở cuộc trò chuyện mới.
@@ -212,7 +226,9 @@ export function AssistantDrawer({ onClose }: { onClose: () => void }) {
               {turn.from === "user" ? l.you : l.assistantName} ·{" "}
               {formatTime(turn.at)}
             </span>
-            <p className={styles.bubble}>{turn.text}</p>
+            <p className={styles.bubble}>
+              {turn.from === "assistant" ? <ChatFormattedText text={turn.text} /> : turn.text}
+            </p>
           </li>
         ))}
         {busy && (
@@ -305,6 +321,9 @@ export function AssistantButton() {
   return (
     <>
       <div className={styles.launcher}>
+        <Link href="/member/workout-suggestions" className={styles.workoutShortcut}>
+          {t.assistant.open === "Open AI assistant" ? "Workout suggestions" : "Gợi ý bài tập"}
+        </Link>
         <button
           type="button"
           className={styles.launcherButton}

@@ -85,6 +85,16 @@ public class AiController(
                 ct, sport));
     }
 
+    // Member self-service: advisory preview only, never creates an official Coach plan.
+    // Member identity always comes from the authenticated JWT, never from a request parameter.
+    [Authorize(Policy = SportHubPolicies.Member)]
+    [HttpPost("workout-suggestions/me")]
+    public async Task<IActionResult> SuggestForSelf(CancellationToken ct, [FromQuery] string sport = "Gym")
+    {
+        var memberId = User.RequireUserId();
+        return Ok(await recommendations.SuggestAsync(memberId, memberId, ct, sport));
+    }
+
     [Authorize(Policy = SportHubPolicies.Member)]
     [HttpPost("chat")]
     public async Task<ActionResult<AiChatResponse>> Chat(

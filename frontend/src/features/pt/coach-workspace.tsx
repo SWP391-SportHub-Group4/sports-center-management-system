@@ -708,7 +708,7 @@ export function TeachingDetail({
                         sessionId={session?.sessionId}
                         viewMode={session && !member ? "session" : undefined}
                         onViewCoursePlan={
-                          session && !member && !substitute
+                          !substitute && (member || session)
                             ? () =>
                                 router.push(
                                   `/coach/classes/${course.classId}?tab=plans`,

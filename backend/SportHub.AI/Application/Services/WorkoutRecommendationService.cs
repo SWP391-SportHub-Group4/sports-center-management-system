@@ -137,7 +137,7 @@ public sealed class WorkoutRecommendationService(
         db.Set<AiLog>().Add(new AiLog
         {
             LogId = Guid.NewGuid(),
-            UserId = coachId, // người YÊU CẦU gợi ý là HLV (BR-26), không phải hội viên
+            UserId = coachId, // actor authenticated at endpoint: Coach, or Member in self-service preview
             QueryType = AiQueryTypes.WorkoutSuggestion,
             InputPayload = JsonSerializer.Serialize(input),
             ResponsePayload = JsonSerializer.Serialize(new

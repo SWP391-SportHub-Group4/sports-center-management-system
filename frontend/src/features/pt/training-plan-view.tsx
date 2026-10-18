@@ -160,7 +160,7 @@ export function TrainingPlanView({
           : descriptions[scope]}
       </p>
       <div className={styles.toolbar}>
-        {viewMode === "session" && onViewCoursePlan && (
+        {onViewCoursePlan && (viewMode === "session" || !!memberId) && (
           <button
             type="button"
             className="btn btn--secondary btn--sm"
@@ -614,9 +614,13 @@ function CourseRoadmap({
                   <>
                     {!courseTopics.has(s.sessionNo) && (
                       <p className={styles.scopeDescription}>
-                        {vi
-                          ? "Coach chưa cập nhật nội dung buổi này."
-                          : "Your coach has not added this session’s content yet."}
+                        {editableCoachId
+                          ? vi
+                            ? "Buổi này chưa có nội dung. Mở kế hoạch lớp để tạo giáo án."
+                            : "No session content yet. Open class plans to create a lesson plan."
+                          : vi
+                            ? "Coach chưa cập nhật nội dung buổi này."
+                            : "Your coach has not added this session’s content yet."}
                       </p>
                     )}
                     {onCreate && s.coachId === editableCoachId && (
