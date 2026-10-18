@@ -22,6 +22,7 @@ import { ScrollReveal } from "./ScrollReveal";
 import styles from "./homepage-stats.module.css";
 
 const SHOWCASE_IMAGE_LIMIT = 3;
+const FACILITY_ROOM_TYPES = [1, 3, 4];
 
 function CountUp({
   value,
@@ -173,46 +174,24 @@ export function HomepageStats({ language }: { language: HomepageLanguage }) {
       : null,
     items:
       category.id === "coaches"
-        ? showcase
+        ? [...showcase, ...category.items].slice(0, SHOWCASE_IMAGE_LIMIT)
         : category.id === "facilities"
-          ? [1, 3, 4]
-              .flatMap((roomTypeId) => {
-                const room = overview?.facilities.find(
-                  (facility) => facility.roomTypeId === roomTypeId,
-                );
-                return room ? [room] : [];
-              })
-              .map((room) => ({
-                name: {
-                  en:
-                    room.roomTypeId === 1
-                      ? "Gym"
-                      : room.roomTypeId === 3
-                        ? "Badminton"
-                        : "Basketball",
-                  vi:
-                    room.roomTypeId === 1
-                      ? "Gym"
-                      : room.roomTypeId === 3
-                        ? "Cầu lông"
-                        : "Bóng rổ",
-                },
-                detail: { en: room.name, vi: room.name },
-                highlight: {
-                  en: `Capacity: ${room.capacity}`,
-                  vi: `Capacity: ${room.capacity}`,
-                },
-                image:
-                  room.roomTypeId === 3
-                    ? "/sporthub/court-volt/course-badminton.png"
-                    : room.roomTypeId === 4
-                      ? "/sporthub/court-volt/course-basketball.png"
-                      : "/sporthub/court-volt/program-gym.png",
-                alt: {
-                  en: `Training space illustration for ${room.name}`,
-                  vi: `Hình minh họa không gian tập luyện cho ${room.name}`,
-                },
-              }))
+          ? category.items.map((item, index) => {
+              const room = overview?.facilities.find(
+                (facility) =>
+                  facility.roomTypeId === FACILITY_ROOM_TYPES[index],
+              );
+              return room
+                ? {
+                    ...item,
+                    detail: { en: room.name, vi: room.name },
+                    highlight: {
+                      en: `Capacity: ${room.capacity}`,
+                      vi: `Capacity: ${room.capacity}`,
+                    },
+                  }
+                : item;
+            })
           : category.items,
   }));
   const tabs = useRef<Array<HTMLButtonElement | null>>([]);
