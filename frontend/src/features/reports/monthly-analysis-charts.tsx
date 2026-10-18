@@ -1,7 +1,12 @@
 "use client";
 
 import { useState, type CSSProperties } from "react";
-import { formatDate, formatMoney, formatNumber } from "@/lib/format";
+import {
+  addDaysIso,
+  formatDate,
+  formatMoney,
+  formatNumber,
+} from "@/lib/format";
 import type { ClassEnrollmentReportDto, RevenueReportDto } from "@/lib/types";
 import styles from "./monthly-analysis.module.css";
 
@@ -24,17 +29,26 @@ export function CashTrend({
   days,
 }: {
   report: RevenueReportDto;
-  today: string;
-  days: number;
+  today?: string;
+  days?: number;
 }) {
   const [inspected, setInspected] = useState<number | null>(null);
-  const elapsed = Number(today.slice(-2));
+  const start = today ? `${today.slice(0, 8)}01` : report.fromDate;
+  const end = today ?? report.toDate;
+  const elapsed = Math.max(
+    1,
+    Math.min(
+      367,
+      Math.round((Date.parse(end) - Date.parse(start)) / 86400000) + 1,
+    ),
+  );
+  const visibleDays = days ?? elapsed;
   const selected = Math.min(inspected ?? elapsed, elapsed);
   const daily = new Map(
     (report.daily ?? []).map((row) => [row.date.slice(0, 10), row]),
   );
   const rows = Array.from({ length: elapsed }, (_, i) => {
-    const date = `${today.slice(0, 8)}${String(i + 1).padStart(2, "0")}`;
+    const date = addDaysIso(start, i);
     const value = daily.get(date);
     return { date, collected: value?.collected ?? 0, net: value?.net ?? 0 };
   });
@@ -49,7 +63,7 @@ export function CashTrend({
   const high = Math.ceil(rawHigh / step) * step || step * 4;
   const low = Math.floor(rawLow / step) * step;
   const y = (value: number) => 224 - ((value - low) / (high - low)) * 208;
-  const x = (i: number) => 12 + (i / Math.max(days - 1, 1)) * 976;
+  const x = (i: number) => 12 + (i / Math.max(visibleDays - 1, 1)) * 976;
   const line = (field: "collected" | "net") =>
     rows
       .map(
@@ -96,7 +110,7 @@ export function CashTrend({
                     ((((event.clientX - bounds.left) / bounds.width) * 1000 -
                       12) /
                       976) *
-                      (days - 1),
+                      (visibleDays - 1),
                   ) + 1,
                 ),
               ),
@@ -107,9 +121,9 @@ export function CashTrend({
             viewBox="0 0 1000 240"
             preserveAspectRatio="none"
             role="img"
-            aria-label={`Daily cash flow from ${formatDate(report.fromDate)} to ${formatDate(today)}. Cash collected: ${formatMoney(report.totalCollected)}. Net revenue: ${formatMoney(report.netRevenue)}. Use the day selector for daily values.`}
+            aria-label={`Daily cash flow from ${formatDate(start)} to ${formatDate(end)}. Cash collected: ${formatMoney(report.totalCollected)}. Net revenue: ${formatMoney(report.netRevenue)}. Use the day selector for daily values.`}
           >
-            {elapsed < days && (
+            {elapsed < visibleDays && (
               <rect
                 x={x(elapsed - 1)}
                 y="0"
@@ -167,11 +181,16 @@ export function CashTrend({
             />
           </svg>
           <div className={styles.xAxis} aria-hidden="true">
-            {[1, 8, 15, 22, days]
+            {Array.from(
+              { length: 5 },
+              (_, i) => Math.round((i * (visibleDays - 1)) / 4) + 1,
+            )
               .filter((day, i, a) => a.indexOf(day) === i)
               .map((day) => (
                 <span key={day} style={{ left: `${x(day - 1) / 10}%` }}>
-                  {String(day).padStart(2, "0")}
+                  {today
+                    ? String(day).padStart(2, "0")
+                    : formatDate(addDaysIso(start, day - 1)).slice(0, 5)}
                 </span>
               ))}
           </div>
@@ -179,12 +198,12 @@ export function CashTrend({
       </div>
       {!hasActivity && (
         <p className={styles.emptyNote}>
-          No cash activity recorded this month yet.
+          No cash activity recorded in this period.
         </p>
       )}
       <div className={styles.inspection}>
         <span>
-          {selected === elapsed ? "Today" : `Day ${selected}`} ·{" "}
+          {today && point.date === today ? "Today" : "Selected day"} ·{" "}
           {formatDate(point.date)}
         </span>
         <strong>
@@ -224,7 +243,14 @@ function sourceLabel(source: string) {
   return "Other collections";
 }
 
-export function RevenueMix({ report }: { report: RevenueReportDto }) {
+export function RevenueMix({
+  report,
+}: {
+  report: Pick<
+    RevenueReportDto,
+    "bySource" | "reconciliationCashCollected" | "totalCollected"
+  >;
+}) {
   const [active, setActive] = useState<string | null>(null);
   const groups = new Map<string, number>();
   for (const row of report.bySource ?? []) {
@@ -321,8 +347,10 @@ export function RevenueMix({ report }: { report: RevenueReportDto }) {
 
 export function EnrollmentBars({
   rows,
+  emptyMessage = "No published courses start this month. Publish a course to see its enrollment here.",
 }: {
   rows: ClassEnrollmentReportDto["classes"];
+  emptyMessage?: string;
 }) {
   const groups = new Map<
     number,
@@ -351,13 +379,7 @@ export function EnrollmentBars({
     group.count++;
     groups.set(row.sportId, group);
   }
-  if (!groups.size)
-    return (
-      <p className={styles.emptyNote}>
-        No published courses start this month. Publish a course to see its
-        enrollment here.
-      </p>
-    );
+  if (!groups.size) return <p className={styles.emptyNote}>{emptyMessage}</p>;
   return (
     <div className={styles.enrollment}>
       <div className={styles.chartLegend}>
@@ -425,6 +447,7 @@ export function EnrollmentBars({
 
 export function MembershipBars({
   report,
+  asOfDate,
 }: {
   report: {
     newMembers: number;
@@ -432,10 +455,13 @@ export function MembershipBars({
     membersPurchasingMembershipInPeriod: number;
     dayPassesSold?: number;
   };
+  asOfDate?: string;
 }) {
   const items = [
     {
-      label: "Active Gym members today",
+      label: asOfDate
+        ? `Active Gym members as of ${formatDate(asOfDate)}`
+        : "Active Gym members today",
       value: report.activeMembersAtPeriodEnd,
       color: "var(--court-700)",
     },

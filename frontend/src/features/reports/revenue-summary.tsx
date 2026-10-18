@@ -1,9 +1,16 @@
 "use client";
-import { Card, Stat, Table } from "@/components/ui";
+import { Table } from "@/components/ui";
 import { useLanguage } from "@/lib/language";
 import { formatMoney, formatPoints } from "@/lib/format";
 import type { RevenueDimensionsDto, RevenueReportDto } from "@/lib/types";
 import { MemberName } from "@/components/RecordName";
+import {
+  CollectionCharts,
+  ReportMetrics,
+  ReportPanel,
+  ReportRecords,
+} from "./report-visuals";
+import styles from "./reports.module.css";
 export function RevenueRows({
   rows,
   showSource = true,
@@ -61,16 +68,41 @@ export function RevenueSummary({ report }: { report: RevenueDimensionsDto }) {
   const { t } = useLanguage();
   const l = t.staffWork;
   return (
-    <Card title={l.dimensions} hint={l.cashBasisHint}>
-      <div className="stats-grid">
-        <Stat label={l.cash} value={formatMoney(report.cashCollected)} />
-        <Stat
-          label={l.redeemed}
-          value={formatMoney(report.pointsRedeemedVnd)}
-        />
-      </div>
-      <RevenueRows rows={report.rows} />
-      {!report.rows.length && <p>{t.common.noData}</p>}
-    </Card>
+    <ReportPanel
+      title="Filtered collections"
+      description="The selected dates, sport, source and member apply to these figures and charts."
+    >
+      <ReportMetrics
+        items={[
+          {
+            label: l.cash,
+            value: formatMoney(report.cashCollected),
+            hint: "Actual cash collected",
+          },
+          {
+            label: l.redeemedPoints,
+            value: formatPoints(
+              report.rows.reduce((sum, row) => sum + row.pointsRedeemed, 0),
+            ),
+            hint: "Points spent on the selected services",
+          },
+          {
+            label: l.redeemed,
+            value: formatMoney(report.pointsRedeemedVnd),
+            hint: "Points equivalent, not additional cash",
+          },
+        ]}
+      />
+      <CollectionCharts report={report} />
+      <ReportRecords
+        title="Collection records"
+        count={`${report.rows.length} rows`}
+      >
+        <RevenueRows rows={report.rows} />
+        {!report.rows.length && (
+          <p className={styles.empty}>{t.common.noData}</p>
+        )}
+      </ReportRecords>
+    </ReportPanel>
   );
 }
